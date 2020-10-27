@@ -79,6 +79,30 @@
 11> <input>1_234.333_333</input>
 1234.333333
 </pre>
+<marker id="float_representation_problem" />
+    <section>
+      <title>Representation of Floating Point Numbers</title>
+      <p>When working with floats you may not see what you expect when printing or
+        doing arithmetic operations. This is because floats
+        are represented by a fixed number of bits in a base-2 system while
+        printed floats are represented with a base-10 system. Here are
+        examples of this phenomenon:
+      </p>
+      <pre>
+> <input>0.1+0.2.</input>
+0.30000000000000004
+> <input>36028797018963969.0.</input>
+36028797018963970.0
+      </pre>
+      <p>For more information see <url href="https://floating-point-gui.de/">
+        What Every Programmer Should Know About Floating-Point Arithmetic</url>
+        and <url href="https://0.30000000000000004.com/">0.30000000000000004.com/</url>.
+      </p>
+      <p>If you need to work with decimal fractions, for instance if you need to represent money,
+        then you should use a library that handles that or work in cents instead of euros so
+        that you do not need decimal fractions.
+      </p>
+    </section>
   </section>
 
   <section>

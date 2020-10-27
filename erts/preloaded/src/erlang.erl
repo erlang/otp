@@ -57,6 +57,7 @@
 -deprecated([{now,0,
               "see the \"Time and Time Correction in Erlang\" "
               "chapter of the ERTS User's Guide for more information"}]).
+-deprecated([{phash,2, "use erlang:phash2/2 instead"}]).
 -removed([{hash,2,"use erlang:phash2/2 instead"}]).
 -removed([{get_stacktrace,0,
            "use the new try/catch syntax for retrieving the "
@@ -934,7 +935,7 @@ fun_info_mfa(_Fun) ->
     erlang:nif_error(undefined).
 
 %% fun_to_list/1
--spec erlang:fun_to_list(Fun) -> string() when
+-spec erlang:fun_to_list(Fun) -> String :: string() when
       Fun :: function().
 fun_to_list(_Fun) ->
     erlang:nif_error(undefined).
@@ -1652,8 +1653,8 @@ put(_Key, _Val) ->
     erlang:nif_error(undefined).
 
 %% raise/3
--spec erlang:raise(Class, Reason, Stacktrace) -> no_return() when
-      Class :: error | exit | throw,
+-spec erlang:raise(Class, Reason, Stacktrace) -> 'badarg' when
+      Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
       Stacktrace :: raise_stacktrace().
 raise(_Class, _Reason, _Stacktrace) ->
@@ -2622,7 +2623,7 @@ term_to_iovec(_Term, _Options) ->
 
 %% Shadowed by erl_bif_types: erlang:tl/1
 -spec tl(List) -> term() when
-      List :: [term(), ...].
+      List :: nonempty_maybe_improper_list().
 tl(_List) ->
     erlang:nif_error(undefined).
 
@@ -3333,6 +3334,8 @@ spawn_request_abandon(_ReqId) ->
 
 -spec erlang:yield() -> 'true'.
 yield() ->
+    % This is not an infinite loop because erlang:yield() is
+    % translated to an instruction by the loader
     erlang:yield().
 
 -spec nodes() -> Nodes when

@@ -413,11 +413,17 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="atom_to_list" arity="1" since=""/>
       <fsummary>Text representation of an atom.</fsummary>
       <desc>
-        <p>Returns a string corresponding to the text
+        <p>Returns a list of unicode code points corresponding to the text
           representation of <c><anno>Atom</anno></c>, for example:</p>
         <pre>
 > <input>atom_to_list('Erlang').</input>
 "Erlang"</pre>
+        <pre>
+> <input>atom_to_list('你好').</input>
+[20320,22909]</pre>
+      <p>See <seeerl
+      marker="stdlib:unicode"><c>unicode(3)</c></seeerl> for how to
+      convert the resulting list to different formats.</p>
       </desc>
     </func>
 
@@ -483,10 +489,27 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
             encoded atoms</seeguide>
             in section "External Term Format" in the User's Guide.</p>
         </note>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
+        <note>
+          <p>There is configurable limit on how many atoms that can
+          exist and atoms are not garbage collected. Therefore, it is
+          recommended to consider whether
+          <c>binary_to_existing_atom/2</c> is a better option
+          than <c>binary_to_atom/2</c>. The default limits can
+          be found in <seeguide
+          marker="system/efficiency_guide:advanced">efficiency guide
+          (section Advanced)</seeguide>.</p>
+        </note>
         <p>Examples:</p>
         <pre>
 > <input>binary_to_atom(&lt;&lt;"Erlang"&gt;&gt;, latin1).</input>
-'Erlang'
+'Erlang'</pre>
+        <pre>
 > <input>binary_to_atom(&lt;&lt;1024/utf8&gt;&gt;, utf8).</input>
 'Ѐ'</pre>
       </desc>
@@ -507,9 +530,28 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="binary_to_existing_atom" arity="2" since=""/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
-        <p>As
-          <seemfa marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
-          but the atom must exist.</p>
+        <p>As <seemfa
+        marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
+        but the atom must exist.</p>
+
+        <p>The Erlang system has a <seeguide
+        marker="system/efficiency_guide:advanced">configurable
+        limit</seeguide> for the total number of atoms that can exist,
+        and atoms are not garbage collected. Therefore, it is not safe
+        to create many atoms from binaries that come from an untrusted
+        source (for example, a file fetched from the Internet), for
+        example, using <seemfa
+        marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>. This
+        function is thus the appropriate option when the input binary
+        comes from an untrusted source.</p>
+
+        <p>An atom exists in an Erlang system when included in a
+        loaded Erlang module or when created programmatically (for
+        example, by <c>binary_to_atom/2</c>). See the next note for an
+        example of when an atom exists in the source code for an
+        Erlang module but not in the compiled version of the same
+        module.</p>
+
         <p>Failure: <c>badarg</c> if the atom does not exist.</p>
 	<note>
 	  <p>Note that the compiler may optimize away atoms. For
@@ -521,6 +563,12 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 	  to <c>binary_to_existing_atom(&lt;&lt;"some_atom"&gt;&gt;, utf8)</c>
 	  will fail.</p>
 	</note>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
       </desc>
     </func>
 
@@ -533,6 +581,10 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <pre>
 > <input>binary_to_float(&lt;&lt;"2.2017764e+0">>).</input>
 2.2017764</pre>
+        <p>The float string format is the same as the format for
+        <seeguide marker="system/reference_manual:data_types">Erlang
+        float literals</seeguide> except for that underscores are not
+        permitted.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
           representation of a float.</p>
       </desc>
@@ -547,6 +599,9 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <pre>
 > <input>binary_to_integer(&lt;&lt;"123"&gt;&gt;).</input>
 123</pre>
+        <p><c>binary_to_integer/1</c> accepts the same string formats
+        as <seemfa
+        marker="#list_to_integer/1"><c>list_to_integer/1</c></seemfa>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -562,6 +617,9 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <pre>
 > <input>binary_to_integer(&lt;&lt;"3FF"&gt;&gt;, 16).</input>
 1023</pre>
+        <p><c>binary_to_integer/2</c> accepts the same string formats
+        as <seemfa
+        marker="#list_to_integer/2"><c>list_to_integer/2</c></seemfa>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -700,7 +758,13 @@ hello
         <p>Returns a list of integers corresponding to the bytes of
           <c><anno>Bitstring</anno></c>. If the number of bits in the binary
           is not divisible by 8, the last element of the list is a bitstring
-          containing the remaining 1-7 bits.</p>
+        containing the remaining 1-7 bits. Examples:</p>
+                <pre>
+> <input>bitstring_to_list(&lt;&lt;433:16&gt;&gt;).</input>
+[1,177]</pre>
+                <pre>
+> <input>bitstring_to_list(&lt;&lt;433:16,3:3&gt;&gt;).</input>
+[1,177,&lt;&lt;3:3&gt;&gt;]</pre>
       </desc>
     </func>
 
@@ -713,7 +777,7 @@ hello
           emulator, the reduction counter is normally incremented by
           one for each function and BIF call. A context switch is
           forced when the counter reaches the maximum number of
-          reductions for a process (2000 reductions in Erlang/OTP R12B).</p>
+          reductions for a process (4000 reductions in Erlang/OTP 19.2 and later).</p>
         <warning>
           <p>This BIF can be removed in a future version of the Beam
             machine without prior warning. It is unlikely to be
@@ -1038,7 +1102,9 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
       <desc>
         <p>Returns the current date as <c>{Year, Month, Day}</c>.</p>
         <p>The time zone and Daylight Saving Time correction depend on
-          the underlying OS. Example:</p>
+          the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>date().</input>
 {1995,2,19}</pre>
@@ -1308,7 +1374,12 @@ end</code>
           protocols.</p>
         <p>Returns <c>true</c> if disconnection succeeds,
           otherwise <c>false</c>. If the local node is not alive,
-          <c>ignored</c> is returned.</p>
+        <c>ignored</c> is returned.</p>
+        <note>
+          <p>This function may return before <seemfa
+          marker="#monitor_node/2"> <c>nodedown</c> messages</seemfa>
+          have been delivered.</p>
+        </note>
       </desc>
     </func>
 
@@ -1579,9 +1650,13 @@ b</pre>
       </fsummary>
       <desc>
         <p>Returns the value <c><anno>Val</anno></c> associated with
-          <c><anno>Key</anno></c> and deletes it from the process dictionary.
-          Returns <c>undefined</c> if no value is associated with
-          <c><anno>Key</anno></c>. Example:</p>
+        <c><anno>Key</anno></c> and deletes it from the process
+        dictionary.  Returns <c>undefined</c> if no value is
+        associated with <c><anno>Key</anno></c>. The average time
+        complexity for the current implementation of this function is
+        O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+        where <c>N</c> is the number of items in the process
+        dictionary. Example:</p>
         <pre>
 > <input>put(key1, {merry, lambs, are, playing}),</input>
 <input>X = erase(key1),</input>
@@ -1592,15 +1667,20 @@ b</pre>
 
     <func>
       <name name="error" arity="1" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class error.</fsummary>
       <desc>
-        <p>Stops the execution of the calling process with the reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. The exit reason is
-          <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
-          is a list of the functions most recently called (the current
-          function first). As evaluating this function causes
-          the process to terminate, it has no return value. Example:</p>
+        <p>Raises an exception of class <c>error</c> with the reason
+        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
+        is any term. The error reason is <c>{<anno>Reason</anno>,
+        Where}</c>, where <c>Where</c> is a list of the functions most
+        recently called (the current function first). As evaluating
+        this function causes an exception to be thrown, it has no
+        return value. The intent of the exception class <c>error</c> is to
+        signal that an unexpected error has happened (for example, a
+        function is called with a parameter that has an incorrect
+        type). See the guide about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for additional information. Example:</p>
         <pre>
 > <input>catch error(foobar).</input>
 {'EXIT',{foobar,[{shell,apply_fun,3,
@@ -1616,35 +1696,83 @@ b</pre>
 
     <func>
       <name name="error" arity="2" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class <c>error</c></fsummary>
       <desc>
-        <p>Stops the execution of the calling process with the reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. The exit reason is
+        <p>Raises an exception of class <c>error</c> with the reason
+        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
+          is any term. The error reason is
           <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
           is a list of the functions most recently called (the current
           function first). <c><anno>Args</anno></c> is expected to be the
-          list of arguments for the current function; in Beam it is used
+          list of arguments for the current function; it is used
           to provide the arguments for the current function in
           the term <c>Where</c>. As evaluating this function causes
-          the process to terminate, it has no return value.</p>
+          an exception to be raised, it has no return value.
+          The intent of the exception class <c>error</c> is to
+          signal that an unexpected error has happened (for example, a
+          function is called with a parameter that has an incorrect
+          type). See the guide about <seeguide
+          marker="system/reference_manual:errors">errors and error
+          handling</seeguide> for additional information. Example:</p>
+          <p><c>test.erl</c>:</p>
+<code>
+-module(test).
+-export([example_fun/2]).
+
+example_fun(A1, A2) ->
+    erlang:error(my_error, [A1, A2]).
+</code>
+<p>Erlang shell:</p>
+<pre>
+<input>6> c(test).</input>
+{ok,test}
+<input>7> test:example_fun(arg1,"this is the second argument").</input>
+** exception error: my_error
+     in function  test:example_fun/2
+         called as test:example_fun(arg1,"this is the second argument")
+ </pre>
       </desc>
     </func>
 
     <func>
       <name name="exit" arity="1" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class <c>exit</c> with a specified reason.</fsummary>
       <desc>
-        <p>Stops the execution of the calling process with exit reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. As
-          evaluating this function causes the process to terminate, it
-          has no return value. Example:</p>
+        <p>Raises an exception of class <c>exit</c> with exit reason
+        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
+        is any term. As evaluating this function causes an exception
+        to be raised, it has no return value. This function should be
+        used when the intent is to stop the current process. This
+        function differ from <seemfa
+        marker="#error/1"><c>erlang:error/1</c></seemfa> and <seemfa
+        marker="#error/1"><c>erlang:error/2</c></seemfa> by causing an
+        exception of a different class and by having a reason that
+        does not include the list of functions from the call
+        stack.</p>
+        <p>See the guide about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for additional information.</p>
+        <p>
+          Example:
+        </p>
         <pre>
 > <input>exit(foobar).</input>
 ** exception exit: foobar
 > <input>catch exit(foobar).</input>
 {'EXIT',foobar}</pre>
+        <note>
+          <p>If a process calls <c>exit(kill)</c> and does not catch
+          the exception, it will terminate with exit reason
+          <c>kill</c> and also emit exit signals with exit reason
+          <c>kill</c> (not <c>killed</c>) to all linked
+          processes. Such exit signals with exit reason <c>kill</c> can be
+          trapped by the linked processes. Note that this means that
+          signals with exit reason <c>kill</c> behave differently
+          depending on how they are sent because the signal will be
+          untrappable if a process sends such a signal to another
+          process with <seemfa
+          marker="#exit/2"><c>erlang:exit/2</c></seemfa>.</p>
+        </note>
       </desc>
     </func>
 
@@ -1654,33 +1782,83 @@ b</pre>
       <desc>
         <p>Sends an exit signal with exit reason <c><anno>Reason</anno></c> to
           the process or port identified by <c><anno>Pid</anno></c>.</p>
-        <p>The following behavior applies if <c><anno>Reason</anno></c>
-          is any term, except <c>normal</c> or <c>kill</c>:</p>
+        <p>The following behavior applies if
+        <c><anno>Reason</anno></c> is any term, except <c>normal</c>
+        or <c>kill</c>, and <c>P</c> is the process or port identified
+        by <c><anno>Pid</anno></c>:</p>
         <list type="bulleted">
-          <item><p>If <c><anno>Pid</anno></c> is not trapping exits,
-            <c><anno>Pid</anno></c>
-            itself exits with exit reason <c><anno>Reason</anno></c>.</p>
+          <item><p>If <c>P</c> is not <seemfa marker="#process_flag/2">trapping exits</seemfa>,
+            <c>P</c> exits with exit reason <c><anno>Reason</anno></c>.</p>
           </item>
-          <item><p>If <c><anno>Pid</anno></c> is trapping exits, the exit
-            signal is transformed into a message
-            <c>{'EXIT', From, <anno>Reason</anno>}</c>
-            and delivered to the message queue of <c><anno>Pid</anno></c>.</p>
-          </item>
-          <item><p><c>From</c> is the process identifier of the process
-            that sent the exit signal. See also
-            <seemfa marker="#process_flag/2">
-            <c>process_flag/2</c></seemfa>.</p>
+          <item><p>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit
+          signal is transformed into a message <c>{'EXIT', From,
+          <anno>Reason</anno>}</c>, where <c>From</c> is the process
+          identifier of the process that sent the exit signal, and
+          delivered to the message queue of <c>P</c>.</p>
           </item>
         </list>
-        <p>If <c><anno>Reason</anno></c> is the atom <c>normal</c>,
-          <c><anno>Pid</anno></c>
-          does not exit. If it is trapping exits, the exit signal is
-          transformed into a message <c>{'EXIT', From, normal}</c>
-          and delivered to its message queue.</p>
-        <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>,
-          that is, if <c>exit(<anno>Pid</anno>, kill)</c> is called,
-          an untrappable exit signal is sent to <c><anno>Pid</anno></c>,
-          which unconditionally exits with exit reason <c>killed</c>.</p>
+        <p>The following behavior applies if
+        <c><anno>Reason</anno></c> is the term <c>normal</c> and
+        <c><anno>Pid</anno></c> is the identifier of a process
+        <c>P</c> which is not the same as the process that invoked
+        <c>erlang:exit(Pid, normal)</c> (the behavior when a process
+        sends a signal with the <c>normal</c> reason to itself is
+        described in the warning):</p>
+        <list type="bulleted">
+          <item>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit signal is
+          transformed into a message <c>{'EXIT', From, normal}</c>,
+          where <c>From</c> is the process identifier of the process
+          that sent the exit signal, and delivered to <c>P</c>'s
+          message queue.</item>
+          <item>The signal has no effect if <c>P</c> is not trapping
+          exits.</item>
+        </list>
+        <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>, that
+        is, if <c>exit(<anno>Pid</anno>, kill)</c> is called, an
+        untrappable exit signal is sent to the process that is
+        identified by <c><anno>Pid</anno></c>, which unconditionally
+        exits with exit reason <c>killed</c>. The exit reason is
+        changed from <c>kill</c> to <c>killed</c> to hint to linked
+        processes that the killed process got killed by
+        a call to <c>exit(Pid, kill)</c>.
+        </p>
+        <note>
+          <p>The functions <seemfa
+          marker="#exit/1"><c>erlang:exit/1</c></seemfa> and <seemfa
+          marker="#exit/2"><c>erlang:exit/2</c></seemfa> are named
+          similarly but provide very different functionalities. The
+          <c>erlang:exit/1</c> function should be used when the intent
+          is to stop the current process while <c>erlang:exit/2</c>
+          should be used when the intent is to send an exit signal to
+          another process. Note also that <c>erlang:exit/1</c> raises
+          an exception that can be caught while <c>erlang:exit/2</c>
+          does not cause any exception to be raised.</p>
+        </note>
+        <warning>
+          <p>The only scenario that has not been covered by the
+          description above is when a process <c>P</c> sends an exit
+          signal with reason <c>normal</c> to itself, that is
+          <c>erlang:exit(self(), normal)</c>. The behavior in this
+          scenario is as follows:</p>
+          <list type="bulleted">
+            <item>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit signal is
+            transformed into a message <c>{'EXIT', From, normal}</c>,
+            where <c>From</c> is <c>P</c>'s process identifier, and
+            delivered to <c>P</c>'s message queue.</item>
+            <item><c>P</c> exits with reason <c>normal</c> if <c>P</c>
+            is not trapping exits.</item>
+          </list>
+          <p>
+            Note that the behavior described above is different from
+            when a process sends an exit signal with reason
+            <c>normal</c> to another process. This is arguably strange
+            but this behavior is kept for backward compatibility
+            reasons.
+          </p>
+        </warning>
       </desc>
     </func>
 
@@ -1768,7 +1946,9 @@ true</pre>
 > <input>float_to_binary(7.12, [{decimals, 4}]).</input>
 &lt;&lt;"7.1200">>
 > <input>float_to_binary(7.12, [{decimals, 4}, compact]).</input>
-&lt;&lt;"7.12">></pre>
+&lt;&lt;"7.12">>
+> <input>float_to_binary(7.12, [{scientific, 3}]).</input>
+&lt;&lt;"7.120e+00">></pre>
       </desc>
     </func>
 
@@ -1813,7 +1993,17 @@ true</pre>
 > <input>float_to_list(7.12, [{decimals, 4}]).</input>
 "7.1200"
 > <input>float_to_list(7.12, [{decimals, 4}, compact]).</input>
-"7.12"</pre>
+"7.12"
+> <input>float_to_list(7.12, [{scientific, 3}]).</input>
+"7.120e+00"
+> <input>float_to_list(0.1+0.2)</input>
+"3.00000000000000044409e-01"
+</pre>
+<p>In the last example, <c>float_to_list(0.1+0.2)</c> evaluates to
+<c>"3.00000000000000044409e-01"</c>. The reason for this is that
+<seeguide marker="system/reference_manual:data_types#float_representation_problem"><c>0.1</c> and
+<c>0.2</c> cannot be represented exactly as float
+values</seeguide>.</p>
       </desc>
     </func>
 
@@ -1960,8 +2150,88 @@ true</pre>
       <name name="fun_to_list" arity="1" since=""/>
       <fsummary>Text representation of a fun.</fsummary>
       <desc>
-        <p>Returns a string corresponding to the text
-          representation of <c><anno>Fun</anno></c>.</p>
+        <p>Returns <c><anno>String</anno></c> that represents the code
+        that created <c><anno>Fun</anno></c>.</p>
+
+
+        <p><c><anno>String</anno></c> has the following form, if
+        <c><anno>Fun</anno></c> was created by a <seeguide
+        marker="system/reference_manual:expressions#fun-expressions">fun
+        expression</seeguide> of the form <c>fun
+        ModuleName:FuncName/Arity</c>:</p>
+
+        <p><c>"fun ModuleName:FuncName/Arity"</c></p>
+
+        <p>The form of <c><anno>String</anno></c> when
+        <c><anno>Fun</anno></c> is created from other types of <seeguide
+        marker="system/reference_manual:expressions#fun-expressions">fun
+        expressions</seeguide> differs depending on if the fun
+        expression was executed while executing compiled code or if
+        the fun expression was executed while executing uncompiled
+        code (uncompiled escripts, the Erlang shell, and other code
+        executed by the erl_eval module):</p>
+
+        <taglist>
+          <tag>compiled code</tag>
+          <item><p><c>"#Fun&lt;M.I.U>"</c>, where M, I and U
+          correspond to the values named <c>module</c>, <c>index</c>
+          and <c>uniq</c> in the result of <seemfa
+          marker="#fun_info/1"><c>erlang:fun_info(Fun)</c></seemfa>.</p></item>
+          <tag>uncompiled code</tag>
+
+          <item>All funs created from fun expressions in uncompiled
+          code with the same arity are mapped to the same list by
+          <c>fun_to_list/1</c>.</item>
+        </taglist>
+
+
+        <note>
+        <p>Generally, one can not use <c>fun_to_list/1</c> to check if
+        two funs are equal as <c>fun_to_list/1</c> does not take the
+        fun's environment into account. See <seemfa
+        marker="#fun_info/1"><c>erlang:fun_info/1</c></seemfa> for how
+        to get the environment of a fun.</p>
+        </note>
+        <note>
+          <p>The output of <c>fun_to_list/1</c> can differ between
+          Erlang implementations and may change in future
+          versions.</p>
+        </note>
+        <p>Examples:</p>
+        <code>
+-module(test).
+-export([add/1, add2/0, fun_tuple/0]).
+add(A) -> fun(B) -> A + B end.
+add2() -> fun add/1.
+fun_tuple() -> {fun() -> 1 end, fun() -> 1 end}.
+        </code>
+<pre>
+> <input>{fun test:add/1, test:add2()}.</input>
+{fun test:add/1,#Fun&lt;test.1.107738983>}
+</pre>
+<p>
+  Explanation: <c>fun test:add/1</c> is upgradable but <c>test:add2()</c> is not upgradable.
+</p>
+<pre>
+> <input>{test:add(1), test:add(42)}.</input>
+{#Fun&lt;test.0.107738983>,#Fun&lt;test.0.107738983>}
+</pre>
+<p>Explanation: <c>test:add(1)</c> and <c>test:add(42)</c> has the
+same string representation as the environment is not taken into
+account.</p>
+<pre>
+><input>test:fun_tuple().</input>
+{#Fun&lt;test.2.107738983>,#Fun&lt;test.3.107738983>}
+</pre>
+<p>Explanation: The string representations differ because the funs
+come from different fun experssions.</p>
+<pre>
+> <input>{fun() -> 1 end, fun() -> 1 end}.</input> > <input></input>
+{#Fun&lt;erl_eval.45.97283095>,#Fun&lt;erl_eval.45.97283095>}
+</pre>
+<p>Explanation: All funs created from fun expressions of this form in
+uncompiled code with the same arity are mapped to the same list by
+<c>fun_to_list/1</c>.</p>
       </desc>
     </func>
 
@@ -2077,7 +2347,9 @@ true</pre>
       <fsummary>Return the process dictionary.</fsummary>
       <desc>
         <p>Returns the process dictionary as a list of
-          <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples, for example:</p>
+        <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples.
+        The items in the returned list can be in any order.
+        Example:</p>
         <pre>
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
@@ -2093,7 +2365,11 @@ true</pre>
       <desc>
         <p>Returns the value <c><anno>Val</anno></c> associated with
           <c><anno>Key</anno></c> in the process dictionary, or <c>undefined</c>
-          if <c><anno>Key</anno></c> does not exist. Example:</p>
+          if <c><anno>Key</anno></c> does not exist. The expected time
+          complexity for the current implementation of this function is
+          O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+          where <c>N</c> is the number of items in the process
+          dictionary. Example:</p>
         <pre>
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
@@ -2117,8 +2393,9 @@ true</pre>
       <fsummary>Return a list of all keys from the process dictionary.
       </fsummary>
       <desc>
-        <p>Returns a list of all keys present in the process dictionary,
-          for example:</p>
+        <p>Returns a list of all keys present in the process dictionary.
+        The items in the returned list can be in any order.
+        Example:</p>
         <pre>
 > <input>put(dog, {animal,1}),</input>
 <input>put(cow, {animal,2}),</input>
@@ -2133,7 +2410,9 @@ true</pre>
       <fsummary>Return a list of keys from the process dictionary.</fsummary>
       <desc>
         <p>Returns a list of keys that are associated with the value
-          <c><anno>Val</anno></c> in the process dictionary, for example:</p>
+        <c><anno>Val</anno></c> in the process dictionary.
+        The items in the returned list can be in any order.
+        Example:</p>
         <pre>
 > <input>put(mary, {1, 2}),</input>
 <input>put(had, {1, 2}),</input>
@@ -2420,8 +2699,17 @@ os_prompt%</pre>
       <fsummary>Check whether the local node is alive.</fsummary>
       <desc>
         <p>Returns <c>true</c> if the local node is alive (that is, if
-          the node can be part of a distributed system), otherwise
-          <c>false</c>.</p>
+        the node can be part of a distributed system), otherwise
+        <c>false</c>. A node is alive if it is started with:</p>
+        <list type="ordered">
+          <item><seecom marker="erl#name"><c>"erl -name LONGNAME"</c></seecom> or,</item>
+          <item><seecom marker="erl#sname"><c>"erl -sname SHORTNAME"</c></seecom>.</item>
+        </list>
+        <p>A node
+        can also be alive if it has got a name from a call to <seemfa
+        marker="kernel:net_kernel#start/1"><c>net_kernel:start/1</c></seemfa>
+        and has not been stopped by a call to <seemfa
+        marker="kernel:net_kernel#stop/0"><c>net_kernel:stop/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -2599,7 +2887,27 @@ false</code>
           node.</p>
         <p>Returns <c>true</c> if the process exists and is alive, that
           is, is not exiting and has not exited. Otherwise returns
-          <c>false</c>.</p>
+        <c>false</c>.</p>
+        <p>If process <c>P1</c> calls <c>is_process_alive(P2Pid)</c>
+        it is guaranteed that all signals, sent from <c>P1</c> to
+        <c>P2</c> (<c>P2</c> is the process with identifier
+        <c>P2Pid</c>) before the call, will be delivered to <c>P2</c>
+        before the aliveness of <c>P2</c> is checked. This guarantee
+        means that one can use <c>is_process_alive/1</c> to let a
+        process <c>P1</c> wait until a process <c>P2</c>, which has
+        got an exit signal with reason <c>kill</c> from P1, is
+        killed. Example:
+        </p>
+<pre>
+exit(P2Pid, kill),
+% P2 might not be killed
+is_process_alive(P2Pid),
+% P2 is not alive (the call above always return false)
+</pre>
+       <p>See the documentation about <seeguide
+       marker="erts:communication">communication in Erlang</seeguide>
+       and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
+       information about signals and exit singnals.</p>
       </desc>
     </func>
 
@@ -2725,7 +3033,23 @@ false</code>
           above 255. For more information on Unicode support in atoms, see
           <seeguide marker="erl_ext_dist#utf8_atoms">note on UTF-8
           encoded atoms</seeguide>
-          in section "External Term Format" in the User's Guide.</p>
+        in section "External Term Format" in the User's Guide.</p>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
+        <note>
+          <p>There is configurable limit on how many atoms that can
+          exist and atoms are not garbage collected. Therefore, it is
+          recommended to consider if
+          <seemfa marker="#list_to_existing_atom/1"><c>list_to_existing_atom/1</c></seemfa> is a better option
+          than <c>list_to_atom/1</c>. The default limits can
+          be found in the <seeguide
+          marker="system/efficiency_guide:advanced">efficiency guide
+          (section Advanced)</seeguide>.</p>
+        </note>
         <p>Example:</p>
         <pre>
 > <input>list_to_atom("Erlang").</input>
@@ -2802,6 +3126,10 @@ false</code>
         <pre>
 > <input>list_to_float("2.2017764e+0").</input>
 2.2017764</pre>
+        <p>The float string format is the same as the format for
+        <seeguide marker="system/reference_manual:data_types">Erlang
+        float literals</seeguide> except for that underscores are not
+        permitted.</p>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of a float.</p>
       </desc>
@@ -2816,6 +3144,17 @@ false</code>
         <pre>
 > <input>list_to_integer("123").</input>
 123</pre>
+        <pre>
+> <input>list_to_integer("-123").</input>
+-123</pre>
+        <pre>
+> <input>list_to_integer("+123234982304982309482093833234234").</input>
+123234982304982309482093833234234</pre>
+        <p><c><anno>String</anno></c> must contain at least one digit
+        character and can have an optional prefix consisting of a
+        single "<c>+</c>" or "<c>-</c>" character (that is,
+        <c><anno>String</anno></c> must match the regular
+        expression <c>"^[+-]?[0-9]+$"</c>).</p>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -2831,6 +3170,21 @@ false</code>
         <pre>
 > <input>list_to_integer("3FF", 16).</input>
 1023</pre>
+        <pre>
+> <input>list_to_integer("+3FF", 16).</input>
+1023</pre>
+        <pre>
+> <input>list_to_integer("3ff", 16).</input>
+1023</pre>
+        <pre>
+> <input>list_to_integer("3fF", 16).</input>
+1023</pre>
+        <pre>
+> <input>list_to_integer("-3FF", 16).</input>
+-1023</pre>
+        <p>For example, when <c><anno>Base</anno></c> is 16,
+        <c><anno>String</anno></c> must match the regular
+        expression <c>"^[+-]?([0-9]|[A-F]|[a-f])+$"</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -3010,8 +3364,10 @@ false</code>
         <pre>
 > <input>erlang:localtime().</input>
 {{1996,11,6},{14,45,17}}</pre>
-        <p>The time zone and Daylight Saving Time correction depend
-          on the underlying OS.</p>
+        <p>The time zone and Daylight Saving Time correction depend on
+        the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>.</p>
       </desc>
     </func>
 
@@ -3181,8 +3537,27 @@ false</code>
       <fsummary>Return the largest of two terms.</fsummary>
       <desc>
         <p>Returns the largest of <c><anno>Term1</anno></c> and
-          <c><anno>Term2</anno></c>.
-          If the terms are equal, <c><anno>Term1</anno></c> is returned.</p>
+        <c><anno>Term2</anno></c>. If the terms compare equal with
+        the <c>==</c> operator, <c><anno>Term1</anno></c> is
+        returned.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of the
+          <c>==</c> operator and how terms are ordered.</p>
+        <p>Examples:</p>
+        <pre>
+> <input>max(1, 2).</input>
+2</pre>
+          <pre>
+> <input>max(1.0, 1).</input>
+1.0</pre>
+          <pre>
+> <input>max(1, 1.0).</input>
+1</pre>
+          <pre>
+> <input>max("abc", "b").</input>
+"b"</pre>
       </desc>
     </func>
 
@@ -3423,8 +3798,27 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Return the smallest of two terms.</fsummary>
       <desc>
         <p>Returns the smallest of <c><anno>Term1</anno></c> and
-          <c><anno>Term2</anno></c>.
-          If the terms are equal, <c><anno>Term1</anno></c> is returned.</p>
+          <c><anno>Term2</anno></c>. If the terms compare equal with
+        the <c>==</c> operator, <c><anno>Term1</anno></c> is
+        returned.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of the
+          <c>==</c> operator and how terms are ordered.</p>
+        <p>Examples:</p>
+        <pre>
+> <input>min(1, 2).</input>
+1</pre>
+          <pre>
+> <input>min(1.0, 1).</input>
+1.0</pre>
+          <pre>
+> <input>min(1, 1.0).</input>
+1</pre>
+          <pre>
+> <input>min("abc", "b").</input>
+"abc"</pre>
       </desc>
     </func>
 
@@ -3762,7 +4156,7 @@ RealSystem = system + MissedSystem</code>
         <p>Returns the node where <c><anno>Arg</anno></c> originates.
           <c><anno>Arg</anno></c> can
           be a process identifier, a reference, or a port.
-          If the local node is not
+          If <c><anno>Arg</anno></c> originates from the local node and the local node is not
           alive, <c>nonode@nohost</c> is returned.</p>
         <p>Allowed in guard tests.</p>
       </desc>
@@ -3772,8 +4166,11 @@ RealSystem = system + MissedSystem</code>
       <name name="nodes" arity="0" since=""/>
       <fsummary>All visible nodes in the system.</fsummary>
       <desc>
-        <p>Returns a list of all visible nodes in the system, except
-          the local node. Same as <c>nodes(visible)</c>.</p>
+        <p>Returns a list of all nodes connected to this node through
+        normal connections (that is, <seeguide
+        marker="system/reference_manual:distributed#hidden-nodes">hidden
+        nodes</seeguide> are not listed). Same as <seeerl
+        marker="#nodes_visible">nodes(visible)</seeerl>.</p>
       </desc>
     </func>
 
@@ -3786,7 +4183,7 @@ RealSystem = system + MissedSystem</code>
           of nodes satisfying the disjunction(s) of the list elements.</p>
         <p><c><anno>NodeType</anno></c>s:</p>
         <taglist>
-          <tag><c>visible</c></tag>
+          <tag><marker id="nodes_visible"/><c>visible</c></tag>
           <item>
             <p>Nodes connected to this node through normal connections.</p>
           </item>
@@ -4260,6 +4657,13 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Portable hash function.</fsummary>
       <type_desc variable="Range">Range = 1..2^32, Hash = 1..Range</type_desc>
       <desc>
+        <warning>
+          <p>This function is deprecated as <seemfa
+          marker="erlang#phash2/2"><c>erlang:phash2/2</c></seemfa>
+          should be used for new code. Note that
+          <c>erlang:phash(X,N)</c> is not necessary equal to
+          <c>erlang:phash2(X,N)</c></p>
+        </warning>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
           ERTS version (the BIF was introduced in ERTS 4.9.1.1).
@@ -4300,7 +4704,17 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Text representation of a pid.</fsummary>
       <desc>
         <p>Returns a string corresponding to the text
-          representation of <c><anno>Pid</anno></c>.</p>
+        representation of <c><anno>Pid</anno></c>. Example:</p>
+         <pre>
+> <input>erlang:pid_to_list(self()).</input>
+"&lt;0.85.0>"</pre>
+<note>
+  <p>The <seeguide marker="erl_dist_protocol">creation</seeguide> for
+  the node is not included in the list representation of
+  <c><anno>Pid</anno></c>. This means that processes in different
+  incarnations of a node with a specific name can get the same list
+  representation.</p>
+</note>
       </desc>
     </func>
 
@@ -5696,7 +6110,11 @@ RealSystem = system + MissedSystem</code>
           associated with the value <c><anno>Val</anno></c>, and returns
           <c>undefined</c>. If <c><anno>Key</anno></c> exists, the old
           value is deleted and replaced by <c><anno>Val</anno></c>, and
-          the function returns the old value. Example:</p>
+          the function returns the old value. The average time
+          complexity for the current implementation of this function is
+          O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+          where <c>N</c> is the number of items in the process
+          dictionary. Example:</p>
         <pre>
 > <input>X = put(name, walrus), Y = put(name, carpenter),</input>
 <input>Z = get(name),</input>
@@ -5712,18 +6130,18 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="raise" arity="3" since=""/>
-      <fsummary>Stop execution with an exception of specified class, reason,
+      <fsummary>Raises an exception of specified class, reason,
         and call stack backtrace.</fsummary>
       <type name="raise_stacktrace"/>
       <desc>
-        <p>Stops the execution of the calling process with an
-          exception of the specified class, reason, and call stack backtrace
+        <p>Raises an exception of the specified class, reason, and call stack backtrace
           (<em>stacktrace</em>).</p>
         <p><c><anno>Class</anno></c> is <c>error</c>, <c>exit</c>, or
-          <c>throw</c>. So, if it were not for the stacktrace,
+        <c>throw</c>. So, if it were not for the stacktrace,
           <c>erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
           <anno>Stacktrace</anno>)</c> is equivalent to
-          <c>erlang:<anno>Class</anno>(<anno>Reason</anno>)</c>.</p>
+          <c>erlang:<anno>Class</anno>(<anno>Reason</anno>)</c> (given that <c><anno>Class</anno></c>
+        is a valid class).</p>
         <p><c><anno>Reason</anno></c> can be any term.</p>
         <p><c><anno>Stacktrace</anno></c> is a list as provided in a try-catch
 	  clause.</p>
@@ -5753,6 +6171,10 @@ end</pre>
           <c>error(erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
           <anno>Stacktrace</anno>))</c>
           and hope to distinguish exceptions later.</p>
+        <p>See the reference manual about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for more information about exception
+        classes and how to catch exceptions.</p>
       </desc>
     </func>
 
@@ -5925,8 +6347,22 @@ true</pre>
         <p>Returns an integer by rounding <c><anno>Number</anno></c>,
           for example:</p>
         <pre>
+<input>round(42.1).</input>
+42</pre>
+        <pre>
 <input>round(5.5).</input>
 6</pre>
+        <pre>
+<input>round(-5.5).</input>
+-6</pre>
+        <pre>
+<input>round(36028797018963969.0).</input>
+36028797018963968</pre>
+      <p>In the last example, <c>round(36028797018963969.0)</c>
+      evaluates to <c>36028797018963968</c>. The reason for this is
+      that <seeguide
+      marker="system/reference_manual:data_types#float_representation_problem"><c>36028797018963969.0</c>
+      cannot be represented exactly as a float value</seeguide>.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -7007,11 +7443,13 @@ true</pre>
         </taglist>
         <p>More <c><anno>Option</anno></c>s can be added in the future.</p>
         <p>The absolute point in time, the timer is set to expire on,
-          must be in the interval
-          <c>[</c><seeerl marker="#system_info_start_time">
-          <c>erlang:system_info(start_time)</c></seeerl><c>,
-          </c><seeerl marker="#system_info_end_time">
-          <c>erlang:system_info(end_time)</c></seeerl><c>]</c>.
+        must be in the interval <c>[ </c><seemfa
+        marker="#convert_time_unit/3">erlang:convert_time_unit</seemfa><c>(</c><seeerl
+        marker="#system_info_start_time">erlang:system_info</seeerl><c>(start_time),
+        native, millisecond), </c><seemfa
+        marker="#convert_time_unit/3">erlang:convert_time_unit</seemfa><c>(</c><seeerl
+        marker="#system_info_end_time">erlang:system_info</seeerl><c>(end_time),
+        native, millisecond) ]</c>.
           If a relative time is specified, the <c><anno>Time</anno></c>
           value is not allowed to be negative.</p>
         <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, it must
@@ -10266,23 +10704,39 @@ hello
       <name name="throw" arity="1" since=""/>
       <fsummary>Throw an exception.</fsummary>
       <desc>
-        <p>A non-local return from a function. If evaluated within a
-          <c>catch</c>, <c>catch</c> returns value <c><anno>Any</anno></c>.
+        <p>Raises an exception of class <c>throw</c>. Intended to be used to do non-local returns from functions.</p>
+        <p>If evaluated within a
+          <seeguide marker="system/reference_manual:expressions#catch">
+	catch expression</seeguide>, the catch expression returns value <c><anno>Any</anno></c>.
           Example:</p>
         <pre>
 > <input>catch throw({hello, there}).</input>
-{hello,there}</pre>
-        <p>Failure: <c>nocatch</c> if not evaluated within a catch.</p>
+        {hello,there}</pre>
+         <p>If evaluated within a
+          <c>try</c>-block of a <seeguide marker="system/reference_manual:expressions#try">try expression</seeguide>, the value <c><anno>Any</anno></c> can be caught within the catch block.
+          Example:</p>
+        <code>
+try
+    throw({my_exception, "Something happened"})
+catch
+    throw:{my_exception, Desc} ->
+        io:format(standard_error, "Error: ~s~n", [Desc])
+end</code>
+       <p>Failure: <c>nocatch</c> if not caught by an exception handler.</p>
+       <p>See the guide about <seeguide
+       marker="system/reference_manual:errors">errors and error
+       handling</seeguide> for additional information.</p>
       </desc>
     </func>
-
     <func>
       <name name="time" arity="0" since=""/>
       <fsummary>Current time.</fsummary>
       <desc>
         <p>Returns the current time as <c>{Hour, Minute, Second}</c>.</p>
         <p>The time zone and Daylight Saving Time correction depend on
-          the underlying OS. Example:</p>
+        the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>time().</input>
 {9,42,44}</pre>
@@ -10388,6 +10842,15 @@ timestamp() ->
         <pre>
 > <input>tl([geesties, guilies, beasties]).</input>
 [guilies, beasties]</pre>
+        <pre>
+> <input>tl([geesties]).</input>
+[]</pre>
+        <pre>
+> <input>tl([geesties, guilies, beasties | improper_end]).</input>
+[guilies, beasties | improper_end]</pre>
+        <pre>
+> <input>tl([geesties | improper_end]).</input>
+improper_end</pre>
         <p>Allowed in guard tests.</p>
         <p>Failure: <c>badarg</c> if <c><anno>List</anno></c>
           is the empty list <c>[]</c>.</p>
@@ -11648,13 +12111,26 @@ timestamp() ->
 
     <func>
       <name name="trunc" arity="1" since=""/>
-      <fsummary>Return an integer by truncating a number.</fsummary>
+      <fsummary>Truncates the decimals of  a number.</fsummary>
       <desc>
-        <p>Returns an integer by truncating <c><anno>Number</anno></c>,
+        <p>Truncates the decimals of <c><anno>Number</anno></c>,
           for example:</p>
         <pre>
-> <input>trunc(5.5).</input>
+> <input>trunc(5.7).</input>
 5</pre>
+        <pre>
+> <input>trunc(-5.7).</input>
+-5</pre>
+        <pre>
+> <input>trunc(5).</input>
+5</pre>
+        <pre>
+> <input>trunc(36028797018963969.0).</input>
+36028797018963968</pre>
+<p>In the last example, <c>trunc(36028797018963969.0)</c> evaluates to
+<c>36028797018963968</c>. The reason for this is that <seeguide
+marker="system/reference_manual:data_types#float_representation_problem"><c>36028797018963969.0</c>
+cannot be represented exactly as a float value</seeguide>.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -11790,7 +12266,9 @@ timestamp() ->
           <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c> if
           supported by the underlying OS.
           Otherwise <c>erlang:universaltime()</c> is equivalent to
-          <c>erlang:localtime()</c>. Example:</p>
+          <c>erlang:localtime()</c>. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>erlang:universaltime().</input>
 {{1996,11,6},{14,18,43}}</pre>
@@ -11896,16 +12374,22 @@ true</pre>
       <name name="yield" arity="0" since=""/>
       <fsummary>Let other processes get a chance to execute.</fsummary>
       <desc>
-        <p>Voluntarily lets other processes (if any) get a chance to
-          execute. Using this function is similar to
-          <c>receive after 1 -> true end</c>, except that <c>yield()</c>
-          is faster.</p>
+        <p>Tries to give other processes with the same or
+        higher priority (if any) a chance to execute before
+        returning. There is no guarantee that any other process runs
+        between the invocation and return of <c>erlang:yield/0</c>.</p>
+
+        <p>See the documentation for <seeguide
+        marker="system/reference_manual:expressions#receive"><c>receive-after</c>
+        expressions</seeguide> for how to make the current process
+        sleep for a specific number of milliseconds.</p>
         <warning>
-          <p>There is seldom or never any need to use this BIF
-            as other processes have a chance to run in another scheduler
-            thread anyway.
+          <p>There is seldom or never any need to use this BIF.
             Using this BIF without a thorough grasp of how the scheduler
-            works can cause performance degradation.</p>
+            works can cause performance degradation. The current implementation
+            of this function puts the current process last in the current
+            scheduler's queue for processes of the same priority as the
+            current process.</p>
         </warning>
       </desc>
     </func>
