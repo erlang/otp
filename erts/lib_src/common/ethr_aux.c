@@ -738,7 +738,7 @@ ETHR_IMPL_NORETURN__ ethr_fatal_error__(const char *file,
 					const char *func,
 					int err)
 {
-    char *errstr;
+    const char *errstr;
     if (err == ENOTSUP)
 	errstr = "Operation not supported";
     else {

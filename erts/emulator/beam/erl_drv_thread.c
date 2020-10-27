@@ -35,9 +35,9 @@
    + sizeof(((ErlDrvThreadOpts *) 0)->LAST_FIELD))
 
 static void
-fatal_error(int err, char *func)
+fatal_error(int err, const char *func)
 {
-    char *estr = strerror(err);
+    const char *estr = strerror(err);
     if (!estr) {
 	if (err == ENOTSUP)
 	    estr = "Not supported";

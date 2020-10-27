@@ -143,10 +143,10 @@ dyn_gethostbyname_r(const char *name, struct hostent *hostp, char **buffer_p,
 static void abort_connection(ei_socket_callbacks *cbs, void *ctx);
 static int close_connection(ei_socket_callbacks *cbs, void *ctx, int fd);
 
-static char *
+static const char *
 estr(int e)
 {
-    char *str = strerror(e);
+    const char *str = strerror(e);
     if (!str)
         return "unknown error";
     return str;
