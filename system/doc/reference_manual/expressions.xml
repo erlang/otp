@@ -91,9 +91,19 @@ _Height</pre>
       <p><em>Example:</em></p>
     <pre>
 [H|_] = [1,2,3]</pre>
+    <p>The anonymous variable can also be used to suppress warnings for
+    expressions whose values are ignored.</p>
+    <p><em>Example:</em></p>
+    <pre>
+_ = element(1, Tuple)</pre>
+    <p>By assigning the result of the call to <c>element/2</c> to <c>_</c>,
+    the compiler will not emit a warning for the value being ignored.
+    In most cases, such expressions can be rewritten in a clearer way:</p>
+    <pre>
+true = tuple_size(Tuple) >= 1</pre>
     <p>Variables starting with underscore (_), for example,
-      <c>_Height</c>, are normal variables, not anonymous. They are
-      however ignored by the compiler in the sense that they do not
+      <c>_Height</c>, are normal variables, not anonymous. However,
+      they are ignored by the compiler in the sense that they do not
       generate any warnings for unused variables.</p>
       <p><em>Example:</em></p>
       <p>The following code:</p>
@@ -105,8 +115,8 @@ member(_, []) ->
 member(Elem, []) ->
     [].</pre>
     <p>This causes a warning for an unused variable,
-      <c>Elem</c>, if the code is compiled with the flag
-      <c>warn_unused_vars</c> set. Instead, the code can be rewritten
+      <c>Elem</c>, unless the code is compiled with the option
+      <c>nowarn_unused_vars</c>. Instead, the code can be rewritten
       to:</p>
     <pre>
 member(_Elem, []) ->
@@ -118,6 +128,10 @@ member(_Elem, []) ->
     <p>But this fails:</p>
     <pre>
 {_N,_N} = {1,2}</pre>
+    <p>Also notice that warnings for ignoring the result of an
+    expression will <em>not</em> be suppressed by assigning them to a
+    variable starting with underscore. The only way to suppress such
+    warnings is to assign the expression to the anonymous variable.</p>
     <p>The scope for a variable is its function clause.
       Variables bound in a branch of an <c>if</c>, <c>case</c>, 
       or <c>receive</c> expression must be bound in all branches 
