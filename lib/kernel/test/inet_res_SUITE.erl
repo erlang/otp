@@ -24,6 +24,9 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
+-include("kernel_test_lib.hrl").
+
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
@@ -72,11 +75,37 @@ all() ->
 groups() -> 
     [].
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
 
-end_per_suite(_Config) ->
-    ok.
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+       "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1. %% We don't actually need to update or return config
+
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -98,24 +127,38 @@ zone_dir(TC) ->
     end.
 
 init_per_testcase(Func, Config) ->
+
+    ?P("init_per_testcase -> entry with"
+       "~n      Func:   ~p"
+       "~n      Config: ~p", [Func, Config]),
+
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
     try ns_init(zone_dir(Func), PrivDir, DataDir) of
 	NsSpec ->
+            ?P("init_per_testcase -> get resolver lookup"),
 	    Lookup = inet_db:res_option(lookup),
+            ?P("init_per_testcase -> set file:dns"),
 	    inet_db:set_lookup([file,dns]),
 	    case NsSpec of
 		{_,{IP,Port},_} ->
+                    ?P("init_per_testcase -> insert alt nameserver ~p:~w",
+                       [IP, Port]),
 		    inet_db:ins_alt_ns(IP, Port);
 		_ -> ok
 	    end,
             %% dbg:tracer(),
             %% dbg:p(all, c),
             %% dbg:tpl(inet_res, query_nss_res, cx),
-	    [{nameserver,NsSpec},{res_lookup,Lookup}|Config]
+            ?P("init_per_testcase -> done:"
+               "~n      NsSpec: ~p"
+               "~n      Lookup: ~p", [NsSpec, Lookup]),
+	    [{nameserver, NsSpec}, {res_lookup, Lookup} | Config]
     catch
 	SkipReason ->
-	    {skip,SkipReason}
+            ?P("init_per_testcase -> catched:"
+               "~n      SkipReason: ~p", [SkipReason]),
+	    {skip, SkipReason}
     end.
 
 end_per_testcase(_Func, Config) ->
@@ -129,6 +172,7 @@ end_per_testcase(_Func, Config) ->
     %% dbg:stop(),
     ns_end(NsSpec, proplists:get_value(priv_dir, Config)).
 
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Nameserver control
 
@@ -137,12 +181,20 @@ ns(Config) ->
     NS.
 
 ns_init(ZoneDir, PrivDir, DataDir) ->
+
+    ?P("ns_init -> entry with"
+       "~n      ZoneDir: ~p"
+       "~n      PrivDir: ~p"
+       "~n      DataDir: ~p", [ZoneDir, PrivDir, DataDir]),
+
     case {os:type(),ZoneDir} of
         {_,{internal,ServerSpec}} ->
             ns_start_internal(ServerSpec);
 	{{unix,_},undefined} ->
+            ?P("ns_init -> nothing"),
             undefined;
 	{{unix,_},otptest} ->
+            ?P("ns_init -> prepare start"),
 	    PortNum = case {os:type(),os:version()} of
 			  {{unix,solaris},{M,V,_}} when M =< 5, V < 10 ->
 			      11895 + rand:uniform(100);
@@ -152,8 +204,11 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 			      gen_udp:close(S),
 			      PNum
 		      end,
+            ?P("ns_init -> use port number ~p", [PortNum]),
 	    RunNamed = filename:join(DataDir, ?RUN_NAMED),
+            ?P("ns_init -> use named ~p", [RunNamed]),
 	    NS = {{127,0,0,1},PortNum},
+            ?P("ns_init -> try open port (exec)"),
 	    P = erlang:open_port({spawn_executable,RunNamed},
 				 [{cd,PrivDir},
 				  {line,80},
@@ -162,25 +217,39 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 					 atom_to_list(ZoneDir)]},
 				  stderr_to_stdout,
 				  eof]),
+            ?P("ns_init -> port ~p", [P]),
 	    ns_start(ZoneDir, PrivDir, NS, P);
 	_ ->
 	    throw("Only run on Unix")
     end.
 
 ns_start(ZoneDir, PrivDir, NS, P) ->
+
+    ?P("ns_start -> await message"),
+
     case ns_collect(P) of
 	eof ->
+            ?P("ns_start -> eof"),
 	    erlang:error(eof);
 	"Running: "++_ ->
+            ?P("ns_start -> running"),
 	    {ZoneDir,NS,P};
 	"Error: "++Error ->
+            ?P("ns_start -> error: "
+               "~n      ~p", [Error]),
 	    ns_printlog(filename:join([PrivDir,ZoneDir,"named.log"])),
 	    throw(Error);
 	_ ->
+            ?P("ns_start -> retry"),
 	    ns_start(ZoneDir, PrivDir, NS, P)
     end.
 
+
 ns_start_internal(ServerSpec) ->
+
+    ?P("ns_start_internal -> entry with"
+       "~n      ServerSpec: ~p", [ServerSpec]),
+
     Parent = self(),
     Tag = make_ref(),
     {P,Mref} =
@@ -197,9 +266,12 @@ ns_start_internal(ServerSpec) ->
           end),
     receive
         {Tag,_NS,P} = NsSpec ->
+            ?P("ns_start_internal -> ~p started", [P]),
             demonitor(Mref, [flush]),
             NsSpec;
         {'DOWN',Mref,_,_,Reason} ->
+            ?P("ns_start_internal -> failed start:"
+               "~n      ~p", [Reason]),
             exit({ns_start_internal,Reason})
     end.
 
@@ -253,12 +325,17 @@ ns_printlog(Fname) ->
 %% Internal name server
 
 ns_internal(ServerSpec, Mref, Tag, S) ->
+    ?P("ns_internal -> await message"),
     receive
         {'DOWN',Mref,_,_,Reason} ->
+            ?P("ns_internal -> received DOWN: "
+               "~n      ~p", [Reason]),
             exit(Reason);
         Tag ->
+            ?P("ns_internal -> received tag: done"),
             ok;
         {udp,S,IP,Port,Data} ->
+            ?P("ns_internal -> received UDP message"),
             Req = ok(inet_dns:decode(Data)),
             Resp = ns_internal(ServerSpec, Req),
             RespData = inet_dns:encode(Resp),
@@ -627,20 +704,27 @@ inet_res_filter(Anlist, Class, Type) ->
 
 %% Tests TXT records.
 txt_record(Config) when is_list(Config) ->
+    ?P("begin"),
     D1 = "cslab.ericsson.net",
     D2 = "mail1.cslab.ericsson.net",
+    ?P("try nslookup of ~p", [D1]),
     {ok,#dns_rec{anlist=[RR1]}} = 
 	inet_res:nslookup(D1, in, txt),
-    io:format("~p~n", [RR1]),
+    ?P("RR1:"
+       "~n      ~p", [RR1]),
+    ?P("try nslookup of ~p", [D2]),
     {ok,#dns_rec{anlist=[RR2]}} =
 	inet_res:nslookup(D2, in, txt),
-    io:format("~p~n", [RR2]),
+    ?P("RR2:"
+       "~n      ~p", [RR2]),
     #dns_rr{domain=D1, class=in, type=txt, data=A1} = RR1,
     #dns_rr{domain=D2, class=in, type=txt, data=A2} = RR2,
     case [lists:flatten(A2)] of
 	A1 = [[_|_]] -> ok
     end,
+    ?P("done"),
     ok.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
