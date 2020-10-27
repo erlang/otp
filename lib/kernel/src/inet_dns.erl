@@ -336,6 +336,8 @@ decode_type(Type) ->
 	?T_MAILB -> ?S_MAILB;
 	?T_MAILA -> ?S_MAILA;
 	?T_ANY  -> ?S_ANY;
+	?T_URI  -> ?S_URI;
+	?T_CAA  -> ?S_CAA;
 	_ -> Type    %% raw unknown type
     end.
 
@@ -375,6 +377,8 @@ encode_type(Type) ->
 	?S_MAILB -> ?T_MAILB;
 	?S_MAILA -> ?T_MAILA;
 	?S_ANY -> ?T_ANY;
+	?S_URI -> ?T_URI;
+	?S_CAA -> ?T_CAA;
 	Type when is_integer(Type) -> Type    %% raw unknown type
     end.
 
@@ -479,6 +483,10 @@ decode_data(<<Order:16,Preference:16,Data0/binary>>, _, ?S_NAPTR, Buffer) ->
 decode_data(Data, _, ?S_TXT, _) ->
     decode_txt(Data);
 decode_data(Data, _, ?S_SPF, _) ->
+    decode_txt(Data);
+decode_data(Data, _, ?S_URI, _) ->
+    decode_txt(Data);
+decode_data(Data, _, ?S_CAA, _) ->
     decode_txt(Data);
 %% sofar unknown or non standard
 decode_data(Data, _, _, _) ->
@@ -630,6 +638,8 @@ encode_data(Comp, Pos, ?S_NAPTR, in,
 %% ?S_OPT falls through to default
 encode_data(Comp, _, ?S_TXT, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_SPF, in, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_URI, in, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_CAA, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _Pos, _Type, _Class, Data) -> {iolist_to_binary(Data),Comp}.
 
 %% Array of strings
