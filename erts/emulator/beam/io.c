@@ -6867,7 +6867,8 @@ static int do_driver_monitor_process(Port *prt,
 
     ref = erts_make_ref_in_buffer(buf);
     mdp = erts_monitor_create(ERTS_MON_TYPE_PORT, ref,
-                              prt->common.id, process, NIL);
+                              prt->common.id, process, NIL,
+                              THE_NON_VALUE);
 
     if (!erts_proc_sig_send_monitor(&mdp->u.target, process)) {
         erts_monitor_release_both(mdp);

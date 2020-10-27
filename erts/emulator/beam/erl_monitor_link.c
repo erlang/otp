@@ -624,7 +624,8 @@ create_monitor(Eterm target, void *vcctxt)
                                                NIL,
                                                cctxt->origin,
                                                target,
-                                               NIL);
+                                               NIL,
+                                               THE_NON_VALUE);
     ERTS_ML_ASSERT(ml_cmp_keys(ml_get_key(&mdp->origin), target) == 0);
     return (ErtsMonLnkNode *) &mdp->origin;
 }
@@ -789,18 +790,38 @@ erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
     return ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
                                               (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                                               arg, vyspp, limit);
+
+}
+
+static Eterm
+mk_heap_fragment_eterm(Eterm value)
+{
+    /*
+     * Save value in its own heap fragment. Return pointer to heap fragment
+     * as a tagged continuation pointer which can be stored as an Eterm.
+     *
+     * bp->mem[0]   = Non immediate value
+     * bp->mem[1]   = Beginning of heap
+     */
+
+    Uint hsz = size_object(value)+1;
+    ErlHeapFragment *bp = new_message_buffer(hsz);
+    Eterm *hp = &bp->mem[1];
+    bp->mem[0] = copy_struct(value, hsz-1, &hp, &bp->off_heap);
+    return make_cp((void*)bp);
 }
 
 ErtsMonitorData *
-erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
+erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, Eterm tag)
 {
     ErtsMonitorData *mdp;
+    Uint16 tag_flag;
 
     switch (type) {
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
         if (is_nil(name)) {
-            ErtsMonitorDataHeap *mdhp;
+            Eterm *hp;
             Eterm *ref_thing;
 
         case ERTS_MON_TYPE_TIME_OFFSET:
@@ -809,22 +830,37 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
             ERTS_ML_ASSERT(is_immed(orgn) && is_immed(trgt));
             ERTS_ML_ASSERT(is_internal_ordinary_ref(ref)
                            || is_internal_pid_ref(ref));
-        
-            mdhp = erts_alloc(ERTS_ALC_T_MONITOR, sizeof(ErtsMonitorDataHeap));
-            mdp = &mdhp->md;
-            ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdhp));
+
+            if (is_non_value(tag)) {
+                ErtsMonitorDataHeap *mdhp;
+                mdhp = erts_alloc(ERTS_ALC_T_MONITOR, sizeof(ErtsMonitorDataHeap));
+                mdp = &mdhp->md;
+                hp = &mdhp->ref_heap[0];
+                ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdhp));
+                tag_flag = (Uint16) 0;
+            }
+            else {
+                ErtsMonitorDataTagHeap *mdthp;
+                mdthp = erts_alloc(ERTS_ALC_T_MONITOR_TAG, sizeof(ErtsMonitorDataTagHeap));
+                mdp = &mdthp->md;
+                hp = &mdthp->heap[0];
+                ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdthp));
+                *hp = is_immed(tag) ? tag : mk_heap_fragment_eterm(tag);
+                hp++;
+                tag_flag = ERTS_ML_FLG_TAG;
+            }
 
             ref_thing = internal_ref_val(ref);
-            sys_memcpy((void *) &mdhp->ref_heap[0],
+            sys_memcpy((void *) hp,
                        (void *) ref_thing,
                        sizeof(Eterm)*(1 + thing_arityval(*ref_thing)));
-            mdp->ref = make_internal_ref(&mdhp->ref_heap[0]);
+            mdp->ref = make_internal_ref(hp);
             mdp->origin.other.item = trgt;
             mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
             mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
             ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
             mdp->origin.key_offset -= mdp->origin.offset;
-            mdp->origin.flags = (Uint16) 0;
+            mdp->origin.flags = tag_flag;
             mdp->origin.type = type;
 
             mdp->u.target.other.item = orgn;
@@ -832,7 +868,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
             mdp->u.target.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
             ERTS_ML_ASSERT(mdp->u.target.key_offset >= mdp->u.target.offset);
             mdp->u.target.key_offset -= mdp->u.target.offset;
-            mdp->u.target.flags = ERTS_ML_FLG_TARGET;
+            mdp->u.target.flags = ERTS_ML_FLG_TARGET | tag_flag;
             mdp->u.target.type = type;
             erts_atomic32_init_nob(&mdp->refc, 2);
             break;
@@ -843,7 +879,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
     case ERTS_MON_TYPE_NODES: {
         ErtsMonitorDataExtended *mdep;
         Uint size = sizeof(ErtsMonitorDataExtended) - sizeof(Eterm);
-        Uint rsz, osz, tsz;
+        Uint rsz, osz, tsz, thfsz;
         Eterm *hp;
         ErlOffHeap oh;
         Uint16 name_flag;
@@ -874,13 +910,22 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
         else
             osz = is_immed(orgn) ? 0 : size_object(orgn);
 
-        size += (rsz + osz + tsz) * sizeof(Eterm);
+        thfsz = is_non_value(tag) ? 0 : 1;
+        
+        size += (rsz + osz + tsz + thfsz) * sizeof(Eterm);
 
         mdep = erts_alloc(ERTS_ALC_T_MONITOR_EXT, size);
 
         ERTS_INIT_OFF_HEAP(&oh);
 
         hp = &mdep->heap[0];
+        if (!thfsz)
+            tag_flag = (Uint16) 0;
+        else {
+            *hp = is_immed(tag) ? tag : mk_heap_fragment_eterm(tag);
+            hp++;
+            tag_flag = ERTS_ML_FLG_TAG;
+        }
 
         if (pending_flag) {
             /* Make room for the future pid... */
@@ -899,7 +944,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
 
         mdp->origin.other.item = tsz ? copy_struct(trgt, tsz, &hp, &oh) : trgt;
         mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
-        mdp->origin.flags = ERTS_ML_FLG_EXTENDED|name_flag|pending_flag;
+        mdp->origin.flags = ERTS_ML_FLG_EXTENDED|name_flag|pending_flag|tag_flag;
         mdp->origin.type = type;
 
         if (type == ERTS_MON_TYPE_RESOURCE)
@@ -907,7 +952,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
         else
             mdp->u.target.other.item = osz ? copy_struct(orgn, osz, &hp, &oh) : orgn;
         mdp->u.target.offset = (Uint16) offsetof(ErtsMonitorData, u.target);
-        mdp->u.target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED|name_flag;
+        mdp->u.target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED|name_flag|tag_flag;
         mdp->u.target.type = type;
 
         if (type == ERTS_MON_TYPE_NODE || type == ERTS_MON_TYPE_NODES) {
@@ -931,11 +976,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
                      * mdep->u.name = Countinuation pointer to
                      *                heap fragment...
                      */
-                    Uint hsz = size_object(name)+1;
-                    ErlHeapFragment *bp = new_message_buffer(hsz);
-                    Eterm *hp = &bp->mem[1];
-                    bp->mem[0] = copy_struct(name, hsz-1, &hp, &bp->off_heap);
-                    mdep->u.name = make_cp((void*)bp);
+                    mdep->u.name = mk_heap_fragment_eterm(name);
                 }
             }
 
@@ -1037,16 +1078,39 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
 
     switch (mdp->origin.type) {
     case ERTS_MON_TYPE_ALIAS:
+        ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TAG));
         erts_free(ERTS_ALC_T_ALIAS, mdp);
         break;
     case ERTS_MON_TYPE_SUSPEND:
+        ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TAG));
         erts_free(ERTS_ALC_T_MONITOR_SUSPEND, mdp);
         break;
     default: {
         ErtsMonitorDataExtended *mdep;
         ErlOffHeap oh;
-        if (!(mdp->origin.flags & ERTS_ML_FLG_EXTENDED)) {
-            erts_free(ERTS_ALC_T_MONITOR, mdp);
+        ErtsAlcType_t atype;
+
+        if (!(mdp->origin.flags & ERTS_ML_FLG_TAG)) {
+            if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED)
+                atype = ERTS_ALC_T_MONITOR_EXT;
+            else
+                atype = ERTS_ALC_T_MONITOR;
+        }
+        else {
+            Eterm tag_storage;
+            if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED) {
+                atype = ERTS_ALC_T_MONITOR_EXT;
+                tag_storage = ((ErtsMonitorDataExtended *) mdp)->heap[0];
+            }
+            else {
+                atype = ERTS_ALC_T_MONITOR_TAG;
+                tag_storage = ((ErtsMonitorDataTagHeap *) mdp)->heap[0];
+            }
+            if (is_CP(tag_storage))
+                free_message_buffer((ErlHeapFragment *) cp_val(tag_storage));
+        }
+        if (atype != ERTS_ALC_T_MONITOR_EXT) {
+            erts_free(atype, mdp);
             break;
         }
         mdep = (ErtsMonitorDataExtended *) mdp;

@@ -76,7 +76,7 @@
 -export_type([priority_level/0]).
 -export_type([max_heap_size/0]).
 -export_type([message_queue_data/0]).
--export_type([monitor_opts/0]).
+-export_type([monitor_option/0]).
 
 -type ext_binary() :: binary().
 -type ext_iovec() :: iovec().
@@ -1362,7 +1362,8 @@ module_loaded(_Module) ->
 -type registered_process_identifier() :: registered_name() | {registered_name(), node()}.
 -type monitor_process_identifier() :: pid() | registered_process_identifier().
 -type monitor_port_identifier() :: port() | registered_name().
--type monitor_opts() :: [{'alias', 'explicit_unalias' | 'demonitor' | 'reply_demonitor'}].
+-type monitor_option() :: {'alias', 'explicit_unalias' | 'demonitor' | 'reply_demonitor'}
+                        | {'tag', term()}.
 
 %% monitor/2
 -spec monitor
@@ -1378,11 +1379,11 @@ monitor(_Type, _Item) ->
 
 %% monitor/3
 -spec monitor
-      (process, monitor_process_identifier(), monitor_opts()) -> MonitorRef
+      (process, monitor_process_identifier(), [monitor_option()]) -> MonitorRef
 	  when MonitorRef :: reference();
-      (port, monitor_port_identifier(), monitor_opts()) -> MonitorRef
+      (port, monitor_port_identifier(), [monitor_option()]) -> MonitorRef
 	  when MonitorRef :: reference();
-      (time_offset, clock_service, monitor_opts()) -> MonitorRef
+      (time_offset, clock_service, [monitor_option()]) -> MonitorRef
 	  when MonitorRef :: reference().
 
 monitor(_Type, _Item, _Opts) ->
@@ -2954,7 +2955,7 @@ spawn_monitor(M, F, A) ->
 -type spawn_opt_option() ::
 	link
       | monitor
-      | {monitor, MonitorOpts :: monitor_opts()}
+      | {monitor, MonitorOpts :: [monitor_option()]}
       | {priority, Level :: priority_level()}
       | {fullsweep_after, Number :: non_neg_integer()}
       | {min_heap_size, Size :: non_neg_integer()}
@@ -2975,7 +2976,10 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [monitor | link | OtherOption],
+      Options :: [monitor |
+                  {monitor, [monitor_option()]} |
+                  link |
+                  OtherOption],
       OtherOption :: term().
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     erlang:spawn_opt(F, O);
@@ -3095,7 +3099,10 @@ spawn_opt(_Module, _Function, _Args, _Options) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [monitor | link | OtherOption],
+      Options :: [monitor |
+                  {monitor, [monitor_option()]} |
+                  link |
+                  OtherOption],
       OtherOption :: term().
 
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
@@ -3242,6 +3249,7 @@ spawn_request(A1, A2) ->
       Fun :: function(),
       Options :: [Option],
       Option :: monitor
+              | {monitor, [monitor_option()]}
               | link
               | {reply_tag, ReplyTag}
               | {reply, Reply}
@@ -3323,6 +3331,7 @@ spawn_request(M, F, A, O) ->
       Args :: [term()],
       Options :: [Option],
       Option :: monitor
+              | {monitor, [monitor_option()]}
               | link
               | {reply_tag, ReplyTag}
               | {reply, Reply}

@@ -76,10 +76,8 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
     ErlSpawnOpts so;
     Eterm pid;
 
-    so.flags = erts_default_spo_flags;
-    so.opts = NIL;
-    so.tag = am_spawn_reply;
-    so.monitor_oflags = (Uint16) 0;
+    ERTS_SET_DEFAULT_SPAWN_OPTS(&so);
+
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -289,7 +287,8 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
                                                    ref,
                                                    c_p->common.id,
                                                    NIL,
-                                                   NIL);
+                                                   NIL,
+                                                   THE_NON_VALUE);
        amdp->origin.flags = mon->flags & ERTS_ML_STATE_ALIAS_MASK;
        erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p), mon, &amdp->origin);
        break;
@@ -521,9 +520,11 @@ erts_queue_monitor_message(Process *p,
 }
 
 Uint16
-erts_monitor_opts(Eterm opts)
+erts_monitor_opts(Eterm opts, Eterm *tag)
 {
     Uint16 add_oflags = 0;
+
+    *tag = THE_NON_VALUE;
 
     while (is_list(opts)) {
         Eterm *tpl, *cons, opt;
@@ -551,6 +552,9 @@ erts_monitor_opts(Eterm opts)
                     return (Uint16) ~0;
                 }
                 break;
+            case am_tag:
+                *tag = tpl[2];
+                break;
             default:
                 return (Uint16) ~0;
             }
@@ -565,7 +569,8 @@ erts_monitor_opts(Eterm opts)
     return add_oflags;
 }
 
-static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target, Uint16 add_oflags) 
+static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
+                           Uint16 add_oflags, Eterm tag) 
 {
     Eterm tmp_heap[3];
     Eterm ref, id, name;
@@ -591,7 +596,7 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target, Uint16 add_of
             if (id != c_p->common.id) {
                 mdp = erts_monitor_create(ERTS_MON_TYPE_PROC,
                                           ref, c_p->common.id,
-                                          id, name);
+                                          id, name, tag);
                 mdp->origin.flags |= add_oflags;
                 erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p),
                                          &mdp->origin);
@@ -629,7 +634,7 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target, Uint16 add_of
         remote_process:
 
             mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC, ref,
-                                      c_p->common.id, id, name);
+                                      c_p->common.id, id, name, tag);
             mdp->origin.flags |= add_oflags;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p), &mdp->origin);
 
@@ -699,7 +704,8 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target, Uint16 add_of
             id = target;
         local_port:
             mdp = erts_monitor_create(ERTS_MON_TYPE_PORT, ref,
-                                      c_p->common.id, id, name);
+                                      c_p->common.id, id,
+                                      name, tag);
             mdp->origin.flags |= add_oflags;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p), &mdp->origin);
             prt = erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
@@ -745,7 +751,7 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target, Uint16 add_of
             goto badarg;
         mdp = erts_monitor_create(ERTS_MON_TYPE_TIME_OFFSET,
                                   ref, c_p->common.id,
-                                  am_clock_service, NIL);
+                                  am_clock_service, NIL, tag);
         mdp->origin.flags |= add_oflags;
         erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p), &mdp->origin);
 
@@ -782,15 +788,16 @@ done:
 
 BIF_RETTYPE monitor_2(BIF_ALIST_2)
 {
-    return monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, (Uint16) 0);
+    return monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, (Uint16) 0, THE_NON_VALUE);
 }
 
 BIF_RETTYPE monitor_3(BIF_ALIST_3)
 {
-    Uint16 oflags = erts_monitor_opts(BIF_ARG_3);
+    Eterm tag;
+    Uint16 oflags = erts_monitor_opts(BIF_ARG_3, &tag);
     if (oflags == (Uint16) ~0)
         BIF_ERROR(BIF_P, BADARG);
-    return monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, oflags);
+    return monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, oflags, tag);
 }
 
 
@@ -803,10 +810,11 @@ BIF_RETTYPE spawn_link_3(BIF_ALIST_3)
     Eterm pid;
     Eterm tmp_heap[2];
 
-    so.flags = erts_default_spo_flags|SPO_LINK;
-    so.opts = CONS(&tmp_heap[0], am_link, NIL);
-    so.tag = am_spawn_reply;
-    so.monitor_oflags = (Uint16) 0;
+    ERTS_SET_DEFAULT_SPAWN_OPTS(&so);
+
+    so.flags |= SPO_LINK;
+    so.opts = CONS(&tmp_heap[0], am_link, so.opts);
+
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -5550,7 +5558,8 @@ BIF_RETTYPE alias_1(BIF_ALIST_1)
 
     ref = erts_make_pid_ref(BIF_P);
     mdp = erts_monitor_create(ERTS_MON_TYPE_ALIAS, ref,
-                              BIF_P->common.id, NIL, NIL);
+                              BIF_P->common.id, NIL, NIL,
+                              THE_NON_VALUE);
     mdp->origin.flags |= flags;
     erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P),
                              &mdp->origin);

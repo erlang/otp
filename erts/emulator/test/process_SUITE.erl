@@ -78,7 +78,8 @@
          spawn_request_reply_option/1,
          alias_bif/1,
          monitor_alias/1,
-         spawn_monitor_alias/1]).
+         spawn_monitor_alias/1,
+         monitor_tag/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -91,7 +92,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 9}}].
 
-all() -> 
+all() ->
     [spawn_with_binaries, t_exit_1, {group, t_exit_2},
      trap_exit_badarg, trap_exit_badarg_in_bif,
      t_process_info, process_info_other, process_info_other_msg,
@@ -122,7 +123,8 @@ all() ->
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task},
-     {group, alias}].
+     {group, alias},
+     monitor_tag].
 
 groups() -> 
     [{t_exit_2, [],
@@ -4258,6 +4260,97 @@ spawn_monitor_alias_test(Node, SpawnType, ExitReason) ->
                                           end),
             [{'DOWN', M6_1, _, _, _}] = recv_msgs(1),
     
+            ok
+    end.
+
+monitor_tag(Config) when is_list(Config) ->
+    %% Exit signals with immediate exit reasons are sent
+    %% in a different manner than compound exit reasons, and
+    %% immediate tags are stored in a different manner than
+    %% compound tags.
+    monitor_tag_test(node(), spawn_opt, immed, normal),
+    monitor_tag_test(node(), spawn_opt, make_ref(), normal),
+    monitor_tag_test(node(), spawn_opt, immed, make_ref()),
+    monitor_tag_test(node(), spawn_opt, make_ref(), make_ref()),
+    monitor_tag_test(node(), spawn_request, immed, normal),
+    monitor_tag_test(node(), spawn_request, make_ref(), normal),
+    monitor_tag_test(node(), spawn_request, immed, make_ref()),
+    monitor_tag_test(node(), spawn_request, make_ref(), make_ref()),
+    {ok, Node1} = start_node(Config),
+    monitor_tag_test(Node1, spawn_opt, immed, normal),
+    {ok, Node2} = start_node(Config),
+    monitor_tag_test(Node2, spawn_opt, make_ref(), normal),
+    {ok, Node3} = start_node(Config),
+    monitor_tag_test(Node3, spawn_opt, immed, make_ref()),
+    {ok, Node4} = start_node(Config),
+    monitor_tag_test(Node4, spawn_opt, make_ref(), make_ref()),
+    {ok, Node5} = start_node(Config),
+    monitor_tag_test(Node5, spawn_request, immed, normal),
+    {ok, Node6} = start_node(Config),
+    monitor_tag_test(Node6, spawn_request, make_ref(), normal),
+    {ok, Node7} = start_node(Config),
+    monitor_tag_test(Node7, spawn_request, immed, make_ref()),
+    {ok, Node8} = start_node(Config),
+    monitor_tag_test(Node8, spawn_request, make_ref(), make_ref()),
+    ok.
+
+monitor_tag_test(Node, SpawnType, Tag, ExitReason) ->
+
+    P1 = spawn(Node, fun () -> receive go -> ok end, exit(ExitReason) end),
+    M1 = monitor(process, P1, [{tag, Tag}]),
+    P1 ! go,
+    [{Tag, M1, process, P1, ExitReason}] = recv_msgs(1),
+
+    M1_2 = monitor(process, P1, [{tag, Tag}]),
+    [{Tag, M1_2, process, P1, noproc}] = recv_msgs(1),
+
+    Spawn = case SpawnType of
+                spawn_opt ->
+                    fun (F, O) ->
+                            try
+                                spawn_opt(Node, F, O)
+                            catch
+                                error:Err ->
+                                    error({spawn_opt, Err})
+                            end
+                    end;
+                spawn_request ->
+                    fun (F, O) ->
+                            try
+                                ReqId = spawn_request(Node, F, O),
+                                receive
+                                    {spawn_reply, ReqId, ok, P} ->
+                                        {P, ReqId};
+                                    {spawn_reply, ReqId, error, Error} ->
+                                        error(Error)
+                                end
+                            catch
+                                error:Err ->
+                                    error({spawn_request, Err})
+                            end
+                    end
+            end,
+
+    {P2, M2} = Spawn(fun () -> exit(ExitReason) end, [{monitor, [{tag, Tag}]}]),
+    [{Tag, M2, process, P2, ExitReason}] = recv_msgs(1),
+
+    case Node == node() of
+        true ->
+            ok;
+        false ->
+            {P3, M3} = Spawn(fun () -> receive after infinity -> ok end end,
+                             [{monitor, [{tag, Tag}]}]),
+            stop_node(Node),
+            [{Tag, M3, process, P3, noconnection}] = recv_msgs(1),
+
+            case SpawnType == spawn_opt of
+                true ->
+                    {P6, M6} = Spawn(fun () -> receive after infinity -> ok end end,
+                                     [{monitor, [{tag, Tag}]}]),
+                    [{Tag, M6, process, P6, noconnection}] = recv_msgs(1);
+                false ->
+                    ok
+            end,
             ok
     end.
 

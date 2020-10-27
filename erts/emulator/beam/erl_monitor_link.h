@@ -451,6 +451,7 @@
 #define ERTS_ML_FLG_SPAWN_NO_EMSG       (((Uint16) 1) << 10)
 #define ERTS_ML_FLG_ALIAS_BIT1          (((Uint16) 1) << 11)
 #define ERTS_ML_FLG_ALIAS_BIT2          (((Uint16) 1) << 12)
+#define ERTS_ML_FLG_TAG                 (((Uint16) 1) << 13)
 
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint16) 1) << 15)
 
@@ -667,6 +668,11 @@ typedef struct {
     ErtsMonitorData md;
     Eterm ref_heap[ERTS_MAX_INTERNAL_REF_SIZE];
 } ErtsMonitorDataHeap;
+
+typedef struct {
+    ErtsMonitorData md;
+    Eterm heap[1 + ERTS_MAX_INTERNAL_REF_SIZE];
+} ErtsMonitorDataTagHeap;
 
 typedef struct ErtsMonitorDataExtended__ ErtsMonitorDataExtended;
 
@@ -1178,11 +1184,15 @@ int erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
  *
  * @param[in]     name          An atom (the name) or NIL depending on type
  *
+ * @param[in]     tag           Tag to use in message when monitor is
+ *                              triggered or THE_NON_VALUE if default
+ *                              should be used.
+ *
  * @returns                     A pointer to monitor data structure
  *
  */
 ErtsMonitorData *erts_monitor_create(Uint16 type, Eterm ref, Eterm origin,
-                                     Eterm target, Eterm name);
+                                     Eterm target, Eterm name, Eterm tag);
 
 /**
  *

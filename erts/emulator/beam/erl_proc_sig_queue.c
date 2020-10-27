@@ -2552,6 +2552,68 @@ convert_prepared_sig_to_external_msg(Process *c_p, ErtsMessage *sig,
     c_p->sig_qs.len++;
 }
 
+static ERTS_INLINE Eterm
+save_heap_frag_eterm(Process *c_p, ErtsMessage *mp, Eterm *value)
+{
+    ErlHeapFragment *hfrag;
+    if (is_immed(*value)) {
+        Eterm term = *value;
+        *value = NIL;
+        return term;
+    }
+    ASSERT(is_CP(*value));
+    hfrag = (ErlHeapFragment *) cp_val(*value);
+    *value = NIL;
+    if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
+        hfrag->next = mp->hfrag.next;
+        mp->hfrag.next = hfrag;
+    }
+    else if (!mp->data.heap_frag) {
+        erts_link_mbuf_to_proc(c_p, hfrag);
+    }
+    else {
+        hfrag->next = mp->data.heap_frag;
+        mp->data.heap_frag = hfrag;
+    }
+    return hfrag->mem[0];
+}
+
+static ERTS_INLINE Eterm
+copy_heap_frag_eterm(Process *c_p, ErtsMessage *mp, Eterm value)
+{
+    ErlHeapFragment *hfrag;
+    Eterm *hp, tag_sz, tag, tag_cpy;
+    if (is_immed(value))
+        return value;
+    ASSERT(is_CP(value));
+    hfrag = (ErlHeapFragment *) cp_val(value);
+    ASSERT(hfrag->used_size > 1);
+
+    tag = hfrag->mem[0];
+    tag_sz = hfrag->used_size - 1;    
+    ASSERT(size_object(tag) == tag_sz);
+    
+    if (!mp->data.attached) {
+        hp = HAlloc(c_p, tag_sz);
+        tag_cpy = copy_struct(tag, tag_sz, &hp, &c_p->off_heap);
+    }
+    else {
+        ErlHeapFragment *hfrag_cpy = new_message_buffer(tag_sz);
+        hp = &hfrag_cpy->mem[0];
+        tag_cpy = copy_struct(tag, tag_sz, &hp, &hfrag_cpy->off_heap);
+        if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
+            hfrag_cpy->next = mp->hfrag.next;
+            mp->hfrag.next = hfrag_cpy;
+        }
+        else {
+            ASSERT(mp->data.heap_frag);
+            hfrag_cpy->next = mp->data.heap_frag;
+            mp->data.heap_frag = hfrag_cpy;
+        }
+    }
+    return tag_cpy;
+}
+
 static ERTS_INLINE int
 handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
                    ErtsMessage *sig, ErtsMessage ***next_nm_sig,
@@ -2778,7 +2840,7 @@ convert_to_down_message(Process *c_p,
     ErtsMessage *mp;
     ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
     Uint hsz;
-    Eterm *hp, ref, from, type, reason;
+    Eterm *hp, ref, from, type, reason, tag;
     ErlOffHeap *ohp;
 
     ASSERT(mdp);
@@ -2795,7 +2857,6 @@ convert_to_down_message(Process *c_p,
          * Create a spawn_request() error message and replace
          * the signal with it...
          */
-        Eterm tag;
         ErtsMonitorDataExtended *mdep;
 
         /* Should only happen when connection breaks... */
@@ -2821,31 +2882,19 @@ convert_to_down_message(Process *c_p,
         ASSERT(is_ref(mdp->ref));
         hsz += NC_HEAP_SIZE(mdp->ref);
 
+        mp = erts_alloc_message_heap(c_p, &locks, hsz, &hp, &ohp);
+        if (locks != ERTS_PROC_LOCK_MAIN)
+            erts_proc_unlock(c_p, locks & ~ERTS_PROC_LOCK_MAIN);
         /*
          * The tag to patch into the resulting message
          * is stored in mdep->u.name via a little trick
          * (see pending_flag in erts_monitor_create()).
          */
-        if (is_immed(mdep->u.name)) {
-            mp = erts_alloc_message_heap(c_p, &locks, hsz, &hp, &ohp);
-            if (locks != ERTS_PROC_LOCK_MAIN)
-                erts_proc_unlock(c_p, locks & ~ERTS_PROC_LOCK_MAIN);
-            tag = mdep->u.name;
-        }
-        else {
-            ErlHeapFragment *tag_hfrag;
-            mp = erts_alloc_message(hsz, &hp);
-            ohp = &mp->hfrag.off_heap;
-            tag_hfrag = (ErlHeapFragment *) cp_val(mdep->u.name);
-            tag = tag_hfrag->mem[0];
-            /* Save heap fragment of tag in message... */
-            ASSERT(mp->data.attached == ERTS_MSG_COMBINED_HFRAG);
-            tag_hfrag->next = mp->hfrag.next;
-            mp->hfrag.next = tag_hfrag;
-        }
+
+        tag = save_heap_frag_eterm(c_p, mp, &mdep->u.name);
         
         /* Restore to normal monitor */
-        mdep->u.name = NIL;
+        ASSERT(mdep->u.name == NIL);
         mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
         ref = STORE_NC(&hp, ohp, mdp->ref);
@@ -2941,7 +2990,18 @@ convert_to_down_message(Process *c_p,
             break;
         }
 
-        ERL_MESSAGE_TERM(mp) = TUPLE5(hp, am_DOWN, ref,
+        if (!(mdp->origin.flags & ERTS_ML_FLG_TAG))
+            tag = am_DOWN;
+        else {
+            Eterm *tag_storage;
+            if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED)
+                tag_storage = &((ErtsMonitorDataExtended *) mdp)->heap[0];
+            else
+                tag_storage = &((ErtsMonitorDataTagHeap *) mdp)->heap[0];
+            tag = save_heap_frag_eterm(c_p, mp, tag_storage);
+        }
+
+        ERL_MESSAGE_TERM(mp) = TUPLE5(hp, tag, ref,
                                       type, from, reason);
         hp += 6;
 
@@ -3072,6 +3132,19 @@ handle_persistent_mon_msg(Process *c_p, Uint16 type,
 
     case ERTS_MON_TYPE_TIME_OFFSET:
         ASSERT(mon->type == ERTS_MON_TYPE_TIME_OFFSET);
+        if (mon->flags & ERTS_ML_FLG_TAG) {
+            ErtsMonitorData *mdp = erts_monitor_to_data(mon);
+            Eterm *tpl, tag_storage;
+            ASSERT(is_tuple_arity(msg, 5));
+            tpl = tuple_val(msg);
+            ASSERT(tpl[1] == am_CHANGE);
+            if (mon->flags & ERTS_ML_FLG_EXTENDED)
+                tag_storage = ((ErtsMonitorDataExtended *) mdp)->heap[0];
+            else
+                tag_storage = ((ErtsMonitorDataTagHeap *) mdp)->heap[0];
+            tpl[1] = copy_heap_frag_eterm(c_p, sig, tag_storage);
+        }
+
         break;
 
     case ERTS_MON_TYPE_NODES: {
@@ -3731,7 +3804,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
 #ifdef DEBUG
     {
         Eterm *tp;
-        int i;
+        int i, start, stop;
         ASSERT(erts_monitor_is_in_table(omon));
         ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_PENDING);
         if (is_atom(result)) {
@@ -3748,7 +3821,13 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         ASSERT(is_internal_ref(tp[2]));
         ASSERT((tp[3] == am_ok && is_external_pid(tp[4]))
                || (tp[3] == am_error && is_atom(tp[4])));
-        for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++) {
+        start = 0;
+        stop = EXTERNAL_THING_HEAD_SIZE + 1;
+        if (omon->flags & ERTS_ML_FLG_TAG) {
+            start++;
+            stop++;
+        }
+        for (i = start; i < stop; i++) {
             ASSERT(is_non_value(mdep->heap[i]));
         }
     }
@@ -3858,7 +3937,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             ErtsMonitorDataExtended *mdep;
             Eterm *hp;
             mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
-            hp = &(mdep)->heap[0];
+            hp = &(mdep)->heap[(omon->flags & ERTS_ML_FLG_TAG) ? 1 : 0];
             omon->flags &= ~ERTS_ML_FLGS_SPAWN;
             ERTS_INIT_OFF_HEAP(&oh);
             oh.first = mdep->uptr.ohhp;
@@ -4267,6 +4346,17 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     cnt += convert_prepared_down_message(c_p, sig,
                                                          xsigd->message,
                                                          next_nm_sig);
+                    if (omon->flags & ERTS_ML_FLG_TAG) {
+                        Eterm *tpl, *tag_storage;
+                        ASSERT(is_tuple_arity(xsigd->message, 5));
+                        tpl = tuple_val(xsigd->message);
+                        ASSERT(tpl[1] == am_DOWN);
+                        if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED)
+                            tag_storage = &((ErtsMonitorDataExtended *) mdp)->heap[0];
+                        else
+                            tag_storage = &((ErtsMonitorDataTagHeap *) mdp)->heap[0];
+                        tpl[1] = save_heap_frag_eterm(c_p, sig, tag_storage);
+                    }
                 }
                 break;
             case ERTS_MON_TYPE_NODE:
@@ -4310,7 +4400,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     ASSERT(is_internal_pid_ref(mdp->ref));
                     amdp = erts_monitor_create(ERTS_MON_TYPE_ALIAS,
                                                mdp->ref, c_p->common.id,
-                                               NIL, NIL);
+                                               NIL, NIL, THE_NON_VALUE);
                     amdp->origin.flags = ERTS_ML_STATE_ALIAS_UNALIAS;
                     erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p),
                                               omon,

@@ -82,7 +82,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="monitor_opts"></name>
+      <name name="monitor_option"></name>
       <desc>
         <p>See <seemfa marker="#monitor/3"><c>monitor/3</c></seemfa>.</p>
       </desc>
@@ -3510,7 +3510,9 @@ RealSystem = system + MissedSystem</code>
       <type name="monitor_process_identifier"/>
       <type name="monitor_port_identifier"/>
       <desc>
-	<p>Sends a monitor request of type <c><anno>Type</anno></c> to the
+	<p>
+	  <marker id="monitor_message"/>
+	  Sends a monitor request of type <c><anno>Type</anno></c> to the
 	  entity identified by <c><anno>Item</anno></c>. If the monitored entity
           does not exist or it changes monitored state, the caller of
           <c>monitor/2</c> is notified by a message on the following format:</p>
@@ -3741,6 +3743,16 @@ RealSystem = system + MissedSystem</code>
 		still be left active.
 	      </p></item>
 	    </taglist>
+	  </item>
+	  <tag><c>{tag, UserDefinedTag}</c></tag>
+	  <item>
+	    <p>
+	      Replace the default <c>Tag</c> with <c>UserDefinedTag</c>
+	      in the <seeerl marker="#monitor_message">monitor message</seeerl>
+	      delivered when the monitor is triggered. For example, when
+	      monitoring a process, the <c>'DOWN'</c> tag in the down message
+	      will be replaced by <c>UserDefinedTag</c>.
+	    </p>
 	  </item>
 	</taglist>
       </desc>

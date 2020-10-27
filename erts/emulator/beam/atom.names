@@ -654,6 +654,7 @@ atom system_limit
 atom system_version
 atom system_architecture
 atom table
+atom tag
 atom term_to_binary_trap
 atom this
 atom thread_pool_size

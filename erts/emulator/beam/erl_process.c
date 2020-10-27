@@ -8767,7 +8767,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         else {
             mdp = erts_monitor_create(ERTS_MON_TYPE_SUSPEND, NIL,
                                       BIF_P->common.id,
-                                      BIF_ARG_1, NIL);
+                                      BIF_ARG_1, NIL, THE_NON_VALUE);
             mon = &mdp->origin;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), mon);
             msp = (ErtsMonitorSuspend *) mdp;
@@ -11511,20 +11511,20 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
     int result = 0;
     Eterm ap = opts_list;
     
+    ERTS_SET_DEFAULT_SPAWN_OPTS(sop);
     if (tag)
-        *tag = am_spawn_reply;
-     /*
+        *tag = sop->tag;
+    
+    /*
      * Store default values for options.
      */
     sop->multi_set      = 0;
-    sop->flags          = erts_default_spo_flags;
     sop->min_heap_size  = H_MIN_SIZE;
     sop->min_vheap_size = BIN_VH_MIN_SIZE;
     sop->max_heap_size  = H_MAX_SIZE;
     sop->max_heap_flags = H_MAX_FLAGS;
     sop->priority       = PRIORITY_NORMAL;
     sop->max_gen_gcs    = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
-    sop->monitor_oflags = (Uint16) 0;
     sop->scheduler      = 0;
 
     /*
@@ -11541,6 +11541,8 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
             if (sop->flags & SPO_MONITOR)
                 sop->multi_set = !0;
 	    sop->flags |= SPO_MONITOR;
+            sop->monitor_tag = THE_NON_VALUE;
+            sop->monitor_oflags = 0;
 	} else if (is_tuple(arg)) {
 	    Eterm* tp2 = tuple_val(arg);
 	    Eterm val;
@@ -11656,7 +11658,8 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
                 else
                     *tag = val;
             } else if (arg == am_monitor) {
-                Uint16 oflags = erts_monitor_opts(val);
+                Eterm monitor_tag;
+                Uint16 oflags = erts_monitor_opts(val, &monitor_tag);
                 if (oflags == (Uint16) ~0)
                     result = -1;
                 else {
@@ -11664,6 +11667,7 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
                     if (sop->flags & SPO_MONITOR)
                         sop->multi_set = !0;
                     sop->flags |= SPO_MONITOR;
+                    sop->monitor_tag = monitor_tag;
                 }
 	    } else {
                 result = -1;
@@ -12123,7 +12127,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
                                                        spawn_ref,
                                                        parent->common.id,
                                                        p->common.id,
-                                                       NIL);
+                                                       NIL,
+                                                       so->monitor_tag);
             mdp->origin.flags |= so->monitor_oflags;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(parent), &mdp->origin);
             erts_monitor_list_insert(&ERTS_P_LT_MONITORS(p), &mdp->u.target);
@@ -12232,7 +12237,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
             ErtsMonitorData *mdp;
             mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC,
                                       spawn_ref, parent_id,
-                                      p->common.id, NIL);
+                                      p->common.id, NIL,
+                                      so->monitor_tag);
             code = erts_monitor_dist_insert(&mdp->origin, so->dist_entry->mld);
             ASSERT(code); (void)code;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(p), &mdp->u.target);

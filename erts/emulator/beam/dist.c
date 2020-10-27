@@ -549,7 +549,8 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
          * and store child pid...
          */
         new_mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC, ref,
-                                      am_undefined, result, NIL);
+                                      am_undefined, result, NIL,
+                                      THE_NON_VALUE);
         ASSERT(new_mdp->u.target.other.item == am_undefined);
         new_mdp->u.target.other.ptr = NULL;
 
@@ -2111,7 +2112,8 @@ int erts_net_message(Port *prt,
         if (is_internal_pid(pid)) {
             ErtsMonitorData *mdp;
             mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC,
-                                      ref, watcher, pid, name);
+                                      ref, watcher, pid, name,
+                                      THE_NON_VALUE);
 
             code = erts_monitor_dist_insert(&mdp->origin, dep->mld);
             ASSERT(code); (void)code;
@@ -5315,6 +5317,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     Eterm mfa = BIF_ARG_2;
     Eterm opts = BIF_ARG_3;
     Eterm tag = am_spawn_reply;
+    Eterm monitor_tag = THE_NON_VALUE;
     Eterm mod, func, alist, new_opts, error, ref,
         ok_result;
     Uint nargs, nopts, rm_opts, rebuild_opts, add_monitor;
@@ -5411,7 +5414,8 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
 
                     if (0) {
                     case am_monitor:
-                        monitor_opts_oflags = erts_monitor_opts(tp[2]);
+                        monitor_opts_oflags = erts_monitor_opts(tp[2],
+                                                                &monitor_tag);
                         if (monitor_opts_oflags == (Uint16) ~0) {
                             if (BIF_ARG_4 != am_spawn_request)
                                 goto badarg;
@@ -5420,7 +5424,6 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                         }
                         monitor_opts_oflags |= ERTS_ML_FLG_SPAWN_MONITOR;
                         add_monitor = 1;
-                        break;
                     }
                     
                     rm_opts++;
@@ -5567,7 +5570,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
 
         mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC, ref,
                                   BIF_P->common.id, am_pending,
-                                  tag);
+                                  tag, monitor_tag);
         mdp->origin.flags |= monitor_oflags;
             
         erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P),
@@ -5934,7 +5937,8 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
                 int inserted;
                 mdep2 = ((ErtsMonitorDataExtended *)
                          erts_monitor_create(ERTS_MON_TYPE_NODE, NIL,
-                                             p->common.id, Node, NIL));
+                                             p->common.id, Node, NIL,
+                                             THE_NON_VALUE));
                 mon2 = &mdep2->md.origin;
                 inserted =
                     erts_monitor_dist_insert(&mdep->md.u.target, dep->mld);

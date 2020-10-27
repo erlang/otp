@@ -563,7 +563,7 @@ nbif_impl_hipe_wrapper_ ## BIF_NAME ## _ ## ARITY (NBIF_ALIST)		\
 
 #endif /* ERL_WANT_HIPE_BIF_WRAPPER__ */
 
-Uint16 erts_monitor_opts(Eterm opts);
+Uint16 erts_monitor_opts(Eterm opts, Eterm *tag);
 
 #include "erl_bif_table.h"
 
