@@ -1449,7 +1449,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  Indication extension will be sent, and <seemfa
 	  marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2</seemfa>
 	  will be called with the IP-address of the connection as
-	  <c>ReferenceID</c>, which is proably not what you want.</p>
+	  <c>ReferenceID</c>, which is probably not what you want.</p>
 	  </note>
 
 	  <p> If the option <c>{handshake, hello}</c> is used the
