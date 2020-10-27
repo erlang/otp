@@ -155,65 +155,78 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
                                            const ArgVal &Pos,
                                            const ArgVal &Tuple,
                                            const ArgVal &Dst) {
-    Uint fail = Fail.getValue();
+    bool const_position;
 
-    /*
-     * The position is not a literal small integer. The code is too large to
-     * inline. Call a shared fragment.
-     *
-     * The size of the code that calls the shared fragment is 19 bytes,
-     * while the size of the bif2 instruction is 36 bytes.
-     */
-    if (Pos.getType() != ArgVal::i) {
-        mov_arg(ARG1, Pos);
+    const_position = Pos.getType() == ArgVal::i && is_small(Pos.getValue()) &&
+                     signed_val(Pos.getValue()) > 0 &&
+                     signed_val(Pos.getValue()) <= (Sint)MAX_ARITYVAL;
+
+    if (const_position) {
+        /* The position is a valid small integer. Inline the code.
+         *
+         * The size of the code is 40 bytes, while the size of the bif2
+         * instruction is 36 bytes. */
+        Uint position = signed_val(Pos.getValue());
+        Label error;
+
         mov_arg(ARG2, Tuple);
-        if (fail) {
-            a.lea(ARG3, x86::qword_ptr(labels[fail]));
+
+        if (Fail.getValue() == 0) {
+            error = a.newLabel();
+
+            emit_is_boxed(error, ARG2, dShort);
         } else {
-            mov_imm(ARG3, 0);
+            emit_is_boxed(labels[Fail.getValue()], ARG2);
         }
-        safe_fragment_call(ga->get_bif_element_shared());
-        mov_arg(Dst, RET);
-        return;
-    }
 
-    /*
-     * The position is a small integer. Inline the code.
-     *
-     * The size of the code is 40 bytes, while the size of the bif2
-     * instruction is 36 bytes.
-     */
-    Label error = a.newLabel(), next = a.newLabel();
-    Sint pos = signed_val(Pos.getValue());
+        x86::Gp boxed_ptr = emit_ptr_val(ARG3, ARG2);
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
-    mov_arg(ARG2, Tuple);
-    if (pos <= 0 || (Uint)pos > MAX_ARITYVAL) {
-        a.short_().jmp(error);
-    } else {
-        emit_is_boxed(error, ARG2, dShort);
-
-        (void)emit_ptr_val(ARG2, ARG2);
-        a.mov(RETd, emit_boxed_val(ARG2, 0, sizeof(Uint32)));
         ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-        a.cmp(RETd, imm(make_arityval((Uint)pos)));
-        a.short_().jb(error);
+        a.cmp(RETd, imm(make_arityval(position)));
+
+        if (Fail.getValue() == 0) {
+            a.short_().jb(error);
+        } else {
+            a.jb(labels[Fail.getValue()]);
+        }
 
         ERTS_CT_ASSERT(make_arityval(0) == 0);
         a.and_(RETb, imm(_TAG_HEADER_MASK));
-        a.short_().je(next);
-    }
 
-    a.bind(error);
-    if (fail) {
-        a.jmp(labels[fail]);
+        if (Fail.getValue() == 0) {
+            Label next = a.newLabel();
+
+            a.short_().je(next);
+
+            a.bind(error);
+            {
+                mov_imm(ARG1, make_small(position));
+                safe_fragment_call(ga->get_handle_element_error());
+            }
+
+            a.bind(next);
+        } else {
+            a.jne(labels[Fail.getValue()]);
+        }
+
+        a.mov(RET, emit_boxed_val(boxed_ptr, position * sizeof(Eterm)));
     } else {
-        mov_imm(ARG1, make_small(pos));
-        safe_fragment_call(ga->get_handle_element_error());
+        /* The code is too large to inline. Call a shared fragment.
+         *
+         * The size of the code that calls the shared fragment is 19 bytes,
+         * while the size of the bif2 instruction is 36 bytes. */
+        mov_arg(ARG2, Tuple);
+        mov_arg(ARG1, Pos);
+
+        if (Fail.getValue() != 0) {
+            a.lea(ARG3, x86::qword_ptr(labels[Fail.getValue()]));
+        } else {
+            mov_imm(ARG3, 0);
+        }
+
+        safe_fragment_call(ga->get_bif_element_shared());
     }
 
-    a.bind(next);
-    {
-        a.mov(ARG1, emit_boxed_val(ARG2, pos * sizeof(Eterm)));
-        mov_arg(Dst, ARG1);
-    }
+    mov_arg(Dst, RET);
 }
