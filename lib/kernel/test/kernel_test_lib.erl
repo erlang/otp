@@ -54,7 +54,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                 true ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
-                    [{gen_inet_factor, Factor} | Config]
+                    [{kernel_factor, Factor} | Config]
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
@@ -62,7 +62,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
         {Factor, _HostInfo} when (AllowSkip =:= false) andalso
                                  is_integer(Factor) ->
-            [{gen_inet_factor, Factor} | Config]
+            [{kernel_factor, Factor} | Config]
 
     catch
         throw:{skip, _} = SKIP ->
