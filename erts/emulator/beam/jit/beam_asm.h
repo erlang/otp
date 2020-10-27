@@ -59,9 +59,6 @@ void beamasm_emit_call_bif(ErtsCodeInfo *info,
                            Eterm (*bif)(BIF_ALIST),
                            char *buff,
                            unsigned buff_len);
-void beamasm_emit_call_error_handler(ErtsCodeInfo *info,
-                                     char *buff,
-                                     unsigned buff_len);
 void beamasm_emit_call_nif(ErtsCodeInfo *info,
                            void *normal_fptr,
                            void *lib,

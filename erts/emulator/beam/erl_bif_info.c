@@ -5254,7 +5254,7 @@ exported_from_module(Process* p, ErtsCodeIndex code_ix, Eterm mod)
         if (ep->info.mfa.module == mod) {
             Eterm tuple;
 
-            if (ep->addressv[code_ix] == ep->trampoline.raw &&
+            if (erts_is_export_trampoline_active(ep, code_ix) &&
                 BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
                 /* There is a call to the function, but it does not exist. */ 
                 continue;

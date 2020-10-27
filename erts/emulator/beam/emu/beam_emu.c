@@ -510,25 +510,29 @@ void process_main(ErtsSchedulerData *esdp)
      goto post_error_handling;
  }
 
- OpCase(call_error_handler):
-    /*
-     * At this point, I points to the code[3] in the export entry for
-     * a function which is not loaded.
-     *
-     * code[0]: Module
-     * code[1]: Function
-     * code[2]: Arity
-     * code[3]: &&call_error_handler
-     * code[4]: Not used
-     */
-    HEAVY_SWAPOUT;
-    I = call_error_handler(c_p, I,
-                           reg, am_undefined_function);
-    HEAVY_SWAPIN;
-    if (I) {
-	Goto(*I);
-    }
+ OpCase(call_error_handler): {
+        /*
+         * At this point, I points to the code[3] in the export entry for
+         * a function which is not loaded.
+         *
+         * code[0]: Module
+         * code[1]: Function
+         * code[2]: Arity
+         * code[3]: &&call_error_handler
+         * code[4]: Not used
+         */
+        Export *error_handler;
 
+        HEAVY_SWAPOUT;
+        error_handler = call_error_handler(c_p, erts_code_to_codemfa(I),
+                                           reg, am_undefined_function);
+        HEAVY_SWAPIN;
+
+        if (error_handler) {
+            I = error_handler->addressv[erts_active_code_ix()];
+            Goto(*I);
+        }
+    }
  /* Fall through */
  OpCase(error_action_code): {
     handle_error:
@@ -629,7 +633,7 @@ static void install_bifs(void) {
         ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
 
         for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
-            ep->addressv[j] = ep->trampoline.raw;
+            erts_activate_export_trampoline(ep, j);
         }
 
         /* Set up a hidden export entry so we can trap to this BIF without

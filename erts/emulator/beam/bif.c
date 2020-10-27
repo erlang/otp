@@ -1027,8 +1027,9 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
          * hibernated state if its state is inactive (!ERTS_PSFLG_ACTIVE);
          * otherwise, continue executing (if any message was in the queue).
          */
-        BIF_TRAP_CODE_PTR_(BIF_P, BIF_P->i);
+        BIF_TRAP_CODE_PTR(BIF_P, BIF_P->i, 3);
     }
+
     return THE_NON_VALUE;
 }
 
@@ -5020,7 +5021,7 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     sys_memset((void *) ep, 0, sizeof(Export));
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
-        ep->addressv[i] = &ep->trampoline.raw[0];
+        erts_activate_export_trampoline(ep, i);
     }
 
     ep->bif_number = -1;
@@ -5030,18 +5031,12 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     ep->info.mfa.arity = a;
 
 #ifdef BEAMASM
-    {
-        ep->addressv[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
-
-        beamasm_emit_call_bif(
-            &ep->info, bif,
-            (char*)&ep->info,
-            sizeof(ep->info) + sizeof(ep->trampoline));
-    }
-#else
-    ep->trampoline.common.op = BeamOpCodeAddr(op_call_bif_W);
-    ep->trampoline.raw[1] = (BeamInstr)bif;
+    ep->addressv[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
 #endif
+
+    ep->trampoline.common.op = BeamOpCodeAddr(op_call_bif_W);
+    ep->trampoline.bif.address = (BeamInstr)bif;
+
     *epp = ep;
 }
 
@@ -5051,6 +5046,7 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
 #ifndef BEAMASM
     BifEntry *entry;
+
     ASSERT(export->bif_number >= 0 && export->bif_number < BIF_SIZE);
     entry = &bif_table[export->bif_number];
 

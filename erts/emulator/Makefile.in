@@ -1013,6 +1013,7 @@ JIT_OBJS = \
 	$(OBJDIR)/instr_arith.o \
 	$(OBJDIR)/instr_bs.o \
 	$(OBJDIR)/instr_bif.o \
+	$(OBJDIR)/instr_call.o \
 	$(OBJDIR)/instr_common.o \
 	$(OBJDIR)/instr_float.o \
 	$(OBJDIR)/instr_guard_bifs.o \

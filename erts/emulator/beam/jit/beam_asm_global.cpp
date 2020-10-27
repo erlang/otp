@@ -55,6 +55,7 @@ BeamGlobalAssembler::BeamGlobalAssembler() : BeamAssembler("beam_asm_global") {
 
     /* Emit all of the code and bind all of the labels */
     for (auto val : emitPtrs) {
+        a.align(kAlignCode, 8);
         a.bind(labels[val.first]);
         /* This funky syntax calls the function pointer within this instance
          * of BeamGlobalAssembler */
@@ -135,23 +136,59 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     a.ret();
 }
 
-/* ARG1 = op address, ARG2 = entry address */
-void BeamGlobalAssembler::emit_call_error_handler_shared() {
-    Label error_handler = a.newLabel();
+/* Handles trapping to exports from C code, setting registers up in the same
+ * manner a normal call_ext instruction would so that save_calls, tracing, and
+ * so on will work.
+ *
+ * Assumes that c_p->current points into the MFA of an export entry. */
+void BeamGlobalAssembler::emit_bif_export_trap() {
+    int export_offset = offsetof(Export, info.mfa);
 
-    a.mov(ARG3, x86::qword_ptr(ARG1));
+    a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, current)));
+    a.sub(RET, export_offset);
+
+    a.jmp(emit_setup_export_call(RET));
+}
+
+/* Handles export breakpoints, error handler, jump tracing, and so on.
+ *
+ * RET = export entry */
+void BeamGlobalAssembler::emit_export_trampoline() {
+    Label call_bif = a.newLabel(), error_handler = a.newLabel(),
+          jump_trace = a.newLabel();
+
+    /* What are we supposed to do? */
+    a.mov(ARG1, x86::qword_ptr(RET, offsetof(Export, trampoline.common.op)));
 
     /* We test the generic bp first as it is most likely to be triggered in a
      * loop. */
-    a.cmp(ARG3, imm(op_i_generic_breakpoint));
+    a.cmp(ARG1, imm(op_i_generic_breakpoint));
     a.je(labels[generic_bp_global]);
 
-    a.cmp(ARG3, imm(op_call_error_handler));
+    a.cmp(ARG1, imm(op_call_bif_W));
+    a.je(call_bif);
+
+    a.cmp(ARG1, imm(op_call_error_handler));
     a.je(error_handler);
 
-    /* Jump tracing. */
-    a.mov(RET, x86::qword_ptr(ARG1, sizeof(UWord)));
-    a.jmp(RET);
+    a.cmp(ARG1, imm(op_trace_jump_W));
+    a.je(jump_trace);
+
+    /* Must never happen. */
+    a.ud2();
+
+    a.bind(call_bif);
+    {
+        /* Emulate `call_bif`, loading the current (phony) instruction pointer
+         * into ARG3 and the function to be called in ARG4. */
+        a.lea(ARG3, x86::qword_ptr(RET, offsetof(Export, trampoline.raw)));
+        a.mov(ARG4,
+              x86::qword_ptr(RET, offsetof(Export, trampoline.bif.address)));
+        a.jmp(labels[call_bif_shared]);
+    }
+
+    a.bind(jump_trace);
+    a.jmp(x86::qword_ptr(RET, offsetof(Export, trampoline.trace.address)));
 
     a.bind(error_handler);
     {
@@ -159,7 +196,7 @@ void BeamGlobalAssembler::emit_call_error_handler_shared() {
                            Update::eHeap>();
 
         a.mov(ARG1, c_p);
-        /* ARG2 is set in module assembler */
+        a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
         load_x_reg_array(ARG3);
         mov_imm(ARG4, am_undefined_function);
         runtime_call<4>(call_error_handler);
@@ -169,29 +206,7 @@ void BeamGlobalAssembler::emit_call_error_handler_shared() {
 
         a.test(RET, RET);
         a.je(labels[error_action_code]);
-        a.jmp(RET);
-    }
-}
-
-/* WARNING: This stub is memcpy'd for performance reasons, so all code herein
- * must be explicitly position-independent. */
-void BeamModuleAssembler::emit_call_error_handler() {
-    static const BeamInstr ops[2] = {op_call_error_handler, 0};
-
-    Label entry = a.newLabel(), dispatch = a.newLabel(), op = a.newLabel();
-
-    a.bind(entry);
-    a.short_().jmp(dispatch);
-
-    a.align(kAlignCode, 8);
-    a.bind(op);
-    a.embed(ops, sizeof(ops));
-
-    a.bind(dispatch);
-    {
-        a.lea(ARG1, x86::qword_ptr(op));
-        a.lea(ARG2, x86::qword_ptr(entry));
-        pic_jmp(ga->get_call_error_handler_shared());
+        a.jmp(emit_setup_export_call(RET));
     }
 }
 

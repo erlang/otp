@@ -436,6 +436,10 @@ void BeamModuleAssembler::emit_trace_jump(const ArgVal &) {
     emit_nyi("trace_jump should never be called");
 }
 
+void BeamModuleAssembler::emit_call_error_handler() {
+    emit_nyi("call_error_handler should never be called");
+}
+
 void *BeamModuleAssembler::codegen(BeamCodeHeader *in_hdr,
                                    BeamCodeHeader **out_hdr) {
     BeamCodeHeader *code_hdr;
@@ -525,13 +529,6 @@ void BeamModuleAssembler::codegen(char *buff, size_t len) {
     code.copyFlattenedData(buff,
                            code.codeSize(),
                            CodeHolder::kCopyPadSectionBuffer);
-
-#ifdef WIN32
-    DWORD old;
-    if (!VirtualProtect(buff, len, PAGE_EXECUTE_READWRITE, &old)) {
-        erts_exit(-2, "Could not change memory protection");
-    }
-#endif
 }
 
 BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {

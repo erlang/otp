@@ -230,7 +230,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
             DBG_CHECK_EXPORT(ep, code_ix);
 
-            if (ep->addressv[code_ix] == ep->trampoline.raw) {
+            if (erts_is_export_trampoline_active(ep, code_ix)) {
                 if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
                     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
                     ASSERT(mod_tab_p->curr.num_traced_exports > 0);
@@ -241,8 +241,9 @@ erts_finish_loading(Binary* magic, Process* c_p,
                         (BeamInstr*)ep->trampoline.breakpoint.address;
                     ep->trampoline.breakpoint.address = 0;
 
-                    ASSERT(ep->addressv[code_ix] != ep->trampoline.raw);
+                    ASSERT(!erts_is_export_trampoline_active(ep, code_ix));
                 }
+
                 ASSERT(ep->trampoline.breakpoint.address == 0);
             }
         }

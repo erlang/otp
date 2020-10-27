@@ -868,13 +868,14 @@ BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
     Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
 
     if (!modp || !modp->on_load) {
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(BIF_P, BADARG);
     }
+
     if (modp->on_load->code_hdr) {
-	BIF_TRAP_CODE_PTR_0(BIF_P,
-			    modp->on_load->code_hdr->on_load_function_ptr);
+        BeamInstr *on_load = modp->on_load->code_hdr->on_load_function_ptr;
+        BIF_TRAP_CODE_PTR(BIF_P, on_load, 0);
     } else {
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(BIF_P, BADARG);
     }
 }
 
@@ -955,15 +956,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     continue;
                 }
 
-#ifdef BEAMASM
-                beamasm_emit_call_error_handler(
-                    &ep->info,
-                    (char*)&ep->trampoline.raw[0],
-                    sizeof(ep->trampoline));
-#else
                 ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
-#endif
-                ep->addressv[code_ix] = &ep->trampoline.raw[0];
+                erts_activate_export_trampoline(ep, code_ix);
             }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
@@ -2330,7 +2324,7 @@ delete_code(Module* modp)
     for (i = 0; i < num_exps; i++) {
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->info.mfa.module == module)) {
-	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
+	    if (erts_is_export_trampoline_active(ep, code_ix)) {
                 if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
@@ -2349,16 +2343,11 @@ delete_code(Module* modp)
                 ep->is_bif_traced = 0;
             }
 
-#ifdef BEAMASM
-            beamasm_emit_call_error_handler(
-                &ep->info,
-                (char*)&ep->trampoline.raw[0],
-                sizeof(ep->trampoline));
-#else
             ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
-#endif
-            ep->addressv[code_ix] = &ep->trampoline.raw[0];
             ep->trampoline.not_loaded.deferred = 0;
+
+            erts_activate_export_trampoline(ep, code_ix);
+
 	    DBG_TRACE_MFA_P(&ep->info.mfa,
 			    "export invalidation, code_ix=%d", code_ix);
 	}

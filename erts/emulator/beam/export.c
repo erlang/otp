@@ -133,23 +133,14 @@ export_alloc(struct export_entry* tmpl_e)
         obj->bif_number = -1;
         obj->is_bif_traced = 0;
 
-#ifdef BEAMASM
-        beamasm_emit_call_error_handler(
-            &obj->info,
-            (char*)&obj->trampoline.raw[0],
-            sizeof(obj->trampoline));
-
-#else
         memset(&obj->trampoline, 0, sizeof(obj->trampoline));
 
         if (BeamOpsAreInitialized()) {
             obj->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
         }
 
-#endif
-
         for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
-            obj->addressv[ix] = &obj->trampoline.raw[0];
+            erts_activate_export_trampoline(obj, ix);
 
             blob->entryv[ix].slot.index = -1;
             blob->entryv[ix].ep = &blob->exp;
@@ -270,7 +261,7 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
     ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
 
     if (ee == NULL
-        || (ee->ep->addressv[code_ix] == ee->ep->trampoline.raw &&
+        || (erts_is_export_trampoline_active(ee->ep, code_ix) &&
             !BeamIsOpCode(ee->ep->trampoline.common.op, op_i_generic_breakpoint))) {
         return NULL;
     }

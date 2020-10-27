@@ -31,7 +31,7 @@
 
 #ifdef BEAMASM
 #define OP_PAD BeamInstr __pad[1];
-#define DISPATCH_SIZE (1 + 4)
+#define DISPATCH_SIZE 1
 #define ERTS_ADDRESSV_SIZE (ERTS_NUM_CODE_IX + 1)
 #define ERTS_SAVE_CALLS_CODE_IX (ERTS_ADDRESSV_SIZE - 1)
 #else
@@ -42,7 +42,14 @@
 
 typedef struct export_
 {
-    /* Pointer to code for function. */
+    /* Pointer to code for function.
+     *
+     * Be _very_ careful when accessing this directly. The JIT has a special
+     * calling convention for export entries, assuming the entry itself is in
+     * a certain register, so blindly calling the pointers herein will result
+     * in weird crashes.
+     *
+     * See `BeamAssembler::emit_setup_export_call` for details. */
     void* addressv[ERTS_ADDRESSV_SIZE];
 
     /* Index into bif_table[], or -1 if not a BIF. */
@@ -61,6 +68,12 @@ typedef struct export_
             OP_PAD
             BeamInstr op;
         } common;
+
+        struct {
+            OP_PAD
+            BeamInstr op;       /* op_call_bif_W */
+            BeamInstr address;  /* Address of the C function */
+        } bif;
 
         struct {
             OP_PAD
@@ -99,8 +112,8 @@ typedef struct export_
 #if defined(DEBUG)
 #define DBG_CHECK_EXPORT(EP, CX) \
     do { \
-        if((EP)->addressv[CX] == (EP)->trampoline.raw) { \
-            /* The entry currently points at the trampoline, so the
+        if(erts_is_export_trampoline_active((EP), (CX))) { \
+            /* The entry currently points at the trampoline, so the \
              * instructions must be valid. */ \
             ASSERT(((BeamIsOpCode((EP)->trampoline.common.op, op_i_generic_breakpoint)) && \
                     (EP)->trampoline.breakpoint.address != 0) || \
@@ -116,6 +129,9 @@ typedef struct export_
 
 void init_export_table(void);
 void export_info(fmtfn_t, void *);
+
+ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix);
+ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix);
 
 ERTS_GLB_INLINE Export* erts_active_export_entry(Eterm m, Eterm f, unsigned a);
 Export* erts_export_put(Eterm mod, Eterm func, unsigned int arity);
@@ -135,6 +151,32 @@ extern erts_mtx_t export_staging_lock;
 #define export_staging_unlock()	erts_mtx_unlock(&export_staging_lock)
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+extern BeamInstr *beam_export_trampoline;
+
+ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix) {
+    void *trampoline_address;
+
+#ifdef BEAMASM
+    trampoline_address = beam_export_trampoline;
+#else
+    trampoline_address = &ep->trampoline.raw[0];
+#endif
+
+    ep->addressv[code_ix] = trampoline_address;
+}
+
+ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
+    void *trampoline_address;
+
+#ifdef BEAMASM
+    trampoline_address = beam_export_trampoline;
+#else
+    trampoline_address = &ep->trampoline.raw[0];
+#endif
+
+    return ep->addressv[code_ix] == trampoline_address;
+}
 
 ERTS_GLB_INLINE Export*
 erts_active_export_entry(Eterm m, Eterm f, unsigned int a)

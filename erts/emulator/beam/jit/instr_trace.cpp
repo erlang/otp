@@ -27,13 +27,14 @@ extern "C"
 #include "beam_bp.h"
 };
 
-/* This function is jumped to from the export entry of a function. */
+/* This function is jumped to from the export entry of a function.
+ *
+ * RET = export entry */
 void BeamGlobalAssembler::emit_generic_bp_global() {
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    /* ARG2 contains a pointer to exactly after the ErtsCodeInfo. */
     a.mov(ARG1, c_p);
-    a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
+    a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info)));
     load_x_reg_array(ARG3);
     runtime_call<3>(erts_generic_breakpoint);
 
@@ -105,7 +106,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
  *
  * The only place that we can come to here is from generic_bp_local */
 void BeamGlobalAssembler::emit_debug_bp() {
-    Label next = a.newLabel();
+    Label error = a.newLabel();
 
     emit_assert_erlang_stack();
 
@@ -116,30 +117,29 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.sub(ARG2, imm(sizeof(UWord)));
 
     a.mov(ARG1, c_p);
+    a.lea(ARG2, x86::qword_ptr(ARG2, -(int)sizeof(ErtsCodeMFA)));
     load_x_reg_array(ARG3);
     a.mov(ARG4, imm(am_breakpoint));
     runtime_call<4>(call_error_handler);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
+    /* Skip two frames so we can make a direct jump to the error handler. This
+     * makes it so that if we are to do a call_nif_early, we skip that and call
+     * the error handler's code instead, mirroring the way the interpreter
+     * works. */
+    emit_discard_cp();
+    emit_discard_cp();
+
     a.test(RET, RET);
-    a.jne(next);
+    a.je(error);
 
-    a.mov(ARG2, TMP_MEM1q);
-    a.lea(RET, x86::qword_ptr(labels[handle_error_shared]));
+    a.jmp(emit_setup_export_call(RET));
 
-    a.bind(next);
+    a.bind(error);
     {
-        /* Here we skip one call frame to jump to the place we just set. This
-         * makes it so that if we are to do a call_nif_early, we skip that and
-         * call the error handlers code instead. This in order to be compliant
-         * with the way that the interpreter works. */
-        emit_discard_cp();
-
-        /* We patch the return address to jump to the correct place.
-         * The return address is always on the native stack. */
-        a.mov(x86::qword_ptr(x86::rsp), RET);
-        a.ret();
+        a.mov(ARG2, TMP_MEM1q);
+        a.jmp(labels[handle_error_shared]);
     }
 }
 

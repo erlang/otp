@@ -231,7 +231,6 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
     f->matching = (BpFunction *) Alloc(num_exps*sizeof(BpFunction));
     ne = 0;
     for (i = 0; i < num_exps; i++) {
-        BeamInstr *func;
         Export* ep;
 
         ep = export_list(i, code_ix);
@@ -252,15 +251,12 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             ASSERT(0);
         }
 
-        func = ep->addressv[code_ix];
-
-        if (func == ep->trampoline.raw) {
+        if (erts_is_export_trampoline_active(ep, code_ix)) {
             if (BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
                 continue;
             }
+
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint));
-        } else if (erts_is_function_native(erts_code_to_codeinfo(func))) {
-            continue;
         }
 
 	f->matching[ne].ci = &ep->info;

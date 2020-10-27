@@ -143,12 +143,18 @@ i_perf_counter() {
 }
 
 i_debug_breakpoint() {
+    Export *breakpoint_handler;
+
     HEAVY_SWAPOUT;
-    I = call_error_handler(c_p, I, reg, am_breakpoint);
+    breakpoint_handler = call_error_handler(c_p, erts_code_to_codemfa(I),
+                                            reg, am_breakpoint);
     HEAVY_SWAPIN;
-    if (I) {
+
+    if (breakpoint_handler) {
+        I = breakpoint_handler->addressv[erts_active_code_ix()];
         Goto(*I);
     }
+
     goto handle_error;
     //| -no_next
 }

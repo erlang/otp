@@ -250,16 +250,16 @@ do {						\
 ErtsCodeMFA *ubif2mfa(void* uf);
 BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
                         Eterm* reg, ErtsCodeMFA* bif_mfa);
-BeamInstr* call_error_handler(Process* p, BeamInstr* I,
-                              Eterm* reg, Eterm func);
-BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
+Export* call_error_handler(Process* p, ErtsCodeMFA* mfa,
+                           Eterm* reg, Eterm func);
+Export* fixed_apply(Process* p, Eterm* reg, Uint arity,
 			BeamInstr *I, Uint offs);
-BeamInstr* apply(Process* p, Eterm* reg,
+Export* apply(Process* p, Eterm* reg,
                         BeamInstr *I, Uint offs);
 BeamInstr* call_fun(Process* p, int arity,
-			   Eterm* reg, Eterm args);
+                    Eterm* reg, Eterm args, Export **epp);
 BeamInstr* apply_fun(Process* p, Eterm fun,
-			    Eterm args, Eterm* reg);
+                     Eterm args, Eterm* reg, Export **epp);
 Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free);
 ErlFunThing* new_fun_thing(Process* p, ErlFunEntry* fe, int num_free);
@@ -290,6 +290,8 @@ extern BeamInstr *beam_apply;
 extern BeamInstr *beam_normal_exit;
 extern BeamInstr *beam_exit;
 extern BeamInstr *beam_save_calls;
+extern BeamInstr *beam_bif_export_trap;
+extern BeamInstr *beam_export_trampoline;
 extern BeamInstr *beam_continue_exit;
 extern BeamInstr *beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 extern BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */

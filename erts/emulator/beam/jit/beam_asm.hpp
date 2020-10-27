@@ -301,38 +301,6 @@ public:
         return a.offset();
     }
 
-    /*
-     * Generate the shortest instruction for setting a register to an immediate
-     * value. May clear flags.
-     */
-    void mov_imm(x86::Gp to, Uint value) {
-        if (value == 0) {
-            /*
-             * Generate the shortest instruction to set the register to zero.
-             *
-             *   48 c7 c0 00 00 00 00    mov    rax, 0
-             *   b8 00 00 00 00          mov    eax, 0
-             *   31 c0                   xor    eax, eax
-             *
-             * Thus, "xor eax, eax" is five bytes shorter than "mov rax, 0".
-             *
-             * Note: xor clears ZF and C; mov does not change any flags.
-             */
-            a.xor_(to.r32(), to.r32());
-        } else if (Support::isInt32(value)) {
-            /*
-             * Generate the shortest instruction to set the register
-             * to an unsigned immediate value that fits in 32 bits.
-             *
-             *   48 c7 c0 2a 00 00 00    mov    rax, 42
-             *   b8 2a 00 00 00          mov    eax, 42
-             */
-            a.mov(to.r32(), imm(value));
-        } else {
-            a.mov(to, imm(value));
-        }
-    }
-
 protected:
     void *_codegen() {
         Error err = code.flatten();
@@ -690,6 +658,24 @@ protected:
         }
     }
 
+    /* Returns the current code address for the export entry in `Src`
+     *
+     * Export tracing, save_calls, etc is implemented by shared fragments that
+     * assume that the export entry is in RET, so we have to copy it over if it
+     * isn't already. */
+    x86::Mem emit_setup_export_call(const x86::Gp &Src) {
+        return emit_setup_export_call(Src, active_code_ix);
+    }
+
+    x86::Mem emit_setup_export_call(const x86::Gp &Src,
+                                    const x86::Gp &CodeIndex) {
+        if (RET != Src) {
+            a.mov(RET, Src);
+        }
+
+        return x86::qword_ptr(RET, CodeIndex, 3, offsetof(Export, addressv));
+    }
+
     /* Discards a continuation pointer, including the frame pointer if
      * applicable. */
     void emit_discard_cp() {
@@ -903,6 +889,38 @@ protected:
         }
     }
 
+    /*
+     * Generate the shortest instruction for setting a register to an immediate
+     * value. May clear flags.
+     */
+    void mov_imm(x86::Gp to, Uint value) {
+        if (value == 0) {
+            /*
+             * Generate the shortest instruction to set the register to zero.
+             *
+             *   48 c7 c0 00 00 00 00    mov    rax, 0
+             *   b8 00 00 00 00          mov    eax, 0
+             *   31 c0                   xor    eax, eax
+             *
+             * Thus, "xor eax, eax" is five bytes shorter than "mov rax, 0".
+             *
+             * Note: xor clears ZF and C; mov does not change any flags.
+             */
+            a.xor_(to.r32(), to.r32());
+        } else if (Support::isInt32(value)) {
+            /*
+             * Generate the shortest instruction to set the register
+             * to an unsigned immediate value that fits in 32 bits.
+             *
+             *   48 c7 c0 2a 00 00 00    mov    rax, 42
+             *   b8 2a 00 00 00          mov    eax, 42
+             */
+            a.mov(to.r32(), imm(value));
+        } else {
+            a.mov(to, imm(value));
+        }
+    }
+
 public:
     void embed_rodata(char *labelName, const char *buff, size_t size);
     void embed_bss(char *labelName, size_t size);
@@ -965,12 +983,12 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(arith_eq_shared)                                                         \
     _(bif_nif_epilogue)                                                        \
     _(bif_element_shared)                                                      \
+    _(bif_export_trap)                                                         \
     _(bs_add_shared)                                                           \
     _(bs_size_check_shared)                                                    \
     _(bs_fixed_integer_shared)                                                 \
     _(bs_get_tail_shared)                                                      \
     _(call_bif_shared)                                                         \
-    _(call_error_handler_shared)                                               \
     _(call_light_bif_shared)                                                   \
     _(call_nif_early)                                                          \
     _(call_nif_shared)                                                         \
@@ -980,6 +998,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(dispatch_return)                                                         \
     _(dispatch_save_calls)                                                     \
     _(error_action_code)                                                       \
+    _(export_trampoline)                                                       \
     _(garbage_collect)                                                         \
     _(generic_bp_global)                                                       \
     _(generic_bp_local)                                                        \
@@ -1183,9 +1202,8 @@ public:
     void patchLiteral(unsigned index, Eterm lit);
     void patchImport(unsigned index, BeamInstr I);
     void patchStrings(byte *string);
-    void emit_call_bif_export(void *fptr);
 
-private:
+protected:
     /* Helpers */
     void emit_gc_test(const ArgVal &Stack,
                       const ArgVal &Heap,
@@ -1194,10 +1212,8 @@ private:
                                const ArgVal &Live,
                                x86::Gp term);
 
-    x86::Mem emit_setup_export(const ArgVal &Exp);
-
-    x86::Gp emit_variable_apply(bool includeI);
-    x86::Gp emit_fixed_apply(const ArgVal &arity, bool includeI);
+    x86::Mem emit_variable_apply(bool includeI);
+    x86::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
 
     x86::Gp emit_call_fun(const ArgVal &Fun);
     x86::Gp emit_apply_fun(void);

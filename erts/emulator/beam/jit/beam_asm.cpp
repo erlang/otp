@@ -40,6 +40,8 @@ int erts_jit_perf_support;
 BeamInstr *beam_apply;
 BeamInstr *beam_normal_exit;
 BeamInstr *beam_exit;
+BeamInstr *beam_export_trampoline;
+BeamInstr *beam_bif_export_trap;
 BeamInstr *beam_continue_exit;
 BeamInstr *beam_save_calls;
 
@@ -52,9 +54,6 @@ BeamInstr *beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */
 BeamInstr *beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
 BeamInstr *beam_return_time_trace; /* OpCode(i_return_time_trace) */
-
-static BeamInstr *call_error_handler_template;
-static size_t call_error_handler_size;
 
 static BeamGlobalAssembler *bga;
 static BeamModuleAssembler *bma;
@@ -74,6 +73,7 @@ static void install_bifs(void) {
     typedef Eterm (*bif_func_type)(Process *, Eterm *, BeamInstr *);
     int i;
 
+    ASSERT(beam_export_trampoline != NULL);
     ASSERT(beam_save_calls != NULL);
 
     for (i = 0; i < BIF_SIZE; i++) {
@@ -92,7 +92,7 @@ static void install_bifs(void) {
         ep->bif_number = i;
 
         for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
-            ep->addressv[j] = &ep->trampoline.raw[0];
+            erts_activate_export_trampoline(ep, j);
         }
 
         /* Set up a hidden export entry so we can trap to this BIF without
@@ -149,7 +149,7 @@ void beamasm_init() {
 
     bga = new BeamGlobalAssembler();
 
-    bma = new BeamModuleAssembler(bga, mod_name, 6 + operands.size() * 2);
+    bma = new BeamModuleAssembler(bga, mod_name, 4 + operands.size() * 2);
 
     for (auto &op : operands) {
         unsigned func_label, entry_label;
@@ -170,8 +170,7 @@ void beamasm_init() {
     }
 
     {
-        unsigned func_label, apply_label, normal_exit_label,
-                call_error_handler_label;
+        unsigned func_label, apply_label, normal_exit_label;
 
         func_label = label++;
         apply_label = label++;
@@ -188,30 +187,11 @@ void beamasm_init() {
         bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, normal_exit_label)});
         bma->emit(op_normal_exit, {});
 
-        /* * */
-
-        func_label = label++;
-        call_error_handler_label = label++;
-
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
-        bma->emit(op_i_func_info_IaaI,
-                  {ArgVal(ArgVal::i, func_label),
-                   ArgVal(ArgVal::i, am_erts_internal),
-                   ArgVal(ArgVal::i, am_call_error_handler),
-                   ArgVal(ArgVal::i, 0)});
-        bma->emit(op_aligned_label_L,
-                  {ArgVal(ArgVal::i, call_error_handler_label)});
-
-        size_t error_handler_start = bma->getOffset();
-        bma->emit(op_call_error_handler, {});
-        call_error_handler_size = bma->getOffset() - error_handler_start;
-
         bma->emit(op_int_code_end, {});
         bma->codegen();
 
         beam_apply = bma->getCode(apply_label);
         beam_normal_exit = bma->getCode(normal_exit_label);
-        call_error_handler_template = bma->getCode(call_error_handler_label);
     }
 
     for (auto op : operands) {
@@ -223,6 +203,8 @@ void beamasm_init() {
     /* This instruction relies on register contents, and can only be reached
      * from a `call_ext_*`-instruction, hence the lack of a wrapper function. */
     beam_save_calls = (BeamInstr *)bga->get_dispatch_save_calls();
+    beam_export_trampoline = (BeamInstr *)bga->get_export_trampoline();
+    beam_bif_export_trap = (BeamInstr *)bga->get_bif_export_trap();
 }
 
 bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
@@ -714,28 +696,6 @@ extern "C"
         ba.emit(op_call_bif_W, {ArgVal(ArgVal::i, (BeamInstr)bif)});
 
         ba.codegen(buff, buff_len);
-    }
-
-    /* This call is not protected by any lock, so must be thread safe */
-    void beamasm_emit_call_error_handler(ErtsCodeInfo *info,
-                                         char *buff,
-                                         unsigned buff_len) {
-        ERTS_ASSERT(buff_len - call_error_handler_size >= 0);
-
-#if !defined(VALGRIND)
-        ERTS_ASSERT(buff_len - call_error_handler_size < sizeof(BeamInstr));
-#endif
-
-        sys_memcpy(buff, call_error_handler_template, call_error_handler_size);
-#ifdef WIN32
-        DWORD old;
-        if (!VirtualProtect(buff,
-                            call_error_handler_size,
-                            PAGE_EXECUTE_READWRITE,
-                            &old)) {
-            erts_exit(-2, "Could not change memory protection");
-        }
-#endif
     }
 
     void beamasm_delete_assembler(void *instance) {

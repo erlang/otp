@@ -1127,10 +1127,9 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-BeamInstr*
-call_error_handler(Process* p, BeamInstr* I, Eterm* reg, Eterm func)
+Export*
+call_error_handler(Process* p, ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
 {
-    ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
     Eterm* hp;
     Export* ep;
     int arity;
@@ -1173,7 +1172,7 @@ call_error_handler(Process* p, BeamInstr* I, Eterm* reg, Eterm func)
     reg[0] = mfa->module;
     reg[1] = mfa->function;
     reg[2] = args;
-    return ep->addressv[erts_active_code_ix()];
+    return ep;
 }
 
 static Export*
@@ -1288,7 +1287,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
     }
 }
 
-BeamInstr*
+Export*
 apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 {
     int arity;
@@ -1314,7 +1313,7 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 	reg[0] = module;
 	reg[1] = function;
 	reg[2] = args;
-	return 0;
+	return NULL;
     }
 
     while (1) {
@@ -1382,15 +1381,13 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 
     if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) goto error;
-    } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
-	save_calls(p, ep);
     }
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
-    return ep->addressv[erts_active_code_ix()];
+    return ep;
 }
 
-BeamInstr*
+Export*
 fixed_apply(Process* p, Eterm* reg, Uint arity,
 	    BeamInstr *I, Uint stack_offset)
 {
@@ -1411,7 +1408,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
         reg[1] = function;
         reg[2] = bad_args;
 
-        return 0;
+        return NULL;
     }
 
     if (is_not_atom(module)) goto error;
@@ -1431,12 +1428,11 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL)
 	    goto error;
-    } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
-	save_calls(p, ep);
     }
+
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
-    return ep->addressv[erts_active_code_ix()];
+    return ep;
 }
 
 int
@@ -1534,10 +1530,11 @@ erts_hibernate(Process* c_p, Eterm* reg)
 }
 
 BeamInstr*
-call_fun(Process* p,		/* Current process. */
-	 int arity,		/* Number of arguments for Fun. */
-	 Eterm* reg,		/* Contents of registers. */
-	 Eterm args)		/* THE_NON_VALUE or pre-built list of arguments. */
+call_fun(Process* p,    /* Current process. */
+         int arity,     /* Number of arguments for Fun. */
+         Eterm* reg,    /* Contents of registers. */
+         Eterm args,    /* THE_NON_VALUE or pre-built list of arguments. */
+         Export **epp)  /* Export entry, if any. */
 {
     Eterm fun = reg[arity];
     Eterm hdr;
@@ -1656,7 +1653,8 @@ call_fun(Process* p,		/* Current process. */
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-		return ep->addressv[code_ix];
+                *epp = ep;
+                return ep->addressv[code_ix];
 	    }
 	}
     } else if (is_export_header(hdr)) {
@@ -1667,8 +1665,9 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = ep->info.mfa.arity;
 
 	if (arity == actual_arity) {
-	    DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
-	    return ep->addressv[erts_active_code_ix()];
+            DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
+            *epp = ep;
+            return ep->addressv[erts_active_code_ix()];
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.
@@ -1698,7 +1697,7 @@ call_fun(Process* p,		/* Current process. */
 }
 
 BeamInstr*
-apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
+apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg, Export **epp)
 {
     int arity;
     Eterm tmp;
@@ -1725,7 +1724,7 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 	return NULL;
     }
     reg[arity] = fun;
-    return call_fun(p, arity, reg, args);
+    return call_fun(p, arity, reg, args, epp);
 }
 
 ErlFunThing*
