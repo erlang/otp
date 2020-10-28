@@ -91,6 +91,8 @@ real_requests()->
      async,
      pipeline,
      persistent_connection,
+     async_body_fun_pipeline,
+     async_body_fun_persistent_connection,
      save_to_file,
      save_to_file_async,
      headers_as_is,
@@ -295,13 +297,15 @@ init_ssl(Config) ->
     [{ssl_conf, Conf} | Config].
 
 %%--------------------------------------------------------------------
-init_per_testcase(pipeline, Config) ->
+init_per_testcase(Case, Config) when Case == pipeline;
+				     Case == async_body_fun_pipeline ->
     inets:start(httpc, [{profile, pipeline}]),
     httpc:set_options([{pipeline_timeout, 50000},
                        {max_pipeline_length, 3}], pipeline),
 
     Config;
-init_per_testcase(persistent_connection, Config) ->
+init_per_testcase(Case, Config) when Case == persistent_connection;
+				     Case == async_body_fun_persistent_connection ->
     inets:start(httpc, [{profile, persistent}]),
     httpc:set_options([{keep_alive_timeout, 50000},
 		       {max_keep_alive_length, 3}], persistent),
@@ -319,9 +323,11 @@ init_per_testcase(Case, Config) when Case == post;
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(pipeline, _Config) ->
+end_per_testcase(Case, _Config) when Case == pipeline;
+				     Case == async_body_fun_pipeline ->
     inets:stop(httpc, pipeline);
-end_per_testcase(persistent_connection, _Config) ->
+end_per_testcase(Case, _Config) when Case == persistent_connection;
+				     Case == async_body_fun_persistent_connection ->
     inets:stop(httpc, persistent);
 end_per_testcase(Case, Config)
   when Case == server_closing_connection_on_first_response;
@@ -510,7 +516,7 @@ pipeline(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], pipeline),
 
-    %% Make sure pipeline session is registerd
+    %% Make sure pipeline session is registered
     ct:sleep(4000),
     keep_alive_requests(Request, pipeline).
 
@@ -520,7 +526,7 @@ persistent_connection(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], persistent),
 
-    %% Make sure pipeline session is registerd
+    %% Make sure persistent session is registered
     ct:sleep(4000),
     keep_alive_requests(Request, persistent).
 
@@ -1576,6 +1582,57 @@ chunkify_receive() ->
         1000 ->
             ct:fail("Timeout: did not recive packet")
     end.
+
+%%--------------------------------------------------------------------
+
+async_body_fun_pipeline() ->
+	[{doc, "Test async chunkify_fun for pipelined connections (ERL-1321)"}].
+async_body_fun_pipeline(Config) ->
+	async_body_fun_common(Config, pipeline).
+
+async_body_fun_persistent_connection() ->
+	[{doc, "Test async chunkify_fun for persistent connections (ERL-1321)"}].
+async_body_fun_persistent_connection(Config) ->
+	async_body_fun_common(Config, persistent).
+
+% cribbed from post/1, pipeline/1 and persistent/1
+async_body_fun_common(Config, Profile) when is_list(Config) ->
+    URLG = url(group_name(Config), "/dummy.html", Config),
+    {ok, _} = httpc:request(get, {URLG, []}, [], [], Profile),
+
+    %% Make sure pipeline/persistent session is registered
+    ct:sleep(4000),
+
+    CGI = case test_server:os_type() of
+              {win32, _} ->
+                  "/cgi-bin/cgi_echo.exe";
+              _ ->
+                  "/cgi-bin/cgi_echo"
+          end,
+    URL = url(group_name(Config), CGI, Config),
+    Ref = make_ref(),
+    Self = self(),
+    Fun = fun (start) -> Self ! {Ref,self()}, {ok,<<>>,loop}; (loop) -> receive {Ref,eof} -> eof; {Ref,Body} -> {ok,Body,loop} end end,
+    Acc = start,
+    Request = {URL, [{"content-length","100"}], "text/plain", {Fun, Acc}},
+    {ok, RequestId} =
+        httpc:request(post, Request, [], [{sync, false}], Profile),
+    BodyPid = receive {Ref,Pid} -> Pid end,
+    BodyLoop = fun
+        (_F, 0) ->
+            BodyPid ! {Ref,eof};
+        (F, C) ->
+            BodyPid ! {Ref,<<"1">>},
+            F(F, C - 1)
+    end,
+    BodyLoop(BodyLoop, 100),
+    receive
+        {http, {RequestId, {{_, 200, _}, _, _}}} ->
+            ok;
+        {http, Msg} ->
+            ct:fail(Msg)
+    end.
+
 %%--------------------------------------------------------------------
 stream_fun_server_close() ->
     [{doc, "Test that an error msg is received when using a receiver fun as stream target"}].
