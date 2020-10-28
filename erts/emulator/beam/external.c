@@ -883,6 +883,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     edep->heap_size = -1;
     edep->flags = 0;
     edep->dep = dep;
+    edep->mld = dep->mld;
     edep->connection_id = conn_id;
     edep->data->ext_endp = ext+size;
     edep->data->binp = binp;

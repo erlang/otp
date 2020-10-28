@@ -144,6 +144,7 @@ typedef struct erl_dist_external {
     Uint32 flags;
     Uint32 connection_id;
     ErtsDistExternalData *data;
+    struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
 

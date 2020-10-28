@@ -544,9 +544,10 @@ erts_mon_link_dist_create(Eterm nodename)
     return mld;
 }
 
-void
-erts_mon_link_dist_destroy__(ErtsMonLnkDist *mld)
+static void
+mon_link_dist_destroy(void* vmld)
 {
+    ErtsMonLnkDist *mld = (ErtsMonLnkDist*)vmld;
     ERTS_ML_ASSERT(erts_atomic_read_nob(&mld->refc) == 0);
     ERTS_ML_ASSERT(!mld->alive);
     ERTS_ML_ASSERT(!mld->links);
@@ -556,6 +557,21 @@ erts_mon_link_dist_destroy__(ErtsMonLnkDist *mld)
 
     erts_mtx_destroy(&mld->mtx);
     erts_free(ERTS_ALC_T_ML_DIST, mld);
+}
+
+void
+erts_schedule_mon_link_dist_destruction__(ErtsMonLnkDist *mld)
+{
+    ERTS_ML_ASSERT(erts_atomic_read_nob(&mld->refc) == 0);
+    ERTS_ML_ASSERT(!mld->alive);
+    ERTS_ML_ASSERT(!mld->links);
+    ERTS_ML_ASSERT(!mld->monitors);
+    ERTS_ML_ASSERT(!mld->orig_name_monitors);
+
+    erts_schedule_thr_prgr_later_cleanup_op(mon_link_dist_destroy,
+                                            mld,
+                                            &mld->cleanup_lop,
+                                            sizeof(ErtsMonLnkDist));
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\

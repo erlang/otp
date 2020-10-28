@@ -2017,21 +2017,27 @@ int erts_net_message(Port *prt,
                                                  from, to);
             ASSERT(ldp->a.other.item == to);
             ASSERT(eq(ldp->b.other.item, from));
-            code = erts_link_dist_insert(&ldp->a, dep->mld);
-            ASSERT(code);
 
-            if (erts_proc_sig_send_link(NULL, to, &ldp->b))
-                break; /* done */
+            code = erts_link_dist_insert(&ldp->a, ede.mld);
+            if (erts_proc_sig_send_link(NULL, to, &ldp->b)) {
+                if (!code) {
+                    /* Race: connection already down => send link exit */
+                    erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+                                                 am_noconnection, NIL);
+                }
+                break; /* Done */
+            }
 
             /* Failed to send signal; cleanup and reply noproc... */
-
-            code = erts_link_dist_delete(&ldp->a);
-            ASSERT(code);
+            if (code) {
+                code = erts_link_dist_delete(&ldp->a);
+                ASSERT(code);
+            }
             erts_link_release_both(ldp);
         }
 
         code = erts_dsig_prepare(&ctx, dep, NULL, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
-        if (code == ERTS_DSIG_PREP_CONNECTED) {
+        if (code == ERTS_DSIG_PREP_CONNECTED && ctx.connection_id == conn_id) {
             code = erts_dsig_send_exit(&ctx, to, from, am_noproc);
             ASSERT(code == ERTS_DSIG_SEND_OK);
         }
@@ -2106,8 +2112,11 @@ int erts_net_message(Port *prt,
             mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC,
                                       ref, watcher, pid, name);
 
-            code = erts_monitor_dist_insert(&mdp->origin, dep->mld);
-            ASSERT(code); (void)code;
+            if (!erts_monitor_dist_insert(&mdp->origin, ede.mld)) {
+                /* Race: connection down => do nothing */
+                erts_monitor_release_both(mdp);
+                break;
+            }
 
             if (erts_proc_sig_send_monitor(&mdp->target, pid))
                 break; /* done */
@@ -2121,7 +2130,7 @@ int erts_net_message(Port *prt,
         }
 
         code = erts_dsig_prepare(&ctx, dep, NULL, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
-        if (code == ERTS_DSIG_PREP_CONNECTED) {
+        if (code == ERTS_DSIG_PREP_CONNECTED && ctx.connection_id == conn_id) {
             code = erts_dsig_send_m_exit(&ctx, watcher, watched, ref, am_noproc);
             ASSERT(code == ERTS_DSIG_SEND_OK);
         }
@@ -2157,16 +2166,17 @@ int erts_net_message(Port *prt,
             ;
         }
         else if (is_atom(watched)) {
-            ErtsMonLnkDist *mld = dep->mld;
             ErtsMonitor *mon;
 
-            erts_mtx_lock(&mld->mtx);
-
-            mon = erts_monitor_tree_lookup(mld->orig_name_monitors, ref);
-            if (mon)
-                erts_monitor_tree_delete(&mld->orig_name_monitors, mon);
-
-            erts_mtx_unlock(&mld->mtx);
+            erts_mtx_lock(&ede.mld->mtx);
+            if (ede.mld->alive) {
+                mon = erts_monitor_tree_lookup(ede.mld->orig_name_monitors, ref);
+                if (mon)
+                    erts_monitor_tree_delete(&ede.mld->orig_name_monitors, mon);
+            }
+            else
+                mon = NULL;
+            erts_mtx_unlock(&ede.mld->mtx);
 
             if (mon)
                 erts_proc_sig_send_demonitor(mon);
@@ -2555,7 +2565,8 @@ int erts_net_message(Port *prt,
             }
             code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                      ERTS_DSP_NO_LOCK, 1, 1, 0);
-            if (code == ERTS_DSIG_PREP_CONNECTED) {
+            if (code == ERTS_DSIG_PREP_CONNECTED
+                && ctx.connection_id == conn_id) {
                 code = erts_dsig_send_spawn_reply(&ctx,
                                                   tuple[2],
                                                   tuple[3],
@@ -2573,6 +2584,7 @@ int erts_net_message(Port *prt,
         so.group_leader = gl;
         so.mfa = mfa;
         so.dist_entry = dep;
+        so.mld = ede.mld;
         so.edep = edep;
         so.ede_hfrag = ede_hfrag;
         so.token = token;
@@ -2599,6 +2611,7 @@ int erts_net_message(Port *prt,
         ErtsLinkData *ldp;
         ErtsLink *lnk;
         int monitor;
+        int link_inserted;
         Eterm ref, result, flags_term, parent, token;
         Uint flags;
 
@@ -2620,6 +2633,7 @@ int erts_net_message(Port *prt,
 
         ldp = NULL;
         lnk = NULL;
+        link_inserted = 0;
         monitor = 0;
 
         ref = tuple[2];
@@ -2661,15 +2675,11 @@ int erts_net_message(Port *prt,
 
             if (flags & ERTS_DIST_SPAWN_FLAG_LINK) {
                 /* Successful spawn-link... */
-                int code;
-            
                 ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
                                        result, parent);
                 ASSERT(ldp->a.other.item == parent);
                 ASSERT(eq(ldp->b.other.item, result));
-                code = erts_link_dist_insert(&ldp->a, dep->mld);
-                ASSERT(code); (void)code;
-
+                link_inserted = erts_link_dist_insert(&ldp->a, ede.mld);
                 lnk = &ldp->b;
             }
         }
@@ -2683,7 +2693,8 @@ int erts_net_message(Port *prt,
             if (monitor) {
                 code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                          ERTS_DSP_NO_LOCK, 1, 1, 0);
-                if (code == ERTS_DSIG_PREP_CONNECTED) {
+                if (code == ERTS_DSIG_PREP_CONNECTED
+                    && ctx.connection_id == conn_id) {
                     code = erts_dsig_send_demonitor(&ctx, parent,
                                                     result, ref);
                     ASSERT(code == ERTS_DSIG_SEND_OK);
@@ -2691,9 +2702,10 @@ int erts_net_message(Port *prt,
             }
 
             if (lnk) {
-                
-                code = erts_link_dist_delete(&ldp->a);
-                ASSERT(code);
+                if (link_inserted) {
+                    code = erts_link_dist_delete(&ldp->a);
+                    ASSERT(code);
+                }
                 erts_link_release_both(ldp);
             }
 
@@ -2706,6 +2718,10 @@ int erts_net_message(Port *prt,
                                                        ref,
                                                        dep->mld);
             }
+        }
+        else if (lnk && !link_inserted) {
+            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+                                         am_noconnection, NIL);
         }
 
         break;
