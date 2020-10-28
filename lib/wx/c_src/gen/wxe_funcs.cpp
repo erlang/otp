@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31773,8 +31773,14 @@ case wxLogNull_destroy: { // wxLogNull::destroy
    delete This;}
  break;
 }
+
 case wxTaskBarIcon_new: { // wxTaskBarIcon::wxTaskBarIcon
- wxTaskBarIcon * Result = new EwxTaskBarIcon();
+ EwxTaskBarIcon * Result = new EwxTaskBarIcon();
+ Result->port = Ecmd.port;
+ if ( * (int*) bp) {
+   Result->createPopupMenu = *(int *) bp;
+ }
+
  newPtr((void *) Result, 1, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTaskBarIcon");
  break;

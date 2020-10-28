@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 
 -module(wxTaskBarIcon).
 -include("wxe.hrl").
--export([destroy/1,new/0,popupMenu/2,removeIcon/1,setIcon/2,setIcon/3]).
+-export([ new/0, new/1 ,destroy/1,popupMenu/2,removeIcon/1,setIcon/2,setIcon/3]).
 
 %% inherited exports
 -export([connect/2,connect/3,disconnect/1,disconnect/2,disconnect/3,parent_class/1]).
@@ -39,12 +39,25 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxTaskBarIcon() :: wx:wx_object().
+
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconwxtaskbaricon">external documentation</a>.
 -spec new() -> wxTaskBarIcon().
 new() ->
-  wxe_util:construct(?wxTaskBarIcon_new,
-  <<>>).
+  wxe_util:construct(?wxTaskBarIcon_new, <<0:32>>).
 
+
+%% @doc Creates a TaskBarIcon with a callback function for CreatePopupMenu:
+%%   <pre>Callback() -> term()</pre>
+%%
+%% See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconwxtaskbaricon">external documentation</a>.
+-spec new(function()) -> wxTaskBarIcon().
+new(F) when is_function(F)->
+  Fun = fun([_]) -> 
+    #wx_ref{type=wxMenu,ref=ThisRef} = F(),
+    <<ThisRef:32/?UI>>
+  end,
+  BinFun = <<(wxe_util:get_cbId(Fun)):32/?UI, 0:32>>,
+  wxe_util:construct(?wxTaskBarIcon_new, BinFun).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconpopupmenu">external documentation</a>.
 -spec popupMenu(This, Menu) -> boolean() when
 	This::wxTaskBarIcon(), Menu::wxMenu:wxMenu().
