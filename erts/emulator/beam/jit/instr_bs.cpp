@@ -1060,8 +1060,9 @@ void BeamModuleAssembler::emit_i_bs_get_integer_64(const ArgVal &Ctx,
 
     if (flags & BSF_SIGNED) {
         a.sar(ARG2, imm(SMALL_BITS - 1));
+        a.add(ARG2, imm(1));
         a.cmp(ARG2, imm(1));
-        a.jl(next);
+        a.jbe(next);
     } else {
         a.shr(ARG2, imm(SMALL_BITS - 1));
         a.jz(next);
