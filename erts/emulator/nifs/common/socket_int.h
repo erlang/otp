@@ -397,6 +397,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define MKA(E,S)            enif_make_atom((E), (S))
 #define MKBIN(E,B)          enif_make_binary((E), (B))
 #define MKI(E,I)            enif_make_int((E), (I))
+#define MKI64(E,I)          enif_make_int64((E), (I))
 #define MKL(E,L)            enif_make_long((E), (L))
 #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L))
 #define MKL1(E,T)           enif_make_list1((E), (T))

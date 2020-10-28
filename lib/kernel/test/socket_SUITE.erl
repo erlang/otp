@@ -97,6 +97,12 @@
          api_b_sendmsg_and_recvmsg_tcpL/1,
          api_b_sendmsg_and_recvmsg_seqpL/1,
          api_b_sendmsg_and_recvmsg_sctp4/1,
+         api_b_sendmsg_iov_dgram_inet/1,
+         api_b_sendmsg_iov_dgram_inet6/1,
+         api_b_sendmsg_iov_dgram_local/1,
+         api_b_sendmsg_iov_stream_inet/1,
+         api_b_sendmsg_iov_stream_inet6/1,
+         api_b_sendmsg_iov_stream_local/1,
 
          %% *** API socket from FD ***
          api_ffd_open_wod_and_info_udp4/1,
@@ -845,7 +851,13 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_tcp4,
      api_b_sendmsg_and_recvmsg_tcpL,
      api_b_sendmsg_and_recvmsg_seqpL,
-     api_b_sendmsg_and_recvmsg_sctp4
+     api_b_sendmsg_and_recvmsg_sctp4,
+     api_b_sendmsg_iov_dgram_inet,
+     api_b_sendmsg_iov_dgram_inet6,
+     api_b_sendmsg_iov_dgram_local,
+     api_b_sendmsg_iov_stream_inet,
+     api_b_sendmsg_iov_stream_inet6,
+     api_b_sendmsg_iov_stream_local
     ].
 
 api_from_fd_cases() ->
@@ -4106,6 +4118,109 @@ api_b_send_and_recv_sctp(_InitState) ->
 
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           API IOV                                   %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_b_sendmsg_iov_dgram_inet(Config) when is_list(Config) ->
+    api_b_sendmsg_iov_dgram(inet).
+%%
+api_b_sendmsg_iov_dgram_inet6(Config) when is_list(Config) ->
+    has_support_ipv6(),
+    api_b_sendmsg_iov_dgram(inet6).
+%%
+api_b_sendmsg_iov_dgram_local(Config) when is_list(Config) ->
+    has_support_unix_domain_socket(),
+    api_b_sendmsg_iov_dgram(local).
+
+api_b_sendmsg_iov_stream_inet(Config) when is_list(Config) ->
+    api_b_sendmsg_iov_stream(inet).
+%%
+api_b_sendmsg_iov_stream_inet6(Config) when is_list(Config) ->
+    has_support_ipv6(),
+    api_b_sendmsg_iov_stream(inet6).
+%%
+api_b_sendmsg_iov_stream_local(Config) when is_list(Config) ->
+    has_support_unix_domain_socket(),
+    api_b_sendmsg_iov_stream(local).
+
+
+api_b_sendmsg_iov_dgram(Domain) ->
+    ?TT(?SECS(5)),
+    #{iov_max := IOVMax} = socket:info(),
+    IOV =
+        lists:map(
+          fun (N) -> <<(rand:uniform(N) - 1)>> end,
+          lists:duplicate(IOVMax, 256)),
+    IOVTooLarge = IOV ++ IOV,
+    Data = erlang:iolist_to_binary(IOV),
+    {ok, Sa} = socket:open(Domain, dgram),
+    try
+        {ok, Sb} = socket:open(Domain, dgram),
+        try
+            ok = socket:bind(Sa, which_local_socket_addr(Domain)),
+            ok = socket:bind(Sb, which_local_socket_addr(Domain)),
+            {ok, Aa} = socket:sockname(Sa),
+            {ok, Ab} = socket:sockname(Sb),
+            %%
+            ok = socket:sendmsg(Sa, #{addr => Ab, iov => IOV}),
+            {ok, {Aa, Data}} = socket:recvfrom(Sb),
+            %%
+            {error, {invalid, _}} =
+                socket:sendmsg(Sb, #{addr => Aa, iov => IOVTooLarge}),
+            ok
+        after
+            socket:close(Sb)
+        end
+    after
+        socket:close(Sa)
+    end.
+
+api_b_sendmsg_iov_stream(Domain) ->
+    ?TT(?SECS(5)),
+    #{iov_max := IOVMax} = socket:info(),
+    IOV =
+        lists:map(
+          fun (N) -> <<(rand:uniform(N) - 1)>> end,
+          lists:duplicate(IOVMax, 256)),
+    IOVTooLarge = IOV ++ IOV,
+    Data = erlang:iolist_to_binary(IOV),
+    DataTooLarge = erlang:iolist_to_binary(IOVTooLarge),
+    {ok, Sa} = socket:open(Domain, stream),
+    try
+        {ok, Sb} = socket:open(Domain, stream),
+        try
+            ok = socket:bind(Sb, which_local_socket_addr(Domain)),
+            {ok, Ab} = socket:sockname(Sb),
+            ok = socket:listen(Sb),
+            ok = socket:connect(Sa, Ab),
+            {ok, Aa} = socket:sockname(Sa),
+            {ok, Ab} = socket:peername(Sa),
+            {ok, Sc} = socket:accept(Sb),
+            try
+                {ok, Ab} = socket:sockname(Sc),
+                {ok, Aa} = socket:peername(Sc),
+                %%
+                ok = socket:sendmsg(Sa, #{iov => IOV}),
+                {ok, Data} =
+                    socket:recv(Sc, byte_size(Data)),
+                ok = socket:sendmsg(Sc, #{iov => IOVTooLarge}),
+                {ok, DataTooLarge} =
+                    socket:recv(Sa, byte_size(DataTooLarge)),
+                ok
+            after
+                socket:close(Sc)
+            end
+        after
+            socket:close(Sb)
+        end
+    after
+        socket:close(Sa)
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
