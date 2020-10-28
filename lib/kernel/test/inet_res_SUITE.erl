@@ -239,7 +239,7 @@ ns_start(ZoneDir, PrivDir, NS, P) ->
                "~n      ~p", [Error]),
 	    ns_printlog(filename:join([PrivDir,ZoneDir,"named.log"])),
 	    throw(Error);
-	_ ->
+	_X ->
             ?P("ns_start -> retry"),
 	    ns_start(ZoneDir, PrivDir, NS, P)
     end.
@@ -304,7 +304,7 @@ ns_collect(P, Buf) ->
     receive
 	{P,{data,{eol,L}}} ->
 	    Line = lists:flatten(lists:reverse(Buf, [L])),
-	    io:format("~s", [Line]),
+	    ?P("collected: ~s", [Line]),
 	    Line;
 	{P,{data,{noeol,L}}} ->
 	    ns_collect(P, [L|Buf]);
@@ -313,7 +313,7 @@ ns_collect(P, Buf) ->
     end.
 
 ns_printlog(Fname) ->
-    io:format("Name server log file contents:~n", []),
+    ?P("Name server log file contents:"),
     case file:read_file(Fname) of
 	{ok,Bin} ->
 	    io:format("~s~n", [Bin]);
@@ -446,11 +446,13 @@ proxy_wait({proxy,Pid,_,_}) ->
 
 proxy_ns({proxy,_,_,ProxyNS}) -> ProxyNS.
 
+
 %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Lookup an A record with different API functions.
 basic(Config) when is_list(Config) ->
+    ?P("begin"),
     NS = ns(Config),
     Name = "ns.otptest",
     NameC = caseflip(Name),
@@ -458,7 +460,7 @@ basic(Config) when is_list(Config) ->
     %%
     %% nslookup
     {ok,Msg1} = inet_res:nslookup(Name, in, a, [NS]),
-    io:format("~p~n", [Msg1]),
+    ?P("nslookup with ~p: ~n      ~p", [Name, Msg1]),
     [RR1] = inet_dns:msg(Msg1, anlist),
     IP = inet_dns:rr(RR1, data),
     Bin1 = inet_dns:encode(Msg1),
@@ -466,7 +468,7 @@ basic(Config) when is_list(Config) ->
     {ok,Msg1} = inet_dns:decode(Bin1),
     %% Now with scrambled case
     {ok,Msg1b} = inet_res:nslookup(NameC, in, a, [NS]),
-    io:format("~p~n", [Msg1b]),
+    ?P("nslookup with ~p: ~n      ~p", [NameC, Msg1b]),
     [RR1b] = inet_dns:msg(Msg1b, anlist),
     IP = inet_dns:rr(RR1b, data),
     Bin1b = inet_dns:encode(Msg1b),
@@ -478,7 +480,7 @@ basic(Config) when is_list(Config) ->
     %%
     %% resolve
     {ok,Msg2} = inet_res:resolve(Name, in, a, [{nameservers,[NS]},verbose]),
-    io:format("~p~n", [Msg2]),
+    ?P("resolve with ~p: ~n      ~p", [Name, Msg2]),
     [RR2] = inet_dns:msg(Msg2, anlist),
     IP = inet_dns:rr(RR2, data),
     Bin2 = inet_dns:encode(Msg2),
@@ -486,7 +488,7 @@ basic(Config) when is_list(Config) ->
     {ok,Msg2} = inet_dns:decode(Bin2),
     %% Now with scrambled case
     {ok,Msg2b} = inet_res:resolve(NameC, in, a, [{nameservers,[NS]},verbose]),
-    io:format("~p~n", [Msg2b]),
+    ?P("resolve with ~p: ~n      ~p", [NameC, Msg2b]),
     [RR2b] = inet_dns:msg(Msg2b, anlist),
     IP = inet_dns:rr(RR2b, data),
     Bin2b = inet_dns:encode(Msg2b),
@@ -497,22 +499,28 @@ basic(Config) when is_list(Config) ->
 	  =:= tolower(inet_dns:rr(RR2b, domain))),
     %%
     %% lookup
+    ?P("lookup"),
     [IP] = inet_res:lookup(Name, in, a, [{nameservers,[NS]},verbose]),
     [IP] = inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose]),
     %%
     %% gethostbyname
+    ?P("gethostbyname"),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(Name),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(NameC),
     %%
     %% getbyname
+    ?P("getbyname"),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(Name, a),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(NameC, a),
+    ?P("end"),
     ok.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Lookup different records using resolve/2..4.
 resolve(Config) when is_list(Config) ->
+    ?P("begin"),
     Class = in,
     NS = ns(Config),
     Domain = "otptest",
@@ -551,16 +559,25 @@ resolve(Config) when is_list(Config) ->
 	   {hinfo,{"BEAM","Erlang/OTP"}}],
 	  undefined}
 	],
+    ?P("resolve -> with edns 0"),
     resolve(Class, [{edns,0},{nameservers,[NS]}], L),
+    ?P("resolve -> with edns false"),
     resolve(Class, [{edns,false},{nameservers,[NS]}], L),
     %% Again, to see ensure the cache does not mess things up
+    ?P("resolve -> with edns 0 (again)"),
     resolve(Class, [{edns,0},{nameservers,[NS]}], L),
-    resolve(Class, [{edns,false},{nameservers,[NS]}], L).
+    ?P("resolve -> with edns false (again)"),
+    Res = resolve(Class, [{edns,false},{nameservers,[NS]}], L),
+    ?P("resolve -> done: ~p", [Res]),
+    Res.
 
 resolve(_Class, _Opts, []) ->
+    ?P("resolve -> done"),
     ok;
 resolve(Class, Opts, [{Type,Nm,Answers,Authority}=Q|Qs]) ->
-    io:format("Query: ~p~nOptions: ~p~n", [Q,Opts]),
+    ?P("resolve ->"
+       "~n      Query:   ~p"
+       "~n      Options: ~p", [Q, Opts]),
     {Name,NameC} =
 	case erlang:phash2(Q) band 4 of
 	    0 ->
@@ -582,10 +599,13 @@ resolve(Class, Opts, [{Type,Nm,Answers,Authority}=Q|Qs]) ->
 	    true ->
 		undefined
 	end,
+    ?P("resolve -> resolve with ~p", [Name]),
     {ok,Msg} = inet_res:resolve(Name, Class, Type, Opts),
     check_msg(Class, Type, Msg, AnList, NsList),
+    ?P("resolve -> resolve with ~p", [NameC]),
     {ok,MsgC} = inet_res:resolve(NameC, Class, Type, Opts),
     check_msg(Class, Type, MsgC, AnList, NsList),
+    ?P("resolve -> next"),
     resolve(Class, Opts, Qs).
 
 
@@ -611,7 +631,9 @@ normalize_answer(Answer) ->
     Answer.
 
 check_msg(Class, Type, Msg, AnList, NsList) ->
-    io:format("check_msg Type: ~p, Msg: ~p~n.", [Type,Msg]),
+    ?P("check_msg ->"
+       "~n      Type: ~p"
+       "~n      Msg:  ~p", [Type,Msg]),
     case {normalize_answers(
 	    [begin
 		 Class = inet_dns:rr(RR, class),
@@ -639,10 +661,12 @@ check_msg(Class, Type, Msg, AnList, NsList) ->
     {ok,Msg} = inet_dns:decode(Buf),
     ok.
 
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Test EDNS and truncation.
 edns0(Config) when is_list(Config) ->
+    ?P("begin"),
     NS = ns(Config),
     Domain = "otptest",
     Filler = "-5678901234567890123456789012345678.",
@@ -677,28 +701,34 @@ edns0(Config) when is_list(Config) ->
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg2, anlist), in, mx)),
     Buf2 = inet_dns:encode(Msg2),
     {ok,Msg2} = inet_dns:decode(Buf2),
-    case [RR || RR <- inet_dns:msg(Msg2, arlist),
-		inet_dns:rr(RR, type) =:= opt] of
-	[OptRR] ->
-	    io:format("~p~n", [inet_dns:rr(OptRR)]),
-	    ok;
-	[] ->
-	    case os:type() of
-		{unix,sunos} ->
-		    case os:version() of
-			{M,V,_} when M < 5;  M == 5, V =< 8 ->
-			    %% In our test park only known platform
-			    %% with an DNS resolver that cannot do
-			    %% EDNS0.
-			    {comment,"No EDNS0"}
-		    end
-	    end
-    end.
+    Res = case [RR || RR <- inet_dns:msg(Msg2, arlist),
+                      inet_dns:rr(RR, type) =:= opt] of
+              [OptRR] ->
+                  ?P("opt rr:"
+                     "~n      ~p", [inet_dns:rr(OptRR)]),
+                  ok;
+              [] ->
+                  case os:type() of
+                      {unix,sunos} ->
+                          case os:version() of
+                              {M,V,_} when M < 5;  M == 5, V =< 8 ->
+                                  %% In our test park only known platform
+                                  %% with an DNS resolver that cannot do
+                                  %% EDNS0.
+                                  {comment,"No EDNS0"}
+                          end;
+                      _ ->
+                          ok
+                  end
+          end,
+    ?P("done"),
+    Res.
 
 inet_res_filter(Anlist, Class, Type) ->
     [inet_dns:rr(RR, data) || RR <- Anlist,
 			      inet_dns:rr(RR, type) =:= Type,
 			      inet_dns:rr(RR, class) =:= Class].
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -730,6 +760,7 @@ txt_record(Config) when is_list(Config) ->
 
 %% Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them.
 files_monitor(Config) when is_list(Config) ->
+    ?P("begin"),
     Search = inet_db:res_option(search),
     HostsFile = inet_db:res_option(hosts_file),
     ResolvConf = inet_db:res_option(resolv_conf),
@@ -740,12 +771,14 @@ files_monitor(Config) when is_list(Config) ->
         inet_db:res_option(resolv_conf, ResolvConf),
 	inet_db:res_option(hosts_file, HostsFile),
 	inet_db:res_option(inet6, Inet6)
-    end.
+    end,
+    ?P("done"),
+    ok.
 
 do_files_monitor(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     {ok,Hostname} = inet:gethostname(),
-    io:format("Hostname = ~p.~n", [Hostname]),
+    ?P("Hostname: ~p", [Hostname]),
     FQDN =
 	case inet_db:res_option(domain) of
 	    "" ->
@@ -753,7 +786,7 @@ do_files_monitor(Config) ->
 	    _ ->
 		Hostname++"."++inet_db:res_option(domain)
 	end,
-    io:format("FQDN = ~p.~n", [FQDN]),
+    ?P("FQDN: ~p", [FQDN]),
     HostsFile = filename:join(Dir, "files_monitor_hosts"),
     ResolvConf = filename:join(Dir, "files_monitor_resolv.conf"),
     ok = inet_db:res_option(resolv_conf, ResolvConf),
