@@ -90,7 +90,12 @@
 start() ->
     Wx = wx:new(),
     Frame = wx:batch(fun() -> create_frame(Wx) end),
+    Taskbar = wxTaskBarIcon:new(fun() ->
+        create_dummy_menu()
+    end),
     wxWindow:show(Frame),
+    Path = filename:dirname(code:which(?MODULE)),
+    wxTaskBarIcon:setIcon(Taskbar, wxIcon:new(filename:join(Path,"sample.xpm"), [{type, ?wxBITMAP_TYPE_XPM}])),
     
     State = #state{},
     

@@ -74,7 +74,7 @@ void * wxe_ps_init2() {
    if( !is_packaged_app() ) {
       // Undocumented function (but no documented way of doing this exists)
       int res = erl_drv_getenv("WX_APP_TITLE", app_title_buf, &app_len);
-      if (res >= 0) {
+      if (res == 0) {
           app_title = app_title_buf;
       } else {
           app_title = NULL;

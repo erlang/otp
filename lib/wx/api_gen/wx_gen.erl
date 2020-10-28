@@ -1434,7 +1434,7 @@ extract_def([#xmlElement{name=name,content=[#xmlText{value=Name}]}|R], _N, Skip)
 extract_def([#xmlElement{name=param}|_],Name,_) ->
     throw(Name);
 extract_def([#xmlElement{name=initializer,content=Cs}|_R],N,Skip) ->
-    Val0 = extract_def2(Cs),
+    Val0 = string:strip(strip_comment(extract_def2(Cs))),
     case Val0 of
 	"0x" ++ Val1 -> {N, list_to_integer(Val1, 16)};
 	_ ->
@@ -1458,7 +1458,7 @@ extract_def(_,N,_) ->
     throw(N).
 
 extract_def2([#xmlText{value=Val}|R]) ->
-    string:strip(strip_comment(Val)) ++ extract_def2(R);
+    string:strip(Val) ++ extract_def2(R);
 extract_def2([#xmlElement{content=Cs}|R]) ->
     extract_def2(Cs) ++ extract_def2(R);
 extract_def2([]) -> [].
