@@ -193,7 +193,7 @@ diff(Orig, File) ->
     end.
 
 emacs_version_ok(AcceptVer) ->
-    VersionLine = os:cmd("emacs --version | head -1"),
+    VersionLine = os:cmd("emacs --version | head -n 1"),
     io:format("~s~n", [VersionLine]),
     case VersionLine of
         "GNU Emacs " ++ Ver ->
