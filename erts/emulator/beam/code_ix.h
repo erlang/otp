@@ -92,19 +92,19 @@ typedef struct ErtsCodeInfo_ {
 
 /* Get the code associated with a ErtsCodeInfo ptr. */
 ERTS_GLB_INLINE
-BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci);
+const BeamInstr *erts_codeinfo_to_code(const ErtsCodeInfo *ci);
 
 /* Get the ErtsCodeInfo for from a code ptr. */
 ERTS_GLB_INLINE
-ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I);
+const ErtsCodeInfo *erts_code_to_codeinfo(const BeamInstr *I);
 
 /* Get the code associated with a ErtsCodeMFA ptr. */
 ERTS_GLB_INLINE
-BeamInstr *erts_codemfa_to_code(ErtsCodeMFA *mfa);
+const BeamInstr *erts_codemfa_to_code(const ErtsCodeMFA *mfa);
 
 /* Get the ErtsCodeMFA from a code ptr. */
 ERTS_GLB_INLINE
-ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I);
+const ErtsCodeMFA *erts_code_to_codemfa(const BeamInstr *I);
 
 /* Called once at emulator initialization.
  */
@@ -186,17 +186,17 @@ extern erts_atomic32_t the_staging_code_index;
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE
-BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci)
+const BeamInstr *erts_codeinfo_to_code(const ErtsCodeInfo *ci)
 {
 #ifndef BEAMASM
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
 #endif
     ASSERT_MFA(&ci->mfa);
-    return (BeamInstr*)(ci + 1);
+    return (const BeamInstr*)(ci + 1);
 }
 
 ERTS_GLB_INLINE
-ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I)
+const ErtsCodeInfo *erts_code_to_codeinfo(const BeamInstr *I)
 {
     ErtsCodeInfo *ci = ((ErtsCodeInfo *)(((char *)(I)) - sizeof(ErtsCodeInfo)));
 #ifndef BEAMASM
@@ -207,17 +207,20 @@ ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I)
 }
 
 ERTS_GLB_INLINE
-BeamInstr *erts_codemfa_to_code(ErtsCodeMFA *mfa)
+const BeamInstr *erts_codemfa_to_code(const ErtsCodeMFA *mfa)
 {
     ASSERT_MFA(mfa);
-    return (BeamInstr*)(mfa + 1);
+    return (const BeamInstr*)(mfa + 1);
 }
 
 ERTS_GLB_INLINE
-ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I)
+const ErtsCodeMFA *erts_code_to_codemfa(const BeamInstr *I)
 {
-    ErtsCodeMFA *mfa = ((ErtsCodeMFA *)(((char *)(I)) - sizeof(ErtsCodeMFA)));
+    const ErtsCodeMFA *mfa;
+
+    mfa = ((const ErtsCodeMFA *)(((const char *)(I)) - sizeof(ErtsCodeMFA)));
     ASSERT_MFA(mfa);
+
     return mfa;
 }
 

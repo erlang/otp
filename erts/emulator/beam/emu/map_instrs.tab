@@ -69,8 +69,8 @@ i_get_map_element_hash(Fail, Src, Key, Hx, Dst) {
 }
 
 i_get_map_elements(Fail, Src, N) {
+    const BeamInstr *fs;
     Eterm map;
-    BeamInstr *fs;
     Uint sz, n;
 
     map = $Src;

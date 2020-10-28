@@ -866,17 +866,20 @@ BIF_RETTYPE loaded_0(BIF_ALIST_0)
 BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
     Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
+    const BeamCodeHeader *hdr;
 
     if (!modp || !modp->on_load) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (modp->on_load->code_hdr) {
-        BeamInstr *on_load = modp->on_load->code_hdr->on_load_function_ptr;
+    hdr = modp->on_load->code_hdr;
+
+    if (hdr) {
+        BeamInstr *on_load = (BeamInstr *)hdr->on_load_function_ptr;
         BIF_TRAP_CODE_PTR(BIF_P, on_load, 0);
-    } else {
-        BIF_ERROR(BIF_P, BADARG);
     }
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
@@ -960,7 +963,15 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                 erts_activate_export_trampoline(ep, code_ix);
             }
 	}
-	modp->curr.code_hdr->on_load_function_ptr = NULL;
+
+        {
+            BeamCodeHeader *code_hdr_rw;
+
+            code_hdr_rw = erts_writable_code_ptr(&modp->curr,
+                                                 modp->curr.code_hdr);
+
+            code_hdr_rw->on_load_function_ptr = NULL;
+        }
 
 	mods[0].modp = modp;
 	mods[0].module = BIF_ARG_1;
@@ -2198,12 +2209,22 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		erts_fun_purge_complete(purge_state.funs, purge_state.fe_ix);
 		beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
 				    code_ix);
-		literals = modp->old.code_hdr->literal_area;
-		modp->old.code_hdr->literal_area = NULL;
+
+                {
+                    BeamCodeHeader *code_hdr_rw;
+
+                    code_hdr_rw = erts_writable_code_ptr(&modp->old,
+                                                         modp->old.code_hdr);
+
+                    literals = code_hdr_rw->literal_area;
+                    code_hdr_rw->literal_area = NULL;
+                }
+
 #ifndef BEAMASM
 		erts_free(ERTS_ALC_T_CODE, (void *) code);
 #else
-        beamasm_purge_module(modp->old.native_module);
+                beamasm_purge_module(modp->old.native_module_exec,
+                                     modp->old.native_module_rw);
 #endif
 		modp->old.code_hdr = NULL;
 		modp->old.code_length = 0;

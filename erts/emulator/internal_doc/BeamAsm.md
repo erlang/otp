@@ -197,6 +197,34 @@ is updated. So if CALL\_NIF\_EARLY is set, then it is updated to be
 genericBPTramp + 0x10. If BP is set, it is updated to genericBPTramp + 0x20
 and the combination makes it to be genericBPTramp + 0x30.
 
+### Updating code
+
+Because many environments enforce [W^X] it's not always possible to write
+directly to the code pages. Because of this we map code twice: once with an
+executable page and once with a writable page. Since they're backed by the
+same memory, writes to the writable page appear magically in the executable
+one.
+
+The `erts_writable_code_ptr` function can be used to get writable pointers,
+given a module instance:
+
+    for (i = 0; i < n; ++i) {
+        ErtsCodeInfo* ci;
+        void *w_ptr;
+
+        w_ptr = erts_writable_code_ptr(&modp->curr,
+                                       code_hdr->functions[i]);
+        ci = (ErtsCodeInfo*)w_ptr;
+
+        uninstall_breakpoint(ci);
+        consolidate_bp_data(modp, ci, 1);
+        ASSERT(ci->u.gen_bp == NULL);
+    }
+
+Without the module instance there's no reliable way to figure out the writable
+address of a code page, and we rely on _address space layout randomization_
+(ASLR) to make it difficult to guess.
+
 ### Export tracing
 
 Unlike the interpreter, we don't execute code inside export entries as that's

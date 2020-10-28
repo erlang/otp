@@ -5115,7 +5115,7 @@ void erts_init_bif(void)
 
 static ERTS_INLINE void
 schedule(Process *c_p, Process *dirty_shadow_proc,
-	 ErtsCodeMFA *mfa, BeamInstr *pc,
+	 const ErtsCodeMFA *mfa, const BeamInstr *pc,
 	 ErtsBifFunc dfunc, void *ifunc,
 	 Eterm module, Eterm function,
 	 int argc, Eterm *argv)
@@ -5181,8 +5181,8 @@ static BIF_RETTYPE call_bif(Process *c_p, Eterm *reg, BeamInstr *I);
 BIF_RETTYPE
 erts_schedule_bif(Process *proc,
 		  Eterm *argv,
-		  BeamInstr *i,
-		  ErtsCodeMFA *mfa,
+		  const BeamInstr *i,
+		  const ErtsCodeMFA *mfa,
 		  ErtsBifFunc bif,
 		  ErtsSchedType sched_type,
 		  Eterm mod,
@@ -5289,7 +5289,10 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
 
 
 int
-erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *reg)
+erts_call_dirty_bif(ErtsSchedulerData *esdp,
+                    Process *c_p,
+                    const BeamInstr *I,
+                    Eterm *reg)
 {
     BIF_RETTYPE result;
     int exiting;

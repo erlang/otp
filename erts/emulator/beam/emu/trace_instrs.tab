@@ -35,19 +35,33 @@ return_trace() {
 
 i_generic_breakpoint() {
     BeamInstr real_I;
+    ErtsCodeInfo *ci;
+
     HEAVY_SWAPOUT;
-    real_I = erts_generic_breakpoint(c_p, erts_code_to_codeinfo(I), reg);
+
+    ci = (ErtsCodeInfo*)erts_code_to_codeinfo(I);
+    real_I = erts_generic_breakpoint(c_p, ci, reg);
+
     HEAVY_SWAPIN;
+
     ASSERT(VALID_INSTR(real_I));
     Goto(real_I);
     //| -no_next
 }
 
 i_return_time_trace() {
-    ErtsCodeInfo *cinfo = (!is_CP(E[1]) ? NULL : erts_code_to_codeinfo((BeamInstr*)E[1]));
+    const ErtsCodeInfo *cinfo;
+
+    if (is_CP(E[1])) {
+        cinfo = erts_code_to_codeinfo((BeamInstr*)E[1]);
+    } else {
+        cinfo = NULL;
+    }
+
     SWAPOUT;
     erts_trace_time_return(c_p, cinfo);
     SWAPIN;
+
     E += 2;
     $RETURN();
     Goto(*I);

@@ -50,7 +50,7 @@ typedef struct export_
      * in weird crashes.
      *
      * See `BeamAssembler::emit_setup_export_call` for details. */
-    void* addressv[ERTS_ADDRESSV_SIZE];
+    const void* addressv[ERTS_ADDRESSV_SIZE];
 
     /* Index into bif_table[], or -1 if not a BIF. */
     int bif_number;

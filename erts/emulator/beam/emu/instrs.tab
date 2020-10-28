@@ -254,7 +254,7 @@ HANDLE_APPLY_ERROR() {
 
 i_apply() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY(NULL, 0, next);
 
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
@@ -263,7 +263,7 @@ i_apply() {
 
 i_apply_last(Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY(I, $Deallocate, next);
     $deallocate($Deallocate);
     $DISPATCH_ABS(next);
@@ -271,7 +271,7 @@ i_apply_last(Deallocate) {
 
 i_apply_only() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY(I, 0, next);
     $DISPATCH_ABS(next);
 }
@@ -295,7 +295,7 @@ FIXED_APPLY(Arity, I, Deallocate, Next) {
 
 apply(Arity) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $FIXED_APPLY($Arity, NULL, 0, next);
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     $DISPATCH_ABS(next);
@@ -303,7 +303,7 @@ apply(Arity) {
 
 apply_last(Arity, Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $FIXED_APPLY($Arity, I, $Deallocate, next);
     $deallocate($Deallocate);
     $DISPATCH_ABS(next);
@@ -327,7 +327,7 @@ HANDLE_APPLY_FUN_ERROR() {
 
 i_apply_fun() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY_FUN(next);
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     $DISPATCH_FUN(next);
@@ -335,7 +335,7 @@ i_apply_fun() {
 
 i_apply_fun_last(Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY_FUN(next);
     $deallocate($Deallocate);
     $DISPATCH_FUN(next);
@@ -343,7 +343,7 @@ i_apply_fun_last(Deallocate) {
 
 i_apply_fun_only() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY_FUN(next);
     $DISPATCH_FUN(next);
 }
@@ -363,7 +363,7 @@ CALL_FUN(Fun, Next) {
 
 i_call_fun(Fun) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $CALL_FUN($Fun, next);
     $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     $DISPATCH_FUN(next);
@@ -371,7 +371,7 @@ i_call_fun(Fun) {
 
 i_call_fun_last(Fun, Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $CALL_FUN($Fun, next);
     $deallocate($Deallocate);
     $DISPATCH_FUN(next);

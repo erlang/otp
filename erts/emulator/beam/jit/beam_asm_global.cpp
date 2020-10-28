@@ -43,7 +43,8 @@ const std::map<BeamGlobalAssembler::GlobalLabels, std::string>
                 DECL_LABEL_NAME) PROCESS_MAIN_LABELS(DECL_LABEL_NAME)};
 #undef DECL_LABEL_NAME
 
-BeamGlobalAssembler::BeamGlobalAssembler() : BeamAssembler("beam_asm_global") {
+BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
+        : BeamAssembler("beam_asm_global") {
     labels.reserve(emitPtrs.size());
 
     /* These labels are defined up-front so global functions can refer to each
@@ -62,7 +63,13 @@ BeamGlobalAssembler::BeamGlobalAssembler() : BeamAssembler("beam_asm_global") {
         (this->*val.second)();
     }
 
-    _codegen();
+    {
+        /* We have no need of the module pointers as we use `getCode(...)` for
+         * everything. */
+        const void *_ignored_exec;
+        void *_ignored_rw;
+        _codegen(allocator, &_ignored_exec, &_ignored_rw);
+    }
 
 #ifndef WIN32
     std::vector<AsmRange> ranges;

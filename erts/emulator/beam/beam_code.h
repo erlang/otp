@@ -57,14 +57,14 @@ typedef struct beam_code_header {
     /*
      * The attributes retrieved by Mod:module_info(attributes).
      */
-    byte* attr_ptr;
+    const byte *attr_ptr;
     UWord attr_size;
     UWord attr_size_on_heap;
 
     /*
      * The compilation information retrieved by Mod:module_info(compile).
      */
-    byte* compile_ptr;
+    const byte *compile_ptr;
     UWord compile_size;
     UWord compile_size_on_heap;
 
@@ -76,17 +76,17 @@ typedef struct beam_code_header {
     /*
      * Pointer to the on_load function (or NULL if none).
      */
-    BeamInstr* on_load_function_ptr;
+    const BeamInstr *on_load_function_ptr;
 
     /*
      * Pointer to the line table (or NULL if none).
      */
-    BeamCodeLineTab* line_table;
+    const BeamCodeLineTab *line_table;
 
     /*
      * Pointer to the module MD5 sum (16 bytes)
      */
-    byte* md5_ptr;
+    const byte *md5_ptr;
 
     /*
      * Start of function pointer table.  This table contains pointers to
@@ -96,15 +96,14 @@ typedef struct beam_code_header {
      * The actual loaded code (for the first function) start just beyond
      * this table.
      */
-    ErtsCodeInfo* functions[1];
-
+    const ErtsCodeInfo *functions[1];
 } BeamCodeHeader;
 
 /*
  * Layout of the line table.
  */
 struct BeamCodeLineTab_ {
-    Eterm* fname_ptr;
+    const Eterm* fname_ptr;
     int loc_size;
     union {
         Uint16* p2;
@@ -116,8 +115,8 @@ struct BeamCodeLineTab_ {
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
 
-int erts_is_module_native(BeamCodeHeader* code);
-int erts_is_function_native(ErtsCodeInfo*);
+int erts_is_module_native(const BeamCodeHeader* code);
+int erts_is_function_native(const ErtsCodeInfo* ci);
 
 struct ErtsLiteralArea_;
 void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);

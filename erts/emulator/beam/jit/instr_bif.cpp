@@ -643,7 +643,7 @@ void BeamModuleAssembler::emit_send() {
 
 static Eterm call_bif(Process *c_p, Eterm *reg, BeamInstr *I, ErtsBifFunc vbf) {
     ErlHeapFragment *live_hf_end;
-    ErtsCodeMFA *codemfa;
+    const ErtsCodeMFA *codemfa;
     Eterm result;
 
     codemfa = erts_code_to_codemfa(I);
@@ -695,7 +695,7 @@ static Eterm call_nif(Process *c_p,
     Eterm nif_bif_result;
     Eterm bif_nif_arity;
     ErlHeapFragment *live_hf_end;
-    ErtsCodeMFA *codemfa;
+    const ErtsCodeMFA *codemfa;
 
     codemfa = erts_code_to_codemfa(I);
 

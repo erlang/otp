@@ -55,7 +55,7 @@ static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
 static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
 static void dump_binaries(fmtfn_t to, void *to_arg, Binary* root);
 void erts_print_base64(fmtfn_t to, void *to_arg,
-                       byte* src, Uint size);
+                       const byte* src, Uint size);
 static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
 static void mark_literal(Eterm* ptr);
 static void init_literal_areas(void);
@@ -430,7 +430,8 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
 static void
 print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
-    ErtsCodeMFA* cmfa = erts_find_function_from_pc(x);
+    const ErtsCodeMFA* cmfa = erts_find_function_from_pc(x);
+
     if (cmfa == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");

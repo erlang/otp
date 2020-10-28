@@ -32,7 +32,7 @@ extern Export *erts_convert_time_unit_trap;
 
 #define BIF_P A__p
 
-#define BIF_ALIST Process* A__p, Eterm* BIF__ARGS, BeamInstr *A__I
+#define BIF_ALIST Process* A__p, Eterm* BIF__ARGS, const BeamInstr *A__I
 #define BIF_CALL_ARGS A__p, BIF__ARGS, A__I
 
 #define BIF_ALIST_0 BIF_ALIST
@@ -539,13 +539,13 @@ do {					\
 } while (0)
 
 int erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p,
-			BeamInstr *I, Eterm *reg);
+                        const BeamInstr *I, Eterm *reg);
 
 BIF_RETTYPE
 erts_schedule_bif(Process *proc,
 		  Eterm *argv,
-		  BeamInstr *i,
-		  ErtsCodeMFA *mfa,
+		  const BeamInstr *i,
+		  const ErtsCodeMFA *mfa,
 		  ErtsBifFunc dbf,
 		  ErtsSchedType sched_type,
 		  Eterm mod,
@@ -555,8 +555,8 @@ erts_schedule_bif(Process *proc,
 ERTS_GLB_INLINE BIF_RETTYPE
 erts_reschedule_bif(Process *proc,
 		    Eterm *argv,
-		    BeamInstr *i,
-		    ErtsCodeMFA *mfa,
+		    const BeamInstr *i,
+		    const ErtsCodeMFA *mfa,
 		    ErtsBifFunc dbf,
 		    ErtsSchedType sched_type);
 
@@ -565,8 +565,8 @@ erts_reschedule_bif(Process *proc,
 ERTS_GLB_INLINE BIF_RETTYPE
 erts_reschedule_bif(Process *proc,
 		    Eterm *argv,
-		    BeamInstr *i,
-		    ErtsCodeMFA *mfa,
+		    const BeamInstr *i,
+		    const ErtsCodeMFA *mfa,
 		    ErtsBifFunc dbf,
 		    ErtsSchedType sched_type)
 {

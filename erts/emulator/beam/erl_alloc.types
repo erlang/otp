@@ -305,10 +305,9 @@ type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
 type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
 type	EXPORT		LONG_LIVED	CODE		export_entry
+type	CATCHES		LONG_LIVED	CODE		catches
 
-+if beamasm
-type	CODE		EXEC		CODE		code
-+else
++ifnot beamasm
 type	CODE		LONG_LIVED	CODE		code
 +endif
 

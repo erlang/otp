@@ -462,7 +462,7 @@ nif_bif.head() {
     Eterm bif_nif_arity;
     BifFunction vbf;
     ErlHeapFragment *live_hf_end;
-    ErtsCodeMFA *codemfa;
+    const ErtsCodeMFA *codemfa;
 }
 
 nif_bif.call_nif(Func, NifMod, DirtyFunc) {
@@ -628,7 +628,7 @@ i_load_nif() {
         Eterm result;
 
         PRE_BIF_SWAPOUT(c_p);
-        result = erts_load_nif(c_p, I, r(0), r(1));
+        result = erts_load_nif(c_p, (BeamInstr*)I, r(0), r(1));
         erts_release_code_write_permission();
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;

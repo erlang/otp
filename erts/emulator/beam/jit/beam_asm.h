@@ -37,39 +37,47 @@ extern int erts_jit_perf_support;
 void beamasm_init(void);
 void beamasm_init_perf(void);
 void *beamasm_new_assembler(Eterm mod, int num_labels, int num_functions);
-void *beamasm_codegen(void *ba,
-                      BeamCodeHeader *in_hdr,
-                      BeamCodeHeader **out_hdr);
+void beamasm_codegen(void *ba,
+                     const void **native_module_exec,
+                     void **native_module_rw,
+                     const BeamCodeHeader *in_hdr,
+                     const BeamCodeHeader **out_exec_hdr,
+                     BeamCodeHeader **out_rw_hdr);
+void beamasm_purge_module(const void *native_module_exec,
+                          void *native_module_rw);
 void beamasm_delete_assembler(void *ba);
-void beamasm_purge_module(void *native_module);
 int beamasm_emit(void *ba, unsigned specific_op, BeamOp *op);
-BeamInstr *beamasm_get_code(void *ba, int label);
-byte *beamasm_get_rodata(void *ba, char *label);
+const BeamInstr *beamasm_get_code(void *ba, int label);
+const byte *beamasm_get_rodata(void *ba, char *label);
 void beamasm_embed_rodata(void *ba,
-                          char *labelName,
+                          const char *labelName,
                           const char *buff,
                           size_t size);
 void beamasm_embed_bss(void *ba, char *labelName, size_t size);
-unsigned int beamasm_get_catches(void *ba);
-void beamasm_patch_import(void *ba, int index, BeamInstr import);
-void beamasm_patch_literal(void *instance, int index, Eterm lit);
-void beamasm_patch_lambda(void *ba, int index, BeamInstr fe);
-void beamasm_patch_strings(void *instance, byte *strtab);
-void beamasm_emit_call_bif(ErtsCodeInfo *info,
+
+unsigned int beamasm_patch_catches(void *ba, char *rw_base);
+void beamasm_patch_import(void *ba, char *rw_base, int index, BeamInstr import);
+void beamasm_patch_literal(void *ba, char *rw_base, int index, Eterm lit);
+void beamasm_patch_lambda(void *ba, char *rw_base, int index, BeamInstr fe);
+void beamasm_patch_strings(void *ba, char *rw_base, const byte *strtab);
+
+void beamasm_emit_call_bif(const ErtsCodeInfo *info,
                            Eterm (*bif)(BIF_ALIST),
                            char *buff,
                            unsigned buff_len);
-void beamasm_emit_call_nif(ErtsCodeInfo *info,
+void beamasm_emit_call_nif(const ErtsCodeInfo *info,
                            void *normal_fptr,
                            void *lib,
                            void *dirty_fptr,
                            char *buff,
                            unsigned buff_len);
-Uint beamasm_get_header(void *ba, BeamCodeHeader **);
+Uint beamasm_get_header(void *ba, const BeamCodeHeader **);
 BeamInstr *beamasm_get_on_load(void *ba);
 
-/* HACK: these are here for line information. */
+/* Return the module base, for line information. */
 char *beamasm_get_base(void *instance);
+
+/* Return current instruction offset, for line information. */
 size_t beamasm_get_offset(void *ba);
 
 // Number of bytes emitted at first label in order to support trace and nif load
@@ -124,7 +132,7 @@ enum erts_asm_bp_flag {
 
 static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci,
                                         enum erts_asm_bp_flag flag) {
-    BeamInstr volatile *code_ptr = erts_codeinfo_to_code(ci);
+    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci);
     BeamInstr code = *code_ptr;
     byte *codebytes = (byte *)&code;
     Uint32 *code32 = (Uint32 *)(codebytes + 4);
@@ -143,7 +151,7 @@ static inline enum erts_asm_bp_flag erts_asm_bp_get_flags(ErtsCodeInfo *ci) {
 
 static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci,
                                           enum erts_asm_bp_flag flag) {
-    BeamInstr volatile *code_ptr = erts_codeinfo_to_code(ci);
+    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci);
     BeamInstr code = *code_ptr;
     byte *codebytes = (byte *)&code;
     Uint32 *code32 = (Uint32 *)(codebytes + 4);

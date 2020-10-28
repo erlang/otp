@@ -44,9 +44,9 @@ Uint erts_dump_num_lit_areas;
     by setting end=start in active code_ix */
 #define RANGE_END(R) ((BeamInstr*)erts_atomic_read_nob(&(R)->end))
 
-static Range* find_range(BeamInstr* pc);
+static Range* find_range(const BeamInstr* pc);
 static void lookup_loc(FunctionInfo* fi, const void* pc,
-		       BeamCodeHeader*, int idx);
+                       const BeamCodeHeader*, int idx);
 
 /*
  * The following variables keep a sorted list of address ranges for
@@ -240,13 +240,13 @@ erts_ranges_sz(void)
  */
 
 void
-erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
+erts_lookup_function_info(FunctionInfo* fi, const BeamInstr *pc, int full_info)
 {
-    ErtsCodeInfo** low;
-    ErtsCodeInfo** high;
-    ErtsCodeInfo** mid;
+    const ErtsCodeInfo * const *low;
+    const ErtsCodeInfo * const *high;
+    const ErtsCodeInfo * const *mid;
+    const BeamCodeHeader *hdr;
     Range* rp;
-    BeamCodeHeader* hdr;
 
     fi->mfa = NULL;
     fi->needed = 5;
@@ -266,7 +266,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 	} else if (pc < (BeamInstr*)(mid[1])) {
 	    fi->mfa = &mid[0]->mfa;
 	    if (full_info) {
-		ErtsCodeInfo** fp = hdr->functions;
+		const ErtsCodeInfo * const *fp = hdr->functions;
 		int idx = mid - fp;
 		lookup_loc(fi, pc, hdr, idx);
 	    }
@@ -283,7 +283,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
  * the function.
  */
 void
-erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa)
+erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa)
 {
     fi->mfa = mfa;
     fi->needed = 5;
@@ -293,8 +293,8 @@ erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa)
 /*
  * Returns a pointer to {module, function, arity}, or NULL if not found.
  */
-ErtsCodeMFA*
-erts_find_function_from_pc(BeamInstr* pc)
+const ErtsCodeMFA*
+erts_find_function_from_pc(const BeamInstr* pc)
 {
     FunctionInfo fi;
 
@@ -303,7 +303,7 @@ erts_find_function_from_pc(BeamInstr* pc)
 }
 
 static Range*
-find_range(BeamInstr* pc)
+find_range(const BeamInstr* pc)
 {
     ErtsCodeIndex active = erts_active_code_ix();
     Range* low = r[active].modules;
@@ -327,9 +327,9 @@ find_range(BeamInstr* pc)
 
 static void
 lookup_loc(FunctionInfo* fi, const void* pc,
-           BeamCodeHeader* code_hdr, int idx)
+           const BeamCodeHeader* code_hdr, int idx)
 {
-    BeamCodeLineTab* lt = code_hdr->line_table;
+    const BeamCodeLineTab *lt = code_hdr->line_table;
     const void** low;
     const void** high;
     const void** mid;

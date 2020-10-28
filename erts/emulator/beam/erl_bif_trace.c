@@ -1035,9 +1035,9 @@ static int function_is_traced(Process *p,
 			      Uint       *count,           /* out */
 			      Eterm      *call_time)       /* out */
 {
+    const ErtsCodeInfo *ci;
     Export e;
     Export* ep;
-    ErtsCodeInfo *ci;
 
     /* First look for an export entry */
     e.info.mfa.module = mfa[0];

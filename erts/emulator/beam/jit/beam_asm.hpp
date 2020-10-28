@@ -302,7 +302,9 @@ public:
     }
 
 protected:
-    void *_codegen() {
+    void _codegen(JitAllocator *allocator,
+                  const void **executable_ptr,
+                  void **writable_ptr) {
         Error err = code.flatten();
         ERTS_ASSERT(!err && "Could not flatten code");
         err = code.resolveUnresolvedLinks();
@@ -317,31 +319,21 @@ protected:
         }
 #endif
 
-        /* The code needs to be 16 byte aligned, so we allocate a little extra
-         * and then align it. It has to be 16 bytes aligned in order to the
-         * code align functions to work. If we ever use a 32 byte align,
-         * we need to align the code to 32-bytes etc etc. */
-        void *module =
-                (void *)erts_alloc(ERTS_ALC_T_CODE, code.codeSize() + 16);
-        uint64_t aligned_module =
-                (uint64_t)module + (16 - ((uint64_t)module) % 16);
-        ERTS_ASSERT((uint64_t)aligned_module % 16 == 0);
-        code.relocateToBase(aligned_module);
-        code.copyFlattenedData((void *)aligned_module,
+        err = allocator->alloc(const_cast<void **>(executable_ptr),
+                               writable_ptr,
+                               code.codeSize() + 16);
+
+        if (err == ErrorCode::kErrorTooManyHandles) {
+            ERTS_ASSERT(!"Failed to allocate module code: "
+                         "out of file descriptors");
+        } else if (err) {
+            ERTS_ASSERT("Failed to allocate module code");
+        }
+
+        code.relocateToBase((uint64_t)*executable_ptr);
+        code.copyFlattenedData(*writable_ptr,
                                code.codeSize(),
                                CodeHolder::kCopyPadSectionBuffer);
-
-#ifdef WIN32
-        DWORD old;
-        if (!VirtualProtect((void *)aligned_module,
-                            code.codeSize(),
-                            PAGE_EXECUTE_READWRITE,
-                            &old)) {
-            erts_exit(-2, "Could not change memory protection");
-        }
-#endif
-
-        return module;
     }
 
     void *getCode(Label label) {
@@ -922,8 +914,8 @@ protected:
     }
 
 public:
-    void embed_rodata(char *labelName, const char *buff, size_t size);
-    void embed_bss(char *labelName, size_t size);
+    void embed_rodata(const char *labelName, const char *buff, size_t size);
+    void embed_bss(const char *labelName, size_t size);
 
     void embed_zeros(size_t size);
 
@@ -956,8 +948,8 @@ public:
     }
 
     struct AsmRange {
-        BeamInstr *start;
-        BeamInstr *stop;
+        const BeamInstr *start;
+        const BeamInstr *stop;
         std::string name;
 
         /* Not used yet */
@@ -1078,7 +1070,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     void emit_handle_error();
 
 public:
-    BeamGlobalAssembler();
+    BeamGlobalAssembler(JitAllocator *allocator);
 
     void (*get(GlobalLabels lbl))(void) {
         ASSERT(ptrs[lbl]);
@@ -1173,8 +1165,16 @@ public:
 
     bool emit(unsigned op, const std::vector<ArgVal> &args);
 
-    void *codegen(BeamCodeHeader *in_hdr, BeamCodeHeader **out_hdr);
-    void *codegen(void);
+    void codegen(JitAllocator *allocator,
+                 const void **executable_ptr,
+                 void **writable_ptr,
+                 const BeamCodeHeader *in_hdr,
+                 const BeamCodeHeader **out_exec_hdr,
+                 BeamCodeHeader **out_rw_hdr);
+
+    void codegen(JitAllocator *allocator,
+                 const void **executable_ptr,
+                 void **writable_ptr);
 
     void codegen(char *buff, size_t len);
 
@@ -1197,11 +1197,11 @@ public:
     BeamCodeHeader *getCodeHeader(void);
     BeamInstr *getOnLoad(void);
 
-    unsigned patchCatches();
-    void patchLambda(unsigned index, BeamInstr I);
-    void patchLiteral(unsigned index, Eterm lit);
-    void patchImport(unsigned index, BeamInstr I);
-    void patchStrings(byte *string);
+    unsigned patchCatches(char *rw_base);
+    void patchLambda(char *rw_base, unsigned index, BeamInstr I);
+    void patchLiteral(char *rw_base, unsigned index, Eterm lit);
+    void patchImport(char *rw_base, unsigned index, BeamInstr I);
+    void patchStrings(char *rw_base, const byte *string);
 
 protected:
     /* Helpers */

@@ -352,7 +352,7 @@ int beam_load_finish_emit(LoaderState *stp) {
 
         line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
         if (stp->beam.lines.name_count) {
-            sys_memcpy(line_tab->fname_ptr, stp->beam.lines.names,
+            sys_memcpy((void*)line_tab->fname_ptr, stp->beam.lines.names,
                        stp->beam.lines.name_count*sizeof(Eterm));
         }
 
@@ -697,7 +697,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
             Export *ep = erts_export_put(entry->module,
                                          entry->name,
                                          entry->arity);
-            BeamInstr *addr = ep->addressv[erts_staging_code_ix()];
+            const BeamInstr *addr = ep->addressv[erts_staging_code_ix()];
 
             if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
                 erts_exit(ERTS_ABORT_EXIT,

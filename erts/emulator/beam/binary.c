@@ -88,7 +88,7 @@ Eterm erts_build_proc_bin(ErlOffHeap* ohp, Eterm* hp, Binary* bptr)
  * Create a brand new binary from scratch.
  */
 Eterm
-new_binary(Process *p, byte *buf, Uint len)
+new_binary(Process *p, const byte *buf, Uint len)
 {
     Binary* bptr;
 

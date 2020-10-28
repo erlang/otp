@@ -405,8 +405,7 @@ static enum tmo_ret wait_timeout(Process *c_p,
                  * location because there are no living x registers in
                  * a receive statement.
                  */
-                BeamInstr **pi = (BeamInstr **)c_p->def_arg_reg;
-                *pi = next;
+                c_p->def_arg_reg[0] = (Eterm)next;
             } else { /* Wrong time */
                 erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
                 c_p->freason = EXC_TIMEOUT_VALUE;

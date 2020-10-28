@@ -55,6 +55,8 @@ BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */
 BeamInstr *beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
 BeamInstr *beam_return_time_trace; /* OpCode(i_return_time_trace) */
 
+static JitAllocator *jit_allocator;
+
 static BeamGlobalAssembler *bga;
 static BeamModuleAssembler *bma;
 static CpuInfo cpuinfo;
@@ -70,7 +72,7 @@ static void beamasm_init_gdb_jit_info(void);
  * however since they won't go through export entries.
  */
 static void install_bifs(void) {
-    typedef Eterm (*bif_func_type)(Process *, Eterm *, BeamInstr *);
+    typedef Eterm (*bif_func_type)(Process *, Eterm *, const BeamInstr *);
     int i;
 
     ASSERT(beam_export_trampoline != NULL);
@@ -103,6 +105,47 @@ static void install_bifs(void) {
                               entry->arity,
                               (bif_func_type)entry->f);
     }
+}
+
+static JitAllocator *pick_allocator() {
+    void *test_ro, *test_rw;
+    Error err;
+
+    /* Default to allocating pages that are both writable and executable, if at
+     * all possible. This is disabled in debug builds to help catch errors
+     * where we write to the executable region. */
+#ifndef DEBUG
+    static JitAllocator single_allocator;
+
+    err = single_allocator.alloc(&test_ro, &test_rw, 1);
+    single_allocator.release(test_ro);
+
+    if (err == ErrorCode::kErrorOk) {
+        return &single_allocator;
+    }
+#endif
+
+    /* Our platform most likely disallows directly writable+executable pages,
+     * try dual-mapping instead
+     *
+     * `blockSize` is analogous to "carrier size," and we pick something much
+     * larger than the default since dual-mapping implies having one file
+     * descriptor per block on most platforms. We don't want to eat up one fd
+     * for every 64KB. */
+    static JitAllocator::CreateParams dual_params =
+        { .options = JitAllocator::kOptionUseDualMapping,
+          .blockSize = 8 << 20 };
+    static JitAllocator dual_allocator(&dual_params);
+
+    err = dual_allocator.alloc(&test_ro, &test_rw, 1);
+    dual_allocator.release(test_ro);
+
+    if (err == ErrorCode::kErrorOk) {
+        return &dual_allocator;
+    }
+
+    ERTS_ASSERT(!"Cannot allocate executable memory. The JIT will not work,"
+                 "use the interpreter instead");
 }
 
 void beamasm_init() {
@@ -147,7 +190,9 @@ void beamasm_init() {
 
     cpuinfo = CpuInfo::host();
 
-    bga = new BeamGlobalAssembler();
+    jit_allocator = pick_allocator();
+
+    bga = new BeamGlobalAssembler(jit_allocator);
 
     bma = new BeamModuleAssembler(bga, mod_name, 4 + operands.size() * 2);
 
@@ -188,7 +233,15 @@ void beamasm_init() {
         bma->emit(op_normal_exit, {});
 
         bma->emit(op_int_code_end, {});
-        bma->codegen();
+
+        {
+            /* We have no need of the module pointers as we use `getCode(...)`
+             * for everything, and the code will live as long as the emulator
+             * itself. */
+            const void *_ignored_exec;
+            void *_ignored_rw;
+            bma->codegen(jit_allocator, &_ignored_exec, &_ignored_rw);
+        }
 
         beam_apply = bma->getCode(apply_label);
         beam_normal_exit = bma->getCode(normal_exit_label);
@@ -655,7 +708,7 @@ extern "C"
         return ba->emit(specific_op, args);
     }
 
-    void beamasm_emit_call_nif(ErtsCodeInfo *info,
+    void beamasm_emit_call_nif(const ErtsCodeInfo *info,
                                void *normal_fptr,
                                void *lib,
                                void *dirty_fptr,
@@ -679,7 +732,7 @@ extern "C"
         ba.codegen(buff, buff_len);
     }
 
-    void beamasm_emit_call_bif(ErtsCodeInfo *info,
+    void beamasm_emit_call_bif(const ErtsCodeInfo *info,
                                Eterm (*bif)(BIF_ALIST),
                                char *buff,
                                unsigned buff_len) {
@@ -703,22 +756,25 @@ extern "C"
         delete ba;
     }
 
-    void beamasm_purge_module(void *native_module) {
-        erts_free(ERTS_ALC_T_CODE, native_module);
+    void beamasm_purge_module(const void *native_module_exec,
+                              void *native_module_rw) {
+        ASSERT(native_module_exec != native_module_rw);
+
+        jit_allocator->release(const_cast<void *>(native_module_exec));
     }
 
-    BeamInstr *beamasm_get_code(void *instance, int label) {
+    const BeamInstr *beamasm_get_code(void *instance, int label) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        return ba->getCode(label);
+        return reinterpret_cast<const BeamInstr *>(ba->getCode(label));
     }
 
-    byte *beamasm_get_rodata(void *instance, char *label) {
+    const byte *beamasm_get_rodata(void *instance, char *label) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        return ba->getCode(label);
+        return reinterpret_cast<const byte *>(ba->getCode(label));
     }
 
     void beamasm_embed_rodata(void *instance,
-                              char *labelName,
+                              const char *labelName,
                               const char *buff,
                               size_t size) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
@@ -734,15 +790,23 @@ extern "C"
         }
     }
 
-    void *beamasm_codegen(void *instance,
-                          BeamCodeHeader *in_hdr,
-                          BeamCodeHeader **out_hdr) {
+    void beamasm_codegen(void *instance,
+                         const void **native_module_exec,
+                         void **native_module_rw,
+                         const BeamCodeHeader *in_hdr,
+                         const BeamCodeHeader **out_exec_hdr,
+                         BeamCodeHeader **out_rw_hdr) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
 
-        return ba->codegen(in_hdr, out_hdr);
+        ba->codegen(jit_allocator,
+                    native_module_exec,
+                    native_module_rw,
+                    in_hdr,
+                    out_exec_hdr,
+                    out_rw_hdr);
     }
 
-    Uint beamasm_get_header(void *instance, BeamCodeHeader **hdr) {
+    Uint beamasm_get_header(void *instance, const BeamCodeHeader **hdr) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
 
         *hdr = ba->getCodeHeader();
@@ -750,13 +814,11 @@ extern "C"
         return ba->getCodeSize();
     }
 
-    /* HACK: Return the module base, for line information. */
     char *beamasm_get_base(void *instance) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         return (char *)ba->getBaseAddress();
     }
 
-    /* HACK: Return current instruction offset, for line information. */
     size_t beamasm_get_offset(void *instance) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         return ba->getOffset();
@@ -767,24 +829,39 @@ extern "C"
         return ba->getOnLoad();
     }
 
-    unsigned int beamasm_get_catches(void *instance) {
+    unsigned int beamasm_patch_catches(void *instance, char *rw_base) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        return ba->patchCatches();
+        return ba->patchCatches(rw_base);
     }
-    void beamasm_patch_import(void *instance, int index, BeamInstr import) {
+
+    void beamasm_patch_import(void *instance,
+                              char *rw_base,
+                              int index,
+                              BeamInstr import) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        ba->patchImport(index, import);
+        ba->patchImport(rw_base, index, import);
     }
-    void beamasm_patch_literal(void *instance, int index, Eterm lit) {
+
+    void beamasm_patch_literal(void *instance,
+                               char *rw_base,
+                               int index,
+                               Eterm lit) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        ba->patchLiteral(index, lit);
+        ba->patchLiteral(rw_base, index, lit);
     }
-    void beamasm_patch_lambda(void *instance, int index, BeamInstr fe) {
+
+    void beamasm_patch_lambda(void *instance,
+                              char *rw_base,
+                              int index,
+                              BeamInstr fe) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        ba->patchLambda(index, fe);
+        ba->patchLambda(rw_base, index, fe);
     }
-    void beamasm_patch_strings(void *instance, byte *strtab) {
+
+    void beamasm_patch_strings(void *instance,
+                               char *rw_base,
+                               const byte *string_table) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        ba->patchStrings(strtab);
+        ba->patchStrings(rw_base, string_table);
     }
 }

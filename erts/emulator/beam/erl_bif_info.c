@@ -5115,7 +5115,7 @@ BIF_RETTYPE erts_internal_gather_carrier_info_1(BIF_ALIST_1)
 /* Builds a list of all functions in the given module:
  *     [{Name, Arity},...] */
 static Eterm
-functions_in_module(Process* p, BeamCodeHeader* code_hdr)
+functions_in_module(Process* p, const BeamCodeHeader* code_hdr)
 {
     int i;
     Uint num_functions;
@@ -5129,7 +5129,7 @@ functions_in_module(Process* p, BeamCodeHeader* code_hdr)
     hp = HAlloc(p, need);
     hp_end = hp + need;
     for (i = num_functions-1; i >= 0 ; i--) {
-        ErtsCodeInfo* ci = code_hdr->functions[i];
+        const ErtsCodeInfo* ci = code_hdr->functions[i];
         Eterm tuple;
 
         /*
@@ -5189,7 +5189,7 @@ nifs_in_module(Process* p, Eterm module)
 
 /* Returns 'true' if mod has any native compiled functions, otherwise 'false' */
 static Eterm
-has_native(BeamCodeHeader *code_hdr)
+has_native(const BeamCodeHeader *code_hdr)
 {
     Eterm result = am_false;
 #ifdef HIPE
@@ -5203,7 +5203,7 @@ has_native(BeamCodeHeader *code_hdr)
 /* Builds a list of all functions including native addresses.
  *     [{Name,Arity,NativeAddress},...] */
 static Eterm
-native_addresses(Process* p, BeamCodeHeader* code_hdr)
+native_addresses(Process* p, const BeamCodeHeader* code_hdr)
 {
     Eterm result = NIL;
 #ifdef HIPE
@@ -5281,7 +5281,7 @@ exported_from_module(Process* p, ErtsCodeIndex code_ix, Eterm mod)
 
 /* Returns a list of all attributes for the module. */
 static Eterm
-attributes_for_module(Process* p, BeamCodeHeader* code_hdr)
+attributes_for_module(Process* p, const BeamCodeHeader* code_hdr)
 {
     const byte* ext;
     Eterm result = NIL;
@@ -5304,7 +5304,7 @@ attributes_for_module(Process* p, BeamCodeHeader* code_hdr)
 
 /* Returns a list containing compilation information. */
 static Eterm
-compilation_info_for_module(Process* p, BeamCodeHeader* code_hdr)
+compilation_info_for_module(Process* p, const BeamCodeHeader* code_hdr)
 {
     const byte* ext;
     Eterm result = NIL;
@@ -5328,13 +5328,14 @@ compilation_info_for_module(Process* p, BeamCodeHeader* code_hdr)
 
 /* Returns the MD5 checksum for a module */
 static Eterm
-md5_of_module(Process* p, BeamCodeHeader* code_hdr)
+md5_of_module(Process* p, const BeamCodeHeader* code_hdr)
 {
     return new_binary(p, code_hdr->md5_ptr, MD5_SIZE);
 }
 
 static Eterm
-get_module_info(Process* p, ErtsCodeIndex code_ix, BeamCodeHeader* code_hdr,
+get_module_info(Process* p, ErtsCodeIndex code_ix,
+                const BeamCodeHeader* code_hdr,
                 Eterm module, Eterm what)
 {
     if (what == am_module) {
@@ -5365,7 +5366,7 @@ module_info_0(Process* p, Eterm module)
 {
     Module* modp;
     ErtsCodeIndex code_ix = erts_active_code_ix();
-    BeamCodeHeader* code_hdr;
+    const BeamCodeHeader* code_hdr;
     Eterm *hp;
     Eterm list = NIL;
     Eterm tup;
@@ -5408,7 +5409,7 @@ module_info_1(Process* p, Eterm module, Eterm what)
 {
     Module* modp;
     ErtsCodeIndex code_ix = erts_active_code_ix();
-    BeamCodeHeader* code_hdr;
+    const BeamCodeHeader* code_hdr;
 
     if (is_not_atom(module)) {
         return THE_NON_VALUE;

@@ -350,9 +350,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
             PRINT_STRING(res, fn, arg, "<TNV>");
 	    goto L_done;
         } else if (is_CP(obj)) {
-            ErtsCodeMFA* mfa = erts_find_function_from_pc(cp_val(obj));
+            const ErtsCodeMFA* mfa = erts_find_function_from_pc(cp_val(obj));
             if (mfa) {
-                BeamInstr *start = erts_codemfa_to_code(mfa);
+                const BeamInstr *start = erts_codemfa_to_code(mfa);
                 PRINT_STRING(res, fn, arg, "<");
                 PRINT_ATOM(res, fn, arg, mfa->module, dcount);
                 PRINT_STRING(res, fn, arg, ":");

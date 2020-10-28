@@ -178,7 +178,7 @@ struct fun_purge_foreach_args {
 
 static void fun_purge_foreach(ErlFunEntry *fe, struct fun_purge_foreach_args *arg)
 {
-    BeamInstr* addr = fe->address;
+    const BeamInstr* addr = fe->address;
     if (arg->start <= addr && addr < arg->end) {
         fe->pend_purge_address = addr;
         ERTS_THR_WRITE_MEMORY_BARRIER;

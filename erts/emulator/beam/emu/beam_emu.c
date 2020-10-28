@@ -272,7 +272,7 @@ void process_main(ErtsSchedulerData *esdp)
     /*
      * Pointer to next threaded instruction.
      */
-    register BeamInstr *I REG_I = NULL;
+    register const BeamInstr *I REG_I = NULL;
 
     /* Number of reductions left.  This function
      * returns to the scheduler when FCALLS reaches zero.
@@ -301,7 +301,7 @@ void process_main(ErtsSchedulerData *esdp)
 #endif
 
     Uint64 start_time = 0;          /* Monitor long schedule */
-    BeamInstr* start_time_i = NULL;
+    const BeamInstr *start_time_i = NULL;
 
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 

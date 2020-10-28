@@ -696,7 +696,7 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
 }
 
 int
-erts_is_module_native(BeamCodeHeader* code_hdr)
+erts_is_module_native(const BeamCodeHeader* code_hdr)
 {
     Uint i, num_functions;
 
@@ -704,18 +704,19 @@ erts_is_module_native(BeamCodeHeader* code_hdr)
     if (code_hdr != NULL) {
         num_functions = code_hdr->num_functions;
         for (i=0; i<num_functions; i++) {
-            ErtsCodeInfo* ci = code_hdr->functions[i];
+            const ErtsCodeInfo* ci = code_hdr->functions[i];
             if (is_atom(ci->mfa.function)) {
                 return erts_is_function_native(ci);
+            } else {
+                ASSERT(is_nil(ci->mfa.function)); /* ignore BIF stubs */
             }
-            else ASSERT(is_nil(ci->mfa.function)); /* ignore BIF stubs */
         }
     }
     return 0;
 }
 
 int
-erts_is_function_native(ErtsCodeInfo *ci)
+erts_is_function_native(const ErtsCodeInfo *ci)
 {
 #ifdef HIPE
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
