@@ -665,7 +665,7 @@ protected:
             a.mov(RET, Src);
         }
 
-        return x86::qword_ptr(RET, CodeIndex, 3, offsetof(Export, addressv));
+        return x86::qword_ptr(RET, CodeIndex, 3, offsetof(Export, addresses));
     }
 
     /* Discards a continuation pointer, including the frame pointer if

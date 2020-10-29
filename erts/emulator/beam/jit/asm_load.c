@@ -858,7 +858,7 @@ void beam_load_finalize_code(LoaderState *stp,
              * code callable. */
             ep->trampoline.not_loaded.deferred = (BeamInstr)address;
         } else {
-            ep->addressv[staging_ix] = address;
+            ep->addresses[staging_ix] = address;
         }
     }
 

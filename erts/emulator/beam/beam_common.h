@@ -215,7 +215,7 @@ do {						\
 #define DTRACE_GLOBAL_CALL_FROM_EXPORT(p,e)                                                    \
     do {                                                                                       \
         if (DTRACE_ENABLED(global_function_entry)) {                                           \
-            BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addressv[erts_active_code_ix()]); \
+            BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addresses[erts_active_code_ix()]); \
             DTRACE_GLOBAL_CALL((p), erts_code_to_codemfa(fp));          \
         }                                                                                      \
     } while(0)

@@ -1657,7 +1657,7 @@ call_fun(Process* p,    /* Current process. */
 		reg[2] = args;
 		reg[3] = NIL;
                 *epp = ep;
-                return ep->addressv[code_ix];
+                return ep->addresses[code_ix];
 	    }
 	}
     } else if (is_export_header(hdr)) {
@@ -1670,7 +1670,7 @@ call_fun(Process* p,    /* Current process. */
 	if (arity == actual_arity) {
             DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
             *epp = ep;
-            return ep->addressv[erts_active_code_ix()];
+            return ep->addresses[erts_active_code_ix()];
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.

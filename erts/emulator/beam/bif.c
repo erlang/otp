@@ -5031,7 +5031,7 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     ep->info.mfa.arity = a;
 
 #ifdef BEAMASM
-    ep->addressv[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
+    ep->addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
 #endif
 
     ep->trampoline.common.op = BeamOpCodeAddr(op_call_bif_W);

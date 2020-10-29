@@ -1443,7 +1443,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
                 ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
                 ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
-                ep->trampoline.trace.address = (BeamInstr) ep->addressv[code_ix];
+                ep->trampoline.trace.address = (BeamInstr) ep->addresses[code_ix];
             }
 
             erts_set_export_trace(ci, match_prog_set, 0);
@@ -1671,7 +1671,7 @@ uninstall_exp_breakpoints(BpFunctions* f)
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
-            ep->addressv[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
+            ep->addresses[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
         }
     }
 }

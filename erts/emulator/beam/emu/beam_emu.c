@@ -529,7 +529,7 @@ void process_main(ErtsSchedulerData *esdp)
         HEAVY_SWAPIN;
 
         if (error_handler) {
-            I = error_handler->addressv[erts_active_code_ix()];
+            I = error_handler->addresses[erts_active_code_ix()];
             Goto(*I);
         }
     }

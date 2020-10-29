@@ -327,7 +327,7 @@ extern BeamInstr *beam_bif_export_trap;
 
 #define ERTS_BIF_PREP_TRAP(Export, Proc, Arity)                               \
     do {                                                                      \
-        (Proc)->i = (BeamInstr*)((Export)->addressv[erts_active_code_ix()]);  \
+        (Proc)->i = (BeamInstr*)((Export)->addresses[erts_active_code_ix()]);  \
         (Proc)->arity = (Arity);                                              \
         (Proc)->freason = TRAP;                                               \
     } while(0);

@@ -684,7 +684,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
              */
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
-            ep->addressv[erts_staging_code_ix()] = address;
+            ep->addresses[erts_staging_code_ix()] = address;
         }
     }
 
@@ -697,7 +697,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
             Export *ep = erts_export_put(entry->module,
                                          entry->name,
                                          entry->arity);
-            const BeamInstr *addr = ep->addressv[erts_staging_code_ix()];
+            const BeamInstr *addr = ep->addresses[erts_staging_code_ix()];
 
             if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
                 erts_exit(ERTS_ABORT_EXIT,
@@ -1563,7 +1563,7 @@ stub_beam_load_finalize_code(LoaderState* stp, ErtsCodeInfo* ci)
             Export* ep = erts_export_put(ci->mfa.module,
                                          ci->mfa.function,
                                          ci->mfa.arity);
-            ep->addressv[erts_staging_code_ix()] = erts_codeinfo_to_code(ci);
+            ep->addresses[erts_staging_code_ix()] = erts_codeinfo_to_code(ci);
             DBG_TRACE_MFA_P(&ci->mfa,"set beam stub at %p in export at %p (code_ix=%d)",
                             erts_codeinfo_to_code(ci), ep, erts_staging_code_ix());
             return;

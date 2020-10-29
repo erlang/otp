@@ -237,7 +237,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
                     erts_clear_export_break(mod_tab_p, ep);
 
-                    ep->addressv[code_ix] =
+                    ep->addresses[code_ix] =
                         (BeamInstr*)ep->trampoline.breakpoint.address;
                     ep->trampoline.breakpoint.address = 0;
 

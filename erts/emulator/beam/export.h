@@ -44,13 +44,18 @@ typedef struct export_
 {
     /* Pointer to code for function.
      *
-     * Be _very_ careful when accessing this directly. The JIT has a special
-     * calling convention for export entries, assuming the entry itself is in
-     * a certain register, so blindly calling the pointers herein will result
-     * in weird crashes.
+     * !! THIS WAS DELIBERATELY RENAMED TO CAUSE ERRORS WHEN MERGING !!
+     *
+     * The JIT has a special calling convention for export entries, assuming
+     * the entry itself is in a certain register. Blindly setting `c_p->i` to
+     * one of these addresses will crash the emulator when the entry is traced,
+     * which is unlikely to be caught in our tests.
+     *
+     * Use the `BIF_TRAP` macros if at all possible, and be _very_ careful when
+     * accessing these directly.
      *
      * See `BeamAssembler::emit_setup_export_call` for details. */
-    const void* addressv[ERTS_ADDRESSV_SIZE];
+    const void *addresses[ERTS_ADDRESSV_SIZE];
 
     /* Index into bif_table[], or -1 if not a BIF. */
     int bif_number;
@@ -59,7 +64,7 @@ typedef struct export_
 
     /* This is a small trampoline function that can be used for lazy code
      * loading, global call tracing, and so on. It's only valid when
-     * addressv points to it and should otherwise be left zeroed.
+     * addresses points to it and should otherwise be left zeroed.
      *
      * Needless to say, the order of the fields below is significant. */
     ErtsCodeInfo info;
@@ -163,7 +168,7 @@ ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix) {
     trampoline_address = &ep->trampoline.raw[0];
 #endif
 
-    ep->addressv[code_ix] = trampoline_address;
+    ep->addresses[code_ix] = trampoline_address;
 }
 
 ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
@@ -175,7 +180,7 @@ ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
     trampoline_address = &ep->trampoline.raw[0];
 #endif
 
-    return ep->addressv[code_ix] == trampoline_address;
+    return ep->addresses[code_ix] == trampoline_address;
 }
 
 ERTS_GLB_INLINE Export*
