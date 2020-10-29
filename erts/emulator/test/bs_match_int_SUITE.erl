@@ -347,7 +347,19 @@ bignum(Config) when is_list(Config) ->
 
     BignumBin = id(<<0:512/unit:8,258254417031933722623:9/unit:8>>),
     <<258254417031933722623:(512+9)/unit:8>> = BignumBin,
-    erlang:garbage_collect(),			%Search for holes in debug-build.
+    erlang:garbage_collect(),			%Search for holes in debug-build
+
+    %% ERL-1391
+   _ =  [begin
+            N = (LHS bsl RHS),
+            <<N:64/integer-little-signed>> = id(<<N:64/integer-little-signed>>)
+         end || LHS <- [-1, 1], RHS <- lists:seq(1, 62)],
+
+    MPos = (1 bsl 63) - 1,
+    <<MPos:64/integer-little-signed>> = id(<<MPos:64/integer-little-signed>>),
+    MNeg = -1 bsl 63,
+    <<MNeg:64/integer-little-signed>> = id(<<MNeg:64/integer-little-signed>>),
+
     ok.
 
 unaligned_32_bit(Config) when is_list(Config) ->
