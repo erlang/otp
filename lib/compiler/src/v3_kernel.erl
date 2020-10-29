@@ -87,6 +87,8 @@
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
+
+%% Matches collapse max segment in v3_core.
 -define(EXPAND_MAX_SIZE_SEGMENT, 1024).
 
 %% These are not defined in v3_kernel.hrl.
