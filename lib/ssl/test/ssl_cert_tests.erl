@@ -21,6 +21,8 @@
 %%
 -module(ssl_cert_tests).
 
+-behaviour(ct_suite).
+
 -include_lib("public_key/include/public_key.hrl").
 
 %% Test cases

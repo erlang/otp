@@ -186,7 +186,7 @@ prop_ftp() -&gt;
 	<d>the output from for example proper:run_commands/2 or proper:run_parallel_commands/2</d>
 
 	<v>Config =</v>
-	<d>the Common Test <seemfa marker="common_test#Module:Testcase/1">Config</seemfa> in test cases.</d>
+	<d>the Common Test <seemfa marker="ct_suite#Module:Testcase/1">Config</seemfa> in test cases.</d>
 
 	<v>Options = [present_option()]</v>
 	<v>present_option() = {print_fun, fun(Format,Args)}</v>

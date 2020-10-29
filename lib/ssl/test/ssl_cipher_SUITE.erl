@@ -20,6 +20,8 @@
 
 -module(ssl_cipher_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("tls_record.hrl").
 -include("ssl_cipher.hrl").

@@ -20,6 +20,7 @@
 
 -module(ssl_eqc_SUITE).
 
+-behaviour(ct_suite).
 
 %% Common test
 -export([all/0,
