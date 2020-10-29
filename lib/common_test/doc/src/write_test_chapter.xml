@@ -67,7 +67,7 @@
     </p>
 
     <p>Each test suite module must export function 
-    <seemfa marker="common_test#Module:all/0"><c>all/0</c></seemfa>,
+    <seemfa marker="ct_suite#Module:all/0"><c>all/0</c></seemfa>,
       which returns the list of all test case groups and test cases 
       to be executed in that module. 
     </p>
@@ -83,8 +83,8 @@
     <title>Init and End per Suite</title>
 
     <p>Each test suite module can contain the optional configuration functions
-    <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
-    and <seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite/1</c></seemfa>. 
+    <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
+    and <seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite/1</c></seemfa>. 
     If the init function is defined, so must the end function be.
     </p>    
 
@@ -138,8 +138,8 @@
     <title>Init and End per Test Case</title>
 
     <p>Each test suite module can contain the optional configuration functions
-    <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
-    and <seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>. 
+    <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
+    and <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>. 
     If the init function is defined, so must the end function be.</p>
 
     <p>If <c>init_per_testcase</c> exists, it is called before each
@@ -378,7 +378,7 @@
     
       <p>If <c>timetrap</c> or <c>require</c>, or both, is not set specifically for
 	a particular test case, default values specified by function
-	<seemfa marker="common_test#Module:suite/0"><c>suite/0</c></seemfa> 
+	<seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa> 
 	are used.
       </p>
 
@@ -404,7 +404,7 @@
     <marker id="suite"></marker>
     <title>Test Suite Information Function</title>
 
-      <p>Function <seemfa marker="common_test#Module:suite/0"><c>suite/0</c></seemfa> 
+      <p>Function <seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa> 
         can, for example, be used in a test suite module to set a default 
 	<c>timetrap</c> value and to <c>require</c> external configuration data. 
 	If a test case, or a group information function also specifies any of the information tags, it
@@ -445,7 +445,7 @@
     <p>A test case group is a set of test cases sharing configuration 
     functions and execution properties. Test case groups are defined by
     function 
-    <seemfa marker="common_test#Module:groups/0"><c>groups/0</c></seemfa>
+    <seemfa marker="ct_suite#Module:groups/0"><c>groups/0</c></seemfa>
     according to the following syntax:</p>
     <pre>
  groups() -> GroupDefs
@@ -561,12 +561,12 @@
       execution is immediately stopped and the remaining cases are skipped.</p>
 
     <p>Before execution of a group begins, the configuration function
-    <seemfa marker="common_test#Module:init_per_group/2"><c>init_per_group(GroupName, Config)</c></seemfa> 
+    <seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group(GroupName, Config)</c></seemfa> 
     is called. The list of tuples returned from this function is passed to the 
     test cases in the usual manner by argument <c>Config</c>. 
     <c>init_per_group/2</c> is meant to be used for initializations common 
     for the test cases in the group. After execution of the group is finished, function
-    <seemfa marker="common_test#Module:end_per_group/2"><c>end_per_group(GroupName, Config)</c></seemfa> 
+    <seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group(GroupName, Config)</c></seemfa> 
     is called. This function is meant to be used for cleaning up after 
     <c>init_per_group/2</c>. If the init function is defined, so must the end function be.</p>
 
@@ -1163,7 +1163,7 @@ ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
 	      environment as possible, so that subsequent test cases
 	      do not crash because of their execution order. 
 	      The function 
-	      <seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa> 
+	      <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa> 
 	      is suitable for this.
 	    </p>
 	</item>

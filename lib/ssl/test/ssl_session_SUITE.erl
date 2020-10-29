@@ -21,6 +21,8 @@
 %%
 -module(ssl_session_SUITE).
 
+-behaviour(ct_suite).
+
 -include("tls_handshake.hrl").
 -include("ssl_record.hrl").
 

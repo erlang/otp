@@ -22,6 +22,8 @@
 
 -module(ssl_handshake_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").

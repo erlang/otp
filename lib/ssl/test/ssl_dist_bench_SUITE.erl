@@ -19,6 +19,8 @@
 %%
 -module(ssl_dist_bench_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
