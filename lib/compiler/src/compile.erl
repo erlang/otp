@@ -35,6 +35,7 @@
 -export([run_sub_passes/2]).
 
 -export_type([option/0]).
+-export_type([forms/0]).
 
 -include("erl_compile.hrl").
 -include("core_parse.hrl").
