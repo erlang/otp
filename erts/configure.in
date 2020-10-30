@@ -2996,6 +2996,24 @@ EOF
    fi
 fi
 
+dnl Test if we can use the native stack for Erlang code
+if test ${enable_jit} != no; then
+  case $host_os in
+    openbsd*)
+      # Whenever the kernel is entered (page faults, system calls, etc),
+      # OpenBSD checks whether the stack pointer is in an area allocated with
+      # MAP_STACK, so we can't use the native stack for Erlang code.
+      #
+      # https://undeadly.org/cgi?action=article;sid=20180310000858
+      ;;
+    *)
+      # By default, BEAMASM will use the native stack.
+      AC_DEFINE(NATIVE_ERLANG_STACK, [],
+                [Define if we can use the native stack for Erlang code])
+      ;;
+  esac
+fi
+
 if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
   if test -z "$M4"; then
     enable_hipe=no
