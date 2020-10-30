@@ -44,7 +44,7 @@
     <p><em>Examples:</em></p>
     <pre>
 1> <input>X.</input>
-** 1: variable 'X' is unbound **
+** 1:1: variable 'X' is unbound **
 2> <input>X = 2.</input>
 2
 3> <input>X + 1.</input>

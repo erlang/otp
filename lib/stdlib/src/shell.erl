@@ -252,9 +252,9 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
                     fwrite_severity(benign, <<"~ts">>, [E]),
                     server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0)
             end;
-	{error,{Line,Mod,What}} ->
-            fwrite_severity(benign, <<"~w: ~ts">>,
-                            [Line, Mod:format_error(What)]),
+	{error,{Location,Mod,What}} ->
+            fwrite_severity(benign, <<"~s: ~ts">>,
+                            [pos(Location), Mod:format_error(What)]),
 	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
 	{error,terminated} ->			%Io process terminated
 	    exit(Eval0, kill),
@@ -277,7 +277,7 @@ get_command(Prompt, Eval, Bs, RT, Ds) ->
         fun() ->
                 exit(
                   case
-                      io:scan_erl_exprs(group_leader(), Prompt, 1, [text])
+                      io:scan_erl_exprs(group_leader(), Prompt, {1,1}, [text])
                   of
                       {ok,Toks,_EndPos} ->
                           erl_eval:extended_parse_exprs(Toks);
@@ -535,9 +535,9 @@ shell_rep(Ev, Bs0, RT, Ds0) ->
     receive
 	{shell_rep,Ev,{value,V,Bs,Ds}} ->
 	    {V,Ev,Bs,Ds};
-        {shell_rep,Ev,{command_error,{Line,M,Error}}} -> 
-            fwrite_severity(benign, <<"~w: ~ts">>,
-                            [Line, M:format_error(Error)]),
+        {shell_rep,Ev,{command_error,{Location,M,Error}}} ->
+            fwrite_severity(benign, <<"~s: ~ts">>,
+                            [pos(Location), M:format_error(Error)]),
             {{'EXIT',Error},Ev,Bs0,Ds0};
 	{shell_req,Ev,get_cmd} ->
 	    Ev ! {shell_rep,self(),get()},
@@ -985,7 +985,7 @@ local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
         {ok,AttrForm} ->
             [RN] = add_records([AttrForm], Bs, RT),
             {value,RN,Bs};
-        {error,{_Line,M,ErrDesc}} ->
+        {error,{_Location,M,ErrDesc}} ->
             ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr))
     end;
@@ -1144,7 +1144,7 @@ add_records(RAs, Bs0, RT) ->
     Recs = [{Name,D} || {attribute,_,_,{Name,_}}=D <- RAs],
     Bs1 = record_bindings(Recs, Bs0),
     case check_command([], Bs1) of
-        {error,{_Line,M,ErrDesc}} ->
+        {error,{_Location,M,ErrDesc}} ->
             %% A source file that has not been compiled.
             ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr));
@@ -1393,6 +1393,11 @@ substitute_v1(_F, E) ->
 
 a0() ->
     erl_anno:new(0).
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
 
 check_and_get_history_and_results() ->
     check_env(shell_history_length),

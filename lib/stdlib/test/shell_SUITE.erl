@@ -307,13 +307,13 @@ restricted_local(Config) when is_list(Config) ->
 forget(Config) when is_list(Config) ->
     %% f/0
     [ok] = scan(<<"begin f() end.">>),
-    "1: variable 'A' is unbound" =
+    "1:13: variable 'A' is unbound" =
         comm_err(<<"A = 3, f(), A.">>),
     [ok] = scan(<<"A = 3, A = f(), A.">>),
 
     %% f/1
     [ok] = scan(<<"begin f(A) end.">>),
-    "1: variable 'A' is unbound" =
+    "1:14: variable 'A' is unbound" =
         comm_err(<<"A = 3, f(A), A.">>),
     [ok] = scan(<<"A = 3, A = f(A), A.">>),
     "exception error: no function clause matching call to f/1" =
@@ -335,7 +335,7 @@ records(Config) when is_list(Config) ->
         comm_err(<<"rd({foo},{bar}).">>),
     "bad record declaration" = exit_string(<<"A = bar, rd(foo,A).">>),
     [foo] = scan(<<"begin rd(foo,{bar}) end.">>),
-    "1: record foo undefined" =
+    "1:22: record foo undefined" =
          comm_err(<<"begin rd(foo,{bar}), #foo{} end.">>),
     ['f o o'] = scan(<<"rd('f o o', {bar}).">>),
     [foo] = scan(<<"rd(foo,{bar}), rd(foo,{foo = #foo{}}).">>),
@@ -343,7 +343,7 @@ records(Config) when is_list(Config) ->
     %% rf/0,1
     [_, {attribute,_,record,{foo,_}},ok] =
          scan(<<"rf('_'). rd(foo,{bar}),rl().">>),
-    "1: record foo undefined" =
+    "1:33: record foo undefined" =
         comm_err(<<"rd(foo,{bar}), #foo{}, rf(foo), #foo{}.">>),
     [ok,{foo,undefined}] =
         scan(<<"rd(foo,{bar}), A = #foo{}, rf(foo). A.">>),
@@ -669,7 +669,7 @@ otp_5195(Config) when is_list(Config) ->
     %% "list expression\".\n" = 
     %%    t(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>),
     %% Same as last one (if the shell does not translate error tuples):
-    [{error,qlc,{1,qlc,{used_generator_variable,'X'}}}] =
+    [{error,qlc,{{1,31},qlc,{used_generator_variable,'X'}}}] =
         scan(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>),
     {error,qlc,{1,qlc,{used_generator_variable,'X'}}} =
         evaluate(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>, []),
@@ -2490,7 +2490,7 @@ otp_6554(Config) when is_list(Config) ->
     application:unset_env(stdlib, shell_history_length),
     [true] = scan(<<"begin <<10:(1024*1024*10)>>,"
                           "<<10:(1024*1024*10)>>, garbage_collect() end.">>),
-    "1: syntax error before: '.'" = comm_err("1-."),
+    "1:3: syntax error before: '.'" = comm_err("1-."),
     %% comm_err(<<"exit().">>), % would hang
     "exception error: no function clause matching call to history/1" =
         comm_err(<<"history(foo).">>),
@@ -2923,7 +2923,7 @@ otp_14296(Config) when is_list(Config) ->
             F = fun() -> a end,
             LocalFun = term_to_string(F),
             S = LocalFun ++ ".",
-            "1: syntax error before: Fun" = comm_err(S)
+            "1:2: syntax error before: Fun" = comm_err(S)
     end(),
 
     fun() ->
@@ -2937,7 +2937,7 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPid = "<100000.0.0>",
             S = UnknownPid ++ ".",
-            "1: syntax error before: '<'" = comm_err(S)
+            "1:1: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->
@@ -2958,13 +2958,13 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPort = "#Port<100000.0>",
             S = UnknownPort ++ ".",
-            "1: syntax error before: Port" = comm_err(S)
+            "1:2: syntax error before: Port" = comm_err(S)
     end(),
 
     fun() ->
             UnknownRef = "#Ref<100000.0.0.0>",
             S = UnknownRef ++ ".",
-            "1: syntax error before: Ref" = comm_err(S)
+            "1:2: syntax error before: Ref" = comm_err(S)
     end(),
 
     fun() ->
