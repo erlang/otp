@@ -227,10 +227,10 @@
 	<xsl:variable name="local_types"
 		      select="../type[string-length(@name) > 0]"/>
 	  <xsl:apply-templates select="$spec/contract/clause/head">
-          <xsl:with-param name="ghlink" select="ancestor-or-self::*[@ghlink]/@ghlink"/>
-	  <xsl:with-param name="local_types" select="$local_types"/>
-	  <xsl:with-param name="global_types" select="$global_types"/>
-	  <xsl:with-param name="since" select="$since"/>
+            <xsl:with-param name="ghlink" select="ancestor-or-self::*[@ghlink]/@ghlink"/>
+	    <xsl:with-param name="local_types" select="$local_types"/>
+	    <xsl:with-param name="global_types" select="$global_types"/>
+	    <xsl:with-param name="since" select="$since"/>
 	  </xsl:apply-templates>
       </xsl:when>
     </xsl:choose>
@@ -241,7 +241,8 @@
     <xsl:param name="local_types"/>
     <xsl:param name="global_types"/>
     <xsl:param name="since"/>
-    <xsl:variable name="id" select="concat(concat(concat(concat(../../../name,'-'),../../../arity),'-'),generate-id(.))"/>
+    <xsl:variable name="mfa" select="concat(concat(../../../name,'-'),../../../arity)"/>
+    <xsl:variable name="id" select="concat(concat($mfa,'-'),generate-id(.))"/>
     <table class="func-table">
     <tr class="func-tr">
     <td class="func-td">
@@ -249,6 +250,7 @@
            onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
            onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
 	<xsl:call-template name="ghlink">
+          <xsl:with-param name="mfa" select="$mfa"/>
           <xsl:with-param name="ghlink" select="$ghlink"/>
           <xsl:with-param name="id" select="$id"/>
 	</xsl:call-template>
@@ -2406,39 +2408,46 @@
     <xsl:variable name="id" select="concat(concat($link,'-'), generate-id(.))"/>
     <span onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
           onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-      <xsl:call-template name="ghlink">
-          <xsl:with-param name="id" select="$id"/>
-          <xsl:with-param name="ghlink" select="$ghlink"/>
-      </xsl:call-template>
-      <a class="title_link" name="{$link}" href="#{$link}">
-	<xsl:choose>
+      <!-- <hej> -->
+      <!--   <xsl:value-of select="ancestor-or-self::*[@ghlink]"/> -->
+      <!-- </hej> -->
+      <a class="title_link" name="{$link}">
+        <xsl:choose>
 	  <xsl:when test="$title = 'APPLY'">
 	    <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
 	  </xsl:when>
 	  <xsl:otherwise>
 	    <xsl:value-of select="$title"/>
 	  </xsl:otherwise>
-	</xsl:choose>
+        </xsl:choose>
       </a>
+      <xsl:call-template name="ghlink">
+        <xsl:with-param name="mfa" select="$link"/>
+        <xsl:with-param name="id" select="$id"/>
+        <xsl:with-param name="ghlink" select="$ghlink"/>
+        <xsl:with-param name="where" select="'after'"/>
+      </xsl:call-template>
     </span>
   </xsl:template>
 
   <xsl:template name="ghlink">
+    <xsl:param name="mfa"/>
     <xsl:param name="id"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
-    <xsl:choose>
-      <xsl:when test="string-length($ghlink) > 0">
-        <span id="ghlink-{$id}" class="ghlink">
+    <xsl:param name="where" select="'before'"/>
+    <span id="ghlink-{$id}" class="ghlink-{$where}">
+      <a href="#{$mfa}" title="Link to this place!">
+        <span class="paperclip-{$where}"/>
+      </a>
+      <xsl:choose>
+        <xsl:when test="string-length($ghlink) > 0">
           <a href="https://github.com/erlang/otp/edit/{$ghlink}"
              title="Found an issue with the documentation? Fix it by clicking here!">
-            <span class="pencil"/>
+            <span class="pencil-{$where}"/>
           </a>
-        </span>
-      </xsl:when>
-      <xsl:otherwise>
-        <span id="ghlink-{$id}"/>
-      </xsl:otherwise>
-    </xsl:choose>
+        </xsl:when>
+      </xsl:choose>
+    </span>
   </xsl:template>
 
   <!-- Desc -->
