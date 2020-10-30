@@ -43,6 +43,10 @@
       <name>option() = term()</name>
       <desc><p>See <seemfa marker="#file/2">file/2</seemfa> for detailed description</p></desc>
     </datatype>
+    <datatype>
+      <name>forms() = term()</name>
+      <desc><p>List of Erlang abstract or Core Erlang format representations, as used by <seemfa marker="#forms/2">forms/2</seemfa></p></desc>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -774,15 +778,20 @@ module.beam: module.erl \
       <name since="">forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms.</fsummary>
       <type>
-        <v>Forms = [Form]</v>
+        <v>Forms = <seetype marker="#forms">forms()</seetype></v>
+        <v>forms() = [<seetype marker="erl_parse#abstract_form">erl_parse:abstract_form</seetype>] | <seeerl marker="cerl#type-c_module">cerl:c_module()</seeerl></v>
+        <v>Options = [<seetype marker="#option">option()</seetype>]</v>
         <v>CompRet = BinRet | ErrRet</v>
         <v>BinRet = {ok,ModuleName,BinaryOrCode} | {ok,ModuleName,BinaryOrCode,Warnings}</v>
+        <v>ModuleName = module()</v>
         <v>BinaryOrCode = binary() | term()</v>
         <v>ErrRet = error | {error,Errors,Warnings}</v>
+        <v>Warnings = Errors = [{<seetype marker="file#filename">file:filename()</seetype>, [{<seetype marker="erl_anno#line">erl_anno:line()</seetype> | 'none', module(), term()}]}]</v>
       </type>
       <desc>
         <p>Analogous to <c>file/1</c>, but takes a list of forms (in
-	  the Erlang abstract format representation) as first argument.
+	  either Erlang abstract or Core Erlang format representation)
+      as first argument.
           Option <c>binary</c> is implicit, that is, no object code
 	  file is produced. For options that normally produce a listing 
 	  file, such as 'E', the internal format for that compiler pass 
