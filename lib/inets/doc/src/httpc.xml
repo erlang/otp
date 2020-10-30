@@ -133,6 +133,11 @@
         The <c>iolist()</c> in <c>body_processing_result()</c> returns the next part
         of your body and the stream is ended with <c>eof</c>.
       </p>
+      <p>
+        <c>{chunkify, ...}</c> is <url href="https://tools.ietf.org/html/rfc2616#section-14.41">only
+        supported for HTTP/1.1</url>, attempts to use this function with earlier versions
+        will throw a <c>bad_body</c> exception.
+      </p>
     </note>
     <p>For more information about HTTP, see
     <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p>

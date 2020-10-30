@@ -516,10 +516,12 @@ handle_request(Method, Url,
 
     try
 	begin
+            HTTPOptions   = http_options(HTTPOptions0),
+
 	    {NewHeaders, Body} = 
 		case Body0 of
 		    {chunkify, ProcessBody, Acc} 
-		      when is_function(ProcessBody, 1) ->
+		      when is_function(ProcessBody, 1), HTTPOptions#http_options.version == "HTTP/1.1" ->
 			NewHeaders1 = ensure_chunked_encoding(NewHeaders0), 
 			Body1       = {mk_chunkify_fun(ProcessBody), Acc}, 
 			{NewHeaders1, Body1};
@@ -532,7 +534,6 @@ handle_request(Method, Url,
 			throw({error, {bad_body, Body0}})
 		end,
 
-            HTTPOptions   = http_options(HTTPOptions0),
             Options       = request_options(Options0),
             Sync          = proplists:get_value(sync,   Options),
             Stream        = proplists:get_value(stream, Options),
