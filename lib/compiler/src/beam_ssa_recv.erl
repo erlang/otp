@@ -191,7 +191,8 @@ ref_in_tuple(Tuple, Blocks) ->
               when Tup =:= Tuple -> {yes,Ref};
            (_, A) -> A
         end,
-    beam_ssa:fold_instrs_rpo(F, [0], no, Blocks).
+    RPO = beam_ssa:rpo(Blocks),
+    beam_ssa:fold_instrs(F, RPO, no, Blocks).
 
 opt_ref_used(L, Ref, Blocks) ->
     Vs = #{Ref=>ref,ref=>Ref,ref_matched=>false},

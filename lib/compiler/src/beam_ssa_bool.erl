@@ -99,16 +99,16 @@
 %%
 %% Attempts have been made to simplify this pass and replace it with
 %% simpler transforms in the hope of avoiding much of the work
-%% performed by bool_opt/2. Targeting boolean expressions in guards
+%% performed by bool_opt/3. Targeting boolean expressions in guards
 %% and rewriting them along the patterns shown in the examples above
 %% can achieve the same results in many cases, but does not by any
-%% means reach the level of quality achieved by bool_opt/2.
+%% means reach the level of quality achieved by bool_opt/3.
 %%
 %% An analysis of the instances where the simpler transforms fail to
-%% reach parity with bool_opt/2 indicates that the information they
+%% reach parity with bool_opt/3 indicates that the information they
 %% lack in order to improve their result would require more or less
 %% the same control flow graph analysis and simplification as
-%% bool_opt/2 already does.
+%% bool_opt/3 already does.
 %%
 
 
@@ -148,10 +148,11 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
     DefVars = interesting_defs(Blocks1),
     if
         map_size(DefVars) > 1 ->
-            Dom = beam_ssa:dominators(Blocks1),
-            Uses = beam_ssa:uses(Blocks1),
+            RPO = beam_ssa:rpo(Blocks1),
+            Dom = beam_ssa:dominators(RPO, Blocks1),
+            Uses = beam_ssa:uses(RPO, Blocks1),
             St0 = #st{defs=DefVars,count=Count1,dom=Dom,uses=Uses},
-            {Blocks2,St} = bool_opt(Blocks1, St0),
+            {Blocks2,St} = bool_opt(RPO, Blocks1, St0),
             Count = St#st.count,
 
             %% When merging blocks, phi nodes must have the same
@@ -194,7 +195,7 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
         {'true_or_any',beam_ssa:label()} |
         '=:='.
 
--type pre_sub_map() :: #{'uses' => {'uses',beam_ssa:block_map() | list()},
+-type pre_sub_map() :: #{'uses' => {'uses',[beam_ssa:label()],beam_ssa:block_map() | list()},
                          var() => pre_sub_val()}.
 
 pre_opt(Blocks, Count) ->
@@ -202,7 +203,7 @@ pre_opt(Blocks, Count) ->
 
     %% Collect information to help the pre_opt pass to optimize
     %% `switch` instructions.
-    Sub0 = #{uses => {uses,Blocks}},
+    Sub0 = #{uses => {uses,Top,Blocks}},
     Sub1 = get_phi_info(Top, Blocks, Sub0),
     Sub = maps:remove(uses, Sub1),
 
@@ -280,8 +281,8 @@ get_phi_info_single_use(Var, Sub) ->
                  #{Var:=[_]} -> true;
                  #{Var:=[_|_]} -> false
              end,Sub};
-        {uses,Blocks} ->
-            Uses = beam_ssa:uses(Blocks),
+        {uses,Top,Blocks} ->
+            Uses = beam_ssa:uses(Top, Blocks),
             get_phi_info_single_use(Var, Sub#{uses => Uses})
     end.
 
@@ -564,9 +565,6 @@ interesting_defs_is([], _L, Acc) -> Acc.
 %%% To make sure that we'll find the end of the guard instead of some
 %%% interior '=:=' instruction we will visit the blocks in postorder.
 %%%
-
-bool_opt(Blocks, St) ->
-    bool_opt(beam_ssa:rpo(Blocks), Blocks, St).
 
 bool_opt([L|Ls], Blocks0, St0) ->
     {Blocks,St1} = bool_opt(Ls, Blocks0, St0),
