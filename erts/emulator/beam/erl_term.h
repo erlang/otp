@@ -1037,7 +1037,7 @@ typedef struct external_thing_ {
     } data;
 } ExternalThing;
 
-#define EXTERNAL_THING_HEAD_SIZE (offsetof(ExternalThing,data))
+#define EXTERNAL_THING_HEAD_SIZE (offsetof(ExternalThing,data) / sizeof(Uint))
 
 /* external pid data is always 64 bits */
 #define EXTERNAL_PID_DATA_WORDS (8 / sizeof(Uint))
