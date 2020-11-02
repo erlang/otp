@@ -694,6 +694,11 @@ select_passes([{pass,Mod}|Ps], Opts) ->
 		end
 	end,
     [{Mod,F}|select_passes(Ps, Opts)];
+select_passes([{_,Fun}=P|Ps], Opts) when is_function(Fun) ->
+    [P|select_passes(Ps, Opts)];
+select_passes([{_,Test,Fun}=P|Ps], Opts) when is_function(Test),
+					      is_function(Fun) ->
+    [P|select_passes(Ps, Opts)];
 select_passes([{src_listing,Ext}|_], _Opts) ->
     [{listing,fun (Code, St) -> src_listing(Ext, Code, St) end}];
 select_passes([{listing,Ext}|_], _Opts) ->
@@ -706,8 +711,6 @@ select_passes([{iff,Flag,Pass}|Ps], Opts) ->
     select_cond(Flag, true, Pass, Ps, Opts);
 select_passes([{unless,Flag,Pass}|Ps], Opts) ->
     select_cond(Flag, false, Pass, Ps, Opts);
-select_passes([{_,Fun}=P|Ps], Opts) when is_function(Fun) ->
-    [P|select_passes(Ps, Opts)];
 select_passes([{delay,Passes0}|Ps], Opts) when is_list(Passes0) ->
     %% Delay evaluation of compiler options and which compiler passes to run.
     %% Since we must know beforehand whether a listing will be produced, we
@@ -719,9 +722,6 @@ select_passes([{delay,Passes0}|Ps], Opts) when is_list(Passes0) ->
 	{not_done,Passes} ->
 	    [{delay,Passes}|select_passes(Ps, Opts)]
     end;
-select_passes([{_,Test,Fun}=P|Ps], Opts) when is_function(Test),
-					      is_function(Fun) ->
-    [P|select_passes(Ps, Opts)];
 select_passes([], _Opts) ->
     [];
 select_passes([List|Ps], Opts) when is_list(List) ->
