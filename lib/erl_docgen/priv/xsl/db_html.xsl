@@ -476,6 +476,7 @@
                  onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
                  onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
               <xsl:call-template name="ghlink">
+                <xsl:with-param name="mfa" select="$id"/>
                 <xsl:with-param name="id" select="$id"/>
               </xsl:call-template>
               <xsl:apply-templates select="name"/>
@@ -2280,6 +2281,7 @@
               <span class="bold_code bc-7">
 		<xsl:call-template name="title_link">
 		  <xsl:with-param name="link" select="substring-before(nametext, '(')"/>
+                  <xsl:with-param name="where" select="'before'"/>
 		</xsl:call-template>
               </span>
 	    </td>
@@ -2313,6 +2315,7 @@
             <div class="bold_code bc-8">
               <xsl:call-template name="title_link">
                 <xsl:with-param name="link" select="concat('type-',$fname)"/>
+                <xsl:with-param name="where" select="'before'"/>
                 <xsl:with-param name="title">
                   <xsl:apply-templates/>
                 </xsl:with-param>
@@ -2326,6 +2329,7 @@
 		<div class="bold_code fun-type">
 		  <xsl:call-template name="title_link">
                     <xsl:with-param name="link" select="concat(concat($fname,'-'),$arity)"/>
+                    <xsl:with-param name="where" select="'before'"/>
                     <xsl:with-param name="title">
                       <xsl:apply-templates/>
                     </xsl:with-param>
@@ -2404,13 +2408,21 @@
   <xsl:template name="title_link">
     <xsl:param name="title" select="'APPLY'"/>
     <xsl:param name="link" select="erl:to-link(title)"/>
+    <xsl:param name="where" select="'after'"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
     <xsl:variable name="id" select="concat(concat($link,'-'), generate-id(.))"/>
     <span onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
           onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-      <!-- <hej> -->
-      <!--   <xsl:value-of select="ancestor-or-self::*[@ghlink]"/> -->
-      <!-- </hej> -->
+      <xsl:choose>
+	<xsl:when test="$where = 'before'">
+          <xsl:call-template name="ghlink">
+            <xsl:with-param name="mfa" select="$link"/>
+            <xsl:with-param name="id" select="$id"/>
+            <xsl:with-param name="ghlink" select="$ghlink"/>
+            <xsl:with-param name="where" select="$where"/>
+          </xsl:call-template>
+        </xsl:when>
+      </xsl:choose>
       <a class="title_link" name="{$link}">
         <xsl:choose>
 	  <xsl:when test="$title = 'APPLY'">
@@ -2421,12 +2433,16 @@
 	  </xsl:otherwise>
         </xsl:choose>
       </a>
-      <xsl:call-template name="ghlink">
-        <xsl:with-param name="mfa" select="$link"/>
-        <xsl:with-param name="id" select="$id"/>
-        <xsl:with-param name="ghlink" select="$ghlink"/>
-        <xsl:with-param name="where" select="'after'"/>
-      </xsl:call-template>
+      <xsl:choose>
+	<xsl:when test="$where = 'after'">
+          <xsl:call-template name="ghlink">
+            <xsl:with-param name="mfa" select="$link"/>
+            <xsl:with-param name="id" select="$id"/>
+            <xsl:with-param name="ghlink" select="$ghlink"/>
+            <xsl:with-param name="where" select="$where"/>
+          </xsl:call-template>
+        </xsl:when>
+      </xsl:choose>
     </span>
   </xsl:template>
 
