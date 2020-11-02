@@ -373,6 +373,14 @@ erlang:'!'            -----> Module:StateName/3
       <seemfa marker="#enter_loop/4"><c>enter_loop/4,5,6</c></seemfa>,
       that may be used to automatically hibernate the server.
     </p>
+    <p>
+      If the <c>gen_statem</c> process terminates, e.g. as a result of a
+      function in the callback module returning <c>{stop,Reason}</c>, an exit
+      signal with this <c>Reason</c> is sent to linked processes and ports. See
+      <seeguide marker="system/reference_manual:processes#errors">
+      Processes</seeguide> in the Reference Manual for details regarding error
+      handling using exit signals.
+    </p>
   </description>
 
   <section>
@@ -1575,6 +1583,9 @@ handle_event(_, _, State, Data) ->
 	      <seemfa marker="#Module:terminate/3"><c>Module:terminate/3</c></seemfa>
 	      with <c>Reason</c> and
 	      <c><anno>NewData</anno></c>, if specified.
+              An exit signal with this reason is sent to linked processes and
+              ports.
+              The default <c>Reason</c> is <c>normal</c>.
 	    </p>
 	  </item>
 	  <tag><c>stop_and_reply</c></tag>
@@ -1585,6 +1596,8 @@ handle_event(_, _, State, Data) ->
 	      <seemfa marker="#Module:terminate/3"><c>Module:terminate/3</c></seemfa>
 	      with <c>Reason</c> and
 	      <c><anno>NewData</anno></c>, if specified.
+              An exit signal with this reason is sent to linked processes and
+              ports.
 	    </p>
 	  </item>
 	</taglist>
@@ -2044,6 +2057,9 @@ handle_event(_, _, State, Data) ->
 	  or
 	  <seetype marker="#start_ret"><c>ignore</c></seetype>,
 	  respectively.
+          An exit signal with the same <c>Reason</c> (or <c>normal</c> if
+          <c>Module:init/1</c> returns <c>ignore</c>) is set to linked processes
+          and ports, including the process calling <c>start_link/3,4</c>.
 	</p>
       </desc>
     </func>
@@ -2107,6 +2123,8 @@ handle_event(_, _, State, Data) ->
 	  <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
 	  error report to be issued through
 	  <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
+          An exit signal with the same reason is sent to linked processes
+          and ports.
 	  The default <c><anno>Reason</anno></c> is <c>normal</c>.
 	</p>
 	<p>
@@ -2701,6 +2719,10 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
 	  and an error report is issued using
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
 	</p>
+        <p>
+          When the <c>gen_statem</c> process exits, an exit signal with the
+          same reason is sent to linked processes and ports.
+        </p>
       </desc>
     </func>
   </funcs>
