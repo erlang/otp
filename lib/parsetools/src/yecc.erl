@@ -151,6 +151,9 @@ compile(Input0, Output0,
             error
     end.
 
+-spec format_error(ErrorDescriptor) -> io_lib:chars() when
+      ErrorDescriptor :: term().
+
 format_error(bad_declaration) ->
     io_lib:fwrite("unknown or bad declaration, ignored", []);
 format_error({bad_expect, SymName}) ->
@@ -232,8 +235,38 @@ format_error({bad_symbol, String}) ->
 format_error(cannot_parse) ->
     io_lib:fwrite("cannot parse; possibly encoding mismatch", []).
 
-file(File) ->
-    file(File, [report_errors, report_warnings]).
+-type error_info() :: {erl_anno:line() | 'none',
+                       module(), ErrorDescriptor :: term()}.
+-type errors() :: [{file:filename(), [error_info()]}].
+-type warnings() :: [{file:filename(), [error_info()]}].
+-type ok_ret() :: {'ok', Parserfile :: file:filename()}
+                | {'ok', Parserfile :: file:filename(), warnings()}.
+-type error_ret() :: 'error'
+                  | {'error', Errors :: errors(), Warnings :: warnings()}.
+-type yecc_ret() :: ok_ret() | error_ret().
+
+-spec file(FileName) -> yecc_ret() when
+      FileName :: file:filename().
+
+file(GrammarFile) ->
+    file(GrammarFile, [report_errors, report_warnings]).
+
+-spec file(Grammarfile, Options) -> yecc_ret() when
+      Grammarfile :: file:filename(),
+      Options :: Option | [Option],
+      Option :: {'includefile', Includefile :: file:filename()}
+              | {'report_errors', boolean()}
+              | {'report_warnings', boolean()}
+              | {'report', boolean()}
+              | {'return_errors', boolean()}
+              | {'return_warnings', boolean()}
+              | {'return', boolean()}
+              | {'parserfile', Parserfile :: file:filename()}
+              | {'verbose', boolean()}
+              | {'warnings_as_errors', boolean()}
+              | 'report_errors' | 'report_warnings' | 'report'
+              | 'return_errors' | 'return_warnings' | 'return'
+              | 'verbose' | 'warnings_as_errors'.
 
 file(File, Options) ->
     case is_filename(File) of
