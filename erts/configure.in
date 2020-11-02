@@ -26,6 +26,15 @@ AC_PREREQ(2.59)
 
 LM_PRECIOUS_VARS
 
+dnl We check if -Werror was given on command line and if so
+dnl we disable it for the configure and only use it when
+dnl actually building erts
+no_werror_CFLAGS=$(echo "$CFLAGS" | sed 's/-Werror\([[^=]]\|$\)/ /g')
+if test "$CFLAGS" != "$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
+
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
 #### avoid running the path through pwd unnecessary, since pwd can
@@ -570,7 +579,7 @@ if test "x$GCC" = xyes; then
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 else
   WFLAGS=""
-  WERRORFLAGS=""
+  WERRORFLAGS=${WERRORFLAGS:-""}
 fi
 
 AC_MSG_CHECKING([C99 support])
@@ -3512,6 +3521,15 @@ AH_BOTTOM([
 #endif /* __ERTS_CONFIG_H__ */
 ])
 
+dnl ----------------------------------------------------------------------
+dnl Check for log2
+dnl ----------------------------------------------------------------------
+AC_CHECK_FUNCS([log2])
+
+dnl ----------------------------------------------------------------------
+dnl Enable any -Werror flags
+dnl ----------------------------------------------------------------------
+
 if test "x$GCC" = xyes; then
   CFLAGS="$WERRORFLAGS $CFLAGS"
 fi
@@ -3535,11 +3553,6 @@ esac
 CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
-
-dnl ----------------------------------------------------------------------
-dnl Check for log2
-dnl ----------------------------------------------------------------------
-AC_CHECK_FUNCS([log2])
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.
