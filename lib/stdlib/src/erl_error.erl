@@ -150,6 +150,10 @@ explain_reason(badarg, error, [], _PF, _S, _Enc, _CL) ->
     <<"bad argument">>;
 explain_reason({badarg,V}, error=Cl, [], PF, S, _Enc, CL) -> % orelse, andalso
     format_value(V, <<"bad argument: ">>, Cl, PF, S, CL);
+explain_reason({badkey,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"bad key: ">>, Cl, PF, S, CL);
+explain_reason({badmap,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"bad map: ">>, Cl, PF, S, CL);
 explain_reason(badarith, error, [], _PF, _S, _Enc, _CL) ->
     <<"an error occurred when evaluating an arithmetic expression">>;
 explain_reason({badarity,{Fun,As}}, error, [], _PF, _S, Enc, _CL)

@@ -2344,6 +2344,10 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"fun(X) -> not X end(a).">>),
     "exception error: bad argument: a" =
         comm_err(<<"fun(A, B) -> A orelse B end(a, b).">>),
+    "exception error: bad key: key" =
+        comm_err(<<"map_get(key, #{}).">>),
+    "exception error: bad map: not_a_map" =
+        comm_err(<<"map_get(key, not_a_map).">>),
     "exception error: an error occurred when evaluating an arithmetic expression" =
         comm_err(<<"math:sqrt(2)/round(math:sqrt(0)).">>),
     "exception error: interpreted function with arity 1 called with no arguments" =
