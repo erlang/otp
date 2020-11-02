@@ -54,6 +54,27 @@
     <func:result select="$result"/>
   </func:function>
 
+  <!-- This is a XSLT 1.0 version of replace for string -->
+  <xsl:template name="string-replace-all">
+    <xsl:param name="text" />
+    <xsl:param name="replace" />
+    <xsl:param name="by" />
+    <xsl:choose>
+      <xsl:when test="contains($text, $replace)">
+        <xsl:value-of select="substring-before($text,$replace)" />
+        <xsl:value-of select="$by" />
+        <xsl:call-template name="string-replace-all">
+          <xsl:with-param name="text" select="substring-after($text,$replace)" />
+          <xsl:with-param name="replace" select="$replace" />
+          <xsl:with-param name="by" select="$by" />
+        </xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:value-of select="$text" />
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
   <func:function name="erl:lower-case">
     <xsl:param name="str"/>
 
@@ -471,16 +492,32 @@
     <div class="data-types-body">
       <xsl:choose>
         <xsl:when test="string-length(name/@name) > 0">
-            <xsl:variable name="id" select="concat('type-',name/@name)"/>
-            <div class="data-type-name"
-                 onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
-                 onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-              <xsl:call-template name="ghlink">
-                <xsl:with-param name="mfa" select="$id"/>
-                <xsl:with-param name="id" select="$id"/>
+          <xsl:variable name="apostrophe">'</xsl:variable>
+          <xsl:variable name="slash">/</xsl:variable>
+          <xsl:variable name="slash_encoded">%2f</xsl:variable>
+          <xsl:variable name="id">
+            <xsl:variable name="id-no-apostrophe">
+              <xsl:call-template name="string-replace-all">
+                <xsl:with-param name="text" select="concat('type-',name/@name)" />
+                <xsl:with-param name="replace" select="$apostrophe" />
+                <xsl:with-param name="by" select="''"/>
               </xsl:call-template>
-              <xsl:apply-templates select="name"/>
-            </div>
+            </xsl:variable>
+            <xsl:call-template name="string-replace-all">
+              <xsl:with-param name="text" select="$id-no-apostrophe" />
+              <xsl:with-param name="replace" select="$slash" />
+              <xsl:with-param name="by" select="$slash_encoded" />
+            </xsl:call-template>
+          </xsl:variable>
+          <div class="data-type-name"
+               onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
+               onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
+            <xsl:call-template name="ghlink">
+              <xsl:with-param name="mfa" select="$id"/>
+              <xsl:with-param name="id" select="$id"/>
+            </xsl:call-template>
+            <xsl:apply-templates select="name"/>
+          </div>
         </xsl:when>
         <xsl:otherwise>
           <div class="data-type-name">
@@ -2451,6 +2488,7 @@
     <xsl:param name="id"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
     <xsl:param name="where" select="'before'"/>
+    <xsl:variable name="escaped_mfa" select="$mfa"/>
     <span id="ghlink-{$id}" class="ghlink-{$where}">
       <a href="#{$mfa}" title="Link to this place!">
         <span class="paperclip-{$where}"/>
