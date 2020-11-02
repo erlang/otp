@@ -29,12 +29,6 @@ obsolete(auth, cookie, 1) ->
     {deprecated, "use erlang:set_cookie/2 instead"};
 obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
-obsolete(disk_log, accessible_logs, 0) ->
-    {deprecated, "use disk_log:all/0 instead"};
-obsolete(disk_log, lclose, 1) ->
-    {deprecated, "use disk_log:close/1 instead"};
-obsolete(disk_log, lclose, 2) ->
-    {deprecated, "use disk_log:close/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
 obsolete(code, rehash, 0) ->
@@ -71,6 +65,12 @@ obsolete(crypto, stream_decrypt, 2) ->
     {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
 obsolete(crypto, stream_encrypt, 2) ->
     {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
+obsolete(disk_log, accessible_logs, 0) ->
+    {deprecated, "use disk_log:all/0 instead", "OTP 26"};
+obsolete(disk_log, lclose, 1) ->
+    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
+obsolete(disk_log, lclose, 2) ->
+    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(filename, safe_relative_path, 1) ->
