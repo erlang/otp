@@ -25,6 +25,7 @@
 
 %header_doc_include
 -module(mnesia_frag_hash).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Fragmented Table Hashing callback functions
 -export([

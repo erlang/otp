@@ -35,6 +35,7 @@
 %% reorder keys within in a bucket.
 
 -module(sets).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Standard interface.
 -export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
