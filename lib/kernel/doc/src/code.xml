@@ -87,7 +87,7 @@
       directory described above, except that directories without
       an <c>ebin</c> directory are ignored.</p>
     <p>All application directories found in the additional directories
-      appears before the standard OTP applications, except for the
+      appear before the standard OTP applications, except for the
       Kernel and STDLIB applications, which are placed before
       any additional applications. In other words, modules found in any
       of the additional library directories override modules with
