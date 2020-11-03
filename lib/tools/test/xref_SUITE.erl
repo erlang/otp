@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -668,7 +668,7 @@ modules(Conf) when is_list(Conf) ->
     xref_base:analyze(S, {call, foo}),
     {{error, _, {unavailable_analysis, {use, foo}}}, _} =
     xref_base:analyze(S, {use, foo}),
-    analyze(undefined_functions, [{x,undef,0}], S),
+    {ok, _} = analyze(undefined_functions, [{x,undef,0}], S),
     5 = length(xref_base:info(S)),
 
     %% More: all info, conversions.
@@ -742,7 +742,8 @@ add(Conf) when is_list(Conf) ->
     case os:type() of
         {unix, _} ->
             {error, _, {file_error, _, _}} =
-            xref_base:add_release(S, UDir);
+            xref_base:add_release(S, UDir),
+            true;
         _ ->
             true
     end,
@@ -763,7 +764,8 @@ add(Conf) when is_list(Conf) ->
     case os:type() of
         {unix, _} ->
             {error, _, {file_error, _, _}} =
-            xref_base:add_directory(S6, UDir);
+            xref_base:add_directory(S6, UDir),
+            true;
         _ ->
             true
     end,
@@ -1341,7 +1343,8 @@ replace(Conf) when is_list(Conf) ->
         {unix, _} ->
             hide_file(Ybeam),
             {error, _, {file_error, _, _}} =
-            xref:replace_module(s, x, Ybeam);
+            xref:replace_module(s, x, Ybeam),
+            true;
         _ ->
             true
     end,
@@ -2180,14 +2183,14 @@ variables(Conf) when is_list(Conf) ->
 
     S = set_up(S2),
 
-    eval("T1=E, T2=E*T1, T3 = T2*T2, T4=range T3, T5=T3|T4, T5",
-         [E1,E2,E3], S),
-    eval("((E*E)*(E*E)) | (range ((E*E)*(E*E)))",
-         [E1,E2,E3], S),
-    eval("T1=V*V,T2=T1*V,T3=V*V*V,T3",
-         [F1,F2,Lib], S),
-    eval("T1=V*V, T2=V*V, T1*T2",
-         [F1,F2,Lib], S),
+    {ok, _} = eval("T1=E, T2=E*T1, T3 = T2*T2, T4=range T3, T5=T3|T4, T5",
+                   [E1,E2,E3], S),
+    {ok, _} = eval("((E*E)*(E*E)) | (range ((E*E)*(E*E)))",
+                   [E1,E2,E3], S),
+    {ok, _} = eval("T1=V*V,T2=T1*V,T3=V*V*V,T3",
+                   [F1,F2,Lib], S),
+    {ok, _} = eval("T1=V*V, T2=V*V, T1*T2",
+                   [F1,F2,Lib], S),
 
     {ok, S100} = eval("T0 := E", [E1, E2, E3], S),
     {ok, S101} = eval("T1 := E  | m1", [E1, E3], S100),
@@ -2455,7 +2458,8 @@ otp_14344(Conf) when is_list(Conf) ->
 %%%
 
 copy_file(Src, Dest) ->
-    file:copy(Src, Dest).
+    {ok, _} = file:copy(Src, Dest),
+    ok.
 
 fname(N) ->
     filename:join(N).

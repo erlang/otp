@@ -97,10 +97,10 @@
       </p>
     <p>See the <seeerl marker="fprof">fprof(3)</seeerl> manual page
       for more options and arguments to the functions
-      <seeerl marker="fprof#trace">trace</seeerl>,
-      <seeerl marker="fprof#profile">profile</seeerl>
+      <seemfa marker="fprof#trace/2">trace</seemfa>,
+      <seemfa marker="fprof#profile/0">profile</seemfa>
       and 
-      <seeerl marker="fprof#analyse">analyse</seeerl>.
+      <seemfa marker="fprof#analyse/0">analyse</seemfa>.
       </p>
   </section>
 
