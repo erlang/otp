@@ -180,9 +180,10 @@
 %%% External exports
 %%%----------------------------------------------------------------------
 
-%% start() -> {ok,Pid} | {error,Reason}
-%%   Pid = pid()
-%%   Reason = {already_started,Pid} | term()
+-spec start() -> {'ok', pid()} | {'error', Reason} when
+      Reason :: {'already_started', pid()}
+              | term().
+
 start() ->
     case whereis(?SERVER) of
 	undefined ->
@@ -207,37 +208,60 @@ start() ->
 	    {error,{already_started,Pid}}
     end.
 
-%% start(Nodes) -> {ok,StartedNodes}
-%%   Nodes = Node | [Node,...]
-%%   Node = atom()
+-spec start(Nodes) -> {'ok', StartedNodes}
+                    | {'error', 'not_main_node'}
+                    | {'error', 'local_only'} when
+      Nodes :: node() | [node()],
+      StartedNodes :: [node()].
+
 start(Node) when is_atom(Node) ->
     start([Node]);
 start(Nodes) ->
     call({start_nodes,remove_myself(Nodes,[])}).
 
-%% local_only() -> ok | {error,too_late}
+-spec local_only() -> 'ok' | {'error', 'too_late'}.
 
 local_only() ->
     call(local_only).
 
-%% compile(ModFiles) ->
-%% compile(ModFiles, Options) ->
-%% compile_module(ModFiles) -> Result
-%% compile_module(ModFiles, Options) -> Result
-%%   ModFiles = ModFile | [ModFile]
-%%   ModFile = Module | File
-%%     Module = atom()
-%%     File = string()
-%%   Options = [Option]
-%%     Option = {i,Dir} | {d,Macro} | {d,Macro,Value}
-%%   Result = {ok,Module} | {error,File}
+-type compile_result() :: {'ok', Module :: module()}
+                        | {'error', file:filename()}
+                        | {'error', 'not_main_node'}.
+-type mod_file() :: (Module :: module()) | (File :: file:filename()).
+-type mod_files() :: mod_file() | [mod_file()].
+-type option() :: {'i', Dir :: file:filename()}
+                | {'d', Macro :: atom()}
+                | {'d', Macro :: atom(), Value :: term()}
+                | 'export_all'.
+
+-spec compile(ModFiles) -> Result | [Result] when
+      ModFiles :: mod_files(),
+      Result :: compile_result().
+
 compile(ModFile) ->
     compile_module(ModFile, []).
+
+-spec compile(ModFiles, Options) -> Result | [Result] when
+      ModFiles :: mod_files(),
+      Options :: [option()],
+      Result :: compile_result().
+
 compile(ModFile, Options) ->
     compile_module(ModFile, Options).
+
+-spec compile_module(ModFiles) -> Result | [Result] when
+      ModFiles :: mod_files(),
+      Result :: compile_result().
+
 compile_module(ModFile) when is_atom(ModFile);
 			     is_list(ModFile) ->
     compile_module(ModFile, []).
+
+-spec compile_module(ModFiles, Options) -> Result | [Result] when
+      ModFiles :: mod_files(),
+      Options :: [option()],
+      Result :: compile_result().
+
 compile_module(ModFile, Options) when is_atom(ModFile);
 				      is_list(ModFile), is_integer(hd(ModFile)) ->
     [R] = compile_module([ModFile], Options),
@@ -260,13 +284,12 @@ compile_module(ModFiles, Options) when is_list(Options) ->
 	 end || ModFile <- ModFiles],
     compile_modules(AbsFiles, Options).
 
-%% compile_directory() ->
-%% compile_directory(Dir) ->
-%% compile_directory(Dir, Options) -> [Result] | {error,Reason}
-%%   Dir = string()
-%%   Options - see compile/1
-%%   Result - see compile/1
-%%   Reason = eacces | enoent
+-type file_error() :: 'eacces' | 'enoent'.
+
+-spec compile_directory() -> [Result] | {'error', Reason} when
+      Reason :: file_error(),
+      Result :: compile_result().
+
 compile_directory() ->
     case file:get_cwd() of
 	{ok, Dir} ->
@@ -274,8 +297,22 @@ compile_directory() ->
 	Error ->
 	    Error
     end.
+
+-spec compile_directory(Dir) -> [Result] | {'error', Reason} when
+      Dir :: file:filename(),
+      Reason :: file_error(),
+      Result :: compile_result().
+
 compile_directory(Dir) when is_list(Dir) ->
     compile_directory(Dir, []).
+
+
+-spec compile_directory(Dir, Options) -> [Result] | {'error', Reason} when
+      Dir :: file:filename(),
+      Options :: [option()],
+      Reason :: file_error(),
+      Result :: compile_result().
+
 compile_directory(Dir, Options) when is_list(Dir), is_list(Options) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
@@ -303,10 +340,24 @@ filter_options(Options) ->
                  end,
                  Options).
 
-%% compile_beam(ModFile) -> Result | {error,Reason}
-%%   ModFile - see compile/1
-%%   Result - see compile/1
-%%   Reason = non_existing | already_cover_compiled
+-type beam_mod_file() :: (Module :: module()) | (BeamFile :: file:filename()).
+-type beam_mod_files() :: beam_mod_file() | [beam_mod_file()].
+-type compile_beam_rsn() ::
+        'non_existing'
+      | {'no_abstract_code', BeamFile :: file:filename()}
+      | {'encrypted_abstract_code', BeamFile :: file:filename()}
+      | {'already_cover_compiled', 'no_beam_found', module()}
+      | {'no_file_attribute', BeamFile :: file:filename()}
+      | 'not_main_node'.
+
+-type compile_beam_result() :: {'ok', module()}
+                             | {'error', BeamFile :: file:filename()}
+                             | {'error', Reason :: compile_beam_rsn()}.
+
+-spec compile_beam(ModFiles) -> Result | [Result] when
+      ModFiles :: beam_mod_files(),
+      Result :: compile_beam_result().
+
 compile_beam(ModFile0) when is_atom(ModFile0);
 			    is_list(ModFile0), is_integer(hd(ModFile0)) ->
     case compile_beams([ModFile0]) of
@@ -319,11 +370,10 @@ compile_beam(ModFile0) when is_atom(ModFile0);
 compile_beam(ModFiles) when is_list(ModFiles) ->
     compile_beams(ModFiles).
 
+-spec compile_beam_directory() -> [Result] | {'error', Reason} when
+      Reason :: file_error(),
+      Result :: compile_beam_result().
 
-%% compile_beam_directory(Dir) -> [Result] | {error,Reason}
-%%   Dir - see compile_directory/1
-%%   Result - see compile/1
-%%   Reason = eacces | enoent
 compile_beam_directory() ->
     case file:get_cwd() of
 	{ok, Dir} ->
@@ -331,6 +381,13 @@ compile_beam_directory() ->
 	Error ->
 	    Error
     end.
+
+-spec compile_beam_directory(Dir) ->
+                    [Result] | {'error', Reason} when
+      Dir :: file:filename(),
+      Reason :: file_error(),
+      Result :: compile_beam_result().
+
 compile_beam_directory(Dir) when is_list(Dir) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
@@ -379,35 +436,51 @@ get_mods_and_beams([{Module,File}|ModFiles],Acc) ->
 get_mods_and_beams([],Acc) ->
     lists:reverse(Acc).
 
+-type analyse_item() ::
+        (Line :: {M :: module(), N :: non_neg_integer()})
+      | (Clause :: {M :: module(), F :: atom(), A :: arity(),
+                    C :: non_neg_integer()})
+      | (Function :: {M :: module(), F :: atom(), A :: arity()}). % mfa()
+-type analyse_value() :: {Cov :: non_neg_integer(), NotCov :: non_neg_integer()}
+                       | Calls :: non_neg_integer().
+-type analyse_ok() :: [{Module :: module(), Value :: analyse_value()}]
+                    | [{Item :: analyse_item(), Value :: analyse_value()}].
+-type analyse_fail() :: [{'not_cover_compiled', module()}].
+-type analysis() :: 'coverage' | 'calls'.
+-type level() :: 'line' | 'clause' | 'function' | 'module'.
+-type modules() :: module() | [module()].
+-type one_result() ::
+        {'ok', {Module :: module(), Value :: analyse_value()}}
+      | {'ok', [{Item :: analyse_item(), Value :: analyse_value()}]}
+      | {'error', {'not_cover_compiled', module()}}.
 
-%% analyse(Modules) ->
-%% analyse(Analysis) ->
-%% analyse(Level) ->
-%% analyse(Modules, Analysis) ->
-%% analyse(Modules, Level) ->
-%% analyse(Analysis, Level)
-%% analyse(Modules, Analysis, Level) -> {ok,Answer} | {error,Error}
-%%   Modules = Module | [Module]
-%%   Module = atom()
-%%   Analysis = coverage | calls
-%%   Level = line | clause | function | module
-%%   Answer = {Module,Value} | [{Item,Value}]
-%%     Item = Line | Clause | Function
-%%      Line = {M,N}
-%%      Clause = {M,F,A,C}
-%%      Function = {M,F,A}
-%%        M = F = atom()
-%%        N = A = C = integer()
-%%     Value = {Cov,NotCov} | Calls
-%%       Cov = NotCov = Calls = integer()
-%%   Error = {not_cover_compiled,Module} | not_main_node
 -define(is_analysis(__A__),
 	(__A__=:=coverage orelse __A__=:=calls)).
 -define(is_level(__L__),
 	(__L__=:=line orelse __L__=:=clause orelse
 	 __L__=:=function orelse __L__=:=module)).
+
+-spec analyse() -> {'result', analyse_ok(), analyse_fail()} |
+                   {'error', 'not_main_node'}.
+
 analyse() ->
     analyse('_').
+
+-dialyzer({no_contracts, analyse/1}).
+%% modules() :: module() | [module()]. module() is an alias for
+%% atom(), which overlaps with analysis() and level(). That is,
+%% modules named 'calls' &c must be placed in a list.
+-spec analyse(Analysis) -> {'result', analyse_ok(), analyse_fail()} |
+                           {'error', 'not_main_node'} when
+                  Analysis :: analysis();
+             (Level) -> {'result', analyse_ok(), analyse_fail()} |
+                        {'error', 'not_main_node'} when
+                  Level :: level();
+             (Modules) -> OneResult |
+                          {'result', analyse_ok(), analyse_fail()} |
+                          {'error', 'not_main_node'} when
+                  Modules :: modules(),
+                  OneResult :: one_result().
 
 analyse(Analysis) when ?is_analysis(Analysis) ->
     analyse('_', Analysis);
@@ -416,6 +489,24 @@ analyse(Level) when ?is_level(Level) ->
 analyse(Module) ->
     analyse(Module, coverage).
 
+-dialyzer({no_contracts,analyse/2}). %% See comment analyse/1.
+-spec analyse(Analysis, Level) -> {'result', analyse_ok(), analyse_fail()} |
+                                  {'error', 'not_main_node'} when 
+                  Analysis :: analysis(),
+                  Level :: level();
+             (Modules, Analysis) -> OneResult |
+                                    {'result', analyse_ok(), analyse_fail()} |
+                                    {'error', 'not_main_node'} when
+                  Analysis :: analysis(),
+                  Modules :: modules(),
+                  OneResult :: one_result();
+             (Modules, Level) -> OneResult |
+                                 {'result', analyse_ok(), analyse_fail()} |
+                                 {'error', 'not_main_node'} when
+                  Level :: level(),
+                  Modules :: modules(),
+                  OneResult :: one_result().
+
 analyse(Analysis, Level) when ?is_analysis(Analysis) andalso
 			      ?is_level(Level) ->
     analyse('_', Analysis, Level);
@@ -423,6 +514,15 @@ analyse(Module, Analysis) when ?is_analysis(Analysis) ->
     analyse(Module, Analysis, function);
 analyse(Module, Level) when ?is_level(Level) ->
     analyse(Module, coverage, Level).
+
+-spec analyse(Modules, Analysis, Level) ->
+                     OneResult |
+                     {'result', analyse_ok(), analyse_fail()} |
+                     {'error', 'not_main_node'} when
+      Analysis :: analysis(),
+      Level :: level(),
+      Modules :: modules(),
+      OneResult :: one_result().
 
 analyse(Module, Analysis, Level) when ?is_analysis(Analysis),
 				      ?is_level(Level) ->
@@ -433,24 +533,40 @@ analyze(Module) -> analyse(Module).
 analyze(Module, Analysis) -> analyse(Module, Analysis).
 analyze(Module, Analysis, Level) -> analyse(Module, Analysis, Level).
 
-%% analyse_to_file() ->
-%% analyse_to_file(Modules) ->
-%% analyse_to_file(Modules, Options) ->
-%%   Modules = Module | [Module]
-%%   Module = atom()
-%%   OutFile = string()
-%%   Options = [Option]
-%%     Option = html | {outfile,filename()} | {outdir,dirname()}
-%%   Error = {not_cover_compiled,Module} | no_source_code_found |
-%%           {file,File,Reason}
-%%     File = string()
-%%     Reason = term()
-%%
 %% Kept for backwards compatibility:
 %% analyse_to_file(Modules, OutFile) ->
 %% analyse_to_file(Modules, OutFile, Options) -> {ok,OutFile} | {error,Error}
+
+-spec analyse_to_file() -> {'result', analyse_file_ok(), analyse_file_fail()} |
+                           {'error', 'not_main_node'}.
+
 analyse_to_file() ->
     analyse_to_file('_').
+
+-type analyse_option() :: 'html'
+                        | {'outfile', OutFile :: file:filename()}
+                        | {'outdir', OutDir :: file:filename()}.
+-type analyse_answer() :: {'ok', OutFile :: file:filename()} |
+                          {'error', analyse_rsn()}.
+-type analyse_file_ok() :: [OutFile :: file:filename()].
+-type analyse_file_fail() :: [analyse_rsn()].
+-type analyse_rsn() :: {'not_cover_compiled', Module :: module()} |
+                       {'file', File :: file:filename(), Reason :: term()} |
+                       {'no_source_code_found', Module :: module()}.
+
+-dialyzer({no_contracts, analyse_to_file/1}).
+%% The option list [html] overlaps with module list [html].
+-spec analyse_to_file(Modules) -> Answer |
+                                  {'result',
+                                   analyse_file_ok(), analyse_file_fail()} |
+                                  {'error', 'not_main_node'} when
+                          Modules :: modules(),
+                          Answer :: analyse_answer();
+                     (Options) -> {'result',
+                                   analyse_file_ok(), analyse_file_fail()} |
+                                  {'error', 'not_main_node'} when
+                          Options :: [analyse_option()].
+
 analyse_to_file(Arg) ->
     case is_options(Arg) of
 	true ->
@@ -458,11 +574,22 @@ analyse_to_file(Arg) ->
 	false ->
 	    analyse_to_file(Arg,[])
     end.
+
+-spec analyse_to_file(Modules, Options) ->
+                             Answer |
+                             {'result',
+                              analyse_file_ok(), analyse_file_fail()} |
+                             {'error', 'not_main_node'} when
+      Modules :: modules(),
+      Options :: [analyse_option()],
+      Answer :: analyse_answer().
+
 analyse_to_file(Module, OutFile) when is_list(OutFile), is_integer(hd(OutFile)) ->
     %% Kept for backwards compatibility
     analyse_to_file(Module, [{outfile,OutFile}]);
 analyse_to_file(Module, Options) when is_list(Options) ->
     call({{analyse_to_file, Options}, Module}).
+
 analyse_to_file(Module, OutFile, Options) when is_list(OutFile) ->
     %% Kept for backwards compatibility
     analyse_to_file(Module,[{outfile,OutFile}|Options]).
@@ -473,10 +600,32 @@ analyze_to_file(Module, OptOrOut) -> analyse_to_file(Module, OptOrOut).
 analyze_to_file(Module, OutFile, Options) -> 
     analyse_to_file(Module, OutFile, Options).
 
+-spec async_analyse_to_file(Module) -> pid() when
+      Module :: module().
+
 async_analyse_to_file(Module) ->
     do_spawn(?MODULE, analyse_to_file, [Module]).
+
+-dialyzer({no_contracts, async_analyse_to_file/2}).
+%% The types file:filename() (string()) and ['html'] has something in
+%% common, namely [].
+-spec async_analyse_to_file(Module, OutFile) -> pid() when
+                                Module :: module(),
+                                OutFile :: file:filename();
+                           (Module, Options) -> pid() when
+                                Module :: module(),
+                                Options :: [Option],
+                                Option :: 'html'.
+
 async_analyse_to_file(Module, OutFileOrOpts) ->
     do_spawn(?MODULE, analyse_to_file, [Module, OutFileOrOpts]).
+
+-spec async_analyse_to_file(Module, OutFile, Options) -> pid() when
+      Module :: module(),
+      OutFile :: file:filename(),
+      Options :: [Option],
+      Option :: 'html'.
+
 async_analyse_to_file(Module, OutFile, Options) ->
     do_spawn(?MODULE, analyse_to_file, [Module, OutFile, Options]).
 
@@ -516,69 +665,91 @@ outfilename(Module, true) ->
 outfilename(Module, false) ->
     atom_to_list(Module)++".COVER.out".
 
+-type export_reason() :: {'not_cover_compiled', Module :: module()} |
+                         {'cant_open_file',
+                          ExportFile :: file:filename(), FileReason :: term()} |
+                         'not_main_node'.
 
-%% export(File)
-%% export(File,Module) -> ok | {error,Reason}
-%%   File = string(); file to write the exported data to
-%%   Module = atom()
+-spec export(File) -> 'ok' | {'error', Reason} when
+      File :: file:filename(),
+      Reason :: export_reason().
+
 export(File) ->
     export(File, '_').
+
+-spec export(File, Module) -> 'ok' | {'error', Reason} when
+      File :: file:filename(),
+      Module :: module(),
+      Reason :: export_reason().
+
 export(File, Module) ->
     call({export,File,Module}).
 
-%% import(File) -> ok | {error, Reason}
-%%   File = string(); file created with cover:export/1,2
+-spec import(ExportFile) -> 'ok' | {'error', Reason} when
+      ExportFile :: file:filename(),
+      Reason :: {'cant_open_file', ExportFile, FileReason :: term()} |
+                'not_main_node'.
+
 import(File) ->
     call({import,File}).
 
-%% modules() -> [Module]
-%%   Module = atom()
+-spec modules() -> [module()] | {'error', 'not_main_node'}.
+
 modules() ->
    call(modules).
 
-%% imported_modules() -> [Module]
-%%   Module = atom()
+-spec imported_modules() -> [module()] | {'error', 'not_main_node'}.
+
 imported_modules() ->
    call(imported_modules).
 
-%% imported() -> [ImportFile]
-%%   ImportFile = string()
+-spec imported() -> [file:filename()] |  {'error', 'not_main_node'}.
+
 imported() ->
    call(imported).
 
-%% which_nodes() -> [Node]
-%%   Node = atom()
+-spec which_nodes() -> [node()].
+
 which_nodes() ->
    call(which_nodes).
 
-%% is_compiled(Module) -> {file,File} | false
-%%   Module = atom()
-%%   File = string()
+-spec is_compiled(Module) -> {'file', File :: file:filename()} |
+                             'false' |
+                             {'error', 'not_main_node'} when
+      Module :: module().
+
 is_compiled(Module) when is_atom(Module) ->
     call({is_compiled, Module}).
 
-%% reset(Module) -> ok | {error,Error}
-%% reset() -> ok
-%%   Module = atom()
-%%   Error = {not_cover_compiled,Module}
+-spec reset(Module) -> 'ok' |
+                       {'error', 'not_main_node'} |
+                       {'error', 'not_cover_compiled', Module} when
+      Module :: module().
+
 reset(Module) when is_atom(Module) ->
     call({reset, Module}).
+
+-spec reset() -> 'ok' | {'error', 'not_main_node'}.
+
 reset() ->
     call(reset).
 
-%% stop() -> ok
+-spec stop() -> 'ok' | {'error', 'not_main_node'}.
+
 stop() ->
     call(stop).
+
+-spec stop(Nodes) -> 'ok' | {'error', 'not_main_node'} when
+      Nodes :: node() | [node()].
 
 stop(Node) when is_atom(Node) ->
     stop([Node]);
 stop(Nodes) ->
     call({stop,remove_myself(Nodes,[])}).
 
-%% flush(Nodes) -> ok | {error,not_main_node}
-%%   Nodes = [Node] | Node
-%%   Node = atom()
-%%   Error = {not_cover_compiled,Module}
+-spec flush(Nodes) -> 'ok' | {'error', 'not_main_node'} when
+      Nodes :: node() | [node()].
+
 flush(Node) when is_atom(Node) ->
     flush([Node]);
 flush(Nodes) ->
