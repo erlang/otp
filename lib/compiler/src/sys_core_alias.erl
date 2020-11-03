@@ -109,18 +109,23 @@ pre(#c_fun{vars=Vars}=Node, Sub) when ?HAS_SUBS(Sub) ->
     {Node,sub_fold(get_variables(Vars), Sub)};
 
 pre(Node, Sub0) when ?HAS_SUBS(Sub0) ->
-    %% We cache only tuples and cons.
-    case cerl:is_data(Node) andalso not cerl:is_literal(Node) of
-        false ->
-            {Node,Sub0};
+    case cerl:is_literal(Node) of
         true ->
-            Kind = cerl:data_type(Node),
-            Es = cerl:data_es(Node),
-            case sub_cache_nodes(Kind, Es, Sub0) of
-                {Name,Sub1} ->
-                    {cerl:ann_c_var(cerl:get_ann(Node), Name),Sub1};
-                error ->
-                    {Node,Sub0}
+            skip;
+        false ->
+            %% We cache only tuples and cons.
+            case cerl:is_data(Node) of
+                false ->
+                    {Node,Sub0};
+                true ->
+                    Kind = cerl:data_type(Node),
+                    Es = cerl:data_es(Node),
+                    case sub_cache_nodes(Kind, Es, Sub0) of
+                        {Name,Sub1} ->
+                            {cerl:ann_c_var(cerl:get_ann(Node), Name),Sub1};
+                        error ->
+                            {Node,Sub0}
+                    end
             end
     end;
 

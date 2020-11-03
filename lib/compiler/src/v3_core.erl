@@ -3090,7 +3090,18 @@ c_add_dummy_export(C, [], St) ->
 %%%           -| ['letrec_goto'] )
 
 lbody(B, St) ->
-    cerl_trees:mapfold(fun lexpr/2, St, B).
+    cerl_trees:mapfold(fun skip_lowering/2, fun lexpr/2, St, B).
+
+%% These nodes do not have case or receive within them,
+%% so we can speed up lowering by not traversing them.
+skip_lowering(#c_binary{}, _A) -> skip;
+skip_lowering(#c_call{}, _A) -> skip;
+skip_lowering(#c_cons{}, _A) -> skip;
+skip_lowering(#c_literal{}, _A) -> skip;
+skip_lowering(#c_map{}, _A) -> skip;
+skip_lowering(#c_primop{}, _A) -> skip;
+skip_lowering(#c_tuple{}, _A) -> skip;
+skip_lowering(T, A) -> {T, A}.
 
 lexpr(#c_case{}=Case, St) ->
     %% Split patterns that bind and use the same variable.
