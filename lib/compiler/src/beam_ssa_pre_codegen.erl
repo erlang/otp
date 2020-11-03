@@ -196,7 +196,8 @@ add_extra_annos(F, Annos) ->
 
 assert_no_critical_edges(#st{ssa=Blocks}=St) ->
     F = fun assert_no_ces/3,
-    beam_ssa:fold_rpo(F, Blocks, Blocks),
+    RPO = beam_ssa:rpo(Blocks),
+    beam_ssa:fold_blocks(F, RPO, Blocks, Blocks),
     St.
 
 assert_no_ces(_, #b_blk{is=[#b_set{op=phi,args=[_,_]=Phis}|_]}, Blocks) ->
@@ -226,7 +227,8 @@ fix_bs(#st{ssa=Blocks,cnt=Count0,use_bsm3=UseBSM3}=St) ->
            (_, A) ->
                 A
         end,
-    case beam_ssa:fold_instrs_rpo(F, [0], [],Blocks) of
+    RPO = beam_ssa:rpo(Blocks),
+    case beam_ssa:fold_instrs(F, RPO, [], Blocks) of
         [] ->
             %% No binary matching in this function.
             St;
@@ -1132,7 +1134,8 @@ fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
                   #b_set{dst=Ignore,op=put_tuple_elements,args=Args}],C};
            (I, C) -> {[I],C}
         end,
-    {Blocks,Count} = beam_ssa:flatmapfold_instrs_rpo(F, [0], Count0, Blocks0),
+    RPO = beam_ssa:rpo(Blocks0),
+    {Blocks,Count} = beam_ssa:flatmapfold_instrs(F, RPO, Count0, Blocks0),
     St#st{ssa=Blocks,cnt=Count}.
 
 %%%
@@ -1275,8 +1278,8 @@ is_single_use(V, Uses) ->
 %%   a stack frame or set up a stack frame with a different size.
 
 place_frames(#st{ssa=Blocks}=St) ->
-    {Doms,_} = beam_ssa:dominators(Blocks),
     Ls = beam_ssa:rpo(Blocks),
+    {Doms,_} = beam_ssa:dominators(Ls, Blocks),
     Tried = gb_sets:empty(),
     Frames0 = [],
     {Frames,_} = place_frames_1(Ls, Blocks, Doms, Tried, Frames0),
@@ -1661,7 +1664,8 @@ find_loop_exit([_,_|_]=RmBlocks, Blocks) ->
     %% we always find a common block if there is one (shared by at
     %% least two clauses), we must analyze the path from all
     %% remove_message blocks.
-    {Dominators,_} = beam_ssa:dominators(Blocks),
+    RPO = beam_ssa:rpo(Blocks),
+    {Dominators,_} = beam_ssa:dominators(RPO, Blocks),
     RmSet = cerl_sets:from_list(RmBlocks),
     Rpo = beam_ssa:rpo(RmBlocks, Blocks),
     find_loop_exit_1(Rpo, RmSet, Dominators, Blocks);
@@ -2504,30 +2508,31 @@ turn_yregs_1(Def, FrameSize, Regs) ->
 reserve_regs(#st{args=Args,ssa=Blocks,intervals=Intervals,res=Res0}=St) ->
     %% Reserve x0, x1, and so on for the function arguments.
     Res1 = reserve_arg_regs(Args, 0, Res0),
+    RPO = beam_ssa:rpo(Blocks),
 
     %% Reserve Z registers (dummy registers) for instructions with no
     %% return values (e.g. remove_message) or pseudo-return values
     %% (e.g. landingpad).
-    Res2 = reserve_zregs(Blocks, Intervals, Res1),
+    Res2 = reserve_zregs(RPO, Blocks, Intervals, Res1),
 
     %% Reserve float registers.
-    Res3 = reserve_fregs(Blocks, Res2),
+    Res3 = reserve_fregs(RPO, Blocks, Res2),
 
     %% Reserve all remaining unreserved variables as X registers.
     Res = maps:from_list(Res3),
-    St#st{res=reserve_xregs(Blocks, Res)}.
+    St#st{res=reserve_xregs(RPO, Blocks, Res)}.
 
 reserve_arg_regs([#b_var{}=Arg|Is], N, Acc) ->
     reserve_arg_regs(Is, N+1, [{Arg,{x,N}}|Acc]);
 reserve_arg_regs([], _, Acc) -> Acc.
 
-reserve_zregs(Blocks, Intervals, Res) ->
+reserve_zregs(RPO, Blocks, Intervals, Res) ->
     ShortLived0 = [V || {V,[{Start,End}]} <- Intervals, Start+2 =:= End],
     ShortLived = cerl_sets:from_list(ShortLived0),
     F = fun(_, #b_blk{is=Is,last=Last}, A) ->
                 reserve_zreg(Is, Last, ShortLived, A)
         end,
-    beam_ssa:fold_rpo(F, [0], Res, Blocks).
+    beam_ssa:fold_blocks(F, RPO, Res, Blocks).
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val],dst=Bool}],
@@ -2593,11 +2598,11 @@ reserve_test_zreg(#b_var{}=V, ShortLived, A) ->
         false -> A
     end.
 
-reserve_fregs(Blocks, Res) ->
+reserve_fregs(RPO, Blocks, Res) ->
     F = fun(_, #b_blk{is=Is}, A) ->
                 reserve_freg(Is, A)
         end,
-    beam_ssa:fold_rpo(F, [0], Res, Blocks).
+    beam_ssa:fold_blocks(F, RPO, Res, Blocks).
 
 reserve_freg([#b_set{op={float,Op},dst=V}|Is], Res) ->
     case Op of
@@ -2623,8 +2628,8 @@ reserve_freg([], Res) -> Res.
 %%  All remaining variables are reserved as X registers. Linear scan
 %%  will allocate the lowest free X register for the variable.
 
-reserve_xregs(Blocks, Res) ->
-    Ls = reverse(beam_ssa:rpo(Blocks)),
+reserve_xregs(RPO, Blocks, Res) ->
+    Ls = reverse(RPO),
     reserve_xregs(Ls, Blocks, #{}, Res).
 
 reserve_xregs([L|Ls], Blocks, XsMap0, Res0) ->

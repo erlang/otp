@@ -356,9 +356,10 @@ fdb_fs([#b_function{ args=Args,bs=Bs }=F | Fs], Exports, FuncDb0) ->
                                                   arg_types=ArgTypes }}
               end,
 
-    FuncDb = beam_ssa:fold_rpo(fun(_L, #b_blk{is=Is}, FuncDb) ->
+    RPO = beam_ssa:rpo(Bs),
+    FuncDb = beam_ssa:fold_blocks(fun(_L, #b_blk{is=Is}, FuncDb) ->
                                        fdb_is(Is, Id, FuncDb)
-                               end, FuncDb1, Bs),
+                               end, RPO, FuncDb1, Bs),
 
     fdb_fs(Fs, Exports, FuncDb);
 fdb_fs([], _Exports, FuncDb) ->
@@ -2183,7 +2184,9 @@ replace_last([_], Repl) -> [Repl];
 replace_last([I|Is], Repl) -> [I|replace_last(Is, Repl)].
 
 opt_ne_single_use(Var, {uses,Linear}) ->
-    Uses = beam_ssa:uses(maps:from_list(Linear)),
+    Blocks = maps:from_list(Linear),
+    RPO = beam_ssa:rpo(Blocks),
+    Uses = beam_ssa:uses(RPO, Blocks),
     opt_ne_single_use(Var, Uses);
 opt_ne_single_use(Var, Uses) when is_map(Uses) ->
     {case Uses of
@@ -2271,8 +2274,9 @@ do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) ->
 
     %% Calculate dominators.
     Blocks0 = maps:from_list(Linear),
+    RPO = beam_ssa:rpo(Blocks0),
     Preds = beam_ssa:predecessors(Blocks0),
-    {Dom, Numbering} = beam_ssa:dominators(Blocks0, Preds),
+    {Dom, Numbering} = beam_ssa:dominators_from_predecessors(RPO, Preds),
 
     %% It is not safe to move get_tuple_element instructions to blocks
     %% that begin with certain instructions. It is also unsafe to move
