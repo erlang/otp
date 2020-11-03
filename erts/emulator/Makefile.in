@@ -834,8 +834,8 @@ $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 # included before any other directives, including other #includes.
 #
 ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1
-ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.h.gch
-ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.h
+ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
+ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
 
 $(OBJDIR)/%.o: beam/jit/%.cpp beam/jit/beam_asm.hpp $(ASMJIT_PCH_OBJ)
 	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
@@ -856,6 +856,8 @@ $(ASMJIT_PCH_OBJ): $(ASMJIT_PCH_SRC) $(ASMJIT_TTF_H) beam/erl_bif_info.c
 
 ## We copy all asmjit headers into TTF_DIR in order for cross-compilation
 ## with pre-compiled header to work.
+$(TTF_DIR)/asmjit/asmjit.hpp: asmjit/asmjit.h
+	$(V_at)cp $< $@
 $(TTF_DIR)/asmjit/%.h: asmjit/%.h
 	$(V_at)cp $< $@
 

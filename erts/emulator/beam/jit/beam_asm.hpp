@@ -23,8 +23,6 @@
 #include <unordered_map>
 #include <map>
 
-#include <asmjit/asmjit.h>
-
 extern "C"
 {
 #ifdef HAVE_CONFIG_H
