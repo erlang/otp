@@ -29,9 +29,12 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2, end_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2
+        ]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
-	 last_ms_answer/1, intermediate_error/1]).
+	 last_ms_answer/1, intermediate_error/1,
+         servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1
+        ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
 	 gethostbyaddr_v6/0, gethostbyaddr_v6/1,
@@ -67,7 +70,8 @@ suite() ->
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
-     last_ms_answer, intermediate_error,
+     last_ms_answer,
+     intermediate_error, servfail_retry_timeout_default, servfail_retry_timeout_1000,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -115,14 +119,20 @@ end_per_group(_GroupName, Config) ->
 
 zone_dir(TC) ->
     case TC of
-	basic -> otptest;
-	resolve -> otptest;
-	edns0 -> otptest;
-	files_monitor -> otptest;
-	last_ms_answer -> otptest;
+	basic              -> otptest;
+	resolve            -> otptest;
+	edns0              -> otptest;
+	files_monitor      -> otptest;
+	last_ms_answer     -> otptest;
         intermediate_error ->
             {internal,
              #{rcode => ?REFUSED}};
+        servfail_retry_timeout_default ->
+            {internal,
+             #{rcode => ?SERVFAIL, etd => 1500}};
+        servfail_retry_timeout_1000 ->
+            {internal,
+             #{rcode => ?SERVFAIL, etd => 1000}};
 	_ -> undefined
     end.
 
@@ -325,44 +335,81 @@ ns_printlog(Fname) ->
 %% Internal name server
 
 ns_internal(ServerSpec, Mref, Tag, S) ->
-    ?P("ns_internal -> await message"),
+    ?P("ns-internal -> await message"),
     receive
         {'DOWN',Mref,_,_,Reason} ->
-            ?P("ns_internal -> received DOWN: "
+            ?P("ns-internal -> received DOWN: "
                "~n      ~p", [Reason]),
             exit(Reason);
         Tag ->
-            ?P("ns_internal -> received tag: done"),
+            ?P("ns-internal -> received tag: done"),
             ok;
         {udp,S,IP,Port,Data} ->
-            ?P("ns_internal -> received UDP message"),
+            ?P("ns-internal -> received UDP message"),
             Req = ok(inet_dns:decode(Data)),
-            Resp = ns_internal(ServerSpec, Req),
+            {Resp, ServerSpec2} = ns_internal(ServerSpec, Req),
             RespData = inet_dns:encode(Resp),
             _ = ok(gen_udp:send(S, IP, Port, RespData)),
             _ = ok(inet:setopts(S, [{active,once}])),
-            ns_internal(ServerSpec, Mref, Tag, S)
+            ns_internal(ServerSpec2, Mref, Tag, S)
     end.
 
-ns_internal(#{rcode := Rcode}, Req) ->
-    Hdr = inet_dns:msg(Req, header),
+ns_internal(#{rcode := Rcode,
+              ts    := TS0,
+              etd   := ETD} = ServerSpec, Req) ->
+    ?P("ns-internal -> request received (time validation)"),
+    TS1    = timestamp(),
+    Hdr    = inet_dns:msg(Req, header),
     Opcode = inet_dns:header(Hdr, opcode),
-    Id = inet_dns:header(Hdr, id),
-    Rd = inet_dns:header(Hdr, rd),
+    Id     = inet_dns:header(Hdr, id),
+    Rd     = inet_dns:header(Hdr, rd),
     %%
     Qdlist = inet_dns:msg(Req, qdlist),
-    inet_dns:make_msg(
-       [{header,
-         inet_dns:make_header(
-           [{id,Id},
-            {qr,true},
-            {opcode,Opcode},
-            {aa,true},
-            {tc,false},
-            {rd,Rd},
-            {ra,false},
-            {rcode,Rcode}])},
-         {qdlist,Qdlist}]).
+    ?P("ns-internal -> time validation: "
+       "~n      ETD:       ~w"
+       "~n      TS1 - TS0: ~w", [ETD, TS1 - TS0]),
+    RC = if ((TS1 - TS0) >= ETD) ->
+                 ?P("ns-internal -> time validated"),
+                 ?NOERROR;
+            true ->
+                 ?P("ns-internal -> time validation failed"),
+                 Rcode
+         end,
+    Resp   = inet_dns:make_msg(
+               [{header,
+                 inet_dns:make_header(
+                   [{id,     Id},
+                    {qr,     true},
+                    {opcode, Opcode},
+                    {aa,     true},
+                    {tc,     false},
+                    {rd,     Rd},
+                    {ra,     false},
+                    {rcode,  RC}])},
+                {qdlist, Qdlist}]),
+    {Resp, ServerSpec#{ts => timestamp()}};
+ns_internal(#{rcode := Rcode} = ServerSpec, Req) ->
+    ?P("ns-internal -> request received"),
+    Hdr    = inet_dns:msg(Req, header),
+    Opcode = inet_dns:header(Hdr, opcode),
+    Id     = inet_dns:header(Hdr, id),
+    Rd     = inet_dns:header(Hdr, rd),
+    %%
+    Qdlist = inet_dns:msg(Req, qdlist),
+    Resp   = inet_dns:make_msg(
+               [{header,
+                 inet_dns:make_header(
+                   [{id,Id},
+                    {qr,true},
+                    {opcode,Opcode},
+                    {aa,true},
+                    {tc,false},
+                    {rd,Rd},
+                    {ra,false},
+                    {rcode,Rcode}])},
+                {qdlist,Qdlist}]),
+    {Resp, ServerSpec#{ts => timestamp()}}.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Behaviour modifying nameserver proxy
@@ -374,10 +421,13 @@ proxy_start(TC, {NS,P}) ->
 	spawn_link(
 	  fun () ->
 		  try proxy_start(TC, NS, P, Parent, Tag)
-		  catch C:X:Stacktrace ->
-			  io:format(
-			    "~w: ~w:~p ~p~n",
-			    [self(),C,X,Stacktrace])
+		  catch
+                      C:X:Stacktrace ->
+			  ?P("~p Failed starting proxy: "
+                             "~n      Class:      ~w"
+                             "~n      Error:      ~p"
+                             "~n      Stacktrace: ~p",
+                             [self(), C, X, Stacktrace])
 		  end
 	  end),
     receive {started,Tag,Port} ->
@@ -867,22 +917,61 @@ last_ms_answer(Config) when is_list(Config) ->
     proxy_wait(PSpec),
     ok.
 
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% First name server answers ?REFUSED, second does not answer.
 %% Check that we get the error code from the first server.
 
 intermediate_error(Config) when is_list(Config) ->
-    NS = ns(Config),
-    Name = "ns.otptest",
-    IP = {127,0,0,1},
+    NS      = ns(Config),
+    Name    = "ns.otptest",
+    Class   = in,
+    Type    = a,
+    IP      = {127,0,0,1},
     %% A "name server" that does not respond
-    S = ok(gen_udp:open(0, [{ip,IP},{active,false}])),
-    Port = ok(inet:port(S)),
-    NSs = [NS,{IP,Port}],
-    {error,{refused,_}} =
-        inet_res:resolve(Name, in, a, [{nameservers,NSs},verbose], 500),
+    S       = ok(gen_udp:open(0, [{ip,IP},{active,false}])),
+    Port    = ok(inet:port(S)),
+    NSs     = [NS,{IP,Port}],
+    Opts    = [{nameservers, NSs}, verbose],
+    Timeout = 500,
+    {error, {refused,_}} = inet_res:resolve(Name, Class, Type, Opts, Timeout),
     _ = gen_udp:close(S),
     ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% A name server that firstanswers ?SERVFAIL, the second try *if* the retry
+%% is not received *too soon* (etd) answers noerror.
+
+servfail_retry_timeout_default(Config) when is_list(Config) ->
+    NS        = ns(Config),
+    Name      = "ns.otptest",
+    Class     = in,
+    Type      = a,
+    Opts      = [{nameservers,[NS]}, verbose],
+    ?P("try resolve"),
+    {ok, Rec} = inet_res:resolve(Name, Class, Type, Opts),
+    ?P("resolved: "
+       "~n      ~p", [Rec]),
+    ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% A name server that firstanswers ?SERVFAIL, the second try *if* the retry
+%% is not received *too soon* (etd) answers noerror.
+
+servfail_retry_timeout_1000(Config) when is_list(Config) ->
+    NS        = ns(Config),
+    Name      = "ns.otptest",
+    Class     = in,
+    Type      = a,
+    Opts      = [{nameservers,[NS]}, {servfail_retry_timeout, 1000}, verbose],
+    ?P("try resolve"),
+    {ok, Rec} = inet_res:resolve(Name, Class, Type, Opts),
+    ?P("resolved: "
+       "~n      ~p", [Rec]),
+    ok.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compatibility tests. Call the inet_SUITE tests, but with
@@ -905,6 +994,9 @@ ipv4_to_ipv6(Config) -> inet_SUITE:ipv4_to_ipv6(Config).
 host_and_addr() -> inet_SUITE:host_and_addr().
 host_and_addr(Config) -> inet_SUITE:host_and_addr(Config).
 
+
+timestamp() ->
+    erlang:monotonic_time(milli_seconds).
 
 
 %% Case flip helper
