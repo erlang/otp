@@ -160,7 +160,7 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
             %% To ensure that, trim before merging.
 
             Blocks3 = beam_ssa:trim_unreachable(Blocks2),
-            Blocks = beam_ssa:merge_blocks(Blocks3),
+            Blocks = beam_ssa:merge_blocks(beam_ssa:rpo(Blocks3), Blocks3),
             F#b_function{bs=Blocks,cnt=Count};
         true ->
             %% There are no boolean operators that can be optimized in
@@ -1504,7 +1504,7 @@ join_inits_1([], VarMap) ->
 %%%
 %%% We don't try merge blocks during the conversion because it would
 %%% be difficult to keep phi nodes up to date. We will call
-%%% beam_ssa:merge_blocks/1 before returning from this pass to do all
+%%% beam_ssa:merge_blocks/2 before returning from this pass to do all
 %%% block merging.
 %%%
 
