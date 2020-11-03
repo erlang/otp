@@ -106,9 +106,8 @@ static void crypto_free(void* ptr CCB_FILE_LINE_ARGS)
 
 
 #ifdef OPENSSL_THREADS /* vvvvvvvvvvvvvvv OPENSSL_THREADS vvvvvvvvvvvvvvvv */
-#if OPENSSL_VERSION_NUMBER < 0x10100000
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
-#endif
 
 #include <openssl/crypto.h>
 
@@ -131,8 +130,6 @@ static INLINE void locking(int mode, ErlNifRWLock* lock)
 	ASSERT(!"Invalid lock mode");
     }
 }
-
-#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 
 /* TODO: there should be an enif_atomic32_add_return() */
 
@@ -192,21 +189,18 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 	&crypto_realloc,
 	&crypto_free,
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000
-#ifdef OPENSSL_THREADS
+#if defined OPENSSL_THREADS && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 	NULL, /* add_lock_function, filled in below */
 	&locking_function,
 	&id_function,
 	&dyn_create_function,
 	&dyn_lock_function,
 	&dyn_destroy_function
-#endif /* OPENSSL_THREADS */
-#endif
+#endif /* OPENSSL_THREADS && PACKED_OPENSSL_VERSION_PLAIN(1,1,0) */
     };
 
     if (!is_initialized) {
-#if OPENSSL_VERSION_NUMBER < 0x10100000
-#ifdef OPENSSL_THREADS
+#if defined OPENSSL_THREADS && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 	the_struct.add_lock_function = get_add_lock_function();
 	if (nlocks > 0) {
 	    int i;
@@ -223,17 +217,14 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
                     goto err;
 	    }
 	}
-#endif
-#endif
+#endif /* OPENSSL_THREADS && PACKED_OPENSSL_VERSION_PLAIN(1,1,0) */
 	is_initialized = 1;
     }
     return &the_struct;
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000
-#ifdef OPENSSL_THREADS
+#if defined OPENSSL_THREADS && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
  err:
     return NULL;
-#endif
 #endif
 }
 
