@@ -3551,6 +3551,26 @@ AH_BOTTOM([
 #endif
 ])
 
+
+dnl ----------------------------------------------------------------------
+dnl Check for GCC diagnostic ignored "-Waddress-of-packed-member"
+dnl ----------------------------------------------------------------------
+saved_CFLAGS="$CFLAGS"
+CFLAGS="-Werror $CFLAGS"
+AC_TRY_COMPILE([],
+        [_Pragma("GCC diagnostic push")
+         _Pragma("GCC diagnostic ignored \"-Waddress-of-packed-member\"")
+         _Pragma("GCC diagnostic pop")
+         ],
+         AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER,[1],
+           [define if compiler support _Pragma('GCC diagnostic ignored '-Waddress-of-packed-member'')]))
+CFLAGS="$saved_CFLAGS"
+
+
+dnl ----------------------------------------------------------------------
+dnl Enable any -Werror flags
+dnl ----------------------------------------------------------------------
+
 if test "x$GCC" = xyes; then
   CFLAGS="$WERRORFLAGS $CFLAGS"
 fi
