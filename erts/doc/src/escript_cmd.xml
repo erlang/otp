@@ -42,7 +42,7 @@
       the top <c>bin</c> directory of the standalone system and given
       <c>.escript</c> as file extension. Further the (built-in)
       <c>escript</c> program should be copied to the same directory and
-      given the scripts original name (without the <c>.escript</c>
+      given the script's original name (without the <c>.escript</c>
       extension). This will enable use of the bundled Erlang runtime
       system.</p>
 

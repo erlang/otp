@@ -37,6 +37,10 @@
 -export([nslookup/3, nslookup/4]).
 -export([nnslookup/4, nnslookup/5]).
 
+-export_type([res_option/0,
+              res_error/0,
+              nameserver/0]).
+
 -include_lib("kernel/include/inet.hrl").
 -include("inet_res.hrl").
 -include("inet_dns.hrl").
