@@ -627,15 +627,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 
 #include "packet_parser.h"
 
-#define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
-                      (((unsigned char*) (s))[1] << 8)  | \
-                      (((unsigned char*) (s))[2]))
-
-#define get_little_int32(s) ((((unsigned char*) (s))[3] << 24) | \
-			     (((unsigned char*) (s))[2] << 16)  | \
-			     (((unsigned char*) (s))[1] << 8) | \
-			     (((unsigned char*) (s))[0]))
-
 #if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
 
 /* strnlen doesn't exist everywhere */
