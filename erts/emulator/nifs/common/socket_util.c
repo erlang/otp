@@ -1827,7 +1827,8 @@ size_t esock_strnlen(const char *s, size_t maxlen)
  *
  */
 extern
-void esock_abort(const char* expr,
+void __noreturn
+esock_abort(const char* expr,
                  const char* func,
                  const char* file,
                  int         line)
