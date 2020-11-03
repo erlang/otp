@@ -377,7 +377,14 @@ if [ "x$GDB" = "x" ]; then
             done
             exit 0
         else
-	    exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@"
+	    # RR version >= 5.4 has replaced the `--ignore-nested`
+	    # flag with `--nested=ignore`, so try to auto detect this.
+	    if rr help record | grep -q -- '--nested=ignore'; then
+		RR_IGNORE_NESTED="--nested=ignore"
+	    else
+		RR_IGNORE_NESTED="--ignore-nested"
+	    fi
+	    exec rr record $RR_IGNORE_NESTED $BINDIR/$EMU_NAME $emu_xargs "$@"
         fi
     else
 	exec $EXEC $xargs ${1+"$@"}
