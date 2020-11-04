@@ -5387,7 +5387,10 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                             error_message = !0;
                             break;
                         default:
-                            goto badarg;
+                            if (BIF_ARG_4 != am_spawn_request)
+                                goto badarg;
+                            ok_result = ref = erts_make_ref(BIF_P);
+                            goto badopt;
                         }
                     }
 
@@ -5613,6 +5616,9 @@ noconnection:
     goto send_error;
 notsup:
     error = am_notsup;
+    goto send_error;
+badopt:
+    error = am_badopt;
     /* fall through... */
 send_error:
     ASSERT(is_value(ok_result));
