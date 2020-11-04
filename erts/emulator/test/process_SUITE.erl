@@ -3286,6 +3286,10 @@ spawn_request_reply_option_test(Node) ->
         {spawn_reply, RID8, error, badopt} -> ct:fail(unexpected_spawn_reply)
     after 1000 -> ok
     end,
+    RID8_1 = spawn_request(Node, fun () -> ok end, [{reply, nahh}]),
+    receive
+        {spawn_reply, RID8_1, error, badopt} -> ok
+    end,
     case Node == node() of
         true ->
             ok;
