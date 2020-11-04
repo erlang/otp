@@ -2468,6 +2468,12 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     }
 
     if (want_tot_or_sys) {
+#ifdef BEAMASM
+        /* The JIT allocates code on its own because of W^X restrictions, so we
+         * need to bump the total size accordingly. */
+        size.total += erts_total_code_size;
+#endif
+
         ASSERT(size.total >= size.processes);
 	size.system = size.total - size.processes;
     }
@@ -2639,6 +2645,17 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     values[i].arity = 2;
     values[i].name = "ets_misc";
     values[i].ui[0] = erts_get_ets_misc_mem_size();
+    i++;
+
+    /* Data not allocated by any alloc_util allocators, must be summed into
+     * the "total" figure in erlang:memory/0,1. */
+    values[i].arity = 2;
+    values[i].name = "external_alloc";
+#ifdef BEAMASM
+    values[i].ui[0] = erts_total_code_size;
+#else
+    values[i].ui[0] = 0;
+#endif
     i++;
 
     length = i;
