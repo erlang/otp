@@ -1959,7 +1959,6 @@ listing(LFun, Ext, Code, St) ->
     Lfile = outfile(St#compile.base, Ext, St#compile.options),
     case file:open(Lfile, [write,delayed_write]) of
 	{ok,Lf} ->
-            Code = restore_expanded_types(Ext, Code),
             output_encoding(Lf, St),
 	    LFun(Lf, Code),
 	    ok = file:close(Lf),
@@ -1989,25 +1988,6 @@ output_encoding(F, #compile{encoding = none}) ->
 output_encoding(F, #compile{encoding = Encoding}) ->
     ok = io:setopts(F, [{encoding, Encoding}]),
     ok = io:fwrite(F, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
-
-restore_expanded_types("E", {M,I,Fs0}) ->
-    Fs = restore_expand_module(Fs0),
-    {M,I,Fs};
-restore_expanded_types(_Ext, Code) -> Code.
-
-restore_expand_module([{attribute,Line,type,[Type]}|Fs]) ->
-    [{attribute,Line,type,Type}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,opaque,[Type]}|Fs]) ->
-    [{attribute,Line,opaque,Type}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,spec,[Arg]}|Fs]) ->
-    [{attribute,Line,spec,Arg}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,callback,[Arg]}|Fs]) ->
-    [{attribute,Line,callback,Arg}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,record,[R]}|Fs]) ->
-    [{attribute,Line,record,R}|restore_expand_module(Fs)];
-restore_expand_module([F|Fs]) ->
-    [F|restore_expand_module(Fs)];
-restore_expand_module([]) -> [].
 
 %%%
 %%% Transform the BEAM code to make it more friendly for
