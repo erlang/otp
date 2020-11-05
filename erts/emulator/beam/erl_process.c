@@ -554,7 +554,7 @@ do {									\
  */
 
 static void exec_misc_ops(ErtsRunQueue *);
-static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
+static void print_function_from_pc(fmtfn_t to, void *to_arg, const BeamInstr* x);
 static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg);
 
 static void aux_work_timeout(void *unused);
@@ -14006,9 +14006,9 @@ erts_program_counter_info(fmtfn_t to, void *to_arg, Process *p)
 }
 
 static void
-print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
+print_function_from_pc(fmtfn_t to, void *to_arg, const BeamInstr* x)
 {
-    ErtsCodeMFA *cmfa = erts_find_function_from_pc(x);
+    const ErtsCodeMFA *cmfa = erts_find_function_from_pc(x);
     if (cmfa == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");

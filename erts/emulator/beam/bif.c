@@ -1027,8 +1027,9 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
          * hibernated state if its state is inactive (!ERTS_PSFLG_ACTIVE);
          * otherwise, continue executing (if any message was in the queue).
          */
-        BIF_TRAP_CODE_PTR_(BIF_P, BIF_P->i);
+        BIF_TRAP_CODE_PTR(BIF_P, BIF_P->i, 3);
     }
+
     return THE_NON_VALUE;
 }
 
@@ -5020,7 +5021,7 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     sys_memset((void *) ep, 0, sizeof(Export));
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
-        ep->addressv[i] = &ep->trampoline.raw[0];
+        erts_activate_export_trampoline(ep, i);
     }
 
     ep->bif_number = -1;
@@ -5030,18 +5031,12 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     ep->info.mfa.arity = a;
 
 #ifdef BEAMASM
-    {
-        ep->addressv[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
-
-        beamasm_emit_call_bif(
-            &ep->info, bif,
-            (char*)&ep->info,
-            sizeof(ep->info) + sizeof(ep->trampoline));
-    }
-#else
-    ep->trampoline.common.op = BeamOpCodeAddr(op_call_bif_W);
-    ep->trampoline.raw[1] = (BeamInstr)bif;
+    ep->addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
 #endif
+
+    ep->trampoline.common.op = BeamOpCodeAddr(op_call_bif_W);
+    ep->trampoline.bif.address = (BeamInstr)bif;
+
     *epp = ep;
 }
 
@@ -5051,6 +5046,7 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
 #ifndef BEAMASM
     BifEntry *entry;
+
     ASSERT(export->bif_number >= 0 && export->bif_number < BIF_SIZE);
     entry = &bif_table[export->bif_number];
 
@@ -5119,7 +5115,7 @@ void erts_init_bif(void)
 
 static ERTS_INLINE void
 schedule(Process *c_p, Process *dirty_shadow_proc,
-	 ErtsCodeMFA *mfa, BeamInstr *pc,
+	 const ErtsCodeMFA *mfa, const BeamInstr *pc,
 	 ErtsBifFunc dfunc, void *ifunc,
 	 Eterm module, Eterm function,
 	 int argc, Eterm *argv)
@@ -5185,8 +5181,8 @@ static BIF_RETTYPE call_bif(Process *c_p, Eterm *reg, BeamInstr *I);
 BIF_RETTYPE
 erts_schedule_bif(Process *proc,
 		  Eterm *argv,
-		  BeamInstr *i,
-		  ErtsCodeMFA *mfa,
+		  const BeamInstr *i,
+		  const ErtsCodeMFA *mfa,
 		  ErtsBifFunc bif,
 		  ErtsSchedType sched_type,
 		  Eterm mod,
@@ -5293,7 +5289,10 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
 
 
 int
-erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *reg)
+erts_call_dirty_bif(ErtsSchedulerData *esdp,
+                    Process *c_p,
+                    const BeamInstr *I,
+                    Eterm *reg)
 {
     BIF_RETTYPE result;
     int exiting;

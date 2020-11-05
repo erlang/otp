@@ -126,7 +126,7 @@ select_val_lin.get_arity() {
 }
 
 select_val_lin.execute(Fail, N) {
-    BeamInstr* vs = $NEXT_INSTRUCTION;
+    const BeamInstr* vs = $NEXT_INSTRUCTION;
     int ix = 0;
 
     for (;;) {

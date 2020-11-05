@@ -215,7 +215,7 @@ do {						\
 #define DTRACE_GLOBAL_CALL_FROM_EXPORT(p,e)                                                    \
     do {                                                                                       \
         if (DTRACE_ENABLED(global_function_entry)) {                                           \
-            BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addressv[erts_active_code_ix()]); \
+            BeamInstr* fp = (BeamInstr *) (((Export *) (e))->addresses[erts_active_code_ix()]); \
             DTRACE_GLOBAL_CALL((p), erts_code_to_codemfa(fp));          \
         }                                                                                      \
     } while(0)
@@ -248,30 +248,29 @@ do {						\
 #define REDS_IN(p)  ((p)->def_arg_reg[5])
 
 ErtsCodeMFA *ubif2mfa(void* uf);
-BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
-                        Eterm* reg, ErtsCodeMFA* bif_mfa);
-BeamInstr* call_error_handler(Process* p, BeamInstr* I,
-                              Eterm* reg, Eterm func);
-BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
-			BeamInstr *I, Uint offs);
-BeamInstr* apply(Process* p, Eterm* reg,
-                        BeamInstr *I, Uint offs);
-BeamInstr* call_fun(Process* p, int arity,
-			   Eterm* reg, Eterm args);
-BeamInstr* apply_fun(Process* p, Eterm fun,
-			    Eterm args, Eterm* reg);
+const BeamInstr* handle_error(Process* c_p, const BeamInstr* pc,
+                              Eterm* reg, const ErtsCodeMFA* bif_mfa);
+Export* call_error_handler(Process* p, const ErtsCodeMFA* mfa,
+                           Eterm* reg, Eterm func);
+Export* fixed_apply(Process* p, Eterm* reg, Uint arity,
+                    const BeamInstr *I, Uint offs);
+Export* apply(Process* p, Eterm* reg, const BeamInstr *I, Uint offs);
+const BeamInstr* call_fun(Process* p, int arity,
+                          Eterm* reg, Eterm args, Export **epp);
+const BeamInstr* apply_fun(Process* p, Eterm fun,
+                           Eterm args, Eterm* reg, Export **epp);
 Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free);
 ErlFunThing* new_fun_thing(Process* p, ErlFunEntry* fe, int num_free);
 int is_function2(Eterm Term, Uint arity);
 Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
-                             Uint n, BeamInstr* ptr);
+                             Uint n, const BeamInstr* ptr);
 Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
-                               Uint live, BeamInstr* ptr);
+                               Uint live, const BeamInstr* ptr);
 Eterm erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
-                              Uint n, BeamInstr* new_p);
+                              Uint n, const BeamInstr* new_p);
 Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
-                              Uint n, Eterm* new_p);
+                              Uint n, const Eterm* new_p);
 Eterm get_map_element(Eterm map, Eterm key);
 Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 int raw_raise(Eterm stacktrace, Eterm exc_class, Eterm value, Process *c_p);
@@ -279,7 +278,8 @@ void erts_sanitize_freason(Process* c_p, Eterm exc);
 Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
 void copy_out_registers(Process *c_p, Eterm *reg);
 void copy_in_registers(Process *c_p, Eterm *reg);
-void check_monitor_long_schedule(Process *c_p, Uint64 start_time, BeamInstr* start_time_i);
+void check_monitor_long_schedule(Process *c_p, Uint64 start_time,
+                                 const BeamInstr* start_time_i);
 
 
 #define BeamCodeApply() beam_apply
@@ -290,6 +290,8 @@ extern BeamInstr *beam_apply;
 extern BeamInstr *beam_normal_exit;
 extern BeamInstr *beam_exit;
 extern BeamInstr *beam_save_calls;
+extern BeamInstr *beam_bif_export_trap;
+extern BeamInstr *beam_export_trampoline;
 extern BeamInstr *beam_continue_exit;
 extern BeamInstr *beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 extern BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */

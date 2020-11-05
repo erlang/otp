@@ -250,8 +250,8 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     Eterm* tp;
     Eterm bin;
     Eterm mfa;
-    ErtsCodeMFA *cmfa = NULL;
-    BeamCodeHeader* code_hdr;
+    const ErtsCodeMFA *cmfa = NULL;
+    const BeamCodeHeader *code_hdr;
     BeamInstr *code_ptr;
     BeamInstr instr;
     BeamInstr uaddr;
@@ -299,7 +299,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    cmfa = erts_code_to_codemfa(ep->addressv[code_ix]);
+	    cmfa = erts_code_to_codemfa(ep->addresses[code_ix]);
 	} else if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
@@ -384,35 +384,40 @@ dbg_bt(Process* p, Eterm* sp)
     Eterm* stack = STACK_START(p);
 
     while (sp < stack) {
-	if (is_CP(*sp)) {
-	    ErtsCodeMFA* cmfa = erts_find_function_from_pc(cp_val(*sp));
-	    if (cmfa)
-		erts_fprintf(stderr,
-			     HEXF ": %T:%T/%bpu\n",
-			     &cmfa->module, cmfa->module,
-                             cmfa->function, cmfa->arity);
-	}
-	sp++;
+        if (is_CP(*sp)) {
+            const ErtsCodeMFA* cmfa = erts_find_function_from_pc(cp_val(*sp));
+
+            if (cmfa) {
+                erts_fprintf(stderr,
+                        HEXF ": %T:%T/%bpu\n",
+                        &cmfa->module, cmfa->module,
+                        cmfa->function, cmfa->arity);
+            }
+        }
+        sp++;
     }
 }
 
 void
 dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
 {
-    ErtsCodeMFA* cmfa = erts_find_function_from_pc(addr);
+    const ErtsCodeMFA* cmfa = erts_find_function_from_pc(addr);
 
     if (cmfa == NULL) {
-	erts_fprintf(stderr, "???\n");
+        erts_fprintf(stderr, "???\n");
     } else {
-	int arity;
-	int i;
+        int arity;
+        int i;
 
-	arity = cmfa->arity;
-	erts_fprintf(stderr, HEXF ": %T:%T(", addr,
+        arity = cmfa->arity;
+        erts_fprintf(stderr, HEXF ": %T:%T(", addr,
                      cmfa->module, cmfa->function);
-	for (i = 0; i < arity; i++)
-	    erts_fprintf(stderr, i ? ", %T" : "%T", i ? reg[i] : x0);
-	erts_fprintf(stderr, ")\n");
+
+        for (i = 0; i < arity; i++) {
+            erts_fprintf(stderr, i ? ", %T" : "%T", i ? reg[i] : x0);
+        }
+
+        erts_fprintf(stderr, ")\n");
     }
 }
 
@@ -624,7 +629,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             default:
                 {
                     BeamInstr* target = f_to_addr(addr, op, ap);
-                    ErtsCodeMFA* cmfa = erts_find_function_from_pc(target);
+                    const ErtsCodeMFA *cmfa = erts_find_function_from_pc(target);
                     if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
                         erts_print(to, to_arg, "f(" HEXF ")", target);
                     } else {
@@ -666,7 +671,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'F':		/* Function definition */
 	    {
 		ErlFunEntry* fe = (ErlFunEntry *) *ap;
-		ErtsCodeMFA* cmfa = erts_find_function_from_pc(fe->address);
+		const ErtsCodeMFA *cmfa = erts_find_function_from_pc(fe->address);
 		erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
 			   cmfa->function, cmfa->arity);
 		ap++;
@@ -948,7 +953,11 @@ static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes)
 
 static int ms_wait(Process *c_p, Eterm etimeout, int busy);
 static int dirty_send_message(Process *c_p, Eterm to, Eterm tag);
-static BIF_RETTYPE dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I);
+static BIF_RETTYPE dirty_test(Process *c_p,
+                              Eterm type,
+                              Eterm arg1,
+                              Eterm arg2,
+                              const BeamInstr *I);
 
 /*
  * erts_debug:dirty_cpu/2 is statically determined to execute on
@@ -1012,7 +1021,7 @@ erts_debug_dirty_3(BIF_ALIST_3)
 
 
 static BIF_RETTYPE
-dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
+dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, const BeamInstr *I)
 {
     BIF_RETTYPE ret;
     if (am_scheduler == arg1) {

@@ -89,7 +89,7 @@ hipe_trap.post() {
         $RETURN();
         Goto(*I);
     case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
-        c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
+        c_p->i = c_p->hipe.u.callee_exp->addresses[erts_active_code_ix()];
         /*fall through*/
     case HIPE_MODE_SWITCH_RES_CALL_BEAM:
         SET_I(c_p->i);

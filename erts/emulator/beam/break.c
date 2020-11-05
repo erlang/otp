@@ -55,7 +55,7 @@ static void print_garb_info(fmtfn_t to, void *to_arg, Process* p);
 static void dump_frequencies(void);
 #endif
 
-static void dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size);
+static void dump_attributes(fmtfn_t to, void *to_arg, const byte* ptr, int size);
 
 extern char* erts_system_version[];
 
@@ -471,7 +471,7 @@ loaded(fmtfn_t to, void *to_arg)
     int i;
     int old = 0;
     int cur = 0;
-    BeamCodeHeader* code;
+    const BeamCodeHeader* code;
     Module* modp;
     ErtsCodeIndex code_ix;
 
@@ -553,7 +553,7 @@ loaded(fmtfn_t to, void *to_arg)
 
 
 static void
-dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size)
+dump_attributes(fmtfn_t to, void *to_arg, const byte* ptr, int size)
 {
     erts_print_base64(to, to_arg, ptr, size);
     erts_print(to, to_arg, "\n");
@@ -1030,7 +1030,7 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
 }
 
 void
-erts_print_base64(fmtfn_t to, void *to_arg, byte* src, Uint size)
+erts_print_base64(fmtfn_t to, void *to_arg, const byte* src, Uint size)
 {
     static const byte base64_chars[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

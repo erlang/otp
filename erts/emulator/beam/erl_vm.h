@@ -27,9 +27,6 @@
  */
 /* #define FORCE_HEAP_FRAGS */
 
-/* By default, BEAMASM will use the native stack. */
-#define NATIVE_ERLANG_STACK
-
 /* valgrind can't handle stack switching, so we will turn off native stack. */
 #ifdef VALGRIND
 #undef NATIVE_ERLANG_STACK

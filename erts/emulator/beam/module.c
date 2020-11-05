@@ -170,6 +170,72 @@ erts_put_module(Eterm mod)
     return put_module(mod, &module_tables[erts_staging_code_ix()]);
 }
 
+int erts_is_code_ptr_writable(struct erl_module_instance* modi,
+                                const void *ptr) {
+    const char *code_start, *code_end, *ptr_raw;
+
+    code_start = (char*)modi->code_hdr;
+    code_end = code_start + modi->code_length;
+    ptr_raw = (const char*)ptr;
+
+    (void)code_end;
+    (void)ptr_raw;
+
+#ifdef BEAMASM
+    {
+        const char *exec_mod_start, *rw_mod_start, *rw_mod_end;
+
+        exec_mod_start = (const char*)modi->native_module_exec;
+        rw_mod_start = (const char*)modi->native_module_rw;
+
+        rw_mod_end = rw_mod_start + modi->code_length +
+            (exec_mod_start - code_start);
+
+        if (ptr_raw >= rw_mod_start && ptr_raw <= rw_mod_end) {
+            return 1;
+        }
+
+        ASSERT(ptr_raw >= code_start && ptr_raw < code_end);
+        return 0;
+    }
+#else
+    ASSERT(ptr_raw >= code_start && ptr_raw < code_end);
+    return 1;
+#endif
+}
+
+void *erts_writable_code_ptr(struct erl_module_instance* modi,
+                             const void *ptr) {
+    const char *code_start, *code_end, *ptr_raw;
+
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
+
+    code_start = (char*)modi->code_hdr;
+    code_end = code_start + modi->code_length;
+    ptr_raw = (const char*)ptr;
+
+    (void)code_end;
+    (void)ptr_raw;
+
+    ASSERT(ptr_raw >= code_start && ptr_raw < code_end);
+
+#ifdef BEAMASM
+    {
+        const char *exec_mod_start;
+        char *rw_mod_start;
+
+        exec_mod_start = (const char*)modi->native_module_exec;
+        rw_mod_start = (char*)modi->native_module_rw;
+
+        ASSERT(code_start >= exec_mod_start);
+
+        return (void*)(rw_mod_start + (ptr_raw - exec_mod_start));
+    }
+#else
+    return (void*)ptr;
+#endif
+}
+
 Module *module_code(int i, ErtsCodeIndex code_ix)
 {
     return (Module*) erts_index_lookup(&module_tables[code_ix], i);

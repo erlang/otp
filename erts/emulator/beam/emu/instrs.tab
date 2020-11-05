@@ -231,9 +231,19 @@ i_move_call_ext_last(CallDest, Deallocate, Src) {
 
 APPLY(I, Deallocate, Next) {
     //| -no_next
+    Export *ep;
+
     HEAVY_SWAPOUT;
-    $Next = apply(c_p, reg, $I, $Deallocate);
+    ep = apply(c_p, reg, $I, $Deallocate);
     HEAVY_SWAPIN;
+
+    if (ERTS_UNLIKELY(ep == NULL)) {
+        $HANDLE_APPLY_ERROR();
+    } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
+        save_calls(c_p, ep);
+    }
+
+    $Next = ep->addresses[erts_active_code_ix()];
 }
 
 HANDLE_APPLY_ERROR() {
@@ -244,69 +254,71 @@ HANDLE_APPLY_ERROR() {
 
 i_apply() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY(NULL, 0, next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
-        $DISPATCH_ABS(next);
-    }
-    $HANDLE_APPLY_ERROR();
+
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
+    $DISPATCH_ABS(next);
 }
 
 i_apply_last(Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY(I, $Deallocate, next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $deallocate($Deallocate);
-        $DISPATCH_ABS(next);
-    }
-    $HANDLE_APPLY_ERROR();
+    $deallocate($Deallocate);
+    $DISPATCH_ABS(next);
 }
 
 i_apply_only() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY(I, 0, next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $DISPATCH_ABS(next);
-    }
-    $HANDLE_APPLY_ERROR();
+    $DISPATCH_ABS(next);
 }
 
 FIXED_APPLY(Arity, I, Deallocate, Next) {
     //| -no_next
+    Export *ep;
+
     HEAVY_SWAPOUT;
-    $Next = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);
+    ep = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);
     HEAVY_SWAPIN;
+
+    if (ERTS_UNLIKELY(ep == NULL)) {
+        $HANDLE_APPLY_ERROR();
+    } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
+        save_calls(c_p, ep);
+    }
+
+    $Next = ep->addresses[erts_active_code_ix()];
 }
 
 apply(Arity) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $FIXED_APPLY($Arity, NULL, 0, next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
-        $DISPATCH_ABS(next);
-    }
-    $HANDLE_APPLY_ERROR();
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
+    $DISPATCH_ABS(next);
 }
 
 apply_last(Arity, Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $FIXED_APPLY($Arity, I, $Deallocate, next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $deallocate($Deallocate);
-        $DISPATCH_ABS(next);
-    }
-    $HANDLE_APPLY_ERROR();
+    $deallocate($Deallocate);
+    $DISPATCH_ABS(next);
 }
 
 APPLY_FUN(Next) {
+    Export *ignored;
+
     HEAVY_SWAPOUT;
-    $Next = apply_fun(c_p, r(0), x(1), reg);
+    $Next = apply_fun(c_p, r(0), x(1), reg, &ignored);
     HEAVY_SWAPIN;
+
+    if (ERTS_UNLIKELY(next == NULL)) {
+        $HANDLE_APPLY_FUN_ERROR();
+    }
 }
 
 HANDLE_APPLY_FUN_ERROR() {
@@ -315,63 +327,54 @@ HANDLE_APPLY_FUN_ERROR() {
 
 i_apply_fun() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY_FUN(next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
-        $DISPATCH_FUN(next);
-    }
-    $HANDLE_APPLY_FUN_ERROR();
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
+    $DISPATCH_FUN(next);
 }
 
 i_apply_fun_last(Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY_FUN(next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $deallocate($Deallocate);
-        $DISPATCH_FUN(next);
-    }
-    $HANDLE_APPLY_FUN_ERROR();
+    $deallocate($Deallocate);
+    $DISPATCH_FUN(next);
 }
 
 i_apply_fun_only() {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $APPLY_FUN(next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $DISPATCH_FUN(next);
-    }
-    $HANDLE_APPLY_FUN_ERROR();
+    $DISPATCH_FUN(next);
 }
 
 CALL_FUN(Fun, Next) {
     //| -no_next
+    Export *ignored;
+
     HEAVY_SWAPOUT;
-    $Next = call_fun(c_p, $Fun, reg, THE_NON_VALUE);
+    $Next = call_fun(c_p, $Fun, reg, THE_NON_VALUE, &ignored);
     HEAVY_SWAPIN;
+
+    if (ERTS_UNLIKELY(next == NULL)) {
+        $HANDLE_APPLY_FUN_ERROR();
+    }
 }
 
 i_call_fun(Fun) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $CALL_FUN($Fun, next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
-        $DISPATCH_FUN(next);
-    }
-    $HANDLE_APPLY_FUN_ERROR();
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
+    $DISPATCH_FUN(next);
 }
 
 i_call_fun_last(Fun, Deallocate) {
     //| -no_next
-    BeamInstr *next;
+    const BeamInstr *next;
     $CALL_FUN($Fun, next);
-    if (ERTS_LIKELY(next != NULL)) {
-        $deallocate($Deallocate);
-        $DISPATCH_FUN(next);
-    }
-    $HANDLE_APPLY_FUN_ERROR();
+    $deallocate($Deallocate);
+    $DISPATCH_FUN(next);
 }
 
 return() {

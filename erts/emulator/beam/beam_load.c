@@ -230,19 +230,20 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
             DBG_CHECK_EXPORT(ep, code_ix);
 
-            if (ep->addressv[code_ix] == ep->trampoline.raw) {
+            if (erts_is_export_trampoline_active(ep, code_ix)) {
                 if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
                     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
                     ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 
                     erts_clear_export_break(mod_tab_p, ep);
 
-                    ep->addressv[code_ix] =
+                    ep->addresses[code_ix] =
                         (BeamInstr*)ep->trampoline.breakpoint.address;
                     ep->trampoline.breakpoint.address = 0;
 
-                    ASSERT(ep->addressv[code_ix] != ep->trampoline.raw);
+                    ASSERT(!erts_is_export_trampoline_active(ep, code_ix));
                 }
+
                 ASSERT(ep->trampoline.breakpoint.address == 0);
             }
         }
@@ -695,7 +696,7 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
 }
 
 int
-erts_is_module_native(BeamCodeHeader* code_hdr)
+erts_is_module_native(const BeamCodeHeader* code_hdr)
 {
     Uint i, num_functions;
 
@@ -703,18 +704,19 @@ erts_is_module_native(BeamCodeHeader* code_hdr)
     if (code_hdr != NULL) {
         num_functions = code_hdr->num_functions;
         for (i=0; i<num_functions; i++) {
-            ErtsCodeInfo* ci = code_hdr->functions[i];
+            const ErtsCodeInfo* ci = code_hdr->functions[i];
             if (is_atom(ci->mfa.function)) {
                 return erts_is_function_native(ci);
+            } else {
+                ASSERT(is_nil(ci->mfa.function)); /* ignore BIF stubs */
             }
-            else ASSERT(is_nil(ci->mfa.function)); /* ignore BIF stubs */
         }
     }
     return 0;
 }
 
 int
-erts_is_function_native(ErtsCodeInfo *ci)
+erts_is_function_native(const ErtsCodeInfo *ci)
 {
 #ifdef HIPE
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));

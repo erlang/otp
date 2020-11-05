@@ -1044,7 +1044,7 @@ struct process {
     unsigned max_arg_reg;	/* Maximum number of argument registers available. */
     Eterm def_arg_reg[6];	/* Default array for argument registers. */
 
-    BeamInstr* i;		/* Program counter for threaded code. */
+    const BeamInstr* i;         /* Program counter for threaded code. */
     Sint catches;		/* Number of catches on stack */
     Uint32 rcount;		/* suspend count */
     int  schedule_count;	/* Times left to reschedule a low prio process */
@@ -1075,11 +1075,14 @@ struct process {
                                    often used instead of pointer to funcinfo
                                    instruction. */
     } u;
-    ErtsCodeMFA* current;	/* Current Erlang function, part of the funcinfo:
-				 * module(0), function(1), arity(2)
-				 * (module and functions are tagged atoms;
-				 * arity an untagged integer).
-				 */
+    const ErtsCodeMFA* current; /* Current Erlang function, part of the
+                                 * funcinfo:
+                                 *
+                                 * module(0), function(1), arity(2)
+                                 *
+                                 * (module and functions are tagged atoms;
+                                 * arity an untagged integer).
+                                 */
 
     /*
      * Information mainly for post-mortem use (erl crash dump).

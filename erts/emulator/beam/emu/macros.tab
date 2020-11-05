@@ -170,7 +170,7 @@ DISPATCH_EXPORT(Export) {
 
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, ep);
 
-    SET_I(ep->addressv[erts_active_code_ix()]);
+    SET_I(ep->addresses[erts_active_code_ix()]);
     CHECK_ARGS(I);
     dis_next = *I;
 

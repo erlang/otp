@@ -62,7 +62,7 @@ erts_destroy_nfunc(Process *p)
 
 ErtsNativeFunc *
 erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
-			 ErtsCodeMFA *mfa, BeamInstr *pc,
+			 const ErtsCodeMFA *mfa, const BeamInstr *pc,
 			 BeamInstr instr,
 			 void *dfunc, void *ifunc,
 			 Eterm mod, Eterm func,

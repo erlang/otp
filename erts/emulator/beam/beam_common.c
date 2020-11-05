@@ -41,8 +41,8 @@
 static Eterm *get_freason_ptr_from_exc(Eterm exc);
 static BeamInstr* next_catch(Process* c_p, Eterm *reg);
 static void terminate_proc(Process* c_p, Eterm Value);
-static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
-			    ErtsCodeMFA *bif_mfa, Eterm args);
+static void save_stacktrace(Process* c_p, const BeamInstr* pc, Eterm* reg,
+                            const ErtsCodeMFA *bif_mfa, Eterm args);
 
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 
@@ -78,7 +78,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     /*
      * Pointer to next threaded instruction.
      */
-    BeamInstr *I = NULL;
+    const BeamInstr *I = NULL;
 
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
@@ -202,7 +202,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	goto do_dirty_schedule;
     }
     else {
-	ErtsCodeMFA *codemfa;
+	const ErtsCodeMFA *codemfa;
 	Eterm* argp;
 	int i, exiting;
 
@@ -348,11 +348,13 @@ void copy_in_registers(Process *c_p, Eterm *reg) {
 
 }
 
-void check_monitor_long_schedule(Process *c_p, Uint64 start_time, BeamInstr* start_time_i) {
+void check_monitor_long_schedule(Process *c_p,
+                                 Uint64 start_time,
+                                 const BeamInstr* start_time_i) {
     Sint64 diff = erts_timestamp_millis() - start_time;
     if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
-        ErtsCodeMFA *inptr = erts_find_function_from_pc(start_time_i);
-        ErtsCodeMFA *outptr = erts_find_function_from_pc(c_p->i);
+        const ErtsCodeMFA *inptr = erts_find_function_from_pc(start_time_i);
+        const ErtsCodeMFA *outptr = erts_find_function_from_pc(c_p->i);
         monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
     }
 }
@@ -452,8 +454,9 @@ BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
  * at the point of the original exception.
  */
 
-BeamInstr*
-handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
+const BeamInstr*
+handle_error(Process* c_p, const BeamInstr* pc, Eterm* reg,
+             const ErtsCodeMFA *bif_mfa)
 {
     Eterm* hp;
     Eterm Value = c_p->fvalue;
@@ -741,7 +744,7 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
 static void
 gather_stacktrace(Process* p, struct StackTrace* s, int depth)
 {
-    BeamInstr *prev;
+    const BeamInstr *prev;
     Eterm *ptr;
 
     if (depth == 0) {
@@ -833,8 +836,8 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
  */
 
 static void
-save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
-		ErtsCodeMFA *bif_mfa, Eterm args) {
+save_stacktrace(Process* c_p, const BeamInstr* pc, Eterm* reg,
+                const ErtsCodeMFA *bif_mfa, Eterm args) {
     struct StackTrace* s;
     int sz;
     int depth = erts_backtrace_depth;    /* max depth (never negative) */
@@ -1127,10 +1130,9 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-BeamInstr*
-call_error_handler(Process* p, BeamInstr* I, Eterm* reg, Eterm func)
+Export*
+call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
 {
-    ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
     Eterm* hp;
     Export* ep;
     int arity;
@@ -1173,7 +1175,7 @@ call_error_handler(Process* p, BeamInstr* I, Eterm* reg, Eterm func)
     reg[0] = mfa->module;
     reg[1] = mfa->function;
     reg[2] = args;
-    return ep->addressv[erts_active_code_ix()];
+    return ep;
 }
 
 static Export*
@@ -1223,7 +1225,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
 static ERTS_INLINE void
 apply_bif_error_adjustment(Process *p, Export *ep,
 			   Eterm *reg, Uint arity,
-			   BeamInstr *I, Uint stack_offset)
+			   const BeamInstr *I, Uint stack_offset)
 {
     int apply_only;
     Uint need;
@@ -1288,8 +1290,8 @@ apply_bif_error_adjustment(Process *p, Export *ep,
     }
 }
 
-BeamInstr*
-apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
+Export*
+apply(Process* p, Eterm* reg, const BeamInstr *I, Uint stack_offset)
 {
     int arity;
     Export* ep;
@@ -1314,7 +1316,7 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 	reg[0] = module;
 	reg[1] = function;
 	reg[2] = args;
-	return 0;
+	return NULL;
     }
 
     while (1) {
@@ -1382,17 +1384,15 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 
     if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) goto error;
-    } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
-	save_calls(p, ep);
     }
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
-    return ep->addressv[erts_active_code_ix()];
+    return ep;
 }
 
-BeamInstr*
+Export*
 fixed_apply(Process* p, Eterm* reg, Uint arity,
-	    BeamInstr *I, Uint stack_offset)
+            const BeamInstr *I, Uint stack_offset)
 {
     Export* ep;
     Eterm module;
@@ -1411,7 +1411,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
         reg[1] = function;
         reg[2] = bad_args;
 
-        return 0;
+        return NULL;
     }
 
     if (is_not_atom(module)) goto error;
@@ -1431,12 +1431,11 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL)
 	    goto error;
-    } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
-	save_calls(p, ep);
     }
+
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
-    return ep->addressv[erts_active_code_ix()];
+    return ep;
 }
 
 int
@@ -1533,11 +1532,12 @@ erts_hibernate(Process* c_p, Eterm* reg)
     return 1;
 }
 
-BeamInstr*
-call_fun(Process* p,		/* Current process. */
-	 int arity,		/* Number of arguments for Fun. */
-	 Eterm* reg,		/* Contents of registers. */
-	 Eterm args)		/* THE_NON_VALUE or pre-built list of arguments. */
+const BeamInstr*
+call_fun(Process* p,    /* Current process. */
+         int arity,     /* Number of arguments for Fun. */
+         Eterm* reg,    /* Contents of registers. */
+         Eterm args,    /* THE_NON_VALUE or pre-built list of arguments. */
+         Export **epp)  /* Export entry, if any. */
 {
     Eterm fun = reg[arity];
     Eterm hdr;
@@ -1552,10 +1552,10 @@ call_fun(Process* p,		/* Current process. */
     if (is_fun_header(hdr)) {
 	ErlFunThing* funp = (ErlFunThing *) fun_val(fun);
 	ErlFunEntry* fe = funp->fe;
-	BeamInstr* code_ptr = fe->address;
+	const BeamInstr* code_ptr = fe->address;
 	Eterm* var_ptr;
 	unsigned num_free = funp->num_free;
-        ErtsCodeMFA *mfa = erts_code_to_codemfa(code_ptr);
+        const ErtsCodeMFA *mfa = erts_code_to_codemfa(code_ptr);
 	int actual_arity = mfa->arity;
 
 	if (actual_arity == arity+num_free) {
@@ -1656,7 +1656,8 @@ call_fun(Process* p,		/* Current process. */
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-		return ep->addressv[code_ix];
+                *epp = ep;
+                return ep->addresses[code_ix];
 	    }
 	}
     } else if (is_export_header(hdr)) {
@@ -1667,8 +1668,9 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = ep->info.mfa.arity;
 
 	if (arity == actual_arity) {
-	    DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
-	    return ep->addressv[erts_active_code_ix()];
+            DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
+            *epp = ep;
+            return ep->addresses[erts_active_code_ix()];
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.
@@ -1697,8 +1699,8 @@ call_fun(Process* p,		/* Current process. */
     }
 }
 
-BeamInstr*
-apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
+const BeamInstr*
+apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg, Export **epp)
 {
     int arity;
     Eterm tmp;
@@ -1725,7 +1727,7 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 	return NULL;
     }
     reg[arity] = fun;
-    return call_fun(p, arity, reg, args);
+    return call_fun(p, arity, reg, args, epp);
 }
 
 ErlFunThing*
@@ -1847,7 +1849,8 @@ do {						\
 
 
 Eterm
-erts_gc_new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
+erts_gc_new_map(Process* p, Eterm* reg, Uint live,
+                Uint n, const BeamInstr* ptr)
 {
     Uint i;
     Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
@@ -1905,7 +1908,7 @@ erts_gc_new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
 
 Eterm
 erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
-                          Uint live, BeamInstr* ptr)
+                          Uint live, const BeamInstr* ptr)
 {
     Eterm* keys = tuple_val(keys_literal);
     Uint n = arityval(*keys);
@@ -1940,7 +1943,7 @@ erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
 
 Eterm
 erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
-                         Uint n, BeamInstr* new_p)
+                         Uint n, const BeamInstr* new_p)
 {
     Uint num_old;
     Uint num_updates;
@@ -2142,7 +2145,8 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
  */
 
 Eterm
-erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p)
+erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
+                         Uint n, const Eterm* new_p)
 {
     Uint i;
     Uint num_old;

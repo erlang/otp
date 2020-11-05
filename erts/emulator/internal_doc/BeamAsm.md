@@ -197,6 +197,58 @@ is updated. So if CALL\_NIF\_EARLY is set, then it is updated to be
 genericBPTramp + 0x10. If BP is set, it is updated to genericBPTramp + 0x20
 and the combination makes it to be genericBPTramp + 0x30.
 
+### Updating code
+
+Because many environments enforce [W^X] it's not always possible to write
+directly to the code pages. Because of this we map code twice: once with an
+executable page and once with a writable page. Since they're backed by the
+same memory, writes to the writable page appear magically in the executable
+one.
+
+The `erts_writable_code_ptr` function can be used to get writable pointers,
+given a module instance:
+
+    for (i = 0; i < n; ++i) {
+        ErtsCodeInfo* ci;
+        void *w_ptr;
+
+        w_ptr = erts_writable_code_ptr(&modp->curr,
+                                       code_hdr->functions[i]);
+        ci = (ErtsCodeInfo*)w_ptr;
+
+        uninstall_breakpoint(ci);
+        consolidate_bp_data(modp, ci, 1);
+        ASSERT(ci->u.gen_bp == NULL);
+    }
+
+Without the module instance there's no reliable way to figure out the writable
+address of a code page, and we rely on _address space layout randomization_
+(ASLR) to make it difficult to guess.
+
+### Export tracing
+
+Unlike the interpreter, we don't execute code inside export entries as that's
+very annoying to do in the face of [W^X]. When tracing is enabled, we instead
+point to a fragment that looks at the current export entry and decides what to
+do.
+
+This fragment is shared between all export entries, and the export entry to
+operate on is assumed to be in a certain register (`RET` as of writing). This
+means that all remote calls _must_ place the export entry in said register,
+even when we don't know beforehand that the call is remote, such as when
+calling a fun.
+
+This is pretty easy to do in assembler and the `emit_setup_export_call` helper
+handles it nicely for us, but we can't set registers when trapping out from C
+code. When trapping to an export entry from C code one must set `c_p->current`
+to the `ErtsCodeMFA` inside the export entry in question, and then set `c_p->i`
+to `beam_bif_export_trap`.
+
+The `BIF_TRAP` macros handle this for you, so you generally don't need to
+think about it.
+
+[W^X]: https://en.wikipedia.org/wiki/W%5EX
+
 ## Description of each file
 
 The BeamAsm implementation resides in the `$ERL_TOP/erts/emulator/beam/jit` folder.

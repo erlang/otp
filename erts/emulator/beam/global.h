@@ -109,7 +109,7 @@ typedef struct ErtsResource_
 
 extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
 
-extern BeamInstr* erts_call_nif_early(Process* c_p, ErtsCodeInfo* ci);
+extern BeamInstr* erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci);
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
@@ -137,7 +137,7 @@ extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     int argc, Eterm *argv);
 
 int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
-			BeamInstr *I, Eterm *reg);
+                        const BeamInstr *I, Eterm *reg);
 ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env);
 
 
@@ -868,7 +868,7 @@ ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q) {
 void erts_emasculate_writable_binary(ProcBin* pb);
 Eterm erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap);
 Eterm erts_new_mso_binary(Process*, byte*, Uint);
-Eterm new_binary(Process*, byte*, Uint);
+Eterm new_binary(Process*, const byte*, Uint);
 Eterm erts_heap_factory_new_binary(ErtsHeapFactory *hfact, byte *buf,
                                    Uint len, Uint reserve_size);
 Eterm erts_realloc_binary(Eterm bin, size_t size);
@@ -898,7 +898,7 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm);
 void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
-			   Eterm (*bif)(Process*, Eterm*, BeamInstr*));
+			   Eterm (*bif)(Process*, Eterm*, const BeamInstr*));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
 int erts_set_group_leader(Process *proc, Eterm new_gl);
@@ -944,10 +944,10 @@ extern Process *erts_code_purger;
 
 /* beam_load.c */
 typedef struct {
-    ErtsCodeMFA* mfa;		/* Pointer to: Mod, Name, Arity */
-    Uint needed;		/* Heap space needed for entire tuple */
-    Uint32 loc;			/* Location in source code */
-    Eterm* fname_ptr;		/* Pointer to fname table */
+    const ErtsCodeMFA* mfa;     /* Pointer to: Mod, Name, Arity */
+    Uint needed;                /* Heap space needed for entire tuple */
+    Uint32 loc;                 /* Location in source code */
+    const Eterm* fname_ptr;     /* Pointer to fname table */
 } FunctionInfo;
 
 Binary* erts_alloc_loader_state(void);
@@ -968,10 +968,10 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-ErtsCodeMFA* erts_find_function_from_pc(BeamInstr* pc);
+const ErtsCodeMFA* erts_find_function_from_pc(const BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
-void erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa);
+void erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
 int erts_commit_hipe_patch_load(Eterm hipe_magic_bin);
 
@@ -982,7 +982,9 @@ void erts_end_staging_ranges(int commit);
 void erts_update_ranges(BeamInstr* code, Uint size);
 void erts_remove_from_ranges(BeamInstr* code);
 UWord erts_ranges_sz(void);
-void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
+void erts_lookup_function_info(FunctionInfo* fi,
+                               const BeamInstr* pc,
+                               int full_info);
 extern ErtsLiteralArea** erts_dump_lit_areas;
 extern Uint erts_dump_num_lit_areas;
 
@@ -994,7 +996,7 @@ void process_info(fmtfn_t, void *);
 void print_process_info(fmtfn_t, void *, Process*, ErtsProcLocks);
 void info(fmtfn_t, void *);
 void loaded(fmtfn_t, void *);
-void erts_print_base64(fmtfn_t to, void *to_arg, byte* src, Uint size);
+void erts_print_base64(fmtfn_t to, void *to_arg, const byte* src, Uint size);
 
 /* sighandler sys.c */
 int erts_set_signal(Eterm signal, Eterm type);

@@ -57,8 +57,8 @@ struct LoaderState_ {
      */
     int specific_op; /* Specific opcode (-1 if not found). */
 
-    BeamCodeHeader *load_hdr; /* Code header during load */
-    BeamCodeHeader *code_hdr; /* Actual code header */
+    const BeamCodeHeader *code_hdr; /* Actual code header */
+    BeamCodeHeader *load_hdr;       /* Code header during load */
 
     BeamInstr *codev; /* Loaded code buffer */
     int codev_size;   /* Size of code buffer in words. */
@@ -84,8 +84,10 @@ struct LoaderState_ {
     unsigned int current_li; /* Current line instruction */
     unsigned int *func_line; /* Mapping from function to first line instr */
 
-    void *ba;            /* Assembler used to create x86 assembly */
-    void *native_module; /* Native module after codegen */
+    void *ba; /* Assembler used to create x86 assembly */
+
+    const void *native_module_exec; /* Native module after codegen */
+    void *native_module_rw; /* Native module after codegen, writable mapping */
 
     int function_number;
     int last_label;

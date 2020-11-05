@@ -1035,18 +1035,16 @@ static int function_is_traced(Process *p,
 			      Uint       *count,           /* out */
 			      Eterm      *call_time)       /* out */
 {
+    const ErtsCodeInfo *ci;
     Export e;
     Export* ep;
-    BeamInstr* pc;
-    ErtsCodeInfo *ci;
 
     /* First look for an export entry */
     e.info.mfa.module = mfa[0];
     e.info.mfa.function = mfa[1];
     e.info.mfa.arity = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
-	pc = ep->trampoline.raw;
-	if (ep->addressv[erts_active_code_ix()] == pc &&
+	if (erts_is_export_trampoline_active(ep, erts_active_code_ix()) &&
 	    ! BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
 
 	    int r = 0;
@@ -1429,30 +1427,30 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 
     for (i = 0; i < n; i++) {
         ErtsCodeInfo *ci = fp[i].ci;
-        BeamInstr* pc;
         Export* ep;
 
-        pc = erts_codeinfo_to_code(ci);
         ep = ErtsContainerStruct(ci, Export, info);
 
         if (ep->bif_number != -1) {
             ep->is_bif_traced = !!on;
         }
 
-	if (on && !flags.breakpoint) {
-	    /* Turn on global call tracing */
-	    if (ep->addressv[code_ix] != pc) {
-		fp[i].mod->curr.num_traced_exports++;
+        if (on && !flags.breakpoint) {
+            /* Turn on global call tracing */
+            if (!erts_is_export_trampoline_active(ep, code_ix)) {
+                fp[i].mod->curr.num_traced_exports++;
 #ifdef DEBUG
-		ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+                ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
                 ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
-                ep->trampoline.trace.address = (BeamInstr) ep->addressv[code_ix];
-	    }
-	    erts_set_export_trace(ci, match_prog_set, 0);
-	    if (ep->addressv[code_ix] != pc) {
+                ep->trampoline.trace.address = (BeamInstr) ep->addresses[code_ix];
+            }
+
+            erts_set_export_trace(ci, match_prog_set, 0);
+
+            if (!erts_is_export_trampoline_active(ep, code_ix)) {
                 ep->trampoline.common.op = BeamOpCodeAddr(op_i_generic_breakpoint);
-	    }
+            }
 	} else if (!on && flags.breakpoint) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
 	} else {
@@ -1655,9 +1653,8 @@ install_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
-
-	ep->addressv[code_ix] = ep->trampoline.raw;
+        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        erts_activate_export_trampoline(ep, code_ix);
     }
 }
 
@@ -1670,14 +1667,12 @@ uninstall_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-        if (ep->addressv[code_ix] != ep->trampoline.raw) {
-            continue;
+        if (erts_is_export_trampoline_active(ep, code_ix)) {
+            ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
+            ep->addresses[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
         }
-
-        ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
-        ep->addressv[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
     }
 }
 
@@ -1690,9 +1685,9 @@ clean_export_entries(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-        if (ep->addressv[code_ix] == ep->trampoline.raw) {
+        if (erts_is_export_trampoline_active(ep, code_ix)) {
             continue;
         }
 
@@ -1700,7 +1695,6 @@ clean_export_entries(BpFunctions* f)
             ep->trampoline.common.op = (BeamInstr) 0;
             ep->trampoline.trace.address = (BeamInstr) 0;
         }
-
     }
 }
 

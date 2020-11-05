@@ -303,15 +303,12 @@ type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 # Types used for special emulators
 #
 
-+if beamasm
-type	EXPORT		EXEC		CODE		export_entry
-type	EXPORT_TABLE	EXEC		CODE		export_tab
-type	NIF_FINISH	EXEC		CODE		nif_finish
-type	CODE		EXEC		CODE		code
-+else
 type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
-type	CODE		LONG_LIVED	CODE		code
 type	EXPORT		LONG_LIVED	CODE		export_entry
+type	CATCHES		LONG_LIVED	CODE		catches
+
++ifnot beamasm
+type	CODE		LONG_LIVED	CODE		code
 +endif
 
 +if hipe

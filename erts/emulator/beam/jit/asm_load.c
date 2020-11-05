@@ -44,7 +44,7 @@ void beam_load_prepare_emit(LoaderState *stp) {
 
     /* Initialize code header */
     stp->codev_size = stp->beam.code.function_count + 1;
-    hdr = erts_alloc(ERTS_ALC_T_CODE,
+    hdr = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                      (offsetof(BeamCodeHeader, functions) +
                       sizeof(BeamInstr) * stp->codev_size));
 
@@ -145,7 +145,7 @@ int beam_load_prepared_dtor(Binary *magic) {
             hdr->literal_area = NULL;
         }
 
-        erts_free(ERTS_ALC_T_CODE, hdr);
+        erts_free(ERTS_ALC_T_PREPARED_CODE, hdr);
         stp->load_hdr = NULL;
         stp->codev = NULL;
     }
@@ -175,9 +175,13 @@ int beam_load_prepared_dtor(Binary *magic) {
         stp->ba = NULL;
     }
 
-    if (stp->native_module) {
-        beamasm_purge_module(stp->native_module);
-        stp->native_module = NULL;
+    if (stp->native_module_exec) {
+        ASSERT(stp->native_module_rw != NULL);
+
+        beamasm_purge_module(stp->native_module_exec, stp->native_module_rw);
+
+        stp->native_module_exec = NULL;
+        stp->native_module_rw = NULL;
     }
 
     return 1;
@@ -540,8 +544,121 @@ load_error:
     return 0;
 }
 
+static void *get_writable_ptr(const void *executable,
+                              void *writable,
+                              const void *ptr) {
+    const char *exec_raw;
+    const char *ptr_raw;
+    char *rw_raw;
+
+    exec_raw = (const char *)executable;
+    rw_raw = (char *)writable;
+
+    ptr_raw = (const char *)ptr;
+
+    return (void *)(&rw_raw[ptr_raw - exec_raw]);
+}
+
+static const BeamCodeLineTab *finish_line_table(LoaderState *stp,
+                                                char *module_base,
+                                                size_t module_size) {
+    const unsigned int ftab_size = stp->beam.code.function_count;
+    const unsigned int num_instrs = stp->current_li;
+
+    const BeamCodeLineTab *line_tab_ro;
+    BeamCodeLineTab *line_tab_rw;
+
+    const void **line_items_ro;
+    void **line_items_rw;
+
+    const Eterm *fname_base_ro;
+    Eterm *fname_base_rw;
+
+    const void *locp_base_ro;
+    void *locp_base_rw;
+
+    int i;
+
+    if (stp->line_instr == 0) {
+        return NULL;
+    }
+
+    line_tab_ro = (const BeamCodeLineTab *)beamasm_get_rodata(stp->ba, "line");
+    line_items_ro = (const void **)&line_tab_ro->func_tab[ftab_size + 1];
+    fname_base_ro = (Eterm *)&line_items_ro[num_instrs + 1];
+    locp_base_ro = &fname_base_ro[stp->beam.lines.name_count];
+
+    line_tab_rw = get_writable_ptr(stp->native_module_exec,
+                                   stp->native_module_rw,
+                                   line_tab_ro);
+    line_items_rw = get_writable_ptr(stp->native_module_exec,
+                                     stp->native_module_rw,
+                                     line_items_ro);
+    locp_base_rw = get_writable_ptr(stp->native_module_exec,
+                                    stp->native_module_rw,
+                                    locp_base_ro);
+    fname_base_rw = get_writable_ptr(stp->native_module_exec,
+                                     stp->native_module_rw,
+                                     fname_base_ro);
+
+    line_tab_rw->loc_size = stp->beam.lines.location_size;
+    line_tab_rw->fname_ptr = fname_base_ro;
+
+    for (i = 0; i < ftab_size; i++) {
+        line_tab_rw->func_tab[i] = line_items_ro + stp->func_line[i];
+    }
+    line_tab_rw->func_tab[i] = line_items_ro + num_instrs;
+
+    for (i = 0; i < num_instrs; i++) {
+        line_items_rw[i] = (void *)&module_base[stp->line_instr[i].pos];
+    }
+
+    line_items_rw[i] = (void *)&module_base[module_size];
+
+    if (stp->beam.lines.name_count) {
+        sys_memcpy(fname_base_rw,
+                   stp->beam.lines.names,
+                   stp->beam.lines.name_count * sizeof(Eterm));
+    }
+
+    if (stp->beam.lines.location_size == sizeof(Uint16)) {
+        Uint16 *locp = (Uint16 *)locp_base_rw;
+        line_tab_rw->loc_tab.p2 = (Uint16 *)locp_base_ro;
+
+        for (i = 0; i < num_instrs; i++) {
+            BeamFile_LineEntry *entry;
+            int idx;
+
+            idx = stp->line_instr[i].loc;
+            entry = &stp->beam.lines.items[idx];
+            *locp++ = MAKE_LOCATION(entry->name_index, entry->location);
+        }
+
+        *locp++ = LINE_INVALID_LOCATION;
+    } else {
+        Uint32 *locp = (Uint32 *)locp_base_rw;
+        line_tab_rw->loc_tab.p4 = (Uint32 *)locp_base_ro;
+
+        ASSERT(stp->beam.lines.location_size == sizeof(Uint32));
+
+        for (i = 0; i < num_instrs; i++) {
+            BeamFile_LineEntry *entry;
+            int idx;
+
+            idx = stp->line_instr[i].loc;
+            entry = &stp->beam.lines.items[idx];
+            *locp++ = MAKE_LOCATION(entry->name_index, entry->location);
+        }
+
+        *locp++ = LINE_INVALID_LOCATION;
+    }
+
+    return line_tab_ro;
+}
+
 int beam_load_finish_emit(LoaderState *stp) {
-    BeamCodeHeader *code_hdr = NULL;
+    const BeamCodeHeader *code_hdr_ro = NULL;
+    BeamCodeHeader *code_hdr_rw = NULL;
     Sint decoded_size;
     int i;
 
@@ -585,9 +702,14 @@ int beam_load_finish_emit(LoaderState *stp) {
                          sizeof(stp->beam.checksum));
 
     /* Move the code to its final location. */
-    stp->native_module =
-            beamasm_codegen(stp->ba, stp->load_hdr, &stp->code_hdr);
-    code_hdr = stp->code_hdr;
+    beamasm_codegen(stp->ba,
+                    &stp->native_module_exec,
+                    &stp->native_module_rw,
+                    stp->load_hdr,
+                    &code_hdr_ro,
+                    &code_hdr_rw);
+
+    stp->code_hdr = code_hdr_ro;
 
     module_base = beamasm_get_base(stp->ba);
     module_size = beamasm_get_offset(stp->ba);
@@ -600,71 +722,8 @@ int beam_load_finish_emit(LoaderState *stp) {
      * Ideally we'd want this to be embedded in the module itself just like the
      * string table is and use offsets rather than absolute addresses, but this
      * will do for now. */
-    if (stp->line_instr == 0) {
-        code_hdr->line_table = NULL;
-    } else {
-        const unsigned int ftab_size = stp->beam.code.function_count;
-        const unsigned int num_instrs = stp->current_li;
-        const void *locp_base;
 
-        BeamCodeLineTab *const line_tab =
-                (BeamCodeLineTab *)beamasm_get_rodata(stp->ba, "line");
-        const void **const line_items =
-                (const void **)&line_tab->func_tab[ftab_size + 1];
-
-        code_hdr->line_table = line_tab;
-
-        for (i = 0; i < ftab_size; i++) {
-            line_tab->func_tab[i] = line_items + stp->func_line[i];
-        }
-        line_tab->func_tab[i] = line_items + num_instrs;
-        for (i = 0; i < num_instrs; i++) {
-            line_items[i] = (void *)&module_base[stp->line_instr[i].pos];
-        }
-        line_items[i] = (void *)&module_base[module_size];
-
-        line_tab->fname_ptr = (Eterm *)&line_items[i + 1];
-        if (stp->beam.lines.name_count) {
-            sys_memcpy(line_tab->fname_ptr,
-                       stp->beam.lines.names,
-                       stp->beam.lines.name_count * sizeof(Eterm));
-        }
-
-        locp_base = &line_tab->fname_ptr[stp->beam.lines.name_count];
-        line_tab->loc_size = stp->beam.lines.location_size;
-
-        if (stp->beam.lines.location_size == sizeof(Uint16)) {
-            Uint16 *locp = (Uint16 *)locp_base;
-            line_tab->loc_tab.p2 = locp;
-
-            for (i = 0; i < num_instrs; i++) {
-                BeamFile_LineEntry *entry;
-                int idx;
-
-                idx = stp->line_instr[i].loc;
-                entry = &stp->beam.lines.items[idx];
-                *locp++ = MAKE_LOCATION(entry->name_index, entry->location);
-            }
-
-            *locp++ = LINE_INVALID_LOCATION;
-        } else {
-            Uint32 *locp = (Uint32 *)locp_base;
-            line_tab->loc_tab.p4 = locp;
-
-            ASSERT(stp->beam.lines.location_size == sizeof(Uint32));
-
-            for (i = 0; i < num_instrs; i++) {
-                BeamFile_LineEntry *entry;
-                int idx;
-
-                idx = stp->line_instr[i].loc;
-                entry = &stp->beam.lines.items[idx];
-                *locp++ = MAKE_LOCATION(entry->name_index, entry->location);
-            }
-
-            *locp++ = LINE_INVALID_LOCATION;
-        }
-    }
+    code_hdr_rw->line_table = finish_line_table(stp, module_base, module_size);
 
     /*
      * Place the literals in their own allocated heap (for fast range check)
@@ -693,43 +752,43 @@ int beam_load_finish_emit(LoaderState *stp) {
          * more like string patching. */
         for (i = 0; i < stp->beam.static_literals.count; i++) {
             Eterm lit = beamfile_get_literal(&stp->beam, i);
-            beamasm_patch_literal(stp->ba, i, lit);
+            beamasm_patch_literal(stp->ba, stp->native_module_rw, i, lit);
         }
 
         for (i = 0; i < stp->beam.dynamic_literals.count; i++) {
             Eterm lit = beamfile_get_literal(&stp->beam, ~i);
-            beamasm_patch_literal(stp->ba, ~i, lit);
+            beamasm_patch_literal(stp->ba, stp->native_module_rw, ~i, lit);
         }
 
         literal_area->off_heap = code_off_heap.first;
-        code_hdr->literal_area = literal_area;
+        code_hdr_rw->literal_area = literal_area;
 
         /* Ensure deallocation of literals in case the prepared code is
          * deallocated (without calling erlang:finish_loading/1). */
-        stp->load_hdr->literal_area = literal_area;
+        (stp->load_hdr)->literal_area = literal_area;
     }
 
     if (stp->beam.attributes.size) {
-        byte *attr = beamasm_get_rodata(stp->ba, "attr");
+        const byte *attr = beamasm_get_rodata(stp->ba, "attr");
 
-        code_hdr->attr_ptr = attr;
-        code_hdr->attr_size = stp->beam.attributes.size;
+        code_hdr_rw->attr_ptr = attr;
+        code_hdr_rw->attr_size = stp->beam.attributes.size;
 
-        decoded_size = erts_decode_ext_size(attr, code_hdr->attr_size);
+        decoded_size = erts_decode_ext_size(attr, code_hdr_rw->attr_size);
         if (decoded_size < 0) {
             BeamLoadError0(stp,
                            "bad external term representation of module "
                            "attributes");
         }
 
-        code_hdr->attr_size_on_heap = decoded_size;
+        code_hdr_rw->attr_size_on_heap = decoded_size;
     }
 
     if (stp->beam.compile_info.size) {
-        byte *compile_info = beamasm_get_rodata(stp->ba, "compile");
+        const byte *compile_info = beamasm_get_rodata(stp->ba, "compile");
 
-        code_hdr->compile_ptr = compile_info;
-        code_hdr->compile_size = stp->beam.compile_info.size;
+        code_hdr_rw->compile_ptr = compile_info;
+        code_hdr_rw->compile_size = stp->beam.compile_info.size;
 
         decoded_size =
                 erts_decode_ext_size(compile_info, stp->beam.compile_info.size);
@@ -739,23 +798,23 @@ int beam_load_finish_emit(LoaderState *stp) {
                            "information");
         }
 
-        code_hdr->compile_size_on_heap = decoded_size;
+        code_hdr_rw->compile_size_on_heap = decoded_size;
     }
 
     {
-        byte *md5_sum = beamasm_get_rodata(stp->ba, "md5");
-        sys_memcpy(md5_sum, stp->beam.checksum, sizeof(stp->beam.checksum));
-        code_hdr->md5_ptr = md5_sum;
+        const byte *md5_sum = beamasm_get_rodata(stp->ba, "md5");
+        code_hdr_rw->md5_ptr = md5_sum;
     }
 
     /* Patch all instructions that refer to the string table. */
     if (stp->beam.strings.size) {
-        beamasm_patch_strings(stp->ba, beamasm_get_rodata(stp->ba, "str"));
+        const byte *string_table = beamasm_get_rodata(stp->ba, "str");
+        beamasm_patch_strings(stp->ba, stp->native_module_rw, string_table);
     }
 
     /* Save the updated code pointer and code size. */
 
-    stp->codev = (BeamInstr *)&code_hdr->functions;
+    stp->codev = (BeamInstr *)&code_hdr_ro->functions;
     stp->loaded_size = module_size;
 
     return 1;
@@ -771,28 +830,23 @@ void beam_load_finalize_code(LoaderState *stp,
     code_size = beamasm_get_header(stp->ba, &stp->code_hdr);
     erts_total_code_size += code_size;
 
-    inst_p->native_module = stp->native_module;
+    inst_p->native_module_exec = stp->native_module_exec;
+    inst_p->native_module_rw = stp->native_module_rw;
     inst_p->code_hdr = stp->code_hdr;
     inst_p->code_length = code_size;
 
     /* Update ranges (used for finding a function from a PC value). */
     erts_update_ranges((BeamInstr *)inst_p->code_hdr, code_size);
 
-    /* Prevent code from being freed. */
-    stp->native_module = NULL;
-    stp->code_hdr = NULL;
-    stp->codev = NULL;
-    stp->load_hdr->literal_area = NULL;
-
-    staging_ix = erts_staging_code_ix();
-
     /* Allocate catch indices and fix up all catch_yf instructions. */
-    inst_p->catches = beamasm_get_catches(stp->ba);
+    inst_p->catches = beamasm_patch_catches(stp->ba, stp->native_module_rw);
 
     /* Exported functions */
+    staging_ix = erts_staging_code_ix();
+
     for (i = 0; i < stp->beam.exports.count; i++) {
         BeamFile_ExportEntry *entry = &stp->beam.exports.entries[i];
-        BeamInstr *address;
+        const BeamInstr *address;
         Export *ep;
 
         address = beamasm_get_code(stp->ba, entry->label);
@@ -804,7 +858,7 @@ void beam_load_finalize_code(LoaderState *stp,
              * code callable. */
             ep->trampoline.not_loaded.deferred = (BeamInstr)address;
         } else {
-            ep->addressv[staging_ix] = address;
+            ep->addresses[staging_ix] = address;
         }
     }
 
@@ -818,7 +872,7 @@ void beam_load_finalize_code(LoaderState *stp,
                                             entry->function,
                                             entry->arity);
 
-        beamasm_patch_import(stp->ba, i, import);
+        beamasm_patch_import(stp->ba, stp->native_module_rw, i, import);
     }
 
     /* Patch fun creation. */
@@ -847,7 +901,17 @@ void beam_load_finalize_code(LoaderState *stp,
 
             fun_entry->address = beamasm_get_code(stp->ba, lambda->label);
 
-            beamasm_patch_lambda(stp->ba, i, (BeamInstr)fun_entry);
+            beamasm_patch_lambda(stp->ba,
+                                 stp->native_module_rw,
+                                 i,
+                                 (BeamInstr)fun_entry);
         }
     }
+
+    /* Prevent literals and code from being freed. */
+    (stp->load_hdr)->literal_area = NULL;
+    stp->native_module_exec = NULL;
+    stp->native_module_rw = NULL;
+    stp->code_hdr = NULL;
+    stp->codev = NULL;
 }

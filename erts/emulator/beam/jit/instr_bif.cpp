@@ -527,10 +527,12 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             a.pop(getCPRef());
 #endif
 
-            /* Trap out, our return address is on the Erlang stack. */
-
+            /* Trap out, our return address is on the Erlang stack.
+             *
+             * The BIF_TRAP macros all set up c_p->arity and c_p->current, so
+             * we can use a simplified context switch. */
             a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, i)));
-            a.jmp(labels[context_switch]);
+            a.jmp(labels[context_switch_simplified]);
         }
 
         a.bind(error);
@@ -581,22 +583,15 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
          * native stack as the Erlang stack our return address is
          * already on the Erlang stack. Otherwise we will have to move
          * the return address from the native stack to the Erlang
-         * stack.
-         *
-         * The export entry must be moved to ARG2 for save_calls to work, see
-         * `BeamGlobalAssembler::emit_dispatch_save_calls()` for details.
-         */
+         * stack. */
 
 #if !defined(NATIVE_ERLANG_STACK)
         /* The return address must be on the Erlang stack. */
         a.pop(getCPRef());
 #endif
 
-        a.mov(ARG2, ARG4);
-        a.jmp(x86::qword_ptr(ARG2,
-                             active_code_ix,
-                             3,
-                             offsetof(Export, addressv)));
+        x86::Mem destination = emit_setup_export_call(ARG4);
+        a.jmp(destination);
     }
 
     a.bind(yield);
@@ -648,7 +643,7 @@ void BeamModuleAssembler::emit_send() {
 
 static Eterm call_bif(Process *c_p, Eterm *reg, BeamInstr *I, ErtsBifFunc vbf) {
     ErlHeapFragment *live_hf_end;
-    ErtsCodeMFA *codemfa;
+    const ErtsCodeMFA *codemfa;
     Eterm result;
 
     codemfa = erts_code_to_codemfa(I);
@@ -700,7 +695,7 @@ static Eterm call_nif(Process *c_p,
     Eterm nif_bif_result;
     Eterm bif_nif_arity;
     ErlHeapFragment *live_hf_end;
-    ErtsCodeMFA *codemfa;
+    const ErtsCodeMFA *codemfa;
 
     codemfa = erts_code_to_codemfa(I);
 
@@ -806,8 +801,11 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     a.bind(trap);
     {
         comment("do normal trap");
+
+        /* The BIF_TRAP macros all set up c_p->arity and c_p->current, so we
+         * can use a simplified context switch. */
         a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, i)));
-        a.jmp(labels[context_switch]);
+        a.jmp(labels[context_switch_simplified]);
     }
 
     a.bind(error);
@@ -942,9 +940,13 @@ void BeamGlobalAssembler::emit_call_nif_early() {
 
     emit_leave_runtime();
 
-    /* We patch the return address to jump to the correct place. */
-    a.mov(x86::qword_ptr(x86::rsp), RET);
-    a.ret();
+    /* We won't return to the original code. */
+    emit_discard_cp();
+
+    /* Emulate `emit_call_nif`, loading the current (phony) instruction
+     * pointer into ARG2. */
+    a.mov(ARG2, RET);
+    a.jmp(labels[call_nif_shared]);
 }
 
 /* Both dispatch_nif and call_nif will end up in this function

@@ -147,7 +147,7 @@ ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(Eterm*,export_val,Wterm,is_export);
 ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
 
-ET_DEFINE_CHECKED(Eterm,make_cp,UWord *,_is_taggable_pointer);
+ET_DEFINE_CHECKED(Eterm,make_cp,const BeamInstr *,_is_taggable_pointer);
 ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
 ET_DEFINE_CHECKED(Uint,loader_x_reg_index,Uint,_is_loader_x_reg);

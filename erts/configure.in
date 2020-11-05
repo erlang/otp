@@ -2959,41 +2959,27 @@ EOF
      fi
    fi
 
-   if test ${enable_jit} != no -a "$OPSYS" != win32; then
-      AC_MSG_CHECKING([for mprotect with PROT_WRITE|PROT_EXEC support]);
-      if test "$cross_compiling" != yes; then
-         AC_TRY_RUN(
-               [#include <stdlib.h>
-                #include <sys/mman.h>
-                #include <stdio.h>
-                #include <errno.h>
-                int main(void) {
-                    void *memory = (void*)(((long)malloc(4096<<2)) & ~4095);
-                    int res = mprotect(memory, 4096, PROT_EXEC | PROT_READ | PROT_WRITE);
-                    perror("mprotect failed: ");
-                    return res;
-                }
-               ], [AC_MSG_RESULT(yes); have_prot_exec=yes], [AC_MSG_RESULT(no)])
-         if test "$have_prot_exec" != yes; then
-            if test ${enable_jit} = yes; then
-               AC_MSG_ERROR([JIT needs mprotect(WRITE|EXEC) to work])
-            else
-               enable_jit=no
-               cat >> $ERL_TOP/erts/CONF_INFO <<EOF
-
-                 JIT disabled due to mprotect(WRITE|EXEC) not working
-EOF
-               AC_MSG_WARN([JIT disable due to mprotect(WRITE|EXEC) not working])
-            fi
-        fi
-      else
-        AC_MSG_RESULT(cross, guessed yes)
-      fi
-   fi
-
    if test ${enable_jit} != no; then
      enable_jit=yes
    fi
+fi
+
+dnl Test if we can use the native stack for Erlang code
+if test ${enable_jit} != no; then
+  case $host_os in
+    openbsd*)
+      # Whenever the kernel is entered (page faults, system calls, etc),
+      # OpenBSD checks whether the stack pointer is in an area allocated with
+      # MAP_STACK, so we can't use the native stack for Erlang code.
+      #
+      # https://undeadly.org/cgi?action=article;sid=20180310000858
+      ;;
+    *)
+      # By default, BEAMASM will use the native stack.
+      AC_DEFINE(NATIVE_ERLANG_STACK, [],
+                [Define if we can use the native stack for Erlang code])
+      ;;
+  esac
 fi
 
 if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then

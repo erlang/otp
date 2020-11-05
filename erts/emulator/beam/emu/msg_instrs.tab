@@ -341,7 +341,7 @@ wait.int(Int) {
      * we must test the F_INSLPQUEUE flag as well as the F_TIMO flag.
      */
     if ((c_p->flags & (F_INSLPQUEUE | F_TIMO)) == 0) {
-        BeamInstr** pi = (BeamInstr **) c_p->def_arg_reg;
+        const BeamInstr** pi = (const BeamInstr **) c_p->def_arg_reg;
         *pi = $NEXT_INSTRUCTION;
         erts_set_proc_timer_uword(c_p, $Int);
     }
@@ -368,7 +368,7 @@ wait.src(Src) {
                  * location because there are no living x registers in
                  * a receive statement.
                  */
-                BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
+                const BeamInstr** pi = (const BeamInstr **) c_p->def_arg_reg;
                 *pi = $NEXT_INSTRUCTION;
             } else { /* Wrong time */
                 erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);

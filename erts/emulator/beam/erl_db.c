@@ -83,11 +83,13 @@ static BIF_RETTYPE db_bif_fail(Process* p, Uint freason,
                                Uint bif_ix, Export* bif_exp)
 {
     if (freason == TRAP) {
-        if (!bif_exp)
+        if (!bif_exp) {
             bif_exp = BIF_TRAP_EXPORT(bif_ix);
-        p->arity = bif_exp->info.mfa.arity;
-        p->i = (BeamInstr*) bif_exp->addressv[erts_active_code_ix()];
+        }
+
+        ERTS_BIF_PREP_TRAP(bif_exp, p, bif_exp->info.mfa.arity);
     }
+
     p->freason = freason;
     return THE_NON_VALUE;
 }
