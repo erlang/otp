@@ -28,8 +28,7 @@ These are the tools you need in order to unpack and build Erlang/OTP.
 *   GNU `make`
 *   Compiler -- GNU C Compiler, `gcc` or the C compiler frontend for LLVM, `clang`.
 *   Perl 5
-*   GNU `m4` -- If HiPE (native code) support is enabled. HiPE can be
-    disabled using `--disable-hipe`
+*   GNU `m4`
 *   `ncurses`, `termcap`, or `termlib` -- The development headers and
     libraries are needed, often known as `ncurses-devel`. Use
     `--without-termcap` to build without any of these libraries. Note that
@@ -352,8 +351,6 @@ Some of the available `configure` options are:
     `configure` scripts (parallel execution is enabled by default)
 *   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
     default if possible)
-*   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported
-    platforms)
 *   `--{enable,disable}-fp-exceptions` - Floating point exceptions (an
     optimization for floating point operations). The default differs
     depending on operating system and hardware platform. Note that by
@@ -710,85 +707,6 @@ be satisfied.
 
 
 ### Running ###
-
-#### Using HiPE ####
-
-HiPE supports the following system configurations:
-
-*   x86: All 32-bit and 64-bit mode processors should work.
-
-    *   Linux: Fedora Core is supported. Both 32-bit and 64-bit modes are
-        supported.
-
-        NPTL glibc is strongly preferred, or a LinuxThreads
-        glibc configured for "floating stacks". Old non-floating
-        stacks glibcs have a fundamental problem that makes HiPE
-        support and threads support mutually exclusive.
-
-    *   Solaris: Solaris 10 (32-bit and 64-bit) and 9 (32-bit) are supported.
-        The build requires a version of the GNU C compiler (gcc)
-        that has been configured to use the GNU assembler (gas).
-        Sun's x86 assembler is emphatically **not** supported.
-
-    *   FreeBSD: FreeBSD 6.1 and 6.2 in 32-bit and 64-bit modes should work.
-
-    *   OS X/Darwin: Darwin 9.8.0 in 32-bit mode should work.
-
-*   PowerPC: All 32-bit 6xx/7xx(G3)/74xx(G4) processors should work. 32-bit
-    mode on 970 (G5) and POWER5 processors should work.
-
-    * Linux (Yellow Dog) and OS X 10.4 are supported.
-
-*   SPARC: All UltraSPARC processors running 32-bit user code should work.
-
-    *   Solaris 9 is supported. The build requires a `gcc` that has been
-        configured to use Sun's assembler and linker. Using the GNU assembler
-        but Sun's linker has been known to cause problems.
-
-    *   Linux (Aurora) is supported.
-
-*   ARM: ARMv5TE (i.e. XScale) processors should work. Both big-endian and
-    little-endian modes are supported.
-
-    * Linux is supported.
-
-HiPE is automatically enabled on the following systems:
-
-*   x86 in 32-bit mode: Linux, Solaris, FreeBSD
-*   x86 in 64-bit mode: Linux, Solaris, FreeBSD
-*   PowerPC: Linux, Mac OSX
-*   SPARC: Linux
-*   ARM: Linux
-
-On other supported systems, see [Advanced Configure][] on how to enable HiPE.
-
-If you are running on a platform supporting HiPE and if you have not disabled
-HiPE, you can compile a module into native code like this from the Erlang
-shell:
-
-    1> c(Module, native).
-
-or
-
-    1> c(Module, [native|OtherOptions]).
-
-Using the erlc program, write like this
-
-    $ erlc +native Module.erl
-
-The native code will be placed into the beam file and automatically loaded
-when the beam file is loaded.
-
-To add hipe options, write like this from the Erlang shell:
-
-    1> c(Module, [native,{hipe,HipeOptions}|MoreOptions]).
-
-Use `hipe:help_options/0` to print out the available options.
-
-    1> hipe:help_options().
-
-
-
 
    [$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
    [$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md

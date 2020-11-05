@@ -103,10 +103,7 @@ display_string(Config) when is_list(Config) ->
 erl_bif_types(Config) when is_list(Config) ->
     ensure_erl_bif_types_compiled(),
 
-    List0 = erlang:system_info(snifs),
-
-    %% Ignore missing type information for hipe BIFs.
-    List = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
+    List = erlang:system_info(snifs),
 
     KnownTypes = [MFA || MFA <- List, known_types(MFA)],
     io:format("There are ~p BIFs with type information in erl_bif_types.",
@@ -179,7 +176,7 @@ shadow_comments(_Config) ->
     ErlangList = [{erlang,F,A} || {F,A} <- erlang:module_info(exports),
 				  not is_operator(F,A)],
     List0 = erlang:system_info(snifs),
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs, M =/= erlang],
+    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= erlang],
     List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
 		       erl_bif_types:is_known(M, F, A)],
@@ -259,11 +256,8 @@ known_types({M,F,A}) ->
 specs(_) ->
     List0 = erlang:system_info(snifs),
 
-    %% Ignore missing type information for hipe BIFs.
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
-
     %% Ignore all operators.
-    List = [MFA || MFA <- List1, not is_operator(MFA)],
+    List = [MFA || MFA <- List0, not is_operator(MFA)],
 
     %% Extract specs from the abstract code for all BIFs.
     Path = get_code_path(),
@@ -307,8 +301,7 @@ make_mfa(M, {F,A}) -> {M,F,A};
 make_mfa(M, {M,_,_}=MFA) -> MFA.
 
 improper_bif_stubs(_) ->
-    Bifs0 = erlang:system_info(snifs),
-    Bifs = [MFA || {M,_,_}=MFA <- Bifs0, M =/= hipe_bifs],
+    Bifs = erlang:system_info(snifs),
     Path = get_code_path(),
     BifRel = sofs:relation(Bifs, [{m,f,a}]),
     BifModules = sofs:to_external(sofs:projection(1, BifRel)),

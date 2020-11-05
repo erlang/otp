@@ -33,12 +33,9 @@
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1]).
 
-%%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
-%%-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
-%% silly broken hipe
--define(badmap(V,F,_Args), {'EXIT', {{badmap,V}, [{maps,F,_,_}|_]}}).
--define(badkey(K,F,_Args), {'EXIT', {{badkey,K}, [{maps,F,_,_}|_]}}).
--define(badarg(F,_Args), {'EXIT', {badarg, [{maps,F,_,_}|_]}}).
+-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
+-define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
+-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},

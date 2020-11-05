@@ -3355,7 +3355,6 @@ done:
 static Uint
 dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
 {
-    int fpe_was_unmasked;
     ErlDrvSizeT size;
     char *bufp;
 
@@ -3398,9 +3397,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
 #endif
 
     prt->caller = NIL;
-    fpe_was_unmasked = erts_block_fpe();
     (*prt->drv_ptr->output)((ErlDrvData) prt->drv_data, bufp, size);
-    erts_unblock_fpe(fpe_was_unmasked);
     erts_free(ERTS_ALC_T_TMP, bufp);
     return size;
 }
@@ -3408,7 +3405,6 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
 static Uint
 dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 {
-    int fpe_was_unmasked;
     SysIOVec iov[1];
     Uint size;
     ErlDrvBinary* bv[1];
@@ -3474,9 +3470,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
     }
 #endif
     prt->caller = NIL;
-    fpe_was_unmasked = erts_block_fpe();
     (*prt->drv_ptr->outputv)((ErlDrvData) prt->drv_data, eiovp);
-    erts_unblock_fpe(fpe_was_unmasked);
 
     size = (Uint) eiovp->size;
     /* Remove header used by driver... */

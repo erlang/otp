@@ -350,16 +350,11 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
  * needs to be tagged as a header of some sort.
  */
 #if ET_DEBUG
-# ifdef HIPE
-   /* A very large (or negative) value as work-around for ugly hipe-bifs
-      that return untagged integers (eg hipe_bs_put_utf8) */
-#  define THE_NON_VALUE	_make_header((Uint)~0,_TAG_HEADER_FLOAT)
-# else
-#  define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
-# endif
+#define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
 #else
 #define THE_NON_VALUE	(TAG_PRIMARY_HEADER)
 #endif
+
 #define is_non_value(x)	((x) == THE_NON_VALUE)
 #define is_value(x)	((x) != THE_NON_VALUE)
 

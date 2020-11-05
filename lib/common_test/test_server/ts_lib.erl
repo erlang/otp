@@ -180,7 +180,6 @@ suite_order(test_server) -> 1;
 suite_order(kernel) -> 4;
 suite_order(stdlib) -> 6;
 suite_order(compiler) -> 8;
-suite_order(hipe) -> 9;
 suite_order(erl_interface) -> 12;
 suite_order(jinterface) -> 14;
 suite_order(sasl) -> 16;

@@ -82,11 +82,7 @@ typedef struct ErtsCodeInfo_ {
     BeamInstr op;           /* OpCode(i_func_info) */
     union {
         struct generic_bp* gen_bp;     /* Trace breakpoint */
-#ifdef HIPE
-        void (*ncallee)(void);
-        struct hipe_call_count* hcc;
-#endif
-    }u;
+    } u;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
 

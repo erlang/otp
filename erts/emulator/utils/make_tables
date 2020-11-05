@@ -37,8 +37,6 @@ use File::Basename;
 #    <-src>/erl_bif_table.c
 #    <-src>/erl_dirty_bif_wrap.c
 #    <-src>/erl_guard_bifs.c
-#    <-src>/hipe_nbif_impl.c
-#    <-include>/hipe_nbif_impl.h
 #    <-include>/erl_atom_table.h
 #    <-include>/erl_bif_table.h
 #
@@ -59,7 +57,6 @@ my %dirty_bif_tab;
 my @bif;
 my @bif_info;
 my $dirty_schedulers_test = 'no';
-my $hipe = 'no';
 my $jit = 'no';
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
@@ -76,10 +73,6 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$dirty_schedulers_test = shift;
 	die "No -dst argument specified"
 	    unless defined $dirty_schedulers_test;
-    } elsif($opt eq '-hipe') {
-	$hipe = shift;
-	die "No -hipe argument specified"
-	    unless defined $hipe;
     } elsif($opt eq '-jit') {
 	$jit = shift;
 	die "No -jit argument specified"
@@ -280,10 +273,6 @@ for ($i = 0; $i < @bif; $i++) {
     print "\n";
 }
 
-if ($hipe eq 'yes') {
-    print "\n#include \"hipe_nbif_impl.h\"\n";
-}
-
 print "\n#endif\n";
 
 #
@@ -348,54 +337,6 @@ Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, const BeamInstr *I)
 EOF
 
 }
-
-if ($hipe eq 'yes') {
-
-    #
-    # Generate the nbif_impl bif wrappers file.
-    #
-
-    open_file("$src/hipe_nbif_impl.h");
-    print <<EOF;
-
-#ifndef HIPE_NBIF_IMPL_H__
-#define HIPE_NBIF_IMPL_H__
-
-EOF
-
-    my $i;
-    for ($i = 0; $i < @bif; $i++) {
-	print <<EOF;
-Eterm nbif_impl_$bif[$i]->[4](Process *c_p, Eterm *regs);
-EOF
-   }
-
-   print <<EOF;
-
-#endif /* ERL_HIPE_NBIF_IMPL_H__ */
-
-EOF
-
-    #
-    # Generate the nbif_impl bif wrappers file.
-    #
-
-    open_file("$src/hipe_nbif_impl.c");
-    my $i;
-    includes("erl_process.h", "erl_nfunc_sched.h", "erl_bif_table.h", "erl_atom_table.h");
-    for ($i = 0; $i < @bif; $i++) {
-
-	print <<EOF;
-Eterm nbif_impl_$bif[$i]->[4](Process *c_p, Eterm *regs)
-{
-    return $bif[$i]->[3](c_p, regs, (UWord *)&BIF_TRAP_EXPORT(BIF_$bif[$i]->[4])->info.mfa);
-}
-
-EOF
-
-   }
-
-} # hipe
 
 #
 # Utilities follow.

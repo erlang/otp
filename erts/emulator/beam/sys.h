@@ -98,10 +98,6 @@
 #  define ERTS_NOINLINE
 #endif
 
-#if defined(VALGRIND) && !defined(NO_FPE_SIGNALS)
-#  define NO_FPE_SIGNALS
-#endif
-
 #define ERTS_I64_LITERAL(X) X##LL
 
 #define ErtsInArea(ptr,start,nbytes) \
@@ -750,25 +746,6 @@ extern void erts_late_sys_init_time(void);
 extern void erts_deliver_time(void);
 extern void erts_time_remaining(SysTimeval *);
 extern void erts_sys_init_float(void);
-extern void erts_thread_init_float(void);
-extern void erts_thread_disable_fpe(void);
-ERTS_GLB_INLINE int erts_block_fpe(void);
-ERTS_GLB_INLINE void erts_unblock_fpe(int);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE int erts_block_fpe(void)
-{
-    return erts_sys_block_fpe();
-}
-
-ERTS_GLB_INLINE void erts_unblock_fpe(int unmasked)
-{
-    erts_sys_unblock_fpe(unmasked);
-}
-
-#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
-
 
 /* Dynamic library/driver loading */
 typedef struct {

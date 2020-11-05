@@ -219,7 +219,6 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
     env->hp = HEAP_TOP(p);
     env->hp_end = HEAP_LIMIT(p);
     env->heap_frag = NULL;
-    env->fpe_was_unmasked = erts_block_fpe();
     env->tmp_obj_list = NULL;
     env->exception_thrown = 0;
     env->tracee = tracee;
@@ -315,7 +314,6 @@ static void tmp_alloc_dtor(struct enif_tmp_obj_t *tmp_obj)
 
 void erts_post_nif(ErlNifEnv* env)
 {
-    erts_unblock_fpe(env->fpe_was_unmasked);
     full_flush_env(env);
     free_tmp_objs(env);
     env->exiting = ERTS_PROC_IS_EXITING(env->proc);
@@ -456,7 +454,6 @@ erts_call_dirty_nif(ErtsSchedulerData *esdp,
 	nep->func = NULL;
 #endif
 
-    erts_unblock_fpe(env.fpe_was_unmasked);
     full_flush_env(&env);
     free_tmp_objs(&env);
 
@@ -612,12 +609,10 @@ static ERTS_INLINE void pre_nif_noproc(struct enif_msg_environment_t* msg_env,
                                        Process* tracee)
 {
     setup_nif_env(msg_env, mod, tracee);
-    msg_env->env.fpe_was_unmasked = erts_block_fpe();
 }
 
 static ERTS_INLINE void post_nif_noproc(struct enif_msg_environment_t* msg_env)
 {
-    erts_unblock_fpe(msg_env->env.fpe_was_unmasked);
     enif_clear_env(&msg_env->env);
 }
 
@@ -4263,12 +4258,6 @@ static struct erl_module_nif* create_lib(const ErlNifEntry* src)
  *
  * This is a small stub that rejects apply(erlang, load_nif, [Path, Args]). */
 BIF_RETTYPE load_nif_2(BIF_ALIST_2) {
-    if (BIF_P->flags & F_HIPE_MODE) {
-        BIF_RET(load_nif_error(BIF_P, "notsup",
-                               "Calling load_nif from HiPE compiled modules "
-                               "not supported"));
-    }
-    
     BIF_RET(load_nif_error(BIF_P, "bad_lib",
                            "load_nif/2 must be explicitly called from the NIF "
                            "module. It cannot be called through apply/3."));

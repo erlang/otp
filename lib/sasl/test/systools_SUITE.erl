@@ -804,14 +804,14 @@ check_exref_warnings(without_db1, W) ->
 	    test_server:fail({exref_warning_undef, L})
     end.
 
-get_exref(undef, W)   -> filter(no_hipe(get_exref1(exref_undef, W))).
+get_exref(undef, W)   -> filter(get_exref1(exref_undef, W)).
 
 filter(false) ->
     false;
 filter({ok, W}) ->
     {ok, filter(W)};
 filter(L) ->
-    lists:filter(fun%({hipe_consttab,_,_}) -> false;
+    lists:filter(fun
 		     ({int,_,_}) -> false;
 		     ({i,_,_}) -> false;
 		     ({crypto,_,_}) -> false;
@@ -822,19 +822,6 @@ filter(L) ->
 get_exref1(T, [{warning, {T, Value}}|_]) -> {ok, Value};
 get_exref1(T, [_|W])                     -> get_exref1(T, W);
 get_exref1(_, [])                        -> false.
-
-no_hipe(false) ->
-    false;
-no_hipe({ok, Value}) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    Hipe = "hipe",
-	    Fun = fun({M,_,_}) -> not lists:prefix(Hipe, atom_to_list(M)) end,
-	    NewValue = lists:filter(Fun, Value),
-	    {ok, NewValue};
-	_Arch ->
-	    {ok, Value}
-    end.
 
 %% duplicate_modules_script: Check that make_script rejects two
 %% applications providing the same module.

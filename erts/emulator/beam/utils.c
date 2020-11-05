@@ -56,9 +56,6 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #include "atom.h"
-#ifdef HIPE
-#  include "hipe_mode_switch.h"
-#endif
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
@@ -3083,14 +3080,6 @@ not_equal:
  *   tuples < maps < [] < conses < binaries.
  *
  */
-
-/* cmp(Eterm a, Eterm b)
- *  For compatibility with HiPE - arith-based compare.
- */
-Sint cmp(Eterm a, Eterm b)
-{
-    return erts_cmp(a, b, 0, 0);
-}
 
 Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
 

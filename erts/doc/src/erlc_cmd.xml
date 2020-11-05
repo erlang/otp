@@ -132,12 +132,6 @@
           This option is ignored by compilers that have
           a single output format.</p>
       </item>
-      <tag><c>-smp</c></tag>
-      <item>
-        <p>Compiles using the SMP emulator. This is mainly useful
-          for compiling native code, which must be compiled with the same
-          runtime system that it is to be run on.</p>
-      </item>
       <tag><c>-no-server</c></tag>
       <item>
         <p>Do not use the

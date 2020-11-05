@@ -34,9 +34,6 @@
 #include "dist.h"
 #include "beam_catches.h"
 #include "beam_common.h"
-#ifdef HIPE
-#include "hipe_mode_switch.h"
-#endif
 
 static Eterm *get_freason_ptr_from_exc(Eterm exc);
 static BeamInstr* next_catch(Process* c_p, Eterm *reg);
@@ -184,7 +181,6 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
-    ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_MSACC_UPDATE_CACHE_X();
 
     /* Set fcalls even though we ignore it, so we don't
@@ -435,17 +431,6 @@ BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
 }
 
 /*
- * To fully understand the error handling, one must keep in mind that
- * when an exception is thrown, the search for a handler can jump back
- * and forth between Beam and native code. Upon each mode switch, a
- * dummy handler is inserted so that if an exception reaches that point,
- * the handler is invoked (like any handler) and transfers control so
- * that the search for a real handler is continued in the other mode.
- * Therefore, c_p->freason and c_p->fvalue must still hold the exception
- * info when the handler is executed, but normalized so that creation of
- * error terms and saving of the stack trace is only done once, even if
- * we pass through the error handling code several times.
- *
  * When a new exception is raised, the current stack trace information
  * is quick-saved in a small structure allocated on the heap. Depending
  * on how the exception is eventually caught (perhaps by causing the
@@ -1059,14 +1044,8 @@ build_stacktrace(Process* c_p, Eterm exc) {
 
     if (! (s = get_trace_from_exc(exc))) {
         return NIL;
-    }
-#ifdef HIPE
-    if (s->freason & EXF_NATIVE) {
-	return hipe_build_stacktrace(c_p, s);
-    }
-#endif
-    if (is_raised_exc(exc)) {
-	return get_args_from_exc(exc);
+    } else if (is_raised_exc(exc)) {
+        return get_args_from_exc(exc);
     }
 
     /*

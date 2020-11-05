@@ -173,12 +173,6 @@ dynamic_call_hibernator_msg(Msg, _Function, Info) ->
 %%%
 
 min_heap_size(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-	true -> {skip, "Test case relies on trace which is not available in HiPE"};
-	false -> min_heap_size_1(Config)
-    end.
-
-min_heap_size_1(Config) when is_list(Config) ->
     erlang:trace(new, true, [call]),
     MFA = {?MODULE,min_hibernator,1},
     1 = erlang:trace_pattern(MFA, true, [local]),

@@ -405,12 +405,10 @@ is_outdir_opt(_) -> false.
 
 is_from_opt(from_core) -> true;
 is_from_opt(from_asm) -> true;
-is_from_opt(from_beam) -> true;
 is_from_opt(_) -> false.
 
 from_opt(".core") -> [from_core];
 from_opt(".S")    -> [from_asm];
-from_opt(".beam") -> [from_beam];
 from_opt(_)       -> [].
 
 %%% Obtain the 'outdir' option from the argument. Return "." if no
@@ -430,7 +428,6 @@ outdir([Opt|Rest]) ->
 %% mimic how suffix is selected in compile:file().
 src_suffix([from_core|_]) -> ".core";
 src_suffix([from_asm|_])  -> ".S";
-src_suffix([from_beam|_]) -> ".beam";
 src_suffix([_|Opts]) -> src_suffix(Opts);
 src_suffix([]) -> ".erl".
 

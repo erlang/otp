@@ -238,22 +238,12 @@ call_purged_fun_code_there(Config) when is_list(Config) ->
     ok.
 
 call_purged_fun_test(Priv, Data, Type) ->
-    OptsList = case erlang:system_info(hipe_architecture) of
-                   undefined -> [[]];
-                   _ -> [[], [native,{d,hipe}]]
-               end,
-    [call_purged_fun_test_do(Priv, Data, Type, CO, FO)
-     || CO <- OptsList, FO <- OptsList].
-
-
-call_purged_fun_test_do(Priv, Data, Type, CallerOpts, FunOpts) ->
-    io:format("Compile caller as ~p and funs as ~p\n", [CallerOpts, FunOpts]),
     SrcFile = filename:join(Data, "call_purged_fun_tester.erl"),
     ObjFile = filename:join(Priv, "call_purged_fun_tester.beam"),
-    {ok,Mod,Code} = compile:file(SrcFile, [binary, report | CallerOpts]),
+    {ok,Mod,Code} = compile:file(SrcFile, [binary, report]),
     {module,Mod} = code:load_binary(Mod, ObjFile, Code),
 
-    call_purged_fun_tester:do(Priv, Data, Type, FunOpts).
+    call_purged_fun_tester:do(Priv, Data, Type, []).
 
 
 multi_proc_purge(Config) when is_list(Config) ->

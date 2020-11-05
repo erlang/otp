@@ -477,11 +477,6 @@ Options:
       Bypass the native code compilation of some key files that Dialyzer
       heuristically performs when dialyzing many files; this avoids the
       compilation time but it may result in (much) longer analysis time.
-  --no_native_cache
-      By default, Dialyzer caches the results of native compilation in the
-      $XDG_CACHE_HOME/erlang/dialyzer_hipe_cache directory.
-      XDG_CACHE_HOME defaults to $HOME/.cache.  Use this option to disable
-      caching.
   --fullpath
       Display the full path names of files for which warnings are emitted.
   --no_indentation

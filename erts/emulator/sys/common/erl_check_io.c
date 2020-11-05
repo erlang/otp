@@ -1022,11 +1022,9 @@ done:
 done_unknown:
     erts_mtx_unlock(fd_mtx(fd));
     if (stop_select_fn) {
-	int was_unmasked = erts_block_fpe();
 	DTRACE1(driver_stop_select, name);
 	LTTNG1(driver_stop_select, "unknown");
 	(*stop_select_fn)(e, NULL);
-	erts_unblock_fpe(was_unmasked);
     }
     if (free_select)
 	free_drv_select_data(free_select);
@@ -1888,11 +1886,9 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 	erts_mtx_unlock(fd_mtx(fd));
 
         if (drv_ptr) {
-            int was_unmasked = erts_block_fpe();
             DTRACE1(driver_stop_select, drv_ptr->name);
             LTTNG1(driver_stop_select, drv_ptr->name);
             (*drv_ptr->stop_select)((ErlDrvEvent) fd, NULL);
-            erts_unblock_fpe(was_unmasked);
             if (drv_ptr->handle) {
 		erts_ddll_dereference_driver(drv_ptr->handle);
 	    }

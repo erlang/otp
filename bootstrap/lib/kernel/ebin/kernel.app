@@ -48,7 +48,6 @@
 	     group,
 	     group_history,
 	     heart,
-	     hipe_unified_loader,
 	     inet6_tcp,
 	     inet6_tcp_dist,
 	     inet6_udp,

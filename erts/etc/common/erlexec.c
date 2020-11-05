@@ -70,7 +70,6 @@ static const char plusM_au_allocs[]= {
     'R',	/* driver_alloc		*/
     'S',	/* sl_alloc		*/
     'T',	/* temp_alloc		*/
-    'X',	/* exec_alloc		*/
     'Z',        /* test_alloc           */
     '\0'
 };

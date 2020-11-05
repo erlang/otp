@@ -92,10 +92,6 @@
 #undef HARDDEBUG
 #endif
 
-#ifdef HIPE
-#include "hipe_mode_switch.h"	/* for hipe_init_process() */
-#endif
-
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
 #endif
@@ -8495,8 +8491,6 @@ sched_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-    erts_thread_init_float();
-
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     esdp->verify_unused_temp_alloc
 	= erts_alloc_get_verify_unused_temp_alloc(
@@ -8555,8 +8549,6 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
-    erts_thread_init_float();
-
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -8603,8 +8595,6 @@ sched_dirty_io_thread_func(void *vesdp)
     esdp->aux_work_data.async_ready.queue = NULL;
 
     erts_proc_lock_prepare_proc_lock_waiter();
-
-    erts_thread_init_float();
 
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
@@ -9262,13 +9252,11 @@ static void trace_schedule_in(Process *p, erts_aint32_t state);
 static void trace_schedule_out(Process *p, erts_aint32_t state);
 
 /*
- * schedule() is called from BEAM (process_main()) or HiPE
- * (hipe_mode_switch()) when the current process is to be
- * replaced by a new process. 'calls' is the number of reduction
- * steps the current process consumed.
- * schedule() returns the new process, and the new process'
- * ->fcalls field is initialised with its allowable number of
- * reduction steps.
+ * schedule() is called from BEAM (process_main()) when the current process
+ * is to be replaced by a new process. 'calls' is the number of reduction
+ * steps the current process consumed. schedule() returns the new process,
+ * and the new process->fcalls field is initialised with its allowable
+ * number of reduction steps.
  *
  * When no process is runnable, or when sufficiently many reduction
  * steps have been made, schedule() calls erl_sys_schedule() to
@@ -11853,9 +11841,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	sz = erts_next_heap_size(heap_need, 0);
     }
 
-#ifdef HIPE
-    hipe_init_process(&p->hipe);
-#endif
     p->heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
     p->old_hend = p->old_htop = p->old_heap = NULL;
     p->high_water = p->heap;
@@ -11957,10 +11942,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->trace_msg_q = NULL;
     p->scheduler_data = NULL;
-
-#if !defined(NO_FPE_SIGNALS) || defined(HIPE)
-    p->fp_exception = 0;
-#endif
 
     /* seq_trace is handled before regular tracing as the latter may touch the
      * trace token. */
@@ -12470,10 +12451,6 @@ void erts_init_empty_process(Process *p)
 
     p->common.u.alive.started_interval = 0;
 
-#ifdef HIPE
-    hipe_init_process(&p->hipe);
-#endif
-
     INIT_HOLE_CHECK(p);
 #ifdef DEBUG
     p->last_old_htop = NULL;
@@ -12487,12 +12464,7 @@ void erts_init_empty_process(Process *p)
     erts_proc_lock_init(p);
     erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
     erts_init_runq_proc(p, ERTS_RUNQ_IX(0), 0);
-
-#if !defined(NO_FPE_SIGNALS) || defined(HIPE)
-    p->fp_exception = 0;
-#endif
-
-}    
+}
 
 #ifdef DEBUG
 
@@ -12616,10 +12588,6 @@ delete_process(Process* p)
     /*
      * Release heaps. Clobber contents in DEBUG build.
      */
-
-#ifdef HIPE
-    hipe_delete_process(&p->hipe);
-#endif
 
     erts_deallocate_young_generation(p);
 

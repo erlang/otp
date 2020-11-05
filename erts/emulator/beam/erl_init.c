@@ -56,10 +56,6 @@
 
 #include "jit/beam_asm.h"
 
-#ifdef HIPE
-#include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
-#endif
-
 #ifdef HAVE_SYS_RESOURCE_H
 #  include <sys/resource.h>
 #endif
@@ -93,11 +89,6 @@ const int etp_arch_bits = 64;
 const int etp_arch_bits = 32;
 #else
 # error "Not 64-bit, nor 32-bit arch"
-#endif
-#ifdef HIPE
-const int etp_hipe = 1;
-#else
-const int etp_hipe = 0;
 #endif
 #ifdef BEAMASM
 const int etp_beamasm = 1;
@@ -381,9 +372,6 @@ erl_init(int ncpu,
 			      initializations */
 #endif
     erl_sys_late_init();
-#ifdef HIPE
-    hipe_mode_switch_init(); /* Must be after init_load/beam_catches/init */
-#endif
     packet_parser_init();
     erl_nif_init();
     erts_msacc_init();
@@ -1486,9 +1474,6 @@ erl_start(int argc, char **argv)
 #endif
 		strcat(tmp, ",SMP");
 		strcat(tmp, ",ASYNC_THREADS");
-#ifdef HIPE
-		strcat(tmp, ",HIPE");
-#endif
 		erts_fprintf(stderr, "Erlang ");
 		if (tmp[1]) {
 		    erts_fprintf(stderr, "(%s) ", tmp+1);

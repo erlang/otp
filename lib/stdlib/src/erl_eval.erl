@@ -19,9 +19,6 @@
 %%
 -module(erl_eval).
 
-%% Guard is_map/1 is not yet supported in HiPE.
--compile(no_native).
-
 %% An evaluator for Erlang abstract syntax.
 
 -export([exprs/2,exprs/3,exprs/4,expr/2,expr/3,expr/4,expr/5,

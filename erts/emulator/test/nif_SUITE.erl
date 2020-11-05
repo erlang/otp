@@ -44,7 +44,6 @@
          monitor_process_purge/1,
          demonitor_process/1,
          monitor_frenzy/1,
-         hipe/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
 	 api_macros/1,
@@ -95,7 +94,6 @@ all() ->
      select, select_steal,
      {group, monitor},
      monitor_frenzy,
-     hipe,
      t_load_race,
      t_call_nif_early,
      load_traced_nif,
@@ -160,11 +158,6 @@ end_per_group(_,_) -> ok.
 init_per_testcase(t_on_load, Config) ->
     ets:new(nif_SUITE, [named_table]),
     Config;
-init_per_testcase(hipe, Config) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined -> {skip, "HiPE is disabled"};
-	_ -> Config
-    end;
 init_per_testcase(nif_whereis_threaded, Config) ->
     case erlang:system_info(threads) of
         true -> Config;
@@ -1165,18 +1158,6 @@ frenzy_do_op(SelfPix, Op, Rnd, {Pid0,RBins}=State0) ->
 gc_and_return(RetVal) ->
     erlang:garbage_collect(),
     RetVal.
-
-hipe(Config) when is_list(Config) ->
-    Data = proplists:get_value(data_dir, Config),
-    Priv = proplists:get_value(priv_dir, Config),
-    Src = filename:join(Data, "hipe_compiled"),
-    {ok,hipe_compiled} = c:c(Src, [{outdir,Priv},native]),
-    true = code:is_module_native(hipe_compiled),
-    {error, {notsup,_}} = hipe_compiled:try_load_nif(),
-    true = code:delete(hipe_compiled),
-    false = code:purge(hipe_compiled),
-    ok.
-
 
 %% Test NIF building heap fragments
 heap_frag(Config) when is_list(Config) ->    

@@ -85,10 +85,6 @@ ifeq ($(USE_MEGACO_TEST_CODE),true)
 ERL_COMPILE_FLAGS += -DMEGACO_TEST_CODE=mona_lisa_spelar_doom
 endif
 
-ifeq ($(USE_MEGACO_HIPE),true)
-ERL_COMPILE_FLAGS += +native -Dmegaco_hipe_special=true
-endif
-
 ERL_COMPILE_FLAGS += $(MEGACO_ERL_COMPILE_FLAGS)
 
 # We have a behaviour in the test catalog (megaco_test_generator)

@@ -50,9 +50,11 @@ fconv(Src, Dst) {
 }
 
 FLOAT_OP(Src1, OP, Src2, Dst) {
-    ERTS_NO_FPE_CHECK_INIT(c_p);
     $Dst = $Src1 $OP $Src2;
-    ERTS_NO_FPE_ERROR(c_p, $Dst, $BADARITH0());
+
+    if (!erts_isfinite($Dst)) {
+        $BADARITH0();
+    }
 }
 
 i_fadd(Src1, Src2, Dst) {
@@ -72,7 +74,9 @@ i_fdiv(Src1, Src2, Dst) {
 }
 
 i_fnegate(Src, Dst) {
-    ERTS_NO_FPE_CHECK_INIT(c_p);
     $Dst = -$Src;
-    ERTS_NO_FPE_ERROR(c_p, $Dst, $BADARITH0());
+
+    if (!erts_isfinite($Dst)) {
+        $BADARITH0();
+    }
 }

@@ -85,7 +85,6 @@ extern void erl_sys_args(int*, char**);
 
 extern void erts_sys_init_float(void);
 
-
 #ifdef DEBUG
 static int debug_log = 0;
 #endif
@@ -234,15 +233,6 @@ thr_create_prepare_child(void *vtcdp)
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_thread_setup();
-#endif
-
-#ifndef NO_FPE_SIGNALS
-    /*
-     * We do not want fp exeptions in other threads than the
-     * scheduler threads. We enable fpe explicitly in the scheduler
-     * threads after this.
-     */
-    erts_thread_disable_fpe();
 #endif
 
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
@@ -1106,7 +1096,6 @@ static void initialize_darwin_main_thread_pipes(void)
 void
 erts_sys_main_thread(void)
 {
-    erts_thread_disable_fpe();
 #ifdef __DARWIN__
     initialize_darwin_main_thread_pipes();
 #else

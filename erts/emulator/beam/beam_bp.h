@@ -147,7 +147,7 @@ BeamInstr erts_trace_break(Process *p, ErtsCodeInfo *ci, Eterm *args,
 int erts_is_trace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
 int erts_is_mtrace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret,
 			 ErtsTracer *tracer_ret);
-int erts_is_native_break(const ErtsCodeInfo *ci);
+
 int erts_is_count_break(const ErtsCodeInfo *ci, Uint *count_ret);
 int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *call_time);
 

@@ -216,12 +216,6 @@ void* erts_alcu_mmapper_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
 void* erts_alcu_mmapper_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
 void  erts_alcu_mmapper_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
 # endif
-
-# if defined(ERTS_ALC_A_EXEC)
-void* erts_alcu_exec_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
-void* erts_alcu_exec_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
-void  erts_alcu_exec_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
-# endif
 #endif /* HAVE_ERTS_MSEG */
 
 #ifdef ARCH_32

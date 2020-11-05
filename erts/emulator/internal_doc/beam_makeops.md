@@ -544,8 +544,6 @@ The `Makefile` for building the emulator currently defines the
 following symbols by using the `-D` option on the command line for
 **beam\_makeops**.
 
-* `NO_FPE_SIGNALS` - 1 if FPE signals are not enable in runtime system,
-0 otherwise.
 * `USE_VM_PROBES` - 1 if the runtime system is compiled to use VM probes (support for dtrace or systemtap), 0 otherwise.
 
 ### Defining external generic instructions ###

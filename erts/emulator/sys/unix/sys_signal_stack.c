@@ -51,7 +51,7 @@
 #include "erl_alloc.h"
 #include "erl_vm.h"
 
-#if ((defined(BEAMASM) && defined(NATIVE_ERLANG_STACK)) || defined(HIPE))
+#if (defined(BEAMASM) && defined(NATIVE_ERLANG_STACK))
 
 #if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
 /*
@@ -166,7 +166,7 @@
 /*
  * Unknown libc -- assume musl, which does not allow safe signals
  */
-#error "HiPE/beamasm require a libc that can guarantee that sigaltstack works"
+#error "beamasm requires a libc that can guarantee that sigaltstack works"
 #endif /* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ ||        \
             * __sun__)                                                         \
             */

@@ -1514,12 +1514,6 @@ define etp-sigq-flags-int
   if ($arg0 & ~((1 << 9)-1))
     printf "GARBAGE<%x> ", ($arg0 & ~((1 << 9)-1))
   end
-  if ($arg0 & (1 << 8))
-    printf "hipe-receive-yield "
-  end
-  if ($arg0 & (1 << 7))
-    printf "hipe-receive-locked "
-  end
   if ($arg0 & (1 << 6))
     printf "delayed-sigq-len "
   end
@@ -2235,29 +2229,26 @@ define etp-proc-flags-int
   if ($arg0 & ~((1 << 24)-1))
     printf "GARBAGE<%x> ", ($arg0 & ~((1 << 24)-1))
   end
-  if ($arg0 & (1 << 23))
+  if ($arg0 & (1 << 22))
     printf "trap-exit "
   end
-  if ($arg0 & (1 << 22))
+  if ($arg0 & (1 << 21))
     printf "hibernated "
   end
-  if ($arg0 & (1 << 21))
+  if ($arg0 & (1 << 20))
     printf "dirty-minor-gc "
   end
-  if ($arg0 & (1 << 20))
+  if ($arg0 & (1 << 19))
     printf "dirty-major-gc "
   end
-  if ($arg0 & (1 << 19))
+  if ($arg0 & (1 << 18))
     printf "dirty-gc-hibernate "
   end
-  if ($arg0 & (1 << 18))
+  if ($arg0 & (1 << 17))
     printf "dirty-cla "
   end
-  if ($arg0 & (1 << 17))
-    printf "delayed-del-proc "
-  end
   if ($arg0 & (1 << 16))
-    printf "hipe-mode "
+    printf "delayed-del-proc "
   end
   if ($arg0 & (1 << 15))
     printf "have-blocked-nmsb "
@@ -3382,12 +3373,6 @@ define etp-system-info
     end
   end
   printf "Word size: %d-bit\n", etp_arch_bits
-  printf "HiPE support: "
-  if (etp_hipe)
-    printf "yes\n"
-  else
-    printf "no\n"
-  end
   printf "BeamAsm support: "
   if (etp_beamasm)
     printf "yes\n"

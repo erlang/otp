@@ -66,10 +66,6 @@ typedef struct process Process;
 #include "erl_db.h"
 #undef ERTS_ONLY_SCHED_SPEC_ETS_DATA
 
-#ifdef HIPE
-#include "hipe_process.h"
-#endif
-
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #define ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_thr_progress.h"
@@ -869,16 +865,9 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ETS_OWNED_TABLES               6
 #define ERTS_PSD_ETS_FIXED_TABLES               7
 #define ERTS_PSD_DIST_ENTRY	                8
-#define ERTS_PSD_PENDING_SUSPEND                9
-#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	10 /* keep last... */
+#define ERTS_PSD_PENDING_SUSPEND                9 /* keep last... */
 
-#define ERTS_PSD_SIZE				11
-
-#if !defined(HIPE)
-#  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
-#  undef ERTS_PSD_SIZE
-#  define ERTS_PSD_SIZE 10
-#endif
+#define ERTS_PSD_SIZE				10
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -1023,16 +1012,6 @@ struct process {
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
     Uint max_heap_size;         /* Maximum size of heap (in words). */
-
-#if !defined(NO_FPE_SIGNALS) || defined(HIPE)
-    volatile unsigned long fp_exception;
-#endif
-
-#ifdef HIPE
-    /* HiPE-specific process fields. Put it early in struct process,
-       to enable smaller & faster addressing modes on the x86. */
-    struct hipe_process_state hipe;
-#endif
 
     /*
      * Saved x registers.
@@ -1543,14 +1522,13 @@ extern int erts_system_profile_ts_type;
 #define F_DELAY_GC           (1 << 13) /* Similar to disable GC (see below) */
 #define F_SCHDLR_ONLN_WAITQ  (1 << 14) /* Process enqueued waiting to change schedulers online */
 #define F_HAVE_BLCKD_NMSCHED (1 << 15) /* Process has blocked normal multi-scheduling */
-#define F_HIPE_MODE          (1 << 16) /* Process is executing in HiPE mode */
-#define F_DELAYED_DEL_PROC   (1 << 17) /* Delay delete process (dirty proc exit case) */
-#define F_DIRTY_CLA          (1 << 18) /* Dirty copy literal area scheduled */
-#define F_DIRTY_GC_HIBERNATE (1 << 19) /* Dirty GC hibernate scheduled */
-#define F_DIRTY_MAJOR_GC     (1 << 20) /* Dirty major GC scheduled */
-#define F_DIRTY_MINOR_GC     (1 << 21) /* Dirty minor GC scheduled */
-#define F_HIBERNATED         (1 << 22) /* Hibernated */
-#define F_TRAP_EXIT          (1 << 23) /* Trapping exit */
+#define F_DELAYED_DEL_PROC   (1 << 16) /* Delay delete process (dirty proc exit case) */
+#define F_DIRTY_CLA          (1 << 17) /* Dirty copy literal area scheduled */
+#define F_DIRTY_GC_HIBERNATE (1 << 18) /* Dirty GC hibernate scheduled */
+#define F_DIRTY_MAJOR_GC     (1 << 19) /* Dirty major GC scheduled */
+#define F_DIRTY_MINOR_GC     (1 << 20) /* Dirty minor GC scheduled */
+#define F_HIBERNATED         (1 << 21) /* Hibernated */
+#define F_TRAP_EXIT          (1 << 22) /* Trapping exit */
 
 /* Signal queue flags */
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */
@@ -1560,8 +1538,6 @@ extern int erts_system_profile_ts_type;
 #define FS_DEFERRED_SAVED_LAST (1 << 4) /* Deferred sig_qs.saved_last */
 #define FS_DEFERRED_SAVE       (1 << 5) /* Deferred sig_qs.save */
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
-#define FS_HIPE_RECV_LOCKED    (1 << 7) /* HiPE message queue locked */
-#define FS_HIPE_RECV_YIELD     (1 << 8) /* HiPE receive yield */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -2232,13 +2208,6 @@ erts_psd_set(Process *p, int ix, void *data)
     ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
 #define ERTS_PROC_SET_PENDING_SUSPEND(P, PS) \
     ((void *) erts_psd_set((P), ERTS_PSD_PENDING_SUSPEND, (void *) (PS)))
-
-#ifdef HIPE
-#define ERTS_PROC_GET_SUSPENDED_SAVED_CALLS_BUF(P) \
-  ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF))
-#define ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(P, SCB) \
-  ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF, (void *) (SCB)))
-#endif
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p, Eterm handler);

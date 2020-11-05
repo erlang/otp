@@ -92,18 +92,6 @@
 	  Loading on previous releases is <em>not</em> supported.
 	</p>
       </item>
-      <tag>Compiled HiPE Code</tag>
-      <item>
-	<p>
-	  Compiled HiPE code can be loaded on the exact same build
-	  of ERTS that was used when compiling the code. It might
-	  however work on other builds, the emulator verifies
-	  checksums in order to determine if it can load the code
-	  or not. Note that HiPE has some limitations. For more
-	  information see the documentation of the
-	  <seeapp marker="hipe:HiPE_app">HiPE</seeapp> application.
-	</p>
-      </item>
       <tag>APIs</tag>
       <item>
 	<p>Compatible between releases.</p>

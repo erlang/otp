@@ -29,9 +29,7 @@
 #include "global.h"
 #include "erl_process.h"
 #include "error.h"
-#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
-#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "big.h"
 #include "dist.h"
 #include "erl_version.h"
@@ -1012,8 +1010,7 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
 {
     /*
      * hibernate/3 is usually translated to an instruction; therefore
-     * this function is only called from HiPE or when the call could not
-     * be translated.
+     * this function is only called when the call could not be translated.
      */
     Eterm reg[3];
 
@@ -1441,17 +1438,7 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
 	   scb->n = 0;
        }
 
-#ifdef HIPE
-       if (c_p->flags & F_HIPE_MODE) {
-	   ASSERT(!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p));
-	   scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(c_p, scb);
-       }
-       else
-#endif
        {
-#ifdef HIPE
-	   ASSERT(!ERTS_PROC_GET_SUSPENDED_SAVED_CALLS_BUF(c_p));
-#endif
 	   scb = ERTS_PROC_SET_SAVED_CALLS_BUF(c_p, scb);
 
 	   if (((scb && i == 0) || (!scb && i != 0))) {
@@ -1846,8 +1833,6 @@ BIF_RETTYPE whereis_1(BIF_ALIST_1)
  * erlang:'!'/2
  */
 
-HIPE_WRAPPER_BIF_DISABLE_GC(ebif_bang, 2)
-
 BIF_RETTYPE
 ebif_bang_2(BIF_ALIST_2)
 {
@@ -2151,8 +2136,6 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
     }
 }
 
-HIPE_WRAPPER_BIF_DISABLE_GC(send, 3)
-
 BIF_RETTYPE send_3(BIF_ALIST_3)
 {
     BIF_RETTYPE retval;
@@ -2252,8 +2235,6 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 done:
     return retval;
 }
-
-HIPE_WRAPPER_BIF_DISABLE_GC(send, 2)
 
 BIF_RETTYPE send_2(BIF_ALIST_2)
 {

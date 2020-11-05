@@ -481,13 +481,6 @@ prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
 prefer_xregs_is([#cg_set{op=old_make_fun,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
-prefer_xregs_is([#cg_set{op=set_tuple_element}=I|Is], St, Copies, Acc) ->
-    %% FIXME: HiPE translates the following code segment incorrectly:
-    %%     {call_ext,3,{extfunc,erlang,setelement,3}}.
-    %%     {move,{x,0},{y,3}}.
-    %%     {set_tuple_element,{y,1},{y,3},1}.
-    %% Therefore, skip the translation of the arguments for set_tuple_element.
-    prefer_xregs_is(Is, St, Copies, [I|Acc]);
 prefer_xregs_is([#cg_set{args=Args0}=I0|Is], St, Copies0, Acc) ->
     Args = [do_prefer_xreg(A, Copies0, St) || A <- Args0],
     I = I0#cg_set{args=Args},

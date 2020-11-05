@@ -166,15 +166,3 @@ void BeamModuleAssembler::emit_i_fnegate(const ArgVal &Src, const ArgVal &Dst) {
     a.bind(next);
     a.movsd(getArgRef(Dst), x86::xmm0);
 }
-
-#ifndef NO_FPE_SIGNALS
-
-void BeamModuleAssembler::emit_fclearerror() {
-    emit_nyi("emit_fclearerror");
-}
-
-void BeamModuleAssembler::emit_i_fcheckerror() {
-    emit_nyi("emit_i_fcheckerror");
-}
-
-#endif

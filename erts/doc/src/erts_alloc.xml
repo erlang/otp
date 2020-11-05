@@ -66,9 +66,6 @@
       <tag><c>fix_alloc</c></tag>
       <item>A fast allocator used for some frequently used
        fixed size data types.</item>
-      <tag><c>exec_alloc</c></tag>
-      <item>Allocator used by the <seeapp marker="hipe:HiPE_app"><c>HiPE</c></seeapp>
-        application for native executable code.</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated through any of
         the other allocators described above.</item>
@@ -87,9 +84,8 @@
     </taglist>
 
     <p><c>sys_alloc</c>, <c>literal_alloc</c> and <c>temp_alloc</c> are always
-      enabled and cannot be disabled. <c>exec_alloc</c> is only available if it
-      is needed and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
-      available and an allocator that uses it is enabled. All other
+      enabled and cannot be disabled. <c>mseg_alloc</c> is always enabled if it
+      is available and an allocator that uses it is enabled. All other
       allocators can be <seecref marker="#M_e">enabled or disabled</seecref>.
       By default all allocators are enabled.
       When an allocator is disabled, <c>sys_alloc</c> is used instead of
@@ -322,7 +318,6 @@
       <item><c>R: driver_alloc</c></item>
       <item><c>S: sl_alloc</c></item>
       <item><c>T: temp_alloc</c></item>
-      <item><c>X: exec_alloc</c></item>
       <item><c>Y: sys_alloc</c></item>
     </list>
 

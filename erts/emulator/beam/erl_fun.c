@@ -30,10 +30,6 @@
 
 static Hash erts_fun_table;
 
-#ifdef HIPE
-# include "hipe_mode_switch.h"
-#endif
-
 static erts_rwmtx_t erts_fun_table_lock;
 
 #define erts_fun_read_lock()	erts_rwmtx_rlock(&erts_fun_table_lock)
@@ -183,10 +179,6 @@ static void fun_purge_foreach(ErlFunEntry *fe, struct fun_purge_foreach_args *ar
         fe->pend_purge_address = addr;
         ERTS_THR_WRITE_MEMORY_BARRIER;
         fe->address = unloaded_fun;
-#ifdef HIPE
-        fe->pend_purge_native_address = fe->native_address;
-        hipe_set_closure_stub(fe);
-#endif
         erts_purge_state_add_fun(fe);
     }
 }
@@ -207,12 +199,10 @@ erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
     Uint ix;
 
     for (ix = 0; ix < no; ix++) {
-	ErlFunEntry *fe = funs[ix];
-	if (fe->address == unloaded_fun) {
-	    fe->address = fe->pend_purge_address;
-#ifdef HIPE
-            fe->native_address = fe->pend_purge_native_address;
-#endif
+        ErlFunEntry *fe = funs[ix];
+
+        if (fe->address == unloaded_fun) {
+            fe->address = fe->pend_purge_address;
         }
     }
 }
@@ -223,10 +213,7 @@ erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no)
     Uint ix;
 
     for (ix = 0; ix < no; ix++) {
-	funs[ix]->pend_purge_address = NULL;
-#ifdef HIPE
-        funs[ix]->pend_purge_native_address = NULL;
-#endif
+        funs[ix]->pend_purge_address = NULL;
     }
 }
 
@@ -238,9 +225,6 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
     for (ix = 0; ix < no; ix++) {
 	ErlFunEntry *fe = funs[ix];
 	fe->pend_purge_address = NULL;
-#ifdef HIPE
-        fe->pend_purge_native_address = NULL;
-#endif
 	if (erts_refc_dectest(&fe->refc, 0) == 0)
 	    erts_erase_fun_entry(fe);
     }
@@ -260,9 +244,6 @@ dump_fun_foreach(ErlFunEntry *fe, struct dump_fun_foreach_args *args)
     erts_print(args->to, args->to_arg, "Uniq: %d\n", fe->old_uniq);
     erts_print(args->to, args->to_arg, "Index: %d\n",fe->old_index);
     erts_print(args->to, args->to_arg, "Address: %p\n", fe->address);
-#ifdef HIPE
-    erts_print(args->to, args->to_arg, "Native_address: %p\n", fe->native_address);
-#endif
     erts_print(args->to, args->to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
 }
 
@@ -317,10 +298,6 @@ fun_alloc(ErlFunEntry* template)
     erts_refc_init(&obj->refc, -1);
     obj->address = unloaded_fun;
     obj->pend_purge_address = NULL;
-#ifdef HIPE
-    obj->native_address = NULL;
-    obj->pend_purge_native_address = NULL;
-#endif
     return obj;
 }
 

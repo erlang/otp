@@ -177,11 +177,11 @@ int main(int argc, char** argv)
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
     char *env;
-    int i;
     int need_shell = 0;
 
 #ifdef __WIN32__
     int len;
+    int i;
     /* Convert argv to utf8 */
     argv = emalloc((argc+1) * sizeof(char*));
     for (i=0; i<argc; i++) {
@@ -223,13 +223,6 @@ int main(int argc, char** argv)
     /*
      * Push initial arguments.
      */
-
-    for (i = 1; i < argc; i++) {
-       if (strcmp(argv[i], "--wx") == 0) {
-           PUSH("-smp"); /* wx currently requires SMP enabled */
-           break;
-       }
-    }
 
     if (argc > 1 && strcmp(argv[1], "-smp") == 0) {
 	PUSH("-smpauto");

@@ -43,10 +43,6 @@
 #include "erl_unicode.h"
 #include "beam_file.h"
 
-#ifdef HIPE
-#error "FIXME: reintroduce HiPE support"
-#endif
-
 Uint erts_total_code_size;
 
 static int load_code(LoaderState *stp);
@@ -610,47 +606,6 @@ load_error:
     return 0;
 }
 
-#ifdef HIPE
-static Eterm
-stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-                     Eterm group_leader, Eterm module,
-                     BeamCodeHeader* code_hdr, Uint size,
-                     HipeModule *hipe_code)
-{
-    Module* modp;
-    Eterm retval;
-
-    if ((retval = beam_make_current_old(c_p, c_p_locks, module)) != NIL) {
-        erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-        erts_dsprintf(dsbufp,
-                      "Module %T must be purged before loading\n",
-                      module);
-        erts_send_error_to_logger(group_leader, dsbufp);
-        return retval;
-    }
-
-    /*
-     * Update module table.
-     */
-
-    erts_total_code_size += size;
-    modp = erts_put_module(module);
-    modp->curr.code_hdr = code_hdr;
-    modp->curr.code_length = size;
-    modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
-    DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "insert_new_code "
-                  "first_hipe_ref = %p", hipe_code->first_hipe_ref);
-    modp->curr.hipe_code = hipe_code;
-
-    /*
-     * Update ranges (used for finding a function from a PC value).
-     */
-
-    erts_update_ranges((BeamInstr*)modp->curr.code_hdr, size);
-    return NIL;
-}
-#endif
-
 void
 erts_release_literal_area(ErtsLiteralArea* literal_area)
 {
@@ -693,38 +648,6 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
         oh = oh->next;
     }
     erts_free(ERTS_ALC_T_LITERAL, literal_area);
-}
-
-int
-erts_is_module_native(const BeamCodeHeader* code_hdr)
-{
-    Uint i, num_functions;
-
-    /* Check NativeAdress of first real function in module */
-    if (code_hdr != NULL) {
-        num_functions = code_hdr->num_functions;
-        for (i=0; i<num_functions; i++) {
-            const ErtsCodeInfo* ci = code_hdr->functions[i];
-            if (is_atom(ci->mfa.function)) {
-                return erts_is_function_native(ci);
-            } else {
-                ASSERT(is_nil(ci->mfa.function)); /* ignore BIF stubs */
-            }
-        }
-    }
-    return 0;
-}
-
-int
-erts_is_function_native(const ErtsCodeInfo *ci)
-{
-#ifdef HIPE
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
-    return BeamIsOpCode(erts_codeinfo_to_code(ci)[0], op_hipe_trap_call) ||
-        BeamIsOpCode(erts_codeinfo_to_code(ci)[0], op_hipe_trap_call_closure);
-#else
-    return 0;
-#endif
 }
 
 #ifdef ENABLE_DBG_TRACE_MFA

@@ -732,10 +732,6 @@ Slogan: &lt;reason&gt;</pre>
       <item>
         <p>The address of the fun's code.</p>
       </item>
-      <tag><em>Native_address</em></tag>
-      <item>
-        <p>The address of the fun's code when HiPE is enabled.</p>
-      </item>
       <tag><em>Refc</em></tag>
       <item>
         <p>The number of references to the fun.</p>

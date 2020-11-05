@@ -63,13 +63,6 @@ USE_ESOCK = @USE_ESOCK@
 DUBIOUS_ORIGINS = /undefined/environment/
 
 # ----------------------------------------------------
-#	HiPE
-# ----------------------------------------------------
-
-HIPE_ENABLED = @HIPE_ENABLED@
-NATIVE_LIBS_ENABLED = @NATIVE_LIBS_ENABLED@
-
-# ----------------------------------------------------
 #	Command macros
 # ----------------------------------------------------
 INSTALL         = @INSTALL@
@@ -139,11 +132,6 @@ $(EBIN)/%.beam: $(EGEN)/%.erl
 $(EBIN)/%.beam: $(ESRC)/%.erl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-# Special rule for the HIPE bootstrap w/ native libs
-../boot_ebin/%.beam: $(ESRC)/%.erl
-	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o../boot_ebin $<
-endif
 
 .erl.beam:
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<

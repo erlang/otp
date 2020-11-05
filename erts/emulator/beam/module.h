@@ -24,10 +24,6 @@
 #include "index.h"
 #include "beam_code.h"
 
-#ifdef HIPE
-#include "hipe_module.h"
-#endif
-
 struct erl_module_instance {
     const BeamCodeHeader* code_hdr;
     int code_length;		/* Length of loaded code in bytes. */
@@ -39,8 +35,6 @@ struct erl_module_instance {
 #if defined(BEAMASM)
     const void *native_module_exec;
     void *native_module_rw;
-#elif defined(HIPE)
-    HipeModule *hipe_code;
 #endif
 };
 
