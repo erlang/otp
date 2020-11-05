@@ -127,6 +127,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef VALGRIND
 				     " [valgrind-compiled]"
 #endif
+#ifdef ADDRESS_SANITIZER
+				     " [address-sanitizer]"
+#endif
 #ifdef ERTS_FRMPTR
 				     " [frame-pointer]"
 #endif
@@ -2459,6 +2462,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #elif defined(VALGRIND)
 	ERTS_DECL_AM(valgrind);
 	BIF_RET(AM_valgrind);
+#elif defined(ADDRESS_SANITIZER)
+	ERTS_DECL_AM(asan);
+	BIF_RET(AM_asan);
 #elif defined(GPROF)
 	ERTS_DECL_AM(gprof);
 	BIF_RET(AM_gprof);

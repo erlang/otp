@@ -66,7 +66,7 @@
 
 #define ERTS_ALC_DEFAULT_MAX_THR_PREF ERTS_MAX_NO_OF_SCHEDULERS
 
-#if defined(SMALL_MEMORY) || defined(PURIFY) || defined(VALGRIND)
+#if defined(SMALL_MEMORY) || defined(PURIFY) || defined(VALGRIND) || defined(ADDRESS_SANITIZER)
 #define AU_ALLOC_DEFAULT_ENABLE(X)	0
 #else
 #define AU_ALLOC_DEFAULT_ENABLE(X)	(X)

@@ -43,6 +43,7 @@
 #   -purecov    Run emulator compiled for purecov
 #   -gcov       Run emulator compiled for gcov
 #   -valgrind   Run emulator compiled for valgrind
+#   -asan       Run emulator compiled for address-sanitizer
 #   -lcnt	Run emulator compiled for lock counting
 #   -icount	Run emulator compiled for instruction counting
 #   -rr         Run emulator under "rr record"
@@ -75,8 +76,8 @@ GDB=
 GDBBP=
 GDBARGS=
 TYPE=
-debug=
 run_valgrind=no
+run_asan=no
 run_rr=no
 skip_erlexec=no
 
@@ -219,6 +220,12 @@ while [ $# -gt 0 ]; do
 	    TYPE=.valgrind
 	    run_valgrind=yes
 	    skip_erlexec=yes
+	    ;;
+	"-asan")
+	    shift
+	    cargs="$cargs -asan"
+	    run_asan=yes
+	    TYPE=.asan
 	    ;;
         "-emu_type")
             shift
