@@ -75,7 +75,8 @@
          system_limit/1,
          hopefull_data_encoding/1,
          hopefull_export_fun_bug/1,
-         mk_hopefull_data/0]).
+         mk_hopefull_data/0,
+         huge_iovec/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -105,7 +106,8 @@ all() ->
      {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
      start_epmd_false, epmd_module, system_limit,
-     hopefull_data_encoding, hopefull_export_fun_bug].
+     hopefull_data_encoding, hopefull_export_fun_bug,
+     huge_iovec].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -2719,6 +2721,50 @@ hopefull_export_fun_bug(Config) when is_list(Config) ->
     Msg = [1, fun blipp:blapp/7,
            2, fun blipp:blapp/7],
     {dummy, dummy@dummy} ! Msg.  % Would crash on debug VM
+
+huge_iovec(Config) ->
+    %% Make sure that we can pass a term that will produce
+    %% an io-vector larger than IOV_MAX over the distribution...
+    %% IOV_MAX is typically 1024. Currently we produce an
+    %% element in the io-vector for all off heap binaries...
+    NoBinaries = 1 bsl 14,
+    BinarySize = 65,
+    {ok, Node} = start_node(huge_iovec),
+    P = spawn_link(Node,
+                   fun () ->
+                           receive {From, Data} ->
+                                   From ! {self(), Data}
+                           end
+                   end),
+    RBL = mk_rand_bin_list(BinarySize, NoBinaries),
+    %% Check that it actually will produce a huge iovec...
+    %% If we set a limit on the size of the binaries
+    %% that will produce an element in the io-vector
+    %% we need to adjust this testcase...
+    true = length(term_to_iovec(RBL)) >= NoBinaries,
+    P ! {self(), RBL},
+    receive
+        {P, EchoedRBL} ->
+            stop_node(Node),
+            RBL = EchoedRBL
+    end,
+    ok.
+
+mk_rand_bin_list(Bytes, Binaries) ->
+    mk_rand_bin_list(Bytes, Binaries, []).
+
+mk_rand_bin_list(_Bytes, 0, Acc) ->
+    Acc;
+mk_rand_bin_list(Bytes, Binaries, Acc) ->
+    mk_rand_bin_list(Bytes, Binaries-1, [mk_rand_bin(Bytes) | Acc]).
+
+mk_rand_bin(Bytes) ->
+    mk_rand_bin(Bytes, []).
+
+mk_rand_bin(0, Data) ->
+    list_to_binary(Data);
+mk_rand_bin(N, Data) ->
+    mk_rand_bin(N-1, [rand:uniform(256) - 1 | Data]).
 
 
 %%% Utilities
