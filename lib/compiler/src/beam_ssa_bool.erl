@@ -954,11 +954,13 @@ ensure_single_use_1(Bool, Vtx, Uses, G) ->
                       (_) -> false
                    end, Uses) of
         {[_],[_]} ->
-            case beam_digraph:vertex(G, Fail) of
-                {external,Bs0} ->
+            case {beam_digraph:vertex(G, Fail),
+                  beam_digraph:in_edges(G, Fail)} of
+                {{external,Bs0}, [_]} ->
                     %% The only other use of the variable Bool
-                    %% is in the failure block. It can be
-                    %% replaced with the literal `false`
+                    %% is in the failure block and it can only
+                    %% be reached through this test, so we can
+                    %% replace it with the literal `false`
                     %% in that block.
                     Bs = Bs0#{Bool => #b_literal{val=false}},
                     beam_digraph:add_vertex(G, Fail, {external,Bs});
