@@ -49,7 +49,8 @@
  * See the following message on how MAP_NORESERVE was treated on FreeBSD:
  * <http://lists.llvm.org/pipermail/cfe-commits/Week-of-Mon-20150202/122958.html>
  */
-#  if defined(MAP_FIXED) && (defined(MAP_NORESERVE) || defined(__FreeBSD__))
+#  if (defined(MAP_FIXED) && (defined(MAP_NORESERVE) || defined(__FreeBSD__)) \
+       && !defined(ADDRESS_SANITIZER))
 #    define ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION 1
 #  endif
 #endif
