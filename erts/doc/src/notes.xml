@@ -31,6 +31,56 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 11.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bugs causing issues when enabling the ERTS internal
+	    allocators on a system built with the undocumented and
+	    unsupported <c>SMALL_MEMORY</c> feature.</p>
+          <p>
+	    Own Id: OTP-16939</p>
+        </item>
+        <item>
+          <p>
+	    The inet driver used to use 16 as maximum elements in an
+	    I/O vector passed to <c>writev()</c> (and
+	    <c>WSASend()</c> on Windows). When the data to send
+	    contained lots of elements, this caused a performance
+	    degradation since repeated calls to <c>writev()</c> had
+	    to be made to a much larger extent. The inet driver now
+	    looks up actual maximum amount of elements that can be
+	    used on the system, instead of just assuming 16. On most
+	    systems this will result in a maximum amount of I/O
+	    vector elements of 1024.</p>
+          <p>
+	    As of OTP 23.0 the term encoding of signals to send over
+	    the distribution are encoded into I/O vectors of buffers
+	    instead of into a single buffer. Reference counted
+	    binaries are referred to directly from the I/O vector
+	    instead of being copied into the single buffer. That is,
+	    Erlang signals containing huge amounts of reference
+	    counted binaries was effected by this performance
+	    degradation.</p>
+          <p>
+	    Own Id: OTP-16955 Aux Id: ERL-1343, OTP-15618 </p>
+        </item>
+        <item>
+          <p>
+	    In the distributed case, a faulty <c>reply</c> option in
+	    a call to the <c>spawn_request()</c> BIF erroneously
+	    caused a <c>badarg</c> exception instead of a
+	    <c>badopt</c> error message reply.</p>
+          <p>
+	    Own Id: OTP-16991 Aux Id: OTP-15251 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
