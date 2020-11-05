@@ -493,10 +493,12 @@ send_result(Result, Bin) ->
         {ok, Written} ->
             <<_:Written/binary, RestBin/binary>> = Bin,
             {ok, RestBin};
+        select ->
+            select;
         {select, Written} ->
             <<_:Written/binary, RestBin/binary>> = Bin,
             {select, RestBin};
-        _ ->
+        {error, _Reason} = Result ->
             Result
     end.
 

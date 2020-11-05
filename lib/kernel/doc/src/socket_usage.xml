@@ -42,17 +42,17 @@
     <section>
       <title>Asynchronous calls</title>
       <p>Some functions allow for an <i>asynchronous</i> call
-      (<seeerl marker="socket#accept_async"><c>accept/2</c></seeerl>,
-      <seeerl marker="socket#connect_async"><c>connect/3</c></seeerl>,
-      <seeerl marker="socket#recv_async"><c>recv/3,4</c></seeerl>,
-      <seeerl marker="socket#recvfrom_async"><c>recvfrom/3,4</c></seeerl>,
-      <seeerl marker="socket#recvmsg_async"><c>recvmsg/2,3,5</c></seeerl>,
-      <seeerl marker="socket#send_async"><c>send/3,4</c></seeerl>,
-      <seeerl marker="socket#sendmsg_async"><c>sendmsg/3,4</c></seeerl> and
-      <seeerl marker="socket#sendto_async"><c>sendto/4,5</c></seeerl>).
+      (<seeerl marker="socket#accept-nowait"><c>accept/2</c></seeerl>,
+      <seeerl marker="socket#connect-nowait"><c>connect/3</c></seeerl>,
+      <seeerl marker="socket#recv-nowait"><c>recv/3,4</c></seeerl>,
+      <seeerl marker="socket#recvfrom-nowait"><c>recvfrom/3,4</c></seeerl>,
+      <seeerl marker="socket#recvmsg-nowait"><c>recvmsg/2,3,5</c></seeerl>,
+      <seeerl marker="socket#send-nowait"><c>send/3,4</c></seeerl>,
+      <seeerl marker="socket#sendmsg-nowait"><c>sendmsg/3,4</c></seeerl> and
+      <seeerl marker="socket#sendto-nowait"><c>sendto/4,5</c></seeerl>).
       This is achieved by setting the <c>Timeout</c> argument to
       <c>nowait</c>. For instance, if calling the
-      <seeerl marker="socket#recv_async"><c>recv/3</c></seeerl>
+      <seeerl marker="socket#recv-nowait"><c>recv/3</c></seeerl>
       function with Timeout set to <c>nowait</c> (i.e. 
       <c>recv(Sock, 0, nowait)</c>)
       when there is actually nothing to read, it will return with
