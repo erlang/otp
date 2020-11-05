@@ -459,12 +459,14 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
                           {Block0#b_blk{is=Is}, State}
                   end,
                   RPO,
-                  #cm{ definitions = beam_ssa:definitions(Blocks0),
+                  #cm{ definitions = beam_ssa:definitions(RPO, Blocks0),
                        dominators = Dominators,
                        blocks = Blocks0 },
                   Blocks0),
 
-            Blocks2 = beam_ssa:rename_vars(State#cm.renames, [0], Blocks1),
+            %% The fun in mapfold_blocks does not update terminators,
+            %% so we can reuse the RPO computed for Blocks0.
+            Blocks2 = beam_ssa:rename_vars(State#cm.renames, RPO, Blocks1),
 
             {Blocks, Counter} = alias_matched_binaries(Blocks2, Counter0,
                                                        State#cm.match_aliases),
@@ -852,10 +854,10 @@ skip_outgoing_tail_extraction({Fs0, ModInfo}) ->
 skip_outgoing_tail_extraction(#b_function{bs=Blocks0}=F, ModInfo) ->
     case funcinfo_get(F, has_bsm_ops, ModInfo) of
         true ->
-            State0 = #sote{ definitions = beam_ssa:definitions(Blocks0),
+            RPO = beam_ssa:rpo(Blocks0),
+            State0 = #sote{ definitions = beam_ssa:definitions(RPO, Blocks0),
                             mod_info = ModInfo },
 
-            RPO = beam_ssa:rpo(Blocks0),
             {Blocks1, State} = beam_ssa:mapfold_instrs(
                                  fun sote_rewrite_calls/2, RPO, State0, Blocks0),
 

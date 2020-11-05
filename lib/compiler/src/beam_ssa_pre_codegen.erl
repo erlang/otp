@@ -750,7 +750,8 @@ sanitize([], Count, Blocks0, Values) ->
                  map_size(Values) =:= 0 ->
                      Blocks0;
                  true ->
-                     beam_ssa:rename_vars(Values, [0], Blocks0)
+                     RPO = beam_ssa:rpo(Blocks0),
+                     beam_ssa:rename_vars(Values, RPO, Blocks0)
              end,
 
     %% Unreachable blocks can cause problems for the dominator calculations.
@@ -1511,7 +1512,8 @@ fix_receives_1([{L,Blk}|Ls], Blocks0, Count0) ->
         #b_blk{is=[#b_set{op=peek_message}|_]} ->
             Rm = find_rm_blocks(L, Blocks0),
             LoopExit = find_loop_exit(Rm, Blocks0),
-            Defs0 = beam_ssa:def([L], Blocks0),
+            RPO = beam_ssa:rpo([L], Blocks0),
+            Defs0 = beam_ssa:def(RPO, Blocks0),
             CommonUsed = recv_common(Defs0, LoopExit, Blocks0),
             {Blocks1,Count1} = recv_crit_edges(Rm, LoopExit, Blocks0, Count0),
             {Blocks2,Count2} = recv_fix_common(CommonUsed, LoopExit, Rm,
@@ -1530,7 +1532,8 @@ recv_common(_Defs, none, _Blocks) ->
     %% in the tail position of a function.
     [];
 recv_common(Defs, Exit, Blocks) ->
-    {ExitDefs,ExitUnused} = beam_ssa:def_unused([Exit], Defs, Blocks),
+    RPO = beam_ssa:rpo([Exit], Blocks),
+    {ExitDefs,ExitUnused} = beam_ssa:def_unused(RPO, Defs, Blocks),
     Def = ordsets:subtract(Defs, ExitDefs),
     ordsets:subtract(Def, ExitUnused).
 
@@ -1592,7 +1595,8 @@ rce_reroute_terminator(#b_switch{list=List0}=Last, Exit, New) ->
 
 recv_fix_common([Msg0|T], Exit, Rm, Blocks0, Count0) ->
     {Msg,Count1} = new_var('@recv', Count0),
-    Blocks1 = beam_ssa:rename_vars(#{Msg0=>Msg}, [Exit], Blocks0),
+    RPO = beam_ssa:rpo([Exit], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(#{Msg0=>Msg}, RPO, Blocks0),
     N = length(Rm),
     {MsgVars,Count} = new_vars(duplicate(N, '@recv'), Count1),
     PhiArgs = fix_exit_phi_args(MsgVars, Rm, Exit, Blocks1),
@@ -1607,7 +1611,8 @@ recv_fix_common([], _, _, Blocks, Count) ->
 
 recv_fix_common_1([V|Vs], [Rm|Rms], Msg, Blocks0) ->
     Ren = #{Msg=>V},
-    Blocks1 = beam_ssa:rename_vars(Ren, [Rm], Blocks0),
+    RPO = beam_ssa:rpo([Rm], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(Rm, Blocks1),
     Copy = #b_set{op=copy,dst=V,args=[Msg]},
     Is = insert_after_phis(Is0, [Copy]),
@@ -1637,12 +1642,13 @@ exit_predecessors([], _Exit, _Blocks) -> [].
 %%  later used within a clause of the receive.
 
 fix_receive([L|Ls], Defs, Blocks0, Count0) ->
-    {RmDefs,Unused} = beam_ssa:def_unused([L], Defs, Blocks0),
+    RPO = beam_ssa:rpo([L], Blocks0),
+    {RmDefs,Unused} = beam_ssa:def_unused(RPO, Defs, Blocks0),
     Def = ordsets:subtract(Defs, RmDefs),
     Used = ordsets:subtract(Def, Unused),
     {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Used], Count0),
     Ren = zip(Used, NewVars),
-    Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk1 = map_get(L, Blocks1),
     CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
@@ -1667,8 +1673,8 @@ find_loop_exit([_,_|_]=RmBlocks, Blocks) ->
     RPO = beam_ssa:rpo(Blocks),
     {Dominators,_} = beam_ssa:dominators(RPO, Blocks),
     RmSet = cerl_sets:from_list(RmBlocks),
-    Rpo = beam_ssa:rpo(RmBlocks, Blocks),
-    find_loop_exit_1(Rpo, RmSet, Dominators, Blocks);
+    RmRPO = beam_ssa:rpo(RmBlocks, Blocks),
+    find_loop_exit_1(RmRPO, RmSet, Dominators, Blocks);
 find_loop_exit(_, _) ->
     %% There is (at most) a single clause. There is no common
     %% loop exit block.
@@ -2342,10 +2348,11 @@ reserve_yregs(#st{frames=Frames}=St0) ->
 reserve_yregs_1(L, #st{ssa=Blocks0,cnt=Count0,res=Res0}=St) ->
     Blk = map_get(L, Blocks0),
     Yregs = ordsets:from_list(cerl_sets:to_list(beam_ssa:get_anno(yregs, Blk))),
-    {Def,Unused} = beam_ssa:def_unused([L], Yregs, Blocks0),
+    RPO = beam_ssa:rpo([L], Blocks0),
+    {Def,Unused} = beam_ssa:def_unused(RPO, Yregs, Blocks0),
     UsedYregs = ordsets:subtract(Yregs, Unused),
     DefBefore = ordsets:subtract(UsedYregs, Def),
-    {BeforeVars,Blocks,Count} = rename_vars(DefBefore, L, Blocks0, Count0),
+    {BeforeVars,Blocks,Count} = rename_vars(DefBefore, L, RPO, Blocks0, Count0),
     InsideVars = ordsets:subtract(UsedYregs, DefBefore),
     ResTryTags0 = reserve_try_tags(L, Blocks),
     ResTryTags = [{V,{Reg,Count}} || {V,Reg} <- ResTryTags0],
@@ -2403,12 +2410,12 @@ update_act_map([L|Ls], Active0, ActMap0) ->
     end;
 update_act_map([], _, ActMap) -> ActMap.
 
-rename_vars([], _, Blocks, Count) ->
+rename_vars([], _, _, Blocks, Count) ->
     {[],Blocks,Count};
-rename_vars(Vs, L, Blocks0, Count0) ->
+rename_vars(Vs, L, RPO, Blocks0, Count0) ->
     {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Vs], Count0),
     Ren = zip(Vs, NewVars),
-    Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(L, Blocks1),
     CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
@@ -2434,7 +2441,8 @@ frame_size(#st{frames=Frames,regs=Regs,ssa=Blocks0}=St) ->
     St#st{ssa=Blocks}.
 
 frame_size_1(L, Regs, Blocks0) ->
-    Def = beam_ssa:def([L], Blocks0),
+    RPO = beam_ssa:rpo([L], Blocks0),
+    Def = beam_ssa:def(RPO, Blocks0),
     Yregs0 = [map_get(V, Regs) || V <- Def, is_yreg(map_get(V, Regs))],
     Yregs = ordsets:from_list(Yregs0),
     FrameSize = length(ordsets:from_list(Yregs)),
@@ -2480,7 +2488,8 @@ turn_yregs(#st{frames=Frames,regs=Regs0,ssa=Blocks}=St) ->
     Regs1 = foldl(fun(L, A) ->
                           Blk = map_get(L, Blocks),
                           FrameSize = beam_ssa:get_anno(frame_size, Blk),
-                          Def = beam_ssa:def([L], Blocks),
+                          RPO = beam_ssa:rpo([L], Blocks),
+                          Def = beam_ssa:def(RPO, Blocks),
                           [turn_yregs_1(Def, FrameSize, Regs0)|A]
                   end, [], Frames),
     Regs = maps:merge(Regs0, maps:from_list(append(Regs1))),

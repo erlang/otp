@@ -23,7 +23,7 @@
 -export([add_anno/3,get_anno/2,get_anno/3,
          between/4,
          clobbers_xregs/1,def/2,def_unused/3,
-         definitions/1,
+         definitions/2,
          dominators/2,dominators_from_predecessors/2,common_dominators/3,
          flatmapfold_instrs/4,
          fold_blocks/4,
@@ -32,13 +32,13 @@
          linearize/1,
          mapfold_blocks/4,
          mapfold_instrs/4,
-         merge_blocks/1,
+         merge_blocks/2,
          normalize/1,
          no_side_effect/1,
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
-         split_blocks/3,
+         split_blocks/4,
          successors/1,successors/2,
          trim_unreachable/1,
          used/1,uses/2]).
@@ -344,8 +344,7 @@ successors(L, Blocks) ->
       Def :: ordsets:ordset(var_name()).
 
 def(Ls, Blocks) ->
-    Top = rpo(Ls, Blocks),
-    Blks = [map_get(L, Blocks) || L <- Top],
+    Blks = [map_get(L, Blocks) || L <- Ls],
     def_1(Blks, []).
 
 -spec def_unused(Ls, Used, Blocks) -> {Def,Unused} when
@@ -356,9 +355,8 @@ def(Ls, Blocks) ->
       Unused :: ordsets:ordset(var_name()).
 
 def_unused(Ls, Unused, Blocks) ->
-    Top = rpo(Ls, Blocks),
-    Blks = [map_get(L, Blocks) || L <- Top],
-    Preds = cerl_sets:from_list(Top),
+    Blks = [map_get(L, Blocks) || L <- Ls],
+    Preds = cerl_sets:from_list(Ls),
     def_unused_1(Blks, Preds, [], Unused).
 
 %% dominators(Labels, BlockMap) -> {Dominators,Numbering}.
@@ -533,11 +531,10 @@ between(From, To, Preds, Blocks) ->
 -spec rename_vars(Rename, [label()], block_map()) -> block_map() when
       Rename :: rename_map() | rename_proplist().
 
-rename_vars(Rename, From, Blocks) when is_list(Rename) ->
-    rename_vars(maps:from_list(Rename), From, Blocks);
-rename_vars(Rename, From, Blocks) when is_map(Rename)->
-    Top = rpo(From, Blocks),
-    Preds = cerl_sets:from_list(Top),
+rename_vars(Rename, Labels, Blocks) when is_list(Rename) ->
+    rename_vars(maps:from_list(Rename), Labels, Blocks);
+rename_vars(Rename, Labels, Blocks) when is_map(Rename)->
+    Preds = cerl_sets:from_list(Labels),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
                 normalize(Set#b_set{args=Args});
@@ -551,23 +548,23 @@ rename_vars(Rename, From, Blocks) when is_map(Rename)->
            (#b_ret{arg=Arg}=Ret) ->
                 normalize(Ret#b_ret{arg=rename_var(Arg, Rename)})
         end,
-    map_instrs_1(Top, F, Blocks).
+    map_instrs_1(Labels, F, Blocks).
 
 %% split_blocks(Predicate, Blocks0, Count0) -> {Blocks,Count}.
 %%  Call Predicate(Instruction) for each instruction in all
 %%  blocks. If Predicate/1 returns true, split the block
 %%  before this instruction.
 
--spec split_blocks(Pred, Blocks0, Count0) -> {Blocks,Count} when
+-spec split_blocks(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
+      Labels :: [label()],
       Pred :: fun((b_set()) -> boolean()),
       Blocks :: block_map(),
-      Count0 :: beam_ssa:label(),
+      Count0 :: label(),
       Blocks0 :: block_map(),
       Blocks :: block_map(),
-      Count :: beam_ssa:label().
+      Count :: label().
 
-split_blocks(P, Blocks, Count) ->
-    Ls = rpo(Blocks),
+split_blocks(Ls, P, Blocks, Count) ->
     split_blocks_1(Ls, P, Blocks, Count).
 
 -spec trim_unreachable(SSA0) -> SSA when
@@ -601,14 +598,13 @@ used(#b_switch{arg=#b_var{}=V}) ->
     [V];
 used(_) -> [].
 
--spec definitions(Blocks :: block_map()) -> definition_map().
-definitions(Blocks) ->
-    Top = rpo(Blocks),
+-spec definitions(Labels :: [label()], Blocks :: block_map()) -> definition_map().
+definitions(Labels, Blocks) ->
     fold_instrs(fun(#b_set{ dst = Var }=I, Acc) ->
                             Acc#{Var => I};
                        (_Terminator, Acc) ->
                             Acc
-                    end, Top, #{}, Blocks).
+                    end, Labels, #{}, Blocks).
 
 %% uses(Labels, BlockMap) -> UsageMap
 %%  Traverse the blocks given by labels and builds a usage map
@@ -630,15 +626,15 @@ fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
         end,
     F(Last, foldl(F, UseMap0, Is)).
 
--spec merge_blocks(block_map()) -> block_map().
+-spec merge_blocks([label()], block_map()) -> block_map().
 
-merge_blocks(Blocks) ->
+merge_blocks(Labels, Blocks) ->
     Preds = predecessors(Blocks),
 
     %% We must traverse the blocks in reverse postorder to avoid
     %% embedding succeeded:guard instructions into the middle of
     %% blocks when this function is called from beam_ssa_bool.
-    merge_blocks_1(rpo(Blocks), Preds, Blocks).
+    merge_blocks_1(Labels, Preds, Blocks).
 
 %%%
 %%% Internal functions.
