@@ -525,14 +525,6 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                            PeerName0 when is_list(PeerName0) ->
                                PeerName0
                        end,
-            %% Let's use this as a negotiation timeout, because apparently
-            %% there is none at the moment (OTP22)
-            {_, AliveInterval} = case ?GET_OPT(alive_params, Opts) of
-                undefined      -> {0, infinity};
-                F when is_function(F) -> F();
-                {X, Y} -> {X, Y}
-            end,
-            io:format("AliveInterval ~p~n", [AliveInterval]),
             S1 =
             S0#ssh{c_vsn = Vsn,
                        c_version = Version,
@@ -545,8 +537,7 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                        userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
                        peer = {PeerName, PeerAddr},
                        local = LocalName,
-                       alive_interval = AliveInterval,
-                       alive_started = true,
+                       alive_interval = infinity,
                        alive_count = 0
                       },
             S1#ssh{userauth_pubkeys = [K || K <- ?GET_OPT(pref_public_key_algs, Opts),
@@ -671,7 +662,6 @@ handle_event(_, socket_control, {hello,_}=StateName, #data{ssh_params = Ssh0} = 
 				  {nodelay,true}]),
             Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts, infinity),
 	    {keep_state, D#data{inet_initial_recbuf_size=Size}, [{state_timeout,Time,no_hello_received}] };
-	    %{keep_state, reset_alive(D#data{inet_initial_recbuf_size=Size})};
 
 	Other ->
             ?call_disconnectfun_and_log_cond("Option return", 
@@ -686,10 +676,7 @@ handle_event(_, {info_line,Line}, {hello,Role}=StateName, D) ->
 	    %% The server may send info lines to the client before the version_exchange
 	    %% RFC4253/4.2
 	    inet:setopts(D#data.socket, [{active, once}]),
-	    %keep_state_and_data;
-            %% If we've got something back in time - stop the timer, the peer is alive
-            SshParams = (D#data.ssh_params)#ssh{alive_started = false},
-            {keep_state, D#data{ssh_params = SshParams}};
+	    keep_state_and_data;
 	server ->
 	    %% But the client may NOT send them to the server. Openssh answers with cleartext,
 	    %% and so do we
@@ -712,9 +699,7 @@ handle_event(_, {version_exchange,Version}, {hello,Role}, D0) ->
 					 {recbuf, D0#data.inet_initial_recbuf_size}]),
 	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh1),
 	    send_bytes(SshPacket, D0),
-            %% If we've got something back in time - stop the timer, the peer is alive
-            SshParams = Ssh#ssh{alive_started = false},
-	    {next_state, {kexinit,Role,init}, D0#data{ssh_params = SshParams,
+	    {next_state, {kexinit,Role,init}, D0#data{ssh_params = Ssh,
 						     key_exchange_init_msg = KeyInitMsg}};
 	not_supported ->
             {Shutdown, D} =  
