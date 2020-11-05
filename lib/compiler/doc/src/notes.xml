@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the boolean optimization pass that
+	    caused the compiler to confuse different clauses.</p>
+          <p>
+	    Own Id: OTP-16951 Aux Id: ERL-1384 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
