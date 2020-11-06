@@ -133,7 +133,7 @@ static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
 x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     Label dispatch = a.newLabel(), entry = a.newLabel();
 
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
 
     emit_enter_runtime<Update::eStack | Update::eHeap>();
@@ -180,7 +180,7 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
                                                bool includeI) {
     Label dispatch = a.newLabel(), entry = a.newLabel();
 
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
 
     mov_arg(ARG3, Arity);

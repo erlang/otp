@@ -322,7 +322,7 @@ void BeamModuleAssembler::emit_i_length(const ArgVal &Fail,
                                         const ArgVal &Dst) {
     Label entry = a.newLabel();
 
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
 
     mov_arg(ARG2, Live);
@@ -612,10 +612,7 @@ void BeamModuleAssembler::emit_call_light_bif(const ArgVal &Bif,
                                               const ArgVal &Exp) {
     Label entry = a.newLabel();
 
-    /*
-     * The entry address must be aligned to a word boundary.
-     */
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
 
     make_move_patch(ARG4, imports[Exp.getValue()].patches);
@@ -627,11 +624,12 @@ void BeamModuleAssembler::emit_call_light_bif(const ArgVal &Bif,
 
 void BeamModuleAssembler::emit_send() {
     Label entry = a.newLabel();
+
     /* This is essentially a mirror of call_light_bif, there's no point to
      * specializing send/2 anymore.
      *
      * FIXME: Rewrite this to an ordinary BIF in the loader instead. */
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
 
     a.mov(ARG4, imm(BIF_TRAP_EXPORT(BIF_send_2)));
@@ -1119,7 +1117,7 @@ void BeamModuleAssembler::emit_i_load_nif() {
     fragment_call(entry);
     a.short_().jmp(next);
 
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
     {
         a.lea(ARG2, x86::qword_ptr(entry));
@@ -1136,7 +1134,7 @@ void BeamModuleAssembler::emit_i_load_nif() {
 
     Label entry = a.newLabel(), next = a.newLabel(), schedule = a.newLabel();
 
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
 
     emit_enter_runtime<Update::eStack | Update::eHeap>();

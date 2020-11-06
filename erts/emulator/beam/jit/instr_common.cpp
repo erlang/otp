@@ -1805,8 +1805,9 @@ void BeamModuleAssembler::emit_i_test_yield() {
     Label next = a.newLabel(), entry = a.newLabel();
 
     /* When present, this is guaranteed to be the first instruction after the
-     * function entry label, so we can use `currLabel`. */
-    a.align(kAlignCode, 8);
+     * breakpoint trampoline. */
+
+    ASSERT(a.offset() % 8 == 0);
     a.bind(entry);
     a.dec(FCALLS);
     a.short_().jg(next);

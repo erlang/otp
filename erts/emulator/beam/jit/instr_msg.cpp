@@ -190,7 +190,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 void BeamModuleAssembler::emit_i_loop_rec(const ArgVal &Wait) {
     Label entry = a.newLabel();
 
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(entry);
 
     a.lea(ARG1, x86::qword_ptr(entry));
@@ -452,7 +452,7 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
     a.bind(wait);
     emit_wait_locked(Dest);
 
-    a.align(kAlignCode, 8);
+    align_erlang_cp();
     a.bind(next);
 }
 

@@ -1245,6 +1245,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #error "fix yer arch, like"
 #endif
 
+#define _is_legal_cp(x)	 (((Uint)(x) & _CPMASK) == 0)
 #define _unchecked_make_cp(x)	((Eterm)(x))
 _ET_DECLARE_CHECKED(Eterm,make_cp,ErtsCodePtr)
 #define make_cp(x)	_ET_APPLY(make_cp,(x))

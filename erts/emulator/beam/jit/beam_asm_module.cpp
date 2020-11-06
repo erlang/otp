@@ -388,8 +388,10 @@ void BeamModuleAssembler::emit_label(const ArgVal &Label) {
     a.bind(currLabel);
 }
 
-void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label) {
-    a.align(kAlignCode, 8);
+void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
+                                             const ArgVal &Alignment) {
+    ASSERT(Alignment.getType() == ArgVal::u);
+    a.align(kAlignCode, Alignment.getValue());
     emit_label(Label);
 }
 

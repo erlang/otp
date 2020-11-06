@@ -374,7 +374,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'L': /* Define label */
             ASSERT(stp->specific_op == op_label_L ||
-                   stp->specific_op == op_aligned_label_L);
+                   stp->specific_op == op_aligned_label_Lt);
             BeamLoadVerifyTag(stp, tag, TAG_u);
             stp->last_label = curr->val;
             if (stp->last_label < 0 ||

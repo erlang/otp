@@ -230,13 +230,17 @@ void beamasm_init() {
         func_label = label++;
         entry_label = label++;
 
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, func_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
                    ArgVal(ArgVal::i, am_erts_internal),
                    ArgVal(ArgVal::i, op.name),
                    ArgVal(ArgVal::i, 0)});
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, entry_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, entry_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op.operand, {});
 
         op.operand = entry_label;
@@ -249,15 +253,21 @@ void beamasm_init() {
         apply_label = label++;
         normal_exit_label = label++;
 
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, func_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
                    ArgVal(ArgVal::i, am_erts_internal),
                    ArgVal(ArgVal::i, am_apply),
                    ArgVal(ArgVal::i, 3)});
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, apply_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, apply_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_i_apply, {});
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, normal_exit_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, normal_exit_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_normal_exit, {});
 
         bma->emit(op_int_code_end, {});
@@ -744,13 +754,15 @@ extern "C"
                                unsigned buff_len) {
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
 
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 1), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_func_info_IaaI,
                 {ArgVal(ArgVal::i, 1),
                  ArgVal(ArgVal::i, info->mfa.module),
                  ArgVal(ArgVal::i, info->mfa.function),
                  ArgVal(ArgVal::i, info->mfa.arity)});
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 2), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_breakpoint_trampoline, {});
         ba.emit(op_call_nif_WWW,
                 {ArgVal(ArgVal::i, (BeamInstr)normal_fptr),
@@ -766,13 +778,15 @@ extern "C"
                                unsigned buff_len) {
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
 
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 1), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_func_info_IaaI,
                 {ArgVal(ArgVal::i, 1),
                  ArgVal(ArgVal::i, info->mfa.module),
                  ArgVal(ArgVal::i, info->mfa.function),
                  ArgVal(ArgVal::i, info->mfa.arity)});
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 2), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_breakpoint_trampoline, {});
         ba.emit(op_call_bif_W, {ArgVal(ArgVal::i, (BeamInstr)bif)});
 
