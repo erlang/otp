@@ -307,7 +307,7 @@
 	<p>The DER-encoded users certificate. Note that the cert option may also
 	be a list of DER-encoded certificates where the first one is the users
 	certificate and the rest of the certificates constitutes the
-	certificate chain. For maximum interopabillity the
+	certificate chain. For maximum interoperability the
 	certificates in the chain should be in the correct order, the
 	chain will be sent as is to the peer. If chain certificates
 	are not provided, certificates from <seetype
