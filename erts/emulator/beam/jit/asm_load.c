@@ -50,10 +50,6 @@ void beam_load_prepare_emit(LoaderState *stp) {
 
     hdr->num_functions = stp->beam.code.function_count;
 
-    /* Let the codev array start at functions[0] in order to index
-     * both function pointers and the loaded code itself that follows.
-     */
-    stp->codev = (BeamInstr *)&hdr->functions;
     stp->ci = hdr->num_functions + 1;
 
     hdr->attr_ptr = NULL;
@@ -147,7 +143,6 @@ int beam_load_prepared_dtor(Binary *magic) {
 
         erts_free(ERTS_ALC_T_PREPARED_CODE, hdr);
         stp->load_hdr = NULL;
-        stp->codev = NULL;
     }
 
     if (stp->labels) {
@@ -478,9 +473,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                            stp->beam.code.function_count);
         }
 
-        /* Save current offset in the function table, pointing before the
-         * func_info instruction. */
-        stp->codev[stp->function_number] = beamasm_get_offset(stp->ba);
         stp->function_number++;
 
         /* Save context for error messages. */
@@ -814,7 +806,6 @@ int beam_load_finish_emit(LoaderState *stp) {
 
     /* Save the updated code pointer and code size. */
 
-    stp->codev = (BeamInstr *)&code_hdr_ro->functions;
     stp->loaded_size = module_size;
 
     return 1;
@@ -836,7 +827,7 @@ void beam_load_finalize_code(LoaderState *stp,
     inst_p->code_length = code_size;
 
     /* Update ranges (used for finding a function from a PC value). */
-    erts_update_ranges((BeamInstr *)inst_p->code_hdr, code_size);
+    erts_update_ranges(inst_p->code_hdr, code_size);
 
     /* Allocate catch indices and fix up all catch_yf instructions. */
     inst_p->catches = beamasm_patch_catches(stp->ba, stp->native_module_rw);
@@ -913,5 +904,4 @@ void beam_load_finalize_code(LoaderState *stp,
     stp->native_module_exec = NULL;
     stp->native_module_rw = NULL;
     stp->code_hdr = NULL;
-    stp->codev = NULL;
 }

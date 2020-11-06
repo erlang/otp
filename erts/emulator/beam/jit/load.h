@@ -60,7 +60,6 @@ struct LoaderState_ {
     const BeamCodeHeader *code_hdr; /* Actual code header */
     BeamCodeHeader *load_hdr;       /* Code header during load */
 
-    BeamInstr *codev; /* Loaded code buffer */
     int codev_size;   /* Size of code buffer in words. */
     int ci;           /* Current index into loaded code buffer. */
     Label *labels;
