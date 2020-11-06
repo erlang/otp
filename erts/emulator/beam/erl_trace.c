@@ -948,7 +948,7 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
  * or   {trace, Pid, return_to, {Mod, Func, Arity}}
  */
 void 
-erts_trace_return_to(Process *p, BeamInstr *pc)
+erts_trace_return_to(Process *p, ErtsCodePtr pc)
 {
     const ErtsCodeMFA *cmfa = erts_find_function_from_pc(pc);
     Eterm mfa;

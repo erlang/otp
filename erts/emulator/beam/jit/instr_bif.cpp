@@ -344,7 +344,7 @@ void BeamModuleAssembler::emit_i_length(const ArgVal &Fail,
 
 static Eterm debug_call_light_bif(Process *c_p,
                                   Eterm *reg,
-                                  BeamInstr *I,
+                                  ErtsCodePtr I,
                                   ErtsBifFunc vbf) {
     Eterm result;
 
@@ -643,7 +643,7 @@ void BeamModuleAssembler::emit_send() {
 
 static Eterm call_bif(Process *c_p,
                       Eterm *reg,
-                      BeamInstr *I,
+                      ErtsCodePtr I,
                       ErtsBifFunc vbf,
                       Uint arity) {
     ErlHeapFragment *live_hf_end;
@@ -679,7 +679,7 @@ static Eterm call_bif(Process *c_p,
 typedef Eterm NifF(struct enif_environment_t *, int argc, Eterm argv[]);
 
 static Eterm call_nif(Process *c_p,
-                      BeamInstr *I,
+                      ErtsCodePtr I,
                       Eterm *reg,
                       NifF *fp,
                       struct erl_module_nif *NifMod) {
@@ -1046,7 +1046,7 @@ void BeamModuleAssembler::emit_call_nif(const ArgVal &Func,
 
 enum nif_load_ret { RET_NIF_success, RET_NIF_error, RET_NIF_yield };
 
-static enum nif_load_ret load_nif(Process *c_p, BeamInstr *I, Eterm *reg) {
+static enum nif_load_ret load_nif(Process *c_p, ErtsCodePtr I, Eterm *reg) {
     if (erts_try_seize_code_write_permission(c_p)) {
         Eterm result;
 

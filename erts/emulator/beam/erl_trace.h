@@ -107,7 +107,7 @@ void erts_trace_return(Process* p, ErtsCodeMFA *mfa, Eterm retval,
                        ErtsTracer *tracer);
 void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class_, Eterm value,
                           ErtsTracer *tracer);
-void erts_trace_return_to(Process *p, BeamInstr *pc);
+void erts_trace_return_to(Process *p, ErtsCodePtr pc);
 void trace_sched(Process*, ErtsProcLocks, Eterm);
 void trace_proc(Process*, ErtsProcLocks, Process*, Eterm, Eterm);
 void trace_proc_spawn(Process*, Eterm what, Eterm pid, Eterm mod, Eterm func, Eterm args);

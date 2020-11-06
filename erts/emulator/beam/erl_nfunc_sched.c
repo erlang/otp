@@ -62,7 +62,7 @@ erts_destroy_nfunc(Process *p)
 
 ErtsNativeFunc *
 erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
-			 const ErtsCodeMFA *mfa, const BeamInstr *pc,
+			 const ErtsCodeMFA *mfa, ErtsCodePtr pc,
 			 BeamInstr instr,
 			 void *dfunc, void *ifunc,
 			 Eterm mod, Eterm func,
@@ -139,11 +139,11 @@ erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
     used_proc->arity = argc;
     used_proc->freason = TRAP;
 #ifndef BEAMASM
-    used_proc->i = (BeamInstr*)&nep->trampoline.call_op;
+    used_proc->i = (ErtsCodePtr)&nep->trampoline.call_op;
 #else
     ERTS_CT_ASSERT(sizeof(nep->trampoline.trace) == BEAM_ASM_FUNC_PROLOGUE_SIZE);
-    used_proc->i = (BeamInstr*)&nep->trampoline.trace;
-    erts_code_to_codemfa(used_proc->i);
+    used_proc->i = (ErtsCodePtr)&nep->trampoline.trace;
+    ASSERT_MFA(erts_code_to_codemfa(used_proc->i));
 #endif
     return nep;
 }

@@ -615,7 +615,8 @@ nif_bif.epilogue() {
         $DISPATCH();
     }
     {
-        BeamInstr *cp = erts_printable_return_address(c_p, E);
+        const BeamInstr *cp =
+            (const BeamInstr*)erts_printable_return_address(c_p, E);
         ASSERT(VALID_INSTR(*cp));
         I = handle_error(c_p, cp, reg, c_p->current);
     }
@@ -628,7 +629,7 @@ i_load_nif() {
         Eterm result;
 
         PRE_BIF_SWAPOUT(c_p);
-        result = erts_load_nif(c_p, (BeamInstr*)I, r(0), r(1));
+        result = erts_load_nif(c_p, I, r(0), r(1));
         erts_release_code_write_permission();
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;

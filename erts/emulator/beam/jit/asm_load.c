@@ -661,10 +661,11 @@ int beam_load_finish_emit(LoaderState *stp) {
         Uint line_size = offsetof(BeamCodeLineTab, func_tab);
 
         /* func_tab */
-        line_size += (stp->beam.code.function_count + 1) * sizeof(BeamInstr **);
+        line_size +=
+                (stp->beam.code.function_count + 1) * sizeof(ErtsCodePtr *);
 
         /* line items */
-        line_size += (stp->current_li + 1) * sizeof(BeamInstr *);
+        line_size += (stp->current_li + 1) * sizeof(ErtsCodePtr);
 
         /* fname table */
         line_size += stp->beam.lines.name_count * sizeof(Eterm);
@@ -837,7 +838,7 @@ void beam_load_finalize_code(LoaderState *stp,
 
     for (i = 0; i < stp->beam.exports.count; i++) {
         BeamFile_ExportEntry *entry = &stp->beam.exports.entries[i];
-        const BeamInstr *address;
+        ErtsCodePtr address;
         Export *ep;
 
         address = beamasm_get_code(stp->ba, entry->label);
@@ -883,7 +884,7 @@ void beam_load_finalize_code(LoaderState *stp,
                                             lambda->index,
                                             lambda->arity - lambda->num_free);
 
-            if (fun_entry->address[0] != 0) {
+            if (erts_is_fun_loaded(fun_entry)) {
                 /* We've reloaded a module over itself and inherited the old
                  * instance's fun entries, so we need to undo the reference
                  * bump in `erts_put_fun_entry2` to make fun purging work. */

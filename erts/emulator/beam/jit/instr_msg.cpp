@@ -341,7 +341,7 @@ static void take_receive_lock(Process *c_p) {
     erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 }
 
-static void wait_locked(Process *c_p, BeamInstr *cp) {
+static void wait_locked(Process *c_p, ErtsCodePtr cp) {
     c_p->arity = 0;
     if (!ERTS_PTMR_IS_TIMED_OUT(c_p)) {
         erts_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
@@ -352,7 +352,7 @@ static void wait_locked(Process *c_p, BeamInstr *cp) {
     c_p->i = cp;
 }
 
-static void wait_unlocked(Process *c_p, BeamInstr *cp) {
+static void wait_unlocked(Process *c_p, ErtsCodePtr cp) {
     take_receive_lock(c_p);
     wait_locked(c_p, cp);
 }
@@ -385,7 +385,7 @@ enum tmo_ret { RET_next = 0, RET_wait = 1, RET_badarg = 2 };
 
 static enum tmo_ret wait_timeout(Process *c_p,
                                  Eterm timeout_value,
-                                 BeamInstr *next) {
+                                 ErtsCodePtr next) {
     /*
      * If we have already set the timer, we must NOT set it again.  Therefore,
      * we must test the F_INSLPQUEUE flag as well as the F_TIMO flag.

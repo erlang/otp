@@ -29,8 +29,8 @@
 #include "erl_unicode.h"
 
 typedef struct {
-    BeamInstr* start;		/* Pointer to start of module. */
-    erts_atomic_t end; /* (BeamInstr*) Points one word beyond last function in module. */
+    ErtsCodePtr start; /* Pointer to start of module. */
+    erts_atomic_t end; /* Points one word beyond last function in module. */
 } Range;
 
 /*
@@ -42,10 +42,10 @@ Uint erts_dump_num_lit_areas;
 
 /* Range 'end' needs to be atomic as we purge module
     by setting end=start in active code_ix */
-#define RANGE_END(R) ((BeamInstr*)erts_atomic_read_nob(&(R)->end))
+#define RANGE_END(R) ((ErtsCodePtr)erts_atomic_read_nob(&(R)->end))
 
-static Range* find_range(const BeamInstr* pc);
-static void lookup_loc(FunctionInfo* fi, const void* pc,
+static Range* find_range(ErtsCodePtr pc);
+static void lookup_loc(FunctionInfo* fi, ErtsCodePtr pc,
                        const BeamCodeHeader*, int idx);
 
 /*
@@ -189,7 +189,7 @@ erts_end_staging_ranges(int commit)
 }
 
 void
-erts_update_ranges(BeamInstr* code, Uint size)
+erts_update_ranges(const BeamCodeHeader* code, Uint size)
 {
     ErtsCodeIndex dst = erts_staging_code_ix();
     ErtsCodeIndex src = erts_active_code_ix();
@@ -219,7 +219,7 @@ erts_update_ranges(BeamInstr* code, Uint size)
 }
 
 void
-erts_remove_from_ranges(BeamInstr* code)
+erts_remove_from_ranges(const BeamCodeHeader* code)
 {
     Range* rp = find_range(code);
     erts_atomic_set_nob(&rp->end, (erts_aint_t)rp->start);
@@ -240,7 +240,7 @@ erts_ranges_sz(void)
  */
 
 void
-erts_lookup_function_info(FunctionInfo* fi, const BeamInstr *pc, int full_info)
+erts_lookup_function_info(FunctionInfo* fi, ErtsCodePtr pc, int full_info)
 {
     const ErtsCodeInfo * const *low;
     const ErtsCodeInfo * const *high;
@@ -261,9 +261,9 @@ erts_lookup_function_info(FunctionInfo* fi, const BeamInstr *pc, int full_info)
     high = low + hdr->num_functions;
     while (low < high) {
 	mid = low + (high-low) / 2;
-	if (pc < (BeamInstr*)(mid[0])) {
+	if (pc < (ErtsCodePtr)(mid[0])) {
 	    high = mid;
-	} else if (pc < (BeamInstr*)(mid[1])) {
+	} else if (pc < (ErtsCodePtr)(mid[1])) {
 	    fi->mfa = &mid[0]->mfa;
 	    if (full_info) {
 		const ErtsCodeInfo * const *fp = hdr->functions;
@@ -294,7 +294,7 @@ erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa)
  * Returns a pointer to {module, function, arity}, or NULL if not found.
  */
 const ErtsCodeMFA*
-erts_find_function_from_pc(const BeamInstr* pc)
+erts_find_function_from_pc(ErtsCodePtr pc)
 {
     FunctionInfo fi;
 
@@ -303,7 +303,7 @@ erts_find_function_from_pc(const BeamInstr* pc)
 }
 
 static Range*
-find_range(const BeamInstr* pc)
+find_range(ErtsCodePtr pc)
 {
     ErtsCodeIndex active = erts_active_code_ix();
     Range* low = r[active].modules;

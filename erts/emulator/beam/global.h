@@ -108,7 +108,7 @@ typedef struct ErtsResource_
 
 extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
 
-extern BeamInstr* erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci);
+extern ErtsCodePtr erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci);
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
@@ -123,7 +123,7 @@ extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 
 /* Loads the specified NIF. The caller must have code write permission. */
-Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args);
+Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args);
 
 void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
@@ -136,7 +136,7 @@ extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     int argc, Eterm *argv);
 
 int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
-                        const BeamInstr *I, Eterm *reg);
+                        ErtsCodePtr I, Eterm *reg);
 ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env);
 
 
@@ -888,8 +888,6 @@ void erts_bif_info_init(void);
 
 /* bif.c */
 
-void erts_write_bif_wrapper(Export *export_, BeamInstr *address);
-
 void erts_queue_monitor_message(Process *,
 				ErtsProcLocks*,
 				Eterm,
@@ -897,7 +895,7 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm);
 void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
-			   Eterm (*bif)(Process*, Eterm*, const BeamInstr*));
+			   Eterm (*bif)(Process*, Eterm*, ErtsCodePtr));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
 int erts_set_group_leader(Process *proc, Eterm new_gl);
@@ -967,7 +965,7 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-const ErtsCodeMFA* erts_find_function_from_pc(const BeamInstr* pc);
+const ErtsCodeMFA* erts_find_function_from_pc(ErtsCodePtr pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
 void erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa);
@@ -977,11 +975,11 @@ Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
 void erts_init_ranges(void);
 void erts_start_staging_ranges(int num_new);
 void erts_end_staging_ranges(int commit);
-void erts_update_ranges(BeamInstr* code, Uint size);
-void erts_remove_from_ranges(BeamInstr* code);
+void erts_update_ranges(const BeamCodeHeader* code, Uint size);
+void erts_remove_from_ranges(const BeamCodeHeader* code);
 UWord erts_ranges_sz(void);
 void erts_lookup_function_info(FunctionInfo* fi,
-                               const BeamInstr* pc,
+                               ErtsCodePtr pc,
                                int full_info);
 extern ErtsLiteralArea** erts_dump_lit_areas;
 extern Uint erts_dump_num_lit_areas;
@@ -1171,7 +1169,7 @@ void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
 void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
-BeamInstr *erts_printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
+ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
 
 /* erl_init.c */
 

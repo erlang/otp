@@ -51,7 +51,7 @@ static void dump_element_nl(fmtfn_t to, void *to_arg, Eterm x);
 static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp,
 			      int yreg);
 static void stack_trace_dump(fmtfn_t to, void *to_arg, Eterm* sp);
-static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
+static void print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x);
 static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
 static void dump_binaries(fmtfn_t to, void *to_arg, Binary* root);
 void erts_print_base64(fmtfn_t to, void *to_arg,
@@ -428,7 +428,7 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
 }
 
 static void
-print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
+print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
 {
     const ErtsCodeMFA* cmfa = erts_find_function_from_pc(x);
 
@@ -437,16 +437,21 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == BeamCodeNormalExit()) {
+        } else if (x == beam_normal_exit) {
             erts_print(to, to_arg, "<terminate process normally>");
         }
         else {
             erts_print(to, to_arg, "unknown function");
         }
     } else {
-	erts_print(to, to_arg, "%T:%T/%bpu + %bpu",
-		   cmfa->module, cmfa->function, cmfa->arity,
-                   (x-(BeamInstr*)cmfa) * sizeof(Eterm));
+        const char *mfa_addr, *cp_addr;
+
+        mfa_addr = (const char*)cmfa;
+        cp_addr = (const char*)x;
+
+        erts_print(to, to_arg, "%T:%T/%bpu + %bpu",
+                   cmfa->module, cmfa->function, cmfa->arity,
+                   cp_addr - mfa_addr);
     }
 }
 

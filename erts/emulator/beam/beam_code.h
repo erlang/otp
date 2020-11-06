@@ -76,7 +76,7 @@ typedef struct beam_code_header {
     /*
      * Pointer to the on_load function (or NULL if none).
      */
-    const BeamInstr *on_load_function_ptr;
+    const ErtsCodeInfo *on_load;
 
     /*
      * Pointer to the line table (or NULL if none).

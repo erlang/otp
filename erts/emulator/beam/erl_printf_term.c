@@ -352,7 +352,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
         } else if (is_CP(obj)) {
             const ErtsCodeMFA* mfa = erts_find_function_from_pc(cp_val(obj));
             if (mfa) {
-                const BeamInstr *start = erts_codemfa_to_code(mfa);
+                const UWord *func_start = erts_codemfa_to_code(mfa);
+                const UWord *cp_addr = (UWord*)cp_val(obj);
+
                 PRINT_STRING(res, fn, arg, "<");
                 PRINT_ATOM(res, fn, arg, mfa->module, dcount);
                 PRINT_STRING(res, fn, arg, ":");
@@ -360,7 +362,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 PRINT_STRING(res, fn, arg, "/");
                 PRINT_UWORD(res, fn, arg, 'u', 0, 1, (ErlPfUWord) mfa->arity);
                 PRINT_STRING(res, fn, arg, "+");
-                PRINT_UWORD(res, fn, arg, 'u', 0, 1, (ErlPfUWord) (cp_val(obj) - start));
+                PRINT_UWORD(res, fn, arg, 'u', 0, 1, (ErlPfUWord) (cp_addr - func_start));
                 PRINT_STRING(res, fn, arg, ">");
             } else {
                 PRINT_STRING(res, fn, arg, "<cp/header:");

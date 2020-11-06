@@ -423,6 +423,7 @@ typedef Uint UWord;
 typedef Sint SWord;
 #define ERTS_UINT_MAX ERTS_UWORD_MAX
 
+typedef const void *ErtsCodePtr;
 typedef UWord BeamInstr;
 
 #ifndef HAVE_INT64

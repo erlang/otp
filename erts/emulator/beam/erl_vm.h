@@ -272,14 +272,23 @@ extern void** beam_ops;
 #define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
 
 #ifndef BEAMASM
-#define BeamIsReturnTimeTrace(w) BeamIsOpCode(*(w), op_i_return_time_trace)
-#define BeamIsReturnToTrace(w) BeamIsOpCode(*(w), op_i_return_to_trace)
-#define BeamIsReturnTrace(w) BeamIsOpCode(*(w), op_return_trace)
-#else
-#define BeamIsReturnTimeTrace(w) ((w) == beam_return_time_trace)
-#define BeamIsReturnToTrace(w) ((w) == beam_return_to_trace)
-#define BeamIsReturnTrace(w) ((w) == beam_return_trace || (w) == beam_exception_trace)
 
-#endif
+#define BeamIsReturnTimeTrace(w) \
+    BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_time_trace)
+#define BeamIsReturnToTrace(w) \
+    BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_to_trace)
+#define BeamIsReturnTrace(w) \
+    BeamIsOpCode(*(const BeamInstr*)(w), op_return_trace)
+
+#else /* BEAMASM */
+
+#define BeamIsReturnTimeTrace(w) \
+    ((w) == beam_return_time_trace)
+#define BeamIsReturnToTrace(w) \
+    ((w) == beam_return_to_trace)
+#define BeamIsReturnTrace(w) \
+    ((w) == beam_return_trace || (w) == beam_exception_trace)
+
+#endif /* BEAMASM */
 
 #endif	/* __ERL_VM_H__ */

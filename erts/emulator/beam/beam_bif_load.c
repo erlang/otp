@@ -730,7 +730,7 @@ BIF_RETTYPE module_loaded_1(BIF_ALIST_1)
     code_ix = erts_active_code_ix();
     if ((modp = erts_get_module(BIF_ARG_1, code_ix)) != NULL) {
 	if (modp->curr.code_hdr
-	    && modp->curr.code_hdr->on_load_function_ptr == NULL) {
+	    && modp->curr.code_hdr->on_load == NULL) {
 	    res = am_true;
 	}
     }
@@ -782,11 +782,11 @@ BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    hdr = modp->on_load->code_hdr;
+    hdr = (modp->on_load)->code_hdr;
 
     if (hdr) {
-        BeamInstr *on_load = (BeamInstr *)hdr->on_load_function_ptr;
-        BIF_TRAP_CODE_PTR(BIF_P, on_load, 0);
+        ErtsCodePtr code = erts_codeinfo_to_code(hdr->on_load);
+        BIF_TRAP_CODE_PTR(BIF_P, code, 0);
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -809,8 +809,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
-    if (!modp || !modp->on_load || !modp->on_load->code_hdr
-	|| !modp->on_load->code_hdr->on_load_function_ptr) {
+    if (!modp || !modp->on_load || !(modp->on_load)->code_hdr
+	|| !((modp->on_load)->code_hdr)->on_load) {
 
 	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
@@ -826,7 +826,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp = erts_get_module(BIF_ARG_1, code_ix);
 
 	ASSERT(modp && modp->on_load && modp->on_load->code_hdr
-	       && modp->on_load->code_hdr->on_load_function_ptr);
+	       && ((modp->on_load)->code_hdr)->on_load);
 
         if (erts_is_default_trace_enabled()) {
 
@@ -879,7 +879,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
             code_hdr_rw = erts_writable_code_ptr(&modp->curr,
                                                  modp->curr.code_hdr);
 
-            code_hdr_rw->on_load_function_ptr = NULL;
+            code_hdr_rw->on_load = NULL;
         }
 
 	mods[0].modp = modp;
@@ -1136,7 +1136,6 @@ literal_gc:
 static Eterm
 check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 {
-    BeamInstr* start;
     char* mod_start;
     Uint mod_size;
     Eterm* sp;
@@ -1146,8 +1145,7 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
     /*
      * Pick up limits for the module.
      */
-    start = (BeamInstr*) modp->old.code_hdr;
-    mod_start = (char *) start;
+    mod_start = (char*) modp->old.code_hdr;
     mod_size = modp->old.code_length;
 
     /*
@@ -1957,15 +1955,11 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    if (!modp->old.code_hdr)
 		res = am_false;
 	    else {
-		BeamInstr* code;
-		BeamInstr* end;
 		erts_mtx_lock(&purge_state.mtx);
 		purge_state.module = BIF_ARG_1;
 		erts_mtx_unlock(&purge_state.mtx);
 		res = am_true;
-		code = (BeamInstr*) modp->old.code_hdr;
-		end = (BeamInstr *)((char *)code + modp->old.code_length);
-		erts_fun_purge_prepare(code, end);
+		erts_fun_purge_prepare(&modp->old);
 	    }
 
             if (BIF_ARG_2 == am_prepare_on_load) {
@@ -2025,7 +2019,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
     case am_complete: {
 	ErtsCodeIndex code_ix;
-	BeamInstr* code;
 	Module* modp;
 	int is_blocking = 0;
 	Eterm ret;
@@ -2078,10 +2071,12 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		 */
 		ASSERT(erts_total_code_size >= modp->old.code_length);
 		erts_total_code_size -= modp->old.code_length;
-		code = (BeamInstr*) modp->old.code_hdr;
 		erts_fun_purge_complete(purge_state.funs, purge_state.fe_ix);
-		beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
-				    code_ix);
+
+                beam_catches_delmod(modp->old.catches,
+                                    modp->old.code_hdr,
+                                    modp->old.code_length,
+                                    code_ix);
 
                 {
                     BeamCodeHeader *code_hdr_rw;
@@ -2093,17 +2088,18 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                     code_hdr_rw->literal_area = NULL;
                 }
 
+		erts_remove_from_ranges(modp->old.code_hdr);
+
 #ifndef BEAMASM
-		erts_free(ERTS_ALC_T_CODE, (void *) code);
+                erts_free(ERTS_ALC_T_CODE, (void *) modp->old.code_hdr);
 #else
                 beamasm_purge_module(modp->old.native_module_exec,
                                      modp->old.native_module_rw);
 #endif
+
 		modp->old.code_hdr = NULL;
 		modp->old.code_length = 0;
 		modp->old.catches = BEAM_CATCHES_NIL;
-		erts_remove_from_ranges(code);
-
 		ERTS_BIF_PREP_RET(ret, am_true);
 	    }
 

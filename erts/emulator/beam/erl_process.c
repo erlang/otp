@@ -550,7 +550,7 @@ do {									\
  */
 
 static void exec_misc_ops(ErtsRunQueue *);
-static void print_function_from_pc(fmtfn_t to, void *to_arg, const BeamInstr* x);
+static void print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x);
 static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg);
 
 static void aux_work_timeout(void *unused);
@@ -6502,17 +6502,9 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
 
-#ifndef BEAMASM
-    ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC
-                      |ERTS_PSFLG_DIRTY_CPU_PROC))
-           || (BeamIsOpCode(*p->i, op_call_nif_WWW)
-               || BeamIsOpCode(*p->i, op_call_bif_W)));
-#else
-    ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC
-                      |ERTS_PSFLG_DIRTY_CPU_PROC))
-           || (*p->i == op_call_nif_WWW
-               || *p->i == op_call_bif_W));
-#endif
+    ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC|ERTS_PSFLG_DIRTY_CPU_PROC))
+           || (BeamIsOpCode(*(const BeamInstr*)p->i, op_call_nif_WWW)
+               || BeamIsOpCode(*(const BeamInstr*)p->i, op_call_bif_W)));
 
     a = state;
 
@@ -9989,9 +9981,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	ASSERT(erts_proc_read_refc(p) > 0);
 
 	if (!(state & ERTS_PSFLG_EXITING) && ERTS_PTMR_IS_TIMED_OUT(p)) {
-	    BeamInstr** pi;
+	    void** pi;
 	    ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
-	    pi = (BeamInstr **) p->def_arg_reg;
+	    pi = (void **) p->def_arg_reg;
 	    p->i = *pi;
 	    p->flags &= ~F_INSLPQUEUE;
 	    p->flags |= F_TIMO;
@@ -10000,8 +9992,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
         /* if exiting, we *shall* exit... */
         ASSERT(!(state & ERTS_PSFLG_EXITING)
-               || p->i == (BeamInstr *) beam_exit
-               || p->i == (BeamInstr *) beam_continue_exit);
+               || p->i == beam_exit
+               || p->i == beam_continue_exit);
 
 #ifdef DEBUG
         if (is_normal_sched) {
@@ -11863,8 +11855,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = &p->u.initial;
 
-    p->i = BeamCodeApply();
-    p->stop[0] = make_cp(BeamCodeNormalExit());
+    p->i = beam_apply;
+    p->stop[0] = make_cp(beam_normal_exit);
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -12662,7 +12654,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
     set_self_exiting(c_p, reason, &enqueue, &enq_prio, &state);
     c_p->freason = EXTAG_EXIT;
     KILL_CATCHES(c_p);
-    c_p->i = (BeamInstr *) beam_exit;
+    c_p->i = beam_exit;
 
     /* Always active when exiting... */
     ASSERT(state & ERTS_PSFLG_ACTIVE);
@@ -13857,7 +13849,7 @@ restart:
         p->scheduler_data->free_process = p;
     }
 
-    p->i = (BeamInstr *) beam_continue_exit;
+    p->i = beam_continue_exit;
 
     /* Why is this lock take??? */
     if (!(curr_locks & ERTS_PROC_LOCK_STATUS)) {
@@ -13974,7 +13966,7 @@ erts_program_counter_info(fmtfn_t to, void *to_arg, Process *p)
 }
 
 static void
-print_function_from_pc(fmtfn_t to, void *to_arg, const BeamInstr* x)
+print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
 {
     const ErtsCodeMFA *cmfa = erts_find_function_from_pc(x);
     if (cmfa == NULL) {
@@ -13982,7 +13974,7 @@ print_function_from_pc(fmtfn_t to, void *to_arg, const BeamInstr* x)
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == BeamCodeNormalExit()) {
+        } else if (x == beam_normal_exit) {
             erts_print(to, to_arg, "<terminate process normally>");
         }
 	else if (x == 0) {
@@ -13991,9 +13983,14 @@ print_function_from_pc(fmtfn_t to, void *to_arg, const BeamInstr* x)
             erts_print(to, to_arg, "unknown function");
         }
     } else {
-	erts_print(to, to_arg, "%T:%T/%d + %d",
-		   cmfa->module, cmfa->function, cmfa->arity,
-                   (x-(BeamInstr*)cmfa) * sizeof(Eterm));
+        const char *mfa_raw, *pc_raw;
+
+        mfa_raw = (const char*)cmfa;
+        pc_raw = (const char*)x;
+
+        erts_print(to, to_arg, "%T:%T/%d + %d",
+                   cmfa->module, cmfa->function, cmfa->arity,
+                   pc_raw - mfa_raw);
     }
 }
 

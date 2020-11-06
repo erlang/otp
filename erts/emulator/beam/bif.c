@@ -5021,23 +5021,6 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     *epp = ep;
 }
 
-/*
- * Writes a BIF call wrapper to the given address.
- */
-void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
-#ifndef BEAMASM
-    BifEntry *entry;
-
-    ASSERT(export->bif_number >= 0 && export->bif_number < BIF_SIZE);
-    entry = &bif_table[export->bif_number];
-
-    address[0] = BeamOpCodeAddr(op_call_bif_W);
-    address[1] = (BeamInstr)entry->f;
-#else
-    ERTS_ASSERT(0 && "Not called from beamasm");
-#endif
-}
-
 void erts_init_bif(void)
 {
     /*
@@ -5096,7 +5079,7 @@ void erts_init_bif(void)
 
 static ERTS_INLINE void
 schedule(Process *c_p, Process *dirty_shadow_proc,
-	 const ErtsCodeMFA *mfa, const BeamInstr *pc,
+	 const ErtsCodeMFA *mfa, ErtsCodePtr pc,
 	 ErtsBifFunc dfunc, void *ifunc,
 	 Eterm module, Eterm function,
 	 int argc, Eterm *argv)
@@ -5135,7 +5118,7 @@ static BIF_RETTYPE dirty_bif_trap(BIF_ALIST)
 
     erts_nfunc_restore(BIF_P, nep, THE_NON_VALUE);
 
-    BIF_P->i = (BeamInstr *) nep->func;
+    BIF_P->i = (ErtsCodePtr) nep->func;
     BIF_P->freason = TRAP;
     return THE_NON_VALUE;
 }
@@ -5157,12 +5140,12 @@ static BIF_RETTYPE dirty_bif_exception(BIF_ALIST_2)
 }
 
 
-static BIF_RETTYPE call_bif(Process *c_p, Eterm *reg, BeamInstr *I);
+static BIF_RETTYPE call_bif(Process *c_p, Eterm *reg, ErtsCodePtr I);
 
 BIF_RETTYPE
 erts_schedule_bif(Process *proc,
 		  Eterm *argv,
-		  const BeamInstr *i,
+		  ErtsCodePtr i,
 		  const ErtsCodeMFA *mfa,
 		  ErtsBifFunc bif,
 		  ErtsSchedType sched_type,
@@ -5239,7 +5222,7 @@ erts_schedule_bif(Process *proc,
 }
 
 static BIF_RETTYPE
-call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
+call_bif(Process *c_p, Eterm *reg, ErtsCodePtr I)
 {
     ErtsNativeFunc *nep = ERTS_I_BEAM_OP_TO_NFUNC(I);
     ErtsBifFunc bif = (ErtsBifFunc) nep->func;
@@ -5272,7 +5255,7 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
 int
 erts_call_dirty_bif(ErtsSchedulerData *esdp,
                     Process *c_p,
-                    const BeamInstr *I,
+                    ErtsCodePtr I,
                     Eterm *reg)
 {
     BIF_RETTYPE result;

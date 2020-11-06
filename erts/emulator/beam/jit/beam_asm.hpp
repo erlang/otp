@@ -948,8 +948,8 @@ public:
     }
 
     struct AsmRange {
-        const BeamInstr *start;
-        const BeamInstr *stop;
+        ErtsCodePtr start;
+        ErtsCodePtr stop;
         std::string name;
 
         /* Not used yet */
@@ -1178,7 +1178,7 @@ public:
 
     void codegen(char *buff, size_t len);
 
-    BeamInstr *getCode(unsigned label);
+    ErtsCodePtr getCode(unsigned label);
     void *getCode(Label label) {
         return BeamAssembler::getCode(label);
     }
@@ -1195,7 +1195,7 @@ public:
 
     void copyCodeHeader(BeamCodeHeader *hdr);
     BeamCodeHeader *getCodeHeader(void);
-    BeamInstr *getOnLoad(void);
+    const ErtsCodeInfo *getOnLoad(void);
 
     unsigned patchCatches(char *rw_base);
     void patchLambda(char *rw_base, unsigned index, BeamInstr I);

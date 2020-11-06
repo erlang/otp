@@ -370,7 +370,7 @@ static ERL_NIF_TERM dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_
 int
 erts_call_dirty_nif(ErtsSchedulerData *esdp,
                     Process *c_p,
-                    const BeamInstr *I,
+                    ErtsCodePtr I,
                     Eterm *reg)
 {
     int exiting;
@@ -4339,7 +4339,7 @@ static void nif_call_table_init(void)
 
 static void patch_call_nif_early(ErlNifEntry*, struct erl_module_instance*);
 
-Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
+Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 {
     static const char bad_lib[] = "bad_lib";
     static const char upgrade[] = "upgrade";
@@ -4400,7 +4400,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
 			     "module '%T' not allowed", mod_atom);
 	goto error;
     } else if (module_p->on_load) {
-	ASSERT(module_p->on_load->code_hdr->on_load_function_ptr);
+	ASSERT(((module_p->on_load)->code_hdr)->on_load);
 	if (module_p->curr.code_hdr) {
 	    prev_mi = &module_p->curr;
 	} else {
@@ -4499,9 +4499,18 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
                 break;
 	    }
 
-            ASSERT(erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[1]) -
-                    erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[0])
-                     >= BEAM_NATIVE_MIN_FUNC_SZ);
+#ifdef DEBUG
+        {
+            ErtsCodePtr curr_func, next_func;
+
+            curr_func = erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[0]);
+            next_func = erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[1]);
+
+            ASSERT(!ErtsInArea(next_func,
+                               curr_func,
+                               BEAM_NATIVE_MIN_FUNC_SZ * sizeof(UWord)));
+        }
+#endif
 
             ERTS_CT_ASSERT(sizeof(stub->code) <=
                     BEAM_NATIVE_MIN_FUNC_SZ * sizeof(Eterm));
@@ -4710,7 +4719,7 @@ static void patch_call_nif_early(ErlNifEntry* entry,
     }
 }
 
-BeamInstr* erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci)
+ErtsCodePtr erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci)
 {
     ErtsNifBeamStub* bs;
     ErtsNifBeamStub tmpl;
@@ -4722,7 +4731,7 @@ BeamInstr* erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci)
     erts_rwmtx_runlock(&erts_nif_call_tab_lock);
 
     ASSERT(bs);
-    return (BeamInstr*)&bs->code;
+    return (ErtsCodePtr)&bs->code;
 }
 
 static void load_nif_1st_finisher(void* vlib)
@@ -4737,15 +4746,15 @@ static void load_nif_1st_finisher(void* vlib)
     if (fin) {
         for (i=0; i < lib->entry.num_of_funcs; i++) {
             ErtsCodeInfo *ci = fin->beam_stubv[i].code_info_rw;
-            BeamInstr *code_ptr;
-
-            code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci);
 
 #ifdef BEAMASM
-            sys_memcpy((char*)code_ptr + BEAM_ASM_FUNC_PROLOGUE_SIZE,
+            char *code_ptr = (char*)erts_codeinfo_to_code(ci);
+            sys_memcpy(&code_ptr[BEAM_ASM_FUNC_PROLOGUE_SIZE],
                        fin->beam_stubv[i].code.call_nif,
                        sizeof(fin->beam_stubv[0].code.call_nif));
 #else
+            BeamInstr *code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci);
+
             /* called function */
             code_ptr[1] = fin->beam_stubv[i].code.call_nif[1];
 

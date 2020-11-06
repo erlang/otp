@@ -138,7 +138,7 @@ static Uint i_get_map_elements(Eterm map,
                                Eterm *reg,
                                Eterm *E,
                                Uint n,
-                               BeamInstr *fs) {
+                               Eterm *fs) {
     Uint sz;
 
     /* This instruction assumes Arg1 is a map, i.e. that it follows a test
@@ -160,7 +160,7 @@ static Uint i_get_map_elements(Eterm map,
         vs = flatmap_get_values(mp);
 
         while (sz) {
-            if (EQ((Eterm)fs[0], *ks)) {
+            if (EQ(fs[0], *ks)) {
                 PUT_TERM_REG(*vs, fs[1]);
 
                 n--;
@@ -183,9 +183,9 @@ static Uint i_get_map_elements(Eterm map,
             Uint32 hx;
 
             hx = fs[2];
-            ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
+            ASSERT(hx == hashmap_make_hash(fs[0]));
 
-            if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
+            if ((v = erts_hashmap_get(hx, fs[0], map)) == NULL) {
                 return 0;
             }
 

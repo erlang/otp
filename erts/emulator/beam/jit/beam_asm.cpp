@@ -37,23 +37,23 @@ int erts_jit_perf_support;
  * Special Beam instructions.
  */
 
-BeamInstr *beam_apply;
-BeamInstr *beam_normal_exit;
-BeamInstr *beam_exit;
-BeamInstr *beam_export_trampoline;
-BeamInstr *beam_bif_export_trap;
-BeamInstr *beam_continue_exit;
-BeamInstr *beam_save_calls;
+ErtsCodePtr beam_apply;
+ErtsCodePtr beam_normal_exit;
+ErtsCodePtr beam_exit;
+ErtsCodePtr beam_export_trampoline;
+ErtsCodePtr beam_bif_export_trap;
+ErtsCodePtr beam_continue_exit;
+ErtsCodePtr beam_save_calls;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
 **      for the variable reference (one of these), and rogue references
 **      will most likely cause chaos.
 */
-BeamInstr *beam_return_to_trace;   /* OpCode(i_return_to_trace) */
-BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */
-BeamInstr *beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
-BeamInstr *beam_return_time_trace; /* OpCode(i_return_time_trace) */
+ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
+ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
+ErtsCodePtr beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
+ErtsCodePtr beam_return_time_trace; /* OpCode(i_return_time_trace) */
 
 static JitAllocator *jit_allocator;
 
@@ -72,7 +72,7 @@ static void beamasm_init_gdb_jit_info(void);
  * however since they won't go through export entries.
  */
 static void install_bifs(void) {
-    typedef Eterm (*bif_func_type)(Process *, Eterm *, const BeamInstr *);
+    typedef Eterm (*bif_func_type)(Process *, Eterm *, ErtsCodePtr);
     int i;
 
     ASSERT(beam_export_trampoline != NULL);
@@ -184,7 +184,7 @@ void beamasm_init() {
     struct operands {
         Eterm name;
         BeamInstr operand;
-        BeamInstr **target;
+        ErtsCodePtr *target;
     };
 
     std::vector<struct operands> operands = {
@@ -283,9 +283,9 @@ void beamasm_init() {
 
     /* This instruction relies on register contents, and can only be reached
      * from a `call_ext_*`-instruction, hence the lack of a wrapper function. */
-    beam_save_calls = (BeamInstr *)bga->get_dispatch_save_calls();
-    beam_export_trampoline = (BeamInstr *)bga->get_export_trampoline();
-    beam_bif_export_trap = (BeamInstr *)bga->get_bif_export_trap();
+    beam_save_calls = (ErtsCodePtr)bga->get_dispatch_save_calls();
+    beam_export_trampoline = (ErtsCodePtr)bga->get_export_trampoline();
+    beam_bif_export_trap = (ErtsCodePtr)bga->get_bif_export_trap();
 }
 
 bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
@@ -791,9 +791,9 @@ extern "C"
         jit_allocator->release(const_cast<void *>(native_module_exec));
     }
 
-    const BeamInstr *beamasm_get_code(void *instance, int label) {
+    ErtsCodePtr beamasm_get_code(void *instance, int label) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        return reinterpret_cast<const BeamInstr *>(ba->getCode(label));
+        return reinterpret_cast<ErtsCodePtr>(ba->getCode(label));
     }
 
     const byte *beamasm_get_rodata(void *instance, char *label) {
@@ -852,7 +852,7 @@ extern "C"
         return ba->getOffset();
     }
 
-    BeamInstr *beamasm_get_on_load(void *instance) {
+    const ErtsCodeInfo *beamasm_get_on_load(void *instance) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         return ba->getOnLoad();
     }

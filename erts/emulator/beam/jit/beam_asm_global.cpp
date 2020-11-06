@@ -77,13 +77,13 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     ranges.reserve(emitPtrs.size());
 
     for (auto val : emitPtrs) {
-        BeamInstr *start = (BeamInstr *)getCode(labels[val.first]);
-        BeamInstr *stop;
+        ErtsCodePtr start = (ErtsCodePtr)getCode(labels[val.first]);
+        ErtsCodePtr stop;
 
         if (val.first + 1 < emitPtrs.size()) {
-            stop = (BeamInstr *)getCode(labels[(GlobalLabels)(val.first + 1)]);
+            stop = (ErtsCodePtr)getCode(labels[(GlobalLabels)(val.first + 1)]);
         } else {
-            stop = (BeamInstr *)((char *)getBaseAddress() + code.codeSize());
+            stop = (ErtsCodePtr)((char *)getBaseAddress() + code.codeSize());
         }
 
         ranges.push_back({.start = start,
@@ -286,9 +286,7 @@ void BeamGlobalAssembler::emit_handle_error_shared() {
 
     emit_enter_runtime<Update::eStack | Update::eHeap>();
 
-    /* The error address must be a valid CP or NULL. The check is done here
-     * rather than in handle_error since the compiler is free to assume that any
-     * BeamInstr* is properly aligned. */
+    /* The error address must be a valid CP or NULL. */
     a.test(ARG2d, imm(_CPMASK));
     a.short_().jne(crash);
 

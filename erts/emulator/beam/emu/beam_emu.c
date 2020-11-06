@@ -107,9 +107,15 @@
  * Special Beam instructions.
  */
 
-BeamInstr beam_apply[2];
-BeamInstr beam_exit[1];
-BeamInstr beam_continue_exit[1];
+static BeamInstr beam_apply_[2];
+ErtsCodePtr beam_apply;             /* beam_apply_[0]; */
+ErtsCodePtr beam_normal_exit;       /* beam_apply_[1]; */
+
+static BeamInstr beam_exit_[1];
+ErtsCodePtr beam_exit;
+
+static BeamInstr beam_continue_exit_[1];
+ErtsCodePtr beam_continue_exit;
 
 
 /* NOTE These should be the only variables containing trace instructions.
@@ -117,11 +123,22 @@ BeamInstr beam_continue_exit[1];
 **      for the referring variable (one of these), and rouge references
 **      will most likely cause chaos.
 */
-BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
-BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
-BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
+/* OpCode(i_return_to_trace) */
+static BeamInstr beam_return_to_trace_[1];
+ErtsCodePtr beam_return_to_trace;
+
+/* OpCode(i_return_trace) */
+static BeamInstr beam_return_trace_[1];
+ErtsCodePtr beam_return_trace;
+
+/* UGLY also OpCode(i_return_trace) */
+static BeamInstr beam_exception_trace_[1];
+ErtsCodePtr beam_exception_trace;
+
+/* OpCode(i_return_time_trace) */
+static BeamInstr beam_return_time_trace_[1];
+ErtsCodePtr beam_return_time_trace;
 
 /*
  * All Beam instructions in numerical order.
@@ -289,7 +306,7 @@ void process_main(ErtsSchedulerData *esdp)
 #endif
 
     Uint64 start_time = 0;          /* Monitor long schedule */
-    const BeamInstr *start_time_i = NULL;
+    ErtsCodePtr start_time_i = NULL;
 
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
@@ -652,14 +669,29 @@ init_emulator_finish(void)
     }
 #endif
 
-    beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
-    beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
-    beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
-    beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
-    beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
-    beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
-    beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
-    beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
+    beam_apply_[0]             = BeamOpCodeAddr(op_i_apply);
+    beam_apply_[1]             = BeamOpCodeAddr(op_normal_exit);
+
+    beam_apply = (ErtsCodePtr)&beam_apply_[0];
+    beam_normal_exit = (ErtsCodePtr)&beam_apply_[1];
+
+    beam_exit_[0]              = BeamOpCodeAddr(op_error_action_code);
+    beam_exit = (ErtsCodePtr)&beam_exit_[0];
+
+    beam_continue_exit_[0]     = BeamOpCodeAddr(op_continue_exit);
+    beam_continue_exit = (ErtsCodePtr)&beam_continue_exit_[0];
+
+    beam_return_to_trace_[0]   = BeamOpCodeAddr(op_i_return_to_trace);
+    beam_return_to_trace = (ErtsCodePtr)&beam_return_to_trace_[0];
+
+    beam_return_trace_[0]      = BeamOpCodeAddr(op_return_trace);
+    beam_return_trace = (ErtsCodePtr)&beam_return_trace_[0];
+
+    beam_exception_trace_[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
+    beam_exception_trace = (ErtsCodePtr)&beam_exception_trace_[0];
+
+    beam_return_time_trace_[0] = BeamOpCodeAddr(op_i_return_time_trace);
+    beam_return_time_trace = (ErtsCodePtr)&beam_return_time_trace_[0];
 
     install_bifs();
 }

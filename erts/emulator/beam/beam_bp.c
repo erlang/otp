@@ -341,9 +341,11 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
 	    }
 	    ASSERT(modp->curr.num_breakpoints >= 0);
 	    ASSERT(modp->curr.num_traced_exports >= 0);
-#ifndef BEAMASM
-	    ASSERT(! BeamIsOpCode(*erts_codeinfo_to_code(ci),
-                                  op_i_generic_breakpoint));
+#if !defined(BEAMASM) && defined(DEBUG)
+            {
+                BeamInstr instr = *(const BeamInstr*)erts_codeinfo_to_code(ci);
+                ASSERT(!BeamIsOpCode(instr, op_i_generic_breakpoint));
+            }
 #endif
 	}
 	ci->u.gen_bp = NULL;
@@ -656,7 +658,7 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
     Eterm *cpp = c_p->stop;
 
     for (;;) {
-        BeamInstr *w = cp_val(*cpp);
+        ErtsCodePtr w = cp_val(*cpp);
         if (BeamIsReturnTrace(w)) {
             cpp += 3;
         } else if (BeamIsReturnToTrace(w)) {
@@ -733,12 +735,12 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
         const ErtsCodeInfo* prev_info;
-        const BeamInstr *w;
+        ErtsCodePtr w;
         Eterm* E;
 
         prev_info= erts_trace_time_call(c_p, info, bp->time);
         E = c_p->stop;
-        w = (BeamInstr*) E[0];
+        w = (ErtsCodePtr) E[0];
 	if (!(BeamIsReturnTrace(w) || BeamIsReturnToTrace(w) || BeamIsReturnTimeTrace(w))) {
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
 	    if (HeapWordsLeft(c_p) < 2) {
@@ -1306,16 +1308,23 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	    return;
 	}
 	g = Alloc(sizeof(GenericBp));
+        {
+            const UWord *instr_word = (const UWord *)erts_codeinfo_to_code(ci);
+
 #ifdef BEAMASM
-        /* The orig_instr is only used in global tracing for BEAMASM and there
-         * the address i located within the trampoline in the export entry so we
-         * read it from there.
-         * For local tracing this value is patched in erts_set_trace_pattern.
-        */
-        g->orig_instr = erts_codeinfo_to_code(ci)[2];
+            /* The orig_instr is only used in global tracing for BEAMASM and
+             * there the address i located within the trampoline in the export
+             * entry so we read it from there.
+             *
+             * For local tracing this value is patched in
+             * erts_set_trace_pattern. */
+            g->orig_instr = instr_word[2];
 #else
-	g->orig_instr = erts_codeinfo_to_code(ci)[0];
+            ERTS_CT_ASSERT(sizeof(UWord) == sizeof(BeamInstr));
+            g->orig_instr = instr_word[0];
 #endif
+        }
+
 	for (i = 0; i < ERTS_NUM_BP_IX; i++) {
 	    g->data[i].flags = 0;
 	}
