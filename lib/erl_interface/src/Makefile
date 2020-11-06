@@ -26,7 +26,7 @@
 include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
-debug opt shared purify quantify purecov gcov:
+debug opt shared gcov:
 ifndef TERTIARY_BOOTSTRAP
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 endif

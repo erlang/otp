@@ -38,9 +38,6 @@
 #   -break F    Run the debug compiled emulator in emacs and gdb and set break.
 #               The session is started, i.e. "run" is already don for you.
 #   -xxgdb      FIXME currently disabled
-#   -purify     Run emulator compiled for purify
-#   -quantify   Run emulator compiled for quantify
-#   -purecov    Run emulator compiled for purecov
 #   -gcov       Run emulator compiled for gcov
 #   -valgrind   Run emulator compiled for valgrind
 #   -lcnt	Run emulator compiled for lock counting
@@ -194,21 +191,6 @@ while [ $# -gt 0 ]; do
 #	    shift
 #	    GDB=xxgdb
 #	    ;;
-	"-purify")
-	    shift
-	    cargs="$cargs -purify"
-	    TYPE=.purify
-	    ;;
-	"-quantify")
-	    shift
-	    cargs="$cargs -quantify"
-	    TYPE=.quantify
-	    ;;
-	"-purecov")
-	    shift
-	    cargs="$cargs -purecov"
-	    TYPE=.purecov
-	    ;;
 	"-gcov")
 	    shift
 	    cargs="$cargs -gcov"

@@ -131,7 +131,7 @@ typedef pthread_key_t ethr_tsd_key;
 
 #define ETHR_HAVE_ETHR_SIG_FUNCS 1
 
-#if defined(PURIFY) || defined(VALGRIND)
+#if defined(VALGRIND)
 #  define ETHR_FORCE_PTHREAD_RWLOCK
 #  define ETHR_FORCE_PTHREAD_MUTEX
 #endif

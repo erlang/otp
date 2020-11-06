@@ -163,13 +163,11 @@ static char *erts_dop_to_string(enum dop dop) {
 #endif
 
 #if defined(VALGRIND)
-#include <valgrind/valgrind.h>
-#include <valgrind/memcheck.h>
-
-#  define PURIFY_MSG(msg)                                                    \
-    VALGRIND_PRINTF("%s, line %d: %s", __FILE__, __LINE__, msg)
+#  include <valgrind/valgrind.h>
+#  include <valgrind/memcheck.h>
+#  define VALGRIND_MSG(msg) VALGRIND_PRINTF("%s, line %d: %s", __FILE__, __LINE__, msg)
 #else
-#  define PURIFY_MSG(msg)
+#  define VALGRIND_MSG(msg)
 #endif
 
 int erts_is_alive; /* System must be blocked on change */
@@ -1874,7 +1872,7 @@ int erts_net_message(Port *prt,
             erts_fprintf(dbg_file, "DIST MSG DEBUG: erts_decode_dist_ext_size(CTL) failed:\n");
             bw(buf, orig_len);
 #endif
-            PURIFY_MSG("data error");
+            VALGRIND_MSG("data error");
             goto data_error;
         }
 
@@ -1962,7 +1960,7 @@ int erts_net_message(Port *prt,
 	erts_fprintf(dbg_file, "DIST MSG DEBUG: erts_decode_dist_ext(CTL) failed:\n");
 	bw(buf, orig_len);
 #endif
-	PURIFY_MSG("data error");
+	VALGRIND_MSG("data error");
 	goto decode_error;
     }
 
@@ -2747,7 +2745,7 @@ int erts_net_message(Port *prt,
 	erts_send_error_to_logger_nogl(dsbufp);
     }
 decode_error:
-    PURIFY_MSG("data error");
+    VALGRIND_MSG("data error");
     if (ede_hfrag == NULL) {
         erts_factory_close(&factory);
         if (ctl != ctl_default) {

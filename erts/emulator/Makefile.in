@@ -1,4 +1,3 @@
-
 #
 # %CopyrightBegin%
 #
@@ -121,7 +120,6 @@ endif
 DIRTY_SCHEDULER_TEST=@DIRTY_SCHEDULER_TEST@
 
 ifeq ($(TYPE),debug)
-PURIFY =
 TYPEMARKER = .debug
 TYPE_FLAGS = $(DEBUG_CFLAGS) -DDEBUG
 ENABLE_ALLOC_TYPE_VARS += debug
@@ -131,29 +129,7 @@ LDFLAGS += -g
 endif
 else
 
-ifeq ($(TYPE),purify)
-PURIFY = purify $(PURIFY_BUILD_OPTIONS)
-TYPEMARKER = .purify
-TYPE_FLAGS = $(DEBUG_CFLAGS) -DPURIFY -DNO_JUMP_TABLE
-ENABLE_ALLOC_TYPE_VARS += purify
-else
-
-ifeq ($(TYPE),quantify)
-PURIFY = quantify $(QUANTIFY_BUILD_OPTIONS)
-TYPEMARKER = .quantify
-ENABLE_ALLOC_TYPE_VARS += quantify
-  TYPE_FLAGS = @CFLAGS@ -g -O2 -DQUANTIFY -DNO_JUMP_TABLE
-else
-
-ifeq ($(TYPE),purecov)
-PURIFY = purecov --follow-child-processes=yes $(PURECOV_BUILD_OPTIONS)
-TYPEMARKER = .purecov
-TYPE_FLAGS = $(DEBUG_CFLAGS) -DPURECOV -DNO_JUMP_TABLE
-ENABLE_ALLOC_TYPE_VARS += purecov
-else
-
 ifeq ($(TYPE),gcov)
-PURIFY = 
 TYPEMARKER = .gcov
 TYPE_FLAGS = $(DEBUG_CFLAGS) -DERTS_GCOV -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
 ifneq ($(findstring solaris,$(TARGET)),solaris)
@@ -163,14 +139,12 @@ ENABLE_ALLOC_TYPE_VARS += debug
 else
 
 ifeq ($(TYPE),valgrind)
-PURIFY = 
 TYPEMARKER = .valgrind
 TYPE_FLAGS = $(DEBUG_CFLAGS) -DVALGRIND -DNO_JUMP_TABLE
 ENABLE_ALLOC_TYPE_VARS += valgrind
 else
 
 ifeq ($(TYPE),gprof)
-PURIFY = 
 TYPEMARKER = .gprof
 TYPE_FLAGS = @CFLAGS@ -DGPROF -pg -DERTS_CAN_INLINE=0 -DERTS_INLINE=
 LDFLAGS += -pg
@@ -179,33 +153,26 @@ NO_INLINE_FUNCTIONS=true
 else
 
 ifeq ($(TYPE),lcnt)
-PURIFY =
 TYPEMARKER = .lcnt
 TYPE_FLAGS = @CFLAGS@ -DERTS_ENABLE_LOCK_COUNT
 ENABLE_ALLOC_TYPE_VARS += lcnt
 else
 
 ifeq ($(TYPE),frmptr)
-PURIFY =
 OMIT_OMIT_FP=yes
 TYPEMARKER = .frmptr
 TYPE_FLAGS = @CFLAGS@ -DERTS_FRMPTR
 else
 
 ifeq ($(TYPE),icount)
-PURIFY =
 TYPEMARKER = .icount
 TYPE_FLAGS = @CFLAGS@ -DERTS_OPCODE_COUNTER_SUPPORT
 else
 
 # If type isn't one of the above, it *is* opt type...
 override TYPE=opt
-PURIFY =
 TYPEMARKER =
 TYPE_FLAGS = @CFLAGS@
-endif
-endif
-endif
 endif
 endif
 endif
@@ -356,16 +323,7 @@ RC=false
 endif
 endif
 
-
-ifdef PURIFY_CHILD_SETUP
-CS_PURIFY = $(PURIFY)
-CS_TYPE_FLAGS = $(TYPE_FLAGS)
-else
-CS_PURIFY = 
-CS_TYPE_FLAGS = $(subst QUANTIFY,FAKE_QUANTIFY, \
-		$(subst PURIFY,FAKE_PURIFY, $(TYPE_FLAGS)))
-endif
-CS_CFLAGS_ = $(CS_TYPE_FLAGS) $(DEFS) $(WFLAGS)
+CS_CFLAGS_ = $(TYPE_FLAGS) $(DEFS) $(WFLAGS)
 ifeq ($(GCC),yes)
 CS_CFLAGS = $(subst -O2, $(GEN_OPT_FLGS) $(UNROLL_FLG), $(CS_CFLAGS_))
 else
@@ -917,7 +875,7 @@ update_asmjit:
 CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o $(OBJDIR)/hash.o
 
 $(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_OBJ) $(ERTS_LIB)
-	$(ld_verbose)$(CS_PURIFY) $(LD) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
+	$(ld_verbose) $(LD) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
                $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_OBJ) $(CS_LIBS)
 
 ifeq ($(GCC),yes)
@@ -1183,7 +1141,7 @@ $(OBJS): $(TTF_DIR)/GENERATED
 ifeq ($(TARGET), win32)
 # Only the basic erlang to begin with eh?
 $(BINDIR)/$(FLAVOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
-	$(ld_verbose)$(PURIFY) $(LD) -dll -def:sys/$(ERLANG_OSTYPE)/erl.def \
+	$(ld_verbose) $(LD) -dll -def:sys/$(ERLANG_OSTYPE)/erl.def \
 	-implib:$(BINDIR)/erl_dll.lib -o $@ \
 	$(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) $(STATIC_NIF_LIBS) \
 	$(STATIC_DRIVER_LIBS) $(LIBS)
@@ -1195,7 +1153,7 @@ else
 EMU_LD=$(CC)
 endif
 $(BINDIR)/$(FLAVOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
-	$(ld_verbose)$(PURIFY) $(EMU_LD) -o $@ \
+	$(ld_verbose) $(EMU_LD) -o $@ \
 	$(PROFILE_LDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
 	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 

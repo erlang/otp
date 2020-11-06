@@ -3385,9 +3385,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		/* now the erts_snprintf which does the work */
 		i = sys_double_to_chars(f.fd, (char*) ep, (size_t)31);
 
-		/* Don't leave garbage after the float!  (Bad practice in general,
-		 * and Purify complains.)
-		 */
+		/* Don't leave garbage after the float */
 		sys_memset(ep+i, 0, 31-i);
 		ep += 31;
 	    }

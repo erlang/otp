@@ -2730,7 +2730,7 @@ tuple_to_list(_Tuple) ->
       Alloc :: atom();
          (atom_count) -> pos_integer();
          (atom_limit) -> pos_integer();
-         (build_type) -> opt | debug | purify | quantify | purecov |
+         (build_type) -> opt | debug |
                          gcov | valgrind | gprof | lcnt | frmptr;
          (c_compiler_used) -> {atom(), term()};
          (check_io) -> [_];

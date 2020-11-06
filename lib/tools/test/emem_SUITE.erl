@@ -117,8 +117,6 @@ init_per_suite(Config) when is_list(Config) ->
 		     case check_dir(filename:join([BinDir, Target])) of
 			 not_found -> ok;
 			 TDir ->
-			     check_emem(TDir, purecov),
-			     check_emem(TDir, purify),
 			     check_emem(TDir, debug),
 			     check_emem(TDir, opt)
 		     end,
