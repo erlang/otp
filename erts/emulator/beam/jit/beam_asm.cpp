@@ -133,8 +133,8 @@ static JitAllocator *pick_allocator() {
      * descriptor per block on most platforms. We don't want to eat up one fd
      * for every 64KB. */
     static JitAllocator::CreateParams dual_params = {
-            .options = JitAllocator::kOptionUseDualMapping,
-            .blockSize = 8 << 20};
+            /* .options = */ JitAllocator::kOptionUseDualMapping,
+            /* .blockSize = */ 8 << 20};
     static JitAllocator dual_allocator(&dual_params);
 
     err = dual_allocator.alloc(&test_ro, &test_rw, 1);
