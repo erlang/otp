@@ -8833,8 +8833,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         ASSERT(is_non_value(reply_tag));
         reply_res = res;
         reply_tag = res = erts_make_ref(BIF_P);
-        ERTS_RECV_MARK_SAVE(BIF_P);
-        ERTS_RECV_MARK_SET(BIF_P);
+        erts_msgq_set_save_end(BIF_P);
     }
 
     if (is_value(reply_tag))
@@ -11918,7 +11917,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_qs.cont = NULL;
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
-    p->sig_qs.saved_last = NULL;
+    p->sig_qs.recv_mrk_blk = NULL;
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
@@ -12421,7 +12420,7 @@ void erts_init_empty_process(Process *p)
     p->sig_qs.cont = NULL;
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
-    p->sig_qs.saved_last = NULL;
+    p->sig_qs.recv_mrk_blk = NULL;
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
@@ -12559,6 +12558,9 @@ delete_process(Process* p)
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
                            HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
 
+    /* free all pending messages */
+    erts_proc_sig_cleanup_queues(p);
+
     scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
 
     if (scb) {
@@ -12615,12 +12617,6 @@ delete_process(Process* p)
     }
 
     erts_erase_dicts(p);
-
-    /* free all pending messages */
-    erts_cleanup_messages(p->sig_qs.first);
-    p->sig_qs.first = NULL;
-    erts_cleanup_messages(p->sig_qs.cont);
-    p->sig_qs.cont = NULL;
 
     p->fvalue = NIL;
 

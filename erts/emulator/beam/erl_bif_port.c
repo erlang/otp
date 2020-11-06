@@ -105,8 +105,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
          * We unconditionaly *must* do a receive on a message
          * containing the reference after this...
          */
-        ERTS_RECV_MARK_SAVE(BIF_P);
-        ERTS_RECV_MARK_SET(BIF_P);
+        erts_msgq_set_save_end(BIF_P);
 
         res = erts_proc_store_ref(BIF_P, port->async_open_port->ref);
     } else {

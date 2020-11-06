@@ -2182,8 +2182,7 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
              *       otherwise, next receive will *not* work
              *       as expected!
              */
-            ERTS_RECV_MARK_SAVE(c_p);
-            ERTS_RECV_MARK_SET(c_p);
+            erts_msgq_set_save_end(c_p);
 
 	    ERTS_BIF_PREP_TRAP1(ret, erts_await_result, c_p, rref);
 	}

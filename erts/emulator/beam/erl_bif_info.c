@@ -1258,20 +1258,19 @@ send_signal: {
         flags |= ERTS_PI_FLAG_REQUEST_FOR_OTHER;
         need_msgq_len = (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
         /*
-         * Set receive mark so we wont have to scan the whole
-         * message queue for the result. Note caller unconditionally
-         * has to enter a receive only matching messages containing
-         * 'ref', or restore save pointer.
+         * Set save pointer to the end of the message queue so we wont
+         * have to scan the whole* message queue for the result. Note
+         * that caller unconditionally has to enter a receive only
+         * matching messages containing 'ref', or restore save pointer.
          */
-        ERTS_RECV_MARK_SAVE(c_p);
-        ERTS_RECV_MARK_SET(c_p);
+        erts_msgq_set_save_end(c_p);
         enqueued = erts_proc_sig_send_process_info_request(c_p, pid, item_ix,
                                                            len, need_msgq_len,
                                                            flags, reserve_size,
                                                            ref);
         if (!enqueued) {
             /* Restore save pointer... */
-	    JOIN_MESSAGE(c_p);
+	    erts_msgq_set_save_first(c_p);
             goto undefined;
         }
         ERTS_BIF_PREP_TRAP1(ret, erts_await_result, c_p, ref);
@@ -1762,6 +1761,8 @@ process_info_aux(Process *c_p,
             ErtsMessage *mp;
             ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
             for (mp = rp->sig_qs.first; mp; mp = mp->next) {
+		if (ERTS_SIG_IS_RECV_MARKER(mp))
+		    continue;
                 ASSERT(ERTS_SIG_IS_MSG(mp));
                 if (mp->data.attached)
                     total_heap_size += erts_msg_attached_data_size(mp);
@@ -4471,6 +4472,27 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                     BIF_P->scheduler_data->virtual_reds = 0;
 		}
 		BIF_RET(am_true);
+	    }
+	}
+	else if (ERTS_IS_ATOM_STR("recv_marker_insert", BIF_ARG_1)) {
+	    /* receive_SUITE (emulator) */
+	    if (is_internal_ref(BIF_ARG_2)) {
+		erts_msgq_recv_marker_insert(BIF_P, BIF_ARG_2);
+		BIF_RET(am_ok);
+	    }
+	}
+	else if (ERTS_IS_ATOM_STR("recv_marker_set_save", BIF_ARG_1)) {
+	    /* receive_SUITE (emulator) */
+	    if (is_internal_ref(BIF_ARG_2)) {
+		erts_msgq_recv_marker_set_save(BIF_P, BIF_ARG_2);
+		BIF_RET(am_ok);		
+	    }
+	}
+	else if (ERTS_IS_ATOM_STR("recv_marker_clear", BIF_ARG_1)) {
+	    /* receive_SUITE (emulator) */
+	    if (is_internal_ref(BIF_ARG_2)) {
+		erts_msgq_recv_marker_clear(BIF_P, BIF_ARG_2);
+		BIF_RET(am_ok);		
 	    }
 	}
 	else if (ERTS_IS_ATOM_STR("block", BIF_ARG_1)

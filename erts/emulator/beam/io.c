@@ -1179,9 +1179,8 @@ erts_schedule_proc2port_signal(Process *c_p,
 	 *       otherwise, next receive will *not* work
 	 *       as expected!
 	 */
+        erts_msgq_set_save_end(c_p);
 
-        ERTS_RECV_MARK_SAVE(c_p);
-        ERTS_RECV_MARK_SET(c_p);
         erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     }
 
