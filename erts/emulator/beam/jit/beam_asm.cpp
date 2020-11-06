@@ -107,7 +107,7 @@ static void install_bifs(void) {
     }
 }
 
-static JitAllocator *pick_allocator() {
+static JitAllocator *create_allocator() {
     void *test_ro, *test_rw;
     Error err;
 
@@ -115,14 +115,16 @@ static JitAllocator *pick_allocator() {
      * all possible. This is disabled in debug builds to help catch errors
      * where we write to the executable region. */
 #ifndef DEBUG
-    static JitAllocator single_allocator;
+    auto *single_allocator = new JitAllocator();
 
-    err = single_allocator.alloc(&test_ro, &test_rw, 1);
-    single_allocator.release(test_ro);
+    err = single_allocator->alloc(&test_ro, &test_rw, 1);
+    single_allocator->release(test_ro);
 
     if (err == ErrorCode::kErrorOk) {
-        return &single_allocator;
+        return single_allocator;
     }
+
+    delete single_allocator;
 #endif
 
     /* Our platform most likely disallows directly writable+executable pages,
@@ -132,16 +134,18 @@ static JitAllocator *pick_allocator() {
      * larger than the default since dual-mapping implies having one file
      * descriptor per block on most platforms. We don't want to eat up one fd
      * for every 64KB. */
-    static JitAllocator::CreateParams dual_params = {
-            /* .options = */ JitAllocator::kOptionUseDualMapping,
-            /* .blockSize = */ 8 << 20};
-    static JitAllocator dual_allocator(&dual_params);
+    JitAllocator::CreateParams dual_params;
 
-    err = dual_allocator.alloc(&test_ro, &test_rw, 1);
-    dual_allocator.release(test_ro);
+    dual_params.options = JitAllocator::kOptionUseDualMapping,
+    dual_params.blockSize = 8 << 20;
+
+    auto *dual_allocator = new JitAllocator(&dual_params);
+
+    err = dual_allocator->alloc(&test_ro, &test_rw, 1);
+    dual_allocator->release(test_ro);
 
     if (err == ErrorCode::kErrorOk) {
-        return &dual_allocator;
+        return dual_allocator;
     }
 
     ERTS_ASSERT(!"Cannot allocate executable memory. The JIT will not work,"
@@ -190,7 +194,7 @@ void beamasm_init() {
 
     cpuinfo = CpuInfo::host();
 
-    jit_allocator = pick_allocator();
+    jit_allocator = create_allocator();
 
     bga = new BeamGlobalAssembler(jit_allocator);
 
