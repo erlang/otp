@@ -82,7 +82,7 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [reverse/1,reverse/2,map/2,member/2,foldl/3,foldr/3,mapfoldl/3,
-                splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1,
+                splitwith/2,keyfind/3,sort/1,droplast/1,last/1,
                 duplicate/2]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
@@ -1388,7 +1388,7 @@ lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
     F = #c_var{anno=LA,name={Name,1}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail]},
     {[FcVar,Var],St2} = new_vars(2, St1),
-    Fc = function_clause([FcVar], GA),
+    Fc = bad_generator([FcVar], FcVar, Arg),
     TailClause = #iclause{anno=LAnno,pats=[TailPat],guard=[],body=[Mc]},
     Cs0 = case {AccPat,AccGuard} of
               {SkipPat,[]} ->
@@ -1430,13 +1430,20 @@ lc_tq(Line, E0, [], Mc0, St0) ->
 
 bc_tq(Line, Exp, Qs0, St0) ->
     {BinVar,St1} = new_var(St0),
-    {Sz,SzPre,St2} = bc_initial_size(Exp, Qs0, St1),
-    {Qs,St3} = preprocess_quals(Line, Qs0, St2),
-    {E,BcPre,St} = bc_tq1(Line, Exp, Qs, BinVar, St3),
-    Pre = SzPre ++
-	[#iset{var=BinVar,
-	       arg=#iprimop{name=#c_literal{val=bs_init_writable},
-			    args=[Sz]}}] ++ BcPre,
+    {Qs1,St2} = preprocess_quals(Line, Qs0, St1),
+    {PrePre,Qs} = case Qs1 of
+                      [#igen{arg={IgenPre,Arg}}=Igen|Igens] ->
+                          {IgenPre,[Igen#igen{arg={[],Arg}}|Igens]};
+                      _ ->
+                          {[],Qs1}
+                  end,
+    {E,BcPre,St} = bc_tq1(Line, Exp, Qs, BinVar, St2),
+    InitialSize = #c_literal{val=256},
+    Pre = PrePre ++
+        [#iset{var=BinVar,
+               arg=#iprimop{anno=#a{anno=lineno_anno(Line, St)},
+                            name=#c_literal{val=bs_init_writable},
+                            args=[InitialSize]}}] ++ BcPre,
     {E,Pre,St}.
 
 bc_tq1(Line, E, [#igen{anno=GAnno,
@@ -1451,7 +1458,7 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
     {IgnoreVar,St4} = new_var(LA, St3),
     F = #c_var{anno=LA,name={Name,2}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail,AccVar]},
-    Fc = function_clause(FcVars, LA),
+    Fc = bad_generator(FcVars, hd(FcVars), Arg),
     TailClause = #iclause{anno=LAnno,pats=[TailPat,IgnoreVar],guard=[],
                           body=[AccVar]},
     Cs0 = case {AccPat,AccGuard} of
@@ -1478,7 +1485,11 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
                        St5}
               end,
     Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
-    {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,2},Fun}],
+
+    %% Inlining would disable the size calculation optimization for
+    %% bs_init_writable.
+    {#iletrec{anno=LAnno#a{anno=[list_comprehension,no_inline|LA]},
+              defs=[{{Name,2},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg,Mc]}]},
      [],St};
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
@@ -1707,240 +1718,6 @@ list_gen_pattern(P0, Line, St) ->
 	nomatch -> {nomatch,add_warning(Line, nomatch, St)}
     end.
 
-%%%
-%%% Generate code to calculate the initial size for
-%%% the result binary in a binary comprehension.
-%%%
-
-bc_initial_size(E0, Q, St0) ->
-    try
-	E = bin_bin_element(E0),
-	{ElemSzExpr,ElemSzPre,EVs,St1} = bc_elem_size(E, St0),
-	{V,St2} = new_var(St1),
-	{GenSzExpr,GenSzPre,St3} = bc_gen_size(Q, EVs, St2),
-	case ElemSzExpr of
-	    #c_literal{val=ElemSz} when ElemSz rem 8 =:= 0 ->
-		NumBytesExpr = #c_literal{val=ElemSz div 8},
-		BytesExpr = [#iset{var=V,
-				   arg=bc_mul(GenSzExpr, NumBytesExpr)}],
-		{V,ElemSzPre++GenSzPre++BytesExpr,St3};
-	    _ ->
-		{[BitsV,PlusSevenV],St} = new_vars(2, St3),
-		BitsExpr = #iset{var=BitsV,arg=bc_mul(GenSzExpr, ElemSzExpr)},
-		PlusSevenExpr = #iset{var=PlusSevenV,
-				      arg=bc_add(BitsV, #c_literal{val=7})},
-		Expr = #iset{var=V,
-			     arg=bc_bsr(PlusSevenV, #c_literal{val=3})},
-		{V,ElemSzPre++GenSzPre++
-		 [BitsExpr,PlusSevenExpr,Expr],St}
-	end
-    catch
-	throw:impossible ->
-	    {#c_literal{val=256},[],St0};
-        throw:nomatch ->
-	    {#c_literal{val=1},[],St0}
-    end.
-
-bc_elem_size({bin,_,El}, St0) ->
-    case bc_elem_size_1(El, ordsets:new(), 0, []) of
-	{Bits,[]} ->
-	    {#c_literal{val=Bits},[],[],St0};
-	{Bits,Vars0} ->
-	    [{U,V0}|Pairs]  = sort(Vars0),
-	    F = bc_elem_size_combine(Pairs, U, [V0], []),
-	    Vs = [V || {_,#c_var{name=V}} <- Vars0],
-	    {E,Pre,St} = bc_mul_pairs(F, #c_literal{val=Bits}, [], St0),
-	    {E,Pre,Vs,St}
-    end;
-bc_elem_size(_, _) ->
-    throw(impossible).
-
-bc_elem_size_1([{bin_element,_,{string,_,String},{integer,_,N},_}=El|Es],
-	       DefVars, Bits, SizeVars) ->
-    U = get_unit(El),
-    bc_elem_size_1(Es, DefVars, Bits+U*N*length(String), SizeVars);
-bc_elem_size_1([{bin_element,_,Expr,{integer,_,N},_}=El|Es],
-               DefVars0, Bits, SizeVars) ->
-    U = get_unit(El),
-    DefVars = bc_elem_size_def_var(Expr, DefVars0),
-    bc_elem_size_1(Es, DefVars, Bits+U*N, SizeVars);
-bc_elem_size_1([{bin_element,_,Expr,{var,_,Src},_}=El|Es],
-               DefVars0, Bits, SizeVars) ->
-    case ordsets:is_element(Src, DefVars0) of
-        false ->
-            U = get_unit(El),
-            DefVars = bc_elem_size_def_var(Expr, DefVars0),
-            bc_elem_size_1(Es, DefVars, Bits, [{U,#c_var{name=Src}}|SizeVars]);
-        true ->
-            throw(impossible)
-    end;
-bc_elem_size_1([_|_], _, _, _) ->
-    throw(impossible);
-bc_elem_size_1([], _DefVars, Bits, SizeVars) ->
-    {Bits,SizeVars}.
-
-bc_elem_size_def_var({var,_,Var}, DefVars) ->
-    ordsets:add_element(Var, DefVars);
-bc_elem_size_def_var(_Expr, DefVars) ->
-    DefVars.
-
-bc_elem_size_combine([{U,V}|T], U, UVars, Acc) ->
-    bc_elem_size_combine(T, U, [V|UVars], Acc);
-bc_elem_size_combine([{U,V}|T], OldU, UVars, Acc) ->
-    bc_elem_size_combine(T, U, [V], [{OldU,UVars}|Acc]);
-bc_elem_size_combine([], U, Uvars, Acc) ->
-    [{U,Uvars}|Acc].
-
-bc_mul_pairs([{U,L0}|T], E0, Pre, St0) ->
-    {AddExpr,AddPre,St1} = bc_add_list(L0, St0),
-    {[V1,V2],St} = new_vars(2, St1),
-    Set1 = #iset{var=V1,arg=bc_mul(AddExpr, #c_literal{val=U})},
-    Set2 = #iset{var=V2,arg=bc_add(V1, E0)},
-    bc_mul_pairs(T, V2, [Set2,Set1|reverse(AddPre, Pre)], St);
-bc_mul_pairs([], E, Pre, St) ->
-    {E,reverse(Pre),St}.
-
-bc_add_list([V], St) ->
-    {V,[],St};
-bc_add_list([H|T], St) ->
-    bc_add_list_1(T, [], H, St).
-
-bc_add_list_1([H|T], Pre, E, St0) ->
-    {Var,St} = new_var(St0),
-    Set = #iset{var=Var,arg=bc_add(H, E)},
-    bc_add_list_1(T, [Set|Pre], Var, St);
-bc_add_list_1([], Pre, E, St) ->
-    {E,reverse(Pre),St}.
-
-bc_gen_size(Q, EVs, St) ->
-    bc_gen_size_1(Q, EVs, #c_literal{val=1}, [], St).
-
-bc_gen_size_1([{generate,L,El,Gen}|Qs], EVs, E0, Pre0, St0) ->
-    bc_verify_non_filtering(El, EVs),
-    case Gen of
-	{var,_,ListVar} ->
-	    Lanno = lineno_anno(L, St0),
-	    {LenVar,St1} = new_var(St0),
-	    Set = #iset{var=LenVar,
-			arg=#icall{anno=#a{anno=Lanno},
-				   module=#c_literal{val=erlang},
-				   name=#c_literal{val=length},
-				   args=[#c_var{name=ListVar}]}},
-	    {E,Pre,St} = bc_gen_size_mul(E0, LenVar, [Set|Pre0], St1),
-	    bc_gen_size_1(Qs, EVs, E, Pre, St);
-	_ ->
-	    %% The only expressions we handle is literal lists.
-	    Len = bc_list_length(Gen, 0),
-	    {E,Pre,St} = bc_gen_size_mul(E0, #c_literal{val=Len}, Pre0, St0),
-	    bc_gen_size_1(Qs, EVs, E, Pre, St)
-    end;
-bc_gen_size_1([{b_generate,_,El0,Gen0}|Qs], EVs, E0, Pre0, St0) ->
-    El = bin_bin_element(El0),
-    Gen = bin_bin_element(Gen0),
-    bc_verify_non_filtering(El, EVs),
-    {MatchSzExpr,Pre1,_,St1} = bc_elem_size(El, St0),
-    Pre2 = reverse(Pre1, Pre0),
-    {ResVar,St2} = new_var(St1),
-    {BitSizeExpr,Pre3,St3} = bc_gen_bit_size(Gen, Pre2, St2),
-    Div = #iset{var=ResVar,arg=bc_div(BitSizeExpr,
-				      MatchSzExpr)},
-    Pre4 = [Div|Pre3],
-    {E,Pre,St} = bc_gen_size_mul(E0, ResVar, Pre4, St3),
-    bc_gen_size_1(Qs, EVs, E, Pre, St);
-bc_gen_size_1([], _, E, Pre, St) ->
-    {E,reverse(Pre),St};
-bc_gen_size_1(_, _, _, _, _) ->
-    throw(impossible).
-
-bin_bin_element({bin,L,El}) ->
-    {bin,L,[bin_element(E) || E <- El]};
-bin_bin_element(Other) -> Other.
-
-bc_gen_bit_size({var,L,V}, Pre0, St0) ->
-    Lanno = lineno_anno(L, St0),
-    {SzVar,St} = new_var(St0),
-    Pre = [#iset{var=SzVar,
-		 arg=#icall{anno=#a{anno=Lanno},
-			    module=#c_literal{val=erlang},
-			    name=#c_literal{val=bit_size},
-			    args=[#c_var{name=V}]}}|Pre0],
-    {SzVar,Pre,St};
-bc_gen_bit_size({bin,_,_}=Bin, Pre, St) ->
-    {#c_literal{val=bc_bin_size(Bin)},Pre,St};
-bc_gen_bit_size(_, _, _) ->
-    throw(impossible).
-
-bc_verify_non_filtering({bin,_,Els}, EVs) ->
-    foreach(fun({bin_element,_,{var,_,V},_,_}) ->
-		   case member(V, EVs) of
-		       true -> throw(impossible);
-		       false -> ok
-		   end;
-	       (_) -> throw(impossible)
-	    end, Els);
-bc_verify_non_filtering({var,_,V}, EVs) ->
-    case member(V, EVs) of
-	true -> throw(impossible);
-	false -> ok
-    end;
-bc_verify_non_filtering(_, _) ->
-    throw(impossible).
-
-bc_list_length({string,_,Str}, Len) ->
-    Len + length(Str);
-bc_list_length({cons,_,_,T}, Len) ->
-    bc_list_length(T, Len+1);
-bc_list_length({nil,_}, Len) ->
-    Len;
-bc_list_length(_, _) ->
-    throw(impossible).
-
-bc_bin_size({bin,_,Els}) ->
-    bc_bin_size_1(Els, 0).
-
-bc_bin_size_1([{bin_element,_,{string,_,String},{integer,_,Sz},_}=El|Els], N) ->
-    U = get_unit(El),
-    bc_bin_size_1(Els, N+U*Sz*length(String));
-bc_bin_size_1([{bin_element,_,_,{integer,_,Sz},_}=El|Els], N) ->
-    U = get_unit(El),
-    bc_bin_size_1(Els, N+U*Sz);
-bc_bin_size_1([], N) -> N;
-bc_bin_size_1(_, _) -> throw(impossible).
-
-bc_gen_size_mul(#c_literal{val=1}, E, Pre, St) ->
-    {E,Pre,St};
-bc_gen_size_mul(E1, E2, Pre, St0) ->
-    {V,St} = new_var(St0),
-    {V,[#iset{var=V,arg=bc_mul(E1, E2)}|Pre],St}.
-
-bc_mul(E1, #c_literal{val=1}) ->
-    E1;
-bc_mul(E1, E2) ->
-    #icall{module=#c_literal{val=erlang},
-	   name=#c_literal{val='*'},
-	   args=[E1,E2]}.
-
-bc_div(E1, E2) ->
-    #icall{module=#c_literal{val=erlang},
-	   name=#c_literal{val='div'},
-	   args=[E1,E2]}.
-
-bc_add(E1, #c_literal{val=0}) ->
-    E1;
-bc_add(E1, E2) ->
-    #icall{module=#c_literal{val=erlang},
-	   name=#c_literal{val='+'},
-	   args=[E1,E2]}.
-
-bc_bsr(E1, E2) ->
-    #icall{module=#c_literal{val=erlang},
-	   name=#c_literal{val='bsr'},
-	   args=[E1,E2]}.
-
-get_unit({bin_element,_,_,_,Flags}) ->
-    {unit,U} = keyfind(unit, 1, Flags),
-    U.
-
 %% is_guard_test(Expression) -> true | false.
 %%  Test if a general expression is a guard test.
 %%
@@ -2020,7 +1797,7 @@ force_safe(Ce, St0) ->
     case is_safe(Ce) of
 	true -> {Ce,[],St0};
 	false ->
-	    {V,St1} = new_var(St0),
+	    {V,St1} = new_var(get_lineno_anno(Ce), St0),
 	    {V,[#iset{var=V,arg=Ce}],St1}
     end.
 
@@ -2283,6 +2060,11 @@ new_vars_1(N, Anno, St0, Vs) when N > 0 ->
     {V,St1} = new_var(Anno, St0),
     new_vars_1(N-1, Anno, St1, [V|Vs]);
 new_vars_1(0, _, St, Vs) -> {Vs,St}.
+
+bad_generator(Ps, Generator, Arg) ->
+    Anno = get_anno(Arg),
+    Tuple = ann_c_tuple(Anno, [#c_literal{val=bad_generator},Generator]),
+    fail_clause(Ps, Anno, Tuple).
 
 function_clause(Ps, LineAnno) ->
     fail_clause(Ps, LineAnno,
@@ -3157,7 +2939,7 @@ lexpr(#c_receive{clauses=[],timeout=Timeout0,action=Action}, St0) ->
 
     Fun = #c_fun{vars=[],body=TimeoutLet},
 
-    Letrec = #c_letrec{anno=[letrec_goto],
+    Letrec = #c_letrec{anno=[letrec_goto,no_inline],
                        defs=[{LoopFun,Fun}],
                        body=ApplyLoop},
 
@@ -3223,7 +3005,7 @@ lexpr(#c_receive{anno=RecvAnno,clauses=Cs0,timeout=Timeout0,action=Action}, St0)
                      body=PeekCase},
     Fun = #c_fun{vars=[],body=PeekLet},
 
-    Letrec = #c_letrec{anno=[letrec_goto],
+    Letrec = #c_letrec{anno=[letrec_goto,no_inline],
                        defs=[{LoopFun,Fun}],
                        body=ApplyLoop},
 
@@ -3294,7 +3076,7 @@ split_letify([], [], Body, [_|_]=VsAcc, [_|_]=ArgAcc) ->
 split_case_letrec(#c_fun{anno=FunAnno0}=Fun0, Body, #core{gcount=C}=St0) ->
     FunAnno = [compiler_generated|FunAnno0],
     Fun = Fun0#c_fun{anno=FunAnno},
-    Anno = [letrec_goto],
+    Anno = [letrec_goto,no_inline],
     DefFunName = goto_func(C),
     Letrec = #c_letrec{anno=Anno,defs=[{#c_var{name=DefFunName},Fun}],body=Body},
     St = St0#core{gcount=C+1},

@@ -903,9 +903,8 @@ i_fun(E, Ctxt, Ren, Env, S) ->
 %% side of each definition.
 
 i_letrec(E, Ctxt, Ren, Env, S) ->
-    %% We must turn off inlining if this `letrec' is specially
-    %% implemented.
-    NoInline = member(letrec_goto, get_ann(E)),
+    %% Test whether we must turn off inlining for this `letrec`.
+    NoInline = member(no_inline, get_ann(E)),
 
     %% Note that we pass an empty list for the auto-referenced
     %% (exported) functions here.

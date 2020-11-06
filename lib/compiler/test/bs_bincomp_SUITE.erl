@@ -27,7 +27,7 @@
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,general_expressions/1,matched_out_size/1,
-         no_generator/1]).
+         no_generator/1,zero_pattern/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +37,7 @@ all() ->
     [byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
      nomatch, sizes, general_expressions, matched_out_size,
-     no_generator].
+     no_generator, zero_pattern].
 
 groups() -> 
     [].
@@ -69,8 +69,7 @@ bit_aligned(Config) when is_list(Config) ->
     cs_init(),
     <<$a:7,$b:7,$c:7,$d:7,$e:7,$f:7,$g:7>> =
 	cs(<< <<(X+32):7>> || <<X>> <= <<"ABCDEFG">> >>),
-    <<"ABCDEFG">> =
-	cs(<< <<(X-32)>> || <<X:7>> <= <<$a:7,$b:7,$c:7,$d:7,$e:7,$f:7,$g:7>> >>),
+    <<"ABCDEFG">> = cs(<< <<(X-32)>> || <<X:7>> <= id(<<$a:7,$b:7,$c:7,$d:7,$e:7,$f:7,$g:7>>) >>),
     <<1:31/little,2:31/little,3:31/little,4:31/little>> =
 	cs(<< <<X:31/little>> || <<X:31>> <= <<1:31,2:31,3:31,4:31>> >>),
     <<1:31/little,2:31/little,3:31/little,4:31/little>> =
@@ -131,10 +130,47 @@ mixed(Config) when is_list(Config) ->
 
     %% OTP-16899: Nested binary comprehensions would fail to load.
     <<0,1,0,2,0,3,99>> = mixed_nested([1,2,3]),
+
+    %% The compiler would crash in v3_kernel.
+    <<42:32,75:32,253:32,(42 bsl 8 bor 75):32>> =
+        cs_default(mixed_size(id([8,16]), <<42,75,253>>)),
+
+    silly_lc_bc(5),
+
+    gen_data(0),
+    gen_data(256),
+    gen_data(512),
+
     cs_end().
 
 mixed_nested(L) ->
     << << << << E:16 >> || E <- L >> || true >>/binary, 99:(id(8))>>.
+
+mixed_size(List, Bin) ->
+    << <<X:32>> || Size <- List, <<X:Size>> <= Bin >>.
+
+silly_lc_bc(N) when N > 0 ->
+    Bin = iolist_to_binary(silly_lc(N)),
+    Bin = cs(silly_bc(N)),
+    Size = byte_size(Bin),
+    Size = 5 bsl N,
+    silly_lc_bc(N - 1);
+silly_lc_bc(_) -> ok.
+
+silly_bc(0) ->
+    <<0, 1, 2, 3, 4>>;
+silly_bc(N) ->
+    << <<X, X>> || <<X>> <= silly_bc(N - 1) >>.
+
+silly_lc(0) ->
+    [0, 1, 2, 3, 4];
+silly_lc(N) ->
+    [[X, X] || X <- silly_lc(N - 1)].
+
+gen_data(Size) ->
+    Data = cs(<< <<C>> || C <- lists:seq(0, Size-1) >>),
+    Data = << <<C>> || _ <- lists:seq(1, Size div 256),
+                       C <- lists:seq(0, 255) >>.
 
 filters(Config) when is_list(Config) ->
     cs_init(),
@@ -162,6 +198,7 @@ filters(Config) when is_list(Config) ->
                                  [] -> false;
                                  [_|_] -> true
                              end >>),
+    <<77,42>> = cs_default(<< <<B>> || <<B>> <- [<<77>>,<<1,2>>,<<42>>] >>),
 
     %% Filtering by a non-matching pattern.
     <<"abd">> = cs_default(<< <<X:8>> ||
@@ -217,7 +254,15 @@ nomatch(Config) when is_list(Config) ->
     NaN = <<(-1):32>>,
     <<>> = << <<"a">> || <<_:32/float>> <= NaN >>,
 
+    <<1:32,2:32,3:32>> = nomatch_1(<<1,2,3>>, 8),
+    <<>> = nomatch_1(<<1,2,3>>, bad),
+
+    <<>> = << <<>> || <<_:8>> <= <<>> >>,
+
     ok.
+
+nomatch_1(Bin, Size) ->
+    << <<X:32>> || <<X:Size>> <= Bin >>.
 
 sizes(Config) when is_list(Config) ->
     cs_init(),
@@ -311,7 +356,7 @@ sizes(Config) when is_list(Config) ->
     <<17:9,19:9>> = Fun12(<<17:6,19:6>>, 9, 6),
 
     Fun13 = fun(Sz) ->
-		    cs_default(<< <<C:8>> || <<C:4>> <= <<1:4,2:4,3:4,0:Sz>> >>)
+		    cs(<< <<C:8>> || <<C:4>> <= <<1:4,2:4,3:4,0:Sz>> >>)
    	    end,
     <<1,2,3>> = Fun13(0),
     <<1,2,3,0>> = Fun13(4),
@@ -322,6 +367,12 @@ sizes(Config) when is_list(Config) ->
 
     <<0:3>> = cs_default(<< <<0:S>> || S <- [0,1,2] >>),
     <<0:3>> = cs_default(<< <<0:S>> || <<S>> <= <<0,1,2>> >>),
+
+    Fun14 = fun(L, B) ->
+                    cs_default(<< <<X:32>> || Size <- L, <<X:Size>> <= B >>)
+            end,
+    <<$a:32,$b:32,$c:32,($a bsl 8 bor $b):32>> = Fun14([8,16], <<"abc">>),
+    <<$a:32,$b:32,$c:32>> = Fun14([8,bad], <<"abc">>),
 
     {'EXIT',_} = (catch << <<C:4>> || <<C:8>> <= {1,2,3} >>),
 
@@ -334,8 +385,8 @@ sizes(Config) when is_list(Config) ->
 general_expressions(_) ->
     cs_init(),
 
-    <<1,2,3>> = cs_default(<< begin <<1,2,3>> end || _ <- [1] >>),
-    <<"abc">> = cs_default(<< begin <<"abc">> end || _ <- [1] >>),
+    <<1,2,3>> = cs(<< begin <<1,2,3>> end || _ <- [1] >>),
+    <<"abc">> = cs(<< begin <<"abc">> end || _ <- [1] >>),
     <<1,2,3>> = cs_default(<< begin
                                   I = <<(I0+1)>>,
                                   id(I)
@@ -411,6 +462,27 @@ no_generator(_Config) ->
 
     ok.
 
+zero_pattern(Config) ->
+    case is_atom(Config) of
+        true ->
+            %% Patterns that match zero bits loops forever, so we must
+            %% be careful not to execute them.
+            _ = << <<>> || <<>> <= <<>> >>,
+            _ = << <<42>> || <<>> <= <<42>> >>,
+            _ = <<
+                  <<>> ||
+                    <<>> <= << >>,
+                    <<3:back>> <= << >>
+                >>,
+            _ = <<
+                  <<>> ||
+                    <<>> <= <<>>,
+                    <<>> <- << <<>> || area >>
+                >>;
+        false ->
+            ok
+    end.
+
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
     ok.
@@ -421,9 +493,18 @@ cs_end() ->
 
 %% Verify that the allocated size is exact (rounded up to the nearest byte).
 cs(Bin) ->
-    ByteSize = byte_size(Bin),
-    {refc_binary,ByteSize,{binary,ByteSize},_} = 
-	erts_debug:get_internal_state({binary_info,Bin}),
+    case ?MODULE of
+        bs_bincomp_no_opt_SUITE ->
+            ok;
+        bs_bincomp_no_ssa_opt_SUITE ->
+            ok;
+        bs_bincomp_post_opt_SUITE ->
+            ok;
+        _ ->
+            ByteSize = byte_size(Bin),
+            {refc_binary,ByteSize,{binary,ByteSize},_} =
+                erts_debug:get_internal_state({binary_info,Bin})
+    end,
     Bin.
 
 %% Verify that the allocated size of the binary is the default size.

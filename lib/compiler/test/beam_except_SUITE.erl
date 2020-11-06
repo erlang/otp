@@ -52,7 +52,7 @@ end_per_group(_GroupName, Config) ->
 multiple_allocs(_Config) ->
     {'EXIT',{{badmatch,#{true:=[p]}},_}} =
 	 (catch could(pda, 0.0, {false,true}, {p})),
-    {'EXIT',{function_clause,_}} = (catch place(lee)),
+    {'EXIT',{{bad_generator,0},_}} = (catch place(lee)),
     {'EXIT',{{badmatch,wanted},_}} = (catch conditions()),
 
     ok.

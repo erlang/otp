@@ -28,6 +28,7 @@
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
 -export([is_boolean_type/1,
+         is_numerical_type/1,
          get_bs_matchable_unit/1,
          is_bs_matchable_type/1,
          get_singleton_value/1,
@@ -463,6 +464,11 @@ is_boolean_type(#t_union{}=T) ->
     is_boolean_type(normalize(T));
 is_boolean_type(_) ->
     false.
+
+-spec is_numerical_type(type()) -> boolean().
+is_numerical_type(#t_integer{}) -> true;
+is_numerical_type(number) -> true;
+is_numerical_type(_) -> false.
 
 -spec set_tuple_element(Index, Type, Elements) -> Elements when
       Index :: pos_integer(),

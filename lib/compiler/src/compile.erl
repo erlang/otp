@@ -2008,6 +2008,7 @@ pre_load() ->
 	 beam_opcodes,
 	 beam_peep,
 	 beam_ssa,
+	 beam_ssa_bc_size,
 	 beam_ssa_bool,
 	 beam_ssa_bsm,
 	 beam_ssa_codegen,

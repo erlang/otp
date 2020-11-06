@@ -697,8 +697,8 @@ enter_cg(Func, As0, Le, St0) ->
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
 %%  Generate code for a guard BIF or primop.
 
-bif_cg(#k_bif{op=#k_internal{name=Name},args=As,ret=Rs}, _Le, St) ->
-    internal_cg(Name, As, Rs, St);
+bif_cg(#k_bif{anno=A,op=#k_internal{name=Name},args=As,ret=Rs}, _Le, St) ->
+    internal_cg(line_anno(A), Name, As, Rs, St);
 bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}},
               args=As,ret=Rs}, Le, St) ->
     bif_cg(Name, As, Rs, Le, St).
@@ -706,7 +706,7 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}}
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 
-internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
+internal_cg(_Anno, raise, As, [#k_var{name=Dst0}], St0) ->
     Args = ssa_args(As, St0),
     {Dst,St} = new_ssa_var(Dst0, St0),
     Resume = #b_set{op=resume,dst=Dst,args=Args},
@@ -724,13 +724,13 @@ internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
             Is = [Resume,make_uncond_branch(Fail),#cg_unreachable{}],
             {Is,St}
     end;
-internal_cg(recv_peek_message, [], [#k_var{name=Succeeded0},
-                                    #k_var{name=Dst0}], St0) ->
+internal_cg(_Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
+                                           #k_var{name=Dst0}], St0) ->
     {Dst,St1} = new_ssa_var(Dst0, St0),
     St = new_succeeded_value(Succeeded0, Dst, St1),
     Set = #b_set{op=peek_message,dst=Dst,args=[]},
     {[Set],St};
-internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
+internal_cg(_Anno, recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
     case ssa_args(As, St0) of
         [#b_literal{val=0}] ->
             %% If beam_ssa_opt is run (which is default), the
@@ -771,19 +771,19 @@ internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
             Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
             {[Set|Succ],St}
     end;
-internal_cg(Op0, As, [#k_var{name=Dst0}], St0) when is_atom(Op0) ->
+internal_cg(Anno, Op0, As, [#k_var{name=Dst0}], St0) when is_atom(Op0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
     Args = ssa_args(As, St),
     Op = fix_op(Op0, St),
-    Set = #b_set{op=Op,dst=Dst,args=Args},
+    Set = #b_set{anno=Anno,op=Op,dst=Dst,args=Args},
     {[Set],St};
-internal_cg(Op0, As, [], St0) when is_atom(Op0) ->
+internal_cg(Anno, Op0, As, [], St0) when is_atom(Op0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     Args = ssa_args(As, St),
     Op = fix_op(Op0, St),
-    Set = #b_set{op=Op,dst=Dst,args=Args},
+    Set = #b_set{anno=Anno,op=Op,dst=Dst,args=Args},
     {[Set],St}.
 
 fix_op(make_fun, #cg{no_make_fun3=true}) -> old_make_fun;
@@ -1153,6 +1153,8 @@ cg_size_bif({Name,Src}, FailCtx, St0) ->
 
 cg_size_add(#b_literal{val=0}, Val, #b_literal{val=1}, _FailCtx, St) ->
     {Val,[],St};
+cg_size_add(#b_literal{val=A}, #b_literal{val=B}, #b_literal{val=U}, _FailCtx, St) ->
+    {#b_literal{val=A+B*U},[],St};
 cg_size_add(A, B, Unit, FailCtx, St0) ->
     {Dst,St1} = new_ssa_var('@ssa_sum', St0),
     {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
