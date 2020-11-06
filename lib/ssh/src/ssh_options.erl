@@ -407,12 +407,6 @@ default(server) ->
             class => user_option
            },
 
-      hello_timeout =>
-          #{default => 30*1000,
-            chk => fun check_timeout/1,
-            class => user_option
-           },
-
       max_sessions =>
           #{default => infinity,
             chk => fun check_pos_integer/1,
@@ -602,17 +596,6 @@ default(client) ->
             class => user_option
            },
 
-      alive_params =>
-          #{default => {0, infinity},
-            chk => fun({AliveCount, AliveIntervalSeconds}) ->
-                        is_integer(AliveCount) andalso (
-                            is_integer(AliveIntervalSeconds)
-                            orelse AliveIntervalSeconds == infinity);
-                      (F) -> is_function(F, 0)
-                   end,
-            class => user_option
-           },
-
 %%%%% Undocumented
       keyboard_interact_fun =>
           #{default => undefined,
@@ -755,6 +738,12 @@ default(common) ->
             },
 
 %%%%% Undocumented
+      hello_timeout =>
+          #{default => 30*1000,
+            chk => fun check_timeout/1,
+            class => user_option
+           },
+
        transport =>
            #{default => ?DEFAULT_TRANSPORT,
              chk => fun({A,B,C}) ->

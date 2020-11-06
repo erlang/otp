@@ -712,7 +712,7 @@ handle_event(_, {version_exchange,Version}, {hello,Role}, D0) ->
 
 handle_event(_, no_hello_received, {hello,_Role}=StateName, D0) ->
     {Shutdown, D} =
-        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, "No HELLO recieved", StateName, D0),
+        ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, "No HELLO recieved", StateName, D0),
     {stop, Shutdown, D};
 		  
 %%% ######## {kexinit, client|server, init|renegotiate} ####
