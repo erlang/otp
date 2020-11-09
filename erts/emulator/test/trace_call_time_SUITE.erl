@@ -35,7 +35,7 @@
 
 -export([seq/3, seq_r/3]).
 -export([loaded/1, a_function/1, a_called_function/1, dec/1, nif_dec/1, dead_tracer/1,
-        return_stop/1]).
+        return_stop/1,catch_crash/1]).
 
 -define(US_ERROR, 10000).
 -define(R_ERROR, 0.8).
@@ -91,7 +91,8 @@ all() ->
 	false ->
 	    [basic, on_and_off, info, pause_and_restart, scheduling,
              disable_ongoing,
-	     combo, bif, nif, called_function, dead_tracer, return_stop]
+	     combo, bif, nif, called_function, dead_tracer, return_stop,
+             catch_crash]
     end.
 
 not_run(Config) when is_list(Config) ->
@@ -637,6 +638,25 @@ spinner(N) ->
 quicky() ->
     done.
 
+%% OTP-16994: next_catch returned a bogus stack pointer when call_time tracing
+%% was enabled, crashing the emulator.
+catch_crash(_Config) ->
+    Fun = id(fun() -> catch_crash_1() end),
+
+    _ = erlang:trace_pattern({?MODULE,'_','_'}, true, [call_time]),
+    _ = erlang:trace(self(), true, [call]),
+
+    Res = (catch Fun()),
+
+    _ = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    _ = erlang:trace(self(), false, [call]),
+
+    id(Res),
+
+    ok.
+
+catch_crash_1() ->
+    error(crash).
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

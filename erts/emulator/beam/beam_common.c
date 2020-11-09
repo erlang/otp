@@ -592,32 +592,21 @@ next_catch(Process* c_p, Eterm *reg) {
 	else if (is_CP(*ptr)) {
 	    prev = ptr;
 	    if (BeamIsReturnTrace(cp_val(*prev))) {
-		/* Skip stack frame variables */
-		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
-		    if (is_catch(*ptr) && active_catches) goto found_catch;
-		}
 		if (cp_val(*prev) == beam_exception_trace) {
-                    ErtsCodeMFA *mfa = (ErtsCodeMFA*)cp_val(ptr[0]);
+                    ErtsCodeMFA *mfa = (ErtsCodeMFA*)cp_val(ptr[1]);
 		    erts_trace_exception(c_p, mfa,
 					 reg[1], reg[2],
-                                         ERTS_TRACER_FROM_ETERM(ptr+1));
+                                         ERTS_TRACER_FROM_ETERM(ptr+2));
 		}
-		/* Skip return_trace parameters */
-		ptr += 2;
+		/* Skip MFA, tracer, and CP. */
 	    } else if (BeamIsReturnToTrace(cp_val(*prev))) {
-		/* Skip stack frame variables */
-		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
-		    if (is_catch(*ptr) && active_catches) goto found_catch;
-		}
 		have_return_to_trace = !0; /* Record next cp */
 		return_to_trace_ptr = NULL;
-	    } else if (BeamIsReturnTimeTrace(cp_val(*prev))) {
-		/* Skip stack frame variables */
-		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
-		    if (is_catch(*ptr) && active_catches) goto found_catch;
-		}
-		/* Skip return_trace parameters */
+		/* Skip CP. */
 		ptr += 1;
+	    } else if (BeamIsReturnTimeTrace(cp_val(*prev))) {
+		/* Skip prev_info and CP. */
+		ptr += 2;
 	    } else {
 		if (have_return_to_trace) {
 		    /* Record this cp as possible return_to trace cp */
