@@ -304,15 +304,29 @@
     <datatype>
       <name name="cert"/>
       <desc>
-	<p>The DER-encoded users certificate. If this option
-	is supplied, it overrides option <c>certfile</c>.</p>
+	<p>The DER-encoded users certificate. Note that the cert option may also
+	be a list of DER-encoded certificates where the first one is the users
+	certificate and the rest of the certificates constitutes the
+	certificate chain. For maximum interoperability the
+	certificates in the chain should be in the correct order, the
+	chain will be sent as is to the peer. If chain certificates
+	are not provided, certificates from <seetype
+	marker="#client_cacerts">client_cacerts()</seetype>, <seetype
+	marker="#server_cacerts">server_cacerts()</seetype>, or
+	<seetype marker="#client_cafile">client_cafile()</seetype>,
+	<seetype marker="#server_cafile">server_cafile()</seetype> are
+	used to construct the chain.  If this option is supplied, it
+	overrides option <c>certfile</c>.</p>
       </desc>
     </datatype>
     
     <datatype>
       <name name="cert_pem"/>
       <desc>
-	<p>Path to a file containing the user certificate on PEM format.</p>
+	<p>Path to a file containing the user certificate on PEM format or possible several
+	certificates where the first one is the users certificate and the rest of the certificates
+	constitutes the certificate chain. For more details see <seetype marker="#cert">cert()</seetype>,
+	</p>
       </desc>
     </datatype>
     

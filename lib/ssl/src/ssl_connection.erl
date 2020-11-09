@@ -804,12 +804,12 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
            crl_db_info := CRLDbHandle,
            private_key := Key,
            dh_params := DHParams,
-           own_certificate := OwnCert}} =
+           own_certificates := OwnCerts}} =
 	ssl_config:init(Opts, Role), 
     TimeStamp = erlang:monotonic_time(),
     Session = State0#state.session,
     
-    State0#state{session = Session#session{own_certificate = OwnCert,
+    State0#state{session = Session#session{own_certificates = OwnCerts,
                                            time_stamp = TimeStamp},
                  static_env = InitStatEnv0#static_env{
                                 file_ref_db = FileRefHandle,
@@ -1116,7 +1116,7 @@ certify(internal, #certificate_request{},
                      Version, ?FUNCTION_NAME, State);
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client},
-               session = #session{own_certificate = undefined}} = State, Connection) ->
+               session = #session{own_certificates = undefined}} = State, Connection) ->
     %% The client does not have a certificate and will send an empty reply, the server may fail 
     %% or accept the connection by its own preference. No signature algorihms needed as there is
     %% no certificate to verify.
@@ -1125,7 +1125,7 @@ certify(internal, #certificate_request{} = CertRequest,
 	#state{static_env = #static_env{role = client},
                handshake_env = HsEnv,
                connection_env = #connection_env{negotiated_version = Version},
-               session = #session{own_certificate = Cert},
+               session = #session{own_certificates = [Cert|_]},
                ssl_options = #{signature_algs := SupportedHashSigns}} = State, Connection) ->
     case ssl_handshake:select_hashsign(CertRequest, Cert, 
                                        SupportedHashSigns, ssl:tls_version(Version)) of
@@ -1905,9 +1905,9 @@ certify_client(#state{static_env = #static_env{role = client,
                                                cert_db = CertDbHandle,
                                                cert_db_ref = CertDbRef},
                       client_certificate_requested = true,
-		      session = #session{own_certificate = OwnCert}}
+		      session = #session{own_certificates = OwnCerts}}
 	       = State, Connection) ->
-    Certificate = ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, client),
+    Certificate = ssl_handshake:certificate(OwnCerts, CertDbHandle, CertDbRef, client),
     Connection:queue_handshake(Certificate, State);
 certify_client(#state{client_certificate_requested = false} = State, _) ->
     State.
@@ -1919,9 +1919,9 @@ verify_client_cert(#state{static_env = #static_env{role = client},
                                                            private_key = PrivateKey},
                           client_certificate_requested = true,
 			  session = #session{master_secret = MasterSecret,
-					     own_certificate = OwnCert}} = State, Connection) ->
+					     own_certificates = OwnCerts}} = State, Connection) ->
 
-    case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret,
+    case ssl_handshake:client_certificate_verify(OwnCerts, MasterSecret,
 						 ssl:tls_version(Version), HashSign, PrivateKey, Hist) of
         #certificate_verify{} = Verified ->
            Connection:queue_handshake(Verified, State);
@@ -2039,8 +2039,8 @@ certify_server(#state{handshake_env = #handshake_env{kex_algorithm = KexAlg}} =
     State;
 certify_server(#state{static_env = #static_env{cert_db = CertDbHandle,
                                                cert_db_ref = CertDbRef},
-		      session = #session{own_certificate = OwnCert}} = State, Connection) ->
-    case ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, server) of
+		      session = #session{own_certificates = OwnCerts}} = State, Connection) ->
+    case ssl_handshake:certificate(OwnCerts, CertDbHandle, CertDbRef, server) of
 	Cert = #certificate{} ->
 	    Connection:queue_handshake(Cert, State);
 	Alert = #alert{} ->
@@ -3208,10 +3208,10 @@ handle_sni_hostname(Hostname,
                    crl_db_info := CRLDbHandle,
                    private_key := Key,
                    dh_params := DHParams,
-                   own_certificate := OwnCert}} =
+                   own_certificates := OwnCerts}} =
                  ssl_config:init(NewOptions, Role),
              State0#state{
-               session = State0#state.session#session{own_certificate = OwnCert},
+               session = State0#state.session#session{own_certificates = OwnCerts},
                static_env = InitStatEnv0#static_env{
                                         file_ref_db = FileRefHandle,
                                         cert_db_ref = Ref,

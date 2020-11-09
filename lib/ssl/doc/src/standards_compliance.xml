@@ -1464,6 +1464,18 @@
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Arbitrary certificate chain orderings</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.2</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">Extraneous certificates in chain</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>23.2</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">status_request (RFC6066)</cell>
 	<cell align="left" valign="middle"><em>NC</em></cell>
 	<cell align="left" valign="middle"></cell>
