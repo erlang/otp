@@ -101,7 +101,7 @@ usage: factorial integer</pre>
           a normal Erlang module. The first line is intended to be the
           interpreter line, which invokes <c>escript</c>.</p>
         <p>However, if you invoke the <c>escript</c> as follows,
-          the contents of the first line does not matter, but it
+          the contents of the first line do not matter, but it
           cannot contain Erlang code as it will be ignored:</p>
         <pre>
 $ <input>escript factorial 5</input></pre>
