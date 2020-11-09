@@ -281,11 +281,6 @@ obj:*/ssleay.*
 Crypto internal... loading gives expected errors when curves are tried. But including <openssl/err.h> and removing them triggers compiler errors on Windows
 Memcheck:Leak
 fun:malloc
-fun:CRYPTO_malloc
-fun:lh_new
-...
-fun:ERR_get_state
-fun:ERR_put_error
 ...
 fun:valid_curve
 fun:init_curves
