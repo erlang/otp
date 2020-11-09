@@ -13335,7 +13335,7 @@ void encode_cmsgs(ErlNifEnv*       env,
             unsigned char* dataP   = UCHARP(CMSG_DATA(currentP));
             size_t         dataPos = dataP - cmsgBinP->data;
             size_t         dataLen =
-                currentP->cmsg_len - (UCHARP(currentP)-dataP);
+                (UCHARP(currentP) + currentP->cmsg_len) - dataP;
             ERL_NIF_TERM
                 cmsgHdr,
                 keys[]  =
@@ -13851,8 +13851,13 @@ BOOLEAN_T esock_cmsg_encode_recverr(ErlNifEnv                *env,
                                esock_atom_info,
                                esock_atom_data,
                                atom_offender};
-        ERL_NIF_TERM vals[] = {ee_errno, ee_origin, ee_type, ee_code,
-                               ee_info, ee_data, eSockAddr};
+        ERL_NIF_TERM vals[] = {ee_errno,
+                               ee_origin,
+                               ee_type,
+                               ee_code,
+                               ee_info,
+                               ee_data,
+                               eSockAddr};
         unsigned int numKeys = NUM(keys);
         unsigned int numVals = NUM(vals);
 
