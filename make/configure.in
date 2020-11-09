@@ -241,10 +241,6 @@ AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
 to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]))
 
-AC_ARG_ENABLE(hipe,
-AS_HELP_STRING([--enable-hipe], [enable hipe support])
-AS_HELP_STRING([--disable-hipe], [disable hipe support]))
-
 AC_ARG_ENABLE(native-libs,
 AS_HELP_STRING([--enable-native-libs],
                [compile Erlang libraries to native code]))
@@ -380,12 +376,6 @@ if test X${enable_m32_build} = Xyes; then
 	LDFLAGS="-m32 $LDFLAGS"
 	export LDFLAGS
 fi
-
-NATIVE_LIBS_ENABLED=
-if test X${enable_native_libs} = Xyes -a X${enable_hipe} != Xno; then
-  NATIVE_LIBS_ENABLED=yes
-fi
-AC_SUBST(NATIVE_LIBS_ENABLED)
 
 if test $CROSS_COMPILING = no; then
    case $host_os in

@@ -29,7 +29,7 @@
 -export([env_compiler_options/0]).
 
 %% Erlc interface.
--export([compile/3,compile_beam/3,compile_asm/3,compile_core/3]).
+-export([compile/3,compile_asm/3,compile_core/3]).
 
 %% Utility functions for compiler passes.
 -export([run_sub_passes/2]).
@@ -49,8 +49,8 @@
 
 -type abstract_code() :: [erl_parse:abstract_form()].
 
-%% Internal representations used for 'from_asm' and 'from_beam' compilation can
-%% also be valid, but have no relevant types defined.
+%% Internal representations used for 'from_asm' compilation can also be valid,
+%% but have no relevant types defined.
 -type forms() :: abstract_code() | cerl:c_module().
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
@@ -294,8 +294,6 @@ expand_opt_before_21(Os) ->
 
 -spec format_error(term()) -> iolist().
 
-format_error(no_native_support) ->
-    "this system is not configured for native-code compilation.";
 format_error(no_crypto) ->
     "this system is not configured with crypto support.";
 format_error(bad_crypto_key) ->
@@ -306,12 +304,6 @@ format_error({unimplemented_instruction,Instruction}) ->
     io_lib:fwrite("native-code compilation failed because of an "
                   "unimplemented instruction (~s).",
 		  [Instruction]);
-format_error({native, E}) ->
-    io_lib:fwrite("native-code compilation failed with reason: ~tP.",
-		  [E, 25]);
-format_error({native_crash,E,Stk}) ->
-    io_lib:fwrite("native-code compilation crashed with reason: ~tP.\n~tP\n",
-		  [E,25,Stk,25]);
 format_error({open,E}) ->
     io_lib:format("open error '~ts'", [file:format_error(E)]);
 format_error({epp,E}) ->
@@ -576,30 +568,27 @@ mpf(Ms) ->
 
 passes(Type, Opts) ->
     {Ext,Passes0} = passes_1(Opts),
+
     Passes1 = case Type of
-		  file ->
+                  file ->
                       Passes0;
-		  forms ->
+                  forms ->
                       fix_first_pass(Passes0)
-	      end,
-    Passes = select_passes(Passes1, Opts),
+              end,
+
+    Passes2 = select_passes(Passes1, Opts),
 
     %% If the last pass saves the resulting binary to a file,
     %% insert a first pass to remove the file (unless the
     %% source file is a BEAM file).
-    {Ext,case last(Passes) of
-	     {save_binary,_TestFun,_Fun} ->
-		 case Passes of
-		     [{read_beam_file,_}|_] ->
-			 %% The BEAM is both input and output.
-			 %% Don't remove it.
-			 Passes;
-		     _ ->
-			 [?pass(remove_file)|Passes]
-		 end;
-	     _ ->
-		 Passes
-	 end}.
+    Passes = case last(Passes2) of
+                 {save_binary, _TestFun, _Fun} ->
+                     [?pass(remove_file) | Passes2];
+                 _ ->
+                     Passes2
+             end,
+
+    {Ext, Passes}.
 
 passes_1([Opt|Opts]) ->
     case pass(Opt) of
@@ -613,8 +602,6 @@ pass(from_core) ->
     {".core",[?pass(parse_core)|core_passes(non_verified_core)]};
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
-pass(from_beam) ->
-    {".beam",[?pass(read_beam_file)|binary_passes()]};
 pass(_) -> none.
 
 %% For compilation from forms, replace the first pass with a pass
@@ -625,8 +612,6 @@ fix_first_pass([{parse_core,_}|Passes]) ->
     [?pass(get_module_name_from_core)|Passes];
 fix_first_pass([{beam_consult_asm,_}|Passes]) ->
     [?pass(get_module_name_from_asm)|Passes];
-fix_first_pass([{read_beam_file,_}|Passes]) ->
-    [?pass(get_module_name_from_beam)|Passes];
 fix_first_pass([_|Passes]) ->
     %% When compiling from abstract code, the module name
     %% will be set after running the v3_core pass.
@@ -929,7 +914,6 @@ asm_passes() ->
 
 binary_passes() ->
     [{iff,'to_dis',?pass(to_dis)},
-     {native_compile,fun test_native/1,fun native_compile/2},
      {unless,binary,?pass(save_binary,not_werror)}
     ].
 
@@ -996,45 +980,6 @@ get_module_name_from_asm({Mod,_,_,_,_}=Asm, St) ->
 get_module_name_from_asm(Asm, St) ->
     %% Invalid Beam assembly code. Let it crash in a later pass.
     {ok,Asm,St}.
-
-read_beam_file(_Code, St) ->
-    case file:read_file(St#compile.ifile) of
-	{ok,Beam} ->
-	    Infile = St#compile.ifile,
-	    case no_native_compilation(Infile, St) of
-		true ->
-		    {ok,none,St#compile{module=none}};
-		false ->
-		    Mod0 = filename:rootname(filename:basename(Infile)),
-		    Mod = list_to_atom(Mod0),
-		    {ok,Beam,St#compile{module=Mod,ofile=Infile}}
-	    end;
-	{error,E} ->
-	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}}
-    end.
-
-get_module_name_from_beam(Beam, St) ->
-    case beam_lib:info(Beam) of
-        {error,beam_lib,Error} ->
-	    Es = [{"((forms))",[{none,beam_lib,Error}]}],
-            {error,St#compile{errors=St#compile.errors ++ Es}};
-        Info ->
-            {module,Mod} = keyfind(module, 1, Info),
-            {ok,Beam,St#compile{module=Mod}}
-    end.
-
-no_native_compilation(BeamFile, #compile{options=Opts0}) ->
-    case beam_lib:chunks(BeamFile, ["CInf"]) of
-	{ok,{_,[{"CInf",Term0}]}} ->
-	    Term = binary_to_term(Term0),
-
-	    %% Compiler options in the beam file will override
-	    %% options passed to the compiler.
-	    Opts = proplists:get_value(options, Term, []) ++ Opts0,
-	    member(no_new_funs, Opts) orelse not is_native_enabled(Opts);
-	_ -> false
-    end.
 
 parse_module(_Code, St0) ->
     case do_parse_module(utf8, St0) of
@@ -1674,85 +1619,6 @@ paranoid_absname(File) ->
 	    File
     end.
 
-test_native(#compile{options=Opts}) ->
-    %% This test is done late, in case some other option has turned off native.
-    %% 'native' given on the command line can be overridden by
-    %% 'no_native' in the module itself.
-    is_native_enabled(Opts).
-
-is_native_enabled([native|_]) -> true;
-is_native_enabled([no_native|_]) -> false;
-is_native_enabled([_|Opts]) -> is_native_enabled(Opts);
-is_native_enabled([]) -> false.
-
-native_compile(none, St) -> {ok,none,St};
-native_compile(Code, St) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    Ws = [{St#compile.ifile,[{none,compile,no_native_support}]}],
-	    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-	_ ->
-	    native_compile_1(Code, St)
-    end.
-
-native_compile_1(Code, St) ->
-    Opts0 = St#compile.options,
-    IgnoreErrors = member(ignore_native_errors, Opts0),
-    Opts = case keyfind(hipe, 1, Opts0) of
-	       {hipe,L} when is_list(L) -> L;
-	       {hipe,X} -> [X];
-	       _ -> []
-	   end,
-    try
-        dialyzer_whining_inhibitor(hipe, compile,
-                                   [St#compile.module,
-                                    St#compile.core_code,
-                                    Code,
-                                    Opts]) of
-	{ok,{_Type,Bin}=T} when is_binary(Bin) ->
-	    {ok,embed_native_code(Code, T),St};
-	{error,R} ->
-	    case IgnoreErrors of
-		true ->
-		    Ws = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-		false ->
-		    Es = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {error,St#compile{errors=St#compile.errors ++ Es}}
-	    end
-    catch
-        exit:{unimplemented_instruction,_}=Unimplemented ->
-            Ws = [{St#compile.ifile,
-                   [{none,?MODULE,Unimplemented}]}],
-            {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-	Class:R:Stack ->
-	    case IgnoreErrors of
-		true ->
-		    Ws = [{St#compile.ifile,
-			   [{none,?MODULE,{native_crash,R,Stack}}]}],
-		    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-		false ->
-		    erlang:raise(Class, R, Stack)
-	    end
-    end.
-
-%% We have an optional runtime dependency on HiPE, but there's no way to
-%% suppress warnings for calls to unknown functions when -Wunknown is on, so
-%% we'll run all HiPE calls through here to suppress warnings when HiPE hasn't
-%% been compiled. :(
-dialyzer_whining_inhibitor(M, F, A) ->
-  apply(id(M), id(F), id(A)).
-
-id(I) -> I.
-
-embed_native_code(Code, {Architecture,NativeCode}) ->
-    {ok, _, Chunks0} = beam_lib:all_chunks(Code),
-    ChunkName = hipe_unified_loader:chunk_name(Architecture),
-    Chunks1 = lists:keydelete(ChunkName, 1, Chunks0),
-    Chunks = Chunks1 ++ [{ChunkName,NativeCode}],
-    {ok,BeamPlusNative} = beam_lib:build_module(Chunks),
-    BeamPlusNative.
-
 %% effects_code_generation(Option) -> true|false.
 %%  Determine whether the option could have any effect on the
 %%  generated code in the BEAM file (as opposed to how
@@ -2073,15 +1939,6 @@ compile(File0, _OutFile, Options) ->
 	Other -> Other
     end.
 
--spec compile_beam(file:filename(), _, #options{}) -> 'ok' | 'error'.
-
-compile_beam(File0, _OutFile, Opts) ->
-    File = shorten_filename(File0),
-    case file(File, [from_beam|make_erl_options(Opts)]) of
-	{ok,_Mod} -> ok;
-	Other -> Other
-    end.
-
 -spec compile_asm(file:filename(), _, #options{}) -> 'ok' | 'error'.
 
 compile_asm(File0, _OutFile, Opts) ->
@@ -2132,8 +1989,7 @@ make_erl_options(Opts) ->
 	case OutputType of
 	    undefined -> [];
 	    jam -> [jam];
-	    beam -> [beam];
-	    native -> [native]
+	    beam -> [beam]
 	end,
     Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir}|
 	        [{i, Dir} || Dir <- Includes]] ++ Specific.

@@ -24,13 +24,6 @@
 
 #include "wxe_impl.h"
 
-// Until fixed in emulator
-#ifndef _WIN32
-extern "C" {
-  extern void erts_thread_disable_fpe(void);
-}
-#endif
-
 ErlDrvTid wxe_thread;
 
 ErlDrvMutex *wxe_status_m;
@@ -139,9 +132,7 @@ void *wxe_main_loop(void *vpdl)
 
   // Disable floating point execption if they are on.
   // This should be done in emulator but it's not in yet.
-#ifndef _WIN32
-  erts_thread_disable_fpe();
-#else
+#ifdef _WIN32
   // Setup that wxWidgets should look for cursors and icons in
   // this dll and not in werl.exe (which is the default)
   HMODULE WXEHandle = GetModuleHandle(_T("wxe_driver"));

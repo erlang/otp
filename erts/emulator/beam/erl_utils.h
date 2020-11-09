@@ -116,7 +116,6 @@ int eq(Eterm, Eterm);
 ERTS_GLB_INLINE Sint erts_cmp(Eterm, Eterm, int, int);
 ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b);
 
-Sint cmp(Eterm a, Eterm b);
 Sint erts_cmp_compound(Eterm, Eterm, int, int);
 
 #define CMP(A,B)                         erts_cmp(A,B,0,0)

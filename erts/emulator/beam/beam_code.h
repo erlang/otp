@@ -115,9 +115,6 @@ struct BeamCodeLineTab_ {
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
 
-int erts_is_module_native(const BeamCodeHeader* code);
-int erts_is_function_native(const ErtsCodeInfo* ci);
-
 struct ErtsLiteralArea_;
 void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 

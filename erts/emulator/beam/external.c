@@ -37,9 +37,7 @@
 #include "erl_process.h"
 #include "error.h"
 #include "external.h"
-#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
-#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "big.h"
 #include "dist.h"
 #include "erl_binary.h"
@@ -1379,8 +1377,6 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
     }
 }
 
-HIPE_WRAPPER_BIF_DISABLE_GC(term_to_binary, 1)
-
 BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 {
     Eterm res = erts_term_to_binary_int(BIF_P, BIF_term_to_binary_1,
@@ -1399,8 +1395,6 @@ BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 	BIF_RET(res);
     }
 }
-
-HIPE_WRAPPER_BIF_DISABLE_GC(term_to_iovec, 1)
 
 BIF_RETTYPE term_to_iovec_1(BIF_ALIST_1)
 {
@@ -1488,8 +1482,6 @@ parse_t2b_opts(Eterm opts, Uint *flagsp, int *levelp, int *iovecp, Uint *fsizep)
     return !0; /* ok */
 }
 
-HIPE_WRAPPER_BIF_DISABLE_GC(term_to_binary, 2)
-
 BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 {
     int level;
@@ -1516,8 +1508,6 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 	BIF_RET(res);
     }
 }
-
-HIPE_WRAPPER_BIF_DISABLE_GC(term_to_iovec, 2)
 
 BIF_RETTYPE term_to_iovec_2(BIF_ALIST_2)
 {
@@ -2060,8 +2050,6 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
     return ret_val;
 }
 
-HIPE_WRAPPER_BIF_DISABLE_GC(binary_to_term, 1)
-
 BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
 {
     B2TContext ctx;
@@ -2074,8 +2062,6 @@ BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
     ctx.arg[1] = THE_NON_VALUE;
     return binary_to_term_int(BIF_P, BIF_ARG_1, &ctx);
 }
-
-HIPE_WRAPPER_BIF_DISABLE_GC(binary_to_term, 2)
 
 BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
 {
@@ -4260,9 +4246,6 @@ dec_term_atom_common:
 	case NEW_FLOAT_EXT:
 	    {
 		FloatDef ff;
-#ifndef NO_FPE_SIGNALS
-		volatile unsigned long *fpexnp = erts_get_current_fp_exception();
-#endif
 
 #if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
 		ff.fw[0] = get_int32(ep);
@@ -4274,9 +4257,12 @@ dec_term_atom_common:
 		ep += 4;
 		ff.fw[0] = get_int32(ep);
 		ep += 4;
-#endif		
-		__ERTS_FP_CHECK_INIT(fpexnp);
-		__ERTS_FP_ERROR_THOROUGH(fpexnp, ff.fd, goto error);
+#endif
+
+        if (!erts_isfinite(ff.fd)) {
+            goto error;
+        }
+
 		*objp = make_float(hp);
 		PUT_DOUBLE(ff, hp);
 		hp += FLOAT_SIZE_OBJECT;
@@ -4749,11 +4735,6 @@ dec_term_atom_common:
 		funp->fe = erts_put_fun_entry2(module, old_uniq, old_index,
 					       uniq, index, arity);
 		funp->arity = arity;
-#ifdef HIPE
-		if (funp->fe->native_address == NULL) {
-		    hipe_set_closure_stub(funp->fe);
-		}
-#endif
 		hp = factory->hp;
 
 		/* Environment */

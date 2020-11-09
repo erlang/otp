@@ -198,9 +198,6 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 #ifndef BEAMASM
 	    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 #endif
-	    if (erts_is_function_native(ci)) {
-		continue;
-	    }
             switch (specified) {
             case 3:
                 if (ci->mfa.arity != mfa->arity)
@@ -1503,15 +1500,15 @@ check_break(const ErtsCodeInfo *ci, Uint break_flags)
 #ifndef BEAMASM
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 #endif
-    if (erts_is_function_native(ci)) {
-	return 0;
-    }
+
     if (g) {
-	GenericBpData* bp = &g->data[erts_active_bp_ix()];
-	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
-	if (bp->flags & break_flags) {
-	    return bp;
-	}
+        GenericBpData* bp = &g->data[erts_active_bp_ix()];
+
+        ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
+        if (bp->flags & break_flags) {
+            return bp;
+        }
     }
+
     return 0;
 }

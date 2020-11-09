@@ -39,10 +39,6 @@
 #include "beam_catches.h"
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
-#ifdef HIPE
-#include "hipe_mode_switch.h"
-#include "hipe_bif1.h"
-#endif
 #include "dtrace-wrapper.h"
 #include "erl_proc_sig_queue.h"
 #include "beam_common.h"
@@ -229,14 +225,6 @@ init_emulator(void)
 #  define REG_fcalls
 #endif
 
-#ifdef NO_FPE_SIGNALS
-#  define ERTS_NO_FPE_CHECK_INIT ERTS_FP_CHECK_INIT
-#  define ERTS_NO_FPE_ERROR ERTS_FP_ERROR
-#else
-#  define ERTS_NO_FPE_CHECK_INIT(p)
-#  define ERTS_NO_FPE_ERROR(p, a, b)
-#endif
-
 /*
  * process_main() is called twice:
  * The first call performs some initialisation, including exporting
@@ -349,7 +337,6 @@ void process_main(ErtsSchedulerData *esdp)
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = erts_schedule(NULL, c_p, reds_used);
-    ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     start_time = 0;
 #ifdef DEBUG

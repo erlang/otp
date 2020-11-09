@@ -33,10 +33,6 @@
 -include_lib("common_test/include/ct.hrl").
 -import(lists, [foreach/2]).
 
-%% The range analysis of the HiPE compiler results in a system limit error
-%% during compilation instead of at runtime, so do not perform this analysis.
--compile([{hipe, [no_icode_range]}]).
-
 %% Module-level type optimization propagates the constants used when testing
 %% increment1/1 and increment2/1, which makes it test something completely
 %% different, so we're turning it off.

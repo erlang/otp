@@ -74,7 +74,6 @@ MODULES= \
 	hash_SUITE \
 	hash_property_test_SUITE \
 	hibernate_SUITE \
-	hipe_SUITE \
 	iovec_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
@@ -188,7 +187,7 @@ make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES)
 	$(MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +native $(ERL_COMPILE_FLAGS) \
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 
 tests debug opt: make_emakefile

@@ -1066,35 +1066,13 @@ check_xref([]) ->
     R = case xref:analyze(?XREF_SERVER, undefined_functions) of
 	    {ok, []} ->
 		[];
-	    {ok, Undefined} -> 
-		%% This clause is a (temporary?) fix for hipe.
-		adjust_for_hipe(Undefined);
+	    {ok, Undefined} ->
+		[{warning, {exref_undef, Undefined}}];
 	    Error ->
 		[{error, Error}]
 	end,
     xref:stop(?XREF_SERVER),
     R.
-
-adjust_for_hipe(Undef) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    U = lists:filter(fun ({hipe_bifs,_,_}) -> false;
-				 ({hipe,_,_}) -> false;
-				 (_) -> true
-			     end, Undef),
-	    if 
-		[] == U ->
-		    [];
-		true ->
-		    [{warning, {exref_undef, U}}]
-	    end;
-	_Arch -> 
-	    %% Some BIFs are not always available on all versions of HiPE.
-	    U = lists:filter(fun ({hipe_bifs,write_u64,2}) -> false;
-				 (_) -> true
-			     end, Undef),
-	    [{warning, {exref_undef, U}}]
-    end.
 
 %% Perform cross reference checks between all modules specified
 %% in .app files.

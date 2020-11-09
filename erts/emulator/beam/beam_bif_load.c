@@ -40,17 +40,6 @@
 #include "erl_proc_sig_queue.h"
 #include "beam_file.h"
 
-#ifdef HIPE
-#  include "hipe_bif0.h"
-#  define IF_HIPE(X) (X)
-#else
-#  define IF_HIPE(X) (0)
-#endif
-
-#ifdef HIPE
-#  include "hipe_stack.h"
-#endif
-
 #include "jit/beam_asm.h"
 
 static struct {
@@ -108,27 +97,6 @@ erts_beam_bif_load_init(void)
 {
     init_release_literal_areas();
     init_purge_state();
-}
-
-BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
-{
-    Module* modp;
-    Eterm res;
-    ErtsCodeIndex code_ix;
-
-    if (is_not_atom(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    code_ix = erts_active_code_ix();
-    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL) {
-	return am_undefined;
-    }
-    erts_rlock_old_code(code_ix);
-    res = (erts_is_module_native(modp->curr.code_hdr) ||
-           erts_is_module_native(modp->old.code_hdr)) ?
-		am_true : am_false;
-    erts_runlock_old_code(code_ix);
-    return res;
 }
 
 static int read_iff_list(Eterm iff_list, Uint *res) {
@@ -243,59 +211,6 @@ erts_internal_beamfile_module_md5_1(BIF_ALIST_1)
     erts_free_aligned_binary_bytes(temp_alloc);
 
     return res;
-}
-
-BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
-{
-#if !defined(HIPE)
-    BIF_ERROR(BIF_P, EXC_NOTSUP);
-#else
-    Module* modp;
-    Eterm res, mod;
-
-    if (!is_internal_magic_ref(BIF_ARG_1))
-	BIF_ERROR(BIF_P, BADARG);
-
-    mod = erts_module_for_prepared_code(erts_magic_ref2bin(BIF_ARG_1));
-
-    if (is_not_atom(mod))
-	BIF_ERROR(BIF_P, BADARG);
-
-    if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_code_make_stub_module_3),
-			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
-    }
-
-    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_thr_progress_block();
-
-    modp = erts_get_module(mod, erts_active_code_ix());
-
-    if (modp && modp->curr.num_breakpoints > 0) {
-	ASSERT(modp->curr.code_hdr != NULL);
-	erts_clear_module_break(modp);
-	ASSERT(modp->curr.num_breakpoints == 0);
-    }
-
-    erts_start_staging_code_ix(1);
-
-    res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
-
-    if (res == mod) {
-	erts_end_staging_code_ix();
-	erts_commit_staging_code_ix();
-        if (!modp)
-	    modp = erts_get_module(mod, erts_active_code_ix());
-        hipe_redirect_to_module(modp);
-    }
-    else {
-	erts_abort_staging_code_ix();
-    }
-    erts_thr_progress_unblock();
-    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_release_code_write_permission();
-    return res;
-#endif
 }
 
 BIF_RETTYPE
@@ -490,9 +405,8 @@ finish_loading_1(BIF_ALIST_1)
     for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
-	    erts_is_default_trace_enabled() ||
-	    IF_HIPE(hipe_need_blocking(p[i].modp))) {
-	    /* tracing or hipe need thread blocking */
+	    erts_is_default_trace_enabled()) {
+	    /* tracing needs thread blocking */
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_thr_progress_block();
             erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -570,9 +484,6 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
                     && mods[i].exception != am_on_load) {
 		    set_default_trace_pattern(mods[i].module);
 		}
-	      #ifdef HIPE
-		hipe_redirect_to_module(mods[i].modp);
-	      #endif
 	    }
 	}
 	else {
@@ -780,9 +691,8 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	}
 	else {
 	    if (modp->curr.num_breakpoints > 0 ||
-		modp->curr.num_traced_exports > 0 ||
-		IF_HIPE(hipe_need_blocking(modp))) {
-		/* tracing or hipe need to go single threaded */
+		modp->curr.num_traced_exports > 0) {
+		/* tracing needs to go single threaded */
 		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		erts_thr_progress_block();
                 erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -918,8 +828,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	ASSERT(modp && modp->on_load && modp->on_load->code_hdr
 	       && modp->on_load->code_hdr->on_load_function_ptr);
 
-        if (erts_is_default_trace_enabled()
-	    || IF_HIPE(hipe_need_blocking(modp))) {
+        if (erts_is_default_trace_enabled()) {
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
@@ -1148,11 +1057,6 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
     if (any_heap_ref_ptrs(c_p->stop, c_p->hend, literals, lit_bsize))
 	goto literal_gc;   
     *redsp += 1;
-#ifdef HIPE
-    if (nstack_any_heap_ref_ptrs(c_p, literals, lit_bsize))
-	goto literal_gc;
-    *redsp += 1;
-#endif
     if (any_heap_refs(c_p->heap, c_p->htop, literals, lit_bsize))
 	goto literal_gc;
     *redsp += 1;
@@ -1236,10 +1140,6 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
     char* mod_start;
     Uint mod_size;
     Eterm* sp;
-#ifdef HIPE
-    void *nat_start = NULL;
-    Uint nat_size = 0;
-#endif
 
     *redsp += 1;
 
@@ -1273,20 +1173,6 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 	}
     }
 
-#ifdef HIPE
-    /*
-     * Check all continuation pointers stored on the native stack if the module
-     * has native code.
-     */
-    if (modp->old.hipe_code) {
-	nat_start = modp->old.hipe_code->text_segment;
-	nat_size = modp->old.hipe_code->text_segment_size;
-	if (nat_size && nstack_any_cps_in_segment(rp, nat_start, nat_size)) {
-	    return am_true;
-	}
-    }
-#endif
-
     /* 
      * Check all continuation pointers stored in stackdump
      * and clear exception stackdump if there is a pointer
@@ -1305,12 +1191,7 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
 	    int i;
 	    char *area_start = mod_start;
 	    Uint area_size = mod_size;
-#ifdef HIPE
-	    if (rp->freason & EXF_NATIVE) {
-		area_start = nat_start;
-		area_size = nat_size;
-	    }
-#endif
+
 	    for (i = 0;  i < s->depth;  i++) {
 		if (ErtsInArea(s->trace[i], area_start, area_size)) {
 		    rp->freason = EXC_NULL;
@@ -2184,14 +2065,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		ERTS_BIF_PREP_RET(ret, am_false);
 	    }
 	    else {
-		if (IF_HIPE(hipe_purge_need_blocking(modp))) {
-		    erts_rwunlock_old_code(code_ix);
-		    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_thr_progress_block();
-		    is_blocking = 1;
-		    erts_rwlock_old_code(code_ix);
-		}
-
                 /*
                  * Unload any NIF library
                  */
@@ -2230,9 +2103,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		modp->old.code_length = 0;
 		modp->old.catches = BEAM_CATCHES_NIL;
 		erts_remove_from_ranges(code);
-#ifdef HIPE
-		hipe_purge_module(modp, is_blocking);
-#endif
+
 		ERTS_BIF_PREP_RET(ret, am_true);
 	    }
 

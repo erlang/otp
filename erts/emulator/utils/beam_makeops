@@ -1900,7 +1900,6 @@ sub needs_do_wrapper {
     return 0 if /^do/;
     return 0 if /^SET_I/;
     return 0 if /^SET_CP/;
-    return 0 if /^ERTS_NO_FPE_CHECK_INIT/;
     return 0 if /^ASSERT/;
     return 0 if /^DTRACE/;
     return 0 if /^[A-Za-z_]*\s*=/;

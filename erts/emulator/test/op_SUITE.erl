@@ -415,8 +415,7 @@ save_term(Term) ->
 
 make_module(Name, Funcs) ->
     [{attribute,1,module,Name},
-     {attribute,0,compile,export_all},
-     {attribute,0,compile,[{hipe,[{regalloc,linear_scan}]}]} |
+     {attribute,0,compile,export_all} |
      Funcs ++ [{eof,0}]].
 
 make_function(Name, Body) ->

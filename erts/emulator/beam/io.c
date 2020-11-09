@@ -541,7 +541,6 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 
     ErlDrvData drv_data = 0;
     Port *port;
-    int fpe_was_unmasked;
     int error_type, error_number;
     int port_errno = 0;
     erts_mtx_t *driver_lock = NULL;
@@ -688,7 +687,6 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
         }
 #endif
 
-	fpe_was_unmasked = erts_block_fpe();
 	drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
 	if (((SWord) drv_data) == -1)
 	    error_type = -1;
@@ -706,7 +704,6 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	    error_number = BADARG;
 	}
 
-	erts_unblock_fpe(fpe_was_unmasked);
 	ERTS_MSACC_POP_STATE_M();
 	port->caller = NIL;
 	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
@@ -889,7 +886,6 @@ typedef struct {
     erts_aint32_t sched_flags; /* in: invalid flags; out: read flags (if read) */
     int async; /* Asynchronous operation */
     int pre_chk_sched_flags; /* Check sched flags before lock? */
-    int fpe_was_unmasked;
     int reds_left_in;
 } ErtsTryImmDrvCallState;
 
@@ -993,8 +989,6 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	    erts_port_task_sched_unlock(&prt->sched);
     }
 
-    sp->fpe_was_unmasked = erts_block_fpe();
-
     return ERTS_TRY_IMM_DRV_CALL_OK;
 
 locked_fail:
@@ -1013,8 +1007,6 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
     reds = prt->reds;
     reds += erts_port_driver_callback_epilogue(prt, NULL);
-
-    erts_unblock_fpe(sp->fpe_was_unmasked);
 
     prof_runnable_ports = erts_system_profile_flags.runnable_ports;
     if (prof_runnable_ports)
@@ -1081,15 +1073,12 @@ force_imm_drv_call(ErtsTryImmDrvCallState *sp)
     if (sp->state & invalid_state)
 	return ERTS_TRY_IMM_DRV_CALL_INVALID_PORT;
 
-    sp->fpe_was_unmasked = erts_block_fpe();
-
     return ERTS_TRY_IMM_DRV_CALL_OK;
 }
 
 static void
 finalize_force_imm_drv_call(ErtsTryImmDrvCallState *sp)
 {
-    erts_unblock_fpe(sp->fpe_was_unmasked);
 }
 
 #define ERTS_QUEUE_PORT_SCHED_OP_REPLY_SIZE (ERTS_REF_THING_SIZE + 3)
@@ -3540,8 +3529,6 @@ static void deliver_bin_message(Port*  prt,         /* port */
  */
 static void flush_port(Port *p)
 {
-    int fpe_was_unmasked;
-
     ERTS_CHK_NO_PROC_LOCKS;
     ERTS_LC_ASSERT(erts_lc_is_port_locked(p));
 
@@ -3568,9 +3555,7 @@ static void flush_port(Port *p)
 	    trace_sched_ports_where(p, am_in, am_flush);
 	}
         ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
-	fpe_was_unmasked = erts_block_fpe();
 	(*p->drv_ptr->flush)((ErlDrvData)p->drv_data);
-	erts_unblock_fpe(fpe_was_unmasked);
 	ERTS_MSACC_POP_STATE_M();
         if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_out, am_flush);
@@ -3618,7 +3603,6 @@ terminate_port(Port *prt)
 
     drv = prt->drv_ptr;
     if ((drv != NULL) && (drv->stop != NULL)) {
-	int fpe_was_unmasked = erts_block_fpe();
 	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_stop)) {
@@ -3637,7 +3621,6 @@ terminate_port(Port *prt)
 #endif
 
 	(*drv->stop)((ErlDrvData)prt->drv_data);
-	erts_unblock_fpe(fpe_was_unmasked);
 	ERTS_MSACC_POP_STATE_M();
 	if (prt->xports)
 	    erts_port_handle_xports(prt);
@@ -5202,7 +5185,6 @@ int get_port_flags(ErlDrvPort ix)
 
 void erts_raw_port_command(Port* p, byte* buf, Uint len)
 {
-    int fpe_was_unmasked;
     ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_CHK_NO_PROC_LOCKS;
@@ -5225,9 +5207,7 @@ void erts_raw_port_command(Port* p, byte* buf, Uint len)
     }
 #endif
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
-    fpe_was_unmasked = erts_block_fpe();
     (*p->drv_ptr->output)((ErlDrvData)p->drv_data, (char*) buf, (int) len);
-    erts_unblock_fpe(fpe_was_unmasked);
     ERTS_MSACC_POP_STATE_M();
 }
 
@@ -6993,7 +6973,6 @@ void erts_fire_port_monitor(Port *prt, ErtsMonitor *tmon)
     ErtsMonitorData *mdp;
     void (*callback)(ErlDrvData drv_data, ErlDrvMonitor *monitor);
     ErlDrvMonitor drv_monitor;
-    int fpe_was_unmasked;
     ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
@@ -7026,9 +7005,7 @@ void erts_fire_port_monitor(Port *prt, ErtsMonitor *tmon)
         LTTNG3(driver_process_exit, proc_str, port_str, prt->name);
     }
 #endif
-    fpe_was_unmasked = erts_block_fpe();
     (*callback)((ErlDrvData) (prt->drv_data), &drv_monitor);
-    erts_unblock_fpe(fpe_was_unmasked);
     DRV_MONITOR_LOCK_PDL(prt);
     ERTS_MSACC_POP_STATE_M();
     /* remove monitor *after* callback */
@@ -7453,13 +7430,11 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	return 0;
     else {
 	int res;
-	int fpe_was_unmasked = erts_block_fpe();
         DTRACE4(driver_init, drv->name, drv->version.major, drv->version.minor,
                 drv->flags);
         LTTNG4(driver_init, drv->name, drv->version.major, drv->version.minor,
                 drv->flags);
 	res = (*de->init)();
-	erts_unblock_fpe(fpe_was_unmasked);
 	return res;
     }
 }

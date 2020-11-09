@@ -1554,11 +1554,9 @@ static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)
 	    /* Future locking problems? Don't dare to let go of the
 	       diver_list lock here!*/
 	    if (q->finish) {
-		int fpe_was_unmasked = erts_block_fpe();
 		DTRACE1(driver_finish, q->name);
                 LTTNG1(driver_finish, q->name);
 		(*(q->finish))();
-		erts_unblock_fpe(fpe_was_unmasked);
 	    }
 	    erts_sys_ddll_close(dh->handle);
 	    erts_destroy_driver(q);

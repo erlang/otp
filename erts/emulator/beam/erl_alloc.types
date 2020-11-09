@@ -76,9 +76,6 @@ allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
 allocator	LITERAL 	true		literal_alloc
-+if exec_alloc
-allocator	EXEC     	true	        exec_alloc
-+endif
 
 allocator	BINARY		true		binary_alloc
 allocator	DRIVER		true		driver_alloc
@@ -309,18 +306,6 @@ type	CATCHES		LONG_LIVED	CODE		catches
 
 +ifnot beamasm
 type	CODE		LONG_LIVED	CODE		code
-+endif
-
-+if hipe
-
-type	HIPE_LL		LONG_LIVED	SYSTEM		hipe_long_lived
-type	HIPE_SL		SHORT_LIVED	SYSTEM		hipe_short_lived
-type	HIPE_STK	STANDARD	SYSTEM		hipe_nstack
-
-+if exec_alloc
-type	HIPE_EXEC	EXEC            CODE		hipe_code
-+endif
-
 +endif
 
 +if lcnt

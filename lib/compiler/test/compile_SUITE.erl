@@ -93,18 +93,10 @@ file_1(Config) when is_list(Config) ->
     {ok, Cwd} = file:get_cwd(),
     ok = file:set_cwd(filename:dirname(Target)),
 
-    %% Native from BEAM without compilation info.
     {ok,simple} = compile:file(Simple, [slim]), %Smoke test only.
-    {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
-
-    %% Native from BEAM with compilation info.
     {ok,simple} = compile:file(Simple),	%Smoke test only.
-    {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
-
-    {ok,simple} = compile:file(Simple, [native,report]), %Smoke test.
 
     compile_and_verify(Simple, Target, []),
-    compile_and_verify(Simple, Target, [native]),
     compile_and_verify(Simple, Target, [debug_info]),
     compile_and_verify(Simple, Target, [no_postopt]),
     {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
@@ -179,21 +171,13 @@ forms_2(Config) when is_list(Config) ->
 
     {ok,simple,Core} = compile:forms(SimpleCode, [to_core0,binary]),
     forms_compile_and_load(Core, [from_core]),
-    forms_compile_and_load(Core, [from_core,native]),
 
     {ok,simple,Asm} = compile:forms(SimpleCode, [to_asm,binary]),
     forms_compile_and_load(Asm, [from_asm]),
-    forms_compile_and_load(Asm, [from_asm,native]),
-
-    {ok,simple,Beam} = compile:forms(SimpleCode, []),
-    forms_compile_and_load(Beam, [from_beam]),
-    forms_compile_and_load(Beam, [from_beam,native]),
 
     %% Cover the error handling code.
     error = compile:forms(bad_core, [from_core,report]),
     error = compile:forms(bad_asm, [from_asm,report]),
-    error = compile:forms(<<"bad_beam">>, [from_beam,report]),
-    error = compile:forms(<<"bad_beam">>, [from_beam,native,report]),
 
     ok.
 
@@ -1273,18 +1257,15 @@ do_warnings_2([], Next, F) ->
 %% pre-loads the modules that are used by a typical compilation.
 
 pre_load_check(Config) ->
-    case {test_server:is_cover(),code:module_info(native)} of
-	{true,_} ->
-	    {skip,"Cover is running"};
-        {false,true} ->
-            %% Tracing won't work.
-            {skip,"'code' is native-compiled"};
-	{false,false} ->
-	    try
-		do_pre_load_check(Config)
-	    after
-		dbg:stop_clear()
-	    end
+    case test_server:is_cover() of
+        true ->
+            {skip,"Cover is running"};
+        false ->
+            try
+                do_pre_load_check(Config)
+            after
+                dbg:stop_clear()
+            end
     end.
 
 do_pre_load_check(Config) ->

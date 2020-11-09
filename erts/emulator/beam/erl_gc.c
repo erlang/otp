@@ -35,10 +35,6 @@
 #include "error.h"
 #include "big.h"
 #include "erl_gc.h"
-#ifdef HIPE
-#include "hipe_stack.h"
-#include "hipe_mode_switch.h"
-#endif
 #include "dtrace-wrapper.h"
 #include "erl_bif_unique.h"
 #include "dist.h"
@@ -154,9 +150,6 @@ static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static void sweep_off_heap(Process *p, int fullsweep);
 static void offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 static void offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
-#ifdef HIPE
-static void offset_heap_ptr_nstack(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
-#endif
 static void offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
 			   Eterm* objv, int nobj);
 static void offset_off_heap(Process* p, Sint offs, char* area, Uint area_size);
@@ -419,17 +412,10 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 {
     int cost;
 
-    if ((p->flags & F_HIBERNATE_SCHED) ||
-        (p->sig_qs.flags & FS_HIPE_RECV_LOCKED)) {
+    if (p->flags & F_HIBERNATE_SCHED) {
 	/*
 	 * We just hibernated. We do *not* want to mess
 	 * up the hibernation by an ordinary GC...
-         *
-         * OR
-         *
-         * We left a receive in HiPE with message
-         * queue lock locked, and we do not want to
-         * do a GC with message queue locked...
 	 */
 	return result;
     }
@@ -447,11 +433,6 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
-#ifdef HIPE
-	    if (regs == NULL) {
-		regs = erts_proc_sched_data(p)->registers->x_reg_array.d;
-	    }
-#endif
 	    cost = garbage_collect(p, live_hf_end, 0, regs, p->arity, p->fcalls, 0);
 	} else {
 	    cost = garbage_collect(p, live_hf_end, 0, regs, arity, p->fcalls, 0);
@@ -1079,95 +1060,10 @@ erts_garbage_collect_hibernate(Process* p)
     BUMP_REDS(p, reds);
 }
 
-/*
- * HiPE native code stack scanning procedures:
- * - fullsweep_nstack()
- * - gensweep_nstack()
- * - offset_nstack()
- * - sweep_literals_nstack()
- */
-#if defined(HIPE)
-
-#define GENSWEEP_NSTACK(p,old_htop,n_htop)				\
-	do {								\
-		Eterm *tmp_old_htop = old_htop;				\
-		Eterm *tmp_n_htop = n_htop;				\
-		gensweep_nstack((p), &tmp_old_htop, &tmp_n_htop);	\
-		old_htop = tmp_old_htop;				\
-		n_htop = tmp_n_htop;					\
-	} while(0)
-
-
-/*
- * offset_nstack() can ignore the descriptor-based traversal the other
- * nstack procedures use and do a simpler word by word traversal instead.
- * This relies on two facts:
- * 1. The only live non-Erlang terms on an nstack are return addresses,
- *    and they will be skipped thanks to the low/high range check.
- * 2. Dead values, even if mistaken for pointers into the low/high area,
- *    can be offset safely since they won't be dereferenced.
- *
- * XXX: WARNING: If HiPE starts storing other non-Erlang values on the
- * nstack, such as floats, then this will have to be changed.
- */
-static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
-				      char* area, Uint area_size)
-{
-    if (p->hipe.nstack) {
-	ASSERT(p->hipe.nsp && p->hipe.nstend);
-	offset_heap_ptr_nstack(hipe_nstack_start(p), hipe_nstack_used(p),
-                               offs, area, area_size);
-    }
-    else {
-	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
-    }
-}
-
-/*
- * This is the same as offset_heap_ptr()
- *
- * Except for VALGRIND. It allows benign offsetting of undefined (dead) words
- * on the nstack while also retaining them as undefined. This suppresses
- * valgrinds "Conditional jump or move depends on uninitialised value(s)".
- */
-static void
-offset_heap_ptr_nstack(Eterm* hp, Uint sz, Sint offs,
-                       char* area, Uint area_size)
-{
-    while (sz--) {
-	Eterm val = *hp;
-#ifdef VALGRIND
-        Eterm val_vbits;
-        VALGRIND_GET_VBITS(&val, &val_vbits, sizeof(val));
-        VALGRIND_MAKE_MEM_DEFINED(&val, sizeof(val));
-#endif
-	switch (primary_tag(val)) {
-	case TAG_PRIMARY_LIST:
-	case TAG_PRIMARY_BOXED:
-	    if (ErtsInArea(ptr_val(val), area, area_size)) {
-#ifdef VALGRIND
-                VALGRIND_SET_VBITS(&val, val_vbits, sizeof(val));
-#endif
-		*hp = offset_ptr(val, offs);
-	    }
-	    hp++;
-	    break;
-	default:
-	    hp++;
-	    break;
-	}
-    }
-}
-
-
-#else /* !HIPE */
-
 #define fullsweep_nstack(p,n_htop)		        	(n_htop)
 #define GENSWEEP_NSTACK(p,old_htop,n_htop)	        	do{}while(0)
 #define offset_nstack(p,offs,area,area_size)	        	do{}while(0)
 #define sweep_literals_nstack(p,old_htop,area,area_size)	(old_htop)
-
-#endif /* HIPE */
 
 int
 erts_garbage_collect_literals(Process* p, Eterm* literals,
@@ -1945,13 +1841,6 @@ full_sweep_heaps(Process *p,
          */
         n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
     }
-
-#ifdef HIPE
-    if (hibernate)
-	hipe_empty_nstack(p);
-    else
-	n_htop = fullsweep_nstack(p, n_htop);
-#endif
 
     roots = rootset.roots;
     while (n--) {

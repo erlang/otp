@@ -84,13 +84,13 @@ undefined_functions(Config) when is_list(Config) ->
                       "Undef - Undef | ExcludedFrom",
                       [UndefS,ExcludeFrom]),
     {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
-    Undef1 = hipe_filter(Undef0),
-    Undef3 = ssl_crypto_filter(Undef1),
-    Undef4 = eunit_filter(Undef3),
-    Undef5 = dialyzer_filter(Undef4),
-    Undef6 = wx_filter(Undef5),
-    Undef7 = gs_filter(Undef6),
-    Undef = diameter_filter(Undef7),
+
+    Undef1 = ssl_crypto_filter(Undef0),
+    Undef2 = eunit_filter(Undef1),
+    Undef3 = dialyzer_filter(Undef2),
+    Undef4 = wx_filter(Undef3),
+    Undef5 = gs_filter(Undef4),
+    Undef = diameter_filter(Undef5),
 
     case Undef of
         [] -> ok;
@@ -106,47 +106,6 @@ undefined_functions(Config) when is_list(Config) ->
                     end, Undef),
             close_log(Fd),
             ct:fail({length(Undef),undefined_functions_in_otp})
-    end.
-
-hipe_filter(Undef) ->
-    case erlang:system_info(hipe_architecture) of
-        undefined ->
-            filter(fun ({_,{hipe_bifs,_,_}}) -> false;
-                       ({_,{hipe,_,_}}) -> false;
-                       ({_,{hipe_consttab,_,_}}) -> false;
-                       ({_,{hipe_converters,_,_}}) -> false;
-                       ({{code,_,_},{Mod,_,_}}) ->
-                           not is_hipe_module(Mod);
-                       ({{code_server,_,_},{Mod,_,_}}) ->
-                           not is_hipe_module(Mod);
-                       ({{compile,_,_},{Mod,_,_}}) ->
-                           not is_hipe_module(Mod);
-                       ({{hipe,_,_},{Mod,_,_}}) ->
-                           %% See comment for the next clause.
-                           not is_hipe_module(Mod);
-                       ({{cerl_to_icode,translate_flags1,2},
-                         {hipe_rtl_arch,endianess,0}}) ->
-                           false;
-                       ({{Caller,_,_},{Callee,_,_}}) ->
-                           %% Part of the hipe application is here
-                           %% for the sake of Dialyzer. There are many
-                           %% undefined calls within the hipe application.
-                           not is_hipe_module(Caller) orelse
-                           not is_hipe_module(Callee);
-                       (_) -> true
-                   end, Undef);
-        _Arch ->
-            filter(fun ({{Mod,_,_},{hipe_bifs,write_u64,2}}) ->
-                           %% Unavailable except in 64 bit AMD. Ignore it.
-                           not is_hipe_module(Mod);
-                       (_) -> true
-                   end, Undef)
-    end.
-
-is_hipe_module(Mod) ->
-    case atom_to_list(Mod) of
-        "hipe_"++_ -> true;
-        _ -> false
     end.
 
 ssl_crypto_filter(Undef) ->

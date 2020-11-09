@@ -36,18 +36,11 @@ typedef struct erl_fun_entry {
     int old_index;              /* Old style index */
     const BeamInstr* address;   /* Pointer to code for fun */
 
-#ifdef HIPE
-    UWord* native_address;      /* Native entry code for fun. */
-#endif
-
     Uint arity;                 /* The arity of the fun. */
     Eterm module;               /* Tagged atom for module. */
     erts_refc_t refc;           /* Reference count: One for code + one for each
                                  * fun object in each process. */
     const BeamInstr *pend_purge_address; /* Address during a pending purge */
-#ifdef HIPE
-    UWord* pend_purge_native_address;
-#endif
 } ErlFunEntry;
 
 /*

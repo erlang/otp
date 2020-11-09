@@ -74,9 +74,6 @@ void erts_module_instance_init(struct erl_module_instance* modi)
     modi->nif = NULL;
     modi->num_breakpoints = 0;
     modi->num_traced_exports = 0;
-#ifdef HIPE
-    modi->hipe_code = NULL;
-#endif
 }
 
 static Module* module_alloc(Module* tmpl)

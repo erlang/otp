@@ -160,11 +160,7 @@ endif
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
-else
 ERL_COMPILE_FLAGS += -Werror
-endif
 ERL_COMPILE_FLAGS += -I../include -I../../kernel/include
 
 # ----------------------------------------------------

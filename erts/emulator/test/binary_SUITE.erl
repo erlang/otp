@@ -960,32 +960,7 @@ bad_terms(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,-1:32,1,11,22,33>>)),
     ok.
 
-
-corrupter(Term) when is_function(Term);
-		     is_function(hd(Term));
-		     is_function(element(2,element(2,element(2,Term)))) ->
-    %% Check if lists is native compiled. If it is, we do not try to
-    %% corrupt funs as this can create some very strange behaviour.
-    %% To show the error print `Byte` in the foreach fun in corrupter/2.
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    corrupter0(Term);
-	Architecture ->
-	    {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
-	    ChunkName = hipe_unified_loader:chunk_name(Architecture),
-	    NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
-	    case NativeChunk of
-		{ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
-		    S = io_lib:format("Skipping corruption of: ~P", [Term,12]),
-		    io:put_chars(S);
-		{error, beam_lib, _} ->
-		    corrupter0(Term)
-	    end
-    end;
 corrupter(Term) ->
-    corrupter0(Term).
-
-corrupter0(Term) ->
     try
 	      S = io_lib:format("About to corrupt: ~P", [Term,12]),
 	      io:put_chars(S)

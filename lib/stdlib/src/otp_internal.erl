@@ -31,6 +31,8 @@ obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
+obsolete(code, is_module_native, 1) ->
+    {deprecated, "HiPE has been removed", "OTP 26"};
 obsolete(code, rehash, 0) ->
     {deprecated, "the code path cache feature has been removed"};
 obsolete(crypto, block_decrypt, 3) ->

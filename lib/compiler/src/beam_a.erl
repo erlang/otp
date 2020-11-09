@@ -38,7 +38,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	Is1 = rename_instrs(Is0),
 
 	%% Remove unusued labels for cleanliness and to help
-	%% optimization passes and HiPE.
+	%% optimization passes.
 	Is2 = beam_jump:remove_unused_labels(Is1),
 
         %% Some optimization passes can't handle consecutive labels.

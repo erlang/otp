@@ -32,9 +32,7 @@
 #include "global.h"
 #include "erl_process.h"
 #include "error.h"
-#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
-#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "erl_binary.h"
 
 #include "erl_map.h"
@@ -969,8 +967,6 @@ BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
 }
 
 /* maps:merge/2 */
-
-HIPE_WRAPPER_BIF_DISABLE_GC(maps_merge, 2)
 
 BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
     if (BIF_ARG_1 == BIF_ARG_2) {

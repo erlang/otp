@@ -25,9 +25,7 @@
 #include "sys.h"
 #include "global.h"
 
-#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
-#undef ERL_WANT_HIPE_BIF_WRAPPER__
 
 #include "erl_bits.h"
 #include "erl_io_queue.h"
@@ -1185,8 +1183,6 @@ l_badarg:
 
     BIF_ERROR(state->process, BADARG);
 }
-
-HIPE_WRAPPER_BIF_DISABLE_GC(iolist_to_iovec, 1)
 
 BIF_RETTYPE iolist_to_iovec_1(BIF_ALIST_1) {
     BIF_RETTYPE result;

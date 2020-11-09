@@ -329,10 +329,6 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     size_t max_size = 2;  /* including possible sign */
     int size;
     int new_fmt = fmt;
-    int fpe_was_unmasked;
-
-    fpe_was_unmasked = erts_printf_block_fpe ? (*erts_printf_block_fpe)() : 0;
-
     if (val < 0.0)
 	dexp = log10(-val);
     else if (val == 0.0)
@@ -440,8 +436,6 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     if (bufp != sbuf)
 	free((void *) bufp);
 
-    if (erts_printf_unblock_fpe)
-	(*erts_printf_unblock_fpe)(fpe_was_unmasked);
     return res;
 }
 

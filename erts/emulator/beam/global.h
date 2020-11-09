@@ -59,7 +59,6 @@ struct enif_environment_t /* ErlNifEnv */
     Eterm* hp;
     Eterm* hp_end;
     ErlHeapFragment* heap_frag;
-    int fpe_was_unmasked;
     struct enif_tmp_obj_t* tmp_obj_list;
     int exception_thrown; /* boolean */
     Process *tracee;
@@ -973,7 +972,6 @@ Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
 void erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
-int erts_commit_hipe_patch_load(Eterm hipe_magic_bin);
 
 /* beam_ranges.c */
 void erts_init_ranges(void);
