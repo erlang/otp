@@ -300,7 +300,7 @@
 %% -------------------------------------------------------------------------------------------------------
 -type common_option()        :: {protocol, protocol()} |
                                 {handshake, handshake_completion()} |
-                                {cert, cert()} |
+                                {cert, cert() | [cert()]} |
                                 {certfile, cert_pem()} |
                                 {key, key()} |
                                 {keyfile, key_pem()} |
@@ -2131,8 +2131,11 @@ validate_option(depth, Value) when is_integer(Value),
                                    Value >= 0, Value =< 255->
     Value;
 validate_option(cert, Value) when Value == undefined;
-                                 is_binary(Value) ->
+                                  is_list(Value)->
     Value;
+validate_option(cert, Value) when Value == undefined;
+                                  is_binary(Value)->
+    [Value];
 validate_option(certfile, undefined = Value) ->
     Value;
 validate_option(certfile, Value) when is_binary(Value) ->

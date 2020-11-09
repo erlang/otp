@@ -137,7 +137,7 @@
           crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
           crl_check                  => {false,     [versions]},
           customize_hostname_check   => {[],        [versions]},
-          depth                      => {1,         [versions]},
+          depth                      => {10,         [versions]},
           dh                         => {undefined, [versions]},
           dhfile                     => {undefined, [versions]},
           eccs                       => {undefined, [versions]},

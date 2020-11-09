@@ -47,20 +47,20 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
-		   ssl_options(), binary(), boolean(), der_cert()) ->
+		   ssl_options(), binary(), boolean(), [der_cert()]) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates, SslOpts,
-	     Id, Renegotiation, OwnCert) ->
+	     Id, Renegotiation, OwnCerts) ->
     %% First client hello (two sent in DTLS ) uses empty Cookie
     client_hello(Host, Port, <<>>, ConnectionStates, SslOpts,
-		 Id, Renegotiation, OwnCert, undefined).
+		 Id, Renegotiation, OwnCerts, undefined).
 
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), term(), ssl_record:connection_states(),
-		   ssl_options(), binary(),boolean(), der_cert(), binary() | undefined) ->
+		   ssl_options(), binary(),boolean(), [der_cert()], binary() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -174,27 +174,28 @@ handle_client_hello(Version,
                       signature_algs := SupportedHashSigns,
                       eccs := SupportedECCs,
                       honor_ecc_order := ECCOrder} = SslOpts,
-		    {SessIdTracker, Session0, ConnectionStates0, Cert, _},
+		    {SessIdTracker, Session0, ConnectionStates0, OwnCerts, _},
                     Renegotiation) ->
+    OwnCert = ssl_handshake:select_own_cert(OwnCerts),
     case dtls_record:is_acceptable_version(Version, Versions) of
 	true ->
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
 	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
-				   ClientHashSigns, SupportedHashSigns, Cert,TLSVersion),
+				   ClientHashSigns, SupportedHashSigns, OwnCert,TLSVersion),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
                                                AvailableHashSigns, Compressions,
 					       SessIdTracker, Session0#session{ecc = ECCCurve}, TLSVersion,
-					       SslOpts, Cert),
+					       SslOpts, OwnCert),
 	    case CipherSuite of
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
 		_ ->
 		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-		    case ssl_handshake:select_hashsign({ClientHashSigns, undefined}, Cert, KeyExAlg,
+		    case ssl_handshake:select_hashsign({ClientHashSigns, undefined}, OwnCert, KeyExAlg,
 						       SupportedHashSigns, TLSVersion) of
 			#alert{} = Alert ->
 			    Alert;
