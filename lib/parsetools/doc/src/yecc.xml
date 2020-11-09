@@ -49,7 +49,7 @@
     <datatype>
       <name name="error_info"></name>
       <desc><p>The standard <c>error_info()</c> structure that is returned
-        from all I/O modules. <c><anno>ErrorDescriptor</anno></c> is formatable
+        from all I/O modules. <c><anno>ErrorDescriptor</anno></c> is formattable
         by <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.</p>
       </desc>
     </datatype>
@@ -145,7 +145,7 @@
     </func>
     <func>
       <name name="format_error" arity="1" since=""/>
-      <fsummary>Return an English description of a an error reason.</fsummary>
+      <fsummary>Return an English description of an error reason.</fsummary>
       <desc>
         <p>Returns a descriptive string in English of an error reason
           <c><anno>ErrorDescriptor</anno></c> returned by
