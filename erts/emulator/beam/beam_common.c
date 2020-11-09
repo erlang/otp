@@ -584,6 +584,7 @@ next_catch(Process* c_p, Eterm *reg) {
                                          ERTS_TRACER_FROM_ETERM(ptr+2));
 		}
 		/* Skip MFA, tracer, and CP. */
+                ptr += 3;
 	    } else if (BeamIsReturnToTrace(cp_val(*prev))) {
 		have_return_to_trace = !0; /* Record next cp */
 		return_to_trace_ptr = NULL;
