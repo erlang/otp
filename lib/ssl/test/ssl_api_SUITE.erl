@@ -54,6 +54,8 @@
          connection_information/1,
          secret_connection_info/0,
          secret_connection_info/1,
+         keylog_connection_info/0,
+         keylog_connection_info/1,
          versions/0,
          versions/1,
          active_n/0,
@@ -172,6 +174,7 @@
 -export([connection_information_result/1,
          connection_info_result/1,
          secret_connection_info_result/1,
+         keylog_connection_info_result/2,
          check_srp_in_connection_information/3,
          check_connection_info/2,
          prf_verify_value/4,
@@ -249,6 +252,7 @@ gen_api_tests() ->
      peercert_with_client_cert,
      connection_information,
      secret_connection_info,
+     keylog_connection_info,
      versions,
      active_n,
      dh_params,
@@ -573,6 +577,57 @@ secret_connection_info(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+%%--------------------------------------------------------------------
+keylog_connection_info() ->
+    [{doc,"Test the API function ssl:connection_information/2"}].
+keylog_connection_info(Config) when is_list(Config) ->
+    keylog_connection_info(Config, true),
+    keylog_connection_info(Config, false).
+keylog_connection_info(Config, KeepSecrets) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {?MODULE, keylog_connection_info_result, [KeepSecrets]}},
+                                   {options, [{verify, verify_peer}, {keep_secrets, KeepSecrets} | ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+        ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                   {host, Hostname},
+                                   {from, self()},
+                                   {mfa, {?MODULE, keylog_connection_info_result, [KeepSecrets]}},
+                                   {options,  [{verify, verify_peer}, {keep_secrets, KeepSecrets} |ClientOpts]}]),
+
+    ct:log("Testcase ~p, KeepSecrets ~p Client ~p  Server ~p ~n",
+		       [self(), KeepSecrets, Client, Server]),
+
+    ServerKeylog = receive
+                       {Server, {ok, Keylog}} ->
+                           Keylog;
+                       {Server, ServerError} ->
+                           ct:fail({server, ServerError})
+                   after 5000 ->
+                           ct:fail({server, timeout})
+                   end,
+
+    receive
+        {Client, {ok, ServerKeylog}} ->
+            ok;
+        {Client, {ok, ClientKeylog}} ->
+            ct:fail({mismatch, {ServerKeylog, ClientKeylog}});
+        {Client, ClientError} ->
+            ct:fail({client, ClientError})
+    after 5000 ->
+            ct:fail({client, timeout})
+    end,
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 %%--------------------------------------------------------------------
 prf() ->
     [{doc,"Test that ssl:prf/5 uses the negotiated PRF."}].
@@ -2337,10 +2392,27 @@ connection_information_result(Socket) ->
 	false ->
 	    ct:fail(no_ssl_options_returned)
     end.
+
 secret_connection_info_result(Socket) ->
     {ok, [{protocol, Protocol}]} = ssl:connection_information(Socket, [protocol]),
     {ok, ConnInfo} = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
     check_connection_info(Protocol, ConnInfo).
+
+keylog_connection_info_result(Socket, KeepSecrets) ->
+    {ok, [{protocol, Protocol}]} = ssl:connection_information(Socket, [protocol]),
+    {ok, ConnInfo} = ssl:connection_information(Socket, [keylog]),
+    check_keylog_info(Protocol, ConnInfo, KeepSecrets).
+
+check_keylog_info('tlsv1.3', [{keylog, ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_|_]=Keylog}], true) ->
+    {ok, Keylog};
+check_keylog_info('tlsv1.3', []=Keylog, false) ->
+    {ok, Keylog};
+check_keylog_info('tlsv1.2', [{keylog, ["CLIENT_RANDOM"++_]=Keylog}], _) ->
+    {ok, Keylog};
+check_keylog_info(NotSup, [], _) when NotSup == 'tlsv1.1'; NotSup == tlsv1; NotSup == 'dtlsv1.2'; NotSup == dtlsv1 ->
+    {ok, []};
+check_keylog_info(_, Unexpected, _) ->
+    {unexpected, Unexpected}.
 
 check_srp_in_connection_information(_Socket, _Username, client) ->
     ok;

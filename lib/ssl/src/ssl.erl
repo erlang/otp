@@ -310,6 +310,7 @@
                                 {signature_algs_cert, signature_schemes()} |
                                 {supported_groups, supported_groups()} |
                                 {secure_renegotiate, secure_renegotiation()} |
+                                {keep_secrets, keep_secrets()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
                                 {crl_check, crl_check()} |
@@ -346,6 +347,7 @@
 -type cipher_filters()            :: list({key_exchange | cipher | mac | prf,
                                         algo_filter()}). % exported
 -type algo_filter()               :: fun((kex_algo()|cipher()|hash()|aead|default_prf) -> true | false).
+-type keep_secrets()              :: boolean().
 -type secure_renegotiation()      :: boolean(). 
 -type allowed_cert_chain_length() :: integer().
 
@@ -505,6 +507,7 @@
                                 client_random |
                                 server_random |
                                 master_secret |
+                                keylog |
                                 tls_options_name().
 -type tls_options_name() :: atom().
 %% -------------------------------------------------------------------------------------------------------
@@ -2212,6 +2215,8 @@ validate_option(reuse_sessions, save = Value) ->
     Value;
 validate_option(secure_renegotiate, Value) when is_boolean(Value) ->
     Value;
+validate_option(keep_secrets, Value) when is_boolean(Value) ->
+    Value;
 validate_option(client_renegotiation, Value) when is_boolean(Value) ->
     Value;
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
@@ -2762,7 +2767,7 @@ default_cb_info(dtls) ->
 include_security_info([]) ->
     false;
 include_security_info([Item | Items]) ->
-    case lists:member(Item, [client_random, server_random, master_secret]) of
+    case lists:member(Item, [client_random, server_random, master_secret, keylog]) of
         true ->
             true;
         false  ->
