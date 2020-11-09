@@ -581,11 +581,12 @@ build_content(Context, THash) ->
 %% TLS Server
 do_start(#client_hello{cipher_suites = ClientCiphers,
                        session_id = SessionId,
-                       extensions = Extensions} = _Hello,
+                       extensions = Extensions} = Hello,
          #state{ssl_options = #{ciphers := ServerCiphers,
                                 signature_algs := ServerSignAlgs,
                                 supported_groups := ServerGroups0,
                                 alpn_preferred_protocols := ALPNPreferredProtocols,
+                                keep_secrets := KeepSecrets,
                                 honor_cipher_order := HonorCipherOrder}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
@@ -654,7 +655,13 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                          State1
                  end,
 
-        State = update_start_state(State2,
+        State3 = if KeepSecrets =:= true ->
+                         set_client_random(State2, Hello#client_hello.random);
+                    true ->
+                         State2
+                 end,
+
+        State = update_start_state(State3,
                                    #{cipher => Cipher,
                                      key_share => KeyShare,
                                      session_id => SessionId,
@@ -1532,7 +1539,9 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
     ReadFinishedKey = tls_v1:finished_key(ClientHSTrafficSecret, HKDFAlgo),
     WriteFinishedKey = tls_v1:finished_key(ServerHSTrafficSecret, HKDFAlgo),
 
-    update_pending_connection_states(State0, HandshakeSecret, undefined,
+    State1 = maybe_store_handshake_traffic_secret(State0, ClientHSTrafficSecret, ServerHSTrafficSecret),
+
+    update_pending_connection_states(State1, HandshakeSecret, undefined,
                                      undefined, undefined,
                                      ReadKey, ReadIV, ReadFinishedKey,
                                      WriteKey, WriteIV, WriteFinishedKey).
@@ -1687,6 +1696,36 @@ forget_master_secret(#state{connection_states =
 overwrite_master_secret(ConnectionState = #{security_parameters := SecurityParameters0}) ->
     SecurityParameters = SecurityParameters0#security_parameters{master_secret = {master_secret, <<0>>}},
     ConnectionState#{security_parameters => SecurityParameters}.
+
+
+set_client_random(#state{connection_states =
+                             #{pending_read := PendingRead,
+                               pending_write := PendingWrite,
+                               current_read := CurrentRead,
+                               current_write := CurrentWrite} = CS} = State, ClientRandom) ->
+    State#state{connection_states = CS#{pending_read => overwrite_client_random(PendingRead, ClientRandom),
+                                        pending_write => overwrite_client_random(PendingWrite, ClientRandom),
+                                        current_read => overwrite_client_random(CurrentRead, ClientRandom),
+                                        current_write => overwrite_client_random(CurrentWrite, ClientRandom)}}.
+
+
+overwrite_client_random(ConnectionState = #{security_parameters := SecurityParameters0}, ClientRandom) ->
+    SecurityParameters = SecurityParameters0#security_parameters{client_random = ClientRandom},
+    ConnectionState#{security_parameters => SecurityParameters}.
+
+
+maybe_store_handshake_traffic_secret(#state{connection_states =
+                                                #{pending_read := PendingRead} = CS,
+                                            ssl_options = #{keep_secrets := true}} = State,
+                                     ClientHSTrafficSecret, ServerHSTrafficSecret) ->
+    PendingRead1 = store_handshake_traffic_secret(PendingRead, ClientHSTrafficSecret, ServerHSTrafficSecret),
+    State#state{connection_states = CS#{pending_read => PendingRead1}};
+maybe_store_handshake_traffic_secret(State, _, _) ->
+    State.
+
+store_handshake_traffic_secret(ConnectionState, ClientHSTrafficSecret, ServerHSTrafficSecret) ->
+    ConnectionState#{client_handshake_traffic_secret => ClientHSTrafficSecret,
+                     server_handshake_traffic_secret => ServerHSTrafficSecret}.
 
 
 update_pending_connection_states(#state{

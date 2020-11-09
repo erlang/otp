@@ -230,10 +230,15 @@ recv(Pid, Length, Timeout) ->
 %%--------------------------------------------------------------------
 -spec connection_information(pid(), boolean()) -> {ok, list()} | {error, reason()}.
 %%
-%% Description: Get the SNI hostname
+%% Description: Get connection information
 %%--------------------------------------------------------------------
 connection_information(Pid, IncludeSecrityInfo) when is_pid(Pid) ->
-    call(Pid, {connection_information, IncludeSecrityInfo}).
+    case call(Pid, {connection_information, IncludeSecrityInfo}) of
+        {ok, Info} when IncludeSecrityInfo == true ->
+            {ok, maybe_add_keylog(Info)};
+        Other ->
+            Other
+    end.
 
 %%--------------------------------------------------------------------
 -spec close(pid(), {close, Timeout::integer() | 
@@ -1717,13 +1722,37 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
      {sni_hostname, SNIHostname},
      {srp_username, SrpUsername} | CurveInfo] ++ MFLInfo ++ ssl_options_list(Opts).
 
-security_info(#state{connection_states = ConnectionStates}) ->
+security_info(#state{connection_states = ConnectionStates,
+                     static_env = #static_env{role = Role},
+                     ssl_options = #{keep_secrets := KeepSecrets}}) ->
+    ReadState = ssl_record:current_connection_state(ConnectionStates, read),
     #{security_parameters :=
 	  #security_parameters{client_random = ClientRand, 
                                server_random = ServerRand,
-                               master_secret = MasterSecret}} =
-	ssl_record:current_connection_state(ConnectionStates, read),
-    [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}].
+                               master_secret = MasterSecret,
+                               application_traffic_secret = AppTrafSecretRead}} = ReadState,
+    BaseSecurityInfo = [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}],
+    if KeepSecrets =/= true ->
+            BaseSecurityInfo;
+       true ->
+            #{security_parameters :=
+                  #security_parameters{application_traffic_secret = AppTrafSecretWrite}} =
+                ssl_record:current_connection_state(ConnectionStates, write),
+            BaseSecurityInfo ++
+                if Role == server ->
+                        [{server_traffic_secret_0, AppTrafSecretWrite}, {client_traffic_secret_0, AppTrafSecretRead}];
+                   true ->
+                        [{client_traffic_secret_0, AppTrafSecretWrite}, {server_traffic_secret_0, AppTrafSecretRead}]
+                end ++
+                case ReadState of
+                    #{client_handshake_traffic_secret := ClientHSTrafficSecret,
+                      server_handshake_traffic_secret := ServerHSTrafficSecret} ->
+                        [{client_handshake_traffic_secret, ClientHSTrafficSecret},
+                         {server_handshake_traffic_secret, ServerHSTrafficSecret}];
+                   _ ->
+                        []
+                end
+    end.
 
 do_server_hello(Type, #{next_protocol_negotiation := NextProtocols} =
 		    ServerHelloExt,
@@ -3249,3 +3278,52 @@ ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
       ocsp_responder_certs => [],
       ocsp_state => OcspState
      }.
+
+%% Maybe add NSS keylog info according to
+%% https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
+maybe_add_keylog(Info) ->
+    maybe_add_keylog(lists:keyfind(protocol, 1, Info), Info).
+
+maybe_add_keylog({_, 'tlsv1.2'}, Info) ->
+    try
+        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
+        {master_secret, MasterSecretBin} = lists:keyfind(master_secret, 1, Info),
+        ClientRandom = binary:decode_unsigned(ClientRandomBin),
+        MasterSecret = binary:decode_unsigned(MasterSecretBin),
+        Keylog = [io_lib:format("CLIENT_RANDOM ~64.16.0B ~96.16.0B", [ClientRandom, MasterSecret])],
+        Info ++ [{keylog,Keylog}]
+    catch
+        _Cxx:_Exx ->
+            Info
+    end;
+maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
+    try
+        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
+        {client_traffic_secret_0, ClientTrafficSecret0Bin} = lists:keyfind(client_traffic_secret_0, 1, Info),
+        {server_traffic_secret_0, ServerTrafficSecret0Bin} = lists:keyfind(server_traffic_secret_0, 1, Info),
+        {client_handshake_traffic_secret, ClientHSecretBin} = lists:keyfind(client_handshake_traffic_secret, 1, Info),
+        {server_handshake_traffic_secret, ServerHSecretBin} = lists:keyfind(server_handshake_traffic_secret, 1, Info),
+        {selected_cipher_suite, #{prf := Prf}} = lists:keyfind(selected_cipher_suite, 1, Info),
+        ClientRandom = binary:decode_unsigned(ClientRandomBin),
+        ClientTrafficSecret0 = keylog_secret(ClientTrafficSecret0Bin, Prf),
+        ServerTrafficSecret0 = keylog_secret(ServerTrafficSecret0Bin, Prf),
+        ClientHSecret = keylog_secret(ClientHSecretBin, Prf),
+        ServerHSecret = keylog_secret(ServerHSecretBin, Prf),
+        Keylog = [io_lib:format("CLIENT_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientHSecret,
+                  io_lib:format("SERVER_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ServerHSecret,
+                  io_lib:format("CLIENT_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ClientTrafficSecret0,
+                  io_lib:format("SERVER_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ServerTrafficSecret0],
+        Info ++ [{keylog,Keylog}]
+    catch
+        _Cxx:_Exx ->
+            Info
+    end;
+maybe_add_keylog(_, Info) ->
+    Info.
+
+keylog_secret(SecretBin, sha256) ->
+    io_lib:format("~64.16.0B", [binary:decode_unsigned(SecretBin)]);
+keylog_secret(SecretBin, sha384) ->
+    io_lib:format("~96.16.0B", [binary:decode_unsigned(SecretBin)]);
+keylog_secret(SecretBin, sha512) ->
+    io_lib:format("~128.16.0B", [binary:decode_unsigned(SecretBin)]).

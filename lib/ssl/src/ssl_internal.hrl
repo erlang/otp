@@ -175,6 +175,7 @@
           reuse_session              => {undefined, [versions]},
           reuse_sessions             => {true,      [versions]},
           secure_renegotiate         => {true,      [versions]},
+          keep_secrets               => {false,     [versions]},
           server_name_indication     => {undefined, [versions]},
           session_tickets            => {disabled,     [versions]},
           signature_algs             => {undefined, [versions]},
