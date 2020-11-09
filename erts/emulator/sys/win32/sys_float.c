@@ -25,6 +25,11 @@
 #include "sys.h"
 #include "signal.h"
 
+void
+erts_sys_init_float(void)
+{
+}
+
 /*
  ** These two functions should maybe use localeconv() to pick up
  ** the current radix character, but since it is uncertain how
