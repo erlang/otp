@@ -156,6 +156,12 @@ filters(Config) when is_list(Config) ->
 			      X <- "ABCDEFG",
 			      not is_less_than(X, $E),
 			      X rem 2 == 1>>),
+    <<1,3>> = cs_default(<< <<(length(L))>> ||
+                             L <- [[],[a],[],[x,y,z]],
+                             case L of
+                                 [] -> false;
+                                 [_|_] -> true
+                             end >>),
 
     %% Filtering by a non-matching pattern.
     <<"abd">> = cs_default(<< <<X:8>> ||
@@ -260,6 +266,13 @@ sizes(Config) when is_list(Config) ->
     <<>> = Fun5([], 1, 1, 1),
     <<7:3,8:40,9:56>> = Fun5([7], 3, 5, 7),
 
+    Fun5a = fun(List, Sz1, Sz2, Sz3) ->
+                    cs(<< <<"abc",E:Sz1,(E+1):Sz2/unit:8,"qqq",(E+2):Sz3/unit:8,"xyz">> ||
+                          E <- List >>)
+	   end,
+    <<>> = Fun5a([], 1, 1, 1),
+    <<"abc",7:3,8:40,"qqq",9:56,"xyz">> = Fun5a([7], 3, 5, 7),
+
     Fun6 = fun(List, Size) ->
 		   cs(<< <<E:8,(E+1):Size>> || E <- List >>)
 	   end,
@@ -319,31 +332,38 @@ sizes(Config) when is_list(Config) ->
 -define(BAD_V(E), {'EXIT',{badarg,_}} = (catch << (E) || I <- [1,2,3] >>)).
 
 general_expressions(_) ->
-    <<1,2,3>> = << begin <<1,2,3>> end || _ <- [1] >>,
-    <<"abc">> = << begin <<"abc">> end || _ <- [1] >>,
-    <<1,2,3>> = << begin
-		       I = <<(I0+1)>>,
-		       id(I)
-		   end || <<I0>> <= <<0,1,2>> >>,
-    <<1,2,3>> = << I || I <- [<<1,2>>,<<3>>] >>,
-    <<1,2,3>> = << (id(<<I>>)) || I <- [1,2,3] >>,
-    <<2,4>> = << case I rem 2 of
-		     0 -> <<I>>;
-		     1 -> <<>>
-		 end || I <- [1,2,3,4,5] >>,
-    <<2,3,4,5,6,7>> = << << (id(<<J>>)) || J <- [2*I,2*I+1] >> ||
-			  I <- [1,2,3] >>,
-    <<1,2,2,3,4,4>> = << if
-			     I rem 2 =:= 0 -> <<I,I>>;
-			     true -> <<I>>
-			 end || I <- [1,2,3,4] >>,
+    cs_init(),
+
+    <<1,2,3>> = cs_default(<< begin <<1,2,3>> end || _ <- [1] >>),
+    <<"abc">> = cs_default(<< begin <<"abc">> end || _ <- [1] >>),
+    <<1,2,3>> = cs_default(<< begin
+                                  I = <<(I0+1)>>,
+                                  id(I)
+                              end || <<I0>> <= <<0,1,2>> >>),
+    <<1,2,3>> = cs_default(<< I || I <- [<<1,2>>,<<3>>] >>),
+    <<1,2,3>> = cs_default(<< (id(<<I>>)) || I <- [1,2,3] >>),
+    <<2,4>> = cs_default(<< case I rem 2 of
+                                0 -> <<I>>;
+                                1 -> <<>>
+                            end || I <- [1,2,3,4,5] >>),
+    <<2,3,4,5,6,7>> = cs_default(<< << (id(<<J>>)) || J <- [2*I,2*I+1] >> ||
+                                     I <- [1,2,3] >>),
+    <<1,2,2,3,4,4>> = cs_default(<< if
+                                        I rem 2 =:= 0 -> <<I,I>>;
+                                        true -> <<I>>
+                                    end || I <- [1,2,3,4] >>),
     self() ! <<42>>,
-    <<42>> = << receive B -> B end || _ <- [1] >>,
-    <<10,5,3>> = << try
-			<<(10 div I)>>
-		    catch _:_ ->
-			    <<>>
-		    end || I <- [0,1,2,3] >>,
+    <<42>> = cs_default(<< receive B -> B end || _ <- [1] >>),
+    <<10,5,3>> = cs_default(<< try
+                                   <<(10 div I)>>
+                               catch _:_ ->
+                                       <<>>
+                               end || I <- [0,1,2,3] >>),
+
+    <<3:4,16#A:4,7:4>> = cs(hstring_to_bitstring("3A7")),
+    <<0:3,1:3,2:3,3:3,4:3,5:3,6:3,7:3>> = cs(encode_chars_compact_map("ABCDEFGH", id(3), id({$A,8}))),
+
+    cs_end(),
 
     %% Failing expressions.
     ?BAD(bad_atom),
@@ -355,6 +375,24 @@ general_expressions(_) ->
 
     ok.
 
+hstring_to_bitstring(L) ->
+    << <<(hex_to_int(D)):4>> || D <- L >>.
+
+hex_to_int(D) when $0 =< D, D =< $9 -> D - $0;
+hex_to_int(D) when $A =< D, D =< $F -> D - ($A - 10).
+
+encode_chars_compact_map(Val, NumBits, {Lb,Limit}) ->
+    << <<(enc_char_cm(C, Lb, Limit)):NumBits>> || C <- Val >>.
+
+enc_char_cm(C0, Lb, Limit) ->
+    C = C0 - Lb,
+    if
+	0 =< C, C < Limit ->
+	    C;
+	true ->
+            error(illegal)
+    end.
+
 -undef(BAD).
 
 matched_out_size(Config) when is_list(Config) ->
@@ -364,7 +402,7 @@ matched_out_size(Config) when is_list(Config) ->
 matched_out_size_1(Binary) ->
     << <<X>> || <<S, X:S>> <= Binary>>.
 
-no_generator(Config) ->
+no_generator(_Config) ->
     [<<"abc">>] = [<<(id(<<"abc">>)) || true >>],
     {<<>>} = {<<(id(<<"abc">>)) || false >>},
 
