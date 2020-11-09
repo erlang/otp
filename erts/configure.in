@@ -3451,6 +3451,9 @@ dnl ---------------------------------------------------------------------
 dnl Autoheader macro for adding code at top and bottom of config.h.in
 dnl ---------------------------------------------------------------------
 AH_TOP([
+#ifndef __ERTS_CONFIG_H__
+#define __ERTS_CONFIG_H__
+
 #define GHBN_R_SOLARIS  2
 #define GHBN_R_AIX      3
 #define GHBN_R_GLIBC    4
@@ -3485,6 +3488,8 @@ AH_BOTTOM([
 #if defined(DEBUG) && !defined(ERTS_ENABLE_LOCK_CHECK)
 #define ERTS_ENABLE_LOCK_CHECK 1
 #endif
+
+#endif /* __ERTS_CONFIG_H__ */
 ])
 
 if test "x$GCC" = xyes; then
