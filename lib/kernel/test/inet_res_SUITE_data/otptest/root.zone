@@ -46,5 +46,7 @@ mb.resolve.otptest	IN MB		mx.resolve.otptest
 mg.resolve.otptest	IN MG		Lsa.otptest
 mr.resolve.otptest	IN MR		LSA.otptest
 minfo.resolve.otptest	IN MINFO	minfo-OWNER.resolve.otptest MinfoBounce.resolve.otptest
+uri.resolve.otptest     IN URI          10 3 "http://erlang.org"
+caa.resolve.otptest     IN CAA          1 iodef "http://iodef.erlang.org"
 
 ns.otptest	IN A		127.0.0.254
