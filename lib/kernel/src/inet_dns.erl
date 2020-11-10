@@ -477,7 +477,7 @@ decode_data(<<Order:16,Preference:16,Data0/binary>>, _, ?S_NAPTR, Buffer) ->
     {Data2,Services} = decode_string(Data1),
     {Data,Regexp} = decode_characters(Data2, utf8),
     Replacement = decode_domain(Data, Buffer),
-    {Order,Preference,string:lowercase(Flags),string:lowercase(Services),
+    {Order,Preference,to_lower(Flags),to_lower(Services),
      Regexp,Replacement};
 %% ?S_OPT falls through to default
 decode_data(Data, _, ?S_TXT, _) ->
@@ -486,8 +486,13 @@ decode_data(Data, _, ?S_SPF, _) ->
     decode_txt(Data);
 decode_data(Data, _, ?S_URI, _) ->
     decode_txt(Data);
-decode_data(Data, _, ?S_CAA, _) ->
-    decode_txt(Data);
+decode_data(<<Flags:8,Data0/binary>>, _, ?S_CAA, _) ->
+    {Data1,Tag} = decode_string(Data0),
+    L = length(Tag),
+    (1 =< L andalso L =< 15)
+        orelse throw(?DECODE_ERROR),
+    Value = binary_to_list(Data1),
+    {Flags,to_lower(Tag),Value};
 %% sofar unknown or non standard
 decode_data(Data, _, _, _) ->
     Data.
@@ -589,6 +594,14 @@ decode_name_label(Label, Name, N) ->
 	    erlang:error(badarg, [Label,Name,N])
     end.
 
+%% Just lowercase ASCII A..Z
+to_lower([C | Cs]) when $A =< C, C =< $Z ->
+    [C + 32 | to_lower(Cs)];
+to_lower([C | Cs]) ->
+    [C | to_lower(Cs)];
+to_lower([]) ->
+    [].
+
 %%
 %% Data field -> {binary(),NewCompressionTable}
 %%
@@ -639,6 +652,11 @@ encode_data(Comp, Pos, ?S_NAPTR, in,
 encode_data(Comp, _, ?S_TXT, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_SPF, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_URI, in, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_CAA, in, {Flags,Tag,Value}) ->
+    B0 = <<Flags:8>>,
+    B1 = encode_string(B0, iolist_to_binary(Tag)),
+    B2 = iolist_to_binary(Value),
+    {<<B1/binary,B2/binary>>,Comp};
 encode_data(Comp, _, ?S_CAA, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _Pos, _Type, _Class, Data) -> {iolist_to_binary(Data),Comp}.
 
