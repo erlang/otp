@@ -1281,8 +1281,7 @@ cert_options(Config) ->
      {server_bad_key, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
 		       {certfile, ServerCertFile}, {keyfile, BadKeyFile}]}
      | Config].
-
-
+    
 make_dsa_cert(Config) ->  
     CryptoSupport = crypto:supports(),
     case proplists:get_bool(dss, proplists:get_value(public_keys, CryptoSupport)) of
