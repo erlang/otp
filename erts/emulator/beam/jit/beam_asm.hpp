@@ -278,6 +278,7 @@ public:
 #ifdef DEBUG
         a.addValidationOptions(BaseEmitter::kValidationOptionAssembler);
 #endif
+        a.addEncodingOptions(BaseEmitter::kEncodingOptionOptimizeForSize);
         code.setErrorHandler(this);
     }
 
@@ -896,18 +897,9 @@ protected:
              *
              * Thus, "xor eax, eax" is five bytes shorter than "mov rax, 0".
              *
-             * Note: xor clears ZF and C; mov does not change any flags.
+             * Note: xor clears ZF and CF; mov does not change any flags.
              */
             a.xor_(to.r32(), to.r32());
-        } else if (Support::isInt32(value)) {
-            /*
-             * Generate the shortest instruction to set the register
-             * to an unsigned immediate value that fits in 32 bits.
-             *
-             *   48 c7 c0 2a 00 00 00    mov    rax, 42
-             *   b8 2a 00 00 00          mov    eax, 42
-             */
-            a.mov(to.r32(), imm(value));
         } else {
             a.mov(to, imm(value));
         }
