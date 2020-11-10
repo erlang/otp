@@ -366,6 +366,36 @@ syntax(Config) when is_list(Config) ->
                                 {illegal_char,
                                  "\\x{333333333333333333333333}"}}}]}],[]} =
         leex:file(Filename, Ret),
+
+    File1 = filename:join(Dir, "file1.inc"),
+    ?line ok = file:write_file(File1,
+                                 <<"MI = [a-z]\n">>),
+    File2 = filename:join(Dir, "file2.inc"),
+    ?line ok = file:write_file(File2,
+                                 <<"D  = [0-9]\n">>),
+    ?line ok = file:write_file(Filename,
+                               <<"Definitions.\n"
+                                 "include \"file1.inc\" \n"
+                                 "MA = [A-Z]\n"
+                                 "include \"file2.inc\"\n"
+                                 "Rules.\n"
+                                 "[b-a] : token.\n">>),
+    ?line {error,[{_,[{6,leex,{regexp,{char_class,"b-a"}}}]}],[]} = 
+        leex:file(Filename, Ret), 
+
+   ?line ok = file:write_file(Filename,
+                               <<"Definitions.\n"
+                                 "include \"file1.inc\" \n"
+                                 "MA = [A-Z]\n"
+                                 "include \"file2.inc\"\n"
+                                 "Rules.\n"
+                                 "{MI} : token.\n"
+                                 "Erlang code.">>),
+    ?line {ok, Target} = 
+        leex:file(Filename), 
+    file:delete(Target),
+    file:delete(File1),
+    file:delete(File2),
     ok.
 
 
@@ -1128,7 +1158,7 @@ otp_13916(Config) when is_list(Config) ->
 
 otp_14285(Config) ->
     Dir = ?privdir,
-    Filename = filename:join(Dir, "file.xrl"),
+    _Filename = filename:join(Dir, "file.xrl"),
 
     Ts = [{otp_14285_1,
            <<"%% encoding: latin-1\n"
