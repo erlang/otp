@@ -484,6 +484,11 @@ decode_data(Data, _, ?S_TXT, _) ->
     decode_txt(Data);
 decode_data(Data, _, ?S_SPF, _) ->
     decode_txt(Data);
+decode_data(<<Prio:16,Weight:16,Data0/binary>>, _, ?S_URI, _) ->
+    (1 =< byte_size(Data0))
+        orelse throw(?DECODE_ERROR),
+    Target = binary_to_list(Data0),
+    {Prio,Weight,Target};
 decode_data(Data, _, ?S_URI, _) ->
     decode_txt(Data);
 decode_data(<<Flags:8,Data0/binary>>, _, ?S_CAA, _) ->
@@ -651,6 +656,8 @@ encode_data(Comp, Pos, ?S_NAPTR, in,
 %% ?S_OPT falls through to default
 encode_data(Comp, _, ?S_TXT, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_SPF, in, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_URI, in, {Prio,Weight,Target}) ->
+    {<<Prio:16,Weight:16,(iolist_to_binary(Target))/binary>>,Comp};
 encode_data(Comp, _, ?S_URI, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_CAA, in, {Flags,Tag,Value}) ->
     B0 = <<Flags:8>>,
