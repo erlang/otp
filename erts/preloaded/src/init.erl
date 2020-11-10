@@ -824,10 +824,6 @@ do_boot(Init,Flags,Start) ->
 	     vars=BootVars},
     eval_script(BootList, Es),
 
-    %% To help identifying Purify windows that pop up,
-    %% print the node name into the Purify log.
-    (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
-
     start_em(Start),
     case b2a(get_flag(profile_boot,Flags,false)) of
         false -> ok;

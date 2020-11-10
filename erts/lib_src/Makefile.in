@@ -56,21 +56,6 @@ PRE_LD=
 
 else
 
-ifeq ($(TYPE),purify)
-CFLAGS=@DEBUG_CFLAGS@ -DPURIFY
-TYPE_SUFFIX=.purify
-PRE_LD=purify $(PURIFY_BUILD_OPTIONS)
-else
-ifeq ($(TYPE),quantify)
-CFLAGS += -DQUANTIFY
-TYPE_SUFFIX=.quantify
-PRE_LD=quantify $(QUANTIFY_BUILD_OPTIONS)
-else
-ifeq ($(TYPE),purecov)
-CFLAGS=@DEBUG_CFLAGS@ -DPURECOV
-TYPE_SUFFIX=.purecov
-PRE_LD=purecov $(PURECOV_BUILD_OPTIONS)
-else
 ifeq ($(TYPE),gcov)
 CFLAGS=@DEBUG_CFLAGS@ -DGCOV -fprofile-arcs -ftest-coverage -O0
 TYPE_SUFFIX=.gcov
@@ -107,9 +92,6 @@ override TYPE=opt
 OMIT_FP=true
 TYPE_SUFFIX=
 PRE_LD=
-endif
-endif
-endif
 endif
 endif
 endif

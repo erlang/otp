@@ -137,7 +137,7 @@ ethr_native_dw_atomic_addr(ethr_native_dw_atomic_t *var)
 #if ETHR_NO_CLOBBER_EBX__ && !defined(ETHR_CMPXCHG8B_REGISTER_SHORTAGE)
 /* When no optimization is on, we'll run into a register shortage */
 #  if defined(ETHR_DEBUG) || defined(DEBUG) || defined(VALGRIND) \
-      || defined(GCOV) || defined(PURIFY) || defined(PURECOV)
+      || defined(GCOV)
 #    define ETHR_CMPXCHG8B_REGISTER_SHORTAGE 1
 #  else
 #    define ETHR_CMPXCHG8B_REGISTER_SHORTAGE 0

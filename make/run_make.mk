@@ -31,7 +31,7 @@ include $(ERL_TOP)/make/target.mk
 
 .PHONY: valgrind
 
-opt debug purify quantify purecov valgrind gcov gprof lcnt frmptr icount:
+opt debug valgrind gcov gprof lcnt frmptr icount:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 
 emu jit:

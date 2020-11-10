@@ -66,42 +66,21 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 
 ifeq ($(TYPE),debug)
-PURIFY =
 TYPEMARKER = .debug
 TYPE_FLAGS = -g -DDEBUG
 ifeq ($(TARGET),win32)
 LDFLAGS += -g
 endif
 else
-ifeq ($(TYPE),purify)
-PURIFY = purify
-TYPEMARKER = .purify
-TYPE_FLAGS = -DPURIFY -DNO_JUMP_TABLE
-else
-ifeq ($(TYPE),quantify)
-PURIFY = quantify
-TYPEMARKER = .quantify
-TYPE_FLAGS = -g -O2 -DQUANTIFY
-else
-ifeq ($(TYPE),purecov)
-PURIFY = purecov --follow-child-processes=yes
-TYPEMARKER = .purecov
-TYPE_FLAGS = -g -DPURECOV -DNO_JUMP_TABLE
-else
 ifeq ($(TYPE),gcov)
-PURIFY =
 TYPEMARKER =
 TYPE_FLAGS = -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage
 ifeq ($(TARGET),linux)
 LIBS += -lgcov
 endif
 else
-PURIFY =
 TYPEMARKER =
 TYPE_FLAGS =
-endif
-endif
-endif
 endif
 endif
 
@@ -566,16 +545,16 @@ endif
 
 ifeq ($(TARGET),win32)
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(MD_EILIB)
-	$(ld_verbose)$(PURIFY) $(CC) -MD $(PROG_CFLAGS) $(THR_DEFS) -o $@ $(ERLCALL) \
+	$(ld_verbose) $(CC) -MD $(PROG_CFLAGS) $(THR_DEFS) -o $@ $(ERLCALL) \
 		-L$(OBJDIR) -lei_md $(THR_LIBS) $(LIBS) -lsocket
 else
 ifdef THR_DEFS
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(MT_EILIB)
-	$(ld_verbose)$(PURIFY) $(CC) $(PROG_CFLAGS) $(THR_DEFS) $(LDFLAGS) -o $@ $(ERLCALL) \
+	$(ld_verbose) $(CC) $(PROG_CFLAGS) $(THR_DEFS) $(LDFLAGS) -o $@ $(ERLCALL) \
 		-L$(OBJDIR) -lei $(THR_LIBS) $(LIBS)
 else
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(ST_EILIB)
-	$(ld_verbose)$(PURIFY) $(CC) $(PROG_CFLAGS) $(LDFLAGS) -o $@ $(ERLCALL) \
+	$(ld_verbose) $(CC) $(PROG_CFLAGS) $(LDFLAGS) -o $@ $(ERLCALL) \
 		-L$(OBJDIR) -lei $(LIBS)
 endif
 endif

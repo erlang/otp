@@ -122,9 +122,6 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
 				     " [instruction-counting]"
 #endif
-#ifdef PURIFY
-				     " [purify-compiled]"
-#endif	
 #ifdef VALGRIND
 				     " [valgrind-compiled]"
 #endif
@@ -2183,44 +2180,22 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	    goto badarg;
 	ERTS_BIF_PREP_TRAP1(ret, erts_format_cpu_topology_trap, BIF_P, res);
 	return ret;
-#if defined(PURIFY) || defined(VALGRIND)
+#if defined(VALGRIND)
     } else if (ERTS_IS_ATOM_STR("error_checker", sel)
-#if defined(PURIFY)
-	       || sel == am_purify
-#elif defined(VALGRIND)
-	       || ERTS_IS_ATOM_STR("valgrind", sel)
-#endif
-	) {
+	       || ERTS_IS_ATOM_STR("valgrind", sel)) {
 	if (*tp == am_memory) {
-#if defined(PURIFY)
-	    BIF_RET(erts_make_integer(purify_new_leaks(), BIF_P));
-#elif defined(VALGRIND)
 #  ifdef VALGRIND_DO_ADDED_LEAK_CHECK
 	    VALGRIND_DO_ADDED_LEAK_CHECK;
 #  else
 	    VALGRIND_DO_LEAK_CHECK;
 #  endif
 	    BIF_RET(make_small(0));
-#endif
 	} else if (*tp == am_fd) {
-#if defined(PURIFY)
-	    BIF_RET(erts_make_integer(purify_new_fds_inuse(), BIF_P));
-#elif defined(VALGRIND)
 	    /* Not present in valgrind... */
 	    BIF_RET(make_small(0));
-#endif
 	} else if (*tp == am_running) {
-#if defined(PURIFY)
-	    BIF_RET(purify_is_running() ? am_true : am_false);
-#elif defined(VALGRIND)
 	    BIF_RET(RUNNING_ON_VALGRIND ? am_true : am_false);
-#endif
 	} else if (is_list(*tp)) {
-#if defined(PURIFY)
-#  define ERTS_ERROR_CHECKER_PRINTF purify_printf
-#elif defined(VALGRIND)
-#  define ERTS_ERROR_CHECKER_PRINTF VALGRIND_PRINTF
-#endif
 	    ErlDrvSizeT buf_size = 8*1024; /* Try with 8KB first */
 	    char *buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
 	    ErlDrvSizeT r = erts_iolist_to_buf(*tp, (char*) buf, buf_size - 1);
@@ -2235,25 +2210,9 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 		ASSERT(r == buf_size - 1);
 	    }
 	    buf[buf_size - 1 - r] = '\0';
-            ERTS_ERROR_CHECKER_PRINTF("%s\n", buf);
+            VALGRIND_PRINTF("%s\n", buf);
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(am_true);
-#undef ERTS_ERROR_CHECKER_PRINTF
-	}
-#endif
-#ifdef QUANTIFY
-    } else if (sel == am_quantify) {
-	if (*tp == am_clear) {
-	    quantify_clear_data();
-	    BIF_RET(am_true);
-	} else if (*tp == am_start) {
-	    quantify_start_recording_data();
-	    BIF_RET(am_true);
-	} else if (*tp == am_stop) {
-	    quantify_stop_recording_data();
-	    BIF_RET(am_true);
-	} else if (*tp == am_running) {
-	    BIF_RET(quantify_is_running() ? am_true : am_false);
 	}
 #endif
 #if defined(__GNUC__) && defined(HAVE_SOLARIS_SPARC_PERFMON)
@@ -2445,15 +2404,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #if defined(DEBUG)
 	ERTS_DECL_AM(debug);
 	BIF_RET(AM_debug);
-#elif defined(PURIFY)
-	ERTS_DECL_AM(purify);
-	BIF_RET(AM_purify);
-#elif defined(QUANTIFY)
-	ERTS_DECL_AM(quantify);
-	BIF_RET(AM_quantify);
-#elif defined(PURECOV)
-	ERTS_DECL_AM(purecov);
-	BIF_RET(AM_purecov);
 #elif defined(ERTS_GCOV)
 	ERTS_DECL_AM(gcov);
 	BIF_RET(AM_gcov);

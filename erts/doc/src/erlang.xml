@@ -10107,8 +10107,8 @@ Metadata = #{ pid => pid(),
           <item>
             <p>Returns an atom describing the build type of the runtime
               system. This is normally the atom <c>opt</c> for optimized.
-              Other possible return values are <c>debug</c>, <c>purify</c>,
-              <c>quantify</c>, <c>purecov</c>, <c>gcov</c>, <c>valgrind</c>,
+              Other possible return values are <c>debug</c>,
+              <c>gcov</c>, <c>valgrind</c>,
               <c>gprof</c>, and <c>lcnt</c>. Possible return values
               can be added or removed at any time without prior notice.</p>
           </item>

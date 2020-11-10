@@ -2684,7 +2684,7 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
 
         /*
          * Normally, we don't expect a shrunk heap to move, but you never
-         * know on some strange embedded systems...  Or when using purify.
+         * know on some strange embedded systems...
          */
 
         offset_heap(new_heap, heap_size, offs, area, area_size);

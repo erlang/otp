@@ -43,28 +43,10 @@ ifeq ($(TARGET),win32)
 LDFLAGS += -g
 endif
 else
-ifeq ($(TYPE),purify)
-CFLAGS = @CFLAGS@ -DPURIFY
-TYPEMARKER=.purify
-PRE_LD = purify $(PURIFY_BUILD_OPTIONS)
-else
-ifeq ($(TYPE),quantify)
-CFLAGS = @CFLAGS@ -DQUANTIFY
-TYPEMARKER=.quantify
-PRE_LD = quantify $(QUANTIFY_BUILD_OPTIONS)
-else
-ifeq ($(TYPE),purecov)
-CFLAGS = @DEBUG_CFLAGS@ -DPURECOV
-TYPEMARKER=.purecov
-PRE_LD = purecov $(PURECOV_BUILD_OPTIONS)
-else
 override TYPE=opt
 CFLAGS = @CFLAGS@
 PRE_LD =
 TYPEMARKER =
-endif
-endif
-endif
 endif
 
 ifeq ($(findstring -D_GNU_SOURCE,$(CFLAGS)),)

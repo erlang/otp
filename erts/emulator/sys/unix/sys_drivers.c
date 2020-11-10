@@ -128,12 +128,6 @@ typedef struct driver_data {
 
 #if defined(DEBUG)
 #define ERL_BUILD_TYPE_MARKER ".debug"
-#elif defined(PURIFY)
-#define ERL_BUILD_TYPE_MARKER ".purify"
-#elif defined(QUANTIFY)
-#define ERL_BUILD_TYPE_MARKER ".quantify"
-#elif defined(PURECOV)
-#define ERL_BUILD_TYPE_MARKER ".purecov"
 #elif defined(VALGRIND)
 #define ERL_BUILD_TYPE_MARKER ".valgrind"
 #else /* opt */
