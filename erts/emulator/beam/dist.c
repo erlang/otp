@@ -5799,8 +5799,10 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     if (is_not_atom(Node))
         goto badarg;
 
-    if (erts_this_node->sysname == am_Noname && Node != am_Noname)
-	goto badarg;
+    if (erts_this_node->sysname == am_Noname && Node != am_Noname) {
+        ERTS_BIF_PREP_ERROR(ret, p, EXC_NOTALIVE);
+        goto do_return;
+    }
 
     switch (Bool) {
 
