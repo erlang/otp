@@ -92,9 +92,9 @@ _Height</pre>
     <pre>
 [H|_] = [1,2,3]</pre>
     <p>Variables starting with underscore (_), for example,
-      <c>_Height</c>, are normal variables, not anonymous. They are
-      however ignored by the compiler in the sense that they do not
-      generate any warnings for unused variables.</p>
+      <c>_Height</c>, are normal variables, not anonymous. However,
+      they are ignored by the compiler in the sense that they do not
+      generate warnings.</p>
       <p><em>Example:</em></p>
       <p>The following code:</p>
     <pre>

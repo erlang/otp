@@ -819,6 +819,7 @@ latin1_fallback(Conf) when is_list(Conf) ->
     ok.
 
 underscore(Config) when is_list(Config) ->
+    %% The code template.
     S0 = <<"f(A) ->
               _VAR1 = <<A>>,
               _VAR2 = {ok,A},
@@ -835,25 +836,42 @@ underscore(Config) when is_list(Config) ->
                _VAR1 = #{A=>42},
 	      ok.
 	 ">>,
-    Ts0 = [{underscore0,
-	    S0,
-	    [],
-	    {warnings,[{2,sys_core_fold,useless_building},
-		       {3,sys_core_fold,useless_building},
-		       {4,sys_core_fold,useless_building},
-		       {7,sys_core_fold,result_ignored},
-		       {8,sys_core_fold,{no_effect,{erlang,date,0}}},
-		       {11,sys_core_fold,useless_building},
-		       {14,sys_core_fold,useless_building}
-		      ]}}],
+
+    %% Define all possible warnings.
+    Warnings = [{2,sys_core_fold,useless_building},
+                {3,sys_core_fold,useless_building},
+                {4,sys_core_fold,useless_building},
+                {7,sys_core_fold,result_ignored},
+                {8,sys_core_fold,{no_effect,{erlang,date,0}}},
+                {11,sys_core_fold,useless_building},
+                {14,sys_core_fold,useless_building}],
+
+
+    %% Compile the unmodified template. Assigning to variable that
+    %% begins with '_' should suppress all warnings.
+    Ts0 = [{underscore0,S0,[],[]}],
     [] = run(Config, Ts0),
 
     %% Replace all "_VAR<digit>" variables with a plain underscore.
-    %% Now there should be no warnings.
+    %% There should still be no warnings.
     S1 = re:replace(S0, "_VAR\\d+", "_", [global]),
     io:format("~s\n", [S1]),
     Ts1 = [{underscore1,S1,[],[]}],
     [] = run(Config, Ts1),
+
+    %% Make sure that we get warnings if we remove "_VAR<digit> = ".
+    S2 = re:replace(S0, "_VAR\\d+ = ", "", [global]),
+    io:format("~s\n", [S2]),
+    Ts2 = [{underscore2,S2,[],{warnings,Warnings}}],
+    [] = run(Config, Ts2),
+
+    %% We should also get warnings if we assign to a variables that don't
+    %% begin with underscore (as well as warnings for unused variables from
+    %% erl_lint).
+    S3 = re:replace(S0, "_(?=VAR\\d+)", "", [global]),
+    io:format("~s\n", [S3]),
+    Ts3 = [{underscore2,S3,[],{warnings,Warnings}}],
+    [] = run(Config, Ts3),
 
     ok.
 

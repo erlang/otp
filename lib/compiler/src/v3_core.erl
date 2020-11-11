@@ -714,10 +714,7 @@ expr({call,L,FunExp,As0}, St0) ->
 expr({match,L,P0,E0}, St0) ->
     %% First fold matches together to create aliases.
     {P1,E1} = fold_match(E0, P0),
-    St1 = case P1 of
-	      {var,_,'_'} -> St0#core{wanted=false};
-	      _ -> St0
-	  end,
+    St1 = set_wanted(P1, St0),
     {E2,Eps1,St2} = novars(E1, St1),
     St3 = St2#core{wanted=St0#core.wanted},
     {P2,St4} = try
@@ -833,6 +830,20 @@ expr({op,L,Op,L0,R0}, St0) ->
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
+
+%% set_wanted(Pattern, St) -> St'.
+%%  Suppress warnings for expressions that are bound to the '_'
+%%  variable and variables that begin with '_'.
+set_wanted({var,_,'_'}, St) ->
+    St#core{wanted=false};
+set_wanted({var,_,Var}, St) ->
+    case atom_to_list(Var) of
+        "_" ++ _ ->
+            St#core{wanted=false};
+        _ ->
+            St
+    end;
+set_wanted(_, St) -> St.
 
 letify_aliases(#c_alias{var=V,pat=P0}, E0) ->
     {P1,E1,Eps0} = letify_aliases(P0, V),
