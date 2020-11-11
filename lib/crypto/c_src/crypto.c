@@ -250,6 +250,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 #ifdef OPENSSL_THREADS
     if (nlocks > 0) {
+	CRYPTO_set_add_lock_callback(ccb->add_lock_function);
 	CRYPTO_set_locking_callback(ccb->locking_function);
 	CRYPTO_set_id_callback(ccb->id_function);
 	CRYPTO_set_dynlock_create_callback(ccb->dyn_create_function);
