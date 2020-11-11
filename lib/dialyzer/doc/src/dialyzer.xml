@@ -391,7 +391,9 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <item>
         <p>Include warnings for function calls that ignore a structured return
           value or do not match against one of many possible return
-          value(s).</p>
+          values. However, no warnings are included if the possible return
+	  values are a union of atoms or a union of numbers.
+	  </p>
       </item>
     </taglist>
 
