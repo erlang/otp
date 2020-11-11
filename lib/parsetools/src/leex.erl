@@ -89,10 +89,39 @@ compile(Input0, Output0,
             error
     end.
 
-%% file(File) -> ok | error.
-%% file(File, Options) -> ok | error.
+-type error_info() :: {erl_anno:line() | 'none',
+                       module(), ErrorDescriptor :: term()}.
+-type errors() :: [{file:filename(), [error_info()]}].
+-type warnings() :: [{file:filename(), [error_info()]}].
+-type ok_ret() :: {'ok', Scannerfile :: file:filename()}
+                | {'ok', Scannerfile :: file:filename(), warnings()}.
+-type error_ret() :: 'error'
+                  | {'error', Errors :: errors(), Warnings :: warnings()}.
+-type leex_ret() :: ok_ret() | error_ret().
+
+-spec file(FileName) -> leex_ret() when
+      FileName :: file:filename().
 
 file(File) -> file(File, []).
+
+-spec file(FileName, Options) -> leex_ret() when
+      FileName :: file:filename(),
+      Options :: Option | [Option],
+      Option :: {'dfa_graph', boolean()}
+              | {'includefile', Includefile :: file:filename()}
+              | {'report_errors', boolean()}
+              | {'report_warnings', boolean()}
+              | {'report', boolean()}
+              | {'return_errors', boolean()}
+              | {'return_warnings', boolean()}
+              | {'return', boolean()}
+              | {'scannerfile', Scannerfile :: file:filename()}
+              | {'verbose', boolean()}
+              | {'warnings_as_errors', boolean()}
+              | 'dfa_graph'
+              | 'report_errors' | 'report_warnings' | 'report'
+              | 'return_errors' | 'return_warnings' | 'return'
+              | 'verbose' | 'warnings_as_errors'.
 
 file(File, Opts0) ->
     case is_filename(File) of
@@ -124,6 +153,9 @@ file(File, Opts0) ->
              St4
          end,
     leex_ret(St).             
+
+-spec format_error(ErrorDescriptor) -> io_lib:chars() when
+      ErrorDescriptor :: term().
 
 format_error({file_error, Reason}) ->
     io_lib:fwrite("~ts",[file:format_error(Reason)]);
