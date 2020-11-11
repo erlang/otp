@@ -26,6 +26,8 @@
 %% RFC 2671: Extension Mechanisms for DNS (EDNS0)
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
+%% RFC 6488: DNS Certification Authority Authorization (CAA) Resource Record
+%% RFC 7553: The Uniform Resource Identifier (URI) DNS Resource Record
 
 -export([decode/1, encode/1]).
 
@@ -477,7 +479,7 @@ decode_data(<<Order:16,Preference:16,Data0/binary>>, _, ?S_NAPTR, Buffer) ->
     {Data2,Services} = decode_string(Data1),
     {Data,Regexp} = decode_characters(Data2, utf8),
     Replacement = decode_domain(Data, Buffer),
-    {Order,Preference,to_lower(Flags),to_lower(Services),
+    {Order,Preference,inet_db:tolower(Flags),inet_db:tolower(Services),
      Regexp,Replacement};
 %% ?S_OPT falls through to default
 decode_data(Data, _, ?S_TXT, _) ->
@@ -497,7 +499,7 @@ decode_data(<<Flags:8,Data0/binary>>, _, ?S_CAA, _) ->
     (1 =< L andalso L =< 15)
         orelse throw(?DECODE_ERROR),
     Value = binary_to_list(Data1),
-    {Flags,to_lower(Tag),Value};
+    {Flags,inet_db:tolower(Tag),Value};
 %% sofar unknown or non standard
 decode_data(Data, _, _, _) ->
     Data.
@@ -598,14 +600,6 @@ decode_name_label(Label, Name, N) ->
 	    %% programming errors easier to locate.
 	    erlang:error(badarg, [Label,Name,N])
     end.
-
-%% Just lowercase ASCII A..Z
-to_lower([C | Cs]) when $A =< C, C =< $Z ->
-    [C + 32 | to_lower(Cs)];
-to_lower([C | Cs]) ->
-    [C | to_lower(Cs)];
-to_lower([]) ->
-    [].
 
 %%
 %% Data field -> {binary(),NewCompressionTable}
