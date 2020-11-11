@@ -186,11 +186,17 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(call_bif);
     {
-        /* Emulate `call_bif`, loading the current (phony) instruction pointer
-         * into ARG3 and the function to be called in ARG4. */
-        a.lea(ARG3, x86::qword_ptr(RET, offsetof(Export, trampoline.raw)));
-        a.mov(ARG4,
-              x86::qword_ptr(RET, offsetof(Export, trampoline.bif.address)));
+        /* Emulate a `call_bif` instruction.
+         *
+         * Note that we don't check reductions: yielding here is very tricky
+         * and error-prone, and there's little point in doing so as we can only
+         * land here directly after being scheduled in. */
+        ssize_t func_offset = offsetof(Export, trampoline.bif.address);
+
+        a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
+        a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, i)));
+        a.mov(ARG4, x86::qword_ptr(RET, func_offset));
+
         a.jmp(labels[call_bif_shared]);
     }
 

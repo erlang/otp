@@ -4273,7 +4273,7 @@ typedef struct {
         /* data */
 #ifdef BEAMASM
         BeamInstr prologue[BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord)];
-        BeamInstr call_nif[9];
+        BeamInstr call_nif[10];
 #else
         BeamInstr call_nif[4];
 #endif
