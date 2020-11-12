@@ -1130,7 +1130,7 @@ gethostnative_debug_level(Config) when is_list(Config) ->
     gethostnative_control(Config, Opts).
 
 gethostnative_adjusted_opts(Config, CtrlSeq) ->
-    Factor = ?config(gen_inet_factor, Config),
+    Factor = ?config(kernel_factor, Config),
     gethostnative_adjusted_opts2(Factor, CtrlSeq).
 
 gethostnative_adjusted_opts2(1, CtrlSeq) ->
