@@ -303,7 +303,14 @@
 
 	 %% tickets2
 	 otp8395/1, 
-	 otp9884/1
+	 otp9884/1,
+         otp16649_1/1,
+         otp16649_2/1,
+         otp16649_3/1,
+         otp16649_4/1,
+         otp16649_5/1,
+         otp16649_6/1,
+         otp16649_7/1
 	]).
 
 %% Internal exports
@@ -420,6 +427,9 @@
 	 mnesia_start/0, 
 	 mnesia_stop/0, 
 	 start_standalone_agent/1, 
+	 stop_standalone_agent/1, 
+	 start_standalone_manager/1, 
+	 stop_standalone_manager/1, 
 	 do_info/1
 	]).
 
@@ -441,6 +451,9 @@
 -define(sa, [1,3,6,1,4,1,193,2]).
 -define(system, [1,3,6,1,2,1,1]).
 -define(snmp, [1,3,6,1,2,1,11]).
+-define(sysDescr_instance, [1,3,6,1,2,1,1,1,0]).
+-define(sysObjectID_instance, [1,3,6,1,2,1,1,2,0]).
+-define(sysUpTime_instance, [1,3,6,1,2,1,1,3,0]).
 -define(snmpTraps, [1,3,6,1,6,3,1,1,5]).
 -define(ericsson, [1,3,6,1,4,1,193]).
 -define(testTrap, [1,3,6,1,2,1,15,0]).
@@ -455,6 +468,11 @@
 -define(destroy, 6).
 
 -define(TRAP_UDP, 5000).
+
+-define(MGR_PORT,       5000).
+-define(MGR_MMS,        1024).
+-define(MGR_ENGINE_ID,  "mgrEngine").
+
 
 -define(tooBigStr, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").
 
@@ -552,7 +570,10 @@ groups() ->
      {tickets2,                      [], tickets2_cases()}, 
      {otp4394,                       [], [otp_4394]},
      {otp7157,                       [], [otp_7157]},
-     {otp16092,                      [], otp16092_cases()}
+     {otp16092,                      [], otp16092_cases()},
+     {otp16649,                      [], otp16649_cases()},
+     {otp16649_ipv4,                 [], otp16649_gen_cases()},
+     {otp16649_ipv6,                 [], otp16649_gen_cases()}
     ].
 
 
@@ -714,6 +735,23 @@ init_per_group(mib_storage_dets = GroupName, Config) ->
     init_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(mib_storage_ets = GroupName, Config) -> 
     init_mib_storage_ets(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp16649_ipv4 = GroupName, Config) -> 
+    Config2 = [{ip,       ?LOCALHOST(inet)},
+               {ipfamily, inet},
+               {tdomain,  transportDomainUdpIpv4} |
+               lists:keydelete(ip, 1, Config)],
+    snmp_test_lib:init_group_top_dir(GroupName, Config2);
+init_per_group(otp16649_ipv6 = GroupName, Config) -> 
+    case ?HAS_SUPPORT_IPV6() of
+        true ->
+            Config2 = [{ip,       ?LOCALHOST(inet6)},
+                       {ipfamily, inet6},
+                       {tdomain,  transportDomainUdpIpv6} |
+                       lists:keydelete(ip, 1, Config)],
+            snmp_test_lib:init_group_top_dir(GroupName, Config2);
+        false ->
+            {skip, "Host does not support IPv6"}
+    end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
@@ -858,6 +896,41 @@ init_per_testcase1(otp9884 = Case, Config) when is_list(Config) ->
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
     otp9884({init, init_per_testcase2(Case, Config)});
+init_per_testcase1(otp16649_1 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    otp16649_1_init(init_per_testcase2(Case, Config));
+init_per_testcase1(otp16649_2 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    otp16649_2_init(init_per_testcase2(Case, Config));
+init_per_testcase1(otp16649_3 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    otp16649_3_init(init_per_testcase2(Case, Config));
+init_per_testcase1(otp16649_4 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    otp16649_4_init(init_per_testcase2(Case, Config));
+init_per_testcase1(otp16649_5 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    otp16649_5_init(init_per_testcase2(Case, Config));
+init_per_testcase1(otp16649_6 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    otp16649_6_init(init_per_testcase2(Case, Config));
+init_per_testcase1(otp16649_7 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    otp16649_7_init(init_per_testcase2(Case, Config));
 init_per_testcase1(otp_7157 = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
@@ -976,6 +1049,20 @@ end_per_testcase1(otp8395, Config) when is_list(Config) ->
     otp8395({fin, Config});
 end_per_testcase1(otp9884, Config) when is_list(Config) ->
     otp9884({fin, Config});
+end_per_testcase1(otp16649_1, Config) when is_list(Config) ->
+    otp16649_1_fin(Config);
+end_per_testcase1(otp16649_2, Config) when is_list(Config) ->
+    otp16649_2_fin(Config);
+end_per_testcase1(otp16649_3, Config) when is_list(Config) ->
+    otp16649_3_fin(Config);
+end_per_testcase1(otp16649_4, Config) when is_list(Config) ->
+    otp16649_4_fin(Config);
+end_per_testcase1(otp16649_5, Config) when is_list(Config) ->
+    otp16649_5_fin(Config);
+end_per_testcase1(otp16649_6, Config) when is_list(Config) ->
+    otp16649_6_fin(Config);
+end_per_testcase1(otp16649_7, Config) when is_list(Config) ->
+    otp16649_7_fin(Config);
 end_per_testcase1(_Case, Config) when is_list(Config) ->
     ?DBG("end_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
@@ -4399,7 +4486,7 @@ sa_mib() ->
     ok.
 
 ma_trap1(MA) ->
-    ok = snmpa:send_trap(MA, testTrap2, "standard trap"), 
+    ok = snmpa:send_trap(MA, testTrap2, "standard trap"),
     ?line ?expect5(trap, [system], 6, 1, [{[system, [4,0]],
 					   "{mbj,eklas}@erlang.ericsson.se"}]),
     ok = snmpa:send_trap(MA, testTrap1, "standard trap"),
@@ -7032,12 +7119,12 @@ otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
     ?IPRINT("try start snmp (agent) supervisor (on ~p) - expect ~p", 
             [Node, Expected]),
     case start_standalone_agent(Node, Opts) of
-        Pid when is_pid(Pid) andalso (Expected =:= success) ->
+        {ok, Pid} when is_pid(Pid) andalso (Expected =:= success) ->
             ?IPRINT("Expected success starting snmp (agent) supervisor"),
             ?SLEEP(1000),
             stop_standalone_agent(Pid),
             ok;
-        Pid when is_pid(Pid) andalso (Expected =:= failure) ->
+        {ok, Pid} when is_pid(Pid) andalso (Expected =:= failure) ->
             ?EPRINT("Unexpected success starting snmp (agent) supervisor: (~p)",
                     [Pid]),
             ?SLEEP(1000),
@@ -7094,7 +7181,6 @@ otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
     end,
     ok.
 
-            
 
 
 %%-----------------------------------------------------------------
@@ -7105,7 +7191,25 @@ otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
 tickets2_cases() ->
     [
      otp8395, 
-     otp9884
+     otp9884,
+     {group, otp16649}
+    ].
+
+otp16649_cases() ->
+    [
+     {group, otp16649_ipv4},
+     {group, otp16649_ipv6}
+    ].
+
+otp16649_gen_cases() ->
+    [
+     otp16649_1,
+     otp16649_2,
+     otp16649_3,
+     otp16649_4,
+     otp16649_5,
+     otp16649_6,
+     otp16649_7
     ].
 
 
@@ -7113,9 +7217,9 @@ otp8395({init, Config}) when is_list(Config) ->
     ?DBG("otp8395(init) -> entry with"
 	 "~n   Config: ~p", [Config]),
 
-    %% -- 
+    %% --
     %% Start nodes
-    %% 
+    %%
 
     {ok, AgentNode}    = start_node(agent),
     {ok, ManagerNode}  = start_node(manager),
@@ -7371,6 +7475,517 @@ otp9884_await_backup_completion(First, Second) ->
 
 %%-----------------------------------------------------------------
 
+otp16649_1_init(Config) ->
+    AgentPreTransports = [{4000, req_responder},
+                          {4001, trap_sender}],
+    otp16649_init(1, AgentPreTransports, Config).
+
+otp16649_1_fin(Config) ->
+    otp16649_fin(1, Config).
+
+otp16649_1(doc) ->
+    "OTP-16649 - Multiple transports.";
+otp16649_1(Config) when is_list(Config) ->
+    otp16649(1, Config).
+
+
+otp16649_2_init(Config) ->
+    AgentPreTransports = [{4000,   req_responder},
+                          {system, trap_sender}],
+    otp16649_init(2, AgentPreTransports, Config).
+
+otp16649_2_fin(Config) ->
+    otp16649_fin(2, Config).
+
+otp16649_2(doc) ->
+    "OTP-16649 - Multiple transports.";
+otp16649_2(Config) when is_list(Config) ->
+    otp16649(2, Config).
+
+
+otp16649_3_init(Config) ->
+    AgentPreTransports = [{4000, req_responder},
+                          {0,    trap_sender}],
+    otp16649_init(3, AgentPreTransports, Config).
+
+otp16649_3_fin(Config) ->
+    otp16649_fin(3, Config).
+
+otp16649_3(doc) ->
+    "OTP-16649 - Multiple transports.";
+otp16649_3(Config) when is_list(Config) ->
+    otp16649(3, Config).
+
+
+otp16649_4_init(Config) ->
+    AgentPreTransports = [{4000,        req_responder},
+                          {{4000,4010}, trap_sender, [{no_reuse, true}]}],
+    otp16649_init(4, AgentPreTransports, Config).
+
+otp16649_4_fin(Config) ->
+    otp16649_fin(4, Config).
+
+otp16649_4(doc) ->
+    "OTP-16649 - Multiple transports.";
+otp16649_4(Config) when is_list(Config) ->
+    otp16649(4, Config).
+
+
+otp16649_5_init(Config) ->
+    AgentPreTransports = [{4000,        req_responder},
+                          {[{4000,4010}], trap_sender, [{no_reuse, true}]}],
+    otp16649_init(5, AgentPreTransports, Config).
+
+otp16649_5_fin(Config) ->
+    otp16649_fin(5, Config).
+
+otp16649_5(doc) ->
+    "OTP-16649 - Multiple transports.";
+otp16649_5(Config) when is_list(Config) ->
+    otp16649(5, Config).
+
+
+otp16649_6_init(Config) ->
+    AgentPreTransports = [{4000,        req_responder},
+                          {[4000,4001,4002], trap_sender, [{no_reuse, true}]}],
+    otp16649_init(6, AgentPreTransports, Config).
+
+otp16649_6_fin(Config) ->
+    otp16649_fin(5, Config).
+
+otp16649_6(doc) ->
+    "OTP-16649 - Multiple transports.";
+otp16649_6(Config) when is_list(Config) ->
+    otp16649(6, Config).
+
+
+otp16649_7_init(Config) ->
+    AgentPreTransports = [{4000,        req_responder},
+                          {[4000,{5100,5110}], trap_sender,
+                           [{no_reuse, true}]}],
+    otp16649_init(7, AgentPreTransports, Config).
+
+otp16649_7_fin(Config) ->
+    otp16649_fin(7, Config).
+
+otp16649_7(doc) ->
+    "OTP-16649 - Multiple transports.";
+otp16649_7(Config) when is_list(Config) ->
+    otp16649(7, Config).
+
+
+otp16649(N, Config) ->
+    ?IPRINT("otp16649 -> entry with"
+            "~n   N:      ~w"
+            "~n   Config: ~p", [N, Config]),
+
+    AgentNode   = ?config(agent_node, Config),
+    ManagerNode = ?config(manager_node, Config),
+
+    ?line AInfo = rpc:call(AgentNode, snmpa, info, []),
+
+    ?IPRINT("Agent Info: "
+            "~n      ~p", [AInfo]),
+
+    {value, {_, AgentRawTransports}} =
+        lists:keysearch(agent_raw_transports, 1, Config),
+    {value, {_, NetIF}}                =
+        lists:keysearch(net_if, 1, AInfo),
+    {value, {_, TIs}}                =
+        lists:keysearch(transport_info, 1, NetIF),
+    
+    if (length(AgentRawTransports) =:= length(TIs)) ->
+            ok;
+       true ->
+            ?IPRINT("Invalid transports: "
+                    "~n   Number of raw transports: ~w"
+                    "~n   Number of transports:     ~w",
+                    [length(AgentRawTransports), length(TIs)]),
+            exit({invalid_num_transports,
+                  length(AgentRawTransports), length(TIs)})
+    end,
+
+    ?IPRINT("validate transports"),
+    otp16649_validate_transports(AgentRawTransports, TIs),
+
+    ?IPRINT("which req-responder port-no"),
+    AgentReqPortNo = otp16649_which_req_port_no(TIs),
+
+    ?IPRINT("which trap-sender port-no"),
+    AgentTrapPortNo = otp16649_which_trap_port_no(TIs),
+
+    ?IPRINT("(mgr) register user"),
+    ?line ok = otp16649_mgr_reg_user(ManagerNode),
+
+    ?IPRINT("(mgr) register agent"),
+    TargetBase = "otp16649-agent-",
+    ReqTarget  = TargetBase ++ "req",
+    TrapTarget = TargetBase ++ "trap",
+
+    ?line ok = otp16649_mgr_reg_agent(ManagerNode,
+                                      ?config(ipfamily, Config),
+                                      ?config(tdomain, Config),
+                                      ReqTarget, AgentReqPortNo),
+    ?line ok = otp16649_mgr_reg_agent(ManagerNode,
+                                      ?config(ipfamily, Config),
+                                      ?config(tdomain, Config),
+                                      TrapTarget, AgentTrapPortNo),
+
+    ?IPRINT("(mgr) simple (sync) get request"),
+    Oids     = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
+    ?line ok = case otp16649_mgr_get_req(ManagerNode, Oids) of
+                   {ok, {noError, 0, ReplyOids}, _} ->
+                       ?IPRINT("(mgr) simple (sync) successful reply: "
+                               "~n      ~p", [ReplyOids]),
+                       ok;
+                   {ok, InvalidReply, _} ->
+                       ?IPRINT("(mgr) simple (sync) invalid reply: "
+                               "~n      ~p", [InvalidReply]),
+                       ok;
+                   {error, Reason} ->
+                       ?IPRINT("(mgr) simple (sync) error: "
+                               "~n      ~p", [Reason]),
+                       error
+               end,
+
+    ?IPRINT("load TestTrap..."), 
+    MibDir = ?config(mib_dir, Config),
+    ?line ok = otp16649_agent_load_mib(AgentNode, MibDir, "TestTrap"),
+
+    ?IPRINT("(agent) send trap (testTrap2)"),
+    ?line ok = otp16649_agent_send_trap(AgentNode, testTrap2),
+
+    TDomain = ?config(tdomain, Config),
+
+    receive
+        {handle_trap, From_v1, TrapTarget,
+         {?system, 6, 1, _, Vbs_v1}}
+        when is_pid(From_v1) andalso
+             is_list(Vbs_v1) andalso
+             (TDomain =:= transportDomainUdpIpv4) ->
+            ?IPRINT("received expected (v1) handle trap callback message: "
+                    "~n      ~p", [Vbs_v1]),
+            ok
+
+    after 5000 ->
+            case TDomain of
+                transportDomainUdpIpv4 ->
+                    ?IPRINT("TIMEOUT"),
+                    ?line exit(timeout);
+                transportDomainUdpIpv6 ->
+                    ?IPRINT("expected timeout - "
+                            "v1 trap's can only be sent on IPv4 domains"),
+                    ok
+            end
+    end,
+
+
+    ?IPRINT("load TestTrapv2..."), 
+    ?line ok = otp16649_agent_load_mib(AgentNode, MibDir, "TestTrapv2"),
+
+    ?IPRINT("(agent) send trap (testTrapv22)"),
+    ?line ok = otp16649_agent_send_trap(AgentNode, testTrapv22),
+
+    receive
+        {handle_trap, From_v2, TrapTarget,
+         {noError, 0, Vbs_v2}} when is_pid(From_v2) andalso
+                                    is_list(Vbs_v2) ->
+            ?IPRINT("received expected (v2) handle trap callback message: "
+                    "~n      ~p", [Vbs_v2]),
+            ok
+
+    after 5000 ->
+            ?IPRINT("TIMEOUT"),
+            ?line exit(timeout)
+    end,
+
+    ?IPRINT("done"),
+    ok.
+
+
+otp16649_init(N, AgentPreTransports, Config) ->
+    ?IPRINT("otp16649_init -> entry with"
+            "~n   N:                  ~w"
+            "~n   AgentPreTransports: ~w"
+            "~n   Config:             ~p", [N, AgentPreTransports, Config]),
+
+    %% --
+    %% Start nodes
+    %%
+
+    ?IPRINT("start (agent and mansger) nodes"),
+
+    {ok, AgentNode}    = start_node(otp16649_mk_name(N, agent)),
+    {ok, ManagerNode}  = start_node(otp16649_mk_name(N, manager)),
+
+    %% --
+    %% Misc
+    %%
+
+    AgentHost         = ?HOSTNAME(AgentNode),
+    ManagerHost       = ?HOSTNAME(ManagerNode),
+
+    ?IPRINT("otp16649_init -> "
+            "~n      AgentHost:   ~p"
+            "~n      ManagerHost: ~p",
+            [AgentHost, ManagerHost]),
+
+    Host              = snmp_test_lib:hostname(), 
+    Ip                = ?config(ip, Config),
+    %% We should really "extract" the address from the hostnames,
+    %% but because on some OSes (Ubuntu) adds 12.7.0.1.1 to its hosts file,
+    %% this does not work. We want a "proper" address.
+    %% Also, since both nodes (agent and manager) are both started locally,
+    %% we can use 'Ip' for both!
+    %% {ok, AgentIP}     = snmp_misc:ip(AgentHost),
+    %% {ok, ManagerIP0}  = snmp_misc:ip(ManagerHost),
+    AgentIP           = Ip,
+    ManagerIP0        = Ip,
+    ManagerIP         = tuple_to_list(ManagerIP0),
+    ?IPRINT("otp16649_init -> "
+            "~n      Host:       ~p"
+            "~n      Ip:         ~p"
+            "~n      AgentIP:    ~p"
+            "~n      ManagerIP0: ~p"
+            "~n      ManagerIP:  ~p",
+            [Host, Ip, AgentIP, ManagerIP0, ManagerIP]),
+
+
+    %% --
+    %% Write agent config
+    %% 
+
+    AgentConfDir        = ?config(agent_conf_dir, Config),
+    Vsns                = [v1,v2],
+    TransportDomain     = ?config(tdomain, Config),
+    F = fun({PortInfo, Kind}) ->
+                #{addr => {AgentIP, PortInfo}, kind => Kind};
+           ({PortInfo, Kind, Opts}) ->
+                #{addr => {AgentIP, PortInfo}, kind => Kind, opts => Opts}
+        end,
+    AgentPreTransports2 = [F(T) || T <- AgentPreTransports],
+
+    ?IPRINT("write agent config files"),
+    ?line ok = snmp_config:write_agent_snmp_files(
+                 AgentConfDir, Vsns,
+                 TransportDomain, {ManagerIP, ?MGR_PORT}, AgentPreTransports2,
+                 "test"),
+
+    ?IPRINT("start agent"),
+    Config2 = start_agent([{host,          Host},
+			   {agent_node,    AgentNode},
+			   {agent_host,    AgentHost},
+			   {agent_ip,      AgentIP},
+			   {manager_node,  ManagerNode},
+			   {manager_host,  ManagerHost},
+			   {manager_ip,    ManagerIP}|Config]),
+
+
+
+    %% --
+    %% Write manager config
+    %%
+
+    ?IPRINT("create manager dirs"),
+    MgrTopDir  = ?config(manager_top_dir, Config),
+    MgrDbDir   = filename:join(MgrTopDir,  "db/"),
+    MgrConfDir = filename:join(MgrTopDir,  "conf/"),
+    ?line ok   = file:make_dir(MgrConfDir),
+    MgrDbDir   = filename:join(MgrTopDir,  "db/"),
+    ?line ok   = file:make_dir(MgrDbDir),
+    MgrLogDir  = filename:join(MgrTopDir,  "log/"),
+    ?line ok   = file:make_dir(MgrLogDir),
+
+    ?IPRINT("write manager config files"),
+    MgrTransports = [{TransportDomain, {ManagerIP0, ?MGR_PORT}}],
+    ?line ok = snmp_config:write_manager_snmp_files(
+                 MgrConfDir,
+                 MgrTransports,
+                 ?MGR_MMS, ?MGR_ENGINE_ID),
+    
+    Config3 = [{manager_db_dir,   MgrDbDir},
+               {manager_conf_dir, MgrConfDir},
+               {manager_log_dir,  MgrLogDir} | Config2],
+               
+    ?IPRINT("start manager"),
+    ?line ok = start_manager(Config3),
+
+    ?DBG("otp16649_init -> done when"
+         "~n   Config2: ~p", [Config3]),
+    [{agent_raw_transports, AgentPreTransports} | Config3].
+
+otp16649_mk_name(N, Post) when is_integer(N) andalso is_atom(Post) ->
+    list_to_atom(?F("otp16649_~w_~w", [N, Post])).
+
+
+otp16649_fin(N, Config) when is_integer(N) ->
+    ?IPRINT("otp16649_fin -> entry with"
+            "~n   N:      ~p"
+            "~n   Config: ~p", [N, Config]),
+
+    ManagerNode = ?config(manager_node, Config),
+    AgentNode   = ?config(agent_node, Config),
+
+    %% -
+    %% Stop agent (this is the nice way to do it, 
+    %% so logs and files can be closed in the proper way).
+    %%
+
+    ?line AgentTopSup = ?config(agent_sup, Config),
+    stop_standalone_agent(AgentTopSup),
+
+
+    %% -
+    %% Stop manager
+    %%
+
+    stop_standalone_manager(ManagerNode),
+
+
+    %%
+    %% Stop the manager node
+    %%
+
+    ?DBG("otp16649_fin -> stop manager node", []),
+    stop_node(ManagerNode),
+
+
+    %%
+    %% Stop the agent node
+    %%
+
+    ?DBG("otp16649_fin -> stop agent node", []),
+    stop_node(AgentNode),
+
+    ?DBG("otp16649_fin -> done", []),
+    Config1 = lists:keydelete(manager_node, 1, Config),
+    lists:keydelete(agent_node, 1, Config1).
+
+
+otp16649_validate_transports([], []) ->
+    ok;
+otp16649_validate_transports([AgentRawTransport|AgentRawTransports],
+                             [TI|TIs]) ->
+    otp16649_validate_transport(AgentRawTransport, TI),
+    otp16649_validate_transports(AgentRawTransports, TIs).
+
+otp16649_validate_transport({PortInfo, Kind}, {PortNo, Kind, _}) ->
+    ?IPRINT("validate ~w transport:"
+            "~n   PortNo:   ~w"
+            "~n   PortInfo: ~p",  [Kind, PortNo, PortInfo]),
+    otp16649_validate_port(PortInfo, PortNo);
+otp16649_validate_transport({_, ConfKind}, {PortNo, ActualKind, _}) ->
+    exit({invalid_transport_kind, {PortNo, ConfKind, ActualKind}});
+otp16649_validate_transport({PortInfo, Kind, _}, {PortNo, Kind, _}) ->
+    ?IPRINT("validate ~w transport:"
+            "~n   PortNo:   ~w"
+            "~n   PortInfo: ~p",  [Kind, PortNo, PortInfo]),
+    otp16649_validate_port(PortInfo, PortNo);
+otp16649_validate_transport({_, ConfKind, _}, {PortNo, ActualKind, _}) ->
+    exit({invalid_transport_kind, {PortNo, ConfKind, ActualKind}}).
+
+otp16649_validate_port(PortNo, PortNo) when is_integer(PortNo) ->
+    ok;
+otp16649_validate_port(0, PortNo) when is_integer(PortNo) ->
+    ok;
+otp16649_validate_port(system, PortNo) when is_integer(PortNo) ->
+    ok;
+otp16649_validate_port(Range, PortNo) when is_tuple(Range) ->
+    case otp16649_validate_port_range(Range, PortNo) of
+        ok ->
+            ok;
+        error ->
+            exit({invalid_transport_port_no, {Range, PortNo}})
+    end;
+otp16649_validate_port(Ranges, PortNo) when is_list(Ranges) ->
+    case otp16649_validate_port_ranges(Ranges, PortNo) of
+        ok ->
+            ok;
+        error ->
+            exit({invalid_transport_port_no, {Ranges, PortNo}})
+    end.
+
+
+otp16649_validate_port_range({Min, Max}, PortNo)
+  when is_integer(Min) andalso
+       is_integer(Max) andalso
+       is_integer(PortNo) andalso
+       (Min =< PortNo) andalso
+       (PortNo =< Max) ->
+    ok;
+otp16649_validate_port_range(_Range, _PortNo) ->
+    error.
+
+otp16649_validate_port_ranges([], _PortNo) ->
+    error;
+otp16649_validate_port_ranges([PortNo|_], PortNo) when is_integer(PortNo) ->
+    ok;
+otp16649_validate_port_ranges([Range|Ranges], PortNo) when is_tuple(Range) ->
+    case otp16649_validate_port_range(Range, PortNo) of
+        ok ->
+            ok;
+        error ->
+            otp16649_validate_port_ranges(Ranges, PortNo)
+    end;
+otp16649_validate_port_ranges([_|Ranges], PortNo) ->
+    otp16649_validate_port_ranges(Ranges, PortNo).
+
+
+otp16649_which_req_port_no(TIs) ->
+    ?IPRINT("otp16649_which_req_port_no -> entry with"
+            "~n      TIs: ~p", [TIs]),
+    otp16649_which_port_no(TIs, req_responder).
+
+otp16649_which_trap_port_no(TIs) ->
+    ?IPRINT("otp16649_which_trap_port_no -> entry with"
+            "~n      TIs: ~p", [TIs]),
+    otp16649_which_port_no(TIs, trap_sender).
+
+otp16649_which_port_no([], Kind) ->
+    exit({no_transport_port_no, Kind});
+otp16649_which_port_no([{PortNo, Kind, _}|_], Kind) ->
+    PortNo;
+otp16649_which_port_no([_|TIs], Kind) ->
+    otp16649_which_port_no(TIs, Kind).
+
+
+otp16649_mgr_reg_user(Node) ->
+    rpc:call(Node, snmpm, register_user,
+             [otp16649, snmp_otp16649_user, self()]).
+
+otp16649_mgr_reg_agent(Node, IPFam, TDomain, Target, PortNo) ->
+    ?IPRINT("otp16649_mgr_reg_agent -> entry with"
+            "~n      Node:    ~p"
+            "~n      IPFam:   ~p"
+            "~n      TDomain: ~p"
+            "~n      Target:  ~p"
+            "~n      PortNo:  ~p",
+            [Node, IPFam, TDomain, Target, PortNo]),
+    Localhost  = ?LOCALHOST(IPFam),
+    Config     = [{address,   Localhost},
+                  {port,      PortNo},
+                  {version,   v1},
+                  {tdomain,   TDomain},
+                  {engine_id, "agentEngine"}],
+    rpc:call(Node, snmpm, register_agent,
+              [otp16649, Target, Config]).
+
+otp16649_mgr_get_req(Node, Oids) ->
+    TargetName = "otp16649-agent-req",
+    rpc:call(Node, snmpm, sync_get2, [otp16649, TargetName, Oids]).
+
+otp16649_agent_load_mib(Node, MibDir, Mib) ->
+    rpc:call(Node, snmpa, unload_mib, [snmp_master_agent, Mib]), % For safety
+    MibPath = join(MibDir, Mib),
+    rpc:call(Node, snmpa, load_mib, [snmp_master_agent, MibPath]).
+
+otp16649_agent_send_trap(Node, Trap) ->
+    rpc:call(Node, snmpa, send_trap,
+             [snmp_master_agent, Trap, "standard trap"]).
+
+
+%%-----------------------------------------------------------------
+
 agent_log_validation(Node) ->
     rpc:call(Node, ?MODULE, agent_log_validation, []).
 
@@ -7421,7 +8036,7 @@ start_agent(Config, Opts) ->
     
     process_flag(trap_exit, true),
 
-    AgentTopSup = start_standalone_agent(AgentNode, AgentConfig),
+    ?line {ok, AgentTopSup} = start_standalone_agent(AgentNode, AgentConfig),
 
     [{agent_sup, AgentTopSup} | Config].
     
@@ -7473,9 +8088,9 @@ start_standalone_agent(Config)  ->
     case snmpa_supervisor:start_link(normal, Config) of
         {ok, AgentTopSup} ->
             unlink(AgentTopSup),
-            AgentTopSup;
+            {ok, AgentTopSup};
         {error, {already_started, AgentTopSup}} ->
-            AgentTopSup;
+            {ok, AgentTopSup};
         {error, _} = ERROR ->
             ERROR
     end.
@@ -7497,6 +8112,31 @@ stop_standalone_agent(Pid) when (node(Pid) =/= node()) ->
 stop_standalone_agent(Pid) ->
     ?DBG("attempting to terminate agent top-supervisor: ~p", [Pid]),
     nkill(Pid, kill).
+
+
+start_manager(Config) ->
+    Node    = ?config(manager_node, Config),
+    ConfDir = ?config(manager_conf_dir, Config),
+    DbDir   = ?config(manager_db_dir, Config),
+
+    Opts = [{server, [{verbosity, trace}]},
+	    {net_if, [{verbosity, trace}]},
+	    {note_store, [{verbosity, trace}]},
+	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+    ?line ok = start_standalone_manager(Node, Opts).
+
+
+start_standalone_manager(Node, Config) ->
+    rpc:call(Node, ?MODULE, start_standalone_manager, [Config]).
+
+start_standalone_manager(Config)  ->
+    snmpm:start(Config).
+
+
+stop_standalone_manager(Node) when (Node =/= node()) ->
+    rpc:call(Node, snmpm, stop, []);
+stop_standalone_manager(_) ->
+    snmpm:stop().
 
 
 nkill(Pid, Reason) ->
@@ -7536,7 +8176,7 @@ do_info(MaNode) ->
     Keys = [vsns, 
 	    stats_counters, 
 	    {agent, [process_memory, db_memory]}, 
-	    {net_if, [process_memory, port_info, reqs]}, 
+	    {net_if, [process_memory, transport_info, reqs]}, 
 	    {note_store, [process_memory, db_memory]}, 
 	    {symbolic_store, [process_memory, db_memory]}, 
 	    {local_db, [process_memory, db_memory]}, 

@@ -2093,7 +2093,7 @@ handle_snmp_trap(CrapTrap, Domain, Addr, _State) ->
 do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
     case snmpm_config:get_agent_user_info(Domain, Addr) of
 	{ok, UserId, Target, RegType} ->
-	    ?vtrace("handle_snmp_trap -> found user: ~p", [UserId]), 
+	    ?vdebug("do_handle_snmp_trap -> found user: ~p", [UserId]), 
 	    case snmpm_config:user_info(UserId) of
 		{ok, Mod, Data} ->
 		    handle_trap(
@@ -2105,7 +2105,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 		    %% User no longer exists, unregister agent
 		    ?vlog("[trap] failed retreiving user info for "
 			  "user ~p: "
-			  "~n   ~p", [UserId, Error1]),
+			  "~n      ~p", [UserId, Error1]),
 		    case snmpm_config:unregister_agent(UserId, Target) of
 			ok ->
 			    %% Try use the default user
@@ -2131,8 +2131,8 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 			      "failed unregister agent ~p <~p,~p> "
 			      "belonging to non-existing "
 			      "user ~p, handling trap: "
-			      "~n   Error:     ~w"
-			      "~n   Trap info: ~w",
+			      "~n      Error:     ~p"
+			      "~n      Trap info: ~p",
 			      [Target, Domain, Addr, UserId,
 			       Error3, SnmpTrapInfo])
 		    end
@@ -2141,7 +2141,13 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
 	    ?vlog("[trap] failed retreiving user id for agent <~p,~p>: "
-		  "~n   ~p", [Domain, Addr, Error4]),
+		  "~n      Error:  ~p"
+		  "~n   when"
+		  "~n      Users:  ~p"
+		  "~n      Agents: ~p",
+                  [Domain, Addr, Error4,
+                   snmpm_config:which_users(),
+                   snmpm_config:which_agents()]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
 		    handle_agent(
@@ -2152,8 +2158,9 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 		Error5 ->
 		    error_msg(
 		      "failed retreiving "
-		      "the default user info handling trap from "
-		      "<~p,~p>: ~n~w~n~w",
+		      "the default user info, handling trap from <~p,~p>:"
+                      "~n      Error:     ~p"
+                      "~n      Trap Info: ~p",
 		      [Domain, Addr, Error5, SnmpTrapInfo])
 	    end
     end,
@@ -3513,6 +3520,7 @@ nis_stop(_) ->
     ok.
 
 
+-dialyzer({nowarn_function, nis_info/1}).
 nis_info(NIS) when is_pid(NIS) ->
     NIS ! {?MODULE, self(), info},
     receive

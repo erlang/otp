@@ -475,22 +475,28 @@ tc_run(Mod, Func, Args, Opts) ->
             "~n   StdM:        ~p"
             "~n", [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
     case snmp_test_mgr:start_link([%% {agent, snmp_test_lib:hostname()},
-			      {packet_server_debug, true},
-			      {debug,               false},
-			      {agent,               get(master_host)}, 
-			      {ipfamily,            get(ipfamily)},
-			      {agent_udp,           4000},
-			      {trap_udp,            5000},
-			      {recbuf,              65535},
-			      quiet,
-			      Vsn, 
-			      {community,           Community},
-			      {user,                User},
-			      {sec_level,           SecLevel},
-			      {engine_id,           EngineID},
-			      {context_engine_id,   CtxEngineID},
-			      {dir,                 Dir},
-			      {mibs,                mibs(StdM, M)}]) of
+                                   {packet_server_debug, true},
+                                   {debug,               false},
+                                   {agent,               get(master_host)}, 
+                                   {ipfamily,            get(ipfamily)},
+                                   {agent_udp,           4000},
+                                   %% <SEP-TRANSPORTS>
+                                   %% First port is used to request replies
+                                   %% Second port is used for traps sent
+                                   %% by the agent.
+                                   %% {agent_udp,           {4000, 4001}},
+                                   %% </SEP-TRANSPORTS>
+                                   {trap_udp,            5000},
+                                   {recbuf,              65535},
+                                   quiet,
+                                   Vsn, 
+                                   {community,           Community},
+                                   {user,                User},
+                                   {sec_level,           SecLevel},
+                                   {engine_id,           EngineID},
+                                   {context_engine_id,   CtxEngineID},
+                                   {dir,                 Dir},
+                                   {mibs,                mibs(StdM, M)}]) of
 	{ok, _Pid} ->
 	    case (catch apply(Mod, Func, Args)) of
 		{'EXIT', {skip, Reason}} ->
@@ -1584,14 +1590,28 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
     ?line {Domain, ManagerAddr} =
 	case IpFamily of
 	    inet6 ->
-		Ipv6Domain = transportDomainUdpIpv6,
-		AgentIpv6Addr = {AIp, 4000},
-		ManagerIpv6Addr = {MIp, ?TRAP_UDP},
+		TransportDomain6 = transportDomainUdpIpv6,
+		AgentAddr6       = {AIp, 4000},
+		ManagerAddr6     = {MIp, ?TRAP_UDP},
 		?line ok =
 		    snmp_config:write_agent_snmp_files(
 		      AgentConfDir, Vsns,
-		      Ipv6Domain, ManagerIpv6Addr, AgentIpv6Addr, "test"),
-		{Ipv6Domain, ManagerIpv6Addr};
+		      TransportDomain6, ManagerAddr6, AgentAddr6, "test"),
+		{TransportDomain6, ManagerAddr6};
+	    inet ->
+		TransportDomain4 = transportDomainUdpIpv4,
+                AIp2 = maybe_fix_addr(AIp),
+		ManagerAddr4     = {MIp, ?TRAP_UDP},
+                %% AgentPreTransport  =
+                %%     [#{addr => {AIp2, 4000}, kind => req_responder},
+                %%      #{addr => {AIp2, 4001}, kind => trap_sender}],
+                AgentPreTransport  = [#{addr => {AIp2, 4000}}],
+		?line ok =
+		    snmp_config:write_agent_snmp_files(
+		      AgentConfDir, Vsns,
+		      TransportDomain4, ManagerAddr4, AgentPreTransport,
+                      "test"),
+		{TransportDomain4, ManagerAddr4};
 	    _ ->
 		?line ok =
 		    snmp_config:write_agent_snmp_files(
@@ -1614,6 +1634,12 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
     ?line write_notify_conf(AgentConfDir),
     ok.
 
+maybe_fix_addr(Addr) when is_list(Addr) ->
+    list_to_tuple(Addr);
+maybe_fix_addr(Addr) when is_tuple(Addr) ->
+    Addr.
+
+    
 delete_files(Config) ->
     AgentDir = ?config(agent_dir, Config),
     delete_files(AgentDir, [db, conf]).

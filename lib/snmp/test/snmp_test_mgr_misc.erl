@@ -62,9 +62,29 @@ start_link_packet(
 start_link_packet(
   InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
   Dbg, IpFamily) when is_integer(UdpPort) ->
+    do_start_link_packet(InHandler,
+                         AgentIp, UdpPort, TrapUdp,
+                         VsnHdr, Version, Dir, BufSz,
+                         Dbg, IpFamily);
+start_link_packet(InHandler,
+                  AgentIp, {AReqPort, ATrapPort} = UdpPorts, TrapUdp,
+                  VsnHdr, Version, Dir, BufSz,
+                  Dbg, IpFamily) when is_integer(AReqPort) andalso
+                                      is_integer(ATrapPort) ->
+    do_start_link_packet(InHandler,
+                         AgentIp, UdpPorts, TrapUdp,
+                         VsnHdr, Version, Dir, BufSz,
+                         Dbg, IpFamily).
+
+do_start_link_packet(InHandler,
+                     AgentIp, UdpPorts, TrapUdp,
+                     VsnHdr, Version, Dir, BufSz,
+                     Dbg, IpFamily) ->
     Args =
 	[self(),
-	 InHandler, AgentIp, UdpPort, TrapUdp,  VsnHdr, Version, Dir, BufSz,
+	 InHandler,
+         AgentIp, UdpPorts, TrapUdp,
+         VsnHdr, Version, Dir, BufSz,
 	 Dbg, IpFamily],
     proc_lib:start_link(?MODULE, init_packet, Args).
 
@@ -100,7 +120,7 @@ send_bytes(Bytes, PacketPid) ->
 %%--------------------------------------------------
 init_packet(
   Parent,
-  SnmpMgr, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
+  SnmpMgr, AgentIp, UdpPorts, TrapUdp, VsnHdr, Version, Dir, BufSz,
   DbgOptions, IpFamily) ->
     %% This causes "verbosity printouts" to print (from the
     %% specified level) in the modules we "borrow" from the
@@ -117,7 +137,7 @@ init_packet(
     init_usm(Version, Dir),
     proc_lib:init_ack(Parent, self()),
     ?IPRINT("started"),
-    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, []).
+    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []).
 
 init_debug(Dbg) when is_atom(Dbg) ->
     put(debug,Dbg),
@@ -139,7 +159,7 @@ init_debug(DbgOptions) when is_list(DbgOptions) ->
     ok.
 
 
-packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
+packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, MsgData) ->
     receive
 	{send_discovery_pdu, From, Pdu} ->
 	    d("packet_loop -> received send_discovery_pdu with"
@@ -151,9 +171,10 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
 		{M, B} when is_list(B) -> 
 		    put(discovery, {M, From}),
 		    display_outgoing_message(M),
-		    udp_send(UdpId, AgentIp, UdpPort, B)
+                    Port = select_request_port(UdpPorts),
+		    udp_send(UdpId, AgentIp, Port, B)
 	    end,
-	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, []);
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
 
 	{send_pdu, Pdu} ->
 	    d("packet_loop -> received send_pdu with"
@@ -161,10 +182,11 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
 	    case mk_msg(Version, Pdu, VsnHdr, MsgData) of
 		error ->
 		    ok;
-		B when is_list(B) -> 
-		    udp_send(UdpId, AgentIp, UdpPort, B)
+		B when is_list(B) ->
+                    Port = select_request_port(UdpPorts),
+		    udp_send(UdpId, AgentIp, Port, B)
 	    end,
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,[]);
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
 
 	{send_msg, Msg, Ip, Udp} ->
 	    d("packet_loop -> received send_msg with"
@@ -179,38 +201,64 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
 		B when is_list(B) -> 
 		    udp_send(UdpId, Ip, Udp, B)
 	    end,
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,[]);
-	{udp, UdpId, Ip, UdpPort, Bytes} ->
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
+
+	{udp, UdpId, Ip, Port, Bytes} ->
 	    d("packet_loop -> received udp with"
 	      "~n   UdpId:     ~p"
 	      "~n   Ip:        ~p"
-	      "~n   UdpPort:   ~p"
-	      "~n   sz(Bytes): ~p", [UdpId, Ip, UdpPort, sz(Bytes)]),	    
+	      "~n   Port:      ~p (~p)"
+	      "~n   sz(Bytes): ~p", [UdpId, Ip, Port, UdpPorts, sz(Bytes)]),
+            case UdpPorts of
+                Port ->
+                    ok;
+                {Port, _} -> % Should be a (request) response
+                    ok;
+                {_, Port} -> % Should be a trap
+                    ok;
+                _ ->
+                    d("packet_loop -> received packet from unknown port"
+                      "~n   ~p", [Port]),
+                    exit({snmp_packet_from_unknown_port, Port, UdpPorts})
+            end,
 	    MsgData3 = handle_udp_packet(Version, erase(discovery),
-					 UdpId, Ip, UdpPort, Bytes,
+					 UdpId, Ip, Port, Bytes,
 					 SnmpMgr, AgentIp),
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version,
 			MsgData3);
+
         {udp_error, UdpId, Reason} ->
 	    gen_udp:close(UdpId),
 	    exit({udp_error, Reason});
 
 	{send_bytes, B} ->
 	    d("packet_loop -> received send_bytes with"
-	      "~n   sz(B): ~p", [sz(B)]),	    
-	    udp_send(UdpId, AgentIp, UdpPort, B),
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,[]);
+	      "~n   sz(B): ~p", [sz(B)]),
+            Port = select_request_port(UdpPorts),
+	    udp_send(UdpId, AgentIp, Port, B),
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
+
 	{stop, Pid} ->
 	    d("packet_loop -> received stop from ~p", [Pid]),	    
 	    gen_udp:close(UdpId),
 	    Pid ! {self(), stopped},
 	    exit(normal);
+
 	Other ->
 	    d("packet_loop -> received unknown"
 	      "~n   ~p", [Other]),	    
 	    exit({snmp_packet_got_other, Other})
     end.
 
+select_request_port({Port, _}) when is_integer(Port) ->
+    Port;
+select_request_port(Port) when is_integer(Port) ->
+    Port.
+
+%% select_trap_port({_, Port}) when is_integer(Port) ->
+%%     Port;
+%% select_trap_port(Port) when is_integer(Port) ->
+%%     Port.
 
 handle_udp_packet(_V, undefined, 
 		  UdpId, Ip, UdpPort,
