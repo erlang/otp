@@ -44,6 +44,8 @@
          client_auth_partial_chain_fun_fail/1,
          client_auth_sni/0,
          client_auth_sni/1,
+         client_auth_seelfsigned_peer/0,
+         client_auth_seelfsigned_peer/1,
          missing_root_cert_no_auth/0,
          missing_root_cert_no_auth/1,
          invalid_signature_client/0,
@@ -234,8 +236,20 @@ client_auth_sni(Config) when is_list(Config) ->
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts0, Config, handshake_failure),
     %% Also test that user verify_fun is run.
     %% If user verify fun is not used the ALERT will be unknown_ca
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure).
 
+%%--------------------------------------------------------------------
+client_auth_seelfsigned_peer() ->
+    [{doc, "Check that selfsigned peer raises alert"}].
+client_auth_seelfsigned_peer(Config) when is_list(Config) ->
+    Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
+    #{cert := Cert,
+      key := Key} = public_key:pkix_test_root_cert("OTP test server ROOT", [{key, ssl_test_lib:hardcode_rsa_key(6)},
+                                                                            {extensions, Ext}]),
+    DerKey = public_key:der_encode('RSAPrivateKey', Key),
+    ssl_test_lib:basic_alert(ssl_test_lib:ssl_options([{verify, verify_peer}, {cacerts , [Cert]}], Config),
+                             ssl_test_lib:ssl_options([{cert, Cert},
+                                                       {key, {'RSAPrivateKey', DerKey}}], Config), Config, bad_certificate).
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
      [{doc,"Test that the client succeds if the ROOT CA is unknown in verify_none mode"}].

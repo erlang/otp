@@ -57,13 +57,13 @@
 %% look it up, if not found {bad_cert, unknown_ca} will be added verification
 %% errors. Returns {RootCert | RootCertRelatedError, Path} Path = lists:reverse(Chain) -- Root
 %%--------------------------------------------------------------------
-trusted_cert_and_paths([Peer, BinCert] = Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
-    OtpCert = public_key:pkix_decode_cert(BinCert, otp),
+trusted_cert_and_paths([Peer] = Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
+    OtpCert = public_key:pkix_decode_cert(Peer, otp),
     case public_key:pkix_is_self_signed(OtpCert) of
         true ->
-            {selfsigned_peer, [Peer]};  
+            [{selfsigned_peer, [Peer]}];
         false ->
-            [handle_incomplete_chain(Chain, PartialChainHandler, {unknown_ca, [BinCert, Peer]},
+            [handle_incomplete_chain(Chain, PartialChainHandler, {unknown_ca, [Peer]},
                                      CertDbHandle, CertDbRef)]
     end;
 trusted_cert_and_paths(Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
