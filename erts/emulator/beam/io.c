@@ -2713,10 +2713,10 @@ port_demonitor(Port *port, erts_aint32_t state, ErtsMonitor *mon)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     ASSERT(port && mon);
     ASSERT(erts_monitor_is_origin(mon));
-    if (!erts_monitor_is_in_table(&mdp->target))
+    if (!erts_monitor_is_in_table(&mdp->u.target))
         erts_monitor_release(mon);
     else {
-        erts_monitor_list_delete(&ERTS_P_LT_MONITORS(port), &mdp->target);
+        erts_monitor_list_delete(&ERTS_P_LT_MONITORS(port), &mdp->u.target);
         erts_monitor_release_both(mdp);
     }
 }
@@ -6847,9 +6847,10 @@ static int do_driver_monitor_process(Port *prt,
 
     ref = erts_make_ref_in_buffer(buf);
     mdp = erts_monitor_create(ERTS_MON_TYPE_PORT, ref,
-                              prt->common.id, process, NIL);
+                              prt->common.id, process, NIL,
+                              THE_NON_VALUE);
 
-    if (!erts_proc_sig_send_monitor(&mdp->target, process)) {
+    if (!erts_proc_sig_send_monitor(&mdp->u.target, process)) {
         erts_monitor_release_both(mdp);
         return 1;
     }

@@ -172,7 +172,7 @@ struct _erl_drv_port {
 
     struct {
         Eterm to;
-        Uint32 ref[ERTS_MAX_REF_NUMBERS];
+        Uint32 ref[ERTS_REF_NUMBERS];
     } *async_open_port;         /* Reference used with async open port */
 };
 
@@ -873,7 +873,7 @@ enum {
 struct ErtsProc2PortSigData_ {
     int flags;
     Eterm caller;
-    Uint32 ref[ERTS_MAX_REF_NUMBERS];
+    Uint32 ref[ERTS_REF_NUMBERS];
     union {
 	struct {
 	    Eterm from;

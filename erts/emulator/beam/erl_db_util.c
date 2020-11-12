@@ -5542,6 +5542,11 @@ void db_match_dis(Binary *bp)
 		    num = rt->num;
 		    t += TermWords(ERTS_REF_THING_SIZE);
 		}
+		else if (is_pid_ref_thing(t)) {
+		    ErtsPRefThing *prt = (ErtsPRefThing *) t;
+		    num = prt->num;
+		    t += TermWords(ERTS_PID_REF_THING_SIZE);
+		}
 		else {
 		    ErtsMRefThing *mrt = (ErtsMRefThing *) t;
 		    ASSERT(is_magic_ref_thing(t));

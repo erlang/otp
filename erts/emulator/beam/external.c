@@ -4376,14 +4376,15 @@ dec_term_atom_common:
 		r0 = get_int32(ep);
 		ep += 4;
 
-	    ref_ext_common: {
-		ErtsORefThing *rtp;
+	    ref_ext_common:
 
 		if (ref_words > ERTS_MAX_REF_NUMBERS)
 		    goto error;
 
 		node = dec_get_node(sysname, cre, make_boxed(hp));
 		if(node == erts_this_node) {
+                    Eterm *rtp = hp;
+                    Uint32 ref_num_buf[ERTS_MAX_REF_NUMBERS];
                     if (r0 >= MAX_REFERENCE) {
                           /*
                            * Must reject local refs with more than 18 bits
@@ -4391,9 +4392,13 @@ dec_term_atom_common:
                            */
                         goto error;
                     }
-	
-		    rtp = (ErtsORefThing *) hp;
-		    ref_num = &rtp->num[0];
+
+                    ref_num = &ref_num_buf[0];
+                    ref_num[0] = r0;
+                    for(i = 1; i < ref_words; i++) {
+                        ref_num[i] = get_int32(ep);
+                        ep += 4;
+                    }
 		    if (ref_words != ERTS_REF_NUMBERS) {
                         int i;
                         if (ref_words > ERTS_REF_NUMBERS)
@@ -4401,17 +4406,36 @@ dec_term_atom_common:
                         for (i = ref_words; i < ERTS_REF_NUMBERS; i++)
                             ref_num[i] = 0;
 		    }
-
-#ifdef ERTS_ORDINARY_REF_MARKER
-		    rtp->marker = ERTS_ORDINARY_REF_MARKER;
-#endif
-		    hp += ERTS_REF_THING_SIZE;
-		    rtp->header = ERTS_REF_THING_HEADER;
+                    if (erts_is_ordinary_ref_numbers(ref_num)) {
+                    make_ordinary_internal_ref:
+                        write_ref_thing(hp, ref_num[0], ref_num[1], ref_num[2]);
+                        hp += ERTS_REF_THING_SIZE;
+                    }
+                    else {
+                        /* Check if it is a pid reference... */
+                        Eterm pid = erts_pid_ref_lookup(ref_num);
+                        if (is_internal_pid(pid)) {
+                            write_pid_ref_thing(hp, ref_num[0], ref_num[1],
+                                                ref_num[2], pid);
+                            hp += ERTS_PID_REF_THING_SIZE;
+                        }
+                        else {
+                            /* Check if it is a magic reference... */
+                            ErtsMagicBinary *mb = erts_magic_ref_lookup_bin(ref_num);
+                            if (!mb)
+                                goto make_ordinary_internal_ref;
+                            /* Refc on binary was increased by lookup above... */
+                            ASSERT(rtp);
+                            write_magic_ref_thing(hp, factory->off_heap, mb);
+                            OH_OVERHEAD(factory->off_heap,
+                                        mb->orig_size / sizeof(Eterm));
+                            hp += ERTS_MAGIC_REF_THING_SIZE;
+                        }
+                    }
 		    *objp = make_internal_ref(rtp);
 		}
 		else {
 		    ExternalThing *etp = (ExternalThing *) hp;
-		    rtp = NULL;
 #if defined(ARCH_64)
 		    hp += EXTERNAL_THING_HEAD_SIZE + ref_words/2 + 1;
 #else
@@ -4432,37 +4456,19 @@ dec_term_atom_common:
 #if defined(ARCH_64)
 		    *(ref_num++) = ref_words /* 32-bit arity */;
 #endif
-		}
 
-		ref_num[0] = r0;
+                    ref_num[0] = r0;
 
-		for(i = 1; i < ref_words; i++) {
-		    ref_num[i] = get_int32(ep);
-		    ep += 4;
-		}
+                    for(i = 1; i < ref_words; i++) {
+                        ref_num[i] = get_int32(ep);
+                        ep += 4;
+                    }
 #if defined(ARCH_64)
-		if ((1 + ref_words) % 2)
-		    ref_num[ref_words] = 0;
+                    if ((1 + ref_words) % 2)
+                        ref_num[ref_words] = 0;
 #endif
-		if (node == erts_this_node) {
-		    /* Check if it was a magic reference... */
-		    ErtsMagicBinary *mb = erts_magic_ref_lookup_bin(ref_num);
-		    if (mb) {
-			/*
-			 * Was a magic ref; adjust it...
-			 *
-			 * Refc on binary was increased by lookup above...
-			 */
-			ASSERT(rtp);
-			hp = (Eterm *) rtp;
-			write_magic_ref_thing(hp, factory->off_heap, mb);
-                        OH_OVERHEAD(factory->off_heap,
-                                    mb->orig_size / sizeof(Eterm));
-			hp += ERTS_MAGIC_REF_THING_SIZE;
-		    }
-		}
-		break;
 	    }
+		break;
 	    }
 	case BINARY_EXT:
 	    {
@@ -5745,17 +5751,24 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     ep = iov[2].iov_base;
     ASSERT(ep[0] == SMALL_TUPLE_EXT || ep[0] == LARGE_TUPLE_EXT);
 
-    if (~dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)
-        && ep[0] == SMALL_TUPLE_EXT
-        && ep[1] == 4
-        && ep[2] == SMALL_INTEGER_EXT
-        && (ep[3] == DOP_MONITOR_P ||
-            ep[3] == DOP_MONITOR_P_EXIT ||
-            ep[3] == DOP_DEMONITOR_P)) {
+    if (((~dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME))
+         && ep[0] == SMALL_TUPLE_EXT
+         && ep[1] == 4
+         && ep[2] == SMALL_INTEGER_EXT
+         && (ep[3] == DOP_MONITOR_P ||
+             ep[3] == DOP_MONITOR_P_EXIT ||
+             ep[3] == DOP_DEMONITOR_P)
+         /* The receiver does not support process monitoring.
+            Suppress monitor control msg (see erts_dsig_send_monitor). */)
+        || (!(dflags & DFLAG_ALIAS)
+            && ep[0] == SMALL_TUPLE_EXT
+            && (ep[1] == 3 || ep[1] == 4)
+            && ep[2] == SMALL_INTEGER_EXT
+            && ((ep[3] == DOP_ALIAS_SEND) || (ep[3] == DOP_ALIAS_SEND_TT))
+        /* The receiver does not support alias, so the alias
+               is obviously not present at the receiver. */)) {
         /*
-         * Receiver does not support process monitoring.
-         * Suppress monitor control msg (see erts_dsig_send_monitor)
-         * by converting it to an empty (tick) packet.
+         * Drop packet by converting it to an empty (tick) packet...
          */
         int i;
         for (i = 1; i < ob->eiov->vsize; i++) {

@@ -76,6 +76,7 @@ atom ac
 atom active
 atom active_tasks
 atom active_tasks_all
+atom alias
 atom alive
 atom all
 atom all_but_first
@@ -204,6 +205,7 @@ atom decentralized_counters
 atom decimals
 atom default
 atom delay_trap
+atom demonitor
 atom dictionary
 atom dirty_bif_exception
 atom dirty_bif_result
@@ -563,6 +565,7 @@ atom registered_name
 atom reload
 atom rem
 atom reply
+atom reply_demonitor
 atom reply_tag
 atom report_errors
 atom reset
@@ -654,6 +657,7 @@ atom system_limit
 atom system_version
 atom system_architecture
 atom table
+atom tag
 atom term_to_binary_trap
 atom this
 atom thread_pool_size
@@ -682,6 +686,7 @@ atom true
 atom type
 atom ucompile
 atom ucp
+atom explicit_unalias
 atom undef
 atom ungreedy
 atom unicode

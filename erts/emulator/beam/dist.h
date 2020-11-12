@@ -59,6 +59,10 @@
 #define DFLAG_SPAWN            (((Uint64)0x1) << 32)
 #define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
 #define DFLAG_BIG_PIDS         (((Uint64)0x4) << 32)
+#define DFLAG_HUGE_REFS        (((Uint64)0x4) << 32)
+#define DFLAG_ALIAS            (((Uint64)0x8) << 32)
+
+/* DFLAG_BIG_PIDS and DFLAG_HUGE_REFS should be merged into flag... */
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
@@ -76,7 +80,8 @@
                               | DFLAG_BIT_BINARIES              \
                               | DFLAG_DIST_MONITOR              \
                               | DFLAG_DIST_MONITOR_NAME         \
-                              | DFLAG_SPAWN)
+                              | DFLAG_SPAWN                     \
+                              | DFLAG_ALIAS)
 
 /* Our preferred set of flags. Used for connection setup handshake */
 #define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
@@ -93,7 +98,9 @@
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_HANDSHAKE_23              \
                             | DFLAG_SPAWN                     \
-                            | DFLAG_BIG_PIDS)
+                            | DFLAG_BIG_PIDS		      \
+                            | DFLAG_HUGE_REFS                 \
+                            | DFLAG_ALIAS)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
@@ -150,7 +157,10 @@ enum dop {
     DOP_SPAWN_REQUEST       = 29,
     DOP_SPAWN_REQUEST_TT    = 30,
     DOP_SPAWN_REPLY         = 31,
-    DOP_SPAWN_REPLY_TT      = 32
+    DOP_SPAWN_REPLY_TT      = 32,
+
+    DOP_ALIAS_SEND          = 33,
+    DOP_ALIAS_SEND_TT       = 34
 };
 
 #define ERTS_DIST_SPAWN_FLAG_LINK       (1 << 0)
