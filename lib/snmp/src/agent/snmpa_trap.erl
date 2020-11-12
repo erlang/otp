@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -920,34 +920,53 @@ send_v1_trap(
     do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime).
 
 do_send_v1_trap(Enter, Spec, V1Res, NVbs, ExtraInfo, NetIf, SysUpTime) ->
+    ?vtrace("do_send_v1_trap -> try get transports"),
     {value, Transports} = snmp_framework_mib:intAgentTransports(get),
-    {_Domain, {AgentIp, _AgentPort}} =
-	case lists:keyfind(snmpUDPDomain, 1, Transports) of
-	    false ->
-		case lists:keyfind(transportDomainUdpIpv4, 1, Transports) of
-		    false ->
-			?vtrace(
-			   "snmpa_trap: cannot send v1 trap "
-			   "without IPv4 domain: ~p",
-			   [Transports]),
-			user_err(
-			   "snmpa_trap: cannot send v1 trap "
-			   "without IPv4 domain: ~p",
-			   [Transports]);
-		    DomainAddr ->
-			DomainAddr
-		end;
-	    DomainAddr ->
-		DomainAddr
-	end,
-    TrapPdu = make_v1_trap_pdu(Enter, Spec, NVbs, SysUpTime, AgentIp),
-    AddrCommunities = mk_addr_communities(V1Res),
-    lists:foreach(
-      fun ({Community, Addrs}) ->
-	      ?vtrace("send v1 trap to ~p",[Addrs]),
-	      NetIf ! {send_pdu, 'version-1', TrapPdu,
-		       {community, Community}, Addrs, ExtraInfo}
-      end, AddrCommunities).
+    ?vtrace("do_send_v1_trap -> transports: "
+            "~n      ~p", [Transports]),
+    try
+        begin
+            {_Domain, {AgentIp, _AgentPort}, _Kind, _Opts} =
+                case lists:keyfind(snmpUDPDomain, 1, Transports) of
+                    false ->
+                        case lists:keyfind(transportDomainUdpIpv4, 1, Transports) of
+                            false ->
+                                ?vlog(
+                                   "do_send_v1_trap -> cannot send v1 trap "
+                                   "without IPv4 domain: ~p",
+                                   [Transports]),
+                                user_err(
+                                  "snmpa_trap: cannot send v1 trap "
+                                  "without IPv4 domain: "
+                                  "~n      ~p", [Transports]),
+                                throw({error, 
+                                       "Cannot send v1 trap without IPv4 domain"});
+                            DomainAddr ->
+                                ?vtrace("do_send_v1_trap -> found ~w transport:"
+                                        "~n      ~p",
+                                        [transportDomainUdpIpv4, DomainAddr]),
+                                DomainAddr
+                        end;
+                    DomainAddr ->
+                        ?vtrace("do_send_v1_trap -> found ~w transport:"
+                                "~n      ~p",
+                                [snmpUDPDomain, DomainAddr]),
+                        DomainAddr
+                end,
+            TrapPdu = make_v1_trap_pdu(Enter, Spec, NVbs, SysUpTime, AgentIp),
+            AddrCommunities = mk_addr_communities(V1Res),
+            lists:foreach(
+              fun ({Community, Addrs}) ->
+                      ?vtrace("do_send_v1_trap -> send v1 trap to ~p",[Addrs]),
+                      NetIf ! {send_pdu, 'version-1', TrapPdu,
+                               {community, Community}, Addrs, ExtraInfo}
+              end, AddrCommunities)
+        end
+    catch
+        throw:{error, _} = ERROR:_ -> 
+            ERROR
+    end.
+            
 
 send_v2_trap(_TrapRec, [], _Vbs, _Recv, _ExtraInfo, _NetIf, _SysUpTime) ->
     ok;

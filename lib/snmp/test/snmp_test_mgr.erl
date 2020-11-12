@@ -312,6 +312,9 @@ is_options_ok([{ipfamily,IpFamily}|Opts])
     is_options_ok(Opts);
 is_options_ok([{agent_udp,Int}|Opts]) when is_integer(Int) ->
     is_options_ok(Opts);
+is_options_ok([{agent_udp, {IntR, IntT}}|Opts]) when is_integer(IntR) andalso
+                                                     is_integer(IntT) ->
+    is_options_ok(Opts);
 is_options_ok([{trap_udp,Int}|Opts]) when is_integer(Int) ->
     is_options_ok(Opts);
 is_options_ok([{community,List}|Opts]) when is_list(List) ->
