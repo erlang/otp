@@ -56,6 +56,8 @@
          client_auth_partial_chain_fun_fail/1,
          client_auth_sni/0,
          client_auth_sni/1,
+         client_auth_seelfsigned_peer/0,
+         client_auth_seelfsigned_peer/1,
          missing_root_cert_no_auth/0,
          missing_root_cert_no_auth/1,
          missing_root_cert_auth/0,
@@ -201,6 +203,7 @@ all_version_tests() ->
      client_auth_do_not_allow_partial_chain,
      client_auth_partial_chain_fun_fail,
      client_auth_sni,
+     client_auth_seelfsigned_peer,
      missing_root_cert_no_auth,
      missing_root_cert_auth,
      missing_root_cert_auth_user_verify_fun_accept,
@@ -384,6 +387,11 @@ client_auth_sni() ->
    ssl_cert_tests:client_auth_sni().
 client_auth_sni(Config) when is_list(Config) ->
     ssl_cert_tests:client_auth_sni(Config).
+%%--------------------------------------------------------------------
+client_auth_seelfsigned_peer() ->
+   ssl_cert_tests:client_auth_seelfsigned_peer().
+client_auth_seelfsigned_peer(Config) when is_list(Config) ->
+    ssl_cert_tests:client_auth_seelfsigned_peer(Config).
 
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
