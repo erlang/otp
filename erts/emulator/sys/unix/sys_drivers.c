@@ -712,7 +712,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
                 if (res >= io_vector[i].iov_len)
                     res -= io_vector[i].iov_len;
                 else {
-                    driver_enq(port_num, io_vector[i].iov_base + res,
+                    driver_enq(port_num, &((char*)io_vector[i].iov_base)[res],
                                io_vector[i].iov_len - res);
                     res = 0;
                 }

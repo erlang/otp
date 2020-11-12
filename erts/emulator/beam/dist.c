@@ -3244,7 +3244,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 		}
 
                 ASSERT(fragments < 2
-                       || (get_int64(ctx->obuf->eiov->iov[1].iov_base + 10)
+                       || (get_int64(&((char*)ctx->obuf->eiov->iov[1].iov_base)[10])
                            == ctx->fragments));
 
                 if (fragments) {
