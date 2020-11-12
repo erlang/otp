@@ -247,6 +247,10 @@ type    MREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_magic_ref_entry
 type    MREF_ENT	STANDARD	SYSTEM		magic_ref_entry
 type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
 type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
+type    PREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_pid_ref_entry
+type    PREF_ENT	STANDARD	SYSTEM		pid_ref_entry
+type	PREF_TAB_BKTS	STANDARD	SYSTEM		pid_ref_table_buckets
+type	PREF_TAB	LONG_LIVED	SYSTEM		pid_ref_table
 type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
 type	BINARY_FIND	SHORT_LIVED	PROCESSES	binary_find
 type	CRASH_DUMP	STANDARD	SYSTEM		crash_dump
@@ -347,6 +351,8 @@ type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
 
 type	NFUNC_TRAP_WRAPPER	STANDARD	PROCESSES	nfunc_trap_wrapper
 type	MONITOR		FIXED_SIZE	PROCESSES	monitor
+type	MONITOR_TAG	STANDARD	PROCESSES	monitor_tag
+type	ALIAS		STANDARD	PROCESSES	alias
 type	MONITOR_SUSPEND	STANDARD	PROCESSES	monitor_suspend
 type	LINK		FIXED_SIZE	PROCESSES	link
 type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request

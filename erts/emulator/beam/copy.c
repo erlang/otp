@@ -2054,7 +2054,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REF_SUBTAG:
-		if (is_ordinary_ref_thing(hdr))
+		if (!is_magic_ref_thing(hdr))
 		    break;
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:

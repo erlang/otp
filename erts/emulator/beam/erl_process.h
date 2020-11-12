@@ -1442,7 +1442,9 @@ typedef struct {
 
     int multi_set;
 
-    Eterm tag;                  /* If SPO_ASYNC */
+    Eterm tag;                  /* spawn_request tag (if SPO_ASYNC is set) */
+    Eterm monitor_tag;          /* monitor tag (if SPO_MONITOR is set) */
+    Uint16 monitor_oflags;      /* flags to bitwise-or onto origin flags */
     Eterm opts;                 /* Option list for seq-trace... */
 
     /* Input fields used for distributed spawn only */
@@ -1468,6 +1470,15 @@ typedef struct {
     int scheduler;
 
 } ErlSpawnOpts;
+
+#define ERTS_SET_DEFAULT_SPAWN_OPTS(SOP)                                \
+    do {                                                                \
+        (SOP)->flags = erts_default_spo_flags;                          \
+        (SOP)->opts = NIL;                                              \
+        (SOP)->tag = am_spawn_reply;                                    \
+        (SOP)->monitor_tag = THE_NON_VALUE;                             \
+        (SOP)->monitor_oflags = (Uint16) 0;                             \
+    } while (0)
 
 /*
  * The KILL_CATCHES(p) macro kills pending catches for process p.

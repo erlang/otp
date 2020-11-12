@@ -1047,7 +1047,7 @@ public class OtpInputStream extends ByteArrayInputStream {
         case OtpExternal.newRefTag:
         case OtpExternal.newerRefTag:
             final int arity = read2BE();
-            if (arity > 3) {
+            if (arity > 5) {
 		throw new OtpErlangDecodeException(
 		    "Ref arity " + arity + " too large ");
 	    }

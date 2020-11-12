@@ -442,8 +442,7 @@ erl_first_process_otp(char* mod_name, int argc, char** argv)
     hp += 2;
     args = CONS(hp, boot_mod, args);
 
-    so.flags = erts_default_spo_flags;
-    so.opts = NIL;
+    ERTS_SET_DEFAULT_SPAWN_OPTS(&so);
     res = erl_spawn_system_process(&parent, am_erl_init, am_start, args, &so);
     ASSERT(is_internal_pid(res));
 
@@ -464,7 +463,9 @@ erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq, int p
     mod = erts_atom_put((byte *) modname, sys_strlen(modname),
                         ERTS_ATOM_ENC_LATIN1, 1);
 
-    so.flags = erts_default_spo_flags|SPO_USE_ARGS;
+    ERTS_SET_DEFAULT_SPAWN_OPTS(&so);
+
+    so.flags |= SPO_USE_ARGS;
 
     if (off_heap_msgq) {
         so.flags |= SPO_OFF_HEAP_MSGQ;
@@ -477,7 +478,6 @@ erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq, int p
     so.priority       = prio;
     so.max_gen_gcs    = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
     so.scheduler      = 0;
-    so.opts = NIL;
 
     res = erl_spawn_system_process(parent, mod, am_start, NIL, &so);
     ASSERT(is_internal_pid(res));
@@ -499,8 +499,7 @@ Eterm erts_internal_spawn_system_process_3(BIF_ALIST_3) {
     ASSERT(is_atom(func));
     ASSERT(erts_list_length(args) >= 0);
 
-    so.flags = erts_default_spo_flags;
-    so.opts = NIL;
+    ERTS_SET_DEFAULT_SPAWN_OPTS(&so);
     res = erl_spawn_system_process(BIF_P, mod, func, args, &so);
 
     if (is_non_value(res)) {

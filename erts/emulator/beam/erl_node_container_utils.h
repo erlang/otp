@@ -256,10 +256,11 @@ extern ErtsPTab erts_port;
 \*                                                                         */
 
 #define internal_ref_no_numbers(x)	ERTS_REF_NUMBERS
-#define internal_ref_numbers(x)		(is_internal_ordinary_ref((x)) \
-					 ? internal_ordinary_ref_numbers((x)) \
-					 : (ASSERT(is_internal_magic_ref((x))), \
-					    internal_magic_ref_numbers((x))))
+#define internal_ref_numbers(x)		(is_internal_magic_ref((x))     \
+					 ? internal_magic_ref_numbers((x)) \
+                                         : internal_non_magic_ref_numbers((x)))
+
+
 #if defined(ARCH_64)
 
 #define external_ref_no_numbers(x)					\

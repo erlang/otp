@@ -717,8 +717,14 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_port_node,Eterm)
 /* Old maximum number of references in the system */
 #define MAX_REFERENCE		(1 << _REF_NUM_SIZE)
 #define REF_MASK		(~(~((Uint)0) << _REF_NUM_SIZE))
-#define ERTS_MAX_REF_NUMBERS	3
-#define ERTS_REF_NUMBERS	ERTS_MAX_REF_NUMBERS
+#define ERTS_REF_NUMBERS	3
+#if defined(ARCH_64)
+#define ERTS_PID_REF_NUMBERS	(ERTS_REF_NUMBERS + 2)
+#else
+#define ERTS_PID_REF_NUMBERS	(ERTS_REF_NUMBERS + 1)
+#endif
+#define ERTS_MAX_INTERNAL_REF_NUMBERS ERTS_PID_REF_NUMBERS
+#define ERTS_MAX_REF_NUMBERS	5
 
 #ifndef ERTS_ENDIANNESS
 # error ERTS_ENDIANNESS not defined...
@@ -744,6 +750,17 @@ typedef struct {
     Uint32 marker;
 #endif
 } ErtsORefThing;
+
+typedef struct {
+    Eterm header;
+#if ERTS_ENDIANNESS <= 0
+    Uint32 marker;
+#endif
+    Uint32 num[ERTS_PID_REF_NUMBERS];
+#if ERTS_ENDIANNESS > 0
+    Uint32 marker;
+#endif
+} ErtsPRefThing;
 
 typedef struct {
     Eterm header;
@@ -790,11 +807,12 @@ typedef struct {
  * +--------------+--------------+
  *
  * Both pointers in the magic ref are 64-bit aligned. That is,
- * least significant bits are zero. The marker 32-bit word is
- * placed over the least significant bits of one of the pointers.
- * That is, we can distinguish between magic and ordinary ref
- * by looking at the marker field.
- * 
+ * least significant bits are zero. The marker 32-bit word of
+ * an ordinary ref is placed over the least significant bits
+ * of one of the pointers. That is, we can distinguish between
+ * magic and ordinary ref by looking at the marker field.
+ * Pid refs are larger than ordinary and magic refs, so we
+ * can distinguish pid refs from the other by the header word.
  */
 
 #define write_ref_thing(Hp, R0, R1, R2)					\
@@ -835,12 +853,34 @@ do {									\
 
 #endif /* !ERTS_ENDIANNESS */
 
+#define write_pid_ref_thing(Hp, R0, R1, R2, PID)                        \
+do {									\
+  ((ErtsPRefThing *) (Hp))->header = ERTS_PID_REF_THING_HEADER;		\
+  ((ErtsPRefThing *) (Hp))->marker = ERTS_ORDINARY_REF_MARKER;          \
+  ((ErtsPRefThing *) (Hp))->num[0] = (R0);				\
+  ((ErtsPRefThing *) (Hp))->num[1] = (R1);				\
+  ((ErtsPRefThing *) (Hp))->num[2] = (R2);				\
+  ((ErtsPRefThing *) (Hp))->num[3] = (Uint32) ((PID) & 0xffffffff);     \
+  ((ErtsPRefThing *) (Hp))->num[4] = (Uint32) (((PID) >> 32)            \
+                                               & 0xffffffff);           \
+} while (0)
+
+#define pid_ref_thing_get_pid(Hp)                                       \
+    (ASSERT(is_pid_ref_thing((Hp))),                                    \
+     (((Eterm) ((ErtsPRefThing *) (Hp))->num[3])                        \
+      | ((((Eterm) ((ErtsPRefThing *) (Hp))->num[4]) << 32))))
+
 #else /* ARCH_32 */
 
 typedef struct {
     Eterm header;
     Uint32 num[ERTS_REF_NUMBERS];
 } ErtsORefThing;
+
+typedef struct {
+    Eterm header;
+    Uint32 num[ERTS_PID_REF_NUMBERS];
+} ErtsPRefThing;
 
 typedef struct {
     Eterm header;
@@ -866,11 +906,26 @@ do {									\
   ASSERT(erts_is_ref_numbers_magic((Binp)->refn));			\
 } while (0)
 
+#define write_pid_ref_thing(Hp, R0, R1, R2, PID)                        \
+do {									\
+  ((ErtsPRefThing *) (Hp))->header = ERTS_PID_REF_THING_HEADER;		\
+  ((ErtsPRefThing *) (Hp))->num[0] = (R0);				\
+  ((ErtsPRefThing *) (Hp))->num[1] = (R1);				\
+  ((ErtsPRefThing *) (Hp))->num[2] = (R2);				\
+  ((ErtsPRefThing *) (Hp))->num[3] = (Uint32) (PID);                    \
+} while (0)
+
+#define pid_ref_thing_get_pid(Hp)                                       \
+    (ASSERT(is_pid_ref_thing((Hp))),                                    \
+     ((Eterm) ((ErtsPRefThing *) (Hp))->num[3]))
+
+
 #endif /* ARCH_32 */
 
 typedef union {
     ErtsMRefThing m;
     ErtsORefThing o;
+    ErtsPRefThing p;
 } ErtsRefThing;
 
 /* for copy sharing */
@@ -880,6 +935,7 @@ typedef union {
 #define BOXED_SHARED_PROCESSED	 ((Eterm) 3)
 
 #define ERTS_REF_THING_SIZE (sizeof(ErtsORefThing)/sizeof(Uint))
+#define ERTS_PID_REF_THING_SIZE (sizeof(ErtsPRefThing)/sizeof(Uint))
 #define ERTS_MAGIC_REF_THING_SIZE (sizeof(ErtsMRefThing)/sizeof(Uint))
 #define ERTS_MAX_INTERNAL_REF_SIZE (sizeof(ErtsRefThing)/sizeof(Uint))
 
@@ -887,56 +943,54 @@ typedef union {
     _make_header((Words)-1,_TAG_HEADER_REF)
 
 #define ERTS_REF_THING_HEADER _make_header(ERTS_REF_THING_SIZE-1,_TAG_HEADER_REF)
+#define ERTS_PID_REF_THING_HEADER _make_header(ERTS_PID_REF_THING_SIZE-1,_TAG_HEADER_REF)
 
-#if defined(ARCH_64) && ERTS_ENDIANNESS /* All internal refs of same size... */
+#  define is_ref_thing_header(x)					\
+    (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_REF)
+
+#if defined(ARCH_64) && ERTS_ENDIANNESS
+/* Ordinary and magic refs of same size, but pid ref larger */
 
 #  undef ERTS_MAGIC_REF_THING_HEADER
 
-#  define is_ref_thing_header(x) ((x) == ERTS_REF_THING_HEADER)
+#define is_pid_ref_thing(x)						\
+    (*((Eterm *)(x)) == ERTS_PID_REF_THING_HEADER)
 
-#ifdef SHCOPY
-#define is_ordinary_ref_thing(x)                                           \
-    (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
-#else
-#define is_ordinary_ref_thing(x)                                           \
-    (ASSERT(is_ref_thing_header((*((Eterm *)(x))) & ~BOXED_VISITED_MASK)), \
-     ((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
-#endif
+#define is_ordinary_ref_thing(x)                                        \
+    ((*((Eterm *)(x)) == ERTS_REF_THING_HEADER)                         \
+     & (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER))
 
 #define is_magic_ref_thing(x)						\
-    (!is_ordinary_ref_thing((x)))
-
-#define is_internal_magic_ref(x)					\
-    ((_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER) \
-     && is_magic_ref_thing(boxed_val((x))))
-
-#define is_internal_ordinary_ref(x)					\
-    ((_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER) \
-     && is_ordinary_ref_thing(boxed_val((x))))
+    ((*((Eterm *)(x)) == ERTS_REF_THING_HEADER)                         \
+     & (((ErtsRefThing *) (x))->o.marker != ERTS_ORDINARY_REF_MARKER))
 
 #else /* Ordinary and magic references of different sizes... */
 
 #  define ERTS_MAGIC_REF_THING_HEADER					\
     _make_header(ERTS_MAGIC_REF_THING_SIZE-1,_TAG_HEADER_REF)
 
-#  define is_ref_thing_header(x)					\
-    (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_REF)
-
 #define is_ordinary_ref_thing(x)					\
-    (ASSERT(is_ref_thing_header(*((Eterm *)(x)))),			\
-     *((Eterm *)(x)) == ERTS_REF_THING_HEADER)
+    (*((Eterm *)(x)) == ERTS_REF_THING_HEADER)
+
+#define is_pid_ref_thing(x)					        \
+    (*((Eterm *)(x)) == ERTS_PID_REF_THING_HEADER)
 
 #define is_magic_ref_thing(x)						\
-    (ASSERT(is_ref_thing_header(*((Eterm *)(x)))),			\
-     *((Eterm *)(x)) == ERTS_MAGIC_REF_THING_HEADER)
-
-#define is_internal_magic_ref(x)					\
-    (_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_MAGIC_REF_THING_HEADER)
-
-#define is_internal_ordinary_ref(x)					\
-    (_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER)
+    (*((Eterm *)(x)) == ERTS_MAGIC_REF_THING_HEADER)
 
 #endif
+
+#define is_internal_magic_ref(x)					\
+    (_unchecked_is_boxed((x)) && is_magic_ref_thing(boxed_val((x))))
+
+#define is_internal_non_magic_ref(x)					\
+    (is_internal_ordinary_ref((x)) || is_internal_pid_ref((x)))
+
+#define is_internal_ordinary_ref(x)					\
+    (_unchecked_is_boxed((x)) && is_ordinary_ref_thing(boxed_val((x))))
+
+#define is_internal_pid_ref(x)					        \
+    (_unchecked_is_boxed((x)) && is_pid_ref_thing(boxed_val((x))))
 
 #define make_internal_ref(x)	make_boxed((Eterm*)(x))
 
@@ -960,10 +1014,13 @@ typedef union {
 _ET_DECLARE_CHECKED(Eterm*,internal_ref_val,Wterm)
 #define internal_ref_val(x) _ET_APPLY(internal_ref_val,(x))
 
-#define internal_ordinary_thing_ref_numbers(ort) (((ErtsORefThing *)(ort))->num)
-#define _unchecked_internal_ordinary_ref_numbers(x) (internal_ordinary_thing_ref_numbers(_unchecked_ordinary_ref_thing_ptr(x)))
-_ET_DECLARE_CHECKED(Uint32*,internal_ordinary_ref_numbers,Wterm)
-#define internal_ordinary_ref_numbers(x) _ET_APPLY(internal_ordinary_ref_numbers,(x))
+#define internal_non_magic_ref_thing_numbers(rt) (((ErtsORefThing *)(rt))->num)
+#define _unchecked_internal_non_magic_ref_numbers(x) (internal_non_magic_ref_thing_numbers(_unchecked_ordinary_ref_thing_ptr(x)))
+_ET_DECLARE_CHECKED(Uint32*,internal_non_magic_ref_numbers,Wterm)
+#define internal_non_magic_ref_numbers(x) _ET_APPLY(internal_non_magic_ref_numbers,(x))
+
+#define internal_ordinary_ref_numbers(x) internal_non_magic_ref_numbers((x))
+#define internal_pid_ref_numbers(x) internal_non_magic_ref_numbers((x))
 
 #if defined(ARCH_64) && !ERTS_ENDIANNESS
 #define internal_magic_thing_ref_numbers(mrt) (((ErtsMRefThing *)(mrt))->num)

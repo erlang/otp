@@ -243,6 +243,8 @@ bif(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> false.
 %%   (meaning implemented in C) or not.
 
 bif(abs, 1) -> true;
+bif(alias, 0) -> true;
+bif(alias, 1) -> true;
 bif(apply, 2) -> true;
 bif(apply, 3) -> true;
 bif(atom_to_binary, 1) -> true;
@@ -347,6 +349,7 @@ bif(max,2) -> true;
 bif(min,2) -> true;
 bif(module_loaded, 1) -> true;
 bif(monitor, 2) -> true;
+bif(monitor, 3) -> true;
 bif(monitor_node, 2) -> true;
 bif(node, 0) -> true;
 bif(node, 1) -> true;
@@ -410,6 +413,7 @@ bif(tl, 1) -> true;
 bif(trunc, 1) -> true;
 bif(tuple_size, 1) -> true;
 bif(tuple_to_list, 1) -> true;
+bif(unalias, 1) -> true;
 bif(unlink, 1) -> true;
 bif(unregister, 1) -> true;
 bif(whereis, 1) -> true;

@@ -43,7 +43,7 @@
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
 	 swap_sup_handler/3, which_handlers/1, call/3, call/4,
-         send_request/3, wait_response/2, check_response/2,
+         send_request/3, wait_response/2, receive_response/2, check_response/2,
          wake_hib/5]).
 
 -export([init_it/6,
@@ -248,6 +248,14 @@ wait_response(RequestId, Timeout) ->
         Return -> Return
     end.
 
+-spec receive_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), emgr_ref()}}.
+receive_response(RequestId, Timeout) ->
+    case gen:receive_response(RequestId, Timeout) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    end.
+
 -spec check_response(Msg::term(), RequestId::request_id()) ->
         {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), emgr_ref()}}.
 check_response(Msg, RequestId) ->
@@ -396,6 +404,9 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     do_unlink(Parent, MSL),
     exit(Reason).
 
+reply({To, [alias|Alias] = Tag}, Reply) when is_pid(To), is_reference(Alias) ->
+    Alias ! {Tag, Reply},
+    ok;
 reply({From, Ref}, Msg) ->
     From ! {Ref, Msg},
     ok.

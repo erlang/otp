@@ -410,11 +410,6 @@ abnormal1(Config) when is_list(Config) ->
     delayed = gen_fsm:sync_send_event(my_fsm, {delayed_answer,1}, 100),
     {'EXIT',{timeout,_}} =
 	(catch gen_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
-    receive
-	Msg ->
-	    %% Ignore the delayed answer from the server.
-	    io:format("Delayed message: ~p", [Msg])
-    end,
 
     [] = get_messages(),
     ok.

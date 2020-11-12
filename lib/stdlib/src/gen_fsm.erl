@@ -564,8 +564,12 @@ from({'$gen_sync_all_state_event', From, _Event}) -> From;
 from(_) -> undefined.
 
 %% Send a reply to the client.
+reply({To, [alias|Alias] = Tag}, Reply) when is_pid(To), is_reference(Alias) ->
+    Alias ! {Tag, Reply},
+    ok;
 reply({To, Tag}, Reply) ->
-    catch To ! {Tag, Reply}.
+    catch To ! {Tag, Reply},
+    ok.
 
 reply(Name, From, Reply, Debug, StateName) ->
     reply(From, Reply),

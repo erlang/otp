@@ -92,6 +92,7 @@ typedef EI_ULONGLONG DistFlags;
 #define DFLAG_RESERVED           0xfe000000
 #define DFLAG_NAME_ME            ((DistFlags)0x2 << 32)
 #define DFLAG_BIG_PIDS           ((DistFlags)0x4 << 32)
+#define DFLAG_HUGE_REFS          (((DistFlags)0x4) << 32)
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);

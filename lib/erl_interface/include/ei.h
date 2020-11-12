@@ -245,7 +245,7 @@ typedef struct {
 typedef struct {
   char node[MAXATOMLEN_UTF8];
   int len;
-  unsigned int n[3];
+  unsigned int n[5];
   unsigned int creation;
 } erlang_ref;
 

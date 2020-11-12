@@ -77,6 +77,7 @@
 -export_type([priority_level/0]).
 -export_type([max_heap_size/0]).
 -export_type([message_queue_data/0]).
+-export_type([monitor_option/0]).
 
 -type ext_binary() :: binary().
 -type ext_iovec() :: iovec().
@@ -161,7 +162,7 @@
 -export([list_to_pid/1, list_to_port/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0]).
 -export([map_size/1, map_get/2, match_spec_test/3, md5/1, md5_final/1]).
--export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
+-export([md5_init/0, md5_update/2, module_loaded/1, monitor/2, monitor/3]).
 -export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2]).
 -export([node/0, node/1, now/0, phash/2, phash2/1, phash2/2]).
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
@@ -202,8 +203,9 @@
          tl/1, trace_pattern/2,
          trace_pattern/3, tuple_to_list/1, system_info/1,
          universaltime_to_localtime/1]).
+-export([alias/0, alias/1, unalias/1]).
 -export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
-	 dt_put_tag/1, dt_restore_tag/1, dt_spread_tag/1]). 
+	 dt_put_tag/1, dt_restore_tag/1, dt_spread_tag/1]).
 
 %% Operators
 
@@ -731,6 +733,25 @@ demonitor(_MonitorRef) ->
       OptionList :: [Option],
       Option :: flush | info.
 demonitor(_MonitorRef, _OptionList) ->
+    erlang:nif_error(undefined).
+
+-spec alias() -> Alias when
+      Alias :: reference().
+
+alias() ->
+    alias([]).
+
+-spec alias(Opts) -> Alias when
+      Alias :: reference(),
+      Opts :: ['explicit_unalias' | 'reply'].
+
+alias(_Opts) ->
+    erlang:nif_error(undefined).
+
+-spec unalias(Alias) -> boolean() when
+      Alias :: reference().
+
+unalias(_Alias) ->
     erlang:nif_error(undefined).
 
 %% display/1
@@ -1337,6 +1358,8 @@ module_loaded(_Module) ->
 -type registered_process_identifier() :: registered_name() | {registered_name(), node()}.
 -type monitor_process_identifier() :: pid() | registered_process_identifier().
 -type monitor_port_identifier() :: port() | registered_name().
+-type monitor_option() :: {'alias', 'explicit_unalias' | 'demonitor' | 'reply_demonitor'}
+                        | {'tag', term()}.
 
 %% monitor/2
 -spec monitor
@@ -1344,10 +1367,22 @@ module_loaded(_Module) ->
 	  when MonitorRef :: reference();
       (port, monitor_port_identifier()) -> MonitorRef
 	  when MonitorRef :: reference();
-	    (time_offset, clock_service) -> MonitorRef
+      (time_offset, clock_service) -> MonitorRef
 	  when MonitorRef :: reference().
 
 monitor(_Type, _Item) ->
+    erlang:nif_error(undefined).
+
+%% monitor/3
+-spec monitor
+      (process, monitor_process_identifier(), [monitor_option()]) -> MonitorRef
+	  when MonitorRef :: reference();
+      (port, monitor_port_identifier(), [monitor_option()]) -> MonitorRef
+	  when MonitorRef :: reference();
+      (time_offset, clock_service, [monitor_option()]) -> MonitorRef
+	  when MonitorRef :: reference().
+
+monitor(_Type, _Item, _Opts) ->
     erlang:nif_error(undefined).
 
 %% monitor_node/2
@@ -2937,6 +2972,7 @@ spawn_monitor(M, F, A) ->
 -type spawn_opt_option() ::
 	link
       | monitor
+      | {monitor, MonitorOpts :: [monitor_option()]}
       | {priority, Level :: priority_level()}
       | {fullsweep_after, Number :: non_neg_integer()}
       | {min_heap_size, Size :: non_neg_integer()}
@@ -2957,7 +2993,10 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [monitor | link | OtherOption],
+      Options :: [monitor |
+                  {monitor, [monitor_option()]} |
+                  link |
+                  OtherOption],
       OtherOption :: term().
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     erlang:spawn_opt(F, O);
@@ -3060,11 +3099,13 @@ spawn_monitor(N,M,F,A) ->
     erlang:error(badarg, [N, M, F, A]).
 
 -spec spawn_opt(Module, Function, Args, Options) ->
-                       pid() | {pid(), reference()} when
+          Pid | {Pid, MonitorRef} when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [spawn_opt_option()].
+      Options :: [spawn_opt_option()],
+      Pid :: pid(),
+      MonitorRef :: reference().
 spawn_opt(_Module, _Function, _Args, _Options) ->
    erlang:nif_error(undefined).
 
@@ -3075,7 +3116,10 @@ spawn_opt(_Module, _Function, _Args, _Options) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [monitor | link | OtherOption],
+      Options :: [monitor |
+                  {monitor, [monitor_option()]} |
+                  link |
+                  OtherOption],
       OtherOption :: term().
 
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
@@ -3222,6 +3266,7 @@ spawn_request(A1, A2) ->
       Fun :: function(),
       Options :: [Option],
       Option :: monitor
+              | {monitor, [monitor_option()]}
               | link
               | {reply_tag, ReplyTag}
               | {reply, Reply}
@@ -3303,6 +3348,7 @@ spawn_request(M, F, A, O) ->
       Args :: [term()],
       Options :: [Option],
       Option :: monitor
+              | {monitor, [monitor_option()]}
               | link
               | {reply_tag, ReplyTag}
               | {reply, Reply}
@@ -3365,6 +3411,7 @@ fun_info_1([K|Ks], Fun, A) ->
 fun_info_1([], _, A) -> A.
 
 -type dst() :: pid()
+             | reference()
              | port()
              | (RegName :: atom())
              | {RegName :: atom(), Node :: node()}.

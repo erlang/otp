@@ -114,13 +114,14 @@
       </row>
       <row>
         <cell>Reference</cell>
-        <cell>On 32-bit architectures: 5 words for a reference from the
-	current local node + 7 words for a reference from another
-	node.<br></br>
-	On 64-bit architectures: 4 words for a reference from the current
-	local node + 6 words for a reference from another node.<br></br>
-	A reference refers into a node table, which also consumes
-	memory.</cell>
+        <cell>On 32-bit architectures: 4-7 words for a reference from the
+	current local node, and 7-9 words for a reference from another
+	node.<br/>
+	On 64-bit architectures: 4-6 words for a reference from the current
+	local node, and 6-7 words for a reference from another node.<br/>
+	A reference also refers into more or less emulator internal data
+	structures which also consumes memory. At a minimum it
+	refers into the node tables.</cell>
       </row>
       <row>
         <cell>Fun</cell>

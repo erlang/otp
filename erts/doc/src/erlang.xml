@@ -82,6 +82,12 @@
       </desc>
     </datatype>
     <datatype>
+      <name name="monitor_option"></name>
+      <desc>
+        <p>See <seemfa marker="#monitor/3"><c>monitor/3</c></seemfa>.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="timestamp"></name>
       <desc>
         <p>See <seemfa marker="#timestamp/0">
@@ -306,6 +312,38 @@ Z = erlang:adler32(Y,Data2).</code>
 X = erlang:adler32(Data1),
 Y = erlang:adler32(Data2),
 Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="alias" arity="0" since="OTP @OTP-16718@"/>
+      <name name="alias" arity="1" since="OTP @OTP-16718@"/>
+      <fsummary>Create an alias.</fsummary>
+      <desc>
+	<p>
+	  Create an alias which can be used when sending messages
+	  to the process that created the alias. When the alias
+	  has been deactivated, messages sent using the alias will
+	  be dropped. An alias can be deactivated using
+	  <seemfa marker="erlang#unalias/1"><c>unalias/1</c></seemfa>.
+	  Currently available options for <c>alias/1</c>:
+	</p>
+	<taglist>
+	  <tag><c>explicit_unalias</c></tag>
+	  <item><p>
+	    The alias can only be deactivated via a
+	    call to <c>unalias/1</c>. This is also the
+	    default behaviour if no options are passed
+	    or if <c>alias/0</c> is called.
+	  </p></item>
+	  <tag><c>reply</c></tag>
+	  <item><p>
+	    The alias will be automatically deactivated
+	    when a reply message sent via the alias is
+	    received. The alias can also still be
+	    deactivated via a call to <c>unalias/1</c>.
+	  </p></item>
+	</taglist>
       </desc>
     </func>
 
@@ -3847,7 +3885,9 @@ RealSystem = system + MissedSystem</code>
       <type name="monitor_process_identifier"/>
       <type name="monitor_port_identifier"/>
       <desc>
-	<p>Sends a monitor request of type <c><anno>Type</anno></c> to the
+	<p>
+	  <marker id="monitor_message"/>
+	  Sends a monitor request of type <c><anno>Type</anno></c> to the
 	  entity identified by <c><anno>Item</anno></c>. If the monitored entity
           does not exist or it changes monitored state, the caller of
           <c>monitor/2</c> is notified by a message on the following format:</p>
@@ -4008,6 +4048,88 @@ RealSystem = system + MissedSystem</code>
             possible values for <c>Tag</c>, <c>Object</c>, and
             <c>Info</c> in the monitor message will be introduced.</p>
         </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor" arity="3" clause_i="1" since="OTP @OTP-16718@"/>
+      <name name="monitor" arity="3" clause_i="2" since="OTP @OTP-16718@"/>
+      <name name="monitor" arity="3" clause_i="3" since="OTP @OTP-16718@"/>
+      <fsummary>Start monitoring with options.</fsummary>
+      <type name="registered_name"/>
+      <type name="registered_process_identifier"/>
+      <type name="monitor_process_identifier"/>
+      <type name="monitor_port_identifier"/>
+      <desc>
+	<p>
+	  Provides an option list for modification of monitoring
+	  functionality provided by
+	  <seemfa marker="#monitor/2"><c>monitor/2</c></seemfa>.
+	  The <c><anno>Type</anno></c> and <c><anno>Item</anno></c>
+	  arguments have the same meaning as when passed to
+	  <c>monitor/2</c>. Currently available options:
+	</p>
+	<taglist>
+	  <tag><c>{alias, UnaliasOpt}</c></tag>
+	  <item>
+	    <p>
+	      The returned monitor reference will also become
+	      an alias for the calling process. That is, the
+	      returned reference can be used for sending messages
+	      to the calling process. See also
+	      <seemfa marker="erlang#alias/0"><c>alias/0</c></seemfa>.
+	      The <c>UnaliasOpt</c> determines how the alias
+	      should be deactivated.
+	    </p>
+	    <taglist>
+	      <tag><c>explicit_unalias</c></tag>
+	      <item><p>
+		Only an explicit call to 
+		<seemfa marker="erlang#unalias/1"><c>unalias/1</c></seemfa>
+		will deactivate the alias.
+	      </p></item>
+	      <tag><c>demonitor</c></tag>
+	      <item><p>
+		The alias will be automatically deactivated when
+		the monitor is removed. This either via an explicit
+		call to 
+		<seemfa marker="#demonitor/1"><c>demonitor/1</c></seemfa>
+		or when it is automatically removed at the same time
+		as a <c>'DOWN'</c> message is delivered due to the
+		monitor. The alias can also still be deactivated
+		via a call to <c>unalias/1</c>.
+	      </p></item>
+	      <tag><c>reply_demonitor</c></tag>
+	      <item><p>
+		The alias will be automatically deactivated when
+		the monitor is removed (see <c>demonitor</c> option
+		above) or a reply message sent via the alias is
+		received. When a reply message is received via the
+		alias the monitor will also be automatically
+		removed. This is useful in client/server scenarios
+		when a client monitors the server and will get
+		the reply via the alias. Once the response is
+		received both the alias and the monitor will be
+		automatically removed regardless of whether the
+		response is a reply or a <c>'DOWN'</c> message. The
+		alias can also still be deactivated via a call to
+		<c>unalias/1</c>. Note that if the alias is removed
+		using the <c>unalias/1</c> BIF, the monitor will
+		still be left active.
+	      </p></item>
+	    </taglist>
+	  </item>
+	  <tag><c>{tag, UserDefinedTag}</c></tag>
+	  <item>
+	    <p>
+	      Replace the default <c>Tag</c> with <c>UserDefinedTag</c>
+	      in the <seeerl marker="#monitor_message">monitor message</seeerl>
+	      delivered when the monitor is triggered. For example, when
+	      monitoring a process, the <c>'DOWN'</c> tag in the down message
+	      will be replaced by <c>UserDefinedTag</c>.
+	    </p>
+	  </item>
+	</taglist>
       </desc>
     </func>
 
@@ -6852,7 +6974,19 @@ true</pre>
           <tag><c>monitor</c></tag>
           <item>
             <p>Monitors the new process (like
-              <seemfa marker="#monitor/2"><c>monitor/2</c></seemfa> does).</p>
+            <seemfa marker="#monitor/2"><c>monitor(process, Pid)</c></seemfa> does).
+	    A <c>{Pid, MonitorRef}</c> tuple will be returned instead
+	    of just a <c>Pid</c>.
+	    </p>
+          </item>
+          <tag><c>{monitor, MonitorOpts}</c></tag>
+          <item>
+            <p>Monitors the new process with options (like
+            <seemfa marker="#monitor/3"><c>monitor(process, Pid,
+	    MonitorOpts)</c></seemfa> does).
+	    A <c>{Pid, MonitorRef}</c> tuple will be returned instead
+	    of just a <c>Pid</c>.
+	    </p>
           </item>
           <tag><c>{priority, <anno>Level</anno>}</c></tag>
           <item>
@@ -7187,6 +7321,26 @@ true</pre>
 	      operation, the spawn operation will fail with an
 	      error reason of <c>noconnection</c>. A new process
 	      may or may not have been created.
+	    </p>
+	  </item>
+	  <tag><c>{monitor, MonitorOpts}</c></tag>
+	  <item>
+	    <p>
+	      In the absence of spawn operation failures, atomically
+	      sets up a monitor to the newly created process. That
+	      is, as if the calling process had called
+	      <seemfa marker="#monitor/2"><c>monitor(process,
+	      Pid, MonitorOpts)</c></seemfa> where <c>Pid</c> is
+	      the process identifier of the newly created process.
+	      See the <c>monitor</c> option above for more
+	      information. 
+	    </p>
+	    <p>
+	      Note that the monitor will not be activated for the
+	      calling process until the spawn operation has
+	      succeeded. For example, in the case that an
+	      alias is created using the monitor option, the alias
+	      will not be active until the monitor is activated.
 	    </p>
 	  </item>
 	  <tag><c>link</c></tag>
@@ -12158,6 +12312,26 @@ cannot be represented exactly as a float value</seeguide>.</p>
         <pre>
 > <input>tuple_to_list({share, {'Ericsson_B', 163}}).</input>
 [share,{'Ericsson_B',163}]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unalias" arity="1" since="OTP @OTP-16718@"/>
+      <fsummary>Create an alias.</fsummary>
+      <desc>
+	<p>
+	  Deactivate the alias <c><anno>Alias</anno></c>
+	  previously created by the calling process. An alias
+	  can for example be created via
+	  <seemfa marker="erlang#alias/0"><c>alias/0</c></seemfa>, or
+	  <seemfa marker="erlang#monitor/3"><c>monitor/3</c></seemfa>.
+	  <c>unalias/1</c> will always deactivate the alias regardless
+	  of options used when creating the alias.
+	</p>
+	<p>
+	  Returns true if <c><anno>Alias</anno></c> was a currently
+	  active alias for current processes; otherwise, false.
+	</p>
       </desc>
     </func>
 

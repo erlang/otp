@@ -99,6 +99,77 @@ typedef struct {
     } specific;
     Eterm tag;
 } ErtsSignalCommon;
+/*
+ * Note that not all signal are handled using this functionality!
+ */
+
+#define ERTS_SIG_Q_OP_MAX 15
+
+#define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
+#define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
+#define ERTS_SIG_Q_OP_MONITOR_DOWN              2
+#define ERTS_SIG_Q_OP_MONITOR                   3
+#define ERTS_SIG_Q_OP_DEMONITOR                 4
+#define ERTS_SIG_Q_OP_LINK                      5
+#define ERTS_SIG_Q_OP_UNLINK                    6
+#define ERTS_SIG_Q_OP_GROUP_LEADER              7
+#define ERTS_SIG_Q_OP_TRACE_CHANGE_STATE        8
+#define ERTS_SIG_Q_OP_PERSISTENT_MON_MSG        9
+#define ERTS_SIG_Q_OP_IS_ALIVE                  10
+#define ERTS_SIG_Q_OP_PROCESS_INFO              11
+#define ERTS_SIG_Q_OP_SYNC_SUSPEND              12
+#define ERTS_SIG_Q_OP_RPC                       13
+#define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
+#define ERTS_SIG_Q_OP_ALIAS_MSG                 ERTS_SIG_Q_OP_MAX
+
+#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 9)
+
+#define ERTS_SIG_Q_TYPE_UNDEFINED \
+    (ERTS_MON_LNK_TYPE_MAX + 1)
+#define ERTS_SIG_Q_TYPE_DIST_LINK \
+    (ERTS_MON_LNK_TYPE_MAX + 2)
+#define ERTS_SIG_Q_TYPE_GEN_EXIT \
+    (ERTS_MON_LNK_TYPE_MAX + 3)
+#define ERTS_SIG_Q_TYPE_DIST_PROC_DEMONITOR \
+    (ERTS_MON_LNK_TYPE_MAX + 4)
+#define ERTS_SIG_Q_TYPE_ADJUST_TRACE_INFO \
+    (ERTS_MON_LNK_TYPE_MAX + 5)
+#define ERTS_SIG_Q_TYPE_DIST \
+    (ERTS_MON_LNK_TYPE_MAX + 6)
+#define ERTS_SIG_Q_TYPE_HEAP \
+    (ERTS_MON_LNK_TYPE_MAX + 7)
+#define ERTS_SIG_Q_TYPE_OFF_HEAP \
+    (ERTS_MON_LNK_TYPE_MAX + 8)
+#define ERTS_SIG_Q_TYPE_HEAP_FRAG \
+    ERTS_SIG_Q_TYPE_MAX
+
+#define ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(Tag)                          \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_DIST,           \
+                                     0))
+#define ERTS_SIG_IS_DIST_ALIAS_MSG(sig)                              \
+    ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(Tag)                      \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_OFF_HEAP,       \
+                                     0))
+#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG(sig)                          \
+    ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(Tag)                          \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_HEAP,           \
+                                     0))
+#define ERTS_SIG_IS_HEAP_ALIAS_MSG(sig)                              \
+    ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(Tag)                     \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_HEAP_FRAG,      \
+                                     0))
+#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG(sig)                         \
+    ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
 #define ERTS_SIG_HANDLE_REDS_MAX_PREFERED (CONTEXT_REDS/40)
 
@@ -920,6 +991,15 @@ erts_enqueue_signals(Process *rp, ErtsMessage *first,
 void
 erts_proc_sig_send_pending(ErtsSchedulerData* esdp);
 
+
+void
+erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to,
+                            Eterm msg, Eterm token);
+
+void
+erts_proc_sig_send_dist_to_alias(Eterm alias, ErtsDistExternal *edep,
+                                 ErlHeapFragment *hfrag, Eterm token);
+
 /**
  *
  * @brief Schedule process to handle enqueued signal(s).
@@ -1045,6 +1125,9 @@ erts_proc_sig_decode_dist(Process *proc, ErtsProcLocks proc_locks,
 
 ErtsDistExternal *
 erts_proc_sig_get_external(ErtsMessage *msgp);
+
+void
+erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig);
 
 /**
  * @brief Initialize this functionality
