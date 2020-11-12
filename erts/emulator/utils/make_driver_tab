@@ -52,6 +52,7 @@ while (@ARGV) {
     if ( $d =~ /^.*\.a$/ ) {
 	$d = basename $d;
 	$d =~ s/\.a$//;	# strip .a
+	$d =~ s/\.gprof$//;	# strip .gprof
 	if ($mode == 1) {
 	    push(@static_drivers, $d);
 	}
