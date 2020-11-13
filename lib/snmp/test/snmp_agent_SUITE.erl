@@ -4654,8 +4654,11 @@ ma_v2_inform1(MA) ->
 		after
 		    20000 ->
 			?EPRINT("ma_v2_inform1 -> "
-                                "timeout awaiting snmp_notification [~p]",
-                                [Tag03]),
+                                "timeout awaiting snmp_notification [~p]: "
+                                "~n   Message Queue: "
+                                "~n      ~p",
+                                [Tag03,
+                                 process_info(self(), messages)]),
 			{error, snmp_notification_timeout}
 		end
 	end,
@@ -4693,8 +4696,11 @@ ma_v2_inform1(MA) ->
 		after
 		    240000 ->
 			?EPRINT("ma_v2_inform1 -> "
-                                "timeout awaiting snmp_notification [~p]",
-                                [Tag07]),
+                                "timeout awaiting snmp_notification [~p]: "
+                                "~n   Message Queue: "
+                                "~n      ~p",
+                                [Tag07,
+                                 process_info(self(), messages)]),
 			{error, snmp_notification_timeout}
 		end
 	end,
@@ -4744,28 +4750,35 @@ ma_v2_inform2(MA) ->
     %% Await callback(s)
     CmdAwaitDeliveryCallback = 
 	fun(Kind, Ref, Tag) ->
-		?IPRINT("CmdAwaitDeliveryCallback -> entry with"
+		?IPRINT("ma_v2_inform2:"
+                        "CmdAwaitDeliveryCallback -> entry with"
                         "~n   Kind: ~p"
                         "~n   Ref:  ~p"
                         "~n   Tag:  ~p", [Kind, Ref, Tag]),
 		receive
 		    {Kind, Ref, ok} ->
-			?IPRINT("CmdAwaitDeliveryCallback(~p,~p) -> "
+			?IPRINT("ma_v2_inform2:"
+                                "CmdAwaitDeliveryCallback(~p,~p) -> "
                                 "received expected result: ok"
                                 "~n", [Tag, Ref]),
 			ok;
 		    {Kind, Ref, Error} ->
-			?IPRINT("CmdAwaitDeliveryCallback(~p,~p) -> "
+			?IPRINT("ma_v2_inform2:"
+                                "CmdAwaitDeliveryCallback(~p,~p) -> "
                                 "received unexpected result: "
                                 "~n   Error: ~p"
                                 "~n", [Tag, Ref, Error]),
 			{error, {unexpected_response, Error}}
 		after
 		    240000 ->
-			?EPRINT("ma_v2_inform2 -> "
+			?EPRINT("ma_v2_inform2:"
+                                "CmdAwaitDeliveryCallback(~p,~p) -> "
                                 "timeout awaiting got_response for "
-                                "snmp_notification [~p]",
-                                [Tag]),
+                                "snmp_notification [~p]: "
+                                "~n   Message Queue: "
+                                "~n      ~p",
+                                [Tag, Ref, Tag,
+                                 process_info(self(), messages)]),
 			{error, snmp_notification_timeout}
 		end
 	end,
@@ -4816,7 +4829,8 @@ ma_v2_inform3(MA) ->
 
     CmdExpectInform = 
 	fun(_No, Response) ->
-		?DBG("CmdExpectInform -> ~p: ~n~p", [_No, Response]),
+		?DBG("ma_v2_inform3:CmdExpectInform -> ~p: "
+                     "~n      ~p", [_No, Response]),
 		?expect2({inform, Response},
 			 [{[sysUpTime, 0], any}, 
 			  {[snmpTrapOID, 0], ?system ++ [0,1]}])
@@ -4826,7 +4840,7 @@ ma_v2_inform3(MA) ->
 	fun(ok) -> 
 		ok;
 	   ({ok, _Val}) ->
-		?DBG("CmdExp -> Val: ~p", [_Val]),
+		?DBG("ma_v2_inform3:CmdExp -> Val: ~p", [_Val]),
 		ok;
 	   ({error, Id, Extra}) ->
 		{error, {unexpected, Id, Extra}};
@@ -4837,28 +4851,35 @@ ma_v2_inform3(MA) ->
     %% Await callback(s)
     CmdAwaitDeliveryCallback = 
 	fun(Kind, Ref, Tag) ->
-		?IPRINT("CmdAwaitDeliveryCallback -> entry with"
+		?IPRINT("ma_v2_inform3:"
+                        "CmdAwaitDeliveryCallback -> entry with"
                         "~n   Kind: ~p"
                         "~n   Ref:  ~p"
                         "~n   Tag:  ~p", [Kind, Ref, Tag]),
 		receive
 		    {Kind, Ref, ok} ->
-			?IPRINT("CmdAwaitDeliveryCallback(~p,~p) -> "
+			?IPRINT("ma_v2_inform3:"
+                                "CmdAwaitDeliveryCallback(~p,~p) -> "
                                 "received expected result: ok"
                                 "~n", [Tag, Ref]),
 			ok;
 		    {Kind, Ref, Error} ->
-			?IPRINT("CmdAwaitDeliveryCallback(~p,~p) -> "
+			?IPRINT("ma_v2_inform3:"
+                                "CmdAwaitDeliveryCallback(~p,~p) -> "
                                 "received unexpected result: "
                                 "~n   Error: ~p"
                                 "~n", [Tag, Ref, Error]),
 			{error, {unexpected_response, Error}}
 		after
 		    240000 ->
-			?EPRINT("ma_v2_inform3 -> "
+			?EPRINT("ma_v2_inform3:"
+                                "CmdAwaitDeliveryCallback(~p,~p) -> "
                                 "timeout awaiting got_response for "
-                                "snmp_notification [~p]",
-			     [Tag]),
+                                "snmp_notification [~p]: "
+                                "~n   Message Queue: "
+                                "~n      ~p",
+                                [Kind, Ref, Tag,
+                                 process_info(self(), messages)]),
 			{error, snmp_notification_timeout}
 		end
 	end,
