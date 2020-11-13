@@ -401,7 +401,7 @@ calendar:now_to_universal_time(TS),
       <fsummary>Return the OS family and, in some cases, the OS name of the
         current OS.</fsummary>
       <desc>
-        <p>Returns the <c><anno>Osfamily</anno></c> and, in some cases, the
+        <p>Returns the <c><anno>Osfamily</anno></c> and,user case , the
           <c><anno>Osname</anno></c> of the current OS.</p>
         <p>On Unix, <c><anno>Osname</anno></c> has the same value as
           <c>uname -s</c> returns, but in lower case. For example, on
