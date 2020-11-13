@@ -4712,12 +4712,11 @@ end
 define etp-init
   set $etp_arch64 = (sizeof(void *) == 8)
   if $etp_arch64
-    set $etp_nil = 0xfffffffffffffffb
     set $etp_MBC_ABLK_OFFSET_BITS = 23
   else
-    set $etp_nil = 0xfffffffb
     set $etp_MBC_ABLK_OFFSET_BITS = 8
   end
+  set $etp_nil = 0x3b
   set $etp_MBC_ABLK_OFFSET_SHIFT = (sizeof(UWord)*8 - 1 - $etp_MBC_ABLK_OFFSET_BITS)
   set $etp_MBC_ABLK_OFFSET_MASK = ((((UWord)1 << $etp_MBC_ABLK_OFFSET_BITS) - 1) << $etp_MBC_ABLK_OFFSET_SHIFT)
   set $etp_MBC_ABLK_SZ_MASK = ((UWord)1 << $etp_MBC_ABLK_OFFSET_SHIFT) - 1 - 7
