@@ -406,15 +406,14 @@ static BIF_RETTYPE ets_select3(Process* p, DbTable*, Eterm tid, Eterm ms, Sint c
 /* 
  * Exported global
  */
-Export *ets_select_delete_continue_exp;
-Export *ets_select_count_continue_exp;
-Export *ets_select_replace_continue_exp;
-Export *ets_select_continue_exp;
-
+Export ets_select_delete_continue_exp;
+Export ets_select_count_continue_exp;
+Export ets_select_replace_continue_exp;
+Export ets_select_continue_exp;
 /*
  * Static traps
  */
-static Export *ets_delete_continue_exp;
+static Export ets_delete_continue_exp;
 
 static Export *ets_info_binary_trap = NULL;
 
@@ -2550,7 +2549,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	hp[0] = make_pos_bignum_header(1);
 	hp[1] = (Eterm) tb;
         BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP1(ets_delete_continue_exp, BIF_P, make_big(hp));
+	BIF_TRAP1(&ets_delete_continue_exp, BIF_P, make_big(hp));
     }
     else {
         BUMP_REDS(BIF_P, (initial_reds - reds));
@@ -2852,7 +2851,7 @@ static BIF_RETTYPE ets_select_delete_trap_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
     
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_WRITE, kind,
-                      ets_select_delete_continue_exp);
+                      &ets_select_delete_continue_exp);
 
     cret = tb->common.meth->db_select_delete_continue(p,tb,a1,&ret,&safety);
 
@@ -3336,7 +3335,7 @@ static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
 
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_READ, kind,
-                      ets_select_continue_exp);
+                      &ets_select_continue_exp);
 
     cret = tb->common.meth->db_select_continue(p, tb, a1, &ret, &safety);
 
@@ -3504,7 +3503,7 @@ static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
 
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_READ, kind,
-                      ets_select_count_continue_exp);
+                      &ets_select_count_continue_exp);
 
     cret = tb->common.meth->db_select_count_continue(p, tb, a1, &ret, &safety);
 
@@ -3595,7 +3594,7 @@ static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
 
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_WRITE, kind,
-                      ets_select_replace_continue_exp);
+                      &ets_select_replace_continue_exp);
 
     cret = tb->common.meth->db_select_replace_continue(p,tb,a1,&ret,&safety);
 
@@ -4802,7 +4801,7 @@ static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
     reds = free_table_continue(BIF_P, tb, reds);
     if (reds < 0) {
         BUMP_ALL_REDS(BIF_P);
-        BIF_TRAP1(ets_delete_continue_exp, BIF_P, cont);
+        BIF_TRAP1(&ets_delete_continue_exp, BIF_P, cont);
     }
     else {
         BUMP_REDS(BIF_P, (initial_reds - reds));

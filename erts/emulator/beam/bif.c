@@ -48,12 +48,12 @@
 #include "jit/beam_asm.h"
 
 Export *erts_await_result;
-static Export *await_exit_trap;
+static Export await_exit_trap;
 static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
 static Export* await_port_send_result_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
-static Export *dsend_continue_trap_export;
+static Export dsend_continue_trap_export;
 Export *erts_convert_time_unit_trap = NULL;
 
 static Export *await_msacc_mod_trap = NULL;
@@ -1361,7 +1361,7 @@ erts_internal_await_exit_trap(BIF_ALIST_0)
     if (state & ERTS_PSFLG_EXITING)
         ERTS_BIF_EXITED(BIF_P);
 
-    ERTS_BIF_YIELD0(await_exit_trap, BIF_P);
+    ERTS_BIF_YIELD0(&await_exit_trap, BIF_P);
 }
 
 /**********************************************************************/
@@ -1396,7 +1396,7 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
              erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
              erts_proc_sig_fetch(c_p);
              erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-             ERTS_BIF_PREP_TRAP0(ret_val, await_exit_trap, c_p);
+             ERTS_BIF_PREP_TRAP0(ret_val, &await_exit_trap, c_p);
          }
      }
      else if (is_internal_port(id)) {
@@ -1455,7 +1455,7 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
                  case ERTS_DSIG_SEND_CONTINUE:
                      BUMP_ALL_REDS(c_p);
                      erts_set_gc_state(c_p, 0);
-                     ERTS_BIF_PREP_TRAP1(ret_val, dsend_continue_trap_export, c_p,
+                     ERTS_BIF_PREP_TRAP1(ret_val, &dsend_continue_trap_export, c_p,
                                          erts_dsend_export_trap_context(c_p, &ctx));
                      break;
                  case ERTS_DSIG_SEND_OK:
@@ -2338,7 +2338,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	break;
     case SEND_YIELD_CONTINUE:
 	BUMP_ALL_REDS(p);
-	ERTS_BIF_PREP_TRAP1(retval, dsend_continue_trap_export, p, ctx);
+	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
 	break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "send_3 invalid result %d\n", (int)result);
@@ -2379,7 +2379,7 @@ static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
 
     case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP1(dsend_continue_trap_export, BIF_P, BIF_ARG_1);
+	BIF_TRAP1(&dsend_continue_trap_export, BIF_P, BIF_ARG_1);
     }
     case ERTS_DSIG_SEND_TOO_LRG: { /*SEND_SYSTEM_LIMIT*/
 	erts_set_gc_state(BIF_P, 1);
@@ -2447,7 +2447,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	break;
     case SEND_YIELD_CONTINUE:
 	BUMP_ALL_REDS(p);
-	ERTS_BIF_PREP_TRAP1(retval, dsend_continue_trap_export, p, ctx);
+	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
 	break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
@@ -5116,20 +5116,22 @@ static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
     BIF_RET(res);
 }
 
-Export *bif_return_trap_export;
+Export bif_return_trap_export;
 
-void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
+void erts_init_trap_export(Export *ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(BIF_ALIST))
 {
-    Export* ep;
     int i;
 
-    ep = erts_alloc(ERTS_ALC_T_EXPORT, sizeof(Export));
     sys_memset((void *) ep, 0, sizeof(Export));
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
         erts_activate_export_trampoline(ep, i);
     }
+
+#ifdef BEAMASM
+    ep->addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
+#endif
 
     ep->bif_number = -1;
     ep->info.op = op_i_func_info_IaaI;
@@ -5137,14 +5139,8 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
 
-#ifdef BEAMASM
-    ep->addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
-#endif
-
     ep->trampoline.common.op = BeamOpCodeAddr(op_call_bif_W);
     ep->trampoline.bif.address = (BeamInstr)bif;
-
-    *epp = ep;
 }
 
 void erts_init_bif(void)

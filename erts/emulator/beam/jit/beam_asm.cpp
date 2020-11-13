@@ -99,7 +99,7 @@ static void install_bifs(void) {
 
         /* Set up a hidden export entry so we can trap to this BIF without
          * it being seen when tracing. */
-        erts_init_trap_export(&BIF_TRAP_EXPORT(i),
+        erts_init_trap_export(BIF_TRAP_EXPORT(i),
                               entry->module,
                               entry->name,
                               entry->arity,

@@ -53,13 +53,13 @@
 
 /* Init and local variables */
 
-static Export *binary_find_trap_export;
+static Export binary_find_trap_export;
 static BIF_RETTYPE binary_find_trap(BIF_ALIST_3);
-static Export *binary_longest_prefix_trap_export;
+static Export binary_longest_prefix_trap_export;
 static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3);
-static Export *binary_longest_suffix_trap_export;
+static Export binary_longest_suffix_trap_export;
 static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3);
-static Export *binary_copy_trap_export;
+static Export binary_copy_trap_export;
 static BIF_RETTYPE binary_copy_trap(BIF_ALIST_2);
 static Uint max_loop_limit;
 
@@ -1553,7 +1553,7 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
 	BIF_RET(result);
     case BF_RESTART:
 	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
-	BIF_TRAP3(binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
+	BIF_TRAP3(&binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
     default:
 	goto badarg;
     }
@@ -1614,7 +1614,7 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	BIF_RET(result);
     case BF_RESTART:
 	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
-	BIF_TRAP3(binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
+	BIF_TRAP3(&binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
     default:
 	goto badarg;
     }
@@ -1925,7 +1925,7 @@ static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
 	BIF_RET(result);
     } else {
 	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
-	BIF_TRAP3(binary_find_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+	BIF_TRAP3(&binary_find_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 }
 
@@ -2218,11 +2218,11 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 
     pos = 0;
     if (direction == DIRECTION_PREFIX) {
-	trapper = binary_longest_prefix_trap_export;
+	trapper = &binary_longest_prefix_trap_export;
 	res = do_search_forward(cd,&pos,&reds);
     } else {
 	ASSERT(direction == DIRECTION_SUFFIX);
-	trapper = binary_longest_suffix_trap_export;
+	trapper = &binary_longest_suffix_trap_export;
 	res = do_search_backward(cd,&pos,&reds);
     }
     epos = erts_make_integer(pos,p);
@@ -2272,11 +2272,11 @@ static BIF_RETTYPE do_longest_common_trap(Process *p, Eterm bin_term, Eterm curr
     bin = erts_magic_ref2bin(bin_term);
     cd = (CommonData *) ERTS_MAGIC_BIN_DATA(bin);
     if (direction == DIRECTION_PREFIX) {
-	trapper = binary_longest_prefix_trap_export;
+	trapper = &binary_longest_prefix_trap_export;
 	res = do_search_forward(cd,&pos,&reds);
     } else {
 	ASSERT(direction == DIRECTION_SUFFIX);
-	trapper = binary_longest_suffix_trap_export;
+	trapper = &binary_longest_suffix_trap_export;
 	res = do_search_backward(cd,&pos,&reds);
     }
     epos = erts_make_integer(pos,p);
@@ -2550,7 +2550,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
 	trap_term = erts_mk_magic_ref(&hp, &MSO(p), mb);
 	BUMP_ALL_REDS(p);
-	BIF_TRAP2(binary_copy_trap_export, p, bin, trap_term);
+	BIF_TRAP2(&binary_copy_trap_export, p, bin, trap_term);
     } else {
 	Eterm res_term;
 	byte *temp_alloc = NULL;
@@ -2602,7 +2602,7 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
 	cbs->result_pos = pos;
 	cbs->times_left -= i;
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP2(binary_copy_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
+	BIF_TRAP2(&binary_copy_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
     } else {
 	Binary *save;
         Eterm resbin;

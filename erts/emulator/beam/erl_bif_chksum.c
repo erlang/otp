@@ -38,7 +38,7 @@ typedef void (*ChksumFun)(void *sum_in_out, unsigned char *buf,
 /* Hidden trap target */
 static BIF_RETTYPE md5_2(BIF_ALIST_2);
 
-static Export *chksum_md5_2_exp;
+static Export chksum_md5_2_exp;
 
 void erts_init_bif_chksum(void)
 {
@@ -494,7 +494,7 @@ md5_1(BIF_ALIST_1)
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
 	 bin = new_binary(BIF_P, (byte *) &context, sizeof(MD5_CTX));
-	 BIF_TRAP2(chksum_md5_2_exp, BIF_P, bin, rest);
+	 BIF_TRAP2(&chksum_md5_2_exp, BIF_P, bin, rest);
     }
     BUMP_REDS(BIF_P,res);
     bin = new_binary(BIF_P, (byte *)NULL, 16);
@@ -526,7 +526,7 @@ md5_2(BIF_ALIST_2)
     if (rest != NIL) {
 	BUMP_ALL_REDS(BIF_P);
 	bin = new_binary(BIF_P, (byte *) &context, sizeof(MD5_CTX));
-	BIF_TRAP2(chksum_md5_2_exp, BIF_P, bin, rest);
+	BIF_TRAP2(&chksum_md5_2_exp, BIF_P, bin, rest);
     }
     BUMP_REDS(BIF_P,res);
     bin = new_binary(BIF_P, (byte *)NULL, 16);

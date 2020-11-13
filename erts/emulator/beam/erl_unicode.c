@@ -64,12 +64,12 @@ static BIF_RETTYPE characters_to_list_trap_2(BIF_ALIST_3);
 static BIF_RETTYPE characters_to_list_trap_3(BIF_ALIST_3);
 static BIF_RETTYPE characters_to_list_trap_4(BIF_ALIST_1);
 
-static Export *characters_to_utf8_trap_exp;
-static Export *characters_to_list_trap_1_exp;
-static Export *characters_to_list_trap_2_exp;
+static Export characters_to_utf8_trap_exp;
+static Export characters_to_list_trap_1_exp;
+static Export characters_to_list_trap_2_exp;
 
-static Export *characters_to_list_trap_3_exp;
-static Export *characters_to_list_trap_4_exp;
+static Export characters_to_list_trap_3_exp;
+static Export characters_to_list_trap_4_exp;
 
 static Export *c_to_b_int_trap_exportp = NULL;
 static Export *c_to_l_int_trap_exportp = NULL;
@@ -873,7 +873,7 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 		rest_term = CONS(hp,rest_bin,rest_term);
 	    }
 	    BUMP_ALL_REDS(p);
-	    BIF_TRAP3(characters_to_utf8_trap_exp, p, bin, rest_term, latin1);
+	    BIF_TRAP3(&characters_to_utf8_trap_exp, p, bin, rest_term, latin1);
 	} else { /* Success */
 	    /*hp = HAlloc(p,5);
 	      ret = TUPLE4(hp,mk_utf8_result_bin(p,bin),rest_term,make_small(pos),make_small(err));*/
@@ -1090,7 +1090,7 @@ static BIF_RETTYPE build_list_return(Process *p, byte *bytes, Uint pos, Uint cha
 	    rc.num_bytes_to_process = pos;
 	    rc.num_resulting_chars = characters;
 	    rc.state = ERTS_UTF8_OK; /* not used */
-	    BIF_TRAP3(characters_to_list_trap_1_exp, p, make_magic_bin_for_restart(p,&rc),
+	    BIF_TRAP3(&characters_to_list_trap_1_exp, p, make_magic_bin_for_restart(p,&rc),
 		      rest_term, latin1);
 	} else { /* Success */
 	    BIF_RET(finalize_list_to_list(p, bytes, NIL, 0U, pos, characters, ERTS_UTF8_OK, left, NIL));
@@ -1680,7 +1680,7 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 	    rc.state = state;
 	    rc.bytes = bytes;
 	    BUMP_ALL_REDS(p);
-	    BIF_TRAP3(characters_to_list_trap_2_exp, p,
+	    BIF_TRAP3(&characters_to_list_trap_2_exp, p,
 		       make_magic_bin_for_restart(p, &rc), rest, converted); 
 	}
     }
@@ -1789,7 +1789,7 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
 	    Eterm enumchar = erts_make_integer(num_resulting_chars,p);
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BUMP_ALL_REDS(p);
-	    BIF_TRAP3(characters_to_list_trap_3_exp, p, orig_bin, epos,
+	    BIF_TRAP3(&characters_to_list_trap_3_exp, p, orig_bin, epos,
 		      enumchar);
 	}
     } 
@@ -1825,7 +1825,7 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
 			       converted);
 	    BUMP_ALL_REDS(p);
 	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_TRAP1(characters_to_list_trap_4_exp,p,traptuple);
+	    BIF_TRAP1(&characters_to_list_trap_4_exp,p,traptuple);
 	}
     }
 
