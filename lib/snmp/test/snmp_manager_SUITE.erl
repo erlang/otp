@@ -4266,24 +4266,26 @@ do_inform4(Config) ->
 
 inform_swarm_cbp_def(suite) -> [];
 inform_swarm_cbp_def(Config) when is_list(Config) ->
-    inform_swarm(is_cbp_def, Config).
+    inform_swarm(is_cbp_def, 1500, Config).
 
 inform_swarm_cbp_temp(suite) -> [];
 inform_swarm_cbp_temp(Config) when is_list(Config) ->
-    inform_swarm(is_cbp_temp, Config).
+    inform_swarm(is_cbp_temp, 1500, Config).
 
 inform_swarm_cbp_perm(suite) -> [];
 inform_swarm_cbp_perm(Config) when is_list(Config) ->
-    inform_swarm(is_cbp_perm, Config).
+    inform_swarm(is_cbp_perm, 1800, Config).
 
-inform_swarm(Case, Config) ->
+inform_swarm(Case, NumI, Config) ->
     ?TC_TRY(Case,
-            fun() -> do_inform_swarm(Config) end).
+            fun() -> do_inform_swarm(NumI, Config) end).
 
-do_inform_swarm(Config) ->
+do_inform_swarm(NumI, Config) ->
     %% process_flag(trap_exit, true),
-    ?IPRINT("starting with Config: "
-            "~p      ~n", [Config]),
+    ?IPRINT("starting with"
+            "~n      NumI:   ~p"
+            "~n      Config: ~p"
+            "~n", [NumI, Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node,   Config),
@@ -4299,7 +4301,7 @@ do_inform_swarm(Config) ->
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 2000 div Factor,
+    NumInforms = NumI div Factor,
 
     Collector = self(),
 

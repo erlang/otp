@@ -28,7 +28,6 @@
 	 stop/1, 
 	 send_discovery_pdu/2, 
 	 send_pdu/2, send_msg/4, send_bytes/2,
-	 error/2,
 	 get_pdu/1, set_pdu/2, format_hdr/1]).
 
 %% internal exports
@@ -195,9 +194,9 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, MsgData) ->
 	      "~n   Udp:  ~p", [Msg,Ip,Udp]),
 	    case catch snmp_pdus:enc_message(Msg) of
 		{'EXIT', Reason} ->
-		    error("Encoding error:"
-			  "~n   Msg:    ~w"
-			  "~n   Reason: ~w",[Msg, Reason]);
+		    ?EPRINT("Encoding error:"
+                            "~n   Msg:    ~w"
+                            "~n   Reason: ~w",[Msg, Reason]);
 		B when is_list(B) -> 
 		    udp_send(UdpId, Ip, Udp, B)
 	    end,
@@ -276,9 +275,13 @@ handle_udp_packet(_V, undefined,
 
     catch
         Class:Error:_ ->
-            error("Decoding error (~w). Bytes: ~w ~n Error: ~w "
-                  "(UDPport: ~w, Ip: ~w)",
-                  [Class, Bytes, Error, UdpPort, Ip]),
+            ?EPRINT("Decoding error: "
+                    "~n   Class: ~w"
+                    "~n   Error: ~p"
+                    "~n   Bytes: ~p"
+                    "~n   Port:  ~w"
+                    "~n   Ip:    ~p)",
+                    [Class, Error, Bytes, UdpPort, Ip]),
             []
     end;
 handle_udp_packet(V, {DiscoReqMsg, From}, _UdpId, _Ip, _UdpPort, 
@@ -319,26 +322,30 @@ handle_v3_message(Mgr, UdpId, Ip, UdpPort, AgentIp,
         catch
             throw:{error, Reason, B}:_ ->
                 udp_send(UdpId, AgentIp, UdpPort, B),
-                error("Decoding (v3) error. Auto-sending Report.\n"
-                      "~n   Reason: ~w "
-                      "(UDPport: ~w, Ip: ~w)",
-                      [Reason, UdpPort, Ip]),
+                ?EPRINT("Decoding (v3) error - Auto-sending Report:"
+                        "~n   Reason: ~p"
+                        "~n   Port:   ~p"
+                        "~n   Ip:     ~p",
+                        [Reason, UdpPort, Ip]),
                 [];
 
             throw:{error, Reason}:_ ->
-                error("Decoding (v3) error. "
-                      "~n   Bytes: ~w"
-                      "~n   Reason: ~w "
-                      "(UDPport: ~w, Ip: ~w)",
-                      [Bytes, Reason, UdpPort, Ip]),
+                ?EPRINT("Decoding (v3) error:"
+                        "~n   Reason: ~p"
+                        "~n   Bytes:  ~p"
+                        "~n   Port:   ~p"
+                        "~n   Ip:     ~p",
+                        [Reason, Bytes, UdpPort, Ip]),
                 [];
 
             Class:Error:_ ->
-                error("Decoding (v3) error (~w). "
-                      "~n   Bytes: ~w"
-                      "~n   Error: ~w "
-                      "(UDPport: ~w, Ip: ~w)",
-                      [Class, Bytes, Error, UdpPort, Ip]),
+                ?EPRINT("Decoding (v3) error:"
+                        "~n   Class: ~p"
+                        "~n   Error: ~p"
+                        "~n   Bytes: ~p"
+                        "~n   Port:  ~p"
+                        "~n   Ip:    ~p",
+                        [Class, Error, Bytes, UdpPort, Ip]),
                 []
 
     end.
@@ -373,11 +380,13 @@ handle_v1_or_v2_message(Mgr, _UdpId, Ip, UdpPort, _AgentIp,
 
     catch
         Class:Error:_ ->
-            error("Decoding (v1 or v2) error (~w): "
-                  "~n   Bytes: ~w"
-                  "~n   Error: ~w "
-                  "(UDPport: ~w, Ip: ~w)",
-                  [Class, Bytes, Error, UdpPort, Ip])
+            ?EPRINT("Decoding (v1 or v2) error: "
+                    "~n   Class: ~p"
+                    "~n   Error: ~p "
+                    "~n   Bytes: ~p"
+                    "~n   Port:  ~p"
+                    "~n   Ip:    ~p",
+                    [Class, Error, Bytes, UdpPort, Ip])
     end.
 
 
@@ -510,12 +519,6 @@ generate_v3_report_msg(_MsgID, _MsgSecurityModel, Data, ErrorInfo) ->
 	   undefined).
 
 
-error(Format, Data) ->
-    io:format("*** Error ***~n"),
-    ok = io:format(Format, Data),
-    io:format("~n").
-
-
 mk_discovery_msg('version-3', Pdu, _VsnHdr, UserName) ->
     ScopedPDU = #scopedPdu{contextEngineID = "",
 			   contextName     = "",
@@ -540,9 +543,9 @@ mk_discovery_msg('version-3', Pdu, _VsnHdr, UserName) ->
     Msg = #message{version = 'version-3', vsn_hdr = Hdr, data = Bytes},
     case (catch snmp_pdus:enc_message_only(Msg)) of
 	{'EXIT', Reason} ->
-	    error("Discovery encoding error: "
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("Discovery encoding error: "
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	L when is_list(L) ->
 	    {Msg#message{data = ScopedPDU}, L}
@@ -551,9 +554,9 @@ mk_discovery_msg(Version, Pdu, {Com, _, _, _, _}, _UserName) ->
     Msg = #message{version = Version, vsn_hdr = Com, data = Pdu},
     case catch snmp_pdus:enc_message(Msg) of
 	{'EXIT', Reason} ->
-	    error("Discovery encoding error:"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("Discovery encoding error:"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	L when is_list(L) -> 
 	    {Msg, L}
@@ -599,14 +602,14 @@ mk_msg('version-3', Pdu, {Context, User, EngineID, CtxEngineId, SecLevel},
     case catch snmpa_usm:generate_outgoing_msg(Message, SecEngineID,
 					       SecName, SecData, SecLevel) of
 	{'EXIT', Reason} ->
-	    error("version-3 message encoding exit"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("version-3 message encoding exit"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	{error, Reason} ->
-	    error("version-3 message encoding error"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("version-3 message encoding error"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	Packet ->
 	    Packet
@@ -615,9 +618,9 @@ mk_msg(Version, Pdu, {Com, _User, _EngineID, _Ctx, _SecLevel}, _SecData) ->
     Msg = #message{version = Version, vsn_hdr = Com, data = Pdu},
     case catch snmp_pdus:enc_message(Msg) of
 	{'EXIT', Reason} ->
-	    error("~w encoding error"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Version, Pdu, Reason]),
+	    ?EPRINT("~w encoding error"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Version, Pdu, Reason]),
 	    error;
 	B when is_list(B) -> 
 	    B
@@ -638,12 +641,14 @@ vsn('version-2') -> v2c.
 udp_send(UdpId, AgentIp, UdpPort, B) ->
     ?vlog("attempt send message (~w bytes) to ~p", [sz(B), {AgentIp, UdpPort}]),
     case (catch gen_udp:send(UdpId, AgentIp, UdpPort, B)) of
-	{error,ErrorReason} ->
-	    error("failed (error) sending message to ~p:~p: "
-		  "~n   ~p",[AgentIp, UdpPort, ErrorReason]);
-	{'EXIT',ExitReason} ->
-	    error("failed (exit) sending message to ~p:~p:"
-		  "~n   ~p",[AgentIp, UdpPort, ExitReason]);
+	{error, ErrorReason} ->
+	    ?EPRINT("failed (error) sending message to ~p:~p: "
+		  "~n   ~p",[AgentIp, UdpPort, ErrorReason]),
+            error;
+	{'EXIT', ExitReason} ->
+	    ?EPRINT("failed (exit) sending message to ~p:~p:"
+                    "~n   ~p",[AgentIp, UdpPort, ExitReason]),
+            error;
 	_ ->
 	    ok
     end.

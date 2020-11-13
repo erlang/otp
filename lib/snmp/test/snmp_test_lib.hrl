@@ -85,6 +85,8 @@
 %% - Process utility macros - 
 
 -define(FLUSH(),        ?LIB:flush_mqueue()).
+-define(MQUEUE(),       ?LIB:mqueue()).
+-define(MQUEUE(P),      ?LIB:mqueue(P)).
 -define(ETRAP_GET(),    ?LIB:trap_exit()).
 -define(ETRAP_SET(O),   ?LIB:trap_exit(O)).
 -define(PINFO(__P__),   try process_info(__P__)
