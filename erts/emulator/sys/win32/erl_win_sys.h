@@ -88,7 +88,6 @@
 #define NO_SYSCONF
 #define NO_DAEMON
 #define NO_PWD
-/*#define HAVE_MEMMOVE*/
 
 #define strncasecmp _strnicmp
 

@@ -1058,7 +1058,6 @@ OS_OBJS = \
 	$(OBJDIR)/sys_env.o \
 	$(OBJDIR)/sys_uds.o \
 	$(OBJDIR)/driver_tab.o \
-	$(OBJDIR)/elib_memmove.o \
 	$(OBJDIR)/unix_prim_file.o \
 	$(OBJDIR)/sys_float.o \
 	$(OBJDIR)/sys_time.o \
