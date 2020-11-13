@@ -355,6 +355,20 @@ module.beam: module.erl \
             since R13B04.</p>
           </item>
 
+	  <tag><c>error_location</c></tag>
+	  <item>
+            <p>If the value of this flag is <c>line</c>, the location
+            <seeerl marker="#error_information"><c>ErrorLocation</c></seeerl>
+            of warnings and errors is a line number. If
+            the value is <c>column</c>, <c>ErrorLocation</c> includes
+            both a line number and a column number.
+	    Default is <c>column</c>. This option is supported
+            since Erlang/OTP 24.0.</p>
+            <p>If the value of this flag is <c>column</c>,
+            <seeerl marker="#debug_info">debug information</seeerl>
+	    includes column information.</p>
+	  </item>
+
           <tag><c>return</c></tag>
           <item>
             <p>A short form for both <c>return_errors</c> and
@@ -783,7 +797,7 @@ module.beam: module.erl \
 	The filename is included here, as the compiler uses the 
 	Erlang pre-processor <c>epp</c>, which allows the code to be 
 	included in other files. It is therefore important to know to
-	  <em>which</em> file the line number of an error or a warning refers.
+	  <em>which</em> file the location of an error or a warning refers.
 	</p>
       </desc>
     </func>
@@ -810,7 +824,7 @@ module.beam: module.erl \
         <v>ModuleName = module()</v>
         <v>BinaryOrCode = binary() | term()</v>
         <v>ErrRet = error | {error,Errors,Warnings}</v>
-        <v>Warnings = Errors = [{<seetype marker="kernel:file#filename">file:filename()</seetype>, [{<seetype marker="stdlib:erl_anno#line">erl_anno:line()</seetype> | 'none', module(), term()}]}]</v>
+        <v>Warnings = Errors = [{<seetype marker="kernel:file#filename">file:filename()</seetype>, [{<seetype marker="stdlib:erl_anno#location">erl_anno:location()</seetype> | 'none', module(), term()}]}]</v>
       </type>
       <desc>
         <p>Analogous to <c>file/1</c>, but takes a list of forms (in
@@ -1017,10 +1031,10 @@ pi() -> 3.1416.
       <c>ErrorInfo</c> structure, which is returned from all I/O modules.
       It has the following format:</p>
     <code>
-{ErrorLine, Module, ErrorDescriptor}</code>
+{ErrorLocation, Module, ErrorDescriptor}</code>
 
-    <p><c>ErrorLine</c> is the atom <c>none</c> if the error does
-    not correspond to a specific line, for example, if the source file does
+    <p><c>ErrorLocation</c> is the atom <c>none</c> if the error does
+    not correspond to a specific location, for example, if the source file does
     not exist.</p>
 
     <p>A string describing the error is obtained with the following

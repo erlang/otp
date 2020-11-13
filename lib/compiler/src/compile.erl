@@ -375,7 +375,13 @@ internal({forms,Forms}, Opts0) ->
     Source = proplists:get_value(source, Opts0, ""),
     Opts1 = proplists:delete(source, Opts0),
     Compile = build_compile(Opts1),
-    internal_comp(Ps, Forms, Source, "", Compile);
+    NewForms = case with_columns(Opts0) of
+                   true ->
+                       Forms;
+                   false ->
+                       strip_columns(Forms)
+               end,
+    internal_comp(Ps, NewForms, Source, "", Compile);
 internal({file,File}, Opts) ->
     {Ext,Ps} = passes(file, Opts),
     Compile = build_compile(Opts),
@@ -1007,19 +1013,32 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                      true -> filename:basename(SourceName0);
                      false -> SourceName0
                  end,
+    StartLocation = case with_columns(Opts) of
+                        true ->
+                            {1,1};
+                        false ->
+                            1
+                    end,
     R = epp:parse_file(File,
                        [{includes,[".",Dir|inc_paths(Opts)]},
                         {source_name, SourceName},
                         {macros,pre_defs(Opts)},
                         {default_encoding,DefEncoding},
-                        {location,{1,1}},
+                        {location,StartLocation},
                         extra]),
     case R of
 	{ok,Forms,Extra} ->
 	    Encoding = proplists:get_value(encoding, Extra),
 	    case find_invalid_unicode(Forms, File) of
 		none ->
-		    {ok,Forms,St#compile{encoding=Encoding}};
+                    Forms1 =
+                        case with_columns(Opts ++ compile_options(Forms)) of
+                            true ->
+                                Forms;
+                            false ->
+                                strip_columns(Forms)
+                        end,
+		    {ok,Forms1,St#compile{encoding=Encoding}};
 		{invalid_unicode,_,_}=Ret ->
 		    case Encoding of
 			none ->
@@ -1032,6 +1051,9 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
+
+with_columns(Opts) ->
+    proplists:get_value(error_location, Opts, column) =:= column.
 
 find_invalid_unicode([H|T], File0) ->
     case H of
