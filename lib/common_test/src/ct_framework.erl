@@ -1465,7 +1465,7 @@ report(What,Data) ->
 	    ct_logs:unregister_groupleader(ReportingPid),
 	    case {Func,Result} of
 		{error_in_suite,_} when Suite == ?MODULE ->
-		    ok;
+		    add_to_stats(failed);
 		{init_per_suite,_} ->
 		    ok;
 		{end_per_suite,_} ->
