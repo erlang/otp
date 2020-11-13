@@ -49,7 +49,7 @@
 #endif
 
 void dbg_bt(Process* p, Eterm* sp);
-void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
+void dbg_where(ErtsCodePtr addr, Eterm x0, Eterm* reg);
 
 #ifndef BEAMASM
 static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr);
@@ -399,7 +399,7 @@ dbg_bt(Process* p, Eterm* sp)
 }
 
 void
-dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
+dbg_where(ErtsCodePtr addr, Eterm x0, Eterm* reg)
 {
     const ErtsCodeMFA* cmfa = erts_find_function_from_pc(addr);
 
@@ -957,7 +957,7 @@ static BIF_RETTYPE dirty_test(Process *c_p,
                               Eterm type,
                               Eterm arg1,
                               Eterm arg2,
-                              const BeamInstr *I);
+                              ErtsCodePtr I);
 
 /*
  * erts_debug:dirty_cpu/2 is statically determined to execute on
@@ -1021,7 +1021,7 @@ erts_debug_dirty_3(BIF_ALIST_3)
 
 
 static BIF_RETTYPE
-dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, const BeamInstr *I)
+dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
 {
     BIF_RETTYPE ret;
     if (am_scheduler == arg1) {

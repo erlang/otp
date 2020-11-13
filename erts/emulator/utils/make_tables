@@ -263,7 +263,7 @@ for ($i = 0; $i < @bif; $i++) {
 print "\n";
 
 for ($i = 0; $i < @bif; $i++) {
-    my $args = join(', ', 'Process*', 'Eterm*', 'const BeamInstr*');
+    my $args = join(', ', 'Process*', 'Eterm*', 'ErtsCodePtr');
     my $name = $bif_info[$i]->[3];
     print "Eterm $name($args);\n";
     print "Eterm erts_gc_$name(Process* p, Eterm* reg, Uint live);\n"
@@ -327,7 +327,7 @@ for ($i = 0; $i < @bif_info; $i++) {
 	$dtype = "ERTS_SCHED_DIRTY_IO";
     }
 print <<EOF;
-Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, const BeamInstr *I)
+Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, ErtsCodePtr I)
 {
     return erts_reschedule_bif(c_p, regs, I,
                                &BIF_TRAP_EXPORT($i)->info.mfa,

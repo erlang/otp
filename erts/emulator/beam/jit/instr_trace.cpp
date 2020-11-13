@@ -195,7 +195,7 @@ static void i_return_to_trace(Process *c_p) {
             cpp++;
         }
         for (;;) {
-            BeamInstr *w = cp_val(*cpp);
+            ErtsCodePtr w = cp_val(*cpp);
             if (BeamIsReturnTrace(w)) {
                 do
                     ++cpp;

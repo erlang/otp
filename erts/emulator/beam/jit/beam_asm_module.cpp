@@ -147,9 +147,9 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     }
 }
 
-BeamInstr *BeamModuleAssembler::getCode(unsigned label) {
+ErtsCodePtr BeamModuleAssembler::getCode(unsigned label) {
     ASSERT(label < labels.size() + 1);
-    return (BeamInstr *)getCode(labels[label]);
+    return (ErtsCodePtr)getCode(labels[label]);
 }
 
 void BeamAssembler::embed_rodata(const char *labelName,
@@ -388,8 +388,10 @@ void BeamModuleAssembler::emit_label(const ArgVal &Label) {
     a.bind(currLabel);
 }
 
-void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label) {
-    a.align(kAlignCode, 8);
+void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
+                                             const ArgVal &Alignment) {
+    ASSERT(Alignment.getType() == ArgVal::u);
+    a.align(kAlignCode, Alignment.getValue());
     emit_label(Label);
 }
 
@@ -462,7 +464,7 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
     }
 
     sys_memcpy(code_hdr_rw, in_hdr, sizeof(BeamCodeHeader));
-    code_hdr_rw->on_load_function_ptr = getOnLoad();
+    code_hdr_rw->on_load = getOnLoad();
 
     for (unsigned i = 0; i < functions.size(); i++) {
         ErtsCodeInfo *ci = (ErtsCodeInfo *)getCode(functions[i]);
@@ -489,12 +491,12 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
         ranges.reserve(functions.size() + 2);
 
         /* Push info about the header */
-        ranges.push_back({.start = (BeamInstr *)getBaseAddress(),
+        ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
                           .stop = getCode(functions[0]),
                           .name = name + "::codeHeader"});
 
         for (unsigned i = 0; i < functions.size(); i++) {
-            const BeamInstr *start, *stop;
+            ErtsCodePtr start, stop;
             const ErtsCodeInfo *ci;
             int n;
 
@@ -507,8 +509,8 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
                               ci->mfa.module,
                               ci->mfa.function,
                               ci->mfa.arity);
-            stop = erts_codeinfo_to_code(ci) +
-                   BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord);
+            stop = ((const char *)erts_codeinfo_to_code(ci)) +
+                   BEAM_ASM_FUNC_PROLOGUE_SIZE;
 
             /* We use a different symbol for CodeInfo and the Prologue
                in order for the perf disassembly to be better. */
@@ -531,7 +533,7 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
         /* Push info about the footer */
         ranges.push_back(
                 {.start = ranges.back().stop,
-                 .stop = (BeamInstr *)(code.baseAddress() + code.codeSize()),
+                 .stop = (ErtsCodePtr)(code.baseAddress() + code.codeSize()),
                  .name = name + "::codeFooter"});
 
         update_gdb_jit_info(name, ranges);
@@ -555,11 +557,12 @@ BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {
     return (BeamCodeHeader *)getCode(codeHeader);
 }
 
-BeamInstr *BeamModuleAssembler::getOnLoad() {
-    if (on_load.isValid())
-        return (BeamInstr *)getCode(on_load);
-    else
+const ErtsCodeInfo *BeamModuleAssembler::getOnLoad() {
+    if (on_load.isValid()) {
+        return erts_code_to_codeinfo((ErtsCodePtr)getCode(on_load));
+    } else {
         return 0;
+    }
 }
 
 unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
@@ -567,9 +570,9 @@ unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
 
     for (const auto &c : catches) {
         const auto &patch = c.patch;
-        BeamInstr *handler;
+        ErtsCodePtr handler;
 
-        handler = reinterpret_cast<BeamInstr *>(getCode(c.handler));
+        handler = (ErtsCodePtr)getCode(c.handler);
         catch_no = beam_catches_cons(handler, catch_no, nullptr);
 
         /* Patch the `mov` instruction with the catch tag */

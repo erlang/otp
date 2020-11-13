@@ -1671,7 +1671,7 @@ uninstall_exp_breakpoints(BpFunctions* f)
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
-            ep->addresses[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
+            ep->addresses[code_ix] = (ErtsCodePtr)ep->trampoline.trace.address;
         }
     }
 }

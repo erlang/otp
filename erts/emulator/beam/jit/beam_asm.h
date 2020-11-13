@@ -47,7 +47,7 @@ void beamasm_purge_module(const void *native_module_exec,
                           void *native_module_rw);
 void beamasm_delete_assembler(void *ba);
 int beamasm_emit(void *ba, unsigned specific_op, BeamOp *op);
-const BeamInstr *beamasm_get_code(void *ba, int label);
+ErtsCodePtr beamasm_get_code(void *ba, int label);
 const byte *beamasm_get_rodata(void *ba, char *label);
 void beamasm_embed_rodata(void *ba,
                           const char *labelName,
@@ -72,7 +72,7 @@ void beamasm_emit_call_nif(const ErtsCodeInfo *info,
                            char *buff,
                            unsigned buff_len);
 Uint beamasm_get_header(void *ba, const BeamCodeHeader **);
-BeamInstr *beamasm_get_on_load(void *ba);
+const ErtsCodeInfo *beamasm_get_on_load(void *ba);
 
 /* Return the module base, for line information. */
 char *beamasm_get_base(void *instance);

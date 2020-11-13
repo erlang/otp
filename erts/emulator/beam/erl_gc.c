@@ -954,7 +954,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 
     /* Only allow one continuation pointer. */
     ASSERT(p->stop == p->hend - CP_SIZE);
-    ASSERT(p->stop[0] == make_cp(BeamCodeNormalExit()));
+    ASSERT(p->stop[0] == make_cp(beam_normal_exit));
 
     /*
      * Do it.
@@ -1018,7 +1018,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 
     p->hend = heap + heap_size;
     p->stop = p->hend - CP_SIZE;
-    p->stop[0] = make_cp(BeamCodeNormalExit());
+    p->stop[0] = make_cp(beam_normal_exit);
 
     offs = heap - p->heap;
     area = (char *) p->heap;

@@ -51,7 +51,7 @@ typedef struct {
     void *func;		/* Indirect NIF or BIF to execute (may be unused) */
     const ErtsCodeMFA *current;/* Current as set when originally called */
     /* --- The following is only used on error --- */
-    const BeamInstr *pc;    /* Program counter */
+    ErtsCodePtr pc;    /* Program counter */
     const ErtsCodeMFA *mfa; /* MFA of original call */
     int argc;		/* Number of arguments in original call */
     int argv_size;	/* Allocated size of argv */
@@ -61,7 +61,7 @@ typedef struct {
 ErtsNativeFunc *erts_new_proc_nfunc(Process *c_p, int argc);
 void erts_destroy_nfunc(Process *p);
 ErtsNativeFunc *erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
-                               const ErtsCodeMFA *mfa, const BeamInstr *pc,
+                               const ErtsCodeMFA *mfa, ErtsCodePtr pc,
                                BeamInstr instr,
                                void *dfunc, void *ifunc,
                                Eterm mod, Eterm func,
@@ -75,7 +75,7 @@ ERTS_GLB_INLINE int erts_check_nfunc_in_area(Process *p,
 ERTS_GLB_INLINE void erts_nfunc_restore(Process *c_p, ErtsNativeFunc *ep,
                                         Eterm result);
 ERTS_GLB_INLINE void erts_nfunc_restore_error(Process* c_p,
-                                              const BeamInstr **pc,
+                                              ErtsCodePtr *pc,
                                               Eterm *reg,
                                               const ErtsCodeMFA **nif_mfa);
 ERTS_GLB_INLINE Process *erts_proc_shadow2real(Process *c_p);
@@ -142,7 +142,7 @@ erts_nfunc_restore(Process *c_p, ErtsNativeFunc *ep, Eterm result)
 }
 
 ERTS_GLB_INLINE void
-erts_nfunc_restore_error(Process* c_p, const BeamInstr **pc,
+erts_nfunc_restore_error(Process* c_p, ErtsCodePtr *pc,
                          Eterm *reg, const ErtsCodeMFA **nif_mfa)
 {
     ErtsNativeFunc *nep = (ErtsNativeFunc *) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p);
@@ -176,17 +176,17 @@ erts_proc_shadow2real(Process *c_p)
 #if defined(ERTS_WANT_NFUNC_SCHED_INTERNALS__) && !defined(ERTS_NFUNC_SCHED_INTERNALS__)
 #define ERTS_NFUNC_SCHED_INTERNALS__
 
-#ifndef BEAMASM
-#define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
-    (ASSERT(BeamIsOpCode(*(I), op_call_bif_W) ||                          \
-            BeamIsOpCode(*(I), op_call_nif_WWW)),                           \
-     ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.call_op))))
+#ifdef BEAMASM
+#define NFUNC_FIELD__ trampoline.trace
 #else
-#define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
-    (ASSERT(*(I) == op_call_bif_W ||                                    \
-            *(I) == op_call_nif_WWW),                                   \
-     ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.trace))))
+#define NFUNC_FIELD__ trampoline.call_op
 #endif
+
+#define ERTS_I_BEAM_OP_TO_NFUNC(I)                                            \
+    (ASSERT(BeamIsOpCode(*(const BeamInstr*)(I), op_call_bif_W) ||            \
+            BeamIsOpCode(*(const BeamInstr*)(I), op_call_nif_WWW)),           \
+     ((ErtsNativeFunc *) (((char *) (I)) -                                    \
+        offsetof(ErtsNativeFunc, NFUNC_FIELD__))))
 
 #include "erl_message.h"
 #include <stddef.h>

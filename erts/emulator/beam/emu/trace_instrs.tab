@@ -75,12 +75,12 @@ i_return_to_trace() {
             cpp++;
         }
         for(;;) {
-            if (IsOpCode(*cp_val(*cpp), return_trace)) {
+            if (IsOpCode(*(BeamInstr*)cp_val(*cpp), return_trace)) {
                 do
                     ++cpp;
                 while (is_not_CP(*cpp));
                 cpp += 2;
-            } else if (IsOpCode(*cp_val(*cpp), i_return_to_trace)) {
+            } else if (IsOpCode(*(BeamInstr*)cp_val(*cpp), i_return_to_trace)) {
                 do
                     ++cpp;
                 while (is_not_CP(*cpp));

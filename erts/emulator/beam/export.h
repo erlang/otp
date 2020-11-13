@@ -55,7 +55,7 @@ typedef struct export_
      * accessing these directly.
      *
      * See `BeamAssembler::emit_setup_export_call` for details. */
-    const void *addresses[ERTS_ADDRESSV_SIZE];
+    ErtsCodePtr addresses[ERTS_ADDRESSV_SIZE];
 
     /* Index into bif_table[], or -1 if not a BIF. */
     int bif_number;
@@ -157,27 +157,27 @@ extern erts_mtx_t export_staging_lock;
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-extern BeamInstr *beam_export_trampoline;
-
 ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix) {
-    void *trampoline_address;
+    ErtsCodePtr trampoline_address;
 
 #ifdef BEAMASM
+    extern ErtsCodePtr beam_export_trampoline;
     trampoline_address = beam_export_trampoline;
 #else
-    trampoline_address = &ep->trampoline.raw[0];
+    trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
 #endif
 
     ep->addresses[code_ix] = trampoline_address;
 }
 
 ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
-    void *trampoline_address;
+    ErtsCodePtr trampoline_address;
 
 #ifdef BEAMASM
+    extern ErtsCodePtr beam_export_trampoline;
     trampoline_address = beam_export_trampoline;
 #else
-    trampoline_address = &ep->trampoline.raw[0];
+    trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
 #endif
 
     return ep->addresses[code_ix] == trampoline_address;

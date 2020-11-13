@@ -658,7 +658,7 @@ typedef struct ErtsSchedulerRegisters_ {
 
 #ifdef BEAMASM
     /* Seldom-used scheduler-specific data. */
-    UWord start_time_i;
+    ErtsCodePtr start_time_i;
     UWord start_time;
 
 #if !defined(NATIVE_ERLANG_STACK) && defined(HARD_DEBUG)
@@ -1023,7 +1023,7 @@ struct process {
     unsigned max_arg_reg;	/* Maximum number of argument registers available. */
     Eterm def_arg_reg[6];	/* Default array for argument registers. */
 
-    const BeamInstr* i;         /* Program counter for threaded code. */
+    ErtsCodePtr i;              /* Program counter. */
     Sint catches;		/* Number of catches on stack */
     Uint32 rcount;		/* suspend count */
     int  schedule_count;	/* Times left to reschedule a low prio process */

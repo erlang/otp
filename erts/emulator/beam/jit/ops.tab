@@ -71,10 +71,13 @@ put_tuple u==0 d => too_old_compiler
 
 label L
 
-# An label aligned to a word (8 byte) boundary. Must be used for addresses
-# that may be stored on the stack or that otherwise need to be properly tagged
-# as a continuation pointer.
-aligned_label L
+# An label aligned to a certain boundary. This is used in two cases:
+#
+# * When the label points to the start of a function, as the ErtsCodeInfo
+#   struct must be word-aligned.
+# * When the address is stored on the stack or otherwise needs to be properly
+#   tagged as a continuation pointer.
+aligned_label L t
 
 i_func_info I a a I
 int_code_end
@@ -339,22 +342,32 @@ move_two_words s d s d
 # Receive operations. We conservatively align all labels before any
 # of the receive instructions.
 #
+# As the labels may be stored in the process structure, we must align them to
+# the nearest 4-byte boundary to ensure they're properly tagged as continuation
+# pointers.
+#
 
-label L | loop_rec Fail Reg => aligned_label L | loop_rec Fail Reg
-label L | wait_timeout Fail Src => aligned_label L | wait_timeout Fail Src
-label L | wait Fail => aligned_label L | wait Fail
-label L | timeout => aligned_label L | timeout
+label L | loop_rec Fail Reg => \
+    aligned_label L u=4 | loop_rec Fail Reg
+label L | wait_timeout Fail Src => \
+    aligned_label L u=4 | wait_timeout Fail Src
+label L | wait Fail => \
+    aligned_label L u=4 | wait Fail
+label L | timeout => \
+    aligned_label L u=4 | timeout
 
 loop_rec Fail x==0 | smp_mark_target_label(Fail) => i_loop_rec Fail
 
-aligned_label L | wait_timeout Fail Src | smp_already_locked(L) => \
-    aligned_label L | wait_timeout_locked Src Fail
+aligned_label L A | wait_timeout Fail Src | smp_already_locked(L) => \
+    aligned_label L A | wait_timeout_locked Src Fail
 wait_timeout Fail Src => wait_timeout_unlocked Src Fail
 
-aligned_label L | wait Fail | smp_already_locked(L) => aligned_label L | wait_locked Fail
+aligned_label L A | wait Fail | smp_already_locked(L) => \
+    aligned_label L A | wait_locked Fail
 wait Fail => wait_unlocked Fail
 
-aligned_label L | timeout | smp_already_locked(L) => aligned_label L | timeout_locked
+aligned_label L A | timeout | smp_already_locked(L) => \
+    aligned_label L A | timeout_locked
 
 remove_message
 timeout
@@ -722,20 +735,20 @@ int_func_start Func_Label Func_Line M F A | \
 int_func_start Func_Label Func_Line M F A | \
   func_prologue Entry_Label Entry_Line | \
   is_mfa_bif(M, F, A) => \
-    aligned_label Func_Label | \
+    aligned_label Func_Label u=8 | \
     func_line Func_Line | \
     i_func_info Func_Label M F A | \
-      aligned_label Entry_Label | \
+      aligned_label Entry_Label u=8 | \
       line Entry_Line | \
       i_breakpoint_trampoline | \
       call_bif_mfa M F A
 
 int_func_start Func_Label Func_Line M F A | \
   func_prologue Entry_Label Entry_Line => \
-    aligned_label Func_Label | \
+    aligned_label Func_Label u=8 | \
     func_line Func_Line | \
     i_func_info Func_Label M F A | \
-      aligned_label Entry_Label | \
+      aligned_label Entry_Label u=8 | \
       line Entry_Line | \
       i_breakpoint_trampoline | \
       i_test_yield

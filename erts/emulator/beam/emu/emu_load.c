@@ -278,9 +278,9 @@ int beam_load_finish_emit(LoaderState *stp) {
      */
 
     if (stp->on_load) {
-        code_hdr->on_load_function_ptr = codev + stp->on_load;
+        code_hdr->on_load = erts_code_to_codeinfo(codev + stp->on_load);
     } else {
-        code_hdr->on_load_function_ptr = NULL;
+        code_hdr->on_load = NULL;
     }
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
@@ -553,7 +553,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
     inst_p->code_length = size;
 
     /* Update ranges (used for finding a function from a PC value). */
-    erts_update_ranges((BeamInstr*)inst_p->code_hdr, size);
+    erts_update_ranges(inst_p->code_hdr, size);
 
     /*
      * Allocate catch indices and fix up all catch_yf instructions.
@@ -623,7 +623,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                             lambda->arity - lambda->num_free);
             fun_entries[i] = fun_entry;
 
-            if (fun_entry->address[0] != 0) {
+            if (erts_is_fun_loaded(fun_entry)) {
                 /* We've reloaded a module over itself and inherited the old
                  * instance's fun entries, so we need to undo the reference
                  * bump in `erts_put_fun_entry2` to make fun purging work. */
@@ -652,8 +652,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
     /*
      * Export functions
      *
-     * This is done last so the call to erts_write_bif_wrapper doesn't clobber
-     * patch chains used for patches and imports.
+     * This is done last so the BIF stubs don't clobber patch chains used for
+     * patches and imports.
      */
     for (i = 0; i < stp->beam.exports.count; i++) {
         BeamFile_ExportEntry *entry;
@@ -669,7 +669,13 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
         /* Fill in BIF stubs with a proper call to said BIF. */
         if (ep->bif_number != -1) {
-            erts_write_bif_wrapper(ep, address);
+            BifEntry *entry;
+
+            ASSERT(ep->bif_number >= 0 && ep->bif_number < BIF_SIZE);
+            entry = &bif_table[ep->bif_number];
+
+            address[0] = BeamOpCodeAddr(op_call_bif_W);
+            address[1] = (BeamInstr)entry->f;
         }
 
         if (on_load) {

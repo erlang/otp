@@ -2020,7 +2020,7 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
     }
 
     if (c_p == rp && !(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)) {
-        BeamInstr* return_address;
+        ErtsCodePtr return_address;
         FunctionInfo caller_fi;
 
         /*
@@ -2072,7 +2072,7 @@ current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
     Eterm res = NIL;
 
     depth = erts_backtrace_depth;
-    sz = offsetof(struct StackTrace, trace) + sizeof(BeamInstr *)*depth;
+    sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * depth;
     s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
     s->depth = 0;
     s->pc = NULL;
@@ -3484,9 +3484,12 @@ fun_info_2(BIF_ALIST_2)
 	    val = make_small(funp->arity);
 	    break;
 	case am_name:
-	    hp = HAlloc(p, 3);
-	    val = funp->fe->address[-2];
-	    break;
+            {
+                const ErtsCodeMFA *mfa = erts_code_to_codemfa((funp->fe)->address);
+                hp = HAlloc(p, 3);
+                val = mfa->function;
+            }
+            break;
 	default:
 	    goto error;
 	}
@@ -3555,9 +3558,16 @@ fun_info_mfa_1(BIF_ALIST_1)
     Eterm* hp;
 
     if (is_fun(fun)) {
-	ErlFunThing* funp = (ErlFunThing *) fun_val(fun);
-	hp = HAlloc(p, 4);
-	BIF_RET(TUPLE3(hp,funp->fe->module,funp->fe->address[-2],make_small(funp->arity)));
+        const ErtsCodeMFA *mfa;
+        ErlFunThing* funp;
+        funp = (ErlFunThing *) fun_val(fun);
+        mfa = erts_code_to_codemfa((funp->fe)->address);
+
+        hp = HAlloc(p, 4);
+        BIF_RET(TUPLE3(hp,
+                       (funp->fe)->module,
+                       mfa->function,
+                       make_small(funp->arity)));
     } else if (is_export(fun)) {
 	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
 	hp = HAlloc(p, 4);

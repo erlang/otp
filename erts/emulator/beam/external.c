@@ -488,7 +488,7 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
     ip = &instr_buf[0];
     sys_memcpy((void *) ip, (void *) ep, sz);
     ep += sz;
-    ASSERT(ep == (byte *) (ob->eiov->iov[1].iov_base + ob->eiov->iov[1].iov_len));
+    ASSERT(ep == &((byte *)ob->eiov->iov[1].iov_base)[ob->eiov->iov[1].iov_len]);
     if (ci > 0) {
 	Uint32 flgs_buf[((ERTS_DIST_HDR_ATOM_CACHE_FLAG_BYTES(
 			      ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES)-1)
@@ -5974,7 +5974,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
                 bitsize = *ep++;
 
                 /* write fallback prolog... */
-                iov[hopefull_ix].iov_base -= 4;
+                iov[hopefull_ix].iov_base = &((byte*)iov[hopefull_ix].iov_base)[-4];
                 ep = (byte *) iov[hopefull_ix].iov_base;
 
                 *ep++ = SMALL_TUPLE_EXT;
@@ -6012,7 +6012,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
 
                 ASSERT(1 == iov[hopefull_ix].iov_len);
 
-                iov[hopefull_ix].iov_base -= 4;
+                iov[hopefull_ix].iov_base = &((byte*)iov[hopefull_ix].iov_base)[-4];
                 ep = (byte *) iov[hopefull_ix].iov_base;
                 new_hopefull_ix = get_int32(ep);
                 ASSERT(new_hopefull_ix == ERTS_NO_HIX
@@ -6066,7 +6066,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         if (payload_ix) {
             ASSERT(0 < payload_ix && payload_ix < eiov->vsize);
             /* Prepend version magic on payload. */
-            iov[payload_ix].iov_base--;
+            iov[payload_ix].iov_base = &((byte*)iov[payload_ix].iov_base)[-1];
             *((byte *) iov[payload_ix].iov_base) = VERSION_MAGIC;
             iov[payload_ix].iov_len++;
             eiov->size++;

@@ -77,13 +77,13 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     ranges.reserve(emitPtrs.size());
 
     for (auto val : emitPtrs) {
-        BeamInstr *start = (BeamInstr *)getCode(labels[val.first]);
-        BeamInstr *stop;
+        ErtsCodePtr start = (ErtsCodePtr)getCode(labels[val.first]);
+        ErtsCodePtr stop;
 
         if (val.first + 1 < emitPtrs.size()) {
-            stop = (BeamInstr *)getCode(labels[(GlobalLabels)(val.first + 1)]);
+            stop = (ErtsCodePtr)getCode(labels[(GlobalLabels)(val.first + 1)]);
         } else {
-            stop = (BeamInstr *)((char *)getBaseAddress() + code.codeSize());
+            stop = (ErtsCodePtr)((char *)getBaseAddress() + code.codeSize());
         }
 
         ranges.push_back({.start = start,
@@ -186,11 +186,17 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(call_bif);
     {
-        /* Emulate `call_bif`, loading the current (phony) instruction pointer
-         * into ARG3 and the function to be called in ARG4. */
-        a.lea(ARG3, x86::qword_ptr(RET, offsetof(Export, trampoline.raw)));
-        a.mov(ARG4,
-              x86::qword_ptr(RET, offsetof(Export, trampoline.bif.address)));
+        /* Emulate a `call_bif` instruction.
+         *
+         * Note that we don't check reductions: yielding here is very tricky
+         * and error-prone, and there's little point in doing so as we can only
+         * land here directly after being scheduled in. */
+        ssize_t func_offset = offsetof(Export, trampoline.bif.address);
+
+        a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
+        a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, i)));
+        a.mov(ARG4, x86::qword_ptr(RET, func_offset));
+
         a.jmp(labels[call_bif_shared]);
     }
 
@@ -280,9 +286,7 @@ void BeamGlobalAssembler::emit_handle_error_shared() {
 
     emit_enter_runtime<Update::eStack | Update::eHeap>();
 
-    /* The error address must be a valid CP or NULL. The check is done here
-     * rather than in handle_error since the compiler is free to assume that any
-     * BeamInstr* is properly aligned. */
+    /* The error address must be a valid CP or NULL. */
     a.test(ARG2d, imm(_CPMASK));
     a.short_().jne(crash);
 

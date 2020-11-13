@@ -50,10 +50,6 @@ void beam_load_prepare_emit(LoaderState *stp) {
 
     hdr->num_functions = stp->beam.code.function_count;
 
-    /* Let the codev array start at functions[0] in order to index
-     * both function pointers and the loaded code itself that follows.
-     */
-    stp->codev = (BeamInstr *)&hdr->functions;
     stp->ci = hdr->num_functions + 1;
 
     hdr->attr_ptr = NULL;
@@ -147,7 +143,6 @@ int beam_load_prepared_dtor(Binary *magic) {
 
         erts_free(ERTS_ALC_T_PREPARED_CODE, hdr);
         stp->load_hdr = NULL;
-        stp->codev = NULL;
     }
 
     if (stp->labels) {
@@ -379,7 +374,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'L': /* Define label */
             ASSERT(stp->specific_op == op_label_L ||
-                   stp->specific_op == op_aligned_label_L);
+                   stp->specific_op == op_aligned_label_Lt);
             BeamLoadVerifyTag(stp, tag, TAG_u);
             stp->last_label = curr->val;
             if (stp->last_label < 0 ||
@@ -478,9 +473,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                            stp->beam.code.function_count);
         }
 
-        /* Save current offset in the function table, pointing before the
-         * func_info instruction. */
-        stp->codev[stp->function_number] = beamasm_get_offset(stp->ba);
         stp->function_number++;
 
         /* Save context for error messages. */
@@ -669,10 +661,11 @@ int beam_load_finish_emit(LoaderState *stp) {
         Uint line_size = offsetof(BeamCodeLineTab, func_tab);
 
         /* func_tab */
-        line_size += (stp->beam.code.function_count + 1) * sizeof(BeamInstr **);
+        line_size +=
+                (stp->beam.code.function_count + 1) * sizeof(ErtsCodePtr *);
 
         /* line items */
-        line_size += (stp->current_li + 1) * sizeof(BeamInstr *);
+        line_size += (stp->current_li + 1) * sizeof(ErtsCodePtr);
 
         /* fname table */
         line_size += stp->beam.lines.name_count * sizeof(Eterm);
@@ -814,7 +807,6 @@ int beam_load_finish_emit(LoaderState *stp) {
 
     /* Save the updated code pointer and code size. */
 
-    stp->codev = (BeamInstr *)&code_hdr_ro->functions;
     stp->loaded_size = module_size;
 
     return 1;
@@ -836,7 +828,7 @@ void beam_load_finalize_code(LoaderState *stp,
     inst_p->code_length = code_size;
 
     /* Update ranges (used for finding a function from a PC value). */
-    erts_update_ranges((BeamInstr *)inst_p->code_hdr, code_size);
+    erts_update_ranges(inst_p->code_hdr, code_size);
 
     /* Allocate catch indices and fix up all catch_yf instructions. */
     inst_p->catches = beamasm_patch_catches(stp->ba, stp->native_module_rw);
@@ -846,7 +838,7 @@ void beam_load_finalize_code(LoaderState *stp,
 
     for (i = 0; i < stp->beam.exports.count; i++) {
         BeamFile_ExportEntry *entry = &stp->beam.exports.entries[i];
-        const BeamInstr *address;
+        ErtsCodePtr address;
         Export *ep;
 
         address = beamasm_get_code(stp->ba, entry->label);
@@ -892,7 +884,7 @@ void beam_load_finalize_code(LoaderState *stp,
                                             lambda->index,
                                             lambda->arity - lambda->num_free);
 
-            if (fun_entry->address[0] != 0) {
+            if (erts_is_fun_loaded(fun_entry)) {
                 /* We've reloaded a module over itself and inherited the old
                  * instance's fun entries, so we need to undo the reference
                  * bump in `erts_put_fun_entry2` to make fun purging work. */
@@ -913,5 +905,4 @@ void beam_load_finalize_code(LoaderState *stp,
     stp->native_module_exec = NULL;
     stp->native_module_rw = NULL;
     stp->code_hdr = NULL;
-    stp->codev = NULL;
 }

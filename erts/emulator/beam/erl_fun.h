@@ -34,13 +34,13 @@ typedef struct erl_fun_entry {
     int index;                  /* New style index. */
     int old_uniq;               /* Unique number (old_style) */
     int old_index;              /* Old style index */
-    const BeamInstr* address;   /* Pointer to code for fun */
+    ErtsCodePtr address;        /* Pointer to code for fun */
 
-    Uint arity;                 /* The arity of the fun. */
-    Eterm module;               /* Tagged atom for module. */
-    erts_refc_t refc;           /* Reference count: One for code + one for each
-                                 * fun object in each process. */
-    const BeamInstr *pend_purge_address; /* Address during a pending purge */
+    Uint arity;                     /* The arity of the fun. */
+    Eterm module;                   /* Tagged atom for module. */
+    erts_refc_t refc;               /* Reference count: One for code + one for
+                                     * each fun object in each process. */
+    ErtsCodePtr pend_purge_address; /* Address during a pending purge */
 } ErlFunEntry;
 
 /*
@@ -72,9 +72,13 @@ ErlFunEntry* erts_get_fun_entry(Eterm mod, int uniq, int index);
 ErlFunEntry* erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 				const byte* uniq, int index, int arity);
 
+int erts_is_fun_loaded(ErlFunEntry* fe);
+
 void erts_erase_fun_entry(ErlFunEntry* fe);
 void erts_cleanup_funs(ErlFunThing* funp);
-void erts_fun_purge_prepare(BeamInstr* start, BeamInstr* end);
+
+struct erl_module_instance;
+void erts_fun_purge_prepare(struct erl_module_instance* modi);
 void erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no);
 void erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no);
 void erts_fun_purge_complete(ErlFunEntry **funs, Uint no);

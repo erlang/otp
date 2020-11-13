@@ -49,8 +49,6 @@ static erts_atomic_t total_entries_bytes;
  */
 erts_mtx_t export_staging_lock;
 
-extern BeamInstr* em_call_traced_function;
-
 struct export_entry
 {
     IndexSlot slot; /* MUST BE LOCATED AT TOP OF STRUCT!!! */

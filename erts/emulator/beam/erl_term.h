@@ -1302,15 +1302,16 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #error "fix yer arch, like"
 #endif
 
+#define _is_legal_cp(x)	 (((Uint)(x) & _CPMASK) == 0)
 #define _unchecked_make_cp(x)	((Eterm)(x))
-_ET_DECLARE_CHECKED(Eterm,make_cp,const BeamInstr*)
+_ET_DECLARE_CHECKED(Eterm,make_cp,ErtsCodePtr)
 #define make_cp(x)	_ET_APPLY(make_cp,(x))
 
 #define is_not_CP(x)	((x) & _CPMASK)
 #define is_CP(x)	(!is_not_CP(x))
 
-#define _unchecked_cp_val(x)	((BeamInstr*) (x))
-_ET_DECLARE_CHECKED(BeamInstr*,cp_val,Eterm)
+#define _unchecked_cp_val(x)	((ErtsCodePtr) (x))
+_ET_DECLARE_CHECKED(ErtsCodePtr,cp_val,Eterm)
 #define cp_val(x)	_ET_APPLY(cp_val,(x))
 
 #define make_catch(x)	(((x) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_CATCH)

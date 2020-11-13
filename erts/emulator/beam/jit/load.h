@@ -60,15 +60,13 @@ struct LoaderState_ {
     const BeamCodeHeader *code_hdr; /* Actual code header */
     BeamCodeHeader *load_hdr;       /* Code header during load */
 
-    BeamInstr *codev; /* Loaded code buffer */
-    int codev_size;   /* Size of code buffer in words. */
-    int ci;           /* Current index into loaded code buffer. */
+    int codev_size; /* Size of code buffer in words. */
+    int ci;         /* Current index into loaded code buffer. */
     Label *labels;
     unsigned loaded_size; /* Final size of code when loaded. */
     int may_load_nif;     /* true if NIFs may later be loaded for this module */
-    BeamInstr *on_load;   /* Index in the code for the on_load function
-                           * (or 0 if there is no on_load function) */
-    unsigned max_opcode;  /* Highest opcode used in module */
+    const ErtsCodeInfo *on_load; /* Pointer to the on_load function, if any */
+    unsigned max_opcode;         /* Highest opcode used in module */
 
     /*
      * Generic instructions.

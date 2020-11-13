@@ -544,7 +544,7 @@ if test "x$GCC" = xyes; then
 
   # until the emulator can handle this, I suggest we turn it off!
   #WFLAGS="-Wall -Wshadow -Wcast-qual -Wmissing-declarations"
-  WFLAGS="-Wall -Wstrict-prototypes"
+  WFLAGS="-Wall -Wstrict-prototypes -Wpointer-arith"
 
   case "$host_cpu" in
     tile*)

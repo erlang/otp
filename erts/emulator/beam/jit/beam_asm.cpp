@@ -37,23 +37,23 @@ int erts_jit_perf_support;
  * Special Beam instructions.
  */
 
-BeamInstr *beam_apply;
-BeamInstr *beam_normal_exit;
-BeamInstr *beam_exit;
-BeamInstr *beam_export_trampoline;
-BeamInstr *beam_bif_export_trap;
-BeamInstr *beam_continue_exit;
-BeamInstr *beam_save_calls;
+ErtsCodePtr beam_apply;
+ErtsCodePtr beam_normal_exit;
+ErtsCodePtr beam_exit;
+ErtsCodePtr beam_export_trampoline;
+ErtsCodePtr beam_bif_export_trap;
+ErtsCodePtr beam_continue_exit;
+ErtsCodePtr beam_save_calls;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
 **      for the variable reference (one of these), and rogue references
 **      will most likely cause chaos.
 */
-BeamInstr *beam_return_to_trace;   /* OpCode(i_return_to_trace) */
-BeamInstr *beam_return_trace;      /* OpCode(i_return_trace) */
-BeamInstr *beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
-BeamInstr *beam_return_time_trace; /* OpCode(i_return_time_trace) */
+ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
+ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
+ErtsCodePtr beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
+ErtsCodePtr beam_return_time_trace; /* OpCode(i_return_time_trace) */
 
 static JitAllocator *jit_allocator;
 
@@ -72,7 +72,7 @@ static void beamasm_init_gdb_jit_info(void);
  * however since they won't go through export entries.
  */
 static void install_bifs(void) {
-    typedef Eterm (*bif_func_type)(Process *, Eterm *, const BeamInstr *);
+    typedef Eterm (*bif_func_type)(Process *, Eterm *, ErtsCodePtr);
     int i;
 
     ASSERT(beam_export_trampoline != NULL);
@@ -107,49 +107,73 @@ static void install_bifs(void) {
     }
 }
 
-static JitAllocator *create_allocator() {
+static JitAllocator *create_allocator(JitAllocator::CreateParams *params) {
     void *test_ro, *test_rw;
     Error err;
 
-    /* Default to allocating pages that are both writable and executable, if at
-     * all possible. This is disabled in debug builds to help catch errors
-     * where we write to the executable region. */
-#ifndef DEBUG
-    auto *single_allocator = new JitAllocator();
+    auto *allocator = new JitAllocator(params);
 
-    err = single_allocator->alloc(&test_ro, &test_rw, 1);
-    single_allocator->release(test_ro);
+    err = allocator->alloc(&test_ro, &test_rw, 1);
+    allocator->release(test_ro);
 
     if (err == ErrorCode::kErrorOk) {
-        return single_allocator;
+        return allocator;
     }
 
-    delete single_allocator;
+    delete allocator;
+    return nullptr;
+}
+
+static JitAllocator *pick_allocator() {
+    JitAllocator::CreateParams single_params;
+    single_params.reset();
+
+#if defined(HAVE_LINUX_PERF_SUPPORT)
+    /* `perf` has a hard time showing symbols for dual-mapped memory, so we'll
+     * use single-mapped memory when enabled. */
+    if (erts_jit_perf_support & (BEAMASM_PERF_DUMP | BEAMASM_PERF_MAP)) {
+        if (auto *alloc = create_allocator(&single_params)) {
+            return alloc;
+        }
+
+        ERTS_INTERNAL_ERROR("jit: Failed to allocate executable+writable "
+                            "memory. Either allow this or disable the "
+                            "'+JPperf' option.");
+    }
 #endif
 
-    /* Our platform most likely disallows directly writable+executable pages,
-     * try dual-mapping instead
+#if !defined(VALGRIND)
+    /* Default to dual-mapped memory with separate executable and writable
+     * regions of the same code. This is required for platforms that enforce
+     * W^X, and we prefer it when available to catch errors sooner.
      *
-     * `blockSize` is analogous to "carrier size," and we pick something much
-     * larger than the default since dual-mapping implies having one file
-     * descriptor per block on most platforms. We don't want to eat up one fd
-     * for every 64KB. */
+     * `blockSize` is analogous to "carrier size," and we pick something
+     * much larger than the default since dual-mapping implies having one
+     * file descriptor per block on most platforms. The block sizes do grow
+     * over time, but we don't want to waste half a dozen fds just to get to
+     * the shell on platforms that are very fd-constrained. */
     JitAllocator::CreateParams dual_params;
 
+    dual_params.reset();
     dual_params.options = JitAllocator::kOptionUseDualMapping,
-    dual_params.blockSize = 8 << 20;
+    dual_params.blockSize = 4 << 20;
 
-    auto *dual_allocator = new JitAllocator(&dual_params);
-
-    err = dual_allocator->alloc(&test_ro, &test_rw, 1);
-    dual_allocator->release(test_ro);
-
-    if (err == ErrorCode::kErrorOk) {
-        return dual_allocator;
+    if (auto *alloc = create_allocator(&dual_params)) {
+        return alloc;
+    } else if (auto *alloc = create_allocator(&single_params)) {
+        return alloc;
     }
 
-    ERTS_ASSERT(!"Cannot allocate executable memory. The JIT will not work,"
-                 "use the interpreter instead");
+    ERTS_INTERNAL_ERROR("jit: Cannot allocate executable memory. Use the "
+                        "interpreter instead.");
+#elif defined(VALGRIND)
+    if (auto *alloc = create_allocator(&single_params)) {
+        return alloc;
+    }
+
+    ERTS_INTERNAL_ERROR("jit: the valgrind emulator requires the ability to "
+                        "allocate executable+writable memory.");
+#endif
 }
 
 void beamasm_init() {
@@ -160,7 +184,7 @@ void beamasm_init() {
     struct operands {
         Eterm name;
         BeamInstr operand;
-        BeamInstr **target;
+        ErtsCodePtr *target;
     };
 
     std::vector<struct operands> operands = {
@@ -194,7 +218,7 @@ void beamasm_init() {
 
     cpuinfo = CpuInfo::host();
 
-    jit_allocator = create_allocator();
+    jit_allocator = pick_allocator();
 
     bga = new BeamGlobalAssembler(jit_allocator);
 
@@ -206,13 +230,17 @@ void beamasm_init() {
         func_label = label++;
         entry_label = label++;
 
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, func_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
                    ArgVal(ArgVal::i, am_erts_internal),
                    ArgVal(ArgVal::i, op.name),
                    ArgVal(ArgVal::i, 0)});
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, entry_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, entry_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op.operand, {});
 
         op.operand = entry_label;
@@ -225,15 +253,21 @@ void beamasm_init() {
         apply_label = label++;
         normal_exit_label = label++;
 
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, func_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, func_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
                    ArgVal(ArgVal::i, am_erts_internal),
                    ArgVal(ArgVal::i, am_apply),
                    ArgVal(ArgVal::i, 3)});
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, apply_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, apply_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_i_apply, {});
-        bma->emit(op_aligned_label_L, {ArgVal(ArgVal::i, normal_exit_label)});
+        bma->emit(op_aligned_label_Lt,
+                  {ArgVal(ArgVal::i, normal_exit_label),
+                   ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_normal_exit, {});
 
         bma->emit(op_int_code_end, {});
@@ -259,9 +293,9 @@ void beamasm_init() {
 
     /* This instruction relies on register contents, and can only be reached
      * from a `call_ext_*`-instruction, hence the lack of a wrapper function. */
-    beam_save_calls = (BeamInstr *)bga->get_dispatch_save_calls();
-    beam_export_trampoline = (BeamInstr *)bga->get_export_trampoline();
-    beam_bif_export_trap = (BeamInstr *)bga->get_bif_export_trap();
+    beam_save_calls = (ErtsCodePtr)bga->get_dispatch_save_calls();
+    beam_export_trampoline = (ErtsCodePtr)bga->get_export_trampoline();
+    beam_bif_export_trap = (ErtsCodePtr)bga->get_bif_export_trap();
 }
 
 bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
@@ -720,13 +754,15 @@ extern "C"
                                unsigned buff_len) {
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
 
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 1), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_func_info_IaaI,
                 {ArgVal(ArgVal::i, 1),
                  ArgVal(ArgVal::i, info->mfa.module),
                  ArgVal(ArgVal::i, info->mfa.function),
                  ArgVal(ArgVal::i, info->mfa.arity)});
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 2), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_breakpoint_trampoline, {});
         ba.emit(op_call_nif_WWW,
                 {ArgVal(ArgVal::i, (BeamInstr)normal_fptr),
@@ -742,13 +778,15 @@ extern "C"
                                unsigned buff_len) {
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
 
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 1)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 1), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_func_info_IaaI,
                 {ArgVal(ArgVal::i, 1),
                  ArgVal(ArgVal::i, info->mfa.module),
                  ArgVal(ArgVal::i, info->mfa.function),
                  ArgVal(ArgVal::i, info->mfa.arity)});
-        ba.emit(op_aligned_label_L, {ArgVal(ArgVal::i, 2)});
+        ba.emit(op_aligned_label_Lt,
+                {ArgVal(ArgVal::i, 2), ArgVal(ArgVal::u, sizeof(UWord))});
         ba.emit(op_i_breakpoint_trampoline, {});
         ba.emit(op_call_bif_W, {ArgVal(ArgVal::i, (BeamInstr)bif)});
 
@@ -767,9 +805,9 @@ extern "C"
         jit_allocator->release(const_cast<void *>(native_module_exec));
     }
 
-    const BeamInstr *beamasm_get_code(void *instance, int label) {
+    ErtsCodePtr beamasm_get_code(void *instance, int label) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        return reinterpret_cast<const BeamInstr *>(ba->getCode(label));
+        return reinterpret_cast<ErtsCodePtr>(ba->getCode(label));
     }
 
     const byte *beamasm_get_rodata(void *instance, char *label) {
@@ -828,7 +866,7 @@ extern "C"
         return ba->getOffset();
     }
 
-    BeamInstr *beamasm_get_on_load(void *instance) {
+    const ErtsCodeInfo *beamasm_get_on_load(void *instance) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         return ba->getOnLoad();
     }

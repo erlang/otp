@@ -28,7 +28,7 @@
 /* R14B04 has about 380 catches when starting erlang */
 #define DEFAULT_TABSIZE (1024)
 typedef struct {
-    BeamInstr *cp;
+    ErtsCodePtr cp;
     unsigned cdr;
 } beam_catch_t;
 
@@ -102,7 +102,7 @@ void beam_catches_end_staging(int commit)
     IF_DEBUG(bccix[erts_staging_code_ix()].is_staging = 0);
 }
 
-unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr, BeamInstr ***cppp)
+unsigned beam_catches_cons(ErtsCodePtr cp, unsigned cdr, ErtsCodePtr **cppp)
 {
     int i;
     struct bc_pool* p = &bccix[erts_staging_code_ix()];
@@ -141,7 +141,7 @@ unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr, BeamInstr ***cppp)
     return i;
 }
 
-BeamInstr *beam_catches_car(unsigned i)
+ErtsCodePtr beam_catches_car(unsigned i)
 {
     struct bc_pool* p = &bccix[erts_active_code_ix()];
 
@@ -151,7 +151,7 @@ BeamInstr *beam_catches_car(unsigned i)
     return p->beam_catches[i].cp;
 }
 
-BeamInstr *beam_catches_car_staging(unsigned i)
+ErtsCodePtr beam_catches_car_staging(unsigned i)
 {
     struct bc_pool* p = &bccix[erts_staging_code_ix()];
 
@@ -161,27 +161,41 @@ BeamInstr *beam_catches_car_staging(unsigned i)
     return p->beam_catches[i].cp;
 }
 
-void beam_catches_delmod(unsigned head, BeamInstr *code, unsigned code_bytes,
-			 ErtsCodeIndex code_ix)
+void beam_catches_delmod(unsigned head,
+                         const BeamCodeHeader *hdr,
+                         unsigned code_bytes,
+                         ErtsCodeIndex code_ix)
 {
     struct bc_pool* p = &bccix[code_ix];
+    const char *code_start;
     unsigned i, cdr;
 
+    code_start = (const char*)hdr;
+
     ASSERT((code_ix == erts_active_code_ix()) != bccix[erts_staging_code_ix()].is_staging);
+
     for(i = head; i != (unsigned)-1;) {
-	if (i >= p->tabsize) {
-	    erts_exit(ERTS_ERROR_EXIT, "beam_catches_delmod: index %#x is out of range\r\n", i);
-	}
-	if( (char*)p->beam_catches[i].cp - (char*)code >= code_bytes ) {
-	    erts_exit(ERTS_ERROR_EXIT,
-		    "beam_catches_delmod: item %#x has cp %p which is not "
-		    "in module's range [%p,%p[\r\n",
-		    i, p->beam_catches[i].cp, code, ((char*)code + code_bytes));
-	}
-	p->beam_catches[i].cp = 0;
-	cdr = p->beam_catches[i].cdr;
-	p->beam_catches[i].cdr = p->free_list;
-	p->free_list = i;
-	i = cdr;
+        const char *catch_addr = (char*)p->beam_catches[i].cp;
+
+        if (i >= p->tabsize) {
+            erts_exit(ERTS_ERROR_EXIT,
+                      "beam_catches_delmod: index %#x is out of range\r\n", i);
+        }
+
+        if (!ErtsInArea(catch_addr, code_start, code_bytes)) {
+            erts_exit(ERTS_ERROR_EXIT,
+                      "beam_catches_delmod: item %#x has cp %p which is not "
+                      "in module's range [%p,%p[\r\n",
+                      i,
+                      p->beam_catches[i].cp,
+                      code_start,
+                      &code_start[code_bytes]);
+        }
+
+        p->beam_catches[i].cp = NULL;
+        cdr = p->beam_catches[i].cdr;
+        p->beam_catches[i].cdr = p->free_list;
+        p->free_list = i;
+        i = cdr;
     }
 }
