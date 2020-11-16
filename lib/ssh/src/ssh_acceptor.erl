@@ -46,12 +46,56 @@ start_link(Port, Address, Options, AcceptTimeout) ->
     proc_lib:start_link(?MODULE, acceptor_init, Args).
 
 %%%----------------------------------------------------------------
-number_of_connections(SystemSup) ->
-    length([X || 
-	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
-	       is_pid(X),
-	       is_reference(R)
-	  ]).
+number_of_connections(SysSup) ->
+    length([S || S <- supervisor:which_children(SysSup),
+                 has_worker(SysSup,S)]).
+
+
+has_worker(SysSup, {R,SubSysSup,supervisor,[ssh_subsystem_sup]}) when is_reference(R),
+                                                                      is_pid(SubSysSup) ->
+    try
+        {{server, ssh_connection_sup, _, _}, Pid, supervisor, [ssh_connection_sup]} =
+            lists:keyfind([ssh_connection_sup], 4, supervisor:which_children(SubSysSup)),
+        {Pid, supervisor:which_children(Pid)}
+    of
+        {ConnSup,[]} ->
+            %% Strange. Since the connection supervisor exists, there should have been
+            %% a connection here.
+            %% It might be that the connection_handler worker has "just died", maybe
+            %% due to a exit(_,kill). It might also be so that the worker is starting.
+            %% Spawn a killer that redo the test and kills it if the problem persists.
+            %% TODO: Fix this better in the supervisor tree....
+            spawn(fun() ->
+                          timer:sleep(10),
+                          try supervisor:which_children(ConnSup)
+                          of
+                              [] ->
+                                  %% we are on the server-side:
+                                  ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
+                              [_] ->
+                                  %% is ok now
+                                  ok;
+                          _ ->
+                                  %% What??
+                                  error
+                          catch _:_ ->
+                                  %% What??
+                                  error
+                          end
+                  end),
+            false;
+        {_ConnSup,[_]}->
+            true;
+         _ ->
+            %% What??
+            false
+    catch _:_ ->
+            %% What??
+            false
+    end;
+
+has_worker(_,_) ->
+    false.
 
 %%%----------------------------------------------------------------
 listen(Port, Options) ->
