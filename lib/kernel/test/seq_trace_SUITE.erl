@@ -194,21 +194,31 @@ do_send(TsType) ->
 do_send(TsType, Msg) ->
     seq_trace:reset_trace(),
     start_tracer(),
-    Receiver = spawn(?MODULE,n_time_receiver,[2]),
+    Tester = self(),
+    Receiver = spawn(fun () ->
+                             A = alias(),
+                             Tester ! {alias, A},
+                             n_time_receiver(3)
+                     end),
+    Alias = receive {alias, A} -> A end,
     register(n_time_receiver, Receiver),
     Label = make_ref(),
     seq_trace:set_token(label,Label),
     set_token_flags([send, TsType]),
     Receiver ! Msg,
     n_time_receiver ! Msg,
+    Alias ! Msg,
     Self = self(),
     seq_trace:reset_trace(),
     [{Label,{send,_,Self,Receiver,Msg}, Ts1},
      %% Apparently named local destination process is traced as pid (!?)
-     {Label,{send,_,Self,Receiver,Msg}, Ts2}
-    ] = stop_tracer(2),
+     {Label,{send,_,Self,Receiver,Msg}, Ts2},
+     {Label,{send,_,Self,Alias,Msg}, Ts3}
+    ] = stop_tracer(3),
     check_ts(TsType, Ts1),
-    check_ts(TsType, Ts2).
+    check_ts(TsType, Ts2),
+    check_ts(TsType, Ts3).
+
 
 %% This testcase tests that we do not segfault when we have a
 %% literal as the message and the message is copied onto the
@@ -245,7 +255,14 @@ do_distributed_send(TsType) ->
     true = rpc:call(Node,code,add_patha,[Mdir]),
     seq_trace:reset_trace(),
     start_tracer(),
-    Receiver = spawn(Node,?MODULE,n_time_receiver,[2]),
+    Tester = self(),
+    Receiver = spawn(Node,
+                     fun () ->
+                             A = alias(),
+                             Tester ! {alias, A},
+                             n_time_receiver(3)
+                     end),
+    Alias = receive {alias, A} -> A end,
     true = rpc:call(Node,erlang,register,[n_time_receiver, Receiver]),
 
     %% Make sure complex labels survive the trip.
@@ -255,16 +272,19 @@ do_distributed_send(TsType) ->
 
     Receiver ! send,
     {n_time_receiver, Node} ! "dsend",
+    Alias ! "alias_dsend",
 
     Self = self(),
     seq_trace:reset_trace(),
     stop_node(Node),
     [{Label,{send,_,Self,Receiver,send}, Ts1},
-     {Label,{send,_,Self,{n_time_receiver,Node}, "dsend"}, Ts2}
-    ] = stop_tracer(2),
+     {Label,{send,_,Self,{n_time_receiver,Node}, "dsend"}, Ts2},
+     {Label,{send,_,Self,Alias,"alias_dsend"}, Ts3}
+    ] = stop_tracer(3),
 
     check_ts(TsType, Ts1),
-    check_ts(TsType, Ts2).
+    check_ts(TsType, Ts2),
+    check_ts(TsType, Ts3).
 
 
 recv(Config) when is_list(Config) ->
@@ -273,15 +293,25 @@ recv(Config) when is_list(Config) ->
 do_recv(TsType) ->
     seq_trace:reset_trace(),
     start_tracer(),
-    Receiver = spawn(?MODULE,one_time_receiver,[]),
+    Tester = self(),
+    Receiver = spawn(fun () ->
+                             A = alias([reply]),
+                             Tester ! {alias, A},
+                             n_time_receiver(2)
+                     end),
+    Alias = receive {alias, A} -> A end,
     set_token_flags(['receive',TsType]),
+    Alias ! 'alias_receive',
+    Alias ! 'alias_no_receive',
     Receiver ! 'receive',
     %% let the other process receive the message:
     receive after 1 -> ok end,
     Self = self(),
     seq_trace:reset_trace(),
-    [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = stop_tracer(1),
-    check_ts(TsType, Ts).
+    [{0,{'receive',_,Self,Receiver,'alias_receive'}, Ts1},
+     {0,{'receive',_,Self,Receiver,'receive'}, Ts2}] = stop_tracer(2),
+    check_ts(TsType, Ts1),
+    check_ts(TsType, Ts2).
 
 distributed_recv(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_recv/1, ?TIMESTAMP_MODES).
@@ -293,23 +323,35 @@ do_distributed_recv(TsType) ->
     true = rpc:call(Node,code,add_patha,[Mdir]),
     seq_trace:reset_trace(),
     rpc:call(Node,?MODULE,start_tracer,[]),
-    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+    Tester = self(),
+    Receiver = spawn(Node,
+                     fun () ->
+                             A = alias([reply]),
+                             Tester ! {alias, A},
+                             n_time_receiver(2)
+                     end),
+    Alias = receive {alias, A} -> A end,
 
     %% Make sure complex labels survive the trip.
     Label = make_ref(),
     seq_trace:set_token(label,Label),
     set_token_flags(['receive',TsType]),
 
+    Alias ! 'alias_receive',
+    Alias ! 'alias_no_receive',
     Receiver ! 'receive',
+
     %% let the other process receive the message:
     receive after 1 -> ok end,
     Self = self(),
     seq_trace:reset_trace(),
-    Result = rpc:call(Node,?MODULE,stop_tracer,[1]),
+    Result = rpc:call(Node,?MODULE,stop_tracer,[2]),
     stop_node(Node),
     ok = io:format("~p~n",[Result]),
-    [{Label,{'receive',_,Self,Receiver,'receive'}, Ts}] = Result,
-    check_ts(TsType, Ts).
+    [{Label,{'receive',_,Self,Receiver,'alias_receive'}, Ts1},
+     {Label,{'receive',_,Self,Receiver,'receive'}, Ts2}] = Result,
+    check_ts(TsType, Ts1),
+    check_ts(TsType, Ts2).
 
 trace_exit(Config) when is_list(Config) ->
     lists:foreach(fun do_trace_exit/1, ?TIMESTAMP_MODES).
