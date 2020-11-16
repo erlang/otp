@@ -55,6 +55,8 @@
     <p>All operations have an amortized O(1) running time, except
       <seemfa marker="#all/2"><c>all/2</c></seemfa>,
       <seemfa marker="#any/2"><c>any/2</c></seemfa>,
+      <seemfa marker="#delete/2"><c>delete/2</c></seemfa>,
+      <seemfa marker="#delete_r/2"><c>delete_r/2</c></seemfa>,
       <seemfa marker="#filter/2"><c>filter/2</c></seemfa>,
       <seemfa marker="#filtermap/2"><c>filtermap/2</c></seemfa>,
       <seemfa marker="#fold/3"><c>fold/3</c></seemfa>,
@@ -136,6 +138,26 @@
         <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Item</anno>)</c>
           returns <c>true</c> for at least one item <c><anno>Item</anno></c>
           in <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="2" since=""/>
+      <fsummary>Delete an item from the front of a queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
+          matching <c><anno>Item</anno></c> is deleted, if there is such an
+          element.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_r" arity="2" since=""/>
+      <fsummary>Delete an item from the rear of a queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
+          matching <c><anno>Item</anno></c> is deleted, if there is such an
+          element.</p>
       </desc>
     </func>
 

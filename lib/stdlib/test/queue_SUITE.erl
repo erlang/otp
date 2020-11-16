@@ -400,6 +400,18 @@ do_op_test(F) ->
     false = queue:all(fun(X) -> X>1 end, AllQ),
     true = queue:all(fun(X) -> X=<3 end, AllQ),
     false = queue:all(fun(X) -> X<3 end, AllQ),
+    [] = queue:to_list(queue:delete(x, queue:new())),
+    [1,2,3] = queue:to_list(queue:delete(x, queue:from_list([1,2,3]))),
+    [2,3] = queue:to_list(queue:delete(x, queue:from_list([x,2,3]))),
+    [1,3] = queue:to_list(queue:delete(x, queue:from_list([1,x,3]))),
+    [1,2] = queue:to_list(queue:delete(x, queue:from_list([1,2,x]))),
+    [1,2,x] = queue:to_list(queue:delete(x, queue:from_list([x,1,2,x]))),
+    [] = queue:to_list(queue:delete_r(x, queue:new())),
+    [1,2,3] = queue:to_list(queue:delete_r(x, queue:from_list([1,2,3]))),
+    [2,3] = queue:to_list(queue:delete_r(x, queue:from_list([x,2,3]))),
+    [1,3] = queue:to_list(queue:delete_r(x, queue:from_list([1,x,3]))),
+    [1,2] = queue:to_list(queue:delete_r(x, queue:from_list([1,2,x]))),
+    [x,1,2] = queue:to_list(queue:delete_r(x, queue:from_list([x,1,2,x]))),
     %%
     ok.
 

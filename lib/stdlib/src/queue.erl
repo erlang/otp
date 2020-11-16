@@ -27,7 +27,8 @@
 -export([get/1,get_r/1,peek/1,peek_r/1,drop/1,drop_r/1]).
 
 %% Higher level API
--export([reverse/1,join/2,split/2,filter/2,filtermap/2,fold/3,any/2,all/2]).
+-export([reverse/1,join/2,split/2,filter/2,filtermap/2,fold/3,any/2,all/2,
+	 delete/2,delete_r/2]).
 
 %% Okasaki API from klacke
 -export([cons/2,head/1,tail/1,
@@ -474,6 +475,71 @@ all(Pred, {R, F}) when is_function(Pred, 1), is_list(R), is_list(F) ->
     lists:all(Pred, R);
 all(Pred, Q) ->
     erlang:error(badarg, [Pred, Q]).
+
+%% Delete the first occurence of an item in the queue,
+%% according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete(Item, Q1) -> Q2 when
+      Item :: T,
+      Q1 :: queue(T),
+      Q2 :: queue(T),
+      T :: term().
+delete(Item, {R0, F0} = Q) when is_list(R0), is_list(F0) ->
+    case delete_front(Item, F0) of
+        false ->
+            case delete_rear(Item, R0) of
+                false ->
+                    Q;
+                [] ->
+                    f2r(F0);
+                R1 ->
+                    {R1, F0}
+            end;
+        [] ->
+            r2f(R0);
+        F1 ->
+            {R0, F1}
+    end;
+delete(Item, Q) ->
+    erlang:error(badarg, [Item, Q]).
+
+%% Delete the last occurence of an item in the queue,
+%% according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete_r(Item, Q1) -> Q2 when
+      Item :: T,
+      Q1 :: queue(T),
+      Q2 :: queue(T),
+      T :: term().
+delete_r(Item, {R0, F0}) when is_list(R0), is_list(F0) ->
+    {F1, R1}=delete(Item, {F0, R0}),
+    {R1, F1};
+delete_r(Item, Q) ->
+    erlang:error(badarg, [Item, Q]).
+
+delete_front(Item, [Item|Rest]) ->
+    Rest;
+delete_front(Item, [X|Rest]) ->
+    case delete_front(Item, Rest) of
+        false -> false;
+        F -> [X|F]
+    end;
+delete_front(_, []) ->
+    false.
+
+delete_rear(Item, [X|Rest]) ->
+    case delete_rear(Item, Rest) of
+        false when X=:=Item ->
+            Rest;
+        false ->
+            false;
+        R ->
+            [X|R]
+    end;
+delete_rear(_, []) ->
+    false.
 
 %%--------------------------------------------------------------------------
 %% Okasaki API inspired by an Erlang user contribution "deque.erl" 
