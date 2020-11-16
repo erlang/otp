@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,18 +71,49 @@
 %%
 %% -------------------------------------------------------------------- %%
 
+-spec start() -> {'ok', Pid} | {'error', Reason} when
+      Pid :: pid(),
+      Reason :: {'already_started', Pid}.
+
 start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+
+-spec stop() -> 'stopped'.
+
 stop()  -> gen_server:call(?MODULE, stop, infinity).
+
+-spec analyze() -> 'ok' | 'nothing_to_analyze'.
 
 analyze() ->
     analyze(procs).
+
+-type analyze_type() :: 'procs' | 'total'.
+
+-spec analyze(Type) -> 'ok' | 'nothing_to_analyze' when
+      Type :: analyze_type().
 
 analyze(Type) when is_atom(Type) ->
     analyze(Type, []);
 analyze(Opts) when is_list(Opts) ->
     analyze(procs, Opts).
+
+-spec analyze(Type, Options) -> 'ok' | 'nothing_to_analyze' when
+      Type :: analyze_type(),
+      Options :: [Option],
+      Option :: {'filter', Filter}
+              | {'sort', Sort},
+      Filter :: [{'calls', non_neg_integer()} | {'time', float()}],
+      Sort :: 'time' | 'calls' | 'mfa'.
+
 analyze(Type, Opts) when is_list(Opts) ->
     gen_server:call(?MODULE, {analyze, Type, Opts}, infinity).
+
+-spec profile(Fun) -> {'ok', Value} | {'error', Reason} when
+                  Fun :: fun(() -> term()),
+                  Value :: term(),
+                  Reason :: term();
+             (Rootset) -> 'profiling' | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Reason :: term().
 
 %% odd duck, should only been start_profiling/1
 profile(Rootset) when is_list(Rootset) ->
@@ -91,14 +122,52 @@ profile(Rootset) when is_list(Rootset) ->
 profile(Fun) when is_function(Fun) ->
     profile([], Fun).
 
+-spec profile(Fun, Options) -> {'ok', Value} | {'error', Reason} when
+                  Fun :: fun(() -> term()),
+                  Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+                  Value :: term(),
+                  Reason :: term();
+             (Rootset, Fun) -> {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Fun :: fun(() -> term()),
+                  Value :: term(),
+                  Reason :: term().
+
 profile(Fun, Opts) when is_function(Fun), is_list(Opts) ->
     profile([], erlang, apply, [Fun, []], ?default_pattern, Opts);
 
 profile(Rootset, Fun) when is_list(Rootset), is_function(Fun) ->
     profile(Rootset, Fun, ?default_pattern).
 
+%% Subtype of erlang:trace_pattern_mfa().
+-type trace_pattern_mfa() :: {atom(), atom(), arity() | '_'}.
+
+-spec profile(Rootset, Fun, Pattern) -> {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Fun :: fun(() -> term()),
+                  Pattern :: trace_pattern_mfa(),
+                  Value :: term(),
+                  Reason :: term().
+
 profile(Rootset, Fun, Pattern) when is_list(Rootset), is_function(Fun) ->
     profile(Rootset, Fun, Pattern, ?default_options).
+
+-spec profile(Rootset, Module, Function, Args) ->
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Value :: term(),
+                  Reason :: term();
+             (Rootset, Fun, Pattern, Options) -> 
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Fun :: fun(() -> term()),
+                  Pattern :: trace_pattern_mfa(),
+                  Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+                  Value :: term(),
+                  Reason :: term().
 
 profile(Rootset, Fun, Pattern, Options) when is_list(Rootset), is_function(Fun), is_list(Options) ->
     profile(Rootset, erlang, apply, [Fun,[]], Pattern, Options);
@@ -106,8 +175,29 @@ profile(Rootset, Fun, Pattern, Options) when is_list(Rootset), is_function(Fun),
 profile(Rootset, M, F, A) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, ?default_pattern).
 
+-spec profile(Rootset, Module, Function, Args, Pattern) ->
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Pattern :: trace_pattern_mfa(),
+                  Value :: term(),
+                  Reason :: term().
+
 profile(Rootset, M, F, A, Pattern) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, Pattern, ?default_options).
+
+-spec profile(Rootset, Module, Function, Args, Pattern, Options) ->
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Pattern :: trace_pattern_mfa(),
+                  Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+                  Value :: term(),
+                  Reason :: term().
 
 %% Returns when M:F/A has terminated
 profile(Rootset, M, F, A, Pattern, Options) ->
@@ -120,17 +210,40 @@ dump() ->
 dump_data() ->
     gen_server:call(?MODULE, dump_data, infinity).
 
+-spec log(File) -> 'ok' when
+      File :: atom() | file:filename().
+
 log(File) ->
     gen_server:call(?MODULE, {logfile, File}, infinity).
+
+-spec start_profiling(Rootset) -> 'profiling' | {'error', Reason} when
+      Rootset :: [atom() | pid()],
+      Reason :: term().
 
 %% Does not block
 start_profiling(Rootset) ->
     start_profiling(Rootset, ?default_pattern).
+
+-spec start_profiling(Rootset, Pattern) -> 'profiling' | {'error', Reason} when
+      Rootset :: [atom() | pid()],
+      Pattern :: trace_pattern_mfa(),
+      Reason :: term().
+
 start_profiling(Rootset, Pattern) ->
     start_profiling(Rootset, Pattern, ?default_options).
+
+-spec start_profiling(Rootset, Pattern, Options) ->
+                             'profiling' | {'error', Reason} when
+      Rootset :: [atom() | pid()],
+      Pattern :: trace_pattern_mfa(),
+      Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+      Reason :: term().
+
 start_profiling(Rootset, Pattern, Options) ->
     ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, undefined, Options}, infinity).
+
+-spec stop_profiling() -> 'profiling_stopped' | 'profiling_already_stopped'.
 
 stop_profiling() ->
     gen_server:call(?MODULE, profile_stop, infinity).
@@ -442,7 +555,6 @@ collect_bpdfp(Mfa, Tree, Data) ->
     end, {0,0, Tree}, Data).
 
 
-
 analyze(Fd, procs, Opts, #bpd{ p = Ps, us = Tus }) ->
     lists:foreach(
       fun
@@ -541,6 +653,7 @@ format(Fd, Format, Strings) ->
 divide(_,0) -> 0.0;
 divide(T,N) -> T/N.
 
+-dialyzer({no_match, start_internal/0}).
 start_internal() ->
     case start() of
         {ok, _} -> ok;
