@@ -1119,6 +1119,14 @@ DiB == gen_digest(ChA, ICA)?
 	  <seeguide marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seeguide>.
 	  Introduced in OTP 24.</p>
         </item>
+	<tag><marker id="DFLAG_ALIAS"/><c>-define(DFLAG_ALIAS, (1 bsl 35)).</c></tag>
+        <item>
+	  <p>The node supports process alias and can by this handle the 
+	  <seeguide marker="#ALIAS_SEND"><c>ALIAS_SEND</c></seeguide> and
+	  <seeguide marker="#ALIAS_SEND_TT"><c>ALIAS_SEND_TT</c></seeguide>
+	  control messages.
+	  Introduced in OTP 24.</p>
+        </item>
       </taglist>
       <p>
 	There is also function <c>dist_util:strict_order_flags/0</c>
@@ -1521,6 +1529,30 @@ DiB == gen_digest(ChA, ICA)?
 	  <seeguide marker="erl_dist_protocol#dflags">distribution flag</seeguide>
 	  has been passed.
 	</p>
+      </item>
+    </taglist>
+  </section>
+  <section>
+    <title>New Ctrlmessages for Erlang/OTP 24</title>
+    <taglist>
+      <tag><marker id="ALIAS_SEND"/><c>ALIAS_SEND</c></tag>
+      <item>
+        <p><c>{33, FromPid, Alias}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>
+	  This control message is used when sending the message <c>Message</c>
+	  to the process identified by the process alias <c>Alias</c>. Nodes that
+	  can handle this control message sets the distribution flag
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_ALIAS</c></seeguide>
+	  in the connection setup handshake.
+	</p>
+      </item>
+      <tag><marker id="ALIAS_SEND_TT"/><c>ALIAS_SEND_TT</c></tag>
+      <item>
+        <p><c>{34, FromPid, Alias, Token}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>Same as <seeguide marker="#ALIAS_SEND"><c>ALIAS_SEND</c></seeguide>, but also
+	with a sequential trace <c>Token</c>.</p>
       </item>
     </taglist>
   </section>
