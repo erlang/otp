@@ -2602,11 +2602,17 @@ active_recv(_Socket, N, Acc) when N < 0 ->
 active_recv(Socket, N, Acc) ->
     receive 
 	{ssl, Socket, Bytes} ->
-            active_recv(Socket, N-length(Bytes),  Acc ++ Bytes);
+            active_recv(Socket, N-data_length(Bytes),  Acc ++ Bytes);
         {Socket, {data, Bytes0}} ->
             Bytes = filter_openssl_debug_data(Bytes0),
-            active_recv(Socket, N-length(Bytes),  Acc ++ Bytes)
+            active_recv(Socket, N-data_length(Bytes),  Acc ++ Bytes)
     end.
+
+
+data_length(Bytes) when is_list(Bytes) ->
+    length(Bytes);
+data_length(Bytes) when is_binary(Bytes)->
+    size(Bytes).
 
 filter_openssl_debug_data(Bytes) ->
     re:replace(Bytes,

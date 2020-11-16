@@ -811,15 +811,9 @@ upgrade_result(Socket) ->
     ok = ssl:send(Socket, "Hello world"),
     %% Make sure binary is inherited from tcp socket and that we do
     %% not get the list default!
-    receive 
-	{ssl, _, <<"H">>} ->
-	    receive 
-		{ssl, _, <<"ello world">>} ->
-		    ok
-	    end;
-	{ssl, _, <<"Hello world">>}  ->
-	    ok
-    end.
+    <<"Hello world">> =  ssl_test_lib:active_recv(Socket, length("Hello world")),
+    ok.
+
 tls_downgrade_result(Socket, Pid) ->
     ok = ssl_test_lib:send_recv_result(Socket),
     Pid ! {self(), ready},
@@ -831,16 +825,8 @@ tls_downgrade_result(Socket, Pid) ->
 	{ok, TCPSocket} -> 
             inet:setopts(TCPSocket, [{active, true}]),
 	    gen_tcp:send(TCPSocket, "Downgraded"),
-            receive 
-                {tcp, TCPSocket, <<"Downgraded">>} ->
-                    ct:sleep(?SLEEP),
-                    ok;
-                {tcp_closed, TCPSocket} ->
-                    ct:fail("Did not receive TCP data"),
-	            ok;
-	        Other ->
-                    {error, Other}
-            end;
+            <<"Downgraded">> = active_tcp_recv(TCPSocket, length("Downgraded")),
+            ok;
 	{error, timeout} ->
 	    ct:comment("Timed out, downgrade aborted"),
 	    ok;
@@ -912,3 +898,13 @@ tls_socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues)
     ct:log("All opts ~p~n", [All]),
     ok.
 	
+active_tcp_recv(Socket, N) ->
+    active_tcp_recv(Socket, N, []).
+
+active_tcp_recv(_Socket, 0, Acc) ->
+    Acc;
+active_tcp_recv(Socket, N, Acc) ->
+    receive
+	{tcp, Socket, Bytes} ->
+            active_tcp_recv(Socket, N-size(Bytes),  Acc ++ Bytes)
+    end.
