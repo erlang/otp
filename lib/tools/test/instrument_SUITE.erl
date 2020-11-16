@@ -19,7 +19,7 @@
 %%
 -module(instrument_SUITE).
 
--export([all/0, suite/0]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 -export([allocations_enabled/1, allocations_disabled/1, allocations_ramv/1,
          carriers_enabled/1, carriers_disabled/1]).
@@ -36,6 +36,19 @@ suite() ->
 all() -> 
     [allocations_enabled, allocations_disabled, allocations_ramv,
      carriers_enabled, carriers_disabled].
+
+init_per_suite(Config) ->
+    case test_server:is_asan() of
+	true ->
+	    %% No point testing own allocators under address sanitizer.
+	    {skip, "Address sanitizer"};
+	false ->
+	    Config
+    end.
+
+end_per_suite(_Config) ->
+    ok.
+
 
 -define(GENERATED_SBC_BLOCK_COUNT, 1000).
 -define(GENERATED_MBC_BLOCK_COUNT, ?GENERATED_SBC_BLOCK_COUNT).
