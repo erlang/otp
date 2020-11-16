@@ -188,7 +188,7 @@
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
           <c><anno>Fun</anno>(<anno>Item</anno>)</c> on all items in
-          <c><anno>Q1</anno></c>, in order from front to rear.</p>
+          <c><anno>Q1</anno></c>.</p>
         <p>If <c><anno>Fun</anno>(<anno>Item</anno>)</c> returns <c>true</c>,
           <c>Item</c> is copied to the result queue. If it returns <c>false</c>,
           <c><anno>Item</anno></c> is not copied. If it returns
