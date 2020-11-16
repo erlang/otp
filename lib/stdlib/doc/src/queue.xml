@@ -53,6 +53,8 @@
       assuming knowledge of the format is running on thin ice.</p>
 
     <p>All operations have an amortized O(1) running time, except
+      <seemfa marker="#all/2"><c>all/2</c></seemfa>,
+      <seemfa marker="#any/2"><c>any/2</c></seemfa>,
       <seemfa marker="#filter/2"><c>filter/2</c></seemfa>,
       <seemfa marker="#filtermap/2"><c>filtermap/2</c></seemfa>,
       <seemfa marker="#fold/3"><c>fold/3</c></seemfa>,
@@ -115,6 +117,28 @@
     <fsdescription>
       <title>Original API</title>
     </fsdescription>
+    <func>
+      <name name="all" arity="2" since=""/>
+      <fsummary>Return <c>true</c> if all items in a queue satisfy
+        <c>Pred</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Item</anno>)</c>
+          returns <c>true</c> for all items <c><anno>Item</anno></c> in
+          <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="any" arity="2" since=""/>
+      <fsummary>Return <c>true</c> if any of the items in a queue satisfy
+        <c>Pred</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Item</anno>)</c>
+          returns <c>true</c> for at least one item <c><anno>Item</anno></c>
+          in <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="filter" arity="2" since=""/>
       <fsummary>Filter a queue.</fsummary>

@@ -388,6 +388,18 @@ do_op_test(F) ->
     FoldExp2 = [X*X || X <- L1],
     FoldAct2 = queue:fold(fun(X,A) -> [X*X|A] end, [], FoldQ),
     FoldExp2 = lists:reverse(FoldAct2),
+    false = queue:any(fun(X) -> X>9 end, queue:from_list([])),
+    AnyQ = queue:from_list([1,2,3]),
+    true = queue:any(fun(X) -> X>1 end, AnyQ),
+    false = queue:any(fun(X) -> X<1 end, AnyQ),
+    true = queue:any(fun(X) -> X<3 end, AnyQ),
+    false = queue:any(fun(X) -> X>3 end, AnyQ),
+    true = queue:all(fun(X) -> X>9 end, queue:from_list([])),
+    AllQ = queue:from_list([1,2,3]),
+    true = queue:all(fun(X) -> X>=1 end, AllQ),
+    false = queue:all(fun(X) -> X>1 end, AllQ),
+    true = queue:all(fun(X) -> X=<3 end, AllQ),
+    false = queue:all(fun(X) -> X<3 end, AllQ),
     %%
     ok.
 

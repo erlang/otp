@@ -27,7 +27,7 @@
 -export([get/1,get_r/1,peek/1,peek_r/1,drop/1,drop_r/1]).
 
 %% Higher level API
--export([reverse/1,join/2,split/2,filter/2,filtermap/2,fold/3]).
+-export([reverse/1,join/2,split/2,filter/2,filtermap/2,fold/3,any/2,all/2]).
 
 %% Okasaki API from klacke
 -export([cons/2,head/1,tail/1,
@@ -452,6 +452,28 @@ fold(Fun, Acc0, {R, F}) when is_function(Fun, 2), is_list(R), is_list(F) ->
     lists:foldr(Fun, Acc1, R);
 fold(Fun, Acc0, Q) ->
     erlang:error(badarg, [Fun, Acc0, Q]).
+
+%% Check if any item satisfies the predicate, traverse in queue order.
+%%
+%% O(len(Q)) worst case
+-spec any(Pred, Q :: queue(Item)) -> boolean() when
+      Pred :: fun((Item) -> boolean()).
+any(Pred, {R, F}) when is_function(Pred, 1), is_list(R), is_list(F) ->
+    lists:any(Pred, F) orelse
+    lists:any(Pred, R);
+any(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
+
+%% Check if all items satisfy the predicate, traverse in queue order.
+%%
+%% O(len(Q)) worst case
+-spec all(Pred, Q :: queue(Item)) -> boolean() when
+      Pred :: fun((Item) -> boolean()).
+all(Pred, {R, F}) when is_function(Pred, 1), is_list(R), is_list(F) ->
+    lists:all(Pred, F) andalso
+    lists:all(Pred, R);
+all(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
 
 %%--------------------------------------------------------------------------
 %% Okasaki API inspired by an Erlang user contribution "deque.erl" 
