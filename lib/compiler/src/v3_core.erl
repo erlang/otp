@@ -1448,10 +1448,11 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
     LAnno = #a{anno=LA},
     {[_,AccVar]=Vars,St2} = new_vars(LA, 2, St1),
     {[_,_]=FcVars,St3} = new_vars(LA, 2, St2),
+    {IgnoreVar,St4} = new_var(LA, St3),
     F = #c_var{anno=LA,name={Name,2}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail,AccVar]},
     Fc = function_clause(FcVars, LA),
-    TailClause = #iclause{anno=LAnno,pats=[TailPat,AccVar],guard=[],
+    TailClause = #iclause{anno=LAnno,pats=[TailPat,IgnoreVar],guard=[],
                           body=[AccVar]},
     Cs0 = case {AccPat,AccGuard} of
               {SkipPat,[]} ->
@@ -1460,21 +1461,21 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
                   [TailClause];
               _ ->
                   [#iclause{anno=#a{anno=[compiler_generated|LA]},
-                            pats=[SkipPat,AccVar],guard=[],body=[Nc]},
+                            pats=[SkipPat,IgnoreVar],guard=[],body=[Nc]},
                    TailClause]
           end,
     {Cs,St} = case AccPat of
                   nomatch ->
                       %% The accumulator pattern never matches, no need
                       %% for an accumulator clause.
-                      {Cs0,St3};
+                      {Cs0,St4};
                   _ ->
-                      {Bc,Bps,St4} = bc_tq1(Line, E, Qs, AccVar, St3),
+                      {Bc,Bps,St5} = bc_tq1(Line, E, Qs, AccVar, St4),
                       Body = Bps ++ [#iset{var=AccVar,arg=Bc},Nc],
                       {[#iclause{anno=LAnno,
-                                 pats=[AccPat,AccVar],guard=AccGuard,
+                                 pats=[AccPat,IgnoreVar],guard=AccGuard,
                                  body=Body}|Cs0],
-                       St4}
+                       St5}
               end,
     Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,2},Fun}],
