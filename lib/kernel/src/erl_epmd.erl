@@ -79,7 +79,7 @@ stop() ->
 %% return {port, P, Version} | noport
 %%
 
--spec port_please(Name, Host) -> {ok, Port, Version} | noport | closed | {error, term()} when
+-spec port_please(Name, Host) -> {port, Port, Version} | noport | closed | {error, term()} when
 	  Name :: atom() | string(),
 	  Host :: atom() | string() | inet:ip_address(),
 	  Port :: non_neg_integer(),
