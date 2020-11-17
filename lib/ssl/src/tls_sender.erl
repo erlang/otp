@@ -278,7 +278,7 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
     ok = erlang:dist_ctrl_input_handler(DHandle, Pid),
-    ok = ssl_connection:dist_handshake_complete(Pid, DHandle),
+    ok = ssl_gen_statem:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
     process_flag(priority, normal),
     {keep_state, StateData#data{static = Static#static{dist_handle = DHandle}},

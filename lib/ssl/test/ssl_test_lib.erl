@@ -267,16 +267,16 @@ get_client_opts(Config) ->
     ssl_options(COpts, Config).
 
 %% Default callback functions
-init_per_group(GroupName, Config) ->
+init_per_group(GroupName, Config0) ->
     case is_protocol_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
-            clean_protocol_version(Config),
+            Config = clean_protocol_version(Config0),
 	    init_protocol_version(GroupName, Config);
 	_ ->
 	    case sufficient_crypto_support(GroupName) of
 		true ->
 		    ssl:start(),
-		    Config;
+		    Config0;
 		false ->
 		    {skip, "Missing crypto support"}
 	    end

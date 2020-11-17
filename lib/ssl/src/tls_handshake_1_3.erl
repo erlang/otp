@@ -598,31 +598,30 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                 honor_cipher_order := HonorCipherOrder}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
-    ClientGroups = get_supported_groups(ClientGroups0),
-    ServerGroups = get_supported_groups(ServerGroups0),
-
-    ClientShares0 = maps:get(key_share, Extensions, undefined),
-    ClientShares = get_key_shares(ClientShares0),
-
-    OfferedPSKs = get_offered_psks(Extensions),
-
-    ClientALPN0 = maps:get(alpn, Extensions, undefined),
-    ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
-
-    ClientSignAlgs = get_signature_scheme_list(
-                       maps:get(signature_algs, Extensions, undefined)),
-    ClientSignAlgsCert = get_signature_scheme_list(
-                           maps:get(signature_algs_cert, Extensions, undefined)),
-
-    CookieExt = maps:get(cookie, Extensions, undefined),
-    Cookie = get_cookie(CookieExt),
-
     {Ref,Maybe} = maybe(),
-
     try
+        ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
+        ServerGroups = Maybe(get_supported_groups(ServerGroups0)),
+        
+        ClientShares0 = maps:get(key_share, Extensions, undefined),
+        ClientShares = get_key_shares(ClientShares0),
+        
+        OfferedPSKs = get_offered_psks(Extensions),
+        
+        ClientALPN0 = maps:get(alpn, Extensions, undefined),
+        ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
+ 
+        ClientSignAlgs = get_signature_scheme_list(
+                           maps:get(signature_algs, Extensions, undefined)),
+        ClientSignAlgsCert = get_signature_scheme_list(
+                               maps:get(signature_algs_cert, Extensions, undefined)),
+        
+        CookieExt = maps:get(cookie, Extensions, undefined),
+        Cookie = get_cookie(CookieExt),
+        
         #state{connection_states = ConnectionStates0,
                session = #session{own_certificates = [Cert | _]}} = State1 =
-            Maybe(ssl_connection:handle_sni_extension_tls13(SNI, State0)),
+            Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
 
         Maybe(validate_cookie(Cookie, State1)),
 
@@ -716,12 +715,12 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                 session = #session{own_certificates = OwnCerts} = Session0,
                 connection_states = ConnectionStates0
                } = State0) ->
-    ClientGroups = get_supported_groups(ClientGroups0),
-    CookieExt = maps:get(cookie, Extensions, undefined),
-    Cookie = get_cookie(CookieExt),
-
     {Ref,Maybe} = maybe(),
     try
+        ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
+        CookieExt = maps:get(cookie, Extensions, undefined),
+        Cookie = get_cookie(CookieExt),
+
         ServerKeyShare = maps:get(key_share, Extensions, undefined),
         SelectedGroup = get_selected_group(ServerKeyShare),
 
@@ -931,14 +930,15 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                                   supported_groups := ClientGroups0,
                                   session_tickets := SessionTickets,
                                   use_ticket := UseTicket}} = State0) ->
-    ClientGroups = get_supported_groups(ClientGroups0),
-    ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
-    ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
-    SelectedIdentity = get_selected_identity(ServerPreSharedKey),
-    ClientKeyShare = get_key_shares(ClientKeyShare0),
-
+    
     {Ref,Maybe} = maybe(),
     try
+        ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
+        ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
+        ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
+        SelectedIdentity = get_selected_identity(ServerPreSharedKey),
+        ClientKeyShare = get_key_shares(ClientKeyShare0),
+
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(maybe_hello_retry_request(ServerHello, State0)),
 
@@ -2269,8 +2269,10 @@ get_signature_scheme_list(#signature_algorithms{
     lists:filter(fun (E) -> is_atom(E) andalso E =/= unassigned end,
                  ClientSignatureSchemes).
 
+get_supported_groups(undefined = Groups) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {supported_groups, Groups})}; 
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
-    Groups.
+    {ok, Groups}.
 
 get_key_shares(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;

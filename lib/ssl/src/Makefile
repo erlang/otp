@@ -74,6 +74,7 @@ MODULES= \
 	ssl_dist_admin_sup \
 	ssl_dist_connection_sup \
 	ssl_dist_sup \
+        ssl_gen_statem \
 	ssl_handshake \
 	ssl_listen_tracker_sup \
 	ssl_logger \
@@ -94,7 +95,6 @@ MODULES= \
 	tls_connection_1_3 \
 	tls_handshake \
 	tls_handshake_1_3 \
-	tls_gen_connection\
 	tls_record \
 	tls_record_1_3 \
 	tls_client_ticket_store \

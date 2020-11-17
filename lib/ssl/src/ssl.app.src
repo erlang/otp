@@ -5,7 +5,6 @@
 	       %% TLS/SSL 
 	       tls_connection,
 	       tls_connection_1_3,
-	       tls_gen_connection,
 	       tls_handshake,
 	       tls_handshake_1_3,
 	       tls_record,
@@ -37,6 +36,7 @@
 	       %% Both TLS/SSL and DTLS
 	       ssl_config,
 	       ssl_connection,
+               ssl_gen_statem,
 	       ssl_handshake,
 	       ssl_record,
 	       ssl_cipher,
