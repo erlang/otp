@@ -1284,6 +1284,8 @@ handle_set_file(ParseFun, File, Bin, From, State) ->
 
 handle_update_file(
   Finfo, File, TagTm, TagInfo, ParseFun, From, #state{db = Db} = State) ->
+    ets:insert(Db, {TagTm, times()}),
+
     %%
     %% Update file content if file has been updated
     %%
@@ -1294,7 +1296,6 @@ handle_update_file(
         {ok, Finfo_1} ->
             %% File updated - read content
             ets:insert(Db, {TagInfo, Finfo_1}),
-            ets:insert(Db, {TagTm, times()}),
             Bin =
                 case erl_prim_loader:get_file(File) of
                     {ok, B, _} -> B;
@@ -1304,7 +1305,6 @@ handle_update_file(
         _ ->
             %% No file - clear content and reset monitor
             ets:insert(Db, {TagInfo, undefined}),
-            ets:insert(Db, {TagTm, times()}),
             handle_set_file(ParseFun, File, <<>>, From, State)
     end.
 
