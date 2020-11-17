@@ -31,7 +31,8 @@
 		 calltype=#{},	% Call types
 		 records=#{},	% Record definitions
 		 strict_ra=[],	% strict record accesses
-		 checked_ra=[]	% successfully accessed records
+		 checked_ra=[], % successfully accessed records
+                 dialyzer=false % Cached value of compile flag 'dialyzer'
 		}).
 
 -spec(module(AbsForms, CompileOptions) -> AbsForms2 when
@@ -43,8 +44,9 @@
 %% erl_lint without errors.
 module(Fs0, Opts0) ->
     Opts = compiler_options(Fs0) ++ Opts0,
+    Dialyzer = lists:member(dialyzer, Opts),
     Calltype = init_calltype(Fs0),
-    St0 = #exprec{compile = Opts, calltype = Calltype},
+    St0 = #exprec{compile = Opts, dialyzer = Dialyzer, calltype = Calltype},
     {Fs,_St} = forms(Fs0, St0),
     Fs.
 
@@ -122,9 +124,9 @@ pattern({map_field_exact,Line,K0,V0}, St0) ->
     {V,St2} = pattern(V0, St1),
     {{map_field_exact,Line,K,V},St2};
 pattern({record_index,Line,Name,Field}, St) ->
-    {index_expr(Line, Field, Name, record_fields(Name, St)),St};
+    {index_expr(Line, Field, Name, record_fields(Name, Line, St)),St};
 pattern({record,Line0,Name,Pfs}, St0) ->
-    Fs = record_fields(Name, St0),
+    Fs = record_fields(Name, Line0, St0),
     {TMs,St1} = pattern_list(pattern_fields(Fs, Pfs), St0),
     Line = mark_record(Line0, St1),
     {{tuple,Line,[{atom,Line0,Name} | TMs]},St1};
@@ -219,7 +221,7 @@ record_test_in_guard(Line, Term, Name, St) ->
             %% In case that later optimization passes have been turned off.
             expr({atom,Line,false}, St);
         false ->
-            Fs = record_fields(Name, St),
+            Fs = record_fields(Name, Line, St),
             NLine = no_compiler_warning(Line),
             expr({call,NLine,{remote,NLine,{atom,NLine,erlang},{atom,NLine,is_record}},
                   [Term,{atom,Line,Name},{integer,Line,length(Fs)+1}]},
@@ -244,7 +246,7 @@ record_test_in_body(Line, Expr, Name, St0) ->
     %% first and bind the value to a new variable.
     %% We must use also handle the case that Expr does not
     %% evaluate to a tuple properly.
-    Fs = record_fields(Name, St0),
+    Fs = record_fields(Name, Line, St0),
     {Var,St} = new_var(Line, St0),
     NLine = no_compiler_warning(Line),
     expr({block,Line,
@@ -304,17 +306,17 @@ expr({map_field_exact,Line,K0,V0}, St0) ->
     {V,St2} = expr(V0, St1),
     {{map_field_exact,Line,K,V},St2};
 expr({record_index,Line,Name,F}, St) ->
-    I = index_expr(Line, F, Name, record_fields(Name, St)),
+    I = index_expr(Line, F, Name, record_fields(Name, Line, St)),
     expr(I, St);
 expr({record,Line0,Name,Is}, St) ->
     Line = mark_record(Line0, St),
     expr({tuple,Line,[{atom,Line0,Name} |
-                      record_inits(record_fields(Name, St), Is)]},
+                      record_inits(record_fields(Name, Line0, St), Is)]},
          St);
 expr({record_field,Line,R,Name,F}, St) ->
     get_record_field(Line, R, F, Name, St);
-expr({record,_,R,Name,Us}, St0) ->
-    {Ue,St1} = record_update(R, Name, record_fields(Name, St0), Us, St0),
+expr({record,Line,R,Name,Us}, St0) ->
+    {Ue,St1} = record_update(R, Name, record_fields(Name, Line, St0), Us, St0),
     expr(Ue, St1);
 expr({bin,Line,Es0}, St0) ->
     {Es1,St1} = expr_bin(Es0, St0),
@@ -533,14 +535,28 @@ normalise_fields(Fs) ->
             (F) -> F
 	end, Fs).
 
-%% record_fields(RecordName, State)
+%% record_fields(RecordName, Line, State)
 %% find_field(FieldName, Fields)
 
-record_fields(R, St) -> maps:get(R, St#exprec.records).
+record_fields(R, Line, St) ->
+    Fields = maps:get(R, St#exprec.records),
+    case St#exprec.dialyzer of
+        true ->
+            [{record_field,Line,{atom,Line,F},copy_expr(Di, Line)} ||    
+                {record_field,_Lf,{atom,_La,F},Di} <- Fields];
+        false ->
+            Fields
+    end.
 
 find_field(F, [{record_field,_,{atom,_,F},Val} | _]) -> {ok,Val};
 find_field(F, [_ | Fs]) -> find_field(F, Fs);
 find_field(_, []) -> error.
+
+%% copy_expr(Expr, Line) -> Expr.
+%%  Make a copy of Expr converting all line numbers to Line.
+
+copy_expr(Expr, Anno) ->
+    erl_parse:map_anno(fun(_A) -> Anno end, Expr).
 
 %% field_names(RecFields) -> [Name].
 %%  Return a list of the field names structures.
@@ -576,7 +592,7 @@ strict_get_record_field(Line, R, {atom,_,F}=Index, Name, St0) ->
     case is_in_guard() of
         false ->                                %Body context.
             {Var,St} = new_var(Line, St0),
-            Fs = record_fields(Name, St),
+            Fs = record_fields(Name, Line, St),
             I = index_expr(F, Fs, 2),
             P = record_pattern(2, I, Var, length(Fs)+1, Line, [{atom,Line,Name}]),
             NLine = no_compiler_warning(Line),
@@ -590,7 +606,7 @@ strict_get_record_field(Line, R, {atom,_,F}=Index, Name, St0) ->
 			 [{tuple,NLine,[{atom,NLine,badrecord},{atom,NLine,Name}]}]}]}]},
             expr(E, St);
         true ->                                 %In a guard.
-            Fs = record_fields(Name, St0),
+            Fs = record_fields(Name, Line, St0),
             I = index_expr(Line, Index, Name, Fs),
             {ExpR,St1}  = expr(R, St0),
             %% Just to make comparison simple:
@@ -610,7 +626,7 @@ record_pattern(Cur, I, Var, Sz, Line, Acc) when Cur =< Sz ->
 record_pattern(_, _, _, _, _, Acc) -> reverse(Acc).
 
 sloppy_get_record_field(Line, R, Index, Name, St) ->
-    Fs = record_fields(Name, St),
+    Fs = record_fields(Name, Line, St),
     I = index_expr(Line, Index, Name, Fs),
     expr({call,Line,
 	  {remote,Line,{atom,Line,erlang},{atom,Line,element}},
@@ -748,9 +764,9 @@ record_setel(R, Name, Fs, Us0) ->
 record_info_call(Line, [{atom,_Li,Info},{atom,_Ln,Name}], St) ->
     case Info of
         size ->
-            {{integer,Line,1+length(record_fields(Name, St))},St};
+            {{integer,Line,1+length(record_fields(Name, Line, St))},St};
         fields ->
-            {make_list(field_names(record_fields(Name, St)), Line),St}
+            {make_list(field_names(record_fields(Name, Line, St)), Line),St}
     end.
 
 %% Break out expressions from an record update list and bind to new
@@ -832,12 +848,12 @@ call_error(L, R) ->
 %%% Replace is_record/3 in guards with matching if possible.
 %%%
 
-optimize_is_record(H0, G0, #exprec{compile=Opts}) ->
+optimize_is_record(H0, G0, #exprec{dialyzer=Dialyzer}) ->
     case opt_rec_vars(G0) of
 	[] ->
 	    {H0,G0};
 	Rs0 ->
-	    case lists:member(dialyzer, Opts) of % no_is_record_optimization
+	    case Dialyzer of % no_is_record_optimization
 		true ->
 		    {H0,G0};
 		false ->
@@ -964,7 +980,7 @@ no_compiler_warning(Anno) ->
     erl_anno:set_generated(true, Anno).
 
 mark_record(Anno, St) ->
-    case lists:member(dialyzer, St#exprec.compile) of
+    case St#exprec.dialyzer of
         true -> erl_anno:set_record(true, Anno);
         false -> Anno
     end.
