@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 11.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a crash when exceptions were thrown during call
+	    time tracing.</p>
+          <p>
+	    Own Id: OTP-16994</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
