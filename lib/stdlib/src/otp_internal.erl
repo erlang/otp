@@ -303,6 +303,28 @@ obsolete(wxPostScriptDC, setResolution, 1) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(wxWindowDC, new, 0) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
+obsolete(zlib, adler32, 2) ->
+    {deprecated, "use erlang:adler32/1 instead", "OTP 27"};
+obsolete(zlib, adler32, 3) ->
+    {deprecated, "use erlang:adler32/2 instead", "OTP 27"};
+obsolete(zlib, adler32_combine, 4) ->
+    {deprecated, "use erlang:adler_combine/3 instead", "OTP 27"};
+obsolete(zlib, crc32, 1) ->
+    {deprecated, "use erlang:crc32/1 on the uncompressed data instead", "OTP 27"};
+obsolete(zlib, crc32, 2) ->
+    {deprecated, "use erlang:crc32/1 instead", "OTP 27"};
+obsolete(zlib, crc32, 3) ->
+    {deprecated, "use erlang:crc32/2 instead", "OTP 27"};
+obsolete(zlib, crc32_combine, 4) ->
+    {deprecated, "use erlang:crc32_combine/3 instead", "OTP 27"};
+obsolete(zlib, getBufSize, 1) ->
+    {deprecated, "this function will be removed in a future release", "OTP 27"};
+obsolete(zlib, inflateChunk, 1) ->
+    {deprecated, "use safeInflate/2 instead", "OTP 27"};
+obsolete(zlib, inflateChunk, 2) ->
+    {deprecated, "use safeInflate/2 instead", "OTP 27"};
+obsolete(zlib, setBufSize, 2) ->
+    {deprecated, "this function will be removed in a future release", "OTP 27"};
 obsolete(core_lib, get_anno, 1) ->
     {removed, "use cerl:get_ann/1 instead"};
 obsolete(core_lib, is_literal, 1) ->
