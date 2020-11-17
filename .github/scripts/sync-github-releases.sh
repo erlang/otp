@@ -20,7 +20,7 @@
 set -e
 
 REPOSITORY=${1}
-TOKEN=${2}
+TOKEN=${2:-"token ${GITHUB_TOKEN}"}
 RELEASE_FILTER=${3}
 TIME_LIMIT=${4:-120m}
 HDR=(-H "Authorization: ${TOKEN}")
@@ -82,20 +82,31 @@ while [ "${TAG_URL}" != "" ]; do
                 echo "Create release ${name}"
             else
                 _asset() {
-                    local filename=${1}
-                    local remotename=${2:-${filename}}
+                    local filename="${1}"
+                    local remotename=("${2:-$filename}")
+                    if [ $# -gt 2 ]; then
+                        shift; shift
+                        remotename=("$@" "${remotename[@]}")
+                    fi
                     if ! echo "${RELEASE}" | jq -er ".assets[] | select(.name == \"${filename}\")" > /dev/null; then
                         ALL_TAGS=("${ALL_TAGS[@]}" "${name}")
-                        echo "Sync ${remotename} for ${name}"
-                        RI=("${remotename}" "${RI[@]}")
+                        echo "Sync ${remotename[*]} for ${name}"
+                        RI=("${remotename[@]}" "${RI[@]}")
                     fi
                 }
-                _asset "${name}.README" "${name}.README otp_src_${stripped_name}.readme"
-                _asset "otp_src_${stripped_name}.tar.gz" ""
-                _asset "otp_doc_html_${stripped_name}.tar.gz" ""
-                _asset "otp_doc_man_${stripped_name}.tar.gz" ""
-                _asset "otp_win32_${stripped_name}.exe" ""
-                _asset "otp_win64_${stripped_name}.exe" ""
+                _asset "${name}.README" "${name}.README" "otp_src_${stripped_name}.readme"
+                _asset "otp_src_${stripped_name}.tar.gz"
+                _asset "otp_doc_html_${stripped_name}.tar.gz"
+                _asset "otp_doc_man_${stripped_name}.tar.gz"
+                case "${stripped_name}" in
+                    22.*.**|21.*.**)
+                    ## No need to check for windows releases in 21 and 22 patches
+                    ;;
+                    *)
+                        _asset "otp_win32_${stripped_name}.exe"
+                        _asset "otp_win64_${stripped_name}.exe"
+                        ;;
+                esac
             fi
         fi
     done
