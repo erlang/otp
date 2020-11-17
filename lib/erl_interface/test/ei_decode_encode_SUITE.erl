@@ -105,6 +105,7 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 	   send_rec(P, mk_pid(OtherNode, 32767, 8191)),
 	   send_rec(P, mk_port(OtherNode, 268435455)),
 	   send_rec(P, mk_ref(OtherNode, [262143, 4294967295, 4294967295])),
+	   send_rec(P, mk_ref(OtherNode, [262143, 4294967295, 4294967295, 4294967294, 4294967293])),
 	   void
      end || Creation <- [1, 2, 3, 4, 16#adec0ded]],
 
