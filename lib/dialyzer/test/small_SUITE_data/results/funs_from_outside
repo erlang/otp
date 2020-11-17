@@ -4,4 +4,4 @@ funs_from_outside.erl:32:1: Function run2/2 has no local return
 funs_from_outside.erl:35:1: Function testb/3 has no local return
 funs_from_outside.erl:41:2: The pattern 'error' can never match the type {'ok','nothing' | 'something'}
 funs_from_outside.erl:78:1: Function test2/1 has no local return
-funs_from_outside.erl:83:11: The pattern 'error' can never match the type 'ok'
+funs_from_outside.erl:83:5: The pattern 'error' can never match the type 'ok'

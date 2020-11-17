@@ -6,7 +6,7 @@ union_paren.erl:24:5: The call union_paren:t1(3.14) breaks the contract ((A::int
 union_paren.erl:30:1: Function t2/0 has no local return
 union_paren.erl:31:5: The call union_paren:t2(3.14) breaks the contract (integer() | atom()) -> integer()
 union_paren.erl:37:1: Function t3/0 has no local return
-union_paren.erl:38:10: The pattern 3.14 can never match the type atom() | integer()
+union_paren.erl:38:5: The pattern 3.14 can never match the type atom() | integer()
 union_paren.erl:44:1: Function c1/0 has no local return
 union_paren.erl:45:5: The call union_paren:c1({'r0', 'a', 'undefined', 'undefined'}) breaks the contract (#r0{f1::integer() | pid()}) -> atom()
 union_paren.erl:51:1: Function c2/0 has no local return

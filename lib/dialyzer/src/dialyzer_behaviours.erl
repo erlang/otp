@@ -207,18 +207,11 @@ add_tag_warning_info(Module, {_Tag, [_B, Fun, Arity|_R]} = Warn, State) ->
 					State#state.codeserver),
   Anns = cerl:get_ann(FunCode),
   File = get_file(State#state.codeserver, Module, Anns),
-  WarningInfo = {File, get_location(Anns), {Module, Fun, Arity}},
+  WarningInfo = {File, get_location(FunCode), {Module, Fun, Arity}},
   {?WARN_BEHAVIOUR, WarningInfo, Warn}.
 
-get_location([Line|_]) when is_integer(Line) ->
-  Line;
-get_location([{Line, Column}|_Tail]) when is_integer(Line),
-                                          is_integer(Column) ->
-  {Line, Column};
-get_location([_|Tail]) ->
-  get_location(Tail);
-get_location([]) ->
-  -1.
+get_location(Tree) ->
+  dialyzer_utils:get_location(Tree, -1).
 
 get_file(Codeserver, Module, [{file, FakeFile}|_]) ->
   dialyzer_codeserver:translate_fake_file(Codeserver, Module, FakeFile);

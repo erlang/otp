@@ -67,10 +67,11 @@ generated_case(Config) when is_list(Config) ->
 		     [{call,7,{remote,7,{var,7,'Arg'},{atom,7,fn}},[]}]}]}]}]}],
 	     Config, [], []),
     %% With Arg set to [] so neither clause matches
-    [{warn_return_no_exit,{_,3},_},
+    [W = {warn_return_no_exit,{_,3},_},
      {warn_matching,{_,6},_},
      {warn_failing_call,{_,7},_}] =
-	test([{attribute,1,module,foo},
+	test([{attribute,1,file, {"fileName.erl",1}},
+              {attribute,1,module,foo},
 	      {attribute,2,export,[{bar,0}]},
 	      {function,3,bar,0,
 	       [{clause,3,[],[],
@@ -81,6 +82,9 @@ generated_case(Config) when is_list(Config) ->
 		    {clause,[{location,7},{generated,true}],[{var,7,'_'}],[],
 		     [{call,7,{remote,7,{var,7,'Arg'},{atom,7,fn}},[]}]}]}]}]}],
 	     Config, [], []),
+    %% Location is a line (no column):
+    "fileName.erl:3: Function bar/0 has no local return\n" =
+        dialyzer:format_warning(W),
     ok.
 
 test(Prog0, Config, COpts, DOpts) ->

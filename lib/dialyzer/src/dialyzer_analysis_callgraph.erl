@@ -641,7 +641,7 @@ find_call_file_and_location({Module, _, _}, Tree, MFA, CodeServer) ->
 		  MFA ->
 		    Ann = cerl:get_ann(SubTree),
                     File = get_file(CodeServer, Module, Ann),
-                    Location = get_location(Ann),
+                    Location = get_location(SubTree),
 		    [{File, Location}|Acc];
 		  {erlang, make_fun, 3} ->
 		    [CA1, CA2, CA3] = cerl:call_args(SubTree),
@@ -659,7 +659,7 @@ find_call_file_and_location({Module, _, _}, Tree, MFA, CodeServer) ->
 			  MFA ->
 			    Ann = cerl:get_ann(SubTree),
 			    [{get_file(CodeServer, Module, Ann),
-                              get_location(Ann)}|Acc];
+                              get_location(SubTree)}|Acc];
 			  _ ->
 			    Acc
 			end;
@@ -675,15 +675,8 @@ find_call_file_and_location({Module, _, _}, Tree, MFA, CodeServer) ->
     end,
   hd(cerl_trees:fold(Fun, [], Tree)).
 
-get_location([Line|_]) when is_integer(Line) ->
-  Line;
-get_location([{Line, Column}|_Tail]) when is_integer(Line),
-                                          is_integer(Column) ->
-  {Line, Column};
-get_location([_|Tail]) ->
-  get_location(Tail);
-get_location([]) ->
-  -1.
+get_location(Tree) ->
+  dialyzer_utils:get_location(Tree, -1).
 
 get_file(Codeserver, Module, [{file, FakeFile}|_]) ->
   dialyzer_codeserver:translate_fake_file(Codeserver, Module, FakeFile);

@@ -1,12 +1,12 @@
 
 map_in_guard2.erl:10:11: The call map_in_guard2:assoc_guard_clause('not_a_map') will never return since it differs in the 1st argument from the success typing arguments: (map())
-map_in_guard2.erl:12:23: The pattern 'true' can never match the type 'false'
+map_in_guard2.erl:12:18: The pattern 'true' can never match the type 'false'
 map_in_guard2.erl:14:11: The call map_in_guard2:exact_guard_clause(#{}) will never return since it differs in the 1st argument from the success typing arguments: (#{'a':=_, _=>_})
-map_in_guard2.erl:17:29: Guard test is_map(M::'not_a_map') can never succeed
+map_in_guard2.erl:17:28: Guard test is_map(M::'not_a_map') can never succeed
 map_in_guard2.erl:20:1: Function assoc_update/1 has no local return
-map_in_guard2.erl:20:21: Guard test is_map(M::'not_a_map') can never succeed
+map_in_guard2.erl:20:20: Guard test is_map(M::'not_a_map') can never succeed
 map_in_guard2.erl:22:1: Function assoc_guard_clause/1 has no local return
-map_in_guard2.erl:22:36: Guard test is_map(M::'not_a_map') can never succeed
+map_in_guard2.erl:22:35: Guard test is_map(M::'not_a_map') can never succeed
 map_in_guard2.erl:24:1: Clause guard cannot succeed. The variable M was matched against the type #{}
 map_in_guard2.erl:27:1: Clause guard cannot succeed. The variable M was matched against the type #{}
 map_in_guard2.erl:27:1: Function exact_guard_clause/1 has no local return

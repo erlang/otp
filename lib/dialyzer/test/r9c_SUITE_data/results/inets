@@ -3,7 +3,7 @@ ftp.erl:1243:5: The pattern {'ok', {N, Bytes}} can never match the type 'eof' | 
 ftp.erl:640:2: The pattern {'closed', _Why} can never match the type 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'trans_neg_compl' | 'trans_no_space' | {'error' | 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'pos_prel' | 'trans_neg_compl' | 'trans_no_space',atom() | [any()] | {'invalid_server_response',[any(),...]}}
 http.erl:117:3: The pattern {'error', Reason} can never match the type #req_headers{connection::[45 | 97 | 101 | 105 | 107 | 108 | 112 | 118,...],content_length::[48,...],other::[{_,_}]}
 http.erl:138:1: Function close_session/2 will never be called
-http_lib.erl:286:14: The call http_lib:close('ip_comm' | {'ssl',_},any()) will never return since it differs in the 1st argument from the success typing arguments: ('http' | 'https',any())
+http_lib.erl:286:6: The call http_lib:close('ip_comm' | {'ssl',_},any()) will never return since it differs in the 1st argument from the success typing arguments: ('http' | 'https',any())
 http_lib.erl:424:2: The variable _ can never match since previous clauses completely covered the type any()
 http_lib.erl:438:2: The variable _ can never match since previous clauses completely covered the type any()
 http_lib.erl:99:1: Function getHeaderValue/2 will never be called
@@ -21,15 +21,15 @@ httpd_manager.erl:885:2: The pattern {'EXIT', Reason} can never match since prev
 httpd_manager.erl:919:1: Function auth_status/1 will never be called
 httpd_manager.erl:926:1: Function sec_status/1 will never be called
 httpd_manager.erl:933:1: Function acceptor_status/1 will never be called
-httpd_request_handler.erl:374:20: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Body to big") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
-httpd_request_handler.erl:378:20: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Method not allowed") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
-httpd_request_handler.erl:401:20: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Method not allowed") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
+httpd_request_handler.erl:374:6: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Body to big") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
+httpd_request_handler.erl:378:6: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Method not allowed") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
+httpd_request_handler.erl:401:6: The call httpd_response:send_status(Info::#mod{parsed_header::maybe_improper_list()},417,"Method not allowed") will never return since it differs in the 2nd argument from the success typing arguments: (#mod{socket_type::'ip_comm' | {'ssl',_}},100 | 301 | 304 | 400 | 401 | 403 | 404 | 412 | 414 | 416 | 500 | 501 | 503,any())
 httpd_request_handler.erl:649:6: Guard test [{_,_}] =:= Trailers::nonempty_string() can never succeed
 httpd_sup.erl:63:2: The variable Else can never match since previous clauses completely covered the type {'error',_} | {'ok',[any()],_,_}
 httpd_sup.erl:88:2: The pattern {'error', Reason} can never match the type {'ok',_,_}
 httpd_sup.erl:92:2: The variable Else can never match since previous clauses completely covered the type {'ok',_,_}
 mod_auth.erl:559:3: The pattern {'error', Reason} can never match the type {_,integer(),maybe_improper_list(),_}
-mod_auth_dets.erl:120:11: The call lists:foreach(fun((_) -> 'true' | {'error','no_such_group' | 'no_such_group_member'}),{'ok',[any()]}) will never return since it differs in the 2nd argument from the success typing arguments: (fun((_) -> any()),[any()])
+mod_auth_dets.erl:120:6: The call lists:foreach(fun((_) -> 'true' | {'error','no_such_group' | 'no_such_group_member'}),{'ok',[any()]}) will never return since it differs in the 2nd argument from the success typing arguments: (fun((_) -> any()),[any()])
 mod_auth_plain.erl:100:3: The variable _ can never match since previous clauses completely covered the type {'ok',[any()]}
 mod_auth_plain.erl:159:2: The variable _ can never match since previous clauses completely covered the type [[any()]]
 mod_auth_plain.erl:83:2: The variable O can never match since previous clauses completely covered the type [[any()]]

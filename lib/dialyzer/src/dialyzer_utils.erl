@@ -39,6 +39,7 @@
          sets_filter/2,
 	 src_compiler_opts/0,
 	 refold_pattern/1,
+         get_location/2,
          ets_tab2list/1,
          ets_move/2,
 	 parallelism/0,
@@ -970,6 +971,46 @@ label(Tree) ->
       %% Sigh
       Label = -erlang:unique_integer([positive]),
       cerl:set_ann(Tree, [{label, Label}]).
+
+-spec get_location(cerl:cerl(), -1 | erl_anno:location()) ->
+                      erl_anno:location().
+
+%% Get the location of Tree, if Tree is a leaf, or the location of the
+%% leftmost subtree of Tree, if Tree is not a leaf. If there is no
+%% location to be found in Tree, Default is returned.
+get_location(Tree, Default) ->
+  case get_all_locations(Tree) of
+    [] ->
+      Default;
+    Locations ->
+      LF = fun({_L,_C}=Loc) -> Loc;
+              (Line) -> {Line, 1}
+           end,
+      F = fun(Loc1, Loc2) -> LF(Loc1) =< LF(Loc2) end,
+      [Location|_] = lists:sort(F, Locations),
+      Location
+  end.
+
+get_all_locations(Tree) ->
+  SubTrees = lists:append(cerl:subtrees(Tree)),
+  case maybe_get_location(cerl:get_ann(Tree)) of
+    no ->
+      [];
+    Location ->
+      [Location]
+  end
+  ++
+  lists:append([get_all_locations(T) || T <- SubTrees]).
+
+maybe_get_location([Line|_]) when is_integer(Line) ->
+  Line;
+maybe_get_location([{Line, Column}|_Tail]) when is_integer(Line),
+                                                is_integer(Column) ->
+  {Line, Column};
+maybe_get_location([_|Tail]) ->
+  maybe_get_location(Tail);
+maybe_get_location([]) ->
+  no.
 
 %%------------------------------------------------------------------------------
 
