@@ -163,6 +163,7 @@ jobs:
       - name: Upload pre-built and doc tar archives
         uses: softprops/action-gh-release@v1
         with:
+          name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
             artifacts/*.tar.gz
             artifacts/*.txt
