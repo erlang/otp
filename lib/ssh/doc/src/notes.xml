@@ -30,6 +30,25 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A supervisor sub-tree could be left if the connection
+	    handler process is brutally killed. This will make the
+	    max_sessions checking option to count the existing
+	    sessions erroneously and could finally block further
+	    sessions.</p>
+          <p>
+	    Own Id: OTP-17006 Aux Id: ERIERL-556 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
