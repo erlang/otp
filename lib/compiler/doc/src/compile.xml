@@ -779,14 +779,14 @@ module.beam: module.erl \
       <fsummary>Compiles a list of forms.</fsummary>
       <type>
         <v>Forms = <seetype marker="#forms">forms()</seetype></v>
-        <v>forms() = [<seetype marker="erl_parse#abstract_form">erl_parse:abstract_form</seetype>] | <seeerl marker="cerl#type-c_module">cerl:c_module()</seeerl></v>
+        <v>forms() = [<seetype marker="stdlib:erl_parse#abstract_form">erl_parse:abstract_form</seetype>] | <seeerl marker="cerl#type-c_module">cerl:c_module()</seeerl></v>
         <v>Options = [<seetype marker="#option">option()</seetype>]</v>
         <v>CompRet = BinRet | ErrRet</v>
         <v>BinRet = {ok,ModuleName,BinaryOrCode} | {ok,ModuleName,BinaryOrCode,Warnings}</v>
         <v>ModuleName = module()</v>
         <v>BinaryOrCode = binary() | term()</v>
         <v>ErrRet = error | {error,Errors,Warnings}</v>
-        <v>Warnings = Errors = [{<seetype marker="file#filename">file:filename()</seetype>, [{<seetype marker="erl_anno#line">erl_anno:line()</seetype> | 'none', module(), term()}]}]</v>
+        <v>Warnings = Errors = [{<seetype marker="kernel:file#filename">file:filename()</seetype>, [{<seetype marker="stdlib:erl_anno#line">erl_anno:line()</seetype> | 'none', module(), term()}]}]</v>
       </type>
       <desc>
         <p>Analogous to <c>file/1</c>, but takes a list of forms (in
