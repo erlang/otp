@@ -2263,8 +2263,7 @@ static DistFlags preferred_flags(void)
         | DFLAG_EXPORT_PTR_TAG
         | DFLAG_BIT_BINARIES
         | DFLAG_HANDSHAKE_23
-        | DFLAG_BIG_PIDS
-        | DFLAG_HUGE_REFS;
+        | DFLAG_V4_PIDS_REFS;
     if (ei_internal_use_21_bitstr_expfun()) {
         flags &= ~(DFLAG_EXPORT_PTR_TAG
                    | DFLAG_BIT_BINARIES);

@@ -58,11 +58,8 @@
  */
 #define DFLAG_SPAWN            (((Uint64)0x1) << 32)
 #define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
-#define DFLAG_BIG_PIDS         (((Uint64)0x4) << 32)
-#define DFLAG_HUGE_REFS        (((Uint64)0x4) << 32)
+#define DFLAG_V4_PIDS_REFS     (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
-
-/* DFLAG_BIG_PIDS and DFLAG_HUGE_REFS should be merged into flag... */
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
@@ -98,8 +95,7 @@
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_HANDSHAKE_23              \
                             | DFLAG_SPAWN                     \
-                            | DFLAG_BIG_PIDS		      \
-                            | DFLAG_HUGE_REFS                 \
+                            | DFLAG_V4_PIDS_REFS	      \
                             | DFLAG_ALIAS)
 
 /* Flags addable by local distr implementations */

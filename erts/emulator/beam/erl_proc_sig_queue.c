@@ -1291,7 +1291,7 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     ErlOffHeap *ohp;
     Uint hsz, to_sz, token_sz, msg_sz;
     Eterm *hp, pid, to_copy, token_copy, msg_copy;
-    int seq_trace, type;
+    int type;
 #ifdef USE_VM_PROBES
     Eterm utag_copy, utag;
     Uint utag_sz;
@@ -1314,9 +1314,10 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
 
     hsz = 0;
 
-    seq_trace = c_p && have_seqtrace(token);
-    if (seq_trace)
+    if (c_p && have_seqtrace(token)) {
         seq_trace_update_serial(c_p);
+	seq_trace_output(token, msg, SEQ_TRACE_SEND, to, c_p);
+    }
 
 #ifdef USE_VM_PROBES
     utag_sz = 0;
@@ -1416,9 +1417,6 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
                                       hfrag_low, hfrag_high);
     }
 
-    if (seq_trace)
-        do_seq_trace_output(to, token_copy, msg_copy);
-
     if (!proc_queue_signal(c_p, pid, (ErtsSignal *) mp,
                            ERTS_SIG_Q_OP_ALIAS_MSG)) {
         mp->next = NULL;
@@ -1483,7 +1481,7 @@ erts_proc_sig_send_dist_to_alias(Eterm alias, ErtsDistExternal *edep,
         token_copy = (is_immed(token)
                       ? token
                       : copy_struct(token, token_sz, &hp,
-                                    &mp->data.heap_frag->off_heap));
+				    &mp->hfrag.off_heap));
         mp->hfrag.used_size = 1 + alias_sz + token_sz;
         erts_make_dist_ext_copy(edep, erts_get_dist_ext(&mp->hfrag));
     }

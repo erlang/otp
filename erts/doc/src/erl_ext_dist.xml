@@ -711,12 +711,12 @@
 	  </item>
 	  <tag><c>ID</c></tag>
 	  <item><p>A 32-bit big endian unsigned integer. If distribution flag
-	  <seeguide marker="erl_dist_protocol#DFLAG_BIG_PIDS"><c>DFLAG_BIG_PIDS</c></seeguide>
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_PIDS_REFS"><c>DFLAG_V4_PIDS_REFS</c></seeguide>
 	  is not set, only 15 bits may be used and the rest must be 0.</p>
 	  </item>
 	  <tag><c>Serial</c></tag>
 	  <item><p>A 32-bit big endian unsigned integer. If distribution flag
-	  <seeguide marker="erl_dist_protocol#DFLAG_BIG_PIDS"><c>DFLAG_BIG_PIDS</c></seeguide>
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_PIDS_REFS"><c>DFLAG_V4_PIDS_REFS</c></seeguide>
 	  is not set, only 13 bits may be used and the rest must be 0.</p>
 	  </item>
 	  <tag><c>Creation</c></tag>
@@ -739,7 +739,7 @@
 	  <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide> from older nodes.
 	</p>
 	<p>In OTP 24 distribution flag
-	  <seeguide marker="erl_dist_protocol#DFLAG_BIG_PIDS"><c>DFLAG_BIG_PIDS</c></seeguide>
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_PIDS_REFS"><c>DFLAG_V4_PIDS_REFS</c></seeguide>
 	  was introduced, accepting full 64-bit pids to be decoded and echoed back.
 	</p>
     </section>
@@ -1052,7 +1052,9 @@
 	    or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.</p>
 	  </item>
 	  <tag><c>Len</c></tag>
-	  <item><p>A 16-bit big endian unsigned integer not larger than 3.</p>
+	  <item><p>A 16-bit big endian unsigned integer not larger than 5 when the
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_PIDS_REFS"><c>DFLAG_V4_PIDS_REFS</c></seeguide>
+	  has been set; otherwise not larger than 3.</p>
 	  </item>
 	  <tag><c>ID</c></tag>
 	  <item><p>A sequence of <c>Len</c> big-endian unsigned integers
