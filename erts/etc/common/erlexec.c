@@ -1878,8 +1878,18 @@ read_args_file(char *filename)
 	file = fopen(filename, "r");
     } while (!file && errno == EINTR);
     if (!file) {
-	usage_format("Failed to open arguments file \"%s\": %s\n",
+#ifdef __WIN32__
+        char cwd[MAX_PATH];
+        if (_getcwd(cwd, sizeof(cwd)) == NULL) {
+#else
+        char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+#endif
+            cwd[0] = '\0';
+        }
+	usage_format("Failed to open arguments file \"%s\" at \"%s\": %s\n",
 		     filename,
+             cwd,
 		     errno_string());
     }
 
