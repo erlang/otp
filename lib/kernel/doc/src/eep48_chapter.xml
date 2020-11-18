@@ -38,6 +38,9 @@
   <p>To fetch the EEP-48 documentation for a module you can use
     <seemfa marker="code#get_doc/1"><c>code:get_doc/1</c></seemfa>.</p>
 
+  <p>To render the EEP-48 documentation for an Erlang module you can use
+    <seemfa marker="stdlib:shell_docs#render/2"><c>shell_docs:render/2</c></seemfa>.</p>
+
   <section>
     <title>the "Docs" storage</title>
     <p>To look for documentation for a module name example, a tool should:</p>
