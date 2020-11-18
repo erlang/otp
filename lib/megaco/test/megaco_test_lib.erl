@@ -495,7 +495,7 @@ init_per_suite(Config) ->
                 end;
            (_) ->
                 false
-    end,
+        end,
     COND = [
             {unix, [{linux,  LinuxVersionVerify}, 
 		    {darwin, DarwinVersionVerify}]}%% ,
