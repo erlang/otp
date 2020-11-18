@@ -109,11 +109,11 @@
 
     <func>
       <name name="render" arity="2" since="OTP 23.0"/>
-      <name name="render" arity="3" clause_i="1" since="@OTP-16990@"/>
+      <name name="render" arity="3" clause_i="1" since="OTP @OTP-16990@"/>
       <name name="render" arity="3" clause_i="2" since="OTP 23.0"/>
-      <name name="render" arity="4" clause_i="1" since="@OTP-16990@"/>
+      <name name="render" arity="4" clause_i="1" since="OTP @OTP-16990@"/>
       <name name="render" arity="4" clause_i="2" since="OTP 23.0"/>
-      <name name="render" arity="5" since="@OTP-16990@"/>
+      <name name="render" arity="5" since="OTP @OTP-16990@"/>
       <fsummary>Render the documentation for a module or function.</fsummary>
       <desc>
         <p>Render the documentation for a module or function.</p>
@@ -121,11 +121,11 @@
     </func>
     <func>
       <name name="render_type" arity="2" since="OTP 23.0"/>
-      <name name="render_type" arity="3" clause_i="1" since="@OTP-16990@"/>
+      <name name="render_type" arity="3" clause_i="1" since="OTP @OTP-16990@"/>
       <name name="render_type" arity="3" clause_i="2" since="OTP 23.0"/>
-      <name name="render_type" arity="4" clause_i="1" since="@OTP-16990@"/>
+      <name name="render_type" arity="4" clause_i="1" since="OTP @OTP-16990@"/>
       <name name="render_type" arity="4" clause_i="2" since="OTP 23.0"/>
-      <name name="render_type" arity="5" since="@OTP-16990@"/>
+      <name name="render_type" arity="5" since="OTP @OTP-16990@"/>
       <fsummary>Render the documentation of a type in a module.</fsummary>
       <desc>
         <p>Render the documentation of a type in a module.</p>
@@ -133,11 +133,11 @@
     </func>
     <func>
       <name name="render_callback" arity="2" since="OTP 23.0"/>
-      <name name="render_callback" arity="3" clause_i="1" since="@OTP-16990@"/>
+      <name name="render_callback" arity="3" clause_i="1" since="OTP @OTP-16990@"/>
       <name name="render_callback" arity="3" clause_i="2" since="OTP 23.0"/>
-      <name name="render_callback" arity="4" clause_i="1" since="@OTP-16990@"/>
+      <name name="render_callback" arity="4" clause_i="1" since="OTP @OTP-16990@"/>
       <name name="render_callback" arity="4" clause_i="2" since="OTP 23.0"/>
-      <name name="render_callback" arity="5" since="@OTP-16990@"/>
+      <name name="render_callback" arity="5" since="OTP @OTP-16990@"/>
       <fsummary>Render the documentation of a callback in a module.</fsummary>
       <desc>
         <p>Render the documentation of a callback in a module.</p>
