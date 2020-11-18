@@ -251,8 +251,8 @@ extern const ErtsUBif erts_u_bifs[];
 
 EOF
 
-print "#define BIF_TRAP_EXPORT(BIF_NAME) (bif_trap_exports[BIF_NAME])\n";
-print "extern Export *bif_trap_exports[];\n";
+print "#define BIF_TRAP_EXPORT(BIF_NAME) (&bif_trap_exports__[BIF_NAME])\n";
+print "extern Export bif_trap_exports__[];\n";
 print "\n";
 
 my $i;
@@ -284,7 +284,7 @@ my $i;
 includes("export.h", "sys.h", "erl_vm.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h", "erl_atom_table.h");
 
-print "\nExport *bif_trap_exports[BIF_SIZE];\n";
+print "\nExport bif_trap_exports__[BIF_SIZE];\n";
 
 print "BifEntry bif_table[] = {\n";
 for ($i = 0; $i < @bif; $i++) {

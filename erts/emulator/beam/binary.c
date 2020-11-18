@@ -35,8 +35,8 @@
 #define L2B_B2L_MIN_EXEC_REDS (CONTEXT_REDS/4)
 #define L2B_B2L_RESCHED_REDS (CONTEXT_REDS/40)
 
-static Export *binary_to_list_continue_export;
-static Export *list_to_binary_continue_export;
+static Export binary_to_list_continue_export;
+static Export list_to_binary_continue_export;
 
 static BIF_RETTYPE binary_to_list_continue(BIF_ALIST_1);
 static BIF_RETTYPE list_to_binary_continue(BIF_ALIST_1);
@@ -479,7 +479,7 @@ binary_to_list_chunk(Process *c_p,
 	ASSERT(c_p->flags & F_DISABLE_GC);
 	ASSERT(is_value(mb_eterm));
 	ERTS_BIF_PREP_TRAP1(ret,
-			    binary_to_list_continue_export,
+			    &binary_to_list_continue_export,
 			    c_p,
 			    mb_eterm);
     }
@@ -878,7 +878,7 @@ list_to_binary_chunk(Eterm mb_eterm,
 	ASSERT(c_p->flags & F_DISABLE_GC);
 
 	ERTS_BIF_PREP_TRAP1(ret,
-			    list_to_binary_continue_export,
+			    &list_to_binary_continue_export,
 			    c_p,
 			    mb_eterm);
 	break;

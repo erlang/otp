@@ -439,11 +439,11 @@ extern ErtsCodePtr beam_bif_export_trap;
         return THE_NON_VALUE;                                                 \
     } while(0)
 
-extern Export *bif_return_trap_export;
+extern Export bif_return_trap_export;
 #define ERTS_BIF_PREP_YIELD_RETURN_X(RET, P, VAL, OP)			\
 do {									\
     ERTS_VBUMP_ALL_REDS(P);						\
-    ERTS_BIF_PREP_TRAP2(RET, bif_return_trap_export, (P), (VAL), (OP));\
+    ERTS_BIF_PREP_TRAP2(RET, &bif_return_trap_export, (P), (VAL), (OP));\
 } while (0)
 
 #define ERTS_BIF_PREP_YIELD_RETURN(RET, P, VAL) \
@@ -452,7 +452,7 @@ do {									\
 #define ERTS_BIF_YIELD_RETURN_X(P, VAL, OP)				\
 do {									\
     ERTS_VBUMP_ALL_REDS(P);						\
-    BIF_TRAP2(bif_return_trap_export, (P), (VAL), (OP));		\
+    BIF_TRAP2(&bif_return_trap_export, (P), (VAL), (OP));		\
 } while (0)
 
 #define ERTS_BIF_RETURN_YIELD(P) ERTS_VBUMP_ALL_REDS((P))
