@@ -165,8 +165,13 @@ handle_options(Role, PropList0) ->
                                      }).
 
 handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
-                                            is_list(OptsList0) ->
-    OptsList1 = proplists:unfold(OptsList0),
+                         is_list(OptsList0) ->
+    OptsList1 = proplists:unfold(
+                  lists:foldl(fun(T,Acc) when is_tuple(T),
+                                              size(T) =/= 2-> [{special_trpt_args,T} | Acc];
+                                 (X,Acc) -> [X|Acc]
+                              end,
+                              [], OptsList0)),
     try
         OptionDefinitions = default(Role),
         RoleCnfs = application:get_env(ssh, cnf_key(Role), []),
@@ -285,6 +290,10 @@ save(Inet, Defs, OptMap) when Inet==inet ; Inet==inet6 ->
 %% Two clauses to prepare for a proplists:unfold
 save({Inet,true}, Defs, OptMap) when Inet==inet ; Inet==inet6 ->  save({inet,Inet}, Defs, OptMap);
 save({Inet,false}, _Defs, OptMap) when Inet==inet ; Inet==inet6 -> OptMap;
+
+%% There are inet-options that are not a tuple sized 2. They where marked earlier
+save({special_trpt_args,T}, _Defs, OptMap) when is_map(OptMap) ->
+    OptMap#{socket_options := [T | maps:get(socket_options,OptMap)]};
 
 %% and finaly the 'real stuff':
 save({Key,Value}, Defs, OptMap) when is_map(OptMap) ->
