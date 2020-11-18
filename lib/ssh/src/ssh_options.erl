@@ -161,13 +161,13 @@ delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opt
 handle_options(Role, PropList0) ->
     handle_options(Role, PropList0, #{socket_options   => [],
                                       internal_options => #{},
-                                      user_options     => []
+                                      key_cb_options   => []
                                      }).
 
 handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                          is_list(OptsList0) ->
     OptsList1 = proplists:unfold(
-                  lists:foldl(fun(T,Acc) when is_tuple(T),
+                  lists:foldr(fun(T,Acc) when is_tuple(T),
                                               size(T) =/= 2-> [{special_trpt_args,T} | Acc];
                                  (X,Acc) -> [X|Acc]
                               end,
@@ -187,7 +187,7 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                           {ok,V1} ->
                               %% A value set in config or options. Replace the current.
                               {M#{K => V1,
-                                  user_options => [{K,V1} | maps:get(user_options,M)]},
+                                  key_cb_options => [{K,V1} | maps:get(key_cb_options,M)]},
                                [{K,V1} | PL]
                               };
 
@@ -196,8 +196,8 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                               %% appended to the existing value
                               NewVal = maps:get(K,M,[]) ++ V1,
                               {M#{K => NewVal,
-                                  user_options => [{K,NewVal} |
-                                                   lists:keydelete(K,1,maps:get(user_options,M))]},
+                                  key_cb_options => [{K,NewVal} |
+                                                     lists:keydelete(K,1,maps:get(key_cb_options,M))]},
                                [{K,NewVal} | lists:keydelete(K,1,PL)]
                               };
                               
@@ -209,7 +209,7 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                  %% (_,_,Acc) ->
                  %%      Acc
               end,
-              {Opts0#{user_options => maps:get(user_options,Opts0)},
+              {Opts0#{key_cb_options => maps:get(key_cb_options,Opts0)},
                [{K,V} || {K,V} <- OptsList1,
                          not maps:is_key(K,Opts0) % Keep socket opts
                ]
