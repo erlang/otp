@@ -30,6 +30,17 @@ disk_log:lclose/1 since=24 remove=26
 disk_log:lclose/2 since=24 remove=26
 erlang:phash/2 since=24
 code:is_module_native/1 since=24 remove=26
+zlib:inflateChunk/1 since=24 remove=27
+zlib:inflateChunk/2 since=24 remove=27
+zlib:getBufSize/1 since=24 remove=27
+zlib:setBufSize/2 since=24 remove=27
+zlib:crc32/1 since=24 remove=27
+zlib:crc32/2 since=24 remove=27
+zlib:crc32/3 since=24 remove=27
+zlib:adler32/2 since=24 remove=27
+zlib:adler32/3 since=24 remove=27
+zlib:crc32_combine/4 since=24 remove=27
+zlib:adler32_combine/4 since=24 remove=27
 
 #
 # Added in OTP 23.
