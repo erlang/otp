@@ -839,7 +839,7 @@ get_host_key(SignAlg, Opts) ->
 
 call_KeyCb(F, Args, Opts) ->
     {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
-    UserOpts = ?GET_OPT(user_options, Opts),
+    UserOpts = ?GET_OPT(key_cb_options, Opts),
     apply(KeyCb, F, Args ++ [[{key_cb_private,KeyCbOpts}|UserOpts]]).
 
 extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
