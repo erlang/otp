@@ -225,7 +225,7 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
-
+#endif /* HAS_EVP_PKEY_CTX */
 
 int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
                    ErlNifBinary key_bin, ErlNifBinary text,
@@ -264,5 +264,3 @@ int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
                     
     return 1;
 }
-
-#endif
