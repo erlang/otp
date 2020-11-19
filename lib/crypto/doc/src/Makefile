@@ -48,4 +48,4 @@ TOP_SPECS_FILE = specs.xml
 
 include $(ERL_TOP)/make/doc.mk
 
-valgrind:
+valgrind asan:
