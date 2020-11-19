@@ -44,6 +44,8 @@
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 
+-compile({no_auto_import,[alias/1]}).
+
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
