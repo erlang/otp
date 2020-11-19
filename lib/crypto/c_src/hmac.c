@@ -28,7 +28,7 @@
  *
  ****************************************************************/
 
-#ifndef HAS_EVP_PKEY_CTX
+#if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
 
 #include "hmac.h"
 #include "digest.h"
