@@ -843,11 +843,9 @@ tls_closed_in_active_once_loop(Socket) ->
                     tls_closed_in_active_once_loop(Socket);
                 {ssl_closed, Socket} ->
                     ok
-            after 5000 ->
-                    no_ssl_closed_received
             end;
         {error, closed} ->
-            ok
+            {error, ssl_setopt_failed}
     end.
 
 drop_handshakes(Socket, Timeout) ->
