@@ -61,7 +61,9 @@
 	 check_timer/1,
 
 	 read/1,
-	 read_files/1
+	 read_files/1,
+
+         fd_leak_check/1
 	]).
 
 
@@ -86,7 +88,8 @@ all() ->
      check_sec_model2,
      check_sec_level,
      check_timer, 
-     read, read_files
+     read, read_files,
+     fd_leak_check
     ].
 
 groups() -> 
@@ -150,7 +153,10 @@ end_per_group(_GroupName, Config) ->
 %% -----
 %%
 
-init_per_testcase(read = _Case, Config) when is_list(Config) ->
+init_per_testcase(fd_leak_check = _Case, Config) when is_list(Config) ->
+    ?IPRINT("init_per_testcase -> entry with"
+            "~n   Config: ~p", [Config]),
+
     %% There are other ways to test this:
     %% lsof (linux and maybe FreeBSD):    lsof -p <pid>
     %%    os:cmd("lsof -p " ++ os:getpid() ++ " | grep -v COMMAND | wc -l").
@@ -159,6 +165,7 @@ init_per_testcase(read = _Case, Config) when is_list(Config) ->
     %% But this (list:dir) is good enough...
     case os:type() of
         {unix, linux} ->
+            ?IPRINT("init_per_testcase -> linux: check proc fs"),
             case file:read_file_info("/proc/" ++ os:getpid() ++ "/fd") of
                 {ok, #file_info{type   = directory,
                                 access = Access}}
@@ -169,9 +176,29 @@ init_per_testcase(read = _Case, Config) when is_list(Config) ->
                 _ ->
                     {skip, "Not proc fd"}
             end;
+        {unix, solaris} ->
+            ?IPRINT("init_per_testcase -> solaris: check pfiles"),
+            case os:cmd("type pfiles") of
+                [] ->
+                    {skip, "pfiles not found"};
+                _ ->
+                    [{num_open_fd, fun num_open_fd_using_pfiles/0} |
+                     Config]
+            end;
+        {unix, BSD} when (BSD =:= freebsd) orelse (BSD =:= openbsd) ->
+            ?IPRINT("init_per_testcase -> ~w: check fstat", [BSD]),
+            case os:cmd("which fstat") of
+                [] ->
+                    {skip, "fstat not found"};
+                _ ->
+                    [{num_open_fd, fun num_open_fd_using_fstat/0} |
+                     Config]
+            end;
         {win32, _} ->
+            ?IPRINT("init_per_testcase -> windows: no check"),
             {skip, "Not implemented"};
         _ ->
+            ?IPRINT("init_per_testcase -> no check"),
             {skip, "Not implemented"}
     end;
 init_per_testcase(_Case, Config) when is_list(Config) ->
@@ -731,16 +758,32 @@ verify_not_timer(Val) ->
 
 %%======================================================================
 
-%% Since we need something to read, we also write.
-%% And we can just as well that too...
 read(suite) -> [];
 read(Config) when is_list(Config) ->
-    ?TC_TRY(read,
+    ?P(read),
+    ?SKIP(not_implemented_yet).
+
+
+%%======================================================================
+
+read_files(suite) -> [];
+read_files(Config) when is_list(Config) ->
+    ?P(read_files),
+    ?SKIP(not_implemented_yet).
+
+
+%%======================================================================
+
+%% Since we need something to read, we also write.
+%% And we can just as well check then (after write) too...
+fd_leak_check(suite) -> [];
+fd_leak_check(Config) when is_list(Config) ->
+    ?TC_TRY(fd_leak_check,
             fun() -> ok end,
-            fun(_) -> do_read(Config) end,
+            fun(_) -> do_fd_leak_check(Config) end,
             fun(_) -> ok end).
 
-do_read(Config) ->
+do_fd_leak_check(Config) ->
     Dir       = ?config(priv_subdir, Config),
     NumOpenFD = ?config(num_open_fd, Config),
 
@@ -785,12 +828,25 @@ num_open_fd_using_list_dir() ->
     end.
 
 
-%%======================================================================
+num_open_fd_using_pfiles() ->
+    NumString = os:cmd("pfiles -n " ++ os:getpid() ++
+                           " | grep -v " ++ os:getpid() ++
+                           " | grep -v \"Current rlimit\" | wc -l"),
+    try list_to_integer(string:trim(NumString))
+    catch
+        _:Reason ->
+            ?SKIP({failed_pfiles, Reason})
+    end.
 
-read_files(suite) -> [];
-read_files(Config) when is_list(Config) ->
-    ?P(read_files),
-    ?SKIP(not_implemented_yet).
+
+num_open_fd_using_fstat() ->
+    NumString = os:cmd("fstat -p " ++ os:getpid() ++
+                           " | grep -v MOUNT | wc -l"),
+    try list_to_integer(string:trim(NumString))
+    catch
+        _:Reason ->
+            ?SKIP({failed_fstat, Reason})
+    end.
 
 
 %%======================================================================
