@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The inet option raw was not passed on from the ssh option
+	    list to inet.</p>
+          <p>
+	    Own Id: OTP-17016 Aux Id: ERIERL-562 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
