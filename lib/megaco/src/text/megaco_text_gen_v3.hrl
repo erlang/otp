@@ -3218,7 +3218,7 @@ enc_StatisticsDescriptor(List, State)
      enc_list([{List, fun enc_StatisticsParameter/2}], ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
     ];
-enc_StatisticsDescriptor([], State) ->
+enc_StatisticsDescriptor([], _State) ->
     [
      ?StatsToken
     ].
