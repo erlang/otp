@@ -1234,7 +1234,8 @@ static ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
                                   ERL_NIF_TERM     sockRef,
                                   ERL_NIF_TERM     sendRef,
                                   ERL_NIF_TERM     eMsg,
-                                  int              flags);
+                                  int              flags,
+                                  ERL_NIF_TERM     eIOV);
 static ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ERL_NIF_TERM     sendRef,
@@ -4664,7 +4665,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 
 	if (! GET_INT(env, argv[0], &fd)) {
             if (IS_INTEGER(env, argv[0]))
-                return esock_make_invalid_integer(env, argv[0]);
+                return esock_make_error_invalid_integer(env, argv[0]);
             else
                 return enif_make_badarg(env);
 	}
@@ -4692,7 +4693,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 
 	if (! GET_INT(env, argv[2], &proto)) {
             if (IS_INTEGER(env, argv[2]))
-                return esock_make_invalid_integer(env, argv[2]);
+                return esock_make_error_invalid_integer(env, argv[2]);
             else
                 return enif_make_badarg(env);
         }
@@ -5639,7 +5640,7 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
     }
     if (! GET_INT(env, argv[1], &backlog)) {
         if (IS_INTEGER(env, argv[1]))
-            return esock_make_invalid_integer(env, argv[1]);
+            return esock_make_error_invalid_integer(env, argv[1]);
         else
             return enif_make_badarg(env);
     }
@@ -6230,9 +6231,9 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
  *
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.
- * SendRef      - A unique id for this (send) request.
- * Data         - The data to send in the form of a IOVec.
- * Flags        - Send flags.
+ * Bin          - The data to send as a binary()
+ * Flags        - Send flags as an integer()
+ * SendRef      - A unique id reference() for this (send) request.
  */
 
 static
@@ -6254,7 +6255,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     SGDBG( ("SOCKET", "nif_send -> entry with argc: %d\r\n", argc) );
 
     sockRef = argv[0]; // We need this in case we send in case we send abort
-    sendRef = argv[1];
+    sendRef = argv[3];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         SSDBG( descP, ("SOCKET", "nif_send -> get resource failed\r\n") );
@@ -6264,14 +6265,14 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((! enif_is_ref(env, sendRef)) ||
-        (! GET_BIN(env, argv[2], &sndData))) {
+        (! GET_BIN(env, argv[1], &sndData))) {
         SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
-    if (! GET_INT(env, argv[3], &flags)) {
+    if (! GET_INT(env, argv[2], &flags)) {
         SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
-        if (IS_INTEGER(env, argv[3]))
-            return esock_make_invalid_integer(env, argv[3]);
+        if (IS_INTEGER(env, argv[2]))
+            return esock_make_error_invalid_integer(env, argv[2]);
         else
             return enif_make_badarg(env);
     }
@@ -6342,7 +6343,7 @@ ERL_NIF_TERM esock_send(ErlNifEnv*       env,
 
     send_result = (ssize_t) sndDataP->size;
     if ((size_t) send_result != sndDataP->size)
-        return esock_make_invalid(env, atom_data_size);
+        return esock_make_error_invalid(env, atom_data_size);
 
     /* Ensure that we either have no current writer or we are it,
      * or enqueue this process if there is a current writer  */
@@ -6377,10 +6378,10 @@ ERL_NIF_TERM esock_send(ErlNifEnv*       env,
  *
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.
- * SendRef      - A unique id for this (send) request.
- * Data         - The data to send in the form of a IOVec.
+ * Bin          - The data to send as a binary()
  * Dest         - Destination (socket) address.
- * Flags        - Send flags.
+ * Flags        - Send flags as an integer().
+ * SendRef      - A unique id reference() for this (send) request.
  */
 
 static
@@ -6405,7 +6406,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     SGDBG( ("SOCKET", "nif_sendto -> entry with argc: %d\r\n", argc) );
 
     sockRef   = argv[0]; // We need this in case we send abort (to the caller)
-    sendRef   = argv[1];
+    sendRef   = argv[4];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         SSDBG( descP, ("SOCKET", "nif_sendto -> get resource failed\r\n") );
@@ -6415,18 +6416,18 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if ((! enif_is_ref(env, sendRef)) ||
-        (! GET_BIN(env, argv[2], &sndData))) {
+        (! GET_BIN(env, argv[1], &sndData))) {
         SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
-    if (! GET_INT(env, argv[4], &flags)) {
+    if (! GET_INT(env, argv[3], &flags)) {
         SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
-        if (IS_INTEGER(env, argv[4]))
-            return esock_make_invalid_integer(env, argv[4]);
+        if (IS_INTEGER(env, argv[3]))
+            return esock_make_error_invalid_integer(env, argv[3]);
         else
             return enif_make_badarg(env);
     }
-    eSockAddr = argv[3];
+    eSockAddr = argv[2];
     if (! esock_decode_sockaddr(env, eSockAddr,
                                 &remoteAddr,
                                 &remoteAddrLen)) {
@@ -6490,7 +6491,7 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
 
     sendto_result = (ssize_t) dataP->size;
     if ((size_t) sendto_result != dataP->size)
-        return esock_make_invalid(env, atom_data_size);
+        return esock_make_error_invalid(env, atom_data_size);
 
     /* Ensure that we either have no current writer or we are it,
      * or enqueue this process if there is a current writer  */
@@ -6532,9 +6533,9 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
  *
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.
- * SendRef      - A unique id for this (send) request.
- * Msg       - Message Header - data and (maybe) control and dest
- * Flags        - Send flags.
+ * Msg          - Message - map() with data and (maybe) control and dest
+ * Flags        - Send flags as an integer().
+ * SendRef      - A unique id reference() for this (send) request.
  */
 
 static
@@ -6545,17 +6546,18 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 #ifdef __WIN32__
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    ERL_NIF_TERM     res, sockRef, sendRef, eMsg;
+    ERL_NIF_TERM     res, sockRef, sendRef, eMsg, eIOV;
     ESockDescriptor* descP;
     int              flags;
 
-    ESOCK_ASSERT( argc == 4 );
+    ESOCK_ASSERT( argc == 5 );
 
     SGDBG( ("SOCKET", "nif_sendmsg -> entry with argc: %d\r\n", argc) );
 
     sockRef = argv[0]; // We need this in case we send abort (to the caller)
-    sendRef = argv[1];
-    eMsg    = argv[2];
+    eMsg    = argv[1];
+    sendRef = argv[3];
+    eIOV    = argv[4];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
         SSDBG( descP, ("SOCKET", "nif_sendmsg -> get resource failed\r\n") );
@@ -6569,9 +6571,9 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
         SGDBG( ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
-    if (! GET_INT(env, argv[3], &flags)) {
-        if (IS_INTEGER(env, argv[3]))
-            return esock_make_invalid_integer(env, argv[3]);
+    if (! GET_INT(env, argv[2], &flags)) {
+        if (IS_INTEGER(env, argv[2]))
+            return esock_make_error_invalid_integer(env, argv[2]);
         else
             return enif_make_badarg(env);
     }
@@ -6586,7 +6588,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
             sockRef, descP->sock, descP->writeState,
             sendRef, flags) );
 
-    res = esock_sendmsg(env, descP, sockRef, sendRef, eMsg, flags);
+    res = esock_sendmsg(env, descP, sockRef, sendRef, eMsg, flags, eIOV);
 
     MUNLOCK(descP->writeMtx);
 
@@ -6607,9 +6609,10 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
                            ERL_NIF_TERM     sockRef,
                            ERL_NIF_TERM     sendRef,
                            ERL_NIF_TERM     eMsg,
-                           int              flags)
+                           int              flags,
+                           ERL_NIF_TERM     eIOV)
 {
-    ERL_NIF_TERM  res, eAddr, eIOV, eCtrl;
+    ERL_NIF_TERM  res, eAddr, eCtrl;
     ESockAddress  addr;
     struct msghdr msgHdr;
     ErlNifIOVec  *iovec = NULL;
@@ -6666,12 +6669,11 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
     }
 
     /* Extract the *mandatory* 'iov', which must be an erlang:iovec(),
-     * and not larger than IOV_MAX
+     * from which we take at most IOV_MAX binaries
      */
-    if ((! GET_MAP_VAL(env, eMsg, esock_atom_iov, &eIOV)) ||
-        (! enif_inspect_iovec(NULL, data.iov_max, eIOV, &tail, &iovec))) {
+    if ((! enif_inspect_iovec(NULL, data.iov_max, eIOV, &tail, &iovec))) {
         SSDBG( descP, ("SOCKET",
-                       "esock_sendmsg {%d} -> no iov or not an iov\r\n",
+                       "esock_sendmsg {%d} -> not an iov\r\n",
                        descP->sock) );
 
         return esock_make_invalid(env, esock_atom_iov);
@@ -6948,13 +6950,13 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
             return enif_make_badarg(env);
 
         if (argv2_is_integer)
-            return esock_make_invalid_integer(env, argv[2]);
+            return esock_make_error_invalid_integer(env, argv[2]);
         return
-            esock_make_invalid_integer(env, argv[3]);
+            esock_make_error_invalid_integer(env, argv[3]);
     }
     len = (ssize_t) elen;
     if (elen != (ErlNifUInt64) len)
-        return esock_make_invalid_integer(env, elen);
+        return esock_make_error_invalid_integer(env, elen);
 
     MLOCK(descP->readMtx);
 
@@ -7129,13 +7131,13 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
             return enif_make_badarg(env);
 
         if (argv2_is_integer)
-            return esock_make_invalid_integer(env, argv[2]);
+            return esock_make_error_invalid_integer(env, argv[2]);
         return
-            esock_make_invalid_integer(env, argv[3]);
+            esock_make_error_invalid_integer(env, argv[3]);
     }
     len = (ssize_t) elen;
     if (elen != (ErlNifUInt64) len)
-        return esock_make_invalid_integer(env, elen);
+        return esock_make_error_invalid_integer(env, elen);
 
     MLOCK(descP->readMtx);
 
@@ -7321,20 +7323,20 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
             return enif_make_badarg(env);
 
         if (argv2_is_integer)
-            return esock_make_invalid_integer(env, argv[2]);
+            return esock_make_error_invalid_integer(env, argv[2]);
         if (argv3_is_integer)
-            return esock_make_invalid_integer(env, argv[3]);
+            return esock_make_error_invalid_integer(env, argv[3]);
         return
-            esock_make_invalid_integer(env, argv[4]);
+            esock_make_error_invalid_integer(env, argv[4]);
     }
 
     bufSz  = (ssize_t) eBufSz;
     if (eBufSz  != (ErlNifUInt64) bufSz)
-        return esock_make_invalid_integer(env, eBufSz);
+        return esock_make_error_invalid_integer(env, eBufSz);
 
     ctrlSz = (ssize_t) eCtrlSz;
     if (eCtrlSz != (ErlNifUInt64) ctrlSz)
-        return esock_make_invalid_integer(env, eCtrlSz);
+        return esock_make_error_invalid_integer(env, eCtrlSz);
 
     MLOCK(descP->readMtx);
 
@@ -8045,7 +8047,7 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
         if (! IS_INTEGER(env, argv[2]))
             return enif_make_badarg(env);
         else
-            return esock_make_invalid_integer(env, argv[2]);
+            return esock_make_error_invalid_integer(env, argv[2]);
     }
     eVal = argv[3];
 
@@ -8067,7 +8069,7 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 
     SGDBG( ("SOCKET", "nif_setopt -> failed arg check\r\n") );
     if (IS_INTEGER(env, argv[1]))
-        return esock_make_invalid_integer(env, argv[1]);
+        return esock_make_error_invalid_integer(env, argv[1]);
     else
         return enif_make_badarg(env);
 #endif // #ifdef __WIN32__  #else
@@ -9729,7 +9731,7 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
         if (! IS_INTEGER(env, argv[2]))
             return enif_make_badarg(env);
         else
-            return esock_make_invalid_integer(env, argv[2]);
+            return esock_make_error_invalid_integer(env, argv[2]);
     }
 
     if (esock_decode_level(env, argv[1], &level)) {
@@ -9748,7 +9750,7 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
 
     SGDBG( ("SOCKET", "nif_getopt -> failed args check\r\n") );
     if (IS_INTEGER(env, argv[1]))
-        return esock_make_invalid_integer(env, argv[1]);
+        return esock_make_error_invalid_integer(env, argv[1]);
     else
         return enif_make_badarg(env);
 
@@ -10967,7 +10969,7 @@ ERL_NIF_TERM esock_getopt_bin_opt(ErlNifEnv*       env,
 
     vsz = (SOCKOPTLEN_T) binP->size;
     if (SZT(vsz) != binP->size) {
-        result = esock_make_error(env, esock_atom_invalid);
+        result = esock_make_error_invalid(env, atom_data_size);
     } else {
         ESOCK_ASSERT( ALLOC_BIN(vsz, &val) );
         sys_memcpy(val.data, binP->data, vsz);
@@ -16899,7 +16901,7 @@ ErlNifFunc esock_funcs[] =
     {"nif_accept",              2, nif_accept, 0},
     {"nif_send",                4, nif_send, 0},
     {"nif_sendto",              5, nif_sendto, 0},
-    {"nif_sendmsg",             4, nif_sendmsg, 0},
+    {"nif_sendmsg",             5, nif_sendmsg, 0},
     {"nif_recv",                4, nif_recv, 0},
     {"nif_recvfrom",            4, nif_recvfrom, 0},
     {"nif_recvmsg",             5, nif_recvmsg, 0},
