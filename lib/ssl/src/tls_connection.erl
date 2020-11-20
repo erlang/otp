@@ -1346,10 +1346,7 @@ handle_alerts(_, {stop, _, _} = Stop) ->
 handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts], 
               {next_state, connection = StateName, #state{connection_env = CEnv, 
                                                           socket_options = #socket_options{active = false},
-                                                          user_data_buffer = {_,BufferSize,_},
-                                                          protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs}} = 
-                   State}) when (BufferSize =/= 0) orelse
-                                (CTs =/= []) -> 
+                                                          start_or_recv_from = From} = State}) when From == undefined ->
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{terminated = true}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
      handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State));
