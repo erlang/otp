@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,6 +89,10 @@
 -define(T_MAILB,	253).		%% transfer mailbox records
 -define(T_MAILA,	254).		%% transfer mail agent records
 -define(T_ANY,		255).		%% wildcard match
+%% URI (RFC 7553)
+-define(T_URI,		256).		%% uniform resource identifier
+%% CAA (RFC 6844)
+-define(T_CAA,		257).		%% certification authority authorization
 
 %%
 %% Symbolic Type values for resources and queries
@@ -127,6 +131,10 @@
 -define(S_MAILB,	mailb).		%% transfer mailbox records
 -define(S_MAILA,	maila).		%% transfer mail agent records
 -define(S_ANY,		any).		%% wildcard match
+%% URI (RFC 7553)
+-define(S_URI,		uri).		%% uniform resource identifier
+%% CAA (RFC 6844)
+-define(S_CAA,		caa).		%% certification authority authorization
 
 %%
 %% Values for class field

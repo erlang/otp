@@ -70,9 +70,9 @@
 
 -type dns_name() :: string().
 
--type rr_type() :: a | aaaa | cname | gid | hinfo | ns | mb | md | mg | mf
-                 | minfo | mx | naptr | null | ptr | soa | spf | srv | txt
-                 | uid | uinfo | unspec | wks.
+-type rr_type() :: a | aaaa | caa | cname | gid | hinfo | ns | mb | md | mg
+                 | mf | minfo | mx | naptr | null | ptr | soa | spf | srv
+                 | txt | uid | uinfo | unspec | uri | wks.
 
 -type dns_class() :: in | chaos | hs | any.
 
@@ -491,7 +491,7 @@ type_p(Type) ->
 		        ?S_MD, ?S_MF, ?S_CNAME, ?S_SOA,
 		        ?S_MB, ?S_MG, ?S_MR, ?S_NULL,
 		        ?S_WKS, ?S_HINFO, ?S_TXT, ?S_SRV, ?S_NAPTR, ?S_SPF,
-		        ?S_UINFO, ?S_UID, ?S_GID]).
+		        ?S_UINFO, ?S_UID, ?S_GID, ?S_URI, ?S_CAA]).
 
 
 

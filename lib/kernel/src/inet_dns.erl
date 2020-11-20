@@ -26,6 +26,8 @@
 %% RFC 2671: Extension Mechanisms for DNS (EDNS0)
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
+%% RFC 6488: DNS Certification Authority Authorization (CAA) Resource Record
+%% RFC 7553: The Uniform Resource Identifier (URI) DNS Resource Record
 
 -export([decode/1, encode/1]).
 
@@ -336,6 +338,8 @@ decode_type(Type) ->
 	?T_MAILB -> ?S_MAILB;
 	?T_MAILA -> ?S_MAILA;
 	?T_ANY  -> ?S_ANY;
+	?T_URI  -> ?S_URI;
+	?T_CAA  -> ?S_CAA;
 	_ -> Type    %% raw unknown type
     end.
 
@@ -375,6 +379,8 @@ encode_type(Type) ->
 	?S_MAILB -> ?T_MAILB;
 	?S_MAILA -> ?T_MAILA;
 	?S_ANY -> ?T_ANY;
+	?S_URI -> ?T_URI;
+	?S_CAA -> ?T_CAA;
 	Type when is_integer(Type) -> Type    %% raw unknown type
     end.
 
@@ -473,13 +479,27 @@ decode_data(<<Order:16,Preference:16,Data0/binary>>, _, ?S_NAPTR, Buffer) ->
     {Data2,Services} = decode_string(Data1),
     {Data,Regexp} = decode_characters(Data2, utf8),
     Replacement = decode_domain(Data, Buffer),
-    {Order,Preference,string:lowercase(Flags),string:lowercase(Services),
+    {Order,Preference,inet_db:tolower(Flags),inet_db:tolower(Services),
      Regexp,Replacement};
 %% ?S_OPT falls through to default
 decode_data(Data, _, ?S_TXT, _) ->
     decode_txt(Data);
 decode_data(Data, _, ?S_SPF, _) ->
     decode_txt(Data);
+decode_data(<<Prio:16,Weight:16,Data0/binary>>, _, ?S_URI, _) ->
+    (1 =< byte_size(Data0))
+        orelse throw(?DECODE_ERROR),
+    Target = binary_to_list(Data0),
+    {Prio,Weight,Target};
+decode_data(Data, _, ?S_URI, _) ->
+    decode_txt(Data);
+decode_data(<<Flags:8,Data0/binary>>, _, ?S_CAA, _) ->
+    {Data1,Tag} = decode_string(Data0),
+    L = length(Tag),
+    (1 =< L andalso L =< 15)
+        orelse throw(?DECODE_ERROR),
+    Value = binary_to_list(Data1),
+    {Flags,inet_db:tolower(Tag),Value};
 %% sofar unknown or non standard
 decode_data(Data, _, _, _) ->
     Data.
@@ -630,6 +650,15 @@ encode_data(Comp, Pos, ?S_NAPTR, in,
 %% ?S_OPT falls through to default
 encode_data(Comp, _, ?S_TXT, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_SPF, in, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_URI, in, {Prio,Weight,Target}) ->
+    {<<Prio:16,Weight:16,(iolist_to_binary(Target))/binary>>,Comp};
+encode_data(Comp, _, ?S_URI, in, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_CAA, in, {Flags,Tag,Value}) ->
+    B0 = <<Flags:8>>,
+    B1 = encode_string(B0, iolist_to_binary(Tag)),
+    B2 = iolist_to_binary(Value),
+    {<<B1/binary,B2/binary>>,Comp};
+encode_data(Comp, _, ?S_CAA, in, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _Pos, _Type, _Class, Data) -> {iolist_to_binary(Data),Comp}.
 
 %% Array of strings
