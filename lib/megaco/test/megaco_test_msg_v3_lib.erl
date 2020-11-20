@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3775,8 +3775,16 @@ is_AmmRequest_descriptors(Descs) ->
 
 is_AmmRequest_descriptors([], _) ->
     true;
-is_AmmRequest_descriptors([{Tag, _} = Desc|Descs], FoundDescs) ->
-    d("is_AmmRequest_descriptors -> entry with"
+is_AmmRequest_descriptors([Desc|Descs], FoundDescs) ->
+    FoundDescs2 = is_AmmRequest_descriptor(Desc, FoundDescs),
+    is_AmmRequest_descriptors(Descs, FoundDescs2);
+is_AmmRequest_descriptors(Descs, _) ->
+    d("is_AmmRequest_descriptors -> entry with WRONG TYPE"
+      "~n   Descs: ~p", [Descs]),
+    wrong_type('AmmRequest_descriptors', Descs).
+
+is_AmmRequest_descriptor({Tag, _} = Desc, FoundDescs) when is_atom(Tag) ->
+    d("is_AmmRequest_descriptor -> entry with"
       "~n   Tag:        ~p"
       "~n   FoundDescs: ~p", [Tag, FoundDescs]),
     case lists:member(Tag, FoundDescs) of
@@ -3785,15 +3793,13 @@ is_AmmRequest_descriptors([{Tag, _} = Desc|Descs], FoundDescs) ->
 	false ->
 	    case is_AmmDescriptor(Desc) of
 		true ->
-		    is_AmmRequest_descriptors(Descs, [Tag|FoundDescs]);
+		    [Tag|FoundDescs];
 		false ->
 		    wrong_type('AmmRequest_descriptors', Desc)
 	    end
     end;
-is_AmmRequest_descriptors(Descs, _) ->
-    d("is_AmmRequest_descriptors -> entry with WRONG TYPE"
-      "~n   Descs: ~p", [Descs]),
-    wrong_type('AmmRequest_descriptors', Descs).
+is_AmmRequest_descriptor(Tag, FoundDescs) when is_atom(Tag) ->
+    is_AmmRequest_descriptor({Tag, []}, FoundDescs).
 
 	    
 chk_AmmRequest(R, R) when is_record(R, 'AmmRequest') ->
@@ -3837,7 +3843,11 @@ chk_AmmRequest_descriptors([H|T1], [H|T2]) ->
 	    wrong_type('AmmRequest_descriptors_val', H)
     end;
 chk_AmmRequest_descriptors([H1|T1], [H2|T2]) ->
-    d("chk_AmmRequest_descriptors -> entry when not equal"),
+    d("chk_AmmRequest_descriptors -> entry when not equal: "
+      "~n   H1: ~p"
+      "~n   T1: ~p"
+      "~n   H2: ~p"
+      "~n   T2: ~p", [H1, T1, H2, T2]),
     validate(fun() -> chk_AmmDescriptor(H1, H2) end, 
 	     'AmmRequest_descriptors_val'),
     chk_AmmRequest_descriptors(T1, T2);
@@ -3885,6 +3895,11 @@ is_AmmDescriptor_val(statisticsDescriptor, D) ->
 
 chk_AmmDescriptor(D, D) ->
     chk_type(fun is_AmmDescriptor_tag/1, 'AmmDescriptor', D);
+%% There are two ways of spec an empty statisticsDescriptor:
+%%   * statisticsDescriptor
+%%   * {statisticsDescriptor, []}
+chk_AmmDescriptor(Tag, {Tag, []}) when (Tag =:= statisticsDescriptor) ->
+    ok;
 chk_AmmDescriptor({Tag, Val1} = Cmd1, {Tag, Val2} = Cmd2) ->
     case (is_AmmDescriptor_tag(Tag) andalso
 	  is_AmmDescriptor_val(Tag, Val1) andalso
