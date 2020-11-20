@@ -28,6 +28,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 
+-include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 
@@ -109,10 +110,15 @@ init_per_suite(Config0) when is_list(Config0) ->
             %% We need a monitor on this node also
             snmp_test_sys_monitor:start(),
 
+            PrivDir    = ?config(priv_dir, Config1),
+            PrivSubdir = filename:join(PrivDir, "snmp_conf_test"),
+            ok = filelib:ensure_dir(filename:join(PrivSubdir, "dummy")),
+            Config2 = [{priv_subdir, PrivSubdir} | Config1],
+
             ?IPRINT("init_per_suite -> end when"
-                    "~n      Config: ~p", [Config1]),
+                    "~n      Config: ~p", [Config2]),
             
-            Config1
+            Config2
     end.
 
 end_per_suite(Config0) when is_list(Config0) ->
@@ -144,6 +150,30 @@ end_per_group(_GroupName, Config) ->
 %% -----
 %%
 
+init_per_testcase(read = _Case, Config) when is_list(Config) ->
+    %% There are other ways to test this:
+    %% lsof (linux and maybe FreeBSD):    lsof -p <pid>
+    %%    os:cmd("lsof -p " ++ os:getpid() ++ " | grep -v COMMAND | wc -l").
+    %% fstat (FreeBSD and maybe OpenBSD): fstat -p <pid>
+    %%    os:cmd("fstat -p " ++ os:getpid() ++ " | grep -v USER | wc -l").
+    %% But this (list:dir) is good enough...
+    case os:type() of
+        {unix, linux} ->
+            case file:read_file_info("/proc/" ++ os:getpid() ++ "/fd") of
+                {ok, #file_info{type   = directory,
+                                access = Access}}
+                  when (Access =:= read) orelse
+                       (Access =:= read_write) ->
+                    [{num_open_fd, fun num_open_fd_using_list_dir/0} |
+                     Config];
+                _ ->
+                    {skip, "Not proc fd"}
+            end;
+        {win32, _} ->
+            {skip, "Not implemented"};
+        _ ->
+            {skip, "Not implemented"}
+    end;
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
@@ -701,10 +731,58 @@ verify_not_timer(Val) ->
 
 %%======================================================================
 
+%% Since we need something to read, we also write.
+%% And we can just as well that too...
 read(suite) -> [];
 read(Config) when is_list(Config) ->
-    ?P(read),
-    ?SKIP(not_implemented_yet).
+    ?TC_TRY(read,
+            fun() -> ok end,
+            fun(_) -> do_read(Config) end,
+            fun(_) -> ok end).
+
+do_read(Config) ->
+    Dir       = ?config(priv_subdir, Config),
+    NumOpenFD = ?config(num_open_fd, Config),
+
+    Entries = [
+               snmpa_conf:agent_entry(intAgentIpAddress, {0,0,0,0}),
+               snmpa_conf:agent_entry(intAgentUDPPort, 161),
+               snmpa_conf:agent_entry(snmpEngineMaxMessageSize, 484),
+               snmpa_conf:agent_entry(snmpEngineID, "fooBarEI")
+              ],
+
+    NumFD01 = NumOpenFD(),
+
+    ok = snmpa_conf:write_agent_config(Dir, Entries),
+
+    NumFD02 = NumOpenFD(),
+
+    {ok, _} = snmpa_conf:read_agent_config(Dir),
+
+
+    NumFD03 = NumOpenFD(),
+    if
+        (NumFD01 =:= NumFD02) andalso (NumFD02 =:= NumFD03) ->
+            ok;
+        true ->
+            ?FAIL({num_open_fd, NumFD01, NumFD02, NumFD03})
+    end.
+
+
+
+%% There are other ways to test this:
+%% lsof (linux and maybe FreeBSD):    lsof -p <pid>
+%%    os:cmd("lsof -p " ++ os:getpid() ++ " | grep -v COMMAND | wc -l").
+%% fstat (FreeBSD and maybe OpenBSD): fstat -p <pid>
+%%    os:cmd("fstat -p " ++ os:getpid() ++ " | grep -v USER | wc -l").
+%% But this is good enough...
+num_open_fd_using_list_dir() ->
+    case file:list_dir("/proc/" ++ os:getpid() ++ "/fd") of
+        {ok, FDs} ->
+            length(FDs);
+        {error, Reason} ->
+            ?SKIP({failed_listing_fd, Reason})
+    end.
 
 
 %%======================================================================
