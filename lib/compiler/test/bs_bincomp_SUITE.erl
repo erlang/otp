@@ -26,8 +26,8 @@
 	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
-	 nomatch/1,sizes/1,general_expressions/1,matched_out_size/1,
-         no_generator/1,zero_pattern/1]).
+	 nomatch/1,sizes/1,general_expressions/1,
+         no_generator/1,zero_pattern/1,multiple_segments/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,8 +36,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
-     nomatch, sizes, general_expressions, matched_out_size,
-     no_generator, zero_pattern].
+     nomatch, sizes, general_expressions,
+     no_generator, zero_pattern, multiple_segments].
 
 groups() -> 
     [].
@@ -446,13 +446,6 @@ enc_char_cm(C0, Lb, Limit) ->
 
 -undef(BAD).
 
-matched_out_size(Config) when is_list(Config) ->
-    <<1, 2>> = matched_out_size_1(<<4, 1:4, 4, 2:4>>),
-    ok.
-
-matched_out_size_1(Binary) ->
-    << <<X>> || <<S, X:S>> <= Binary>>.
-
 no_generator(_Config) ->
     [<<"abc">>] = [<<(id(<<"abc">>)) || true >>],
     {<<>>} = {<<(id(<<"abc">>)) || false >>},
@@ -482,6 +475,43 @@ zero_pattern(Config) ->
         false ->
             ok
     end.
+
+multiple_segments(_Config) ->
+    cs_init(),
+
+    [1,2] = matched_out_size(<<4, 1:4, 4, 2:4>>),
+    [42] = matched_out_size(<<16, 42:16, 72>>),
+
+    [] = do_multiple_segments_1(<<>>),
+    [] = do_multiple_segments_1(<<1>>),
+    [] = do_multiple_segments_1(<<1,2>>),
+    [] = do_multiple_segments_1(<<1,2,3>>),
+    [1,4] = do_multiple_segments_1(<<99,0,1,1,2,3,4,4>>),
+
+    [] = do_multiple_segments_2(<<1,2>>),
+    [6] = do_multiple_segments_2(<<1,2,3>>),
+    [6,15] = do_multiple_segments_2(<<1,2,3,4,5,6,7,8>>),
+
+    cs_end(),
+    ok.
+
+matched_out_size(Gen) ->
+    Bin = cs_default(<< <<X>> || <<S,X:S>> <= Gen >>),
+    List = [X || <<S,X:S>> <= Gen],
+    Bin = list_to_binary(List),
+    List.
+
+do_multiple_segments_1(Gen) ->
+    Bin = cs_default(<< <<V>> || <<V,V>> <= Gen >>),
+    List = [V || <<V,V>> <= Gen],
+    Bin = list_to_binary(List),
+    List.
+
+do_multiple_segments_2(Gen) ->
+    Bin = cs(<< <<(A+B+C)>> || <<A,B,C>> <= Gen >>),
+    List = [A+B+C || <<A,B,C>> <= Gen],
+    Bin = list_to_binary(List),
+    List.
 
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),

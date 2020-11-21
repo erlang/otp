@@ -1389,27 +1389,19 @@ lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
     Nc = #iapply{anno=GAnno,op=F,args=[Tail]},
     {[FcVar,Var],St2} = new_vars(2, St1),
     Fc = bad_generator([FcVar], FcVar, Arg),
+    SkipClause = #iclause{anno=#a{anno=[skip_clause,compiler_generated|LA]},
+                          pats=[SkipPat],guard=[],body=[Nc]},
     TailClause = #iclause{anno=LAnno,pats=[TailPat],guard=[],body=[Mc]},
-    Cs0 = case {AccPat,AccGuard} of
-              {SkipPat,[]} ->
-                  %% Skip and accumulator patterns are the same and there is
-                  %% no guard, no need to generate a skip clause.
-                  [TailClause];
-              _ ->
-                  [#iclause{anno=#a{anno=[compiler_generated|LA]},
-                            pats=[SkipPat],guard=[],body=[Nc]},
-                   TailClause]
-          end,
-    {Cs,St4} = case AccPat of
-                   nomatch ->
-                       %% The accumulator pattern never matches, no need
-                       %% for an accumulator clause.
-                       {Cs0,St2};
+    {Cs,St4} = case {AccPat,SkipPat} of
+                   {nomatch,nomatch} ->
+                       {[TailClause],St2};
+                   {nomatch,_} ->
+                       {[SkipClause,TailClause],St2};
                    _ ->
                        {Lc,Lps,St3} = lc_tq(Line, E, Qs, Nc, St2),
-                       {[#iclause{anno=LAnno,pats=[AccPat],guard=AccGuard,
-                                  body=Lps ++ [Lc]}|Cs0],
-                        St3}
+                       AccClause = #iclause{anno=LAnno,pats=[AccPat],guard=AccGuard,
+                                            body=Lps ++ [Lc]},
+                       {[AccClause,SkipClause,TailClause],St3}
                end,
     Fun = #ifun{anno=GAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
     {#iletrec{anno=GAnno#a{anno=[list_comprehension|GA]},defs=[{{Name,1},Fun}],
@@ -1459,30 +1451,21 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
     F = #c_var{anno=LA,name={Name,2}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail,AccVar]},
     Fc = bad_generator(FcVars, hd(FcVars), Arg),
+    SkipClause = #iclause{anno=#a{anno=[compiler_generated,skip_clause|LA]},
+                          pats=[SkipPat,IgnoreVar],guard=[],body=[Nc]},
     TailClause = #iclause{anno=LAnno,pats=[TailPat,IgnoreVar],guard=[],
                           body=[AccVar]},
-    Cs0 = case {AccPat,AccGuard} of
-              {SkipPat,[]} ->
-                  %% Skip and accumulator patterns are the same and there is
-                  %% no guard, no need to generate a skip clause.
-                  [TailClause];
-              _ ->
-                  [#iclause{anno=#a{anno=[compiler_generated|LA]},
-                            pats=[SkipPat,IgnoreVar],guard=[],body=[Nc]},
-                   TailClause]
-          end,
-    {Cs,St} = case AccPat of
-                  nomatch ->
-                      %% The accumulator pattern never matches, no need
-                      %% for an accumulator clause.
-                      {Cs0,St4};
-                  _ ->
+    {Cs,St} = case {AccPat,SkipPat} of
+                  {nomatch,nomatch} ->
+                      {[TailClause],St4};
+                  {nomatch,_} ->
+                      {[SkipClause,TailClause],St4};
+                  {_,_} ->
                       {Bc,Bps,St5} = bc_tq1(Line, E, Qs, AccVar, St4),
                       Body = Bps ++ [#iset{var=AccVar,arg=Bc},Nc],
-                      {[#iclause{anno=LAnno,
-                                 pats=[AccPat,IgnoreVar],guard=AccGuard,
-                                 body=Body}|Cs0],
-                       St5}
+                      AccClause = #iclause{anno=LAnno,pats=[AccPat,IgnoreVar],
+                                           guard=AccGuard,body=Body},
+                      {[AccClause,SkipClause,TailClause],St5}
               end,
     Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
 
@@ -1668,7 +1651,7 @@ generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
             {AccSegs,Tail,TailSeg,St2} = append_tail_segment(Segs, St1),
             AccPat = Cp#ibinary{segments=AccSegs},
             {Cg,St3} = lc_guard_tests(Gs, St2),
-            {SkipSegs,St4} = emasculate_segments(AccSegs, St3),
+            {SkipSegs,St4} = skip_segments(AccSegs, St3, []),
             SkipPat = Cp#ibinary{segments=SkipSegs},
             {Ce,Pre,St5} = safe(E, St4),
             Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,
@@ -1694,15 +1677,21 @@ append_tail_segment(Segs, St0) ->
                     flags=#c_literal{val=[unsigned,big]}},
     {Segs++[Tail],Var,Tail,St}.
 
-emasculate_segments(Segs, St) ->
-    emasculate_segments(Segs, St, []).
+%% skip_segments(Segments, St0, Acc) -> {SkipSegments,St}.
+%%  Generate the segments for a binary pattern that can be used
+%%  in the skip clause that will continue the iteration when
+%%  the accumulator pattern didn't match.
 
-emasculate_segments([#ibitstr{val=#c_var{}}=B|Rest], St, Acc) ->
-    emasculate_segments(Rest, St, [B|Acc]);
-emasculate_segments([B|Rest], St0, Acc) ->
+skip_segments([#ibitstr{val=#c_var{}}=B|Rest], St, Acc) ->
+    %% We must keep the names of existing variables to ensure that
+    %% patterns such as <<Size,X:Size>> will work.
+    skip_segments(Rest, St, [B|Acc]);
+skip_segments([B|Rest], St0, Acc) ->
+    %% Replace literal or expression with a variable (whose value will
+    %% be ignored).
     {Var,St1} = new_var(St0),
-    emasculate_segments(Rest, St1, [B#ibitstr{val=Var}|Acc]);
-emasculate_segments([], St, Acc) ->
+    skip_segments(Rest, St1, [B#ibitstr{val=Var}|Acc]);
+skip_segments([], St, Acc) ->
     {reverse(Acc),St}.
 
 lc_guard_tests([], St) -> {[],St};
@@ -2145,8 +2134,22 @@ uclause(Cl0, Ks, St0) ->
     A = A0#a{us=Used,ns=New},
     {Cl1#iclause{anno=A},St1}.
 
-do_uclause(#iclause{anno=Anno,pats=Ps0,guard=G0,body=B0}, Ks0, St0) ->
-    {Ps1,Pg,Pvs,Pus,St1} = upattern_list(Ps0, Ks0, St0),
+do_uclause(#iclause{anno=A0,pats=Ps0,guard=G0,body=B0}, Ks0, St0) ->
+    {Ps1,Pg0,Pvs,Pus,St1} = upattern_list(Ps0, Ks0, St0),
+    Anno = A0#a.anno,
+    {Pg,A} = case member(skip_clause, Anno) of
+                 true ->
+                     %% This is the skip clause for a binary generator.
+                     %% To ensure that it will properly skip the nonmatching
+                     %% patterns in generators such as:
+                     %%
+                     %%   <<V,V>> <= Gen
+                     %%
+                     %% we must remove any generated pre guard.
+                     {[],A0#a{anno=Anno -- [skip_clause]}};
+                 false ->
+                     {Pg0,A0}
+             end,
     Pu = union(Pus, intersection(Pvs, Ks0)),
     Pn = subtract(Pvs, Pu),
     Ks1 = union(Pn, Ks0),
@@ -2157,7 +2160,7 @@ do_uclause(#iclause{anno=Anno,pats=Ps0,guard=G0,body=B0}, Ks0, St0) ->
     {B1,St3} = uexprs(B0, Ks2, St2),
     Used = intersection(union([Pu,Gu,used_in_any(B1)]), Ks0),
     New = union([Pn,Gn,new_in_any(B1)]),
-    {#iclause{anno=Anno,pats=Ps1,guard=G1,body=B1},Pvs,Used,New,St3}.
+    {#iclause{anno=A,pats=Ps1,guard=G1,body=B1},Pvs,Used,New,St3}.
 
 %% uguard([Test], [Kexpr], [KnownVar], State) -> {[Kexpr],State}.
 %%  Build a guard expression list by folding in the equality tests.
