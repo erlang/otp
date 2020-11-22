@@ -25,16 +25,69 @@
 #
 # Usage: start [Data]
 #
-if [ -z "$ROOTDIR" ]
+if [ -z "$ERL_ROOTDIR" ]
 then
-   ROOTDIR=%FINAL_ROOTDIR%
+    ROOTDIR="%FINAL_ROOTDIR%"
+else
+    ROOTDIR="$ERL_ROOTDIR"
 fi
 
 if [ -z "$RELDIR" ]
 then
-   RELDIR=$ROOTDIR/releases
+    RELDIR=$ROOTDIR/releases
+fi
+
+# If ROOTDIR is not set or if it doesn't point to an existing directory, try
+# to find the path of the script from within itself to set ROOTDIR dynamically
+if [ -z "$ROOTDIR" -o ! -d "$ROOTDIR" ]
+then
+    prog="$0"
+    # Follow all symlinks, whether relative or absolute, leading to the script
+    # as inspired by the dx script from the Android Open Source Project:
+    # https://android.googlesource.com/platform/dalvik/+/master/dx/etc/dx
+    #
+    # Check if ${prog} is a symlink with the -h test
+    while [ -h "${prog}" ]; do
+        # In its long listing output, 'ls -ld' represents symlinks using the
+        # 'link -> target' format. Use a regex to match the 'target' part by
+        # returning the string between '\(' and '\)' on the right side of '->'.
+        ls_output=`ls -ld "${prog}"`
+        new_prog=`expr "${ls_output}" : ".* -> \(.*\)$"`
+        # If ${new_prog} starts with a leading '/' character, it is an absolute
+        # symlink. Prepend a protective 'x' character in the regex to prevent
+        # ${new_prog} from being interpreted as an operator.
+        if expr "x${new_prog}" : 'x/' >/dev/null; then
+            prog="${new_prog}"
+        else
+            # Otherwise ${new_prog} is a relative symlink
+            prog_dir=`dirname "${prog}"`
+            prog="${prog_dir}/${new_prog}"
+        fi
+    done
+    oldwd=`pwd`
+    prog_dir=`dirname "${prog}"`
+    cd "${prog_dir}"
+    prog_dir=`pwd`
+    cd "${oldwd}"
+    case $prog_dir in
+        *erts-%VSN%/bin)
+            # The script is in erts-%VSN%/bin
+            erts_dir=`dirname "${prog_dir}"`
+            ROOTDIR=`dirname "${erts_dir}"` ;;
+        */bin)
+            # The script is in bin
+            ROOTDIR=`dirname "${prog_dir}"` ;;
+        *)
+            echo "The start script is not in its expected location within" >&2
+            echo "the Erlang installation:" >&2
+            echo "   ${prog_dir}" >&2
+            echo "If it has been moved, copied or referenced via a hard" >&2
+            echo "link, use a symlink instead." >&2
+            exit 1
+            ;;
+    esac
 fi
 
 START_ERL_DATA=${1:-$RELDIR/start_erl.data}
 
-$ROOTDIR/bin/run_erl -daemon /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA" 
+$ROOTDIR/bin/run_erl -daemon /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA"
