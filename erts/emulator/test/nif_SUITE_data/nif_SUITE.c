@@ -3391,7 +3391,7 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
         if (enif_is_identical(argv[2], enif_make_atom(env, "use_stack")))
             iovec = &vec;
-        if (enif_is_identical(argv[3], enif_make_atom(env, "use_env")))
+        if (argc >= 4 && enif_is_identical(argv[3], enif_make_atom(env, "use_env")))
             myenv = env;
         if (!enif_inspect_iovec(myenv, ~(size_t)0, argv[1], &tail, &iovec))
             return enif_make_badarg(env);
