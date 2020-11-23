@@ -3383,13 +3383,13 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         ret = enif_make_resource(env, ioq);
         enif_release_resource(ioq);
         return ret;
-    } else if (enif_is_identical(argv[0], enif_make_atom(env, "inspect"))) {
+    } else if (argc >= 2 && enif_is_identical(argv[0], enif_make_atom(env, "inspect"))) {
         ErlNifIOVec vec, *iovec = NULL;
         int i, iovcnt;
         ERL_NIF_TERM *elems, tail, list;
         ErlNifEnv *myenv = NULL;
 
-        if (enif_is_identical(argv[2], enif_make_atom(env, "use_stack")))
+        if (argv >= 3 && enif_is_identical(argv[2], enif_make_atom(env, "use_stack")))
             iovec = &vec;
         if (argc >= 4 && enif_is_identical(argv[3], enif_make_atom(env, "use_env")))
             myenv = env;
@@ -3416,13 +3416,13 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	list = enif_make_list_from_array(env, elems, iovcnt);
 	enif_free(elems);
 	return list;
-    } else {
+    } else if (argc >= 2) {
         unsigned skip;
         if (!enif_get_resource(env, argv[1], ioq_resource_type, (void**)&ioq)
             || !ioq->q)
             return enif_make_badarg(env);
 
-        if (enif_is_identical(argv[0], enif_make_atom(env, "example"))) {
+        if (argc == 3 && enif_is_identical(argv[0], enif_make_atom(env, "example"))) {
 #ifndef __WIN32__
             int fd[2], res = 0, cnt = 0;
             ERL_NIF_TERM tail;
@@ -3472,7 +3472,7 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             enif_ioq_destroy(ioq->q);
             ioq->q = NULL;
             return enif_make_atom(env, "false");
-        } else if (enif_is_identical(argv[0], enif_make_atom(env, "enqv"))) {
+        } else if (argc >= 4 && enif_is_identical(argv[0], enif_make_atom(env, "enqv"))) {
             ErlNifIOVec vec, *iovec = &vec;
             ERL_NIF_TERM tail;
 
@@ -3484,7 +3484,7 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 return enif_make_badarg(env);
 
             return enif_make_atom(env, "true");
-        } else if (enif_is_identical(argv[0], enif_make_atom(env, "enqb"))) {
+        } else if (argc >= 4 && enif_is_identical(argv[0], enif_make_atom(env, "enqb"))) {
             ErlNifBinary bin;
             if (!enif_get_uint(env, argv[3], &skip) ||
                 !enif_inspect_binary(env, argv[2], &bin))
@@ -3494,7 +3494,7 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 return enif_make_badarg(env);
 
             return enif_make_atom(env, "true");
-        } else if (enif_is_identical(argv[0], enif_make_atom(env, "enqbraw"))) {
+        } else if (argc >= 4 && enif_is_identical(argv[0], enif_make_atom(env, "enqbraw"))) {
             ErlNifBinary bin;
             ErlNifBinary localbin;
 	    int i;
@@ -3518,7 +3518,7 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             }
 
             return enif_make_atom(env, "false");
-        } else if (enif_is_identical(argv[0], enif_make_atom(env, "peek"))) {
+        } else if (argc >= 3 && enif_is_identical(argv[0], enif_make_atom(env, "peek"))) {
             int iovlen, num, i, off = 0;
             SysIOVec *iov = enif_ioq_peek(ioq->q, &iovlen);
             ErlNifBinary bin;
@@ -3534,7 +3534,7 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             }
 
             return enif_make_binary(env, &bin);
-        } else if (enif_is_identical(argv[0], enif_make_atom(env, "deq"))) {
+        } else if (argc >= 3 && enif_is_identical(argv[0], enif_make_atom(env, "deq"))) {
             int num;
             size_t sz;
             ErlNifUInt64 sz64;
