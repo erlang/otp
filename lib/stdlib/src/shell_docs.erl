@@ -238,7 +238,9 @@ trim_inline([Bin|T],true) when is_binary(Bin) ->
 trim_inline([{Elem,Attr,Content}|T],TrimSpace) ->
     {NewContent,ContentTrimSpace} = trim_inline(Content,TrimSpace),
     {NewT,TTrimSpace} = trim_inline(T,ContentTrimSpace),
-    if NewContent == [] ->
+    IsAnchor = (Elem =:= a) andalso proplists:is_defined(id,Attr),
+    if NewContent == [] andalso (not IsAnchor) ->
+            %% Remove if all content has been trimmed and this is not an anchor
             {NewT, TTrimSpace};
        true ->
             {[{Elem,Attr,NewContent} | NewT], TTrimSpace}
@@ -251,13 +253,11 @@ trim_inline([],TrimSpace) ->
 %% This is complicated by the fact that the first or last element
 %% may not have any binary, or have the binary deeply nested within.
 trim_first_and_last(Content, What) when What < 256 ->
-    {NewContent,_State} = trim_last(trim_first(Content,What),What),
-    NewContent.
+    {FirstTrimmed, _} = trim_first(Content,What),
+    {LastTrimmed, _} = trim_last(FirstTrimmed,What),
+    LastTrimmed.
 
-trim_first(Content,What) ->
-    {NewContent,_State} = trim_first(Content,false,What),
-    NewContent.
-trim_first([Bin|T],false,What) when is_binary(Bin) ->
+trim_first([Bin|T],What) when is_binary(Bin) ->
     case Bin of
         <<What>> ->
             {T,true};
@@ -266,17 +266,17 @@ trim_first([Bin|T],false,What) when is_binary(Bin) ->
         Bin ->
             {[Bin|T],true}
     end;
-trim_first([{Elem,Attr,Content} = Tag|T],false,What) ->
-    case trim_first(Content,false,What) of
+trim_first([{Elem,Attr,Content} = Tag|T],What) ->
+    case trim_first(Content,What) of
         {[],true} ->
             {T,true};
         {NewContent,true} ->
             {[{Elem,Attr,NewContent}|T],true};
         {Content,false} ->
-            {NewT,NewState} = trim_first(T,false,What),
+            {NewT,NewState} = trim_first(T,What),
             {[Tag | NewT],NewState}
     end;
-trim_first([],false,_What) ->
+trim_first([],_What) ->
     {[],false}.
 
 trim_last([Bin | T],What) when is_binary(Bin) ->
@@ -299,14 +299,17 @@ trim_last([{Elem,Attr,Content} = Tag|T],What) ->
             {[Tag | NewT],true};
         {T,false} ->
             case trim_last(Content,What) of
-                {[],NewState} ->
-                    {T,NewState};
+                {[],true} ->
+                    %% If the content became empty and we processed some text
+                    %% we remove the element.
+                    {[],true};
                 {NewContent,NewState} ->
                     {[{Elem,Attr,NewContent}|T],NewState}
             end
     end;
 trim_last([],_What) ->
     {[],false}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the function documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
