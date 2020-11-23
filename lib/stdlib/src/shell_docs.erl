@@ -746,6 +746,10 @@ render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
 render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
     trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
 
+render_element({pre,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
+    %% We pad `pre` with two newlines if the previous section did not indent the region.
+    {Docs,NewPos} = render_element(E,State,0,Ind,D),
+    {["\n\n",Docs],NewPos};
 render_element({Elem,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind, ?IS_BLOCK(Elem) ->
     {Docs,NewPos} = render_element(E,State,0,Ind,D),
     {["\n",Docs],NewPos};
