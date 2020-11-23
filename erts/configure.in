@@ -2898,13 +2898,33 @@ if test ${enable_jit} != no; then
       # MAP_STACK, so we can't use the native stack for Erlang code.
       #
       # https://undeadly.org/cgi?action=article;sid=20180310000858
-      ;;
+      enable_native_stack=no;;
+    win32*)
+      # Windows never messes with the stack, so it's safe by default.
+      enable_native_stack=yes;;
     *)
-      # By default, BEAMASM will use the native stack.
-      AC_DEFINE(NATIVE_ERLANG_STACK, [],
-                [Define if we can use the native stack for Erlang code])
-      ;;
+      # Use the native stack if we can safely redirect OS signals to a
+      # different stack.
+      AC_MSG_CHECKING([for safe signal delivery])
+      AC_TRY_COMPILE(
+        [#include <signal.h>],
+        [#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+         #define __DARWIN__ 1
+         #endif
+         #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
+         #error "Unknown libc. Assume musl, which does not allow safe signals"
+         #endif],
+        [AC_MSG_RESULT([yes])
+         enable_native_stack=yes],
+        [AC_MSG_RESULT([no, disabling native stack in JIT])
+         enable_native_stack=no]
+      );;
   esac
+
+  if test X${enable_native_stack} = Xyes; then
+    AC_DEFINE(NATIVE_ERLANG_STACK, [],
+              [Define if we can use the native stack for Erlang code])
+  fi
 fi
 
 dnl
