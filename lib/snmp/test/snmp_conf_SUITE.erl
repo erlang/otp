@@ -160,7 +160,7 @@ init_per_testcase(fd_leak_check = _Case, Config) when is_list(Config) ->
     %% There are other ways to test this:
     %% lsof (linux and maybe FreeBSD):    lsof -p <pid>
     %%    os:cmd("lsof -p " ++ os:getpid() ++ " | grep -v COMMAND | wc -l").
-    %% fstat (FreeBSD and maybe OpenBSD): fstat -p <pid>
+    %% fstat (FreeBSD, OpenBSD and maybe NetBSD): fstat -p <pid>
     %%    os:cmd("fstat -p " ++ os:getpid() ++ " | grep -v USER | wc -l").
     %% But this (list:dir) is good enough...
     case os:type() of
@@ -171,26 +171,43 @@ init_per_testcase(fd_leak_check = _Case, Config) when is_list(Config) ->
                                 access = Access}}
                   when (Access =:= read) orelse
                        (Access =:= read_write) ->
+                    ?IPRINT("init_per_testcase -> linux: usingh proc fs"),
                     [{num_open_fd, fun num_open_fd_using_list_dir/0} |
                      Config];
                 _ ->
                     {skip, "Not proc fd"}
             end;
         {unix, solaris} ->
-            ?IPRINT("init_per_testcase -> solaris: check pfiles"),
-            case os:cmd("type pfiles") of
-                [] ->
-                    {skip, "pfiles not found"};
-                _ ->
-                    [{num_open_fd, fun num_open_fd_using_pfiles/0} |
-                     Config]
-            end;
-        {unix, BSD} when (BSD =:= freebsd) orelse (BSD =:= openbsd) ->
+            %% Something strange happens when we use pfiles from within erlang,
+            %% so skip the test for now
+
+            %% For some reason even though 'which' exists (atleast in
+            %% a tcsh shell), it hangs when called via os:cmd/1.
+            %% And type produces results that is not so easy to
+            %% "analyze". So, we 'try it' and know that it starts 
+            %% by writing the pid and program on the first line...
+
+            %% ?IPRINT("init_per_testcase -> solaris: check pfiles"),
+            %% PID = os:getpid(),
+            %% case string:find(os:cmd("pfiles -n " ++ PID), PID) of
+            %%     nomatch ->
+            %%         {skip, "pfiles not found"};
+            %%     _ ->
+            %%         ?IPRINT("init_per_testcase -> solaris: pfiles found"),
+            %%         [{num_open_fd, fun num_open_fd_using_pfiles/0} |
+            %%          Config]
+            %% end;
+            {skip, "pfiles not found"};
+
+        {unix, BSD} when (BSD =:= freebsd) orelse
+                         (BSD =:= openbsd) orelse
+                         (BSD =:= netbsd) ->
             ?IPRINT("init_per_testcase -> ~w: check fstat", [BSD]),
             case os:cmd("which fstat") of
                 [] ->
                     {skip, "fstat not found"};
                 _ ->
+                    ?IPRINT("init_per_testcase -> ~w: fstat found", [BSD]),
                     [{num_open_fd, fun num_open_fd_using_fstat/0} |
                      Config]
             end;
@@ -787,6 +804,8 @@ do_fd_leak_check(Config) ->
     Dir       = ?config(priv_subdir, Config),
     NumOpenFD = ?config(num_open_fd, Config),
 
+    %% Create "some" config
+    ?IPRINT("do_fd_leak_check -> create some config"),
     Entries = [
                snmpa_conf:agent_entry(intAgentIpAddress, {0,0,0,0}),
                snmpa_conf:agent_entry(intAgentUDPPort, 161),
@@ -794,20 +813,30 @@ do_fd_leak_check(Config) ->
                snmpa_conf:agent_entry(snmpEngineID, "fooBarEI")
               ],
 
+    ?IPRINT("do_fd_leak_check -> get number of FD (before test)"),
     NumFD01 = NumOpenFD(),
+    ?IPRINT("do_fd_leak_check -> before config write: ~w", [NumFD01]),
 
+    ?IPRINT("do_fd_leak_check -> write config to file"),
     ok = snmpa_conf:write_agent_config(Dir, Entries),
 
     NumFD02 = NumOpenFD(),
+    ?IPRINT("do_fd_leak_check -> (after write) before config read: ~w", [NumFD02]),
 
     {ok, _} = snmpa_conf:read_agent_config(Dir),
 
 
     NumFD03 = NumOpenFD(),
+    ?IPRINT("do_fd_leak_check -> after config read: ~w", [NumFD03]),
     if
         (NumFD01 =:= NumFD02) andalso (NumFD02 =:= NumFD03) ->
+            ?IPRINT("do_fd_leak_check -> fd leak check ok"),
             ok;
         true ->
+            ?EPRINT("do_fd_leak_check -> fd leak check failed: "
+                    "~n      Before write: ~w"
+                    "~n      Before read:  ~w"
+                    "~n      After read:   ~w", [NumFD01, NumFD02, NumFD03]),
             ?FAIL({num_open_fd, NumFD01, NumFD02, NumFD03})
     end.
 
@@ -824,19 +853,24 @@ num_open_fd_using_list_dir() ->
         {ok, FDs} ->
             length(FDs);
         {error, Reason} ->
+            ?EPRINT("Failed listing proc fs (for fd): "
+                    "~n      Reason: ~p", [Reason]),
             ?SKIP({failed_listing_fd, Reason})
     end.
 
 
-num_open_fd_using_pfiles() ->
-    NumString = os:cmd("pfiles -n " ++ os:getpid() ++
-                           " | grep -v " ++ os:getpid() ++
-                           " | grep -v \"Current rlimit\" | wc -l"),
-    try list_to_integer(string:trim(NumString))
-    catch
-        _:Reason ->
-            ?SKIP({failed_pfiles, Reason})
-    end.
+%% num_open_fd_using_pfiles() ->
+%%     NumString = os:cmd("pfiles -n " ++ os:getpid() ++
+%%                            " | grep -v " ++ os:getpid() ++
+%%                            " | grep -v \"Current rlimit\" | wc -l"),
+%%     try list_to_integer(string:trim(NumString))
+%%     catch
+%%         C:E ->
+%%             ?EPRINT("Failed pfiles: "
+%%                     "~n      Error Class: ~p"
+%%                     "~n      Error:       ~p", [C, E]),
+%%             ?SKIP({failed_pfiles, C, E})
+%%     end.
 
 
 num_open_fd_using_fstat() ->
@@ -844,8 +878,11 @@ num_open_fd_using_fstat() ->
                            " | grep -v MOUNT | wc -l"),
     try list_to_integer(string:trim(NumString))
     catch
-        _:Reason ->
-            ?SKIP({failed_fstat, Reason})
+        C:E ->
+            ?EPRINT("Failed fstat: "
+                    "~n      Error Class: ~p"
+                    "~n      Error:       ~p", [C, E]),
+            ?SKIP({failed_fstat, C, E})
     end.
 
 
