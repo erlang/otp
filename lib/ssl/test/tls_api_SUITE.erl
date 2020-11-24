@@ -55,6 +55,8 @@
          tls_client_closes_socket/1,
          tls_closed_in_active_once/0,
          tls_closed_in_active_once/1,
+         tls_reset_in_active_once/0,
+         tls_reset_in_active_once/1,
          tls_tcp_msg/0,
          tls_tcp_msg/1,
          tls_tcp_msg_big/0,
@@ -123,6 +125,7 @@ api_tests() ->
      tls_shutdown_error,
      tls_client_closes_socket,
      tls_closed_in_active_once,
+     tls_reset_in_active_once,
      tls_tcp_msg,
      tls_tcp_msg_big,
      tls_dont_crash_on_handshake_garbage,
@@ -367,10 +370,10 @@ tls_client_closes_socket(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, {error,closed}).
 
 %%--------------------------------------------------------------------
-tls_closed_in_active_once() ->
+tls_reset_in_active_once() ->
     [{doc, "Test that ssl_closed is delivered in active once with non-empty buffer, check ERL-420."}].
 
-tls_closed_in_active_once(Config) when is_list(Config) ->
+tls_reset_in_active_once(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -396,6 +399,40 @@ tls_closed_in_active_once(Config) when is_list(Config) ->
 	ok -> ok;
 	_ -> ct:fail(Result)
     end.
+
+%%--------------------------------------------------------------------
+tls_closed_in_active_once() ->
+    [{doc, "Test that active once can be used to deliver not only all data"
+      " but even the close message, see ERL-1409, in normal operation." 
+      " This is also test, with slighly diffrent circumstances in"
+      " the old tls_closed_in_active_once test"
+      " renamed tls_reset_in_active_once"}].
+
+tls_closed_in_active_once(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+    Port = ssl_test_lib:inet_port(node()),
+    Server = fun() ->
+		     {ok, Listen} = gen_tcp:listen(Port, TcpOpts),
+		     {ok, TcpServerSocket} = gen_tcp:accept(Listen),
+		     {ok, ServerSocket} = ssl:handshake(TcpServerSocket, ServerOpts),
+		     lists:foreach(
+		       fun(_) ->
+			       ssl:send(ServerSocket, "some random message\r\n")
+		       end, lists:seq(1, 20)),
+		     ssl:close(ServerSocket)
+	     end,
+    spawn_link(Server),
+    {ok, Socket} = ssl:connect(Hostname, Port, [{active, false} | ClientOpts]),
+    Result = tls_closed_in_active_once_loop(Socket),
+    ssl:close(Socket),
+    case Result of
+	ok -> ok;
+	_ -> ct:fail(Result)
+    end.
+
 %%--------------------------------------------------------------------
 tls_tcp_msg() ->
     [{doc,"Test what happens when a tcp tries to connect, i,e. a bad (ssl) packet is sent first"}].
@@ -843,11 +880,9 @@ tls_closed_in_active_once_loop(Socket) ->
                     tls_closed_in_active_once_loop(Socket);
                 {ssl_closed, Socket} ->
                     ok
-            after 5000 ->
-                    no_ssl_closed_received
             end;
         {error, closed} ->
-            ok
+            {error, ssl_setopt_failed}
     end.
 
 drop_handshakes(Socket, Timeout) ->
