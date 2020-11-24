@@ -44,7 +44,8 @@
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
 	 line_wrap/1,
-	 otp_10302/1, otp_11286/1, unicode/1, otp_13916/1, otp_14285/1]).
+	 otp_10302/1, otp_11286/1, unicode/1, otp_13916/1, otp_14285/1,
+         otp_17023/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -66,7 +67,7 @@ all() ->
 groups() -> 
     [{checks, [], [file, compile, syntax]},
      {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
-     {tickets, [], [otp_10302, otp_11286, otp_13916, otp_14285]},
+     {tickets, [], [otp_10302, otp_11286, otp_13916, otp_14285, otp_17023]},
      {bugs, [], [line_wrap]}].
 
 init_per_suite(Config) ->
@@ -1161,6 +1162,32 @@ otp_14285(Config) ->
            default,
            ok}],
     run(Config, Ts),
+    ok.
+
+otp_17023(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "file.xrl"),
+    Ret = [return, {report, true}],
+
+    {'EXIT', {badarg, _}} = (catch leex:file(Filename, [{noopt,true}])),
+    OldEnv = os:getenv("ERL_COMPILER_OPTIONS"),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "strong_validation"),
+    ok = file:write_file(Filename,
+                               <<"Definitions.\n"
+                                 "Rules.\n"
+                                 "^ : .\n"
+                                 "Erlang code.\n">>),
+    {error,[{_,[{3,leex,{regexp,_}}]}],[]} = 
+        leex:file(Filename, Ret),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "{return, false}"),
+    error = leex:file(Filename, Ret),
+    error = leex:file(Filename, [return | Ret]), % overridden
+    case OldEnv of
+        false ->
+            os:unsetenv("ERL_COMPILER_OPTIONS");
+        _ ->
+            os:putenv("ERL_COMPILER_OPTIONS", OldEnv)
+    end,
     ok.
 
 start_node(Name, Args) ->
