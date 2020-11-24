@@ -44,9 +44,14 @@ start_link() ->
     supervisor:start_link({local,?MODULE}, ?MODULE, []).
 
 start_child(Address, Port, Profile, Options) ->
-    %% Here we a new connction on a new Host/EFERMERAL Port/Profile
-    Spec = child_spec(Address, Port, Profile, Options),
-    supervisor:start_child(?MODULE, Spec).
+    case ssh_system_sup:system_supervisor(Address, Port, Profile) of
+     undefined ->
+            %% Here we a new connction on a new Host/Port/Profile
+            Spec = child_spec(Address, Port, Profile, Options),
+            supervisor:start_child(?MODULE, Spec);
+	Pid ->
+            {ok,Pid}
+    end.
 
 stop_child(ChildId) when is_tuple(ChildId) ->
     supervisor:terminate_child(?SSHC_SUP, ChildId);
