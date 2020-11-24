@@ -49,7 +49,7 @@
 	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
 	 
 	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1, otp_11269/1,
-         otp_11286/1, otp_14285/1]).
+         otp_11286/1, otp_14285/1, otp_17023/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -77,7 +77,7 @@ groups() ->
      {bugs, [],
       [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
      {improvements, [], [otp_7292, otp_7969, otp_8919, otp_10302,
-                         otp_11269, otp_11286, otp_14285]}].
+                         otp_11269, otp_11286, otp_14285, otp_17023]}].
 
 init_per_suite(Config) ->
     Config.
@@ -2128,6 +2128,33 @@ otp_14285(Config) ->
             [<<"%% coding: UTF-8\n">>,T2],default,ok}],
     run(Config, Ts2),
 
+    ok.
+
+otp_17023(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "file.yrl"),
+    Ret = [return, {report, true}],
+
+    {'EXIT', {badarg, _}} = (catch yecc:file(Filename, [{noopt,true}])),
+    OldEnv = os:getenv("ERL_COMPILER_OPTIONS"),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "strong_validation"),
+    ok = file:write_file(Filename,<<"
+              Nonterminals nt. 
+              Terminals t.
+              Rootsymbol nt.
+              nt -> t : '$2'.
+          ">>),
+    {error,[{_,[{5,yecc,{undefined_pseudo_variable,'$2'}}]}],[]} =
+        yecc:file(Filename, Ret),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "{return, false}"),
+    error = yecc:file(Filename, Ret),
+    error = yecc:file(Filename, [return | Ret]), % overridden
+    case OldEnv of
+        false ->
+            os:unsetenv("ERL_COMPILER_OPTIONS");
+        _ ->
+            os:putenv("ERL_COMPILER_OPTIONS", OldEnv)
+    end,
     ok.
 
 start_node(Name, Args) ->
