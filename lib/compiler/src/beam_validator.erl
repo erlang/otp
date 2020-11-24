@@ -887,16 +887,18 @@ vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,{atom,all},Unit,_],Dst}, Vst) ->
     Type = #t_bitstring{size_unit=Unit},
     validate_bs_get_all(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,{integer,Sz},Unit,_],Dst}, Vst) ->
-    Stride = Unit * max(1, Sz),
-    Type = #t_bitstring{size_unit=Stride},
+    Stride = Unit * Sz,
+    Type = #t_bitstring{size_unit=max(1, Stride)},
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
-    Type = #t_bitstring{size_unit=Unit},
+    Type = #t_bitstring{size_unit=max(1, Unit)},
     validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,
     [Ctx,{integer,Sz},Unit,{field_flags,Flags}],Dst},Vst) ->
+
     NumBits = Unit * Sz,
-    Stride = max(1, NumBits),
+    Stride = NumBits,
+
     Type = case member(unsigned, Flags) of
                true when 0 =< NumBits, NumBits =< 64 ->
                    beam_types:make_integer(0, (1 bsl NumBits)-1);
@@ -904,11 +906,12 @@ vi({test,bs_get_integer2=Op,{f,Fail},Live,
                    %% Signed integer, way too large, or negative size.
                    #t_integer{}
            end,
+
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_Sz,Unit,_Flags],Dst},Vst) ->
     validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,{integer,Sz},Unit,_],Dst},Vst) ->
-    Stride = Unit * max(1, Sz),
+    Stride = Unit * Sz,
     validate_bs_get(Op, Fail, Ctx, Live, Stride, #t_float{}, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
     validate_bs_get(Op, Fail, Ctx, Live, 32, #t_float{}, Dst, Vst);
@@ -1530,14 +1533,17 @@ validate_bs_skip_1(Fail, Ctx, Stride, Live, Vst) ->
                    prune_x_regs(Live, SuccVst)
            end).
 
+advance_bs_context(_Ctx, 0, Vst) ->
+    %% We _KNOW_ we're not moving anywhere. Retain our current position and
+    %% type.
+    Vst;
+advance_bs_context(_Ctx, Stride, _Vst) when Stride < 0 ->
+    %% We _KNOW_ we'll fail at runtime.
+    throw({invalid_argument, {negative_stride, Stride}});
 advance_bs_context(Ctx, Stride, Vst0) ->
-    %% slots/valid must remain untouched to support +r21, and the prior unit
-    %% must be retained if we _KNOW_ we won't advance.
+    %% slots/valid must remain untouched to support +r21.
     CtxType0 = get_raw_type(Ctx, Vst0),
-    CtxType = case Stride of
-                  0 -> CtxType0;
-                  N -> CtxType0#t_bs_context{ tail_unit=N }
-              end,
+    CtxType = CtxType0#t_bs_context{ tail_unit=Stride },
 
     Vst = update_type(fun join/2, CtxType, Ctx, Vst0),
 
@@ -2507,7 +2513,7 @@ get_literal_type(T) ->
 %% is taken, and the "success" fun returns the state where it's not.
 %%
 %% If either path is known not to be taken at runtime (eg. due to a type
-%% conflict), it will simply be discarded.
+%% conflict or argument errors), it will simply be discarded.
 -spec branch(Lbl :: label(),
              Original :: #vst{},
              FailFun :: BranchFun,
@@ -2524,16 +2530,19 @@ branch(Lbl, Vst0, FailFun, SuccFun) ->
             try SuccFun(Vst) of
                 V -> V
             catch
+                %% The instruction is guaranteed to fail; kill the state.
                 {type_conflict, _, _} ->
-                    %% The instruction is guaranteed to fail; kill the state.
+                    kill_state(Vst);
+                {invalid_argument, _} ->
                     kill_state(Vst)
             end
     catch
+        %% This instruction is guaranteed not to fail, so we run the success
+        %% branch *without* catching further errors to avoid hiding bugs in the
+        %% validator itself; one of the branches must succeed.
         {type_conflict, _, _} ->
-            %% This instruction is guaranteed not to fail, so we run the
-            %% success branch *without* catching type conflicts to avoid hiding
-            %% errors in the validator itself; one of the branches must
-            %% succeed.
+            SuccFun(Vst0);
+        {invalid_argument, _} ->
             SuccFun(Vst0)
     end.
 
