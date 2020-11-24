@@ -31,7 +31,9 @@
          t_get_3/1, t_filter_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
-         t_with_2/1,t_without_2/1]).
+         t_with_2/1,t_without_2/1,
+         t_intersect/1, t_intersect_with/1,
+         t_merge_with/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 -define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
@@ -46,7 +48,9 @@ all() ->
      t_get_3,t_filter_2,
      t_fold_3,t_map_2,t_size_1,
      t_iterator_1,t_put_opt,t_merge_opt,
-     t_with_2,t_without_2].
+     t_with_2,t_without_2,
+     t_intersect, t_intersect_with,
+     t_merge_with].
 
 t_update_with_3(Config) when is_list(Config) ->
     V1 = value1,
@@ -221,6 +225,239 @@ t_merge_opt(Config) when is_list(Config) ->
     List = id([a|b]),
     ?badmap([a|b],merge,[[a|b],[a|b]]) = (catch maps:merge(List, List)),
 
+    ok.
+
+random_map(SizeConstant, InitSeed) ->
+    {Ret, _} =
+        lists:foldl(
+          fun(_, {Map, Seed}) ->
+                  rand:uniform_s(Seed),
+                  {K, Seed2} = rand:uniform_s(SizeConstant, Seed),
+                  {V, Seed3} = rand:uniform_s(SizeConstant*100, Seed2),
+                  {Map#{K => V}, Seed3}
+          end,
+          {#{}, rand:seed_s(exsss, SizeConstant + InitSeed)},
+          lists:seq(1, SizeConstant)),
+    Ret.
+
+check_map_combiners_same_small(MapCombiner1, MapCombiner2, Seed) ->
+    lists:foreach(
+      fun(SizeConstant) ->
+              lists:foreach(
+                fun(SeedMult) ->
+                   RandMap1 = random_map(SizeConstant,
+                                         SizeConstant + 100000*SeedMult + Seed),
+                   RandMap2 = random_map(SizeConstant,
+                                         SizeConstant + 200000*SeedMult + Seed),
+                   Comb1Res = MapCombiner1(RandMap1, RandMap2),
+                   Comb2Res = MapCombiner2(RandMap1, RandMap2),
+                   Comb1Res = Comb2Res
+                end,
+                lists:seq(1,100))
+
+      end,
+      lists:seq(1,10)).
+
+
+check_map_combiners_same_large(MapCombiner1, MapCombiner2, Seed) ->
+    lists:foreach(
+      fun(SizeConstant) ->
+              RandMap1 = random_map(SizeConstant, SizeConstant + Seed),
+              RandMap2 = random_map(SizeConstant, SizeConstant + Seed),
+              Comb1Res = MapCombiner1(RandMap1, RandMap2),
+              Comb2Res = MapCombiner2(RandMap1, RandMap2),
+              Comb1Res = Comb2Res
+      end,
+      [1000, 10000]),
+    ok.
+
+t_merge_with(Config) when is_list(Config) ->
+    Small = #{1 => 1, 2 => 3},
+    Large = #{1 => 3, 2 => 2, 10=>10},
+    #{1 := {1,3}, 2 := {3,2}, 10 := 10} =
+        maps:merge_with(fun(1, 1, 3) -> {1, 3};
+                           (2, 3, 2) -> {3, 2}
+                        end,
+                        Small,
+                        Large),
+
+    %% Swapping input maps should reverse tuples
+
+    #{1 := {3,1}, 2 := {2,3}, 10 := 10} =
+        maps:merge_with(fun(1, V1, V2) -> {V1, V2};
+                           (2, V1, V2) -> {V1, V2}
+                        end,
+                        Large,
+                        Small),
+
+    %% Swapping parameters in the output of the fun should also reverse
+    %% tuples
+
+    #{1 := {3,1}, 2 := {2,3}, 10 := 10} =
+        maps:merge_with(fun(1, V1, V2) -> {V2, V1};
+                           (2, V1, V2) -> {V2, V1}
+                        end,
+                        Small,
+                        Large),
+
+    %% Should give the same result as maps:merge/2 with the right combiner
+
+    DefaultCombiner = fun(_, _, V2) -> V2 end,
+    Merge2FromMerge3 = fun (M1, M2) -> maps:merge_with(DefaultCombiner, M1, M2) end,
+    check_map_combiners_same_small(fun maps:merge/2, Merge2FromMerge3, 1),
+    check_map_combiners_same_large(fun maps:merge/2, Merge2FromMerge3, 2),
+
+    %% Should conceptually compute the same thing as
+    %% lists:ukey_merge/2 with the right combiner
+
+    MergeFromUKeyMerge =
+        fun(M1, M2) ->
+                L1 = lists:sort(maps:to_list(M1)),
+                L2 = lists:sort(maps:to_list(M2)),
+                %% ukeymerge takes from the first when collision
+                ResList = lists:ukeymerge(1, L2, L1),
+                maps:from_list(ResList)
+        end,
+    check_map_combiners_same_small(MergeFromUKeyMerge, Merge2FromMerge3, 3),
+    check_map_combiners_same_large(MergeFromUKeyMerge, Merge2FromMerge3, 4),
+
+    %% Empty maps
+
+    Large = maps:merge_with(fun(_K, _V1, _V2) -> error(should_not_happen) end,
+                            Large,
+                            #{}),
+    Large = maps:merge_with(fun(_K, _V1, _V2) -> error(should_not_happen) end,
+                            #{},
+                            Large),
+    #{} = maps:merge_with(fun(_K, _V1, _V2) -> error(should_not_happen) end,
+                          #{},
+                          #{}),
+
+    %% Errors
+
+    {'EXIT', {badarg, _}} =
+        (catch maps:merge_with(not_a_fun,#{},#{})),
+    {'EXIT', {{badmap, a}, _}} =
+        (catch maps:merge_with(fun(_K, _V1, _V2) -> error(should_not_happen) end, a, #{})),
+    {'EXIT', {{badmap, b}, _}} =
+        (catch maps:merge_with(fun(_K, _V1, _V2) -> error(ok) end, #{}, b)),
+    {'EXIT', {{badmap, a}, _}} =
+        (catch maps:merge_with(fun(_K, _V1, _V2) -> error(ok) end, a, b)),
+    ok.
+
+t_intersect(Config) when is_list(Config) ->
+    Small = #{1 => 1, 2 => 3},
+    Large = #{1 => 3, 2 => 2, 10=>10},
+    #{1 := 3,2 := 2} = maps:intersect(Small, Large),
+
+    %% Swapping input maps can make a difference
+
+    #{1 := 1, 2 := 3} = maps:intersect(Large, Small),
+
+    %% Should conceptually compute the same thing as
+    %% gb_sets:intersect/2 with the right combiner
+
+    IntersectFromGBSets =
+        fun(M1, M2) ->
+                Map1Keys = maps:keys(M1),
+                Map2Keys = maps:keys(M2),
+                GBSet1 = gb_sets:from_list(Map1Keys),
+                GBSet2 = gb_sets:from_list(Map2Keys),
+                GBSetIntersection = gb_sets:intersection(GBSet1, GBSet2),
+                IntersectList = gb_sets:to_list(GBSetIntersection),
+                lists:foldl(
+                  fun(Key, SoFar) ->
+                          SoFar#{Key => maps:get(Key, M2)}
+                  end,
+                  #{},
+                  IntersectList)
+        end,
+    check_map_combiners_same_small(fun maps:intersect/2,
+                                   IntersectFromGBSets,
+                                   11),
+    check_map_combiners_same_large(fun maps:intersect/2,
+                                   IntersectFromGBSets,
+                                   13),
+
+    %% Empty maps
+
+    #{} = maps:intersect(Large, #{}),
+    #{} = maps:intersect(#{}, Large),
+    #{} = maps:intersect(#{}, #{}),
+
+    %% Errors
+
+    {'EXIT', {{badmap, a}, _}} =
+        (catch maps:intersect(a, #{})),
+    {'EXIT', {{badmap, b}, _}} =
+        (catch maps:intersect(#{}, b)),
+    {'EXIT', {{badmap, a}, _}} =
+        (catch maps:intersect(a, b)),
+    ok.
+
+t_intersect_with(Config) when is_list(Config) ->
+    Small = #{1 => 1, 2 => 3},
+    Large = #{1 => 3, 2 => 2, 10=>10},
+    #{1 := {1,3}, 2 := {3,2}} =
+        maps:intersect_with(fun(1, 1, 3) -> {1, 3};
+                               (2, 3, 2) -> {3, 2}
+                            end,
+                            Small,
+                            Large),
+
+    %% Swapping input maps should reverse tuples
+
+    #{1 := {3,1}, 2 := {2,3}} =
+        maps:intersect_with(fun(1, V1, V2) -> {V1, V2};
+                               (2, V1, V2) -> {V1, V2}
+                            end,
+                            Large,
+                            Small),
+
+    %% Swapping parameters in the output of the fun should also reverse
+    %% tuples
+
+    #{1 := {3,1}, 2 := {2,3}} =
+        maps:intersect_with(fun(1, V1, V2) -> {V2, V1};
+                               (2, V1, V2) -> {V2, V1}
+                            end,
+                            Small,
+                            Large),
+
+    %% Should give the same result as intersect/2 with the right combiner
+
+    DefaultCombiner = fun(_, _, V2) -> V2 end,
+    Intersect2FromIntersect3 =
+        fun (M1, M2) -> maps:intersect_with(DefaultCombiner, M1, M2) end,
+    check_map_combiners_same_small(fun maps:intersect/2,
+                                   Intersect2FromIntersect3,
+                                   7),
+    check_map_combiners_same_large(fun maps:intersect/2,
+                                   Intersect2FromIntersect3,
+                                   8),
+
+    %% Empty maps
+
+    #{} = maps:intersect_with(fun(_K, _V1, _V2) -> error(should_not_happen) end,
+                              Large,
+                              #{}),
+    #{} = maps:intersect_with(fun(_K, _V1, _V2) -> error(should_not_happen) end,
+                              #{},
+                              Large),
+    #{} = maps:intersect_with(fun(_K, _V1, _V2) -> error(should_not_happen) end,
+                              #{},
+                              #{}),
+
+    %% Errors
+
+    {'EXIT', {badarg, _}} =
+        (catch maps:intersect_with(not_a_fun,#{},#{})),
+    {'EXIT', {{badmap, a}, _}} =
+        (catch maps:intersect_with(fun(_K, _V1, _V2) -> error(should_not_happen) end, a, #{})),
+    {'EXIT', {{badmap, b}, _}} =
+        (catch maps:intersect_with(fun(_K, _V1, _V2) -> error(ok) end, #{}, b)),
+    {'EXIT', {{badmap, a}, _}} =
+        (catch maps:intersect_with(fun(_K, _V1, _V2) -> error(ok) end, a, b)),
     ok.
 
 t_size_1(Config) when is_list(Config) ->
