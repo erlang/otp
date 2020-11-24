@@ -107,6 +107,7 @@ basic(Config) when is_list(Config) ->
     [] = [X || X <- L1, X+1 < 2],
     {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
     {'EXIT',{{bad_generator,x},_}} = (catch [E || E <- id(x)]),
+    {'EXIT',{{bad_filter,not_bool},_}} = (catch [E || E <- [1,2], id(not_bool)]),
 
     %% Make sure that line numbers point out the generator.
     case ?MODULE of
