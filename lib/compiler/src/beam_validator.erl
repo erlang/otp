@@ -1379,16 +1379,16 @@ verify_return(Vst) ->
 
 validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
     assert_float_checked(Vst),
-    case {will_bif_succeed(Op, Ss, Vst), Fail} of
-        {yes, _} ->
+    case will_bif_succeed(Op, Ss, Vst) of
+        yes ->
             %% This BIF cannot fail (neither throw nor branch), make sure it's
             %% handled without updating exception state.
             validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst);
-        {no, _} ->
+        no ->
             %% This BIF always fails; jump directly to the fail block or
             %% exception handler.
             branch(Fail, Vst, fun kill_state/1);
-        {maybe, _} ->
+        maybe ->
             validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst)
     end.
 
