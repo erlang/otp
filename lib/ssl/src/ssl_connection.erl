@@ -2897,14 +2897,12 @@ ssl_options_list([{Key, Value}|T], Acc) ->
 
 handle_active_option(false, connection = StateName, To, Reply, State) ->
     hibernate_after(StateName, State, [{reply, To, Reply}]);
-
-handle_active_option(_, connection = StateName, To, _Reply, #state{static_env = #static_env{role = Role},
-                                                                   connection_env = #connection_env{terminated = true},
-                                                                   user_data_buffer = {_,0,_}} = State) ->
-    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, all_data_deliverd),
-    handle_normal_shutdown(Alert#alert{role = Role}, StateName, 
-                           State#state{start_or_recv_from = To}),
-    {stop,{shutdown, peer_close}, State};
+handle_active_option(_, connection = StateName, To, Reply, #state{static_env = #static_env{role = Role},
+                                                                  connection_env = #connection_env{terminated = true},
+                                                                  user_data_buffer = {_,0,_}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, all_data_delivered),
+    handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
+    {stop_and_reply,{shutdown, peer_close}, [{reply, To, Reply}]};
 handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = #static_env{protocol_cb = Connection},
                                                                    user_data_buffer = {_,0,_}} = State0) ->
     case Connection:next_event(StateName0, no_record, State0) of

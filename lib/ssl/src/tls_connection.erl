@@ -1294,9 +1294,8 @@ handle_info({CloseTag, Socket}, StateName,
                                    role = Role,
                                    socket = Socket,
                                    close_tag = CloseTag},
+                   start_or_recv_from = From,
                    socket_options = #socket_options{active = Active},
-                   protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
-                   user_data_buffer = {_,BufferSize,_},
                    protocol_specific = PS} = State) ->
 
     %% Note that as of TLS 1.1,
@@ -1304,7 +1303,7 @@ handle_info({CloseTag, Socket}, StateName,
     %% session not be resumed.  This is a change from TLS 1.0 to conform
     %% with widespread implementation practice.
 
-    case (Active == false) andalso ((CTs =/= []) or (BufferSize =/= 0)) of
+    case (Active == false) andalso (From == undefined) of
         false ->
             %% As invalidate_sessions here causes performance issues,
             %% we will conform to the widespread implementation
@@ -1320,11 +1319,19 @@ handle_info({CloseTag, Socket}, StateName,
             ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
             {stop, {shutdown, transport_closed}, State};
         true ->
-            %% Fixes non-delivery of final TLS record in {active, once}.
-            %% Basically allows the application the opportunity to set {active, once} again
-            %% and then receive the final message. Set internal active_n to zero 
-            %% to ensure socket close message is sent if there is not enough data to deliver.
-            next_event(StateName, no_record, State#state{protocol_specific = PS#{active_n_toggle => true}})
+            %% Wait for next socket operation (most probably
+            %% ssl:setopts(S, [{active, true | once | N}]) or
+            %% ssl:recv(S, N, Timeout) before closing.  Possible
+            %% buffered data will be deliverd by the code handling
+            %% these options before closing. In the case of the
+            %% peer resetting the connection hard, that is
+            %% we do not receive any close ALERT, and an active once (or possible N)
+            %% strategy is used by the client we want to later trigger a new
+            %% "transport closed" message. This is achieved by setting the internal
+            %% active_n_toggle here which will cause
+            %% this to happen when tls_connection:activate_socket/1
+            %% is called after all data has been deliver.
+            {next_state, StateName, State#state{protocol_specific = PS#{active_n_toggle => true}}, []}
     end;
 handle_info({'EXIT', Sender, Reason}, _,
             #state{protocol_specific = #{sender := Sender}} = State) ->
@@ -1339,10 +1346,7 @@ handle_alerts(_, {stop, _, _} = Stop) ->
 handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts], 
               {next_state, connection = StateName, #state{connection_env = CEnv, 
                                                           socket_options = #socket_options{active = false},
-                                                          user_data_buffer = {_,BufferSize,_},
-                                                          protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs}} = 
-                   State}) when (BufferSize =/= 0) orelse
-                                (CTs =/= []) -> 
+                                                          start_or_recv_from = From} = State}) when From == undefined ->
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{terminated = true}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
      handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State));
