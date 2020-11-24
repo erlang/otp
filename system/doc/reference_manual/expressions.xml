@@ -828,10 +828,6 @@ Expr1 -- Expr2</pre>
 2> <input>[1,2,3,2,1,2]--[2,1,2].</input>
 [3,1,2]</pre>
 
-     <warning><p>The complexity of <c>A -- B</c> is
-     proportional to <c>length(A)*length(B)</c>. That is, it
-     becomes very slow if both <c>A</c> and <c>B</c> are
-     long lists.</p></warning>
    </section>
 
   <section>
