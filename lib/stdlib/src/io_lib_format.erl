@@ -525,12 +525,23 @@ float_data([D|Cs], Ds) when D >= $0, D =< $9 ->
 float_data([_|Cs], Ds) ->
     float_data(Cs, Ds).
 
-%%  Writes the shortest, correctly rounded string that converts
-%%  to Float when read back with list_to_float/1.
+%%  Returns a correctly rounded string that converts to Float when
+%%  read back with list_to_float/1.
 %%
-%%  See also "Printing Floating-Point Numbers Quickly and Accurately"
-%%  in Proceedings of the SIGPLAN '96 Conference on Programming
-%%  Language Design and Implementation.
+%%  When abs(Float) < float(1 bsl 53) the shortest such string is
+%%  returned, and otherwise the shortest such string using scientific
+%%  notation is returned. That is, scientific notation is used if and
+%%  only if scientific notation results in a shorter string than
+%%  normal notation when abs(Float) < float(1 bsl 53), and scientific
+%%  notation is used unconditionally if abs(Float) >= float(1 bsl
+%%  53). See comment in insert_decimal/2 for an explanation for why
+%%  float(1 bsl 53) is chosen as cutoff point.
+%%
+%%  The algorithm that is used to find the decimal number that is
+%%  represented by the returned String is described in "Printing
+%%  Floating-Point Numbers Quickly and Accurately" in Proceedings of
+%%  the SIGPLAN '96 Conference on Programming Language Design and
+%%  Implementation.
 
 -spec fwrite_g(float()) -> string().
 
@@ -539,7 +550,7 @@ fwrite_g(0.0) ->
 fwrite_g(Float) when is_float(Float) ->
     {Frac, Exp} = mantissa_exponent(Float),
     {Place, Digits} = fwrite_g_1(Float, Exp, Frac),
-    R = insert_decimal(Place, [$0 + D || D <- Digits]),
+    R = insert_decimal(Place, [$0 + D || D <- Digits], Float),
     [$- || true <- [Float < 0.0]] ++ R.
 
 -define(BIG_POW, (1 bsl 52)).
@@ -629,9 +640,9 @@ generate(R0, S, MPlus, MMinus, LowOk, HighOk) ->
             [D + 1]
     end.
 
-insert_decimal(0, S) ->
+insert_decimal(0, S, _) ->
     "0." ++ S;
-insert_decimal(Place, S) ->
+insert_decimal(Place, S, Float) ->
     L = length(S),
     if
         Place < 0;
@@ -649,7 +660,19 @@ insert_decimal(Place, S) ->
                     end;
                 true ->
                     if
-                        Place - L + 2 =< ExpCost ->
+                        %% All integers in the range [-2^53, 2^53] can
+                        %% be stored without loss of precision in an
+                        %% IEEE 754 64-bit double but 2^53+1 cannot be
+                        %% stored in an IEEE 754 64-bit double without
+                        %% loss of precision (float((1 bsl 53)+1) =:=
+                        %% float(1 bsl 53)). It thus makes sense to
+                        %% show floats that are >= 2^53 or <= -2^53 in
+                        %% scientific notation to indicate that the
+                        %% number is so large that there could be loss
+                        %% in precion when adding or subtracting 1.
+                        %%
+                        %% https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double?answertab=votes#tab-top
+                        Place - L + 2 =< ExpCost andalso abs(Float) < float(1 bsl 53) ->
                             S ++ lists:duplicate(Place - L, $0) ++ ".0";
                         true ->
                             insert_exp(ExpL, S)

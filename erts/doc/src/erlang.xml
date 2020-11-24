@@ -2038,10 +2038,10 @@ true</pre>
 "3.00000000000000044409e-01"
 </pre>
 <p>In the last example, <c>float_to_list(0.1+0.2)</c> evaluates to
-<c>"3.00000000000000044409e-01"</c>. The reason for this is that
-<seeguide marker="system/reference_manual:data_types#float_representation_problem"><c>0.1</c> and
-<c>0.2</c> cannot be represented exactly as float
-values</seeguide>.</p>
+<c>"3.00000000000000044409e-01"</c>. The reason for this is explained
+in <seeguide
+marker="system/reference_manual:data_types#float_representation_problem">Representation
+of Floating Point Numbers</seeguide>.</p>
       </desc>
     </func>
 
@@ -6478,9 +6478,13 @@ true</pre>
 36028797018963968</pre>
       <p>In the last example, <c>round(36028797018963969.0)</c>
       evaluates to <c>36028797018963968</c>. The reason for this is
-      that <seeguide
-      marker="system/reference_manual:data_types#float_representation_problem"><c>36028797018963969.0</c>
-      cannot be represented exactly as a float value</seeguide>.</p>
+      that the number <c>36028797018963969.0</c> cannot be represented
+      exactly as a float value. Instead, the float literal is
+      represented as <c>36028797018963968.0</c>, which is the closest number
+      that can be represented exactly as a float value. See <seeguide
+      marker="system/reference_manual:data_types#float_representation_problem">Representation
+      of Floating Point Numbers</seeguide> for additional
+      information.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -12277,10 +12281,15 @@ improper_end</pre>
         <pre>
 > <input>trunc(36028797018963969.0).</input>
 36028797018963968</pre>
-<p>In the last example, <c>trunc(36028797018963969.0)</c> evaluates to
-<c>36028797018963968</c>. The reason for this is that <seeguide
-marker="system/reference_manual:data_types#float_representation_problem"><c>36028797018963969.0</c>
-cannot be represented exactly as a float value</seeguide>.</p>
+      <p>In the last example, <c>trunc(36028797018963969.0)</c>
+      evaluates to <c>36028797018963968</c>. The reason for this is
+      that the number <c>36028797018963969.0</c> cannot be represented
+      exactly as a float value. Instead, the float literal is
+      represented as <c>36028797018963968.0</c>, which is the closest number
+      that can be represented exactly as a float value. See <seeguide
+      marker="system/reference_manual:data_types#float_representation_problem">Representation
+      of Floating Point Numbers</seeguide> for additional
+      information.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
