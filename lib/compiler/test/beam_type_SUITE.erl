@@ -90,6 +90,8 @@ integers(_Config) ->
 
     house = do_integers_7(),
 
+    {'EXIT',{badarith,_}} = (catch do_integers_8()),
+
     ok.
 
 do_integers_1(B0) ->
@@ -154,6 +156,9 @@ do_integers_7() ->
         _:_:_ ->
             house
     end.
+
+do_integers_8() ->
+    -1 band ((0 div 0) band 0).
 
 numbers(_Config) ->
     Int = id(42),
