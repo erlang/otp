@@ -28,6 +28,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 
+-include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 
@@ -60,7 +61,9 @@
 	 check_timer/1,
 
 	 read/1,
-	 read_files/1
+	 read_files/1,
+
+         fd_leak_check/1
 	]).
 
 
@@ -85,7 +88,8 @@ all() ->
      check_sec_model2,
      check_sec_level,
      check_timer, 
-     read, read_files
+     read, read_files,
+     fd_leak_check
     ].
 
 groups() -> 
@@ -109,10 +113,15 @@ init_per_suite(Config0) when is_list(Config0) ->
             %% We need a monitor on this node also
             snmp_test_sys_monitor:start(),
 
+            PrivDir    = ?config(priv_dir, Config1),
+            PrivSubdir = filename:join(PrivDir, "snmp_conf_test"),
+            ok = filelib:ensure_dir(filename:join(PrivSubdir, "dummy")),
+            Config2 = [{priv_subdir, PrivSubdir} | Config1],
+
             ?IPRINT("init_per_suite -> end when"
-                    "~n      Config: ~p", [Config1]),
+                    "~n      Config: ~p", [Config2]),
             
-            Config1
+            Config2
     end.
 
 end_per_suite(Config0) when is_list(Config0) ->
@@ -144,6 +153,71 @@ end_per_group(_GroupName, Config) ->
 %% -----
 %%
 
+init_per_testcase(fd_leak_check = _Case, Config) when is_list(Config) ->
+    ?IPRINT("init_per_testcase -> entry with"
+            "~n   Config: ~p", [Config]),
+
+    %% There are other ways to test this:
+    %% lsof (linux and maybe FreeBSD):    lsof -p <pid>
+    %%    os:cmd("lsof -p " ++ os:getpid() ++ " | grep -v COMMAND | wc -l").
+    %% fstat (FreeBSD, OpenBSD and maybe NetBSD): fstat -p <pid>
+    %%    os:cmd("fstat -p " ++ os:getpid() ++ " | grep -v USER | wc -l").
+    %% But this (list:dir) is good enough...
+    case os:type() of
+        {unix, linux} ->
+            ?IPRINT("init_per_testcase -> linux: check proc fs"),
+            case file:read_file_info("/proc/" ++ os:getpid() ++ "/fd") of
+                {ok, #file_info{type   = directory,
+                                access = Access}}
+                  when (Access =:= read) orelse
+                       (Access =:= read_write) ->
+                    ?IPRINT("init_per_testcase -> linux: usingh proc fs"),
+                    [{num_open_fd, fun num_open_fd_using_list_dir/0} |
+                     Config];
+                _ ->
+                    {skip, "Not proc fd"}
+            end;
+        {unix, solaris} ->
+            %% Something strange happens when we use pfiles from within erlang,
+            %% so skip the test for now
+
+            %% For some reason even though 'which' exists (atleast in
+            %% a tcsh shell), it hangs when called via os:cmd/1.
+            %% And type produces results that is not so easy to
+            %% "analyze". So, we 'try it' and know that it starts 
+            %% by writing the pid and program on the first line...
+
+            %% ?IPRINT("init_per_testcase -> solaris: check pfiles"),
+            %% PID = os:getpid(),
+            %% case string:find(os:cmd("pfiles -n " ++ PID), PID) of
+            %%     nomatch ->
+            %%         {skip, "pfiles not found"};
+            %%     _ ->
+            %%         ?IPRINT("init_per_testcase -> solaris: pfiles found"),
+            %%         [{num_open_fd, fun num_open_fd_using_pfiles/0} |
+            %%          Config]
+            %% end;
+            {skip, "pfiles not found"};
+
+        {unix, BSD} when (BSD =:= freebsd) orelse
+                         (BSD =:= openbsd) orelse
+                         (BSD =:= netbsd) ->
+            ?IPRINT("init_per_testcase -> ~w: check fstat", [BSD]),
+            case os:cmd("which fstat") of
+                [] ->
+                    {skip, "fstat not found"};
+                _ ->
+                    ?IPRINT("init_per_testcase -> ~w: fstat found", [BSD]),
+                    [{num_open_fd, fun num_open_fd_using_fstat/0} |
+                     Config]
+            end;
+        {win32, _} ->
+            ?IPRINT("init_per_testcase -> windows: no check"),
+            {skip, "Not implemented"};
+        _ ->
+            ?IPRINT("init_per_testcase -> no check"),
+            {skip, "Not implemented"}
+    end;
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
@@ -713,6 +787,103 @@ read_files(suite) -> [];
 read_files(Config) when is_list(Config) ->
     ?P(read_files),
     ?SKIP(not_implemented_yet).
+
+
+%%======================================================================
+
+%% Since we need something to read, we also write.
+%% And we can just as well check then (after write) too...
+fd_leak_check(suite) -> [];
+fd_leak_check(Config) when is_list(Config) ->
+    ?TC_TRY(fd_leak_check,
+            fun() -> ok end,
+            fun(_) -> do_fd_leak_check(Config) end,
+            fun(_) -> ok end).
+
+do_fd_leak_check(Config) ->
+    Dir       = ?config(priv_subdir, Config),
+    NumOpenFD = ?config(num_open_fd, Config),
+
+    %% Create "some" config
+    ?IPRINT("do_fd_leak_check -> create some config"),
+    Entries = [
+               snmpa_conf:agent_entry(intAgentIpAddress, {0,0,0,0}),
+               snmpa_conf:agent_entry(intAgentUDPPort, 161),
+               snmpa_conf:agent_entry(snmpEngineMaxMessageSize, 484),
+               snmpa_conf:agent_entry(snmpEngineID, "fooBarEI")
+              ],
+
+    ?IPRINT("do_fd_leak_check -> get number of FD (before test)"),
+    NumFD01 = NumOpenFD(),
+    ?IPRINT("do_fd_leak_check -> before config write: ~w", [NumFD01]),
+
+    ?IPRINT("do_fd_leak_check -> write config to file"),
+    ok = snmpa_conf:write_agent_config(Dir, Entries),
+
+    NumFD02 = NumOpenFD(),
+    ?IPRINT("do_fd_leak_check -> (after write) before config read: ~w", [NumFD02]),
+
+    {ok, _} = snmpa_conf:read_agent_config(Dir),
+
+
+    NumFD03 = NumOpenFD(),
+    ?IPRINT("do_fd_leak_check -> after config read: ~w", [NumFD03]),
+    if
+        (NumFD01 =:= NumFD02) andalso (NumFD02 =:= NumFD03) ->
+            ?IPRINT("do_fd_leak_check -> fd leak check ok"),
+            ok;
+        true ->
+            ?EPRINT("do_fd_leak_check -> fd leak check failed: "
+                    "~n      Before write: ~w"
+                    "~n      Before read:  ~w"
+                    "~n      After read:   ~w", [NumFD01, NumFD02, NumFD03]),
+            ?FAIL({num_open_fd, NumFD01, NumFD02, NumFD03})
+    end.
+
+
+
+%% There are other ways to test this:
+%% lsof (linux and maybe FreeBSD):    lsof -p <pid>
+%%    os:cmd("lsof -p " ++ os:getpid() ++ " | grep -v COMMAND | wc -l").
+%% fstat (FreeBSD and maybe OpenBSD): fstat -p <pid>
+%%    os:cmd("fstat -p " ++ os:getpid() ++ " | grep -v USER | wc -l").
+%% But this is good enough...
+num_open_fd_using_list_dir() ->
+    case file:list_dir("/proc/" ++ os:getpid() ++ "/fd") of
+        {ok, FDs} ->
+            length(FDs);
+        {error, Reason} ->
+            ?EPRINT("Failed listing proc fs (for fd): "
+                    "~n      Reason: ~p", [Reason]),
+            ?SKIP({failed_listing_fd, Reason})
+    end.
+
+
+%% num_open_fd_using_pfiles() ->
+%%     NumString = os:cmd("pfiles -n " ++ os:getpid() ++
+%%                            " | grep -v " ++ os:getpid() ++
+%%                            " | grep -v \"Current rlimit\" | wc -l"),
+%%     try list_to_integer(string:trim(NumString))
+%%     catch
+%%         C:E ->
+%%             ?EPRINT("Failed pfiles: "
+%%                     "~n      Error Class: ~p"
+%%                     "~n      Error:       ~p", [C, E]),
+%%             ?SKIP({failed_pfiles, C, E})
+%%     end.
+
+
+num_open_fd_using_fstat() ->
+    NumString = os:cmd("fstat -p " ++ os:getpid() ++
+                           " | grep -v MOUNT | wc -l"),
+    try list_to_integer(string:trim(NumString))
+    catch
+        C:E ->
+            ?EPRINT("Failed fstat: "
+                    "~n      Error Class: ~p"
+                    "~n      Error:       ~p", [C, E]),
+            ?SKIP({failed_fstat, C, E})
+    end.
 
 
 %%======================================================================
