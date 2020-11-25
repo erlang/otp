@@ -263,7 +263,11 @@ prologue_passes(Opts) ->
     passes_1(Ps, Opts).
 
 module_passes(Opts) ->
-    Ps0 = [{ssa_opt_type_start,
+    Ps0 = [{ssa_opt_bc_size,
+            fun({StMap, FuncDb}) ->
+                    {beam_ssa_bc_size:opt(StMap), FuncDb}
+            end},
+           {ssa_opt_type_start,
             fun({StMap, FuncDb}) ->
                     beam_ssa_type:opt_start(StMap, FuncDb)
             end}],
@@ -471,6 +475,7 @@ ssa_opt_merge_blocks({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
 ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
     P = fun(#b_set{op={bif,element}}) -> true;
            (#b_set{op=call}) -> true;
+           (#b_set{op=bs_init_writable}) -> true;
            (#b_set{op=make_fun}) -> true;
            (#b_set{op=old_make_fun}) -> true;
            (_) -> false

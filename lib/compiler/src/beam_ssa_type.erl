@@ -1323,15 +1323,27 @@ eval_type_test_bif(I, is_tuple, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_tuple{});
 eval_type_test_bif(I, Op, Types) ->
     case Types of
-        [#t_integer{},#t_integer{elements={0,0}}]
-          when Op =:= '+'; Op =:= '-'; Op =:= 'bor'; Op =:= 'bxor' ->
+        [#t_integer{},#t_integer{elements={0,0}}] when Op =:= 'bor'; Op =:= 'bxor' ->
             #b_set{args=[Result,_]} = I,
             Result;
         [#t_integer{},#t_integer{elements={0,0}}] when Op =:= '*'; Op =:= 'band' ->
             #b_literal{val=0};
-        [#t_integer{},#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
-            #b_set{args=[Result,_]} = I,
-            Result;
+        [T,#t_integer{elements={0,0}}] when Op =:= '+'; Op =:= '-' ->
+            case beam_types:is_numerical_type(T) of
+                true ->
+                    #b_set{args=[Result,_]} = I,
+                    Result;
+                false ->
+                    I
+            end;
+        [T,#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
+            case beam_types:is_numerical_type(T) of
+                true ->
+                    #b_set{args=[Result,_]} = I,
+                    Result;
+                false ->
+                    I
+            end;
         [#t_integer{elements={LMin,LMax}},#t_integer{elements={RMin,RMax}}] ->
             case is_inequality_op(Op) of
                 true ->
