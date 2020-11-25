@@ -571,9 +571,7 @@ protected:
         if (next_address % 4) {
             ssize_t nop_count = 4 - next_address % 4;
 
-            for (int i = 0; i < nop_count; i++) {
-                a.nop();
-            }
+            a.embed(nops[nop_count - 1], nop_count);
         }
 
 #ifdef HARD_DEBUG
@@ -584,6 +582,12 @@ protected:
         a.call(target);
         ASSERT(is_CP(a.offset()));
     }
+
+    /* Canned instruction sequences for multi-byte NOPs */
+    static const uint8_t *nops[3];
+    static const uint8_t nop1[1];
+    static const uint8_t nop2[2];
+    static const uint8_t nop3[3];
 
     void runtime_call(x86::Gp func, unsigned args) {
         ASSERT(args < 5);

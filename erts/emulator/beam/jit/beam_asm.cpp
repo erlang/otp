@@ -907,3 +907,8 @@ extern "C"
         ba->patchStrings(rw_base, string_table);
     }
 }
+
+const uint8_t *BeamAssembler::nops[3] = {nop1, nop2, nop3};
+const uint8_t BeamAssembler::nop1[1] = {0x90};
+const uint8_t BeamAssembler::nop2[2] = {0x66, 0x90};
+const uint8_t BeamAssembler::nop3[3] = {0x0F, 0x1F, 0x00};
