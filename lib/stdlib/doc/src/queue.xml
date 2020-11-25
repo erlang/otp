@@ -57,6 +57,8 @@
       <seemfa marker="#any/2"><c>any/2</c></seemfa>,
       <seemfa marker="#delete/2"><c>delete/2</c></seemfa>,
       <seemfa marker="#delete_r/2"><c>delete_r/2</c></seemfa>,
+      <seemfa marker="#delete_with/2"><c>delete_with/2</c></seemfa>,
+      <seemfa marker="#delete_with_r/2"><c>delete_with_r/2</c></seemfa>,
       <seemfa marker="#filter/2"><c>filter/2</c></seemfa>,
       <seemfa marker="#filtermap/2"><c>filtermap/2</c></seemfa>,
       <seemfa marker="#fold/3"><c>fold/3</c></seemfa>,
@@ -147,7 +149,7 @@
       <desc>
         <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
           matching <c><anno>Item</anno></c> is deleted, if there is such an
-          element.</p>
+          item.</p>
       </desc>
     </func>
 
@@ -157,7 +159,29 @@
       <desc>
         <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
           matching <c><anno>Item</anno></c> is deleted, if there is such an
-          element.</p>
+          item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_with" arity="2" since=""/>
+      <fsummary>Delete an item matching a predicate from the front of a
+        queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
+          for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
+          if there is such an item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_with_r" arity="2" since=""/>
+      <fsummary>Delete an item matching a predicate from the rear of a
+        queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
+          for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
+          if there is such an item.</p>
       </desc>
     </func>
 

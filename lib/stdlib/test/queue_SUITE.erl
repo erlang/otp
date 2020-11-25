@@ -412,6 +412,18 @@ do_op_test(F) ->
     [1,3] = queue:to_list(queue:delete_r(x, queue:from_list([1,x,3]))),
     [1,2] = queue:to_list(queue:delete_r(x, queue:from_list([1,2,x]))),
     [x,1,2] = queue:to_list(queue:delete_r(x, queue:from_list([x,1,2,x]))),
+    [] = queue:to_list(queue:delete_with(fun(_) -> false end, queue:new())),
+    [1,2,3] = queue:to_list(queue:delete_with(fun(X) -> X<0 end, queue:from_list([1,2,3]))),
+    [2,3] = queue:to_list(queue:delete_with(fun(X) -> X>0 end, queue:from_list([1,2,3]))),
+    [1,3] = queue:to_list(queue:delete_with(fun(X) -> X>1 end, queue:from_list([1,2,3]))),
+    [1,2] = queue:to_list(queue:delete_with(fun(X) -> X>2 end, queue:from_list([1,2,3]))),
+    [1,2,3] = queue:to_list(queue:delete_with(fun(X) -> X>1 end, queue:from_list([1,2,2,3]))),
+    [] = queue:to_list(queue:delete_with_r(fun(_) -> false end, queue:new())),
+    [1,2,3] = queue:to_list(queue:delete_with_r(fun(X) -> X>9 end, queue:from_list([1,2,3]))),
+    [1,2] = queue:to_list(queue:delete_with_r(fun(X) -> X<9 end, queue:from_list([1,2,3]))),
+    [1,3] = queue:to_list(queue:delete_with_r(fun(X) -> X<3 end, queue:from_list([1,2,3]))),
+    [2,3] = queue:to_list(queue:delete_with_r(fun(X) -> X<2 end, queue:from_list([1,2,3]))),
+    [1,2,3] = queue:to_list(queue:delete_with_r(fun(X) -> X<3 end, queue:from_list([1,2,2,3]))),
     %%
     ok.
 

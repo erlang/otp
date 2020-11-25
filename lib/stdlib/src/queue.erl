@@ -28,7 +28,7 @@
 
 %% Higher level API
 -export([reverse/1,join/2,split/2,filter/2,filtermap/2,fold/3,any/2,all/2,
-	 delete/2,delete_r/2]).
+	 delete/2,delete_r/2,delete_with/2,delete_with_r/2]).
 
 %% Okasaki API from klacke
 -export([cons/2,head/1,tail/1,
@@ -539,6 +539,79 @@ delete_rear(Item, [X|Rest]) ->
             [X|R]
     end;
 delete_rear(_, []) ->
+    false.
+
+%% Delete the first occurence of an item in the queue
+%% matching a predicate, according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete_with(Pred, Q1) -> Q2 when
+      Pred :: fun((Item) -> boolean()),
+      Q1 :: queue(Item),
+      Q2 :: queue(Item),
+      Item :: term().
+delete_with(Pred, {R0, F0} = Q) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
+    case delete_with_front(Pred, F0) of
+	false ->
+	    case delete_with_rear(Pred, R0) of
+		false ->
+		    Q;
+		[] ->
+		    f2r(F0);
+		R1 ->
+		    {R1, F0}
+	    end;
+	[] ->
+	    r2f(R0);
+	F1 ->
+	    {R0, F1}
+    end;
+delete_with(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
+
+%% Delete the last occurence of an item in the queue
+%% matching a predicate, according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete_with_r(Pred, Q1) -> Q2 when
+      Pred :: fun((Item) -> boolean()),
+      Q1 :: queue(Item),
+      Q2 :: queue(Item),
+      Item :: term().
+delete_with_r(Pred, {R0, F0}) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
+    {F1, R1} = delete_with(Pred, {F0, R0}),
+    {R1, F1};
+delete_with_r(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
+
+delete_with_front(Pred, [X|Rest]) ->
+    case Pred(X) of
+	true ->
+	    Rest;
+	false ->
+	    case delete_with_front(Pred, Rest) of
+		false ->
+		    false;
+		F ->
+		    [X|F]
+	    end
+    end;
+delete_with_front(_, []) ->
+    false.
+
+delete_with_rear(Pred, [X|Rest]) ->
+    case delete_with_rear(Pred, Rest) of
+	false ->
+	    case Pred(X) of
+		true ->
+		    Rest;
+		false ->
+		    false
+	    end;
+	R ->
+	    [X|R]
+    end;
+delete_with_rear(_, []) ->
     false.
 
 %%--------------------------------------------------------------------------
