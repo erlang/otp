@@ -434,9 +434,10 @@
 	<code>rsa_private() = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</code>
 	<p>Where E is the public exponent, N is public modulus and D is
 	the private exponent. The longer key format contains redundant
-	information that will make the calculation faster. P1,P2 are first
-	and second prime factors. E1,E2 are first and second exponents. C
-	is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
+	information that will make the calculation faster. P1 and P2 are first
+	and second prime factors. E1 and E2 are first and second exponents. C
+	is the CRT coefficient. The terminology is taken from
+	<url href="http://www.ietf.org/rfc/rfc3447.txt"> RFC 3447</url>.</p>
       </desc>
     </datatype>
 
