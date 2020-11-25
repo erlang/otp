@@ -26,7 +26,7 @@
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
          revert_map_type/1,wrapped_subtrees/1,
 	t_abstract_type/1,t_erl_parse_type/1,t_type/1, t_epp_dodger/1,
-	t_comment_scan/1,t_igor/1,t_erl_tidy/1,t_prettypr/1]).
+	t_comment_scan/1,t_prettypr/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -34,7 +34,7 @@ all() ->
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
      wrapped_subtrees,
     t_abstract_type,t_erl_parse_type,t_type,t_epp_dodger,
-    t_comment_scan,t_igor,t_erl_tidy,t_prettypr].
+    t_comment_scan,t_prettypr].
 
 groups() -> 
     [].
@@ -353,33 +353,6 @@ test_files() ->
      "syntax_tools_test.erl",
      "type_specs.erl",
      "specs_and_funs.erl"].
-
-t_igor(Config) when is_list(Config) ->
-    DataDir   = ?config(data_dir, Config),
-    PrivDir   = ?config(priv_dir, Config),
-    FileM1  = filename:join(DataDir,"m1.erl"),
-    FileM2  = filename:join(DataDir,"m2.erl"),
-    ["m.erl",_]=R = igor:merge(m,[FileM1,FileM2],[{outdir,PrivDir}]),
-    io:format("igor:merge/3 = ~p~n", [R]),
-
-    FileTypeSpecs = filename:join(DataDir,"igor_type_specs.erl"),
-    Empty = filename:join(DataDir,"empty.erl"),
-    ["n.erl",_]=R2 = igor:merge(n,[FileTypeSpecs,Empty],[{outdir,PrivDir}]),
-    io:format("igor:merge/3 = ~p~n", [R2]),
-
-    ok.
-
-t_erl_tidy(Config) when is_list(Config) ->
-    DataDir   = ?config(data_dir, Config),
-    File  = filename:join(DataDir,"erl_tidy_tilde.erl"),
-    ok = erl_tidy:file(File, [{stdout, true}]),
-
-    %% OTP-14471.
-    Old = process_flag(trap_exit, true),
-    NonExisting  = filename:join(DataDir,"non_existing_file.erl"),
-    {'EXIT',{error,{0,file,enoent}}} = (catch erl_tidy:file(NonExisting)),
-    true = process_flag(trap_exit, Old),
-    ok.
 
 test_comment_scan([],_) -> ok;
 test_comment_scan([File|Files],DataDir) ->
