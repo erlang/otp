@@ -134,7 +134,11 @@ handle_load({log,Level,Report,Meta},State) ->
 
 %% Log event sent to this process e.g. from the emulator - it is really load
 handle_info(Log,State) when is_tuple(Log), element(1,Log)==log ->
-    {load,State}.
+    {load,State};
+handle_info(_Log,State) ->
+    %% Handle stray reply messages from sync try_log, not needed after OTP-24
+    %% as then aliases will prevent late messages.
+    State.
 
 terminate(overloaded, _State) ->
     _ = erlang:system_flag(system_logger,undefined),
