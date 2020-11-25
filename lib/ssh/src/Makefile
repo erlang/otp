@@ -67,6 +67,7 @@ MODULES= \
 	ssh_connection \
 	ssh_connection_handler \
 	ssh_connection_sup \
+	ssh_controller \
 	ssh_file \
 	ssh_info \
 	ssh_io \

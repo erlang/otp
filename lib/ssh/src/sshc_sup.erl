@@ -29,7 +29,9 @@
 
 -export([start_link/0,
          start_child/4,
-         stop_child/1
+         start_system_subsystem/4,
+         stop_child/1,
+         stop_system/1
         ]).
 
 %% Supervisor callback
@@ -53,10 +55,20 @@ start_child(Address, Port, Profile, Options) ->
             {ok,Pid}
     end.
 
+
+start_system_subsystem(Host, Port, Profile, Options) ->
+    ssh_controller:start_system_subsystem(client_controller, ?MODULE, Host, Port, Profile, Options,
+                                          child_spec(Host, Port, Profile, Options)
+                                         ).
+
 stop_child(ChildId) when is_tuple(ChildId) ->
     supervisor:terminate_child(?SSHC_SUP, ChildId);
 stop_child(ChildPid) when is_pid(ChildPid)->
     stop_child(system_name(ChildPid)).
+
+stop_system(SysSup) ->
+    ssh_controller:stop_system(client_controller, SysSup).
+
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -66,7 +78,11 @@ init(_) ->
                  intensity =>    0,
                  period    => 3600
                 },
-    ChildSpecs = [],
+    ChildSpecs = [#{id       => client_controller,
+                    start    => {ssh_controller, start_link, [client, client_controller]},
+                    restart  => permanent,
+                    type     => worker
+                   }],
     {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
