@@ -132,6 +132,9 @@
           <c><anno>Options</anno></c>, the return value is
           <c>{ok, <anno>Epp</anno>, <anno>Extra</anno>}</c> instead
           of <c>{ok, <anno>Epp</anno>}</c>.</p>
+       <p>The option <c>location</c> is forwarded
+         to the Erlang token scanner, see
+         <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -181,6 +184,9 @@
          <c><anno>Options</anno></c>, the return value is
          <c>{ok, [<anno>Form</anno>], <anno>Extra</anno>}</c> instead
          of <c>{ok, [<anno>Form</anno>]}</c>.</p>
+       <p>The option <c>location</c> is forwarded
+         to the Erlang token scanner, see
+         <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
       </desc>
     </func>
 

@@ -73,7 +73,6 @@
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
 	      pre_opened = false :: boolean(),
-              scan_opts=[] :: erl_scan:options(), %Scanner options
               fname = [] :: function_name_type()
 	     }).
 
@@ -117,7 +116,6 @@ open(Name, Path, Pdm) ->
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
 		  {'location',StartLocation :: erl_anno:location()} |
-		  {'scan_opts',ScanOpts :: erl_scan:options()} |
 		  {'fd',FileDescriptor :: file:io_device()} |
 		  'extra'],
       Epp :: epp_handle(),
@@ -558,12 +556,11 @@ init_server(Pid, FileName, Options, St0) ->
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
-            ScanOpts = proplists:get_value(scan_opts, Options, []),
             %% the default location is 1 for backwards compatibility, not {1,1}
             AtLocation = proplists:get_value(location, Options, 1),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
-			 scan_opts=ScanOpts, default_encoding=DefEncoding},
+			 default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
@@ -684,7 +681,8 @@ enter_file(NewName, Inc, From, St) ->
 enter_file2(NewF, Pname, From, St0, AtLocation) ->
     Anno = erl_anno:new(AtLocation),
     enter_file_reply(From, Pname, Anno, AtLocation, code),
-    Ms0 = St0#epp.macs,
+    #epp{macs = Ms0,
+         default_encoding = DefEncoding} = St0,
     Ms = Ms0#{'FILE':={none,[{string,Anno,Pname}]}},
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
@@ -693,7 +691,6 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
     %% the path) must be dropped, otherwise the path used within the current
     %% file will depend on the order of file inclusions in the parent files
     Path = [filename:dirname(Pname) | tl(St0#epp.path)],
-    DefEncoding = St0#epp.default_encoding,
     _ = set_encoding(NewF, DefEncoding),
     #epp{file=NewF,location=AtLocation,name=Pname,name2=Pname,delta=0,
          sstk=[St0|St0#epp.sstk],path=Path,macs=Ms,
@@ -761,7 +758,7 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.scan_opts) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
 	{ok,Toks,Cl} ->
 	    scan_toks(Toks, From, St#epp{location=Cl});
 	{error,E,Cl} ->
@@ -1259,7 +1256,7 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.scan_opts) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
 	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifdef,I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->
