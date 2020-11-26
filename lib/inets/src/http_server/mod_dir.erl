@@ -100,6 +100,17 @@ dir(Path,RequestURI,ConfigDB) ->
 			 file:format_error(Reason))}
     end.
 
+encode_html_entity(FileName) ->
+	Enc = fun($&) -> "&amp;";
+	         ($<) -> "&lt;";
+			 ($>) -> "&gt;";
+			 ($") -> "&quot;";
+			 ($') -> "&#x27;";
+			 ($/) -> "&#x2F;";
+			 (C)  -> C
+		  end,
+	unicode:characters_to_list([Enc(C) || C <- FileName]).
+
 %% header
 
 header(Path,RequestURI) ->
@@ -124,7 +135,7 @@ format(Path,RequestURI) ->
     io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
 		  " <A HREF=\"~s\">Parent directory</A>      "
 		  " ~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
-		  [icon(back),"DIR",RequestURI,Day,
+		  [icon(back),"DIR",get_href(RequestURI),Day,
 		   httpd_util:month(Month),Year,Hour,Minute]).
 
 %% body
@@ -135,8 +146,9 @@ body(Path, RequestURI, ConfigDB, [Entry | Rest]) ->
     [format(Path, RequestURI, ConfigDB, Entry)|
      body(Path, RequestURI, ConfigDB, Rest)].
 
-format(Path,RequestURI,ConfigDB,Entry) ->
-    case file:read_file_info(Path++"/"++Entry) of
+format(Path,RequestURI,ConfigDB,InitEntry) ->
+	Entry = encode_html_entity(InitEntry),
+    case file:read_file_info(Path++"/"++InitEntry) of
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
 	    {{Year, Month, Day},{Hour, Minute, _Second}} = 
 		FileInfo#file_info.mtime,
@@ -145,18 +157,18 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 		EntryLength > 21 ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> "
 				  "<A HREF=\"~s\">~-21.s..</A>"
-				  "~2.2.0w-~s-~w ~2.2.0w:~2.2.0w"
+				  "~*.*c~2.2.0w-~s-~w ~2.2.0w:~2.2.0w"
 				  "        -\n", [icon(folder),"DIR",
-						  RequestURI++"/"++Entry++"/",
-						  Entry,
+						  get_href(RequestURI++"/"++InitEntry++"/"),
+						  Entry, 23-21, 23-21, $ ,
 						  Day, httpd_util:month(Month),
 						  Year,Hour,Minute]);
 		true ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
 				  " <A HREF=\"~s\">~s</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w        -\n",
-				  [icon(folder),"DIR",RequestURI ++ "/" ++
-				   Entry ++ "/",Entry,
+				  [icon(folder),"DIR",get_href(RequestURI ++ "/" ++
+				   InitEntry ++ "/"),Entry,
 				   23-EntryLength,23-EntryLength,$ ,Day,
 				   httpd_util:month(Month),Year,Hour,Minute])
 	    end;
@@ -169,10 +181,10 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 	    if
 		EntryLength > 21 ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
-				  " <A HREF=\"~s\">~-21.s..</A>~2.2.0"
+				  " <A HREF=\"~s\">~-21.s..</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
-				  [icon(Suffix, MimeType), Suffix, RequestURI 
-				   ++"/"++Entry, Entry,Day,
+				  [icon(Suffix, MimeType), Suffix, get_href(RequestURI 
+				   ++"/"++InitEntry), Entry, 23-21, 23-21, $ , Day,
 				   httpd_util:month(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
 				   MimeType]);
@@ -180,8 +192,8 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> "
 				  "<A HREF=\"~s\">~s</A>~*.*c~2.2.0w-~s-~w"
 				  " ~2.2.0w:~2.2.0w~8wk  ~s\n",
-				  [icon(Suffix, MimeType), Suffix, RequestURI
-				   ++ "/" ++ Entry, Entry, 23-EntryLength,
+				  [icon(Suffix, MimeType), Suffix, get_href(RequestURI
+				   ++ "/" ++ InitEntry), Entry, 23-EntryLength,
 				   23-EntryLength, $ ,Day,
 				   httpd_util:month(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
@@ -189,6 +201,37 @@ format(Path,RequestURI,ConfigDB,Entry) ->
 	    end;
 	{error, _Reason} ->
 	    ""
+    end.
+
+get_href(URI) ->
+	percent_encode(URI).
+
+percent_encode(URI) when is_list(URI) ->
+    Reserved = reserved(), 
+    lists:append([uri_encode(Char, Reserved) || Char <- URI]);
+percent_encode(URI) when is_binary(URI) ->
+    Reserved = reserved(),
+    << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
+
+reserved() ->
+    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
+            $#, $[, $], $<, $>, $\", ${, $}, $|, %"
+			       $\\, $', $^, $%, $ ]).
+
+uri_encode(Char, Reserved) ->
+    case sets:is_element(Char, Reserved) of
+	true ->
+	    [ $% | http_util:integer_to_hexlist(Char)];
+	false ->
+	    [Char]
+    end.
+
+uri_encode_binary(Char, Reserved) ->
+    case sets:is_element(Char, Reserved) of
+        true ->
+            << $%, (integer_to_binary(Char, 16))/binary >>;
+        false ->
+            <<Char>>
     end.
 
 %% footer
