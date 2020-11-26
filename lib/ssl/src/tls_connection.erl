@@ -19,10 +19,76 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Handles an ssl connection, e.i. both the setup
-%% e.i. SSL-Handshake, SSL-Alert and SSL-Cipher protocols and delivering
-%% data to the application. All data on the connectinon is received and 
-%% sent according to the SSL-record protocol.  
+%% Purpose: TLS-1.0-TLS-1.2 FSM (* = optional)
+%% %%----------------------------------------------------------------------
+%%                    TLS Handshake protocol full Handshake 
+%%  Client                                               Server
+%%
+%%       ClientHello                  -------->                       Flight 1
+%%                                                       ServerHello  \
+%%                                                      Certificate*   \
+%%                                                ServerKeyExchange*    Flight 2
+%%                                               CertificateRequest*   / 
+%%                                    <--------      ServerHelloDone  /
+%%       Certificate*                                                 \
+%%       ClientKeyExchange                                             \
+%%       CertificateVerify*                                             Flight 3 part 1
+%%       [ChangeCipherSpec]                                            / 
+%%       Finished                     -------->                       / Flight 3 part 2
+%%                                                [ChangeCipherSpec]  
+%%                                    <--------             Finished Flight 4
+%%       Application Data             <------->     Application Data
+%%
+%%
+%%                    TLS Handshake protocol abbreviated Handshake 
+%%    Client                                                Server
+%%
+%%       ClientHello                   -------->                       Abbrev Flight 1
+%%                                                        ServerHello  Abbrev Flight 2 part 1
+%%                                                 [ChangeCipherSpec]
+%%                                     <--------             Finished  Abbrev Flight 2 part 2
+%%       [ChangeCipherSpec]
+%%       Finished                      -------->                       Abbrev Flight 3
+%%       Application Data              <------->     Application Data
+%%
+%%                                            
+%%                                                
+%%                                       Start FSM    ---> CONFIG_ERROR          
+%%                                                     Send error to user
+%%                                          |          and shutdown
+%%                                          |   
+%%                                          V
+%%                                    INITIAL_HELLO
+%%
+%%                                          | Send/Recv Flight 1
+%%                                          |
+%%                                          |
+%%           USER_HELLO                     |
+%%  <- Possibly let user provide            V
+%%  options after looking at hello ex ->    HELLO
+%%                                             | Send/Recv Flight 2 or Abbrev Flight 1 - Abbrev Flight 2 part 1 
+%%                                             |
+%%                                New session  | Resumed session
+%%  WAIT_OCSP_STAPELING   CERTIFY  <----------------------------------> ABBRIVIATED
+%%     
+%%  <- Possibly Receive  --  |                                              |
+%%     OCSP Stapel ------>   |  Flight 3 part 1                             |
+%%                           |                                              |
+%%                           V                                              |  Abbrev Flight 2 part 2 to Abbrev Flight 3
+%%                         CIPHER                                           |
+%%                           |                                              |
+%%                           | Fligth 3 part 2 to Flight 4                  |   
+%%                           |                                              |   
+%%                           V                                              V   
+%%                         ----------------------------------------------------
+%%                                                    |
+%%                                                    |
+%%                                                    V
+%%                                                 CONNECTION
+%%                                                    |
+%%                                                    |  Renegotiaton
+%%                                                    V
+%%                                               GO BACK TO HELLO
 %%----------------------------------------------------------------------
 
 -module(tls_connection).
