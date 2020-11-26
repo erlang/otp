@@ -17,7 +17,97 @@
 %%
 %% %CopyrightEnd%
 %%
+
 -module(dtls_connection).
+
+%%----------------------------------------------------------------------
+%% Purpose: DTLS-1-DTLS-1.2 FSM (* = optional)
+%%----------------------------------------------------------------------
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% For UDP transport the following flights are used as retransmission units
+%% in case of package loss. Flight timers are handled in state entry functions.    
+%%
+%%    Client                                          Server
+%%    ------                                          ------
+%%
+%%    ClientHello             -------->                           Flight 1
+%%
+%%                            <-------    HelloVerifyRequest      Flight 2
+%%
+%%    ClientHello             -------->                           Flight 3
+%%
+%%                                               ServerHello    \
+%%                                              Certificate*     \
+%%                                        ServerKeyExchange*      Flight 4
+%%                                       CertificateRequest*     /
+%%                            <--------      ServerHelloDone    /
+%%
+%%    Certificate*                                              \
+%%    ClientKeyExchange                                          \
+%%    CertificateVerify*                                          Flight 5
+%%    [ChangeCipherSpec]                                         /
+%%    Finished                -------->                         /
+%%
+%%                                        [ChangeCipherSpec]    \ Flight 6
+%%                            <--------             Finished    /
+%%
+%%                Message Flights for Full Handshake
+%%
+%%
+%%    Client                                           Server
+%%    ------                                           ------
+%%
+%%    ClientHello             -------->                          Abbrev Flight 1
+%%
+%%                                               ServerHello    \ part 1 
+%%                                        [ChangeCipherSpec]     Abbrev Flight 2
+%%                             <--------             Finished    / part 2
+%%
+%%    [ChangeCipherSpec]                                         \ Abbrev Flight 3
+%%    Finished                 -------->                         /
+%%
+%% 
+%%                  Message Flights for Abbbriviated Handshake
+%%----------------------------------------------------------------------
+%%                                       Start FSM    ---> CONFIG_ERROR          
+%%                                                     Send error to user
+%%                                          |          and shutdown
+%%                                          |   
+%%                                          V
+%%                                    INITIAL_HELLO
+%%
+%%                                          | Send/ Recv Flight 1
+%%                                          |
+%%                                          |
+%%           USER_HELLO                     |
+%%  <- Possibly let user provide            V
+%%  options after looking at hello ex ->    HELLO
+%%                                             | Send Recv Flight 2 to Flight 4 or
+%%                                             | Abbrev Flight 1 to Abbrev Flight 2 part 1  
+%%                                             |
+%%                                New session  | Resumed session
+%%  WAIT_OCSP_STAPELING   CERTIFY  <----------------------------------> ABBRIVIATED
+%%     
+%%  <- Possibly Receive  --  |                                              |
+%%     OCSP Stapel ------>   | Send/ Recv Flight 5                          |
+%%                           |                                              |
+%%                           V                                              |  Send / Recv Abbrev Flight part 2 
+%%                                                                          |  to Abbrev Flight 3
+%%                         CIPHER                                           | 
+%%                           |                                              |
+%%                           |  Send/ Recv Flight 6                         |  
+%%                           |                                              |  
+%%                           V                                              V  
+%%                         ----------------------------------------------------
+%%                                                    |
+%%                                                    |
+%%                                                    V
+%%                                                 CONNECTION
+%%                                                    |
+%%                                                    |  Renegotiaton
+%%                                                    V
+%%                                               GO BACK TO HELLO
+%%----------------------------------------------------------------------
 
 %% Internal application API
 
