@@ -196,6 +196,7 @@ append_index(RealName, [Index | Rest]) ->
 %% path
 
 path(Data, ConfigDB, RequestURI) ->
+	InitPath =
     case proplists:get_value(real_name, Data) of
 	undefined ->
             {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
@@ -204,6 +205,10 @@ path(Data, ConfigDB, RequestURI) ->
             Prefix ++ Path;
 	{Path, _AfterPath} ->
 	    Path
+    end,
+	case uri_string:percent_decode(InitPath) of
+		{error, _} -> InitPath;
+		P -> P
     end.
 
 %%
