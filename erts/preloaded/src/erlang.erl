@@ -477,7 +477,7 @@ binary_to_term(_Binary) ->
 %% binary_to_term/2
 -spec binary_to_term(Binary, Opts) -> term() | {term(), Used} when
       Binary :: ext_binary(),
-      Opt :: safe | used,
+      Opt :: safe | data_only | used,
       Opts :: [Opt],
       Used :: pos_integer().
 binary_to_term(_Binary, _Opts) ->

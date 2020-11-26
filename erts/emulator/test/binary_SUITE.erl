@@ -64,6 +64,7 @@
 	 bad_size/1,
 	 bad_term_to_binary/1,
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
+         data_only_binary_to_term2/1,
 	 bad_binary_to_term/1, bad_terms/1, more_bad_terms/1,
 	 otp_5484/1,otp_5933/1,
 	 ordering/1,unaligned_order/1,gc_test/1,
@@ -92,6 +93,7 @@ all() ->
      {group, iolist_size_benchmarks},
      b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
+     data_only_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      sub_bin_copy, bad_term_to_binary, t2b_system_limit,
      term_to_iovec, more_bad_terms,
@@ -936,7 +938,7 @@ bad_bin_to_term(BadBin) ->
 bad_bin_to_term(BadBin,Opts) ->
     {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin,Opts)).
 
-%% Test safety options for binary_to_term/2
+%% Test safe option for binary_to_term/2
 safe_binary_to_term2(Config) when is_list(Config) ->
     bad_bin_to_term(<<131,100,0,14,"undefined_atom">>, [safe]),
     bad_bin_to_term(<<131,100,0,14,"other_bad_atom">>, [safe]),
@@ -948,6 +950,14 @@ safe_binary_to_term2(Config) when is_list(Config) ->
     fullsweep_after = binary_to_term_stress(<<131,100,0,15,"fullsweep_after">>, [safe]), % should be a good atom
     BadExtFun = <<131,113,100,0,4,98,108,117,101,100,0,4,109,111,111,110,97,3>>,
     bad_bin_to_term(BadExtFun, [safe]),
+    ok.
+
+%% Test data_only option for binary_to_term/2
+data_only_binary_to_term2(Config) when is_list(Config) ->
+    Fun = term_to_binary(fun() -> ok end),
+    bad_bin_to_term(Fun, [data_only]),
+    Export = term_to_binary(fun erlang:self/0),
+    bad_bin_to_term(Export, [data_only]),
     ok.
 
 %% Tests bad input to binary_to_term/1.

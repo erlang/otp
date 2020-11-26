@@ -1408,13 +1408,21 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
     Sint size;
     ErtsHeapFactory factory;
     const byte *bp = (byte*) data;
+    Uint32 Xopts = (Uint32)opts;
     Uint32 flags = 0;
 
-    switch ((Uint32)opts) {
-    case 0: break;
-    case ERL_NIF_BIN2TERM_SAFE: flags = ERTS_DIST_EXT_BTT_SAFE; break;
-    default: return 0;
+    if (Xopts & ERL_NIF_BIN2TERM_SAFE) {
+        flags |= ERTS_DIST_EXT_BTT_SAFE;
+        Xopts &= ~ERL_NIF_BIN2TERM_SAFE;
     }
+    if (Xopts & ERL_NIF_BIN2TERM_DATA_ONLY) {
+        flags |= ERTS_DIST_EXT_BTT_DATA_ONLY;
+        Xopts &= ~ERL_NIF_BIN2TERM_DATA_ONLY;
+    }
+    if (Xopts != 0) {
+        return 0;
+    }
+
     if ((size = erts_decode_ext_size(bp, data_sz)) < 0)
         return 0;
 

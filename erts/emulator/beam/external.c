@@ -1251,7 +1251,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, const byte **ext, Uint32 flags)
 	return THE_NON_VALUE;
     }
     if (flags) {
-        ASSERT(flags == ERTS_DIST_EXT_BTT_SAFE);
+        ASSERT((flags & ~ERTS_DIST_EXT_BTT_SAFE) & ~ERTS_DIST_EXT_BTT_DATA_ONLY);
         ede.flags = flags; /* a dummy struct just for the flags */
         ede.data = NULL;
         edep = &ede;
@@ -2076,6 +2076,9 @@ BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
         opt = CAR(list_val(opts));
         if (opt == am_safe) {
             ctx.flags |= ERTS_DIST_EXT_BTT_SAFE;
+        }
+        else if (opt == am_data_only) {
+            ctx.flags |= ERTS_DIST_EXT_BTT_DATA_ONLY;
         }
         else if (opt == am_used) {
             ctx.used_bytes = 1;
@@ -4268,6 +4271,9 @@ dec_term_atom_common:
 	    }
         case PID_EXT:
         case NEW_PID_EXT:
+            if (edep && (edep->flags & ERTS_DIST_EXT_BTT_DATA_ONLY)) {
+                goto error;
+            }
 	    factory->hp = hp;
 	    ep = dec_pid(edep, factory, ep, objp, ep[-1]);
 	    hp = factory->hp;
@@ -4277,6 +4283,9 @@ dec_term_atom_common:
 	    break;
         case PORT_EXT:
         case NEW_PORT_EXT:
+            if (edep && (edep->flags & ERTS_DIST_EXT_BTT_DATA_ONLY)) {
+                goto error;
+            }
 	    {
 		Eterm sysname;
 		ErlNode *node;
@@ -4377,6 +4386,9 @@ dec_term_atom_common:
 		ep += 4;
 
 	    ref_ext_common:
+                if (edep && (edep->flags & ERTS_DIST_EXT_BTT_DATA_ONLY)) {
+                    goto error;
+                }
 
 		if (ref_words > ERTS_MAX_REF_NUMBERS)
 		    goto error;
@@ -4589,6 +4601,9 @@ dec_term_atom_common:
 		break;
 	    }
 	case EXPORT_EXT:
+            if (edep && (edep->flags & ERTS_DIST_EXT_BTT_DATA_ONLY)) {
+                    goto error;
+            }
 	    {
 		Eterm mod;
 		Eterm name;
@@ -4680,6 +4695,9 @@ dec_term_atom_common:
 	    }
 	    break;
 	case NEW_FUN_EXT:
+            if (edep && (edep->flags & ERTS_DIST_EXT_BTT_DATA_ONLY)) {
+                    goto error;
+            }
 	    {
 		ErlFunThing* funp = (ErlFunThing *) hp;
 		Uint arity;

@@ -258,7 +258,8 @@ typedef enum {
 } ErlNifUniqueInteger;
 
 typedef enum {
-    ERL_NIF_BIN2TERM_SAFE = 0x20000000
+    ERL_NIF_BIN2TERM_SAFE = 0x20000000,
+    ERL_NIF_BIN2TERM_DATA_ONLY = 0x40000000
 } ErlNifBinaryToTerm;
 
 typedef enum {
