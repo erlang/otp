@@ -680,6 +680,26 @@ suite_bin_to_map(?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA) ->
       cipher => aes_256_cbc, 
       mac => sha, 
       prf => default_prf};
+suite_bin_to_map(?TLS_ECDHE_ECDSA_WITH_AES_128_CCM) ->
+    #{key_exchange => ecdhe_ecdsa, 
+      cipher => aes_128_ccm, 
+      mac => aead, 
+      prf => sha256};
+suite_bin_to_map(?TLS_ECDHE_ECDSA_WITH_AES_256_CCM) ->
+    #{key_exchange => ecdhe_ecdsa, 
+      cipher => aes_256_ccm, 
+      mac => aead, 
+      prf => sha256};
+suite_bin_to_map(?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8) ->
+    #{key_exchange => ecdhe_ecdsa, 
+      cipher => aes_128_ccm_8, 
+      mac => aead, 
+      prf => sha256};
+suite_bin_to_map(?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8) ->
+    #{key_exchange => ecdhe_ecdsa, 
+      cipher => aes_256_ccm_8, 
+      mac => aead, 
+      prf => sha256};
 suite_bin_to_map(?TLS_ECDH_RSA_WITH_NULL_SHA) ->
     #{key_exchange => ecdh_rsa, 
       cipher => null, 
@@ -1393,6 +1413,22 @@ suite_map_to_bin(#{key_exchange := ecdhe_ecdsa,
         cipher := aes_256_cbc, 
         mac := sha}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA;
+suite_map_to_bin(#{key_exchange := ecdhe_ecdsa, 
+        cipher := aes_128_ccm, 
+        mac := aead}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM;
+suite_map_to_bin(#{key_exchange := ecdhe_ecdsa, 
+        cipher := aes_256_ccm, 
+        mac := aead}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM;
+suite_map_to_bin(#{key_exchange := ecdhe_ecdsa, 
+        cipher := aes_128_ccm_8, 
+        mac := aead}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8;
+suite_map_to_bin(#{key_exchange := ecdhe_ecdsa, 
+        cipher := aes_256_ccm_8, 
+        mac := aead}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8;
 suite_map_to_bin(#{key_exchange := ecdh_rsa, 
         cipher := null, 
         mac := sha}) ->

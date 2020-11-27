@@ -499,7 +499,11 @@ suites(Minor) when Minor == 1; Minor == 2 ->
       ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
       ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
-      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA
+      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+      ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8
     ];
 suites(3) ->
     exclusive_suites(3) ++ suites(2);
@@ -576,7 +580,11 @@ exclusive_suites(Minor) when Minor == 1; Minor == 2 ->
       ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
       ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
-      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA
+      ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+      ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+      ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8
     ].
 
 signature_algs({3, 4}, HashSigns) ->
