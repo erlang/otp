@@ -48,7 +48,7 @@
          exceptions_after_match_failure/1,
          bad_phi_paths/1,many_clauses/1,
          combine_empty_segments/1,hangs_forever/1,
-         bs_saved_position_units/1,empty_get_binary/1]).
+         bs_saved_position_units/1,empty_matches/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -87,7 +87,7 @@ groups() ->
        matching_meets_apply,bs_start_match2_defs,
        exceptions_after_match_failure,bad_phi_paths,
        many_clauses,combine_empty_segments,hangs_forever,
-       bs_saved_position_units,empty_get_binary]}].
+       bs_saved_position_units,empty_matches]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2396,17 +2396,20 @@ bspu_1(<<Bin/binary>> = Bin) ->
     [Chunk || <<Chunk:5/binary>> <= Bin].
 
 
-empty_get_binary(Config) when is_list(Config) ->
-    {<<>>, <<1,2,3,4:4>>} = egb_1(<<1,2,3,4:4>>),
-    {<<>>, <<1,2,3>>} = egb_1(<<1,2,3>>),
-    {<<>>, <<>>} = egb_1(<<>>),
+empty_matches(Config) when is_list(Config) ->
+    {<<>>, <<1,2,3,4:4>>} = em_1(<<1,2,3,4:4>>),
+    {<<>>, <<1,2,3>>} = em_1(<<1,2,3>>),
+    {<<>>, <<>>} = em_1(<<>>),
 
-    <<0,1,0,2,0,3>> = egb_2(id(<<1,2,3>>)),
-    <<>> = egb_2(id(<<>>)),
+    <<0,1,0,2,0,3>> = em_2(id(<<1,2,3>>)),
+    <<>> = em_2(id(<<>>)),
+
+    <<Zero:0/unit:1>> = id(<<>>),
+    0 = id(Zero),
 
     ok.
 
-egb_1(Bytes) ->
+em_1(Bytes) ->
     {Term, Bytes} = begin
                         <<V2@V0:0/binary-unit:8,V2@Buf1/bitstring>> = Bytes,
                         V2@Conv2 = binary:copy(V2@V0),
@@ -2414,7 +2417,7 @@ egb_1(Bytes) ->
                     end,
     {Term, Bytes}.
 
-egb_2(Bin) ->
+em_2(Bin) ->
     <<
       <<K,N>> || <<K:0,N>> <= Bin
     >>.

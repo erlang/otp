@@ -730,7 +730,7 @@ erlang_band_type_1(LHS, Int) ->
             {Intersection, Union} = range_masks(Min0, Max0),
 
             Min = Intersection band Int,
-            Max = min(Max0, Union band Int),
+            Max = max(Min, min(Max0, Union band Int)),
 
             #t_integer{elements={Min,Max}};
         #t_integer{} when Int >= 0 ->
