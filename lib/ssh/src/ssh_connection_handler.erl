@@ -1872,7 +1872,6 @@ stop_subsystem(#data{ssh_params =
                          #connection{system_supervisor = SysSup,
                                      sub_system_supervisor = SubSysSup}
                     }) when is_pid(SysSup) andalso is_pid(SubSysSup)  ->
-    process_flag(trap_exit, false),
     C = self(),
     spawn(fun() ->
                   Mref = erlang:monitor(process, C),
