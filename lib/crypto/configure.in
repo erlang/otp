@@ -186,6 +186,15 @@ AS_HELP_STRING([--disable-evp-dh],
   esac ], DISABLE_EVP_DH=0)
 
 
+AC_ARG_ENABLE(evp-hmac,
+AS_HELP_STRING([--disable-evp-hmac],
+	       [intentionally undocumented workaround]),
+[ case "$enableval" in
+    no)   DISABLE_EVP_HMAC=1;;
+    *)    DISABLE_EVP_HMAC=0;;
+  esac ], DISABLE_EVP_HMAC=0)
+
+
 #----------------------------------------------------------------------
 # We actually might do the SSL tests twice due to late discovery of 
 # kerberos problems with static linking, in case we redo it all trying
@@ -786,6 +795,7 @@ AC_SUBST(STATIC_KERBEROS_LIBS)
 AC_SUBST(SSL_LINK_WITH_ZLIB)
 AC_SUBST(STATIC_ZLIB_LIBS)
 AC_SUBST(DISABLE_EVP_DH)
+AC_SUBST(DISABLE_EVP_HMAC)
 
 AC_OUTPUT(c_src/$host/Makefile:c_src/Makefile.in)
 

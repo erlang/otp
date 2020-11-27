@@ -133,6 +133,28 @@ static INLINE void locking(int mode, ErlNifRWLock* lock)
 }
 
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+
+/* TODO: there should be an enif_atomic32_add_return() */
+
+typedef int (*add_lock_function_t)(int *var, int incr, int type, const char *file, int line);
+
+#if defined(__GNUC__) && defined(__ATOMIC_ACQ_REL)
+static int add_lock_function(int *var, int incr, int type, const char *file, int line)
+{
+    return __atomic_add_fetch(var, incr, __ATOMIC_ACQ_REL);
+}
+
+static add_lock_function_t get_add_lock_function(void)
+{
+    return __atomic_always_lock_free(sizeof(int), NULL) ? add_lock_function : NULL;
+}
+#else
+static add_lock_function_t get_add_lock_function(void)
+{
+    return NULL;
+}
+#endif
+
 static void locking_function(int mode, int n, const char *file, int line)
 {
     locking(mode, lock_vec[n]);
@@ -172,6 +194,7 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000
 #ifdef OPENSSL_THREADS
+	NULL, /* add_lock_function, filled in below */
 	&locking_function,
 	&id_function,
 	&dyn_create_function,
@@ -184,6 +207,7 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
     if (!is_initialized) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000
 #ifdef OPENSSL_THREADS
+	the_struct.add_lock_function = get_add_lock_function();
 	if (nlocks > 0) {
 	    int i;
 
