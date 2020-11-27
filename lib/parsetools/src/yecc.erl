@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -268,11 +268,14 @@ file(GrammarFile) ->
               | 'return_errors' | 'return_warnings' | 'return'
               | 'verbose' | 'warnings_as_errors'.
 
-file(File, Options) ->
+file(File, Options0) when is_list(Options0) ->
     case is_filename(File) of
-        no -> erlang:error(badarg, [File, Options]);
+        no -> erlang:error(badarg, [File, Options0]);
         _ -> ok
     end,
+    EnvOpts0 = env_default_opts(),
+    EnvOpts = select_recognized_opts(EnvOpts0),
+    Options = Options0 ++ EnvOpts,
     case options(Options) of
         badarg ->
             erlang:error(badarg, [File, Options]);
@@ -286,7 +289,9 @@ file(File, Options) ->
                     process_flag(trap_exit, Flag),
                     Rep
             end
-    end.
+    end;
+file(File, Option) ->
+    file(File, [Option]).
 
 %% Kept for backward compatibility.
 yecc(Infile, Outfile) ->
@@ -311,84 +316,114 @@ yecc(Infilex, Outfilex, Verbose, Includefilex) ->
 %%% Local functions
 %%%
 
-options(Options0) when is_list(Options0) ->
-    try 
-        Options = flatmap(fun(return) -> short_option(return, true);
-                             (report) -> short_option(report, true);
-                             ({return,T}) -> short_option(return, T);
-                             ({report,T}) -> short_option(report, T);
-                             (T) -> [T]
-                          end, Options0),
-        options(Options, [file_attributes, includefile, parserfile, 
-                          report_errors, report_warnings, warnings_as_errors,
-                          return_errors, return_warnings, time, verbose], [])
-    catch error: _ -> badarg
-    end;
-options(Option) ->
-    options([Option]).
+%% Copied from compile.erl.
+env_default_opts() ->
+    Key = "ERL_COMPILER_OPTIONS",
+    case os:getenv(Key) of
+	false -> [];
+	Str when is_list(Str) ->
+	    case erl_scan:string(Str) of
+		{ok,Tokens,_} ->
+                    Dot = {dot, erl_anno:new(1)},
+		    case erl_parse:parse_term(Tokens ++ [Dot]) of
+			{ok,List} when is_list(List) -> List;
+			{ok,Term} -> [Term];
+			{error,_Reason} ->
+			    io:format("Ignoring bad term in ~s\n", [Key]),
+			    []
+		    end;
+		{error, {_,_,_Reason}, _} ->
+		    io:format("Ignoring bad term in ~s\n", [Key]),
+		    []
+	    end
+    end.
 
-short_option(return, T) ->
-    [{return_errors,T}, {return_warnings,T}];
-short_option(report, T) ->
-    [{report_errors,T}, {report_warnings,T}].
+select_recognized_opts(Options0) ->
+    Options = preprocess_options(Options0),
+    AllOptions = all_options(),
+    [Option ||
+        {Name, _} = Option <- Options,
+        lists:member(Name, AllOptions)].
 
-options(Options0, [Key | Keys], L) when is_list(Options0) ->
-    Options = case member(Key, Options0) of
-                  true -> 
-                      [atom_option(Key) | delete(Key, Options0)];
-                  false ->
-                      Options0
-              end,
-    V = case lists:keyfind(Key, 1, Options) of
-            {Key, Filename0} when Key =:= includefile;
-                                  Key =:= parserfile ->
-                case is_filename(Filename0) of
-                    no -> 
-                        badarg;
-                    Filename -> 
-                        {ok, [{Key, Filename}]}
-                end;
-            {Key, Bool} = KB when is_boolean(Bool) ->
-                {ok, [KB]};
-            {Key, _} ->
-                badarg;
-            false ->
-                {ok, [{Key, default_option(Key)}]}
-        end,
-    case V of
+options(Options0) ->
+    Options1 = preprocess_options(Options0),
+    AllOptions = all_options(),
+    case check_options(Options1, AllOptions, []) of
         badarg ->
             badarg;
-        {ok, KeyValueL} ->
-            NewOptions = keydelete(Key, 1, Options),
-            options(NewOptions, Keys, KeyValueL ++ L)
+        OptionValues  ->
+            AllOptionValues =
+                [case lists:keyfind(Option, 1, OptionValues) of
+                     false ->
+                         {Option, default_option(Option)};
+                     OptionValue ->
+                         OptionValue
+                 end || Option <- AllOptions],
+            foldr(fun({_, false}, L) -> L;
+                     ({Option, true}, L) -> [Option | L];
+                     (OptionValue, L) -> [OptionValue | L]
+                  end, [], AllOptionValues)
+    end.
+
+preprocess_options(Options) ->
+    foldr(fun preproc_opt/2, [], Options).
+
+preproc_opt(return, Os) ->
+    [{return_errors, true}, {return_warnings, true} | Os];
+preproc_opt(report, Os) ->
+    [{report_errors, true}, {report_warnings, true} | Os];
+preproc_opt({return, T}, Os) ->
+    [{return_errors, T}, {return_warnings, T} | Os];
+preproc_opt({report, T}, Os) ->
+    [{report_errors, T}, {report_warnings, T} | Os];
+preproc_opt(Option, Os) ->
+    [try atom_option(Option) catch error:_ -> Option end | Os].
+
+check_options([{Option, FileName0} | Options], AllOptions, L)
+          when Option =:= includefile; Option =:= parserfile ->
+    case is_filename(FileName0) of
+        no -> 
+            badarg;
+        Filename -> 
+            check_options(Options, AllOptions, [{Option, Filename} | L])
     end;
-options([], [], L) ->
-    foldl(fun({_,false}, A) -> A;
-             ({Tag,true}, A) -> [Tag | A];
-             (F, A) -> [F | A]
-          end, [], L);
-options(_Options, _, _L) ->
+check_options([{Option, Boolean} | Options], AllOptions, L)
+          when is_boolean(Boolean) ->
+    case lists:member(Option, AllOptions) of
+        true ->
+            check_options(Options, AllOptions, [{Option, Boolean} | L]);
+        false ->
+            badarg
+        end;
+check_options([], _AllOptions, L) ->
+    L;
+check_options(_Options, _, _L) ->
     badarg.
+
+all_options() ->
+    [file_attributes, includefile, parserfile, report_errors,
+     report_warnings, return_errors, return_warnings, time, verbose,
+     warnings_as_errors].
 
 default_option(file_attributes) -> true;
 default_option(includefile) -> [];
 default_option(parserfile) -> [];
 default_option(report_errors) -> true;
 default_option(report_warnings) -> true;
-default_option(warnings_as_errors) -> false;
 default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(time) -> false;
-default_option(verbose) -> false.
+default_option(verbose) -> false;
+default_option(warnings_as_errors) -> false.
 
 atom_option(file_attributes) -> {file_attributes, true};
 atom_option(report_errors) -> {report_errors, true};
 atom_option(report_warnings) -> {report_warnings, true};
-atom_option(warnings_as_errors) -> {warnings_as_errors,true};
 atom_option(return_errors) -> {return_errors, true};
 atom_option(return_warnings) -> {return_warnings, true};
 atom_option(time) -> {time, true};
 atom_option(verbose) -> {verbose, true};
+atom_option(warnings_as_errors) -> {warnings_as_errors, true};
 atom_option(Key) -> Key.
 
 is_filename(T) ->

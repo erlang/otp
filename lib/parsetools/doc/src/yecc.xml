@@ -156,6 +156,22 @@
   </funcs>
 
   <section>
+    <title>Default Yecc Options</title>
+    <p>The (host operating system) environment variable
+      <c>ERL_COMPILER_OPTIONS</c> can be used to give default Yecc
+      options. Its value must be a valid Erlang term. If the value is a
+      list, it is used as is. If it is not a list, it is put
+      into a list.</p>
+
+      <p>The list is appended to any options given to
+      <seemfa marker="#file/2">file/2</seemfa>.</p>
+
+      <p>The list can be retrieved with
+      <seemfa marker="compiler:compile#env_compiler_options/0">
+      compile:env_compiler_options/0</seemfa>.</p>
+  </section>
+
+  <section>
     <title>Pre-Processing</title>
     <p>A <c>scanner</c> to pre-process the text (program, etc.) to be
       parsed is not provided in the <c>yecc</c> module. The scanner
