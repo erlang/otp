@@ -187,6 +187,10 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 	opt->rsa_mgf1_md = NULL;
 	opt->rsa_padding = RSA_PKCS1_PADDING;
 	opt->rsa_pss_saltlen = -2;
+    } else {
+	opt->rsa_mgf1_md = NULL;
+	opt->rsa_padding = 0;
+	opt->rsa_pss_saltlen = 0;
     }
 
     if (enif_is_empty_list(env, options))
@@ -528,8 +532,8 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 #endif
     PKeySignOptions sig_opt;
     ErlNifBinary sig_bin; /* signature */
-    unsigned char *tbs; /* data to be signed */
-    size_t tbslen;
+    unsigned char *tbs = NULL; /* data to be signed */
+    size_t tbslen = 0;
     RSA *rsa = NULL;
 #ifdef HAVE_DSA
     DSA *dsa = NULL;
@@ -757,8 +761,8 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 #endif
     PKeySignOptions sig_opt;
     ErlNifBinary sig_bin; /* signature */
-    unsigned char *tbs; /* data to be signed */
-    size_t tbslen;
+    unsigned char *tbs = NULL; /* data to be signed */
+    size_t tbslen = 0;
     ERL_NIF_TERM ret;
     RSA *rsa = NULL;
 #ifdef HAVE_DSA
@@ -934,12 +938,19 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
 
     /* defaults */
     if (algorithm == atom_rsa) {
-	opt->rsa_mgf1_md = NULL;
-	opt->rsa_oaep_label.data = NULL;
-	opt->rsa_oaep_label.size = 0;
-	opt->rsa_oaep_md = NULL;
+        opt->rsa_mgf1_md = NULL;
+        opt->rsa_oaep_label.data = NULL;
+        opt->rsa_oaep_label.size = 0;
+        opt->rsa_oaep_md = NULL;
 	opt->rsa_padding = RSA_PKCS1_PADDING;
-	opt->signature_md = NULL;
+        opt->signature_md = NULL;
+    } else {
+        opt->rsa_mgf1_md = NULL;
+        opt->rsa_oaep_label.data = NULL;
+        opt->rsa_oaep_label.size = 0;
+        opt->rsa_oaep_md = NULL;
+        opt->rsa_padding = 0;
+        opt->signature_md = NULL;
     }
 
     if (enif_is_empty_list(env, options))
