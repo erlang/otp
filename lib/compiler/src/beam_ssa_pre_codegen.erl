@@ -2218,81 +2218,133 @@ number_is_2([], N, Acc) ->
     {reverse(Acc),N}.
 
 %%%
-%%% Calculate live intervals.
+%%% Calculate live intervals for all variables in this function.
+%%%
+%%% This code uses the algorithm and terminology from [3].
+%%%
+%%% For each variable, we calculate its live interval. The live
+%%% interval is a list of ranges, where a range is a tuple
+%%% {Def,LastUse}.  Def is the instruction number for the instruction
+%%% that first defines the variable and LastUse is instruction number
+%%% of the last instruction that uses it.
+%%%
+%%% We traverse instruction in post order so that we will see the last
+%%% use before we see the definition.
 %%%
 
 live_intervals(#st{args=Args,ssa=Blocks}=St) ->
-    Vars0 = [{V,{0,1}} || #b_var{}=V <- Args],
     PO = reverse(beam_ssa:rpo(Blocks)),
-    Vars = live_interval_blk(PO, Blocks, Vars0, #{}),
-    Intervals = merge_ranges(rel2fam(Vars)),
+    Intervals0 = live_interval_blk(PO, Blocks, #{}, #{}),
+    Intervals1 = add_ranges([{V,{0,1}} || #b_var{}=V <- Args], Intervals0),
+    Intervals = maps:to_list(Intervals1),
     St#st{intervals=Intervals}.
 
-merge_ranges([{V,Rs}|T]) ->
-    [{V,merge_ranges_1(Rs)}|merge_ranges(T)];
-merge_ranges([]) -> [].
-
-merge_ranges_1([{A,N},{N,Z}|Rs]) ->
-    merge_ranges_1([{A,Z}|Rs]);
-merge_ranges_1([R|Rs]) ->
-    [R|merge_ranges_1(Rs)];
-merge_ranges_1([]) -> [].
-
-live_interval_blk([L|Ls], Blocks, Vars0, LiveMap0) ->
-    Live0 = [],
+live_interval_blk([L|Ls], Blocks, LiveMap0, Intervals0) ->
     Blk = map_get(L, Blocks),
     Successors = beam_ssa:successors(Blk),
-    Live1 = update_successors(Successors, L, Blocks, LiveMap0, Live0),
+    Live1 = live_in_successors(Successors, L, Blocks, LiveMap0),
 
-    %% Add ranges for all variables that are live in the successors.
+    %% Add default ranges for all variables that are live in the
+    %% successors.
     #b_blk{is=Is,last=Last} = Blk,
-    End = beam_ssa:get_anno(n, Last),
-    EndUse = {use,End+1},
-    Use = [{V,EndUse} || V <- Live1],
-
-    %% Determine used and defined variables in this block.
     FirstNumber = first_number(Is, Last),
-    UseDef0 = live_interval_last(Last, Use),
-    UseDef1 = live_interval_blk_is(Is, FirstNumber, UseDef0),
-    UseDef = rel2fam(UseDef1),
+    DefaultRange = {FirstNumber,1+beam_ssa:get_anno(n, Last)},
+    Ranges0 = [{V,DefaultRange} || V <- Live1],
 
-    %% Update what is live at the beginning of this block and
-    %% store it.
-    Live = [V || {V,[{use,_}|_]} <- UseDef],
-    LiveMap = LiveMap0#{L=>Live},
+    case {Is,Last} of
+        {[],#b_br{bool=#b_literal{val=true}}} ->
+            %% Optimize the interval calculation for blocks without variables.
+            Intervals = add_ranges(Ranges0, Intervals0),
+            LiveMap = LiveMap0#{L => Live1},
+            live_interval_blk(Ls, Blocks, LiveMap, Intervals);
+        {_,_} ->
+            %% Update the ranges. Variables whose last use is in this
+            %% block will be added, and variables that are defined
+            %% in this block will have their starting instruction
+            %% number updated.
+            %%
+            %% We use a gb_tree instead of a map because conversion to and
+            %% from an orddict is faster.
+            Ranges1 = gb_trees:from_orddict(Ranges0),
+            Ranges2 = live_interval_last(Last, FirstNumber, Ranges1),
+            Ranges3 = live_interval_blk_is(Is, FirstNumber, Ranges2),
+            Ranges = gb_trees:to_list(Ranges3),
 
-    %% Construct the ranges for this block.
-    Vars = make_block_ranges(UseDef, FirstNumber, Vars0),
-    live_interval_blk(Ls, Blocks, Vars, LiveMap);
-live_interval_blk([], _Blocks, Vars, _LiveMap) ->
-    Vars.
+            %% Update the interval for each variable.
+            Intervals = add_ranges(Ranges, Intervals0),
 
-live_interval_last(I, Acc) ->
+            %% Update what is live at the beginning of this block and
+            %% store it.
+            Live = [V || {V,{From,_To}} <- Ranges,
+                         From =< FirstNumber],
+            LiveMap = LiveMap0#{L => Live},
+            live_interval_blk(Ls, Blocks, LiveMap, Intervals)
+    end;
+live_interval_blk([], _Blocks, _LiveMap, Intervals) ->
+    Intervals.
+
+live_interval_last(I, FirstNumber, Ranges) ->
     N = beam_ssa:get_anno(n, I),
     Used = beam_ssa:used(I),
-    [{V,{use,N}} || V <- Used] ++ Acc.
+    update_used(Used, FirstNumber, N, Ranges).
 
 live_interval_blk_is([#b_set{op=phi,dst=Dst}|Is], FirstNumber, Acc0) ->
-    Acc = [{Dst,{def,FirstNumber}}|Acc0],
-    live_interval_blk_is(Is, FirstNumber, Acc);
-live_interval_blk_is([#b_set{dst=Dst}=I|Is], FirstNumber, Acc0) ->
+    Acc = live_interval_blk_is(Is, FirstNumber, Acc0),
+    case gb_trees:is_defined(Dst, Acc) of
+        true ->
+            %% The value in the tree already has the correct starting value.
+            update_def(Dst, FirstNumber, Acc);
+        false ->
+            %% Unused phi node -- can only happen if optimizations passes
+            %% have been turned off.
+            gb_trees:insert(Dst, {FirstNumber,FirstNumber}, Acc)
+    end;
+live_interval_blk_is([#b_set{args=Args,dst=Dst}=I|Is], FirstNumber, Acc0) ->
+    Acc1 = live_interval_blk_is(Is, FirstNumber, Acc0),
     N = beam_ssa:get_anno(n, I),
-    Acc1 = [{Dst,{def,N}}|Acc0],
-    Used = beam_ssa:used(I),
-    Acc = [{V,{use,N}} || V <- Used] ++ Acc1,
-    live_interval_blk_is(Is, FirstNumber, Acc);
+    Used = used_args(Args),
+    Acc = update_used(Used, FirstNumber, N, Acc1),
+    update_def(Dst, N, Acc);
 live_interval_blk_is([], _FirstNumber, Acc) ->
     Acc.
 
-make_block_ranges([{V,[{def,Def}]}|Vs], First, Acc) ->
-    make_block_ranges(Vs, First, [{V,{Def,Def}}|Acc]);
-make_block_ranges([{V,[{def,Def}|Uses]}|Vs], First, Acc) ->
-    {use,Last} = last(Uses),
-    make_block_ranges(Vs, First, [{V,{Def,Last}}|Acc]);
-make_block_ranges([{V,[{use,_}|_]=Uses}|Vs], First, Acc) ->
-    {use,Last} = last(Uses),
-    make_block_ranges(Vs, First, [{V,{First,Last}}|Acc]);
-make_block_ranges([], _, Acc) -> Acc.
+update_def(V, N, Ranges) ->
+    case gb_trees:lookup(V, Ranges) of
+        {value,{_From,To}} ->
+            gb_trees:update(V, {N,To}, Ranges);
+        none ->
+            %% The variable is defined but never used.
+            gb_trees:insert(V, {N,N}, Ranges)
+    end.
+
+update_used([V|Vs], First, N, Ranges) ->
+    case gb_trees:is_defined(V, Ranges) of
+        true ->
+            %% Already up to date. (A later use has already been stored.)
+            update_used(Vs, First, N, Ranges);
+        false ->
+            %% The last use of this variable. (But the first time we
+            %% see it because we visit instructions in PO.)
+            update_used(Vs, First, N, gb_trees:insert(V, {First,N}, Ranges))
+    end;
+update_used([], _First, _N, Ranges) -> Ranges.
+
+add_ranges([{V,{A,N}=Range}|T], Map) ->
+    case Map of
+        #{V := [{N,Z}|Ranges]} ->
+            %% Coalesce two adjacent ranges.
+            add_ranges(T, Map#{V := [{A,Z}|Ranges]});
+        #{V := [{A,N}|_]} ->
+            %% Ignore repeated range (probably from arguments).
+            add_ranges(T, Map);
+        #{V := Ranges} ->
+            %% This range is not adjacent to any other range.
+            add_ranges(T, Map#{V := [Range|Ranges]});
+        #{} ->
+            %% The last use of this variable is in the current block.
+            add_ranges(T, Map#{V => [Range]})
+    end;
+add_ranges([], Map) -> Map.
 
 %% first_number([#b_set{}]) -> InstructionNumber.
 %%  Return the number for the first instruction for the block.
@@ -2306,12 +2358,15 @@ first_number([I|_], _) ->
 first_number([], Last) ->
     beam_ssa:get_anno(n, Last) - 1.
 
-update_successors([L|Ls], Pred, Blocks, LiveMap, Live0) ->
+live_in_successors(Ls, Pred, Blocks, LiveMap) ->
+    live_in_successors(Ls, Pred, Blocks, LiveMap, []).
+
+live_in_successors([L|Ls], Pred, Blocks, LiveMap, Live0) ->
     Live1 = ordsets:union(Live0, get_live(L, LiveMap)),
     #b_blk{is=Is} = map_get(L, Blocks),
-    Live = update_live_phis(Is, Pred, Live1),
-    update_successors(Ls, Pred, Blocks, LiveMap, Live);
-update_successors([], _, _, _, Live) -> Live.
+    Live = live_in_phis(Is, Pred, Live1),
+    live_in_successors(Ls, Pred, Blocks, LiveMap, Live);
+live_in_successors([], _, _, _, Live) -> Live.
 
 get_live(L, LiveMap) ->
     case LiveMap of
@@ -2319,13 +2374,13 @@ get_live(L, LiveMap) ->
         #{} -> []
     end.
 
-update_live_phis([#b_set{op=phi,dst=Killed,args=Args}|Is],
+live_in_phis([#b_set{op=phi,dst=Killed,args=Args}|Is],
                  Pred, Live0) ->
     Used = [V || {#b_var{}=V,L} <- Args, L =:= Pred],
-    Live1 = ordsets:union(ordsets:from_list(Used), Live0),
+    Live1 = ordsets:union(Used, Live0),
     Live = ordsets:del_element(Killed, Live1),
-    update_live_phis(Is, Pred, Live);
-update_live_phis(_, _, Live) -> Live.
+    live_in_phis(Is, Pred, Live);
+live_in_phis(_, _, Live) -> Live.
 
 %%%
 %%% Reserve Y registers.
