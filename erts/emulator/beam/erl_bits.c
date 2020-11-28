@@ -40,6 +40,17 @@
 
 #define BIT_IS_MACHINE_ENDIAN(x) (((x)&BSF_LITTLE) == BIT_ENDIAN_MACHINE)
 
+#if (SIZEOF__FLOAT16 == 2)
+typedef _Float16 erlfp16;
+#define FP16_FROM_FP64(x) ((_Float16) x)
+#define FP16_TO_FP64(x) ((double) x)
+#else
+typedef Uint16 erlfp16;
+#define FP16_FROM_FP64(x) (fp16_ieee_from_fp32_value((float) x))
+#define FP16_TO_FP64(x) ((double) fp16_ieee_to_fp32_value(x))
+#include "erl_bits_f16.h"
+#endif
+
 /*
  * Here is how many bits we can copy in each reduction.
  *
@@ -495,6 +506,7 @@ Eterm
 erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
     Eterm* hp;
+    erlfp16 f16;
     float f32;
     double f64;
     byte* fptr;
@@ -510,7 +522,9 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
     if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
     }
-    if (num_bits == 32) {
+    if (num_bits == 16) {
+	fptr = (byte *) &f16;
+    } else if (num_bits == 32) {
 	fptr = (byte *) &f32;
     } else if (num_bits == 64) {
 	fptr = (byte *) &f64;
@@ -528,7 +542,10 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
 		  num_bits);
     }
     ERTS_FP_CHECK_INIT(p);
-    if (num_bits == 32) {
+    if (num_bits == 16) {
+	f.fd = FP16_TO_FP64(f16);
+	ERTS_FP_ERROR_THOROUGH(p, f.fd, return THE_NON_VALUE);
+    } else if (num_bits == 32) {
 	ERTS_FP_ERROR_THOROUGH(p, f32, return THE_NON_VALUE);
 	f.fd = f32;
     } else {
@@ -1123,6 +1140,35 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	    } else {
 		return 0;
 	    }
+	} else if (num_bits == 16) {
+	    union {
+		erlfp16 f16;
+		Uint16 i16;
+	    } u;
+
+	    b = 0;
+	    if (is_float(arg)) {
+		FloatDef f;
+		GET_DOUBLE(arg, f);
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f.fd,;);
+		u.f16 = FP16_FROM_FP64(f.fd);
+		a = u.i16;
+	    } else if (is_small(arg)) {
+		u.f16 = FP16_FROM_FP64(signed_val(arg));
+		a = u.i16;
+	    } else if (is_big(arg)) {
+		double f64;
+		if (big_to_double(arg, &f64) < 0) {
+		    return 0;
+		}
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f64,;);
+		u.f16 = FP16_FROM_FP64(f64);
+		a = u.i16;
+	    } else {
+		return 0;
+	    }
 	} else {
 	    return 0;
 	}
@@ -1132,8 +1178,10 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 #ifdef WORDS_BIGENDIAN
 	    t[0] = a >> 24;
 	    t[1] = a >> 16;
-	    t[2] = a >> 8;
-	    t[3] = a;
+	    if (num_bits >= 32) {
+		t[2] = a >> 8;
+		t[3] = a;
+	    }
 	    if (num_bits == 64) {
 		t[4] = b >> 24;
 		t[5] = b >> 16;
@@ -1141,8 +1189,10 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 		t[7] = b;
 	    }
 #else
-	    t[3] = a >> 24;
-	    t[2] = a >> 16;
+	    if (num_bits >= 32) {
+		t[3] = a >> 24;
+		t[2] = a >> 16;
+	    }
 	    t[1] = a >> 8;
 	    t[0] = a;
 	    if (num_bits == 64) {
@@ -1157,8 +1207,10 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 #ifdef WORDS_BIGENDIAN
 	    t[-1] = a >> 24;
 	    t[-2] = a >> 16;
-	    t[-3] = a >> 8;
-	    t[-4] = a;
+	    if (num_bits >= 32) {
+	        t[-3] = a >> 8;
+	        t[-4] = a;
+	    }
 	    if (num_bits == 64) {
 		t[-5] = b >> 24;
 		t[-6] = b >> 16;
@@ -1168,8 +1220,10 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 #else
 	    t[-1] = a;
 	    t[-2] = a >> 8;
-	    t[-3] = a >> 16;
-	    t[-4] = a >> 24;
+	    if (num_bits >= 32) {
+	        t[-3] = a >> 16;
+	        t[-4] = a >> 24;
+	    }
 	    if (num_bits == 64) {
 		t[-5] = b;
 		t[-6] = b >> 8;
@@ -1182,6 +1236,7 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	byte *bptr;
 	double f64;
 	float f32;
+	erlfp16 f16;
 #ifdef DOUBLE_MIDDLE_ENDIAN
 	FloatDef fbuf, ftmp;
 #endif
@@ -1237,6 +1292,28 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 		f32 = (float) f64;
 		ERTS_FP_ERROR(c_p,f32,;);
 		bptr = (byte *) &f32;
+	    } else {
+		return 0;
+	    }
+	} else if (num_bits == 16) {
+	    if (is_float(arg)) {
+		FloatDef f;
+		GET_DOUBLE(arg, f);
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f.fd,;);
+		f16 = FP16_FROM_FP64(f.fd);
+		bptr = (byte *) &f16;
+	    } else if (is_small(arg)) {
+		f16 = FP16_FROM_FP64(signed_val(arg));
+		bptr = (byte *) &f16;
+	    } else if (is_big(arg)) {
+		if (big_to_double(arg, &f64) < 0) {
+		    return 0;
+		}
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f64,;);
+		f16 = FP16_FROM_FP64(f64);
+		bptr = (byte *) &f16;
 	    } else {
 		return 0;
 	    }
@@ -2143,4 +2220,3 @@ Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
         return make_binary(sb);
     }
 }
-

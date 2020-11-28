@@ -495,6 +495,16 @@ nasty_literals(Config) when is_list(Config) ->
 
 -define(COF(Int0),
 	(fun(Int) ->
+		 true = <<Int:16/float>> =:= <<(float(Int)):16/float>>,
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:16/float>> =:= <<(float(Int0)):16/float>>,
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+
+-define(COF32(Int0),
+	(fun(Int) ->
 		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
 		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
 	 end)(nonliteral(Int0)),
@@ -517,8 +527,10 @@ coerce_to_float(Config) when is_list(Config) ->
     ?COF(255),
     ?COF(-255),
     ?COF(38474),
-    ?COF(387498738948729893849444444443),
-    ?COF(-37489378937773899999999999999993),
+    ?COF(65504),
+    ?COF(-65504),
+    ?COF32(387498738948729893849444444443),
+    ?COF32(-37489378937773899999999999999993),
     ?COF64(298748888888888888888888888883478264866528467367364766666666666666663),
     ?COF64(-367546729879999999999947826486652846736736476555566666663),
     ok.
@@ -543,7 +555,6 @@ opt(Config) when is_list(Config) ->
     <<1,65,136,0,0>> = id(<<1,17.0:32/float>>),
     <<1,64,8,0,0,0,0,0,0>> = id(<<1,3.0:N/float-unit:4>>),
     <<1,0,0,0,0,0,0,8,64>> = id(<<1,3.0:N/little-float-unit:4>>),
-    {'EXIT',{badarg,_}} = (catch id(<<3.1416:N/float>>)),
 
     B = <<1,2,3,4,5>>,
     <<0,1,2,3,4,5>> = id(<<0,B/binary>>),
