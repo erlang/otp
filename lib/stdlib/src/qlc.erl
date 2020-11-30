@@ -388,9 +388,10 @@ format_error(nomatch_pattern) ->
     io_lib:format("pattern cannot possibly match", []);
 format_error(nomatch_filter) ->
     io_lib:format("filter evaluates to 'false'", []);
-format_error({Line, Mod, Reason}) when is_integer(Line) ->
-    io_lib:format("~p: ~ts~n", 
-                  [Line, lists:flatten(Mod:format_error(Reason))]);
+format_error({Location, Mod, Reason}) when is_integer(Location);
+                                           tuple_size(Location) =:= 2 ->
+    io_lib:format("~s: ~ts~n",
+                  [pos(Location), lists:flatten(Mod:format_error(Reason))]);
 %% file_sorter errors
 format_error({bad_object, FileName}) ->
     io_lib:format("the temporary file \"~ts\" holding answers is corrupt",
@@ -408,6 +409,11 @@ format_error({error, Module, Reason}) ->
     Module:format_error(Reason);
 format_error(E) ->
     io_lib:format("~tp~n", [E]).
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
 
 -spec(info(QH) -> Info when
       QH :: query_handle_or_list(),
