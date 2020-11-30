@@ -7749,8 +7749,8 @@ table(List, Indices, KeyPos, ParentFun) ->
 
                 end,
     FormatFun = fun(all) ->
-                        L = erl_anno:new(17),
-                        {call,L,{remote,L,{atom,L,?MODULE},{atom,L,the_list}},
+                        A = erl_anno:new(17),
+                        {call,A,{remote,A,{atom,A,?MODULE},{atom,A,the_list}},
                                  [erl_parse:abstract(List, 17)]};
                    ({lookup, Column, Values}) ->
                         {?MODULE, list_keys, [Values, Column, List]}
