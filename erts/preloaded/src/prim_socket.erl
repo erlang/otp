@@ -633,26 +633,26 @@ invalid_iov(_, N) ->
 
 %% ----------------------------------
 
-recv(SockRef, RecvRef, Length, Flags) ->
+recv(SockRef, Length, Flags, RecvRef) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-	    nif_recv(SockRef, RecvRef, Length, EFlags)
+	    nif_recv(SockRef, Length, EFlags, RecvRef)
     catch throw : Reason ->
             {error, Reason}
     end.
 
-recvfrom(SockRef, RecvRef, Length, Flags) ->
+recvfrom(SockRef, Length, Flags, RecvRef) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-            nif_recvfrom(SockRef, RecvRef, Length, EFlags)
+            nif_recvfrom(SockRef, Length, EFlags, RecvRef)
     catch throw : Reason ->
             {error, Reason}
     end.
 
-recvmsg(SockRef, RecvRef, BufSz, CtrlSz, Flags) ->
+recvmsg(SockRef, BufSz, CtrlSz, Flags, RecvRef) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-            case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
+            case nif_recvmsg(SockRef, BufSz, CtrlSz, EFlags, RecvRef) of
 		{ok, #{ctrl := []}} = Result ->
 		    Result;
 		{ok, #{ctrl := Cmsgs} = Msg} ->
@@ -995,9 +995,9 @@ nif_send(_SockRef, _Bin, _Flags, _SendRef) -> erlang:nif_error(undef).
 nif_sendto(_SRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(undef).
 nif_sendmsg(_SRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(undef).
 
-nif_recv(_SRef, _RecvRef, _Length, _Flags) -> erlang:nif_error(undef).
-nif_recvfrom(_SRef, _RecvRef, _Length, _Flags) -> erlang:nif_error(undef).
-nif_recvmsg(_SRef, _RecvRef, _BufSz, _CtrlSz, _Flags) -> erlang:nif_error(undef).
+nif_recv(_SRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_recvfrom(_SRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_recvmsg(_SRef, _BufSz, _CtrlSz, _Flags, _RecvRef) -> erlang:nif_error(undef).
 
 nif_close(_SRef) -> erlang:nif_error(undef).
 nif_finalize_close(_SRef) -> erlang:nif_error(undef).

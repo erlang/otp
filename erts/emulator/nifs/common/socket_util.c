@@ -1774,7 +1774,7 @@ ERL_NIF_TERM esock_make_error_invalid(ErlNifEnv* env, ERL_NIF_TERM what)
  * ERL_NIF_TERM so all we have to do is create the tuple.
  */
 extern
-ERL_NIF_TERM esock_make_error_invalid_integer(ErlNifEnv* env, ERL_NIF_TERM i)
+ERL_NIF_TERM esock_make_error_integer_range(ErlNifEnv* env, ERL_NIF_TERM i)
 {
     return
         esock_make_invalid(env, MKT2(env, esock_atom_integer_range, i));
