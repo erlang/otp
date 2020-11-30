@@ -23,6 +23,10 @@
 #include <unordered_map>
 #include <map>
 
+#ifndef ASMJIT_ASMJIT_H_INCLUDED
+#    include <asmjit/asmjit.hpp>
+#endif
+
 extern "C"
 {
 #ifdef HAVE_CONFIG_H

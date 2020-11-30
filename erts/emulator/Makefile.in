@@ -1176,6 +1176,7 @@ SED_REPL_TTF_DIR=s|$(TTF_DIR)/|$$(TTF_DIR)/|g
 SED_REPL_ERL_TOP=s|\([ 	]\)$(ERL_TOP)/|\1$$(ERL_TOP)/|g;s|^$(ERL_TOP)/|$$(ERL_TOP)/|g
 SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.o $$(OBJDIR)/erl_poll.flbk.o|g
 SED_REPL_TTF_COMP_FLAGS=s|\([^/]\)erl_compile_flags\.h|\1$$(TTF_DIR)/erl_compile_flags\.h|g
+SED_ASMJIT_HPP_FLAGS=s|\([^/]\)asmjit/asmjit\.hpp|\1$$(TTF_DIR)/asmjit/asmjit\.hpp|g
 
 ifeq ($(TARGET),win32)
 #SED_PREFIX=$(SED_REPL_WIN_DRIVE);
@@ -1190,7 +1191,7 @@ else
 SED_SUFFIX=
 endif
 
-SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX);$(SED_REPL_TTF_COMP_FLAGS)'
+SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX);$(SED_REPL_TTF_COMP_FLAGS);$(SED_ASMJIT_HPP_FLAGS)'
 SED_DEPEND_ZLIB=sed '$(SED_PREFIX)$(SED_REPL_O_ZLIB)'
 
 BEAM_SRC=$(wildcard beam/*.c)
