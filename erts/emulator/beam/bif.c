@@ -3210,13 +3210,15 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
     int base;
 
     i = erts_list_length(BIF_ARG_1);
-    if (i < 0)
-      BIF_ERROR(BIF_P, BADARG);
-    
+    if (i < 0 || is_not_small(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
     base = signed_val(BIF_ARG_2);
 
-    if (base < 2 || base > 36) 
-      BIF_ERROR(BIF_P, BADARG);
+    if (base < 2 || base > 36) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
 
     if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
                              &res, &dummy) != LTI_ALL_INTEGER) {
