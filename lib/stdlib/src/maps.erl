@@ -68,57 +68,92 @@ find(_,_) -> erlang:nif_error(undef).
 from_list(_) -> erlang:nif_error(undef).
 
 -spec intersect(Map1,Map2) -> Map3 when
-    Map1 :: #{Key => term()},
-    Map2 :: #{term() => Value2},
-    Map3 :: #{Key => Value2}.
+      Map1 :: #{ Key => term() },
+      Map2 :: #{ term() => Value2 },
+      Map3 :: #{ Key => Value2 }.
 
-intersect(Map1, Map2) when is_map(Map1), is_map(Map2) ->
-    intersect_with(fun intersect_combiner/3, Map1,Map2);
-intersect(Map1, Map2) ->
-    erlang:error(error_type_two_maps(Map1, Map2),
-                 [Map1,Map2]).
-
-intersect_combiner(_K, _V1, V2) ->
-    V2.
-
--spec intersect_with(Combiner, Map1, Map2) -> Map3 when
-    Map1 :: #{Key => Value1},
-    Map2 :: #{term() => Value2},
-    Combiner :: fun((Key, Value1, Value2) -> CombineResult),
-    Map3 :: #{Key => CombineResult}.
-
-intersect_with(Combiner, Map1, Map2) when is_map(Map1),
-                                          is_map(Map2),
-                                          is_function(Combiner, 3) ->
-    case map_size(Map1) < map_size(Map2) of
+intersect(LHS, RHS) when is_map(LHS), is_map(RHS) ->
+    case map_size(LHS) < map_size(RHS) of
         true ->
-            Iterator = maps:iterator(Map1),
-            intersect_with_1(maps:next(Iterator),
-                             Map1,
-                             Map2,
-                             Combiner);
+            Iterator = maps:iterator(LHS),
+            intersect_lhs(maps:next(Iterator), LHS, RHS);
         false ->
-            Iterator = maps:iterator(Map2),
-            intersect_with_1(maps:next(Iterator),
-                             Map2,
-                             Map1,
-                             fun(K, V1, V2) -> Combiner(K, V2, V1) end)
+            Iterator = maps:iterator(RHS),
+            intersect_rhs(maps:next(Iterator), RHS, LHS)
     end;
-intersect_with(Combiner, Map1, Map2) ->
-    error(error_type_merge_intersect(Map1, Map2, Combiner),
-          [Combiner, Map1, Map2]).
+intersect(LHS, RHS) ->
+    erlang:error(error_type_two_maps(LHS, RHS), [LHS, RHS]).
 
-intersect_with_1({K, V1, Iterator}, Map1, Map2, Combiner) ->
-    case Map2 of
-        #{ K := V2 } ->
-            NewMap1 = Map1#{ K := Combiner(K, V1, V2) },
-            intersect_with_1(maps:next(Iterator), NewMap1, Map2, Combiner);
-        _ ->
-            intersect_with_1(maps:next(Iterator), maps:remove(K, Map1), Map2, Combiner)
-    end;
-intersect_with_1(none, Res, _, _) ->
+intersect_lhs({Key, LHS_Value, Iterator}, LHS0, RHS) ->
+    LHS = case RHS of
+              #{ Key := LHS_Value } ->
+                  LHS0;
+              #{ Key := RHS_Value } ->
+                  %% The value in RHS has precedence, so we must overwrite the
+                  %% current value if it differs.
+                  LHS0#{ Key := RHS_Value };
+              _ ->
+                  maps:remove(Key, LHS0)
+          end,
+    intersect_lhs(maps:next(Iterator), LHS, RHS);
+intersect_lhs(none, Res, _) ->
     Res.
 
+intersect_rhs({Key, _RHS_Value, Iterator}, RHS0, LHS) ->
+    RHS = case LHS of
+              #{ Key := _LHS_Value } ->
+                  %% The value in RHS has precedence, so it doesn't need to
+                  %% be updated even if they differ.
+                  RHS0;
+              _ ->
+                  maps:remove(Key, RHS0)
+          end,
+    intersect_rhs(maps:next(Iterator), RHS, LHS);
+intersect_rhs(none, Res, _) ->
+    Res.
+
+-spec intersect_with(Combiner, Map1, Map2) -> Map3 when
+      Map1 :: #{ Key => Value1 },
+      Map2 :: #{ term() => Value2 },
+      Combiner :: fun((Key, Value1, Value2) -> CombineResult),
+      Map3 :: #{ Key => CombineResult }.
+
+intersect_with(Combiner, LHS, RHS) when is_map(LHS),
+                                        is_map(RHS),
+                                        is_function(Combiner, 3) ->
+    case map_size(LHS) < map_size(RHS) of
+        true ->
+            Iterator = maps:iterator(LHS),
+            intersect_with_lhs(maps:next(Iterator), LHS, RHS, Combiner);
+        false ->
+            Iterator = maps:iterator(RHS),
+            intersect_with_rhs(maps:next(Iterator), RHS, LHS, Combiner)
+    end;
+intersect_with(Combiner, LHS, RHS) ->
+    error(error_type_merge_intersect(LHS, RHS, Combiner),
+          [Combiner, LHS, RHS]).
+
+intersect_with_lhs({Key, LHS_Value, Iterator}, LHS0, RHS, Combiner) ->
+    LHS = case RHS of
+              #{ Key := RHS_Value } ->
+                  LHS0#{ Key := Combiner(Key, LHS_Value, RHS_Value) };
+              _ ->
+                  maps:remove(Key, LHS0)
+          end,
+    intersect_with_lhs(maps:next(Iterator), LHS, RHS, Combiner);
+intersect_with_lhs(none, Res, _, _) ->
+    Res.
+
+intersect_with_rhs({Key, RHS_Value, Iterator}, RHS0, LHS, Combiner) ->
+    RHS = case LHS of
+              #{ Key := LHS_Value } ->
+                  RHS0#{ Key := Combiner(Key, LHS_Value, RHS_Value) };
+              _ ->
+                  maps:remove(Key, RHS0)
+          end,
+    intersect_with_rhs(maps:next(Iterator), RHS, LHS, Combiner);
+intersect_with_rhs(none, Res, _, _) ->
+    Res.
 
 %% Shadowed by erl_bif_types: maps:is_key/2
 -spec is_key(Key,Map) -> boolean() when
