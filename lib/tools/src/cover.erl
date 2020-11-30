@@ -1847,10 +1847,10 @@ expand(Expr) ->
     {Expr1,_} = expand(Expr, AllVars, 1),
     Expr1.
 
-expand({clause,Line,Pattern,Guards,Body}, Vs, N) ->
+expand({clause,Anno,Pattern,Guards,Body}, Vs, N) ->
     {ExpandedBody,N2} = expand(Body, Vs, N),
-    {{clause,Line,Pattern,Guards,ExpandedBody},N2};
-expand({op,_Line,'andalso',ExprL,ExprR}, Vs, N) ->
+    {{clause,Anno,Pattern,Guards,ExpandedBody},N2};
+expand({op,_Anno,'andalso',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
     Anno = element(2, ExpandedExprL),
@@ -1859,7 +1859,7 @@ expand({op,_Line,'andalso',ExprL,ExprR}, Vs, N) ->
                  {atom,Anno,false},
                  Vs, N3),
      N3 + 1};
-expand({op,_Line,'orelse',ExprL,ExprR}, Vs, N) ->
+expand({op,_Anno,'orelse',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
     Anno = element(2, ExpandedExprL),
@@ -1888,18 +1888,18 @@ vars(A, _T) ->
     A.
 
 bool_switch(E, T, F, AllVars, AuxVarN) ->
-    Line = element(2, E),
-    AuxVar = {var,Line,aux_var(AllVars, AuxVarN)},
-    {'case',Line,E,
-     [{clause,Line,[{atom,Line,true}],[],[T]},
-      {clause,Line,[{atom,Line,false}],[],[F]},
+    Anno = element(2, E),
+    AuxVar = {var,Anno,aux_var(AllVars, AuxVarN)},
+    {'case',Anno,E,
+     [{clause,Anno,[{atom,Anno,true}],[],[T]},
+      {clause,Anno,[{atom,Anno,false}],[],[F]},
       %% Mark the next clause as compiler-generated to suppress
       %% a warning if the case expression is an obvious boolean
       %% value.
-      {clause,erl_anno:set_generated(true, Line),[AuxVar],[],
-       [{call,Line,
-         {remote,Line,{atom,Line,erlang},{atom,Line,error}},
-         [{tuple,Line,[{atom,Line,badarg},AuxVar]}]}]}]}.
+      {clause,erl_anno:set_generated(true, Anno),[AuxVar],[],
+       [{call,Anno,
+         {remote,Anno,{atom,Anno,erlang},{atom,Anno,error}},
+         [{tuple,Anno,[{atom,Anno,badarg},AuxVar]}]}]}]}.
 
 aux_var(Vars, N) ->
     Name = list_to_atom(lists:concat(['_', N])),
@@ -1912,7 +1912,7 @@ aux_var(Vars, N) ->
 %% chunk in the BEAM file, as described in absform(3).
 %% The switch is turned off when we encounter other files than the main file.
 %% This way we will be able to exclude functions defined in include files.
-munge({function,Line,Function,Arity,Clauses},Vars,_MainFile,on) ->
+munge({function,Anno,Function,Arity,Clauses},Vars,_MainFile,on) ->
     Vars2 = Vars#vars{function=Function,
 		      arity=Arity,
 		      clause=1,
@@ -1920,7 +1920,7 @@ munge({function,Line,Function,Arity,Clauses},Vars,_MainFile,on) ->
                       no_bump_lines=[],
 		      depth=1},
     {MungedClauses, Vars3} = munge_clauses(Clauses, Vars2),
-    {{function,Line,Function,Arity,MungedClauses},Vars3,on};
+    {{function,Anno,Function,Arity,MungedClauses},Vars3,on};
 munge(Form={attribute,_,file,{MainFile,_}},Vars,MainFile,_Switch) ->
     {Form,Vars,on};                     % Switch on tranformation!
 munge(Form={attribute,_,file,{_InclFile,_}},Vars,_MainFile,_Switch) ->
@@ -1935,7 +1935,7 @@ munge_clauses(Clauses, Vars) ->
     munge_clauses(Clauses, Vars, Vars#vars.lines, []).
 
 munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
-    {clause,Line,Pattern,Guards,Body} = Clause,
+    {clause,Anno,Pattern,Guards,Body} = Clause,
     {MungedGuards, _Vars} = munge_exprs(Guards, Vars#vars{is_guard=true},[]),
 
     case Vars#vars.depth of
@@ -1955,7 +1955,7 @@ munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
             NewBumps = Vars2#vars.lines,
             NewLines = NewBumps ++ Lines,
 	    munge_clauses(Clauses, Vars3, NewLines,
-			  [{clause,Line,Pattern,MungedGuards,MungedBody}|
+			  [{clause,Anno,Pattern,MungedGuards,MungedBody}|
 			   MClauses]);
 
 	2 -> % receive-,  case-, if-, or try-clause
@@ -1965,7 +1965,7 @@ munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
             NewLines = NewBumps ++ Lines,
 	    munge_clauses(Clauses, Vars2#vars{lines=Lines0},
                           NewLines,
-			  [{clause,Line,Pattern,MungedGuards,MungedBody}|
+			  [{clause,Anno,Pattern,MungedGuards,MungedBody}|
 			   MClauses])
     end;
 munge_clauses([], Vars, Lines, MungedClauses) -> 
@@ -2055,27 +2055,27 @@ fix_last_expr([MungedExpr|MungedExprs], Line, Vars) ->
     Bump = bump_call(Vars, Line),
     [fix_expr(MungedExpr, Line, Bump)|MungedExprs].
 
-fix_expr({'if',L,Clauses}, Line, Bump) -> 
+fix_expr({'if',A,Clauses}, Line, Bump) ->
     FixedClauses = fix_clauses(Clauses, Line, Bump),
-    {'if',L,FixedClauses};
-fix_expr({'case',L,Expr,Clauses}, Line, Bump) ->
+    {'if',A,FixedClauses};
+fix_expr({'case',A,Expr,Clauses}, Line, Bump) ->
     FixedExpr = fix_expr(Expr, Line, Bump),
     FixedClauses = fix_clauses(Clauses, Line, Bump),
-    {'case',L,FixedExpr,FixedClauses};
-fix_expr({'receive',L,Clauses}, Line, Bump) -> 
+    {'case',A,FixedExpr,FixedClauses};
+fix_expr({'receive',A,Clauses}, Line, Bump) ->
     FixedClauses = fix_clauses(Clauses, Line, Bump),
-    {'receive',L,FixedClauses};
-fix_expr({'receive',L,Clauses,Expr,Body}, Line, Bump) ->
+    {'receive',A,FixedClauses};
+fix_expr({'receive',A,Clauses,Expr,Body}, Line, Bump) ->
     FixedClauses = fix_clauses(Clauses, Line, Bump),
     FixedExpr = fix_expr(Expr, Line, Bump),
     FixedBody = fix_expr(Body, Line, Bump),
-    {'receive',L,FixedClauses,FixedExpr,FixedBody};
-fix_expr({'try',L,Exprs,Clauses,CatchClauses,After}, Line, Bump) ->
+    {'receive',A,FixedClauses,FixedExpr,FixedBody};
+fix_expr({'try',A,Exprs,Clauses,CatchClauses,After}, Line, Bump) ->
     FixedExprs = fix_expr(Exprs, Line, Bump),
     FixedClauses = fix_clauses(Clauses, Line, Bump),
     FixedCatchClauses = fix_clauses(CatchClauses, Line, Bump),
     FixedAfter = fix_expr(After, Line, Bump),
-    {'try',L,FixedExprs,FixedClauses,FixedCatchClauses,FixedAfter};
+    {'try',A,FixedExprs,FixedClauses,FixedCatchClauses,FixedAfter};
 fix_expr([E | Es], Line, Bump) ->
     [fix_expr(E, Line, Bump) | fix_expr(Es, Line, Bump)];
 fix_expr(T, Line, Bump) when is_tuple(T) ->
@@ -2100,13 +2100,13 @@ fix_cls([Cl | Cls], Line, Bump) ->
         true ->
             [fix_expr(C, Line, Bump) || C <- [Cl | Cls]];
         false ->
-            {clause,CL,P,G,Body} = Cl,
+            {clause,CA,P,G,Body} = Cl,
             UniqueVarName = list_to_atom(lists:concat(["$cover$ ",Line])),
             A = erl_anno:new(0),
             V = {var,A,UniqueVarName},
             [Last|Rest] = lists:reverse(Body),
             Body1 = lists:reverse(Rest, [{match,A,V,Last},Bump,V]),
-            [{clause,CL,P,G,Body1} | fix_cls(Cls, Line, Bump)]
+            [{clause,CA,P,G,Body1} | fix_cls(Cls, Line, Bump)]
     end.
 
 bumps_line(E, L) ->
@@ -2129,114 +2129,114 @@ bump_call(Vars, Line) ->
 
 %%% End of fix of last expression.
 
-munge_expr({match,Line,ExprL,ExprR}, Vars) ->
+munge_expr({match,Anno,ExprL,ExprR}, Vars) ->
     {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
     {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{match,Line,MungedExprL,MungedExprR}, Vars3};
-munge_expr({tuple,Line,Exprs}, Vars) ->
+    {{match,Anno,MungedExprL,MungedExprR}, Vars3};
+munge_expr({tuple,Anno,Exprs}, Vars) ->
     {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
-    {{tuple,Line,MungedExprs}, Vars2};
-munge_expr({record,Line,Name,Exprs}, Vars) ->
+    {{tuple,Anno,MungedExprs}, Vars2};
+munge_expr({record,Anno,Name,Exprs}, Vars) ->
     {MungedExprFields, Vars2} = munge_exprs(Exprs, Vars, []),
-    {{record,Line,Name,MungedExprFields}, Vars2};
-munge_expr({record,Line,Arg,Name,Exprs}, Vars) ->
+    {{record,Anno,Name,MungedExprFields}, Vars2};
+munge_expr({record,Anno,Arg,Name,Exprs}, Vars) ->
     {MungedArg, Vars2} = munge_expr(Arg, Vars),
     {MungedExprFields, Vars3} = munge_exprs(Exprs, Vars2, []),
-    {{record,Line,MungedArg,Name,MungedExprFields}, Vars3};
-munge_expr({record_field,Line,ExprL,ExprR}, Vars) ->
+    {{record,Anno,MungedArg,Name,MungedExprFields}, Vars3};
+munge_expr({record_field,Anno,ExprL,ExprR}, Vars) ->
     {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
-    {{record_field,Line,ExprL,MungedExprR}, Vars2};
-munge_expr({map,Line,Fields}, Vars) ->
+    {{record_field,Anno,ExprL,MungedExprR}, Vars2};
+munge_expr({map,Anno,Fields}, Vars) ->
     %% EEP 43
     {MungedFields, Vars2} = munge_exprs(Fields, Vars, []),
-    {{map,Line,MungedFields}, Vars2};
-munge_expr({map,Line,Arg,Fields}, Vars) ->
+    {{map,Anno,MungedFields}, Vars2};
+munge_expr({map,Anno,Arg,Fields}, Vars) ->
     %% EEP 43
     {MungedArg, Vars2} = munge_expr(Arg, Vars),
     {MungedFields, Vars3} = munge_exprs(Fields, Vars2, []),
-    {{map,Line,MungedArg,MungedFields}, Vars3};
-munge_expr({map_field_assoc,Line,Name,Value}, Vars) ->
+    {{map,Anno,MungedArg,MungedFields}, Vars3};
+munge_expr({map_field_assoc,Anno,Name,Value}, Vars) ->
     %% EEP 43
     {MungedName, Vars2} = munge_expr(Name, Vars),
     {MungedValue, Vars3} = munge_expr(Value, Vars2),
-    {{map_field_assoc,Line,MungedName,MungedValue}, Vars3};
-munge_expr({map_field_exact,Line,Name,Value}, Vars) ->
+    {{map_field_assoc,Anno,MungedName,MungedValue}, Vars3};
+munge_expr({map_field_exact,Anno,Name,Value}, Vars) ->
     %% EEP 43
     {MungedName, Vars2} = munge_expr(Name, Vars),
     {MungedValue, Vars3} = munge_expr(Value, Vars2),
-    {{map_field_exact,Line,MungedName,MungedValue}, Vars3};
-munge_expr({cons,Line,ExprH,ExprT}, Vars) ->
+    {{map_field_exact,Anno,MungedName,MungedValue}, Vars3};
+munge_expr({cons,Anno,ExprH,ExprT}, Vars) ->
     {MungedExprH, Vars2} = munge_expr(ExprH, Vars),
     {MungedExprT, Vars3} = munge_expr(ExprT, Vars2),
-    {{cons,Line,MungedExprH,MungedExprT}, Vars3};
-munge_expr({op,Line,Op,ExprL,ExprR}, Vars) ->
+    {{cons,Anno,MungedExprH,MungedExprT}, Vars3};
+munge_expr({op,Anno,Op,ExprL,ExprR}, Vars) ->
     {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
     {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{op,Line,Op,MungedExprL,MungedExprR}, Vars3};
-munge_expr({op,Line,Op,Expr}, Vars) ->
+    {{op,Anno,Op,MungedExprL,MungedExprR}, Vars3};
+munge_expr({op,Anno,Op,Expr}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    {{op,Line,Op,MungedExpr}, Vars2};
-munge_expr({'catch',Line,Expr}, Vars) ->
+    {{op,Anno,Op,MungedExpr}, Vars2};
+munge_expr({'catch',Anno,Expr}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    {{'catch',Line,MungedExpr}, Vars2};
-munge_expr({call,Line1,{remote,Line2,ExprM,ExprF},Exprs},
+    {{'catch',Anno,MungedExpr}, Vars2};
+munge_expr({call,Anno1,{remote,Anno2,ExprM,ExprF},Exprs},
 	   Vars) ->
     {MungedExprM, Vars2} = munge_expr(ExprM, Vars),
     {MungedExprF, Vars3} = munge_expr(ExprF, Vars2),
     {MungedExprs, Vars4} = munge_exprs(Exprs, Vars3, []),
-    {{call,Line1,{remote,Line2,MungedExprM,MungedExprF},MungedExprs}, Vars4};
-munge_expr({call,Line,Expr,Exprs}, Vars) ->
+    {{call,Anno1,{remote,Anno2,MungedExprM,MungedExprF},MungedExprs}, Vars4};
+munge_expr({call,Anno,Expr,Exprs}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     {MungedExprs, Vars3} = munge_exprs(Exprs, Vars2, []),
-    {{call,Line,MungedExpr,MungedExprs}, Vars3};
-munge_expr({lc,Line,Expr,Qs}, Vars) ->
+    {{call,Anno,MungedExpr,MungedExprs}, Vars3};
+munge_expr({lc,Anno,Expr,Qs}, Vars) ->
     {MungedExpr, Vars2} = munge_expr(?BLOCK1(Expr), Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
-    {{lc,Line,MungedExpr,MungedQs}, Vars3};
-munge_expr({bc,Line,Expr,Qs}, Vars) ->
+    {{lc,Anno,MungedExpr,MungedQs}, Vars3};
+munge_expr({bc,Anno,Expr,Qs}, Vars) ->
     {MungedExpr,Vars2} = munge_expr(?BLOCK1(Expr), Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
-    {{bc,Line,MungedExpr,MungedQs}, Vars3};
-munge_expr({block,Line,Body}, Vars) ->
+    {{bc,Anno,MungedExpr,MungedQs}, Vars3};
+munge_expr({block,Anno,Body}, Vars) ->
     {MungedBody, Vars2} = munge_body(Body, Vars),
-    {{block,Line,MungedBody}, Vars2};
-munge_expr({'if',Line,Clauses}, Vars) -> 
+    {{block,Anno,MungedBody}, Vars2};
+munge_expr({'if',Anno,Clauses}, Vars) ->
     {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
-    {{'if',Line,MungedClauses}, Vars2};
-munge_expr({'case',Line,Expr,Clauses}, Vars) ->
+    {{'if',Anno,MungedClauses}, Vars2};
+munge_expr({'case',Anno,Expr,Clauses}, Vars) ->
     {MungedExpr,Vars2} = munge_expr(Expr, Vars),
     {MungedClauses,Vars3} = munge_clauses(Clauses, Vars2),
-    {{'case',Line,MungedExpr,MungedClauses}, Vars3};
-munge_expr({'receive',Line,Clauses}, Vars) -> 
+    {{'case',Anno,MungedExpr,MungedClauses}, Vars3};
+munge_expr({'receive',Anno,Clauses}, Vars) ->
     {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
-    {{'receive',Line,MungedClauses}, Vars2};
-munge_expr({'receive',Line,Clauses,Expr,Body}, Vars) ->
+    {{'receive',Anno,MungedClauses}, Vars2};
+munge_expr({'receive',Anno,Clauses,Expr,Body}, Vars) ->
     {MungedExpr, Vars1} = munge_expr(Expr, Vars),
     {MungedClauses,Vars2} = munge_clauses(Clauses, Vars1),
     {MungedBody,Vars3} = 
         munge_body(Body, Vars2#vars{lines = Vars1#vars.lines}),
     Vars4 = Vars3#vars{lines = Vars2#vars.lines ++ new_bumps(Vars3, Vars2)},
-    {{'receive',Line,MungedClauses,MungedExpr,MungedBody}, Vars4};
-munge_expr({'try',Line,Body,Clauses,CatchClauses,After}, Vars) ->
+    {{'receive',Anno,MungedClauses,MungedExpr,MungedBody}, Vars4};
+munge_expr({'try',Anno,Body,Clauses,CatchClauses,After}, Vars) ->
     {MungedBody, Vars1} = munge_body(Body, Vars),
     {MungedClauses, Vars2} = munge_clauses(Clauses, Vars1),
     {MungedCatchClauses, Vars3} = munge_clauses(CatchClauses, Vars2),
     {MungedAfter, Vars4} = munge_body(After, Vars3),
-    {{'try',Line,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter}, 
+    {{'try',Anno,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter},
      Vars4};
-munge_expr({'fun',Line,{clauses,Clauses}}, Vars) ->
+munge_expr({'fun',Anno,{clauses,Clauses}}, Vars) ->
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{'fun',Line,{clauses,MungedClauses}}, Vars2};
-munge_expr({named_fun,Line,Name,Clauses}, Vars) ->
+    {{'fun',Anno,{clauses,MungedClauses}}, Vars2};
+munge_expr({named_fun,Anno,Name,Clauses}, Vars) ->
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{named_fun,Line,Name,MungedClauses}, Vars2};
-munge_expr({bin,Line,BinElements}, Vars) ->
+    {{named_fun,Anno,Name,MungedClauses}, Vars2};
+munge_expr({bin,Anno,BinElements}, Vars) ->
     {MungedBinElements,Vars2} = munge_exprs(BinElements, Vars, []),
-    {{bin,Line,MungedBinElements}, Vars2};
-munge_expr({bin_element,Line,Value,Size,TypeSpecifierList}, Vars) ->
+    {{bin,Anno,MungedBinElements}, Vars2};
+munge_expr({bin_element,Anno,Value,Size,TypeSpecifierList}, Vars) ->
     {MungedValue,Vars2} = munge_expr(Value, Vars),
     {MungedSize,Vars3} = munge_expr(Size, Vars2),
-    {{bin_element,Line,MungedValue,MungedSize,TypeSpecifierList},Vars3};
+    {{bin_element,Anno,MungedValue,MungedSize,TypeSpecifierList},Vars3};
 munge_expr(Form, Vars) ->
     {Form, Vars}.
 
@@ -2254,27 +2254,27 @@ munge_exprs([], Vars, MungedExprs) ->
 munge_qualifiers(Qualifiers, Vars) ->
     munge_qs(Qualifiers, Vars, []).
 
-munge_qs([{generate,Line,Pattern,Expr}|Qs], Vars, MQs) ->
-    L = element(2, Expr),
+munge_qs([{generate,Anno,Pattern,Expr}|Qs], Vars, MQs) ->
+    A = element(2, Expr),
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_qs1(Qs, L, {generate,Line,Pattern,MungedExpr}, Vars, Vars2, MQs);
-munge_qs([{b_generate,Line,Pattern,Expr}|Qs], Vars, MQs) ->
-    L = element(2, Expr),
+    munge_qs1(Qs, A, {generate,Anno,Pattern,MungedExpr}, Vars, Vars2, MQs);
+munge_qs([{b_generate,Anno,Pattern,Expr}|Qs], Vars, MQs) ->
+    A = element(2, Expr),
     {MExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_qs1(Qs, L, {b_generate,Line,Pattern,MExpr}, Vars, Vars2, MQs);
+    munge_qs1(Qs, A, {b_generate,Anno,Pattern,MExpr}, Vars, Vars2, MQs);
 munge_qs([Expr|Qs], Vars, MQs) ->
-    L = element(2, Expr),
+    A = element(2, Expr),
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_qs1(Qs, L, MungedExpr, Vars, Vars2, MQs);
+    munge_qs1(Qs, A, MungedExpr, Vars, Vars2, MQs);
 munge_qs([], Vars, MQs) ->
     {lists:reverse(MQs), Vars}.
 
-munge_qs1(Qs, Line, NQ, Vars, Vars2, MQs) ->
+munge_qs1(Qs, Anno, NQ, Vars, Vars2, MQs) ->
     case new_bumps(Vars2, Vars) of
         [_] ->
             munge_qs(Qs, Vars2, [NQ | MQs]);
         _ -> 
-            {MungedTrue, Vars3} = munge_expr(?BLOCK({atom,Line,true}), Vars2),
+            {MungedTrue, Vars3} = munge_expr(?BLOCK({atom,Anno,true}), Vars2),
             munge_qs(Qs, Vars3, [NQ, MungedTrue | MQs])
     end.
 
@@ -2334,7 +2334,7 @@ patch_code(Mod, Forms, true) ->
 
 %% Go through the abstract code and replace 'BUMP' forms
 %% with the actual code to increment the counters.
-patch_code1({'BUMP',_Line,Index}, {distributed,AbstrKey}) ->
+patch_code1({'BUMP',_Anno,Index}, {distributed,AbstrKey}) ->
     %% Replace with counters:add(persistent_term:get(Key), Index, 1).
     %% This code will work on any node.
     A = element(2, AbstrKey),
@@ -2342,7 +2342,7 @@ patch_code1({'BUMP',_Line,Index}, {distributed,AbstrKey}) ->
                [AbstrKey]},
     {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
      [GetCref,{integer,A,Index},{integer,A,1}]};
-patch_code1({'BUMP',_Line,Index}, {local_only,AbstrCref}) ->
+patch_code1({'BUMP',_Anno,Index}, {local_only,AbstrCref}) ->
     %% Replace with counters:add(Cref, Index, 1). This code
     %% will only work on the local node.
     A = element(2, AbstrCref),
