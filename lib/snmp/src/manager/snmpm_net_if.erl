@@ -607,6 +607,19 @@ handle_info(
 	    {noreply, State}
     end;
 
+handle_info(
+  {udp_error, Socket, Error},
+  #state{transports = Transports} = State) ->
+    ?vinfo("got udp-error on ~p: ~w", [Socket, Error]),
+    case lists:keyfind(Socket, #transport.socket, Transports) of
+	#transport{socket = Socket} = Transport ->
+	    handle_udp_error(Transport, Error),
+	    {noreply, State};
+	false ->
+            handle_udp_error_unknown(Socket, Error),
+	    {noreply, State}
+    end;
+
 handle_info(inform_response_gc, State) ->
     ?vlog("received inform_response_gc message", []),
     State2 = handle_inform_response_gc(State),
@@ -637,6 +650,41 @@ handle_info({exec, F}, #state{allow_exec = true} = State) when is_function(F, 0)
 
 handle_info(Info, State) ->
     handle_info_unknown(Info, State).
+
+
+handle_udp_error(#transport{socket = Socket}, Error) ->
+    try inet:sockname(Socket) of
+        {ok, {IP, Port}} ->
+            error_msg("UDP Error for transport: "
+                      "~n      Socket: ~p (~p, ~p)"
+                      "~n      Error:  ~p", [Socket, IP, Port, Error]);
+        {error, _} ->
+            error_msg("UDP Error for transport: "
+                      "~n      Socket: ~p"
+                      "~n      Error:  ~p", [Socket, Error])
+    catch
+        _:_:_ ->
+            error_msg("UDP Error for transport: "
+                      "~n      Socket: ~p"
+                      "~n      Error:  ~p", [Socket, Error])
+    end.
+
+handle_udp_error_unknown(Socket, Error) ->
+    try inet:sockname(Socket) of
+        {ok, {IP, Port}} ->
+            warning_msg("UDP Error for unknown transport: "
+                        "~n      Socket: ~p (~p, ~p)"
+                        "~n      Error:  ~p", [Socket, IP, Port, Error]);
+        {error, _} ->
+            warning_msg("UDP Error for unknown transport: "
+                        "~n      Socket: ~p"
+                        "~n      Error:  ~p", [Socket, Error])
+    catch
+        _:_:_ ->
+            warning_msg("UDP Error for transport: "
+                        "~n      Socket: ~p"
+                        "~n      Error:  ~p", [Socket, Error])
+    end.
 
 
 handle_info_unknown(Info, State) ->
