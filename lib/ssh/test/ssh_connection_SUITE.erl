@@ -889,7 +889,7 @@ do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
     after 5000 ->
             receive
                 Other ->
-                    ct:pal("Received other:~n~p",[Other]),
+                    ct:log("Received other:~n~p",[Other]),
                     ct:fail("Unexpected response")
             after 0 ->
                     ct:fail("Exec Timeout")
