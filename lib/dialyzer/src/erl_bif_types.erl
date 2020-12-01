@@ -1536,6 +1536,14 @@ type(lists, zipwith3, 4, Xs, Opaques) ->
                                         t_nil()) end, Opaques);
 
 %%-- maps ---------------------------------------------------------------------
+type(maps, from_keys, 2, Xs, Opaques) ->
+  strict(maps, from_keys, 2, Xs,
+	 fun ([List, Value]) ->
+	     case t_is_nil(List, Opaques) of
+	       true -> t_from_term(#{});
+	       false -> t_map([], t_list_elements(List, Opaques), Value)
+	     end
+	 end, Opaques);
 type(maps, from_list, 1, Xs, Opaques) ->
   strict(maps, from_list, 1, Xs,
 	 fun ([List]) ->
@@ -2432,6 +2440,8 @@ arg_types(lists, zipwith, 3) ->
 arg_types(lists, zipwith3, 4) ->
   [t_fun([t_any(), t_any(), t_any()], t_any()), t_list(), t_list(), t_list()];
 %%------- maps ----------------------------------------------------------------
+arg_types(maps, from_keys, 2) ->
+  [t_list(), t_any()];
 arg_types(maps, from_list, 1) ->
   [t_list(t_tuple(2))];
 arg_types(maps, get, 2) ->

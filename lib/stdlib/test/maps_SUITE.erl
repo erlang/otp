@@ -33,7 +33,7 @@
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
-         t_merge_with/1]).
+         t_merge_with/1, t_from_keys/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 -define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
@@ -50,7 +50,23 @@ all() ->
      t_iterator_1,t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
-     t_merge_with].
+     t_merge_with, t_from_keys].
+
+t_from_keys(Config) when is_list(Config) ->
+    Map0 = maps:from_keys(["a", 2, {three}], value),
+    3 = map_size(Map0),
+    #{"a":=value,2:=value,{three}:=value} = Map0,
+
+    Map1 = maps:from_keys([1, 2, 2], {complex,value}),
+    2 = map_size(Map1),
+    #{1:={complex,value},2:={complex,value}} = Map1,
+
+    Map2 = maps:from_keys([], value),
+    0 = map_size(Map2),
+
+    ?badarg(from_keys,[[a|b],value]) = (catch maps:from_keys([a|b],value)),
+    ?badarg(from_keys,[not_list,value]) = (catch maps:from_keys(not_list,value)),
+    ok.
 
 t_update_with_3(Config) when is_list(Config) ->
     V1 = value1,

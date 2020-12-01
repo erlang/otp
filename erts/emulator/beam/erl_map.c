@@ -94,8 +94,8 @@ static Uint hashmap_subtree_size(Eterm node);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node, Eterm *value);
-static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size);
-static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size);
+static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_value, Uint size);
+static Eterm hashmap_from_validated_list(Process *p, Eterm list, Eterm fill_value, Uint size);
 static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int reject_dupkeys);
 static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root);
 static Eterm hashmap_from_chunked_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, Uint size, int is_root);
@@ -232,6 +232,35 @@ BIF_RETTYPE map_get_2(BIF_ALIST_2) {
     BIF_RET(maps_get_2(BIF_CALL_ARGS));
 }
 
+/* maps:from_keys/2
+ * List may be unsorted
+ */
+
+BIF_RETTYPE maps_from_keys_2(BIF_ALIST_2) {
+    Eterm item = BIF_ARG_1;
+    Uint  size = 0;
+    if (is_list(item) || is_nil(item)) {
+        /* Calculate size and check validity */
+        while(is_list(item)) {
+            size++;
+            item = CDR(list_val(item));
+        }
+
+        if (is_not_nil(item))
+            goto error;
+
+        if (size > MAP_SMALL_MAP_LIMIT) {
+            BIF_RET(hashmap_from_validated_list(BIF_P, BIF_ARG_1, BIF_ARG_2, size));
+        } else {
+            BIF_RET(flatmap_from_validated_list(BIF_P, BIF_ARG_1, BIF_ARG_2, size));
+        }
+    }
+
+error:
+
+    BIF_ERROR(BIF_P, BADARG);
+}
+
 /* maps:from_list/1
  * List may be unsorted [{K,V}]
  */
@@ -260,9 +289,9 @@ BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
 	    goto error;
 
 	if (size > MAP_SMALL_MAP_LIMIT) {
-	    BIF_RET(hashmap_from_validated_list(BIF_P, BIF_ARG_1, size));
+	    BIF_RET(hashmap_from_validated_list(BIF_P, BIF_ARG_1, THE_NON_VALUE, size));
 	} else {
-	    BIF_RET(flatmap_from_validated_list(BIF_P, BIF_ARG_1, size));
+	    BIF_RET(flatmap_from_validated_list(BIF_P, BIF_ARG_1, THE_NON_VALUE, size));
 	}
     }
 
@@ -271,9 +300,9 @@ error:
     BIF_ERROR(BIF_P, BADARG);
 }
 
-static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
+static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_value, Uint size) {
     Eterm *kv, item = list;
-    Eterm *hp, *thp,*vs, *ks, keys, res;
+    Eterm *hp, *thp,*vs, *ks, key, value, keys, res;
     flatmap_t *mp;
     Uint  unused_size = 0;
     Sint  c = 0;
@@ -299,16 +328,27 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
 	return res;
 
     /* first entry */
-    kv    = tuple_val(CAR(list_val(item)));
-    ks[0] = kv[1];
-    vs[0] = kv[2];
+    if (is_value(fill_value)) {
+	ks[0] = CAR(list_val(item));
+	vs[0] = fill_value;
+    } else {
+	kv    = tuple_val(CAR(list_val(item)));
+	ks[0] = kv[1];
+	vs[0] = kv[2];
+    }
     size  = 1;
     item  = CDR(list_val(item));
 
     /* insert sort key/value pairs */
     while(is_list(item)) {
-
-	kv = tuple_val(CAR(list_val(item)));
+	if (is_value(fill_value)) {
+	    key = CAR(list_val(item));
+	    value = fill_value;
+	} else {
+	    kv = tuple_val(CAR(list_val(item)));
+	    key = kv[1];
+	    value = kv[2];
+	}
 
 	/* compare ks backwards
 	 * idx represent word index to be written (hole position).
@@ -323,15 +363,15 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
 
 	idx = size;
 
-	while(idx > 0 && (c = CMP_TERM(kv[1],ks[idx-1])) < 0) { idx--; }
+	while(idx > 0 && (c = CMP_TERM(key,ks[idx-1])) < 0) { idx--; }
 
 	if (c == 0) {
 	    /* last compare was equal,
 	     * i.e. we have to release memory
 	     * and overwrite that key/value
 	     */
-	    ks[idx-1] = kv[1];
-	    vs[idx-1] = kv[2];
+	    ks[idx-1] = key;
+	    vs[idx-1] = value;
 	    unused_size++;
 	} else {
 	    Uint i = size;
@@ -340,8 +380,8 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
 		vs[i] = vs[i-1];
 		i--;
 	    }
-	    ks[idx] = kv[1];
-	    vs[idx] = kv[2];
+	    ks[idx] = key;
+	    vs[idx] = value;
 	    size++;
 	}
 	item = CDR(list_val(item));
@@ -373,10 +413,11 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
 #define maskval(V,L)      (((V) >> ((7 - (L))*4)) & 0xf)
 #define cdepth(V1,V2)     (hashmap_clz((V1) ^ (V2)) >> 2)
 
-static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
+static Eterm hashmap_from_validated_list(Process *p, Eterm list, Eterm fill_value, Uint size) {
     Eterm item = list;
     Eterm *hp;
     Eterm *kv, res;
+    Eterm key, value;
     Uint32 sw, hx;
     Uint ix = 0;
     hxnode_t *hxns;
@@ -392,11 +433,18 @@ static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size) {
     UseTmpHeap(2,p);
     while(is_list(item)) {
 	res = CAR(list_val(item));
-	kv  = tuple_val(res);
-	hx  = hashmap_restore_hash(tmp,0,kv[1]);
+	if(is_value(fill_value)) {
+	    key = res;
+	    value = fill_value;
+	} else {
+	    kv = tuple_val(res);
+	    key = kv[1];
+	    value = kv[2];
+	}
+	hx  = hashmap_restore_hash(tmp,0,key);
 	swizzle32(sw,hx);
 	hxns[ix].hx   = sw;
-	hxns[ix].val  = CONS(hp, kv[1], kv[2]); hp += 2;
+	hxns[ix].val  = CONS(hp, key, value); hp += 2;
 	hxns[ix].skip = 1; /* will be reassigned in from_array */
 	hxns[ix].i    = ix;
 	ix++;

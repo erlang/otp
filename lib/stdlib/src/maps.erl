@@ -29,7 +29,7 @@
          merge_with/3]).
 
 %% BIFs
--export([get/2, find/2, from_list/1,
+-export([get/2, find/2, from_list/1, from_keys/2,
          is_key/2, keys/1, merge/2,
          put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
@@ -66,6 +66,14 @@ find(_,_) -> erlang:nif_error(undef).
     Map :: map().
 
 from_list(_) -> erlang:nif_error(undef).
+
+%% Shadowed by erl_bif_types: maps:from_keys/2
+-spec from_keys(Keys, Value) -> Map when
+    Keys :: list(),
+    Value :: term(),
+    Map :: map().
+
+from_keys(_, _) -> erlang:nif_error(undef).
 
 -spec intersect(Map1,Map2) -> Map3 when
     Map1 :: #{Key => term()},
