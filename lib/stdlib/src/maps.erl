@@ -20,7 +20,7 @@
 
 -module(maps).
 
--export([get/3, filter/2,fold/3,
+-export([get/3, filter/2, filtermap/2, fold/3,
          map/2, size/1, new/0,
          update_with/3, update_with/4,
          without/2, with/2,
@@ -303,6 +303,34 @@ filter_1(Pred, Iter) ->
             end;
         none ->
             []
+    end.
+
+
+-spec filtermap(Fun, MapOrIter) -> Map when
+      Fun :: fun((Key, Value1) -> boolean() | {true, Value2}),
+      MapOrIter :: #{Key => Value1} | iterator(Key, Value1),
+      Map :: #{Key => Value1 | Value2}.
+
+filtermap(Fun, Map) when is_function(Fun, 2), is_map(Map) ->
+    maps:from_list(filtermap_1(Fun, iterator(Map)));
+filtermap(Fun, Iterator) when is_function(Fun, 2), ?IS_ITERATOR(Iterator) ->
+    maps:from_list(filtermap_1(Fun, Iterator));
+filtermap(Fun, Map) ->
+    erlang:error(error_type(Map), [Fun, Map]).
+
+filtermap_1(Pred, Iter) ->
+    case next(Iter) of
+	{K, V, NextIter} ->
+	    case Pred(K, V) of
+		true ->
+		    [{K, V} | filtermap_1(Pred, NextIter)];
+		{true, NewV} ->
+		    [{K, NewV} | filtermap_1(Pred, NextIter)];
+		false ->
+		    filtermap_1(Pred, NextIter)
+	    end;
+	none ->
+	    []
     end.
 
 -spec fold(Fun,Init,MapOrIter) -> Acc when

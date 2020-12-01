@@ -73,6 +73,33 @@
     </func>
 
     <func>
+      <name name="filtermap" arity="2" since=""/>
+      <fsummary>Filter and map a map.</fsummary>
+      <desc>
+        <p>Returns a map <c><anno>Map</anno></c> that is the result of calling
+          <c><anno>Fun</anno>(<anno>Key</anno>, <anno>Value1</anno>)</c> for
+          every <c><anno>Key</anno></c> to value <c><anno>Value1</anno></c>
+          association in <c><anno>MapOrIter</anno></c> in any order.</p>
+        <p>If <c><anno>Fun</anno>(<anno>Key</anno>, <anno>Value1</anno>)</c>
+          returns <c>true</c>, the association is copied to the result map. If
+          it returns <c>false</c>, the association is not copied. If it returns
+          <c>{true, NewValue}</c>, the value for <c><anno>Key</anno></c> is
+          replaced with <c>NewValue</c>at this position is replaced in the
+          result map.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 3.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
+  Map = #{k1 => 1, "k2" => 2, "k3" => 3},
+  maps:filtermap(Fun,Map).
+#{k1 => 2,"k2" => 2}</code>
+      </desc>
+    </func>
+
+    <func>
       <name name="find" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>

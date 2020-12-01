@@ -28,7 +28,7 @@
 -export([all/0, suite/0]).
 
 -export([t_update_with_3/1, t_update_with_4/1,
-         t_get_3/1, t_filter_2/1,
+         t_get_3/1, t_filter_2/1, t_filtermap_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
@@ -45,7 +45,7 @@ suite() ->
 
 all() ->
     [t_update_with_3,t_update_with_4,
-     t_get_3,t_filter_2,
+     t_get_3,t_filter_2,t_filtermap_2,
      t_fold_3,t_map_2,t_size_1,
      t_iterator_1,t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
@@ -139,6 +139,20 @@ t_filter_2(Config) when is_list(Config) ->
     %% error case
     ?badmap(a,filter,[_,a]) = (catch maps:filter(fun(_,_) -> ok end,id(a))),
     ?badarg(filter,[<<>>,#{}]) = (catch maps:filter(id(<<>>),#{})),
+    ok.
+
+t_filtermap_2(Config) when is_list(Config) ->
+    M0 = maps:from_list([{I, I} || I <- lists:seq(1, 30)]),
+    Pred = fun(K,_) when K=<10 -> true; (K,_) when K=<20 -> false; (_,V) -> {true, V * V} end,
+    M1 = maps:filtermap(Pred, M0),
+    M2 = maps:filtermap(Pred, maps:iterator(M0)),
+    #{1 := 1, 10 := 10, 21 := 21 * 21, 30 := 30 * 30} = M1,
+    false = maps:is_key(11, M1),
+    false = maps:is_key(20, M1),
+    true = M1 =:= M2,
+    %% error case
+    ?badmap(a,filtermap,[_,a]) = (catch maps:filtermap(fun(_,_) -> ok end,id(a))),
+    ?badarg(filtermap,[<<>>,#{}]) = (catch maps:filtermap(id(<<>>),#{})),
     ok.
 
 t_fold_3(Config) when is_list(Config) ->
