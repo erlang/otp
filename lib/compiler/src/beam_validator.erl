@@ -1800,7 +1800,7 @@ override_type(Type, Reg, Vst) ->
 
 %% This is used when linear code finds out more and more information about a
 %% type, so that the type gets more specialized.
-update_type(Merge, With, #value_ref{}=Ref, Vst) ->
+update_type(Merge, With, #value_ref{}=Ref, Vst0) ->
     %% If the old type can't be merged with the new one, the type information
     %% is inconsistent and we know that some instructions will never be
     %% executed at run-time. For example:
@@ -1819,10 +1819,13 @@ update_type(Merge, With, #value_ref{}=Ref, Vst) ->
     %% We therefore throw a 'type_conflict' error instead, which causes
     %% validation to fail unless we're in a context where such errors can be
     %% handled, such as in a branch handler.
-    Current = get_raw_type(Ref, Vst),
+    Current = get_raw_type(Ref, Vst0),
     case Merge(Current, With) of
-        none -> throw({type_conflict, Current, With});
-        Type -> set_type(Type, Ref, Vst)
+        none ->
+            throw({type_conflict, Current, With});
+        Type ->
+            Vst = update_container_type(Type, Ref, Vst0),
+            set_type(Type, Ref, Vst)
     end;
 update_type(Merge, With, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
     update_type(Merge, With, get_reg_vref(Reg, Vst), Vst);
@@ -1833,6 +1836,17 @@ update_type(Merge, With, Literal, Vst) ->
     case Merge(Literal, With) of
         none -> throw({type_conflict, Literal, With});
         _Type -> Vst
+    end.
+
+%% Updates the container the given value was extracted from, if any.
+update_container_type(Type, Ref, #vst{current=#st{vs=Vs}}=Vst) ->
+    case Vs of
+        #{ Ref := #value{op={bif,element},
+                         args=[{integer,Index}=Key,Tuple]} } when Index >= 1 ->
+            TupleType = {tuple, [Index], #{ Key => Type }},
+            update_type(fun meet/2, TupleType, Tuple, Vst);
+        #{} ->
+            Vst
     end.
 
 update_ne_types(LHS, RHS, Vst0) ->
