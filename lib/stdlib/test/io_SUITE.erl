@@ -29,7 +29,7 @@
 	 printable_range/1, bad_printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
-         io_with_huge_message_queue/1, format_string/1,
+         io_with_huge_message_queue/1, format_string/1, format_neg_zero/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1]).
@@ -60,7 +60,7 @@ all() ->
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     printable_range, bad_printable_range,
+     printable_range, bad_printable_range, format_neg_zero,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
@@ -86,6 +86,14 @@ error_1(Config) when is_list(Config) ->
 
     file:close(F1),
     {'EXIT', _} = (catch io:format(F1, "~p", ["hej"])),
+    ok.
+
+format_neg_zero(Config) when is_list(Config) ->
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    "-0.000000" = io_lib:format("~f", [NegZero]),
+    "-0.00000e+0" = io_lib:format("~g", [NegZero]),
+    "-0.00000e+0" = io_lib:format("~e", [NegZero]),
+    "-0.0" = io_lib_format:fwrite_g(NegZero),
     ok.
 
 float_g(Config) when is_list(Config) ->
@@ -1094,13 +1102,20 @@ g_t(V) when is_float(V) ->
 %% Note: in a few cases the least significant digit has been
 %% incremented by one, namely when the correctly rounded string
 %% converts to another floating point number.
-g_t(0.0, "0.0") ->
-    ok;
-g_t(V, Sv) ->
+g_t(V, Sv) when V > 0.0; V < 0.0 ->
     try
         g_t_1(V, Sv)
     catch throw:Reason ->
         throw({Reason, V, Sv})
+    end;
+g_t(Zero, Format) ->
+    case <<Zero/float>> of
+        <<1:1,_:63>> ->
+            "-0.0" = Format,
+            ok;
+        <<0:1,_:63>> ->
+            "0.0" = Format,
+            ok
     end.
 
 g_t_1(V, Sv) ->
