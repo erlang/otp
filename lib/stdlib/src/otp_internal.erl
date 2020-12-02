@@ -34,7 +34,7 @@ obsolete(calendar, local_time_to_universal_time, 1) ->
 obsolete(code, is_module_native, 1) ->
     {deprecated, "HiPE has been removed", "OTP 26"};
 obsolete(code, rehash, 0) ->
-    {deprecated, "the code path cache feature has been removed"};
+    {deprecated, "the code path cache feature has been removed", "OTP 26"};
 obsolete(crypto, block_decrypt, 3) ->
     {deprecated, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead", "OTP 24"};
 obsolete(crypto, block_decrypt, 4) ->

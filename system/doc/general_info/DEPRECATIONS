@@ -149,7 +149,7 @@ gen_fsm:_/_ since=20
 # Added in OTP 19.
 #
 
-code:rehash/0 since=19
+code:rehash/0 since=19 remove=26
 crypto:rand_bytes/1 since=19
 queue:lait/1 since=19
 random:_/_ since=19
