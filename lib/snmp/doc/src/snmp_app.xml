@@ -188,22 +188,46 @@ in the snmp_config file!
       <tag><marker id="agent_orig_disco_opts"></marker>
         <c><![CDATA[agent_originating_discovery_opts() = [agent_originating_discovery_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>agent_originating_discovery_opt() = 
-          {enable, boolean()}</c></p>
-        <p>These are options effecting discovery <c>originating</c> in this
-          agent. </p>
-        <p>The default values for the <c>originating</c> 
-          discovery options are: </p>
-        <list type="bulleted">
-          <item>enable: <c>true</c></item>
+	<p><c>agent_originating_discovery_opt() = {enable, boolean()}</c></p>
+	<p>These are options effecting discovery <c>originating</c> in this
+	agent. </p>
+	<p>The default values for the <c>originating</c>
+	discovery options are: </p>
+	<list type="bulleted">
+	  <item>enable: <c>true</c></item>
         </list>
       </item>
 
       <tag><marker id="agent_mt"></marker>
-        <c><![CDATA[multi_threaded() = bool() <optional>]]></c></tag>
+        <c><![CDATA[multi_threaded() = bool() | extended <optional>]]></c></tag>
       <item>
-        <p>If <c>true</c>, the agent is multi-threaded, with one
-          thread for each get request. </p>
+	<p>If <c>true</c> (or <c>extended</c>), the agent is multi-threaded,
+	with one thread for each get request.</p>
+	<p>The value <c>extended</c> means that a special 'process'
+	is also created intended to handle <em>all</em> notifications. </p>
+        <list>
+	  <item>
+	    <p><c>true</c> - One worker dedicated to 'set-requests' and one
+	    (main) worker for all other requests ('get-request' and
+	    notifications).</p>
+	    <p>If the 'main' worker is busy, a temporary process is
+	    spawned to handle that job ('get-request' or notification). </p>
+	  </item>
+	  <item>
+	    <p><c>extended</c> - One worker dedicated to 'set-requests',
+	    one worker dedicated to notifications and one
+	    (main) worker for all 'get-requests'. </p>
+	    <p>If the 'main' worker is busy, a temporary process is
+	    spawned to handle that 'get-request'. </p>
+	  </item>
+	</list>
+	<note>
+	  <p>Even with multi-threaded set to <c>extended</c>
+	  there is still a risk for 'reorder' when sending inform-requsts,
+	  which require a response (and may therefor require resending). </p>
+	  <p>Also, there is of  course no way to guarantee order once the
+	  package is on the network. </p>
+	</note>
         <p>Default is <c>false</c>.</p>
       </item>
 
