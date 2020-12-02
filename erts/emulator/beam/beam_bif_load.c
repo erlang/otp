@@ -1178,8 +1178,8 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
      */
     if (rp->ftrace != NIL) {
 	struct StackTrace *s;
-	ASSERT(is_list(rp->ftrace));
-	s = (struct StackTrace *) big_val(CDR(list_val(rp->ftrace)));
+	Eterm *tuple_ptr = tuple_val(rp->ftrace);
+	s = (struct StackTrace *) big_val(tuple_ptr[1]);
 	if ((s->pc && ErtsInArea(s->pc, mod_start, mod_size)) ||
 	    (s->current && ErtsInArea(s->current, mod_start, mod_size))) {
 	    rp->freason = EXC_NULL;

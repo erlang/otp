@@ -98,6 +98,7 @@
 -export([take/1]).
 -export([whereis_table/1]).
 -export([ms_excessive_nesting/1]).
+-export([error_info/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -174,7 +175,8 @@ all() ->
      test_table_memory_concurrency,
      test_delete_table_while_size_snapshot,
      test_decentralized_counters_setting,
-     ms_excessive_nesting].
+     ms_excessive_nesting,
+     error_info].
 
 
 groups() ->
@@ -4839,7 +4841,21 @@ info(Config) when is_list(Config) ->
     repeat_for_opts(fun info_do/1,
                     [[void, set, bag, duplicate_bag, ordered_set],
                      [void, private, protected, public],
-                     write_concurrency, read_concurrency, compressed]).
+                     write_concurrency, read_concurrency, compressed]),
+
+    undefined = ets:info(non_existing_table_xxyy),
+    undefined = ets:info(non_existing_table_xxyy,type),
+    undefined = ets:info(non_existing_table_xxyy,node),
+    undefined = ets:info(non_existing_table_xxyy,named_table),
+    undefined = ets:info(non_existing_table_xxyy,safe_fixed_monotonic_time),
+    undefined = ets:info(non_existing_table_xxyy,safe_fixed),
+
+    {'EXIT',{badarg,_}} = (catch ets:info(42)),
+    {'EXIT',{badarg,_}} = (catch ets:info(42, type)),
+    {'EXIT',{badarg,_}} = (catch ets:info(make_ref())),
+    {'EXIT',{badarg,_}} = (catch ets:info(make_ref(), type)),
+
+    ok.
 
 info_do(Opts) ->
     EtsMem = etsmem(),
@@ -4931,12 +4947,6 @@ info_do(Opts) ->
     exit(SlavePid,kill),
 
     true = ets:delete(Tab),
-    undefined = ets:info(non_existing_table_xxyy),
-    undefined = ets:info(non_existing_table_xxyy,type),
-    undefined = ets:info(non_existing_table_xxyy,node),
-    undefined = ets:info(non_existing_table_xxyy,named_table),
-    undefined = ets:info(non_existing_table_xxyy,safe_fixed_monotonic_time),
-    undefined = ets:info(non_existing_table_xxyy,safe_fixed),
     verify_etsmem(EtsMem).
 
 ets_info(Tab, Item, SlavePid, _Line) ->
@@ -8573,6 +8583,386 @@ test_terms(Test_Func, Mode) ->
     end,
     ok.
 
+error_info(_Config) ->
+    Ms = [{{'$1','$2','$3'},[],['$$']}],
+    BagTab = fun(_Type) -> ets:new(table, [set,bag,private]) end,
+    OneKeyTab = fun(Type) ->
+                        T = ets:new(table, [Type, private]),
+                        true = ets:insert(T, {one,two,3}),
+                        T
+                end,
+    Set = fun(_Type) -> ets:new(table, [set, private]) end,
+    OrderedSet = fun(_Type) -> ets:new(table, [ordered_set, private]) end,
+    NamedTable = fun(Type) -> ets:new('$named_table', [Type, named_table, private]) end,
+    UnownedTable = fun(Type) ->
+                           Parent = self(),
+                           spawn_link(fun() ->
+                                              T = ets:new(table, [Type, public]),
+                                              Parent ! T,
+                                              receive ok -> ok end
+                                      end),
+                           receive T -> T end
+                   end,
+
+    L = [{delete, ['$Tab']},
+         {delete, ['$Tab', no_key], [no_fail]},
+         {delete_all_objects, ['$Tab'], [renamed]},
+         {delete_object, ['$Tab', bad_object]},
+         {delete_object, ['$Tab', {tag,non_existing}], [no_fail]},
+         {first, ['$Tab']},
+
+         {give_away, ['$Tab', not_a_pid, bad_pid]},
+         {give_away, ['$Tab', '$Self', already_owner], [{error_term,owner}]},
+         {give_away, ['$Tab', '$Living', living_process], [only_bad_table]},
+         {give_away, ['$Tab', '$Dead', dead_process]},
+
+         {give_away, [UnownedTable, '$Living', gift_data], [{error_term,not_owner}]},
+
+         {info, ['$Tab']},
+         {info, ['$Tab', invalid_item]},
+
+         {insert, ['$Tab', bad_object]},
+         {insert, ['$Tab', {}]},
+         {insert, ['$Tab', [a,{a,b,c}]]},
+         {insert, ['$Tab', [a|b]]},
+         {insert, ['$Tab', {a,b,c}], [no_fail]},
+         {insert, ['$Tab', [{a,b,c}]], [no_fail]},
+
+         {insert_new, ['$Tab', bad_object]},
+         {insert_new, ['$Tab', {a,b,c}], [no_fail]},
+         {insert_new, ['$Tab', [a,{a,b,c}]]},
+         {insert_new, ['$Tab', [a|b]]},
+
+         {last, ['$Tab']},
+
+         {lookup, ['$Tab', no_key], [no_fail]},
+
+         {lookup_element, ['$Tab', no_key, 0]},
+         {lookup_element, ['$Tab', no_key, 1], [{error_term,badkey}]},
+         {lookup_element, ['$Tab', no_key, bad_pos]},
+
+         {lookup_element, [OneKeyTab, one, 4]},
+
+         {match, [bad_continuation], [no_table]},
+
+         {match, ['$Tab', <<1,2,3>>], [no_fail]},
+         {match, ['$Tab', <<1,2,3>>, 0]},
+         {match, ['$Tab', <<1,2,3>>, bad_limit]},
+         {match_delete, ['$Tab', <<1,2,3>>], [no_fail,renamed]},
+
+         {match_object, [bad_continuation], [no_table]},
+
+         {match_object, ['$Tab', <<1,2,3>>], [no_fail]},
+         {match_object, ['$Tab', <<1,2,3>>, bad_limit]},
+
+         {member, ['$Tab', no_key], [no_fail]},
+
+         %% For a set, ets:next/2 and ets:prev/2 fails if the key does
+         %% not exist.
+         {next, [Set, no_key]},
+         {prev, [Set, no_key]},
+
+         %% For an ordered set, ets:next/2 and ets:prev/2 succeeds
+         %% even if the key does not exist.
+         {next, [OrderedSet, no_key], [no_fail]},
+         {prev, [OrderedSet, no_key], [no_fail]},
+
+         {rename, ['$Tab', {bad,name}]},
+         {rename, [NamedTable, '$named_table']},
+         {rename, [NamedTable, {bad,name}]},
+
+         {safe_fixtable, ['$Tab', true], [no_fail]},
+         {safe_fixtable, ['$Tab', not_boolean]},
+
+         {select, [bad_continuation], [no_table]},
+
+         {select, ['$Tab', Ms], [no_fail]},
+         {select, ['$Tab', bad_match_spec]},
+         {select, ['$Tab', Ms, bad_limit]},
+         {select, ['$Tab', Ms, 0]},
+         {select, ['$Tab', bad_match_spec, bad_limit]},
+         {select, ['$Tab', bad_match_spec, 1]},
+
+         {select_count, ['$Tab', Ms], [no_fail]},
+         {select_count, ['$Tab', bad_match_spec]},
+
+         {select_delete, ['$Tab', Ms], [no_fail,renamed]},
+         {select_delete, ['$Tab', bad_match_spec], [renamed]},
+
+         {select_replace, ['$Tab', [{{'$1','$2','$3'},[],[{{'$1','$3','$2'}}]}]], [no_fail]},
+         {select_replace, ['$Tab', [{{'$1','$2','$3'},[],[{{'key_destroyed'}}]}]]},
+         {select_replace, ['$Tab', bad_match_spec]},
+
+         {select_replace, [BagTab, [{{'$1','$2','$3'},[],[{{'$1','$3','$2'}}]}]], [{error_term,table_type}]},
+
+         {select_reverse, ['$Tab', Ms], [no_fail]},
+         {select_reverse, ['$Tab', bad_match_spec]},
+
+         {select_reverse, ['$Tab', Ms, 0]},
+         {select_reverse, ['$Tab', Ms, bad_limit]},
+         {select_reverse, ['$Tab', bad_match_spec, bad_limit]},
+
+         {setopts, ['$Tab', bad_opts]},
+
+         {slot, ['$Tab', -1]},
+         {slot, ['$Tab', not_an_integer]},
+
+         {take, ['$Tab', no_key], [no_fail]},
+
+         {update_counter, ['$Tab', no_key, 1], [{error_term,badkey}]},
+         {update_counter, ['$Tab', no_key, bad_increment], [{error_term,badkey}]},
+         {update_counter, ['$Tab', no_key, {1, 42}], [{error_term,badkey}]},
+         {update_counter, ['$Tab', no_key, {1, bad_increment}], [{error_term,badkey}]},
+
+         {update_counter, [OneKeyTab, one, {2, 1}]},
+         {update_counter, [OneKeyTab, one, {2, bad_increment}]},
+         {update_counter, [OneKeyTab, one, {3, bad_increment}]},
+         {update_counter, [OneKeyTab, one, {4, 1}], [{error_term,position}]},
+         {update_counter, [OneKeyTab, one, {4, bad_increment}]},
+
+         {update_counter, [BagTab, bag_key, 1], [{error_term,table_type}]},
+         {update_counter, [BagTab, bag_key, bad_increment], [{error_term,table_type}]},
+
+         {update_counter, ['$Tab', key, 2, {key,0}], [no_fail]},
+         {update_counter, ['$Tab', key, {1,42}, {key,0}], [{error_term,keypos}]},
+         {update_counter, ['$Tab', key, 2, {key,not_integer}]},
+         {update_counter, ['$Tab', key, 3, {key,whatever}]},
+
+         {update_counter, ['$Tab', no_key, 1, default]},
+         {update_counter, ['$Tab', no_key, bad_increment, {tag,0}]},
+         {update_counter, ['$Tab', no_key, {1, bad_increment}, {tag,0}]},
+         {update_counter, ['$Tab', no_key, {1, 42}, {tag,0}], [{error_term,keypos}]},
+         {update_counter, ['$Tab', no_key, {2, 42}, {tag,not_integer}]},
+         {update_counter, ['$Tab', no_key, {3, 42}, {tag,not_integer}], [{error_term,position}]},
+
+         {update_counter, [OneKeyTab, one, {2, 1}, {tag,val}]},
+         {update_counter, [OneKeyTab, one, {2, bad_increment}, {tag,val}]},
+         {update_counter, [OneKeyTab, one, {3, bad_increment}, {tag,val}]},
+         {update_counter, [OneKeyTab, one, {4, 1}, {tag,val}], [{error_term,position}]},
+         {update_counter, [OneKeyTab, one, {4, bad_increment}, {tag,val}]},
+
+         {update_element, ['$Tab', no_key, {2, new}], [no_fail]},
+         {update_element, [BagTab, no_key, {2, bagged}]},
+         {update_element, [OneKeyTab, one, not_tuple]},
+         {update_element, [OneKeyTab, one, {0, new}]},
+         {update_element, [OneKeyTab, one, {1, new}], [{error_term,keypos}]},
+         {update_element, [OneKeyTab, one, {4, new}]},
+
+         {whereis, [{bad,name}], [no_table]}
+        ],
+    put(errors, []),
+    eval_ets_bif_errors(L),
+    io:nl(),
+    case lists:sort(get(errors)) of
+        [] ->
+            ok;
+        [_|_]=Errors ->
+            io:format("~p\n", [Errors]),
+            ct:fail({length(Errors),errors})
+    end.
+
+eval_ets_bif_errors(List) ->
+    spawn(fun() ->
+                  true = register(living, self()),
+                  Ref = make_ref(),
+                  receive
+                      Ref ->
+                          ok
+                  end
+          end),
+    do_eval_ets_bif_errors(List).
+
+do_eval_ets_bif_errors([H|T]) ->
+    case H of
+        {F, Args} ->
+            eval_ets_bif_errors(F, Args, []);
+        {F, Args, Opts} when is_list(Opts) ->
+            case lists:member(no_table, Opts) of
+                true ->
+                    ets_eval_bif_errors_once(F, Args, Opts);
+                false ->
+                    eval_ets_bif_errors(F, Args, Opts)
+            end
+    end,
+    do_eval_ets_bif_errors(T);
+do_eval_ets_bif_errors([]) ->
+    ok.
+
+ets_eval_bif_errors_once(F, Args, Opts) ->
+    MFA = {ets,F,Args},
+    io:format("\n\n*** ets:~p/~p", [F,length(Args)]),
+
+    case ets_apply(F, Args, Opts) of
+        {error,none} ->
+            ok;
+        {error,Info} ->
+            store_error(wrong_failure_reason, MFA, Info);
+        ok ->
+            %% This ETS function was supposed to fail.
+            store_error(expected_failure, MFA, ok)
+    end.
+
+eval_ets_bif_errors(F, Args0, Opts) ->
+    MFA = {ets,F,Args0},
+    io:format("\n\n*** ets:~p/~p", [F,length(Args0)]),
+
+    %% Test the ETS function with a valid table argument.
+    %% Test both for sets and ordered sets.
+    _ = eval_ets_valid_tid(F, Args0, Opts, set),
+    Args = eval_ets_valid_tid(F, Args0, Opts, ordered_set),
+
+    %% Replace the table id with a plain ref to provoke a type error.
+    BadArgs = eval_expand_bad_args(Args),
+    case ets_apply(F, BadArgs, Opts) of
+        {error,type} ->
+            ok;
+        BadIdResult ->
+            store_error(bad_table_id, MFA, BadIdResult)
+    end.
+
+eval_ets_valid_tid(F, Args0, Opts, Type) ->
+    MFA = {ets,F,Args0},
+    Args = eval_expand_args(Args0, Type),
+    case should_apply(Args, Opts) of
+        false ->
+            %% Applying this function will never fail.
+            ok;
+        true ->
+            NoFail = lists:member(no_fail, Opts),
+            ErrorTerm = proplists:get_value(error_term, Opts, none),
+            case ets_apply(F, Args, Opts) of
+                {error,ErrorTerm} when not NoFail ->
+                    ok;
+                {error,Info} when not NoFail ->
+                    store_error(wrong_failure_reason, MFA, Info);
+                {error,Info} when NoFail ->
+                    store_error(expected_success, MFA, Info);
+                ok when NoFail ->
+                    ok;
+                ok when not NoFail ->
+                    %% This ETS function was supposed to fail.
+                    store_error(expected_failure, MFA, ok)
+            end
+    end,
+
+    %% Test the ETS function from another process to provoke an error
+    %% because of missing access rights. (The table is private.)
+    {Pid,Ref} = spawn_monitor(fun() -> exit(ets_apply(F, Args, Opts)) end),
+    receive
+        {'DOWN',Ref,process,Pid,Result} ->
+            case Result of
+                {error,access} ->
+                    ok;
+                {error,not_owner} when F =:= give_away ->
+                    ok;
+                {error,none} when F =:= info ->
+                    ok;
+                ok when F =:= info ->
+                    ok;
+                Other ->
+                    store_error(access, MFA, Other)
+            end
+    end,
+
+    %% Delete the ETS table.
+    eval_delete_tab(Args),
+    case ets_apply(F, Args, Opts) of
+        {error,id} ->
+            ok;
+        ok when F =:= info ->
+            %% ets:info/1,2 returns `undefined` instead of failing if the
+            %% table has been deleted.
+            ok;
+        DeadTableResult ->
+            store_error(dead_table, MFA, DeadTableResult)
+    end,
+
+    Args.
+
+should_apply([_], _Opts) ->
+    %% An ETS function with a single argument can't fail if
+    %% the argument is valid.
+    false;
+should_apply([_,_|_], Opts) ->
+    %% Applying the function on valid table would have side effects
+    %% that would cause problems down the line (e.g. successfully
+    %% giving away a table).
+    not lists:member(only_bad_table, Opts).
+
+store_error(What, MFA, Wrong) ->
+    put(errors, [{What,MFA,Wrong}|get(errors)]).
+
+eval_expand_args(Args, Type) ->
+    [expand_arg(A, Type) || A <- Args].
+
+expand_arg('$Tab', Type) -> ets:new(table, [Type, private]);
+expand_arg('$Self', _Type) -> self();
+expand_arg('$Living', _Type) -> whereis(living);
+expand_arg('$Dead', _Type) ->
+    {Pid,Ref} = spawn_monitor(fun() -> ok end),
+    receive
+        {'DOWN',Ref,process,Pid,normal} -> Pid
+    end;
+expand_arg(Fun, Type) when is_function(Fun, 1) -> Fun(Type);
+expand_arg(Arg, _Type) -> Arg.
+
+eval_delete_tab(['$named_table'=H|_]) ->
+    ets:delete(H);
+eval_delete_tab([H|_]) when is_reference(H) ->
+    ets:delete(H);
+eval_delete_tab([_|T]) ->
+    eval_delete_tab(T).
+
+eval_expand_bad_args(['$named_table'|T]) ->
+    [make_ref()|T];
+eval_expand_bad_args([H|T]) when is_reference(H) ->
+    [make_ref()|T];
+eval_expand_bad_args([H|T]) ->
+    [H|eval_expand_bad_args(T)].
+
+ets_apply(F, Args, Opts) ->
+    try
+        apply(ets, F, Args),
+        io:format("\nets:~p(~s) succeeded", [F,ets_format_args(Args)])
+    catch
+        C:R:Stk ->
+            SF = fun(Mod, _, _) -> Mod =:= test_server end,
+            Str = erl_error:format_exception(C, R, Stk, #{stack_trim_fun => SF}),
+            BinStr = iolist_to_binary(Str),
+            io:format("\nets:~p(~s)\n~ts", [F,ets_format_args(Args),BinStr]),
+
+            {ets,ActualF,ActualArgs,Info} = hd(Stk),
+
+            RE = <<"[*][*][*] argument \\d+:">>,
+            case re:run(BinStr, RE, [{capture, none}]) of
+                match ->
+                    ok;
+                nomatch ->
+                    store_error(no_explanation, {ets,F,Args}, Info)
+            end,
+
+            case {ActualF,ActualArgs} of
+                {F,Args} ->
+                    ok;
+                _ ->
+                    case lists:member(renamed, Opts) of
+                        true ->
+                            ok;
+                        false ->
+                            store_error(renamed, {ets,F,length(Args)}, {ActualF,ActualArgs})
+                    end
+            end,
+            [{error_info, ErrorInfoMap}] = Info,
+            Cause = maps:get(cause, ErrorInfoMap, none),
+            {error,Cause}
+    end.
+
+ets_format_args(Args) ->
+    lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]).
+
+%%%
+%%% Common utility functions.
+%%%
 
 id(I) -> I.
 

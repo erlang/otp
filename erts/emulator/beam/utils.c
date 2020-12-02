@@ -5054,10 +5054,8 @@ int erts_check_if_stack_grows_downwards(char *ptr)
  * a stack trace.
  */
 Eterm*
-erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
+erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p, Eterm loc)
 {
-    Eterm loc = NIL;
-
     if (fi->loc != LINE_INVALID_LOCATION) {
 	Eterm tuple;
 	int line = LOC_LINE(fi->loc);

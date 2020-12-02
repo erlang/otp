@@ -281,6 +281,7 @@ bif(erase, 0) -> true;
 bif(erase, 1) -> true;
 bif(error, 1) -> true;
 bif(error, 2) -> true;
+bif(error, 3) -> true;
 bif(exit, 1) -> true;
 bif(exit, 2) -> true;
 bif(float, 1) -> true;

@@ -453,16 +453,29 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
     c_p->i = pc;    /* In case we call erts_exit(). */
 
     /*
-     * Check if we have an arglist for the top level call. If so, this
-     * is encoded in Value, so we have to dig out the real Value as well
-     * as the Arglist.
+     * Check if we have an arglist and possibly an `error_info` term
+     * for the top level call. If so, this is encoded in Value, so we
+     * have to dig out the real Value as well as the Arglist and the
+     * `error_info` term.
      */
+
     if (c_p->freason & EXF_ARGLIST) {
-	  Eterm* tp;
-	  ASSERT(is_tuple(Value));
-	  tp = tuple_val(Value);
-	  Value = tp[1];
-	  Args = tp[2];
+	Eterm* tp;
+	tp = tuple_val(Value);
+	Value = tp[1];
+	Args = tp[2];
+	switch (arityval(tp[0])) {
+	case 2:
+	    break;
+	case 3:
+	    /* Dig out the `error_info` term passed to error/3. */
+	    ASSERT(c_p->freason & EXF_HAS_EXT_INFO);
+	    c_p->fvalue = tp[3];
+	    break;
+	default:
+	    ASSERT(0);
+	    break;
+	}
     }
 
     /*
@@ -806,6 +819,7 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
     struct StackTrace* s;
     int sz;
     int depth = erts_backtrace_depth;    /* max depth (never negative) */
+    Eterm error_info = THE_NON_VALUE;
 
     if (depth > 0) {
 	/* There will always be a current function */
@@ -823,14 +837,17 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 
     /*
      * If the failure was in a BIF other than 'error/1', 'error/2',
-     * 'exit/1' or 'throw/1', save BIF-MFA and save the argument
-     * registers by consing up an arglist.
+     * 'error/3', 'exit/1', or 'throw/1', save BIF MFA and save the
+     * argument registers by consing up an arglist.
      */
     if (bif_mfa) {
+	Eterm *hp;
+        Eterm format_module = THE_NON_VALUE;
+
 	if (bif_mfa->module == am_erlang) {
 	    switch (bif_mfa->function) {
 	    case am_error:
-		if (bif_mfa->arity == 1 || bif_mfa->arity == 2)
+		if (bif_mfa->arity == 1 || bif_mfa->arity == 2 || bif_mfa->arity == 3)
 		    goto non_bif_stacktrace;
 		break;
 	    case am_exit:
@@ -853,7 +870,56 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 	    depth--;
 	}
 	s->pc = NULL;
-	args = make_arglist(c_p, reg, bif_mfa->arity); /* Overwrite CAR(c_p->ftrace) */
+
+        /*
+         * All format_error/2 functions for BIFs must be in separate modules,
+         * to allow them to be removed from application systems with tight
+         * storage constraints.
+         */
+
+        switch (bif_mfa->module) {
+            /* Erts */
+        case am_atomics:
+            format_module = am_erl_erts_errors;
+            break;
+        case am_counters:
+            format_module = am_erl_erts_errors;
+            break;
+        case am_erlang:
+            format_module = am_erl_erts_errors;
+            break;
+        case am_persistent_term:
+            format_module = am_erl_erts_errors;
+            break;
+
+            /* Kernel */
+        case am_os:
+            format_module = am_erl_kernel_errors;
+            break;
+
+            /* STDLIB */
+        case am_ets:
+            format_module = am_erl_stdlib_errors;
+            break;
+
+        default:
+            ASSERT((c_p->freason & EXF_HAS_EXT_INFO) == 0);
+            break;
+        }
+
+        if (is_value(format_module)) {
+            if (c_p->freason & EXF_HAS_EXT_INFO) {
+                hp = HAlloc(c_p, MAP2_SZ);
+                error_info = MAP2(hp,
+                                  am_cause, c_p->fvalue,
+                                  am_module, format_module);
+            } else {
+                hp = HAlloc(c_p, MAP1_SZ);
+                error_info = MAP1(hp, am_module, format_module);
+            }
+        }
+
+	args = make_arglist(c_p, reg, bif_mfa->arity);
     } else {
 
     non_bif_stacktrace:
@@ -868,18 +934,35 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 	    int a;
 	    ASSERT(s->current);
 	    a = s->current->arity;
-	    args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
+	    args = make_arglist(c_p, reg, a);
 	    s->pc = NULL; /* Ignore pc */
 	} else {
 	    s->pc = pc;
 	}
     }
 
+    if (c_p->freason == EXC_ERROR_3) {
+	error_info = c_p->fvalue;
+    }
+
     /* Package args and stack trace */
     {
 	Eterm *hp;
-	hp = HAlloc(c_p, 2);
-	c_p->ftrace = CONS(hp, args, make_big((Eterm *) s));
+	Uint sz = 4;
+
+	if (is_value(error_info)) {
+	    sz += 3 + 2;
+	}
+	hp = HAlloc(c_p, sz);
+	if (is_non_value(error_info)) {
+	    error_info = NIL;
+	} else {
+	    error_info = TUPLE2(hp, am_error_info, error_info);
+	    hp += 3;
+	    error_info = CONS(hp, error_info, NIL);
+	    hp += 2;
+	}
+	c_p->ftrace = TUPLE3(hp, make_big((Eterm *) s), args, error_info);
     }
 
     /* Save the actual stack trace */
@@ -900,8 +983,9 @@ static struct StackTrace *get_trace_from_exc(Eterm exc) {
     if (exc == NIL) {
 	return NULL;
     } else {
-	ASSERT(is_list(exc));
-	return (struct StackTrace *) big_val(CDR(list_val(exc)));
+	Eterm* tuple_ptr = tuple_val(exc);
+	ASSERT(tuple_ptr[0] == make_arityval(3));
+	return (struct StackTrace *) big_val(tuple_ptr[1]);
     }
 }
 
@@ -919,8 +1003,19 @@ static Eterm get_args_from_exc(Eterm exc) {
     if (exc == NIL) {
 	return NIL;
     } else {
-	ASSERT(is_list(exc));
-	return CAR(list_val(exc));
+	Eterm* tuple_ptr = tuple_val(exc);
+	ASSERT(tuple_ptr[0] == make_arityval(3));
+	return tuple_ptr[2];
+    }
+}
+
+static Eterm get_error_info_from_exc(Eterm exc) {
+    if (exc == NIL) {
+	return NIL;
+    } else {
+	Eterm* tuple_ptr = tuple_val(exc);
+	ASSERT(tuple_ptr[0] == make_arityval(3));
+	return tuple_ptr[3];
     }
 }
 
@@ -928,8 +1023,8 @@ static int is_raised_exc(Eterm exc) {
     if (exc == NIL) {
         return 0;
     } else {
-        ASSERT(is_list(exc));
-        return bignum_header_is_neg(*big_val(CDR(list_val(exc))));
+	Eterm* tuple_ptr = tuple_val(exc);
+        return bignum_header_is_neg(*big_val(tuple_ptr[1]));
     }
 }
 
@@ -946,8 +1041,9 @@ static Eterm *get_freason_ptr_from_exc(Eterm exc) {
          */
 	return &dummy_freason;
     } else {
-	ASSERT(is_list(exc));
-        s = (struct StackTrace *) big_val(CDR(list_val(exc)));
+	Eterm* tuple_ptr = tuple_val(exc);
+	ASSERT(tuple_ptr[0] == make_arityval(3));
+	s = (struct StackTrace *) big_val(tuple_ptr[1]);
         return &s->freason;
     }
 }
@@ -1020,6 +1116,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
     Uint heap_size;
     Eterm* hp;
     Eterm mfa;
+    Eterm error_info;
     int i;
 
     if (! (s = get_trace_from_exc(exc))) {
@@ -1042,6 +1139,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
     }
 
     depth = s->depth;
+
     /*
      * If fi.current is still NULL, and we have no
      * stack at all, default to the initial function
@@ -1055,13 +1153,19 @@ build_stacktrace(Process* c_p, Eterm exc) {
 	args = get_args_from_exc(exc);
     }
 
+    error_info = get_error_info_from_exc(exc);
+
+    /*
+     * Initialize needed heap.
+     */
+    heap_size = fi.mfa ? fi.needed + 2 : 0;
+
     /*
      * Look up all saved continuation pointers and calculate
      * needed heap space.
      */
     stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
 				      depth*sizeof(FunctionInfo));
-    heap_size = fi.mfa ? fi.needed + 2 : 0;
     for (i = 0; i < depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
 	if (stkp->mfa) {
@@ -1076,13 +1180,14 @@ build_stacktrace(Process* c_p, Eterm exc) {
     hp = HAlloc(c_p, heap_size);
     while (stkp > stk) {
 	stkp--;
-	hp = erts_build_mfa_item(stkp, hp, am_true, &mfa);
+	hp = erts_build_mfa_item(stkp, hp, am_true, &mfa, NIL);
 	res = CONS(hp, mfa, res);
 	hp += 2;
     }
     if (fi.mfa) {
-	hp = erts_build_mfa_item(&fi, hp, args, &mfa);
+	hp = erts_build_mfa_item(&fi, hp, args, &mfa, error_info);
 	res = CONS(hp, mfa, res);
+	hp += 2;
     }
 
     erts_free(ERTS_ALC_T_TMP, (void *) stk);
@@ -1199,6 +1304,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
      */
     if (!(I && (ep->bif_number == BIF_error_1 ||
                 ep->bif_number == BIF_error_2 ||
+                ep->bif_number == BIF_error_3 ||
                 ep->bif_number == BIF_exit_1 ||
                 ep->bif_number == BIF_throw_1))) {
         return;
@@ -1206,8 +1312,8 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 
     /*
      * We are about to tail apply one of the BIFs erlang:error/1,
-     * erlang:error/2, erlang:exit/1, or erlang:throw/1. Error handling of
-     * these BIFs is special!
+     * erlang:error/2, erlang:error/3, erlang:exit/1, or
+     * erlang:throw/1. Error handling of these BIFs is special!
      *
      * We need the topmost continuation pointer to point into the calling
      * function when handling the error after the BIF has been applied. This in

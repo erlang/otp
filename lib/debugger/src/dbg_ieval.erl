@@ -1150,12 +1150,17 @@ eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
 eval_b_generate(Term, _P, Bs, _CompFun, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
 
-safe_bif(M, F, As, Bs, Ieval) ->
+safe_bif(M, F, As, Bs, Ieval0) ->
     try apply(M, F, As) of
        	Value ->
 	    {value,Value,Bs}
     catch
-	Class:Reason ->
+	Class:Reason:Stk ->
+            [{_,_,_,Info}|_] = Stk,
+            Ieval = case lists:keyfind(error_info, 1, Info) of
+                        false -> Ieval0#ieval{error_info=[]};
+                        ErrorInfo -> Ieval0#ieval{error_info=[ErrorInfo]}
+                    end,
 	    exception(Class, Reason, Bs, Ieval, true)
     end.
 

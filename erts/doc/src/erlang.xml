@@ -1773,6 +1773,28 @@ example_fun(A1, A2) ->
     </func>
 
     <func>
+      <name name="error" arity="3" since="24.0"/>
+      <fsummary>Raise an exception of class <c>error</c></fsummary>
+      <desc>
+        <p>Raises an exception of class <c>error</c> with the reason
+        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
+        is any term. <c><anno>Args</anno></c> is expected to be the
+        list of arguments for the current function; it is used to
+        provide the arguments for the current function in the stack
+        back-trace.  If the <c>{error_info,
+        <anno>ErrorInfoMap</anno>}</c> option is given, it will be injected
+        into the stacktrace.</p>
+	<p>As evaluating this function causes an exception to be
+	raised, it has no return value.  The intent of the exception
+	class <c>error</c> is to signal that an unexpected error has
+	happened (for example, a function is called with a parameter
+	that has an incorrect type). See the guide about <seeguide
+	marker="system/reference_manual:errors">errors and error
+	handling</seeguide> for additional information.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="exit" arity="1" since=""/>
       <fsummary>Raise an exception of class <c>exit</c> with a specified reason.</fsummary>
       <desc>

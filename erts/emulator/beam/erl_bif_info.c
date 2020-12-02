@@ -2046,7 +2046,7 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
 	res = am_undefined;
     } else if (full_info) {
         hp = erts_produce_heap(hfact, fi.needed, reserve_size);
-	erts_build_mfa_item(&fi, hp, am_true, &res);
+        erts_build_mfa_item(&fi, hp, am_true, &res, NIL);
     } else {
         hp = erts_produce_heap(hfact, 4, reserve_size);
 	res = TUPLE3(hp, rp->current->module,
@@ -2109,7 +2109,7 @@ current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
         sz = stkp->needed + 2;
         ERTS_PI_UNRESERVE(reserve_size, sz);
         hp = erts_produce_heap(hfact, sz, reserve_size);
-	hp = erts_build_mfa_item(stkp, hp, am_true, &mfa);
+        hp = erts_build_mfa_item(stkp, hp, am_true, &mfa, NIL);
 	res = CONS(hp, mfa, res);
     }
 

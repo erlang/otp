@@ -162,10 +162,13 @@ void init_register_table(void)
  * Register a process or port (can't be registered twice).
  * Returns 0 if name, process or port is already registered.
  *
- * When smp support is enabled:
- *   * Assumes that main lock is locked (and only main lock)
- *     on c_p.
+ * Assumes that main lock is locked (and only the main lock) on c_p.
  *
+ * On return, c_p->value is set to one of the following values:
+ *
+ *   am_registered_name   The process or port already has a name.
+ *   am_notalive          The process is no longer alive.
+ *   am_none              Success or other error reason.
  */
 int erts_register_name(Process *c_p, Eterm name, Eterm id)
 {
@@ -175,6 +178,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     RegProc r, *rp;
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
 
+    c_p->fvalue = am_none;
     if (is_not_atom(name) || name == am_undefined)
 	return res;
 
@@ -203,18 +207,24 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	if (!proc)
 	    proc = erts_pid2proc(NULL, 0, id, ERTS_PROC_LOCK_MAIN);
 	r.p = proc;
-	if (!proc)
+        if (!proc) {
+            c_p->fvalue = am_notalive;
 	    goto done;
-	if (proc->common.u.alive.reg)
+	}
+        if (proc->common.u.alive.reg) {
+            c_p->fvalue = am_registered_name;
 	    goto done;
+        }
 	r.pt = NULL;
     }
     else {
 	ASSERT(!INVALID_PORT(port, id));
 	ERTS_LC_ASSERT(erts_lc_is_port_locked(port));
 	r.pt = port;
-	if (r.pt->common.u.alive.reg)
+        if (r.pt->common.u.alive.reg) {
+            c_p->fvalue = am_registered_name;
 	    goto done;
+        }
 	r.p = NULL;
     }
 
