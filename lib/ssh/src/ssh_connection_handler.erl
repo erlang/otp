@@ -1771,8 +1771,8 @@ terminate(shutdown, _StateName, D0) ->
                  D0),
     close_transport(D);
 
-terminate(kill, _StateName, D) ->
-    %% Got a kill signal
+terminate(killed, _StateName, D) ->
+    %% Got a killed signal
     stop_subsystem(D),
     close_transport(D);
 
