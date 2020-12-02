@@ -89,6 +89,8 @@
 %% TODO: optionally rename all functions from specified (or all) modules.
 
 -module(igor).
+-deprecated([{'_','_',"use https://github.com/richcarl/igor"}]).
+-compile({nowarn_deprecated_function,[{erl_tidy,module,2}]}).
 
 -export([create_stubs/2, merge/2, merge/3, merge_files/3, merge_files/4,
 	 merge_sources/3, parse_transform/2, rename/2, rename/3]).

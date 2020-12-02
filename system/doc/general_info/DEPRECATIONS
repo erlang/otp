@@ -17,6 +17,15 @@
 # is scheduled to be removed in OTP 25.
 #
 
+#
+# Added in OTP 23.2.
+#
+igor:_/_ since=23 remove=24
+erl_tidy:dir/0 since=23 remove=24
+erl_tidy:dir/1 since=23 remove=24
+erl_tidy:file/1 since=23 remove=24
+erl_tidy:module/1 since=23 remove=24
+erl_tidy:module/2 since=23 remove=24
 
 #
 # Added in OTP 23.
