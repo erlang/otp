@@ -203,7 +203,7 @@ static int test_engine_digest_selector(ENGINE *e, const EVP_MD **digest,
     if (!digest) {
         *nids = test_digest_ids;
         fprintf(stderr, "Digest is empty! Nid:%d\r\n", nid);
-        return 2;
+        return sizeof(test_digest_ids) / sizeof(*test_digest_ids);
     }
     fprintf(stderr, "Digest no %d requested\r\n",nid);
     if (nid == NID_md5) {
