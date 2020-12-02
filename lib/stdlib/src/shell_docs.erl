@@ -238,7 +238,9 @@ trim_inline([Bin|T],true) when is_binary(Bin) ->
 trim_inline([{Elem,Attr,Content}|T],TrimSpace) ->
     {NewContent,ContentTrimSpace} = trim_inline(Content,TrimSpace),
     {NewT,TTrimSpace} = trim_inline(T,ContentTrimSpace),
-    if NewContent == [] ->
+    IsAnchor = (Elem =:= a) andalso proplists:is_defined(id,Attr),
+    if NewContent == [] andalso (not IsAnchor) ->
+            %% Remove if all content has been trimmed and this is not an anchor
             {NewT, TTrimSpace};
        true ->
             {[{Elem,Attr,NewContent} | NewT], TTrimSpace}
@@ -251,13 +253,11 @@ trim_inline([],TrimSpace) ->
 %% This is complicated by the fact that the first or last element
 %% may not have any binary, or have the binary deeply nested within.
 trim_first_and_last(Content, What) when What < 256 ->
-    {NewContent,_State} = trim_last(trim_first(Content,What),What),
-    NewContent.
+    {FirstTrimmed, _} = trim_first(Content,What),
+    {LastTrimmed, _} = trim_last(FirstTrimmed,What),
+    LastTrimmed.
 
-trim_first(Content,What) ->
-    {NewContent,_State} = trim_first(Content,false,What),
-    NewContent.
-trim_first([Bin|T],false,What) when is_binary(Bin) ->
+trim_first([Bin|T],What) when is_binary(Bin) ->
     case Bin of
         <<What>> ->
             {T,true};
@@ -266,17 +266,17 @@ trim_first([Bin|T],false,What) when is_binary(Bin) ->
         Bin ->
             {[Bin|T],true}
     end;
-trim_first([{Elem,Attr,Content} = Tag|T],false,What) ->
-    case trim_first(Content,false,What) of
+trim_first([{Elem,Attr,Content} = Tag|T],What) ->
+    case trim_first(Content,What) of
         {[],true} ->
             {T,true};
         {NewContent,true} ->
             {[{Elem,Attr,NewContent}|T],true};
         {Content,false} ->
-            {NewT,NewState} = trim_first(T,false,What),
+            {NewT,NewState} = trim_first(T,What),
             {[Tag | NewT],NewState}
     end;
-trim_first([],false,_What) ->
+trim_first([],_What) ->
     {[],false}.
 
 trim_last([Bin | T],What) when is_binary(Bin) ->
@@ -299,14 +299,17 @@ trim_last([{Elem,Attr,Content} = Tag|T],What) ->
             {[Tag | NewT],true};
         {T,false} ->
             case trim_last(Content,What) of
-                {[],NewState} ->
-                    {T,NewState};
+                {[],true} ->
+                    %% If the content became empty and we processed some text
+                    %% we remove the element.
+                    {[],true};
                 {NewContent,NewState} ->
                     {[{Elem,Attr,NewContent}|T],NewState}
             end
     end;
 trim_last([],_What) ->
     {[],false}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the function documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -705,7 +708,7 @@ init_config(D, Config) ->
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
-%                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
+%%%                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
                            render_docs(Elem,State,P,Ind,D)
                    end,Pos,Elems);
 render_docs(Elem,State,Pos,Ind,D) ->
@@ -746,6 +749,10 @@ render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
 render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
     trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
 
+render_element({pre,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
+    %% We pad `pre` with two newlines if the previous section did not indent the region.
+    {Docs,NewPos} = render_element(E,State,0,Ind,D),
+    {["\n\n",Docs],NewPos};
 render_element({Elem,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind, ?IS_BLOCK(Elem) ->
     {Docs,NewPos} = render_element(E,State,0,Ind,D),
     {["\n",Docs],NewPos};
@@ -756,9 +763,7 @@ render_element({Tag,_,Content},State,Pos,Ind,D) when Tag =:= p; Tag =:= 'div' ->
     trimnlnl(render_docs(Content, [Tag|State], Pos, Ind, D));
 
 render_element(Elem,State,Pos,Ind,D) when Pos < Ind ->
-%    io:format("Pad: ~p~n",[Ind - Pos]),
     {Docs,NewPos} = render_element(Elem,State,Ind,Ind,D),
-
     {[pad(Ind - Pos), Docs],NewPos};
 
 render_element({code,_,Content},[pre|_]  = State,Pos,Ind,D) ->
@@ -835,7 +840,7 @@ render_element({dd,_,Content},[dl | _] = State,Pos,Ind,D) ->
 render_element(B, State, Pos, Ind,#config{ columns = Cols }) when is_binary(B) ->
     case lists:member(pre,State) of
         true ->
-            Pre = string:replace(B,"\n",["\n",pad(Ind)],all),
+            Pre = string:replace(B,"\n",[nlpad(Ind)],all),
             {Pre, Pos + lastline(Pre)};
         _ ->
             render_words(split_to_words(B),State,Pos,Ind,[[]],Cols)
@@ -863,8 +868,8 @@ render_words([Word|T],State,Pos,Ind,Acc,Cols) when is_binary(Word) ->
     if
         NewPos > (Cols - 10 - Ind), Word =/= <<>>, not IsPunct ->
             %% Word does not fit, time to add a newline and also pad to Indent level
-            render_words(T,State,WordLength+Ind+1,Ind,[[[pad(Ind), Word]]|Acc],Cols);
-         true ->
+            render_words(T,State,WordLength+Ind+1,Ind,[[[nlpad(Ind), Word]]|Acc],Cols);
+        true ->
             %% Word does fit on line
             [Line | LineAcc] = Acc,
             %% Add + 1 to length for space
@@ -872,11 +877,10 @@ render_words([Word|T],State,Pos,Ind,Acc,Cols) when is_binary(Word) ->
             render_words(T,State,NewPosSpc,Ind,[[Word|Line]|LineAcc],Cols)
     end;
 render_words([],_State,Pos,_Ind,Acc,_Cols) ->
-    Lines = lists:join(
-              $\n,lists:map(fun(RevLine) ->
-                                    Line = lists:reverse(RevLine),
-                                    lists:join($ ,Line)
-                            end,lists:reverse(Acc))),
+    Lines = lists:map(fun(RevLine) ->
+                            Line = lists:reverse(RevLine),
+                            lists:join($ ,Line)
+                      end,lists:reverse(Acc)),
     {iolist_to_binary(Lines), Pos}.
 
 render_type_signature(Name, #config{ docs = #docs_v1{ metadata = #{ types := AllTypes }}}) ->
@@ -887,14 +891,21 @@ render_type_signature(Name, #config{ docs = #docs_v1{ metadata = #{ types := All
             [erl_pp:attribute(maps:get(Type, AllTypes)) || Type <- Types]
     end.
 
-%% Pad N spaces, disabling any ansi formatting while doing so
+%% Pad N spaces (and possibly pre-prend newline), disabling any ansi formatting while doing so.
 pad(N) ->
+    pad(N,"").
+nlpad(N) ->
+    %% It is important that we disable the ansi code before the new-line as otherwise the
+    %% ansi decoration may be enabled when c:paged_output tries to ask if more content
+    %% should be displayed.
+    pad(N,"\n").
+pad(N, Extra) ->
     Pad = lists:duplicate(N," "),
     case ansi() of
         undefined ->
-            Pad;
+            [Extra, Pad];
         Ansi ->
-            ["\033[0m",Pad,Ansi]
+            ["\033[0m",Extra,Pad,Ansi]
     end.
 
 get_bullet(_State,latin1) ->
@@ -910,7 +921,7 @@ get_bullet(State,unicode) ->
                        <<" ◼ "/utf8>>,<<" ◻ "/utf8>>])
     end.
 
-% Look for the length of the last line of a string
+%% Look for the length of the last line of a string
 lastline(Str) ->
     LastStr = case string:find(Str,"\n",trailing) of
                   nomatch ->
