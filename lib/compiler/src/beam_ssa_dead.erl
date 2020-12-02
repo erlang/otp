@@ -196,7 +196,7 @@ shortcut_1(L, From, Bs0, UnsetVars0, St) ->
 %% Try to shortcut this block, branching to a successor.
 shortcut_2(L, From, Bs, UnsetVars, St) ->
     case cerl_sets:size(UnsetVars) of
-        SetSize when SetSize > 128 ->
+        SetSize when SetSize > 64 ->
             %% This is an heuristic to limit the search for a forced label
             %% before it drastically slows down the compiler. Experiments
             %% with scripts/diffable showed that limits larger than 31 did not
