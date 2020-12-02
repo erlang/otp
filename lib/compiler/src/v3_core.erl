@@ -1717,8 +1717,17 @@ bc_add_list_1([H|T], Pre, E, St0) ->
 bc_add_list_1([], Pre, E, St) ->
     {E,reverse(Pre),St}.
 
-bc_gen_size(Q, EVs, St) ->
-    bc_gen_size_1(Q, EVs, #c_literal{val=1}, [], St).
+bc_gen_size([_]=Q, EVs, St) ->
+    %% Single generator.
+    bc_gen_size_1(Q, EVs, #c_literal{val=1}, [], St);
+bc_gen_size(_, _, _) ->
+    %% There are multiple generators (or there are filters).
+    %% To avoid introducing unbound variables in the size
+    %% calculation when one generator references a
+    %% variable bound by a previous generator, we will
+    %% not do any size calculation. This issue will be
+    %% handled in a cleaner way in OTP 24.
+    throw(impossible).
 
 bc_gen_size_1([{generate,L,El,Gen}|Qs], EVs, E0, Pre0, St0) ->
     bc_verify_non_filtering(El, EVs),
