@@ -34,7 +34,8 @@
 -include("tls_handshake.hrl").
 
 %% Initial Erlang process setup
--export([start_link/8,
+-export([start_link/7,
+         start_link/8,
          init/1]).
 
 %% TLS connection setup
@@ -109,6 +110,17 @@ start_link(Role, Sender, Host, Port, Socket, Options, User, CbInfo) ->
     {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]])}.
 
 %%--------------------------------------------------------------------
+-spec start_link(atom(), ssl:host(), inet:port_number(), port(), list(), pid(), tuple()) ->
+			{ok, pid()} | ignore |  {error, reason()}.
+%%
+%% Description: Creates a gen_statem process which calls Module:init/1 to
+%% initialize.
+%%--------------------------------------------------------------------
+start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
+    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]])}.
+
+
+%%--------------------------------------------------------------------
 -spec init(list()) -> no_return().
 %% Description: Initialization
 %%--------------------------------------------------------------------
@@ -121,7 +133,11 @@ init([_Role, Sender, _Host, _Port, _Socket, {#{erl_dist := ErlDist} = TLSOpts, _
         _ ->
             ok
     end,
-    ConnectionFsm = connection_fsm(TLSOpts),
+    ConnectionFsm = tls_connection_fsm(TLSOpts),
+    ConnectionFsm:init(InitArgs);
+init([_Role, _Host, _Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
+    process_flag(trap_exit, true),
+    ConnectionFsm = dtls_connection_fsm(TLSOpts),
     ConnectionFsm:init(InitArgs).
 
 %%====================================================================
@@ -160,7 +176,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
                  ssl_options = Opts}.
 
 %%--------------------------------------------------------------------
--spec connect(tls_connection | dtls_connection,
+-spec connect(tls_gen_connection | dtls_gen_connection,
 	      ssl:host(), inet:port_number(),
 	      port() | {tuple(), port()}, %% TLS | DTLS
 	      {ssl_options(), #socket_options{},
@@ -179,7 +195,7 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 	    {error, ssl_not_started}
     end.
 %%--------------------------------------------------------------------
--spec handshake(tls_connection | dtls_connection,
+-spec handshake(tls_gen_connection | dtls_gen_connection,
 		 inet:port_number(), port(),
 		 {ssl_options(), #socket_options{}, list()},
 		 pid(), tuple(), timeout()) ->
@@ -252,7 +268,7 @@ handshake_cancel(#sslsocket{pid = [Pid|_]}) ->
 	    Error
     end.
 %--------------------------------------------------------------------
--spec socket_control(tls_connection | dtls_connection, port(), [pid()], atom()) ->
+-spec socket_control(tls_gen_connection | dtls_gen_connection, port(), [pid()], atom()) ->
     {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Set the ssl process to own the accept socket
@@ -261,21 +277,21 @@ socket_control(Connection, Socket, Pid, Transport) ->
     socket_control(Connection, Socket, Pid, Transport, undefined).
 
 %--------------------------------------------------------------------
--spec socket_control(tls_connection | dtls_connection, port(), [pid()], atom(), [pid()] | atom()) ->
+-spec socket_control(tls_gen_connection | dtls_gen_connection, port(), [pid()], atom(), [pid()] | atom()) ->
     {ok, #sslsocket{}} | {error, reason()}.
 %%--------------------------------------------------------------------
-socket_control(Connection, Socket, Pids, Transport, udp_listener) ->
+socket_control(dtls_gen_connection = Connection, Socket, Pids, Transport, udp_listener) ->
     %% dtls listener process must have the socket control
     {ok, Connection:socket(Pids, Transport, Socket, undefined)};
 
-socket_control(tls_connection = Connection, Socket, [Pid|_] = Pids, Transport, Trackers) ->
+socket_control(tls_gen_connection = Connection, Socket, [Pid|_] = Pids, Transport, Trackers) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
 	    {ok, Connection:socket(Pids, Transport, Socket, Trackers)};
 	{error, Reason}	->
 	    {error, Reason}
     end;
-socket_control(dtls_connection = Connection, {PeerAddrPort, Socket}, [Pid|_] = Pids, Transport, Trackers) ->
+socket_control(dtls_gen_connection = Connection, {PeerAddrPort, Socket}, [Pid|_] = Pids, Transport, Trackers) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
 	    {ok, Connection:socket(Pids, Transport, {PeerAddrPort, Socket}, Trackers)};
@@ -419,7 +435,7 @@ handle_sni_extension(#sni{hostname = Hostname}, State0) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 initial_hello({call, From}, {start, Timeout},
-              #state{static_env = #static_env{role = client,
+              #state{static_env = #static_env{role = client = Role,
                                               host = Host,
                                               port = Port,
                                               protocol_cb = Connection,
@@ -483,25 +499,17 @@ initial_hello({call, From}, {start, Timeout},
                                             ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce}},
                           start_or_recv_from = From,
                           key_share = KeyShare},
-    case connection_fsm(SslOpts) of
-        tls_connection ->
-            Connection:next_event(hello, no_record, State,
-                                  [{{timeout, handshake}, Timeout, close}]);
-        tls_connection_1_3 ->
-            Connection:next_event(wait_sh, no_record, State,
-                                  [{{timeout, handshake}, Timeout, close}])
-    end;
-initial_hello({call, From}, {start, Timeout}, #state{static_env = #static_env{protocol_cb = Connection},
-                                            ssl_options = Opts} = State0) ->
-
-    case connection_fsm(Opts) of
-        tls_connection ->
-            Connection:next_event(hello, no_record, State0#state{start_or_recv_from = From},
-                                  [{{timeout, handshake}, Timeout, close}]);
-        tls_connection_1_3 ->
-            Connection:next_event(start, no_record, State0#state{start_or_recv_from = From},
-                                  [{{timeout, handshake}, Timeout, close}])
-    end;
+    NextState = next_statem_state(Versions, Role),    
+    Connection:next_event(NextState, no_record, State,
+                          [{{timeout, handshake}, Timeout, close}]);
+initial_hello({call, From}, {start, Timeout}, #state{static_env = #static_env{role = Role,
+                                                                              protocol_cb = Connection},
+                                                     ssl_options = #{versions := Versions}} = State0) ->
+    
+    NextState = next_statem_state(Versions, Role),    
+    Connection:next_event(NextState, no_record, State0#state{start_or_recv_from = From},
+                          [{{timeout, handshake}, Timeout, close}]);
+                
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
             ssl_options = OrigSSLOptions,
@@ -1129,10 +1137,30 @@ format_status(terminate, [_, StateName, State]) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-connection_fsm(#{versions := [{3,4}]}) ->
+tls_connection_fsm(#{versions := [{3,4}]}) ->
     tls_connection_1_3;
-connection_fsm(_) ->
+tls_connection_fsm(_) ->
     tls_connection.
+
+dtls_connection_fsm(_) ->
+    dtls_connection.
+
+next_statem_state([Version], client) ->
+    case ssl:tls_version(Version) of
+        {3,4} ->
+            wait_sh;
+        _  ->
+            hello
+    end;
+next_statem_state([Version], server) ->
+    case ssl:tls_version(Version) of
+        {3,4} ->
+            start;
+        _  ->
+            hello
+    end;
+next_statem_state(_, _) ->
+    hello.
 
 call(FsmPid, Event) ->
     try gen_statem:call(FsmPid, Event)
@@ -1695,7 +1723,6 @@ log_alert(Level, Role, ProtocolName, StateName,  Alert) ->
                                     statename => StateName,
                                     alert => Alert,
                                     alerter => peer}, Alert#alert.where).
-
 terminate_alert(normal) ->
     ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY);
 terminate_alert({Reason, _}) when Reason == close;
@@ -1703,7 +1730,6 @@ terminate_alert({Reason, _}) when Reason == close;
     ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY);
 terminate_alert(_) ->
     ?ALERT_REC(?FATAL, ?INTERNAL_ERROR).
-
 
 invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);

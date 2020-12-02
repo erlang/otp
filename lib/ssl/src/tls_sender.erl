@@ -272,7 +272,7 @@ connection({call, From}, dist_get_tls_socket,
                                   socket = Socket,
                                   connection_pid = Pid,
                                   trackers = Trackers}} = StateData) ->
-    TLSSocket = tls_connection:socket([Pid, self()], Transport, Socket, Trackers),
+    TLSSocket = tls_gen_connection:socket([Pid, self()], Transport, Socket, Trackers),
     {next_state, ?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]};
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
@@ -454,7 +454,7 @@ send_application_data(Data, From, StateName,
                                    {next_event, internal, {key_update, From}},
                                    {next_event, internal, {application_packets, From, Data}}]};
 	renegotiate ->
-	    ssl_connection:internal_renegotiation(Pid, ConnectionStates0),
+	    tls_dtls_connection:internal_renegotiation(Pid, ConnectionStates0),
             {next_state, handshake, StateData0, 
              [{next_event, internal, {application_packets, From, Data}}]};
         chunk_and_key_update ->

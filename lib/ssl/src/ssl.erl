@@ -603,9 +603,9 @@ connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout 
     try
 	{ok, Config} = handle_options(Options, client, Host),
 	case Config#config.connection_cb of
-	    tls_connection ->
+	    tls_gen_connection ->
 		tls_socket:connect(Host,Port,Config,Timeout);
-	    dtls_connection ->
+	    dtls_gen_connection ->
 		dtls_socket:connect(Host,Port,Config,Timeout)
 	end
     catch
@@ -654,9 +654,9 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 				   #config{connection_cb = ConnectionCb} = Config}}, Timeout) 
   when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     case ConnectionCb of
-	tls_connection ->
+	tls_gen_connection ->
 	    tls_socket:accept(ListenSocket, Config, Timeout);
-	dtls_connection ->
+	dtls_gen_connection ->
 	    dtls_socket:accept(ListenSocket, Config, Timeout)
     end.
   
@@ -1407,12 +1407,12 @@ renegotiate(#sslsocket{pid = [Pid, Sender |_]}) when is_pid(Pid),
                                                      is_pid(Sender) ->
     case tls_sender:renegotiate(Sender) of
         {ok, Write} ->
-            tls_connection:renegotiation(Pid, Write);
+            tls_dtls_connection:renegotiation(Pid, Write);
         Error ->
             Error
     end;
 renegotiate(#sslsocket{pid = [Pid |_]}) when is_pid(Pid) ->
-    ssl_connection:renegotiation(Pid);
+    tls_dtls_connection:renegotiation(Pid);
 renegotiate(#sslsocket{pid = {dtls,_}}) ->
     {error, enotconn};
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
@@ -1453,7 +1453,7 @@ update_keys(_, Type) ->
 %%--------------------------------------------------------------------
 prf(#sslsocket{pid = [Pid|_]},
     Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
-    ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength);
+    tls_dtls_connection:prf(Pid, Secret, Label, Seed, WantedLength);
 prf(#sslsocket{pid = {dtls,_}}, _,_,_,_) ->
     {error, enotconn};
 prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
@@ -1572,10 +1572,10 @@ supported_suites(all, Version) ->
 supported_suites(anonymous, Version) -> 
     ssl_cipher:anonymous_suites(Version).
 
-do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_connection) ->
+do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_gen_connection) ->
     tls_socket:listen(Transport, Port, Config);
 
-do_listen(Port,  Config, dtls_connection) ->
+do_listen(Port,  Config, dtls_gen_connection) ->
     dtls_socket:listen(Port, Config).
 	
 
@@ -2696,9 +2696,9 @@ make_next_protocol_selector({server, AllProtocols, DefaultProtocol}) ->
     end.
 
 connection_cb(tls) ->
-    tls_connection;
+    tls_gen_connection;
 connection_cb(dtls) ->
-    dtls_connection;
+    dtls_gen_connection;
 connection_cb(Opts) ->
    connection_cb(proplists:get_value(protocol, Opts, tls)).
 

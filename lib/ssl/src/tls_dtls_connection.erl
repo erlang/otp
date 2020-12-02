@@ -24,7 +24,7 @@
 %% tls_connection.erl and dtls_connection.erl
 %%----------------------------------------------------------------------
 
--module(ssl_connection).
+-module(tls_dtls_connection).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -39,7 +39,7 @@
 -include("ssl_srp.hrl").
 
 %% TLS-1.0 to TLS-1.2 Specific User Events
--export([renegotiation/1, prf/5]).
+-export([renegotiation/1, renegotiation/2, prf/5]).
 
 %% Data handling. Note renegotiation is replaced by sesion key update mechanism in TLS-1.3
 -export([internal_renegotiation/2]).
@@ -80,6 +80,9 @@ internal_renegotiation(ConnectionPid, #{current_write := WriteState}) ->
 %%--------------------------------------------------------------------
 renegotiation(ConnectionPid) ->
     ssl_gen_statem:call(ConnectionPid, renegotiate).
+
+renegotiation(Pid, WriteState) ->
+    ssl_gen_statem:call(Pid, {user_renegotiate, WriteState}).
 
 %%--------------------------------------------------------------------
 -spec prf(pid(), binary() | 'master_secret', binary(),
@@ -623,9 +626,12 @@ cipher(Type, Event, State) ->
 -spec connection(gen_statem:event_type(), term(), #state{}) ->
 			gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-connection({call, From}, renegotiate, #state{static_env = #static_env{protocol_cb = Connection},
-                                             handshake_env = HsEnv} = State) ->
-    Connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, From}}}, []);
+connection({call, From}, renegotiate, #state{static_env = #static_env{protocol_cb = tls_gen_connection},
+                                             handshake_env = HsEnv} = State) -> 
+    tls_connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, From}}}, []);
+connection({call, From}, renegotiate, #state{static_env = #static_env{protocol_cb = dtls_gen_connection},
+                                             handshake_env = HsEnv} = State) -> 
+    dtls_connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, From}}}, []);
 connection({call, From}, negotiated_protocol,
 	   #state{handshake_env = #handshake_env{alpn = undefined,
                                                  negotiated_protocol = undefined}} = State) ->
@@ -640,12 +646,19 @@ connection({call, From}, negotiated_protocol,
                                                  negotiated_protocol = undefined}} = State) ->
     ssl_gen_statem:hibernate_after(?FUNCTION_NAME, State,
                                        [{reply, From, {ok, SelectedProtocol}}]);
-connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static_env{protocol_cb = Connection},
+connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static_env{protocol_cb = tls_gen_connection},
                                                             handshake_env = HsEnv,
                                                             connection_states = ConnectionStates}
            = State) ->
-    Connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, internal}},
-                                       connection_states = ConnectionStates#{current_write => WriteState}}, []);
+    tls_connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, internal}},
+                            connection_states = ConnectionStates#{current_write => WriteState}}, []);
+connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static_env{protocol_cb = dtls_gen_connection},
+                                                            handshake_env = HsEnv,
+                                                            connection_states = ConnectionStates}
+           = State) ->
+    dtls_connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, internal}},
+                            connection_states = ConnectionStates#{current_write => WriteState}}, []);
+
 connection(internal, {handshake, {#hello_request{} = Handshake, _}},
            #state{handshake_env = HsEnv} = State) ->
     %% Should not be included in handshake history
@@ -663,7 +676,7 @@ downgrade(Type, Event, State) ->
 
 gen_handshake(StateName, Type, Event,
 	      #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try ssl_connection:StateName(Type, Event, State) of
+    try tls_dtls_connection:StateName(Type, Event, State) of
 	Result ->
 	    Result
     catch
