@@ -133,8 +133,13 @@
       <desc>
         <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
           abstract form of type <c><anno>AbsTerm</anno></c>.</p>
-        <p>Option <c><anno>Line</anno></c> is the line to be
-          assigned to each node of <c><anno>AbsTerm</anno></c>.</p>
+        <p>Each node of <c><anno>AbsTerm</anno></c> is assigned an
+          annotation, see <seeerl
+          marker="erl_anno"><c>erl_anno(3)</c></seeerl>. The annotation
+          contains the location given by option <c>location</c> or by
+          option <c>line</c>. Option <c>location</c> overrides option
+          <c>line</c>. If neither option <c>location</c> nor option
+          <c>line</c> is given, <c>0</c> is used as location.</p>
         <p>Option <c><anno>Encoding</anno></c> is used for
           selecting which integer lists to be considered
           as strings. The default is to use the encoding returned by

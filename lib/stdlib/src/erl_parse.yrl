@@ -1376,19 +1376,28 @@ abstract(T) ->
 -spec abstract(Data, Options) -> AbsTerm when
       Data :: term(),
       Options :: Line | [Option],
-      Option :: {line, Line} | {encoding, Encoding},
+      Option :: {encoding, Encoding}
+              | {line, Line}
+              | {location, Location},
       Encoding :: 'latin1' | 'unicode' | 'utf8' | 'none' | encoding_func(),
       Line :: erl_anno:line(),
+      Location :: erl_anno:location(),
       AbsTerm :: abstract_expr().
 
 abstract(T, Line) when is_integer(Line) ->
     Anno = erl_anno:new(Line),
     abstract(T, Anno, enc_func(epp:default_encoding()));
 abstract(T, Options) when is_list(Options) ->
-    Line = proplists:get_value(line, Options, 0),
     Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
     EncFunc = enc_func(Encoding),
-    Anno = erl_anno:new(Line),
+    Location =
+        case proplists:get_value(location, Options) of
+            undefined ->
+                proplists:get_value(line, Options, 0);
+            Loc ->
+                Loc
+        end,
+    Anno = erl_anno:new(Location),
     abstract(T, Anno, EncFunc).
 
 -define(UNICODE(C),
