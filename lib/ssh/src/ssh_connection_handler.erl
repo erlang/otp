@@ -41,12 +41,13 @@
 
 %%% Start and stop
 -export([start_link/3,
+         start_connection/4, start_connection/5,
+         socket_control/3,
 	 stop/1
 	]).
 
 %%% Internal application API
--export([start_connection/4,
-         available_hkey_algorithms/2,
+-export([available_hkey_algorithms/2,
 	 open_channel/6,
          start_channel/5,
          handle_direct_tcpip/6,
@@ -75,8 +76,7 @@
 	 format_status/2, code_change/4]).
 
 %%% Exports not intended to be used :). They are used for spawning and tests
--export([init_connection_handler/3,	   % proc_lib:spawn needs this
-	 init_ssh_record/3,		   % Export of this internal function
+-export([init_ssh_record/3,		   % Export of this internal function
 					   % intended for low-level protocol test suites
 	 renegotiate/1, alg/1 % Export intended for test cases
 	]).
@@ -97,18 +97,54 @@
 %%====================================================================
 %% Start / stop
 %%====================================================================
+
+%%--------------------------------------------------------------------
+start_connection(Role, Socket, Options, NegotiationTimeout) ->
+    {ok, {Host,Port}} = inet:sockname(Socket),
+    start_connection(Role, {Host,Port}, Socket, Options, NegotiationTimeout).
+
+start_connection(Role, {Host,Port}, Socket, Options0, NegotiationTimeout) ->
+    try
+        Options1 = ?PUT_INTERNAL_OPT([{user_pid, self()}
+                                     ], Options0),
+        Profile = ?GET_OPT(profile, Options1),
+        {ok, {SystemSup, SubSysSup}} =
+            case Role of
+                client -> sshc_sup:start_system_subsystem(Host, Port, Profile, Options1);
+                server -> sshd_sup:start_system_subsystem(Host, Port, Profile, Options1)
+            end,
+        ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
+        Options = ?PUT_INTERNAL_OPT([{supervisors, [{system_sup, SystemSup},
+                                                    {subsystem_sup, SubSysSup},
+                                                    {connection_sup, ConnectionSup}]}
+                                    ], Options1),
+        case ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Options]) of
+            {ok, Pid} ->
+                case socket_control(Socket, Pid, Options) of
+                    ok ->
+                        handshake(Pid, erlang:monitor(process,Pid), NegotiationTimeout);
+                    {error, Reason} ->
+                        {error, Reason}
+                end;
+            {error, Reason} ->
+                {error, Reason}
+        end
+    catch
+        exit:{noproc,{gen_server,call,_}} -> {error, ssh_not_started};
+        error:Error ->  {error, Error};
+        Class:Error ->  {error, {Class,Error}}
+    end.
+
 %%--------------------------------------------------------------------
 -spec start_link(role(),
 		 gen_tcp:socket(),
                  internal_options()
-		) -> {ok, pid()}.
-%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-start_link(Role, Socket, Options) ->
-    {ok, proc_lib:spawn_opt(?MODULE, 
-                            init_connection_handler, 
-                            [Role, Socket, Options],
-                            [link, {message_queue_data,off_heap}]
-                           )}.
+		) -> {ok, pid()} | ignore | {error, term()} .
+
+start_link(Role, Socket, Options) when Role==client ; Role==server ->
+    gen_statem:start_link(?MODULE, [Role, Socket, Options],
+                          [{spawn_opt, [{message_queue_data,off_heap}]}
+                          ]).
 
 
 %%--------------------------------------------------------------------
@@ -126,43 +162,6 @@ stop(ConnectionHandler)->
 %%====================================================================
 %% Internal application API
 %%====================================================================
-
-%%--------------------------------------------------------------------
--spec start_connection(role(),
-		       gen_tcp:socket(),
-                       internal_options(),
-		       timeout()
-		      ) -> {ok, connection_ref()} | {error, term()}.
-%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-start_connection(Role, Socket, Options, Timeout) ->
-    try
-        case Role of
-            client ->
-                ChildPid = start_the_connection_child(self(), Role, Socket, Options),
-                handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout);
-            server ->
-                case ?GET_OPT(parallel_login, Options) of
-                    true ->
-                        HandshakerPid =
-                            spawn_link(fun() ->
-                                               receive
-                                                   {do_handshake, Pid} ->
-                                                       handshake(Pid, erlang:monitor(process,Pid), Timeout)
-                                               end
-                                       end),
-                        ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
-                        HandshakerPid ! {do_handshake, ChildPid};
-                    false ->
-                        ChildPid = start_the_connection_child(self(), Role, Socket, Options),
-                        handshake(ChildPid, erlang:monitor(process,ChildPid), Timeout)
-                end
-        end
-    catch
-	exit:{noproc, _} ->
-	    {error, ssh_not_started};
-	_:Error ->
-	    {error, Error}
-    end.
 
 %%--------------------------------------------------------------------
 %%% Some other module has decided to disconnect.
@@ -446,92 +445,54 @@ alg(ConnectionHandler) ->
 %%====================================================================
 %% Intitialisation
 %%====================================================================
-%%--------------------------------------------------------------------
--spec init_connection_handler(role(),
-			      gen_tcp:socket(),
-			      internal_options()
-			     ) -> no_return().
-%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-init_connection_handler(Role, Socket, Opts) ->
-    case init([Role, Socket, Opts]) of
-        {ok, StartState, D} when Role == server ->
-            process_flag(trap_exit, true),
-            gen_statem:enter_loop(?MODULE,
-                                  [], %%[{debug,[trace,log,statistics,debug]} ], %% []
-                                  StartState,
-                                  D);
 
-        {ok, StartState, D0=#data{connection_state=C}} when Role == client ->
-            process_flag(trap_exit, true),
-            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
-            D = D0#data{connection_state = 
-                            C#connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
-                                         sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
-                                         connection_supervisor = proplists:get_value(connection_sup, Sups)
-                                        }},
-            gen_statem:enter_loop(?MODULE,
-                                  [], %%[{debug,[trace,log,statistics,debug]} ], %% []
-                                  StartState,
-                                  D);
-
-        {stop, Error} ->
-            D = try
-                    %% Only servers have supervisorts defined in Opts
-                    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
-                    #connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
-                                sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
-                                connection_supervisor = proplists:get_value(connection_sup, Sups)
-                               }
-                of
-                    C ->
-                        #data{connection_state=C}
-                catch
-                    _:_ ->
-                        #data{connection_state=#connection{}}
-                end,
-            gen_statem:enter_loop(?MODULE,
-                                  [],
-                                  {init_error,Error},
-                                  D#data{socket=Socket})
-    end.
-
-
-
-init([Role,Socket,Opts]) ->
+init([Role, Socket, Opts]) when Role==client ; Role==server ->
     case inet:peername(Socket) of
         {ok, PeerAddr} ->
-            {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
-            C = #connection{channel_cache = ssh_client_channel:cache_create(),
-                            channel_id_seed = 0,
-                            requests = [],
-                            options = Opts},
-            D0 = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),
-                       connection_state = C,
-                       socket = Socket,
-                       transport_protocol = Protocol,
-                       transport_cb = Callback,
-                       transport_close_tag = CloseTag,
-                       ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts)
-              },
-            D = case Role of
-                    client ->
-                        D0;
-                    server ->
-                        Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
-                        D0#data{connection_state = 
-                                    C#connection{cli_spec = ?GET_OPT(ssh_cli, Opts, {ssh_cli,[?GET_OPT(shell, Opts)]}),
-                                                 exec =     ?GET_OPT(exec,    Opts),
-                                                 system_supervisor =     proplists:get_value(system_sup,     Sups),
-                                                 sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
-                                                 connection_supervisor = proplists:get_value(connection_sup, Sups)
-                                                }}
-                end,
-            {ok, {hello,Role}, D};
-        
+            try
+                {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
+                D = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),
+                          socket = Socket,
+                          transport_protocol = Protocol,
+                          transport_cb = Callback,
+                          transport_close_tag = CloseTag,
+                          ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
+                          connection_state = init_connection_record(Role, Opts)
+                         },
+                process_flag(trap_exit, true),
+                {ok, {hello,Role}, D}
+            catch
+                _:Error ->
+                    {stop, Error}
+            end;
+
         {error,Error} ->
             {stop, Error}
     end.
 
+%%%----------------------------------------------------------------
+%%% Connection start and initalization helpers
+
+init_connection_record(Role, Opts) ->
+    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+    C = #connection{channel_cache = ssh_client_channel:cache_create(),
+                    channel_id_seed = 0,
+                    requests = [],
+                    options = Opts,
+                    system_supervisor =     proplists:get_value(system_sup,     Sups),
+                    sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                    connection_supervisor = proplists:get_value(connection_sup, Sups)
+                   },
+    case Role of
+        server ->
+            C#connection{cli_spec =
+                             ?GET_OPT(ssh_cli, Opts, {ssh_cli,[?GET_OPT(shell, Opts)]}),
+                         exec =
+                             ?GET_OPT(exec, Opts)};
+        client ->
+            C
+    end.
+                         
 
 
 init_ssh_record(Role, Socket, Opts) ->
@@ -592,6 +553,39 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
     end.
 
 
+socket_control(Socket, Pid, Options) ->
+    {_, Callback, _} =	?GET_OPT(transport, Options),
+    case Callback:controlling_process(Socket, Pid) of
+	ok ->
+	    gen_statem:cast(Pid, socket_control);
+	{error, Reason}	->
+	    {error, Reason}
+    end.
+
+
+handshake(Pid, Ref, Timeout) ->
+    receive
+	ssh_connected ->
+	    erlang:demonitor(Ref),
+	    {ok, Pid};
+	{Pid, not_connected, Reason} ->
+	    {error, Reason};
+	{Pid, user_password} ->
+	    Pass = io:get_password(),
+	    Pid ! Pass,
+	    handshake(Pid, Ref, Timeout);
+	{Pid, question} ->
+	    Answer = io:get_line(""),
+	    Pid ! Answer,
+	    handshake(Pid, Ref, Timeout);
+	{'DOWN', _, process, Pid, {shutdown, Reason}} ->
+	    {error, Reason};
+	{'DOWN', _, process, Pid, Reason} ->
+	    {error, Reason}
+    after Timeout ->
+	    ssh_connection_handler:stop(Pid),
+	    {error, timeout}
+    end.
 
 %%====================================================================
 %% gen_statem callbacks
@@ -1798,11 +1792,20 @@ terminate(Reason, StateName, D0) ->
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-format_status(normal, [_, _StateName, D]) ->
+format_status(A, B) ->
+    try format_status0(A, B)
+    catch
+        _:_ -> "????"
+    end.
+        
+format_status0(normal, [_PDict, _StateName, D]) ->
     [{data, [{"State", D}]}];
-format_status(terminate, [_, _StateName, D]) ->
-    [{data, [{"State", state_data2proplist(D)}]}].
-
+format_status0(terminate, [_PDict, _StateName, D=#data{}]) ->
+    [{data, [{"State", state_data2proplist(D)}]}];
+format_status0(terminate, [_PDict, StateName, NotD]) ->
+    lists:flatten(io_lib:format("State = ~p, Data = ~p",[StateName,NotD]));
+format_status0(_, _) ->
+    "???".
 
 state_data2proplist(D) ->
     DataPropList0 =
@@ -1862,15 +1865,6 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%--------------------------------------------------------------------
 %% Starting
 
-start_the_connection_child(UserPid, Role, Socket, Options0) ->
-    Sups = ?GET_INTERNAL_OPT(supervisors, Options0),
-    ConnectionSup = proplists:get_value(connection_sup, Sups),
-    Options = ?PUT_INTERNAL_OPT({user_pid,UserPid}, Options0),
-    InitArgs = [Role, Socket, Options],
-    {ok, Pid} = ssh_connection_sup:start_child(ConnectionSup, InitArgs),
-    ok = socket_control(Socket, Pid, Options), % transfer the Socket ownership in a controlled way.
-    Pid.
-
 %%--------------------------------------------------------------------
 %% Stopping
 
@@ -1878,20 +1872,15 @@ stop_subsystem(#data{ssh_params =
                          #ssh{role = Role},
                      connection_state =
                          #connection{system_supervisor = SysSup,
-                                     sub_system_supervisor = SubSysSup,
-                                     options = Opts}
+                                     sub_system_supervisor = SubSysSup}
                     }) when is_pid(SysSup) andalso is_pid(SubSysSup)  ->
     C = self(),
     spawn(fun() ->
                   wait_until_dead(C, 10000),
-                  case {Role, ?GET_INTERNAL_OPT(connected_socket,Opts,non_socket_started)} of
-                      {server, non_socket_started} ->
+                  case Role of
+                      server ->
                           ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
-                      {client, non_socket_started} ->
-                          ssh_system_sup:stop_system(Role, SysSup);
-                      {server, _Socket} ->
-                          ssh_system_sup:stop_system(Role, SysSup);
-                      {client, _Socket} ->
+                      client ->
                           ssh_system_sup:stop_subsystem(SysSup, SubSysSup),
                           wait_until_dead(SubSysSup, 1000),
                           sshc_sup:stop_system(SysSup)
@@ -2476,41 +2465,6 @@ start_channel_request_timer(Channel, From, Time) ->
     erlang:send_after(Time, self(), {timeout, {Channel, From}}).
 
 %%%----------------------------------------------------------------
-%%% Connection start and initalization helpers
-
-socket_control(Socket, Pid, Options) ->
-    {_, Callback, _} =	?GET_OPT(transport, Options),
-    case Callback:controlling_process(Socket, Pid) of
-	ok ->
-	    gen_statem:cast(Pid, socket_control);
-	{error, Reason}	->
-	    {error, Reason}
-    end.
-
-handshake(Pid, Ref, Timeout) ->
-    receive
-	ssh_connected ->
-	    erlang:demonitor(Ref),
-	    {ok, Pid};
-	{Pid, not_connected, Reason} ->
-	    {error, Reason};
-	{Pid, user_password} ->
-	    Pass = io:get_password(),
-	    Pid ! Pass,
-	    handshake(Pid, Ref, Timeout);
-	{Pid, question} ->
-	    Answer = io:get_line(""),
-	    Pid ! Answer,
-	    handshake(Pid, Ref, Timeout);
-	{'DOWN', _, process, Pid, {shutdown, Reason}} ->
-	    {error, Reason};
-	{'DOWN', _, process, Pid, Reason} ->
-	    {error, Reason}
-    after Timeout ->
-	    stop(Pid),
-	    {error, timeout}
-    end.
-
 update_inet_buffers(Socket) ->
     try
         {ok, BufSzs0} = inet:getopts(Socket, [sndbuf,recbuf]),
@@ -2537,7 +2491,7 @@ ssh_dbg_flags(connection_events) -> [c];
 ssh_dbg_flags(terminate) -> [c];
 ssh_dbg_flags(disconnect) -> [c].
 
-ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init_connection_handler, 3, x),
+ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init, 1, x),
                            ssh_dbg_on(terminate);
 ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
 ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 3, x),
@@ -2557,11 +2511,11 @@ ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 3),
                               dbg:ctpl(?MODULE,   start_rekeying, 2),
                               dbg:ctpg(?MODULE,   renegotiate, 1);
 ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4);
-ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init_connection_handler, 3),
+ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init, 1),
                             ssh_dbg_off(terminate).
 
 
-ssh_dbg_format(connections, {call, {?MODULE,init_connection_handler, [Role, Sock, Opts]}}) ->
+ssh_dbg_format(connections, {call, {?MODULE,init, [[Role, Sock, Opts]]}}) ->
     DefaultOpts = ssh_options:handle_options(Role,[]),
     ExcludedKeys = [internal_options, user_options],
     NonDefaultOpts =

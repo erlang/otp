@@ -140,16 +140,15 @@ connect(Socket, UserOptions, NegotiationTimeout) when is_list(UserOptions) ->
     case ssh_options:handle_options(client, UserOptions) of
 	{error, Error} ->
 	    {error, Error};
-	Options ->
-           case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
-               ok ->
-                   connect_socket(Socket,
-                                  ?PUT_INTERNAL_OPT({connected_socket,Socket}, Options),
-                                  NegotiationTimeout);
-               {error,SockError} ->
-                   {error,SockError}
-           end
-        end.
+
+	Options = #{} ->
+            case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
+                ok ->
+                    ssh_connection_handler:start_connection(client, Socket, Options, NegotiationTimeout);
+                {error,SockError} ->
+                    {error,SockError}
+            end
+    end.
 
 
 -spec connect(Host, Port, Options, NegotiationTimeout) -> {ok,connection_ref()} | {error,term()} when
@@ -162,43 +161,24 @@ connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
                                                            Port>0,
                                                            is_list(UserOptions) ->
     case ssh_options:handle_options(client, UserOptions) of
-	{error, _Reason} = Error ->
-	    Error;
+	{error, Reason} ->
+            {error, Reason};
+        
         Options ->
-	    {_, Transport, _} = TransportOpts = ?GET_OPT(transport, Options),
-	    ConnectionTimeout = ?GET_OPT(connect_timeout, Options),
-            SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
-            Host = mangle_connect_address(Host0, SocketOpts),
-	    try Transport:connect(Host, Port, SocketOpts, ConnectionTimeout) of
-		{ok, Socket} ->
-                    connect_socket(Socket,
-                                   ?PUT_INTERNAL_OPT({host,Host}, Options),
-                                   NegotiationTimeout);
-		{error, Reason} ->
-		    {error, Reason}
-	    catch
-		exit:{function_clause, _F} ->
-		    {error, {options, {transport, TransportOpts}}};
-		exit:badarg ->
-		    {error, {options, {socket_options, SocketOpts}}}
-	    end
+            SockOpts = ?GET_OPT(socket_options, Options),
+            Host = mangle_connect_address(Host0, SockOpts),
+            {_, Callback, _} = ?GET_OPT(transport, Options),
+            SocketOpts = [{active,false} | SockOpts],
+            ConnectionTimeout = ?GET_OPT(connect_timeout, Options),
+            try Callback:connect(Host, Port, SocketOpts, ConnectionTimeout) of
+                {ok, Socket} ->
+                    ssh_connection_handler:start_connection(client, Socket, Options, NegotiationTimeout);
+                {error, Reason} ->
+                    {error, Reason}
+            catch
+                _:Error -> {error, Error}
+            end
     end.
-
-
-connect_socket(Socket, Options0, NegotiationTimeout) ->
-    {ok, {Host,Port}} = inet:sockname(Socket),
-    Profile = ?GET_OPT(profile, Options0),
-
-    {ok, {SystemSup, SubSysSup}} = sshc_sup:start_system_subsystem(Host, Port, Profile, Options0),
-
-    ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
-    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()},
-                              {supervisors, [{system_sup, SystemSup},
-                                             {subsystem_sup, SubSysSup},
-                                             {connection_sup, ConnectionSup}]}
-                             ], Options0),
-    ssh_connection_handler:start_connection(client, Socket, Opts, NegotiationTimeout).
-
 
 %%--------------------------------------------------------------------
 -spec close(ConnectionRef) -> ok | {error,term()} when
@@ -841,6 +821,8 @@ is_host1(T) when is_tuple(T), size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=
 is_host1(loopback) -> true.
 
 %%%----------------------------------------------------------------
+mangle_connect_address(A,  #{socket_options := SockOpts}) ->
+    mangle_connect_address(A, SockOpts);
 mangle_connect_address(A, SockOpts) ->
     mangle_connect_address1(A, proplists:get_value(inet6,SockOpts,false)).
 

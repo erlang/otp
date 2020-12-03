@@ -17,10 +17,10 @@
 %%
 %% %CopyrightEnd%
 %%
+
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The top supervisor for ssh servers hangs under
-%%          ssh_sup.
+%% Purpose: The ssh daemon top supervisor
 %%----------------------------------------------------------------------
 
 -module(sshd_sup).
@@ -30,10 +30,11 @@
 -include("ssh.hrl").
 
 -export([start_link/0,
-         start_child/4,
+         start_child/4, 
+         start_system_subsystem/4,
          stop_child/1,
 	 stop_child/3
-]).
+        ]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -44,8 +45,6 @@
 %%%  API
 %%%=========================================================================
 start_link() ->
-    %% No children are start now. We wait until the user calls ssh:daemon
-    %% and uses start_child/4 to create the children
     supervisor:start_link({local,?SSHD_SUP}, ?MODULE, []).
 
 start_child(Address, Port, Profile, Options) ->
@@ -61,6 +60,11 @@ start_child(Address, Port, Profile, Options) ->
             ssh_acceptor_sup:start_child(AccPid, Address, Port, Profile, Options),
             {ok,Pid}
     end.
+
+start_system_subsystem(Host, Port, Profile, Options) ->
+    ssh_controller:start_system_subsystem(daemon_controller, ?MODULE, Host, Port, Profile, Options,
+                                          child_spec(Host, Port, Profile, Options)
+                                         ).
 
 stop_child(ChildId) when is_tuple(ChildId) ->
     supervisor:terminate_child(?SSHD_SUP, ChildId);
@@ -80,7 +84,11 @@ init(_) ->
                  intensity =>   10,
                  period    => 3600
                 },
-    ChildSpecs = [
+    ChildSpecs = [#{id       => daemon_controller,
+                    start    => {ssh_controller, start_link, [server, daemon_controller]},
+                    restart  => permanent,
+                    type     => worker
+                   }
                  ],
     {ok, {SupFlags,ChildSpecs}}.
 

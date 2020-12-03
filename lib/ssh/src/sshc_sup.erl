@@ -20,12 +20,14 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The ssh client subsystem supervisor 
+%% Purpose: The ssh client top supervisor
 %%----------------------------------------------------------------------
 
 -module(sshc_sup).
 
 -behaviour(supervisor).
+
+-include("ssh.hrl").
 
 -export([start_link/0,
          start_child/4,
@@ -43,7 +45,7 @@
 %%%  API
 %%%=========================================================================
 start_link() ->
-    supervisor:start_link({local,?MODULE}, ?MODULE, []).
+    supervisor:start_link({local,?SSHC_SUP}, ?MODULE, []).
 
 start_child(Address, Port, Profile, Options) ->
     case ssh_system_sup:system_supervisor(Address, Port, Profile) of
@@ -82,7 +84,8 @@ init(_) ->
                     start    => {ssh_controller, start_link, [client, client_controller]},
                     restart  => permanent,
                     type     => worker
-                   }],
+                   }
+                 ],
     {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
