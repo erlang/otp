@@ -519,8 +519,6 @@ obsolete(crypto, next_iv, _) ->
     {deprecated, "see the 'New and Old API' chapter of the CRYPTO User's guide", "OTP 24"};
 obsolete(crypto, stream_init, _) ->
     {deprecated, "use crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 or crypto:crypto_one_time/4 instead", "OTP 24"};
-obsolete(filename, find_src, _) ->
-    {deprecated, "use filelib:find_source/1,3 instead", "OTP 24"};
 obsolete(ssl, ssl_accept, _) ->
     {deprecated, "use ssl_handshake/1,2,3 instead", "OTP 24"};
 obsolete(asn1ct, decode, _) ->
@@ -539,6 +537,8 @@ obsolete(erl_scan, attributes_info, _) ->
     {removed, "use erl_anno:{column,line,location,text}/1 instead"};
 obsolete(erl_scan, token_info, _) ->
     {removed, "use erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+obsolete(filename, find_src, _) ->
+    {removed, "use filelib:find_source/1,3 instead"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(igor, _, _) ->

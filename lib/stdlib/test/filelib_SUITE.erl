@@ -576,7 +576,7 @@ file_props_symlink(Config) ->
     end.
 
 find_source(Config) when is_list(Config) ->
-    %% filename:find_{file,source}() does not work if the files are
+    %% filelib:find_{file,source}() does not work if the files are
     %% cover-compiled. To make sure that the test does not fail
     %% when the STDLIB is cover-compiled, search for modules in
     %% the compiler application.
