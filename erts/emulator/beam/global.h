@@ -1448,6 +1448,7 @@ Eterm collect_memory(Process *);
 void dump_memory_to_fd(int);
 int dump_memory_data(const char *);
 
+Eterm erts_unary_minus(Process* p, Eterm arg1);
 Eterm erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_mixed_times(Process* p, Eterm arg1, Eterm arg2);

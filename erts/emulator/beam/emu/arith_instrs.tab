@@ -19,6 +19,24 @@
 // %CopyrightEnd%
 //
 
+OUTLINED_ARITH_1(Fail, Name, BIF, Op1,Dst) {
+    Eterm result;
+#ifdef DEBUG
+    Eterm* orig_htop = HTOP;
+    Eterm* orig_stop = E;
+#endif
+    DEBUG_SWAPOUT;
+    result = erts_$Name (c_p, $Op1);
+    DEBUG_SWAPIN;
+    ASSERT(orig_htop == HTOP && orig_stop == E);
+    ERTS_HOLE_CHECK(c_p);
+    if (ERTS_LIKELY(is_value(result))) {
+        $Dst = result;
+        $NEXT0();
+    }
+    $BIF_ERROR_ARITY_1($Fail, $BIF, $Op1);
+}
+
 OUTLINED_ARITH_2(Fail, Name, BIF, Op1, Op2, Dst) {
     Eterm result;
 #ifdef DEBUG
@@ -134,6 +152,27 @@ minus.execute(Fail, Dst) {
 #endif
     }
     $OUTLINED_ARITH_2($Fail, mixed_minus, BIF_sminus_2, MinusOp1, MinusOp2, $Dst);
+}
+
+i_unary_minus := unary_minus.fetch.execute;
+
+unary_minus.head() {
+    Eterm MinusOp;
+}
+
+unary_minus.fetch(Op) {
+    MinusOp = $Op;
+}
+
+unary_minus.execute(Fail, Dst) {
+    if (ERTS_LIKELY(is_small(MinusOp))) {
+        Sint i = -signed_val(MinusOp);
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
+            $Dst = make_small(i);
+            $NEXT0();
+        }
+    }
+    $OUTLINED_ARITH_1($Fail, unary_minus, BIF_sminus_1, MinusOp, $Dst);
 }
 
 i_increment := increment.fetch.execute;

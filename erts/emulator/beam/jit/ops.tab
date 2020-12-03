@@ -1156,7 +1156,7 @@ gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst => \
    gen_plus Fail Live S1 S2 Dst
 
 gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst => \
-   gen_minus Fail Live i Src Dst
+   i_unary_minus Src Fail Dst
 gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
    gen_minus Fail Live S1 S2 Dst
 
@@ -1249,6 +1249,8 @@ i_increment S W d
 
 i_plus s s j? d
 i_minus s s j? d
+
+i_unary_minus s j? d
 
 i_times j? s s d
 

@@ -1032,6 +1032,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(process_main)                                                            \
     _(times_body_shared)                                                       \
     _(times_guard_shared)                                                      \
+    _(unary_minus_body_shared)                                                 \
+    _(unary_minus_guard_shared)                                                \
     _(update_map_assoc_shared)                                                 \
     _(update_map_exact_guard_shared)                                           \
     _(update_map_exact_body_shared)
