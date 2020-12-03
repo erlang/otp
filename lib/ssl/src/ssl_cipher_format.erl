@@ -123,19 +123,19 @@ suite_map_to_openssl_str(#{key_exchange := rsa = Kex,
 suite_map_to_openssl_str(#{key_exchange := Kex,
                            cipher := chacha20_poly1305 = Cipher,
                            mac := aead}) ->
-    openssl_suite_start(string:to_upper(atom_to_list(Kex))) 
+    openssl_suite_start(string:to_upper(atom_to_list(Kex)), Cipher) 
         ++  openssl_cipher_name(Kex, string:to_upper(atom_to_list(Cipher)));
 suite_map_to_openssl_str(#{key_exchange := Kex,
                        cipher := Cipher,
                        mac := aead,
                        prf := PRF}) ->
-    openssl_suite_start(string:to_upper(atom_to_list(Kex))) 
+    openssl_suite_start(string:to_upper(atom_to_list(Kex)), Cipher) 
         ++  openssl_cipher_name(Kex, string:to_upper(atom_to_list(Cipher))) ++
         "-" ++ string:to_upper(atom_to_list(PRF));
 suite_map_to_openssl_str(#{key_exchange := Kex,
                        cipher := Cipher,
                        mac := Mac}) ->
-    openssl_suite_start(string:to_upper(atom_to_list(Kex))) 
+    openssl_suite_start(string:to_upper(atom_to_list(Kex)), Cipher) 
         ++  openssl_cipher_name(Kex, string:to_upper(atom_to_list(Cipher))) ++
         "-" ++ string:to_upper(atom_to_list(Mac)).
 
@@ -148,12 +148,12 @@ suite_openssl_str_to_map("DES-CBC3-SHA") ->
     suite_str_to_map("TLS_RSA_WITH_3DES_EDE_CBC_SHA");
 suite_openssl_str_to_map("SRP-DSS-DES-CBC3-SHA") ->
     suite_str_to_map("TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA");
+suite_openssl_str_to_map("EDH-RSA" ++ Rest) ->
+    suite_openssl_str_to_map("DHE-RSA", Rest);
 suite_openssl_str_to_map("DHE-RSA-" ++ Rest) ->
     suite_openssl_str_to_map("DHE-RSA", Rest);
 suite_openssl_str_to_map("DHE-DSS-" ++ Rest) ->
     suite_openssl_str_to_map("DHE-DSS", Rest);
-suite_openssl_str_to_map("EDH-RSA-" ++ Rest) ->
-    suite_openssl_str_to_map("DHE-RSA", Rest);
 suite_openssl_str_to_map("EDH-DSS-" ++ Rest) ->
     suite_openssl_str_to_map("DHE-DSS", Rest);
 suite_openssl_str_to_map("DES" ++ _ = Rest) ->
@@ -1838,23 +1838,24 @@ openssl_cipher_name(_, CipherStr) ->
     lists:append(string:replace(CipherStr, "_", "-", all)).
 
 
-openssl_suite_start(Kex) ->
-    case openssl_kex_name(Kex) of
+openssl_suite_start(Kex, Cipher) ->
+    case openssl_kex_name(Kex, Cipher) of
         "" ->
             "";
         Name ->
             Name ++ "-"
     end.
 
-openssl_kex_name("RSA") ->
+openssl_kex_name("RSA", _) ->
     "";
-openssl_kex_name("DHE_RSA") ->
+openssl_kex_name("DHE_RSA", Cipher) when Cipher == des_cbc;
+                                         Cipher == '3des_ede_cbc' ->
     "EDH-RSA";
-openssl_kex_name(Kex) ->
+openssl_kex_name(Kex, _) ->
     lists:append(string:replace(Kex, "_", "-", all)).
 kex_name_from_openssl(Kex) ->
     case lists:append(string:replace(Kex, "-", "_", all)) of
-        "EDH_RSA" ->
+        "EDH-RSA" ->
             "DHE_RSA"; 
         Str  ->
             Str
@@ -1913,7 +1914,7 @@ openssl_cipher_str_to_algs(_, CipherStr, "POLY1305" = End) ->
     {Cipher, aead, sha256};
 openssl_cipher_str_to_algs(Kex, CipherStr, HashStr) ->
     Hash = algo_str_to_atom(HashStr),
-    Cipher = algo_str_to_atom(cipher_name_from_openssl(CipherStr)),
+    Cipher = algo_str_to_atom(cipher_name_from_openssl(string:strip(CipherStr, left, $-))),
     case openssl_is_aead_cipher(CipherStr) of
         true ->
             {Cipher, aead, Hash};
