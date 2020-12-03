@@ -734,7 +734,46 @@
 	  <tag><c>{ip, recvdstaddr}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ip, recverr}</c></tag>
-	  <item><p><c>Value = boolean()</c></p></item>
+	  <item>
+            <p><c>Value = boolean()</c></p>
+            <p>
+              <em>Warning!</em>
+              When this option is enabled, error messages may
+              arrive on the socket's error queue, which should be read
+              using the message flag
+              <seetype marker="#msg_flag"><c>errqueue</c></seetype>,
+              and using
+              <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,4,5</c></seemfa>
+              to get all error information in the
+              <seetype marker="#msg_recv">message's</seetype>
+              <c>ctrl</c> field as a
+              <seetype marker="#cmsg_recv">control message</seetype>
+              <c>#{level&nbsp;:=&nbsp;ip, type&nbsp;:=&nbsp;recverr}</c>.
+            </p>
+            <p>
+              A working strategy should be to first poll
+              the error queue using
+              <seeerl marker="#recvmsg-timeout">
+                <c>recvmsg/2,3,4</c>
+              </seeerl>
+              with <c>Timeout&nbsp;=:=&nbsp;0</c> and
+              <c>Flags</c> containing <c>errqueue</c>
+              (ignore the return value <c>{error,&nbsp;timeout}</c>)
+              before reading the actual data
+              to ensure that the error queue gets cleared.
+              And read the data using one of the
+              <c>nowait |</c>
+              <seetype marker="#select_handle">
+                <c>select_handle()</c>
+              </seetype>
+              recv functions:
+              <seeerl marker="#recv-nowait"><c>recv/3,4</c></seeerl>,
+              <seeerl marker="#recvfrom-nowait"><c>recvfrom/3,4</c></seeerl> or
+              <seeerl marker="#recvmsg-nowait"><c>recvmsg/3,4,5</c></seeerl>.
+              Otherwise you might accidentally cause a busy loop
+              in and out of 'select' for the socket.
+            </p>
+          </item>
 	  <tag><c>{ip, recvif}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ip, recvopts}</c></tag>
@@ -855,7 +894,15 @@
 	  <tag><c>{ipv6, multicast_loop}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ipv6, recverr}</c></tag>
-	  <item><p><c>Value = boolean()</c></p></item>
+	  <item>
+            <p><c>Value = boolean()</c></p>
+            <p>
+              <em>Warning!</em>
+              See the socket option <c>{ip, recverr}</c>
+              regarding the socket's error queue.
+              The same warning applies for this option.
+            </p>
+          </item>
 	  <tag><c>{ipv6, recvhoplimit}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ipv6, recvpktinfo}</c></tag>
