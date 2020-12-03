@@ -45,7 +45,8 @@
 	 monitor_nodes_many/1,
          monitor_nodes_down_up/1,
          dist_ctrl_proc_smoke/1,
-         dist_ctrl_proc_reject/1]).
+         dist_ctrl_proc_reject/1,
+         erl_1424/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -83,7 +84,8 @@ all() ->
      dyn_node_name,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
-     {group, monitor_nodes}].
+     {group, monitor_nodes},
+     erl_1424].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -1702,6 +1704,11 @@ smoke_communicate(Node, OLoopMod, OLoopFun) ->
     unlink(Pid),
     exit(Pid, kill),
     ok.
+
+
+erl_1424(Config) when is_list(Config) ->
+    {error, Reason} = erl_epmd:names("."),
+    {comment, lists:flatten(io_lib:format("Reason: ~p", [Reason]))}.
 
 %% Misc. functions
 

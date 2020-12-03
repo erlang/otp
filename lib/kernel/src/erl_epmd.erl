@@ -101,9 +101,9 @@ port_please(Node, HostName, Timeout) ->
             case getepmdbyname(HostName, Timeout) of
                 {ok, EpmdAddr} ->
                     get_port(Node, EpmdAddr, Timeout);
-                Error ->
-                    ?port_please_failure2(Error),
-                    Error
+                _Error ->
+                    ?port_please_failure2(_Error),
+                    noport
             end;
         {ok, Prt} ->
             %% We don't know which dist version the other node is running
@@ -123,8 +123,8 @@ getepmdbyname(HostName, Timeout) when is_list(HostName) ->
     case inet:gethostbyname(HostName, Family, Timeout) of
         {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
             {ok, EpmdAddr};
-        _Else ->
-            noport
+        Else ->
+            Else
     end;
 getepmdbyname(HostName, _Timeout) ->
     {ok, HostName}.
