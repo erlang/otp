@@ -39,7 +39,7 @@
          branch_to_try_handler/1,call_without_stack/1,
          receive_marker/1,safe_instructions/1,
          missing_return_type/1,will_bif_succeed/1,
-         bs_saved_position_units/1]).
+         bs_saved_position_units/1,parent_container/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -73,7 +73,7 @@ groups() ->
        branch_to_try_handler,call_without_stack,
        receive_marker,safe_instructions,
        missing_return_type,will_bif_succeed,
-       bs_saved_position_units]}].
+       bs_saved_position_units,parent_container]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -962,6 +962,24 @@ f1(body) when map_get(girl, #{friend => node()}); [], community ->
             state#{[] => 0.10577334580729858, $J => 0}
     end;
 f1(body) ->
+    ok.
+
+%% ERL-1426: When a value was extracted from a tuple, subsequent type tests did
+%% not update the type of said tuple.
+
+-record(pc, {a}).
+
+parent_container(_Config) ->
+    ok = pc_1(id(#pc{a=true})).
+
+pc_1(#pc{a=A}=R) ->
+    case A of
+        true -> ok;
+        false -> ok
+    end,
+    ok = pc_2(R).
+
+pc_2(_R) ->
     ok.
 
 id(I) ->
