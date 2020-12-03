@@ -278,6 +278,28 @@ if [ $skip_erlexec = yes ]; then
     set -- $beam_args
     IFS="$SAVE_IFS"
 fi
+if [ $run_asan = yes ]; then
+    # Leak sanitizer options
+    if [ "x${LSAN_OPTIONS#*suppressions=}" = "x$LSAN_OPTIONS" ]; then
+	export LSAN_OPTIONS
+	if [ "x$ERL_TOP" != "x" ]; then
+	    LSAN_OPTIONS="$LSAN_OPTIONS:suppressions=$ERL_TOP/erts/emulator/asan/suppress"
+	else
+	    echo "No leak-sanitizer suppression file found in \$LSAN_OPTIONS"
+	    echo "and \$ERL_TOP not set."
+	fi
+    fi
+    # Address sanitizer options
+    export ASAN_OPTIONS
+    if [ "x$ASAN_LOG_DIR" != "x" ]; then
+	if [ "x${ASAN_OPTIONS#*log_path=}" = "x$ASAN_OPTIONS" ]; then
+            ASAN_OPTIONS="$ASAN_OPTIONS:log_path=$ASAN_LOG_DIR/$EMU_NAME-$ASAN_LOGFILE_PREFIX-0"
+	fi
+    fi
+    if [ "x${ASAN_OPTIONS#*halt_on_error=}" = "x$ASAN_OPTIONS" ]; then
+        ASAN_OPTIONS="$ASAN_OPTIONS:halt_on_error=false"
+    fi
+fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
 	valversion=`valgrind --version`

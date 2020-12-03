@@ -1,0 +1,217 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+%% Parse address sanitizer log files generated from test runs with
+%% with environment variables ASAN_LOG_DIR and TS_RUN_EMU=asan set.
+
+%% Repeated leak reports are ignored and additional leaks of same type
+%% as seen before are identified as such.
+
+-mode(compile).
+
+main([]) ->
+    help();
+main(["--help"]) ->
+    help();
+main([OutDir]) ->
+    case os:getenv("ASAN_LOG_DIR") of
+	false ->
+	    io:format(standard_error,
+		      "\nMissing asan log directory argument and environment\n"
+		      "variable ASAN_LOG_DIR is not set.\n\n",[]),
+	    help();
+	InDir ->
+	    run(OutDir, InDir)
+    end;
+main([OutDir, InDir]) ->
+    run(OutDir, InDir).
+
+
+help() ->
+    io:format("\nSyntax: asan_log_to_html OutDir [InDir]\n"
+	      "\nParses all address-sanetizer log files in InDir\n"
+	      "and generates a summary file OutDir/asan_summary.html.\n"
+	      "Environment variable ASAN_LOG_DIR is used if InDir\n"
+	      "is not specified\n\n", []).
+
+run(OutDir, InDir) ->
+    {ok, InFilesUS} = file:list_dir(InDir),
+    InFiles = lists:sort(InFilesUS),
+
+    OutFile = filename:join(OutDir, "asan_summary.html"),
+    {ok, FD} = file:open(OutFile, [write]),
+
+    ok = file:write(FD, <<"<!DOCTYPE html>\n"
+                          "<html>\n"
+                          "<head><title>Address Sanitizer</title></head>\n"
+                          "<body>\n"
+			  "<h1>Address Sanitizer</h1>\n">>),
+
+    lists:foldl(fun(File, Acc) ->
+                        io:format("analyze ~s\n", [File]),
+                        analyze_log_file(filename:join(InDir,File),
+                                         FD, Acc)
+                end,
+                {#{}, none, none},
+                InFiles),
+
+    ok = io:format(FD, "<hr>\n", []),
+
+    Time = calendar:system_time_to_rfc3339(erlang:system_time(second),
+                                           [{time_designator, 32}]),
+    %%{_, _, ThisFile} = code:get_object_code(?MODULE),
+    ThisFile = escript:script_name(),
+    User = string:trim(os:cmd("whoami")),
+    {ok, Host} = inet:gethostname(),
+    ok = io:format(FD, "<p><small>This page was generated ~s\n"
+                   " by <tt>~s</tt>\n"
+                   " run by ~s@~s.</small></p>\n",
+                   [Time, ThisFile, User, Host]),
+
+    ok = file:write(FD, <<"</body>\n</html>\n">>),
+    ok = file:close(FD),
+    io:format("Generated file ~s\n", [OutFile]),
+    ok.
+
+analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
+
+    [_Exe, App | _] = string:lexemes(filename:basename(SrcFile), "-"),
+    case App of
+        PrevApp -> ignore;
+        _ ->
+            Line = case PrevApp of
+                       none -> "";
+                       _ -> "<hr>"
+                   end,
+            ok = io:format(OutFD, "~s<h2>~s</h2>\n", [Line, App])
+    end,
+
+    {ok, Bin} = file:read_file(SrcFile),
+
+    {Leaks, RegEx1} =
+	run_regex(Bin, RegEx0,
+		  %% LeakReport
+		  "(?:(Direct|Indirect) leak of ([0-9]+) byte\\(s\\) "
+		  "in ([0-9]+) object\\(s\\) allocated from:\n"
+		  "((?:[ \t]*#[0-9]+.+\n)+))" % Call stack
+		  "|"
+		  %% ErrorReport
+		  "(?:(==ERROR: AddressSanitizer:.*\n"
+		  "(?:.*\n)+?)"   % any lines (non-greedy)
+		  "^(?:==|--))"   % stop at line begining with == or --
+		  "|"
+		  %% Skipped
+		  "(?:^[=-]+$)",  % skip lines consisting only of = or -
+
+		  [multiline],
+		  [global, {capture, all, binary}]),
+
+    %% We indentify a leak by its type (direct or indirect)
+    %% and its full call stack.
+
+    LeakChecker =
+        fun([ErrorReport, <<>>, <<>>, <<>>, <<>>, Captured],
+            {Out, MatchCnt, LM0}) ->
+                FD = fd(Out),
+                ok = io:format(FD, "<p><pre~s>\n", [style(error)]),
+                ok = file:write(FD, Captured),
+                ok = io:format(FD, "</pre></p>\n", []),
+                {FD, MatchCnt + byte_size(ErrorReport), LM0};
+
+           ([LeakReport, Type, BytesBin, BlocksBin, Stack | _],
+            {Out, MatchCnt0, LM0}) ->
+                Bytes = binary_to_integer(BytesBin),
+                Blocks = binary_to_integer(BlocksBin),
+                MatchCnt1 = MatchCnt0 + byte_size(LeakReport),
+                Key = {Type, Stack},
+                case lookup_leak(LM0, Key) of
+                    undefined ->
+                        %% A new leak
+                        LM1 = insert_leak(LM0, Key, Bytes, Blocks),
+                        FD = fd(Out),
+                        ok = io:format(FD, "<p><pre~s>\n", [style(new, Type)]),
+                        ok = file:write(FD, LeakReport),
+                        ok = io:format(FD, "</pre></p>\n", []),
+                        {FD, MatchCnt1, LM1};
+
+                    {Bytes, Blocks} ->
+                        %% Exact same leak(s) repeated, ignore
+                        {Out, MatchCnt1, LM0};
+
+                    {OldBytes, OldBlocks} ->
+                        %% More leaked bytes/blocks of same type&stack as before
+                        LM1 = insert_leak(LM0, Key, Bytes, Blocks),
+                        FD = fd(Out),
+                        ok = io:format(FD, "<p><pre~s>\n", [style(more, Type)]),
+                        ok = io:format(FD, "More ~s leak of ~w(~w) byte(s) "
+                                       "in ~w(~w) object(s) allocated from:\n",
+                                       [Type, Bytes - OldBytes, Bytes,
+                                        Blocks - OldBlocks, Blocks]),
+                        ok = file:write(FD, Stack),
+                        ok = io:format(FD, "</pre></p>\n", []),
+                        {FD, MatchCnt1, LM1}
+                end;
+	   ([SkipLine], {Out, MatchCnt0, LM0}) ->
+		nomatch = binary:match(SkipLine, <<"\n">>), % Assert single line
+		{Out, MatchCnt0 + byte_size(SkipLine), LM0}
+        end,
+    Out0 = {OutFD, SrcFile},
+    {Out1, MatchedBytes, LeakMap1} = lists:foldl(LeakChecker,
+                                                 {Out0, 0, LeakMap0},
+                                                 Leaks),
+
+    case MatchedBytes < byte_size(Bin)-500 of
+        true ->
+            FD = fd(Out1),
+            ok = io:format(FD, "<h2>WARNING!!! May be unmatched error reports"
+                           " in file ~s:</h2>\n", [SrcFile]),
+            FD;
+        false ->
+            Out1
+    end,
+    {LeakMap1, App, RegEx1}.
+
+lookup_leak(LeakMap, Key) ->
+    maps:get(Key, LeakMap, undefined).
+
+insert_leak(LeakMap, Key, Bytes, Blocks) ->
+    LeakMap#{Key => {Bytes, Blocks}}.
+
+fd({FD, SrcFile}) ->
+    TcFile = filename:basename(SrcFile),
+    case string:lexemes(TcFile, "-") of
+	[_Exe, App, _Rest] ->
+	    ok = io:format(FD, "<h3>Before first test case of ~s</h3>\n",
+			   [App]);
+	[_Exe, _App, "tc", Num, Mod, Rest] ->
+	    [Func | _] = string:lexemes(Rest, "."),
+	    ok = io:format(FD, "<h3>Test case #~s ~s:~s</h3>\n", [Num, Mod, Func]);
+	_ ->
+	    ok = io:format(FD, "<h3>Strange log file name '~s'</h3>\n",
+			   [SrcFile])
+    end,
+    FD;
+fd(FD) ->
+    FD.
+
+style(error) ->
+    " style=\"background-color:Tomato;\"".
+
+style(new, <<"Direct">>) ->
+    " style=\"background-color:orange;\"";
+style(new, <<"Indirect">>) ->
+    "";
+style(more, _) ->
+    " style=\"background-color:yellow;\"".
+
+
+run_regex(Bin, none, RegExString, CompileOpts, RunOpts) ->
+    {ok, RegEx} = re:compile(RegExString, CompileOpts),
+    run_regex(Bin, RegEx, none, none, RunOpts);
+run_regex(Bin, RegEx, _, _, RunOpts) ->
+    case re:run(Bin, RegEx, RunOpts) of
+	nomatch ->
+	    {[], RegEx};
+	{match, List} ->
+	    {List, RegEx}
+    end.
