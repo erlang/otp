@@ -112,13 +112,13 @@ obsolete(queue, lait, 1) ->
 obsolete(snmp, add_agent_caps, 2) ->
     {deprecated, "use snmpa:add_agent_caps/2 instead.", "OTP 24"};
 obsolete(snmp, c, 1) ->
-    {deprecated, "use snmpa:c/1 instead.", "OTP 24"};
+    {deprecated, "use snmpc:compile/1 instead.", "OTP 24"};
 obsolete(snmp, c, 2) ->
-    {deprecated, "use snmpa:c/2 instead.", "OTP 24"};
+    {deprecated, "use snmpc:compile/2 instead.", "OTP 24"};
 obsolete(snmp, change_log_size, 1) ->
     {deprecated, "use snmpa:change_log_size/1 instead.", "OTP 24"};
 obsolete(snmp, compile, 3) ->
-    {deprecated, "use snmpa:compile/3 instead.", "OTP 24"};
+    {deprecated, "use snmpc:compile/3 instead.", "OTP 24"};
 obsolete(snmp, current_address, 0) ->
     {deprecated, "use snmpa:current_address/0 instead.", "OTP 24"};
 obsolete(snmp, current_community, 0) ->
@@ -152,7 +152,7 @@ obsolete(snmp, int_to_enum, 2) ->
 obsolete(snmp, int_to_enum, 3) ->
     {deprecated, "use snmpa:int_to_enum/3 instead.", "OTP 24"};
 obsolete(snmp, is_consistent, 1) ->
-    {deprecated, "use snmpa:is_consistent/1 instead.", "OTP 24"};
+    {deprecated, "use snmpc:is_consistent/1 instead.", "OTP 24"};
 obsolete(snmp, load_mibs, 2) ->
     {deprecated, "use snmpa:load_mibs/2 instead.", "OTP 24"};
 obsolete(snmp, log_to_txt, 2) ->
@@ -162,7 +162,7 @@ obsolete(snmp, log_to_txt, 3) ->
 obsolete(snmp, log_to_txt, 4) ->
     {deprecated, "use snmpa:log_to_txt/4 instead.", "OTP 24"};
 obsolete(snmp, mib_to_hrl, 1) ->
-    {deprecated, "use snmpa:mib_to_hrl/1 instead.", "OTP 24"};
+    {deprecated, "use snmpc:mib_to_hrl/1 instead.", "OTP 24"};
 obsolete(snmp, name_to_oid, 1) ->
     {deprecated, "use snmpa:name_to_oid/1 instead.", "OTP 24"};
 obsolete(snmp, name_to_oid, 2) ->
