@@ -84,8 +84,6 @@
 	 send_notification/6,
 	 send_trap/3, send_trap/4,
 
-	 add_agent_caps/2, del_agent_caps/1, get_agent_caps/0,
-
 	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
 	 change_log_size/1
 
@@ -173,11 +171,7 @@
     {send_notification,     5, "use snmpa:send_notification/5 instead."},
     {send_notification,     6, "use snmpa:send_notification/6 instead."},
     {send_trap,             3, "use snmpa:send_trap/3 instead."},
-    {send_trap,             4, "use snmpa:send_trap/4 instead."},
-
-    {add_agent_caps,        2, "use snmpa:add_agent_caps/2 instead."},
-    {del_agent_caps,        1, "use snmpa:del_agent_caps/1 instead."},
-    {get_agent_caps,        0, "use snmpa:get_agent_caps/0 instead."}
+    {send_trap,             4, "use snmpa:send_trap/4 instead."}
    ]).
  
 
@@ -1091,10 +1085,6 @@ register_subagent(Agent, SubTree, SubAgent) ->
     snmpa:register_subagent(Agent, SubTree, SubAgent).
 unregister_subagent(Agent, SubOidOrPid) ->
     snmpa:unregister_subagent(Agent, SubOidOrPid).
-
-add_agent_caps(Oid, Descr) -> snmpa:add_agent_caps(Oid, Descr).
-del_agent_caps(Index) -> snmpa:del_agent_caps(Index).
-get_agent_caps() -> snmpa:get_agent_caps().
 
 log_to_txt(LogDir, Mibs) -> 
     snmpa:log_to_txt(LogDir, Mibs).

@@ -3430,11 +3430,11 @@ v2_caps_3(X) -> ?P(v2_caps_3), v2_caps(X).
 
 
 v2_caps_i(Node) ->
-    ?line Idx = rpc:call(Node, snmp, add_agent_caps, [[1,2,3,4,5], "test cap"]),
+    ?line Idx = rpc:call(Node, snmpa, add_agent_caps, [[1,2,3,4,5], "test cap"]),
     g([[sysORID, Idx], [sysORDescr, Idx]]),
     ?line ?expect1([{[sysORID, Idx], [1,2,3,4,5]}, 
 		    {[sysORDescr, Idx], "test cap"}]),
-    ?line rpc:call(Node, snmp, del_agent_caps, [Idx]),
+    ?line rpc:call(Node, snmpa, del_agent_caps, [Idx]),
     g([[sysORID, Idx]]),
     ?line ?expect1([{[sysORID, Idx], noSuchInstance}]).
     
