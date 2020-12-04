@@ -35,7 +35,7 @@
     connect/1, connect/3,
     listen/2,
     accept/2,
-    send/4, sendto/5, sendmsg/4,
+    send/4, sendto/4, sendto/5, sendmsg/4, sendmsg/5,
     recv/4, recvfrom/4, recvmsg/5,
     close/1, finalize_close/1,
     shutdown/2,
@@ -347,7 +347,7 @@ open(FD, Opts) when is_map(Opts) ->
                   if
                       Reason =:= domain;
                       Reason =:= type ->
-                          {error, {invalid, {options, Opts, Reason}}}
+                          {error, {invalid, {options, Reason, Opts}}}
                   end;
                 Result -> Result
             end
@@ -412,9 +412,9 @@ bind(SockRef, Addrs, Action) when is_list(Addrs) ->
             case nif_bind(SockRef, EAddrs, Action) of
                 {invalid, Reason} ->
                     case Reason of
-                        {sockaddr, N} ->
+                        {sockaddr = Cause, N} ->
                             {error,
-                             {invalid, {sockaddr, lists:nth(N, Addrs)}}}
+                             {invalid, {Cause, lists:nth(N, Addrs)}}}
                     end;
                 Result -> Result
             end
@@ -458,140 +458,201 @@ accept(ListenSockRef, AccRef) ->
 
 %% ----------------------------------
 
-send(SockRef, SendRef, Bin, Flags) when is_binary(Bin) ->
-    try enc_msg_flags(Flags) of
-        EFlags ->
-            Result = nif_send(SockRef, SendRef, Bin, EFlags),
-            send_result(Result, Bin)
-    catch throw : Reason ->
-            {error, Reason}
-    end.
-
-sendto(SockRef, SendRef, Bin, To, Flags) when is_binary(Bin) ->
-    try {enc_sockaddr(To), enc_msg_flags(Flags)} of
-        {ETo, EFlags} ->
-            case nif_sendto(SockRef, SendRef, Bin, ETo, EFlags) of
-                {invalid, Cause} = Result ->
-                    case Cause of
-                        sockaddr ->
-                            Reason = {invalid, {Cause, To}},
-                            {error, Reason};
-                        _ ->
-                            Result
-                    end;
-                Result ->
-                    send_result(Result, Bin)
-            end
-    catch throw : Reason ->
-            {error, Reason}
-    end.
-
-send_result(Result, Bin) ->
-    case Result of
+send(SockRef, Bin, EFlags, SendRef) when is_integer(EFlags) ->
+    %% Continuation after select
+    case nif_send(SockRef, Bin, EFlags, SendRef) of
         ok ->
             ok;
         {ok, Written} ->
             <<_:Written/binary, RestBin/binary>> = Bin,
             {ok, RestBin};
         select ->
-            select;
+            {select, EFlags};
         {select, Written} ->
             <<_:Written/binary, RestBin/binary>> = Bin,
-            {select, RestBin};
+            {select, RestBin, EFlags};
         {error, _Reason} = Result ->
             Result
-    end.
-
-
-sendmsg(SockRef, SendRef, Msg, Flags) ->
-    try {enc_msg(Msg), enc_msg_flags(Flags)} of
-        {EMsg, EFlags} ->
-            HasWritten = false,
-            sendmsg(SockRef, SendRef, EMsg, EFlags, HasWritten)
+    end;
+send(SockRef, Bin, Flags, SendRef) ->
+    %% First call; encode argument(s)
+    try enc_msg_flags(Flags) of
+        EFlags ->
+            send(SockRef, Bin, EFlags, SendRef)
     catch throw : Reason ->
             {error, Reason}
     end.
 
-sendmsg(SockRef, SendRef, EMsg, EFlags, HasWritten) ->
-    case nif_sendmsg(SockRef, SendRef, EMsg, EFlags) of
+
+sendto(SockRef, Bin, {_, ETo, EFlags} = Cont, SendRef) ->
+    %% Continuation after select
+    case nif_sendto(SockRef, Bin, ETo, EFlags, SendRef) of
+        {invalid, Cause} ->
+            case Cause of
+                sockaddr ->
+                    To = element(1, Cont),
+                    {error, {invalid, {Cause, To}}}
+            end;
         ok ->
             ok;
         {ok, Written} ->
-            RestIOV = sendmsg_rest(Written, EMsg),
+            <<_:Written/binary, RestBin/binary>> = Bin,
+            {ok, RestBin};
+        select ->
+            {select, Cont};
+        {select, Written} ->
+            <<_:Written/binary, RestBin/binary>> = Bin,
+            {select, RestBin, Cont};
+        {error, _Reason} = Result ->
+            Result
+    end.
+
+sendto(SockRef, Bin, To, Flags, SendRef) ->
+    %% First call; encode arguments
+    try {enc_sockaddr(To), enc_msg_flags(Flags)} of
+        {ETo, EFlags} ->
+            case nif_sendto(SockRef, Bin, ETo, EFlags, SendRef) of
+                {invalid, Cause} ->
+                    case Cause of
+                        sockaddr ->
+                            {error, {invalid, {Cause, To}}}
+                    end;
+                ok ->
+                    ok;
+                {ok, Written} ->
+                    <<_:Written/binary, RestBin/binary>> = Bin,
+                    {ok, RestBin};
+                select ->
+                    Cont = {To, ETo, EFlags},
+                    {select, Cont};
+                {select, Written} ->
+                    <<_:Written/binary, RestBin/binary>> = Bin,
+                    Cont = {To, ETo, EFlags},
+                    {select, RestBin, Cont};
+                {error, _Reason} = Result ->
+                    Result
+            end
+    catch throw : Reason ->
+            {error, Reason}
+    end.
+
+
+sendmsg(SockRef, RestIOV, {_, EMsg, EFlags} = Cont, SendRef) ->
+    %% Continuation after select
+    HasWritten = false,
+    sendmsg_result(
+      SockRef, RestIOV, Cont, SendRef, HasWritten,
+      nif_sendmsg(SockRef, EMsg, EFlags, SendRef, RestIOV)).
+
+sendmsg(SockRef, Msg, Flags, SendRef, IOV) ->
+    %% First call; encode arguments
+    try {enc_msg(Msg), enc_msg_flags(Flags)} of
+        {EMsg, EFlags} ->
+            HasWritten = false,
+            Cont = {Msg, EMsg, EFlags},
+            sendmsg_result(
+              SockRef, IOV, Cont, SendRef, HasWritten,
+              nif_sendmsg(SockRef, EMsg, EFlags, SendRef, IOV))
+    catch throw : Reason ->
+            {error, Reason}
+    end.
+
+sendmsg_result(
+  SockRef, IOV, {_, EMsg, EFlags} = Cont, SendRef, HasWritten,
+  Result) ->
+    %%
+    case Result of
+        ok ->
+            ok;
+        {ok, Written} ->
+            RestIOV = rest_iov(Written, IOV),
             {ok, RestIOV};
         {invalid, Cause} ->
+            Reason = {invalid, sendmsg_invalid(IOV, Cont, Cause)},
             if
-                Cause =:= addr;
-                Cause =:= iov;
-                Cause =:= ctrl ->
-                    Reason = {invalid, {msg, EMsg, Cause}},
-                    if
-                        HasWritten ->
-                            Rest = maps:get(iov, EMsg),
-                            {error, {Reason, Rest}};
-                        true ->
-                            {error, Reason}
-                    end
+                HasWritten ->
+                    {error, {Reason, IOV}};
+                true ->
+                    {error, Reason}
             end;
         {iov, Written} ->
-            RestIOV = sendmsg_rest(Written, EMsg),
-            EMsg_1 = EMsg#{iov := RestIOV},
-            sendmsg(SockRef, SendRef, EMsg_1, EFlags, true);
+            RestIOV = rest_iov(Written, IOV),
+            sendmsg_result(
+              SockRef, RestIOV, Cont, SendRef, true,
+              nif_sendmsg(SockRef, EMsg, EFlags, SendRef, RestIOV));
         select ->
             if
                 HasWritten ->
-                    Rest = maps:get(iov, EMsg),
-                    {select, Rest};
+                    {select, IOV, Cont};
                 true ->
-                    select
+                    {select, Cont}
             end;
         {select, Written} ->
-            RestIOV = sendmsg_rest(Written, EMsg),
-            {select, RestIOV};
+            RestIOV = rest_iov(Written, IOV),
+            {select, RestIOV, Cont};
         {error, Reason} = Error->
             if
                 HasWritten ->
-                    Rest = maps:get(iov, EMsg),
-                    {error, {Reason, Rest}};
+                    {error, {Reason, IOV}};
                 true ->
                     Error
             end
     end.
 
-sendmsg_rest(Written, #{iov := IOVec}) ->
-    sendmsg_rest_iov(Written, IOVec).
+sendmsg_invalid(IOV, Cont, Cause) ->
+    if
+        Cause =:= addr;
+        Cause =:= ctrl ->
+            Msg = element(1, Cont),
+            %% Keep only the interesting in Msg
+            {msg, Cause, maps:with([Cause], Msg)};
+        Cause =:= iov ->
+            {iov, invalid_iov(IOV, 0)}
+    end.
 
-sendmsg_rest_iov(Written, [B|IOVec]) when Written >= byte_size(B) ->
-    sendmsg_rest_iov(Written - byte_size(B), IOVec);
-sendmsg_rest_iov(Written, [B|IOVec]) ->
+rest_iov(0, []) ->
+    [];
+rest_iov(Written, [B|IOV]) when Written >= byte_size(B) ->
+    rest_iov(Written - byte_size(B), IOV);
+rest_iov(Written, [B|IOV]) ->
     <<_:Written/binary, Rest/binary>> = B,
-    [Rest|IOVec];
-sendmsg_rest_iov(_Written, IOVec) ->
-    erlang:error({invalid, {iov, IOVec}}).
+    [Rest|IOV].
 
+%% Get down to what it is about the IOV that is invalid
+invalid_iov([], N) ->
+    {list, N};
+invalid_iov([H|IOV], N) ->
+    if
+        is_binary(H) ->
+            invalid_iov(IOV, N+1);
+        true ->
+            {element_not_binary, N+1}
+    end;
+invalid_iov(_, N) ->
+    {improper_list, N}.
 
 %% ----------------------------------
 
-recv(SockRef, RecvRef, Length, Flags) ->
+recv(SockRef, Length, Flags, RecvRef) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-	    nif_recv(SockRef, RecvRef, Length, EFlags)
+	    nif_recv(SockRef, Length, EFlags, RecvRef)
     catch throw : Reason ->
             {error, Reason}
     end.
 
-recvfrom(SockRef, RecvRef, Length, Flags) ->
+recvfrom(SockRef, Length, Flags, RecvRef) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-            nif_recvfrom(SockRef, RecvRef, Length, EFlags)
+            nif_recvfrom(SockRef, Length, EFlags, RecvRef)
     catch throw : Reason ->
             {error, Reason}
     end.
 
-recvmsg(SockRef, RecvRef, BufSz, CtrlSz, Flags) ->
+recvmsg(SockRef, BufSz, CtrlSz, Flags, RecvRef) ->
     try enc_msg_flags(Flags) of
         EFlags ->
-            case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
+            case nif_recvmsg(SockRef, BufSz, CtrlSz, EFlags, RecvRef) of
 		{ok, #{ctrl := []}} = Result ->
 		    Result;
 		{ok, #{ctrl := Cmsgs} = Msg} ->
@@ -756,16 +817,16 @@ enc_sockaddr(#{family := local, path := Path} = SockAddr) ->
           SockAddr;
       true ->
           %% Neater than an if clause
-          erlang:error({invalid, {sockaddr, SockAddr, path}})
+          erlang:error({invalid, {sockaddr, path, SockAddr}})
   end;
 enc_sockaddr(#{family := local} = SockAddr) ->
     %% Neater than a function clause
-    erlang:error({invalid, {sockaddr, SockAddr, path}});
+    erlang:error({invalid, {sockaddr, path, SockAddr}});
 enc_sockaddr(#{family := _} = SockAddr) ->
     SockAddr;
 enc_sockaddr(SockAddr) ->
     %% Neater than a function clause
-    erlang:error({invalid, {sockaddr, SockAddr, map_or_family}}).
+    erlang:error({invalid, {sockaddr, map_or_family, SockAddr}}).
 
 
 %% File names has to be encoded according to
@@ -807,8 +868,7 @@ enc_msg_flags(Flags, _Table, _Val) ->
 
 enc_msg(#{ctrl := []} = M) ->
     enc_msg(maps:remove(ctrl, M));
-enc_msg(#{iov := IOV} = M)
-  when is_list(IOV), IOV =/= [] ->
+enc_msg(#{} = M) ->
     maps:map(
       fun (addr, Addr) ->
               enc_sockaddr(Addr);
@@ -931,13 +991,13 @@ nif_listen(_SRef, _Backlog) -> erlang:nif_error(undef).
 
 nif_accept(_SRef, _Ref) -> erlang:nif_error(undef).
 
-nif_send(_SockRef, _SendRef, _Bin, _Flags) -> erlang:nif_error(undef).
-nif_sendto(_SRef, _SendRef, _Bin, _Dest, _Flags) -> erlang:nif_error(undef).
-nif_sendmsg(_SRef, _SendRef, _Msg, _Flags) -> erlang:nif_error(undef).
+nif_send(_SockRef, _Bin, _Flags, _SendRef) -> erlang:nif_error(undef).
+nif_sendto(_SRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(undef).
+nif_sendmsg(_SRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(undef).
 
-nif_recv(_SRef, _RecvRef, _Length, _Flags) -> erlang:nif_error(undef).
-nif_recvfrom(_SRef, _RecvRef, _Length, _Flags) -> erlang:nif_error(undef).
-nif_recvmsg(_SRef, _RecvRef, _BufSz, _CtrlSz, _Flags) -> erlang:nif_error(undef).
+nif_recv(_SRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_recvfrom(_SRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_recvmsg(_SRef, _BufSz, _CtrlSz, _Flags, _RecvRef) -> erlang:nif_error(undef).
 
 nif_close(_SRef) -> erlang:nif_error(undef).
 nif_finalize_close(_SRef) -> erlang:nif_error(undef).

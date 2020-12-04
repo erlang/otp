@@ -39,7 +39,7 @@
     level socket interface. The only significant addition is that some of
     the functions,
     e.g. <seemfa marker="#recv/3"><c>recv/3</c></seemfa>, 
-    have a timeout argument. </p>
+    have a time-out argument. </p>
     <marker id="asynchronous-call"/>
     <note>
       <p>
@@ -734,7 +734,46 @@
 	  <tag><c>{ip, recvdstaddr}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ip, recverr}</c></tag>
-	  <item><p><c>Value = boolean()</c></p></item>
+	  <item>
+            <p><c>Value = boolean()</c></p>
+            <p>
+              <em>Warning!</em>
+              When this option is enabled, error messages may
+              arrive on the socket's error queue, which should be read
+              using the message flag
+              <seetype marker="#msg_flag"><c>errqueue</c></seetype>,
+              and using
+              <seemfa marker="#recvmsg/1"><c>recvmsg/1,2,3,4,5</c></seemfa>
+              to get all error information in the
+              <seetype marker="#msg_recv">message's</seetype>
+              <c>ctrl</c> field as a
+              <seetype marker="#cmsg_recv">control message</seetype>
+              <c>#{level&nbsp;:=&nbsp;ip, type&nbsp;:=&nbsp;recverr}</c>.
+            </p>
+            <p>
+              A working strategy should be to first poll
+              the error queue using
+              <seeerl marker="#recvmsg-timeout">
+                <c>recvmsg/2,3,4</c>
+              </seeerl>
+              with <c>Timeout&nbsp;=:=&nbsp;0</c> and
+              <c>Flags</c> containing <c>errqueue</c>
+              (ignore the return value <c>{error,&nbsp;timeout}</c>)
+              before reading the actual data
+              to ensure that the error queue gets cleared.
+              And read the data using one of the
+              <c>nowait |</c>
+              <seetype marker="#select_handle">
+                <c>select_handle()</c>
+              </seetype>
+              recv functions:
+              <seeerl marker="#recv-nowait"><c>recv/3,4</c></seeerl>,
+              <seeerl marker="#recvfrom-nowait"><c>recvfrom/3,4</c></seeerl> or
+              <seeerl marker="#recvmsg-nowait"><c>recvmsg/3,4,5</c></seeerl>.
+              Otherwise you might accidentally cause a busy loop
+              in and out of 'select' for the socket.
+            </p>
+          </item>
 	  <tag><c>{ip, recvif}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ip, recvopts}</c></tag>
@@ -855,7 +894,15 @@
 	  <tag><c>{ipv6, multicast_loop}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ipv6, recverr}</c></tag>
-	  <item><p><c>Value = boolean()</c></p></item>
+	  <item>
+            <p><c>Value = boolean()</c></p>
+            <p>
+              <em>Warning!</em>
+              See the socket option <c>{ip, recverr}</c>
+              regarding the socket's error queue.
+              The same warning applies for this option.
+            </p>
+          </item>
 	  <tag><c>{ipv6, recvhoplimit}</c></tag>
 	  <item><p><c>Value = boolean()</c></p></item>
 	  <tag><c>{ipv6, recvpktinfo}</c></tag>
@@ -1305,7 +1352,7 @@
 	  will then return the socket.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If the time-out argument is <c>SelectHandle</c>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -1313,7 +1360,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If the time-out argument is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -1420,7 +1467,7 @@
 	    <c>{error, timeout</c> the connection state of the socket
 	    is uncertain since the platform's network stack
 	    may complete the connection at any time,
-	    up to some platform specific timeout.
+	    up to some platform specific time-out.
 	  </p>
 	  <p>
 	    Repeating a connection attempt towards the same address
@@ -1432,7 +1479,7 @@
 	  </p>
 	  <p>
 	    Also note that all this applies to cancelling
-	    a connect call with a no-wait timeout described below.
+	    a connect call with a no-wait time-out described below.
 	  </p>
 	</note>
       </desc>
@@ -1465,7 +1512,7 @@
 	  will then finalize the connection and return the result.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If the time-out argument is <c>SelectHandle</c>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -1473,7 +1520,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If the time-out argument is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -1504,7 +1551,7 @@
 	  it is allowed to call
 	  <seemfa marker="#connect/2"><c>connect/2,3</c></seemfa>,
 	  but that incurs more overhead since the connect address
-	  and timeout are processed in vain.
+	  and time-out are processed in vain.
 	</p>
       </desc>
     </func>
@@ -1885,23 +1932,30 @@
     <func>
       <name name="recv" arity="1" since="OTP 22.0"
 	    anchor="recv-infinity"/>
-      <name name="recv" arity="2" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recv" arity="2" clause_i="1" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="2" clause_i="2" since="OTP 22.0"/>
+      <name name="recv" arity="3" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="3" clause_i="5" since="OTP 22.0"/>
+      <name name="recv" arity="3" clause_i="8" since="OTP 22.0"/>
       <name name="recv" arity="4" clause_i="3" since="OTP 22.0"/>
-      <fsummary>Receive data from a socket.</fsummary>
+      <fsummary>
+        Receive data from a socket, with "infinite" time-out.
+      </fsummary>
       <desc>
-        <p>Receive data from a socket.</p>
+        <p>
+          Receives data from a socket, waiting for it to arrive.
+        </p>
 	<p>
 	  The argument <c><anno>Length</anno></c>
 	  specifies how many bytes to receive,
 	  with the special case <c>0</c> meaning "all available".
 	</p>
 	<p>
-	  This call will not return until all requested
-	  data can be delivered.
-	  For "all available" this means the first data
-	  chunk that arrives.
+          For a socket of
+          <seetype marker="#type">type <c>stream</c></seetype>
+	  this call will not return until all requested
+	  data can be delivered, or if "all available" data
+          was requested when the first data chunk arrives.
 	</p>
         <p>
           The message <c>Flags</c> may be symbolic
@@ -1919,39 +1973,55 @@
     </func>
 
     <func>
-      <name name="recv" arity="3" clause_i="5" since="OTP 22.0"
+      <name name="recv" arity="3" clause_i="4" since="OTP @OTP-16749@"
 	    anchor="recv-timeout"/>
+      <name name="recv" arity="3" clause_i="9" since="OTP 22.0"/>
       <name name="recv" arity="4" clause_i="4" since="OTP 22.0"/>
-      <fsummary>Receive data from a socket.</fsummary>
+      <fsummary>Receive data from a socket, with time-out.</fsummary>
       <desc>
+        <p>
+          Receives data from a socket, waiting at most
+          <c><anno>Timeout</anno></c> milliseconds for it to arrive.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#recv/1">recv/1,2,3</seemfa>
+	  <seeerl marker="#recv-infinity">
+            infinite time-out <c>recv/1,2,3,4</c>
+          </seeerl>
 	  but returns <c>{error,&nbsp;timeout}</c> or
 	  <c>{error,&nbsp;{timeout,&nbsp;<anno>Data</anno>}}</c>
 	  after <c><anno>Timeout</anno></c> milliseconds,
-	  if the requested data could not be delivered.
+	  if the requested data has not been delivered.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name name="recv" arity="3" clause_i="2" since="OTP 22.1"
+      <name name="recv" arity="3" clause_i="1" since="OTP @OTP-16749@"
 	    anchor="recv-nowait"/>
-      <name name="recv" arity="3" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="3" clause_i="6" since="OTP 22.1"/>
+      <name name="recv" arity="3" clause_i="7" since="OTP @OTP-16749@"/>
       <name name="recv" arity="4" clause_i="1" since="OTP 22.1"/>
       <name name="recv" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
-      <fsummary>Receive data from a socket.</fsummary>
+      <fsummary>Receive data from a socket, but do not wait.</fsummary>
       <desc>
+        <p>
+          Receives data from a socket,
+          but returns a select continuation if the data
+          could not be returned immediately.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#recv/1">recv/1,2,3</seemfa>
-	  but if the data can not be immediately delivered,
+	  <seeerl marker="#recv-infinity">
+            infinite time-out <c>recv/1,2,3,4</c>
+          </seeerl>
+	  but if the data can not be delivered immediately,
 	  the function returns
-	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>,
+	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
 	  and the caller will then receive a select message,
-	  <c>{'$socket', Socket, select, SelectHandle}</c> (
-	  with the
+	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
+          ( with the
 	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
 	  contained in the
 	  <seetype marker="#select_info">
@@ -1962,7 +2032,7 @@
 	  will then return the data.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If the time-out argument is <c>SelectHandle</c>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -1970,7 +2040,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If the time-out argument is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -1978,7 +2048,8 @@
 	  </seetype> generated by the call.
 	</p>
 	<p>
-	  Note that if a <c><anno>Length</anno>&nbsp;&gt;&nbsp;0</c>
+	  Note that for a socket of type <c>stream</c>,
+          if <c><anno>Length</anno>&nbsp;&gt;&nbsp;0</c>
 	  and only part of that amount of data is available,
 	  the function will return
 	  <seetype marker="#select_info">
@@ -1986,7 +2057,8 @@
 	  </seetype>
 	  with partial data.  If the caller doesn't want to wait
 	  for more data, it must call
-	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
+	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>
+          to cancel the operation.
 	</p>
       </desc>
     </func>
@@ -1994,20 +2066,26 @@
     <func>
       <name name="recvfrom" arity="1" since="OTP 22.0"
 	    anchor="recvfrom-infinity"/>
-      <name name="recvfrom" arity="2" since="OTP 22.0"/>
+      <name name="recvfrom" arity="2" clause_i="1" since="OTP @OTP-16749@"/>
+      <name name="recvfrom" arity="2" clause_i="2" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="3" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="5" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="8" since="OTP 22.0"/>
       <name name="recvfrom" arity="4" clause_i="3" since="OTP 22.0"/>
-      <fsummary>Receive a message from a socket.</fsummary>
+      <fsummary>
+        Receive a message from a socket, with "infinite" time-out.
+      </fsummary>
       <desc>
-        <p>Receive a message from a socket.</p>
+        <p>
+          Receive a message from a socket, waiting for it to arrive.
+        </p>
 	<p>
-	  The function returns when a message is received.
+	  The function returns when a message is received,
+          or when there is a socket error.
 	  Argument <c><anno>BufSz</anno></c> specifies the
 	  number of bytes for the receive buffer.
 	  If the buffer size is too small,
-	  the message will be truncated...
+	  the message will be truncated.
 	</p>
 	<p>
 	  If <c><anno>BufSz</anno></c> is not specified or <c>0</c>,
@@ -2022,8 +2100,7 @@
 	  <seetype marker="#msg_flag">message flag</seetype>
 	  <c>peek</c>.  When this flag is used, the message is
 	  <em>not</em> "consumed" from the underlying buffers,
-	  so another
-	  <seemfa marker="#recvfrom/1"><c>recvfrom/1,2,3</c></seemfa>
+	  so another <c>recvfrom/1,2,3,4</c>
 	  call is needed, possibly with an adjusted buffer size.
 	</p>
         <p>
@@ -2040,14 +2117,20 @@
 	    anchor="recvfrom-timeout"/>
       <name name="recvfrom" arity="3" clause_i="9" since="OTP 22.0"/>
       <name name="recvfrom" arity="4" clause_i="4" since="OTP 22.0"/>
-      <fsummary>Receive a message from a socket.</fsummary>
+      <fsummary>Receive a message from a socket, with time-out.</fsummary>
       <desc>
+        <p>
+          Receives a message from a socket, waiting at most
+          <c><anno>Timeout</anno></c> milliseconds for it to arrive.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#recvfrom/1">recvfrom/1,2,3</seemfa>
+	  <seeerl marker="#recvfrom-infinity">
+            infinite time-out <c>recvfrom/1,2,3,4</c>
+          </seeerl>
 	  but returns <c>{error,&nbsp;timeout}</c>
 	  after <c><anno>Timeout</anno></c> milliseconds,
-	  if the requested data could not be delivered.
+	  if no message has been delivered.
 	</p>
       </desc>
     </func>
@@ -2060,17 +2143,24 @@
       <name name="recvfrom" arity="3" clause_i="7" since="OTP @OTP-16749@"/>
       <name name="recvfrom" arity="4" clause_i="1" since="OTP 22.1"/>
       <name name="recvfrom" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
-      <fsummary>Receive a message from a socket.</fsummary>
+      <fsummary>Receive a message from a socket, but do not wait.</fsummary>
       <desc>
+        <p>
+          Receives a message from a socket,
+          but returns a select continuation if no message
+          could be returned immediately.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#recvfrom/1">recvfrom/1,2,3</seemfa>
-	  but if the data can not be immediately delivered,
+	  <seeerl marker="#recvfrom-infinity">
+            infinite time-out <c>recvfrom/1,2,3,4</c>
+          </seeerl>
+	  but if no message can not delivered immediately,
 	  the function returns
-	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>,
+	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
 	  and the caller will then receive a select message,
-	  <c>{'$socket', Socket, select, SelectHandle}</c> (
-	  with the
+	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
+          ( with the
 	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
 	  contained in the
 	  <seetype marker="#select_info">
@@ -2078,10 +2168,10 @@
 	  </seetype>
 	  ) when data has arrived.
 	  A subsequent call to <c>recvfrom/1,2,3,4</c>
-	  will then return the data.
+	  will then return the message.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If the time-out argument is <c>SelectHandle</c>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -2089,7 +2179,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If the time-out argument is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -2106,18 +2196,24 @@
       <name name="recvmsg" arity="2" clause_i="4" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="3" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="5" since="OTP 22.0"/>
+      <name name="recvmsg" arity="4" clause_i="3" since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="5" clause_i="3" since="OTP 22.0"/>
-      <fsummary>Receive a message from a socket.</fsummary>
+      <fsummary>
+        Receive a message from a socket, with "infinite" time-out.
+      </fsummary>
       <desc>
-        <p>Receive a message from a socket.</p>
+        <p>
+          Receive a message from a socket, waiting for it to arrive.
+        </p>
 	<p>
-	  The function returns when a message is received.
+	  The function returns when a message is received,
+          or when there is a socket error.
 	  Arguments <c><anno>BufSz</anno></c>
 	  and <c><anno>CtrlSz</anno></c> specifies the
 	  number of bytes for the receive buffer
 	  and the control message buffer.
 	  If the buffer size(s) is(are) too small,
-	  the message and/or control message list will be truncated...
+	  the message and/or control message list will be truncated.
 	</p>
 	<p>
 	  If <c><anno>BufSz</anno></c> is not specified or <c>0</c>,
@@ -2137,8 +2233,7 @@
 	  <seetype marker="#msg_flag">message flag</seetype>
 	  <c>peek</c>.  When this flag is used, the message is
 	  <em>not</em> "consumed" from the underlying buffers,
-	  so another
-	  <seemfa marker="#recvmsg/1"><c>recvfrom/1,2,3,5</c></seemfa>
+	  so another <c>recvfrom/1,2,3,4,5</c>
 	  call is needed, possibly with an adjusted buffer size.
 	</p>
         <p>
@@ -2154,15 +2249,20 @@
       <name name="recvmsg" arity="2" clause_i="5" since="OTP 22.0"
             anchor="recvmsg-timeout"/>
       <name name="recvmsg" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="recvmsg" arity="4" clause_i="4" since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="5" clause_i="4" since="OTP 22.0"/>
-      <fsummary>Receive a message from a socket.</fsummary>
+      <fsummary>Receive a message from a socket, with time-out.</fsummary>
       <desc>
+        <p>
+          Receives a message from a socket, waiting at most
+          <c><anno>Timeout</anno></c> milliseconds for it to arrive.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#recvmsg/1">recvmsg/1,2,3</seemfa>
+	  <seeerl marker="#recvmsg-infinity">recvmsg/1,2,3,4,5</seeerl>
 	  but returns <c>{error,&nbsp;timeout}</c>
 	  after <c><anno>Timeout</anno></c> milliseconds,
-	  if the requested data could not be delivered.
+	  if no message has been delivered.
 	</p>
       </desc>
     </func>
@@ -2173,30 +2273,39 @@
       <name name="recvmsg" arity="2" clause_i="3" since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.1"/>
       <name name="recvmsg" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recvmsg" arity="4" clause_i="1" since="OTP @OTP-16749@"/>
+      <name name="recvmsg" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
       <name name="recvmsg" arity="5" clause_i="1" since="OTP 22.1"/>
       <name name="recvmsg" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
-      <fsummary>Receive a message from a socket.</fsummary>
+      <fsummary>Receive a message from a socket, but do not wait.</fsummary>
       <desc>
+        <p>
+          Receives a message from a socket,
+          but returns a select continuation if no message
+          could be returned immediately.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#recvmsg/1">recvmsg/1,2,3</seemfa>
-	  but if the data can not be immediately delivered,
+	  <seeerl marker="#recvfrom-infinity">
+            infinite time-out <c>recvfrom/1,2,3,4</c>
+          </seeerl>
+	  but if no message can not delivered immediately,
 	  the function returns
-	  <seetype marker="#select_info"><c>{select, <anno>SelectInfo</anno>}</c></seetype>,
+	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
 	  and the caller will then receive a select message,
-	  <c>{'$socket', Socket, select, SelectHandle}</c> (
-	  with the
+	  <c>{'$socket',&nbsp;Socket,&nbsp;select,&nbsp;SelectHandle}</c>
+          ( with the
 	  <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
 	  contained in the
 	  <seetype marker="#select_info">
 	    <c><anno>SelectInfo</anno></c>
 	  </seetype>
 	  ) when data has arrived.
-	  A subsequent call to <c>recvmsg/1,2,3,5</c>
+	  A subsequent call to <c>recvmsg/1,2,3,4,5</c>
 	  will then return the data.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If the time-out argument is <c>SelectHandle</c>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -2204,7 +2313,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If the time-out argument is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -2218,11 +2327,15 @@
       <name name="send" arity="2" since="OTP 22.0"
             anchor="send-infinity"/>
       <name name="send" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="send" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="send" arity="3" clause_i="5" since="OTP 22.0"/>
       <name name="send" arity="4" clause_i="3" since="OTP 22.0"/>
-      <fsummary>Send data on a socket.</fsummary>
+      <fsummary>
+        Send data on a connected socket, with "infinite" time-out.
+      </fsummary>
       <desc>
-        <p>Send data on a connected socket.</p>
+        <p>
+          Sends data on a connected socket, waiting for it to be sent.
+        </p>
 	<p>
 	  This call will not return until the <c><anno>Data</anno></c>
           has been accepted by the platform's network layer,
@@ -2316,14 +2429,20 @@
     </func>
 
     <func>
-      <name name="send" arity="3" clause_i="5" since="OTP 22.0"
+      <name name="send" arity="3" clause_i="6" since="OTP 22.0"
             anchor="send-timeout"/>
       <name name="send" arity="4" clause_i="4" since="OTP 22.0"/>
-      <fsummary>Send data on a socket.</fsummary>
+      <fsummary>Send data on a connected socket, with time-out.</fsummary>
       <desc>
+        <p>
+          Sends data on a connected socket, waiting at most
+          <c><anno>Timeout</anno></c> milliseconds for it to be sent.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#send/2">send/2,3</seemfa>
+	  <seeerl marker="#send-infinity">
+            infinite time-out <c>send/2,3,4</c>
+          </seeerl>
 	  but returns <c>{error,&nbsp;timeout}</c>
           or <c>{error,&nbsp;{timeout,&nbsp;<anno>RestData</anno>}}</c>
 	  after <c><anno>Timeout</anno></c> milliseconds,
@@ -2334,16 +2453,23 @@
     </func>
 
     <func>
-      <name name="send" arity="3" clause_i="2" since="OTP 22.1"
+      <name name="send" arity="3" clause_i="3" since="OTP 22.1"
 	    anchor="send-nowait"/>
-      <name name="send" arity="3" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="send" arity="3" clause_i="4" since="OTP @OTP-16749@"/>
       <name name="send" arity="4" clause_i="1" since="OTP 22.1"/>
       <name name="send" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
-      <fsummary>Send data on a socket.</fsummary>
+      <fsummary>Send data on a connected socket, but do not wait.</fsummary>
       <desc>
+        <p>
+          Sends data on a connected socket,
+          but return a select continuation if the data
+          could not be sent immediately.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#send/2">send/2,3</seemfa>,
+	  <seeerl marker="#send-infinity">
+            infinite time-out <c>send/2,3</c>
+          </seeerl>
 	  but if the data is not immediately accepted by
 	  the platform network layer, the function returns
 	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
@@ -2359,7 +2485,8 @@
 	  A subsequent call to <c>send/2-4</c> will then send the data.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If <c>SelectHandle</c> is a
+          <seetype marker="#select_handle"><c>select_handle()</c></seetype>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -2367,7 +2494,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If <c>SelectHandle</c> is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -2391,14 +2518,63 @@
     </func>
 
     <func>
+      <name name="send" arity="3" clause_i="2" since="OTP @OTP-16749@"
+	    anchor="send-cont"/>
+      <name name="send" arity="4" clause_i="7" since="OTP @OTP-16749@"/>
+      <name name="send" arity="4" clause_i="8" since="OTP @OTP-16749@"/>
+      <name name="send" arity="4" clause_i="5" since="OTP @OTP-16749@"/>
+      <name name="send" arity="4" clause_i="6" since="OTP @OTP-16749@"/>
+      <fsummary>Send data on a connected socket, continuation.</fsummary>
+      <desc>
+        <p>
+          Continues sending data on a connected socket, where the
+          send operation was initiated by
+          <seeerl marker="#send-nowait"><c>send/3,4</c></seeerl>
+          that returned a <c>SelectInfo</c> continuation.
+          Otherwise like
+          <seeerl marker="#send-infinity">
+            infinite time-out <c>send/2,3,4</c>
+          </seeerl>
+          ,
+          <seeerl marker="#send-timeout">
+            limited time-out <c>send/3,4</c>
+          </seeerl>
+          or
+          <seeerl marker="#send-nowait">
+            nowait <c>send/3,4</c>
+          </seeerl>
+          respectively.
+        </p>
+	<p>
+          <c><anno>Cont</anno></c> is the <c>SelectInfo</c>
+          that was returned from the previous <c>send()</c> call.
+	</p>
+        <p>
+          If <c><anno>Data</anno></c> is not a <c>binary()</c>,
+          it will be copied into one, again.
+        </p>
+        <p>
+          The return value indicates the result from
+          the platform's network layer.
+          See
+          <seeerl marker="#send-infinity"><c>send/2,3,4</c></seeerl>
+          and
+          <seeerl marker="#send-nowait">nowait <c>send/3,4</c></seeerl>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="sendmsg" arity="2" since="OTP 22.0"
             anchor="sendmsg-infinity"/>
       <name name="sendmsg" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="sendmsg" arity="3" clause_i="4" since="OTP 22.0"/>
+      <name name="sendmsg" arity="3" clause_i="5" since="OTP 22.0"/>
       <name name="sendmsg" arity="4" clause_i="3" since="OTP 22.0"/>
-      <fsummary>Send a message on a socket.</fsummary>
+      <fsummary>Send a message on a socket, with "infinite" time-out.</fsummary>
       <desc>
-	<p>Send a message on a socket.</p>
+	<p>
+          Sends a message on a socket, waiting for it to be sent.
+        </p>
 	<p>
 	  The destination, if needed,
           that is: if the socket is <em>not</em> connected,
@@ -2431,7 +2607,8 @@
         </p>
 	<p>
 	  This call will not return until the data has been
-	  handed over to the platform's network layer.
+	  handed over to the platform's network layer,
+          or when it reports an error.
 	</p>
         <p>
           The message <c><anno>Flags</anno></c> may be symbolic
@@ -2443,33 +2620,29 @@
         <p>
           The return value indicates the result from
           the platform's network layer.
-          See <seemfa marker="#send/2"><c>send/2,3,4</c></seemfa>.
+          See <seeerl marker="#send-infinity"><c>send/2,3,4</c></seeerl>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name name="sendmsg" arity="3" clause_i="5" since="OTP 22.0"
+      <name name="sendmsg" arity="3" clause_i="6" since="OTP 22.0"
             anchor="sendmsg-timeout"/>
       <name name="sendmsg" arity="4" clause_i="4" since="OTP 22.0"/>
-      <fsummary>Send a message on a socket.</fsummary>
+      <fsummary>Send a message on a socket, with time-out.</fsummary>
       <desc>
-	<p>
-	  The same as
-	  <seeerl marker="#sendmsg-infinity">sendmsg/2,3,4</seeerl>
-          but with a <c><anno>Timeout</anno></c> in milliseconds.
-          See
-	  <seeerl marker="#send-timeout">send/3,4</seeerl>
-          with a timeout, and
-	  <seeerl marker="#send-infinity">send/2,3,4</seeerl>
-          with an infinite timeout.
+        <p>
+          Sends a message on a socket, waiting at most
+          <c><anno>Timeout</anno></c> milliseconds for it to be sent.
         </p>
 	<p>
 	  The same as
-	  <seemfa marker="#sendmsg/2">sendmsg/2,3</seemfa>
+	  <seeerl marker="#sendmsg-infinity">
+            infinite time-out <c>sendmsg/2,3,4</c>
+          </seeerl>
 	  but returns <c>{error, timeout}</c>
           or <c>{error,&nbsp;{timeout,&nbsp;<anno>RestData</anno>}}</c>
-	  after <c><anno>Timeout</anno></c> milliseconds,
+          after <c><anno>Timeout</anno></c> milliseconds,
 	  if no data or only some of it
           was accepted by the platform's network layer.
 	</p>
@@ -2477,16 +2650,23 @@
     </func>
 
     <func>
-      <name name="sendmsg" arity="3" clause_i="2" since="OTP 22.1"
+      <name name="sendmsg" arity="3" clause_i="3" since="OTP 22.1"
 	    anchor="sendmsg-nowait"/>
-      <name name="sendmsg" arity="3" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="sendmsg" arity="3" clause_i="4" since="OTP @OTP-16749@"/>
       <name name="sendmsg" arity="4" clause_i="1" since="OTP 22.1"/>
       <name name="sendmsg" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
-      <fsummary>Send a message on a socket.</fsummary>
+      <fsummary>Send a message on a socket, but do not wait.</fsummary>
       <desc>
+        <p>
+          Sends a message on a socket,
+          but return a select continuation if the data
+          could not be sent immediately.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#sendmsg/2">sendmsg/2,3</seemfa>
+	  <seeerl marker="#sendmsg-infinity">
+            infinity time-out <c>sendmsg/2,3</c>
+          </seeerl>
 	  but if the data is not immediately accepted by
 	  the platform network layer, the function returns
 	  <seetype marker="#select_info"><c>{select,&nbsp;<anno>SelectInfo</anno>}</c></seetype>,
@@ -2502,7 +2682,8 @@
 	  A subsequent call to <c>sendmsg/2-4</c> will then send the data.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If <c>SelectHandle</c>, is a
+          <seetype marker="#select_handle"><c>select_handle()</c></seetype>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -2510,7 +2691,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If <c>SelectHandle</c> is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -2534,14 +2715,60 @@
     </func>
 
     <func>
-      <name name="sendto" arity="3" since="OTP 22.0"
+      <name name="sendmsg" arity="3" clause_i="2" since="OTP @OTP-16749@"
+	    anchor="sendmsg-cont"/>
+      <name name="sendmsg" arity="4" clause_i="7" since="OTP @OTP-16749@"/>
+      <name name="sendmsg" arity="4" clause_i="8" since="OTP @OTP-16749@"/>
+      <name name="sendmsg" arity="4" clause_i="5" since="OTP @OTP-16749@"/>
+      <name name="sendmsg" arity="4" clause_i="6" since="OTP @OTP-16749@"/>
+      <fsummary>Send a message on a socket, continuation.</fsummary>
+      <desc>
+        <p>
+          Continues sending a message data on a socket, where the
+          send operation was initiated by
+          <seeerl marker="#sendmsg-nowait"><c>sendmsg/3,4</c></seeerl>
+          that returned a <c>SelectInfo</c> continuation.
+          Otherwise like
+          <seeerl marker="#sendmsg-infinity">
+            infinite time-out <c>sendmsg/2,3,4</c>
+          </seeerl>
+          ,
+          <seeerl marker="#sendmsg-timeout">
+            limited time-out <c>sendmsg/3,4</c>
+          </seeerl>
+          or
+          <seeerl marker="#sendmsg-nowait">
+            nowait <c>sendmsg/3,4</c>
+          </seeerl>
+          respectively.
+        </p>
+	<p>
+          <c><anno>Cont</anno></c> is the <c>SelectInfo</c>
+          that was returned from the previous <c>sendmsg()</c> call.
+	</p>
+        <p>
+          The return value indicates the result from
+          the platform's network layer.
+          See
+          <seeerl marker="#send-infinity"><c>send/2,3,4</c></seeerl>
+          and
+          <seeerl marker="#sendmsg-nowait">nowait <c>sendmsg/3,4</c></seeerl>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sendto" arity="3" clause_i="1" since="OTP 22.0"
 	    anchor="sendto-infinity"/>
       <name name="sendto" arity="4" clause_i="1" since="OTP 22.0"/>
       <name name="sendto" arity="4" clause_i="4" since="OTP 22.0"/>
       <name name="sendto" arity="5" clause_i="3" since="OTP 22.0"/>
-      <fsummary>Send data on a socket.</fsummary>
+      <fsummary>Send data on a socket, with "infinite" time-out.</fsummary>
       <desc>
-        <p>Send data on a socket, to the specified destination.</p>
+        <p>
+          Sends data on a socket, to the specified destination,
+          waiting for it to be sent.
+        </p>
 	<p>
 	  This call will not return until the data has been accepted
           by the platform's network layer, or it reports an error.
@@ -2560,7 +2787,7 @@
         <p>
           The return value indicates the result from
           the platform's network layer.
-          See <seemfa marker="#send/2"><c>send/2,3,4</c></seemfa>.
+          See <seeerl marker="#send-infinity"><c>send/2,3,4</c></seeerl>.
         </p>
       </desc>
     </func>
@@ -2569,11 +2796,17 @@
       <name name="sendto" arity="4" clause_i="5" since="OTP 22.0"
 	    anchor="sendto-timeout"/>
       <name name="sendto" arity="5" clause_i="4" since="OTP 22.0"/>
-      <fsummary>Send data on a socket.</fsummary>
+      <fsummary>Send data on a socket, with time-out.</fsummary>
       <desc>
+        <p>
+          Sends data on a socket, waiting at most
+          <c><anno>Timeout</anno></c> milliseconds for it to be sent.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#sendto/3">sendto/3,4</seemfa>
+	  <seeerl marker="#sendto-infinity">
+            infinite time-out <c>sendto/3,4,5</c>
+          </seeerl>
 	  but returns <c>{error,&nbsp;timeout}</c>
           or <c>{error,&nbsp;{timeout,&nbsp;<anno>RestData</anno>}}</c>
 	  after <c><anno>Timeout</anno></c> milliseconds,
@@ -2589,11 +2822,18 @@
       <name name="sendto" arity="4" clause_i="3" since="OTP @OTP-16749@"/>
       <name name="sendto" arity="5" clause_i="1" since="OTP 22.1"/>
       <name name="sendto" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
-      <fsummary>Send data on a socket.</fsummary>
+      <fsummary>Send data on a socket, but do not wait.</fsummary>
       <desc>
+        <p>
+          Sends data on a socket,
+          but return a select continuation if the data
+          could not be sent immediately.
+        </p>
 	<p>
 	  The same as
-	  <seemfa marker="#sendto/3">sendto/3,4</seemfa>,
+	  <seeerl marker="#sendto-infinity">
+            infinity time-out <c>sendto/3,4</c>
+          </seeerl>
 	  but if the data is not be immediately accepted
 	  by the platform network layer,
 	  the function returns
@@ -2610,7 +2850,8 @@
 	  A subsequent call to <c>sendto/3-5</c> will then send the data.
 	</p>
 	<p>
-	  If the timeout argument is <c>SelectHandle</c>,
+	  If <c>SelectHandle</c> is a
+          <seetype marker="#select_handle"><c>select_handle()</c></seetype>,
 	  that term will be contained in a returned
 	  <c><anno>SelectInfo</anno></c>
 	  and the corresponding select message.
@@ -2618,7 +2859,7 @@
 	  unique to this call.
 	</p>
 	<p>
-	  If the timeout argument is <c>nowait</c>, and a
+	  If <c>SelectHandle</c> is <c>nowait</c>, and a
 	  <c><anno>SelectInfo</anno></c> is returned,
 	  it will contain a
 	  <seetype marker="socket#select_handle">
@@ -2637,6 +2878,53 @@
 	  If the caller does not want to wait to send the rest of the data,
 	  it should cancel the operation with
 	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sendto" arity="3" clause_i="2" since="OTP @OTP-16749@"
+	    anchor="sendto-cont"/>
+      <name name="sendto" arity="4" clause_i="8" since="OTP @OTP-16749@"/>
+      <name name="sendto" arity="4" clause_i="9" since="OTP @OTP-16749@"/>
+      <name name="sendto" arity="4" clause_i="6" since="OTP @OTP-16749@"/>
+      <name name="sendto" arity="4" clause_i="7" since="OTP @OTP-16749@"/>
+      <fsummary>Send data on a socket, continuation.</fsummary>
+      <desc>
+        <p>
+          Continues sending data on a socket, where the
+          send operation was initiated by
+          <seeerl marker="#sendto-nowait"><c>sendto/4,5</c></seeerl>
+          that returned a <c>SelectInfo</c> continuation.
+          Otherwise like
+          <seeerl marker="#sendto-infinity">
+            infinite time-out <c>sendto/3,4,5</c>
+          </seeerl>
+          ,
+          <seeerl marker="#sendto-timeout">
+            limited time-out <c>sendto/4,5</c>
+          </seeerl>
+          or
+          <seeerl marker="#sendto-nowait">
+            nowait <c>sendto/4,5</c>
+          </seeerl>
+          respectively.
+        </p>
+	<p>
+          <c><anno>Cont</anno></c> is the <c>SelectInfo</c>
+          that was returned from the previous <c>sendto()</c> call.
+	</p>
+        <p>
+          If <c><anno>Data</anno></c> is not a <c>binary()</c>,
+          it will be copied into one, again.
+        </p>
+        <p>
+          The return value indicates the result from
+          the platform's network layer.
+          See
+          <seeerl marker="#send-infinity"><c>send/2,3,4</c></seeerl>
+          and
+          <seeerl marker="#sendto-nowait">nowait <c>sendto/4,5</c></seeerl>.
         </p>
       </desc>
     </func>

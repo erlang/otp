@@ -241,9 +241,9 @@ ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err);
 extern
 ERL_NIF_TERM esock_make_error_invalid(ErlNifEnv* env, ERL_NIF_TERM what);
 extern
-ERL_NIF_TERM esock_make_invalid(ErlNifEnv* env, ERL_NIF_TERM reason);
+ERL_NIF_TERM esock_make_error_integer_range(ErlNifEnv* env, ERL_NIF_TERM i);
 extern
-ERL_NIF_TERM esock_make_invalid_integer(ErlNifEnv* env, ERL_NIF_TERM i);
+ERL_NIF_TERM esock_make_invalid(ErlNifEnv* env, ERL_NIF_TERM reason);
 extern
 ERL_NIF_TERM esock_raise_invalid(ErlNifEnv* env, ERL_NIF_TERM what);
 
