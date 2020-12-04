@@ -852,7 +852,16 @@ do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
                 element(1,Child#child.mfargs) == util_spawn_supervisor) ->
             %% FIXME: Remove when OTP23?. Now to see what other issues we have.
             ok;
-        {error,{shutdown,_}}
+        {error,{shutdown,"disconnected by user"}}
+          when (not (?is_permanent(Child))) andalso
+               (element(1,Child#child.mfargs) == ssh_server_channel
+                orelse
+                element(1,Child#child.mfargs) == ssh_connection_handler
+                orelse
+                element(1,Child#child.mfargs) == util_spawn_supervisor) ->
+            %% FIXME: Remove when OTP23?. Now to see what other issues we have.
+            ok;
+        {error,{shutdown,dropped}}
           when (not (?is_permanent(Child))) andalso
                (element(1,Child#child.mfargs) == ssh_server_channel
                 orelse
