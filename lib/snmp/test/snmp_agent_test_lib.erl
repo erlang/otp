@@ -26,7 +26,7 @@
 	 start_v2_agent/1,        start_v2_agent/2, 
 	 start_v3_agent/1,        start_v3_agent/2, 
 	 start_bilingual_agent/1, start_bilingual_agent/2, 
-	 start_mt_agent/1,        start_mt_agent/2, 
+	 start_mt_agent/1,        start_mt_agent/2,         start_mt_agent/3, 
 	 stop_agent/1,
 
 	 %% start_sup/0,      stop_sup/2,
@@ -560,12 +560,18 @@ start_bilingual_agent(Config, Opts)
   when is_list(Config) andalso is_list(Opts) ->
     start_agent(Config, [v1,v2], Opts).
  
-start_mt_agent(Config) when is_list(Config) ->
-    start_agent(Config, [v2], [{multi_threaded, true}]).
+start_mt_agent(Config) ->
+    start_mt_agent(Config, true, []).
  
-start_mt_agent(Config, Opts) when is_list(Config) andalso is_list(Opts) ->
-    start_agent(Config, [v2], [{multi_threaded, true}|Opts]).
- 
+start_mt_agent(Config, MT) ->
+    start_mt_agent(Config, MT, []).
+
+start_mt_agent(Config, MT, Opts)
+  when is_list(Config) andalso 
+       ((MT =:= true) orelse (MT =:= extended)) andalso 
+       is_list(Opts) ->
+    start_agent(Config, [v2], [{multi_threaded, MT} | Opts]).
+
 start_agent(Config, Vsns) ->
     start_agent(Config, Vsns, []).
 start_agent(Config, Vsns, Opts) -> 
