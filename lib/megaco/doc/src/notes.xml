@@ -37,7 +37,23 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.18.8.2</title>
+  <section><title>Megaco 3.18.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Empty statistics descriptor (now) allowed in both encode
+	    and decode for version 3.</p>
+          <p>
+	    Own Id: OTP-17012 Aux Id: ERL-1405 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
