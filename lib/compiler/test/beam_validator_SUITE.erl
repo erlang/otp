@@ -37,7 +37,8 @@
          receive_stacked/1,aliased_types/1,type_conflict/1,
          infer_on_eq/1,infer_dead_value/1,
          receive_marker/1,safe_instructions/1,
-         missing_return_type/1,infer_on_ne/1]).
+         missing_return_type/1,infer_on_ne/1,
+         parent_container/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -69,7 +70,7 @@ groups() ->
        receive_stacked,aliased_types,type_conflict,
        infer_on_eq,infer_dead_value,receive_marker,
        safe_instructions,missing_return_type,
-       infer_on_ne]}].
+       infer_on_ne,parent_container]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -842,6 +843,24 @@ night(Turned) ->
     ok.
 
 participating(_, _, _, _) -> ok.
+
+%% ERL-1426: When a value was extracted from a tuple, subsequent type tests did
+%% not update the type of said tuple.
+
+-record(pc, {a}).
+
+parent_container(_Config) ->
+    ok = pc_1(id(#pc{a=true})).
+
+pc_1(#pc{a=A}=R) ->
+    case A of
+        true -> ok;
+        false -> ok
+    end,
+    ok = pc_2(R).
+
+pc_2(_R) ->
+    ok.
 
 id(I) ->
     I.
