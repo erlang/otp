@@ -85,7 +85,7 @@ end_per_testcase(_TC, Config) ->
     ct:log("Stop daemon: ~p ms",[(100*(Time div 1000)) / 100]),
     case flush() of
         [] -> ok;
-        Msgs -> ct:pal("Unhandled messages:~n~p", [Msgs])
+        Msgs -> ct:log("Unhandled messages:~n~p", [Msgs])
     end.
     
 
