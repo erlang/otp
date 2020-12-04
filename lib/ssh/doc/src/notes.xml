@@ -30,6 +30,26 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An ssh-client can take an accepted socket from a
+	    listening socket and do an ssh:connect/2 on it.</p>
+          <p>
+	    Multiple clients on sockets accepted from the same
+	    listening socket had stopped working. This is corrected
+	    now.</p>
+          <p>
+	    Own Id: OTP-17021 Aux Id: ERIERL-567 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
