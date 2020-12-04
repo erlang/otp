@@ -65,10 +65,7 @@
 	 compile/3]).
 
 %% Agent exports (Dont use these, they will be removed in OTP 24)
--export([current_request_id/0, current_community/0, current_address/0,
-	 current_context/0, current_net_if_data/0, 
-
-	 get_symbolic_store_db/0,
+-export([get_symbolic_store_db/0,
 	 name_to_oid/1, name_to_oid/2, 
 	 oid_to_name/1, oid_to_name/2,
 	 int_to_enum/2, int_to_enum/3, 
@@ -139,12 +136,6 @@
     {log_to_txt,            2, "use snmpa:log_to_txt/2 instead."},
     {log_to_txt,            3, "use snmpa:log_to_txt/3 instead."},
     {log_to_txt,            4, "use snmpa:log_to_txt/4 instead."},
-
-    {current_request_id,    0, "use snmpa:current_request_id/0 instead."},
-    {current_community,     0, "use snmpa:current_community/0 instead."},
-    {current_address,       0, "use snmpa:current_address/0 instead."},
-    {current_context,       0, "use snmpa:current_context/0 instead."},
-    {current_net_if_data,   0, "use snmpa:current_net_if_data/0 instead."},
 
     {get_symbolic_store_db, 0, "use snmpa:get_symbolic_store_db/0 instead."},
     {name_to_oid,           1, "use snmpa:name_to_oid/1 instead."},
@@ -1054,12 +1045,6 @@ enum_to_int(Name, Enum)     -> snmpa:enum_to_int(Name, Enum).
 enum_to_int(Db, Name, Enum) -> snmpa:enum_to_int(Db, Name, Enum).
 int_to_enum(Name, Int)      -> snmpa:int_to_enum(Name, Int).
 int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
-
-current_request_id()  -> snmpa:current_request_id().
-current_context()     -> snmpa:current_context().
-current_community()   -> snmpa:current_community().
-current_address()     -> snmpa:current_address().
-current_net_if_data() -> snmpa:current_net_if_data().
 
 get(Agent, Vars) -> snmpa:get(Agent, Vars).
 info(Agent) -> snmpa:info(Agent).
