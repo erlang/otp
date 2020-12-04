@@ -544,14 +544,19 @@ in so far as it will be converted to the new format if found.
       </item>
 
       <tag><marker id="agent_ms_cache_gclimit"></marker>
-        <c><![CDATA[mibs_cache_gclimit() = integer() > 0 | infinity <optional>]]></c></tag>
+        <c><![CDATA[mibs_cache_gclimit() = infinity | integer() > 0 <optional>]]></c></tag>
       <item>
         <p>When performing a GC, this is the max number of cache entries 
 	that will be deleted from the cache. </p>
-	<p>The reason for having this limit is that if the cache is 
+
+	<p>The reason why its possible to set a limit, is that if the cache is 
 	large, the GC can potentially take a long time, during which 
-	the agent is locked. </p>
-	<p>Default is <c>100</c>.</p>
+	the agent is "busy".
+	<em>But</em> on a heavily loaded system, we also risk not removing
+	enough elements in the cache, instead causing it to grow over time.
+	This is the reason the default value is <c>infinity</c>, which will
+	ensure that <em>all</em> candidates are removed as soon as possible. </p>
+	<p>Default is <c>infinity</c>.</p>
       </item>
 
       <tag><marker id="agent_error_report_mod"></marker>
