@@ -745,17 +745,39 @@ init_per_group(otp16649_ipv4 = GroupName, Config) ->
                {tdomain,  transportDomainUdpIpv4} |
                lists:keydelete(ip, 1, Config)],
     snmp_test_lib:init_group_top_dir(GroupName, Config2);
-init_per_group(otp16649_ipv6 = GroupName, Config) -> 
-    case ?HAS_SUPPORT_IPV6() of
-        true ->
-            Config2 = [{ip,       ?LOCALHOST(inet6)},
-                       {ipfamily, inet6},
-                       {tdomain,  transportDomainUdpIpv6} |
-                       lists:keydelete(ip, 1, Config)],
-            snmp_test_lib:init_group_top_dir(GroupName, Config2);
-        false ->
-            {skip, "Host does not support IPv6"}
-    end;
+init_per_group(otp16649_ipv6 = GroupName, Config) ->
+    init_per_group_ipv6(GroupName,
+                        [{tdomain,  transportDomainUdpIpv6} | Config],
+                        fun(C) -> C end);
+    %% SupportsIPv6 =
+    %%     case ?HAS_SUPPORT_IPV6() of
+    %%         true ->
+    %%             case os:type() of
+    %%                 {unix, netbsd} ->
+    %%                     {false, "Host *may* not *properly* support IPV6"};
+    %%                 {unix, darwin} ->
+    %%                     case os:version() of
+    %%                         V > {9, 8, 0} ->
+    %%                             true;
+    %%                         _ ->
+    %%                             {false, "Host *may* not *properly* support IPV6"};
+    %%                     end;
+    %%                 _ ->
+    %%                     true
+    %%             end;
+    %%         false ->
+    %%             {false, "Host does not support IPv6"}
+    %%     end,
+    %% case SupportsIPv6 of
+    %%     true ->
+    %%         Config2 = [{ip,       ?LOCALHOST(inet6)},
+    %%                    {ipfamily, inet6},
+    %%                    {tdomain,  transportDomainUdpIpv6} |
+    %%                    lists:keydelete(ip, 1, Config)],
+    %%         snmp_test_lib:init_group_top_dir(GroupName, Config2);
+    %%     {false, SkipReason} ->
+    %%         {skip, SkipReason}
+    %% end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
