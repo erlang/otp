@@ -38,7 +38,7 @@
 -module(beam_ssa_bc_size).
 -export([opt/1]).
 
--import(lists, [any/2,reverse/1,sort/1]).
+-import(lists, [any/2,member/2,reverse/1,sort/1]).
 
 -include("beam_ssa_opt.hrl").
 
@@ -53,8 +53,9 @@ opt([Id|Ids], StMap0) ->
 opt([], StMap) -> StMap.
 
 opt_function(Id, StMap) ->
-    #opt_st{ssa=Linear0,cnt=Count0} = OptSt0 = map_get(Id, StMap),
-    try opt_blks(Linear0, StMap, unchanged, Count0, []) of
+    #opt_st{anno=Anno,ssa=Linear0,cnt=Count0} = OptSt0 = map_get(Id, StMap),
+    ParamInfo = maps:get(parameter_info, Anno, #{}),
+    try opt_blks(Linear0, ParamInfo, StMap, unchanged, Count0, []) of
         {Linear,Count} ->
             OptSt = OptSt0#opt_st{ssa=Linear,cnt=Count},
             StMap#{Id := OptSt};
@@ -67,29 +68,30 @@ opt_function(Id, StMap) ->
             erlang:raise(Class, Error, Stack)
     end.
 
-opt_blks([{L,#b_blk{is=Is}=Blk}|Blks], StMap, AnyChange, Count0, Acc0) ->
+opt_blks([{L,#b_blk{is=Is}=Blk}|Blks], ParamInfo, StMap, AnyChange, Count0, Acc0) ->
     case Is of
         [#b_set{op=bs_init_writable,dst=Dst}] ->
             Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}}},
-            try opt_writable(Bs, L, Blk, Blks, Count0, Acc0) of
+            try opt_writable(Bs, L, Blk, Blks, ParamInfo, Count0, Acc0) of
                 {Acc,Count} ->
-                    opt_blks(Blks, StMap, changed, Count, Acc)
+                    opt_blks(Blks, ParamInfo, StMap, changed, Count, Acc)
             catch
                 throw:not_possible ->
-                    opt_blks(Blks, StMap, AnyChange, Count0, [{L,Blk}|Acc0])
+                    opt_blks(Blks, ParamInfo, StMap, AnyChange, Count0, [{L,Blk}|Acc0])
             end;
         _ ->
-            opt_blks(Blks, StMap, AnyChange, Count0, [{L,Blk}|Acc0])
+            opt_blks(Blks, ParamInfo, StMap, AnyChange, Count0, [{L,Blk}|Acc0])
     end;
-opt_blks([], _StMap, changed, Count, Acc) ->
+opt_blks([], _ParamInfo, _StMap, changed, Count, Acc) ->
     {reverse(Acc),Count};
-opt_blks([], _StMap, unchanged, _Count, _Acc) ->
+opt_blks([], _ParamInfo, _StMap, unchanged, _Count, _Acc) ->
     none.
 
-opt_writable(Bs0, L, Blk, Blks, Count0, Acc0) ->
+opt_writable(Bs0, L, Blk, Blks, ParamInfo, Count0, Acc0) ->
     case {Blk,Blks} of
         {#b_blk{last=#b_br{succ=Next,fail=Next}},
          [{Next,#b_blk{is=[#b_set{op=call,args=[_|Args],dst=Dst}=Call|_]}}|_]} ->
+            ensure_not_match_context(Call, ParamInfo),
             ArgTypes = maps:from_list([{Arg,{arg,Arg}} || Arg <- Args]),
             Bs = maps:merge(ArgTypes, Bs0),
             Result = map_get(Dst, call_size_func(Call, Bs)),
@@ -97,6 +99,30 @@ opt_writable(Bs0, L, Blk, Blks, Count0, Acc0) ->
             cg_size_calc(Expr, L, Blk, Annos, Count0, Acc0);
         {_,_} ->
             throw(not_possible)
+    end.
+
+ensure_not_match_context(#b_set{anno=Anno,args=[_|Args]}, ParamInfo) ->
+    case maps:get(bsm_info, Anno, []) of
+        context_reused ->
+            %% The generator is a match context. The optimization is
+            %% not safe. Example:
+            %%
+            %%     f(<<B/binary>>) ->
+            %%          << <<V>> || <<V>> <= B >>.
+            throw(not_possible);
+        _ ->
+            case any(fun(V) ->
+                             member(accepts_match_context,
+                                    maps:get(V, ParamInfo, []))
+                     end, Args) of
+                true ->
+                    %% Match context is passed from the calling function. Example:
+                    %%    f0(<<B/binary>>) -> f1(B).
+                    %%    f1(B) -> << <<V>> || <<V>> <= B >>.
+                    throw(not_possible);
+                false ->
+                    ok
+            end
     end.
 
 %%%
