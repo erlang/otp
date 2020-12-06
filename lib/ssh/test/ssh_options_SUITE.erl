@@ -1470,7 +1470,7 @@ max_sessions_drops_tcp_connects(Config) ->
                              {max_sessions, MaxSessions}
                             ]),
     Host = ssh_test_lib:mangle_connect_address(Host0),
-    ct:pal("~p Listen ~p:~p for max ~p sessions. Mangled Host = ~p",
+    ct:log("~p Listen ~p:~p for max ~p sessions. Mangled Host = ~p",
            [Pid,Host0,Port,MaxSessions,Host]),
     
     %% Log in UseSessions connections
@@ -1482,7 +1482,7 @@ max_sessions_drops_tcp_connects(Config) ->
                                           {user, "carni"},
                                           {password, "meat"}
                                          ]),
-                         ct:pal("~p: ssh:connect -> ~p", [N,R]),
+                         ct:log("~p: ssh:connect -> ~p", [N,R]),
                          R
                  end,
 
@@ -1491,18 +1491,18 @@ max_sessions_drops_tcp_connects(Config) ->
         UseSessions ->
             %% As expected
             %% Try gen_tcp:connect
-            [ct:pal("~p: gen_tcp:connect -> ~p", 
+            [ct:log("~p: gen_tcp:connect -> ~p", 
                     [N, gen_tcp:connect(Host, Port, [])])
              || N <- lists:seq(UseSessions+1, MaxSessions)
             ],
 
-            ct:pal("Now try ~p gen_tcp:connect to be rejected", [FloodSessions]),
-            [ct:pal("~p: gen_tcp:connect -> ~p", 
+            ct:log("Now try ~p gen_tcp:connect to be rejected", [FloodSessions]),
+            [ct:log("~p: gen_tcp:connect -> ~p", 
                     [N, gen_tcp:connect(Host, Port, [])])
              || N <- lists:seq(MaxSessions+1, MaxSessions+1+FloodSessions)
             ],
             
-            ct:pal("try ~p ssh:connect", [MaxSessions - UseSessions]),
+            ct:log("try ~p ssh:connect", [MaxSessions - UseSessions]),
             try_ssh_connect(MaxSessions - UseSessions, NegTimeOut, SSHconnect);
 
         Len1 ->

@@ -114,7 +114,7 @@ default_tree(Config) when is_list(Config) ->
 	lists:keysearch(sshc_sup, 1, TopSupChildren),
     {value, {sshd_sup, _,supervisor,[sshd_sup]}} = 
 	lists:keysearch(sshd_sup, 1, TopSupChildren),
-    ?wait_match([], supervisor:which_children(sshc_sup)),
+    ?wait_match([{client_controller,_,worker,_}], supervisor:which_children(sshc_sup)),
     ?wait_match([], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
@@ -122,14 +122,16 @@ sshc_subtree(Config) when is_list(Config) ->
     {_Pid, Host, Port} = proplists:get_value(server, Config),
     UserDir = proplists:get_value(userdir, Config),
 
-    ?wait_match([], supervisor:which_children(sshc_sup)),
+    ?wait_match([{client_controller,_,worker,_}], supervisor:which_children(sshc_sup)),
 
     {ok, Pid1} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
 
     ?wait_match([{{client,ssh_system_sup, LocalIP, LocalPort, ?DEFAULT_PROFILE},
-                  SysSup, supervisor,[ssh_system_sup]}],
+                  SysSup, supervisor,[ssh_system_sup]},
+                 {client_controller,_,worker,_}
+                ],
 		supervisor:which_children(sshc_sup),
                 [SysSup, LocalIP, LocalPort]),
     check_sshc_system_tree(SysSup, Pid1, LocalIP, LocalPort, Config),
@@ -138,14 +140,18 @@ sshc_subtree(Config) when is_list(Config) ->
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD}, {user_dir, UserDir}]),
     ?wait_match([{_, _,supervisor,[ssh_system_sup]},
-                 {_, _,supervisor,[ssh_system_sup]}],
+                 {_, _,supervisor,[ssh_system_sup]},
+                 {client_controller,_,worker,_}
+                ],
 		supervisor:which_children(sshc_sup)),
 
     ssh:close(Pid1),
-    ?wait_match([{_, _,supervisor,[ssh_system_sup]}],
+    ?wait_match([{_, _,supervisor,[ssh_system_sup]},
+                 {client_controller,_,worker,_}
+                ],
 		supervisor:which_children(sshc_sup)),
     ssh:close(Pid2),
-    ?wait_match([], supervisor:which_children(sshc_sup)).
+    ?wait_match([{client_controller,_,worker,_}], supervisor:which_children(sshc_sup)).
 
 %%-------------------------------------------------------------------------
 sshd_subtree(Config) when is_list(Config) ->

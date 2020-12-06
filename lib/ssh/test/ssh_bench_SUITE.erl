@@ -266,13 +266,13 @@ median(Data) when is_list(Data) ->
             1 ->
                 lists:nth(N div 2 + 1, SortedData)
         end,
-    ct:pal("median(~p) = ~p",[SortedData,Median]),
+    ct:log("median(~p) = ~p",[SortedData,Median]),
     Median.
 
 %%%----------------------------------------------------------------
 report(LabelList, Value) ->
     Label = report_chars(lists:concat(LabelList)),
-    ct:pal("ct_event:notify ~p: ~p", [Label, Value]),
+    ct:log("ct_event:notify ~p: ~p", [Label, Value]),
     ct_event:notify(
       #event{name = benchmark_data,
              data = [{suite, ?MODULE},
