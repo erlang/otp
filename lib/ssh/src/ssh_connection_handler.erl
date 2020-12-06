@@ -1779,8 +1779,8 @@ terminate(shutdown, _StateName, D0) ->
                  D0),
     close_transport(D);
 
-terminate(kill, _StateName, D) ->
-    %% Got a kill signal
+terminate(killed, _StateName, D) ->
+    %% Got a killed signal
     stop_subsystem(D),
     close_transport(D);
 
@@ -1878,26 +1878,36 @@ stop_subsystem(#data{ssh_params =
                          #ssh{role = Role},
                      connection_state =
                          #connection{system_supervisor = SysSup,
-                                     sub_system_supervisor = SubSysSup}
+                                     sub_system_supervisor = SubSysSup,
+                                     options = Opts}
                     }) when is_pid(SysSup) andalso is_pid(SubSysSup)  ->
-    process_flag(trap_exit, false),
     C = self(),
     spawn(fun() ->
-                  Mref = erlang:monitor(process, C),
-                  receive
-                      {'DOWN', Mref, process, C, _Info} -> ok
-                  after
-                      10000 -> ok
-                  end,
-                  case Role of
-                      client ->
+                  wait_until_dead(C, 10000),
+                  case {Role, ?GET_INTERNAL_OPT(connected_socket,Opts,non_socket_started)} of
+                      {server, non_socket_started} ->
+                          ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
+                      {client, non_socket_started} ->
                           ssh_system_sup:stop_system(Role, SysSup);
-                      _ ->
-                          ssh_system_sup:stop_subsystem(SysSup, SubSysSup)
+                      {server, _Socket} ->
+                          ssh_system_sup:stop_system(Role, SysSup);
+                      {client, _Socket} ->
+                          ssh_system_sup:stop_subsystem(SysSup, SubSysSup),
+                          wait_until_dead(SubSysSup, 1000),
+                          sshc_sup:stop_system(SysSup)
                   end
           end);
 stop_subsystem(_) ->
     ok.
+
+
+wait_until_dead(Pid, Timeout) ->
+    Mref = erlang:monitor(process, Pid),
+    receive
+        {'DOWN', Mref, process, Pid, _Info} -> ok
+    after
+        Timeout -> ok
+    end.
 
 
 close_transport(#data{transport_cb = Transport,
