@@ -68,7 +68,7 @@ update(Cache, Key, Session) ->
 %% Will only be called from the ssl_server_cache process.
 %%--------------------------------------------------------------------
 delete(Cache, Key) ->
-    gb_trees:delete(Cache, Key).
+    gb_trees:delete(Key, Cache).
 
 %%--------------------------------------------------------------
 %% Description: Returns the cache size
