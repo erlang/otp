@@ -20,9 +20,7 @@
 
 -module(snmpc_lib).
 
-%% API
-%% Avoid warning for local function error/2 clashing with autoimported BIF.
--compile({no_auto_import,[error/2]}).
+%% API.
 -export([test_father/4, make_ASN1type/1, import/1, makeInternalNode2/2,
 	 is_consistent/1, resolve_defval/1, make_variable_info/1,
 	 check_trap_name/3, make_table_info/5, get_final_mib/2, set_dir/2,
@@ -35,6 +33,10 @@
 	 print_error/2, print_error/3,
 	 make_cdata/1,
 	 key1search/2, key1search/3]).
+
+%% Avoid warning for local functions error/2 and error/3 clashing
+%% with autoimported BIF.
+-compile({no_auto_import,[error/2,error/3]}).
 
 %% internal exports
 -export([check_of/1, check_trap/2, check_trap/3, get_elem/2]).

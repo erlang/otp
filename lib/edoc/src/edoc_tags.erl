@@ -37,6 +37,9 @@
 	 filter_tags/2, filter_tags/3, check_tags/4, parse_tags/4,
          check_types/3]).
 
+%% Avoid warning for imported function 3 clashing with autoimported BIF.
+-compile({no_auto_import,[error/3]}).
+
 -import(edoc_report, [report/4, warning/4, error/3]).
 
 -include("edoc.hrl").
