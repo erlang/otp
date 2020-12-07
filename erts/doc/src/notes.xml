@@ -1023,6 +1023,23 @@
 
 </section>
 
+<section><title>Erts 10.7.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed rare distribution bug in race between received
+	    signal (link/monitor/spawn_request/spawn_reply) and
+	    disconnection. Symptom: VM crash. Since: OTP 21.0.</p>
+          <p>
+	    Own Id: OTP-16869 Aux Id: ERL-1337 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
