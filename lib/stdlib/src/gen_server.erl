@@ -491,6 +491,15 @@ do_send(Dest, Msg) ->
     end,
     ok.
 
+do_multi_call([Node], Name, Req, infinity) when Node =:= node() ->
+    % Special case when multi_call is used with local node only.
+    % In that case we can leverage the benefit of recv_mark optimisation
+    % existing in simple gen:call.
+    try gen:call(Name, '$gen_call', Req, infinity) of
+        {ok, Res} -> {[{Node, Res}],[]}
+    catch exit:_ ->
+        {[], [Node]}
+    end;
 do_multi_call(Nodes, Name, Req, infinity) ->
     Tag = make_ref(),
     Monitors = send_nodes(Nodes, Name, Tag, Req),
