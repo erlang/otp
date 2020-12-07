@@ -30,9 +30,20 @@
 -include("ssl_api.hrl").
 
 %% Internal application API
--export([is_new/2, client_select_session/4, server_select_session/5, valid_session/2]).
+-export([is_new/2, client_select_session/4, server_select_session/5, valid_session/2, legacy_session_id/0]).
 
 -type seconds()   :: integer(). 
+
+%%--------------------------------------------------------------------
+-spec legacy_session_id() -> ssl:session_id().
+%%
+%% Description: TLS-1.3 deprecates the session id but has a dummy
+%% value for it for protocol backwards-compatibility reasons.
+%% If now lower versions are configured this function can be called
+%% for a dummy value.
+%%--------------------------------------------------------------------
+legacy_session_id() ->
+    crypto:strong_rand_bytes(32).
 
 %%--------------------------------------------------------------------
 -spec is_new(ssl:session_id(), ssl:session_id()) -> boolean().
@@ -63,7 +74,7 @@ client_select_session({_, _, #{versions := Versions,
     
     case Version of
         {3, N} when N >= 4 ->
-          NewSession#session{session_id = crypto:strong_rand_bytes(32)};
+          NewSession#session{session_id = legacy_session_id()};
         _ ->
             do_client_select_session(ClientInfo, Cache, CacheCb, NewSession)  
     end.  

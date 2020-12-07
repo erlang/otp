@@ -88,7 +88,8 @@ pending_connection_state(ConnectionStates, write) ->
     maps:get(pending_write, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec activate_pending_connection_state(connection_states(), read | write, tls_connection | dtls_connection) ->
+-spec activate_pending_connection_state(connection_states(), read | write, 
+                                        tls_gen_connection | dtls_gen_connection) ->
 					       connection_states().
 %%
 %% Description: Creates a new instance of the connection_states record

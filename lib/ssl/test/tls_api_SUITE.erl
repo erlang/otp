@@ -505,32 +505,35 @@ tls_dont_crash_on_handshake_garbage() ->
 
 tls_dont_crash_on_handshake_garbage(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
+    Version = ssl_test_lib:protocol_version(Config),
     {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ServerOpts}]),
-    unlink(Server), monitor(process, Server),
+                                        {from, self()},
+                                        {mfa, ssl_test_lib, no_result},
+                                        {options, [{versions, [Version]} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-
+ 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {active, false}]),
 
-    % Send hello and garbage record
+    %% Send hello and garbage record
     ok = gen_tcp:send(Socket,
                       [<<22, 3,3, 49:16, 1, 45:24, 3,3, % client_hello
                          16#deadbeef:256, % 32 'random' bytes = 256 bits
                          0, 6:16, 0,255, 0,61, 0,57, 1, 0 >>, % some hello values
-
                        <<22, 3,3, 5:16, 92,64,37,228,209>> % garbage
                       ]),
-    % Send unexpected change_cipher_spec
+    %% Send unexpected change_cipher_spec
     ok = gen_tcp:send(Socket, <<20, 3,3, 12:16, 111,40,244,7,137,224,16,109,197,110,249,152>>),
-
+    gen_tcp:close(Socket),
     % Ensure we receive an alert, not sudden disconnect
-    {ok, <<21, _/binary>>} = drop_handshakes(Socket, 1000).
-
+    case Version of
+        'tlsv1.3' ->
+            ssl_test_lib:check_server_alert(Server, illegal_parameter);
+        _  ->
+            ssl_test_lib:check_server_alert(Server, handshake_failure)
+    end.
+    
 %%--------------------------------------------------------------------
 tls_tcp_error_propagation_in_active_mode() ->
     [{doc,"Test that process recives {ssl_error, Socket, closed} when tcp error ocurres"}].
@@ -811,15 +814,9 @@ upgrade_result(Socket) ->
     ok = ssl:send(Socket, "Hello world"),
     %% Make sure binary is inherited from tcp socket and that we do
     %% not get the list default!
-    receive 
-	{ssl, _, <<"H">>} ->
-	    receive 
-		{ssl, _, <<"ello world">>} ->
-		    ok
-	    end;
-	{ssl, _, <<"Hello world">>}  ->
-	    ok
-    end.
+    <<"Hello world">> =  ssl_test_lib:active_recv(Socket, length("Hello world")),
+    ok.
+
 tls_downgrade_result(Socket, Pid) ->
     ok = ssl_test_lib:send_recv_result(Socket),
     Pid ! {self(), ready},
@@ -831,16 +828,8 @@ tls_downgrade_result(Socket, Pid) ->
 	{ok, TCPSocket} -> 
             inet:setopts(TCPSocket, [{active, true}]),
 	    gen_tcp:send(TCPSocket, "Downgraded"),
-            receive 
-                {tcp, TCPSocket, <<"Downgraded">>} ->
-                    ct:sleep(?SLEEP),
-                    ok;
-                {tcp_closed, TCPSocket} ->
-                    ct:fail("Did not receive TCP data"),
-	            ok;
-	        Other ->
-                    {error, Other}
-            end;
+            <<"Downgraded">> = active_tcp_recv(TCPSocket, length("Downgraded")),
+            ok;
 	{error, timeout} ->
 	    ct:comment("Timed out, downgrade aborted"),
 	    ok;
@@ -885,14 +874,6 @@ tls_closed_in_active_once_loop(Socket) ->
             {error, ssl_setopt_failed}
     end.
 
-drop_handshakes(Socket, Timeout) ->
-    {ok, <<RecType:8, _RecMajor:8, _RecMinor:8, RecLen:16>> = Header} = gen_tcp:recv(Socket, 5, Timeout),
-    {ok, <<Frag:RecLen/binary>>} = gen_tcp:recv(Socket, RecLen, Timeout),
-    case RecType of
-        22 -> drop_handshakes(Socket, Timeout);
-        _ -> {ok, <<Header/binary, Frag/binary>>}
-    end.
-
 receive_msg(_) ->
     receive
 	Msg ->
@@ -912,3 +893,14 @@ tls_socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues)
     ct:log("All opts ~p~n", [All]),
     ok.
 	
+active_tcp_recv(Socket, N) ->
+    active_tcp_recv(Socket, N, []).
+
+active_tcp_recv(_Socket, 0, Acc) ->
+    Acc;
+active_tcp_recv(Socket, N, Acc) ->
+    receive
+	{tcp, Socket, Bytes} ->
+            active_tcp_recv(Socket, N-size(Bytes),  Acc ++ Bytes)
+    end.
+
