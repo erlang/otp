@@ -2062,6 +2062,21 @@ ERTS_POLL_EXPORT(erts_poll_init)(int *concurrent_updates)
     max_fds = OPEN_MAX;
 #endif
 
+    if (max_fds < 0 && errno == 0) {
+        /* On macOS 11 and higher, it possible to have an unlimited
+         * number of open files per process.  ERTS will need an actual
+         * limit, though, so we will set it to a largish value.  The
+         * number below is the hard number of file descriptors per
+         * process as returned by `sysctl kern.maxfilesperproc`, which
+         * seems to be the limit in practice.
+         *
+         * Note: The size of the port table will be based on max_fds,
+         * so we don't want to set it to a huge value such as
+         * MAX_INT.
+         */
+        max_fds = 24576;
+    }
+
 #if ERTS_POLL_USE_SELECT && defined(FD_SETSIZE) && \
 	!defined(_DARWIN_UNLIMITED_SELECT)
     if (max_fds > FD_SETSIZE)
