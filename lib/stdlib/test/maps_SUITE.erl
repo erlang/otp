@@ -34,7 +34,9 @@
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
          t_merge_with/1, t_from_keys/1,
-         error_info/1]).
+         error_info/1,
+         t_from_list_kill_process/1,
+         t_from_list_check_trapping/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 -define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
@@ -52,7 +54,86 @@ all() ->
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
      t_merge_with, t_from_keys,
-     error_info].
+     error_info,
+     t_from_list_kill_process,
+     t_from_list_check_trapping].
+
+t_from_list_kill_process(Config) when is_list(Config) ->
+    Killer = self(),
+    {Child, ChildRef} =
+        spawn_monitor(
+          fun() ->
+                  MapSize = 10000,
+                  List = [{X, X} || X <- lists:seq(1, MapSize)],
+                  (fun Loop(Round) ->
+                          io:format("Sarting Round ~p~n", [Round]),
+                          case Round =:= 0 of
+                              true ->
+                                  Killer ! starting;
+                              false ->
+                                  ok
+                          end,
+                          Map = maps:from_list(List),
+                          io:format("Child survived round ~p ~p~n", [Round, maps:size(Map)]),
+                          Loop(Round + 1)
+                  end)(0)
+          end),
+    receive
+        starting -> ok
+    end,
+    exit(Child, kill),
+    %wait for exit message
+    receive
+        {'DOWN', ChildRef, process, _, killed} -> ok
+    end,
+    ok.
+
+%% Check that maps:from_list/1 is trapping
+t_from_list_check_trapping(Config) when is_list(Config) ->
+    Tracer = self(),
+    {Pid, Mon} =
+        spawn_monitor(
+          fun () ->
+                  ListTmp = [{X,X} || X <- [X || {_,X} <- lists:sort([ {rand:uniform(), N} || N <- lists:seq(1,100000)])]],
+                  List = [{-1,-1} | ListTmp],
+                  erlang:yield(),
+                  erlang:trace(self(),true,[running,{tracer,Tracer}]),
+                  M = maps:from_list(List),
+                  %% To avoid that compiler optimizes away the call above
+                  maps:get(-1, M)
+          end),
+    receive
+	{'DOWN', Mon, process, Pid, Reason} ->
+	    normal = Reason
+    end,
+    TD = erlang:trace_delivered(Pid),
+    receive
+	{trace_delivered, Pid, TD} ->
+	    NoYields = trace_get_number_of_yields(Pid, {maps, from_list, 1}, 0),
+	    io:format("No of yields: ~p~n", [NoYields]),
+	    true =  NoYields > 2
+    end,
+    ok.
+
+trace_get_number_of_yields(P, TrapFunc, N) ->
+    receive
+	{trace, P, out, TrapFunc} ->
+	    receive
+		{trace, P, in, TrapFunc} ->
+                    trace_get_number_of_yields(P, TrapFunc, N+1)
+	    after 0 ->
+		    exit(trap_sched_mismatch)
+	    end;
+	{trace, P, out, Func} ->
+	    receive
+		{trace, P, in, Func} ->
+		    trace_get_number_of_yields(P, TrapFunc, N)
+	    after 0 ->
+		    exit(other_sched_mismatch)
+	    end
+    after 0 ->
+	    N
+    end.
 
 t_from_keys(Config) when is_list(Config) ->
     Map0 = maps:from_keys(["a", 2, {three}], value),

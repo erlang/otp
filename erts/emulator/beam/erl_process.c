@@ -8495,6 +8495,7 @@ sched_thread_func(void *vesdp)
 
     erts_alcu_sched_spec_data_init(esdp);
     erts_ets_sched_spec_data_init(esdp);
+    erts_utils_sched_spec_data_init();
 
     process_main(esdp);
 
