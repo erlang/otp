@@ -26,14 +26,12 @@
 %% Author contact: carlsson.richard@gmail.com
 %% =====================================================================
 
--define(NO_APP, []).
-
 -record(doclet_context, {dir = "",
 			 env,
 			 opts = []}).
 
 -record(doclet_gen, {sources = [],
-		     app = ?NO_APP,
+		     app = no_app,
 		     modules = []}).
 
 -record(doclet_toc, {paths,

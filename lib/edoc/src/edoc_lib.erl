@@ -608,7 +608,7 @@ write_file(Text, Dir, Name, Options) ->
 %% @private
 write_info_file(App, Modules, Dir) ->
     Ts = [{modules, Modules}],
-    Ts1 = if App =:= ?NO_APP -> Ts;
+    Ts1 = if App =:= no_app -> Ts;
 	     true -> [{application, App} | Ts]
 	  end,
     S0 = [io_lib:fwrite("~p.\n", [T]) || T <- Ts1],
@@ -636,7 +636,7 @@ read_file(File) ->
 %% Info files
 
 info_file_data(Ts) ->
-    App = proplists:get_value(application, Ts, ?NO_APP),
+    App = proplists:get_value(application, Ts, no_app),
     Ms = proplists:append_values(modules, Ts),
     {App, Ms}.
 
@@ -653,10 +653,10 @@ read_info_file(Dir) ->
 		{error, R} ->
 		    R1 = file:format_error(R),
 		    warning("could not read '~ts': ~ts.", [File, R1]),
-		    {?NO_APP, []}
+		    {no_app, []}
 	    end;
 	false ->
-	    {?NO_APP, []}
+	    {no_app, []}
     end.
 
 parse_info_file(Text, Name) ->
@@ -665,10 +665,10 @@ parse_info_file(Text, Name) ->
 	    info_file_data(Vs);
 	{error, eof} ->
 	    warning("unexpected end of file in '~ts'.", [Name]),
-	    {?NO_APP, []};
+	    {no_app, []};
 	{error, {_Line,Module,R}} ->
 	    warning("~ts: ~ts.", [Module:format_error(R), Name]),
-	    {?NO_APP, []}
+	    {no_app, []}
     end.
 
 parse_terms(Text) ->
@@ -796,7 +796,7 @@ get_doc_links(App, Modules, Opts) ->
     make_links(Ds1, D, D).
 
 make_links([{Dir, {App, Ms}} | Ds], A, M) ->
-    A1 = if App == ?NO_APP -> A;
+    A1 = if App == no_app -> A;
 	    true -> add_new(App, Dir, A)
 	 end,
     F = fun (K, D) -> add_new(K, Dir, D) end,
@@ -826,7 +826,7 @@ add_new(K, V, D) ->
 
 -spec get_doc_env(proplist()) -> edoc:env().
 get_doc_env(Opts) ->
-    get_doc_env([], [], Opts).
+    get_doc_env(no_app, [], Opts).
 
 %% @doc Creates an environment data structure used by parts of EDoc for
 %% generating references, etc. See {@link edoc:run/2} for a description
@@ -840,7 +840,7 @@ get_doc_env(Opts) ->
 %% DEFER-OPTIONS: edoc:run/2
 
 -spec get_doc_env(App, Modules, Options) -> edoc:env() when
-      App :: atom(),
+      App :: atom() | no_app,
       Modules :: [module()],
       Options :: proplist().
 get_doc_env(App, Modules, Opts) ->

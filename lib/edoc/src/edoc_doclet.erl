@@ -58,8 +58,7 @@
 -export_type([command/0,
 	      context/0,
 	      doclet_gen/0,
-	      doclet_toc/0,
-	      no_app/0]).
+	      doclet_toc/0]).
 
 -type command() :: doclet_gen()
 		 | doclet_toc().
@@ -70,14 +69,8 @@
 				   opts :: [term()]}.
 %% Context for doclets.
 
--type no_app() :: ?NO_APP.
-%% A value used to mark absence of an Erlang application
-%% context. Use the macro `NO_APP' defined in
-%% <a href="edoc_doclet.hrl">`edoc_doclet.hrl'</a>
-%% to produce this value.
-
 -type doclet_gen() :: #doclet_gen{sources :: [string()],
-				  app :: no_app() | atom(),
+				  app :: no_app | atom(),
 				  modules :: [module()]}.
 %% Doclet command.
 
@@ -181,7 +174,7 @@ gen(Sources, App, Modules, Ctxt) ->
 
 title(App, Options) ->
     proplists:get_value(title, Options,
-			if App == ?NO_APP ->
+			if App == no_app ->
 				"Overview";
 			   true ->
 				io_lib:fwrite("Application: ~ts", [App])

@@ -381,7 +381,7 @@ run(Files, Opts0) ->
     Path = proplists:append_values(source_path, Opts),
     Ss = sources(Path, Opts),
     {Ss1, Ms} = expand_sources(expand_files(Files) ++ Ss, Opts),
-    App = proplists:get_value(application, Opts, ?NO_APP),
+    App = proplists:get_value(application, Opts, no_app),
     {App1, Ms1} = target_dir_info(Dir, App, Ms, Opts),
     Ms2 = edoc_lib:unique(lists:sort(Ms1)),
     Env = edoc_lib:get_doc_env(App1, Ms2, Opts),
@@ -453,7 +453,7 @@ target_dir_info(Dir, App, Ms, Opts) ->
 	    {App, Ms};
 	false ->
 	    {App1, Ms1} = edoc_lib:read_info_file(Dir),
-	    {if App == ?NO_APP -> App1;
+	    {if App == no_app -> App1;
 		true -> App
 	     end,
 	     Ms ++ Ms1}
