@@ -1209,7 +1209,12 @@ parse_att_value(?STRING_REST("&", Rest), State, Stop, Acc)  ->
         {external_general, Name, _} ->
             ?fatal_error(State1, "External parsed entity reference in attribute value: " ++ Name);
         {not_found, Name} when State#xmerl_sax_parser_state.file_type =:= normal ->
-            ?fatal_error(State1, "Undeclared reference: " ++ Name);
+            case State1#xmerl_sax_parser_state.skip_external_dtd of
+                false ->
+                    ?fatal_error(State1, "Undeclared reference: " ++ Name);
+                true ->
+                    parse_att_value(Rest1, State1, Stop, ";" ++ lists:reverse(Name) ++ "&" ++ Acc)
+            end;
         {not_found, Name} ->
             parse_att_value(Rest1, State1, Stop, ";" ++ lists:reverse(Name) ++ "&" ++ Acc);
         {unparsed, Name, _}  ->
