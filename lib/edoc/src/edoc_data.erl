@@ -81,6 +81,11 @@
 %% NEW-OPTIONS: private, hidden, todo
 %% DEFER-OPTIONS: edoc_extract:source/4
 
+-spec module(Module, Entries, Env, Opts) -> edoc:xmerl_module() when
+      Module :: edoc:module_meta(),
+      Entries :: [edoc:entry()],
+      Env :: edoc:env(),
+      Opts :: proplists:proplist().
 module(Module, Entries, Env, Opts) ->
     Name = atom_to_list(Module#module.name),
     HeaderEntry = get_entry(module, Entries),

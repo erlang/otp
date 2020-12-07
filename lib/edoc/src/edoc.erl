@@ -60,23 +60,71 @@
 	 read_comments/1, read_comments/2,
 	 read_source/1, read_source/2]).
 
--compile({no_auto_import,[error/1]}).
+-export_type([module_meta/0,
+	      env/0,
+	      comment/0,
+	      entry/0,
+	      entry_data/0,
+	      tag/0,
+	      xmerl_module/0]).
 
 -include("edoc.hrl").
 
+-type module_meta() :: #module{name :: [] | atom(),
+			       parameters :: none | [atom()],
+			       functions :: ordset(function_name()),
+			       exports :: ordset(function_name()),
+			       attributes :: ordset({atom(), term()}),
+			       records :: [{atom(), [{atom(), term()}]}],
+			       encoding :: epp:source_encoding()}.
+%% Module information.
 
-%% @spec (Name::filename()) -> ok
+-type env() :: #env{}.
+%% Environment information needed by EDoc for generating references.
+
+-type comment() :: #comment{line :: integer(),
+			    text :: string()}.
+%% Simplified comment data.
+
+
+-type entry() :: #entry{name :: function_name() | atom(),
+			args :: [atom()],
+			line :: integer(),
+			export :: boolean(),
+			data :: entry_data()}.
+%% Module Entries (one per function, plus module header and footer).
+
+-type entry_data() :: term().
+
+-type tag() :: #tag{name :: atom(),
+		    line :: integer(),
+		    origin :: comment,
+		    data :: term()}.
+%% Generic tag information.
+
+-type xmerl_module() :: any().
+%% The EDoc documentation data for a module,
+%% expressed as an XML document in {@link //xmerl. XMerL} format. See
+%% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
+
+-type ordset(T) :: ordsets:ordset(T).
+-type function_name() :: {atom(), integer()}.
+-type filename() :: file:filename().
+-type proplist() :: proplists:proplist().
+-type comment2() :: { Line :: integer(),
+		      Column :: integer(),
+		      Indentation :: integer(),
+		      Text :: [string()] }.
+-type syntaxTree() :: erl_syntax:syntaxTree().
+
+-compile({no_auto_import, [error/1]}).
+
 %% @equiv file(Name, [])
 %% @deprecated See {@link file/2} for details.
-
+-spec file(filename()) -> ok.
 file(Name) ->
     file(Name, []).
 
-%% @spec file(filename(), proplist()) -> ok
-%%
-%% @type filename() = //kernel/file:filename()
-%% @type proplist() = [term()]
-%%
 %% @deprecated This is part of the old interface to EDoc and is mainly
 %% kept for backwards compatibility. The preferred way of generating
 %% documentation is through one of the functions {@link application/2}
@@ -116,6 +164,9 @@ file(Name) ->
 %% NEW-OPTIONS: source_suffix, file_suffix, dir
 %% INHERIT-OPTIONS: read/2
 
+-spec file(Name, Options) -> ok when
+      Name :: filename(),
+      Options :: proplist().
 file(Name, Options) ->
     Text = read(Name, Options),
     SrcSuffix = proplists:get_value(source_suffix, Options,
@@ -130,31 +181,32 @@ file(Name, Options) ->
 
 %% TODO: better documentation of files/1/2, application/1/2/3
 
-%% @spec (Files::[filename()]) -> ok
-
+-spec files([filename()]) -> ok.
 files(Files) ->
     files(Files, []).
 
-%% @spec (Files::[filename()],
-%%        Options::proplist()) -> ok
 %% @doc Runs EDoc on a given set of source files. See {@link run/2} for
 %% details, including options.
 %% @equiv run([], Files, Options)
 
+-spec files(Files, Options) -> ok when
+      Files :: [filename()],
+      Options :: proplist().
 files(Files, Options) ->
     run(Files, Options).
 
-%% @spec (Application::atom()) -> ok
 %% @equiv application(Application, [])
-
+-spec application(atom()) -> ok.
 application(App) ->
     application(App, []).
 
-%% @spec (Application::atom(), Options::proplist()) -> ok
 %% @doc Run EDoc on an application in its default app-directory. See
 %% {@link application/3} for details.
 %% @see application/1
 
+-spec application(App, Options) -> ok when
+      App :: atom(),
+      Options :: proplist().
 application(App, Options) when is_atom(App) ->
     case code:lib_dir(App) of
  	Dir when is_list(Dir) ->
@@ -165,8 +217,6 @@ application(App, Options) when is_atom(App) ->
  	    exit(error)
     end.
 
-%% @spec (Application::atom(), Dir::filename(), Options::proplist())
-%%        -> ok
 %% @doc Run EDoc on an application located in the specified directory.
 %% Tries to automatically set up good defaults. Unless the user
 %% specifies otherwise:
@@ -191,6 +241,10 @@ application(App, Options) when is_atom(App) ->
 %%
 %% @see application/2
 
+-spec application(App, Dir, Options) -> ok when
+      App :: atom(),
+      Dir :: filename(),
+      Options :: proplist().
 application(App, Dir, Options) when is_atom(App) ->
     Src = edoc_lib:try_subdir(Dir, ?SOURCE_DIR),
     Overview = filename:join(edoc_lib:try_subdir(Dir, ?EDOC_DIR),
@@ -232,8 +286,6 @@ opt_negations() ->
      {no_subpackages, subpackages},
      {no_report_missing_types, report_missing_types}].
 
-%% @spec run(Files::[filename()],
-%%           Options::proplist()) -> ok
 %% @doc Runs EDoc on a given set of source files. Note
 %% that the doclet plugin module has its own particular options; see the
 %% `doclet' option below.
@@ -319,10 +371,13 @@ opt_negations() ->
 %% INHERIT-OPTIONS: edoc_lib:run_doclet/2
 %% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
+-spec run(Files, Opts) -> ok when
+      Files :: [filename()],
+      Opts :: proplist().
 run(Files, Opts0) ->
     Opts = expand_opts(Opts0),
     Ctxt = init_context(Opts),
-    Dir = Ctxt#context.dir,
+    Dir = Ctxt#doclet_context.dir,
     Path = proplists:append_values(source_path, Opts),
     Ss = sources(Path, Opts),
     {Ss1, Ms} = expand_sources(expand_files(Files) ++ Ss, Opts),
@@ -330,7 +385,7 @@ run(Files, Opts0) ->
     {App1, Ms1} = target_dir_info(Dir, App, Ms, Opts),
     Ms2 = edoc_lib:unique(lists:sort(Ms1)),
     Env = edoc_lib:get_doc_env(App1, Ms2, Opts),
-    Ctxt1 = Ctxt#context{env = Env},
+    Ctxt1 = Ctxt#doclet_context{env = Env},
     Cmd = #doclet_gen{sources = Ss1,
 		      app = App1,
 		      modules = Ms2
@@ -348,7 +403,7 @@ expand_opts(Opts0) ->
 %% DEFER-OPTIONS: run/2
 
 init_context(Opts) ->
-    #context{dir = proplists:get_value(dir, Opts, ?CURRENT_DIR),
+    #doclet_context{dir = proplists:get_value(dir, Opts, ?CURRENT_DIR),
 	     opts = Opts
 	    }.
 
@@ -431,21 +486,19 @@ toc(Dir, Paths, Opts0) ->
     Opts = expand_opts(Opts0 ++ [{dir, Dir}]),
     Ctxt = init_context(Opts),
     Env = edoc_lib:get_doc_env('', [], Opts),
-    Ctxt1 = Ctxt#context{env = Env},
+    Ctxt1 = Ctxt#doclet_context{env = Env},
     F = fun (M) ->
 		M:run(#doclet_toc{paths=Paths}, Ctxt1)
 	end,
     edoc_lib:run_doclet(F, Opts).
 
 
-%% @spec read(File::filename()) -> string()
 %% @equiv read(File, [])
 
+-spec read(filename()) -> string().
 read(File) ->
     read(File, []).
 
-%% @spec read(File::filename(), Options::proplist()) -> string()
-%%
 %% @doc Reads and processes a source file and returns the resulting
 %% EDoc-text as a string. See {@link get_doc/2} and {@link layout/2} for
 %% options.
@@ -454,19 +507,20 @@ read(File) ->
 
 %% INHERIT-OPTIONS: get_doc/2, layout/2
 
+-spec read(File, Opts) -> string() when
+      File :: filename(),
+      Opts :: proplist().
 read(File, Opts) ->
     {_ModuleName, Doc} = get_doc(File, Opts),
     layout(Doc, Opts).
 
 
-%% @spec layout(Doc::edoc_module()) -> string()
 %% @equiv layout(Doc, [])
 
+-spec layout(xmerl_module()) -> string().
 layout(Doc) ->
     layout(Doc, []).
 
-%% @spec layout(Doc::edoc_module(), Options::proplist()) -> string()
-%%
 %% @doc Transforms EDoc module documentation data to text. The default
 %% layout creates an HTML document.
 %%
@@ -488,47 +542,38 @@ layout(Doc) ->
 
 %% INHERIT-OPTIONS: edoc_lib:run_layout/2
 
+-spec layout(Doc, Opts) -> string() when
+      Doc :: xmerl_module(),
+      Opts :: proplist().
 layout(Doc, Opts) ->
     F = fun (M) ->
 		M:module(Doc, Opts)
 	end,
     edoc_lib:run_layout(F, Opts).
 
-
-%% @spec (File) ->  [comment()]
-%% @type comment() = {Line, Column, Indentation, Text}
-%% where
-%%   Line = integer(),
-%%   Column = integer(),
-%%   Indentation = integer(),
-%%   Text = [string()]
 %% @equiv read_comments(File, [])
 
+-spec read_comments(filename()) ->  [comment2()].
 read_comments(File) ->
     read_comments(File, []).
 
-%% @spec read_comments(File::filename(), Options::proplist()) ->
-%%           [comment()]
-%%
 %% @doc Extracts comments from an Erlang source code file. See the
 %% module {@link //syntax_tools/erl_comment_scan} for details on the
 %% representation of comments. Currently, no options are avaliable.
 
+-spec read_comments(File, Opts) -> [comment2()] when
+      File :: filename(),
+      Opts :: proplist().
 read_comments(File, _Opts) ->
     erl_comment_scan:file(File).
 
 
-%% @spec (File) -> [syntaxTree()]
 %% @equiv read_source(File, [])
 
+-spec read_source(filename()) -> [syntaxTree()].
 read_source(Name) ->
     read_source(Name, []).
 
-%% @spec read_source(File::filename(), Options::proplist()) ->
-%%           [syntaxTree()]
-%%
-%% @type syntaxTree() = //syntax_tools/erl_syntax:syntaxTree()
-%%
 %% @doc Reads an Erlang source file and returns the list of "source code
 %% form" syntax trees.
 %%
@@ -573,6 +618,9 @@ read_source(Name) ->
 
 %% NEW-OPTIONS: [no_]preprocess (preprocess -> includes, macros)
 
+-spec read_source(File, Opts) -> [syntaxTree()] when
+      File :: filename(),
+      Opts :: proplist().
 read_source(Name, Opts0) ->
     Opts = expand_opts(Opts0),
     case read_source_1(Name, Opts) of
@@ -721,20 +769,12 @@ helpful_message(Name) ->
           "{preprocess, true} can help. See also edoc(3)."],
     lists:foreach(fun(M) -> edoc_report:report(Name, M, []) end, Ms).
 
-%% @spec get_doc(File::filename()) -> {ModuleName, edoc_module()}
 %% @equiv get_doc(File, [])
 
+-spec get_doc(filename()) -> {module(), xmerl_module()}.
 get_doc(File) ->
     get_doc(File, []).
 
-%% @spec get_doc(File::filename(), Options::proplist()) ->
-%%           {ModuleName, edoc_module()}
-%%	ModuleName = atom()
-%%
-%% @type edoc_module(). The EDoc documentation data for a module,
-%% expressed as an XML document in {@link //xmerl. XMerL} format. See
-%% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
-%%
 %% @doc Reads a source code file and extracts EDoc documentation data.
 %% Note that without an environment parameter (see {@link get_doc/3}),
 %% hypertext links may not be correct.
@@ -781,14 +821,13 @@ get_doc(File) ->
 %% INHERIT-OPTIONS: get_doc/3
 %% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
+-spec get_doc(File, Options) -> {module(), xmerl_module()} when
+      File :: filename(),
+      Options :: proplist().
 get_doc(File, Opts) ->
     Env = edoc_lib:get_doc_env(Opts),
     get_doc(File, Env, Opts).
 
-%% @spec get_doc(File::filename(), Env::edoc_lib:edoc_env(),
-%%        Options::proplist()) -> {ModuleName, edoc_module()}
-%%     ModuleName = atom()
-%%
 %% @doc Like {@link get_doc/2}, but for a given environment
 %% parameter. `Env' is an environment created by {@link
 %% edoc_lib:get_doc_env/3}.
@@ -796,5 +835,11 @@ get_doc(File, Opts) ->
 %% INHERIT-OPTIONS: read_source/2, read_comments/2, edoc_extract:source/5
 %% DEFER-OPTIONS: get_doc/2
 
+-spec get_doc(File, Env, Options) -> R when
+      File :: filename(),
+      Env :: env(),
+      Options :: proplist(),
+      R :: {module(), xmerl_module()}
+         | {module(), xmerl_module(), [entry()]}.
 get_doc(File, Env, Opts) ->
     edoc_extract:source(File, Env, Opts).

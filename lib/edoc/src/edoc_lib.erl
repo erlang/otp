@@ -38,12 +38,16 @@
 	 write_file/3, write_file/4, write_info_file/3,
 	 read_info_file/1, get_doc_env/1, get_doc_env/3, copy_file/2,
 	 run_doclet/2, run_layout/2,
-	 simplify_path/1, timestr/1, datestr/1, read_encoding/2]).
+	 simplify_path/1, timestr/1, datestr/1, read_encoding/2,
+	 infer_module_app/1]).
 
 -import(edoc_report, [report/2, warning/2]).
 
 -include("edoc.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+
+-type filename() :: file:filename().
+-type proplist() :: proplists:proplist().
 
 -define(FILE_BASE, "/").
 
@@ -66,6 +70,29 @@ read_encoding(File, Options) ->
     case epp:read_encoding(File, Options) of
         none -> epp:default_encoding();
         Encoding -> Encoding
+    end.
+
+%% @doc Infer application containing the given module.
+%%
+%% It's expected that modules which are not preloaded
+%% and don't match the  `<app>/ebin/<mod>.beam' path pattern
+%% will NOT have an app name inferred properly.
+%% `no_app' is returned in such cases.
+-spec infer_module_app(module()) -> no_app | {app, atom()}.
+infer_module_app(Mod) ->
+    case code:which(Mod) of
+	ModPath when is_list(ModPath) ->
+	    case lists:reverse(string:tokens(ModPath, "/")) of
+		[_BeamFile, "ebin", AppVer | _] ->
+		    [App | _] = string:tokens(AppVer, "-"),
+		    {app, list_to_atom(App)};
+		_ ->
+		    no_app
+	    end;
+	preloaded ->
+	    {app, erts};
+	_ ->
+	    no_app
     end.
 
 %% @private
@@ -305,18 +332,18 @@ parse_expr(S, L) ->
     end.
 
 
+-record(info, {name = "",
+	       email = "",
+	       uri = ""}).
+
+%-type info() :: #info{name :: string(),
+%                      email :: string(),
+%                      uri :: string()}.
+
 %% @doc EDoc "contact information" parsing. This is the type of the
 %% content in e.g.
 %% <a href="overview-summary.html#mtag-author">`@author'</a> tags.
 %% @private
-
-%% % @type info() = #info{name  = string(),
-%% %                      email = string(),
-%% %                      uri   = string()}
-
--record(info, {name = ""  :: string(),
-	       email = "" :: string(),
-	       uri = ""   :: string()}).
 
 parse_contact(S, L) ->
     I = scan_name(S, L, #info{}, []),
@@ -554,13 +581,14 @@ try_subdir(Dir, Subdir) ->
 	false -> Dir
     end.
 
-%% @spec (Text::deep_string(), Dir::edoc:filename(),
-%%        Name::edoc:filename()) -> ok
-%%
 %% @doc Write the given `Text' to the file named by `Name' in directory
 %% `Dir'. If the target directory does not exist, it will be created.
 %% @private
 
+-spec write_file(Text, Dir, Name) -> ok when
+      Text :: unicode:chardata(),
+      Dir :: filename(),
+      Name :: filename().
 write_file(Text, Dir, Name) ->
     write_file(Text, Dir, Name, [{encoding,latin1}]).
 
@@ -587,10 +615,9 @@ write_info_file(App, Modules, Dir) ->
     S = ["%% encoding: UTF-8\n" | S0],
     write_file(S, Dir, ?INFO_FILE, [{encoding,unicode}]).
 
-%% @spec (Name::edoc:filename()) -> {ok, string()} | {error, Reason}
-%%
 %% @doc Reads text from the file named by `Name'.
 
+-spec read_file(filename()) -> {ok, string()} | {error, term()}.
 read_file(File) ->
     case file:read_file(File) of
 	{ok, Bin} ->
@@ -794,22 +821,13 @@ add_new(K, V, D) ->
 	    dict:store(K, V, D)
     end.
 
-%% @spec (Options::proplist()) -> edoc_env()
 %% @equiv get_doc_env([], [], Opts)
 %% @private
 
+-spec get_doc_env(proplist()) -> edoc:env().
 get_doc_env(Opts) ->
     get_doc_env([], [], Opts).
 
-%% @spec (App, Modules, Options::proplist()) -> edoc_env()
-%%     App = [] | atom()
-%%     Modules = [atom()]
-%%     proplist() = [term()]
-%%
-%% @type proplist() = //stdlib/proplists:property().
-%% @type edoc_env(). Environment information needed by EDoc for
-%% generating references. The data representation is not documented.
-%%
 %% @doc Creates an environment data structure used by parts of EDoc for
 %% generating references, etc. See {@link edoc:run/2} for a description
 %% of the options `file_suffix', `app_default' and `doc_path'.
@@ -821,6 +839,10 @@ get_doc_env(Opts) ->
 %% INHERIT-OPTIONS: get_doc_links/4
 %% DEFER-OPTIONS: edoc:run/2
 
+-spec get_doc_env(App, Modules, Options) -> edoc:env() when
+      App :: atom(),
+      Modules :: [module()],
+      Options :: proplist().
 get_doc_env(App, Modules, Opts) ->
     Suffix = proplists:get_value(file_suffix, Opts,
 				 ?DEFAULT_FILE_SUFFIX),

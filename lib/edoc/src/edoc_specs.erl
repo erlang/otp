@@ -23,7 +23,7 @@
 
 -export([type/2, spec/1, dummy_spec/1, docs/2]).
 
--export([add_data/4, tag/1, is_tag/1]).
+-export([add_type_data/4, tag/1, is_tag/1]).
 
 -include("edoc.hrl").
 -include("edoc_types.hrl").
@@ -96,16 +96,16 @@ dummy_spec(Form) ->
 docs(Forms, CommentFun) ->
     find_type_docs(Forms, [], CommentFun).
 
--type entry() :: #entry{}.
--type module_info() :: #module{}.
--type entries() :: [entry()].
--spec add_data(Entries::entries(), Options::proplists:proplist(),
-               File::file:filename(), Module::module_info()) -> entries().
-
 %% @doc Create tags a la EDoc for Erlang specifications and types.
 %% Exported types and types used (indirectly) by Erlang specs are
 %% added to the entries.
-add_data(Entries, Opts, File, Module) ->
+
+-spec add_type_data(Entries, Opts, File, Module) -> [edoc:entry()] when
+      Entries :: [edoc:entry()],
+      Opts :: proplists:proplist(),
+      File :: file:filename(),
+      Module :: edoc:module_meta().
+add_type_data(Entries, Opts, File, Module) ->
     TypeDefs0 = espec_types(Entries),
     TypeTable = ets:new(etypes, [ordered_set]),
     Es1 = expand_records(Entries, TypeDefs0, TypeTable, Opts, File, Module),
@@ -634,7 +634,7 @@ analyze_type_attribute(Form) ->
 %% @doc Return `true' if `Tag' is one of the specification and type
 %% attribute tags recognized by the Erlang compiler.
 
--spec is_tag(Tag::atom()) -> boolean().
+-spec is_tag(Tag :: tag_kind() | term()) -> boolean().
 
 is_tag(opaque) -> true;
 is_tag(spec) -> true;
@@ -643,8 +643,8 @@ is_tag(_) -> false.
 
 %% @doc Return the kind of the attribute tag.
 
--type tag_kind() :: 'type' | 'spec' | 'unknown'.
--spec tag(Tag::atom()) -> tag_kind().
+-type tag_kind() :: 'spec' | 'type'.
+-spec tag(Tag :: atom()) -> tag_kind() | unknown.
 
 tag(opaque) -> type;
 tag(spec) -> spec;

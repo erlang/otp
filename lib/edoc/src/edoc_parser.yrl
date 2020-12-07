@@ -337,7 +337,7 @@ all_vars(As) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc EDoc type specification parsing. Parses the content of
+%% EDoc type specification parsing. Parses the content of
 %% <a href="overview-summary.html#ftag-spec">`@spec'</a> declarations.
 
 parse_spec(S, L) ->
@@ -355,7 +355,7 @@ parse_spec(S, L) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc EDoc type definition parsing. Parses the content of
+%% EDoc type definition parsing. Parses the content of
 %% <a href="overview-summary.html#gtag-type">`@type'</a> declarations.
 
 parse_typedef(S, L) ->
