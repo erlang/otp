@@ -57,10 +57,10 @@ init(_O) ->
     MaxT = 3600,
    
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {dtls_connection, start_link, []},
+    StartFunc = {ssl_gen_statem, start_link, []},
     Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [dtls_connection, ssl_connection],
+    Modules = [ssl_gen_statem, dtls_connection],
     Type = worker,
     
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},

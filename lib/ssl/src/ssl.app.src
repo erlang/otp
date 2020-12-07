@@ -12,6 +12,7 @@
 	       tls_socket,
 	       tls_v1,
 	       tls_connection_sup,
+	       tls_gen_connection,
 	       tls_sender,
                tls_server_sup,
                tls_server_session_ticket_sup,
@@ -25,6 +26,7 @@
 	       dtls_socket,
 	       dtls_v1,
 	       dtls_connection_sup,
+               dtls_gen_connection,
 	       dtls_packet_demux,
 	       dtls_listener_sup,
                dtls_sup,
@@ -34,8 +36,9 @@
 	       ssl,  %% Main API		  
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
+               tls_dtls_connection,
 	       ssl_config,
-	       ssl_connection,
+               ssl_gen_statem,
 	       ssl_handshake,
 	       ssl_record,
 	       ssl_cipher,
@@ -78,5 +81,5 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-3.5","public_key-1.8","kernel-6.0",
+    {runtime_dependencies, ["stdlib-3.12","public_key-1.8","kernel-6.0",
 			    "erts-10.0","crypto-4.2", "inets-5.10.7"]}]}.

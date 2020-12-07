@@ -36,7 +36,7 @@
 -record(static_env, {
                      role                  :: client | server,
                      transport_cb          :: atom(),   % callback module
-                     protocol_cb           :: tls_connection | dtls_connection,
+                     protocol_cb           :: tls_gen_connection | dtls_gen_connection,
                      data_tag              :: atom(),   % ex tcp.
                      close_tag             :: atom(),   % ex tcp_closed
                      error_tag             :: atom(),   % ex tcp_error

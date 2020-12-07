@@ -85,7 +85,7 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
 				inet_ssl = SocketOpts}, Timeout) ->
     case Transport:open(0, SocketOpts ++ internal_inet_values()) of
 	{ok, Socket} ->
-	    ssl_connection:connect(ConnectionCb, Address, Port, {{Address, Port},Socket}, 
+	    ssl_gen_statem:connect(ConnectionCb, Address, Port, {{Address, Port},Socket},
 				   {SslOpts, 
 				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				   self(), CbInfo, Timeout);
