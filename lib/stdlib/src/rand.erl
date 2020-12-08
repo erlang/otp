@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,32 +147,32 @@
 %% =====================================================================
 
 -define(
-   uniform_range(Range, Alg, R, V, MaxMinusRange, I),
+   uniform_range(Range, AlgHandler, R, V, MaxMinusRange, I),
    if
        0 =< (MaxMinusRange) ->
            if
                %% Really work saving in odd cases;
                %% large ranges in particular
                (V) < (Range) ->
-                   {(V) + 1, {(Alg), (R)}};
+                   {(V) + 1, {(AlgHandler), (R)}};
                true ->
                    (I) = (V) rem (Range),
                    if
                        (V) - (I) =< (MaxMinusRange) ->
-                           {(I) + 1, {(Alg), (R)}};
+                           {(I) + 1, {(AlgHandler), (R)}};
                        true ->
                            %% V in the truncated top range
                            %% - try again
-                           ?FUNCTION_NAME((Range), {(Alg), (R)})
+                           ?FUNCTION_NAME((Range), {(AlgHandler), (R)})
                    end
            end;
        true ->
-           uniform_range((Range), (Alg), (R), (V))
+           uniform_range((Range), (AlgHandler), (R), (V))
    end).
 
 %% For ranges larger than the algorithm bit size
-uniform_range(Range, #{next:=Next, bits:=Bits} = Alg, R, V) ->
-    WeakLowBits = maps:get(weak_low_bits, Alg, 0),
+uniform_range(Range, #{next:=Next, bits:=Bits} = AlgHandler, R, V) ->
+    WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
     %% Maybe waste the lowest bit(s) when shifting in new bits
     Shift = Bits - WeakLowBits,
     ShiftMask = bnot ?MASK(WeakLowBits),
@@ -183,7 +183,7 @@ uniform_range(Range, #{next:=Next, bits:=Bits} = Alg, R, V) ->
             {V1, R1, _} =
                 uniform_range(
                   Range bsr Bits, Next, R, V, ShiftMask, Shift, Bits),
-            {(V1 band RangeMinus1) + 1, {Alg, R1}};
+            {(V1 band RangeMinus1) + 1, {AlgHandler, R1}};
         true ->
             %% Generate a value with at least two bits more than the range
             %% and try that for a fit, otherwise recurse
@@ -203,12 +203,12 @@ uniform_range(Range, #{next:=Next, bits:=Bits} = Alg, R, V) ->
             I = V1 rem Range,
             if
                 (V1 - I) =< (1 bsl B) - Range ->
-                    {I + 1, {Alg, R1}};
+                    {I + 1, {AlgHandler, R1}};
                 true ->
                     %% V1 drawn from the truncated top range
                     %% - try again
                     {V2, R2} = Next(R1),
-                    uniform_range(Range, Alg, R2, V2)
+                    uniform_range(Range, AlgHandler, R2, V2)
             end
     end.
 %%
@@ -230,10 +230,10 @@ uniform_range(Range, Next, R, V, ShiftMask, Shift, B) ->
 %% =====================================================================
 
 %% Return algorithm and seed so that RNG state can be recreated with seed/1
--spec export_seed() -> undefined | export_state().
+-spec export_seed() -> 'undefined' | export_state().
 export_seed() ->
     case get(?SEED_DICT) of
-	{#{type:=Alg}, Seed} -> {Alg, Seed};
+	{#{type:=Alg}, AlgState} -> {Alg, AlgState};
 	_ -> undefined
     end.
 
@@ -307,14 +307,14 @@ uniform(N) ->
 -spec uniform_s(State :: state()) -> {X :: float(), NewState :: state()}.
 uniform_s(State = {#{uniform:=Uniform}, _}) ->
     Uniform(State);
-uniform_s({#{bits:=Bits, next:=Next} = Alg, R0}) ->
+uniform_s({#{bits:=Bits, next:=Next} = AlgHandler, R0}) ->
     {V, R1} = Next(R0),
     %% Produce floats on the form N * 2^(-53)
-    {(V bsr (Bits - 53)) * ?TWO_POW_MINUS53, {Alg, R1}};
-uniform_s({#{max:=Max, next:=Next} = Alg, R0}) ->
+    {(V bsr (Bits - 53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}};
+uniform_s({#{max:=Max, next:=Next} = AlgHandler, R0}) ->
     {V, R1} = Next(R0),
     %% Old algorithm with non-uniform density
-    {V / (Max + 1), {Alg, R1}}.
+    {V / (Max + 1), {AlgHandler, R1}}.
 
 
 %% uniform_s/2: given an integer N >= 1 and a state, uniform_s/2
@@ -326,22 +326,22 @@ uniform_s({#{max:=Max, next:=Next} = Alg, R0}) ->
 uniform_s(N, State = {#{uniform_n:=UniformN}, _})
   when is_integer(N), 1 =< N ->
     UniformN(N, State);
-uniform_s(N, {#{bits:=Bits, next:=Next} = Alg, R0})
+uniform_s(N, {#{bits:=Bits, next:=Next} = AlgHandler, R0})
   when is_integer(N), 1 =< N ->
     {V, R1} = Next(R0),
     MaxMinusN = ?BIT(Bits) - N,
-    ?uniform_range(N, Alg, R1, V, MaxMinusN, I);
-uniform_s(N, {#{max:=Max, next:=Next} = Alg, R0})
+    ?uniform_range(N, AlgHandler, R1, V, MaxMinusN, I);
+uniform_s(N, {#{max:=Max, next:=Next} = AlgHandler, R0})
   when is_integer(N), 1 =< N ->
     %% Old algorithm with skewed probability
     %% and gap in ranges > Max
     {V, R1} = Next(R0),  
     if
         N =< Max ->
-            {(V rem N) + 1, {Alg, R1}};
+            {(V rem N) + 1, {AlgHandler, R1}};
         true ->
             F = V / (Max + 1),
-            {trunc(F * N) + 1, {Alg, R1}}
+            {trunc(F * N) + 1, {AlgHandler, R1}}
     end.
 
 %% uniform_real/0: returns a random float X where 0.0 < X =< 1.0,
@@ -388,7 +388,7 @@ uniform_real() ->
 %%-define(TWO_POW_MINUS110, 7.7037197775489436e-34).
 %%
 -spec uniform_real_s(State :: state()) -> {X :: float(), NewState :: state()}.
-uniform_real_s({#{bits:=Bits, next:=Next} = Alg, R0}) ->
+uniform_real_s({#{bits:=Bits, next:=Next} = AlgHandler, R0}) ->
     %% Generate a 56 bit number without using the weak low bits.
     %%
     %% Be sure to use only 53 bits when multiplying with
@@ -400,22 +400,22 @@ uniform_real_s({#{bits:=Bits, next:=Next} = Alg, R0}) ->
     if
         ?BIT(55) =< M1 ->
             %% We have 56 bits - waste 3
-            {(M1 bsr 3) * math:pow(2.0, -53), {Alg, R1}};
+            {(M1 bsr 3) * math:pow(2.0, -53), {AlgHandler, R1}};
         ?BIT(54) =< M1 ->
             %% We have 55 bits - waste 2
-            {(M1 bsr 2) * math:pow(2.0, -54), {Alg, R1}};
+            {(M1 bsr 2) * math:pow(2.0, -54), {AlgHandler, R1}};
         ?BIT(53) =< M1 ->
             %% We have 54 bits - waste 1
-            {(M1 bsr 1) * math:pow(2.0, -55), {Alg, R1}};
+            {(M1 bsr 1) * math:pow(2.0, -55), {AlgHandler, R1}};
         ?BIT(52) =< M1 ->
             %% We have 53 bits - use all
-            {M1 * math:pow(2.0, -56), {Alg, R1}};
+            {M1 * math:pow(2.0, -56), {AlgHandler, R1}};
         true ->
             %% Need more bits
             {V2, R2} = Next(R1),
-            uniform_real_s(Alg, Next, M1, -56, R2, V2, Bits)
+            uniform_real_s(AlgHandler, Next, M1, -56, R2, V2, Bits)
     end;
-uniform_real_s({#{max:=_, next:=Next} = Alg, R0}) ->
+uniform_real_s({#{max:=_, next:=Next} = AlgHandler, R0}) ->
     %% Generate a 56 bit number.
     %% Ignore the weak low bits for these old algorithms,
     %% just produce something reasonable.
@@ -429,23 +429,23 @@ uniform_real_s({#{max:=_, next:=Next} = Alg, R0}) ->
     if
         ?BIT(55) =< M1 ->
             %% We have 56 bits - waste 3
-            {(M1 bsr 3) * math:pow(2.0, -53), {Alg, R1}};
+            {(M1 bsr 3) * math:pow(2.0, -53), {AlgHandler, R1}};
         ?BIT(54) =< M1 ->
             %% We have 55 bits - waste 2
-            {(M1 bsr 2) * math:pow(2.0, -54), {Alg, R1}};
+            {(M1 bsr 2) * math:pow(2.0, -54), {AlgHandler, R1}};
         ?BIT(53) =< M1 ->
             %% We have 54 bits - waste 1
-            {(M1 bsr 1) * math:pow(2.0, -55), {Alg, R1}};
+            {(M1 bsr 1) * math:pow(2.0, -55), {AlgHandler, R1}};
         ?BIT(52) =< M1 ->
             %% We have 53 bits - use all
-            {M1 * math:pow(2.0, -56), {Alg, R1}};
+            {M1 * math:pow(2.0, -56), {AlgHandler, R1}};
         true ->
             %% Need more bits
             {V2, R2} = Next(R1),
-            uniform_real_s(Alg, Next, M1, -56, R2, V2, 56)
+            uniform_real_s(AlgHandler, Next, M1, -56, R2, V2, 56)
     end.
 
-uniform_real_s(Alg, _Next, M0, -1064, R1, V1, Bits) -> % 19*56
+uniform_real_s(AlgHandler, _Next, M0, -1064, R1, V1, Bits) -> % 19*56
     %% This is a very theoretical bottom case.
     %% The odds of getting here is about 2^-1008,
     %% through a white box test case, or thanks to
@@ -454,8 +454,8 @@ uniform_real_s(Alg, _Next, M0, -1064, R1, V1, Bits) -> % 19*56
     %% Fill up to 53 bits, we have at most 52
     B0 = (53 - ?BC(M0, 52)), % Missing bits
     {(((M0 bsl B0) bor (V1 bsr (Bits - B0))) * math:pow(2.0, -1064 - B0)),
-     {Alg, R1}};
-uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits) ->
+     {AlgHandler, R1}};
+uniform_real_s(AlgHandler, Next, M0, BitNo, R1, V1, Bits) ->
     if
         %% Optimize the most probable.
         %% Fill up to 53 bits.
@@ -463,32 +463,36 @@ uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits) ->
             %% We have 52 bits in M0 - need 1
             {(((M0 bsl 1) bor (V1 bsr (Bits - 1)))
               * math:pow(2.0, BitNo - 1)),
-             {Alg, R1}};
+             {AlgHandler, R1}};
         ?BIT(50) =< M0 ->
             %% We have 51 bits in M0 - need 2
             {(((M0 bsl 2) bor (V1 bsr (Bits - 2)))
               * math:pow(2.0, BitNo - 2)),
-             {Alg, R1}};
+             {AlgHandler, R1}};
         ?BIT(49) =< M0 ->
             %% We have 50 bits in M0 - need 3
             {(((M0 bsl 3) bor (V1 bsr (Bits - 3)))
               * math:pow(2.0, BitNo - 3)),
-             {Alg, R1}};
+             {AlgHandler, R1}};
         M0 == 0 ->
             M1 = V1 bsr (Bits - 56),
             if
                 ?BIT(55) =< M1 ->
                     %% We have 56 bits - waste 3
-                    {(M1 bsr 3) * math:pow(2.0, BitNo - 53), {Alg, R1}};
+                    {(M1 bsr 3) * math:pow(2.0, BitNo - 53),
+                     {AlgHandler, R1}};
                 ?BIT(54) =< M1 ->
                     %% We have 55 bits - waste 2
-                    {(M1 bsr 2) * math:pow(2.0, BitNo - 54), {Alg, R1}};
+                    {(M1 bsr 2) * math:pow(2.0, BitNo - 54),
+                     {AlgHandler, R1}};
                 ?BIT(53) =< M1 ->
                     %% We have 54 bits - waste 1
-                    {(M1 bsr 1) * math:pow(2.0, BitNo - 55), {Alg, R1}};
+                    {(M1 bsr 1) * math:pow(2.0, BitNo - 55),
+                     {AlgHandler, R1}};
                 ?BIT(52) =< M1 ->
                     %% We have 53 bits - use all
-                    {M1 * math:pow(2.0, BitNo - 56), {Alg, R1}};
+                    {M1 * math:pow(2.0, BitNo - 56),
+                     {AlgHandler, R1}};
                 BitNo =:= -1008 ->
                     %% Endgame
                     %% For the last round we cannot have 14 zeros or more
@@ -497,7 +501,8 @@ uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits) ->
                     if
                         ?BIT(42) =< M1 ->
                             %% We have 43 bits - get the last bits
-                            uniform_real_s(Alg, Next, M1, BitNo - 56, R1);
+                            uniform_real_s(
+                              AlgHandler, Next, M1, BitNo - 56, R1);
                         true ->
                             %% Would underflow 2^-1022 - start all over
                             %%
@@ -506,26 +511,26 @@ uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits) ->
                             %% for a good PRNG generating this many zeros
                             %% in a row.  Maybe we should write an error
                             %% report or call this a system limit...?
-                            uniform_real_s({Alg, R1})
+                            uniform_real_s({AlgHandler, R1})
                     end;
                 true ->
                     %% Need more bits
-                    uniform_real_s(Alg, Next, M1, BitNo - 56, R1)
+                    uniform_real_s(AlgHandler, Next, M1, BitNo - 56, R1)
             end;
         true ->
             %% Fill up to 53 bits
             B0 = 53 - ?BC(M0, 49), % Number of bits we need to append
             {(((M0 bsl B0) bor (V1 bsr (Bits - B0)))
               * math:pow(2.0, BitNo - B0)),
-             {Alg, R1}}
+             {AlgHandler, R1}}
     end.
 %%
-uniform_real_s(#{bits:=Bits} = Alg, Next, M0, BitNo, R0) ->
+uniform_real_s(#{bits:=Bits} = AlgHandler, Next, M0, BitNo, R0) ->
     {V1, R1} = Next(R0),
-    uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits);
-uniform_real_s(#{max:=_} = Alg, Next, M0, BitNo, R0) ->
+    uniform_real_s(AlgHandler, Next, M0, BitNo, R1, V1, Bits);
+uniform_real_s(#{max:=_} = AlgHandler, Next, M0, BitNo, R0) ->
     {V1, R1} = Next(R0),
-    uniform_real_s(Alg, Next, M0, BitNo, R1, ?MASK(56, V1), 56).
+    uniform_real_s(AlgHandler, Next, M0, BitNo, R1, ?MASK(56, V1), 56).
 
 %% jump/1: given a state, jump/1
 %% returns a new state which is equivalent to that
@@ -789,25 +794,25 @@ exsss_next([S1|S0]) ->
     {?scramble_starstar(S0, V_0, V_1), [S0|NewS1]}.
 %%    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
 
-exsp_uniform({Alg, R0}) ->
+exsp_uniform({AlgHandler, R0}) ->
     {I, R1} = exsplus_next(R0),
     %% Waste the lowest bit since it is of lower
     %% randomness quality than the others
-    {(I bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, R1}}.
+    {(I bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}}.
 
-exsss_uniform({Alg, R0}) ->
+exsss_uniform({AlgHandler, R0}) ->
     {I, R1} = exsss_next(R0),
-    {(I bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, R1}}.
+    {(I bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}}.
 
-exsp_uniform(Range, {Alg, R}) ->
+exsp_uniform(Range, {AlgHandler, R}) ->
     {V, R1} = exsplus_next(R),
     MaxMinusRange = ?BIT(58) - Range,
-    ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
+    ?uniform_range(Range, AlgHandler, R1, V, MaxMinusRange, I).
 
-exsss_uniform(Range, {Alg, R}) ->
+exsss_uniform(Range, {AlgHandler, R}) ->
     {V, R1} = exsss_next(R),
     MaxMinusRange = ?BIT(58) - Range,
-    ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
+    ?uniform_range(Range, AlgHandler, R1, V, MaxMinusRange, I).
 
 
 %% This is the jump function for the exs* generators,
@@ -848,10 +853,10 @@ exsss_uniform(Range, {Alg, R}) ->
 -dialyzer({no_improper_lists, exsplus_jump/1}).
 -spec exsplus_jump({alg_handler(), exsplus_state()}) ->
                           {alg_handler(), exsplus_state()}.
-exsplus_jump({Alg, S}) ->
+exsplus_jump({AlgHandler, S}) ->
     {S1, AS1} = exsplus_jump(S, [0|0], ?JUMPCONST1, ?JUMPELEMLEN),
     {_,  AS2} = exsplus_jump(S1, AS1,  ?JUMPCONST2, ?JUMPELEMLEN),
-    {Alg, AS2}.
+    {AlgHandler, AS2}.
 
 -dialyzer({no_improper_lists, exsplus_jump/4}).
 exsplus_jump(S, AS, _, 0) ->
@@ -953,13 +958,13 @@ exs1024_next({[H], RL}) ->
 
 -spec exs1024_jump({alg_handler(), exs1024_state()}) ->
                           {alg_handler(), exs1024_state()}.
-exs1024_jump({Alg, {L, RL}}) ->
+exs1024_jump({AlgHandler, {L, RL}}) ->
     P = length(RL),
     AS = exs1024_jump({L, RL},
          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
          ?JUMPCONSTTAIL, ?JUMPCONSTHEAD, ?JUMPELEMLEN, ?JUMPTOTALLEN),
     {ASL, ASR} = lists:split(?RINGLEN - P, AS),
-    {Alg, {ASL, lists:reverse(ASR)}}.
+    {AlgHandler, {ASL, lists:reverse(ASR)}}.
 
 exs1024_jump(_, AS, _, _, _, 0) ->
     AS;
@@ -1122,20 +1127,20 @@ exro928_next_state(Ss, Rs, S15, S0) ->
     {[NewS0|Ss], [NewS15|Rs]}.
 
 
-exro928ss_uniform({Alg, SR}) ->
+exro928ss_uniform({AlgHandler, SR}) ->
     {V, NewSR} = exro928ss_next(SR),
-    {(V bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, NewSR}}.
+    {(V bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, NewSR}}.
 
-exro928ss_uniform(Range, {Alg, SR}) ->
+exro928ss_uniform(Range, {AlgHandler, SR}) ->
     {V, NewSR} = exro928ss_next(SR),
     MaxMinusRange = ?BIT(58) - Range,
-    ?uniform_range(Range, Alg, NewSR, V, MaxMinusRange, I).
+    ?uniform_range(Range, AlgHandler, NewSR, V, MaxMinusRange, I).
 
 
 -spec exro928_jump({alg_handler(), exro928_state()}) ->
                           {alg_handler(), exro928_state()}.
-exro928_jump({Alg, SR}) ->
-    {Alg,exro928_jump_2pow512(SR)}.
+exro928_jump({AlgHandler, SR}) ->
+    {AlgHandler,exro928_jump_2pow512(SR)}.
 
 -spec exro928_jump_2pow512(exro928_state()) -> exro928_state().
 exro928_jump_2pow512(SR) ->
@@ -1268,16 +1273,16 @@ exrop_next_s(S0, S1) ->
 exrop_next([S0|S1]) ->
     {?MASK(58, S0 + S1), ?exrop_next_s(S0, S1, S1_a)}.
 
-exrop_uniform({Alg, R}) ->
+exrop_uniform({AlgHandler, R}) ->
     {V, R1} = exrop_next(R),
     %% Waste the lowest bit since it is of lower
     %% randomness quality than the others
-    {(V bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, R1}}.
+    {(V bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}}.
 
-exrop_uniform(Range, {Alg, R}) ->
+exrop_uniform(Range, {AlgHandler, R}) ->
     {V, R1} = exrop_next(R),
     MaxMinusRange = ?BIT(58) - Range,
-    ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
+    ?uniform_range(Range, AlgHandler, R1, V, MaxMinusRange, I).
 
 %% Split a 116 bit constant into two 58 bit words,
 %% a top '1' marks the end of the low word.
@@ -1285,9 +1290,9 @@ exrop_uniform(Range, {Alg, R}) ->
    JUMP_116(Jump),
    [?BIT(58) bor ?MASK(58, (Jump)),(Jump) bsr 58]).
 %%
-exrop_jump({Alg,S}) ->
+exrop_jump({AlgHandler,S}) ->
     [J|Js] = ?JUMP_116(16#9863200f83fcd4a11293241fcb12a),
-    {Alg, exrop_jump(S, 0, 0, J, Js)}.
+    {AlgHandler, exrop_jump(S, 0, 0, J, Js)}.
 %%
 -dialyzer({no_improper_lists, exrop_jump/5}).
 exrop_jump(_S, S0, S1, 0, []) -> % End of jump constant
@@ -1447,13 +1452,13 @@ format_jumpconst58_value(J) ->
 -define(NOR_INV_R, 1/?NOR_R).
 
 %% return a {sign, Random51bits, State}
-get_52({Alg=#{bits:=Bits, next:=Next}, S0}) ->
+get_52({#{bits:=Bits, next:=Next} = AlgHandler, S0}) ->
     %% Use the high bits
     {Int,S1} = Next(S0),
-    {?BIT(Bits - 51 - 1) band Int, Int bsr (Bits - 51), {Alg, S1}};
-get_52({Alg=#{next:=Next}, S0}) ->
+    {?BIT(Bits - 51 - 1) band Int, Int bsr (Bits - 51), {AlgHandler, S1}};
+get_52({#{next:=Next} = AlgHandler, S0}) ->
     {Int,S1} = Next(S0),
-    {?BIT(51) band Int, ?MASK(51, Int), {Alg, S1}}.
+    {?BIT(51) band Int, ?MASK(51, Int), {AlgHandler, S1}}.
 
 %% Slow path
 normal_s(0, Sign, X0, State0) ->
