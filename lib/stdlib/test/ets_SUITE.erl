@@ -114,7 +114,7 @@
 -define(heap_binary_size, 64).
 
 init_per_testcase(Case, Config) ->
-    rand:seed(exsplus),
+    rand:seed(default),
     io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     start_spawn_logger(),
     wait_for_test_procs(), %% Ensure previous case cleaned up
@@ -2013,7 +2013,7 @@ random_test() ->
 	{ok,[X]} ->
 	    rand:seed(X);
 	_ ->
-	    rand:seed(exsplus)
+	    rand:seed(default)
     end,
     Seed = rand:export_seed(),
     {ok,F} = file:open(filename:join([WriteDir,"last_random_seed.txt"]),
@@ -8119,7 +8119,7 @@ run_workers_do(InitF,ExecF,FiniF,Laps, NumOfProcs) ->
 
 worker({ProcN,Seed}, InitF, ExecF, FiniF, Laps, Parent, NumOfProcs) ->
     io:format("smp worker ~p, seed=~p~n",[self(),Seed]),
-    rand:seed(exsplus, {Seed,Seed,Seed}),
+    rand:seed(default, {Seed,Seed,Seed}),
     State1 = InitF([ProcN, NumOfProcs]),
     State2 = worker_loop(Laps, ExecF, State1),
     Result = FiniF(State2),
