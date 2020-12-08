@@ -205,7 +205,12 @@ endif
 # Standard release target
 # ----------------------------------------------------
 
-pdf man chunks html: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
+ifneq ($(XML_ALL_REF3_FILES),)
+man chunks: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
+else
+man chunks:
+endif
+pdf html: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
 release_man_spec: man
 release_pdf_spec: pdf
 release_chunks_spec: chunks
