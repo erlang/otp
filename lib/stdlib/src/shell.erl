@@ -366,107 +366,107 @@ expand_exprs([E|Es], C) ->
 expand_exprs([], _C) ->
     [].
 
-expand_expr({cons,L,H,T}, C) ->
-    {cons,L,expand_expr(H, C),expand_expr(T, C)};
-expand_expr({lc,L,E,Qs}, C) ->
-    {lc,L,expand_expr(E, C),expand_quals(Qs, C)};
-expand_expr({bc,L,E,Qs}, C) ->
-    {bc,L,expand_expr(E, C),expand_quals(Qs, C)};
-expand_expr({tuple,L,Elts}, C) ->
-    {tuple,L,expand_exprs(Elts, C)};
-expand_expr({map,L,Es}, C) ->
-    {map,L,expand_exprs(Es, C)};
-expand_expr({map,L,Arg,Es}, C) ->
-    {map,L,expand_expr(Arg, C),expand_exprs(Es, C)};
-expand_expr({map_field_assoc,L,K,V}, C) ->
-    {map_field_assoc,L,expand_expr(K, C),expand_expr(V, C)};
-expand_expr({map_field_exact,L,K,V}, C) ->
-    {map_field_exact,L,expand_expr(K, C),expand_expr(V, C)};
-expand_expr({record_index,L,Name,F}, C) ->
-    {record_index,L,Name,expand_expr(F, C)};
-expand_expr({record,L,Name,Is}, C) ->
-    {record,L,Name,expand_fields(Is, C)};
-expand_expr({record_field,L,R,Name,F}, C) ->
-    {record_field,L,expand_expr(R, C),Name,expand_expr(F, C)};
-expand_expr({record,L,R,Name,Ups}, C) ->
-    {record,L,expand_expr(R, C),Name,expand_fields(Ups, C)};
-expand_expr({record_field,L,R,F}, C) ->		%This is really illegal!
-    {record_field,L,expand_expr(R, C),expand_expr(F, C)};
-expand_expr({block,L,Es}, C) ->
-    {block,L,expand_exprs(Es, C)};
-expand_expr({'if',L,Cs}, C) ->
-    {'if',L,expand_cs(Cs, C)};
-expand_expr({'case',L,E,Cs}, C) ->
-    {'case',L,expand_expr(E, C),expand_cs(Cs, C)};
-expand_expr({'try',L,Es,Scs,Ccs,As}, C) ->
-    {'try',L,expand_exprs(Es, C),expand_cs(Scs, C),
+expand_expr({cons,A,H,T}, C) ->
+    {cons,A,expand_expr(H, C),expand_expr(T, C)};
+expand_expr({lc,A,E,Qs}, C) ->
+    {lc,A,expand_expr(E, C),expand_quals(Qs, C)};
+expand_expr({bc,A,E,Qs}, C) ->
+    {bc,A,expand_expr(E, C),expand_quals(Qs, C)};
+expand_expr({tuple,A,Elts}, C) ->
+    {tuple,A,expand_exprs(Elts, C)};
+expand_expr({map,A,Es}, C) ->
+    {map,A,expand_exprs(Es, C)};
+expand_expr({map,A,Arg,Es}, C) ->
+    {map,A,expand_expr(Arg, C),expand_exprs(Es, C)};
+expand_expr({map_field_assoc,A,K,V}, C) ->
+    {map_field_assoc,A,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({map_field_exact,A,K,V}, C) ->
+    {map_field_exact,A,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({record_index,A,Name,F}, C) ->
+    {record_index,A,Name,expand_expr(F, C)};
+expand_expr({record,A,Name,Is}, C) ->
+    {record,A,Name,expand_fields(Is, C)};
+expand_expr({record_field,A,R,Name,F}, C) ->
+    {record_field,A,expand_expr(R, C),Name,expand_expr(F, C)};
+expand_expr({record,A,R,Name,Ups}, C) ->
+    {record,A,expand_expr(R, C),Name,expand_fields(Ups, C)};
+expand_expr({record_field,A,R,F}, C) ->		%This is really illegal!
+    {record_field,A,expand_expr(R, C),expand_expr(F, C)};
+expand_expr({block,A,Es}, C) ->
+    {block,A,expand_exprs(Es, C)};
+expand_expr({'if',A,Cs}, C) ->
+    {'if',A,expand_cs(Cs, C)};
+expand_expr({'case',A,E,Cs}, C) ->
+    {'case',A,expand_expr(E, C),expand_cs(Cs, C)};
+expand_expr({'try',A,Es,Scs,Ccs,As}, C) ->
+    {'try',A,expand_exprs(Es, C),expand_cs(Scs, C),
      expand_cs(Ccs, C),expand_exprs(As, C)};
-expand_expr({'receive',L,Cs}, C) ->
-    {'receive',L,expand_cs(Cs, C)};
-expand_expr({'receive',L,Cs,To,ToEs}, C) ->
-    {'receive',L,expand_cs(Cs, C), expand_expr(To, C), expand_exprs(ToEs, C)};
-expand_expr({call,L,{atom,_,e},[N]}, C) ->
+expand_expr({'receive',A,Cs}, C) ->
+    {'receive',A,expand_cs(Cs, C)};
+expand_expr({'receive',A,Cs,To,ToEs}, C) ->
+    {'receive',A,expand_cs(Cs, C), expand_expr(To, C), expand_exprs(ToEs, C)};
+expand_expr({call,A,{atom,_,e},[N]}, C) ->
     case get_cmd(N, C) of
         {undefined,_,_} ->
 	    no_command(N);
 	{[Ce],_V,_CommandN} ->
 	    Ce;
 	{Ces,_V,_CommandN} when is_list(Ces) ->
-	    {block,L,Ces}
+	    {block,A,Ces}
     end;
-expand_expr({call,_L,{atom,_,v},[N]}, C) ->
+expand_expr({call,_A,{atom,_,v},[N]}, C) ->
     case get_cmd(N, C) of
         {_,undefined,_} ->
 	    no_command(N);
 	{Ces,V,CommandN} when is_list(Ces) ->
             {value,erl_anno:new(CommandN),V}
     end;
-expand_expr({call,L,F,Args}, C) ->
-    {call,L,expand_expr(F, C),expand_exprs(Args, C)};
-expand_expr({'catch',L,E}, C) ->
-    {'catch',L,expand_expr(E, C)};
-expand_expr({match,L,Lhs,Rhs}, C) ->
-    {match,L,Lhs,expand_expr(Rhs, C)};
-expand_expr({op,L,Op,Arg}, C) ->
-    {op,L,Op,expand_expr(Arg, C)};
-expand_expr({op,L,Op,Larg,Rarg}, C) ->
-    {op,L,Op,expand_expr(Larg, C),expand_expr(Rarg, C)};
-expand_expr({remote,L,M,F}, C) ->
-    {remote,L,expand_expr(M, C),expand_expr(F, C)};
-expand_expr({'fun',L,{clauses,Cs}}, C) ->
-    {'fun',L,{clauses,expand_exprs(Cs, C)}};
-expand_expr({named_fun,L,Name,Cs}, C) ->
-    {named_fun,L,Name,expand_exprs(Cs, C)};
-expand_expr({clause,L,H,G,B}, C) ->
+expand_expr({call,A,F,Args}, C) ->
+    {call,A,expand_expr(F, C),expand_exprs(Args, C)};
+expand_expr({'catch',A,E}, C) ->
+    {'catch',A,expand_expr(E, C)};
+expand_expr({match,A,Lhs,Rhs}, C) ->
+    {match,A,Lhs,expand_expr(Rhs, C)};
+expand_expr({op,A,Op,Arg}, C) ->
+    {op,A,Op,expand_expr(Arg, C)};
+expand_expr({op,A,Op,Larg,Rarg}, C) ->
+    {op,A,Op,expand_expr(Larg, C),expand_expr(Rarg, C)};
+expand_expr({remote,A,M,F}, C) ->
+    {remote,A,expand_expr(M, C),expand_expr(F, C)};
+expand_expr({'fun',A,{clauses,Cs}}, C) ->
+    {'fun',A,{clauses,expand_exprs(Cs, C)}};
+expand_expr({named_fun,A,Name,Cs}, C) ->
+    {named_fun,A,Name,expand_exprs(Cs, C)};
+expand_expr({clause,A,H,G,B}, C) ->
     %% Could expand H and G, but then erl_eval has to be changed as well.
-    {clause,L,H, G, expand_exprs(B, C)};
-expand_expr({bin,L,Fs}, C) ->
-    {bin,L,expand_bin_elements(Fs, C)};
+    {clause,A,H, G, expand_exprs(B, C)};
+expand_expr({bin,A,Fs}, C) ->
+    {bin,A,expand_bin_elements(Fs, C)};
 expand_expr(E, _C) ->	 % Constants.
     E.
 
-expand_cs([{clause,L,P,G,B}|Cs], C) ->
-    [{clause,L,P,G,expand_exprs(B, C)}|expand_cs(Cs, C)];
+expand_cs([{clause,A,P,G,B}|Cs], C) ->
+    [{clause,A,P,G,expand_exprs(B, C)}|expand_cs(Cs, C)];
 expand_cs([], _C) ->
     [].
 
-expand_fields([{record_field,L,F,V}|Fs], C) ->
-    [{record_field,L,expand_expr(F, C),expand_expr(V, C)}|
+expand_fields([{record_field,A,F,V}|Fs], C) ->
+    [{record_field,A,expand_expr(F, C),expand_expr(V, C)}|
      expand_fields(Fs, C)];
 expand_fields([], _C) -> [].
 
-expand_quals([{generate,L,P,E}|Qs], C) ->
-    [{generate,L,P,expand_expr(E, C)}|expand_quals(Qs, C)];
-expand_quals([{b_generate,L,P,E}|Qs], C) ->
-    [{b_generate,L,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{generate,A,P,E}|Qs], C) ->
+    [{generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{b_generate,A,P,E}|Qs], C) ->
+    [{b_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([E|Qs], C) ->
     [expand_expr(E, C)|expand_quals(Qs, C)];
 expand_quals([], _C) -> [].
 
 expand_bin_elements([], _C) ->
     [];
-expand_bin_elements([{bin_element,L,E,Sz,Ts}|Fs], C) ->
-    [{bin_element,L,expand_expr(E, C),Sz,Ts}|expand_bin_elements(Fs, C)].
+expand_bin_elements([{bin_element,A,E,Sz,Ts}|Fs], C) ->
+    [{bin_element,A,expand_expr(E, C),Sz,Ts}|expand_bin_elements(Fs, C)].
 
 no_command(N) ->
     throw({error,
@@ -774,8 +774,8 @@ used_records({call,_,{remote,_,{atom,_,erlang},{atom,_,is_record}},
     {name, Name, A};
 used_records({call,_,{atom,_,record_info},[A,{atom,_,Name}]}) ->
     {name, Name, A};
-used_records({call,Line,{tuple,_,[M,F]},As}) ->
-    used_records({call,Line,{remote,Line,M,F},As});
+used_records({call,A,{tuple,_,[M,F]},As}) ->
+    used_records({call,A,{remote,A,M,F},As});
 used_records({type,_,record,[{atom,_,Name}|Fs]}) ->
   {name, Name, Fs};
 used_records(T) when is_tuple(T) ->
@@ -908,9 +908,9 @@ apply_fun({M,F}, As, _Shell) ->
 apply_fun(MForFun, As, _Shell) ->
     apply(MForFun, As).
 
-prep_check({call,Line,{atom,_,f},[{var,_,_Name}]}) ->
+prep_check({call,Anno,{atom,_,f},[{var,_,_Name}]}) ->
     %% Do not emit a warning for f(V) when V is unbound.
-    {atom,Line,ok};
+    {atom,Anno,ok};
 prep_check({value,_CommandN,_Val}) ->
     %% erl_lint cannot handle the history expansion {value,_,_}.
     {atom,a0(),ok};
@@ -925,11 +925,11 @@ expand_records([], E0) ->
     E0;
 expand_records(UsedRecords, E0) ->
     RecordDefs = [Def || {_Name,Def} <- UsedRecords],
-    L = erl_anno:new(1),
+    A = erl_anno:new(1),
     E = prep_rec(E0),
-    Forms0 = RecordDefs ++ [{function,L,foo,0,[{clause,L,[],[],[E]}]}],
+    Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[E]}]}],
     Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
-    {function,L,foo,0,[{clause,L,[],[],[NE]}]} = lists:last(Forms),
+    {function,A,foo,0,[{clause,A,[],[],[NE]}]} = lists:last(Forms),
     prep_rec(NE).
 
 prep_rec({value,_CommandN,_V}=Value) ->
