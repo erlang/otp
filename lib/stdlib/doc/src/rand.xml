@@ -310,6 +310,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	  A list of integers sets the generator's internal state directly,
 	  after algorithm-dependent checks of the value
 	  and masking to the proper word size.
+          The number of integers must be equal to the
+          number of state words in the generator.
 	</p>
 	<p>
 	  An integer is used as the initial state for a SplitMix64 generator.
@@ -432,7 +434,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed" arity="1" since="OTP 18.0"/>
+      <name name="seed" arity="1" clause_i="1" since="OTP 18.0"/>
+      <name name="seed" arity="1" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <marker id="seed-1"/>
@@ -440,6 +443,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	  Seeds random number generation with the specifed algorithm and
           time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
 	  is an algorithm.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the default algorithm.
 	</p>
         <p>Otherwise recreates the exported seed in the process dictionary,
           and returns the state. See also
@@ -448,22 +453,30 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed" arity="2" since="OTP 18.0"/>
+      <name name="seed" arity="2" clause_i="1" since="OTP 18.0"/>
+      <name name="seed" arity="2" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
-        <p>Seeds random number generation with the specified algorithm and
-          integers in the process dictionary and returns the state.</p>
+        <p>
+          Seeds random number generation with the specified algorithm and
+          integers in the process dictionary and returns the state.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the default algorithm.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name name="seed_s" arity="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="1" clause_i="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="1" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <p>
 	  Seeds random number generation with the specifed algorithm and
           time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
 	  is an algorithm.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the default algorithm.
 	</p>
         <p>Otherwise recreates the exported seed and returns the state.
           See also <seemfa marker="#export_seed/0">
@@ -472,11 +485,16 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed_s" arity="2" since="OTP 18.0"/>
+      <name name="seed_s" arity="2" clause_i="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="2" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
-        <p>Seeds random number generation with the specified algorithm and
-          integers and returns the state.</p>
+        <p>
+          Seeds random number generation with the specified algorithm and
+          integers and returns the state.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the default algorithm.
+        </p>
       </desc>
     </func>
 

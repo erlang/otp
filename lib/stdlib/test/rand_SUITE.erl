@@ -85,7 +85,7 @@ algs() ->
 
 %% Test that seed and seed_s and export_seed/0 is working.
 seed(Config) when is_list(Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Test = fun(Alg) ->
 		   try seed_1(Alg)
 		   catch _:Reason:Stacktrace ->
@@ -93,6 +93,13 @@ seed(Config) when is_list(Config) ->
 		   end
 	   end,
     [Test(Alg) || Alg <- Algs],
+    %%
+    %% Check that export_seed/1 returns 'undefined' if there is no seed
+    erase(rand_seed),
+    undefined = rand:export_seed(),
+    %%
+    %% Other seed terms shall not work
+    {'EXIT', _} = (catch rand:seed_s(foobar, os:timestamp())),
     ok.
 
 seed_1(Alg) ->
@@ -121,22 +128,26 @@ seed_1(Alg) ->
     false = (S1 =:= rand:seed_s(Alg)),
     %% Negative integers works
     _ = rand:seed_s(Alg, {-1,-1,-1}),
-    %% Check that export_seed/1 returns 'undefined' if there is no seed
-    erase(rand_seed),
-    undefined = rand:export_seed(),
-
-    %% Other term do not work
-    {'EXIT', _} = (catch rand:seed_s(foobar, os:timestamp())),
+    %%
+    %% Other seed terms shall not work
     {'EXIT', _} = (catch rand:seed_s(Alg, {asd, 1, 1})),
     {'EXIT', _} = (catch rand:seed_s(Alg, {0, 234.1234, 1})),
     {'EXIT', _} = (catch rand:seed_s(Alg, {0, 234, [1, 123, 123]})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, asd)),
+    {'EXIT', _} = (catch rand:seed_s(Alg, make_ref())),
+    {'EXIT', _} = (catch rand:seed_s(Alg, fun () -> 0 end)),
+    {'EXIT', _} = (catch rand:seed_s(Alg, self())),
+    {'EXIT', _} = (catch rand:seed_s(Alg, {1,2})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, {1,2,3,4})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, #{})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, [1|2])),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Check that both APIs are consistent with each other.
 api_eq(_Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Small = fun(Alg) ->
 		    Seed = rand:seed(Alg),
 		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
@@ -182,7 +193,7 @@ api_eq_1(S00) ->
 
 %% Check that uniform/1 returns values within the proper interval.
 interval_int(Config) when is_list(Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Small = fun(Alg) ->
 		    Seed = rand:seed(Alg),
 		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
@@ -216,7 +227,7 @@ interval_int_1(N, Top, Max) ->
 
 %% Check that uniform/0 returns values within the proper interval.
 interval_float(Config) when is_list(Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Test = fun(Alg) ->
 		   _ = rand:seed(Alg),
 		   interval_float_1(100000)
@@ -307,13 +318,13 @@ gen(_, _, _, Acc) -> lists:reverse(Acc).
 basic_stats_uniform_1(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
-     || Alg <- algs()],
+     || Alg <- [default|algs()]],
     ok.
 
 basic_stats_uniform_2(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
-     || Alg <- algs()],
+     || Alg <- [default|algs()]],
     ok.
 
 basic_stats_standard_normal(Config) when is_list(Config) ->
@@ -323,7 +334,7 @@ basic_stats_standard_normal(Config) when is_list(Config) ->
     IntendedVariance = 1,
     [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
                     rand:seed_s(Alg), 0, 0)
-     || Alg <- algs()],
+     || Alg <- [default|algs()]],
     ok.
 
 basic_stats_normal(Config) when is_list(Config) ->
@@ -342,7 +353,7 @@ basic_stats_normal(Config) when is_list(Config) ->
                 [float(IntendedMean), float(IntendedVariance)]),
               [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
                               rand:seed_s(Alg), 0, 0)
-               || Alg <- algs()]
+               || Alg <- [default|algs()]]
       end,
       IntendedMeanVariancePairs).
 

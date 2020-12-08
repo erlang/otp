@@ -248,12 +248,16 @@ export_seed_s({#{type:=Alg}, AlgState}) -> {Alg, AlgState}.
 
 -spec seed(
         AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
+                  state();
+          (Alg :: 'default') ->
                   state().
 seed(Alg) ->
     seed_put(seed_s(Alg)).
 
 -spec seed_s(
         AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
+                    state();
+            (Alg :: 'default') ->
                     state().
 seed_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
     State;
@@ -268,11 +272,14 @@ seed_s(Alg) ->
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
 
--spec seed(Alg :: builtin_alg(),  Seed :: seed()) -> state().
+-spec seed(Alg :: builtin_alg(),  Seed :: seed()) -> state();
+          (Alg :: 'default',  Seed :: seed()) -> state().
 seed(Alg, Seed) ->
     seed_put(seed_s(Alg, Seed)).
 
--spec seed_s(Alg :: builtin_alg(), Seed :: seed()) -> state().
+-spec seed_s(Alg :: builtin_alg(), Seed :: seed()) -> state();
+            (Alg :: 'default', Seed :: seed()) -> state().
+seed_s(default, Seed) -> seed_s(?DEFAULT_ALG_HANDLER, Seed);
 seed_s(Alg, Seed) ->
     {AlgHandler,SeedFun} = mk_alg(Alg),
     AlgState = SeedFun(Seed),
