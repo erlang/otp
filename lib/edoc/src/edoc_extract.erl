@@ -51,7 +51,7 @@
       File :: filename(),
       Env :: edoc:env(),
       Opts :: proplist(),
-      R :: {module(), edoc:xmerl_module()}.
+      R :: {module(), edoc:edoc_module()}.
 source(File, Env, Opts) ->
     Forms = edoc:read_source(File, Opts),
     Comments = edoc:read_comments(File, Opts),
@@ -73,7 +73,7 @@ source(File, Env, Opts) ->
       File :: filename(),
       Env :: edoc:env(),
       Opts :: proplist(),
-      R :: {module(), edoc:xmerl_module()}.
+      R :: {module(), edoc:edoc_module()}.
 source(Forms, Comments, File, Env, Opts) when is_list(Forms) ->
     Forms1 = erl_syntax:form_list(Forms),
     source(Forms1, Comments, File, Env, Opts);
@@ -109,7 +109,7 @@ source(Forms, Comments, File, Env, Opts) ->
       File :: filename(),
       Env :: edoc:env(),
       Opts :: proplist(),
-      R :: {module(), edoc:xmerl_module()}.
+      R :: {module(), edoc:edoc_module()}.
 source(Forms, File, Env, Opts) when is_list(Forms) ->
     source(erl_syntax:form_list(Forms), File, Env, Opts);
 source(Tree, File0, Env, Opts) ->

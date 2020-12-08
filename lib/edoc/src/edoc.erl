@@ -66,7 +66,7 @@
 	      entry/0,
 	      entry_data/0,
 	      tag/0,
-	      xmerl_module/0]).
+	      edoc_module/0]).
 
 -include("edoc.hrl").
 
@@ -82,8 +82,8 @@
 -type env() :: #env{}.
 %% Environment information needed by EDoc for generating references.
 
--type comment() :: #comment{line :: integer(),
-			    text :: string()}.
+%-type comment_r() :: #comment{line :: integer(),
+%                              text :: string()}.
 %% Simplified comment data.
 
 
@@ -102,7 +102,7 @@
 		    data :: term()}.
 %% Generic tag information.
 
--type xmerl_module() :: any().
+-type edoc_module() :: xmerl_scan:xmlElement().
 %% The EDoc documentation data for a module,
 %% expressed as an XML document in {@link //xmerl. XMerL} format. See
 %% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
@@ -111,10 +111,7 @@
 -type function_name() :: {atom(), integer()}.
 -type filename() :: file:filename().
 -type proplist() :: proplists:proplist().
--type comment2() :: { Line :: integer(),
-		      Column :: integer(),
-		      Indentation :: integer(),
-		      Text :: [string()] }.
+-type comment() :: erl_comment_scan:comment().
 -type syntaxTree() :: erl_syntax:syntaxTree().
 
 -compile({no_auto_import, [error/1]}).
@@ -517,7 +514,7 @@ read(File, Opts) ->
 
 %% @equiv layout(Doc, [])
 
--spec layout(xmerl_module()) -> string().
+-spec layout(edoc_module()) -> string().
 layout(Doc) ->
     layout(Doc, []).
 
@@ -543,7 +540,7 @@ layout(Doc) ->
 %% INHERIT-OPTIONS: edoc_lib:run_layout/2
 
 -spec layout(Doc, Opts) -> string() when
-      Doc :: xmerl_module(),
+      Doc :: edoc_module(),
       Opts :: proplist().
 layout(Doc, Opts) ->
     F = fun (M) ->
@@ -553,7 +550,7 @@ layout(Doc, Opts) ->
 
 %% @equiv read_comments(File, [])
 
--spec read_comments(filename()) ->  [comment2()].
+-spec read_comments(filename()) ->  [comment()].
 read_comments(File) ->
     read_comments(File, []).
 
@@ -561,7 +558,7 @@ read_comments(File) ->
 %% module {@link //syntax_tools/erl_comment_scan} for details on the
 %% representation of comments. Currently, no options are avaliable.
 
--spec read_comments(File, Opts) -> [comment2()] when
+-spec read_comments(File, Opts) -> [comment()] when
       File :: filename(),
       Opts :: proplist().
 read_comments(File, _Opts) ->
@@ -771,7 +768,7 @@ helpful_message(Name) ->
 
 %% @equiv get_doc(File, [])
 
--spec get_doc(filename()) -> {module(), xmerl_module()}.
+-spec get_doc(filename()) -> {module(), edoc_module()}.
 get_doc(File) ->
     get_doc(File, []).
 
@@ -821,7 +818,7 @@ get_doc(File) ->
 %% INHERIT-OPTIONS: get_doc/3
 %% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
--spec get_doc(File, Options) -> {module(), xmerl_module()} when
+-spec get_doc(File, Options) -> {module(), edoc_module()} when
       File :: filename(),
       Options :: proplist().
 get_doc(File, Opts) ->
@@ -839,7 +836,6 @@ get_doc(File, Opts) ->
       File :: filename(),
       Env :: env(),
       Options :: proplist(),
-      R :: {module(), xmerl_module()}
-         | {module(), xmerl_module(), [entry()]}.
+      R :: {module(), edoc_module()}.
 get_doc(File, Env, Opts) ->
     edoc_extract:source(File, Env, Opts).

@@ -81,7 +81,7 @@
 %% NEW-OPTIONS: private, hidden, todo
 %% DEFER-OPTIONS: edoc_extract:source/4
 
--spec module(Module, Entries, Env, Opts) -> edoc:xmerl_module() when
+-spec module(Module, Entries, Env, Opts) -> edoc:edoc_module() when
       Module :: edoc:module_meta(),
       Entries :: [edoc:entry()],
       Env :: edoc:env(),
