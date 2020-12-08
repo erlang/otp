@@ -43,7 +43,7 @@
       </p>
       <code>
 
-	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xml_from_edoc.escript ex1.erl
+	1> escript $ERL_TOP/lib/erl_docgen/priv/bin/xml_from_edoc.escript ex1.erl
       </code>
     </section>
     <section>
@@ -57,7 +57,7 @@
       </p>
       <code>
 
-	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/codeline_preprocessing.escript \
+	1> escript $ERL_TOP/lib/erl_docgen/priv/bin/codeline_preprocessing.escript \
 	   ex1.xmlsrc ex1.xml
       </code>
     </section>
@@ -116,9 +116,9 @@
       <code>
 	
 	1> xsltproc --noout --stringparam outdir /tmp/myhtmldoc \
-	      --stringparam docgen $(ERL_TOP)/lib/erl_docgen \
+	      --stringparam docgen $ERL_TOP/lib/erl_docgen \
               --stringparam topdocdir . \
-              --stringparam pdfdir "$(PDFDIR)" \
+              --stringparam pdfdir $PDFDIR \
               --xinclude \
 	      --stringparam gendate "December 5 2011" \
               --stringparam appname MyApp \
