@@ -60,7 +60,7 @@
        <seecom marker="erts:erl#+e"><c>+e</c></seecom> before starting the
        Erlang runtime system. This hard limit has been removed, but it is currently
        useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
-       set to an approximate of the maximum amount of tables used. This since
+       set to an approximate of the maximum amount of tables used since
        an internal table for named tables is sized using this value. If
        large amounts of named tables are used and <c>ERL_MAX_ETS_TABLES</c>
        hasn't been increased, the performance of named table lookup will
