@@ -513,16 +513,16 @@ normalize_typed_record_fields([Field|Rest], NewFields, Typed) ->
 
 restore_typed_record_fields([]) ->
     [];
-restore_typed_record_fields([{attribute,La,record,{Record,_NewFields}},
-                             {attribute,La,type,{{record,Record},Fields,[]}}|
+restore_typed_record_fields([{attribute,A,record,{Record,_NewFields}},
+                             {attribute,A,type,{{record,Record},Fields,[]}}|
                              Forms]) ->
-    [{attribute,La,record,{Record,Fields}}|
+    [{attribute,A,record,{Record,Fields}}|
      restore_typed_record_fields(Forms)];
-restore_typed_record_fields([{attribute,La,type,{{record,Record},Fields,[]}}|
+restore_typed_record_fields([{attribute,A,type,{{record,Record},Fields,[]}}|
                              Forms]) ->
     %% This clause is due to the compiler's 'E' option.
     %% Record information kept by erl_expand_records.
-    [{attribute,La,record,{Record,Fields}}|
+    [{attribute,A,record,{Record,Fields}}|
      restore_typed_record_fields(Forms)];
 restore_typed_record_fields([Form|Forms]) ->
     [Form|restore_typed_record_fields(Forms)].
@@ -813,25 +813,25 @@ scan_toks(Toks0, From, St) ->
 	    wait_req_scan(St)
     end.
 
-scan_module([{'-',_Lh},{atom,_Lm,module},{'(',_Ll}|Ts], Ms) ->
+scan_module([{'-',_Ah},{atom,_Am,module},{'(',_Al}|Ts], Ms) ->
     scan_module_1(Ts, Ms);
-scan_module([{'-',_Lh},{atom,_Lm,extends},{'(',_Ll}|Ts], Ms) ->
+scan_module([{'-',_Ah},{atom,_Am,extends},{'(',_Al}|Ts], Ms) ->
     scan_extends(Ts, Ms);
 scan_module(_Ts, Ms) -> Ms.
 
-scan_module_1([{atom,_,_}=A,{',',L}|Ts], Ms) ->
+scan_module_1([{atom,_,_}=A,{',',Anno}|Ts], Ms) ->
     %% Parameterized modules.
-    scan_module_1([A,{')',L}|Ts], Ms);
-scan_module_1([{atom,Ln,A}=ModAtom,{')',_Lr}|_Ts], Ms0) ->
+    scan_module_1([A,{')',Anno}|Ts], Ms);
+scan_module_1([{atom,Anno,A}=ModAtom,{')',_Ar}|_Ts], Ms0) ->
     ModString = atom_to_list(A),
     Ms = Ms0#{'MODULE':={none,[ModAtom]}},
-    Ms#{'MODULE_STRING':={none,[{string,Ln,ModString}]}};
+    Ms#{'MODULE_STRING':={none,[{string,Anno,ModString}]}};
 scan_module_1(_Ts, Ms) -> Ms.
 
-scan_extends([{atom,Ln,A}=ModAtom,{')',_Lr}|_Ts], Ms0) ->
+scan_extends([{atom,Anno,A}=ModAtom,{')',_Ar}|_Ts], Ms0) ->
     ModString = atom_to_list(A),
     Ms = Ms0#{'BASE_MODULE':={none,[ModAtom]}},
-    Ms#{'BASE_MODULE_STRING':={none,[{string,Ln,ModString}]}};
+    Ms#{'BASE_MODULE_STRING':={none,[{string,Anno,ModString}]}};
 scan_extends(_Ts, Ms) -> Ms.
 
 scan_err_warn([{'(',_}|_]=Toks0, {atom,_,Tag}=Token, From, St) ->
@@ -854,7 +854,7 @@ scan_err_warn(_Toks, {atom,_,Tag}=Token, From, St) ->
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
-scan_define([{'(',_Lp},{Type,_Lm,_}=Mac|Toks], Def, From, St)
+scan_define([{'(',_Ap},{Type,_Am,_}=Mac|Toks], Def, From, St)
   when Type =:= atom; Type =:= var ->
     scan_define_1(Toks, Mac, Def, From, St);
 scan_define(_Toks, Def, From, St) ->
@@ -869,7 +869,7 @@ scan_define_1([{',',_}=Comma|Toks], Mac,_Def, From, St) ->
             epp_reply(From, {error,{ErrL,epp,What}}),
             wait_req_scan(St)
     end;
-scan_define_1([{'(',_Lc}|Toks], Mac, Def, From, St) ->
+scan_define_1([{'(',_Ac}|Toks], Mac, Def, From, St) ->
     case catch macro_pars(Toks, []) of
         {ok,{As,_}=MacroDef} ->
             Len = length(As),
@@ -951,11 +951,11 @@ macro_ref([_Token | Rest]) ->
 
 %% scan_undef(Tokens, UndefToken, From, EppState)
 
-scan_undef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From, St) ->
+scan_undef([{'(',_Alp},{atom,_Am,M},{')',_Arp},{dot,_Ad}], _Undef, From, St) ->
     Macs = maps:remove(M, St#epp.macs),
     Uses = maps:remove(M, St#epp.uses),
     scan_toks(From, St#epp{macs=Macs, uses=Uses});
-scan_undef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From,St) ->
+scan_undef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _Undef, From,St) ->
     Macs = maps:remove(M, St#epp.macs),
     Uses = maps:remove(M, St#epp.uses),
     scan_toks(From, St#epp{macs=Macs, uses=Uses});
@@ -969,7 +969,7 @@ scan_include(Tokens0, Inc, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_include1(Tokens, Inc, From, St).
 
-scan_include1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc,
+scan_include1([{'(',_Alp},{string,_Af,NewName0},{')',_Arp},{dot,_Ad}], Inc,
               From, St) ->
     NewName = expand_var(NewName0),
     enter_file(NewName, Inc, From, St);
@@ -996,12 +996,12 @@ scan_include_lib(Tokens0, Inc, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_include_lib1(Tokens, Inc, From, St).
 
-scan_include_lib1([{'(',_Llp},{string,_Lf,_NewName0},{')',_Lrp},{dot,_Ld}],
+scan_include_lib1([{'(',_Alp},{string,_Af,_NewName0},{')',_Arp},{dot,_Ad}],
                   Inc, From, St)
   when length(St#epp.sstk) >= 8 ->
     epp_reply(From, {error,{loc(Inc),epp,{depth,"include_lib"}}}),
     wait_req_scan(St);
-scan_include_lib1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
+scan_include_lib1([{'(',_Alp},{string,_Af,NewName0},{')',_Arp},{dot,_Ad}],
                   Inc, From, St) ->
     NewName = expand_var(NewName0),
     Loc = start_loc(St#epp.location),
@@ -1036,14 +1036,14 @@ scan_include_lib1(_Toks, Inc, From, St) ->
 %%  Handle the conditional parsing of a file.
 %%  Report a badly formed if[n]def test and then treat as undefined macro.
 
-scan_ifdef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfD, From, St) ->
+scan_ifdef([{'(',_Alp},{atom,_Am,M},{')',_Arp},{dot,_Ad}], _IfD, From, St) ->
     case St#epp.macs of
 	#{M:=_Def} ->
 	    scan_toks(From, St#epp{istk=[ifdef|St#epp.istk]});
 	_ ->
 	    skip_toks(From, St, [ifdef])
     end;
-scan_ifdef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfD, From, St) ->
+scan_ifdef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _IfD, From, St) ->
     case St#epp.macs of
 	#{M:=_Def} ->
 	    scan_toks(From, St#epp{istk=[ifdef|St#epp.istk]});
@@ -1054,14 +1054,14 @@ scan_ifdef(_Toks, IfDef, From, St) ->
     epp_reply(From, {error,{loc(IfDef),epp,{bad,ifdef}}}),
     wait_req_skip(St, [ifdef]).
 
-scan_ifndef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfnD, From, St) ->
+scan_ifndef([{'(',_Alp},{atom,_Am,M},{')',_Arp},{dot,_Ad}], _IfnD, From, St) ->
     case St#epp.macs of
 	#{M:=_Def} ->
 	    skip_toks(From, St, [ifndef]);
 	_ ->
 	    scan_toks(From, St#epp{istk=[ifndef|St#epp.istk]})
     end;
-scan_ifndef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfnD, From, St) ->
+scan_ifndef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _IfnD, From, St) ->
     case St#epp.macs of
 	#{M:=_Def} ->
 	    skip_toks(From, St, [ifndef]);
@@ -1076,7 +1076,7 @@ scan_ifndef(_Toks, IfnDef, From, St) ->
 %%  If we are in an if body then convert to else and skip, if we are in an
 %%  else or not in anything report an error.
 
-scan_else([{dot,_Ld}], Else, From, St) ->
+scan_else([{dot,_Ad}], Else, From, St) ->
     case St#epp.istk of
 	['else'|Cis] ->
 	    epp_reply(From, {error,{loc(Else),
@@ -1211,7 +1211,7 @@ scan_elif(_Toks, Elif, From, St) ->
 %% scan_endif(Tokens, EndifToken, From, EppState)
 %%  If we are in an if body then exit it, else report an error.
 
-scan_endif([{dot,_Ld}], Endif, From, St) ->
+scan_endif([{dot,_Ad}], Endif, From, St) ->
     case St#epp.istk of
 	[_I|Cis] ->
 	    scan_toks(From, St#epp{istk=Cis});
@@ -1232,8 +1232,8 @@ scan_file(Tokens0, Tf, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_file1(Tokens, Tf, From, St).
 
-scan_file1([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
-            {dot,_Ld}], Tf, From, St) ->
+scan_file1([{'(',_Alp},{string,_As,Name},{',',_Ac},{integer,_Ai,Ln},{')',_Arp},
+            {dot,_Ad}], Tf, From, St) ->
     Anno = erl_anno:new(Ln),
     enter_file_reply(From, Name, Anno, loc(Tf), generated),
     Ms0 = St#epp.macs,
@@ -1257,17 +1257,17 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 
 skip_toks(From, St, [I|Sis]) ->
     case io:scan_erl_form(St#epp.file, '', St#epp.location) of
-	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
+	{ok,[{'-',_Ah},{atom,_Ai,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifdef,I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->
+	{ok,[{'-',_Ah},{atom,_Ai,ifndef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifndef,I|Sis]);
-	{ok,[{'-',_Lh},{'if',_Li}|_Toks],Cl} ->
+	{ok,[{'-',_Ah},{'if',_Ai}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, ['if',I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Le,'else'}=Else|_Toks],Cl}->
+	{ok,[{'-',_Ah},{atom,_Ae,'else'}=Else|_Toks],Cl}->
 	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Le,'elif'}=Elif|Toks],Cl}->
+	{ok,[{'-',_Ah},{atom,_Ae,'elif'}=Elif|Toks],Cl}->
 	    skip_elif(Toks, Elif, From, St#epp{location=Cl}, [I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Le,endif}|_Toks],Cl} ->
+	{ok,[{'-',_Ah},{atom,_Ae,endif}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, Sis);
 	{ok,_Toks,Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [I|Sis]);
@@ -1313,19 +1313,19 @@ skip_elif(_Toks, _Elif, From, St, Sis) ->
     skip_toks(From, St, Sis).
 
 %% macro_pars(Tokens, ArgStack)
-%% macro_expansion(Tokens, Anno)
+%% macro_expansion(Tokens, Token)
 %%  Extract the macro parameters and the expansion from a macro definition.
 
-macro_pars([{')',_Lp}, {',',_Ld}=Comma|Ex], Args) ->
+macro_pars([{')',_Ap}, {',',_Ad}=Comma|Ex], Args) ->
     {ok, {lists:reverse(Args), macro_expansion(Ex, Comma)}};
-macro_pars([{var,_,Name}, {')',_Lp}, {',',_Ld}=Comma|Ex], Args) ->
+macro_pars([{var,_,Name}, {')',_Ap}, {',',_Ad}=Comma|Ex], Args) ->
     false = lists:member(Name, Args),		%Prolog is nice
     {ok, {lists:reverse([Name|Args]), macro_expansion(Ex, Comma)}};
-macro_pars([{var,_L,Name}, {',',_}|Ts], Args) ->
+macro_pars([{var,_A,Name}, {',',_}|Ts], Args) ->
     false = lists:member(Name, Args),
     macro_pars(Ts, [Name|Args]).
 
-macro_expansion([{')',_Lp},{dot,_Ld}], _T0) -> [];
+macro_expansion([{')',_Ap},{dot,_Ad}], _T0) -> [];
 macro_expansion([{dot,_}=Dot], _T0) ->
     throw({error,loc(Dot),missing_parenthesis});
 macro_expansion([T|Ts], _T0) ->
@@ -1333,23 +1333,22 @@ macro_expansion([T|Ts], _T0) ->
 macro_expansion([], T0) -> throw({error,loc(T0),premature_end}).
 
 %% expand_macros(Tokens, St)
-%% expand_macro(Tokens, MacroToken, RestTokens)
 %%  Expand the macros in a list of tokens, making sure that an expansion
 %%  gets the same location as the macro call.
 
 expand_macros(MacT, M, Toks, St) ->
     #epp{macs=Ms,uses=U} = St,
     Lm = loc(MacT),
-    Tinfo = element(2, MacT),
+    Anno = element(2, MacT),
     case expand_macro1(Lm, M, Toks, Ms) of
 	{ok,{none,Exp}} ->
 	    check_uses([{M,none}], [], U, Lm),
-	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], #{}), St),
+	    Toks1 = expand_macros(expand_macro(Exp, Anno, [], #{}), St),
 	    expand_macros(Toks1++Toks, St);
 	{ok,{As,Exp}} ->
 	    check_uses([{M,length(As)}], [], U, Lm),
 	    {Bs,Toks1} = bind_args(Toks, Lm, M, As, #{}),
-	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), St)
+	    expand_macros(expand_macro(Exp, Anno, Toks1, Bs), St)
     end.
 
 expand_macro1(Lm, M, Toks, Ms) ->
@@ -1398,32 +1397,32 @@ get_macro_uses({M,Arity}, U) ->
 
 %% Macro expansion
 %% Note: io:scan_erl_form() does not return comments or white spaces.
-expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], St) ->
+expand_macros([{'?',_Aq},{atom,_Am,M}=MacT|Toks], St) ->
     expand_macros(MacT, M, Toks, St);
 %% Special macros
-expand_macros([{'?',_Lq},{var,Lm,'FUNCTION_NAME'}=Token|Toks], St0) ->
+expand_macros([{'?',_Aq},{var,Lm,'FUNCTION_NAME'}=Token|Toks], St0) ->
     St = update_fun_name(Token, St0),
     case St#epp.fname of
 	undefined ->
-	    [{'?',_Lq},Token];
+	    [{'?',_Aq},Token];
 	{Name,_} ->
 	    [{atom,Lm,Name}]
     end ++ expand_macros(Toks, St);
-expand_macros([{'?',_Lq},{var,Lm,'FUNCTION_ARITY'}=Token|Toks], St0) ->
+expand_macros([{'?',_Aq},{var,Lm,'FUNCTION_ARITY'}=Token|Toks], St0) ->
     St = update_fun_name(Token, St0),
     case St#epp.fname of
 	undefined ->
-	    [{'?',_Lq},Token];
+	    [{'?',_Aq},Token];
 	{_,Arity} ->
 	    [{integer,Lm,Arity}]
     end ++ expand_macros(Toks, St);
-expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], St) ->
+expand_macros([{'?',_Aq},{var,Lm,'LINE'}=Tok|Toks], St) ->
     Line = erl_scan:line(Tok),
     [{integer,Lm,Line}|expand_macros(Toks, St)];
-expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], St) ->
+expand_macros([{'?',_Aq},{var,_Am,M}=MacT|Toks], St) ->
     expand_macros(MacT, M, Toks, St);
 %% Illegal macros
-expand_macros([{'?',_Lq},Token|_Toks], _St) ->
+expand_macros([{'?',_Aq},Token|_Toks], _St) ->
     T = case erl_scan:text(Token) of
             Text when is_list(Text) ->
                 Text;
@@ -1439,17 +1438,17 @@ expand_macros([], _St) -> [].
 %% bind_args(Tokens, MacroLocation, MacroName, ArgumentVars, Bindings)
 %%  Collect the arguments to a macro call.
 
-bind_args([{'(',_Llp},{')',_Lrp}|Toks], _Lm, _M, [], Bs) ->
+bind_args([{'(',_Alp},{')',_Arp}|Toks], _Lm, _M, [], Bs) ->
     {Bs,Toks};
-bind_args([{'(',_Llp}|Toks0], Lm, M, [A|As], Bs) ->
+bind_args([{'(',_Alp}|Toks0], Lm, M, [A|As], Bs) ->
     {Arg,Toks1} = macro_arg(Toks0, [], []),
     macro_args(Toks1, Lm, M, As, store_arg(Lm, M, A, Arg, Bs));
 bind_args(_Toks, Lm, M, _As, _Bs) ->
     throw({error,Lm,{mismatch,M}}). % Cannot happen.
 
-macro_args([{')',_Lrp}|Toks], _Lm, _M, [], Bs) ->
+macro_args([{')',_Arp}|Toks], _Lm, _M, [], Bs) ->
     {Bs,Toks};
-macro_args([{',',_Lc}|Toks0], Lm, M, [A|As], Bs) ->
+macro_args([{',',_Ac}|Toks0], Lm, M, [A|As], Bs) ->
     {Arg,Toks1} = macro_arg(Toks0, [], []),
     macro_args(Toks1, Lm, M, As, store_arg(Lm, M, A, Arg, Bs));
 macro_args([], Lm, M, _As, _Bs) ->
@@ -1464,21 +1463,21 @@ store_arg(_L, _M, A, Arg, Bs) ->
 
 %% count_args(Tokens, MacroLine, MacroName)
 %%  Count the number of arguments in a macro call.
-count_args([{'(', _Llp},{')',_Lrp}|_Toks], _Lm, _M) ->
+count_args([{'(', _Alp},{')',_Arp}|_Toks], _Lm, _M) ->
     0;
-count_args([{'(', _Llp},{',',_Lc}|_Toks], Lm, M) ->
+count_args([{'(', _Alp},{',',_Ac}|_Toks], Lm, M) ->
     throw({error,Lm,{arg_error,M}});
-count_args([{'(',_Llp}|Toks0], Lm, M) ->
+count_args([{'(',_Alp}|Toks0], Lm, M) ->
     {_Arg,Toks1} = macro_arg(Toks0, [], []),
     count_args(Toks1, Lm, M, 1);
 count_args(_Toks, _Lm, _M) ->
     none.
 
-count_args([{')',_Lrp}|_Toks], _Lm, _M, NbArgs) ->
+count_args([{')',_Arp}|_Toks], _Lm, _M, NbArgs) ->
     NbArgs;
-count_args([{',',_Lc},{')',_Lrp}|_Toks], Lm, M, _NbArgs) ->
+count_args([{',',_Ac},{')',_Arp}|_Toks], Lm, M, _NbArgs) ->
     throw({error,Lm,{arg_error,M}});
-count_args([{',',_Lc}|Toks0], Lm, M, NbArgs) ->
+count_args([{',',_Ac}|Toks0], Lm, M, NbArgs) ->
     {_Arg,Toks1} = macro_arg(Toks0, [], []),
     count_args(Toks1, Lm, M, NbArgs+1);
 count_args([], Lm, M, _NbArgs) ->
@@ -1526,36 +1525,37 @@ macro_arg([T|Toks], E, Arg) ->
 macro_arg([], _E, Arg) ->
     {lists:reverse(Arg),[]}.
 
-%% expand_macro(MacroDef, MacroTokenInfo, RestTokens, Bindings)
-%% expand_arg(Argtokens, MacroTokens, MacroLocation, RestTokens, Bindings)
+%% expand_macro(MacroDef, MacroTokenAnno, RestTokens, Bindings)
+%% expand_arg(Argtokens, MacroTokens, TokenAnno, RestTokens, Bindings)
 %%  Insert the macro expansion replacing macro parameters with their
 %%  argument values, inserting the location of first the macro call
 %%  and then the macro arguments, i.e. simulate textual expansion.
 
-expand_macro([{var,_Lv,V}|Ts], L, Rest, Bs) ->
+expand_macro([{var,_Av,V}|Ts], Anno, Rest, Bs) ->
     case Bs of
 	#{V:=Val} ->
-	    expand_arg(Val, Ts, L, Rest, Bs);
+	    expand_arg(Val, Ts, Anno, Rest, Bs);
 	_ ->
-	    [{var,L,V}|expand_macro(Ts, L, Rest, Bs)]
+	    [{var,Anno,V}|expand_macro(Ts, Anno, Rest, Bs)]
     end;
-expand_macro([{'?', _}, {'?', _}, {var,_Lv,V}|Ts], L, Rest, Bs) ->
+expand_macro([{'?', _}, {'?', _}, {var,_Av,V}|Ts], Anno, Rest, Bs) ->
     case Bs of
 	#{V:=Val} ->
-            expand_arg(stringify(Val, L), Ts, L, Rest, Bs);
+            expand_arg(stringify(Val, Anno), Ts, Anno, Rest, Bs);
 	_ ->
-	    [{var,L,V}|expand_macro(Ts, L, Rest, Bs)]
+	    [{var,Anno,V}|expand_macro(Ts, Anno, Rest, Bs)]
     end;
-expand_macro([T|Ts], L, Rest, Bs) ->
-    [setelement(2, T, L)|expand_macro(Ts, L, Rest, Bs)];
-expand_macro([], _L, Rest, _Bs) -> Rest.
+expand_macro([T|Ts], Anno, Rest, Bs) ->
+    [setelement(2, T, Anno)|expand_macro(Ts, Anno, Rest, Bs)];
+expand_macro([], _Anno, Rest, _Bs) -> Rest.
 
-expand_arg([A|As], Ts, _L, Rest, Bs) ->
-    %% It is not obvious that the location of arguments should replace L.
-    NextL = element(2, A),
-    [A|expand_arg(As, Ts, NextL, Rest, Bs)];
-expand_arg([], Ts, L, Rest, Bs) ->
-    expand_macro(Ts, L, Rest, Bs).
+expand_arg([A|As], Ts, _Anno, Rest, Bs) ->
+    %% It is not obvious that the annotation of arguments should
+    %% replace _Anno.
+    NextAnno = element(2, A),
+    [A|expand_arg(As, Ts, NextAnno, Rest, Bs)];
+expand_arg([], Ts, Anno, Rest, Bs) ->
+    expand_macro(Ts, Anno, Rest, Bs).
 
 %%%
 %%% Here follows support for the ?FUNCTION_NAME and ?FUNCTION_ARITY
@@ -1644,7 +1644,7 @@ classify_token_1('>>') -> right;
 classify_token_1(_) -> other.
 
 
-%%% stringify(Ts, L) returns a list of one token: a string which when
+%%% stringify(Ts, Anno) returns a list of one token: a string which when
 %%% tokenized would yield the token list Ts.
 
 %% erl_scan:text(T) is not backward compatible with this.
@@ -1667,9 +1667,9 @@ stringify1([]) ->
 stringify1([T | Tokens]) ->
     [io_lib:format(" ~ts", [token_src(T)]) | stringify1(Tokens)].
 
-stringify(Ts, L) ->
+stringify(Ts, Anno) ->
     [$\s | S] = lists:flatten(stringify1(Ts)),
-    [{string, L, S}].
+    [{string, Anno, S}].
 
 coalesce_strings([{string,A,S} | Tokens]) ->
     coalesce_strings(Tokens, A, [S]);
