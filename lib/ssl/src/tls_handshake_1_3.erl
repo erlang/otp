@@ -51,12 +51,17 @@
          do_wait_sh/2,
          do_wait_ee/2,
          do_wait_cert_cr/2,
+         early_data_size/1,
          get_ticket_data/3,
          maybe_add_binders/3,
          maybe_add_binders/4,
-         maybe_automatic_session_resumption/1]).
+         maybe_add_early_data_indication/3,
+         maybe_automatic_session_resumption/1,
+         maybe_send_early_data/1]).
 
--export([is_valid_binder/4]).
+-export([get_max_early_data/1,
+         is_valid_binder/4,
+         maybe/0]).
 
 %% crypto:hash(sha256, "HelloRetryRequest").
 -define(HELLO_RETRY_REQUEST_RANDOM, <<207,33,173,116,229,154,97,17,
@@ -810,39 +815,38 @@ do_negotiated({start_handshake, PSK0},
         State1 = Connection:queue_handshake(ServerHello, State0),
         %% D.4.  Middlebox Compatibility Mode
         State2 = maybe_queue_change_cipher_spec(State1, last),
-        {State3, _} = Connection:send_handshake_flight(State2),
 
         PSK = get_pre_shared_key(PSK0, HKDF),
 
-        State4 =
+        State3 =
             calculate_handshake_secrets(ClientPublicKey, ServerPrivateKey, SelectedGroup,
-                                        PSK, State3),
+                                        PSK, State2),
 
-        State5 = ssl_record:step_encryption_state(State4),
+        State4 = ssl_record:step_encryption_state(State3),
 
         %% Create EncryptedExtensions
-        EncryptedExtensions = encrypted_extensions(State5),
+        EncryptedExtensions = encrypted_extensions(State4),
 
         %% Encode EncryptedExtensions
-        State6 = Connection:queue_handshake(EncryptedExtensions, State5),
+        State5 = Connection:queue_handshake(EncryptedExtensions, State4),
 
         %% Create and send CertificateRequest ({verify, verify_peer})
-        {State7, NextState} = maybe_send_certificate_request(State6, SslOpts, PSK0),
+        {State6, NextState} = maybe_send_certificate_request(State5, SslOpts, PSK0),
 
         %% Create and send Certificate (if PSK is undefined)
-        State8 = Maybe(maybe_send_certificate(State7, PSK0)),
+        State7 = Maybe(maybe_send_certificate(State6, PSK0)),
 
         %% Create and send CertificateVerify (if PSK is undefined)
-        State9 = Maybe(maybe_send_certificate_verify(State8, PSK0)),
+        State8 = Maybe(maybe_send_certificate_verify(State7, PSK0)),
 
         %% Create Finished
-        Finished = finished(State9),
+        Finished = finished(State8),
 
         %% Encode Finished
-        State10= Connection:queue_handshake(Finished, State9),
+        State9 = Connection:queue_handshake(Finished, State8),
 
         %% Send first flight
-        {State, _} = Connection:send_handshake_flight(State10),
+        {State, _} = Connection:send_handshake_flight(State9),
 
         {State, NextState}
 
@@ -907,18 +911,20 @@ do_wait_finished(#finished{verify_data = VerifyData},
         Maybe(validate_finished(State0, VerifyData)),
         %% D.4.  Middlebox Compatibility Mode
         State1 = maybe_queue_change_cipher_spec(State0, first),
+        %% Signal change of cipher
+        State2 = maybe_send_end_of_early_data(State1),
         %% Maybe send Certificate + CertificateVerify
-        State2 = Maybe(maybe_queue_cert_cert_cv(State1)),
-        Finished = finished(State2),
+        State3 = Maybe(maybe_queue_cert_cert_cv(State2)),
+        Finished = finished(State3),
         %% Encode Finished
-        State3 = Connection:queue_handshake(Finished, State2),
+        State4 = Connection:queue_handshake(Finished, State3),
         %% Send first flight
-        {State4, _} = Connection:send_handshake_flight(State3),
-        State5 = calculate_traffic_secrets(State4),
-        State6 = maybe_calculate_resumption_master_secret(State5),
-        State7 = forget_master_secret(State6),
+        {State5, _} = Connection:send_handshake_flight(State4),
+        State6 = calculate_traffic_secrets(State5),
+        State7 = maybe_calculate_resumption_master_secret(State6),
+        State8 = forget_master_secret(State7),
         %% Configure traffic keys
-        ssl_record:step_encryption_state(State7)
+        ssl_record:step_encryption_state(State8)
     catch
         {Ref, #alert{} = Alert} ->
             Alert
@@ -973,8 +979,8 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
         PSK = Maybe(get_pre_shared_key(SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity)),
         State3 = calculate_handshake_secrets(ServerPublicKey, ClientPrivateKey, SelectedGroup,
                                              PSK, State2),
-        State4 = ssl_record:step_encryption_state(State3),
-
+        %% State4 = ssl_record:step_encryption_state(State3),
+        State4 = ssl_record:step_encryption_state_read(State3),
         {State4, wait_ee}
 
     catch
@@ -989,6 +995,7 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
 
     ALPNProtocol0 = maps:get(alpn, Extensions, undefined),
     ALPNProtocol = get_alpn(ALPNProtocol0),
+    EarlyDataIndication = maps:get(early_data, Extensions, undefined),
 
     {Ref, Maybe} = maybe(),
 
@@ -996,14 +1003,17 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
         %% RFC 6066: handle received/expected maximum fragment length
         Maybe(maybe_max_fragment_length(Extensions, State0)),
 
+        %% Check if early_data is accepted/rejected
+        State1 = maybe_check_early_data_indication(EarlyDataIndication, State0),
+
         %% Go to state 'wait_finished' if using PSK.
-        Maybe(maybe_resumption(State0)),
+        Maybe(maybe_resumption(State1)),
 
         %% Update state
-        #state{handshake_env = HsEnv} = State0,
-        State1 = State0#state{handshake_env = HsEnv#handshake_env{alpn = ALPNProtocol}},
+        #state{handshake_env = HsEnv} = State1,
+        State2 = State1#state{handshake_env = HsEnv#handshake_env{alpn = ALPNProtocol}},
 
-        {State1, wait_cert_cr}
+        {State2, wait_cert_cr}
     catch
         {Ref, {State, StateName}} ->
             {State, StateName};
@@ -1508,16 +1518,15 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
 
     %% Calculate [sender]_handshake_traffic_secret
     {Messages, _} =  HHistory,
-
     ClientHSTrafficSecret =
         tls_v1:client_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
     ServerHSTrafficSecret =
         tls_v1:server_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
 
     %% Calculate traffic keys
-    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-    {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientHSTrafficSecret),
-    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerHSTrafficSecret),
+    KeyLength = tls_v1:key_length(CipherSuite),
+    {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ClientHSTrafficSecret),
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ServerHSTrafficSecret),
 
     %% Calculate Finished Keys
     ReadFinishedKey = tls_v1:finished_key(ClientHSTrafficSecret, HKDFAlgo),
@@ -1530,6 +1539,29 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
                                      ReadKey, ReadIV, ReadFinishedKey,
                                      WriteKey, WriteIV, WriteFinishedKey).
 
+calculate_client_early_traffic_secret(
+  ClientHello, PSK, Cipher, HKDFAlgo,
+  #state{connection_states = ConnectionStates,
+         handshake_env =
+             #handshake_env{
+                tls_handshake_history = _HHistory}} = State0) ->
+    #{security_parameters := SecParamsW} =
+        ssl_record:pending_connection_state(ConnectionStates, write),
+    #security_parameters{cipher_suite = _CipherSuite} = SecParamsW,
+    EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
+    ClientEarlyTrafficSecret =
+        tls_v1:client_early_traffic_secret(HKDFAlgo, EarlySecret, ClientHello),
+
+    %% Calculate traffic key
+    KeyLength = ssl_cipher:key_material(Cipher),
+    {WriteKey, WriteIV} =
+        tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ClientEarlyTrafficSecret),
+    %% Update pending connection states
+    PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
+    PendingWrite = update_connection_state(PendingWrite0, undefined, undefined,
+                                          undefined,
+                                          WriteKey, WriteIV, undefined),
+    State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}}.
 
 %% Server
 get_pre_shared_key(undefined, HKDFAlgo) ->
@@ -1554,7 +1586,7 @@ get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentit
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
-        {_, PSK} ->
+        {_, PSK, _, _, _} ->
             {ok, PSK}
     end;
 get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
@@ -1566,19 +1598,35 @@ get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity)
         illegal_parameter ->
             tls_client_ticket_store:unlock_tickets(self(), UseTicket),
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
-        {Key, PSK} ->
+        {Key, PSK, _, _, _} ->
             tls_client_ticket_store:remove_tickets([Key]),  %% Remove single-use ticket
             tls_client_ticket_store:unlock_tickets(self(), UseTicket -- [Key]),
             {ok, PSK}
     end.
-
+%%
+%% Early Data
+get_pre_shared_key_early_data(SessionTickets, UseTicket) ->
+    TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
+    case choose_psk(TicketData, 0) of
+        undefined -> %% Should not happen
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
+        illegal_parameter ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
+        {_Key, PSK, Cipher, HKDF, MaxSize} ->
+            {ok, {PSK, Cipher, HKDF, MaxSize}}
+    end.
 
 choose_psk(undefined, _) ->
     undefined;
 choose_psk([], _) ->
     illegal_parameter;
-choose_psk([{Key, SelectedIdentity, _, PSK, _, _}|_], SelectedIdentity) ->
-    {Key, PSK};
+choose_psk([#ticket_data{
+               key = Key,
+               pos = SelectedIdentity,
+               psk = PSK,
+               cipher_suite = {Cipher, HKDF},
+               max_size = MaxSize}|_], SelectedIdentity) ->
+    {Key, PSK, Cipher, HKDF, MaxSize};
 choose_psk([_|T], SelectedIdentity) ->
     choose_psk(T, SelectedIdentity).
 
@@ -1608,9 +1656,9 @@ calculate_traffic_secrets(#state{
         tls_v1:server_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
 
     %% Calculate traffic keys
-    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-    {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientAppTrafficSecret0),
-    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerAppTrafficSecret0),
+    KeyLength = tls_v1:key_length(CipherSuite),
+    {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ClientAppTrafficSecret0),
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ServerAppTrafficSecret0),
 
     update_pending_connection_states(State0, MasterSecret, undefined,
                                      ClientAppTrafficSecret0, ServerAppTrafficSecret0,
@@ -2396,17 +2444,17 @@ maybe_add_binders(Hello0, {[HRR,MessageHash|_], _}, TicketData, Version) when Ve
 maybe_add_binders(Hello, _, _, Version) when Version =< {3,3} ->
     Hello.
 
-
 create_binders(Context, TicketData) ->
     create_binders(Context, TicketData, []).
 %%
 create_binders(_, [], Acc) ->
     lists:reverse(Acc);
-create_binders(Context, [{_, _, _, PSK, _, HKDF}|T], Acc) ->
+create_binders(Context, [#ticket_data{
+                            psk = PSK,
+                            cipher_suite = {_, HKDF}}|T], Acc) ->
     FinishedKey = calculate_finished_key(PSK, HKDF),
     Binder = calculate_binder(FinishedKey, HKDF, Context),
     create_binders(Context, T, [Binder|Acc]).
-
 
 %% Removes the binders list from the ClientHello.
 %% opaque PskBinderEntry<32..255>;
@@ -2441,6 +2489,18 @@ truncate_client_hello(HelloBin0) ->
     {Truncated, _} = split_binary(HelloBin0, size(HelloBin0) - BindersSize - 2),
     Truncated.
 
+maybe_add_early_data_indication(#client_hello{
+                                   extensions = Extensions0} = ClientHello,
+                                EarlyData,
+                                Version)
+  when Version =:= {3,4} andalso
+       is_binary(EarlyData) andalso
+       size(EarlyData) > 0 ->
+    Extensions = Extensions0#{early_data =>
+                                  #early_data_indication{}},
+    ClientHello#client_hello{extensions = Extensions};
+maybe_add_early_data_indication(ClientHello, _, _) ->
+    ClientHello.
 
 %% The PskBinderEntry is computed in the same way as the Finished
 %% message (Section 4.4.4) but with the BaseKey being the binder_key
@@ -2475,6 +2535,7 @@ update_binders(#client_hello{extensions =
 maybe_automatic_session_resumption(#state{
                                       ssl_options = #{versions := [Version|_],
                                                       ciphers := UserSuites,
+                                                      early_data := EarlyData,
                                                       session_tickets := SessionTickets,
                                                       server_name_indication := SNI} = SslOpts0
                                      } = State0)
@@ -2482,7 +2543,13 @@ maybe_automatic_session_resumption(#state{
        SessionTickets =:= auto ->
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
-    UseTicket = tls_client_ticket_store:find_ticket(self(), HashAlgos, SNI),
+    Ciphers = ciphers_for_early_data(AvailableCipherSuites),
+    %% Find a pair of tickets KeyPair = {Ticket0, Ticket2} where Ticket0 satisfies
+    %% requirements for early_data and session resumption while Ticket2 can only
+    %% be used for session resumption.
+    EarlyDataSize = early_data_size(EarlyData),
+    KeyPair = tls_client_ticket_store:find_ticket(self(), Ciphers, HashAlgos, SNI, EarlyDataSize),
+    UseTicket = choose_ticket(KeyPair, EarlyData),
     tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
     State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
     {[UseTicket], State};
@@ -2491,6 +2558,137 @@ maybe_automatic_session_resumption(#state{
                                      } = State) ->
     {UseTicket, State}.
 
+early_data_size(undefined) ->
+    undefined;
+early_data_size(EarlyData) when is_binary(EarlyData) ->
+    byte_size(EarlyData).
+
+%% Choose a ticket based on the intention of the user. The first argument is
+%% a 2-tuple of ticket keys where the first element refers to a ticket that
+%% fulfills all criteria for sending early_data (hash, cipher, early data size).
+%% Second argument refers to a ticket that can only be used for session
+%% resumption.
+choose_ticket({Key, _}, _) when Key =/= undefined ->
+    Key;
+choose_ticket({_, Key}, EarlyData) when EarlyData =:= undefined ->
+    Key;
+choose_ticket(_, _) ->
+    %% No tickets found that fulfills the original intention of the user
+    %% (sending early_data). It is possible to do session resumption but
+    %% in that case the configured early data would have to be removed
+    %% and that would contradict the will of the user. Returning undefined
+    %% here prevents session resumption instead.
+    undefined.
+
+maybe_send_early_data(#state{
+                         handshake_env = #handshake_env{tls_handshake_history = {Hist, _}},
+                         protocol_specific = #{sender := _Sender},
+                         ssl_options = #{versions := [Version|_],
+                                         use_ticket := UseTicket,
+                                         session_tickets := SessionTickets,
+                                         early_data := EarlyData} = _SslOpts0
+                        } = State0) when Version =:= {3,4} andalso
+                                         UseTicket =/= [undefined] andalso
+                                         EarlyData =/= undefined ->
+    %% D.4.  Middlebox Compatibility Mode
+    State1 = maybe_queue_change_cipher_spec(State0, last),
+    %% Early traffic secret
+    EarlyDataSize = early_data_size(EarlyData),
+    case get_pre_shared_key_early_data(SessionTickets, UseTicket) of
+        {ok, {PSK, Cipher, HKDF, MaxSize}} when EarlyDataSize =< MaxSize ->
+            State2 = calculate_client_early_traffic_secret(Hist, PSK, Cipher, HKDF, State1),
+            %% Set 0-RTT traffic keys for sending early_data and EndOfEarlyData
+            State3 = ssl_record:step_encryption_state_write(State2),
+            {ok, encode_early_data(Cipher, State3)};
+        {ok, {_, _, _, _MaxSize}} ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, too_much_early_data)};
+        {error, Alert} ->
+            {error, Alert}
+    end;
+maybe_send_early_data(State) ->
+    {ok, State}.
+
+encode_early_data(Cipher,
+                  #state{
+                     flight_buffer = Flight0,
+                     protocol_specific = #{sender := _Sender},
+                     ssl_options = #{versions := [Version|_],
+                                     early_data := EarlyData} = _SslOpts0
+                    } = State0) ->
+    #state{connection_states =
+               #{current_write :=
+                     #{security_parameters := SecurityParameters0} = Write0} = ConnectionStates0} = State0,
+    BulkCipherAlgo = ssl_cipher:bulk_cipher_algorithm(Cipher),
+    SecurityParameters = SecurityParameters0#security_parameters{
+                           cipher_type = ?AEAD,
+                           bulk_cipher_algorithm = BulkCipherAlgo},
+    Write = Write0#{security_parameters => SecurityParameters},
+    ConnectionStates1 = ConnectionStates0#{current_write => Write},
+    {BinEarlyData, ConnectionStates} = tls_record:encode_data([EarlyData], Version, ConnectionStates1),
+    State0#state{connection_states = ConnectionStates,
+		 flight_buffer = Flight0 ++ [BinEarlyData]}.
+
+maybe_send_end_of_early_data(
+  #state{
+     handshake_env = #handshake_env{early_data_accepted = true},
+     protocol_specific = #{sender := _Sender},
+     ssl_options = #{versions := [Version|_],
+                     use_ticket := UseTicket,
+                     early_data := EarlyData},
+     static_env = #static_env{protocol_cb = Connection}
+    } = State0) when Version =:= {3,4} andalso
+                     UseTicket =/= [undefined] andalso
+                     EarlyData =/= undefined ->
+    %% EndOfEarlydata is encrypted with the 0-RTT traffic keys
+    State1 = Connection:queue_handshake(#end_of_early_data{}, State0),
+    %% Use handshake keys after EndOfEarlyData is sent
+    ssl_record:step_encryption_state_write(State1);
+maybe_send_end_of_early_data(State) ->
+    State.
+
+maybe_check_early_data_indication(EarlyDataIndication,
+                                  #state{
+                                     handshake_env = HsEnv,
+                                     ssl_options = #{versions := [Version|_],
+                                                     use_ticket := UseTicket,
+                                                     early_data := EarlyData}
+                                    } = State) when Version =:= {3,4} andalso
+                                                     UseTicket =/= [undefined] andalso
+                                                     EarlyData =/= undefined andalso
+                                                     EarlyDataIndication =/= undefined ->
+    signal_user_early_data(State, accepted),
+    State#state{handshake_env = HsEnv#handshake_env{early_data_accepted = true}};
+maybe_check_early_data_indication(EarlyDataIndication,
+                                  #state{
+                                     protocol_specific = #{sender := _Sender},
+                                     ssl_options = #{versions := [Version|_],
+                                                     use_ticket := UseTicket,
+                                                     early_data := EarlyData} = _SslOpts0
+                                    } = State) when Version =:= {3,4} andalso
+                                                     UseTicket =/= [undefined] andalso
+                                                     EarlyData =/= undefined andalso
+                                                     EarlyDataIndication =:= undefined ->
+    signal_user_early_data(State, rejected),
+    %% Use handshake keys if early_data is rejected.
+    ssl_record:step_encryption_state_write(State);
+maybe_check_early_data_indication(_, State) ->
+    %% Use handshake keys if there is no early_data.
+    ssl_record:step_encryption_state_write(State).
+
+signal_user_early_data(#state{
+                          connection_env =
+                              #connection_env{
+                                 user_application = {_, User}},
+                          static_env =
+                              #static_env{
+                                 socket = Socket,
+                                 protocol_cb = Connection,
+                                 transport_cb = Transport,
+                                 trackers = Trackers}} = State,
+                       Result) ->
+    CPids = Connection:pids(State),
+    SslSocket = Connection:socket(CPids, Transport, Socket, Trackers),
+    User ! {ssl, SslSocket, {early_data, Result}}.
 
 cipher_hash_algos(Ciphers) ->
     Fun = fun(Cipher) ->
@@ -2499,6 +2697,14 @@ cipher_hash_algos(Ciphers) ->
           end,
     lists:map(Fun, Ciphers).
 
+ciphers_for_early_data(CipherSuites0) ->
+    %% Use only supported TLS 1.3 cipher suites
+    Supported = lists:filter(fun(CipherSuite) ->
+                                     lists:member(CipherSuite, tls_v1:exclusive_suites(4)) end,
+                             CipherSuites0),
+    %% Return supported block cipher algorithms
+    lists:map(fun(#{cipher := Cipher}) -> Cipher end,
+              lists:map(fun ssl_cipher_format:suite_bin_to_map/1, Supported)).
 
 get_ticket_data(_, undefined, _) ->
     undefined;
@@ -2523,30 +2729,43 @@ process_user_tickets([H|T], Acc, N) ->
             process_user_tickets(T, [TicketData|Acc], N + 1)
     end.
 
-process_ticket(Bin, N) when is_binary(Bin) ->
-    try erlang:binary_to_term(Bin, [safe]) of
-        #{hkdf := HKDF,
-          sni := _SNI,  %% TODO: Handle SNI?
-          psk := PSK,
-          timestamp := Timestamp,
-          ticket := NewSessionTicket} ->
-            #new_session_ticket{
-               ticket_lifetime = _LifeTime,
-               ticket_age_add = AgeAdd,
-               ticket_nonce = Nonce,
-               ticket = Ticket,
-               extensions = _Extensions
-              } = NewSessionTicket,
-            TicketAge =  erlang:system_time(seconds) - Timestamp,
-            ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
-            Identity = #psk_identity{
-                          identity = Ticket,
-                          obfuscated_ticket_age = ObfuscatedTicketAge},
-            {undefined, N, Identity, PSK, Nonce, HKDF};
-        _Else ->
-            error
-    catch error:badarg ->
-            error
+%% Used when session_tickets = manual
+process_ticket(#{cipher_suite := CipherSuite,
+                 sni := _SNI,  %% TODO user's responsibility to handle SNI?
+                 psk := PSK,
+                 timestamp := Timestamp,
+                 ticket := NewSessionTicket}, N) ->
+    #new_session_ticket{
+       ticket_lifetime = _LifeTime,
+       ticket_age_add = AgeAdd,
+       ticket_nonce = Nonce,
+       ticket = Ticket,
+       extensions = Extensions
+      } = NewSessionTicket,
+    TicketAge =  erlang:system_time(seconds) - Timestamp,
+    ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
+    Identity = #psk_identity{
+                  identity = Ticket,
+                  obfuscated_ticket_age = ObfuscatedTicketAge},
+    MaxEarlyData = get_max_early_data(Extensions),
+    #ticket_data{
+       key = undefined,
+       pos = N,
+       identity = Identity,
+       psk = PSK,
+       nonce = Nonce,
+       cipher_suite = CipherSuite,
+       max_size = MaxEarlyData};
+process_ticket(_, _) ->
+    error.
+
+get_max_early_data(Extensions) ->
+    EarlyDataIndication = maps:get(early_data, Extensions, undefined),
+    case EarlyDataIndication of
+        undefined ->
+            undefined;
+        #early_data_indication_nst{indication = MaxSize} ->
+            MaxSize
     end.
 
 %% The "obfuscated_ticket_age"

@@ -42,7 +42,9 @@
 	 set_server_verify_data/3,
          set_max_fragment_length/2,
 	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1,
-         step_encryption_state/1]).
+         step_encryption_state/1,
+         step_encryption_state_read/1,
+         step_encryption_state_write/1]).
 
 %% Compression
 -export([compress/3, uncompress/3, compressions/0]).
@@ -138,6 +140,17 @@ step_encryption_state(#state{connection_states =
                     ConnStates#{current_read => NewRead,
                                 current_write => NewWrite}}.
 
+step_encryption_state_read(#state{connection_states =
+                                 #{pending_read := PendingRead} = ConnStates} = State) ->
+    NewRead = PendingRead#{sequence_number => 0},
+    State#state{connection_states =
+                    ConnStates#{current_read => NewRead}}.
+
+step_encryption_state_write(#state{connection_states =
+                                 #{pending_write := PendingWrite} = ConnStates} = State) ->
+    NewWrite = PendingWrite#{sequence_number => 0},
+    State#state{connection_states =
+                    ConnStates#{current_write => NewWrite}}.
 
 %%--------------------------------------------------------------------
 -spec set_security_params(#security_parameters{}, #security_parameters{},

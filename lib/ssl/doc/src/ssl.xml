@@ -1043,6 +1043,10 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	</desc>
       </datatype>
 
+      <datatype>
+	<name name="client_early_data"/>
+      </datatype>
+
     <!--   <datatype> -->
   <!-- 	<name name="ocsp_stapling"/> -->
   <!-- 	<desc><p>If true, OCSP stapling will be enabled, an extension of type "status_request" will be -->
@@ -1332,6 +1336,14 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	The cookie extension is enabled by default as it is a mandatory extension
 	in RFC8446.</p></note>
 	</desc>
+      </datatype>
+
+      <datatype>
+        <name name="server_early_data"/>
+      </datatype>
+
+      <datatype>
+        <name name="max_early_data"/>
       </datatype>
 
       <datatype>

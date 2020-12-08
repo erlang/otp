@@ -70,7 +70,8 @@
          hash_size/1, 
          effective_key_bits/1,
          key_material/1, 
-         signature_algorithm_to_scheme/1]).
+         signature_algorithm_to_scheme/1,
+         bulk_cipher_algorithm/1]).
 
 %% RFC 8446 TLS 1.3
 -export([generate_client_shares/1,

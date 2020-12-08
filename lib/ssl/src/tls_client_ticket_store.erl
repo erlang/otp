@@ -25,10 +25,11 @@
 -module(tls_client_ticket_store).
 -behaviour(gen_server).
 
+-include("ssl_internal.hrl").
 -include("tls_handshake_1_3.hrl").
 
 %% API
--export([find_ticket/3,
+-export([find_ticket/5,
          get_tickets/2,
          lock_tickets/2,
          remove_tickets/1,
@@ -51,7 +52,7 @@
 
 -record(data, {
                pos = undefined,
-               hkdf,
+               cipher_suite,
                sni,
                psk,
                timestamp,
@@ -69,8 +70,8 @@
 start_link(Max, Lifetime) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Max, Lifetime], []).
 
-find_ticket(Pid, HashAlgos, SNI) ->
-    gen_server:call(?MODULE, {find_ticket, Pid, HashAlgos, SNI}, infinity).
+find_ticket(Pid, Ciphers, HashAlgos, SNI, EarlyDataSize) ->
+    gen_server:call(?MODULE, {find_ticket, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize}, infinity).
 
 get_tickets(Pid, Keys) ->
     gen_server:call(?MODULE, {get_tickets, Pid, Keys}, infinity).
@@ -85,8 +86,8 @@ remove_tickets([]) ->
 remove_tickets(Keys) ->
     gen_server:cast(?MODULE, {remove_tickets, Keys}).
 
-store_ticket(Ticket, HKDF, SNI, PSK) ->
-    gen_server:call(?MODULE, {store_ticket, Ticket, HKDF, SNI, PSK}, infinity).
+store_ticket(Ticket, CipherSuite, SNI, PSK) ->
+    gen_server:call(?MODULE, {store_ticket, Ticket, CipherSuite, SNI, PSK}, infinity).
 
 unlock_tickets(Pid, Keys) ->
     gen_server:call(?MODULE, {unlock, Pid, Keys}, infinity).
@@ -107,8 +108,8 @@ init(Args) ->
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
-handle_call({find_ticket, Pid, HashAlgos, SNI}, _From, State) ->
-    Key = do_find_ticket(State, Pid, HashAlgos, SNI),
+handle_call({find_ticket, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize}, _From, State) ->
+    Key = do_find_ticket(State, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize),
     {reply, Key, State};
 handle_call({get_tickets, Pid, Keys}, _From, State) ->
     Data = get_tickets(State, Pid, Keys),
@@ -116,8 +117,8 @@ handle_call({get_tickets, Pid, Keys}, _From, State) ->
 handle_call({lock, Pid, Keys}, _From, State0) ->
     State = lock_tickets(State0, Pid, Keys),
     {reply, ok, State};
-handle_call({store_ticket, Ticket, HKDF, SNI, PSK}, _From, State0) ->
-    State = store_ticket(State0, Ticket, HKDF, SNI, PSK),
+handle_call({store_ticket, Ticket, CipherSuite, SNI, PSK}, _From, State0) ->
+    State = store_ticket(State0, Ticket, CipherSuite, SNI, PSK),
     {reply, ok, State};
 handle_call({unlock, Pid, Keys}, _From, State0) ->
     State = unlock_tickets(State0, Pid, Keys),
@@ -170,41 +171,77 @@ inital_state([Max, Lifetime]) ->
            max = Max
           }.
 
-
-do_find_ticket(_, _, [], _) ->
-    undefined;
+do_find_ticket(Iter, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize) ->
+    do_find_ticket(Iter, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize, []).
+%%
+do_find_ticket(_, _, _, [], _, _, []) ->
+    {undefined, undefined};
+do_find_ticket(_, _, _, [], _, _, Acc) ->
+    {undefined, last_elem(Acc)};
 do_find_ticket(#state{db = Db,
-                      lifetime = Lifetime} = State, Pid, [Hash|T], SNI) ->
-    case iterate_tickets(gb_trees:iterator(Db), Pid, Hash, SNI, Lifetime) of
-        none ->
-            do_find_ticket(State, Pid, T, SNI);
+                      lifetime = Lifetime} = State, Pid, Ciphers, [Hash|T], SNI, EarlyDataSize, Acc) ->
+    case iterate_tickets(gb_trees:iterator(Db), Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize) of
+        {undefined, undefined} ->
+            do_find_ticket(State, Pid, Ciphers, T, SNI, EarlyDataSize, Acc);
+        {undefined, Key} ->
+            do_find_ticket(State, Pid, Ciphers, T, SNI, EarlyDataSize, [Key|Acc]);
         Key ->
             Key
     end.
 
-iterate_tickets(Iter0, Pid, Hash, SNI, Lifetime) ->
+iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize) ->
+    iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, []).
+%%
+iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc) ->
     case gb_trees:next(Iter0) of
-        {Key, #data{hkdf = Hash,
+        {Key, #data{cipher_suite = {Cipher, Hash},
                     sni = TicketSNI,
+                    ticket = #new_session_ticket{
+                                extensions = Extensions},
                     timestamp = Timestamp,
                     lock = Lock}, Iter} when Lock =:= undefined orelse
                                              Lock =:= Pid ->
+            MaxEarlyData = tls_handshake_1_3:get_max_early_data(Extensions),
             Age = erlang:system_time(seconds) - Timestamp,
             if Age < Lifetime ->
                     case verify_ticket_sni(SNI, TicketSNI) of
                         match ->
-                            Key;
+                            case lists:member(Cipher, Ciphers) of
+                                true ->
+                                    Front = last_elem(Acc),
+                                    %% 'Key' can be used with early_data as both
+                                    %% block cipher and hash algorithm matches.
+                                    %% 'Front' can only be used for session
+                                    %% resumption.
+                                    case EarlyDataSize =:= undefined orelse
+                                        EarlyDataSize =< MaxEarlyData of
+                                        true ->
+                                            {Key, Front};
+                                        false ->
+                                            %% 'Key' cannot be used for early_data as the data
+                                            %% to be sent exceeds the max limit for this ticket.
+                                            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI,
+                                                            Lifetime, EarlyDataSize,[Key|Acc])
+                                    end;
+                                false ->
+                                    iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, [Key|Acc])
+                            end;
                         nomatch ->
-                            iterate_tickets(Iter, Pid, Hash, SNI, Lifetime)
+                            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc)
                     end;
                true ->
-                    iterate_tickets(Iter, Pid, Hash, SNI, Lifetime)
+                    iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc)
             end;
         {_, _, Iter} ->
-            iterate_tickets(Iter, Pid, Hash, SNI, Lifetime);
+            iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc);
         none ->
-            none
+            {undefined, last_elem(Acc)}
     end.
+
+last_elem([_|_] = L) ->
+    lists:last(L);
+last_elem([]) ->
+    undefined.
 
 verify_ticket_sni(undefined, _) ->
     match;
@@ -224,7 +261,7 @@ get_tickets(_, _, [], Acc) ->
 get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
     try gb_trees:get(Key, Db) of
         #data{pos = Pos,
-              hkdf = HKDF,
+              cipher_suite = CipherSuite,
               psk = PSK,
               timestamp = Timestamp,
               ticket = NewSessionTicket,
@@ -235,14 +272,23 @@ get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
                ticket_age_add = AgeAdd,
                ticket_nonce = Nonce,
                ticket = Ticket,
-               extensions = _Extensions
+               extensions = Extensions
               } = NewSessionTicket,
             TicketAge =  erlang:system_time(seconds) - Timestamp,
             ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
             Identity = #psk_identity{
                           identity = Ticket,
                           obfuscated_ticket_age = ObfuscatedTicketAge},
-            get_tickets(State, Pid, T, [{Key, Pos, Identity, PSK, Nonce, HKDF}|Acc])
+            MaxEarlyData = tls_handshake_1_3:get_max_early_data(Extensions),
+            TicketData = #ticket_data{
+                           key = Key,
+                           pos = Pos,
+                           identity = Identity,
+                           psk = PSK,
+                           nonce = Nonce,
+                           cipher_suite = CipherSuite,
+                           max_size = MaxEarlyData},
+            get_tickets(State, Pid, T, [TicketData|Acc])
     catch
         _:_ ->
             get_tickets(State, Pid, T, Acc)
@@ -296,7 +342,7 @@ collect_invalid_tickets(Iter0, Lifetime, Acc) ->
     end.
 
 
-store_ticket(#state{db = Db0, max = Max} = State, Ticket, HKDF, SNI, PSK) ->
+store_ticket(#state{db = Db0, max = Max} = State, Ticket, CipherSuite, SNI, PSK) ->
     Timestamp = erlang:system_time(seconds),
     Size = gb_trees:size(Db0),
     Db1 = if Size =:= Max ->
@@ -306,7 +352,7 @@ store_ticket(#state{db = Db0, max = Max} = State, Ticket, HKDF, SNI, PSK) ->
           end,
     Key =  {erlang:monotonic_time(), erlang:unique_integer([monotonic])},
     Db = gb_trees:insert(Key,
-                         #data{hkdf = HKDF,
+                         #data{cipher_suite = CipherSuite,
                                sni = SNI,
                                psk = PSK,
                                timestamp = Timestamp,
