@@ -353,23 +353,6 @@ format_error({bad_bitsize,Type}) ->
 format_error(unsized_binary_in_bin_gen_pattern) ->
     "binary fields without size are not allowed in patterns of bit string generators";
 %% --- behaviours ---
-format_error({conflicting_behaviours,{Name,Arity},B,FirstL,FirstB}) ->
-    io_lib:format("conflicting behaviours - callback ~tw/~w required by both '~p' "
-		  "and '~p' ~s", [Name,Arity,B,FirstB,format_where(FirstL)]);
-format_error({undefined_behaviour_func, {Func,Arity}, Behaviour}) ->
-    io_lib:format("undefined callback function ~tw/~w (behaviour '~w')",
-		  [Func,Arity,Behaviour]);
-format_error({undefined_behaviour,Behaviour}) ->
-    io_lib:format("behaviour ~tw undefined", [Behaviour]);
-format_error({undefined_behaviour_callbacks,Behaviour}) ->
-    io_lib:format("behaviour ~w callback functions are undefined",
-		  [Behaviour]);
-format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
-    io_lib:format("behaviour ~w callback functions erroneously defined",
-		  [Behaviour]);
-format_error({ill_defined_optional_callbacks,Behaviour}) ->
-    io_lib:format("behaviour ~w optional callback functions erroneously defined",
-		  [Behaviour]);
 format_error({behaviour_info, {_M,F,A}}) ->
     io_lib:format("cannot define callback attibute for ~tw/~w when "
                   "behaviour_info is defined",[F,A]);
@@ -941,126 +924,35 @@ disallowed_compile_flags(Forms, St0) ->
 %% data about calls etc. have been collected.
 
 post_traversal_check(Forms, St0) ->
-    St1 = check_behaviour(St0),
-    St2 = check_deprecated(Forms, St1),
-    St3 = check_imports(Forms, St2),
-    St4 = check_inlines(Forms, St3),
-    St5 = check_undefined_functions(St4),
-    St6 = check_unused_functions(Forms, St5),
-    St7 = check_bif_clashes(Forms, St6),
-    St8 = check_specs_without_function(St7),
-    St9 = check_functions_without_spec(Forms, St8),
-    StA = check_undefined_types(St9),
-    StB = check_unused_types(Forms, StA),
-    StC = check_untyped_records(Forms, StB),
-    StD = check_on_load(StC),
-    StE = check_unused_records(Forms, StD),
-    StF = check_local_opaque_types(StE),
-    StG = check_dialyzer_attribute(Forms, StF),
-    StH = check_callback_information(StG),
-    check_removed(Forms, StH).
+    Checks = [fun check_behaviour/2,
+              fun check_deprecated/2,
+              fun check_imports/2,
+              fun check_inlines/2,
+              fun check_undefined_functions/2,
+              fun check_unused_functions/2,
+              fun check_bif_clashes/2,
+              fun check_specs_without_function/2,
+              fun check_functions_without_spec/2,
+              fun check_undefined_types/2,
+              fun check_unused_types/2,
+              fun check_untyped_records/2,
+              fun check_on_load/2,
+              fun check_unused_records/2,
+              fun check_local_opaque_types/2,
+              fun check_dialyzer_attribute/2,
+              fun check_callback_information/2,
+              fun check_removed/2],
+    foldl(fun(Fun, St) ->
+                  Fun(Forms, St)
+          end, St0, Checks).
 
-%% check_behaviour(State0) -> State
+%% check_behaviour(Forms, State0) -> State
 %% Check that the behaviour attribute is valid.
 
-check_behaviour(St0) ->
-    behaviour_check(St0#lint.behaviour, St0).
-
-%% behaviour_check([{Line,Behaviour}], State) -> State'
-%%  Check behaviours for existence and defined functions.
-
-behaviour_check(Bs, St0) ->
-    {AllBfs0, St1} = all_behaviour_callbacks(Bs, [], St0),
-    St = behaviour_missing_callbacks(AllBfs0, St1),
-    Exports = exports(St0),
-    F = fun(Bfs, OBfs) ->
-                [B || B <- Bfs,
-                      not lists:member(B, OBfs)
-                      orelse gb_sets:is_member(B, Exports)]
-        end,
-    %% After fixing missing callbacks new warnings may be emitted.
-    AllBfs = [{Item,F(Bfs0, OBfs0)} || {Item,Bfs0,OBfs0} <- AllBfs0],
-    behaviour_conflicting(AllBfs, St).
-
-all_behaviour_callbacks([{Line,B}|Bs], Acc, St0) ->
-    {Bfs0,OBfs0,St} = behaviour_callbacks(Line, B, St0),
-    all_behaviour_callbacks(Bs, [{{Line,B},Bfs0,OBfs0}|Acc], St);
-all_behaviour_callbacks([], Acc, St) -> {reverse(Acc),St}.
-
-behaviour_callbacks(Line, B, St0) ->
-    try B:behaviour_info(callbacks) of
-        undefined ->
-            St1 = add_warning(Line, {undefined_behaviour_callbacks, B}, St0),
-            {[], [], St1};
-        Funcs ->
-            case is_fa_list(Funcs) of
-                true ->
-                    try B:behaviour_info(optional_callbacks) of
-                        undefined ->
-                            {Funcs, [], St0};
-                        OptFuncs ->
-                            %% OptFuncs should always be OK thanks to
-                            %% sys_pre_expand.
-                            case is_fa_list(OptFuncs) of
-                                true ->
-                                    {Funcs, OptFuncs, St0};
-                                false ->
-                                    W = {ill_defined_optional_callbacks, B},
-                                    St1 = add_warning(Line, W, St0),
-                                    {Funcs, [], St1}
-                            end
-                    catch
-                        _:_ ->
-                            {Funcs, [], St0}
-                    end;
-                false ->
-                    St1 = add_warning(Line,
-                                      {ill_defined_behaviour_callbacks, B},
-                                      St0),
-                    {[], [], St1}
-            end
-    catch
-        _:_ ->
-            St1 = add_warning(Line, {undefined_behaviour, B}, St0),
-            St2 = check_module_name(B, Line, St1),
-            {[], [], St2}
-    end.
-
-behaviour_missing_callbacks([{{Line,B},Bfs0,OBfs}|T], St0) ->
-    Bfs = ordsets:subtract(ordsets:from_list(Bfs0), ordsets:from_list(OBfs)),
-    Exports = gb_sets:to_list(exports(St0)),
-    Missing = ordsets:subtract(Bfs, Exports),
-    St = foldl(fun (F, S0) ->
-                       case is_fa(F) of
-                           true ->
-                               M = {undefined_behaviour_func,F,B},
-                               add_warning(Line, M, S0);
-                           false ->
-                               S0 % ill_defined_behaviour_callbacks
-                       end
-	       end, St0, Missing),
-    behaviour_missing_callbacks(T, St);
-behaviour_missing_callbacks([], St) -> St.
-
-behaviour_conflicting(AllBfs, St) ->
-    R0 = sofs:relation(AllBfs, [{item,[callback]}]),
-    R1 = sofs:family_to_relation(R0),
-    R2 = sofs:converse(R1),
-    R3 = sofs:relation_to_family(R2),
-    R4 = sofs:family_specification(fun(S) -> sofs:no_elements(S) > 1 end, R3),
-    R = sofs:to_external(R4),
-    behaviour_add_conflicts(R, St).
-
-behaviour_add_conflicts([{Cb,[{FirstLoc,FirstB}|Cs]}|T], St0) ->
-    FirstL = element(2, loc(FirstLoc, St0)),
-    St = behaviour_add_conflict(Cs, Cb, FirstL, FirstB, St0),
-    behaviour_add_conflicts(T, St);
-behaviour_add_conflicts([], St) -> St.
-
-behaviour_add_conflict([{Line,B}|Cs], Cb, FirstL, FirstB, St0) ->
-    St = add_warning(Line, {conflicting_behaviours,Cb,B,FirstL,FirstB}, St0),
-    behaviour_add_conflict(Cs, Cb, FirstL, FirstB, St);
-behaviour_add_conflict([], _, _, _, St) -> St.
+check_behaviour(_Forms, St0) ->
+    foldl(fun({Line, B}, St) ->
+                  check_module_name(B, Line, St)
+          end, St0, St0#lint.behaviour).
 
 %% check_deprecated(Forms, State0) -> State
 
@@ -1256,9 +1148,9 @@ reached_functions([], [_|_]=More, Ref, Reached) ->
     reached_functions(lists:append(More), [], Ref, Reached);
 reached_functions([], [], _Ref, Reached) -> gb_sets:to_list(Reached).
 
-%% check_undefined_functions(State0) -> State
+%% check_undefined_functions(Forms, State0) -> State
 
-check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
+check_undefined_functions(_Forms, #lint{called=Called0,defined=Def0}=St0) ->
     Called = sofs:relation(Called0, [{func,location}]),
     Def = sofs:from_external(gb_sets:to_list(Def0), [func]),
     Undef = sofs:to_external(sofs:drestriction(Called, Def)),
@@ -1266,9 +1158,9 @@ check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
 		  add_error(L, {undefined_function,NA}, St)
 	  end, St0, Undef).
 
-%% check_undefined_types(State0) -> State
+%% check_undefined_types(Forms, State0) -> State
 
-check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
+check_undefined_types(_Forms, #lint{usage=Usage,types=Def}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = maps:keys(Used),
     Undef = [{TA,map_get(TA, Used)} ||
@@ -1352,9 +1244,9 @@ check_unused_records(Forms, St0) ->
             St0
     end.
 
-check_callback_information(#lint{callbacks = Callbacks,
-                                 optional_callbacks = OptionalCbs,
-				 defined = Defined} = St0) ->
+check_callback_information(_Forms, #lint{callbacks = Callbacks,
+                                         optional_callbacks = OptionalCbs,
+                                         defined = Defined} = St0) ->
     OptFun = fun(MFA, Line, St) ->
                      case is_map_key(MFA, Callbacks) of
                          true ->
@@ -1420,14 +1312,6 @@ export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
     catch
 	error:_ ->
 	    add_error(Line, {bad_export_type, ETs}, St0)
-    end.
-
--spec exports(lint_state()) -> gb_sets:set(fa()).
-
-exports(#lint{compile = Opts, defined = Defs, exports = Es}) ->
-    case lists:member(export_all, Opts) of
-        true -> Defs;
-        false -> Es
     end.
 
 -type import() :: {module(), [fa()]} | module().
@@ -1526,13 +1410,13 @@ on_load(Line, Val, St) ->
     %% Bad syntax.
     add_error(Line, {bad_on_load,Val}, St).
 
-check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
+check_on_load(_Forms, #lint{defined=Defined,on_load=[{_,0}=Fa],
 		    on_load_line=Line}=St) ->
     case gb_sets:is_member(Fa, Defined) of
 	true -> St;
 	false -> add_error(Line, {undefined_on_load,Fa}, St)
     end;
-check_on_load(St) -> St.
+check_on_load(_Forms, St) -> St.
 
 -spec call_function(line(), atom(), arity(), lint_state()) -> lint_state().
 %%  Add to both called and calls.
@@ -3185,7 +3069,8 @@ nowarn() ->
     A1 = erl_anno:set_generated(true, A0),
     erl_anno:set_file("", A1).
 
-check_specs_without_function(#lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
+check_specs_without_function(_Forms, St) ->
+    #lint{module=Mod,defined=Funcs,specs=Specs}=St,
     Fun = fun({M, F, A}, Line, AccSt) when M =:= Mod ->
                   FA = {F, A},
 		  case gb_sets:is_element(FA, Funcs) of
@@ -3262,7 +3147,7 @@ check_unused_types_1(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	    St
     end.
 
-check_local_opaque_types(St) ->
+check_local_opaque_types(_Forms, St) ->
     #lint{types=Ts, exp_types=ExpTs} = St,
     FoldFun =
         fun(_Type, #typeinfo{attr = type}, AccSt) ->
