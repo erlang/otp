@@ -43,7 +43,7 @@
       </p>
       <code>
 
-	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xml_from_edoc.escript ex1.erl
+	1> escript ${ERL_TOP}/lib/erl_docgen/priv/bin/xml_from_edoc.escript ex1.erl
       </code>
     </section>
     <section>
@@ -57,7 +57,7 @@
       </p>
       <code>
 
-	1> escript $(ERL_TOP)/lib/erl_docgen/priv/bin/codeline_preprocessing.escript \
+	1> escript ${ERL_TOP}/lib/erl_docgen/priv/bin/codeline_preprocessing.escript \
 	   ex1.xmlsrc ex1.xml
       </code>
     </section>
