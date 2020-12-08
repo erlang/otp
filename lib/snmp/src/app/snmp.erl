@@ -73,7 +73,6 @@
 
 	 get/2,
 	 info/1, 
-	 load_mibs/2, unload_mibs/2, dump_mibs/0, dump_mibs/1,
 
 	 register_subagent/3, unregister_subagent/2, 
 
@@ -149,10 +148,6 @@
 
     {get,                   2, "use snmpa:get/2 instead."},
     {info,                  1, "use snmpa:info/1 instead."},
-    {load_mibs,             2, "use snmpa:load_mibs/2 instead."},
-    {unload_mibs,           2, "use snmpa:unload_mibs/2 instead."},
-    {dump_mibs,             0, "use snmpa:dump_mibs/0 instead."},
-    {dump_mibs,             1, "use snmpa:dump_mibs/1 instead."},
 
     {register_subagent,     3, "use snmpa:register_subagent/3 instead."},
     {unregister_subagent,   2, "use snmpa:unregister_subagent/2 instead."},
@@ -1048,10 +1043,7 @@ int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
 
 get(Agent, Vars) -> snmpa:get(Agent, Vars).
 info(Agent) -> snmpa:info(Agent).
-dump_mibs()     -> snmpa:dump_mibs().
-dump_mibs(File) -> snmpa:dump_mibs(File).
-load_mibs(Agent, Mibs) -> snmpa:load_mibs(Agent, Mibs).
-unload_mibs(Agent, Mibs) -> snmpa:unload_mibs(Agent, Mibs).
+
 send_notification(Agent, Notification, Recv) -> 
     snmpa:send_notification(Agent, Notification, Recv).
 send_notification(Agent, Notification, Recv, Varbinds) ->
