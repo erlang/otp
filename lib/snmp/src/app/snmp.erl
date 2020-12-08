@@ -76,10 +76,6 @@
 
 	 register_subagent/3, unregister_subagent/2, 
 
-	 send_notification/3, send_notification/4, send_notification/5,
-	 send_notification/6,
-	 send_trap/3, send_trap/4,
-
 	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
 	 change_log_size/1
 
@@ -150,14 +146,7 @@
     {info,                  1, "use snmpa:info/1 instead."},
 
     {register_subagent,     3, "use snmpa:register_subagent/3 instead."},
-    {unregister_subagent,   2, "use snmpa:unregister_subagent/2 instead."},
-
-    {send_notification,     3, "use snmpa:send_notification/3 instead."},
-    {send_notification,     4, "use snmpa:send_notification/4 instead."},
-    {send_notification,     5, "use snmpa:send_notification/5 instead."},
-    {send_notification,     6, "use snmpa:send_notification/6 instead."},
-    {send_trap,             3, "use snmpa:send_trap/3 instead."},
-    {send_trap,             4, "use snmpa:send_trap/4 instead."}
+    {unregister_subagent,   2, "use snmpa:unregister_subagent/2 instead."}
    ]).
  
 
@@ -1044,20 +1033,6 @@ int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
 get(Agent, Vars) -> snmpa:get(Agent, Vars).
 info(Agent) -> snmpa:info(Agent).
 
-send_notification(Agent, Notification, Recv) -> 
-    snmpa:send_notification(Agent, Notification, Recv).
-send_notification(Agent, Notification, Recv, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, Varbinds).
-send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, NotifyName, Varbinds).
-send_notification(Agent, Notification, Recv, NotifyName, 
-		  ContextName, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, NotifyName, 
-			    ContextName, Varbinds).
-send_trap(Agent, Trap, Community) ->
-    snmpa:send_trap(Agent, Trap, Community).
-send_trap(Agent, Trap, Community, Varbinds) ->
-    snmpa:send_trap(Agent, Trap, Community, Varbinds).
 register_subagent(Agent, SubTree, SubAgent) ->
     snmpa:register_subagent(Agent, SubTree, SubAgent).
 unregister_subagent(Agent, SubOidOrPid) ->
