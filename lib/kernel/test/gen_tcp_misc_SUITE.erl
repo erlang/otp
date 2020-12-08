@@ -4993,7 +4993,7 @@ port_failed_str(Reason) ->
 %% Verifies that erl_check_io properly handles extra EPOLLIN signals.
 bidirectional_traffic(Config) when is_list(Config) ->
     Workers = erlang:system_info(schedulers_online) * 2,
-    Payload = crypto:strong_rand_bytes(32),
+    Payload = rand:bytes(32),
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
     %% get all sockets to know failing ends
     {ok, Port} = inet:port(LSock),
