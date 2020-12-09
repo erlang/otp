@@ -1568,9 +1568,26 @@ rand_plugin_aes_next({Key,GenWords,F,_JumpBase,Count}) ->
 %%
 rand_plugin_aes_next(Key, GenWords, F, Count) ->
     {Cleartext,NewCount} = aes_cleartext(<<>>, F, Count, GenWords),
-    Encrypted = block_encrypt(aes_ecb, Key, Cleartext),
+    Encrypted = block_encrypt(Key, Cleartext),
     [V|Cache] = aes_cache(Encrypted, {Key,GenWords,F,Count,NewCount}),
     {V,Cache}.
+
+block_encrypt(Key, Data) ->
+    Cipher = case size(Key) of
+                 16 -> aes_128_ecb;
+                 24 -> aes_192_ecb;
+                 32 -> aes_256_ecb;
+                 _ -> error(badarg)
+             end,
+    try 
+        crypto_one_time(Cipher, Key, Data, true)
+    catch
+        error:{error, {_File,_Line}, _Reason} ->
+            error(badarg);
+        error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
+            error(E)
+    end.
+
 
 %% A jump advances the counter 2^512 steps; the jump function
 %% is applied to the jump base and then the number of used
