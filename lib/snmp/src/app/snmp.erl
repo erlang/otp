@@ -65,14 +65,11 @@
 	 compile/3]).
 
 %% Agent exports (Dont use these, they will be removed in OTP 24)
--export([get_symbolic_store_db/0,
+-export([
 	 name_to_oid/1, name_to_oid/2, 
 	 oid_to_name/1, oid_to_name/2,
 	 int_to_enum/2, int_to_enum/3, 
 	 enum_to_int/2, enum_to_int/3,
-
-	 get/2,
-	 info/1, 
 
 	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
 	 change_log_size/1
@@ -130,7 +127,6 @@
     {log_to_txt,            3, "use snmpa:log_to_txt/3 instead."},
     {log_to_txt,            4, "use snmpa:log_to_txt/4 instead."},
 
-    {get_symbolic_store_db, 0, "use snmpa:get_symbolic_store_db/0 instead."},
     {name_to_oid,           1, "use snmpa:name_to_oid/1 instead."},
     {name_to_oid,           2, "use snmpa:name_to_oid/2 instead."},
     {oid_to_name,           1, "use snmpa:oid_to_name/1 instead."},
@@ -138,10 +134,7 @@
     {int_to_enum,           2, "use snmpa:int_to_enum/2 instead."},
     {int_to_enum,           3, "use snmpa:int_to_enum/3 instead."},
     {enum_to_int,           2, "use snmpa:enum_to_int/2 instead."},
-    {enum_to_int,           3, "use snmpa:enum_to_int/3 instead."},
-
-    {get,                   2, "use snmpa:get/2 instead."},
-    {info,                  1, "use snmpa:info/1 instead."}
+    {enum_to_int,           3, "use snmpa:enum_to_int/3 instead."}
    ]).
  
 
@@ -1014,8 +1007,6 @@ mib_to_hrl(MibName) ->
 compile(Input, Output, Options) ->
     snmpc:compile(Input, Output, Options).
 
-get_symbolic_store_db() -> snmpa:get_symbolic_store_db().
-
 name_to_oid(Name)           -> snmpa:name_to_oid(Name).
 name_to_oid(Db, Name)       -> snmpa:name_to_oid(Db, Name).
 oid_to_name(OID)            -> snmpa:oid_to_name(OID).
@@ -1024,9 +1015,6 @@ enum_to_int(Name, Enum)     -> snmpa:enum_to_int(Name, Enum).
 enum_to_int(Db, Name, Enum) -> snmpa:enum_to_int(Db, Name, Enum).
 int_to_enum(Name, Int)      -> snmpa:int_to_enum(Name, Int).
 int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
-
-get(Agent, Vars) -> snmpa:get(Agent, Vars).
-info(Agent) -> snmpa:info(Agent).
 
 log_to_txt(LogDir, Mibs) -> 
     snmpa:log_to_txt(LogDir, Mibs).

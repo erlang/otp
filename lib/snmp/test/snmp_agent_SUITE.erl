@@ -6834,8 +6834,8 @@ otp_3725(Config) when is_list(Config) ->
 otp_3725_test(MaNode) ->
     io:format("Testing feature requested in ticket OTP-3725...~n"),
     ?line rpc:call(MaNode,snmpa,verbosity,[symbolic_store,trace]),
-    ?line Db = rpc:call(MaNode,snmp,get_symbolic_store_db,[]),
-    ?DBG("otp_3725_test -> Db = ~p",[Db]),
+    ?line Db = rpc:call(MaNode, snmpa, get_symbolic_store_db, []),
+    ?DBG("otp_3725_test -> Db = ~p", [Db]),
 
     ?line {value, OID} = rpc:call(MaNode, snmp, name_to_oid,
 				  [Db, intAgentIpAddress]),
