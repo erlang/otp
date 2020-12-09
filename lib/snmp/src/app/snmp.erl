@@ -66,14 +66,8 @@
 
 %% Agent exports (Dont use these, they will be removed in OTP 24)
 -export([
-	 name_to_oid/1, name_to_oid/2, 
-	 oid_to_name/1, oid_to_name/2,
-	 int_to_enum/2, int_to_enum/3, 
-	 enum_to_int/2, enum_to_int/3,
-
 	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
 	 change_log_size/1
-
 	]).
 
 -export_type([
@@ -125,16 +119,7 @@
     {change_log_size,       1, "use snmpa:change_log_size/1 instead."},
     {log_to_txt,            2, "use snmpa:log_to_txt/2 instead."},
     {log_to_txt,            3, "use snmpa:log_to_txt/3 instead."},
-    {log_to_txt,            4, "use snmpa:log_to_txt/4 instead."},
-
-    {name_to_oid,           1, "use snmpa:name_to_oid/1 instead."},
-    {name_to_oid,           2, "use snmpa:name_to_oid/2 instead."},
-    {oid_to_name,           1, "use snmpa:oid_to_name/1 instead."},
-    {oid_to_name,           2, "use snmpa:oid_to_name/2 instead."},
-    {int_to_enum,           2, "use snmpa:int_to_enum/2 instead."},
-    {int_to_enum,           3, "use snmpa:int_to_enum/3 instead."},
-    {enum_to_int,           2, "use snmpa:enum_to_int/2 instead."},
-    {enum_to_int,           3, "use snmpa:enum_to_int/3 instead."}
+    {log_to_txt,            4, "use snmpa:log_to_txt/4 instead."}
    ]).
  
 
@@ -1006,15 +991,6 @@ mib_to_hrl(MibName) ->
 
 compile(Input, Output, Options) ->
     snmpc:compile(Input, Output, Options).
-
-name_to_oid(Name)           -> snmpa:name_to_oid(Name).
-name_to_oid(Db, Name)       -> snmpa:name_to_oid(Db, Name).
-oid_to_name(OID)            -> snmpa:oid_to_name(OID).
-oid_to_name(Db, OID)        -> snmpa:oid_to_name(Db, OID).
-enum_to_int(Name, Enum)     -> snmpa:enum_to_int(Name, Enum).
-enum_to_int(Db, Name, Enum) -> snmpa:enum_to_int(Db, Name, Enum).
-int_to_enum(Name, Int)      -> snmpa:int_to_enum(Name, Int).
-int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
 
 log_to_txt(LogDir, Mibs) -> 
     snmpa:log_to_txt(LogDir, Mibs).
