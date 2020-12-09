@@ -64,12 +64,6 @@
 -export([c/1, c/2, is_consistent/1, mib_to_hrl/1, 
 	 compile/3]).
 
-%% Agent exports (Dont use these, they will be removed in OTP 24)
--export([
-	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
-	 change_log_size/1
-	]).
-
 -export_type([
 	      dir/0, 
 	      snmp_timer/0, 
@@ -114,12 +108,7 @@
     {c,                     2, "use snmpc:compile/2 instead."},
     {compile,               3, "use snmpc:compile/3 instead."},
     {is_consistent,         1, "use snmpc:is_consistent/1 instead."},
-    {mib_to_hrl,            1, "use snmpc:mib_to_hrl/1 instead."},
-
-    {change_log_size,       1, "use snmpa:change_log_size/1 instead."},
-    {log_to_txt,            2, "use snmpa:log_to_txt/2 instead."},
-    {log_to_txt,            3, "use snmpa:log_to_txt/3 instead."},
-    {log_to_txt,            4, "use snmpa:log_to_txt/4 instead."}
+    {mib_to_hrl,            1, "use snmpc:mib_to_hrl/1 instead."}
    ]).
  
 
@@ -991,15 +980,4 @@ mib_to_hrl(MibName) ->
 
 compile(Input, Output, Options) ->
     snmpc:compile(Input, Output, Options).
-
-log_to_txt(LogDir, Mibs) -> 
-    snmpa:log_to_txt(LogDir, Mibs).
-log_to_txt(LogDir, Mibs, OutFile) -> 
-    snmpa:log_to_txt(LogDir, Mibs, OutFile).
-log_to_txt(LogDir, Mibs, OutFile, LogName) -> 
-    snmpa:log_to_txt(LogDir, Mibs, OutFile, LogName).
-change_log_size(NewSize) -> 
-    snmpa:change_log_size(NewSize).
-
-
 
