@@ -752,9 +752,7 @@ res_lookup_type(Domain,Type,RRs) ->
 gethostbyaddr(IP) ->
     case dnip(IP) of
 	{ok, {IP1, HType, HLen, DnIP}} ->
-	    RRs = match_rr(#dns_rr { domain = DnIP, class = in, type = ptr,
-				     cnt = '_', tm = '_', ttl = '_',
-				     bm = '_', func = '_', data = '_' }),
+	    RRs = match_rr({DnIP, in, ptr}),
 	    ent_gethostbyaddr(RRs,  IP1, HType, HLen);
 	Error -> Error
     end.
@@ -899,8 +897,7 @@ init([]) ->
     end,
     Db = ets:new(inet_db, [public, named_table]),
     reset_db(Db),
-    CacheOpts = [public, bag, {keypos,#dns_rr.domain}, named_table],
-    Cache = ets:new(inet_cache, CacheOpts),
+    Cache = ets:new(inet_cache, [public, set, named_table]),
     HostsByname = ets:new(inet_hosts_byname, [named_table]),
     HostsByaddr = ets:new(inet_hosts_byaddr, [named_table]),
     HostsFileByname = ets:new(inet_hosts_file_byname, [named_table]),
@@ -992,11 +989,11 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	{del_rr, RR} when is_record(RR, dns_rr) ->
 	    %% note. del_rr will handle wildcards !!!
 	    Cache = State#state.cache,
-	    ets:match_delete(Cache, RR),
+	    ets:delete(Cache, cache_key(RR)),
 	    {reply, ok, State};
 
 	{lookup_rr, Domain, Class, Type} ->
-	    {reply, do_lookup_rr(Domain, Class, Type), State};
+	    {reply, match_rr({Domain, Class, Type}), State};
 
 	{listop, Opt, Op, E} ->
 	    El = [E],
@@ -1166,7 +1163,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    {reply, ok, State};
 
 	clear_cache ->
-	    ets:match_delete(State#state.cache, '_'),
+	    ets:delete_all_objects(State#state.cache),
 	    {reply, ok, State};
 
 	reset ->
@@ -1621,46 +1618,41 @@ do_add_rr(RR, Db, State) ->
     TM = times(),
     case alloc_entry(Db, CacheDb, TM) of
 	true ->
-	    cache_rr(Db, CacheDb, RR#dns_rr{tm = TM, cnt = TM});
+	    cache_rr(CacheDb, RR#dns_rr{tm = TM, cnt = TM});
 	_ ->
 	    false
     end.
 
-cache_rr(_Db, Cache, RR) ->
-    %% delete possible old entry
-    ets:match_delete(Cache, RR#dns_rr{cnt = '_', tm = '_', ttl = '_',
-				      bm = '_', func = '_'}),
-    ets:insert(Cache, RR).
+cache_rr(Cache, RR) ->
+    ets:insert(Cache, {cache_key(RR), RR}).
 
 times() ->
     erlang:monotonic_time(second).
     %% erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),
     %%     		     native, second).
 
-%% lookup and remove old entries
+%% match and remove old entries
 
-do_lookup_rr(Domain, Class, Type) ->
-    match_rr(#dns_rr{domain = tolower(Domain), class = Class,type = Type,
-		     cnt = '_', tm = '_', ttl = '_',
-		     bm = '_', func = '_', data = '_'}).
+match_rr({_, _, _} = Key) ->
+    Time = times(),
+    case ets:lookup(inet_cache, Key) of
+	[{_,RR}] when RR#dns_rr.ttl =:= 0 -> %% at least once
+	    ets:delete(inet_cache, Key),
+	    [RR];
+	[{_,RR}] when RR#dns_rr.tm + RR#dns_rr.ttl < Time ->
+	    ets:delete(inet_cache, Key),
+	    [];
+	[{_,RR}] ->
+        %% This may fail if cache pruning removes this entry
+        %% at the same time we are updating it, so ignore the result.
+	    _ = ets:update_element(inet_cache, Key, {2, RR#dns_rr{cnt = Time}}),
+	    [RR];
+	[] ->
+	    []
+    end.
 
-match_rr(RR) ->
-    filter_rr(ets:match_object(inet_cache, RR), times()).
-
-
-%% filter old resource records and update access count
-
-filter_rr([RR | RRs], Time) when RR#dns_rr.ttl =:= 0 -> %% at least once
-    ets:match_delete(inet_cache, RR),
-    [RR | filter_rr(RRs, Time)];
-filter_rr([RR | RRs], Time) when RR#dns_rr.tm + RR#dns_rr.ttl < Time ->
-    ets:match_delete(inet_cache, RR),
-    filter_rr(RRs, Time);
-filter_rr([RR | RRs], Time) ->
-    ets:match_delete(inet_cache, RR),
-    ets:insert(inet_cache, RR#dns_rr { cnt = Time }),
-    [RR | filter_rr(RRs, Time)];
-filter_rr([], _Time) ->  [].
+cache_key(#dns_rr{domain = Domain, class = Class, type = Type}) ->
+    {Domain, Class, Type}.
 
 %% Lower case the domain name before storage.
 %%
@@ -1746,16 +1738,17 @@ do_refresh_cache(CacheDb) ->
 do_refresh_cache('$end_of_table', _, _, OldestT) ->
     OldestT;
 do_refresh_cache(Key, CacheDb, Now, OldestT) ->
-    Fun = fun(RR, T) when RR#dns_rr.tm + RR#dns_rr.ttl < Now ->
-		  ets:match_delete(CacheDb, RR),
-		  T;
-	     (#dns_rr{cnt = C}, T) when C < T ->
-		  C;
-	     (_, T) ->
-		  T
-	  end,
     Next = ets:next(CacheDb, Key),
-    OldT = lists:foldl(Fun, OldestT, ets:lookup(CacheDb, Key)),
+    OldT =
+        case ets:lookup(CacheDb, Key) of
+	    [{_,RR}] when RR#dns_rr.tm + RR#dns_rr.ttl < Now ->
+		ets:delete(CacheDb, Key),
+		OldestT;
+	     [{_,#dns_rr{cnt = C}}] when C < OldestT ->
+		C;
+	     _ ->
+		OldestT
+	end,
     do_refresh_cache(Next, CacheDb, Now, OldT).
 
 %% -------------------------------------------------------------------
@@ -1800,17 +1793,18 @@ delete_older(CacheDb, TM, N) ->
 
 delete_older('$end_of_table', _, _, _, M) ->
     M;
-delete_older(_, _, _, N, M) when N =< M ->
+delete_older(_, _, _, M, M) ->
     M;
-delete_older(Domain, CacheDb, TM, N, M) ->
-    Next = ets:next(CacheDb, Domain),
-    Fun = fun(RR, MM) when RR#dns_rr.cnt =< TM ->
-		  ets:match_delete(CacheDb, RR),
-		  MM + 1;
-	     (_, MM) ->
-		  MM
+delete_older(Key, CacheDb, TM, N, M) ->
+    Next = ets:next(CacheDb, Key),
+    M1 =
+	case ets:lookup(CacheDb, Key) of
+	    [{_,RR}] when RR#dns_rr.cnt =< TM ->
+		ets:delete(CacheDb, Key),
+		M + 1;
+	    _ ->
+		M
 	  end,
-    M1 = lists:foldl(Fun, M, ets:lookup(CacheDb, Domain)),
     delete_older(Next, CacheDb, TM, N, M1).
 
 
