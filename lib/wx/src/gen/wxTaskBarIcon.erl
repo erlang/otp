@@ -50,12 +50,15 @@ new() ->
 %%   <pre>Callback() -> term()</pre>
 %%
 %% See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconwxtaskbaricon">external documentation</a>.
--spec new(function()) -> wxTaskBarIcon().
-new(F) when is_function(F)->
-  Fun = fun([_]) -> 
-    #wx_ref{type=wxMenu,ref=ThisRef} = F(),
-    <<ThisRef:32/?UI>>
-  end,
+-spec new([Option]) -> wxTaskBarIcon() when
+    Option :: {'createPopupMenu', fun(() -> wxMenu:wxMenu())}.
+new([]) ->
+    new();
+new([{createPopupMenu, F}]) when is_function(F) ->
+  Fun = fun([_]) ->
+                #wx_ref{type=wxMenu,ref=ThisRef} = F(),
+                <<ThisRef:32/?UI>>
+        end,
   BinFun = <<(wxe_util:get_cbId(Fun)):32/?UI, 0:32>>,
   wxe_util:construct(?wxTaskBarIcon_new, BinFun).
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconpopupmenu">external documentation</a>.
