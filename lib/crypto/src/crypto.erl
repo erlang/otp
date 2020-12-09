@@ -44,15 +44,11 @@
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 
--compile({no_auto_import,[alias/1]}).
-
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
-
-%%%----------------------------------------------------------------
 %% Old interface. Now implemented with the New interface.
-%% Remove in OTP-24.0 See OTP-16232
+%% Removed in OTP-24.0 See OTP-16232 (deprecation) and OTP-16656 (removal)
 
 -removed([{next_iv, '_', "see the 'New and Old API' chapter of the CRYPTO User's guide"},
           {hmac, 3, "use crypto:mac/4 instead"},
@@ -83,7 +79,9 @@
 -removed_type([{retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
                {retired_cfb_cipher_aliases, 0, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"},
                {retired_ctr_cipher_aliases, 0, "Use aes_*_ctr"},
-               {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"}
+               {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"},
+               {stream_state, 0, "see the 'New and Old API' chapter of the CRYPTO User's guide"},
+               {hmac_state,   0, "see the 'New and Old API' chapter of the CRYPTO User's guide"}
               ]).
 
 %%%----------------------------------------------------------------
@@ -145,8 +143,6 @@
 
 %%% Opaque types must be exported :(
 -export_type([
-              stream_state/0,
-              hmac_state/0,
               hash_state/0,
               crypto_state/0,
               mac_state/0
@@ -373,83 +369,7 @@
 
 
 %%%----------------------------------------------------------------
-%%% Old cipher scheme
-%%%
-%%%
--type block_cipher_without_iv() :: ecb_cipher() .
 
--type block_cipher_with_iv() :: cbc_cipher()
-                              | cfb_cipher()
-                              | blowfish_ofb64 .
-
--type stream_cipher() :: ctr_cipher()
-                       | chacha20
-                       | rc4 .
-
-
-%%%----
--type cbc_cipher()  :: aes_128_cbc
-                     | aes_192_cbc
-                     | aes_256_cbc
-                     | blowfish_cbc
-                     | des_cbc
-                     | des_ede3_cbc
-                     | rc2_cbc
-                     | retired_cbc_cipher_aliases() .
-
--type retired_cbc_cipher_aliases() :: aes_cbc      % aes_*_cbc
-                                    | aes_cbc128   % aes_128_cbc
-                                    | aes_cbc256   % aes_256_cbc
-                                    | des3_cbc     % des_ede3_cbc
-                                    | des_ede3 .   % des_ede3_cbc
-
-%%%----
--type cfb_cipher() :: aes_128_cfb128
-                    | aes_192_cfb128
-                    | aes_256_cfb128
-                    | aes_128_cfb8
-                    | aes_192_cfb8
-                    | aes_256_cfb8
-                    | blowfish_cfb64
-                    | des_cfb
-                    | des_ede3_cfb
-                    | retired_cfb_cipher_aliases() .
-
--type retired_cfb_cipher_aliases() :: aes_cfb8      % aes_*_cfb8
-                                    | aes_cfb128    % aes_*_cfb128
-                                    | des3_cbf      % des_ede3_cfb, cfb misspelled
-                                    | des3_cfb      % des_ede3_cfb
-                                    | des_ede3_cbf .% cfb misspelled
-
-
-%%%----
--type ctr_cipher() :: aes_128_ctr
-                    | aes_192_ctr
-                    | aes_256_ctr
-                    | retired_ctr_cipher_aliases() .
-
--type retired_ctr_cipher_aliases() :: aes_ctr .  % aes_*_ctr
-
-%%%----
--type ecb_cipher() :: aes_128_ecb
-                    | aes_192_ecb
-                    | aes_256_ecb
-                    | blowfish_ecb
-                    | retired_ecb_cipher_aliases() .
-
--type retired_ecb_cipher_aliases() :: aes_ecb .
-
-%%%----
--type aead_cipher() :: aes_gcm | aes_ccm | chacha20_poly1305 .
-
-
-%%%----- end old cipher schema ------------------------------------
-%%%----------------------------------------------------------------
-
--type key() :: iodata().
--type des3_key() :: [key()].
-
-%%%
 -type rsa_digest_type()   :: sha1() | sha2() | md5 | ripemd160 .
 -type dss_digest_type()   :: sha1() | sha2() .
 -type ecdsa_digest_type() :: sha1() | sha2() .
@@ -535,7 +455,7 @@ stop() ->
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 supports() ->
      [{hashs,       supports(hashs)},
-      {ciphers,     prepend_old_aliases(supports(ciphers))}
+      {ciphers,     supports(ciphers)}
       | [{T,supports(T)} || T <- [public_keys,
                                   macs,
                                   curves,
@@ -783,95 +703,6 @@ mac_final_nif(_Ref) -> ?nif_stub.
 %%%================================================================
 
 %%%----------------------------------------------------------------
-%%%----------------------------------------------------------------
-%%% Message Authentication Codes, MAC
-%%%
-
-%%%---- HMAC
-
-%%%---- hmac/3,4
-
--spec hmac(Type, Key, Data) ->
-                  Mac when Type :: hmac_hash_algorithm(),
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           Mac :: binary() .
-hmac(Type, Key, Data) ->
-    ?COMPAT(mac(hmac, Type, Key, Data)).
-
--spec hmac(Type, Key, Data, MacLength) ->
-                  Mac when Type :: hmac_hash_algorithm(),
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           MacLength :: integer(),
-                           Mac :: binary() .
-
-hmac(Type, Key, Data, MacLength) ->
-    ?COMPAT(macN(hmac, Type, Key, Data, MacLength)).
-
-%%%---- hmac_init, hamc_update, hmac_final
-
--opaque hmac_state() :: mac_state(). % Was: binary().
-
--spec hmac_init(Type, Key) ->
-                       State when Type :: hmac_hash_algorithm(),
-                                  Key :: iodata(),
-                                  State :: hmac_state() .
-hmac_init(Type, Key) ->
-    ?COMPAT(mac_init(hmac, Type, Key)).
-
-%%%---- hmac_update
-
--spec hmac_update(State, Data) -> NewState when Data :: iodata(),
-                                                State :: hmac_state(),
-                                                NewState :: hmac_state().
-hmac_update(State, Data) ->
-    ?COMPAT(mac_update(State, Data)).
-
-%%%---- hmac_final
-
--spec hmac_final(State) -> Mac when State :: hmac_state(),
-                                    Mac :: binary().
-hmac_final(Context) ->
-    ?COMPAT(mac_final(Context)).
-
--spec hmac_final_n(State, HashLen) -> Mac when State :: hmac_state(),
-                                               HashLen :: integer(),
-                                               Mac :: binary().
-hmac_final_n(Context, HashLen) ->
-    ?COMPAT(mac_finalN(Context, HashLen)).
-
-%%%---- CMAC
-
--define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc ).
-
--spec cmac(Type, Key, Data) ->
-                  Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           Mac :: binary().
-cmac(Type, Key, Data) ->
-    ?COMPAT(mac(cmac, alias(Type), Key, Data)).
-
--spec cmac(Type, Key, Data, MacLength) ->
-                  Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
-                           Key :: iodata(),
-                           Data :: iodata(),
-                           MacLength :: integer(),
-                           Mac :: binary().
-
-cmac(Type, Key, Data, MacLength) ->
-    ?COMPAT(macN(cmac, alias(Type), Key, Data, MacLength)).
-
-%%%---- POLY1305
-
--spec poly1305(iodata(), iodata()) -> Mac when Mac ::  binary().
-
-poly1305(Key, Data) ->
-    ?COMPAT(mac(poly1305, Key, Data)).
-
-%%%----------------------------------------------------------------
-%%%----------------------------------------------------------------
 %%% Ciphers
 
 
@@ -907,188 +738,9 @@ cipher_info(aes_192_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
 cipher_info(aes_256_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
-%% %% These ciphers belong to the "old" interface:
-%% cipher_info(aes_cbc) ->
-%%     #{block_size => 16,iv_length => 16,key_length => 24,mode => cbc_mode,type => 423};
-%% cipher_info(aes_cbc128) ->
-%%     #{block_size => 16,iv_length => 16,key_length => 16,mode => cbc_mode,type => 419};
-%% cipher_info(aes_cbc256) ->
-%%     #{block_size => 16,iv_length => 16,key_length => 32,mode => cbc_mode,type => 427};
-%% cipher_info(aes_ccm) ->
-%%     #{block_size => 1,iv_length => 12,key_length => 24,mode => ccm_mode,type => 899};
-%% cipher_info(aes_cfb128) ->
-%%     #{block_size => 1,iv_length => 16,key_length => 32,mode => cfb_mode,type => 429};
-%% cipher_info(aes_cfb8) ->
-%%     #{block_size => 1,iv_length => 16,key_length => 32,mode => cfb_mode,type => 429};
-%% cipher_info(aes_ecb) ->
-%%     #{block_size => 16,iv_length => 0,key_length => 24,mode => ecb_mode,type => 422};
-%% cipher_info(aes_gcm) ->
-%%     #{block_size => 1,iv_length => 12,key_length => 24,mode => gcm_mode,type => 898};
-%% cipher_info(des3_cbc) ->
-%%     #{block_size => 8,iv_length => 8,key_length => 24,mode => cbc_mode,type => 44};
-%% cipher_info(des3_cbf) ->
-%%     #{block_size => 1,iv_length => 8,key_length => 24,mode => cfb_mode,type => 30};
-%% cipher_info(des3_cfb) ->
-%%     #{block_size => 1,iv_length => 8,key_length => 24,mode => cfb_mode,type => 30};
-%% cipher_info(des_ede3) ->
-%%     #{block_size => 8,iv_length => 8,key_length => 24,mode => cbc_mode,type => 44};
-%% cipher_info(des_ede3_cbf) ->
-%%     #{block_size => 1,iv_length => 8,key_length => 24,mode => cfb_mode,type => 30};
 cipher_info(Type) ->
-    cipher_info_nif(alias(Type)).
+    cipher_info_nif(Type).
 
-%%%---- Block ciphers
-%%%----------------------------------------------------------------
--spec block_encrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) ->
-                           binary() | run_time_error();
-                   (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
-                           {binary(), binary()} | run_time_error();
-                   (aes_gcm | aes_ccm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
-                           {binary(), binary()} | run_time_error().
-
-block_encrypt(Type, Key0, Ivec, Data) ->
-    Key = iolist_to_binary(Key0),
-    ?COMPAT(
-       case Data of
-           {AAD, PlainText} ->
-               crypto_one_time_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, true);
-           {AAD, PlainText, TagLength} ->
-               crypto_one_time_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, TagLength, true);
-           PlainText ->
-               block_crypt(alias(Type,Key), Key, Ivec, PlainText, true)
-       end).
-
--spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) ->
-                           binary() | run_time_error().
-
-block_encrypt(Type, Key0, PlainText) ->
-    Key = iolist_to_binary(Key0),
-    ?COMPAT(block_crypt(alias(Type,Key), Key, undefined, PlainText, true)).
-
-
-%%%----------------------------------------------------------------
-%%%----------------------------------------------------------------
--spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) ->
-                           binary() | run_time_error();
-		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
-		    {AAD::binary(), Data::iodata(), Tag::binary()}) ->
-                           binary() | error | run_time_error() .
-
-block_decrypt(Type, Key0, Ivec, Data) ->
-    Key = iolist_to_binary(Key0),
-    ?COMPAT(
-       case Data of
-           {AAD, CryptoText, Tag} ->
-               crypto_one_time_aead(alias(Type,Key), Key, Ivec, CryptoText, AAD, Tag, false);
-           CryptoText ->
-               block_crypt(alias(Type,Key), Key, Ivec, CryptoText, false)
-       end).
-
-
--spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) ->
-                           binary() | run_time_error().
-
-block_decrypt(Type, Key0, CryptoText) ->
-    Key = iolist_to_binary(Key0),
-    ?COMPAT(block_crypt(alias(Type,Key), Key, undefined, CryptoText, false)).
-
-
-
-block_crypt(Cipher, Key, IV, Data, EncryptFlag) ->
-    Ctx = case IV of
-              undefined -> crypto_init(Cipher, Key, EncryptFlag);
-              _ -> crypto_init(Cipher, Key, IV, EncryptFlag)
-          end,
-    crypto_update(Ctx, Data).
-
-%%%-------- Stream ciphers API
-
--opaque stream_state() :: {stream_cipher(),
-                           crypto_state() | {crypto_state(),flg_undefined}
-                          }.
-
-%%%---- stream_init
--spec stream_init(Type, Key, IVec) -> State | run_time_error()
-                                          when Type :: stream_cipher(),
-                                               Key :: iodata(),
-                                               IVec ::binary(),
-                                               State :: stream_state() .
-stream_init(Type, Key0, IVec) when is_binary(IVec) ->
-    Key = iolist_to_binary(Key0),
-    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
-                                     Key, iolist_to_binary(IVec),
-                                     get_crypto_opts([{encrypt,undefined}]))
-                 ),
-    {Type, {Ref,flg_undefined}}.
-
-
--spec stream_init(Type, Key) -> State | run_time_error()
-                                    when Type :: rc4,
-                                         Key :: iodata(),
-                                         State :: stream_state() .
-stream_init(rc4 = Type, Key0) ->
-    Key = iolist_to_binary(Key0),
-    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
-                                     Key, <<>>,
-                                     get_crypto_opts([{encrypt,undefined}]))
-                 ),
-    {Type, {Ref,flg_undefined}}.
-
-%%%---- stream_encrypt
--spec stream_encrypt(State, PlainText) -> {NewState, CipherText} | run_time_error()
-                                              when State :: stream_state(),
-                                                   PlainText :: iodata(),
-                                                   NewState :: stream_state(),
-                                                   CipherText :: iodata() .
-stream_encrypt(State, Data) ->
-    crypto_stream_emulate(State, Data, true).
-
-%%%---- stream_decrypt
--spec stream_decrypt(State, CipherText) -> {NewState, PlainText} | run_time_error()
-                                              when State :: stream_state(),
-                                                   CipherText :: iodata(),
-                                                   NewState :: stream_state(),
-                                                   PlainText :: iodata() .
-stream_decrypt(State, Data) ->
-    crypto_stream_emulate(State, Data, false).
-
-%%%-------- helpers
-crypto_stream_emulate({Cipher,{Ref0,flg_undefined}}, Data, EncryptFlag) when is_reference(Ref0) ->
-    ?COMPAT(begin
-                Ref = ng_crypto_init_nif(Ref0, <<>>, <<>>,
-                                     get_crypto_opts([{encrypt,EncryptFlag}])),
-                {{Cipher,Ref}, crypto_update(Ref, Data)}
-            end);
-
-crypto_stream_emulate({Cipher,Ref}, Data, _) when is_reference(Ref) ->
-    ?COMPAT({{Cipher,Ref}, crypto_update(Ref, Data)}).
-
-%%%----------------------------------------------------------------
--spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
-                                           Data :: iodata(),
-                                           NextIVec :: binary().
-next_iv(Type, Data) when is_binary(Data) ->
-    IVecSize = case Type of
-                   des_cbc  -> 8;
-                   des3_cbc -> 8;
-                   aes_cbc  -> 16;
-                   aes_ige  -> 32
-               end,
-    {_, IVec} = split_binary(Data, size(Data) - IVecSize),
-    IVec;
-next_iv(Type, Data) when is_list(Data) ->
-    next_iv(Type, list_to_binary(Data)).
-
--spec next_iv(des_cfb, Data, IVec) -> NextIVec when Data :: iodata(),
-                                                    IVec :: binary(),
-                                                    NextIVec :: binary().
-
-next_iv(des_cfb, Data, IVec) ->
-    IVecAndData = list_to_binary([IVec, Data]),
-    {_, NewIVec} = split_binary(IVecAndData, byte_size(IVecAndData) - 8),
-    NewIVec;
-next_iv(Type, Data, _Ivec) ->
-    next_iv(Type, Data).
 
 %%%================================================================
 %%%
@@ -1334,85 +986,6 @@ ng_crypto_one_time_nif(Cipher, Key, IVec, Data,  #{encrypt := EncryptFlag,
     ng_crypto_one_time_nif(Cipher, Key, IVec, Data, EncryptFlag, Padding).
 
 ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlag, _Padding) -> ?nif_stub.
-
-%%%----------------------------------------------------------------
-%%% Cipher aliases
-%%%
--define(if_also(Cipher, Ciphers, AliasCiphers),
-        case lists:member(Cipher, Ciphers) of
-            true ->
-                AliasCiphers;
-            false ->
-                Ciphers
-        end).
-
-
-prepend_old_aliases(L0) ->
-    L1 = ?if_also(des_ede3_cbc, L0,
-                  [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb | L0]),
-    L2 = ?if_also(aes_128_cbc, L1,
-                 [aes_cbc, aes_cbc128, aes_cbc256 | L1]),
-    L3 = ?if_also(aes_128_ctr, L2,
-                  [aes_ctr | L2]),
-    L4 = ?if_also(aes_128_ccm, L3,
-                  [aes_ccm | L3]),
-    L5 = ?if_also(aes_128_gcm, L4,
-                  [aes_gcm | L4]),
-    L6 = ?if_also(aes_128_cfb8, L5,
-                  [aes_cfb8 | L5]),
-    L7 = ?if_also(aes_128_cfb128, L6,
-                  [aes_cfb128 | L6]),
-    L8 = ?if_also(aes_128_ecb, L7,
-                  [aes_ecb | L7]),
-    L8.
-
-
-
-%%%---- des_ede3_cbc
-alias(des3_cbc)     -> des_ede3_cbc;
-alias(des_ede3)     -> des_ede3_cbc;
-%%%---- des_ede3_cfb
-alias(des_ede3_cbf) -> des_ede3_cfb;
-alias(des3_cbf)     -> des_ede3_cfb;
-alias(des3_cfb)     -> des_ede3_cfb;
-%%%---- aes_*_cbc
-alias(aes_cbc128)   -> aes_128_cbc;
-alias(aes_cbc256)   -> aes_256_cbc;
-
-alias(Alg) -> Alg.
-
-
-alias(Ciph, Key) -> alias2(alias(Ciph), Key).
-
-alias2(aes_cbc, Key) when size(Key)==16  -> aes_128_cbc;
-alias2(aes_cbc, Key) when size(Key)==24  -> aes_192_cbc;
-alias2(aes_cbc, Key) when size(Key)==32  -> aes_256_cbc;
-
-alias2(aes_cfb8, Key) when size(Key)==16  -> aes_128_cfb8;
-alias2(aes_cfb8, Key) when size(Key)==24  -> aes_192_cfb8;
-alias2(aes_cfb8, Key) when size(Key)==32  -> aes_256_cfb8;
-
-alias2(aes_cfb128, Key) when size(Key)==16  -> aes_128_cfb128;
-alias2(aes_cfb128, Key) when size(Key)==24  -> aes_192_cfb128;
-alias2(aes_cfb128, Key) when size(Key)==32  -> aes_256_cfb128;
-
-alias2(aes_ctr, Key) when size(Key)==16  -> aes_128_ctr;
-alias2(aes_ctr, Key) when size(Key)==24  -> aes_192_ctr;
-alias2(aes_ctr, Key) when size(Key)==32  -> aes_256_ctr;
-
-alias2(aes_ecb, Key) when size(Key)==16  -> aes_128_ecb;
-alias2(aes_ecb, Key) when size(Key)==24  -> aes_192_ecb;
-alias2(aes_ecb, Key) when size(Key)==32  -> aes_256_ecb;
-
-alias2(aes_gcm, Key) when size(Key)==16  -> aes_128_gcm;
-alias2(aes_gcm, Key) when size(Key)==24  -> aes_192_gcm;
-alias2(aes_gcm, Key) when size(Key)==32  -> aes_256_gcm;
-
-alias2(aes_ccm, Key) when size(Key)==16  -> aes_128_ccm;
-alias2(aes_ccm, Key) when size(Key)==24  -> aes_192_ccm;
-alias2(aes_ccm, Key) when size(Key)==32  -> aes_256_ccm;
-
-alias2(Alg, _) -> Alg.
 
 %%%================================================================
 %%%
