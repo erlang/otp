@@ -78,7 +78,6 @@ static ErlNifFunc nif_funcs[] = {
     {"mac_update_nif", 2, mac_update_nif, 0},
     {"mac_final_nif", 1, mac_final_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
-    {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
     {"ng_crypto_init_nif", 5, ng_crypto_init_nif, 0},
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
     {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},

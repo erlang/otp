@@ -480,8 +480,6 @@
                    | aes_192_ctr
                    | aes_256_ctr
 
-                   | aes_ige256
-
                    | blowfish_cbc
                    | blowfish_cfb64
                    | blowfish_ofb64
@@ -513,8 +511,7 @@
 
 -type block_cipher_with_iv() :: cbc_cipher()
                               | cfb_cipher()
-                              | blowfish_ofb64
-                              | aes_ige256 .
+                              | blowfish_ofb64 .
 
 -type stream_cipher() :: ctr_cipher()
                        | chacha20
@@ -1041,9 +1038,6 @@ cipher_info(aes_192_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
 cipher_info(aes_256_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
-%% %% This cipher is handled specialy.
-cipher_info(aes_ige256) ->
-    #{block_size => 16,iv_length => 32,key_length => 16,mode => ige_mode,type => undefined};
 %% %% These ciphers belong to the "old" interface:
 %% cipher_info(aes_cbc) ->
 %%     #{block_size => 16,iv_length => 16,key_length => 24,mode => cbc_mode,type => 423};
@@ -1083,10 +1077,6 @@ cipher_info(Type) ->
                    (aes_gcm | aes_ccm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
                            {binary(), binary()} | run_time_error().
 
-
-block_encrypt(aes_ige256, Key, Ivec, PlainText) ->
-    notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
-
 block_encrypt(Type, Key0, Ivec, Data) ->
     Key = iolist_to_binary(Key0),
     ?COMPAT(
@@ -1114,9 +1104,6 @@ block_encrypt(Type, Key0, PlainText) ->
 		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) ->
                            binary() | error | run_time_error() .
-
-block_decrypt(aes_ige256, Key, Ivec, Data) ->
-    notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
 
 block_decrypt(Type, Key0, Ivec, Data) ->
     Key = iolist_to_binary(Key0),
@@ -2622,12 +2609,6 @@ cipher_info_nif(_Type) -> ?nif_stub.
 %%
 %% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
 aead_cipher(_Type, _Key, _Ivec, _AAD, _In, _TagOrTagLength, _EncFlg) -> ?nif_stub.
-
-%%
-%% AES - with 256 bit key in infinite garble extension mode (IGE)
-%%
-
-aes_ige_crypt_nif(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
 %%%================================================================
 
