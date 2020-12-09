@@ -1614,11 +1614,16 @@ make_rsa_1024_cert(Config) ->
 
 appropriate_sha(CryptoSupport) ->
     Hashes = proplists:get_value(hashs, CryptoSupport),
-    case lists:member(sha256, Hashes) of
-	true ->
-	    sha256;
-	false ->
-	    sha1
+    case portable_cmd("openssl", ["version"]) of
+        "OpenSSL 0.9.8" ++  _ ->
+            sha;
+        _ ->
+            case lists:member(sha256, Hashes) of
+                true ->
+                    sha256;
+                false ->
+                    sha
+            end
     end.
 
 %% RFC 4492, Sect. 2.3.  ECDH_RSA
