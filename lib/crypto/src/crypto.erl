@@ -54,57 +54,37 @@
 %% Old interface. Now implemented with the New interface.
 %% Remove in OTP-24.0 See OTP-16232
 
--deprecated([{next_iv, '_',
-              "see the 'New and Old API' chapter of the CRYPTO User's guide"}]).
--export([next_iv/2, next_iv/3]).
+-removed([{next_iv, '_', "see the 'New and Old API' chapter of the CRYPTO User's guide"},
+          {hmac, 3, "use crypto:mac/4 instead"},
+          {hmac, 4, "use crypto:macN/5 instead"},
+          {hmac_init, 2, "use crypto:mac_init/3 instead"},
+          {hmac_update, 2, "use crypto:mac_update/2 instead"},
+          {hmac_final, 1, "use crypto:mac_final/1 instead"},
+          {hmac_final_n, 2, "use crypto:mac_finalN/2 instead"},
+          {cmac, 3, "use crypto:mac/4 instead"},
+          {cmac, 4, "use crypto:macN/5 instead"},
+          {poly1305, 2, "use crypto:mac/3 instead"},
+          {stream_init, '_', "use crypto:crypto_init/3 + crypto:crypto_update/2 + "
+                             "crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"},
+          {stream_encrypt, 2, "use crypto:crypto_update/2 instead"},
+          {stream_decrypt, 2, "use crypto:crypto_update/2 instead"},
+          {block_encrypt, 3,  "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+                              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+          {block_encrypt, 4,  "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+                              "or crypto:crypto_(dyn_iv)?_init + "
+                              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"},
+          {block_decrypt, 3,  "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+                              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+          {block_decrypt, 4,  "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+                              "or crypto:crypto_(dyn_iv)?_init + "
+                              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"}
+         ]).
 
--deprecated([{hmac, 3, "use crypto:mac/4 instead"},
-             {hmac, 4, "use crypto:macN/5 instead"},
-             {hmac_init, 2, "use crypto:mac_init/3 instead"},
-             {hmac_update, 2, "use crypto:mac_update/2 instead"},
-             {hmac_final, 1, "use crypto:mac_final/1 instead"},
-             {hmac_final_n, 2, "use crypto:mac_finalN/2 instead"}]).
-
--export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
-
--deprecated([{cmac, 3, "use crypto:mac/4 instead"},
-             {cmac, 4, "use crypto:macN/5 instead"}]).
--export([cmac/3, cmac/4]).
-
--deprecated([{poly1305, 2, "use crypto:mac/3 instead"}]).
--export([poly1305/2]).
-
--deprecated([{stream_init, '_',
-              "use crypto:crypto_init/3 + crypto:crypto_update/2 + "
-              "crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"},
-             {stream_encrypt, 2, "use crypto:crypto_update/2 instead"},
-             {stream_decrypt, 2, "use crypto:crypto_update/2 instead"},
-             {block_encrypt, 3,
-              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
-              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
-             {block_encrypt, 4, 
-              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
-              "or crypto:crypto_(dyn_iv)?_init + "
-              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"},
-             {block_decrypt, 3,
-              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
-              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
-             {block_decrypt, 4,
-              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
-              "or crypto:crypto_(dyn_iv)?_init + "
-              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"}
-            ]).
--export([stream_init/2, stream_init/3,
-         stream_encrypt/2,
-         stream_decrypt/2,
-         block_encrypt/3, block_encrypt/4,
-         block_decrypt/3, block_decrypt/4
-        ]).
--deprecated_type([{retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
-                  {retired_cfb_cipher_aliases, 0, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"},
-                  {retired_ctr_cipher_aliases, 0, "Use aes_*_ctr"},
-                  {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"}
-                 ]).
+-removed_type([{retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
+               {retired_cfb_cipher_aliases, 0, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"},
+               {retired_ctr_cipher_aliases, 0, "Use aes_*_ctr"},
+               {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"}
+              ]).
 
 %%%----------------------------------------------------------------
 %% New interface
