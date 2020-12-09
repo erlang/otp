@@ -35,38 +35,8 @@ obsolete(code, is_module_native, 1) ->
     {deprecated, "HiPE has been removed", "OTP 26"};
 obsolete(code, rehash, 0) ->
     {deprecated, "the code path cache feature has been removed", "OTP 26"};
-obsolete(crypto, block_decrypt, 3) ->
-    {deprecated, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead", "OTP 24"};
-obsolete(crypto, block_decrypt, 4) ->
-    {deprecated, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead", "OTP 24"};
-obsolete(crypto, block_encrypt, 3) ->
-    {deprecated, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead", "OTP 24"};
-obsolete(crypto, block_encrypt, 4) ->
-    {deprecated, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead", "OTP 24"};
-obsolete(crypto, cmac, 3) ->
-    {deprecated, "use crypto:mac/4 instead", "OTP 24"};
-obsolete(crypto, cmac, 4) ->
-    {deprecated, "use crypto:macN/5 instead", "OTP 24"};
-obsolete(crypto, hmac, 3) ->
-    {deprecated, "use crypto:mac/4 instead", "OTP 24"};
-obsolete(crypto, hmac, 4) ->
-    {deprecated, "use crypto:macN/5 instead", "OTP 24"};
-obsolete(crypto, hmac_final, 1) ->
-    {deprecated, "use crypto:mac_final/1 instead", "OTP 24"};
-obsolete(crypto, hmac_final_n, 2) ->
-    {deprecated, "use crypto:mac_finalN/2 instead", "OTP 24"};
-obsolete(crypto, hmac_init, 2) ->
-    {deprecated, "use crypto:mac_init/3 instead", "OTP 24"};
-obsolete(crypto, hmac_update, 2) ->
-    {deprecated, "use crypto:mac_update/2 instead", "OTP 24"};
-obsolete(crypto, poly1305, 2) ->
-    {deprecated, "use crypto:mac/3 instead", "OTP 24"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
-obsolete(crypto, stream_decrypt, 2) ->
-    {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
-obsolete(crypto, stream_encrypt, 2) ->
-    {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
 obsolete(disk_log, accessible_logs, 0) ->
     {deprecated, "use disk_log:all/0 instead", "OTP 26"};
 obsolete(disk_log, lclose, 1) ->
@@ -345,140 +315,36 @@ obsolete(core_lib, literal_value, 1) ->
     {removed, "use cerl:concrete/1 instead"};
 obsolete(core_lib, set_anno, 2) ->
     {removed, "use cerl:set_ann/2 instead"};
-obsolete(crypto, aes_cbc_128_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, aes_cbc_128_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, aes_cbc_256_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, aes_cbc_256_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, aes_cbc_ivec, 2) ->
-    {removed, "use crypto:next_iv/2 instead"};
-obsolete(crypto, aes_cfb_128_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, aes_cfb_128_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, aes_ctr_decrypt, 3) ->
-    {removed, "use crypto:stream_decrypt/2 instead"};
-obsolete(crypto, aes_ctr_encrypt, 3) ->
-    {removed, "use crypto:stream_encrypt/2 instead"};
-obsolete(crypto, aes_ctr_stream_decrypt, 2) ->
-    {removed, "use crypto:stream_decrypt/2 instead"};
-obsolete(crypto, aes_ctr_stream_encrypt, 2) ->
-    {removed, "use crypto:stream_encrypt/2 instead"};
-obsolete(crypto, aes_ctr_stream_init, 2) ->
-    {removed, "use crypto:stream_init/3 instead"};
-obsolete(crypto, blowfish_cbc_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, blowfish_cbc_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, blowfish_cfb64_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, blowfish_cfb64_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, blowfish_ecb_decrypt, 2) ->
-    {removed, "use crypto:block_decrypt/3 instead"};
-obsolete(crypto, blowfish_ecb_encrypt, 2) ->
-    {removed, "use crypto:block_encrypt/3 instead"};
-obsolete(crypto, blowfish_ofb64_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, blowfish_ofb64_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, des3_cbc_decrypt, 5) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, des3_cbc_encrypt, 5) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, des3_cfb_decrypt, 5) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, des3_cfb_encrypt, 5) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, des3_ede3_cbc_decrypt, 5) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, des_cbc_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, des_cbc_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, des_cbc_ivec, 2) ->
-    {removed, "use crypto:next_iv/2 instead"};
-obsolete(crypto, des_cfb_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, des_cfb_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, des_cfb_ivec, 2) ->
-    {removed, "use crypto:next_iv/3 instead"};
-obsolete(crypto, des_ecb_decrypt, 2) ->
-    {removed, "use crypto:block_decrypt/3 instead"};
-obsolete(crypto, des_ecb_encrypt, 2) ->
-    {removed, "use crypto:block_encrypt/3 instead"};
-obsolete(crypto, des_ede3_cbc_encrypt, 5) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, dh_compute_key, 3) ->
-    {removed, "use crypto:compute_key/4 instead"};
-obsolete(crypto, dh_generate_key, 1) ->
-    {removed, "use crypto:generate_key/2 instead"};
-obsolete(crypto, dh_generate_key, 2) ->
-    {removed, "use crypto:generate_key/3 instead"};
-obsolete(crypto, erlint, 1) ->
-    {removed, "only needed by other removed functions"};
-obsolete(crypto, info, 0) ->
-    {removed, "use crypto:module_info/0 instead"};
-obsolete(crypto, md4, 1) ->
-    {removed, "use crypto:hash/2 instead"};
-obsolete(crypto, md4_final, 1) ->
-    {removed, "use crypto:hash_final/1 instead"};
-obsolete(crypto, md4_init, 0) ->
-    {removed, "use crypto:hash_init/1 instead"};
-obsolete(crypto, md4_update, 2) ->
-    {removed, "use crypto:hash_update/2 instead"};
-obsolete(crypto, md5, 1) ->
-    {removed, "use crypto:hash/2 instead"};
-obsolete(crypto, md5_final, 1) ->
-    {removed, "use crypto:hash_final/1 instead"};
-obsolete(crypto, md5_init, 0) ->
-    {removed, "use crypto:hash_init/1 instead"};
-obsolete(crypto, md5_mac, 2) ->
-    {removed, "use crypto:hmac/3 instead"};
-obsolete(crypto, md5_mac_96, 2) ->
-    {removed, "use crypto:hmac/4 instead"};
-obsolete(crypto, md5_update, 2) ->
-    {removed, "use crypto:hash_update/2 instead"};
-obsolete(crypto, mod_exp, 3) ->
-    {removed, "use crypto:mod_pow/3 instead"};
-obsolete(crypto, mpint, 1) ->
-    {removed, "only needed by other removed functions"};
-obsolete(crypto, rand_bytes, 1) ->
-    {removed, "use crypto:strong_rand_bytes/1 instead"};
-obsolete(crypto, rc2_40_cbc_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, rc2_40_cbc_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, rc2_cbc_decrypt, 3) ->
-    {removed, "use crypto:block_decrypt/4 instead"};
-obsolete(crypto, rc2_cbc_encrypt, 3) ->
-    {removed, "use crypto:block_encrypt/4 instead"};
-obsolete(crypto, rc4_encrypt, 2) ->
-    {removed, "use crypto:stream_encrypt/2 instead"};
-obsolete(crypto, rc4_encrypt_with_state, 2) ->
-    {removed, "use crypto:stream_encrypt/2 instead"};
-obsolete(crypto, rc4_set_key, 2) ->
-    {removed, "use crypto:stream_init/2 instead"};
-obsolete(crypto, sha, 1) ->
-    {removed, "use crypto:hash/2 instead"};
-obsolete(crypto, sha_final, 1) ->
-    {removed, "use crypto:hash_final/1 instead"};
-obsolete(crypto, sha_init, 0) ->
-    {removed, "use crypto:hash_init/1 instead"};
-obsolete(crypto, sha_mac, 2) ->
-    {removed, "use crypto:hmac/3 instead"};
-obsolete(crypto, sha_mac, 3) ->
-    {removed, "use crypto:hmac/4 instead"};
-obsolete(crypto, sha_mac_96, 2) ->
-    {removed, "use crypto:hmac/4 instead"};
-obsolete(crypto, sha_update, 2) ->
-    {removed, "use crypto:hash_update/2 instead"};
-obsolete(crypto, strong_rand_mpint, 3) ->
-    {removed, "only needed by other removed functions"};
+obsolete(crypto, block_decrypt, 3) ->
+    {removed, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
+obsolete(crypto, block_decrypt, 4) ->
+    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+obsolete(crypto, block_encrypt, 3) ->
+    {removed, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
+obsolete(crypto, block_encrypt, 4) ->
+    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+obsolete(crypto, cmac, 3) ->
+    {removed, "use crypto:mac/4 instead"};
+obsolete(crypto, cmac, 4) ->
+    {removed, "use crypto:macN/5 instead"};
+obsolete(crypto, hmac, 3) ->
+    {removed, "use crypto:mac/4 instead"};
+obsolete(crypto, hmac, 4) ->
+    {removed, "use crypto:macN/5 instead"};
+obsolete(crypto, hmac_final, 1) ->
+    {removed, "use crypto:mac_final/1 instead"};
+obsolete(crypto, hmac_final_n, 2) ->
+    {removed, "use crypto:mac_finalN/2 instead"};
+obsolete(crypto, hmac_init, 2) ->
+    {removed, "use crypto:mac_init/3 instead"};
+obsolete(crypto, hmac_update, 2) ->
+    {removed, "use crypto:mac_update/2 instead"};
+obsolete(crypto, poly1305, 2) ->
+    {removed, "use crypto:mac/3 instead"};
+obsolete(crypto, stream_decrypt, 2) ->
+    {removed, "use crypto:crypto_update/2 instead"};
+obsolete(crypto, stream_encrypt, 2) ->
+    {removed, "use crypto:crypto_update/2 instead"};
 obsolete(erl_lint, modify_line, 2) ->
     {removed, "use erl_parse:map_anno/2 instead"};
 obsolete(erl_parse, get_attribute, 2) ->
@@ -515,24 +381,16 @@ obsolete(ssl, negotiated_next_protocol, 1) ->
     {removed, "use ssl:negotiated_protocol/1 instead"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
-obsolete(crypto, next_iv, _) ->
-    {deprecated, "see the 'New and Old API' chapter of the CRYPTO User's guide", "OTP 24"};
-obsolete(crypto, stream_init, _) ->
-    {deprecated, "use crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 or crypto:crypto_one_time/4 instead", "OTP 24"};
 obsolete(ssl, ssl_accept, _) ->
     {deprecated, "use ssl_handshake/1,2,3 instead", "OTP 24"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->
     {removed, "use Mod:encode/2 instead"};
-obsolete(crypto, dss_sign, _) ->
-    {removed, "use crypto:sign/4 instead"};
-obsolete(crypto, dss_verify, _) ->
-    {removed, "use crypto:verify/5 instead"};
-obsolete(crypto, rsa_sign, _) ->
-    {removed, "use crypto:sign/4 instead"};
-obsolete(crypto, rsa_verify, _) ->
-    {removed, "use crypto:verify/5 instead"};
+obsolete(crypto, next_iv, _) ->
+    {removed, "see the 'New and Old API' chapter of the CRYPTO User's guide"};
+obsolete(crypto, stream_init, _) ->
+    {removed, "use crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"};
 obsolete(erl_scan, attributes_info, _) ->
     {removed, "use erl_anno:{column,line,location,text}/1 instead"};
 obsolete(erl_scan, token_info, _) ->
@@ -552,14 +410,18 @@ obsolete(os_mon_mib, _, _) ->
 obsolete(_,_,_) -> no.
 
 -dialyzer({no_match, obsolete_type/3}).
+obsolete_type(crypto, hmac_state, 0) ->
+    {removed, "see the 'New and Old API' chapter of the CRYPTO User's guide"};
 obsolete_type(crypto, retired_cbc_cipher_aliases, 0) ->
-    {deprecated, "Use aes_*_cbc or des_ede3_cbc"};
+    {removed, "Use aes_*_cbc or des_ede3_cbc"};
 obsolete_type(crypto, retired_cfb_cipher_aliases, 0) ->
-    {deprecated, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"};
+    {removed, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"};
 obsolete_type(crypto, retired_ctr_cipher_aliases, 0) ->
-    {deprecated, "Use aes_*_ctr"};
+    {removed, "Use aes_*_ctr"};
 obsolete_type(crypto, retired_ecb_cipher_aliases, 0) ->
-    {deprecated, "Use aes_*_ecb"};
+    {removed, "Use aes_*_ecb"};
+obsolete_type(crypto, stream_state, 0) ->
+    {removed, "see the 'New and Old API' chapter of the CRYPTO User's guide"};
 obsolete_type(erl_scan, column, 0) ->
     {removed, "use erl_anno:column() instead"};
 obsolete_type(erl_scan, line, 0) ->
