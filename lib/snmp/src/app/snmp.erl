@@ -60,10 +60,6 @@
 	 set_trace/1, reset_trace/1, 
 	 set_trace/2, set_trace/3]).
 
-%% Compiler exports
--export([c/1, c/2, is_consistent/1, mib_to_hrl/1, 
-	 compile/3]).
-
 -export_type([
 	      dir/0, 
 	      snmp_timer/0, 
@@ -102,14 +98,9 @@
 
 
 %% This is for XREF
--deprecated(
-   [
-    {c,                     1, "use snmpc:compile/1 instead."},
-    {c,                     2, "use snmpc:compile/2 instead."},
-    {compile,               3, "use snmpc:compile/3 instead."},
-    {is_consistent,         1, "use snmpc:is_consistent/1 instead."},
-    {mib_to_hrl,            1, "use snmpc:mib_to_hrl/1 instead."}
-   ]).
+%% -deprecated(
+%%    [
+%%    ]).
  
 
 -define(APPLICATION, snmp).
@@ -964,20 +955,4 @@ to_erlang_term(String) ->
     {ok, Term}      = erl_parse:parse_term(Tokens),
     Term.
 
-
-%%%-----------------------------------------------------------------
-%%% BACKWARD COMPATIBILLITY CRAP
-%%%-----------------------------------------------------------------
-
-c(File) -> snmpc:compile(File).
-c(File, Options) -> snmpc:compile(File, Options).
-
-is_consistent(Filenames) ->
-    snmpc:is_consistent(Filenames).
-
-mib_to_hrl(MibName) ->
-    snmpc:mib_to_hrl(MibName).
-
-compile(Input, Output, Options) ->
-    snmpc:compile(Input, Output, Options).
 
