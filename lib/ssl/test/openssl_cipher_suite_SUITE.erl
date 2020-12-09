@@ -298,7 +298,8 @@ do_init_per_group(ecdhe_ecdsa = GroupName, Config) ->
     end;
 do_init_per_group(dhe_dss = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
-    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
+    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg)
+        andalso (ssl_test_lib:openssl_dsa_suites() =/= []) of
         true ->
             init_certs(GroupName, Config);
         false ->
@@ -306,7 +307,8 @@ do_init_per_group(dhe_dss = GroupName, Config) ->
     end;
 do_init_per_group(srp_dss = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
-    case lists:member(dss, PKAlg) andalso lists:member(srp, PKAlg) of
+    case lists:member(dss, PKAlg) andalso lists:member(srp, PKAlg) 
+        andalso (ssl_test_lib:openssl_dsa_suites() =/= []) of
         true ->
             init_certs(GroupName, Config);
         false ->
@@ -343,7 +345,7 @@ do_init_per_group(rsa = GroupName, Config) ->
         true ->
             init_certs(GroupName, Config);
         false ->
-            {skip, "Missing SRP crypto support"}
+            {skip, "Missing RSA key exchange support"}
     end;
 do_init_per_group(dh_anon = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
@@ -897,7 +899,7 @@ run_ciphers_test(Kex, Cipher, Config) ->
             {skip, {not_sup, Kex, Cipher, Version}}
     end.
 
-cipher_suite_test(CipherSuite, _Version, Config) ->
+cipher_suite_test(CipherSuite, Version, Config) ->
     #{server_config := SOpts,
       client_config := COpts} = proplists:get_value(tls_config, Config),
     ServerOpts = ssl_test_lib:ssl_options(SOpts, Config),
@@ -905,11 +907,17 @@ cipher_suite_test(CipherSuite, _Version, Config) ->
     ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
     ct:log("Server Opts ~p~n", [ServerOpts]),
     ct:log("Client Opts ~p~n", [ClientOpts]),
-    ssl_test_lib:basic_test([{ciphers, [CipherSuite]} | COpts], SOpts, Config).
-
+    case proplists:get_value(server_type, Config) of
+        erlang ->
+            ssl_test_lib:basic_test([{ciphers, ssl:cipher_suites(all, Version)} | COpts], 
+                                    [{ciphers, [CipherSuite]} | SOpts], Config);
+        _ ->
+            ssl_test_lib:basic_test([{ciphers, [CipherSuite]} | COpts], 
+                                    [{ciphers, ssl:cipher_suites(all, Version)} | SOpts], Config)
+    end.
 
 test_ciphers(Kex, Cipher, Version) ->
-    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version) ++ ssl:cipher_suites(anonymous, Version), 
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version) ++ ssl:cipher_suites(anonymous, Version), 
                                        [{key_exchange,
                                          fun(Kex0) when (Kex0 == Kex) andalso (Version =/= 'tlsv1.3') -> true;
                                             (Kex0) when (Kex0 == any) andalso (Version == 'tlsv1.3') -> true;

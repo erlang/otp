@@ -275,7 +275,7 @@ init_per_group(ecdsa_1_3 = Group, Config0) ->
             COpts = proplists:get_value(client_ecdsa_opts, Config),
             SOpts = proplists:get_value(server_ecdsa_opts, Config),
             %% Make sure ecdh* suite is choosen by ssl_test_lib:start_server
-            Version = proplists:get_value(version,Config),            
+            Version = ssl_test_lib:protocol_version(Config),
             Ciphers =  ssl_cert_tests:test_ciphers(undefined, Version),
             case Ciphers of
                 [_|_] ->
@@ -301,7 +301,7 @@ init_per_group(Group, Config0) when Group == dsa ->
             COpts = proplists:get_value(client_dsa_opts, Config),
             SOpts = proplists:get_value(server_dsa_opts, Config),
             %% Make sure dhe_dss* suite is choosen by ssl_test_lib:start_server
-            Version = proplists:get_value(version,Config),
+            Version = ssl_test_lib:protocol_version(Config),
             Ciphers =  ssl_cert_tests:test_ciphers(fun(dh_dss) -> 
                                                            true;
                                                       (dhe_dss) -> 
