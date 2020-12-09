@@ -559,6 +559,104 @@ ok
   </section>
 
   <section>
+    <title>Early Data in TLS 1.3</title>
+    <p>TLS 1.3 allows clients to send data on the first flight if the endpoints have
+    a shared crypographic secret (pre-shared key). This means that clients can send
+    early data if they have a valid session ticket received in a previous
+    successful handshake. For more information about session resumption see
+    <seeguide marker="ssl:using_ssl#session-tickets-and-session-resumption-in-tls-1.3">
+    Session Tickets and Session Resumption in TLS 1.3</seeguide>.
+    </p>
+    <p>The security properties of Early Data are weaker than other kinds of TLS data.
+    This data is not forward secret, and it is vulnerable to replay attacks. For available
+    mitigation strategies see
+    <seeguide marker="ssl:using_ssl#anti-replay-protection-in-tls-1.3">
+    Anti-Replay Protection in TLS 1.3</seeguide>.</p>
+    <p>In normal operation, clients will not know which, if any, of the available mitigation
+    strategies servers actually implement, and hence must only send early data which
+    they deem safe to be replayed. For example, idempotent HTTP operations, such as HEAD and
+    GET, can usually be regarded as safe but even they can be exploited by a large number of
+    replays causing resource limit exhaustion and other similar problems.</p>
+    <p>An example of sending early data with automatic and manual session ticket handling:</p>
+    <warning>
+    <p>The Early Data feature is implemented only on the client side in this version of OTP.
+    </p>
+    </warning>
+
+    <p><em>Server side (openssl s_server):</em></p>
+    <code type="none">
+    openssl s_server -accept 11029 \
+        -tls1_3 -verify 2 \
+        -cert certs/server.pem \
+        -CAfile certs/ca.pem \
+        -key certs/server.key \
+        -keylogfile keylog \
+        -msg -debug \
+        -early_data \
+        -no_anti_replay
+    </code>
+    <p><em>Client (automatic ticket handling):</em></p>
+    <code type="erl">
+    early_data_auto() -&gt;
+        %% First handshake 1-RTT - get session tickets
+	application:load(ssl),
+	{ok, _} = application:ensure_all_started(ssl),
+	Port = 11029,
+	Data = &lt;&lt;"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n"&gt;&gt;,
+	COpts0 = [{cacertfile, ?CA_CERT},
+	          {versions, ['tlsv1.2', 'tlsv1.3']},
+	          {session_tickets, auto}],
+        {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
+
+        %% Wait for session tickets
+	timer:sleep(500),
+	%% Close socket if server cannot handle multiple connections e.g. openssl s_server
+	ssl:close(Sock0),
+
+        %% Second handshake 0-RTT
+	COpts1 = [{cacertfile, ?CA_CERT},
+	          {versions, ['tlsv1.2', 'tlsv1.3']},
+		  {session_tickets, auto},
+		  {early_data, Data}],
+        {ok, Sock} = ssl:connect("localhost", Port, COpts1),
+	Sock.
+    </code>
+    <p><em>Client (manual ticket handling):</em></p>
+    <code type="erl">
+    early_data_manual() -&gt;
+        %% First handshake 1-RTT - get session tickets
+	application:load(ssl),
+	{ok, _} = application:ensure_all_started(ssl),
+	Port = 11029,
+	Data = &lt;&lt;"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n"&gt;&gt;,
+	COpts0 = [{cacertfile, ?CA_CERT},
+	          {versions, ['tlsv1.2', 'tlsv1.3']},
+	          {session_tickets, manual}],
+        {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
+
+        %% Wait for session tickets
+	Ticket =
+	    receive
+	        {ssl, session_ticket, Ticket0} ->
+		    Ticket0
+            end,
+
+       %% Close socket if server cannot handle multiple connections
+       %% e.g. openssl s_server
+       ssl:close(Sock0),
+
+       %% Second handshake 0-RTT
+       COpts1 = [{cacertfile, ?CA_CERT},
+                 {versions, ['tlsv1.2', 'tlsv1.3']},
+		 {session_tickets, manual},
+		 {use_ticket, [Ticket]},
+		 {early_data, Data}],
+       {ok, Sock} = ssl:connect("localhost", Port, COpts1),
+       Sock.
+    </code>
+  </section>
+
+  <section>
     <title>Anti-Replay Protection in TLS 1.3</title>
 
     <p>The TLS 1.3 protocol does not provide inherent protection for replay of 0-RTT data but

@@ -1045,6 +1045,17 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 
       <datatype>
 	<name name="client_early_data"/>
+	<desc>
+	  <p>Configures the early data to be sent by the client.</p>
+	  <p>In order to be able to verify
+          that the server has the intention to process the early data, the following 3-tuple is
+	  sent to the user process:</p>
+	  <p><c>{ssl, SslSocket, {early_data, Result}}</c></p>
+	  <p>where <c>Result</c> is either <c>accepted</c> or <c>rejected</c>.</p>
+	  <warning>
+	  <p>It is the responsibility of the user to handle a rejected Early Data and
+	  to resend when it is appropriate.</p></warning>
+	</desc>
       </datatype>
 
     <!--   <datatype> -->
@@ -1340,10 +1351,13 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 
       <datatype>
         <name name="server_early_data"/>
-      </datatype>
-
-      <datatype>
-        <name name="max_early_data"/>
+	<desc>
+          <p>Configures if the server accepts (<c>enabled</c>) or rejects (<c>rejects</c>) early
+	  data sent by a client. The default value is <c>disabled</c>.
+          </p>
+	  <warning><p>This option is a placeholder, early data is not yet implemented on the server side.
+          </p></warning>
+        </desc>
       </datatype>
 
       <datatype>

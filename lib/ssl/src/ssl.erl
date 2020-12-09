@@ -386,7 +386,6 @@
 -type middlebox_comp_mode()      :: boolean().
 -type client_early_data()        :: binary().
 -type server_early_data()        :: disabled | enabled.
--type max_early_data()           :: pos_integer().
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -458,8 +457,7 @@
                                 {session_tickets, server_session_tickets()} |
                                 {anti_replay, anti_replay()} |
                                 {cookie, cookie()} |
-                                {early_data, server_early_data()} |
-                                {max_early_data, max_early_data()}.
+                                {early_data, server_early_data()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
 -type server_cafile()            :: file:filename().
