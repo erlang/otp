@@ -74,8 +74,6 @@
 	 get/2,
 	 info/1, 
 
-	 register_subagent/3, unregister_subagent/2, 
-
 	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
 	 change_log_size/1
 
@@ -143,10 +141,7 @@
     {enum_to_int,           3, "use snmpa:enum_to_int/3 instead."},
 
     {get,                   2, "use snmpa:get/2 instead."},
-    {info,                  1, "use snmpa:info/1 instead."},
-
-    {register_subagent,     3, "use snmpa:register_subagent/3 instead."},
-    {unregister_subagent,   2, "use snmpa:unregister_subagent/2 instead."}
+    {info,                  1, "use snmpa:info/1 instead."}
    ]).
  
 
@@ -1032,11 +1027,6 @@ int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
 
 get(Agent, Vars) -> snmpa:get(Agent, Vars).
 info(Agent) -> snmpa:info(Agent).
-
-register_subagent(Agent, SubTree, SubAgent) ->
-    snmpa:register_subagent(Agent, SubTree, SubAgent).
-unregister_subagent(Agent, SubOidOrPid) ->
-    snmpa:unregister_subagent(Agent, SubOidOrPid).
 
 log_to_txt(LogDir, Mibs) -> 
     snmpa:log_to_txt(LogDir, Mibs).

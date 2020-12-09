@@ -2682,7 +2682,7 @@ subagent(Config) when is_list(Config) ->
     
     ?NPRINT("Testing unregister subagent..."),
     MA = whereis(snmp_master_agent),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, SA]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, SA]),
     try_test(unreg_test),
 
     ?NPRINT("Loading previous subagent mib in master and testing..."),
@@ -2694,7 +2694,7 @@ subagent(Config) when is_list(Config) ->
     try_test(unreg_test),
 
     ?NPRINT("Testing register subagent..."),
-    rpc:call(SaNode, snmp, register_subagent,
+    rpc:call(SaNode, snmpa, register_subagent,
 	     [MA, ?klas1, SA]),
     try_test(load_test_sa),
 
@@ -2728,7 +2728,7 @@ mnesia(Config) when is_list(Config) ->
 
     ?NPRINT("Testing unregister subagent..."),
     MA = whereis(snmp_master_agent),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, SA]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, SA]),
     try_test(unreg_test),
     ?line unload_master("OLD-SNMPEA-MIB"),
     ?line stop_subagent(SA).
@@ -2878,7 +2878,7 @@ sa_register(Config) when is_list(Config) ->
     ?DBG("sa_register -> unregister subagent", []),
     ?NPRINT("Testing unregister subagent (2)..."),
     MA = whereis(snmp_master_agent),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, ?klas1]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, ?klas1]),
     try_test(unreg_test),
 
     ?NPRINT("Unloading Klas1..."),
@@ -2891,7 +2891,7 @@ sa_register(Config) when is_list(Config) ->
     
     ?NPRINT("register subagent..."),
     ?DBG("sa_register -> register subagent", []),
-    rpc:call(SaNode, snmp, register_subagent, [MA, ?sa, SA]),
+    rpc:call(SaNode, snmpa, register_subagent, [MA, ?sa, SA]),
 
     try_test(sa_mib),
 
@@ -3109,7 +3109,7 @@ next_across_sa(Config) when is_list(Config) ->
     ?line ok = snmpa:load_mib(SA, MibDir ++ "Klas1"),
 
     ?NPRINT("register subagent..."), 
-    rpc:call(SaNode, snmp, register_subagent, [MA, ?klas1, SA]),
+    rpc:call(SaNode, snmpa, register_subagent, [MA, ?klas1, SA]),
 
     ?NPRINT("Load test subagent..."),
     try_test(load_test_sa),
@@ -3119,7 +3119,7 @@ next_across_sa(Config) when is_list(Config) ->
 
     ?NPRINT("Unloading mib (Klas1)"),
     snmpa:unload_mib(SA, join(MibDir, "Klas1")),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, ?klas1]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, ?klas1]),
     try_test(unreg_test),
 
     ?NPRINT("Starting another subagent (2) "),
