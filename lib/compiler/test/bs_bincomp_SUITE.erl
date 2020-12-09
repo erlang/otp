@@ -143,6 +143,9 @@ mixed(Config) when is_list(Config) ->
     gen_data(256),
     gen_data(512),
 
+    <<1,2,3>> = cs_default(match_context_1(<<1,2,3>>)),
+    <<4,5,6>> = cs_default(match_context_2(<<4,5,6>>)),
+
     cs_end().
 
 mixed_nested(L) ->
@@ -173,6 +176,15 @@ gen_data(Size) ->
     Data = cs(<< <<C>> || C <- lists:seq(0, Size-1) >>),
     Data = << <<C>> || _ <- lists:seq(1, Size div 256),
                        C <- lists:seq(0, 255) >>.
+
+match_context_1(<<B/binary>>) ->
+    << <<V>> || <<V>> <= B >>.
+
+match_context_2(<<B/binary>>) ->
+    do_match_context_2(B).
+
+do_match_context_2(B) ->
+    << <<V>> || <<V>> <= B >>.
 
 filters(Config) when is_list(Config) ->
     cs_init(),
@@ -329,14 +341,14 @@ sizes(Config) when is_list(Config) ->
     %% Binary generators.
 
     Fun10 = fun(Bin) ->
-		    cs(<< <<E:16>> || <<E:8>> <= Bin >>)
+		    cs(<< <<E:16>> || <<E:8>> <= id(Bin) >>)
             end,
     <<>> = Fun10(<<>>),
     <<1:16>> = Fun10(<<1>>),
     <<1:16,2:16>> = Fun10(<<1,2>>),
 
     Fun11 = fun(Bin) ->
-		    cs(<< <<E:8>> || <<E:16>> <= Bin >>)
+		    cs(<< <<E:8>> || <<E:16>> <= id(Bin) >>)
             end,
     <<>> = Fun11(<<>>),
     <<1>> = Fun11(<<1:16>>),
@@ -348,7 +360,7 @@ sizes(Config) when is_list(Config) ->
     <<1,2>> = Fun11(<<1:16,2:16,255:15>>),
 
     Fun12 = fun(Bin, Sz1, Sz2) ->
-		    cs(<< <<E:Sz1>> || <<E:Sz2>> <= Bin >>)
+		    cs(<< <<E:Sz1>> || <<E:Sz2>> <= id(Bin) >>)
 	    end,
     <<>> = Fun12(<<>>, 1, 1),
     Binary = list_to_binary(lists:seq(0, 255)),
