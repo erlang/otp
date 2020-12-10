@@ -3649,7 +3649,7 @@ BIF_RETTYPE erts_internal_process_display_2(BIF_ALIST_2)
     Eterm res;
 
     if (BIF_ARG_2 != am_backtrace)
-        BIF_RET(am_badarg);
+        BIF_RET(am_badopt);
 
     if (BIF_P->common.id == BIF_ARG_1) {
         res = process_display(BIF_P, NULL, NULL, NULL);

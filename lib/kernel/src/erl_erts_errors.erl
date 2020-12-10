@@ -67,8 +67,12 @@ format_erlang_error(adler32, [Int,Data], _) ->
     [must_be_adler32(Int),must_be_iodata(Data)];
 format_erlang_error(adler32_combine, [First,Second,Size], _) ->
     [must_be_adler32(First),must_be_adler32(Second),must_be_size(Size)];
+format_erlang_error(alias, [Options], _) ->
+    [must_be_list(Options, bad_option)];
 format_erlang_error(append, [_,_], _) ->
     [not_list];
+format_erlang_error(apply, [Mod,Name,Arity], _) ->
+    must_be_mf_args(Mod, Name, Arity);
 format_erlang_error(atom_to_binary, [_], _) ->
     [not_atom];
 format_erlang_error(atom_to_binary, [Atom, Encoding], _) ->
@@ -117,9 +121,13 @@ format_erlang_error(binary_part, [Bin,Pos,Len], _) ->
         Errors ->
             Errors
     end;
+format_erlang_error(binary_to_atom=Bif, [Bin], Cause) ->
+    format_erlang_error(Bif, [Bin,utf8], Cause);
 format_erlang_error(binary_to_atom, [Bin,Enc], _) ->
     DefaultError = [],                          %Can't happen.
     do_binary_to_atom(Bin, Enc, DefaultError);
+format_erlang_error(binary_to_existing_atom=Bif, [Bin], Cause) ->
+    format_erlang_error(Bif, [Bin,utf8], Cause);
 format_erlang_error(binary_to_existing_atom, [Bin,Enc], _) ->
     do_binary_to_atom(Bin, Enc, non_existing_atom);
 format_erlang_error(binary_to_float, [Bin], _) ->
@@ -157,7 +165,7 @@ format_erlang_error(binary_to_term, [Bin], _) ->
     [must_be_binary(Bin, bad_ext_term)];
 format_erlang_error(binary_to_term, [Bin,Options], _) ->
     Arg1 = must_be_binary(Bin),
-    [Arg1,must_be_option_list(Options, Arg1)];
+    [Arg1,maybe_option_list_error(Options, Arg1)];
 format_erlang_error(bitstring_to_list, [_], _) ->
     [not_bitstring];
 format_erlang_error(bump_reductions, [Int], _) ->
@@ -168,27 +176,35 @@ format_erlang_error(cancel_timer, [_], _) ->
     [not_ref];
 format_erlang_error(cancel_timer, [Ref,Options], _) ->
     Arg1 = must_be_ref(Ref),
-    [Arg1,must_be_option_list(Options, Arg1)];
+    [Arg1,maybe_option_list_error(Options, Arg1)];
 format_erlang_error(ceil, [_], _) ->
     [not_number];
 format_erlang_error(check_old_code, [_], _) ->
     [not_atom];
+format_erlang_error(check_process_code, [Pid,Module], _) ->
+    [must_be_pid(Pid),must_be_atom(Module)];
+format_erlang_error(check_process_code, [Pid,Module,_Options], Cause) ->
+    format_erlang_error(check_process_code, [Pid,Module], Cause) ++
+        [case Cause of
+             bad_option -> bad_option;
+             _ -> []
+         end];
+format_erlang_error(convert_time_unit, [Time,FromUnit,ToUnit], _) ->
+    [must_be_int(Time),
+     must_be_time_unit(FromUnit),
+     must_be_time_unit(ToUnit)];
 format_erlang_error(crc32, Args, Cause) ->
     format_erlang_error(adler32, Args, Cause);
 format_erlang_error(crc32_combine, Args, Cause) ->
     format_erlang_error(adler32_combine, Args, Cause);
 format_erlang_error(decode_packet, [_,Bin,Options], Cause) ->
     Arg2 = must_be_binary(Bin),
+    Arg3 = maybe_option_list_error(Options, Arg2),
     case Cause of
         badopt ->
-            [<<"invalid packet type">>,Arg2];
+            [<<"invalid packet type">>, Arg2, Arg3];
         none ->
-            case Arg2 of
-                [] ->
-                    [[],[],must_be_option_list(Options)];
-                _ ->
-                    [[],Arg2,must_be_list(Options)]
-            end
+            [[], Arg2, Arg3]
     end;
 format_erlang_error(delete_element, Args, Cause) ->
     format_erlang_error(element, Args, Cause);
@@ -198,7 +214,7 @@ format_erlang_error(demonitor, [_], _) ->
     [not_ref];
 format_erlang_error(demonitor, [Ref,Options], _) ->
     Arg1 = must_be_ref(Ref),
-    [Arg1,must_be_option_list(Options, Arg1)];
+    [Arg1,maybe_option_list_error(Options, Arg1)];
 format_erlang_error(display_string, [_], _) ->
     [not_string];
 format_erlang_error(element, [Index, Tuple], _) ->
@@ -210,10 +226,7 @@ format_erlang_error(element, [Index, Tuple], _) ->
          true ->
              []
      end,
-     if
-         not is_tuple(Tuple) -> not_tuple;
-         true -> []
-     end];
+     must_be_tuple(Tuple)];
 format_erlang_error(exit, [_,_], _) ->
     [not_pid];
 format_erlang_error(exit_signal, [_,_], _) ->
@@ -226,16 +239,16 @@ format_erlang_error(float_to_binary, [_], _) ->
     [not_float];
 format_erlang_error(float_to_binary, [Float,Options], _) ->
     Arg1 = must_be_float(Float),
-    [Arg1,must_be_option_list(Options, Arg1)];
+    [Arg1,maybe_option_list_error(Options, Arg1)];
 format_erlang_error(float_to_list, [_], _) ->
     [not_float];
 format_erlang_error(float_to_list, [Float,Options], _) ->
     Arg1 = must_be_float(Float),
-    [Arg1,must_be_option_list(Options, Arg1)];
+    [Arg1,maybe_option_list_error(Options, Arg1)];
 format_erlang_error(floor, [_], _) ->
     [not_number];
 format_erlang_error(function_exported, [M,F,A], _) ->
-    must_be_mfa(M, F, A);
+    [must_be_atom(M),must_be_atom(F),must_be_non_neg_int(A)];
 format_erlang_error(fun_info, [_], _) ->
     [not_fun];
 format_erlang_error(fun_info, [Fun,_], _) ->
@@ -253,15 +266,27 @@ format_erlang_error(fun_info_mfa, [_], _) ->
     [not_fun];
 format_erlang_error(fun_to_list, [_], _) ->
     [not_fun];
+format_erlang_error(garbage_collect, [_], _) ->
+    [not_pid];
+format_erlang_error(garbage_collect, [Pid,_], Cause) ->
+    [must_be_pid(Pid),
+     case Cause of
+         bad_option -> bad_option;
+         _ -> []
+     end];
+format_erlang_error(group_leader, [Pid1,Pid2], _) ->
+    [must_be_pid(Pid1),must_be_pid(Pid2)];
+format_erlang_error(halt, [_], _) ->
+    [bad_status];
 format_erlang_error(halt, [_Status,Options], Cause) ->
     case Cause of
         badopt ->
             [[],must_be_list(Options, bad_option)];
         none ->
-            [<<"invalid status">>]
+            [bad_status]
     end;
 format_erlang_error(hibernate, [M,F,A], _) ->
-    must_be_mfa(M, F, A);
+    must_be_mf_args(M, F, A);
 format_erlang_error(hd, [_], _) ->
     [not_cons];
 format_erlang_error(insert_element, [Index,Tuple,_], Cause) ->
@@ -285,7 +310,7 @@ format_erlang_error(iolist_to_binary, [_], _) ->
 format_erlang_error(iolist_to_iovec, [_], _) ->
     [not_iodata];
 format_erlang_error(is_builtin, [M,F,A], _) ->
-    must_be_mfa(M, F, A);
+    must_be_mf_arity(M, F, A);
 format_erlang_error(is_function, [_,Arity], _) ->
     [[],
      if
@@ -339,6 +364,10 @@ format_erlang_error(list_to_ref, [List], _) ->
     list_to_something(List, [{not_encodable,<<"a reference">>}]);
 format_erlang_error(list_to_tuple, [_], _) ->
     [not_list];
+format_erlang_error(load_module, [Module,Code], _) ->
+    [must_be_atom(Module),must_be_binary(Code)];
+format_erlang_error(localtime_to_universaltime, [Time], _) ->
+    [must_be_localtime(Time)];
 format_erlang_error(localtime_to_universaltime, [Time,Bool], _) ->
     [must_be_localtime(Time),must_be_isdst(Bool)];
 format_erlang_error(load_nif, [_,_], _) ->
@@ -349,7 +378,7 @@ format_erlang_error(make_tuple, [_,_], _) ->
     [range];
 format_erlang_error(make_tuple, [Arity,_Value,InitList], _) ->
     Arg1 = must_be_non_neg_int(Arity),
-    [Arg1,[],must_be_option_list(InitList, Arg1)];
+    [Arg1,[],maybe_option_list_error(InitList, Arg1)];
 format_erlang_error(map_size, [_], _) ->
     [not_map];
 format_erlang_error(map_get, [_Key,Map], _) ->
@@ -382,6 +411,15 @@ format_erlang_error(md5_update, [Context, Data], _) ->
          error:badarg ->
              not_iodata
      end];
+format_erlang_error(memory, [Options], _) ->
+    if
+        length(Options) >= 0 ->
+            [bad_option];
+        is_atom(Options) ->
+            [<<"invalid memory type option">>];
+        true ->
+            [<<"not an atom or a list of atoms">>]
+    end;
 format_erlang_error(module_loaded, [_], _) ->
     [not_atom];
 format_erlang_error(monitor, [_Type,_Item], Cause) ->
@@ -419,6 +457,13 @@ format_erlang_error(node, [_], _) ->
     [not_pid];
 format_erlang_error(nodes, [_], _) ->
     [<<"not a valid node type">>];
+format_erlang_error(open_port, [Name,_Settings], Cause) ->
+    case Cause of
+        badopt ->
+            [must_be_tuple(Name),bad_option];
+        _ ->
+            [must_be_tuple(Name, <<"invalid port name">>)]
+    end;
 format_erlang_error(phash, [_,N], _) ->
     [must_be_pos_int(N)];
 format_erlang_error(phash2, [_,N], _) ->
@@ -427,14 +472,61 @@ format_erlang_error(posixtime_to_universaltime, [_], _) ->
     [not_integer];
 format_erlang_error(pid_to_list, [_], _) ->
     [not_pid];
+format_erlang_error(port_call, [Port,Operation,_Data], _) ->
+    [must_be_port(Port),
+     must_be_operation(Operation)];
+format_erlang_error(port_close, [_], _) ->
+    [not_port];
+format_erlang_error(port_command, [Port,Command], _) ->
+    [must_be_port(Port),must_be_iodata(Command)];
+format_erlang_error(port_command, [Port,Command,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [must_be_port(Port),
+             must_be_iodata(Command),
+             must_be_list(Options, bad_option)];
+        _ ->
+            [must_be_port(Port),must_be_iodata(Command)]
+    end;
+format_erlang_error(port_connect, [Port,Pid], _) ->
+    [must_be_port(Port),must_be_pid(Pid)];
+format_erlang_error(port_control, [Port,Operation,Data], _) ->
+    [must_be_port(Port),
+     must_be_operation(Operation),
+     must_be_iodata(Data)];
+format_erlang_error(port_info, [_], _) ->
+    [not_port];
+format_erlang_error(port_info, [_,_], Cause) ->
+    case Cause of
+        badtype ->
+            [not_port];
+        _ ->
+            [[],bad_option]
+    end;
 format_erlang_error(port_to_list, [_], _) ->
     [not_port];
+format_erlang_error(prepare_loading, [Module,Code], _) ->
+    [must_be_atom(Module),must_be_binary(Code)];
+format_erlang_error(process_display, [Pid,_], Cause) ->
+    case Cause of
+        badtype ->
+            [must_be_pid(Pid, dead_process)];
+        _ ->
+            [[],<<"invalid value">>]
+    end;
 format_erlang_error(process_flag, [_,_], Cause) ->
     case Cause of
         badopt ->
             [<<"invalid process flag">>];
         _ ->
             [[],<<"invalid value for this process flag">>]
+    end;
+format_erlang_error(process_flag, [Pid,_,_], Cause) ->
+    case Cause of
+        badtype ->
+            [must_be_pid(Pid, dead_process)];
+        _ ->
+            [[],[],<<"invalid value for this process flag">>]
     end;
 format_erlang_error(process_info, [_], _) ->
     [not_pid];
@@ -446,11 +538,13 @@ format_erlang_error(process_info, [Pid,_What], _) ->
         _ ->
             [Arg1]
     end;
+format_erlang_error(purge_module, [Module], _) ->
+    [must_be_atom(Module)];
 format_erlang_error(read_timer, [_], _) ->
     [not_ref];
 format_erlang_error(read_timer, [Ref,Options], _) ->
     Arg1 = must_be_ref(Ref),
-    [Arg1,must_be_option_list(Options, Arg1)];
+    [Arg1,maybe_option_list_error(Options, Arg1)];
 format_erlang_error(ref_to_list, [_], _) ->
     [not_ref];
 format_erlang_error(register, [Name,PidOrPort], Cause) ->
@@ -493,22 +587,133 @@ format_erlang_error(send, [_,_,Options], Cause) ->
     end;
 format_erlang_error(send_after, Args, Cause) ->
     format_erlang_error(start_timer, Args, Cause);
+format_erlang_error(send_nosuspend, [_,_], _) ->
+    [bad_destination];
+format_erlang_error(send_nosuspend, [_,_,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[],[],must_be_list(Options, bad_option)];
+        _ ->
+            [bad_destination]
+    end;
 format_erlang_error(setelement, [Index,Tuple,_], Cause) ->
     format_erlang_error(element, [Index,Tuple], Cause);
 format_erlang_error(size, [_], _) ->
     [<<"not tuple or binary">>];
+format_erlang_error(spawn, [_], _) ->
+    [not_fun];
+format_erlang_error(spawn, [N,F], _) ->
+    must_be_node_fun(N, F);
 format_erlang_error(spawn, [M,F,A], _) ->
-    must_be_mfa(M, F, A);
+    must_be_mf_args(M, F, A);
+format_erlang_error(spawn, [N,M,F,A], _) ->
+    must_be_node_mf_args(N, M, F, A);
+format_erlang_error(spawn_link, [_], _) ->
+    [not_fun];
+format_erlang_error(spawn_link, [N,F], _) ->
+    must_be_node_fun(N, F);
 format_erlang_error(spawn_link, [M,F,A], _) ->
-    must_be_mfa(M, F, A);
+    must_be_mf_args(M, F, A);
+format_erlang_error(spawn_link, [N,M,F,A], _) ->
+    must_be_node_mf_args(N, M, F, A);
+format_erlang_error(spawn_monitor, [_], _) ->
+    [not_fun];
+format_erlang_error(spawn_monitor, [N,F], _) ->
+    must_be_node_fun(N, F);
+format_erlang_error(spawn_monitor, [M,F,A], _) ->
+    must_be_mf_args(M, F, A);
+format_erlang_error(spawn_monitor, [N,M,F,A], _) ->
+    must_be_node_mf_args(N, M, F, A);
+format_erlang_error(spawn_opt, [Fun,Options], Cause) ->
+    [must_be_fun(Fun) |
+     [case Cause of
+          badopt ->
+              must_be_list(Options, <<"invalid spawn option">>);
+          none ->
+              []
+      end]];
+format_erlang_error(spawn_opt, [Node,Fun,Options], Cause) ->
+    [must_be_atom(Node),must_be_fun(Fun) |
+     [case Cause of
+          badopt ->
+              must_be_list(Options, <<"invalid spawn option">>);
+          none ->
+              []
+      end]];
 format_erlang_error(spawn_opt, [M,F,A,Options], Cause) ->
-    must_be_mfa(M, F, A) ++
+    must_be_mf_args(M, F, A) ++
         [case Cause of
              badopt ->
                  must_be_list(Options, <<"invalid spawn option">>);
              none ->
                  []
          end];
+format_erlang_error(spawn_opt, [N,M,F,A,Options], Cause) ->
+    must_be_node_mf_args(N, M, F, A) ++
+        [case Cause of
+             badopt ->
+                 must_be_list(Options, <<"invalid spawn option">>);
+             none ->
+                 []
+         end];
+format_erlang_error(spawn_request, [_], _) ->
+    [not_fun];
+format_erlang_error(spawn_request, [Fun,_Options], Cause) when is_function(Fun) ->
+    %% spawn_request(Fun, Options)
+    case Cause of
+        badopt ->
+            [[],bad_option];
+        _ ->
+            %% Should not happen.
+            []
+    end;
+format_erlang_error(spawn_request, [_Node,Fun], _) when is_function(Fun) ->
+    %% spawn_request(Node, Fun)
+    [not_atom];
+format_erlang_error(spawn_request, [Node,_BadFun], _) when is_atom(Node) ->
+    %% Assume spawn_request(Node, BadFun).
+    [[],not_fun];
+format_erlang_error(spawn_request, [_,_], _) ->
+    %% No idea what was meant.
+    [<<"not a fun or an atom">>];
+format_erlang_error(spawn_request, [N,F,O], Cause) when is_function(F) ->
+    %% spawn_request(Node, Fun, Options)
+    case Cause of
+        badopt ->
+            [must_be_atom(N),[],must_be_list(O, bad_option)];
+        _ ->
+            [must_be_atom(N),[],must_be_list(O, [])]
+    end;
+format_erlang_error(spawn_request, [N,F,O], Cause) when is_function(F) ->
+    %% spawn_request(Node, Fun, Options)
+    case Cause of
+        badopt ->
+            [must_be_atom(N),[],must_be_option_list(O)];
+        _ ->
+            NodeError = must_be_atom(N),
+            [NodeError,[],maybe_option_list_error(O, NodeError)]
+    end;
+format_erlang_error(spawn_request, [M,F,A], _) ->
+    %% spawn_request(Module, Function, Arguments)
+    must_be_mf_args(M, F, A);
+format_erlang_error(spawn_request, [N,M,F,A], _) when is_atom(F) ->
+    %% spawn_request(Node, Module, Function, Arguments)
+    must_be_node_mf_args(N, M, F, A);
+format_erlang_error(spawn_request, [M,F,A,_Opts], Cause) ->
+    %% spawn_request(Module, Function, Arguments, Options)
+    case Cause of
+        badopt ->
+            must_be_mf_args(M, F, A) ++ [bad_option];
+        _ ->
+            must_be_mf_args(M, F, A)
+    end;
+format_erlang_error(spawn_request, [N,M,F,A,_Opts], Cause) ->
+    case Cause of
+        badopt ->
+            must_be_node_mf_args(N, M, F, A) ++ [bad_option];
+        _ ->
+            must_be_node_mf_args(N, M, F, A)
+    end;
 format_erlang_error(spawn_request_abandon, [_], _) ->
     [not_ref];
 format_erlang_error(split_binary, [Bin,Pos], _) ->
@@ -527,7 +732,7 @@ format_erlang_error(start_timer, [Time,Process,_], _) ->
     [must_be_non_neg_int(Time),
      if
          is_pid(Process); is_atom(Process) -> [];
-         true -> [<<"not pid or atom">>]
+         true -> <<"not pid or atom">>
      end];
 format_erlang_error(start_timer, [A1,A2,A3,Options], Cause) ->
     case format_erlang_error(start_timer, [A1,A2,A3], Cause) of
@@ -538,6 +743,25 @@ format_erlang_error(start_timer, [A1,A2,A3,Options], Cause) ->
     end;
 format_erlang_error(subtract, [A,B], _) ->
     [must_be_list(A),must_be_list(B)];
+format_erlang_error(suspend_process, [Pid], _) ->
+    [if
+         Pid =:= self() ->
+             self_not_allowed;
+         true ->
+             must_be_pid(Pid, dead_process)
+     end];
+format_erlang_error(suspend_process, [Pid,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [must_be_pid(Pid, []),must_be_list(Options, bad_option)];
+        _ ->
+            [if
+                 Pid =:= self() ->
+                     self_not_allowed;
+                 true ->
+                     must_be_pid(Pid, dead_process)
+             end]
+    end;
 format_erlang_error(system_flag, [_,_], Cause) ->
     case Cause of
         badopt ->
@@ -568,6 +792,33 @@ format_erlang_error(term_to_iovec, [_,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(time_offset, [_], _) ->
     [bad_time_unit];
+format_erlang_error(trace, [_,How,Options], Cause) ->
+    HowError = must_be_boolean(How),
+    case Cause of
+        badopt ->
+            [[], HowError, must_be_option_list(Options)];
+        _ ->
+            case HowError of
+                [] ->
+                    [<<"invalid spec for pid or port">>];
+                _ ->
+                    [[], HowError, []]
+            end
+    end;
+format_erlang_error(trace_pattern=F, [_,_]=Args, Cause) ->
+    [Err1,Err2|_] = format_erlang_error(F, Args ++ [[]], Cause),
+    [Err1,Err2];
+format_erlang_error(trace_pattern, [_,_,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[], [], must_be_option_list(Options)];
+        match_spec ->
+            [[], bad_match_spec, maybe_option_list_error(Options, bad_match_spec)];
+        call_count ->
+            [[], [], <<"a match spec is not allowed in combination with these options">>];
+        _ ->
+            [<<"invalid MFA specification">>, [], []]
+    end;
 format_erlang_error(trace_delivered, [_], _) ->
     [<<"not a pid or 'all'">>];
 format_erlang_error(tuple_size, [_], _) ->
@@ -630,6 +881,9 @@ must_be_base(_) -> bad_base.
 must_be_boolean(B) when is_boolean(B) -> [];
 must_be_boolean(_) -> bad_boolean.
 
+must_be_fun(F) when is_function(F) -> [];
+must_be_fun(_) -> not_fun.
+
 must_be_isdst(undefined) -> [];
 must_be_isdst(B) when is_boolean(B) -> [];
 must_be_isdst(_) -> bad_isdst.
@@ -674,33 +928,70 @@ must_be_localtime(Time) ->
             bad_localtime
     end.
 
-must_be_mfa(M, F, A) ->
+must_be_mf_args(M, F, A) ->
+    [must_be_atom(M),
+     must_be_atom(F),
+     must_be_list(A)].
+
+must_be_mf_arity(M, F, A) ->
     [must_be_atom(M),
      must_be_atom(F),
      must_be_non_neg_int(A)].
 
+must_be_node_mf_args(N, M, F, A) ->
+    [must_be_atom(N)|must_be_mf_args(M, F, A)].
+
+must_be_node_fun(N, F) ->
+    [must_be_atom(N) |
+     if
+         is_function(F) -> [];
+         true -> [not_fun]
+     end].
+
 must_be_int(N) when is_integer(N) -> [];
 must_be_int(_) -> not_integer.
 
-must_be_non_neg_int(N) when is_integer(N) ->
-    if
-        N >= 0 -> [];
-        true -> range
-    end;
-must_be_non_neg_int(_) -> not_integer.
+must_be_int(N, Min, Max) ->
+    must_be_int(N, Min, Max, []).
 
-must_be_pos_int(N) when is_integer(N) ->
+must_be_int(N, Min, Max, Default) when is_integer(N) ->
     if
-        N > 0 -> [];
-        true -> range
+        Min =< N, N =< Max ->
+            Default;
+        true ->
+            range
     end;
-must_be_pos_int(_) -> not_integer.
+must_be_int(_, _, _, _) -> not_integer.
+
+must_be_non_neg_int(N) ->
+    must_be_int(N, 0, infinity).
+
+must_be_pos_int(N) ->
+    must_be_int(N, 1, infinity).
+
+must_be_operation(Operation) ->
+    must_be_int(Operation, 0, (1 bsl 32) - 1, []).
 
 must_be_option_list(Options) ->
-    must_be_option_list(Options, []).
+    case must_be_list(Options) of
+        [] -> bad_option;
+        Error -> Error
+    end.
 
-must_be_option_list(Options, DefaultError) ->
-    case {DefaultError,must_be_list(Options)} of
+%% maybe_option_list_error(Options, PreviousError)
+%%  Options is an option-list argument to be checked.
+%%  PreviousError is an error term or [] for another argument.
+%%
+%%  If PreviousError is [], it means that there is an error in
+%%  Options, and so this function will always return an error
+%%  (not_list, not_proper_list, or bad_option).
+%%
+%%  If PreviousError is an error term, this function will return
+%%  not_list or not_proper_list if Options is in error.
+%%  Otherwise, it will return [].
+%%
+maybe_option_list_error(Options, PreviousError) ->
+    case {PreviousError,must_be_list(Options)} of
         {[],[]} ->
             bad_option;
         {_,Arg2} ->
@@ -713,6 +1004,12 @@ must_be_pid(Pid) ->
 must_be_pid(Pid, Error) when is_pid(Pid) -> Error;
 must_be_pid(_, _) -> not_pid.
 
+must_be_port(Term) ->
+    must_be_port(Term, []).
+
+must_be_port(Port, Error) when is_port(Port); is_atom(Port) -> Error;
+must_be_port(_, _) -> not_port.
+
 must_be_ref(Ref) when is_reference(Ref) -> [];
 must_be_ref(_) -> not_ref.
 
@@ -722,6 +1019,21 @@ must_be_size(N) when is_integer(N) ->
         true -> []
     end;
 must_be_size(_) -> not_integer.
+
+must_be_time_unit(Unit) ->
+    try erlang:convert_time_unit(1, native, Unit) of
+        _ ->
+            []
+    catch
+        error:_ ->
+            bad_time_unit
+    end.
+
+must_be_tuple(Term) ->
+    must_be_tuple(Term, []).
+
+must_be_tuple(Tuple, Error) when is_tuple(Tuple) -> Error;
+must_be_tuple(_, _) -> not_tuple.
 
 check_md5_context(Context) when is_binary(Context) ->
     case byte_size(erlang:md5_init()) =:= byte_size(Context) of
@@ -785,16 +1097,20 @@ expand_error(bad_isdst) ->
     <<"not 'true', 'false', or 'undefined'">>;
 expand_error(bad_localtime) ->
     <<"not a valid local time">>;
+expand_error(bad_match_spec) ->
+    <<"invalid match specification">>;
 expand_error(bad_option) ->
     <<"invalid option in list">>;
-expand_error(bad_universaltime) ->
-    <<"not a valid universal time">>;
 expand_error(bad_path) ->
     <<"not a valid path name">>;
+expand_error(bad_status) ->
+    <<"invalid status">>;
 expand_error(bad_time_unit) ->
     <<"invalid time unit">>;
 expand_error(bad_unicode) ->
     <<"invalid UTF8 encoding">>;
+expand_error(bad_universaltime) ->
+    <<"not a valid universal time">>;
 expand_error(dead_process) ->
     <<"the pid does not refer to an existing process">>;
 expand_error({not_encodable,Type}) ->
@@ -839,4 +1155,7 @@ expand_error(not_tuple) ->
     <<"not a tuple">>;
 expand_error(range) ->
     <<"out of range">>;
-expand_error(E) -> E.
+expand_error(self_not_allowed) ->
+    <<"the pid refers to the current process">>;
+expand_error(E) when is_binary(E) ->
+    E.

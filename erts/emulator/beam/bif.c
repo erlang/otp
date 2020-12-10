@@ -909,8 +909,11 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
     if (arity > MAX_SMALL)
         goto system_limit;
     if (opts_error) {
-        if (opts_error > 0)
-            goto badarg;
+        if (opts_error > 0) {
+            /* Return `badopt`, meaning that the Options argument
+             * is not a proper list. */
+            BIF_RET(am_badopt);
+        }
         goto badopt;
     }
 
@@ -1911,7 +1914,7 @@ BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
    }
 
    if (is_not_internal_pid(BIF_ARG_1))
-       BIF_RET(am_badarg);
+       BIF_RET(am_badtype);
 
    flag_sz = is_immed(BIF_ARG_2) ? 0 : size_object(BIF_ARG_2);
    value_sz = is_immed(BIF_ARG_3) ? 0 : size_object(BIF_ARG_3);
@@ -1934,7 +1937,7 @@ BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
                                         (void *) pf3a);
 
    if (is_non_value(res))
-       BIF_RET(am_badarg);
+       BIF_RET(am_badtype);
 
    return res;
 }

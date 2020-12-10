@@ -136,6 +136,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     finish_bp.current = -1;
 
     UseTmpHeap(3,p);
+
     /*
      * Check and compile the match specification.
      */
@@ -157,11 +158,13 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	if (match_prog_set) {
 	    MatchSetRef(match_prog_set);
 	    on = 1;
-	} else{
+	} else {
+            p->fvalue = am_match_spec;
 	    goto error;
 	}
     }
-    
+
+    p->fvalue = am_badopt;
     is_global = 0;
     for(l = flaglist; is_list(l); l = CDR(list_val(l))) {
 	if (is_tuple(CAR(list_val(l)))) {
@@ -219,9 +222,12 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     if (l != NIL) {
 	goto error;
     }
-    
+
+    p->fvalue = am_none;
+
     if (match_prog_set && !flags.local && !flags.meta && (flags.call_count || flags.call_time)) {
 	/* A match prog is not allowed with just call_count or call_time*/
+        p->fvalue = am_call_count;
 	goto error;
     }
 
@@ -356,7 +362,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	return make_small(matches);
     }
     else {
-	BIF_ERROR(p, freason);    
+	BIF_ERROR(p, freason | EXF_HAS_EXT_INFO);
     }
 }
 
@@ -537,7 +543,8 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
     int system_blocked = 0;
 
     if (! erts_trace_flags(list, &mask, &tracer, &cpu_ts)) {
-	BIF_ERROR(p, BADARG);
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
