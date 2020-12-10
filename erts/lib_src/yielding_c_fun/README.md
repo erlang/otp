@@ -137,11 +137,18 @@ Usage: yielding_c_fun [-h]
 
 * `-frec function_name`
 
-  Same as the -f option with the exception that the generated function
+  Same as the `-f` option with the exception that the generated function
   also decrements one reduction before calls to other yieldable
   functions and before returning. The function yields automatically if
   the reduction counter reaches a value that is zero or smaller after
   it has been decremented.
+
+* `-fexternal function_name`
+
+  YCF expects that a yielding verison of the function called
+  `function_name` is generated externally. Calls to the function
+  called `function_name` from yielding functions calls the externally
+  generated yielding version of the function called `function_name`.
 
 * `-output_file_name output_file`
 
