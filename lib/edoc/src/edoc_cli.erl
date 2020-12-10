@@ -10,9 +10,9 @@ main(Args) ->
     ok = code:add_pathsa(maps:get(code_paths, Opts)),
     case Opts of
         #{run := app, app := App} ->
-            edoc:application(App, edoc_opts(maps:get(mode, Opts)));
+            edoc:application(App, edoc_opts(Opts));
         #{run := files, files := Files} ->
-            edoc:files(Files, edoc_opts(maps:get(mode, Opts)))
+            edoc:files(Files, edoc_opts(Opts))
     end.
 
 parse_args(Args) ->
@@ -21,6 +21,8 @@ parse_args(Args) ->
 	     app => no_app,
 	     files => [],
 	     code_paths => [],
+	     out_dir => undefined,
+	     include_paths => [],
 	     continue => false},
     check_opts(maps:without([continue], parse_args(Args, Init))).
 
@@ -32,9 +34,16 @@ parse_args(["-" ++ _ = Arg | Args], #{continue := Cont} = Opts) when Cont /= fal
 parse_args(["-chunks" | Args], Opts) ->
     parse_args(Args, Opts#{mode := chunks});
 
+parse_args(["-o", OutDir | Args], Opts) ->
+    parse_args(Args, Opts#{out_dir := OutDir});
+
 parse_args(["-pa", Path | Args], Opts) ->
     #{code_paths := Paths} = Opts,
     parse_args(Args, Opts#{code_paths := Paths ++ [Path]});
+
+parse_args(["-I", Path | Args], Opts) ->
+    #{include_paths := Paths} = Opts,
+    parse_args(Args, Opts#{include_paths := Paths ++ [Path]});
 
 parse_args(["-app", App | Args], Opts) ->
     parse_args(Args, Opts#{run := app, app := list_to_atom(App)});
@@ -56,9 +65,18 @@ check_opts(Opts) ->
 	#{run := files, files := [_|_]} -> ok;
 	#{run := files, files := []} -> quit(no_files, Opts)
     end,
-    #{mode := Mode, code_paths := CodePaths} = Opts,
+    #{mode := Mode,
+      out_dir := OutDir,
+      code_paths := CodePaths,
+      include_paths := IncludePaths} = Opts,
     lists:member(Mode, [default, chunks]) orelse erlang:error(mode, Opts),
+    if
+	is_list(OutDir) -> ok;
+	OutDir =:= undefined -> ok;
+	OutDir =/= undefined -> erlang:error(out_dir, Opts)
+    end,
     is_list(CodePaths) orelse erlang:error(code_paths),
+    is_list(IncludePaths) orelse erlang:error(include_paths),
     Opts.
 
 quit(Reason, _Opts) ->
@@ -72,12 +90,18 @@ quit(Reason, _Opts) ->
     print(usage()),
     erlang:halt(1).
 
-edoc_opts(default) ->
-    [{preprocess, true}];
-edoc_opts(chunks) ->
-    [{doclet, edoc_doclet_chunks},
-     {layout, edoc_layout_chunks},
-     {preprocess, true}].
+edoc_opts(Opts) ->
+    EdocOpts = case maps:get(mode, Opts) of
+		   default ->
+		       [{preprocess, true}];
+		   chunks ->
+		       [{doclet, edoc_doclet_chunks},
+			{layout, edoc_layout_chunks},
+			{preprocess, true}]
+	       end,
+    OutDir = maps:get(out_dir, Opts),
+    [{includes, maps:get(include_paths, Opts)} | EdocOpts] ++
+    [{dir, OutDir} || OutDir /= undefined].
 
 print(Text) ->
     print(Text, []).
@@ -86,10 +110,16 @@ print(Fmt, Args) ->
     io:format(Fmt, Args).
 
 usage() ->
-    "Usage: edoc.escript -app App [-chunks]\n"
-    "       edoc.escript -files File1 ... FileN [-chunks]\n"
+    "Usage: edoc.escript [options] -app App\n"
+    "       edoc.escript [options] -files Source1 ... SourceN\n"
     "\n"
-    "Run EDoc from the command line.\n"
-    "  -app   \truns edoc:application/2\n"
-    "  -files \truns edoc:files/2\n"
-    "  -chunks\twhen present, only doc chunks are generated\n".
+    "Run EDoc from the command line:\n"
+    "  -app App       \truns edoc:application/2; App is the application name\n"
+    "  -files Sources \truns edoc:files/2; Files are .erl files\n"
+    "\n"
+    "Options:\n"
+    "  -chunks        \twhen present, only doc chunks are generated\n"
+    "  -o Dir         \tuse Dir for doc output\n"
+    "  -I IncPath     \tadd IncPath to EDoc include file search path;\n"
+    "                 \tcan be used multiple times\n"
+    "  -pa CodePath   \tadd CodePath to Erlang code path; can be used multiple times\n".
