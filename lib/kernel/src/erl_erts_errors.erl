@@ -33,7 +33,7 @@ format_error(Reason, [{M,F,As,Info}|_]) ->
               erlang ->
                   format_erlang_error(F, As, Reason, Cause);
               atomics ->
-                  format_atomics_error(F, As, Cause);
+                  format_atomics_error(F, As, Reason, Cause);
               counters ->
                   format_counters_error(F, As, Cause);
               persistent_term ->
@@ -43,8 +43,66 @@ format_error(Reason, [{M,F,As,Info}|_]) ->
           end,
     format_error_map(Res, 1, #{}).
 
-format_atomics_error(_, _, _) ->
+format_atomics_error(new, [Size,Options], Reason, Cause) ->
+    case Reason of
+        system_limit ->
+            [<<"atomics array size reached a system limit">>,
+             must_be_list(Options)];
+        badarg ->
+            case Cause of
+                badopt ->
+                    SizeError = must_be_pos_int(Size),
+                    [SizeError, must_be_list(Options, bad_option)];
+                _ ->
+                    [must_be_pos_int(Size)]
+            end
+    end;
+format_atomics_error(Name, Args, _, _) ->
+    format_atomics_error(Name, Args).
+
+format_atomics_error(add, Args) ->
+    do_atomics_operation(Args);
+format_atomics_error(add_get, Args) ->
+    do_atomics_operation(Args);
+format_atomics_error(compare_exchange, [Ref,Index,Expected,Desired]) ->
+    try atomics:info(Ref) of
+        #{min := Min, max := Max, size := MaxIndex} ->
+            [[], must_be_int(Index, 1, MaxIndex),
+             must_be_int(Expected, Min, Max),
+             must_be_int(Desired, Min, Max)]
+    catch
+        error:badarg ->
+            [bad_atomics_ref,
+             must_be_pos_int(Index),
+             must_be_int(Expected),
+             must_be_int(Desired)]
+    end;
+format_atomics_error(exchange, Args) ->
+    do_atomics_operation(Args);
+format_atomics_error(get, [Ref,Index]) ->
+    do_atomics_operation([Ref,Index,0]);
+format_atomics_error(info, [_]) ->
+    [bad_atomics_ref];
+format_atomics_error(put, Args) ->
+    do_atomics_operation(Args);
+format_atomics_error(sub, Args) ->
+    do_atomics_operation(Args);
+format_atomics_error(sub_get, Args) ->
+    do_atomics_operation(Args);
+format_atomics_error(_, _) ->
     [].
+
+do_atomics_operation([Ref,Index,Value]) ->
+    try atomics:info(Ref) of
+        #{min := Min, max := Max, size := MaxIndex} ->
+            [[], must_be_int(Index, 1, MaxIndex),
+             must_be_int(Value, Min, Max)]
+    catch
+        error:badarg ->
+            [bad_atomics_ref,
+             must_be_pos_int(Index),
+             must_be_int(Value)]
+    end.
 
 format_counters_error(_, _, _) ->
     [].
@@ -1083,6 +1141,8 @@ format_error_map([E|Es], ArgNum, Map) ->
 format_error_map([], _, Map) ->
     Map.
 
+expand_error(bad_atomics_ref) ->
+    <<"invalid atomics reference">>;
 expand_error(bad_base) ->
     <<"not an integer in the range 2 through 36">>;
 expand_error(bad_boolean) ->
