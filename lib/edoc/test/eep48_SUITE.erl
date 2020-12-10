@@ -23,7 +23,17 @@
 	 cb_since_tag/1,
 	 cb_deprecated_tag/1,
 	 links/1,
-	 equiv/1]).
+	 equiv/1,
+	 f_sig_single_simple_clause/1,
+	 f_sig_single_simple_clause_with_spec/1,
+	 f_sig_multiple_simple_clauses/1,
+	 f_sig_multiple_simple_clauses_with_spec/1,
+	 f_sig_single_record_clause/1,
+	 f_sig_single_record_clause_with_spec/1,
+	 f_sig_multiple_record_clauses/1,
+	 f_sig_multiple_record_clauses_with_spec/1]).
+
+-define(a2b(A), atom_to_binary(A, utf8)).
 
 %%
 %% CT preamble
@@ -43,7 +53,15 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  cb_since_tag,
 	  cb_deprecated_tag,
 	  links,
-	  equiv].
+	  equiv,
+	  f_sig_single_simple_clause,
+	  f_sig_single_simple_clause_with_spec,
+	  f_sig_multiple_simple_clauses,
+	  f_sig_multiple_simple_clauses_with_spec,
+	  f_sig_single_record_clause,
+	  f_sig_single_record_clause_with_spec,
+	  f_sig_multiple_record_clauses,
+	  f_sig_multiple_record_clauses_with_spec].
 
 %% TODO: remove these cases once EDoc supports extracting the relevant tags
 not_supported() -> [type_since_tag,
@@ -175,6 +193,54 @@ equiv(Config) ->
     ?assertMatch(<<"Equivalent to {<<\"arbitrary\">>, erlang, \"term\"}.">>,
 		 get_flat_doc({function, fun_with_non_call_equiv_tag, 0}, Docs)).
 
+f_sig_single_simple_clause(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"Arg">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
+
+f_sig_single_simple_clause_with_spec(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"Arg">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
+
+f_sig_multiple_simple_clauses(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"C1A1, ">>,<<"C1A2">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 2}, Docs)).
+
+f_sig_multiple_simple_clauses_with_spec(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"C1A1, ">>,<<"C1A2">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 2}, Docs)).
+
+f_sig_single_record_clause(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
+
+f_sig_single_record_clause_with_spec(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
+
+f_sig_multiple_record_clauses(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
+
+f_sig_multiple_record_clauses_with_spec(Config) ->
+    Docs = get_docs(Config, eep48_sigs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
+
 %%
 %% Helpers
 %%
@@ -247,6 +313,10 @@ fetch(K, List) ->
 
 get_flat_doc(KNA, Docs) ->
     flatten_doc(get_doc(KNA, Docs)).
+
+get_sig({K, N, A}, Docs) ->
+    Entry = docs_v1_entry(lookup_entry(K, N, A, Docs)),
+    Entry#docs_v1_entry.signature.
 
 flatten_doc(XML) ->
     iolist_to_binary(lists:reverse(xmerl_lib:foldxml(fun flatten_xml/2, [], XML))).
