@@ -1947,10 +1947,13 @@ infer_type({bif,'=:='}, [#b_var{}=LHS,#b_var{}=RHS], Ts, _Ds) ->
     %%
     %% However, it is safe to subtract a type inferred from '=:=' if
     %% it is single-valued, e.g. if it is [] or the atom 'true'.
-    NegTypes = case beam_types:is_singleton_type(Type) of
-                   true -> PosTypes;
-                   false -> []
-               end,
+    %%
+    %% Note that we subtract the left-hand type from the right-hand
+    %% value and vice versa. We must not subtract the meet of the two
+    %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
+    %% for details.
+    NegTypes = [T || {_, OtherType}=T <- [{RHS, LType}, {LHS, RType}],
+                     beam_types:is_singleton_type(OtherType)],
 
     {PosTypes, NegTypes};
 infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
