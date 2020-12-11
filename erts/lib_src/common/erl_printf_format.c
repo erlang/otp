@@ -35,12 +35,6 @@
 #include "config.h"
 #endif
 
-#ifdef __WIN32__
-#undef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
-
 #include <ctype.h>
 #include <string.h>
 #include <math.h>
@@ -925,6 +919,66 @@ erts_printf_sword(fmtfn_t fn, void *arg, char conv, int pad, int width,
     if (res < 0)
 	return res;
     return count;
+}
+
+int
+erts_printf_uword64(fmtfn_t fn, void *arg, char conv, int pad, int width,
+		    ErlPfUWord64 val)
+{
+#if SIZEOF_LONG_LONG
+    int count = 0;
+    int res;
+    int fmt = 0;
+    int prec = -1;
+    switch (conv) {
+    case 'o': fmt |= FMTC_o; break;
+    case 'u': fmt |= FMTC_u; break;
+    case 'x': fmt |= FMTC_x; break;
+    case 'X': fmt |= FMTC_X; break;
+    case 'p': fmt |= FMTC_p; break;
+    default:
+	return -EINVAL;
+    }
+    if (pad)
+	prec = width;
+    res = fmt_long_long(fn, arg, USIGN(val), val, width, prec, fmt, &count);
+    if (res < 0)
+	return res;
+    return count;
+#else
+    return -ENOTSUP;
+#endif
+}
+
+int
+erts_printf_sword64(fmtfn_t fn, void *arg, char conv, int pad, int width,
+		    ErlPfSWord64 val)
+{
+#if SIZEOF_LONG_LONG
+    int count = 0;
+    int res;
+    int fmt = 0;
+    int prec = -1;
+    ErlPfUWord64 ul_val;
+    switch (conv) {
+    case 'd': fmt |= FMTC_d; break;
+    case 'i': fmt |= FMTC_d; break;
+    case 'o': fmt |= FMTC_o; break;
+    case 'x': fmt |= FMTC_x; break;
+    case 'X': fmt |= FMTC_X; break;
+    default:
+	return -EINVAL;
+    }
+    if (pad)
+	prec = width;
+    ul_val = (ErlPfUWord64) (val < 0 ? -val : val);
+    res = fmt_long_long(fn, arg, SIGN(val), ul_val, width, prec, fmt, &count);
+    if (res < 0)
+	return res;
+    return count;
+#else
+    return -ENOTSUP;
+#endif
 }
 
 int

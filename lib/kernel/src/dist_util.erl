@@ -128,8 +128,8 @@ dflag2str(?DFLAG_SPAWN) ->
     "SPAWN";
 dflag2str(?DFLAG_NAME_ME) ->
     "NAME_ME";
-dflag2str(?DFLAG_V4_PIDS_REFS) ->
-    "V4_PIDS_REFS";
+dflag2str(?DFLAG_V4_NC) ->
+    "V4_NC";
 dflag2str(?DFLAG_ALIAS) ->
     "ALIAS";
 dflag2str(_) ->

@@ -115,6 +115,11 @@ test_ei_decode_encode(Config) when is_list(Config) ->
                         rand:uniform(1 bsl Bits)-1))
      || Bits <- lists:seq(16,32)],
 
+    %% Full 64-bit ports
+    [send_rec(P, mk_port({gurka@sallad, 4711},
+                         rand:uniform(1 bsl Bits)-1))
+     || Bits <- lists:seq(24,40)],
+
     %% Unicode atoms
     [begin send_rec(P, Atom),
            send_rec(P, mk_pid({Atom,1}, 23434, 3434)),
@@ -214,6 +219,21 @@ get_binary(P) ->
 -define(NEW_PID_EXT,         $X).
 -define(NEW_PORT_EXT,        $Y).
 -define(NEWER_REFERENCE_EXT, $Z).
+-define(V4_PORT_EXT,         $x).
+
+-define(OLD_MAX_PIDS_PORTS, ((1 bsl 28) - 1)).
+
+uint64_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 64 ->
+    [(Uint bsr 56) band 16#ff,
+     (Uint bsr 48) band 16#ff,
+     (Uint bsr 40) band 16#ff,
+     (Uint bsr 32) band 16#ff,
+     (Uint bsr 24) band 16#ff,
+     (Uint bsr 16) band 16#ff,
+     (Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint64_be(Uint) ->
+    exit({badarg, uint64_be, [Uint]}).
 
 uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
     [(Uint bsr 24) band 16#ff,
@@ -259,17 +279,24 @@ mk_pid({NodeNameExt, Creation}, Number, Serial) ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
-port_tag(Creation) when Creation =< 3 -> ?PORT_EXT;
-port_tag(_Creation) -> ?NEW_PORT_EXT.
+port_tag(Num, Creation) when 0 =< Num, Num =< ?OLD_MAX_PIDS_PORTS, Creation =< 3 ->
+    ?PORT_EXT;
+port_tag(Num, _Creation) when 0 =< Num, Num =< ?OLD_MAX_PIDS_PORTS ->
+    ?NEW_PORT_EXT;
+port_tag(_Num, _Creation) ->
+    ?V4_PORT_EXT.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_port({NodeNameExt, Creation}, Number);
 mk_port({NodeNameExt, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      port_tag(Creation),
+					      port_tag(Number, Creation),
 					      NodeNameExt,
-					      uint32_be(Number),
+					      case Number > ?OLD_MAX_PIDS_PORTS of
+						  true -> uint64_be(Number);
+						  false -> uint32_be(Number)
+					      end,
 					      enc_creation(Creation)])) of
 	Port when is_port(Port) ->
 	    Port;

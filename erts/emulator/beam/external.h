@@ -56,6 +56,7 @@
 #define FUN_EXT           'u'
 #define ATOM_UTF8_EXT     'v'
 #define SMALL_ATOM_UTF8_EXT 'w'
+#define V4_PORT_EXT       'x'
 
 #define DIST_HEADER       'D'
 #define DIST_FRAG_HEADER  'E'

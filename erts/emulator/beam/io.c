@@ -193,13 +193,12 @@ dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
     Port *port = erts_drvport2port(drvport);
 
     if (port != ERTS_INVALID_ERL_DRV_PORT)
-	erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
+	erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%b64u>",
 		      port_channel_no(port->common.id),
 		      port_number(port->common.id));
     else
-	erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<INVALID>",
-		      port_channel_no(port->common.id),
-		      port_number(port->common.id));
+	erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.INVALID>",
+		      port_channel_no(port->common.id));
 }
 
 #endif

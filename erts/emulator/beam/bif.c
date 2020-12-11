@@ -4393,15 +4393,17 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
 {
     /*
      * A valid port identifier is on the format
-     * "#Port<N.P>" where N is node and P is
-     * the port id. Both N and P are of type Uint32.
+     * "#Port<Node.Num>" where Node is node and Num is
+     * the port id.
      */
-    Uint32 n, p;
-    char* cp;
+    Uint32 node;
+    Uint64 num;
+    char c, *cp;
     int i;
     DistEntry *dep = NULL;
     char buf[6 /* #Port< */
-             + (2)*(10 + 1) /* N.P> */
+	     + 11 /* Node. */
+	     + 21 /* Num> */
              + 1 /* \0 */];
 
     /* walk down the list and create a C string */
@@ -4416,19 +4418,43 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
 
     cp += 6; /* sys_strlen("#Port<") */
 
-    if (sscanf(cp, "%u.%u>", (unsigned int*)&n, (unsigned int*)&p) < 2)
-        goto bad;
+    node = 0;
+    c = *cp;
+    if (!('0' <= c && c <= '9'))
+	goto bad;
+    do {
+	node *= 10;
+	node += (Uint32) (c - '0');
+	c = *(++cp);
+    } while ('0' <= c && c <= '9');
 
-    if (p > ERTS_MAX_PORT_NUMBER)
+    if (*(cp++) != '.')
 	goto bad;
 
-    dep = erts_channel_no_to_dist_entry(n);
+    c = *cp;
+    num = 0;
+    if (!('0' <= c && c <= '9'))
+	goto bad;
+    do {
+	num *= 10;
+	num += (Uint64) (c - '0');
+	c = *(++cp);
+    } while ('0' <= c && c <= '9');
+
+    if (*(cp++) != '>')
+	goto bad;
+    if (*cp != '\0')
+	goto bad;
+    
+    dep = erts_channel_no_to_dist_entry(node);
 
     if (!dep)
 	goto bad;
 
     if(dep == erts_this_dist_entry) {
-	BIF_RET(make_internal_port(p));
+	if (num > ERTS_MAX_INTERNAL_PORT_NUMBER)
+	    goto bad;
+	BIF_RET(make_internal_port(num));
     }
     else {
       ExternalThing *etp;
@@ -4437,15 +4463,20 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
 
-      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
+      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_PORT_HEAP_SIZE);
       enp = erts_find_or_insert_node(dep->sysname, dep->creation,
                                      make_boxed(&etp->header));
       ASSERT(enp != erts_this_node);
 
-      etp->header = make_external_port_header(1);
+      etp->header = make_external_port_header();
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
-      etp->data.ui[0] = p;
+#ifdef ARCH_64
+      etp->data.ui[0] = (Uint) num;
+#else
+      etp->data.ui[0] = (Uint) (num & 0xffffffff);
+      etp->data.ui[1] = (Uint) ((num >> 32) & 0xffffffff);
+#endif
 
       MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
       BIF_RET(make_external_port(etp));

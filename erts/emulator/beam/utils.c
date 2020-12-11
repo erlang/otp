@@ -919,13 +919,20 @@ tail_recur:
 	    break;
 	}
     case PID_DEF:
+	/* only 15 bits... */
 	UINT32_HASH_RET(internal_pid_number(term),FUNNY_NUMBER5,FUNNY_NUMBER6);
     case EXTERNAL_PID_DEF:
+	/* only 15 bits... */
 	UINT32_HASH_RET(external_pid_number(term),FUNNY_NUMBER5,FUNNY_NUMBER6);
     case PORT_DEF:
-	UINT32_HASH_RET(internal_port_number(term),FUNNY_NUMBER9,FUNNY_NUMBER10);
-    case EXTERNAL_PORT_DEF:
-	UINT32_HASH_RET(external_port_number(term),FUNNY_NUMBER9,FUNNY_NUMBER10);
+    case EXTERNAL_PORT_DEF: {
+	Uint64 number = port_number(term);
+	Uint32 low = (Uint32) (number & 0xffffffff);
+	Uint32 high = (Uint32) ((number >> 32) & 0xffffffff);
+	if (high)
+	    UINT32_HASH_STEP(high, FUNNY_NUMBER11);
+	UINT32_HASH_RET(low,FUNNY_NUMBER9,FUNNY_NUMBER10);
+    }
     case REF_DEF:
 	UINT32_HASH_RET(internal_ref_numbers(term)[0],FUNNY_NUMBER9,FUNNY_NUMBER10);
     case EXTERNAL_REF_DEF:
@@ -1858,10 +1865,13 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 		/* Only 15 bits are hashed. */
 		UINT32_HASH(external_pid_number(term), HCONST_5);
 		goto hash2_common;
-	    case EXTERNAL_PORT_SUBTAG:
-		/* Only 15 bits are hashed. */
-		UINT32_HASH(external_port_number(term), HCONST_6);
+	    case EXTERNAL_PORT_SUBTAG: {
+		Uint64 number = external_port_number(term);
+		Uint32 low = (Uint32) (number & 0xffffffff);
+		Uint32 high = (Uint32) ((number >> 32) & 0xffffffff);
+		UINT32_HASH_2(low, high, HCONST_6);
 		goto hash2_common;
+	    }
 	    case FLOAT_SUBTAG:
 	    {
 		FloatDef ff;
@@ -1890,10 +1900,13 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 		/* Only 15 bits are hashed. */
 		UINT32_HASH(internal_pid_number(term), HCONST_5);
 		goto hash2_common;
-	    case _TAG_IMMED1_PORT:
-		/* Only 15 bits are hashed. */
-		UINT32_HASH(internal_port_number(term), HCONST_6);
+	    case _TAG_IMMED1_PORT: {
+		Uint64 number = internal_port_number(term);
+		Uint32 low = (Uint32) (number & 0xffffffff);
+		Uint32 high = (Uint32) ((number >> 32) & 0xffffffff);
+		UINT32_HASH_2(low, high, HCONST_6);
 		goto hash2_common;
+	    }
 	    case _TAG_IMMED1_IMMED2:
 		switch (term & _TAG_IMMED2_MASK) {
 		case _TAG_IMMED2_ATOM:
@@ -3109,8 +3122,6 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
     int b_tag;
     ErlNode *anode;
     ErlNode *bnode;
-    Uint adata;
-    Uint bdata;
     Uint alen;
     Uint blen;
     Uint32 *anum;
@@ -3178,26 +3189,23 @@ tailrecur_ne:
 	switch ((a & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_PORT >> _TAG_PRIMARY_SIZE):
 	    if (is_internal_port(b)) {
-		bnode = erts_this_node;
-		bdata = internal_port_data(b);
+		Uint adata = internal_port_data(a);
+		Uint bdata = internal_port_data(b);
+		ON_CMP_GOTO((Sint)(adata - bdata));
 	    } else if (is_external_port(b)) {
+		anode = erts_this_node;
 		bnode = external_port_node(b);
-		bdata = external_port_data(b);
+		CMP_NODES(anode, bnode);
+		ERTS_INTERNAL_ERROR("different nodes compared equal");
 	    } else {
 		a_tag = PORT_DEF;
 		goto mixed_types;
 	    }
-	    anode = erts_this_node;
-	    adata = internal_port_data(a);
-
-	port_common:
-	    CMP_NODES(anode, bnode);
-	    ON_CMP_GOTO((Sint)(adata - bdata));
 
         case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):
             if (is_internal_pid(b)) {
-                adata = internal_pid_data(a);
-                bdata = internal_pid_data(b);
+                Uint adata = internal_pid_data(a);
+                Uint bdata = internal_pid_data(b);
                 ON_CMP_GOTO((Sint)(adata - bdata));
             }
             else if (is_not_external_pid(b)) {
@@ -3473,18 +3481,24 @@ tailrecur_ne:
 
 	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):
 		if (is_internal_port(b)) {
+		    anode = external_port_node(a);
 		    bnode = erts_this_node;
-		    bdata = internal_port_data(b);
+		    CMP_NODES(anode, bnode);
+		    ERTS_INTERNAL_ERROR("different nodes compared equal");
 		} else if (is_external_port(b)) {
+		    Uint64 anum, bnum;
+		    anode = external_port_node(a);
 		    bnode = external_port_node(b);
-		    bdata = external_port_data(b);
+		    CMP_NODES(anode, bnode);
+		    anum = external_port_number(a);
+		    bnum = external_port_number(b);
+		    if (anum == bnum)
+			goto pop_next;
+		    RETURN_NEQ(anum < bnum ? -1 : 1);
 		} else {
 		    a_tag = EXTERNAL_PORT_DEF;
 		    goto mixed_types;
 		}
-		anode = external_port_node(a);
-		adata = external_port_data(a);
-		goto port_common;
 	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
 		/*
 		 * Note! When comparing refs we need to compare ref numbers

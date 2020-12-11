@@ -124,6 +124,12 @@ ttbtteq_do_remote(RNode) ->
     RXPid = mk_pid(RNode, 32767, 8191),
     RPort = mk_port(RNode, 4711),
     RXPort = mk_port(RNode, 268435455),
+    RXPort2 = case RNode of
+		  {_, C} when C < 4 ->
+		      mk_port(RNode, 4711);
+		  _ ->
+		      mk_port(RNode, (1 bsl 51) + 4711)
+	      end,
     RLRef = mk_ref(RNode, [4711, 4711, 4711]),
     RHLRef = mk_ref(RNode, [4711, 4711]),
     RSRef = mk_ref(RNode, [4711]),
@@ -132,6 +138,7 @@ ttbtteq_do_remote(RNode) ->
     RXPid = binary_to_term(term_to_binary(RXPid)),
     RPort = binary_to_term(term_to_binary(RPort)),
     RXPort = binary_to_term(term_to_binary(RXPort)),
+    RXPort2 = binary_to_term(term_to_binary(RXPort2)),
     RLRef = binary_to_term(term_to_binary(RLRef)),
     RHLRef = binary_to_term(term_to_binary(RHLRef)),
     RSRef = binary_to_term(term_to_binary(RSRef)),
@@ -158,6 +165,7 @@ round_trip_eq(Config) when is_list(Config) ->
     SentXPid = mk_pid(ThisNode, 17471, 8190),
     SentPort = hd(erlang:ports()),
     SentXPort = mk_port(ThisNode, 268435451),
+    SentXPort2 = mk_port({Node, 4711}, (1 bsl 49) + 4711),
     SentLRef = make_ref(),
     SentHLRef = mk_ref(ThisNode, [4711, 17]),
     SentSRef = mk_ref(ThisNode, [4711]),
@@ -165,6 +173,7 @@ round_trip_eq(Config) when is_list(Config) ->
                    SentXPid,
                    SentPort,
                    SentXPort,
+                   SentXPort2,
                    SentLRef,
                    SentHLRef,
                    SentSRef}},
@@ -173,6 +182,7 @@ round_trip_eq(Config) when is_list(Config) ->
                 RecXPid,
                 RecPort,
                 RecXPort,
+                RecXPort2,
                 RecLRef,
                 RecHLRef,
                 RecSRef}} ->
@@ -181,6 +191,7 @@ round_trip_eq(Config) when is_list(Config) ->
             SentXPid = RecXPid,
             SentPort = RecPort,
             SentXPort = RecXPort,
+            SentXPort2 = RecXPort2,
             SentLRef = RecLRef,
             SentHLRef = RecHLRef,
             SentSRef = RecSRef,
@@ -800,6 +811,9 @@ bad_nc(Config) when is_list(Config) ->
     = (catch mk_port(BadNode, 4711)),
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(BadNode, [4711, 4711, 17])),
+
+    %% OTP 24:
+    mk_port({x@y, 4}, ?MAX_PIDS_PORTS + 1),
 
     %% OTP 24: External pids can use 32+32 bits
     mk_pid(RemNode, MaxPidNum + 1, MaxPidSer),
