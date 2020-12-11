@@ -1442,14 +1442,19 @@ maybe_skip(HostInfo) ->
                 true
         end,
     SkipWindowsOnVirtual =
+        %% fun() ->
+        %%         SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
+        %%         case string:to_lower(SysMan) of
+        %%             "vmware" ++ _ ->
+        %%                 true;
+        %%             _ ->
+        %%                 false
+        %%         end
+        %% end,
         fun() ->
-                SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
-                case string:to_lower(SysMan) of
-                    "vmware" ++ _ ->
-                        true;
-                    _ ->
-                        false
-                end
+                %% The host has been replaced and the VM has been reinstalled
+                %% so for now we give it a chance...
+                false
         end,
     COND = [{unix,  [{linux, LinuxVersionVerify}, 
                      {darwin, DarwinVersionVerify}]},
