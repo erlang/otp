@@ -19,7 +19,7 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "7.6.4"},
+  {vsn, "7.6.5"},
   {modules, [
 	     beam_a,
 	     beam_asm,
@@ -36,6 +36,7 @@
 	     beam_opcodes,
 	     beam_peep,
              beam_ssa,
+             beam_ssa_bc_size,
              beam_ssa_bool,
              beam_ssa_bsm,
              beam_ssa_codegen,
@@ -81,4 +82,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-3.13","kernel-7.0","erts-11.0","crypto-3.6"]}]}.
+  {runtime_dependencies, ["stdlib-3.13","kernel-7.0","erts-11.0",
+			  "crypto-3.6"]}]}.

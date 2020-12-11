@@ -52,6 +52,7 @@
 	     erl_posix_msg,
 	     erl_pp,
 	     erl_scan,
+	     erl_stdlib_errors,
 	     erl_tar,
 	     error_logger_file_h,
 	     error_logger_tty_h,
@@ -109,6 +110,6 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-7.0","erts-11.0","crypto-3.3",
+  {runtime_dependencies, ["sasl-3.0","kernel-7.0","erts-@OTP-16718@","crypto-3.3",
 			  "compiler-5.0"]}
 ]}.
