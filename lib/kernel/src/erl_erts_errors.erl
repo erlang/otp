@@ -37,7 +37,7 @@ format_error(Reason, [{M,F,As,Info}|_]) ->
               counters ->
                   format_counters_error(F, As, Reason, Cause);
               persistent_term ->
-                  format_pt_error(F, As, Cause);
+                  format_pt_error(F, As);
               _ ->
                   []
           end,
@@ -150,8 +150,8 @@ do_counters_operation([Ref,Index,Value]) ->
              must_be_int(Value)]
     end.
 
-format_pt_error(_, _, _) ->
-    [].
+format_pt_error(get, [_]) ->
+    [<<"no persistent term stored with this key">>].
 
 format_erlang_error(_, _, system_limit, _) ->
     %% The explanation for system_limit is clear enough, so we don't
