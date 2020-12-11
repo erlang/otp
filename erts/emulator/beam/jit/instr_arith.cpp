@@ -283,6 +283,82 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &LHS,
     mov_arg(Dst, RET);
 }
 
+void BeamGlobalAssembler::emit_unary_minus_body_shared() {
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_Minus, 1};
+
+    Label error = a.newLabel();
+
+    emit_enter_runtime();
+
+    /* Save original arguments for the error path. */
+    a.mov(TMP_MEM1q, ARG2);
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_unary_minus);
+
+    emit_leave_runtime();
+
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
+
+    a.ret();
+
+    a.bind(error);
+    {
+        /* Place the original argument in x0. */
+        a.mov(ARG1, TMP_MEM1q);
+        a.mov(getXRef(0), ARG1);
+
+        a.mov(ARG4, imm(&bif_mfa));
+        emit_handle_error_shared_prologue();
+    }
+}
+
+void BeamGlobalAssembler::emit_unary_minus_guard_shared() {
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    /* ARG2 was set by the caller */
+    runtime_call<2>(erts_unary_minus);
+
+    emit_leave_runtime();
+
+    /* Set ZF if the negation failed. */
+    emit_test_the_non_value(RET);
+    a.ret();
+}
+
+void BeamModuleAssembler::emit_i_unary_minus(const ArgVal &Src,
+                                             const ArgVal &Fail,
+                                             const ArgVal &Dst) {
+    Label next = a.newLabel(), mixed = a.newLabel();
+
+    mov_arg(ARG2, Src);
+    a.mov(RETd, ARG2d);
+    a.and_(RETb, imm(_TAG_IMMED1_MASK));
+    a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+    a.short_().jne(mixed);
+
+    comment("negation with overflow test");
+    /* RETb is now equal to _TAG_IMMED1_SMALL. */
+    a.movzx(RET, RETb); /* Set RET to make_small(0). */
+    a.mov(ARG3, ARG2);
+    a.and_(ARG3, imm(~_TAG_IMMED1_MASK));
+    a.sub(RET, ARG3);
+    a.short_().jno(next);
+
+    a.bind(mixed);
+    if (Fail.getValue() != 0) {
+        safe_fragment_call(ga->get_unary_minus_guard_shared());
+        a.je(labels[Fail.getValue()]);
+    } else {
+        safe_fragment_call(ga->get_unary_minus_body_shared());
+    }
+
+    a.bind(next);
+    mov_arg(Dst, RET);
+}
+
 /* ARG1 = LHS, ARG4 (!) = RHS
  *
  * We avoid using ARG2 and ARG3 because multiplication clobbers RDX, which is

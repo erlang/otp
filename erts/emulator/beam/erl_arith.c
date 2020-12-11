@@ -79,7 +79,7 @@ BIF_RETTYPE splus_2(BIF_ALIST_2)
 
 BIF_RETTYPE sminus_1(BIF_ALIST_1)
 {
-    BIF_RET(erts_mixed_minus(BIF_P, make_small(0), BIF_ARG_1));
+    BIF_RET(erts_unary_minus(BIF_P, BIF_ARG_1));
 } 
 
 BIF_RETTYPE sminus_2(BIF_ALIST_2)
@@ -460,6 +460,71 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 	goto badarith;
     }
 }
+
+/*
+ * While "-value" is generally the same as "0 - value",
+ * that's not true for floats due to positive and negative
+ * zeros, so we implement unary minus as its own operation.
+ */
+Eterm
+erts_unary_minus(Process* p, Eterm arg)
+{
+    Eterm hdr, res;
+    FloatDef f;
+    dsize_t sz;
+    int need_heap;
+    Eterm* hp;
+    Sint ires;
+
+    ERTS_FP_CHECK_INIT(p);
+    switch (arg & _TAG_PRIMARY_MASK) {
+    case TAG_PRIMARY_IMMED1:
+        switch ((arg & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+        case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+            ires = -signed_val(arg);
+            if (IS_SSMALL(ires)) {
+                return make_small(ires);
+            } else {
+                hp = HeapFragOnlyAlloc(p, 2);
+                res = small_to_big(ires, hp);
+                return res;
+            }
+        default:
+        badarith:
+            p->freason = BADARITH;
+            return THE_NON_VALUE;
+        }
+    case TAG_PRIMARY_BOXED:
+        hdr = *boxed_val(arg);
+        switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+        case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+        case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE): {
+            Eterm zero_buf[2] = {make_pos_bignum_header(1), 0};
+            Eterm zero = make_big(zero_buf);
+            sz = big_size(arg);
+            need_heap = BIG_NEED_SIZE(sz);
+            hp = HeapFragOnlyAlloc(p, need_heap);
+            res = big_minus(zero, arg, hp);
+            maybe_shrink(p, hp, res, need_heap);
+            ASSERT(is_not_nil(res));
+            return res;
+        }
+        case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+            GET_DOUBLE(arg, f);
+            f.fd = -f.fd;
+            ERTS_FP_ERROR(p, f.fd, goto badarith);
+            hp = HeapFragOnlyAlloc(p, FLOAT_SIZE_OBJECT);
+            res = make_float(hp);
+            PUT_DOUBLE(f, hp);
+            return res;
+        default:
+            goto badarith;
+        }
+    default:
+        goto badarith;
+    }
+}
+
 
 Eterm
 erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
