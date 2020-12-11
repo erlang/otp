@@ -25,9 +25,11 @@
 #
 # Usage: start [Data]
 #
-if [ -z "$ROOTDIR" ]
+if [ -z "$ERL_ROOTDIR" ]
 then
-   ROOTDIR=%FINAL_ROOTDIR%
+    ROOTDIR="%FINAL_ROOTDIR%"
+else
+    ROOTDIR="$ERL_ROOTDIR"
 fi
 
 if [ -z "$RELDIR" ]
