@@ -187,6 +187,17 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.2300000000e+20",1.23e20, [{scientific, 10}, compact]),
     test_fts("1.23000000000000000000e+20",1.23e20, []),
 
+    %% Negative zero
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    "-0.0" = float_to_list(NegZero, [{decimals, 1}, compact]),
+    "-0.0" = float_to_list(NegZero, [{decimals, 1}]),
+    "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}]),
+    "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}, compact]),
+    <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}, compact]),
+    <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}]),
+    <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}]),
+    <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}, compact]),
+
     fts_rand_float_decimals(1000),
 
     ok.
