@@ -32,6 +32,8 @@ enum efile_modes_t {
 
     EFILE_MODE_DIRECTORY = (1 << 7),
 
+    EFILE_MODE_FROM_ALREADY_OPEN_FD = (1 << 8),
+
     EFILE_MODE_READ_WRITE = EFILE_MODE_READ | EFILE_MODE_WRITE
 };
 
@@ -159,6 +161,10 @@ int efile_truncate(efile_data_t *d);
 
 posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         ErlNifResourceType *nif_type, efile_data_t **d);
+
+posix_errno_t efile_from_fd(int fd,
+                            ErlNifResourceType *nif_type,
+                            efile_data_t **d);
 
 /** @brief Closes a file. The file must have entered the CLOSED state prior to
  * calling this to prevent double close.

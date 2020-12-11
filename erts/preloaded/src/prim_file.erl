@@ -27,6 +27,9 @@
          pread/2, pread/3, pwrite/2, pwrite/3]).
 
 %% OTP internal.
+
+-export([file_desc_to_ref/2]).
+
 -export([ipread_s32bu_p32bu/3, sendfile/8, altname/1, get_handle/1]).
 
 -export([read_file/1, write_file/2]).
@@ -116,6 +119,14 @@ open(Name, Modes) ->
     %% the public file interface, which has leaked through for ages because of
     %% "raw files."
     try open_nif(encode_path(Name), Modes) of
+        {ok, Ref} -> {ok, make_fd(Ref, Modes)};
+        {error, Reason} -> {error, Reason}
+    catch
+        error:badarg -> {error, badarg}
+    end.
+
+file_desc_to_ref(FileDescriptorId, Modes) ->
+    try file_desc_to_ref_nif(FileDescriptorId) of
         {ok, Ref} -> {ok, make_fd(Ref, Modes)};
         {error, Reason} -> {error, Reason}
     catch
@@ -473,6 +484,8 @@ fill_fd_option_map([_Ignored | Modes], Map) ->
     fill_fd_option_map(Modes, Map).
 
 open_nif(_Name, _Modes) ->
+    erlang:nif_error(undef).
+file_desc_to_ref_nif(_FD) ->
     erlang:nif_error(undef).
 close_nif(_FileRef) ->
     erlang:nif_error(undef).

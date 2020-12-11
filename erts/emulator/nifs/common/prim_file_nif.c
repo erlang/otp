@@ -101,10 +101,16 @@ static ERL_NIF_TERM read_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM file_desc_to_ref_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+
 /* Internal ops */
 static ERL_NIF_TERM delayed_close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM get_handle_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM altname_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+
+/* Helper functions */
+
+static ERL_NIF_TERM create_ref_or_error_tuple(ErlNifEnv *env, efile_data_t *d);
 
 /* All file handle operations are passed through a wrapper that handles state
  * transitions, marking it as busy during the course of the operation, and
@@ -205,6 +211,7 @@ static ErlNifFunc nif_funcs[] = {
     {"get_handle_nif", 1, get_handle_nif},
     {"delayed_close_nif", 1, delayed_close_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"altname_nif", 1, altname_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"file_desc_to_ref_nif", 1, file_desc_to_ref_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
 };
 
 ERL_NIF_INIT(prim_file, nif_funcs, load, NULL, upgrade, unload)
@@ -472,28 +479,10 @@ static enum efile_modes_t efile_translate_modelist(ErlNifEnv *env, ERL_NIF_TERM 
     return modes;
 }
 
-static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    posix_errno_t posix_errno;
-    efile_data_t *d;
-
+static ERL_NIF_TERM create_ref_or_error_tuple(ErlNifEnv *env, efile_data_t *d) {
     ErlNifPid controlling_process;
-    enum efile_modes_t modes;
     ERL_NIF_TERM result;
-    efile_path_t path;
-
-    ASSERT(argc == 2);
-    if(!enif_is_list(env, argv[1])) {
-        return enif_make_badarg(env);
-    }
-
-    modes = efile_translate_modelist(env, argv[1]);
-
-    if((posix_errno = efile_marshal_path(env, argv[0], &path))) {
-        return posix_error_to_tuple(env, posix_errno);
-    } else if((posix_errno = efile_open(&path, modes, efile_resource_type, &d))) {
-        return posix_error_to_tuple(env, posix_errno);
-    }
-
+    
     enif_self(env, &controlling_process);
 
     if(enif_monitor_process(env, d, &controlling_process, &d->monitor)) {
@@ -519,6 +508,52 @@ static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     result = enif_make_resource(env, d);
 
     return enif_make_tuple2(env, am_ok, result);
+}
+
+static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    posix_errno_t posix_errno;
+    efile_data_t *d;
+
+    enum efile_modes_t modes;
+    efile_path_t path;
+
+    ASSERT(argc == 2);
+    if(!enif_is_list(env, argv[1])) {
+        return enif_make_badarg(env);
+    }
+
+    modes = efile_translate_modelist(env, argv[1]);
+
+    if((posix_errno = efile_marshal_path(env, argv[0], &path))) {
+        return posix_error_to_tuple(env, posix_errno);
+    } else if((posix_errno = efile_open(&path, modes, efile_resource_type, &d))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    return create_ref_or_error_tuple(env, d);
+}
+
+static ERL_NIF_TERM file_desc_to_ref_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    posix_errno_t posix_errno;
+    efile_data_t *d;
+
+    int fd;
+
+    ASSERT(argc == 1);
+
+    if(!enif_is_number(env, argv[0])) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_int(env, argv[0], &fd)) {
+        return enif_make_badarg(env);
+    }
+
+    if((posix_errno = efile_from_fd(fd, efile_resource_type, &d))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    return create_ref_or_error_tuple(env, d);
 }
 
 static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {

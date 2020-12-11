@@ -524,6 +524,12 @@ init(Init, Kernel) ->
 		lists:flatten(io_lib:format("error in config file "
 					    "~tp (~w): ~ts",
 					    [File, Line, Str])),
+	    Init ! {ack, self(), {error, to_string(ReasonStr)}};
+        {error, {file_descriptor, FDString, Line, Str}} ->
+	    ReasonStr =
+		lists:flatten(io_lib:format("error in config read from file descriptor "
+					    "~tp (~w): ~ts",
+					    [FDString, Line, Str])),
 	    Init ! {ack, self(), {error, to_string(ReasonStr)}}
     end.
 
@@ -1799,48 +1805,109 @@ do_config_diff([{Env, Value} | AppEnvNow], AppEnvBefore, {Changed, New}) ->
     end.
 
 
+conf_param_to_conf({config, FileName}) ->
+    BFName = filename:basename(FileName,".config"),
+    FName = filename:join(filename:dirname(FileName),
+                          BFName ++ ".config"),
+    case load_file(FName) of
+        {ok, NewEnv} ->
+            %% OTP-4867 sys.config may now contain names of other
+            %% .config files as well as configuration parameters.
+            %% Therefore read and merge contents.
+            if
+                BFName =:= "sys" ->
+                    DName = filename:dirname(FName),
+                    {ok, SysEnv, Errors} =
+                        check_conf_sys(NewEnv, [], [], DName),
+                    %% Report first error, if any, and terminate
+                    %% (backwards compatible behaviour)
+                    case Errors of
+                        [] ->
+                            SysEnv;
+                        [{error, {SysFName, Line, Str}}|_] ->
+                            throw({error, {SysFName, Line, Str}})
+                    end;
+                true ->
+                    NewEnv
+            end;
+        {error, {Line, _Mod, Str}} ->
+            throw({error, {FName, Line, Str}})
+    end;
+conf_param_to_conf({configfd, FileDescStrP}) ->
+    FileDescStr = unicode:characters_to_nfc_list(FileDescStrP),
+    IsDigit = fun(C) -> lists:member(C, "0123456789") end,
+    {FdString, FileDescType} = lists:splitwith(IsDigit, FileDescStr),
+    FileDesc =
+        try list_to_integer(FdString)
+        catch
+            error:badarg ->
+                throw({error, {file_descriptor,
+                               FileDescStr,
+                               invalid_file_desc,
+                               "The given file descriptor has incorrect format. "
+                               "The format should be \"FileDescId[.FileType]\". "
+                               "Examples: 3 or 3.config"}})
+        end,
+    case lists:member(FileDescType, [".config", ""])  of
+        false ->
+            throw({error, {file_descriptor,
+                           FileDescStr,
+                           invalid_file_desc,
+                           io_lib:format("Cannot parse file descriptor of type: ~ts",
+                                         [FileDescType])}});
+        true -> ok
+    end,
+    case load_file_descriptor(FileDesc) of
+        {ok, NewEnv} ->
+            %% Load config parameters from included config files
+            BootScript = init:script_name(),
+            DName = filename:dirname(BootScript),
+            {ok, SysEnv, Errors} =
+                check_conf_sys(NewEnv, [], [], DName),
+            case Errors of
+                [] ->
+                    SysEnv;
+                [{error, {SysFName, Line, Str}}|_] ->
+                    throw({error, {SysFName, Line, Str}})
+            end;
+        {error, {Line, _Mod, Str}} ->
+            throw({error, {file_descriptor,
+                           FileDescStr,
+                           Line,
+                           Str}})
+    end.
+
+config_param_to_list({Type, [First | _] = ConfigVals})
+  when
+      is_list(First),
+      Type =:= config orelse Type =:= configfd ->
+    [{Type, Val} || Val <- ConfigVals];
+config_param_to_list({config, Val}) ->
+    [{config, Val}];
+config_param_to_list({configfd, Val}) ->
+    [{configfd, Val}];
+config_param_to_list(_) ->
+    [].
+
+
+
 %%-----------------------------------------------------------------
 %% Read the .config files.
 %%-----------------------------------------------------------------
 check_conf() ->
-    case init:get_argument(config) of
-	{ok, Files} ->
-	    {ok, lists:foldl(
-		   fun(File, Env) ->
-			   BFName = filename:basename(File,".config"),
-			   FName = filename:join(filename:dirname(File),
-						 BFName ++ ".config"),
-			   case load_file(FName) of
-			       {ok, NewEnv} ->
-				   %% OTP-4867
-				   %% sys.config may now contain names of
-				   %% other .config files as well as
-				   %% configuration parameters.
-				   %% Therefore read and merge contents.
-				   if
-				       BFName =:= "sys" ->
-					   DName = filename:dirname(FName),
-					   {ok, SysEnv, Errors} =
-					       check_conf_sys(NewEnv, [], [], DName),
+    ConfigParameters =
+        lists:flatmap(
+          fun config_param_to_list/1,
+          init:get_arguments()),
+    MergedConf =
+        lists:foldl(fun (ConfigParameter, Env) ->
+                            NewEnv = conf_param_to_conf(ConfigParameter),
+                            merge_env(Env, NewEnv)
+                    end,
+                    [],
+                    ConfigParameters),
+    {ok, MergedConf}.
 
-					   %% Report first error, if any, and
-					   %% terminate
-					   %% (backwards compatible behaviour)
-					   case Errors of
-					       [] ->
-						   merge_env(Env, SysEnv);
-					       [{error, {SysFName, Line, Str}}|_] ->
-						   throw({error, {SysFName, Line, Str}})
-					   end;
-				       true ->
-					   merge_env(Env, NewEnv)
-				   end;
-			       {error, {Line, _Mod, Str}} ->
-				   throw({error, {FName, Line, Str}})
-			   end
-		   end, [], lists:append(Files))};
-	_ -> {ok, []}
-    end.
 
 check_conf_sys(Env) ->
     check_conf_sys(Env, [], [], []).
@@ -1886,6 +1953,40 @@ load_file(File) ->
 	    {error, {none, open_file, "configuration file not found"}}
     end.
 
+load_file_descriptor(FileDescriptorId) ->
+    %% We do not want to read from the same file descriptor again if
+    %% init:restart is called so we use the old config obtained from
+    %% the file descriptor
+    case init:get_configfd(FileDescriptorId) of
+        none ->
+            WarningIntervalMs = 20000, % 20 seconds
+            MaxConfSizeBytes = 1024*1024*128, % 134 MB
+            case read_fd_until_end_and_close(FileDescriptorId,
+                                             WarningIntervalMs,
+                                             MaxConfSizeBytes) of
+                {ok, Bin} ->
+                    %% Make sure that there is some whitespace at the end of the string
+                    %% (so that reading a file with no NL following the "." will work).
+                    case file_binary_to_list(Bin) of
+                        {ok, String} ->
+                            case scan_file(String ++ " ") of
+                                {ok, Config} ->
+                                    init:set_configfd(FileDescriptorId, Config),
+                                    {ok, Config};
+                                Error ->
+                                    Error
+                            end;
+                        error ->
+                            {error, {none, scan_file, "bad encoding"}}
+                    end;
+                {error, Reason} ->
+                    {error, {none,
+                             read_from_file_descriptor,
+                             io_lib:format("Could not read from file descriptor: ~s", [Reason])}}
+            end;
+        Config -> {ok, Config}
+    end.
+
 scan_file(Str) ->
     case erl_scan:tokens([], Str, 1) of
 	{done, {ok, Tokens, _}, Left} ->
@@ -1909,6 +2010,61 @@ scan_file(Str) ->
 	{more, _} ->
 	    {error, {none, load_file, "no ending <dot> found"}}
     end.
+
+read_fd_until_end_and_close(FileDescriptorId,
+                            TimeBetweenWarningsMilliseconds,
+                            MaxSizeBytes) ->
+    ReadLimit = 1024,
+    Read =
+        fun Read(Ref, _Fd, _Data, DataSize) when DataSize > MaxSizeBytes ->
+                Reason = io_lib:format("Max size ~w bytes exceeded",
+                                       [MaxSizeBytes]),
+                {Ref, error, Reason};
+            Read(Ref, Fd, Data, DataSize) ->
+                case file:read(Fd, ReadLimit) of
+                    eof ->
+                        {Ref, ok, erlang:iolist_to_binary(Data)};
+                    {ok, Bin} ->
+                        Read(Ref, Fd, [Data, Bin], DataSize + byte_size(Bin));
+                    {error, Reason} ->
+                        {Ref, error, Reason}
+                end
+        end,
+    Receiver = self(),
+    Ref = make_ref(),
+    Reader =
+        spawn(
+          fun() ->
+                  case prim_file:file_desc_to_ref(FileDescriptorId, [read]) of
+                      {ok, Fd} ->
+                          Res = Read(Ref, Fd, [], 0),
+                          prim_file:close(Fd),
+                          Receiver ! Res;
+                      {error, _} ->
+                          Receiver ! {Ref,
+                                      error,
+                                      "Invalid file descriptor"}
+                  end
+          end),
+    Reader ! {reader_ref, Ref},
+    (fun GetResult() ->
+            receive
+                {Ref, ok, Data} ->
+                    {ok, erlang:iolist_to_binary(Data)};
+                {Ref, error, Reason} ->
+                    {error, Reason}
+            after TimeBetweenWarningsMilliseconds ->
+                    Msg =
+                        io_lib:format(
+                          "Slow -configfd file descriptor ~p. "
+                          "The system will continue to read from "
+                          "the file descriptor and will be blocked "
+                          "until end of file is received.",
+                          [FileDescriptorId]),
+                    ?LOG_WARNING(Msg),
+                    GetResult()
+            end
+    end)().
 
 only_ws([C|Cs]) when C =< $\s -> only_ws(Cs);
 only_ws([$%|Cs]) -> only_ws(strip_comment(Cs));   % handle comment
