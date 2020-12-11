@@ -84,9 +84,20 @@
 typedef struct {
     efile_data_t common;
     HANDLE handle;
+    /* The following field is only used when the handle has been
+       obtained from an already exisiting file descriptor (i.e.,
+       prim_file:file_desc_to_ref/2). common.modes is set to
+       EFILE_MODE_FROM_ALREADY_OPEN_FD when that is the case. It is
+       needed because we can't close using handle in that case. */
+    int fd;
 } efile_win_t;
 
 static int windows_to_posix_errno(DWORD last_error);
+static void tmp_nop_invalid_parameter_handler(const wchar_t* expression,
+                                              const wchar_t* function,
+                                              const wchar_t* file,
+                                              unsigned int line,
+                                              uintptr_t pReserved);
 
 static int has_invalid_null_termination(const ErlNifBinary *path) {
     const WCHAR *null_pos, *end_pos;
@@ -491,10 +502,59 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
     }
 }
 
+static void tmp_nop_invalid_parameter_handler(const wchar_t* expression,
+                                              const wchar_t* function,
+                                              const wchar_t* file,
+                                              unsigned int line,
+                                              uintptr_t pReserved) {
+    (void)expression;
+    (void)function;
+    (void)file;
+    (void)line;
+    (void)pReserved;
+}
+
+posix_errno_t efile_from_fd(int fd,
+                            ErlNifResourceType *nif_type,
+                            efile_data_t **d) {
+    HANDLE handle;
+
+    _invalid_parameter_handler old_handler;
+
+    /* Temporarily disable the parameter handler so we don't crash */
+    old_handler =
+        _set_thread_local_invalid_parameter_handler(tmp_nop_invalid_parameter_handler);
+
+    handle = (HANDLE)_get_osfhandle(fd);
+
+    /* Enable old parameter handler again */
+    _set_thread_local_invalid_parameter_handler(old_handler);
+
+    if(handle != INVALID_HANDLE_VALUE && handle != ((HANDLE)-2)) {
+        efile_win_t *w;
+
+        w = (efile_win_t*)enif_alloc_resource(nif_type, sizeof(efile_win_t));
+        w->handle = handle;
+        w->fd = fd;
+
+        EFILE_INIT_RESOURCE(&w->common, EFILE_MODE_FROM_ALREADY_OPEN_FD);
+        (*d) = &w->common;
+
+        return 0;
+    } else {
+        return EBADF;
+    }
+}
+
 int efile_close(efile_data_t *d, posix_errno_t *error) {
     efile_win_t *w = (efile_win_t*)d;
     HANDLE handle;
-
+    int from_already_open_fd =
+        w->common.modes & EFILE_MODE_FROM_ALREADY_OPEN_FD;
+    int fd;
+    if (from_already_open_fd) {
+        fd = w->fd;
+    }
     ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
     ASSERT(erts_atomic32_read_nob(&d->state) == EFILE_STATE_CLOSED);
     ASSERT(w->handle != INVALID_HANDLE_VALUE);
@@ -504,7 +564,12 @@ int efile_close(efile_data_t *d, posix_errno_t *error) {
 
     enif_release_resource(d);
 
-    if(!CloseHandle(handle)) {
+    if(from_already_open_fd) {
+        if(_close(fd) == -1) {
+            *error = EBADF;
+            return 0;
+        }
+    } else if(!CloseHandle(handle)) {
         *error = windows_to_posix_errno(GetLastError());
         return 0;
     }
@@ -558,7 +623,8 @@ static void shift_iov(SysIOVec **iov, int *iovlen, DWORD shift) {
 typedef BOOL (WINAPI *io_op_t)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
 
 static Sint64 internal_sync_io(efile_win_t *w, io_op_t operation,
-        SysIOVec *iov, int iovlen, OVERLAPPED *overlapped) {
+                               SysIOVec *iov, int iovlen, OVERLAPPED *overlapped,
+                               int is_read) {
 
     Sint64 bytes_processed = 0;
 
@@ -574,10 +640,17 @@ static Sint64 internal_sync_io(efile_win_t *w, io_op_t operation,
             &block_bytes_processed, overlapped);
         last_error = GetLastError();
 
-        if(!succeeded && (last_error != ERROR_HANDLE_EOF)) {
-            w->common.posix_errno = windows_to_posix_errno(last_error);
-            return -1;
-        } else if(block_bytes_processed == 0) {
+        if(is_read && !succeeded) {
+            if(last_error == ERROR_BROKEN_PIPE) {
+                /* Pipes gives ERROR_BROKEN_PIPE instead of EOF when the
+                   write end has been closed */
+                return bytes_processed;
+            } else if(last_error != ERROR_HANDLE_EOF) {
+                w->common.posix_errno = windows_to_posix_errno(last_error);
+                return -1;
+            }
+        }
+        if(block_bytes_processed == 0) {
             /* EOF */
             return bytes_processed;
         }
@@ -595,7 +668,7 @@ static Sint64 internal_sync_io(efile_win_t *w, io_op_t operation,
 Sint64 efile_readv(efile_data_t *d, SysIOVec *iov, int iovlen) {
     efile_win_t *w = (efile_win_t*)d;
 
-    return internal_sync_io(w, ReadFile, iov, iovlen, NULL);
+    return internal_sync_io(w, ReadFile, iov, iovlen, NULL, 1);
 }
 
 Sint64 efile_writev(efile_data_t *d, SysIOVec *iov, int iovlen) {
@@ -614,7 +687,7 @@ Sint64 efile_writev(efile_data_t *d, SysIOVec *iov, int iovlen) {
         overlapped = NULL;
     }
 
-    return internal_sync_io(w, WriteFile, iov, iovlen, overlapped);
+    return internal_sync_io(w, WriteFile, iov, iovlen, overlapped, 0);
 }
 
 Sint64 efile_preadv(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) {
@@ -626,7 +699,7 @@ Sint64 efile_preadv(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) {
     overlapped.OffsetHigh = (offset >> 32) & 0xFFFFFFFF;
     overlapped.Offset = offset & 0xFFFFFFFF;
 
-    return internal_sync_io(w, ReadFile, iov, iovlen, &overlapped);
+    return internal_sync_io(w, ReadFile, iov, iovlen, &overlapped, 1);
 }
 
 Sint64 efile_pwritev(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) {
@@ -638,7 +711,7 @@ Sint64 efile_pwritev(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) 
     overlapped.OffsetHigh = (offset >> 32) & 0xFFFFFFFF;
     overlapped.Offset = offset & 0xFFFFFFFF;
 
-    return internal_sync_io(w, WriteFile, iov, iovlen, &overlapped);
+    return internal_sync_io(w, WriteFile, iov, iovlen, &overlapped, 0);
 }
 
 int efile_seek(efile_data_t *d, enum efile_seek_t seek, Sint64 offset, Sint64 *new_position) {

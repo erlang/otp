@@ -123,13 +123,8 @@ static int open_file_is_dir(const efile_path_t *path, int fd) {
     return error == 0 && S_ISDIR(file_info.st_mode);
 }
 
-posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
-        ErlNifResourceType *nif_type, efile_data_t **d) {
-
-    int mode, flags, fd;
-
-    flags = 0;
-
+static int get_flags(enum efile_modes_t modes) {
+    int flags = 0;
     if(modes & EFILE_MODE_READ && !(modes & EFILE_MODE_WRITE)) {
         flags |= O_RDONLY;
     } else if(modes & EFILE_MODE_WRITE && !(modes & EFILE_MODE_READ)) {
@@ -160,6 +155,15 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         flags |= O_SYNC;
 #endif
     }
+    return flags;
+}
+
+posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
+        ErlNifResourceType *nif_type, efile_data_t **d) {
+
+    int mode, flags, fd;
+
+    flags = get_flags(modes);
 
     if(modes & EFILE_MODE_DIRECTORY) {
         mode = DIR_MODE;
@@ -205,6 +209,24 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         return 0;
     }
 
+    (*d) = NULL;
+    return errno;
+}
+
+posix_errno_t efile_from_fd(int fd,
+                            ErlNifResourceType *nif_type,
+                            efile_data_t **d) {
+    if (fcntl(fd, F_GETFL) != -1 || errno != EBADF) {
+        efile_unix_t *u;
+
+        u = (efile_unix_t*)enif_alloc_resource(nif_type, sizeof(efile_unix_t));
+        u->fd = fd;
+
+        EFILE_INIT_RESOURCE(&u->common, EFILE_MODE_FROM_ALREADY_OPEN_FD);
+        (*d) = &u->common;
+
+        return 0;
+    }
     (*d) = NULL;
     return errno;
 }

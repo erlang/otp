@@ -50,7 +50,7 @@
 
 -export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
-	 get_argument/1,script_id/0]).
+	 get_argument/1,script_id/0,script_name/0]).
 
 %% for the on_load functionality; not for general use
 -export([run_on_load_handlers/0]).
@@ -58,7 +58,8 @@
 %% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
-	 objfile_extension/0, archive_extension/0,code_path_choice/0]).
+	 objfile_extension/0, archive_extension/0,code_path_choice/0,
+         get_configfd/1, set_configfd/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -73,7 +74,9 @@
 		status = {starting, starting} :: {internal_status(), term()},
 		script_id = [],
 		loaded = [],
-		subscribed = []}).
+		subscribed = [],
+                configfdid_to_config = #{}    :: #{} | #{integer() := term()},
+                script_name = {[],[]}         :: {string(), string()}}).
 -type state() :: #state{}.
 
 %% Data for eval_script/2.
@@ -95,6 +98,15 @@
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
 
+-spec get_configfd(integer()) -> none | term().
+get_configfd(ConfigFdId) ->
+    request({get_configfd, ConfigFdId}).
+
+-spec set_configfd(integer(), term()) -> 'ok'.
+set_configfd(ConfigFdId, Config) ->
+    request({set_configfd, ConfigFdId, Config}),
+    ok.
+
 -spec get_arguments() -> Flags when
       Flags :: [{Flag :: atom(), Values :: [string()]}].
 get_arguments() ->
@@ -115,6 +127,30 @@ get_argument(Arg) ->
       Id :: term().
 script_id() ->
     request(script_id).
+
+%% Returns the path to the boot script. The path can only be relative
+%% (i.e., not absolute) if prim_file:get_cwd() returned an error tuple
+%% during boot. filename:absname/2 is not available during boot so we
+%% construct the path here instead of during boot
+-spec script_name() -> string().
+script_name() ->
+    {BootCWD, ScriptPath} = request(get_script_name),
+    case BootCWD of
+        [] ->
+            ScriptPath;
+        _ ->
+            %% Makes the path absolute if ScriptPath is a relative
+            %% path
+            filename:absname(ScriptPath, BootCWD)
+    end.
+
+%% Module internal function to set the script name during boot
+-spec set_script_name(BootCurrentWorkingDir, ScriptPath) -> 'ok' when
+      BootCurrentWorkingDir :: string(),
+      ScriptPath :: string().
+set_script_name(BootCurrentWorkingDir, ScriptPath) ->
+    request({set_script_name, {BootCurrentWorkingDir, ScriptPath}}),
+    ok.
 
 bs2as(L0) when is_list(L0) ->
     map(fun b2a/1, L0);
@@ -459,7 +495,9 @@ do_handle_msg(Msg,State) ->
 	   status = Status,
 	   script_id = Sid,
 	   args = Args,
-	   subscribed = Subscribed} = State,
+	   subscribed = Subscribed,
+           configfdid_to_config = ConfigFdIdToConfig,
+           script_name = ScriptName} = State,
     case Msg of
 	{From,get_plain_arguments} ->
 	    From ! {init,Args};
@@ -485,6 +523,24 @@ do_handle_msg(Msg,State) ->
 	    end;
 	{From, {ensure_loaded, _}} ->
 	    From ! {init, not_allowed};
+	{From, {get_configfd, ConfigFdId}} ->
+            case ConfigFdIdToConfig of
+                #{ConfigFdId := Config} ->
+                    From ! {init, Config};
+                _ ->
+                    From ! {init, none}
+            end;
+	{From, {set_configfd, ConfigFdId, Config}} ->
+            From ! {init, ok},
+            NewConfigFdIdToConfig = ConfigFdIdToConfig#{ConfigFdId => Config},
+            NewState = State#state{configfdid_to_config = NewConfigFdIdToConfig},
+            {new_state, NewState};
+	{From, get_script_name} ->
+            From ! {init, ScriptName};
+	{From, {set_script_name, NewScriptName}} ->
+            From ! {init, ok},
+            NewState = State#state{script_name = NewScriptName},
+            {new_state, NewState};
 	X ->
             %% This is equal to calling logger:info/3 which we don't
             %% want to do from the init process, at least not during
@@ -865,6 +921,7 @@ path_flags(Flags) ->
 
 get_boot(BootFile0,Root) ->
     BootFile = BootFile0 ++ ".boot",
+    
     case get_boot(BootFile) of
 	{ok, CmdList} ->
 	    CmdList;
@@ -888,7 +945,16 @@ get_boot(BootFile) ->
 	    case binary_to_term(Bin) of
 		{script,Id,CmdList} when is_list(CmdList) ->
 		    init ! {self(),{script_id,Id}}, % ;-)
-		    {ok, CmdList};
+                    CWD =
+                        case prim_file:get_cwd() of
+                            {ok, TheCWD} -> TheCWD;
+                            {error, _} -> []
+                        end,
+                    %% The filename module is not available during
+                    %% boot so we call filename:absname/2 in
+                    %% init:script_name/0 instead.
+                    set_script_name(CWD, BootFile),
+                    {ok, CmdList};
 		_ ->
 		    error
 	    end;
