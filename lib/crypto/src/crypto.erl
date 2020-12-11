@@ -324,6 +324,7 @@
 -type cipher_no_iv() :: aes_128_ecb
                       | aes_192_ecb
                       | aes_256_ecb
+                      | aes_ecb
 
                       | blowfish_ecb
                       | des_ecb
@@ -332,18 +333,22 @@
 -type cipher_iv() :: aes_128_cbc
                    | aes_192_cbc
                    | aes_256_cbc
+                   | aes_cbc
 
                    | aes_128_cfb128
                    | aes_192_cfb128
                    | aes_256_cfb128
+                   | aes_cfb128
 
                    | aes_128_cfb8
                    | aes_192_cfb8
                    | aes_256_cfb8
+                   | aes_cfb8
 
                    | aes_128_ctr
                    | aes_192_ctr
                    | aes_256_ctr
+                   | aes_ctr
 
                    | blowfish_cbc
                    | blowfish_cfb64
@@ -360,10 +365,12 @@
 -type cipher_aead() :: aes_128_ccm
                      | aes_192_ccm
                      | aes_256_ccm
+                     | aes_ccm
 
                      | aes_128_gcm
                      | aes_192_gcm
                      | aes_256_gcm
+                     | aes_gcm
 
                      | chacha20_poly1305 .
 
@@ -592,10 +599,12 @@ hash_final(Context) ->
 
 -type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
 
--type cmac_cipher_algorithm() :: aes_128_cbc | aes_192_cbc | aes_256_cbc | blowfish_cbc
-                               | des_cbc | des_ede3_cbc | rc2_cbc
-                               | aes_128_cfb128 | aes_192_cfb128 | aes_256_cfb128
-                               | aes_128_cfb8 | aes_192_cfb8 | aes_256_cfb8
+-type cmac_cipher_algorithm() :: aes_128_cbc    | aes_192_cbc    | aes_256_cbc    | aes_cbc
+                               | aes_128_cfb128 | aes_192_cfb128 | aes_256_cfb128 | aes_cfb128
+                               | aes_128_cfb8   | aes_192_cfb8   | aes_256_cfb8   | aes_cfb8
+                               | blowfish_cbc
+                               | des_cbc | des_ede3_cbc
+                               | rc2_cbc
                                  .
 
 %%%----------------------------------------------------------------
@@ -616,7 +625,9 @@ mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
                           Data :: iodata(),
                           Mac :: binary().
 
-mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
+mac(Type, SubType, Key0, Data) ->
+    Key = iolist_to_binary(Key0),
+    mac_nif(Type, alias(SubType,Key), Key, Data).
 
 
 
@@ -659,8 +670,9 @@ mac_init(poly1305, Key) ->
                                SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                                Key :: iodata(),
                                State :: mac_state() .
-mac_init(Type, SubType, Key) ->
-    mac_init_nif(Type, SubType, Key).
+mac_init(Type, SubType, Key0) ->
+    Key = iolist_to_binary(Key0),
+    mac_init_nif(Type, alias(SubType,Key), Key).
 
 
 -spec mac_update(State0, Data) -> State | descriptive_error()
@@ -729,18 +741,29 @@ mac_final_nif(_Ref) -> ?nif_stub.
                                                  | xts_mode
                                                    .
 
-%% %% These ciphers are not available via the EVP interface on older cryptolibs.
-cipher_info(aes_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
-cipher_info(aes_128_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 16,mode => ctr_mode,type => undefined};
-cipher_info(aes_192_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
-cipher_info(aes_256_ctr) ->
-    #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
 cipher_info(Type) ->
-    cipher_info_nif(Type).
+    try cipher_info_nif(Type)
+    catch
+        %% These ciphers are not available via the EVP interface on older cryptolibs.
+        error:notsup when Type == aes_128_ctr ->
+            #{block_size => 1,iv_length => 16,key_length => 16,mode => ctr_mode,type => undefined};
 
+        error:notsup when Type == aes_192_ctr ->
+            #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
+
+        error:notsup when Type == aes_256_ctr ->
+            #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
+
+        error:badarg ->
+            %% Maybe an alias: we don't know the key length..
+            case alias1(Type, 16) of
+                Type ->
+                    %% Not found, propagate
+                    error(badarg);
+                NewType ->
+                    cipher_info(NewType)
+            end
+    end.
 
 %%%================================================================
 %%%
@@ -950,10 +973,10 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
                                       OutPlainText :: binary().
 
 crypto_one_time_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
-    aead_cipher(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg).
+    aead_cipher(Cipher, iolist_to_binary(Key), IV,
+                TextIn, AAD, TagOrTagLength, EncFlg).
 
 
-aead_tag_len(chacha20_poly1305) -> 16;
 aead_tag_len(aes_ccm    ) -> 12;
 aead_tag_len(aes_128_ccm) -> 12;
 aead_tag_len(aes_192_ccm) -> 12;
@@ -962,14 +985,16 @@ aead_tag_len(aes_gcm    ) -> 16;
 aead_tag_len(aes_128_gcm) -> 16;
 aead_tag_len(aes_192_gcm) -> 16;
 aead_tag_len(aes_256_gcm) -> 16;
-aead_tag_len(_) -> error({badarg, "Not an AEAD cipher"}).
+aead_tag_len(chacha20_poly1305) -> 16;
+aead_tag_len(_) ->
+    error({badarg, "Not an AEAD cipher"}).
 
 %%%----------------------------------------------------------------
-%%% NIFs
+%%% Cipher NIFs
 
 ng_crypto_init_nif(Cipher, Key, IVec, #{encrypt := EncryptFlag,
                                         padding := Padding}) ->
-    ng_crypto_init_nif(Cipher, Key, IVec, EncryptFlag, Padding).
+    ng_crypto_init_nif(alias(Cipher,Key), Key, IVec, EncryptFlag, Padding).
     
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlag, _Padding) -> ?nif_stub.
 
@@ -983,9 +1008,61 @@ ng_crypto_get_data_nif(_State) -> ?nif_stub.
 
 ng_crypto_one_time_nif(Cipher, Key, IVec, Data,  #{encrypt := EncryptFlag,
                                                    padding := Padding}) ->
-    ng_crypto_one_time_nif(Cipher, Key, IVec, Data, EncryptFlag, Padding).
+    ng_crypto_one_time_nif(alias(Cipher,Key), Key, IVec, Data, EncryptFlag, Padding).
 
 ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlag, _Padding) -> ?nif_stub.
+
+%% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
+aead_cipher(Cipher, Key, IVec, AAD, In, TagOrLength, EncFlg) ->
+    aead_cipher_nif(alias(Cipher,Key), Key, IVec, AAD, In, TagOrLength, EncFlg).
+
+aead_cipher_nif(_Type, _Key, _Ivec, _AAD, _In, _TagOrTagLength, _EncFlg) -> ?nif_stub.
+
+cipher_info_nif(_Type) -> ?nif_stub.
+
+%%%----------------------------------------------------------------
+%%% Cipher aliases
+%%%
+
+alias(aes_cbc, Key)    -> alias1(aes_cbc, size(Key));
+alias(aes_cfb8, Key)   -> alias1(aes_cfb8, size(Key));
+alias(aes_cfb128, Key) -> alias1(aes_cfb128, size(Key));
+alias(aes_ctr, Key)    -> alias1(aes_ctr, size(Key));
+alias(aes_ecb, Key)    -> alias1(aes_ecb, size(Key));
+alias(aes_gcm, Key)    -> alias1(aes_gcm, size(Key));
+alias(aes_ccm, Key)    -> alias1(aes_ccm, size(Key));
+alias(Alg, _) -> Alg.
+
+
+alias1(aes_cbc, 16)  -> aes_128_cbc;
+alias1(aes_cbc, 24)  -> aes_192_cbc;
+alias1(aes_cbc, 32)  -> aes_256_cbc;
+
+alias1(aes_cfb8, 16)  -> aes_128_cfb8;
+alias1(aes_cfb8, 24)  -> aes_192_cfb8;
+alias1(aes_cfb8, 32)  -> aes_256_cfb8;
+
+alias1(aes_cfb128, 16)  -> aes_128_cfb128;
+alias1(aes_cfb128, 24)  -> aes_192_cfb128;
+alias1(aes_cfb128, 32)  -> aes_256_cfb128;
+
+alias1(aes_ctr, 16)  -> aes_128_ctr;
+alias1(aes_ctr, 24)  -> aes_192_ctr;
+alias1(aes_ctr, 32)  -> aes_256_ctr;
+
+alias1(aes_ecb, 16)  -> aes_128_ecb;
+alias1(aes_ecb, 24)  -> aes_192_ecb;
+alias1(aes_ecb, 32)  -> aes_256_ecb;
+
+alias1(aes_gcm, 16)  -> aes_128_gcm;
+alias1(aes_gcm, 24)  -> aes_192_gcm;
+alias1(aes_gcm, 32)  -> aes_256_gcm;
+
+alias1(aes_ccm, 16)  -> aes_128_ccm;
+alias1(aes_ccm, 24)  -> aes_192_ccm;
+alias1(aes_ccm, 32)  -> aes_256_ccm;
+
+alias1(Alg, _) -> Alg.
 
 %%%================================================================
 %%%
@@ -2058,16 +2135,6 @@ hash_nif(_Hash, _Data) -> ?nif_stub.
 hash_init_nif(_Hash) -> ?nif_stub.
 hash_update_nif(_State, _Data) -> ?nif_stub.
 hash_final_nif(_State) -> ?nif_stub.
-
-%% CIPHERS --------------------------------------------------------------------
-
-cipher_info_nif(_Type) -> ?nif_stub.
-
-%%
-%% AES - in Galois/Counter Mode (GCM)
-%%
-%% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
-aead_cipher(_Type, _Key, _Ivec, _AAD, _In, _TagOrTagLength, _EncFlg) -> ?nif_stub.
 
 %%%================================================================
 

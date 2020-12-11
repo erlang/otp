@@ -107,7 +107,7 @@ static ErlNifFunc nif_funcs[] = {
 
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
-    {"aead_cipher", 7, aead_cipher, 0},
+    {"aead_cipher_nif", 7, aead_cipher_nif, 0},
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
