@@ -115,6 +115,8 @@
 %% 2^24.5 * 2^14 = 2^38.5
 -define(KEY_USAGE_LIMIT_AES_GCM, 388736063997).
 
+-define(DEFAULT_MAX_EARLY_DATA_SIZE, 16384).
+
 %% This map stores all supported options with default values and
 %% list of dependencies:
 %%   #{<option> => {<default_value>, [<option>]},
@@ -158,9 +160,10 @@
           log_level                  => {notice,    [versions]},
           max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
           middlebox_comp_mode        => {true, [versions]},
-          max_early_data             => {undefined, [versions,
-                                                     early_data,
-                                                     session_tickets]},
+          max_early_data             => {?DEFAULT_MAX_EARLY_DATA_SIZE,
+                                         [versions,
+                                          early_data,
+                                          session_tickets]},
           max_fragment_length        => {undefined, [versions]},
           next_protocol_selector     => {undefined, [versions]},
           next_protocols_advertised  => {undefined, [versions]},

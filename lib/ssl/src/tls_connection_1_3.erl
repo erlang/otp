@@ -449,8 +449,9 @@ downgrade(Type, Event, State) ->
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{erl_dist := IsErlDist,
-      client_renegotiation := ClientRenegotiation} = SSLOptions,
-    ConnectionStates = tls_record:init_connection_states(Role, disabled),
+      client_renegotiation := ClientRenegotiation,
+      max_early_data := MaxEarlyDataSize} = SSLOptions,
+    ConnectionStates = tls_record:init_connection_states(Role, disabled, MaxEarlyDataSize),
     InternalActiveN =  case application:get_env(ssl, internal_active_n) of
                            {ok, N} when is_integer(N) andalso (not IsErlDist) ->
                                N;

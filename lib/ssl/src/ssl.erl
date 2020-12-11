@@ -1783,6 +1783,11 @@ handle_option(key_update_at = Option, Value0, #{versions := Versions} = OptionsM
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(max_early_data = Option, unbound, OptionsMap, #{role := client}) ->
+    %% Disable trial decryption on the client side
+    %% Servers do trial decryption of max_early_data bytes of plain text.
+    %% Setting it to 0 means that a decryption error will result in an Alert.
+    OptionsMap#{Option => 0};
 handle_option(max_early_data = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};

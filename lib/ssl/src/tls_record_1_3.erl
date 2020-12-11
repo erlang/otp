@@ -107,7 +107,8 @@ encode_iolist(Type, Data, ConnectionStates0) ->
 
 %%--------------------------------------------------------------------
 -spec decode_cipher_text(#ssl_tls{}, ssl_record:connection_states()) ->
-				{#ssl_tls{}, ssl_record:connection_states()}| #alert{}.
+				{#ssl_tls{} | trial_decryption_failed,
+                                 ssl_record:connection_states()}| #alert{}.
 %%
 %% Description: Decode cipher text, use legacy type ssl_tls instead of tls_cipher_text
 %% in decoding context so that we can reuse the code from erlier versions. 
@@ -124,9 +125,16 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
 			       #security_parameters{
 				  cipher_type = ?AEAD,
                                   bulk_cipher_algorithm =
-                                      BulkCipherAlgo}
+                                      BulkCipherAlgo},
+                           max_early_data_size := MaxEarlyDataSize0
 			  } = ReadState0} = ConnectionStates0) ->
     case decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) of
+	#alert{} when MaxEarlyDataSize0 > 0 -> %% Trial decryption
+            MaxEarlyDataSize = update_max_early_date_size(MaxEarlyDataSize0, BulkCipherAlgo, CipherFragment),
+	    ConnectionStates =
+                ConnectionStates0#{current_read =>
+                                       ReadState0#{max_early_data_size => MaxEarlyDataSize}},
+	    {trial_decryption_failed, ConnectionStates};
 	#alert{} = Alert ->
 	    Alert;
 	PlainFragment ->
@@ -135,7 +143,6 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
                                        ReadState0#{sequence_number => Seq + 1}},
 	    {decode_inner_plaintext(PlainFragment), ConnectionStates}
     end;
-
 
 %% RFC8446 - TLS 1.3 (OpenSSL compatibility)
 %% Handle unencrypted Alerts from openssl s_client when server's
@@ -188,6 +195,8 @@ decode_cipher_text(#ssl_tls{type = Type,
 decode_cipher_text(#ssl_tls{type = Type}, _) ->
     %% Version mismatch is already asserted
     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {record_type_mismatch, Type}).
+
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -315,3 +324,23 @@ init_binary(B) ->
     {Init, _} =
         split_binary(B, byte_size(B) - 1),
     Init.
+
+update_max_early_date_size(MaxEarlyDataSize, BulkCipherAlgo, CipherFragment) ->
+    %% CipherFragment is the binary encoded form of a TLSInnerPlaintext:
+    %%
+    %% struct {
+    %%     opaque content[TLSPlaintext.length];
+    %%     ContentType type;
+    %%     uint8 zeros[length_of_padding];
+    %% } TLSInnerPlaintext;
+    %%
+    TypeLen = 1,
+    PaddingLen = 0, %% TODO Update formula when padding is implemented!
+    MaxEarlyDataSize - (byte_size(CipherFragment) - TypeLen - PaddingLen -
+                            bca_tag_len(BulkCipherAlgo)).
+
+bca_tag_len(?AES_CCM_8) ->
+    8;
+bca_tag_len(_) ->
+    16.
+

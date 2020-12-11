@@ -41,7 +41,9 @@
 	 set_client_verify_data/3,
 	 set_server_verify_data/3,
          set_max_fragment_length/2,
-	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1,
+	 empty_connection_state/2,
+	 empty_connection_state/3,
+         record_protocol_role/1,
          step_encryption_state/1,
          step_encryption_state_read/1,
          step_encryption_state_write/1]).
@@ -458,6 +460,10 @@ nonce_seed(_,_, CipherState) ->
 %%--------------------------------------------------------------------
 
 empty_connection_state(ConnectionEnd, BeastMitigation) ->
+    empty_connection_state(ConnectionEnd, BeastMitigation,
+                           ?DEFAULT_MAX_EARLY_DATA_SIZE).
+%%
+empty_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
     SecParams = empty_security_params(ConnectionEnd),
     #{security_parameters => SecParams,
       beast_mitigation => BeastMitigation,
@@ -467,6 +473,7 @@ empty_connection_state(ConnectionEnd, BeastMitigation) ->
       secure_renegotiation => undefined,
       client_verify_data => undefined,
       server_verify_data => undefined,
+      max_early_data_size => MaxEarlyDataSize,
       max_fragment_length => undefined
      }.
 
@@ -493,20 +500,6 @@ record_protocol_role(client) ->
     ?CLIENT;
 record_protocol_role(server) ->
     ?SERVER.
-
-initial_connection_state(ConnectionEnd, BeastMitigation) ->
-    #{security_parameters =>
-	  initial_security_params(ConnectionEnd),
-      sequence_number => 0,
-      beast_mitigation => BeastMitigation,
-      compression_state  => undefined,
-      cipher_state  => undefined,
-      mac_secret  => undefined,
-      secure_renegotiation => undefined,
-      client_verify_data => undefined,
-      server_verify_data => undefined,
-      max_fragment_length => undefined
-     }.
 
 initial_security_params(ConnectionEnd) ->
     SecParams = #security_parameters{connection_end = ConnectionEnd,

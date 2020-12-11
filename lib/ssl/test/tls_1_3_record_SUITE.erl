@@ -103,7 +103,8 @@ encode_decode(_Config) ->
                      <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                        147,61,168,145,177,118,160,153,33,53,48,108,191,174>>,
                      undefined},
-                sequence_number => 0,server_verify_data => undefined},
+                sequence_number => 0,server_verify_data => undefined,
+                max_early_data_size => 0},
           current_write =>
               #{beast_mitigation => one_n_minus_one,
                 cipher_state =>

@@ -54,7 +54,11 @@
          multiple_tickets/0,
          multiple_tickets/1,
          multiple_tickets_2hash/0,
-         multiple_tickets_2hash/1]).
+         multiple_tickets_2hash/1,
+         early_data_trial_decryption/0,
+         early_data_trial_decryption/1,
+         early_data_trial_decryption_big/0,
+         early_data_trial_decryption_big/1]).
 
 -include("tls_handshake.hrl").
 
@@ -83,7 +87,9 @@ session_tests() ->
     [basic,
      hello_retry_request,
      multiple_tickets,
-     multiple_tickets_2hash].
+     multiple_tickets_2hash,
+     early_data_trial_decryption,
+     early_data_trial_decryption_big].
 
 mixed_tests() ->
     [
@@ -580,6 +586,124 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Client4),
 
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server0).
+
+early_data_trial_decryption() ->
+    [{doc,"Test trial decryption when server rejects early data (erlang client - erlang server)"}].
+early_data_trial_decryption(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    %% Send maximum sized early data to verify calculation of plain text size
+    %% in the server.
+    ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16384)}|ClientOpts1],
+
+    %% Disabled early data triggers trial decryption upon receiving early data
+    ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
+                  {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+
+    Server0 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+				   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Full handshake
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()}, {options, ClientOpts1}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
+
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    ssl_test_lib:close(Client0),
+
+    %% Use ticket
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Short handshake
+                                                verify_active_session_resumption,
+                                                [true]}},
+                                         {from, self()}, {options, ClientOpts2}]),
+    ssl_test_lib:check_result(Server0, ok, Client1, ok),
+
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Client1).
+
+early_data_trial_decryption_big() ->
+    [{doc,"Test trial decryption (too much data) when server rejects early data (erlang client - erlang server)"}].
+early_data_trial_decryption_big(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    %% Send more early data than max_early_data_size (16384) to verify calculation
+    %% of plain text size in the server.
+    ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16385)}|ClientOpts1],
+
+    %% Disabled early data triggers trial decryption upon receiving early data
+    ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
+                  {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+
+    Server0 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+				   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Full handshake
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()}, {options, ClientOpts1}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
+
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    ssl_test_lib:close(Client0),
+
+    %% Use ticket
+    _Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
+                                               {port, Port0}, {host, Hostname},
+                                               {mfa, {ssl_test_lib,  %% Short handshake
+                                                      verify_active_session_resumption,
+                                                      [true]}},
+                                               {from, self()}, {options, ClientOpts2}]),
+    ssl_test_lib:check_server_alert(Server0, bad_record_mac),
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0).
 

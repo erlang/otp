@@ -1118,11 +1118,14 @@ check_server_alert(Pid, Alert) ->
 	{Pid, {error, {tls_alert, {Alert, STxt}}}} ->
             check_server_txt(STxt),
             ok;
+        {Pid, {error, {tls_alert, {OtherAlert, STxt}}}} ->
+            ct:fail("Unexpected alert during negative test: ~p - ~p", [OtherAlert, STxt]);
         {Pid, {error, closed}} ->
             ok;
         {Pid, {ok, _}} ->
             ct:fail("Successful connection during negative test.")
     end.
+
 check_server_alert(Server, Client, Alert) ->
     receive
 	{Server, {error, {tls_alert, {Alert, STxt}}}} ->
@@ -1131,6 +1134,7 @@ check_server_alert(Server, Client, Alert) ->
         {Server, {ok, _}} ->
             ct:fail("Successful connection during negative test.")
     end.
+
 check_client_alert(Pid, Alert) ->
     receive
 	{Pid, {error, {tls_alert, {Alert, CTxt}}}} ->
