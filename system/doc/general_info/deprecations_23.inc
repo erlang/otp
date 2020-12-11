@@ -30,22 +30,6 @@
     </section>
 
     <section>
-      <title>pg2</title>
-      <p>
-	As of OTP 23, a new process group implementation
-	<seeerl marker="kernel:pg">pg</seeerl> is introduced.
-	<c>pg</c> is similar to <seeerl marker="kernel:pg2">pg2</seeerl>,
-	but with much better scalability properties. However, the API and behavior
-	are not compatible.
-      </p>
-      <p>
-	<c>pg2</c> is now deprecated and has also been
-	<seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>
-	in OTP 24.
-      </p>
-    </section>
-
-    <section>
       <title>Distributed Disk Logs</title>
       <p>
 	As of OTP 23, the distributed

@@ -280,7 +280,6 @@
             <item><c>global</c></item>
             <item><c>mnesia_adjust_log_writes</c></item>
             <item><c>mnesia_table_lock</c></item>
-            <item><c>pg2</c></item>
           </list>
         </note>
       </desc>

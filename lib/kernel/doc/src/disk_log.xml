@@ -1079,7 +1079,6 @@
   <section>
     <title>See Also</title>
     <p><seeerl marker="file"><c>file(3)</c></seeerl>,
-      <seeerl marker="pg2"><c>pg2(3)</c></seeerl>,
       <seeerl marker="wrap_log_reader"><c>wrap_log_reader(3)</c></seeerl></p>
   </section>
 </erlref>

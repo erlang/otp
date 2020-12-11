@@ -480,7 +480,7 @@
 	    Own Id: OTP-16453 Aux Id: PR-2524 </p>
         </item>
         <item>
-	    <p> The <seeerl marker="kernel:pg2"><c>pg2</c></seeerl>
+	    <p> The <c>pg2</c>
 	    module has been deprecated. It has also been scheduled
 	    for removal in OTP 24. </p><p> You are advised to replace
 	    the usage of <c>pg2</c> with the newly introduced <seeerl

@@ -429,15 +429,6 @@ MaxT = TickTime + TickTime / 4</code>
           <c>true</c> in an embedded system that uses this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
-      <tag><c>start_pg2 = true | false</c></tag>
-      <item>
-        <marker id="start_pg2"></marker>
-        <p>Starts the <c>pg2</c> server (see
-	  <seeerl marker="pg2"><c>pg2(3)</c></seeerl>) if
-          the parameter is <c>true</c>. This parameter is to be set to
-          <c>true</c> in an embedded system that uses this service.</p>
-        <p>Defaults to <c>false</c>.</p>
-      </item>
       <tag><c>start_timer = true | false</c></tag>
       <item>
         <p>Starts the <c>timer_server</c> if the parameter is
@@ -578,7 +569,6 @@ erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatte
       <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl>,
       <seeerl marker="os"><c>os(3)</c></seeerl>,
       <seeerl marker="pg"><c>pg(3)</c></seeerl>,
-      <seeerl marker="pg2"><c>pg2(3)</c></seeerl>,
       <seeerl marker="rpc"><c>rpc(3)</c></seeerl>,
       <seeerl marker="seq_trace"><c>seq_trace(3)</c></seeerl>,
       <seeerl marker="user"><c>user(3)</c></seeerl>,

@@ -61,12 +61,10 @@
       It is only allowed to join processes running on local node.
     </p>
 
-    <p>Process Groups implement strong eventual consistency.
-      Unlike <seeerl marker="pg2"><c>pg2</c></seeerl>, that provides
-      strong ordering guarantees, Process Groups membership view may temporarily
-      diverge. For example, when processes on <c>node1</c> and <c>node2</c>
-      join concurrently, <c>node3</c> and <c>node4</c> may receive updates in
-      a different order.</p>
+    <p>Process Groups implement strong eventual consistency. Process Groups
+      membership view may temporarily diverge. For example, when processes on
+      <c>node1</c> and <c>node2</c> join concurrently, <c>node3</c> and
+      <c>node4</c> may receive updates in a different order.</p>
 
     <p> Membership view is not transitive. If <c>node1</c> is not directly
       connected to <c>node2</c>, they will not see each other groups. But if
@@ -91,9 +89,7 @@
       If there is another process registered under this name, or another ETS table
       exists, scope fails to start.</p>
       <p>Local membership is not preserved if scope process exits and
-        restarts. This behaviour is different from
-        <seeerl marker="pg2"><c>pg2</c></seeerl>, that recovers
-        local membership from remote nodes.
+        restarts.
     </p></note>
 
   </description>
