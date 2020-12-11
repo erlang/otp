@@ -35,7 +35,7 @@ format_error(Reason, [{M,F,As,Info}|_]) ->
               atomics ->
                   format_atomics_error(F, As, Reason, Cause);
               counters ->
-                  format_counters_error(F, As, Cause);
+                  format_counters_error(F, As, Reason, Cause);
               persistent_term ->
                   format_pt_error(F, As, Cause);
               _ ->
@@ -104,8 +104,51 @@ do_atomics_operation([Ref,Index,Value]) ->
              must_be_int(Value)]
     end.
 
-format_counters_error(_, _, _) ->
-    [].
+format_counters_error(new, [Size,Options], Reason, Cause) ->
+    case Reason of
+        system_limit ->
+            [<<"counters array size reached a system limit">>,
+             must_be_list(Options)];
+        badarg ->
+            case Cause of
+                badopt ->
+                    SizeError = must_be_pos_int(Size),
+                    [SizeError, must_be_list(Options, bad_option)];
+                _ ->
+                    [must_be_pos_int(Size)]
+            end
+    end;
+format_counters_error(Name, Args, _, _) ->
+    format_counters_error(Name, Args).
+
+format_counters_error(add, Args) ->
+    do_counters_operation(Args);
+format_counters_error(get, [Ref,Index]) ->
+    do_counters_operation([Ref,Index,0]);
+format_counters_error(info, [_]) ->
+    [bad_counters_ref];
+format_counters_error(put, Args) ->
+    do_counters_operation(Args);
+format_counters_error(sub, Args) ->
+    do_counters_operation(Args).
+
+do_counters_operation([Ref,Index,Value]) ->
+    try counters:info(Ref) of
+        #{size := MaxIndex} ->
+            case must_be_int(Index, 1, MaxIndex) of
+                [] when is_integer(Value) ->
+                    [[], [], range];
+                [] ->
+                    [[], [], not_integer];
+                IndexError ->
+                    [[], IndexError]
+            end
+    catch
+        error:badarg ->
+            [bad_counters_ref,
+             must_be_pos_int(Index),
+             must_be_int(Value)]
+    end.
 
 format_pt_error(_, _, _) ->
     [].
@@ -1147,6 +1190,8 @@ expand_error(bad_base) ->
     <<"not an integer in the range 2 through 36">>;
 expand_error(bad_boolean) ->
     <<"not a boolean ('true' or 'false')">>;
+expand_error(bad_counters_ref) ->
+    <<"invalid atomics reference">>;
 expand_error(bad_destination) ->
     <<"invalid destination">>;
 expand_error(bad_encode_option) ->
