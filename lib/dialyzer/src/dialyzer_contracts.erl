@@ -515,8 +515,8 @@ contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], Module, MFA,
   NewFormAcc = [{Form, []} | FormAcc],
   contract_from_form(Left, Module, MFA, RecDict, FileLocation, NewTypeAcc,
                      NewFormAcc);
-contract_from_form([{type, _L1, bounded_fun,
-		     [{type, _L2, 'fun', [_, _]} = Form, Constr]}| Left],
+contract_from_form([{type, _Anno1, bounded_fun,
+		     [{type, _Anno2, 'fun', [_, _]} = Form, Constr]}| Left],
 		   Module, MFA, RecDict, FileLocation, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, RecordTable, Cache) ->
@@ -702,7 +702,7 @@ remove_uses(Var, Use, [Constr|Constrs]) ->
               end,
   [NewConstr|remove_uses(Var, Use, Constrs)].
 
-remove_use({var, L, V}, V) -> {var, L, '_'};
+remove_use({var, Anno, V}, V) -> {var, Anno, '_'};
 remove_use(T, V) when is_tuple(T) ->
   list_to_tuple(remove_use(tuple_to_list(T), V));
 remove_use([E|Es], V) ->

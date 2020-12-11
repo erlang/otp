@@ -637,15 +637,15 @@ unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
                   unknown_types(State);
               false -> []
             end,
-  WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
+  WarningInfo = {_Filename = "", _Location = 0, _MorMFA = ''},
   [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown].
 
 unknown_functions(#cl_state{external_calls = Calls}) ->
   [{unknown_function, MFA} || MFA <- Calls].
 
 set_warning_id(Warnings) ->
-  lists:map(fun({Tag, {File, Line, _MorMFA}, Msg}) ->
-                {Tag, {File, Line}, Msg}
+  lists:map(fun({Tag, {File, Location, _MorMFA}, Msg}) ->
+                {Tag, {File, Location}, Msg}
             end, Warnings).
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
@@ -735,7 +735,7 @@ print_warnings(#cl_state{output = Output,
 -spec process_warnings([raw_warning()]) -> [raw_warning()].
   
 process_warnings(Warnings) ->
-  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line (and m/mfa..)
+  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/location (and m/mfa..)
   remove_duplicate_warnings(Warnings1, []).
 
 remove_duplicate_warnings([Duplicate, Duplicate|Left], Acc) ->
