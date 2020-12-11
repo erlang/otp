@@ -31,7 +31,15 @@
 	 f_sig_single_record_clause/1,
 	 f_sig_single_record_clause_with_spec/1,
 	 f_sig_multiple_record_clauses/1,
-	 f_sig_multiple_record_clauses_with_spec/1]).
+	 f_sig_multiple_record_clauses_with_spec/1,
+	 f_spec_type_without_name/1,
+	 f_spec_types_mixed/1,
+	 f_spec_with_multiple_clauses/1,
+	 f_spec_with_multiple_clauses_one_fun_clause/1,
+	 f_spec_lhs_match_expr/1,
+	 f_spec_rhs_match_expr/1,
+	 f_spec_unnamed_pattern/1,
+	 f_spec_bounded_fun/1]).
 
 -define(a2b(A), atom_to_binary(A, utf8)).
 
@@ -61,7 +69,15 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  f_sig_single_record_clause,
 	  f_sig_single_record_clause_with_spec,
 	  f_sig_multiple_record_clauses,
-	  f_sig_multiple_record_clauses_with_spec].
+	  f_sig_multiple_record_clauses_with_spec,
+	  f_spec_type_without_name,
+	  f_spec_types_mixed,
+	  f_spec_with_multiple_clauses,
+	  f_spec_with_multiple_clauses_one_fun_clause,
+	  f_spec_lhs_match_expr,
+	  f_spec_rhs_match_expr,
+	  f_spec_unnamed_pattern,
+	  f_spec_bounded_fun].
 
 %% TODO: remove these cases once EDoc supports extracting the relevant tags
 not_supported() -> [type_since_tag,
@@ -241,6 +257,61 @@ f_sig_multiple_record_clauses_with_spec(Config) ->
     ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
 		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
 
+f_spec_type_without_name(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_type_without_name(Arg :: atom()) -> ok.\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 1}, Docs) ).
+
+f_spec_types_mixed(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_types_mixed(Arg1 :: atom(), Arg2 :: tuple()) -> ok.\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+
+f_spec_with_multiple_clauses(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    %?assertEqual( <<"-spec f_spec_with_multiple_clauses(A1 :: atom(), A2 :: atom()) -> atoms;\n"
+    %                "                                  (S :: string(), I :: integer()) ->\n"
+    %                "                                      not_atoms.\n">>,
+    %              get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+    {skip, "edoc passes arg names of the first clause to all clauses"}.
+
+f_spec_with_multiple_clauses_one_fun_clause(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_with_multiple_clauses_one_fun_clause(A1 :: atom(),\n"
+		    "                                                  A2 :: atom()) ->\n"
+		    "                                                     atoms;\n"
+		    "                                                 (A1 :: string(),\n"
+		    "                                                  A2 :: integer()) ->\n"
+		    "                                                     not_atoms.\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+
+f_spec_lhs_match_expr(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_lhs_match_expr(Pattern :: any()) -> ok.\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 1}, Docs) ).
+
+f_spec_rhs_match_expr(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_rhs_match_expr(Pattern :: any()) -> ok.\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 1}, Docs) ).
+
+f_spec_unnamed_pattern(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_unnamed_pattern(_ :: any()) -> ok.\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 1}, Docs) ).
+
+f_spec_bounded_fun(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    {skip, not_done_yet}.
+
 %%
 %% Helpers
 %%
@@ -317,6 +388,10 @@ get_flat_doc(KNA, Docs) ->
 get_sig({K, N, A}, Docs) ->
     Entry = docs_v1_entry(lookup_entry(K, N, A, Docs)),
     Entry#docs_v1_entry.signature.
+
+get_pp_spec({K, N, A}, Docs) ->
+    [Spec] = get_meta_field(signature, K, N, A, Docs),
+    iolist_to_binary(erl_pp:attribute(Spec)).
 
 flatten_doc(XML) ->
     iolist_to_binary(lists:reverse(xmerl_lib:foldxml(fun flatten_xml/2, [], XML))).
