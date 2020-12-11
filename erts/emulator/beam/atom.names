@@ -561,6 +561,7 @@ atom re
 atom re_pattern
 atom re_run_trap
 atom read_concurrency
+atom ready_error
 atom ready_input
 atom ready_output
 atom reason

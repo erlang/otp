@@ -642,6 +642,9 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #  define enif_select_write(ENV, E, OBJ, PID, MSG, MSG_ENV) \
     enif_select_x(ENV, E, ERL_NIF_SELECT_WRITE | ERL_NIF_SELECT_CUSTOM_MSG, \
                   OBJ, PID, MSG, MSG_ENV)
+#  define enif_select_error(ENV, E, OBJ, PID, MSG, MSG_ENV) \
+    enif_select_x(ENV, E, ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_CUSTOM_MSG, \
+                  OBJ, PID, MSG, MSG_ENV)
 
 #if SIZEOF_LONG == 8
 #  define enif_get_int64 enif_get_long

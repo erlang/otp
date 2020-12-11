@@ -174,6 +174,8 @@ typedef int ErlNifEvent;
 #define ERL_NIF_SELECT_FAILED         (1 << 3)
 #define ERL_NIF_SELECT_READ_CANCELLED (1 << 4)
 #define ERL_NIF_SELECT_WRITE_CANCELLED (1 << 5)
+#define ERL_NIF_SELECT_ERROR_CANCELLED (1 << 6)
+#define ERL_NIF_SELECT_NOTSUP          (1 << 7)
 
 typedef enum
 {
