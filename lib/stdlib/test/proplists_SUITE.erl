@@ -23,7 +23,7 @@
 -export([all/0, suite/0,groups/0, init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
-         examples/1]).
+         examples/1, map_conversion/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -36,7 +36,7 @@ suite() ->
      {timetrap,{minutes,5}}].
 
 all() ->
-    [examples].
+    [examples, map_conversion].
 
 groups() ->
     [].
@@ -77,4 +77,65 @@ examples(_Config) ->
     NegListRes = [{foo, false}, {foo, false}, foo, foo, foo],
     NegListRes = proplists:substitute_negations([{no_foo, foo}], NegList),
 
+    true = #{a => true, b => 1, c => 2} =:= proplists:to_map([a, {b, 1}, {c, 2}, {c, 3}]),
+
+    ok.
+
+map_conversion(_Config) ->
+    %% Simple tests.
+    true = #{} =:= proplists:to_map([]),
+    true = #{a => true, b => true} =:= proplists:to_map([a, b]),
+    true = #{a => true, b => true} =:= proplists:to_map([b, a]),
+    true = #{a => 1, b => true} =:= proplists:to_map([{a, 1}, b]),
+    true = #{a => 1, b => true} =:= proplists:to_map([b, {a, 1}]),
+    true = #{a => 1, b => 2} =:= proplists:to_map([{a, 1}, {b, 2}]),
+    true = #{a => 1, b => 2} =:= proplists:to_map([{b, 2}, {a, 1}]),
+    true = #{b => true} =:= proplists:to_map(["a", b]),
+    true = #{b => true} =:= proplists:to_map([b, "a"]),
+    true = #{b => true} =:= proplists:to_map([{a}, b]),
+    true = #{b => true} =:= proplists:to_map([b, {a}]),
+    true = #{b => true} =:= proplists:to_map([{a, 1, 2}, b]),
+    true = #{b => true} =:= proplists:to_map([b, {a, 1, 2}]),
+
+    %% Ensure that maps:get/3 using the created map yields the same
+    %% results as proplists:get_value/3 on the original proplist does,
+    %% and that proplists:get_value/3 on a proplist created from the
+    %% map yields the same results as proplists:get_value/3 on the
+    %% original proplist, ie they either all return the same `Value',
+    %% or they all return the `Default' given as respective third argument.
+    Default1 = make_ref(),
+    Default2 = make_ref(),
+    Default3 = make_ref(),
+    InList=[a, b, {a, 1}, {}, {a}, {a, 1, 2}, "foo"],
+    lists:foreach(
+        fun (L1) ->
+            LKs = proplists:get_keys(L1),
+            M = proplists:to_map(L1),
+            L2 = proplists:from_map(M),
+            [] = maps:keys(M) -- LKs,
+            [] = proplists:get_keys(L2) -- LKs, 
+            lists:foreach(
+                fun (K) ->
+                    case
+                        {
+                            maps:get(K, M, Default1),
+                            proplists:get_value(K, L1, Default2),
+                            proplists:get_value(K, L2, Default3)
+                        }
+                    of
+                        {V, V, V} -> true;
+                        {Default1, Default2, Default3} -> true
+                    end
+                end,
+                LKs
+            )
+        end,
+        [[A, B, C, D, E, F, G] || A <- InList,
+                                  B <- InList -- [A],
+                                  C <- InList -- [A, B],
+                                  D <- InList -- [A, B, C],
+                                  E <- InList -- [A, B, C, D],
+                                  F <- InList -- [A, B, C, D, E],
+                                  G <- InList -- [A, B, C, D, E, F]]
+    ),
     ok.
