@@ -552,7 +552,6 @@
 	MQD)</c></seeerl> </p>
       </desc>
     </datatype>
-
     <datatype>
       <name name="stacktrace" prefix="true"/>
       <name name="stacktrace_extrainfo" prefix="true"/>
@@ -561,7 +560,15 @@
       section in the Erlang Reference Manual.
       </p></desc>
     </datatype>
-
+    <datatype>
+      <name name="send_destination" prefix="true"/>
+      <desc>
+        <p>The destination for a send operation, can be a remote or local process identifier,
+          a (local) port, a reference denoting a process alias, a locally registered name, or a tuple
+          <c>{<anno>RegName</anno>, <anno>Node</anno>}</c>
+        for a registered name at another node.</p>
+      </desc>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -7126,7 +7133,6 @@ true</pre>
     <func>
       <name name="send" arity="2" since=""/>
       <fsummary>Send a message.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>Sends a message and returns <c><anno>Msg</anno></c>. This
         is the same as using the <seeguide marker="system/reference_manual:expressions#send">
@@ -7134,8 +7140,7 @@ true</pre>
 	<c><anno>Dest</anno> ! <anno>Msg</anno></c>.</p>
         <p><c><anno>Dest</anno></c> can be a remote or local process identifier,
           an alias, a (local) port, a locally registered name, or a tuple
-          <c>{<anno>RegName</anno>, <anno>Node</anno>}</c>
-        for a registered name at another node.</p>
+          <c>{RegName, Node}</c> for a registered name at another node.</p>
 	<p>The function fails with a <c>badarg</c> run-time error if
 	<c><anno>Dest</anno></c> is an atom name, but this name is not
 	registered. This is the only case when <c>send</c> fails for an
@@ -7146,7 +7151,6 @@ true</pre>
     <func>
       <name name="send" arity="3" since=""/>
       <fsummary>Send a message conditionally.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>Either sends a message and returns <c>ok</c>, or does not send
           the message but returns something else (see below).
@@ -7202,7 +7206,6 @@ true</pre>
     <func>
       <name name="send_nosuspend" arity="2" since=""/>
       <fsummary>Try to send a message without ever blocking.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>The same as
           <seemfa marker="#send/3"><c>erlang:send(<anno>Dest</anno>,
@@ -7252,7 +7255,6 @@ true</pre>
     <func>
       <name name="send_nosuspend" arity="3" since=""/>
       <fsummary>Try to send a message without ever blocking.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>The same as
           <seemfa marker="#send/3"><c>erlang:send(<anno>Dest</anno>,
