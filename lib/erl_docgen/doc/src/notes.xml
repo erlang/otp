@@ -31,7 +31,29 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.0.1</title>
+  <section><title>Erl_Docgen 1.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix links in titles to github and anchors to work.</p>
+          <p>
+	    Own Id: OTP-17013</p>
+        </item>
+        <item>
+          <p>
+	    Fix some typing errors on variable names in documentation
+	    examples.</p>
+          <p>
+	    Own Id: OTP-17065 Aux Id: ERL-1386 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

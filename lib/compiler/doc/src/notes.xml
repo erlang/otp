@@ -32,6 +32,51 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Several minor compiler bugs have been fixed:</p>
+	    <p>Constructing a binary with a list as a size of a
+	    binary segment could generate a BEAM file that could not
+	    be loaded.</p>
+	    <p>When matching a binary segment of type <c>float</c>
+	    and ignoring the matched out value, the match would
+	    always succeed, even if the size was invalid or the value
+	    of the float was NaN or some other non-numeric float
+	    value.</p>
+	    <p>Attempting to construct an invalid external fun (e.g.
+	    <c>fun m:f:bad</c>) is supposed to raise a
+	    '<c>badarg</c>' exception, but if the value was never
+	    used, no exception would be raised.</p>
+          <p>
+	    Own Id: OTP-16932</p>
+        </item>
+        <item>
+	    <p>Fixed multiple bugs in the validator that could cause
+	    it to reject valid code.</p>
+          <p>
+	    Own Id: OTP-17039 Aux Id: ERL-1426 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when a binary comprehension
+	    had a generator that depended on another generator.</p>
+          <p>
+	    Own Id: OTP-17045 Aux Id: ERL-1427 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the type optimization pass that could
+	    yield incorrect values or cause the wrong clauses to be
+	    executed.</p>
+          <p>
+	    Own Id: OTP-17072 Aux Id: ERL-1440 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

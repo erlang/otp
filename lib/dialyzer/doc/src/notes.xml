@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarify warning option <c>-Wunmatched_returns</c> in
+	    <c>dialyzer(3)</c>.</p>
+          <p>
+	    Own Id: OTP-17068 Aux Id: ERL-1223 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
