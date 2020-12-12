@@ -40,10 +40,10 @@
         <c>[1,2,a,...]</c> and X is greater than 3.</p>
     <p>The notation <c><![CDATA[X <- [1,2,a,...]]]></c> is a generator and
       the expression <c>X > 3</c> is a filter.</p>
-    <p>An additional filter, <c>integer(X)</c>, can be added to restrict
+    <p>An additional filter, <c>is_integer(X)</c>, can be added to restrict
       the result to integers:</p>
     <pre>
-> <input>[X || X &lt;- [1,2,a,3,4,b,5,6], integer(X), X > 3].</input>
+> <input>[X || X &lt;- [1,2,a,3,4,b,5,6], is_integer(X), X > 3].</input>
 [4,5,6]</pre>
     <p>Generators can be combined. For example, the Cartesian product
       of two lists can be written as follows:</p>
