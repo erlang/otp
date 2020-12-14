@@ -1427,7 +1427,7 @@ usm_priv_aes(Config) when is_list(Config) ->
           end,
     Case = fun(_) -> do_usm_priv_aes(Config) end,
     Post = fun(_) ->
-                   ?IPRINT("[~s] try stop manager"),
+                   ?IPRINT("try stop manager"),
                    ok = snmpm:stop(),
                    ?SLEEP(1000), % Give it time to settle
                    ok
