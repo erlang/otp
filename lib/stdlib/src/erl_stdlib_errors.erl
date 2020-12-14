@@ -36,6 +36,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_ets_error(F, As, Cause);
               lists ->
                   format_lists_error(F, As);
+              maps ->
+                  format_maps_error(F, As);
               _ ->
                   []
           end,
@@ -169,6 +171,61 @@ format_lists_error(member, [_Key, List]) ->
     [[], must_be_list(List)];
 format_lists_error(reverse, [List, _Acc]) ->
     [must_be_list(List)].
+
+format_maps_error(filter, Args) ->
+    format_maps_error(map, Args);
+format_maps_error(filtermap, Args) ->
+    format_maps_error(map, Args);
+format_maps_error(find, _Args) ->
+    [[], not_map];
+format_maps_error(fold, [Pred, _Init, Map]) ->
+    [must_be_fun(Pred, 3), [], must_be_map_or_iter(Map)];
+format_maps_error(from_keys, [List, _]) ->
+    [must_be_list(List)];
+format_maps_error(from_list, [List]) ->
+    [must_be_list(List)];
+format_maps_error(get, _Args) ->
+    [[], not_map];
+format_maps_error(intersect, [Map1, Map2]) ->
+    [must_be_map(Map1), must_be_map(Map2)];
+format_maps_error(intersect_with, [Combiner, Map1, Map2]) ->
+    [must_be_fun(Combiner, 3), must_be_map(Map1), must_be_map(Map2)];
+format_maps_error(is_key, _Args) ->
+    [[], not_map];
+format_maps_error(iterator, _Args) ->
+    [not_map];
+format_maps_error(keys, _Args) ->
+    [not_map];
+format_maps_error(map, [Pred, Map]) ->
+    [must_be_fun(Pred, 2), must_be_map_or_iter(Map)];
+format_maps_error(merge, [Map1, Map2]) ->
+    [must_be_map(Map1), must_be_map(Map2)];
+format_maps_error(merge_with, [Combiner, Map1, Map2]) ->
+    [must_be_fun(Combiner, 3), must_be_map(Map1), must_be_map(Map2)];
+format_maps_error(put, _Args) ->
+    [[], [], not_map];
+format_maps_error(next, _Args) ->
+    [bad_iterator];
+format_maps_error(remove, _Args) ->
+    [[], not_map];
+format_maps_error(size, _Args) ->
+    [not_map];
+format_maps_error(take, _Args) ->
+    [[], not_map];
+format_maps_error(to_list, _Args) ->
+    [not_map];
+format_maps_error(update, _Args) ->
+    [[], [], not_map];
+format_maps_error(update_with, [_Key, Fun, Map]) ->
+    [[], must_be_fun(Fun, 1), must_be_map(Map)];
+format_maps_error(update_with, [_Key, Fun, _Init, Map]) ->
+    [[], must_be_fun(Fun, 1), [], must_be_map(Map)];
+format_maps_error(values, _Args) ->
+    [not_map];
+format_maps_error(with, [List, Map]) ->
+    [must_be_list(List), must_be_map(Map)];
+format_maps_error(without, [List, Map]) ->
+    [must_be_list(List), must_be_map(Map)].
 
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);
@@ -466,6 +523,9 @@ must_be_endianness(little) -> [];
 must_be_endianness(big) -> [];
 must_be_endianness(_) -> bad_endian.
 
+must_be_fun(F, Arity) when is_function(F, Arity) -> [];
+must_be_fun(_, Arity) -> {not_fun,Arity}.
+
 must_be_integer(N) when is_integer(N) -> [];
 must_be_integer(_) -> not_integer.
 
@@ -495,6 +555,19 @@ must_be_list(List) when is_list(List) ->
 must_be_list(_) ->
     not_list.
 
+must_be_map(#{}) -> [];
+must_be_map(_) -> not_map.
+
+must_be_map_or_iter(Map) when is_map(Map) ->
+    [];
+must_be_map_or_iter(Iter) ->
+    try maps:next(Iter) of
+        _ -> []
+    catch
+        error:_ ->
+            not_map_or_iterator
+    end.
+
 must_be_pattern(P) ->
     try binary:match(<<"a">>, P) of
         _ ->
@@ -522,6 +595,8 @@ expand_error(bad_endinanness) ->
     <<"must be 'big' or 'little'">>;
 expand_error(bad_info_item) ->
     <<"not a valid info item">>;
+expand_error(bad_iterator) ->
+    <<"not a valid iterator">>;
 expand_error(bad_key) ->
     <<"not a key that exists in the table">>;
 expand_error(bad_matchspec) ->
@@ -548,8 +623,22 @@ expand_error(not_binary) ->
     <<"not a binary">>;
 expand_error(not_iodata) ->
     <<"not an iodata term">>;
+expand_error({not_fun,1}) ->
+    <<"not a fun that takes one argument">>;
+expand_error({not_fun,2}) ->
+    <<"not a fun that takes two arguments">>;
+expand_error({not_fun,3}) ->
+    <<"not a fun that takes three arguments">>;
 expand_error(not_integer) ->
     <<"not an integer">>;
+expand_error(not_list) ->
+    <<"not a list">>;
+expand_error(not_map_or_iterator) ->
+    <<"not a map or an iterator">>;
+expand_error(not_proper_list) ->
+    <<"not a proper list">>;
+expand_error(not_map) ->
+    <<"not a map">>;
 expand_error(not_owner) ->
     <<"the current process is not the owner">>;
 expand_error(not_pid) ->

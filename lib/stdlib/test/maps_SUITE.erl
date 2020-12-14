@@ -33,7 +33,8 @@
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
-         t_merge_with/1, t_from_keys/1]).
+         t_merge_with/1, t_from_keys/1,
+         error_info/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 -define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
@@ -50,7 +51,8 @@ all() ->
      t_iterator_1,t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
-     t_merge_with, t_from_keys].
+     t_merge_with, t_from_keys,
+     error_info].
 
 t_from_keys(Config) when is_list(Config) ->
     Map0 = maps:from_keys(["a", 2, {three}], value),
@@ -507,5 +509,92 @@ t_size_1(Config) when is_list(Config) ->
     {'EXIT', {{badmap,a}, _}} = (catch maps:size(id(a))),
     {'EXIT', {{badmap,<<>>}, _}} = (catch maps:size(id(<<>>))),
     ok.
+
+error_info(_Config) ->
+    BadIterator = [-1|#{}],
+    GoodIterator = maps:iterator(#{}),
+
+    L = [{filter, [fun(_, _) -> true end, abc]},
+         {filter, [fun(_, _) -> true end, BadIterator]},
+         {filter, [bad_fun, BadIterator]},
+         {filter, [bad_fun, GoodIterator]},
+
+         {filtermap, [fun(_, _) -> true end, abc]},
+         {filtermap, [fun(_, _) -> true end, BadIterator]},
+         {filtermap, [fun(_) -> true end, GoodIterator]},
+         {filtermap, [fun(_) -> ok end, #{}]},
+
+         {find, [key, no_map]},
+
+         {fold, [fun(_, _, _) -> true end, init, abc]},
+         {fold, [fun(_, _, _) -> true end, init, BadIterator]},
+         {fold, [fun(_) -> true end, init, GoodIterator]},
+         {fold, [fun(_) -> ok end, init, #{}]},
+
+         {from_keys, [#{a => b}, whatever]},
+         {from_keys, [[a|b], whatever]},
+
+         {from_list, [#{a => b}]},
+         {from_list, [[a|b]]},
+
+         {get, [key, {no,map}]},
+         {get, [key, {no,map}, default]},
+
+         {intersect, [#{a => b}, y]},
+         {intersect, [x, #{a => b}]},
+         {intersect, [x, y]},
+
+         {intersect_with, [fun(_, _, _) -> ok end, #{a => b}, y]},
+         {intersect_with, [fun(_, _, _) -> ok end, x, #{a => b}]},
+         {intersect_with, [fun(_, _, _) -> ok end, x, y]},
+         {intersect_with, [fun(_, _) -> ok end, #{}, #{}]},
+
+         {is_key,[key, no_map]},
+
+         {iterator,[{no,map}]},
+
+         {keys, [{no,map}]},
+
+         {map, [fun(_, _) -> true end, abc]},
+         {map, [fun(_, _) -> true end, BadIterator]},
+         {map, [fun(_) -> true end, GoodIterator]},
+         {map, [fun(_) -> ok end, #{}]},
+
+         {merge,[#{a => b}, {a,b}]},
+         {merge,[{x,y}, #{a => b}]},
+         {merge,[{x,y}, {a,b}]},
+
+         {merge_with, [fun(_, _) -> ok end, #{}, #{}]},
+         {merge_with, [a, b, c]},
+
+         {next,[no_iterator]},
+
+         {put, [key, value, {no,map}]},
+
+         {remove,[key, {no,map}]},
+
+         {size, [no_map]},
+
+         {take, [key, no_map]},
+
+         {to_list,[xyz]},
+
+         {update,[key, value, no_map]},
+
+         {update_with, [key, fun(_) -> ok end, {no,map}]},
+         {update_with, [key, fun() -> ok end, #{}]},
+
+         {update_with, [key, fun(_) -> ok end, init, {no,map}]},
+         {update_with, [key, fun() -> ok end, init, #{}]},
+
+         {values,[no_map]},
+
+         {with, [not_list, #{}]},
+         {with, [[1,2,3], {no,map}]},
+
+         {without, [not_list, #{}]},
+         {without, [[1,2,3], {no,map}]}
+        ],
+    error_info_lib:test_error_info(maps, L).
 
 id(I) -> I.
