@@ -38,6 +38,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_lists_error(F, As);
               maps ->
                   format_maps_error(F, As);
+              math ->
+                  format_math_error(F, As);
               unicode ->
                   format_unicode_error(F, As);
               _ ->
@@ -228,6 +230,39 @@ format_maps_error(with, [List, Map]) ->
     [must_be_list(List), must_be_map(Map)];
 format_maps_error(without, [List, Map]) ->
     [must_be_list(List), must_be_map(Map)].
+
+format_math_error(acos, Args) ->
+    maybe_domain_error(Args);
+format_math_error(asin, Args) ->
+    maybe_domain_error(Args);
+format_math_error(log, Args) ->
+    maybe_domain_error(Args);
+format_math_error(log2, Args) ->
+    maybe_domain_error(Args);
+format_math_error(log10, Args) ->
+    maybe_domain_error(Args);
+format_math_error(sqrt, Args) ->
+    maybe_domain_error(Args);
+format_math_error(fmod, [Arg1, Arg2]) ->
+    case [must_be_number(Arg1), must_be_number(Arg2)] of
+        [[], []] ->
+            if
+                Arg2 == 0 -> [[], domain_error];
+                true -> []
+            end;
+        Error ->
+            Error
+    end;
+format_math_error(_, [Arg]) ->
+    [must_be_number(Arg)];
+format_math_error(_, [Arg1, Arg2]) ->
+    [must_be_number(Arg1), must_be_number(Arg2)].
+
+maybe_domain_error([Arg]) ->
+    case must_be_number(Arg) of
+        [] -> [domain_error];
+        Error -> [Error]
+    end.
 
 format_unicode_error(characters_to_binary, [_]) ->
     [bad_char_data];
@@ -613,6 +648,12 @@ must_be_map_or_iter(Iter) ->
             not_map_or_iterator
     end.
 
+must_be_number(N) ->
+    if
+        is_number(N) -> [];
+        true -> not_number
+    end.
+
 must_be_pattern(P) ->
     try binary:match(<<"a">>, P) of
         _ ->
@@ -662,6 +703,8 @@ expand_error(counter_not_integer) ->
     <<"the value in the given position, in the object, is not an integer">>;
 expand_error(dead_process) ->
     <<"the pid refers to a terminated process">>;
+expand_error(domain_error) ->
+    <<"is outside the domain for this function">>;
 expand_error(empty_binary) ->
     <<"a zero-sized binary is not allowed">>;
 expand_error(empty_tuple) ->
@@ -684,6 +727,8 @@ expand_error(not_list) ->
     <<"not a list">>;
 expand_error(not_map_or_iterator) ->
     <<"not a map or an iterator">>;
+expand_error(not_number) ->
+    <<"not a number">>;
 expand_error(not_proper_list) ->
     <<"not a proper list">>;
 expand_error(not_map) ->

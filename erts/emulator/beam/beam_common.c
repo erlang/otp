@@ -919,6 +919,9 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
         case am_maps:
             format_module = am_erl_stdlib_errors;
             break;
+        case am_math:
+            format_module = am_erl_stdlib_errors;
+            break;
         case am_unicode:
             format_module = am_erl_stdlib_errors;
             break;
