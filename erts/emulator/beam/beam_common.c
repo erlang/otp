@@ -907,6 +907,9 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
             break;
 
             /* STDLIB */
+        case am_binary:
+            format_module = am_erl_stdlib_errors;
+            break;
         case am_ets:
             format_module = am_erl_stdlib_errors;
             break;

@@ -37,6 +37,11 @@
          matches/3, part/2, part/3, referenced_byte_size/1,
          split/2, split/3]).
 
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_cause/2, badarg_with_info/1,
+                   error_with_info/2]}).
+
 -spec at(Subject, Pos) -> byte() when
       Subject :: binary(),
       Pos :: non_neg_integer().
@@ -48,16 +53,26 @@ at(_, _) ->
       Subject :: binary().
 
 bin_to_list(Subject) ->
-    binary_to_list(Subject).
+    try
+        binary_to_list(Subject)
+    catch
+        error:Reason ->
+            error_with_info(Reason, [Subject])
+    end.
 
 -spec bin_to_list(Subject, PosLen) -> [byte()] when
       Subject :: binary(),
       PosLen :: part().
 
 bin_to_list(Subject, {Pos, Len}) ->
-    bin_to_list(Subject, Pos, Len);
-bin_to_list(_Subject, _BadArg) ->
-    erlang:error(badarg).
+    try
+        bin_to_list(Subject, Pos, Len)
+    catch
+        error:Reason ->
+            error_with_info(Reason, [Subject, {Pos, Len}])
+    end;
+bin_to_list(Subject, BadPosLen) ->
+    badarg_with_info([Subject, BadPosLen]).
 
 -spec bin_to_list(Subject, Pos, Len) -> [byte()] when
       Subject :: binary(),
@@ -70,16 +85,26 @@ bin_to_list(Subject, Pos, Len) when not is_binary(Subject);
     %% binary_to_list/3 allows bitstrings as long as the slice fits, and we
     %% want to badarg when Pos/Len aren't integers instead of raising badarith
     %% when adjusting args for binary_to_list/3.
-    erlang:error(badarg);
+    badarg_with_info([Subject, Pos, Len]);
 bin_to_list(Subject, Pos, 0) when Pos >= 0, Pos =< byte_size(Subject) ->
     %% binary_to_list/3 doesn't handle this case.
     [];
-bin_to_list(_Subject, _Pos, 0) ->
-    erlang:error(badarg);
 bin_to_list(Subject, Pos, Len) when Len < 0 ->
-    bin_to_list(Subject, Pos + Len, -Len);
+    try
+        bin_to_list(Subject, Pos + Len, -Len)
+    catch
+        error:Reason ->
+            error_with_info(Reason, [Subject, Pos, Len])
+    end;
 bin_to_list(Subject, Pos, Len) when Len > 0 ->
-    binary_to_list(Subject, Pos + 1, Pos + Len).
+    try
+        binary_to_list(Subject, Pos + 1, Pos + Len)
+    catch
+        error:Reason ->
+            error_with_info(Reason, [Subject, Pos, Len])
+    end;
+bin_to_list(Subject, Pos, Len) ->
+    badarg_with_info([Subject, Pos, Len]).
 
 -spec compile_pattern(Pattern) -> cp() when
       Pattern :: binary() | [binary()].
@@ -246,7 +271,12 @@ split(_, _, _) ->
       Result :: binary().
 
 replace(H,N,R) ->
-    replace(H,N,R,[]).
+    try
+        replace(H,N,R,[])
+    catch
+        error:Reason ->
+            error_with_info(Reason, [H,N,R])
+    end.
 
 -spec replace(Subject, Pattern, Replacement, Options) -> Result when
       Subject :: binary(),
@@ -287,8 +317,10 @@ replace(Haystack,Needles,Replacement,Options) ->
 		   end,
 	erlang:iolist_to_binary(do_replace(Haystack,MList,ReplList,0))
    catch
+       throw:badopt ->
+           badarg_with_cause([Haystack,Needles,Replacement,Options], badopt);
        _:_ ->
-	    erlang:error(badarg)
+           badarg_with_info([Haystack,Needles,Replacement,Options])
    end.
 
 
@@ -331,3 +363,11 @@ get_opts_replace([{insert_replaced,N} | T],{Part,Global,_Insert}) ->
 get_opts_replace(_,_) ->
     throw(badopt).
 
+badarg_with_cause(Args, Cause) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors,
+                                               cause => Cause}}]).
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors}}]).
+
+error_with_info(Reason, Args) ->
+    erlang:error(Reason, Args, [{error_info, #{module => erl_stdlib_errors}}]).

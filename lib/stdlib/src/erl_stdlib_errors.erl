@@ -30,12 +30,126 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
     ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
     Cause = maps:get(cause, ErrorInfoMap, none),
     Res = case M of
+              binary ->
+                  format_binary_error(F, As, Cause);
               ets ->
                   format_ets_error(F, As, Cause);
               _ ->
                   []
           end,
     format_error_map(Res, 1, #{}).
+
+format_binary_error(at, [Subject,Pos], _) ->
+    [must_be_binary(Subject), must_be_position(Pos)];
+format_binary_error(bin_to_list, [Subject], _) ->
+    [must_be_binary(Subject)];
+format_binary_error(bin_to_list, Args, Cause) ->
+    format_binary_error(part, Args, Cause);
+format_binary_error(compile_pattern, [_], _) ->
+    [<<"not a valid pattern">>];
+format_binary_error(copy, [Subject], _) ->
+    [must_be_binary(Subject)];
+format_binary_error(copy, [Subject, N], _) ->
+    [must_be_binary(Subject), must_be_non_neg_integer(N)];
+format_binary_error(decode_unsigned, [Subject], _) ->
+    [must_be_binary(Subject)];
+format_binary_error(decode_unsigned, [Subject, Endianness], _) ->
+    [must_be_binary(Subject), must_be_endianness(Endianness)];
+format_binary_error(encode_unsigned, [Subject], _) ->
+    [must_be_non_neg_integer(Subject)];
+format_binary_error(encode_unsigned, [Subject, Endianness], _) ->
+    [must_be_non_neg_integer(Subject), must_be_endianness(Endianness)];
+format_binary_error(first, [Subject], _) ->
+    [case Subject of
+         <<>> -> empty_binary;
+        _ -> must_be_binary(Subject)
+     end];
+format_binary_error(last, [Subject], _) ->
+    [case Subject of
+         <<>> -> empty_binary;
+        _ -> must_be_binary(Subject)
+     end];
+format_binary_error(list_to_bin, [_], _) ->
+    [not_iodata];
+format_binary_error(longest_common_prefix, [_], _) ->
+    [bad_binary_list];
+format_binary_error(longest_common_suffix, [_], _) ->
+    [bad_binary_list];
+format_binary_error(match, [Subject, Pattern], _) ->
+    [must_be_binary(Subject), must_be_pattern(Pattern)];
+format_binary_error(match, [Subject, Pattern, Options], _) ->
+    case [must_be_binary(Subject), must_be_pattern(Pattern)] of
+        [[], []] ->
+            case Options of
+                [{scope,{Start,Len}}] when is_integer(Start),
+                                           is_integer(Len) ->
+                    [[], [], <<"specified part is not wholly inside binary">>];
+                _ ->
+                    [[], [], bad_options]
+            end;
+        Errors ->
+            Errors
+    end;
+format_binary_error(matches, Args, Cause) ->
+    format_binary_error(match, Args, Cause);
+format_binary_error(part=Name, [Subject, PosLen], Cause) ->
+    case PosLen of
+        {Pos,Len} when is_integer(Pos), is_integer(Len) ->
+            case format_binary_error(Name, [Subject,Pos,Len], Cause) of
+                [Arg1,[],[]] ->
+                    [Arg1];
+                [Arg1,_,_] ->
+                    [Arg1,range]
+            end;
+        _ ->
+            [must_be_binary(Subject),<<"not a valid {Pos,Length} tuple">>]
+    end;
+format_binary_error(part, [Subject, Pos, Len], _) ->
+    case [must_be_binary(Subject),must_be_position(Pos),must_be_integer(Len)] of
+        [[],[],[]] ->
+            Arg2 = if
+                       Pos > byte_size(Subject) -> range;
+                       true -> []
+                   end,
+            case Arg2 of
+                [] -> [[],[],range];
+                range -> [[],Arg2]
+            end;
+        Errors ->
+            Errors
+    end;
+format_binary_error(referenced_byte_size, [Subject], _) ->
+    [must_be_binary(Subject)];
+format_binary_error(split, [Subject, Pattern], _) ->
+    [must_be_binary(Subject), must_be_pattern(Pattern)];
+format_binary_error(split, [Subject, Pattern, _Options], _) ->
+    case [must_be_binary(Subject), must_be_pattern(Pattern)] of
+        [[], []] ->
+            [[], [], bad_options];
+        Errors ->
+            Errors
+    end;
+format_binary_error(replace, [Subject, Pattern, Replacement], _) ->
+    [must_be_binary(Subject),
+     must_be_pattern(Pattern),
+     must_be_binary(Replacement)];
+format_binary_error(replace, [Subject, Pattern, Replacement, _Options], Cause) ->
+    Errors = format_binary_error(replace, [Subject, Pattern, Replacement], Cause),
+    case Cause of
+        badopt ->
+            Errors ++ [bad_options];
+        _ ->
+            case Errors of
+                [[], [], []] ->
+                    %% Options are syntactically correct, but not semantically
+                    %% (e.g. referencing outside the subject).
+                    [[], [], [], bad_options];
+                _ ->
+                    Errors
+            end
+    end;
+format_binary_error(_, _, _) ->
+    [].
 
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);
@@ -322,12 +436,60 @@ format_error_map([E|Es], ArgNum, Map) ->
 format_error_map([], _, Map) ->
     Map.
 
+must_be_binary(Bin) ->
+    must_be_binary(Bin, []).
+
+must_be_binary(Bin, Error) when is_binary(Bin) -> Error;
+must_be_binary(Bin, _Error) when is_bitstring(Bin) -> bitstring;
+must_be_binary(_, _) -> not_binary.
+
+must_be_endianness(little) -> [];
+must_be_endianness(big) -> [];
+must_be_endianness(_) -> bad_endian.
+
+must_be_integer(N) when is_integer(N) -> [];
+must_be_integer(_) -> not_integer.
+
+must_be_integer(N, Min, Max, Default) when is_integer(N) ->
+    if
+        Min =< N, N =< Max ->
+            Default;
+        true ->
+            range
+    end;
+must_be_integer(_, _, _, _) -> not_integer.
+
+must_be_integer(N, Min, Max) ->
+    must_be_integer(N, Min, Max, []).
+
+must_be_non_neg_integer(N) ->
+    must_be_integer(N, 0, infinity).
+
+must_be_pattern(P) ->
+    try binary:match(<<"a">>, P) of
+        _ ->
+            []
+    catch
+        error:badarg ->
+            bad_binary_pattern
+    end.
+
+must_be_position(Pos) when is_integer(Pos), Pos >= 0 -> [];
+must_be_position(Pos) when is_integer(Pos) -> range;
+must_be_position(_) -> not_integer.
+
 expand_error(already_owner) ->
     <<"the process is already the owner of the table">>;
 expand_error(bad_boolean) ->
     <<"not a boolean value">>;
+expand_error(bad_binary_list) ->
+    <<"not a flat list of binaries">>;
+expand_error(bad_binary_pattern) ->
+    <<"not a valid pattern">>;
 expand_error(bad_continuation) ->
     <<"invalid continuation">>;
+expand_error(bad_endinanness) ->
+    <<"must be 'big' or 'little'">>;
 expand_error(bad_info_item) ->
     <<"not a valid info item">>;
 expand_error(bad_key) ->
@@ -340,14 +502,22 @@ expand_error(bad_table_name) ->
     <<"invalid table name (must be an atom)">>;
 expand_error(bad_update_op) ->
     <<"not a valid update operation">>;
+expand_error(bitstring) ->
+    <<"is a bitstring (expected a binary)">>;
 expand_error(counter_not_integer) ->
     <<"the value in the given position, in the object, is not an integer">>;
 expand_error(dead_process) ->
     <<"the pid refers to a terminated process">>;
+expand_error(empty_binary) ->
+    <<"a zero-sized binary is not allowed">>;
 expand_error(empty_tuple) ->
     <<"is an empty tuple">>;
 expand_error(name_already_exists) ->
     <<"table name already exists">>;
+expand_error(not_binary) ->
+    <<"not a binary">>;
+expand_error(not_iodata) ->
+    <<"not an iodata term">>;
 expand_error(not_integer) ->
     <<"not an integer">>;
 expand_error(not_owner) ->
