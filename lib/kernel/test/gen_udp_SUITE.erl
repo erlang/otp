@@ -754,6 +754,8 @@ recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
 %% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,netbsd}, _OSVer) -> false;
+%% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %%
 recvtos_ok({unix,_}, _) -> true;
@@ -781,6 +783,7 @@ recvtclass_ok(_, _) -> false.
 
 %% Using the option returns einval, so it is not implemented.
 sendtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
+sendtos_ok({unix,netbsd}, OSVer) -> false;
 sendtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
 sendtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 sendtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
