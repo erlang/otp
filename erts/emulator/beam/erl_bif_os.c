@@ -141,15 +141,18 @@ BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
 }
 
 BIF_RETTYPE os_set_signal_2(BIF_ALIST_2) {
-    if (is_atom(BIF_ARG_1) && ((BIF_ARG_2 == am_ignore) ||
-                               (BIF_ARG_2 == am_default) ||
-                               (BIF_ARG_2 == am_handle))) {
-        if (!erts_set_signal(BIF_ARG_1, BIF_ARG_2))
-            goto error;
-
-        BIF_RET(am_ok);
+    if (! ( (BIF_ARG_2 == am_ignore) ||
+            (BIF_ARG_2 == am_default) ||
+            (BIF_ARG_2 == am_handle) )) {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 
-error:
+    if (is_atom(BIF_ARG_1)) {
+        if (erts_set_signal(BIF_ARG_1, BIF_ARG_2)) {
+            BIF_RET(am_ok);
+        }
+    }
+
     BIF_ERROR(BIF_P, BADARG);
 }
