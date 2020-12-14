@@ -39,6 +39,10 @@
 
 -spec version() -> binary().
 
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_cause/2, badarg_with_info/1]}).
+
 version() ->
     erlang:nif_error(undef).
 
@@ -152,7 +156,12 @@ inspect(_,_) ->
       SplitList :: [iodata() | unicode:charlist()].
 
 split(Subject,RE) ->
-    split(Subject,RE,[]).
+    try
+        split(Subject,RE,[])
+    catch
+        error:_ ->
+            badarg_with_info([Subject,RE])
+    end.
 
 -spec split(Subject, RE, Options) -> SplitList when
       Subject :: iodata() | unicode:charlist(),
@@ -206,11 +215,11 @@ split(Subject,RE,Options) ->
     end
     catch
 	throw:badopt ->
-	    erlang:error(badarg,[Subject,RE,Options]);
+	    badarg_with_cause([Subject,RE,Options], badopt);
 	throw:badre ->
-	    erlang:error(badarg,[Subject,RE,Options]);
+	    badarg_with_info([Subject,RE,Options]);
 	error:badarg ->
-	    erlang:error(badarg,[Subject,RE,Options])
+	    badarg_with_info([Subject,RE,Options])
     end.
 
 backstrip_empty(List, false) ->
@@ -347,7 +356,12 @@ compile_split(_,_) ->
       Replacement :: iodata() | unicode:charlist().
 
 replace(Subject,RE,Replacement) ->
-    replace(Subject,RE,Replacement,[]).
+    try
+        replace(Subject,RE,Replacement,[])
+    catch
+        error:_ ->
+            badarg_with_info([Subject,RE,Replacement])
+    end.
 
 -spec replace(Subject, RE, Replacement, Options) -> iodata() | unicode:charlist() when
       Subject :: iodata() | unicode:charlist(),
@@ -391,11 +405,11 @@ replace(Subject,RE,Replacement,Options) ->
 	end
     catch
 	throw:badopt ->
-	    erlang:error(badarg,[Subject,RE,Replacement,Options]);
+	    badarg_with_cause([Subject,RE,Replacement,Options], badopt);
 	throw:badre ->
-	    erlang:error(badarg,[Subject,RE,Replacement,Options]);
+	    badarg_with_info([Subject,RE,Replacement,Options]);
 	error:badarg ->
-	    erlang:error(badarg,[Subject,RE,Replacement,Options])
+	    badarg_with_info([Subject,RE,Replacement,Options])
     end.
 
 
@@ -427,7 +441,9 @@ process_repl_params([{return,_}|_],_) ->
     throw(badopt);
 process_repl_params([H|T],C) ->
     {NT,NC} = process_repl_params(T,C),
-    {[H|NT],NC}.
+    {[H|NT],NC};
+process_repl_params(_,_) ->
+    throw(badopt).
 
 process_split_params([],Convert,Limit,Strip,Group) ->
     {[],Convert,Limit,Strip,Group};
@@ -461,7 +477,9 @@ process_split_params([{return,_}|_],_,_,_,_) ->
     throw(badopt);
 process_split_params([H|T],C,L,S,G) ->
     {NT,NC,NL,NS,NG} = process_split_params(T,C,L,S,G),
-    {[H|NT],NC,NL,NS,NG}.
+    {[H|NT],NC,NL,NS,NG};
+process_split_params(_,_,_,_,_) ->
+    throw(badopt).
 
 apply_mlist(Subject,Replacement,Mlist) ->
     do_mlist(Subject,Subject,0,precomp_repl(Replacement), Mlist).
@@ -942,3 +960,10 @@ to_binary(Data, true) ->
     unicode:characters_to_binary(Data,unicode);
 to_binary(Data, false) ->
     iolist_to_binary(Data).
+
+badarg_with_cause(Args, Cause) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors,
+                                               cause => Cause}}]).
+
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors}}]).

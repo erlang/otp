@@ -29,7 +29,8 @@
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
 	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
-         yield_on_subject_validation/1, bad_utf8_subject/1]).
+         yield_on_subject_validation/1, bad_utf8_subject/1,
+         error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -47,7 +48,8 @@ all() ->
      re_backwards_accented, opt_dupnames, opt_all_names, 
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
      match_limit, sub_binaries, re_version, global_unicode_validation,
-     yield_on_subject_validation, bad_utf8_subject].
+     yield_on_subject_validation, bad_utf8_subject,
+     error_info].
 
 groups() -> 
     [].
@@ -629,7 +631,7 @@ error_handling() ->
     {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]],_},
 		     {?MODULE, error_handling,0,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all,binary}])),
-    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
+    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4}],_},
 		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4})),
     {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
@@ -1008,3 +1010,51 @@ bad_utf8_subject(Config) when is_list(Config) ->
             ok
     end.
 
+error_info(_Config) ->
+    BadRegexp = {re_pattern,0,0,0,<<"xyz">>},
+    {ok,GoodRegexp} = re:compile(".*"),
+
+    L = [{compile, [not_iodata]},
+         {compile, [not_iodata, not_list]},
+         {compile, [<<".*">>, [a|b]]},
+         {compile, [<<".*">>, [bad_option]]},
+         {compile, [{a,b}, [bad_option]]},
+
+         {grun, 3},                             %Internal.
+
+         {inspect,[BadRegexp, namelist]},
+         {inspect,["", namelist]},
+         {inspect,[GoodRegexp, 999]},
+         {inspect,[GoodRegexp, bad_inspect_item]},
+
+         {internal_run, 4},                     %Internal.
+
+         {replace, [{a,b}, {x,y}, {z,z}]},
+         {replace, [{a,b}, BadRegexp, {z,z}]},
+
+         {replace, [{a,b}, {x,y}, {z,z}, [a|b]]},
+         {replace, [{a,b}, BadRegexp, [bad_option]]},
+         {replace, ["", "", {z,z}, not_a_list]},
+
+         {run, [{a,b}, {x,y}]},
+         {run, [{a,b}, ".*"]},
+         {run, ["abc", {x,y}]},
+         {run, ["abc", BadRegexp]},
+
+         {run, [{a,b}, {x,y}, []]},
+         {run, ["abc", BadRegexp, []]},
+         {run, [{a,b}, {x,y}, [a|b]]},
+         {run, [{a,b}, ".*", bad_options]},
+         {run, ["abc", {x,y}, [bad_option]]},
+         {run, ["abc", BadRegexp, 9999]},
+
+         {split, ["abc", BadRegexp]},
+         {split, [{a,b}, ".*"]},
+
+         {split, ["abc", BadRegexp, [a|b]]},
+         {split, [{a,b}, ".*", [bad_option]]},
+
+         {ucompile, 2},                         %Internal.
+         {urun, 3}                              %Internal.
+        ],
+    error_info_lib:test_error_info(re, L).

@@ -40,6 +40,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_maps_error(F, As);
               math ->
                   format_math_error(F, As);
+              re ->
+                  format_re_error(F, As, Cause);
               unicode ->
                   format_unicode_error(F, As);
               _ ->
@@ -262,6 +264,67 @@ maybe_domain_error([Arg]) ->
     case must_be_number(Arg) of
         [] -> [domain_error];
         Error -> [Error]
+    end.
+
+format_re_error(compile, [_], _) ->
+    [not_iodata];
+format_re_error(compile, [Re, _Options], Cause) ->
+    ReError = try re:compile(Re) of
+                  _ -> []
+              catch
+                  _:_ -> not_iodata
+              end,
+    case Cause of
+        badopt ->
+            [ReError, bad_options];
+        _ ->
+            [ReError]
+    end;
+format_re_error(inspect, [CompiledRE, Item], _) ->
+    ReError = try re:inspect(CompiledRE, namelist) of
+                  _ -> []
+              catch
+                  error:_ -> not_compiled_regexp
+              end,
+    if
+        ReError =:= []; not is_atom(Item) ->
+            [ReError, <<"not a valid item">>];
+        true ->
+            [ReError]
+    end;
+format_re_error(replace, [Subject, RE, Replacement], _) ->
+    [must_be_iodata(Subject),
+     must_be_regexp(RE),
+     must_be_iodata(Replacement)];
+format_re_error(replace, [Subject, RE, Replacement, _Options], Cause) ->
+    Errors = [must_be_iodata(Subject),
+              must_be_regexp(RE),
+              must_be_iodata(Replacement)],
+    case Cause of
+        badopt ->
+            Errors ++ [bad_options];
+        _ ->
+            Errors
+    end;
+format_re_error(run, [Subject, RE], _) ->
+    [must_be_iodata(Subject), must_be_regexp(RE)];
+format_re_error(run, [Subject, RE, _Options], Cause) ->
+    Errors = [must_be_iodata(Subject), must_be_regexp(RE)],
+    case Cause of
+        badopt ->
+            Errors ++ [bad_options];
+        _ ->
+            Errors
+    end;
+format_re_error(split, [Subject, RE], _) ->
+    [must_be_iodata(Subject), must_be_regexp(RE)];
+format_re_error(split, [Subject, RE, _Options], Cause) ->
+    Errors = [must_be_iodata(Subject), must_be_regexp(RE)],
+    case Cause of
+        badopt ->
+            Errors ++ [bad_options];
+        _ ->
+            Errors
     end.
 
 format_unicode_error(characters_to_binary, [_]) ->
@@ -624,6 +687,13 @@ must_be_integer(N, Min, Max) ->
 must_be_non_neg_integer(N) ->
     must_be_integer(N, 0, infinity).
 
+must_be_iodata(Term) ->
+    try iolist_size(Term) of
+        _ -> []
+    catch
+        error:_ -> not_iodata
+    end.
+
 must_be_list(List) when is_list(List) ->
     try length(List) of
         _ ->
@@ -666,6 +736,13 @@ must_be_pattern(P) ->
 must_be_position(Pos) when is_integer(Pos), Pos >= 0 -> [];
 must_be_position(Pos) when is_integer(Pos) -> range;
 must_be_position(_) -> not_integer.
+
+must_be_regexp(Term) ->
+    try re:run("", Term) of
+        _ -> []
+    catch
+        error:_ -> not_regexp
+    end.
 
 expand_error(already_owner) ->
     <<"the process is already the owner of the table">>;
@@ -713,6 +790,8 @@ expand_error(name_already_exists) ->
     <<"table name already exists">>;
 expand_error(not_binary) ->
     <<"not a binary">>;
+expand_error(not_compiled_regexp) ->
+    <<"not a compiled regular expression">>;
 expand_error(not_iodata) ->
     <<"not an iodata term">>;
 expand_error({not_fun,1}) ->
@@ -737,6 +816,8 @@ expand_error(not_owner) ->
     <<"the current process is not the owner">>;
 expand_error(not_pid) ->
     <<"not a pid">>;
+expand_error(not_regexp) ->
+    <<"neither an iodata term nor a compiled regular expression">>;
 expand_error(not_tuple) ->
     <<"not a tuple">>;
 expand_error(not_tuple_or_list) ->
