@@ -38,6 +38,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_lists_error(F, As);
               maps ->
                   format_maps_error(F, As);
+              unicode ->
+                  format_unicode_error(F, As);
               _ ->
                   []
           end,
@@ -226,6 +228,49 @@ format_maps_error(with, [List, Map]) ->
     [must_be_list(List), must_be_map(Map)];
 format_maps_error(without, [List, Map]) ->
     [must_be_list(List), must_be_map(Map)].
+
+format_unicode_error(characters_to_binary, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_binary, [Chars, InEnc]) ->
+    [unicode_char_data(Chars), unicode_encoding(InEnc)];
+format_unicode_error(characters_to_binary, [Chars, InEnc, OutEnc]) ->
+    [unicode_char_data(Chars), unicode_encoding(InEnc), unicode_encoding(OutEnc)];
+format_unicode_error(characters_to_list, Args) ->
+    format_unicode_error(characters_to_binary, Args);
+format_unicode_error(characters_to_nfc_binary, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_nfc_list, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_nfd_binary, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_nfd_list, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_nfkc_binary, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_nfkc_list, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_nfkd_binary, [_]) ->
+    [bad_char_data];
+format_unicode_error(characters_to_nfkd_list, [_]) ->
+    [bad_char_data].
+
+unicode_char_data(Chars) ->
+    try unicode:characters_to_binary(Chars) of
+        _ ->
+            []
+    catch
+        error:_ ->
+            bad_char_data
+    end.
+
+unicode_encoding(Enc) ->
+    try unicode:characters_to_binary(<<"a">>, Enc) of
+        _ ->
+            []
+    catch
+        error:_ ->
+            bad_encoding
+    end.
 
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);
@@ -587,10 +632,14 @@ expand_error(bad_boolean) ->
     <<"not a boolean value">>;
 expand_error(bad_binary_list) ->
     <<"not a flat list of binaries">>;
+expand_error(bad_char_data) ->
+    <<"not valid character data (an iodata term)">>;
 expand_error(bad_binary_pattern) ->
     <<"not a valid pattern">>;
 expand_error(bad_continuation) ->
     <<"invalid continuation">>;
+expand_error(bad_encoding) ->
+    <<"not a valid encoding">>;
 expand_error(bad_endinanness) ->
     <<"must be 'big' or 'little'">>;
 expand_error(bad_info_item) ->
