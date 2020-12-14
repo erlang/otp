@@ -913,6 +913,9 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
         case am_ets:
             format_module = am_erl_stdlib_errors;
             break;
+        case am_lists:
+            format_module = am_erl_stdlib_errors;
+            break;
 
         default:
             ASSERT((c_p->freason & EXF_HAS_EXT_INFO) == 0);

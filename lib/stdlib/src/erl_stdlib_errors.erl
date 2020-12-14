@@ -34,6 +34,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_binary_error(F, As, Cause);
               ets ->
                   format_ets_error(F, As, Cause);
+              lists ->
+                  format_lists_error(F, As);
               _ ->
                   []
           end,
@@ -147,9 +149,26 @@ format_binary_error(replace, [Subject, Pattern, Replacement, _Options], Cause) -
                 _ ->
                     Errors
             end
-    end;
-format_binary_error(_, _, _) ->
-    [].
+    end.
+
+format_lists_error(keyfind, [_Key, Pos, List]) ->
+    PosError = if
+                   is_integer(Pos) ->
+                       if Pos < 1 -> range;
+                          true -> []
+                       end;
+                   true ->
+                       not_integer
+               end,
+    [[], PosError, must_be_list(List)];
+format_lists_error(keymember, Args) ->
+    format_lists_error(keyfind, Args);
+format_lists_error(keysearch, Args) ->
+    format_lists_error(keyfind, Args);
+format_lists_error(member, [_Key, List]) ->
+    [[], must_be_list(List)];
+format_lists_error(reverse, [List, _Acc]) ->
+    [must_be_list(List)].
 
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);
@@ -464,6 +483,17 @@ must_be_integer(N, Min, Max) ->
 
 must_be_non_neg_integer(N) ->
     must_be_integer(N, 0, infinity).
+
+must_be_list(List) when is_list(List) ->
+    try length(List) of
+        _ ->
+            []
+    catch
+        error:badarg ->
+            not_proper_list
+    end;
+must_be_list(_) ->
+    not_list.
 
 must_be_pattern(P) ->
     try binary:match(<<"a">>, P) of

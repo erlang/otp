@@ -18,22 +18,35 @@
 %% %CopyrightEnd%
 %%
 -module(error_info_lib).
--export([test_error_info/2]).
+-export([test_error_info/2, test_error_info/3]).
 
-test_error_info(Module, L0) ->
+test_error_info(Module, List) ->
+    test_error_info(Module, List, []).
+
+test_error_info(Module, L0, Options) ->
     L1 = lists:foldl(fun({_,A}, Acc) when is_integer(A) -> Acc;
                         ({F,A}, Acc) -> [{F,A,[]}|Acc];
                         ({F,A,Opts}, Acc) -> [{F,A,Opts}|Acc]
                      end, [], L0),
     Tests = ordsets:from_list([{F,length(A)} || {F,A,_} <- L1] ++
                                   [{F,A} || {F,A} <- L0, is_integer(A)]),
-    Bifs0 = [{F,A} || {F,A} <- Module:module_info(exports),
-                      A =/= 0,
-                      F =/= module_info],
+    Bifs0 = get_bifs(Module, Options),
     Bifs = ordsets:from_list(Bifs0),
     NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
     L = lists:sort(NYI ++ L1),
     do_error_info(L, Module, []).
+
+get_bifs(Module, Options) ->
+    case lists:member(snifs_only, Options) of
+        true ->
+            [{F,A} || {M,F,A} <- erlang:system_info(snifs),
+                      M =:= Module,
+                      A =/= 0];
+        false ->
+            [{F,A} || {F,A} <- Module:module_info(exports),
+                      A =/= 0,
+                      F =/= module_info]
+    end.
 
 do_error_info([{_,Args,nyi}=H|T], Module, Errors) ->
     case lists:all(fun(A) -> A =:= '*' end, Args) of
