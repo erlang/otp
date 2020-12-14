@@ -103,7 +103,8 @@ int main( int argc, const char* argv[] )
 #ifdef YCF_YIELD_CODE_GENERATED
   do{
     nr_of_reductions = 101;
-    ret = fun_ycf_gen_yielding(&nr_of_reductions,&wb,NULL,allocator,freer,NULL,15,NULL,1);
+    /* sizeof(void*)*3 is used because the allocations are automatically padded to word boundaries */
+    ret = fun_ycf_gen_yielding(&nr_of_reductions,&wb,NULL,allocator,freer,NULL,sizeof(void*)*3,NULL,1);
     if(wb != NULL){
       printf("TRAPPED %ld\n", nr_of_reductions);
       nr_of_yields++;
