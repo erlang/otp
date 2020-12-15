@@ -96,7 +96,7 @@ AR_FLAGS=rcv
 endif
 
 INCFLAGS = -I. -I../include -Iconnect -Iencode -Idecode -Imisc -Iepmd \
-	-Iregistry -I$(TARGET) 
+	-I$(TARGET) 
 
 ifeq ($(USING_VC),yes)
 WARNFLAGS = -Wall
@@ -133,7 +133,7 @@ BINDIR     = $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)
 # -Wno-char-subscripts
 # -Wshadow
 
-vpath %.c connect:encode:decode:misc:epmd:global:registry
+vpath %.c connect:encode:decode:misc:epmd:global
 
 ###########################################################################
 #  List targets
@@ -289,7 +289,6 @@ EISOURCES = \
 	$(ENCODESRC) \
 	$(EPMDSRC) \
 	$(MISCSRC) \
-	$(REGISTRYSRC) \
 	$(GLOBALSOURCES)
 
 CONNECTSRC = \
@@ -375,40 +374,6 @@ MISCSRC = \
 	misc/ei_compat.c \
 	misc/ei_init.c \
 	misc/ei_cmp_nc.c
-
-REGISTRYSRC = \
-	registry/hash_dohash.c \
-	registry/hash_foreach.c \
-	registry/hash_freetab.c \
-	registry/hash_insert.c \
-	registry/hash_isprime.c \
-	registry/hash_lookup.c \
-	registry/hash_newtab.c \
-	registry/hash_remove.c \
-	registry/hash_resize.c \
-	registry/hash_rlookup.c \
-	registry/reg_close.c \
-	registry/reg_delete.c \
-	registry/reg_dirty.c \
-	registry/reg_dump.c \
-	registry/reg_free.c \
-	registry/reg_get.c \
-	registry/reg_getf.c \
-	registry/reg_geti.c \
-	registry/reg_getp.c \
-	registry/reg_gets.c \
-	registry/reg_make.c \
-	registry/reg_open.c \
-	registry/reg_purge.c \
-	registry/reg_resize.c \
-	registry/reg_restore.c \
-	registry/reg_set.c \
-	registry/reg_setf.c \
-	registry/reg_seti.c \
-	registry/reg_setp.c \
-	registry/reg_sets.c \
-	registry/reg_stat.c \
-	registry/reg_tabstat.c
 
 GLOBALSOURCES = \
 	global/global_names.c \
@@ -716,7 +681,6 @@ release: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/global"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/prog"
-	$(INSTALL_DIR) "$(RELSYSDIR)/src/registry"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
 	$(INSTALL_DATA) $(APP_TARGET)  "$(RELSYSDIR)/ebin/$(APP_FILE)"
@@ -732,7 +696,6 @@ release: opt
 	$(INSTALL_DATA) encode/*.[ch]   "$(RELSYSDIR)/src/encode"
 	$(INSTALL_DATA) epmd/*.[ch]     "$(RELSYSDIR)/src/epmd"
 	$(INSTALL_DATA) misc/*.[ch]     "$(RELSYSDIR)/src/misc"
-	$(INSTALL_DATA) registry/*.[ch] "$(RELSYSDIR)/src/registry"
 	$(INSTALL_DATA) global/*.[ch]   "$(RELSYSDIR)/src/global"
 	$(INSTALL_DATA) prog/*.[ch]     "$(RELSYSDIR)/src/prog"
 
