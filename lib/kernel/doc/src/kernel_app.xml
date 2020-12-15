@@ -460,7 +460,7 @@ MaxT = TickTime + TickTime / 4</code>
       </item>
       <tag><c>shell_history_file_bytes = integer()</c></tag>
       <item>
-        <p>how many bytes the shell should remember. By default, the
+        <p>How many bytes the shell should remember. By default, the
            value is set to 512kb, and the minimal value is 50kb.</p>
       </item>
       <tag><c>shell_history_path = string()</c></tag>
