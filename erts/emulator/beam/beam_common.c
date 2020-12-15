@@ -888,6 +888,9 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
         case am_erlang:
             format_module = am_erl_erts_errors;
             break;
+        case am_erts_internal:
+            format_module = am_erl_erts_errors;
+            break;
         case am_persistent_term:
             format_module = am_erl_erts_errors;
             break;

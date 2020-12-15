@@ -8732,13 +8732,13 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
                         break;
                     }
                 }
-                BIF_RET(am_badarg);
+                BIF_RET(am_badopt);
 	    }
             }
 	    arg = CDR(lp);
         }
 	if (is_not_nil(arg))
-            BIF_RET(am_badarg);
+            BIF_RET(am_badopt);
     }
 
     if (!unless_suspending) {

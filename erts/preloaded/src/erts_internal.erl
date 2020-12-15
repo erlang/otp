@@ -324,14 +324,15 @@ check_process_code(Pid, Module, OptionList)  ->
 	    end
     end.
 
-% gets async opt and verify valid option list
+%% gets async opt and verify valid option list
 get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync) ->
     get_cpc_opts(Options, AsyncTuple);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async) when AllowGC == true;
-							  AllowGC == false ->
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async) when is_boolean(AllowGC) ->
     get_cpc_opts(Options, Async);
 get_cpc_opts([], Async) ->
-    Async.
+    Async;
+get_cpc_opts(_, _) ->
+    error(bad_option).
 
 -spec check_dirty_process_code(Pid, Module) -> Result when
       Result :: boolean() | 'normal' | 'busy',
@@ -510,7 +511,7 @@ microstate_accounting(Ref, Threads) ->
                    | existing | existing_processes | existing_ports
                    | new | new_processes | new_ports,
       How :: boolean(),
-      FlagList :: [].
+      FlagList :: list().
 trace(_PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
@@ -526,7 +527,7 @@ trace(_PidSpec, _How, _FlagList) ->
                  | boolean()
                  | restart
                  | pause,
-      FlagList :: [ ].
+      FlagList :: list().
 trace_pattern(_MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
 
@@ -848,7 +849,7 @@ get_internal_state_blocked(Arg) ->
       Function :: atom(),
       Args :: [term()],
       Opts :: [term()],
-      Res :: reference() | 'badarg'.
+      Res :: reference() | 'badarg' | 'badopt'.
 
 spawn_request(_Module, _Function, _Args, _Opts) ->
     erlang:nif_error(undef).

@@ -65,7 +65,10 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
 
     port = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_type, &err_num);
     if (!port) {
-	if (err_type == -3) {
+	if (err_type == -4) {
+            /* Invalid settings arguments. */
+            return am_badopt;
+        } else if (err_type == -3) {
 	    ASSERT(err_num == BADARG || err_num == SYSTEM_LIMIT);
 	    if (err_num == BADARG)
                 res = am_badarg;
@@ -180,11 +183,11 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	    else if (car == am_nosuspend)
 		flags |= ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    else
-		BIF_RET(am_badarg);
+		BIF_RET(am_badopt);
 	    l = CDR(cons);
 	}
 	if (!is_nil(l))
-	    BIF_RET(am_badarg);
+	    BIF_RET(am_badopt);
     }
 
     prt = sig_lookup_port(BIF_P, BIF_ARG_1);
@@ -444,10 +447,10 @@ BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
 	if (external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
 	    BIF_RET(am_undefined);
 	else
-	    BIF_RET(am_badarg);
+	    BIF_RET(am_badtype);
     }
     else {
-	BIF_RET(am_badarg);
+	BIF_RET(am_badtype);
     }
 
     switch (erts_port_info(BIF_P, prt, BIF_ARG_2, &retval)) {
@@ -659,7 +662,8 @@ Eterm erts_port_data_read(Port* prt)
  * Error returns: -1 or -2 returned from open_driver (-2 implies
  * that *err_nump contains the error code; -1 means we don't really know what happened),
  * -3 if argument parsing failed or we are out of ports (*err_nump should contain
- * either BADARG or SYSTEM_LIMIT).
+ * either BADARG or SYSTEM_LIMIT),
+ * -4 if port settings were invalid.
  */
 
 static Port *
@@ -703,8 +707,9 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     *err_nump = 0;
 
     if (is_not_list(settings) && is_not_nil(settings)) {
-	goto badarg;
+	goto bad_settings;
     }
+
     /*
      * Parse the settings.
      */
@@ -718,7 +723,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		option = *tp++;
 		if (option == am_packet) {
 		    if (is_not_small(*tp)) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    opts.packet_bytes = signed_val(*tp);
 		    switch (opts.packet_bytes) {
@@ -727,15 +732,15 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    case 4:
 			break;
 		    default:
-			goto badarg;
+			goto bad_settings;
 		   }
 		} else if (option == am_line) {
 		    if (is_not_small(*tp)) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    linebuf = signed_val(*tp);
 		    if (linebuf <= 0) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		} else if (option == am_env) {
 		    if (merged_environment) {
@@ -746,13 +751,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    merged_environment = 1;
 
 		    if (merge_global_environment(&opts.envir, *tp)) {
-		        goto badarg;
+		        goto bad_settings;
 		    }
 		} else if (option == am_args) {
 		    char **av;
 		    char **oav = opts.argv;
 		    if ((av = convert_args(*tp)) == NULL) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    opts.argv = av;
 		    if (oav) {
@@ -765,7 +770,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    char *a0;
 
 		    if ((a0 = erts_convert_filename_to_native(*tp, NULL, 0, ERTS_ALC_T_TMP, 1, 1, NULL)) == NULL) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    if (opts.argv == NULL) {
 			opts.argv = erts_alloc(ERTS_ALC_T_TMP, 
@@ -786,29 +791,29 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    else if (*tp == am_false)
 			opts.parallelism = 0;
 		    else
-			goto badarg;
+			goto bad_settings;
                 } else if (option == am_busy_limits_port) {
                     Uint high, low;
                     if (*tp == am_disabled)
                         low = high = ERL_DRV_BUSY_MSGQ_DISABLED;
                     else if (!is_tuple_arity(*tp, 2))
-                        goto badarg;
+                        goto bad_settings;
                     else {
                         Eterm *wtp = tuple_val(*tp);
                         if (!term_to_Uint(wtp[1], &low))
-                            goto badarg;
+                            goto bad_settings;
                         if (!term_to_Uint(wtp[2], &high))
-                            goto badarg;
+                            goto bad_settings;
                         if (high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
-                            goto badarg;
+                            goto bad_settings;
                         if (high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
-                            goto badarg;
+                            goto bad_settings;
                         if (low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
-                            goto badarg;
+                            goto bad_settings;
                         if (low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
-                            goto badarg;
+                            goto bad_settings;
                         if (high == ~((Uint) 0) || low == ~((Uint) 0))
-                            goto badarg;
+                            goto bad_settings;
                         if (low > high)
                             low = high;
                     }
@@ -820,23 +825,23 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
                     if (*tp == am_disabled)
                         low = high = ERL_DRV_BUSY_MSGQ_DISABLED;
                     else if (!is_tuple_arity(*tp, 2))
-                        goto badarg;
+                        goto bad_settings;
                     else {
                         Eterm *wtp = tuple_val(*tp);
                         if (!term_to_Uint(wtp[1], &low))
-                            goto badarg;
+                            goto bad_settings;
                         if (!term_to_Uint(wtp[2], &high))
-                            goto badarg;
+                            goto bad_settings;
                         if (high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
-                            goto badarg;
+                            goto bad_settings;
                         if (high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
-                            goto badarg;
+                            goto bad_settings;
                         if (low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
-                            goto badarg;
+                            goto bad_settings;
                         if (low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
-                            goto badarg;
+                            goto bad_settings;
                         if (high == ~((Uint) 0) || low == ~((Uint) 0))
-                            goto badarg;
+                            goto bad_settings;
                         if (low > high)
                             low = high;
                     }
@@ -844,7 +849,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
                     opts.high_msgq_watermark = high;
                     opts.msgq_watermarks_set = !0;
 		} else {
-		    goto badarg;
+		    goto bad_settings;
 		}
 	    } else if (*nargs == am_stream) {
 		opts.packet_bytes = 0;
@@ -871,12 +876,12 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    } else if (*nargs == am_overlapped_io) {
 		opts.overlapped_io = 1;
 	    } else {
-		goto badarg;
+		goto bad_settings;
 	    }
 	    if (is_nil(*++nargs)) 
 		break;
 	    if (is_not_list(*nargs)) {
-		goto badarg;
+		goto bad_settings;
 	    }
 	    nargs = list_val(*nargs);
 	}
@@ -888,7 +893,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     /* Mutually exclusive arguments. */
     if((linebuf && opts.packet_bytes) || 
        (opts.redir_stderr && !opts.use_stdio)) {
-	goto badarg;
+	goto bad_settings;
     }
 
     /* If we lacked an env option, fill in the global environment without
@@ -900,7 +905,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     /*
      * Parse the first argument and start the appropriate driver.
      */
-    
+
     if (is_atom(name) || (i = is_string(name))) {
 	/* a vanilla port */
 	if (is_atom(name)) {
@@ -1044,7 +1049,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	erts_free(ERTS_ALC_T_TMP, (void *) opts.wd);
     }
     return port;
-    
+
+ bad_settings:
+    if (err_typep)
+	*err_typep = -4;
+    port = NULL;
+    goto do_return;
+
  badarg:
     if (err_typep)
 	*err_typep = -3;

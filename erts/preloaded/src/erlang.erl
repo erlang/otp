@@ -70,6 +70,11 @@
 -compile({no_auto_import,[spawn_opt/4]}).
 -compile({no_auto_import,[spawn_opt/5]}).
 
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_info/1,error_with_info/2,
+                   error_with_inherited_info/3,badarg_with_cause/2]}).
+
 -export_type([timestamp/0]).
 -export_type([time_unit/0]).
 -export_type([deprecated_time_unit/0]).
@@ -132,7 +137,7 @@
 -export([binary_to_integer/1,binary_to_integer/2]).
 -export([binary_to_list/1]).
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
--export([bit_size/1, bitsize/1, bitstring_to_list/1]).
+-export([bit_size/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
 -export([cancel_timer/1, cancel_timer/2, ceil/1,
 	 check_old_code/1, check_process_code/2,
@@ -377,7 +382,12 @@ append_element(_Tuple1, _Term) ->
 -spec atom_to_binary(Atom) -> binary() when
       Atom :: atom().
 atom_to_binary(Atom) ->
-    erlang:atom_to_binary(Atom, utf8).
+    try
+        erlang:atom_to_binary(Atom, utf8)
+    catch
+        error:Error ->
+            error_with_info(Error, [Atom])
+    end.
 
 %% atom_to_binary/2
 -spec atom_to_binary(Atom, Encoding) -> binary() when
@@ -413,7 +423,11 @@ binary_part(_Subject, _Start, _Length) ->
 -spec binary_to_atom(Binary) -> atom() when
       Binary :: binary().
 binary_to_atom(Binary) ->
-    erlang:binary_to_atom(Binary, utf8).
+    try
+        erlang:binary_to_atom(Binary, utf8)
+    catch
+	error:Error -> error_with_info(Error, [Binary])
+    end.
 
 %% binary_to_atom/2
 -spec binary_to_atom(Binary, Encoding) -> atom() when
@@ -426,7 +440,11 @@ binary_to_atom(_Binary, _Encoding) ->
 -spec binary_to_existing_atom(Binary) -> atom() when
       Binary :: binary().
 binary_to_existing_atom(Binary) ->
-    erlang:binary_to_existing_atom(Binary, utf8).
+    try
+        erlang:binary_to_existing_atom(Binary, utf8)
+    catch
+	error:Error -> error_with_info(Error, [Binary])
+    end.
 
 %% binary_to_existing_atom/2
 -spec binary_to_existing_atom(Binary, Encoding) -> atom() when
@@ -488,12 +506,6 @@ binary_to_term(_Binary, _Opts) ->
 -spec bit_size(Bitstring) -> non_neg_integer() when
       Bitstring :: bitstring().
 bit_size(_Bitstring) ->
-    erlang:nif_error(undefined).
-
-%% bitsize/1
--spec bitsize(P1) -> non_neg_integer() when
-      P1 :: bitstring().
-bitsize(_P1) ->
     erlang:nif_error(undefined).
 
 %% bitstring_to_list/1
@@ -565,7 +577,7 @@ check_process_code(Pid, Module) ->
     try
 	erts_internal:check_process_code(Pid, Module, [{allow_gc, true}])
     catch
-	error:Error -> erlang:error(Error, [Pid, Module])
+	error:Error -> error_with_info(Error, [Pid, Module])
     end.
 
 %% check_process_code/3
@@ -580,7 +592,10 @@ check_process_code(Pid, Module, OptionList)  ->
     try
 	erts_internal:check_process_code(Pid, Module, OptionList)
     catch
-	error:Error -> erlang:error(Error, [Pid, Module, OptionList])
+        error:bad_option ->
+            badarg_with_cause([Pid, Module, OptionList], bad_option);
+        error:_ ->
+            badarg_with_info([Pid, Module, OptionList])
     end.
 
 %% crc32/1
@@ -995,7 +1010,7 @@ garbage_collect(Pid) ->
     try
 	erlang:garbage_collect(Pid, [])
     catch
-	error:Error -> erlang:error(Error, [Pid])
+	error:Error -> error_with_info(Error, [Pid])
     end.
 
 -record(gcopt, {
@@ -1038,16 +1053,19 @@ garbage_collect(Pid, OptionList)  ->
 		end
 	end
     catch
-	error:Error -> erlang:error(Error, [Pid, OptionList])
+        throw:bad_option -> badarg_with_cause([Pid, OptionList], bad_option);
+	error:_ -> badarg_with_info([Pid, OptionList])
     end.
 
-% gets async opt and verify valid option list
+%% gets async opt and verify valid option list
 get_gc_opts([{async, _ReqId} = AsyncTuple | Options], GcOpt = #gcopt{}) ->
     get_gc_opts(Options, GcOpt#gcopt{ async = AsyncTuple });
 get_gc_opts([{type, T} | Options], GcOpt = #gcopt{}) ->
     get_gc_opts(Options, GcOpt#gcopt{ type = T });
 get_gc_opts([], GcOpt) ->
-    GcOpt.
+    GcOpt;
+get_gc_opts(_, _) ->
+    erlang:throw(bad_option).
 
 %% garbage_collect_message_area/0
 -spec erlang:garbage_collect_message_area() -> boolean().
@@ -1109,7 +1127,7 @@ group_leader(GroupLeader, Pid) ->
                  Res
          end of
         true -> true;
-        Error -> erlang:error(Error, [GroupLeader, Pid])
+        Error -> error_with_info(Error, [GroupLeader, Pid])
     end.
 
 %% halt/0
@@ -1122,8 +1140,13 @@ halt() ->
 %% Shadowed by erl_bif_types: erlang:halt/1
 -spec halt(Status) -> no_return() when
       Status :: non_neg_integer() | 'abort' | string().
+-dialyzer({no_return, halt/1}).
 halt(Status) ->
-    erlang:halt(Status, []).
+    try
+        erlang:halt(Status, [])
+    catch
+	error:Error -> error_with_info(Error, [Status])
+    end.
 
 %% halt/2
 %% Shadowed by erl_bif_types: erlang:halt/2
@@ -1576,7 +1599,7 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 	end div FU
     catch
 	_ : _ ->
-	    erlang:error(badarg, [Time, FromUnit, ToUnit])
+	    error_with_info(badarg, [Time, FromUnit, ToUnit])
     end.
 
 -spec erlang:time_offset() -> integer().
@@ -1620,9 +1643,15 @@ prepare_loading_1(Module, Code) ->
         Res -> Res
     catch
         error:Reason ->
-            {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
-                (catch erlang:error(new_stacktrace, [Module,Code])),
-            erlang:raise(error, Reason, [{Mod,prepare_loading,L,Loc}|Rest])
+            try
+                erlang:error(new_stacktrace, [Module,Code])
+            catch
+                error:new_stacktrace:Stk0 ->
+                    [{Mod,_,L,Loc0}|T] = Stk0,
+                    Loc = [{error_info,#{module => erl_erts_errors}}|Loc0],
+                    Stk = [{Mod,prepare_loading,L,Loc}|T],
+                    erlang:raise(error, Reason, Stk)
+            end
     end.
 
 %% pre_loaded/0
@@ -1644,8 +1673,10 @@ process_display(Pid, Type) ->
              Res ->
                  Res
          end of
+        badopt ->
+            badarg_with_cause([Pid, Type], badopt);
         badarg ->
-            erlang:error(badarg, [Pid, Type]);
+            badarg_with_info([Pid, Type]);
         Result ->
             Result
     end.
@@ -1662,7 +1693,8 @@ process_flag(Pid, Flag, Value) ->
                  receive {Ref, Res} -> Res end;
              Res -> Res
          end of
-        badarg -> erlang:error(badarg, [Pid, Flag, Value]);
+        badtype -> badarg_with_cause([Pid, Flag, Value], badtype);
+        badarg -> badarg_with_info([Pid, Flag, Value]);
         Result -> Result
     end.
 
@@ -1685,12 +1717,12 @@ processes() ->
 purge_module(Module) when erlang:is_atom(Module) ->
     case erts_code_purger:purge(Module) of
 	{false, _} ->
-	    erlang:error(badarg, [Module]);
+	    badarg_with_info([Module]);
 	{true, _} ->
 	    true
     end;
 purge_module(Arg) ->
-    erlang:error(badarg, [Arg]).
+    badarg_with_info([Arg]).
 
 
 %% put/2
@@ -1834,7 +1866,7 @@ setnode(Node, DistCtrlr, {_Flags, _Ver, _Creation} = Opts) ->
             DHandle
     end;
 setnode(Node, DistCtrlr, Opts) ->
-    erlang:error(badarg, [Node, DistCtrlr, Opts]).
+    badarg_with_info([Node, DistCtrlr, Opts]).
 
 
 %% size/1
@@ -1902,9 +1934,9 @@ suspend_process(Suspendee, OptList) ->
              Res ->
                  Res
          end of
-	true -> true;
-	false -> false;
-	Error -> erlang:error(Error, [Suspendee, OptList])
+        badopt -> badarg_with_cause([Suspendee, OptList], badopt);
+        Bool when erlang:is_boolean(Bool) -> Bool;
+	Error -> error_with_info(Error, [Suspendee, OptList])
     end.
 
 -spec erlang:suspend_process(Suspendee) -> 'true' when
@@ -1918,7 +1950,7 @@ suspend_process(Suspendee) ->
 	 end of
 	true -> true;
         false -> erlang:error(internal_error, [Suspendee]);
-	Error -> erlang:error(Error, [Suspendee])
+	Error -> error_with_info(Error, [Suspendee])
     end.
 
 %% system_monitor/0
@@ -1986,28 +2018,12 @@ time() ->
       How :: boolean(),
       FlagList :: [trace_flag()].
 trace(PidPortSpec, How, FlagList) ->
-    %% Make sure that we have loaded the tracer module
-    case lists:keyfind(tracer, 1, FlagList) of
-        {tracer, Module, State} when erlang:is_atom(Module) ->
-            case erlang:module_loaded(Module) of
-                false ->
-                    Module:enabled(trace_status, erlang:self(), State);
-                true ->
-                    ok
-            end;
-        _ ->
-            ignore
-    end,
-
+    ensure_tracer_module_loaded(tracer, FlagList),
     try erts_internal:trace(PidPortSpec, How, FlagList) of
         Res -> Res
-    catch E:R ->
-            {_, [_ | CST]} = erlang:process_info(
-                               erlang:self(), current_stacktrace),
-            erlang:raise(
-              E, R, [{?MODULE, trace, [PidPortSpec, How, FlagList], []} | CST])
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [PidPortSpec, How, FlagList], Stk)
     end.
-
 %% trace_delivered/1
 -spec erlang:trace_delivered(Tracee) -> Ref when
       Tracee :: pid() | all,
@@ -2232,16 +2248,20 @@ is_tuple(_Term) ->
       Binary :: binary(),
       Reason :: badfile | not_purged | on_load.
 load_module(Mod, Code) ->
-    case erlang:prepare_loading(Mod, Code) of
-	{error,_}=Error ->
-	    Error;
-	Prep when erlang:is_reference(Prep) ->
-	    case erlang:finish_loading([Prep]) of
-		ok ->
-		    {module,Mod};
-		{Error,[Mod]} ->
-		    {error,Error}
-	    end
+    try
+        case erlang:prepare_loading(Mod, Code) of
+            {error,_}=Error ->
+                Error;
+            Prep when erlang:is_reference(Prep) ->
+                case erlang:finish_loading([Prep]) of
+                    ok ->
+                        {module,Mod};
+                    {Error,[Mod]} ->
+                        {error,Error}
+                end
+        end
+    catch
+        error:Reason -> error_with_info(Reason, [Mod, Code])
     end.
 
 -spec erlang:load_nif(Path, LoadInfo) ->  ok | Error when
@@ -2323,7 +2343,8 @@ open_port(PortName, PortSettings) ->
 	     Res -> Res
 	 end of
 	Port when erlang:is_port(Port) -> Port;
-	Error -> erlang:error(Error, [PortName, PortSettings])
+        badopt -> badarg_with_cause([PortName, PortSettings], badopt);
+	Error -> error_with_info(Error, [PortName, PortSettings])
     end.
 
 -type priority_level() ::
@@ -2690,11 +2711,8 @@ tl(_List) ->
 trace_pattern(MFA, MatchSpec) ->
     try erts_internal:trace_pattern(MFA, MatchSpec, []) of
         Res -> Res
-    catch E:R ->
-            {_, [_ | CST]} = erlang:process_info(
-                               erlang:self(), current_stacktrace),
-            erlang:raise(
-              E, R, [{?MODULE, trace_pattern, [MFA, MatchSpec], []} | CST])
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [MFA, MatchSpec], Stk)
     end.
 
 -type trace_pattern_flag() ::
@@ -2718,26 +2736,11 @@ trace_pattern(MFA, MatchSpec) ->
                  | pause,
       FlagList :: [ trace_pattern_flag() ].
 trace_pattern(MFA, MatchSpec, FlagList) ->
-    %% Make sure that we have loaded the tracer module
-    case lists:keyfind(meta, 1, FlagList) of
-        {meta, Module, State} when erlang:is_atom(Module) ->
-            case erlang:module_loaded(Module) of
-                false ->
-                    Module:enabled(trace_status, erlang:self(), State);
-                true ->
-                    ok
-            end;
-        _ ->
-            ignore
-    end,
-
+    ensure_tracer_module_loaded(meta, FlagList),
     try erts_internal:trace_pattern(MFA, MatchSpec, FlagList) of
         Res -> Res
-    catch E:R ->
-            {_, [_ | CST]} = erlang:process_info(
-                               erlang:self(), current_stacktrace),
-            erlang:raise(
-              E, R, [{?MODULE, trace_pattern, [MFA, MatchSpec, FlagList], []} | CST])
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [MFA, MatchSpec, FlagList], Stk)
     end.
 
 %% Shadowed by erl_bif_types: erlang:tuple_to_list/1
@@ -2905,7 +2908,7 @@ spawn(F) when erlang:is_function(F) ->
 spawn({M,F}=MF) when erlang:is_atom(M), erlang:is_atom(F) ->
     erlang:spawn(erlang, apply, [MF, []]);
 spawn(F) ->
-    erlang:error(badarg, [F]).
+    badarg_with_info([F]).
 
 -spec spawn(Node, Fun) -> pid() when
       Node :: node(),
@@ -2917,7 +2920,7 @@ spawn(N, F) when erlang:is_function(F) ->
 spawn(N, {M,F}=MF) when erlang:is_atom(M), erlang:is_atom(F) ->
     erlang:spawn(N, erlang, apply, [MF, []]);
 spawn(N, F) ->
-    erlang:error(badarg, [N, F]).
+    badarg_with_info([N, F]).
 
 -spec spawn_link(Fun) -> pid() when
       Fun :: function().
@@ -2926,7 +2929,7 @@ spawn_link(F) when erlang:is_function(F) ->
 spawn_link({M,F}=MF) when erlang:is_atom(M), erlang:is_atom(F) ->
     erlang:spawn_link(erlang, apply, [MF, []]);
 spawn_link(F) ->
-    erlang:error(badarg, [F]).
+    badarg_with_info([F]).
 
 -spec spawn_link(Node, Fun) -> pid() when
       Node :: node(),
@@ -2938,7 +2941,7 @@ spawn_link(N, F) when erlang:is_function(F) ->
 spawn_link(N, {M,F}=MF) when erlang:is_atom(M), erlang:is_atom(F) ->
     spawn_link(N, erlang, apply, [MF, []]);
 spawn_link(N, F) ->
-    erlang:error(badarg, [N, F]).
+    badarg_with_info([N, F]).
 
 %% Spawn and atomically set up a monitor.
 
@@ -2947,7 +2950,7 @@ spawn_link(N, F) ->
 spawn_monitor(F) when erlang:is_function(F, 0) ->
     erlang:spawn_opt(erlang,apply,[F,[]],[monitor]);
 spawn_monitor(F) ->
-    erlang:error(badarg, [F]).
+    badarg_with_info([F]).
 
 -spec spawn_monitor(Node, Fun) -> {pid(), reference()} when
       Node :: node(),
@@ -2958,10 +2961,10 @@ spawn_monitor(Node, F) when erlang:is_atom(Node), erlang:is_function(F, 0) ->
         erlang:spawn_monitor(Node,erlang,apply,[F,[]])
     catch
         error:Err ->
-            erlang:error(Err, [Node, F])
+            error_with_info(Err, [Node, F])
     end;
 spawn_monitor(Node, F) ->
-    erlang:error(badarg, [Node, F]).
+    badarg_with_info([Node, F]).
 
 -spec spawn_monitor(Module, Function, Args) -> {pid(), reference()} when
       Module :: module(),
@@ -2972,7 +2975,7 @@ spawn_monitor(M, F, A) when erlang:is_atom(M),
                             erlang:is_list(A) ->
     erlang:spawn_opt(M,F,A,[monitor]);
 spawn_monitor(M, F, A) ->
-    erlang:error(badarg, [M,F,A]).
+    badarg_with_info([M,F,A]).
 
 
 -type max_heap_size() ::
@@ -2997,11 +3000,16 @@ spawn_monitor(M, F, A) ->
       Fun :: function(),
       Options :: [spawn_opt_option()].
 spawn_opt(F, O) when erlang:is_function(F) ->
-    erlang:spawn_opt(erlang, apply, [F, []], O);
+    try
+        erlang:spawn_opt(erlang, apply, [F, []], O)
+    catch
+        error:Error:Stk ->
+            error_with_inherited_info(Error, [F,O], Stk)
+    end;
 spawn_opt({M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
     erlang:spawn_opt(erlang, apply, [MF, []], O);
 spawn_opt(F, O) ->
-    erlang:error(badarg, [F, O]).
+    badarg_with_info([F, O]).
 
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
@@ -3012,13 +3020,22 @@ spawn_opt(F, O) ->
                   OtherOption],
       OtherOption :: term().
 spawn_opt(N, F, O) when N =:= erlang:node() ->
-    erlang:spawn_opt(F, O);
+    try
+        erlang:spawn_opt(F, O)
+    catch
+        error:Error:Stk ->
+            error_with_inherited_info(Error, [N, F, O], Stk)
+    end;
 spawn_opt(N, F, O) when erlang:is_function(F, 0) ->
-    erlang:spawn_opt(N, erlang, apply, [F, []], O);
+    try
+        erlang:spawn_opt(N, erlang, apply, [F, []], O)
+    catch
+        error:Error:Stk -> error_with_inherited_info(Error, [N, F,O], Stk)
+    end;
 spawn_opt(N, {M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
     erlang:spawn_opt(N, erlang, apply, [MF, []], O);
 spawn_opt(N, F, O) ->
-    erlang:error(badarg, [N, F, O]).
+    badarg_with_info([N, F, O]).
 
 %% Spawns with MFA
 
@@ -3039,10 +3056,10 @@ spawn(N,M,F,A) when erlang:is_atom(N),
         erlang:spawn_opt(N, M, F, A, [])
     catch
         _:Reason ->
-            erlang:error(Reason, [N, M, F, A])
+            error_with_info(Reason, [N, M, F, A])
     end;
 spawn(N,M,F,A) ->
-    erlang:error(badarg, [N, M, F, A]).
+    badarg_with_info([N, M, F, A]).
 
 -spec spawn_link(Node, Module, Function, Args) -> pid() when
       Node :: node(),
@@ -3061,10 +3078,10 @@ spawn_link(N,M,F,A) when erlang:is_atom(N),
         erlang:spawn_opt(N, M, F, A, [link])
     catch
         _:Reason ->
-            erlang:error(Reason, [N, M, F, A])
+            error_with_info(Reason, [N, M, F, A])
     end;
 spawn_link(N,M,F,A) ->
-    erlang:error(badarg, [N, M, F, A]).
+    badarg_with_info([N, M, F, A]).
 
 -spec spawn_monitor(Node, Module, Function, Args) -> {pid(), reference()} when
       Node :: node(),
@@ -3079,7 +3096,7 @@ spawn_monitor(N,M,F,A) when N =:= erlang:node(),
         erlang:spawn_monitor(M,F,A)
     catch
         error:Err ->
-            erlang:error(Err, [N, M, F, A])
+            error_with_info(Err, [N, M, F, A])
     end;
 spawn_monitor(N,M,F,A) when erlang:is_atom(N),
                             erlang:is_atom(M),
@@ -3088,13 +3105,13 @@ spawn_monitor(N,M,F,A) when erlang:is_atom(N),
               erlang:spawn_request(N, M, F, A, [monitor])
           catch
               error:Err0 ->
-                  erlang:error(Err0, [N, M, F, A])
+                  error_with_info(Err0, [N, M, F, A])
           end,
     receive
         {spawn_reply, Ref, ok, Pid} when erlang:is_pid(Pid) ->
             {Pid, Ref};
         {spawn_reply, Ref, error, badopt} ->
-            erlang:error(badarg, [N, M, F, A]);
+            badarg_with_info([N, M, F, A]);
         {spawn_reply, Ref, error, noconnection} ->
             try 
                 erlang:spawn_opt(erts_internal,crasher,
@@ -3103,13 +3120,13 @@ spawn_monitor(N,M,F,A) when erlang:is_atom(N),
                                  [monitor])
             catch
                 _:Err1 ->
-                    erlang:error(Err1, [N, M, F, A])
+                    error_with_info(Err1, [N, M, F, A])
             end;
         {spawn_reply, Ref, error, Err2} ->
-            erlang:error(Err2, [N, M, F, A])
+            error_with_info(Err2, [N, M, F, A])
     end;
 spawn_monitor(N,M,F,A) ->
-    erlang:error(badarg, [N, M, F, A]).
+    badarg_with_info([N, M, F, A]).
 
 -spec spawn_opt(Module, Function, Args, Options) ->
           Pid | {Pid, MonitorRef} when
@@ -3138,13 +3155,18 @@ spawn_opt(_Module, _Function, _Args, _Options) ->
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
 			      erlang:is_atom(M), erlang:is_atom(F),
                               erlang:is_list(A), erlang:is_list(O) ->
-    erlang:spawn_opt(M, F, A, O);
+    try
+        erlang:spawn_opt(M, F, A, O)
+    catch
+        error:Error:Stk ->
+            error_with_inherited_info(Error, [N, M, F, A, O], Stk)
+    end;
 spawn_opt(N, M, F, A, O) when erlang:is_atom(N),
                               erlang:is_atom(M),
                               erlang:is_atom(F) ->
     {Ref, MonOpt} = case erts_internal:dist_spawn_request(N, {M, F, A}, O, spawn_opt) of
                         {R, MO} when erlang:is_reference(R) -> {R, MO};
-                        badarg -> erlang:error(badarg, [N, M, F, A, O])
+                        badarg -> badarg_with_info([N, M, F, A, O])
                     end,
     receive
         {spawn_reply, Ref, ok, Pid} when erlang:is_pid(Pid) ->
@@ -3153,27 +3175,27 @@ spawn_opt(N, M, F, A, O) when erlang:is_atom(N),
                 false -> Pid
             end;
         {spawn_reply, Ref, error, badopt} ->
-            erlang:error(badarg, [N, M, F, A, O]);
+            badarg_with_cause([N, M, F, A, O], badopt);
         {spawn_reply, Ref, error, noconnection} ->
             try 
                 erlang:spawn_opt(erts_internal,crasher,
                                  [N,M,F,A,O,noconnection], O)
             catch
                 _:Err1 ->
-                    erlang:error(Err1, [N, M, F, A, O])
+                    error_with_info(Err1, [N, M, F, A, O])
             end;
         {spawn_reply, Ref, error, notsup} ->
             case old_remote_spawn_opt(N, M, F, A, O) of
                 Pid when erlang:is_pid(Pid) ->
                     Pid;
                 Err2 ->
-                    erlang:error(Err2, [N, M, F, A, O])
+                    error_with_info(Err2, [N, M, F, A, O])
             end;
         {spawn_reply, Ref, error, Err3} ->
-            erlang:error(Err3, [N, M, F, A, O])
+            error_with_info(Err3, [N, M, F, A, O])
     end;
 spawn_opt(N,M,F,A,O) ->
-    erlang:error(badarg, [N,M,F,A,O]).
+    badarg_with_info([N,M,F,A,O]).
 
 old_remote_spawn_opt(N, M, F, A, O) ->
     case lists:member(monitor, O) of
@@ -3230,10 +3252,10 @@ spawn_request(F) when erlang:is_function(F, 0) ->
         erlang:spawn_request(erlang, apply, [F, []], [])
     catch
         error:Err ->
-            erlang:error(Err, [F])
+            error_with_info(Err, [F])
     end;
 spawn_request(F) ->
-    erlang:error(badarg, [F]).
+    badarg_with_info([F]).
 
 %%
 %% spawn_request/2
@@ -3257,18 +3279,18 @@ spawn_request(F, O) when erlang:is_function(F, 0) ->
     try
         erlang:spawn_request(erlang, apply, [F, []], O)
     catch
-        error:Err ->
-            erlang:error(Err, [F, O])
+        error:Err:Stk ->
+            error_with_inherited_info(Err, [F, O], Stk)
     end;
 spawn_request(N, F) when erlang:is_function(F, 0) ->
     try
         erlang:spawn_request(N, erlang, apply, [F, []], [])
     catch
-        error:Err ->
-            erlang:error(Err, [N, F])
+        error:Err:Stk ->
+            error_with_inherited_info(Err, [N, F], Stk)
     end;
 spawn_request(A1, A2) ->
-    erlang:error(badarg, [A1, A2]).
+    badarg_with_info([A1, A2]).
 
 %%
 %% spawn_request/3
@@ -3300,14 +3322,14 @@ spawn_request(N, F, O) when erlang:is_function(F, 0) ->
         erlang:spawn_request(N, erlang, apply, [F, []], O)
     catch
         error:Err ->
-            erlang:error(Err, [N, F, O])
+            error_with_info(Err, [N, F, O])
     end;
 spawn_request(M, F, A) ->
     try
         erlang:spawn_request(M, F, A, [])
     catch
         error:Err ->
-            erlang:error(Err, [M, F, A])
+            error_with_info(Err, [M, F, A])
     end.
 
 %%
@@ -3339,14 +3361,16 @@ spawn_request(N, M, F, A) when erlang:is_atom(F) ->
         erlang:spawn_request(N, M, F, A, [])
     catch
         error:Err ->
-            erlang:error(Err, [N, M, F, A])
+            error_with_info(Err, [N, M, F, A])
     end;
 spawn_request(M, F, A, O) ->
     case erts_internal:spawn_request(M, F, A, O) of
         Ref when erlang:is_reference(Ref) ->
             Ref;
+        badopt ->
+            badarg_with_cause([M, F, A, O], badopt);
         badarg ->
-            erlang:error(badarg, [M, F, A, O])
+            badarg_with_info([M, F, A, O])
     end.
 
 %%
@@ -3375,15 +3399,15 @@ spawn_request(N, M, F, A, O) when N =:= erlang:node() ->
     try
         erlang:spawn_request(M, F, A, O)
     catch
-        error:Err ->
-            erlang:error(Err, [N, M, F, A, O])
+        error:Err:Stk ->
+            error_with_inherited_info(Err, [N, M, F, A, O], Stk)
     end;
 spawn_request(N, M, F, A, O) ->
     case erts_internal:dist_spawn_request(N, {M, F, A}, O, spawn_request) of
         Ref when erlang:is_reference(Ref) ->
             Ref;
         badarg ->
-            erlang:error(badarg, [N, M, F, A, O])
+            badarg_with_info([N, M, F, A, O])
     end.
 
 -spec spawn_request_abandon(ReqId :: reference()) -> boolean().
@@ -3414,7 +3438,9 @@ disconnect_node(Node) ->
       Info :: term().
 fun_info(Fun) when erlang:is_function(Fun) ->
     Keys = [type,env,arity,name,uniq,index,new_uniq,new_index,module,pid],
-    fun_info_1(Keys, Fun, []).
+    fun_info_1(Keys, Fun, []);
+fun_info(Fun) ->
+    badarg_with_info([Fun]).
 
 fun_info_1([K|Ks], Fun, A) ->
     case erlang:fun_info(Fun, K) of
@@ -3433,23 +3459,35 @@ fun_info_1([], _, A) -> A.
       Dest :: dst(),
       Msg :: term().
 send_nosuspend(Pid, Msg) ->
-    send_nosuspend(Pid, Msg, []).
+    try
+        send_nosuspend(Pid, Msg, [])
+    catch
+        error:Error -> error_with_info(Error, [Pid, Msg])
+    end.
 
 -spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean() when
       Dest :: dst(),
       Msg :: term(),
       Options :: [noconnect].
 send_nosuspend(Pid, Msg, Opts) ->
-    case erlang:send(Pid, Msg, [nosuspend|Opts]) of
+    try erlang:send(Pid, Msg, [nosuspend|Opts]) of
 	ok -> true;
 	_  -> false
+    catch
+        error:Error:Stk ->
+            error_with_inherited_info(Error, [Pid, Msg, Opts], Stk)
     end.
 
 -spec erlang:localtime_to_universaltime(Localtime) -> Universaltime when
       Localtime :: calendar:datetime(),
       Universaltime :: calendar:datetime().
 localtime_to_universaltime(Localtime) ->
-    erlang:localtime_to_universaltime(Localtime, undefined).
+    try
+        erlang:localtime_to_universaltime(Localtime, undefined)
+    catch
+        error:Error ->
+            error_with_info(Error, [Localtime])
+    end.
 
 %%
 %% Port BIFs
@@ -3482,7 +3520,7 @@ port_command(Port, Data) ->
 	     Res -> Res
 	 end of
 	true -> true;
-	Error -> erlang:error(Error, [Port, Data])
+	Error -> error_with_info(Error, [Port, Data])
     end.
 
 -spec port_command(Port, Data, OptionList) -> boolean() when
@@ -3496,8 +3534,9 @@ port_command(Port, Data, Flags) ->
 	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
 	     Res -> Res
 	 end of
-	Bool when Bool == true; Bool == false -> Bool;
-	Error -> erlang:error(Error, [Port, Data, Flags])
+        badopt -> badarg_with_cause([Port, Data, Flags], badopt);
+	Bool when erlang:is_boolean(Bool) -> Bool;
+	Error -> error_with_info(Error, [Port, Data, Flags])
     end.
 
 -spec port_connect(Port, Pid) -> 'true' when
@@ -3510,7 +3549,7 @@ port_connect(Port, Pid) ->
 	     Res -> Res
 	 end of
 	true -> true;
-	Error -> erlang:error(Error, [Port, Pid])
+	Error -> error_with_info(Error, [Port, Pid])
     end.
 
 -spec port_close(Port) -> 'true' when
@@ -3522,7 +3561,7 @@ port_close(Port) ->
 	     Res -> Res
 	 end of
 	true -> true;
-	Error -> erlang:error(Error, [Port])
+	Error -> error_with_info(Error, [Port])
     end.
 
 -spec port_control(Port, Operation, Data) -> iodata() | binary() when
@@ -3535,7 +3574,7 @@ port_control(Port, Operation, Data) ->
 	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
 	     Res -> Res
 	 end of
-	badarg -> erlang:error(badarg, [Port, Operation, Data]);
+	badarg -> badarg_with_info([Port, Operation, Data]);
 	Result -> Result
     end.
 
@@ -3549,7 +3588,7 @@ port_call(Port, Data) ->
 	     Res -> Res
 	 end of
 	{ok, Result} -> Result;
-	Error -> erlang:error(Error, [Port, Data])
+	Error -> error_with_info(Error, [Port, Data])
     end.
 
 -spec erlang:port_call(Port, Operation, Data) -> term() when
@@ -3563,7 +3602,7 @@ port_call(Port, Operation, Data) ->
 	     Res -> Res
 	 end of
 	{ok, Result} -> Result;
-	Error -> erlang:error(Error, [Port, Operation, Data])
+	Error -> error_with_info(Error, [Port, Operation, Data])
     end.
 
 -spec erlang:port_info(Port) -> Result when
@@ -3583,7 +3622,7 @@ port_info(Port) ->
 	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
 	     Res -> Res
 	 end of
-	badarg -> erlang:error(badarg, [Port]);
+	badarg -> badarg_with_info([Port]);
 	Result -> Result
     end.
 
@@ -3635,7 +3674,8 @@ port_info(Port, Item) ->
 	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
 	     Res -> Res
 	 end of
-	badarg -> erlang:error(badarg, [Port, Item]);
+        badtype -> badarg_with_cause([Port, Item], badtype);
+	badarg -> badarg_with_info([Port, Item]);
 	Result -> Result
     end.
 
@@ -3785,7 +3825,7 @@ set_cpu_topology(CpuTopology) ->
 					       cput_e2i(CpuTopology)))
     catch
 	Class:Exception when Class =/= error; Exception =/= internal_error -> 
-	    erlang:error(badarg, [CpuTopology])
+	    badarg_with_info([CpuTopology])
     end.
 
 cput_e2i_clvl({logical, _}, _PLvl) ->
@@ -3979,7 +4019,7 @@ memory(Type) when erlang:is_atom(Type) ->
             Mem -> get_memval(Type, Mem)
         end
     catch
-        error:badarg -> erlang:error(badarg)
+        error:badarg -> badarg_with_info([Type])
     end;
 memory(Types) when erlang:is_list(Types) ->
     try
@@ -3988,8 +4028,10 @@ memory(Types) when erlang:is_list(Types) ->
             Mem -> memory_1(Types, Mem)
         end
     catch
-        error:badarg -> erlang:error(badarg)
-    end.
+        error:badarg -> badarg_with_info([Types])
+    end;
+memory(Arg) ->
+    badarg_with_info([Arg]).
 
 memory_1([Type | Types], Mem) ->
     [{Type, get_memval(Type, Mem)} | memory_1(Types, Mem)];
@@ -4340,3 +4382,39 @@ gc_info(Ref, N, {OrigColls,OrigRecl}) ->
 -spec erlang:'!'(dst(), term()) -> term().
 '!'(_Dst, _Msg) ->
     erlang:nif_error(undefined).
+
+%% Make sure that we have loaded the tracer module.
+ensure_tracer_module_loaded(Flag, FlagList) ->
+    try lists:keyfind(Flag, 1, FlagList) of
+        {Flag, Module, State} when erlang:is_atom(Module) ->
+            case erlang:module_loaded(Module) of
+                false ->
+                    Module:enabled(trace_status, erlang:self(), State);
+                true ->
+                    ok
+            end;
+        _ ->
+            ok
+    catch
+        _:_ ->
+            ok
+    end.
+
+error_with_inherited_info(Reason, Args, [{_,_,_,ExtraInfo}|_]) ->
+    %% We KNOW that lists:keyfind/3 is a BIF and is therefore safe to call.
+    case lists:keyfind(error_info, 1, ExtraInfo) of
+        {error_info,_}=ErrorInfoTuple ->
+            erlang:error(Reason, Args, [ErrorInfoTuple]);
+        false ->
+            erlang:error(Reason, Args, [{error_info, #{module => erl_erts_errors}}])
+    end.
+
+error_with_info(Reason, Args) ->
+    erlang:error(Reason, Args, [{error_info, #{module => erl_erts_errors}}]).
+
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_erts_errors}}]).
+
+badarg_with_cause(Args, Cause) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_erts_errors,
+                                              cause => Cause}}]).
