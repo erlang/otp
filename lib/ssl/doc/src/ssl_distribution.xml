@@ -231,7 +231,7 @@ $ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls
     </code>
     <p>
       The options in the <c>{server, Opts}</c> tuple are used
-      when calling <c>ssl:ssl_accept/3</c>, and the options in the
+      when calling <c>ssl:handshake/3</c>, and the options in the
       <c>{client, Opts}</c> tuple are used when calling
       <c>ssl:connect/4</c>.
     </p>

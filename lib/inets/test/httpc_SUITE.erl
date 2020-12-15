@@ -2070,10 +2070,10 @@ dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
 	    lists:foreach(Stopper, Handlers),
 	    From ! {stopped, self()}
     after 0 ->
-	    {ok, Socket} = ssl:transport_accept(ListenSocket),
-	    ok = ssl:ssl_accept(Socket, infinity),
-	    HandlerPid  = dummy_request_handler(MFA, Socket),
-	    ssl:controlling_process(Socket, HandlerPid),
+	    {ok, Tsocket} = ssl:transport_accept(ListenSocket),
+	    {ok, Ssocket} = ssl:handshake(Tsocket, infinity),
+	    HandlerPid  = dummy_request_handler(MFA, Ssocket),
+	    ssl:controlling_process(Ssocket, HandlerPid),
 	    HandlerPid ! ssl_controller,
 	    dummy_ssl_server_loop(MFA, [HandlerPid | Handlers],
 				  ListenSocket)
@@ -2213,7 +2213,7 @@ dummy_ssl_server_hang_init(Caller, Inet, SslOpt) ->
     dummy_ssl_server_hang_loop(AcceptSocket).
 
 dummy_ssl_server_hang_loop(_) ->
-    %% Do not do ssl:ssl_accept as we
+    %% Do not do ssl:handshake as we
     %% want to time out the underlying gen_tcp:connect
     receive
 	stop ->

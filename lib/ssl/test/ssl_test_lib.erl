@@ -552,7 +552,7 @@ connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
 connect(ListenSocket, Node, N, _, Timeout, [], ContOpts) ->
     ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ct:log("~p:~p~nssl:ssl_accept(~p, ~p)~n", [?MODULE,?LINE, AcceptSocket, Timeout]),
+    ct:log("~p:~p~nssl:handshake(~p, ~p)~n", [?MODULE,?LINE, AcceptSocket, Timeout]),
 
     case ssl:handshake(AcceptSocket, Timeout) of
 	{ok, Socket} ->
@@ -1791,7 +1791,7 @@ run_server_error(Opts) ->
 		{error, _} = Error ->
 		    Pid ! {self(), Error};
 		{ok, AcceptSocket} ->
-		    ct:log("~p:~p~nssl:ssl_accept(~p)~n", [?MODULE,?LINE, AcceptSocket]),
+		    ct:log("~p:~p~nssl:handshake(~p)~n", [?MODULE,?LINE, AcceptSocket]),
 		    Error = ssl:handshake(AcceptSocket),
 		    Pid ! {self(), Error}
 	    end;
@@ -2249,21 +2249,14 @@ ecdsa_suites(Version) ->
                 available_suites(Version)).
 
 openssl_dsa_suites() ->
-    Ciphers = ssl:cipher_suites(openssl),
+    Ciphers = openssl_ciphers(),
     lists:filter(fun(Str) -> string_regex_filter(Str, "DSS")
 		 end, Ciphers).
 
 openssl_ecdsa_suites() ->
-    Ciphers = ssl:cipher_suites(openssl),
+    Ciphers = openssl_ciphers(),
     lists:filter(fun(Str) -> string_regex_filter(Str, "ECDHE-ECDSA")
 		 end, Ciphers).
-
-
-openssl_filter(FilterStr) ->
-    Ciphers = string:tokens(portable_cmd("openssl", ["ciphers"]), ":"),
-    lists:filter(fun(Str) -> string_regex_filter(Str, FilterStr)
-		 end, Ciphers).
-
 
 string_regex_filter(Str, Search) when is_list(Str) ->
     case re:run(Str, Search, []) of

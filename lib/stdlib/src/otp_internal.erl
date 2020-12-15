@@ -162,9 +162,9 @@ obsolete(snmpm, sync_set, 5) ->
 obsolete(snmpm, sync_set, 6) ->
     {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
 obsolete(ssl, cipher_suites, 0) ->
-    {deprecated, "use cipher_suites/2,3 instead", "OTP 24"};
+    {removed, "use cipher_suites/2,3 instead"};
 obsolete(ssl, cipher_suites, 1) ->
-    {deprecated, "use cipher_suites/2,3 instead", "OTP 24"};
+    {removed, "use cipher_suites/2,3 instead"};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->
@@ -300,7 +300,7 @@ obsolete(ssl, negotiated_next_protocol, 1) ->
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete(ssl, ssl_accept, _) ->
-    {deprecated, "use ssl_handshake/1,2,3 instead", "OTP 24"};
+    {removed, "use ssl_handshake/1,2,3 instead"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->

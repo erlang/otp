@@ -102,7 +102,7 @@ init_per_suite(Config) ->
             throw(
               {skipped,
                "SSL does not support " ++ term_to_string(ECCurve)}),
-        lists:member(TLSCipher, ssl:cipher_suites()) orelse
+        lists:member(TLSCipher, ssl:cipher_suites(default, TLSVersion)) orelse
             throw(
               {skipped,
                "SSL does not support " ++ term_to_string(TLSCipher)})
