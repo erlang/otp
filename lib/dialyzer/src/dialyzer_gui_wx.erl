@@ -466,21 +466,26 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
       gui_loop(State);
     %% ----- Analysis -----
     {BackendPid, ext_calls, ExtCalls} ->
+      ExtCalls1 = lists:usort([MFA || {MFA, _FileLocation} <- ExtCalls]),
+      Map = fun({M,F,A}) -> io_lib:format("\t~tp:~tp/~p",[M,F,A]) end,
+      ExtCallString = lists:join("\n", lists:map(Map, ExtCalls1)),
       Msg = io_lib:format("The following functions are called "
 			  "but type information about them is not available.\n"
 			  "The analysis might get more precise by including "
-			  "the modules containing these functions:\n\n\t~tp\n",
-			  [ExtCalls]),
+			  "the modules containing these functions:\n\n~ts\n",
+			  [ExtCallString]),
       free_editor(State,"Analysis Done",  Msg),
       gui_loop(State);
     {BackendPid, ext_types, ExtTypes} ->
-      Map = fun({M,F,A}) -> io_lib:format("~tp:~tp/~p",[M,F,A]) end,
-      ExtTypeString = lists:join("\n", lists:map(Map, ExtTypes)),
+      ExtTypes1 = lists:usort([MFA || {MFA, _FileLocation} <- ExtTypes]),
+      Map = fun({M,F,A}) -> io_lib:format("\t~tp:~tp/~p",[M,F,A]) end,
+      ExtTypeString = lists:join("\n", lists:map(Map, ExtTypes1)),
       Msg = io_lib:format("The following remote types are being used "
 			  "but information about them is not available.\n"
 			  "The analysis might get more precise by including "
 			  "the modules containing these types and making sure "
-			  "that they are exported:\n~ts\n", [ExtTypeString]),
+			  "that they are exported:\n\n~ts\n",
+                          [ExtTypeString]),
       free_editor(State, "Analysis done", Msg),
       gui_loop(State);
     {BackendPid, log, LogMsg} ->

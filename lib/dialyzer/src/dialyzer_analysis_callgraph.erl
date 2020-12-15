@@ -397,7 +397,10 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
   end,
   if RealExtCalls =:= [] -> ok;
      true ->
-      send_ext_calls(Parent, lists:usort([To || {_From, To} <- RealExtCalls]))
+      ExtCallsWithFileAndLocation =
+        [{To, find_call_file_and_location(From, To, CodeServer)} ||
+          {From, To} <- RealExtCalls],
+      send_ext_calls(Parent, ExtCallsWithFileAndLocation)
   end,
   Callgraph1.
 
@@ -618,16 +621,16 @@ format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc)
   when A =:= 0; A =:= 1 ->
   format_bad_calls(Left, CodeServer, Acc);
 format_bad_calls([{FromMFA, {M, F, A} = To}|Left], CodeServer, Acc) ->
-  {_Var, FunCode} = dialyzer_codeserver:lookup_mfa_code(FromMFA, CodeServer),
   Msg = {call_to_missing, [M, F, A]},
-  {File, Loc} = find_call_file_and_location(FromMFA, FunCode, To, CodeServer),
+  {File, Loc} = find_call_file_and_location(FromMFA, To, CodeServer),
   WarningInfo = {File, Loc, FromMFA},
   NewAcc = [{?WARN_CALLGRAPH, WarningInfo, Msg}|Acc],
   format_bad_calls(Left, CodeServer, NewAcc);
 format_bad_calls([], _CodeServer, Acc) ->
   Acc.
 
-find_call_file_and_location({Module, _, _}, Tree, MFA, CodeServer) ->
+find_call_file_and_location({Module, _, _} = FromMFA, ToMFA, CodeServer) ->
+  {_Var, FunCode} = dialyzer_codeserver:lookup_mfa_code(FromMFA, CodeServer),
   Fun =
     fun(SubTree, Acc) ->
 	case cerl:is_c_call(SubTree) of
@@ -638,7 +641,7 @@ find_call_file_and_location({Module, _, _}, Tree, MFA, CodeServer) ->
 	    case cerl:is_c_atom(M) andalso cerl:is_c_atom(F) of
 	      true ->
 		case {cerl:concrete(M), cerl:concrete(F), A} of
-		  MFA ->
+		  ToMFA ->
 		    Ann = cerl:get_ann(SubTree),
                     File = get_file(CodeServer, Module, Ann),
                     Location = get_location(SubTree),
@@ -656,7 +659,7 @@ find_call_file_and_location({Module, _, _}, Tree, MFA, CodeServer) ->
 			   cerl:concrete(CA2),
 			   cerl:concrete(CA3)}
 			of
-			  MFA ->
+			  ToMFA ->
 			    Ann = cerl:get_ann(SubTree),
 			    [{get_file(CodeServer, Module, Ann),
                               get_location(SubTree)}|Acc];
@@ -673,7 +676,7 @@ find_call_file_and_location({Module, _, _}, Tree, MFA, CodeServer) ->
 	  false -> Acc
 	end
     end,
-  hd(cerl_trees:fold(Fun, [], Tree)).
+  hd(cerl_trees:fold(Fun, [], FunCode)).
 
 get_location(Tree) ->
   dialyzer_utils:get_location(Tree, -1).
