@@ -361,21 +361,6 @@ erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 #define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
     ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
 
-#define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
-
-#define ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-static erts_spinlock_t NAME##_lck;					\
-ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ,					\
-		    erts_spinlock_init(&NAME##_lck, #NAME "_alloc_lock", NIL, \
-		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
-		    erts_spin_lock(&NAME##_lck),			\
-		    erts_spin_unlock(&NAME##_lck))
-
-
-#define ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-  ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)
-
 
 #define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
 ERTS_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ, ILCK, LCK, ULCK)		\
