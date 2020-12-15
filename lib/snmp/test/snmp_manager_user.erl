@@ -321,11 +321,14 @@ loop(#state{parent = Parent, id = Id} = S) ->
 
 	{{sync_get2, TargetName, Oids, SendOpts}, From, Ref} 
 	  when is_list(TargetName) ->
+            snmpm:verbosity(server, trace),
 	    d("loop -> received sync_get2 request with"
 	      "~n   TargetName: ~p"
 	      "~n   Oids:       ~p"
 	      "~n   SendOpts:   ~p", [TargetName, Oids, SendOpts]),
 	    Res = snmpm:sync_get2(Id, TargetName, Oids, SendOpts), 
+            d("loop -> result:"
+              "~n   ~p", [Res]),
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -637,6 +640,6 @@ d(F, A) ->
     d(get(debug), F, A).
 
 d(true, F, A) ->
-    io:format("~w:" ++ F ++ "~n", [?SERVER|A]);
+    ?IPRINT("~w:" ++ F, [?SERVER|A]);
 d(_, _, _) ->
     ok.
