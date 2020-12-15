@@ -244,24 +244,25 @@ process_record_remote_types(CServer) ->
           fun({Key, Value}, C2) ->
               case Key of
                 {record, Name} ->
+                  {FileLocation, Fields} = Value,
+                  {File, _Location} = FileLocation,
                   FieldFun =
-                    fun({Arity, Fields}, C4) ->
+                    fun({Arity, Fields0}, C4) ->
                         MRA = {Module, Name, Arity},
-                        Site = {record, MRA},
+                        Site = {record, MRA, File},
                         {Fields1, C7} =
                           lists:mapfoldl(fun({FieldName, Field, _}, C5) ->
-                                             check_remote(Field, ExpTypes,
-                                                          MRA, RecordTable),
+                                             check_remote(Field, ExpTypes, MRA,
+                                                          File, RecordTable),
                                              {FieldT, C6} =
                                                erl_types:t_from_form
                                                  (Field, ExpTypes, Site,
                                                   RecordTable, VarTable,
                                                   C5),
                                           {{FieldName, Field, FieldT}, C6}
-                                      end, C4, Fields),
+                                      end, C4, Fields0),
                         {{Arity, Fields1}, C7}
                     end,
-                  {FileLocation, Fields} = Value,
                   {FieldsList, C3} =
                     lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
                   {{Key, {FileLocation, orddict:from_list(FieldsList)}}, C3};
@@ -269,8 +270,9 @@ process_record_remote_types(CServer) ->
                   %% Make sure warnings about unknown types are output
                   %% also for types unused by specs.
                   MTA = {Module, Name, NArgs},
-                  {{_Module, _FileLocation, Form, _ArgNames}, _Type} = Value,
-                  check_remote(Form, ExpTypes, MTA, RecordTable),
+                  {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
+                  {File, _Location} = FileLocation,
+                  check_remote(Form, ExpTypes, MTA, File, RecordTable),
                   {{Key, Value}, C2}
               end
           end,
@@ -303,8 +305,9 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
           fun({Key, Value}, C2) ->
               case Key of
                 {opaque, Name, NArgs} ->
-                  {{_Module, _FileLocation, Form, _ArgNames}=F, _Type} = Value,
-                  Site = {type, {Module, Name, NArgs}},
+                  {{_Module, FileLocation, Form, _ArgNames}=F, _Type} = Value,
+                  {File, _Location} = FileLocation,
+                  Site = {type, {Module, Name, NArgs}, File},
                   {Type, C3} =
                     erl_types:t_from_form(Form, TempExpTypes, Site,
                                           RecordTable, VarTable, C2),
@@ -339,19 +342,21 @@ check_record_fields(AllModules, CServer, TempExpTypes) ->
           fun({Key, Value}, C2) ->
               case Key of
                 {record, Name} ->
+                  {FileLocation, Fields} = Value,
+                  {File, _Location} = FileLocation,
                   FieldFun =
-                    fun({Arity, Fields}, C3) ->
-                        Site = {record, {Module, Name, Arity}},
+                    fun({Arity, Fields0}, C3) ->
+                        Site = {record, {Module, Name, Arity}, File},
                         lists:foldl(fun({_, Field, _}, C4) ->
                                         CheckForm(Field, Site, C4)
-                                    end, C3, Fields)
+                                    end, C3, Fields0)
                     end,
-                  {FileLocation, Fields} = Value,
                   Fun = fun() -> lists:foldl(FieldFun, C2, Fields) end,
                   msg_with_position(Fun, FileLocation);
                 {_OpaqueOrType, Name, NArgs} ->
-                  Site = {type, {Module, Name, NArgs}},
                   {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
+                  {File, _Location} = FileLocation,
+                  Site = {type, {Module, Name, NArgs}, File},
                   Fun = fun() -> CheckForm(Form, Site, C2) end,
                   msg_with_position(Fun, FileLocation)
               end
@@ -371,8 +376,9 @@ msg_with_position(Fun, FileLocation) ->
       throw({error, NewMsg})
   end.
 
-check_remote(Form, ExpTypes, What, RecordTable) ->
-  erl_types:t_from_form_check_remote(Form, ExpTypes, What, RecordTable).
+check_remote(Form, ExpTypes, What, File, RecordTable) ->
+  Site = {check, What, File},
+  erl_types:t_from_form_check_remote(Form, ExpTypes, Site, RecordTable).
 
 -spec merge_types(codeserver(), dialyzer_plt:plt()) -> codeserver().
 
