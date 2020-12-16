@@ -27,6 +27,121 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SSL's Erlang Distribution Protocol modules inet_tls_dist
+	    and inet6_tls_dist lacked a callback function, so the
+	    start flag "-dist_listen false" did not work, which has
+	    now been fixed.</p>
+          <p>
+	    Own Id: OTP-15126 Aux Id: ERL-1375 </p>
+        </item>
+        <item>
+          <p>
+	    Correct OpenSSL names for newer cipher suites using DHE
+	    in their name that accidentally got the wrong value when
+	    fixing other older names using EDH instead.</p>
+          <p>
+	    Own Id: OTP-16267 Aux Id: ERIERL-571, ERIERL-477 </p>
+        </item>
+        <item>
+          <p>
+	    This change improves the handling of DTLS listening
+	    dockets, making it possible to open multiple listeners on
+	    the same port with different IP addresses.</p>
+          <p>
+	    Own Id: OTP-16849 Aux Id: ERL-1339 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug that causes cross-build failure.</p>
+          <p>
+	    This change excludes the ssl.d dependency file from the
+	    source tarballs.</p>
+          <p>
+	    Own Id: OTP-16921</p>
+        </item>
+        <item>
+          <p>
+	    This change fixes ssl:peername/1 when called on a DTLS
+	    client socket.</p>
+          <p>
+	    Own Id: OTP-16923 Aux Id: ERL-1341, PR-2786 </p>
+        </item>
+        <item>
+          <p>
+	    Retain emulation of active once on a closed socket to
+	    behave as before 23.1</p>
+          <p>
+	    Own Id: OTP-17018 Aux Id: ERL-1409 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected server session cache entry deletion pre
+	    TLS-1.3. May increase session reuse.</p>
+          <p>
+	    Own Id: OTP-17019 Aux Id: ERL-1412 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle extraneous certs in certificate chains as well as
+	    chains that are incomplete but can be reconstructed or
+	    unordered chains. The cert and certfile options will now
+	    accept a list of certificates so that the user may
+	    specify the chain explicitly.</p>
+          <p>
+	    Also, the default value of the depth option has been
+	    increased to allow longer chains by default.</p>
+          <p>
+	    Own Id: OTP-16277</p>
+        </item>
+        <item>
+          <p>
+	    This change implements optional NSS-style keylog in
+	    ssl:connection_information/2 for debugging purposes.</p>
+          <p>
+	    The keylog contains various TLS secrets that can be
+	    loaded in Wireshark to decrypt TLS packets.</p>
+          <p>
+	    Own Id: OTP-16445 Aux Id: PR-2823 </p>
+        </item>
+        <item>
+          <p>
+	    Use new gen_statem feature of changing callback mode to
+	    improve code maintainability.</p>
+          <p>
+	    Own Id: OTP-16529</p>
+        </item>
+        <item>
+          <p>
+	    The handling of Service Name Indication has been aligned
+	    with RFC8446.</p>
+          <p>
+	    Own Id: OTP-16762</p>
+        </item>
+        <item>
+          <p>
+	    Add explicit session reuse option to TLS clients for pre
+	    TLS-1.3 sessions. Also, add documentation to Users Guide
+	    for such sessions.</p>
+          <p>
+	    Own Id: OTP-16893</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

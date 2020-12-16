@@ -30,6 +30,62 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed problems in the ssh cli/shell handling. Most
+	    important are:</p>
+          <p>
+	    1) the ssh:shell function did sometimes cause the input
+	    to be echoed twice,</p>
+          <p>
+	    2) the ssh:shell function didn't transfer the LANG and
+	    LC_ALL shell variables to the connected server which
+	    sometimes made Unicode handling erroneous,</p>
+          <p>
+	    3) Unicode was not always transferred correctly to and
+	    from the peer.</p>
+          <p>
+	    Own Id: OTP-16799</p>
+        </item>
+        <item>
+          <p>
+	    The SSH protocol message SSH_MSG_DISCONNECT was sometimes
+	    sent instead of SSH_MSG_CHANNEL_FAILURE</p>
+          <p>
+	    Own Id: OTP-16900</p>
+        </item>
+        <item>
+          <p>
+	    The ssh_cli module now always sends the exit-status to
+	    connected clients so they can use that to check for
+	    successful command execution.</p>
+          <p>
+	    Own Id: OTP-16908 Aux Id: PR-2753 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new option <seeerl
+	    marker="ssh:ssh#option-pk_check_user"><c>pk_check_user</c></seeerl>
+	    enables checking of the client's user name in the server
+	    when doing public key authentication.</p>
+          <p>
+	    Own Id: OTP-16889</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    In the <c>syntax_tools</c> application, the <c>igor</c>
+	    module and all functions in <c>erl_tidy</c> except
+	    <c>file/2</c> have been deprecated.</p>
+          <p>
+	    Own Id: OTP-17046</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

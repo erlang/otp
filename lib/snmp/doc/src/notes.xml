@@ -34,7 +34,72 @@
   </header>
 
 
-  <section><title>SNMP 5.6.1</title>
+  <section><title>SNMP 5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If an attempt was made to send a v1 trap on a IPv6
+	    transport this could cause a master agent crash (if the
+	    agent was *not* multi-threaded).</p>
+          <p>
+	    Own Id: OTP-16920 Aux Id: OTP-16649 </p>
+        </item>
+        <item>
+          <p>
+	    The deprecation info for a couple of the deprecated MIB
+	    compiler functions where incorrect. Referred to functions
+	    in the 'snmpa' module instead of 'snmpc'.</p>
+          <p>
+	    Own Id: OTP-17056 Aux Id: OTP-17049 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make it possible for the agent to configure separate
+	    transports (sockets) for request-responder and
+	    trap-sender.</p>
+          <p>
+	    Own Id: OTP-16649</p>
+        </item>
+        <item>
+          <p>
+	    The mib server cache handling has been improved. First,
+	    the default gclimit has been changed from 100 to infinity
+	    (to ensure the size is as small as possible). Also, the
+	    method of removing old elements has been optimized.</p>
+          <p>
+	    Own Id: OTP-16989 Aux Id: ERIERL-544 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to configure the agent in such a way
+	    that the order of outgoing notifications are processed in
+	    order in the agent. What happens after the notification
+	    message has left the agent (been sent) is of course still
+	    out of our control.</p>
+          <p>
+	    Own Id: OTP-17022 Aux Id: ERIERL-492 </p>
+        </item>
+        <item>
+          <p>
+	    Improve handling of the udp_error message. Basically an
+	    improved error/warning message.</p>
+          <p>
+	    Own Id: OTP-17033</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
