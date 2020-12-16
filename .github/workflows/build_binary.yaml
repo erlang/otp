@@ -1,0 +1,34 @@
+name: Build binary releases
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-10.15
+            runs-on: macos-10.15
+            script: .github/scripts/build_macos.sh
+          - os: ubuntu-20.04
+            runs-on: ubuntu-20.04
+            script: .github/scripts/build_linux.sh ubuntu 20.04
+          - os: alpine-3.12
+            runs-on: ubuntu-20.04
+            script: .github/scripts/build_linux.sh alpine 3.12
+    runs-on: ${{ matrix.runs-on}}
+    steps:
+      - uses: actions/checkout@v2
+      - run: mkdir -p tmp
+      - run: ${{ matrix.script }} $PWD/tmp
+      - name: Set artifact name
+        id: artifact-name
+        run: echo ::set-output name=NAME::$(echo ${{ github.ref }} | sed 's/refs\/heads\///')-x86_64-${{ matrix.os }}.tar.gz
+      - run: mv tmp/release.tar.gz ${{ steps.artifact-name.outputs.NAME }}
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ steps.artifact-name.outputs.NAME }}
+          path: ${{ steps.artifact-name.outputs.NAME }}

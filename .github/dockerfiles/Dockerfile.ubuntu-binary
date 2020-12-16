@@ -1,0 +1,27 @@
+ARG OS_VERSION
+FROM ubuntu:${OS_VERSION}
+ARG ARCHIVE
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update
+RUN apt-get -y --no-install-recommends install \
+  autoconf \
+  dpkg-dev \
+  gcc \
+  g++ \
+  make \
+  libncurses-dev \
+  unixodbc-dev \
+  libssl-dev \
+  libsctp-dev \
+  wget \
+  ca-certificates \
+  pax-utils \
+  xsltproc
+COPY $ARCHIVE /tmp
+RUN cd /tmp && tar xzf otp_src.tar.gz
+WORKDIR /tmp/otp
+RUN ./otp_build autoconf
+RUN ./configure --with-ssl
+RUN make release -j$(getconf _NPROCESSORS_ONLN) RELEASE_ROOT=/tmp/release
+RUN make release_docs RELEASE_ROOT=/tmp/release DOC_TARGETS=chunks
+RUN cd /tmp && tar czf release.tar.gz release/

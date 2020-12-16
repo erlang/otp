@@ -1,0 +1,30 @@
+ARG OS_VERSION
+FROM alpine:${OS_VERSION}
+ARG ARCHIVE
+RUN apk --no-cache upgrade
+RUN apk add --no-cache \
+  dpkg-dev \
+  dpkg \
+  bash \
+  pcre \
+  ca-certificates \
+  openssl-dev \
+  ncurses-dev \
+  unixodbc-dev \
+  zlib-dev \
+  lksctp-tools-dev \
+  autoconf \
+  build-base \
+  perl-dev \
+  wget \
+  tar \
+  binutils \
+  libxslt-dev
+COPY $ARCHIVE /tmp
+RUN cd /tmp && tar xzf otp_src.tar.gz
+WORKDIR /tmp/otp
+RUN ./otp_build autoconf
+RUN ./configure --with-ssl
+RUN make release -j$(getconf _NPROCESSORS_ONLN) RELEASE_ROOT=/tmp/release
+RUN make release_docs RELEASE_ROOT=/tmp/release DOC_TARGETS=chunks
+RUN cd /tmp && tar czf release.tar.gz release/
