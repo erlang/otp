@@ -397,6 +397,18 @@ to_map([a, {b, 1}, {c, 2}, {c, 3}])</code>
     </func>
 
     <func>
+      <name name="to_map" arity="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Converts the property list <c><anno>List</anno></c> to a map after
+          applying the normalizations given in <c><anno>Stages</anno></c>.</p>
+        <p>See also
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>,
+          <seemfa marker="#to_map/1"><c>to_map/1</c></seemfa>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="unfold" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>

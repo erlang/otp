@@ -35,7 +35,8 @@
 	 lookup_all/2, is_defined/2, get_value/2, get_value/3,
 	 get_all_values/2, append_values/2, get_bool/2, get_keys/1,
 	 delete/2, substitute_aliases/2, substitute_negations/2,
-	 expand/2, normalize/2, split/2, from_map/1, to_map/1]).
+	 expand/2, normalize/2, split/2, from_map/1, to_map/1,
+	 to_map/2]).
 
 %% ---------------------------------------------------------------------
 
@@ -607,14 +608,17 @@ flatten([]) ->
       Expansions :: [{Property :: property(), Expansion :: [term()]}],
       ListOut :: [term()].
 
-normalize(L, [{aliases, As} | Xs]) ->
-    normalize(substitute_aliases(As, L), Xs);
-normalize(L, [{expand, Es} | Xs]) ->
-    normalize(expand(Es, L), Xs);
-normalize(L, [{negations, Ns} | Xs]) ->
-    normalize(substitute_negations(Ns, L), Xs);
-normalize(L, []) ->
-    compact(L).
+normalize(L, Stages) ->
+    compact(apply_stages(L, Stages)).
+
+apply_stages(L, [{aliases, As} | Xs]) ->
+    apply_stages(substitute_aliases(As, L), Xs);
+apply_stages(L, [{expand, Es} | Xs]) ->
+    apply_stages(expand(Es, L), Xs);
+apply_stages(L, [{negations, Ns} | Xs]) ->
+    apply_stages(substitute_negations(Ns, L), Xs);
+apply_stages(L, []) ->
+    L.
 
 %% ---------------------------------------------------------------------
 
@@ -702,6 +706,8 @@ to_map(List) ->
         fun
             ({K, V}, M) ->
                 M#{K => V};
+            %% if tuples with arity /= 2 appear before atoms or
+            %% tuples with arity == 2, get_value/2,3 returns early
             (T, M) when 1 =< tuple_size(T) ->
                 maps:remove(element(1, T), M);
             (K, M) when is_atom(K) ->
@@ -712,6 +718,26 @@ to_map(List) ->
         #{},
         List
     ).
+
+%% @doc Converts the property list <code>List</code> to a map
+%% after applying the normalizations given in <code>Stages</code>.
+%%
+%% @see normalize/2
+%% @see to_map/1
+
+-spec to_map(List, Stages) -> Map when
+      List :: [term()],
+      Stages :: [Operation],
+      Operation :: {'aliases', Aliases}
+                 | {'negations', Negations}
+                 | {'expand', Expansions},
+      Aliases :: [{Key, Key}],
+      Negations :: [{Key, Key}],
+      Expansions :: [{Property :: property(), Expansion :: [term()]}],
+      Map :: #{term() => term()}.
+
+to_map(List, Stages) ->
+    to_map(apply_stages(List, Stages)).
 
 %% @doc Converts the map <code>Map</code> to a property list.
 
