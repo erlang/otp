@@ -77,16 +77,16 @@ old_solaris_cases() ->
 
 extensive_cases() ->
     [api_open_close, api_listen, api_connect_init,
-       api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
-       open_multihoming_ipv4_socket,
-       open_unihoming_ipv6_socket,
-       open_multihoming_ipv6_socket,
-       open_multihoming_ipv4_and_ipv6_socket, active_n,
-       xfer_stream_min, peeloff_active_once,
-       peeloff_active_true, peeloff_active_n, buffers,
-       names_unihoming_ipv4, names_unihoming_ipv6,
-       names_multihoming_ipv4, names_multihoming_ipv6,
-       recv_close].
+     api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
+     open_multihoming_ipv4_socket,
+     open_unihoming_ipv6_socket,
+     open_multihoming_ipv6_socket,
+     open_multihoming_ipv4_and_ipv6_socket, active_n,
+     xfer_stream_min, peeloff_active_once,
+     peeloff_active_true, peeloff_active_n, buffers,
+     names_unihoming_ipv4, names_unihoming_ipv6,
+     names_multihoming_ipv4, names_multihoming_ipv6,
+     recv_close].
 
 init_per_suite(_Config) ->
     case gen_sctp:open() of
@@ -758,7 +758,15 @@ do_implicit_inet6(_Config) ->
             %% Second
             ?P("try create server socket (2)"),
             Localhost = log_ok(inet:getaddr("localhost", inet6)),
-            S2 = log_ok(gen_sctp:open(0, [{ip,Localhost}])),
+            S2 = case gen_sctp:open(0, [{ip,Localhost}]) of
+                     {ok, S} ->
+                         S;
+                     {error, nxdomain = Reason} ->
+                         ?SKIPT(Reason);
+                     {error, Reason} ->
+                         ?line ct:fail({unexpected, Reason})
+                 end,
+
             ?P("*** ~s: ~p ***", ["localhost", Localhost]),
             implicit_inet6(S2, Localhost),
             ok = gen_sctp:close(S2),
@@ -1497,10 +1505,16 @@ mk_data(_, _, Bin) ->
 
 %% Test opening a multihoming ipv4 socket.
 open_multihoming_ipv4_socket(Config) when is_list(Config) ->
+    ?P("get addrs by family (inet)"),
     case get_addrs_by_family(inet, 2) of
 	{ok, [Addr1, Addr2]} ->
+            ?P("got addrs: "
+               "~n      Addr1: ~p"
+               "~n      Addr2: ~p", [Addr1, Addr2]),
 	    do_open_and_connect([Addr1, Addr2], Addr1);
 	{error, Reason} ->
+            ?P("failed get addrs: "
+               "~n      ~p", [Reason]),
 	    {skip, Reason}
     end.
 
@@ -1655,10 +1669,16 @@ get_addrs_by_family(Family, NumAddrs) ->
 get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
 					       Family =:= inet6 ->
     case inet:getaddr(localhost, Family) of
-	{error,eafnosupport} ->
-	    {skip, ?F("No support for ~p", Family)};
+	{error, eafnosupport = Reason} ->
+            ?P("failed get addrs for localhost: ~p", [Reason]),
+	    {error, ?F("No support for ~p (~p)", [Family, Reason])};
+        {error, nxdomain = Reason} ->
+            ?P("failed get addrs for localhost: ~p", [Reason]),
+	    {error, ?F("No support for ~p", [Family, Reason])};
 	{ok, _} ->
+            ?P("got addr for localhost (ignored)"),
 	    IfAddrs = ok(inet:getifaddrs()),
+            ?P("IfAddrs: ~p", [IfAddrs]),
 	    case filter_addrs_by_family(IfAddrs, Family) of
 		Addrs when length(Addrs) >= NumAddrs ->
 		    {ok, lists:sublist(Addrs, NumAddrs)};
