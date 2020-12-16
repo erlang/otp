@@ -778,8 +778,9 @@ ycf_node* mk_destroy_state_function_node(char* yielding_function_name,
   }
   char* code =
     ycf_string_new("\n"
-                   "%s void %s_ycf_gen_destroy(struct %s* ycf_my_trap_state){\n"
+                   "%s void %s_ycf_gen_destroy(void* ycf_my_trap_state_param){\n"
                    "     {\n"
+                   "     struct %s* ycf_my_trap_state = ycf_my_trap_state_param;\n"
                    "     %s\n"
                    "     %s\n"
                    "     %s\n"
