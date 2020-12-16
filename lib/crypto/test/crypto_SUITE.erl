@@ -37,6 +37,7 @@
          %% Test cases:
          aead_bad_tag/1,
          aead_ng/1,
+         all_ciphers/1,
          api_errors_ecdh/1,
          api_ng/0,
          api_ng/1,
@@ -170,6 +171,7 @@ all() ->
      appup,
      crypto_load,
      crypto_load_and_call,
+     all_ciphers,
      {group, fips},
      {group, non_fips},
      cipher_padding,
@@ -552,6 +554,97 @@ appup() ->
     [{doc, "Test that the crypto appup file is ok"}].
 appup(Config) when is_list(Config) ->
     ok = ?t:appup_test(crypto).
+
+%%--------------------------------------------------------------------
+%% Simple encode/decode for all ciphers in crypto:supports(ciphers). No
+%% checking of the encrypted text, just check that it is decrypted back
+%% to the plain text.
+all_ciphers(_Config) ->
+    case [C || C <- crypto:supports(ciphers),
+               ok =/= simple_cipher_test(C)] of
+        [] ->
+            ok;
+        BadCiphers ->
+            ct:log("Bad ciphers: ~p", [BadCiphers]),
+            {fail, "Cipher(s) failed"}
+    end.
+
+simple_cipher_test(Cipher) ->
+    try
+        #{key_length := KeyLength,
+          iv_length := IvLength,
+          block_size := BlockSize,
+          mode := CipherMode
+         } = crypto:cipher_info(Cipher),
+        Key = <<1:KeyLength/unit:8>>,
+        IV = <<0:IvLength/unit:8>>,
+        Plain0 = <<"Hello world! Let's do some cipher tests">>,
+        Plain = case BlockSize of
+                    1 -> Plain0;
+                    _ -> <<Plain0:BlockSize/binary>>
+                end,
+        enc_dec(Cipher, Key, IV, CipherMode, Plain)
+    catch
+        Class:Error:Stack ->
+            ct:log("Error for cipher ~p:~nClass = ~p~nError = ~p~nStack = ~p",
+                   [Cipher, Class, Error, Stack]),
+            error
+    end.
+
+
+
+enc_dec(Cipher, Key, 0, _Mode, Plain) ->
+    case crypto:crypto_one_time(Cipher, Key, Plain, true) of
+        Encrypted when is_binary(Encrypted) ->
+             case crypto:crypto_one_time(Cipher, Key, Encrypted, false) of
+                 Plain ->
+                     ok;
+                 Other ->
+                     ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+                     error
+             end;
+        Other ->
+            ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+            error
+    end;
+
+enc_dec(Cipher, Key, IV, Mode, Plain) when Mode == ccm_mode ;
+                                           Mode == gcm_mode ;
+                                           Cipher == chacha20_poly1305 ->
+    AAD = aad(Cipher, Mode),
+    case crypto:crypto_one_time_aead(Cipher, Key, IV, Plain, AAD, true) of
+        {Encrypted,Tag} when is_binary(Encrypted) ->
+            case crypto:crypto_one_time_aead(Cipher, Key, IV, Encrypted, AAD, Tag, false) of
+                 Plain ->
+                     ok;
+                 Other ->
+                     ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+                     error
+             end;
+        Other ->
+            ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+            error
+    end;
+
+enc_dec(Cipher, Key, IV, _Mode, Plain) ->
+    case crypto:crypto_one_time(Cipher, Key, IV, Plain, true) of
+        Encrypted when is_binary(Encrypted) ->
+             case crypto:crypto_one_time(Cipher, Key, IV, Encrypted, false) of
+                 Plain ->
+                     ok;
+                 Other ->
+                     ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+                     error
+             end;
+        Other ->
+            ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+            error
+    end.
+
+aad(_Cipher, _Mode) ->
+    %% Any size will do
+    <<"Some text">>.
+
 %%--------------------------------------------------------------------
 no_support() ->
     [{doc, "Test an algorithm is not reported in the supported list"}].
