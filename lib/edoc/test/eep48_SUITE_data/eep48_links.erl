@@ -20,7 +20,8 @@
 	 see_external_function/0,
 	 see_local_function/0,
 	 see_local_type/0,
-	 see_external_type/0]).
+	 see_external_type/0,
+	 see_tags_grouped_together/0]).
 
 -export_type([t/0]).
 
@@ -100,3 +101,7 @@ fun_with_non_call_equiv_tag() -> ok.
 %% @end
 %% @see equiv_target/1
 fun_with_equiv_doc_and_see() -> equiv_target(ok).
+
+%% @see equiv_target/1
+%% @see fun_with_equiv_doc_and_see/1
+see_tags_grouped_together() -> ok.

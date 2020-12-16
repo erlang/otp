@@ -342,7 +342,10 @@ xmerl_to_chunk(Contents) ->
 
 -spec format_content([xmerl_doc_node()]) -> shell_docs:chunk_elements().
 format_content(Contents) ->
-    lists:flatten([ format_content_(C) || C <- Contents ]).
+    {SeeTags, OtherTags} = lists:partition(fun (#xmlElement{name = see}) -> true;
+					       (_) -> false end,
+					   Contents),
+    lists:flatten([ format_content_(T) || T <- OtherTags ] ++ rewrite_see_tags(SeeTags)).
 
 -spec format_content_(xmerl_doc_node()) -> shell_docs:chunk_elements().
 format_content_(#xmlPI{})      -> [];
@@ -359,8 +362,6 @@ format_content_(#xmlElement{name = equiv} = E) ->
     format_element(rewrite_equiv_tag(E));
 format_content_(#xmlElement{name = a} = E) ->
     format_element(rewrite_a_tag(E));
-format_content_(#xmlElement{name = see} = E) ->
-    format_element(rewrite_see_tag(E));
 format_content_(#xmlElement{} = E) ->
     format_element(E).
 
@@ -406,13 +407,19 @@ rewrite_a_tag(#xmlElement{name = a} = E) ->
     SimpleE = xmerl_lib:simplify_element(E),
     xmerl_lib:normalize_element(rewrite_docgen_link(SimpleE)).
 
+rewrite_see_tags([]) -> [];
+rewrite_see_tags([#xmlElement{name = see} | _] = SeeTags) ->
+    Grouped = [ rewrite_see_tag(T) || T <- SeeTags ],
+    NewXML = {p, [], [{em,[],["See also: "]}] ++ lists:join(", ", Grouped) ++ ["."]},
+    %% Convert strings to binaries in the entire new tree:
+    [format_content_(xmerl_lib:normalize_element(NewXML))].
+
 rewrite_see_tag(#xmlElement{name = see} = E) ->
     %% TODO: this is not formatted nicely by shell_docs...
     %% missing `p' around preceding description
     SeeTag = xmerl_lib:simplify_element(E),
     {see, Attrs, XML} = rewrite_docgen_link(SeeTag),
-    NewXML = {p, [], ["See also ", {a, Attrs, XML}, "."]},
-    xmerl_lib:normalize_element(NewXML).
+    {a, Attrs, XML}.
 
 rewrite_docgen_link({Tag, AttrL, SubEls} = E) when Tag =:= a; Tag =:= see ->
     Attrs = maps:from_list(AttrL),
@@ -424,7 +431,7 @@ rewrite_docgen_link({Tag, AttrL, SubEls} = E) when Tag =:= a; Tag =:= see ->
 	    AttrsNoDocgen = maps:without(['docgen-rel', 'docgen-href'], Attrs),
 	    NewAttrs = AttrsNoDocgen#{rel => expand_docgen_rel(ShortRel),
 				      href => URI},
-	    {Tag, [{'orig-tag', Tag}] ++ maps:to_list(NewAttrs), SubEls}
+	    {Tag, [{'edoc-orig-tag', Tag}] ++ maps:to_list(NewAttrs), SubEls}
     end.
 
 inconsistent_docgen_attrs(Attrs) ->

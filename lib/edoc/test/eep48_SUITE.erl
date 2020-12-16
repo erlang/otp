@@ -23,6 +23,7 @@
 	 cb_since_tag/1,
 	 cb_deprecated_tag/1,
 	 links/1,
+	 see_tags_grouped_together/1,
 	 equiv/1,
 	 f_sig_single_simple_clause/1,
 	 f_sig_single_simple_clause_with_spec/1,
@@ -42,6 +43,7 @@
 	 f_spec_bounded_fun/1]).
 
 -define(a2b(A), atom_to_binary(A, utf8)).
+-define(io2b(IO), iolist_to_binary(IO)).
 
 %%
 %% CT preamble
@@ -61,6 +63,7 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  cb_since_tag,
 	  cb_deprecated_tag,
 	  links,
+	  see_tags_grouped_together,
 	  equiv,
 	  f_sig_single_simple_clause,
 	  f_sig_single_simple_clause_with_spec,
@@ -200,6 +203,13 @@ links(Config) ->
 		 get_doc_link({function, local_type_link, 0}, Docs)),
     ?assertEqual({<<"seetype">>, <<"eep48_links#t/0">>},
 		 get_doc_link({function, external_type_link, 0}, Docs)).
+
+see_tags_grouped_together(Config) ->
+    Docs = get_chunk(Config, eep48_links),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"See also: equiv_target/1, fun_with_equiv_doc_and_see/1.\n">>,
+		  ?io2b(string:find(shell_docs:render(eep48_links, ?FUNCTION_NAME, Docs),
+				    "See also")) ).
 
 equiv(Config) ->
     Docs = get_docs(Config, eep48_links),
