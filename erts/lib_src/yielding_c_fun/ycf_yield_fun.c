@@ -1618,6 +1618,13 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
                           ycf_node_new_text_node("\n"));
     ycf_node_list_append(&(*only_yielding_funs_tree)->u.c_file.content,
                          mk_wrap_in_surpress_warn("unused-function",continue_function));
+    if (debug_mode) {
+      /* The name got changed above so we need to change it back before doing the next step */
+      ycf_node_rename_function(&fun_change->u.function,
+                             ycf_string_new("%s_ycf_gen_yielding",
+                                            yielding_function_name));
+
+    }
     insert_yielding_function_with_prefix_suffix((*only_yielding_funs_tree),
                                                 NULL,
                                                 fun_change,

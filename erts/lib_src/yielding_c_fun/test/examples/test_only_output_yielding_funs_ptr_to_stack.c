@@ -10,8 +10,12 @@ int empty_fun(){
 #include "tmp.ycf.h"
 
 static int fun(char x){
+  char array[10];
+  array[4] = 42;
+  char *to_stack = &array[4];
   x = x + 1; /* x == 2*/
   YCF_YIELD();
+  printf("ptr to: %d", (int)(*to_stack));
   x = x + 1; /* x == 3*/
   {
   int hej = !!empty_fun();
