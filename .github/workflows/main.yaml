@@ -20,6 +20,7 @@ on:
 jobs:
 
   pack:
+    if: github.repository == 'erlang/otp'
     name: Pack the Erlang/OTP tar.gz
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +34,7 @@ jobs:
           path: otp_src.tar.gz
 
   build:
+    if: github.repository == 'erlang/otp'
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
     needs: pack
@@ -110,6 +112,7 @@ jobs:
 
   ## If this is a tag that has been pushed we do some release work
   release:
+    if: github.repository == 'erlang/otp'
     name: Release Erlang/OTP
     runs-on: ubuntu-latest
     needs: build
