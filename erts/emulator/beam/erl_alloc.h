@@ -358,6 +358,8 @@ erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 #define ERTS_ALC_CACHE_LINE_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)
 
+#if !defined(VALGRIND) && !defined(ADDRESS_SANITIZER)
+
 #define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
     ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
 
@@ -591,6 +593,69 @@ NAME##_free(TYPE *p)							\
 			  (char *) p);					\
 }
 
+#else /* !defined(VALGRIND) && !defined(ADDRESS_SANITIZER) */
+
+/*
+ * For VALGRIND and ADDRESS_SANITIZER we short circuit all preallocation
+ * with dummy wrappers around malloc and free.
+ */
+
+#define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
+    ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
+
+#define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
+static void init_##NAME##_alloc(void)                                   \
+{                                                                       \
+}                                                                       \
+static ERTS_INLINE TYPE* NAME##_alloc(void)			        \
+{                                                                       \
+    return malloc(sizeof(TYPE));                                        \
+}				                                        \
+static ERTS_INLINE void NAME##_free(TYPE *p)                            \
+{                                                                       \
+    free((void *) p);                                                   \
+}
+
+#define ERTS_SCHED_PREF_PALLOC_IMPL(NAME, TYPE, PASZ)			\
+  ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)
+
+#define ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)				\
+ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ)
+
+#define ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	\
+        ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
+
+#define ERTS_THR_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	        \
+void erts_##NAME##_pre_alloc_init_thread(void)				\
+{									\
+}                                                                       \
+static void init_##NAME##_alloc(int nthreads)				\
+{									\
+}									\
+static ERTS_INLINE TYPE* NAME##_alloc(void)			        \
+{									\
+    return malloc(sizeof(TYPE));				        \
+}									\
+static ERTS_INLINE void NAME##_free(TYPE *p)				\
+{									\
+    free(p);					                        \
+}
+
+#define ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)		  \
+static void init_##NAME##_alloc(void)                                     \
+{                                                                         \
+}                                                                         \
+static TYPE* NAME##_alloc(void)                                           \
+{                                                                         \
+    return (TYPE *) malloc(sizeof(TYPE));                                 \
+}                                                                         \
+static int NAME##_free(TYPE *p)                                           \
+{                                                                         \
+    free(p);                                                              \
+    return 1;                                                             \
+}
+
+#endif /* VALGRIND ||  ADDRESS_SANITIZER */
 
 #ifdef DEBUG
 #define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((UWord *) (PTR)) - 2))
