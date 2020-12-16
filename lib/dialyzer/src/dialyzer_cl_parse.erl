@@ -66,12 +66,13 @@ cl(["--no_check_plt"|T]) ->
   put(dialyzer_options_check_plt, false),
   cl(T);
 cl(["-nn"|T]) ->
-  cl(["--no_native"|T]);
+  %% Ignored since Erlang/OTP 24.0.
+  cl(T);
 cl(["--no_native"|T]) ->
-  put(dialyzer_options_native, false),
+  %% Ignored since Erlang/OTP 24.0.
   cl(T);
 cl(["--no_native_cache"|T]) ->
-  put(dialyzer_options_native_cache, false),
+  %% Ignored since Erlang/OTP 24.0.
   cl(T);
 cl(["--plt_info"|T]) ->
   put(dialyzer_options_analysis_type, plt_info),
@@ -316,9 +317,7 @@ common_options() ->
    {use_spec, get(dialyzer_options_use_contracts)},
    {warnings, get(dialyzer_warnings)},
    {check_plt, get(dialyzer_options_check_plt)},
-   {solvers, get(dialyzer_solvers)},
-   {native, get(dialyzer_options_native)},
-   {native_cache, get(dialyzer_options_native_cache)}].
+   {solvers, get(dialyzer_solvers)}].
 
 %%-----------------------------------------------------------------------
 
@@ -371,8 +370,8 @@ help_message() ->
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--dump_callgraph file] [--no_native] [--fullpath]
-                [--no_indentation] [--statistics] [--no_native_cache]
+                [--dump_callgraph file] [--fullpath] [--no_indentation]
+                [--statistics]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -473,10 +472,6 @@ Options:
       by the file name extension. Supported extensions are: raw, dot, and ps.
       If something else is used as file name extension, default format '.raw'
       will be used.
-  --no_native (or -nn)
-      Bypass the native code compilation of some key files that Dialyzer
-      heuristically performs when dialyzing many files; this avoids the
-      compilation time but it may result in (much) longer analysis time.
   --fullpath
       Display the full path names of files for which warnings are emitted.
   --no_indentation

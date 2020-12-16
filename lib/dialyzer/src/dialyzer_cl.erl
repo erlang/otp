@@ -751,13 +751,14 @@ print_warnings(#cl_state{output = Output,
   case PrWarnings of
     [] -> ok;
     [_|_] ->
+      PrWarningsId = set_warning_id(PrWarnings),
       S = case Format of
 	    formatted ->
               Opts = [{filename_opt, FOpt}, {indent_opt, IOpt}],
-	      [dialyzer:format_warning(W, Opts) || W <- PrWarnings];
+	      [dialyzer:format_warning(W, Opts) || W <- PrWarningsId];
 	    raw ->
 	      [io_lib:format("~tp. \n",
-                             [W]) || W <- set_warning_id(PrWarnings)]
+                             [W]) || W <- PrWarningsId]
 	  end,
       io:format(Output, "\n~ts", [S])
   end.

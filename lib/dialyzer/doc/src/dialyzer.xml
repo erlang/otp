@@ -85,8 +85,8 @@ dialyzer --help</code>
 dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname] [--dump_callgraph file]
          [files_or_dirs] [--fullpath] [--get_warnings] [--gui] [--help]
-         [-I include_dir]* [--no_check_plt] [--no_indentation] [--no_native]
-         [--no_native_cache] [-o outfile] [--output_plt file] [-pa dir]*
+         [-I include_dir]* [--no_check_plt] [--no_indentation]
+         [-o outfile] [--output_plt file] [-pa dir]*
          [--plt plt] [--plt_info] [--plts plt*] [--quiet] [-r dirs]
          [--raw] [--remove_from_plt] [--shell] [--src] [--statistics]
          [--verbose] [--version] [-Wwarn]*</code>
@@ -95,7 +95,7 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
       <p>* denotes that multiple occurrences of the option are possible.</p>
     </note>
 
-    <p><em>Options:</em></p>
+    <p><em>Options of the command-line version:</em></p>
 
     <taglist>
       <tag><c>--add_to_plt</c></tag>
@@ -185,20 +185,6 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
       <item>
 	<p>Do not insert line breaks in types, contracts, and Erlang
 	  Code when formatting warnings.</p>
-      </item>
-      <tag><c>--no_native</c> (or <c>-nn</c>)</tag>
-      <item>
-        <p>Bypass the native code compilation of some key files that
-          Dialyzer heuristically performs when dialyzing many files.
-          This avoids the compilation time, but can result in (much) longer
-          analysis time.</p>
-      </item>
-      <tag><c>--no_native_cache</c></tag>
-      <item>
-        <p>By default, Dialyzer caches the results of native compilation
-          in directory <c>$XDG_CACHE_HOME/erlang/dialyzer_hipe_cache</c>.
-          <c>XDG_CACHE_HOME</c> defaults to <c>$HOME/.cache</c>.
-          Use this option to disable caching.</p>
       </item>
       <tag><c>-o outfile</c> (or
         <c>--output outfile</c>)</tag>
@@ -313,6 +299,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
         <seecom marker="erts:erlc">erlc(1)</seecom>.</p>
     </note>
 
+    <marker id="warning_options"></marker>
     <p><em>Warning options:</em></p>
 
     <taglist>
@@ -477,14 +464,40 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 -dialyzer(unmatched_returns).</code>
   </section>
 
+  <datatypes>
+    <datatype>
+      <name name="dial_option"></name>
+      <desc>
+	<p>Option <c>from</c> defaults to <c>byte_code</c>.
+	  Options <c>init_plt</c> and <c>plts</c> change the
+	  default.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="dial_warn_tag"></name>
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="dial_warning"></name>
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="file_location"></name>
+    </datatype>
+    <datatype>
+      <name name="warn_option"></name>
+      <desc>
+	<p>See section <seeerl
+        marker="#warning_options">Warning options</seeerl>
+	for a description of the warning options.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name since="">format_warning(Msg) -> string()</name>
+      <name name="format_warning" arity="1" since=""></name>
       <fsummary>Get the string version of a warning message.</fsummary>
-      <type>
-        <v>Msg = {Tag, Id, msg()}</v>
-        <d>See <c>run/1</c>.</d>
-      </type>
       <desc>
         <p>Get a string from warnings as returned by
           <seemfa marker="#run/1"><c>run/1</c></seemfa>.</p>
@@ -492,13 +505,10 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     </func>
 
     <func>
-      <name since="">format_warning(Msg, Options) -> string()</name>
+      <name name="format_warning" arity="2" since=""></name>
       <fsummary>Get the string version of a warning message.</fsummary>
-      <type>
-        <v>Msg = {Tag, Id, msg()}</v>
-        <d>See <c>run/1</c>.</d>
-        <v>Options = [{indent_opt, boolean()}]</v>
-      </type>
+      <type name="format_option"/>
+      <type name="filename_opt"/>
       <desc>
         <p>Get a string from warnings as returned by
           <seemfa marker="#run/1"><c>run/1</c></seemfa>.</p>
@@ -509,64 +519,16 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     </func>
 
     <func>
-      <name since="">gui() -> ok | {error, Msg}</name>
-      <name since="">gui(OptList) -> ok | {error, Msg}</name>
+      <name name="gui" arity="0" since=""></name>
+      <name name="gui" arity="1" since=""></name>
       <fsummary>Dialyzer GUI version.</fsummary>
-      <type>
-        <v>OptList</v>
-        <d>See below.</d>
-      </type>
       <desc>
         <p>Dialyzer GUI version.</p>
-        <code type="none">
-OptList  :: [Option]
-Option   :: {files,          [Filename :: string()]}
-          | {files_rec,      [DirName :: string()]}
-          | {defines,        [{Macro :: atom(), Value :: term()}]}
-          | {from,           src_code | byte_code}
-                               %% Defaults to byte_code
-          | {init_plt,       FileName :: string()}
-                               %% If changed from default
-          | {plts,           [FileName :: string()]}
-                               %% If changed from default
-          | {include_dirs,   [DirName :: string()]}
-          | {output_file,    FileName :: string()}
-          | {output_plt,     FileName :: string()}
-          | {check_plt,      boolean()},
-          | {analysis_type,  'succ_typings' |
-                             'plt_add' |
-                             'plt_build' |
-                             'plt_check' |
-                             'plt_remove'}
-          | {warnings,       [WarnOpts]}
-          | {get_warnings,   boolean()}
-          | {native,         boolean()}
-                               %% Defaults to false when invoked from Erlang
-          | {native_cache,   boolean()}
-
-WarnOpts :: error_handling
-          | no_behaviours
-          | no_contracts
-          | no_fail_call
-          | no_fun_app
-          | no_improper_lists
-          | no_match
-	  | no_missing_calls
-          | no_opaque
-	  | no_return
-          | no_undefined_callbacks
-          | no_unused
-          | race_conditions
-          | underspecs
-          | unknown
-          | unmatched_returns
-          | overspecs
-          | specdiffs</code>
       </desc>
     </func>
 
     <func>
-      <name since="">plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}</name>
+      <name name="plt_info" arity="1" since=""></name>
       <fsummary>Return information about the specified PLT.</fsummary>
       <desc>
         <p>Returns information about the specified PLT.</p>
@@ -574,41 +536,10 @@ WarnOpts :: error_handling
     </func>
 
     <func>
-      <name since="">run(OptList) -> Warnings</name>
+      <name name="run" arity="1" since=""></name>
       <fsummary>Dialyzer command-line version.</fsummary>
-      <type>
-        <v>OptList</v>
-        <d>See <c>gui/0,1</c>.</d>
-        <v>Warnings</v>
-        <d>See below.</d>
-      </type>
       <desc>
         <p>Dialyzer command-line version.</p>
-        <code type="none">
-Warnings :: [{Tag, Id, Msg}]
-Tag      :: 'warn_behaviour'
-          | 'warn_bin_construction'
-          | 'warn_callgraph'
-          | 'warn_contract_not_equal'
-          | 'warn_contract_range'
-          | 'warn_contract_subtype'
-          | 'warn_contract_supertype'
-          | 'warn_contract_syntax'
-          | 'warn_contract_types'
-          | 'warn_failing_call'
-          | 'warn_fun_app'
-          | 'warn_matching'
-          | 'warn_non_proper_list'
-          | 'warn_not_called'
-          | 'warn_opaque'
-          | 'warn_race_condition'
-          | 'warn_return_no_exit'
-          | 'warn_return_only_exit'
-          | 'warn_umatched_return'
-          | 'warn_undefined_callbacks'
-          | 'warn_unknown'
-Id  = {File :: string(), Line :: integer()}
-Msg = msg() -- Undefined</code>
       </desc>
     </func>
   </funcs>

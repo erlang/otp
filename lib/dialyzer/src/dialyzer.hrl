@@ -61,24 +61,27 @@
 %%   1. It is the set of warnings that will be collected.
 %%   2. It is also the set of tags for warnings that will be returned.
 %%
--type dial_warn_tag() :: ?WARN_RETURN_NO_RETURN | ?WARN_RETURN_ONLY_EXIT
-                       | ?WARN_NOT_CALLED | ?WARN_NON_PROPER_LIST
-                       | ?WARN_MATCHING | ?WARN_OPAQUE | ?WARN_FUN_APP
-                       | ?WARN_FAILING_CALL | ?WARN_BIN_CONSTRUCTION
-                       | ?WARN_CONTRACT_TYPES | ?WARN_CONTRACT_SYNTAX
-                       | ?WARN_CONTRACT_NOT_EQUAL | ?WARN_CONTRACT_SUBTYPE
-                       | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CALLGRAPH
-                       | ?WARN_UNMATCHED_RETURN | ?WARN_RACE_CONDITION
-                       | ?WARN_BEHAVIOUR | ?WARN_CONTRACT_RANGE
-		       | ?WARN_UNDEFINED_CALLBACK | ?WARN_UNKNOWN
-		       | ?WARN_MAP_CONSTRUCTION.
+-type dial_warn_tag() :: ?WARN_BEHAVIOUR | ?WARN_BIN_CONSTRUCTION
+                       | ?WARN_CALLGRAPH | ?WARN_CONTRACT_NOT_EQUAL
+                       | ?WARN_CONTRACT_RANGE | ?WARN_CONTRACT_SUBTYPE
+                       | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CONTRACT_SYNTAX
+                       | ?WARN_CONTRACT_TYPES | ?WARN_FAILING_CALL
+                       | ?WARN_FUN_APP | ?WARN_MAP_CONSTRUCTION
+                       | ?WARN_MATCHING | ?WARN_NON_PROPER_LIST
+                       | ?WARN_NOT_CALLED | ?WARN_OPAQUE
+                       | ?WARN_RACE_CONDITION | ?WARN_RETURN_NO_RETURN
+                       | ?WARN_RETURN_ONLY_EXIT | ?WARN_UNDEFINED_CALLBACK
+                       | ?WARN_UNKNOWN | ?WARN_UNMATCHED_RETURN.
 
 %%
 %% This is the representation of each warning as they will be returned
 %% to dialyzer's callers
 %%
--type file_location() :: {file:filename(), erl_anno:location()}.
--type dial_warning()  :: {dial_warn_tag(), file_location(), {atom(), [term()]}}.
+-type file_location() :: {File :: file:filename(),
+                          Location :: erl_anno:location()}.
+-type dial_warning() :: {Tag :: dial_warn_tag(),
+                         Id :: file_location(),
+                         Msg :: {atom(), [term()]}}.
 
 %%
 %% This is the representation of each warning before suppressions have
@@ -86,8 +89,12 @@
 %%
 -type m_or_mfa()     :: module() % warnings not associated with any function
                       | mfa().
--type warning_info() :: {file:filename(), erl_anno:location(), m_or_mfa()}.
--type raw_warning()  :: {dial_warn_tag(), warning_info(), {atom(), [term()]}}.
+-type warning_info() :: {File :: file:filename(),
+                         Location :: erl_anno:location(),
+                         ModuleOrMFA :: m_or_mfa()}.
+-type raw_warning()  :: {Tag :: dial_warn_tag(),
+                         Id :: warning_info(),
+                         Msg :: {atom(), [term()]}}.
 
 %%
 %% This is the representation of dialyzer's internal errors
@@ -104,7 +111,41 @@
 -type contr_constr()  :: {'subtype', erl_types:erl_type(), erl_types:erl_type()}.
 -type contract_pair() :: {erl_types:erl_type(), [contr_constr()]}.
 -type dial_define()   :: {atom(), term()}.
--type dial_option()   :: {atom(), term()}.
+-type warn_option()   :: 'error_handling'
+                       | 'no_behaviours'
+                       | 'no_contracts'
+                       | 'no_fail_call'
+                       | 'no_fun_app'
+                       | 'no_improper_lists'
+                       | 'no_match'
+                       | 'no_missing_calls'
+                       | 'no_opaque'
+                       | 'no_return'
+                       | 'no_undefined_callbacks'
+                       | 'no_unused'
+                       | 'race_conditions'
+                       | 'underspecs'
+                       | 'unknown'
+                       | 'unmatched_returns'
+                       | 'overspecs'
+                       | 'specdiffs'.
+-type dial_option()   :: {'files', [FileName :: file:filename()]}
+                       | {'files_rec', [DirName :: file:filename()]}
+                       | {'defines', [{Macro :: atom(), Value :: term()}]}
+                       | {'from', 'src_code' | 'byte_code'}
+                       | {'init_plt', FileName :: file:filename()}
+                       | {'plts', [FileName :: file:filename()]}
+                       | {'include_dirs', [DirName :: file:filename()]}
+                       | {'output_file', FileName :: file:filename()}
+                       | {'output_plt', FileName :: file:filename()}
+                       | {'check_plt', boolean()}
+                       | {'analysis_type', 'succ_typings' |
+                                           'plt_add' |
+                                           'plt_build' |
+                                           'plt_check' |
+                                           'plt_remove'}
+                       | {'warnings', [warn_option()]}
+                       | {'get_warnings', boolean()}.
 -type dial_options()  :: [dial_option()].
 -type fopt()          :: 'basename' | 'fullpath'.
 -type format()        :: 'formatted' | 'raw'.
@@ -160,9 +201,7 @@
                   indent_opt      = ?INDENT_OPT    :: iopt(),
 		  callgraph_file  = ""             :: file:filename(),
 		  check_plt       = true           :: boolean(),
-                  solvers         = []             :: [solver()],
-                  native          = maybe          :: boolean() | 'maybe',
-                  native_cache    = true           :: boolean()}).
+                  solvers         = []             :: [solver()]}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],
 		   args		  = []		   :: [erl_types:erl_type()],

@@ -24,7 +24,11 @@
 
 %%-----------------------------------------------------------------------
 
--spec build(dial_options()) -> #options{} | {'error', string()}.
+-spec build(Options) -> #options{} | {'error', string()} when
+    Options :: [Option],
+    Option :: dial_option()
+            | {'report_mode', rep_mode()}
+            | {'erlang_mode', boolean()}.
 
 build(Opts) ->
   DefaultWarns = [?WARN_RETURN_NO_RETURN,
@@ -198,9 +202,11 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
       assert_solvers(Value),
       build_options(Rest, Options#options{solvers = Value});
     native ->
-      build_options(Rest, Options#options{native = Value});
+      %% Ignored since Erlang/OTP 24.0.
+      build_options(Rest, Options);
     native_cache ->
-      build_options(Rest, Options#options{native_cache = Value});
+      %% Ignored since Erlang/OTP 24.0.
+      build_options(Rest, Options);
     _ ->
       bad_option("Unknown dialyzer command line option", Term)
   end;

@@ -43,7 +43,7 @@
 %%  - run/1:            Erlang interface for a command line-like analysis
 %%  - gui/0/1:          Erlang interface for the gui.
 %%  - format_warning/1: Get the string representation of a warning.
-%%  - format_warning/1: Likewise, but with an option whether
+%%  - format_warning/2: Likewise, but with an option whether
 %%			to display full path names or not
 %%  - plt_info/1:       Get information of the specified plt.
 %%--------------------------------------------------------------------
@@ -148,7 +148,9 @@ cl(Opts) ->
       end,
   doit(F).
 
--spec run(dial_options()) -> [dial_warning()].
+-spec run(Options) -> Warnings when
+    Options :: [dial_option()],
+    Warnings :: [dial_warning()].
 
 run(Opts) ->
   try dialyzer_options:build([{report_mode, quiet},
@@ -188,7 +190,8 @@ internal_gui(OptsRecord) ->
 gui() ->
   gui([]).
 
--spec gui(dial_options()) -> 'ok'.
+-spec gui(Options) -> 'ok' when
+    Options :: [dial_option()].
 
 gui(Opts) ->
   try dialyzer_options:build([{report_mode, quiet}|Opts]) of
@@ -215,8 +218,11 @@ check_gui_options(#options{analysis_type = Mode}) ->
   Msg = io_lib:format("Analysis mode ~w is illegal in GUI mode", [Mode]),
   throw({dialyzer_error, Msg}).
 
--spec plt_info(file:filename()) ->
-     {'ok', [{'files', [file:filename()]}]} | {'error', atom()}.
+-spec plt_info(Plt) ->
+     {'ok', Result} | {'error', Reason} when
+    Plt :: file:filename(),
+    Result :: [{'files', [file:filename()]}],
+    Reason :: 'not_valid' | 'no_such_file' | 'read_error'.
 
 plt_info(Plt) ->
   case dialyzer_plt:included_files(Plt) of
@@ -275,13 +281,21 @@ cl_check_log(none) ->
 cl_check_log(Output) ->
   io:format("  Check output file `~ts' for details\n", [Output]).
 
--spec format_warning(raw_warning() | dial_warning()) -> string().
+-spec format_warning(Warnings) -> string() when
+    %% raw_warning() | % not documented
+    Warnings :: dial_warning().
 
 format_warning(W) ->
   format_warning(W, basename).
 
--spec format_warning(raw_warning() | dial_warning(),
-                     fopt() | proplists:proplist()) -> string().
+-type filename_opt() :: 'basename' | 'fullpath'.
+-type format_option() :: {'indent_opt', boolean()}
+                       | {'filename_opt', filename_opt()}.
+
+-spec format_warning(Warnings, Options) -> string() when
+    %% raw_warning() | % not documented
+    Warnings :: dial_warning(),
+    Options :: filename_opt() | [format_option()].
 
 format_warning(RawWarning, FOpt) when is_atom(FOpt) ->
   format_warning(RawWarning, [{filename_opt, FOpt}]);
