@@ -1670,10 +1670,10 @@ get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
 					       Family =:= inet6 ->
     case inet:getaddr(localhost, Family) of
 	{error, eafnosupport = Reason} ->
-            ?P("failed get addrs for localhost: ~p", [Reason]),
+            ?P("failed get (~w) addrs for localhost: ~p", [Family, Reason]),
 	    {error, ?F("No support for ~p (~p)", [Family, Reason])};
         {error, nxdomain = Reason} ->
-            ?P("failed get addrs for localhost: ~p", [Reason]),
+            ?P("failed get (~w) addrs for localhost: ~p", [Family, Reason]),
 	    {error, ?F("No support for ~p", [Family, Reason])};
 	{ok, _} ->
             ?P("got addr for localhost (ignored)"),
@@ -1692,10 +1692,14 @@ get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
 	    end
     end;
 get_addrs_by_family_aux(inet_and_inet6, NumAddrs) ->
-    catch {ok, [case get_addrs_by_family_aux(Family, NumAddrs) of
-		    {ok, Addrs}     -> Addrs;
-		    {error, Reason} -> throw({error, Reason})
-		end || Family <- [inet, inet6]]}.
+    try [case get_addrs_by_family_aux(Family, NumAddrs) of
+             {ok, Addrs}     -> Addrs;
+             {error, Reason} -> throw({error, Reason})
+         end || Family <- [inet, inet6]]
+    catch
+        throw:{error, _} = ERROR ->
+            ERROR
+    end.
 
 filter_addrs_by_family(IfAddrs, Family) ->
     lists:flatten([[Addr || {addr, Addr} <- Info,
