@@ -788,7 +788,35 @@ ssh_dbg_format(ssh_messages, {call, {?MODULE,decode,[_]}}) ->
 ssh_dbg_format(ssh_messages, {return_from,{?MODULE,decode,1},Msg}) ->
     Name = string:to_upper(atom_to_list(element(1,Msg))),
     ["Received ",Name,":\n",
-     wr_record(ssh_dbg:shrink_bin(Msg))
+     wr_record(ssh_dbg:shrink_bin(Msg)),
+     case Msg of
+         #ssh_msg_userauth_request{service = "ssh-connection",
+                                   method = "publickey",
+                                   data = <<_,?DEC_BIN(Alg,__0),_/binary>>} ->
+             io_lib:format("  data decoded: ~s ... ~n", [Alg]);
+
+         #ssh_msg_channel_request{request_type = "env",
+                                  data = <<?DEC_BIN(Var,__0),?DEC_BIN(Val,__1)>>} ->
+             io_lib:format("  data decoded: ~s = ~s~n", [Var, Val]);
+
+         #ssh_msg_channel_request{request_type = "exec",
+                                  data = <<?DEC_BIN(Cmnd,__0)>>} ->
+             io_lib:format("  data decoded: ~s~n", [Cmnd]);
+
+         #ssh_msg_channel_request{request_type = "pty-req",
+                                  data = <<?DEC_BIN(BTermName,_TermLen),
+                                           ?UINT32(Width),?UINT32(Height),
+                                           ?UINT32(PixWidth), ?UINT32(PixHeight),
+                                           Modes/binary>>} ->
+             io_lib:format("  data decoded: terminal = ~s~n"
+                           "                width x height = ~p x ~p~n"
+                           "                pix-width x pix-height = ~p x ~p~n"
+                           "                pty-opts = ~p~n",
+                           [BTermName, Width,Height, PixWidth, PixHeight,
+                            ssh_connection:decode_pty_opts(Modes)]);
+         _ ->
+             ""
+     end
     ];
 
 ssh_dbg_format(raw_messages, {call,{?MODULE,decode,[BytesPT]}}) ->
