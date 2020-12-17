@@ -35,6 +35,10 @@
 #include "beam_catches.h"
 #include "beam_common.h"
 
+#ifdef USE_VM_PROBES
+#include "dtrace-wrapper.h"
+#endif
+
 static Eterm *get_freason_ptr_from_exc(Eterm exc);
 static ErtsCodePtr next_catch(Process* c_p, Eterm *reg);
 static void terminate_proc(Process* c_p, Eterm Value);

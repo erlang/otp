@@ -25,6 +25,9 @@ extern "C"
 #include "bif.h"
 #include "code_ix.h"
 #include "erl_proc_sig_queue.h"
+#ifdef USE_VM_PROBES
+#    include "dtrace-wrapper.h"
+#endif
 }
 
 static ErtsMessage *decode_dist(Process *c_p, ErtsMessage *msgp) {

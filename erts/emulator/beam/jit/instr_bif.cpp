@@ -848,7 +848,7 @@ void BeamGlobalAssembler::emit_call_bif_shared(void) {
         a.mov(TMP_MEM3q, ARG5);
 
         a.mov(ARG1, erts_msacc_cache);
-        a.mov(ARG2, x86::qword_ptr(ARG2, offset(ErtsCodeMFA, module)));
+        a.mov(ARG2, x86::qword_ptr(ARG2, offsetof(ErtsCodeMFA, module)));
         a.mov(ARG3, ARG4);
         runtime_call<3>(erts_msacc_set_bif_state);
 
