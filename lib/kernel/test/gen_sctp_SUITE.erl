@@ -1692,10 +1692,10 @@ get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
 	    end
     end;
 get_addrs_by_family_aux(inet_and_inet6, NumAddrs) ->
-    try [case get_addrs_by_family_aux(Family, NumAddrs) of
-             {ok, Addrs}     -> Addrs;
-             {error, Reason} -> throw({error, Reason})
-         end || Family <- [inet, inet6]]
+    try {ok, [case get_addrs_by_family_aux(Family, NumAddrs) of
+                  {ok, Addrs}     -> Addrs;
+                  {error, Reason} -> throw({error, Reason})
+              end || Family <- [inet, inet6]]}
     catch
         throw:{error, _} = ERROR ->
             ERROR
