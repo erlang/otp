@@ -757,14 +757,22 @@ do_implicit_inet6(_Config) ->
             
             %% Second
             ?P("try create server socket (2)"),
-            Localhost = log_ok(inet:getaddr("localhost", inet6)),
-            S2 = case gen_sctp:open(0, [{ip,Localhost}]) of
+            Localhost =
+                case inet:getaddr("localhost", inet6) of
+                    {ok, LH} ->
+                        LH;
+                    {error, nxdomain = Reason_getaddr} ->
+                        ?SKIPT(Reason_getaddr);
+                    {error, Reason_getaddr} ->
+                        ?line ct:fail({unexpected, Reason_getaddr})
+                end,
+            S2 = case gen_sctp:open(0, [{ip, Localhost}]) of
                      {ok, S} ->
                          S;
-                     {error, nxdomain = Reason} ->
-                         ?SKIPT(Reason);
-                     {error, Reason} ->
-                         ?line ct:fail({unexpected, Reason})
+                     {error, nxdomain = Reason_open} ->
+                         ?SKIPT(Reason_open);
+                     {error, Reason_open} ->
+                         ?line ct:fail({unexpected, Reason_open})
                  end,
 
             ?P("*** ~s: ~p ***", ["localhost", Localhost]),
@@ -1674,7 +1682,7 @@ get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
 	    {error, ?F("No support for ~p (~p)", [Family, Reason])};
         {error, nxdomain = Reason} ->
             ?P("failed get (~w) addrs for localhost: ~p", [Family, Reason]),
-	    {error, ?F("No support for ~p", [Family, Reason])};
+	    {error, ?F("No support for ~p (~p)", [Family, Reason])};
 	{ok, _} ->
             ?P("got addr for localhost (ignored)"),
 	    IfAddrs = ok(inet:getifaddrs()),
