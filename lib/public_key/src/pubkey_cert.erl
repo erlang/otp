@@ -68,11 +68,15 @@
 -type test_root_cert() ::
         #{cert := binary(), key := public_key:private_key()}.
 %%====================================================================
-%% Internal application APIu
+%% Internal application APIs
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec verify_data(DER::binary()) -> {md5 | sha,  binary(), binary()}.
+-spec verify_data(DER::binary()) ->
+           {DigestType, PlainText, Signature}
+               when DigestType :: md5 | crypto:sha1() | crypto:sha2(),
+                    PlainText  :: binary(),
+                    Signature  :: binary().
 %%
 %% Description: Extracts data from DerCert needed to call public_key:verify/4.
 %%--------------------------------------------------------------------	 
