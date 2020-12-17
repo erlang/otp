@@ -750,7 +750,8 @@ grow_fds_status(ErtsPollSet *ps, int min_fd)
 
 #if ERTS_POLL_USE_EPOLL
 static int
-update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
+concurrent_update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op,
+                          ErtsPollEvents events)
 {
     int res;
     int epoll_op = EPOLL_CTL_MOD;
@@ -866,7 +867,8 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
     } while(0)
 
 static int
-update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
+concurrent_update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op,
+                          ErtsPollEvents events)
 {
     int res = 0, len = 0;
     struct kevent evts[2];
@@ -1382,7 +1384,7 @@ poll_control(ErtsPollSet *ps, int fd, ErtsPollOp op,
 
 #if ERTS_POLL_USE_CONCURRENT_UPDATE
 
-    new_events = update_pollset(ps, fd, op, events);
+    new_events = concurrent_update_pollset(ps, fd, op, events);
 
 #else /* !ERTS_POLL_USE_CONCURRENT_UPDATE */
     if (fd >= ps->fds_status_len)
