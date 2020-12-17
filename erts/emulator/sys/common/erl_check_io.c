@@ -531,7 +531,7 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
         }
 
         /* We were unable to re-insert the fd into the pollset, signal the callback. */
-        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+        if (new_events & ERTS_POLL_EV_NVAL) {
             if (state->active_events & ERTS_POLL_EV_IN)
                 iready(state->driver.select->inport, state);
             if (state->active_events & ERTS_POLL_EV_OUT)
@@ -737,7 +737,7 @@ deselect(ErtsDrvEventState *state, int mode)
             erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
 
         /* We were unable to re-insert the fd into the pollset, signal the callback. */
-        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+        if (new_events & ERTS_POLL_EV_NVAL) {
             if (state->active_events & ERTS_POLL_EV_IN)
                 iready(state->driver.select->inport, state);
             if (state->active_events & ERTS_POLL_EV_OUT)
@@ -1166,7 +1166,7 @@ enif_select_x(ErlNifEnv* env,
                                             state->active_events,
                                             &wake_poller);
 
-        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+        if (new_events & ERTS_POLL_EV_NVAL) {
             if (state->type == ERTS_EV_TYPE_NIF && !old_events) {
                 state->type = ERTS_EV_TYPE_NONE;
                 state->flags = 0;
@@ -1778,7 +1778,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
                     new_events = erts_io_control(state, ERTS_POLL_OP_MOD, reactive_events);
 
                     /* Unable to re-enable the fd, signal all callbacks */
-                    if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+                    if (new_events & ERTS_POLL_EV_NVAL) {
                         revents |= reactive_events;
                         state->active_events &= ~reactive_events;
                     }

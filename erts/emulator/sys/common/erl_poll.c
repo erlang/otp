@@ -1361,7 +1361,7 @@ poll_control(ErtsPollSet *ps, int fd, ErtsPollOp op,
 
     if (fd < ps->internal_fd_limit || fd >= max_fds) {
 	if (fd < 0 || fd >= max_fds) {
-	    new_events = ERTS_POLL_EV_ERR;
+	    new_events = ERTS_POLL_EV_NVAL;
 	    goto done;
 	}
 #if ERTS_POLL_USE_KERNEL_POLL
