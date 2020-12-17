@@ -247,7 +247,8 @@ do_error_info([], Errors0) ->
     end.
 
 eval_bif_error(F, Args, Opts, T, Errors0) ->
-    try apply(atomics, F, Args) of
+    Module = atomics,
+    try apply(Module, F, Args) of
         Result ->
             case lists:member(no_fail, Opts) of
                 true ->
@@ -261,10 +262,10 @@ eval_bif_error(F, Args, Opts, T, Errors0) ->
             Str = erl_error:format_exception(error, Reason, Stk, #{stack_trim_fun => SF}),
             BinStr = iolist_to_binary(Str),
             ArgStr = lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]),
-            io:format("\nerlang:~p(~s)\n~ts", [F,ArgStr,BinStr]),
+            io:format("\n~p:~p(~s)\n~ts", [Module,F,ArgStr,BinStr]),
 
             case Stk of
-                [{atomics,ActualF,ActualArgs,Info}|_] ->
+                [{Module,ActualF,ActualArgs,Info}|_] ->
                     RE = <<"[*][*][*] argument \\d+:">>,
                     Errors1 = case re:run(BinStr, RE, [{capture, none}]) of
                                   match ->
