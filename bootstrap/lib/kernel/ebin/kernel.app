@@ -34,7 +34,9 @@
 	     erl_boot_server,
 	     erl_compile_server,
 	     erl_distribution,
+             erl_erts_errors,
 	     erl_reply,
+             erl_kernel_errors,
              erl_signal_handler,
 	     erpc,
 	     error_handler,
@@ -153,6 +155,6 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-11.0", "stdlib-3.13", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-@OTP-16718@", "stdlib-3.13", "sasl-3.0"]}
  ]
 }.

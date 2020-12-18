@@ -109,8 +109,7 @@
       and a stack trace (which aids in finding the code location of
       the exception).</p>
     <p>The stack trace can be bound to a variable from within
-      a <c>try</c> expression, and is returned for
-      exceptions of class <c>error</c> from a <c>catch</c> expression.</p>
+      a <c>try</c> expression.</p>
     <p>An exception of class <c>error</c> is also known as a run-time 
       error.</p>
 
@@ -118,17 +117,21 @@
 	<marker id="stacktrace"></marker>
 	<title>The call-stack back trace (stacktrace)</title>
         <p>The stack back-trace (<em>stacktrace</em>) is a list of
-          <c>{Module,Function,Arity,Location}</c>
+          <c>{Module,Function,Arity,ExtraInfo}</c>
           tuples. The field <c>Arity</c> in the first tuple can be the
           argument list of that function call instead of an arity integer,
           depending on the exception.</p>
-
-	<p><c>Location</c> is a (possibly empty) list of two-tuples
-	that can indicate the location in the source code of the
-	function.  The first element is an atom describing the type of
-	information in the second element. The following items can
-	occur:</p>
+	  <p><c>ExtraInfo</c> is a (possibly empty) list of two-element tuples
+	  in any order that provides additional information about the exception.
+	  The first element is an atom describing the type of
+	  information in the second element. The following items can
+	  occur:</p>
 	<taglist>
+          <tag><c>error_info</c></tag>
+          <item>The second element of the tuple is a map
+	  providing additional information about what caused the
+	  exception.
+          </item>
           <tag><c>file</c></tag>
           <item>The second element of the tuple is a string (list of
           characters) representing the filename of the source file
@@ -259,9 +262,9 @@
     </table>
     <p><c>Stack</c> is the stack of function calls being evaluated
       when the error occurred, given as a list of tuples
-      <c>{Module,Name,Arity}</c> with the most recent function call
+      <c>{Module,Name,Arity,ExtraInfo}</c> with the most recent function call
       first. The most recent function call tuple can in some
-      cases be <c>{Module,Name,[Arg]}</c>.</p>
+      cases be <c>{Module,Name,[Arg],ExtraInfo}</c>.</p>
   </section>
 </chapter>
 

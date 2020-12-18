@@ -60,7 +60,7 @@
        <seecom marker="erts:erl#+e"><c>+e</c></seecom> before starting the
        Erlang runtime system. This hard limit has been removed, but it is currently
        useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
-       set to an approximate of the maximum amount of tables used. This since
+       set to an approximate of the maximum amount of tables used since
        an internal table for named tables is sized using this value. If
        large amounts of named tables are used and <c>ERL_MAX_ETS_TABLES</c>
        hasn't been increased, the performance of named table lookup will
@@ -195,10 +195,20 @@
         <seemfa marker="#tab2list/1"><c>tab2list/1</c></seemfa>.</p>
       </item>
     </list>
-    <p>None of these ways of table traversal will guarantee a consistent table snapshot
-    if the table is also updated during the traversal. Moreover, traversals not
-    done in a <em>safe</em> way, on tables where keys are inserted or deleted
-    during the traversal, may yield the following undesired effects:</p>
+    <p>
+      No table traversal will guarantee a consistent snapshot of the entire
+      table if the table is also updated by concurrent processes during the
+      traversal. The result of each concurrently updated object may be seen (or
+      not) depending on if it has happened when the traversal visits that part
+      of the table. The only way to guarantee a full consistent table snapshot
+      (if you really need that) is to disallow concurrent updates during the
+      entire traversal.
+    </p>
+    <p>
+      Moreover, traversals not done in a <em>safe</em> way, on tables where
+      keys are inserted or deleted during the traversal, may yield the
+      following undesired effects:
+    </p>
     <list type="bulleted">
       <item><p>Any key may be missed.</p></item>
       <item><p>Any key may be found more than once.</p></item>

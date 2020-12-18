@@ -150,6 +150,7 @@ type(erlang, halt, 2, _, _) -> t_none();
 type(erlang, exit, 1, _, _) -> t_none();
 type(erlang, error, 1, _, _) -> t_none();
 type(erlang, error, 2, _, _) -> t_none();
+type(erlang, error, 3, _, _) -> t_none();
 type(erlang, throw, 1, _, _) -> t_none();
 type(erlang, '==', 2, Xs = [X1, X2], Opaques) ->
   case
@@ -588,7 +589,8 @@ type(erlang, build_stacktrace, 0, _, _Opaques) ->
   t_list(t_tuple([t_module(),
                   t_atom(),
                   t_sup([t_arity(),t_list()]),
-                  t_list(t_sup([t_tuple([t_atom('file'),t_string()]),
+                  t_list(t_sup([t_tuple([t_atom('error_info'),t_map()]),
+                                t_tuple([t_atom('file'),t_string()]),
                                 t_tuple([t_atom('line'),t_pos_integer()])]))]));
 %% Guard bif, needs to be here.
 type(erlang, hd, 1, Xs, Opaques) ->
@@ -2228,6 +2230,8 @@ arg_types(erlang, error, 1) ->
   [t_any()];
 arg_types(erlang, error, 2) ->
   [t_any(), t_list()];
+arg_types(erlang, error, 3) ->
+  [t_any(), t_list(), t_list()];
 arg_types(erlang, exit, 1) ->
   [t_any()];
 %% Guard bif, needs to be here.

@@ -31,6 +31,51 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Build the supported curves cache in the NIF when crypto
+	    is loaded, no matter how it is loaded.</p>
+          <p>
+	    This prevents a possible problem with different processes
+	    starting the crypto application concurrently.</p>
+          <p>
+	    Own Id: OTP-16819 Aux Id: PR-2720 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to build with crypto and openssl
+	    gprof-enabled and statically link them into the VM.</p>
+          <p>
+	    Own Id: OTP-17029</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed performance loss in HMAC when using older OpenSSL
+	    due to mutex issues.</p>
+          <p>
+	    A workaround is implemented to allow fallback from using
+	    the EVP API for HMAC operations. On some architectures
+	    this may improve the performance, especially with old
+	    OpenSSL versions. This fallback to low-level functions is
+	    always enabled for openssl versions before 1.0.2.</p>
+          <p>
+	    Own Id: OTP-17025 Aux Id: ERL-1400, PR-2877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

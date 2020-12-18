@@ -47,6 +47,7 @@ MODULES= \
 	dtls_connection \
 	dtls_connection_sup \
 	dtls_handshake \
+	dtls_gen_connection \
 	dtls_listener_sup \
 	dtls_packet_demux \
 	dtls_record \
@@ -65,7 +66,6 @@ MODULES= \
 	ssl_cipher \
 	ssl_cipher_format \
 	ssl_config \
-	ssl_connection \
 	ssl_connection_sup \
 	ssl_crl \
 	ssl_crl_cache \
@@ -74,6 +74,7 @@ MODULES= \
 	ssl_dist_admin_sup \
 	ssl_dist_connection_sup \
 	ssl_dist_sup \
+        ssl_gen_statem \
 	ssl_handshake \
 	ssl_listen_tracker_sup \
 	ssl_logger \
@@ -89,9 +90,11 @@ MODULES= \
 	ssl_srp_primes \
 	ssl_sup \
 	tls_bloom_filter \
+	tls_dtls_connection \
 	tls_connection \
 	tls_connection_sup \
 	tls_connection_1_3 \
+	tls_gen_connection \
 	tls_handshake \
 	tls_handshake_1_3 \
 	tls_record \

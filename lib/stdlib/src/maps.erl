@@ -20,7 +20,7 @@
 
 -module(maps).
 
--export([get/3, filter/2,fold/3,
+-export([get/3, filter/2, filtermap/2, fold/3,
          map/2, size/1, new/0,
          update_with/3, update_with/4,
          without/2, with/2,
@@ -81,13 +81,18 @@ from_keys(_, _) -> erlang:nif_error(undef).
     Map3 :: #{Key => Value2}.
 
 intersect(Map1, Map2) when is_map(Map1), is_map(Map2) ->
-    intersect_with(fun intersect_combiner/3, Map1,Map2);
+    case map_size(Map1) =< map_size(Map2) of
+        true ->
+            intersect_with_small_map_first(fun intersect_combiner_v2/3, Map1, Map2);
+        false ->
+            intersect_with_small_map_first(fun intersect_combiner_v1/3, Map2, Map1)
+    end;
 intersect(Map1, Map2) ->
     erlang:error(error_type_two_maps(Map1, Map2),
                  [Map1,Map2]).
 
-intersect_combiner(_K, _V1, V2) ->
-    V2.
+intersect_combiner_v1(_K, V1, _V2) -> V1.
+intersect_combiner_v2(_K, _V1, V2) -> V2.
 
 -spec intersect_with(Combiner, Map1, Map2) -> Map3 when
     Map1 :: #{Key => Value1},
@@ -98,35 +103,33 @@ intersect_combiner(_K, _V1, V2) ->
 intersect_with(Combiner, Map1, Map2) when is_map(Map1),
                                           is_map(Map2),
                                           is_function(Combiner, 3) ->
-    case map_size(Map1) < map_size(Map2) of
+    %% Use =< because we want to avoid reversing the combiner if we can
+    case map_size(Map1) =< map_size(Map2) of
         true ->
-            Iterator = maps:iterator(Map1),
-            intersect_with_1(maps:next(Iterator),
-                             Map1,
-                             Map2,
-                             Combiner);
+            intersect_with_small_map_first(Combiner, Map1, Map2);
         false ->
-            Iterator = maps:iterator(Map2),
-            intersect_with_1(maps:next(Iterator),
-                             Map2,
-                             Map1,
-                             fun(K, V1, V2) -> Combiner(K, V2, V1) end)
+            RCombiner = fun(K, V1, V2) -> Combiner(K, V2, V1) end,
+            intersect_with_small_map_first(RCombiner, Map2, Map1)
     end;
 intersect_with(Combiner, Map1, Map2) ->
     error(error_type_merge_intersect(Map1, Map2, Combiner),
           [Combiner, Map1, Map2]).
 
-intersect_with_1({K, V1, Iterator}, Map1, Map2, Combiner) ->
+intersect_with_small_map_first(Combiner, SmallMap, BigMap) ->
+    Next = maps:next(maps:iterator(SmallMap)),
+    intersect_with_iterate(Next, [], SmallMap, BigMap, Combiner).
+
+intersect_with_iterate({K, V1, Iterator}, Keep, Map1, Map2, Combiner) ->
+    Next = maps:next(Iterator),
     case Map2 of
         #{ K := V2 } ->
-            NewMap1 = Map1#{ K := Combiner(K, V1, V2) },
-            intersect_with_1(maps:next(Iterator), NewMap1, Map2, Combiner);
+            V = Combiner(K, V1, V2),
+            intersect_with_iterate(Next, [{K,V}|Keep], Map1, Map2, Combiner);
         _ ->
-            intersect_with_1(maps:next(Iterator), maps:remove(K, Map1), Map2, Combiner)
+            intersect_with_iterate(Next, Keep, Map1, Map2, Combiner)
     end;
-intersect_with_1(none, Res, _, _) ->
-    Res.
-
+intersect_with_iterate(none, Keep, _Map1, _Map2, _Combiner) ->
+    maps:from_list(Keep).
 
 %% Shadowed by erl_bif_types: maps:is_key/2
 -spec is_key(Key,Map) -> boolean() when
@@ -311,6 +314,34 @@ filter_1(Pred, Iter) ->
             end;
         none ->
             []
+    end.
+
+
+-spec filtermap(Fun, MapOrIter) -> Map when
+      Fun :: fun((Key, Value1) -> boolean() | {true, Value2}),
+      MapOrIter :: #{Key => Value1} | iterator(Key, Value1),
+      Map :: #{Key => Value1 | Value2}.
+
+filtermap(Fun, Map) when is_function(Fun, 2), is_map(Map) ->
+    maps:from_list(filtermap_1(Fun, iterator(Map)));
+filtermap(Fun, Iterator) when is_function(Fun, 2), ?IS_ITERATOR(Iterator) ->
+    maps:from_list(filtermap_1(Fun, Iterator));
+filtermap(Fun, Map) ->
+    erlang:error(error_type(Map), [Fun, Map]).
+
+filtermap_1(Pred, Iter) ->
+    case next(Iter) of
+	{K, V, NextIter} ->
+	    case Pred(K, V) of
+		true ->
+		    [{K, V} | filtermap_1(Pred, NextIter)];
+		{true, NewV} ->
+		    [{K, NewV} | filtermap_1(Pred, NextIter)];
+		false ->
+		    filtermap_1(Pred, NextIter)
+	    end;
+	none ->
+	    []
     end.
 
 -spec fold(Fun,Init,MapOrIter) -> Acc when

@@ -22,14 +22,14 @@
 	 init_per_group/2,end_per_group/2,
 	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,
          subtract_number_type/1,float_followed_by_guard/1,
-         fconv_line_numbers/1]).
+         fconv_line_numbers/1,float_zero/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [pending, bif_calls, math_functions,
+    [pending, bif_calls, math_functions, float_zero,
      mixed_float_and_int, subtract_number_type,
      float_followed_by_guard,fconv_line_numbers].
 
@@ -49,6 +49,12 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+float_zero(Config) when is_list(Config) ->
+    <<16#0000000000000000:64>> = match_on_zero_and_to_binary(1*0.0),
+    <<16#8000000000000000:64>> = match_on_zero_and_to_binary(-1*0.0),
+    ok.
+
+match_on_zero_and_to_binary(0.0 = X) -> <<X/float>>.
 
 %% Thanks to Tobias Lindahl <tobias.lindahl@it.uu.se>
 %% Shows the effect of pending exceptions on the x86.

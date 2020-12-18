@@ -19,9 +19,49 @@
 %%
 -module(erl_error).
 
+%% Supported and documented exported functions in this module.
+-export([format_exception/3, format_exception/4]).
+
+-export_type([format_options/0, format_fun/0, stack_trim_fun/0]).
+
+%% Only for internal OTP use.
 -export([format_exception/6, format_exception/7, format_exception/8,
          format_stacktrace/4, format_stacktrace/5,
          format_call/4, format_call/5, format_fun/1, format_fun/2]).
+
+-type column() :: pos_integer().
+-type stack_trim_fun() :: fun((module(), atom(), arity()) -> boolean()).
+-type format_fun() :: fun((term(), column()) -> iolist()).
+
+-type format_options() :: #{column => column(),
+                            stack_trim_fun => stack_trim_fun(),
+                            format_fun => format_fun()}.
+
+-spec format_exception(Class, Reason, StackTrace) -> unicode:chardata() when
+      Class :: 'error' | 'exit' | 'throw',
+      Reason :: term(),
+      StackTrace :: [tuple()].
+
+format_exception(Class, Reason, StackTrace) ->
+    format_exception(Class, Reason, StackTrace, #{}).
+
+-spec format_exception(Class, Reason, StackTrace, Options) -> unicode:chardata() when
+      Class :: 'error' | 'exit' | 'throw',
+      Reason :: term(),
+      StackTrace :: [tuple()],
+      Options :: format_options().
+
+format_exception(Class, Reason, StackTrace, Options) ->
+    Column = maps:get(column, Options, 1),
+    StackFun0 = fun(_, _, _) -> false end,
+    StackFun = maps:get(stack_trim_fun, Options, StackFun0),
+    FormatFun0 = fun(Term, I) -> io_lib:print(Term, I, 80, 30) end,
+    FormatFun = maps:get(format_fun, Options, FormatFun0),
+    format_exception(Column, Class, Reason, StackTrace, StackFun, FormatFun, unicode).
+
+%%%
+%%% Internal functions.
+%%%
 
 %%% Formatting of exceptions, mfa:s and funs.
 
@@ -55,7 +95,7 @@ format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding,
                       %% Reserve one third for the stacktrace.
                       CharsLimit div 3
               end,
-    St = format_stacktrace1(S, Trace, FormatFun, StackFun, Encoding, StLimit),
+    St = format_stacktrace1(S, Trace, FormatFun, StackFun, Encoding, StLimit, Reason),
     Lim = sub(sub(CharsLimit, exited(Class), latin1), St, Encoding),
     Expl0 = explain_reason(Term, Class, Trace1, FormatFun, S, Encoding, Lim),
     FormatString = case Encoding of
@@ -78,7 +118,7 @@ format_stacktrace(I, StackTrace, StackFun, FormatFun, Encoding)
                  is_function(FormatFun, 2) ->
     S = n_spaces(I-1),
     FF = wrap_format_fun_2(FormatFun),
-    format_stacktrace1(S, StackTrace, FF, StackFun, Encoding, -1).
+    format_stacktrace1(S, StackTrace, FF, StackFun, Encoding, -1, none).
 
 %% -> iolist() (no \n at end)
 format_call(I, ForMForFun, As, FormatFun) ->
@@ -242,34 +282,73 @@ argss(2) ->
 argss(I) ->
     io_lib:fwrite(<<"~w arguments">>, [I]).
 
-format_stacktrace1(S0, Stack0, PF, SF, Enc, CL) ->
+format_stacktrace1(S0, Stack0, PF, SF, Enc, CL, Reason) ->
     Stack1 = lists:dropwhile(fun({M,F,A,_}) -> SF(M, F, A)
                              end, lists:reverse(Stack0)),
     S = ["  " | S0],
     Stack = lists:reverse(Stack1),
-    format_stacktrace2(S, Stack, 1, PF, Enc, CL).
+    format_stacktrace2(S, Stack, 1, PF, Enc, CL, Reason).
 
-format_stacktrace2(_S, _Stack, _N, _PF, _Enc, _CL=0) ->
+format_stacktrace2(_S, _Stack, _N, _PF, _Enc, _CL=0, _Reason) ->
     [];
-format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF, Enc, CL) when is_integer(A) ->
+format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF, Enc, CL, Reason) when is_integer(A) ->
     Cs = io_lib:fwrite(<<"~s~s ~ts ~ts">>,
                        [sep(N, S), origin(N, M, F, A),
                         mfa_to_string(M, F, A, Enc),
                         location(L)]),
     CL1 = sub(CL, Cs, Enc),
-    [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1)];
-format_stacktrace2(S, [{M,F,As,_}|Fs], N, PF, Enc, CL) when is_list(As) ->
+    [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1, Reason)];
+format_stacktrace2(S, [{M,F,As,_Info}|Fs]=StackTrace, N, PF, Enc, CL, Reason)
+  when is_list(As) ->
     A = length(As),
     CalledAs = [S,<<"   called as ">>],
     C = format_call("", CalledAs, {M,F}, As, PF, Enc, CL),
-    Cs = io_lib:fwrite(<<"~s~s ~ts\n~s~ts">>,
+    FormattedError = call_format_error(Reason, StackTrace, sep(N, S)),
+    Cs = io_lib:fwrite(<<"~s~s ~ts\n~s~ts~ts">>,
                        [sep(N, S), origin(N, M, F, A),
                         mfa_to_string(M, F, A, Enc),
-                        CalledAs, C]),
+                        CalledAs, C, FormattedError]),
     CL1 = sub(CL, Enc, Cs),
-    [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1)];
-format_stacktrace2(_S, [], _N, _PF, _Enc, _CL) ->
+    [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1, Reason)];
+format_stacktrace2(_S, [], _N, _PF, _Enc, _CL, _Reason) ->
     "".
+
+call_format_error(Reason, [{M,_F,As,Info}|_]=StackTrace, Sep) ->
+    ErrorMap = get_extended_error(Reason, M, Info, StackTrace),
+    case format_arg_errors(1, As, ErrorMap) of
+        [] ->
+            [];
+        [_|_]=Errors ->
+            lists:join([$\n,Sep,<<"   ">>], [""|Errors])
+    end.
+
+get_extended_error(Reason, M, Info, StackTrace) ->
+    case lists:keyfind(error_info, 1, Info) of
+        {error_info,ErrorInfoMap} when is_map(ErrorInfoMap) ->
+            FormatModule = maps:get(module, ErrorInfoMap, M),
+            FormatFunction = maps:get(function, ErrorInfoMap, format_error),
+            try
+                FormatModule:FormatFunction(Reason, StackTrace)
+            catch
+                error:_ ->
+                    %% Silently ignore all errors.
+                    #{}
+            end;
+        _ ->
+            %% There is no extended error information available.
+            #{}
+    end.
+
+format_arg_errors(ArgNum, [_|As], ErrorMap) ->
+    case ErrorMap of
+        #{ArgNum := Err} ->
+            [io_lib:format(<<"*** argument ~w: ~ts">>, [ArgNum, Err]) |
+             format_arg_errors(ArgNum + 1, As, ErrorMap)];
+        #{} ->
+            format_arg_errors(ArgNum + 1, As, ErrorMap)
+    end;
+format_arg_errors(_, _, _) ->
+    [].
 
 location(L) ->
     File = proplists:get_value(file, L),

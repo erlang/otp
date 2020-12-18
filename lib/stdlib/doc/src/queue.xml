@@ -53,6 +53,12 @@
       assuming knowledge of the format is running on thin ice.</p>
 
     <p>All operations have an amortized O(1) running time, except
+      <seemfa marker="#all/2"><c>all/2</c></seemfa>,
+      <seemfa marker="#any/2"><c>any/2</c></seemfa>,
+      <seemfa marker="#delete/2"><c>delete/2</c></seemfa>,
+      <seemfa marker="#delete_r/2"><c>delete_r/2</c></seemfa>,
+      <seemfa marker="#delete_with/2"><c>delete_with/2</c></seemfa>,
+      <seemfa marker="#delete_with_r/2"><c>delete_with_r/2</c></seemfa>,
       <seemfa marker="#filter/2"><c>filter/2</c></seemfa>,
       <seemfa marker="#filtermap/2"><c>filtermap/2</c></seemfa>,
       <seemfa marker="#fold/3"><c>fold/3</c></seemfa>,
@@ -116,12 +122,76 @@
       <title>Original API</title>
     </fsdescription>
     <func>
+      <name name="all" arity="2" since=""/>
+      <fsummary>Return <c>true</c> if all items in a queue satisfy
+        <c>Pred</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Item</anno>)</c>
+          returns <c>true</c> for all items <c><anno>Item</anno></c> in
+          <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="any" arity="2" since=""/>
+      <fsummary>Return <c>true</c> if any of the items in a queue satisfy
+        <c>Pred</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Item</anno>)</c>
+          returns <c>true</c> for at least one item <c><anno>Item</anno></c>
+          in <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="2" since=""/>
+      <fsummary>Delete an item from the front of a queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
+          matching <c><anno>Item</anno></c> is deleted, if there is such an
+          item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_r" arity="2" since=""/>
+      <fsummary>Delete an item from the rear of a queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
+          matching <c><anno>Item</anno></c> is deleted, if there is such an
+          item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_with" arity="2" since=""/>
+      <fsummary>Delete an item matching a predicate from the front of a
+        queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
+          for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
+          if there is such an item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_with_r" arity="2" since=""/>
+      <fsummary>Delete an item matching a predicate from the rear of a
+        queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
+          for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
+          if there is such an item.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="filter" arity="2" since=""/>
       <fsummary>Filter a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
           <c><anno>Fun</anno>(<anno>Item</anno>)</c> on all items in
-          <c><anno>Q1</anno></c>, in order from front to rear.</p>
+          <c><anno>Q1</anno></c>.</p>
         <p>If <c><anno>Fun</anno>(<anno>Item</anno>)</c> returns <c>true</c>,
           <c>Item</c> is copied to the result queue. If it returns <c>false</c>,
           <c><anno>Item</anno></c> is not copied. If it returns a list,
@@ -142,7 +212,7 @@
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
           <c><anno>Fun</anno>(<anno>Item</anno>)</c> on all items in
-          <c><anno>Q1</anno></c>, in order from front to rear.</p>
+          <c><anno>Q1</anno></c>.</p>
         <p>If <c><anno>Fun</anno>(<anno>Item</anno>)</c> returns <c>true</c>,
           <c>Item</c> is copied to the result queue. If it returns <c>false</c>,
           <c><anno>Item</anno></c> is not copied. If it returns

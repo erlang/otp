@@ -25,6 +25,7 @@
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
          change_exception_class/1,
          exception_with_heap_frag/1, backtrace_depth/1,
+         error_3/1, error_info/1,
          no_line_numbers/1, line_numbers/1]).
 
 -export([bad_guy/2]).
@@ -47,6 +48,7 @@ all() ->
      stacktrace, nested_stacktrace, raise, gunilla, per,
      change_exception_class,
      exception_with_heap_frag, backtrace_depth,
+     error_3, error_info,
      no_line_numbers, line_numbers].
 
 -define(try_match(E),
@@ -654,6 +656,663 @@ do_backtrace_depth_2(D, Exc) ->
             end
     end.
 
+error_3(Config) ->
+    {error_info,#{}} = do_error_3({some,reason}, [Config], [{error_info,#{}}]),
+    {error_info,#{cause:=whatever}} = do_error_3({some,reason}, [Config],
+                                                 [{error_info,#{cause=>whatever}}]),
+
+    false = do_error_3({some,reason}, [Config], []),
+    false = do_error_3({some,reason}, [Config], [{error_info,not_map}]),
+    false = do_error_3({some,reason}, [Config], [{bad,tuple}]),
+    false = do_error_3({some,reason}, [Config], [bad]),
+
+    ok.
+
+do_error_3(Reason, Args, Options) ->
+    {'EXIT',{Reason,[{?MODULE,?FUNCTION_NAME,Args,ExtraInfo}|_]}} = catch error(Reason, Args, Options),
+    lists:keyfind(error_info, 1, ExtraInfo).
+
+error_info(_Config) ->
+    DeadProcess = dead_process(),
+    NewAtom = non_existing_atom(),
+
+    L = [{abs, [abc]},
+         {adler32, [{bad,data}]},
+         {adler32, [old, new]},
+         {adler32, [1 bsl 48, new]},
+         {adler32_combine, [a, b, c]},
+         {adler32_combine, [1 bsl 48, 1 bsl 48, bad_size]},
+         {adler32_combine, [1 bsl 48, 1 bsl 48, -1]},
+
+         {alias, [bad_options]},
+
+         {alloc_info, 1},                       %Internal BIF.
+         {alloc_sizes, 1},                      %Internal BIF.
+
+         {append, [a, b]},
+         {append_element, [no_tuple, any]},
+
+         %% apply/2 and apply/3 are magic.
+         {apply, 2},
+         {apply, 3},
+
+         {atom_to_binary, ["abc"]},
+         {atom_to_binary, ["abc",latin1]},
+         {atom_to_binary, ['земля',latin1]},
+         {atom_to_binary, [xyz,utf42]},
+
+         {atom_to_list, [{a,b,c}]},
+
+         {binary_part, [<<>>, bad]},
+         {binary_part, [bad, bad]},
+         {binary_part, [<<1,2,3>>, {3,4}]},
+         {binary_part, [<<1,2,3>>, {3,4,5}]},
+         {binary_part, [bad, 3, 4]},
+         {binary_part, [<<1,2,3>>, 4, 4]},
+
+         {binary_to_atom, [abc]},
+         {binary_to_atom, [<<128,128,255>>]},
+
+         {binary_to_atom, [<<0:512/unit:8>>, latin1]},
+         {binary_to_atom, [abc, latin1]},
+         {binary_to_atom, [<<128,128,255>>, utf8]},
+         {binary_to_atom, [<<"abc">>, utf42]},
+
+         {binary_to_existing_atom, [abc]},
+         {binary_to_existing_atom, [<<128,128,255>>]},
+         {binary_to_existing_atom, [abc, latin1]},
+         {binary_to_existing_atom, [<<128,128,255>>,utf8]},
+         {binary_to_existing_atom, [list_to_binary(NewAtom), latin1]},
+         {binary_to_existing_atom, [list_to_binary(NewAtom), utf42]},
+         {binary_to_existing_atom, [<<0:512/unit:8>>, latin1]},
+
+         {binary_to_float, [abc]},
+         {binary_to_float, [<<"0">>]},
+         {binary_to_float, [<<"abc">>]},
+         {binary_to_integer, [abc]},
+         {binary_to_integer, [<<"abc">>]},
+
+         {binary_to_integer, [abc, 100]},
+         {binary_to_integer, [<<"abc">>, 100]},
+
+         {binary_to_list, [<<0:4>>]},
+         {binary_to_list, [abc]},
+
+         {binary_to_list, [abc, x, y]},
+         {binary_to_list, [<<1,2,3>>, 3, 2]},
+         {binary_to_list, [<<1,2,3>>, 1, 4]},
+         {binary_to_list, [<<1,2,3>>, 4, 5]},
+
+         {binary_to_term, [abc]},
+         {binary_to_term, [<<"abc">>]},
+         {binary_to_term, [term_to_binary(a), abc]},
+         {binary_to_term, [<<"bad">>, abc]},
+
+         {bit_size, [abc]},
+         {bitstring_to_list, [abc]},
+         {bump_reductions, [abc]},
+         {bump_reductions, [-1]},
+         {byte_size, [abc]},
+         {call_on_load_function, 1},
+
+         {cancel_timer, [abc]},
+         {cancel_timer, [abc, bad]},
+         {cancel_timer, [abc, [bad]]},
+         {cancel_timer, [make_ref(), [bad]]},
+
+         {ceil, [abc]},
+
+         {check_old_code, [{a,b,c}]},
+         {check_process_code, [self(), {no,module}]},
+         {check_process_code, [no_pid, {no,module}]},
+         {check_process_code, [self(), abc, bad_option_list]},
+         {check_process_code, [self(), abc, [abc]]},
+         {check_process_code, [a, self(), [abc]]},
+
+         {convert_time_unit, [a, b, c]},
+
+         {crc32, [{bad,data}]},
+         {crc32, [old, new]},
+         {crc32, [1 bsl 48, new]},
+         {crc32_combine, [a, b, c]},
+         {crc32_combine, [1 bsl 48, 1 bsl 48, bad_size]},
+         {crc32_combine, [1 bsl 48, 1 bsl 48, -1]},
+
+         {decode_packet, [xyz, not_binary, not_list]},
+         {decode_packet, [xyz, <<>>, []]},
+         {decode_packet, [xyz, not_binary, [bad_option]]},
+         {decode_packet, [asn1, <<"abc">>, [bad_option]]},
+
+         {delay_trap, 2},                       %Internal BIF.
+
+         {delete_element, [0,{a,b,c}]},
+         {delete_element, [99,{a,b,c}]},
+         {delete_element, [not_integer,{a,b,c}]},
+         {delete_element, [1,not_tuple]},
+         {delete_element, [a,b]},
+
+         {delete_module, [{a,b,c}]},
+
+         {dmonitor_node, 3},                    %Internal BIF.
+
+         {demonitor, [abc]},
+         {demonitor, [abc, bad]},
+         {demonitor, [abc, [bad]]},
+         {demonitor, [make_ref(), [bad]]},
+
+         {disconnect_node, 1},                  %Never fails.
+
+         {display, ["test erlang:display/1"], [no_fail]},
+         {display_string, [{a,b,c}]},
+
+         %% Internal undcoumented BIFs.
+         {dist_ctrl_get_data, 1},
+         {dist_ctrl_get_data_notification, 1},
+         {dist_ctrl_get_opt, 2},
+         {dist_ctrl_input_handler, 2},
+         {dist_ctrl_put_data, 2},
+         {dist_ctrl_set_opt, 3},
+         {dist_get_stat, 1},
+         {dt_append_vm_tag_data, 1},
+         {dt_prepend_vm_tag_data, 1},
+         {dt_put_tag, 1},
+         {dt_restore_tag, 1},
+         {dt_spread_tag, 1},
+
+         {element, [0,{a,b,c}]},
+         {element, [99,{a,b,c}]},
+         {element, [not_integer,{a,b,c}]},
+         {element, [1,not_tuple]},
+         {element, [a,b]},
+
+         {erase, [abc], [no_fail]},
+         {error, 1},
+         {error, 2},
+         {error, 3},
+         {exit, 1},
+
+         {exit, [a, b]},
+         {exit_signal, [a, b]},
+
+         {external_size, [a], [no_fail]},
+         {external_size, [abc, xyz]},
+
+         %% Internal undocumented BIF.
+         {finish_after_on_load, 2},
+         {finish_loading, 1},
+
+         {float, [abc]},
+         {float_to_binary, [abc]},
+         {float_to_binary, [abc, bad_options]},
+         {float_to_list, [abc]},
+         {float_to_list, [abc, bad_options]},
+         {floor, [abc]},
+
+         {format_cpu_topology, 1},              %Internal BIF.
+
+         {fun_info, [abc]},
+         {fun_info, [abc, {bad,item}]},
+         {fun_info_mfa, [abc]},
+         {fun_to_list, [abc]},
+         {function_exported, [1,2,abc]},
+
+         {garbage_collect, [not_a_pid]},
+         {garbage_collect, [not_a_pid, bad_option_list]},
+
+         {gather_gc_info_result, 1},            %Internal BIF.
+
+         {get_keys, [value], [no_fail]},
+         {get_module_info, 1},
+         {get_module_info, 2},
+
+         {group_leader, [not_pid, self()]},
+         {group_leader, [self(), not_pid]},
+
+         {halt, [{bad,exit,status}]},
+         {halt, [a, []]},
+         {halt, [a, b]},
+         {halt, [1, [bad_option]]},
+
+         {has_prepared_code_on_load, 1},
+         {hd, [abc]},
+         {hibernate, [1,2,a]},
+         {insert_element, [a, b, c]},
+         {insert_element, [0, b, c]},
+         {integer_to_binary, [42.0]},
+         {integer_to_binary, [42, 100]},
+         {integer_to_binary, [42.0, 100]},
+         {integer_to_list, [abc]},
+         {integer_to_list, [abc, 100]},
+         {iolist_size, [abc]},
+         {iolist_to_binary, [abc]},
+         {iolist_to_iovec, [abc]},
+         {is_builtin, [1, 2, a]},
+         {is_function, [abc, bad_arity]},
+         {is_function, [abc, -1]},
+         {is_map_key, [key, not_map]},
+         {is_process_alive, [abc]},
+         {is_record, [not_tuple,42]},
+         {is_record, [not_tuple,42,bad_size]},
+         {length, [abc]},
+         {link, [42]},
+         {link, [DeadProcess]},
+         {list_to_atom, [42]},
+         {list_to_atom, [lists:duplicate(1024, $a)]},
+         {list_to_binary, [42]},
+         {list_to_bitstring, [[a,b,c]]},
+
+         {list_to_existing_atom, [abc]},
+         {list_to_existing_atom, [[a,b,c]]},
+         {list_to_existing_atom, [[["abc"]]]},
+         {list_to_existing_atom, [NewAtom]},
+         {list_to_existing_atom, [[a|b]]},
+
+         {list_to_float, ["abc"]},
+         {list_to_float, [abc]},
+
+         {list_to_integer, ["abc"]},
+         {list_to_integer, [[a,b,c]]},
+         {list_to_integer, [[a|b]]},
+         {list_to_integer, [abc]},
+
+         {list_to_integer, ["abc",10]},
+         {list_to_integer, [[a,b,c],10]},
+         {list_to_integer, [[a|b],abc]},
+         {list_to_integer, [abc,10]},
+         {list_to_integer, ["42",abc]},
+
+         {list_to_pid, ["pid"]},
+         {list_to_pid, [42]},
+
+         {list_to_port, ["port"]},
+         {list_to_port, [port]},
+
+         {list_to_ref, ["ref"]},
+         {list_to_ref, [ref]},
+
+         {list_to_tuple, [abc]},
+
+         {load_module, [{no,module}, <<1,2,3>>]},
+         {load_module, [good_module_name, not_binary]},
+
+         {load_nif, [{bad,path}, any]},
+
+         {localtime_to_universaltime, [bad_date]},
+         {localtime_to_universaltime, [{{2020, 3, 12}, {12, 0, 0}}, not_boolean]},
+         {localtime_to_universaltime, [bad_date, not_boolean]},
+
+         {make_fun, [0,1,-1]},
+         {make_fun, [0,1,abc]},
+
+         {make_tuple, [a, element]},
+         {make_tuple, [10, element, abc]},
+         {make_tuple, [xyz, element, [abc]]},
+
+         {map_get, [a, #{}]},
+         {map_get, [a, b]},
+         {map_size, [[a,b,c]]},
+
+         {match_spec_test, [abc, match_spec, bad_type]},
+         {match_spec_test, [abc, match_spec, trace]},
+         {match_spec_test, [abc, [{{'$1','$2','$3'},[],['$$']}], table], [no_fail]},
+
+         {md5, [abc]},
+         {md5_final, [abc]},
+         {md5_update, [abc, xyz]},
+         {md5_update, [<<"bad context">>, "data"]},
+
+         {memory, [whatever]},
+         {memory, [[a,b,c]]},
+         {memory, [999]},
+
+         %% Not a BIF.
+         {module_info, 1},
+
+         {module_loaded, [42]},
+
+         {monitor, [moon, whatever]},
+         {monitor, [port, self()]},
+         {monitor, [moon, whatever, []]},
+
+         {monitor, [port, self(), []]},
+         {monitor, [process, self(), [bad_option]]},
+         {monitor, [process, self(), not_a_list]},
+
+         {monitor_node, [{a,b,c}, bad]},
+         {monitor_node, [{a,b,c}, bad, bad]},
+         {monitor_node, [{a,b,c}, bad, [bad]]},
+
+         {monotonic_time, [fortnight]},
+
+         {nif_error, 1},
+         {nif_error, 2},
+         {node, [abc]},
+         {nodes, [abc]},
+         {phash, [any, -1]},
+         {phash, [any, not_integer]},
+         {phash2, [any], [no_fail]},
+         {phash2, [any, not_integer]},
+         {pid_to_list, [abc]},
+
+         {open_port, [{bad,name}, []]},
+         {open_port, [{spawn, "no_command"}, bad_option_list]},
+         {open_port, [{spawn, "no_command"}, [xyz]]},
+
+         {port_call, 2},                        %Internal BIF.
+         {port_call, [{no,port}, b, data]},
+         {port_call, [{no,port}, -1, data]},
+         {port_call, [{no,port}, 1 bsl 32, data]},
+
+         {port_close, [{no,port}]},
+
+         {port_command, [{no,port}, [a|b]]},
+         {port_command, [{no,port}, [command], [whatever]]},
+         {port_command, [{no,port}, [command], whatever]},
+
+         {port_connect, [{no,port}, whatever]},
+         {port_control, [{no,port}, -1, {a,b,c}]},
+
+         {port_info, [{no,port}]},
+         {port_info, [{no,port}, bad_info]},
+
+         %% Internal undocumented BIFs.
+         {port_get_data, 1},
+         {port_set_data, 2},
+
+         {port_to_list, [abc]},
+         {posixtime_to_universaltime, [abc]},
+
+         {prepare_loading, [{no,module}, <<1,2,3>>]},
+         {prepare_loading, [good_module_name, not_binary]},
+         {prepare_loading, [<<1,2,3>>, not_binary]},
+
+         {process_display, [bad_pid, whatever]},
+         {process_display, [self(), whatever]},
+
+         {process_flag, [trap_exit, some_value]},
+         {process_flag, [bad_flag, some_value]},
+
+         {process_flag, [self(), bad_flag, some_value]},
+         {process_flag, [DeadProcess, save_calls, 20]},
+
+         {process_info, [42]},
+         {process_info, [self(),{a,b,c}]},
+
+         {purge_module, [{no,module}]},
+
+         {put, [key_never_read, value], [no_fail]},
+
+         {raise, 3},
+         {read_timer, [bad_timer]},
+         {read_timer, [bad_time, bad_options]},
+         {ref_to_list, [abc]},
+
+         {register, [<<"name">>, abc]},
+         {register, [<<"name">>, self()]},
+         {register, [my_registered_name, abc]},
+         {register, [undefined, self()]},
+         {register, [code_server, self()]},
+         {register, [my_registered_name, whereis(code_server)]},
+         {register, [my_registered_name, DeadProcess]},
+
+         {resume_process, [abc]},
+         {resume_process, [self()]},
+
+         {round, [abc]},
+
+         {send, [[bad,dest], message]},
+         {send, [[bad,dest], message, bad]},
+
+         {send_after, [bad_time, {bad,dest}, message]},
+         {send_after, [bad_time, {bad,dest}, message, bad_options]},
+         {send_after, [20, self(), message, [bad]]},
+
+         {send_nosuspend, [bad_pid, message]},
+         {send_nosuspend, [bad_pid, message, []]},
+         {send_nosuspend, [self(), message, [bad_option]]},
+         {send_nosuspend, [self(), message, bad_options]},
+
+         %% Internal undocumented BIFs.
+         {seq_trace, 2},
+         {seq_trace_info, 1},
+         {seq_trace_print, 1},
+         {seq_trace_print, 2},
+         {set_cookie, 2},
+         {set_cpu_topology, 1},
+
+         {setelement, [a, b, c]},
+         {setnode, 2},                          %Internal und undocumented BIF.
+         {setnode, 3},                          %Internal und undocumented BIF.
+         {size, [abc]},
+
+         {spawn, [not_fun]},
+         {spawn, [[bad_node], not_fun]},
+         {spawn, [0, 1, 2]},
+         {spawn, [0, 1, [a|b]]},
+         {spawn, [[bad_node], 0, 1, a]},
+
+         {spawn_link, [not_fun]},
+         {spawn_link, [[bad_node], not_fun]},
+         {spawn_link, [0, 1, 2]},
+         {spawn_link, [[bad_node], 0, 1, a]},
+
+         {spawn_monitor, [not_fun]},
+         {spawn_monitor, [[bad_node], not_fun]},
+         {spawn_monitor, [0, 1, a]},
+         {spawn_monitor, [[bad_node], 0, 1, a]},
+
+         {spawn_opt, [bad_fun, []]},
+         {spawn_opt, [bad_fun, [a|b]]},
+         {spawn_opt, [bad_fun, [bad_option]]},
+         {spawn_opt, [fun() -> ok end, [bad_option]]},
+
+         {spawn_opt, [node(), bad_fun, []]},
+         {spawn_opt, [[bad_node], fun() -> ok end, []]},
+         {spawn_opt, [[bad_node], bad_fun, bad_options]},
+
+         {spawn_opt, [0, 1, 2, bad_options]},
+         {spawn_opt, [0, 1, 2, bad_options]},
+         {spawn_opt, [0, 1, 2, [bad_option]]},
+         {spawn_opt, [[bad_node], 0, 1, 1 bsl 64, [bad_option]]},
+
+         {spawn_request, [not_a_fun]},
+
+         {spawn_request, [a, b]},
+         {spawn_request, [42, 43]},
+         {spawn_request, [[bad_node], bad_fun]},
+         {spawn_request, [fun() -> ok end, [a|b]]},
+         {spawn_request, [[bad_node], fun() -> ok end]},
+
+         {spawn_request, [[bad_node], fun() -> ok end, []]},
+         {spawn_request, [[bad_node], fun() -> ok end, bad_options]},
+         {spawn_request, [node, fun() -> ok end, bad_options]},
+         {spawn_request, [0, 1, a]},
+
+         {spawn_request, [0, 1, a, []]},
+         {spawn_request, [m, f, [a], [a|b]]},
+
+         {spawn_request, [node(), m, f, [a], bad_option_list]},
+         {spawn_request, [[bad_node], 0, 1, a, []]},
+         {spawn_request, [[bad_node], 0, 1, a, [a|b]]},
+
+         {spawn_request_abandon, [abc]},
+
+         {split_binary, [a, b]},
+         {split_binary, [a, -1]},
+         {split_binary, [<<>>, 1]},
+
+         {start_timer, [bad_time, {bad,dest}, message]},
+         {start_timer, [bad_time, {bad,dest}, message, bad_options]},
+         {start_timer, [20, self(), message, [bad]]},
+
+         {statistics, [abc]},
+         {statistics, [{a,b,c}]},
+         {subtract, [a,b]},
+
+         {suspend_process, [self()]},
+         {suspend_process, [not_a_pid]},
+
+         {suspend_process, [self(), []]},
+         {suspend_process, [not_a_pid, []]},
+         {suspend_process, [not_a_pid, [bad_option]]},
+
+         {system_flag, [bad_flag, whatever]},
+         {system_flag, [{bad,flag}, whatever]},
+         {system_flag, [backtrace_depth, bad_depth]},
+         {system_info, [{bad,item}]},
+         {system_info, [bad_item]},
+
+         {system_monitor, [whatever]},
+         {system_monitor, [self(), bad_list]},
+         {system_monitor, [self(), [bad]]},
+
+         %% Complex error reasons. Ignore for now.
+         {system_profile, 2},
+
+         {system_time, [fortnight]},
+
+         {term_to_binary, [any, bad_options]},
+         {term_to_binary, [any, [bad]]},
+
+         {term_to_iovec, [any], [no_fail]},
+         {term_to_iovec, [any, bad_options]},
+         {term_to_iovec, [any, [bad]]},
+
+         {throw, 1},
+         {time_offset, [fortnight]},
+         {tl, [abc]},
+
+         {trace, [a, not_boolean, bad_flags]},
+         {trace, [a, not_boolean, [bad_flag]]},
+         {trace, [a, true, [a|b]]},
+
+         {trace_pattern, [a, b]},
+         {trace_pattern, [a, b, c]},
+         {trace_pattern, [{?MODULE,'_','_'}, [{[self(), '_'],[],[]}], [call_count]]},
+
+         {trace_delivered, [abc]},
+
+         {trace_info, [self(), bad_item]},
+         {trace_info, [not_a_registered_process, flags]},
+
+         {trunc, [abc]},
+         {tuple_size, [<<"abc">>]},
+         {tuple_to_list, [<<"abc">>]},
+         {unalias,[not_a_ref]},
+         {unique_integer, [[a|b]]},
+         {unique_integer, [[a,b]]},
+         {unique_integer, [abc]},
+         {universaltime_to_localtime, [bad_time]},
+         {universaltime_to_posixtime, [bad_time]},
+         {unlink, [42]},
+         {unregister, [{a,b,c}]},
+         {whereis, [self()]}
+        ],
+    do_error_info(L).
+
+dead_process() ->
+    {Pid,Ref} = spawn_monitor(fun() -> ok end),
+    receive
+        {'DOWN',Ref,process,Pid,normal} ->
+            Pid
+    end.
+
+non_existing_atom() ->
+    non_existing_atom([]).
+
+non_existing_atom(Atom) ->
+    try list_to_existing_atom(Atom) of
+        _ ->
+            Char = rand:uniform($Z - $A + 1) + $A - 1,
+            non_existing_atom([Char|Atom])
+    catch
+        error:badarg ->
+            Atom
+    end.
+
+do_error_info(L0) ->
+    L1 = lists:foldl(fun({_,A}, Acc) when is_integer(A) -> Acc;
+                        ({F,A}, Acc) -> [{F,A,[]}|Acc];
+                        ({F,A,Opts}, Acc) -> [{F,A,Opts}|Acc]
+                     end, [], L0),
+    Tests = ordsets:from_list([{F,length(A)} || {F,A,_} <- L1] ++
+                                  [{F,A} || {F,A} <- L0, is_integer(A)]),
+    Bifs0 = [{F,A} || {F,A} <- erlang:module_info(exports),
+                      A =/= 0,
+                      not erl_bifs:is_safe(erlang, F, A),
+                      not erl_internal:arith_op(F, A),
+                      not erl_internal:bool_op(F, A),
+                      not erl_internal:list_op(F, A),
+                      not erl_internal:send_op(F, A)],
+    Bifs = ordsets:from_list(Bifs0),
+    NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
+    L = lists:sort(NYI ++ L1),
+    do_error_info(L, []).
+
+do_error_info([{_,Args,nyi}=H|T], Errors) ->
+    case lists:all(fun(A) -> A =:= '*' end, Args) of
+        true ->
+            do_error_info(T, [{nyi,H}|Errors]);
+        false ->
+            do_error_info(T, [{bad_nyi,H}|Errors])
+    end;
+do_error_info([{F,Args,Opts}|T], Errors) ->
+    eval_bif_error(F, Args, Opts, T, Errors);
+do_error_info([], Errors0) ->
+    case lists:sort(Errors0) of
+        [] ->
+            ok;
+        [_|_]=Errors ->
+            io:format("\n~p\n", [Errors]),
+            ct:fail({length(Errors),errors})
+    end.
+
+eval_bif_error(F, Args, Opts, T, Errors0) ->
+    try eval_do_apply(erlang, F, Args) of
+        Result ->
+            case lists:member(no_fail, Opts) of
+                true ->
+                    do_error_info(T, Errors0);
+                false ->
+                    do_error_info(T, [{should_fail,{F,Args},Result}|Errors0])
+            end
+    catch
+        error:Reason:Stk ->
+            SF = fun(Mod, _, _) -> Mod =:= test_server end,
+            Str = erl_error:format_exception(error, Reason, Stk, #{stack_trim_fun => SF}),
+            BinStr = iolist_to_binary(Str),
+            ArgStr = lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]),
+            io:format("\nerlang:~p(~s)\n~ts", [F,ArgStr,BinStr]),
+
+            {erlang,ActualF,ActualArgs,Info} = hd(Stk),
+
+            RE = <<"[*][*][*] argument \\d+:">>,
+            Errors1 = case re:run(BinStr, RE, [{capture, none}]) of
+                          match ->
+                              Errors0;
+                          nomatch when Reason =:= system_limit ->
+                              Errors0;
+                          nomatch ->
+                              [{no_explanation,{F,Args},Info}|Errors0]
+                      end,
+
+            Errors = case {ActualF,ActualArgs} of
+                         {F,Args} ->
+                             Errors1;
+                         _ ->
+                             [{renamed,{F,length(Args)},{ActualF,ActualArgs}}|Errors1]
+                     end,
+
+            do_error_info(T, Errors)
+    end.
+
+eval_do_apply(erlang, load_nif, [Path]) ->
+    erlang:load_nif(Path);
+eval_do_apply(erlang, load_nif, [Path,LoadInfo]) ->
+    erlang:load_nif(Path, LoadInfo);
+eval_do_apply(Mod, Name, Args) ->
+    apply(Mod, Name, Args).
+
 no_line_numbers(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Src = filename:join(DataDir, atom_to_list(?FUNCTION_NAME) ++ ".erl"),
@@ -725,7 +1384,7 @@ line_numbers(Config) when is_list(Config) ->
                [{file,ModFile},{line,_}]}|_]}} =
     (catch build_binary2(bad_size, <<>>)),
     {'EXIT',{badarg,
-             [{erlang,bit_size,[bad_binary],[]},
+             [{erlang,bit_size,[bad_binary],[{error_info,_}]},
               {?MODULE,build_binary2,2,
                [{file,"bit_syntax.erl"},{line,72507}]},
               {?MODULE,line_numbers,1,
@@ -745,7 +1404,7 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,line_numbers,1,_}|_]}} =
     (catch do_call_abs(y, y)),
     {'EXIT',{badarg,
-             [{erlang,abs,[[]],[]},
+             [{erlang,abs,[[]],[{error_info,_}]},
               {?MODULE,do_call_abs,2,
                [{file,"gc_bif.erl"},{line,19}]},
               {?MODULE,line_numbers,1,_}|_]}} =
@@ -780,11 +1439,11 @@ line_numbers(Config) when is_list(Config) ->
         (catch update_map(#{})),
 
     {'EXIT',{badarg,
-             [{erlang,hd,[x],[]},
+             [{erlang,hd,[x],[{error_info,_}]},
               {?MODULE,test_hd,1,[{file,"list_bifs.erl"},{line,101}]}|_]}} =
         (catch test_hd(x)),
     {'EXIT',{badarg,
-             [{erlang,tl,[y],[]},
+             [{erlang,tl,[y],[{error_info,_}]},
               {?MODULE,test_tl,1,[{file,"list_bifs.erl"},{line,102}]}|_]}} =
         (catch test_tl(y)),
 

@@ -28,6 +28,8 @@
 
 %% -compile(export_all).
 
+-compile({no_auto_import, [error/3]}).
+
 -export([
          proxy_call/3,
          log/4,

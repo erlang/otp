@@ -1503,7 +1503,7 @@ gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst => \
    gen_plus Fail Live S1 S2 Dst
 
 gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst => \
-   gen_minus Fail Live i Src Dst
+   i_unary_minus Src Fail Dst
 gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
    gen_minus Fail Live S1 S2 Dst
 
@@ -1568,6 +1568,8 @@ i_plus S1=c S2=c Fail Dst => move S1 x | i_plus x S2 Fail Dst
 i_plus S1=c S2=xy Fail Dst => i_plus S2 S1 Fail Dst
 
 i_plus xy xyc j? d
+
+i_unary_minus cxy j? d
 
 # A minus instruction with a constant right operand will be
 # converted to an i_increment instruction, except in guards or

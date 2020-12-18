@@ -1810,7 +1810,7 @@ error_check(String, Result, LFH, EFH) ->
 backtrace_check(String, Result, Backtrace) ->
     case catch parse_and_run(String) of
         {'EXIT', {Result, BT}} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
@@ -1818,15 +1818,18 @@ backtrace_check(String, Result, Backtrace) ->
 backtrace_check(String, Result, Backtrace, LFH, EFH) ->
     case catch parse_and_run(String, LFH, EFH) of
         {'EXIT', {Result, BT}} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
 
+remove_error_info([{M, F, As, Info} | T]) ->
+    [{M, F, As, lists:keydelete(error_info, 1, Info)} | T].
+
 backtrace_catch(String, Result, Backtrace) ->
     case parse_and_run(String) of
         {value, {'EXIT', {Result, BT}}, _Bindings} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.

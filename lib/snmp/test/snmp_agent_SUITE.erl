@@ -204,7 +204,7 @@
 	 v3_sha_auth/1,
 	 v3_des_priv/1, 
 
-	 %% all_tcs - test_multi_threaded
+	 %% all_tcs - test_multi_threaded, test_multi_threaded_ext
 	 multi_threaded/1, 
 	 mt_trap/1, 
 	 
@@ -326,7 +326,7 @@
 	 db_notify_client_test/0, 
 	 notify/2, 
 	 multi_threaded_test/0, 
-	 mt_trap_test/1, 
+	 mt_trap_test/2, 
 	 types_v2_test/0, 
 	 implied_test/1, 
 	 sparse_table_test/0, 
@@ -553,6 +553,7 @@ groups() ->
      {test_v3,                       [], v3_cases()},
      {test_v3_ipv6,                  [], v3_cases_ipv6()},
      {test_multi_threaded,           [], mt_cases()},
+     {test_multi_threaded_ext,       [], mt_cases()},
      {multiple_reqs,                 [], mul_cases()},
      {multiple_reqs_2,               [], mul_cases_2()},
      {multiple_reqs_3,               [], mul_cases_3()},
@@ -589,6 +590,7 @@ all_cases() ->
      {group, test_v1_v2_ipv6},
      {group, test_v3_ipv6},
      {group, test_multi_threaded}, 
+     {group, test_multi_threaded_ext}, 
      {group, mib_storage},
      {group, tickets1}
     ].
@@ -675,7 +677,9 @@ init_per_group(multiple_reqs_2 = GroupName, Config) ->
 init_per_group(multiple_reqs_3 = GroupName, Config) -> 
     init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group(test_multi_threaded = GroupName, Config) -> 
-    init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config));
+    init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config), true);
+init_per_group(test_multi_threaded_ext = GroupName, Config) -> 
+    init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config), extended);
 init_per_group(test_v3 = GroupName, Config) -> 
     case snmp_test_lib:crypto_start() of
         ok ->
@@ -741,17 +745,39 @@ init_per_group(otp16649_ipv4 = GroupName, Config) ->
                {tdomain,  transportDomainUdpIpv4} |
                lists:keydelete(ip, 1, Config)],
     snmp_test_lib:init_group_top_dir(GroupName, Config2);
-init_per_group(otp16649_ipv6 = GroupName, Config) -> 
-    case ?HAS_SUPPORT_IPV6() of
-        true ->
-            Config2 = [{ip,       ?LOCALHOST(inet6)},
-                       {ipfamily, inet6},
-                       {tdomain,  transportDomainUdpIpv6} |
-                       lists:keydelete(ip, 1, Config)],
-            snmp_test_lib:init_group_top_dir(GroupName, Config2);
-        false ->
-            {skip, "Host does not support IPv6"}
-    end;
+init_per_group(otp16649_ipv6 = GroupName, Config) ->
+    init_per_group_ipv6(GroupName,
+                        [{tdomain,  transportDomainUdpIpv6} | Config],
+                        fun(C) -> C end);
+    %% SupportsIPv6 =
+    %%     case ?HAS_SUPPORT_IPV6() of
+    %%         true ->
+    %%             case os:type() of
+    %%                 {unix, netbsd} ->
+    %%                     {false, "Host *may* not *properly* support IPV6"};
+    %%                 {unix, darwin} ->
+    %%                     case os:version() of
+    %%                         V > {9, 8, 0} ->
+    %%                             true;
+    %%                         _ ->
+    %%                             {false, "Host *may* not *properly* support IPV6"};
+    %%                     end;
+    %%                 _ ->
+    %%                     true
+    %%             end;
+    %%         false ->
+    %%             {false, "Host does not support IPv6"}
+    %%     end,
+    %% case SupportsIPv6 of
+    %%     true ->
+    %%         Config2 = [{ip,       ?LOCALHOST(inet6)},
+    %%                    {ipfamily, inet6},
+    %%                    {tdomain,  transportDomainUdpIpv6} |
+    %%                    lists:keydelete(ip, 1, Config)],
+    %%         snmp_test_lib:init_group_top_dir(GroupName, Config2);
+    %%     {false, SkipReason} ->
+    %%         {skip, SkipReason}
+    %% end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
@@ -805,49 +831,51 @@ end_per_group(v2_inform, Config) ->
 end_per_group(v3_inform, Config) -> 
     finish_v3_inform(Config);
 end_per_group(multiple_reqs, Config) -> 
-	finish_mul(Config);
+    finish_mul(Config);
 end_per_group(multiple_reqs_2, Config) -> 
     finish_mul(Config);
 end_per_group(multiple_reqs_3, Config) -> 
     finish_mul(Config);
 end_per_group(test_multi_threaded, Config) -> 
-	finish_mt(Config);
+    finish_mt(Config);
+end_per_group(test_multi_threaded_ext, Config) -> 
+    finish_mt(Config);
 end_per_group(test_v3_ipv6, Config) ->
-	finish_v3(Config);
+    finish_v3(Config);
 end_per_group(test_v1_v2_ipv6, Config) ->
-	finish_v1_v2(Config);
+    finish_v1_v2(Config);
 end_per_group(test_v2_ipv6, Config) ->
-	finish_v2(Config);
+    finish_v2(Config);
 end_per_group(test_v1_ipv6, Config) ->
-	finish_v1(Config);
+    finish_v1(Config);
 end_per_group(test_v3, Config) ->
-	finish_v3(Config);
+    finish_v3(Config);
 end_per_group(test_v1_v2, Config) ->
-	finish_v1_v2(Config);
+    finish_v1_v2(Config);
 end_per_group(test_v2, Config) ->
-	finish_v2(Config);
+    finish_v2(Config);
 end_per_group(test_v1, Config) ->
-	finish_v1(Config);
+    finish_v1(Config);
 end_per_group(misc, Config) ->
-	finish_misc(Config);
+    finish_misc(Config);
 end_per_group(mib_storage_varm_mnesia, Config) ->
-	finish_varm_mib_storage_mnesia(Config);
+    finish_varm_mib_storage_mnesia(Config);
 end_per_group(mib_storage_varm_dets, Config) ->
-	finish_varm_mib_storage_dets(Config);
+    finish_varm_mib_storage_dets(Config);
 end_per_group(mib_storage_size_check_mnesia, Config) ->
-	finish_size_check_msm(Config);
+    finish_size_check_msm(Config);
 end_per_group(mib_storage_size_check_dets, Config) ->
-	finish_size_check_msd(Config);
+    finish_size_check_msd(Config);
 end_per_group(mib_storage_size_check_ets, Config) ->
-	finish_size_check_mse(Config);
+    finish_size_check_mse(Config);
 end_per_group(mib_storage_mnesia, Config) ->
-	finish_mib_storage_mnesia(Config);
+    finish_mib_storage_mnesia(Config);
 end_per_group(mib_storage_dets, Config) ->
-	finish_mib_storage_dets(Config);
+    finish_mib_storage_dets(Config);
 end_per_group(mib_storage_ets, Config) ->
-	finish_mib_storage_ets(Config);
+    finish_mib_storage_ets(Config);
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
@@ -1131,8 +1159,8 @@ start_v3_agent(Config, Opts) ->
 start_bilingual_agent(Config) ->
     ?ALIB:start_bilingual_agent(Config).
 
-start_multi_threaded_agent(Config) when is_list(Config) ->
-    ?ALIB:start_mt_agent(Config).
+start_multi_threaded_agent(Config, MT) when is_list(Config) ->
+    [{multi_threaded, MT} | ?ALIB:start_mt_agent(Config, MT)].
 
 stop_agent(Config) ->
     ?ALIB:stop_agent(Config).
@@ -2209,7 +2237,7 @@ mt_cases() ->
      mt_trap
     ].
 
-init_mt(Config) when is_list(Config) ->
+init_mt(Config, MT) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
     AgentConfDir = ?config(agent_conf_dir, Config),
@@ -2217,7 +2245,7 @@ init_mt(Config) when is_list(Config) ->
     Ip       = ?config(ip, Config),
     ?line ok = config([v2], MgrDir, AgentConfDir, 
 		      tuple_to_list(Ip), tuple_to_list(Ip)),
-    [{vsn, v2} | start_multi_threaded_agent(Config)].
+    [{vsn, v2} | start_multi_threaded_agent(Config, MT)].
 
 finish_mt(Config) when is_list(Config) ->
     delete_tables(),
@@ -2382,10 +2410,11 @@ mt_trap(Config) when is_list(Config) ->
     ?P(mt_trap), 
     init_case(Config),
     MA = whereis(snmp_master_agent),
+    MT = ?config(multi_threaded, Config),
     
     ?line load_master("Test1"),
     ?line load_master("TestTrapv2"),
-    try_test(mt_trap_test, [MA]),
+    try_test(mt_trap_test, [MA, MT]),
     ?line unload_master("TestTrapv2"),
     ?line unload_master("Test1"),
     ok.
@@ -4051,37 +4080,51 @@ multi_threaded_test() ->
     ?line ?expect1([{[sysLocation,0], "kalle"}]).
 
 %% Req. Test1, TestTrapv2
-mt_trap_test(MA) ->
-    ?NPRINT("Testing trap-sending with multi threaded agent..."),
-    ?DBG("mt_trap_test(01) -> issue testTrapv22 (standard trap)", []),
+mt_trap_test(MA, MT) ->
+    ?NPRINT("Testing trap-sending with multi threaded (~w) agent...", [MT]),
+    ?IPRINT("mt_trap_test(01) -> issue testTrapv22 (standard trap)", []),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
-    ?DBG("mt_trap_test(02) -> await v2trap", []),
+    ?IPRINT("mt_trap_test(02) -> await v2trap", []),
     ?line ?expect2(v2trap, [{[sysUpTime, 0],   any},
 			    {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
-    ?DBG("mt_trap_test(03) -> issue mtTrap (standard trap)", []),
+    %% multi-threaded = true
+    %% This will *lock* the 'main thread' of a multi-threaded agent,
+    %% the worker state will be 'busy'. Therefor when a new request
+    %% arrives a new *temporary* worker will be spawned.
+    ?IPRINT("mt_trap_test(03) -> issue mtTrap (standard trap)", []),
     snmpa:send_trap(MA, mtTrap, "standard trap"),
     Pid = get_multi_pid(),
-    ?DBG("mt_trap_test(04) -> multi pid: ~p. Now request sysUpTime...", [Pid]),
+    ?IPRINT("mt_trap_test(04) -> multi pid: ~p. Now request sysUpTime...", [Pid]),
     g([[sysUpTime,0]]),
 
-    ?DBG("mt_trap_test(06) -> await sysUpTime", []),
+    ?IPRINT("mt_trap_test(06) -> await sysUpTime", []),
     ?line ?expect1([{[sysUpTime,0], any}]),
-    ?DBG("mt_trap_test(07) -> issue testTrapv22 (standard trap)", []),
-    snmpa:send_trap(MA, testTrapv22, "standard trap"),
-    ?DBG("mt_trap_test(08) -> await v2trap", []),
-    ?line ?expect2(v2trap, 
-		   [{[sysUpTime, 0],   any}, 
-		    {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
-    ?DBG("mt_trap_test(09) -> send continue to multi-pid", []),
+    %% This will *only* work if multi-threaded is 'true', not 'extended'
+    %% since in the latter case all notifications are serialized through
+    %% a dedicated worker, which is now locked (see above).
+
+    if
+        (MT =:= true) ->
+            ?IPRINT("mt_trap_test(07) -> issue testTrapv22 (standard trap)", []),
+            snmpa:send_trap(MA, testTrapv22, "standard trap"),
+            ?IPRINT("mt_trap_test(08) -> await v2trap", []),
+            ?line ?expect2(v2trap, 
+                           [{[sysUpTime, 0],   any}, 
+                            {[snmpTrapOID, 0], ?system ++ [0,1]}]);
+        true ->
+            ok
+    end,
+
+    ?IPRINT("mt_trap_test(09) -> send continue to multi-pid", []),
     Pid ! continue,
 
-    ?DBG("mt_trap_test(10) -> await v2trap", []),
+    ?IPRINT("mt_trap_test(10) -> await v2trap", []),
     ?line ?expect2(v2trap, [{[sysUpTime, 0], any},
 			    {[snmpTrapOID, 0], ?testTrap ++ [2]},
 			    {[multiStr,0], "ok"}]),
-    ?DBG("mt_trap_test(11) -> done", []),
+    ?IPRINT("mt_trap_test(11) -> done", []),
     ok.
 
     

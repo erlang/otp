@@ -131,11 +131,11 @@
 %% This is for XREF
 -deprecated(
    [
-    {c,                     1, "use snmpa:c/1 instead."},
-    {c,                     2, "use snmpa:c/2 instead."},
-    {compile,               3, "use snmpa:compile/3 instead."},
-    {is_consistent,         1, "use snmpa:is_consistent/1 instead."},
-    {mib_to_hrl,            1, "use snmpa:mib_to_hrl/1 instead."},
+    {c,                     1, "use snmpc:compile/1 instead."},
+    {c,                     2, "use snmpc:compile/2 instead."},
+    {compile,               3, "use snmpc:compile/3 instead."},
+    {is_consistent,         1, "use snmpc:is_consistent/1 instead."},
+    {mib_to_hrl,            1, "use snmpc:mib_to_hrl/1 instead."},
 
     {change_log_size,       1, "use snmpa:change_log_size/1 instead."},
     {log_to_txt,            2, "use snmpa:log_to_txt/2 instead."},

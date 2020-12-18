@@ -1297,23 +1297,22 @@ ssa_opt_live({#opt_st{ssa=Linear0}=St, FuncDb}) ->
 live_opt([{L,Blk0}|Bs], LiveMap0, Blocks) ->
     Blk1 = beam_ssa_share:block(Blk0, Blocks),
     Successors = beam_ssa:successors(Blk1),
-    Live0 = live_opt_succ(Successors, L, LiveMap0, gb_sets:empty()),
+    Live0 = live_opt_succ(Successors, L, LiveMap0, cerl_sets:new()),
     {Blk,Live} = live_opt_blk(Blk1, Live0),
     LiveMap = live_opt_phis(Blk#b_blk.is, L, Live, LiveMap0),
     live_opt(Bs, LiveMap, Blocks#{L:=Blk});
 live_opt([], _, Acc) -> Acc.
 
 live_opt_succ([S|Ss], L, LiveMap, Live0) ->
-    Key = {S,L},
     case LiveMap of
-        #{Key:=Live} ->
+        #{{S,L}:=Live} ->
             %% The successor has a phi node, and the value for
             %% this block in the phi node is a variable.
-            live_opt_succ(Ss, L, LiveMap, gb_sets:union(Live, Live0));
+            live_opt_succ(Ss, L, LiveMap, cerl_sets:union(Live0, Live));
         #{S:=Live} ->
             %% No phi node in the successor, or the value for
             %% this block in the phi node is a literal.
-            live_opt_succ(Ss, L, LiveMap, gb_sets:union(Live, Live0));
+            live_opt_succ(Ss, L, LiveMap, cerl_sets:union(Live0, Live));
         #{} ->
             %% A peek_message block which has not been processed yet.
             live_opt_succ(Ss, L, LiveMap, Live0)
@@ -1331,7 +1330,7 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},gb_sets:union(gb_sets:from_list(Vs), Live0)} ||
+                    PhiLive = [{{L,P},cerl_sets:union(cerl_sets:from_list(Vs), Live0)} ||
                                   {P,Vs} <- PhiLive0],
                     maps:merge(LiveMap, maps:from_list(PhiLive));
                 [] ->
@@ -1341,12 +1340,13 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
     end.
 
 live_opt_blk(#b_blk{is=Is0,last=Last}=Blk, Live0) ->
-    Live1 = gb_sets:union(Live0, gb_sets:from_ordset(beam_ssa:used(Last))),
+    Live1 = cerl_sets:union(Live0, cerl_sets:from_list(beam_ssa:used(Last))),
     {Is,Live} = live_opt_is(reverse(Is0), Live1, []),
     {Blk#b_blk{is=Is},Live}.
 
-live_opt_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Acc) ->
-    case gb_sets:is_member(Dst, Live) of
+live_opt_is([#b_set{op=phi,dst=Dst}=I|Is], Live0, Acc) ->
+    Live = cerl_sets:del_element(Dst, Live0),
+    case cerl_sets:is_element(Dst, Live0) of
         true ->
             live_opt_is(Is, Live, [I|Acc]);
         false ->
@@ -1355,10 +1355,10 @@ live_opt_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Acc) ->
 live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
              #b_set{op=Op,dst=Dst}=I0|Is],
             Live0, Acc) ->
-    case {gb_sets:is_member(SuccDst, Live0),
-          gb_sets:is_member(Dst, Live0)} of
+    case {cerl_sets:is_element(SuccDst, Live0),
+          cerl_sets:is_element(Dst, Live0)} of
         {true, true} ->
-            Live = gb_sets:delete(SuccDst, Live0),
+            Live = cerl_sets:del_element(SuccDst, Live0),
             live_opt_is([I0|Is], Live, [SuccI|Acc]);
         {true, false} ->
             %% The result of the instruction before {succeeded,guard} is
@@ -1378,8 +1378,8 @@ live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
                     I = I0#b_set{op=has_map_field,dst=SuccDst},
                     live_opt_is([I|Is], Live0, Acc);
                 _ ->
-                    Live1 = gb_sets:delete(SuccDst, Live0),
-                    Live = gb_sets:add(Dst, Live1),
+                    Live1 = cerl_sets:del_element(SuccDst, Live0),
+                    Live = cerl_sets:add_element(Dst, Live1),
                     live_opt_is([I0|Is], Live, [SuccI|Acc])
             end;
         {false, true} ->
@@ -1388,19 +1388,19 @@ live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
             live_opt_is(Is, Live0, Acc)
     end;
 live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
-    case gb_sets:is_member(Dst, Live0) of
+    case cerl_sets:is_element(Dst, Live0) of
         true ->
-            LiveUsed = gb_sets:from_ordset(beam_ssa:used(I)),
-            Live1 = gb_sets:union(Live0, LiveUsed),
-            Live = gb_sets:delete(Dst, Live1),
+            LiveUsed = cerl_sets:from_list(beam_ssa:used(I)),
+            Live1 = cerl_sets:union(Live0, LiveUsed),
+            Live = cerl_sets:del_element(Dst, Live1),
             live_opt_is(Is, Live, [I|Acc]);
         false ->
             case beam_ssa:no_side_effect(I) of
                 true ->
                     live_opt_is(Is, Live0, Acc);
                 false ->
-                    LiveUsed = gb_sets:from_ordset(beam_ssa:used(I)),
-                    Live = gb_sets:union(Live0, LiveUsed),
+                    LiveUsed = cerl_sets:from_list(beam_ssa:used(I)),
+                    Live = cerl_sets:union(Live0, LiveUsed),
                     live_opt_is(Is, Live, [I|Acc])
             end
     end;

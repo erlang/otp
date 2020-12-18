@@ -108,7 +108,7 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
 			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],
 	    case tls_connection_sup:start_child(ConnArgs) of
 		{ok, Pid} ->
-		    ssl_connection:socket_control(ConnectionCb, Socket, [Pid, Sender], Transport, Trackers);
+		    ssl_gen_statem:socket_control(ConnectionCb, Socket, [Pid, Sender], Transport, Trackers);
 		{error, Reason} ->
 		    {error, Reason}
 	    end;
@@ -122,7 +122,7 @@ upgrade(Socket, #config{transport_info = {Transport,_,_,_,_}= CbInfo,
     ok = setopts(Transport, Socket, tls_socket:internal_inet_values()),
     case peername(Transport, Socket) of
 	{ok, {Address, Port}} ->
-	    ssl_connection:connect(ConnectionCb, Address, Port, Socket,
+	    ssl_gen_statem:connect(ConnectionCb, Address, Port, Socket,
 				   {SslOptions, 
 				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				   self(), CbInfo, Timeout);
@@ -137,7 +137,7 @@ connect(Address, Port,
     {Transport, _, _, _, _} = CbInfo,
     try Transport:connect(Address, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
-	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, 
+	    ssl_gen_statem:connect(ConnetionCb, Address, Port, Socket,
 				   {SslOpts, 
 				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				   self(), CbInfo, Timeout);

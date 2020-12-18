@@ -763,6 +763,7 @@ bif erts_internal:get_creation/0
 #
 # New in 24
 #
+
 bif erts_internal:prepare_loading/2
 bif erts_internal:beamfile_chunk/2
 bif erts_internal:beamfile_module_md5/1
@@ -770,4 +771,5 @@ bif os:env/0
 bif erlang:alias/1
 bif erlang:unalias/1
 bif erlang:monitor/3
+bif erlang:error/3
 bif maps:from_keys/2

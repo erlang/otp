@@ -24,7 +24,7 @@
 
 
 
-ERL_NIF_TERM aead_cipher(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/*
    (Type,Key,Iv,AAD,In,TagLen,true)
    (Type,Key,Iv,AAD,In,Tag,false)

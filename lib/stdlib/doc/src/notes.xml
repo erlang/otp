@@ -31,6 +31,74 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    This change fixes the handling of deep lists in the path
+	    component when using uri_string:recompose/1.</p>
+          <p>
+	    Own Id: OTP-16941</p>
+        </item>
+        <item>
+          <p>
+	    Fix <seeerl
+	    marker="shell_docs"><c>shell_docs</c></seeerl> to clear
+	    shell decorations (bold/underline) when paginating
+	    output.</p>
+          <p>
+	    Fix various small renderings issues when integrating
+	    <seeerl marker="shell_docs"><c>shell_docs</c></seeerl>
+	    with edoc.</p>
+          <p>
+	    Own Id: OTP-17047</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved the API and documentation of the uri_string
+	    module.</p>
+          <p>
+	    Added a new chapter to the Users Guide about Uniform
+	    Resource Identifiers and their handling with the new API.</p>
+          <p>
+	    Added two new API functions:
+	    uri_string:allowed_characters/0 and
+	    uri_string:percent_decode/1.</p>
+          <p>
+	    This change has been marked as potentially incompatible
+	    as uri_string:normalize/2 used to decode percent-encoded
+	    character triplets that corresponded to characters not in
+	    the reserved set. After this change,
+	    uri_string:normalize/2 will only decode those
+	    percent-encoded triplets that correspond to characters in
+	    the unreserved set (ALPHA / DIGIT / "-" / "." / "_" /
+	    "~").</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16460</p>
+        </item>
+        <item>
+          <p>
+	    The <c>shell_docs</c> module has been expanded with the
+	    possibility to configure unicode, ansi and column size
+	    for the rendered text.</p>
+          <p>
+	    Own Id: OTP-16990</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

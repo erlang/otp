@@ -82,9 +82,11 @@ extern ERL_NIF_TERM atom_ppbasis;
 extern ERL_NIF_TERM atom_onbasis;
 #endif
 
+extern ERL_NIF_TERM atom_aes_cbc;
+extern ERL_NIF_TERM atom_aes_ecb;
+extern ERL_NIF_TERM atom_aes_ctr;
 extern ERL_NIF_TERM atom_aes_cfb8;
 extern ERL_NIF_TERM atom_aes_cfb128;
-extern ERL_NIF_TERM atom_aes_ige256;
 #ifdef HAVE_GCM
 extern ERL_NIF_TERM atom_aes_gcm;
 #endif

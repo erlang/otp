@@ -1899,6 +1899,7 @@ open_size(Conf) when is_list(Conf) ->
 		       {format, internal}]),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {format, internal},{size, {100, No}}]),
+    [n] = disk_log:all(),
     B = mk_bytes(60),
     ok = disk_log:log_terms(n, [B, B, B, B]),
     ok = disk_log:sync(n),

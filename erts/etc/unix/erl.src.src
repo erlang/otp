@@ -18,9 +18,11 @@
 #
 # %CopyrightEnd%
 #
-if [ -z "$ROOTDIR" ]
+if [ -z "$ERL_ROOTDIR" ]
 then
-   ROOTDIR="%FINAL_ROOTDIR%"
+    ROOTDIR="%FINAL_ROOTDIR%"
+else
+    ROOTDIR="$ERL_ROOTDIR"
 fi
 BINDIR=$ROOTDIR/erts-%VSN%/bin
 EMU=%EMULATOR%%EMULATOR_NUMBER%

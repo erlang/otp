@@ -73,6 +73,7 @@ atom abort
 atom abs_path
 atom absoluteURI
 atom ac
+atom access
 atom active
 atom active_tasks
 atom active_tasks_all
@@ -118,7 +119,7 @@ atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
 atom badarg badarith badarity badfile badfun badkey badmap badmatch badsig
-atom badopt
+atom badopt badtype
 atom bag
 atom band
 atom big
@@ -160,6 +161,7 @@ atom capture
 atom case_clause
 atom caseless
 atom catchlevel
+atom cause
 atom cd
 atom cdr
 atom cflags
@@ -250,11 +252,15 @@ atom eof
 atom eol
 atom Eq='=:='
 atom Eqeq='=='
+atom erl_erts_errors
 atom erl_init
+atom erl_kernel_errors
+atom erl_stdlib_errors
 atom erl_tracer
 atom erlang
 atom erl_signal_server
 atom error_handler
+atom error_info
 atom error_logger
 atom error_only
 atom erts_code_purger
@@ -478,6 +484,7 @@ atom not_a_list
 atom not_loaded
 atom not_loaded_by_this_process
 atom not_pending
+atom not_owner
 atom not_purged
 atom notalive
 atom notbol
@@ -528,6 +535,7 @@ atom port_count
 atom port_limit
 atom port_op
 atom positive
+atom position
 atom prepare
 atom prepare_on_load
 atom print
@@ -657,6 +665,7 @@ atom system_limit
 atom system_version
 atom system_architecture
 atom table
+atom table_type
 atom tag
 atom term_to_binary_trap
 atom this

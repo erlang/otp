@@ -18,11 +18,6 @@
  * %CopyrightEnd%
  */
 
-/*
- * This is a C version of the erl.exec Bourne shell script, including
- * additions required for Windows NT.
- */
-
 #include "etc_common.h"
 
 #include "erl_driver.h"
@@ -651,6 +646,16 @@ int main(int argc, char **argv)
                         } while ((i+1) < argc && argv[i+1][0] != '-' && argv[i+1][0] != '+');
 		    }
 #endif
+                    else if (strcmp(argv[i], "-configfd") == 0) {
+                        if (i+1 >= argc)
+ 			    usage("-configfd");
+                        if ( strcmp(argv[i+1], "0") != 0 ) {
+			    add_arg(argv[i]);
+                        } else {
+                            add_args("-noshell", "-noinput", NULL);
+                            add_arg(argv[i]);
+                        }
+		    }
 		    else {
 			add_arg(argv[i]);
 		    }

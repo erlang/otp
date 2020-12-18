@@ -757,6 +757,9 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
 	erts_monitor_time_offset(&mdp->u.target);
 
         goto done;
+    } else {
+        c_p->fvalue = am_badtype;
+        BIF_ERROR(c_p, BADARG | EXF_HAS_EXT_INFO);
     }
 
 badarg:
@@ -794,8 +797,10 @@ BIF_RETTYPE monitor_3(BIF_ALIST_3)
 {
     Eterm tag;
     Uint16 oflags = erts_monitor_opts(BIF_ARG_3, &tag);
-    if (oflags == (Uint16) ~0)
-        BIF_ERROR(BIF_P, BADARG);
+    if (oflags == (Uint16) ~0) {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
     return monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, oflags, tag);
 }
 
@@ -842,18 +847,17 @@ BIF_RETTYPE spawn_opt_4(BIF_ALIST_4)
     opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, NULL, 0);
     if (opts_error) {
         Sint arity;
+        BIF_P->fvalue = am_badopt;
         if (is_not_atom(BIF_ARG_1) || is_not_atom(BIF_ARG_2))
-            BIF_ERROR(BIF_P, BADARG);
+            BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
         arity = erts_list_length(BIF_ARG_3);
         if (arity < 0)
-            BIF_ERROR(BIF_P, BADARG);
+            BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
         if (arity > MAX_SMALL)
-            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-        if (opts_error > 0)
-            BIF_ERROR(BIF_P, BADARG);
-        BIF_ERROR(BIF_P, BADARG);        
+            BIF_ERROR(BIF_P, SYSTEM_LIMIT | EXF_HAS_EXT_INFO);
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
-    
+
     /*
      * Spawn the process.
      */
@@ -905,8 +909,11 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
     if (arity > MAX_SMALL)
         goto system_limit;
     if (opts_error) {
-        if (opts_error > 0)
-            goto badarg;
+        if (opts_error > 0) {
+            /* Return `badopt`, meaning that the Options argument
+             * is not a proper list. */
+            BIF_RET(am_badopt);
+        }
         goto badopt;
     }
 
@@ -1156,6 +1163,55 @@ BIF_RETTYPE error_2(BIF_ALIST_2)
 
 /**********************************************************************/
 /*
+ * This is like error/1, except that the given 'args' and 'error_info'
+ * will be included in the stacktrace.
+ */
+
+BIF_RETTYPE error_3(BIF_ALIST_3)
+{
+    Eterm error_info = THE_NON_VALUE;
+    Eterm list = BIF_ARG_3;
+
+    while (is_list(list)) {
+        Eterm* tuple;
+        Eterm term = CAR(list_val(list));
+
+        if (is_not_tuple(term)) {
+            break;
+        }
+        tuple = tuple_val(term);
+        if (arityval(tuple[0]) != 2 || tuple[1] != am_error_info) {
+            break;
+        }
+        error_info = tuple[2];
+        if (is_not_map(error_info)) {
+            break;
+        }
+        list = CDR(list_val(list));
+    }
+
+    if (is_not_nil(list)) {
+        /* Improper list. Invalidate any error info. */
+        error_info = THE_NON_VALUE;
+    }
+
+    if (is_value(error_info)) {
+        Eterm* hp = HAlloc(BIF_P, 4);
+        BIF_P->fvalue = TUPLE3(hp, BIF_ARG_1, BIF_ARG_2, error_info);
+        BIF_ERROR(BIF_P, EXC_ERROR_3);
+    } else {
+        /*
+         * Either the option argument was an empty list, an improper
+         * list, or a list with an illegal term. Fall back to error/2.
+         */
+        Eterm* hp = HAlloc(BIF_P, 3);
+        BIF_P->fvalue = TUPLE2(hp, BIF_ARG_1, BIF_ARG_2);
+        BIF_ERROR(BIF_P, EXC_ERROR_2);
+    }
+}
+
+/**********************************************************************/
+/*
  * This is like exactly like error/1. The only difference is
  * that Dialyzer thinks that it it will return an arbitrary term.
  * It is useful in stub functions for NIFs.
@@ -1208,6 +1264,7 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
     Eterm l, *hp, *hp_end, *tp;
     int depth, cnt;
     size_t sz;
+    size_t alloc_size;
     int must_copy = 0;
     struct StackTrace *s;
 
@@ -1298,8 +1355,9 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
     tp = &c_p->ftrace;
     sz = (offsetof(struct StackTrace, trace) + sizeof(Eterm) - 1) 
 	/ sizeof(Eterm);
-    hp = HAlloc(c_p, sz + (2+6)*(cnt + 1));
-    hp_end = hp + sz + (2+6)*(cnt + 1);
+    alloc_size = sz + 4 + (2+6) * (cnt + 1);
+    hp = HAlloc(c_p, alloc_size);
+    hp_end = hp + alloc_size;
     s = (struct StackTrace *) hp;
     s->header = make_neg_bignum_header(sz - 1);
     s->freason = reason;
@@ -1334,8 +1392,8 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
 	    hp += 2;
 	}
     }
-    c_p->ftrace = CONS(hp, c_p->ftrace, make_big((Eterm *) s));
-    hp += 2;
+    c_p->ftrace = TUPLE3(hp, make_big((Eterm *) s), c_p->ftrace, NIL);
+    hp += 4;
     ASSERT(hp <= hp_end);
     HRelease(c_p, hp_end, hp);
     BIF_ERROR(c_p, reason);
@@ -1515,11 +1573,15 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
    Eterm old_value = NIL;	/* shut up warning about use before set */
    Sint i;
 
+   c_p->fvalue = am_badopt;
+
    if (redsp)
        *redsp = 1;
 
    if (flag == am_save_calls) {
        struct saved_calls *scb;
+
+       c_p->fvalue = am_none;
        if (!is_small(val))
 	   goto error;
        i = signed_val(val);
@@ -1809,6 +1871,9 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
    old_value = process_flag_aux(BIF_P, NULL, BIF_ARG_1, BIF_ARG_2);
    if (old_value != am_badarg)
        BIF_RET(old_value);
+
+   BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+
  error:
    BIF_ERROR(BIF_P, BADARG);
 }
@@ -1849,7 +1914,7 @@ BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
    }
 
    if (is_not_internal_pid(BIF_ARG_1))
-       BIF_RET(am_badarg);
+       BIF_RET(am_badtype);
 
    flag_sz = is_immed(BIF_ARG_2) ? 0 : size_object(BIF_ARG_2);
    value_sz = is_immed(BIF_ARG_3) ? 0 : size_object(BIF_ARG_3);
@@ -1872,7 +1937,7 @@ BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
                                         (void *) pf3a);
 
    if (is_non_value(res))
-       BIF_RET(am_badarg);
+       BIF_RET(am_badtype);
 
    return res;
 }
@@ -1884,10 +1949,10 @@ BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
 
 BIF_RETTYPE register_2(BIF_ALIST_2)   /* (Atom, Pid|Port)   */
 {
-    if (erts_register_name(BIF_P, BIF_ARG_1, BIF_ARG_2))
+    if (erts_register_name(BIF_P, BIF_ARG_1, BIF_ARG_2)) {
 	BIF_RET(am_true);
-    else {
-	BIF_ERROR(BIF_P, BADARG);
+    } else {
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 }
 
@@ -2271,13 +2336,15 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	} else if (CAR(list_val(l)) == am_nosuspend) {
 	    suspend = 0;
 	} else {
-	    ERTS_BIF_PREP_ERROR(retval, p, BADARG);
+            BIF_P->fvalue = am_badopt;
+            ERTS_BIF_PREP_ERROR(retval, p, BADARG | EXF_HAS_EXT_INFO);
 	    goto done;
 	}
 	l = CDR(list_val(l));
     }
     if(!is_nil(l)) {
-	ERTS_BIF_PREP_ERROR(retval, p, BADARG);
+	BIF_P->fvalue = am_badopt;
+	ERTS_BIF_PREP_ERROR(retval, p, BADARG | EXF_HAS_EXT_INFO);
 	goto done;
     }
 
@@ -3210,13 +3277,15 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
     int base;
 
     i = erts_list_length(BIF_ARG_1);
-    if (i < 0)
-      BIF_ERROR(BIF_P, BADARG);
-    
+    if (i < 0 || is_not_small(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
     base = signed_val(BIF_ARG_2);
 
-    if (base < 2 || base > 36) 
-      BIF_ERROR(BIF_P, BADARG);
+    if (base < 2 || base > 36) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
 
     if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
                              &res, &dummy) != LTI_ALL_INTEGER) {
@@ -4049,23 +4118,23 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	 optlist = CDR(list_val(optlist))) {
 	Eterm *tp, opt = CAR(list_val(optlist));
 	if (is_not_tuple(opt))
-	    goto error;
+	    goto bad_options;
 	tp = tuple_val(opt);
 	if (tp[0] != make_arityval(2))
-	    goto error;
+            goto bad_options;
 	if (tp[1] == am_flush) {
 	    if (tp[2] == am_true)
 		flush = 1;
 	    else if (tp[2] == am_false)
 		flush = 0;
 	    else
-		goto error;
+                goto bad_options;
 	}
 	else
-	    goto error;
+            goto bad_options;
     }
     if (is_not_nil(optlist))
-	goto error;
+        goto bad_options;
 
 #if defined(BEAMASM) && defined(BEAMASM_DUMP_SIZES)
     beamasm_dump_sizes();
@@ -4109,8 +4178,13 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
     else
 	goto error;
     return NIL;  /* Pedantic (lint does not know about erts_exit) */
+
  error:
     BIF_ERROR(BIF_P, BADARG);
+
+ bad_options:
+    BIF_P->fvalue = am_badopt;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 /**********************************************************************/
@@ -4965,8 +5039,12 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
     } else if (ERTS_IS_ATOM_STR("system_logger", BIF_ARG_1)) {
         Eterm res = erts_set_system_logger(BIF_ARG_2);
         if (is_value(res)) BIF_RET(res);
+    } else {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
-    error:
+
+ error:
     BIF_ERROR(BIF_P, BADARG);
 }
 

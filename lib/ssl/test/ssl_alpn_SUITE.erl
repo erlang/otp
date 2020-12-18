@@ -326,7 +326,7 @@ ssl_receive(Socket, Data) ->
 
 ssl_receive(Socket, Data, Buffer) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_information(Socket)]),
+           [ssl:connection_information(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
         ct:log("Received ~p~n",[MoreData]),

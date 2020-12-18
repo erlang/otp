@@ -1,9 +1,9 @@
 %%-*-erlang-*-
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2009-2017. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,13 +15,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%----------------------------------------------------------------------
 %% File    : xmerl_sax_old_dom.erl
-%% Description : 
+%% Description :
 %%
-%% Created : 02 Oct 2008 
+%% Created : 02 Oct 2008
 %%----------------------------------------------------------------------
 -module(xmerl_sax_old_dom).
 
@@ -52,7 +52,7 @@
 %%----------------------------------------------------------------------
 %% Error handling
 %%----------------------------------------------------------------------
--define(error(Reason), 
+-define(error(Reason),
 	throw({xmerl_sax_old_dom_error, Reason})).
 
 %%======================================================================
@@ -66,7 +66,7 @@
 	  tags=[],         %% Tag stack
 	  cno=[],          %% Current node number
 	  namespaces = [], %% NameSpace stack
-	  dom=[]           %% DOM structure         
+	  dom=[]           %% DOM structure
 	 }).
 
 %%======================================================================
@@ -74,8 +74,8 @@
 %%======================================================================
 %%----------------------------------------------------------------------
 %% Function: initial_state() -> Result
-%% Parameters: 
-%% Result: 
+%% Parameters:
+%% Result:
 %% Description:
 %%----------------------------------------------------------------------
 initial_state() ->
@@ -83,8 +83,8 @@ initial_state() ->
 
 %%----------------------------------------------------------------------
 %% Function: get_dom(State) -> Result
-%% Parameters: 
-%% Result: 
+%% Parameters:
+%% Result:
 %% Description:
 %%----------------------------------------------------------------------
 get_dom(#xmerl_sax_old_dom_state{dom=Dom}) ->
@@ -92,8 +92,8 @@ get_dom(#xmerl_sax_old_dom_state{dom=Dom}) ->
 
 %%----------------------------------------------------------------------
 %% Function: event(Event, LineNo, State) -> Result
-%% Parameters: 
-%% Result: 
+%% Parameters:
+%% Result:
 %% Description:
 %%----------------------------------------------------------------------
 event(Event, _LineNo, State) ->
@@ -109,14 +109,14 @@ event(Event, _LineNo, State) ->
 %% Parameters: Event = term()
 %%             State = #xmerl_sax_old_dom_state{}
 %% Result    : #xmerl_sax_old_dom_state{} |
-%% Description: 
+%% Description:
 %%----------------------------------------------------------------------
 
-%% Document
 %%----------------------------------------------------------------------
+%% Document
 build_dom(startDocument, State) ->
     State#xmerl_sax_old_dom_state{dom=[startDocument]};
-build_dom(endDocument, 
+build_dom(endDocument,
 	  #xmerl_sax_old_dom_state{dom=[#xmlElement{content=C} = Current |D]} = State) ->
     case D of
 	[startDocument] ->
@@ -127,18 +127,17 @@ build_dom(endDocument,
 	    State#xmerl_sax_old_dom_state{dom=[Decl, Current#xmlElement{
 						 content=lists:reverse(C)
 						}]};
-	_ -> 
-            %% endDocument is also sent by the parser when a fault occur to tell 
+	_ ->
+            %% endDocument is also sent by the parser when a fault occur to tell
             %% the event receiver that no more input will be sent
 	    State
     end;
 
-%% Element
 %%----------------------------------------------------------------------
-build_dom({startElement, Uri, LocalName, QName, Attributes}, 
-	  #xmerl_sax_old_dom_state{tags=T, cno=CN, namespaces=NS, dom=D} = State) ->
+%% Element
+build_dom({startElement, Uri, LocalName, QName, Attributes},
+	  #xmerl_sax_old_dom_state{tags=T, cno=CN, namespaces=NS0, dom=D} = State) ->
 
-    A = parse_attributes(LocalName, Attributes),
     {Num, NewCN} =
 	case CN of
 	    [] ->
@@ -147,32 +146,43 @@ build_dom({startElement, Uri, LocalName, QName, Attributes},
 		{N, [1, N+1 |CNs]}
 	end,
 
-    NsInfo = 
+    NsInfo =
 	case QName of
 	    {[], _} -> [];
 	    QN -> QN
 	end,
-    NameAsAtom = convert_qname_to_atom(QName), 
+    NameAsAtom = convert_qname_to_atom(QName),
+    ExpandedName = convert_to_expanded_name(Uri, LocalName),
+    DefaultNS =
+        case lists:keyfind([], 1, NS0) of
+            false ->
+                [];
+            {_, Default} -> Default
+        end,
+    NS1 = lists:filter(fun({[], _}) -> false; ({_,_}) -> true end, NS0),
+    NameSpace = #xmlNamespace{default=DefaultNS, nodes=NS1},
+    NewTagsList = [{NameAsAtom, Num} |T],
 
-    State#xmerl_sax_old_dom_state{tags=[{NameAsAtom, Num} |T],
+    A = parse_attributes(Attributes, LocalName, NameSpace, NewTagsList),
+
+    State#xmerl_sax_old_dom_state{tags=NewTagsList,
 				  cno=NewCN,
-				  dom=[#xmlElement{name=NameAsAtom, 
-						   expanded_name=NameAsAtom,
+				  dom=[#xmlElement{name=NameAsAtom,
+						   expanded_name=ExpandedName,
 						   nsinfo=NsInfo,
-						   namespace=#xmlNamespace{default=list_to_atom(Uri),
-									   nodes=NS},
+						   namespace=NameSpace,
 						   pos=Num,
 						   parents=T,
 						   attributes=lists:reverse(A),
 						   xmlbase="."
 						  } | D]};
-build_dom({endElement, _Uri, LocalName, QName}, 
+build_dom({endElement, _Uri, LocalName, QName},
 	  #xmerl_sax_old_dom_state{tags=[_ |T],
 				   cno=[_ |CN],
-				   dom=[#xmlElement{name=CName, content=C} = Current, 
+				   dom=[#xmlElement{name=CName, content=C} = Current,
 					#xmlElement{content=PC} = Parent | D]} = State) ->
     case convert_qname_to_atom(QName) of
-	CName ->	    
+	CName ->
 	    State#xmerl_sax_old_dom_state{tags=T,
 					  cno=CN,
 					  dom=[Parent#xmlElement{
@@ -182,51 +192,49 @@ build_dom({endElement, _Uri, LocalName, QName},
 							  |PC]
 						} | D]};
 	_ ->
-	    ?error("Got end of element: " ++ LocalName ++ " but expected: " ++ 
+	    ?error("Got end of element: " ++ LocalName ++ " but expected: " ++
 		   Current#xmlElement.name)
     end;
 
-%% Text 
 %%----------------------------------------------------------------------
+%% Text
 build_dom({characters, String},
-	  #xmerl_sax_old_dom_state{tags=T, 
-				   cno=[Num |CN],
-				   dom=[#xmlElement{content=C} = Current| D]} = State) ->
-    State#xmerl_sax_old_dom_state{cno=[Num+1 |CN], 
-				  dom=[Current#xmlElement{content=[#xmlText{value=String, parents=T, pos=Num, type=text}
-								   |C]} | D]};
-build_dom({ignorableWhitespace, String},
-	  #xmerl_sax_old_dom_state{tags=T, 
+	  #xmerl_sax_old_dom_state{tags=T,
 				   cno=[Num |CN],
 				   dom=[#xmlElement{content=C} = Current| D]} = State) ->
     State#xmerl_sax_old_dom_state{cno=[Num+1 |CN],
-				  dom=[Current#xmlElement{content=[#xmlText{value=String, 
-									    parents=T, pos=Num, 
+				  dom=[Current#xmlElement{content=[#xmlText{value=String, parents=T, pos=Num, type=text}
+								   |C]} | D]};
+build_dom({ignorableWhitespace, String},
+	  #xmerl_sax_old_dom_state{tags=T,
+				   cno=[Num |CN],
+				   dom=[#xmlElement{content=C} = Current| D]} = State) ->
+    State#xmerl_sax_old_dom_state{cno=[Num+1 |CN],
+				  dom=[Current#xmlElement{content=[#xmlText{value=String,
+									    parents=T, pos=Num,
 									    type=text}
 								   |C]} | D]};
 
-%% Comments
 %%----------------------------------------------------------------------
+%% Comments
 build_dom({comment, String},
-	  #xmerl_sax_old_dom_state{tags=T, 
+	  #xmerl_sax_old_dom_state{tags=T,
 				   cno=[Num |CN],
 				   dom=[#xmlElement{content=C} = Current| D]} = State) ->
     State#xmerl_sax_old_dom_state{cno=[Num+1 |CN],
 				  dom=[Current#xmlElement{content=[#xmlComment{parents=T, pos=Num, value=String}|C]} | D]};
 
-%% NameSpaces
 %%----------------------------------------------------------------------
-build_dom({startPrefixMapping, [], _Uri}, State) -> 
-    State;
+%% NameSpaces
 build_dom({startPrefixMapping, Prefix, Uri},
-	  #xmerl_sax_old_dom_state{namespaces=NS} = State) -> 
+	  #xmerl_sax_old_dom_state{namespaces=NS} = State) ->
     State#xmerl_sax_old_dom_state{namespaces=[{Prefix, list_to_atom(Uri)} |NS]};
 build_dom({endPrefixMapping, Prefix},
-	  #xmerl_sax_old_dom_state{namespaces=[{Prefix, _} |NS]} = State) -> 
-    State#xmerl_sax_old_dom_state{namespaces=NS};
+	  #xmerl_sax_old_dom_state{namespaces=NS} = State) ->
+    State#xmerl_sax_old_dom_state{namespaces=lists:keydelete(Prefix, 1, NS)};
 
-%% Processing instructions
 %%----------------------------------------------------------------------
+%% Processing instructions
 build_dom({processingInstruction,"xml", PiData},
 	  #xmerl_sax_old_dom_state{dom=D} = State) ->
     {Vsn, PiData1}  = find_and_remove_attribute("version", PiData, []),
@@ -236,44 +244,42 @@ build_dom({processingInstruction,"xml", PiData},
 build_dom({processingInstruction, PiTarget, PiData},
 	  #xmerl_sax_old_dom_state{cno=[Num |CN],
 				   dom=[#xmlElement{content=C} = Current| D]} = State) ->
-    State#xmerl_sax_old_dom_state{cno=[Num+1 |CN], 
+    State#xmerl_sax_old_dom_state{cno=[Num+1 |CN],
 				  dom=[Current#xmlElement{content=[#xmlPI{name=PiTarget,pos=Num, value=PiData}
 								   |C]} | D]};
+%%----------------------------------------------------------------------
 %% Default
-%%----------------------------------------------------------------------
 build_dom(_E, State) ->
-    State. 
-
+    State.
 
 %%----------------------------------------------------------------------
-%% Function  : parse_attributes(ElName, Attributes) -> Result
-%% Parameters: 
-%% Result    : 
-%% Description: 
+%% Function  : parse_attributes/2
 %%----------------------------------------------------------------------
-parse_attributes(ElName, Attributes) ->
-    parse_attributes(ElName, Attributes, 1, []).
+parse_attributes(Attributes, ElName, NameSpace, T) ->
+    parse_attributes(Attributes, ElName, NameSpace, T, 1 , []).
 
-parse_attributes(_, [], _, Acc) ->
+parse_attributes([], _, _, _, _, Acc) ->
     Acc;
-parse_attributes(ElName, [{_Uri, Prefix, LocalName, AttrValue} |As], N, Acc) ->  
+parse_attributes([{Uri, Prefix, LocalName, AttrValue} |As], ElName, NameSpace, T, N, Acc) ->
     Name = convert_qname_to_atom({Prefix,LocalName}),
-    NsInfo = 
+    NsInfo =
 	case Prefix of
 	    [] -> [];
 	    P -> {P,LocalName}
 	end,
-    parse_attributes(ElName, As, N+1, [#xmlAttribute{name=Name,
-						     pos=N, 
-						     nsinfo=NsInfo,
-						     value=AttrValue,
-						     normalized=false} |Acc]).
+    ExpandedName = convert_to_expanded_name(Uri, LocalName),
+    parse_attributes(As, ElName, NameSpace, T, N+1,
+                     [#xmlAttribute{name=Name,
+                                    expanded_name=ExpandedName,
+                                    nsinfo=NsInfo,
+                                    namespace=NameSpace,
+                                    parents=T,
+                                    pos=N,
+                                    value=AttrValue,
+                                    normalized=false} |Acc]).
 
 %%----------------------------------------------------------------------
 %% Function  : convert_qname_to_atom(QName) -> Result
-%% Parameters: 
-%% Result    : 
-%% Description: 
 %%----------------------------------------------------------------------
 convert_qname_to_atom({[], N}) ->
     list_to_atom(N);
@@ -281,10 +287,15 @@ convert_qname_to_atom({P,N}) ->
     list_to_atom(P ++ ":" ++ N).
 
 %%----------------------------------------------------------------------
-%% Function  : find_and_remove_attribute(Key, Data, Default) -> Result
-%% Parameters: 
-%% Result    : 
-%% Description: 
+%% Function  : convert_to_expanded_name/2
+%%----------------------------------------------------------------------
+convert_to_expanded_name([], LocalName) ->
+    list_to_atom(LocalName);
+convert_to_expanded_name(Uri, LocalName) ->
+    {list_to_atom(Uri), list_to_atom(LocalName)}.
+
+%%----------------------------------------------------------------------
+%% Function  : find_and_remove_attribute/3
 %%----------------------------------------------------------------------
 find_and_remove_attribute(Key, Data, Default) ->
     case lists:keysearch(Key, 1, Data) of

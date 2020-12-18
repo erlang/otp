@@ -123,11 +123,6 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_256_ccm"}, {NULL}, 32, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
 #endif
 
-    /*==== Specialy handled ciphers, only for inclusion in algorithm's list ====*/
-#ifdef HAVE_AES_IGE
-    {{"aes_ige256"}, {NULL}, 0, NO_FIPS_CIPHER | NON_EVP_CIPHER, NOT_AEAD},
-#endif
-
     /*==== End of list ==== */
 
     {{NULL},{NULL},0,0,NOT_AEAD}
@@ -336,12 +331,24 @@ ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
             continue;
 
         if ((p->cipher.p != NULL) ||
-            (p->flags & AES_CTR_COMPAT) ||
-            (p->type.atom == atom_aes_ige256))  /* Special handling. Bad indeed... */
+            (p->flags & AES_CTR_COMPAT))
             {
                 hd = enif_make_list_cell(env, p->type.atom, hd);
             }
     }
+
+    /* Add aliases: */
+#ifdef HAVE_GCM
+    hd = enif_make_list_cell(env, atom_aes_gcm, hd);
+#endif
+    hd = enif_make_list_cell(env, atom_aes_ecb, hd);
+    hd = enif_make_list_cell(env, atom_aes_ctr, hd);
+    hd = enif_make_list_cell(env, atom_aes_cfb8, hd);
+    hd = enif_make_list_cell(env, atom_aes_cfb128, hd);
+#ifdef HAVE_CCM
+    hd = enif_make_list_cell(env, atom_aes_ccm, hd);
+#endif
+    hd = enif_make_list_cell(env, atom_aes_cbc, hd);
 
     return hd;
 }

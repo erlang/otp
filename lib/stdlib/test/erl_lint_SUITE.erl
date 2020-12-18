@@ -70,7 +70,8 @@
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
          unused_type/1,removed/1, otp_16516/1,
-         inline_nifs/1]).
+         inline_nifs/1,
+         warn_missing_spec/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -93,7 +94,7 @@ all() ->
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, removed, otp_16516,
-     inline_nifs].
+     inline_nifs, warn_missing_spec].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4447,6 +4448,26 @@ inline_nifs(Config) ->
            [],
            {warnings,[{2,erl_lint,nif_inline}]}}],
     [] = run(Config, Ts).
+
+warn_missing_spec(Config) ->
+    Test = <<"-export([external_with_spec/0, external_no_spec/0]).
+
+              -spec external_with_spec() -> ok.
+              external_with_spec() -> ok.
+
+              external_no_spec() -> ok.
+
+              -spec internal_with_spec() -> ok.
+              internal_with_spec() -> ok.
+
+              internal_no_spec() -> ok.">>,
+    run(Config, [
+        {warn_missing_spec, Test, [warn_missing_spec],
+            {warnings, [{6, erl_lint, {missing_spec, {external_no_spec, 0}}}]}},
+        {warn_missing_spec_all, Test, [warn_missing_spec_all],
+            {warnings, [{6, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                        {11, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}}
+    ]).
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).

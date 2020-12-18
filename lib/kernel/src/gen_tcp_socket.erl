@@ -331,7 +331,7 @@ send(?module_socket(Server, Socket), Data) ->
 %%
 send_result(Server, Meta, Result) ->
     case Result of
-        {error, {Reason, _RestData}} ->
+        {error, Reason} ->
             %% To handle RestData we would have to pass
             %% all writes through a single process that buffers
             %% the write data, which would be a bottleneck
@@ -356,30 +356,6 @@ send_result(Server, Meta, Result) ->
         ok ->
             ok
     end.
-%%%            send_error(Server, Meta, {error, Reason});
-%%%        {error, _} = Error ->
-%%%            send_error(Server, Meta, Error);
-%%%        ok -> ok
-%%%    end.
-
-%%%send_error(Server, Meta, Error) ->
-%%%    %% Since send data may have been lost, and there is no room
-%%%    %% in this API to inform the caller, we at least close
-%%%    %% the socket in the write direction
-%%%%%%    ?DBG(Error),
-%%%    case Error of
-%%%        {error, econnreset} ->
-%%%            case maps:get(show_econnreset, Meta) of
-%%%                true -> ?badarg_exit(Error);
-%%%                false -> {error, closed}
-%%%            end;
-%%%        {error, timeout} ->
-%%%            _ = maps:get(send_timeout_close, Meta)
-%%%                andalso close_server(Server),
-%%%            ?badarg_exit(Error);
-%%%        _ ->
-%%%            ?badarg_exit(Error)
-%%%    end.
 
 %% -------------------------------------------------------------------------
 
@@ -482,11 +458,28 @@ getstat(?module_socket(Server, _Socket), What) when is_list(What) ->
 socket_send(Socket, Opts, Timeout) ->
     Result = socket:send(Socket, Opts, Timeout),
     case Result of
-        {error, {epipe, Rest}} -> {error, {econnreset, Rest}};
-        {error, {_Reason, _Rest}} -> Result;
-        {select, _} -> Result;
-        {ok, _} -> Result;
-        ok -> ok
+        {error, {_Reason, RestData}} when is_binary(RestData) ->
+            %% To handle RestData we would have to pass
+            %% all writes through a single process that buffers
+            %% the write data, which would be a bottleneck
+            %%
+            %% Since send data may have been lost, and there is no room
+            %% in this API to inform the caller, we at least close
+            %% the socket in the write direction
+            {error, econnreset};
+        {error, Reason} ->
+            {error,
+             case Reason of
+                 epipe -> econnreset;
+                 _     -> Reason
+             end};
+        {ok, RestData} when is_binary(RestData) ->
+            %% Can not happen for stream socket, but that
+            %% does not show in the type spec
+            %% - make believe a fatal connection error
+            {error, econnreset};
+        ok ->
+            ok
     end.
 
 -compile({inline, [socket_recv_peek/2]}).

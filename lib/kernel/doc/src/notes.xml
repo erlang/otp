@@ -31,6 +31,77 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>apply</c> call's in <c>logger.hrl</c> are now
+	    called with <c>erlang</c> prefix to avoid clashed with
+	    local <c>apply/3</c> functions.</p>
+          <p>
+	    Own Id: OTP-16976 Aux Id: PR-2807 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak in <c>pg</c>.</p>
+          <p>
+	    Own Id: OTP-17034 Aux Id: PR-2866 </p>
+        </item>
+        <item>
+          <p>
+	    Fix crash in <c>logger_proxy</c> due to stray
+	    <c>gen_server:call</c> replies not being handled. The
+	    stray replies come when logger is under heavy load and
+	    the flow control mechanism is reaching its limit.</p>
+          <p>
+	    Own Id: OTP-17038</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in <c>erl_epmd:names()</c> that caused it to
+	    return the illegal return value <c>noport</c> instead of
+	    <c>{error, Reason}</c> where <c>Reason</c> is the actual
+	    error reason. This bug also propagated to
+	    <c>net_adm:names()</c>.</p>
+          <p>
+	    This bug was introduced in <c>kernel</c> version 7.1 (OTP
+	    23.1).</p>
+          <p>
+	    Own Id: OTP-17054 Aux Id: ERL-1424 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add export of some resolver documented types.</p>
+          <p>
+	    Own Id: OTP-16954 Aux Id: ERIERL-544 </p>
+        </item>
+        <item>
+          <p>
+	    Add configurable retry timeout for resolver lookups.</p>
+          <p>
+	    Own Id: OTP-16956 Aux Id: ERIERL-547 </p>
+        </item>
+        <item>
+          <p>
+	    <c>gen_server:multi_call()</c> has been optimized in the
+	    special case of only calling the local node with timeout
+	    set to <c>infinity</c>.</p>
+          <p>
+	    Own Id: OTP-17058 Aux Id: PR-2887 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

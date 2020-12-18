@@ -23,8 +23,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0,
-	 display/1, display_huge/0, display_string/1,
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
+
+-export([display/1, display_huge/0, display_string/1,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,list_to_utf8_atom/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
@@ -57,6 +58,28 @@ all() ->
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, process_info_blast, os_env_case_sensitivity,
      test_length,fixed_apply_badarg,external_fun_apply3].
+
+init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(erl_bif_types, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(shadow_comments, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    Config.
+
+end_per_testcase(_Func, _Config) ->
+    ok.
+
+%% erl_bif_types comes from dialyzer which some test runs skip building, so
+%% we'll skip the tests that use it as the result shouldn't vary based on
+%% platform. The majority build it so we'll have plenty coverage either way.
+skip_missing_erl_bif_types(Config) ->
+    c:l(erl_bif_types),
+    case erlang:function_exported(erl_bif_types, module_info, 0) of
+        false -> {skip, "erl_bif_types not compiled"};
+        true -> Config
+    end.
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -101,8 +124,6 @@ display_string(Config) when is_list(Config) ->
     ok.
 
 erl_bif_types(Config) when is_list(Config) ->
-    ensure_erl_bif_types_compiled(),
-
     List = erlang:system_info(snifs),
 
     KnownTypes = [MFA || MFA <- List, known_types(MFA)],
@@ -150,8 +171,6 @@ erl_bif_types_3(List) ->
     end.
 
 guard_bifs_in_erl_bif_types(_Config) ->
-    ensure_erl_bif_types_compiled(),
-
     List0 = erlang:system_info(snifs),
     List = [{F,A} || {erlang,F,A} <- List0,
 		     erl_internal:guard_bif(F, A)],
@@ -171,8 +190,6 @@ guard_bifs_in_erl_bif_types(_Config) ->
     end.
 
 shadow_comments(_Config) ->
-    ensure_erl_bif_types_compiled(),
-
     ErlangList = [{erlang,F,A} || {F,A} <- erlang:module_info(exports),
 				  not is_operator(F,A)],
     List0 = erlang:system_info(snifs),
@@ -239,16 +256,6 @@ extract_comments(Mod, Path) ->
 	 {match,[M,F,A]} = re:run(L, ReMFA, [{capture,all_but_first,list}]),
 	 {list_to_atom(M),list_to_atom(F),list_to_integer(A)}
      end || L <- Lines].
-
-ensure_erl_bif_types_compiled() ->
-    c:l(erl_bif_types),
-    case erlang:function_exported(erl_bif_types, module_info, 0) of
-	false ->
-	    %% Fail cleanly.
-	    ct:fail("erl_bif_types not compiled");
-	true ->
-	    ok
-    end.
 
 known_types({M,F,A}) ->
     erl_bif_types:is_known(M, F, A).
@@ -1297,14 +1304,14 @@ test_length(_, _, _, _, _) -> ok.
 fixed_apply_badarg(Config) when is_list(Config) ->
     Bad = id({}),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[{error_info,_}]} | _]}} =
         (catch Bad:baz(a,b)),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[{error_info,_}]} | _]}} =
         (catch baz:Bad(c,d)),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[{error_info,_}]} | _]}} =
         (catch apply(Bad,baz,[e,f])),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[{error_info,_}]} | _]}} =
         (catch apply(baz,Bad,[g,h])),
 
     ok.

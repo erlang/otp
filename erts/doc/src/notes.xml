@@ -31,6 +31,101 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 11.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug which could cause VM crash when a NIF is loaded
+	    at the same time as the Erlang implementation of the NIF
+	    is called. Bug exists since OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-16859</p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>enif_make_map_*</c> functions in debug build
+	    when given environment from <c>enif_alloc_env</c>.</p>
+          <p>
+	    Own Id: OTP-16863 Aux Id: ERL-1352 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed broken configuration option <c>--disable-pie</c>.</p>
+          <p>
+	    Own Id: OTP-16864</p>
+        </item>
+        <item>
+          <p>
+	    Fixed rare distribution bug in race between received
+	    signal (link/monitor/spawn_request/spawn_reply) and
+	    disconnection. Symptom: VM crash. Since: OTP 21.0.</p>
+          <p>
+	    Own Id: OTP-16869 Aux Id: ERL-1337 </p>
+        </item>
+        <item>
+	    <p>Fixed a performance issue when extremely many items
+	    were stored in the process dictionary. (Fixing this bug
+	    also eliminates a compiler warning emitted by the latest
+	    version of Clang.)</p>
+          <p>
+	    Own Id: OTP-16888</p>
+        </item>
+        <item>
+          <p>
+	    Remove <c>-ftree-copyrename</c> from flags passed to
+	    compiler when building erts. The flag is not used by
+	    modern gcc's and is not supported by clang.</p>
+          <p>
+	    Own Id: OTP-16894</p>
+        </item>
+        <item>
+	    <p>Modules using complicated nested binary comprehensions
+	    could fail to load.</p>
+          <p>
+	    Own Id: OTP-16899</p>
+        </item>
+        <item>
+	    <p>Fixed a race in <c>file:read_file/1</c> were an
+	    incomplete file could be returned if another OS process
+	    swapped the file out while reading.</p>
+          <p>
+	    Own Id: OTP-16948 Aux Id: PR-2792 </p>
+        </item>
+        <item>
+	    <p>The call <c>list_to_integer("10", true)</c> would
+	    return <c>4</c> instead of raising an exception. Certain
+	    other atoms would also be interpreted as a number
+	    base.</p>
+          <p>
+	    Own Id: OTP-17030</p>
+        </item>
+        <item>
+          <p>
+	    On macOS 11 (Big Sur), erl would not start if the maximum
+	    number of file descriptors were unlimited (<c>ulimit -n
+	    unlimited</c>).</p>
+          <p>
+	    Own Id: OTP-17055 Aux Id: ERL-1417 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add manifest to all executables and dynamic libraries.</p>
+          <p>
+	    Own Id: OTP-17067 Aux Id: PR-2907 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -1017,6 +1112,23 @@
 	    set before Erlang can be started.</p>
           <p>
 	    Own Id: OTP-16635 Aux Id: ERL-476 PR-2390 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.7.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed rare distribution bug in race between received
+	    signal (link/monitor/spawn_request/spawn_reply) and
+	    disconnection. Symptom: VM crash. Since: OTP 21.0.</p>
+          <p>
+	    Own Id: OTP-16869 Aux Id: ERL-1337 </p>
         </item>
       </list>
     </section>

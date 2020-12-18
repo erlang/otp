@@ -237,7 +237,7 @@ erase_log(Name, Pid) ->
     erase(Pid).
 
 do_all() ->
-    LocalSpec = {'$1','_',local},
+    LocalSpec = {'$1','_'},
     Local0 = [hd(L) || L <- ets:match(?DISK_LOG_NAME_TABLE, LocalSpec)],
     lists:sort(Local0).
 

@@ -598,31 +598,30 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                 honor_cipher_order := HonorCipherOrder}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
-    ClientGroups = get_supported_groups(ClientGroups0),
-    ServerGroups = get_supported_groups(ServerGroups0),
-
-    ClientShares0 = maps:get(key_share, Extensions, undefined),
-    ClientShares = get_key_shares(ClientShares0),
-
-    OfferedPSKs = get_offered_psks(Extensions),
-
-    ClientALPN0 = maps:get(alpn, Extensions, undefined),
-    ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
-
-    ClientSignAlgs = get_signature_scheme_list(
-                       maps:get(signature_algs, Extensions, undefined)),
-    ClientSignAlgsCert = get_signature_scheme_list(
-                           maps:get(signature_algs_cert, Extensions, undefined)),
-
-    CookieExt = maps:get(cookie, Extensions, undefined),
-    Cookie = get_cookie(CookieExt),
-
     {Ref,Maybe} = maybe(),
-
     try
+        ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
+        ServerGroups = Maybe(get_supported_groups(ServerGroups0)),
+        
+        ClientShares0 = maps:get(key_share, Extensions, undefined),
+        ClientShares = get_key_shares(ClientShares0),
+        
+        OfferedPSKs = get_offered_psks(Extensions),
+        
+        ClientALPN0 = maps:get(alpn, Extensions, undefined),
+        ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
+ 
+        ClientSignAlgs = get_signature_scheme_list(
+                           maps:get(signature_algs, Extensions, undefined)),
+        ClientSignAlgsCert = get_signature_scheme_list(
+                               maps:get(signature_algs_cert, Extensions, undefined)),
+        
+        CookieExt = maps:get(cookie, Extensions, undefined),
+        Cookie = get_cookie(CookieExt),
+        
         #state{connection_states = ConnectionStates0,
                session = #session{own_certificates = [Cert | _]}} = State1 =
-            Maybe(ssl_connection:handle_sni_extension_tls13(SNI, State0)),
+            Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
 
         Maybe(validate_cookie(Cookie, State1)),
 
@@ -703,6 +702,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
          #state{static_env = #static_env{role = client,
                                          host = Host,
                                          port = Port,
+                                         protocol_cb = Connection,
                                          transport_cb = Transport,
                                          socket = Socket},
                 handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
@@ -716,12 +716,12 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                 session = #session{own_certificates = OwnCerts} = Session0,
                 connection_states = ConnectionStates0
                } = State0) ->
-    ClientGroups = get_supported_groups(ClientGroups0),
-    CookieExt = maps:get(cookie, Extensions, undefined),
-    Cookie = get_cookie(CookieExt),
-
     {Ref,Maybe} = maybe(),
     try
+        ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
+        CookieExt = maps:get(cookie, Extensions, undefined),
+        Cookie = get_cookie(CookieExt),
+
         ServerKeyShare = maps:get(key_share, Extensions, undefined),
         SelectedGroup = get_selected_group(ServerKeyShare),
 
@@ -765,7 +765,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         Hello = tls_handshake_1_3:maybe_add_binders(Hello1, HHistory0, TicketData, NegotiatedVersion),
 
         {BinMsg0, ConnectionStates, HHistory} =
-            tls_connection:encode_handshake(Hello,  NegotiatedVersion, ConnectionStates0, HHistory0),
+            Connection:encode_handshake(Hello,  NegotiatedVersion, ConnectionStates0, HHistory0),
 
         %% D.4.  Middlebox Compatibility Mode
         {#state{handshake_env = HsEnv} = State3, BinMsg} =
@@ -790,6 +790,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
 
 do_negotiated({start_handshake, PSK0},
               #state{connection_states = ConnectionStates0,
+                     static_env = #static_env{protocol_cb = Connection},
                      session = #session{session_id = SessionId,
                                         ecc = SelectedGroup,
                                         dh_public_value = ClientPublicKey},
@@ -806,10 +807,10 @@ do_negotiated({start_handshake, PSK0},
     try
         %% Create server_hello
         ServerHello = server_hello(server_hello, SessionId, KeyShare, PSK0, ConnectionStates0),
-        State1 = tls_connection:queue_handshake(ServerHello, State0),
+        State1 = Connection:queue_handshake(ServerHello, State0),
         %% D.4.  Middlebox Compatibility Mode
         State2 = maybe_queue_change_cipher_spec(State1, last),
-        {State3, _} = tls_connection:send_handshake_flight(State2),
+        {State3, _} = Connection:send_handshake_flight(State2),
 
         PSK = get_pre_shared_key(PSK0, HKDF),
 
@@ -823,7 +824,7 @@ do_negotiated({start_handshake, PSK0},
         EncryptedExtensions = encrypted_extensions(State5),
 
         %% Encode EncryptedExtensions
-        State6 = tls_connection:queue_handshake(EncryptedExtensions, State5),
+        State6 = Connection:queue_handshake(EncryptedExtensions, State5),
 
         %% Create and send CertificateRequest ({verify, verify_peer})
         {State7, NextState} = maybe_send_certificate_request(State6, SslOpts, PSK0),
@@ -838,10 +839,10 @@ do_negotiated({start_handshake, PSK0},
         Finished = finished(State9),
 
         %% Encode Finished
-        State10= tls_connection:queue_handshake(Finished, State9),
+        State10= Connection:queue_handshake(Finished, State9),
 
         %% Send first flight
-        {State, _} = tls_connection:send_handshake_flight(State10),
+        {State, _} = Connection:send_handshake_flight(State10),
 
         {State, NextState}
 
@@ -897,8 +898,9 @@ do_wait_finished(#finished{verify_data = VerifyData},
     end;
 %% TLS Client
 do_wait_finished(#finished{verify_data = VerifyData},
-                 #state{static_env = #static_env{role = client}} = State0) ->
-
+                 #state{static_env = #static_env{role = client,
+                                                 protocol_cb = Connection}} = State0) ->
+    
     {Ref,Maybe} = maybe(),
 
     try
@@ -909,9 +911,9 @@ do_wait_finished(#finished{verify_data = VerifyData},
         State2 = Maybe(maybe_queue_cert_cert_cv(State1)),
         Finished = finished(State2),
         %% Encode Finished
-        State3 = tls_connection:queue_handshake(Finished, State2),
+        State3 = Connection:queue_handshake(Finished, State2),
         %% Send first flight
-        {State4, _} = tls_connection:send_handshake_flight(State3),
+        {State4, _} = Connection:send_handshake_flight(State3),
         State5 = calculate_traffic_secrets(State4),
         State6 = maybe_calculate_resumption_master_secret(State5),
         State7 = forget_master_secret(State6),
@@ -931,14 +933,15 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                                   supported_groups := ClientGroups0,
                                   session_tickets := SessionTickets,
                                   use_ticket := UseTicket}} = State0) ->
-    ClientGroups = get_supported_groups(ClientGroups0),
-    ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
-    ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
-    SelectedIdentity = get_selected_identity(ServerPreSharedKey),
-    ClientKeyShare = get_key_shares(ClientKeyShare0),
-
+    
     {Ref,Maybe} = maybe(),
     try
+        ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
+        ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
+        ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
+        SelectedIdentity = get_selected_identity(ServerPreSharedKey),
+        ClientKeyShare = get_key_shares(ClientKeyShare0),
+
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(maybe_hello_retry_request(ServerHello, State0)),
 
@@ -1129,6 +1132,7 @@ maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                 handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
                                 static_env = #static_env{
                                                 role = client,
+                                                protocol_cb = Connection,
                                                 cert_db = CertDbHandle,
                                                 cert_db_ref = CertDbRef,
                                                 socket = _Socket,
@@ -1140,7 +1144,7 @@ maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
         Certificate = Maybe(certificate(OwnCerts, CertDbHandle, CertDbRef, <<>>, client)),
 
         %% Encode Certificate
-        State1 = tls_connection:queue_handshake(Certificate, State0),
+        State1 = Connection:queue_handshake(Certificate, State0),
         %% Maybe create and queue CertificateVerify
         State = Maybe(maybe_queue_cert_verify(Certificate, State1)),
         {ok, State}
@@ -1158,12 +1162,13 @@ maybe_queue_cert_verify(_Certificate,
                         #state{connection_states = _ConnectionStates0,
                                session = #session{sign_alg = SignatureScheme},
                                connection_env = #connection_env{private_key = CertPrivateKey},
-                               static_env = #static_env{role = client}
+                               static_env = #static_env{role = client,
+                                                        protocol_cb = Connection}
                               } = State) ->
     {Ref,Maybe} = maybe(),
     try
         CertificateVerify = Maybe(certificate_verify(CertPrivateKey, SignatureScheme, State, client)),
-        {ok, tls_connection:queue_handshake(CertificateVerify, State)}
+        {ok, Connection:queue_handshake(CertificateVerify, State)}
     catch
         {Ref, #alert{} = Alert} ->
             {error, Alert}
@@ -1196,15 +1201,16 @@ compare_verify_data(_, _) ->
     {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}.
 
 
-send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
+send_hello_retry_request(#state{connection_states = ConnectionStates0,
+                                static_env = #static_env{protocol_cb = Connection}} = State0,
                          no_suitable_key, KeyShare, SessionId) ->
     ServerHello0 = server_hello(hello_retry_request, SessionId, KeyShare, undefined, ConnectionStates0),
     {State1, ServerHello} = maybe_add_cookie_extension(State0, ServerHello0),
 
-    State2 = tls_connection:queue_handshake(ServerHello, State1),
+    State2 = Connection:queue_handshake(ServerHello, State1),
     %% D.4.  Middlebox Compatibility Mode
     State3 = maybe_queue_change_cipher_spec(State2, last),
-    {State4, _} = tls_connection:send_handshake_flight(State3),
+    {State4, _} = Connection:send_handshake_flight(State3),
 
     %% Update handshake history
     State5 = replace_ch1_with_message_hash(State4),
@@ -1230,22 +1236,23 @@ maybe_send_certificate_request(State, _, PSK) when PSK =/= undefined ->
     {State, wait_finished};
 maybe_send_certificate_request(State, #{verify := verify_none}, _) ->
     {State, wait_finished};
-maybe_send_certificate_request(State, #{verify := verify_peer,
-                                        signature_algs := SignAlgs,
-                                        signature_algs_cert := SignAlgsCert}, _) ->
+maybe_send_certificate_request(#state{static_env = #static_env{protocol_cb = Connection}} = State, 
+                               #{verify := verify_peer,
+                                 signature_algs := SignAlgs,
+                                 signature_algs_cert := SignAlgsCert}, _) ->
     CertificateRequest = certificate_request(SignAlgs, SignAlgsCert),
-    {tls_connection:queue_handshake(CertificateRequest, State), wait_cert}.
-
+    {Connection:queue_handshake(CertificateRequest, State), wait_cert}.
 
 maybe_send_certificate(State, PSK) when  PSK =/= undefined ->
     {ok, State};
 maybe_send_certificate(#state{session = #session{own_certificates = OwnCerts},
                               static_env = #static_env{
+                                              protocol_cb = Connection,
                                               cert_db = CertDbHandle,
                                               cert_db_ref = CertDbRef}} = State, _) ->
     case certificate(OwnCerts, CertDbHandle, CertDbRef, <<>>, server) of
         {ok, Certificate} ->
-            {ok, tls_connection:queue_handshake(Certificate, State)};
+            {ok, Connection:queue_handshake(Certificate, State)};
         Error ->
             Error
     end.
@@ -1254,11 +1261,12 @@ maybe_send_certificate(#state{session = #session{own_certificates = OwnCerts},
 maybe_send_certificate_verify(State, PSK) when  PSK =/= undefined ->
     {ok, State};
 maybe_send_certificate_verify(#state{session = #session{sign_alg = SignatureScheme},
+                                     static_env = #static_env{protocol_cb = Connection},
                                      connection_env = #connection_env{
                                                          private_key = CertPrivateKey}} = State, _) ->
     case certificate_verify(CertPrivateKey, SignatureScheme, State, server) of
         {ok, CertificateVerify} ->
-            {ok, tls_connection:queue_handshake(CertificateVerify, State)};
+            {ok, Connection:queue_handshake(CertificateVerify, State)};
         Error ->
             Error
     end.
@@ -1280,14 +1288,17 @@ maybe_send_session_ticket(#state{ssl_options = #{session_tickets := disabled}} =
 maybe_send_session_ticket(State, 0) ->
     State;
 maybe_send_session_ticket(#state{connection_states = ConnectionStates,
-                                 static_env = #static_env{trackers = Trackers}} = State0, N) ->
+                                 static_env = #static_env{trackers = Trackers,
+                                                          protocol_cb = Connection}
+                                 
+                                } = State0, N) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{security_parameters := SecParamsR} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
                          resumption_master_secret = RMS} = SecParamsR, 
     Ticket = tls_server_session_ticket:new(Tracker, HKDF, RMS),
-    {State, _} = tls_connection:send_handshake(Ticket, State0),
+    {State, _} = Connection:send_handshake(Ticket, State0),
     maybe_send_session_ticket(State, N - 1).
 
 create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
@@ -2269,8 +2280,10 @@ get_signature_scheme_list(#signature_algorithms{
     lists:filter(fun (E) -> is_atom(E) andalso E =/= unassigned end,
                  ClientSignatureSchemes).
 
+get_supported_groups(undefined = Groups) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {supported_groups, Groups})}; 
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
-    Groups.
+    {ok, Groups}.
 
 get_key_shares(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;

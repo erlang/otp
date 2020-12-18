@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the Xref analysis <c>exports_not_used</c> to not
+	    report internally generated <c>behaviour_info/1</c>.</p>
+          <p>
+	    Own Id: OTP-16922 Aux Id: PR-2752 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

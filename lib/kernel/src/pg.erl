@@ -285,9 +285,9 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, nodes = Node
                 fun (Group, Acc) ->
                     case maps:get(Group, Acc) of
                         PidOrPids ->
-                            Acc;
+                            maps:remove(Group, Acc);
                         [PidOrPids] ->
-                            Acc;
+                            maps:remove(Group, Acc);
                         Existing when is_pid(PidOrPids) ->
                             Acc#{Group => lists:delete(PidOrPids, Existing)};
                         Existing ->

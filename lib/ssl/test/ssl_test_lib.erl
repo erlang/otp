@@ -267,16 +267,16 @@ get_client_opts(Config) ->
     ssl_options(COpts, Config).
 
 %% Default callback functions
-init_per_group(GroupName, Config) ->
+init_per_group(GroupName, Config0) ->
     case is_protocol_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
-            clean_protocol_version(Config),
+            Config = clean_protocol_version(Config0),
 	    init_protocol_version(GroupName, Config);
 	_ ->
 	    case sufficient_crypto_support(GroupName) of
 		true ->
 		    ssl:start(),
-		    Config;
+		    Config0;
 		false ->
 		    {skip, "Missing crypto support"}
 	    end
@@ -1614,11 +1614,16 @@ make_rsa_1024_cert(Config) ->
 
 appropriate_sha(CryptoSupport) ->
     Hashes = proplists:get_value(hashs, CryptoSupport),
-    case lists:member(sha256, Hashes) of
-	true ->
-	    sha256;
-	false ->
-	    sha1
+    case portable_cmd("openssl", ["version"]) of
+        "OpenSSL 0.9.8" ++  _ ->
+            sha;
+        _ ->
+            case lists:member(sha256, Hashes) of
+                true ->
+                    sha256;
+                false ->
+                    sha
+            end
     end.
 
 %% RFC 4492, Sect. 2.3.  ECDH_RSA
@@ -2602,11 +2607,17 @@ active_recv(_Socket, N, Acc) when N < 0 ->
 active_recv(Socket, N, Acc) ->
     receive 
 	{ssl, Socket, Bytes} ->
-            active_recv(Socket, N-length(Bytes),  Acc ++ Bytes);
+            active_recv(Socket, N-data_length(Bytes),  Acc ++ Bytes);
         {Socket, {data, Bytes0}} ->
             Bytes = filter_openssl_debug_data(Bytes0),
-            active_recv(Socket, N-length(Bytes),  Acc ++ Bytes)
+            active_recv(Socket, N-data_length(Bytes),  Acc ++ Bytes)
     end.
+
+
+data_length(Bytes) when is_list(Bytes) ->
+    length(Bytes);
+data_length(Bytes) when is_binary(Bytes)->
+    size(Bytes).
 
 filter_openssl_debug_data(Bytes) ->
     re:replace(Bytes,

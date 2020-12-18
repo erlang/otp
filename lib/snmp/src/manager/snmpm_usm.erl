@@ -27,10 +27,8 @@
 
 -module(snmpm_usm).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
-%% Avoid warning for local function error/2 clashing with autoimported BIF.
--compile({no_auto_import,[error/2]}).
+%% Avoid warning for local functions error/* clashing with autoimported BIFs.
+-compile({no_auto_import,[error/1,error/2,error/3]}).
 -export([init/0, 
 	 reset/0, 
 	 process_incoming_msg/4, generate_outgoing_msg/5]).

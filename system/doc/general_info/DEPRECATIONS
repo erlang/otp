@@ -43,6 +43,16 @@ zlib:crc32_combine/4 since=24 remove=27
 zlib:adler32_combine/4 since=24 remove=27
 
 #
+# Added in OTP 23.2.
+#
+igor:_/_ since=23 remove=24
+erl_tidy:dir/0 since=23 remove=24
+erl_tidy:dir/1 since=23 remove=24
+erl_tidy:file/1 since=23 remove=24
+erl_tidy:module/1 since=23 remove=24
+erl_tidy:module/2 since=23 remove=24
+
+#
 # Added in OTP 23.
 #
 ssl:cipher_suites/1 since=21 remove=24
@@ -139,7 +149,7 @@ gen_fsm:_/_ since=20
 # Added in OTP 19.
 #
 
-code:rehash/0 since=19
+code:rehash/0 since=19 remove=26
 crypto:rand_bytes/1 since=19
 queue:lait/1 since=19
 random:_/_ since=19

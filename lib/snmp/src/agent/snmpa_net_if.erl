@@ -570,6 +570,15 @@ loop(#state{transports = Transports,
 		    loop(S)
 	    end;
 
+	{udp_error, Socket, Error} when is_port(Socket) ->
+	    ?vinfo("got udp-error on ~p: ~w", [Socket, Error]),
+	    case lists:keyfind(Socket, #transport.socket, Transports) of
+		#transport{socket = Socket} = Transport ->
+		    loop(handle_udp_error(S, Transport, Error));
+		false ->
+		    loop(handle_udp_error_unknown(S, Socket, Error))
+	    end;
+
 	{info, ReplyRef, Pid} ->
 	    Info = get_info(S),
 	    Pid ! {ReplyRef, Info, self()},
@@ -794,6 +803,47 @@ loop(#state{transports = Transports,
 	_ ->
 	    loop(S)
     end.
+
+
+handle_udp_error(S, #transport{socket = Socket,
+                               kind   = Kind}, Error) ->
+    try inet:sockname(Socket) of
+        {ok, {IP, Port}} ->
+            error_msg("UDP Error for transport: "
+                      "~n      Socket: ~p (~p, ~p)"
+                      "~n      Kind:   ~p"
+                      "~n      Error:  ~p", [Socket, IP, Port, Kind, Error]);
+        {error, _} ->
+            error_msg("UDP Error for transport: "
+                      "~n      Socket: ~p"
+                      "~n      Kind:   ~p"
+                      "~n      Error:  ~p", [Socket, Kind, Error])
+    catch
+        _:_:_ ->
+            error_msg("UDP Error for transport: "
+                      "~n      Socket: ~p"
+                      "~n      Kind:   ~p"
+                      "~n      Error:  ~p", [Socket, Kind, Error])
+    end,
+    S.
+
+handle_udp_error_unknown(S, Socket, Error) ->
+    try inet:sockname(Socket) of
+        {ok, {IP, Port}} ->
+            warning_msg("UDP Error for unknown transport: "
+                        "~n      Socket: ~p (~p, ~p)"
+                        "~n      Error:  ~p", [Socket, IP, Port, Error]);
+        {error, _} ->
+            warning_msg("UDP Error for unknown transport: "
+                        "~n      Socket: ~p"
+                        "~n      Error:  ~p", [Socket, Error])
+    catch
+        _:_:_ ->
+            warning_msg("UDP Error for transport: "
+                        "~n      Socket: ~p"
+                        "~n      Error:  ~p", [Socket, Error])
+    end,
+    S.
 
 
 update_req_counter_incoming(
@@ -2063,6 +2113,9 @@ get_socket_opt(Opt, Opts, DefaultOpts, DefaultVal) ->
 
 error_msg(F, A) -> 
     ?snmpa_error("NET-IF server: " ++ F, A).
+
+warning_msg(F, A) -> 
+    ?snmpa_warning("NET-IF server: " ++ F, A).
 
 info_msg(F,A) ->
     ?snmpa_info("NET-IF server: " ++ F, A).

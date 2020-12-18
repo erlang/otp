@@ -283,7 +283,7 @@ _ET_DECLARE_CHECKED(Sint,signed_val,Eterm)
 #endif
 
 /* NIL access methods */
-#define NIL		_TAG_IMMED2_NIL
+#define NIL		((Eterm)(_TAG_IMMED2_NIL))
 #define is_nil(x)	((x) == NIL)
 #define is_not_nil(x)	((x) != NIL)
 

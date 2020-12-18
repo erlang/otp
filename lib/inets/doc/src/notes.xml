@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.3</title>
+  <section><title>Inets 7.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix an issue about HTML-escaped filename in inets.</p>
+          <p>
+	    Own Id: OTP-16873 Aux Id: ERL-330 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

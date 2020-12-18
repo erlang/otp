@@ -35,9 +35,9 @@
          end_per_testcase/2,
          
          %% Test cases:
-         aead/1,
          aead_bad_tag/1,
          aead_ng/1,
+         all_ciphers/1,
          api_errors_ecdh/1,
          api_ng/0,
          api_ng/1,
@@ -52,17 +52,12 @@
          bad_cipher_name/1,
          bad_generate_key_name/1,
          bad_hash_name/1,
-         bad_hmac_name/1,
          bad_mac_name/1,
          bad_sign_name/1,
          bad_verify_name/1,
-         block/0,
-         block/1,
          cipher_info/0,
          cipher_info/1,
          cipher_padding/1,
-         cmac/0,
-         cmac/1,
          compute/0,
          compute/1,
          compute_bug/0,
@@ -79,39 +74,19 @@
          hash/1,
          hash_info/0,
          hash_info/1,
-         hmac/0,
-         hmac/1,
-         hmac_update/0,
-         hmac_update/1,
          mod_pow/0,
          mod_pow/1,
-         no_aead/0,
-         no_aead/1,
          no_aead_ng/0,
          no_aead_ng/1,
-         no_block/0,
-         no_block/1,
          no_generate_compute/0,
          no_generate_compute/1,
          no_hash/0,
          no_hash/1,
-         no_hmac/0,
-         no_hmac/1,
-         no_hmac_update/0,
-         no_hmac_update/1,
-         no_poly1305/0,
-         no_poly1305/1,
          no_sign_verify/0,
          no_sign_verify/1,
-         no_stream/0,
-         no_stream/1,
-         no_stream_ivec/0,
-         no_stream_ivec/1,
          no_support/0,
          no_support/1,
          node_supports_cache/1,
-         poly1305/0,
-         poly1305/1,
          private_encrypt/0,
          private_encrypt/1,
          public_encrypt/0,
@@ -126,8 +101,6 @@
          rand_uniform/1,
          sign_verify/0,
          sign_verify/1,
-         stream/0,
-         stream/1,
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
          use_all_eddh_generate_compute/1,
@@ -160,10 +133,8 @@
          aes_ccm/1,
          aes_cfb128/1,
          aes_cfb8/1,
-         aes_ctr/1,
          aes_ecb/1,
          aes_gcm/1,
-         aes_ige256/1,
          blowfish_cbc/1,
          blowfish_cfb64/1,
          blowfish_ecb/1,
@@ -188,25 +159,6 @@
          rsa_oaep_label/0
         ]).
 
--compile([{nowarn_deprecated_function,
-           [{crypto,block_decrypt,3},
-            {crypto,block_decrypt,4},
-            {crypto,block_encrypt,3},
-            {crypto,block_encrypt,4},
-            {crypto,cmac,3},
-            {crypto,cmac,4},
-            {crypto,hmac,3},
-            {crypto,hmac,4},
-            {crypto,hmac_final,1},
-            {crypto,hmac_init,2},
-            {crypto,hmac_update,2},
-            {crypto,next_iv,2},
-            {crypto,poly1305,2},
-            {crypto,stream_decrypt,2},
-            {crypto,stream_encrypt,2},
-            {crypto,stream_init,2},
-            {crypto,stream_init,3}
-           ]}]).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -219,6 +171,7 @@ all() ->
      appup,
      crypto_load,
      crypto_load_and_call,
+     all_ciphers,
      {group, fips},
      {group, non_fips},
      cipher_padding,
@@ -234,49 +187,8 @@ all() ->
     ].
 
 -define(NEW_CIPHER_TYPE_SCHEMA,
-        {group, des_ede3_cbc},
-        {group, des_ede3_cfb},
-        {group, aes_128_cbc},
-        {group, aes_192_cbc},
-        {group, aes_256_cbc},
-        {group, aes_128_ctr},
-        {group, aes_192_ctr},
-        {group, aes_256_ctr},
-        {group, aes_128_ccm},
-        {group, aes_192_ccm},
-        {group, aes_256_ccm},
-        {group, aes_128_ecb},
-        {group, aes_192_ecb},
-        {group, aes_256_ecb},
-        {group, aes_128_gcm},
-        {group, aes_192_gcm},
-        {group, aes_256_gcm},
-        {group, des_ede3_cbc},
-        {group, des_ede3_cfb},
-        {group, aes_128_cfb128},
-        {group, aes_192_cfb128},
-        {group, aes_256_cfb128},
-        {group, aes_128_cfb8},
-        {group, aes_192_cfb8},
-        {group, aes_256_cfb8}
        ).
         
--define(RETIRED_TYPE_ALIASES,
-        {group, aes_cbc},
-        {group, aes_cbc128},
-        {group, aes_cbc256},
-        {group, aes_ccm},
-        {group, aes_ctr},
-        {group, aes_gcm},
-        {group, aes_ecb},
-        {group, des3_cfb},
-        {group, des3_cbc},
-        {group, des3_cbf},
-        {group, des_ede3},
-        {group, aes_cfb128},
-        {group, aes_cfb8}
-       ).
-
 groups() ->
     [{non_fips, [], [
                      {group, blake2b},
@@ -299,7 +211,6 @@ groups() ->
                      {group, sha3_512},
                      {group, sha512},
                      {group, sha},
-                     {group, poly1305},
 
                      {group, dh},
                      {group, ecdh},
@@ -313,14 +224,36 @@ groups() ->
                      {group, blowfish_ecb},
                      {group, blowfish_ofb64},
 
-                     {group, aes_ige256},
                      {group, des_cbc},
                      {group, des_cfb},
                      {group, rc2_cbc},
                      {group, rc4},
 
-                     ?NEW_CIPHER_TYPE_SCHEMA,
-                     ?RETIRED_TYPE_ALIASES
+                     {group, des_ede3_cbc},
+                     {group, des_ede3_cfb},
+                     {group, aes_128_cbc},
+                     {group, aes_192_cbc},
+                     {group, aes_256_cbc},
+                     {group, aes_128_ctr},
+                     {group, aes_192_ctr},
+                     {group, aes_256_ctr},
+                     {group, aes_128_ccm},
+                     {group, aes_192_ccm},
+                     {group, aes_256_ccm},
+                     {group, aes_128_ecb},
+                     {group, aes_192_ecb},
+                     {group, aes_256_ecb},
+                     {group, aes_128_gcm},
+                     {group, aes_192_gcm},
+                     {group, aes_256_gcm},
+                     {group, des_ede3_cbc},
+                     {group, des_ede3_cfb},
+                     {group, aes_128_cfb128},
+                     {group, aes_192_cfb128},
+                     {group, aes_256_cfb128},
+                     {group, aes_128_cfb8},
+                     {group, aes_192_cfb8},
+                     {group, aes_256_cfb8}
                     ]},
      {fips, [], [
                  {group, no_blake2b},
@@ -339,7 +272,6 @@ groups() ->
                  {group, sha256},
                  {group, sha384},
                  {group, sha512},
-                 {group, no_poly1305},
 
                  {group, dh},
                  {group, ecdh},
@@ -352,32 +284,54 @@ groups() ->
                  {group, no_blowfish_ecb},
                  {group, no_blowfish_ofb64},
 
-                 {group, no_aes_ige256},
                  {group, no_des_cbc},
                  {group, no_des_cfb},
                  {group, no_rc2_cbc},
                  {group, no_rc4},
 
-                 ?NEW_CIPHER_TYPE_SCHEMA,
-                 ?RETIRED_TYPE_ALIASES
+                 {group, des_ede3_cbc},
+                 {group, des_ede3_cfb},
+                 {group, aes_128_cbc},
+                 {group, aes_192_cbc},
+                 {group, aes_256_cbc},
+                 {group, aes_128_ctr},
+                 {group, aes_192_ctr},
+                 {group, aes_256_ctr},
+                 {group, aes_128_ccm},
+                 {group, aes_192_ccm},
+                 {group, aes_256_ccm},
+                 {group, aes_128_ecb},
+                 {group, aes_192_ecb},
+                 {group, aes_256_ecb},
+                 {group, aes_128_gcm},
+                 {group, aes_192_gcm},
+                 {group, aes_256_gcm},
+                 {group, des_ede3_cbc},
+                 {group, des_ede3_cfb},
+                 {group, aes_128_cfb128},
+                 {group, aes_192_cfb128},
+                 {group, aes_256_cfb128},
+                 {group, aes_128_cfb8},
+                 {group, aes_192_cfb8},
+                 {group, aes_256_cfb8}
                 ]},
 
      {md4,                  [], [hash]},
-     {md5,                  [], [hash, hmac, hmac_update]},
+     {md5,                  [], [hash]},
      {ripemd160,            [], [hash]},
-     {sha,                  [], [hash, hmac, hmac_update]},
-     {sha224,               [], [hash, hmac, hmac_update]},
-     {sha256,               [], [hash, hmac, hmac_update]},
-     {sha384,               [], [hash, hmac, hmac_update]},
-     {sha512,               [], [hash, hmac, hmac_update]},
-     {sha3_224,             [], [hash, hmac, hmac_update]},
-     {sha3_256,             [], [hash, hmac, hmac_update]},
-     {sha3_384,             [], [hash, hmac, hmac_update]},
-     {sha3_512,             [], [hash, hmac, hmac_update]},
-     {blake2b,              [], [hash, hmac, hmac_update]},
-     {blake2s,              [], [hash, hmac, hmac_update]},
-     {no_blake2b,           [], [no_hash, no_hmac]},
-     {no_blake2s,           [], [no_hash, no_hmac]},
+     {sha,                  [], [hash]},
+     {sha224,               [], [hash]},
+     {sha256,               [], [hash]},
+     {sha384,               [], [hash]},
+     {sha512,               [], [hash]},
+     {sha3_224,             [], [hash]},
+     {sha3_256,             [], [hash]},
+     {sha3_384,             [], [hash]},
+     {sha3_512,             [], [hash]},
+     {blake2b,              [], [hash]},
+     {blake2s,              [], [hash]},
+     {no_blake2b,           [], [no_hash]},
+     {no_blake2s,           [], [no_hash]},
      {rsa,                  [], [sign_verify,
                                  public_encrypt,
                                  private_encrypt,
@@ -401,36 +355,31 @@ groups() ->
      {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute]},
      {eddh,                 [], [compute, generate, use_all_eddh_generate_compute]},
      {srp,                  [], [generate_compute]},
-     {des_cbc,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {des_cfb,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {des_ede3_cbc,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {des_ede3_cfb,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {rc2_cbc,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_cfb8,             [], [block]},
-     {aes_128_cfb8,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_192_cfb8,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cfb8,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {no_aes_cfb8,          [], [no_support, no_block]},
-     {aes_cfb128,           [], [block]},
-     {aes_128_cfb128,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_192_cfb128,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cfb128,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {no_aes_cfb128,        [], [no_support, no_block]},
-     {aes_ige256,           [], [block]},
-     {no_aes_ige256,        [], [no_support, no_block]},
-     {blowfish_cbc,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {blowfish_ecb,         [], [block, api_ng, api_ng_one_shot]},
-     {blowfish_cfb64,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {blowfish_ofb64,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {rc4,                  [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_ctr,              [], [stream]},
-     {chacha20_poly1305,    [], [aead, aead_ng, aead_bad_tag]},
-     {chacha20,             [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
-     {poly1305,             [], [poly1305]},
-     {no_poly1305,          [], [no_poly1305]},
-     {no_aes_cfb128,        [], [no_support, no_block]},
+     {des_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_cfb,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_ede3_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_ede3_cfb,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {rc2_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cfb8,             [], []},
+     {aes_128_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_192_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_256_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {no_aes_cfb8,          [], [no_support]},
+     {aes_cfb128,           [], []},
+     {aes_128_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_192_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_256_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {no_aes_cfb128,        [], [no_support]},
+     {blowfish_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_ecb,         [], [api_ng, api_ng_one_shot]},
+     {blowfish_cfb64,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_ofb64,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {rc4,                  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {chacha20_poly1305,    [], [aead_ng, aead_bad_tag]},
+     {chacha20,             [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {no_aes_cfb128,        [], [no_support]},
      {no_md4,               [], [no_support, no_hash]},
-     {no_md5,               [], [no_support, no_hash, no_hmac]},
+     {no_md5,               [], [no_support, no_hash]},
      {no_ed25519,           [], [no_support, no_sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
                                 ]},
@@ -439,22 +388,20 @@ groups() ->
                                 ]},
      {no_ripemd160,         [], [no_support, no_hash]},
      {no_srp,               [], [no_support, no_generate_compute]},
-     {no_des_cbc,           [], [no_support, no_block]},
-     {no_des_cfb,           [], [no_support, no_block]},
-     {no_blowfish_cbc,      [], [no_support, no_block]},
-     {no_blowfish_ecb,      [], [no_support, no_block]},
-     {no_blowfish_cfb64,    [], [no_support, no_block]},
-     {no_blowfish_ofb64,    [], [no_support, no_block]},
-     {no_aes_ige256,        [], [no_support, no_block]},
-     {no_chacha20_poly1305, [], [no_support, no_aead, no_aead_ng]},
-     {no_chacha20,          [], [no_support, no_stream_ivec]},
-     {no_rc2_cbc,           [], [no_support, no_block]},
-     {no_rc4,               [], [no_support, no_stream]},
+     {no_des_cbc,           [], [no_support]},
+     {no_des_cfb,           [], [no_support]},
+     {no_blowfish_cbc,      [], [no_support]},
+     {no_blowfish_ecb,      [], [no_support]},
+     {no_blowfish_cfb64,    [], [no_support]},
+     {no_blowfish_ofb64,    [], [no_support]},
+     {no_chacha20_poly1305, [], [no_support, no_aead_ng]},
+     {no_chacha20,          [], [no_support]},
+     {no_rc2_cbc,           [], [no_support]},
+     {no_rc4,               [], [no_support]},
      {api_errors,           [], [api_errors_ecdh,
                                  bad_cipher_name,
                                  bad_generate_key_name,
                                  bad_hash_name,
-                                 bad_hmac_name,
                                  bad_mac_name,
                                  bad_sign_name,
                                  bad_verify_name
@@ -463,33 +410,21 @@ groups() ->
      %% New cipher nameing schema
      {des_ede3_cbc, [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {des_ede3_cfb, [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_ccm,  [], [aead, aead_ng, aead_bad_tag]},
-     {aes_192_ccm,  [], [aead, aead_ng, aead_bad_tag]},
-     {aes_256_ccm,  [], [aead, aead_ng, aead_bad_tag]},
+     {aes_128_ccm,  [], [aead_ng, aead_bad_tag]},
+     {aes_192_ccm,  [], [aead_ng, aead_bad_tag]},
+     {aes_256_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_128_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
-     {aes_128_gcm,  [], [aead, aead_ng, aead_bad_tag]},
-     {aes_192_gcm,  [], [aead, aead_ng, aead_bad_tag]},
-     {aes_256_gcm,  [], [aead, aead_ng, aead_bad_tag]},
-
-     %% Retired aliases
-     {aes_cbc,    [], [block]},
-     {aes_cbc128, [], [block]},
-     {aes_cbc256, [], [block]},
-     {aes_ccm,    [], [aead]},
-     {aes_ecb,    [], [block]},
-     {aes_gcm,    [], [aead]},
-     {des3_cbc,             [], [block]},
-     {des_ede3,             [], [block]},
-     {des3_cbf,             [], [block]},
-     {des3_cfb,             [], [block]}
+     {aes_128_gcm,  [], [aead_ng, aead_bad_tag]},
+     {aes_192_gcm,  [], [aead_ng, aead_bad_tag]},
+     {aes_256_gcm,  [], [aead_ng, aead_bad_tag]}
     ].
 
 %%-------------------------------------------------------------------
@@ -619,6 +554,97 @@ appup() ->
     [{doc, "Test that the crypto appup file is ok"}].
 appup(Config) when is_list(Config) ->
     ok = ?t:appup_test(crypto).
+
+%%--------------------------------------------------------------------
+%% Simple encode/decode for all ciphers in crypto:supports(ciphers). No
+%% checking of the encrypted text, just check that it is decrypted back
+%% to the plain text.
+all_ciphers(_Config) ->
+    case [C || C <- crypto:supports(ciphers),
+               ok =/= simple_cipher_test(C)] of
+        [] ->
+            ok;
+        BadCiphers ->
+            ct:log("Bad ciphers: ~p", [BadCiphers]),
+            {fail, "Cipher(s) failed"}
+    end.
+
+simple_cipher_test(Cipher) ->
+    try
+        #{key_length := KeyLength,
+          iv_length := IvLength,
+          block_size := BlockSize,
+          mode := CipherMode
+         } = crypto:cipher_info(Cipher),
+        Key = <<1:KeyLength/unit:8>>,
+        IV = <<0:IvLength/unit:8>>,
+        Plain0 = <<"Hello world! Let's do some cipher tests">>,
+        Plain = case BlockSize of
+                    1 -> Plain0;
+                    _ -> <<Plain0:BlockSize/binary>>
+                end,
+        enc_dec(Cipher, Key, IV, CipherMode, Plain)
+    catch
+        Class:Error:Stack ->
+            ct:log("Error for cipher ~p:~nClass = ~p~nError = ~p~nStack = ~p",
+                   [Cipher, Class, Error, Stack]),
+            error
+    end.
+
+
+
+enc_dec(Cipher, Key, 0, _Mode, Plain) ->
+    case crypto:crypto_one_time(Cipher, Key, Plain, true) of
+        Encrypted when is_binary(Encrypted) ->
+             case crypto:crypto_one_time(Cipher, Key, Encrypted, false) of
+                 Plain ->
+                     ok;
+                 Other ->
+                     ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+                     error
+             end;
+        Other ->
+            ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+            error
+    end;
+
+enc_dec(Cipher, Key, IV, Mode, Plain) when Mode == ccm_mode ;
+                                           Mode == gcm_mode ;
+                                           Cipher == chacha20_poly1305 ->
+    AAD = aad(Cipher, Mode),
+    case crypto:crypto_one_time_aead(Cipher, Key, IV, Plain, AAD, true) of
+        {Encrypted,Tag} when is_binary(Encrypted) ->
+            case crypto:crypto_one_time_aead(Cipher, Key, IV, Encrypted, AAD, Tag, false) of
+                 Plain ->
+                     ok;
+                 Other ->
+                     ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+                     error
+             end;
+        Other ->
+            ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+            error
+    end;
+
+enc_dec(Cipher, Key, IV, _Mode, Plain) ->
+    case crypto:crypto_one_time(Cipher, Key, IV, Plain, true) of
+        Encrypted when is_binary(Encrypted) ->
+             case crypto:crypto_one_time(Cipher, Key, IV, Encrypted, false) of
+                 Plain ->
+                     ok;
+                 Other ->
+                     ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+                     error
+             end;
+        Other ->
+            ct:log("~p:~p Error for cipher ~p:~n~p", [?MODULE,?LINE,Cipher, Other]),
+            error
+    end.
+
+aad(_Cipher, _Mode) ->
+    %% Any size will do
+    <<"Some text">>.
+
 %%--------------------------------------------------------------------
 no_support() ->
     [{doc, "Test an algorithm is not reported in the supported list"}].
@@ -638,7 +664,7 @@ crypto_load_and_call(_Config) ->
     code:purge(crypto),
     Key0 = "ablurf123BX#$;3",
     Bin0 = erlang:md5(<<"whatever">>),
-    {Key,IVec,BlockSize}=make_crypto_key(Key0),
+    {Key,IVec,_BlockSize} = make_crypto_key(Key0),
     crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin0, true).
 
 make_crypto_key(String) ->
@@ -696,88 +722,7 @@ no_hash(Config) when is_list(Config) ->
     Type = ?config(type, Config),
     notsup(fun crypto:hash/2, [Type, <<"Hi There">>]),
     notsup(fun crypto:hash_init/1, [Type]).
-%%--------------------------------------------------------------------
-hmac() ->
-     [{doc, "Test hmac function"}].
-hmac(Config) when is_list(Config) ->
-    Tuples = lazy_eval(proplists:get_value(hmac, Config)),
-    do_cipher_tests(fun hmac_check/1, Tuples++mac_listify(Tuples)).
 
-%%--------------------------------------------------------------------
-no_hmac() ->
-     [{doc, "Test all disabled hmac functions"}].
-no_hmac(Config) when is_list(Config) ->
-    Type = ?config(type, Config),
-    notsup(fun crypto:hmac/3, [Type, <<"Key">>, <<"Hi There">>]).
-
-%%--------------------------------------------------------------------
-hmac_update() ->
-     [{doc, "Test all incremental hmac functions"}].
-hmac_update(Config) ->
-    Type = ?config(type, Config),
-    hmac_increment(Type).
-
-%%--------------------------------------------------------------------
-no_hmac_update() ->
-     [{doc, "Test all disabled incremental hmac functions"}].
-no_hmac_update(Config) ->
-    Type = ?config(type, Config),
-    notsup(fun crypto:hmac_init/2, [Type, <<"Key">>]).
-
-%%--------------------------------------------------------------------
-cmac() ->
-     [{doc, "Test all different cmac functions"}].
-cmac(Config) when is_list(Config) ->
-    Pairs = lazy_eval(proplists:get_value(cmac, Config)),
-    do_cipher_tests(fun cmac_check/1, Pairs ++ mac_listify(Pairs)).
-
-%%--------------------------------------------------------------------
-poly1305() ->
-    [{doc, "Test poly1305 function"}].
-poly1305(Config) ->
-    lists:foreach(
-      fun({Key, Txt, Expect}) ->
-              case crypto:poly1305(Key,Txt) of
-                  Expect ->
-                      ok;
-                  Other ->
-                      ct:fail({{crypto, poly1305, [Key, Txt]}, {expected, Expect}, {got, Other}})
-              end
-      end, proplists:get_value(poly1305, Config)).
-
-%%--------------------------------------------------------------------
-no_poly1305() ->
-    [{doc, "Test disabled poly1305 function"}].
-no_poly1305(_Config) ->
-    Key = <<133,214,190,120,87,85,109,51,127,68,82,254,66,213,6,168,1,
-            3,128,138,251,13,178,253,74,191,246,175,65,73,245,27>>,
-    Txt = <<"Cryptographic Forum Research Group">>,
-    notsup(fun crypto:poly1305/2, [Key,Txt]).
-
-%%--------------------------------------------------------------------
-block() ->
-     [{doc, "Test block ciphers"}].
-block(Config) when is_list(Config) ->
-    [_|_] = Blocks = lazy_eval(proplists:get_value(cipher, Config)),
-    do_cipher_tests(fun block_cipher/1, Blocks++block_iolistify(Blocks)),
-    lists:foreach(fun block_cipher_increment/1, block_iolistify(Blocks)).
-
-%%--------------------------------------------------------------------
-no_block() ->
-     [{doc, "Test disabled block ciphers"}].
-no_block(Config) when is_list(Config) ->
-    [_|_] = Blocks = lazy_eval(proplists:get_value(cipher, Config)),
-    Args = case Blocks of
-	       [{_Type, _Key, _PlainText} = A | _] ->
-		   tuple_to_list(A);
-	       [{_Type, _Key, _IV, _PlainText} = A | _] ->
-		   tuple_to_list(A);
-	       [{Type, Key, IV, PlainText, _CipherText} | _] ->
-		   [Type, Key, IV, PlainText]
-	   end,
-    N = length(Args),
-    notsup(fun crypto:block_encrypt/N, Args),
-    notsup(fun crypto:block_decrypt/N, Args).
 %%--------------------------------------------------------------------
 api_ng() ->
      [{doc, "Test new api"}].
@@ -951,7 +896,6 @@ do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}) ->
 cipher_padding(_Config) ->
     Ciphers = [{C,pkcs_padding}
                || C <- crypto:supports(ciphers),
-                  C =/= aes_ige256,
                   C =/= chacha20_poly1305,
                   case crypto:cipher_info(C) of
                       #{mode := ccm_mode} -> false;
@@ -1002,22 +946,6 @@ cipher_padding_test({Cipher, Padding}) ->
     end.
 
 %%--------------------------------------------------------------------
-no_aead() ->
-     [{doc, "Test disabled aead ciphers"}].
-no_aead(Config) when is_list(Config) ->
-    EncArg4 =
-        case lazy_eval(proplists:get_value(cipher, Config)) of
-            [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, TagLen, _Info} | _] ->
-                {AAD, PlainText, TagLen};
-            [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, _Info} | _] ->
-                {AAD, PlainText}
-        end,
-    EncryptArgs = [Type, Key, Nonce, EncArg4],
-    DecryptArgs = [Type, Key, Nonce, {AAD, CipherText, CipherTag}],
-    notsup(fun crypto:block_encrypt/4, EncryptArgs),
-    notsup(fun crypto:block_decrypt/4, DecryptArgs).
-
-%%--------------------------------------------------------------------
 no_aead_ng() ->
      [{doc, "Test disabled aead ciphers"}].
 no_aead_ng(Config) when is_list(Config) ->
@@ -1033,46 +961,6 @@ no_aead_ng(Config) when is_list(Config) ->
 
     DecryptArgs = [Type, Key, IV, CipherText, AAD, CipherTag, false],
     notsup(fun crypto:crypto_one_time_aead/7, DecryptArgs).
-
-%%--------------------------------------------------------------------
-stream() ->
-      [{doc, "Test stream ciphers"}].
-stream(Config) when is_list(Config) ->
-    [_|_] = Streams = lazy_eval(proplists:get_value(cipher, Config)),
-
-    lists:foreach(fun stream_cipher/1, Streams),
-    lists:foreach(fun stream_cipher/1, stream_iolistify(Streams)),
-    lists:foreach(fun stream_cipher_incment/1, stream_iolistify(Streams)).
-%%--------------------------------------------------------------------
-no_stream() ->
-      [{doc, "Test disabled stream ciphers"}].
-no_stream(Config) when is_list(Config) ->
-    Type = ?config(type, Config),
-    notsup(fun crypto:stream_init/2, [Type, <<"Key">>]).
-
-%%--------------------------------------------------------------------
-no_stream_ivec() ->
-      [{doc, "Test disabled stream ciphers that uses ivec"}].
-no_stream_ivec(Config) when is_list(Config) ->
-    Type = ?config(type, Config),
-    notsup(fun crypto:stream_init/3, [Type, <<"Key">>, <<"Ivec">>]).
-
-%%--------------------------------------------------------------------
-aead(Config) when is_list(Config) ->
-    [_|_] = AEADs = lazy_eval(proplists:get_value(cipher, Config)),
-    FilteredAEADs =
-	case proplists:get_bool(fips, Config) of
-	    false ->
-		AEADs;
-	    true ->
-		%% In FIPS mode, the IV length must be at least 12 bytes.
-		lists:filter(
-		  fun(Tuple) ->
-			  IVLen = byte_size(element(4, Tuple)),
-			  IVLen >= 12
-		  end, AEADs)
-	end,
-    do_cipher_tests(fun aead_cipher/1, FilteredAEADs).
 
 %%--------------------------------------------------------------------
 aead_ng(Config) when is_list(Config) ->
@@ -1392,76 +1280,7 @@ hash_increment(State0, [Increment | Rest]) ->
     State = crypto:hash_update(State0, Increment),
     hash_increment(State, Rest).
 
-
 %%%----------------------------------------------------------------
-hmac_check({hmac, sha=Type, Key, <<"Test With Truncation">>=Data, Expected}) ->
-    do_hmac_check(Type, Key, Data, 20, Expected);
-hmac_check({hmac, Type, Key, <<"Test With Truncation">>=Data, Expected}) ->
-    do_hmac_check(Type, Key, Data, 16, Expected);
-hmac_check({hmac, Type, Key, Data, Expected}) ->
-    do_hmac_check(Type, Key, Data, Expected).
-
-
-do_hmac_check(Type, Key, Data, Expected) ->
-    try crypto:hmac(Type, Key, Data)
-    of
-	Expected ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto,hmac,[Type,Key,Data]}, {expected,Expected}, {got,Other}})
-    catch
-        error:notsup ->
-            ct:fail("HMAC ~p not supported", [Type]);
-        Class:Cause ->
-            ct:fail({{crypto,hmac,[Type,Key,Data]}, {expected,Expected}, {got,{Class,Cause}}})
-    end.
-
-do_hmac_check(Type, Key, Data, MacLength, Expected) ->
-    try crypto:hmac(Type, Key, Data, MacLength)
-    of
-	Expected ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto,hmac,[Type,Key,Data,MacLength]}, {expected,Expected}, {got,Other}})
-    catch
-        error:notsup ->
-            ct:fail("HMAC ~p not supported", [Type]);
-        Class:Cause ->
-            ct:fail({{crypto,hmac,[Type,Key,Data,MacLength]}, {expected,Expected}, {got,{Class,Cause}}})
-    end.
-
-
-%%%----------------------------------------------------------------
-hmac_increment(Type) ->
-    Key = hmac_key(Type),
-    Increments = hmac_inc(Type),
-    Expected = crypto:hmac(Type, Key, lists:flatten(Increments)),
-    State = crypto:hmac_init(Type, Key),
-    case hmac_increment(State, Increments) of
-	Expected ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, "hmac_init/update/final", [Type, Increments]}, {expected, Expected}, {got, Other}})  
-    end.
-
-hmac_increment(State, []) ->
-    crypto:hmac_final(State);
-hmac_increment(State0, [Increment | Rest]) ->
-    State = crypto:hmac_update(State0, Increment),
-    hmac_increment(State, Rest).
-
-%%%----------------------------------------------------------------
-cmac_check({cmac, Type, Key, Text, CMac}=T) ->
-    ExpCMac = iolist_to_binary(CMac),
-    cipher_test(T,
-                fun() -> crypto:cmac(Type, Key, Text) end,
-                ExpCMac);
-cmac_check({cmac, Type, Key, Text, Size, CMac}=T) ->
-    ExpCMac = iolist_to_binary(CMac),
-    cipher_test(T,
-                fun() -> crypto:cmac(Type, Key, Text, Size) end,
-                ExpCMac).
-
 mac_check({MacType, SubType, Key, Text, Mac}=T) ->
     ExpMac = iolist_to_binary(Mac),
     cipher_test(T,
@@ -1472,163 +1291,6 @@ mac_check({MacType, SubType, Key, Text, Size, Mac}=T) ->
     cipher_test(T,
                 fun() -> crypto:mac(MacType, SubType, Key, Text, Size) end,
                 ExpMac).
-
-block_cipher({Type, Key,  PlainText}=T) ->
-    Plain = iolist_to_binary(PlainText),
-    CipherText = crypto:block_encrypt(Type, Key, PlainText),
-    cipher_test(T,
-                fun() -> crypto:block_decrypt(Type, Key, CipherText) end,
-                Plain);
-
-block_cipher({Type, Key,  IV, PlainText}=T) ->
-    Plain = iolist_to_binary(PlainText),
-    CipherText = crypto:block_encrypt(Type, Key, IV, PlainText),
-    cipher_test(T,
-                fun() -> crypto:block_decrypt(Type, Key, IV, CipherText) end,
-                Plain);
-
-block_cipher({Type, Key, IV, PlainText, CipherText}=T) ->
-    Plain = iolist_to_binary(PlainText),
-    cipher_test(T,
-                fun() -> crypto:block_encrypt(Type, Key, IV, Plain) end,
-                CipherText,
-                fun() -> crypto:block_decrypt(Type, Key, IV, CipherText) end,
-                Plain).
-
-block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc ;
-                                                         Type == des3_cbc ;
-                                                         Type == aes_128_cbc ;
-                                                         Type == aes_192_cbc ;
-                                                         Type == aes_256_cbc
-                                                         ->
-    block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), []);
-block_cipher_increment({Type, Key, IV, PlainTexts, CipherText}) when Type == des_cbc; 
-                                                                     Type == des_ede3_cbc ;
-                                                                     Type == des3_cbc ;
-                                                                     Type == des_ede3 ;
-                                                                     Type == des_ede3_cfb ;
-                                                                     Type == des_ede3_cbf ;
-                                                                     Type == des3_cbf ;
-                                                                     Type == des3_cfb
-                                                                     ->
-    block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), CipherText, []);
-block_cipher_increment({Type, Key, IV, PlainTexts, _CipherText}) when Type == aes_128_cbc ;
-                                                                      Type == aes_192_cbc ;
-                                                                      Type == aes_256_cbc 
-                                                                      ->
-    Plain = iolist_to_binary(PlainTexts),
-    Blocks = [iolistify(Block) || << Block:128/bitstring >> <= Plain],
-    block_cipher_increment(Type, Key, IV, IV, Blocks, Plain, []);
-block_cipher_increment({_Type, _, _, _, _}) ->
-    ok;
-block_cipher_increment({_Type, _, _, _}) ->
-    ok;
-block_cipher_increment({_,_,_}) ->
-    ok.
-block_cipher_increment(Type, Key, IV0, _IV, [], Plain, Acc) ->
-    CipherText = iolist_to_binary(lists:reverse(Acc)),
-    case crypto:block_decrypt(Type, Key, IV0, CipherText) of
-	Plain ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, block_decrypt, [Type, Key, IV0, CipherText]}, {expected, Plain}, {got, Other}})
-    end;
-block_cipher_increment(Type, Key, IV0, IV, [PlainText | PlainTexts], Plain, Acc) ->
-    CipherText = crypto:block_encrypt(Type, Key, IV, PlainText),
-    NextIV = crypto:next_iv(Type, CipherText),
-    block_cipher_increment(Type, Key, IV0, NextIV, PlainTexts, Plain, [CipherText | Acc]).
-block_cipher_increment(Type, Key, IV0, _IV, [], _Plain, CipherText, Acc) ->
-    case iolist_to_binary(lists:reverse(Acc)) of
-	CipherText ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, block_decrypt, [Type, Key, IV0, CipherText]}, {expected, CipherText}, {got, Other}})
-    end;
-block_cipher_increment(Type, Key, IV0, IV, [PlainText | PlainTexts], Plain, CipherText, Acc) ->
-    CT = crypto:block_encrypt(Type, Key, IV, PlainText),
-    NextIV = crypto:next_iv(Type, CT),
-    block_cipher_increment(Type, Key, IV0, NextIV, PlainTexts, Plain, CipherText, [CT | Acc]).
-
-stream_cipher({Type, Key, PlainText0}) ->
-    PlainText = lazy_eval(PlainText0),
-    Plain = iolist_to_binary(lazy_eval(PlainText)),
-    StateE = crypto:stream_init(Type, Key),
-    StateD = crypto:stream_init(Type, Key),
-    {_, CipherText} = crypto:stream_encrypt(StateE, PlainText),
-    case crypto:stream_decrypt(StateD, CipherText) of
-	{_, Plain} ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other}})
-    end;
-stream_cipher({Type, Key, IV, PlainText0}) ->
-    PlainText = lazy_eval(PlainText0),
-    Plain = iolist_to_binary(PlainText),
-    StateE = crypto:stream_init(Type, Key, IV),
-    StateD = crypto:stream_init(Type, Key, IV),
-    {_, CipherText} = crypto:stream_encrypt(StateE, PlainText),
-    case crypto:stream_decrypt(StateD, CipherText) of
-	{_, Plain} ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other}})
-    end;
-stream_cipher({Type, Key, IV, PlainText0, CipherText}) ->
-    PlainText = lazy_eval(PlainText0),
-    Plain = iolist_to_binary(PlainText),
-    StateE = crypto:stream_init(Type, Key, IV),
-    StateD = crypto:stream_init(Type, Key, IV),
-    case crypto:stream_encrypt(StateE, PlainText) of
-        {_, CipherText} ->
-            ok;
-        {_, Other0} ->
-            ct:fail({{crypto, stream_encrypt, [StateE, Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
-    end,
-    case crypto:stream_decrypt(StateD, CipherText) of
-        {_, Plain} ->
-            ok;
-        Other1 ->
-            ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other1}})
-    end.
-
-stream_cipher_incment({Type, Key, PlainTexts}) ->
-    StateE = crypto:stream_init(Type, Key),
-    StateD = crypto:stream_init(Type, Key),
-    stream_cipher_incment_loop(StateE, StateD, PlainTexts, [], iolist_to_binary(PlainTexts));
-stream_cipher_incment({Type, Key, IV, PlainTexts}) ->
-    StateE = crypto:stream_init(Type, Key, IV),
-    StateD = crypto:stream_init(Type, Key, IV),
-    stream_cipher_incment_loop(StateE, StateD, PlainTexts, [], iolist_to_binary(PlainTexts));
-stream_cipher_incment({Type, Key, IV, PlainTexts, _CipherText}) ->
-    stream_cipher_incment({Type, Key, IV, PlainTexts}).
-
-stream_cipher_incment_loop(_State, OrigState, [], Acc, Plain) ->
-    CipherText = iolist_to_binary(lists:reverse(Acc)),
-    case crypto:stream_decrypt(OrigState, CipherText) of
-	{_, Plain} ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, stream_decrypt, [OrigState, CipherText]}, {expected, Plain}, {got, Other}})
-    end;
-stream_cipher_incment_loop(State0, OrigState, [PlainText | PlainTexts], Acc, Plain) ->
-    {State, CipherText} = crypto:stream_encrypt(State0, PlainText),
-    stream_cipher_incment_loop(State, OrigState, PlainTexts, [CipherText | Acc], Plain).
-
-aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
-    Plain = iolist_to_binary(PlainText),
-    cipher_test(T,
-                fun() -> crypto:block_encrypt(Type, Key, IV, {AAD, Plain}) end,
-                {CipherText, CipherTag},
-                fun() -> crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, CipherTag}) end,
-                Plain);
-aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, _Info}=T) ->
-    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
-    Plain = iolist_to_binary(PlainText),
-    cipher_test(T,
-                fun() -> crypto:block_encrypt(Type, Key, IV, {AAD, Plain, TagLen}) end,
-                {CipherText, TruncatedCipherTag},
-                fun() -> crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, TruncatedCipherTag}) end,
-                Plain).
 
 aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
     Plain = iolist_to_binary(PlainText),
@@ -1957,41 +1619,6 @@ decstr2int(S) ->
 is_supported(Group) ->
     lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
 
-mac_listify(Blocks) ->
-    lists:map(fun do_mac_listify/1, Blocks).
-block_iolistify(Blocks) ->
-    lists:map(fun do_block_iolistify/1, Blocks).
-stream_iolistify(Streams) ->
-    lists:map(fun do_stream_iolistify/1, Streams).
-
-do_mac_listify({MType, Type, Key, Text, CMac}) ->
-    {MType, Type, iolistify(Key), iolistify(Text), CMac};
-do_mac_listify({MType, Type, Key, Text, Size, CMac}) ->
-    {MType, Type, iolistify(Key), iolistify(Text), Size, CMac}.
-
-do_stream_iolistify({Type, Key, PlainText}) ->
-    {Type, iolistify(Key), iolistify(PlainText)};
-do_stream_iolistify({Type, Key, IV, PlainText}) ->
-    {Type, iolistify(Key), IV, iolistify(PlainText)};
-do_stream_iolistify({Type, Key, IV, PlainText, CipherText}) ->
-    {Type, iolistify(Key), IV, iolistify(PlainText), CipherText}.
-do_block_iolistify({Type, Key, IV, PlainText}) when Type == des_cbc ;
-                                                    Type == des_ede3_cbc ;
-                                                    Type == des3_cbc ;
-                                                    Type == des_ede3 ;
-                                                    Type == des_ede3_cfb ;
-                                                    Type == des_ede3_cbf ;
-                                                    Type == des3_cbf ;
-                                                    Type == des3_cfb
-                                                    ->
-    {Type, Key, IV, des_iolistify(PlainText)};
-do_block_iolistify({Type, Key, PlainText}) ->
-    {Type, iolistify(Key), iolistify(PlainText)};
-do_block_iolistify({Type, Key, IV, PlainText}) ->
-    {Type, iolistify(Key), IV, iolistify(PlainText)};
-do_block_iolistify({Type, Key, IV, PlainText, CipherText}) ->
-    {Type, iolistify(Key), IV, iolistify(PlainText), CipherText}.
-
 iolistify(X) ->
     iolistify1(lazy_eval(X)).
 
@@ -2010,15 +1637,6 @@ iolistify1(Msg) when is_binary(Msg) ->
    end;
 iolistify1(Msg) when is_list(Msg) ->
     iolistify1(list_to_binary(Msg)).
-
-des_iolistify(Msg) ->    
-    des_iolist(erlang:byte_size(Msg) div 8, Msg, []).
-
-des_iolist(1, Msg, Acc) ->
-    lists:reverse([Msg | Acc]);
-des_iolist(Split, Msg, Acc) ->
-    <<Part:8/binary, Rest/binary>> = Msg,
-    des_iolist(Split-1, Rest, [Part | Acc]).
 
 %%--------------------------------------------------------------------
 mod_pow_aux_test(_, _, _, 0) ->
@@ -2329,15 +1947,6 @@ group_config(eddh, Config) ->
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
-group_config(poly1305, Config) ->
-    V = [%% {Key, Txt, Expect}
-         {%% RFC7539 2.5.2
-           hexstr2bin("85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b"),
-           <<"Cryptographic Forum Research Group">>,
-           hexstr2bin("a8061dc1305136c6c22b8baf0c0127a9")
-         }
-        ],
-    [{poly1305,V} | Config];
 
 group_config(F, Config) ->
     TestVectors = fun() -> ?MODULE:F(Config) end,
@@ -2840,16 +2449,6 @@ rfc_2202_msgs()->
      <<"Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data">>
     ].
 
-hmac_key(md5) ->
-    [<<"A fine speach">>, <<"by a fine man!">>];
-hmac_key(_) ->
-    hexstr2bin("00010203101112132021222330313233"
-	       "04050607141516172425262734353637"
-	       "08090a0b18191a1b28292a2b38393a3b"
-	       "0c0d0e0f1c1d1e1f2c2d2e2f3c3d3e3f").
-hmac_inc(_) ->
-    [<<"Sampl">>, <<"e #1">>].
-
 %% https://www.cosic.esat.kuleuven.be/nessie/testvectors/
 long_hmac_key(Type) when Type == sha384;
 			 Type == sha512 ->
@@ -3138,25 +2737,6 @@ aes_256_ecb(Config) ->
              ["ECBVarTxt256.rsp", "ECBVarKey256.rsp", "ECBGFSbox256.rsp", "ECBKeySbox256.rsp",
               "ECBMMT256.rsp"]).
 
-aes_ige256(_) ->
-    [{aes_ige256,
-      hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
-      hexstr2bin("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"),
-      hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-      {aes_ige256,
-       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
-       hexstr2bin("4D0F9E735749215C05CB20DA00F7814B77D33F8A668BEBBAC1739AB20302D4FE"),
-       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-      {aes_ige256,
-       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
-       hexstr2bin("2A5569424DAE1ACEABDEEA108DB4606AE21A9227CAB5F55BF52535CFA2B34717"),
-       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
-      {aes_ige256,
-       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
-       hexstr2bin("15D5A583D2D668E518E683D9BDF1B6D0E0C3B1E5D5C1D51E964822E1ADE88DFA"),
-       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
-     ].
-
 aes_cfb8(Config) ->
     read_rsp(Config, aes_cfb8,
              ["CFB8VarTxt128.rsp", "CFB8VarKey128.rsp", "CFB8GFSbox128.rsp", "CFB8KeySbox128.rsp",
@@ -3325,55 +2905,6 @@ rc4(_) ->
      {rc4, <<"apaapa">>, list_to_binary(lists:seq(0, 255))},
      {rc4, <<"apaapa">>, long_msg()}
     ].
-
-aes_ctr(_) ->
-    [  %% F.5.3  CTR-AES192.Encrypt
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), 
-	hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"), 
-	hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"), 
-	hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef") },
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"), 
-	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
-       
-       %% F.5.3  CTR-AES192.Encrypt
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), 
-	hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"), 
-	hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"), 
-	hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"), 
-	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
-       
-       %% F.5.5  CTR-AES256.Encrypt
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), 
-	hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"), 
-	hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"), 
-	hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"), 
-	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
-
-       {aes_ctr,  hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
-	long_msg()}
-    ].
-
 
 aes_128_ctr(_) ->
     [  %% F.5.3  CTR-AES192.Encrypt
@@ -4655,10 +4186,6 @@ bad_generate_key_name(_Config) ->
 
 bad_hash_name(_Config) ->
     ?chk_api_name(crypto:hash_init(foobar),
-                  error:badarg).
-
-bad_hmac_name(_Config) ->
-    ?chk_api_name(crypto:hmac(foobar, <<1:1024>>, "nothing"),
                   error:badarg).
 
 bad_mac_name(_Config) ->
