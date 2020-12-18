@@ -1779,8 +1779,10 @@ BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
                                         exec_process_flag_3,
                                         (void *) pf3a);
 
-   if (is_non_value(res))
+   if (is_non_value(res)) {
+       erts_free(ERTS_ALC_T_PF3_ARGS, pf3a);
        BIF_RET(am_badarg);
+   }
 
    return res;
 }

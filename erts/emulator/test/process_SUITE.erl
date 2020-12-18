@@ -1613,10 +1613,13 @@ process_flag_badarg(Config) when is_list(Config) ->
 
     chk_badarg(fun () -> process_flag(priority, 4711) end),
     chk_badarg(fun () -> process_flag(save_calls, hmmm) end),
-    P= spawn_link(fun () -> receive die -> ok end end),
+    {P,Mref} = spawn_monitor(fun () -> receive "in vain" -> no end end),
     chk_badarg(fun () -> process_flag(P, save_calls, hmmm) end),
     chk_badarg(fun () -> process_flag(gurka, save_calls, hmmm) end),
-    P ! die,
+    exit(P, die),
+    chk_badarg(fun () -> process_flag(P, save_calls, 0) end),
+    {'DOWN', Mref, process, P, die} = receive M -> M end,
+    chk_badarg(fun () -> process_flag(P, save_calls, 0) end),
     ok.
 
 -include_lib("stdlib/include/ms_transform.hrl").
