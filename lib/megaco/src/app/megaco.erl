@@ -86,9 +86,6 @@
 	 reset_stats/0, reset_stats/1
 	]).
 
-%% Deprecated
--export([format_versions/1]).
-
 %% Internal
 -export([
          %% These are used both for debugging (verbosity printouts)
@@ -100,8 +97,6 @@
          formated_short_timestamp/0, 
          formated_long_timestamp/0
         ]).
-
--deprecated([{format_versions, 1, "use megaco:print_version_info/0,1 instead."}]).
 
 -export_type([
               void/0
@@ -503,7 +498,6 @@ get_sdp_record_from_PropertyGroup(Type, PG) ->
 
 
 %%-----------------------------------------------------------------
-%% {ok, Vs} = megaco:versions1(), megaco:format_versions(Vs).
 
 print_version_info() ->
     {ok, Versions} = megaco:versions1(),
@@ -515,9 +509,6 @@ print_version_info(Versions) when is_list(Versions) ->
     print_mods_info(Versions);
 print_version_info(BadVersions) ->
     {error, {bad_versions, BadVersions}}.
-
-format_versions(Versions) ->
-    print_version_info(Versions).
 
 print_sys_info(Versions) ->
     case key1search(sys_info, Versions) of
