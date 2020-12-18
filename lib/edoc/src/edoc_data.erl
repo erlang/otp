@@ -404,8 +404,7 @@ see(Ref, [], Env) ->
 see(Ref, XML, Env) ->
     {DocgenRel, DocgenURI} = edoc_refs:get_docgen_link(Ref),
     Attrs = [{'docgen-rel', DocgenRel},
-	     {'docgen-href', DocgenURI},
-	     {name, edoc_refs:to_string(Ref)}] ++ href(Ref, Env),
+	     {'docgen-href', DocgenURI}] ++ href(Ref, Env),
     {see, Attrs, XML}.
 
 href(Ref, Env) ->

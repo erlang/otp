@@ -428,12 +428,6 @@ get_doc_chunk(DataDir, PrivDir, Mod) ->
     Chunk = binary_to_term(BChunk),
     {ok, Chunk}.
 
-lookup_function(F, A, Docs) -> lookup_entry(function, F, A, Docs).
-
-lookup_type(T, A, Docs) -> lookup_entry(type, T, A, Docs).
-
-lookup_callback(Cb, A, Docs) -> lookup_entry(callback, Cb, A, Docs).
-
 lookup_entry(Kind, Function, Arity, Docs) ->
     [Entry] = lists:filter(fun({{K, F, A},_Anno,_Sig,_Doc,_Meta})
 				 when K =:= Kind andalso F =:= Function, A =:= Arity ->

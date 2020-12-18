@@ -567,7 +567,7 @@ rewrite_docgen_link({Tag, AttrL, SubEls} = E) when Tag =:= a; Tag =:= see ->
 	    AttrsNoDocgen = maps:without(['docgen-rel', 'docgen-href'], Attrs),
 	    NewAttrs = AttrsNoDocgen#{rel => expand_docgen_rel(ShortRel),
 				      href => URI},
-	    {Tag, [{'edoc-orig-tag', Tag}] ++ maps:to_list(NewAttrs), SubEls}
+	    {Tag, maps:to_list(NewAttrs), SubEls}
     end.
 
 inconsistent_docgen_attrs(Attrs) ->

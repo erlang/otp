@@ -44,6 +44,9 @@
 
 -include_lib("xmerl/include/xmerl.hrl").
 
+-define(debug(Format, Args), ok).
+%-define(debug(Format, Args), io:format(Format, Args)).
+
 -spec run(edoc_doclet:command(), edoc_doclet:context()) -> ok.
 run(#doclet_gen{} = Cmd, Ctxt) ->
     gen(Cmd#doclet_gen.sources,
@@ -98,9 +101,9 @@ source({_M, Name, Path}, Dir, Suffix, Env, OkSet, _Private, _Hidden, ErrorFlag, 
 	WriteOptions = [{encoding, utf8}],
 	ok = write_file(Chunk, Dir, chunk_file_name(Name, Suffix), WriteOptions),
 	{sets:add_element(Name, OkSet), ErrorFlag}
-    catch _:R:St ->
-	report("skipping source file '~ts': ~tP.", [File, R, 15]),
-	io:format("stacktrace:\n~p\n", [St]),
+    catch _:_R:_St ->
+	?debug("error: ~p\n"
+	       "stacktrace:\n~p\n\n", [_R, _St]),
 	{OkSet, true}
     end.
 
