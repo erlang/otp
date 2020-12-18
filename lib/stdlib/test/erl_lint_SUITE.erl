@@ -4223,6 +4223,14 @@ stacktrace_syntax(Config) ->
            ">>,
            [],
            {errors,[{4,erl_lint,{stacktrace_bound,'Stk'}}],[]}},
+          {bound_in_pattern,
+           <<"t1() ->
+                  try error(foo)
+                  catch _:{x,T}:T -> ok
+                  end.
+           ">>,
+           [],
+           {errors,[{3,erl_lint,{stacktrace_bound,'T'}}],[]}},
           {guard_and_bound,
            <<"t1() ->
                   Stk = [],
