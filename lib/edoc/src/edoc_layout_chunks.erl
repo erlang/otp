@@ -216,7 +216,8 @@ function_line_sig_spec(NA, Entries) ->
 	    {Line, Sig, []};
 	#tag{name = spec} = T ->
 	    F = erl_syntax:revert(T#tag.form),
-	    {Line, Sig, [{signature, [annotate_spec(ArgNames, F)]}]}
+	    Annotated = annotate_spec(ArgNames, F),
+	    {Line, Sig, [{signature, [Annotated]}]}
     end.
 
 args_and_signature(E = #entry{}) ->
@@ -254,24 +255,76 @@ annotate_spec(ArgClauses, {attribute, Pos, spec, Data} = Spec) ->
 				"function and spec clause numbers do not match\n", []),
 	    Spec;
 	ArgSpecClauses ->
-	    NewData = {NA, [ annotate_spec(AC, SC) || {AC, SC} <- ArgSpecClauses ]},
+	    NewData = {NA, [ annotate_clause(AC, SC) || {AC, SC} <- ArgSpecClauses ]},
 	    {attribute, Pos, spec, NewData}
-    end;
-annotate_spec(ArgNames, {type, Pos, 'fun', Data}) ->
+    end.
+
+annotate_clause(ArgNames, {type, Pos, 'fun', Data}) ->
     [{type, _, product, ArgTypes}, RetType] = Data,
-    AnnArgTypes = [ ann_type(Name, Pos, Type) || {Name, Type} <- lists:zip(ArgNames, ArgTypes) ],
+    AnnArgTypes = [ ann_fun_type(Name, Pos, Type) || {Name, Type} <- lists:zip(ArgNames, ArgTypes) ],
     NewData = [{type, Pos, product, AnnArgTypes}, RetType],
     {type, Pos, 'fun', NewData};
-annotate_spec(_ArgNames, {type, Pos, 'bounded_fun', _Data} = FunDef) ->
-    edoc_report:warning(Pos, "", "not annotating a 'bounded_fun' - not supported yet ~p", [FunDef]),
-    FunDef.
+annotate_clause(ArgNames, {type, Pos, 'bounded_fun', Data}) ->
+    [{type, _, 'fun', _} = Clause, Constraints] = Data,
+    {NewClause, NewConstraints} = annotate_bounded_fun_clause(ArgNames, Clause, Constraints),
+    {type, Pos, 'bounded_fun', [NewClause, NewConstraints]}.
 
-ann_type(_Name, _Pos, {ann_type,_,_} = AnnType) ->
+ann_fun_type(_Name, _Pos, {ann_type,_,_} = AnnType) ->
     AnnType;
-ann_type(Name, Pos, Type) ->
+ann_fun_type(Name, Pos, Type) ->
     TypeVar = erl_syntax:set_pos(erl_syntax:variable(Name), Pos),
     AnnType = erl_syntax:set_pos(erl_syntax:annotated_type(TypeVar, Type), Pos),
     erl_syntax:revert(AnnType).
+
+annotate_bounded_fun_clause(ArgNames, {type, Pos, 'fun', Data}, Constraints) ->
+    [{type, _, product, Args}, RetType] = Data,
+    NewVarsAndConstraints = lists:foldl(fun ({Name, Arg}, Acc) ->
+						bounded_fun_arg(Acc#{name := Name, arg := Arg})
+					end,
+					#{name => undefined,
+					  arg => undefined,
+					  pos => Pos,
+					  new_vars => [],
+					  new_constraints => [],
+					  constraints => Constraints},
+					lists:zip(ArgNames, Args)),
+    #{new_vars := TypeVars, new_constraints := NewConstraints} = NewVarsAndConstraints,
+    NewData = [{type, Pos, product, lists:reverse(TypeVars)}, RetType],
+    {{type, Pos, 'fun', NewData}, lists:reverse(NewConstraints)}.
+
+bounded_fun_arg(#{ arg := {var, _, _} = V } = Acc) ->
+    #{new_vars := NVs, new_constraints := NCs, constraints := Cs} = Acc,
+    case get_constraint(V, Cs) of
+	{type, _, constraint, _} = C ->
+	    Acc#{new_vars := [V | NVs],
+		 new_constraints := [C | NCs]};
+	no_constraint ->
+	    edoc_report:warning("unbound variable - this module will not compile: ~p\n", [V]),
+	    Acc
+    end;
+bounded_fun_arg(#{ arg := {ann_type, Var, Type} } = Acc) ->
+    bounded_fun_arg_(Var, Type, Acc);
+bounded_fun_arg(#{ arg := Type } = Acc) when remote_type =:= element(1, Type);
+					     type =:= element(1, Type) ->
+    #{name := Name, pos := Pos} = Acc,
+    Var = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:variable(Name), Pos)),
+    bounded_fun_arg_(Var, Type, Acc).
+
+bounded_fun_arg_(Var, Type, Acc) ->
+    #{pos := Pos, new_vars := NVs, new_constraints := NCs} = Acc,
+    C = {type, Pos, constraint, [{atom, Pos, is_subtype}, [Var, Type]]},
+    Acc#{new_vars := [Var | NVs],
+	 new_constraints := [C | NCs]}.
+
+get_constraint({var, _, Name}, Constraints) ->
+    F = fun
+	    ({type, _, constraint, [_, [{var, _, CName}, _]]}) when Name =:= CName -> true;
+	    (_) -> false
+	end,
+    case lists:filter(F, Constraints) of
+	[C] -> C;
+	[] -> no_constraint
+    end.
 
 -spec entries(proplists:proplist()) -> [edoc:entry()].
 entries(Opts) ->

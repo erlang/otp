@@ -34,6 +34,11 @@ f_spec_rhs_match_expr({A, B} = Pattern) -> ok.
 -spec f_spec_unnamed_pattern(any()) -> ok.
 f_spec_unnamed_pattern({_, _}) -> ok.
 
--spec f_spec_bounded_fun(atom(), tuple(), string(), I) -> ok when
+-spec f_spec_bounded_single_clause_fun(atom(), tuple(), string(), I) -> ok when
       I :: integer().
-f_spec_bounded_fun(A, T, S, I) -> ok.
+f_spec_bounded_single_clause_fun(A, T, S, I) -> ok.
+
+-spec f_spec_bounded_multiple_clause_fun
+        (atom(), tuple(), string(), I) -> ok when I :: integer();
+        (string(), integer(), list(), A) -> ok when A :: atom().
+f_spec_bounded_multiple_clause_fun(A1, A2, A3, A4) -> ok.

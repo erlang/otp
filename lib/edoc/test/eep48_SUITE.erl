@@ -40,7 +40,8 @@
 	 f_spec_lhs_match_expr/1,
 	 f_spec_rhs_match_expr/1,
 	 f_spec_unnamed_pattern/1,
-	 f_spec_bounded_fun/1]).
+	 f_spec_bounded_single_clause_fun/1,
+	 f_spec_bounded_multiple_clause_fun/1]).
 
 -define(a2b(A), atom_to_binary(A, utf8)).
 -define(io2b(IO), iolist_to_binary(IO)).
@@ -80,7 +81,8 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  f_spec_lhs_match_expr,
 	  f_spec_rhs_match_expr,
 	  f_spec_unnamed_pattern,
-	  f_spec_bounded_fun].
+	  f_spec_bounded_single_clause_fun,
+	  f_spec_bounded_multiple_clause_fun].
 
 %% TODO: remove these cases once EDoc supports extracting the relevant tags
 not_supported() -> [type_since_tag,
@@ -282,11 +284,12 @@ f_spec_types_mixed(Config) ->
 f_spec_with_multiple_clauses(Config) ->
     Docs = get_docs(Config, eep48_specs),
     %?debugVal(Docs, 1000),
-    %?assertEqual( <<"-spec f_spec_with_multiple_clauses(A1 :: atom(), A2 :: atom()) -> atoms;\n"
-    %                "                                  (S :: string(), I :: integer()) ->\n"
-    %                "                                      not_atoms.\n">>,
-    %              get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
-    {skip, "edoc passes arg names of the first clause to all clauses"}.
+    ct:pal("EDoc repeats the first clause's param names for all clauses. "
+	   "The actual param names are `(A1, A2); (S, I)'.", []),
+    ?assertEqual( <<"-spec f_spec_with_multiple_clauses(A1 :: atom(), A2 :: atom()) -> atoms;\n"
+                    "                                  (A1 :: string(), A2 :: integer()) ->\n"
+                    "                                      not_atoms.\n">>,
+                  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
 
 f_spec_with_multiple_clauses_one_fun_clause(Config) ->
     Docs = get_docs(Config, eep48_specs),
@@ -317,10 +320,35 @@ f_spec_unnamed_pattern(Config) ->
     ?assertEqual( <<"-spec f_spec_unnamed_pattern(_ :: any()) -> ok.\n">>,
 		  get_pp_spec({function, ?FUNCTION_NAME, 1}, Docs) ).
 
-f_spec_bounded_fun(Config) ->
+f_spec_bounded_single_clause_fun(Config) ->
     Docs = get_docs(Config, eep48_specs),
     %?debugVal(Docs, 1000),
-    {skip, not_done_yet}.
+    ?assertEqual( <<"-spec f_spec_bounded_single_clause_fun(A, T, S, I) -> ok\n"
+		    "                                          when\n"
+		    "                                              A :: atom(),\n"
+		    "                                              T :: tuple(),\n"
+		    "                                              S :: string(),\n"
+		    "                                              I :: integer().\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 4}, Docs) ).
+
+f_spec_bounded_multiple_clause_fun(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ct:pal("TODO: This expectation is buggy: the actual param names are `(A1, A2, A3, A4)', "
+	   "but EDoc infers them to be `(A1, A2, A3, I)'.", []),
+    ?assertEqual( <<"-spec f_spec_bounded_multiple_clause_fun(A1, A2, A3, I) -> ok\n"
+		    "                                            when\n"
+		    "                                                A1 :: atom(),\n"
+		    "                                                A2 :: tuple(),\n"
+		    "                                                A3 :: string(),\n"
+		    "                                                I :: integer();\n"
+		    "                                        (A1, A2, A3, A) -> ok\n"
+		    "                                            when\n"
+		    "                                                A1 :: string(),\n"
+		    "                                                A2 :: integer(),\n"
+		    "                                                A3 :: list(),\n"
+		    "                                                A :: atom().\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 4}, Docs) ).
 
 %%
 %% Helpers
