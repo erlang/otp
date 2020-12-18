@@ -2682,7 +2682,7 @@ subagent(Config) when is_list(Config) ->
     
     ?NPRINT("Testing unregister subagent..."),
     MA = whereis(snmp_master_agent),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, SA]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, SA]),
     try_test(unreg_test),
 
     ?NPRINT("Loading previous subagent mib in master and testing..."),
@@ -2694,7 +2694,7 @@ subagent(Config) when is_list(Config) ->
     try_test(unreg_test),
 
     ?NPRINT("Testing register subagent..."),
-    rpc:call(SaNode, snmp, register_subagent,
+    rpc:call(SaNode, snmpa, register_subagent,
 	     [MA, ?klas1, SA]),
     try_test(load_test_sa),
 
@@ -2728,7 +2728,7 @@ mnesia(Config) when is_list(Config) ->
 
     ?NPRINT("Testing unregister subagent..."),
     MA = whereis(snmp_master_agent),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, SA]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, SA]),
     try_test(unreg_test),
     ?line unload_master("OLD-SNMPEA-MIB"),
     ?line stop_subagent(SA).
@@ -2878,7 +2878,7 @@ sa_register(Config) when is_list(Config) ->
     ?DBG("sa_register -> unregister subagent", []),
     ?NPRINT("Testing unregister subagent (2)..."),
     MA = whereis(snmp_master_agent),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, ?klas1]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, ?klas1]),
     try_test(unreg_test),
 
     ?NPRINT("Unloading Klas1..."),
@@ -2891,7 +2891,7 @@ sa_register(Config) when is_list(Config) ->
     
     ?NPRINT("register subagent..."),
     ?DBG("sa_register -> register subagent", []),
-    rpc:call(SaNode, snmp, register_subagent, [MA, ?sa, SA]),
+    rpc:call(SaNode, snmpa, register_subagent, [MA, ?sa, SA]),
 
     try_test(sa_mib),
 
@@ -3109,7 +3109,7 @@ next_across_sa(Config) when is_list(Config) ->
     ?line ok = snmpa:load_mib(SA, MibDir ++ "Klas1"),
 
     ?NPRINT("register subagent..."), 
-    rpc:call(SaNode, snmp, register_subagent, [MA, ?klas1, SA]),
+    rpc:call(SaNode, snmpa, register_subagent, [MA, ?klas1, SA]),
 
     ?NPRINT("Load test subagent..."),
     try_test(load_test_sa),
@@ -3119,7 +3119,7 @@ next_across_sa(Config) when is_list(Config) ->
 
     ?NPRINT("Unloading mib (Klas1)"),
     snmpa:unload_mib(SA, join(MibDir, "Klas1")),
-    rpc:call(SaNode, snmp, unregister_subagent, [MA, ?klas1]),
+    rpc:call(SaNode, snmpa, unregister_subagent, [MA, ?klas1]),
     try_test(unreg_test),
 
     ?NPRINT("Starting another subagent (2) "),
@@ -3430,11 +3430,11 @@ v2_caps_3(X) -> ?P(v2_caps_3), v2_caps(X).
 
 
 v2_caps_i(Node) ->
-    ?line Idx = rpc:call(Node, snmp, add_agent_caps, [[1,2,3,4,5], "test cap"]),
+    ?line Idx = rpc:call(Node, snmpa, add_agent_caps, [[1,2,3,4,5], "test cap"]),
     g([[sysORID, Idx], [sysORDescr, Idx]]),
     ?line ?expect1([{[sysORID, Idx], [1,2,3,4,5]}, 
 		    {[sysORDescr, Idx], "test cap"}]),
-    ?line rpc:call(Node, snmp, del_agent_caps, [Idx]),
+    ?line rpc:call(Node, snmpa, del_agent_caps, [Idx]),
     g([[sysORID, Idx]]),
     ?line ?expect1([{[sysORID, Idx], noSuchInstance}]).
     
@@ -4335,35 +4335,35 @@ opaque_test() ->
     
 %% Req. OLD-SNMPEA-MIB
 api_test(MaNode) ->
-    ?line {value, OID} = rpc:call(MaNode, snmp, name_to_oid,
+    ?line {value, OID} = rpc:call(MaNode, snmpa, name_to_oid,
 				  [intAgentIpAddress]),
-    ?line {value, intAgentIpAddress} = rpc:call(MaNode, snmp,
+    ?line {value, intAgentIpAddress} = rpc:call(MaNode, snmpa,
 						oid_to_name, [OID]),
-    ?line false = rpc:call(MaNode, snmp, name_to_oid, [intAgentIpAddres]),
-    ?line false = rpc:call(MaNode, snmp, oid_to_name,
+    ?line false = rpc:call(MaNode, snmpa, name_to_oid, [intAgentIpAddres]),
+    ?line false = rpc:call(MaNode, snmpa, oid_to_name,
 			   [[1,5,32,3,54,3,3,34,4]]),
-    ?line {value, 2} = rpc:call(MaNode, snmp, enum_to_int,
+    ?line {value, 2} = rpc:call(MaNode, snmpa, enum_to_int,
 				[intViewType, excluded]),
-    ?line {value, excluded} = rpc:call(MaNode, snmp, int_to_enum,
+    ?line {value, excluded} = rpc:call(MaNode, snmpa, int_to_enum,
 				       [intViewType, 2]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int, [intViewType, exclude]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int,
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int, [intViewType, exclude]),
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int,
 			   [intAgentIpAddress, exclude]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int,
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int,
 			   [intAgentIpAddre, exclude]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, [intViewType, 3]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, [intAgentIpAddress, 2]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, [intAgentIpAddre, 2]),
-    ?line {value, active} = rpc:call(MaNode, snmp,
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, [intViewType, 3]),
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, [intAgentIpAddress, 2]),
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, [intAgentIpAddre, 2]),
+    ?line {value, active} = rpc:call(MaNode, snmpa,
 				     int_to_enum, ['RowStatus', ?active]),
-    ?line {value, ?destroy} = rpc:call(MaNode, snmp,
+    ?line {value, ?destroy} = rpc:call(MaNode, snmpa,
 				       enum_to_int, ['RowStatus', destroy]),
-    ?line false = rpc:call(MaNode, snmp,
+    ?line false = rpc:call(MaNode, snmpa,
 			   enum_to_int, ['RowStatus', xxxdestroy]),
-    ?line false = rpc:call(MaNode, snmp,
+    ?line false = rpc:call(MaNode, snmpa,
 			   enum_to_int, ['xxRowStatus', destroy]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, ['RowStatus', 25]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, ['xxRowStatus', 1]),
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, ['RowStatus', 25]),
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, ['xxRowStatus', 1]),
     ?line case snmp:date_and_time() of
 	      List when is_list(List), length(List) == 8 -> ok;
 	      List when is_list(List), length(List) == 11 -> ok
@@ -6433,8 +6433,8 @@ otp_1129_3(X) -> ?P(otp_1129_3), otp_1129(X).
 
 otp_1129_i(MaNode) ->
     io:format("Testing bug reported in ticket OTP-1129...~n"),
-    false = rpc:call(MaNode, snmp, int_to_enum, [iso, 1]),
-    false = rpc:call(MaNode, snmp, int_to_enum, [isox, 1]).
+    false = rpc:call(MaNode, snmpa, int_to_enum, [iso, 1]),
+    false = rpc:call(MaNode, snmpa, int_to_enum, [isox, 1]).
 
 
 %%-----------------------------------------------------------------
@@ -6834,43 +6834,43 @@ otp_3725(Config) when is_list(Config) ->
 otp_3725_test(MaNode) ->
     io:format("Testing feature requested in ticket OTP-3725...~n"),
     ?line rpc:call(MaNode,snmpa,verbosity,[symbolic_store,trace]),
-    ?line Db = rpc:call(MaNode,snmp,get_symbolic_store_db,[]),
-    ?DBG("otp_3725_test -> Db = ~p",[Db]),
+    ?line Db = rpc:call(MaNode, snmpa, get_symbolic_store_db, []),
+    ?DBG("otp_3725_test -> Db = ~p", [Db]),
 
-    ?line {value, OID} = rpc:call(MaNode, snmp, name_to_oid,
+    ?line {value, OID} = rpc:call(MaNode, snmpa, name_to_oid,
 				  [Db, intAgentIpAddress]),
-    ?DBG("otp_3725_test -> name_to_oid for ~p: ~p",[intAgentIpAddress,OID]),
-    ?line {value, intAgentIpAddress} = rpc:call(MaNode, snmp, oid_to_name, 
+    ?DBG("otp_3725_test -> name_to_oid for ~p: ~p", [intAgentIpAddress,OID]),
+    ?line {value, intAgentIpAddress} = rpc:call(MaNode, snmpa, oid_to_name, 
 						[Db,OID]),
-    ?DBG("otp_3725_test -> oid_to_name for ~p: ~p",[OID,intAgentIpAddress]),
-    ?line false = rpc:call(MaNode, snmp, name_to_oid, [Db, intAgentIpAddres]),
-    ?line false = rpc:call(MaNode, snmp, oid_to_name,
+    ?DBG("otp_3725_test -> oid_to_name for ~p: ~p", [OID, intAgentIpAddress]),
+    ?line false = rpc:call(MaNode, snmpa, name_to_oid, [Db, intAgentIpAddres]),
+    ?line false = rpc:call(MaNode, snmpa, oid_to_name,
 			   [Db, [1,5,32,3,54,3,3,34,4]]),
-    ?line {value, 2} = rpc:call(MaNode, snmp, enum_to_int,
+    ?line {value, 2} = rpc:call(MaNode, snmpa, enum_to_int,
 				[Db, intViewType, excluded]),
-    ?line {value, excluded} = rpc:call(MaNode, snmp, int_to_enum,
+    ?line {value, excluded} = rpc:call(MaNode, snmpa, int_to_enum,
 				       [Db, intViewType, 2]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int, 
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int, 
 			   [Db, intViewType, exclude]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int,
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int,
 			   [Db, intAgentIpAddress, exclude]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int,
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int,
 			   [Db, intAgentIpAddre, exclude]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, [Db, intViewType, 3]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, 
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, [Db, intViewType, 3]),
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, 
 			   [Db, intAgentIpAddress, 2]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, 
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, 
 			   [Db, intAgentIpAddre, 2]),
-    ?line {value, active} = rpc:call(MaNode, snmp, int_to_enum, 
+    ?line {value, active} = rpc:call(MaNode, snmpa, int_to_enum, 
 				     [Db, 'RowStatus', ?active]),
-    ?line {value, ?destroy} = rpc:call(MaNode, snmp, enum_to_int, 
+    ?line {value, ?destroy} = rpc:call(MaNode, snmpa, enum_to_int, 
 				       [Db, 'RowStatus', destroy]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int, 
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int, 
 			   [Db, 'RowStatus', xxxdestroy]),
-    ?line false = rpc:call(MaNode, snmp, enum_to_int, 
+    ?line false = rpc:call(MaNode, snmpa, enum_to_int, 
 			   [Db, 'xxRowStatus', destroy]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, [Db, 'RowStatus', 25]),
-    ?line false = rpc:call(MaNode, snmp, int_to_enum, [Db, 'xxRowStatus', 1]),
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, [Db, 'RowStatus', 25]),
+    ?line false = rpc:call(MaNode, snmpa, int_to_enum, [Db, 'xxRowStatus', 1]),
     ok.
 
 
