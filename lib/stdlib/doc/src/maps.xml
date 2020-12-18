@@ -143,6 +143,20 @@
     </func>
 
     <func>
+      <name name="from_keys" arity="2" since="OTP 14.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Takes a list of keys and a value and builds a map where all keys
+          point to the same value. The key can be in any order, and keys
+          and value can be of any term.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Keys = ["a", "b", "c"], maps:from_keys(Keys, ok).
+#{"a" => ok,"b" => ok,"c" => ok}</code>
+      </desc>
+    </func>
+
+    <func>
       <name name="from_list" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>

@@ -772,4 +772,4 @@ bif erlang:alias/1
 bif erlang:unalias/1
 bif erlang:monitor/3
 bif erlang:error/3
-
+bif maps:from_keys/2
