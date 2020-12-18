@@ -104,33 +104,38 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
 		  "(?:^[=-]+$)",  % skip lines consisting only of = or -
 
 		  [multiline],
-		  [global, {capture, all, binary}]),
+		  [global, {capture, all, index}]),
 
     %% We indentify a leak by its type (direct or indirect)
     %% and its full call stack.
 
+    BP = fun(PartIx) -> binary:part(Bin, PartIx) end,
+
     LeakChecker =
-        fun([ErrorReport, <<>>, <<>>, <<>>, <<>>, Captured],
+        fun([ErrorReport, {-1,0}, {-1,0}, {-1,0}, {-1,0}, Captured],
             {Out, MatchCnt, LM0}) ->
+                {_Start,MatchLen} = ErrorReport,
                 FD = fd(Out),
                 ok = io:format(FD, "<p><pre~s>\n", [style(error)]),
-                ok = file:write(FD, Captured),
+                ok = file:write(FD, BP(Captured)),
                 ok = io:format(FD, "</pre></p>\n", []),
-                {FD, MatchCnt + byte_size(ErrorReport), LM0};
+                {FD, MatchCnt + MatchLen, LM0};
 
-           ([LeakReport, Type, BytesBin, BlocksBin, Stack | _],
+           ([LeakReport, TypeIx, BytesIx, BlocksIx, StackIx | _],
             {Out, MatchCnt0, LM0}) ->
-                Bytes = binary_to_integer(BytesBin),
-                Blocks = binary_to_integer(BlocksBin),
-                MatchCnt1 = MatchCnt0 + byte_size(LeakReport),
-                Key = {Type, Stack},
+                {_Start, MatchLen} = LeakReport,
+                Bytes = binary_to_integer(BP(BytesIx)),
+                Blocks = binary_to_integer(BP(BlocksIx)),
+                MatchCnt1 = MatchCnt0 + MatchLen,
+                TypeBin = BP(TypeIx),
+                Key = {TypeBin, BP(StackIx)},
                 case lookup_leak(LM0, Key) of
                     undefined ->
                         %% A new leak
                         LM1 = insert_leak(LM0, Key, Bytes, Blocks),
                         FD = fd(Out),
-                        ok = io:format(FD, "<p><pre~s>\n", [style(new, Type)]),
-                        ok = file:write(FD, LeakReport),
+                        ok = io:format(FD, "<p><pre~s>\n", [style(new, TypeBin)]),
+                        ok = file:write(FD, BP(LeakReport)),
                         ok = io:format(FD, "</pre></p>\n", []),
                         {FD, MatchCnt1, LM1};
 
@@ -142,18 +147,19 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
                         %% More leaked bytes/blocks of same type&stack as before
                         LM1 = insert_leak(LM0, Key, Bytes, Blocks),
                         FD = fd(Out),
-                        ok = io:format(FD, "<p><pre~s>\n", [style(more, Type)]),
+                        ok = io:format(FD, "<p><pre~s>\n", [style(more, TypeBin)]),
                         ok = io:format(FD, "More ~s leak of ~w(~w) byte(s) "
                                        "in ~w(~w) object(s) allocated from:\n",
-                                       [Type, Bytes - OldBytes, Bytes,
+                                       [TypeBin, Bytes - OldBytes, Bytes,
                                         Blocks - OldBlocks, Blocks]),
-                        ok = file:write(FD, Stack),
+                        ok = file:write(FD, BP(StackIx)),
                         ok = io:format(FD, "</pre></p>\n", []),
                         {FD, MatchCnt1, LM1}
                 end;
 	   ([SkipLine], {Out, MatchCnt0, LM0}) ->
-		nomatch = binary:match(SkipLine, <<"\n">>), % Assert single line
-		{Out, MatchCnt0 + byte_size(SkipLine), LM0}
+                {_Start, MatchLen} = SkipLine,
+		nomatch = binary:match(BP(SkipLine), <<"\n">>), % Assert single line
+		{Out, MatchCnt0 + MatchLen, LM0}
         end,
     Out0 = {OutFD, SrcFile},
     {Out1, MatchedBytes, LeakMap1} = lists:foldl(LeakChecker,
