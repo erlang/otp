@@ -495,7 +495,7 @@ have to run `configure` and build again.
 > an unmodified version of the released source.
 
 Other useful information can be found at our GitHub wiki:
-* <http://wiki.github.com/erlang/otp>
+* <https://github.com/erlang/otp/wiki>
 
 #### OS X (Darwin) ####
 
