@@ -81,8 +81,6 @@ obsolete(httpd_util, strip, 1) ->
     {deprecated, "use string:trim/1 instead", "OTP 26"};
 obsolete(httpd_util, suffix, 1) ->
     {deprecated, "use filename:extension/1 and string:trim/2 instead", "OTP 26"};
-obsolete(megaco, format_versions, 1) ->
-    {deprecated, "use megaco:print_version_info/0,1 instead.", "OTP 24"};
 obsolete(net, broadcast, 3) ->
     {deprecated, "use rpc:eval_everywhere/3 instead"};
 obsolete(net, call, 4) ->
