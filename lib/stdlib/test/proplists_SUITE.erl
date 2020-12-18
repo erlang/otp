@@ -23,7 +23,8 @@
 -export([all/0, suite/0,groups/0, init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
-         examples/1]).
+         examples/1, map_conversion/1, map_conversion_normalize/1,
+         pm_fold_test/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -36,7 +37,7 @@ suite() ->
      {timetrap,{minutes,5}}].
 
 all() ->
-    [examples].
+    [examples, map_conversion, map_conversion_normalize, pm_fold_test].
 
 groups() ->
     [].
@@ -76,5 +77,105 @@ examples(_Config) ->
     NegList = [no_foo, {no_foo, true}, {no_foo, false}, {no_foo, any}, foo],
     NegListRes = [{foo, false}, {foo, false}, foo, foo, foo],
     NegListRes = proplists:substitute_negations([{no_foo, foo}], NegList),
+
+    true = #{a => true, b => 1, c => 2} =:= proplists:to_map([a, {b, 1}, {c, 2}, {c, 3}]),
+
+    ok.
+
+map_conversion(_Config) ->
+    %% Simple tests.
+    true = #{} =:= proplists:to_map([]),
+    true = #{a => true, b => true} =:= proplists:to_map([a, b]),
+    true = #{a => true, b => true} =:= proplists:to_map([b, a]),
+    true = #{a => 1, b => true} =:= proplists:to_map([{a, 1}, b]),
+    true = #{a => 1, b => true} =:= proplists:to_map([b, {a, 1}]),
+    true = #{a => 1, b => 2} =:= proplists:to_map([{a, 1}, {b, 2}]),
+    true = #{a => 1, b => 2} =:= proplists:to_map([{b, 2}, {a, 1}]),
+    true = #{b => true} =:= proplists:to_map(["a", b]),
+    true = #{b => true} =:= proplists:to_map([b, "a"]),
+    true = #{b => true} =:= proplists:to_map([{a}, b]),
+    true = #{b => true} =:= proplists:to_map([b, {a}]),
+    true = #{b => true} =:= proplists:to_map([{a, 1, 2}, b]),
+    true = #{b => true} =:= proplists:to_map([b, {a, 1, 2}]),
+
+    %% Ensure that maps:get/3 using the created map yields the same
+    %% results as proplists:get_value/3 on the original proplist does,
+    %% and that proplists:get_value/3 on a proplist created from the
+    %% map yields the same results as proplists:get_value/3 on the
+    %% original proplist, ie they either all return the same `Value',
+    %% or they all return the `Default' given as respective third argument.
+    Default = make_ref(),
+    InList=[a, b, {a, 1}, {}, {a}, {a, 1, 2}, {c, 1, 2}, "foo"],
+    Fun = fun (L1, Acc) ->
+        LKs = proplists:get_keys(L1),
+        M = proplists:to_map(L1),
+        L2 = proplists:from_map(M),
+        true = lists:sort(maps:keys(M)) =:= lists:sort(proplists:get_keys(L2)),
+        lists:foreach(
+            fun (K) ->
+                case
+                    {
+                        maps:get(K, M, Default),
+                        proplists:get_value(K, L1, Default),
+                        proplists:get_value(K, L2, Default)
+                    }
+                of
+                    {Default, Default, Default} -> ok;
+                    {V, V, V} -> ok
+                end
+            end,
+            LKs
+        ),
+        Acc
+    end,
+    _ = pm_fold(Fun, undefined, InList),
+    ok.
+
+map_conversion_normalize(_Config) ->
+    Stages = [
+        {aliases, [{a, alias_a}]},
+        {negations, [{no_b, b}]},
+        {expand, [{c, [d]}]}
+    ],
+
+    M1 = proplists:to_map([], Stages),
+    true = M1 =:= #{},
+    true = M1 =:= proplists:to_map(proplists:normalize([], Stages)),
+
+    List = [a, no_b, c],
+    M2 = proplists:to_map(List, Stages),
+    true = M2 =:= #{alias_a => true, b => false, d => true},
+    true = M2 =:= proplists:to_map(proplists:normalize(List, Stages)),
+
+    ok.
+
+pm_fold(_, _, []) ->
+    [];
+pm_fold(Fun, Acc0, L) ->
+    pm_fold(Fun, Acc0, L, []).
+
+pm_fold(Fun, Acc, [], Mut) ->
+    Fun(Mut, Acc);
+pm_fold(Fun, Acc, L, Mut) ->
+    lists:foldl(
+        fun
+            (X, AccIn) -> pm_fold(Fun, AccIn, lists:delete(X, L), [X|Mut])
+        end,
+        Acc,
+        L
+    ).
+
+pm_fold_test(_Config) ->
+    Fun = fun (M, A) -> [M|A] end,
+
+    [] = pm_fold(Fun, [], []),
+
+    [[1]] = lists:sort(pm_fold(Fun, [], [1])),
+
+    Exp1 = lists:sort([[1, 2], [2, 1]]),
+    Exp1 = lists:sort(pm_fold(Fun, [], [1, 2])),
+
+    Exp2 = lists:sort([[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]]),
+    Exp2 = lists:sort(pm_fold(Fun, [], [1, 2, 3])),
 
     ok.
