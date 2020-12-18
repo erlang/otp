@@ -1623,6 +1623,15 @@ void erts_factory_undo(ErtsHeapFactory* factory)
                                    ERTS_HEAP_FRAG_SIZE(factory->heap_frags_saved->alloc_size));
                 }
             }
+            if (factory->message) {
+                ASSERT(factory->message->data.attached != ERTS_MSG_COMBINED_HFRAG);
+                ASSERT(!factory->message->data.heap_frag);
+
+                /* Set the message to NIL in order for it not to be treated as
+                   a distributed message by erts_cleanup_messages */
+                factory->message->m[0] = NIL;
+                erts_cleanup_messages(factory->message);
+            }
         }
         break;
 
