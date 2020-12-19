@@ -162,7 +162,7 @@ ok</pre>
           <p><c>Pad</c> is the padding character. This is the character
             used to pad the printed representation of the argument so that
             it conforms to the specified field width and precision. Only
-            one padding character can be specified and, whenever
+            one padding character can be specified and, whenever 
             applicable, it is used for both the field width and precision.
             The default padding character is <c>' '</c> (space).</p>
         </item>
