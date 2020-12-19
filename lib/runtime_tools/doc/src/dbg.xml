@@ -76,10 +76,10 @@
       </type>
       <desc>
         <p>Pseudo function that by means of a <c>parse_transform</c>
-          translates the <em>literal</em><c>fun()</c> typed as parameter in
+          translates the <em>literal</em> <c>fun()</c> typed as parameter in
           the function call to a match specification as described in
           the <c>match_spec</c> manual of ERTS users guide.
-          (with literal I mean that the <c>fun()</c> needs to
+          (With literal I mean that the <c>fun()</c> needs to
           textually be written as the parameter of the function, it
           cannot be held in a variable which in turn is passed to the 
           function). </p>
