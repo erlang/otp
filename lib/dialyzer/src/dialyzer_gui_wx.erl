@@ -498,10 +498,10 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
 	end,
       ExplanationPid = spawn_link(Fun),
       gui_loop(State#gui_state{expl_pid = ExplanationPid});
-    {BackendPid, done, NewPlt, NewDocPlt} ->
+    {BackendPid, done, _NewPlt, NewDocPlt} ->
       message(State, "Analysis done"),
-      dialyzer_plt:delete(NewPlt),
       config_gui_stop(State),
+      dialyzer_plt:delete(State#gui_state.doc_plt),
       gui_loop(State#gui_state{doc_plt = NewDocPlt});
     {'EXIT', BackendPid, {error, Reason}} ->
       free_editor(State, ?DIALYZER_ERROR_TITLE, Reason),
