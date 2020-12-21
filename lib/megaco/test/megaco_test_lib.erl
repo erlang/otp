@@ -494,7 +494,7 @@ init_per_suite(Config) ->
             SKIP
     end.
 
-maybe_skip(HostInfo) ->
+maybe_skip(_HostInfo) ->
 
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
@@ -553,14 +553,19 @@ maybe_skip(HostInfo) ->
                 true
         end,
     SkipWindowsOnVirtual =
+        %% fun() ->
+        %%         SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
+        %%         case string:to_lower(SysMan) of
+        %%             "vmware" ++ _ ->
+        %%                 true;
+        %%             _ ->
+        %%                 false
+        %%         end
+        %% end,
         fun() ->
-                SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
-                case string:to_lower(SysMan) of
-                    "vmware" ++ _ ->
-                        true;
-                    _ ->
-                        false
-                end
+                %% The host has been replaced and the VM has been reinstalled
+                %% so for now we give it a chance...
+                false
         end,
     COND = [
             {unix, [{linux,  LinuxVersionVerify}, 
