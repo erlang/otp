@@ -1117,7 +1117,6 @@ foldl_transform([T|Ts], Code0, St) ->
     case code:ensure_loaded(T) =:= {module,T} andalso
         erlang:function_exported(T, parse_transform, 2) of
         true ->
-            NewCode = maybe_strip_columns(Code0, T),
             Fun = fun(Code, S) ->
                           T:parse_transform(Code, S#compile.options)
                   end,
@@ -1129,7 +1128,7 @@ foldl_transform([T|Ts], Code0, St) ->
                                   catch F(Code, S)
                           end
                   end,
-            case Run({Name, Fun}, NewCode, St) of
+            case Run({Name, Fun}, Code0, St) of
                 {error,Es,Ws} ->
                     {error,St#compile{warnings=St#compile.warnings ++ Ws,
                                       errors=St#compile.errors ++ Es}};
@@ -1137,10 +1136,12 @@ foldl_transform([T|Ts], Code0, St) ->
                     Es = [{St#compile.ifile,[{none,compile,
                                               {parse_transform,T,R}}]}],
                     {error,St#compile{errors=St#compile.errors ++ Es}};
-                {warning, Forms, Ws} ->
+                {warning, Forms0, Ws} ->
+                    Forms = maybe_strip_columns(Forms0, T),
                     foldl_transform(Ts, Forms,
                                     St#compile{warnings=St#compile.warnings ++ Ws});
-                Forms ->
+                Forms0 ->
+                    Forms = maybe_strip_columns(Forms0, T),
                     foldl_transform(Ts, Forms, St)
             end;
         false ->
@@ -1150,21 +1151,21 @@ foldl_transform([T|Ts], Code0, St) ->
     end;
 foldl_transform([], Code, St) -> {ok,Code,St}.
 
-%% The columns are stripped for each parse transform called. It is
-%% possible, although unlikely, that parse transforms add columns to
-%% the abstract code.
+%%% It is possible--although unlikely--that parse transforms add
+%%% columns to the abstract code, why this function is called for
+%%% every parse transform.
 maybe_strip_columns(Code, T) ->
     case erlang:function_exported(T, parse_transform_info, 0) of
         true ->
             Info = T:parse_transform_info(),
-            case maps:get(error_location, Info, false) of
-                column ->
-                    Code;
+            case maps:get(error_location, Info, column) of
+                line ->
+                    strip_columns(Code);
                 _ ->
-                    strip_columns(Code)
+                    Code
             end;
         false ->
-            strip_columns(Code)
+            Code
     end.
 
 strip_columns(Code) ->

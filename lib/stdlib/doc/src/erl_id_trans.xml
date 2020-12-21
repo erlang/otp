@@ -46,10 +46,10 @@
       Compiler checks if the parse transformation can handle abstract code
       with column numbers: If the function <c>parse_transform_info/0</c>
       is implemented and returns a map where the key <c>error_location</c> is
-      associated with the value <c>column</c>, the compiler passes the
-      abstract code on without modification. Otherwise, the compiler
-      removes columns numbers from the abstract code before calling the
-      parse transform.</p>
+      associated with the value <c>line</c>, the compiler removes
+      column numbers from the abstract code before calling the parse
+      transform. Otherwise, the compiler passes the abstract code on
+      without modification.</p>
   </description>
 
   <funcs>
