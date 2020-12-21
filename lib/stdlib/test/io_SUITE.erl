@@ -985,15 +985,12 @@ otp_7084(Config) when is_list(Config) ->
          {g_denormalized, fun g_denormalized/0},
          {g_normalized, fun g_normalized/0},
          {g_choice, fun g_choice/0},
+         {g_ryu, fun g_ryu/0},
+         {g_anomalous, fun g_anomalous/0},
          {g_misc, fun g_misc/0}],
     F = fun({M,T}) -> io:format("~p~n", [M]), T() end,
-    R = try 
-            lists:foreach(fun(T) -> F(T) end, L),
-            ok
-        catch throw:Reason -> 
-            Reason
-        end,
-    R.
+    lists:foreach(fun(T) -> F(T) end, L),
+    ok.
 
 g_warm_up() ->
     g_t(0.5),
@@ -1041,12 +1038,187 @@ g_normalized() ->
 g_choice() ->
     %% Exponent should be used when and only when the string is shorter.
     %% (g_misc/0 checks this too, and probably more throughly).
-    L = [0.0003, 3.0e-5, 3.3e-5,    3.3e-4,
-         314.0,  314.1,  310.0,     3.1e6,   -100.0,
-         3.34e4, 3.0e3,  3.34333e9, 3.3433323e10, 33433323700.0,
+    L = [0.0003, 3.0e-5, 3.3e-5, 3.3e-4,
+         314.0, 314.1, 310.0, 3.1e6, -100.0,
+         3.34e4, 3.0e3, 3.34333e9, 3.3433323e10, 33433323700.0,
          0.00197963, 1.97963e-4],
     lists:foreach(fun(V) -> g_t(V) end, L),
     ok.
+
+g_anomalous() ->
+    %% These test cases come from https://github.com/microsoft/STL/blob/f1515e04fd00876137e762c08b90d9aa450859e0/tests/std/tests/P0067R5_charconv/double_to_chars_test_cases.hpp
+
+    %% https://www.exploringbinary.com/the-shortest-decimal-string-that-round-trips-may-not-be-the-nearest/
+    %% This is an exhaustive list of anomalous values
+    %% Because math, these values have shortest-round-trip decimal representations containing 16 significant digits,
+    %% but those decimal digits aren't what would be printed by "%.15e". For ordinary values, shortest-round-trip
+    %% behaves as if it can magically pick a precision for "%.*e", finding the smallest precision that round-trips.
+    %% (That is, start with the exact decimal representation, and then round it as much as possible.) These anomalous
+    %% values demonstrate an exception to that mental model. They aren't being "incorrectly rounded"; instead, having
+    %% the shortest output that round-trips is being prioritized. (This differs by 1 in the least significant decimal
+    %% digit printed, so it's a very small difference.)
+
+    L_anom = [6.386688990511104e+293, 5.282945311356653e+269,
+              6.150157786156811e+259, 5.334411546303884e+241,
+              5.386379163185535e+213, 6.483618076376552e+178,
+              6.183260036827614e+172, 5.896816288783659e+166,
+              5.758609657015292e+163, 5.623642243178996e+160,
+              6.243497100631985e+144, 8.263199609878108e+121,
+              6.455624695217272e+119, 6.156563468186638e+113,
+              7.167183174968974e+103, 6.518515124270356e+91,
+              6.070840288205404e+82, 6.129982163463556e+54,
+              5.986310706507379e+51, 5.444517870735016e+39,
+              5.316911983139664e+36, 6.189700196426902e+26,
+              5.960464477539063e-08, 5.684341886080802e-14,
+              6.617444900424222e-24, 6.310887241768095e-30,
+              7.174648137343064e-43, 7.854549544476363e-90,
+              6.653062250012736e-111, 5.075883674631299e-116,
+              6.256509672447191e-148, 4.887898181599368e-150,
+              5.966672584960166e-154, 5.426657103235053e-166,
+              5.351097043477547e-197, 5.225680706521042e-200,
+              6.083493012144512e-210, 5.940911144672375e-213,
+              6.290184345309701e-235, 6.142758149716505e-238,
+              7.678447687145631e-239, 5.858190679279809e-244,
+              5.641232424577593e-278, 8.209073602596753e-289,
+              7.291122019556398e-304, 7.120236347223045e-307],
+    lists:foreach(fun(V) -> g_t(V) end, L_anom),
+
+    %% This is an exhaustive list of almost-but-not-quite-anomalous values.
+    L_quasi_anom = [6.237000967296e+290, 6.090821257125e+287,
+                    8.25460204899477e+267, 5.78358058743443e+222,
+                    7.1362384635298e+44, 6.10987272699921e-151,
+                    5.17526350329881e-172, 6.84940421565126e-195],
+    lists:foreach(fun(V) -> g_t(V) end, L_quasi_anom),
+
+    ok.
+
+g_ryu() ->
+    %% specific white box tests that should trigger specific edge cases
+    %% to the ryu algorithm see: 
+    %% https://github.com/ulfjack/ryu/blob/master/ryu/tests/d2s_test.cc
+
+    %% this list is regression tests from the ryu C ref implementation
+    L_regression = [-2.109808898695963e16, 4.940656e-318, 1.18575755E-316,
+                    2.989102097996e-312, 9.0608011534336e15,
+                    4.708356024711512e18, 9.409340012568248e18,
+                    1.2345678],
+    lists:foreach(fun(V) -> g_t(V) end, L_regression),
+
+    %% These numbers have a mantissa that is a multiple of the largest power of 5 that fits,
+    %% and an exponent that causes the computation for q to result in 22, which is a corner
+    %% case for Ryu.
+    L_pow5 = [16#4830F0CF064DD592, 16#4840F0CF064DD592, 
+              16#4850F0CF064DD592],
+    lists:foreach(fun(V) -> g_t(i_2_d(V)) end, L_pow5),
+
+    %% Test 32-bit chunking 2^32 +- 1/2
+    L_32bits = [4.294967294, 4.294967295, 4.294967296, 4.294967297,
+                4.294967298],
+    lists:foreach(fun(V) -> g_t(V) end, L_32bits),
+
+    %% Test 32-bit chunking 2^32 +- 1/2
+    L_32bits = [4.294967294, 4.294967295, 4.294967296, 4.294967297,
+                4.294967298],
+    lists:foreach(fun(V) -> g_t(V) end, L_32bits),
+
+    L = [1.2e+1, 1.23e+2, 1.234e+3, 1.2345e+4, 1.23456e+5, 1.234567e+6,
+        1.2345678e+7, 1.23456789e+8, 1.23456789e+9, 1.234567895e+9,
+        1.2345678901e+10, 1.23456789012e+11, 1.234567890123e+12,
+        1.2345678901234e+13, 1.23456789012345e+14, 1.234567890123456e+15],
+    lists:foreach(fun(V) -> g_t(V) end, L),
+
+    %% power of 2
+    L_pow2 = [8.0, 64.0, 512.0, 8192.0, 65536.0, 524288.0, 8388608.0,
+             67108864.0, 536870912.0, 8589934592.0, 68719476736.0,
+             549755813888.0, 8796093022208.0, 70368744177664.0,
+             562949953421312.0, 9007199254740992.0],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow2),
+
+    %% 1000 * power of 2
+    L_pow2_1000 = [8.0e+3, 64.0e+3, 512.0e+3, 8192.0e+3, 65536.0e+3,
+                  524288.0e+3, 8388608.0e+3, 67108864.0e+3, 536870912.0e+3,
+                  8589934592.0e+3, 68719476736.0e+3, 549755813888.0e+3,
+                  8796093022208.0e+3],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow2_1000),
+
+    %% 10^15 + 10^i
+    L_pow10_plus = [1.0e+15 + 1.0e+0, 1.0e+15 + 1.0e+1, 1.0e+15 + 1.0e+2,
+                   1.0e+15 + 1.0e+3, 1.0e+15 + 1.0e+4, 1.0e+15 + 1.0e+5,
+                   1.0e+15 + 1.0e+6, 1.0e+15 + 1.0e+7, 1.0e+15 + 1.0e+8,
+                   1.0e+15 + 1.0e+9, 1.0e+15 + 1.0e+10, 1.0e+15 + 1.0e+11,
+                   1.0e+15 + 1.0e+12, 1.0e+15 + 1.0e+13, 1.0e+15 + 1.0e+14],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow10_plus),
+
+    %% min and max
+    g_t(i_2_d(1)),
+    g_t(i_2_d(16#7fefffffffffffff)),
+
+    %% lots of trailing zeroes
+    g_t(2.98023223876953125e-8),
+
+    %% Switch to Subnormal
+    g_t(2.2250738585072014e-308),
+
+    %% special case to check for the shift to the right by 128
+    L_shift = [parts_2_f(0, 4,0), parts_2_f(0, 6, (1 bsl 53) - 1),
+               parts_2_f(0, 41, 0), parts_2_f(0, 40, (1 bsl 53) - 1),
+               parts_2_f(0, 1077, 0), parts_2_f(0, 1076, (1 bsl 53) - 1),
+               parts_2_f(0, 307, 0), parts_2_f(0, 306, (1 bsl 53) - 1),
+               parts_2_f(0, 934, 16#000FA7161A4D6E0C)],
+    lists:foreach(fun(V) -> g_t(V) end, L_shift),
+
+    %% following test cases come from https://github.com/microsoft/STL/blob/f1515e04fd00876137e762c08b90d9aa450859e0/tests/std/tests/P0067R5_charconv/double_to_chars_test_cases.hpp
+    %% These numbers have odd mantissas (unaffected by shifting)
+    %% that are barely within the "max shifted mantissa" limit.
+
+    L_mantissas_within_limit = [
+        1801439850948197.0e1, 360287970189639.0e2, 72057594037927.0e3,
+        14411518807585.0e4, 2882303761517.0e5, 576460752303.0e6,
+        115292150459.0e7, 23058430091.0e8, 4611686017.0e9, 922337203.0e10,
+        184467439.0e11, 36893487.0e12, 7378697.0e13, 1475739.0e14,
+        295147.0e15, 59029.0e16, 11805.0e17, 2361.0e18, 471.0e19, 93.0e20,
+        17.0e21, 3.0e22],
+    lists:foreach(fun(V) -> g_t(V) end, L_mantissas_within_limit),
+
+    %% These numbers have odd mantissas (unaffected by shifting)
+    %% that are barely above the "max shifted mantissa" limit.
+    L_mantissas_above_limit = [
+        1801439850948199.0e1, 360287970189641.0e2, 72057594037929.0e3,
+        14411518807587.0e4, 2882303761519.0e5, 576460752305.0e6,
+        115292150461.0e7, 23058430093.0e8, 4611686019.0e9, 922337205.0e10,
+        184467441.0e11, 36893489.0e12, 7378699.0e13, 1475741.0e14,
+        295149.0e15, 59031.0e16, 11807.0e17, 2363.0e18, 473.0e19, 95.0e20,
+        19.0e21, 5.0e22],
+    lists:foreach(fun(V) -> g_t(V) end, L_mantissas_above_limit),
+
+    L_switch = [1801439850948197.0e1, 360287970189639.0e2, 72057594037927.0e3,
+                14411518807585.0e4, 2882303761517.0e5, 576460752303.0e6,
+                115292150459.0e7, 23058430091.0e8, 4611686017.0e9,
+                922337203.0e10, 184467439.0e11, 36893487.0e12, 7378697.0e13,
+                1475739.0e14, 295147.0e15, 59029.0e16, 11805.0e17, 2361.0e18,
+                471.0e19, 93.0e20, 17.0e21, 3.0e22, 1801439850948199.0e1,
+                360287970189641.0e2, 72057594037929.0e3, 14411518807587.0e4,
+                2882303761519.0e5, 576460752305.0e6, 115292150461.0e7,
+                23058430093.0e8, 4611686019.0e9, 922337205.0e10,
+                184467441.0e11, 36893489.0e12, 7378699.0e13, 1475741.0e14,
+                295149.0e15, 59031.0e16, 11807.0e17, 2363.0e18, 473.0e19,
+                95.0e20, 19.0e21, 5.0e22, 302230528.0e15, 302232576.0e15,
+                81123342286848.0e18, 81192061763584.0e18],
+    lists:foreach(fun(V) -> g_t(V) end, L_switch),
+
+    L_edge = [123456789012345683968.0, 1.9156918820264798e-56,
+              6.6564021122018745e+264, 4.91e-6, 5.547e-6],
+    lists:foreach(fun(V) -> g_t(V) end, L_edge),
+
+    ok.
+
+i_2_d(Int) ->
+    <<F:64/float>> = <<Int:64/unsigned-integer>>,
+    F.
+
+parts_2_f(S, E, M) ->
+    <<F:64/float>> = <<S:1, E:11, M:52>>,
+    F.
 
 g_misc() -> 
     L_0_308 = lists:seq(0, 308),
