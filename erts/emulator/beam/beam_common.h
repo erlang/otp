@@ -215,7 +215,7 @@ do {						\
 #define DTRACE_GLOBAL_CALL_FROM_EXPORT(p,e)                                        \
     do {                                                                           \
         if (DTRACE_ENABLED(global_function_entry)) {                               \
-            ErtsCodePtr fp__ (((Export *) (e))->addresses[erts_active_code_ix()]); \
+            ErtsCodePtr fp__ = (((Export *) (e))->addresses[erts_active_code_ix()]); \
             DTRACE_GLOBAL_CALL((p), erts_code_to_codemfa(fp__));                   \
         }                                                                          \
     } while(0)
