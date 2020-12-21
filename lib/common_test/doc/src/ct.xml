@@ -141,7 +141,7 @@
       <desc><marker id="add_config-2"/>
         <p>Loads configuration variables using the specified callback module and
           configuration string. The callback module is to be either loaded or
-          present in the code part. Loaded configuration variables can later
+          present in the code path. Loaded configuration variables can later
           be removed using function
           <seemfa marker="#remove_config/2"><c>ct:remove_config/2</c></seemfa>.
         </p>
