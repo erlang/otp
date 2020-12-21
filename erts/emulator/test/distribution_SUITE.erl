@@ -75,7 +75,6 @@
          system_limit/1,
          hopefull_data_encoding/1,
          hopefull_export_fun_bug/1,
-         mk_hopefull_data/0,
          huge_iovec/1]).
 
 %% Internal exports.
@@ -2604,7 +2603,6 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
             false = rpc:call(BouncerNode, erts_debug, set_internal_state,
                             [remove_hopefull_dflags, true])
     end,
-    HData = mk_hopefull_data(),
     Tester = self(),
     R1 = make_ref(),
     R2 = make_ref(),
@@ -2613,10 +2611,13 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
     Proxy = spawn_link(ProxyNode,
                        fun () ->
                                register(bouncer, self()),
+                               %% We create the data on the proxy node in order
+                               %% to create the correct sub binaries
+                               HData = mk_hopefull_data(R1, Tester),
                                %% Verify same result between this node and tester
                                Tester ! [R1, HData],
                                %% Test when connection has not been setup yet
-                               Bouncer ! {Tester, [R2, HData]}, 
+                               Bouncer ! {Tester, [R2, HData]},
                                Sync = make_ref(),
                                Bouncer ! {self(), Sync},
                                receive Sync -> ok end,
@@ -2624,17 +2625,18 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
                                Bouncer ! {Tester, [R3, HData]},
                                receive after infinity -> ok end
                        end),
-    receive
-        [R1, HData1] ->
-            Hdata = HData1
-    end,
+    HData =
+        receive
+            [R1, HData1] ->
+                HData1
+        end,
     receive
         [R2, HData2] ->
             case Fallback of
                 false ->
                     HData = HData2;
                 true ->
-                    check_hopefull_fallback_data(Hdata, HData2)
+                    check_hopefull_fallback_data(HData, HData2)
             end
     end,
     receive
@@ -2643,7 +2645,7 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
                 false ->
                     HData = HData3;
                 true ->
-                    check_hopefull_fallback_data(Hdata, HData3)
+                    check_hopefull_fallback_data(HData, HData3)
             end
     end,
     unlink(Proxy),
@@ -2661,32 +2663,54 @@ bounce_loop() ->
     end,
     bounce_loop().
 
-mk_hopefull_data() ->
+mk_hopefull_data(RemoteRef, RemotePid) ->
     HugeBs = list_to_bitstring([lists:duplicate(12*1024*1024, 85), <<6:6>>]),
     <<_:1/bitstring,HugeBs2/bitstring>> = HugeBs,
-    lists:flatten([mk_hopefull_data(list_to_binary(lists:seq(1,255))),
-                   1234567890, HugeBs, fun gurka:banan/3, fun erlang:node/1,
-                   self(), fun erlang:self/0,
-                   mk_hopefull_data(list_to_binary(lists:seq(1,32))), an_atom,
-                   fun lists:reverse/1, make_ref(), HugeBs2,
-                   fun blipp:blapp/7]).
+    mk_hopefull_data(list_to_binary(lists:seq(1,255))) ++
+        [1234567890, HugeBs, fun gurka:banan/3, fun erlang:node/1,
+         RemotePid, self(), fun erlang:self/0] ++
+        mk_hopefull_data(list_to_binary(lists:seq(1,32))) ++
+        [an_atom,
+         fun lists:reverse/1, RemoteRef, make_ref(), HugeBs2,
+         fun blipp:blapp/7].
 
 mk_hopefull_data(BS) ->
     BSsz = bit_size(BS),
-    [lists:map(fun (Offset) ->
-                       <<_:Offset/bitstring, NewBs/bitstring>> = BS,
-                       NewBs
-               end, lists:seq(1, 16)),
-     lists:map(fun (Offset) ->
-                       <<NewBs:Offset/bitstring, _/bitstring>> = BS,
-                       NewBs
-               end, lists:seq(BSsz-16, BSsz-1)),
-     lists:map(fun (Offset) ->
-                       PreOffset = Offset rem 16,
-                       <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
-                       NewBs
-               end, lists:seq(BSsz-32, BSsz-17))].
-    
+    lists:concat(
+      [lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<_:Offset/bitstring, NewBs/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(BSsz-16, BSsz-1)),
+       lists:map(fun (Offset) ->
+                         PreOffset = Offset rem 16,
+                         <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(BSsz-32, BSsz-17)),
+       lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<_:Offset/bitstring, NewBs/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(BSsz-16, BSsz-1)),
+       lists:map(fun (Offset) ->
+                         PreOffset = Offset rem 16,
+                         <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(BSsz-32, BSsz-17))]).
 
 check_hopefull_fallback_data([], []) ->
     ok;
@@ -2696,6 +2720,8 @@ check_hopefull_fallback_data([X|Xs],[Y|Ys]) ->
 
 chk_hopefull_fallback(Binary, FallbackBinary) when is_binary(Binary) ->
     Binary = FallbackBinary;
+chk_hopefull_fallback([BitStr], [{Bin, BitSize}]) when is_bitstring(BitStr) ->
+    chk_hopefull_fallback(BitStr, {Bin, BitSize});
 chk_hopefull_fallback(BitStr, {Bin, BitSize}) when is_bitstring(BitStr) ->
     true = is_binary(Bin),
     true = is_integer(BitSize),
