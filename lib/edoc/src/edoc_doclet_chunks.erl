@@ -93,7 +93,7 @@ source({_M, Name, Path}, Dir, Suffix, Env, OkSet, _Private, _Hidden, ErrorFlag, 
     try
 	%% TODO: should we ever want not to have private/hidden entries in the chunk?
 	{_Module, Doc, Entries} = edoc:get_doc(File, Env, [return_entries, private, hidden | Options]),
-	%% TODO: edoc_doclet_default does check_name, check for private, and check for hidden here
+	%% TODO: edoc_doclet does check_name, check for private, and check for hidden here
 	Chunk = edoc:layout(Doc, [{entries, Entries}, {source, Name} | Options]),
 	WriteOptions = [{encoding, utf8}],
 	ok = write_file(Chunk, Dir, chunk_file_name(Name, Suffix), WriteOptions),
