@@ -954,7 +954,7 @@ cipher_suite_test(CipherSuite, Version, Config) ->
             ssl_test_lib:basic_test([{ciphers, ssl:cipher_suites(all, Version)} | COpts], 
                                     [{ciphers, [CipherSuite]} | SOpts], Config);
         _ ->
-            ssl_test_lib:basic_test([{ciphers, [CipherSuite]} | COpts], 
+            ssl_test_lib:basic_test([{versions, [Version]}, {ciphers, [CipherSuite]} | COpts], 
                                     [{ciphers, ssl:cipher_suites(all, Version)} | SOpts], Config)
     end.
 
