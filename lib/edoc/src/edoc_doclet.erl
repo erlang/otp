@@ -131,7 +131,7 @@ gen(Sources, App, Modules, Ctxt) ->
     Title = title(App, Options),
     CSS = stylesheet(Options),
     {Modules1, Error} = sources(Sources, Dir, Modules, Env, Options),
-    modules_frame(Dir, Modules1, Title, CSS),
+    modules_frame(Dir, Modules1, Title, CSS, Options),
     overview(Dir, Title, Env, Options),
     index_file(Dir, Title),
     edoc_lib:write_info_file(App, Modules1, Dir),
@@ -249,7 +249,8 @@ index_file(Dir, Title) ->
     Text = xmerl:export_simple([XML], xmerl_html, []),
     edoc_lib:write_file(Text, Dir, ?INDEX_FILE).
 
-modules_frame(Dir, Ms, Title, CSS) ->
+modules_frame(Dir, Ms, Title, CSS, Options) ->
+    Suffix = proplists:get_value(file_suffix, Options, ?DEFAULT_FILE_SUFFIX),
     Body = [?NL,
 	    {h2, [{class, "indextitle"}], ["Modules"]},
 	    ?NL,
@@ -258,7 +259,7 @@ modules_frame(Dir, Ms, Title, CSS) ->
 	     lists:append(
 	       [[?NL,
 		 {tr, [{td, [],
-			[{a, [{href, module_ref(M)},
+			[{a, [{href, module_ref(M, Suffix)},
 			      {target, "overviewFrame"},
 			      {class, "module"}],
 			  [atom_to_list(M)]}]}]}]
@@ -268,8 +269,8 @@ modules_frame(Dir, Ms, Title, CSS) ->
     Text = xmerl:export_simple([XML], xmerl_html, []),
     edoc_lib:write_file(Text, Dir, ?MODULES_FRAME).
 
-module_ref(M) ->
-    atom_to_list(M) ++ ?DEFAULT_FILE_SUFFIX.
+module_ref(M, Suffix) ->
+    atom_to_list(M) ++ Suffix.
 
 xhtml(Title, CSS, Content) ->
     xhtml_1(Title, CSS, {body, [{bgcolor, "white"}], Content}).
@@ -438,7 +439,7 @@ app_index_file(Paths, Dir, Env, Options) ->
     Apps1 = [{filename:dirname(A),filename:basename(A)} || A <- Paths],
     index_file(Dir, Title),
     application_frame(Dir, Apps1, Title, CSS),
-    modules_frame(Dir, [], Title, CSS),
+    modules_frame(Dir, [], Title, CSS, Options),
     overview(Dir, Title, Env, Options),
 %    edoc_lib:write_info_file(Prod, [], Modules1, Dir),
     copy_stylesheet(Dir, Options).
