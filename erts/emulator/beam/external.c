@@ -3839,7 +3839,7 @@ hopefull_bit_binary(TTBEncodeContext* ctx, byte **epp, Binary *pb_val, Eterm pb_
 
     /* copy trailing bits into new hopefull data element */
     ep = begin_hopefull_data(ctx, ep);
-    *ep = 0;
+    *ep = 0; /* Clear the bit in the byte */
 
     copy_binary_to_buffer(ep, 0, bytes + sz, bitoffs, bitsize);
     ep++;
@@ -5242,10 +5242,13 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                            + bin_size);
             }
             else if (dflags & DFLAG_PENDING_CONNECT) {
+                /* This is the odd case when we have an un-aligned bit-string
+                   during a pending connect. */
                 Uint csz = result - ctx->last_result;
                 ASSERT(dflags & DFLAG_BIT_BINARIES);
                 /* potentially multiple elements leading up to binary */
-                vlen += csz/MAX_SYSIOVEC_IOVLEN;
+                vlen += (csz + MAX_SYSIOVEC_IOVLEN - 1)/MAX_SYSIOVEC_IOVLEN;
+
                 vlen++; /* hopefull prolog */
                 /*
                  * Size for hopefull prolog is max of
