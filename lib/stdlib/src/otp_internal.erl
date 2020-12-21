@@ -161,10 +161,6 @@ obsolete(snmpm, sync_set, 5) ->
     {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_set, 6) ->
     {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
-obsolete(ssl, cipher_suites, 0) ->
-    {removed, "use cipher_suites/2,3 instead"};
-obsolete(ssl, cipher_suites, 1) ->
-    {removed, "use cipher_suites/2,3 instead"};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->
@@ -293,14 +289,16 @@ obsolete(rpc, safe_multi_server_call, 2) ->
     {removed, "use rpc:multi_server_call/2 instead"};
 obsolete(rpc, safe_multi_server_call, 3) ->
     {removed, "use rpc:multi_server_call/3 instead"};
+obsolete(ssl, cipher_suites, 0) ->
+    {removed, "use cipher_suites/2,3 instead"};
+obsolete(ssl, cipher_suites, 1) ->
+    {removed, "use cipher_suites/2,3 instead"};
 obsolete(ssl, connection_info, 1) ->
     {removed, "use ssl:connection_information/[1,2] instead"};
 obsolete(ssl, negotiated_next_protocol, 1) ->
     {removed, "use ssl:negotiated_protocol/1 instead"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
-obsolete(ssl, ssl_accept, _) ->
-    {removed, "use ssl_handshake/1,2,3 instead"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->
@@ -315,6 +313,8 @@ obsolete(erl_scan, token_info, _) ->
     {removed, "use erl_scan:{category,column,line,location,symbol,text}/1 instead"};
 obsolete(filename, find_src, _) ->
     {removed, "use filelib:find_source/1,3 instead"};
+obsolete(ssl, ssl_accept, _) ->
+    {removed, "use ssl_handshake/1,2,3 instead"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(igor, _, _) ->
