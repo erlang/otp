@@ -349,7 +349,7 @@ do_init_per_group(dhe_rsa = GroupName, Config) ->
     end;
 do_init_per_group(rsa = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
-    case lists:member(rsa, PKAlg) of
+    case lists:member(rsa, PKAlg) andalso ssl_test_lib:openssl_support_rsa_kex() of
         true ->
             init_certs(GroupName, Config);
         false ->

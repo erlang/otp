@@ -132,7 +132,8 @@
          reuse_session/3,
          test_ciphers/3,
          test_cipher/2,
-         openssl_ciphers/0
+         openssl_ciphers/0,
+         openssl_support_rsa_kex/0
         ]).
 
 -export([tls_version/1,
@@ -320,7 +321,21 @@ openssl_ocsp_support() ->
 
 openssl_ciphers() ->
     Str = portable_cmd("openssl", ["ciphers"]),
-    string:split(string:strip(Str, right, $\n), ":", all).
+    Ciphers = string:split(string:strip(Str, right, $\n), ":", all),
+    case portable_cmd("openssl", ["version"]) of
+	"LibreSSL 3." ++ _ ->
+            Ciphers -- ["DES-CBC3-SHA","AES128-SHA", "AES256-SHA", "RC4-SHA", "RC4-MD5"];
+        _ ->
+            Ciphers
+    end.  
+
+openssl_support_rsa_kex() ->
+    case portable_cmd("openssl", ["version"]) of
+        "OpenSSL 1.1.1" ++ _Rest ->
+            false;
+        _ ->
+            true
+    end.
 
 %%====================================================================
 %% Internal functions
