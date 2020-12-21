@@ -1696,7 +1696,7 @@ alert_user(Pids, Transport, Trackers, Socket, From, Alert, Role, StateName, Conn
     alert_user(Pids, Transport, Trackers, Socket, false, no_pid, From, Alert, Role, StateName, Connection).
 
 alert_user(_, _, _, _, false = Active, Pid, From,  Alert, Role, StateName, Connection) when From =/= undefined ->
-    %% If there is an outstanding ssl_accept | recv
+    %% If there is an outstanding handshake | recv
     %% From will be defined and send_or_reply will
     %% send the appropriate error message.
     ReasonCode = ssl_alert:reason_code(Alert, Role, Connection:protocol_name(), StateName),

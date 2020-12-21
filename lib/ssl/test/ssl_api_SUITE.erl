@@ -1270,7 +1270,7 @@ recv_active_n(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
 recv_timeout() ->
-    [{doc,"Test ssl:ssl_accept timeout"}].
+    [{doc,"Test ssl:recv timeout"}].
 
 recv_timeout(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
@@ -1868,7 +1868,7 @@ new_options_in_handshake(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{ssl_extra_opts, [{versions, [Version]},
-							  {ciphers,[Cipher]}]}, %% To be set in ssl_accept/3
+							  {ciphers,[Cipher]}]}, %% To be set in handshake/3
 					{mfa, {?MODULE, connection_info_result, []}},
 					{options, ServerOpts}]),
     
@@ -2552,9 +2552,9 @@ prf_create_plan(TlsVersions, PRFs, Results) ->
 
 prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
     case TlsVer of
-        TlsVer when TlsVer == sslv3 orelse TlsVer == tlsv1
+        TlsVer when TlsVer == tlsv1
                     orelse TlsVer == 'tlsv1.1' orelse TlsVer == 'dtlsv1' ->
-            Ciphers = ssl:cipher_suites(),
+            Ciphers = ssl:cipher_suites(default, TlsVer),
             {_, Expected} = lists:keyfind(md5sha, 1, Results),
             [[{tls_ver, TlsVer}, {ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
         TlsVer when  TlsVer == 'tlsv1.2' orelse  TlsVer == 'dtlsv1.2'->
@@ -2573,7 +2573,7 @@ prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
               end, [], PRFs)
     end.
 
-prf_get_ciphers(_, PRF) ->
+prf_get_ciphers(TlsVer, PRF) ->
     lists:filter(
       fun(C) when tuple_size(C) == 4 andalso
                   element(4, C) == PRF -> 
@@ -2581,7 +2581,7 @@ prf_get_ciphers(_, PRF) ->
          (_) -> 
               false
       end, 
-      ssl:cipher_suites()).
+      ssl:cipher_suites(default, TlsVer)).
 
 prf_run_test(_, TlsVer, [], _, Prf) ->
     ct:fail({error, cipher_list_empty, TlsVer, Prf});

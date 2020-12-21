@@ -201,7 +201,7 @@ tls_upgrade(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
 tls_upgrade_with_timeout() ->
-    [{doc,"Test ssl_accept/3"}].
+    [{doc,"Test handshake/3"}].
 
 tls_upgrade_with_timeout(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
@@ -360,7 +360,7 @@ tls_client_closes_socket(Config) when is_list(Config) ->
     Connect = fun() ->
 		      {ok, _Socket} = rpc:call(ClientNode, gen_tcp, connect, 
 					      [Hostname, Port, [binary]]),	      
-		      %% Make sure that ssl_accept is called before 
+		      %% Make sure that handshake is called before 
 		      %% client process ends and closes socket.
 		      ct:sleep(?SLEEP)
 	      end,

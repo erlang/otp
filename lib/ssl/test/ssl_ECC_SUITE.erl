@@ -141,7 +141,8 @@ end_per_group(GroupName, Config) ->
 
 init_per_testcase(TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
+    Version = proplists:get_value(version, Config),
+    ct:log("Ciphers: ~p~n ", [ssl:cipher_suites(default, Version)]),
     end_per_testcase(TestCase, Config),
     ssl:start(),
     ct:timetrap({seconds, 15}),

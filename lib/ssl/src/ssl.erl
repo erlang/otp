@@ -58,9 +58,6 @@
          handshake_continue/2,
          handshake_continue/3, 
          handshake_cancel/1,
-         ssl_accept/1, 
-         ssl_accept/2, 
-         ssl_accept/3,
 	 controlling_process/2, 
          peername/1, 
          peercert/1, 
@@ -78,9 +75,7 @@
 	]).
 
 %% SSL/TLS protocol handling
--export([cipher_suites/0, 
-         cipher_suites/1, 
-         cipher_suites/2, 
+-export([cipher_suites/2, 
          cipher_suites/3,
          filter_cipher_suites/2,
          prepend_cipher_suites/2, 
@@ -105,11 +100,12 @@
          suite_to_openssl_str/1,
          str_to_suite/1]).
 
--deprecated({ssl_accept, '_', "use ssl_handshake/1,2,3 instead"}).
-
--deprecated({cipher_suites, 0, "use cipher_suites/2,3 instead"}).
--deprecated({cipher_suites, 1, "use cipher_suites/2,3 instead"}).
-
+-removed({ssl_accept, '_', 
+          "use ssl_handshake/1,2,3 instead"}).
+-removed({cipher_suites, 0, 
+          "use cipher_suites/2,3 instead"}).
+-removed({cipher_suites, 1, 
+          "use cipher_suites/2,3 instead"}).
 -removed([{negotiated_next_protocol,1,
           "use ssl:negotiated_protocol/1 instead"}]).
 -removed([{connection_info,1,
@@ -665,50 +661,6 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake.
 %%--------------------------------------------------------------------
--spec ssl_accept(SslSocket) ->
-                        ok |
-                        {error, Reason} when
-      SslSocket :: sslsocket(),
-      Reason :: closed | timeout | error_alert().
-
-ssl_accept(ListenSocket) ->
-    ssl_accept(ListenSocket, [], infinity).
-
--spec ssl_accept(Socket, TimeoutOrOptions) ->
-			ok |
-                        {ok, sslsocket()} | {error, Reason} when
-      Socket :: sslsocket() | socket(),
-      TimeoutOrOptions :: timeout() | [tls_server_option()],
-      Reason :: timeout | closed | {options, any()} | error_alert().
-
-ssl_accept(Socket, Timeout)  when  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
-    ssl_accept(Socket, [], Timeout);
-ssl_accept(ListenSocket, SslOptions) when is_port(ListenSocket) ->
-    ssl_accept(ListenSocket, SslOptions, infinity);
-ssl_accept(Socket, Timeout) ->
-    ssl_accept(Socket, [], Timeout).
-
--spec ssl_accept(Socket, Options, Timeout) ->
-			ok | {ok, sslsocket()} | {error, Reason} when
-      Socket :: sslsocket() | socket(),
-      Options :: [tls_server_option()],
-      Timeout :: timeout(),
-      Reason :: timeout | closed | {options, any()} | error_alert().
-
-ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
-    handshake(Socket, SslOptions, Timeout);
-ssl_accept(Socket, SslOptions, Timeout) ->
-     case handshake(Socket, SslOptions, Timeout) of
-        {ok, _} ->
-            ok;
-        Error ->
-            Error
-     end.
-%%--------------------------------------------------------------------
-%%
-%% Description: Performs accept on an ssl listen socket. e.i. performs
-%%              ssl handshake.
-%%--------------------------------------------------------------------
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
 -spec handshake(HsSocket) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
@@ -1035,27 +987,6 @@ peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
 %%--------------------------------------------------------------------
 negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_gen_statem:negotiated_protocol(Pid).
-
-%%--------------------------------------------------------------------
--spec cipher_suites() -> [old_cipher_suite()] | [string()].
-%%--------------------------------------------------------------------
-cipher_suites() ->
-    cipher_suites(erlang).
-%%--------------------------------------------------------------------
--spec cipher_suites(Type) -> [old_cipher_suite() | string()] when
-      Type :: erlang | openssl | all.
-
-%% Description: Returns all supported cipher suites.
-%%--------------------------------------------------------------------
-cipher_suites(erlang) ->
-    [ssl_cipher_format:suite_legacy(Suite) || Suite <- available_suites(default)];
-
-cipher_suites(openssl) ->
-    [ssl_cipher_format:suite_map_to_openssl_str(ssl_cipher_format:suite_bin_to_map(Suite)) ||
-        Suite <- available_suites(default)];
-
-cipher_suites(all) ->
-    [ssl_cipher_format:suite_legacy(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
 -spec cipher_suites(Description, Version) -> ciphers() when
@@ -1554,15 +1485,6 @@ str_to_suite(CipherSuiteName) ->
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
-  
-%% Possible filters out suites not supported by crypto 
-available_suites(default) ->  
-    Version = tls_record:highest_protocol_version([]),			  
-    ssl_cipher:filter_suites(ssl_cipher:suites(Version));
-available_suites(all) ->  
-    Version = tls_record:highest_protocol_version([]),			  
-    ssl_cipher:filter_suites(ssl_cipher:all_suites(Version)).
-
 supported_suites(exclusive, {3,Minor}) ->
     tls_v1:exclusive_suites(Minor);
 supported_suites(default, Version) ->  

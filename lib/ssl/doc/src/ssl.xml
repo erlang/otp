@@ -1387,16 +1387,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       extract the Deferred cipher list.</p> 
       </desc>
     </func>
-    
-    <func>
-      <name name="cipher_suites" arity="0" since="OTP R14B"/>
-      <name name="cipher_suites" arity="1" since="OTP R14B"/>
-      <fsummary>Returns a list of supported cipher suites.</fsummary>
-      <desc>
-	<p>Deprecated in OTP 21, use <seemfa marker="#cipher_suites/2">cipher_suites/2</seemfa> instead.</p>
-      </desc>
-    </func>
-    
+      
    <func>
       <name name="cipher_suites" arity="2" since="OTP 20.3"/>
       <fsummary>Returns a list of cipher suites.</fsummary>
@@ -1844,25 +1835,6 @@ fun(srp, Username :: binary(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="" name="ssl_accept" arity="1" />
-      <name since="" name="ssl_accept" arity="2" />
-      <fsummary>Performs server-side TLS handshake.</fsummary>
-      <desc>
-	<p>Deprecated in OTP 21, use <seemfa marker="#handshake/1">handshake/[1,2]</seemfa> instead.</p>
-	<note><p>handshake/[1,2] always returns a new socket.</p></note>
-      </desc>
-    </func>
-
-    <func>
-      <name since="OTP R14B" name="ssl_accept" arity="3" />
-      <fsummary>Performs server-side TLS/DTLS handshake.</fsummary>
-      <desc>
-	<p>Deprecated in OTP 21, use  <seemfa marker="#handshake/3">handshake/[2,3]</seemfa> instead.</p>
-	<note><p>handshake/[2,3] always returns a new socket.</p></note>
-      </desc>
-    </func>
-    
-    <func>
       <name since="" name="sockname" arity="1" />
       <fsummary>Returns the local address and port.</fsummary>
       <desc>
@@ -1925,7 +1897,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <name since="" name="transport_accept" arity="1" />
       <name since="" name="transport_accept" arity="2" />
       <fsummary>Accepts an incoming connection and
-	prepares for <c>ssl_accept</c>.</fsummary>
+      prepares for <c>handshake</c> </fsummary>
       <desc>
         <p>Accepts an incoming connection request on a listen socket.
 	<c>ListenSocket</c> must be a socket returned from
@@ -1966,9 +1938,11 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  <item>TLS versions supported with current application environment
 	  and crypto library configuration.
 	  Overridden by a version option on
+	  
 	  <seemfa marker="#connect/2"> connect/[2,3,4]</seemfa>,
 	  <seemfa marker="#listen/2"> listen/2</seemfa>, and <seemfa
-	  marker="#ssl_accept/2">ssl_accept/[1,2,3]</seemfa>.
+	  marker="#handshake/2">handshake/[2,3]</seemfa>.
+	  
 	  For the negotiated TLS version, see <seemfa
 	  marker="#connection_information/1">connection_information/1
 	  </seemfa>.</item>
@@ -1977,9 +1951,11 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  <item>DTLS versions supported with current application environment
 	  and crypto library configuration.
 	  Overridden by a version option on
+
 	  <seemfa marker="#connect/2"> connect/[2,3,4]</seemfa>,
 	  <seemfa marker="#listen/2"> listen/2</seemfa>, and <seemfa
-	  marker="#ssl_accept/2">ssl_accept/[1,2,3]</seemfa>.
+	  marker="#handshake/2">handshake/[2,3]</seemfa>.
+	  
 	  For the negotiated DTLS version, see <seemfa
 	  marker="#connection_information/1">connection_information/1
 	  </seemfa>.</item>

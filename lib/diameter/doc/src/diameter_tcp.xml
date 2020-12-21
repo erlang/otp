@@ -11,8 +11,8 @@
   '<seemfa marker="ssl:ssl#connect/2">ssl:connect/2</seemfa>'>
   <!ENTITY ssl_connect3
   '<seemfa marker="ssl:ssl#connect/3">ssl:connect/3</seemfa>'>
-  <!ENTITY ssl_accept2
-  '<seemfa marker="ssl:ssl#ssl_accept/2">ssl:ssl_accept/2</seemfa>'>
+  <!ENTITY ssl_handshake2
+  '<seemfa marker="ssl:ssl#handshake/2">ssl:handshake/2</seemfa>'>
   <!ENTITY ssl_listen2
   '<seemfa marker="ssl:ssl#listen/2">ssl:listen/2</seemfa>'>
   <!ENTITY gen_tcp '<seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>'>
@@ -131,7 +131,7 @@ Option <c>ssl_options</c> must be specified for a transport
 that should support TLS: a value of <c>true</c> results in a
 TLS handshake immediately upon connection establishment while
 <c>list()</c> specifies options to be passed to &ssl_connect2; or
-&ssl_accept2;
+&ssl_handshake2;
 after capabilities exchange if TLS is negotiated.</p>
 
 <p>
