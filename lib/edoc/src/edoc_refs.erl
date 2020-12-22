@@ -36,12 +36,21 @@
 	 function/2, function/3, function/4, type/1, type/2, type/3,
 	 to_string/1, to_label/1, get_uri/2, is_top/2]).
 
+-export_type([t/0]).
+
 -import(edoc_lib, [join_uri/2, escape_uri/1]).
 
 -include("edoc.hrl").
 
 -define(INDEX_FILE, "index.html").
 
+-type t() :: {app, atom()}
+	   | {app, atom(), t()}
+	   | {module, atom()}
+	   | {module, atom(), t()}
+	   | {function, atom(), arity()}
+	   | {type, atom()}
+	   | {type, atom(), arity()}.
 
 %% Creating references:
 

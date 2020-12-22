@@ -32,11 +32,6 @@
 
 -export([expand_tags/3, std_macros/1, check_defs/1]).
 
-%% Avoid warning for imported function 3 clashing with autoimported BIF.
--compile({no_auto_import,[error/3]}).
-
--import(edoc_report, [report/2, error/3, warning/4]).
-
 -include("edoc.hrl").
 -include("edoc_types.hrl").
 
@@ -62,7 +57,7 @@ std_macros(Env) ->
 check_defs([{K, D} | Ds]) when is_atom(K), is_list(D) ->
     check_defs(Ds);
 check_defs([X | _Ds]) ->
-    report("bad macro definition: ~P.", [X, 10]),
+    edoc_report:report("bad macro definition: ~P.", [X, 10]),
     exit(error);
 check_defs([]) ->
     ok.
@@ -72,7 +67,7 @@ check_defs([]) ->
 %% together with the file name etc. The expanded text must be flat!
 
 date_macro(_S, _Line, _Env) ->
-    edoc_lib:datestr(date()).    
+    edoc_lib:datestr(date()).
 
 time_macro(_S, _Line, _Env) ->
     edoc_lib:timestr(time()).
@@ -130,7 +125,7 @@ expand_tag(Cs, L, Defs, Env, Where) ->
  	{'EXIT', R} ->
 	    exit(R);
 	{error, L1, Error} ->
-	    error(L1, Where, Error),
+	    edoc_report:error(L1, Where, Error),
 	    exit(error);
 	Other ->
 	    throw(Other)
@@ -205,8 +200,8 @@ expand_macro_def(M, Arg, L, Defs, St, As) ->
 			  end,
 		    expand(Txt, L, Defs1, St1, As);
 		error ->
-		    warning(L, St1#state.where,
-			    "undefined macro {@~s}.", [M]),
+		    edoc_report:warning(L, St1#state.where,
+					"undefined macro {@~s}.", [M]),
 		    "??"
 	    end
     end.

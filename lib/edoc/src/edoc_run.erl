@@ -28,10 +28,12 @@
 %% @doc Interface for calling EDoc from Erlang startup options.
 %%
 %% The following is an example of typical usage in a Makefile:
+%%
 %% ```docs:
 %%            erl -noshell -run edoc_run application "'$(APP_NAME)'" \
 %%              '"."' '[{def,{vsn,"$(VSN)"}}]'
 %% '''
+%%
 %% (note the single-quotes to avoid shell expansion, and the
 %% double-quotes enclosing the strings).
 %%
@@ -51,15 +53,11 @@
 
 -type args() :: [string()].
 
-
-%% @spec application([string()]) -> none()
-%%
 %% @doc Calls {@link edoc:application/3} with the corresponding
 %% arguments. The strings in the list are parsed as Erlang constant
-%% terms. The list can be either `[App]', `[App, Options]' or `[App,
-%% Dir, Options]'. In the first case {@link edoc:application/1} is
-%% called instead; in the second case, {@link edoc:application/2} is
-%% called.
+%% terms. The list can be either `[App]', `[App, Options]'
+%% or `[App, Dir, Options]'. In the first case {@link edoc:application/1} is
+%% called instead; in the second case, {@link edoc:application/2} is called.
 %%
 %% The function call never returns; instead, the emulator is
 %% automatically terminated when the call has completed, signalling
@@ -78,8 +76,6 @@ application(Args) ->
 	end,
     run(F).
 
-%% @spec files([string()]) -> none()
-%%
 %% @doc Calls {@link edoc:files/2} with the corresponding arguments. The
 %% strings in the list are parsed as Erlang constant terms. The list can
 %% be either `[Files]' or `[Files, Options]'. In the first case, {@link
@@ -101,7 +97,7 @@ files(Args) ->
 	end,
     run(F).
 
-%% @hidden   Not official yet
+%% @hidden Not official yet
 -spec toc(args()) -> no_return().
 toc(Args) ->
     F = fun () ->
@@ -115,8 +111,6 @@ toc(Args) ->
     run(F).
 
 
-%% @spec file([string()]) -> none()
-%%
 %% @deprecated This is part of the old interface to EDoc and is mainly
 %% kept for backwards compatibility. The preferred way of generating
 %% documentation is through one of the functions {@link application/1}

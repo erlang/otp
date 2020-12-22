@@ -427,7 +427,7 @@ work off-line, so this script may fail to find a link. Javascripts
 and other extensions also makes it very hard. But for many sites
 it work very well.
 
-The base directory has to given has to start with a slash.
+The base directory given has to start with a slash.
 
 For URLs and ExcludeURLs absolute paths or relative the base
 directory can be used.

@@ -44,28 +44,13 @@
 
 -include("edoc_doclet.hrl").
 
-%% Module information
-
-%% @type module() = #module{name = [] | atom(),
-%%                          parameters = none | [atom()],
-%%                          functions = ordset(function_name()),
-%%                          exports = ordset(function_name()),
-%%                          attributes = ordset({atom(), term()}),
-%%                          records = [{atom(), [{atom(), term()}]}],
-%%                          encoding = epp:source_encoding()}
-%%  ordset(T) = sets:ordset(T)
-%%  function_name(T) = {atom(), integer()}
-
 -record(module, {name = [],
 		 parameters = none,
 		 functions = [],
 		 exports = [],
 		 attributes = [],
 		 records = [],
-		 encoding = latin1
-		}).
-
-%% Environment for generating documentation data
+		 encoding = latin1}).
 
 -record(env, {module = [],
 	      root = "",
@@ -74,32 +59,10 @@
 	      modules,
 	      app_default,
 	      macros = [],
-	      includes = []
-	     }).
-
-%% Simplified comment data
-
-%% @type comment() = #comment{line = integer(),
-%%                            text = string()}
+	      includes = []}).
 
 -record(comment, {line = 0, text}).
 
-%% Module Entries (one per function, plus module header and footer)
-
-%% @type entry() = #entry{{atom(), integer()}  % function
-%%                          | name = atom(),   % other
-%%                        args = [atom()],
-%%                        line = integer(),
-%%                        export = boolean(),
-%%                        data = term()}
-
 -record(entry, {name, args = [], line = 0, export, data}).
-
-%% Generic tag information
-
-%% @type tag() = #tag{name = atom(),
-%%                    line = integer(),
-%%                    origin = comment | code,
-%%                    data = term()}
 
 -record(tag, {name, line = 0, origin = comment, data}).

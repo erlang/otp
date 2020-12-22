@@ -55,12 +55,32 @@
 
 -include_lib("xmerl/include/xmerl.hrl").
 
-%% Sources is the list of inputs in the order they were found.
-%% Modules are sorted lists of atoms without duplicates. (They
-%% usually include the data from the edoc-info file in the target
-%% directory, if it exists.)
+-export_type([command/0,
+	      context/0,
+	      doclet_gen/0,
+	      doclet_toc/0]).
 
-%% @spec (Command::doclet_gen() | doclet_toc(), edoc_context()) -> ok
+-type command() :: doclet_gen()
+		 | doclet_toc().
+%% Doclet commands.
+
+-type context() :: #doclet_context{dir :: string(),
+				   env :: edoc:env(),
+				   opts :: [term()]}.
+%% Context for doclets.
+
+-type doclet_gen() :: #doclet_gen{sources :: [string()],
+				  app :: no_app | atom(),
+				  modules :: [module()]}.
+%% Doclet command.
+
+-type doclet_toc() :: #doclet_toc{paths :: [string()],
+				  indir :: string()}.
+%% Doclet command.
+
+-callback run(command(), context()) -> ok.
+%% Doclet entrypoint.
+
 %% @doc Main doclet entry point. See the file <a
 %% href="edoc_doclet.hrl">`edoc_doclet.hrl'</a> for the data
 %% structures used for passing parameters.
@@ -116,6 +136,7 @@
 %% INHERIT-OPTIONS: copy_stylesheet/2
 %% INHERIT-OPTIONS: stylesheet/1
 
+-spec run(edoc_doclet:command(), edoc_doclet:context()) -> ok.
 run(#doclet_gen{}=Cmd, Ctxt) ->
     gen(Cmd#doclet_gen.sources,
 	Cmd#doclet_gen.app,
@@ -124,10 +145,14 @@ run(#doclet_gen{}=Cmd, Ctxt) ->
 run(#doclet_toc{}=Cmd, Ctxt) ->
     toc(Cmd#doclet_toc.paths, Ctxt).
 
+%% @doc `Sources' is the list of inputs in the order they were found.
+%% Modules are sorted lists of atoms without duplicates. (They
+%% usually include the data from the edoc-info file in the target
+%% directory, if it exists.)
 gen(Sources, App, Modules, Ctxt) ->
-    Dir = Ctxt#context.dir,
-    Env = Ctxt#context.env,
-    Options = Ctxt#context.opts,
+    Dir = Ctxt#doclet_context.dir,
+    Env = Ctxt#doclet_context.env,
+    Options = Ctxt#doclet_context.opts,
     Title = title(App, Options),
     CSS = stylesheet(Options),
     {Modules1, Error} = sources(Sources, Dir, Modules, Env, Options),
@@ -149,7 +174,7 @@ gen(Sources, App, Modules, Ctxt) ->
 
 title(App, Options) ->
     proplists:get_value(title, Options,
-			if App == ?NO_APP ->
+			if App == no_app ->
 				"Overview";
 			   true ->
 				io_lib:fwrite("Application: ~ts", [App])
@@ -422,9 +447,9 @@ read_file(File, Context, Env, Opts) ->
 -define(CURRENT_DIR, ".").
 
 toc(Paths, Ctxt) ->
-    Opts = Ctxt#context.opts,
-    Dir = Ctxt#context.dir,
-    Env = Ctxt#context.env,
+    Opts = Ctxt#doclet_context.opts,
+    Dir = Ctxt#doclet_context.dir,
+    Env = Ctxt#doclet_context.env,
     app_index_file(Paths, Dir, Env, Opts).
 
 %% TODO: FIXME: it's unclear how much of this is working at all
