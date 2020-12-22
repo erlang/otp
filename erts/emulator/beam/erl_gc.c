@@ -679,10 +679,10 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ErtsMonotonicTime start_time;
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
     erts_aint32_t state;
-    ERTS_MSACC_PUSH_STATE();
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
+    ERTS_MSACC_PUSH_STATE();
 
     ERTS_UNDEF(start_time, 0);
     ERTS_CHK_MBUF_SZ(p);
@@ -1681,15 +1681,6 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     sys_memcpy(n_heap + new_sz - n, p->stop, n * sizeof(Eterm));
     p->stop = n_heap + new_sz - n;
 
-#ifdef USE_VM_PROBES
-    if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
-        DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
-
-        dtrace_proc_str(p, pidbuf);
-        DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
-    }
-#endif
-
 #ifdef HARDDEBUG
     disallow_heap_frag_ref_in_heap(p, n_heap, n_htop);
 #endif
@@ -1698,8 +1689,19 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
-    HEAP_SIZE(p) = new_sz;
     HEAP_END(p) = n_heap + new_sz;
+
+#ifdef USE_VM_PROBES
+    if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
+        DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
+        Uint old_sz = HEAP_SIZE(p);
+
+        HEAP_SIZE(p) = new_sz;
+        dtrace_proc_str(p, pidbuf);
+        DTRACE3(process_heap_grow, pidbuf, old_sz, new_sz);
+    }
+#endif
+    HEAP_SIZE(p) = new_sz;
 }
 
 /*
@@ -1772,15 +1774,6 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     sys_memcpy(n_heap + new_sz - stk_sz, p->stop, stk_sz * sizeof(Eterm));
     p->stop = n_heap + new_sz - stk_sz;
 
-#ifdef USE_VM_PROBES
-    if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
-        DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
-
-        dtrace_proc_str(p, pidbuf);
-        DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
-    }
-#endif
-
 #ifdef HARDDEBUG
     disallow_heap_frag_ref_in_heap(p, n_heap, n_htop);
 #endif
@@ -1789,8 +1782,24 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
-    HEAP_SIZE(p) = new_sz;
     HEAP_END(p) = n_heap + new_sz;
+
+#ifdef USE_VM_PROBES
+    /* Fire process_heap_grow tracepoint after all heap references have
+     * been updated. This allows to walk the stack. */
+    if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
+        DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
+        Uint old_sz = HEAP_SIZE(p);
+
+        /* Update the heap size before firing tracepoint */
+        HEAP_SIZE(p) = new_sz;
+
+        dtrace_proc_str(p, pidbuf);
+        DTRACE3(process_heap_grow, pidbuf, old_sz, new_sz);
+    }
+#endif
+    HEAP_SIZE(p) = new_sz;
+
     GEN_GCS(p) = 0;
 
     HIGH_WATER(p) = HEAP_TOP(p);
