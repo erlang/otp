@@ -3007,6 +3007,8 @@ collect_accepts(N,Tmo) ->
             ?SKIPT(accept_failed_str(Reason));
 
         {accepted,P,Msg} ->
+            ?P("received accepted from ~p: "
+               "~n      ~p", [P, Msg]),
             NextN = if N =:= infinity -> N; true -> N - 1 end,
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
 
@@ -3032,6 +3034,8 @@ collect_connects(Tmo) ->
             ?SKIPT(connect_failed_str(Reason));
 
 	{connected,P,Msg} ->
+            ?P("received connected from ~p: "
+               "~n      ~p", [P, Msg]),
 	    [{P,Msg}] ++ collect_connects(Tmo-(millis() - A))
 
     after Tmo ->
@@ -3469,13 +3473,11 @@ do_killing_multi_acceptors2(Config) ->
 %% Checks that multi-accept works when more than one accept can be
 %% done at once (wb test of inet_driver).
 several_accepts_in_one_go(Config) when is_list(Config) ->
-    try do_several_accepts_in_one_go(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(several_accepts_in_one_go,
+            fun() -> do_several_accepts_in_one_go(Config) end).
 
 do_several_accepts_in_one_go(Config) ->
+    ?P("create listen socket"),
     LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSock} ->
                  LSock;
@@ -3483,15 +3485,25 @@ do_several_accepts_in_one_go(Config) ->
                  ?SKIPT(listen_failed_str(Reason))
          end,
     Parent = self(),
-    {ok,PortNo}=inet:port(LS),
-    F1 = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
-    F2 = fun() -> Parent ! {connected,self(),?CONNECT(Config, "localhost",PortNo,[])} end,
+    {ok, PortNo} = inet:port(LS),
+    F1 = fun() -> ?P("acceptor starting"),
+                  Parent ! {accepted,self(),gen_tcp:accept(LS)}
+         end,
+    F2 = fun() -> ?P("connector starting"),
+                  Parent ! {connected,self(),?CONNECT(Config, "localhost",PortNo,[])}
+         end,
     Ns = lists:seq(1,8),
+    ?P("start acceptors"),
     _  = [spawn(F1) || _ <- Ns],
+    ?P("await accept timeouts"),
     ok = ?EXPECT_ACCEPTS([],1,500), % wait for tmo
+    ?P("start connectors"),
     _  = [spawn(F2) || _ <- Ns],
+    ?P("await accepts"),
     ok = ?EXPECT_ACCEPTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],8,15000),
+    ?P("await connects"),
     ok = ?EXPECT_CONNECTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],1000),
+    ?P("done"),
     ok.
 
 flush(Msgs) ->
