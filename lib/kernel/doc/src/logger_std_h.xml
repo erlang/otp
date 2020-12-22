@@ -119,7 +119,7 @@
 	  the current log file. <c>FileName.0</c> is the newest of the
 	  archives. The maximum value for <c>N</c> is the value
 	  of <c>max_no_files</c> minus 1.</p>
-	<p>Notice that setting this value to <c>0</c> does not turn of
+	<p>Notice that setting this value to <c>0</c> does not turn off
 	  rotation. It only specifies that no archives are kept.</p>
 	<p>Defaults to <c>0</c>.</p>
       </item>
