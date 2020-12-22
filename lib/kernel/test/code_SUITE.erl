@@ -1410,6 +1410,9 @@ filter_app("os_mon",true) -> false;
 %% erts is not a "real" app either =/
 filter_app("erts",_) -> false;
 
+%% wx* depends on that wxwidgets libs
+filter_app("wx"++_,_) -> false;
+
 %% Other apps should be OK.
 filter_app(_,_) -> true.
 

@@ -1,60 +1,66 @@
 
-case 100: { // wxEvtHandler::Connect
-  wxEvtHandler *This = (wxEvtHandler *) getPtr(bp, memenv); bp += 4;
-  int * winid  = (int *) bp; bp += 4;
-  int * lastId = (int *) bp; bp += 4;
-  int * skip   = (int *) bp; bp += 4;
-  int * haveUserData = (int *) bp; bp += 4;
-  wxeErlTerm * userData = NULL;
-  int * fun_cb = (int *) bp; bp += 4;
-  int * eventTypeLen = (int *) bp; bp += 4;
-  int * class_nameLen = (int *) bp; bp += 4;
+void wxEvtHandler_Connect(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  int winid;
+  int lastid;
+  int skip;
+  wxeErlTerm * userData;
+  int fun_cb;
+  wxEvtHandler *This = (wxEvtHandler *) memenv->getPtr(env, argv[0], "This");
+  if(!enif_get_int(env, argv[1], &winid)) Badarg("Winid");
+  if(!enif_get_int(env, argv[2], &lastid)) Badarg("LastId");
+  skip = enif_is_identical(argv[3], WXE_ATOM_true);
+  userData = new wxeErlTerm(argv[4]);
+  if(!enif_get_int(env, argv[5], &fun_cb)) Badarg("FunId");
+  if(!enif_is_atom(env, argv[6])) Badarg("EvType");
+  int eventType = wxeEventTypeFromAtom(argv[6]);
+  if(!enif_is_atom(env, argv[7])) Badarg("ClassName");
 
-  if(*haveUserData) {
-      userData = new wxeErlTerm(&Ecmd.bin[0]);
-  }
-
-  int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
-  char *class_name = bp; bp+= *class_nameLen;
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   if(eventType > 0 ) {
-    wxeEvtListener * Evt_cb = new wxeEvtListener(Ecmd.caller,getRef(This, memenv),
-                                                 class_name,*fun_cb,
-                                                 *skip, userData, Ecmd.port);
-    This->Connect((int) *winid,(int) *lastId,eventType,
+    wxeEvtListener * Evt_cb = new wxeEvtListener(Ecmd.caller,app->getRef(This, memenv),
+                                                 argv[7], fun_cb, skip, userData, memenv->me_ref);
+    This->Connect(winid, lastid, eventType,
 	          (wxObjectEventFunction)(wxEventFunction) &wxeEvtListener::forward,
 	          Evt_cb, Evt_cb);
-    rt.addAtom("ok");
-    rt.addRef(getRef((void *)Evt_cb,memenv), "wxeEvtListener");
-    rt.addTupleCount(2);
+    rt.send(enif_make_tuple2(rt.env, WXE_ATOM_ok,
+			     rt.make_ref(app->getRef((void *)Evt_cb,memenv),
+					 "wxeEvtListener")));
   } else {
-    rt.addAtom("badarg");
-    rt.addAtom("event_type");
-    rt.addTupleCount(2);
+    rt.send(enif_make_tuple2(rt.env, WXE_ATOM_badarg, rt.make_atom("event_type")));
   }
-  break;
 }
-case 101: { // wxEvtHandler::Disconnect
-  wxeEvtListener *Listener = (wxeEvtListener *) getPtr(bp,memenv); bp += 4;
-  wxEvtHandler *This = (wxEvtHandler *) getPtr(bp, memenv); bp += 4;
-  int * winid  = (int *) bp; bp += 4;
-  int * lastId = (int *) bp; bp += 4;
-  int * eventTypeLen = (int *) bp; bp += 4;
 
-  int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
+void wxEvtHandler_Disconnect_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  int winid;
+  int lastid;
+
+  wxeEvtListener *Listener = (wxeEvtListener *) memenv->getPtr(env, argv[0], "Listener");
+  wxEvtHandler *This = (wxEvtHandler *) memenv->getPtr(env, argv[1],"This");
+  if(!enif_get_int(env, argv[2], &winid)) Badarg("Winid");
+  if(!enif_get_int(env, argv[3], &lastid)) Badarg("LastId");
+  if(!enif_is_atom(env, argv[4])) Badarg("EvType");
+  int eventType = wxeEventTypeFromAtom(argv[4]);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+
   if(eventType > 0) {
-    if(recurse_level > 1) {
-      delayed_delete->Append(Ecmd.Save(op));
+    if(app->recurse_level > 1) {
+      Ecmd.op = 101;
+      app->delayed_delete->Append(&Ecmd);
     } else {
-     bool Result = This->Disconnect((int) *winid,(int) *lastId,eventType,
-                                    (wxObjectEventFunction)(wxEventFunction)
-                                    &wxeEvtListener::forward,
-                                    NULL, Listener);
-     rt.addBool(Result);
+      bool Result = This->Disconnect(winid,lastid,eventType,
+				     (wxObjectEventFunction)(wxEventFunction)
+				     &wxeEvtListener::forward,
+				     NULL, Listener);
+      rt.send(rt.make_bool(Result));
     }
   } else {
-    rt.addAtom("badarg");
-    rt.addAtom("event_type");
-    rt.addTupleCount(2);
+    rt.send(enif_make_tuple2(rt.env, WXE_ATOM_badarg, rt.make_atom("event_type")));
   }
-  break;
+
 }

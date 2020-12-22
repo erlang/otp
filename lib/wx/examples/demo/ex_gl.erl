@@ -35,7 +35,7 @@
 	  parent,
 	  config,
 	  gl,
-	  canvas,
+	  canvas, context,
 	  image, 
 	  timer,
 	  time
@@ -69,6 +69,7 @@ do_init(Config) ->
 			      ?WX_GL_MIN_BLUE,8,
 			      ?WX_GL_DEPTH_SIZE,24,0]}],
     Canvas = wxGLCanvas:new(Panel,Opts ++ GLAttrib),
+    Context = wxGLContext:new(Canvas),
     wxGLCanvas:connect(Canvas, size),
     wxGLCanvas:connect(Canvas, paint, [callback]),
 
@@ -80,26 +81,27 @@ do_init(Config) ->
     wxSizer:layout(Sizer),
     Timer = timer:send_interval(20, self(), update),
     {Panel, #state{parent = Panel, config = Config,
-		   canvas = Canvas, image=Image,
+		   canvas = Canvas, context = Context, image=Image,
 		   timer = Timer}}.
 
 %% Event handling
-handle_sync_event(_PaintEvent, _, #state{canvas=Canvas}) ->
+handle_sync_event(_PaintEvent, _, #state{canvas=Canvas, context=Context}) ->
     %% Sync events are called from a temporary process,
     %% we need to setup the gl canvas on cocoa for some reason
     %% We do not really have to do anything, the timer event will refresh the painting
-    wxGLCanvas:setCurrent(Canvas),
+    wxGLCanvas:setCurrent(Canvas, Context),
     DC= wxPaintDC:new(Canvas),
     wxPaintDC:destroy(DC),
     ok.
 
 handle_event(#wx{event = #wxSize{size = {W,H}}}, State = #state{gl=GL}) ->
     if 
+	W =:= 0, H =:= 0 ->
+            {noreply, State};
 	GL =:= undefined ->
-	    #state{canvas=Canvas, image=Image} = State,
-	    wxGLCanvas:setCurrent(Canvas),
+	    #state{canvas=Canvas, context=Context, image=Image} = State,
+	    wxGLCanvas:setCurrent(Canvas, Context),
 	    {noreply, State#state{gl=setup_gl(Canvas,Image)}};
-	W =:= 0, H =:= 0 -> {noreply, State};
 	true -> 
 	    gl:viewport(0,0,W,H),
 	    gl:matrixMode(?GL_PROJECTION),
@@ -131,10 +133,8 @@ handle_info(stop, State) ->
     catch wxGLCanvas:destroy(State#state.canvas),
     {stop, normal, State}.
 
-handle_call(shutdown, _From, State=#state{parent=Panel}) ->
-    catch wxGLCanvas:destroy(State#state.canvas),
+handle_call(shutdown, _From, State=#state{parent=_Panel}) ->
     timer:cancel(State#state.timer),
-    wxPanel:destroy(Panel),
     {stop, normal, ok, State};
 
 handle_call(Msg, _From, State) ->
@@ -148,7 +148,10 @@ handle_cast(Msg, State) ->
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
+    catch wxGLCanvas:destroy(State#state.canvas),
+    wxPanel:destroy(State#state.parent),
+    wxGLContext:destroy(State#state.context),
     ok.
 
 
@@ -163,12 +166,12 @@ terminate(_Reason, _State) ->
 
 -define(FACES, 
 	%% Faces    Normal     U-axis   V-axis 
-	[{{1,2,3,4},{0,0,-1},{-1,0,0}, {0,1,0}},  % 
-	 {{8,1,4,5},{-1,0,0},{0,0,1},  {0,1,0}},  %
-	 {{2,7,6,3},{1,0,0}, {0,0,-1}, {0,1,0}},  %
-	 {{7,8,5,6},{0,0,1}, {1,0,0},  {0,1,0}},  %
-	 {{4,3,6,5},{0,1,0}, {-1,0,0}, {0,0,1}},  %
-	 {{1,2,7,8},{0,-1,0},{1,0,0},  {0,0,1}}]).
+	[{{1,2,3,4},{0.0,0.0,-1.0},{-1,0,0}, {0,1,0}},  % 
+	 {{8,1,4,5},{-1.0,0.0,0.0},{0,0,1},  {0,1,0}},  %
+	 {{2,7,6,3},{1.0,0.0,0.0}, {0,0,-1}, {0,1,0}},  %
+	 {{7,8,5,6},{0.0,0.0,1.0}, {1,0,0},  {0,1,0}},  %
+	 {{4,3,6,5},{0.0,1.0,0.0}, {-1,0,0}, {0,0,1}},  %
+	 {{1,2,7,8},{0.0,-1.0,0.0},{1,0,0},  {0,0,1}}]).
 
 -define(COLORS,{{ 0.0,  0.0,  0.0},		
 		{ 1.0,  0.0,  0.0},
@@ -217,19 +220,19 @@ drawBox(#gl{win=Win,deg=Deg,data={Fs,Vs,Colors},mat=MatT,alpha=ImgA,
     gl:matrixMode(?GL_MODELVIEW),
     gl:loadIdentity(),
     gl:pushMatrix(),
-    gl:translatef(0,0.5,0),
+    gl:translatef(0.0,0.5,0.0),
     gl:rotatef(Deg, 1.0, 1.0, 1.0),
     gl:clear(?GL_COLOR_BUFFER_BIT bor ?GL_DEPTH_BUFFER_BIT),
     gl:bindTexture(?GL_TEXTURE_2D, MatT#texture.tid),
     gl:disable(?GL_BLEND), 
-    gl:texEnvf(?GL_TEXTURE_ENV, ?GL_TEXTURE_ENV_MODE, ?GL_MODULATE),
+    gl:texEnvi(?GL_TEXTURE_ENV, ?GL_TEXTURE_ENV_MODE, ?GL_MODULATE),
     gl:disable(?GL_CULL_FACE),
     gl:'begin'(?GL_QUADS),
     wx:foreach(fun(Face) -> drawFace(Face,Vs,Colors) end, Fs),
     gl:'end'(),
     gl:popMatrix(),
 
-    gl:texEnvf(?GL_TEXTURE_ENV, ?GL_TEXTURE_ENV_MODE, ?GL_REPLACE),
+    gl:texEnvi(?GL_TEXTURE_ENV, ?GL_TEXTURE_ENV_MODE, ?GL_REPLACE),
 
     enter_2d_mode(Win),
     {W,H} = wxWindow:getClientSize(Win),
@@ -242,14 +245,14 @@ drawBox(#gl{win=Win,deg=Deg,data={Fs,Vs,Colors},mat=MatT,alpha=ImgA,
     gl:enable(?GL_CULL_FACE),
     gl:enable(?GL_BLEND), 
     gl:blendFunc(?GL_SRC_ALPHA, ?GL_ONE_MINUS_SRC_ALPHA),
-    gl:translatef(0,-0.8,0),
+    gl:translatef(0.0,-0.8,0.0),
     gl:bindTexture(?GL_TEXTURE_2D, Text#texture.tid),
     glu:quadricTexture(Sphere, ?GLU_TRUE),
     glu:quadricNormals(Sphere, ?GLU_SMOOTH),
     glu:quadricDrawStyle(Sphere, ?GLU_FILL),
     glu:quadricOrientation(Sphere, ?GLU_OUTSIDE),
     %%gl:scalef(2.0, 0.5, 1.0),
-    gl:rotatef(-90, 1.0, 0.0, 0.0),
+    gl:rotatef(-90.0, 1.0, 0.0, 0.0),
     gl:rotatef(-Deg, 0.0, 0.0, 1.0),
     glu:sphere(Sphere, 0.8, 50,40),
     gl:popMatrix(),
@@ -298,7 +301,7 @@ load_texture_by_image(Image) ->
 		  Format, W, H, 0,
  		  Format, ?GL_UNSIGNED_BYTE, Data),
     #texture{tid = TId, w = ImgW, h = ImgH, 
-	     minx = 0, miny = 0, maxx = ImgW / W, maxy = ImgH / H}.
+	     minx = 0.0, miny = 0.0, maxx = ImgW / W, maxy = ImgH / H}.
 
 
 %% This algorithm (based on http://d0t.dbclan.de/snippets/gltext.html)
@@ -359,13 +362,13 @@ load_texture_by_string(Font, Brush, Color, String, Flip) ->
     gl:bindTexture(?GL_TEXTURE_2D, TId),
     gl:texParameteri(?GL_TEXTURE_2D, ?GL_TEXTURE_MAG_FILTER, ?GL_LINEAR),
     gl:texParameteri(?GL_TEXTURE_2D, ?GL_TEXTURE_MIN_FILTER, ?GL_LINEAR),
-    gl:texEnvf(?GL_TEXTURE_ENV, ?GL_TEXTURE_ENV_MODE, ?GL_REPLACE),
+    gl:texEnvi(?GL_TEXTURE_ENV, ?GL_TEXTURE_ENV_MODE, ?GL_REPLACE),
     %%gl:pixelStorei(?GL_UNPACK_ROW_LENGTH, 0),
     %%gl:pixelStorei(?GL_UNPACK_ALIGNMENT, 2),
     gl:texImage2D(?GL_TEXTURE_2D, 0, ?GL_RGBA,
   		  W, H, 0, ?GL_RGBA, ?GL_UNSIGNED_BYTE, Data),
     #texture{tid = TId, w = StrW, h = StrH, 
- 	     minx = 0, miny = 0, maxx = StrW / W, maxy = StrH / H}.
+ 	     minx = 0.0, miny = 0.0, maxx = StrW / W, maxy = StrH / H}.
 
 colourize_image(Alpha, {R,G,B}) ->
     << <<R:8,G:8,B:8,A:8>> || <<A:8,_:8,_:8>> <= Alpha >>.
@@ -412,7 +415,7 @@ enter_2d_mode(Win) ->
     %% projection to correct this.  
     %% Note: We could flip the texture/image itself, but this will
     %% also work for mouse coordinates.
-    gl:ortho(0.0, W, H, 0.0, 0.0, 1.0),
+    gl:ortho(0.0, float(W), float(H), 0.0, 0.0, 1.0),
 
     gl:matrixMode(?GL_MODELVIEW),
     gl:pushMatrix(),

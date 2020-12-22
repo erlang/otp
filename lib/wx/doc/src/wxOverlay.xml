@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- THIS FILE IS GENERATED DO NOT EDIT -->
+
+
+<erlref>
+<header>
+  <copyright>
+    <year>2020</year>
+    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
+  <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  </legalnotice>
+  <title>wxOverlay</title>
+</header>
+<module>wxOverlay</module>
+<modulesummary>Functions for wxOverlay class</modulesummary>
+<description><p>Creates an overlay over an existing window, allowing for manipulations like rubberbanding, etc. On wxOSX the overlay is implemented with native platform APIs, on the other platforms it is simulated using <seeerl marker="wxMemoryDC"><c>wxMemoryDC</c></seeerl>.
+      </p><p>See: <seeerl marker="wxDCOverlay"><c>wxDCOverlay</c></seeerl>, <seeerl marker="wxDC"><c>wxDC</c></seeerl>
+      </p>
+  <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_overlay.html">wxOverlay</url></p>
+  </description>
+<datatypes><datatype><name name="wxOverlay"/></datatype></datatypes>
+
+<funcs>
+  <func>
+    <name name="new" arity="0" clause_i="1" since=""/>
+    <fsummary/>
+    <desc/>
+  </func>
+  
+  <func>
+    <name name="destroy" arity="1" clause_i="1" since=""/>
+    <fsummary/>
+    <desc/>
+  </func>
+  
+  <func>
+    <name name="reset" arity="1" clause_i="1" since=""/>
+    <fsummary>Clears the overlay without restoring the former state. </fsummary>
+    <desc><p>Clears the overlay without restoring the former state. 
+      </p><p>To be done, for example, when the window content has been changed and repainted. 
+      </p></desc>
+  </func>
+  </funcs>
+</erlref>

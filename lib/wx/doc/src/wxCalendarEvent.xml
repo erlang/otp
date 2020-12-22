@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- THIS FILE IS GENERATED DO NOT EDIT -->
+
+
+<erlref>
+<header>
+  <copyright>
+    <year>2020</year>
+    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
+  <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  </legalnotice>
+  <title>wxCalendarEvent</title>
+</header>
+<module>wxCalendarEvent</module>
+<modulesummary>Functions for wxCalendarEvent class</modulesummary>
+<description><p>The <seeerl marker="wxCalendarEvent"><c>wxCalendarEvent</c></seeerl> class is used together with <seeerl marker="wxCalendarCtrl"><c>wxCalendarCtrl</c></seeerl>.
+      </p><p>See: <seeerl marker="wxCalendarCtrl"><c>wxCalendarCtrl</c></seeerl>
+      </p>
+  <p>This class is derived (and can use functions) from: 
+    <seeerl marker="wxDateEvent"><c>wxDateEvent</c></seeerl> <seeerl marker="wxCommandEvent"><c>wxCommandEvent</c></seeerl> <seeerl marker="wxEvent"><c>wxEvent</c></seeerl></p>
+  
+  <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_calendar_event.html">wxCalendarEvent</url></p>
+  </description>
+<datatypes>
+    <datatype><name name="wxCalendarEvent"/></datatype>
+    <datatype><name name="wxCalendar"/></datatype>
+    <datatype><name name="wxCalendarEventType"/></datatype></datatypes>
+
+<funcs>
+  <func>
+    <name name="getWeekDay" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns the week day on which the user clicked in <c>EVT_CALENDAR_WEEKDAY_CLICKED</c> handler. </fsummary>
+    <desc><p>Returns the week day on which the user clicked in <c>EVT_CALENDAR_WEEKDAY_CLICKED</c> handler. 
+      </p><p>It doesn't make sense to call this function in other handlers. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="getDate" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns the date. </fsummary>
+    <desc><p>Returns the date. 
+      </p></desc>
+  </func>
+  </funcs>
+</erlref>

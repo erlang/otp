@@ -21,23 +21,24 @@
 #ifndef _WXE_HELPER_H
 #define	_WXE_HELPER_H
 
+#include "wxe_memory.h"
+
 DECLARE_EVENT_TYPE(wxeEVT_META_COMMAND, -1)
 
 class wxeMetaCommand : public wxEvent
 {
  public:
- wxeMetaCommand(wxe_data *sd, int EvId)
+ wxeMetaCommand(ErlNifPid self, int EvId, wxe_me_ref *me)
      : wxEvent(EvId, wxeEVT_META_COMMAND)
-    {  caller = driver_caller(sd->port_handle);  port = sd->port; pdl = sd->pdl; } ;
+    {  caller = self; me_ref = me; } ;
  wxeMetaCommand(const wxeMetaCommand& event)
      : wxEvent(event)
-    {  caller = event.caller; port = event.port; pdl = event.pdl; };
+    {  caller = event.caller; me_ref = event.me_ref; };
     virtual ~wxeMetaCommand() {};
     virtual wxEvent *Clone() const { return new wxeMetaCommand(*this); }
 
-    ErlDrvTermData   caller;
-    ErlDrvTermData   port;
-    ErlDrvPDL        pdl;
+    ErlNifPid  caller;
+    wxe_me_ref * me_ref;
 };
 
 class wxeCommand
@@ -49,13 +50,12 @@ class wxeCommand
     wxeCommand * Save(int Op) { op = Op; return this; };
     void Delete();
 
-    ErlDrvTermData   caller;
-    ErlDrvTermData   port;
-    WXEBinRef        bin[3];
-    char *           buffer;
-    int              len;
-    int              op;
-    char             c_buf[64];  // 64b covers 90% of usage
+    ErlNifPid    caller;
+    int          op;
+    ErlNifEnv    *env;
+    int          argc;
+    ERL_NIF_TERM args[16];
+    wxe_me_ref   * me_ref;
 };
 
 class wxeFifo {
@@ -63,7 +63,7 @@ class wxeFifo {
     wxeFifo(unsigned int size);
     virtual ~wxeFifo();
 
-    int Add(int fc, char * cbuf,int buflen, wxe_data *);
+    int Add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
     void Append(wxeCommand *Other);
 
     wxeCommand * Get();
@@ -82,66 +82,31 @@ class wxeFifo {
     wxeCommand *m_old;
 };
 
-class intListElement {
- public:
-    intListElement(int Element) {car = Element; cdr = NULL;};
-    intListElement(int Element, intListElement *list)
-    {car = Element; cdr = list;};
-    int car;
-    intListElement *cdr;
-};
-
-class intList {
- public:
-    intList() {list = NULL;};
-    ~intList() {
-	intListElement *head = list;
-	while(head) {
-	    intListElement *tail=head->cdr;
-	    delete head;
-	    head = tail;
-	} };
-    bool IsEmpty() {return list == NULL;};
-    void Append(int Element) { list = new intListElement(Element, list); };
-    int Pop() {
-	intListElement *temp = list;
-	int res = list->car;
-	list = temp->cdr;
-	delete temp;
-	return res;
-    }
-    intListElement *list;
-};
-
-class wxe_badarg
-{
- public:
- wxe_badarg(int Ref) : ref(Ref) { } ;
-    int ref;
-};
-
 class wxeErlTerm : public wxClientData
 {
  public:
-    wxeErlTerm(WXEBinRef * data)
+    wxeErlTerm(ERL_NIF_TERM in_term)
     {
-	size = data->size;
-	bin = (char *) driver_alloc(size);
-	memcpy(bin, data->base, size);
+        env = enif_alloc_env();
+        term = enif_make_copy(env, in_term);
     } ;
-    ~wxeErlTerm() { driver_free(bin); };
-    char * bin;
-    int size;
+    ~wxeErlTerm() { enif_free_env(env); };
+
+    ErlNifEnv *env;
+    ERL_NIF_TERM term;
 };
 
 class wxETreeItemData : public wxTreeItemData
 {
  public:
-    wxETreeItemData(int sz, char * data);
-    ~wxETreeItemData();
-
-    int size;
-    char * bin;
+    wxETreeItemData(ERL_NIF_TERM in_term)
+    {
+        env = enif_alloc_env();
+        term = enif_make_copy(env, in_term);
+    } ;
+    ~wxETreeItemData() { enif_free_env(env); };
+    ErlNifEnv *env;
+    ERL_NIF_TERM term;
 };
 
 #endif

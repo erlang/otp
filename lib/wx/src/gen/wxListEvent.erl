@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,20 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html">wxListEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_list_begin_drag</em>, <em>command_list_begin_rdrag</em>, <em>command_list_begin_label_edit</em>, <em>command_list_end_label_edit</em>, <em>command_list_delete_item</em>, <em>command_list_delete_all_items</em>, <em>command_list_key_down</em>, <em>command_list_insert_item</em>, <em>command_list_col_click</em>, <em>command_list_col_right_click</em>, <em>command_list_col_begin_drag</em>, <em>command_list_col_dragging</em>, <em>command_list_col_end_drag</em>, <em>command_list_item_selected</em>, <em>command_list_item_deselected</em>, <em>command_list_item_right_click</em>, <em>command_list_item_middle_click</em>, <em>command_list_item_activated</em>, <em>command_list_item_focused</em>, <em>command_list_cache_hint</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxList(). #wxList{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxNotifyEvent}
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxListEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxListEvent).
 -include("wxe.hrl").
 -export([getCacheFrom/1,getCacheTo/1,getColumn/1,getData/1,getImage/1,getIndex/1,
@@ -43,117 +29,119 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
--export_type([wxListEvent/0]).
+-type wxListEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxListEventType() :: 'command_list_begin_drag' | 'command_list_begin_rdrag' | 'command_list_begin_label_edit' | 'command_list_end_label_edit' | 'command_list_delete_item' | 'command_list_delete_all_items' | 'command_list_key_down' | 'command_list_insert_item' | 'command_list_col_click' | 'command_list_col_right_click' | 'command_list_col_begin_drag' | 'command_list_col_dragging' | 'command_list_col_end_drag' | 'command_list_item_selected' | 'command_list_item_deselected' | 'command_list_item_right_click' | 'command_list_item_middle_click' | 'command_list_item_activated' | 'command_list_item_focused' | 'command_list_cache_hint'.
+-export_type([wxListEvent/0, wxList/0, wxListEventType/0]).
 %% @hidden
 parent_class(wxNotifyEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxListEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetcachefrom">external documentation</a>.
 -spec getCacheFrom(This) -> integer() when
 	This::wxListEvent().
-getCacheFrom(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getCacheFrom(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetCacheFrom,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetCacheFrom),
+  wxe_util:rec(?wxListEvent_GetCacheFrom).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetcacheto">external documentation</a>.
 -spec getCacheTo(This) -> integer() when
 	This::wxListEvent().
-getCacheTo(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getCacheTo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetCacheTo,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetCacheTo),
+  wxe_util:rec(?wxListEvent_GetCacheTo).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetkeycode">external documentation</a>.
 -spec getKeyCode(This) -> integer() when
 	This::wxListEvent().
-getKeyCode(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getKeyCode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetKeyCode,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetKeyCode),
+  wxe_util:rec(?wxListEvent_GetKeyCode).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetindex">external documentation</a>.
 -spec getIndex(This) -> integer() when
 	This::wxListEvent().
-getIndex(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getIndex(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetIndex,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetIndex),
+  wxe_util:rec(?wxListEvent_GetIndex).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetcolumn">external documentation</a>.
 -spec getColumn(This) -> integer() when
 	This::wxListEvent().
-getColumn(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getColumn(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetColumn,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetColumn),
+  wxe_util:rec(?wxListEvent_GetColumn).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetpoint">external documentation</a>.
 -spec getPoint(This) -> {X::integer(), Y::integer()} when
 	This::wxListEvent().
-getPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPoint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetPoint,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetPoint),
+  wxe_util:rec(?wxListEvent_GetPoint).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetlabel">external documentation</a>.
 -spec getLabel(This) -> unicode:charlist() when
 	This::wxListEvent().
-getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetLabel,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetLabel),
+  wxe_util:rec(?wxListEvent_GetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgettext">external documentation</a>.
 -spec getText(This) -> unicode:charlist() when
 	This::wxListEvent().
-getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetText,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetText),
+  wxe_util:rec(?wxListEvent_GetText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetimage">external documentation</a>.
 -spec getImage(This) -> integer() when
 	This::wxListEvent().
-getImage(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getImage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetImage,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetImage),
+  wxe_util:rec(?wxListEvent_GetImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetdata">external documentation</a>.
 -spec getData(This) -> integer() when
 	This::wxListEvent().
-getData(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetData,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetData),
+  wxe_util:rec(?wxListEvent_GetData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetmask">external documentation</a>.
 -spec getMask(This) -> integer() when
 	This::wxListEvent().
-getMask(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getMask(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetMask,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetMask),
+  wxe_util:rec(?wxListEvent_GetMask).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventgetitem">external documentation</a>.
 -spec getItem(This) -> wxListItem:wxListItem() when
 	This::wxListEvent().
-getItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_GetItem,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_GetItem),
+  wxe_util:rec(?wxListEvent_GetItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistevent.html#wxlisteventiseditcancelled">external documentation</a>.
 -spec isEditCancelled(This) -> boolean() when
 	This::wxListEvent().
-isEditCancelled(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isEditCancelled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListEvent),
-  wxe_util:call(?wxListEvent_IsEditCancelled,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxListEvent_IsEditCancelled),
+  wxe_util:rec(?wxListEvent_IsEditCancelled).
 
  %% From wxNotifyEvent
 %% @hidden
@@ -164,9 +152,9 @@ isAllowed(This) -> wxNotifyEvent:isAllowed(This).
 allow(This) -> wxNotifyEvent:allow(This).
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

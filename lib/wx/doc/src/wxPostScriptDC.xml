@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- THIS FILE IS GENERATED DO NOT EDIT -->
+
+
+<erlref>
+<header>
+  <copyright>
+    <year>2020</year>
+    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
+  <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  </legalnotice>
+  <title>wxPostScriptDC</title>
+</header>
+<module>wxPostScriptDC</module>
+<modulesummary>Functions for wxPostScriptDC class</modulesummary>
+<description><p>This defines the wxWidgets Encapsulated PostScript device context, which can write PostScript files on any platform. See <seeerl marker="wxDC"><c>wxDC</c></seeerl> for descriptions of the member functions.
+      </p><p>Starting a document</p> <p>Document should be started with call to <seemfa marker="wxDC#startDoc/2"><c>wxDC:startDoc/2</c></seemfa> prior to calling any function to execute a drawing operation. However, some functions, like <seemfa marker="wxDC#setFont/2"><c>wxDC:setFont/2</c></seemfa>, may be legitimately called even before <seemfa marker="wxDC#startDoc/2"><c>wxDC:startDoc/2</c></seemfa>.
+      </p> 
+  <p>This class is derived (and can use functions) from: 
+    <seeerl marker="wxDC"><c>wxDC</c></seeerl></p>
+  
+  <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_post_script_d_c.html">wxPostScriptDC</url></p>
+  </description>
+<datatypes><datatype><name name="wxPostScriptDC"/></datatype></datatypes>
+
+<funcs>
+  <func>
+    <name name="new" arity="0" clause_i="1" since=""/>
+    <fsummary/>
+    <desc/>
+  </func>
+  
+  <func>
+    <name name="new" arity="1" clause_i="1" since=""/>
+    <fsummary>Constructs a PostScript printer device context from a <c>wxPrintData</c> object. </fsummary>
+    <desc><p>Constructs a PostScript printer device context from a <seeerl marker="wxPrintData"><c>wxPrintData</c></seeerl> object. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="destroy" arity="1" clause_i="1" since=""/>
+    <fsummary>Destructor</fsummary>
+    <desc><p>Destroys the object.</p></desc>
+  </func>
+  </funcs>
+</erlref>

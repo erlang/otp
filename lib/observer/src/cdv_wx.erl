@@ -229,7 +229,7 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%Callbacks
-handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
+handle_event(#wx{event=#wxBookCtrl{type=command_notebook_page_changing}},
 	     #state{active_tab=Previous} = State) ->
     case get_active_pid(State) of
 	Previous -> {noreply, State};

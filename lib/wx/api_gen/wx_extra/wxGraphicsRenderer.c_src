@@ -20,14 +20,19 @@
 
 
 <<CreatePen
-case ~s: { // wxGraphicsRenderer::CreatePen taylormade
- wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
- wxPen *pen = (wxPen *) getPtr(bp,memenv); bp += 4;
- if(!This) throw wxe_badarg(0);
+void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& cmd)
+{
+  ErlNifEnv *env = cmd.env;
+  ERL_NIF_TERM * argv = cmd.args;
+  wxGraphicsRenderer *This;
+  This = (wxGraphicsRenderer *) memenv->getPtr(env, argv[0], "This");
+  wxPen *pen = (wxPen *) memenv->getPtr(env, argv[1], "pen");
+  if(!This) throw wxe_badarg(0);
 #if !wxCHECK_VERSION(3,1,1)
- wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen)); newPtr((void *) Result,4, memenv);
- rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPen");
- break;
+  wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen));
+  app->newPtr((void *) Result,4, memenv);
+  wxeReturn rt = wxeReturn(memenv, cmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxGraphicsPen"));
 #else
  wxGraphicsPenInfo info = wxGraphicsPenInfo()
    .Colour(pen->GetColour())
@@ -50,9 +55,10 @@ case ~s: { // wxGraphicsRenderer::CreatePen taylormade
      info.Stipple(*stipple);
  }
  wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(info));
- newPtr((void *) Result,4, memenv);
- rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPen");
- break;
+ app->newPtr((void *) Result,4, memenv);
+ wxeReturn rt = wxeReturn(memenv, cmd.caller, true);
+ rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxGraphicsPen"));
 #endif
 }
+
 CreatePen>>

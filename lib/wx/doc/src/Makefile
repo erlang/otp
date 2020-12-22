@@ -25,48 +25,39 @@ include ../../vsn.mk
 include ../../config.mk
 APPLICATION=wx
 
-ErlMods         = wx.erl wx_object.erl
+ErlMods         = wx.xml wx_object.xml
 
-GenMods         = $(shell ls ../../src/gen | grep 'wx[A-Z].*\.erl') \
-		wx_misc.erl \
-		glu.erl \
-		gl.erl
+GenMods         = $(shell ls *.xml | grep 'wx[A-Z].*\.xml') \
+		wx_misc.xml \
+		gl.xml \
+		glu.xml
 
-ModsNoExt	= $(ErlMods:%.erl=%) $(GenMods:%.erl=%)
+ModsNoExt	= $(ErlMods:%.xml=%) $(GenMods:%.xml=%)
 
 # Release directory specification
 
 XML_APPLICATION_FILES = ref_man.xml
-EDOC_REF3_FILES = $(ErlMods:%.erl=%.xml)
-XML_REF3_FILES = $(GenMods:%.erl=%.xml)
+# EDOC_REF3_FILES = $(ErlMods:%.erl=%.xml)
+XML_REF3_FILES = $(ErlMods) $(GenMods)
 
 XML_PART_FILES = part.xml
-EDOC_CHAPTER_FILE = chapter.xml
+XML_CHAPTER_FILE = chapter.xml
 XML_NOTES_FILES = notes.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = \
-	$(BOOK_FILES) \
-	$(XML_PART_FILES) $(XML_NOTES_FILES)
-
-XML_GEN_FILES = \
-	$(XML_APPLICATION_FILES:%=$(XMLDIR)/%) \
-	$(XML_REF3_FILES:%=$(XMLDIR)/%)
-
-EDOC_FLAGS=-i ../../src -preprocess true -sort_functions false
+	$(BOOK_FILES) $(XML_CHAPTER_FILE) \
+	$(XML_PART_FILES) $(XML_NOTES_FILES) $(XML_REF3_FILES) $(XML_REF6_FILES) $(XML_APPLICATION_FILES)
 
 TOP_SPECS_FILE = specs.xml
 
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
+# clean this generates as well
+EXTRA_FILES = ref_man.xml specs.xml
 
 include $(ERL_TOP)/make/doc.mk
 
-$(XMLDIR)/%.xml: $(APP_SRC_DIR)/gen/%.erl
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript \
-	  -def vsn $(VSN) $(EDOC_FLAGS) -dir $(XMLDIR) $<
+.PRECIOUS: $(ModsNoExt:%=../specs/specs_%.xml)
 
 ref_man.xml: ref_man.xml.src Makefile
 	@echo Preparing $@
@@ -75,3 +66,12 @@ ref_man.xml: ref_man.xml.src Makefile
 		echo "  <xi:include href=\"$$d.xml\"/>" >> $@ ; \
 	done
 	@echo "</application>" >> $@
+
+specs.xml: specs.xml.src Makefile
+	@echo Preparing $@
+	@cat specs.xml.src > $@
+	@for d in $(ModsNoExt); do         \
+		echo "  <xi:include href=\"../specs/specs_$$d.xml\"/>" >> $@ ; \
+	done
+	@echo "</specs>" >> $@
+

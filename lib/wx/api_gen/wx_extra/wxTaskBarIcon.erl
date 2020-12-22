@@ -21,25 +21,24 @@
 <<EXPORT:wxTaskBarIcon new/0, new/1 wxTaskBarIcon:EXPORT>>
 
 <<wxTaskBarIcon_new
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconwxtaskbaricon">external documentation</a>.
 -spec new() -> wxTaskBarIcon().
 new() ->
-  wxe_util:construct(~s, <<0:32>>).
-
+    new([]).
 
 %% @doc Creates a TaskBarIcon with a callback function for CreatePopupMenu:
 %%   <pre>Callback() -> term()</pre>
 %%
-%% See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconwxtaskbaricon">external documentation</a>.
 -spec new([Option]) -> wxTaskBarIcon() when
-    Option :: {'createPopupMenu', fun(() -> wxMenu:wxMenu())}.
-new([]) ->
-    new();
-new([{createPopupMenu, F}]) when is_function(F) ->
-  Fun = fun([_]) ->
-                #wx_ref{type=wxMenu,ref=ThisRef} = F(),
-                <<ThisRef:32/?UI>>
-        end,
-  BinFun = <<(wxe_util:get_cbId(Fun)):32/?UI, 0:32>>,
-  wxe_util:construct(?wxTaskBarIcon_new, BinFun).
+      Option :: {'iconType', wx:wx_enum()} |
+                {'createPopupMenu', fun(() -> wxMenu:wxMenu())}.
+
+new(Options) when is_list(Options) ->
+    Op = ~s,
+    MOpts = fun({iconType, _iconType} = Arg) -> Arg;
+               ({createPopupMenu, Fun}) when is_function(Fun) -> {createPopupMenu,  wxe_util:get_cbId(Fun)};
+               (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+    Opts = lists:map(MOpts, Options),
+    wxe_util:queue_cmd(Opts,?get_env(), Op),
+    wxe_util:rec(Op).
+
 wxTaskBarIcon_new>>

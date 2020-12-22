@@ -125,11 +125,11 @@ gen_constructors(#class{name=Class, methods=Ms0}) ->
     end.
 gen_constructor(_Class, #method{where=merged_c}) -> ok;
 gen_constructor(_Class, #method{where=erl_no_opt}) -> ok;
+gen_constructor(_Class, #method{where=erl_alias}) -> ok;
 gen_constructor(Class, _M=#method{params=Ps, opts=FOpts}) ->
-    Gen1  = fun(#param{name=N, type=T}) -> gen_type(T,1) ++ N end,
-    Gen2  = fun(#param{name=N, type=T}) -> gen_type(T,2) ++ N end,
+    Gen  = fun(#param{name=N, type=T}, Id) -> gen_type(T,Id) ++ N end,
     CallA = fun(#param{name=N}) -> N end,
-    HaveMergedType = fun(#param{type={merged,_,_,_,_,_,_}}) -> true; (_) -> false end,
+    MergedType = fun(#param{type={merged,L}}) -> length(L); (_) -> 0 end,
     ?WTC("gen_constructor"),
     Endif = case lists:keysearch(deprecated, 1, FOpts) of
 		{value, {deprecated, IfDef}} ->
@@ -137,24 +137,23 @@ gen_constructor(Class, _M=#method{params=Ps, opts=FOpts}) ->
 		    true;
 		_ -> false
 	    end,
-    case lists:any(HaveMergedType, Ps) of
-	false ->
+    case lists:max([0|[MergedType(P) || P <- Ps]]) of
+        0 ->
 	    w(" E~s(~s) : ~s(~s) {};~n",
-	      [Class,args(Gen1,",",Ps),Class,args(CallA,",",Ps)]);
-	true ->
-	    w(" E~s(~s) : ~s(~s) {};~n",
-	      [Class,args(Gen1,",",Ps),Class,args(CallA,",",Ps)]),
-	    w(" E~s(~s) : ~s(~s) {};~n",
-	      [Class,args(Gen2,",",Ps),Class,args(CallA,",",Ps)])
+	      [Class,args(fun(P) -> Gen(P,1) end,",",Ps),Class,args(CallA,",",Ps)]);
+	Max ->
+	    [w(" E~s(~s) : ~s(~s) {};~n",
+               [Class,args(fun(P) -> Gen(P,Id) end,",",Ps),Class,args(CallA,",",Ps)])
+             || Id <- lists:seq(1,Max)]
     end,
     Endif andalso w("#endif~n", []),
     ok.
 
 
-need_copy_constr("wxFont") -> true;
-need_copy_constr("wxIcon") -> true;
+%% need_copy_constr("wxFont") -> true;
+%% need_copy_constr("wxIcon") -> true;
 need_copy_constr("wxImage") -> true;
-need_copy_constr("wxBitmap") -> true;
+%%need_copy_constr("wxBitmap") -> true;
 %%need_copy_constr("wxGraphics" ++ _) -> true;
 need_copy_constr(_) -> false.
 
@@ -170,10 +169,11 @@ gen_type(#type{name=Type, ref=undefined, single=array, mod=Mod},_) ->
     mods(Mod) ++ to_string(Type) ++ " * ";
 gen_type(#type{name=Type, ref=undefined, mod=Mod},_) ->
     mods(Mod) ++ to_string(Type) ++ " ";
-gen_type({merged, _, T1, _,_, _T2,_}, 1) ->
-    gen_type(T1,error);
-gen_type({merged, _, _T1,_, _, T2,_}, 2) ->
-    gen_type(T2,error).
+gen_type({merged, MTs}, N) when is_integer(N) ->
+    {_, T, _} = lists:nth(N, MTs),
+    gen_type(T,error);
+gen_type(voidp, _) ->
+    "void ** ".
 
 gen_funcs(Defs) ->
     w("~n/***** This file is generated do not edit ****/~n~n"),
@@ -319,7 +319,8 @@ gen_class(C=#class{name=Name,methods=Ms,options=Opts}) ->
     erase(current_class),
     C#class{methods=NewMs}.
 
-gen_method(_CName, M=#method{where=erl_no_opt}) ->     M;
+gen_method(_CName, M=#method{where=erl_no_opt}) ->    M;
+gen_method(_CName, M=#method{where=erl_alias})  ->    M;
 gen_method(CName, M=#method{where=taylormade, name=Name, id=Id}) ->
     {ok, Bin} = file:read_file(filename:join([wx_extra, CName ++".c_src"])),
     Src = binary_to_list(Bin),
@@ -433,7 +434,11 @@ declare_type(N,true,Def,#type{base={comp,_,_},single=true,name=Type,mod=Mod,ref=
 declare_type(N,true,Def,#type{base={comp,_,_},single=true,name=Type,ref=reference}) ->
     w(" ~s ~s= ~s;~n", [Type,N,Def]);
 declare_type(N,true,Def,#type{base={enum,Type},single=true}) ->
-    w(" ~s ~s=~s;~n", [enum_type(Type),N,Def]);
+    Class = case Type of
+                {C,_} -> C++"::";
+                _ -> ""
+            end,
+    w(" ~s ~s=~s~s;~n", [enum_type(Type),N,Class,Def]);
 declare_type(N,true,Def,#type{base={class,_},single=true,name=Type,ref={pointer,1},mod=Mod}) ->
     w(" ~s~s * ~s=~s;~n", [mods(Mod),Type,N,Def]);
 declare_type(N,true,Def,#type{base={class,_},single=true,name=Type,ref=reference,mod=Mod}) ->
@@ -449,6 +454,8 @@ declare_type(N,true,Def,#type{single=true,base=string}) ->
     w(" wxString ~s= ~s;~n", [N,Def]);
 %% declare_type(N,true,_Def,#type{name="wxString"}) ->
 %%     w(" wxString ~s= wxEmptyString;~n", [N]);
+declare_type(N,true,Def,#type{name="wxColour"}) ->
+    w(" wxColour ~s = ~s;~n", [N, Def]);
 declare_type(N,true,Def,#type{base=binary, name=char}) ->
     w(" char ~sD[] = {~s}, * ~s = ~sD;~n", [N,Def,N,N]);
 declare_type(_N,true,_Def,void) ->
@@ -517,7 +524,7 @@ decode_arg(N,#type{name=Class,base={class,_},single=true},Arg,A0) ->
     A = align(A0,32),
     wa(" ~s *",[Class],"~s = (~s *) getPtr(bp,memenv); bp += 4;~n",[N,Class],Arg),
     A;
-decode_arg(N,{merged,_,#type{name=Class,base={class,_},single=true},_,_,_,_},arg,A0) ->
+decode_arg(N,{merged,[{_,#type{name=Class,base={class,_},single=true},_}|_]},arg,A0) ->
     A = align(A0,32),
     w(" ~s * ~s = (~s *) getPtr(bp,memenv); bp += 4;~n", [Class,N,Class]),
     A;
@@ -710,6 +717,18 @@ decode_arg(N,#type{single=array,base=int},Arg,A0)  ->
 	      [N,N,(A0+1) rem 2,N])
     end,
     0;
+decode_arg(N,#type{single=array,base=int64},Arg,A0)  ->
+    case Arg of
+	arg ->
+	    w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
+	    w(" int * ~s = (int *) bp; bp += *~sLen*4+((~p+ *~sLen)%2 )*4;~n",
+	      [N,N,(A0+1) rem 2,N]);
+	opt ->
+	    w(" ~sLen = (int *) bp; bp += 4;~n", [N]),
+	    w(" ~s = (int *) bp; bp += *~sLen*4+((~p+ *~sLen)%2 )*4;~n",
+	      [N,N,(A0+1) rem 2,N])
+    end,
+    0;
 decode_arg(N,#type{by_val=true,single=array,base={comp,Class="wxPoint",_}},arg,A0) ->
     w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
     w(" ~s *~s;~n",[Class,N]),
@@ -822,7 +841,10 @@ return_res1(#type{name=Type,ref={pointer,_}, base={term,_}}) ->
 return_res1(#type{name=Type,ref={pointer,_}}) ->
     {Type ++ " * Result = (" ++ Type ++ "*)", ""};
 return_res1(#type{name=Type,single=true,by_val=false,ref=reference}) ->
-    {Type ++ " * Result = &", ""};
+    case Type of
+        "wxString" -> {Type ++ " Result = ", ""};
+        _ -> {Type ++ " * Result = &", ""}
+    end;
 return_res1(#type{name=Type,single=true,by_val=true})
   when is_atom(Type) ->
     {atom_to_list(Type) ++ " Result = ", ""};
@@ -886,23 +908,28 @@ call_arg(#param{name=N,type=#type{base=eventType}}) ->
 call_arg(#param{name=N,type=#type{by_val=true, single=_False}}) -> N;
 call_arg(#param{name=N,def=Def,type=#type{by_val=false, ref={pointer,2}}})
   when Def =/= none -> N;
-call_arg(#param{name=N,type=#type{by_val=false, ref={pointer,2}}}) -> "&" ++ N;
+call_arg(#param{name=N,type=#type{base={term, Class}, by_val=false, ref={pointer,2}}}) ->
+    "(" ++ Class ++ " **) &" ++ N;
+call_arg(#param{name=N,type=#type{base=Base, by_val=false, ref={pointer,2}}}) ->
+    io:format("~p: ~p~n",[?LINE, Base]),
+    "&" ++ N;
 call_arg(#param{name=N,in=false,type=#type{ref=reference, single=true}}) -> N;
 call_arg(#param{name=N,in=false,type=#type{by_val=false, single=true}}) -> "&" ++ N;
 call_arg(#param{name=N,def=Def,type=#type{base={comp,_,_},ref={pointer,1},single=true}})
   when Def =:= none ->
     "&" ++N;
 call_arg(#param{name=N,type=#type{base=int, ref=reference, single=true}}) -> "*" ++ N;
+call_arg(#param{name=N,type=#type{base=string, by_val=false, single=true, ref={pointer,1}}}) -> "&" ++ N;
 call_arg(#param{name=N,type=#type{by_val=false}}) -> N;
-call_arg(#param{name=N,type={merged,_,#type{base={class,_},single=true,
-					    by_val=ByVal,
-					    ref=Ref},_,_,_,_}})
+call_arg(#param{name=N,type={merged,[{_,#type{base={class,_},single=true,
+                                              by_val=ByVal,
+                                              ref=Ref},_}|_]}})
   when ByVal =:= true; Ref =:= reference ->
     "*" ++ N;
 call_arg(#param{def=Def, type=void}) when Def =/= none  -> Def;
 call_arg(#param{def=Def, type=voidp}) when Def =/= none -> "(void **) " ++ Def;
 call_arg(#param{name=N,type=#type{base={ref,_},by_val=true,single=true}}) -> N;
-call_arg(#param{name=N,type={merged,_,_,_,_,_,_}}) -> N.
+call_arg(#param{name=N,type={merged,_}}) -> N.
 
 %% call_arg(#param{name=N,type=#type{base=Tuple,ref=reference}})
 %%   when is_tuple(Tuple) -> "&" ++ N;
@@ -1388,14 +1415,17 @@ build_event_attrs(ClassRec = #class{name=Class}) ->
 	    w(" ~s * ev = (~s *) event;~n",[Class,Class]),
 	    FixClass =
 		fun(P=#param{name=N,acc=Acc,type=#type{single=Single,by_val=ByVal,
-						       base={class,C}}})
+						       base={class,C}, mod=Mods,
+                                                       ref = Ref}})
 		   when Acc =/= undefined ->
 			Var = var_name(N),
 			if Single, ByVal ->
 				w(" ~s * ~s = new ~s(~s);~n", [C,Var,C,N]),
 				w(" app->newPtr((void *) ~s,3, memenv);~n", [Var]);
+                           Ref =:= reference ->
+                                w(" ~s ~s * ~s = &~s;~n", [mods(Mods), C,Var,N]);
 			   true ->
-				w(" ~s * ~s = ~s;~n", [C,Var,N])
+				w(" ~s ~s * ~s = ~s;~n", [mods(Mods), C,Var,N])
 			end,
 			P#param{name=Var};
 		   (P) -> P

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,15 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotifyevent.html">wxNotifyEvent</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxNotifyEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxNotifyEvent).
 -include("wxe.hrl").
 -export([allow/1,isAllowed/1,veto/1]).
@@ -37,42 +28,40 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
+-type wxNotifyEvent() :: wx:wx_object().
 -export_type([wxNotifyEvent/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxNotifyEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotifyevent.html#wxnotifyeventallow">external documentation</a>.
 -spec allow(This) -> 'ok' when
 	This::wxNotifyEvent().
-allow(#wx_ref{type=ThisT,ref=ThisRef}) ->
+allow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotifyEvent),
-  wxe_util:cast(?wxNotifyEvent_Allow,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxNotifyEvent_Allow).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotifyevent.html#wxnotifyeventisallowed">external documentation</a>.
 -spec isAllowed(This) -> boolean() when
 	This::wxNotifyEvent().
-isAllowed(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isAllowed(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotifyEvent),
-  wxe_util:call(?wxNotifyEvent_IsAllowed,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxNotifyEvent_IsAllowed),
+  wxe_util:rec(?wxNotifyEvent_IsAllowed).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotifyevent.html#wxnotifyeventveto">external documentation</a>.
 -spec veto(This) -> 'ok' when
 	This::wxNotifyEvent().
-veto(#wx_ref{type=ThisT,ref=ThisRef}) ->
+veto(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotifyEvent),
-  wxe_util:cast(?wxNotifyEvent_Veto,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxNotifyEvent_Veto).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

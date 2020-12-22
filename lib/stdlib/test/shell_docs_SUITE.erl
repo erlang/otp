@@ -66,13 +66,17 @@ render(_Config) ->
                             shell_docs:render(Mod, D, Config),
                             shell_docs:render_type(Mod, D, Config),
                             shell_docs:render_callback(Mod, D, Config),
+                            Exports = try Mod:module_info(exports)
+                                      catch _:undef -> []
+                                      end, %% nif file not available on this platform
+
                             [try
                                  shell_docs:render(Mod, F, A, D, Config)
                              catch _E:R:ST ->
                                      io:format("Failed to render ~p:~p/~p~n~p:~p~n~p~n",
                                                [Mod,F,A,R,ST,shell_docs:get_doc(Mod,F,A)]),
                                      erlang:raise(error,R,ST)
-                             end || {F,A} <- Mod:module_info(exports)],
+                             end || {F,A} <- Exports],
                             [try
                                  shell_docs:render_type(Mod, T, A, D, Config)
                              catch _E:R:ST ->

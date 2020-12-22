@@ -128,34 +128,17 @@ disconnect(This=#wx_ref{type=ThisT,ref=_ThisRef}, EventType, Opts) ->
 
 
 %% @hidden
-connect_impl(#wx_ref{type=ThisT,ref=ThisRef},
+connect_impl(#wx_ref{type=ThisT}=This,
 	     #evh{id=Winid, lastId=LastId, et=EventType,
-		  skip=Skip, userdata=Userdata, cb=FunID})
+		  skip=Skip, userdata=UserData, cb=FunID})
   when is_integer(FunID)->
-    EventTypeBin = list_to_binary([atom_to_list(EventType)|[0]]),
-    ThisTypeBin = list_to_binary([atom_to_list(ThisT)|[0]]),
-    UD = if Userdata =:= [] -> 0;
-	    true ->
-		 wxe_util:send_bin(term_to_binary(Userdata)),
-		 1
-	 end,
-    wxe_util:call(100, <<ThisRef:32/?UI,
-			Winid:32/?UI,LastId:32/?UI,
-			(wxe_util:from_bool(Skip)):32/?UI,
-			UD:32/?UI,
-			FunID:32/?UI,
-			(size(EventTypeBin)):32/?UI,
-			(size(ThisTypeBin)):32/?UI,
-			%% Note no alignment
-			EventTypeBin/binary,ThisTypeBin/binary>>).
+    wxe_util:queue_cmd(This, Winid, LastId, Skip, UserData,
+                       FunID, EventType, ThisT, ?get_env(), 100),
+    wxe_util:rec(100).
 
 %% @hidden
-disconnect_impl(#wx_ref{type=_ThisT,ref=ThisRef},
+disconnect_impl(#wx_ref{type=_ThisT}=This,
 		#evh{id=Winid, lastId=LastId, et=EventType,
-		     handler=#wx_ref{type=wxeEvtListener,ref=EvtList}}) ->
-    EventTypeBin = list_to_binary([atom_to_list(EventType)|[0]]),
-    wxe_util:call(101, <<EvtList:32/?UI,
-			ThisRef:32/?UI,Winid:32/?UI,LastId:32/?UI,
-			(size(EventTypeBin)):32/?UI,
-			%% Note no alignment
-			EventTypeBin/binary>>).
+		     handler=#wx_ref{type=wxeEvtListener}=EvtList}) ->
+    wxe_util:queue_cmd(EvtList, This, Winid,LastId, EventType, ?get_env(), 101),
+    wxe_util:rec(101).

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- THIS FILE IS GENERATED DO NOT EDIT -->
+
+
+<erlref>
+<header>
+  <copyright>
+    <year>2020</year>
+    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
+  <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  </legalnotice>
+  <title>wxWindowCreateEvent</title>
+</header>
+<module>wxWindowCreateEvent</module>
+<modulesummary>Functions for wxWindowCreateEvent class</modulesummary>
+<description><p>This event is sent just after the actual window associated with a <seeerl marker="wxWindow"><c>wxWindow</c></seeerl> object has been created.
+      </p><p>Since it is derived from <seeerl marker="wxCommandEvent"><c>wxCommandEvent</c></seeerl>, the event propagates up the window hierarchy.
+      </p><p>See: <url href="https://docs.wxwidgets.org/3.1/overview_events.html#overview_events">Overview events</url>, <seeerl marker="wxWindowDestroyEvent"><c>wxWindowDestroyEvent</c></seeerl>
+      </p>
+  <p>This class is derived (and can use functions) from: 
+    <seeerl marker="wxCommandEvent"><c>wxCommandEvent</c></seeerl> <seeerl marker="wxEvent"><c>wxEvent</c></seeerl></p>
+  
+  <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_window_create_event.html">wxWindowCreateEvent</url></p>
+  </description><section><title>Events</title><p>Use <seemfa marker="wxEvtHandler#connect/3"><c>wxEvtHandler:connect/3</c></seemfa> with <seetype marker="#wxWindowCreateEventType"><c>wxWindowCreateEventType</c></seetype> to subscribe to events of this type.</p></section>
+<datatypes>
+    <datatype><name name="wxWindowCreateEvent"/></datatype>
+    <datatype><name name="wxWindowCreate"/></datatype>
+    <datatype><name name="wxWindowCreateEventType"/></datatype></datatypes>
+
+</erlref>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- THIS FILE IS GENERATED DO NOT EDIT -->
+
+
+<erlref>
+<header>
+  <copyright>
+    <year>2020</year>
+    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
+  <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  </legalnotice>
+  <title>wxInitDialogEvent</title>
+</header>
+<module>wxInitDialogEvent</module>
+<modulesummary>Functions for wxInitDialogEvent class</modulesummary>
+<description><p>A <seeerl marker="wxInitDialogEvent"><c>wxInitDialogEvent</c></seeerl> is sent as a dialog or panel is being initialised. Handlers for this event can transfer data to the window.
+      </p><p>The default handler calls <seemfa marker="wxWindow#transferDataToWindow/1"><c>wxWindow:transferDataToWindow/1</c></seemfa>.
+      </p><p>See: <url href="https://docs.wxwidgets.org/3.1/overview_events.html#overview_events">Overview events</url>
+      </p>
+  <p>This class is derived (and can use functions) from: 
+    <seeerl marker="wxEvent"><c>wxEvent</c></seeerl></p>
+  
+  <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_init_dialog_event.html">wxInitDialogEvent</url></p>
+  </description><section><title>Events</title><p>Use <seemfa marker="wxEvtHandler#connect/3"><c>wxEvtHandler:connect/3</c></seemfa> with <seetype marker="#wxInitDialogEventType"><c>wxInitDialogEventType</c></seetype> to subscribe to events of this type.</p></section>
+<datatypes>
+    <datatype><name name="wxInitDialogEvent"/></datatype>
+    <datatype><name name="wxInitDialog"/></datatype>
+    <datatype><name name="wxInitDialogEventType"/></datatype></datatypes>
+
+</erlref>

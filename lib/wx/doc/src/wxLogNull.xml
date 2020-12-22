@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- THIS FILE IS GENERATED DO NOT EDIT -->
+
+
+<erlref>
+<header>
+  <copyright>
+    <year>2020</year>
+    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
+  <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+  </legalnotice>
+  <title>wxLogNull</title>
+</header>
+<module>wxLogNull</module>
+<modulesummary>Functions for wxLogNull class</modulesummary>
+<description><p>This class allows you to temporarily suspend logging. All calls to the log functions during the life time of an object of this class are just ignored.
+      </p><p>In particular, it can be used to suppress the log messages given by wxWidgets itself but it should be noted that it is rarely the best way to cope with this problem as <c>all</c> log messages are suppressed, even if they indicate a completely different error than the one the programmer wanted to suppress.
+      </p><p>For instance, the example of the overview:
+      </p><p>would be better written as:
+      </p>
+  <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_log_null.html">wxLogNull</url></p>
+  </description>
+<datatypes><datatype><name name="wxLogNull"/></datatype></datatypes>
+
+<funcs>
+  <func>
+    <name name="new" arity="0" clause_i="1" since=""/>
+    <fsummary>Suspends logging. </fsummary>
+    <desc><p>Suspends logging. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="destroy" arity="1" clause_i="1" since=""/>
+    <fsummary>Resumes logging. </fsummary>
+    <desc><p>Resumes logging. 
+      </p></desc>
+  </func>
+  </funcs>
+</erlref>
