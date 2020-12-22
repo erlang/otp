@@ -446,10 +446,16 @@ MaxT = TickTime + TickTime / 4</code>
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
-      <tag><c>shell_history = enabled | disabled </c></tag>
+      <tag><c>shell_history = enabled | disabled | module()</c></tag>
       <item>
         <p>Specifies whether shell history should be logged to disk
-           between usages of <c>erl</c>.</p>
+           between usages of <c>erl</c> (<c>enabled</c>), not logged
+           at all (<c>disabled</c>), or a user-specified module will
+           be used to log shell history. This module should export
+           <c>load() -> [string()]</c> returning a list of strings to
+           load in the shell when it starts, and <c>add(iodata()) -> ok.</c>
+           called every time new line is entered in the shell. By default
+           logging is disabled.</p>
       </item>
       <tag><c>shell_history_drop = [string()]</c></tag>
       <item>
