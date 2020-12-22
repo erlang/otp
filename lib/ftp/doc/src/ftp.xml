@@ -239,7 +239,7 @@
     </note>
     
     <p>The file transfer type is set to the default of the FTP server
-      when the session is opened. This is usually ASCCI mode.
+      when the session is opened. This is usually ASCII mode.
     </p>
     
     <p>The current local working directory (compare <c>lpwd/1</c>) is set 
