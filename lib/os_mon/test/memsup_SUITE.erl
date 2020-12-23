@@ -32,7 +32,8 @@
 
 
 -define(SYSTEM_MEMORY_DATA_TAGS,
-        [total_memory,
+        [available_memory,
+         total_memory,
          free_memory,
          system_total_memory,
          largest_free,
@@ -42,10 +43,6 @@
          cached_memory,
          buffered_memory,
          shared_memory]).
-
--define(IMPROVED_SYSTEM_MEMORY_DATA_TAGS,
-        [available_memory | ?SYSTEM_MEMORY_DATA_TAGS]).
-
 
 init_per_suite(Config) when is_list(Config) ->
     ok = application:start(os_mon),
@@ -726,7 +723,7 @@ otp_5910(Config) when is_list(Config) ->
     ok.
 
 improved_system_memory_data(Config) ->
-    {ok, Node} = start_node(Config, "-os_mon memsup_improved_system_memory_data true"),
+    {ok, Node} = start_node(Config),
     ok = rpc:call(Node, application, start, [sasl]),
     ok = rpc:call(Node, application, start, [os_mon]),
 
@@ -734,7 +731,7 @@ improved_system_memory_data(Config) ->
 
     stop_node(Node),
 
-    Tags = ?IMPROVED_SYSTEM_MEMORY_DATA_TAGS,
+    Tags = ?SYSTEM_MEMORY_DATA_TAGS,
     AvailableMemoryPresent
         = lists:foldl(fun ({Tag,Value}, AMP) when is_atom(Tag),
                                                   is_integer(Value),
