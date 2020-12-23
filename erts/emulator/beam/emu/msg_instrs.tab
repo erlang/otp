@@ -45,16 +45,22 @@
 
 i_recv_mark() {
     /*
+     * OLD INSTRUCTION: This instruction is to be removed
+     *                  in OTP 26.
+     *
      * Save the current end of message queue
      */
-    ERTS_RECV_MARK_SAVE(c_p);
+    erts_msgq_recv_marker_insert(c_p, am_default);
 }
 
 i_recv_set() {
     /*
-     * If previously saved recv mark, set peek position to it
+     * OLD INSTRUCTION: This instruction is to be removed
+     *                  in OTP 26.
+     *
+     * If previously saved recv mark, set save pointer to it
      */
-    ERTS_RECV_MARK_SET(c_p);
+    erts_msgq_recv_marker_set_save(c_p, am_default);
     SET_I($NEXT_INSTRUCTION);
     goto loop_rec_top__;
     //| -no_next
@@ -97,7 +103,7 @@ i_loop_rec(Dest) {
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
-    msgp = PEEK_MESSAGE(c_p);
+    msgp = erts_msgq_peek_msg(c_p);
 
     if (ERTS_UNLIKELY(msgp == NULL)) {
         int get_out;
@@ -133,7 +139,7 @@ i_loop_rec(Dest) {
         }
     }
 
-    ASSERT(msgp == PEEK_MESSAGE(c_p));
+    ASSERT(msgp == erts_msgq_peek_msg(c_p));
     ASSERT(msgp && ERTS_SIG_IS_MSG(msgp));
 
     if (ERTS_UNLIKELY(ERTS_SIG_IS_EXTERNAL_MSG(msgp))) {
@@ -147,7 +153,7 @@ i_loop_rec(Dest) {
             /* No swapin should be needed */
             ASSERT(HTOP == c_p->htop && E == c_p->stop);
             /* TODO: Add DTrace probe for this bad message situation? */
-            UNLINK_MESSAGE(c_p, msgp);
+            erts_msgq_unlink_msg(c_p, msgp);
             msgp->next = NULL;
             erts_cleanup_messages(msgp);
             goto loop_rec__;
@@ -155,7 +161,7 @@ i_loop_rec(Dest) {
         SWAPIN;
     }
 
-    ASSERT(msgp == PEEK_MESSAGE(c_p));
+    ASSERT(msgp == erts_msgq_peek_msg(c_p));
     ASSERT(ERTS_SIG_IS_INTERNAL_MSG(msgp));
 
     r(0) = ERL_MESSAGE_TERM(msgp);
@@ -173,7 +179,7 @@ remove_message() {
 
     ERTS_CHK_MBUF_SZ(c_p);
 
-    msgp = PEEK_MESSAGE(c_p);
+    msgp = erts_msgq_peek_msg(c_p);
 
     if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
         save_calls(c_p, &exp_receive);
@@ -245,8 +251,8 @@ remove_message() {
                 tok_label, tok_lastcnt, tok_serial);
     }
 #endif
-    UNLINK_MESSAGE(c_p, msgp);
-    JOIN_MESSAGE(c_p);
+    erts_msgq_unlink_msg(c_p, msgp);
+    erts_msgq_set_save_first(c_p);
     CANCEL_TIMER(c_p);
 
     erts_save_message_in_proc(c_p, msgp);
@@ -278,7 +284,7 @@ loop_rec_end(Dest) {
     ASSERT(c_p->flags & F_DELAY_GC);
 
     $SET_I_REL($Dest);
-    SAVE_MESSAGE(c_p);
+    erts_msgq_set_save_next(c_p);
     FCALLS--;
     goto loop_rec__;
 }
@@ -301,7 +307,7 @@ timeout() {
         save_calls(c_p, &exp_timeout);
     }
     c_p->flags &= ~F_TIMO;
-    JOIN_MESSAGE(c_p);
+    erts_msgq_set_save_first(c_p);
 }
 
 TIMEOUT_VALUE() {

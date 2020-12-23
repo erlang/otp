@@ -632,6 +632,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= sizeof(ErtsNSchedPidRefTableEntry);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MINDIRECTION)]
 	= ERTS_MAGIC_BIN_UNALIGNED_SIZE(sizeof(ErtsMagicIndirectionWord));
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_RECV_MARK_BLK)]
+        = sizeof(ErtsRecvMarkerBlock);
 
 #ifdef HARD_DEBUG
     hdbg_init();

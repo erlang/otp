@@ -140,14 +140,18 @@ Uint erts_process_memory(Process *p, int include_sigs_in_transit)
          * Note that this assumes that any part of message
          * queue located in middle queue have been moved
          * into the inner queue prior to this call.
-         * process_info() management ensures this is done-
+         * process_info() management ensures this is done.
          */
         ErtsMessage *mp;
         for (mp = p->sig_qs.first; mp; mp = mp->next) {
-            ASSERT(ERTS_SIG_IS_MSG((ErtsSignal *) mp));
-            size += sizeof(ErtsMessage);
-            if (mp->data.attached)
-                size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+	    if (ERTS_SIG_IS_RECV_MARKER(mp))
+		size += erts_proc_sig_signal_size((ErtsSignal *) mp);
+	    else {
+		ASSERT(ERTS_SIG_IS_MSG((ErtsSignal *) mp));
+		size += sizeof(ErtsMessage);
+		if (mp->data.attached)
+		    size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+	    }
         }
     }
     else {

@@ -1546,8 +1546,8 @@ extern int erts_system_profile_ts_type;
 #define FS_ON_HEAP_MSGQ        (1 << 1) /* On heap msg queue */
 #define FS_OFF_HEAP_MSGQ_CHNG  (1 << 2) /* Off heap msg queue changing */
 #define FS_LOCAL_SIGS_ONLY     (1 << 3) /* Handle privq sigs only */
-#define FS_DEFERRED_SAVED_LAST (1 << 4) /* Deferred sig_qs.saved_last */
-#define FS_DEFERRED_SAVE       (1 << 5) /* Deferred sig_qs.save */
+#define FS_UNUSED1             (1 << 4) /* */
+#define FS_UNUSED2             (1 << 5) /* */
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
 
 /*
@@ -2430,7 +2430,13 @@ ERTS_GLB_INLINE
 Process *erts_get_current_process(void)
 {
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    return esdp ? esdp->current_process : NULL;
+    if (!esdp)
+        return NULL;
+    if (esdp->current_process)
+        return esdp->current_process;
+    if (esdp->free_process)
+        return esdp->free_process;
+    return NULL;
 }
 
 ERTS_GLB_INLINE

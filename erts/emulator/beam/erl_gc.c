@@ -2533,6 +2533,12 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	n++;
     }
 
+    if (p->sig_qs.recv_mrk_blk) {
+	roots[n].v  = &p->sig_qs.recv_mrk_blk->ref[0];
+	roots[n].sz = ERTS_RECV_MARKER_BLOCK_SIZE;
+	n++;
+    }
+    
     /*
      * If a NIF or BIF has saved arguments, they need to be added
      */
@@ -3207,6 +3213,9 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
     offset_heap_ptr(&p->dt_utag, 1, offs, area, area_size);
 #endif
     offset_heap_ptr(&p->group_leader, 1, offs, area, area_size);
+    if (p->sig_qs.recv_mrk_blk)
+	offset_heap_ptr(&p->sig_qs.recv_mrk_blk->ref[0],
+			ERTS_RECV_MARKER_BLOCK_SIZE, offs, area, area_size);
     offset_mqueue(p, offs, area, area_size);
     offset_heap_ptr(p->stop, (STACK_START(p) - p->stop), offs, area, area_size);
     offset_nstack(p, offs, area, area_size);

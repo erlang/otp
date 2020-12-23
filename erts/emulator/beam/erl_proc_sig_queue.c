@@ -2219,8 +2219,7 @@ erts_proc_sig_send_rpc_request(Process *c_p,
 
         sig->ref = make_internal_ref(&sig->oref_thing);
 
-        ERTS_RECV_MARK_SAVE(c_p);
-        ERTS_RECV_MARK_SET(c_p);
+        erts_msgq_set_save_end(c_p);
     }
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) sig, ERTS_SIG_Q_OP_RPC))
@@ -2229,7 +2228,7 @@ erts_proc_sig_send_rpc_request(Process *c_p,
         erts_free(ERTS_ALC_T_SIG_DATA, sig);
         res = THE_NON_VALUE;
         if (reply)
-            JOIN_MESSAGE(c_p);
+            erts_msgq_set_save_first(c_p);
     }
 
     return res;
@@ -2404,7 +2403,7 @@ static ERTS_INLINE void
 remove_iq_sig(Process *c_p, ErtsMessage *sig, ErtsMessage **next_sig)
 {
     /*
-     * Remove signal from inner queue.
+     * Remove signal from message queue (inner queue).
      */
     ASSERT(c_p->sig_qs.cont_last != &sig->next);
     ASSERT(c_p->sig_qs.nmsigs.next != &sig->next);
@@ -2414,9 +2413,8 @@ remove_iq_sig(Process *c_p, ErtsMessage *sig, ErtsMessage **next_sig)
         c_p->sig_qs.save = next_sig;
     if (c_p->sig_qs.last == &sig->next)
         c_p->sig_qs.last = next_sig;
-    if (c_p->sig_qs.saved_last == &sig->next)
-        c_p->sig_qs.saved_last = next_sig;
-
+    if (sig->next && ERTS_SIG_IS_RECV_MARKER(sig->next))
+        ((ErtsRecvMarker *) sig->next)->prev_next = next_sig;
     *next_sig = sig->next;
 }
 
@@ -2425,15 +2423,13 @@ remove_mq_sig(Process *c_p, ErtsMessage *sig,
            ErtsMessage **next_sig, ErtsMessage ***next_nm_sig)
 {
     /*
-     * Remove signal from middle queue.
+     * Remove signal from (middle) signal queue.
      */
     ASSERT(c_p->sig_qs.save != &sig->next);
     ASSERT(c_p->sig_qs.last != &sig->next);
 
     if (c_p->sig_qs.cont_last == &sig->next)
 	c_p->sig_qs.cont_last = next_sig;
-    if (c_p->sig_qs.saved_last == &sig->next)
-        c_p->sig_qs.saved_last = next_sig;
     if (*next_nm_sig == &sig->next)
         *next_nm_sig = next_sig;
     if (c_p->sig_qs.nmsigs.last == &sig->next)
@@ -2611,6 +2607,436 @@ copy_heap_frag_eterm(Process *c_p, ErtsMessage *mp, Eterm value)
     }
     return tag_cpy;
 }
+
+/*
+ * Receive markers
+ */
+
+#if defined(DEBUG) || defined(ERTS_PROC_SIG_HARD_DEBUG)
+
+#define ERTS_SIG_RECV_MARK_HANDLED ((void *) 4711)
+
+#define ERTS_SIG_DBG_IS_HANDLED_RECV_MARKER(S)			\
+    (ERTS_SIG_IS_RECV_MARKER((S))				\
+     && (((ErtsSignal *) (S))->common.specific.attachment	\
+	 == ERTS_SIG_RECV_MARK_HANDLED))
+#define ERTS_SIG_DBG_RECV_MARK_SET_HANDLED(S)			\
+    (((ErtsSignal *) (S))->common.specific.attachment		\
+     = ERTS_SIG_RECV_MARK_HANDLED)
+
+#else
+
+#define ERTS_SIG_DBG_IS_HANDLED_RECV_MARKER(S) 0
+#define ERTS_SIG_DBG_RECV_MARK_SET_HANDLED(S)
+
+#endif
+
+static ERTS_INLINE void
+recv_marker_deallocate(Process *c_p, ErtsRecvMarker *markp)
+{
+    ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+    int ix, nix;
+
+    ASSERT(blkp);
+    ERTS_HDBG_CHK_RECV_MRKS(c_p);
+
+    nix = markp->next_used_ix;
+    ASSERT(nix >= 0);
+
+    ix = ERTS_RECV_MARKER_IX__(blkp, markp);
+
+    if (nix == ix) {
+	ASSERT(markp->prev_used_ix == ix);
+	erts_free(ERTS_ALC_T_RECV_MARK_BLK, blkp);
+	c_p->sig_qs.recv_mrk_blk = NULL;
+    }
+    else {
+	int pix = markp->prev_used_ix;
+	ASSERT(pix >= 0);
+
+	if (blkp->ref[ix] == am_undefined) {
+	    ASSERT(blkp->unused > 0);
+	    blkp->unused--;
+	}
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	else if (blkp->ref[ix] == am_default) {
+	    ASSERT(blkp->default_recv_marker_ix == ix);
+	    blkp->default_recv_marker_ix = -1;
+	}
+#endif
+
+
+	blkp->marker[pix].next_used_ix = nix;
+	blkp->marker[nix].prev_used_ix = pix;
+
+	if (blkp->used_ix == ix)
+	    blkp->used_ix = nix;
+
+	blkp->ref[ix] = make_small(blkp->free_ix);
+	blkp->free_ix = ix;
+#ifdef DEBUG
+	markp->used = 0;
+#endif
+
+	ERTS_HDBG_CHK_RECV_MRKS(c_p);
+    }
+}
+
+static ERTS_INLINE void
+recv_marker_dequeue(Process *c_p, ErtsRecvMarker *markp)
+{
+    ErtsMessage *sigp;
+
+    ASSERT(markp->proc == c_p);
+
+    if (markp->in_sigq <= 0) {
+        /* Not in signal queue or marked for removal... */
+        return;
+    }
+    
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    sigp = (ErtsMessage *) markp;
+
+    ASSERT(ERTS_SIG_IS_RECV_MARKER(sigp));
+    ASSERT(!markp->in_msgq || markp->prev_next);
+
+    if (!markp->in_msgq) {
+        markp->in_sigq = -1; /* Mark for removal... */
+	markp->set_save = 0;
+    }
+    else {
+        remove_iq_sig(c_p, sigp, markp->prev_next);
+        markp->in_sigq = markp->in_msgq = 0;
+	ASSERT(!markp->set_save);
+#ifdef DEBUG
+        markp->prev_next = NULL;
+#endif
+	recv_marker_deallocate(c_p, markp);
+    }
+
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+}
+
+static ERTS_INLINE ErtsRecvMarker *
+recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
+			int *ixp, Eterm mqref)
+{
+    ErtsRecvMarkerBlock *blkp;
+    ErtsRecvMarker *markp;
+    int ix;
+
+    blkp = (ErtsRecvMarkerBlock *) erts_alloc(ERTS_ALC_T_RECV_MARK_BLK,
+					      sizeof(ErtsRecvMarkerBlock));
+    *blkpp = blkp;
+
+    /* Allocate marker for 'mqref' in index zero... */    
+    *ixp = 0;
+    blkp->ref[0] = mqref;
+    markp = &blkp->marker[0];
+    markp->next_used_ix = markp->prev_used_ix = 0;
+    blkp->used_ix = 0;
+
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+    if (mqref == am_default)
+	blkp->default_recv_marker_ix = 0;
+    else
+	blkp->default_recv_marker_ix = -1;
+#endif
+
+    /* Put the rest in a free list in the ref words... */
+    blkp->free_ix = 1;
+    for (ix = 1; ix < ERTS_RECV_MARKER_BLOCK_SIZE - 1; ix++)
+	blkp->ref[ix] = make_small(ix+1);
+    /* end of list... */
+    blkp->ref[ERTS_RECV_MARKER_BLOCK_SIZE-1] = make_small(-1);
+
+    blkp->unused = 0;
+    blkp->pending_set_save_ix = -1;
+    
+#ifdef DEBUG
+    for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
+	blkp->marker[ix].used = ix == 0 ? !0 : 0;
+	blkp->marker[ix].proc = c_p;
+    }	
+#endif
+
+    ERTS_HDBG_CHK_RECV_MRKS(c_p);
+
+    return markp;
+}
+
+static ERTS_INLINE ErtsRecvMarker *
+recv_marker_reuse(Process *c_p, int *ixp)
+{
+    /*
+     * All markers used; reuse the least recently
+     * allocated one...
+     */
+    ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+    ErtsRecvMarker *markp;
+    ErtsMessage *sigp;
+    int ix, used_ix;
+
+    /*
+     * 'used_ix' points to the least recently
+     * allocated marker. We reuse least recently
+     * and preferably unused marker.
+     *
+     * In order to reuse a marker it needs to
+     * be in the message queue. We search from the
+     * least recently allocated towards the most
+     * recently allocated. Once we find a marker
+     * not in the message queue, i.e, in the middle
+     * signal queue, we know that the rest cannot
+     * be in the middle queue either.
+     */
+
+    used_ix = blkp->used_ix;
+    markp = &blkp->marker[used_ix];
+    if (!markp->in_msgq)
+	return NULL;
+    if (!blkp->unused || blkp->ref[used_ix] == am_undefined) {
+    use_least_recently_allocated:
+	if (blkp->ref[used_ix] == am_undefined)
+	    blkp->unused--;
+	ix = used_ix;
+	blkp->used_ix = used_ix = markp->next_used_ix;
+    }
+    else {
+	int pix, nix;
+
+	ix = markp->next_used_ix;
+	ASSERT(ix != used_ix);
+	while (!0) {
+	    markp = &blkp->marker[ix];
+	    if (!markp->in_msgq)
+		goto use_least_recently_allocated;
+	    if (blkp->ref[ix] == am_undefined) {
+		/* use this one... */
+		ASSERT(blkp->unused > 0);
+		blkp->unused--;
+		break;
+	    }
+	    ix = markp->next_used_ix;
+	    ASSERT(ix != used_ix);
+	}
+	/*
+	 * Move this marker to be most recently
+	 * allocated marker (prev_used_ix of used_ix),
+	 * so that the search property still holds...
+	 */
+	pix = markp->prev_used_ix;
+	nix = markp->next_used_ix;
+	blkp->marker[pix].next_used_ix = nix;
+	blkp->marker[nix].prev_used_ix = pix;
+
+	pix = blkp->marker[used_ix].prev_used_ix;
+	blkp->marker[used_ix].prev_used_ix = ix;
+	blkp->marker[pix].next_used_ix = ix;
+	markp->next_used_ix = used_ix;
+	markp->prev_used_ix = pix;
+    }
+
+    *ixp = ix;
+
+    ASSERT(markp->in_sigq);
+    ASSERT(markp->in_msgq);
+    ASSERT(!markp->set_save);	
+
+    sigp = (ErtsMessage *) markp;
+
+    ASSERT(ERTS_SIG_IS_RECV_MARKER(sigp));
+
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    remove_iq_sig(c_p, sigp, markp->prev_next);
+    markp->in_sigq = markp->in_msgq = 0;
+#ifdef DEBUG
+    markp->prev_next = NULL;
+#endif
+
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    return markp;
+}
+
+static ERTS_INLINE ErtsRecvMarker *
+recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
+		  int *ixp, Eterm mqref)
+{
+    ErtsRecvMarkerBlock *blkp = *blkpp;
+    ErtsRecvMarker *markp;
+    int ix;
+
+    ASSERT(ERTS_RECV_MARKER_IS_VALID_REF(mqref));
+
+    if (!blkp)
+	return recv_marker_alloc_block(c_p, blkpp, ixp, mqref);
+
+    ERTS_HDBG_CHK_RECV_MRKS(c_p);
+
+    ix = blkp->free_ix;
+    if (ix < 0) {
+	markp = recv_marker_reuse(c_p, &ix);
+	if (!markp)
+	    return NULL;
+    }
+    else {
+	int used_ix = blkp->used_ix;
+	ASSERT(is_small(blkp->ref[ix]));
+	blkp->free_ix = signed_val(blkp->ref[ix]);
+	markp = &blkp->marker[ix];
+	markp->prev_used_ix = blkp->marker[used_ix].prev_used_ix;
+	markp->next_used_ix = used_ix;
+#ifdef DEBUG
+	markp->used = !0;
+#endif
+	blkp->marker[markp->prev_used_ix].next_used_ix = ix;
+	blkp->marker[used_ix].prev_used_ix = ix;
+    }
+
+    *ixp = ix;
+
+    blkp->ref[ix] = mqref;
+
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+    if (mqref == am_default) {
+	ASSERT(blkp->default_recv_marker_ix == -1);
+	blkp->default_recv_marker_ix = ix;
+    }
+#endif
+	
+    ERTS_HDBG_CHK_RECV_MRKS(c_p);
+
+    return markp;
+}
+
+static ERTS_INLINE void
+recv_marker_insert(Process *c_p, ErtsRecvMarker *markp)
+{
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+    markp->sig.common.next = NULL;
+    markp->sig.common.specific.next = NULL;
+    markp->sig.common.tag = ERTS_RECV_MARKER_TAG;
+
+    markp->pass = 0;
+    markp->set_save = 0;
+    markp->in_sigq = 1;
+    if (!c_p->sig_qs.cont) {
+        /* Insert in message queue... */
+        markp->in_msgq = !0;
+        ASSERT(c_p->sig_qs.first);
+        markp->prev_next = c_p->sig_qs.last;
+        *c_p->sig_qs.last = (ErtsMessage *) &markp->sig;
+        c_p->sig_qs.last = &markp->sig.common.next;
+
+	ERTS_SIG_DBG_RECV_MARK_SET_HANDLED(&markp->sig);
+    }
+    else {
+        /* Insert in (middle) signal queue... */
+        markp->in_msgq = 0;
+#ifdef DEBUG
+        markp->prev_next = NULL;
+#endif
+        if (!c_p->sig_qs.nmsigs.last) {
+            ASSERT(!c_p->sig_qs.nmsigs.next);
+            ASSERT(c_p->sig_qs.cont_last && *c_p->sig_qs.cont_last);
+            c_p->sig_qs.nmsigs.next = c_p->sig_qs.cont_last;
+            c_p->sig_qs.nmsigs.last = c_p->sig_qs.cont_last;
+        }
+        else {
+            ErtsSignal *lsig = (ErtsSignal *) *c_p->sig_qs.nmsigs.last;
+            ASSERT(c_p->sig_qs.nmsigs.next);
+            ASSERT(lsig && !lsig->common.specific.next);
+            lsig->common.specific.next = c_p->sig_qs.cont_last;
+            c_p->sig_qs.nmsigs.last = c_p->sig_qs.cont_last;
+        }
+
+        *c_p->sig_qs.cont_last = (ErtsMessage *) &markp->sig;
+        c_p->sig_qs.cont_last = &markp->sig.common.next;
+    }
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+}
+
+void
+erts_msgq_recv_marker_create_insert(Process *c_p, Eterm mqref)
+{
+    int ix;
+    ErtsRecvMarkerBlock **blkpp = &c_p->sig_qs.recv_mrk_blk;
+    ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, mqref);
+    if (markp)
+	recv_marker_insert(c_p, markp);
+}
+
+void
+erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm mqref)
+{
+    int ix = -1; /* Shut up faulty warning... */
+    ErtsRecvMarkerBlock **blkpp = &c_p->sig_qs.recv_mrk_blk;
+    ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, mqref);
+
+    if (markp) {
+	recv_marker_insert(c_p, markp);
+	erts_msgq_recv_marker_set_save__(c_p, *blkpp, markp, ix);
+	ASSERT(markp->in_sigq > 0);
+	ASSERT(!markp->in_msgq);
+	ASSERT(markp->set_save);
+	ASSERT(ix >= 0);
+	ASSERT((*blkpp)->pending_set_save_ix == ix);
+	
+	/*
+	 * The save pointer will be set when the marker
+	 * enters the message queue, and then the marker
+	 * will immediately be removed...
+	 */
+	markp->in_sigq = -1;
+    }
+}
+
+void
+erts_msgq_remove_leading_recv_markers(Process *c_p)
+{
+    /*
+     * Receive markers in the front of the queue does not
+     * add any value, so we just remove them...
+     */
+    ASSERT(c_p->sig_qs.first
+	   && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first));
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+    do {
+	ErtsRecvMarker *markp = (ErtsRecvMarker *) c_p->sig_qs.first;
+	recv_marker_dequeue(c_p, markp);
+    } while (c_p->sig_qs.first
+	     && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first));
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+}
+
+ErtsMessage **
+erts_msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp)
+{
+    ErtsMessage **sigpp = markpp;
+    ErtsMessage *sigp = *sigpp;
+    ASSERT(ERTS_SIG_IS_RECV_MARKER(sigp));
+    do {
+	ErtsRecvMarker *markp = (ErtsRecvMarker *) sigp;
+	if (++markp->pass > ERTS_RECV_MARKER_PASS_MAX) {
+	    recv_marker_dequeue(c_p, markp);
+	    sigp = *sigpp;
+	}
+	else {
+	    sigpp = &markp->sig.common.next;
+	    sigp = markp->sig.common.next;
+	}
+    } while (sigp && ERTS_SIG_IS_RECV_MARKER(sigp));
+
+    return sigpp;
+}
+
+
+/*
+ * Handle signals...
+ */
 
 static ERTS_INLINE int
 handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
@@ -4214,7 +4640,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 {
     Eterm tag;
     erts_aint32_t state;
-    int yield, cnt, limit, abs_lim, msg_tracing, deferred_fetch;
+    int yield, cnt, limit, abs_lim, msg_tracing;
     ErtsMessage *sig, ***next_nm_sig;
     ErtsSigRecvTracing tracing;
 
@@ -4222,16 +4648,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
     state = erts_atomic32_read_nob(&c_p->state);
-    deferred_fetch = 0;
     if (!local_only) {
         if (ERTS_PSFLG_SIG_IN_Q & state) {
-            if (c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST)
-                deferred_fetch = !0;
-            else {
-                erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-                erts_proc_sig_fetch(c_p);
-                erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-            }
+            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+            erts_proc_sig_fetch(c_p);
+            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
         }
     }
 
@@ -4241,7 +4662,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
     if (!c_p->sig_qs.cont) {
         *statep = state;
-        ASSERT(!deferred_fetch);
         return !0;
     }
 
@@ -4690,6 +5110,46 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             break;
         }
 
+        case ERTS_SIG_Q_OP_RECV_MARK: {
+            ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
+            ASSERT(markp->in_sigq);
+
+            if (markp->in_sigq < 0) {
+                /* Marked for removal... */
+                if (markp->set_save) {
+                    c_p->sig_qs.save = *next_nm_sig;
+                    ASSERT(c_p->sig_qs.recv_mrk_blk);
+                    ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
+			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
+						    markp));
+                    c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
+                }
+                markp->in_msgq = markp->in_sigq = markp->set_save = 0;
+                remove_nm_sig(c_p, sig, next_nm_sig);
+		recv_marker_deallocate(c_p, markp);
+            }
+            else {
+                markp->prev_next = *next_nm_sig;
+                ASSERT(*markp->prev_next == sig);
+                *next_nm_sig = ((ErtsSignal *) sig)->common.specific.next;
+
+		ERTS_SIG_DBG_RECV_MARK_SET_HANDLED(sig);
+
+                markp->in_msgq = !0;
+                if (markp->set_save) {
+                    c_p->sig_qs.save = &markp->sig.common.next;
+                    markp->set_save = 0;
+                    ASSERT(c_p->sig_qs.recv_mrk_blk);
+                    ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
+			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
+						    markp));
+                    c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
+                }
+            }
+
+            break;
+        }
+
         default:
             ERTS_INTERNAL_ERROR("Unknown signal");
             break;
@@ -4700,26 +5160,10 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     } while (cnt <= limit || stretch_limit(c_p, &tracing, abs_lim, &limit));
 
 stop: {
-        int deferred_save, deferred_saved_last, res;
+        int res;
 
-        deferred_saved_last = !!(c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST);
-        deferred_save = !!(c_p->sig_qs.flags & FS_DEFERRED_SAVE);
-
-        if (!deferred_saved_last)
-            deferred_save = 0;
-        else {
-            if (c_p->sig_qs.saved_last == &c_p->sig_qs.cont) {
-                c_p->sig_qs.saved_last = c_p->sig_qs.last;
-                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
-                if (deferred_save) {
-                    c_p->sig_qs.save = c_p->sig_qs.saved_last;
-                    c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
-                }
-                deferred_saved_last = deferred_save = 0;
-            }
-        }
-
-        ASSERT(c_p->sig_qs.saved_last != &c_p->sig_qs.cont);
+        if (c_p->sig_qs.save == &c_p->sig_qs.cont)
+            c_p->sig_qs.save = c_p->sig_qs.last;
 
         if (ERTS_UNLIKELY(msg_tracing != 0)) {
             /*
@@ -4729,6 +5173,25 @@ stop: {
              * to trace or next non-message signal.
              */
             ASSERT(tracing.messages.next);
+
+            /*
+             * If we yielded right after we handled a receive
+             * marker, we might point to a receive marker that
+             * should be included in the message queue. Adjust
+             * 'tracing.messages.next' if that is the case...
+             */
+            if (*tracing.messages.next
+                && ERTS_SIG_IS_RECV_MARKER(*tracing.messages.next)
+                && ((ErtsRecvMarker *) *tracing.messages.next)->in_msgq) {
+
+                tracing.messages.next = &(*tracing.messages.next)->next;
+
+                /* There can only be one such receive marker... */
+                ASSERT(!(*tracing.messages.next
+                         && ERTS_SIG_IS_RECV_MARKER(*tracing.messages.next)
+                         && ((ErtsRecvMarker *) *tracing.messages.next)->in_msgq));
+            }
+            
             if (*next_nm_sig) {
                 if (*next_nm_sig == tracing.messages.next)
                     *next_nm_sig = &c_p->sig_qs.cont;
@@ -4746,6 +5209,11 @@ stop: {
             }
 
             if (tracing.messages.next != &c_p->sig_qs.cont) {
+                if (ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.cont)) {
+                    ErtsRecvMarker *markp = (ErtsRecvMarker *) c_p->sig_qs.cont;
+                    markp->prev_next = c_p->sig_qs.last;
+                }
+
                 *c_p->sig_qs.last = c_p->sig_qs.cont;
                 c_p->sig_qs.last = tracing.messages.next;
 
@@ -4766,6 +5234,11 @@ stop: {
              */
             ASSERT(**next_nm_sig);
             if (*next_nm_sig != &c_p->sig_qs.cont) {
+                if (ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.cont)) {
+                    ErtsRecvMarker *markp = (ErtsRecvMarker *) c_p->sig_qs.cont;
+                    markp->prev_next = c_p->sig_qs.last;
+                }
+
                 *c_p->sig_qs.last = c_p->sig_qs.cont;
                 c_p->sig_qs.last = *next_nm_sig;
 
@@ -4792,6 +5265,11 @@ stop: {
             c_p->sig_qs.nmsigs.last = NULL;
 
             if (c_p->sig_qs.cont_last != &c_p->sig_qs.cont) {
+                if (ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.cont)) {
+                    ErtsRecvMarker *markp = (ErtsRecvMarker *) c_p->sig_qs.cont;
+                    markp->prev_next = c_p->sig_qs.last;
+                }
+
                 ASSERT(!*c_p->sig_qs.last);
                 *c_p->sig_qs.last = c_p->sig_qs.cont;
                 c_p->sig_qs.last = c_p->sig_qs.cont_last;
@@ -4810,27 +5288,11 @@ stop: {
             res = !0;
         }
 
-        if (deferred_saved_last
-            && (c_p->sig_qs.saved_last == &c_p->sig_qs.cont)) {
-            c_p->sig_qs.saved_last = c_p->sig_qs.last;
-            c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
-            if (deferred_save) {
-                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
-                c_p->sig_qs.save = c_p->sig_qs.saved_last;
-            }
-        }
-        else if (!res) {
-            if (deferred_save) {
-                c_p->sig_qs.save = c_p->sig_qs.last;
-                ASSERT(!PEEK_MESSAGE(c_p));
-            }
-        }
-        else {
-            c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
-            if (deferred_save) {
-                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
-                c_p->sig_qs.save = c_p->sig_qs.saved_last;
-            }
+        /* Ensure that 'save' doesn't point to a receive marker... */
+        if (*c_p->sig_qs.save
+            && ERTS_SIG_IS_RECV_MARKER(*c_p->sig_qs.save)) {
+            c_p->sig_qs.save = erts_msgq_pass_recv_markers(c_p,
+							   c_p->sig_qs.save);
         }
 
         ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
@@ -4846,8 +5308,6 @@ stop: {
             *redsp = max_reds;
         }
 
-        if (deferred_fetch)
-            return 0;
         return res;
     }
 }
@@ -4856,6 +5316,7 @@ static int
 stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
               int abs_lim, int *limp)
 {
+    ErtsMessage **sigpp;
     int lim;
     /*
      * Stretch limit up to a maximum of 'abs_lim' if
@@ -4870,18 +5331,52 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
     if (abs_lim == lim)
         return 0;
 
-    if (!(c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST)) {
-        ErtsSignal *sig;
+    /*
+     * We cannot use erts_msgq_peek_msg() to inspect
+     * save pointer here! At this point save pointer has
+     * not been moved passed possible receive markers...
+     *
+     * Also note that the save pointer might point into
+     * message queue as well as middle signal queue (if a
+     * receive marker with 'set_save' set just arrived).
+     */
+    if (c_p->sig_qs.save == c_p->sig_qs.last)
+	sigpp = &c_p->sig_qs.cont;
+    else
+	sigpp = c_p->sig_qs.save;
 
-        if (PEEK_MESSAGE(c_p))
-            return 0;
-        sig = (ErtsSignal *) c_p->sig_qs.cont;
-        if (!sig)
-            return 0; /* No signals to process available... */
-        if (ERTS_SIG_IS_MSG(sig) && tp->messages.next != &c_p->sig_qs.cont)
-            return 0;
+    while (!0) {
+	Eterm tag;
+	if (!(*sigpp))
+	    return 0; /* No signals to process available... */
+
+	if (tp->messages.next == sigpp)
+	    break;
+
+	tag = ((ErtsSignal *) *sigpp)->common.tag;
+
+	if (ERTS_SIG_IS_MSG_TAG(tag))
+	    return 0; /* Have message to inspect... */
+
+	if (tag != ERTS_RECV_MARKER_TAG) {
+	    ASSERT(ERTS_SIG_IS_NON_MSG_TAG(tag));
+	    break;
+	}
+
+	/*
+	 * Pass the recv marker without punishing it
+	 * by increasing the 'pass' field...
+	 */
+	sigpp = &(*sigpp)->next;
+	if (sigpp == c_p->sig_qs.last)
+	    sigpp = &c_p->sig_qs.cont;
     }
 
+    /*
+     * Stretch the limit so we can process some more signals
+     * in order to try to make messages available in message
+     * queue...
+     */
     lim += ERTS_SIG_REDS_CNT_FACTOR*100;
     if (lim > abs_lim)
         lim = abs_lim;
@@ -5040,6 +5535,13 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             destroy_trace_info((ErtsSigTraceInfo *) sig);
             break;
 
+        case ERTS_SIG_Q_OP_RECV_MARK: {
+            ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
+            markp->in_msgq = markp->in_sigq = markp->set_save = 0;
+            recv_marker_deallocate(c_p, markp);
+            break;
+        }
+
         default:
             ERTS_INTERNAL_ERROR("Unknown signal");
             break;
@@ -5123,6 +5625,7 @@ clear_seq_trace_token(ErtsMessage *sig)
         case ERTS_SIG_Q_OP_PROCESS_INFO:
         case ERTS_SIG_Q_OP_SYNC_SUSPEND:
         case ERTS_SIG_Q_OP_RPC:
+        case ERTS_SIG_Q_OP_RECV_MARK:
             break;
 
         default:
@@ -5269,6 +5772,10 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         size = sizeof(ErtsProcSigRPC);
         break;
 
+    case ERTS_SIG_Q_OP_RECV_MARK:
+        size = sizeof(ErtsRecvMarker);
+        break;
+        
     default:
         ERTS_INTERNAL_ERROR("Unknown signal");
         break;
@@ -5321,7 +5828,6 @@ erts_proc_sig_receive_helper(Process *c_p,
 
         if (!c_p->sig_qs.cont) {
 
-            ASSERT(!(c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST));
             consumed_reds += 4;
             left_reds -= 4;
             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
@@ -5330,7 +5836,7 @@ erts_proc_sig_receive_helper(Process *c_p,
              * Messages may have been moved directly to
              * inner queue...
              */
-            msgp = PEEK_MESSAGE(c_p);
+            msgp = erts_msgq_peek_msg(c_p);
             if (msgp) {
                 erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
                 *get_outp = 0;
@@ -5397,7 +5903,7 @@ erts_proc_sig_receive_helper(Process *c_p,
             return consumed_reds;
         }
 
-        msgp = PEEK_MESSAGE(c_p);
+        msgp = erts_msgq_peek_msg(c_p);
         if (msgp) {
             *get_outp = 0;
             *msgpp = msgp;
@@ -5622,41 +6128,45 @@ erts_proc_sig_prep_msgq_for_inspection(Process *c_p,
     while (mp) {
 	Eterm msg = ERL_MESSAGE_TERM(mp);
 
-	mip[i].size = 0;
+	if (msg != ERTS_RECV_MARKER_TAG) {
 
-	if (ERTS_SIG_IS_EXTERNAL_MSG(mp)) {
-	    /* decode it... */
-            if (!erts_proc_sig_decode_dist(rp, rp_locks, mp, !0)) {
-		ErtsMessage *bad_mp = mp;
-		/*
-		 * Bad distribution message; remove
-		 * it from the queue...
-		 */
+	    mip[i].size = 0;
 
-		ASSERT(*mpp == bad_mp);
+	    if (ERTS_SIG_IS_EXTERNAL_MSG(mp)) {
+		/* decode it... */
+		if (!erts_proc_sig_decode_dist(rp, rp_locks, mp, !0)) {
+		    ErtsMessage *bad_mp = mp;
+		    /*
+		     * Bad distribution message; remove
+		     * it from the queue...
+		     */
 
-                remove_iq_m_sig(rp, mp, mpp);
+		    ASSERT(*mpp == bad_mp);
 
-                mp = *mpp;
+		    remove_iq_m_sig(rp, mp, mpp);
 
-		bad_mp->next = NULL;
-		erts_cleanup_messages(bad_mp);
-		continue;
+		    mp = *mpp;
+
+		    bad_mp->next = NULL;
+		    erts_cleanup_messages(bad_mp);
+		    continue;
+		}
+
+		msg = ERL_MESSAGE_TERM(mp);
 	    }
 
-	    msg = ERL_MESSAGE_TERM(mp);
+	    ASSERT(is_value(msg));
+
+	    if (is_not_immed(msg) && (!self_on_heap || mp->data.attached)) {
+		Uint sz = size_object(msg);
+		mip[i].size = sz;
+		tot_heap_size += sz;
+	    }
+
+	    mip[i].msgp = mp;
+	    i++;
 	}
 
-	ASSERT(is_value(msg));
-
-	if (is_not_immed(msg) && (!self_on_heap || mp->data.attached)) {
-	    Uint sz = size_object(msg);
-	    mip[i].size = sz;
-	    tot_heap_size += sz;
-	}
-
-	mip[i].msgp = mp;
-	i++;
         mpp = &mp->next;
 	mp = mp->next;
     }
@@ -5777,6 +6287,44 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
         BIF_RET(res);
     }
 }
+
+/* Cleanup */
+
+void
+erts_proc_sig_cleanup_queues(Process *c_p)
+{
+    ErtsMessage *queues[] = {
+	c_p->sig_qs.first, /* Message queue (inner signal queue) */
+	c_p->sig_qs.cont   /* Private signal queue (middle signal queue) */
+    };
+    int i;
+
+    for (i = 0; i < sizeof(queues)/sizeof(queues[0]); i++) {
+	ErtsMessage *sig = queues[i];
+	while (sig) {
+	    ErtsMessage *free_sig = sig;
+	    sig = sig->next;
+	    if (ERTS_SIG_IS_RECV_MARKER(free_sig))
+		recv_marker_deallocate(c_p, (ErtsRecvMarker *) free_sig);
+	    else {
+		free_sig->next = NULL;
+		erts_cleanup_messages(free_sig);
+	    }
+	}
+    }
+
+#ifdef DEBUG
+    /*
+     * External signal queue (outer signal queue)
+     * should already have been taken care of...
+     */
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    ASSERT(!c_p->sig_inq.first);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+#endif
+}
+
+/* Debug */
 
 static void
 debug_foreach_sig_heap_frags(ErlHeapFragment *hfrag,
@@ -5913,6 +6461,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                 case ERTS_SIG_Q_OP_IS_ALIVE:
                 case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
                 case ERTS_SIG_Q_OP_PROCESS_INFO:
+                case ERTS_SIG_Q_OP_RECV_MARK:
                     break;
 
                 default:
@@ -5924,6 +6473,87 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
         }
     }
 }
+
+#ifdef ERTS_PROC_SIG_HARD_DEBUG_RECV_MARKER
+
+void
+erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
+{
+    int ix, used, unused, free;
+    ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+    int default_marker = 0;
+#endif    
+    if (!blkp)
+	return;
+
+    unused = used = 0;
+    ix = blkp->used_ix;
+    ERTS_ASSERT(0 <= ix && ix < ERTS_RECV_MARKER_BLOCK_SIZE);
+
+    do {
+	int pix, nix;
+	ErtsRecvMarker *markp = &blkp->marker[ix];
+	Eterm ref = blkp->ref[ix];
+	
+	ERTS_ASSERT(is_internal_ref(ref)
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+		    || ref == am_default
+#endif
+		    || ref == am_undefined
+		    || is_nil(ref));
+
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	if (ref == am_default) {
+	    ERTS_ASSERT(blkp->default_recv_marker_ix == ix);
+	    default_marker++;
+	}
+#endif
+
+	if (ref == am_undefined)
+	    unused++;
+
+	ASSERT(markp->used);
+
+	pix = markp->prev_used_ix;
+	nix = markp->next_used_ix;
+
+	ERTS_ASSERT(0 <= pix && pix < ERTS_RECV_MARKER_BLOCK_SIZE);
+	ERTS_ASSERT(0 <= nix && nix < ERTS_RECV_MARKER_BLOCK_SIZE);
+	ERTS_ASSERT(blkp->marker[pix].next_used_ix == ix);
+	ERTS_ASSERT(blkp->marker[nix].prev_used_ix == ix);
+
+	used++;
+	ERTS_ASSERT(used <= ERTS_RECV_MARKER_BLOCK_SIZE);
+
+	ix = nix;
+    } while (ix != blkp->used_ix);
+    
+    ERTS_ASSERT(unused == blkp->unused);
+
+    free = 0;
+
+    ix = blkp->free_ix;
+    if (ix >= 0) {
+	ERTS_ASSERT(ix < ERTS_RECV_MARKER_BLOCK_SIZE);
+	
+	do {
+	    Eterm ref = blkp->ref[ix];
+	    ERTS_ASSERT(is_small(ref));
+	    ASSERT(!blkp->marker[ix].used);
+	    free++;
+	    ERTS_ASSERT(free < ERTS_RECV_MARKER_BLOCK_SIZE);
+	    ix = signed_val(ref);
+	} while (ix >= 0);
+    }
+
+    ERTS_ASSERT(used + free == ERTS_RECV_MARKER_BLOCK_SIZE);
+
+    ERTS_ASSERT(default_marker == 0 || default_marker == 1);
+}
+
+#endif /* ERTS_PROC_SIG_HARD_DEBUG_RECV_MARKER */
+
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 
@@ -5970,16 +6600,16 @@ proc_sig_hdbg_check_queue(Process *proc,
                           ErtsMessage **sig_nm_next,
                           ErtsMessage **sig_nm_last,
                           ErtsSigRecvTracing *tracing,
-                          int *found_saved_last_p,
+                          int *found_set_save_recv_marker_p,
                           erts_aint32_t sig_psflg)
 {
     ErtsMessage **next, *sig, **nm_next, **nm_last;
     int last_nm_sig_found, nm_sigs = 0, found_next_trace = 0,
-        found_save = 0, last_sig_found = 0, found_saved_last = 0;
+        found_save = 0, last_sig_found = 0, recv_marker = 0,
+        recv_marker_set_save = 0;
     Sint msg_len = 0;
     ErtsMessage **next_trace = tracing ? tracing->messages.next : NULL;
     ErtsMessage **save = proc->sig_qs.save;
-    ErtsMessage **saved_last = proc->sig_qs.saved_last;
 
     if (!privq) {
         ErtsSignal *sig = (ErtsSignal *) *sig_next;
@@ -6010,24 +6640,31 @@ proc_sig_hdbg_check_queue(Process *proc,
         if (next == save)
             found_save = 1;
 
-        if (next == saved_last)
-            found_saved_last = 1;
-
         if (next == next_trace) {
             found_next_trace = 1;
             ERTS_ASSERT(nm_sigs == 0);
         }
 
-        while (sig && ERTS_SIG_IS_MSG(sig)) {
+        while (sig
+	       && (ERTS_SIG_IS_MSG(sig)
+		   || (ERTS_SIG_DBG_IS_HANDLED_RECV_MARKER(sig)))) {
             int i;
-            if (ERTS_SIG_IS_EXTERNAL_MSG(sig))
-                i = 1;
-            else
-                i = 0;
-            for (; i < ERL_MESSAGE_REF_ARRAY_SZ; i++)
-                chk_eterm(proc, privq, sig, sig->m[i]);
+            if (ERTS_SIG_IS_RECV_MARKER(sig)) {
+                ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
+                recv_marker++;
+                ASSERT(!markp->set_save);
+                ERTS_ASSERT(next == markp->prev_next);
+            }
+            else {
+                if (ERTS_SIG_IS_EXTERNAL_MSG(sig))
+                    i = 1;
+                else
+                    i = 0;
+                for (; i < ERL_MESSAGE_REF_ARRAY_SZ; i++)
+                    chk_eterm(proc, privq, sig, sig->m[i]);
+                msg_len++;
+            }
 
-            msg_len++;
             next = &sig->next;
             sig = sig->next;
 
@@ -6039,9 +6676,6 @@ proc_sig_hdbg_check_queue(Process *proc,
             if (next == save)
                 found_save = 1;
 
-            if (next == saved_last)
-                found_saved_last = 1;
-
             if (next == next_trace) {
                 found_next_trace = 1;
                 ERTS_ASSERT(nm_sigs == 0);
@@ -6051,6 +6685,20 @@ proc_sig_hdbg_check_queue(Process *proc,
         if (!sig)
             break;
 
+        if (ERTS_SIG_IS_RECV_MARKER(sig)) {
+            ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
+	    ErtsRecvMarkerBlock *blkp = proc->sig_qs.recv_mrk_blk;
+	    ERTS_ASSERT(blkp);
+            recv_marker++;
+            if (markp->set_save) {
+                ERTS_ASSERT(blkp->pending_set_save_ix
+			    == ERTS_RECV_MARKER_IX__(blkp, markp));
+                recv_marker_set_save++;
+            }
+            if (privq < 0)
+                ERTS_ASSERT(next == markp->prev_next);
+        }
+        
         nm_sig = (ErtsSignal *) sig;
 
         if (nm_sig->common.tag == ERTS_PROC_SIG_MSGQ_LEN_OFFS_MARK) {
@@ -6079,41 +6727,24 @@ proc_sig_hdbg_check_queue(Process *proc,
 
     }
 
+    if (found_set_save_recv_marker_p)
+        (*found_set_save_recv_marker_p) += recv_marker_set_save;
+
     if (!privq) {
         /* outer queue */
         ERTS_ASSERT(!found_save);
-        ERTS_ASSERT(!found_saved_last);
+        ERTS_ASSERT(!recv_marker);
     }
     else if (privq > 0) {
         /* middle queue */
         ERTS_ASSERT(!next_trace || found_next_trace);
         ERTS_ASSERT(!found_save);
-        if (!found_saved_last_p) {
-            ERTS_ASSERT(!found_saved_last
-                        || (proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST));
-        }
-        else {
-            if (*found_saved_last_p) {
-                ERTS_ASSERT(!found_saved_last);
-                ERTS_ASSERT(!(proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST));
-            }
-            else if (saved_last) {
-                ERTS_ASSERT(found_saved_last);
-                ERTS_ASSERT(proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST);
-            }
-            *found_saved_last_p |= found_saved_last;
-        }
     }
     else {
         /* inner queue */
         ERTS_ASSERT(!found_next_trace);
         ERTS_ASSERT(nm_sigs == 0);
         ERTS_ASSERT(found_save);
-        ERTS_ASSERT(!saved_last
-                    || (found_saved_last
-                        || (proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST)));
-        if (found_saved_last_p)
-            *found_saved_last_p |= found_saved_last;
     }
 
     ERTS_ASSERT(last_nm_sig_found);
@@ -6130,8 +6761,10 @@ proc_sig_hdbg_check_queue(Process *proc,
 void
 erts_proc_sig_hdbg_check_priv_queue(Process *p, int qlock, char *what, char *file, int line)
 {
-    int found_saved_last = 0;
+    int found_set_save_recv_marker = 0;
     Sint len, len1, len2;
+    ErtsRecvMarkerBlock *blkp = p->sig_qs.recv_mrk_blk;
+
     ERTS_LC_ASSERT(erts_thr_progress_is_blocking()
                    || ERTS_PROC_IS_EXITING(p)
                    || (ERTS_PROC_LOCK_MAIN
@@ -6143,7 +6776,7 @@ erts_proc_sig_hdbg_check_priv_queue(Process *p, int qlock, char *what, char *fil
                                      NULL,
                                      NULL,
                                      NULL,
-                                     &found_saved_last,
+                                     &found_set_save_recv_marker,
                                      ERTS_PSFLG_FREE);
     len2 = proc_sig_hdbg_check_queue(p,
                                      1,
@@ -6152,10 +6785,12 @@ erts_proc_sig_hdbg_check_priv_queue(Process *p, int qlock, char *what, char *fil
                                      p->sig_qs.nmsigs.next,
                                      p->sig_qs.nmsigs.last,
                                      NULL,
-                                     &found_saved_last,
+                                     &found_set_save_recv_marker,
                                      ERTS_PSFLG_SIG_Q);
-    if (p->sig_qs.saved_last)
-        ERTS_ASSERT(found_saved_last);
+    ERTS_ASSERT(found_set_save_recv_marker == 1
+                || found_set_save_recv_marker == 0);
+    ERTS_ASSERT(found_set_save_recv_marker || !blkp || blkp->pending_set_save_ix < 0);
+    ERTS_ASSERT(!found_set_save_recv_marker || blkp->pending_set_save_ix >= 0);
     len = proc_sig_privqs_len(p, qlock);
     ERTS_ASSERT(len == len1 + len2);
 }

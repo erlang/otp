@@ -1384,6 +1384,7 @@ end
 
 define etp-sig-int
   set $etp_sig_is_message = 0
+  set $etp_sig_is_recv_marker = 0
   set $etp_sig_tag = ($arg0)->m[0]
   if ($etp_sig_tag & 0x3) != 0 || $etp_sig_tag == etp_the_non_value
     set $etp_sig_is_message = !0
@@ -1446,6 +1447,14 @@ define etp-sig-int
       else
       if $etp_sig_op == 13
 	printf "!RPC[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 14
+	printf "!DIST_SPAWN_REPLY[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 15
+	printf "!RECV_MARKER[%d]", $etp_sig_type
+      end
+      end
       end
       end
       end
@@ -1472,10 +1481,9 @@ define etp-sigq-int
 #
   set $etp_sig = ($arg0)
   set $etp_sig_save = ($arg1)
-  set $etp_sig_save_last = ($arg2)
   set $etp_sigq_msig_len = 0
   set $etp_sigq_nmsig_len = 0
-
+  
   printf "    ["
   while $etp_sig != (void *) 0
     set $etp_sig_next = $etp_sig->next
@@ -1493,10 +1501,6 @@ define etp-sigq-int
     end
     if $etp_sig_save && *$etp_sig_save == $etp_sig
       printf " %% <== SAVE"
-    else
-      if $etp_sig_save_last && *$etp_sig_save_last == $etp_sig
-	printf " %% <== SAVED_LAST"
-      end
     end
     if $etp_sig_next
       printf "\n"
@@ -1558,11 +1562,11 @@ define etp-sigqs
   printf "  Msgq Flags: "
   etp-sigq-flags $proc_int
   printf "  --- Inner signal queue (message queue) ---\n"
-  etp-sigq-int ($proc_int)->sig_qs.first ($proc_int)->sig_qs.save ($proc_int)->sig_qs.saved_last
+  etp-sigq-int ($proc_int)->sig_qs.first ($proc_int)->sig_qs.save
   printf "  --- Middle signal queue ---\n"
-  etp-sigq-int ($proc_int)->sig_qs.cont ($proc_int)->sig_qs.save ($proc_int)->sig_qs.saved_last
+  etp-sigq-int ($proc_int)->sig_qs.cont ($proc_int)->sig_qs.save
   printf "  --- Outer queue ---\n"
-  etp-sigq-int ($proc_int)->sig_inq.first ($proc_int)->sig_qs.save ($proc_int)->sig_qs.saved_last
+  etp-sigq-int ($proc_int)->sig_inq.first ($proc_int)->sig_qs.save
 end
 
 define etp-msgq

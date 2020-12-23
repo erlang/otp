@@ -38,7 +38,7 @@ static ErtsMessage *decode_dist(Process *c_p, ErtsMessage *msgp) {
          */
 
         /* TODO: Add DTrace probe for this bad message situation? */
-        UNLINK_MESSAGE(c_p, msgp);
+        erts_msgq_unlink_msg(c_p, msgp);
         msgp->next = NULL;
         erts_cleanup_messages(msgp);
 
@@ -48,24 +48,38 @@ static ErtsMessage *decode_dist(Process *c_p, ErtsMessage *msgp) {
     return msgp;
 }
 
-static void recv_mark_save(Process *p) {
-    ERTS_RECV_MARK_SAVE(p);
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+
+static void recv_mark(Process *p) {
+    erts_msgq_recv_marker_insert(p, am_default); /* inlined here... */
 }
 
 static void recv_mark_set(Process *p) {
-    ERTS_RECV_MARK_SET(p);
+    erts_msgq_recv_marker_set_save(p, am_default); /* inlined here... */
 }
 
 void BeamModuleAssembler::emit_i_recv_mark() {
+    /*
+     * OLD INSTRUCTION: This instruction is to be removed
+     *                  in OTP 26.
+     *
+     * Save the current end of message queue
+     */
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark_save);
+    runtime_call<1>(recv_mark);
 
     emit_leave_runtime();
 }
 
 void BeamModuleAssembler::emit_i_recv_set() {
+    /*
+     * OLD INSTRUCTION: This instruction is to be removed
+     *                  in OTP 26.
+     *
+     * If previously saved recv mark, set save pointer to it
+     */
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
@@ -73,6 +87,8 @@ void BeamModuleAssembler::emit_i_recv_set() {
 
     emit_leave_runtime();
 }
+
+#endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
 
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     Label restart = a.newLabel(), peek_message = a.newLabel(),
@@ -215,7 +231,7 @@ static Sint remove_message(Process *c_p,
         save_calls(c_p, &exp_receive);
     }
 
-    msgp = PEEK_MESSAGE(c_p);
+    msgp = erts_msgq_peek_msg(c_p);
 
     if (ERL_MESSAGE_TOKEN(msgp) == NIL) {
 #ifdef USE_VM_PROBES
@@ -292,8 +308,8 @@ static Sint remove_message(Process *c_p,
                 tok_serial);
     }
 #endif
-    UNLINK_MESSAGE(c_p, msgp);
-    JOIN_MESSAGE(c_p);
+    erts_msgq_unlink_msg(c_p, msgp);
+    erts_msgq_set_save_first(c_p);
     CANCEL_TIMER(c_p);
 
     erts_save_message_in_proc(c_p, msgp);
@@ -331,11 +347,18 @@ void BeamModuleAssembler::emit_remove_message() {
     emit_leave_runtime();
 }
 
+static void save_message(Process *c_p) {
+    erts_msgq_set_save_next(c_p);
+}
+
 void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
-    ERTS_CT_ASSERT(0 == offsetof(ErtsMessage, next));
-    a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, sig_qs.save)));
-    a.mov(ARG1, x86::qword_ptr(ARG1));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, sig_qs.save)), ARG1);
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<1>(save_message);
+
+    emit_leave_runtime();
+
     a.dec(FCALLS);
     a.jmp(labels[Dest.getValue()]);
 }
@@ -467,7 +490,7 @@ static void timeout(Process *c_p) {
         save_calls(c_p, &exp_timeout);
     }
     c_p->flags &= ~F_TIMO;
-    JOIN_MESSAGE(c_p);
+    erts_msgq_set_save_first(c_p);
 }
 
 static void timeout_locked(Process *c_p) {

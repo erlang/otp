@@ -542,8 +542,10 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
             /* To avoid keeping stale references. */
             c_p->stop[0] = NIL;
 #endif
-
-            ERTS_RECV_MARK_CLEAR(c_p); /* No longer safe to use this position */
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	    /* No longer safe to use this position */
+            erts_msgq_recv_marker_clear(c_p, am_default);
+#endif
 	    return new_pc;
 	}
 	if (c_p->catches > 0) erts_exit(ERTS_ERROR_EXIT, "Catch not found");
