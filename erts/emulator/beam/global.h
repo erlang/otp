@@ -1599,7 +1599,7 @@ dtrace_pid_str(Eterm pid, char *process_buf)
                       pid_number(pid),
                       pid_serial(pid));
     else if (is_port(pid))
-        erts_snprintf(process_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
+        erts_snprintf(process_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%b64u>",
                       port_channel_no(pid),
                       port_number(pid));
 }

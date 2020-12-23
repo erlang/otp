@@ -58,7 +58,7 @@
  */
 #define DFLAG_SPAWN            (((Uint64)0x1) << 32)
 #define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
-#define DFLAG_V4_PIDS_REFS     (((Uint64)0x4) << 32)
+#define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
 
 /* Mandatory flags for distribution */
@@ -95,7 +95,7 @@
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_HANDSHAKE_23              \
                             | DFLAG_SPAWN                     \
-                            | DFLAG_V4_PIDS_REFS	      \
+                            | DFLAG_V4_NC		      \
                             | DFLAG_ALIAS)
 
 /* Flags addable by local distr implementations */

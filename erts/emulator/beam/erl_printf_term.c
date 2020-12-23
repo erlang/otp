@@ -76,6 +76,22 @@ do {									\
     (CNT) += res__;							\
 } while (0)
 
+#define PRINT_UWORD64(CNT, FN, ARG, C, P, W, I)				\
+do {									\
+    int res__ = erts_printf_uword64((FN), (ARG), (C), (P), (W), (I));	\
+    if (res__ < 0)							\
+	return res__;							\
+    (CNT) += res__;							\
+} while (0)
+
+#define PRINT_SWORD64(CNT, FN, ARG, C, P, W, I)				\
+do {									\
+    int res__ = erts_printf_sword64((FN), (ARG), (C), (P), (W), (I));	\
+    if (res__ < 0)							\
+	return res__;							\
+    (CNT) += res__;							\
+} while (0)
+
 #define PRINT_DOUBLE(CNT, FN, ARG, C, P, W, I)				\
 do {									\
     int res__ = erts_printf_double((FN), (ARG), (C), (P), (W), (I));	\
@@ -438,8 +454,8 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    PRINT_UWORD(res, fn, arg, 'u', 0, 1,
 			(ErlPfUWord) port_channel_no(wobj));
 	    PRINT_CHAR(res, fn, arg, '.');
-	    PRINT_UWORD(res, fn, arg, 'u', 0, 1,
-			(ErlPfUWord) port_number(wobj));
+	    PRINT_UWORD64(res, fn, arg, 'u', 0, 1,
+			  (ErlPfUWord64) port_number(wobj));
 	    PRINT_CHAR(res, fn, arg, '>');
 	    break;
 	case LIST_DEF:

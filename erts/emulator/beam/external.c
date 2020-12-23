@@ -3265,12 +3265,21 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    Eterm sysname = (((dflags & DFLAG_ETS_COMPRESSED) && is_internal_port(obj))
 			     ? INTERNAL_LOCAL_SYSNAME : port_node_name(obj));
             Uint32 creation = port_creation(obj);
+	    byte *tagp = ep++;
+	    Uint64 num;
 
-            *ep++ = NEW_PORT_EXT;
 	    ep = enc_atom(acmp, sysname, ep, dflags);
-	    j = port_number(obj);
-	    put_int32(j, ep);
-	    ep += 4;
+	    num = port_number(obj);
+	    if (num > ERTS_MAX_V3_PORT_NUMBER) {
+		*tagp = V4_PORT_EXT;
+		put_int64(num, ep);
+		ep += 8;
+	    }
+	    else {
+		*tagp = NEW_PORT_EXT;
+		put_int32(num, ep);
+		ep += 4;
+	    }
             put_int32(creation, ep);
             ep += 4;
 	    break;
@@ -4277,20 +4286,25 @@ dec_term_atom_common:
 	    break;
         case PORT_EXT:
         case NEW_PORT_EXT:
+        case V4_PORT_EXT:
 	    {
 		Eterm sysname;
 		ErlNode *node;
-		Uint num;
+		Uint64 num;
 		Uint32 cre;
                 byte tag = ep[-1];
 
 		if ((ep = dec_atom(edep, ep, &sysname)) == NULL) {
 		    goto error;
 		}
-		if ((num = get_uint32(ep)) > ERTS_MAX_PORT_NUMBER) {
-		    goto error;
+		if (tag == V4_PORT_EXT) {
+		    num = get_int64(ep);
+		    ep += 8;
 		}
-		ep += 4;
+		else {
+		    num = get_uint32(ep);
+		    ep += 4;
+		}
                 if (tag == PORT_EXT) {
                     cre = get_int8(ep);
                     ep++;
@@ -4304,16 +4318,23 @@ dec_term_atom_common:
                 }
 		node = dec_get_node(sysname, cre, make_boxed(hp));
 		if(node == erts_this_node) {
-		    *objp = make_internal_port(num);
+		    if (num > ERTS_MAX_INTERNAL_PORT_NUMBER)
+			goto error;
+		    *objp = make_internal_port((Uint) num);
 		}
 		else {
 		    ExternalThing *etp = (ExternalThing *) hp;
-		    hp += EXTERNAL_THING_HEAD_SIZE + 1;
+		    hp += EXTERNAL_PORT_HEAP_SIZE;
 		    
-		    etp->header = make_external_port_header(1);
+		    etp->header = make_external_port_header();
 		    etp->next = factory->off_heap->first;
 		    etp->node = node;
-		    etp->data.ui[0] = num;
+#ifdef ARCH_64
+		    etp->data.ui[0] = (Uint) num;
+#else
+		    etp->data.ui[0] = (Uint) (num & 0xffffffff);
+		    etp->data.ui[1] = (Uint) ((num >> 32) & 0xffffffff);
+#endif
 
 		    factory->off_heap->first = (struct erl_off_heap_header*)etp;
 		    *objp = make_external_port(etp);
@@ -5044,10 +5065,13 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		       4 + 4*i);
 	    break;
         case EXTERNAL_PORT_DEF:
-        case PORT_DEF:
-	    result += (1 + encode_size_struct2(acmp, port_node_name(obj), dflags) +
-		      4 + 4);
+        case PORT_DEF: {
+	    Uint64 num = port_number(obj);
+	    result += (num > ERTS_MAX_V3_PORT_NUMBER) ? 8 : 4;
+	    result += (1 + encode_size_struct2(acmp, port_node_name(obj), dflags)
+		       /* num */ + 4);
 	    break;
+	}
 	case LIST_DEF: {
 	    int is_str = is_external_string(obj, &m);
 	    r -= m/2;
@@ -5506,6 +5530,9 @@ init_done:
 	    heap_size += EXTERNAL_PID_HEAP_SIZE;
 	    terms++;
 	    break;
+        case V4_PORT_EXT:
+	    atom_extra_skip = 12;
+	    goto case_PORT;
         case NEW_PORT_EXT:
 	    atom_extra_skip = 8;
 	    goto case_PORT;
@@ -5513,7 +5540,7 @@ init_done:
 	    atom_extra_skip = 5;
 	case_PORT:
 	    /* In case it is an external port */
-	    heap_size += EXTERNAL_THING_HEAD_SIZE + 1;
+	    heap_size += EXTERNAL_PORT_HEAP_SIZE;
 	    terms++;
 	    break;
 	case NEWER_REFERENCE_EXT:

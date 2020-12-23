@@ -748,11 +748,19 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            another arbitrary number. Only the low order 2 bits will
      *            be used.
      */
-    public void write_port(final String node, final int id, final int creation) {
-	write1(OtpExternal.newPortTag);
-	write_atom(node);
-	write4BE(id & 0xfffffff); // 28 bits
-	write1(creation & 0x3); // 2 bits
+    public void write_port(final String node, final long id, final int creation) {
+        if ((id & ~0xfffffffL) != 0) { /* > 28 bits */
+            write1(OtpExternal.v4PortTag);
+            write_atom(node);
+            write8BE(id);
+            write4BE(creation);
+        }
+        else {
+            write1(OtpExternal.newPortTag);
+            write_atom(node);
+            write4BE(id);
+            write4BE(creation);
+        }
     }
 
     /**
@@ -762,10 +770,18 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            the port.
      */
     public void write_port(OtpErlangPort port) {
-	write1(OtpExternal.newPortTag);
-	write_atom(port.node());
-	write4BE(port.id());
-        write4BE(port.creation());
+        if ((port.id() & ~0xfffffffL) != 0) { /* > 28 bits */
+            write1(OtpExternal.v4PortTag);
+            write_atom(port.node());
+            write8BE(port.id());
+            write4BE(port.creation());
+        }
+        else {
+            write1(OtpExternal.newPortTag);
+            write_atom(port.node());
+            write4BE((int) port.id());
+            write4BE(port.creation());
+        }
     }
 
     /**

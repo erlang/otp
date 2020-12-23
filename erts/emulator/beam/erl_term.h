@@ -1102,8 +1102,14 @@ typedef struct external_thing_ {
 #define is_external_pid_header(x) \
   (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_EXTERNAL_PID)
 
-#define make_external_port_header(DW) \
-  _make_header((DW)+EXTERNAL_THING_HEAD_SIZE-1,_TAG_HEADER_EXTERNAL_PORT)
+/* external port data is always 64 bits */
+#define EXTERNAL_PORT_DATA_WORDS (8 / sizeof(Uint))
+
+#define EXTERNAL_PORT_HEAP_SIZE \
+    (EXTERNAL_THING_HEAD_SIZE + EXTERNAL_PID_DATA_WORDS)
+
+#define make_external_port_header() \
+  _make_header(EXTERNAL_PORT_HEAP_SIZE-1,_TAG_HEADER_EXTERNAL_PORT)
 #define is_external_port_header(x) \
   (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_EXTERNAL_PORT)
 
@@ -1181,15 +1187,21 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_pid_node,Wterm)
 _ET_DECLARE_CHECKED(Uint,external_port_data_words,Wterm)
 #define external_port_data_words(x) _ET_APPLY(external_port_data_words,(x))
 
-#define _unchecked_external_port_data(x) _unchecked_external_data((x))[0]
-_ET_DECLARE_CHECKED(Uint,external_port_data,Wterm)
+#define _unchecked_external_port_data(x) _unchecked_external_data((x))
+_ET_DECLARE_CHECKED(Uint*,external_port_data,Wterm)
 #define external_port_data(x) _ET_APPLY(external_port_data,(x))
 
 #define _unchecked_external_port_node(x) _unchecked_external_node((x))
 _ET_DECLARE_CHECKED(struct erl_node_*,external_port_node,Wterm)
 #define external_port_node(x) _ET_APPLY(external_port_node,(x))
 
-#define external_port_number(x) _GET_PORT_NUM(external_port_data((x)))
+#ifdef ARCH_64
+#define external_port_number(x) ((Uint64) external_port_data((x))[0])
+#else
+#define external_port_number(x)					\
+    ((((Uint64) external_port_data((x))[1]) << 32)		\
+     | ((Uint64) external_port_data((x))[0]))
+#endif
 
 #define _unchecked_external_ref_data_words(x) \
   _unchecked_external_data_words((x))

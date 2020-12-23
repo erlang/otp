@@ -161,6 +161,7 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 #define ERL_MAP_EXT           't'
 #define ERL_FUN_EXT	      'u'
 #define ERL_EXPORT_EXT        'q'
+#define ERL_V4_PORT_EXT       'x'
 
  
 #define ERL_NEW_CACHE         'N' /* c nodes don't know these two */
@@ -208,6 +209,14 @@ extern volatile int __erl_errno;
 /*                      Type definitions                                */
 /* -------------------------------------------------------------------- */
 
+#ifdef __WIN32__
+#define EI_LONGLONG __int64
+#define EI_ULONGLONG unsigned __int64
+#else
+#define EI_LONGLONG long long
+#define EI_ULONGLONG unsigned long long
+#endif
+    
 /*
  * To avoid confusion about the MAXHOSTNAMELEN when compiling the
  * library and when using the library we set a value that we use
@@ -237,7 +246,7 @@ typedef struct {
 /* a port */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  unsigned int id;
+  EI_ULONGLONG id;
   unsigned int creation;
 } erlang_port;
 
@@ -815,14 +824,6 @@ int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);
 /* -------------------------------------------------------------------- */
 
 /* FIXME replace this primitive type size code */
-
-#ifdef __WIN32__
-#define EI_LONGLONG __int64
-#define EI_ULONGLONG unsigned __int64
-#else
-#define EI_LONGLONG long long
-#define EI_ULONGLONG unsigned long long
-#endif
 
 int ei_decode_longlong(const char *buf, int *index, EI_LONGLONG *p);
 int ei_decode_ulonglong(const char *buf, int *index, EI_ULONGLONG *p);

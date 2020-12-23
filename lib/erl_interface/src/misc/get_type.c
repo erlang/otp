@@ -73,6 +73,7 @@ int ei_get_type(const char *buf, const int *index, int *type, int *len)
   case ERL_NEW_PID_EXT:
       *type = ERL_PID_EXT;
       break;
+  case ERL_V4_PORT_EXT:
   case ERL_NEW_PORT_EXT:
       *type = ERL_PORT_EXT;
       break;
