@@ -239,7 +239,7 @@
     </note>
     
     <p>The file transfer type is set to the default of the FTP server
-      when the session is opened. This is usually ASCCI mode.
+      when the session is opened. This is usually ASCII mode.
     </p>
     
     <p>The current local working directory (compare <c>lpwd/1</c>) is set 
@@ -899,7 +899,7 @@
       <type>
         <v>Pid = pid()</v>
         <v>Command = string()</v>
-        <v>FTPLine = string(</v>
+        <v>FTPLine = string()</v>
       </type>
       <desc><note><p>The telnet end of line characters, from the FTP 
       protocol definition, CRLF, for example, "\\r\\n" has been removed.</p></note>
