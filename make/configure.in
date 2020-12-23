@@ -76,13 +76,13 @@ esac
 #
 # Now srcdir is absolute and also the top of Erlang distribution, ERL_TOP.
 #
-test "X$ERL_TOP" != "X" || ERL_TOP="$srcdir"
+test "X$ERL_TOP" != "X" || AC_MSG_ERROR([ERL_TOP not set])
 AC_SUBST(ERL_TOP)
 
 dnl
 dnl Aux programs are found in erts/autoconf
 dnl
-AC_CONFIG_AUX_DIR(${srcdir}/erts/autoconf)
+AC_CONFIG_AUX_DIR(${ERL_TOP}/erts/autoconf)
 
 dnl
 dnl Figure out what we are running on. And in violation of autoconf
