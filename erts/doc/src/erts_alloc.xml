@@ -607,8 +607,8 @@
 	    pools to use for an allocator.
 	  </p>
 	  <p>
-	    Currently the <c>@</c> carrier pool is used by default, but
-	    this will most likely change.
+	    Currently each allocator with an associated carrier pool
+	    defaults to using its own associated carrier pool.
 	  </p>
         </item>
         <tag><marker id="M_e"/><c><![CDATA[+M<S>e true|false]]></c></tag>
