@@ -136,7 +136,6 @@ set_formatter(Ctxt, Type) when Type == form_list ->
 set_formatter(Ctxt, Type) when Type == tuple;
                                Type == binary;
                                Type == infix_expr;
-                               Type == prefix_expr;
                                Type == catch_expr;
                                Type == match_expr;
                                Type == generator;
@@ -173,6 +172,7 @@ set_formatter(Ctxt, Type) when Type == list;
                                Type == constrained_function_type ->
     set_formatter(Ctxt, sep);
 set_formatter(Ctxt, Type) when Type == binary_field;
+                               Type == prefix_expr;
                                Type == class_qualifier;
                                Type == size_qualifier;
                                Type == module_qualifier;
@@ -818,9 +818,16 @@ best(Node) ->
 -spec best(erl_syntax:syntaxTree(), [term()]) -> 'empty' | prettypr:document().
 
 best(Node, Options) ->
+    Layout =
+    case erl_syntax:type(Node) of
+        T when T == function;
+               T == attribute ->
+            layout(erl_syntax:form_list([Node]), Options);
+        _ -> layout(Node, Options)
+    end,
     W = proplists:get_value(paper, Options, ?PAPER),
     L = proplists:get_value(ribbon, Options, ?RIBBON),
-    prettypr:best(layout(Node, Options), W, L).
+    prettypr:best(Layout, W, L).
 
 
 %% =====================================================================
@@ -870,7 +877,7 @@ to_ctxt([{Index, Field} | Rest], Options, Ctxt) ->
     to_ctxt(Rest, Options,
             case proplists:get_value(Field, Options) of
                 undefined -> Ctxt;
-                Value -> erlang:set_element(Index, Value, Ctxt)
+                Value -> erlang:setelement(Index, Ctxt, Value)
             end).
 
 %% This handles annotations and hooks:
@@ -907,7 +914,7 @@ lay_nodes(Nodes, Ctxt = #ctxt{formatter = Formatter, separator = Separator})
             if is_list(Separator) -> prettypr:text(Separator);
                true -> Separator
             end,
-            reset_prec(Ctxt),
+            Ctxt,
             fun ({N, #ctxt{} = C}, _) -> layout(N, C);
                 ({N, P}, C) when is_integer(P) -> layout(N, set_prec(C, P));
                 (N, C) -> layout(N, C)
@@ -987,7 +994,8 @@ lay_type(Node, Ctxt, {binary_field, BitTypes}) ->
            Ctxt);
 lay_type(Node, Ctxt, form_list) ->
     Ctxt1 = reset_prec(set_separator(Ctxt, $.)),
-    Forms = erl_syntax:form_list_elements(Node),
+    FlatForm = erl_syntax:flatten_form_list(Node),
+    Forms = erl_syntax:form_list_elements(FlatForm),
     ListOfForms = split_form_list(Forms, Ctxt1),
     layout(ListOfForms, Ctxt);
 lay_type(Node, Ctxt, parentheses) ->
@@ -1222,12 +1230,13 @@ lay_type(Node, Ctxt, function_type = Type) ->
         Arguments -> Arguments
     end,
     Return = erl_syntax:function_type_return(Node),
-    Spec = erl_syntax:clause(Args, none, Return),
     Ctxt1 = set_clause(Ctxt, Type),
     case Ctxt#ctxt.clause of
         undefined ->
+            Spec = erl_syntax:clause(erl_syntax:parentheses(Args), none, Return),
             wrap("fun", {erl_syntax:parentheses(Spec), Ctxt1}, none, Ctxt1);
         _ ->
+            Spec = erl_syntax:clause(Args, none, Return),
             SpecClause = erl_syntax:clause([{Spec, Ctxt}], none, []),
             layout(SpecClause, reset_separator(Ctxt1))
     end;
@@ -1273,7 +1282,7 @@ lay_type(Node, Ctxt, attribute) ->
     Tag = (catch erl_syntax:concrete(Name)),
     Ctxt1 = reset_separator(reset_prec(Ctxt)),
     {Arguments, Ctxt2} = lay_type(Node, Ctxt1, {attribute, Tag}),
-    Follow =  fun(A, B) -> prettypr:follow(A, B, Ctxt#ctxt.break_indent) end,
+    Follow =  fun(A, B) -> follow(A, B, Ctxt#ctxt.break_indent) end,
     prefix("-", [Name | Arguments], set_formatter(Ctxt2, Follow));
 lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= spec orelse
                                             Tag =:= callback ->
@@ -1319,7 +1328,7 @@ lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= type orelse
                    OpPrec,
                    set_formatter(Ctxt, par)),
 
-    Follow =  fun(A, B) -> prettypr:follow(A, B, Ctxt#ctxt.break_indent) end,
+    Follow =  fun(A, B) -> follow(A, B, Ctxt#ctxt.break_indent) end,
     {TypeLayout, set_formatter(Ctxt, Follow)};
 lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= export_type orelse
                                             Tag =:= optional_callbacks ->
@@ -1380,9 +1389,9 @@ lay_type(Node, Ctxt, bitstring_type) ->
                erl_syntax:integer_value(M) =/= 0) ],
     DN = [ {[erl_syntax:text("_:_*"), N], BesideCtxt}
            || N <- [erl_syntax:bitstring_type_n(Node)],
-              (erl_syntax:type(N) =/= integer orelse
-               erl_syntax:integer_value(N) =/= 0) ],
-    tags(DM ++ DN, Ctxt0);
+              not (erl_syntax:type(N) == integer andalso
+                   erl_syntax:integer_value(N) == 0) ],
+    tags(conjunction(DM++DN), Ctxt0);
 lay_type(Node, Ctxt, Type = constrained_function_type) ->
     Body = erl_syntax:constrained_function_type_body(Node),
     Argument = erl_syntax:constrained_function_type_argument(Node),
@@ -1488,6 +1497,8 @@ is_subtype(Name, [Var, _]) ->
 is_subtype(_, _) -> false.
 
 split_form_list([], _Ctxt) -> [];
+split_form_list([{eof, _}], _Ctxt) -> [];
+split_form_list([eof], _Ctxt) -> [];
 split_form_list([First | Forms], Ctxt) ->
     T1 = erl_syntax:type(First),
     {Same, Other} = lists:splitwith(fun(F) -> T1 == erl_syntax:type(F) end, Forms),
@@ -1496,10 +1507,14 @@ split_form_list([First | Forms], Ctxt) ->
         attribute -> set_formatter(Ctxt, above);
         text -> set_formatter(Ctxt, above);
         comment -> set_formatter(Ctxt, above);
-        function -> Ctxt
+        _ -> Ctxt
     end,
     Eof = erl_syntax:eof_marker(),
-    [{[First | Same] ++ [Eof], Ctxt1} | split_form_list(Other, Ctxt)].
+    NewForms = case T1 of
+                   eof_marker -> Same ++ [Eof];
+                   _ -> [First | Same] ++ [Eof]
+               end,
+    [{NewForms, Ctxt1} | split_form_list(Other, Ctxt)].
 
 
 %% Macros are not handled well.
