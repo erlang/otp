@@ -1164,6 +1164,15 @@ resolve_inst({swap,[_,_]=List},_,_,_) ->
 resolve_inst({init_yregs,[{{z,1},{u,_},List0}]},_,_,_) ->
     List = resolve_args(List0),
     {init_yregs,{list,List}};
+resolve_inst({recv_marker_bind,[Mark,Ref]},_,_,_) ->
+    {recv_marker_bind,Mark,Ref};
+resolve_inst({recv_marker_clear,[Reg]},_,_,_) ->
+    {recv_marker_clear,Reg};
+resolve_inst({recv_marker_reserve,[Reg]},_,_,_) ->
+    {recv_marker_reserve,Reg};
+resolve_inst({recv_marker_use,[Reg]},_,_,_) ->
+    {recv_marker_use,Reg};
+
 
 %%
 %% Catches instructions that are not yet handled.

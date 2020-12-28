@@ -201,11 +201,13 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          setelem=false,
          %% put/1 instructions left.
          puts_left=none,
-         %% recv_mark/recv_set state.
+         %% Current receive state:
          %%
-         %% 'initialized' means we've saved a message position, and 'committed'
-         %% means the next loop_rec instruction will use it.
-         recv_marker=none :: none | undecided | initialized | committed,
+         %%   * 'none'            - Not in a receive loop.
+         %%   * 'marked_position' - We've used a marker prior to loop_rec.
+         %%   * 'entered_loop'    - We're in a receive loop.
+         %%   * 'undecided'
+         recv_state=none :: none | undecided | marked_position | entered_loop,
          %% Holds the current saved position for each `#t_bs_context{}`, in the
          %% sense that the position is equal to that of their context. They are
          %% invalidated whenever their context advances.
@@ -714,13 +716,17 @@ vi({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst0) ->
 
 vi(send, Vst) ->
     validate_body_call(send, 2, Vst);
-vi({loop_rec,{f,Fail},Dst}, Vst) ->
-    %% This term may not be part of the root set until remove_message/0 is
-    %% executed. If control transfers to the loop_rec_end/1 instruction, no
-    %% part of this term must be stored in a Y register.
+vi({loop_rec,{f,Fail},Dst}, Vst0) ->
     assert_no_exception(Fail),
+
+    Vst = update_receive_state(entered_loop, Vst0),
+
     branch(Fail, Vst,
            fun(SuccVst0) ->
+                   %% This term may not be part of the root set until
+                   %% remove_message/0 is executed. If control transfers to the
+                   %% loop_rec_end/1 instruction, no part of this term must be
+                   %% stored in a Y register.
                    {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
                    mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
            end);
@@ -728,20 +734,26 @@ vi({loop_rec_end,Lbl}, Vst) ->
     assert_no_exception(Lbl),
     verify_y_init(Vst),
     kill_state(Vst);
-vi({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
-    assert_no_exception(Fail),
-    set_receive_marker(initialized, Vst);
-vi({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
-    assert_no_exception(Fail),
-    set_receive_marker(committed, Vst);
+vi({recv_marker_reserve=Op, Dst}, Vst) ->
+    create_term(#t_abstract{kind=receive_marker}, Op, [], Dst, Vst);
+vi({recv_marker_bind, Marker, Ref}, Vst) ->
+    assert_type(#t_abstract{kind=receive_marker}, Marker, Vst),
+    assert_durable_term(Ref, Vst),
+    Vst;
+vi({recv_marker_clear, Ref}, Vst) ->
+    assert_durable_term(Ref, Vst),
+    Vst;
+vi({recv_marker_use, Ref}, Vst) ->
+    assert_durable_term(Ref, Vst),
+    update_receive_state(marked_position, Vst);
 vi(remove_message, Vst0) ->
-    Vst = set_receive_marker(none, Vst0),
+    Vst = update_receive_state(none, Vst0),
 
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
 vi(timeout, Vst0) ->
-    Vst = set_receive_marker(none, Vst0),
+    Vst = update_receive_state(none, Vst0),
     prune_x_regs(0, Vst);
 vi({wait,{f,Lbl}}, Vst) ->
     assert_no_exception(Lbl),
@@ -750,9 +762,9 @@ vi({wait,{f,Lbl}}, Vst) ->
 vi({wait_timeout,{f,Lbl},Src}, Vst0) ->
     assert_no_exception(Lbl),
 
-    %% Note that the receive marker is not cleared since we may re-enter the
+    %% Note that the receive state is not cleared since we may re-enter the
     %% loop while waiting. If we time out we'll be transferred to a timeout
-    %% instruction that clears the marker.
+    %% instruction that clears the state.
     assert_term(Src, Vst0),
     verify_y_init(Vst0),
 
@@ -769,12 +781,7 @@ vi({'try',Dst,{f,Fail}}, Vst) when Fail =/= none ->
 vi({catch_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
         {catchtag,_Fail}=Tag ->
-            %% Kill the catch tag and receive marker.
-            %%
-            %% The marker is only cleared when an exception is thrown, but it's
-            %% a bit too complicated to separate those cases at the moment.
-            Vst1 = kill_catch_tag(Reg, Vst0),
-            Vst = set_receive_marker(none, Vst1),
+            Vst = kill_catch_tag(Reg, Vst0),
 
             %% {x,0} contains the caught term, if any.
             create_term(any, catch_end, [], {x,0}, Vst);
@@ -784,8 +791,7 @@ vi({catch_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
 vi({try_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst) ->
     case get_tag_type(Reg, Vst) of
         {trytag,_Fail}=Tag ->
-            %% Kill the catch tag. Note that x registers and the receive marker
-            %% are unaffected.
+            %% Kill the catch tag without affecting X registers.
             kill_catch_tag(Reg, Vst);
         Type ->
             error({wrong_tag_type,Type})
@@ -793,15 +799,14 @@ vi({try_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst) ->
 vi({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
         {trytag,_Fail}=Tag ->
-            %% Kill the catch tag, all x registers, and the receive marker.
+            %% Kill the catch tag and all x registers.
             Vst1 = kill_catch_tag(Reg, Vst0),
             Vst2 = prune_x_regs(0, Vst1),
-            Vst3 = set_receive_marker(none, Vst2),
 
             %% Class:Error:Stacktrace
             ClassType = #t_atom{elements=[error,exit,throw]},
-            Vst4 = create_term(ClassType, try_case, [], {x,0}, Vst3),
-            Vst = create_term(any, try_case, [], {x,1}, Vst4),
+            Vst3 = create_term(ClassType, try_case, [], {x,0}, Vst2),
+            Vst = create_term(any, try_case, [], {x,1}, Vst3),
             create_term(any, try_case, [], {x,2}, Vst);
         Type ->
             error({wrong_tag_type,Type})
@@ -1351,22 +1356,9 @@ pmt_1([], _Vst, Acc) ->
 
 verify_return(#vst{current=#st{numy=NumY}}) when NumY =/= none ->
     error({stack_frame,NumY});
-verify_return(#vst{current=#st{recv_marker=Mark}}) when Mark =/= none ->
-    %% If the receive marker has not been cleared upon function return it may
-    %% taint a completely unrelated receive. Note that the marker does not need
-    %% to be committed to cause problems. Consider the following:
-    %%
-    %%    foo() ->
-    %%        %% recv_mark
-    %%        A = make_ref(),
-    %%        bar(),
-    %%        %% recv_set
-    %%        receive A -> ok end.
-    %%
-    %% If bar/1 were to return with an initialized marker, the recv_set could
-    %% refer to a position *after* `A = make_ref()`, making the receive skip
-    %% the message.
-    error({return_with_receive_marker,Mark});
+verify_return(#vst{current=#st{recv_state=State}}) when State =/= none ->
+    %% Returning in the middle of a receive loop will ruin the next receive.
+    error({return_in_receive,State});
 verify_return(Vst) ->
     assert_float_checked(Vst),
     verify_no_ct(Vst),
@@ -2590,7 +2582,7 @@ fork_state(?EXCEPTION_LABEL, Vst0) ->
             true = NumY =/= none,               %Assertion.
 
             %% Clear the receive marker and fork to our exception handler.
-            Vst = set_receive_marker(none, Vst0),
+            Vst = update_receive_state(none, Vst0),
             fork_state(Fail, Vst);
         [] ->
             %% No catch handler; the exception leaves the function.
@@ -2619,10 +2611,10 @@ merge_states_1(none, St, Counter) ->
     {St, Counter};
 merge_states_1(StA, StB, Counter0) ->
     #st{xs=XsA,ys=YsA,vs=VsA,fragile=FragA,numy=NumYA,
-        h=HA,ct=CtA,recv_marker=MarkerA,
+        h=HA,ct=CtA,recv_state=RecvStA,
         ms_positions=MsPosA} = StA,
     #st{xs=XsB,ys=YsB,vs=VsB,fragile=FragB,numy=NumYB,
-        h=HB,ct=CtB,recv_marker=MarkerB,
+        h=HB,ct=CtB,recv_state=RecvStB,
         ms_positions=MsPosB} = StB,
 
     %% When merging registers we drop all registers that aren't defined in both
@@ -2637,14 +2629,14 @@ merge_states_1(StA, StB, Counter0) ->
     {Ys, Merge, Counter} = merge_regs(YsA, YsB, Merge0, Counter1),
     Vs = merge_values(Merge, VsA, VsB),
 
-    Marker = merge_receive_marker(MarkerA, MarkerB),
+    RecvSt = merge_receive_state(RecvStA, RecvStB),
     MsPos = merge_ms_positions(MsPosA, MsPosB, Vs),
     Fragile = merge_fragility(FragA, FragB),
     NumY = merge_stk(NumYA, NumYB),
     Ct = merge_ct(CtA, CtB),
 
     St = #st{xs=Xs,ys=Ys,vs=Vs,fragile=Fragile,numy=NumY,
-             h=min(HA, HB),ct=Ct,recv_marker=Marker,
+             h=min(HA, HB),ct=Ct,recv_state=RecvSt,
              ms_positions=MsPos},
 
     {St, Counter}.
@@ -2768,17 +2760,8 @@ merge_ms_positions_1([Key | Keys], MsPosA, MsPosB, Vs, Acc) ->
 merge_ms_positions_1([], _MsPosA, _MsPosB, _Vs, Acc) ->
     Acc.
 
-merge_receive_marker(Same, Same) ->
-    Same;
-merge_receive_marker(none, initialized) ->
-    %% Committing a cleared receive marker is harmless, so it's okay to
-    %% recv_set if we're clear on one path (e.g. leaving a catch block) and
-    %% initialized on another (leaving the happy path).
-    initialized;
-merge_receive_marker(initialized, none) ->
-    initialized;
-merge_receive_marker(_, _) ->
-    undecided.
+merge_receive_state(Same, Same) -> Same;
+merge_receive_state(_, _) -> undecided.
 
 merge_stk(S, S) -> S;
 merge_stk(_, _) -> undecided.
@@ -2886,35 +2869,30 @@ eat_heap_float(#vst{current=#st{hf=HeapFloats0}=St}=Vst) ->
 %%%
 
 %% When the compiler knows that a message it's matching in a receive can't
-%% exist before a certain point (e.g. it matches a newly created ref), it can
-%% emit a recv_mark/recv_set pair to tell the next loop_rec where to start
+%% exist before a certain point (e.g. it matches a newly created ref), it will
+%% use "receive markers" to tell the corresponding loop_rec where to start
 %% looking.
 %%
-%% Since this affects the next loop_rec instruction it's very important that we
-%% properly exit the receive loop the mark is intended for, either through
-%% timing out or matching a message. Should we return from the function or
-%% enter a different receive loop, we risk skipping messages that should have
-%% been matched.
-set_receive_marker(New, #vst{current=#st{recv_marker=Current}=St0}=Vst) ->
-    case {Current, New} of
-        {none, initialized} ->
-            %% ??? -> recv_mark
-            ok;
-        {initialized, committed} ->
-            %% recv_mark -> recv_set
-            ok;
-        {none, committed} ->
-            %% ??? -> recv_set
-            %%
-            %% The marker has likely been killed by a 'catch_end'. This could
-            %% be an error but we'll ignore it for now.
-            ok;
-        {_, none} ->
-            ok;
-        {_, _} ->
-            error({invalid_receive_marker_change, Current, New})
-    end,
-    St = St0#st{recv_marker=New},
+%% Since receive markers affect the next loop_rec instruction it's very
+%% important that we properly exit the receive loop the mark is intended for,
+%% either through timing out or matching a message. Should we return from the
+%% function or enter a different receive loop, we risk skipping messages that
+%% should have been matched.
+update_receive_state(New0, #vst{current=St0}=Vst) ->
+    #st{recv_state=Current} = St0,
+    New = case {Current, New0} of
+              {none, marked_position} ->
+                  marked_position;
+              {marked_position, entered_loop} ->
+                  entered_loop;
+              {none, entered_loop} ->
+                  entered_loop;
+              {_, none} ->
+                  none;
+              {_, _} ->
+                  error({invalid_receive_state_change, Current, New0})
+          end,
+    St = St0#st{recv_state=New},
     Vst#vst{current=St}.
 
 %% The loop_rec/2 instruction may return a reference to a term that is not

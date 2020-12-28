@@ -2634,6 +2634,8 @@ use_zreg({float,clearerror}) -> yes;
 use_zreg(kill_try_tag) -> yes;
 use_zreg(landingpad) -> yes;
 use_zreg(put_tuple_elements) -> yes;
+use_zreg(recv_marker_bind) -> yes;
+use_zreg(recv_marker_clear) -> yes;
 use_zreg(remove_message) -> yes;
 use_zreg(set_tuple_element) -> yes;
 use_zreg(succeeded) -> yes;

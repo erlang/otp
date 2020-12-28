@@ -150,7 +150,44 @@ coverage(Config) when is_list(Config) ->
     smoke_receive(fun no_clauses_left_2/0),
     smoke_receive(fun no_clauses_left_3/0),
 
+    receive_in_called_function(),
+
+    %% Make we haven't broken `timeout_locked` by inserting recv_marker_clear
+    %% in the wrong place.
+    Ref = make_ref(),
+    receive Ref -> ok after 0 -> ok end,
+
     ok.
+
+receive_in_called_function() ->
+    RefA = make_ref(),
+    RefB = make_ref(),
+
+    self() ! hello,
+    self() ! RefA,
+
+    ricf_1(hello, RefA),
+
+    self() ! RefB,
+    self() ! hello,
+
+    ricf_1(RefB, hello),
+
+    Foo = id(gurka),
+    Bar = id(gaffel),
+
+    self() ! Foo,
+    self() ! Bar,
+
+    ricf_1(Foo, Bar),
+
+    ok.
+
+ricf_1(A, B) ->
+    %% Both A and B are fed a reference at least once, so both of these loops
+    %% ought to be optimized.
+    receive A -> ok end,
+    receive B -> ok end.
 
 monitor_plus_badmap(Pid) ->
     monitor(process, Pid) + []#{}.
@@ -279,8 +316,26 @@ do_ref_opt(Source, PrivDir) ->
 	    "no_"++_ ->
 		[] = collect_recv_opt_instrs(Code);
 	    "yes_"++_ ->
-		[{recv_mark,{f,L}},{recv_set,{f,L}}] =
-		    collect_recv_opt_instrs(Code)
+                Instrs = collect_recv_opt_instrs(Code),
+
+                %% At least one of each marker instruction must be present in
+                %% the module.
+                true = lists:any(fun
+                                     ({recv_marker_reserve,_}) -> true;
+                                     (_) -> false
+                                end, Instrs),
+                true = lists:any(fun
+                                     ({recv_marker_bind,_,_}) -> true;
+                                     (_) -> false
+                                end, Instrs),
+                true = lists:any(fun
+                                     ({recv_marker_clear,_}) -> true;
+                                     (_) -> false
+                                end, Instrs),
+                true = lists:any(fun
+                                     ({recv_marker_use,_}) -> true;
+                                     (_) -> false
+                                end, Instrs)
 	end,
 	ok
     catch Class:Error:Stk ->
@@ -292,15 +347,17 @@ collect_recv_opt_instrs(Code) ->
     L = [ [I || I <- Is,
 		begin
 		    case I of
-			{recv_mark,{f,_}} -> true;
-			{recv_set,{f,_}} -> true;
+			{recv_marker_bind,_,_} -> true;
+			{recv_marker_clear,_} -> true;
+			{recv_marker_reserve,_} -> true;
+			{recv_marker_use,_} -> true;
 			_ -> false
 		    end
 		end] || {function,_,_,_,Is} <- Code],
     lists:append(L).
 
 cover_recv_instructions() ->
-    %% We want to cover the handling of recv_mark and recv_set in beam_utils.
+    %% We want to cover the handling of receive markers in beam_utils.
     %% Since those instructions are introduced in a late optimization pass,
     %% beam_utils:live_opt() will not see them unless the compilation is
     %% started from a .S file. The compile_SUITE:asm/1 test case will

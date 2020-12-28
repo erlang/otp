@@ -270,7 +270,7 @@ expand_opt(r21, Os) ->
 expand_opt(r22, Os) ->
     expand_opt(r23, [no_shared_fun_wrappers, no_swap | expand_opt(no_bsm4, Os)]);
 expand_opt(r23, Os) ->
-    expand_opt(no_make_fun3, [no_init_yregs | Os]);
+    expand_opt(no_make_fun3, [no_recv_opt, no_init_yregs | Os]);
 expand_opt(no_make_fun3, Os) ->
     [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
@@ -282,13 +282,15 @@ expand_opt(no_type_opt=O, Os) ->
     [O,no_ssa_opt_type_start,
      no_ssa_opt_type_continue,
      no_ssa_opt_type_finish | Os];
+expand_opt(no_module_opt=O, Os) ->
+    [O,no_recv_opt | Os];
 expand_opt(O, Os) -> [O|Os].
 
 expand_opt_before_21(Os) ->
     [no_init_yregs, no_make_fun3, no_fun_opt,
      no_shared_fun_wrappers, no_swap,
      no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
-     no_utf8_atoms | expand_opt(no_bsm3, Os)].
+     no_utf8_atoms, no_recv_opt | expand_opt(no_bsm3, Os)].
 
 %% format_error(ErrorDescriptor) -> string()
 
@@ -847,6 +849,10 @@ kernel_passes() ->
        {iff,dbool,{listing,"bool"}},
        {unless,no_bool_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
 
+       {unless,no_recv_opt,{pass,beam_ssa_recv}},
+       {iff,drecv,{listing,"recv"}},
+       {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_share_opt,{pass,beam_ssa_share}},
        {iff,dssashare,{listing,"ssashare"}},
        {unless,no_share_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
@@ -865,11 +871,8 @@ kernel_passes() ->
 
        {unless,no_throw_opt,{pass,beam_ssa_throw}},
        {iff,dthrow,{listing,"throw"}},
-       {unless,no_throw_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+       {unless,no_throw_opt,{iff,ssalint,{pass,beam_ssa_lint}}}]},
 
-       {unless,no_recv_opt,{pass,beam_ssa_recv}},
-       {iff,drecv,{listing,"recv"}},
-       {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}}]},
      {pass,beam_ssa_pre_codegen},
      {iff,dprecg,{listing,"precodegen"}},
      {iff,ssalint,{pass,beam_ssa_lint}},

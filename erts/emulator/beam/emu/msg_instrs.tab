@@ -68,6 +68,22 @@ i_recv_set() {
     //| -no_next
 }
 
+recv_marker_reserve(Dst) {
+    $Dst = erts_msgq_recv_marker_insert(c_p);
+}
+
+recv_marker_bind(Marker, Reference) {
+    erts_msgq_recv_marker_bind(c_p, $Marker, $Reference);
+}
+
+recv_marker_clear(Reference) {
+    erts_msgq_recv_marker_clear(c_p, $Reference);
+}
+
+recv_marker_use(Reference) {
+    erts_msgq_recv_marker_set_save(c_p, $Reference);
+}
+
 i_loop_rec(Dest) {
     //| -no_prefetch
 

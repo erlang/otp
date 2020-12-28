@@ -1,4 +1,4 @@
--module(no_6).
+-module(yes_23).
 -export([?MODULE/0]).
 
 ?MODULE() ->

@@ -92,6 +92,52 @@ void BeamModuleAssembler::emit_i_recv_set() {
 
 #endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
 
+void BeamModuleAssembler::emit_recv_marker_reserve(const ArgVal &Dst) {
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<1>(erts_msgq_recv_marker_insert);
+
+    emit_leave_runtime();
+
+    mov_arg(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_recv_marker_bind(const ArgVal &Marker,
+                                                const ArgVal &Reference) {
+    mov_arg(ARG2, Marker);
+    mov_arg(ARG3, Reference);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_msgq_recv_marker_bind);
+
+    emit_leave_runtime();
+}
+
+void BeamModuleAssembler::emit_recv_marker_clear(const ArgVal &Reference) {
+    mov_arg(ARG2, Reference);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_msgq_recv_marker_clear);
+
+    emit_leave_runtime();
+}
+
+void BeamModuleAssembler::emit_recv_marker_use(const ArgVal &Reference) {
+    mov_arg(ARG2, Reference);
+
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
+    runtime_call<2>(erts_msgq_recv_marker_set_save);
+
+    emit_leave_runtime();
+}
+
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     Label restart = a.newLabel(), peek_message = a.newLabel(),
           schedule_out = a.newLabel(), check_is_distributed = a.newLabel(),

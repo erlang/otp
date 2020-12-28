@@ -1651,8 +1651,7 @@ on_load
 #
 # R14A.
 #
-# Modified in OTP 21 because it turns out that we don't need the
-# label after all.
+# Superseded in OTP 24 by 'recv_marker_reserve' and friends.
 #
 
 recv_mark f => i_recv_mark
@@ -1685,3 +1684,12 @@ move n D=y => init D
 
 move_x1 c
 move_x2 c
+
+#
+# OTP 24
+#
+
+recv_marker_reserve S
+recv_marker_bind S S
+recv_marker_clear S
+recv_marker_use S

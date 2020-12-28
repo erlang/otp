@@ -779,10 +779,13 @@ receive_marker(Config) when is_list(Config) ->
 
     [{{receive_marker,t1,1},
       {return,_,
-       {return_with_receive_marker,committed}}},
+       {return_in_receive,entered_loop}}},
      {{receive_marker,t2,1},
       {{call_last,1,{f,2},1},_,
-       {return_with_receive_marker,committed}}}] = Errors,
+       {return_in_receive,entered_loop}}},
+     {{receive_marker,t3,1},
+      {return,_,
+       {return_in_receive,entered_loop}}}] = Errors,
 
     ok.
 

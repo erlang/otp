@@ -627,3 +627,20 @@ BEAM_FORMAT_NUMBER=0
 ## @spec init_yregs ListOfYRegs
 ## @doc  Initialize the Y registers in the list.
 172: init_yregs/1
+
+## @spec recv_marker_bind Marker Reference
+## @doc  Associates Reference with a previously reserved marker.
+173: recv_marker_bind/2
+
+## @spec recv_marker_clear Reference
+## @doc  Clears the receive marker associated with the given Reference.
+174: recv_marker_clear/1
+
+## @spec recv_marker_reserve Marker
+## @doc  Creates a receive marker which can be later bound to a reference.
+175: recv_marker_reserve/1
+
+## @spec recv_marker_use Reference
+## @doc  Sets the current receive cursor to the marker associated with
+##       the given Reference.
+176: recv_marker_use/1
