@@ -65,7 +65,8 @@
          list_prefix/1,
          text_string/1,
          conjunction/1,
-         disjunction/1]).
+         disjunction/1,
+         eof_marker/0]).
 
 -define(PADDING, 2).
 -define(PAPER, 80).
@@ -1501,20 +1502,23 @@ split_form_list([{eof, _}], _Ctxt) -> [];
 split_form_list([eof], _Ctxt) -> [];
 split_form_list([First | Forms], Ctxt) ->
     T1 = erl_syntax:type(First),
-    {Same, Other} = lists:splitwith(fun(F) -> T1 == erl_syntax:type(F) end, Forms),
-    Ctxt1 =
     case T1 of
-        attribute -> set_formatter(Ctxt, above);
-        text -> set_formatter(Ctxt, above);
-        comment -> set_formatter(Ctxt, above);
-        _ -> Ctxt
-    end,
-    Eof = erl_syntax:eof_marker(),
-    NewForms = case T1 of
-                   eof_marker -> Same ++ [Eof];
-                   _ -> [First | Same] ++ [Eof]
-               end,
-    [{NewForms, Ctxt1} | split_form_list(Other, Ctxt)].
+        eof_marker ->
+            split_form_list(Forms, Ctxt);
+        _ ->
+            {Same, Rest} = lists:splitwith(
+                              fun(F) -> T1 == erl_syntax:type(F) end,
+                              Forms),
+            Ctxt1 =
+            case T1 of
+                attribute -> set_formatter(Ctxt, above);
+                text -> set_formatter(Ctxt, above);
+                comment -> set_formatter(Ctxt, above);
+                _ -> Ctxt
+            end,
+            NewForms = [First | Same] ++ [eof_marker()],
+            [{NewForms, Ctxt1} | split_form_list(Rest, Ctxt)]
+    end.
 
 
 %% Macros are not handled well.
