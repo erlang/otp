@@ -73,7 +73,7 @@
 -define(RIBBON, 80).
 
 -type hook() :: fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
--type clause_t() :: 'case_expr' | 'cond_expr' | 'fun_expr'
+-type clause_t() :: 'case_expr' | 'fun_expr'
                   | 'if_expr' | 'receive_expr' | 'try_expr'
                   | {'function', prettypr:document()}
                   | 'spec'.
@@ -165,7 +165,6 @@ set_formatter(Ctxt, Type) when Type == list;
                                Type == case_expr;
                                Type == try_expr;
                                Type == if_expr;
-                               Type == cond_expr;
                                Type == fun_expr;
                                Type == named_fun_expr;
                                Type == implicit_fun;
@@ -985,7 +984,7 @@ lay_type(Node, Ctxt, binary_field) ->
     SubType = {binary_field, erl_syntax:binary_field_types(Node)},
     lay_type(Node, Ctxt, SubType);
 lay_type(Node, Ctxt, {binary_field, []}) ->
-    layout(erl_syntax:binary_field_body(Node), Ctxt);
+    layout(erl_syntax:binary_field_body(Node), set_prec(Ctxt, max_prec()));
 lay_type(Node, Ctxt, {binary_field, BitTypes}) ->
     BTC = set_separator(Ctxt, $-),
     lay_op(erl_syntax:operator('/'),
@@ -1140,7 +1139,6 @@ lay_type(Node, Ctxt = #ctxt{clause = {Name, GuardSep}}, clause)
     Body = erl_syntax:clause_body(Node),
     lay_clause(Name, Patterns, GuardSep, Guard, Body, Ctxt1);
 lay_type(Node, Ctxt = #ctxt{clause = Clause}, clause) when Clause == if_expr orelse
-                                                           Clause == cond_expr orelse
                                                            Clause == function_type ->
     lay_type(Node, Ctxt#ctxt{clause = {none, none}}, clause);
 lay_type(Node, Ctxt = #ctxt{clause = Clause}, clause) when Clause == receive_timeout ->
@@ -1211,9 +1209,6 @@ lay_type(Node, Ctxt, block_expr) ->
 lay_type(Node, Ctxt, if_expr = Type) ->
     Clauses = disjunction(erl_syntax:if_expr_clauses(Node)),
     lay_expr("if", Clauses, set_clause(Ctxt, Type));
-lay_type(Node, Ctxt, cond_expr = Type) ->
-    Clauses = disjunction(erl_syntax:cond_expr_clauses(Node)),
-    lay_expr("cond", Clauses, set_clause(Ctxt, Type));
 lay_type(Node, Ctxt, fun_expr = Type) ->
     Clauses = disjunction(erl_syntax:fun_expr_clauses(Node)),
     lay_expr("fun", Clauses, set_clause(Ctxt, Type));

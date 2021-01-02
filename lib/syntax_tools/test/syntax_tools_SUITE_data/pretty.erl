@@ -14,8 +14,9 @@
          is_valid_signal/1,
          list_op/0,
          map_ops/2,
+         record_ops/2,
          operators/0,
-         ping_all/0,
+         fold_fun/0,
          short_cut/3,
          termize_file/1,
          test/2,
@@ -33,7 +34,7 @@ uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuugly() -> ugh.
 
 uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuugly(Ugh) -> Ugh.
 
-ping_all() -> fun ({}, Acc) -> Acc end.
+fold_fun() -> fun ({}, Acc) -> Acc end.
 
 f("prefix" ++ Str) -> Str.
 
@@ -137,7 +138,7 @@ map_ops(A, B) ->
     % single association with variables
     _ = #{k => {A, B}},
     % compound key associated with an evaluated expression
-    _ = #{{"w", 1} => ping_all()},
+    _ = #{{"w", 1} => fold_fun()},
     _ = #{1.0 => a,1 => b},
     M0 = #{},
     M1 = M0#{a => 0},
@@ -150,6 +151,27 @@ map_ops(A, B) ->
     _ = BM1#{1 := b},
     M = #{"tuple" => {1, 2}},
     #{"tuple" := {1, _B2}} = M.
+
+-record(pretty_rec, {a, b}).
+record_ops(A, B) ->
+    _ = #pretty_rec.a,
+    % empty map
+    _ = #pretty_rec{},
+    % single association with literals
+    _ = #pretty_rec{a = <<"hello">>},
+    % multiple associations with literals
+    _ = #pretty_rec{a = 2, b = b},
+    % single association with variables
+    RAB = #pretty_rec{a = {A, B}},
+    #pretty_rec{a = {A, B}} = RAB,
+    % wildcard key associated with an evaluated expression
+    _ = #pretty_rec{_ = fold_fun()},
+    R0 = #pretty_rec{},
+    R1 = R0#pretty_rec{a = 0},
+    R2 = R1#pretty_rec{a = 1,b = 2},
+    R3 = R2#pretty_rec{a = fun () -> f("") end},
+    % 'a' and 'b' was added in `R1` and `R2`.
+    #pretty_rec{a = 2,b = 3} = R3.
 
 %% only start
 %% if not_started

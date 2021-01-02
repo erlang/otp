@@ -19,7 +19,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
@@ -30,13 +30,13 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
      wrapped_subtrees,
     t_abstract_type,t_erl_parse_type,t_type,t_epp_dodger,
     t_comment_scan,t_prettypr].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -87,7 +87,7 @@ print_error_markers(F, File) ->
 	_ ->
 	    ok
     end.
-    
+
 
 %% Read with erl_parse, wrap and revert with erl_syntax and check for equality.
 revert(Config) when is_list(Config) ->
@@ -339,8 +339,7 @@ t_comment_scan(Config) when is_list(Config) ->
 t_prettypr(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
     PrivDir   = ?config(priv_dir, Config),
-    Filenames = ["type_specs.erl",
-                 "specs_and_funs.erl"],
+    Filenames = test_files(),
     ok = test_prettypr(Filenames,DataDir,PrivDir),
     ok.
 
@@ -352,7 +351,10 @@ test_files() ->
     ["syntax_tools_SUITE_test_module.erl",
      "syntax_tools_test.erl",
      "type_specs.erl",
-     "specs_and_funs.erl"].
+     "specs_and_funs.erl",
+     "empty.erl",
+     "pretty.erl",
+     "catchthrow.erl"].
 
 test_comment_scan([],_) -> ok;
 test_comment_scan([File|Files],DataDir) ->
