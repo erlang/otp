@@ -58,6 +58,9 @@
       <name name="start_type"/>
     </datatype>
     <datatype>
+      <name name="start_result"/>
+    </datatype>
+    <datatype>
       <name name="restart_type"/>
     </datatype>
     <datatype>
@@ -523,13 +526,14 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
         <c>application</c> callback module.</p>
     </fsdescription>
     <func>
-      <name since="">Module:start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}</name>
+      <name since="">Module:start(StartType, StartArgs) -> StartResult</name>
       <fsummary>Start an application.</fsummary>
       <type>
         <v>StartType = <seetype marker="#start_type"><c>start_type()</c></seetype></v>
         <v>StartArgs = term()</v>
         <v>Pid = pid()</v>
         <v>State = term()</v>
+        <v>StartResult = <seetype marker="#start_result"><c>start_result()</c></seetype></v>
       </type>
       <desc>
         <p>This function is called whenever an application is started

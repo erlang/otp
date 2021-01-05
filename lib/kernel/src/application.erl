@@ -32,12 +32,14 @@
 -export([start_type/0]).
 
 -export_type([start_type/0]).
+-export_type([start_result/0]).
 
 %%%-----------------------------------------------------------------
 
 -type start_type() :: 'normal'
                     | {'takeover', Node :: node()}
                     | {'failover', Node :: node()}.
+-type start_result() :: {'ok', pid()} | {'ok', pid(), State :: term()} | {'error', Reason :: term()}.
 -type restart_type() :: 'permanent' | 'transient' | 'temporary'.
 -type application_opt() :: {'description', Description :: string()}
                          | {'vsn', Vsn :: string()}
@@ -62,7 +64,7 @@
 %%------------------------------------------------------------------
 
 -callback start(StartType :: start_type(), StartArgs :: term()) ->
-    {'ok', pid()} | {'ok', pid(), State :: term()} | {'error', Reason :: term()}.
+    start_result().
 
 -callback stop(State :: term()) ->
     term().
