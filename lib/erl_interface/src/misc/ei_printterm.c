@@ -87,24 +87,33 @@ static char *ei_big_to_str(erlang_big *b)
 {
     int buf_len;
     char *s,*buf;
+    unsigned int no_digits;
     unsigned short *sp;
     int i;
 
-    buf_len = 64+b->is_neg+10*b->arity;
-    if ( (buf=malloc(buf_len)) == NULL) return NULL;
+    no_digits = (b->arity + 1) / 2;
 
-    memset(buf,(char)0,buf_len);
+    buf_len = (!!b->is_neg /* "-" */
+               + 9 /* "#integer(" */
+               + 10 /* %d */
+               + 5 /* ") = {" */
+               + 6*no_digits /* 16-bit digits + ","s */
+               + 1 /* "}" */
+               + 1); /* \0 */
+    if ( (buf=malloc(buf_len)) == NULL) return NULL;
 
     s = buf;
     if ( b->is_neg ) 
         s += sprintf(s,"-");
-    s += sprintf(s,"#integer(%d) = {",b->arity);
-    for(sp=b->digits,i=0;i<b->arity;i++) {
-        s += sprintf(s,"%d",sp[i]);
-        if ( (i+1) != b->arity ) 
-            s += sprintf(s,",");
+
+    s += sprintf(s,"#integer(%d) = {", no_digits);
+    for(sp = b->digits, i = 0; i < no_digits; i++) {
+        s += sprintf(s, "%d", (int) sp[i]);
+        if (i + 1 != no_digits)
+            *(s++) = ',';
     }
-    s += sprintf(s,"}");
+    *(s++) = '}';
+    *s = '\0';
     return buf;
 }
 
