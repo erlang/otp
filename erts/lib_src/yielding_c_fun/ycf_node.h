@@ -409,6 +409,7 @@ ycf_node* ycf_pointer_field_access_new(ycf_symbol* pointer,
 
 ycf_node_list ycf_node_definition_list_from_string(char* str);
 void ycf_node_rename_function(ycf_node_function* f, char* new_name);
+ycf_node* ycf_node_function_definition_copy_change_name(ycf_node* f, char* new_name);
 bool ycf_node_is_void_ret_ending_fun(ycf_node* f_node);
 void ycf_node_remove_const_specifiers_from_declaration(ycf_node* declaration);
 void ycf_node_remove_static_specifiers_from_declaration(ycf_node* declaration);

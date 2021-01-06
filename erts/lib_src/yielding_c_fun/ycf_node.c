@@ -672,6 +672,14 @@ void ycf_node_rename_function(ycf_node_function* f, char* new_name){
                                         new_name);
 }
 
+ycf_node* ycf_node_function_definition_copy_change_name(ycf_node* f, char* new_name){
+    f = ycf_node_deep_copy(f);
+    f->u.function_definition.definition.identifier =
+        ycf_symbol_copy_change_text(f->u.function_definition.definition.identifier,
+                                    new_name);
+    return f;
+}
+
 static bool is_scope_ends_with_void_ret(ycf_node_code_scope* scope_node){
     if(scope_node->other_nodes.last->type == ycf_node_type_code_scope){
         return is_scope_ends_with_void_ret(&scope_node->other_nodes.last->u.code_scope);

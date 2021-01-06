@@ -852,6 +852,8 @@ void ast_add_yield_code_generated_define(ycf_node* source_out_tree/*Will be chan
      "#include <setjmp.h>\n"
      "#include <stdint.h>\n"
      "#include <string.h>\n"
+     "static void* ycf_find_stack_bottom_conservative_helper(void);\n"
+     "static void* ycf_find_stack_bottom_conservative(void);\n"
      "static void* ycf_find_stack_bottom_conservative_helper() {\n"
      "  void* p = NULL;\n"
      "  volatile intptr_t tmp = (intptr_t)&p;\n"
@@ -870,7 +872,7 @@ void ast_add_yield_code_generated_define(ycf_node* source_out_tree/*Will be chan
      "  return bottom();\n"
      "  }\n"
      "}\n"
-     "void* ycf_debug_get_stack_start();\n"
+     "void* ycf_debug_get_stack_start(void);\n"
      "#include <signal.h>\n"
      "static void ycf_debug_check_block(char* struct_name, void* stack_start, void* stack_end, void* block, size_t block_size) {\n"
      "  char* p;\n"
@@ -1644,6 +1646,20 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
                           ycf_node_new_text_node("\n"));
     ycf_node_list_prepend(&(*only_yielding_funs_tree)->u.c_file.content,
                           ycf_node_shallow_copy(fun_change_dec));
+    if (debug_mode) {
+        ycf_node* debug_dec_2 =
+            ycf_node_function_definition_copy_change_name(fun_change_dec,
+                                                          ycf_string_new("%s_ycf_gen_yielding_2",
+                                                                         yielding_function_name));
+        ycf_node* debug_dec_3 =
+            ycf_node_function_definition_copy_change_name(fun_change_dec,
+                                                          ycf_string_new("%s_ycf_gen_yielding_3",
+                                                                         yielding_function_name));
+        ycf_node_list_prepend(&(*only_yielding_funs_tree)->u.c_file.content,
+                              debug_dec_2);
+        ycf_node_list_prepend(&(*only_yielding_funs_tree)->u.c_file.content,
+                              debug_dec_3);
+    }
     ycf_node_list_prepend(&(*only_yielding_funs_tree)->u.c_file.content,
                           ycf_node_new_text_node("\n"));
     ycf_node_list_prepend(&(*only_yielding_funs_tree)->u.c_file.content,
