@@ -166,6 +166,7 @@ yielding_c_fun.bin $GC $RR -yield \
                            -debug \
                            -only_yielding_funs \
                            -fnoauto fun \
+                           -fnoauto fun2 \
                            -output_file_name $TMP_INC_FILE \
                            "$DIR/examples/test_only_output_yielding_funs_ptr_to_stack.c"
 $CC $CC_ARGS -I "$TMP_DIR" "$DIR/examples/test_only_output_yielding_funs_ptr_to_stack.c"  -o $TMP_CC_OUT

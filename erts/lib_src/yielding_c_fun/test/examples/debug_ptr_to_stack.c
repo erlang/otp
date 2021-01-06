@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void* ycf_debug_global_stack_top_ptr = NULL;
+void* ycf_debug_get_stack_start(){
+    return ycf_debug_global_stack_top_ptr;
+}
+
 #define YCF_YIELD()
 
 int fun(){

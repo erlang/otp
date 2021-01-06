@@ -145,7 +145,7 @@ Usage: yielding_c_fun [-h]
 
 * `-fexternal function_name`
 
-  YCF expects that a yielding verison of the function called
+  YCF expects that a yielding version of the function called
   `function_name` is generated externally. Calls to the function
   called `function_name` from yielding functions calls the externally
   generated yielding version of the function called `function_name`.
@@ -166,6 +166,30 @@ Usage: yielding_c_fun [-h]
   code searches the call stack of the yielding functions for pointers
   to data that is allocated on the call stack. The program crashes
   with an error message if any such pointer is found.
+
+  The generated debug code depends on that a function called
+  `ycf_debug_get_stack_start()` is declared somewhere in the
+  program. The `ycf_debug_get_stack_start()` functions should return a
+  value of type `void*`. Example:
+  
+          static _Thread_local void* ycf_debug_global_stack_start_ptr = NULL;
+          void* ycf_debug_get_stack_start() {
+              return ycf_debug_global_stack_start_ptr;
+          }
+  
+  If `ycf_debug_get_stack_start()` returns `NULL`, the value of the
+  `ycf_yield_state` parameter will be used as the start of the stack (it
+  is assumed that the stack grows towards lower addresses). If
+  `ycf_debug_get_stack_start()` returns something different than `NULL`,
+  that value will be used as the start of the stack. To check that
+  nested yielding functions do not have pointers to the call stack,
+  one have to make sure that `ycf_debug_get_stack_start()` returns
+  something different than `NULL` (otherwise, each function will just
+  check for pointers to its own frame). Example:
+  
+          ycf_debug_global_stack_start_ptr = &wb;
+          ret = fun_ycf_gen_yielding(&nr_of_reductions,&wb,NULL,allocator,freer,NULL,0,NULL,1);
+          ycf_debug_global_stack_start_ptr = NULL;
 
 * `-only_yielding_funs`
 
