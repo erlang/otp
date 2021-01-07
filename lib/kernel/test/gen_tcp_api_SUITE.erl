@@ -326,12 +326,15 @@ t_accept_timeout(Config) when is_list(Config) ->
 
 %% Test that gen_tcp:connect/4 (with timeout) works.
 t_connect_timeout(Config) when is_list(Config) ->
+    ?TC_TRY(t_connect_timeout, fun() -> do_connect_timeout(Config) end).
+
+do_connect_timeout(Config)->
     %%BadAddr = {134,138,177,16},
     %%TcpPort = 80,
     {ok, BadAddr} =  unused_ip(),
     TcpPort = 45638,
     ok = ?P("Connecting to ~p, port ~p", [BadAddr, TcpPort]),
-    connect_timeout({gen_tcp,connect,[BadAddr,TcpPort,?INET_BACKEND_OPTS(Config),200]}, 0.2, 5.0).
+    connect_timeout({gen_tcp,connect, [BadAddr,TcpPort, ?INET_BACKEND_OPTS(Config),200]}, 0.2, 5.0).
 
 %% Test that gen_tcp:connect/3 handles non-existings hosts, and other
 %% invalid things.
@@ -940,6 +943,8 @@ connect_timeout({M,F,A}, Lower, Upper) ->
 		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
 		{error, enetunreach = E} ->
 		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
+                {error, ehostunreach = E} ->
+		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
 		{ok, Socket} -> % What the...
 		    Pinfo = erlang:port_info(Socket),
 		    Db = inet_db:lookup_socket(Socket),
@@ -971,18 +976,20 @@ unused_ip() ->
             %% This is not supported on all platforms (yet), so...
             try net:getifaddrs() of
                 {ok, IfAddrs} ->
-                    io:format("we        = ~p,"
-                              "unused_ip = ~p"
-                              "            ~p"
-                              "~n", [Hent, IP, IfAddrs]);
+                    ?P("~n   we        = ~p"
+                       "~n   unused_ip = ~p"
+                       "~n   ~p", [Hent, IP, IfAddrs]);
                 {error, _} ->
-                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+                    ?P("~n   we:        ~p"
+                       "~n   unused_ip: ~p", [Hent, IP])
             catch
                 _:_:_ ->
-                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+                    ?P("~n   we:        ~p"
+                       "~n   unused_ip: ~p", [Hent, IP])
             end;
         true ->
-            io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+            ?P("~n   we:        ~p"
+               "~n   unused_ip: ~p", [Hent, IP])
     end,
     IP.
 
