@@ -57,7 +57,8 @@ init_per_testcase(erl_1199, Config) ->
     [{schedulers_online, SO}|Config];
 init_per_testcase(MultiRecvOpt, Config) when MultiRecvOpt == multi_recv_opt;
 					     MultiRecvOpt == multi_recv_opt_clear ->
-    %% To be removed when we got compiler support...
+    %% To be removed when we got compiler support for new
+    %% recv marker instructions...
     erts_debug:set_internal_state(available_internal_state, true),
     Config;
 init_per_testcase(_, Config) ->
@@ -468,11 +469,15 @@ multi_call(Srv) ->
 multi_call(_Srv, 0, _Msg, _Responses, _Clear, _Fun) ->
     ok;
 multi_call(Srv, N, Msg, Responses, Clear, Fun) ->
+
+    %% To be removed when we got compiler support...
+    IId = erts_debug:set_internal_state(recv_marker_insert, ok),
+
     Mref = erlang:monitor(process, Srv),
 
     %% To be removed when we got compiler support...
-    erts_debug:set_internal_state(recv_marker_insert, Mref),
-
+    erts_debug:set_internal_state(recv_marker_bind, {IId, Mref}),
+    
     Srv ! {Mref, self(), Msg, Responses},
     Fun(),
     multi_receive(Mref, Msg, Responses),
@@ -481,8 +486,10 @@ multi_call(Srv, N, Msg, Responses, Clear, Fun) ->
 	false ->
 	    ok;
 	true ->
+
 	    %% To be removed when we got compiler support...
 	    erts_debug:set_internal_state(recv_marker_clear, Mref)
+
     end,
     multi_call(Srv, N-1, Msg, Responses, Clear, Fun).
     

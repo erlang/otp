@@ -2640,18 +2640,18 @@ recv_marker_deallocate(Process *c_p, ErtsRecvMarker *markp)
     ASSERT(blkp);
     ERTS_HDBG_CHK_RECV_MRKS(c_p);
 
-    nix = markp->next_used_ix;
+    nix = markp->next_ix;
     ASSERT(nix >= 0);
 
     ix = ERTS_RECV_MARKER_IX__(blkp, markp);
 
     if (nix == ix) {
-	ASSERT(markp->prev_used_ix == ix);
+	ASSERT(markp->prev_ix == ix);
 	erts_free(ERTS_ALC_T_RECV_MARK_BLK, blkp);
 	c_p->sig_qs.recv_mrk_blk = NULL;
     }
     else {
-	int pix = markp->prev_used_ix;
+	int pix = markp->prev_ix;
 	ASSERT(pix >= 0);
 
 	if (blkp->ref[ix] == am_undefined) {
@@ -2665,15 +2665,15 @@ recv_marker_deallocate(Process *c_p, ErtsRecvMarker *markp)
 	}
 #endif
 
-
-	blkp->marker[pix].next_used_ix = nix;
-	blkp->marker[nix].prev_used_ix = pix;
+	blkp->marker[pix].next_ix = nix;
+	blkp->marker[nix].prev_ix = pix;
 
 	if (blkp->used_ix == ix)
 	    blkp->used_ix = nix;
 
-	blkp->ref[ix] = make_small(blkp->free_ix);
+	blkp->marker[ix].next_ix = blkp->free_ix;
 	blkp->free_ix = ix;
+	blkp->ref[ix] = am_free;
 #ifdef DEBUG
 	markp->used = 0;
 #endif
@@ -2718,9 +2718,28 @@ recv_marker_dequeue(Process *c_p, ErtsRecvMarker *markp)
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
 }
 
+
+static ERTS_INLINE Eterm
+recv_marker_uniq(Process *c_p, Eterm *uniqp)
+{
+    Eterm res = *uniqp;
+    if (res == am_new_uniq) {
+	Sint64 val = c_p->sig_qs.recv_mrk_uniq++;
+	Uint hsz = ERTS_SINT64_HEAP_SIZE(val);
+	if (hsz == 0)
+	    res = make_small((Sint) val);
+	else {
+	    Eterm *hp = HAlloc(c_p, hsz);
+	    res = erts_sint64_to_big(val, &hp);
+	}
+	*uniqp = res;
+    }
+    return res;
+}
+
 static ERTS_INLINE ErtsRecvMarker *
 recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
-			int *ixp, Eterm mqref)
+			int *ixp, Eterm *uniqp)
 {
     ErtsRecvMarkerBlock *blkp;
     ErtsRecvMarker *markp;
@@ -2730,15 +2749,15 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 					      sizeof(ErtsRecvMarkerBlock));
     *blkpp = blkp;
 
-    /* Allocate marker for 'mqref' in index zero... */    
+    /* Allocate marker for 'uniqp' in index zero... */    
     *ixp = 0;
-    blkp->ref[0] = mqref;
+    blkp->ref[0] = recv_marker_uniq(c_p, uniqp);
     markp = &blkp->marker[0];
-    markp->next_used_ix = markp->prev_used_ix = 0;
+    markp->next_ix = markp->prev_ix = 0;
     blkp->used_ix = 0;
 
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (mqref == am_default)
+    if (*uniqp == am_default)
 	blkp->default_recv_marker_ix = 0;
     else
 	blkp->default_recv_marker_ix = -1;
@@ -2746,10 +2765,13 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 
     /* Put the rest in a free list in the ref words... */
     blkp->free_ix = 1;
-    for (ix = 1; ix < ERTS_RECV_MARKER_BLOCK_SIZE - 1; ix++)
-	blkp->ref[ix] = make_small(ix+1);
-    /* end of list... */
-    blkp->ref[ERTS_RECV_MARKER_BLOCK_SIZE-1] = make_small(-1);
+    for (ix = 1; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
+	blkp->ref[ix] = am_free;
+	if (ix == ERTS_RECV_MARKER_BLOCK_SIZE - 1)
+	    blkp->marker[ix].next_ix = -1; /* End of list */
+	else
+	    blkp->marker[ix].next_ix = ix + 1;
+    }
 
     blkp->unused = 0;
     blkp->pending_set_save_ix = -1;
@@ -2801,12 +2823,12 @@ recv_marker_reuse(Process *c_p, int *ixp)
 	if (blkp->ref[used_ix] == am_undefined)
 	    blkp->unused--;
 	ix = used_ix;
-	blkp->used_ix = used_ix = markp->next_used_ix;
+	blkp->used_ix = used_ix = markp->next_ix;
     }
     else {
 	int pix, nix;
 
-	ix = markp->next_used_ix;
+	ix = markp->next_ix;
 	ASSERT(ix != used_ix);
 	while (!0) {
 	    markp = &blkp->marker[ix];
@@ -2818,24 +2840,24 @@ recv_marker_reuse(Process *c_p, int *ixp)
 		blkp->unused--;
 		break;
 	    }
-	    ix = markp->next_used_ix;
+	    ix = markp->next_ix;
 	    ASSERT(ix != used_ix);
 	}
 	/*
 	 * Move this marker to be most recently
-	 * allocated marker (prev_used_ix of used_ix),
+	 * allocated marker (prev_ix of used_ix),
 	 * so that the search property still holds...
 	 */
-	pix = markp->prev_used_ix;
-	nix = markp->next_used_ix;
-	blkp->marker[pix].next_used_ix = nix;
-	blkp->marker[nix].prev_used_ix = pix;
+	pix = markp->prev_ix;
+	nix = markp->next_ix;
+	blkp->marker[pix].next_ix = nix;
+	blkp->marker[nix].prev_ix = pix;
 
-	pix = blkp->marker[used_ix].prev_used_ix;
-	blkp->marker[used_ix].prev_used_ix = ix;
-	blkp->marker[pix].next_used_ix = ix;
-	markp->next_used_ix = used_ix;
-	markp->prev_used_ix = pix;
+	pix = blkp->marker[used_ix].prev_ix;
+	blkp->marker[used_ix].prev_ix = ix;
+	blkp->marker[pix].next_ix = ix;
+	markp->next_ix = used_ix;
+	markp->prev_ix = pix;
     }
 
     *ixp = ix;
@@ -2863,16 +2885,18 @@ recv_marker_reuse(Process *c_p, int *ixp)
 
 static ERTS_INLINE ErtsRecvMarker *
 recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
-		  int *ixp, Eterm mqref)
+		  int *ixp, Eterm *uniqp)
 {
     ErtsRecvMarkerBlock *blkp = *blkpp;
     ErtsRecvMarker *markp;
     int ix;
 
-    ASSERT(ERTS_RECV_MARKER_IS_VALID_REF(mqref));
+    ASSERT(is_small(*uniqp) || is_big(*uniqp) || *uniqp == am_new_uniq
+	   || *uniqp == am_default || *uniqp == NIL
+	   || is_internal_ref(*uniqp));
 
     if (!blkp)
-	return recv_marker_alloc_block(c_p, blkpp, ixp, mqref);
+	return recv_marker_alloc_block(c_p, blkpp, ixp, uniqp);
 
     ERTS_HDBG_CHK_RECV_MRKS(c_p);
 
@@ -2884,24 +2908,26 @@ recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     }
     else {
 	int used_ix = blkp->used_ix;
-	ASSERT(is_small(blkp->ref[ix]));
-	blkp->free_ix = signed_val(blkp->ref[ix]);
+	ASSERT(blkp->ref[ix] == am_free);
 	markp = &blkp->marker[ix];
-	markp->prev_used_ix = blkp->marker[used_ix].prev_used_ix;
-	markp->next_used_ix = used_ix;
+	blkp->free_ix = markp->next_ix;
+	ASSERT(-1 <= blkp->free_ix
+	       && blkp->free_ix < ERTS_RECV_MARKER_BLOCK_SIZE); 
+	markp->prev_ix = blkp->marker[used_ix].prev_ix;
+	markp->next_ix = used_ix;
 #ifdef DEBUG
 	markp->used = !0;
 #endif
-	blkp->marker[markp->prev_used_ix].next_used_ix = ix;
-	blkp->marker[used_ix].prev_used_ix = ix;
+	blkp->marker[markp->prev_ix].next_ix = ix;
+	blkp->marker[used_ix].prev_ix = ix;
     }
 
     *ixp = ix;
 
-    blkp->ref[ix] = mqref;
+    blkp->ref[ix] = recv_marker_uniq(c_p, uniqp);
 
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (mqref == am_default) {
+    if (*uniqp == am_default) {
 	ASSERT(blkp->default_recv_marker_ix == -1);
 	blkp->default_recv_marker_ix = ix;
     }
@@ -2959,22 +2985,30 @@ recv_marker_insert(Process *c_p, ErtsRecvMarker *markp)
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
 }
 
-void
-erts_msgq_recv_marker_create_insert(Process *c_p, Eterm mqref)
+Eterm
+erts_msgq_recv_marker_create_insert(Process *c_p, Eterm uniq)
 {
     int ix;
+    Eterm new_uniq = uniq;
     ErtsRecvMarkerBlock **blkpp = &c_p->sig_qs.recv_mrk_blk;
-    ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, mqref);
-    if (markp)
-	recv_marker_insert(c_p, markp);
+    ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, &new_uniq);
+    if (!markp)
+	return am_undefined;
+    recv_marker_insert(c_p, markp);
+    ASSERT(is_small(new_uniq)
+	   || is_big(new_uniq)
+	   || new_uniq == am_default
+	   || new_uniq == NIL
+	   || is_internal_ref(new_uniq));
+    return new_uniq;
 }
 
 void
-erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm mqref)
+erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id)
 {
     int ix = -1; /* Shut up faulty warning... */
     ErtsRecvMarkerBlock **blkpp = &c_p->sig_qs.recv_mrk_blk;
-    ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, mqref);
+    ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, &id);
 
     if (markp) {
 	recv_marker_insert(c_p, markp);
@@ -6496,12 +6530,16 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 	ErtsRecvMarker *markp = &blkp->marker[ix];
 	Eterm ref = blkp->ref[ix];
 	
-	ERTS_ASSERT(is_internal_ref(ref)
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	ERTS_ASSERT(is_internal_ref(ref)
 		    || ref == am_default
-#endif
 		    || ref == am_undefined
 		    || is_nil(ref));
+#else
+	ERTS_ASSERT(is_internal_ref(ref)
+		    || ref == am_undefined
+		    || is_nil(ref));
+#endif
 
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 	if (ref == am_default) {
@@ -6515,13 +6553,13 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 
 	ASSERT(markp->used);
 
-	pix = markp->prev_used_ix;
-	nix = markp->next_used_ix;
+	pix = markp->prev_ix;
+	nix = markp->next_ix;
 
 	ERTS_ASSERT(0 <= pix && pix < ERTS_RECV_MARKER_BLOCK_SIZE);
 	ERTS_ASSERT(0 <= nix && nix < ERTS_RECV_MARKER_BLOCK_SIZE);
-	ERTS_ASSERT(blkp->marker[pix].next_used_ix == ix);
-	ERTS_ASSERT(blkp->marker[nix].prev_used_ix == ix);
+	ERTS_ASSERT(blkp->marker[pix].next_ix == ix);
+	ERTS_ASSERT(blkp->marker[nix].prev_ix == ix);
 
 	used++;
 	ERTS_ASSERT(used <= ERTS_RECV_MARKER_BLOCK_SIZE);
@@ -6539,11 +6577,11 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 	
 	do {
 	    Eterm ref = blkp->ref[ix];
-	    ERTS_ASSERT(is_small(ref));
+	    ERTS_ASSERT(ref == am_free);
 	    ASSERT(!blkp->marker[ix].used);
 	    free++;
 	    ERTS_ASSERT(free < ERTS_RECV_MARKER_BLOCK_SIZE);
-	    ix = signed_val(ref);
+	    ix = blkp->marker[ix].next_ix;
 	} while (ix >= 0);
     }
 

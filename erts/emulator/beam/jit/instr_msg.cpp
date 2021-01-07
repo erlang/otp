@@ -51,7 +51,7 @@ static ErtsMessage *decode_dist(Process *c_p, ErtsMessage *msgp) {
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 
 static void recv_mark(Process *p) {
-    erts_msgq_recv_marker_insert(p, am_default); /* inlined here... */
+    erts_msgq_recv_marker_insert_bind(p, am_default); /* inlined here... */
 }
 
 static void recv_mark_set(Process *p) {
