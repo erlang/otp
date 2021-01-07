@@ -737,23 +737,42 @@ t_local_basic(Config) ->
 
 
 t_local_unbound(Config) ->
+    ?TC_TRY(t_local_unbound, fun() -> do_local_unbound(Config) end).
+
+do_local_unbound(Config) ->
+    ?P("create local (server) filename"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
     %%
     InetBackendOpts = ?INET_BACKEND_OPTS(Config),
+    ?P("create listen socket with ifaddr ~p", [SAddr]),
     L = ok(gen_tcp:listen(0, InetBackendOpts ++
                               [{ifaddr,SAddr},{active,false}])),
+    ?P("listen socket created: ~p"
+       "~n   => try connect", [L]),
     C = ok(gen_tcp:connect(SAddr, 0,
                            InetBackendOpts ++ [{active,false}])),
+    ?P("connected: ~p"
+       "~n   => try accept", [C]),
     S = ok(gen_tcp:accept(L)),
+    ?P("accepted: ~p"
+       "~n   => sockname", [S]),
     SAddr = ok(inet:sockname(L)),
-    {error,enotconn} = inet:peername(L),
+    ?P("sockname: ~p"
+       "~n   => peername (expect enotconn)", [SAddr]),
+    {error, enotconn} = inet:peername(L),
+    ?P("try local handshake"),
     local_handshake(S, SAddr, C, {local,<<>>}),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("close accepted socket"),
     ok = gen_tcp:close(S),
+    ?P("close connected socket"),
     ok = gen_tcp:close(C),
+    ?P("delete (local) file"),
     ok = file:delete(SFile),
+    ?P("done"),
     ok.
 
 
