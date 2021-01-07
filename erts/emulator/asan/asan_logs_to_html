@@ -101,8 +101,12 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
 		  "^(?:==|--))"   % stop at line begining with == or --
 		  "|"
 		  %% Skipped
-		  "(?:^[=-]+$)",  % skip lines consisting only of = or -
-
+		  "(?:^[=-]+$)"  % skip lines consisting only of = or -
+                  "|"
+                  "Objects leaked above:\n" % if LSAN_OPTIONS="report_objects=1"
+                  "(?:0x.+\n)+"
+                  "|"
+                  "^\n", % empty lines
 		  [multiline],
 		  [global, {capture, all, index}]),
 
@@ -113,20 +117,23 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
 
     LeakChecker =
         fun([ErrorReport, {-1,0}, {-1,0}, {-1,0}, {-1,0}, Captured],
-            {Out, MatchCnt, LM0}) ->
-                {_Start,MatchLen} = ErrorReport,
+            {Out, PrevEnd, Unmatched0, LM0}) ->
+                {Start,MatchLen} = ErrorReport,
                 FD = fd(Out),
                 ok = io:format(FD, "<p><pre~s>\n", [style(error)]),
                 ok = file:write(FD, BP(Captured)),
                 ok = io:format(FD, "</pre></p>\n", []),
-                {FD, MatchCnt + MatchLen, LM0};
+                Unmatched1 = [BP({PrevEnd, Start-PrevEnd}) | Unmatched0],
+                End = Start + MatchLen,
+                {FD, End, Unmatched1, LM0};
 
            ([LeakReport, TypeIx, BytesIx, BlocksIx, StackIx | _],
-            {Out, MatchCnt0, LM0}) ->
-                {_Start, MatchLen} = LeakReport,
+            {Out, PrevEnd, Unmatched0, LM0}) ->
+                {Start, MatchLen} = LeakReport,
                 Bytes = binary_to_integer(BP(BytesIx)),
                 Blocks = binary_to_integer(BP(BlocksIx)),
-                MatchCnt1 = MatchCnt0 + MatchLen,
+                End = Start + MatchLen,
+                Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
                 TypeBin = BP(TypeIx),
                 Key = {TypeBin, BP(StackIx)},
                 case lookup_leak(LM0, Key) of
@@ -137,11 +144,11 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
                         ok = io:format(FD, "<p><pre~s>\n", [style(new, TypeBin)]),
                         ok = file:write(FD, BP(LeakReport)),
                         ok = io:format(FD, "</pre></p>\n", []),
-                        {FD, MatchCnt1, LM1};
+                        {FD, End, Unmatched1, LM1};
 
                     {Bytes, Blocks} ->
                         %% Exact same leak(s) repeated, ignore
-                        {Out, MatchCnt1, LM0};
+                        {Out, End, Unmatched1, LM0};
 
                     {OldBytes, OldBlocks} ->
                         %% More leaked bytes/blocks of same type&stack as before
@@ -154,23 +161,27 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
                                         Blocks - OldBlocks, Blocks]),
                         ok = file:write(FD, BP(StackIx)),
                         ok = io:format(FD, "</pre></p>\n", []),
-                        {FD, MatchCnt1, LM1}
+                        {FD, End, Unmatched1, LM1}
                 end;
-	   ([SkipLine], {Out, MatchCnt0, LM0}) ->
-                {_Start, MatchLen} = SkipLine,
-		nomatch = binary:match(BP(SkipLine), <<"\n">>), % Assert single line
-		{Out, MatchCnt0 + MatchLen, LM0}
+	   ([SkipLine], {Out, PrevEnd, Unmatched0, LM0}) ->
+                {Start, MatchLen} = SkipLine,
+		%%nomatch = binary:match(BP(SkipLine), <<"\n">>), % Assert single line
+                End = Start + MatchLen,
+                Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
+		{Out, End, Unmatched1, LM0}
         end,
     Out0 = {OutFD, SrcFile},
-    {Out1, MatchedBytes, LeakMap1} = lists:foldl(LeakChecker,
-                                                 {Out0, 0, LeakMap0},
+    {Out1, LastEnd, Unmatched1, LeakMap1} = lists:foldl(LeakChecker,
+                                                 {Out0, 0, [], LeakMap0},
                                                  Leaks),
 
-    case MatchedBytes < byte_size(Bin)-500 of
+    Unmatched2 = [BP({LastEnd, byte_size(Bin)-LastEnd}) | Unmatched1],
+
+    case iolist_size(Unmatched2) > 500 of
         true ->
             FD = fd(Out1),
             ok = io:format(FD, "<h2>WARNING!!! May be unmatched error reports"
-                           " in file ~s:</h2>\n", [SrcFile]),
+                           " in file ~s:</h2>\n<p><pre>~s</pre></p>", [SrcFile, Unmatched2]),
             FD;
         false ->
             Out1
