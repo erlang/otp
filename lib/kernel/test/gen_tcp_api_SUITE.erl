@@ -913,27 +913,48 @@ t_local_fdopen_connect_unbound(Config) ->
     ok.
 
 t_local_abstract(Config) ->
+    ?TC_TRY(t_local_abstract, fun() -> do_local_abstract(Config) end).
+
+do_local_abstract(Config) ->
+    ?P("only run on linux"),
     case os:type() of
-	{unix,linux} ->
+	{unix, linux} ->
 	    AbstAddr = {local,<<>>},
             InetBackendOpts = ?INET_BACKEND_OPTS(Config),
+            ?P("create listen socket"),
 	    L =
 		ok(gen_tcp:listen(
 		     0, InetBackendOpts ++ [{ifaddr,AbstAddr},{active,false}])),
-	    {local,_} = SAddr = ok(inet:sockname(L)),
+            ?P("listen socket created: ~p"
+               "~n      => sockname", [L]),
+	    {local, _} = SAddr = ok(inet:sockname(L)),
+            ?P("(listen socket) sockname verified"
+               "~n      => try connect"),
 	    C =
 		ok(gen_tcp:connect(
 		     SAddr, 0,
                      InetBackendOpts ++ [{ifaddr,AbstAddr},{active,false}])),
+            ?P("connected: ~p"
+               "~n      => sockname", [C]),
 	    {local,_} = CAddr = ok(inet:sockname(C)),
+            ?P("(connected socket) sockname verified"
+               "~n      => try accept"),
 	    S = ok(gen_tcp:accept(L)),
+            ?P("accepted: ~p"
+               "~n   => peername (expect enotconn)", [S]),
 	    {error,enotconn} = inet:peername(L),
+            ?P("try local handshake"),
 	    local_handshake(S, SAddr, C, CAddr),
+            ?P("close listen socket"),
 	    ok = gen_tcp:close(L),
+            ?P("close accepted socket"),
 	    ok = gen_tcp:close(S),
+            ?P("close connected socket"),
 	    ok = gen_tcp:close(C),
+            ?P("done"),
 	    ok;
 	_ ->
+            ?P("skip (unless linux)"),
 	    {skip,"AF_LOCAL Abstract Addresses only supported on Linux"}
     end.
 
