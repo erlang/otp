@@ -2,8 +2,7 @@ name: Build binary releases
 
 on:
   push:
-    branches:
-      - master
+  pull_request:
 
 jobs:
   build:

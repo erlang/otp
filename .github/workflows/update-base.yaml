@@ -11,7 +11,8 @@ on:
 jobs:
 
   build-debian-64bit:
-    if: github.repository == 'erlang/otp'
+    # TODO: re-enable
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -26,7 +27,7 @@ jobs:
           tags: latest
 
   build-debian-32bit:
-    if: github.repository == 'erlang/otp'
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -42,7 +43,7 @@ jobs:
           tags: latest
 
   build-ubuntu-64bit:
-    if: github.repository == 'erlang/otp'
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
