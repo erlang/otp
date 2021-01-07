@@ -444,29 +444,45 @@ do_shutdown_error(Config) ->
     ok.
 
 t_shutdown_async(Config) when is_list(Config) ->
+    ?TC_TRY(t_shutdown_async, fun() -> do_shutdown_async(Config) end).
+
+do_shutdown_async(Config) ->
     {OS, _} = os:type(),
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{sndbuf, 4096}]),
     {ok, Port} = inet:port(L),
+    ?P("connect"),
     {ok, Client} = gen_tcp:connect(localhost, Port,
 				   ?INET_BACKEND_OPTS(Config) ++
                                        [{recbuf, 4096},
                                         {active, false}]),
+    ?P("accept connection"),
     {ok, S} = gen_tcp:accept(L),
+    ?P("create payload"),
     PayloadSize = 1024 * 1024,
     Payload = lists:duplicate(PayloadSize, $.),
+    ?P("send payload"),
     ok = gen_tcp:send(S, Payload),
+    ?P("verify queue size"),
     case erlang:port_info(S, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail({unexpected, T})
     end,
 
+    ?P("shutdown(write) accepted socket"),
     ok = gen_tcp:shutdown(S, write),
+    ?P("recv from connected socket"),
     {ok, Buf} = gen_tcp:recv(Client, PayloadSize),
+    ?P("recv(0) from connected socket (expect closed)"),
     {error, closed} = gen_tcp:recv(Client, 0),
+    ?P("verify recv data"),
     case length(Buf) of
-	PayloadSize -> ok;
-	Sz -> ct:fail({payload_size,
+	PayloadSize -> ?P("done"), ok;
+	Sz -> ?P("ERROR: "
+                 "~n   extected: ~p"
+                 "~n   received: ~p", [PayloadSize, Sz]),
+              ct:fail({payload_size,
 		       {expected, PayloadSize},
 		       {received, Sz}})
     end.
