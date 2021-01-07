@@ -422,7 +422,7 @@ main(int argc, char *argv[])
 #endif
     struct sigaction sa;
 
-    if (argc < 1 || sscanf(argv[1],"%d",&max_files) != 1) {
+    if (argc < 2 || sscanf(argv[1],"%d",&max_files) != 1) {
         ABORT("Invalid arguments to child_setup");
     }
 
