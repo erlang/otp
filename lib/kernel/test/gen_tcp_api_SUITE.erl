@@ -907,19 +907,36 @@ local_handshake(S, SAddr, C, CAddr) ->
     ok.
 
 t_accept_inet6_tclass(Config) when is_list(Config) ->
+    ?TC_TRY(t_accept_inet6_tclass, fun() -> do_accept_inet6_tclass(Config) end).
+
+do_accept_inet6_tclass(Config) ->
     TClassOpt = {tclass,8#56 bsl 2}, % Expedited forwarding
     Loopback = {0,0,0,0,0,0,0,1},
+    ?P("create listen socket with tclass: ~p", [TClassOpt]),
     case gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [inet6, {ip, Loopback}, TClassOpt]) of
-	{ok,L} ->
+	{ok, L} ->
+            ?P("listen socket created: "
+               "~n      ~p", [L]),
 	    LPort = ok(inet:port(L)),
+            ?P("try to connect to port ~p", [LPort]),
 	    Sa = ok(gen_tcp:connect(Loopback, LPort, ?INET_BACKEND_OPTS(Config))),
+            ?P("connected: ~p"
+               "~n   => accept connection", [Sa]),
 	    Sb = ok(gen_tcp:accept(L)),
+            ?P("accepted: ~p"
+               "~n   => getopts (tclass)", [Sb]),
 	    [TClassOpt] = ok(inet:getopts(Sb, [tclass])),
+            ?P("tclass verified => close accepted socket"),
 	    ok = gen_tcp:close(Sb),
+            ?P("close connected socket"),
 	    ok = gen_tcp:close(Sa),
+            ?P("close listen socket"),
 	    ok = gen_tcp:close(L),
+            ?P("done"),
 	    ok;
-	{error,_} ->
+	{error, _Reason} ->
+            ?P("ERROR: Failed create listen socket"
+               "~n   ~p", [_Reason]),
 	    {skip,"IPv6 TCLASS not supported"}
     end.
 
