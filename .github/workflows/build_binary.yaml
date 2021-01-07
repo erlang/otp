@@ -25,7 +25,7 @@ jobs:
       - run: ${{ matrix.script }} $PWD/tmp
       - name: Set artifact name
         id: artifact-name
-        run: echo ::set-output name=NAME::$(echo ${{ github.ref }} | sed 's/refs\/heads\///')-x86_64-${{ matrix.os }}.tar.gz
+        run: echo ::set-output name=NAME::$(echo ${{ github.ref }} | sed -E 's/refs\/(heads|tags)\///' | sed -E 's/refs\/pull\/([0-9]+).*/pr-\1/')-x86_64-${{ matrix.os }}.tar.gz
       - run: mv tmp/release.tar.gz ${{ steps.artifact-name.outputs.NAME }}
       - uses: actions/upload-artifact@v2
         with:
