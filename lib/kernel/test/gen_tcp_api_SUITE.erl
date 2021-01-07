@@ -429,10 +429,18 @@ t_shutdown_both(Config) when is_list(Config) ->
     ok.
 
 t_shutdown_error(Config) when is_list(Config) ->
+    ?TC_TRY(t_shutdown_error, fun() -> do_shutdown_error(Config) end).
+
+do_shutdown_error(Config) ->
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
+    ?P("shutdown socket (with How = read_write)"),
     {error, enotconn} = gen_tcp:shutdown(L, read_write),
+    ?P("close socket"),
     ok = gen_tcp:close(L),
+    ?P("shutdown socket again (with How = read_write)"),
     {error, closed} = gen_tcp:shutdown(L, read_write),
+    ?P("done"),
     ok.
 
 t_shutdown_async(Config) when is_list(Config) ->
