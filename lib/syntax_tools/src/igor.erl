@@ -2802,7 +2802,7 @@ check_forms([F | Fs], File) ->
 			"unknown error"
 		end,
 	    report_error("in file `~ts' at line ~w:\n  ~ts",
-			 [filename(File), erl_syntax:get_pos(F), S]),
+			 [filename(File), get_line(F), S]),
 	    exit(error);
 	_ ->
 	    check_forms(Fs, File)
@@ -3030,6 +3030,9 @@ split_lines([], Cs, Ls) ->
 split_lines_1(Cs, Cs1, Ls) ->
     split_lines(Cs, [], [lists:reverse(Cs1) | Ls]).
 
+get_line(Tree) ->
+    Anno = erl_syntax:get_pos(Tree),
+    erl_anno:line(Anno).
 
 %% =====================================================================
 %% Reporting

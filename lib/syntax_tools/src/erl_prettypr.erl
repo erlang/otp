@@ -1509,12 +1509,16 @@ lay_clause_expressions([], _) ->
     empty().
 
 is_last_and_before_empty_line(H, [], #ctxt{empty_lines = EmptyLines}) ->
-    try sets:is_element(erl_syntax:get_pos(H) + 1, EmptyLines)
+    try sets:is_element(get_line(H) + 1, EmptyLines)
     catch error:badarith -> false
     end;
 is_last_and_before_empty_line(H, [H2 | _], #ctxt{empty_lines = EmptyLines}) ->
-    try ((erl_syntax:get_pos(H2) - erl_syntax:get_pos(H)) >= 2) and sets:is_element(erl_syntax:get_pos(H) + 1, EmptyLines)
+    try ((get_line(H2) - get_line(H)) >= 2) and sets:is_element(get_line(H) + 1, EmptyLines)
     catch error:badarith -> false
     end.
+
+get_line(Tree) ->
+    Anno = erl_syntax:get_pos(Tree),
+    erl_anno:line(Anno).
 
 %% =====================================================================

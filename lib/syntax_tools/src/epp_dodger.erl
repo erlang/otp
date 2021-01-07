@@ -443,7 +443,7 @@ parse_form(Dev, L0, Parser, Options) ->
                 {parse_error, _IoErr} when NoFail ->
 		    {ok, erl_syntax:set_pos(
 			   erl_syntax:text(tokens_to_string(Ts)),
-			   start_pos(Ts, L1)),
+			   erl_anno:new(start_pos(Ts, L1))),
 		     L1};
                 {parse_error, IoErr} ->
 		    {error, IoErr, L1};
@@ -655,13 +655,13 @@ scan_form([{'-', _L}, {atom, La, else} | Ts], Opt) ->
 scan_form([{'-', _L}, {atom, La, endif} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, endif} | scan_macros(Ts, Opt)];
-scan_form([{'-', _L}, {atom, La, error} | Ts], _Opt) ->
+scan_form([{'-', _Anno}, {atom, AnnoA, error} | Ts], _Opt) ->
     Desc = build_info_string("-error", Ts),
-    ErrorInfo = {La, ?MODULE, {error, Desc}},
+    ErrorInfo = {erl_anno:location(AnnoA), ?MODULE, {error, Desc}},
     erl_syntax:error_marker(ErrorInfo);
-scan_form([{'-', _L}, {atom, La, warning} | Ts], _Opt) ->
+scan_form([{'-', _Anno}, {atom, AnnoA, warning} | Ts], _Opt) ->
     Desc = build_info_string("-warning", Ts),
-    ErrorInfo = {La, ?MODULE, {warning, Desc}},
+    ErrorInfo = {erl_anno:location(AnnoA), ?MODULE, {warning, Desc}},
     erl_syntax:error_marker(ErrorInfo);
 scan_form([{'-', L}, {'?', L1}, {Type, _, _}=N | [{'(', _} | _]=Ts], Opt)
   when Type =:= atom; Type =:= var ->
@@ -765,11 +765,11 @@ scan_macros_1(Args, Rest, As, Opt) ->
     %% normal case - continue scanning
     scan_macros(Args ++ Rest, As, Opt).
 
-rewrite_form({function, L, ?pp_form, _,
+rewrite_form({function, Anno, ?pp_form, _,
               [{clause, _, [], [], [{call, _, A, As}]}]}) ->
-    erl_syntax:set_pos(erl_syntax:attribute(A, rewrite_list(As)), L);
-rewrite_form({function, L, ?pp_form, _, [{clause, _, [], [], [A]}]}) ->
-    erl_syntax:set_pos(erl_syntax:attribute(A), L);
+    erl_syntax:set_pos(erl_syntax:attribute(A, rewrite_list(As)), Anno);
+rewrite_form({function, Anno, ?pp_form, _, [{clause, _, [], [], [A]}]}) ->
+    erl_syntax:set_pos(erl_syntax:attribute(A), Anno);
 rewrite_form(T) ->
     rewrite(T).
 
@@ -845,13 +845,13 @@ fix_form([{atom, _, ?pp_form}, {'(', _}, {')', _}, {'->', _},
 fix_form(_Ts) ->
     error.
 
-fix_define([{atom, L, ?pp_form}, {'(', _}, {')', _}, {'->', _},
-	    {atom, La, define}, {'(', _}, N, {',', _} | Ts]) ->
+fix_define([{atom, Anno, ?pp_form}, {'(', _}, {')', _}, {'->', _},
+	    {atom, AnnoA, define}, {'(', _}, N, {',', _} | Ts]) ->
     [{dot, _}, {')', _} | Ts1] = lists:reverse(Ts),
     S = tokens_to_string(lists:reverse(Ts1)),
-    A = erl_syntax:set_pos(erl_syntax:atom(define), La),
-    Txt = erl_syntax:set_pos(erl_syntax:text(S), La),
-    {form, erl_syntax:set_pos(erl_syntax:attribute(A, [N, Txt]), L)};
+    A = erl_syntax:set_pos(erl_syntax:atom(define), AnnoA),
+    Txt = erl_syntax:set_pos(erl_syntax:text(S), AnnoA),
+    {form, erl_syntax:set_pos(erl_syntax:attribute(A, [N, Txt]), Anno)};
 fix_define(_Ts) ->
     error.
 

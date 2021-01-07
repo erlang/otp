@@ -369,16 +369,21 @@
 %%
 %% All nodes are represented by tuples of arity 2 or greater, whose
 %% first element is an atom which uniquely identifies the type of the
-%% node. (In the backwards-compatible representation, the interpretation
-%% is also often dependent on the context; the second element generally
-%% holds the position information - with a couple of exceptions; see
-%% `get_pos' and `set_pos' for details). In the documentation of this
-%% module, `Pos' is the source code position information associated with
-%% a node; usually, this is a positive integer indicating the original
-%% source code line, but no assumptions are made in this module
-%% regarding the format or interpretation of position information. When
-%% a syntax tree node is constructed, its associated position is by
-%% default set to the integer zero.
+%% node. (In the backwards-compatible representation, the
+%% interpretation is also often dependent on the context; the second
+%% element generally holds the annotation (see module {@link
+%% //stdlib/erl_anno} for details) which includes the position
+%% information - with a couple of exceptions; see `get_pos' and
+%% `set_pos' for details.) In the documentation of this module, `Pos'
+%% is the annotation associated with a node. No assumptions are made
+%% in this module regarding the format or interpretation of the
+%% annotations. Use module erl_anno to inspect and modify annotations.
+%% In particular, use {@link //stdlib/erl_anno:location/1} to get the
+%% position information, and use {@link
+%% //stdlib/erl_anno:set_location/2} or {@link
+%% //stdlib/erl_anno:set_line/2} to change the position information.
+%% When a syntax tree node is constructed, its associated position is
+%% by default set to the integer zero.
 %% =====================================================================
 
 -define(NO_UNUSED, true).
@@ -849,23 +854,26 @@ is_form(Node) ->
 
 
 %% =====================================================================
-%% @doc Returns the position information associated with
-%% `Node'. This is usually a nonnegative integer (indicating
-%% the source code line number), but may be any term. By default, all
-%% new tree nodes have their associated position information set to the
-%% integer zero.
+
+%% @doc Returns the annotation (see {@link //stdlib/erl_anno})
+%% associated with `Node'. By default, all new tree nodes have their
+%% associated position information set to the integer zero. Use {@link
+%% //stdlib/erl_anno:location/1} or {@link //stdlib/erl_anno:line/1}
+%% to get the position information.
 %%
 %% @see set_pos/2
 %% @see get_attrs/1
 
 %% All `erl_parse' tree nodes are represented by tuples whose second
-%% field is the position information (usually an integer), *with the
+%% field is the annotation, *with the
 %% exceptions of* `{error, ...}' (type `error_marker') and `{warning,
-%% ...}' (type `warning_marker'), which only contain the associated line
-%% number *of the error descriptor*; this is all handled transparently
+%% ...}' (type `warning_marker'), which only contain the associated location
+%% *of the error descriptor*; this is all handled transparently
 %% by `get_pos' and `set_pos'.
 
--spec get_pos(syntaxTree()) -> term().
+-type annotation_or_location() :: erl_anno:anno() | erl_anno:location().
+
+-spec get_pos(syntaxTree()) -> annotation_or_location().
 
 get_pos(#tree{attr = Attr}) ->
     Attr#attr.pos;
@@ -876,8 +884,8 @@ get_pos({error, {Pos, _, _}}) ->
 get_pos({warning, {Pos, _, _}}) ->
     Pos;
 get_pos(Node) ->
-    %% Here, we assume that we have an `erl_parse' node with position
-    %% information in element 2.
+    %% Here, we assume that we have an `erl_parse' node with an
+    %% annotation in element 2.
     element(2, Node).
 
 
@@ -887,7 +895,7 @@ get_pos(Node) ->
 %% @see get_pos/1
 %% @see copy_pos/2
 
--spec set_pos(syntaxTree(), term()) -> syntaxTree().
+-spec set_pos(syntaxTree(), annotation_or_location()) -> syntaxTree().
 
 set_pos(Node, Pos) ->
     case Node of
@@ -903,7 +911,7 @@ set_pos(Node, Pos) ->
 
 
 %% =====================================================================
-%% @doc Copies the position information from `Source' to `Target'.
+%% @doc Copies the annotation from `Source' to `Target'.
 %%
 %% This is equivalent to `set_pos(Target,
 %% get_pos(Source))', but potentially more efficient.
