@@ -82,7 +82,7 @@ call_edoc(FileSpec, InclFs, Dir) ->
                      Fs0 = read_file(File, ReadOpts),
                      clauses(Fs0);
                  {module, Module} ->
-                     [{attribute,0,module,list_to_atom(Module)}]
+                     [{attribute,erl_anno:new(0),module,list_to_atom(Module)}]
              end,
         Doc = extract(File, Fs, ExtractOpts),
         Text = edoc:layout(Doc, LayoutOpts),
