@@ -379,17 +379,29 @@ t_recv_eof(Config) when is_list(Config) ->
 
 %% Test using message delimiter $X.
 t_recv_delim(Config) when is_list(Config) ->
+    ?TC_TRY(t_recv_delim, fun() -> do_recv_delim(Config) end).
+
+do_recv_delim(Config) ->
+    ?P("init"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
     {ok, Port} = inet:port(L),
     Opts = ?INET_BACKEND_OPTS(Config) ++
         [{active,false}, {packet,line}, {line_delimiter,$X}],
     {ok, Client} = gen_tcp:connect(localhost, Port, Opts),
     {ok, A} = gen_tcp:accept(L),
+    ?P("send the data"),
     ok = gen_tcp:send(A, "abcXefgX"),
-    {ok, "abcX"} = gen_tcp:recv(Client, 0, 200),
-    {ok, "efgX"} = gen_tcp:recv(Client, 0, 200),
+    %% Why do we need a timeout?
+    %% Sure, normally there would be no delay,
+    %% but this testcase has nothing to do with timeouts?
+    ?P("read the first chunk"),
+    {ok, "abcX"} = gen_tcp:recv(Client, 0), %, 200),
+    ?P("read the first chunk"),
+    {ok, "efgX"} = gen_tcp:recv(Client, 0), %, 200),
+    ?P("cleanup"),
     ok = gen_tcp:close(Client),
     ok = gen_tcp:close(A),
+    ?P("done"),
     ok.
 
 %%% gen_tcp:shutdown/2
