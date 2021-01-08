@@ -2489,21 +2489,34 @@ do_partial_recv_and_close_4(Config) ->
 
 test_prio_put_get(Config) ->
     Tos = 3 bsl 5,
+    ?P("test_prio_put_get -> create listen socket"),
     {ok,L1} = ?LISTEN(Config, 0, [{active,false}]),
+    ?P("test_prio_put_get -> set opts prio (= 3)"),
     ok = inet:setopts(L1,[{priority,3}]),
+    ?P("test_prio_put_get -> set opts tos (= ~p)", [Tos]),
     ok = inet:setopts(L1,[{tos,Tos}]),
+    ?P("test_prio_put_get -> verify opts prio and tos"),
     {ok,[{priority,3},{tos,Tos}]} = inet:getopts(L1,[priority,tos]),
+    ?P("test_prio_put_get -> set opts prio (= 3)"),
     ok = inet:setopts(L1,[{priority,3}]), % Dont destroy each other
+    ?P("test_prio_put_get -> verify opts prio and tos"),
     {ok,[{priority,3},{tos,Tos}]} = inet:getopts(L1,[priority,tos]),
+    ?P("test_prio_put_get -> set opts reuseaddr (= true)"),
     ok = inet:setopts(L1,[{reuseaddr,true}]), % Dont let others destroy
+    ?P("test_prio_put_get -> verify opts prio and tos"),
     {ok,[{priority,3},{tos,Tos}]} = inet:getopts(L1,[priority,tos]),
+    ?P("test_prio_put_get -> close listen socket"),
     gen_tcp:close(L1),
+    ?P("test_prio_put_get -> done"),
     ok.
 
 test_prio_accept(Config) ->
-    {ok,Sock}=?LISTEN(Config, 0,[binary,{packet,0},{active,false},
-                                {reuseaddr,true},{priority,4}]),
-    {ok,Port} = inet:port(Sock),
+    ?P("test_prio_accept -> create listen socket"),
+    {ok, Sock} = ?LISTEN(Config, 0, [binary,{packet,0},{active,false},
+                                     {reuseaddr,true},{priority,4}]),
+    ?P("test_prio_accept -> get port number of listen socket"),
+    {ok, Port} = inet:port(Sock),
+    ?P("test_prio_accept -> connect to port ~p", [Port]),
     Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
@@ -2513,22 +2526,33 @@ test_prio_accept(Config) ->
                 {error, eaddrnotavail = Reason} ->
                     ?SKIPT(connect_failed_str(Reason))
             end,
-    {ok,Sock3}=gen_tcp:accept(Sock),
-    {ok,[{priority,4}]} = inet:getopts(Sock,[priority]),
-    {ok,[{priority,4}]} = inet:getopts(Sock2,[priority]),
-    {ok,[{priority,4}]} = inet:getopts(Sock3,[priority]),
+    ?P("test_prio_accept -> connected => accept connection"),
+    {ok, Sock3} = gen_tcp:accept(Sock),
+    ?P("test_prio_accept -> accepted => getopts prio for listen socket"),
+    {ok, [{priority,4}]} = inet:getopts(Sock,  [priority]),
+    ?P("test_prio_accept -> getopts prio for connected socket"),
+    {ok, [{priority,4}]} = inet:getopts(Sock2, [priority]),
+    ?P("test_prio_accept -> getopts prio for accepted socket"),
+    {ok, [{priority,4}]} = inet:getopts(Sock3, [priority]),
+    ?P("test_prio_accept -> close listen socket"),
     gen_tcp:close(Sock),
+    ?P("test_prio_accept -> close connected socket"),
     gen_tcp:close(Sock2),
+    ?P("test_prio_accept -> close accepted socket"),
     gen_tcp:close(Sock3),
+    ?P("test_prio_accept -> done"),
     ok.
 
 test_prio_accept2(Config) ->
     Tos1 = 4 bsl 5,
     Tos2 = 3 bsl 5,
-    {ok,Sock}=?LISTEN(Config, 0,[binary,{packet,0},{active,false},
-                                {reuseaddr,true},{priority,4},
-                                {tos,Tos1}]),
-    {ok,Port} = inet:port(Sock),
+    ?P("test_prio_accept2 -> create listen socket"),
+    {ok, Sock} = ?LISTEN(Config, 0,[binary,{packet,0},{active,false},
+                                    {reuseaddr,true},{priority,4},
+                                    {tos,Tos1}]),
+    ?P("test_prio_accept2 -> get port number of listen socket"),
+    {ok, Port} = inet:port(Sock),
+    ?P("test_prio_accept2 -> connect to port ~p", [Port]),
     Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
@@ -2539,22 +2563,33 @@ test_prio_accept2(Config) ->
                 {error, eaddrnotavail = Reason} ->
                     ?SKIPT(connect_failed_str(Reason))
             end,
-    {ok,Sock3}=gen_tcp:accept(Sock),
+    ?P("test_prio_accept2 -> connected => accept connection"),
+    {ok, Sock3} = gen_tcp:accept(Sock),
+    ?P("test_prio_accept2 -> accepted => getopts prio and tos for listen socket"),
     {ok,[{priority,4},{tos,Tos1}]} = inet:getopts(Sock,[priority,tos]),
+    ?P("test_prio_accept2 -> getopts prio and tos for connected socket"),
     {ok,[{priority,4},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
+    ?P("test_prio_accept2 -> getopts prio and tos for accepted socket"),
     {ok,[{priority,4},{tos,Tos1}]} = inet:getopts(Sock3,[priority,tos]),
+    ?P("test_prio_accept2 -> close listen socket"),
     gen_tcp:close(Sock),
+    ?P("test_prio_accept2 -> close connected socket"),
     gen_tcp:close(Sock2),
+    ?P("test_prio_accept2 -> close accepted socket"),
     gen_tcp:close(Sock3),
+    ?P("test_prio_accept2 -> done"),
     ok.
 
 test_prio_accept3(Config) ->
     Tos1 = 4 bsl 5,
     Tos2 = 3 bsl 5,
-    {ok,Sock}=?LISTEN(Config, 0,[binary,{packet,0},{active,false},
-                                {reuseaddr,true},
-                                {tos,Tos1}]),
+    ?P("test_prio_accept3 -> create listen socket"),
+    {ok, Sock} = ?LISTEN(Config, 0,[binary,{packet,0},{active,false},
+                                    {reuseaddr,true},
+                                    {tos,Tos1}]),
+    ?P("test_prio_accept3 -> get port number of listen socket"),
     {ok,Port} = inet:port(Sock),
+    ?P("test_prio_accept3 -> connect to port ~p", [Port]),
     Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
@@ -2564,19 +2599,29 @@ test_prio_accept3(Config) ->
         {error, eaddrnotavail = Reason} ->
             ?SKIPT(connect_failed_str(Reason))
     end,
-    {ok,Sock3}=gen_tcp:accept(Sock),
-    {ok,[{priority,0},{tos,Tos1}]} = inet:getopts(Sock,[priority,tos]),
-    {ok,[{priority,0},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
-    {ok,[{priority,0},{tos,Tos1}]} = inet:getopts(Sock3,[priority,tos]),
+    ?P("test_prio_accept3 -> connected => accept connection"),
+    {ok, Sock3} = gen_tcp:accept(Sock),
+    ?P("test_prio_accept3 -> "
+       "accepted => getopts prio and tos for listen socket"),
+    {ok, [{priority,0},{tos,Tos1}]} = inet:getopts(Sock,  [priority,tos]),
+    ?P("test_prio_accept3 -> getopts prio and tos for connected socket"),
+    {ok, [{priority,0},{tos,Tos2}]} = inet:getopts(Sock2, [priority,tos]),
+    ?P("test_prio_accept3 -> getopts prio and tos for accepted socket"),
+    {ok, [{priority,0},{tos,Tos1}]} = inet:getopts(Sock3, [priority,tos]),
+    ?P("test_prio_accept3 -> close listen socket"),
     gen_tcp:close(Sock),
+    ?P("test_prio_accept3 -> close connected socket"),
     gen_tcp:close(Sock2),
+    ?P("test_prio_accept3 -> close accepted socket"),
     gen_tcp:close(Sock3),
+    ?P("test_prio_accept3 -> done"),
     ok.
     
 test_prio_accept_async(Config) ->
     Tos1 = 4 bsl 5,
     Tos2 = 3 bsl 5,
     Ref = make_ref(),
+    ?P("test_prio_accept_async -> create prio server"),
     spawn(?MODULE, priority_server, [Config, {self(),Ref}]),
     Port = receive
                {Ref,P} -> P
@@ -2585,6 +2630,7 @@ test_prio_accept_async(Config) ->
     receive
     after 3000 -> ok
     end,
+    ?P("test_prio_accept_async -> connect to port ~p", [Port]),
     Sock2 = case ?CONNECT(Config, "localhost",Port,[binary,{packet,0},
                                                    {active,false},
                                                    {reuseaddr,true},
@@ -2595,6 +2641,8 @@ test_prio_accept_async(Config) ->
                 {error, eaddrnotavail = Reason} ->
                     ?SKIPT(connect_failed_str(Reason))
             end,
+    ?P("test_prio_accept_async -> "
+       "connected => await prio and tos for listen socket"),
     receive
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
@@ -2602,6 +2650,7 @@ test_prio_accept_async(Config) ->
             ct:fail({missmatch,Error})
     after 5000 -> ct:fail({error,"helper process timeout"})
     end,
+    ?P("test_prio_accept_async -> await prio and tos for accepted socket"),
     receive
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
@@ -2610,8 +2659,11 @@ test_prio_accept_async(Config) ->
     after 5000 -> ct:fail({error,"helper process timeout"})
     end,
 
-    {ok,[{priority,4},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
+    ?P("test_prio_accept_async -> getopts prio and tos for connected socket"),
+    {ok,[{priority,4},{tos,Tos2}]} = inet:getopts(Sock2, [priority,tos]),
+    ?P("test_prio_accept_async -> close connected socket"),
     catch gen_tcp:close(Sock2),
+    ?P("test_prio_accept_async -> done"),
     ok.
 
 priority_server(Config, {Parent,Ref}) ->
@@ -2627,32 +2679,40 @@ priority_server(Config, {Parent,Ref}) ->
     ok.
 
 test_prio_fail(Config) ->
+    ?P("test_prio_fail -> create listen socket"),
     {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
+    ?P("test_prio_fail -> try set (and fail) opts prio (= 1000)"),
     {error,_} = inet:setopts(L,[{priority,1000}]),
+    ?P("test_prio_fail -> close listen socket"),
     gen_tcp:close(L),
+    ?P("test_prio_fail -> done"),
     ok.
 
 test_prio_udp() ->
     Tos = 3 bsl 5,
+    ?P("test_prio_udp -> create UDP socket (open)"),
     {ok,S} = gen_udp:open(0,[{active,false},binary,{tos, Tos},
                              {priority,3}]),
+    ?P("test_prio_udp -> getopts prio and tos"),
     {ok,[{priority,3},{tos,Tos}]} = inet:getopts(S,[priority,tos]),
+    ?P("test_prio_fail -> close socket"),
     gen_udp:close(S),
+    ?P("test_prio_fail -> done"),
     ok.
 
 %% Tests the so_priority and ip_tos options on sockets when applicable.
 so_priority(Config) when is_list(Config) ->
-    try do_so_priority(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(so_priority, fun() -> do_so_priority(Config) end).
 
 do_so_priority(Config) ->
+    ?P("create listen socket"),
     {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
+    ?P("set opts on listen socket: prio to 1"),
     ok = inet:setopts(L,[{priority,1}]),
+    ?P("verify prio"),
     case inet:getopts(L,[priority]) of
 	{ok,[{priority,1}]} ->
+            ?P("close listen socket"),
 	    gen_tcp:close(L),
 	    test_prio_put_get(Config),
 	    test_prio_accept(Config),
@@ -2661,6 +2721,7 @@ do_so_priority(Config) ->
 	    test_prio_accept_async(Config),
 	    test_prio_fail(Config),
 	    test_prio_udp(),
+            ?P("done"),
 	    ok;
 	_ ->
 	    case os:type() of
