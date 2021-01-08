@@ -216,6 +216,8 @@ integers(Config) ->
     test_integers(Port, 16#feeddeaddeadbeef - 1000, 16#feeddeaddeadbeef + 1000),
     test_integers(Port, -16#feeddeaddeadbeef - 1000, -16#feeddeaddeadbeef + 1000),
     test_integers(Port, (1 bsl 64) - 1000, (1 bsl 64) + 1000),
+    test_integers(Port, 16#addfeeddeaddeadbeef - 1000, 16#addfeeddeaddeadbeef + 1000),
+    test_integers(Port, -16#addfeeddeaddeadbeef - 1000, -16#addfeeddeaddeadbeef + 1000),
     test_integers(Port, -(1 bsl 64) - 1000, -(1 bsl 64) + 1000),
     test_integers(Port, (1 bsl 8192) - 1000, (1 bsl 8192) + 1000),
     test_integers(Port, -(1 bsl 8192) - 1000, -(1 bsl 8192) + 1000),
@@ -228,19 +230,21 @@ integers(Config) ->
 
 test_integer(Port, Int, Print) when is_integer(Int) ->
     Res = send_term_get_printed(Port, Int),
-    Exp = try
-              _ = list_to_integer(Res),
-              integer_to_list(Int)
-          catch
-              _:_ ->
-                  bignum_string(Int)
-          end,
     case Print of
         true ->
             io:format("Res: ~s~n", [Res]);
         false ->
             ok
     end,
+    %% Large bignums are printed in base 16...
+    Exp = case Res of
+              "16#" ++ _ ->
+                  "16#" ++ integer_to_list(Int, 16);
+              "-16#" ++ _ ->
+                  "-16#" ++ integer_to_list(-1*Int, 16);
+              _ ->
+                  integer_to_list(Int)
+           end,
     case Exp =:= Res of
         true ->
             ok;
@@ -249,33 +253,10 @@ test_integer(Port, Int, Print) when is_integer(Int) ->
             ct:fail({Exp, Res})
     end.
 
-bignum_string(Int) ->
-    {AbsInt, Sign} = case Int < 0 of
-                         true -> {-1*Int, "-"};
-                         false -> {Int, ""}
-                     end,
-    Digits = bignum_digits(AbsInt, []),
-    NoDigits = length(Digits),
-    lists:flatten([Sign, "#integer(",
-                   integer_to_list(NoDigits),
-                   ") = {",
-                   lists:foldl(fun (Digit, []) ->
-                                       [integer_to_list(Digit), $}];
-                                   (Digit, Acc) ->
-                                       [integer_to_list(Digit), $, | Acc]
-                               end,
-                               [],
-                               Digits)]).
-
-bignum_digits(0, Acc) ->
-    Acc;
-bignum_digits(Int, Acc) ->
-    bignum_digits(Int bsr 16, [Int band 16#ffff | Acc]).
-    
 test_integers(Port, FromInt, ToInt) ->
     test_integers(Port, FromInt, ToInt, true).
 
-test_integers(Port, FromInt, ToInt, _Print) when FromInt > ToInt ->
+test_integers(_Port, FromInt, ToInt, _Print) when FromInt > ToInt ->
     ok;
 test_integers(Port, FromInt, ToInt, Print) ->
     ok = test_integer(Port, FromInt, Print),
