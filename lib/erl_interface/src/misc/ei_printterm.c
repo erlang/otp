@@ -91,7 +91,24 @@ static char *ei_big_to_str(erlang_big *b)
     unsigned short *sp;
     int i;
 
+    /* Number of 16-bit digits */
     no_digits = (b->arity + 1) / 2;
+
+    if (no_digits <= 4) {
+        EI_ULONGLONG val;
+        buf_len = 22;
+        s = buf = malloc(buf_len);
+        if (!buf)
+            return NULL;
+        val = 0;
+        sp=b->digits;
+        for (i = 0; i < no_digits; i++)
+            val |= ((EI_ULONGLONG) sp[i]) << (i*16);
+        if (b->is_neg)
+            s += sprintf(s,"-");
+        sprintf(s, "%llu", val);
+        return buf;
+    }
 
     buf_len = (!!b->is_neg /* "-" */
                + 9 /* "#integer(" */
