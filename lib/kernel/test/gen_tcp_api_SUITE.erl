@@ -544,8 +544,12 @@ do_t_fdconnect(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Lib = "gen_tcp_api_SUITE",
     ?P("try load util nif lib"),
-    case erlang:load_nif(filename:join(Path,Lib), []) of
+    case erlang:load_nif(filename:join(Path, Lib), []) of
         ok ->
+            ok;
+        {error, {reload, ReasonStr}} ->
+            ?P("already loaded: "
+               "~n   ~s", [ReasonStr]),
             ok;
         {error, Reason} ->
             ?P("UNEXPECTED - failed loading util nif lib: "
@@ -553,17 +557,19 @@ do_t_fdconnect(Config) ->
             ?SKIPT("failed loading util nif lib")
     end,
     ?P("try create listen socket"),
-    L = case gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{active, false}]) of
+    L = case gen_tcp:listen(0,
+                            ?INET_BACKEND_OPTS(Config) ++ [{active, false}]) of
             {ok, LSock} ->
                 LSock;
             {error, eaddrnotavail = LReason} ->
                 ?SKIPT(listen_failed_str(LReason))
         end,            
     {ok, Port} = inet:port(L),
-    ?P("try create file descriptor (fd)"),
+    ?P("try create file descriptor"),
     FD = gen_tcp_api_SUITE:getsockfd(),
-    ?P("try connect to using file descriptor (~w)", [FD]),
-    Client = case gen_tcp:connect(localhost, Port, ?INET_BACKEND_OPTS(Config) ++
+    ?P("try connect using file descriptor (~w)", [FD]),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  ?INET_BACKEND_OPTS(Config) ++
                                       [{fd,     FD},
                                        {port,   20002},
                                        {active, false}]) of
