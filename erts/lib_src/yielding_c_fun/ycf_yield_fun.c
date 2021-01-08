@@ -123,15 +123,44 @@ char* mk_code_from_special_code_list(ycf_node_list special_code_list){
 }
 
 static
+ycf_node* mk_print_offsets_for_struct_fields(char* ycf_trap_state_name,
+                                             ycf_node_list ycf_trap_state_defines) {
+
+    ycf_string_printable_buffer* buffer =  ycf_string_printable_buffer_new();
+    ycf_node* iterator = ycf_trap_state_defines.head;
+    while (iterator != NULL) {
+        char * fieldName = ycf_symbol_get_text(iterator->u.definition.identifier);
+        ycf_string_printable_buffer_printf(buffer,
+                                           "fprintf(stderr, \"    %s: %%zu\\n\","
+                                           " (size_t)&((struct %s*)0)->%s  );\n",
+                                           fieldName,
+                                           ycf_trap_state_name,
+                                           fieldName);
+        iterator = iterator->next;
+    }
+    char* ret =
+        ycf_string_new(("static void %s_print_offsets_for_struct_fields(void);\n"
+                        "static void %s_print_offsets_for_struct_fields() {\n"
+                        "fprintf(stderr, \"Field offsets for struct %s:\\n\");\n"
+                        "%s\n"
+                        "}\n"),
+                       ycf_trap_state_name,
+                       ycf_trap_state_name,
+                       ycf_trap_state_name,
+                       buffer->buffer);
+    return ycf_node_new_text_node(ret);
+}
+
+static
 ycf_node* mk_yield_code(ycf_node* f_node,
                         char* ycf_trap_state_name,
                         ycf_node_list ycf_trap_state_defines,
                         ycf_node_list on_save_yield_state_code_list,
                         bool debug){
   char* ret_code;
-  if(ycf_node_is_void_ret_fun(f_node)){
+  if(ycf_node_is_void_ret_fun(f_node)) {
     ret_code = "return;\n";
-  } else{
+  } else {
     ycf_symbol_list ret_type = ycf_node_get_return_type(f_node);
     ret_code =
       ycf_string_new("  {\n"
@@ -141,15 +170,22 @@ ycf_node* mk_yield_code(ycf_node* f_node,
                      ycf_symbol_list_to_str(&ret_type));
   }
   char *debug_check_for_stack_ptrs = "";
+  char *debug_zero_my_trap_state = "";
   if(debug){
     debug_check_for_stack_ptrs =
       ycf_string_new("ycf_debug_check_block(\"%s\",\n"
                      "                      ycf_find_stack_bottom_conservative(),\n"
                      "                      ycf_trap_state,\n"
                      "                      ycf_my_trap_state,\n"
-                     "                      sizeof(struct %s));\n",
+                     "                      sizeof(struct %s),\n"
+                     "                      %s_print_offsets_for_struct_fields);\n",
+                     ycf_trap_state_name,
                      ycf_trap_state_name,
                      ycf_trap_state_name);
+    debug_zero_my_trap_state =
+        ycf_string_new("  for (int i = 0; i < sizeof(struct %s); i++) {\n"
+                       "    ((char*)ycf_my_trap_state)[i] = 0;\n"
+                       "  }\n", ycf_trap_state_name);
   }
   char* code = ycf_string_new("\n"
                               "{\n"
@@ -158,6 +194,7 @@ ycf_node* mk_yield_code(ycf_node* f_node,
                               "  %s"
                               "  if (*ycf_trap_state == NULL) {\n"
                               "    ycf_my_trap_state = ycf_yield_alloc(sizeof(struct %s), ycf_yield_alloc_free_context);\n"
+                              "    %s"
                               "  } else {\n"
                               "    ycf_my_trap_state = *ycf_trap_state;\n"
                               "  }\n"
@@ -172,6 +209,7 @@ ycf_node* mk_yield_code(ycf_node* f_node,
                               ycf_symbol_get_text(f_node->u.function.definition.definition.identifier),
                               mk_code_from_special_code_list(on_save_yield_state_code_list),
                               ycf_trap_state_name,
+                              debug_zero_my_trap_state,
                               get_ycf_trap_state_assignments(ycf_trap_state_defines),
                               debug_check_for_stack_ptrs,
                               ret_code
@@ -770,12 +808,12 @@ ycf_node* mk_yield_init_code(char* ycf_trap_state_name,
                              bool is_debug_mode){
   char* code = ycf_string_new("\n"
                               "{\n"
+                              "  %s\n"
                               "  ycf_nr_of_reductions = *ycf_nr_of_reductions_param;\n"
                               "  ycf_frame_alloc_data.size = 0;\n"
                               "  ycf_frame_alloc_data.max_size = ycf_stack_alloc_size_or_max_size;\n"
                               "  ycf_frame_alloc_data.data = ycf_stack_alloc_data;\n"
                               "  ycf_frame_alloc_data.needs_freeing = 0;\n"
-                              "  %s\n"
                               "  if(*ycf_trap_state != NULL){\n"
                               "     struct %s* ycf_my_trap_state = *ycf_trap_state;\n"
                               "     %s\n"
@@ -852,6 +890,7 @@ void ast_add_yield_code_generated_define(ycf_node* source_out_tree/*Will be chan
      "#include <setjmp.h>\n"
      "#include <stdint.h>\n"
      "#include <string.h>\n"
+     "#include <inttypes.h>\n"
      "static void* ycf_find_stack_bottom_conservative_helper(void);\n"
      "static void* ycf_find_stack_bottom_conservative(void);\n"
      "static void* ycf_find_stack_bottom_conservative_helper() {\n"
@@ -874,14 +913,16 @@ void ast_add_yield_code_generated_define(ycf_node* source_out_tree/*Will be chan
      "}\n"
      "void* ycf_debug_get_stack_start(void);\n"
      "#include <signal.h>\n"
-     "static void ycf_debug_check_block(char* struct_name, void* stack_start, void* stack_end, void* block, size_t block_size) {\n"
+     "static void ycf_debug_check_block(char*, void*, void*, void*, size_t, void (*)(void));\n"
+     "static void ycf_debug_check_block(char* struct_name, void* stack_start, void* stack_end, void* block, size_t block_size, void (*print_offsets_function)(void)) {\n"
      "  char* p;\n"
      "  if (ycf_debug_get_stack_start() != NULL) {\n"
      "    stack_end = ycf_debug_get_stack_start();\n"
      "  }\n"
      "  for (p = block; p < (((char*)block) + block_size); p += sizeof(void*)) {\n"
      "    if(*((char**)p) > (char*)stack_start && *((char**)p) <= (char*)stack_end){\n"
-     "      fprintf(stderr, \"Pointer to stack in yielded functions state!!!!! (pointer_address=%p, pointer_value=%p, struct %s,offset=%lu)\\n\", (void*)p, *((void**)p), struct_name, (unsigned long)(p-(size_t)block));\n"
+     "      fprintf(stderr, \"\\n\\nPointer to stack in yielded functions state!!!!! (pointer_address=%p, pointer_value=%p, struct %s, offset=%zu, struct size=%zu)\\n\\n\", (void*)p, *((void**)p), struct_name, (size_t)((uintptr_t)p-(uintptr_t)block), block_size);\n"
+     "      print_offsets_function();\n"
      "      raise(SIGABRT);\n"
      "    }\n"
      "  }\n"
@@ -1614,6 +1655,7 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
   ycf_node* ycf_trap_state_struct_dec =
           ycf_node_new_text_node(ycf_string_new("\n\nstruct %s;",
                                                 ycf_trap_state_struct->u.gen_typedef_struct.name));
+
   ycf_node_list_prepend(&tree_ret->u.c_file.content,
                         ycf_trap_state_struct_dec);
   ycf_node_list_prepend(&header_tree->u.c_file.content,
@@ -1630,7 +1672,15 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
                                 fun_change_wrapper,
                                 ycf_node_shallow_copy(ycf_node_shallow_copy(fun_change_dec)));
   }
-  ycf_node_list_insert_before(&tree_ret->u.c_file.content, fun_change_wrapper, ycf_trap_state_struct);
+  ycf_node_list_insert_before(&tree_ret->u.c_file.content,
+                              fun_change_wrapper,
+                              ycf_trap_state_struct);
+  if (debug_mode) {
+      ycf_node_list_insert_before(&tree_ret->u.c_file.content,
+                                  fun_change_wrapper,
+                                  mk_print_offsets_for_struct_fields(ycf_trap_state_struct_name,
+                                                                     trap_state_struct_var_declarations));
+  }
   ycf_node_list_insert_after(&tree_ret->u.c_file.content,
                              ycf_trap_state_struct,
                              supress_warnings_wrap_destroy_fun(destroy_state_function));
@@ -1678,6 +1728,11 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
 
     ycf_node_list_append(&(*only_yielding_funs_tree)->u.c_file.content,
                          ycf_node_shallow_copy(ycf_trap_state_struct));
+    if (debug_mode) {
+        ycf_node_list_append(&(*only_yielding_funs_tree)->u.c_file.content,
+                             mk_print_offsets_for_struct_fields(ycf_trap_state_struct_name,
+                                                                trap_state_struct_var_declarations));
+    }
     ycf_node_list_append(&(*only_yielding_funs_tree)->u.c_file.content,
                           ycf_node_new_text_node("\n"));
     ycf_node_list_append(&(*only_yielding_funs_tree)->u.c_file.content,
