@@ -1735,7 +1735,7 @@ do_linger_zero(Config) ->
     {ok, Port} = inet:port(L),
     ?P("connect (create client socket)"),
     Client = case ?CONNECT(Config, localhost, Port,
-                                  [{active, false}, {sndbuf, 4096}]) of
+                           [{active, false}, {sndbuf, 4096}]) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
@@ -1745,13 +1745,16 @@ do_linger_zero(Config) ->
     {ok, S} = gen_tcp:accept(L),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("create payload"),
     PayloadSize = 1024 * 1024,
     Payload = lists:duplicate(PayloadSize, $.),
+    ?P("ensure empty queue"),
     lz_ensure_non_empty_queue(Client, Payload, OS),
     ?P("linger: {true, 0}"),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
     ?P("close client socket"),
     ok = gen_tcp:close(Client),
+    ?P("sleep some"),
     ok = ct:sleep(1),
     ?P("verify client socket (port) not connected"),
 
@@ -1766,7 +1769,7 @@ do_linger_zero(Config) ->
     ok.
 
 %% THIS DOES NOT WORK FOR 'SOCKET'
-lz_ensure_non_empty_queue(Sock, Payload, OS) ->
+lz_ensure_non_empty_queue(Sock, Payload, OS) when is_port(Sock) ->
     lz_ensure_non_empty_queue(Sock, Payload, OS, 1).
 
 -define(LZ_MAX_SENDS, 3).
