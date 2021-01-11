@@ -292,7 +292,8 @@ end_per_group(GroupName, Config) ->
 init_per_testcase(TestCase, Config) when 
       TestCase == client_auth_empty_cert_accepted;
       TestCase == client_auth_empty_cert_rejected ->
-    Version = proplists:get_value(version,Config),
+    Version = ssl_test_lib:protocol_version(Config),
+
     case Version of
         sslv3 ->
             %% Openssl client sends "No Certificate Reserved" warning ALERT
