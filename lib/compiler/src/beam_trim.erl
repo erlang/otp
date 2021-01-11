@@ -400,11 +400,8 @@ frame_size([{call_fun,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{call,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
-frame_size([{call_ext,_,_}=I|Is], Safe) ->
-    case beam_jump:is_exit_instruction(I) of
-	true -> throw(not_possible);
-	false -> frame_size(Is, Safe)
-    end;
+frame_size([{call_ext,_,_}|Is], Safe) ->
+    frame_size(Is, Safe);
 frame_size([{apply,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{bif,_,{f,L},_,_}|Is], Safe) ->
@@ -485,8 +482,8 @@ is_not_used(Y, [{bs_set_position,Src1,Src2}|Is]) ->
         is_not_used(Y, Is);
 is_not_used(Y, [{call,_,_}|Is]) ->
     is_not_used(Y, Is);
-is_not_used(Y, [{call_ext,_,_}=I|Is]) ->
-    beam_jump:is_exit_instruction(I) orelse is_not_used(Y, Is);
+is_not_used(Y, [{call_ext,_,_}|Is]) ->
+    is_not_used(Y, Is);
 is_not_used(Y, [{call_fun,_}|Is]) ->
     is_not_used(Y, Is);
 is_not_used(_Y, [{deallocate,_}|_]) ->

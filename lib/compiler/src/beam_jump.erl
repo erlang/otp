@@ -22,7 +22,6 @@
 -module(beam_jump).
 
 -export([module/2,
-	 is_exit_instruction/1,
 	 remove_unused_labels/1]).
 
 %%% The following optimisations are done:
