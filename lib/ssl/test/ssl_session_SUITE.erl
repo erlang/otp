@@ -143,8 +143,9 @@ reuse_session() ->
 reuse_session(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    
-    ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
+    Version = ssl_test_lib:protocol_version(Config),
+    ssl_test_lib:reuse_session([{versions,[Version]} | ClientOpts], 
+                               [{versions,[Version]} | ServerOpts], Config).
 %%--------------------------------------------------------------------
 reuse_session_expired() ->
     [{doc,"Test sessions is not reused when it has expired"}].

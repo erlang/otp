@@ -132,7 +132,8 @@
          reuse_session/3,
          test_ciphers/3,
          test_cipher/2,
-         openssl_ciphers/0
+         openssl_ciphers/0,
+         openssl_support_rsa_kex/0
         ]).
 
 -export([tls_version/1,
@@ -271,7 +272,7 @@ init_per_group(GroupName, Config0) ->
     case is_protocol_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
             Config = clean_protocol_version(Config0),
-	    init_protocol_version(GroupName, Config);
+	    [{version, GroupName}|init_protocol_version(GroupName, Config)];
 	_ ->
 	    case sufficient_crypto_support(GroupName) of
 		true ->
@@ -282,9 +283,10 @@ init_per_group(GroupName, Config0) ->
 	    end
     end.
 
-init_per_group_openssl(GroupName, Config) ->
+init_per_group_openssl(GroupName, Config0) ->
     case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
+            Config = clean_protocol_version(Config0),
 	    case openssl_tls_version_support(GroupName, Config)
             of
 		true ->
@@ -296,7 +298,7 @@ init_per_group_openssl(GroupName, Config) ->
             case sufficient_crypto_support(GroupName) of
 		true ->
 		    ssl:start(),
-		    Config;
+		    Config0;
 		false ->
 		    {skip, "Missing crypto support"}
 	    end
@@ -320,7 +322,21 @@ openssl_ocsp_support() ->
 
 openssl_ciphers() ->
     Str = portable_cmd("openssl", ["ciphers"]),
-    string:split(string:strip(Str, right, $\n), ":", all).
+    Ciphers = string:split(string:strip(Str, right, $\n), ":", all),
+    case portable_cmd("openssl", ["version"]) of
+	"LibreSSL 3." ++ _ ->
+            Ciphers -- ["DES-CBC3-SHA","AES128-SHA", "AES256-SHA", "RC4-SHA", "RC4-MD5"];
+        _ ->
+            Ciphers
+    end.  
+
+openssl_support_rsa_kex() ->
+    case portable_cmd("openssl", ["version"]) of
+        "OpenSSL 1.1.1" ++ _Rest ->
+            false;
+        _ ->
+            true
+    end.
 
 %%====================================================================
 %% Internal functions
@@ -2020,13 +2036,12 @@ start_server(openssl, ClientOpts, ServerOpts, Config) ->
 start_server(erlang, _, ServerOpts, Config) ->
     {_, ServerNode, _} = run_where(Config),
     KeyEx = proplists:get_value(check_keyex, Config, false),
-    Versions = protocol_versions(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
                            {from, self()},
                            {mfa, {ssl_test_lib,
                                   check_key_exchange_send_active,
                                   [KeyEx]}},
-                           {options, [{verify, verify_peer}, {versions, Versions} | ServerOpts]}]),
+                           {options, [{verify, verify_peer} | ServerOpts]}]),
     {Server, inet_port(Server)}.
  
 sig_algs(undefined) ->
@@ -2076,7 +2091,6 @@ openssl_maxfag_option(Int) ->
 
 openssl_debug_options() ->
     ["-msg", "-debug"].
-
 
 start_server_with_raw_key(erlang, ServerOpts, Config) ->
     {_, ServerNode, _} = run_where(Config),
@@ -2144,7 +2158,8 @@ openssl_cert_options(Opts, Role) ->
                     Other
             end;
         _ ->
-            cert_option("-cert", Cert) ++  cert_option("-CAfile", CA) ++
+            cert_option("-cert", Cert) ++  cert_option("-CAfile", CA)
+                ++ cert_option("-cert_chain", CA) ++ 
                 cert_option("-key", Key) ++ openssl_verify(Opts) ++ ["2"]
     end.
 
@@ -2158,6 +2173,13 @@ openssl_verify(Opts) ->
     
 cert_option(_, undefined) ->
     [];
+cert_option("-cert_chain", Value) ->
+    case portable_cmd("openssl", ["version"]) of
+	"OpenSSL 1.1.1" ++ _ ->
+	    ["-cert_chain", Value];
+        _ ->
+            ""
+     end;
 cert_option(Opt, Value) ->
     [Opt, Value].
 
@@ -2405,7 +2427,7 @@ init_protocol_version(Version, Config) ->
     [{protocol, tls} | NewConfig].
 
 clean_protocol_version(Config) ->
-    proplists:delete(protocol_opts, proplists:delete(protocol, Config)).
+    proplists:delete(version, proplists:delete(protocol_opts, proplists:delete(protocol, Config))).
 
 sufficient_crypto_support(Version)
   when Version == 'tlsv1.3' ->

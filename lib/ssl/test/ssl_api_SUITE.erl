@@ -776,7 +776,11 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    SCiphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                        [{key_exchange, fun(srp_rsa)  -> false;
+                                                           (srp_anon) -> false;
+                                                           (srp_dss) -> false;
+                                                           (_) -> true end}]),
     Server =
         ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                    {from, self()},
@@ -784,6 +788,7 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                    {options, ssl_test_lib:ssl_options([{reuseaddr, true},
                                                                        {log_level, debug},
                                                                        {verify, verify_peer},
+                                                                       {ciphers, SCiphers},
                                                                       {handshake, hello} | ServerOpts
                                                                       ],
                                                                      Config)},
@@ -826,6 +831,7 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                                                                    'tlsv1.1',
                                                                                    'tlsv1'
                                                                                   ]},
+                                                                       {ciphers, ssl:cipher_suites(all, 'tlsv1.3')},
                                                                        {verify, verify_peer} | ClientOpts
                                                                       ],
                                                                       Config)},
