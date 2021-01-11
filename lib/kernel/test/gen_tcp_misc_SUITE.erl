@@ -3414,6 +3414,7 @@ accept_timeouts_mixed(Config) when is_list(Config) ->
     end.
 
 do_accept_timeouts_mixed(Config) ->
+    ?P("create listen socket"),
     LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
@@ -3422,30 +3423,46 @@ do_accept_timeouts_mixed(Config) ->
          end,
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
+    ?P("create acceptor process 1 (with timeout 1000)"),
     P1 = spawn(mktmofun(1000,Parent,LS)),
+    ?P("await ~p accepting", [P1]),
     wait_until_accepting(P1,500),
+    ?P("create acceptor process 2 (with timeout 2000)"),
     P2 = spawn(mktmofun(2000,Parent,LS)),
+    ?P("await ~p accepting", [P2]),
     wait_until_accepting(P2,500),
+    ?P("create acceptor process 3 (with timeout 3000)"),
     P3 = spawn(mktmofun(3000,Parent,LS)),
+    ?P("await ~p accepting", [P3]),
     wait_until_accepting(P3,500),
+    ?P("create acceptor process 4 (with timeout 4000)"),
     P4 = spawn(mktmofun(4000,Parent,LS)),
+    ?P("await ~p accepting", [P4]),
     wait_until_accepting(P4,500),
+    ?P("expect accept from 1 (~p) with timeout", [P1]),
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],infinity,1500),
+    ?P("connect"),
     case ?CONNECT(Config, "localhost", PortNo, []) of
         {ok, _} ->
             ok;
         {error, eaddrnotavail = Reason1} ->
             ?SKIPT(connect_failed_str(Reason1))
     end,
+    ?P("expect accept from 2 (~p) with success", [P2]),
     ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
+    ?P("expect accept from 3 (~p) with timeout", [P3]),
     ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
+    ?P("connect"),
     case ?CONNECT(Config, "localhost", PortNo, []) of
         {error, eaddrnotavail = Reason2} ->
             ?SKIPT(connect_failed_str(Reason2));
         _  ->
             ok
     end,
-    ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
+    ?P("expect accept from 4 (~p) with success", [P4]),
+    ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100),
+    ?P("done"),
+    ok.
 
 %% Check that single acceptor behaves as expected when killed.
 killing_acceptor(Config) when is_list(Config) ->
