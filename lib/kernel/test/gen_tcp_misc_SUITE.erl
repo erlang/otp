@@ -3473,25 +3473,35 @@ killing_acceptor(Config) when is_list(Config) ->
     end.
 
 do_killing_acceptor(Config) ->
+    ?P("create listen socket"),
     LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
              {error, eaddrnotavail = Reason} ->
                  ?SKIPT(listen_failed_str(Reason))
          end,
+    ?P("create acceptor process"),
     Pid = spawn(
             fun() ->
                     erlang:display({accepted,self(),gen_tcp:accept(LS)})
             end),
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
+    ?P("get status for listen socket"),
     {ok,L1} = prim_inet:getstatus(LS),
+    ?P("verify listen socket accepting"),
     true = lists:member(accepting, L1),
+    ?P("kill acceptor"),
     exit(Pid,kill),
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
+    ?P("get status for listen socket"),
     {ok,L2} = prim_inet:getstatus(LS),
+    ?P("verify listen socket *not* accepting"),
     false  = lists:member(accepting, L2),
+    ?P("done"),
     ok.
 
 %% Check that multi acceptors behaves as expected when killed.
