@@ -246,8 +246,8 @@ typedef struct {
     signed char set_save;
     signed char in_sigq;
     signed char in_msgq;
-    signed char prev_used_ix;
-    signed char next_used_ix;
+    signed char prev_ix;
+    signed char next_ix;
 #ifdef DEBUG
     signed char used;
     Process *proc;
@@ -326,6 +326,7 @@ typedef struct {
     
     /* Common for inner and middle queue */
     ErtsRecvMarkerBlock *recv_mrk_blk;
+    Sint64 recv_mrk_uniq;
     Sint len; /* NOT message queue length (see above) */
     Uint32 flags;
 } ErtsSignalPrivQueues;

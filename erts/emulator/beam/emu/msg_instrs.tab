@@ -50,7 +50,7 @@ i_recv_mark() {
      *
      * Save the current end of message queue
      */
-    erts_msgq_recv_marker_insert(c_p, am_default);
+    erts_msgq_recv_marker_insert_bind(c_p, am_default); /* inlined here... */
 }
 
 i_recv_set() {
@@ -60,7 +60,7 @@ i_recv_set() {
      *
      * If previously saved recv mark, set save pointer to it
      */
-    erts_msgq_recv_marker_set_save(c_p, am_default);
+    erts_msgq_recv_marker_set_save(c_p, am_default); /* inlined here... */
     SET_I($NEXT_INSTRUCTION);
     goto loop_rec_top__;
     //| -no_next

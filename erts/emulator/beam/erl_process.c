@@ -11924,6 +11924,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
+    p->sig_qs.recv_mrk_uniq = MIN_SMALL;
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
@@ -12427,6 +12428,7 @@ void erts_init_empty_process(Process *p)
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
+    p->sig_qs.recv_mrk_uniq = MIN_SMALL;
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;

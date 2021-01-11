@@ -183,21 +183,6 @@ typedef struct {
 
 #define ERTS_RECV_MARKER_PASS_MAX 4
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-#define ERTS_RECV_MARKER_IS_VALID_USER_REF(VAL) \
-    (is_internal_ref((VAL)) || (VAL) == am_default)
-#else
-#define ERTS_RECV_MARKER_IS_VALID_USER_REF(VAL) \
-    (is_internal_ref((VAL)))
-#endif
-
-#define ERTS_RECV_MARKER_IS_VALID_REF(VAL) \
-    (ERTS_RECV_MARKER_IS_VALID_USER_REF((VAL)) || is_nil((VAL)))
-#define ERTS_RECV_MARKER_IS_VALID_REF_VAL(VAL)			\
-    (ERTS_RECV_MARKER_IS_VALID_REF((VAL))				\
-     || is_small((VAL)) ||					\
-     (VAL) == am_undefined)
-
 #define ERTS_SIG_HANDLE_REDS_MAX_PREFERED (CONTEXT_REDS/40)
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
@@ -1172,17 +1157,61 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig);
 /**
  *
  * @brief Create and insert a receive marker at the end of the
- *        signal queue of the calling process.
+ *        signal queue of the calling process unless the
+ *        signal queue is empty.
  *
  *
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
  *
- * @param[in]     mqref         Reference (or atom 'default')
- *                              to associate with the receive
- *                              marker.
+ * @return                      A process unique integer
+ *                              identifying the unbound
+ *                              receive marker, or the atom
+ *                              'undefined' if no marker was
+ *                              inserted.
  */
-ERTS_GLB_INLINE void erts_msgq_recv_marker_insert(Process *c_p, Eterm mqref);
+ERTS_GLB_INLINE Eterm erts_msgq_recv_marker_insert(Process *c_p);
+
+/**
+ *
+ * @brief Bind a previously inserted receive marker to a
+ *        reference.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     insert_id     Receive marker identifier return
+ *                              by erts_msgq_recv_marker_insert().
+ *
+ * @param[in]     bind_id       An internal reference to bind the
+ *				receive marker to. Other terms
+ *                              are allowed to be passed as well,
+ *                              but will be ignored.
+ */
+ERTS_GLB_INLINE void erts_msgq_recv_marker_bind(Process *c_p,
+						Eterm insert_id,
+						Eterm bind_id);
+
+/**
+ *
+ * @brief Create, insert, and bind a receive marker at the end
+ *        of the signal queue of the calling process and unless
+ *        the signal queue is empty.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     bind_id       An internal reference, or the
+ *                              atom 'default' to bind the
+ *				receive marker to. Other terms
+ *                              are allowed to be passed as well,
+ *                              but will be ignored.
+ */
+ERTS_GLB_INLINE void erts_msgq_recv_marker_insert_bind(Process *c_p,
+						       Eterm id);
+
 
 /**
  *
@@ -1193,24 +1222,26 @@ ERTS_GLB_INLINE void erts_msgq_recv_marker_insert(Process *c_p, Eterm mqref);
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
  *
- * @param[in]     mqref         Reference (or atom 'default')
- *				associated with a receive marker.
+ * @param[in]     id            Internal reference associated with
+ *                              a receive marker. Other terms
+ *                              are allowed to be passed as well,
+ *                              but will be ignored.
  */
-ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save(Process *c_p, Eterm mqref);
+ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save(Process *c_p, Eterm id);
 
 /**
  *
  * @brief Clear receive marker corresponding to the argument
- *        mqref.
+ *        id.
  *
  *
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
  *
- * @param[in]     mqref         Reference (or atom 'default')
+ * @param[in]     id         Reference (or atom 'default')
  *				associated with a receive marker.
  */
-ERTS_GLB_INLINE void erts_msgq_recv_marker_clear(Process *c_p, Eterm mqref);
+ERTS_GLB_INLINE void erts_msgq_recv_marker_clear(Process *c_p, Eterm id);
 
 
 /**
@@ -1308,13 +1339,13 @@ extern Process *erts_dirty_process_signal_handler_max;
 /* Helpers... */
 void erts_proc_sig_fetch__(Process *proc);
 Sint erts_proc_sig_fetch_msgq_len_offs__(Process *proc);
-ERTS_GLB_INLINE int erts_msgq_eq_internal_ref__(Eterm ref1, Eterm ref2);
+ERTS_GLB_INLINE int erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2);
 ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save__(Process *c_p,
 				 ErtsRecvMarkerBlock *blkp,
 				 ErtsRecvMarker *markp,
 				 int ix);
-void erts_msgq_recv_marker_create_insert(Process *c_p, Eterm mqref);
-void erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm mqref);
+Eterm erts_msgq_recv_marker_create_insert(Process *c_p, Eterm id);
+void erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id);
 ErtsMessage **erts_msgq_pass_recv_markers(Process *c_p,
 					  ErtsMessage **markpp);
 void erts_msgq_remove_leading_recv_markers(Process *c_p);
@@ -1424,23 +1455,40 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
 #endif
 
 ERTS_GLB_INLINE int
-erts_msgq_eq_internal_ref__(Eterm ref1, Eterm ref2)
+erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2)
 {
-    Eterm *r1, *r2;
-    int i, a1, a2;
+    int ix, arity;
+    Eterm *tp1, *tp2;
 
-    ASSERT(is_internal_ref(ref1));
-    ASSERT(is_internal_ref(ref2));
-    
-    r1 = internal_ref_val(ref1);
-    a1 = (int) thing_arityval(*r1);
-    r2 = internal_ref_val(ref2);
-    a2 = (int) thing_arityval(*r2);
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+    ASSERT(term1 == am_free || term1 == am_undefined || term1 == NIL
+	   || term1 == am_default || is_small(term1) || is_big(term1)
+	   || is_internal_ref(term1));
+    ASSERT(term2 == am_free || term2 == am_undefined || term2 == NIL
+	   || term2 == am_default || is_small(term2) || is_big(term2)
+	   || is_internal_ref(term2));
+#else
+    ASSERT(term1 == am_free || term1 == am_undefined || term1 == NIL
+	   || is_small(term1) || is_big(term1) || is_internal_ref(term1));
+    ASSERT(term2 == am_free || term2 == am_undefined || term2 == NIL
+	   || is_small(term2) || is_big(term2) || is_internal_ref(term2));
+#endif
 
-    if (a1 != a2)
+    if (term1 == term2)
+	return !0;
+
+    if (!is_boxed(term1) || !is_boxed(term2))
 	return 0;
-    for (i = 1; i <= a1; i++) {
-	if (r1[i] != r2[i])
+
+    tp1 = boxed_val(term1);
+    tp2 = boxed_val(term2);
+
+    if (*tp1 != *tp2)
+	return 0;
+
+    arity = (int) thing_arityval(*tp1);
+    for (ix = 1; ix <= arity; ix++) {
+	if (tp1[ix] != tp2[ix])
 	    return 0;
     }
     return !0;
@@ -1485,30 +1533,24 @@ erts_msgq_recv_marker_set_save__(Process *c_p,
 }
 
 ERTS_GLB_INLINE void
-erts_msgq_recv_marker_clear(Process *c_p, Eterm mqref)
+erts_msgq_recv_marker_clear(Process *c_p, Eterm id)
 {
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
     int ix;
 
-    ASSERT(ERTS_RECV_MARKER_IS_VALID_USER_REF(mqref));
+    if (!is_small(id) && !is_big(id) && !is_internal_ref(id)) {
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	if (id == am_default && blkp)
+	    ERTS_PROC_SIG_RECV_MARK_CLEAR_DEFAULT__(blkp);
+#endif
+	return;
+    }
 
     if (!blkp)
 	return;
     
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (mqref == am_default) {
-	ERTS_PROC_SIG_RECV_MARK_CLEAR_DEFAULT__(blkp);
-	return;
-    }
-#endif
-
     for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
-	Eterm val = blkp->ref[ix];
-	ASSERT(ERTS_RECV_MARKER_IS_VALID_REF_VAL(val));
-	if (val == mqref
-	    || (is_not_immed(val)
-		&& is_not_immed(mqref)
-		&& erts_msgq_eq_internal_ref__(val, mqref))) {
+	if (erts_msgq_eq_recv_mark_id__(blkp->ref[ix], id)) {
 	    blkp->unused++;
 	    blkp->ref[ix] = am_undefined;
 	    blkp->marker[ix].pass = ERTS_RECV_MARKER_PASS_MAX;
@@ -1517,54 +1559,89 @@ erts_msgq_recv_marker_clear(Process *c_p, Eterm mqref)
     }
 }
 
-ERTS_GLB_INLINE void
-erts_msgq_recv_marker_insert(Process *c_p, Eterm mqref)
+ERTS_GLB_INLINE Eterm
+erts_msgq_recv_marker_insert(Process *c_p)
 {
-    ASSERT(ERTS_RECV_MARKER_IS_VALID_USER_REF(mqref));
-
     erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (mqref == am_default && c_p->sig_qs.recv_mrk_blk)
-	ERTS_PROC_SIG_RECV_MARK_CLEAR_DEFAULT__(c_p->sig_qs.recv_mrk_blk);
-#endif
-
     if (c_p->sig_qs.cont || c_p->sig_qs.first)
-	erts_msgq_recv_marker_create_insert(c_p, mqref);
+	return erts_msgq_recv_marker_create_insert(c_p, am_new_uniq);
+    return am_undefined;
 }
 
-ERTS_GLB_INLINE void
-erts_msgq_recv_marker_set_save(Process *c_p, Eterm mqref)
+ERTS_GLB_INLINE void erts_msgq_recv_marker_bind(Process *c_p,
+						Eterm insert_id,
+						Eterm bind_id)
 {
-    ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+    if (is_small(insert_id) || is_big(insert_id)) {
+	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
 
-    ASSERT(ERTS_RECV_MARKER_IS_VALID_USER_REF(mqref));
-    
-    if (blkp) {
-	int ix;
-	for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
-	    Eterm val = blkp->ref[ix];
-	    ASSERT(ERTS_RECV_MARKER_IS_VALID_REF_VAL(val));
-	    if (val == mqref
-		|| (is_not_immed(val)
-		    && is_not_immed(mqref)
-		    && erts_msgq_eq_internal_ref__(val, mqref))) {
-		ErtsRecvMarker *markp = &blkp->marker[ix];
-		erts_msgq_recv_marker_set_save__(c_p, blkp, markp, ix);
-		return; /* Done... */
+	if (blkp) {
+	    int ix;
+	    for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
+		if (erts_msgq_eq_recv_mark_id__(blkp->ref[ix], insert_id)) {
+		    if (is_internal_ref(bind_id))
+			blkp->ref[ix] = bind_id;
+		    else {
+			blkp->unused++;
+			blkp->ref[ix] = am_undefined;
+			blkp->marker[ix].pass = ERTS_RECV_MARKER_PASS_MAX;
+		    }
+		    break;
+		}
 	    }
 	}
     }
+}
 
-    /* Set to head of queue... */
-    
-    if (c_p->sig_qs.first
-	&& ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first)) {
-	erts_msgq_remove_leading_recv_markers(c_p);
+
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_insert_bind(Process *c_p, Eterm id)
+{
+    if (is_internal_ref(id)
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	|| id == am_default
+#endif
+	) {
+
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+	erts_proc_sig_fetch(c_p);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	if (c_p->sig_qs.recv_mrk_blk)
+	    ERTS_PROC_SIG_RECV_MARK_CLEAR_DEFAULT__(c_p->sig_qs.recv_mrk_blk);
+#endif
+
+	if (c_p->sig_qs.cont || c_p->sig_qs.first)
+	    (void) erts_msgq_recv_marker_create_insert(c_p, id);
     }
-    c_p->sig_qs.save = &c_p->sig_qs.first;
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
+{
+    if (is_internal_ref(id)
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	|| id == am_default
+#endif
+	) {
+	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+
+	if (blkp) {
+	    int ix;
+	    for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
+		if (erts_msgq_eq_recv_mark_id__(blkp->ref[ix], id)) {
+		    ErtsRecvMarker *markp = &blkp->marker[ix];
+		    erts_msgq_recv_marker_set_save__(c_p, blkp, markp, ix);
+		    break;
+		}
+	    }
+	}
+
+    }
 }
 
 ERTS_GLB_INLINE ErtsMessage *
