@@ -2742,6 +2742,7 @@ recvtclass(Config) ->
 %% platforms - change {unix,_} to false?
 
 %% pktoptions is not supported for IPv4
+recvtos_ok({unix,netbsd}, _OSVer) -> false;
 recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,4,0});
 %% Using the option returns einval, so it is not implemented.
@@ -2754,6 +2755,7 @@ recvtos_ok({unix,_}, _) -> true;
 recvtos_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv4
+recvttl_ok({unix,netbsd}, _OSVer) -> false;
 recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
 recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,4,0});
 %% Using the option returns einval, so it is not implemented.
@@ -2766,6 +2768,7 @@ recvttl_ok({unix,_}, _) -> true;
 recvttl_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv6
+recvtclass_ok({unix,netbsd}, _OSVer) -> false;
 recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
 recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,4,0});
 recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
