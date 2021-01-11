@@ -2723,11 +2723,13 @@ do_so_priority(Config) ->
 	    test_prio_udp(),
             ?P("done"),
 	    ok;
-	_ ->
+	_X ->
 	    case os:type() of
 		{unix,linux} ->
 		    case os:version() of
 			{X,Y,_} when (X > 2) or ((X =:= 2) and (Y >= 4)) ->
+                            ?P("so prio should work on this version: "
+                               "~n      ~p", [_X]),
 			    ct:fail({error,
 					   "so_priority should work on this "
 					   "OS, but does not"});
@@ -3497,6 +3499,7 @@ killing_multi_acceptors2(Config) when is_list(Config) ->
     end.
 
 do_killing_multi_acceptors2(Config) ->
+    ?P("create listen socket"),
     LS = case ?LISTEN(Config, 0,[]) of
              {ok, LSocket} ->
                  LSocket;
@@ -3504,34 +3507,57 @@ do_killing_multi_acceptors2(Config) ->
                  ?SKIPT(listen_failed_str(Reason))
          end,             
     Parent = self(),
-    {ok,PortNo}=inet:port(LS),
+    ?P("get port number for listen socket"),
+    {ok, PortNo} = inet:port(LS),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     F2 = mktmofun(1000,Parent,LS),
+    ?P("create acceptor process 1"),
     Pid = spawn(F),
+    ?P("create acceptor process 2"),
     Pid2 = spawn(F),
+    ?P("wait some"),
     receive after 100 -> ok
     end,
-    {ok,L1} = prim_inet:getstatus(LS),
+    ?P("get status for listen socket"),
+    {ok, L1} = prim_inet:getstatus(LS),
+    ?P("verify listen socket *is* accepting"),
     true = lists:member(accepting, L1),
+    ?P("kill acceptor process 1"),
     exit(Pid,kill),
+    ?P("wait some"),
     receive after 100 -> ok
     end,
-    {ok,L2} = prim_inet:getstatus(LS),
+    ?P("get status for listen socket"),
+    {ok, L2} = prim_inet:getstatus(LS),
+    ?P("verify listen socket *is* accepting"),
     true  = lists:member(accepting, L2),
+    ?P("kill acceptor process 1"),
     exit(Pid2,kill),
+    ?P("wait some"),
     receive after 100 -> ok
     end,
-    {ok,L3} = prim_inet:getstatus(LS),
+    ?P("get status for listen socket"),
+    {ok, L3} = prim_inet:getstatus(LS),
+    ?P("verify listen socket is *not* accepting"),
     false  = lists:member(accepting, L3),
+    ?P("create acceptor process 3"),
     Pid3 = spawn(F2),
+    ?P("wait some"),
     receive after 100 -> ok
     end,
+    ?P("get status for listen socket"),
     {ok,L4} = prim_inet:getstatus(LS),
+    ?P("verify listen socket *is* accepting"),
     true  = lists:member(accepting, L4),
-    ?CONNECT(Config, "localhost",PortNo,[]),
+    ?P("connect to port ~p", [PortNo]),
+    ?CONNECT(Config, "localhost", PortNo,[]),
+    ?P("accepts"),
     ok = ?EXPECT_ACCEPTS([{Pid3,{ok,Port}}] when is_port(Port),1,100),
-    {ok,L5} = prim_inet:getstatus(LS),
+    ?P("get status for listen socket"),
+    {ok, L5} = prim_inet:getstatus(LS),
+    ?P("verify listen socket *is* accepting"),
     false  = lists:member(accepting, L5),
+    ?P("done"),
     ok.
     
 %% Checks that multi-accept works when more than one accept can be
