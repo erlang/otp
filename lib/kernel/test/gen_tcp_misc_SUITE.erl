@@ -1573,42 +1573,63 @@ econnreset_after_async_send_active_once(Config) when is_list(Config) ->
 
 do_econnreset_after_async_send_active_once(Config) ->
     {OS, _} = os:type(),
+    ?P("create listen socket with active = false"),
     {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
+    ?P("create connect socket (~w)", [Port]),
     Client = case ?CONNECT(Config, localhost, Port,
-                                  [{active, false},
-                                   {sndbuf, 4096},
-                                   {show_econnreset, true}]) of
+                           [{active, false},
+                            {sndbuf, 4096},
+                            {show_econnreset, true}]) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
                 ?SKIPT(connect_failed_str(Reason))
         end,            
+    ?P("create accept socket"),
     {ok,S} = gen_tcp:accept(L),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("create payload"),
     Payload = lists:duplicate(1024 * 1024, $.),
+    ?P("[connect] send payload"),
     ok = gen_tcp:send(Client, Payload),
+    ?P("[connect] verify socket queue size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
+    ?P("[accept] send something"),
     ok = gen_tcp:send(S, "Whatever"),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("[accept] set socket option linger: {true, 0}"),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ?P("[accept] close socket"),
     ok = gen_tcp:close(S),
+    ?P("sleep some"),
     ok = ct:sleep(20),
+    ?P("receive 'unexpected message'"),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
+    ?P("[connect] set socket option active: once"),
     ok = inet:setopts(Client, [{active, once}]),
+    ?P("[connect] expect econreset"),
     receive
 	{tcp_error, Client, econnreset} ->
+            ?P("[connect] received econreset -> expect socket close message"),
 	    receive
 		{tcp_closed, Client} ->
+                    ?P("[connect] received socket close message - done"),
 		    ok;
 		Other ->
+                    ?P("[connect] received unexpected message: "
+                       "~n      ~p", [Other]),
 		    ct:fail({unexpected1, Other})
 	    end;
 	Other ->
+            ?P("[connect] received unexpected message: "
+               "~n      ~p", [Other]),
 	    ct:fail({unexpected2, Other})
     end.
 
