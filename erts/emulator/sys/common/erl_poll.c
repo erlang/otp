@@ -646,6 +646,9 @@ int erts_poll_new_table_len(int old_len, int need_len)
     }
     else {
         new_len = old_len;
+        if (new_len < ERTS_FD_TABLE_MIN_LENGTH) {
+            new_len = ERTS_FD_TABLE_MIN_LENGTH;
+        }
         do {
             if (new_len < ERTS_FD_TABLE_EXP_THRESHOLD)
                 new_len *= 2;
