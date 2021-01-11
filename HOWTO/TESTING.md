@@ -185,6 +185,52 @@ examine the results so far for the currently executing test suite (in R14B02 and
 later you want to open the `release/tests/test_server/all_runs.html` file to
 get to the currently running test)
 
+
+Run tests with Address Sanitizer
+--------------------------------
+
+First build emulator with `asan` build target.
+See [$ERL_TOP/HOWTO/INSTALL.md][].
+
+Set environment variable `ASAN_LOG_DIR` to the directory
+where the error logs will be generated.
+
+    export ASAN_LOG_DIR=$TESTROOT/test_server/asan_logs
+    mkdir $ASAN_LOG_DIR
+
+Set environment variable `TS_RUN_EMU` to `asan`.
+
+    export TS_RUN_EMU=asan
+
+Then run the tests you want with `ts:run` as described above. Either
+inspect the log files directly or use the script at
+`$ERL_TOP/erts/emulator/asan/asan_logs_to_html` to read all log files
+in `$ASAN_LOG_DIR` and distill them into one html page
+`asan_summary.html`. Repeated reports from the same memory leak will
+for example be ignored by the script and make it easier to analyze.
+
+
+Run tests with Valgrind
+-----------------------
+
+First make sure [valgrind][] is installed, then build OTP from source
+and build the emulator with `valgrind` build target. See
+[$ERL_TOP/HOWTO/INSTALL.md][].
+
+Set environment variable `VALGRIND_LOG_DIR` to the directory
+where the valgrind error logs will be generated.
+
+    export VALGRIND_LOG_DIR=$TESTROOT/test_server/vg_logs
+    mkdir $VALGRIND_LOG_DIR
+
+Set environment variable `TS_RUN_EMU` to `valgrind`.
+
+    export TS_RUN_EMU=valgrind
+
+Then run the tests you want with `ts:run` as described above and
+inspect the log file(s) in `$VALGRIND_LOG_DIR`.
+
+
    [ct_run]: http://www.erlang.org/doc/man/ct_run.html
    [ct hook]: http://www.erlang.org/doc/apps/common_test/ct_hooks_chapter.html
    [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
@@ -192,5 +238,6 @@ get to the currently running test)
    [common_test]: http://www.erlang.org/doc/man/ct.html
    [data_dir]: http://www.erlang.org/doc/apps/common_test/write_test_chapter.html#data_priv_dir
    [configuring the tests]: #configuring-the-test-environment
+   [valgrind]: https://valgrind.org
 
    [?TOC]: true

@@ -275,6 +275,15 @@ t_sigalrm(_Config) ->
     ok.
 
 t_sigchld_fork(_Config) ->
+    case test_server:is_asan() of
+	true ->
+	    %% Avoid false leak reports from forked process
+	    {skip, "Address sanitizer"};
+	false ->
+	    sigchld_fork()
+    end.
+
+sigchld_fork() ->
     Pid1 = setup_service(),
     ok = os:set_signal(sigchld, handle),
     {ok,OsPid} = os_signal_SUITE:fork(),

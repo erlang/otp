@@ -49,6 +49,10 @@
 #include <sys/ioctl.h>
 #endif
 
+#ifdef ADDRESS_SANITIZER
+#  include <sanitizer/asan_interface.h>
+#endif
+
 #define ERTS_WANT_BREAK_HANDLING
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
@@ -381,6 +385,9 @@ void erts_sys_sigsegv_handler(int signo) {
  */
 int
 erts_sys_is_area_readable(char *start, char *stop) {
+#ifdef ADDRESS_SANITIZER
+    return __asan_region_is_poisoned(start, stop-start) == NULL;
+#else
     int fds[2];
     if (!pipe(fds)) {
         /* We let write try to figure out if the pointers are readable */
@@ -395,7 +402,7 @@ erts_sys_is_area_readable(char *start, char *stop) {
         return 1;
     }
     return 0;
-
+#endif
 }
 
 static ERTS_INLINE int

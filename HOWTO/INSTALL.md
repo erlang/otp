@@ -604,7 +604,7 @@ using the similar steps just described.
 
     $ (cd $ERL_TOP/erts/emulator && make $TYPE)
 
-where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, or `lcnt`.
+where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, `asan` or `lcnt`.
 These different beam types are useful for debugging and profiling
 purposes.
 

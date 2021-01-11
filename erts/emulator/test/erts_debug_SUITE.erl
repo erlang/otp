@@ -258,7 +258,10 @@ alloc_blocks_size(Config) when is_list(Config) ->
                 ok = rpc:call(Node, ?MODULE, do_alloc_blocks_size, []),
                 true = test_server:stop_node(Node)
         end,
-    F("+Meamax"),
+    case test_server:is_asan() of
+	false -> F("+Meamax");
+	true -> skip
+    end,
     F("+Meamin"),
     F(""),
     ok.

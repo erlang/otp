@@ -144,6 +144,14 @@ TYPE_FLAGS = $(DEBUG_CFLAGS) -DVALGRIND -DNO_JUMP_TABLE
 ENABLE_ALLOC_TYPE_VARS += valgrind
 else
 
+ifeq ($(TYPE),asan)
+PURIFY =
+TYPEMARKER = .asan
+TYPE_FLAGS = $(DEBUG_CFLAGS) -fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -DADDRESS_SANITIZER
+LDFLAGS += -fsanitize=address
+ENABLE_ALLOC_TYPE_VARS += asan
+else
+
 ifeq ($(TYPE),gprof)
 TYPEMARKER = .gprof
 TYPE_FLAGS = @CFLAGS@ -DGPROF -pg -DERTS_CAN_INLINE=0 -DERTS_INLINE=
@@ -173,6 +181,7 @@ else
 override TYPE=opt
 TYPEMARKER =
 TYPE_FLAGS = @CFLAGS@
+endif
 endif
 endif
 endif

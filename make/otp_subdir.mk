@@ -20,12 +20,12 @@
 # Make include file for otp
 
 .PHONY: debug opt lcnt release docs release_docs tests release_tests \
-	clean depend valgrind static_lib
+	clean depend valgrind asan static_lib
 
 #
 # Targets that don't affect documentation directories
 #
-opt debug lcnt release docs release_docs tests release_tests clean depend valgrind static_lib xmllint:
+opt debug lcnt release docs release_docs tests release_tests clean depend valgrind asan static_lib xmllint:
 	@set -e ;							\
 	app_pwd=`pwd` ;							\
 	if test -f vsn.mk; then						\

@@ -1,0 +1,18 @@
+leak:erts_alloc_permanent_cache_aligned
+
+# Harmless leak of ErtsThrPrgrData from async threads in exiting emulator
+leak:erts_thr_progress_register_unmanaged_thread
+
+# Block passed to sigaltstack()
+leak:sys_thread_init_signal_stack
+
+#Copied from valgrind/suppress.standard:
+#Crypto internal... loading gives expected errors when curves are tried.
+#But including <openssl/err.h> and removing them triggers compiler errors on Windows
+#fun:valid_curve
+#fun:init_curves
+leak:init_curve_types
+#fun:init_algorithms_types
+#fun:initialize
+#fun:load
+#fun:erts_load_nif
