@@ -790,7 +790,12 @@ erlang_halt(Config) when is_list(Config) ->
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.
+
+    %% Prevent address sanitizer from catching SEGV in slave node
+    AsanOpts = add_asan_opt("handle_segv=0"),
     {ok,N4} = slave:start(H, halt_node4),
+    reset_asan_opts(AsanOpts),
+
     CrashDump = filename:join(proplists:get_value(priv_dir,Config),
                               "segfault_erl_crash.dump"),
     true = rpc:call(N4, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
@@ -807,6 +812,25 @@ erlang_halt(Config) when is_list(Config) ->
         {_,_} ->
             ok
     end.
+
+add_asan_opt(Opt) ->
+    case test_server:is_asan() of
+	true ->
+	    case os:getenv("ASAN_OPTIONS") of
+		false ->
+		    os:putenv("ASAN_OPTIONS", Opt),
+		    undefined;
+		AO ->
+		    os:putenv("ASAN_OPTIONS", AO ++ [$: | Opt]),
+		    AO
+	    end;
+	_ ->
+	    false
+    end.
+
+reset_asan_opts(false) -> ok;
+reset_asan_opts(undefined) -> os:unsetenv("ASAN_OPTIONS");
+reset_asan_opts(AO) -> os:putenv("ASAN_OPTIONS", AO).
 
 wait_until_stable_size(_File,-10) ->
     {error,enoent};

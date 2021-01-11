@@ -66,7 +66,7 @@
 
 #define ERTS_ALC_DEFAULT_MAX_THR_PREF ERTS_MAX_NO_OF_SCHEDULERS
 
-#if defined(SMALL_MEMORY) || defined(PURIFY) || defined(VALGRIND)
+#if defined(SMALL_MEMORY) || defined(PURIFY) || defined(VALGRIND) || defined(ADDRESS_SANITIZER)
 #define AU_ALLOC_DEFAULT_ENABLE(X)	0
 #else
 #define AU_ALLOC_DEFAULT_ENABLE(X)	(X)
@@ -289,7 +289,11 @@ static void
 set_default_literal_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
+#ifdef ADDRESS_SANITIZER
+    ip->enable			= 0;
+#else
     ip->enable			= 1;
+#endif
     ip->thr_spec		= 0;
     ip->disable_allowed         = 0;
     ip->thr_spec_allowed        = 0;

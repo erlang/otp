@@ -26,6 +26,8 @@
 char *crypto_callback_name = "crypto_callback.debug";
 # elif defined(VALGRIND)
 char *crypto_callback_name = "crypto_callback.valgrind";
+# elif defined(ADDRESS_SANITIZER)
+char *crypto_callback_name = "crypto_callback.asan";
 # else
 char *crypto_callback_name = "crypto_callback";
 # endif

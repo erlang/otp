@@ -2130,13 +2130,18 @@ void
 erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 {
     static int is_first_call = 1;
-    int virtual_map = 0;
     char *start = NULL, *end = NULL;
     UWord pagesize;
+    int virtual_map = 0;
+
+    (void)virtual_map;
+
 #if defined(__WIN32__)
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-    pagesize = (UWord) sysinfo.dwPageSize;
+    {
+        SYSTEM_INFO sysinfo;
+        GetSystemInfo(&sysinfo);
+        pagesize = (UWord) sysinfo.dwPageSize;
+    }
 #elif defined(_SC_PAGESIZE)
     pagesize = (UWord) sysconf(_SC_PAGESIZE);
 #elif defined(HAVE_GETPAGESIZE)

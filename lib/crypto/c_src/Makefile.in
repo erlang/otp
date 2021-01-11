@@ -59,8 +59,14 @@ TYPEMARKER = .gprof
 TYPE_EXTRA_CFLAGS = -DGPROF -pg
 TYPE_FLAGS = $(CFLAGS) $(TYPE_EXTRA_CFLAGS)
 else
+ifeq ($(TYPE),asan)
+TYPEMARKER = .asan
+TYPE_FLAGS = $(CFLAGS) -fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -DADDRESS_SANITIZER
+LDFLAGS += -fsanitize=address
+else
 TYPEMARKER =
 TYPE_FLAGS = $(CFLAGS)
+endif
 endif
 endif
 endif
@@ -159,7 +165,7 @@ ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(TYPE_EXTRA_CFLAGS) $(CONFIGURE_ARGS) $
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB) 
+debug opt valgrind asan: $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB)
 
 static_lib: $(NIF_ARCHIVE)
 

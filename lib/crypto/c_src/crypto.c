@@ -163,8 +163,8 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     const ERL_NIF_TERM* tpl_array;
     int vernum;
     ErlNifBinary lib_bin;
-    char lib_buf[1000];
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
+    char lib_buf[1000];
     void *handle;
 #endif
 

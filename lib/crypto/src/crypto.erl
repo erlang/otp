@@ -2985,10 +2985,10 @@ get_test_engine() ->
     end.
 
 check_otp_test_engine(LibDir) ->
-    case filelib:wildcard("otp_test_engine*", LibDir) of
-        [] ->
+    case choose_otp_test_engine(LibDir) of
+        false ->
             {error, notexist};
-        [LibName|_] ->                          % In case of Valgrind there could be more than one
+        LibName ->
             LibPath = filename:join(LibDir,LibName),
             case filelib:is_file(LibPath) of
                 true ->
@@ -2999,3 +2999,20 @@ check_otp_test_engine(LibDir) ->
     end.
 
 
+choose_otp_test_engine(LibDir) ->
+    LibNames = filelib:wildcard("otp_test_engine.*", LibDir),
+    Type = atom_to_list(erlang:system_info(build_type)),
+    choose_otp_test_engine(LibNames, Type, false).
+
+choose_otp_test_engine([LibName | T], Type, Acc) ->
+    case string:lexemes(LibName, ".") of
+        [_, Type, _SO] ->
+            LibName;  %% Choose typed if exists (valgrind,asan)
+        [_, _SO] ->
+            %% Fallback on typeless (opt)
+            choose_otp_test_engine(T, Type, LibName);
+        _ ->
+            choose_otp_test_engine(T, Type, Acc)
+    end;
+choose_otp_test_engine([], _, Acc) ->
+    Acc.

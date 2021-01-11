@@ -62,8 +62,11 @@
 #endif
 
 #ifdef VALGRIND
-#include <valgrind/valgrind.h>
-#include <valgrind/memcheck.h>
+#  include <valgrind/valgrind.h>
+#  include <valgrind/memcheck.h>
+#endif
+#ifdef ADDRESS_SANITIZER
+#  include <sanitizer/lsan_interface.h>
 #endif
 
 static Export* alloc_info_trap = NULL;
@@ -126,6 +129,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif	
 #ifdef VALGRIND
 				     " [valgrind-compiled]"
+#endif
+#ifdef ADDRESS_SANITIZER
+				     " [address-sanitizer]"
 #endif
 #ifdef ERTS_FRMPTR
 				     " [frame-pointer]"
@@ -2120,6 +2126,28 @@ current_stacktrace(Process *p, ErtsHeapFactory *hfact, Process* rp,
     return res;
 }
 
+#if defined(VALGRIND) || defined(ADDRESS_SANITIZER)
+static int iolist_to_tmp_buf(Eterm iolist, char** bufp)
+{
+    ErlDrvSizeT buf_size = 1024; /* Try with 1KB first */
+    char *buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
+    ErlDrvSizeT r = erts_iolist_to_buf(iolist, (char*) buf, buf_size - 1);
+    if (ERTS_IOLIST_TO_BUF_FAILED(r)) {
+        erts_free(ERTS_ALC_T_TMP, (void *) buf);
+        if (erts_iolist_size(iolist, &buf_size)) {
+            return 0;
+        }
+        buf_size++;
+        buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
+        r = erts_iolist_to_buf(iolist, (char*) buf, buf_size - 1);
+        ASSERT(r == buf_size - 1);
+    }
+    buf[buf_size - 1 - r] = '\0';
+    *bufp = buf;
+    return 1;
+}
+#endif
+
 /*
  * This function takes care of calls to erlang:system_info/1 when the argument
  * is a tuple.
@@ -2182,59 +2210,45 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	    goto badarg;
 	ERTS_BIF_PREP_TRAP1(ret, erts_format_cpu_topology_trap, BIF_P, res);
 	return ret;
-#if defined(PURIFY) || defined(VALGRIND)
-    } else if (ERTS_IS_ATOM_STR("error_checker", sel)
-#if defined(PURIFY)
-	       || sel == am_purify
-#elif defined(VALGRIND)
-	       || ERTS_IS_ATOM_STR("valgrind", sel)
+    } else if (ERTS_IS_ATOM_STR("memory_checker", sel)) {
+        if (arity == 2 && ERTS_IS_ATOM_STR("test_leak", *tp)) {
+#if defined(VALGRIND) || defined(ADDRESS_SANITIZER)
+            erts_alloc(ERTS_ALC_T_HEAP , 100);
 #endif
-	) {
-	if (*tp == am_memory) {
-#if defined(PURIFY)
-	    BIF_RET(erts_make_integer(purify_new_leaks(), BIF_P));
-#elif defined(VALGRIND)
-#  ifdef VALGRIND_DO_ADDED_LEAK_CHECK
-	    VALGRIND_DO_ADDED_LEAK_CHECK;
-#  else
-	    VALGRIND_DO_LEAK_CHECK;
+            BIF_RET(am_ok);
+        }
+        else if (arity == 2 && ERTS_IS_ATOM_STR("test_overflow", *tp)) {
+            static int test[2];
+            BIF_RET(make_small(test[2]));
+        }
+#if defined(VALGRIND) || defined(ADDRESS_SANITIZER)
+	if (arity == 2 && *tp == am_running) {
+#  if defined(VALGRIND)
+	    if (RUNNING_ON_VALGRIND)
+		BIF_RET(ERTS_MAKE_AM("valgrind"));
+#  elif defined(ADDRESS_SANITIZER)
+	    BIF_RET(ERTS_MAKE_AM("asan"));
 #  endif
-	    BIF_RET(make_small(0));
-#endif
-	} else if (*tp == am_fd) {
-#if defined(PURIFY)
-	    BIF_RET(erts_make_integer(purify_new_fds_inuse(), BIF_P));
-#elif defined(VALGRIND)
-	    /* Not present in valgrind... */
-	    BIF_RET(make_small(0));
-#endif
-	} else if (*tp == am_running) {
-#if defined(PURIFY)
-	    BIF_RET(purify_is_running() ? am_true : am_false);
-#elif defined(VALGRIND)
-	    BIF_RET(RUNNING_ON_VALGRIND ? am_true : am_false);
-#endif
-	} else if (is_list(*tp)) {
-#if defined(PURIFY)
-#  define ERTS_ERROR_CHECKER_PRINTF purify_printf
-#elif defined(VALGRIND)
-#  define ERTS_ERROR_CHECKER_PRINTF VALGRIND_PRINTF
-#endif
-	    ErlDrvSizeT buf_size = 8*1024; /* Try with 8KB first */
-	    char *buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
-	    ErlDrvSizeT r = erts_iolist_to_buf(*tp, (char*) buf, buf_size - 1);
-	    if (ERTS_IOLIST_TO_BUF_FAILED(r)) {
-		erts_free(ERTS_ALC_T_TMP, (void *) buf);
-		if (erts_iolist_size(*tp, &buf_size)) {
-		    goto badarg;
-		}
-		buf_size++;
-		buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
-		r = erts_iolist_to_buf(*tp, (char*) buf, buf_size - 1);
-		ASSERT(r == buf_size - 1);
-	    }
-	    buf[buf_size - 1 - r] = '\0';
-            ERTS_ERROR_CHECKER_PRINTF("%s\n", buf);
+	}
+	else if (arity == 2 && ERTS_IS_ATOM_STR("check_leaks", *tp)) {
+#  if defined(VALGRIND)
+#    ifdef VALGRIND_DO_ADDED_LEAK_CHECK
+	    VALGRIND_DO_ADDED_LEAK_CHECK;
+#    else
+	    VALGRIND_DO_LEAK_CHECK;
+#    endif
+	    BIF_RET(am_ok);
+#  elif defined(ADDRESS_SANITIZER)
+	    __lsan_do_recoverable_leak_check();
+	    BIF_RET(am_ok);
+#  endif
+        }
+#  if defined(VALGRIND)
+	if (arity == 3 && tp[0] == am_print && is_list(tp[1])) {
+            char* buf;
+            if (!iolist_to_tmp_buf(tp[1], &buf))
+                goto badarg;
+            VALGRIND_PRINTF("%s\n", buf);
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(am_true);
 #undef ERTS_ERROR_CHECKER_PRINTF
@@ -2254,6 +2268,30 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	} else if (*tp == am_running) {
 	    BIF_RET(quantify_is_running() ? am_true : am_false);
 	}
+#  endif
+#  if defined(ADDRESS_SANITIZER)
+        if (arity == 3 && ERTS_IS_ATOM_STR("log",tp[0]) && is_list(tp[1])) {
+            static char *active_log = NULL;
+            static int active_log_len;
+            Eterm ret = NIL;
+            char* buf;
+            if (!iolist_to_tmp_buf(tp[1], &buf))
+                goto badarg;
+            erts_rwmtx_rwlock(&erts_dist_table_rwmtx); /* random lock abuse */
+            __sanitizer_set_report_path(buf);
+            if (active_log) {
+                Eterm *hp = HAlloc(BIF_P, 2 * active_log_len);
+                ret = erts_bld_string_n(&hp, 0, active_log, active_log_len);
+                erts_free(ERTS_ALC_T_DEBUG, active_log);
+            }
+            active_log_len = sys_strlen(buf);
+            active_log = erts_alloc(ERTS_ALC_T_DEBUG, active_log_len + 1);
+            sys_memcpy(active_log, buf, active_log_len + 1);
+            erts_rwmtx_rwunlock(&erts_dist_table_rwmtx);
+            erts_free(ERTS_ALC_T_TMP, (void *) buf);
+            BIF_RET(ret);
+        }
+#  endif
 #endif
 #if defined(__GNUC__) && defined(HAVE_SOLARIS_SPARC_PERFMON)
     } else if (ERTS_IS_ATOM_STR("ultrasparc_set_pcr", sel)) {
@@ -2459,6 +2497,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #elif defined(VALGRIND)
 	ERTS_DECL_AM(valgrind);
 	BIF_RET(AM_valgrind);
+#elif defined(ADDRESS_SANITIZER)
+	ERTS_DECL_AM(asan);
+	BIF_RET(AM_asan);
 #elif defined(GPROF)
 	ERTS_DECL_AM(gprof);
 	BIF_RET(AM_gprof);
