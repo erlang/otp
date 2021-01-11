@@ -23,7 +23,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1,
-	 transforms/1,maps_warnings/1,bad_utf8/1]).
+	 transforms/1,maps_warnings/1,bad_utf8/1,bad_decls/1]).
 
 %% Used by transforms/1 test case.
 -export([parse_transform/2]).
@@ -36,7 +36,7 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [head_mismatch_line,warnings_as_errors,bif_clashes,
-       transforms,maps_warnings,bad_utf8]}].
+       transforms,maps_warnings,bad_utf8,bad_decls]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -291,6 +291,95 @@ bad_utf8(Config) ->
 	  }],
     [] = run2(Config, Ts),
     ok.
+
+bad_decls(Config) ->
+    Ts = [{bad_decls_1,
+	   <<"\n-module({l}).
+             ">>,
+	   [],
+           {error,[{{2,9},erl_parse,"bad " ++ ["module"] ++ " declaration"}],
+            []}
+	  },
+          {bad_decls_2,
+	   <<"\n-module(l, m).
+             ">>,
+	   [],
+           {error,[{{2,12},erl_parse,"bad variable list"}],[]}
+	  },
+          {bad_decls_3,
+	   <<"\n-export([a/1], Y).
+             ">>,
+	   [],
+           {error,[{{2,16},erl_parse,"bad " ++ ["export"] ++ " declaration"}],
+            []}
+	  },
+          {bad_decls_4,
+	   <<"\n-import([a/1], Y).
+             ">>,
+	   [],
+           {error,[{{2,16},erl_parse,"bad " ++ ["import"] ++ " declaration"}],
+            []}
+	  },
+          {bad_decls_5,
+	   <<"\n-ugly({A,B}).
+             ">>,
+	   [],
+           {error,[{{2,7},erl_parse,"bad attribute"}],[]}
+	  },
+          {bad_decls_6,
+	   <<"\n-ugly(a, b).
+             ">>,
+	   [],
+           {error,[{{2,10},erl_parse,"bad attribute"}],[]}
+	  },
+          {bad_decls_7,
+	   <<"\n-export([A/1]).
+             ">>,
+	   [],
+           {error,[{{2,10},erl_parse,"bad function name"}],[]}
+	  },
+          {bad_decls_8,
+	   <<"\n-export([a/a]).
+             ">>,
+	   [],
+           {error,[{{2,12},erl_parse,"bad function arity"}],[]}
+	  },
+          {bad_decls_9,
+	   <<"\n-export([a/1, {3,4}]).
+             ">>,
+	   [],
+           {error,[{{2,15},erl_parse,"bad Name/Arity"}],[]}
+	  },
+          {bad_decls_10,
+	   <<"\n-record(A, {{bad,a}}).
+             ">>,
+	   [],
+           {error,[{{2,9},erl_parse,"bad " ++ ["record"] ++ " declaration"}],
+            []}
+           },
+          {bad_decls_11,
+	   <<"\n-record(a, [a,b,c,d]).
+             ">>,
+	   [],
+           {error,[{{2,12},erl_parse,"bad record declaration"}],[]}
+           },
+          {bad_decls_12,
+	   <<"\n-record(a).
+             ">>,
+	   [],
+           {error,[{{2,9},erl_parse,"bad " ++ ["record"] ++ " declaration"}],
+            []}
+           }
+          ],
+    [] = run2(Config, Ts),
+
+    {error,{{1,4},erl_parse,"bad term"}} = parse_string("1, 2 + 4."),
+    {error,{{1,1},erl_parse,"bad term"}} = parse_string("34 + begin 34 end."),
+    ok.
+
+parse_string(S) ->
+    {ok,Ts,_} = erl_scan:string(S, {1, 1}),
+    erl_parse:parse_term(Ts).
 
 
 run(Config, Tests) ->
