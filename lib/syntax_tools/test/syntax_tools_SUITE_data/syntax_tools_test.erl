@@ -6,7 +6,7 @@
 
 -module(syntax_tools_test).
 
--export([foo1/0,foo2/2,foo3/0,foo4/3,foo5/1]).
+-export([foo1/0,foo2/2,foo3/0,foo4/3,foo5/1,foo6/2]).
 
 -include_lib("kernel/include/file.hrl").
 -record(state, { a, b, c, d}).
@@ -24,6 +24,7 @@
 -define(macro_string, "hello world").
 -define(macro_argument1(X), (X + 3)).
 -define(macro_argument2(X,Y), (X + 3 * Y)).
+-define(macro_argument3(X), {error, X}).
 -define(macro_block(X), begin X end).
 -define(macro_if(X1,X2), if X1 -> X2; true -> none end).
 
@@ -48,8 +49,7 @@ foo1() ->
 %% macro test
 foo2(A,B) ->
     % string combining ?
-    [?macro_string, ?macro_string
-     ?macro_string,
+    [?macro_string, ?macro_string ++
      "hello world "
      "more hello",
      [?macro_simple1,
@@ -112,4 +112,17 @@ foo5(A) ->
     catch
 	error:?macro_simple5 ->
 	    nope
+    end.
+
+%% macros in patterns
+foo6(?MACRO_SIMPLE2, ?macro_argument3(A)) ->
+    try foo2(A,A) of
+	R -> R
+    catch
+	?macro_argument3(B) ->
+	    B;
+	error:?macro_argument3(B) ->
+	    B;
+	error:?macro_argument3(B):_ ->
+	    B
     end.
