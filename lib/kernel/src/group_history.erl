@@ -73,8 +73,10 @@ load() ->
                 % the node is shutting down. Ignore it.
                 exit:_ -> []
             end;
-        _ ->
-            []
+        disabled ->
+            [];
+        Provider ->
+            Provider:load()
     end.
 
 %% @doc adds a log line to the erlang history log, if configured to do so.
@@ -98,7 +100,9 @@ add(Line, enabled) ->
             ok
     end;
 add(_Line, disabled) ->
-    ok.
+    ok;
+add(Line, Provider) ->
+    lists:member(Line, to_drop()) orelse Provider:add(Line).
 
 %%%%%%%%%%%%%%%
 %%% PRIVATE %%%
@@ -129,13 +133,13 @@ repair_log(Name) ->
     load().
 
 %% Return whether the shell history is enabled or not
--spec history_status() -> enabled | disabled.
+-spec history_status() -> enabled | disabled | module().
 history_status() ->
     %% Don't run for user proc or if the emulator's tearing down
     Skip = is_user() orelse not init_running(),
     case application:get_env(kernel, shell_history) of
-        {ok, enabled} when not Skip ->
-            enabled;
+        {ok, Atom} when not Skip, is_atom(Atom) ->
+            Atom;
         undefined when not Skip ->
             ?DEFAULT_STATUS;
         _ ->

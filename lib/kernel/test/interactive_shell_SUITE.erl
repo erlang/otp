@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
-	 job_control_remote/1,stop_during_init/1,
+	 job_control_remote/1,stop_during_init/1, custom_shell_history/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
          remsh/1, remsh_longnames/1, remsh_no_epmd/1]).
@@ -30,6 +30,8 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
 -export([toerl_server/3]).
+%% Exports for custom shell history module
+-export([load/0, add/1]).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -45,7 +47,7 @@ all() ->
     [get_columns_and_rows_escript,get_columns_and_rows,
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys, stop_during_init,
+     ctrl_keys, stop_during_init, custom_shell_history,
      remsh, remsh_longnames, remsh_no_epmd].
 
 groups() -> 
@@ -216,12 +218,33 @@ stop_during_init(Config) when is_list(Config) ->
 		{error, Reason2} ->
 		    {skip, Reason2};
 		Tempdir ->
-		    XArg = " -kernel shell_history true -s init stop",
+		    XArg = " -kernel shell_history enabled -s init stop",
 		    start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++XArg),
 		    {ok, Binary} = file:read_file(filename:join(Tempdir, "erlang.log.1")),
 		    nomatch = binary:match(Binary, <<"*** ERROR: Shell process terminated! ***">>)
 	    end
      end.
+
+custom_shell_history(Config) when is_list(Config) ->
+    case proplists:get_value(default_shell, Config) of
+        old -> {skip, "Not supported in old shell"};
+        new ->%% Up key: Ctrl + P = Cp=[$\^p]
+            rtnode([
+                {putline, ""},
+                {putline, [$\^p]},
+                {putline_raw, ""},
+                {getline, "0"},
+                {putline, "echo."},
+                {getline, "!echo"} %% exclamation sign is printed by custom history module
+            ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+                " -pz " ++ filename:dirname(code:which(?MODULE)))
+    end.
+
+load() ->
+    ["0.\n\n"].
+
+add(_Line) ->
+    io:format("!", []).
 
 %% Tests that local shell can be started by means of job control.
 job_control_local(Config) when is_list(Config) ->
