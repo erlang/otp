@@ -1143,27 +1143,33 @@ handle_try(Tree, Map, State) ->
   Vars = cerl:try_vars(Tree),
   Body = cerl:try_body(Tree),
   Handler = cerl:try_handler(Tree),
-  {State1, Map1, ArgType} = traverse(Arg, Map, State),
-  Map2 = mark_as_fresh(Vars, Map1),
-  {SuccState, SuccMap, SuccType} =
-    case bind_pat_vars(Vars, t_to_tlist(ArgType), [], Map2, State1) of
-      {error, _, _, _, _} ->
-	{State1, map__new(), t_none()};
-      {SuccMap1, VarTypes} ->
-	%% Try to bind the argument. Will only succeed if
-	%% it is a simple structured term.
-	SuccMap2 =
-	  case bind_pat_vars_reverse([Arg], [t_product(VarTypes)], [],
-				     SuccMap1, State1) of
-	    {error, _, _, _, _} -> SuccMap1;
-	    {SM, _} -> SM
-	  end,
-	traverse(Body, SuccMap2, State1)
-    end,
-  ExcMap1 = mark_as_fresh(EVars, Map),
-  {State2, ExcMap2, HandlerType} = traverse(Handler, ExcMap1, SuccState),
-  TryType = t_sup(SuccType, HandlerType),
-  {State2, join_maps([ExcMap2, SuccMap], Map1), TryType}.
+  {State1, Map1, ArgType} = SMA = traverse(Arg, Map, State),
+  TypeList = t_to_tlist(ArgType),
+  if
+    length(Vars) =/= length(TypeList) ->
+      SMA;
+    true ->
+      Map2 = mark_as_fresh(Vars, Map1),
+      {SuccState, SuccMap, SuccType} =
+        case bind_pat_vars(Vars, TypeList, [], Map2, State1) of
+          {error, _, _, _, _} ->
+            {State1, map__new(), t_none()};
+          {SuccMap1, VarTypes} ->
+            %% Try to bind the argument. Will only succeed if
+            %% it is a simple structured term.
+            SuccMap2 =
+              case bind_pat_vars_reverse([Arg], [t_product(VarTypes)], [],
+                                         SuccMap1, State1) of
+                {error, _, _, _, _} -> SuccMap1;
+                {SM, _} -> SM
+              end,
+            traverse(Body, SuccMap2, State1)
+        end,
+      ExcMap1 = mark_as_fresh(EVars, Map),
+      {State2, ExcMap2, HandlerType} = traverse(Handler, ExcMap1, SuccState),
+      TryType = t_sup(SuccType, HandlerType),
+      {State2, join_maps([ExcMap2, SuccMap], Map1), TryType}
+  end.
 
 %%----------------------------------------
 
