@@ -1420,14 +1420,14 @@ usm_priv_aes(Config) when is_list(Config) ->
                                         {dir,       ConfDir},
                                         {db_dir,    DbDir}]}],
 
-                  io:format("[~s] try starting manager", [?FTS()]),
+                  ?IPRINT("try starting manager"),
                   ok = snmpm:start(Opts),
                   ?SLEEP(1000), % Give it time to settle
                   ok
           end,
     Case = fun(_) -> do_usm_priv_aes(Config) end,
     Post = fun(_) ->
-                   io:format("[~s] try stop manager", [?FTS()]),
+                   ?IPRINT("try stop manager"),
                    ok = snmpm:stop(),
                    ?SLEEP(1000), % Give it time to settle
                    ok
@@ -1435,10 +1435,13 @@ usm_priv_aes(Config) when is_list(Config) ->
     ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
 do_usm_priv_aes(Config) ->
-    io:format("[~s] starting with Config: "
-              "~n   ~p", [?FTS(), Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
-    io:format("[~s] generate AES-encrypted message", [?FTS()]),
+    put(sname,     "TC[usm-priv-aes]"),
+    put(verbosity, trace),
+
+    ?IPRINT("generate AES-encrypted message"),
 
     EngineID = [128,0,0,0,6],
     SecName  = "v3_user",
@@ -1465,6 +1468,7 @@ do_usm_priv_aes(Config) ->
         {sec_name,  SecName}
       ],
 
+    ?IPRINT("register user, usm-user and agent"),
     snmpm:register_user(SecName, snmpm_user_default, nil),
     snmpm:register_usm_user(EngineID, SecName, Credentials),
     snmpm:register_agent(SecName, "v3_agent", AgentConfig),
@@ -1494,9 +1498,11 @@ do_usm_priv_aes(Config) ->
         _MsgPrivacyParameters        = PrivKey
       },
 
+    ?IPRINT("get engine mms"),
     {ok, MsgMaxSize} =
       snmpm_config:get_engine_max_message_size(),
 
+    ?IPRINT("encode scoped pdu"),
     Message =
       { message,
         _Version = 'version-3',
@@ -1515,6 +1521,7 @@ do_usm_priv_aes(Config) ->
 
     SecLevel = 2,
 
+    ?IPRINT("generate outgoing message"),
     Msg =
       snmpm_usm:generate_outgoing_msg(
         Message,
@@ -1524,11 +1531,13 @@ do_usm_priv_aes(Config) ->
         SecLevel
       ),
 
-    io:format("[~s] got AES-encrypted message, now decrypt: "
-              "~n   ~p", [?FTS(), Msg]),
+    ?IPRINT("got AES-encrypted message, now decrypt: "
+            "~n   ~p", [Msg]),
 
     {message, _Version, Hdr, NextData} =
       snmp_pdus:dec_message_only(Msg),
+
+    ?IPRINT("AES-encrypted message decrypted - now match"),
 
     { v3_hdr,
       _MsgID,
@@ -1538,6 +1547,8 @@ do_usm_priv_aes(Config) ->
       SecParams,
       _Hdr_size
     } = Hdr,
+
+    ?IPRINT("process incoming message"),
 
     { ok,
       { _MsgAuthEngineID,
@@ -1555,7 +1566,7 @@ do_usm_priv_aes(Config) ->
 
     Data = ScopedPDUBytes,
 
-    io:format("[~s] Message decrypted", [?FTS()]),
+    ?IPRINT("message decrypted"),
     ok.
 
 
