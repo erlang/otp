@@ -598,7 +598,7 @@
 -module(foo).
 -export([create_file_slow/2]).
 
-create_file_slow(Name, N) when integer(N), N >= 0 ->
+create_file_slow(Name, N) when is_integer(N), N >= 0 ->
     {ok, FD} = 
         file:open(Name, [raw, write, delayed_write, binary]),
     if N > 256 ->
