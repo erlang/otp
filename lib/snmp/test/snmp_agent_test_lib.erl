@@ -123,13 +123,16 @@
 init_all(Config) when is_list(Config) ->
 
     ?IPRINT("init_all -> entry with"
-            "~n   Config: ~p",[Config]),
+            "~n   Config: ~p", [Config]),
 
-    %% -- 
+    %% --
     %% Start nodes
-    %% 
+    %%
 
+    ?IPRINT("init_all -> start sub-agent node"),
     ?line {ok, SaNode}  = start_node(snmp_sa),
+
+    ?IPRINT("init_all -> start manager node"),
     ?line {ok, MgrNode} = start_node(snmp_mgr),
 
 
@@ -137,33 +140,41 @@ init_all(Config) when is_list(Config) ->
     %% Create necessary files ( and dirs ) 
     %% 
 
+    ?IPRINT("init_all -> create suite top dir"),
     SuiteTopDir = ?config(snmp_suite_top_dir, Config),
     ?DBG("init_all -> SuiteTopDir ~p", [SuiteTopDir]),
 
+    ?IPRINT("init_all -> create agent dir"),
     AgentDir = join(SuiteTopDir, "agent/"), 
     ?line ok = file:make_dir(AgentDir),
     ?DBG("init_all -> AgentDir ~p", [AgentDir]),
 
+    ?IPRINT("init_all -> create agent db dir"),
     AgentDbDir = join(AgentDir, "db/"), 
     ?line ok   = file:make_dir(AgentDbDir),
     ?DBG("init_all -> AgentDbDir ~p", [AgentDbDir]),
 
+    ?IPRINT("init_all -> create agent log dir"),
     AgentLogDir = join(AgentDir, "log/"), 
     ?line ok    = file:make_dir(AgentLogDir),
     ?DBG("init_all -> AgentLogDir ~p", [AgentLogDir]),
 
+    ?IPRINT("init_all -> create agent config dir"),
     AgentConfDir = join(AgentDir, "conf/"), 
     ?line ok     = file:make_dir(AgentConfDir),
     ?DBG("init_all -> AgentConfDir ~p", [AgentConfDir]),
 
+    ?IPRINT("init_all -> create manager dir"),
     MgrDir   = join(SuiteTopDir, "mgr/"), 
     ?line ok = file:make_dir(MgrDir),
     ?DBG("init_all -> MgrDir ~p", [MgrDir]),
 
+    ?IPRINT("init_all -> create sub-agent dir"),
     SaDir    = join(SuiteTopDir, "sa/"), 
     ?line ok = file:make_dir(SaDir),
     ?DBG("init_all -> SaDir ~p", [SaDir]),
 
+    ?IPRINT("init_all -> create sub-agent db dir"),
     SaDbDir  = join(SaDir, "db/"), 
     ?line ok = file:make_dir(SaDbDir),
     ?DBG("init_all -> SaDbDir ~p", [SaDbDir]),
@@ -176,29 +187,33 @@ init_all(Config) when is_list(Config) ->
     %% Start and initiate mnesia
     %% 
 
-    ?DBG("init_all -> load application mnesia", []),
+    ?IPRINT("init_all -> load mnesia application (local)"),
     ?line ok = application:load(mnesia),
 
-    ?DBG("init_all -> load application mnesia on node ~p", [SaNode]),
+    ?IPRINT("init_all -> load application mnesia on node ~p", [SaNode]),
     ?line ok = rpc:call(SaNode, application, load, [mnesia]),
     
-    ?DBG("init_all -> application mnesia: set_env dir",[]),
+    ?IPRINT("init_all -> application mnesia (local): set_env dir"),
     ?line application_controller:set_env(mnesia, dir, 
 					 join(AgentDbDir, "Mnesia1")),
 
-    ?DBG("init_all -> application mnesia: set_env dir on node ~p",[SaNode]),
+    ?IPRINT("init_all -> application mnesia: set_env dir on node ~p", [SaNode]),
     ?line rpc:call(SaNode, application_controller, set_env, 
 		   [mnesia, dir,  join(SaDir, "Mnesia2")]),
 
-    ?DBG("init_all -> create mnesia schema",[]),
+    ?IPRINT("init_all -> create mnesia schema"),
     ?line ok = mnesia:create_schema([SaNode, node()]),
     
-    ?DBG("init_all -> start application mnesia",[]),
+    ?IPRINT("init_all -> start application mnesia (local)"),
     ?line ok = application:start(mnesia),
 
-    ?DBG("init_all -> start application mnesia on ~p",[SaNode]),
+    ?IPRINT("init_all -> start application mnesia on ~p", [SaNode]),
     ?line ok = rpc:call(SaNode, application, start, [mnesia]),
+
+    ?IPRINT("init_all -> get localhost"),
     Ip = ?LOCALHOST(),
+
+    ?IPRINT("init_all -> done"),
     [{snmp_sa,        SaNode}, 
      {snmp_mgr,       MgrNode}, 
      {snmp_master,    node()}, 
@@ -215,11 +230,24 @@ init_all(Config) when is_list(Config) ->
 
 
 finish_all(Config) when is_list(Config) ->
-    SaNode = ?config(snmp_sa, Config),
+
+    ?IPRINT("finish_all -> entry with"
+            "~n   Config: ~p", [Config]),
+
+    SaNode  = ?config(snmp_sa, Config),
     MgrNode = ?config(snmp_mgr, Config),
+
+    ?IPRINT("finish_all -> stop sub-agent node ~p", [SaNode]),
     stop_node(SaNode),
+
+    ?IPRINT("finish_all -> stop manager node ~p", [MgrNode]),
     stop_node(MgrNode),
-    application:stop(mnesia).
+
+    ?IPRINT("finish_all -> stop mnesia application"),
+    application:stop(mnesia),
+
+    ?IPRINT("finish_all -> stop"),
+    ok.
 
 
 %% --- This one *must* be run first in each case ---
@@ -242,7 +270,6 @@ init_case(Config) when is_list(Config) ->
     {ok, MIP}      = snmp_misc:ip(MgrHost, IpFamily),
     {ok, SIP}      = snmp_misc:ip(SaHost, IpFamily),
 
-
     put(mgr_node,    MgrNode),
     put(sa_node,     SaNode),
     put(master_node, MasterNode),
@@ -263,11 +290,12 @@ init_case(Config) when is_list(Config) ->
     put(mgr_dir, MgrDir),
 
     put(vsn, ?config(vsn, Config)),
-    ?DBG("init_case -> exit with"
-	"~n   MasterNode: ~p"
-	"~n   SaNode:     ~p"
-	"~n   MgrNode:    ~p"
-	"~n   MibDir:     ~p", [MasterNode, SaNode, MgrNode, MibDir]),
+
+    ?IPRINT("init_case -> done with"
+            "~n   MasterNode: ~p"
+            "~n   SaNode:     ~p"
+            "~n   MgrNode:    ~p"
+            "~n   MibDir:     ~p", [MasterNode, SaNode, MgrNode, MibDir]),
     {SaNode, MgrNode, MibDir}.
 
 

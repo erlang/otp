@@ -2139,10 +2139,22 @@ do_simple_sync_get3(Config, Get, PostVerify) ->
 
 do_simple_sync_get3(Node, TargetName, Oids, Get, PostVerify) 
   when is_function(Get, 3) andalso is_function(PostVerify, 0) ->
-    ?line {ok, Reply, _Rem} = Get(Node, TargetName, Oids),
 
-    ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, _Rem]),
+    ?IPRINT("try get for ~p (on ~p):"
+            "~n      Oids: ~p", [TargetName, Node, Oids]),
+    ?line Reply =
+        case Get(Node, TargetName, Oids) of
+            {ok, R, _Rem} ->
+                ?IPRINT("get reply: "
+                        "~n       Reply: ~p"
+                        "~n       Rem:   ~w", [R, _Rem]),
+
+                R;
+            {error, Reason} = ERROR ->
+                ?EPRINT("get failed: "
+                        "~n      ~p", [Reason]),
+                ERROR
+        end,
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to search
@@ -5320,11 +5332,11 @@ start_manager(Node, Vsns, Config) ->
     start_manager(Node, Vsns, Config, []).
 start_manager(Node, Vsns, Conf0, _Opts) ->
 
-    ?DBG("start_manager -> entry with"
-	 "~n   Node:   ~p"
-	 "~n   Vsns:   ~p"
-	 "~n   Conf0:  ~p"
-	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
+    ?IPRINT("start_manager -> entry with"
+            "~n   Node:   ~p"
+            "~n   Vsns:   ~p"
+            "~n   Conf0:  ~p"
+            "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
 
     AtlDir  = ?config(manager_log_dir,  Conf0),
     ConfDir = ?config(manager_conf_dir, Conf0),
@@ -5490,16 +5502,16 @@ start_manager_node() ->
 start_node(Name) ->
     start_node(Name, true).
 start_node(Name, Retry) ->
+
+    ?IPRINT("start_node -> entry with"
+            "~n   Name: ~p"
+            "~n when"
+            "~n   hostname of this node: ~p",
+            [Name, list_to_atom(?HOSTNAME(node()))]),
+
     Pa   = filename:dirname(code:which(?MODULE)),
-    Args = case init:get_argument('CC_TEST') of
-               {ok, [[]]} ->
-                   " -pa /clearcase/otp/libraries/snmp/ebin ";
-               {ok, [[Path]]} ->
-                   " -pa " ++ Path;
-               error ->
-                      ""
-              end,
-    A = Args ++ " -pa " ++ Pa ++ 
+
+    A = " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
     try ?START_NODE(Name, A) of
