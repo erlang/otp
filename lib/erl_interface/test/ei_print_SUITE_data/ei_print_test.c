@@ -345,3 +345,70 @@ TESTCASE(bitstrings)
     }
     report(1);
 }
+
+TESTCASE(integers)
+{
+    char *buf;
+    long len;
+    int err, n, index, done;
+    ei_x_buff x;
+
+    ei_init();
+
+    done = 0;
+    do {
+        int type, type_len;
+        buf = read_packet(NULL);
+
+        index = 0;
+        err = ei_decode_version(buf, &index, NULL);
+        if (err != 0)
+            fail1("ei_decode_version returned %d", err);
+        err = ei_get_type(buf, &index, &type, &type_len);
+        if (err)
+            fail1("ei_get_type() returned %d", err);
+        switch (type) {
+        case ERL_SMALL_INTEGER_EXT:
+        case ERL_INTEGER_EXT: {
+            long val;
+            err = ei_decode_long(buf, &index, &val);
+            if (err)
+                fail1("ei_decode_long() returned %d", err);
+            break;
+        }
+        case ERL_SMALL_BIG_EXT:
+        case ERL_LARGE_BIG_EXT: {
+            erlang_big *big = ei_alloc_big(type_len);
+            if (!big)
+                fail1("ei_alloc_big() failed %d", ENOMEM);
+            err = ei_decode_big(buf, &index, big);
+            if (err)
+                fail1("ei_decode_big() failed %d", err);
+            ei_free_big(big);
+            break;
+        }
+        case ERL_ATOM_EXT: {
+            char abuf[MAXATOMLEN];
+            err = ei_decode_atom(buf, &index, &abuf[0]);
+            if (err)
+                fail1("ei_decode_atom() failed %d", err);
+            if (strcmp("done", &abuf[0]) == 0)
+                done = 1;
+            break;
+        }
+        default:
+            fail1("Unexpected type %d", type);
+            break;
+        }
+
+        ei_x_new(&x);
+        ei_x_append_buf(&x, buf, index);
+        send_printed_buf(&x);
+        ei_x_free(&x);
+
+        free_packet(buf);
+
+    } while (!done);
+    
+    report(1);
+}

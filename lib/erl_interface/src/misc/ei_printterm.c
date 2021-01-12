@@ -87,24 +87,73 @@ static char *ei_big_to_str(erlang_big *b)
 {
     int buf_len;
     char *s,*buf;
+    unsigned int no_digits;
     unsigned short *sp;
     int i;
+    int printed;
 
-    buf_len = 64+b->is_neg+10*b->arity;
+    /* Number of 16-bit digits */
+    no_digits = (b->arity + 1) / 2;
+
+    if (no_digits <= 4) {
+        EI_ULONGLONG val;
+        buf_len = 22;
+        s = buf = malloc(buf_len);
+        if (!buf)
+            return NULL;
+        val = 0;
+        sp=b->digits;
+        for (i = 0; i < no_digits; i++)
+            val |= ((EI_ULONGLONG) sp[i]) << (i*16);
+        if (b->is_neg)
+            s += sprintf(s,"-");
+        sprintf(s, "%llu", val);
+        return buf;
+    }
+
+    /* big nums this large gets printed in base 16... */
+    buf_len = (!!b->is_neg /* "-" */
+               + 3 /* "16#" */
+               + 4*no_digits /* 16-bit digits in base 16 */
+               + 1); /* \0 */
     if ( (buf=malloc(buf_len)) == NULL) return NULL;
-
-    memset(buf,(char)0,buf_len);
 
     s = buf;
     if ( b->is_neg ) 
-        s += sprintf(s,"-");
-    s += sprintf(s,"#integer(%d) = {",b->arity);
-    for(sp=b->digits,i=0;i<b->arity;i++) {
-        s += sprintf(s,"%d",sp[i]);
-        if ( (i+1) != b->arity ) 
-            s += sprintf(s,",");
+        *(s++) = '-';
+    *(s++) = '1';
+    *(s++) = '6';
+    *(s++) = '#';
+
+    sp = b->digits;
+    printed = 0;
+    for (i = no_digits - 1; i >= 0; i--) {
+        unsigned short val = sp[i];
+        int j;
+
+        for (j = 3; j >= 0; j--) {
+            char c = (char) ((val >> (j*4)) & 0xf);
+            if (c < 10)
+                c += '0';
+            else
+                c += 'A' - 10;
+            
+            if (printed)
+                *(s++) = c;
+            else if (c != '0') {
+                *(s++) = c;
+                printed = !0;
+            }
+        }
     }
-    s += sprintf(s,"}");
+
+    if (!printed) {
+        /* very strange to encode zero like this... */
+        *(s++) = '0';
+    }
+        
+
+    *s = '\0';
     return buf;
 }
 
