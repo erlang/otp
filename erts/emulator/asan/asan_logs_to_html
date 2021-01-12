@@ -43,19 +43,21 @@ run(OutDir, InDir) ->
 
     ok = file:write(FD, <<"<!DOCTYPE html>\n"
                           "<html>\n"
-                          "<head><title>Address Sanitizer</title></head>\n"
-                          "<body>\n"
-			  "<h1>Address Sanitizer</h1>\n">>),
+                          "<head><title>Address Sanitizer</title>\n">>),
+    ok = file:write(FD, style_block()),
+    ok = file:write(FD, <<"</head><body>\n"
+		          "<h1>Address Sanitizer</h1>\n">>),
 
-    lists:foldl(fun(File, Acc) ->
-                        io:format("analyze ~s\n", [File]),
-                        analyze_log_file(filename:join(InDir,File),
-                                         FD, Acc)
-                end,
-                {#{}, none, none},
-                InFiles),
+    {_, LastApp, LastErrCnt, _} =
+        lists:foldl(fun(File, Acc) ->
+                            io:format("analyze ~s\n", [File]),
+                            analyze_log_file(filename:join(InDir,File),
+                                             FD, Acc)
+                    end,
+                    {#{}, none, 0, none},
+                    InFiles),
 
-    ok = io:format(FD, "<hr>\n", []),
+    app_end(FD, LastApp, LastErrCnt),
 
     Time = calendar:system_time_to_rfc3339(erlang:system_time(second),
                                            [{time_designator, 32}]),
@@ -63,28 +65,27 @@ run(OutDir, InDir) ->
     ThisFile = escript:script_name(),
     User = string:trim(os:cmd("whoami")),
     {ok, Host} = inet:gethostname(),
-    ok = io:format(FD, "<p><small>This page was generated ~s\n"
+    ok = io:format(FD, "\n<hr><p><small>This page was generated ~s\n"
                    " by <tt>~s</tt>\n"
                    " run by ~s@~s.</small></p>\n",
                    [Time, ThisFile, User, Host]),
 
+    ok = file:write(FD, script_block()),
     ok = file:write(FD, <<"</body>\n</html>\n">>),
     ok = file:close(FD),
     io:format("Generated file ~s\n", [OutFile]),
     ok.
 
-analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
+analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, ErrCnt0, RegEx0}) ->
 
-    [_Exe, App | _] = string:lexemes(filename:basename(SrcFile), "-"),
-    case App of
-        PrevApp -> ignore;
-        _ ->
-            Line = case PrevApp of
-                       none -> "";
-                       _ -> "<hr>"
-                   end,
-            ok = io:format(OutFD, "~s<h2>~s</h2>\n", [Line, App])
-    end,
+    %% Is it a new application?
+    {App,ErrCnt1} = case string:lexemes(filename:basename(SrcFile), "-") of
+                        [_Exe, PrevApp | _] ->
+                            {PrevApp, ErrCnt0};
+                        [_Exe, NewApp | _] ->
+                            app_end(OutFD, PrevApp, ErrCnt0),
+                            {NewApp, 0}
+                    end,
 
     {ok, Bin} = file:read_file(SrcFile),
 
@@ -120,9 +121,9 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
             {Out, PrevEnd, Unmatched0, LM0}) ->
                 {Start,MatchLen} = ErrorReport,
                 FD = fd(Out),
-                ok = io:format(FD, "<p><pre~s>\n", [style(error)]),
-                ok = file:write(FD, BP(Captured)),
-                ok = io:format(FD, "</pre></p>\n", []),
+                ok = io_format(FD, "<p><pre~s>\n", [style(error)]),
+                ok = file_write(FD, BP(Captured)),
+                ok = io_format(FD, "</pre></p>\n", []),
                 Unmatched1 = [BP({PrevEnd, Start-PrevEnd}) | Unmatched0],
                 End = Start + MatchLen,
                 {FD, End, Unmatched1, LM0};
@@ -141,9 +142,9 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
                         %% A new leak
                         LM1 = insert_leak(LM0, Key, Bytes, Blocks),
                         FD = fd(Out),
-                        ok = io:format(FD, "<p><pre~s>\n", [style(new, TypeBin)]),
-                        ok = file:write(FD, BP(LeakReport)),
-                        ok = io:format(FD, "</pre></p>\n", []),
+                        ok = io_format(FD, "<p><pre~s>\n", [style(new, TypeBin)]),
+                        ok = file_write(FD, BP(LeakReport)),
+                        ok = io_format(FD, "</pre></p>\n", []),
                         {FD, End, Unmatched1, LM1};
 
                     {Bytes, Blocks} ->
@@ -154,13 +155,13 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
                         %% More leaked bytes/blocks of same type&stack as before
                         LM1 = insert_leak(LM0, Key, Bytes, Blocks),
                         FD = fd(Out),
-                        ok = io:format(FD, "<p><pre~s>\n", [style(more, TypeBin)]),
-                        ok = io:format(FD, "More ~s leak of ~w(~w) byte(s) "
+                        ok = io_format(FD, "<p><pre~s>\n", [style(more, TypeBin)]),
+                        ok = io_format(FD, "More ~s leak of ~w(~w) byte(s) "
                                        "in ~w(~w) object(s) allocated from:\n",
                                        [TypeBin, Bytes - OldBytes, Bytes,
                                         Blocks - OldBlocks, Blocks]),
-                        ok = file:write(FD, BP(StackIx)),
-                        ok = io:format(FD, "</pre></p>\n", []),
+                        ok = file_write(FD, BP(StackIx)),
+                        ok = io_format(FD, "</pre></p>\n", []),
                         {FD, End, Unmatched1, LM1}
                 end;
 	   ([SkipLine], {Out, PrevEnd, Unmatched0, LM0}) ->
@@ -170,23 +171,26 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, RegEx0}) ->
                 Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
 		{Out, End, Unmatched1, LM0}
         end,
-    Out0 = {OutFD, SrcFile},
+    Out0 = {OutFD, App, ErrCnt1, SrcFile},
     {Out1, LastEnd, Unmatched1, LeakMap1} = lists:foldl(LeakChecker,
                                                  {Out0, 0, [], LeakMap0},
                                                  Leaks),
 
     Unmatched2 = [BP({LastEnd, byte_size(Bin)-LastEnd}) | Unmatched1],
 
-    case iolist_size(Unmatched2) > 500 of
-        true ->
-            FD = fd(Out1),
-            ok = io:format(FD, "<h2>WARNING!!! May be unmatched error reports"
-                           " in file ~s:</h2>\n<p><pre>~s</pre></p>", [SrcFile, Unmatched2]),
-            FD;
-        false ->
-            Out1
-    end,
-    {LeakMap1, App, RegEx1}.
+    Out2 = case iolist_size(Unmatched2) > 500 of
+               true ->
+                   FD = fd(Out1),
+                   ok = io_format(FD, "<h2>WARNING!!! May be unmatched error reports"
+                                  " in file ~s:</h2>\n<p><pre>~s</pre></p>",
+                                  [SrcFile, Unmatched2]),
+                   FD;
+               false ->
+                   Out1
+           end,
+    App = element(2, Out2),
+    ErrCnt2 = element(3, Out2),
+    {LeakMap1, App, ErrCnt2, RegEx1}.
 
 lookup_leak(LeakMap, Key) ->
     maps:get(Key, LeakMap, undefined).
@@ -194,7 +198,26 @@ lookup_leak(LeakMap, Key) ->
 insert_leak(LeakMap, Key, Bytes, Blocks) ->
     LeakMap#{Key => {Bytes, Blocks}}.
 
-fd({FD, SrcFile}) ->
+io_format({FD, _App, _ErrCnt}, Format, List) ->
+    io:format(FD, Format, List).
+
+file_write({FD, _App, _ErrCnt}, Bin) ->
+    file:write(FD, Bin).
+
+fd({FD, App, ErrCnt, SrcFile}) ->
+
+    case ErrCnt of
+        0 ->
+            %% First error in application, print clickable app header
+            ok = io:format(FD, "<button type=\"button\" "
+                           "class=\"app_err\">"
+                           "~s</button>\n"
+                           "<div class=\"content\">", [App]);
+        _ ->
+            ok
+    end,
+
+    %% Print test case header
     TcFile = filename:basename(SrcFile),
     case string:lexemes(TcFile, "-") of
 	[_Exe, App, _Rest] ->
@@ -207,9 +230,18 @@ fd({FD, SrcFile}) ->
 	    ok = io:format(FD, "<h3>Strange log file name '~s'</h3>\n",
 			   [SrcFile])
     end,
-    FD;
-fd(FD) ->
-    FD.
+    {FD, App, ErrCnt+1};
+fd({FD, App, ErrCnt}) ->
+    {FD, App, ErrCnt+1}.
+
+app_end(FD, App, ErrCnt) ->
+    case {App, ErrCnt} of
+        {none,_} -> ignore;
+        {_, 0} ->
+            ok = io:format(FD, "<button class=\"app_ok\" disabled>~s</button>\n", [App]);
+        {_, _} ->
+            ok = io:format(FD, "</div>", [])
+    end.
 
 style(error) ->
     " style=\"background-color:Tomato;\"".
@@ -232,3 +264,56 @@ run_regex(Bin, RegEx, _, _, RunOpts) ->
 	{match, List} ->
 	    {List, RegEx}
     end.
+
+style_block() ->
+    <<"<style>
+
+.app_err, .app_ok {
+  color: white;
+  padding: 10px;
+  width: 100%;
+  /*border: none;*/
+  text-align: left;
+  /*outline: none;*/
+  font-size: 15px;
+}
+
+.app_err {
+  background-color: #D11;
+  cursor: pointer;
+}
+.app_ok {
+  background-color: #292;
+}
+
+.active, .app_err:hover {
+  background-color: #F11;
+}
+
+.content {
+  padding: 0 18px;
+  display: none;
+  overflow: hidden;
+  background-color: #f1f1f1;
+}
+</style>
+">>.
+
+script_block() ->
+    <<"<script>
+var coll = document.getElementsByClassName(\"app_err\");
+var i;
+
+for (i = 0; i < coll.length; i++) {
+  coll[i].addEventListener(\"click\", function() {
+    this.classList.toggle(\"active\");
+    var content = this.nextElementSibling;
+    if (content.style.display === \"block\") {
+      content.style.display = \"none\";
+    } else {
+      content.style.display = \"block\";
+    }
+  });
+}
+</script>
+">>.
