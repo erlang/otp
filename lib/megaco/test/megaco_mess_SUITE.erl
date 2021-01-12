@@ -13324,17 +13324,17 @@ otp_8183_request1(Config) when is_list(Config) ->
     try_tc(otp8183r1, Pre, Case, Post).
 
 do_otp_8183_request1([MgNode]) ->
-    d("[MG] start the simulator "),
+    i("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
-    d("[MG] create the event sequence"),
+    i("[MG] create the event sequence"),
     MgMid = {deviceName,"mg"},
     MgEvSeq = otp_8183_r1_mg_event_sequence(MgMid),
 
     i("wait some time before starting the MG simulation"),
     sleep(1000),
 
-    d("[MG] start the simulation"),
+    i("[MG] start the simulation"),
     {ok, MgId} = megaco_test_megaco_generator:exec(Mg, MgEvSeq),
 
     i("await the transport module service change send_message event"),
@@ -13357,11 +13357,13 @@ do_otp_8183_request1([MgNode]) ->
     i("wait some before issuing the notify reply (twice)"),
     sleep(500),
 
-    i("send the notify reply - twice"),
+    i("create notify reply"),
     NotifyReply = 
 	otp_8183_r1_mgc_notify_reply_msg(MgcMid, TransId2, Cid2, TermId2),
+    i("send the first notify reply"),
     megaco_test_generic_transport:incomming_message(Pid, NotifyReply),
     sleep(100), %% This is to "make sure" the events come in the "right" order
+    i("send the second notify reply"),
     megaco_test_generic_transport:incomming_message(Pid, NotifyReply),
 
     d("await the generator reply"),

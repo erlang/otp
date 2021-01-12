@@ -75,7 +75,8 @@ start(RH) ->
 start_transport() ->
     %% GS_ARGS = [{debug,[trace]}], 
     GS_ARGS = [], 
-    {ok, Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [self()], GS_ARGS),
+    {ok, Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [self()],
+                                      GS_ARGS),
     unlink(Pid),
     {ok, Pid}.
 
@@ -94,15 +95,25 @@ stop() ->
 %%----------------------------------------------------------------------
 
 send_message(SendHandle, Bin) ->
+    d("send_message -> entry with"
+      "~n      SendHandle: ~p", [SendHandle]),
     call({transport, {send_message, SendHandle, Bin}}).
 
 send_message(SendHandle, Bin, Resend) ->
+    d("send_message -> entry with"
+      "~n      SendHandle: ~p"
+      "~n      Resend:     ~p", [SendHandle, Resend]),
     call({transport, {send_message, SendHandle, Bin, Resend}}).
 
 resend_message(SendHandle, Bin) ->
+    d("resend_message -> entry with"
+      "~n      SendHandle: ~p", [SendHandle]),
     call({transport, {resend_message, SendHandle, Bin}}).
 
 incomming_message(Pid, Msg) ->
+    d("incomming_message -> entry with"
+      "~n      Pid: ~p"
+      "~n      Msg: ~p", [Pid, Msg]),
     cast(Pid, {incomming_message, Msg}).
 
 
@@ -138,6 +149,8 @@ handle_call({connect, _Sup, Opts}, _From, State) ->
     SendHandle = self(), 
     ControlPid = self(),
     Reply  = {ok, SendHandle, ControlPid},
+    d("handle_call(connect) -> done when"
+      "~n      Reply: ~p", [Reply]),
     {reply, Reply, State#state{controller     = Controller,
 			       receive_handle = ReceiveHandle}};
 
@@ -149,7 +162,10 @@ handle_call({listen, _Sup, Opts}, _From, State) ->
     SendHandle = self(), 
     ControlPid = self(),
     Reply  = {ok, SendHandle, ControlPid},
+    d("handle_call(listen) -> inform controller"),
     Controller ! {listen, ReceiveHandle, SendHandle, ControlPid},  
+    d("handle_call(listen) -> done when"
+      "~n      Reply: ~p", [Reply]),
     {reply, Reply, State#state{controller     = Controller,
 			       receive_handle = ReceiveHandle}};
 
@@ -164,6 +180,8 @@ handle_call({transport, Event}, _From,
     d("handle_call(transport) -> entry with"
       "~n   Event: ~p", [Event]),
     Reply = handle_transport(Pid, RH, Event),
+    d("handle_call(transport) -> done when"
+      "~n      Reply: ~p", [Reply]),
     {reply, Reply, State};
 
 handle_call(Req, From, State) ->
