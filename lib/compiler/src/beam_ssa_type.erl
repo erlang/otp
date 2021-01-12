@@ -1393,25 +1393,13 @@ get_type(#b_literal{val=Val}, _Ts) ->
 infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
     PosTypes0 = infer_type(Op, Args, Ds),
-    NegTypes0 = infer_type_negative(Op, Args, Ds),
-
-    %% We must be careful with types inferred from '=:='.
-    %%
-    %% If we have seen L =:= [a], we know that L is 'cons' if the
-    %% comparison succeeds. However, if the comparison fails, L could
-    %% still be 'cons'. Therefore, we must not subtract 'cons' from the
-    %% previous type of L.
-    %%
-    %% However, it is safe to subtract a type inferred from '=:=' if
-    %% it is single-valued, e.g. if it is [] or the atom 'true'.
+    NegTypes = infer_type_negative(Op, Args, Ds),
 
     EqTypes = infer_eq_type(Op, Args, Ts, Ds),
-    NegTypes1 = [P || {_,T}=P <- EqTypes, is_singleton_type(T)],
 
     PosTypes = EqTypes ++ PosTypes0,
     SuccTs = meet_types(PosTypes, Ts),
 
-    NegTypes = NegTypes0 ++ NegTypes1,
     FailTs = subtract_types(NegTypes, Ts),
 
     {SuccTs,FailTs}.
@@ -1690,9 +1678,6 @@ t_tuple_size(#t_tuple{size=Size,exact=true}) ->
     {exact,Size};
 t_tuple_size(_) ->
     none.
-
-is_singleton_type(Type) ->
-    get_literal_from_type(Type) =/= none.
 
 get_element_type(Index, Es) ->
     case Es of
