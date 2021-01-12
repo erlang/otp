@@ -766,7 +766,7 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
 
 start_runerl_command(RunErl, Tempdir, Cmd) ->
     FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
-    ct:pal("~s",[FullCmd]),
+    ct:pal("~ts",[FullCmd]),
     os:cmd(FullCmd).
 
 start_toerl_server(ToErl,Tempdir) ->
