@@ -8720,6 +8720,9 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
     if (BIF_P->common.id == BIF_ARG_1)
 	BIF_RET(am_badarg); /* We are not allowed to suspend ourselves */
 
+    if (!is_internal_pid(BIF_ARG_1))
+        BIF_RET(am_badarg);
+
     if (is_not_nil(BIF_ARG_2)) {
 	/* Parse option list */
 	Eterm arg = BIF_ARG_2;
@@ -8866,6 +8869,9 @@ resume_process_1(BIF_ALIST_1)
     erts_aint_t mstate;
  
     if (BIF_P->common.id == BIF_ARG_1)
+	BIF_ERROR(BIF_P, BADARG);
+
+    if (!is_internal_pid(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
 
     mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(BIF_P),
