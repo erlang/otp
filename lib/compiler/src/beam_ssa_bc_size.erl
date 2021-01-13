@@ -90,13 +90,19 @@ opt_blks([], _ParamInfo, _StMap, unchanged, _Count, _Acc) ->
 opt_writable(Bs0, L, Blk, Blks, ParamInfo, Count0, Acc0) ->
     case {Blk,Blks} of
         {#b_blk{last=#b_br{succ=Next,fail=Next}},
-         [{Next,#b_blk{is=[#b_set{op=call,args=[_|Args],dst=Dst}=Call|_]}}|_]} ->
+         [{Next,#b_blk{is=[#b_set{op=call,args=[_|Args],dst=Dst}=Call|_],
+                       last=CallLast}}|_]} ->
             ensure_not_match_context(Call, ParamInfo),
+
             ArgTypes = maps:from_list([{Arg,{arg,Arg}} || Arg <- Args]),
             Bs = maps:merge(ArgTypes, Bs0),
             Result = map_get(Dst, call_size_func(Call, Bs)),
             {Expr,Annos} = make_expr_tree(Result),
-            cg_size_calc(Expr, L, Blk, Annos, Count0, Acc0);
+
+            %% Note that we pass the generator call's terminator: should we
+            %% need to raise a `bad_generator` exception, it needs to fail in
+            %% the same manner as the generator itself.
+            cg_size_calc(Expr, L, Blk, CallLast, Annos, Count0, Acc0);
         {_,_} ->
             throw(not_possible)
     end.
@@ -514,20 +520,24 @@ literal_expr_args([], Acc) ->
 %%% bytes to allocate for the writable binary.
 %%%
 
-cg_size_calc(Expr, L, #b_blk{is=Is0}=Blk0, Annos, Count0, Acc0) ->
+cg_size_calc(Expr, L, #b_blk{is=Is0}=Blk0, CallLast, Annos, Count0, Acc0) ->
     [InitWr] = Is0,
     FailBlk0 = [],
-    {Acc1,Alloc,NextBlk,FailBlk,Count} = cg_size_calc_1(L, Expr, Annos, FailBlk0, Count0, Acc0),
+    {Acc1,Alloc,NextBlk,FailBlk,Count} = cg_size_calc_1(L, Expr, Annos,
+                                                        CallLast, FailBlk0,
+                                                        Count0, Acc0),
     Is = [InitWr#b_set{args=[Alloc]}],
     Blk = Blk0#b_blk{is=Is},
     Acc = [{NextBlk,Blk}|FailBlk++Acc1],
     {Acc,Count}.
 
-cg_size_calc_1(L, #b_literal{}=Alloc, _Annos, FailBlk, Count, Acc) ->
+cg_size_calc_1(L, #b_literal{}=Alloc, _Annos, _CallLast, FailBlk, Count, Acc) ->
     {Acc,Alloc,L,FailBlk,Count};
-cg_size_calc_1(L0, {Op0,Args0}, Annos, FailBlk0, Count0, Acc0) ->
-    {Args,Acc1,L,FailBlk1,Count1} = cg_atomic_args(Args0, L0, Annos, FailBlk0, Count0, Acc0, []),
-    {BadGenL,FailBlk,Count2} = cg_bad_generator(Args, Annos, FailBlk1, Count1),
+cg_size_calc_1(L0, {Op0,Args0}, Annos, CallLast, FailBlk0, Count0, Acc0) ->
+    {Args,Acc1,L,FailBlk1,Count1} = cg_atomic_args(Args0, L0, Annos, CallLast,
+                                                   FailBlk0, Count0, Acc0, []),
+    {BadGenL,FailBlk,Count2} = cg_bad_generator(Args, Annos, CallLast,
+                                                FailBlk1, Count1),
     {Dst,Count3} = new_var('@ssa_tmp', Count2),
     case Op0 of
         {safe,Op} ->
@@ -551,20 +561,20 @@ cg_size_calc_1(L0, {Op0,Args0}, Annos, FailBlk0, Count0, Acc0) ->
             {Acc,Dst,NextBlkL,FailBlk,Count}
     end.
 
-cg_bad_generator([Arg|_], Annos, FailBlk, Count) ->
+cg_bad_generator([Arg|_], Annos, CallLast, FailBlk, Count) ->
     case Annos of
         #{Arg := Anno} ->
-            cg_bad_generator_1(Anno, Arg, FailBlk, Count);
+            cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count);
         #{} ->
             case FailBlk of
                 [{L,_}|_] ->
                     {L,FailBlk,Count};
                 [] ->
-                    cg_bad_generator_1(#{}, Arg, FailBlk, Count)
+                    cg_bad_generator_1(#{}, Arg, CallLast, FailBlk, Count)
             end
     end.
 
-cg_bad_generator_1(Anno, Arg, FailBlk, Count0) ->
+cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count0) ->
     {L,Count1} = new_block(Count0),
     {TupleDst,Count2} = new_var('@ssa_tuple', Count1),
     {Ret,Count3} = new_var('@ssa_ret', Count2),
@@ -576,7 +586,19 @@ cg_bad_generator_1(Anno, Arg, FailBlk, Count0) ->
                     dst=TupleDst},
     CallI = #b_set{anno=Anno,op=call,args=[MFA,TupleDst],dst=Ret},
     Is = [TupleI,CallI],
-    Blk = #b_blk{is=Is,last=#b_ret{arg=Ret}},
+
+    %% When the generator is called within try/catch, the `bad_generator` call
+    %% must refer to the same landing pad or else we'll break optimizations
+    %% that assume exceptions are always reflected in the control flow.
+    Last = case CallLast of
+               #b_br{fail=CatchLbl} when CatchLbl =/= ?EXCEPTION_BLOCK ->
+                   #b_br{bool=#b_literal{val=true},
+                         succ=CatchLbl,fail=CatchLbl};
+               _ ->
+                   #b_ret{arg=Ret}
+           end,
+
+    Blk = #b_blk{is=Is,last=Last},
     {L,[{L,Blk}|FailBlk],Count3}.
 
 cg_succeeded(#b_set{dst=OpDst}=I, Succ, Fail, Count0) ->
@@ -588,20 +610,24 @@ cg_succeeded(#b_set{dst=OpDst}=I, Succ, Fail, Count0) ->
 cg_br(Target) ->
     #b_br{bool=#b_literal{val=true},succ=Target,fail=Target}.
 
-cg_atomic_args([A|As], L, Annos, FailBlk0, Count0, BlkAcc0, Acc) ->
+cg_atomic_args([A|As], L, Annos, CallLast, FailBlk0, Count0, BlkAcc0, Acc) ->
     case A of
         #b_literal{} ->
-            cg_atomic_args(As, L, Annos, FailBlk0, Count0, BlkAcc0, [A|Acc]);
+            cg_atomic_args(As, L, Annos, CallLast, FailBlk0,
+                           Count0, BlkAcc0, [A|Acc]);
         #b_var{} ->
-            cg_atomic_args(As, L, Annos, FailBlk0, Count0, BlkAcc0, [A|Acc]);
+            cg_atomic_args(As, L, Annos, CallLast, FailBlk0,
+                           Count0, BlkAcc0, [A|Acc]);
         none ->
             throw(not_possible);
         _ ->
             {BlkAcc,Var,NextBlk,FailBlk,Count} =
-                cg_size_calc_1(L, A, Annos, FailBlk0, Count0, BlkAcc0),
-            cg_atomic_args(As, NextBlk, Annos, FailBlk, Count, BlkAcc, [Var|Acc])
+                cg_size_calc_1(L, A, Annos, CallLast, FailBlk0,
+                               Count0, BlkAcc0),
+            cg_atomic_args(As, NextBlk, Annos, CallLast, FailBlk,
+                               Count, BlkAcc, [Var|Acc])
     end;
-cg_atomic_args([], NextBlk, _Annos, FailBlk, Count, BlkAcc, Acc) ->
+cg_atomic_args([], NextBlk, _Annos, _CallLast, FailBlk, Count, BlkAcc, Acc) ->
     {reverse(Acc),BlkAcc,NextBlk,FailBlk,Count}.
 
 new_var(Base, Count) ->
