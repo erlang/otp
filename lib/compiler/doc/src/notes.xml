@@ -287,6 +287,22 @@
 
 </section>
 
+<section><title>Compiler 7.5.4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the type optimization pass that could
+	    yield incorrect values or cause the wrong clauses to be
+	    executed.</p>
+          <p>
+	    Own Id: OTP-17073</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.5.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
