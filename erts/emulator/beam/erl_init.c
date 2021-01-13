@@ -310,8 +310,8 @@ erl_init(int ncpu,
 	 ErtsDbSpinCount db_spin_count)
 {
     erts_monitor_link_init();
-    erts_proc_sig_queue_init();
     erts_bif_unique_init();
+    erts_proc_sig_queue_init(); /* Must be after erts_bif_unique_init(); */
     erts_init_time(time_correction, time_warp_mode);
     erts_init_sys_common_misc();
     erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
