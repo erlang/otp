@@ -73,6 +73,7 @@
          start_exec_direct_fun1_read_write/1,
          start_exec_direct_fun1_read_write_advanced/1,
          start_shell/1,
+         start_shell_pty/1,
          start_shell_exec/1,
          start_shell_exec_direct_fun/1,
          start_shell_exec_direct_fun1_error/1,
@@ -112,6 +113,7 @@ all() ->
      exec_disabled,
      exec_shell_disabled,
      start_shell,
+     start_shell_pty,
      start_shell_exec,
      start_shell_exec_fun,
      start_shell_exec_fun2,
@@ -579,6 +581,27 @@ start_shell(Config) when is_list(Config) ->
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
     test_shell_is_enabled(ConnectionRef, <<"Enter command">>), % No pty alloc by erl client
+    test_exec_is_disabled(ConnectionRef),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%-------------------------------------------------------------------
+start_shell_pty(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {shell, fun(U, H) -> start_our_shell(U, H) end} ]),
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, true},
+						      {user_dir, UserDir}]),
+    test_shell_is_enabled(ConnectionRef, <<"Enter command\r\n">>, [{pty_opts,[{onlcr,1}]}]), % alloc pty 
     test_exec_is_disabled(ConnectionRef),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -1409,8 +1432,17 @@ test_shell_is_enabled(ConnectionRef) ->
     test_shell_is_enabled(ConnectionRef, <<"Eshell V">>).
 
 test_shell_is_enabled(ConnectionRef, Expect) ->
+    test_shell_is_enabled(ConnectionRef, Expect, []).
+
+test_shell_is_enabled(ConnectionRef, Expect, PtyOpts) ->
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:shell(ConnectionRef,ChannelId),
+    case PtyOpts of
+        [] ->
+            no_alloc;
+        _ ->
+            success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, PtyOpts)
+    end,
     ExpSz = size(Expect),
     receive
 	{ssh_cm,ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} ->
