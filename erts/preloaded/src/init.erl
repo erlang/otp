@@ -542,21 +542,15 @@ do_handle_msg(Msg,State) ->
             NewState = State#state{script_name = NewScriptName},
             {new_state, NewState};
 	X ->
-            %% This is equal to calling logger:info/3 which we don't
-            %% want to do from the init process, at least not during
-            %% system boot. We don't want to call logger:timestamp()
-            %% either.
-	    case whereis(user) of
-		undefined ->
-                    catch logger ! {log, info, "init got unexpected: ~p", [X],
-                                    #{pid=>self(),
-                                      gl=>self(),
-                                      time=>os:system_time(microsecond),
-                                      error_logger=>#{tag=>info_msg}}};
-		User ->
-		    User ! X,
-		    ok
-	    end
+            %% Only call the logger module if the logger_server is running.
+            %% If it is not running, then we don't know that the logger
+            %% module can be loaded.
+            case whereis(logger_server) =/= undefined of
+                true -> logger:info("init got unexpected: ~p", [X],
+                                    #{ error_logger=>#{tag=>info_msg}});
+                false -> erlang:display_string("init got unexpected: "),
+                         erlang:display(X)
+            end
     end.		  
 
 %%% -------------------------------------------------
