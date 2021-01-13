@@ -5174,10 +5174,6 @@ erts_qsort_partion_array(void *base,
                          size_t item_size,
                          erts_void_ptr_cmp_t compare,
                          int extra_seed);
-static void erts_qsort_swap(void *base,
-                            size_t item_size,
-                            size_t i,
-                            size_t j);
 
 /* **Important Note**
  *

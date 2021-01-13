@@ -632,6 +632,7 @@ MAPS_YCF_FLAGS=-yield \
 		$(YCF_DEBUG_FLAG) \
 		-static_aux_funs \
 		-only_yielding_funs \
+		-fnoauto maps_from_keys_2_helper \
 		-fnoauto maps_from_list_1_helper \
 		-fnoauto hashmap_from_validated_list \
 		-f hashmap_from_unsorted_array \

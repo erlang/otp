@@ -95,7 +95,6 @@ static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node, Eterm *value);
 static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_value, Uint size);
-static Eterm hashmap_from_validated_list(Process *p, Eterm list, Eterm fill_value, Uint size, ErtsAlcType_t temp_memory_allocator);
 static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int reject_dupkeys, ErtsAlcType_t temp_memory_allocator);
 static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int is_root, ErtsAlcType_t temp_memory_allocator);
 static Eterm hashmap_from_chunked_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, Uint size, int is_root, ErtsAlcType_t temp_memory_allocator);
@@ -285,16 +284,21 @@ BIF_RETTYPE map_get_2(BIF_ALIST_2) {
     BIF_RET(maps_get_2(BIF_CALL_ARGS));
 }
 
-/* maps:from_keys/2
- * List may be unsorted
+/* **Important Note**
+ *
+ * A yielding version of this function is generated with YCF. This
+ * means that the code has to follow some restrictions. See note about
+ * YCF near the top of the file for more information.
  */
-
-BIF_RETTYPE maps_from_keys_2(BIF_ALIST_2) {
-    Eterm item = BIF_ARG_1;
+#ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
+BIF_RETTYPE maps_from_keys_2_helper(Process* p, Eterm list, Eterm value) {
+    Eterm res;
+    Eterm item = list;
     Uint  size = 0;
     if (is_list(item) || is_nil(item)) {
         /* Calculate size and check validity */
         while(is_list(item)) {
+            YCF_CONSUME_REDS(1);
             size++;
             item = CDR(list_val(item));
         }
@@ -303,16 +307,22 @@ BIF_RETTYPE maps_from_keys_2(BIF_ALIST_2) {
             goto error;
 
         if (size > MAP_SMALL_MAP_LIMIT) {
-            BIF_RET(hashmap_from_validated_list(BIF_P, BIF_ARG_1, BIF_ARG_2, size, ERTS_ALC_T_TMP));
+            /* Cannot put call in return statement because
+               YCF cannot handle that */
+            res = hashmap_from_validated_list(p, list, value, size);
+            return res;
         } else {
-            BIF_RET(flatmap_from_validated_list(BIF_P, BIF_ARG_1, BIF_ARG_2, size));
+            /* We don't yield while constructing flatmap because
+               MAP_SMALL_MAP_LIMIT is small */
+	    return flatmap_from_validated_list(p, list, value, size);
         }
     }
 
 error:
 
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_ERROR(p, BADARG);
 }
+#endif /* INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS */
 
 /* **Important Note**
  *
@@ -350,7 +360,7 @@ BIF_RETTYPE maps_from_list_1_helper(Process* p, Eterm list) {
 	if (size > MAP_SMALL_MAP_LIMIT) {
             /* Cannot put call in return statement because
                YCF cannot handle that */
-            res = hashmap_from_validated_list(p, list, THE_NON_VALUE, size, ERTS_ALC_T_MAP_TRAP);
+            res = hashmap_from_validated_list(p, list, THE_NON_VALUE, size);
             return res;
 	} else {
             /* We don't yield while constructing flatmap because
@@ -474,11 +484,11 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
  * means that the code has to follow some restrictions. See note about
  * YCF near the top of the file for more information.
  */
+#ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
 static Eterm hashmap_from_validated_list(Process *p,
                                          Eterm list,
                                          Eterm fill_value,
-                                         Uint size,
-                                         ErtsAlcType_t temp_memory_allocator) {
+                                         Uint size) {
     Eterm item = list;
     Eterm *hp;
     Eterm *kv;
@@ -507,7 +517,7 @@ static Eterm hashmap_from_validated_list(Process *p,
     hp = HAlloc(p, (2 * size));
 
     /* create tmp hx values and leaf ptrs */
-    hxns = (hxnode_t *)erts_alloc(temp_memory_allocator, size * sizeof(hxnode_t));
+    hxns = (hxnode_t *)erts_alloc(ERTS_ALC_T_MAP_TRAP, size * sizeof(hxnode_t));
 
     while(is_list(item)) {
         YCF_CONSUME_REDS(1);
@@ -531,7 +541,7 @@ static Eterm hashmap_from_validated_list(Process *p,
     }
 
     erts_factory_proc_init(factory, p);
-    res = hashmap_from_unsorted_array(factory, hxns, size, 0, temp_memory_allocator);
+    res = hashmap_from_unsorted_array(factory, hxns, size, 0, ERTS_ALC_T_MAP_TRAP);
     erts_factory_close(factory);
 
     YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
@@ -539,11 +549,11 @@ static Eterm hashmap_from_validated_list(Process *p,
         if (hxns != NULL) {
             /* Execution of this function got destoyed while yielding in
                the loop above */
-            erts_free(temp_memory_allocator, (void *) hxns);
+            erts_free(ERTS_ALC_T_MAP_TRAP, (void *) hxns);
         }
     }
     YCF_SPECIAL_CODE_END();
-    erts_free(temp_memory_allocator, (void *) hxns);
+    erts_free(ERTS_ALC_T_MAP_TRAP, (void *) hxns);
     /* Memory managment depends on the line below */
     hxns = NULL;
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
@@ -590,16 +600,17 @@ static Eterm hashmap_from_validated_list(Process *p,
 
     return res;
 }
+#endif /* INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS */
 
 #define ITERATIONS_PER_RED 40
 
 typedef struct {
     void* trap_state;
-} maps_from_list_1_trap_state_holder;
+} maps_trap_state_holder;
 
 static int maps_from_list_1_yield_dtor(Binary* bin)
 {
-    maps_from_list_1_trap_state_holder* holder = ERTS_MAGIC_BIN_DATA(bin);
+    maps_trap_state_holder* holder = ERTS_MAGIC_BIN_DATA(bin);
     if (holder->trap_state != NULL) {
         maps_from_list_1_helper_ycf_gen_destroy(holder->trap_state);
     }
@@ -621,7 +632,7 @@ BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
     const long init_reds = nr_of_reductions;
     if (is_internal_magic_ref(BIF_ARG_1)) {
         /* Continue a trapped call */
-        maps_from_list_1_trap_state_holder *state_holder;
+        maps_trap_state_holder *state_holder;
         Binary *state_bin = erts_magic_ref2bin(BIF_ARG_1);
         BIF_RETTYPE ret;
         if (ERTS_MAGIC_BIN_DESTRUCTOR(state_bin) != maps_from_list_1_yield_dtor) {
@@ -673,14 +684,103 @@ BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
             return ret;
         } else {
             /* We need to trap */
-            Binary* state_bin = erts_create_magic_binary(sizeof(maps_from_list_1_trap_state_holder),
+            Binary* state_bin = erts_create_magic_binary(sizeof(maps_trap_state_holder),
                                                          maps_from_list_1_yield_dtor);
             Eterm* hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
             Eterm state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
-            maps_from_list_1_trap_state_holder *holder = ERTS_MAGIC_BIN_DATA(state_bin);
+            maps_trap_state_holder *holder = ERTS_MAGIC_BIN_DATA(state_bin);
             holder->trap_state = trap_state;
             erts_set_gc_state(BIF_P, 0);
             BIF_TRAP1(BIF_TRAP_EXPORT(BIF_maps_from_list_1), BIF_P, state_mref);
+        }
+    }
+}
+
+static int maps_from_keys_2_yield_dtor(Binary* bin)
+{
+    maps_trap_state_holder* holder = ERTS_MAGIC_BIN_DATA(bin);
+    if (holder->trap_state != NULL) {
+        maps_from_keys_2_helper_ycf_gen_destroy(holder->trap_state);
+    }
+    return 1;
+}
+
+/* maps:from_keys/2
+ * List may be unsorted
+ *
+ * See note about YCF near the top of the file for more information
+ * about the generated functions
+ * maps_from_keys_2_helper_ycf_gen_continue and
+ * maps_from_keys_2_helper_ycf_gen_yielding.
+ *
+ */
+BIF_RETTYPE maps_from_keys_2(BIF_ALIST_2) {
+    const long reds = ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
+    long nr_of_reductions = DBG_RANDOM_REDS(reds, (Uint)&BIF_P);
+    const long init_reds = nr_of_reductions;
+    if (is_internal_magic_ref(BIF_ARG_1)) {
+        /* Continue a trapped call */
+        maps_trap_state_holder *state_holder;
+        Binary *state_bin = erts_magic_ref2bin(BIF_ARG_1);
+        BIF_RETTYPE ret;
+        if (ERTS_MAGIC_BIN_DESTRUCTOR(state_bin) != maps_from_keys_2_yield_dtor) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+        erts_set_gc_state(BIF_P, 1);
+        state_holder = ERTS_MAGIC_BIN_DATA(state_bin);
+#if defined (DEBUG)
+        ycf_debug_set_stack_start(&nr_of_reductions);
+#endif
+        ret = maps_from_keys_2_helper_ycf_gen_continue(&nr_of_reductions,
+                                                       &state_holder->trap_state,
+                                                       NULL);
+#if defined (DEBUG)
+        ycf_debug_reset_stack_start();
+#endif
+        BUMP_REDS(BIF_P, (init_reds - nr_of_reductions) / ITERATIONS_PER_RED);
+        if (state_holder->trap_state == NULL) {
+            return ret;
+        } else {
+            erts_set_gc_state(BIF_P, 0);
+            BIF_TRAP2(BIF_TRAP_EXPORT(BIF_maps_from_keys_2), BIF_P, BIF_ARG_1, BIF_ARG_2);
+        }
+    } else {
+        void *trap_state = NULL;
+        BIF_RETTYPE ret;
+#if defined (DEBUG)
+        ycf_debug_set_stack_start(&nr_of_reductions);
+#endif
+        /* Start a new call */
+        ret =
+            maps_from_keys_2_helper_ycf_gen_yielding(&nr_of_reductions,
+                                                     &trap_state,
+                                                     NULL,
+                                                     maps_ycf_yield_alloc,
+                                                     maps_ycf_yield_free,
+                                                     NULL,
+                                                     /*Add 2*sizeof(void*) as YCF_STACK_ALLOC may pad both allocations */
+                                                     sizeof(ErtsHeapFactory) + 2*sizeof(Eterm) + 2*sizeof(void*),
+                                                     NULL,
+                                                     BIF_P,
+                                                     BIF_ARG_1,
+                                                     BIF_ARG_2);
+#if defined (DEBUG)
+        ycf_debug_reset_stack_start();
+#endif
+        BUMP_REDS(BIF_P, (init_reds - nr_of_reductions) / ITERATIONS_PER_RED);
+        if (trap_state == NULL) {
+            /* The operation has completed */
+            return ret;
+        } else {
+            /* We need to trap */
+            Binary* state_bin = erts_create_magic_binary(sizeof(maps_trap_state_holder),
+                                                         maps_from_keys_2_yield_dtor);
+            Eterm* hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
+            Eterm state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
+            maps_trap_state_holder *holder = ERTS_MAGIC_BIN_DATA(state_bin);
+            holder->trap_state = trap_state;
+            erts_set_gc_state(BIF_P, 0);
+            BIF_TRAP2(BIF_TRAP_EXPORT(BIF_maps_from_keys_2), BIF_P, state_mref, BIF_ARG_2);
         }
     }
 }
