@@ -933,8 +933,6 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
         none -> I;
         List -> #b_literal{val=list_to_tuple(List)}
     end;
-simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
-    #b_literal{val=true};
 simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, Ts) ->
     case Rem of
         #b_remote{mod=#b_literal{val=Mod},
@@ -1059,8 +1057,18 @@ will_succeed_1(#b_set{op=call}, _Src, _Ts, _Sub) ->
 will_succeed_1(#b_set{op=get_map_element}, _Src, _Ts, _Sub) ->
     maybe;
 
-will_succeed_1(#b_set{op=wait}, _Src, _Ts, _Sub) ->
-    no;
+will_succeed_1(#b_set{op=wait_timeout,args=[Timeout]}, _Src, Ts, _Sub) ->
+    %% Timeouts that are too long can fail. Conservatively assume that
+    %% anything under a day is okay.
+    MaxTimeout = 24 * (60 * 60 * 1000),
+    case normalized_type(Timeout, Ts) of
+        #t_integer{elements={Min,Max}} when Min >= 0, Max =< MaxTimeout ->
+            yes;
+        #t_atom{elements=[infinity]} ->
+            yes;
+        _ ->
+            maybe
+    end;
 
 will_succeed_1(#b_set{}, Src, Ts, Sub) ->
     case simplify_arg(Src, Ts, Sub) of
@@ -1755,7 +1763,14 @@ type(put_tuple, Args, _Anno, Ts, _Ds) ->
     #t_tuple{exact=true,size=length(Args),elements=Es};
 type(resume, [_, _], _Anno, _Ts, _Ds) ->
     none;
-type(_, _, _, _, _) -> any.
+type(wait_timeout, [#b_literal{val=0}], _Anno, _Ts, _Ds) ->
+    %% Never waits, jumps directly to 'after' block.
+    beam_types:make_atom(true);
+type(wait_timeout, [#b_literal{val=infinity}], _Anno, _Ts, _Ds) ->
+    %% Waits forever, never reaching the 'after' block.
+    beam_types:make_atom(false);
+type(_, _, _, _, _) ->
+    any.
 
 put_map_type(Map, Ss, Ts) ->
     pmt_1(Ss, Ts, normalized_type(Map, Ts)).

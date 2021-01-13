@@ -33,7 +33,7 @@ module(Mod0, _Opts) ->
     {ok,Mod,[]}.
 
 rewrite_recv(#c_receive{clauses=[],timeout=Timeout0,action=Action}, Count0) ->
-    %% Lower a receive with only an after blcok to its primitive operations.
+    %% Lower a receive with only an after block to its primitive operations.
     False = #c_literal{val=false},
     True = #c_literal{val=true},
 
@@ -42,13 +42,11 @@ rewrite_recv(#c_receive{clauses=[],timeout=Timeout0,action=Action}, Count0) ->
     LoopFun = #c_var{name={LoopName,0}},
     ApplyLoop = #c_apply{op=LoopFun,args=[]},
 
-    TimeoutCs = [#c_clause{pats=[True],guard=True,
-                           body=#c_seq{arg=primop(timeout),
-                                       body=Action}},
-                 #c_clause{pats=[False],guard=True,
-                           body=ApplyLoop}],
+    AfterCs = [#c_clause{pats=[True],guard=True,body=Action},
+               #c_clause{pats=[False],guard=True,
+                         body=ApplyLoop}],
     {TimeoutBool,Count4} = new_var(Count2),
-    TimeoutCase = #c_case{arg=TimeoutBool,clauses=TimeoutCs},
+    TimeoutCase = #c_case{arg=TimeoutBool,clauses=AfterCs},
     TimeoutLet = #c_let{vars=[TimeoutBool],
                         arg=primop(recv_wait_timeout, [TimeoutVal]),
                         body=TimeoutCase},
@@ -80,13 +78,11 @@ rewrite_recv(#c_receive{clauses=Cs0,timeout=Timeout0,action=Action}, Count0) ->
     {Msg,Count3} = new_var(Count2),
     MsgCase = #c_case{arg=Msg,clauses=Cs},
 
-    TimeoutCs = [#c_clause{pats=[True],guard=True,
-                           body=#c_seq{arg=primop(timeout),
-                                       body=Action}},
-                 #c_clause{pats=[False],guard=True,
-                           body=ApplyLoop}],
+    AfterCs = [#c_clause{pats=[True],guard=True,body=Action},
+               #c_clause{pats=[False],guard=True,
+                         body=ApplyLoop}],
     {TimeoutBool,Count4} = new_var(Count3),
-    TimeoutCase = #c_case{arg=TimeoutBool,clauses=TimeoutCs},
+    TimeoutCase = #c_case{arg=TimeoutBool,clauses=AfterCs},
     TimeoutLet = #c_let{vars=[TimeoutBool],
                         arg=primop(recv_wait_timeout, [TimeoutVal]),
                         body=TimeoutCase},

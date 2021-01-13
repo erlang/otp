@@ -731,46 +731,33 @@ internal_cg(_Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
     Set = #b_set{op=peek_message,dst=Dst,args=[]},
     {[Set],St};
 internal_cg(_Anno, recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
-    case ssa_args(As, St0) of
-        [#b_literal{val=0}] ->
-            %% If beam_ssa_opt is run (which is default), the
-            %% `wait_timeout` instruction will be removed if the
-            %% operand is a literal 0.  However, if optimizations have
-            %% been turned off, we must not not generate a
-            %% `wait_timeout` instruction with a literal 0 timeout,
-            %% because the BEAM instruction will not handle it
-            %% correctly.
-            St = new_bool_value(Succeeded0, #b_literal{val=true}, St0),
-            {[],St};
-        Args ->
-            %% Note that the `wait_timeout` instruction can
-            %% potentially branch in three different directions:
-            %%
-            %% * A new message is available in the message queue.
-            %%   wait_timeout branches to the given label.
-            %%
-            %% * The timeout expired. wait_timeout transfers control
-            %%   to the next instruction.
-            %%
-            %% * The value for timeout duration is invalid (either not
-            %%   an integer or negative or too large). A timeout_value
-            %%   exception will be raised.
-            %%
-            %% wait_timeout will be represented like this in SSA code:
-            %%
-            %%       WaitBool = wait_timeout TimeoutValue
-            %%       Succeeded = succeeded:body WaitBool
-            %%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
-            %%
-            %%   good_timeout_value:
-            %%       br WaitBool, ^timeout_expired, ^new_message_received
-            %%
-            {Wait,St1} = new_ssa_var('@ssa_wait', St0),
-            {Succ,St2} = make_succeeded(Wait, fail_context(St1), St1),
-            St = new_bool_value(Succeeded0, Wait, St2),
-            Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
-            {[Set|Succ],St}
-    end;
+    %% Note that the `wait_timeout` instruction can potentially branch in three
+    %% different directions:
+    %%
+    %% * A new message is available in the message queue. `wait_timeout`
+    %%   branches to the given label.
+    %%
+    %% * The timeout expired. `wait_timeout` transfers control to the next
+    %%   instruction.
+    %%
+    %% * The value for timeout duration is invalid (either not an integer or
+    %%   negative or too large). A `timeout_value` exception will be raised.
+    %%
+    %% `wait_timeout` will be represented like this in SSA code:
+    %%
+    %%       WaitBool = wait_timeout TimeoutValue
+    %%       Succeeded = succeeded:body WaitBool
+    %%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
+    %%
+    %%   good_timeout_value:
+    %%       br WaitBool, ^timeout_expired, ^new_message_received
+    %%
+    Args = ssa_args(As, St0),
+    {Wait,St1} = new_ssa_var('@ssa_wait', St0),
+    {Succ,St2} = make_succeeded(Wait, fail_context(St1), St1),
+    St = new_bool_value(Succeeded0, Wait, St2),
+    Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
+    {[Set|Succ],St};
 internal_cg(Anno, Op0, As, [#k_var{name=Dst0}], St0) when is_atom(Op0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
@@ -1389,7 +1376,6 @@ drop_upto_label([_|Is]) -> drop_upto_label(Is).
 fix_sets([#b_set{op=Op,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
     NoValue = case Op of
                   remove_message -> true;
-                  timeout -> true;
                   _ -> false
               end,
     case NoValue of

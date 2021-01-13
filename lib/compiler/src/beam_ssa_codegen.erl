@@ -230,10 +230,15 @@ need_heap_allocs([{L,#cg_blk{is=Is0,last=Terminator}=Blk0}|Bs], Counts0) ->
     end;
 need_heap_allocs([], _) -> [].
 
-need_heap_never([#cg_alloc{}|_]) -> true;
-need_heap_never([#cg_set{op=recv_next}|_]) -> true;
-need_heap_never([#cg_set{op=wait}|_]) -> true;
-need_heap_never(_) -> false.
+need_heap_never([#cg_alloc{}|_]) ->
+    true;
+need_heap_never([#cg_set{op=recv_next}|_]) ->
+    true;
+need_heap_never([#cg_set{op=wait_timeout,
+                         args=[#b_literal{val=infinity}]}|_]) ->
+    true;
+need_heap_never(_) ->
+    false.
 
 need_heap_blks([{L,#cg_blk{is=Is0}=Blk0}|Bs], H0, Acc) ->
     {Is1,H1} = need_heap_is(reverse(Is0), H0, []),
@@ -411,8 +416,6 @@ classify_heap_need(remove_message) -> neutral;
 classify_heap_need(resume) -> gc;
 classify_heap_need(set_tuple_element) -> gc;
 classify_heap_need(succeeded) -> neutral;
-classify_heap_need(timeout) -> gc;
-classify_heap_need(wait) -> gc;
 classify_heap_need(wait_timeout) -> gc.
 
 %%%
@@ -945,7 +948,12 @@ cg_linear([], St) -> {[],St}.
 cg_block([#cg_set{op=recv_next}], #cg_br{succ=Lr0}, _Next, St0) ->
     {Lr,St} = use_block_label(Lr0, St0),
     {[{loop_rec_end,Lr}],St};
-cg_block([#cg_set{op=wait}], #cg_br{succ=Lr0}, _Next, St0) ->
+cg_block([#cg_set{op=wait_timeout,
+                  args=[#b_literal{val=infinity}]}],
+         Last, _Next, St0) ->
+    %% 'infinity' will never time out, so we'll simplify this to a 'wait'
+    %% instruction that always jumps back to peek_message (fail label).
+    #cg_br{fail=Lr0} = Last,
     {Lr,St} = use_block_label(Lr0, St0),
     {[{wait,Lr}],St};
 cg_block(Is0, Last, Next, St0) ->
@@ -1285,12 +1293,16 @@ cg_block([#cg_set{op=match_fail,args=Args0,anno=Anno}|T], Context, St0) ->
     {Is1,St} = cg_block(T, Context, St0),
     {Is0++Is1,St};
 cg_block([#cg_set{op=wait_timeout,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
-    case beam_args(Args0, St) of
-        [{atom,infinity}] ->
-            {[{wait,Fail}],St};
-        [Timeout] ->
-            {[{wait_timeout,Fail,Timeout}],St}
-    end;
+    Is = case beam_args(Args0, St) of
+             [{atom,infinity}] -> [{wait,Fail}];
+             [{integer,0}] -> [timeout];
+             [Timeout] -> [{wait_timeout,Fail,Timeout},timeout]
+         end,
+    {Is,St};
+cg_block([#cg_set{op=wait_timeout,args=Args} | T], Context, St0) ->
+    [{integer,0}] = beam_args(Args, St0),
+    {Is,St} = cg_block(T, Context, St0),
+    {[timeout | Is],St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),
@@ -1703,9 +1715,7 @@ cg_instr(raw_raise, Args, Dst) ->
 cg_instr(remove_message, [], _Dst) ->
     [remove_message];
 cg_instr(resume, [A,B], _Dst) ->
-    [{bif,raise,{f,0},[A,B],{x,0}}];
-cg_instr(timeout, [], _Dst) ->
-    [timeout].
+    [{bif,raise,{f,0},[A,B],{x,0}}].
 
 cg_test(bs_add=Op, Fail, [Src1,Src2,{integer,Unit}], Dst, _I) ->
     [{Op,Fail,[Src1,Src2,Unit],Dst}];

@@ -258,8 +258,7 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_cse),                   % Helps the first type pass.
-          ?PASS(ssa_opt_live),                  % ...
-          ?PASS(ssa_opt_receive_after)],
+          ?PASS(ssa_opt_live)],                 % ...
     passes_1(Ps, Opts).
 
 module_passes(Opts) ->
@@ -2108,107 +2107,6 @@ opt_sw([{L,#b_blk{}=Blk}|Bs], Count, Acc) ->
 opt_sw([], Count, Acc) ->
     {reverse(Acc),Count}.
 
-%%%
-%%% Replace `wait_timeout infinity` with `wait`, but only when safe to
-%%% do so.
-%%%
-%%% Consider this code:
-%%%
-%%%     0:
-%%%       @tag = new_try_tag `'try'`
-%%%       br @tag, ^2, ^99
-%%%
-%%%     2:
-%%%          .
-%%%          .
-%%%          .
-%%%       br ^50
-%%%
-%%%     50:
-%%%        @wait_bool = wait_timeout `infinity`
-%%%        @succ_bool = succeeded @bool
-%%%        br @succ_bool ^51, ^99
-%%%
-%%%     51:
-%%%        br @wait_bool ^75, ^50
-%%%
-%%%     75:
-%%%        timeout
-%%%        kill_try_tag @tag
-%%%        ret `ok`
-%%%
-%%%     99:
-%%%        @ssa_agg = landingpad `'try'`, @tag
-%%%        @ssa_ignored = kill_try_tag @tag
-%%%        ret `error`
-%%%
-%%%
-%%% The liveness range of @tag will be from block 0 to block 99.
-%%% That will ensure that the Y register reserved for @tag can't
-%%% be reused or killed inside the try/block.
-%%%
-%%% It would not be safe (in general) to replace the `wait_timeout`
-%%% instruction with `wait` in this code. That is, the following
-%%% code is potentially UNSAFE (depending on the exact code in
-%%% block 2):
-%%%
-%%%     0:
-%%%       @tag = new_try_tag `'try'`
-%%%       br @tag, ^2, ^99
-%%%
-%%%     2:
-%%%          .
-%%%          .
-%%%          .
-%%%       br ^50
-%%%
-%%%     50:
-%%%        wait
-%%%        br ^50
-%%%
-%%%     99:
-%%%        @ssa_agg = landingpad `'try'`, @tag
-%%%        @ssa_ignored = kill_try_tag @tag
-%%%        ret `error`
-%%%
-%%% The try tag variable @tag will not be live in block 2 and 50
-%%% (because from those blocks, there is no way to reach an
-%%% instruction that uses @tag). Because @tag is not live, the
-%%% register allocator could reuse the register for @tag, or the
-%%% code generator could kill the register that holds @tag.
-%%%
-
-ssa_opt_receive_after({#opt_st{ssa=Linear}=St, FuncDb}) ->
-    {St#opt_st{ssa=recv_after_opt(Linear)}, FuncDb}.
-
-recv_after_opt([{L1,#b_blk{is=Is0,last=#b_br{bool=#b_var{},
-                                             succ=L2,
-                                             fail=?EXCEPTION_BLOCK}}=Blk1},
-                {L2,#b_blk{is=[],last=#b_br{bool=#b_var{}=WaitBool,
-                                            fail=Fail}=Br0}=Blk2}|Bs]) ->
-    case recv_after_opt_is(Is0, WaitBool, []) of
-        {yes,Is} ->
-            Br = Br0#b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail},
-            [{L1,Blk1#b_blk{is=Is,last=Br}}|recv_after_opt(Bs)];
-        no ->
-            [{L1,Blk1},{L2,Blk2}|recv_after_opt(Bs)]
-    end;
-recv_after_opt([B|Bs]) ->
-    [B|recv_after_opt(Bs)];
-recv_after_opt([]) -> [].
-
-recv_after_opt_is([#b_set{op=wait_timeout,
-                          args=[#b_literal{val=infinity}],
-                          dst=WaitBool}=I0,
-                   #b_set{op={succeeded,body},
-                          args=[WaitBool]}],
-                  WaitBool, Acc) ->
-    I = I0#b_set{op=wait,args=[]},
-    {yes,reverse(Acc, [I])};
-recv_after_opt_is([I|Is], WaitBool, Acc) ->
-    recv_after_opt_is(Is, WaitBool, [I|Acc]);
-recv_after_opt_is([], _WaitBool, _Acc) -> no.
-
 %%% Try to replace `=/=` with `=:=` and `/=` with `==`. For example,
 %%% this code:
 %%%
@@ -2726,7 +2624,7 @@ insert_def_is([#b_set{op=Op}=I|Is]=Is0, V, Def) ->
     Action0 = case Op of
                   call -> beyond;
                   'catch_end' -> beyond;
-                  timeout -> beyond;
+                  wait_timeout -> beyond;
                   _ -> here
               end,
     Action = case Is of

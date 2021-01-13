@@ -118,8 +118,7 @@
                    'make_fun' | 'new_try_tag' | 'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
-                   'timeout' |
-                   'wait' | 'wait_timeout'.
+                   'wait_timeout'.
 
 -type float_op() :: 'checkerror' | 'clearerror' | 'convert' | 'get' | 'put' |
                     '+' | '-' | '*' | '/'.
@@ -231,13 +230,16 @@ no_side_effect(#b_set{op=Op}) ->
 
 -spec is_loop_header(b_set()) -> boolean().
 
+is_loop_header(#b_set{op=wait_timeout,args=[Args]}) ->
+    case Args of
+        #b_literal{val=0} ->
+            %% Never jumps back to peek_message
+            false;
+        _ ->
+            true
+    end;
 is_loop_header(#b_set{op=Op}) ->
-    case Op of
-        peek_message -> true;
-        wait -> true;
-        wait_timeout -> true;
-        _ -> false
-    end.
+    Op =:= peek_message.
 
 -spec predecessors(Blocks) -> Result when
       Blocks :: block_map(),
