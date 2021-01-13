@@ -640,12 +640,12 @@ static Sint64 internal_sync_io(efile_win_t *w, io_op_t operation,
             &block_bytes_processed, overlapped);
         last_error = GetLastError();
 
-        if(is_read && !succeeded) {
-            if(last_error == ERROR_BROKEN_PIPE) {
+        if(!succeeded) {
+            if(is_read && last_error == ERROR_BROKEN_PIPE) {
                 /* Pipes gives ERROR_BROKEN_PIPE instead of EOF when the
                    write end has been closed */
                 return bytes_processed;
-            } else if(last_error != ERROR_HANDLE_EOF) {
+            } else if(!is_read || last_error != ERROR_HANDLE_EOF) {
                 w->common.posix_errno = windows_to_posix_errno(last_error);
                 return -1;
             }
