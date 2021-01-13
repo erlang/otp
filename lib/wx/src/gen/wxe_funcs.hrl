@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3367,3 +3367,14 @@
 -define(wxGCDC_destruct, 3541).
 -define(wxGCDC_GetGraphicsContext, 3542).
 -define(wxGCDC_SetGraphicsContext, 3543).
+-define(wxNotificationMessage_new_0, 3544).
+-define(wxNotificationMessage_new_2, 3545).
+-define(wxNotificationMessage_destruct, 3546).
+-define(wxNotificationMessage_AddAction, 3547).
+-define(wxNotificationMessage_Close, 3548).
+-define(wxNotificationMessage_SetFlags, 3549).
+-define(wxNotificationMessage_SetIcon, 3550).
+-define(wxNotificationMessage_SetMessage, 3551).
+-define(wxNotificationMessage_SetParent, 3552).
+-define(wxNotificationMessage_SetTitle, 3553).
+-define(wxNotificationMessage_Show, 3554).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,6 +80,15 @@ void initEventTable()
      {wxEVT_COMMAND_SET_FOCUS, 168, "command_set_focus", "wxCommandEvent", "wxCommand"},
      {wxEVT_COMMAND_KILL_FOCUS, 168, "command_kill_focus", "wxCommandEvent", "wxCommand"},
      {wxEVT_COMMAND_ENTER, 168, "command_enter", "wxCommandEvent", "wxCommand"},
+#if wxCHECK_VERSION(3,1,0)
+     {wxEVT_NOTIFICATION_MESSAGE_CLICK, 168, "notification_message_click", "wxCommandEvent", "wxCommand"},
+#endif
+#if wxCHECK_VERSION(3,1,0)
+     {wxEVT_NOTIFICATION_MESSAGE_DISMISSED, 168, "notification_message_dismissed", "wxCommandEvent", "wxCommand"},
+#endif
+#if wxCHECK_VERSION(3,1,0)
+     {wxEVT_NOTIFICATION_MESSAGE_ACTION, 168, "notification_message_action", "wxCommandEvent", "wxCommand"},
+#endif
      {wxEVT_SCROLL_TOP, 169, "scroll_top", "wxScrollEvent", "wxScroll"},
      {wxEVT_SCROLL_BOTTOM, 169, "scroll_bottom", "wxScrollEvent", "wxScroll"},
      {wxEVT_SCROLL_LINEUP, 169, "scroll_lineup", "wxScrollEvent", "wxScroll"},

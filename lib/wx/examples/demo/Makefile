@@ -43,6 +43,7 @@ TESTMODS = \
 	ex_htmlWindow \
 	ex_listCtrl \
 	ex_notebook \
+	ex_notificationMessage \
 	ex_pickers \
 	ex_popupMenu \
 	ex_radioBox \

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3025,3 +3025,200 @@ void wxGCDC_SetGraphicsContext(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 #endif // wxUSE_GRAPHICS_CONTEXT
+// wxNotificationMessage::wxNotificationMessage
+void wxNotificationMessage_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxNotificationMessage * Result = new EwxNotificationMessage();
+  app->newPtr((void *) Result, 1, memenv);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxNotificationMessage"));
+
+}
+
+// wxNotificationMessage::wxNotificationMessage
+void wxNotificationMessage_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxString message= wxEmptyString;
+  wxWindow * parent=NULL;
+  int flags=wxICON_INFORMATION;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  ErlNifBinary title_bin;
+  wxString title;
+  if(!enif_inspect_binary(env, argv[0], &title_bin)) Badarg("title");
+  title = wxString(title_bin.data, wxConvUTF8, title_bin.size);
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[1];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "message"))) {
+  ErlNifBinary message_bin;
+  if(!enif_inspect_binary(env, tpl[1], &message_bin)) Badarg("message");
+  message = wxString(message_bin.data, wxConvUTF8, message_bin.size);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "parent"))) {
+  parent = (wxWindow *) memenv->getPtr(env, tpl[1], "parent");
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "flags"))) {
+  if(!enif_get_int(env, tpl[1], &flags)) Badarg("flags"); // int
+    } else        Badarg("Options");
+  };
+  wxNotificationMessage * Result = new EwxNotificationMessage(title,message,parent,flags);
+  app->newPtr((void *) Result, 1, memenv);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxNotificationMessage"));
+
+}
+
+#if wxCHECK_VERSION(3,1,0)
+// wxNotificationMessage::AddAction
+void wxNotificationMessage_AddAction(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxString label= wxString();
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  int actionid;
+  if(!enif_get_int(env, argv[1], &actionid)) Badarg("actionid"); // wxWindowID
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[2];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "label"))) {
+  ErlNifBinary label_bin;
+  if(!enif_inspect_binary(env, tpl[1], &label_bin)) Badarg("label");
+  label = wxString(label_bin.data, wxConvUTF8, label_bin.size);
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->AddAction(actionid,label);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+#endif
+// wxNotificationMessage::Close
+void wxNotificationMessage_Close(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->Close();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxNotificationMessage::SetFlags
+void wxNotificationMessage_SetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  int flags;
+  if(!enif_get_int(env, argv[1], &flags)) Badarg("flags"); // int
+  if(!This) throw wxe_badarg("This");
+  This->SetFlags(flags);
+
+}
+
+#if wxCHECK_VERSION(3,1,0)
+// wxNotificationMessage::SetIcon
+void wxNotificationMessage_SetIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  wxIcon *icon;
+  icon = (wxIcon *) memenv->getPtr(env, argv[1], "icon");
+  if(!This) throw wxe_badarg("This");
+  This->SetIcon(*icon);
+
+}
+
+#endif
+// wxNotificationMessage::SetMessage
+void wxNotificationMessage_SetMessage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  ErlNifBinary message_bin;
+  wxString message;
+  if(!enif_inspect_binary(env, argv[1], &message_bin)) Badarg("message");
+  message = wxString(message_bin.data, wxConvUTF8, message_bin.size);
+  if(!This) throw wxe_badarg("This");
+  This->SetMessage(message);
+
+}
+
+// wxNotificationMessage::SetParent
+void wxNotificationMessage_SetParent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  wxWindow *parent;
+  parent = (wxWindow *) memenv->getPtr(env, argv[1], "parent");
+  if(!This) throw wxe_badarg("This");
+  This->SetParent(parent);
+
+}
+
+// wxNotificationMessage::SetTitle
+void wxNotificationMessage_SetTitle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  ErlNifBinary title_bin;
+  wxString title;
+  if(!enif_inspect_binary(env, argv[1], &title_bin)) Badarg("title");
+  title = wxString(title_bin.data, wxConvUTF8, title_bin.size);
+  if(!This) throw wxe_badarg("This");
+  This->SetTitle(title);
+
+}
+
+// wxNotificationMessage::Show
+void wxNotificationMessage_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  int timeout=wxNotificationMessage::Timeout_Auto;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxNotificationMessage *This;
+  This = (wxNotificationMessage *) memenv->getPtr(env, argv[0], "This");
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[1];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "timeout"))) {
+  if(!enif_get_int(env, tpl[1], &timeout)) Badarg("timeout"); // int
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->Show(timeout);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+

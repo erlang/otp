@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -4751,6 +4751,9 @@ void WxeApp::init_consts(wxeMetaCommand& event) {
     { enif_make_atom(rt.env,"wxNotebook"), "wxNotebook_NO_IMAGE", rt.make_int(wxNotebook::NO_IMAGE) },
 //  From class wxNotebook
     { enif_make_atom(rt.env,"wxNotebook"), "wxNotebook_NO_IMAGE", rt.make_int(wxNotebook::NO_IMAGE) },
+//  From class wxNotificationMessage
+    { enif_make_atom(rt.env,"wxNotificationMessage"), "wxNotificationMessage_Timeout_Auto", rt.make_int(wxNotificationMessage::Timeout_Auto) },
+    { enif_make_atom(rt.env,"wxNotificationMessage"), "wxNotificationMessage_Timeout_Never", rt.make_int(wxNotificationMessage::Timeout_Never) },
 //  From class wxStaticBitmap::ScaleMode
 #if wxCHECK_VERSION(3,1,0)
     { enif_make_atom(rt.env,"ScaleMode"), "wxStaticBitmap_Scale_None", rt.make_int(wxStaticBitmap::Scale_None) },
