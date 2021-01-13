@@ -222,10 +222,11 @@ ERL_NIF_TERM esock_encode_level(ErlNifEnv* env, int level);
 extern
 size_t esock_strnlen(const char *s, size_t maxlen);
 extern
-void esock_abort(const char* expr,
-                 const char* func,
-                 const char* file,
-                 int         line);
+void __noreturn
+esock_abort(const char* expr,
+            const char* func,
+            const char* file,
+            int         line);
 
 extern
 ERL_NIF_TERM esock_self(ErlNifEnv* env);

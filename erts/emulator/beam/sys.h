@@ -1160,60 +1160,66 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
 
 /* Standard set of integer macros  .. */
 
-#define get_int64(s) (((Uint64)(((unsigned char*) (s))[0]) << 56) | \
-                      (((Uint64)((unsigned char*) (s))[1]) << 48) | \
-                      (((Uint64)((unsigned char*) (s))[2]) << 40) | \
-                      (((Uint64)((unsigned char*) (s))[3]) << 32) | \
-                      (((Uint64)((unsigned char*) (s))[4]) << 24) | \
-                      (((Uint64)((unsigned char*) (s))[5]) << 16) | \
-                      (((Uint64)((unsigned char*) (s))[6]) << 8)  | \
-                      (((Uint64)((unsigned char*) (s))[7])))
+#define get_int64(s) (((Uint64)(((byte*) (s))[0]) << 56) | \
+                      (((Uint64)((byte*) (s))[1]) << 48) | \
+                      (((Uint64)((byte*) (s))[2]) << 40) | \
+                      (((Uint64)((byte*) (s))[3]) << 32) | \
+                      (((Uint64)((byte*) (s))[4]) << 24) | \
+                      (((Uint64)((byte*) (s))[5]) << 16) | \
+                      (((Uint64)((byte*) (s))[6]) << 8)  | \
+                      (((Uint64)((byte*) (s))[7])))
 
-#define put_int64(i, s) do {((char*)(s))[0] = (char)((Sint64)(i) >> 56) & 0xff;\
-                            ((char*)(s))[1] = (char)((Sint64)(i) >> 48) & 0xff;\
-                            ((char*)(s))[2] = (char)((Sint64)(i) >> 40) & 0xff;\
-                            ((char*)(s))[3] = (char)((Sint64)(i) >> 32) & 0xff;\
-                            ((char*)(s))[4] = (char)((Sint64)(i) >> 24) & 0xff;\
-                            ((char*)(s))[5] = (char)((Sint64)(i) >> 16) & 0xff;\
-                            ((char*)(s))[6] = (char)((Sint64)(i) >> 8)  & 0xff;\
-                            ((char*)(s))[7] = (char)((Sint64)(i))       & 0xff;\
+#define put_int64(i, s) do {((byte*)(s))[0] = (byte)((Sint64)(i) >> 56) & 0xff;\
+                            ((byte*)(s))[1] = (byte)((Sint64)(i) >> 48) & 0xff;\
+                            ((byte*)(s))[2] = (byte)((Sint64)(i) >> 40) & 0xff;\
+                            ((byte*)(s))[3] = (byte)((Sint64)(i) >> 32) & 0xff;\
+                            ((byte*)(s))[4] = (byte)((Sint64)(i) >> 24) & 0xff;\
+                            ((byte*)(s))[5] = (byte)((Sint64)(i) >> 16) & 0xff;\
+                            ((byte*)(s))[6] = (byte)((Sint64)(i) >> 8)  & 0xff;\
+                            ((byte*)(s))[7] = (byte)((Sint64)(i))       & 0xff;\
                            } while (0) 
 
 /* Returns a signed int */
-#define get_int32(s) ((((unsigned char*) (s))[0] << 24) | \
-                      (((unsigned char*) (s))[1] << 16) | \
-                      (((unsigned char*) (s))[2] << 8)  | \
-                      (((unsigned char*) (s))[3]))
+#define get_int32(s) ((((byte*) (s))[0] << 24) | \
+                      (((byte*) (s))[1] << 16) | \
+                      (((byte*) (s))[2] << 8)  | \
+                      (((byte*) (s))[3]))
+
+#define get_little_int32(s) ((((byte*) (s))[3] << 24) | \
+			     (((byte*) (s))[2] << 16)  | \
+			     (((byte*) (s))[1] << 8) | \
+			     (((byte*) (s))[0]))
 
 #define get_uint32(s) ((Uint32)get_int32(s))
 
-#define put_int32(i, s) do {((char*)(s))[0] = (char)((i) >> 24) & 0xff;   \
-                            ((char*)(s))[1] = (char)((i) >> 16) & 0xff;   \
-                            ((char*)(s))[2] = (char)((i) >> 8)  & 0xff;   \
-                            ((char*)(s))[3] = (char)(i)         & 0xff;} \
+#define put_int32(i, s) do {((byte*)(s))[0] = (byte)((i) >> 24) & 0xff;  \
+                            ((byte*)(s))[1] = (byte)((i) >> 16) & 0xff;  \
+                            ((byte*)(s))[2] = (byte)((i) >> 8)  & 0xff;  \
+                            ((byte*)(s))[3] = (byte)(i)         & 0xff;} \
                         while (0)
 
-#define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
-                      (((unsigned char*) (s))[1] << 8)  | \
-                      (((unsigned char*) (s))[2]))
+#define get_int24(s) ((((byte*) (s))[0] << 16) | \
+                      (((byte*) (s))[1] << 8)  | \
+                      (((byte*) (s))[2]))
 
-#define put_int24(i, s) do {((char*)(s))[0] = (char)((i) >> 16) & 0xff;  \
-                            ((char*)(s))[1] = (char)((i) >> 8)  & 0xff;  \
-                            ((char*)(s))[2] = (char)(i)         & 0xff;} \
+
+#define put_int24(i, s) do {((byte*)(s))[0] = (byte)((i) >> 16) & 0xff;  \
+                            ((byte*)(s))[1] = (byte)((i) >> 8)  & 0xff;  \
+                            ((byte*)(s))[2] = (byte)(i)         & 0xff;} \
                         while (0)
 
-#define get_int16(s) ((((unsigned char*)  (s))[0] << 8) | \
-                      (((unsigned char*)  (s))[1]))
+#define get_int16(s) ((((byte*)  (s))[0] << 8) | \
+                      (((byte*)  (s))[1]))
 
 
-#define put_int16(i, s) do {((char*)(s))[0] = (char)((i) >> 8) & 0xff;  \
-                            ((char*)(s))[1] = (char)(i)        & 0xff;} \
+#define put_int16(i, s) do {((byte*)(s))[0] = (byte)((i) >> 8) & 0xff;  \
+                            ((byte*)(s))[1] = (byte)(i)        & 0xff;} \
                         while (0)
 
-#define get_int8(s) ((((unsigned char*)  (s))[0] ))
+#define get_int8(s) ((((byte*)  (s))[0] ))
 
 
-#define put_int8(i, s) do {((unsigned char*)(s))[0] = (i) & 0xff;} while (0)
+#define put_int8(i, s) do {((byte*)(s))[0] = (i) & 0xff;} while (0)
 
 /*
  * Use DEBUGF as you would use printf, but use double parentheses:

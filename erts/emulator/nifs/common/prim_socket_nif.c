@@ -4201,7 +4201,7 @@ ERL_NIF_TERM esock_command(ErlNifEnv* env, Uint16 cmd, ERL_NIF_TERM ecdata)
         break;
 
     default:
-        ESOCK_ASSERT(cmd == cmd);
+        ESOCK_ASSERT(FALSE && "cmd is unknown");
         break;
     }
 

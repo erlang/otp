@@ -52,6 +52,25 @@ jobs:
       ## the base debian image.
       - name: Docker login
         run: docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+      - name: Build base image
+        run: |
+          BASE_TAG=$(grep "^FROM" .github/dockerfiles/Dockerfile.${{ matrix.type }} | head -1 | awk '{print $2}')
+          docker pull "${BASE_TAG}"
+          case "${BASE_TAG}" in
+            */i386-debian-base)
+              docker build -t "${BASE_TAG}" \
+                --build-arg BASE=i386/debian -f .github/dockerfiles/Dockerfile.debian-base .
+              ;;
+            */debian-base)
+              docker build -t "${BASE_TAG}" \
+                -f .github/dockerfiles/Dockerfile.debian-base .
+              ;;
+            */ubuntu-base)
+              docker build -t "${BASE_TAG}" \
+                -f .github/dockerfiles/Dockerfile.ubuntu-base .
+              ;;
+          esac
+
       - name: Build ${{ matrix.type }} image
         run: |
           docker build -t otp --build-arg ARCHIVE=otp_src.tar.gz \

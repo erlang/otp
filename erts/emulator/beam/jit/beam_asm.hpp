@@ -23,7 +23,9 @@
 #include <unordered_map>
 #include <map>
 
-#include <asmjit/asmjit.h>
+#ifndef ASMJIT_ASMJIT_H_INCLUDED
+#    include <asmjit/asmjit.hpp>
+#endif
 
 extern "C"
 {

@@ -587,8 +587,6 @@ AC_CHECK_TYPES([GLintptr, GLintptrARB, GLchar,
 		# include <OpenGL/gl.h>
 		#endif 
 		])
- 
-dnl
 
 AC_MSG_CHECKING(GLU Callbacks uses Tiger Style)
 AC_LANG_PUSH(C++)
@@ -610,7 +608,7 @@ AC_TRY_COMPILE([
 		void CALLBACK foo() {};
 	       ],
 		[
-		   GLUtesselator* tess;                   
+		   GLUtesselator* tess;
 		   gluTessCallback(tess,GLU_TESS_VERTEX,(GLvoid (*)(...)) foo);
 		],
 		[TESS_CB_TIGER_STYLE=yes
@@ -660,7 +658,7 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
 			   // it isn't in too old wxWidgets versions
 		   	   wxString test = wxString::FromUTF8((const char *)"foo");
 		   	   wxStyledTextCtrl * foo = new wxStyledTextCtrl();
-			   return true;
+			   return foo;
                   };
 		};
 		IMPLEMENT_APP(MyApp)
