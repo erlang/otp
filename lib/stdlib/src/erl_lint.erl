@@ -147,7 +147,6 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: #{ta() => #typeinfo{}},
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
-               in_try_head=false :: boolean(),  %In a try head.
                bvt = none :: 'none' | [any()],  %Variables in binary pattern
                gexpr_context = guard            %Context of guard expression
                    :: gexpr_context()
@@ -3335,11 +3334,10 @@ is_module_dialyzer_option(Option) ->
 
 try_clauses(Scs, Ccs, In, Vt, Uvt, St0) ->
     {Csvt0,St1} = icrt_clauses(Scs, Vt, St0),
-    St2 = St1#lint{in_try_head=true},
-    {Csvt1,St3} = icrt_clauses(Ccs, vtupdate(Uvt, Vt), St2),
+    {Csvt1,St2} = catch_clauses(Ccs, vtupdate(Uvt, Vt), St1),
     Csvt = Csvt0 ++ Csvt1,
-    UpdVt = icrt_export(Csvt, Vt, In, St3),
-    {UpdVt,St3#lint{in_try_head=false}}.
+    UpdVt = icrt_export(Csvt, Vt, In, St2),
+    {UpdVt,St2}.
 
 %% icrt_clauses(Clauses, In, ImportVarTable, State) ->
 %%      {UpdVt,State}.
@@ -3356,29 +3354,40 @@ icrt_clauses(Cs, Vt, St) ->
     mapfoldl(fun (C, St0) -> icrt_clause(C, Vt, St0) end, St, Cs).
 
 icrt_clause({clause,_Line,H,G,B}, Vt0, St0) ->
-    Vt1 = taint_stack_var(Vt0, H, St0),
-    {Hvt,Hnew,St1} = head(H, Vt1, St0),
-    Vt2 = vtupdate(Hvt, Hnew),
-    Vt3 = taint_stack_var(Vt2, H, St0),
-    {Gvt,St2} = guard(G, vtupdate(Vt3, Vt0), St1#lint{in_try_head=false}),
-    Vt4 = vtupdate(Gvt, Vt2),
-    {Bvt,St3} = exprs(B, vtupdate(Vt4, Vt0), St2),
-    {vtupdate(Bvt, Vt4),St3}.
+    {Hvt,Hnew,St1} = head(H, Vt0, St0),
+    Vt1 = vtupdate(Hvt, Hnew),
+    {Gvt,St2} = guard(G, vtupdate(Vt1, Vt0), St1),
+    Vt2 = vtupdate(Gvt, Vt1),
+    {Bvt,St3} = exprs(B, vtupdate(Vt2, Vt0), St2),
+    {vtupdate(Bvt, Vt2),St3}.
 
-taint_stack_var(Vt, Pat, #lint{in_try_head=true}) ->
-    [{tuple,_,[_,_,{var,_,Stk}]}] = Pat,
-    case Stk of
-        '_' ->
-            Vt;
-        _ ->
-            lists:map(fun({V,{bound,Used,Lines}}) when V =:= Stk ->
-                              {V,{stacktrace,Used,Lines}};
-                         (B) ->
-                              B
-                      end, Vt)
-    end;
-taint_stack_var(Vt, _Pat, #lint{in_try_head=false}) ->
-    Vt.
+catch_clauses(Cs, Vt, St) ->
+    mapfoldl(fun(C, St0) -> catch_clause(C, Vt, St0) end, St, Cs).
+
+catch_clause({clause,_Line,H,G,B}, Vt0, St0) ->
+    [{tuple,_,[_,_,Stack]}] = H,
+    {Hvt,Hnew,St1} = head(H, Vt0, St0),
+    Vt1 = vtupdate(Hvt, Hnew),
+    %% check and mark the stack trace variable before checking the guard
+    {GuardVt,St2} = taint_stack_var(Stack, vtupdate(Vt1, Vt0), St1),
+    {Gvt,St3} = guard(G, GuardVt, St2),
+    Vt2 = vtupdate(Gvt, Vt1),
+    {Bvt,St4} = exprs(B, vtupdate(Vt2, Vt0), St3),
+    {vtupdate(Bvt, Vt2),St4}.
+
+taint_stack_var({var,L,V}, Vt, St) when V =/= '_' ->
+    St1 = case orddict:find(V, Vt) of
+              {ok,{_,used,_}} ->
+                  %% the stack var must be unused after processing the pattern;
+                  %% it can be used either if bound/unsafe before the try, or
+                  %% if it occurs in the class or term part of the pattern
+                  add_error(L, {stacktrace_bound,V}, St);
+              _ ->
+                  St
+          end,
+    {vtupdate([{V,{stacktrace,unused,[L]}}], Vt), St1};
+taint_stack_var(_, Vt, St) ->
+    {Vt, St}.
 
 icrt_export(Vts, Vt, {Tag,Attrs}, St) ->
     {_File,Loc} = loc(Attrs, St),
@@ -3622,9 +3631,6 @@ pat_var(V, Line, Vt, New, St) ->
                     {[{V,{bound,used,Ls}}],[],
                      %% As this is matching, exported vars are risky.
                      add_warning(Line, {exported_var,V,From}, St)};
-                {ok,{stacktrace,_Usage,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],
-                     add_error(Line, {stacktrace_bound,V}, St)};
                 error when St#lint.recdef_top ->
                     {[],[{V,{bound,unused,[Line]}}],
                      add_error(Line, {variable_in_record_def,V}, St)};

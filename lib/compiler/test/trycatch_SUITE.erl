@@ -1414,7 +1414,9 @@ test_raise_4(Expr) ->
     try
         do_test_raise_4(Expr)
     catch
-        exit:{exception,C,E,Stk}:Stk ->
+        exit:{exception,C,E,StkTerm}:Stk ->
+            %% it's not allowed to do the matching directly in the clause head
+            true = (Stk =:= StkTerm),
             try
                 Expr()
             catch
