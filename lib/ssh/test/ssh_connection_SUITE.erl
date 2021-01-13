@@ -880,7 +880,8 @@ do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
     after 5000 ->
             receive
                 Other ->
-                    ct:log("Received other:~n~p",[Other]),
+                    ct:log("Received other:~n~p~nExpected: ~p~n",
+                           [Other, {ssh_cm, ConnectionRef, {data, '_ChannelId', ExpectType, Expect}} ]),
                     ct:fail("Unexpected response")
             after 0 ->
                     ct:fail("Exec Timeout")
@@ -1368,7 +1369,8 @@ test_shell_is_disabled(ConnectionRef, Expect, NotExpect) ->
             ct:fail("Could start disabled shell!");
 
         R ->
-            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,R]),
+            ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
+                   [?MODULE,?LINE,R, {ssh_cm, ConnectionRef, {data, ChannelId, '0|1', Expect}} ]),
             ct:fail("Strange shell response")
 
     after 5000 ->
@@ -1383,7 +1385,8 @@ test_exec_is_disabled(ConnectionRef) ->
         {ssh_cm, ConnectionRef, {data,ChannelId,1,<<"Prohibited.">>}} ->
             flush_msgs();
         R ->
-            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,R]),
+            ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
+                   [?MODULE,?LINE,R, {ssh_cm, ConnectionRef, {data,ChannelId,1,<<"Prohibited.">>}} ]),
             ct:fail("Could exec erlang term although non-erlang shell")
     after 5000 ->
             ct:fail("Exec Timeout")
@@ -1402,7 +1405,8 @@ test_shell_is_enabled(ConnectionRef, Expect) ->
 	    flush_msgs();
 
         R ->
-            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,R]),
+            ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
+                   [?MODULE,?LINE,R, {ssh_cm, ConnectionRef, {data, ChannelId, 0, Expect}} ]),
             ct:fail("Strange shell response")
 
     after 5000 ->
@@ -1421,7 +1425,8 @@ test_exec_is_enabled(ConnectionRef, Exec, Expect) ->
         {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} = R ->
             ct:log("~p:~p Got expected ~p",[?MODULE,?LINE,R]);
         Other ->
-            ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,Other])
+            ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
+                   [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef, {data, ChannelId, 0, Expect}} ])
     after 5000 ->
             {fail,"Exec Timeout"}
     end.
