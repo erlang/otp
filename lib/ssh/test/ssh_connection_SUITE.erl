@@ -578,7 +578,7 @@ start_shell(Config) when is_list(Config) ->
 						      {password, "morot"},
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
-    test_shell_is_enabled(ConnectionRef, <<"Enter command\r\n">>),
+    test_shell_is_enabled(ConnectionRef, <<"Enter command">>), % No pty alloc by erl client
     test_exec_is_disabled(ConnectionRef),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
