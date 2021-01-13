@@ -450,37 +450,50 @@ loop(S) ->
 
 	%% Give me statistics
 	{{statistics, 1}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> got request for statistics 1"),
+	    i("loop(stats1) -> got request for statistics 1"),
 	    {ok, Gen} = megaco:get_stats(),
+	    i("loop(stats1) -> gen stats: "
+              "~n      ~p", [Gen]),
 	    GetTrans = 
 		fun(CH) ->
+                        i("loop(stats1):GetTrans -> "
+                          "get stats for connection ~p", [CH]),
 			Reason = {statistics, CH}, 
 			Pid = megaco:conn_info(CH, control_pid),
+                        i("loop(stats1):GetTrans -> control pid: ~p", [Pid]),
 			SendMod = megaco:conn_info(CH, send_mod),
+                        i("loop(stats1):GetTrans -> "
+                          "send module: ~p", [SendMod]),
 			SendHandle = megaco:conn_info(CH, send_handle),
+                        i("loop(stats1):GetTrans -> "
+                          "send handle: ~p", [SendHandle]),
 			{ok, Stats} = 
 			    case SendMod of
 				megaco_tcp -> megaco_tcp:get_stats(SendHandle);
 				megaco_udp -> megaco_udp:get_stats(SendHandle);
 				SendMod    -> exit(Pid, Reason)
 			    end,
+                        i("loop(stats1):GetTrans -> stats: "
+                          "~n      ~p", [Stats]),
 			{SendHandle, Stats}
 		end,
 	    Mid = S#mgc.mid,
 	    Trans = 
 		lists:map(GetTrans, megaco:user_info(Mid, connections)),
 	    Reply = {ok, [{gen, Gen}, {trans, Trans}]},
+	    i("loop(stats1) -> send reply"),
 	    server_reply(Parent, {statistics_reply, 1}, Reply),
 	    loop(evs(S, {stats, 1}));
 
 
 	{{statistics, 2}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> got request for statistics 2"),
+	    i("loop(stats2) -> got request for statistics 2"),
 	    {ok, Gen} = megaco:get_stats(),
 	    #mgc{tcp_sup = TcpSup, udp_sup = UdpSup} = S,
 	    TcpStats = get_trans_stats(TcpSup, megaco_tcp),
 	    UdpStats = get_trans_stats(UdpSup, megaco_udp),
 	    Reply = {ok, [{gen, Gen}, {trans, [TcpStats, UdpStats]}]},
+	    i("loop(stats2) -> send reply"),
 	    server_reply(Parent, {statistics_reply, 2}, Reply),
 	    loop(evs(S, {stats, 2}));
 
