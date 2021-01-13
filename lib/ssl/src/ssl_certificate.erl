@@ -544,43 +544,55 @@ extraneous_chains(Certs) ->
     %% for each such cert. Only one chain, if any, should be
     %% verifiable using available ROOT certs.
     Subjects = [{subject(Cert), Cert} || Cert <- Certs],
-    SortedCerts = sort_by_subject(Subjects),
-    Extra = extraneous_certs(SortedCerts, []),
-    extraneous_chains(Extra, Certs).
+    Duplicates = find_duplicates(Subjects),
+    %% Number of certs with duplicates (same subject) has been limited
+    %% to two and the maximum number of combinations is limited to 4.
+    build_candidates(Duplicates, 2, 4).
 
-extraneous_chains([{CA0, CA1}, {CA2, CA3} | _], Chain) ->
-    [Chain -- [CA0, CA2],  
-     Chain -- [CA0, CA3], 
-     Chain -- [CA1, CA2],
-     Chain -- [CA1, CA3]];
-extraneous_chains([{CA0, CA1} | _], Chain) ->
-    [Chain -- [CA0],  
-     Chain -- [CA1]];					
-extraneous_chains(_, Chain) ->
-    %% Let if fail too many extraneous cert
-    %% chain alternatives
-    [Chain].
-                                                 
-extraneous_certs([], Acc) ->
+build_candidates(Map, Duplicates, Combinations) ->
+    Subjects = maps:keys(Map),
+    build_candidates(Subjects, Map, Duplicates, 1, Combinations, []).
+%%
+build_candidates([], _, _, _, _, Acc) ->
     Acc;
-extraneous_certs([_], Acc) ->
-    Acc;
-extraneous_certs([CA0, CA1 | Certs], Acc) ->
-    {_, Name1} = public_key:pkix_subject_id(CA0),
-    {_, Name2} = public_key:pkix_subject_id(CA1),
-    
-    case Name1 of
-        Name2 -> 
-            %% Found extraneous cert
-            extraneous_certs([CA1 | Certs], [{CA0, CA1} | Acc]);
-        _ ->
-            extraneous_certs([CA1 | Certs], Acc)
+build_candidates([H|T], Map, Duplicates, Combinations, Max, Acc0) ->
+    case maps:get(H, Map) of
+	{Certs, Counter} when Counter > 1 andalso
+                              Duplicates > 0 andalso
+                              Counter * Combinations =< Max ->
+	    case Acc0 of
+		[] ->
+		    Acc = [[Cert] || Cert <- Certs],
+		    build_candidates(T, Map, Duplicates - 1, Combinations * Counter, Max, Acc);
+		_Else ->
+		    Acc = [[Cert|L] || Cert <- Certs, L <- Acc0],
+		    build_candidates(T, Map, Duplicates - 1, Combinations * Counter, Max, Acc)
+		end;
+	{[Cert|_], _} ->
+	    case Acc0 of
+		[] ->
+		    Acc = [[Cert]],
+		    build_candidates(T, Map, Duplicates, Combinations, Max, Acc);
+		_Else ->
+		    Acc = [[Cert|L] || L <- Acc0],
+		    build_candidates(T, Map, Duplicates, Combinations, Max, Acc)
+	    end
     end.
 
-sort_by_subject(Subjects) ->
-     Sort = lists:keysort(1, Subjects),
-     lists:map(fun({_, Cert}) -> Cert end, Sort).
-    
+find_duplicates(Chain) ->
+    find_duplicates(Chain, #{}).
+%%
+find_duplicates([], Acc) ->
+    Acc;
+find_duplicates([{Subject, Cert}|T], Acc) ->
+    case maps:get(Subject, Acc, none) of
+	none ->
+	    find_duplicates(T, Acc#{Subject => {[Cert], 1}});
+	{Certs, Counter} ->
+	    find_duplicates(T, Acc#{Subject => {[Cert|Certs], Counter + 1}})
+    end.
+
 subject(Cert) ->
-    {_, Name} = public_key:pkix_subject_id(Cert),
-    Name.
+    {_Serial,Subject} = public_key:pkix_subject_id(Cert),
+    Subject.
+
