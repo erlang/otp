@@ -1408,48 +1408,60 @@ live_opt_is([], Live, Acc) ->
     {Acc,Live}.
 
 %%%
-%%% Do a strength reduction of try/catch and catch.
+%%% try/catch optimization.
 %%%
-%%% In try/catch constructs where the expression is restricted
-%%% (essentially a guard expression) and the error reason is ignored
-%%% in the catch part, such as:
+%%% Attemps to rewrite try/catches as guards when we know the exception won't
+%%% be inspected in any way, and removes try/catches whose expressions will
+%%% never throw.
 %%%
-%%%   try
-%%%      <RestrictedExpression>
-%%%   catch
-%%%      _:_ ->
-%%%        ...
-%%%   end
-%%%
-%%% the try/catch can be eliminated by simply removing the `new_try_tag`,
-%%% `landingpad`, and `kill_try_tag` instructions.
 
 ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
-    Linear1 = opt_try(Linear0),
+    RevLinear = reduce_try(Linear0, []),
+
+    EmptySet = sets:new([{version, 2}]),
+    Linear1 = trim_try(RevLinear, EmptySet, EmptySet, []),
+
     %% Unreachable blocks with tuple extractions will cause problems
     %% for ssa_opt_sink.
     Linear = beam_ssa:trim_unreachable(Linear1),
+
     {St#opt_st{ssa=Linear}, FuncDb}.
 
-opt_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
-                      last=Last}=Blk0}|Bs0]) ->
+%% Does a strength reduction of try/catch and catch.
+%%
+%% In try/catch constructs where the expression is restricted
+%% (essentially a guard expression) and the error reason is ignored
+%% in the catch part, such as:
+%%
+%%   try
+%%      <RestrictedExpression>
+%%   catch
+%%      _:_ ->
+%%        ...
+%%   end
+%%
+%% the try/catch can be eliminated by simply removing the `new_try_tag`,
+%% `landingpad`, and `kill_try_tag` instructions.
+reduce_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
+                      last=Last}=Blk0} | Bs0], Acc) ->
     #b_br{succ=Succ,fail=Fail} = Last,
     Ws = sets:from_list([Succ,Fail], [{version, 2}]),
-    try do_opt_try(Bs0, Ws) of
+    try do_reduce_try(Bs0, Ws) of
         Bs ->
             Blk = Blk0#b_blk{is=[],
                              last=#b_br{bool=#b_literal{val=true},
                                         succ=Succ,fail=Succ}},
-            [{L,Blk}|opt_try(Bs)]
+            reduce_try(Bs, [{L, Blk} | Acc])
     catch
         throw:not_possible ->
-            [{L,Blk0}|opt_try(Bs0)]
+            reduce_try(Bs0, [{L, Blk0} | Acc])
     end;
-opt_try([{L,Blk}|Bs]) ->
-    [{L,Blk}|opt_try(Bs)];
-opt_try([]) -> [].
+reduce_try([{L, Blk} | Bs], Acc) ->
+    reduce_try(Bs, [{L, Blk} | Acc]);
+reduce_try([], Acc) ->
+    Acc.
 
-do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
+do_reduce_try([{L, Blk} | Bs]=Bs0, Ws0) ->
     case sets:is_element(L, Ws0) of
         false ->
             %% This block is not reachable from the block with the
@@ -1457,19 +1469,19 @@ do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
             %% need to check it for safety.
             case sets:size(Ws0) of
                 0 -> Bs0;
-                _ -> [{L,Blk}|do_opt_try(Bs, Ws0)]
+                _ -> [{L, Blk} | do_reduce_try(Bs, Ws0)]
             end;
         true ->
             Ws1 = sets:del_element(L, Ws0),
             #b_blk{is=Is0} = Blk,
-            case is_safe_without_try(Is0, []) of
+            case reduce_try_is(Is0, []) of
                 {safe,Is} ->
                     %% This block does not execute any instructions
                     %% that would require a try. Analyze successors.
                     Successors = beam_ssa:successors(Blk),
                     Ws = sets:union(sets:from_list(Successors, [{version, 2}]),
                                          Ws1),
-                    [{L,Blk#b_blk{is=Is}}|do_opt_try(Bs, Ws)];
+                    [{L, Blk#b_blk{is=Is}} | do_reduce_try(Bs, Ws)];
                 unsafe ->
                     %% There is something unsafe in the block, for
                     %% example a `call` instruction or an `extract`
@@ -1479,40 +1491,103 @@ do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
                     %% This block kills the try tag (either after successful
                     %% execution or at the landing pad). Don't analyze
                     %% successors.
-                    [{L,Blk#b_blk{is=Is}}|do_opt_try(Bs, Ws1)]
+                    [{L, Blk#b_blk{is=Is}} | do_reduce_try(Bs, Ws1)]
             end
     end;
-do_opt_try([], Ws) ->
+do_reduce_try([], Ws) ->
     0 = sets:size(Ws),                     %Assertion.
     [].
 
-is_safe_without_try([#b_set{op=kill_try_tag}|Is], Acc) ->
+reduce_try_is([#b_set{op=kill_try_tag}|Is], Acc) ->
     %% Remove this kill_try_tag instruction. If there was a landingpad
     %% instruction in this block, it has already been removed. Preserve
     %% all other instructions in the block.
     {done,reverse(Acc, Is)};
-is_safe_without_try([#b_set{op=extract}|_], _Acc) ->
+reduce_try_is([#b_set{op=extract}|_], _Acc) ->
     %% The error reason is accessed.
     unsafe;
-is_safe_without_try([#b_set{op=landingpad}|Is], Acc) ->
-    is_safe_without_try(Is, Acc);
-is_safe_without_try([#b_set{op={succeeded,body}}=I0|Is], Acc) ->
+reduce_try_is([#b_set{op=landingpad}|Is], Acc) ->
+    reduce_try_is(Is, Acc);
+reduce_try_is([#b_set{op={succeeded,body}}=I0|Is], Acc) ->
     %% If we reached this point, it means that the previous instruction
     %% has no side effects. We must now convert the flavor of the
     %% succeeded to the `guard`, since the try/catch will be removed.
     I = I0#b_set{op={succeeded,guard}},
-    is_safe_without_try(Is, [I|Acc]);
-is_safe_without_try([#b_set{op=Op}=I|Is], Acc) ->
+    reduce_try_is(Is, [I|Acc]);
+reduce_try_is([#b_set{op=Op}=I|Is], Acc) ->
     IsSafe = case Op of
                  phi -> true;
                  _ -> beam_ssa:no_side_effect(I)
              end,
     case IsSafe of
-        true -> is_safe_without_try(Is, [I|Acc]);
+        true -> reduce_try_is(Is, [I|Acc]);
         false -> unsafe
     end;
-is_safe_without_try([], Acc) ->
+reduce_try_is([], Acc) ->
     {safe,reverse(Acc)}.
+
+%% Removes try/catch expressions whose expressions will never throw.
+%%
+%% We walk backwards through all blocks, maintaining a set of potentially
+%% unreachable landing pads, removing them from the set whenever we see a
+%% branch to that block. When we encounter a `new_try_tag` instruction that
+%% references a block in the unreachable set, we'll remove the try/catch.
+trim_try([{L, #b_blk{is=[#b_set{op=new_try_tag,dst=Tag}],
+                     last=Last0}=Blk0} | Bs],
+         Unreachable0, Killed0, Acc) ->
+    #b_br{succ=SuccLbl,fail=PadLbl} = Last0,
+    case sets:is_element(PadLbl, Unreachable0) of
+        true ->
+            %% The landing pad can't be reached in any way, remove the entire
+            %% try/catch.
+            Blk = Blk0#b_blk{is=[],
+                             last=#b_br{bool=#b_literal{val=true},
+                                        succ=SuccLbl,fail=SuccLbl}},
+
+            Unreachable = sets:del_element(PadLbl, Unreachable0),
+            Killed = sets:add_element(Tag, Killed0),
+            trim_try(Bs, Unreachable, Killed, [{L, Blk} | Acc]);
+        false ->
+            trim_try(Bs, Unreachable0, Killed0, [{L, Blk0} | Acc])
+    end;
+trim_try([{L, #b_blk{is=[#b_set{op=landingpad} | _]}=Blk}| Bs],
+         Unreachable0, Killed, Acc) ->
+    Unreachable1 = sets:add_element(L, Unreachable0),
+
+    Successors = sets:from_list(beam_ssa:successors(Blk)),
+    Unreachable = sets:subtract(Unreachable1, Successors),
+    trim_try(Bs, Unreachable, Killed, [{L, Blk} | Acc]);
+trim_try([{L, Blk} | Bs], Unreachable0, Killed, Acc) ->
+    Successors = sets:from_list(beam_ssa:successors(Blk)),
+    Unreachable = sets:subtract(Unreachable0, Successors),
+    trim_try(Bs, Unreachable, Killed, [{L, Blk} | Acc]);
+trim_try([], _Unreachable, Killed, Acc0) ->
+    case sets:size(Killed) of
+        0 ->
+            Acc0;
+        _ ->
+            %% Remove all `kill_try_tag` instructions referencing removed
+            %% try/catches.
+            [{L, Blk#b_blk{is=trim_try_is(Is0, Killed)}} ||
+                {L, #b_blk{is=Is0}=Blk} <- Acc0]
+    end.
+
+trim_try_is([#b_set{op=phi,dst=CatchEndVal}=Phi,
+             #b_set{op=catch_end,dst=Dst,args=[Tag,CatchEndVal]}=Catch | Is],
+            Killed) ->
+    case sets:is_element(Tag, Killed) of
+        true -> [Phi#b_set{dst=Dst} | trim_try_is(Is, Killed)];
+        false -> [Phi, Catch | trim_try_is(Is, Killed)]
+    end;
+trim_try_is([#b_set{op=kill_try_tag,args=[Tag]}=I | Is], Killed) ->
+    case sets:is_element(Tag, Killed) of
+        true -> trim_try_is(Is, Killed);
+        false -> [I | trim_try_is(Is, Killed)]
+    end;
+trim_try_is([I | Is], Killed) ->
+    [I | trim_try_is(Is, Killed)];
+trim_try_is([], _Killed) ->
+    [].
 
 %%%
 %%% Optimize binary matching.
