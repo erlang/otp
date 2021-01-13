@@ -785,11 +785,11 @@ start_exec_direct_fun1_read_write(Config) ->
     {ok, Ch} = ssh_connection:session_channel(C, infinity),
 
     success = ssh_connection:exec(C, Ch, "> ", infinity),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\r\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"1> ">>}}),
     ok = ssh_connection:send(C, Ch, "hej.\n", 5000),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\r\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"2> ">>}}),
     ok = ssh_connection:send(C, Ch, "quit.\n", 5000),
@@ -833,18 +833,18 @@ start_exec_direct_fun1_read_write_advanced(Config) ->
     {ok, Ch} = ssh_connection:session_channel(C, infinity),
 
     success = ssh_connection:exec(C, Ch, "> ", infinity),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\r\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"1> ">>}}),
     ok = ssh_connection:send(C, Ch, "hej.\n", 5000),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\r\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"2> ">>}}),
     ok = ssh_connection:send(C, Ch, "'Hi ", 5000),
     ok = ssh_connection:send(C, Ch, "there", 5000),
     ok = ssh_connection:send(C, Ch, "'", 5000),
     ok = ssh_connection:send(C, Ch, ".\n", 5000),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,'Hi there'}\r\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,'Hi there'}\n">>}}),
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"3> ">>}}),
     ok = ssh_connection:send(C, Ch, "bad_input.\n", 5000),
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,1,<<"**Error** {bad_input,3}">>}}),
@@ -951,7 +951,7 @@ start_shell_sock_exec_fun(Config) when is_list(Config) ->
 				  "testing", infinity),
 
     receive
-	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\r\n">>}} ->
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\n">>}} ->
 	    ok
     after 5000 ->
 	    ct:fail("Exec Timeout")
@@ -995,7 +995,7 @@ start_shell_sock_daemon_exec(Config) ->
 				  "testing", infinity),
 
     receive
-	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\r\n">>}} ->
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\n">>}} ->
 	    ok
     after 5000 ->
 	    ct:fail("Exec Timeout")
@@ -1054,7 +1054,7 @@ start_shell_sock_daemon_exec_multi(Config) ->
                             success = ssh_connection:exec(ConnectionRef, ChannelId0, "testing", infinity),
                             ct:log("~p:~p: exec on connection ~p", [?MODULE,?LINE,ConnectionRef]),
                             receive
-                                {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\r\n">>}} ->
+                                {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\n">>}} ->
                                     Parent ! {answer_received,self()},
                                     ct:log("~p:~p: recevied result on connection ~p", [?MODULE,?LINE,ConnectionRef])
                             after 5000 ->
@@ -1193,7 +1193,7 @@ stop_listener(Config) when is_list(Config) ->
     success = ssh_connection:exec(ConnectionRef0, ChannelId0,
 				  "testing", infinity),
     receive
-	{ssh_cm, ConnectionRef0, {data, ChannelId0, 0, <<"echo testing\r\n">>}} ->
+	{ssh_cm, ConnectionRef0, {data, ChannelId0, 0, <<"echo testing\n">>}} ->
 	    ok
     after 5000 ->
 	    ct:fail("Exec Timeout")
