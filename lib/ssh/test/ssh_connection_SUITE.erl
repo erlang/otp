@@ -692,42 +692,54 @@ exec_shell_disabled(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 start_shell_exec_fun(Config) ->
-    do_start_shell_exec_fun(fun ssh_exec_echo/1,
-                            "testing", <<"echo testing\r\n">>, 0,
+    do_start_shell_exec_fun(fun(Cmd) ->
+                                    spawn(fun() ->
+                                                  io:format("echo ~s\n", [Cmd])
+                                          end)
+                            end,
+                            "testing", <<"echo testing\n">>, 0,
                             Config).
 
 start_shell_exec_fun2(Config) ->
-    do_start_shell_exec_fun(fun ssh_exec_echo/2,
-                            "testing", <<"echo foo testing\r\n">>, 0,
+    do_start_shell_exec_fun(fun(Cmd, User) ->
+                                    spawn(fun() ->
+                                                  io:format("echo ~s ~s\n",[User,Cmd])
+                                          end)
+                            end,
+                            "testing", <<"echo foo testing\n">>, 0,
                             Config).
 
 start_shell_exec_fun3(Config) ->
-    do_start_shell_exec_fun(fun ssh_exec_echo/3,
-                            "testing", <<"echo foo testing\r\n">>, 0,
+    do_start_shell_exec_fun(fun(Cmd, User, _PeerAddr) ->
+                                    spawn(fun() ->
+                                                  io:format("echo ~s ~s\n",[User,Cmd])
+                                          end)
+                            end,
+                            "testing", <<"echo foo testing\n">>, 0,
                             Config).
 
 start_shell_exec_direct_fun(Config) ->
-    do_start_shell_exec_fun({direct, fun ssh_exec_direct_echo/1},
+    do_start_shell_exec_fun({direct, fun(Cmd) -> {ok, io_lib:format("echo ~s~n",[Cmd])} end},
                             "testing", <<"echo testing\n">>, 0,
                             Config).
 
 start_shell_exec_direct_fun2(Config) ->
-    do_start_shell_exec_fun({direct, fun ssh_exec_direct_echo/2},
+    do_start_shell_exec_fun({direct, fun(Cmd,User) -> {ok, io_lib:format("echo ~s ~s",[User,Cmd])} end},
                             "testing", <<"echo foo testing">>, 0,
                             Config).
 
 start_shell_exec_direct_fun3(Config) ->
-    do_start_shell_exec_fun({direct, fun ssh_exec_direct_echo/3},
+    do_start_shell_exec_fun({direct, fun(Cmd,User,_PeerAddr) -> {ok, io_lib:format("echo ~s ~s",[User,Cmd])} end},
                             "testing", <<"echo foo testing">>, 0,
                             Config).
 
 start_shell_exec_direct_fun1_error(Config) ->
-    do_start_shell_exec_fun({direct, fun ssh_exec_direct_echo_error_return/1},
+    do_start_shell_exec_fun({direct, fun(_Cmd) -> {error, {bad}} end},
                             "testing", <<"**Error** {bad}">>, 1,
                             Config).
 
 start_shell_exec_direct_fun1_error_type(Config) ->
-    do_start_shell_exec_fun({direct, fun ssh_exec_direct_echo_error_return_type/1},
+    do_start_shell_exec_fun({direct, fun(_Cmd) -> very_bad end},
                             "testing", <<"**Error** Bad exec fun in server. Invalid return value: very_bad">>, 1,
                             Config).
 
@@ -1507,12 +1519,3 @@ ssh_exec_echo(Cmd, User) ->
     spawn(fun() ->
                   io:format("echo ~s ~s\n",[User,Cmd])
           end).
-ssh_exec_echo(Cmd, User, _PeerAddr) ->
-    ssh_exec_echo(Cmd,User).
-
-ssh_exec_direct_echo(Cmd) -> {ok, io_lib:format("echo ~s~n",[Cmd])}.
-ssh_exec_direct_echo(Cmd, User) -> {ok, io_lib:format("echo ~s ~s",[User,Cmd])}.
-ssh_exec_direct_echo(Cmd, User, _PeerAddr) -> ssh_exec_direct_echo(Cmd,User).
-
-ssh_exec_direct_echo_error_return(_Cmd) -> {error, {bad}}.
-ssh_exec_direct_echo_error_return_type(_Cmd) -> very_bad.
