@@ -305,6 +305,7 @@ shell_channel_tree(Config) ->
     
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:shell(ConnectionRef,ChannelId0),
+    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId0, [{pty_opts,[{onlcr,1}]}]),
 
     ?wait_match([{_, GroupPid,worker,[ssh_server_channel]}],
 		supervisor:which_children(ChannelSup),
