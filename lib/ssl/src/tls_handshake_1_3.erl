@@ -51,6 +51,7 @@
          do_wait_sh/2,
          do_wait_ee/2,
          do_wait_cert_cr/2,
+         do_wait_eoed/2,
          early_data_size/1,
          get_ticket_data/3,
          maybe_add_binders/3,
@@ -607,9 +608,10 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                 alpn_preferred_protocols := ALPNPreferredProtocols,
                                 keep_secrets := KeepSecrets,
                                 honor_cipher_order := HonorCipherOrder,
-                                early_data := _EarlyData}} = State0) ->
+                                early_data := EarlyDataEnabled}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
+    EarlyDataIndication = maps:get(early_data, Extensions, undefined),
     {Ref,Maybe} = maybe(),
     try
         ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
@@ -630,8 +632,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         
         CookieExt = maps:get(cookie, Extensions, undefined),
         Cookie = get_cookie(CookieExt),
-        _EarlyDataIndication = maps:get(early_data, Extensions, undefined),
-        
+
         #state{connection_states = ConnectionStates0,
                session = #session{own_certificates = [Cert | _]}} = State1 =
             Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
@@ -681,14 +682,14 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                          State2
                  end,
 
-        State = update_start_state(State3,
-                                   #{cipher => Cipher,
-                                     key_share => KeyShare,
-                                     session_id => SessionId,
-                                     group => Group,
-                                     sign_alg => SelectedSignAlg,
-                                     peer_public_key => ClientPubKey,
-                                     alpn => ALPNProtocol}),
+        State4 = update_start_state(State3,
+                                    #{cipher => Cipher,
+                                      key_share => KeyShare,
+                                      session_id => SessionId,
+                                      group => Group,
+                                      sign_alg => SelectedSignAlg,
+                                      peer_public_key => ClientPubKey,
+                                      alpn => ALPNProtocol}),
 
         %% 4.1.4.  Hello Retry Request
         %%
@@ -696,15 +697,15 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        case Maybe(send_hello_retry_request(State, ClientPubKey, KeyShare, SessionId)) of
+        case Maybe(send_hello_retry_request(State4, ClientPubKey, KeyShare, SessionId)) of
             {_, start} = NextStateTuple ->
                 NextStateTuple;
-            {_, negotiated} = NextStateTuple ->
-                %% TODO handle early data
-
+            {State5, negotiated} ->
+                %% Determine if early data is accepted
+                State = handle_early_data(State5, EarlyDataEnabled, EarlyDataIndication),
                 %% Exclude any incompatible PSKs.
                 PSK = Maybe(handle_pre_shared_key(State, OfferedPSKs, Cipher)),
-                Maybe(session_resumption(NextStateTuple, PSK))
+                Maybe(session_resumption({State, negotiated}, PSK))
         end
     catch
         {Ref, #alert{} = Alert} ->
@@ -805,6 +806,9 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
 
 do_negotiated({start_handshake, PSK0},
               #state{connection_states = ConnectionStates0,
+                     handshake_env =
+                         #handshake_env{
+                            early_data_accepted = EarlyDataAccepted},
                      static_env = #static_env{protocol_cb = Connection},
                      session = #session{session_id = SessionId,
                                         ecc = SelectedGroup,
@@ -832,7 +836,14 @@ do_negotiated({start_handshake, PSK0},
             calculate_handshake_secrets(ClientPublicKey, ServerPrivateKey, SelectedGroup,
                                         PSK, State2),
 
-        State4 = ssl_record:step_encryption_state(State3),
+        %% Step only write state if early_data is accepted
+        State4 =
+            case EarlyDataAccepted of
+                true ->
+                    ssl_record:step_encryption_state_write(State3);
+                false ->
+                    ssl_record:step_encryption_state(State3)
+            end,
 
         %% Create EncryptedExtensions
         EncryptedExtensions = encrypted_extensions(State4),
@@ -1052,6 +1063,25 @@ do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
     end.
 
 
+do_wait_eoed(#end_of_early_data{}, State0) ->
+    {Ref,_Maybe} = maybe(),
+    try
+        %% Step read state to enable reading handshake messages from the client.
+        %% Write state is already stepped in state 'negotiated'.
+        State1 = ssl_record:step_encryption_state_read(State0),
+
+        %% Early data has been received, no more early data is expected.
+        HsEnv = (State1#state.handshake_env)#handshake_env{early_data_accepted = false},
+        State2 = State1#state{handshake_env = HsEnv},
+        {State2, wait_finished}
+    catch
+        {Ref, #alert{} = Alert} ->
+            {Alert, State0};
+        {Ref, {#alert{} = Alert, State}} ->
+            {Alert, State}
+    end.
+
+
 %% For reasons of backward compatibility with middleboxes (see
 %% Appendix D.4), the HelloRetryRequest message uses the same structure
 %% as the ServerHello, but with Random set to the special value of the
@@ -1245,12 +1275,32 @@ session_resumption({#state{ssl_options = #{session_tickets := disabled}} = State
 session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State, negotiated}, undefined)
   when Tickets =/= disabled ->
     {ok, {State, negotiated}};
-session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State0, negotiated}, PSK)
+session_resumption({#state{ssl_options = #{session_tickets := Tickets},
+                           handshake_env = #handshake_env{
+                                              early_data_accepted = false}} = State0, negotiated}, PSK)
   when Tickets =/= disabled ->
     State = handle_resumption(State0, ok),
-    {ok, {State, negotiated, PSK}}.
+    {ok, {State, negotiated, PSK}};
+session_resumption({#state{ssl_options = #{session_tickets := Tickets},
+                           handshake_env = #handshake_env{
+                                              early_data_accepted = true}} = State0, negotiated}, PSK0)
+  when Tickets =/= disabled ->
+    State1 = handle_resumption(State0, ok),
+    %% TODO Refactor PSK-tuple {Index, PSK}, index might not be needed.
+    {_ , PSK} = PSK0,
+    State2 = calculate_client_early_traffic_secret(State1, PSK),
+    %% Set 0-RTT traffic keys for reading early_data
+    State = ssl_record:step_encryption_state_read(State2),
+    {ok, {State, negotiated, PSK0}}.
 
-
+%% Session resumption with early_data
+maybe_send_certificate_request(#state{
+                                  handshake_env =
+                                      #handshake_env{
+                                         early_data_accepted = true}} = State,
+                               _, PSK) when PSK =/= undefined ->
+    %% Go wait for End of Early Data
+    {State, wait_eoed};
 %% Do not send CR during session resumption
 maybe_send_certificate_request(State, _, PSK) when PSK =/= undefined ->
     {State, wait_finished};
@@ -1549,9 +1599,24 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
                                      ReadKey, ReadIV, ReadFinishedKey,
                                      WriteKey, WriteIV, WriteFinishedKey).
 
+%% Server
+calculate_client_early_traffic_secret(#state{connection_states = ConnectionStates,
+                                             handshake_env =
+                                                 #handshake_env{
+                                                    tls_handshake_history = {Hist, _}}} = State, PSK) ->
+
+    #{security_parameters := SecParamsR} =
+        ssl_record:pending_connection_state(ConnectionStates, read),
+    #security_parameters{cipher_suite = CipherSuite} = SecParamsR,
+    #{cipher := Cipher,
+      prf := HKDF} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
+    calculate_client_early_traffic_secret(Hist, PSK, Cipher, HKDF, State).
+
+%% Client
 calculate_client_early_traffic_secret(
   ClientHello, PSK, Cipher, HKDFAlgo,
   #state{connection_states = ConnectionStates,
+         static_env = #static_env{role = Role},
          handshake_env =
              #handshake_env{
                 tls_handshake_history = _HHistory}} = State0) ->
@@ -1561,17 +1626,26 @@ calculate_client_early_traffic_secret(
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
     ClientEarlyTrafficSecret =
         tls_v1:client_early_traffic_secret(HKDFAlgo, EarlySecret, ClientHello),
-
     %% Calculate traffic key
     KeyLength = ssl_cipher:key_material(Cipher),
-    {WriteKey, WriteIV} =
+    {Key, IV} =
         tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ClientEarlyTrafficSecret),
     %% Update pending connection states
-    PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
-    PendingWrite = update_connection_state(PendingWrite0, undefined, undefined,
-                                          undefined,
-                                          WriteKey, WriteIV, undefined),
-    State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}}.
+    case Role of
+        client ->
+            PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
+            PendingWrite = update_connection_state(PendingWrite0, undefined, undefined,
+                                                   undefined,
+                                                   Key, IV, undefined),
+            State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}};
+        server ->
+            PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
+            PendingRead = update_connection_state(PendingRead0, undefined, undefined,
+                                                  undefined,
+                                                  Key, IV, undefined),
+            State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}
+    end.
+
 
 %% Server
 get_pre_shared_key(undefined, HKDFAlgo) ->
@@ -2699,6 +2773,13 @@ signal_user_early_data(#state{
     CPids = Connection:pids(State),
     SslSocket = Connection:socket(CPids, Transport, Socket, Trackers),
     User ! {ssl, SslSocket, {early_data, Result}}.
+
+handle_early_data(State, enabled, #early_data_indication{}) ->
+    %% Accept early data
+    HsEnv = (State#state.handshake_env)#handshake_env{early_data_accepted = true},
+    State#state{handshake_env = HsEnv};
+handle_early_data(State, _, _) ->
+    State.
 
 cipher_hash_algos(Ciphers) ->
     Fun = fun(Cipher) ->

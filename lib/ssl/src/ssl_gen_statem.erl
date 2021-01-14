@@ -1434,11 +1434,17 @@ read_application_data_deliver(State, Front, BufferSize, Rear, SocketOpts0, RecvF
              State#state{
                user_data_buffer = {Front,BufferSize,Rear},
                start_or_recv_from = undefined,
-                bytes_to_read = undefined,
+               bytes_to_read = undefined,
                socket_options = SocketOpts
               }};
         true -> %% Try to deliver more data
-            read_application_data(State, Front, BufferSize, Rear, SocketOpts, undefined, undefined)
+            %% Process early data if it is accepted.
+            case (State#state.handshake_env)#handshake_env.early_data_accepted of
+                false ->
+                    read_application_data(State, Front, BufferSize, Rear, SocketOpts, undefined, undefined);
+                true ->
+                    read_application_data(State, Front, BufferSize, Rear, SocketOpts, RecvFrom, undefined)
+            end
     end.
 
 
