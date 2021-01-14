@@ -144,6 +144,136 @@ loop() ->
       the message and distributes it to the correct process.</p>
 
     <section>
+      <marker id="receiving-messages"></marker>
+      <title>Receiving messages</title>
+
+      <p>The cost of receiving messages depends on how complicated the
+        <c>receive</c> expression is. Simple expressions that match any
+        message are very cheap:</p>
+
+      <p><em>DO</em></p>
+      <code type="erl"><![CDATA[
+    receive
+        Message -> handle_msg(Message)
+    end.]]></code>
+
+      <p>This is not always convenient however: we can receive a message that
+        we do not know how to handle at this point, so it's rather common to
+        only match the messages we expect:</p>
+
+      <code type="erl"><![CDATA[
+    receive
+        {Tag, Message} -> handle_msg(Message)
+    end.]]></code>
+
+      <p>While this is convenient it means that the entire message queue must
+        be searched until it finds a matching message. This is very expensive
+        for processes with long message queues, so we have added an
+        optimization for the common case of sending a request and waiting for a
+        response shortly after:</p>
+
+      <p><em>DO</em></p>
+      <code type="erl"><![CDATA[
+    MRef = monitor(process, Process),
+    Process ! {self(), MRef, Request},
+    receive
+        {MRef, Reply} ->
+            erlang:demonitor(MRef, [flush]),
+            handle_reply(Reply);
+        {'DOWN', MRef, _, _, Reason} ->
+            handle_error(Reason)
+    end.]]></code>
+
+      <p>Since the compiler knows that the reference created by <c>monitor/2</c>
+        cannot exist before the call (since it is a globally unique identifier),
+        and that the <c>receive</c> only matches messages that contain said
+        reference, it will tell the emulator to search only the messages that
+        arrived after the call to <c>monitor/2</c>.</p>
+
+      <p>The above is a simple example where one is but guaranteed that the
+        optimization will take, but what about more complicated code?</p>
+
+      <section>
+        <marker id="recv_opt_info"></marker>
+        <title>Option recv_opt_info</title>
+
+        <p>Use the <c>recv_opt_info</c> option to have the compiler print
+          information about receive optimizations. It can be given either to
+          the compiler or <c>erlc</c>:</p>
+
+        <code type="erl"><![CDATA[
+erlc +recv_opt_info Mod.erl]]></code>
+
+        <p>or passed through an environment variable:</p>
+
+        <code type="erl"><![CDATA[
+export ERL_COMPILER_OPTIONS=recv_opt_info]]></code>
+
+        <p>Notice that <c>recv_opt_info</c> is not meant to be a permanent
+          option added to your <c>Makefile</c>s, because all messages that it
+          generates cannot be eliminated. Therefore, passing the option through
+          the environment is in most cases the most practical approach.</p>
+
+        <p>The warnings look as follows:</p>
+
+        <code type="erl"><![CDATA[
+efficiency_guide.erl:194: Warning: INFO: receive matches any message, this is always fast
+efficiency_guide.erl:200: Warning: NOT OPTIMIZED: all clauses do not match a suitable reference
+efficiency_guide.erl:206: Warning: OPTIMIZED: reference used to mark a message queue position
+efficiency_guide.erl:208: Warning: OPTIMIZED: all clauses match reference created by monitor/2 at efficiency_guide.erl:206
+efficiency_guide.erl:219: Warning: INFO: passing reference created by make_ref/0 at efficiency_guide.erl:218
+efficiency_guide.erl:222: Warning: OPTIMIZED: all clauses match reference in function parameter 1]]></code>
+
+        <p>To make it clearer exactly what code the warnings refer to, the
+          warnings in the following examples are inserted as comments
+          after the clause they refer to, for example:</p>
+
+        <code type="erl"><![CDATA[
+%% DO
+simple_receive() ->
+    %% efficiency_guide.erl:194: Warning: INFO: not a selective receive, this is always fast
+    receive
+        Message -> handle_msg(Message)
+    end.
+
+%% DO NOT, unless Tag is known to be a suitable reference: see
+%% cross_function_receive/0 further down.
+selective_receive(Tag, Message) ->
+    %% efficiency_guide.erl:200: Warning: NOT OPTIMIZED: all clauses do not match a suitable reference
+    receive
+        {Tag, Message} -> handle_msg(Message)
+    end.
+
+%% DO
+optimized_receive(Process, Request) ->
+    %% efficiency_guide.erl:206: Warning: OPTIMIZED: reference used to mark a message queue position
+    MRef = monitor(process, Process),
+    Process ! {self(), MRef, Request},
+    %% efficiency_guide.erl:208: Warning: OPTIMIZED: matches reference created by monitor/2 at efficiency_guide.erl:206
+    receive
+        {MRef, Reply} ->
+            erlang:demonitor(MRef, [flush]),
+            handle_reply(Reply);
+        {'DOWN', MRef, _, _, Reason} ->
+            handle_error(Reason)
+    end.
+
+%% DO
+cross_function_receive() ->
+    %% efficiency_guide.erl:218: Warning: OPTIMIZED: reference used to mark a message queue position
+    Ref = make_ref(),
+    %% efficiency_guide.erl:219: Warning: INFO: passing reference created by make_ref/0 at efficiency_guide.erl:218
+    cross_function_receive(Ref).
+
+cross_function_receive(Ref) ->
+    %% efficiency_guide.erl:222: Warning: OPTIMIZED: all clauses match reference in function parameter 1
+    receive
+        {Ref, Message} -> handle_msg(Message)
+    end.]]></code>
+      </section>
+    </section>
+
+    <section>
       <title>Constant Pool</title>
 
       <p>Constant Erlang terms (also called <em>literals</em>) are

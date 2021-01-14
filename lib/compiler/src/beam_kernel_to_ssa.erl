@@ -724,11 +724,14 @@ internal_cg(_Anno, raise, As, [#k_var{name=Dst0}], St0) ->
             Is = [Resume,make_uncond_branch(Fail),#cg_unreachable{}],
             {Is,St}
     end;
-internal_cg(_Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
-                                           #k_var{name=Dst0}], St0) ->
+internal_cg(Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
+                                          #k_var{name=Dst0}], St0) ->
     {Dst,St1} = new_ssa_var(Dst0, St0),
     St = new_succeeded_value(Succeeded0, Dst, St1),
-    Set = #b_set{op=peek_message,dst=Dst,args=[#b_literal{val=none}]},
+    Set = #b_set{ anno=Anno,
+                  op=peek_message,
+                  dst=Dst,
+                  args=[#b_literal{val=none}] },
     {[Set],St};
 internal_cg(_Anno, recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
     %% Note that the `wait_timeout` instruction can potentially branch in three

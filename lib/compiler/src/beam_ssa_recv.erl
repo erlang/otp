@@ -19,7 +19,7 @@
 %%
 
 -module(beam_ssa_recv).
--export([module/2]).
+-export([format_error/1, module/2]).
 
 %%%
 %%% In code such as:
@@ -106,26 +106,40 @@
 
 -import(lists, [foldl/3, search/2]).
 
+-spec format_error(term()) -> nonempty_string().
+
+format_error(OptInfo) ->
+    format_opt_info(OptInfo).
+
 -record(scan, { graph=beam_digraph:new(),
                 module :: #{ beam_ssa:b_local() => {beam_ssa:block_map(),
                                                     [beam_ssa:b_var()]} },
                 recv_candidates=#{},
                 ref_candidates=#{} }).
 
--spec module(beam_ssa:b_module(), [compile:option()]) ->
-          {'ok',beam_ssa:b_module()}.
+-spec module(Module, Options) -> Result when
+      Module :: beam_ssa:b_module(),
+      Options :: [compile:option()],
+      Result :: {ok, beam_ssa:b_module(), list()}.
 
-module(#b_module{}=Mod, _Options) ->
+module(#b_module{}=Mod0, Opts) ->
     %% Builds a module-wide graph of all blocks (including calls between
     %% functions), and collects all suitable reference creations and receives
     %% for later analysis.
-    Scan = scan(Mod),
+    Scan = scan(Mod0),
 
     %% Figures out where to place marker creation, usage, and clearing by
     %% walking through the module-wide graph.
     {Markers, Uses, Clears} = plan(Scan),
 
-    optimize(Mod, Markers, Uses, Clears).
+    Mod = optimize(Mod0, Markers, Uses, Clears),
+
+    Ws = case proplists:get_bool(recv_opt_info, Opts) of
+             true -> collect_opt_info(Mod);
+             false -> []
+         end,
+
+    {ok, Mod, Ws}.
 
 scan(#b_module{body=Fs0}) ->
     ModMap = foldl(fun(#b_function{bs=Blocks,args=Args}=F, Acc) ->
@@ -181,17 +195,15 @@ scan_is([#b_set{op=bs_put}], Blk, Lbl, Blocks, FuncId, State) ->
     %% This may throw and returns a success variable, so we'll treat it as
     %% that.
     scan_is([#b_set{op={succeeded,body}}], Blk, Lbl, Blocks, FuncId, State);
-scan_is([#b_set{op=call,dst=Dst,args=[#b_remote{}=Callee | _]} | Is],
+scan_is([#b_set{op=call,args=[#b_remote{} | _]}=Call | Is],
         Blk, Lbl, Blocks, FuncId, State0) ->
     case {Is, Blk#b_blk.last} of
         {[#b_set{op={succeeded,body}}], #b_br{bool=Bool,succ=Succ}} ->
             #b_var{} = Bool,                    %Assertion.
-            State = si_remote_call(Dst, Callee, Lbl, Succ,
-                                   Blocks, FuncId, State0),
+            State = si_remote_call(Call, Lbl, Succ, Blocks, FuncId, State0),
             scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
         _ ->
-            State = si_remote_call(Dst, Callee, Lbl, Lbl,
-                                   Blocks, FuncId, State0),
+            State = si_remote_call(Call, Lbl, Lbl, Blocks, FuncId, State0),
             scan_is(Is, Blk, Lbl, Blocks, FuncId, State)
     end;
 scan_is([#b_set{op=call,args=[#b_local{}=Callee | Args]} | Is],
@@ -205,7 +217,7 @@ scan_is([], Blk, Lbl, _Blocks, FuncId, State) ->
                   scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, Acc)
           end, State, beam_ssa:successors(Blk)).
 
-%% Adds an edge to the callee, with parameter/argument translation to let us
+%% Adds an edge to the callee, with argument/parameter translation to let us
 %% follow specific references.
 scan_add_call(Args, Callee, Lbl, Caller, #scan{module=ModMap}=State0) ->
     #{ Callee := {_Blocks, Params} } = ModMap,
@@ -238,13 +250,14 @@ scan_add_vertex(Vertex, #scan{graph=Graph0}=State) ->
             State#scan{graph=Graph}
     end.
 
-si_remote_call(Dst, Callee, CreatedAt, ValidAfter, Blocks, FuncId, State) ->
+si_remote_call(Call, CreatedAt, ValidAfter, Blocks, FuncId, State) ->
+    #b_set{anno=Anno,op=call,dst=Dst,args=[#b_remote{}=Callee | _]}=Call,
     case si_makes_ref(Dst, ValidAfter, Callee, Blocks) of
         {ExtractedAt, Ref} ->
             #scan{ref_candidates=Candidates0} = State,
 
             MakeRefs0 = maps:get(FuncId, Candidates0, []),
-            MakeRef = {CreatedAt, Dst, ExtractedAt, Ref},
+            MakeRef = {Anno, CreatedAt, Dst, ExtractedAt, Ref},
 
             Candidates = Candidates0#{ FuncId => [MakeRef | MakeRefs0] },
 
@@ -334,7 +347,7 @@ plan(Scan) ->
 propagate_references(Candidates, G) ->
     Roots = maps:fold(fun(FuncId, MakeRefs, Acc) ->
                               [begin
-                                   {_, _, ExtractedAt, Ref} = MakeRef,
+                                   {_, _, _, ExtractedAt, Ref} = MakeRef,
                                    Vertex = {FuncId, ExtractedAt},
                                    {Vertex, Ref}
                                end || MakeRef <- MakeRefs] ++ Acc
@@ -573,7 +586,7 @@ plan_markers(Candidates, UsageMap) ->
               end, #{}, Candidates).
 
 plan_markers_1(MakeRefs0, FuncId, UsageMap) ->
-    [Marker || {_, _, ExtractedAt, Ref}=Marker <- MakeRefs0,
+    [Marker || {_, _, _, ExtractedAt, Ref}=Marker <- MakeRefs0,
                case UsageMap of
                    #{ {FuncId, ExtractedAt} := Refs } ->
                        sets:is_element(Ref, Refs);
@@ -613,7 +626,7 @@ plan_clears_1([], _ActiveRefs, _UsageMap) ->
 
 optimize(#b_module{body=Fs0}=Mod, Markers, Uses, Clears) ->
     Fs = [optimize_1(F, Markers, Uses, Clears) || F <- Fs0],
-    {ok, Mod#b_module{body=Fs}}.
+    Mod#b_module{body=Fs}.
 
 optimize_1(#b_function{bs=Blocks0,cnt=Count0}=F, Markers, Uses, Clears) ->
     FuncId = get_func_id(F),
@@ -627,23 +640,23 @@ optimize_1(#b_function{bs=Blocks0,cnt=Count0}=F, Markers, Uses, Clears) ->
 
     F#b_function{bs=Blocks,cnt=Count}.
 
-insert_markers([{CreatedAt, Dst, ExtractedAt, Ref} | Markers],
+insert_markers([{Anno, CreatedAt, Dst, ExtractedAt, Ref} | Markers],
                Blocks0, Count0) ->
     {MarkerVar, Blocks1, Count1} =
-        insert_reserve(CreatedAt, Dst, Blocks0, Count0),
+        insert_reserve(CreatedAt, Dst, Anno, Blocks0, Count0),
     {Blocks, Count} =
         insert_bind(ExtractedAt, Ref, MarkerVar, Blocks1, Count1),
     insert_markers(Markers, Blocks, Count);
 insert_markers([], Blocks, Count) ->
     {Blocks, Count}.
 
-insert_reserve(Lbl, Dst, Blocks0, Count0) ->
+insert_reserve(Lbl, Dst, Anno, Blocks0, Count0) ->
     #{ Lbl := #b_blk{is=Is0}=Blk } = Blocks0,
 
     Var = #b_var{name={'@ssa_recv_marker', Count0}},
     Count = Count0 + 1,
 
-    Reserve = #b_set{op=recv_marker_reserve,args=[],dst=Var},
+    Reserve = #b_set{anno=Anno,op=recv_marker_reserve,args=[],dst=Var},
 
     Is = insert_reserve_is(Is0, Reserve, Dst),
     Blocks = Blocks0#{ Lbl := Blk#b_blk{is=Is} },
@@ -703,3 +716,107 @@ insert_clears_1([{From, To, Ref} | Clears], Count0, Acc) ->
     insert_clears_1(Clears, Count, [{From, To, [Clear]} | Acc]);
 insert_clears_1([], Count, Acc) ->
     {Acc, Count}.
+
+%%%
+%%% +recv_opt_info
+%%%
+
+collect_opt_info(#b_module{body=Fs}) ->
+    coi_1(Fs, []).
+
+coi_1([#b_function{args=Args,bs=Blocks}=F | Fs], Acc0) ->
+    Lbls = beam_ssa:rpo(Blocks),
+    Where = beam_ssa:get_anno(location, F, []),
+    {Defs, _} = foldl(fun(Var, {Defs0, Index0}) ->
+                              Defs = Defs0#{ Var => {parameter, Index0}},
+                              Index = Index0 + 1,
+                              {Defs, Index}
+                      end, {#{}, 1}, Args),
+    Acc = coi_bs(Lbls, Blocks, Where, Defs, Acc0),
+    coi_1(Fs, Acc);
+coi_1([], Acc) ->
+    Acc.
+
+coi_bs([Lbl | Lbls], Blocks, Where, Defs0, Ws0) ->
+    #{ Lbl := #b_blk{is=Is,last=Last} } = Blocks,
+    {Defs, Ws} = coi_is(Is, Last, Blocks, Where, Defs0, Ws0),
+    coi_bs(Lbls, Blocks, Where, Defs, Ws);
+coi_bs([], _Blocks, _Where, _Defs, Ws) ->
+    Ws.
+
+coi_is([#b_set{anno=Anno,op=peek_message,args=[#b_var{}]=Args } | Is],
+       Last, Blocks, Where, Defs, Ws) ->
+    [Creation] = coi_creations(Args, Blocks, Defs),
+    Warning = make_warning({used_receive_marker, Creation}, Anno, Where),
+    coi_is(Is, Last, Blocks, Where, Defs, [Warning | Ws]);
+coi_is([#b_set{anno=Anno,op=peek_message,args=[#b_literal{}] } | Is],
+       Last, Blocks, Where, Defs, Ws) ->
+
+    %% Is this a selective receive?
+    #b_br{succ=NextMsg} = Last,
+    #{ NextMsg := #b_blk{is=NextIs} } = Blocks,
+    Info = case NextIs of
+               [#b_set{op=remove_message} | _] -> matches_any_message;
+               _ -> unoptimized_selective_receive
+           end,
+
+    Warning = make_warning(Info, Anno, Where),
+    coi_is(Is, Last, Blocks, Where, Defs, [Warning | Ws]);
+coi_is([#b_set{anno=Anno,op=recv_marker_reserve} | Is],
+       Last, Blocks, Where, Defs, Ws) ->
+    Warning = make_warning(reserved_receive_marker, Anno, Where),
+    coi_is(Is, Last, Blocks, Where, Defs, [Warning | Ws]);
+coi_is([#b_set{anno=Anno,op=call,dst=Dst,args=[#b_local{} | Args] }=I | Is],
+       Last, Blocks, Where, Defs0, Ws0) ->
+    Defs = Defs0#{ Dst => I },
+    Ws = [make_warning({passed_marker, Creation}, Anno, Where)
+          || #b_set{}=Creation <- coi_creations(Args, Blocks, Defs)] ++ Ws0,
+    coi_is(Is, Last, Blocks, Where, Defs, Ws);
+coi_is([#b_set{dst=Dst}=I | Is], Last, Blocks, Where, Defs0, Ws) ->
+    Defs = Defs0#{ Dst => I },
+    coi_is(Is, Last, Blocks, Where, Defs, Ws);
+coi_is([], _Last, _Blocks, _Where, Defs, Ws) ->
+    {Defs, Ws}.
+
+coi_creations([Arg | Args], Blocks, Defs) ->
+    case Defs of
+        #{ Arg := #b_set{op=call,dst=Dst,args=[#b_remote{}=Callee|_]}=Call } ->
+            case si_makes_ref(Dst, 0, Callee, Blocks) of
+                {_, _} ->
+                    [Call | coi_creations(Args, Blocks, Defs)];
+                no ->
+                    coi_creations(Args, Blocks, Defs)
+            end;
+        #{ Arg := #b_set{op=get_tuple_element,args=[Tuple|_]}} ->
+            coi_creations([Tuple | Args], Blocks, Defs);
+        #{ Arg := {parameter, _}=Parameter } ->
+            [Parameter | coi_creations(Args, Blocks, Defs)];
+        #{} ->
+            coi_creations(Args, Blocks, Defs)
+    end;
+coi_creations([], _Blocks, _Defs) ->
+    [].
+
+make_warning(Term, Anno, Where) ->
+    {File, Line} = maps:get(location, Anno, Where),
+    {File,[{Line,?MODULE,Term}]}.
+
+format_opt_info(matches_any_message) ->
+    "INFO: receive matches any message, this is always fast";
+format_opt_info({passed_marker, Creation}) ->
+    io_lib:format("INFO: passing reference ~ts",
+                  [format_ref_creation(Creation)]);
+format_opt_info({used_receive_marker, Creation}) ->
+    io_lib:format("OPTIMIZED: all clauses match reference ~ts",
+                  [format_ref_creation(Creation)]);
+format_opt_info(reserved_receive_marker) ->
+    "OPTIMIZED: reference used to mark a message queue position";
+format_opt_info(unoptimized_selective_receive) ->
+    "NOT OPTIMIZED: all clauses do not match a suitable reference".
+
+format_ref_creation({parameter, Index}) ->
+    io_lib:format("in function parameter ~w", [Index]);
+format_ref_creation(#b_set{op=call,anno=Anno,args=[Callee|_]}) ->
+    #b_remote{name=#b_literal{val=F},arity=A} = Callee,
+    {File, Line} = maps:get(location, Anno, {"",1}),
+    io_lib:format("created by ~p/~p at ~ts:~w", [F, A, File, Line]).

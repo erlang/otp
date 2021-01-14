@@ -314,6 +314,16 @@ module.beam: module.erl \
 	    </p>
           </item>
 
+          <tag><c>recv_opt_info</c></tag>
+          <item>
+            <p>The compiler will emit informational warnings about selective
+              receive optimizations (both successful and unsuccessful). For
+              more information, see the section about
+              <seeguide marker="system/efficiency_guide:processes#receiving-messages">
+              selective receive optimization</seeguide> in the Efficiency
+              Guide.</p>
+          </item>
+
           <tag><c>report_errors/report_warnings</c></tag>
           <item>
             <p>Causes errors/warnings to be printed as they occur.</p>

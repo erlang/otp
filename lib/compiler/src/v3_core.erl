@@ -3001,7 +3001,7 @@ lexpr(#c_receive{anno=RecvAnno,clauses=Cs0,timeout=Timeout0,action=Action}, St0)
                         body=TimeoutLet}],
     PeekCase = #c_case{arg=PeekSucceeded,clauses=PeekCs},
     PeekLet = #c_let{vars=[PeekSucceeded,Msg],
-                     arg=primop(recv_peek_message),
+                     arg=primop(recv_peek_message, [], RecvAnno),
                      body=PeekCase},
     Fun = #c_fun{vars=[],body=PeekLet},
 
@@ -3027,7 +3027,10 @@ primop(Name) ->
     primop(Name, []).
 
 primop(Name, Args) ->
-    #c_primop{name=#c_literal{val=Name},args=Args}.
+    primop(Name, Args, []).
+
+primop(Name, Args, Anno) ->
+    #c_primop{anno=Anno,name=#c_literal{val=Name},args=Args}.
 
 %%%
 %%% Split patterns such as <<Size:32,Tail:Size>> that bind

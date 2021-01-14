@@ -42,7 +42,8 @@
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
 	 latin1_fallback/1,underscore/1,no_warnings/1,
-	 bit_syntax/1,inlining/1,tuple_calls/1]).
+	 bit_syntax/1,inlining/1,tuple_calls/1,
+         recv_opt_info/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -65,7 +66,7 @@ groups() ->
        maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
        underscore,no_warnings,bit_syntax,inlining,
-       tuple_calls]}].
+       tuple_calls,recv_opt_info]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -990,6 +991,62 @@ tuple_calls(Config) ->
            []}
 	 ],
     run(Config, Ts),
+    ok.
+
+recv_opt_info(Config) when is_list(Config) ->
+    Code = <<"
+                simple_receive() ->
+                    receive
+                        Message -> handle:msg(Message)
+                    end.
+
+                selective_receive(Tag, Message) ->
+                    receive
+                        {Tag, Message} -> handle:msg(Message)
+                    end.
+
+                cross_function_receive() ->
+                    cross_function_receive_1(make_ref()).
+
+                cross_function_receive_1(Tag) ->
+                    receive
+                        {Tag, Message} -> handle:msg(Message)
+                    end.
+
+                optimized_receive(Process, Request) ->
+                    MRef = monitor(process, Process),
+                    Process ! {self(), MRef, Request},
+                    receive
+                        {MRef, Reply} ->
+                            erlang:demonitor(MRef, [flush]),
+                            handle:reply(Reply);
+                        {'DOWN', MRef, _, _, Reason} ->
+                            handle:error(Reason)
+                    end.
+           ">>,
+
+    Ws = (catch run_test(Config, Code, [recv_opt_info])),
+
+    %% This is an inexact match since the pass reports exact instructions as
+    %% part of the warnings, which may include annotations that vary from run
+    %% to run.
+    {warnings,
+        [%% simple_receive/0
+         {3,beam_ssa_recv,matches_any_message},
+         %% selective_receive/2
+         {8,beam_ssa_recv,unoptimized_selective_receive},
+         {13,beam_ssa_recv,reserved_receive_marker},
+         %% cross_function_receive/0
+         {13,beam_ssa_recv,{passed_marker,_}},
+         %% cross_function_receive_1/1
+         {16,beam_ssa_recv,{used_receive_marker,{parameter,1}}},
+         %% optimized_receive/2
+         {21,beam_ssa_recv,reserved_receive_marker},
+         {23,beam_ssa_recv,{used_receive_marker,_}}]} = Ws,
+
+    %% For coverage: don't give the recv_opt_info option.
+    [] = (catch run_test(Config, Code, [])),
+
     ok.
 
 %%%
