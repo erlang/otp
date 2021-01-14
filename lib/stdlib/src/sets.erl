@@ -115,7 +115,7 @@ from_list(Ls) ->
       List :: [Element],
       Set :: set(Element).
 from_list(Ls, [{version, 2}]) ->
-    maps:from_list([{K,?VALUE}||K<-Ls]);
+    maps:from_keys(Ls, ?VALUE);
 from_list(Ls, Opts) ->
     case proplists:get_value(version, Opts, 1) of
         1 -> from_list(Ls);
@@ -258,7 +258,14 @@ union1(S1, []) -> S1.
       Set2 :: set(Element),
       Set3 :: set(Element).
 intersection(#{}=S1, #{}=S2) ->
-    maps:intersect(S1, S2);
+    case map_size(S1) < map_size(S2) of
+        true ->
+            Next = maps:next(maps:iterator(S1)),
+            intersection_heuristic(Next, [], [], floor(map_size(S1) * 0.75), S1, S2);
+        false ->
+            Next = maps:next(maps:iterator(S2)),
+            intersection_heuristic(Next, [], [], floor(map_size(S2) * 0.75), S2, S1)
+    end;
 intersection(S1, S2) ->
     case size(S1) < size(S2) of
         true ->
@@ -266,6 +273,33 @@ intersection(S1, S2) ->
         false ->
 	    filter(fun (E) -> is_element(E, S1) end, S2)
     end.
+
+%% If we are keeping more than 75% of the keys, then it is
+%% cheaper to delete them. Stop accumulating and start deleting.
+intersection_heuristic(Next, _Keep, Delete, 0, Acc, Reference) ->
+  intersection_decided(Next, remove_keys(Delete, Acc), Reference);
+intersection_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount, Acc, Reference) ->
+    Next = maps:next(Iterator),
+    case Reference of
+        #{Key := _} ->
+            intersection_heuristic(Next, [Key | Keep], Delete, KeepCount - 1, Acc, Reference);
+        _ ->
+            intersection_heuristic(Next, Keep, [Key | Delete], KeepCount, Acc, Reference)
+    end;
+intersection_heuristic(none, Keep, _Delete, _Count, _Acc, _Reference) ->
+    maps:from_keys(Keep, ?VALUE).
+
+intersection_decided({Key, _Value, Iterator}, Acc0, Reference) ->
+    Acc1 = case Reference of
+        #{Key := _} -> Acc0;
+        #{} -> maps:remove(Key, Acc0)
+    end,
+    intersection_decided(maps:next(Iterator), Acc1, Reference);
+intersection_decided(none, Acc, _Reference) ->
+    Acc.
+
+remove_keys([K | Ks], Map) -> remove_keys(Ks, maps:remove(K, Map));
+remove_keys([], Map) -> Map.
 
 %% intersection([Set]) -> Set.
 %%  Return the intersection of the list of sets.
@@ -323,8 +357,37 @@ is_disjoint_1(Set, Iter) ->
       Set1 :: set(Element),
       Set2 :: set(Element),
       Set3 :: set(Element).
+
+subtract(#{}=S1, #{}=S2) ->
+    Next = maps:next(maps:iterator(S1)),
+    subtract_heuristic(Next, [], [], floor(map_size(S1) * 0.75), S1, S2);
 subtract(S1, S2) ->
     filter(fun (E) -> not is_element(E, S2) end, S1).
+
+%% If we are keeping more than 75% of the keys, then it is
+%% cheaper to delete them. Stop accumulating and start deleting.
+subtract_heuristic(Next, _Keep, Delete, 0, Acc, Reference) ->
+  subtract_decided(Next, remove_keys(Delete, Acc), Reference);
+subtract_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount, Acc, Reference) ->
+    Next = maps:next(Iterator),
+    case Reference of
+        #{Key := _} ->
+            subtract_heuristic(Next, Keep, [Key | Delete], KeepCount, Acc, Reference);
+        _ ->
+            subtract_heuristic(Next, [Key | Keep], Delete, KeepCount - 1, Acc, Reference)
+    end;
+subtract_heuristic(none, Keep, _Delete, _Count, _Acc, _Reference) ->
+    maps:from_keys(Keep, ?VALUE).
+
+subtract_decided({Key, _Value, Iterator}, Acc, Reference) ->
+    case Reference of
+        #{Key := _} ->
+            subtract_decided(maps:next(Iterator), maps:remove(Key, Acc), Reference);
+        _ ->
+            subtract_decided(maps:next(Iterator), Acc, Reference)
+    end;
+subtract_decided(none, Acc, _Reference) ->
+    Acc.
 
 %% is_subset(Set1, Set2) -> boolean().
 %%  Return 'true' when every element of Set1 is also a member of
@@ -380,7 +443,7 @@ fold_1(Fun, Acc, Iter) ->
       Pred :: fun((Element) -> boolean()),
       Set1 :: set(Element),
       Set2 :: set(Element).
-filter(F, #{}=D) -> maps:from_list(filter_1(F, maps:iterator(D)));
+filter(F, #{}=D) -> maps:from_keys(filter_1(F, maps:iterator(D)), ?VALUE);
 filter(F, #set{}=D) -> filter_set(F, D).
 
 filter_1(Fun, Iter) ->
@@ -388,7 +451,7 @@ filter_1(Fun, Iter) ->
         {K, _, NextIter} ->
             case Fun(K) of
                 true ->
-                    [{K,?VALUE} | filter_1(Fun, NextIter)];
+                    [K | filter_1(Fun, NextIter)];
                 false ->
                     filter_1(Fun, NextIter)
             end;
