@@ -26,7 +26,10 @@
 -include("ssl_connection.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
--export([init/2]).
+-export([get_max_early_data_size/0,
+         get_ticket_lifetime/0,
+         get_ticket_store_size/0,
+         init/2]).
 
 init(#{erl_dist := ErlDist,
        key := Key,
@@ -176,3 +179,29 @@ init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
 	_:Reason ->
 	    file_error(DHParamFile, {dhfile, Reason}) 
     end.
+
+get_ticket_lifetime() ->
+    case application:get_env(ssl, server_session_ticket_lifetime) of
+	{ok, Seconds} when is_integer(Seconds) andalso
+                           Seconds =< 604800 ->  %% MUST be less than 7 days
+	    Seconds;
+	_  ->
+	    7200 %% Default 2 hours
+    end.
+
+get_ticket_store_size() ->
+    case application:get_env(ssl, server_session_ticket_store_size) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_  ->
+	    1000
+    end.
+
+get_max_early_data_size() ->
+    case application:get_env(ssl, server_session_ticket_max_early_data) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_  ->
+	    ?DEFAULT_MAX_EARLY_DATA_SIZE
+    end.
+

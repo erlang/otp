@@ -449,8 +449,8 @@ downgrade(Type, Event, State) ->
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{erl_dist := IsErlDist,
-      client_renegotiation := ClientRenegotiation,
-      max_early_data := MaxEarlyDataSize} = SSLOptions,
+      client_renegotiation := ClientRenegotiation} = SSLOptions,
+    MaxEarlyDataSize = init_max_early_data_size(Role),
     ConnectionStates = tls_record:init_connection_states(Role, disabled, MaxEarlyDataSize),
     InternalActiveN =  case application:get_env(ssl, internal_active_n) of
                            {ok, N} when is_integer(N) andalso (not IsErlDist) ->
@@ -548,3 +548,12 @@ handle_key_update(#key_update{request_update = update_requested},
         {error, Reason} ->
             {error, State1, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason)}
     end.
+
+init_max_early_data_size(client) ->
+    %% Disable trial decryption on the client side
+    %% Servers do trial decryption of max_early_data bytes of plain text.
+    %% Setting it to 0 means that a decryption error will result in an Alert.
+    0;
+init_max_early_data_size(server) ->
+    ssl_config:get_max_early_data_size().
+

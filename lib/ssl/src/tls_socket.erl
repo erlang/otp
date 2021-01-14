@@ -79,8 +79,9 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
     case Transport:listen(Port, Options ++ internal_inet_values()) of
 	{ok, ListenSocket} ->
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
-            LifeTime = get_ticket_lifetime(),
-            TicketStoreSize = get_ticket_store_size(),
+            LifeTime = ssl_config:get_ticket_lifetime(),
+            TicketStoreSize = ssl_config:get_ticket_store_size(),
+            _MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
             %% TLS-1.3 session handling
             {ok, SessionHandler} = session_tickets_tracker(LifeTime, TicketStoreSize, SslOpts),
             %% PRE TLS-1.3 session handling
@@ -486,19 +487,3 @@ validate_inet_option(active, Value)
 validate_inet_option(_, _) ->
     ok.
 
-get_ticket_lifetime() ->
-    case application:get_env(ssl, server_session_ticket_lifetime) of
-	{ok, Seconds} when is_integer(Seconds) andalso
-                           Seconds =< 604800 ->  %% MUST be less than 7 days
-	    Seconds;
-	_  ->
-	    7200 %% Default 2 hours
-    end.
-
-get_ticket_store_size() ->
-    case application:get_env(ssl, server_session_ticket_store_size) of
-	{ok, Size} when is_integer(Size) ->
-	    Size;
-	_  ->
-	    1000
-    end.

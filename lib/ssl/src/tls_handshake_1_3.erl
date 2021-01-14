@@ -183,11 +183,17 @@ encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
              MaxFragEnum ->
                  E1#{max_frag_enum => MaxFragEnum}
          end,
-    E = case HandshakeEnv#handshake_env.sni_guided_cert_selection of
+    E3 = case HandshakeEnv#handshake_env.sni_guided_cert_selection of
              false ->
                  E2;
              true ->
                  E2#{sni => #sni{hostname = ""}}
+        end,
+    E = case HandshakeEnv#handshake_env.early_data_accepted of
+            false ->
+                E3;
+            true ->
+                E3#{early_data => #early_data_indication{}}
         end,
     #encrypted_extensions{
        extensions = E
@@ -600,7 +606,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                 supported_groups := ServerGroups0,
                                 alpn_preferred_protocols := ALPNPreferredProtocols,
                                 keep_secrets := KeepSecrets,
-                                honor_cipher_order := HonorCipherOrder}} = State0) ->
+                                honor_cipher_order := HonorCipherOrder,
+                                early_data := _EarlyData}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     {Ref,Maybe} = maybe(),
@@ -623,6 +630,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         
         CookieExt = maps:get(cookie, Extensions, undefined),
         Cookie = get_cookie(CookieExt),
+        _EarlyDataIndication = maps:get(early_data, Extensions, undefined),
         
         #state{connection_states = ConnectionStates0,
                session = #session{own_certificates = [Cert | _]}} = State1 =
@@ -692,6 +700,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
             {_, start} = NextStateTuple ->
                 NextStateTuple;
             {_, negotiated} = NextStateTuple ->
+                %% TODO handle early data
+
                 %% Exclude any incompatible PSKs.
                 PSK = Maybe(handle_pre_shared_key(State, OfferedPSKs, Cipher)),
                 Maybe(session_resumption(NextStateTuple, PSK))
