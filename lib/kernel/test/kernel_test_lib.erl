@@ -1383,7 +1383,7 @@ linux_info_lookup_collect(Key1, [Key2, Value|Rest], Values) ->
 linux_info_lookup_collect(_, _, Values) ->
     lists:reverse(Values).
 
-maybe_skip(HostInfo) ->
+maybe_skip(_HostInfo) ->
 
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
