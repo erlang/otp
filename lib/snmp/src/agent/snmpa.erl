@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,6 +62,8 @@
 	 get/2, get/3, get_next/2, get_next/3,
 
 	 register_subagent/3, unregister_subagent/2, 
+
+         which_transports/0,
 
 	 send_notification2/3, 
 	 send_notification/3, send_notification/4, send_notification/5,
@@ -828,6 +830,18 @@ sys_up_time() ->
     % time in 0.01 seconds.
     StartTime = system_start_time(),
     (snmp_misc:now(cs) - StartTime) rem (2 bsl 31).
+
+
+%%%-----------------------------------------------------------------
+
+which_transports() ->
+    {value, Transports} = snmp_framework_mib:intAgentTransports(get),
+    [case Kind of
+         all ->
+             {Domain, Address};
+         _ ->
+             {Domain, Address, Kind}
+     end || {Domain, Address, Kind, _} <- Transports].
 
 
 %%%-----------------------------------------------------------------
