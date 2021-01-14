@@ -3589,6 +3589,7 @@ static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     BN_mod_mul(bn_multiplier, bn_multiplier, bn_verifier, bn_prime, bn_ctx);
 
     /* g^b % N */
+    BN_set_flags(bn_exponent, BN_FLG_CONSTTIME);
     BN_mod_exp(bn_result, bn_generator, bn_exponent, bn_prime, bn_ctx);
 
     /* k*v + g^b % N */
@@ -3666,6 +3667,7 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     /* (B - (k * g^x)) */
     bn_base = BN_new();
+    BN_set_flags(bn_exponent, BN_FLG_CONSTTIME);
     BN_mod_exp(bn_result, bn_generator, bn_exponent, bn_prime, bn_ctx);
     BN_mod_mul(bn_result, bn_multiplier, bn_result, bn_prime, bn_ctx);
     BN_mod_sub(bn_base, bn_B, bn_result, bn_prime, bn_ctx);
@@ -3676,6 +3678,7 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     BN_add(bn_exp2, bn_a, bn_result);
 
     /* (B - (k * g^x)) ^ (a + (u * x)) % N */
+    BN_set_flags(bn_exp2, BN_FLG_CONSTTIME);
     BN_mod_exp(bn_result, bn_base, bn_exp2, bn_prime, bn_ctx);
 
     dlen = BN_num_bytes(bn_result);
@@ -3741,10 +3744,12 @@ static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     /* (A * v^u) */
     bn_base = BN_new();
+    BN_set_flags(bn_u, BN_FLG_CONSTTIME);
     BN_mod_exp(bn_base, bn_verifier, bn_u, bn_prime, bn_ctx);
     BN_mod_mul(bn_base, bn_A, bn_base, bn_prime, bn_ctx);
 
     /* (A * v^u) ^ b % N */
+    BN_set_flags(bn_b, BN_FLG_CONSTTIME);
     BN_mod_exp(bn_result, bn_base, bn_b, bn_prime, bn_ctx);
 
     dlen = BN_num_bytes(bn_result);
