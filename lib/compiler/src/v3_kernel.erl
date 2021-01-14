@@ -115,12 +115,12 @@ copy_anno(Kdst, Ksrc) ->
                fargs=[] :: [#k_var{}],          %Arguments for current function
 	       vcount=0,			%Variable counter
 	       fcount=0,			%Fun counter
-               ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
+               ds=sets:new([{version, 2}]) :: sets:set(), %Defined variables
 	       funs=[],				%Fun functions
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
                no_shared_fun_wrappers=false :: boolean(),
-               labels=cerl_sets:new()
+               labels=sets:new([{version, 2}])
               }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -165,7 +165,7 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
         %% the function. We use integers as variable names to avoid
         %% filling up the atom table when compiling huge functions.
         Count = cerl_trees:next_free_variable_name(Body),
-	St1 = St0#kern{func=FA,vcount=Count,fcount=0,ds=cerl_sets:new()},
+	St1 = St0#kern{func=FA,vcount=Count,fcount=0,ds=sets:new([{version, 2}])},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
@@ -394,7 +394,7 @@ letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
 
 letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
             #kern{labels=Labels0}=St0) ->
-    Labels = cerl_sets:add_element(Label, Labels0),
+    Labels = sets:add_element(Label, Labels0),
     {Kb,Pb,St1} = body(Cb, Sub0, St0#kern{labels=Labels}),
     #c_fun{body=FailBody} = Cfail,
     {Kfail,Fb,St2} = body(FailBody, Sub0, St1),
@@ -559,7 +559,7 @@ match_vars(Ka, St0) ->
 %%  Transform application.
 
 c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, #kern{labels=Labels}=St0) ->
-    case Ar =:= 0 andalso cerl_sets:is_element(F0, Labels) of
+    case Ar =:= 0 andalso sets:is_element(F0, Labels) of
         true ->
             %% This is a goto to a label in a letrec_goto construct.
             {#k_goto{label=F0},[],St0};
@@ -666,15 +666,15 @@ force_variable(Ke, St0) ->
 %%  handling.
 
 pattern(#c_var{anno=A,name=V}, _Isub, Osub, St0) ->
-    case cerl_sets:is_element(V, St0#kern.ds) of
+    case sets:is_element(V, St0#kern.ds) of
 	true ->
 	    {New,St1} = new_var_name(St0),
 	    {#k_var{anno=A,name=New},
 	     set_vsub(V, New, Osub),
-	     St1#kern{ds=cerl_sets:add_element(New, St1#kern.ds)}};
+	     St1#kern{ds=sets:add_element(New, St1#kern.ds)}};
 	false ->
 	    {#k_var{anno=A,name=V},Osub,
-	     St0#kern{ds=cerl_sets:add_element(V, St0#kern.ds)}}
+	     St0#kern{ds=sets:add_element(V, St0#kern.ds)}}
     end;
 pattern(#c_literal{anno=A,val=Val}, _Isub, Osub, St) ->
     {#k_literal{anno=A,val=Val},Osub,St};
@@ -1446,7 +1446,7 @@ partition_intersection(_, Us, Cs, St) ->
 
 partition_keys(#k_map{es=Pairs}=Map, Ks) ->
     F = fun(#k_map_pair{key=Key}) ->
-                cerl_sets:is_element(map_key_clean(Key), Ks)
+                sets:is_element(map_key_clean(Key), Ks)
         end,
     {Ps1,Ps2} = partition(F, Pairs),
     {Map#k_map{es=Ps1},Map#k_map{es=Ps2}};
@@ -1456,9 +1456,9 @@ partition_keys(#ialias{pat=Map}=Alias, Ks) ->
     {Map1,Alias#ialias{pat=Map2}}.
 
 find_key_intersection(Ps) ->
-    Sets = [cerl_sets:from_list(Ks) || Ks <- Ps],
-    Intersection = cerl_sets:intersection(Sets),
-    case cerl_sets:size(Intersection) of
+    Sets = [sets:from_list(Ks, [{version, 2}]) || Ks <- Ps],
+    Intersection = sets:intersection(Sets),
+    case sets:size(Intersection) of
         0 ->
             none;
         _ ->

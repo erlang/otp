@@ -30,7 +30,7 @@
 -import(lists, [append/1,keymember/3,last/1,member/2,
                 reverse/1,sort/1,takewhile/2]).
 
--type used_vars() :: #{beam_ssa:label():=cerl_sets:set(beam_ssa:var_name())}.
+-type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:var_name())}.
 
 -type basic_type_test() :: atom() | {'is_tagged_tuple',pos_integer(),atom()}.
 -type type_test() :: basic_type_test() | {'not',basic_type_test()}.
@@ -177,7 +177,7 @@ shortcut(L, _From, Bs, #st{rel_op=none,target=one_way}) when map_size(Bs) =:= 0 
     %% is `one_way`, it implies the From block has a two-way `br` terminator.
     #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 shortcut(L, From, Bs, St) ->
-    shortcut_1(L, From, Bs, cerl_sets:new(), St).
+    shortcut_1(L, From, Bs, sets:new([{version, 2}]), St).
 
 shortcut_1(L, From, Bs0, UnsetVars0, St) ->
     case shortcut_2(L, From, Bs0, UnsetVars0, St) of
@@ -195,7 +195,7 @@ shortcut_1(L, From, Bs0, UnsetVars0, St) ->
 
 %% Try to shortcut this block, branching to a successor.
 shortcut_2(L, From, Bs, UnsetVars, St) ->
-    case cerl_sets:size(UnsetVars) of
+    case sets:size(UnsetVars) of
         SetSize when SetSize > 64 ->
             %% This is an heuristic to limit the search for a forced label
             %% before it drastically slows down the compiler. Experiments
@@ -383,7 +383,7 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             %% Some variables defined in this block are used by
             %% successors. We must update the set of unset variables.
             SetInThisBlock = [V || #b_set{dst=V} <- Is],
-            cerl_sets:union(UnsetVars, cerl_sets:from_list(SetInThisBlock))
+            sets:union(UnsetVars, sets:from_list(SetInThisBlock, [{version, 2}]))
     end.
 
 shortcut_two_way(#b_br{succ=Succ,fail=Fail}, From, Bs0, UnsetVars0, St0) ->
@@ -412,14 +412,14 @@ is_br_safe(UnsetVars, Br, #st{us=Us}=St) ->
 
             %% A two-way branch never branches to a phi node, so there
             %% is no need to check for phi nodes here.
-            not cerl_sets:is_element(V, UnsetVars) andalso
-                cerl_sets:is_disjoint(Used0, UnsetVars) andalso
-                cerl_sets:is_disjoint(Used1, UnsetVars);
+            not sets:is_element(V, UnsetVars) andalso
+                sets:is_disjoint(Used0, UnsetVars) andalso
+                sets:is_disjoint(Used1, UnsetVars);
         #b_br{succ=Same,fail=Same} ->
             %% An unconditional branch must not jump to
             %% a phi node.
             not is_forbidden(Same, St) andalso
-                cerl_sets:is_disjoint(map_get(Same, Us), UnsetVars)
+                sets:is_disjoint(map_get(Same, Us), UnsetVars)
     end.
 
 is_forbidden(L, St) ->
@@ -546,7 +546,7 @@ eval_switch_1([], _Arg, _PrevOp, Fail) ->
     Fail.
 
 bind_var_if_used(L, Var, Val, #st{us=Us}) ->
-    case cerl_sets:is_element(Var, map_get(L, Us)) of
+    case sets:is_element(Var, map_get(L, Us)) of
         true -> #{Var=>Val};
         false -> #{}
     end.
@@ -1057,7 +1057,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Successors = beam_ssa:successors(Blk),
-    Used0 = used_vars_succ(Successors, L, UsedVars0, cerl_sets:new()),
+    Used0 = used_vars_succ(Successors, L, UsedVars0, sets:new([{version, 2}])),
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
@@ -1068,8 +1068,8 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Defined0 = [Def || #b_set{dst=Def} <- Is],
-    Defined = cerl_sets:from_list(Defined0),
-    MaySkip = cerl_sets:is_disjoint(Defined, Used0),
+    Defined = sets:from_list(Defined0, [{version, 2}]),
+    MaySkip = sets:is_disjoint(Defined, Used0),
     case MaySkip of
         true ->
             Skip = Skip0#{L=>true},
@@ -1086,11 +1086,11 @@ used_vars_succ([S|Ss], L, LiveMap, Live0) ->
         #{Key:=Live} ->
             %% The successor has a phi node, and the value for
             %% this block in the phi node is a variable.
-            used_vars_succ(Ss, L, LiveMap, cerl_sets:union(Live, Live0));
+            used_vars_succ(Ss, L, LiveMap, sets:union(Live, Live0));
         #{S:=Live} ->
             %% No phi node in the successor, or the value for
             %% this block in the phi node is a literal.
-            used_vars_succ(Ss, L, LiveMap, cerl_sets:union(Live, Live0));
+            used_vars_succ(Ss, L, LiveMap, sets:union(Live, Live0));
         #{} ->
             %% A peek_message block which has not been processed yet.
             used_vars_succ(Ss, L, LiveMap, Live0)
@@ -1108,7 +1108,7 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},cerl_sets:union(cerl_sets:from_list(Vs), Live0)} ||
+                    PhiLive = [{{L,P},sets:union(sets:from_list(Vs, [{version, 2}]), Live0)} ||
                                   {P,Vs} <- PhiLive0],
                     maps:merge(UsedVars, maps:from_list(PhiLive));
                 [] ->
@@ -1118,14 +1118,14 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
     end.
 
 used_vars_blk(#b_blk{is=Is,last=Last}, Used0) ->
-    Used = cerl_sets:union(Used0, cerl_sets:from_list(beam_ssa:used(Last))),
+    Used = sets:union(Used0, sets:from_list(beam_ssa:used(Last), [{version, 2}])),
     used_vars_is(reverse(Is), Used).
 
 used_vars_is([#b_set{op=phi}|Is], Used) ->
     used_vars_is(Is, Used);
 used_vars_is([#b_set{dst=Dst}=I|Is], Used0) ->
-    Used1 = cerl_sets:union(Used0, cerl_sets:from_list(beam_ssa:used(I))),
-    Used = cerl_sets:del_element(Dst, Used1),
+    Used1 = sets:union(Used0, sets:from_list(beam_ssa:used(I), [{version, 2}])),
+    Used = sets:del_element(Dst, Used1),
     used_vars_is(Is, Used);
 used_vars_is([], Used) ->
     Used.

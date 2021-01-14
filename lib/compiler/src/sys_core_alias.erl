@@ -46,7 +46,7 @@
 -define(HAS_SUBS(Sub), Sub#sub.t =/= none).
 
 -record(sub, {p=#{} :: #{term() => ?NOTSET | atom()},              %% Found pattern substitutions
-              v=cerl_sets:new() :: cerl_sets:set(cerl:var_name()), %% Variables used by patterns
+              v=sets:new([{version, 2}]) :: sets:set(cerl:var_name()), %% Variables used by patterns
               t=none :: temp()}).                                  %% Temporary information from pre to post
 
 -type sub() :: #sub{}.
@@ -64,7 +64,7 @@
         none
         | {temp, temp()}
         | {sub, sub()}
-        | {clause, [term()], [term()], cerl_sets:set(cerl:var_name()), temp()}.
+        | {clause, [term()], [term()], sets:set(cerl:var_name()), temp()}.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
         {'ok',cerl:c_module(),[]}.
@@ -237,13 +237,13 @@ new_var_name(Key, #sub{p=Pat}=Sub) ->
 %% merge_variables/2
 
 get_variables(NodesList) ->
-    cerl_sets:from_list([Var || Node <- NodesList, Var <- cerl_trees:variables(Node)]).
+    sets:from_list([Var || Node <- NodesList, Var <- cerl_trees:variables(Node)], [{version, 2}]).
 
 is_disjoint_variables(Vars1, Vars2) ->
-    cerl_sets:is_disjoint(Vars1, Vars2).
+    sets:is_disjoint(Vars1, Vars2).
 
 merge_variables(Vars1, Vars2) ->
-    cerl_sets:union(Vars1, Vars2).
+    sets:union(Vars1, Vars2).
 
 %% get_pattern_keys/2
 %% put_pattern_keys/2

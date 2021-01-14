@@ -548,7 +548,7 @@ extract_seq_1(_, _) -> no.
 	{
 	  entry :: beam_asm:label(), %Entry label (must not be moved).
 	  replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
-	  labels :: cerl_sets:set()         %Set of referenced labels.
+	  labels :: sets:set()         %Set of referenced labels.
 	}).
 
 opt(Is0, CLabel) ->
@@ -692,7 +692,7 @@ skip_unreachable([], Acc, St) ->
 
 %% Add one or more label to the set of used labels.
 
-label_used({f,L}, St) -> St#st{labels=cerl_sets:add_element(L,St#st.labels)};
+label_used({f,L}, St) -> St#st{labels=sets:add_element(L,St#st.labels)};
 label_used([H|T], St0) -> label_used(T, label_used(H, St0));
 label_used([], St) -> St;
 label_used(_Other, St) -> St.
@@ -700,7 +700,7 @@ label_used(_Other, St) -> St.
 %% Test if label is used.
 
 is_label_used(L, St) ->
-    cerl_sets:is_element(L, St#st.labels).
+    sets:is_element(L, St#st.labels).
 
 %% is_unreachable_after(Instruction) -> boolean()
 %%  Test whether the code after Instruction is unreachable.
@@ -739,7 +739,7 @@ remove_unused_labels(Is) ->
     rem_unused(Is, Used, []).
 
 rem_unused([{label,Lbl}=I|Is0], Used, [Prev|_]=Acc) ->
-    case cerl_sets:is_element(Lbl, Used) of
+    case sets:is_element(Lbl, Used) of
 	false ->
 	    Is = case is_unreachable_after(Prev) of
 		     true -> drop_upto_label(Is0);
@@ -761,7 +761,7 @@ initial_labels([{line,_}|Is], Acc) ->
 initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
-    cerl_sets:from_list([Lbl|Acc]).
+    sets:from_list([Lbl|Acc], [{version, 2}]).
 
 drop_upto_label([{label,_}|_]=Is) -> Is;
 drop_upto_label([_|Is]) -> drop_upto_label(Is);
@@ -812,13 +812,13 @@ ulbl(I, Used) ->
         [] ->
             Used;
         [Lbl] ->
-            cerl_sets:add_element(Lbl, Used);
+            sets:add_element(Lbl, Used);
         [_|_]=L ->
             ulbl_list(L, Used)
     end.
 
 ulbl_list([L|Ls], Used) ->
-    ulbl_list(Ls, cerl_sets:add_element(L, Used));
+    ulbl_list(Ls, sets:add_element(L, Used));
 ulbl_list([], Used) -> Used.
 
 -spec instr_labels(Instruction) -> Labels when

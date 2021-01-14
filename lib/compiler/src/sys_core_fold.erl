@@ -95,7 +95,7 @@
 
 %% Variable value info.
 -record(sub, {v=[],                                 %Variable substitutions
-              s=cerl_sets:new() :: cerl_sets:set(), %Variables in scope
+              s=sets:new([{version, 2}]) :: sets:set(), %Variables in scope
               t=#{} :: map(),                       %Types
               in_guard=false}).                     %In guard or not.
 
@@ -1319,7 +1319,7 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=cerl_sets:new(),t=#{}}.
+sub_new() -> #sub{v=orddict:new(),s=sets:new([{version, 2}]),t=#{}}.
 
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=#{}}.
@@ -1336,7 +1336,7 @@ sub_set_var(#c_var{name=V}, Val, Sub) ->
 sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb1 = kill_types(V, Tdb0),
     Tdb = copy_type(V, Val, Tdb1),
-    Sub#sub{v=orddict:store(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
+    Sub#sub{v=orddict:store(V, Val, S),s=sets:add_element(V, Scope),t=Tdb}.
 
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
@@ -1344,7 +1344,7 @@ sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
 
 sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
     Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
-			  cerl_sets:add_element(V, S)
+			  sets:add_element(V, S)
 		  end, Scope0, Vs),
     Sub#sub{s=Scope}.
 
@@ -1355,7 +1355,7 @@ sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
                   _ ->
                       -1
               end,
-    S = sub_subst_scope_1(cerl_sets:to_list(Scope), Initial, S0),
+    S = sub_subst_scope_1(sets:to_list(Scope), Initial, S0),
     Sub#sub{v=orddict:from_list(S)}.
 
 %% The keys in an orddict must be unique. Make them so!
@@ -1364,7 +1364,7 @@ sub_subst_scope_1([H|T], Key, Acc) ->
 sub_subst_scope_1([], _, Acc) -> Acc.
 
 sub_is_in_scope(#c_var{name=V}, #sub{s=Scope}) ->
-    cerl_sets:is_element(V, Scope).
+    sets:is_element(V, Scope).
 
 %% warn_no_clause_match(CaseOrig, CaseOpt) -> ok
 %%  Generate a warning if none of the user-specified clauses
@@ -2116,7 +2116,7 @@ is_bool_expr_list([]) -> true.
 %%  (i.e. it cannot fail).
 %%
 is_safe_bool_expr(Core) ->
-    is_safe_bool_expr_1(Core, cerl_sets:new()).
+    is_safe_bool_expr_1(Core, sets:new([{version, 2}])).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function},
@@ -2146,7 +2146,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, BoolVars) ->
 	true ->
 	    case {is_safe_bool_expr_1(Arg, BoolVars),Vars} of
 		{true,[#c_var{name=V}]} ->
-		    is_safe_bool_expr_1(B, cerl_sets:add_element(V, BoolVars));
+		    is_safe_bool_expr_1(B, sets:add_element(V, BoolVars));
 		{false,_} ->
 		    is_safe_bool_expr_1(B, BoolVars)
 	    end;
@@ -2155,7 +2155,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, BoolVars) ->
 is_safe_bool_expr_1(#c_literal{val=Val}, _BoolVars) ->
     is_boolean(Val);
 is_safe_bool_expr_1(#c_var{name=V}, BoolVars) ->
-    cerl_sets:is_element(V, BoolVars);
+    sets:is_element(V, BoolVars);
 is_safe_bool_expr_1(_, _) -> false.
 
 is_safe_bool_expr_list([C|Cs], BoolVars) ->
@@ -2228,7 +2228,7 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 		    B1 = body(B0, ScopeSub),
 
 		    {Lvs,B2,Sub1} = let_substs(Lvs0, B1, Sub0),
-		    Sub2 = Sub1#sub{s=cerl_sets:union(ScopeSub#sub.s,
+		    Sub2 = Sub1#sub{s=sets:union(ScopeSub#sub.s,
 						      Sub1#sub.s)},
 		    Lbody = body(Lbody0, Sub2),
 		    B = Let#c_let{vars=Lvs,
@@ -2488,7 +2488,7 @@ opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
     {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
     BodySub = update_let_types(Vs, Args, Sub1),
-    Sub = Sub1#sub{v=[],s=cerl_sets:new()},
+    Sub = Sub1#sub{v=[],s=sets:new([{version, 2}])},
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
     opt_simple_let_2(Let, Vs, Arg, B, B0, Sub).
@@ -2865,12 +2865,12 @@ verify_scope(E, #sub{s=Scope}) ->
 	false ->
 	    io:format("~p\n", [E]),
 	    io:format("~p\n", [Free]),
-	    io:format("~p\n", [ordsets:from_list(cerl_sets:to_list(Scope))]),
+	    io:format("~p\n", [ordsets:from_list(sets:to_list(Scope))]),
 	    false
     end.
 
 is_subset_of_scope([V|Vs], Scope) ->
-    cerl_sets:is_element(V, Scope) andalso is_subset_of_scope(Vs, Scope);
+    sets:is_element(V, Scope) andalso is_subset_of_scope(Vs, Scope);
 is_subset_of_scope([], _) -> true.
 
 -endif.

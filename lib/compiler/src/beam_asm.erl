@@ -67,7 +67,7 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts
     Dict2 = shared_fun_wrappers(CompilerOpts, Dict1),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
-    Exp = cerl_sets:from_list(Exp0),
+    Exp = sets:from_list(Exp0, [{version, 2}]),
     {Code,Dict} = assemble_1(Asm, Exp, Dict2, []),
     build_file(Code, Attr, Dict, NumLabels, NumFuncs,
                ExtraChunks, CompileInfo, CompilerOpts).
@@ -112,7 +112,7 @@ insert_on_load_instruction(Is0, Entry) ->
     Bef ++ [El,on_load|Is].
 
 assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
-    Dict1 = case cerl_sets:is_element({Name,Arity}, Exp) of
+    Dict1 = case sets:is_element({Name,Arity}, Exp) of
 		true ->
 		    beam_dict:export(Name, Arity, Entry, Dict0);
 		false ->

@@ -181,7 +181,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% A set of all registers containing "fragile" terms. That is, terms
          %% that don't exist on our process heap and would be destroyed by a
          %% GC.
-         fragile=cerl_sets:new() :: cerl_sets:set(),
+         fragile=sets:new([{version, 2}]) :: sets:set(),
          %% Number of Y registers.
          %%
          %% Note that this may be 0 if there's a frame without saved values,
@@ -228,7 +228,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% States at labels
          branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=cerl_sets:new()    :: cerl_sets:set(),
+         labels=sets:new([{version, 2}])    :: sets:set(),
          %% Information of other functions in the module
          ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
@@ -296,7 +296,7 @@ init_vst({_, _, Arity}, Level, Ft) ->
     Vst = #vst{branched=#{},
                current=#st{},
                ft=Ft,
-               labels=cerl_sets:new(),
+               labels=sets:new([{version, 2}]),
                level=Level},
     init_function_args(Arity - 1, Vst).
 
@@ -311,7 +311,7 @@ kill_heap_allocation(St) ->
 validate_branches(MFA, Vst) ->
     #vst{ branched=Targets0, labels=Labels0 } = Vst,
     Targets = maps:keys(Targets0),
-    Labels = cerl_sets:to_list(Labels0),
+    Labels = sets:to_list(Labels0),
     case Targets -- Labels of
         [_|_]=Undef ->
             Error = {undef_labels, Undef},
@@ -338,7 +338,7 @@ vi({label,Lbl}, #vst{current=St0,
     {St, Counter} = merge_states(Lbl, St0, Branched0, Counter0),
 
     Branched = Branched0#{ Lbl => St },
-    Labels = cerl_sets:add_element(Lbl, Labels0),
+    Labels = sets:add_element(Lbl, Labels0),
 
     Vst#vst{current=St,
             ref_ctr=Counter,
@@ -1791,7 +1791,7 @@ heap_alloc_2([], St) -> St.
 
 prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
     #st{fragile=Fragile0,xs=Xs0} = St0,
-    Fragile = cerl_sets:filter(fun({x,X}) ->
+    Fragile = sets:filter(fun({x,X}) ->
                                        X < Live;
                                   ({y,_}) ->
                                        true
@@ -1910,7 +1910,7 @@ assert_unique_map_keys([_,_|_]=Ls) ->
               assert_literal(L),
               L
           end || L <- Ls],
-    case length(Vs) =:= cerl_sets:size(cerl_sets:from_list(Vs)) of
+    case length(Vs) =:= sets:size(sets:from_list(Vs, [{version, 2}])) of
 	true -> ok;
 	false -> error(keys_not_unique)
     end.
@@ -2749,7 +2749,7 @@ mv_args([], _VsA, _VsB, Acc) ->
     Acc.
 
 merge_fragility(FragileA, FragileB) ->
-    cerl_sets:union(FragileA, FragileB).
+    sets:union(FragileA, FragileB).
 
 merge_ms_positions(MsPosA, MsPosB, Vs) ->
     Keys = if
@@ -2928,17 +2928,17 @@ set_receive_marker(New, #vst{current=#st{recv_marker=Current}=St0}=Vst) ->
 %% Marks Reg as fragile.
 mark_fragile(Reg, Vst) ->
     #vst{current=#st{fragile=Fragile0}=St0} = Vst,
-    Fragile = cerl_sets:add_element(Reg, Fragile0),
+    Fragile = sets:add_element(Reg, Fragile0),
     St = St0#st{fragile=Fragile},
     Vst#vst{current=St}.
 
 propagate_fragility(Reg, Args, #vst{current=St0}=Vst) ->
     #st{fragile=Fragile0} = St0,
 
-    Sources = cerl_sets:from_list(Args),
-    Fragile = case cerl_sets:is_disjoint(Sources, Fragile0) of
-                  true -> cerl_sets:del_element(Reg, Fragile0);
-                  false -> cerl_sets:add_element(Reg, Fragile0)
+    Sources = sets:from_list(Args, [{version, 2}]),
+    Fragile = case sets:is_disjoint(Sources, Fragile0) of
+                  true -> sets:del_element(Reg, Fragile0);
+                  false -> sets:add_element(Reg, Fragile0)
               end,
 
     St = St0#st{fragile=Fragile},
@@ -2948,9 +2948,9 @@ propagate_fragility(Reg, Args, #vst{current=St0}=Vst) ->
 %% a register.
 remove_fragility(Reg, Vst) ->
     #vst{current=#st{fragile=Fragile0}=St0} = Vst,
-    case cerl_sets:is_element(Reg, Fragile0) of
+    case sets:is_element(Reg, Fragile0) of
         true ->
-            Fragile = cerl_sets:del_element(Reg, Fragile0),
+            Fragile = sets:del_element(Reg, Fragile0),
             St = St0#st{fragile=Fragile},
             Vst#vst{current=St};
         false ->
@@ -2959,7 +2959,7 @@ remove_fragility(Reg, Vst) ->
 
 %% Marks all registers as durable.
 remove_fragility(#vst{current=St0}=Vst) ->
-    St = St0#st{fragile=cerl_sets:new()},
+    St = St0#st{fragile=sets:new([{version, 2}])},
     Vst#vst{current=St}.
 
 assert_durable_term(Src, Vst) ->
@@ -2969,7 +2969,7 @@ assert_durable_term(Src, Vst) ->
 assert_not_fragile({Kind,_}=Src, Vst) when Kind =:= x; Kind =:= y ->
     check_limit(Src),
     #vst{current=#st{fragile=Fragile}} = Vst,
-    case cerl_sets:is_element(Src, Fragile) of
+    case sets:is_element(Src, Fragile) of
         true -> error({fragile_message_reference, Src});
         false -> ok
     end;
