@@ -162,7 +162,7 @@ jobs:
           name: otp_doc_man
 
       ## We add the correct version name into the file names
-      ## and create the MD5 file for all assets
+      ## and create the hash files for all assets
       - name: Create pre-build and doc archives
         run: |
           mkdir artifacts
@@ -177,12 +177,13 @@ jobs:
         run: |
           scripts/bundle-otp ${{ steps.tag.outputs.tag }}
 
-      ## Create md5sum
+      ## Create hash files
       - name: Create pre-build and doc archives
         run: |
           shopt -s nullglob
           cd artifacts
           md5sum {*.tar.gz,*.txt} > MD5.txt
+          sha256sum {*.tar.gz,*.txt} > SHA256.txt
 
       - name: Upload pre-built and doc tar archives
         uses: softprops/action-gh-release@v1
