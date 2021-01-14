@@ -184,8 +184,12 @@ format_error(cannot_parse) ->
     io_lib:format("cannot parse file, giving up", []);
 format_error({bad,W}) ->
     io_lib:format("badly formed '~s'", [W]);
+format_error({duplicated_argument, Arg}) ->
+    io_lib:format("argument '~ts' already used", [Arg]);
 format_error(missing_parenthesis) ->
     io_lib:format("badly formed define: missing closing right parenthesis",[]);
+format_error(missing_comma) ->
+    io_lib:format("badly formed define: missing comma",[]);
 format_error(premature_end) ->
     "premature end";
 format_error({call,What}) ->
@@ -848,8 +852,9 @@ scan_err_warn([{'(',_}|_]=Toks0, {atom,_,Tag}=Token, From, St) ->
 	    epp_reply(From, {error,{loc(Token),epp,{bad,Tag}}})
     end,
     wait_req_scan(St);
-scan_err_warn(_Toks, {atom,_,Tag}=Token, From, St) ->
-    epp_reply(From, {error,{loc(Token),epp,{bad,Tag}}}),
+scan_err_warn(Toks, {atom,_,Tag}=Token, From, St) ->
+    T = no_match(Toks, Token),
+    epp_reply(From, {error,{loc(T),epp,{bad,Tag}}}),
     wait_req_scan(St).
 
 %% scan_define(Tokens, DefineToken, From, EppState)
@@ -857,8 +862,9 @@ scan_err_warn(_Toks, {atom,_,Tag}=Token, From, St) ->
 scan_define([{'(',_Ap},{Type,_Am,_}=Mac|Toks], Def, From, St)
   when Type =:= atom; Type =:= var ->
     scan_define_1(Toks, Mac, Def, From, St);
-scan_define(_Toks, Def, From, St) ->
-    epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
+scan_define(Toks, Def, From, St) ->
+    T = find_mismatch(['(', var_or_atom], Toks, Def),
+    epp_reply(From, {error,{loc(T),epp,{bad,define}}}),
     wait_req_scan(St).
 
 scan_define_1([{',',_}=Comma|Toks], Mac,_Def, From, St) ->
@@ -869,20 +875,18 @@ scan_define_1([{',',_}=Comma|Toks], Mac,_Def, From, St) ->
             epp_reply(From, {error,{ErrL,epp,What}}),
             wait_req_scan(St)
     end;
-scan_define_1([{'(',_Ac}|Toks], Mac, Def, From, St) ->
-    case catch macro_pars(Toks, []) of
+scan_define_1([{'(',_Ac}=T|Toks], Mac, _Def, From, St) ->
+    case catch macro_pars(Toks, [], T) of
         {ok,{As,_}=MacroDef} ->
             Len = length(As),
 	    scan_define_2(Len, MacroDef, Mac, From, St);
 	{error,ErrL,What} ->
             epp_reply(From, {error,{ErrL,epp,What}}),
-            wait_req_scan(St);
-        _ ->
-            epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
             wait_req_scan(St)
     end;
-scan_define_1(_Toks, _Mac, Def, From, St) ->
-    epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
+scan_define_1(Toks, _Mac, Def, From, St) ->
+    T = no_match(Toks, Def),
+    epp_reply(From, {error,{loc(T),epp,{bad,define}}}),
     wait_req_scan(St).
 
 scan_define_2(Arity, Def, {_,_,Key}=Mac, From, #epp{macs=Ms}=St) ->
@@ -959,8 +963,9 @@ scan_undef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _Undef, From,St) ->
     Macs = maps:remove(M, St#epp.macs),
     Uses = maps:remove(M, St#epp.uses),
     scan_toks(From, St#epp{macs=Macs, uses=Uses});
-scan_undef(_Toks, Undef, From, St) ->
-    epp_reply(From, {error,{loc(Undef),epp,{bad,undef}}}),
+scan_undef(Toks, Undef, From, St) ->
+    T = find_mismatch(['(',var_or_atom,')',dot], Toks, Undef),
+    epp_reply(From, {error,{loc(T),epp,{bad,undef}}}),
     wait_req_scan(St).
 
 %% scan_include(Tokens, IncludeToken, From, St)
@@ -969,12 +974,13 @@ scan_include(Tokens0, Inc, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_include1(Tokens, Inc, From, St).
 
-scan_include1([{'(',_Alp},{string,_Af,NewName0},{')',_Arp},{dot,_Ad}], Inc,
-              From, St) ->
+scan_include1([{'(',_Alp},{string,_Af,NewName0}=StringT,{')',_Arp},{dot,_Ad}],
+              _Inc, From, St) ->
     NewName = expand_var(NewName0),
-    enter_file(NewName, Inc, From, St);
-scan_include1(_Toks, Inc, From, St) ->
-    epp_reply(From, {error,{loc(Inc),epp,{bad,include}}}),
+    enter_file(NewName, StringT, From, St);
+scan_include1(Toks, Inc, From, St) ->
+    T = find_mismatch(['(',string,')',dot], Toks, Inc),
+    epp_reply(From, {error,{loc(T),epp,{bad,include}}}),
     wait_req_scan(St).
 
 %% scan_include_lib(Tokens, IncludeToken, From, EppState)
@@ -1001,8 +1007,8 @@ scan_include_lib1([{'(',_Alp},{string,_Af,_NewName0},{')',_Arp},{dot,_Ad}],
   when length(St#epp.sstk) >= 8 ->
     epp_reply(From, {error,{loc(Inc),epp,{depth,"include_lib"}}}),
     wait_req_scan(St);
-scan_include_lib1([{'(',_Alp},{string,_Af,NewName0},{')',_Arp},{dot,_Ad}],
-                  Inc, From, St) ->
+scan_include_lib1([{'(',_Alp},{string,_Af,NewName0}=N,{')',_Arp},{dot,_Ad}],
+                  _Inc, From, St) ->
     NewName = expand_var(NewName0),
     Loc = start_loc(St#epp.location),
     case file:path_open(St#epp.path, NewName, [read]) of
@@ -1017,18 +1023,19 @@ scan_include_lib1([{'(',_Alp},{string,_Af,NewName0},{')',_Arp},{dot,_Ad}],
                                                       St, Loc));
 			{error,_E2} ->
 			    epp_reply(From,
-				      {error,{loc(Inc),epp,
+				      {error,{loc(N),epp,
                                               {include,lib,NewName}}}),
 			    wait_req_scan(St)
 		    end;
 		error ->
-		    epp_reply(From, {error,{loc(Inc),epp,
+		    epp_reply(From, {error,{loc(N),epp,
                                             {include,lib,NewName}}}),
 		    wait_req_scan(St)
 	    end
     end;
-scan_include_lib1(_Toks, Inc, From, St) ->
-    epp_reply(From, {error,{loc(Inc),epp,{bad,include_lib}}}),
+scan_include_lib1(Toks, Inc, From, St) ->
+    T = find_mismatch(['(',string,')',dot], Toks, Inc),
+    epp_reply(From, {error,{loc(T),epp,{bad,include_lib}}}),
     wait_req_scan(St).
 
 %% scan_ifdef(Tokens, IfdefToken, From, EppState)
@@ -1050,8 +1057,9 @@ scan_ifdef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _IfD, From, St) ->
 	_ ->
 	    skip_toks(From, St, [ifdef])
     end;
-scan_ifdef(_Toks, IfDef, From, St) ->
-    epp_reply(From, {error,{loc(IfDef),epp,{bad,ifdef}}}),
+scan_ifdef(Toks, IfDef, From, St) ->
+    T = find_mismatch(['(',var_or_atom,')',dot], Toks, IfDef),
+    epp_reply(From, {error,{loc(T),epp,{bad,ifdef}}}),
     wait_req_skip(St, [ifdef]).
 
 scan_ifndef([{'(',_Alp},{atom,_Am,M},{')',_Arp},{dot,_Ad}], _IfnD, From, St) ->
@@ -1068,8 +1076,9 @@ scan_ifndef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _IfnD, From, St) ->
 	_ ->
 	    scan_toks(From, St#epp{istk=[ifndef|St#epp.istk]})
     end;
-scan_ifndef(_Toks, IfnDef, From, St) ->
-    epp_reply(From, {error,{loc(IfnDef),epp,{bad,ifndef}}}),
+scan_ifndef(Toks, IfnDef, From, St) ->
+    T = find_mismatch(['(',var_or_atom,')',dot], Toks, IfnDef),
+    epp_reply(From, {error,{loc(T),epp,{bad,ifndef}}}),
     wait_req_skip(St, [ifndef]).
 
 %% scan_else(Tokens, ElseToken, From, EppState)
@@ -1089,8 +1098,9 @@ scan_else([{dot,_Ad}], Else, From, St) ->
                                     {illegal,"unbalanced",'else'}}}),
 	    wait_req_scan(St)
     end;
-scan_else(_Toks, Else, From, St) ->
-    epp_reply(From, {error,{loc(Else),epp,{bad,'else'}}}),
+scan_else(Toks, Else, From, St) ->
+    T = no_match(Toks, Else),
+    epp_reply(From, {error,{loc(T),epp,{bad,'else'}}}),
     wait_req_scan(St).
 
 %% scan_if(Tokens, IfToken, From, EppState)
@@ -1115,8 +1125,9 @@ scan_if([{'(',_}|_]=Toks, If, From, St) ->
 	    epp_reply(From, Error),
 	    wait_req_skip(St, ['if'])
     end;
-scan_if(_Toks, If, From, St) ->
-    epp_reply(From, {error,{loc(If),epp,{bad,'if'}}}),
+scan_if(Toks, If, From, St) ->
+    T = no_match(Toks, If),
+    epp_reply(From, {error,{loc(T),epp,{bad,'if'}}}),
     wait_req_skip(St, ['if']).
 
 eval_if(Toks0, St) ->
@@ -1220,8 +1231,9 @@ scan_endif([{dot,_Ad}], Endif, From, St) ->
                                     {illegal,"unbalanced",endif}}}),
 	    wait_req_scan(St)
     end;
-scan_endif(_Toks, Endif, From, St) ->
-    epp_reply(From, {error,{loc(Endif),epp,{bad,endif}}}),
+scan_endif(Toks, Endif, From, St) ->
+    T = no_match(Toks, Endif),
+    epp_reply(From, {error,{loc(T),epp,{bad,endif}}}),
     wait_req_scan(St).
 
 %% scan_file(Tokens, FileToken, From, EppState)
@@ -1242,8 +1254,9 @@ scan_file1([{'(',_Alp},{string,_As,Name},{',',_Ac},{integer,_Ai,Ln},{')',_Arp},
     NewLoc = new_location(Ln, St#epp.location, Locf),
     Delta = get_line(element(2, Tf))-Ln + St#epp.delta,
     wait_req_scan(St#epp{name2=Name,location=NewLoc,delta=Delta,macs=Ms});
-scan_file1(_Toks, Tf, From, St) ->
-    epp_reply(From, {error,{loc(Tf),epp,{bad,file}}}),
+scan_file1(Toks, Tf, From, St) ->
+    T = find_mismatch(['(', string, ',', integer, ')', dot], Toks, Tf),
+    epp_reply(From, {error,{loc(T),epp,{bad,file}}}),
     wait_req_scan(St).
 
 new_location(Ln, Le, Lf) when is_integer(Lf) ->
@@ -1312,18 +1325,33 @@ skip_elif(Toks, Elif, From, St, [_I]) ->
 skip_elif(_Toks, _Elif, From, St, Sis) ->
     skip_toks(From, St, Sis).
 
-%% macro_pars(Tokens, ArgStack)
+%% macro_pars(Tokens, ArgStack, Token)
 %% macro_expansion(Tokens, Token)
 %%  Extract the macro parameters and the expansion from a macro definition.
 
-macro_pars([{')',_Ap}, {',',_Ad}=Comma|Ex], Args) ->
-    {ok, {lists:reverse(Args), macro_expansion(Ex, Comma)}};
-macro_pars([{var,_,Name}, {')',_Ap}, {',',_Ad}=Comma|Ex], Args) ->
-    false = lists:member(Name, Args),		%Prolog is nice
-    {ok, {lists:reverse([Name|Args]), macro_expansion(Ex, Comma)}};
-macro_pars([{var,_A,Name}, {',',_}|Ts], Args) ->
-    false = lists:member(Name, Args),
-    macro_pars(Ts, [Name|Args]).
+macro_pars([{')',_Ap}=Par|Ex], Args, _T0) ->
+    {ok, {lists:reverse(Args), macro_pars_end(Ex, Par)}};
+macro_pars([{var,_,Name}=T|Ex], Args, _T0) ->
+    check_macro_arg(Name, Args, T),
+    macro_pars_cont(Ex, [Name|Args], T);
+macro_pars(Toks, _Args, T0) ->
+    T = no_match(Toks, T0),
+    throw({error,loc(T),{bad,define}}).
+
+macro_pars_cont([{')',_Ap}=Par|Ex], Args, _T0) ->
+    {ok, {lists:reverse(Args), macro_pars_end(Ex, Par)}};
+macro_pars_cont([{',',_Ad},{var,_,Name}=T|Ex], Args, _T0) ->
+    check_macro_arg(Name, Args, T),
+    macro_pars_cont(Ex, [Name|Args], T);
+macro_pars_cont(Toks, _Args, T0) ->
+    T = no_match(Toks, T0),
+    throw({error,loc(T),{bad,define}}).
+
+macro_pars_end([{',',_Ad}=Comma|Ex], _T0) ->
+    macro_expansion(Ex, Comma);
+macro_pars_end(Toks, T0) ->
+    T = no_match(Toks, T0),
+    throw({error,loc(T),missing_comma}).
 
 macro_expansion([{')',_Ap},{dot,_Ad}], _T0) -> [];
 macro_expansion([{dot,_}=Dot], _T0) ->
@@ -1331,6 +1359,14 @@ macro_expansion([{dot,_}=Dot], _T0) ->
 macro_expansion([T|Ts], _T0) ->
     [T|macro_expansion(Ts, T)];
 macro_expansion([], T0) -> throw({error,loc(T0),premature_end}).
+
+check_macro_arg(Name, Args, T) ->
+    case lists:member(Name, Args) of
+        true ->
+            throw({error,loc(T),{duplicated_argument,Name}});
+        false ->
+            ok
+    end.
 
 %% expand_macros(Tokens, St)
 %%  Expand the macros in a list of tokens, making sure that an expansion
@@ -1682,6 +1718,22 @@ coalesce_strings([{string,_,S}|Tokens], A, S0) ->
     coalesce_strings(Tokens, A, [S | S0]);
 coalesce_strings(Tokens, A, S) ->
     [{string,A,lists:append(lists:reverse(S))} | coalesce_strings(Tokens)].
+
+find_mismatch([Tag|Tags], [{Tag,_A}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch([Tag|Tags], [{Tag,_A,_V}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch([var_or_atom|Tags], [{var,_A,_V}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch([var_or_atom|Tags], [{atom,_A,_N}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch(_, Ts, T0) ->
+    no_match(Ts, T0).
+
+no_match([T|_], _T0) ->
+    T;
+no_match(_, T0) ->
+    T0.
 
 %% epp_request(Epp)
 %% epp_request(Epp, Request)
