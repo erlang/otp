@@ -867,7 +867,8 @@ handle_msg(#ssh_msg_channel_request{request_type = "env"},
     %% The client SHOULD ignore env requests. 
     {[], Connection};
 
-handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId},
+handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
+                                    want_reply = WantReply},
 	   #connection{channel_cache = Cache} = Connection, _) ->
     %% Not a valid request_type. All valid types are handling the
     %% parameter checking in their own clauses above.
@@ -875,14 +876,18 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId},
     %% The special ReqType faulty_msg signals that something went
     %% wrong found during decoding.
     %%
-    %% RFC4254 says:
-    %% "If the request is not recognized or is not
-    %% supported for the channel, SSH_MSG_CHANNEL_FAILURE is returned."
+    %% RFC4254 5.4 says:
+    %% "If 'want reply' is FALSE, no response will be sent to the request.
+    %%  Otherwise, the recipient responds with either
+    %%  SSH_MSG_CHANNEL_SUCCESS, SSH_MSG_CHANNEL_FAILURE, or request-specific
+    %%  continuation messages.  If the request is not recognized or is not
+    %%  supported for the channel, SSH_MSG_CHANNEL_FAILURE is returned."
+    %%
     case ssh_client_channel:cache_lookup(Cache, ChannelId) of
-        #channel{remote_id = RemoteId}  -> 
+        #channel{remote_id = RemoteId} when WantReply==true -> 
             FailMsg = channel_failure_msg(RemoteId),
             {[{connection_reply, FailMsg}], Connection};
-        undefined -> %% Chanel has been closed
+        _ -> %% Channel has been closed or no reply is wanted
             {[], Connection}
     end;
 
