@@ -1331,6 +1331,8 @@ encode_pty_opts2([{ixoff,Value} | Opts]) ->
     [?IXOFF, ?uint32(Value) | encode_pty_opts2(Opts)];
 encode_pty_opts2([{imaxbel,Value} | Opts]) ->
     [?IMAXBEL, ?uint32(Value) | encode_pty_opts2(Opts)];
+encode_pty_opts2([{iutf8,Value} | Opts]) ->
+    [?IUTF8, ?uint32(Value) | encode_pty_opts2(Opts)];
 encode_pty_opts2([{isig,Value} | Opts]) ->
     [?ISIG, ?uint32(Value) | encode_pty_opts2(Opts)];
 encode_pty_opts2([{icanon,Value} | Opts]) ->
@@ -1425,6 +1427,7 @@ decode_pty_opts2(<<Code, ?UINT32(Value), Tail/binary>>) ->
 	     ?IXANY -> ixany;
 	     ?IXOFF -> ixoff;
 	     ?IMAXBEL -> imaxbel;
+             ?IUTF8 -> iutf8; % RFC 8160
 	     ?ISIG -> isig;
 	     ?ICANON -> icanon;
 	     ?XCASE -> xcase;
