@@ -4015,7 +4015,7 @@ memory() ->
 memory(Type) when erlang:is_atom(Type) ->
     try
         case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
-            notsup -> erlang:error(notsup);
+            notsup -> error_with_info(notsup, [Type]);
             Mem -> get_memval(Type, Mem)
         end
     catch
@@ -4024,7 +4024,7 @@ memory(Type) when erlang:is_atom(Type) ->
 memory(Types) when erlang:is_list(Types) ->
     try
         case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
-            notsup -> erlang:error(notsup);
+            notsup -> error_with_info(notsup, [Types]);
             Mem -> memory_1(Types, Mem)
         end
     catch

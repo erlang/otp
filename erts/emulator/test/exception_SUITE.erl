@@ -676,6 +676,15 @@ error_info(_Config) ->
     DeadProcess = dead_process(),
     NewAtom = non_existing_atom(),
 
+    %% We'll need an incorrect memory type for erlang:memory/1. We want to test an
+    %% incorrect atom if our own allocators are enabled, but if they are disabled,
+    %% we'll make do with a term that is obviously incorrect.
+    BadMemoryType = try erlang:memory() of
+                        _ -> whatever
+                    catch
+                        error:notsup -> 999
+                    end,
+
     L = [{abs, [abc]},
          {adler32, [{bad,data}]},
          {adler32, [old, new]},
@@ -961,9 +970,8 @@ error_info(_Config) ->
          {md5_update, [abc, xyz]},
          {md5_update, [<<"bad context">>, "data"]},
 
-         {memory, [whatever]},
-         {memory, [[a,b,c]]},
-         {memory, [999]},
+         {memory, [BadMemoryType]},             %An atom if our own allocators are enabled.
+         {memory, [{always,wrong}]},
 
          %% Not a BIF.
          {module_info, 1},
