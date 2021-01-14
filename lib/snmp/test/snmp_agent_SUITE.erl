@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -5488,6 +5488,16 @@ snmp_framework_mib_3(Config) when is_list(Config) ->
 %% Therefor we must take that into account when we check if the 
 %% Engine Time diff (between the two checks) is acceptably.
 snmp_framework_mib_test() ->
+
+    ?IPRINT("transports: "
+            "~n      ~p"
+            "~ninfo: "
+            "~n      ~p",
+            [
+             rpc:call(get(master_node), snmpa, which_transports, []),
+             rpc:call(get(master_node), snmpa, info, [])
+            ]),
+
     Sleep = 5,
     ?line ["agentEngine"] = get_req(1, [[snmpEngineID,0]]),
     T1 = snmp_misc:now(ms),
@@ -7930,22 +7940,29 @@ otp16649_validate_transports([], []) ->
     ok;
 otp16649_validate_transports([AgentRawTransport|AgentRawTransports],
                              [TI|TIs]) ->
+    ?IPRINT("validate transport:"
+            "~n   AgentRawTransport: ~p"
+            "~n   TI:                ~p",  [AgentRawTransport, TI]),
     otp16649_validate_transport(AgentRawTransport, TI),
     otp16649_validate_transports(AgentRawTransports, TIs).
 
-otp16649_validate_transport({PortInfo, Kind}, {PortNo, Kind, _}) ->
+otp16649_validate_transport({PortInfo, Kind}, #{taddress       := {_, PortNo},
+                                                transport_kind := Kind}) ->
     ?IPRINT("validate ~w transport:"
             "~n   PortNo:   ~w"
             "~n   PortInfo: ~p",  [Kind, PortNo, PortInfo]),
     otp16649_validate_port(PortInfo, PortNo);
-otp16649_validate_transport({_, ConfKind}, {PortNo, ActualKind, _}) ->
+otp16649_validate_transport({_, ConfKind}, #{taddress       := {_, PortNo},
+                                             transport_kind := ActualKind}) ->
     exit({invalid_transport_kind, {PortNo, ConfKind, ActualKind}});
-otp16649_validate_transport({PortInfo, Kind, _}, {PortNo, Kind, _}) ->
+otp16649_validate_transport({PortInfo, Kind, _}, #{taddress       := {_, PortNo},
+                                                   transport_kind := Kind}) ->
     ?IPRINT("validate ~w transport:"
             "~n   PortNo:   ~w"
             "~n   PortInfo: ~p",  [Kind, PortNo, PortInfo]),
     otp16649_validate_port(PortInfo, PortNo);
-otp16649_validate_transport({_, ConfKind, _}, {PortNo, ActualKind, _}) ->
+otp16649_validate_transport({_, ConfKind, _}, #{taddress       := {_, PortNo},
+                                                transport_kind := ActualKind}) ->
     exit({invalid_transport_kind, {PortNo, ConfKind, ActualKind}}).
 
 otp16649_validate_port(PortNo, PortNo) when is_integer(PortNo) ->
@@ -8007,7 +8024,8 @@ otp16649_which_trap_port_no(TIs) ->
 
 otp16649_which_port_no([], Kind) ->
     exit({no_transport_port_no, Kind});
-otp16649_which_port_no([{PortNo, Kind, _}|_], Kind) ->
+otp16649_which_port_no([#{taddress       := {_, PortNo},
+                          transport_kind := Kind}|_], Kind) ->
     PortNo;
 otp16649_which_port_no([_|TIs], Kind) ->
     otp16649_which_port_no(TIs, Kind).
