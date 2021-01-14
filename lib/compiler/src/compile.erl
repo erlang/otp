@@ -2027,7 +2027,6 @@ pre_load() ->
 	 beam_z,
 	 cerl,
 	 cerl_clauses,
-	 cerl_sets,
 	 cerl_trees,
 	 core_lib,
 	 epp,
