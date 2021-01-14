@@ -27,13 +27,10 @@
 
 -export_type([env_var_name/0, env_var_value/0, env_var_name_value/0]).
 
--export([getenv/0, getenv/1, getenv/2, putenv/2, unsetenv/1]).
-
-%%% BIFs
-
--export([get_env_var/1, getpid/0, env/0, perf_counter/0,
-         perf_counter/1, set_env_var/2, set_signal/2, system_time/0,
-         system_time/1, timestamp/0, unset_env_var/1]).
+-export([getenv/0, getenv/1, getenv/2, putenv/2, unsetenv/1,
+         getpid/0, env/0, perf_counter/0,
+         perf_counter/1, set_signal/2, system_time/0,
+         system_time/1, timestamp/0]).
 
 -type os_command() :: atom() | io_lib:chars().
 -type os_command_opts() :: #{ max_size => non_neg_integer() | infinity }.
@@ -50,10 +47,10 @@
 env() ->
     erlang:nif_error(undef).
 
--spec get_env_var(VarName) -> Value | false when
+-spec getenv(VarName) -> Value | false when
       VarName :: env_var_name(),
       Value :: env_var_value().
-get_env_var(_VarName) ->
+getenv(_VarName) ->
     erlang:nif_error(undef).
 
 -spec getpid() -> Value when
@@ -74,10 +71,10 @@ perf_counter() ->
 perf_counter(Unit) ->
       erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit).
 
--spec set_env_var(VarName, Value) -> true when
+-spec putenv(VarName, Value) -> true when
       VarName :: env_var_name(),
       Value :: env_var_value().
-set_env_var(_, _) ->
+putenv(_VarName, _Value) ->
     erlang:nif_error(undef).
 
 -spec system_time() -> integer().
@@ -97,9 +94,9 @@ system_time(_Unit) ->
 timestamp() ->
     erlang:nif_error(undef).
 
--spec unset_env_var(VarName) -> true when
+-spec unsetenv(VarName) -> true when
       VarName :: env_var_name().
-unset_env_var(_) ->
+unsetenv(_VarName) ->
     erlang:nif_error(undef).
 
 -spec set_signal(Signal, Option) -> 'ok' when
@@ -117,12 +114,6 @@ set_signal(_Signal, _Option) ->
 getenv() ->
     [lists:flatten([Key, $=, Value]) || {Key, Value} <- os:env() ].
 
--spec getenv(VarName) -> Value | false when
-      VarName :: env_var_name(),
-      Value :: env_var_value().
-getenv(VarName) ->
-    os:get_env_var(VarName).
-
 -spec getenv(VarName, DefaultValue) -> Value when
       VarName :: env_var_name(),
       DefaultValue :: env_var_value(),
@@ -134,17 +125,6 @@ getenv(VarName, DefaultValue) ->
         Value ->
             Value
     end.
-
--spec putenv(VarName, Value) -> true when
-      VarName :: env_var_name(),
-      Value :: env_var_value().
-putenv(VarName, Value) ->
-    os:set_env_var(VarName, Value).
-
--spec unsetenv(VarName) -> true when
-      VarName :: env_var_name().
-unsetenv(VarName) ->
-    os:unset_env_var(VarName).
 
 -spec type() -> {Osfamily, Osname} when
       Osfamily :: unix | win32,

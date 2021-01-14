@@ -102,14 +102,14 @@ on_load(Extra) when is_map(Extra) ->
     Pid = erts_internal:spawn_system_process(?REGISTRY, start, []),
     %%
     DebugFilename =
-        case os:get_env_var("ESOCK_DEBUG_FILENAME") of
+        case os:getenv("ESOCK_DEBUG_FILENAME") of
             "*" ->
                 "/tmp/esock-dbg-??????";
             F ->
                 F
         end,
     UseRegistry =
-        case os:get_env_var("ESOCK_USE_SOCKET_REGISTRY") of
+        case os:getenv("ESOCK_USE_SOCKET_REGISTRY") of
             "true" ->
                 true;
             "false" ->

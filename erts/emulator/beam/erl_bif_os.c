@@ -89,7 +89,7 @@ BIF_RETTYPE os_env_0(BIF_ALIST_0)
     return result;
 }
 
-BIF_RETTYPE os_get_env_var_1(BIF_ALIST_1)
+BIF_RETTYPE os_getenv_1(BIF_ALIST_1)
 {
     const erts_osenv_t *global_env;
     Eterm out_term;
@@ -108,7 +108,7 @@ BIF_RETTYPE os_get_env_var_1(BIF_ALIST_1)
     return out_term;
 }
 
-BIF_RETTYPE os_set_env_var_2(BIF_ALIST_2)
+BIF_RETTYPE os_putenv_2(BIF_ALIST_2)
 {
     erts_osenv_t *global_env;
     int error;
@@ -124,7 +124,7 @@ BIF_RETTYPE os_set_env_var_2(BIF_ALIST_2)
     BIF_RET(am_true);
 }
 
-BIF_RETTYPE os_unset_env_var_1(BIF_ALIST_1)
+BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
 {
     erts_osenv_t *global_env;
     int error;
