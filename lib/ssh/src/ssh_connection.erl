@@ -811,14 +811,31 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "pty-req",
 				    want_reply = WantReply,
 				    data = Data},
-	   Connection, server, _SSH) ->
+	   Connection, server, SSH) ->
     <<?DEC_BIN(BTermName,_TermLen),
       ?UINT32(Width),?UINT32(Height),
       ?UINT32(PixWidth), ?UINT32(PixHeight),
       Modes/binary>> = Data,
     TermName = binary_to_list(BTermName),
+    PtyOpts0 = decode_pty_opts(Modes),
+    PtyOpts = case SSH#ssh.c_version of
+                  "SSH-2.0-PuTTY"++_ ->
+                      %% If - peer client is PuTTY
+                      %%    - it asked for pty
+                      %%    - did not tell if LF->CRLF expansion is wanted
+                      %% then
+                      %%    - do LF->CRLF expansion
+                      case  proplists:get_value(onlcr, PtyOpts0, undefined) of
+                          undefined ->
+                              [{onlcr,1} | PtyOpts0];
+                          _ ->
+                              PtyOpts0
+                      end;
+                  _ ->
+                      PtyOpts0
+              end,
     PtyRequest = {TermName, Width, Height,
-		  PixWidth, PixHeight, decode_pty_opts(Modes)},
+		  PixWidth, PixHeight, PtyOpts},
     handle_cli_msg(Connection, ChannelId,
 		   {pty, ChannelId, WantReply, PtyRequest});
 
