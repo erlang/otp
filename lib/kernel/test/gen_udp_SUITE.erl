@@ -752,7 +752,7 @@ do_sendtclass() ->
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
 %% Using the option returns einval, so it is not implemented.
-recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
+recvtos_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,netbsd}, _OSVer) -> false;
 %% Using the option returns einval, so it is not implemented.
@@ -783,8 +783,8 @@ recvtclass_ok(_, _) -> false.
 
 %% Using the option returns einval, so it is not implemented.
 sendtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
-sendtos_ok({unix,netbsd}, OSVer) -> false;
-sendtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
+sendtos_ok({unix,netbsd}, _OSVer) -> false;
+sendtos_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
 sendtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 sendtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
 sendtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
@@ -799,7 +799,7 @@ sendttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
 sendttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
 %% Option has no effect
 sendttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
-sendttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,8,0});
+sendttl_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
 %%
 sendttl_ok({unix,_}, _) -> true;
 sendttl_ok(_, _) -> false.
