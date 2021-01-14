@@ -42,7 +42,7 @@
 
 %% Internal SSH application API
 -export([channel_data/5,
-         handle_msg/3,
+         handle_msg/4,
          handle_stop/1,
 
          open_channel/4,
@@ -472,7 +472,7 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
 					      sender_channel = RemoteId,
 					      initial_window_size = WindowSz,
 					      maximum_packet_size = PacketSz}, 
-	   #connection{channel_cache = Cache} = Connection0, _) ->
+	   #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
     
     #channel{remote_id = undefined} = Channel =
 	ssh_client_channel:cache_lookup(Cache, ChannelId), 
@@ -490,22 +490,22 @@ handle_msg(#ssh_msg_channel_open_failure{recipient_channel = ChannelId,
 					 reason = Reason,
 					 description = Descr,
 					 lang = Lang},  
-	   #connection{channel_cache = Cache} = Connection0, _) ->
+	   #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
     Channel = ssh_client_channel:cache_lookup(Cache, ChannelId), 
     ssh_client_channel:cache_delete(Cache, ChannelId),
     reply_msg(Channel, Connection0, {open_error, Reason, Descr, Lang});
 
-handle_msg(#ssh_msg_channel_success{recipient_channel = ChannelId}, Connection, _) ->
+handle_msg(#ssh_msg_channel_success{recipient_channel = ChannelId}, Connection, _, _SSH) ->
     reply_msg(ChannelId, Connection, success);
 
-handle_msg(#ssh_msg_channel_failure{recipient_channel = ChannelId}, Connection, _) ->
+handle_msg(#ssh_msg_channel_failure{recipient_channel = ChannelId}, Connection, _, _SSH) ->
     reply_msg(ChannelId, Connection, failure);
 
-handle_msg(#ssh_msg_channel_eof{recipient_channel = ChannelId}, Connection, _) ->
+handle_msg(#ssh_msg_channel_eof{recipient_channel = ChannelId}, Connection, _, _SSH) ->
     reply_msg(ChannelId, Connection, {eof, ChannelId});
    
 handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},   
-	   #connection{channel_cache = Cache} = Connection0, _) ->
+	   #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
 
 	case ssh_client_channel:cache_lookup(Cache, ChannelId) of
 		#channel{sent_close = Closed, remote_id = RemoteId,
@@ -538,18 +538,18 @@ handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},
 
 handle_msg(#ssh_msg_channel_data{recipient_channel = ChannelId,
 				 data = Data}, 
-	   Connection, _) ->
+	   Connection, _, _SSH) ->
     channel_data_reply_msg(ChannelId, Connection, 0, Data);
 
 handle_msg(#ssh_msg_channel_extended_data{recipient_channel = ChannelId,
 					  data_type_code = DataType,
 					  data = Data}, 
-	   Connection, _) ->
+	   Connection, _, _SSH) ->
     channel_data_reply_msg(ChannelId, Connection, DataType, Data);
 
 handle_msg(#ssh_msg_channel_window_adjust{recipient_channel = ChannelId,
 					  bytes_to_add = Add}, 
-	   #connection{channel_cache = Cache} = Connection, _) ->
+	   #connection{channel_cache = Cache} = Connection, _, _SSH) ->
     #channel{send_window_size = Size, remote_id = RemoteId} = 
 	Channel0 = ssh_client_channel:cache_lookup(Cache, ChannelId), 
     
@@ -568,7 +568,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 				 initial_window_size = WindowSz,
 				 maximum_packet_size = PacketSz}, 
 	   #connection{options = SSHopts} = Connection0,
-	   server) ->
+	   server, _SSH) ->
     MinAcceptedPackSz =
         ?GET_OPT(minimal_remote_max_packet_size, SSHopts),
     
@@ -606,7 +606,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
                        options = Options,
                        sub_system_supervisor = SubSysSup
                       } = C,
-	   client) ->
+	   client, _SSH) ->
     {ReplyMsg, NextChId} =
         case ssh_connection_handler:retrieve(C, {tcpip_forward,ConnectedHost,ConnectedPort}) of
             {ok, {ConnectToHost,ConnectToPort}} ->
@@ -664,7 +664,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                        options = Options,
                        sub_system_supervisor = SubSysSup
                       } = C,
-	   server) ->
+	   server, _SSH) ->
     {ReplyMsg, NextChId} =
         case ?GET_OPT(tcpip_tunnel_in, Options) of
             %% May add more to the option, like allowed ip/port pairs to connect to
@@ -714,7 +714,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
 handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				 sender_channel = RemoteId}, 
 	   Connection,
-	   client) ->
+	   client, _SSH) ->
     %% Client implementations SHOULD reject any session channel open
     %% requests to make it more difficult for a corrupt server to attack the
     %% client. See See RFC 4254 6.1.
@@ -723,7 +723,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				       "Connection refused", "en"),
     {[{connection_reply, FailMsg}], Connection};
 
-handle_msg(#ssh_msg_channel_open{sender_channel = RemoteId}, Connection, _) ->
+handle_msg(#ssh_msg_channel_open{sender_channel = RemoteId}, Connection, _, _SSH) ->
     FailMsg = channel_open_failure_msg(RemoteId, 
 				       ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
 				       "Not allowed", "en"),
@@ -732,7 +732,7 @@ handle_msg(#ssh_msg_channel_open{sender_channel = RemoteId}, Connection, _) ->
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "exit-status",
 				    data = Data},
-           Connection, _) ->
+           Connection, _, _SSH) ->
     <<?UINT32(Status)>> = Data,
     reply_msg(ChannelId, Connection, {exit_status, ChannelId, Status});
 
@@ -740,7 +740,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "exit-signal",
 				    want_reply = false,
 				    data = Data},  
-           #connection{channel_cache = Cache} = Connection0, _) ->
+           #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
     <<?DEC_BIN(SigName, _SigLen),
       ?BOOLEAN(_Core), 
       ?DEC_BIN(Err, _ErrLen),
@@ -759,7 +759,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "xon-xoff",
 				    want_reply = false,
 				    data = Data},
-           Connection, _) ->
+           Connection, _, _SSH) ->
     <<?BOOLEAN(CDo)>> = Data,
     reply_msg(ChannelId, Connection, {xon_xoff, ChannelId, CDo=/= 0});
 
@@ -767,7 +767,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "window-change",
 				    want_reply = false,
 				    data = Data}, 
-           Connection0, _) ->
+           Connection0, _, _SSH) ->
     <<?UINT32(Width),?UINT32(Height),
       ?UINT32(PixWidth), ?UINT32(PixHeight)>> = Data,
     reply_msg(ChannelId, Connection0, {window_change, ChannelId,
@@ -777,7 +777,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "signal",
 				    data = Data}, 
-           Connection0, _) ->
+           Connection0, _, _SSH) ->
     <<?DEC_BIN(SigName, _SigLen)>> = Data,
     reply_msg(ChannelId, Connection0, {signal, ChannelId,
                                        binary_to_list(SigName)});
@@ -786,7 +786,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "subsystem",
 				    want_reply = WantReply,
 				    data = Data},
-	   #connection{channel_cache = Cache} = Connection, server) ->
+	   #connection{channel_cache = Cache} = Connection, server, _SSH) ->
     <<?DEC_BIN(SsName,_SsLen)>> = Data,
     #channel{remote_id=RemoteId} = Channel = 
 	ssh_client_channel:cache_lookup(Cache, ChannelId), 
@@ -803,7 +803,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
     {[{connection_reply,Reply}], Connection};
 
 handle_msg(#ssh_msg_channel_request{request_type = "subsystem"},
-	   Connection, client) ->
+	   Connection, client, _SSH) ->
     %% The client SHOULD ignore subsystem requests. See RFC 4254 6.5.
     {[], Connection};
 
@@ -811,7 +811,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "pty-req",
 				    want_reply = WantReply,
 				    data = Data},
-	   Connection, server) ->
+	   Connection, server, _SSH) ->
     <<?DEC_BIN(BTermName,_TermLen),
       ?UINT32(Width),?UINT32(Height),
       ?UINT32(PixWidth), ?UINT32(PixHeight),
@@ -823,19 +823,19 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 		   {pty, ChannelId, WantReply, PtyRequest});
 
 handle_msg(#ssh_msg_channel_request{request_type = "pty-req"},
-	   Connection, client) ->
+	   Connection, client, _SSH) ->
     %% The client SHOULD ignore pty requests. See RFC 4254 6.2.
     {[], Connection};
 
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "shell",
 				    want_reply = WantReply},
-	   Connection, server) ->
+	   Connection, server, _SSH) ->
     handle_cli_msg(Connection, ChannelId,
 		   {shell, ChannelId, WantReply});
  
 handle_msg(#ssh_msg_channel_request{request_type = "shell"},
-	   Connection, client) ->
+	   Connection, client, _SSH) ->
     %% The client SHOULD ignore shell requests. See RFC 4254 6.5.
     {[], Connection};
 
@@ -843,13 +843,13 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "exec",
 				    want_reply = WantReply,
 				    data = Data},
-	   Connection, server) ->
+	   Connection, server, _SSH) ->
     <<?DEC_BIN(Command, _Len)>> = Data,
     handle_cli_msg(Connection, ChannelId,
 		   {exec, ChannelId, WantReply, binary_to_list(Command)});
 	
 handle_msg(#ssh_msg_channel_request{request_type = "exec"},
-	   Connection, client) ->
+	   Connection, client, _SSH) ->
     %% The client SHOULD ignore exec requests. See RFC 4254 6.5.
     {[], Connection};
 
@@ -857,19 +857,19 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
   				    request_type = "env",
   				    want_reply = WantReply,
   				    data = Data}, 
-	   Connection, server) ->
+	   Connection, server, _SSH) ->
     <<?DEC_BIN(Var,_VarLen), ?DEC_BIN(Value,_ValLen)>> = Data,
     handle_cli_msg(Connection, ChannelId,
  		   {env, ChannelId, WantReply, Var, Value});
 
 handle_msg(#ssh_msg_channel_request{request_type = "env"},
-	   Connection, client) ->
+	   Connection, client, _SSH) ->
     %% The client SHOULD ignore env requests. 
     {[], Connection};
 
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
                                     want_reply = WantReply},
-	   #connection{channel_cache = Cache} = Connection, _) ->
+	   #connection{channel_cache = Cache} = Connection, _, _SSH) ->
     %% Not a valid request_type. All valid types are handling the
     %% parameter checking in their own clauses above.
     %% 
@@ -894,7 +894,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 handle_msg(#ssh_msg_global_request{name = <<"tcpip-forward">>,
 				   want_reply = WantReply,
 				   data = <<?DEC_BIN(ListenAddrStr,_Len),?UINT32(ListenPort)>>},
-           #connection{options = Opts} = Connection, server) ->
+           #connection{options = Opts} = Connection, server, _SSH) ->
     case ?GET_OPT(tcpip_tunnel_out, Opts) of
         false ->
             %% This daemon instance has not enabled tcpip_forwarding
@@ -929,7 +929,7 @@ handle_msg(#ssh_msg_global_request{name = <<"tcpip-forward">>,
 
 handle_msg(#ssh_msg_global_request{name = _Type,
 				   want_reply = WantReply,
-				   data = _Data}, Connection, _Role) ->
+				   data = _Data}, Connection, _Role, _SSH) ->
     if WantReply == true ->
 	    FailMsg = request_failure_msg(),
 	    {[{connection_reply, FailMsg}], Connection};
@@ -938,29 +938,29 @@ handle_msg(#ssh_msg_global_request{name = _Type,
     end;
 
 handle_msg(#ssh_msg_request_failure{},
-	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
+	   #connection{requests = [{_, From} | Rest]} = Connection, _, _SSH) ->
     {[{channel_request_reply, From, {failure, <<>>}}],
      Connection#connection{requests = Rest}};
 
 handle_msg(#ssh_msg_request_failure{},
-	   #connection{requests = [{_, From,_} | Rest]} = Connection, _) ->
+	   #connection{requests = [{_, From,_} | Rest]} = Connection, _, _SSH) ->
     {[{channel_request_reply, From, {failure, <<>>}}],
      Connection#connection{requests = Rest}};
 
 handle_msg(#ssh_msg_request_success{data = Data},
-	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
+	   #connection{requests = [{_, From} | Rest]} = Connection, _, _SSH) ->
     {[{channel_request_reply, From, {success, Data}}],
      Connection#connection{requests = Rest}};
 
 handle_msg(#ssh_msg_request_success{data = Data},
-	   #connection{requests = [{_, From, Fun} | Rest]} = Connection0, _) ->
+	   #connection{requests = [{_, From, Fun} | Rest]} = Connection0, _, _SSH) ->
     Connection = Fun({success,Data}, Connection0),
     {[{channel_request_reply, From, {success, Data}}],
      Connection#connection{requests = Rest}};
 
 handle_msg(#ssh_msg_disconnect{code = Code,
 			       description = Description},
-	   Connection, _) ->
+	   Connection, _, _SSH) ->
     {disconnect, {Code, Description}, handle_stop(Connection)}.
 
 

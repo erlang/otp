@@ -1109,7 +1109,7 @@ handle_event(_, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
 
 handle_event(_, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {disconnect, _, RepliesCon} =
-	ssh_connection:handle_msg(Msg, D0#data.connection_state, role(StateName)),
+	ssh_connection:handle_msg(Msg, D0#data.connection_state, role(StateName), D0#data.ssh_params),
     {Actions,D} = send_replies(RepliesCon, D0),
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
@@ -1129,7 +1129,7 @@ handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
                                                         event_queue = Qev0} = D0) ->
     Role = role(StateName),
     Rengotation = renegotiation(StateName),
-    try ssh_connection:handle_msg(Msg, Connection0, Role) of
+    try ssh_connection:handle_msg(Msg, Connection0, Role, D0#data.ssh_params) of
 	{disconnect, Reason0, RepliesConn} ->
             {Repls, D} = send_replies(RepliesConn, D0),
             case {Reason0,Role} of
