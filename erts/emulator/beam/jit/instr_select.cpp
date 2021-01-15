@@ -78,6 +78,8 @@ void BeamModuleAssembler::emit_i_select_val_lins(
         const std::vector<ArgVal> &args) {
     ASSERT(Size.getValue() == args.size());
     mov_arg(ARG2, Src);
+    if (emit_optimized_three_way_select(Fail, args))
+        return;
     emit_linear_search(ARG2, Fail, args);
 }
 
@@ -260,4 +262,54 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
     if (Fail.getType() == ArgVal::i) {
         a.bind(fail);
     }
+}
+
+/*
+ * Attempt to optimize the case when a select_val has exactly two
+ * values which only differ by one bit and they both branch to the
+ * same label.
+ *
+ * The optimization makes use of the observation that (V == X || V ==
+ * Y) is equivalent to (V | (X ^ Y)) == (X | Y) when (X ^ Y) has only
+ * one bit set.
+ *
+ * ARG2 contains the value.
+ * Return true if the optimization was possible, in
+ * which case ARG1 should be considered trashed.
+ */
+bool BeamModuleAssembler::emit_optimized_three_way_select(
+        const ArgVal &Fail,
+        const std::vector<ArgVal> &args) {
+    if (args.size() != 4 || (args[2].getValue() != args[3].getValue()))
+        return false;
+
+    uint64_t x = args[0].getValue();
+    uint64_t y = args[1].getValue();
+    uint64_t combined = x | y;
+    uint64_t diff = x ^ y;
+    ArgVal val(ArgVal::i, combined);
+
+    if ((diff & (diff - 1)) != 0)
+        return false;
+    comment("(Src == 0x%x || Src == 0x%x) <=> (Src | 0x%x) == 0x%x",
+            x,
+            y,
+            diff,
+            combined);
+
+    if (Support::isInt32((Sint)diff)) {
+        a.or_(ARG2, imm(diff));
+    } else {
+        a.mov(ARG1, imm(diff));
+        a.or_(ARG2, ARG1);
+    }
+    cmp_arg(ARG2, val, ARG1);
+    a.je(labels[args[2].getValue()]);
+    if (Fail.getType() == ArgVal::f) {
+        a.jmp(labels[Fail.getValue()]);
+    } else {
+        /* NIL means fallthrough to the next instruction. */
+        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+    }
+    return true;
 }

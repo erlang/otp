@@ -1289,6 +1289,9 @@ protected:
     void emit_nyi(const char *msg);
     void emit_nyi(void);
 
+    bool emit_optimized_three_way_select(const ArgVal &Fail,
+                                         const std::vector<ArgVal> &args);
+
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgVal &Src, x86::Gp tuple_reg);
 #endif
