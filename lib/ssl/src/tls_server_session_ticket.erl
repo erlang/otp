@@ -192,12 +192,17 @@ new_session_ticket_base(#state{nonce = Nonce,
 
 new_session_ticket(Id, Nonce, Lifetime) ->
     TicketAgeAdd = ticket_age_add(),
+    %% TODO Implement Early Data Indication in stateless and stateful
+    %% session tickets. This change hardcodes max_early_data_size to
+    %% 16k.
+    Extensions = #{early_data =>
+                       #early_data_indication_nst{indication = 16384}},
     #new_session_ticket{
        ticket = Id,
        ticket_lifetime = Lifetime,
        ticket_age_add = TicketAgeAdd,
        ticket_nonce = ticket_nonce(Nonce),
-       extensions = #{}
+       extensions = Extensions
       }.
 
 
@@ -321,7 +326,13 @@ generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce,
                                              lifetime = Lifetime,
                                              timestamp = Timestamp
                                             }, Shard, IV),
-    Ticket#new_session_ticket{ticket = Encrypted}.
+    %% TODO Implement Early Data Indication in stateless and stateful
+    %% session tickets. This change hardcodes max_early_data_size to
+    %% 16k.
+    Extensions = #{early_data =>
+                       #early_data_indication_nst{indication = 16384}},
+    Ticket#new_session_ticket{ticket = Encrypted,
+                              extensions = Extensions}.
     
 stateless_use(#offered_psks{
                  identities = Identities,
