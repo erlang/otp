@@ -56,7 +56,7 @@
 %% Per-module scan state
 -record(gst, {tlh_roots :: gb_trees:tree(#b_local{}, gb_sets:set(handler())),
               tlh_edges=#{} :: #{ #b_local{} => gb_sets:set(#b_local{}) },
-              throws=cerl_sets:new() :: cerl_sets:set(#b_local{})}).
+              throws=sets:new([{version, 2}]) :: sets:set(#b_local{})}).
 
 %% Per-function scan state
 -record(lst, {suitability=#{} :: #{ #b_var{} => suitability() },
@@ -106,7 +106,7 @@ scan_1([], Gst) ->
          tlh_edges=Edges,
          throws=Throws} = Gst,
 
-    case cerl_sets:size(Throws) of
+    case sets:size(Throws) of
         0 ->
             no_throws;
         _ ->
@@ -174,7 +174,7 @@ si_is([#b_set{op=call,
       Id, _Lbl, #b_ret{arg=Dst}, Lst, Gst) ->
     %% Tail throw, handled by caller. We'll need to visit this function again.
     #gst{throws=Throws0} = Gst,
-    Throws = cerl_sets:add_element(Id, Throws0),
+    Throws = sets:add_element(Id, Throws0),
     {Lst, Gst#gst{throws=Throws}};
 si_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | _]}],
       Id, _Lbl, #b_ret{arg=Dst}, Lst, Gst) ->
@@ -297,7 +297,7 @@ add_tlh(Id, Callee, Lst, Gst) ->
 opt([#b_function{bs=Blocks0}=F | Fs], Throws, TLHs) ->
     Id = get_func_id(F),
 
-    Blocks = case {cerl_sets:is_element(Id, Throws), TLHs} of
+    Blocks = case {sets:is_element(Id, Throws), TLHs} of
                  {true, #{ Id := Handlers } } ->
                      opt_function(Handlers, Blocks0);
                  {_, _} ->

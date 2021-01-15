@@ -24,7 +24,7 @@
 -import(lists, [any/2,member/2,reverse/1,reverse/2,sort/1]).
 
 -record(st,
-	{safe :: cerl_sets:set(beam_asm:label()) %Safe labels.
+	{safe :: sets:set(beam_asm:label()) %Safe labels.
         }).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
@@ -218,14 +218,14 @@ create_map(Trim, []) ->
 create_map(Trim, Moves) ->
     Map0 = [{Src,Dst-Trim} || {move,{y,Src},{y,Dst}} <- Moves],
     Map = maps:from_list(Map0),
-    IllegalTargets = cerl_sets:from_list([Dst || {move,_,{y,Dst}} <- Moves]),
+    IllegalTargets = sets:from_list([Dst || {move,_,{y,Dst}} <- Moves], [{version, 2}]),
     fun({y,Y0}) when Y0 < Trim ->
             case Map of
                 #{Y0:=Y} -> {y,Y};
                 #{} -> throw(not_possible)
             end;
        ({y,Y}) ->
-	    case cerl_sets:is_element(Y, IllegalTargets) of
+	    case sets:is_element(Y, IllegalTargets) of
 		true -> throw(not_possible);
 		false -> {y,Y-Trim}
 	    end;
@@ -330,7 +330,7 @@ safe_labels([{label,L}|Is], Acc) ->
     end;
 safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
-safe_labels([], Acc) -> cerl_sets:from_list(Acc).
+safe_labels([], Acc) -> sets:from_list(Acc, [{version, 2}]).
 
 is_safe_label([{'%',_}|Is]) ->
     is_safe_label(Is);
@@ -447,7 +447,7 @@ frame_size(_, _) -> throw(not_possible).
 frame_size_branch(0, Is, Safe) ->
     frame_size(Is, Safe);
 frame_size_branch(L, Is, Safe) ->
-    case cerl_sets:is_element(L, Safe) of
+    case sets:is_element(L, Safe) of
 	false -> throw(not_possible);
 	true -> frame_size(Is, Safe)
     end.

@@ -134,7 +134,7 @@ in_neighbours(#dg{in_es=InEsMap}, V) ->
 
 -spec is_path(graph(), vertex(), vertex()) -> boolean().
 is_path(G, From, To) ->
-    Seen = cerl_sets:new(),
+    Seen = sets:new([{version, 2}]),
     try
         _ = is_path_1([From], To, G, Seen),
         false
@@ -146,11 +146,11 @@ is_path(G, From, To) ->
 is_path_1([To|_], To, _G, _Seen) ->
     throw(true);
 is_path_1([V|Vs], To, G, Seen0) ->
-    case cerl_sets:is_element(V, Seen0) of
+    case sets:is_element(V, Seen0) of
         true ->
             is_path_1(Vs, To, G, Seen0);
         false ->
-            Seen1 = cerl_sets:add_element(V, Seen0),
+            Seen1 = sets:add_element(V, Seen0),
             Successors = out_neighbours(G, V),
             Seen = is_path_1(Successors, To, G, Seen1),
             is_path_1(Vs, To, G, Seen)
@@ -180,16 +180,16 @@ vertices(#dg{vs=Vs}) ->
 
 -spec reverse_postorder(graph(), [vertex()]) -> [vertex()].
 reverse_postorder(G, Vs) ->
-    Seen = cerl_sets:new(),
+    Seen = sets:new([{version, 2}]),
     {RPO, _} = reverse_postorder_1(Vs, G, Seen, []),
     RPO.
 
 reverse_postorder_1([V|Vs], G, Seen0, Acc0) ->
-    case cerl_sets:is_element(V, Seen0) of
+    case sets:is_element(V, Seen0) of
         true ->
             reverse_postorder_1(Vs, G, Seen0, Acc0);
         false ->
-            Seen1 = cerl_sets:add_element(V, Seen0),
+            Seen1 = sets:add_element(V, Seen0),
             Successors = out_neighbours(G, V),
             {Acc,Seen} = reverse_postorder_1(Successors, G, Seen1, Acc0),
             reverse_postorder_1(Vs, G, Seen, [V|Acc])

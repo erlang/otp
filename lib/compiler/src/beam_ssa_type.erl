@@ -60,7 +60,7 @@
         { func_id :: func_id(),
           limit_return :: boolean(),
           params :: [beam_ssa:b_var()],
-          used_once :: cerl_sets:set(beam_ssa:b_var()) }).
+          used_once :: sets:set(beam_ssa:b_var()) }).
 
 -type type_db() :: #{ beam_ssa:var_name() := type() }.
 
@@ -1532,7 +1532,7 @@ update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last,
     {Last, update_successor(Succ, Ts, Ls)};
 update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
                   Ts, Ds, Ls0, UsedOnce) ->
-    IsTempVar = cerl_sets:is_element(Bool, UsedOnce),
+    IsTempVar = sets:is_element(Bool, UsedOnce),
     case infer_types_br(Bool, Ts, IsTempVar, Ds) of
         {#{}=SuccTs, #{}=FailTs} ->
             Ls1 = update_successor(Succ, SuccTs, Ls0),
@@ -1547,7 +1547,7 @@ update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
     end;
 update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
                   Ts, Ds, Ls0, UsedOnce) ->
-    IsTempVar = cerl_sets:is_element(V, UsedOnce),
+    IsTempVar = sets:is_element(V, UsedOnce),
 
     {List1, FailTs, Ls1} =
         update_switch(List0, V, raw_type(V, Ts), Ts, Ds, Ls0, IsTempVar, []),
@@ -2114,7 +2114,7 @@ gcd(A, B) ->
 init_metadata(FuncId, Linear, Params) ->
     {RetCounter, Map0} = init_metadata_1(reverse(Linear), 0, #{}),
     Map = maps:without(Params, Map0),
-    UsedOnce = cerl_sets:from_list(maps:keys(Map)),
+    UsedOnce = sets:from_list(maps:keys(Map), [{version, 2}]),
 
     #metadata{ func_id = FuncId,
                limit_return = (RetCounter >= ?RETURN_LIMIT),

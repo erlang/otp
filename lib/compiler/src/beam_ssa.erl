@@ -356,7 +356,7 @@ def(Ls, Blocks) ->
 
 def_unused(Ls, Unused, Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Ls],
-    Preds = cerl_sets:from_list(Ls),
+    Preds = sets:from_list(Ls, [{version, 2}]),
     def_unused_1(Blks, Preds, [], Unused).
 
 %% dominators(Labels, BlockMap) -> {Dominators,Numbering}.
@@ -481,7 +481,7 @@ fold_blocks(Fun, Labels, Acc0, Blocks) ->
       Linear :: [{label(),b_blk()}].
 
 linearize(Blocks) ->
-    Seen = cerl_sets:new(),
+    Seen = sets:new([{version, 2}]),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
     Linear = fix_phis(Linear0, #{}),
     Linear.
@@ -499,7 +499,7 @@ rpo(Blocks) ->
       Labels :: [label()].
 
 rpo(From, Blocks) ->
-    Seen = cerl_sets:new(),
+    Seen = sets:new([{version, 2}]),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
 
@@ -523,7 +523,7 @@ between(From, To, Preds, Blocks) ->
     %% gathering once seen since we're only interested in the blocks inbetween.
     %% Uninteresting blocks can still be added if `From` doesn't dominate `To`,
     %% but that has no effect on the final result.
-    Filter = between_make_filter([To], Preds, cerl_sets:from_list([From])),
+    Filter = between_make_filter([To], Preds, sets:from_list([From], [{version, 2}])),
     {Paths, _} = between_rpo([From], Blocks, Filter, []),
 
     Paths.
@@ -534,7 +534,7 @@ between(From, To, Preds, Blocks) ->
 rename_vars(Rename, Labels, Blocks) when is_list(Rename) ->
     rename_vars(maps:from_list(Rename), Labels, Blocks);
 rename_vars(Rename, Labels, Blocks) when is_map(Rename)->
-    Preds = cerl_sets:from_list(Labels),
+    Preds = sets:from_list(Labels, [{version, 2}]),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
                 normalize(Set#b_set{args=Args});
@@ -580,7 +580,7 @@ trim_unreachable(Blocks) when is_map(Blocks) ->
     %% Could perhaps be optimized if there is any need.
     maps:from_list(linearize(Blocks));
 trim_unreachable([_|_]=Blocks) ->
-    trim_unreachable_1(Blocks, cerl_sets:from_list([0])).
+    trim_unreachable_1(Blocks, sets:from_list([0], [{version, 2}])).
 
 -spec used(b_blk() | b_set() | terminator()) -> [var_name()].
 
@@ -667,7 +667,7 @@ def_unused_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
     %% We must be careful to only include variables that will
     %% be used when arriving from one of the predecessor blocks
     %% in Preds.
-    Unused1 = [V || {#b_var{}=V,L} <- Args, cerl_sets:is_element(L, Preds)],
+    Unused1 = [V || {#b_var{}=V,L} <- Args, sets:is_element(L, Preds)],
     Unused = ordsets:subtract(Unused0, ordsets:from_list(Unused1)),
     def_unused_is(Is, Preds, Def, Unused);
 def_unused_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Unused0) ->
@@ -753,11 +753,11 @@ flatmapfold_instrs_1([], _, Blocks, Acc) ->
     {Blocks,Acc}.
 
 linearize_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case cerl_sets:is_element(L, Seen0) of
+    case sets:is_element(L, Seen0) of
         true ->
             linearize_1(Ls, Blocks, Seen0, Acc0);
         false ->
-            Seen1 = cerl_sets:add_element(L, Seen0),
+            Seen1 = sets:add_element(L, Seen0),
             Block = map_get(L, Blocks),
             Successors = successors(Block),
             {Acc,Seen} = linearize_1(Successors, Blocks, Seen1, Acc0),
@@ -795,7 +795,7 @@ is_successor(L, Pred, S) ->
 
 trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
     Blk = trim_phis(Blk0, Seen0),
-    case cerl_sets:is_element(L, Seen0) of
+    case sets:is_element(L, Seen0) of
         false ->
             trim_unreachable_1(Bs, Seen0);
         true ->
@@ -803,7 +803,7 @@ trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
                 [] ->
                     [{L,Blk}|trim_unreachable_1(Bs, Seen0)];
                 [_|_]=Successors ->
-                    Seen = cerl_sets:union(Seen0, cerl_sets:from_list(Successors)),
+                    Seen = sets:union(Seen0, sets:from_list(Successors, [{version, 2}])),
                     [{L,Blk}|trim_unreachable_1(Bs, Seen)]
             end
     end;
@@ -815,17 +815,17 @@ trim_phis(#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk, Seen) ->
 trim_phis(Blk, _Seen) -> Blk.
 
 trim_phis_1([#b_set{op=phi,args=Args0}=I|Is], Seen) ->
-    Args = [P || {_,L}=P <- Args0, cerl_sets:is_element(L, Seen)],
+    Args = [P || {_,L}=P <- Args0, sets:is_element(L, Seen)],
     [I#b_set{args=Args}|trim_phis_1(Is, Seen)];
 trim_phis_1(Is, _Seen) -> Is.
 
 between_make_filter([L | Ls], Preds, Acc0) ->
-    case cerl_sets:is_element(L, Acc0) of
+    case sets:is_element(L, Acc0) of
         true ->
             between_make_filter(Ls, Preds, Acc0);
         false ->
             Next = map_get(L, Preds),
-            Acc1 = cerl_sets:add_element(L, Acc0),
+            Acc1 = sets:add_element(L, Acc0),
 
             Acc = between_make_filter(Next, Preds, Acc1),
             between_make_filter(Ls, Preds, Acc)
@@ -834,10 +834,10 @@ between_make_filter([], _Preds, Acc) ->
     Acc.
 
 between_rpo([L | Ls], Blocks, Filter0, Acc0) ->
-    case cerl_sets:is_element(L, Filter0) of
+    case sets:is_element(L, Filter0) of
         true ->
             Block = map_get(L, Blocks),
-            Filter1 = cerl_sets:del_element(L, Filter0),
+            Filter1 = sets:del_element(L, Filter0),
 
             Successors = successors(Block),
             {Acc, Filter} = between_rpo(Successors, Blocks, Filter1, Acc0),
@@ -849,12 +849,12 @@ between_rpo([], _, Filter, Acc) ->
     {Acc, Filter}.
 
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case cerl_sets:is_element(L, Seen0) of
+    case sets:is_element(L, Seen0) of
         true ->
             rpo_1(Ls, Blocks, Seen0, Acc0);
         false ->
             Block = map_get(L, Blocks),
-            Seen1 = cerl_sets:add_element(L, Seen0),
+            Seen1 = sets:add_element(L, Seen0),
             Successors = successors(Block),
             {Acc,Seen} = rpo_1(Successors, Blocks, Seen1, Acc0),
             rpo_1(Ls, Blocks, Seen, [L|Acc])
@@ -874,7 +874,7 @@ rename_var(#b_remote{mod=Mod0,name=Name0}=Remote, Rename) ->
 rename_var(Old, _) -> Old.
 
 rename_phi_vars([{Var,L}|As], Preds, Ren) ->
-    case cerl_sets:is_element(L, Preds) of
+    case sets:is_element(L, Preds) of
         true ->
             [{rename_var(Var, Ren),L}|rename_phi_vars(As, Preds, Ren)];
         false ->

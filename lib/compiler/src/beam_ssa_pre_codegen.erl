@@ -1672,7 +1672,7 @@ find_loop_exit([_,_|_]=RmBlocks, Blocks) ->
     %% remove_message blocks.
     RPO = beam_ssa:rpo(Blocks),
     {Dominators,_} = beam_ssa:dominators(RPO, Blocks),
-    RmSet = cerl_sets:from_list(RmBlocks),
+    RmSet = sets:from_list(RmBlocks, [{version, 2}]),
     RmRPO = beam_ssa:rpo(RmBlocks, Blocks),
     find_loop_exit_1(RmRPO, RmSet, Dominators, Blocks);
 find_loop_exit(_, _) ->
@@ -1686,7 +1686,7 @@ find_loop_exit_1([?EXCEPTION_BLOCK|Ls], RmSet, Dominators, Blocks) ->
     find_loop_exit_1(Ls, RmSet, Dominators, Blocks);
 find_loop_exit_1([L|Ls0], RmSet, Dominators, Blocks) ->
     DomBy = map_get(L, Dominators),
-    case any(fun(E) -> cerl_sets:is_element(E, RmSet) end, DomBy) of
+    case any(fun(E) -> sets:is_element(E, RmSet) end, DomBy) of
         true ->
             %% This block is dominated by one of the remove_message blocks,
             %% which means that the block is part of only one clause.
@@ -1767,7 +1767,7 @@ find_rm_act([]) ->
 %%%
 
 -record(dk, {d :: ordsets:ordset(var_name()),
-             k :: cerl_sets:set(var_name())
+             k :: sets:set(var_name())
             }).
 
 %% find_yregs(St0) -> St.
@@ -1790,10 +1790,10 @@ find_yregs(#st{frames=[_|_]=Frames,args=Args,ssa=Blocks0}=St) ->
     St#st{ssa=Blocks}.
 
 find_yregs_1([{F,Defs}|Fs], Blocks0) ->
-    DK = #dk{d=Defs,k=cerl_sets:new()},
+    DK = #dk{d=Defs,k=sets:new([{version, 2}])},
     D0 = #{F=>DK},
     Ls = beam_ssa:rpo([F], Blocks0),
-    Yregs0 = cerl_sets:new(),
+    Yregs0 = sets:new([{version, 2}]),
     Yregs = find_yregs_2(Ls, Blocks0, D0, Yregs0),
     Blk0 = map_get(F, Blocks0),
     Blk = beam_ssa:add_anno(yregs, Yregs, Blk0),
@@ -1848,7 +1848,7 @@ find_update_succ([S|Ss], #dk{d=Defs0,k=Killed0}=DK0, D0) ->
     case D0 of
         #{S:=#dk{d=Defs1,k=Killed1}} ->
             Defs = ordsets:intersection(Defs0, Defs1),
-            Killed = cerl_sets:union(Killed0, Killed1),
+            Killed = sets:union(Killed0, Killed1),
             DK = #dk{d=Defs,k=Killed},
             D = D0#{S:=DK},
             find_update_succ(Ss, DK0, D);
@@ -1860,13 +1860,13 @@ find_update_succ([], _, D) -> D.
 
 find_yregs_is([#b_set{dst=Dst}=I|Is], #dk{d=Defs0,k=Killed0}=Ys, Yregs0) ->
     Yregs1 = intersect_used(I, Killed0),
-    Yregs = cerl_sets:union(Yregs0, Yregs1),
+    Yregs = sets:union(Yregs0, Yregs1),
     case beam_ssa:clobbers_xregs(I) of
         false ->
             Defs = ordsets:add_element(Dst, Defs0),
             find_yregs_is(Is, Ys#dk{d=Defs}, Yregs);
         true ->
-            Killed = cerl_sets:union(cerl_sets:from_list(Defs0), Killed0),
+            Killed = sets:union(sets:from_list(Defs0, [{version, 2}]), Killed0),
             Defs = [Dst],
             find_yregs_is(Is, Ys#dk{d=Defs,k=Killed}, Yregs)
     end;
@@ -1874,28 +1874,28 @@ find_yregs_is([], Ys, Yregs) -> {Yregs,Ys}.
 
 find_yregs_terminator(Terminator, #dk{k=Killed}, Yregs0) ->
     Yregs = intersect_used(Terminator, Killed),
-    cerl_sets:union(Yregs0, Yregs).
+    sets:union(Yregs0, Yregs).
 
 intersect_used(#b_br{bool=#b_var{}=V}, Set) ->
     intersect_used_keep_singleton(V, Set);
 intersect_used(#b_ret{arg=#b_var{}=V}, Set) ->
     intersect_used_keep_singleton(V, Set);
 intersect_used(#b_set{op=phi,args=Args}, Set) ->
-    cerl_sets:from_list([V || {#b_var{}=V,_} <- Args, cerl_sets:is_element(V, Set)]);
+    sets:from_list([V || {#b_var{}=V,_} <- Args, sets:is_element(V, Set)], [{version, 2}]);
 intersect_used(#b_set{args=Args}, Set) ->
-    cerl_sets:from_list(intersect_used_keep(used_args(Args), Set));
+    sets:from_list(intersect_used_keep(used_args(Args), Set), [{version, 2}]);
 intersect_used(#b_switch{arg=#b_var{}=V}, Set) ->
     intersect_used_keep_singleton(V, Set);
-intersect_used(_, _) -> cerl_sets:new().
+intersect_used(_, _) -> sets:new([{version, 2}]).
 
 intersect_used_keep_singleton(V, Set) ->
-    case cerl_sets:is_element(V, Set) of
-        true -> cerl_sets:from_list([V]);
-        false -> cerl_sets:new()
+    case sets:is_element(V, Set) of
+        true -> sets:from_list([V], [{version, 2}]);
+        false -> sets:new([{version, 2}])
     end.
 
 intersect_used_keep(Vs, Set) ->
-    [V || V <- Vs, cerl_sets:is_element(V, Set)].
+    [V || V <- Vs, sets:is_element(V, Set)].
 
 used_args([#b_var{}=V|As]) ->
     [V|used_args(As)];
@@ -1996,8 +1996,8 @@ copy_retval_1([], Blocks, Count) ->
 
 collect_yregs([#b_set{op=copy,dst=Y,args=[#b_var{}=X]}|Is],
               Yregs0) ->
-    true = cerl_sets:is_element(X, Yregs0),        %Assertion.
-    Yregs = cerl_sets:add_element(Y, cerl_sets:del_element(X, Yregs0)),
+    true = sets:is_element(X, Yregs0),        %Assertion.
+    Yregs = sets:add_element(Y, sets:del_element(X, Yregs0)),
     collect_yregs(Is, Yregs);
 collect_yregs([#b_set{}|Is], Yregs) ->
     collect_yregs(Is, Yregs);
@@ -2042,7 +2042,7 @@ copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, A
 copy_retval_is([#b_set{op=Op,dst=#b_var{name=RetName}=Dst}=I0|Is], RC, Yregs,
            Copy0, Count0, Acc0) when Op =:= call; Op =:= old_make_fun ->
     {I1,Count1,Acc} = place_retval_copy(I0, Yregs, Copy0, Count0, Acc0),
-    case cerl_sets:is_element(Dst, Yregs) of
+    case sets:is_element(Dst, Yregs) of
         true ->
             {NewVar,Count} = new_var(RetName, Count1),
             Copy = #b_set{op=copy,dst=Dst,args=[NewVar]},
@@ -2100,7 +2100,7 @@ place_retval_copy(#b_set{args=[F|Args0]}=I, Yregs, Copy, Count0, Acc0) ->
     {I#b_set{args=[F|Args]},Count,Acc}.
 
 copy_func_args([#b_var{name=AName}=A|As], Yregs, Avoid, CopyAcc, Acc, Count0) ->
-    case cerl_sets:is_element(A, Yregs) of
+    case sets:is_element(A, Yregs) of
         true when A =/= Avoid ->
             {NewVar,Count} = new_var(AName, Count0),
             Copy = #b_set{op=copy,dst=NewVar,args=[A]},
@@ -2402,7 +2402,7 @@ reserve_yregs(#st{frames=Frames}=St0) ->
 
 reserve_yregs_1(L, #st{ssa=Blocks0,cnt=Count0,res=Res0}=St) ->
     Blk = map_get(L, Blocks0),
-    Yregs = ordsets:from_list(cerl_sets:to_list(beam_ssa:get_anno(yregs, Blk))),
+    Yregs = ordsets:from_list(sets:to_list(beam_ssa:get_anno(yregs, Blk))),
     RPO = beam_ssa:rpo([L], Blocks0),
     {Def,Unused} = beam_ssa:def_unused(RPO, Yregs, Blocks0),
     UsedYregs = ordsets:subtract(Yregs, Unused),
@@ -2592,7 +2592,7 @@ reserve_arg_regs([], _, Acc) -> Acc.
 
 reserve_zregs(RPO, Blocks, Intervals, Res) ->
     ShortLived0 = [V || {V,[{Start,End}]} <- Intervals, Start+2 =:= End],
-    ShortLived = cerl_sets:from_list(ShortLived0),
+    ShortLived = sets:from_list(ShortLived0, [{version, 2}]),
     F = fun(_, #b_blk{is=Is,last=Last}, A) ->
                 reserve_zreg(Is, Last, ShortLived, A)
         end,
@@ -2657,7 +2657,7 @@ use_zreg(_) -> maybe.
 %% If V is defined just before a branch, we may be able to combine it into a
 %% test instruction.
 reserve_test_zreg(#b_var{}=V, ShortLived, A) ->
-    case cerl_sets:is_element(V, ShortLived) of
+    case sets:is_element(V, ShortLived) of
         true -> [{V,z}|A];
         false -> A
     end.
