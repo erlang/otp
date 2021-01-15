@@ -697,7 +697,7 @@ encode_labels(Bin, Comp0, Pos, [L|Ls]=Labels)
   when 1 =< byte_size(L), byte_size(L) =< 63 ->
     case gb_trees:lookup(Labels, Comp0) of
 	none ->
-	    Comp = if Pos < (3 bsl 14) ->
+	    Comp = if Pos < (1 bsl 14) ->
 			   %% Just in case - compression
 			   %% pointers cannot reach further
 			   gb_trees:insert(Labels, Pos, Comp0);

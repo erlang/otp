@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,8 @@
         ]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
 	 last_ms_answer/1, intermediate_error/1,
-         servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1
+         servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
+         label_compression_limit/1
         ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
@@ -71,7 +72,9 @@ suite() ->
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
      last_ms_answer,
-     intermediate_error, servfail_retry_timeout_default, servfail_retry_timeout_1000,
+     intermediate_error,
+     servfail_retry_timeout_default, servfail_retry_timeout_1000,
+     label_compression_limit,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -971,6 +974,82 @@ servfail_retry_timeout_1000(Config) when is_list(Config) ->
     ?P("resolved: "
        "~n      ~p", [Rec]),
     ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that label encoding compression limits at 14 bits pointer size
+
+label_compression_limit(Config) when is_list(Config) ->
+    FirstSz = 8,
+    Count = 512,
+    Sz = 20,
+    %% We create a DNS message with an answer list containing
+    %% 1+512+1 RR:s.  The first label is 8 chars that with message
+    %% and RR overhead places the second label on offset 32.
+    %% All other labels are 20 chars that with RR overhead
+    %% places them on offsets of N * 32.
+    %%
+    %% The labels are: "ZZZZZZZZ", then; "AAAAAAAAAAAAAAAAAAAA",
+    %% "AAAAAAAAAAAAAAAAAAAB", incrementing, so no one is
+    %% equal and can not be compressed, until the last one
+    %% that refers to the second to last one, so it could be compressed.
+    %%
+    %% However, the second to last label lands on offset 512 * 32 = 16384
+    %% which is out of reach for compression since compression uses
+    %% a 14 bit reference from the start of the message.
+    %%
+    %% The last label can only be compressed when we instead
+    %% generate a message with one less char in the first label,
+    %% placing the second to last label on offset 16383.
+    %%
+    %% So, MsgShort can use compression for the last RR
+    %% by referring to the second to last RR, but MsgLong can not.
+    %%
+    %% Disclaimer:
+    %%    All offsets and overheads are deduced
+    %%    through trial and observation
+    %%
+    [D | Domains] = gen_domains(Count, lists:duplicate(Sz, $A), []),
+    LastD = "Y." ++ D,
+    DomainsShort =
+        [lists:duplicate(FirstSz-1, $Z) |
+         lists:reverse(Domains, [D, LastD])],
+    DomainsLong =
+        [lists:duplicate(FirstSz, $Z) |
+         lists:reverse(Domains, [D, LastD])],
+    MsgShort = gen_msg(DomainsShort),
+    MsgLong = gen_msg(DomainsLong),
+    DataShort = inet_dns:encode(MsgShort),
+    DataShortSz = byte_size(DataShort),
+    ?P("DataShort[~w]:~n    ~p~n", [DataShortSz, DataShort]),
+    DataLong = inet_dns:encode(MsgLong),
+    DataLongSz = byte_size(DataLong),
+    ?P("DataLong[~w]:~n    ~p~n", [DataLongSz, DataLong]),
+    %% When we increase the first RR size by 1, the compressed
+    %% label that occupied a 2 bytes reference instead becomes
+    %% a label with 1 byte size and a final empty label size 1
+    0 = DataLongSz - (DataShortSz+1 - 2 + 1+Sz+1),
+    ok.
+
+gen_msg(Domains) ->
+    inet_dns:make_msg(
+      [{header, inet_dns:make_header()},
+       {anlist, gen_rrs(Domains)}]).
+
+gen_rrs(Domains) ->
+    [inet_dns:make_rr([{class,in},{type,a},{domain,D}]) ||
+        D <- Domains].
+
+gen_domains(0, _Domain, Acc) ->
+    Acc;
+gen_domains(N, Domain, Acc) ->
+    gen_domains(
+      N - 1, incr_domain(Domain), [lists:reverse(Domain) | Acc]).
+
+incr_domain([$Z | Domain]) ->
+    [$A | incr_domain(Domain)];
+incr_domain([Char | Domain]) ->
+    [Char+1 | Domain].
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
