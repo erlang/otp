@@ -167,36 +167,6 @@ obsolete(wxCalendarCtrl, enableYearChange, 1) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(wxCalendarCtrl, enableYearChange, 2) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxClientDC, new, 0) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxCursor, new, 3) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxCursor, new, 4) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxDC, computeScaleAndOrigin, 1) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxGraphicsRenderer, createLinearGradientBrush, 7) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxGraphicsRenderer, createRadialGradientBrush, 8) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxGridCellEditor, endEdit, 4) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxGridCellEditor, paintBackground, 3) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxIdleEvent, canSend, 1) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxMDIClientWindow, new, 1) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxMDIClientWindow, new, 2) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxPaintDC, new, 0) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxPostScriptDC, getResolution, 0) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxPostScriptDC, setResolution, 1) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(wxWindowDC, new, 0) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(zlib, adler32, 2) ->
     {deprecated, "use erlang:adler32/1 instead", "OTP 27"};
 obsolete(zlib, adler32, 3) ->
@@ -319,12 +289,12 @@ obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(igor, _, _) ->
     {deprecated, "use https://github.com/richcarl/igor", "OTP 24"};
-obsolete(pg2, _, _) ->
-    {deprecated, "use 'pg' instead", "OTP 24"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
+obsolete(pg2, _, _) ->
+    {removed, "this module was removed in OTP 24. Use 'pg' instead"};
 obsolete(_,_,_) -> no.
 
 -dialyzer({no_match, obsolete_type/3}).
