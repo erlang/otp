@@ -480,23 +480,29 @@ get_tty_command(left, N, _TerminalType) ->
 %% convert input characters to buffer and to writeout
 %% Note that the buf is reversed but the buftail is not
 %% (this is handy; the head is always next to the cursor)
-conv_buf([], AccBuf, AccBufTail, AccWrite, Col) ->
+conv_buf([], AccBuf, AccBufTail, AccWrite, Col, _Tty) ->
     {AccBuf, AccBufTail, lists:reverse(AccWrite), Col};
-conv_buf([13, 10 | Rest], _AccBuf, AccBufTail, AccWrite, _Col) ->
-    conv_buf(Rest, [], tl2(AccBufTail), [10, 13 | AccWrite], 0);
-conv_buf([13 | Rest], _AccBuf, AccBufTail, AccWrite, _Col) ->
-    conv_buf(Rest, [], tl1(AccBufTail), [13 | AccWrite], 0);
-conv_buf([10 | Rest], _AccBuf, AccBufTail, AccWrite, _Col) ->
-    conv_buf(Rest, [], tl1(AccBufTail), [10, 13 | AccWrite], 0);
-conv_buf([C | Rest], AccBuf, AccBufTail, AccWrite, Col) ->
-    conv_buf(Rest, [C | AccBuf], tl1(AccBufTail), [C | AccWrite], Col + 1).
+conv_buf([13, 10 | Rest], _AccBuf, AccBufTail, AccWrite, _Col, Tty) ->
+    conv_buf(Rest, [], tl2(AccBufTail), [10, 13 | AccWrite], 0, Tty);
+conv_buf([13 | Rest], _AccBuf, AccBufTail, AccWrite, _Col, Tty) ->
+    conv_buf(Rest, [], tl1(AccBufTail), [13 | AccWrite], 0, Tty);
+conv_buf([10 | Rest], _AccBuf, AccBufTail, AccWrite0, _Col, Tty) ->
+    AccWrite =
+        case pty_opt(onlcr,Tty) of
+            0 -> [10 | AccWrite0];
+            1 -> [10,13 | AccWrite0];
+            undefined -> [10 | AccWrite0]
+        end,
+    conv_buf(Rest, [], tl1(AccBufTail), AccWrite, 0, Tty);
+conv_buf([C | Rest], AccBuf, AccBufTail, AccWrite, Col, Tty) ->
+    conv_buf(Rest, [C | AccBuf], tl1(AccBufTail), [C | AccWrite], Col + 1, Tty).
 
 
 %%% put characters at current position (possibly overwriting
 %%% characters after current position in buffer)
-put_chars(Chars, {Buf, BufTail, Col}, _Tty) ->
+put_chars(Chars, {Buf, BufTail, Col}, Tty) ->
     {NewBuf, NewBufTail, WriteBuf, NewCol} =
-	conv_buf(Chars, Buf, BufTail, [], Col),
+	conv_buf(Chars, Buf, BufTail, [], Col, Tty),
     {WriteBuf, {NewBuf, NewBufTail, NewCol}}.
 
 %%% insert character at current position
@@ -504,7 +510,7 @@ insert_chars([], {Buf, BufTail, Col}, _Tty) ->
     {[], {Buf, BufTail, Col}};
 insert_chars(Chars, {Buf, BufTail, Col}, Tty) ->
     {NewBuf, _NewBufTail, WriteBuf, NewCol} =
-	conv_buf(Chars, Buf, [], [], Col),
+	conv_buf(Chars, Buf, [], [], Col, Tty),
     M = move_cursor(special_at_width(NewCol+length(BufTail), Tty), NewCol, Tty),
     {[WriteBuf, BufTail | M], {NewBuf, BufTail, NewCol}}.
 
@@ -776,14 +782,11 @@ t2str(T) -> try io_lib:format("~s",[T])
 %%--------------------------------------------------------------------
 % Pty can be undefined if the client never sets any pty options before
 % starting the shell.
-get_echo(undefined) ->
-    true;
-get_echo(#ssh_pty{modes = Modes}) ->
-    case proplists:get_value(echo, Modes, 1) of 
-	0 ->
-	    false;
-	_ ->
-	    true
+get_echo(Tty) ->
+    case pty_opt(echo,Tty) of
+        0 -> false;
+        1 -> true;
+        undefined -> true
     end.
 
 % Group is undefined if the pty options are sent between open and
@@ -798,6 +801,14 @@ not_zero(0, B) ->
     B;
 not_zero(A, _) -> 
     A.
+
+%%%----------------------------------------------------------------
+pty_opt(Name, Tty) ->
+    try
+        proplists:get_value(Name, Tty#ssh_pty.modes, undefined)
+    catch
+        _:_ -> undefined
+    end.
 
 %%%################################################################
 %%%#
