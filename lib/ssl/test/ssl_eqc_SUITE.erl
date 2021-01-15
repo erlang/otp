@@ -34,6 +34,8 @@
 -export([tls_handshake_encoding/1,
          tls_cipher_suite_names/1,
          tls_cipher_openssl_suite_names/1,
+         tls_anon_cipher_suite_names/1,
+         tls_anon_cipher_openssl_suite_names/1,
          tls_unorded_chains/1,
          tls_extraneous_chain/1,
          tls_extraneous_chains/1,
@@ -49,6 +51,8 @@ all() ->
      tls_handshake_encoding,
      tls_cipher_suite_names,
      tls_cipher_openssl_suite_names,
+     tls_anon_cipher_suite_names,
+     tls_anon_cipher_openssl_suite_names,
      tls_unorded_chains,
      tls_extraneous_chain,
      tls_extraneous_chains,
@@ -84,6 +88,15 @@ tls_cipher_suite_names(Config) when is_list(Config) ->
 tls_cipher_openssl_suite_names(Config) when is_list(Config) ->
     %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_openssl_name(),
+                                        Config).
+tls_anon_cipher_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_rfc_name(),
+                                        Config).
+
+tls_anon_cipher_openssl_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_openssl_name(),
                                         Config).
 
 tls_unorded_chains(Config) when is_list(Config) ->
