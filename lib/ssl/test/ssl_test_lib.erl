@@ -98,6 +98,7 @@
          verify_active_session_resumption/2,
          verify_active_session_resumption/3,
          verify_active_session_resumption/4,
+         verify_active_session_resumption/5,
          check_sane_openssl_version/1,
          check_ok/1,
          check_result/4,
@@ -192,7 +193,8 @@
          version_flag/1,
          portable_cmd/2,
          portable_open_port/2,
-         close_port/1
+         close_port/1,
+         verify_early_data/1
         ]).
 
 -record(sslsocket, { fd = nil, pid = nil}).
@@ -644,7 +646,8 @@ start_openssl_server(Mode, Args0, Config) ->
     Node = proplists:get_value(node, Args0, ServerNode),
     Port = proplists:get_value(port, Args0, 0),
     ResponderPort = proplists:get_value(responder_port, Config, 0),
-    Args = [{from, self()}, {port, Port}] ++ ServerOpts ++ Args0,
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Args = [{from, self()}, {port, Port}] ++ ServerOpts ++ Args0 ++ [{priv_dir, PrivDir}],
     Result = spawn_link(Node, ?MODULE, init_openssl_server,
                         [Mode, ResponderPort,lists:delete(return_port, Args)]),
     receive
@@ -666,10 +669,12 @@ init_openssl_server(openssl, _, Options) ->
     Exe = "openssl",
     Ciphers = proplists:get_value(ciphers, Options, default_ciphers(Version)),
     Groups0 = proplists:get_value(groups, Options),
+    EarlyData = proplists:get_value(early_data, Options, undefined),
+    PrivDir = proplists:get_value(priv_dir, Options),
     CertArgs = openssl_cert_options(Options, server), 
     AlpnArgs = openssl_alpn_options(proplists:get_value(alpn, Options, undefined)),
     NpnArgs =  openssl_npn_options(proplists:get_value(np, Options, undefined)),                
-    Debug = openssl_debug_options(),
+    Debug = openssl_debug_options(PrivDir),
 
     Args0 =  case Groups0 of
                 undefined ->
@@ -681,7 +686,14 @@ init_openssl_server(openssl, _, Options) ->
                         ciphers(Ciphers, Version), "-groups", Group,
                         version_flag(Version)] ++ AlpnArgs ++ NpnArgs ++ CertArgs ++ Debug
             end,
-    Args = maybe_force_ipv4(Args0),
+    Args1 = case EarlyData of
+               undefined ->
+                   Args0;
+               MaxSize ->
+                   Args0 ++ ["-early_data", "-no_anti_replay", "-max_early_data",
+                             integer_to_list(MaxSize)]
+           end,
+    Args = maybe_force_ipv4(Args1),
     SslPort = portable_open_port(Exe, Args),
     wait_for_openssl_server(Port, proplists:get_value(protocol, Options, tls)),
     Pid ! {started, SslPort},
@@ -909,16 +921,21 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
 	    end,
             client_loop_core(Socket, Pid, Transport);
 	{error, econnrefused = Reason} ->
-	    case get(retries) of
-		N when N < 5 ->
-		    ct:log("~p:~p~neconnrefused retries=~p sleep ~p",[?MODULE,?LINE, N,?SLEEP]),
-		    put(retries, N+1),
-		    ct:sleep(?SLEEP),
-		    run_client(Opts);
-	       _ ->
-		    ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
-		    Pid ! {self(), {error, Reason}}
-	    end;
+            case proplists:get_value(return_error, Opts, undefined) of
+                econnrefused ->
+                    Pid ! {connect_failed, Reason};
+                _ ->
+                    case get(retries) of
+                        N when N < 5 ->
+                            ct:log("~p:~p~neconnrefused retries=~p sleep ~p",[?MODULE,?LINE, N,?SLEEP]),
+                            put(retries, N+1),
+                            ct:sleep(?SLEEP),
+                            run_client(Opts);
+                        _ ->
+                            ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+                            Pid ! {self(), {error, Reason}}
+                    end
+            end;
 	{error, econnreset = Reason} ->
 	      case get(retries) of
 		N when N < 5 ->
@@ -1119,9 +1136,13 @@ check_client_alert(Pid, Alert) ->
 	{Pid, {error, {tls_alert, {Alert, CTxt}}}} ->
             check_client_txt(CTxt),
             ok;
+        {Pid, {error, {tls_alert, {OtherAlert, CTxt}}}} ->
+            ct:fail("Unexpected alert during negative test: ~p - ~p", [OtherAlert, CTxt]);
         {Pid, {ssl_error, _, {tls_alert, {Alert, CTxt}}}} ->
             check_client_txt(CTxt),
             ok;
+        {Pid, {ssl_error, _, {tls_alert, {OtherAlert, CTxt}}}} ->
+            ct:fail("Unexpected alert during negative test: ~p - ~p", [OtherAlert, CTxt]);
         {Pid, {error, closed}} ->
             ok;
         {Pid, {ok, _}} ->
@@ -2091,6 +2112,23 @@ openssl_maxfag_option(Int) ->
 
 openssl_debug_options() ->
     ["-msg", "-debug"].
+%%
+openssl_debug_options(PrivDir) ->
+    case is_keylogfile_supported() of
+        true ->
+            ["-msg", "-debug","-keylogfile", PrivDir ++ "keylog"];
+        false ->
+            ["-msg", "-debug"]
+    end.
+
+is_keylogfile_supported() ->
+    [{_,_, Bin}]  = crypto:info_lib(),
+    case binary_to_list(Bin) of
+	"OpenSSL 1.1.1" ++ _ ->
+	    true;
+	_ ->
+	    false
+    end.
 
 start_server_with_raw_key(erlang, ServerOpts, Config) ->
     {_, ServerNode, _} = run_where(Config),
@@ -2535,12 +2573,15 @@ send_recv_result_active_once(Socket) ->
     active_once_recv_list(Socket, length(Data)).
 
 verify_active_session_resumption(Socket, SessionResumption) ->
-    verify_active_session_resumption(Socket, SessionResumption, wait_reply, no_tickets).
+    verify_active_session_resumption(Socket, SessionResumption, wait_reply, no_tickets, no_early_data).
 %%
 verify_active_session_resumption(Socket, SessionResumption, WaitReply) ->
-    verify_active_session_resumption(Socket, SessionResumption, WaitReply, no_tickets).
+    verify_active_session_resumption(Socket, SessionResumption, WaitReply, no_tickets, no_early_data).
 %%
-verify_active_session_resumption(Socket, SessionResumption, WaitForReply, TicketOption) ->
+verify_active_session_resumption(Socket, SessionResumption, WaitReply, TicketOption) ->
+    verify_active_session_resumption(Socket, SessionResumption, WaitReply, TicketOption, no_early_data).
+%%
+verify_active_session_resumption(Socket, SessionResumption, WaitForReply, TicketOption, EarlyData) ->
     case ssl:connection_information(Socket, [session_resumption]) of
         {ok, [{session_resumption, SessionResumption}]} ->
             Msg = boolean_to_log_msg(SessionResumption),
@@ -2566,13 +2607,28 @@ verify_active_session_resumption(Socket, SessionResumption, WaitForReply, Ticket
         Else1 ->
             ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else1])
     end,
-    case TicketOption of
-        {tickets, N} ->
-            receive_tickets(N);
-        no_tickets ->
-            ok;
-        Else2 ->
-            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else2])
+    Tickets =
+        case TicketOption of
+            {tickets, N} ->
+                receive_tickets(N);
+            no_tickets ->
+                ok;
+            Else2 ->
+                ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else2])
+        end,
+    case EarlyData of
+        {verify_early_data, Atom} ->
+            case verify_early_data(Atom) of
+                ok ->
+                    Tickets;
+                Else ->
+                    ct:fail("~p:~p~nFailed to verify early_data! (expected ~p, got ~p)",
+                            [?MODULE, ?LINE, Atom, Else])
+            end;
+        no_early_data ->
+            Tickets;
+        Else3 ->
+            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else3])
     end.
 
 boolean_to_log_msg(true) ->
@@ -2587,7 +2643,7 @@ receive_tickets(0, Acc) ->
     Acc;
 receive_tickets(N, Acc) ->
     receive
-        {ssl, session_ticket, {_, Ticket}} ->
+        {ssl, session_ticket, Ticket} ->
             receive_tickets(N - 1, [Ticket|Acc])
     end.
 
@@ -2621,7 +2677,8 @@ active_recv(_Socket, N, Acc) when N < 0 ->
     T;
 active_recv(Socket, N, Acc) ->
     receive 
-	{ssl, Socket, Bytes} ->
+        %% Filter {ssl, Socket, {early_data, Atom}} messages
+	{ssl, Socket, Bytes} when not is_tuple(Bytes) ->
             active_recv(Socket, N-data_length(Bytes),  Acc ++ Bytes);
         {Socket, {data, Bytes0}} ->
             Bytes = filter_openssl_debug_data(Bytes0),
@@ -3617,4 +3674,12 @@ default_ciphers(Version) ->
                 ssl:cipher_suites(default, Version)
         end, 
     [Cipher || Cipher <- Ciphers, lists:member(ssl:suite_to_openssl_str(Cipher), OpenSSLCiphers)].
-                           
+
+verify_early_data(Atom) ->
+    receive
+        {ssl, _Socket, {early_data, Atom}} ->
+            ok;
+        {ssl, _Socket, {early_data, Other}} ->
+            Other
+    end.
+

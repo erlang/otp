@@ -544,7 +544,8 @@ encode_decode(_Config) ->
     %% TODO: remove hardcoded IV size
     WriteIVInfo = tls_v1:create_info(<<"iv">>, <<>>,  12),
 
-    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SHSTrafficSecret),
+    KeyLength = ssl_cipher:key_material(Cipher),
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, SHSTrafficSecret),
 
     %% {server}  construct an EncryptedExtensions handshake message:
     %%
@@ -824,7 +825,7 @@ encode_decode(_Config) ->
     SWIV =
         hexstr2bin("cf 78 2b 88 dd 83 54 9a ad f1 e9 84"),
 
-    {SWKey, SWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SAPTrafficSecret),
+    {SWKey, SWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, SAPTrafficSecret),
 
     %% {server}  derive read traffic keys for handshake data:
     %%
@@ -849,7 +850,7 @@ encode_decode(_Config) ->
     SRIV =
         hexstr2bin("5b d3 c7 1b 83 6e 0b 76 bb 73 26 5f"),
 
-    {SRKey, SRIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CHSTrafficSecret),
+    {SRKey, SRIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, CHSTrafficSecret),
 
     %% {client}  calculate finished "tls13 finished":
     %%
@@ -926,7 +927,7 @@ encode_decode(_Config) ->
     CWIV =
         hexstr2bin("5b 78 92 3d ee 08 57 90 33 e5 23 d9"),
 
-    {CWKey, CWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CAPTrafficSecret),
+    {CWKey, CWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, CAPTrafficSecret),
 
     %% {client}  derive secret "tls13 res master":
     %%

@@ -140,6 +140,9 @@
           depth                      => {10,         [versions]},
           dh                         => {undefined, [versions]},
           dhfile                     => {undefined, [versions]},
+          early_data                 => {undefined, [versions,
+                                                     session_tickets,
+                                                     use_ticket]},
           eccs                       => {undefined, [versions]},
           erl_dist                   => {false,     [versions]},
           fail_if_no_peer_cert       => {false,     [versions]},
@@ -155,6 +158,9 @@
           log_level                  => {notice,    [versions]},
           max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
           middlebox_comp_mode        => {true, [versions]},
+          max_early_data             => {undefined, [versions,
+                                                     early_data,
+                                                     session_tickets]},
           max_fragment_length        => {undefined, [versions]},
           next_protocol_selector     => {undefined, [versions]},
           next_protocols_advertised  => {undefined, [versions]},
@@ -235,6 +241,17 @@
 				{next_state, state_name(), any(), timeout()} |
 				{stop, any(), any()}.
 -type ssl_options()          :: map().
+
+%% Internal ticket data record holding pre-processed ticket data.
+-record(ticket_data,
+        {key,                  %% key in client ticket store
+         pos,                  %% ticket position in binders list
+         identity,             %% opaque ticket binary
+         psk,                  %% pre-shared key
+         nonce,                %% ticket nonce
+         cipher_suite,         %% cipher suite - hash, bulk cipher algorithm
+         max_size              %% max early data size allowed by this ticket
+        }).
 
 -endif. % -ifdef(ssl_internal).
 

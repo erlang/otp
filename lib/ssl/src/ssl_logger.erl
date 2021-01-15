@@ -254,8 +254,12 @@ parse_handshake(Direction, #key_update{} = KeyUpdate) ->
     Header = io_lib:format("~s Post-Handshake, KeyUpdate",
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(key_update, KeyUpdate)]),
+    {Header, Message};
+parse_handshake(Direction, #end_of_early_data{} = EndOfEarlyData) ->
+    Header = io_lib:format("~s Handshake, EndOfEarlyData",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(end_of_early_data, EndOfEarlyData)]),
     {Header, Message}.
-
 
 parse_cipher_suites([_|_] = Ciphers) ->
     [format_cipher(C) || C <- Ciphers].

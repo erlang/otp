@@ -56,6 +56,7 @@
          hkdf_expand_label/5, 
          hkdf_extract/3, 
          hkdf_expand/4,
+         key_length/1,
          key_schedule/3, 
          key_schedule/4, 
          create_info/3,
@@ -455,12 +456,19 @@ update_traffic_secret(Algo, Secret) ->
 %%
 %%    [sender]_write_key = HKDF-Expand-Label(Secret, "key", "", key_length)
 %%    [sender]_write_iv  = HKDF-Expand-Label(Secret, "iv", "", iv_length)
--spec calculate_traffic_keys(atom(), atom(), binary()) -> {binary(), binary()}.
-calculate_traffic_keys(HKDFAlgo, Cipher, Secret) ->
-    Key = hkdf_expand_label(Secret, <<"key">>, <<>>, ssl_cipher:key_material(Cipher), HKDFAlgo),
+-spec calculate_traffic_keys(atom(), integer(), binary()) -> {binary(), binary()}.
+calculate_traffic_keys(HKDFAlgo, KeyLength, Secret) ->
+    Key = hkdf_expand_label(Secret, <<"key">>, <<>>, KeyLength, HKDFAlgo),
     %% TODO: remove hard coded IV size
     IV = hkdf_expand_label(Secret, <<"iv">>, <<>>, 12, HKDFAlgo),
     {Key, IV}.
+
+-spec key_length(CipherSuite) -> KeyLength when
+      CipherSuite :: binary(),
+      KeyLength :: 0 | 8 | 16 | 24 | 32.
+key_length(CipherSuite) ->
+    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
+    ssl_cipher:key_material(Cipher).
 
 %% TLS v1.3  ---------------------------------------------------
 

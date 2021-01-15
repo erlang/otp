@@ -40,7 +40,19 @@
          openssl_client_basic/0,
          openssl_client_basic/1,
          openssl_client_hrr/0,
-         openssl_client_hrr/1]).
+         openssl_client_hrr/1,
+         openssl_server_early_data_basic/0,
+         openssl_server_early_data_basic/1,
+         openssl_server_early_data_big/0,
+         openssl_server_early_data_big/1,
+         openssl_server_early_data_manual/0,
+         openssl_server_early_data_manual/1,
+         openssl_server_early_data_manual_big/0,
+         openssl_server_early_data_manual_big/1,
+         openssl_server_early_data_manual_2_tickets/0,
+         openssl_server_early_data_manual_2_tickets/1,
+         openssl_server_early_data_manual_2_chacha_tickets/0,
+         openssl_server_early_data_manual_2_chacha_tickets/1]).
 
 -include("tls_handshake.hrl").
 
@@ -62,7 +74,13 @@ groups() ->
                       {group, openssl_server}]},
      {openssl_server, [], [openssl_server_basic,
                            openssl_server_hrr,
-                           openssl_server_hrr_multiple_tickets
+                           openssl_server_hrr_multiple_tickets,
+                           openssl_server_early_data_basic,
+                           openssl_server_early_data_big,
+                           openssl_server_early_data_manual,
+                           openssl_server_early_data_manual_big,
+                           openssl_server_early_data_manual_2_tickets,
+                           openssl_server_early_data_manual_2_chacha_tickets
                           ]},
      {stateful, [], session_tests()},
      {stateless, [], session_tests()}].
@@ -316,7 +334,7 @@ openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
 
-    
+
     Server = ssl_test_lib:start_server(openssl, [{groups, "X448:X25519"}], 
                                        [{server_opts, ServerOpts} | Config]),
     
@@ -350,3 +368,284 @@ openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Client1),
     ssl_test_lib:close(Server).
+
+openssl_server_early_data_basic() ->
+    [{doc,"Test early data (erlang client - openssl server)"}].
+openssl_server_early_data_basic(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
+
+    Server = ssl_test_lib:start_server(openssl, [{early_data, 16384}],
+                                       [{server_opts, ServerOpts} | Config]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply]}},
+                                         {from, self()},  {options, ClientOpts1}]),
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    %% Close previous connection as s_server can only handle one at a time
+    ssl_test_lib:close(Client0),
+
+    %% Use ticket
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, no_reply, no_tickets,
+                                                 {verify_early_data, accepted}]}},
+                                         {from, self()},
+                                         {options, ClientOpts2}]),
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Server).
+
+openssl_server_early_data_big() ->
+    [{doc,"Send more early data than the max_early_data_size (erlang client - openssl server)"}].
+openssl_server_early_data_big(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
+
+    Server = ssl_test_lib:start_server(openssl, [{early_data, 5}],
+                                       [{server_opts, ServerOpts} | Config]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply]}},
+                                         {from, self()},  {options, ClientOpts1}]),
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    %% Close previous connection as s_server can only handle one at a time
+    ssl_test_lib:close(Client0),
+
+    %% Use ticket
+    %% The tickets received cannot be used for sending more early data than the
+    %% max_early_data_size. They are filtered by the automatic ticket handling
+    %% mechanism and there will be no session resumption.
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply, no_tickets]}},
+                                         {from, self()},
+                                         {options, ClientOpts2}]),
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Server).
+
+openssl_server_early_data_manual() ->
+    [{doc,"Test sending early data - manual ticket handling (erlang client - openssl server)"}].
+openssl_server_early_data_manual(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
+
+    Server = ssl_test_lib:start_server(openssl, [{early_data, 16384}],
+                                       [{server_opts, ServerOpts} | Config]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply, {tickets, 1}]}},
+                                         {from, self()},  {options, ClientOpts1}]),
+
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
+
+    ct:pal("Received tickets: ~p~n", [Tickets0]),
+
+    %% Close previous connection as s_server can only handle one at a time
+    ssl_test_lib:close(Client0),
+
+    %% Use tickets
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, no_reply, no_tickets,
+                                                 {verify_early_data, accepted}]}},
+                                         {from, self()},
+                                         {options, [{use_ticket, Tickets0}|ClientOpts2]}]),
+
+    process_flag(trap_exit, false),
+
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Server).
+
+openssl_server_early_data_manual_big() ->
+    [{doc,"Test sending more early data than the max_early_data_size - manual ticket handling "
+      "(erlang client - openssl server)"}].
+openssl_server_early_data_manual_big(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
+
+    Server = ssl_test_lib:start_server(openssl, [{early_data, 5}],
+                                       [{server_opts, ServerOpts} | Config]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply, {tickets, 1}]}},
+                                         {from, self()},  {options, ClientOpts1}]),
+
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
+
+    ct:pal("Received tickets: ~p~n", [Tickets0]),
+
+    %% Close previous connection as s_server can only handle one at a time
+    ssl_test_lib:close(Client0),
+
+    %% Use tickets
+    Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
+                                               {port, Port}, {host, Hostname},
+                                               {mfa, {ssl_test_lib,
+                                                      verify_active_session_resumption,
+                                                      [true, no_reply, no_tickets]}},
+                                               {from, self()},
+                                               {options, [{use_ticket, Tickets0}|ClientOpts2]}]),
+    ssl_test_lib:check_client_alert(Client1, illegal_parameter),
+    process_flag(trap_exit, false),
+
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Server).
+
+openssl_server_early_data_manual_2_tickets() ->
+    [{doc,"Test sending early data - manual ticket handling, 2 tickets (erlang client - openssl server)"}].
+openssl_server_early_data_manual_2_tickets(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
+
+    Server = ssl_test_lib:start_server(openssl, [{early_data, 16384}],
+                                       [{server_opts, ServerOpts} | Config]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply, {tickets, 2}]}},
+                                         {from, self()},  {options, ClientOpts1}]),
+
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
+
+    ct:pal("Received tickets: ~p~n", [Tickets0]),
+
+    %% Close previous connection as s_server can only handle one at a time
+    ssl_test_lib:close(Client0),
+
+    %% Use tickets
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, no_reply, no_tickets,
+                                                 {verify_early_data, accepted}]}},
+                                         {from, self()},
+                                         {options, [{use_ticket, Tickets0}|ClientOpts2]}]),
+    process_flag(trap_exit, false),
+
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Server).
+
+openssl_server_early_data_manual_2_chacha_tickets() ->
+    [{doc,"Test sending early data - manual ticket handling, 2 tickets - chacha (erlang client - openssl server)"}].
+openssl_server_early_data_manual_2_chacha_tickets(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Configure session tickets
+    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+                   {ciphers, ["TLS_CHACHA20_POLY1305_SHA256"]},
+                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
+
+    %% openssl s_server seems to select a cipher_suite that satisfies the requirements
+    %% for early_data.
+    Server = ssl_test_lib:start_server(openssl, [{early_data, 16384}],
+                                       [{server_opts, ServerOpts} | Config]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply, {tickets, 2}]}},
+                                         {from, self()},  {options, ClientOpts1}]),
+
+    %% Receive 2 tickets that used Chacha20-Poly1305 and sha256
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
+
+    ct:pal("Received tickets: ~p~n", [Tickets0]),
+
+    %% Close previous connection as s_server can only handle one at a time
+    ssl_test_lib:close(Client0),
+
+    %% Use tickets
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, no_reply, no_tickets,
+                                                 {verify_early_data, accepted}]}},
+                                         {from, self()},
+                                         {options, [{use_ticket, Tickets0}|ClientOpts2]}]),
+    process_flag(trap_exit, false),
+
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Server).
+
