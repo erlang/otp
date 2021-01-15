@@ -64,7 +64,6 @@ http_uri:encode/1 since=23 remove=25
 http_uri:decode/1 since=23 remove=25
 http_uri:scheme_defaults/0 since=23 remove=25
 httpd:parse_query/1 since=23
-pg2:_/_ since=23 remove=24
 filename:safe_relative_path/1 since=23 remove=25
 
 snmpm:sync_get/3 since=23 remove=25

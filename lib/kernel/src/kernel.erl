@@ -180,7 +180,7 @@ init(safe) ->
 
     Boot = start_boot_server(),
     DiskLog = start_disk_log(),
-    Pg = start_pg2() ++ start_pg(),
+    Pg = start_pg(),
 
     %% Run the on_load handlers for all modules that have been
     %% loaded so far. Running them at this point means that
@@ -288,19 +288,6 @@ start_pg() ->
                 shutdown => 1000,
                 type => worker,
                 modules => [pg]}];
-        _ ->
-            []
-    end.
-
-start_pg2() ->
-    case application:get_env(kernel, start_pg2) of
-        {ok, true} ->
-            [#{id => pg2,
-               start => {pg2, start_link, []},
-               restart => permanent,
-               shutdown => 1000,
-               type => worker,
-               modules => [pg2]}];
         _ ->
             []
     end.
