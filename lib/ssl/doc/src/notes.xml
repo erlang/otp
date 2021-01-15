@@ -27,6 +27,44 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix CVE-2020-35733 this only affects ssl-10.2 (OTP-23.2).
+	    This vulnerability could enable a man in the middle
+	    attack using a fake chain to a known trusted ROOT. Also
+	    limits alternative chain handling, for handling of
+	    possibly extraneous certs, to improve memory management.</p>
+          <p>
+	    Own Id: OTP-17098</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for AES CCM based cipher suites defined in
+	    RFC 7251</p>
+          <p>
+	    Also Correct cipher suite name conversion to OpenSSL
+	    names. A few names where corrected earlier in OTP-16267
+	    For backwards compatible reasons we support usage of
+	    openSSL names for cipher suites. Mostly anonymous suites
+	    names where incorrect, but also some legacy suites.</p>
+          <p>
+	    Own Id: OTP-17100</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
