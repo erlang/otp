@@ -451,7 +451,7 @@
       in a valid certification path. So, if depth is 0 the PEER must 
       be signed by the trusted ROOT-CA directly; if 1 the path can 
       be PEER, CA, ROOT-CA; if 2 the path can be PEER, CA, CA, 
-      ROOT-CA, and so on. The default value is 1.</p>
+      ROOT-CA, and so on. The default value is 10.</p>
       </desc>
     </datatype>
     
