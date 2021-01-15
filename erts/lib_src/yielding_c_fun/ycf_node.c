@@ -820,8 +820,6 @@ char* ycf_node_get_node_type_string(ycf_node_type t){
     return "ycf_node_type_assignment";
   case ycf_node_type_yield:
     return "ycf_node_type_yield";
-  case ycf_node_type_consume_reds:
-    return "ycf_node_type_consume_reds";
   case ycf_node_type_goto:
     return "ycf_node_type_goto";
   case ycf_node_type_parentheses_expression:

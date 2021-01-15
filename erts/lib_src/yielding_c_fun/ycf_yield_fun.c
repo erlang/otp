@@ -587,9 +587,13 @@ void save_nr_of_reductions_before_return(ycf_node_code_scope* s,
 }
 
 ycf_node* mk_consume_reds_code(char* function_name, ycf_node* consume_reds_node){
+    ycf_node_list parameters = consume_reds_node->u.statement.expression->u.function_call.parameter_expressions;
     ycf_string_printable_buffer* b = ycf_string_printable_buffer_new();
     ycf_yield_location_id_counter++;
-    print_node_code_paran_expression(consume_reds_node->u.consume_reds.nr_of_reds_expression, b);
+    ycf_string_printable_buffer_printf(b, "(");
+    ycf_node* exp = ycf_node_list_get_item_at_position(&parameters, 0);
+    print_node_code_expression(exp->u.expression, b);
+    ycf_string_printable_buffer_printf(b, ")");
     return ycf_node_get_from_code_scope_text(ycf_string_new("ycf_nr_of_reductions = ycf_nr_of_reductions - %s;\n"
                                                             "if (ycf_nr_of_reductions <= 0) {\n"
                                                             "  ycf_trap_location = %d;\n"
@@ -606,8 +610,17 @@ static
 ycf_node* consume_reds_replacer(ycf_node* candidate, ycf_node_code_scope* s, void* context){
   char* function_name = context;
   (void)s;
-  if(candidate->type == ycf_node_type_consume_reds){
-    return mk_consume_reds_code(function_name, candidate);
+  if(candidate->type == ycf_node_type_statement &&
+     candidate->u.statement.expression != NULL &&
+     candidate->u.statement.expression->type == ycf_node_type_function_call &&
+     ycf_symbol_is_text_eq(candidate->u.statement.expression->u.function_call.identifier,
+                           "YCF_CONSUME_REDS")){
+      ycf_node_list parameters = candidate->u.statement.expression->u.function_call.parameter_expressions;
+      if (ycf_node_list_length(parameters) != 1){
+          fprintf(stderr, "Error: YCF_CONSUME_REDS call needs exactly one parameter\n");
+          exit(1);
+      }
+      return mk_consume_reds_code(function_name, candidate);
   } else {
     return candidate;
   }

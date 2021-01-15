@@ -44,7 +44,6 @@ typedef enum {
     ycf_node_type_return_statement,
     ycf_node_type_assignment,
     ycf_node_type_yield,
-    ycf_node_type_consume_reds,
     ycf_node_type_goto,
     ycf_node_type_parentheses_expression,
     ycf_node_type_function_call,

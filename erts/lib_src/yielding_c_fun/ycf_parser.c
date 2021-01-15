@@ -199,21 +199,6 @@ ycf_node* ycf_node_yield_new(ycf_symbol* yield_symbol,
   return n;
 }
 
-
-
-ycf_node* ycf_node_consume_reds_new(ycf_symbol* consume_reds_symbol,
-                                    ycf_node_parentheses_expression nr_of_reds_expression,
-                                    ycf_symbol* end_symbol){
-  ycf_node* n = ycf_malloc(sizeof(ycf_node));
-  n->type = ycf_node_type_consume_reds;
-  n->next = NULL;
-  n->u.consume_reds.consume_reds_symbol = ycf_symbol_copy(consume_reds_symbol);
-  n->u.consume_reds.nr_of_reds_expression = nr_of_reds_expression;
-  n->u.consume_reds.end_symbol = ycf_symbol_copy(end_symbol);
-  return n;
-}
-
-
 ycf_node* ycf_node_other_new(ycf_symbol* other_symbol){
   ycf_node* n = ycf_malloc(sizeof(ycf_node));
   n->type = ycf_node_type_other;
@@ -1303,27 +1288,8 @@ ycf_parse_result parse_on_destroy_state_or_return_code(ycf_symbol* symbols){
   return res;
 }
 
-ycf_parse_result parse_consume_reds(ycf_symbol* symbols){
-  ycf_symbol* consume_reds_symbol = symbols;
-  if(consume_reds_symbol->type != ycf_symbol_type_consume_reds){
-    return fail_parse_result();
-  }
-  ycf_parse_result paran_expression =
-    parse_paran_expression(consume_reds_symbol->next);
-  if(!paran_expression.success){
-    return fail_parse_result();
-  }
-  if(paran_expression.next_symbol->type != ycf_symbol_type_semicolon){
-    return fail_parse_result();
-  }
-  return success_parse_result(paran_expression.next_symbol->next,
-                              ycf_node_consume_reds_new(consume_reds_symbol,
-                                                        paran_expression.result->u.parentheses_expression,
-                                                        paran_expression.next_symbol));
-}
-
 ycf_parse_result parse_statement(ycf_symbol* symbols){
-  int number_of_parsers = 22;
+  int number_of_parsers = 21;
     ycf_parse_result (*parsers[])(ycf_symbol *) = {
     parse_defenition_no_init,
     parse_defenition_with_init,
@@ -1336,7 +1302,6 @@ ycf_parse_result parse_statement(ycf_symbol* symbols){
     parse_scope,
     parse_goto,
     parse_return_statement,
-    parse_consume_reds,
     parse_function_call_statement,
     parse_function_call_assignment_statement,
     parse_assignment,
@@ -1462,8 +1427,7 @@ ycf_node* ycf_node_deep_copy(ycf_node *n) {
                n->type == ycf_node_type_on_return_code ||
                n->type == ycf_node_type_on_destroy_state_or_return_code ||
                n->type == ycf_node_type_goto ||
-               n->type == ycf_node_type_return_statement ||
-               n->type == ycf_node_type_consume_reds) {
+               n->type == ycf_node_type_return_statement) {
         res = parse_statement(symbols.head);
     } else if (n->type == ycf_node_type_function_declaration) {
         res = parse_function_def(symbols.head);
