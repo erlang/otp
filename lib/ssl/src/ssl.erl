@@ -384,6 +384,8 @@
                                      bloom_filter_bits()}.          %% m - number of bits in bit vector
 -type use_ticket()               :: [binary()].
 -type middlebox_comp_mode()      :: boolean().
+-type client_early_data()        :: binary().
+-type server_early_data()        :: disabled | enabled.
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -402,7 +404,8 @@
                                 {signature_algs, client_signature_algs()} |
                                 {fallback, fallback()} |
                                 {session_tickets, client_session_tickets()} |
-                                {use_ticket, use_ticket()}. %% |
+                                {use_ticket, use_ticket()} |
+                                {early_data, client_early_data()}.
                                 %% {ocsp_stapling, ocsp_stapling()} |
                                 %% {ocsp_responder_certs, ocsp_responder_certs()} |
                                 %% {ocsp_nonce, ocsp_nonce()}.
@@ -453,7 +456,8 @@
                                 {signature_algs, server_signature_algs()} |
                                 {session_tickets, server_session_tickets()} |
                                 {anti_replay, anti_replay()} |
-                                {cookie, cookie()}.
+                                {cookie, cookie()} |
+                                {early_data, server_early_data()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
 -type server_cafile()            :: file:filename().
@@ -1708,6 +1712,32 @@ handle_option(client_renegotiation = Option, Value0,
                              ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(early_data = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(early_data = Option, Value0, #{session_tickets := SessionTickets,
+                                             versions := Versions} = OptionsMap,
+              #{role := server = Role}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    assert_option_dependency(Option, session_tickets, [SessionTickets],
+                             [stateful, stateless]),
+    Value = validate_option(Option, Value0, Role),
+    OptionsMap#{Option => Value};
+handle_option(early_data = Option, Value0, #{session_tickets := SessionTickets,
+                                             use_ticket := UseTicket,
+                                             versions := Versions} = OptionsMap,
+              #{role := client = Role}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    assert_option_dependency(Option, session_tickets, [SessionTickets],
+                             [manual, auto]),
+    case UseTicket of
+        undefined when SessionTickets =/= auto ->
+            throw({error, {options, dependency, {Option, use_ticket}}});
+        _ ->
+            ok
+    end,
+    Value = validate_option(Option, Value0, Role),
+    OptionsMap#{Option => Value};
 handle_option(eccs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->
     Value = handle_eccs_option(eccs(), HighestVersion),
     OptionsMap#{Option => Value};
@@ -1751,6 +1781,21 @@ handle_option(key_update_at = Option, unbound, OptionsMap, #{rules := Rules}) ->
     OptionsMap#{Option => Value};
 handle_option(key_update_at = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
+handle_option(max_early_data = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(max_early_data = Option, Value0, #{early_data := EarlyData,
+                                                 session_tickets := SessionTickets,
+                                                 versions := Versions} = OptionsMap,
+              #{role := Role}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    assert_role(server_only, Role, Option, Value0),
+    assert_option_dependency(Option, session_tickets, [SessionTickets],
+                             [stateful, stateless]),
+    assert_option_dependency(Option, early_data, [EarlyData],
+                             [enabled]),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(next_protocols_advertised = Option, unbound, OptionsMap,
@@ -1829,13 +1874,13 @@ handle_option(server_name_indication = Option, unbound, OptionsMap, #{host := Ho
 handle_option(server_name_indication = Option, Value0, OptionsMap, _Env) ->
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
-handle_option(session_tickets = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
+handle_option(session_tickets = Option, unbound, OptionsMap, #{role := Role,
+                                                               rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules), Role),
     OptionsMap#{Option => Value};
 handle_option(session_tickets = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    assert_role_value(Role, Option, Value0, [disabled, stateful, stateless], [disabled, manual, auto]),
-    Value = validate_option(Option, Value0),
+    Value = validate_option(Option, Value0, Role),
     OptionsMap#{Option => Value};
 handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{role := Role}) ->
     Value =
@@ -2047,24 +2092,6 @@ assert_role(server_only, _, _, undefined) ->
 assert_role(Type, _, Key, _) ->
     throw({error, {option, Type, Key}}).
 
-
-assert_role_value(client, Option, Value, _, ClientValues) ->
-        case lists:member(Value, ClientValues) of
-            true ->
-                ok;
-            false ->
-                %% throw({error, {option, client, Option, Value, ClientValues}})
-                throw({error, {options, role, {Option, {Value, {client, ClientValues}}}}})
-        end;
-assert_role_value(server, Option, Value, ServerValues, _) ->
-        case lists:member(Value, ServerValues) of
-            true ->
-                ok;
-            false ->
-                %% throw({error, {option, server, Option, Value, ServerValues}})
-                throw({error, {options, role, {Option, {Value, {server, ServerValues}}}}})
-        end.
-
 assert_option_dependency(Option, OptionDep, Values0, AllowedValues) ->
     case is_dtls_configured(Values0) of
         true ->
@@ -2099,15 +2126,372 @@ is_dtls_configured(Versions) ->
           end,
     lists:any(Fun, Versions).
 
-validate_option(versions, Versions)  ->
-    validate_versions(Versions, Versions);
-validate_option(verify, Value)
+validate_option(Option, Value) ->
+    validate_option(Option, Value, undefined).
+%%
+validate_option(Opt, Value, _)
+  when Opt =:= alpn_advertised_protocols orelse
+       Opt =:= alpn_preferred_protocols,
+       is_list(Value) ->
+    validate_binary_list(Opt, Value),
+    Value;
+validate_option(Opt, Value, _)
+  when Opt =:= alpn_advertised_protocols orelse
+       Opt =:= alpn_preferred_protocols,
+       Value =:= undefined ->
+    undefined;
+validate_option(anti_replay, '10k', _) ->
+    %% n = 10000
+    %% p = 0.030003564 (1 in 33)
+    %% m = 72985 (8.91KiB)
+    %% k = 5
+    {10, 5, 72985};
+validate_option(anti_replay, '100k', _) ->
+    %% n = 100000
+    %% p = 0.03000428 (1 in 33)
+    %% m = 729845 (89.09KiB)
+    %% k = 5
+    {10, 5, 729845};
+validate_option(anti_replay, Value, _)
+  when (is_tuple(Value) andalso
+        tuple_size(Value) =:= 3) ->
+    Value;
+validate_option(beast_mitigation, Value, _)
+  when Value == one_n_minus_one orelse
+       Value == zero_n orelse
+       Value == disabled ->
+  Value;
+%% certfile must be present in some cases otherwhise it can be set
+%% to the empty string.
+validate_option(cacertfile, undefined, _) ->
+   <<>>;
+validate_option(cacertfile, Value, _)
+  when is_binary(Value) ->
+    Value;
+validate_option(cacertfile, Value, _)
+  when is_list(Value), Value =/= ""->
+    binary_filename(Value);
+validate_option(cacerts, Value, _)
+  when Value == undefined;
+       is_list(Value) ->
+    Value;
+validate_option(cb_info, {V1, V2, V3, V4} = Value, _)
+  when is_atom(V1),
+       is_atom(V2),
+       is_atom(V3),
+       is_atom(V4) ->
+    Value;
+validate_option(cb_info, {V1, V2, V3, V4, V5} = Value, _)
+  when is_atom(V1),
+       is_atom(V2),
+       is_atom(V3),
+       is_atom(V4),
+       is_atom(V5) ->
+    Value;
+validate_option(cert, Value, _) when Value == undefined;
+                                     is_list(Value)->
+    Value;
+validate_option(cert, Value, _) when Value == undefined;
+                                     is_binary(Value)->
+    [Value];
+validate_option(certfile, undefined = Value, _) ->
+    Value;
+validate_option(certfile, Value, _)
+  when is_binary(Value) ->
+    Value;
+validate_option(certfile, Value, _)
+  when is_list(Value) ->
+    binary_filename(Value);
+validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols}, _)
+  when is_list(PreferredProtocols) ->
+    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+    validate_npn_ordering(Precedence),
+    {Precedence, PreferredProtocols, ?NO_PROTOCOL};
+validate_option(client_preferred_next_protocols,
+                {Precedence, PreferredProtocols, Default} = Value, _)
+  when is_list(PreferredProtocols), is_binary(Default),
+       byte_size(Default) > 0, byte_size(Default) < 256 ->
+    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+    validate_npn_ordering(Precedence),
+    Value;
+validate_option(client_preferred_next_protocols, undefined, _) ->
+    undefined;
+validate_option(client_renegotiation, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(cookie, Value, _)
+  when is_boolean(Value)  ->
+    Value;
+validate_option(crl_cache, {Cb, {_Handle, Options}} = Value, _)
+  when is_atom(Cb) and is_list(Options) ->
+    Value;
+validate_option(crl_check, Value, _)
+  when is_boolean(Value)  ->
+    Value;
+validate_option(crl_check, Value, _)
+  when (Value == best_effort) or
+       (Value == peer) ->
+    Value;
+validate_option(customize_hostname_check, Value, _)
+  when is_list(Value) ->
+    Value;
+validate_option(depth, Value, _)
+  when is_integer(Value),
+       Value >= 0, Value =< 255->
+    Value;
+validate_option(dh, Value, _)
+  when Value == undefined;
+       is_binary(Value) ->
+    Value;
+validate_option(dhfile, undefined = Value, _)  ->
+    Value;
+validate_option(dhfile, Value, _)
+  when is_binary(Value) ->
+    Value;
+validate_option(dhfile, Value, _)
+  when is_list(Value), Value =/= "" ->
+    binary_filename(Value);
+validate_option(early_data, Value, server)
+  when Value =:= disabled orelse
+       Value =:= enabled ->
+    Value;
+validate_option(early_data = Option, Value, server) ->
+    throw({error,
+           {options, role, {Option, {Value, {server, [disabled, enabled]}}}}});
+validate_option(early_data, Value, client)
+  when is_binary(Value) ->
+    Value;
+validate_option(early_data = Option, Value, client) ->
+    throw({error,
+           {options, type, {Option, {Value, not_binary}}}});
+validate_option(erl_dist, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(fail_if_no_peer_cert, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(fallback, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(handshake, hello = Value, _) ->
+    Value;
+validate_option(handshake, full = Value, _) ->
+    Value;
+validate_option(hibernate_after, undefined, _) -> %% Backwards compatibility
+    infinity;
+validate_option(hibernate_after, infinity, _) ->
+    infinity;
+validate_option(hibernate_after, Value, _)
+  when is_integer(Value), Value >= 0 ->
+    Value;
+validate_option(honor_cipher_order, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(honor_ecc_order, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(keep_secrets, Value, _) when is_boolean(Value) ->
+    Value;
+validate_option(key, undefined, _) ->
+    undefined;
+validate_option(key, {KeyType, Value}, _)
+  when is_binary(Value),
+       KeyType == rsa; %% Backwards compatibility
+       KeyType == dsa; %% Backwards compatibility
+       KeyType == 'RSAPrivateKey';
+       KeyType == 'DSAPrivateKey';
+       KeyType == 'ECPrivateKey';
+       KeyType == 'PrivateKeyInfo' ->
+    {KeyType, Value};
+validate_option(key, #{algorithm := _} = Value, _) ->
+    Value;
+validate_option(keyfile, undefined, _) ->
+   <<>>;
+validate_option(keyfile, Value, _)
+  when is_binary(Value) ->
+    Value;
+validate_option(keyfile, Value, _)
+  when is_list(Value), Value =/= "" ->
+    binary_filename(Value);
+validate_option(key_update_at, Value, _)
+  when is_integer(Value) andalso
+       Value > 0 ->
+    Value;
+validate_option(log_alert, true, _) ->
+    notice;
+validate_option(log_alert, false, _) ->
+    warning;
+validate_option(log_level, Value, _)
+  when is_atom(Value) andalso
+       (Value =:= emergency orelse
+        Value =:= alert orelse
+        Value =:= critical orelse
+        Value =:= error orelse
+        Value =:= warning orelse
+        Value =:= notice orelse
+        Value =:= info orelse
+        Value =:= debug) ->
+    Value;
+validate_option(max_early_data, Value, _)
+  when is_integer(Value),
+       Value >= 0 ->
+    Value;
+validate_option(max_early_data = Option, Value, _) when Value =/= undefined ->
+    throw({error,
+           {options, type, {Option, {Value, not_integer}}}});
+%% RFC 6066, Section 4
+validate_option(max_fragment_length, I, _)
+  when I == ?MAX_FRAGMENT_LENGTH_BYTES_1;
+       I == ?MAX_FRAGMENT_LENGTH_BYTES_2;
+       I == ?MAX_FRAGMENT_LENGTH_BYTES_3;
+       I == ?MAX_FRAGMENT_LENGTH_BYTES_4 ->
+    I;
+validate_option(max_fragment_length, undefined, _) ->
+    undefined;
+validate_option(max_handshake_size, Value, _)
+  when is_integer(Value) andalso
+       Value =< ?MAX_UNIT24 ->
+    Value;
+validate_option(middlebox_comp_mode, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(next_protocols_advertised, Value, _) when is_list(Value) ->
+    validate_binary_list(next_protocols_advertised, Value),
+    Value;
+validate_option(next_protocols_advertised, undefined, _) ->
+    undefined;
+validate_option(ocsp_nonce, Value, _)
+  when Value =:= true orelse
+       Value =:= false ->
+    Value;
+%% The OCSP responders' certificates can be given as a suggestion and
+%% will be used to verify the OCSP response.
+validate_option(ocsp_responder_certs, Value, _)
+  when is_list(Value) ->
+    [public_key:pkix_decode_cert(CertDer, plain) || CertDer <- Value,
+                                                    is_binary(CertDer)];
+validate_option(ocsp_stapling, Value, _)
+  when Value =:= true orelse
+       Value =:= false ->
+    Value;
+validate_option(padding_check, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(partial_chain, Value, _)
+  when is_function(Value) ->
+    Value;
+validate_option(password, Value, _)
+  when is_list(Value) ->
+    Value;
+validate_option(protocol, Value = tls, _) ->
+    Value;
+validate_option(protocol, Value = dtls, _) ->
+    Value;
+validate_option(psk_identity, undefined, _) ->
+    undefined;
+validate_option(psk_identity, Identity, _)
+  when is_list(Identity), Identity =/= "", length(Identity) =< 65535 ->
+    binary_filename(Identity);
+validate_option(renegotiate_at, Value, _) when is_integer(Value) ->
+    erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
+validate_option(reuse_session, undefined, _) ->
+    undefined;
+validate_option(reuse_session, Value, _)
+  when is_function(Value) ->
+    Value;
+validate_option(reuse_session, Value, _)
+  when is_binary(Value) ->
+    Value;
+validate_option(reuse_session, {Id, Data} = Value, _)
+  when is_binary(Id) andalso
+       is_binary(Data) ->
+    Value;
+validate_option(reuse_sessions, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(reuse_sessions, save = Value, _) ->
+    Value;
+validate_option(secure_renegotiate, Value, _)
+  when is_boolean(Value) ->
+    Value;
+validate_option(server_name_indication, Value, _)
+  when is_list(Value) ->
+    %% RFC 6066, Section 3: Currently, the only server names supported are
+    %% DNS hostnames
+    %% case inet_parse:domain(Value) of
+    %%     false ->
+    %%         throw({error, {options, {{Opt, Value}}}});
+    %%     true ->
+    %%         Value
+    %% end;
+    %%
+    %% But the definition seems very diffuse, so let all strings through
+    %% and leave it up to public_key to decide...
+    Value;
+validate_option(server_name_indication, undefined, _) ->
+    undefined;
+validate_option(server_name_indication, disable, _) ->
+    disable;
+validate_option(session_tickets, Value, server)
+  when Value =:= disabled orelse
+       Value =:= stateful orelse
+       Value =:= stateless ->
+    Value;
+validate_option(session_tickets, Value, server) ->
+    throw({error,
+           {options, role,
+            {session_tickets,
+             {Value, {server, [disabled, stateful, stateless]}}}}});
+validate_option(session_tickets, Value, client)
+  when Value =:= disabled orelse
+       Value =:= manual orelse
+       Value =:= auto ->
+    Value;
+validate_option(session_tickets, Value, client) ->
+    throw({error,
+           {options, role,
+            {session_tickets,
+             {Value, {client, [disabled, manual, auto]}}}}});
+validate_option(sni_fun, undefined, _) ->
+    undefined;
+validate_option(sni_fun, Fun, _)
+  when is_function(Fun) ->
+    Fun;
+validate_option(sni_hosts, [], _) ->
+    [];
+validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail], _)
+  when is_list(Hostname) ->
+    RecursiveSNIOptions = proplists:get_value(sni_hosts, SSLOptions, undefined),
+    case RecursiveSNIOptions of
+        undefined ->
+            [{Hostname, validate_options(SSLOptions)} |
+             validate_option(sni_hosts, Tail)];
+        _ ->
+            throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
+    end;
+validate_option(srp_identity, undefined, _) ->
+    undefined;
+validate_option(srp_identity, {Username, Password}, _)
+  when is_list(Username),
+       is_list(Password), Username =/= "",
+       length(Username) =< 255 ->
+    {unicode:characters_to_binary(Username),
+     unicode:characters_to_binary(Password)};
+validate_option(user_lookup_fun, undefined, _) ->
+    undefined;
+validate_option(user_lookup_fun, {Fun, _} = Value, _)
+  when is_function(Fun, 3) ->
+   Value;
+validate_option(use_ticket, Value, _)
+  when is_list(Value) ->
+    Value;
+validate_option(verify, Value, _)
   when Value == verify_none; Value == verify_peer ->
     Value;
-validate_option(verify_fun, undefined)  ->
+validate_option(verify_fun, undefined, _)  ->
     undefined;
 %% Backwards compatibility
-validate_option(verify_fun, Fun) when is_function(Fun) ->
+validate_option(verify_fun, Fun, _) when is_function(Fun) ->
     {fun(_,{bad_cert, _} = Reason, OldFun) ->
 	     case OldFun([Reason]) of
 		 true ->
@@ -2122,281 +2506,11 @@ validate_option(verify_fun, Fun) when is_function(Fun) ->
 	(_, valid_peer, UserState) ->
 	     {valid, UserState}
      end, Fun};
-validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->
+validate_option(verify_fun, {Fun, _} = Value, _) when is_function(Fun) ->
    Value;
-validate_option(partial_chain, Value) when is_function(Value) ->
-    Value;
-validate_option(fail_if_no_peer_cert, Value) when is_boolean(Value) ->
-    Value;
-validate_option(depth, Value) when is_integer(Value),
-                                   Value >= 0, Value =< 255->
-    Value;
-validate_option(cert, Value) when Value == undefined;
-                                  is_list(Value)->
-    Value;
-validate_option(cert, Value) when Value == undefined;
-                                  is_binary(Value)->
-    [Value];
-validate_option(certfile, undefined = Value) ->
-    Value;
-validate_option(certfile, Value) when is_binary(Value) ->
-    Value;
-validate_option(certfile, Value) when is_list(Value) ->
-    binary_filename(Value);
-
-validate_option(key, undefined) ->
-    undefined;
-validate_option(key, {KeyType, Value}) when is_binary(Value),
-					    KeyType == rsa; %% Backwards compatibility
-					    KeyType == dsa; %% Backwards compatibility
-					    KeyType == 'RSAPrivateKey';
-					    KeyType == 'DSAPrivateKey';
-					    KeyType == 'ECPrivateKey';
-					    KeyType == 'PrivateKeyInfo' ->
-    {KeyType, Value};
-validate_option(key, #{algorithm := _} = Value) ->
-    Value;
-validate_option(keyfile, undefined) ->
-   <<>>;
-validate_option(keyfile, Value) when is_binary(Value) ->
-    Value;
-validate_option(keyfile, Value) when is_list(Value), Value =/= "" ->
-    binary_filename(Value);
-validate_option(key_update_at, Value) when is_integer(Value) andalso
-                                           Value > 0 ->
-    Value;
-validate_option(password, Value) when is_list(Value) ->
-    Value;
-
-validate_option(cacerts, Value) when Value == undefined;
-				     is_list(Value) ->
-    Value;
-%% certfile must be present in some cases otherwhise it can be set
-%% to the empty string.
-validate_option(cacertfile, undefined) ->
-   <<>>;
-validate_option(cacertfile, Value) when is_binary(Value) ->
-    Value;
-validate_option(cacertfile, Value) when is_list(Value), Value =/= ""->
-    binary_filename(Value);
-validate_option(dh, Value) when Value == undefined;
-				is_binary(Value) ->
-    Value;
-validate_option(dhfile, undefined = Value)  ->
-    Value;
-validate_option(dhfile, Value) when is_binary(Value) ->
-    Value;
-validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
-    binary_filename(Value);
-validate_option(psk_identity, undefined) ->
-    undefined;
-validate_option(psk_identity, Identity)
-  when is_list(Identity), Identity =/= "", length(Identity) =< 65535 ->
-    binary_filename(Identity);
-validate_option(user_lookup_fun, undefined) ->
-    undefined;
-validate_option(user_lookup_fun, {Fun, _} = Value) when is_function(Fun, 3) ->
-   Value;
-validate_option(srp_identity, undefined) ->
-    undefined;
-validate_option(srp_identity, {Username, Password})
-  when is_list(Username), is_list(Password), Username =/= "", length(Username) =< 255 ->
-    {unicode:characters_to_binary(Username),
-     unicode:characters_to_binary(Password)};
-
-validate_option(reuse_session, undefined) ->
-    undefined;
-validate_option(reuse_session, Value) when is_function(Value) ->
-    Value;
-validate_option(reuse_session, Value) when is_binary(Value) ->
-    Value;
-validate_option(reuse_session, {Id, Data} = Value) when is_binary(Id) andalso
-                                                        is_binary(Data) ->
-    Value;
-validate_option(reuse_sessions, Value) when is_boolean(Value) ->
-    Value;
-validate_option(reuse_sessions, save = Value) ->
-    Value;
-validate_option(secure_renegotiate, Value) when is_boolean(Value) ->
-    Value;
-validate_option(keep_secrets, Value) when is_boolean(Value) ->
-    Value;
-validate_option(client_renegotiation, Value) when is_boolean(Value) ->
-    Value;
-validate_option(renegotiate_at, Value) when is_integer(Value) ->
-    erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
-
-validate_option(hibernate_after, undefined) -> %% Backwards compatibility
-    infinity;
-validate_option(hibernate_after, infinity) ->
-    infinity;
-validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
-    Value;
-
-validate_option(erl_dist,Value) when is_boolean(Value) ->
-    Value;
-validate_option(Opt, Value) when Opt =:= alpn_advertised_protocols orelse Opt =:= alpn_preferred_protocols,
-                                 is_list(Value) ->
-    validate_binary_list(Opt, Value),
-    Value;
-validate_option(Opt, Value)
-  when Opt =:= alpn_advertised_protocols orelse Opt =:= alpn_preferred_protocols,
-       Value =:= undefined ->
-    undefined;
-validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols})
-  when is_list(PreferredProtocols) ->
-    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-    validate_npn_ordering(Precedence),
-    {Precedence, PreferredProtocols, ?NO_PROTOCOL};
-validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols, Default} = Value)
-  when is_list(PreferredProtocols), is_binary(Default),
-       byte_size(Default) > 0, byte_size(Default) < 256 ->
-    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-    validate_npn_ordering(Precedence),
-    Value;
-validate_option(client_preferred_next_protocols, undefined) ->
-    undefined;
-validate_option(log_alert, true) ->
-    notice;
-validate_option(log_alert, false) ->
-    warning;
-validate_option(log_level, Value) when
-      is_atom(Value) andalso
-      (Value =:= emergency orelse
-       Value =:= alert orelse
-       Value =:= critical orelse
-       Value =:= error orelse
-       Value =:= warning orelse
-       Value =:= notice orelse
-       Value =:= info orelse
-       Value =:= debug) ->
-    Value;
-validate_option(middlebox_comp_mode, Value) when is_boolean(Value) ->
-    Value;
-validate_option(next_protocols_advertised, Value) when is_list(Value) ->
-    validate_binary_list(next_protocols_advertised, Value),
-    Value;
-validate_option(next_protocols_advertised, undefined) ->
-    undefined;
-validate_option(server_name_indication, Value) when is_list(Value) ->
-    %% RFC 6066, Section 3: Currently, the only server names supported are
-    %% DNS hostnames
-    %% case inet_parse:domain(Value) of
-    %%     false ->
-    %%         throw({error, {options, {{Opt, Value}}}});
-    %%     true ->
-    %%         Value
-    %% end;
-    %%
-    %% But the definition seems very diffuse, so let all strings through
-    %% and leave it up to public_key to decide...
-    Value;
-validate_option(server_name_indication, undefined) ->
-    undefined;
-validate_option(server_name_indication, disable) ->
-    disable;
-
-%% RFC 6066, Section 4
-validate_option(max_fragment_length, I) when I == ?MAX_FRAGMENT_LENGTH_BYTES_1; I == ?MAX_FRAGMENT_LENGTH_BYTES_2;
-                                             I == ?MAX_FRAGMENT_LENGTH_BYTES_3; I == ?MAX_FRAGMENT_LENGTH_BYTES_4 ->
-    I;
-validate_option(max_fragment_length, undefined) ->
-    undefined;
-
-validate_option(sni_hosts, []) ->
-    [];
-validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail]) when is_list(Hostname) ->
-	RecursiveSNIOptions = proplists:get_value(sni_hosts, SSLOptions, undefined),
-	case RecursiveSNIOptions of
-		undefined ->
-			[{Hostname, validate_options(SSLOptions)} | validate_option(sni_hosts, Tail)];
-		_ ->
-			throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
-	end;
-validate_option(sni_fun, undefined) ->
-    undefined;
-validate_option(sni_fun, Fun) when is_function(Fun) ->
-    Fun;
-validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
-    Value;
-validate_option(honor_ecc_order, Value) when is_boolean(Value) ->
-    Value;
-validate_option(padding_check, Value) when is_boolean(Value) ->
-    Value;
-validate_option(fallback, Value) when is_boolean(Value) ->
-    Value;
-validate_option(cookie, Value) when is_boolean(Value)  ->
-    Value;
-validate_option(crl_check, Value) when is_boolean(Value)  ->
-    Value;
-validate_option(crl_check, Value) when (Value == best_effort) or (Value == peer) -> 
-    Value;
-validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) and is_list(Options) ->
-    Value;
-validate_option(beast_mitigation, Value) when Value == one_n_minus_one orelse
-                                              Value == zero_n orelse
-                                              Value == disabled ->
-  Value;
-validate_option(max_handshake_size, Value) when is_integer(Value)  andalso Value =< ?MAX_UNIT24 ->
-    Value;
-validate_option(protocol, Value = tls) ->
-    Value;
-validate_option(protocol, Value = dtls) ->
-    Value;
-validate_option(handshake, hello = Value) ->
-    Value;
-validate_option(handshake, full = Value) ->
-    Value;
-validate_option(customize_hostname_check, Value) when is_list(Value) ->
-    Value;
-validate_option(cb_info, {V1, V2, V3, V4} = Value) when is_atom(V1),
-                                                        is_atom(V2),
-                                                        is_atom(V3),
-                                                        is_atom(V4)
-                                                ->
-    Value;
-validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
-                                                            is_atom(V2),
-                                                            is_atom(V3),
-                                                            is_atom(V4),
-                                                            is_atom(V5)
-                                                ->
-    Value;
-validate_option(use_ticket, Value) when is_list(Value) ->
-    Value;
-validate_option(session_tickets, Value) when Value =:= disabled orelse
-                                             Value =:= manual orelse
-                                             Value =:= auto orelse
-                                             Value =:= stateless orelse
-                                             Value =:= stateful ->
-    Value;
-validate_option(anti_replay, '10k') ->
-    %% n = 10000
-    %% p = 0.030003564 (1 in 33)
-    %% m = 72985 (8.91KiB)
-    %% k = 5
-    {10, 5, 72985};
-validate_option(anti_replay, '100k') ->
-    %% n = 100000
-    %% p = 0.03000428 (1 in 33)
-    %% m = 729845 (89.09KiB)
-    %% k = 5
-    {10, 5, 729845};
-validate_option(anti_replay, Value) when (is_tuple(Value) andalso
-                                          tuple_size(Value) =:= 3) ->
-    Value;
-validate_option(ocsp_stapling, Value) when Value =:= true orelse
-                                           Value =:= false ->
-    Value;
-%% The OCSP responders' certificates can be given as a suggestion and
-%% will be used to verify the OCSP response.
-validate_option(ocsp_responder_certs, Value) when is_list(Value) ->
-    [public_key:pkix_decode_cert(CertDer, plain) || CertDer <- Value,
-                                                    is_binary(CertDer)];
-validate_option(ocsp_nonce, Value) when Value =:= true orelse
-                                        Value =:= false ->
-    Value;
-validate_option(Opt, undefined = Value) ->
+validate_option(versions, Versions, _)  ->
+    validate_versions(Versions, Versions);
+validate_option(Opt, undefined = Value, _) ->
     AllOpts = maps:keys(?RULES),
     case lists:member(Opt, AllOpts) of
         true ->
@@ -2404,7 +2518,7 @@ validate_option(Opt, undefined = Value) ->
         false ->
             throw({error, {options, {Opt, Value}}})
     end;
-validate_option(Opt, Value) ->
+validate_option(Opt, Value, _) ->
     throw({error, {options, {Opt, Value}}}).
 
 handle_cb_info({V1, V2, V3, V4}) ->

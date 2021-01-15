@@ -168,8 +168,8 @@ update_cipher_key(ConnStateName, CS0) ->
     ApplicationTrafficSecret = tls_v1:update_traffic_secret(HKDF, ApplicationTrafficSecret0),
 
     %% Calculate traffic keys
-    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, Cipher, ApplicationTrafficSecret),
+    KeyLength = tls_v1:key_length(CipherSuite),
+    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, KeyLength, ApplicationTrafficSecret),
 
     SecParams = SecParams0#security_parameters{application_traffic_secret = ApplicationTrafficSecret},
     CipherState = CipherState0#cipher_state{key = Key, iv = IV},
@@ -504,10 +504,12 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
   when SessionTickets =:= manual ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
+    CipherSuite = SecParams#security_parameters.cipher_suite,
+    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK);
+    send_ticket_data(User, NewSessionTicket, {Cipher, HKDF}, SNI, PSK);
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
                                  ssl_options = #{session_tickets := SessionTickets,
@@ -515,21 +517,21 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
   when SessionTickets =:= auto ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
+    CipherSuite = SecParams#security_parameters.cipher_suite,
+    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    tls_client_ticket_store:store_ticket(NewSessionTicket, HKDF, SNI, PSK).
+    tls_client_ticket_store:store_ticket(NewSessionTicket, {Cipher, HKDF}, SNI, PSK).
 
-
-%% Send ticket data to user as opaque binary
-send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK) ->
+send_ticket_data(User, NewSessionTicket, CipherSuite, SNI, PSK) ->
     Timestamp = erlang:system_time(seconds),
-    TicketData = #{hkdf => HKDF,
+    TicketData = #{cipher_suite => CipherSuite,
                    sni => SNI,
                    psk => PSK,
                    timestamp => Timestamp,
                    ticket => NewSessionTicket},
-    User ! {ssl, session_ticket, {SNI, erlang:term_to_binary(TicketData)}}.
+    User ! {ssl, session_ticket, TicketData}.
 
 handle_key_update(#key_update{request_update = update_not_requested}, State0) ->
     %% Update read key in connection

@@ -438,50 +438,50 @@ initial_hello({call, From}, {start, Timeout},
               #state{static_env = #static_env{role = client = Role,
                                               host = Host,
                                               port = Port,
-                                              protocol_cb = Connection,
-                                              transport_cb = Transport,
-                                              socket = Socket},
+                                              protocol_cb = Connection},
                      handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
-                                                    ocsp_stapling_state = OcspState0} = HsEnv,
+                                                    ocsp_stapling_state = OcspState0},
                      connection_env = CEnv,
-                     ssl_options = #{log_level := LogLevel,
-                                     %% Use highest version in initial ClientHello.
+                     ssl_options = #{%% Use highest version in initial ClientHello.
                                      %% Versions is a descending list of supported versions.
                                      versions := [HelloVersion|_] = Versions,
                                      session_tickets := SessionTickets,
                                      ocsp_stapling := OcspStaplingOpt,
-                                     ocsp_nonce := OcspNonceOpt} = SslOpts,
+                                     ocsp_nonce := OcspNonceOpt,
+                                     early_data := EarlyData} = SslOpts,
                      session = Session,
                      connection_states = ConnectionStates0
                     } = State0) ->
 
     KeyShare = maybe_generate_client_shares(SslOpts),
-    %% Update UseTicket in case of automatic session resumption
+    %% Update UseTicket in case of automatic session resumption. The automatic ticket handling
+    %% also takes it into account if the ticket is suitable for sending early data not exceeding
+    %% the max_early_data_size or if it can only be used for session resumption.
     {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
     OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
-    Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
-                                       Session#session.session_id,
-                                       Renegotiation,
-                                       Session#session.own_certificates,
-                                       KeyShare,
-                                       TicketData,
-                                       OcspNonce),
+    Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
+                                        Session#session.session_id,
+                                        Renegotiation,
+                                        Session#session.own_certificates,
+                                        KeyShare,
+                                        TicketData,
+                                        OcspNonce),
 
-    Handshake0 = ssl_handshake:init_handshake_history(),
+    %% Early Data Indication
+    Hello1 = tls_handshake_1_3:maybe_add_early_data_indication(Hello0,
+                                                               EarlyData,
+                                                               HelloVersion),
 
     %% Update pre_shared_key extension with binders (TLS 1.3)
-    Hello1 = tls_handshake_1_3:maybe_add_binders(Hello, TicketData, HelloVersion),
+    Hello2 = tls_handshake_1_3:maybe_add_binders(Hello1, TicketData, HelloVersion),
 
     MaxFragEnum = maps:get(max_frag_enum, Hello1#client_hello.extensions, undefined),
     ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+    State2 = State1#state{connection_states = ConnectionStates1,
+                          connection_env = CEnv#connection_env{negotiated_version = HelloVersion}},
 
-    {BinMsg, ConnectionStates, Handshake} =
-        Connection:encode_handshake(Hello1,  HelloVersion, ConnectionStates1, Handshake0),
-
-    tls_socket:send(Transport, Socket, BinMsg),
-    ssl_logger:debug(LogLevel, outbound, 'handshake', Hello1),
-    ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
+    State3 = Connection:queue_handshake(Hello2, State2),
 
     %% RequestedVersion is used as the legacy record protocol version and shall be
     %% {3,3} in case of TLS 1.2 and higher. In all other cases it defaults to the
@@ -490,18 +490,31 @@ initial_hello({call, From}, {start, Timeout},
     %% negotiated_version is also used by the TLS 1.3 state machine and is set after
     %% ServerHello is processed.
     RequestedVersion = tls_record:hello_version(Versions),
-    State = State1#state{connection_states = ConnectionStates,
-                          connection_env = CEnv#connection_env{
-                                             negotiated_version = RequestedVersion},
-                          session = Session,
-                          handshake_env = HsEnv#handshake_env{
-                                            tls_handshake_history = Handshake,
-                                            ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce}},
-                          start_or_recv_from = From,
-                          key_share = KeyShare},
-    NextState = next_statem_state(Versions, Role),    
-    Connection:next_event(NextState, no_record, State,
-                          [{{timeout, handshake}, Timeout, close}]);
+
+    {Ref,Maybe} = tls_handshake_1_3:maybe(),
+    try
+        %% Send Early Data
+        State4 = Maybe(tls_handshake_1_3:maybe_send_early_data(State3)),
+
+        {#state{handshake_env = HsEnv1} = State5, _} =
+            Connection:send_handshake_flight(State4),
+
+        State = State5#state{
+                  connection_env = CEnv#connection_env{
+                                     negotiated_version = RequestedVersion},
+                  session = Session,
+                  handshake_env = HsEnv1#handshake_env{
+                                    ocsp_stapling_state = OcspState0#{ocsp_nonce => OcspNonce}},
+                  start_or_recv_from = From,
+                  key_share = KeyShare},
+        NextState = next_statem_state(Versions, Role),
+        Connection:next_event(NextState, no_record, State,
+                              [{{timeout, handshake}, Timeout, close}])
+    catch
+        {Ref, #alert{} = Alert} ->
+            handle_own_alert(Alert, RequestedVersion, init,
+                             State0#state{start_or_recv_from = From})
+    end;
 initial_hello({call, From}, {start, Timeout}, #state{static_env = #static_env{role = Role,
                                                                               protocol_cb = Connection},
                                                      ssl_options = #{versions := Versions}} = State0) ->

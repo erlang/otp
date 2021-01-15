@@ -43,7 +43,7 @@
 
 -type ssl_handshake() :: #server_hello{} | #server_hello_done{} | #certificate{} | #certificate_request{} |
 			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
-			 #hello_request{} | #next_protocol{}.
+			 #hello_request{} | #next_protocol{} | #end_of_early_data{}.
 
 %% Create handshake messages
 -export([hello_request/0, server_hello/4, server_hello_done/0,
@@ -768,7 +768,13 @@ encode_extensions([#cookie{cookie = Cookie} | Rest], Acc) ->
     CookieLen = byte_size(Cookie),
     Len = CookieLen + 2,
     encode_extensions(Rest, <<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
-				    Cookie/binary, Acc/binary>>).
+                              Cookie/binary, Acc/binary>>);
+encode_extensions([#early_data_indication{} | Rest], Acc) ->
+    encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
+                              ?UINT16(0), Acc/binary>>);
+encode_extensions([#early_data_indication_nst{indication = MaxSize} | Rest], Acc) ->
+    encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
+                              ?UINT16(4), ?UINT32(MaxSize), Acc/binary>>).
 
 encode_cert_status_req(
     StatusType,
@@ -1309,7 +1315,9 @@ get_identities_binders(TicketData) ->
 %%
 get_identities_binders([], {Identities, Binders}, _) ->
     {lists:reverse(Identities), lists:reverse(Binders)};
-get_identities_binders([{Key, _, Identity, _, _, HKDF}|T], {I0, B0}, N) ->
+get_identities_binders([#ticket_data{key = Key,
+                                     identity = Identity,
+                                     cipher_suite = {_, HKDF}}|T], {I0, B0}, N) ->
     %% Use dummy binder for proper calculation of packet size when creating
     %% the real binder value.
     Binder = dummy_binder(HKDF),
@@ -2813,6 +2821,7 @@ decode_extensions(<<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
   when Len == CookieLen + 2 ->
     decode_extensions(Rest, Version, MessageType,
                       Acc#{cookie => #cookie{cookie = Cookie}});
+
 %% RFC6066, if a server returns a "CertificateStatus" message, then
 %% the server MUST have included an extension of type "status_request"
 %% with empty "extension_data" in the extended server hello.
@@ -2837,6 +2846,18 @@ decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
         _Other ->
             decode_extensions(Rest, Version, MessageType, Acc)
     end;
+
+decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(0), Rest/binary>>,
+                  Version, MessageType, Acc) ->
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{early_data => #early_data_indication{}});
+
+decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(4), ?UINT32(MaxSize),
+                    Rest/binary>>,
+                  Version, MessageType, Acc) ->
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{early_data =>
+                               #early_data_indication_nst{indication = MaxSize}});
 
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
