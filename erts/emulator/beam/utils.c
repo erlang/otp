@@ -105,6 +105,13 @@ void *ycf_debug_get_stack_start(void) {
 #include "utils.ycf.h"
 #endif
 
+#if defined(DEBUG)
+# define DBG_RANDOM_REDS(REDS, SEED) \
+         ((REDS) * 0.01 * erts_sched_local_random_float(SEED))
+#else
+# define DBG_RANDOM_REDS(REDS, SEED) (REDS)
+#endif
+
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
 #undef M_MMAP_THRESHOLD
@@ -5324,3 +5331,132 @@ void erts_qsort(void *base,
     erts_qsort_helper(base, nr_of_items, item_size, compare, 1);
 }
 
+typedef struct {
+    void* trap_state;
+    erts_ycf_continue_fun_t ycf_continue;
+    erts_ycf_destroy_trap_state_fun_t ycf_destroy_trap_state;
+} erts_ycf_trap_driver_state_holder;
+
+static int erts_ycf_trap_driver_dtor(Binary* bin)
+{
+    erts_ycf_trap_driver_state_holder* holder = ERTS_MAGIC_BIN_DATA(bin);
+    if (holder->trap_state != NULL) {
+        holder->ycf_destroy_trap_state(holder->trap_state);
+    }
+    return 1;
+}
+
+static void* erts_ycf_trap_driver_alloc(size_t size, void* ctx)
+{
+    ErtsAlcType_t type = (ErtsAlcType_t)(Uint)ctx;
+    return erts_alloc(type, size);
+}
+
+static void erts_ycf_trap_driver_free(void* data, void* ctx)
+{
+    ErtsAlcType_t type = (ErtsAlcType_t)(Uint)ctx;
+    erts_free(type, data);
+}
+
+static BIF_RETTYPE erts_ycf_trap_driver_trap_helper(Process* p,
+                                                    Eterm* bif_args,
+                                                    int nr_of_arguments,
+                                                    Eterm trapTerm,
+                                                    Export *export_entry) {
+    int i;
+    Eterm* reg = erts_proc_sched_data((p))->registers->x_reg_array.d;
+    ERTS_BIF_PREP_TRAP(export_entry, p, nr_of_arguments);
+    reg[0] = trapTerm;
+    for (i = 1; i < nr_of_arguments; i++) {
+        reg[i] = bif_args[i];
+    }
+    return THE_NON_VALUE;                       \
+}
+
+BIF_RETTYPE erts_ycf_trap_driver(Process* p,
+                                 Eterm* bif_args,
+                                 int nr_of_arguments,
+                                 int iterations_per_red,
+                                 ErtsAlcType_t memory_allocation_type,
+                                 size_t ycf_stack_alloc_size,
+                                 int export_entry_index,
+                                 erts_ycf_continue_fun_t ycf_continue_fun,
+                                 erts_ycf_destroy_trap_state_fun_t ycf_destroy_fun,
+                                 erts_ycf_yielding_fun_t ycf_yielding_fun) {
+    const long reds = iterations_per_red * ERTS_BIF_REDS_LEFT(p);
+    long nr_of_reductions = DBG_RANDOM_REDS(reds, (Uint)&p);
+    const long init_reds = nr_of_reductions;
+    if (is_internal_magic_ref(bif_args[0])) {
+        erts_ycf_trap_driver_state_holder *state_holder;
+        Binary *state_bin = erts_magic_ref2bin(bif_args[0]);
+        BIF_RETTYPE ret;
+        if (ERTS_MAGIC_BIN_DESTRUCTOR(state_bin) == erts_ycf_trap_driver_dtor) {
+            /* Continue a trapped call */
+            erts_set_gc_state(p, 1);
+            state_holder = ERTS_MAGIC_BIN_DATA(state_bin);
+#if defined (DEBUG)
+            ycf_debug_set_stack_start(&nr_of_reductions);
+#endif
+            ret = state_holder->ycf_continue(&nr_of_reductions,
+                                             &state_holder->trap_state,
+                                             NULL);
+#if defined (DEBUG)
+            ycf_debug_reset_stack_start();
+#endif
+            BUMP_REDS(p, (init_reds - nr_of_reductions) / iterations_per_red);
+            if (state_holder->trap_state == NULL) {
+                return ret;
+            } else {
+                erts_set_gc_state(p, 0);
+                return erts_ycf_trap_driver_trap_helper(p,
+                                                        bif_args,
+                                                        nr_of_arguments,
+                                                        bif_args[0],
+                                                        BIF_TRAP_EXPORT(export_entry_index));
+            }
+        }
+    }
+    {
+        void *trap_state = NULL;
+        BIF_RETTYPE ret;
+#if defined (DEBUG)
+        ycf_debug_set_stack_start(&nr_of_reductions);
+#endif
+        /* Start a new call */
+        ret =
+            ycf_yielding_fun(&nr_of_reductions,
+                             &trap_state,
+                             NULL,
+                             erts_ycf_trap_driver_alloc,
+                             erts_ycf_trap_driver_free,
+                             (void*)(Uint)memory_allocation_type,
+                             ycf_stack_alloc_size,
+                             NULL,
+                             p,
+                             bif_args);
+#if defined (DEBUG)
+        ycf_debug_reset_stack_start();
+#endif
+        BUMP_REDS(p, (init_reds - nr_of_reductions) / iterations_per_red);
+        if (trap_state == NULL) {
+            /* The operation has completed */
+            return ret;
+        } else {
+            /* We need to trap */
+            Binary* state_bin = erts_create_magic_binary(sizeof(erts_ycf_trap_driver_state_holder),
+                                                         erts_ycf_trap_driver_dtor);
+            Eterm* hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+            Eterm state_mref = erts_mk_magic_ref(&hp, &MSO(p), state_bin);
+            erts_ycf_trap_driver_state_holder *holder = ERTS_MAGIC_BIN_DATA(state_bin);
+            holder->ycf_continue = ycf_continue_fun;
+            holder->ycf_destroy_trap_state = ycf_destroy_fun;
+            holder->trap_state = trap_state;
+            erts_set_gc_state(p, 0);
+            return erts_ycf_trap_driver_trap_helper(p,
+                                                    bif_args,
+                                                    nr_of_arguments,
+                                                    state_mref,
+                                                    BIF_TRAP_EXPORT(export_entry_index));
+        }
+    }
+}

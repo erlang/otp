@@ -1320,6 +1320,31 @@ int erts_check_if_stack_grows_downwards(char *ptr) ERTS_NOINLINE;
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
 
+typedef Eterm  (*erts_ycf_continue_fun_t)(long* ycf_number_of_reduction_param,
+                                          void** ycf_trap_state,
+                                          void* ycf_extra_context);
+typedef void (*erts_ycf_destroy_trap_state_fun_t)(void *trap_state);
+typedef Eterm (*erts_ycf_yielding_fun_t)(long* ycf_nr_of_reductions_param,
+                                         void** ycf_trap_state,
+                                         void* ycf_extra_context,
+                                         void* (*ycf_yield_alloc_fun) (size_t,void*),
+                                         void (*ycf_yield_free_fun) (void*,void*),
+                                         void* ycf_yield_alloc_free_context,
+                                         size_t ycf_stack_alloc_size_or_max_size,
+                                         void* ycf_stack_alloc_data,
+                                         Process* p,
+                                         Eterm* bif_args);
+Eterm erts_ycf_trap_driver(Process* p,
+                           Eterm* bif_args,
+                           int nr_of_arguments,
+                           int iterations_per_red,
+                           ErtsAlcType_t memory_allocation_type,
+                           size_t ycf_stack_alloc_size,
+                           int export_entry_index,
+                           erts_ycf_continue_fun_t ycf_continue_fun,
+                           erts_ycf_destroy_trap_state_fun_t ycf_destroy_fun,
+                           erts_ycf_yielding_fun_t ycf_yielding_fun);
+
 /* A quick sort function that is compatible with the qsort function
    declared in stdlib.h. We need our own so that we can yield inside
    the function */

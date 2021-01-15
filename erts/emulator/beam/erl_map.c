@@ -138,24 +138,6 @@ static int hxnodecmpkey(hxnode_t* a, hxnode_t* b);
 #define NOT_YCF_YIELDING_VERSION 1
 #undef HALLOC_EXTRA
 #define YCF_CONSUME_REDS(X) while(0){}
-#if defined(DEBUG)
-# define DBG_RANDOM_REDS(REDS, SEED) \
-         ((REDS) * 0.01 * erts_sched_local_random_float(SEED))
-#else
-# define DBG_RANDOM_REDS(REDS, SEED) (REDS)
-#endif
-
-static void* maps_ycf_yield_alloc(size_t size, void* ctx)
-{
-    (void)ctx;
-    return erts_alloc(ERTS_ALC_T_MAP_TRAP, size);
-}
-
-static void maps_ycf_yield_free(void* data, void* ctx)
-{
-    (void)ctx;
-    erts_free(ERTS_ALC_T_MAP_TRAP, data);
-}
 
 void erts_init_map(void) {
     erts_init_trap_export(&hashmap_merge_trap_export,
@@ -291,9 +273,11 @@ BIF_RETTYPE map_get_2(BIF_ALIST_2) {
  * YCF near the top of the file for more information.
  */
 #ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
-BIF_RETTYPE maps_from_keys_2_helper(Process* p, Eterm list, Eterm value) {
-    Eterm res;
+BIF_RETTYPE maps_from_keys_2_helper(Process* p, Eterm* bif_args) {
+    Eterm list = bif_args[0];
+    Eterm value = bif_args[1];
     Eterm item = list;
+    Eterm res;
     Uint  size = 0;
     if (is_list(item) || is_nil(item)) {
         /* Calculate size and check validity */
@@ -331,7 +315,8 @@ error:
  * YCF near the top of the file for more information.
  */
 #ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
-BIF_RETTYPE maps_from_list_1_helper(Process* p, Eterm list) {
+BIF_RETTYPE maps_from_list_1_helper(Process* p, Eterm* bif_args) {
+    Eterm list = bif_args[0];
     Eterm res;
     Eterm *kv;
     Uint  size = 0;
@@ -604,19 +589,6 @@ static Eterm hashmap_from_validated_list(Process *p,
 
 #define ITERATIONS_PER_RED 40
 
-typedef struct {
-    void* trap_state;
-} maps_trap_state_holder;
-
-static int maps_from_list_1_yield_dtor(Binary* bin)
-{
-    maps_trap_state_holder* holder = ERTS_MAGIC_BIN_DATA(bin);
-    if (holder->trap_state != NULL) {
-        maps_from_list_1_helper_ycf_gen_destroy(holder->trap_state);
-    }
-    return 1;
-}
-
 /* maps:from_list/1
  * List may be unsorted [{K,V}]
  *
@@ -627,82 +599,17 @@ static int maps_from_list_1_yield_dtor(Binary* bin)
  *
  */
 BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
-    const long reds = ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
-    long nr_of_reductions = DBG_RANDOM_REDS(reds, (Uint)&BIF_P);
-    const long init_reds = nr_of_reductions;
-    if (is_internal_magic_ref(BIF_ARG_1)) {
-        /* Continue a trapped call */
-        maps_trap_state_holder *state_holder;
-        Binary *state_bin = erts_magic_ref2bin(BIF_ARG_1);
-        BIF_RETTYPE ret;
-        if (ERTS_MAGIC_BIN_DESTRUCTOR(state_bin) != maps_from_list_1_yield_dtor) {
-            BIF_ERROR(BIF_P, BADARG);
-        }
-        erts_set_gc_state(BIF_P, 1);
-        state_holder = ERTS_MAGIC_BIN_DATA(state_bin);
-#if defined (DEBUG)
-        ycf_debug_set_stack_start(&nr_of_reductions);
-#endif
-        ret = maps_from_list_1_helper_ycf_gen_continue(&nr_of_reductions,
-                                                       &state_holder->trap_state,
-                                                       NULL);
-#if defined (DEBUG)
-        ycf_debug_reset_stack_start();
-#endif
-        BUMP_REDS(BIF_P, (init_reds - nr_of_reductions) / ITERATIONS_PER_RED);
-        if (state_holder->trap_state == NULL) {
-            return ret;
-        } else {
-            erts_set_gc_state(BIF_P, 0);
-            BIF_TRAP1(BIF_TRAP_EXPORT(BIF_maps_from_list_1), BIF_P, BIF_ARG_1);
-        }
-    } else {
-        void *trap_state = NULL;
-        BIF_RETTYPE ret;
-#if defined (DEBUG)
-        ycf_debug_set_stack_start(&nr_of_reductions);
-#endif
-        /* Start a new call */
-        ret =
-            maps_from_list_1_helper_ycf_gen_yielding(&nr_of_reductions,
-                                                     &trap_state,
-                                                     NULL,
-                                                     maps_ycf_yield_alloc,
-                                                     maps_ycf_yield_free,
-                                                     NULL,
-                                                     /*Add 2*sizeof(void*) as YCF_STACK_ALLOC may pad both allocations */
-                                                     sizeof(ErtsHeapFactory) + 2*sizeof(Eterm) + 2*sizeof(void*),
-                                                     NULL,
-                                                     BIF_P,
-                                                     BIF_ARG_1);
-#if defined (DEBUG)
-        ycf_debug_reset_stack_start();
-#endif
-        BUMP_REDS(BIF_P, (init_reds - nr_of_reductions) / ITERATIONS_PER_RED);
-        if (trap_state == NULL) {
-            /* The operation has completed */
-            return ret;
-        } else {
-            /* We need to trap */
-            Binary* state_bin = erts_create_magic_binary(sizeof(maps_trap_state_holder),
-                                                         maps_from_list_1_yield_dtor);
-            Eterm* hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
-            Eterm state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
-            maps_trap_state_holder *holder = ERTS_MAGIC_BIN_DATA(state_bin);
-            holder->trap_state = trap_state;
-            erts_set_gc_state(BIF_P, 0);
-            BIF_TRAP1(BIF_TRAP_EXPORT(BIF_maps_from_list_1), BIF_P, state_mref);
-        }
-    }
-}
-
-static int maps_from_keys_2_yield_dtor(Binary* bin)
-{
-    maps_trap_state_holder* holder = ERTS_MAGIC_BIN_DATA(bin);
-    if (holder->trap_state != NULL) {
-        maps_from_keys_2_helper_ycf_gen_destroy(holder->trap_state);
-    }
-    return 1;
+    return erts_ycf_trap_driver(BIF_P,
+                                BIF__ARGS,
+                                1,
+                                ITERATIONS_PER_RED,
+                                ERTS_ALC_T_MAP_TRAP,
+                                /*Add 2*sizeof(void*) as YCF_STACK_ALLOC may pad both allocations */
+                                sizeof(ErtsHeapFactory) + 2*sizeof(Eterm) + 2*sizeof(void*),
+                                BIF_maps_from_list_1,
+                                maps_from_list_1_helper_ycf_gen_continue,
+                                maps_from_list_1_helper_ycf_gen_destroy,
+                                maps_from_list_1_helper_ycf_gen_yielding);
 }
 
 /* maps:from_keys/2
@@ -715,74 +622,17 @@ static int maps_from_keys_2_yield_dtor(Binary* bin)
  *
  */
 BIF_RETTYPE maps_from_keys_2(BIF_ALIST_2) {
-    const long reds = ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
-    long nr_of_reductions = DBG_RANDOM_REDS(reds, (Uint)&BIF_P);
-    const long init_reds = nr_of_reductions;
-    if (is_internal_magic_ref(BIF_ARG_1)) {
-        /* Continue a trapped call */
-        maps_trap_state_holder *state_holder;
-        Binary *state_bin = erts_magic_ref2bin(BIF_ARG_1);
-        BIF_RETTYPE ret;
-        if (ERTS_MAGIC_BIN_DESTRUCTOR(state_bin) != maps_from_keys_2_yield_dtor) {
-            BIF_ERROR(BIF_P, BADARG);
-        }
-        erts_set_gc_state(BIF_P, 1);
-        state_holder = ERTS_MAGIC_BIN_DATA(state_bin);
-#if defined (DEBUG)
-        ycf_debug_set_stack_start(&nr_of_reductions);
-#endif
-        ret = maps_from_keys_2_helper_ycf_gen_continue(&nr_of_reductions,
-                                                       &state_holder->trap_state,
-                                                       NULL);
-#if defined (DEBUG)
-        ycf_debug_reset_stack_start();
-#endif
-        BUMP_REDS(BIF_P, (init_reds - nr_of_reductions) / ITERATIONS_PER_RED);
-        if (state_holder->trap_state == NULL) {
-            return ret;
-        } else {
-            erts_set_gc_state(BIF_P, 0);
-            BIF_TRAP2(BIF_TRAP_EXPORT(BIF_maps_from_keys_2), BIF_P, BIF_ARG_1, BIF_ARG_2);
-        }
-    } else {
-        void *trap_state = NULL;
-        BIF_RETTYPE ret;
-#if defined (DEBUG)
-        ycf_debug_set_stack_start(&nr_of_reductions);
-#endif
-        /* Start a new call */
-        ret =
-            maps_from_keys_2_helper_ycf_gen_yielding(&nr_of_reductions,
-                                                     &trap_state,
-                                                     NULL,
-                                                     maps_ycf_yield_alloc,
-                                                     maps_ycf_yield_free,
-                                                     NULL,
-                                                     /*Add 2*sizeof(void*) as YCF_STACK_ALLOC may pad both allocations */
-                                                     sizeof(ErtsHeapFactory) + 2*sizeof(Eterm) + 2*sizeof(void*),
-                                                     NULL,
-                                                     BIF_P,
-                                                     BIF_ARG_1,
-                                                     BIF_ARG_2);
-#if defined (DEBUG)
-        ycf_debug_reset_stack_start();
-#endif
-        BUMP_REDS(BIF_P, (init_reds - nr_of_reductions) / ITERATIONS_PER_RED);
-        if (trap_state == NULL) {
-            /* The operation has completed */
-            return ret;
-        } else {
-            /* We need to trap */
-            Binary* state_bin = erts_create_magic_binary(sizeof(maps_trap_state_holder),
-                                                         maps_from_keys_2_yield_dtor);
-            Eterm* hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
-            Eterm state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
-            maps_trap_state_holder *holder = ERTS_MAGIC_BIN_DATA(state_bin);
-            holder->trap_state = trap_state;
-            erts_set_gc_state(BIF_P, 0);
-            BIF_TRAP2(BIF_TRAP_EXPORT(BIF_maps_from_keys_2), BIF_P, state_mref, BIF_ARG_2);
-        }
-    }
+    return erts_ycf_trap_driver(BIF_P,
+                                BIF__ARGS,
+                                2,
+                                ITERATIONS_PER_RED,
+                                ERTS_ALC_T_MAP_TRAP,
+                                /*Add 2*sizeof(void*) as YCF_STACK_ALLOC may pad both allocations */
+                                sizeof(ErtsHeapFactory) + 2*sizeof(Eterm) + 2*sizeof(void*),
+                                BIF_maps_from_keys_2,
+                                maps_from_keys_2_helper_ycf_gen_continue,
+                                maps_from_keys_2_helper_ycf_gen_destroy,
+                                maps_from_keys_2_helper_ycf_gen_yielding);
 }
 
 Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
