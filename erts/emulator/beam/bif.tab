@@ -390,9 +390,9 @@ bif ets:match_spec_run_r/3
 # Bifs in os module.
 #
 
-bif os:get_env_var/1
-bif os:set_env_var/2
-bif os:unset_env_var/1
+bif os:getenv/1
+bif os:putenv/2
+bif os:unsetenv/1
 bif os:getpid/0
 bif os:timestamp/0
 bif os:system_time/0
