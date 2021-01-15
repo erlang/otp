@@ -54,6 +54,8 @@
 	       ssl_dist_sup,
                ssl_dist_connection_sup,
                ssl_dist_admin_sup,
+               tls_dist_sup,  
+               tls_dist_server_sup,               
 	       %% SSL/TLS session and cert handling
 	       ssl_session,
 	       ssl_session_cache,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 %%
 
--module(ssl_dist_connection_sup).
+-module(tls_dist_server_sup).
 
 -behaviour(supervisor).
 
@@ -42,20 +42,48 @@ start_link() ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([]) ->    
-    TLSSup = tls_sup_child_spec(),
-    {ok, {{one_for_one, 10, 3600}, [TLSSup]}}.
 
+init([]) ->    
+    ListenTracker = listen_options_tracker_child_spec(),
+    SessionTracker = tls_server_session_child_spec(),
+    Pre_1_3SessionTracker = ssl_server_session_child_spec(),
     
+    {ok, {{one_for_all, 10, 3600}, [ListenTracker, 
+				    SessionTracker,
+                                    Pre_1_3SessionTracker
+				   ]}}.
+
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_sup_child_spec() ->
-    Name = dist_tls_sup,  
-    StartFunc = {tls_dist_sup, start_link, []},
+%% Handles emulated options so that they inherited by the accept
+%% socket, even when setopts is performed on the listen socket
+listen_options_tracker_child_spec() ->
+    Name = dist_tls_socket,  
+    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [tls_dist_sup],
+    Modules = [ssl_listen_tracker_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+tls_server_session_child_spec() ->
+    Name = dist_tls_server_session_ticket,  
+    StartFunc = {tls_server_session_ticket_sup, start_link_dist, []},
+    Restart = permanent, 
+    Shutdown = 4000,
+    Modules = [tls_server_session_ticket_sup],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+ssl_server_session_child_spec() ->
+    Name = dist_ssl_server_session_cache_sup,
+    StartFunc = {ssl_server_session_cache_sup, start_link_dist, []},
+    Restart = permanent,
+    Shutdown = 4000,
+    Modules = [ssl_server_session_cache_sup],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
