@@ -43,16 +43,16 @@
 %%%  API
 %%%=========================================================================
 start_link() ->
-    supervisor:start_link({local, tracker_name(normal)}, ?MODULE, []).
+    supervisor:start_link({local, sup_name(normal)}, ?MODULE, []).
 
 start_link_dist() ->
-    supervisor:start_link({local, tracker_name(dist)}, ?MODULE, []).
+    supervisor:start_link({local, sup_name(dist)}, ?MODULE, []).
 
 start_child(Args) ->
-    supervisor:start_child(tracker_name(normal), [self() | Args]).
+    supervisor:start_child(sup_name(normal), [self() | Args]).
 
 start_child_dist(Args) ->
-    supervisor:start_child(tracker_name(dist), [self() | Args]).
+    supervisor:start_child(sup_name(dist), [self() | Args]).
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -72,10 +72,10 @@ init(_O) ->
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
 
-tracker_name(normal) ->
+sup_name(normal) ->
     ?MODULE;
-tracker_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "dist").
+sup_name(dist) ->
+    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
 
 session_opts() ->
     CbOpts = case application:get_env(ssl, session_cb) of
