@@ -2815,10 +2815,16 @@ hashmap_balance(KeyFun) ->
 	end,
 
     {_,{MaxDiff,MaxMap}} = lists:foldl(F,
-				       {#{}, {0, 0}},
+				       {#{}, {0, undefined}},
 				       lists:seq(1,10000)),
-    io:format("Max std dev diff ~p for map of size ~p (nodes=~p, flatsize=~p)\n",
-	      [MaxDiff, maps:size(MaxMap), hashmap_nodes(MaxMap), erts_debug:flat_size(MaxMap)]),
+    case MaxMap of
+	undefined ->
+	    io:format("Wow, no maps below \"average\"\n", []);
+	_ ->
+	    io:format("Max std dev diff ~p for map of size ~p (nodes=~p, flatsize=~p)\n",
+		      [MaxDiff, maps:size(MaxMap), hashmap_nodes(MaxMap),
+		       erts_debug:flat_size(MaxMap)])
+    end,
 
     true = (MaxDiff < 6),  % The probability of this line failing is about 0.000000001
                            % for a uniform hash. I've set the probability this "high" for now

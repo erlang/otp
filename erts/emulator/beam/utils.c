@@ -2061,7 +2061,7 @@ trapping_make_hash2(Eterm term, Eterm* state_mref_write_back, Process* p)
  * One IMPORTANT property must hold (for hamt).
  * EVERY BIT of the term that is significant for equality (see EQ)
  * MUST BE USED AS INPUT FOR THE HASH. Two different terms must always have a
- * chance of hashing different when salted: hash([Salt|A]) vs hash([Salt|B]).
+ * chance of hashing different when salted.
  *
  * This is why we cannot use cached hash values for atoms for example.
  *
@@ -2073,14 +2073,19 @@ do {  /* Lightweight mixing of constant (type info) */  \
     hash = (hash << 17) ^ (hash >> (32-17));            \
 } while (0)
 
+/*
+ * Start with salt, 32-bit prime number, to avoid getting same hash as phash2
+ * which can cause bad hashing in distributed ETS tables for example.
+ */
+#define INTERNAL_HASH_SALT 3432918353U
+
 Uint32
 make_internal_hash(Eterm term, Uint32 salt)
 {
-    Uint32 hash;
+    Uint32 hash = salt ^ INTERNAL_HASH_SALT;
 
     /* Optimization. Simple cases before declaration of estack. */
     if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
-        hash = salt;
     #if ERTS_SIZEOF_ETERM == 8
         UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
     #elif ERTS_SIZEOF_ETERM == 4
@@ -2094,7 +2099,6 @@ make_internal_hash(Eterm term, Uint32 salt)
     Eterm tmp;
     DECLARE_ESTACK(s);
 
-    hash = salt;
     for (;;) {
 	switch (primary_tag(term)) {
 	case TAG_PRIMARY_LIST:
