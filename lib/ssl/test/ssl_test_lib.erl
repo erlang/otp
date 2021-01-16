@@ -120,7 +120,8 @@
          server_msg/2,
          hardcode_rsa_key/1,
          bigger_buffers/0,
-         stop/2
+         stop/2,
+         working_openssl_client/0
         ]).
 
 -export([basic_test/3,
@@ -283,6 +284,20 @@ init_per_group(GroupName, Config0) ->
 		false ->
 		    {skip, "Missing crypto support"}
 	    end
+    end.
+
+working_openssl_client() ->
+    case portable_cmd("openssl", ["version"]) of
+        %% Theses versions of OpenSSL has a client that
+        %% can not handle hello extensions. And will
+        %% fail with bad packet length if they are present
+        %% in ServerHello
+        "OpenSSL 0.9.8h" ++ _ ->
+            false;
+        "OpenSSL 0.9.8k" ++ _ ->
+            false;
+        _  ->
+            true
     end.
 
 init_per_group_openssl(GroupName, Config0) ->
@@ -2075,9 +2090,11 @@ cipher_flag('tlsv1.3') ->
 cipher_flag(_) ->
     "-cipher".
 
-ciphers(Ciphers, Version) ->
+ciphers([#{}| _] = Ciphers, Version) ->
     Strs = [ssl_cipher_format:suite_map_to_openssl_str(Cipher) || Cipher <- Ciphers],
-    ciphers_concat(Version, Strs, "").
+    ciphers_concat(Version, Strs, "");
+ciphers(Ciphers, Version) ->
+    ciphers_concat(Version, Ciphers, "").
 
 ciphers_concat(_, [], [":" | Acc]) ->
     lists:append(lists:reverse(Acc));
@@ -2887,7 +2904,7 @@ check_sane_openssl_renegotiate(Config) ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
         "LibreSSL 2." ++ _ ->
 	    {skip, "Known renegotiation bug in LibreSSL"};
-        "LibreSSL 3.1" ++ _ ->
+        "LibreSSL 3." ++ _ ->
 	    {skip, "Known renegotiation bug in LibreSSL"};
 	_ ->
 	    Config

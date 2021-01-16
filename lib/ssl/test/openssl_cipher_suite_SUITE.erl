@@ -95,10 +95,13 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() -> 
-    [
-     {group,  openssl_server},
-     {group,  openssl_client}
-    ].
+     case ssl_test_lib:working_openssl_client() of
+         true ->
+             [{group,  openssl_server},
+              {group,  openssl_client}];
+         false ->
+             [{group,  openssl_server}]
+     end.
 
 all_protocol_groups() ->
     [
@@ -955,7 +958,7 @@ cipher_suite_test(CipherSuite, Version, Config) ->
                                     [{ciphers, [CipherSuite]} | SOpts], Config);
         _ ->
             ssl_test_lib:basic_test([{versions, [Version]}, {ciphers, [CipherSuite]} | COpts], 
-                                    [{ciphers, ssl:cipher_suites(all, Version)} | SOpts], Config)
+                                    [{ciphers,  ssl_test_lib:openssl_ciphers()} | SOpts], Config)
     end.
 
 test_ciphers(Kex, Cipher, Version) ->
@@ -978,3 +981,5 @@ test_ciphers(Kex, Cipher, Version) ->
                  end, Ciphers).
 
 
+openssl_suitestr_to_map(OpenSSLSuiteStrs) ->
+    [ssl_cipher_format:suite_openssl_str_to_map(SuiteStr) || SuiteStr <- OpenSSLSuiteStrs].
