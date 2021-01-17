@@ -280,6 +280,7 @@ public:
     custom schemes and virtual file systems.
 
     @par wxWEBVIEW_BACKEND_EDGE (MSW)
+    @anchor wxWEBVIEW_BACKEND_EDGE
 
     The Edge (Chromium) backend uses Microsoft's
     <a href="https://docs.microsoft.com/en-us/microsoft-edge/hosting/webview2">Edge WebView2</a>.
@@ -305,7 +306,8 @@ public:
     - Make sure to add a note about using the WebView2 SDK to your application
       documentation, as required by its licence
 
-    @par wxWEBVIEW_WEBKIT (GTK)
+    @par wxWEBVIEW_BACKEND_WEBKIT (GTK)
+    @anchor wxWEBVIEW_BACKEND_WEBKIT
 
     Under GTK the WebKit backend uses
     <a href="http://webkitgtk.org/">WebKitGTK+</a>. The current minimum version
@@ -315,14 +317,16 @@ public:
     resources such as images and stylesheets are currently loaded using the
     data:// scheme.
 
-    @par wxWEBVIEW_WEBKIT2 (GTK3)
+    @par wxWEBVIEW_BACKEND_WEBKIT2 (GTK3)
+    @anchor wxWEBVIEW_BACKEND_WEBKIT2
 
     Under GTK3 the WebKit2 version of <a href="http://webkitgtk.org/">WebKitGTK+</a>
     is used. In Ubuntu the required package name is libwebkit2gtk-4.0-dev
     and under Fedora it is webkitgtk4-devel. All wxWEBVIEW_WEBKIT features are
     supported except for clearing and enabling / disabling the history.
 
-    @par wxWEBVIEW_WEBKIT (OSX)
+    @par wxWEBVIEW_BACKEND_WEBKIT (OSX)
+    @anchor wxWEBVIEW_BACKEND_WEBKIT
 
     The macOS WebKit backend uses Apple's
     <a href="http://developer.apple.com/library/mac/#documentation/Cocoa/Reference/WebKit/Classes/WebView_Class/Reference/Reference.html#//apple_ref/doc/uid/20001903">WebView</a>

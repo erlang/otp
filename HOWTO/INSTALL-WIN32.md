@@ -159,6 +159,13 @@ the different tools:
     If the `wxUSE_POSTSCRIPT` isn't enabled in  `c:/opt/local64/pgm/wxWidgets-3.1.3/include/wx/msw/setup.h`,
     enable it.
 
+    We recommend to enable for wxWebView  wxUSE_WEBVIEW_EDGE.
+    Download the WebView2 SDK nuget package (Version 0.9.488 or newer)
+    Extract the package (it's a zip archive) to wxWidgets/3rdparty/webview2 (you should have 3rdparty/webview2/build/native/include/WebView2.h file after unpacking it)
+    Enable wxUSE_WEBVIEW_EDGE in CMake or setup.h
+    After `otp_build release -a` copy WebView2Loader.dll from the subdirectory corresponding to the architecture used (x86 or x64) of wxWidgets/3rdparty/webview2/build/ to your $ERL_TOP/release/win32/erts-*/bin/ directory
+        `cp /mnt/c/opt/local64/pgm/wxWidgets-3.1.4/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-11.1.7/bin/`
+
     Build with:
 
         C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.1.3\build\msw

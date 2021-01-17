@@ -63,7 +63,7 @@ init(Options) ->
     wx:new(Options),
     process_flag(trap_exit, true),
 
-    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "wxErlang widgets", [{size,{1000,500}}]),
+    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "wxErlang widgets", [{size,{1400,800}}]),
     MB = wxMenuBar:new(),
     File    = wxMenu:new([]),
     wxMenu:append(File, ?wxID_PRINT, "&Print code"),

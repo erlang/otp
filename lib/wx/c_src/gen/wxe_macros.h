@@ -68,6 +68,10 @@
 #include <wx/sysopt.h>
 #include <wx/overlay.h>
 #include <wx/notifmsg.h>
+#include <wx/webview.h>
+#if wxUSE_WEBVIEW && wxUSE_WEBVIEW_IE
+#include <wx/msw/webview_ie.h>
+#endif
 
 
 #ifndef wxICON_DEFAULT_BITMAP_TYPE

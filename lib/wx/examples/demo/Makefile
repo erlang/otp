@@ -54,7 +54,8 @@ TESTMODS = \
 	ex_static \
 	ex_textCtrl \
 	ex_treeCtrl \
-	ex_graphicsContext
+	ex_graphicsContext \
+	ex_webview
 
 
 TESTTARGETS = $(TESTMODS:%=%.beam)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,29 @@
 
 -export([displaySize/0,setCursor/1]).
 
+-export([mSWSetEmulationLevel/1, mSWSetEmulationLevel/2]).
+
+%% @doc See <a href="https://docs.wxwidgets.org/3.1.4/classwx_web_view_i_e.html#a7a45d02cb7dd6dbfcc09566449a1f3bd">external documentation</a>.
+%%<br /> Level = ?wxWEBVIEWIE_EMU_DEFAULT | ?wxWEBVIEWIE_EMU_IE7 | ?wxWEBVIEWIE_EMU_IE8 | ?wxWEBVIEWIE_EMU_IE8_FORCE | ?wxWEBVIEWIE_EMU_IE9 | ?wxWEBVIEWIE_EMU_IE9_FORCE | ?wxWEBVIEWIE_EMU_IE10 | ?wxWEBVIEWIE_EMU_IE10_FORCE | ?wxWEBVIEWIE_EMU_IE11 | ?wxWEBVIEWIE_EMU_IE11_FORCE
+-spec mSWSetEmulationLevel(Level) -> boolean() when
+	Level :: wx:wx_enum().
+mSWSetEmulationLevel(Level) when is_integer(Level) ->
+  mSWSetEmulationLevel(Level, "erl.exe"),
+  mSWSetEmulationLevel(Level, "werl.exe"),
+  true.
+
+%% @doc See <a href="https://docs.wxwidgets.org/3.1.4/classwx_web_view_i_e.html#a7a45d02cb7dd6dbfcc09566449a1f3bd">external documentation</a>.
+%%<br /> Level = ?wxWEBVIEWIE_EMU_DEFAULT | ?wxWEBVIEWIE_EMU_IE7 | ?wxWEBVIEWIE_EMU_IE8 | ?wxWEBVIEWIE_EMU_IE8_FORCE | ?wxWEBVIEWIE_EMU_IE9 | ?wxWEBVIEWIE_EMU_IE9_FORCE | ?wxWEBVIEWIE_EMU_IE10 | ?wxWEBVIEWIE_EMU_IE10_FORCE | ?wxWEBVIEWIE_EMU_IE11 | ?wxWEBVIEWIE_EMU_IE11_FORCE
+-spec mSWSetEmulationLevel(Level, Executable) -> boolean() when
+	Level :: wx:wx_enum(),
+  Executable :: string().
+mSWSetEmulationLevel(Level, Executable) ->
+  {ok, Reg} = win32reg:open([write]),
+  ok = win32reg:change_key(Reg, "\\hkey_current_user\\software\\microsoft\\internet explorer\\main\\featurecontrol\\"),
+  ok = win32reg:change_key_create(Reg, "FEATURE_BROWSER_EMULATION"),
+  ok = win32reg:set_value(Reg, Executable, Level),
+  ok = win32reg:close(Reg),
+  true.
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_miscellany.html#wxgetkeystate">external documentation</a>.
 %%<br /> Key = ?WXK_NONE | ?WXK_CONTROL_A | ?WXK_CONTROL_B | ?WXK_CONTROL_C | ?WXK_CONTROL_D | ?WXK_CONTROL_E | ?WXK_CONTROL_F | ?WXK_CONTROL_G | ?WXK_CONTROL_H | ?WXK_CONTROL_I | ?WXK_CONTROL_J | ?WXK_CONTROL_K | ?WXK_CONTROL_L | ?WXK_CONTROL_M | ?WXK_CONTROL_N | ?WXK_CONTROL_O | ?WXK_CONTROL_P | ?WXK_CONTROL_Q | ?WXK_CONTROL_R | ?WXK_CONTROL_S | ?WXK_CONTROL_T | ?WXK_CONTROL_U | ?WXK_CONTROL_V | ?WXK_CONTROL_W | ?WXK_CONTROL_X | ?WXK_CONTROL_Y | ?WXK_CONTROL_Z | ?WXK_BACK | ?WXK_TAB | ?WXK_RETURN | ?WXK_ESCAPE | ?WXK_SPACE | ?WXK_DELETE | ?WXK_START | ?WXK_LBUTTON | ?WXK_RBUTTON | ?WXK_CANCEL | ?WXK_MBUTTON | ?WXK_CLEAR | ?WXK_SHIFT | ?WXK_ALT | ?WXK_CONTROL | ?WXK_MENU | ?WXK_PAUSE | ?WXK_CAPITAL | ?WXK_END | ?WXK_HOME | ?WXK_LEFT | ?WXK_UP | ?WXK_RIGHT | ?WXK_DOWN | ?WXK_SELECT | ?WXK_PRINT | ?WXK_EXECUTE | ?WXK_SNAPSHOT | ?WXK_INSERT | ?WXK_HELP | ?WXK_NUMPAD0 | ?WXK_NUMPAD1 | ?WXK_NUMPAD2 | ?WXK_NUMPAD3 | ?WXK_NUMPAD4 | ?WXK_NUMPAD5 | ?WXK_NUMPAD6 | ?WXK_NUMPAD7 | ?WXK_NUMPAD8 | ?WXK_NUMPAD9 | ?WXK_MULTIPLY | ?WXK_ADD | ?WXK_SEPARATOR | ?WXK_SUBTRACT | ?WXK_DECIMAL | ?WXK_DIVIDE | ?WXK_F1 | ?WXK_F2 | ?WXK_F3 | ?WXK_F4 | ?WXK_F5 | ?WXK_F6 | ?WXK_F7 | ?WXK_F8 | ?WXK_F9 | ?WXK_F10 | ?WXK_F11 | ?WXK_F12 | ?WXK_F13 | ?WXK_F14 | ?WXK_F15 | ?WXK_F16 | ?WXK_F17 | ?WXK_F18 | ?WXK_F19 | ?WXK_F20 | ?WXK_F21 | ?WXK_F22 | ?WXK_F23 | ?WXK_F24 | ?WXK_NUMLOCK | ?WXK_SCROLL | ?WXK_PAGEUP | ?WXK_PAGEDOWN | ?WXK_NUMPAD_SPACE | ?WXK_NUMPAD_TAB | ?WXK_NUMPAD_ENTER | ?WXK_NUMPAD_F1 | ?WXK_NUMPAD_F2 | ?WXK_NUMPAD_F3 | ?WXK_NUMPAD_F4 | ?WXK_NUMPAD_HOME | ?WXK_NUMPAD_LEFT | ?WXK_NUMPAD_UP | ?WXK_NUMPAD_RIGHT | ?WXK_NUMPAD_DOWN | ?WXK_NUMPAD_PAGEUP | ?WXK_NUMPAD_PAGEDOWN | ?WXK_NUMPAD_END | ?WXK_NUMPAD_BEGIN | ?WXK_NUMPAD_INSERT | ?WXK_NUMPAD_DELETE | ?WXK_NUMPAD_EQUAL | ?WXK_NUMPAD_MULTIPLY | ?WXK_NUMPAD_ADD | ?WXK_NUMPAD_SEPARATOR | ?WXK_NUMPAD_SUBTRACT | ?WXK_NUMPAD_DECIMAL | ?WXK_NUMPAD_DIVIDE | ?WXK_WINDOWS_LEFT | ?WXK_WINDOWS_RIGHT | ?WXK_WINDOWS_MENU | ?WXK_RAW_CONTROL | ?WXK_COMMAND | ?WXK_SPECIAL1 | ?WXK_SPECIAL2 | ?WXK_SPECIAL3 | ?WXK_SPECIAL4 | ?WXK_SPECIAL5 | ?WXK_SPECIAL6 | ?WXK_SPECIAL7 | ?WXK_SPECIAL8 | ?WXK_SPECIAL9 | ?WXK_SPECIAL10 | ?WXK_SPECIAL11 | ?WXK_SPECIAL12 | ?WXK_SPECIAL13 | ?WXK_SPECIAL14 | ?WXK_SPECIAL15 | ?WXK_SPECIAL16 | ?WXK_SPECIAL17 | ?WXK_SPECIAL18 | ?WXK_SPECIAL19 | ?WXK_SPECIAL20 | ?WXK_BROWSER_BACK | ?WXK_BROWSER_FORWARD | ?WXK_BROWSER_REFRESH | ?WXK_BROWSER_STOP | ?WXK_BROWSER_SEARCH | ?WXK_BROWSER_FAVORITES | ?WXK_BROWSER_HOME | ?WXK_VOLUME_MUTE | ?WXK_VOLUME_DOWN | ?WXK_VOLUME_UP | ?WXK_MEDIA_NEXT_TRACK | ?WXK_MEDIA_PREV_TRACK | ?WXK_MEDIA_STOP | ?WXK_MEDIA_PLAY_PAUSE | ?WXK_LAUNCH_MAIL | ?WXK_LAUNCH_APP1 | ?WXK_LAUNCH_APP2
 -spec getKeyState(Key) -> boolean() when

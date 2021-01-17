@@ -133,7 +133,7 @@ handle_call(Msg, _From, State) ->
     {reply,ok,State}.
 
 handle_cast(Msg, State) ->
-    io:format("Got cast ~p~n",[Msg]),
+    demo:format(State#state.config,"Got cast ~p~n",[Msg]),
     {noreply,State}.
 
 code_change(_, _, State) ->
