@@ -143,6 +143,20 @@
     </func>
 
     <func>
+      <name name="foreach" arity="2" since="OTP @OTP-17179@"/>
+      <fsummary>Apply a function to each element of a map.</fsummary>
+      <desc>
+        <p>Calls <c>fun F(Key, Value)</c> for every <c><anno>Key</anno></c>
+          to value <c><anno>Value</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 2.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="from_keys" arity="2" since="OTP 14.0"/>
       <fsummary></fsummary>
       <desc>

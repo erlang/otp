@@ -182,6 +182,8 @@ format_maps_error(filter, Args) ->
     format_maps_error(map, Args);
 format_maps_error(filtermap, Args) ->
     format_maps_error(map, Args);
+format_maps_error(foreach, Args) ->
+    format_maps_error(map, Args);
 format_maps_error(find, _Args) ->
     [[], not_map];
 format_maps_error(fold, [Pred, _Init, Map]) ->
