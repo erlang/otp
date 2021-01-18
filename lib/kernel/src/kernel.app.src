@@ -107,6 +107,7 @@
              inet_udp,
 	     inet_sctp,
              pg,
+             pg2,
              raw_file_io,
              raw_file_io_compressed,
              raw_file_io_deflate,
