@@ -71,7 +71,7 @@
          external_funs/1,otp_15456/1,otp_15563/1,
          unused_type/1,removed/1, otp_16516/1,
          inline_nifs/1,
-         warn_missing_spec/1]).
+         warn_missing_spec/1,otp_16824/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -94,7 +94,7 @@ all() ->
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, removed, otp_16516,
-     inline_nifs, warn_missing_spec].
+     inline_nifs, warn_missing_spec, otp_16824].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4366,8 +4366,8 @@ one_multi_init(Config) ->
                 g.
              ">>,
            [],
-           {errors,[{{2,17},erl_lint,bad_multi_field_init},
-                    {{4,17},erl_lint,bad_multi_field_init}],[]}},
+           {errors,[{{2,28},erl_lint,bad_multi_field_init},
+                    {{4,20},erl_lint,bad_multi_field_init}],[]}},
           {otp_16516_2,
            %% No error since "_ = '_'" is actually used as a catch-all
            %% initialization. V is unused (as compilation with the 'E'
@@ -4478,6 +4478,41 @@ warn_missing_spec(Config) ->
             {warnings, [{{6,15}, erl_lint, {missing_spec, {external_no_spec, 0}}},
                         {{11,15}, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}}
     ]).
+
+otp_16824(Config) ->
+    Ts = [{otp_16824_1,
+          <<"-record(a, {x,y}).
+              t() ->
+                  R = #a{},
+                  R#a{_ = 4},
+                  R.
+            ">>,
+           {[]},
+           {error,[{{4,23},erl_lint,{wildcard_in_update,a}}],
+                  [{{2,15},erl_lint,{unused_function,{t,0}}}]}},
+
+         {otp_16824_2,
+          <<"\n-type t(_A, 3 + 4) :: integer().
+            ">>,
+           {[]},
+          {errors,[{{2,13},erl_parse,"bad type variable"}],[]}},
+
+         {otp_16824_3,
+          <<"-export_type([s/0, t/0, u/0]).
+             -record(r, {a :: integer() ,b :: atom()}).
+             -type s() :: #s{a :: atom(), b :: integer()}.
+             -type t() :: #r{c :: integer()}.
+             -type u() :: #r{a :: integer(), a :: atom()}.
+            ">>,
+           {[]},
+          {errors,[{{3,27},erl_lint,{undefined_record,s}},
+                   {{4,30},erl_lint,{undefined_field,r,c}},
+                   {{5,46},erl_lint,{redefine_field,r,a}}],
+           []}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).

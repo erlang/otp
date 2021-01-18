@@ -1204,7 +1204,7 @@ check_imports(Forms, St0) ->
 		 {attribute,Anno,import,{Mod,Fs}} <- Forms,
 		 FA <- lists:usort(Fs)],
             Bad = [{FM,Anno} || FM <- Unused, {FM2,Anno} <- Imports, FM =:= FM2],
-            func_line_warning(unused_import, Bad, St0)
+            func_location_warning(unused_import, Bad, St0)
     end.
 
 %% check_inlines(Forms, State0) -> State
@@ -1232,7 +1232,7 @@ check_unused_functions(Forms, St0) ->
 				      UsedOrNowarn),
             Functions = [{{N,A},Anno} || {function,Anno,N,A,_} <- Forms],
             Bad = [{FA,Anno} || FA <- Unused, {FA2,Anno} <- Functions, FA =:= FA2],
-            func_line_warning(unused_function, Bad, St1)
+            func_location_warning(unused_function, Bad, St1)
     end.
 
 initially_reached(#lint{exports=Exp,on_load=OnLoad}) ->
@@ -1297,17 +1297,17 @@ check_option_functions(Forms, Tag0, Type, St0) ->
     DefFunctions = (gb_sets:to_list(St0#lint.defined) -- pseudolocals()) ++
 	[{F,A} || {{F,A},_} <- orddict:to_list(St0#lint.imports)],
     Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not member(FA, DefFunctions)],
-    func_line_error(Type, Bad, St0).
+    func_location_error(Type, Bad, St0).
 
 nowarn_function(Tag, Opts) ->
     ordsets:from_list([FA || {Tag1,FAs} <- Opts,
                              Tag1 =:= Tag,
                              FA <- lists:flatten([FAs])]).
 
-func_line_warning(Type, Fs, St) ->
+func_location_warning(Type, Fs, St) ->
     foldl(fun ({F,Anno}, St0) -> add_warning(Anno, {Type,F}, St0) end, St, Fs).
 
-func_line_error(Type, Fs, St) ->
+func_location_error(Type, Fs, St) ->
     foldl(fun ({F,Anno}, St0) -> add_error(Anno, {Type,F}, St0) end, St, Fs).
 
 check_untyped_records(Forms, St0) ->
@@ -1691,10 +1691,12 @@ pattern_list(Ps, Vt, Old, St) ->
 
 %% Check for '_' initializing no fields.
 check_multi_field_init(Fs, Anno, Fields, St) ->
-    case
-        has_wildcard_field(Fs) andalso init_fields(Fs, Anno, Fields) =:= []
-    of
-        true -> add_error(Anno, bad_multi_field_init, St);
+    case init_fields(Fs, Anno, Fields) =:= [] of
+        true ->
+            case has_wildcard_field(Fs) of
+                no -> St;
+                WildAnno -> add_error(WildAnno, bad_multi_field_init, St)
+            end;
         false -> St
     end.
 
@@ -2386,8 +2388,8 @@ expr({record,Anno,Rec,Name,Upds}, Vt, St0) ->
                                   update_fields(Upds, Name, Dfs, Vt, St)
                           end ),
     case has_wildcard_field(Upds) of
-        true -> {[],add_error(Anno, {wildcard_in_update,Name}, St2)};
-        false -> {vtmerge(Rvt, Usvt),St2}
+        no -> {vtmerge(Rvt, Usvt),St2};
+        WildAnno -> {[],add_error(WildAnno, {wildcard_in_update,Name}, St2)}
     end;
 expr({bin,_Anno,Fs}, Vt, St) ->
     expr_bin(Fs, Vt, St, fun expr/3);
@@ -3863,9 +3865,9 @@ check_record_info_call(_Anno,Aa,[{atom,Ai,Info},{atom,_An,Name}],St) ->
 check_record_info_call(Anno,_Aa,_As,St) ->
     add_error(Anno, illegal_record_info, St).
 
-has_wildcard_field([{record_field,_Af,{var,_Aa,'_'},_Val}|_Fs]) -> true;
+has_wildcard_field([{record_field,_Af,{var,Aa,'_'},_Val}|_Fs]) -> Aa;
 has_wildcard_field([_|Fs]) -> has_wildcard_field(Fs);
-has_wildcard_field([]) -> false.
+has_wildcard_field([]) -> no.
 
 %% check_remote_function(Anno, ModuleName, FuncName, [Arg], State) -> State.
 %%  Perform checks on known remote calls.
