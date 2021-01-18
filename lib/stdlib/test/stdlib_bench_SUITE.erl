@@ -29,7 +29,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 
 all() ->
-    [{group,unicode},{group,base64},{group,binary},
+    [{group,unicode},{group,base64},{group,binary},{group, io},
      {group,gen_server},{group,gen_statem},
      {group,gen_server_comparison},{group,gen_statem_comparison}].
 
@@ -52,6 +52,7 @@ groups() ->
        encode_list, encode_list_to_string,
        mime_binary_decode, mime_binary_decode_to_string,
        mime_list_decode, mime_list_decode_to_string]},
+     {io, [{repeat, 5}], [double_random_to_list]},
      {gen_server, [{repeat,5}], cases(gen_server)},
      {gen_statem, [{repeat,3}], cases(gen_statem)},
      {gen_server_comparison, [],
@@ -278,6 +279,33 @@ mbb(N, Acc) when N > 256 ->
 mbb(N, Acc) ->
     B = list_to_binary(lists:seq(0, N-1)),
     lists:reverse(Acc, B).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(MAX_DOUBLE, (1 bsl 62) - 1).
+-define(DOUBLE_SAMPLE, 10000).
+
+double_random_to_list(_Config) ->
+    comment(test_double(io_lib_format, fwrite_g)).
+
+double() ->
+    Int = rand:uniform(?MAX_DOUBLE),
+    <<F:64/float>> = <<Int:64/unsigned-integer>>,
+    F.
+
+test_double(Mod, Fun) ->
+    test_double(?DOUBLE_SAMPLE, Mod, Fun).
+test_double(Iter, Mod, Fun) ->
+    F = fun() -> loop_double(Iter, Mod, Fun) end,
+    {Time, ok} = timer:tc(fun() -> lspawn(F) end),
+    report_mfa(Iter, Time, Mod).
+
+loop_double(0, _M, _F) -> garbage_collect(), ok;
+loop_double(N, M, F) ->
+    _ = apply(M, F, [double()]),
+    loop_double(N - 1, M, F).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 simple(Config) when is_list(Config) ->
     comment(do_tests(simple, single_small, Config)).
