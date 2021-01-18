@@ -88,14 +88,13 @@ reset() ->
     ok.
 
 
-%%-----------------------------------------------------------------
-%% Purpose: We must calculate the length of a
-%%          message with an empty Pdu, and zero-length community
-%%          string.  This length is used to calculate the max
-%%          pdu size allowed for each request. This size is 
-%%          dependent on two dynamic fields, the community string
-%%          and the pdu (varbinds actually). It is calculated
-%%          as EmptySize + length(CommunityString) + 4.
+%%--------------------------------------------------------------------------
+%% Purpose: We must calculate the length of a message with an empty Pdu
+%%          and zero-length community string.
+%%          This length is used to calculate the max pdu size allowed for
+%%          each request. This size is dependent on two dynamic fields;
+%%          the community string and the pdu (varbinds actually).
+%%          It is calculated as EmptySize + length(CommunityString) + 4.
 %%          We assume that the length of the CommunityString is
 %%          less than 128 (thus requiring just one octet for the
 %%          length field (the same as the zero-length community
@@ -104,7 +103,7 @@ reset() ->
 %%          expressed. One 7bit octet is already present in the
 %%          empty msg, leaving 4 more 7bit octets.
 %% Actually, this function is not used, we use a constant instead.
-%%-----------------------------------------------------------------
+%%--------------------------------------------------------------------------
 %% Ret: 24
 %empty_msg() ->
 %    M = #message{version = 'version-1', community = "", data = 
