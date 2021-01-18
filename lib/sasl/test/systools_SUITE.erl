@@ -72,7 +72,8 @@ groups() ->
        otp_9507_path_ebin, additional_files_tar, erts_tar]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
-       no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
+       no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup,
+       replace_app_relup
       ]},
      {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
      {options, [], [otp_6226_outdir,app_file_defaults]}].
@@ -1929,6 +1930,59 @@ regexp_relup(Config) ->
 
     ok.
 
+%% make_relup: Replace an application dependency with another
+%%   The key part here is that the new application should be
+%%   started before the old one is stopped.
+replace_app_relup(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir,LatestName}   = create_script(replace_app0,Config),
+    {_LatestDir1,LatestName1} = create_script(replace_app1,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_replace_app, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
+
+    ok = file:set_cwd(LatestDir),
+    
+    ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			     [{path, P}]),
+
+    check_start_stop_order([{start,gh},{stop,fe}], [{start,fe},{stop,gh}]),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+
+check_start_stop_order(UpOrder, DownOrder) ->
+
+    {ok, [{_V0, [{_V1, [], Up}],
+                [{_V1, [], Down}]
+            }]} = file:consult(relup),
+
+    GetAppStartStop = fun(Instr) ->
+        [{Action,App} || {apply,{application,Action,[App|_]}} <- Instr,
+                lists:member(Action,[start,stop])]
+    end,
+
+    case GetAppStartStop(Up) of
+        UpOrder -> ok;
+        ActualUpOrder ->
+          ct:fail("Incorrect upgrade order.~nExpected: ~p~nGot:~p",
+                  [UpOrder,ActualUpOrder])
+    end,
+
+    case GetAppStartStop(Down) of
+        DownOrder -> ok;
+        ActualDownOrder ->
+          ct:fail("Incorrect down order.~nExpected: ~p~nGot:~p",
+                  [DownOrder,ActualDownOrder])
+    end,
+
+    ok.
 
 %% make_hybrid_boot: Normal case.
 %% For upgrade of erts - create a boot file which is a hybrid between
@@ -2484,7 +2538,13 @@ create_script({unicode,RelVsn},Config) ->
     do_create_script(unicode,RelVsn,Config,current,Apps);
 create_script(duplicate_modules,Config) ->
     Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
-    do_create_script(duplicate_modules,Config,current,Apps).
+    do_create_script(duplicate_modules,Config,current,Apps);
+create_script(replace_app0,Config) ->
+    Apps = core_apps(current) ++ [{db,"1.1"},{gh,"1.0"}],
+    do_create_script(repace_app0,Config,current,Apps);
+create_script(replace_app1,Config) ->
+    Apps = core_apps(current) ++ [{db,"1.0"},{fe,"2.1"}],
+    do_create_script(repace_app1,Config,current,Apps).
 
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->
