@@ -534,13 +534,14 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
     int unicode = 0;
     int buffres;
 
-    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL)
-	< 0) {
-	BIF_ERROR(p,BADARG);
+    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL) < 0) {
+    opt_error:
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 
     if (pflags & PARSE_FLAG_UNIQUE_EXEC_OPT) {
-	BIF_ERROR(p,BADARG);
+        goto opt_error;
     }
 
     unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;
@@ -1118,7 +1119,8 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     if (parse_options(arg3,&comp_options,&options,&pflags,&startoffset,capture,
 		      &match_limit,&match_limit_recursion)
 	< 0) {
-	BIF_ERROR(p,BADARG);
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
     if (!first) {
         /*
