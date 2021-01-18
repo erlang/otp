@@ -60,11 +60,13 @@ start_link(Role, RegName) ->
 %% Internal application API
 %%====================================================================
 
+-define(TIMEOUT, 30000).
+
 start_system_subsystem(Controller, Sup, Host, Port, Profile, Options, ChildSpec) ->
-    gen_server:call(Controller, {start_system_subsystem, Sup, Host, Port, Profile, Options, ChildSpec}).
+    gen_server:call(Controller, {start_system_subsystem, Sup, Host, Port, Profile, Options, ChildSpec}, ?TIMEOUT).
 
 stop_system(Controller, SysSup) ->
-    gen_server:call(Controller, {stop_system,SysSup}).
+    gen_server:call(Controller, {stop_system,SysSup}, ?TIMEOUT).
 
 %%====================================================================
 %% Internal process state
