@@ -471,8 +471,8 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
 
            ">>,
            [warn_unused_vars],
-           {warnings,[{7,sys_core_fold,no_clause_match},
-                      {{6,18},erl_lint,{unused_var,'C1'}},
+           {warnings,[{{6,18},erl_lint,{unused_var,'C1'}},
+                      {{7,19},sys_core_fold,no_clause_match},
                       {{9,25},erl_lint,{unused_var,'C3'}}]}},
 
           {lc21,
@@ -577,16 +577,16 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                   end.
            ">>,
            [warn_unused_vars],
-           {warnings,[{8,sys_core_fold,useless_building},
-                  {{1,24},erl_lint,{unused_var,'A'}},
-                  {{2,23},erl_lint,{unused_var,'A'}},
-                  {{2,23},erl_lint,{shadowed_var,'A','fun'}},
-                  {{4,25},erl_lint,{unused_var,'A'}},
-                  {{4,25},erl_lint,{shadowed_var,'A','fun'}},
-                  {{5,26},erl_lint,{unused_var,'Q'}},
-                  {{8,23},erl_lint,{unused_var,'E'}},
-                  {{8,23},erl_lint,{shadowed_var,'E','fun'}},
-                  {{12,26},erl_lint,{unused_var,'E'}}]}},
+           {warnings,[{{1,24},erl_lint,{unused_var,'A'}},
+                      {{2,23},erl_lint,{unused_var,'A'}},
+                      {{2,23},erl_lint,{shadowed_var,'A','fun'}},
+                      {{4,25},erl_lint,{unused_var,'A'}},
+                      {{4,25},erl_lint,{shadowed_var,'A','fun'}},
+                      {{5,26},erl_lint,{unused_var,'Q'}},
+                      {{8,19},sys_core_fold,useless_building},
+                      {{8,23},erl_lint,{unused_var,'E'}},
+                      {{8,23},erl_lint,{shadowed_var,'E','fun'}},
+                      {{12,26},erl_lint,{unused_var,'E'}}]}},
 
           {fun2,
            <<"u() ->
@@ -4519,6 +4519,7 @@ format_error(E) ->
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
+                io:format("### ~s\n", [N]),
                 case catch run_test(Config, P, Ws) of
                     E -> 
                         BadL;
@@ -4574,20 +4575,26 @@ run_test2(Conf, Test, Warnings0) ->
 
     case compile:file(File, [binary|Opts]) of
         {ok, _M, Code, Ws} when is_binary(Code) ->
-	    warnings(File, Ws);
+            warnings(File, Ws, Test);
         {error, [{File,Es}], []} ->
+            print_diagnostics(Es, Test),
 	    {errors, call_format_error(Es), []};
         {error, [{File,Es}], [{File,Ws}]} ->
+            print_diagnostics(Es, Test),
+            print_diagnostics(Ws, Test),
 	    {error, call_format_error(Es), call_format_error(Ws)};
         {error, [{File,Es1},{File,Es2}], []} ->
+            print_diagnostics(Es1, Test),
+            print_diagnostics(Es2, Test),
 	    {errors2, Es1, Es2}
     end.
 
-warnings(File, Ws) ->
+warnings(File, Ws, Source) ->
     case lists:append([W || {F, W} <- Ws, F =:= File]) of
         [] ->
 	    [];
         L ->
+            print_diagnostics(L, Source),
 	    {warnings, call_format_error(L)}
     end.
 
@@ -4596,6 +4603,29 @@ call_format_error(L) ->
     %% slip through.
     _ = [Mod:format_error(Term) || {_,Mod,Term} <- L],
     L.
+
+print_diagnostics(Warnings, Source) ->
+    case binary:match(Source, <<"-file(">>) of
+        nomatch ->
+            Lines = binary:split(Source, <<"\n">>, [global]),
+            Cs = [print_diagnostic(W, Lines) || W <- Warnings],
+            io:put_chars(Cs);
+        _ ->
+            %% There are probably fake line numbers greater than
+            %% the number of actual lines.
+            ok
+    end.
+
+print_diagnostic({{LineNum,Column},Mod,Data}, Lines) ->
+    Line0 = lists:nth(LineNum, Lines),
+    <<Line1:(Column-1)/binary,_/binary>> = Line0,
+    Spaces = re:replace(Line1, <<"[^\t]">>, <<" ">>, [global]),
+    CaretLine = [Spaces,"^"],
+    [io_lib:format("~p:~p: ~ts\n", [LineNum,Column,Mod:format_error(Data)]),
+     Line0, "\n",
+     CaretLine, "\n\n"];
+print_diagnostic(_, _) ->
+    [].
 
 fail() ->
     ct:fail(failed).

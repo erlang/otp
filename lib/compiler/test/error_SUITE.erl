@@ -432,7 +432,7 @@ test_filename(Conf) ->
 run_test(Test0, File, Warnings, WriteBeam) ->
     ModName = filename:rootname(filename:basename(File), ".erl"),
     Mod = list_to_atom(ModName),
-    Test = ["-module(",ModName,"). ",Test0],
+    Test = iolist_to_binary(["-module(",ModName,"). ",Test0]),
     Opts = case WriteBeam of
 	       dont_write_beam ->
 		   [binary,return_errors|Warnings];
@@ -448,6 +448,7 @@ run_test(Test0, File, Warnings, WriteBeam) ->
     io:format("~p\n", [Opts]),
     Res = case compile:file(File, Opts) of
 	      {ok,Mod,_,[{_File,Ws}]} ->
+                  print_diagnostics(Ws, Test),
 		  {warning,Ws};
 	      {ok,Mod,_,[]} ->
 		  [];
@@ -456,15 +457,42 @@ run_test(Test0, File, Warnings, WriteBeam) ->
 	      {ok,Mod,[]} ->
 		  [];
 	      {error,[{XFile,Es}],Ws} = _ZZ when is_list(XFile) ->
+                  print_diagnostics(Es, Test),
 		  {error,Es,Ws};
 	      {error,[{XFile,Es1},{XFile,Es2}],Ws} = _ZZ
 		when is_list(XFile) ->
-		  {error,Es1++Es2,Ws};
+                  Es = Es1 ++ Es2,
+                  print_diagnostics(Es, Test),
+		  {error,Es,Ws};
 	      {error,Es,[{_File,Ws}]} = _ZZ->
+                  print_diagnostics(Es ++ Ws, Test),
 		  {error,Es,Ws}
 	  end,
     file:delete(File),
     Res.
+
+print_diagnostics(Warnings, Source) ->
+    case binary:match(Source, <<"-file(">>) of
+        nomatch ->
+            Lines = binary:split(Source, <<"\n">>, [global]),
+            Cs = [print_diagnostic(W, Lines) || W <- Warnings],
+            io:put_chars(Cs);
+        _ ->
+            %% There are probably fake line numbers greater than
+            %% the number of actual lines.
+            ok
+    end.
+
+print_diagnostic({{LineNum,Column},Mod,Data}, Lines) ->
+    Line0 = lists:nth(LineNum, Lines),
+    <<Line1:(Column-1)/binary,_/binary>> = Line0,
+    Spaces = re:replace(Line1, <<"[^\t]">>, <<" ">>, [global]),
+    CaretLine = [Spaces,"^"],
+    [io_lib:format("~p:~p: ~ts\n", [LineNum,Column,Mod:format_error(Data)]),
+     Line0, "\n",
+     CaretLine, "\n\n"];
+print_diagnostic(_, _) ->
+    [].
 
 fail() ->
     ct:fail(failed).

@@ -366,7 +366,7 @@ nomatch(Config) when is_list(Config) ->
                     end]).
         ">>,
         [],
-        {warnings,[{5,v3_kernel,{nomatch_shadow,4}}]}},
+        {warnings,[{{5,24},v3_kernel,{nomatch_shadow,4}}]}},
 
        {nomatch1,
         <<"generator1() ->
@@ -6286,7 +6286,7 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_template1() ->
                qlc:q([{X} = {} || X <- []]).">>,
         [],
-        {warnings,[{2,sys_core_fold,no_clause_match}]}}
+        {warnings,[{{2,27},sys_core_fold,no_clause_match}]}}
          ],
     [] = compile(Config, T1),
 

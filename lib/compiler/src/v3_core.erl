@@ -947,20 +947,21 @@ map_build_pairs_1([{Op0,L,K0,V0}|Es], Used0, St0) ->
     {Pairs,Pre2,Used1,St3} = map_build_pairs_1(Es, Used0, St2),
     As = lineno_anno(L, St3),
     Op = map_op(Op0),
-    {Used2,St4} = maybe_warn_repeated_keys(K, L, Used1, St3),
+    {Used2,St4} = maybe_warn_repeated_keys(K, K0, Used1, St3),
     Pair = cerl:ann_c_map_pair(As, Op, K, V),
     {[Pair|Pairs],Pre0++Pre1++Pre2,Used2,St4};
 map_build_pairs_1([], Used, St) ->
     {[],[],Used,St}.
 
-maybe_warn_repeated_keys(Ck,Line,Used,St) ->
+maybe_warn_repeated_keys(Ck, K0, Used, St) ->
     case cerl:is_literal(Ck) of
         false -> {Used,St};
         true ->
             K = cerl:concrete(Ck),
             case sets:is_element(K,Used) of
                 true ->
-                    {Used, add_warning(Line, {map_key_repeated,K}, St)};
+                    Location = element(2, K0),
+                    {Used, add_warning(Location, {map_key_repeated,K}, St)};
                 false ->
                     {sets:add_element(K,Used), St}
             end
