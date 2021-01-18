@@ -89,8 +89,10 @@ $(XMLDIR)/deprecations.xml: DEPRECATIONS
 	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml deprecations $(ERL_TOP) $@
 
 $(XMLDIR)/scheduled_for_removal.xml: DEPRECATIONS
-	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml removals $(ERL_TOP) $@
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml scheduled_for_removal $(ERL_TOP) $@
 
+$(XMLDIR)/removed.xml: DEPRECATIONS
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml removed $(ERL_TOP) $@
 
 clean clean_docs:
 	rm -f $(XMLDIR)/*.xml

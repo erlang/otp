@@ -62,8 +62,9 @@ about their use.
 The [$ERL_TOP/system/doc/general_info/DEPRECATIONS][1] file contains additional
 information about each deprecated function, namely in what release it was deprecated
 and optionally in what release it will be removed. The information in this file will
-be used to generate the [Deprecations](http://erlang.org/doc/general_info/deprecations.html)
-and [Scheduled for Removal](http://erlang.org/doc/general_info/scheduled_for_removal.html)
+be used to generate the [Deprecations](http://erlang.org/doc/general_info/deprecations.html),
+[Scheduled for Removal](http://erlang.org/doc/general_info/scheduled_for_removal.html),
+and [Removed Functionality](http://erlang.org/doc/general_info/removed.html),
 pages in the documentation.
 
 Here is how the entry for `erlang:now/0` that was deprecated in OTP 18 looks like:
@@ -74,6 +75,9 @@ Here is an example of a function that was deprecated in OTP 23 and is scheduled 
 
     filename:safe_relative_path/1 since=23 remove=25
 
+After removing a function it's important to keep its line in the DEPRECATIONS
+file for as long as we wish to raise warnings about it. Should a removal be
+postponed, the corresponding `remove` attribute must be bumped accordingly.
 
  [1]: ../system/doc/general_info/DEPRECATIONS
  [2]: ../lib/stdlib/src/otp_internal.erl
