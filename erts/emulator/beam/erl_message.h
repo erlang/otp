@@ -264,7 +264,7 @@ typedef struct {
     signed char unused;
     signed char pending_set_save_ix;
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    signed char default_recv_marker_ix;
+    signed char old_recv_marker_ix;
 #endif
 } ErtsRecvMarkerBlock;
 

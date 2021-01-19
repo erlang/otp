@@ -56,12 +56,26 @@ Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_high);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_max);
 
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+Eterm erts_old_recv_marker_id;
+#endif
+
 void
 erts_proc_sig_queue_init(void)
 {
     ERTS_CT_ASSERT(ERTS_SIG_Q_OP_MASK > ERTS_SIG_Q_OP_MAX);
     ERTS_CT_ASSERT(ERTS_SIG_Q_OP_MSGQ_LEN_OFFS_MARK > ERTS_SIG_Q_OP_MAX);
     ERTS_CT_ASSERT(ERTS_SIG_Q_TYPE_MASK >= ERTS_SIG_Q_TYPE_MAX);
+
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+    {
+	Eterm *hp = erts_alloc(ERTS_ALC_T_LITERAL,
+			       ERTS_REF_THING_SIZE*sizeof(Eterm));
+	erts_old_recv_marker_id = erts_make_ref_in_buffer(hp);
+	erts_set_literal_tag(&erts_old_recv_marker_id, hp, ERTS_REF_THING_SIZE);
+    }
+#endif
+
 }
 
 typedef struct {
@@ -2659,9 +2673,9 @@ recv_marker_deallocate(Process *c_p, ErtsRecvMarker *markp)
 	    blkp->unused--;
 	}
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	else if (blkp->ref[ix] == am_default) {
-	    ASSERT(blkp->default_recv_marker_ix == ix);
-	    blkp->default_recv_marker_ix = -1;
+	else if (blkp->ref[ix] == erts_old_recv_marker_id) {
+	    ASSERT(blkp->old_recv_marker_ix == ix);
+	    blkp->old_recv_marker_ix = -1;
 	}
 #endif
 
@@ -2757,10 +2771,10 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     blkp->used_ix = 0;
 
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (*uniqp == am_default)
-	blkp->default_recv_marker_ix = 0;
+    if (*uniqp == erts_old_recv_marker_id)
+	blkp->old_recv_marker_ix = 0;
     else
-	blkp->default_recv_marker_ix = -1;
+	blkp->old_recv_marker_ix = -1;
 #endif
 
     /* Put the rest in a free list in the ref words... */
@@ -2892,8 +2906,7 @@ recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     int ix;
 
     ASSERT(is_small(*uniqp) || is_big(*uniqp) || *uniqp == am_new_uniq
-	   || *uniqp == am_default || *uniqp == NIL
-	   || is_internal_ref(*uniqp));
+	   || *uniqp == NIL || is_internal_ref(*uniqp));
 
     if (!blkp)
 	return recv_marker_alloc_block(c_p, blkpp, ixp, uniqp);
@@ -2927,9 +2940,9 @@ recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     blkp->ref[ix] = recv_marker_uniq(c_p, uniqp);
 
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    if (*uniqp == am_default) {
-	ASSERT(blkp->default_recv_marker_ix == -1);
-	blkp->default_recv_marker_ix = ix;
+    if (*uniqp == erts_old_recv_marker_id) {
+	ASSERT(blkp->old_recv_marker_ix == -1);
+	blkp->old_recv_marker_ix = ix;
     }
 #endif
 	
@@ -2995,10 +3008,7 @@ erts_msgq_recv_marker_create_insert(Process *c_p, Eterm uniq)
     if (!markp)
 	return am_undefined;
     recv_marker_insert(c_p, markp);
-    ASSERT(is_small(new_uniq)
-	   || is_big(new_uniq)
-	   || new_uniq == am_default
-	   || new_uniq == NIL
+    ASSERT(is_small(new_uniq) || is_big(new_uniq) || new_uniq == NIL
 	   || is_internal_ref(new_uniq));
     return new_uniq;
 }
@@ -6516,7 +6526,7 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
     int ix, used, unused, free;
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-    int default_marker = 0;
+    int old_recv_marker = 0;
 #endif    
     if (!blkp)
 	return;
@@ -6530,21 +6540,16 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 	ErtsRecvMarker *markp = &blkp->marker[ix];
 	Eterm ref = blkp->ref[ix];
 	
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 	ERTS_ASSERT(is_internal_ref(ref)
-		    || ref == am_default
+		    || is_small(ref)
+		    || is_big(ref)
 		    || ref == am_undefined
 		    || is_nil(ref));
-#else
-	ERTS_ASSERT(is_internal_ref(ref)
-		    || ref == am_undefined
-		    || is_nil(ref));
-#endif
 
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	if (ref == am_default) {
-	    ERTS_ASSERT(blkp->default_recv_marker_ix == ix);
-	    default_marker++;
+	if (ref == erts_old_recv_marker_id) {
+	    ERTS_ASSERT(blkp->old_recv_marker_ix == ix);
+	    old_recv_marker++;
 	}
 #endif
 
@@ -6587,7 +6592,7 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 
     ERTS_ASSERT(used + free == ERTS_RECV_MARKER_BLOCK_SIZE);
 
-    ERTS_ASSERT(default_marker == 0 || default_marker == 1);
+    ERTS_ASSERT(old_recv_marker == 0 || old_recv_marker == 1);
 }
 
 #endif /* ERTS_PROC_SIG_HARD_DEBUG_RECV_MARKER */
