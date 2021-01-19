@@ -411,7 +411,7 @@ loop(S) ->
 	    server_reply(Parent, update_conn_info_ack, Res),
             loop(evs(S, {uci, {Tag, Val}}));
 
-	{{conn_info, Tag}, Parent} when S#mgc.parent == Parent ->
+	{{conn_info, Tag}, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> got conn_info request for ~w", [Tag]),
 	    Conns = megaco:user_info(S#mgc.mid, connections), 
 	    Fun = fun(CH) ->
@@ -454,7 +454,7 @@ loop(S) ->
 	    {ok, Gen} = megaco:get_stats(),
 	    i("loop(stats1) -> gen stats: "
               "~n      ~p", [Gen]),
-	    GetTrans = 
+	    GetTrans =
 		fun(CH) ->
                         i("loop(stats1):GetTrans -> "
                           "get stats for connection ~p", [CH]),
@@ -477,12 +477,12 @@ loop(S) ->
                           "~n      ~p", [Stats]),
 			{SendHandle, Stats}
 		end,
-	    Mid = S#mgc.mid,
-	    Trans = 
-		lists:map(GetTrans, megaco:user_info(Mid, connections)),
+	    Mid   = S#mgc.mid,
+	    Trans = lists:map(GetTrans, megaco:user_info(Mid, connections)),
 	    Reply = {ok, [{gen, Gen}, {trans, Trans}]},
 	    i("loop(stats1) -> send reply"),
 	    server_reply(Parent, {statistics_reply, 1}, Reply),
+	    i("loop(stats1) -> done"),
 	    loop(evs(S, {stats, 1}));
 
 
@@ -495,16 +495,18 @@ loop(S) ->
 	    Reply = {ok, [{gen, Gen}, {trans, [TcpStats, UdpStats]}]},
 	    i("loop(stats2) -> send reply"),
 	    server_reply(Parent, {statistics_reply, 2}, Reply),
+	    i("loop(stats2) -> done"),
 	    loop(evs(S, {stats, 2}));
 
 
 	%% Megaco callback messages
 	{request, Request, From} ->
-	    d("loop -> received megaco request from ~p:"
+	    d("loop(request) -> received megaco request from ~p:"
               "~n      ~p", [From, Request]),
 	    {Reply, S1} = handle_megaco_request(Request, S),
-	    d("loop -> send request reply: ~n~p", [Reply]),
+	    d("loop(request) -> send reply: ~n~p", [Reply]),
 	    reply(From, Reply),
+	    d("loop(request) -> done"),
 	    loop(evs(S1, {req, Request}));
 
 
@@ -570,9 +572,14 @@ loop(S) ->
 
 
 evs(#mgc{evs = EVS} = S, Ev) when (length(EVS) < ?EVS_MAX) ->
-    S#mgc{evs = [{?FTS(), Ev}|EVS]};
+    echo_evs(S#mgc{evs = [{?FTS(), Ev}|EVS]});
 evs(#mgc{evs = EVS} = S, Ev) ->
-    S#mgc{evs = [{?FTS(), Ev}|lists:droplast(EVS)]}.
+    echo_evs(S#mgc{evs = [{?FTS(), Ev}|lists:droplast(EVS)]}).
+
+echo_evs(#mgc{evs = EVS} = S) ->
+    i("Events: "
+      "~n      ~p", [EVS]),
+    S.
 
 done(#mgc{evs = EVS}, Reason) ->
     info_msg("Exiting with latest event(s): "
