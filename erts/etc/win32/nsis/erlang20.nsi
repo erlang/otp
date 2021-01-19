@@ -144,7 +144,21 @@ SubSection /e "Erlang" SecErlang
 Section "Development" SecErlangDev
 SectionIn 1 RO
 
+
   	SetOutPath "$INSTDIR"
+
+; Don't let Users nor Autenticated Users group create new files
+; Avoid dll injection when installing to non /Program Files/ dirs
+
+        StrCmp $INSTDIR $InstallDir cp_files
+        ; Remove ANY inherited access control
+        ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /inheritance:r' SW_HIDE
+        ; Grant Admin full control
+        ExecShellWait  "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /grant:r *S-1-5-32-544:(OI)(CI)F' SW_HIDE
+        ; Grant Normal Users read+execute control
+        ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /grant:r *S-1-1-0:(OI)(CI)RX' SW_HIDE
+
+cp_files:
   	File "${TESTROOT}\Install.ini"
   	File "${TESTROOT}\Install.exe"
 	SetOutPath "$INSTDIR\releases"
