@@ -287,7 +287,7 @@ client_loop() ->
 	    client_loop()
     end.
     
-do(Pid, Fun) -> do(Pid, Fun, 30?sec).
+do(Pid, Fun) -> do(Pid, Fun, 60?sec).
 
 do(Pid, Fun, Timeout) when is_function(Fun,0) ->
     Pid ! {please_do,Fun,Ref=make_ref(),self()},
@@ -418,7 +418,7 @@ ssh_send(C=#chan{conn_ref=ConnectionRef, ref=ChannelRef, client_pid=Pid}, Type, 
 		   ok ->
 		       receive
 			   {ssh_cm,ConnectionRef,{data,ChannelRef,Type,Answer}} -> Answer
-		       after 15?sec -> 
+		       after 30?sec ->
 			       %% receive
 			       %% 	   Other -> {error,{unexpected,Other}}
 			       %% after 0 ->

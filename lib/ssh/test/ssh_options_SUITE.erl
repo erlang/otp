@@ -1446,14 +1446,14 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
 
 %%--------------------------------------------------------------------
 max_sessions_drops_tcp_connects() ->
-    [{timetrap,{minutes,5}}].
+    [{timetrap,{minutes,20}}].
 
 max_sessions_drops_tcp_connects(Config) ->
     MaxSessions = 20,
     UseSessions = 2, % Must be =< MaxSessions
     FloodSessions = 1000,
     ParallelLogin = true,
-    NegTimeOut = 10*1000,
+    NegTimeOut = 8*1000,
     HelloTimeOut = 1*1000,
 
     %% Start a test daemon
@@ -1470,8 +1470,8 @@ max_sessions_drops_tcp_connects(Config) ->
                              {max_sessions, MaxSessions}
                             ]),
     Host = ssh_test_lib:mangle_connect_address(Host0),
-    ct:log("~p Listen ~p:~p for max ~p sessions. Mangled Host = ~p",
-           [Pid,Host0,Port,MaxSessions,Host]),
+    ct:log("~p:~p ~p Listen ~p:~p for max ~p sessions. Mangled Host = ~p",
+           [?MODULE,?LINE,Pid,Host0,Port,MaxSessions,Host]),
     
     %% Log in UseSessions connections
     SSHconnect = fun(N) ->
@@ -1482,7 +1482,7 @@ max_sessions_drops_tcp_connects(Config) ->
                                           {user, "carni"},
                                           {password, "meat"}
                                          ]),
-                         ct:log("~p: ssh:connect -> ~p", [N,R]),
+                         ct:log("~p:~p ~p: ssh:connect -> ~p", [?MODULE,?LINE,N,R]),
                          R
                  end,
 
@@ -1491,18 +1491,18 @@ max_sessions_drops_tcp_connects(Config) ->
         UseSessions ->
             %% As expected
             %% Try gen_tcp:connect
-            [ct:log("~p: gen_tcp:connect -> ~p", 
-                    [N, gen_tcp:connect(Host, Port, [])])
+            [ct:log("~p:~p ~p: gen_tcp:connect -> ~p", 
+                    [?MODULE,?LINE, N, gen_tcp:connect(Host, Port, [])])
              || N <- lists:seq(UseSessions+1, MaxSessions)
             ],
 
-            ct:log("Now try ~p gen_tcp:connect to be rejected", [FloodSessions]),
-            [ct:log("~p: gen_tcp:connect -> ~p", 
-                    [N, gen_tcp:connect(Host, Port, [])])
+            ct:log("~p:~p Now try ~p gen_tcp:connect to be rejected", [?MODULE,?LINE,FloodSessions]),
+            [ct:log("~p:~p ~p: gen_tcp:connect -> ~p", 
+                    [?MODULE,?LINE, N, gen_tcp:connect(Host, Port, [])])
              || N <- lists:seq(MaxSessions+1, MaxSessions+1+FloodSessions)
             ],
             
-            ct:log("try ~p ssh:connect", [MaxSessions - UseSessions]),
+            ct:log("~p:~p try ~p ssh:connect", [?MODULE,?LINE, MaxSessions - UseSessions]),
             try_ssh_connect(MaxSessions - UseSessions, NegTimeOut, SSHconnect);
 
         Len1 ->
