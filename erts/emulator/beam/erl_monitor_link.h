@@ -396,6 +396,11 @@
 #include "erl_proc_sig_queue.h"
 #undef ERTS_PROC_SIG_QUEUE_TYPE_ONLY
 
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+
+
 #if defined(DEBUG) || 0
 #  define ERTS_ML_DEBUG
 #else
@@ -467,7 +472,7 @@ struct ErtsMonLnkNode__ {
     Uint16 type;
 };
 
-typedef struct {
+typedef struct ErtsMonLnkDist__ {
     Eterm nodename;
     Uint32 connection_id;
     erts_atomic_t refc;
@@ -477,6 +482,7 @@ typedef struct {
     ErtsMonLnkNode *monitors; /* Monitor double linked circular list */
     ErtsMonLnkNode *orig_name_monitors; /* Origin named monitors
                                            read-black tree */
+    ErtsThrPrgrLaterOp cleanup_lop;
 } ErtsMonLnkDist;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -529,7 +535,7 @@ ERTS_GLB_INLINE void erts_ml_dl_list_delete__(ErtsMonLnkNode **list,
                                               ErtsMonLnkNode *ml);
 ERTS_GLB_INLINE ErtsMonLnkNode *erts_ml_dl_list_first__(ErtsMonLnkNode *list);
 ERTS_GLB_INLINE ErtsMonLnkNode *erts_ml_dl_list_last__(ErtsMonLnkNode *list);
-void erts_mon_link_dist_destroy__(ErtsMonLnkDist *mld);
+void erts_schedule_mon_link_dist_destruction__(ErtsMonLnkDist *mld);
 ERTS_GLB_INLINE void *erts_ml_node_to_main_struct__(ErtsMonLnkNode *mln);
 
 /* implementations for globally inlined misc functions... */
@@ -547,7 +553,7 @@ erts_mon_link_dist_dec_refc(ErtsMonLnkDist *mld)
 {
     ERTS_ML_ASSERT(erts_atomic_read_nob(&mld->refc) > 0);
     if (erts_atomic_dec_read_nob(&mld->refc) == 0)
-        erts_mon_link_dist_destroy__(mld);
+        erts_schedule_mon_link_dist_destruction__(mld);
 }
 
 ERTS_GLB_INLINE void *
@@ -1426,14 +1432,14 @@ erts_monitor_dist_insert(ErtsMonitor *mon, ErtsMonLnkDist *dist)
 
     ERTS_ML_ASSERT(!mdep->dist);
     ERTS_ML_ASSERT(dist);
-    mdep->dist = dist;
-
-    erts_mon_link_dist_inc_refc(dist);
 
     erts_mtx_lock(&dist->mtx);
 
     insert = dist->alive;
     if (insert) {
+        mdep->dist = dist;
+        erts_mon_link_dist_inc_refc(dist);
+
         if ((mon->flags & (ERTS_ML_FLG_NAME
                            | ERTS_ML_FLG_TARGET)) == ERTS_ML_FLG_NAME)
             erts_monitor_tree_insert(&dist->orig_name_monitors, mon);
@@ -2307,15 +2313,15 @@ erts_link_dist_insert(ErtsLink *lnk, ErtsMonLnkDist *dist)
 
     ERTS_ML_ASSERT(!ldep->dist);
     ERTS_ML_ASSERT(dist);
-    ldep->dist = dist;
-
-    erts_mon_link_dist_inc_refc(dist);
 
     erts_mtx_lock(&dist->mtx);
 
     insert = dist->alive;
-    if (insert)
+    if (insert) {
+        ldep->dist = dist;
+        erts_mon_link_dist_inc_refc(dist);
         erts_link_list_insert(&dist->links, lnk);
+    }
 
     erts_mtx_unlock(&dist->mtx);
 

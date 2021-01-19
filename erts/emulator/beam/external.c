@@ -874,6 +874,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	goto fail;
 #endif
 
+    edep->mld = dep->mld;
     erts_de_runlock(dep);
 
     return ERTS_PREP_DIST_EXT_SUCCESS;
