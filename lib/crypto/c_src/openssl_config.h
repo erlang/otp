@@ -120,7 +120,7 @@
 #endif
 
 #if defined(HAS_EVP_PKEY_CTX) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,0,2)
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
      /* EVP is slow on antique crypto libs.
       * DISABLE_EVP_* is 0 or 1 from the configure script
       */
