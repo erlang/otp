@@ -3118,7 +3118,7 @@ do_update_usm_user_info(Key,
 	    {error, {unsupported_crypto, des_cbc}}
     end;    
 do_update_usm_user_info(Key, 
-			#usm_user{priv = usmAesCfb128Protocoll} = User, 
+			#usm_user{priv = usmAesCfb128Protocol} = User, 
 			priv_key, Val) 
   when length(Val) =:= 16 ->
     case is_crypto_supported(aes_cfb128) of
