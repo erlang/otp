@@ -1624,6 +1624,7 @@ calculate_client_early_traffic_secret(#state{connection_states = ConnectionState
 calculate_client_early_traffic_secret(
   ClientHello, PSK, Cipher, HKDFAlgo,
   #state{connection_states = ConnectionStates,
+         ssl_options = #{keep_secrets := KeepSecrets},
          static_env = #static_env{role = Role},
          handshake_env =
              #handshake_env{
@@ -1642,18 +1643,22 @@ calculate_client_early_traffic_secret(
     case Role of
         client ->
             PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
-            PendingWrite = update_connection_state(PendingWrite0, undefined, undefined,
+            PendingWrite1 = maybe_store_early_data_secret(KeepSecrets, ClientEarlyTrafficSecret,
+                                                          PendingWrite0),
+            PendingWrite = update_connection_state(PendingWrite1, undefined, undefined,
                                                    undefined,
                                                    Key, IV, undefined),
             State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}};
         server ->
             PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
-            PendingRead1 = update_connection_state(PendingRead0, undefined, undefined,
+            PendingRead1 = maybe_store_early_data_secret(KeepSecrets, ClientEarlyTrafficSecret,
+                                                         PendingRead0),
+            PendingRead2 = update_connection_state(PendingRead1, undefined, undefined,
                                                    undefined,
                                                    Key, IV, undefined),
             %% Signal start of early data. This is to prevent handshake messages to be
             %% counted in max_early_data_size.
-            PendingRead = PendingRead1#{count_early_data => true},
+            PendingRead = PendingRead2#{count_early_data => true},
             State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}
     end.
 
@@ -1663,6 +1668,12 @@ update_current_read(#state{connection_states = CS} = State, TrialDecryption, Ear
                   early_data_limit => EarlyDataLimit},
     State#state{connection_states = CS#{current_read => Read}}.
 
+maybe_store_early_data_secret(true, EarlySecret, State) ->
+    #{security_parameters := SecParams0} = State,
+    SecParams = SecParams0#security_parameters{client_early_data_secret = EarlySecret},
+    State#{security_parameters := SecParams};
+maybe_store_early_data_secret(false, _, State) ->
+    State.
 
 %% Server
 get_pre_shared_key(undefined, HKDFAlgo) ->

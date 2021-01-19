@@ -1801,20 +1801,37 @@ security_info(#state{connection_states = ConnectionStates,
 	  #security_parameters{client_random = ClientRand,
                                server_random = ServerRand,
                                master_secret = MasterSecret,
-                               application_traffic_secret = AppTrafSecretRead}} = ReadState,
+                               application_traffic_secret = AppTrafSecretRead,
+                               client_early_data_secret = ServerEarlyData
+                              }} = ReadState,
     BaseSecurityInfo = [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}],
     if KeepSecrets =/= true ->
             BaseSecurityInfo;
        true ->
             #{security_parameters :=
-                  #security_parameters{application_traffic_secret = AppTrafSecretWrite}} =
+                  #security_parameters{application_traffic_secret = AppTrafSecretWrite,
+                                       client_early_data_secret = ClientEarlyData
+                                      }} =
                 ssl_record:current_connection_state(ConnectionStates, write),
-            BaseSecurityInfo ++
-                if Role == server ->
-                        [{server_traffic_secret_0, AppTrafSecretWrite}, {client_traffic_secret_0, AppTrafSecretRead}];
-                   true ->
-                        [{client_traffic_secret_0, AppTrafSecretWrite}, {server_traffic_secret_0, AppTrafSecretRead}]
-                end ++
+            if Role == server ->
+                    if ServerEarlyData =/= undefined ->
+                            [{server_traffic_secret_0, AppTrafSecretWrite},
+                             {client_traffic_secret_0, AppTrafSecretRead},
+                             {client_early_data_secret, ServerEarlyData}];
+                       true ->
+                            [{server_traffic_secret_0, AppTrafSecretWrite},
+                             {client_traffic_secret_0, AppTrafSecretRead}]
+                    end;
+               true ->
+                    if ClientEarlyData =/= undefined ->
+                            [{client_traffic_secret_0, AppTrafSecretWrite},
+                             {server_traffic_secret_0, AppTrafSecretRead},
+                             {client_early_data_secret, ClientEarlyData}];
+                       true ->
+                            [{client_traffic_secret_0, AppTrafSecretWrite},
+                             {server_traffic_secret_0, AppTrafSecretRead}]
+                    end
+            end ++
                 case ReadState of
                     #{client_handshake_traffic_secret := ClientHSTrafficSecret,
                       server_handshake_traffic_secret := ServerHSTrafficSecret} ->
@@ -1822,7 +1839,7 @@ security_info(#state{connection_states = ConnectionStates,
                          {server_handshake_traffic_secret, ServerHSTrafficSecret}];
                    _ ->
                         []
-                end
+                end ++ BaseSecurityInfo
     end.
 
 record_cb(tls) ->
@@ -2000,10 +2017,18 @@ maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
         ServerTrafficSecret0 = keylog_secret(ServerTrafficSecret0Bin, Prf),
         ClientHSecret = keylog_secret(ClientHSecretBin, Prf),
         ServerHSecret = keylog_secret(ServerHSecretBin, Prf),
-        Keylog = [io_lib:format("CLIENT_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientHSecret,
-                  io_lib:format("SERVER_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ServerHSecret,
-                  io_lib:format("CLIENT_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ClientTrafficSecret0,
-                  io_lib:format("SERVER_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ServerTrafficSecret0],
+        Keylog0 = [io_lib:format("CLIENT_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientHSecret,
+                   io_lib:format("SERVER_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ServerHSecret,
+                   io_lib:format("CLIENT_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ClientTrafficSecret0,
+                   io_lib:format("SERVER_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ServerTrafficSecret0],
+        Keylog = case lists:keyfind(client_early_data_secret, 1, Info) of
+                     {client_early_data_secret, EarlySecret} ->
+                         ClientEarlySecret = keylog_secret(EarlySecret, Prf),
+                         [io_lib:format("CLIENT_EARLY_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientEarlySecret
+                          | Keylog0];
+                     _ ->
+                         Keylog0
+                 end,
         Info ++ [{keylog,Keylog}]
     catch
         _Cxx:_Exx ->
