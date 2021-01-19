@@ -451,12 +451,6 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
     #{erl_dist := IsErlDist,
       client_renegotiation := ClientRenegotiation} = SSLOptions,
     ConnectionStates = tls_record:init_connection_states(Role, disabled),
-    InternalActiveN =  case application:get_env(ssl, internal_active_n) of
-                           {ok, N} when is_integer(N) andalso (not IsErlDist) ->
-                               N;
-                           _  ->
-                               ?INTERNAL_ACTIVE_N
-                       end,
     UserMonitor = erlang:monitor(process, User),
     InitStatEnv = #static_env{
                      role = Role,
@@ -489,10 +483,27 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        start_or_recv_from = undefined,
        flight_buffer = [],
        protocol_specific = #{sender => Sender,
-                             active_n => InternalActiveN,
+                             active_n => internal_active_n(IsErlDist),
                              active_n_toggle => true
                             }
       }.
+
+internal_active_n(true) ->
+    %% Start with a random number between 1 and ?INTERNAL_ACTIVE_N
+    %% In most cases distribution connections are established all at
+    %%  the same time, and flow control engages with ?INTERNAL_ACTIVE_N for
+    %%  all connections. Which creates a wave of "passive" messages, leading
+    %%  to significant bump of memory & scheduler utilisation. Starting with
+    %%  a random number between 1 and ?INTERNAL_ACTIVE_N helps to spread the
+    %%  spike.
+    erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
+internal_active_n(false) ->
+    case application:get_env(ssl, internal_active_n) of
+        {ok, N} when is_integer(N) ->
+            N;
+        _  ->
+            ?INTERNAL_ACTIVE_N
+    end.
 
 handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := disabled}}) ->
     ok;
