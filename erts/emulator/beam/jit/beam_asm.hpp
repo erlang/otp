@@ -337,6 +337,11 @@ protected:
         code.copyFlattenedData(*writable_ptr,
                                code.codeSize(),
                                CodeHolder::kCopyPadSectionBuffer);
+#ifdef DEBUG
+        if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
+            if (FILE *f = l->file())
+                fprintf(f, "; CODE_SIZE: %zd\n", code.codeSize());
+#endif
     }
 
     void *getCode(Label label) {
