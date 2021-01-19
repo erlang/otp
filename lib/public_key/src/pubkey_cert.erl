@@ -1218,13 +1218,28 @@ validity(Opts) ->
     DefFrom0 = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())-1),
     DefTo0   = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())+7),
     {DefFrom, DefTo} = proplists:get_value(validity, Opts, {DefFrom0, DefTo0}),
-    Format =
+    
+    GenFormat =
         fun({Y,M,D}) ->
                 lists:flatten(
                   io_lib:format("~4..0w~2..0w~2..0w130000Z",[Y,M,D]))
         end,
-    #'Validity'{notBefore={generalTime, Format(DefFrom)},
-		notAfter ={generalTime, Format(DefTo)}}.
+    
+    UTCFormat =
+        fun({Y,M,D}) ->
+                [_, _, Y3, Y4] = integer_to_list(Y),
+                lists:flatten(
+                  io_lib:format("~s~2..0w~2..0w130000Z",[[Y3, Y4],M,D]))
+        end,
+    
+    #'Validity'{notBefore = validity_format(DefFrom, GenFormat, UTCFormat),
+                notAfter = validity_format(DefTo, GenFormat, UTCFormat)}.
+
+validity_format({Year, _, _} = Validity, GenFormat, _UTCFormat) when Year >= 2049 ->
+    {generalTime, GenFormat(Validity)};
+validity_format(Validity, _GenFormat, UTCFormat) ->
+    {utcTime, UTCFormat(Validity)}.
+
 
 sign_algorithm(#'RSAPrivateKey'{} = Key , Opts) ->
       case proplists:get_value(rsa_padding, Opts, rsa_pkcs1_pss_padding) of
