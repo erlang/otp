@@ -1542,26 +1542,30 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
 calculate_client_early_traffic_secret(
   ClientHello, PSK, Cipher, HKDFAlgo,
   #state{connection_states = ConnectionStates,
-         handshake_env =
-             #handshake_env{
-                tls_handshake_history = _HHistory}} = State0) ->
-    #{security_parameters := SecParamsW} =
-        ssl_record:pending_connection_state(ConnectionStates, write),
-    #security_parameters{cipher_suite = _CipherSuite} = SecParamsW,
+         ssl_options = #{keep_secrets := KeepSecrets}} = State0) ->
+    PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
     ClientEarlyTrafficSecret =
         tls_v1:client_early_traffic_secret(HKDFAlgo, EarlySecret, ClientHello),
-
     %% Calculate traffic key
     KeyLength = ssl_cipher:key_material(Cipher),
     {WriteKey, WriteIV} =
         tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ClientEarlyTrafficSecret),
     %% Update pending connection states
     PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
-    PendingWrite = update_connection_state(PendingWrite0, undefined, undefined,
-                                          undefined,
-                                          WriteKey, WriteIV, undefined),
+    PendingWrite1 = maybe_store_early_data_secret(KeepSecrets, HKDFAlgo, ClientEarlyTrafficSecret,
+                                                  PendingWrite0),
+    PendingWrite = update_connection_state(PendingWrite1, undefined, undefined,
+                                           undefined,
+                                           WriteKey, WriteIV, undefined),
     State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}}.
+
+maybe_store_early_data_secret(true, HKDFAlgo, EarlySecret, PendingWrite) ->
+    #{security_parameters := SecParams0} = PendingWrite,
+    SecParams = SecParams0#security_parameters{client_early_data_secret = {HKDFAlgo, EarlySecret}},
+    PendingWrite#{security_parameters := SecParams};
+maybe_store_early_data_secret(false, _, _, PendingWrite) ->
+    PendingWrite.
 
 %% Server
 get_pre_shared_key(undefined, HKDFAlgo) ->
