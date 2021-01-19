@@ -99,6 +99,7 @@
          verify_active_session_resumption/3,
          verify_active_session_resumption/4,
          verify_active_session_resumption/5,
+         verify_server_early_data/3,
          check_sane_openssl_version/1,
          check_ok/1,
          check_result/4,
@@ -2583,6 +2584,9 @@ send_recv_result_active_once(Socket) ->
     ssl:send(Socket, Data),
     active_once_recv_list(Socket, length(Data)).
 
+%% This function can verify the following functionalities in clients:
+%% - session resumption, sending/receiving application data, receiving session tickets
+%% - verifying if client early data is accepted/rejected
 verify_active_session_resumption(Socket, SessionResumption) ->
     verify_active_session_resumption(Socket, SessionResumption, wait_reply, no_tickets, no_early_data).
 %%
@@ -2641,6 +2645,41 @@ verify_active_session_resumption(Socket, SessionResumption, WaitForReply, Ticket
         Else3 ->
             ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else3])
     end.
+
+verify_server_early_data(Socket, WaitForReply, EarlyData) ->
+    case ssl:connection_information(Socket, [session_resumption]) of
+        {ok, [{session_resumption, true}]} ->
+            Msg = boolean_to_log_msg(true),
+            ct:log("~p:~p~nSession resumption verified! (expected ~p, got ~p)!",
+                   [?MODULE, ?LINE, Msg, Msg]);
+        {ok, [{session_resumption, Got0}]} ->
+            Expected = boolean_to_log_msg(true),
+            Got = boolean_to_log_msg(Got0),
+            ct:fail("~p:~p~nFailed to verify session resumption! (expected ~p, got ~p)",
+                    [?MODULE, ?LINE, Expected, Got]);
+        {error, Reason} ->
+            ct:fail("~p:~p~nFailed to verify session resumption! Reason: ~p",
+                    [?MODULE, ?LINE, Reason])
+    end,
+    Data =  "Hello world",
+    ssl:send(Socket, Data),
+    Reply =
+        case EarlyData of
+            no_early_data ->
+                Data;
+            _ ->
+                binary_to_list(EarlyData) ++ Data
+        end,
+    ct:log("Expected Reply: ~p~n", [Reply]),
+    case WaitForReply of
+        wait_reply ->
+            Reply = active_recv(Socket, length(Reply));
+        no_reply ->
+            ok;
+        Else1 ->
+            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else1])
+    end,
+    ok.
 
 boolean_to_log_msg(true) ->
     "OK";
