@@ -24,7 +24,7 @@ addons:
 matrix:
   include:
     # Doc build second as it also takes a long time to run
-    - env: Linux64Docbuild
+    - name: Linux64Docbuild
       script:
         - ./scripts/build-otp docs
       deploy:
@@ -41,7 +41,7 @@ matrix:
           tags: false
           condition: $TRAVIS_PULL_REQUEST = "false"
           repo: erlang/otp
-    - env: Linux-ppc64le-SmokeTest
+    - name: Linux-ppc64le-SmokeTest
       os: linux-ppc64le
       script:
         - ./scripts/build-otp
@@ -61,8 +61,16 @@ matrix:
             - g++
             - xsltproc
             - libxml2-utils
+    - name: Linux-ARM64-SmokeTest
+      arch: arm64
+      script:
+        - ./scripts/build-otp
+        - ./otp_build tests
+        - ./scripts/run-smoke-tests
+
 
 before_script:
+  - lscpu
   - set -e
   - export ERL_TOP=$PWD
   - export PATH=$ERL_TOP/bin:$PATH
