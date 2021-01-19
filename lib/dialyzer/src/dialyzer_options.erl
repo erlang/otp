@@ -201,6 +201,8 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
       build_options(Rest, Options#options{native = Value});
     native_cache ->
       build_options(Rest, Options#options{native_cache = Value});
+    tolerant when is_boolean(Value) ->
+      build_options(Rest, Options#options{tolerant = Value});
     _ ->
       bad_option("Unknown dialyzer command line option", Term)
   end;

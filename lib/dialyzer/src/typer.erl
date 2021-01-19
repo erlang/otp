@@ -161,6 +161,7 @@ get_type_info(#analysis{callgraph = CallGraph,
   try 
     NewPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph,
                                                      TrustPLT,
+                                                     false,
                                                      CodeServer),
     Analysis#analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch

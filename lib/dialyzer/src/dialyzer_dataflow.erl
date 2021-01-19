@@ -22,7 +22,7 @@
 
 -module(dialyzer_dataflow).
 
--export([get_fun_types/5, get_warnings/5, format_args/3]).
+-export([get_fun_types/5, get_warnings/6, format_args/3]).
 
 %% Data structure interfaces.
 -export([state__add_warning/2, state__cleanup/1,
@@ -145,10 +145,11 @@
 -spec get_warnings(cerl:c_module(), dialyzer_plt:plt(),
                    dialyzer_callgraph:callgraph(),
                    dialyzer_codeserver:codeserver(),
-                   types()) ->
+                   types(), boolean()) ->
 	{[raw_warning()], fun_types()}.
 
-get_warnings(Tree, Plt, Callgraph, Codeserver, Records) ->
+% TODO: see if we need the tolerance concept here
+get_warnings(Tree, Plt, Callgraph, Codeserver, Records, _Tolerant) ->
   State1 = analyze_module(Tree, Plt, Callgraph, Codeserver, Records, true),
   State2 = state__renew_warnings(state__get_warnings(State1), State1),
   State3 = state__get_race_warnings(State2),
@@ -1243,6 +1244,8 @@ handle_tuple(Tree, Map, State) ->
                 error -> {State1, Map1, TupleType};
                 {ok, RecType, FieldNames} ->
                   InfTupleType = t_inf(RecType, TupleType),
+                  % TODO: does this actually make a difference?
+                  SupTupleType = t_sup(RecType, TupleType),
                   case t_is_none(InfTupleType) of
                     true ->
                       RecC = format_type(TupleType, State1),
@@ -1250,7 +1253,7 @@ handle_tuple(Tree, Map, State) ->
                       Msg = {record_constr, [RecC, FieldDiffs]},
                       State2 = state__add_warning(State1, ?WARN_MATCHING,
                                                   Tree, Msg),
-                      {State2, Map1, t_none()};
+                      {State2, Map1, SupTupleType};
                     false ->
                       case bind_pat_vars(Elements, t_tuple_args(RecType),
                                          [], Map1, State1) of
@@ -1260,7 +1263,7 @@ handle_tuple(Tree, Map, State) ->
                                   format_type(ErrorType, State1)]},
                           State2 = state__add_warning(State1, ?WARN_MATCHING,
                                                       Tree, Msg),
-                          {State2, Map1, t_none()};
+                          {State2, Map1, SupTupleType};
                         {error, opaque, ErrorPat, ErrorType, OpaqueType} ->
                           OpaqueStr = format_type(OpaqueType, State1),
                           Name = field_name(Elements, ErrorPat, FieldNames),
@@ -1271,14 +1274,14 @@ handle_tuple(Tree, Map, State) ->
                                   OpaqueStr, OpaqueStr]},
                           State2 = state__add_warning(State1, ?WARN_OPAQUE,
                                                       Tree, Msg),
-                          {State2, Map1, t_none()};
+                          {State2, Map1, SupTupleType};
                         {error, record, ErrorPat, ErrorType, _} ->
                           Msg = {record_match,
                                  [format_patterns(ErrorPat),
                                   format_type(ErrorType, State1)]},
                           State2 = state__add_warning(State1, ?WARN_MATCHING,
                                                       Tree, Msg),
-                          {State2, Map1, t_none()};
+                          {State2, Map1, SupTupleType};
                         {Map2, ETypes} ->
                           {State1, Map2, t_tuple(ETypes)}
                       end

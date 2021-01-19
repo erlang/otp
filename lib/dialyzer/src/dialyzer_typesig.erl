@@ -22,7 +22,7 @@
 
 -module(dialyzer_typesig).
 
--export([analyze_scc/7]).
+-export([analyze_scc/8]).
 -export([get_safe_underapprox/2]).
 
 %%-import(helper, %% 'helper' could be any module doing sanity checks...
@@ -118,7 +118,8 @@
                 mod_records = []         :: [{module(), types()}],
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
-                solvers     = []         :: [solver()]
+                solvers     = []         :: [solver()],
+                tolerant    = false      :: boolean()
 	       }).
 
 -type state() :: #state{}.
@@ -157,7 +158,7 @@
 %% Analysis of strongly connected components.
 %%
 %% analyze_scc(SCC, NextLabel, CallGraph, CodeServer,
-%%             PLT, PropTypes, Solvers) -> FunTypes
+%%             PLT, PropTypes, Solvers, Tolerant) -> FunTypes
 %%
 %% SCC       - [{MFA}]
 %% NextLabel - An integer that is higher than any label in the code.
@@ -174,12 +175,12 @@
 -spec analyze_scc([mfa()], label(),
 		  dialyzer_callgraph:callgraph(),
                   dialyzer_codeserver:codeserver(),
-		  dialyzer_plt:plt(), prop_types(), [solver()]) -> prop_types().
+		  dialyzer_plt:plt(), prop_types(), [solver()], boolean()) -> prop_types().
 
-analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
+analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0, Tolerant) ->
   Solvers = solvers(Solvers0),
   State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
-                     Solvers),
+                     Solvers, Tolerant),
   DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
   State2 = traverse_scc(SCC, CServer, DefSet, State1),
   State3 = state__finalize(State2),
@@ -491,21 +492,26 @@ traverse(Tree, DefinedVars, State) ->
 	    {NewEvars, TmpState} = lists:mapfoldl(Fun, State1, EVars),
 	    {TmpState, t_tuple(NewEvars)}
 	end,
-      case Elements of
-	[Tag|Fields] ->
-	  case cerl:is_c_atom(Tag) andalso is_literal_record(Tree) of
-	    true ->
-              %% Check if a record is constructed.
-              Arity = length(Fields),
-              case lookup_record(State2, cerl:atom_val(Tag), Arity) of
-                {error, State3} -> {State3, TupleType};
-                {ok, RecType, State3} ->
-                  State4 = state__store_conj(TupleType, sub, RecType, State3),
-                  {State4, TupleType}
+      case State2#state.tolerant of
+        true ->
+          {State2, TupleType};
+        false ->
+          case Elements of
+            [Tag|Fields] ->
+              case cerl:is_c_atom(Tag) andalso is_literal_record(Tree) of
+                true ->
+                  %% Check if a record is constructed.
+                  Arity = length(Fields),
+                  case lookup_record(State2, cerl:atom_val(Tag), Arity) of
+                    {error, State3} -> {State3, TupleType};
+                    {ok, RecType, State3} ->
+                      State4 = state__store_conj(TupleType, sub, RecType, State3),
+                      {State4, TupleType}
+                  end;
+                false -> {State2, TupleType}
               end;
-	    false -> {State2, TupleType}
-          end;
-	[] -> {State2, TupleType}
+            [] -> {State2, TupleType}
+          end
       end;
     map ->
       Entries = cerl:map_es(Tree),
@@ -2716,7 +2722,7 @@ is_equal(Type1, Type2) ->
 %%
 %% ============================================================================
 
-new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers) ->
+new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers, Tolerant) ->
   List_SCC =
     [begin
        {Var, Label} = dialyzer_codeserver:lookup_mfa_var_label(MFA, CServer),
@@ -2738,7 +2744,7 @@ new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers) ->
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
 	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers,
-         cserver = CServer}.
+         cserver = CServer, tolerant = Tolerant}.
 
 state__set_module(State, Module) ->
   State#state{module = Module}.

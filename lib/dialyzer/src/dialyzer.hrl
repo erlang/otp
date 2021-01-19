@@ -138,7 +138,8 @@
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename(),
-                   solvers                         :: [solver()]}).
+		   solvers                         :: [solver()],
+		   tolerant       = false           :: boolean()}).
 
 -record(options, {files           = []		   :: [file:filename()],
 		  files_rec       = []		   :: [file:filename()],
@@ -162,7 +163,8 @@
 		  check_plt       = true           :: boolean(),
                   solvers         = []             :: [solver()],
                   native          = maybe          :: boolean() | 'maybe',
-                  native_cache    = true           :: boolean()}).
+                  native_cache    = true           :: boolean(),
+                  tolerant        = false          :: boolean()}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],
 		   args		  = []		   :: [erl_types:erl_type()],

@@ -52,7 +52,8 @@
 	  start_from     = byte_code    :: start_from(),
 	  use_contracts  = true         :: boolean(),
 	  timing_server                 :: dialyzer_timing:timing_server(),
-          solvers                       :: [solver()]
+          solvers                       :: [solver()],
+          tolerant                      :: boolean()
 	 }).
 
 -record(server_state,
@@ -129,7 +130,8 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
 			  start_from = Analysis#analysis.start_from,
 			  use_contracts = Analysis#analysis.use_contracts,
 			  timing_server = Analysis#analysis.timing_server,
-                          solvers = Analysis#analysis.solvers
+                          solvers = Analysis#analysis.solvers,
+                          tolerant = Analysis#analysis.tolerant
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, TmpCServer0} = compile_and_store(Files, State),
@@ -235,18 +237,19 @@ analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
                                              plt = Plt,
 					     timing_server = TimingServer,
 					     parent = Parent,
-                                             solvers = Solvers} = State) ->
+                                             solvers = Solvers,
+                                             tolerant = Tolerant} = State) ->
   case State#analysis_state.analysis_type of
     plt_build ->
       NewPlt =
         dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
-                                                TimingServer, Solvers, Parent),
+                                                TimingServer, Solvers, Tolerant, Parent),
       dialyzer_callgraph:delete(Callgraph),
       State#analysis_state{plt = NewPlt, doc_plt = DocPlt};
     succ_typings ->
       {Warnings, NewPlt, NewDocPlt} =
         dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-                                           TimingServer, Solvers, Parent),
+                                           TimingServer, Solvers, Tolerant, Parent),
       dialyzer_callgraph:delete(Callgraph),
       Warnings1 = filter_warnings(Warnings, Codeserver),
       send_warnings(State#analysis_state.parent, Warnings1),
