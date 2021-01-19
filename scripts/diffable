@@ -538,6 +538,8 @@ rejoin_atoms([Op|Ops]) ->
 rejoin_atoms([]) ->
     [].
 
+find_labels([], _Name, _Arity) ->
+    #{};
 find_labels(Is, Name, Arity) ->
     [_,[Entry|_]|_] = Is,
     EntryLabel = iolist_to_binary(io_lib:format("~p/~p", [Name,Arity])),
