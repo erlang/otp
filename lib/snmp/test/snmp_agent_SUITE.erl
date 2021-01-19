@@ -5005,16 +5005,74 @@ command_handler([]) ->
     ok;
 command_handler([{_No, _Desc, Cmd}|Rest]) ->
     ?IPRINT("command_handler -> command ~w: ~n   ~s", [_No, _Desc]),
-    case (catch Cmd()) of
-	ok ->
-	    ?IPRINT("command_handler -> ~w: ok", [_No]),
-	    command_handler(Rest);
-	{error, Reason} ->
-	    ?EPRINT("command_handler -> ~w error: ~n~p", [_No, Reason]),
-	    ?line ?FAIL(Reason);
-	Error ->
-	    ?EPRINT("command_handler -> ~w unexpected: ~n~p", [_No, Error]),
-	    ?line ?FAIL({unexpected_command_result, Error})
+    %% case (catch Cmd()) of
+    %%     ok ->
+    %%         ?IPRINT("command_handler -> ~w: ok", [_No]),
+    %%         command_handler(Rest);
+    %%     {error, Reason} ->
+    %%         ?EPRINT("command_handler -> ~w error: ~n~p", [_No, Reason]),
+    %%         ?line ?FAIL(Reason);
+    %%     Error ->
+    %%         ?EPRINT("command_handler -> ~w unexpected: ~n~p", [_No, Error]),
+    %%         ?line ?FAIL({unexpected_command_result, Error})
+    %% end.
+    try Cmd() of
+        ok ->
+            ?IPRINT("command_handler -> ~w: ok", [_No]),
+            command_handler(Rest);
+        {error, Reason} ->
+            ?IPRINT("command_handler -> command ~w error", [_No]),
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT("command_handler -> ~w error: ~n~p", [_No, Reason]),
+                    ?line ?FAIL(Reason);
+                true ->
+                    ?WPRINT("command_handler -> "
+                            "failed when we got system events: "
+                            "~n   Reason:     ~p"
+                            "~n   Sys Events: ~p"
+                            "~n", [Reason, SysEvs]),
+                    ?SKIP([{reason, Reason}, {system_events, SysEvs}])
+            end;
+        Error ->
+            ?IPRINT("command_handler -> command ~w unexpected", [_No]),
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT("command_handler -> "
+                            "~w unexpected: ~n~p", [_No, Error]),
+                    ?line ?FAIL({unexpected_command_result, Error});
+                true ->
+                    ?WPRINT("command_handler -> "
+                            "unexpected when we got system events: "
+                            "~n   Unexpected: ~p"
+                            "~n   Sys Events: ~p"
+                            "~n", [Error, SysEvs]),
+                    ?SKIP([{unexpected, Error}, {system_events, SysEvs}])
+            end
+    catch
+        C:E:S ->
+            ?IPRINT("command_handler -> command ~w catched", [_No]),
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT("command_handler -> ~w catched: "
+                            "~n   Class: ~p"
+                            "~n   Error: ~p"
+                            "~n   Stack: ~p", [_No, C, E, S]),
+                    ?line ?FAIL({catched_command_result, {C, E, S}});
+                true ->
+                    ?WPRINT("command_handler -> "
+                            "catched when we got system events: "
+                            "~n   Catched: "
+                            "~n      Class:   ~p"
+                            "~n      Error:   ~p"
+                            "~n      Stack:   ~p"
+                            "~n   Sys Events: ~p"
+                            "~n", [C, E, S, SysEvs]),
+                    ?SKIP([{catched, {C, E, S}}, {system_events, SysEvs}])
+            end
     end.
     
 
@@ -8675,5 +8733,3 @@ rcall(Node, Mod, Func, Args) ->
 	Else ->
 	    Else
     end.
-
-
