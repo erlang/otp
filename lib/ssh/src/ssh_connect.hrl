@@ -206,6 +206,7 @@
 -define(IXANY,39).      %% Any char will restart after stop.
 -define(IXOFF,40).      %% Enable input flow control.
 -define(IMAXBEL,41).    %% Ring bell on input queue full.
+-define(IUTF8,42).      %% Terminal input and output is assumed to be encoded in UTF-8.
 -define(ISIG,50).       %% Enable signals INTR, QUIT, [D]SUSP.
 -define(ICANON,51).     %% Canonicalize input lines.
 -define(XCASE,52).      %% Enable input and output of uppercase characters by
