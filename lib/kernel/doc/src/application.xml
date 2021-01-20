@@ -371,12 +371,12 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
         <list type="bulleted">
           <item>If a permanent application terminates, all other
            applications and the entire Erlang node are also terminated.</item>
-          <item>
+          <item>If a transient application terminates:
 	    <list type="bulleted">
-	      <item>If a transient application terminates with <c>Reason == normal</c>,
-	      this is reported but no other applications are terminated.</item>
-	      <item>If a transient application terminates abnormally, all other
-	      applications and the entire Erlang node are also terminated.</item>
+	      <item>with <c>Reason == normal</c>, this is reported but no other
+                applications are terminated.</item>
+	      <item>abnormally, all other applications and the entire Erlang
+                node are also terminated.</item>
 	    </list>
 	   </item>
           <item>If a temporary application terminates, this is reported
