@@ -37,6 +37,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, strip_add_chunks/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
+-export([test_makedep_abstract_code/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -46,7 +47,9 @@ suite() ->
 
 all() -> 
     [error, normal, cmp, cmp_literals, strip, strip_add_chunks, otp_6711,
-     building, md5, encrypted_abstr, encrypted_abstr_file].
+     building, md5, encrypted_abstr, encrypted_abstr_file,
+     test_makedep_abstract_code
+    ].
 
 groups() -> 
     [].
@@ -776,6 +779,37 @@ do_encrypted_abstr_file(Beam, Key) ->
     {ok,_} = beam_lib:clear_crypto_key_fun(),
     {error,beam_lib,Error} = beam_lib:chunks(Beam, [abstract_code]),
     ok.
+
+test_makedep_abstract_code(Conf) ->
+    PrivDir = ?privdir,
+    ErlFile = filename:join(PrivDir, "hello.erl"),
+    BeamFile = filename:join(PrivDir, "hello.beam"),
+    file:write_file(ErlFile,
+		    ["-module(hello).\n",
+		     "-export([start/0]).\n",
+		     "start() -> ok.\n"
+		    ]),
+    DependDir = filename:join(PrivDir, "depend"),
+    file:make_dir(DependDir),
+    DependFile = filename:join(DependDir,"hello.d"),
+    compile:file(ErlFile,
+		 [debug_info,
+		  makedep_side_effect,
+		  {outdir, PrivDir},
+		  {makedep_output, DependFile}]),
+    file:delete(DependFile),
+    file:del_dir(DependDir),
+    case beam_lib:chunks(BeamFile, [debug_info]) of
+	{ok, {Module, [{debug_info, {debug_info_v1,
+				     _Backend=erl_abstract_code,Metadata}}]}} ->
+	    SrcOpts = [no_copt, to_core, binary, return_errors,
+		       no_inline, strict_record_tests, strict_record_updates,
+		       dialyzer, no_spawn_compiler_process],
+	    {ok,_} = erl_abstract_code:debug_info(core_v1, Module, Metadata,
+						  SrcOpts),
+            ok
+    end.
+    
 
 write_crypt_file(Contents0) ->
     Contents = list_to_binary([Contents0]),

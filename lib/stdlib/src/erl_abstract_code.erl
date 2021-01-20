@@ -22,6 +22,7 @@ delete_reports(Opts) ->
 is_report_option(report) -> true;
 is_report_option(report_errors) -> true;
 is_report_option(report_warnings) -> true;
+is_report_option(makedep_side_effect) -> true;
 is_report_option(_) -> false.
 
 add_core_returns(Opts) ->
