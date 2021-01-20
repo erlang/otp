@@ -43,6 +43,10 @@
 
 -type env_var_name_value() :: nonempty_string().
 
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_cause/2, badarg_with_info/1]}).
+
 -spec env() -> [{env_var_name(), env_var_value()}].
 env() ->
     erlang:nif_error(undef).
@@ -69,7 +73,12 @@ perf_counter() ->
       Unit :: erlang:time_unit().
 
 perf_counter(Unit) ->
-      erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit).
+    try
+        erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit)
+    catch
+        error:_ ->
+            badarg_with_info([Unit])
+    end.
 
 -spec putenv(VarName, Value) -> true when
       VarName :: env_var_name(),
@@ -119,11 +128,14 @@ getenv() ->
       DefaultValue :: env_var_value(),
       Value :: env_var_value().
 getenv(VarName, DefaultValue) ->
-    case os:getenv(VarName) of
+    try os:getenv(VarName) of
         false ->
            DefaultValue;
         Value ->
             Value
+    catch
+        error:_ ->
+            badarg_with_info([VarName, DefaultValue])
     end.
 
 -spec type() -> {Osfamily, Osname} when
@@ -245,23 +257,46 @@ extensions() ->
 -spec cmd(Command) -> string() when
       Command :: os_command().
 cmd(Cmd) ->
-    cmd(Cmd, #{ }).
+    try
+        cmd(Cmd, #{ })
+    catch
+        error:_ ->
+            badarg_with_info([Cmd])
+    end.
 
 -spec cmd(Command, Options) -> string() when
       Command :: os_command(),
       Options :: os_command_opts().
 cmd(Cmd, Opts) ->
+    try
+        do_cmd(Cmd, Opts)
+    catch
+        throw:badopt ->
+            badarg_with_cause([Cmd, Opts], badopt);
+        error:_ ->
+            badarg_with_info([Cmd, Opts])
+    end.
+
+do_cmd(Cmd, Opts) ->
+    MaxSize = get_option(max_size, Opts, infinity),
     {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), validate(Cmd)),
     Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
                                          stream, in, hide | SpawnOpts]),
     MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
-    Bytes = get_data(Port, MonRef, Eot, [], 0, maps:get(max_size, Opts, infinity)),
+    Bytes = get_data(Port, MonRef, Eot, [], 0, MaxSize),
     demonitor(MonRef, [flush]),
     String = unicode:characters_to_list(Bytes),
     if  %% Convert to unicode list if possible otherwise return bytes
 	is_list(String) -> String;
 	true -> binary_to_list(Bytes)
+    end.
+
+get_option(Opt, Options, Default) ->
+    case Options of
+        #{Opt := Value} -> Value;
+        #{} -> Default;
+        _ -> throw(badopt)
     end.
 
 mk_cmd({win32,Wtype}, Cmd) ->
@@ -376,3 +411,9 @@ flush_exit(Port) ->
     after 0 ->
             ok
     end.
+
+badarg_with_cause(Args, Cause) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_kernel_errors,
+                                               cause => Cause}}]).
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_kernel_errors}}]).

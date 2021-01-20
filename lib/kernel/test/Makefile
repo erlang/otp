@@ -68,6 +68,7 @@ MODULES= \
 	erl_prim_loader_SUITE \
 	erl_uds_dist \
 	error_handler_SUITE \
+	error_info_lib \
 	error_logger_SUITE \
 	error_logger_warn_SUITE \
 	file_SUITE \
