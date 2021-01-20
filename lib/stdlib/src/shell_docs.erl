@@ -49,11 +49,13 @@
                   columns
                 }).
 
--define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,h4,h5,h6,i,em,pre,code,ul,ol,li,dl,dt,dd]).
+-define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,h4,h5,h6,
+                      i,b,em,strong,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
--define(INLINE,[i,em,code,a]).
+-define(INLINE,[i,b,em,strong,code,a]).
 -define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
-                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= em))).
+                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= em)
+                         orelse ((ELEM) =:= b) orelse ((ELEM) =:= strong))).
 %% non-inline elements are:
 -define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3,h4,h5,h6]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
@@ -71,7 +73,7 @@
 -type chunk_element_attrs() :: [chunk_element_attr()].
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
--type chunk_element_inline_type() :: a | code |  em | i.
+-type chunk_element_inline_type() :: a | code | em | strong | i | b.
 -type chunk_element_block_type() :: p | 'div' | br | pre | ul |
                                     ol | li | dl | dt | dd |
                                     h1 | h2 | h3 | h4 | h5 | h6.
@@ -618,7 +620,7 @@ render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta
               BinSpec =
                   unicode:characters_to_binary(
                     string:trim(Spec, trailing, "\n")),
-              [{pre,[],[{em,[],BinSpec}]}|render_meta(Meta)]
+              [{pre,[],[{strong,[],BinSpec}]}|render_meta(Meta)]
       end, Specs);
 render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
     lists:flatmap(
@@ -755,9 +757,9 @@ render_element({IgnoreMe,_,Content}, State, Pos, Ind,D)
 
 %% Catch h* before the padding is done as they reset padding
 render_element({h1,_,Content},State,0 = Pos,_Ind,D) ->
-    trimnlnl(render_element({code,[],[{em,[],Content}]}, State, Pos, 0, D));
+    trimnlnl(render_element({code,[],[{strong,[],Content}]}, State, Pos, 0, D));
 render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
-    trimnlnl(render_element({em,[],Content}, State, Pos, 0, D));
+    trimnlnl(render_element({strong,[],Content}, State, Pos, 0, D));
 render_element({H,_,Content},State,Pos,_Ind,D)
   when Pos =< 2, H =:= h3 orelse H =:= h4 orelse H =:= h5 orelse H =:= h6 ->
     trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
@@ -787,6 +789,8 @@ render_element({code,_,Content},State,Pos,Ind,D) ->
     {Docs, NewPos} = render_docs(Content, [code|State], Pos, Ind,D),
     {[Underline,Docs,ransi(underline)], NewPos};
 
+render_element({em,Attr,Content},State,Pos,Ind,D) ->
+    render_element({i,Attr,Content},State,Pos,Ind,D);
 render_element({i,_,Content},State,Pos,Ind,D) ->
     %% Just ignore i as ansi does not have cursive style
     render_docs(Content, State, Pos, Ind,D);
@@ -794,7 +798,9 @@ render_element({i,_,Content},State,Pos,Ind,D) ->
 render_element({br,[],[]},_State,Pos,_Ind,_D) ->
     {"",Pos};
 
-render_element({em,_,Content},State,Pos,Ind,D) ->
+render_element({strong,Attr,Content},State,Pos,Ind,D) ->
+    render_element({b,Attr,Content},State,Pos,Ind,D);
+render_element({b,_,Content},State,Pos,Ind,D) ->
     Bold = sansi(bold),
     {Docs, NewPos} = render_docs(Content, State, Pos, Ind,D),
     {[Bold,Docs,ransi(bold)], NewPos};

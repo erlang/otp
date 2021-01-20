@@ -228,7 +228,7 @@ build_dom({ignorableWhitespace, String},
           #state{dom=[{Name,_,_} = _E|_]} = State) ->
     case lists:member(Name,
                       [p,pre,input,code,quote,warning,
-                       note,dont,do,c,i,em,strong,
+                       note,dont,do,c,b,i,em,strong,
                        seemfa,seeerl,seetype,seeapp,
                        seecom,seecref,seefile,seeguide,
                        tag,item]) of
@@ -354,8 +354,6 @@ transform([{datatype_title,_Attr,_Content}|T],Acc) ->
 %% transform <desc>Content</desc> to Content
 transform([{desc,_Attr,Content}|T],Acc) ->
     transform(T,[transform(Content,[])|Acc]);
-transform([{strong,Attr,Content}|T],Acc) ->
-    transform([{em,Attr,Content}|T],Acc);
 %% transform <marker id="name"/>  to <a id="name"/>....
 transform([{marker,Attrs,Content}|T],Acc) ->
     transform(T,[{a,a2b(Attrs),transform(Content,[])}|Acc]);
