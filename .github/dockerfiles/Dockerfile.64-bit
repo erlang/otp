@@ -23,6 +23,9 @@ RUN  ./configure --prefix=/otp && \
         if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
         make && make install
 
+## Disable -Werror as testcases do not compile with it on
+ENV CFLAGS="-O2 -g"
+
 RUN TESTSUITE_ROOT=/tests ./otp_build tests
 
 ENTRYPOINT ["bash","-c"]
