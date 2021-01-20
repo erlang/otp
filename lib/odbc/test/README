@@ -47,7 +47,7 @@ something like this:
 
 --- Start example of .odbc.ini ----
 
-[Postgres]
+[PostgresLinux64Ubuntu]
 Driver=/usr/lib/psqlodbc.so 
 Description=Postgres driver
 ServerName=myhost
