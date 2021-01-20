@@ -34,10 +34,11 @@ help() ->
 	      "Environment variable ASAN_LOG_DIR is used if InDir\n"
 	      "is not specified\n\n", []).
 
--record(logacc, {srcfile,
-                 app = none,
-                 app_err = 0,
-                 tc_err = 0}).
+-record(logacc, {srcfile,            % full path of current log file
+                 did_output = false, % output contribution from srcfile
+                 app = none,         % current application
+                 app_err = 0,        % nr of reported errors from application
+                 tc_err = 0}).       % nr of reported errors from srcfile (test case)
 
 run(OutDir, InDir) ->
     {ok, InFilesUS} = file:list_dir(InDir),
@@ -54,15 +55,15 @@ run(OutDir, InDir) ->
 		          "<h1>Address Sanitizer</h1>\n">>),
 
     {_, _, LogAcc2} =
-        lists:foldl(fun(File, {LM, RegEx, LogAcc0}) ->
-                            io:format("analyze ~s\n", [File]),
-                            LogAcc1 = LogAcc0#logacc{srcfile=filename:join(InDir,File)},
-                            analyze_log_file(Out, {LM, RegEx, LogAcc1})
+        lists:foldl(fun(File, {LM, RegEx, LogAcc}) ->
+                            analyze_log_file(Out, filename:join(InDir,File),
+                                             {LM, RegEx, LogAcc})
                     end,
                     {#{}, none, #logacc{}},
                     InFiles),
 
-    app_end(Out, LogAcc2),
+    LogAcc3 = app_end(Out, LogAcc2),
+    try_delete_srcfile(LogAcc3),
 
     Time = calendar:system_time_to_rfc3339(erlang:system_time(second),
                                            [{time_designator, 32}]),
@@ -81,25 +82,41 @@ run(OutDir, InDir) ->
     io:format("Generated file ~s\n", [OutFile]),
     ok.
 
-analyze_log_file(Out, {LeakMap0, RegEx0, LogAcc0}) ->
+analyze_log_file(Out, SrcFile, {LeakMap0, RegEx0, LogAcc0}=Acc) ->
 
-    #logacc{srcfile=SrcFile, app=PrevApp} = LogAcc0,
+    #logacc{app=PrevApp} = LogAcc0,
 
-    %% Is it a new application?
-    LogAcc1 = case string:lexemes(filename:basename(SrcFile), "-") of
-                  [_Exe, PrevApp | _] ->
-                      LogAcc0#logacc{tc_err=0};
-                  [_Exe, NewApp | _] ->
-                      app_end(Out, LogAcc0),
-                      LogAcc0#logacc{app=NewApp, app_err=0, tc_err=0}
-              end,
+    case filelib:is_regular(SrcFile) of
+        false ->
+            Acc;
+        true ->
+            FileName = filename:basename(SrcFile),
+            %%io:format("analyze ~s\n", [FileName]),
 
-    case LogAcc1#logacc.app_err of
-        truncated ->
-            {LeakMap0, RegEx0, LogAcc1};
-        _ ->
-            {ok, Bin} = file:read_file(SrcFile),
-            match_loop(Out, Bin, RegEx0, LogAcc1, 0, [], LeakMap0)
+            %% Is it a new application?
+            LogAcc2 = case string:lexemes(FileName, "-") of
+                          [_Exe, PrevApp | _] ->
+                              try_delete_srcfile(LogAcc0),
+                              LogAcc0#logacc{srcfile=SrcFile,
+                                             tc_err=0,
+                                             did_output=false};
+                          [_Exe, NewApp | _] ->
+                              LogAcc1 = app_end(Out, LogAcc0),
+                              try_delete_srcfile(LogAcc1),
+                              LogAcc1#logacc{srcfile=SrcFile,
+                                             app=NewApp,
+                                             app_err=0,
+                                             tc_err=0,
+                                             did_output=false}
+                      end,
+
+            case LogAcc2#logacc.app_err of
+                truncated ->
+                    {LeakMap0, RegEx0, LogAcc2};
+                _ ->
+                    {ok, Bin} = file:read_file(SrcFile),
+                    match_loop(Out, Bin, RegEx0, LogAcc2, 0, [], LeakMap0)
+            end
     end.
 
 -define(APP_ERR_LIMIT, 200).
@@ -208,7 +225,7 @@ match_loop(Out, Bin, RegEx0, LogAcc0, PrevEnd, Unmatched0, LM0) ->
                         ok = io:format(Out, "<h2>WARNING!!! May be unmatched error reports"
                                        " in file ~s:</h2>\n<p><pre>~s</pre></p>",
                                        [LogAcc1#logacc.srcfile, Unmatched1]),
-                        LogAcc1;
+                        LogAcc1#logacc{tc_err = LogAcc1#logacc.tc_err+1};
                     false ->
                         LogAcc0
                 end,
@@ -222,47 +239,52 @@ insert_leak(LeakMap, Key, Bytes, Blocks) ->
     LeakMap#{Key => {Bytes, Blocks}}.
 
 log_error(Out, #logacc{app_err=AppErr, tc_err=TcErr}=LogAcc) ->
-    case AppErr of
-        0 ->
-            %% First error in application, print clickable app header
-            ok = io:format(Out, "<button type=\"button\" "
-                           "class=\"app_err\">"
-                           "~s</button>\n"
-                           "<div class=\"content\">", [LogAcc#logacc.app]);
-        _ ->
-            ok
-    end,
+    DidApp = case AppErr of
+                 0 ->
+                     %% First error in application, print clickable app button
+                     ok = io:format(Out, "<button type=\"button\" "
+                                    "class=\"app_err\">"
+                                    "~s</button>\n"
+                                    "<div class=\"content\">", [LogAcc#logacc.app]),
+                     true;
+                 _ ->
+                     false
+             end,
 
-    case TcErr of
-        0 ->
-            %% First error in test case, print test case header
-            SrcFile = LogAcc#logacc.srcfile,
-            TcFile = filename:basename(SrcFile),
-            case string:lexemes(TcFile, "-") of
-                [_Exe, App, _Rest] ->
-                    ok = io:format(Out, "<h3>Before first test case of ~s</h3>\n",
-                                   [App]);
-                [_Exe, _App, "tc", Num, Mod, Rest] ->
-                    [Func | _] = string:lexemes(Rest, "."),
-                    ok = io:format(Out, "<h3>Test case #~s ~s:~s</h3>\n", [Num, Mod, Func]);
+    DidTc = case TcErr of
+                0 ->
+                    %% First error in test case, print test case header
+                    SrcFile = LogAcc#logacc.srcfile,
+                    TcFile = filename:basename(SrcFile),
+                    case string:lexemes(TcFile, "-") of
+                        [_Exe, App, _Rest] ->
+                            ok = io:format(Out, "<h3>Before first test case of ~s</h3>\n",
+                                           [App]);
+                        [_Exe, _App, "tc", Num, Mod, Rest] ->
+                            [Func | _] = string:lexemes(Rest, "."),
+                            ok = io:format(Out, "<h3>Test case #~s ~s:~s</h3>\n", [Num, Mod, Func]);
+                        _ ->
+                            ok = io:format(Out, "<h3>Strange log file name '~s'</h3>\n",
+                                           [SrcFile])
+                    end,
+                    true;
                 _ ->
-                    ok = io:format(Out, "<h3>Strange log file name '~s'</h3>\n",
-                                   [SrcFile])
-            end;
-        _ ->
-            ok
-    end,
-    LogAcc#logacc{app_err=AppErr+1, tc_err=TcErr+1}.
+                    false
+            end,
+    LogAcc#logacc{app_err=AppErr+1, tc_err=TcErr+1,
+                  did_output = (LogAcc#logacc.did_output or DidApp or DidTc)}.
 
 app_end(Out, LogAcc) ->
     case LogAcc of
         #logacc{app=none} ->
-            ignore;
+            LogAcc;
         #logacc{app_err=0} ->
             ok = io:format(Out, "<button class=\"app_ok\" disabled>~s</button>\n",
-                           [LogAcc#logacc.app]);
+                           [LogAcc#logacc.app]),
+            LogAcc#logacc{did_output = true};
         #logacc{} ->
-            ok = io:format(Out, "</div>", [])
+            ok = io:format(Out, "</div>", []),
+            LogAcc
     end.
 
 style(error) ->
@@ -285,6 +307,31 @@ run_regex(Bin, RegEx, _, _, RunOpts) ->
 	    {nomatch, RegEx};
 	{match, Match} ->
 	    {Match, RegEx}
+    end.
+
+try_delete_srcfile(LogAcc) ->
+    case LogAcc of
+        #logacc{srcfile=undefined} ->
+            ignore;
+        #logacc{did_output=false} ->
+            %% This file did not contribute any output.
+            %% Optimize future script invokations by removing it.
+            delete_file(LogAcc#logacc.srcfile);
+        _ ->
+            keep
+    end.
+
+delete_file(File) ->
+    case filelib:is_regular(File) of
+        true ->
+            io:format("Delete file ~p\n", [File]),
+            Dir = filename:dirname(File),
+            Name = filename:basename(File),
+            Trash = filename:join([Dir, "DELETED", Name]),
+            ok = filelib:ensure_dir(Trash),
+            ok = file:rename(File, Trash);
+        false ->
+            ignore
     end.
 
 style_block() ->
