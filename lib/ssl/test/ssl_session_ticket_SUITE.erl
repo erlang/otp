@@ -666,9 +666,10 @@ early_data_trial_decryption_big(Config) when is_list(Config) ->
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    %% Send more early data than max_early_data_size (16384) to verify calculation
+    %% Send more early data than max_early_data_size to verify calculation
     %% of plain text size in the server.
-    ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16385)}|ClientOpts1],
+    MaxEarlyDataSize = 10000,
+    ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16384)}|ClientOpts1],
 
     %% TODO Implement testcase that verifies the failure of trial decryption
     %% in the server.
@@ -692,6 +693,7 @@ early_data_trial_decryption_big(Config) when is_list(Config) ->
                   {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
+    application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
@@ -699,6 +701,7 @@ early_data_trial_decryption_big(Config) when is_list(Config) ->
                                           verify_active_session_resumption,
                                           [false]}},
 				   {options, ServerOpts}]),
+    application:unset_env(ssl, server_session_ticket_max_early_data),
     Port0 = ssl_test_lib:inet_port(Server0),
 
     %% Store ticket from first connection
@@ -709,6 +712,7 @@ early_data_trial_decryption_big(Config) when is_list(Config) ->
                                                 [false, no_reply, {tickets, 1}]}},
                                          {from, self()}, {options, ClientOpts1}]),
     Tickets0 = ssl_test_lib:check_tickets(Client0),
+    ssl_test_lib:verify_session_ticket_extension(Tickets0, MaxEarlyDataSize),
     %% ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
     Server0 ! {listen, {mfa, {ssl_test_lib,

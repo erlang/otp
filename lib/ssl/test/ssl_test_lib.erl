@@ -25,6 +25,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("tls_handshake_1_3.hrl").
+-include_lib("ssl/src/tls_handshake_1_3.hrl").
 
 -export([clean_start/0,
          clean_start/1,
@@ -100,6 +102,7 @@
          verify_active_session_resumption/4,
          verify_active_session_resumption/5,
          verify_server_early_data/3,
+         verify_session_ticket_extension/2,
          check_sane_openssl_version/1,
          check_ok/1,
          check_result/4,
@@ -2680,6 +2683,20 @@ verify_server_early_data(Socket, WaitForReply, EarlyData) ->
             ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else1])
     end,
     ok.
+
+verify_session_ticket_extension([Ticket0|_], MaxEarlyDataSize) ->
+    #{ticket := #new_session_ticket{
+                   extensions = #{early_data :=
+                                      #early_data_indication_nst{
+                                         indication = Size}}}} = Ticket0,
+      case Size of
+          MaxEarlyDataSize ->
+              ct:log("~p:~p~nmax_early_data_size verified! (expected ~p, got ~p)!",
+                     [?MODULE, ?LINE, MaxEarlyDataSize, Size]);
+          Else ->
+              ct:log("~p:~p~nFailed to verify max_early_data_size! (expected ~p, got ~p)!",
+                     [?MODULE, ?LINE, MaxEarlyDataSize, Else])
+      end.
 
 boolean_to_log_msg(true) ->
     "OK";
