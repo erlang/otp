@@ -94,10 +94,24 @@ analyze_log_file(Out, {LeakMap0, RegEx0, LogAcc0}) ->
                       LogAcc0#logacc{app=NewApp, app_err=0, tc_err=0}
               end,
 
-    {ok, Bin} = file:read_file(SrcFile),
+    case LogAcc1#logacc.app_err of
+        truncated ->
+            {LeakMap0, RegEx0, LogAcc1};
+        _ ->
+            {ok, Bin} = file:read_file(SrcFile),
+            match_loop(Out, Bin, RegEx0, LogAcc1, 0, [], LeakMap0)
+    end.
 
-    match_loop(Out, Bin, RegEx0, LogAcc1, 0, [], LeakMap0).
+-define(APP_ERR_LIMIT, 200).
 
+match_loop(Out, _, RegEx, #logacc{app_err=AppErr}=LogAcc0, _, _, LM)
+  when AppErr >= ?APP_ERR_LIMIT ->
+
+    LogAcc1 = log_error(Out, LogAcc0),
+    ok = io:format(Out, "<h2>WARNING!!! Log truncated for application ~p,"
+                   " more than ~p errors found.</h2>\n",
+                   [LogAcc1#logacc.app, ?APP_ERR_LIMIT]),
+    {LM, RegEx, LogAcc1#logacc{app_err=truncated}};
 
 match_loop(Out, Bin, RegEx0, LogAcc0, PrevEnd, Unmatched0, LM0) ->
     {Match, RegEx1} =
