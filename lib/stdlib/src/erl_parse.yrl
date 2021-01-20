@@ -240,7 +240,7 @@ expr -> function_call : '$1'.
 expr -> record_expr : '$1'.
 expr -> expr_remote : '$1'.
 
-expr_remote -> expr_max ':' expr_max : {remote,?anno('$2'),'$1','$3'}.
+expr_remote -> expr_max ':' expr_max : {remote,first_anno('$1'),'$1','$3'}.
 expr_remote -> expr_max : '$1'.
 
 expr_max -> var : '$1'.
@@ -292,7 +292,7 @@ list -> '[' expr tail : {cons,?anno('$1'),'$2','$3'}.
 
 tail -> ']' : {nil,?anno('$1')}.
 tail -> '|' expr ']' : '$2'.
-tail -> ',' expr tail : {cons,?anno('$2'),'$2','$3'}.
+tail -> ',' expr tail : {cons,first_anno('$2'),'$2','$3'}.
 
 
 binary -> '<<' '>>' : {bin,?anno('$1'),[]}.
@@ -302,7 +302,7 @@ bin_elements -> bin_element : ['$1'].
 bin_elements -> bin_element ',' bin_elements : ['$1'|'$3'].
 
 bin_element -> bit_expr opt_bit_size_expr opt_bit_type_list :
-	{bin_element,?anno('$1'),'$1','$2','$3'}.
+	{bin_element,first_anno('$1'),'$1','$2','$3'}.
 
 bit_expr -> prefix_op expr_max : ?mkop1('$1', '$2').
 bit_expr -> expr_max : '$1'.
@@ -353,10 +353,10 @@ map_field -> map_field_assoc : '$1'.
 map_field -> map_field_exact : '$1'.
 
 map_field_assoc -> map_key '=>' expr :
-	{map_field_assoc,?anno('$1'),'$1','$3'}.
+	{map_field_assoc,?anno('$2'),'$1','$3'}.
 
 map_field_exact -> map_key ':=' expr :
-	{map_field_exact,?anno('$1'),'$1','$3'}.
+	{map_field_exact,?anno('$2'),'$1','$3'}.
 
 map_key -> expr : '$1'.
 
@@ -370,13 +370,13 @@ record_expr -> '#' atom '.' atom :
 record_expr -> '#' atom record_tuple :
 	{record,?anno('$1'),element(3, '$2'),'$3'}.
 record_expr -> expr_max '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
+	{record_field,first_anno('$1'),'$1',element(3, '$3'),'$5'}.
 record_expr -> expr_max '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
+	{record,first_anno('$1'),'$1',element(3, '$3'),'$4'}.
 record_expr -> record_expr '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
+	{record_field,first_anno('$1'),'$1',element(3, '$3'),'$5'}.
 record_expr -> record_expr '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
+	{record,first_anno('$1'),'$1',element(3, '$3'),'$4'}.
 
 record_tuple -> '{' '}' : [].
 record_tuple -> '{' record_fields '}' : '$2'.
@@ -390,7 +390,7 @@ record_field -> atom '=' expr : {record_field,?anno('$1'),'$1','$3'}.
 %% N.B. This is called from expr.
 
 function_call -> expr_remote argument_list :
-	{call,?anno('$1'),'$1',element(1, '$2')}.
+	{call,first_anno('$1'),'$1',element(1, '$2')}.
 
 
 if_expr -> 'if' if_clauses 'end' : {'if',?anno('$1'),'$2'}.
@@ -399,7 +399,7 @@ if_clauses -> if_clause : ['$1'].
 if_clauses -> if_clause ';' if_clauses : ['$1' | '$3'].
 
 if_clause -> guard clause_body :
-	{clause,?anno(hd(hd('$1'))),[],'$1','$2'}.
+	{clause,first_anno(hd(hd('$1'))),[],'$1','$2'}.
 
 
 case_expr -> 'case' expr 'of' cr_clauses 'end' :
@@ -413,7 +413,7 @@ cr_clauses -> cr_clause ';' cr_clauses : ['$1' | '$3'].
 %% should be a better way.
 
 cr_clause -> expr clause_guard clause_body :
-	{clause,?anno('$1'),['$1'],'$2','$3'}.
+	{clause,first_anno('$1'),['$1'],'$2','$3'}.
 
 receive_expr -> 'receive' cr_clauses 'end' :
 	{'receive',?anno('$1'),'$2'}.
@@ -444,7 +444,7 @@ fun_clause -> pat_argument_list clause_guard clause_body :
 	{clause,Anno,'fun',Args,'$2','$3'}.
 
 fun_clause -> var pat_argument_list clause_guard clause_body :
-	{clause,element(2, '$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
+	{clause,?anno('$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
 
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
 	build_try(?anno('$1'),'$2','$4','$5').
@@ -462,15 +462,16 @@ try_clauses -> try_clause : ['$1'].
 try_clauses -> try_clause ';' try_clauses : ['$1' | '$3'].
 
 try_clause -> pat_expr clause_guard clause_body :
-	A = ?anno('$1'),
-	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,A,'_'}]}],'$2','$3'}.
+	A = first_anno('$1'),
+        Az = last_anno('$1'), % Good enough...
+	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,Az,'_'}]}],'$2','$3'}.
 try_clause -> atom ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	T = case '$4' of '_' -> {var,A,'_'}; V -> V end,
+	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
 	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 try_clause -> var ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	T = case '$4' of '_' -> {var,A,'_'}; V -> V end,
+	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
 	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 
 try_opt_stacktrace -> ':' var : '$2'.
@@ -559,6 +560,8 @@ Erlang code.
 -export([type_inop_prec/1,type_preop_prec/1]).
 -export([map_anno/2, fold_anno/3, mapfold_anno/3,
          new_anno/1, anno_to_term/1, anno_from_term/1]).
+
+-export([first_location/1]). % Internal export.
 
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
               abstract_type/0, form_info/0, error_info/0]).
@@ -1139,13 +1142,14 @@ build_constraint({atom, A, Atom}, _Foo) ->
 build_constraint({var, A, '_'}, _Types) ->
     ret_err(A, "bad type variable");
 build_constraint(LHS, Type) ->
-    IsSubType = {atom, ?anno(LHS), is_subtype},
-    {type, ?anno(LHS), constraint, [IsSubType, [LHS, Type]]}.
+    Anno = first_anno(LHS),
+    IsSubType = {atom, Anno, is_subtype},
+    {type, Anno, constraint, [IsSubType, [LHS, Type]]}.
 
 lift_unions(T1, {type, _Aa, union, List}) ->
-    {type, ?anno(T1), union, [T1|List]};
+    {type, first_anno(T1), union, [T1|List]};
 lift_unions(T1, T2) ->
-    {type, ?anno(T1), union, [T1, T2]}.
+    {type, first_anno(T1), union, [T1, T2]}.
 
 build_gen_type({atom, Aa, tuple}) ->
     {type, Aa, tuple, any};
@@ -1325,11 +1329,41 @@ ret_abstr_err(Abstract, S) ->
     return_error(first_location(Abstract), S).
 
 first_location(Abstract) ->
-    AllLocations = fold_anno(fun(Anno, Acc) ->
-                                     [location(Anno)|Acc]
-                             end, [], Abstract),
-    [Location|_] = lists:sort(fun loc_lte/2, AllLocations),
-    Location.
+    Anno = first_anno(Abstract),
+    erl_anno:location(Anno).
+
+%% Use the fact that fold_anno() visits nodes from left to right.
+%% Could be a bit slow on deeply nested code without column numbers
+%% even though only the left-most branch is traversed.
+first_anno(Abstract) ->
+    Anno0 = element(2, Abstract),
+    F = fun(Anno, Anno1) ->
+                Loc = erl_anno:location(Anno),
+                Loc1 = erl_anno:location(Anno1),
+                case loc_lte(Loc, Loc1) of
+                    true ->
+                        Anno;
+                    false ->
+                        throw(Anno1)
+                end
+        end,
+    catch fold_anno(F, Anno0, Abstract).
+
+last_anno(Abstract) ->
+    Anno = lists:last(sort_annos(Abstract)),
+    case erl_anno:end_location(Anno) of
+        undefined ->
+            Anno;
+        EndLocation ->
+            erl_anno:set_location(EndLocation, Anno)
+    end.
+
+sort_annos(Abstract) ->
+    AllAnnos = fold_anno(fun(Anno, Acc) -> [Anno|Acc] end, [], Abstract),
+    CF = fun(Anno1, Anno2) ->
+                 loc_lte(erl_anno:location(Anno1), erl_anno:location(Anno2))
+         end,
+    lists:sort(CF, AllAnnos).
 
 loc_lte(Line1, Location2) when is_integer(Line1) ->
     loc_lte({Line1, 1}, Location2);

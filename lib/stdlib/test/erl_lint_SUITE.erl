@@ -1575,11 +1575,11 @@ guard(Config) when is_list(Config) ->
             [warn_unused_vars, nowarn_obsolete_guard],
             {errors,[{{2,27},erl_lint,illegal_guard_expr},
 		     {{4,27},erl_lint,illegal_guard_expr},
-		     {{6,33},erl_lint,illegal_guard_expr},
+		     {{6,27},erl_lint,illegal_guard_expr},
 		     {{8,27},erl_lint,illegal_guard_expr},
-		     {{10,33},erl_lint,illegal_guard_expr},
+		     {{10,27},erl_lint,illegal_guard_expr},
 		     {{12,27},erl_lint,illegal_guard_expr},
-		     {{14,33},erl_lint,illegal_guard_expr}],
+		     {{14,27},erl_lint,illegal_guard_expr}],
 	     []}},
            {guard6,
             <<"-record(apa,{a=a,b=foo:bar()}).
@@ -1607,7 +1607,7 @@ guard(Config) when is_list(Config) ->
 	      t(A) when A ++ [x] -> ok."
 	    >>,
 	    [],
-	    {errors,[{{1,37},erl_lint,illegal_guard_expr},
+	    {errors,[{{1,31},erl_lint,illegal_guard_expr},
 		     {{2,20},erl_lint,illegal_guard_expr},
 		     {{3,20},erl_lint,illegal_guard_expr}],[]}},
            {guard9,
@@ -1615,8 +1615,8 @@ guard(Config) when is_list(Config) ->
                t(X, Y) when erlang:'orelse'(X, Y) -> ok.
             ">>,
             [],
-            {errors,[{{1,40},erl_lint,illegal_guard_expr},
-                     {{2,35},erl_lint,illegal_guard_expr}],
+            {errors,[{{1,34},erl_lint,illegal_guard_expr},
+                     {{2,29},erl_lint,illegal_guard_expr}],
              []}},
            {guard10,
             <<"is_port(_) -> false.
@@ -2073,7 +2073,7 @@ otp_5362(Config) when is_list(Config) ->
              warn_bif_clash]},
            {error,
             [{{5,19},erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
-            [{{4,25},erl_lint,{deprecated,{erlang,now,0},
+            [{{4,19},erl_lint,{deprecated,{erlang,now,0},
                           "see the \"Time and Time Correction in Erlang\" "
                           "chapter of the ERTS User's Guide for more "
                           "information"}}]}},
@@ -2132,7 +2132,7 @@ otp_5362(Config) when is_list(Config) ->
            {[nowarn_unused_function,
              {nowarn_bif_clash,{spawn,1}}]}, % has no effect
            {warnings,
-            [{{5,25},erl_lint,{deprecated,{erlang,now,0},
+            [{{5,19},erl_lint,{deprecated,{erlang,now,0},
                           "see the \"Time and Time Correction in Erlang\" "
                           "chapter of the ERTS User's Guide for more "
                           "information"}}]}},
@@ -2164,7 +2164,7 @@ otp_5362(Config) when is_list(Config) ->
 	   <<"t(X) -> calendar:local_time_to_universal_time(X).">>,
 	   [],
 	   {warnings,
-            [{{1,37},erl_lint,{deprecated,{calendar,local_time_to_universal_time,1},
+            [{{1,29},erl_lint,{deprecated,{calendar,local_time_to_universal_time,1},
                           "use calendar:local_time_to_universal_time_dst/1 "
                           "instead"}}]}},
 
@@ -2172,7 +2172,7 @@ otp_5362(Config) when is_list(Config) ->
 	   <<"t(X) -> erlang:hash(X, 10000).">>,
 	   [],
 	   {warnings,
-            [{{1,35},erl_lint,{removed,{erlang,hash,2},
+            [{{1,29},erl_lint,{removed,{erlang,hash,2},
                           "use erlang:phash2/2 instead"}}]}},
 
 	  {nowarn_call_removed_function_1,
@@ -2188,7 +2188,7 @@ otp_5362(Config) when is_list(Config) ->
 	  {call_removed_module,
 	   <<"t(X) -> os_mon_mib:any_function_really(X).">>,
 	   [],
-           {warnings,[{{1,39},erl_lint,
+           {warnings,[{{1,29},erl_lint,
                        {removed,{os_mon_mib,any_function_really,1},
                         "this module was removed in OTP 22.0"}}]}},
 
@@ -2227,7 +2227,7 @@ otp_15456(Config) when is_list(Config) ->
              {nowarn_deprecated_function,{random,uniform_s,1}},
              {nowarn_deprecated_function,{erlang,abs,1}},
              warn_deprecated_function]},
-           {warnings,[{{5,56},erl_lint,
+           {warnings,[{{5,50},erl_lint,
                        {deprecated,{random,seed,3},
                         "use the 'rand' module instead"}}]}},
 
@@ -2592,7 +2592,7 @@ otp_5878(Config) when is_list(Config) ->
              {{13,31},erl_lint,illegal_guard_expr},
              {{15,35},erl_lint,{undefined_field,r3,q}},
              {{17,34},erl_lint,{undefined_field,r,q}},
-             {{21,41},erl_lint,illegal_guard_expr},
+             {{21,37},erl_lint,illegal_guard_expr},
              {{23,30},erl_lint,{illegal_guard_local_call,{l,0}}}],
            []} = 
         run_test2(Config, Ill1, [warn_unused_record]),
@@ -2656,8 +2656,8 @@ otp_5878(Config) when is_list(Config) ->
                   H3 = q([X || X <- [1,2]], []),
                   {H1,H2,H3}.
              ">>,
-    {warnings,[{{6,27},erl_lint,{missing_qlc_hrl,1}},
-               {{7,27},erl_lint,{missing_qlc_hrl,2}},
+    {warnings,[{{6,24},erl_lint,{missing_qlc_hrl,1}},
+               {{7,24},erl_lint,{missing_qlc_hrl,2}},
                {{8,24},erl_lint,{missing_qlc_hrl,2}}]} =
         run_test2(Config, QLC2, [warn_unused_record]),
 
@@ -3058,7 +3058,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(A,B,C+1).
              ">>,
 	   [],
-	   {errors,[{{4,40},erl_lint,illegal_guard_expr}],[]}},
+	   {errors,[{{4,39},erl_lint,illegal_guard_expr}],[]}},
 	  %% Not with local functions either
 	  {clash20,
            <<"-export([binary_port/3]).
@@ -3646,7 +3646,7 @@ basic_errors(Config) ->
 	  {illegal_expr,
 	   <<"f() -> a:b.">>,
 	   [],
-	   {errors,[{{1,29},erl_lint,illegal_expr}],[]}},
+	   {errors,[{{1,28},erl_lint,illegal_expr}],[]}},
 
 	  {illegal_pattern,
 	   <<"f(A+B) -> ok.">>,
@@ -3732,9 +3732,9 @@ maps(Config) ->
                   ok.
             ">>,
            [],
-           {errors,[{{2,22},erl_lint,illegal_map_construction},
-                    {{4,22},erl_lint,illegal_map_construction},
-                    {{8,34},erl_lint,illegal_map_construction}],
+           {errors,[{{2,24},erl_lint,illegal_map_construction},
+                    {{4,24},erl_lint,illegal_map_construction},
+                    {{8,36},erl_lint,illegal_map_construction}],
             []}},
           {illegal_pattern,
            <<"t(#{ a := A,
@@ -3748,13 +3748,13 @@ maps(Config) ->
                   {A,F}.
             ">>,
            [],
-           {errors,[{{2,20},erl_lint,illegal_pattern},
+           {errors,[{{2,22},erl_lint,illegal_pattern},
                     {{7,28},erl_lint,illegal_pattern}],
             []}},
           {error_in_illegal_map_construction,
            <<"t() -> #{ a := X }.">>,
            [],
-	   {errors,[{{1,31},erl_lint,illegal_map_construction},
+	   {errors,[{{1,33},erl_lint,illegal_map_construction},
                     {{1,36},erl_lint,{unbound_var,'X'}}],
             []}},
           {legal_map_pattern,
@@ -3803,7 +3803,7 @@ maps(Config) ->
 	       A.
 	   ">>,
 	   [],
-	   {errors,[{{4,16},erl_lint,illegal_map_construction},
+	   {errors,[{{4,18},erl_lint,illegal_map_construction},
                     {{6,9},erl_lint,{unbound_var,'V'}}],[]}},
           {unused_vars_with_empty_maps,
            <<"t(Foo, Bar, Baz) -> {#{},#{}}.">>,
@@ -4120,12 +4120,12 @@ non_latin1_module(Config) ->
              {{6,14},erl_lint,non_latin1_module_unsupported},
              {{8,14},erl_lint,non_latin1_module_unsupported},
              {{8,14},erl_lint,BadCallback},
-             {{11,44},erl_lint,illegal_guard_expr},
-             {{15,38},erl_lint,non_latin1_module_unsupported},
+             {{11,23},erl_lint,illegal_guard_expr},
+             {{15,17},erl_lint,non_latin1_module_unsupported},
              {{17,14},erl_lint,non_latin1_module_unsupported},
              {{17,14},erl_lint,BadModule},
              {{20,15},erl_lint,non_latin1_module_unsupported},
-             {{23,38},erl_lint,non_latin1_module_unsupported},
+             {{23,17},erl_lint,non_latin1_module_unsupported},
              {{25,17},erl_lint,non_latin1_module_unsupported}],
             [{{5,14},erl_lint,UndefBehav},
              {{6,14},erl_lint,UndefBehav}]}}],
@@ -4151,7 +4151,7 @@ otp_14378(Config) ->
               t() ->
                  erlang:now().">>,
            [],
-           {warnings,[{{4,24},erl_lint,
+           {warnings,[{{4,18},erl_lint,
                        {deprecated,{erlang,now,0},
                         "see the \"Time and Time Correction in Erlang\" "
                         "chapter of the ERTS User's Guide for more "
@@ -4449,14 +4449,14 @@ inline_nifs(Config) ->
               gurka() -> ok.
              ">>,
            [],
-           {warnings,[{{2,28},erl_lint,nif_inline}]}},
+           {warnings,[{{2,22},erl_lint,nif_inline}]}},
           {explicit_inline,
            <<"-compile({inline, [gurka/0]}).
               t() -> erlang:load_nif([], []).
               gurka() -> ok.
              ">>,
            [],
-           {warnings,[{{2,28},erl_lint,nif_inline}]}}],
+           {warnings,[{{2,22},erl_lint,nif_inline}]}}],
     [] = run(Config, Ts).
 
 warn_missing_spec(Config) ->

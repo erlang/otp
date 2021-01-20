@@ -170,8 +170,8 @@ badarg() ->
     q(bar, cache_all, extra).
 ">>,
        [],
-{errors,[{{5,8},?QLC,not_a_query_list_comprehension},
-	 {{6,8},?QLC,not_a_query_list_comprehension},
+{errors,[{{5,5},?QLC,not_a_query_list_comprehension},
+	 {{6,5},?QLC,not_a_query_list_comprehension},
 	 {{8,5},?QLC,not_a_query_list_comprehension},
 	 {{9,5},?QLC,not_a_query_list_comprehension}],
  []}}],
@@ -5640,7 +5640,7 @@ join_complex(Config) when is_list(Config) ->
                                      ]),
                   qlc:e(Q).">>,
            [],
-           {warnings,[{{3,26},qlc,too_complex_join}]}},
+           {warnings,[{{3,23},qlc,too_complex_join}]}},
 
           {two,
            <<"two() ->
@@ -5653,7 +5653,7 @@ join_complex(Config) when is_list(Config) ->
                       Z =:= W],{join,merge}),
                   qlc:e(Q).">>,
            [],
-           {warnings,[{{2,26},qlc,too_many_joins}]}},
+           {warnings,[{{2,23},qlc,too_many_joins}]}},
 
           {two_again,
            <<"two() ->

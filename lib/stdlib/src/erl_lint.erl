@@ -1730,7 +1730,7 @@ reject_invalid_alias_expr(_, _, _, St) -> St.
 reject_invalid_alias({bin,Anno,_}, {bin,_,_}, _, St) ->
     add_error(Anno, illegal_bin_pattern, St);
 reject_invalid_alias({map,_Anno,Ps1}, {map,_,Ps2}, Vt, St0) ->
-    Fun = fun ({map_field_exact,A,{var,_,K},_V}, Sti) ->
+    Fun = fun ({map_field_exact,_,{var,A,K},_V}, Sti) ->
                   case is_var_bound(K,Vt) of
                       true ->
                           Sti;
