@@ -22,4 +22,5 @@ GENERAL_INFO_CHAPTER_FILES =
 
 GENERAL_INFO_CHAPTER_GEN_FILES = \
 	deprecations.xml \
+	removed.xml \
 	scheduled_for_removal.xml
