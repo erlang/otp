@@ -19,6 +19,7 @@
 %%
 -module(re).
 -export([grun/3,urun/3,ucompile/2,replace/3,replace/4,split/2,split/3]).
+-export_type([mp/0]).
 
 -type mp() :: {re_pattern, _, _, _, _}.
 

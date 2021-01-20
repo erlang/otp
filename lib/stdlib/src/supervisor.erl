@@ -55,9 +55,8 @@
 
 %%--------------------------------------------------------------------------
 
--export_type([sup_flags/0, child_spec/0, strategy/0,
-              startchild_ret/0, startchild_err/0,
-              startlink_ret/0, startlink_err/0]).
+-export_type([sup_flags/0, child_spec/0, restart/0, strategy/0, startchild_ret/0,
+              startchild_err/0, startlink_ret/0, startlink_err/0, shutdown/0]).
 
 %%--------------------------------------------------------------------------
 

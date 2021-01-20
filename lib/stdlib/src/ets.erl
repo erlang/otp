@@ -43,7 +43,7 @@
 
 -export([i/0, i/1, i/2, i/3]).
 
--export_type([tab/0, tid/0, match_spec/0, comp_match_spec/0, match_pattern/0]).
+-export_type([tab/0, tid/0, type/0, match_spec/0, comp_match_spec/0, match_pattern/0]).
 
 %%-----------------------------------------------------------------------------
 
