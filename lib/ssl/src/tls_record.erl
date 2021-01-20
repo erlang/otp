@@ -76,7 +76,8 @@
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
 init_connection_states(Role, BeastMitigation) ->
-    init_connection_states(Role, BeastMitigation, ?DEFAULT_MAX_EARLY_DATA_SIZE).
+    MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
+    init_connection_states(Role, BeastMitigation, MaxEarlyDataSize).
 %%
 -spec init_connection_states(Role, BeastMitigation, MaxEarlyDataSize) ->
           ssl_record:connection_states() when
@@ -492,7 +493,9 @@ initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
       client_verify_data => undefined,
       server_verify_data => undefined,
       max_early_data_size => MaxEarlyDataSize,
-      max_fragment_length => undefined
+      max_fragment_length => undefined,
+      trial_decryption => false,
+      early_data_limit => false
      }.
 
 %% Used by logging to recreate the received bytes

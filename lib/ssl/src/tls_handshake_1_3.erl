@@ -58,7 +58,8 @@
          maybe_add_binders/4,
          maybe_add_early_data_indication/3,
          maybe_automatic_session_resumption/1,
-         maybe_send_early_data/1]).
+         maybe_send_early_data/1,
+         update_current_read/3]).
 
 -export([get_max_early_data/1,
          is_valid_binder/4,
@@ -821,7 +822,6 @@ do_negotiated({start_handshake, PSK0},
         ssl_record:pending_connection_state(ConnectionStates0, read),
     #security_parameters{prf_algorithm = HKDF} = SecParamsR,
 
-
     {Ref,Maybe} = maybe(),
     try
         %% Create server_hello
@@ -842,7 +842,14 @@ do_negotiated({start_handshake, PSK0},
                 true ->
                     ssl_record:step_encryption_state_write(State3);
                 false ->
-                    ssl_record:step_encryption_state(State3)
+                    %% Read state is overwritten when hanshake secrets are set.
+                    %% Trial_decryption and early_data_limit must be set here!
+                    update_current_read(
+                      ssl_record:step_encryption_state(State3),
+                      true,   %% trial_decryption
+                      false   %% early data limit
+                    )
+
             end,
 
         %% Create EncryptedExtensions
@@ -1290,7 +1297,8 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets},
     {_ , PSK} = PSK0,
     State2 = calculate_client_early_traffic_secret(State1, PSK),
     %% Set 0-RTT traffic keys for reading early_data
-    State = ssl_record:step_encryption_state_read(State2),
+    State3 = ssl_record:step_encryption_state_read(State2),
+    State = update_current_read(State3, true, true),
     {ok, {State, negotiated, PSK0}}.
 
 %% Session resumption with early_data
@@ -1640,11 +1648,20 @@ calculate_client_early_traffic_secret(
             State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}};
         server ->
             PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
-            PendingRead = update_connection_state(PendingRead0, undefined, undefined,
-                                                  undefined,
-                                                  Key, IV, undefined),
+            PendingRead1 = update_connection_state(PendingRead0, undefined, undefined,
+                                                   undefined,
+                                                   Key, IV, undefined),
+            %% Signal start of early data. This is to prevent handshake messages to be
+            %% counted in max_early_data_size.
+            PendingRead = PendingRead1#{count_early_data => true},
             State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}
     end.
+
+update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataLimit) ->
+    Read0 = ssl_record:current_connection_state(CS, read),
+    Read = Read0#{trial_decryption => TrialDecryption,
+                  early_data_limit => EarlyDataLimit},
+    State#state{connection_states = CS#{current_read => Read}}.
 
 
 %% Server

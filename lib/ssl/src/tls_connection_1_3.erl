@@ -308,8 +308,8 @@ negotiated(internal, Message, State0) ->
 negotiated(info, Msg, State) ->
     tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State).
 
-wait_cert(internal, #change_cipher_spec{}, State) ->
-    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
+wait_cert(internal, #change_cipher_spec{}, State0) ->
+    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State0);
 wait_cert(internal,
           #certificate_1_3{} = Certificate, State0) ->
     case tls_handshake_1_3:do_wait_cert(Certificate, State0) of
@@ -338,9 +338,8 @@ wait_cv(info, Msg, State) ->
 wait_cv(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
-
-wait_finished(internal, #change_cipher_spec{}, State) ->
-    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
+wait_finished(internal, #change_cipher_spec{}, State0) ->
+    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State0);
 wait_finished(internal,
              #finished{} = Finished, State0) ->
     case tls_handshake_1_3:do_wait_finished(Finished, State0) of

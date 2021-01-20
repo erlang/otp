@@ -460,8 +460,8 @@ nonce_seed(_,_, CipherState) ->
 %%--------------------------------------------------------------------
 
 empty_connection_state(ConnectionEnd, BeastMitigation) ->
-    empty_connection_state(ConnectionEnd, BeastMitigation,
-                           ?DEFAULT_MAX_EARLY_DATA_SIZE).
+    MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
+    empty_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize).
 %%
 empty_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
     SecParams = empty_security_params(ConnectionEnd),
@@ -474,7 +474,9 @@ empty_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
       client_verify_data => undefined,
       server_verify_data => undefined,
       max_early_data_size => MaxEarlyDataSize,
-      max_fragment_length => undefined
+      max_fragment_length => undefined,
+      trial_decryption => false,
+      early_data_limit => false
      }.
 
 empty_security_params(ConnectionEnd = ?CLIENT) ->

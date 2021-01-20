@@ -25,7 +25,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
--include("tls_handshake_1_3.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 
 -export([clean_start/0,
@@ -103,6 +102,7 @@
          verify_active_session_resumption/5,
          verify_server_early_data/3,
          verify_session_ticket_extension/2,
+         update_session_ticket_extension/2,
          check_sane_openssl_version/1,
          check_ok/1,
          check_result/4,
@@ -2697,6 +2697,20 @@ verify_session_ticket_extension([Ticket0|_], MaxEarlyDataSize) ->
               ct:log("~p:~p~nFailed to verify max_early_data_size! (expected ~p, got ~p)!",
                      [?MODULE, ?LINE, MaxEarlyDataSize, Else])
       end.
+
+update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
+    #{ticket := #new_session_ticket{
+                   extensions = #{early_data :=
+                                      #early_data_indication_nst{
+                                         indication = Size}}}} = Ticket,
+    ct:log("~p:~p~nOverwrite max_early_data_size (from ~p to ~p)!",
+                     [?MODULE, ?LINE, Size, MaxEarlyDataSize]),
+    #{ticket := #new_session_ticket{
+                   extensions = #{early_data := Extensions0}} = NST0} = Ticket,
+    Extensions = #{early_data => #early_data_indication_nst{
+                                    indication = MaxEarlyDataSize}},
+    NST = NST0#new_session_ticket{extensions = Extensions},
+    [Ticket#{ticket => NST}].
 
 boolean_to_log_msg(true) ->
     "OK";
