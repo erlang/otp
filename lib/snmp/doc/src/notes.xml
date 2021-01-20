@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.7.1</title>
+  <section><title>SNMP 5.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    [manager] Misspelled priv protocol (atom) made it
+	    impossible to update usm user 'priv_key' configuration
+	    for usmAesCfb128Protocol via function calls.</p>
+          <p>
+	    Own Id: OTP-17110 Aux Id: ERIERL-586 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
