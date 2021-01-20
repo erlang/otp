@@ -120,12 +120,12 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
 	{ok,
 	 #connect_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb},
+	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts}}
-	when ?ip6(Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb), ?port(BPort) ->
+	when ?port(BPort) ->
 	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
+		   Fd, check_ip_format(BAddr), BPort, SockOpts,
 		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, Port, Time) of
@@ -136,6 +136,13 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
 	    end;
 	{ok, _} -> exit(badarg)
     end.
+
+check_ip_format(undefined) ->
+	undefined;
+check_ip_format(Ip = {Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb}) when ?ip6(Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb) ->
+	Ip;
+check_ip_format(_) ->
+	exit(badarg).
 
 %% 
 %% Listen

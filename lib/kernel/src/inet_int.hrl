@@ -395,7 +395,7 @@
 %%
 -record(connect_opts, 
 	{ 
-	  ifaddr = any,     %% bind to interface address
+	  ifaddr = undefined,   %% don't bind explicitly, let connect decide
 	  port   = 0,       %% bind to port (default is dynamic port)
 	  fd     = -1,      %% fd >= 0 => already bound
 	  opts   = []       %% [{active,true}] added in inet:connect_options
