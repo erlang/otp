@@ -19,6 +19,17 @@
 %%
 -module(shell_docs).
 
+%% This module takes care of rendering and normalization of
+%% application/erlang+html style documentation.
+
+
+%% IMPORTANT!!
+%% When changing the rendering in the module, there are no tests as such
+%% that you do not break anything else. So you should use the function
+%% shell_docs_SUITE:render_all(Dir) to write all documentation to that
+%% folder and then you can use `diff -b` to see if you inadvertently changed
+%% something.
+
 -include_lib("kernel/include/eep48.hrl").
 
 -export([render/2, render/3, render/4, render/5]).
