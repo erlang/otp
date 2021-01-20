@@ -539,6 +539,21 @@
 
 </section>
 
+<section><title>Crypto 4.4.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adding missing flag in BN-calls in SRP.</p>
+          <p>
+	    Own Id: OTP-17107</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.4.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
