@@ -38,13 +38,13 @@
                   columns
                 }).
 
--define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,i,em,pre,code,ul,ol,li,dl,dt,dd]).
+-define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,h4,h5,h6,i,em,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
 -define(INLINE,[i,em,code,a]).
 -define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
                          orelse ((ELEM) =:= i) orelse ((ELEM) =:= em))).
 %% non-inline elements are:
--define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3]).
+-define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3,h4,h5,h6]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
@@ -62,7 +62,8 @@
 -type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
 -type chunk_element_inline_type() :: a | code |  em | i.
 -type chunk_element_block_type() :: p | 'div' | br | pre | ul |
-                              ol | li | dl | dt | dd | h1 | h2 | h3.
+                                    ol | li | dl | dt | dd |
+                                    h1 | h2 | h3 | h4 | h5 | h6.
 
 -spec validate(Module) -> ok when
       Module :: module() | docs_v1().
@@ -130,9 +131,9 @@ validate_docs({Tag,Attr,Content},Path) ->
         false ->
             ok
     end,
-    %% Test that there are no block tags within a pre, h1, h2 or h3
-    case lists:member(pre,Path) or lists:member(h1,Path) or
-        lists:member(h2,Path) or lists:member(h3,Path) of
+    %% Test that there are no block tags within a pre, h*
+    case lists:member(pre,Path) or
+        lists:any(fun(H) -> lists:member(H,Path) end, [h1,h2,h3,h4,h5,h6]) of
         true when ?IS_BLOCK(Tag) ->
             throw({cannot_put_block_tag_within_pre,Tag,Path});
         _ ->
@@ -741,12 +742,13 @@ render_element({IgnoreMe,_,Content}, State, Pos, Ind,D)
   when IgnoreMe =:= a ->
     render_docs(Content, State, Pos, Ind,D);
 
-%% Catch h1, h2 and h3 before the padding is done as they reset padding
+%% Catch h* before the padding is done as they reset padding
 render_element({h1,_,Content},State,0 = Pos,_Ind,D) ->
     trimnlnl(render_element({code,[],[{em,[],Content}]}, State, Pos, 0, D));
 render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
     trimnlnl(render_element({em,[],Content}, State, Pos, 0, D));
-render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
+render_element({H,_,Content},State,Pos,_Ind,D)
+  when Pos =< 2, H =:= h3 orelse H =:= h4 orelse H =:= h5 orelse H =:= h6 ->
     trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
 
 render_element({pre,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
