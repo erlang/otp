@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The SSH daemon erroneously replaced LF with CRLF also
+	    when there was no pty requested from the server.</p>
+          <p>
+	    Own Id: OTP-17108 Aux Id: ERL-1442 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
