@@ -41,7 +41,12 @@
 	 f_spec_rhs_match_expr/1,
 	 f_spec_unnamed_pattern/1,
 	 f_spec_bounded_single_clause_fun/1,
-	 f_spec_bounded_multiple_clause_fun/1]).
+	 f_spec_bounded_multiple_clause_fun/1,
+	 f_spec_bounded_singleton_atom/1,
+	 f_spec_bounded_singleton_int/1,
+	 f_spec_rettype_constraint/1,
+	 f_spec_indirect_constraint/1,
+	 f_spec_arg_type_in_retval/1]).
 
 -define(a2b(A), atom_to_binary(A, utf8)).
 -define(io2b(IO), iolist_to_binary(IO)).
@@ -82,7 +87,12 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  f_spec_rhs_match_expr,
 	  f_spec_unnamed_pattern,
 	  f_spec_bounded_single_clause_fun,
-	  f_spec_bounded_multiple_clause_fun].
+	  f_spec_bounded_multiple_clause_fun,
+	  f_spec_bounded_singleton_atom,
+	  f_spec_bounded_singleton_int,
+	  f_spec_rettype_constraint,
+	  f_spec_indirect_constraint,
+	  f_spec_arg_type_in_retval].
 
 %% TODO: remove these cases once EDoc supports extracting the relevant tags
 not_supported() -> [type_since_tag,
@@ -278,7 +288,7 @@ f_spec_type_without_name(Config) ->
 f_spec_types_mixed(Config) ->
     Docs = get_docs(Config, eep48_specs),
     %?debugVal(Docs, 1000),
-    ?assertEqual( <<"-spec f_spec_types_mixed(Arg1 :: atom(), Arg2 :: tuple()) -> ok.\n">>,
+    ?assertEqual( <<"-spec f_spec_types_mixed(Arg1 :: my_type(), Arg2 :: tuple()) -> ok.\n">>,
 		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
 
 f_spec_with_multiple_clauses(Config) ->
@@ -286,15 +296,16 @@ f_spec_with_multiple_clauses(Config) ->
     %?debugVal(Docs, 1000),
     ct:pal("EDoc repeats the first clause's param names for all clauses. "
 	   "The actual param names are `(A1, A2); (S, I)'.", []),
-    ?assertEqual( <<"-spec f_spec_with_multiple_clauses(A1 :: atom(), A2 :: atom()) -> atoms;\n"
-                    "                                  (A1 :: string(), A2 :: integer()) ->\n"
-                    "                                      not_atoms.\n">>,
-                  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+    ?assertEqual( <<"-spec f_spec_with_multiple_clauses(A1 :: my_type(), A2 :: atom()) ->\n"
+		    "                                      atoms;\n"
+		    "                                  (A1 :: string(), A2 :: integer()) ->\n"
+		    "                                      not_atoms.\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
 
 f_spec_with_multiple_clauses_one_fun_clause(Config) ->
     Docs = get_docs(Config, eep48_specs),
     %?debugVal(Docs, 1000),
-    ?assertEqual( <<"-spec f_spec_with_multiple_clauses_one_fun_clause(A1 :: atom(),\n"
+    ?assertEqual( <<"-spec f_spec_with_multiple_clauses_one_fun_clause(A1 :: my_type(),\n"
 		    "                                                  A2 :: atom()) ->\n"
 		    "                                                     atoms;\n"
 		    "                                                 (A1 :: string(),\n"
@@ -325,7 +336,7 @@ f_spec_bounded_single_clause_fun(Config) ->
     %?debugVal(Docs, 1000),
     ?assertEqual( <<"-spec f_spec_bounded_single_clause_fun(A, T, S, I) -> ok\n"
 		    "                                          when\n"
-		    "                                              A :: atom(),\n"
+		    "                                              A :: my_type(),\n"
 		    "                                              T :: tuple(),\n"
 		    "                                              S :: string(),\n"
 		    "                                              I :: integer().\n">>,
@@ -338,7 +349,7 @@ f_spec_bounded_multiple_clause_fun(Config) ->
 	   "but EDoc infers them to be `(A1, A2, A3, I)'.", []),
     ?assertEqual( <<"-spec f_spec_bounded_multiple_clause_fun(A1, A2, A3, I) -> ok\n"
 		    "                                            when\n"
-		    "                                                A1 :: atom(),\n"
+		    "                                                A1 :: my_type(),\n"
 		    "                                                A2 :: tuple(),\n"
 		    "                                                A3 :: string(),\n"
 		    "                                                I :: integer();\n"
@@ -349,6 +360,36 @@ f_spec_bounded_multiple_clause_fun(Config) ->
 		    "                                                A3 :: list(),\n"
 		    "                                                A :: atom().\n">>,
 		  get_pp_spec({function, ?FUNCTION_NAME, 4}, Docs) ).
+
+f_spec_bounded_singleton_atom(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_bounded_singleton_atom(I, a) -> ok when I :: integer().\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+
+f_spec_bounded_singleton_int(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_bounded_singleton_int(I, 1) -> ok when I :: integer().\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+
+f_spec_rettype_constraint(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_rettype_constraint() -> R when R :: atom().\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 0}, Docs) ).
+
+f_spec_indirect_constraint(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_indirect_constraint(A, B) -> ok when B :: [A].\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+
+f_spec_arg_type_in_retval(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec f_spec_arg_type_in_retval(A, B) -> [A] when B :: atom().\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
 
 %%
 %% Helpers

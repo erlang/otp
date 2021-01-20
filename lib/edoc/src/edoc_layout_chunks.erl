@@ -164,8 +164,11 @@ meta_type_sig(Name, Arity, Anno, Entries) ->
 	    TypeTree = T#tag.form,
 	    TypeAttr = erl_syntax:revert(TypeTree),
 	    %% Assert that the lookup by line really gives us the right type attribute:
-	    {attribute, _, type, {Name, _, Args}} = TypeAttr,
-	    {Name, Arity} = {Name, length(Args)},
+	    {Name, Args} = case TypeAttr of
+			       {attribute, _, opaque, {N, _, As}} -> {N, As};
+			       {attribute, _, type, {N, _, As}} -> {N, As}
+			   end,
+	    Arity = length(Args),
 	    [{signature, [TypeAttr]}];
 	_ ->
 	    []
@@ -197,7 +200,7 @@ functions(Doc, Opts) ->
 function(Doc, Opts) ->
     Name = xpath_to_atom("./@name", Doc, Opts),
     Arity = xpath_to_integer("./@arity", Doc, Opts),
-    {Line, Signature, Spec} = function_line_sig_spec({Name, Arity}, entries(Opts)),
+    {Line, Signature, Spec} = function_line_sig_spec({Name, Arity}, Opts),
     {source, File} = lists:keyfind(source, 1, Opts),
     Anno = erl_anno:set_file(File, erl_anno:new(Line)),
     EntryDoc = doc_contents("./", Doc, Opts),
@@ -206,17 +209,24 @@ function(Doc, Opts) ->
 			      Spec),
     docs_v1_entry(function, Name, Arity, Anno, Signature, EntryDoc, Metadata).
 
--spec function_line_sig_spec(edoc:function_name(), [edoc:entry()]) -> R when
+-spec function_line_sig_spec(edoc:function_name(), proplists:proplist()) -> R when
       R :: {non_neg_integer(), signature(), [{signature, erl_parse:abstract_form()}]}.
-function_line_sig_spec(NA, Entries) ->
+function_line_sig_spec(NA, Opts) ->
+    Entries = entries(Opts),
     #entry{name = NA, line = Line} = E = lists:keyfind(NA, #entry.name, Entries),
     {ArgNames, Sig} = args_and_signature(E),
     case lists:keyfind(spec, #tag.name, E#entry.data) of
 	false ->
 	    {Line, Sig, []};
-	#tag{name = spec} = T ->
+	#tag{name = spec, origin = comment, line = L} ->
+	    edoc_report:warning(L, source_file(Opts),
+				"EDoc @spec tags (or redundant @spec tags and -spec attributes) "
+				"are not supported when generating chunks. "
+				"Please rewrite your @spec tags to -spec attributes.\n", []),
+	    {Line, Sig, []};
+	#tag{name = spec, origin = code} = T ->
 	    F = erl_syntax:revert(T#tag.form),
-	    Annotated = annotate_spec(ArgNames, F),
+	    Annotated = annotate_spec(ArgNames, F, source_file(Opts), Line),
 	    {Line, Sig, [{signature, [Annotated]}]}
     end.
 
@@ -247,7 +257,25 @@ format_signature([Arg]) ->
 format_signature([Arg | Args]) ->
     [<<(atom_to_binary(Arg, utf8))/bytes, ", ">> | format_signature(Args)].
 
-annotate_spec(ArgClauses, {attribute, Pos, spec, Data} = Spec) ->
+annotate_spec(ArgClauses, Spec, SourceFile, Line) ->
+    try
+	annotate_spec_(ArgClauses, Spec)
+    catch
+	error:{bounded_fun_arity, Vars} ->
+	    bounded_fun_arity_error(Vars, Spec, SourceFile, Line)
+    end.
+
+bounded_fun_arity_error(Vars, Spec, SourceFile, Line) ->
+    edoc_report:warning(Line, SourceFile,
+			"cannot handle spec with constraints - arity mismatch.\n"
+			"This is a bug in EDoc spec formatter - please report it at "
+			"https://bugs.erlang.org/\n"
+			"Identified arguments: ~p\n"
+			"Original spec: ~s\n",
+			[[ VName || {var, _, VName} <- Vars ], erl_pp:attribute(Spec)]),
+    Spec.
+
+annotate_spec_(ArgClauses, {attribute, Pos, spec, Data} = Spec) ->
     {NA, SpecClauses} = Data,
     case catch lists:zip(ArgClauses, SpecClauses) of
 	?caught(function_clause, lists, zip) ->
@@ -286,26 +314,59 @@ annotate_bounded_fun_clause(ArgNames, {type, Pos, 'fun', Data}, Constraints) ->
 					  pos => Pos,
 					  new_vars => [],
 					  new_constraints => [],
+					  ret_type => RetType,
 					  constraints => Constraints},
 					lists:zip(ArgNames, Args)),
     #{new_vars := TypeVars, new_constraints := NewConstraints} = NewVarsAndConstraints,
+    length(ArgNames) == length(TypeVars) orelse erlang:error({bounded_fun_arity, TypeVars}),
+    NewConstraints2 = case RetType of
+			  {var, _, _} -> [get_constraint(RetType, Constraints) | NewConstraints];
+			  _ -> NewConstraints
+		      end,
     NewData = [{type, Pos, product, lists:reverse(TypeVars)}, RetType],
-    {{type, Pos, 'fun', NewData}, lists:reverse(NewConstraints)}.
+    {{type, Pos, 'fun', NewData}, lists:reverse(NewConstraints2)}.
 
+bounded_fun_arg(#{ arg := {Singleton, _, _} = Arg } = Acc) when atom =:= Singleton;
+								integer =:= Singleton ->
+    #{new_vars := NVs} = Acc,
+    Acc#{new_vars := [Arg | NVs]};
+bounded_fun_arg(#{ arg := {var, _, '_'} = V } = Acc) ->
+    #{new_vars := NVs} = Acc,
+    Acc#{new_vars := [V | NVs]};
 bounded_fun_arg(#{ arg := {var, _, _} = V } = Acc) ->
-    #{new_vars := NVs, new_constraints := NCs, constraints := Cs} = Acc,
+    #{new_vars := NVs, new_constraints := NCs, constraints := Cs, ret_type := RetType} = Acc,
+    %% Is this variable directly constrained?
+    %% I.e. is there a `when V :: ...' clause present?
     case get_constraint(V, Cs) of
 	{type, _, constraint, _} = C ->
 	    Acc#{new_vars := [V | NVs],
 		 new_constraints := [C | NCs]};
 	no_constraint ->
-	    edoc_report:warning("unbound variable - this module will not compile: ~p\n", [V]),
-	    Acc
+	    %% If a variable is not constrained directly, but mentioned
+	    %% in another variable's constraint, it's fine - e.g. `Key':
+	    %%
+	    %% -spec is_key(Key, Orddict) -> boolean() when
+	    %%       Orddict :: orddict(Key, Value :: term()).
+	    case get_mention(V, Cs) of
+		{type, _, constraint, _} ->
+		    Acc#{new_vars := [V | NVs]};
+		no_mention ->
+		    %% Is the argument type variable mentioned in the return value?
+		    {var, _, Name} = V,
+		    RetNames = erl_syntax_lib:variables(RetType),
+		    case sets:is_element(Name, RetNames) of
+			true ->
+			    Acc#{new_vars := [V | NVs]};
+			false ->
+			    Acc
+		    end
+	    end
     end;
 bounded_fun_arg(#{ arg := {ann_type, Var, Type} } = Acc) ->
     bounded_fun_arg_(Var, Type, Acc);
 bounded_fun_arg(#{ arg := Type } = Acc) when remote_type =:= element(1, Type);
-					     type =:= element(1, Type) ->
+					     type =:= element(1, Type);
+					     user_type =:= element(1, Type) ->
     #{name := Name, pos := Pos} = Acc,
     Var = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:variable(Name), Pos)),
     bounded_fun_arg_(Var, Type, Acc).
@@ -326,10 +387,27 @@ get_constraint({var, _, Name}, Constraints) ->
 	[] -> no_constraint
     end.
 
+get_mention({var, _, Name}, Constraints) ->
+    F = fun
+	    ({type, _, constraint, _} = C) ->
+		Vars = erl_syntax_lib:variables(C),
+		sets:is_element(Name, Vars);
+	    (_) -> false
+	end,
+    case lists:filter(F, Constraints) of
+	[C | _] -> C;
+	[] -> no_mention
+    end.
+
 -spec entries(proplists:proplist()) -> [edoc:entry()].
 entries(Opts) ->
     {entries, Entries} = lists:keyfind(entries, 1, Opts),
     Entries.
+
+-spec source_file(proplists:proplist()) -> [edoc:entry()].
+source_file(Opts) ->
+    {source, Source} = lists:keyfind(source, 1, Opts),
+    Source.
 
 -spec doc_content(_, _) -> doc().
 doc_content([], _Opts) -> none;

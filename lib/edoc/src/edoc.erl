@@ -89,7 +89,7 @@
 
 
 -type entry() :: #entry{name :: function_name() | atom(),
-			args :: [atom()],
+			args :: [atom() | list()],
 			line :: integer(),
 			export :: boolean(),
 			data :: entry_data()}.
