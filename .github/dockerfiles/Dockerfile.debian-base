@@ -9,7 +9,7 @@ ARG BASE=debian
 ARG HOST_ARCH=amd64
 ARG HOST_TRIP=x86_64-linux-gnu
 
-ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssh-dev unixodbc-dev libgmp3-dev libwxbase3.0-dev libwxgtk3.0-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
+ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssh-dev unixodbc-dev libgmp3-dev libwxbase3.0-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
 
 ## See https://wiki.debian.org/Multiarch/HOWTO for details on how to install things
 RUN if [ "$BASE" = "i386/debian" ]; then BUILD_ARCH=`dpkg --print-architecture` && \
@@ -32,3 +32,9 @@ RUN if [ "$BASE" = "i386/debian" ]; then apt-get install -y \
           cp -r `dirname $dir`/* `dirname /buildroot/sysroot$dir`; \
           cp -r $dir/* `dirname /buildroot/sysroot$dir`; \
         done; fi
+
+RUN if [ "$BASE" = "i386/debian" ]; then \
+          update-alternatives --set wx-config /usr/lib/i386-linux-gnu/wx/config/gtk3-unicode-3.0; \
+        else \
+          update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0; \
+        fi
