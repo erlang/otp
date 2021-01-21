@@ -87,7 +87,8 @@
          start_shell_sock_daemon_exec_multi/1,
          start_shell_sock_exec_fun/1,
          start_subsystem_on_closed_channel/1,
-         stop_listener/1
+         stop_listener/1,
+         ssh_exec_echo/2 % called as an MFA
         ]).
 
 -define(SSH_DEFAULT_PORT, 22).

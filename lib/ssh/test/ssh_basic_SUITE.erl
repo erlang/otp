@@ -631,27 +631,7 @@ cli_exit_normal(Config) when is_list(Config) ->
 
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh_connection:shell(ConnectionRef, ChannelId),
-
-    receive
-        {ssh_cm, ConnectionRef,{eof, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{exit_status,ChannelId,0}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{closed, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId, _ExpectedExitStatus = 0).
 
 %%---------------------------------------------------------
 %%% Test that SSH client receives user provided exit-status
@@ -659,10 +639,13 @@ cli_exit_status(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
+    NonZeroExitStatus = 7,
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
                            {password, "morot"},
-                           {ssh_cli, {ssh_cli, [fun (_) -> spawn(fun () -> exit({exit_status, 7}) end) end]}},
+                           {ssh_cli, {ssh_cli, [fun (_) ->
+                                                        spawn(fun () -> exit({exit_status, NonZeroExitStatus}) end)
+                                                end]}},
                            {subsystems, []},
                            {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
@@ -675,27 +658,7 @@ cli_exit_status(Config) when is_list(Config) ->
 
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh_connection:shell(ConnectionRef, ChannelId),
-
-    receive
-        {ssh_cm, ConnectionRef,{eof, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{exit_status,ChannelId,7}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{closed, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId, NonZeroExitStatus).
 
 %%--------------------------------------------------------------------
 %%% Test that get correct error message if you try to start a daemon
