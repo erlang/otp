@@ -159,20 +159,25 @@ type(Doc, Opts) ->
 meta_type_sig(Name, Arity, Anno, Entries) ->
     Line = erl_anno:line(Anno),
     Tags = edoc_data:get_all_tags(Entries),
-    case lists:keyfind(Line, #tag.line, Tags) of
-	#tag{name = type, line = Line, origin = code} = T ->
-	    TypeTree = T#tag.form,
-	    TypeAttr = erl_syntax:revert(TypeTree),
-	    %% Assert that the lookup by line really gives us the right type attribute:
-	    {Name, Args} = case TypeAttr of
-			       {attribute, _, opaque, {N, _, As}} -> {N, As};
-			       {attribute, _, type, {N, _, As}} -> {N, As}
-			   end,
-	    Arity = length(Args),
-	    [{signature, [TypeAttr]}];
-	_ ->
-	    []
+    case lists:filtermap(fun (T) -> select_tag(T, Name, Arity, Line) end, Tags) of
+	[] -> [];
+	[TypeAttr] ->
+	    [{signature, [TypeAttr]}]
     end.
+
+select_tag(#tag{name = type, line = Line, origin = code} = T,
+	   Name, Arity, Line) ->
+    TypeTree = T#tag.form,
+    TypeAttr = erl_syntax:revert(TypeTree),
+    case TypeAttr of
+	{attribute, _, Type, {Name, _, Args}}
+	  when (type =:= Type orelse opaque =:= Type),
+	       length(Args) == Arity ->
+	    {true, TypeAttr};
+	_ ->
+	    false
+    end;
+select_tag(_, _, _, _) -> false.
 
 callbacks(_Doc, Opts) ->
     Entries = entries(Opts),
