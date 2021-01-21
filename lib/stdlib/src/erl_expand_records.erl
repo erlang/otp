@@ -597,7 +597,7 @@ strict_get_record_field(Anno, R, {atom,_,F}=Index, Name, St0) ->
             P = record_pattern(2, I, Var, length(Fs)+1, Anno, [{atom,Anno,Name}]),
             NAnno = no_compiler_warning(Anno),
             RAnno = mark_record(NAnno, St),
-	    E = {'case',NAnno,R,
+	    E = {'case',Anno,R,
 		     [{clause,NAnno,[{tuple,RAnno,P}],[],[Var]},
 		      {clause,NAnno,[{var,NAnno,'_'}],[],
 		       [{call,NAnno,{remote,NAnno,
@@ -703,7 +703,7 @@ record_update(R, Name, Fs, Us0, St0) ->
             Nu =< Nc, not StrictUpdates ->      %Few fields updated
                 {record_setel(Var, Name, Fs, Us), St2};
             true ->                             %The wide area inbetween
-                record_match(Var, Name, element(2, hd(Us)), Fs, Us, St2)
+                record_match(Var, Name, Anno, Fs, Us, St2)
         end,
     {{block,Anno,Pre ++ [{match,Anno,Var,R},Update]},St}.
 
