@@ -153,7 +153,7 @@ init_per_testcase(plain_verify_options = Case, Config) when is_list(Config) ->
 		    os:putenv("ERL_FLAGS", SslFlags),
 		    "";
 		OldFlags ->
-		    os:putenv("ERL_FLAGS", OldFlags ++ "" ++ SslFlags),
+		    os:putenv("ERL_FLAGS", OldFlags ++ " " ++ SslFlags),
 		    OldFlags
     end,
     common_init(Case, [{old_flags, Flags} | Config]);
