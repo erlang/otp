@@ -43,7 +43,7 @@
 -define(default_verbosity,silence).
 -endif.
 
--define(empty_pdu_size, 29).
+-define(empty_pdu_size, 29). % See below!
 
 -ifdef(snmp_extended_verbosity).
 -define(vt(F,A), ?vtrace(F, A)).
@@ -73,8 +73,14 @@
 %% 
 %%-----------------------------------------------------------------
 %%
-%% Some wierdness is going on since this seems to be insufficient.
-%% But adding 8 to this solves the problem => 29!
+%% Some wierdness is going on since this seems to be insufficient,
+%% atleast on version 3.
+%% One of the issues is that the constant (21) is only correct if
+%% request-id < 128 (as is the case in the example below).
+%% But adding 8 to this solves the problem => 29 (atleast for the
+%% customer reporting the issue).
+%% Since it is version 3, should we use the scopedPDU for the
+%% calculation?
 %%
 %%-----------------------------------------------------------------
 %% Ret: 21

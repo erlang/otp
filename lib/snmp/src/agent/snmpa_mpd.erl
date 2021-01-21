@@ -28,6 +28,17 @@
 	 process_taddrs/1, 
 	 generate_req_id/0]).
 
+%% This is just for debugging and testing
+-export([
+         empty_pdu/0, empty_pdu/1,
+         empty_pdu_size/0, empty_pdu_size/1,
+         empty_scoped_pdu/0,
+         empty_scoped_pdu_size/0,
+         empty_msg/0,
+         empty_msg_size/0
+        ]).
+
+
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
 -include("SNMP-MPD-MIB.hrl").
@@ -51,7 +62,7 @@
 	       disco = false, 
 	       req_id}).
 
-					
+
 %%%-----------------------------------------------------------------
 %%% This module implements the Message Processing and Dispatch part of
 %%% the multi-lingual SNMP agent.
@@ -110,6 +121,56 @@ reset() ->
 %		 #pdu{type = 'get-response', request_id = 1,
 %		      error_status = noError, error_index = 0, varbinds = []}},
 %    length(snmp_pdus:enc_message(M)) + 4.
+
+-ifdef(SNMP_USE_V3).
+empty_msg() ->
+    {message, 'version-1', "", empty_pdu()}.
+-else.
+empty_msg() ->
+    #message{version   = 'version-1',
+             community = "",
+             data      = empty_pdu()}.
+-endif.
+
+empty_msg_size() ->
+    length(snmp_pdus:enc_message(empty_msg())) + 4.
+
+
+empty_pdu() ->
+    empty_pdu(1).
+empty_pdu(ReqId) ->
+    #pdu{type         = 'get-response',
+         request_id   = ReqId,
+         error_status = noError,
+         error_index  = 0,
+         varbinds     = []}.
+
+%% This is used when calculating how many VBs to include in a pdu.
+%% For "some reason" we need to add 8 to the size for version 3.
+%% Could be the context EngineID and Name, which is actuall part
+%% of the scoped PDU?
+
+empty_pdu_size() ->
+    empty_pdu_size('version-1').
+
+empty_pdu_size('version-3') ->
+    do_empty_pdu_size(8);
+empty_pdu_size(_) ->
+    do_empty_pdu_size(0).
+
+do_empty_pdu_size(X) ->
+    length(snmp_pdus:enc_pdu(empty_pdu())) + 8 + X.
+
+
+empty_scoped_pdu() ->
+    #scopedPdu{contextEngineID = "",
+               contextName     = "",
+               data            = empty_pdu()}.
+
+empty_scoped_pdu_size() ->
+    length(snmp_pdus:enc_scoped_pdu(empty_scoped_pdu())) + 8.
+
+
 
 %%-----------------------------------------------------------------
 %% Func: process_packet(Packet, Domain, Address, State, Log) ->
