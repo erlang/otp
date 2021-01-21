@@ -37,7 +37,7 @@
 -export([render_callback/2, render_callback/3, render_callback/4, render_callback/5]).
 
 %% Used by chunks.escript in erl_docgen
--export([validate/1, normalize/1]).
+-export([validate/1, normalize/1, supported_tags/0]).
 
 %% Convinience functions
 -export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
@@ -77,6 +77,10 @@
 -type chunk_element_block_type() :: p | 'div' | br | pre | ul |
                                     ol | li | dl | dt | dd |
                                     h1 | h2 | h3 | h4 | h5 | h6.
+
+-spec supported_tags() -> [chunk_element_type()].
+supported_tags() ->
+    ?ALL_ELEMENTS.
 
 -spec validate(Module) -> ok when
       Module :: module() | docs_v1().
