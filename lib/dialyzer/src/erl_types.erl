@@ -4426,26 +4426,28 @@ record_fields_to_string([F|Fs], [{FName, _Abstr, DefType}|FDefs],
 record_fields_to_string([], [], _RecDict, Acc) ->
   lists:reverse(Acc).
 
--spec record_field_diffs_to_string(erl_type(), type_table()) -> string().
+-spec record_field_diffs_to_string(erl_type(), type_table()) ->
+                                      {[FieldPos :: pos_integer()], string()}.
 
 record_field_diffs_to_string(?tuple([_|Fs], Arity, Tag), RecDict) ->
   [TagAtom] = atom_vals(Tag),
   {ok, FieldNames} = lookup_record(TagAtom, Arity-1, RecDict),
   %% io:format("RecCElems = ~p\nRecTypes = ~p\n", [Fs, FieldNames]),
-  FieldDiffs = field_diffs(Fs, FieldNames, RecDict, []),
-  flat_join(FieldDiffs, " and ").
+  Diffs = field_diffs(Fs, FieldNames, 1, RecDict, []),
+  {FNs, FieldDiffs} = lists:unzip(Diffs),
+  {FNs, flat_join(FieldDiffs, " and ")}.
 
-field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], RecDict, Acc) ->
+field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], Pos, RecDict, Acc) ->
   %% Don't care about opacity for now.
   NewAcc =
     case not t_is_none(t_inf(F, DefType)) of
       true -> Acc;
       false ->
 	Str = atom_to_string(FName) ++ "::" ++ t_to_string(DefType, RecDict),
-	[Str|Acc]
+	[{Pos,Str}|Acc]
     end,
-  field_diffs(Fs, FDefs, RecDict, NewAcc);
-field_diffs([], [], _, Acc) ->
+  field_diffs(Fs, FDefs, Pos + 1, RecDict, NewAcc);
+field_diffs([], [], _, _, Acc) ->
   lists:reverse(Acc).
 
 comma_sequence(Types, RecDict) ->

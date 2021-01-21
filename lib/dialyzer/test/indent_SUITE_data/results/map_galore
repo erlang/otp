@@ -170,7 +170,7 @@ map_galore.erl:1082:51: A key of type
                    100 | 101,
                    ...]} =>
                 atom() | [1..255, ...]}
-map_galore.erl:1140:40: The call map_galore:map_guard_sequence_1
+map_galore.erl:1140:61: The call map_galore:map_guard_sequence_1
          (#{seq => 6, val => "e"}) will never return since it differs in the 1st argument from the success typing arguments: 
          (#{'seq' := 1 | 2 | 3 | 4 | 5,
             'val' := [97 | 98 | 99 | 100 | 101, ...],
@@ -247,7 +247,7 @@ map_galore.erl:1140:40: The call map_galore:map_guard_sequence_1
               39 => [any(), ...],
               <<_:16>> | [any(), ...] | {_} => [any(), ...]} =>
                 atom() | [1..255, ...]})
-map_galore.erl:1141:40: The call map_galore:map_guard_sequence_2
+map_galore.erl:1141:61: The call map_galore:map_guard_sequence_2
          (#{'b' => 5}) will never return since it differs in the 1st argument from the success typing arguments: 
          (#{'a' := 'gg' | 'kk' | 'sc' | 3 | 4,
             'b' => 'other' | 3 | 4 | 5,
@@ -325,7 +325,7 @@ map_galore.erl:1141:40: The call map_galore:map_guard_sequence_2
               39 => [any(), ...],
               <<_:16>> | [any(), ...] | {_} => [any(), ...]} =>
                 atom() | [1..255, ...]})
-map_galore.erl:1209:40: The call map_galore:map_guard_sequence_1
+map_galore.erl:1209:63: The call map_galore:map_guard_sequence_1
          (#{'seq' := 6,
             'val' := [101, ...],
             10 := 'a0',
@@ -483,7 +483,7 @@ map_galore.erl:1209:40: The call map_galore:map_guard_sequence_1
               39 => [any(), ...],
               <<_:16>> | [any(), ...] | {_} => [any(), ...]} =>
                 atom() | [1..255, ...]})
-map_galore.erl:1210:40: The call map_galore:map_guard_sequence_2
+map_galore.erl:1210:63: The call map_galore:map_guard_sequence_2
          (#{'b' := 5,
             10 := 'a0',
             11 := 'a1',
@@ -641,7 +641,7 @@ map_galore.erl:1210:40: The call map_galore:map_guard_sequence_2
               39 => [any(), ...],
               <<_:16>> | [any(), ...] | {_} => [any(), ...]} =>
                 atom() | [1..255, ...]})
-map_galore.erl:1418:81: Fun application with arguments 
+map_galore.erl:1418:84: Fun application with arguments 
          (#{'s' => 'none', 'v' => 'none'}) will never return since it differs in the 1st argument from the success typing arguments: 
          (#{'s' := 'l' | 't' | 'v',
             'v' :=
@@ -694,15 +694,15 @@ map_galore.erl:188:41: The pattern
 map_galore.erl:189:41: The pattern 
           #{'x' := 3} can never match the type 
           #{'x' := [101 | 104 | 114 | 116, ...]}
-map_galore.erl:2280:35: The call maps:from_list
-         ([{'a', 'b'} | {'b', 'a'}]) will never return since it differs in the 1st argument from the success typing arguments: 
-         ([{_, _}])
 map_galore.erl:2280:50: Cons will produce an improper list since its 2nd argument is 
           {'b', 'a'}
-map_galore.erl:2281:35: The call maps:from_list
+map_galore.erl:2280:50: The call maps:from_list
+         ([{'a', 'b'} | {'b', 'a'}]) will never return since it differs in the 1st argument from the success typing arguments: 
+         ([{_, _}])
+map_galore.erl:2281:50: The call maps:from_list
          ('a') will never return since it differs in the 1st argument from the success typing arguments: 
          ([{_, _}])
-map_galore.erl:2282:35: The call maps:from_list
+map_galore.erl:2282:50: The call maps:from_list
          (42) will never return since it differs in the 1st argument from the success typing arguments: 
          ([{_, _}])
 map_galore.erl:997:55: A key of type 

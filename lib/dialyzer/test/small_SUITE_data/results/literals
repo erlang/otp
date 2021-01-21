@@ -1,12 +1,12 @@
 
 literals.erl:11:1: Function t1/0 has no local return
-literals.erl:12:5: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:12:13: Record construction #r{id::'a'} violates the declared type of field id::'integer'
 literals.erl:14:1: Function t2/0 has no local return
-literals.erl:15:6: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:15:14: Record construction #r{id::'a'} violates the declared type of field id::'integer'
 literals.erl:17:1: Function t3/0 has no local return
-literals.erl:18:6: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:18:14: Record construction #r{id::'a'} violates the declared type of field id::'integer'
 literals.erl:20:1: Function t4/0 has no local return
-literals.erl:21:12: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:21:20: Record construction #r{id::'a'} violates the declared type of field id::'integer'
 literals.erl:23:1: Function m1/1 has no local return
 literals.erl:23:1: Matching of pattern {'r', 'a'} tagged with a record name violates the declared type of #r{id::'integer'}
 literals.erl:26:1: Function m2/1 has no local return
