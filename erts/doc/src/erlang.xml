@@ -3118,7 +3118,7 @@ false</code>
           unique reference</seeguide>. The reference is unique among
           connected nodes.</p>
         <warning>
-          <p>Known issue: When a node is restarted multiple
+          <p>Before OTP-23 when a node is restarted multiple
             times with the same node name, references created
             on a newer node can be mistaken for a reference
             created on an older node with the same node name.</p>
