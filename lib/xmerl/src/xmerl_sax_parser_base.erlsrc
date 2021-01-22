@@ -3104,7 +3104,7 @@ add_default_attribute({ElementName, AttrName, Value},
 parse_att_type(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_att_type/2);
 parse_att_type(?STRING_UNBOUND_REST(C, _) = Bytes, State) when ?is_whitespace(C) ->
-    {_WS, Rest, State1} = whitespace(Bytes, State, []),
+    {_, Rest, State1} = whitespace(Bytes, State, []),
     case parse_att_type_1(Rest, State1, []) of 
     {"(", Rest1, State2} -> 
         {T, Rest2, State3} = parse_until_right_paren(Rest1, State2, []),
@@ -3115,7 +3115,7 @@ parse_att_type(?STRING_UNBOUND_REST(C, _) = Bytes, State) when ?is_whitespace(C)
                 {"(" ++ T, Rest2, State3}
         end;
     {"NOTATION", Rest1, State2} ->
-        {_WS, Rest2, State3} = whitespace(Rest1, State2, []),
+        {_, Rest2, State3} = whitespace(Rest1, State2, []),
         case parse_att_type_1(Rest2, State3, []) of
             {"(", Rest3, State4} ->
                 {T, Rest4, State5} = parse_until_right_paren(Rest3, State4, []),
