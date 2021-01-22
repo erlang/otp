@@ -3490,7 +3490,7 @@ otp_8051(Config) when is_list(Config) ->
 %% Check that format warnings are generated.
 format_warn(Config) when is_list(Config) ->
     L1 = 14,
-    L2 = 4,
+    L2 = 5,
     format_level(1, L1, Config),
     format_level(2, L1+L2, Config),
     format_level(3, L1+L2, Config),             %there is no level 3

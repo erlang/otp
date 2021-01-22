@@ -3997,13 +3997,15 @@ keyword_warning(_Anno, _A, St) -> St.
 %% format_function(Anno, ModName, FuncName, [Arg], State) -> State.
 %%  Add warning for bad calls to io:fwrite/format functions.
 
-format_function(Anno, M, F, As, St) ->
+format_function(DefAnno, M, F, As, St) ->
     case is_format_function(M, F) of
         true ->
             case St#lint.warn_format of
                 Lev when Lev > 0 ->
                     case check_format_1(As) of
                         {warn,Level,Fmt,Fas} when Level =< Lev ->
+                            add_warning(DefAnno, {format_error,{Fmt,Fas}}, St);
+                        {warn,Level,Anno,Fmt,Fas} when Level =< Lev ->
                             add_warning(Anno, {format_error,{Fmt,Fas}}, St);
                         _ -> St
                     end;
@@ -4038,29 +4040,38 @@ canonicalize_string(Term) ->
 
 check_format_2(Fmt, As) ->
     case Fmt of
-        {string,_A,S} -> check_format_2a(S, As);
-        {atom,_A,A} -> check_format_2a(atom_to_list(A), As);
-        _ -> {warn,2,"format string not a textual constant",[]}
+        {string,A,S} ->
+            check_format_2a(S, A, As);
+        {atom,A,Atom} ->
+            check_format_2a(atom_to_list(Atom), A, As);
+        _ ->
+            Anno = erl_parse:first_location(Fmt),
+            {warn,2,Anno,"format string not a textual constant",[]}
     end.
 
-check_format_2a(Fmt, As) ->
+check_format_2a(Fmt, FmtAnno, As) ->
     case args_list(As) of
-        true -> check_format_3(Fmt, As);
-        false -> {warn,1,"format arguments not a list",[]};
-        maybe -> {warn,2,"format arguments perhaps not a list",[]}
+        true ->
+            check_format_3(Fmt, FmtAnno, As);
+        false ->
+            Anno = element(2, As),
+            {warn,1,Anno,"format arguments not a list",[]};
+        maybe ->
+            Anno = erl_parse:first_location(As),
+            {warn,2,Anno,"format arguments perhaps not a list",[]}
     end.
 
 %% check_format_3(FormatString, [Arg]) -> ok | {warn,Level,Format,[Arg]}.
 
-check_format_3(Fmt, As) ->
+check_format_3(Fmt, FmtAnno, As) ->
     case check_format_string(Fmt) of
         {ok,Need} ->
             case args_length(As) of
                 Len when length(Need) =:= Len -> ok;
-                _Len -> {warn,1,"wrong number of arguments in format call",[]}
+                _Len -> {warn,1,element(2, As),"wrong number of arguments in format call",[]}
             end;
         {error,S} ->
-            {warn,1,"format string invalid (~ts)",[S]}
+            {warn,1,FmtAnno,"format string invalid (~ts)",[S]}
     end.
 
 args_list({cons,_A,_H,T}) -> args_list(T);
