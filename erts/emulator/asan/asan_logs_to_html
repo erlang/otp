@@ -283,6 +283,9 @@ app_end(Out, LogAcc) ->
                            [LogAcc#logacc.app]),
             LogAcc#logacc{did_output = true};
         #logacc{} ->
+            ok = io:format(Out, "<button type=\"button\" "
+                           "class=\"app_err_end\">"
+                           "end of ~s</button>\n", [LogAcc#logacc.app]),
             ok = io:format(Out, "</div>", []),
             LogAcc
     end.
@@ -337,10 +340,9 @@ delete_file(File) ->
 style_block() ->
     <<"<style>
 
-.app_err, .app_ok {
+.app_err, .app_err_end, .app_ok {
   color: white;
   padding: 10px;
-  width: 100%;
   /*border: none;*/
   text-align: left;
   /*outline: none;*/
@@ -348,15 +350,24 @@ style_block() ->
 }
 
 .app_err {
+  width: 100%;
   background-color: #D11;
   cursor: pointer;
 }
-.app_ok {
-  background-color: #292;
+.app_err:hover {
+  background-color: #F11;
+}
+.app_err_end {
+  background-color: #D11;
+  cursor: pointer;
+}
+.app_err_end:hover {
+  background-color: #F11;
 }
 
-.active, .app_err:hover {
-  background-color: #F11;
+.app_ok {
+  width: 100%;
+  background-color: #292;
 }
 
 .content {
@@ -370,12 +381,11 @@ style_block() ->
 
 script_block() ->
     <<"<script>
-var coll = document.getElementsByClassName(\"app_err\");
+var app_err = document.getElementsByClassName(\"app_err\");
 var i;
 
-for (i = 0; i < coll.length; i++) {
-  coll[i].addEventListener(\"click\", function() {
-    this.classList.toggle(\"active\");
+for (i = 0; i < app_err.length; i++) {
+  app_err[i].addEventListener(\"click\", function() {
     var content = this.nextElementSibling;
     if (content.style.display === \"block\") {
       content.style.display = \"none\";
@@ -384,5 +394,14 @@ for (i = 0; i < coll.length; i++) {
     }
   });
 }
+
+var app_err_end = document.getElementsByClassName(\"app_err_end\");
+for (i = 0; i < app_err_end.length; i++) {
+  app_err_end[i].addEventListener(\"click\", function() {
+    var content = this.parentElement;
+    content.style.display = \"none\";
+  });
+}
+
 </script>
 ">>.
