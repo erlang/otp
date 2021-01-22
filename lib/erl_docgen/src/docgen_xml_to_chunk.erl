@@ -228,7 +228,7 @@ build_dom({ignorableWhitespace, String},
           #state{dom=[{Name,_,_} = _E|_]} = State) ->
     case lists:member(Name,
                       [p,pre,input,code,quote,warning,
-                       note,dont,do,c,i,em,strong,
+                       note,dont,do,c,b,i,em,strong,
                        seemfa,seeerl,seetype,seeapp,
                        seecom,seecref,seefile,seeguide,
                        tag,item]) of
@@ -354,8 +354,6 @@ transform([{datatype_title,_Attr,_Content}|T],Acc) ->
 %% transform <desc>Content</desc> to Content
 transform([{desc,_Attr,Content}|T],Acc) ->
     transform(T,[transform(Content,[])|Acc]);
-transform([{strong,Attr,Content}|T],Acc) ->
-    transform([{em,Attr,Content}|T],Acc);
 %% transform <marker id="name"/>  to <a id="name"/>....
 transform([{marker,Attrs,Content}|T],Acc) ->
     transform(T,[{a,a2b(Attrs),transform(Content,[])}|Acc]);
@@ -694,18 +692,16 @@ to_chunk(Dom, Source, Module, AST) ->
                       end,
 
                   MetaDepr
-                      = case otp_internal:obsolete_type(Module, TypeName, TypeArity) of
-                            %% Commented out to make dialyzer happy
-                            %% {deprecated, Text} ->
-                            %%     MetaSig#{ deprecated =>
-                            %%                   unicode:characters_to_binary(
-                            %%                     erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
-
-                            %% Commented out to make dialyzer happy
-                            %% {deprecated, Replacement, Rel} ->
-                            %%     MetaSig#{ deprecated =>
-                            %%                   unicode:characters_to_binary(
-                            %%                     erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
+                      = case apply(otp_internal,obsolete_type,[Module, TypeName, TypeArity]) of
+                            %% apply/3 in order to silence dialyzer
+                            {deprecated, Text} ->
+                                MetaSig#{ deprecated =>
+                                              unicode:characters_to_binary(
+                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
+                            {deprecated, Replacement, Rel} ->
+                                MetaSig#{ deprecated =>
+                                              unicode:characters_to_binary(
+                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
                             {removed, _Text} ->
                                 %% Just skip
                                 MetaSig;
@@ -727,7 +723,8 @@ to_chunk(Dom, Source, Module, AST) ->
                   FMeta = proplists:get_value(meta,Attr),
                   MetaWSpec = add_spec(AST,FMeta),
                   MetaDepr
-                      = case otp_internal:obsolete(Module, Name, Arity) of
+                      = case apply(otp_internal,obsolete,[Module, Name, Arity]) of
+                            %% apply/3 in order to silence dialyzer
                             {deprecated, Text} ->
                                 MetaWSpec#{ deprecated =>
                                                 unicode:characters_to_binary(

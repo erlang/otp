@@ -19,6 +19,17 @@
 %%
 -module(shell_docs).
 
+%% This module takes care of rendering and normalization of
+%% application/erlang+html style documentation.
+
+
+%% IMPORTANT!!
+%% When changing the rendering in the module, there are no tests as such
+%% that you do not break anything else. So you should use the function
+%% shell_docs_SUITE:render_all(Dir) to write all documentation to that
+%% folder and then you can use `diff -b` to see if you inadvertently changed
+%% something.
+
 -include_lib("kernel/include/eep48.hrl").
 
 -export([render/2, render/3, render/4, render/5]).
@@ -26,7 +37,7 @@
 -export([render_callback/2, render_callback/3, render_callback/4, render_callback/5]).
 
 %% Used by chunks.escript in erl_docgen
--export([validate/1, normalize/1]).
+-export([validate/1, normalize/1, supported_tags/0]).
 
 %% Convinience functions
 -export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
@@ -38,13 +49,15 @@
                   columns
                 }).
 
--define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,i,em,pre,code,ul,ol,li,dl,dt,dd]).
+-define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,h4,h5,h6,
+                      i,b,em,strong,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
--define(INLINE,[i,em,code,a]).
+-define(INLINE,[i,b,em,strong,code,a]).
 -define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
-                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= em))).
+                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= em)
+                         orelse ((ELEM) =:= b) orelse ((ELEM) =:= strong))).
 %% non-inline elements are:
--define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3]).
+-define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3,h4,h5,h6]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
@@ -60,9 +73,14 @@
 -type chunk_element_attrs() :: [chunk_element_attr()].
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
--type chunk_element_inline_type() :: a | code |  em | i.
+-type chunk_element_inline_type() :: a | code | em | strong | i | b.
 -type chunk_element_block_type() :: p | 'div' | br | pre | ul |
-                              ol | li | dl | dt | dd | h1 | h2 | h3.
+                                    ol | li | dl | dt | dd |
+                                    h1 | h2 | h3 | h4 | h5 | h6.
+
+-spec supported_tags() -> [chunk_element_type()].
+supported_tags() ->
+    ?ALL_ELEMENTS.
 
 -spec validate(Module) -> ok when
       Module :: module() | docs_v1().
@@ -130,9 +148,9 @@ validate_docs({Tag,Attr,Content},Path) ->
         false ->
             ok
     end,
-    %% Test that there are no block tags within a pre, h1, h2 or h3
-    case lists:member(pre,Path) or lists:member(h1,Path) or
-        lists:member(h2,Path) or lists:member(h3,Path) of
+    %% Test that there are no block tags within a pre, h*
+    case lists:member(pre,Path) or
+        lists:any(fun(H) -> lists:member(H,Path) end, [h1,h2,h3,h4,h5,h6]) of
         true when ?IS_BLOCK(Tag) ->
             throw({cannot_put_block_tag_within_pre,Tag,Path});
         _ ->
@@ -606,7 +624,7 @@ render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta
               BinSpec =
                   unicode:characters_to_binary(
                     string:trim(Spec, trailing, "\n")),
-              [{pre,[],[{em,[],BinSpec}]}|render_meta(Meta)]
+              [{pre,[],[{strong,[],BinSpec}]}|render_meta(Meta)]
       end, Specs);
 render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
     lists:flatmap(
@@ -741,12 +759,13 @@ render_element({IgnoreMe,_,Content}, State, Pos, Ind,D)
   when IgnoreMe =:= a ->
     render_docs(Content, State, Pos, Ind,D);
 
-%% Catch h1, h2 and h3 before the padding is done as they reset padding
+%% Catch h* before the padding is done as they reset padding
 render_element({h1,_,Content},State,0 = Pos,_Ind,D) ->
-    trimnlnl(render_element({code,[],[{em,[],Content}]}, State, Pos, 0, D));
+    trimnlnl(render_element({code,[],[{strong,[],Content}]}, State, Pos, 0, D));
 render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
-    trimnlnl(render_element({em,[],Content}, State, Pos, 0, D));
-render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
+    trimnlnl(render_element({strong,[],Content}, State, Pos, 0, D));
+render_element({H,_,Content},State,Pos,_Ind,D)
+  when Pos =< 2, H =:= h3 orelse H =:= h4 orelse H =:= h5 orelse H =:= h6 ->
     trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
 
 render_element({pre,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
@@ -774,6 +793,8 @@ render_element({code,_,Content},State,Pos,Ind,D) ->
     {Docs, NewPos} = render_docs(Content, [code|State], Pos, Ind,D),
     {[Underline,Docs,ransi(underline)], NewPos};
 
+render_element({em,Attr,Content},State,Pos,Ind,D) ->
+    render_element({i,Attr,Content},State,Pos,Ind,D);
 render_element({i,_,Content},State,Pos,Ind,D) ->
     %% Just ignore i as ansi does not have cursive style
     render_docs(Content, State, Pos, Ind,D);
@@ -781,7 +802,9 @@ render_element({i,_,Content},State,Pos,Ind,D) ->
 render_element({br,[],[]},_State,Pos,_Ind,_D) ->
     {"",Pos};
 
-render_element({em,_,Content},State,Pos,Ind,D) ->
+render_element({strong,Attr,Content},State,Pos,Ind,D) ->
+    render_element({b,Attr,Content},State,Pos,Ind,D);
+render_element({b,_,Content},State,Pos,Ind,D) ->
     Bold = sansi(bold),
     {Docs, NewPos} = render_docs(Content, State, Pos, Ind,D),
     {[Bold,Docs,ransi(bold)], NewPos};

@@ -184,9 +184,25 @@ b2a(Bin) ->
 %% Testing functions
 render_all(Dir) ->
     file:make_dir(Dir),
+    %% We load all possible application in order to be able to use
+    %% application:get_application to get the application a module
+    %% belongs to.
+    PossibleApplications =
+        lists:flatmap(
+          fun(P) ->
+                  filelib:wildcard(filename:join(P, "*.app"))
+          end, code:get_path()),
+    [application:load(list_to_atom(filename:basename(filename:rootname(App)))) ||
+        App <- PossibleApplications],
     docsmap(
       fun(Mod, #docs_v1{ docs = Docs } = D) ->
-              SMod = atom_to_list(Mod),
+              case application:get_application(Mod) of
+                  {ok, App} ->
+                      App;
+                  _ ->
+                      App = unknown
+              end,
+              SMod = atom_to_list(App) ++ "_" ++ atom_to_list(Mod),
               file:write_file(filename:join(Dir,SMod ++ ".txt"),
                               unicode:characters_to_binary(shell_docs:render(Mod, D))),
               file:write_file(filename:join(Dir,SMod ++ "_type.txt"),
@@ -194,12 +210,14 @@ render_all(Dir) ->
               file:write_file(filename:join(Dir,SMod ++ "_cb.txt"),
                               unicode:characters_to_binary(shell_docs:render_callback(Mod, D))),
               lists:foreach(
-                fun({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
+                fun({_Type,_Anno,_Sig,none,_Meta}) ->
+                        ok;
+                   ({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
                         FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
                         ok = file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
                                                                           [global,{return,list}])),
                                              unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D)));
-                    ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
+                   ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
                         FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
                         ok = file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
                                                                           [global,{return,list}])),

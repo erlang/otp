@@ -252,6 +252,9 @@ format_error({deprecated, MFA, String, Rel}) ->
 		  [format_mfa(MFA), Rel, String]);
 format_error({deprecated, MFA, String}) when is_list(String) ->
     io_lib:format("~s is deprecated; ~s", [format_mfa(MFA), String]);
+format_error({deprecated_type, {M1, F1, A1}, String, Rel}) ->
+    io_lib:format("the type ~p:~p~s is deprecated and will be removed in ~s; ~s",
+                  [M1, F1, gen_type_paren(A1), Rel, String]);
 format_error({deprecated_type, {M1, F1, A1}, String}) when is_list(String) ->
     io_lib:format("the type ~p:~p~s is deprecated; ~s",
                   [M1, F1, gen_type_paren(A1), String]);
