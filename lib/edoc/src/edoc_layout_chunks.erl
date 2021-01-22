@@ -507,7 +507,7 @@ format_element(#xmlElement{} = E) ->
 	{true, _} ->
 	    format_content(Content);
 	{_, false} ->
-	    edoc_report:warning("'~s' is not accepted - skipping tag, extracting content", [Name]),
+	    edoc_report:warning("'~s' is not allowed - skipping tag, extracting content", [Name]),
 	    format_content(Content);
 	_ ->
 	    [{Name, format_attributes(Attributes), format_content(Content)}]
@@ -534,9 +534,7 @@ is_edoc_tag(_) -> false.
 
 -spec is_html_tag(atom()) -> boolean().
 is_html_tag(Tag) ->
-    %% This is only a subset of existing HTML tags.
-    %% Compare with https://developer.mozilla.org/en-US/docs/Web/HTML/Element
-    Tags = [a,p,h1,h2,h3,h4,h5,h6,i,br,em,pre,code,ul,ol,li,dl,dt,dd],
+    Tags = shell_docs:supported_tags(),
     lists:member(Tag, Tags).
 
 rewrite_a_tag(#xmlElement{name = a} = E) ->
