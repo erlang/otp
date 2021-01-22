@@ -4929,9 +4929,10 @@ RealSystem = system + MissedSystem</code>
       <fsummary>List all preloaded modules.</fsummary>
       <desc>
         <p>Returns a list of Erlang modules that are preloaded in
-          the system. As all loading of code is done through the file
-          system, the file system must have been loaded previously.
-          Hence, at least the module <c>init</c> must be preloaded.</p>
+          the run-time system. Pre-loaded modules are Erlang modules
+          that are needed to bootstrap the system to load the first
+          Erlang modules from either disk or by using <seeerl marker="kernel:erl_boot_server">
+          <c>erl_boot_server</c></seeerl>.</p>
       </desc>
     </func>
 
