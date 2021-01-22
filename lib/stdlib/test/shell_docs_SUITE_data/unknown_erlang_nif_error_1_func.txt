@@ -1,0 +1,10 @@
+
+  [;1m-spec erlang:nif_error(Reason) -> no_return() when Reason :: term().[0m
+
+[;;4mSince[0m:
+  OTP R14B
+
+  Works exactly like [;;4merror/1[0m, but Dialyzer thinks that this BIF
+  will return an arbitrary term. When used in a stub function for a
+  NIF to generate an exception when the NIF library is not loaded,
+  Dialyzer does not generate false warnings.

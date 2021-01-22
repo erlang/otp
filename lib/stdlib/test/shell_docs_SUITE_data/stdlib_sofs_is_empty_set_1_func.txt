@@ -1,0 +1,6 @@
+
+  [;1m-spec is_empty_set(AnySet) -> Bool[0m
+  [;1m                      when AnySet :: anyset(), Bool :: boolean().[0m
+
+  Returns [;;4mtrue[0m if [;;4mAnySet[0m is an empty unordered set, otherwise [;;4m[0m
+  [;;4mfalse[0m.

@@ -1,0 +1,14 @@
+
+  [;1m-spec sync(IoDevice) -> ok | {error, Reason}[0m
+  [;1m              when[0m
+  [;1m                  IoDevice :: io_device(),[0m
+  [;1m                  Reason :: posix() | badarg | terminated.[0m
+
+  Ensures that any buffers kept by the operating system (not by the
+  Erlang runtime system) are written to disk. On some platforms,
+  this function might have no effect.
+
+  A typical error reason is:
+
+  [;;4m[;;4menospc[0m[0m:
+    Not enough space left to write the file.

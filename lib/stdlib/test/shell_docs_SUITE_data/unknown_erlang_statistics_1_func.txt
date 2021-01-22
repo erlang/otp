@@ -1,0 +1,134 @@
+
+  [;1m-spec statistics(microstate_accounting) -> [MSAcc_Thread] | undefined[0m
+  [;1m                    when[0m
+  [;1m                        MSAcc_Thread ::[0m
+  [;1m                            #{type := MSAcc_Thread_Type,[0m
+  [;1m                              id := MSAcc_Thread_Id,[0m
+  [;1m                              counters := MSAcc_Counters},[0m
+  [;1m                        MSAcc_Thread_Type ::[0m
+  [;1m                            async | aux | dirty_io_scheduler |[0m
+  [;1m                            dirty_cpu_scheduler | poll | scheduler,[0m
+  [;1m                        MSAcc_Thread_Id :: non_neg_integer(),[0m
+  [;1m                        MSAcc_Counters ::[0m
+  [;1m                            #{MSAcc_Thread_State => non_neg_integer()},[0m
+  [;1m                        MSAcc_Thread_State ::[0m
+  [;1m                            alloc | aux | bif | busy_wait | check_io |[0m
+  [;1m                            emulator | ets | gc | gc_fullsweep | nif |[0m
+  [;1m                            other | port | send | sleep | timers.[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  [;1m-spec statistics(io) -> {{input, Input}, {output, Output}}[0m
+  [;1m                    when[0m
+  [;1m                        Input :: non_neg_integer(),[0m
+  [;1m                        Output :: non_neg_integer().[0m
+
+  [;1m-spec statistics(scheduler_wall_time) ->[0m
+  [;1m                    [{SchedulerId, ActiveTime, TotalTime}] | undefined[0m
+  [;1m                    when[0m
+  [;1m                        SchedulerId :: pos_integer(),[0m
+  [;1m                        ActiveTime :: non_neg_integer(),[0m
+  [;1m                        TotalTime :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  [;1m-spec statistics(active_tasks_all) -> [ActiveTasks][0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  [;1m-spec statistics(run_queue_lengths_all) -> [RunQueueLength][0m
+  [;1m                    when RunQueueLength :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  [;1m-spec statistics(garbage_collection) ->[0m
+  [;1m                    {Number_of_GCs, Words_Reclaimed, 0}[0m
+  [;1m                    when[0m
+  [;1m                        Number_of_GCs :: non_neg_integer(),[0m
+  [;1m                        Words_Reclaimed :: non_neg_integer().[0m
+
+  [;1m-spec statistics(reductions) ->[0m
+  [;1m                    {Total_Reductions, Reductions_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Reductions :: non_neg_integer(),[0m
+  [;1m                        Reductions_Since_Last_Call :: non_neg_integer().[0m
+
+  [;1m-spec statistics(runtime) -> {Total_Run_Time, Time_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Run_Time :: non_neg_integer(),[0m
+  [;1m                        Time_Since_Last_Call :: non_neg_integer().[0m
+
+  [;1m-spec statistics(wall_clock) ->[0m
+  [;1m                    {Total_Wallclock_Time,[0m
+  [;1m                     Wallclock_Time_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Wallclock_Time :: non_neg_integer(),[0m
+  [;1m                        Wallclock_Time_Since_Last_Call ::[0m
+  [;1m                            non_neg_integer().[0m
+
+  [;1m-spec statistics(exact_reductions) ->[0m
+  [;1m                    {Total_Exact_Reductions,[0m
+  [;1m                     Exact_Reductions_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Exact_Reductions :: non_neg_integer(),[0m
+  [;1m                        Exact_Reductions_Since_Last_Call ::[0m
+  [;1m                            non_neg_integer().[0m
+
+  [;1m-spec statistics(active_tasks) -> [ActiveTasks][0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  [;1m-spec statistics(run_queue_lengths) -> [RunQueueLength][0m
+  [;1m                    when RunQueueLength :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  [;1m-spec statistics(run_queue) -> non_neg_integer().[0m
+
+  [;1m-spec statistics(context_switches) -> {ContextSwitches, 0}[0m
+  [;1m                    when ContextSwitches :: non_neg_integer().[0m
+
+  [;1m-spec statistics(scheduler_wall_time_all) ->[0m
+  [;1m                    [{SchedulerId, ActiveTime, TotalTime}] | undefined[0m
+  [;1m                    when[0m
+  [;1m                        SchedulerId :: pos_integer(),[0m
+  [;1m                        ActiveTime :: non_neg_integer(),[0m
+  [;1m                        TotalTime :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  [;1m-spec statistics(total_active_tasks) -> ActiveTasks[0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  [;1m-spec statistics(total_active_tasks_all) -> ActiveTasks[0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  [;1m-spec statistics(total_run_queue_lengths) -> TotalRunQueueLengths[0m
+  [;1m                    when TotalRunQueueLengths :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  [;1m-spec statistics(total_run_queue_lengths_all) -> TotalRunQueueLengths[0m
+  [;1m                    when TotalRunQueueLengths :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  The same as calling [;;4mlists:sum([0m[;;4mstatistics(run_queue_lengths_all)[0m[;;4m)[0m,
+  but more efficient.

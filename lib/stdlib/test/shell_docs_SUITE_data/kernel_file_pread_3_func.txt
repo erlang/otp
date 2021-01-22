@@ -1,0 +1,23 @@
+
+  [;1m-spec pread(IoDevice, Location, Number) ->[0m
+  [;1m               {ok, Data} | eof | {error, Reason}[0m
+  [;1m               when[0m
+  [;1m                   IoDevice :: io_device(),[0m
+  [;1m                   Location :: location(),[0m
+  [;1m                   Number :: non_neg_integer(),[0m
+  [;1m                   Data :: string() | binary(),[0m
+  [;1m                   Reason :: posix() | badarg | terminated.[0m
+
+  Combines [;;4mposition/2[0m and [;;4mread/2[0m in one operation, which is more
+  efficient than calling them one at a time.
+
+  [;;4mLocation[0m is only allowed to be an integer for [;;4mraw[0m and [;;4mram[0m
+  modes.
+
+  The current position of the file after the operation is undefined
+  for [;;4mraw[0m mode and unchanged for [;;4mram[0m mode.
+
+  As the position is specified as a byte-offset, take special
+  caution when working with files where [;;4mencoding[0m is set to
+  something else than [;;4mlatin1[0m, as not every byte position is a
+  valid character boundary on such a file.

@@ -1,0 +1,13 @@
+
+  [;1m-spec intersection_of_family(Family) -> Set[0m
+  [;1m                                when Family :: family(), Set :: a_set().[0m
+
+  Returns the intersection of family [;;4mFamily[0m.
+
+  Intersecting an empty family exits the process with a [;;4mbadarg[0m
+  message.
+
+    1> F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]),
+    S = sofs:intersection_of_family(F),
+    sofs:to_external(S).
+    [2]

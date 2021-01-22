@@ -1,0 +1,22 @@
+
+  [;1m-spec pread(IoDevice, LocNums) -> {ok, DataL} | eof | {error, Reason}[0m
+  [;1m               when[0m
+  [;1m                   IoDevice :: io_device(),[0m
+  [;1m                   LocNums ::[0m
+  [;1m                       [{Location :: location(),[0m
+  [;1m                         Number :: non_neg_integer()}],[0m
+  [;1m                   DataL :: [Data],[0m
+  [;1m                   Data :: string() | binary() | eof,[0m
+  [;1m                   Reason :: posix() | badarg | terminated.[0m
+
+  Performs a sequence of [;;4mpread/3[0m in one operation, which is more
+  efficient than calling them one at a time. Returns [;;4m{ok, [Data,[0m
+  [;;4m...]}[0m or [;;4m{error, Reason}[0m, where each [;;4mData[0m, the result of the
+  corresponding [;;4mpread[0m, is either a list or a binary depending on
+  the mode of the file, or [;;4meof[0m if the requested position is beyond
+  end of file.
+
+  As the position is specified as a byte-offset, take special
+  caution when working with files where [;;4mencoding[0m is set to
+  something else than [;;4mlatin1[0m, as not every byte position is a
+  valid character boundary on such a file.

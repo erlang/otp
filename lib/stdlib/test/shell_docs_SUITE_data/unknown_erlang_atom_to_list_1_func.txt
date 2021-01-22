@@ -1,0 +1,14 @@
+
+  [;1m-spec atom_to_list(Atom) -> string() when Atom :: atom().[0m
+
+  Returns a list of unicode code points corresponding to the text
+  representation of [;;4mAtom[0m, for example:
+
+    > atom_to_list('Erlang').
+    "Erlang"
+
+    > atom_to_list('你好').
+    [20320,22909]
+
+  See [;;4municode(3)[0m for how to convert the resulting list to
+  different formats.

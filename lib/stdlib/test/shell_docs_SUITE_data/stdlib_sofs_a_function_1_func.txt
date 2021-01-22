@@ -1,0 +1,8 @@
+
+  [;1m-spec a_function(Tuples) -> Function[0m
+  [;1m                    when Function :: a_function(), Tuples :: [tuple()].[0m
+
+  Creates a function. [;;4ma_function(F, T)[0m is equivalent to [;;4m[0m
+  [;;4mfrom_term(F, T)[0m if the result is a function. If no type is
+  explicitly specified, [;;4m[{atom, atom}][0m is used as the function
+  type.

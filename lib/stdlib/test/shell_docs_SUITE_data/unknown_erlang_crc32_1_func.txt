@@ -1,0 +1,5 @@
+
+  [;1m-spec erlang:crc32(Data) -> non_neg_integer() when Data :: iodata().[0m
+
+  Computes and returns the crc32 (IEEE 802.3 style) checksum for [;;4m[0m
+  [;;4mData[0m.

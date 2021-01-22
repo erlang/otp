@@ -1,0 +1,28 @@
+
+  [;1m-spec list_dir(Dir) -> {ok, Filenames} | {error, Reason}[0m
+  [;1m                  when[0m
+  [;1m                      Dir :: name_all(),[0m
+  [;1m                      Filenames :: [filename()],[0m
+  [;1m                      Reason ::[0m
+  [;1m                          posix() |[0m
+  [;1m                          badarg |[0m
+  [;1m                          {no_translation,[0m
+  [;1m                           Filename :: unicode:latin1_binary()}.[0m
+
+  Lists all files in a directory, except files with raw filenames.
+  Returns [;;4m{ok, Filenames}[0m if successful, otherwise [;;4m{error,[0m
+  [;;4mReason}[0m. [;;4mFilenames[0m is a list of the names of all the files in
+  the directory. The names are not sorted.
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing search or write permissions for [;;4mDir[0m or one of its
+    parent directories.
+
+  [;;4m[;;4menoent[0m[0m:
+    The directory does not exist.
+
+  [;;4m[;;4m{no_translation, Filename}[0m[0m:
+    [;;4mFilename[0m is a [;;4mbinary()[0m with characters coded in ISO Latin-1
+    and the VM was started with parameter [;;4m+fnue[0m.

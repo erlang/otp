@@ -1,0 +1,102 @@
+
+  [;1m-spec erlang:port_info(Port, memory) -> {memory, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;1m-spec erlang:port_info(Port, parallelism) ->[0m
+  [;1m                          {parallelism, Boolean} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Boolean :: boolean().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;1m-spec erlang:port_info(Port, queue_size) ->[0m
+  [;1m                          {queue_size, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;1m-spec erlang:port_info(Port, input) -> {input, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+  [;1m-spec erlang:port_info(Port, output) -> {output, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+  [;1m-spec erlang:port_info(Port, id) -> {id, Index} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Index :: non_neg_integer().[0m
+
+  [;1m-spec erlang:port_info(Port, locking) -> {locking, Locking} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Locking ::[0m
+  [;1m                                  false | port_level | driver_level.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;1m-spec erlang:port_info(Port, monitors) ->[0m
+  [;1m                          {monitors, Monitors} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Monitors :: [{process, pid()}].[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;1m-spec erlang:port_info(Port, name) -> {name, Name} | undefined[0m
+  [;1m                          when Port :: port() | atom(), Name :: string().[0m
+
+  [;1m-spec erlang:port_info(Port, os_pid) -> {os_pid, OsPid} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              OsPid :: non_neg_integer() | undefined.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;1m-spec erlang:port_info(Port, connected) -> {connected, Pid} | undefined[0m
+  [;1m                          when Port :: port() | atom(), Pid :: pid().[0m
+
+  [;1m-spec erlang:port_info(Port, links) -> {links, Pids} | undefined[0m
+  [;1m                          when Port :: port() | atom(), Pids :: [pid()].[0m
+
+  [;1m-spec erlang:port_info(Port, registered_name) ->[0m
+  [;1m                          {registered_name, RegisteredName} |[0m
+  [;1m                          [] | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              RegisteredName :: atom().[0m
+
+  [;1m-spec erlang:port_info(Port, monitored_by) ->[0m
+  [;1m                          {monitored_by, MonitoredBy} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              MonitoredBy :: [pid()].[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Returns list of pids that are monitoring given port at the moment.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.

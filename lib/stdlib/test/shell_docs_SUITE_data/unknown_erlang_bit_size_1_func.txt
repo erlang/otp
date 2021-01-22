@@ -1,0 +1,13 @@
+
+  [;1m-spec bit_size(Bitstring) -> non_neg_integer()[0m
+  [;1m                  when Bitstring :: bitstring().[0m
+
+  Returns an integer that is the size in bits of [;;4mBitstring[0m, for
+  example:
+
+    > bit_size(<<433:16,3:3>>).
+    19
+    > bit_size(<<1,2,3>>).
+    24
+
+  Allowed in guard tests.

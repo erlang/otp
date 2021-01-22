@@ -1,0 +1,110 @@
+
+  [;1m-spec process_flag(save_calls, N) -> OldN[0m
+  [;1m                      when N :: 0..10000, OldN :: 0..10000.[0m
+
+  [;1m-spec process_flag(min_bin_vheap_size, MinBinVHeapSize) ->[0m
+  [;1m                      OldMinBinVHeapSize[0m
+  [;1m                      when[0m
+  [;1m                          MinBinVHeapSize :: non_neg_integer(),[0m
+  [;1m                          OldMinBinVHeapSize :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R13B04
+
+  [;1m-spec process_flag(min_heap_size, MinHeapSize) -> OldMinHeapSize[0m
+  [;1m                      when[0m
+  [;1m                          MinHeapSize :: non_neg_integer(),[0m
+  [;1m                          OldMinHeapSize :: non_neg_integer().[0m
+
+  [;1m-spec process_flag(sensitive, Boolean) -> OldBoolean[0m
+  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean().[0m
+
+  [;1m-spec process_flag(error_handler, Module) -> OldModule[0m
+  [;1m                      when Module :: atom(), OldModule :: atom().[0m
+
+  [;1m-spec process_flag(trap_exit, Boolean) -> OldBoolean[0m
+  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean().[0m
+
+  [;1m-spec process_flag(max_heap_size, MaxHeapSize) -> OldMaxHeapSize[0m
+  [;1m                      when[0m
+  [;1m                          MaxHeapSize :: max_heap_size(),[0m
+  [;1m                          OldMaxHeapSize :: max_heap_size().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  [;1m-spec process_flag(message_queue_data, MQD) -> OldMQD[0m
+  [;1m                      when[0m
+  [;1m                          MQD :: message_queue_data(),[0m
+  [;1m                          OldMQD :: message_queue_data().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  [;1m-spec process_flag(priority, Level) -> OldLevel[0m
+  [;1m                      when[0m
+  [;1m                          Level :: priority_level(),[0m
+  [;1m                          OldLevel :: priority_level().[0m
+
+  Types:
+    -type priority_level() :: low | normal | high | max.
+
+  Sets the process priority. [;;4mLevel[0m is an atom. Four priority
+  levels exist: [;;4mlow[0m, [;;4mnormal[0m, [;;4mhigh[0m, and [;;4mmax[0m. Default is [;;4m[0m
+  [;;4mnormal[0m.
+
+  Note:
+    Priority level [;;4mmax[0m is reserved for internal use in the
+    Erlang runtime system, and is not to be used by others.
+
+  Internally in each priority level, processes are scheduled in a
+  round robin fashion.
+
+  Execution of processes on priority [;;4mnormal[0m and [;;4mlow[0m are
+  interleaved. Processes on priority [;;4mlow[0m are selected for
+  execution less frequently than processes on priority [;;4mnormal[0m.
+
+  When runnable processes on priority [;;4mhigh[0m exist, no processes on
+  priority [;;4mlow[0m or [;;4mnormal[0m are selected for execution. Notice
+  however that this does not mean that no processes on priority [;;4m[0m
+  [;;4mlow[0m or [;;4mnormal[0m can run when processes are running on priority [;;4m[0m
+  [;;4mhigh[0m. When using multiple schedulers, more processes can be
+  running in parallel than processes on priority [;;4mhigh[0m. That is, a [;;4m[0m
+  [;;4mlow[0m and a [;;4mhigh[0m priority process can execute at the same time.
+
+  When runnable processes on priority [;;4mmax[0m exist, no processes on
+  priority [;;4mlow[0m, [;;4mnormal[0m, or [;;4mhigh[0m are selected for execution. As
+  with priority [;;4mhigh[0m, processes on lower priorities can execute in
+  parallel with processes on priority [;;4mmax[0m.
+
+  Scheduling is pre-emptive. Regardless of priority, a process is
+  pre-empted when it has consumed more than a certain number of
+  reductions since the last time it was selected for execution.
+
+  Note:
+    Do not depend on the scheduling to remain exactly as it is
+    today. Scheduling is likely to be changed in a future release
+    to use available processor cores better.
+
+  There is no automatic mechanism for avoiding priority inversion,
+  such as priority inheritance or priority ceilings. When using
+  priorities, take this into account and handle such scenarios by
+  yourself.
+
+  Making calls from a [;;4mhigh[0m priority process into code that you has
+  no control over can cause the [;;4mhigh[0m priority process to wait for
+  a process with lower priority. That is, effectively decreasing the
+  priority of the [;;4mhigh[0m priority process during the call. Even if
+  this is not the case with one version of the code that you have no
+  control over, it can be the case in a future version of it. This
+  can, for example, occur if a [;;4mhigh[0m priority process triggers code
+  loading, as the code server runs on priority [;;4mnormal[0m.
+
+  Other priorities than [;;4mnormal[0m are normally not needed. When other
+  priorities are used, use them with care, especially priority [;;4m[0m
+  [;;4mhigh[0m. A process on priority [;;4mhigh[0m is only to perform work for
+  short periods. Busy looping for long periods in a [;;4mhigh[0m priority
+  process causes most likely problems, as important OTP servers run
+  on priority [;;4mnormal[0m.
+
+  Returns the old value of the flag.

@@ -1,0 +1,9 @@
+
+  [;1m-spec is_map(Term) -> boolean() when Term :: term().[0m
+
+[;;4mSince[0m:
+  OTP 17.0
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a map, otherwise [;;4mfalse[0m.
+
+  Allowed in guard tests.

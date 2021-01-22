@@ -1,0 +1,11 @@
+
+  [;1m-spec erlang:is_builtin(Module, Function, Arity) -> boolean()[0m
+  [;1m                           when[0m
+  [;1m                               Module :: module(),[0m
+  [;1m                               Function :: atom(),[0m
+  [;1m                               Arity :: arity().[0m
+
+  This BIF is useful for builders of cross-reference tools.
+
+  Returns [;;4mtrue[0m if [;;4mModule:Function/Arity[0m is a BIF implemented in
+  C, otherwise [;;4mfalse[0m.

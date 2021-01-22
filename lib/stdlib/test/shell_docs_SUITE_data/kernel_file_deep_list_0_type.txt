@@ -1,0 +1,4 @@
+
+  [;1m-type deep_list() :: [char() | atom() | deep_list()].[0m
+
+  There is no documentation for deep_list/0

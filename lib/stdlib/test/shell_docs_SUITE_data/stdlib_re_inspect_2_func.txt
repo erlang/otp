@@ -1,0 +1,44 @@
+
+  [;1m-spec inspect(MP, Item) -> {namelist, [binary()]}[0m
+  [;1m                 when MP :: mp(), Item :: namelist.[0m
+
+[;;4mSince[0m:
+  OTP 17.0
+
+  Takes a compiled regular expression and an item, and returns the
+  relevant data from the regular expression. The only supported item
+  is [;;4mnamelist[0m, which returns the tuple [;;4m{namelist, [binary()]}[0m,
+  containing the names of all (unique) named subpatterns in the
+  regular expression. For example:
+
+    1> {ok,MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)").
+    {ok,{re_pattern,3,0,0,
+                    <<69,82,67,80,119,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,
+                      255,255,...>>}}
+    2> re:inspect(MP,namelist).
+    {namelist,[<<"A">>,<<"B">>,<<"C">>]}
+    3> {ok,MPD} = re:compile("(?<C>A)|(?<B>B)|(?<C>C)",[dupnames]).
+    {ok,{re_pattern,3,0,0,
+                    <<69,82,67,80,119,0,0,0,0,0,8,0,1,0,0,0,255,255,255,255,
+                      255,255,...>>}}
+    4> re:inspect(MPD,namelist).                                   
+    {namelist,[<<"B">>,<<"C">>]}
+
+  Notice in the second example that the duplicate name only occurs
+  once in the returned list, and that the list is in alphabetical
+  order regardless of where the names are positioned in the regular
+  expression. The order of the names is the same as the order of
+  captured subexpressions if [;;4m{capture, all_names}[0m is specified as
+  an option to [;;4mrun/3[0m. You can therefore create a name-to-value
+  mapping from the result of [;;4mrun/3[0m like this:
+
+    1> {ok,MP} = re:compile("(?<A>A)|(?<B>B)|(?<C>C)").
+    {ok,{re_pattern,3,0,0,
+                    <<69,82,67,80,119,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,
+                      255,255,...>>}}
+    2> {namelist, N} = re:inspect(MP,namelist).
+    {namelist,[<<"A">>,<<"B">>,<<"C">>]}
+    3> {match,L} = re:run("AA",MP,[{capture,all_names,binary}]).
+    {match,[<<"A">>,<<>>,<<>>]}
+    4> NameMap = lists:zip(N,L).
+    [{<<"A">>,<<"A">>},{<<"B">>,<<>>},{<<"C">>,<<>>}]

@@ -1,0 +1,108 @@
+
+  [;1m-spec write_file_info(Filename, FileInfo, Opts) -> ok | {error, Reason}[0m
+  [;1m                         when[0m
+  [;1m                             Filename :: name_all(),[0m
+  [;1m                             Opts :: [file_info_option()],[0m
+  [;1m                             FileInfo :: file_info(),[0m
+  [;1m                             Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R15B
+
+  Changes file information. Returns [;;4mok[0m if successful, otherwise [;;4m[0m
+  [;;4m{error, Reason}[0m. [;;4mFileInfo[0m is a record [;;4mfile_info[0m, defined in
+  the Kernel include file [;;4mfile.hrl[0m. Include the following
+  directive in the module from which the function is called:
+
+     -include_lib("kernel/include/file.hrl").
+
+  The time type set in [;;4matime[0m, [;;4mmtime[0m, and [;;4mctime[0m depends on the
+  time type set in [;;4mOpts :: {time, Type}[0m as follows:
+
+  [;;4m[;;4mlocal[0m[0m:
+    Interprets the time set as local.
+
+  [;;4m[;;4muniversal[0m[0m:
+    Interprets it as universal time.
+
+  [;;4m[;;4mposix[0m[0m:
+    Must be seconds since or before Unix time epoch, which is
+    1970-01-01 00:00 UTC.
+
+  Default is [;;4m{time, local}[0m.
+
+  If the option [;;4mraw[0m is set, the file server is not called and only
+  information about local files is returned.
+
+  The following fields are used from the record, if they are
+  specified:
+
+  [;;4m[;;4matime = [0m[;;4mdate_time()[0m[;;4m | integer() >= 0[0m[0m:
+    The last time the file was read.
+
+  [;;4m[;;4mmtime = [0m[;;4mdate_time()[0m[;;4m | integer() >= 0[0m[0m:
+    The last time the file was written.
+
+  [;;4m[;;4mctime = [0m[;;4mdate_time()[0m[;;4m | integer() >= 0[0m[0m:
+    On Unix, any value specified for this field is ignored (the
+    "ctime" for the file is set to the current time). On Windows,
+    this field is the new creation time to set for the file.
+
+  [;;4m[;;4mmode = integer() >= 0[0m[0m:
+    The file permissions as the sum of the following bit values:
+
+    [;;4m[;;4m8#00400[0m[0m:
+      Read permission: owner
+
+    [;;4m[;;4m8#00200[0m[0m:
+      Write permission: owner
+
+    [;;4m[;;4m8#00100[0m[0m:
+      Execute permission: owner
+
+    [;;4m[;;4m8#00040[0m[0m:
+      Read permission: group
+
+    [;;4m[;;4m8#00020[0m[0m:
+      Write permission: group
+
+    [;;4m[;;4m8#00010[0m[0m:
+      Execute permission: group
+
+    [;;4m[;;4m8#00004[0m[0m:
+      Read permission: other
+
+    [;;4m[;;4m8#00002[0m[0m:
+      Write permission: other
+
+    [;;4m[;;4m8#00001[0m[0m:
+      Execute permission: other
+
+    [;;4m[;;4m16#800[0m[0m:
+      Set user id on execution
+
+    [;;4m[;;4m16#400[0m[0m:
+      Set group id on execution
+
+    On Unix platforms, other bits than those listed above may be
+    set.
+
+  [;;4m[;;4muid = integer() >= 0[0m[0m:
+    Indicates the file owner. Ignored for non-Unix file systems.
+
+  [;;4m[;;4mgid = integer() >= 0[0m[0m:
+    Gives the group that the file owner belongs to. Ignored for
+    non-Unix file systems.
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing search permission for one of the parent directories of
+    the file.
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of the filename is not a directory. On some
+    platforms, [;;4menoent[0m is returned instead.

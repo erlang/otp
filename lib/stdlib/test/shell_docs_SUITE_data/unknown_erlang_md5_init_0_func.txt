@@ -1,0 +1,5 @@
+
+  [;1m-spec erlang:md5_init() -> Context when Context :: binary().[0m
+
+  Creates an MD5 context, to be used in the following calls to [;;4m[0m
+  [;;4mmd5_update/2[0m.

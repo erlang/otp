@@ -1,0 +1,5 @@
+
+  [;1m-spec port_to_list(Port) -> string() when Port :: port().[0m
+
+  Returns a string corresponding to the text representation of the
+  port identifier [;;4mPort[0m.

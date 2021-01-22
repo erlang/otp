@@ -1,0 +1,214 @@
+
+  [;1m-spec erlang:system_flag(time_offset, finalize) -> OldState[0m
+  [;1m                            when[0m
+  [;1m                                OldState ::[0m
+  [;1m                                    preliminary | final | volatile.[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  [;1m-spec erlang:system_flag(multi_scheduling, BlockState) -> OldBlockState[0m
+  [;1m                            when[0m
+  [;1m                                BlockState ::[0m
+  [;1m                                    block | unblock | block_normal |[0m
+  [;1m                                    unblock_normal,[0m
+  [;1m                                OldBlockState ::[0m
+  [;1m                                    blocked | disabled | enabled.[0m
+
+  [;1m-spec erlang:system_flag(fullsweep_after, Number) -> OldNumber[0m
+  [;1m                            when[0m
+  [;1m                                Number :: non_neg_integer(),[0m
+  [;1m                                OldNumber :: non_neg_integer().[0m
+
+  [;1m-spec erlang:system_flag(erts_alloc, {Alloc, F, V}) -> ok | notsup[0m
+  [;1m                            when[0m
+  [;1m                                Alloc :: atom(),[0m
+  [;1m                                F :: atom(),[0m
+  [;1m                                V :: integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.2.3
+
+  [;1m-spec erlang:system_flag(min_bin_vheap_size, MinBinVHeapSize) ->[0m
+  [;1m                            OldMinBinVHeapSize[0m
+  [;1m                            when[0m
+  [;1m                                MinBinVHeapSize :: non_neg_integer(),[0m
+  [;1m                                OldMinBinVHeapSize :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R13B04
+
+  [;1m-spec erlang:system_flag(min_heap_size, MinHeapSize) -> OldMinHeapSize[0m
+  [;1m                            when[0m
+  [;1m                                MinHeapSize :: non_neg_integer(),[0m
+  [;1m                                OldMinHeapSize :: non_neg_integer().[0m
+
+  [;1m-spec erlang:system_flag(backtrace_depth, Depth) -> OldDepth[0m
+  [;1m                            when[0m
+  [;1m                                Depth :: non_neg_integer(),[0m
+  [;1m                                OldDepth :: non_neg_integer().[0m
+
+  [;1m-spec erlang:system_flag(dirty_cpu_schedulers_online,[0m
+  [;1m                         DirtyCPUSchedulersOnline) ->[0m
+  [;1m                            OldDirtyCPUSchedulersOnline[0m
+  [;1m                            when[0m
+  [;1m                                DirtyCPUSchedulersOnline ::[0m
+  [;1m                                    pos_integer(),[0m
+  [;1m                                OldDirtyCPUSchedulersOnline ::[0m
+  [;1m                                    pos_integer().[0m
+
+[;;4mSince[0m:
+  OTP 17.0
+
+  [;1m-spec erlang:system_flag(schedulers_online, SchedulersOnline) ->[0m
+  [;1m                            OldSchedulersOnline[0m
+  [;1m                            when[0m
+  [;1m                                SchedulersOnline :: pos_integer(),[0m
+  [;1m                                OldSchedulersOnline :: pos_integer().[0m
+
+  [;1m-spec erlang:system_flag(system_logger, Logger) -> PrevLogger[0m
+  [;1m                            when[0m
+  [;1m                                Logger :: logger | undefined | pid(),[0m
+  [;1m                                PrevLogger :: logger | undefined | pid().[0m
+
+[;;4mSince[0m:
+  OTP 21.3
+
+  [;1m-spec erlang:system_flag(trace_control_word, TCW) -> OldTCW[0m
+  [;1m                            when[0m
+  [;1m                                TCW :: non_neg_integer(),[0m
+  [;1m                                OldTCW :: non_neg_integer().[0m
+
+  [;1m-spec erlang:system_flag(scheduler_wall_time, Boolean) -> OldBoolean[0m
+  [;1m                            when[0m
+  [;1m                                Boolean :: boolean(),[0m
+  [;1m                                OldBoolean :: boolean().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  [;1m-spec erlang:system_flag(microstate_accounting, Action) -> OldState[0m
+  [;1m                            when[0m
+  [;1m                                Action :: true | false | reset,[0m
+  [;1m                                OldState :: true | false.[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  [;1m-spec erlang:system_flag(cpu_topology, CpuTopology) -> OldCpuTopology[0m
+  [;1m                            when[0m
+  [;1m                                CpuTopology :: cpu_topology(),[0m
+  [;1m                                OldCpuTopology :: cpu_topology().[0m
+
+  [;1m-spec erlang:system_flag(max_heap_size, MaxHeapSize) -> OldMaxHeapSize[0m
+  [;1m                            when[0m
+  [;1m                                MaxHeapSize :: max_heap_size(),[0m
+  [;1m                                OldMaxHeapSize :: max_heap_size().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  [;1m-spec erlang:system_flag(scheduler_bind_type, How) -> OldBindType[0m
+  [;1m                            when[0m
+  [;1m                                How ::[0m
+  [;1m                                    scheduler_bind_type() | default_bind,[0m
+  [;1m                                OldBindType :: scheduler_bind_type().[0m
+
+  Types:
+    -type scheduler_bind_type() ::
+          no_node_processor_spread | no_node_thread_spread | no_spread |
+          processor_spread | spread | thread_spread |
+          thread_no_node_processor_spread | unbound.
+
+  Warning:
+    This argument is deprecated. Instead of using this argument,
+    use command-line argument [;;4m+sbt[0m in [;;4merl(1)[0m. When this
+    argument is removed, a final scheduler bind type to use is
+    determined at emulator boot time.
+
+  Controls if and how schedulers are bound to logical processors.
+
+  When [;;4merlang:system_flag(scheduler_bind_type, How)[0m is called, an
+  asynchronous signal is sent to all schedulers online, causing them
+  to try to bind or unbind as requested.
+
+  Note:
+    If a scheduler fails to bind, this is often silently ignored,
+    as it is not always possible to verify valid logical processor
+    identifiers. If an error is reported, an error event is
+    logged. To verify that the schedulers have bound as requested,
+    call [;;4merlang:system_info(scheduler_bindings)[0m.
+
+  Schedulers can be bound on newer Linux, Solaris, FreeBSD, and
+  Windows systems, but more systems will be supported in future
+  releases.
+
+  In order for the runtime system to be able to bind schedulers, the
+  CPU topology must be known. If the runtime system fails to detect
+  the CPU topology automatically, it can be defined. For more
+  information on how to define the CPU topology, see command-line
+  flag [;;4m+sct[0m in [;;4merl(1)[0m.
+
+  The runtime system does by default not bind schedulers to
+  logical processors.
+
+  Note:
+    If the Erlang runtime system is the only OS process binding
+    threads to logical processors, this improves the performance
+    of the runtime system. However, if other OS processes (for
+    example, another Erlang runtime system) also bind threads to
+    logical processors, there can be a performance penalty
+    instead. Sometimes this performance penalty can be severe. If
+    so, it is recommended to not bind the schedulers.
+
+  Schedulers can be bound in different ways. Argument [;;4mHow[0m
+  determines how schedulers are bound and can be any of the
+  following:
+
+  [;;4m[;;4munbound[0m[0m:
+    Same as command-line argument [;;4m+sbt u[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mno_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt ns[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mthread_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt ts[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mprocessor_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt ps[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mspread[0m[0m:
+    Same as command-line argument [;;4m+sbt s[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mno_node_thread_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt nnts[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mno_node_processor_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt nnps[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mthread_no_node_processor_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt tnnps[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mdefault_bind[0m[0m:
+    Same as command-line argument [;;4m+sbt db[0m in [;;4merl(1)[0m.
+
+  The returned value equals [;;4mHow[0m before flag [;;4mscheduler_bind_type[0m
+  was changed.
+
+  Failures:
+
+  [;;4m[;;4mnotsup[0m[0m:
+    If binding of schedulers is not supported.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mHow[0m is not one of the documented alternatives.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If CPU topology information is unavailable.
+
+  The scheduler bind type can also be set by passing command-line
+  argument [;;4m+sbt[0m to [;;4merl(1)[0m.
+
+  For more information, see [;;4merlang:system_info(scheduler_bind_type)[0m, [;;4m[0m
+  [;;4merlang:system_info(scheduler_bindings)[0m, as well as command-line
+  flags [;;4m+sbt[0m and [;;4m+sct[0m in [;;4merl(1)[0m.

@@ -1,0 +1,18 @@
+
+  [;1m-spec list_to_port(String) -> port() when String :: string().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  Returns a port identifier whose text representation is a [;;4mString[0m,
+  for example:
+
+    > list_to_port("#Port<0.4>").
+    #Port<0.4>
+
+  Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of a
+  port identifier.
+
+  Warning:
+    This BIF is intended for debugging and is not to be used in
+    application programs.

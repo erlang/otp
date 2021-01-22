@@ -1,0 +1,594 @@
+
+  [;1m-spec run(Subject, RE, Options) ->[0m
+  [;1m             {match, Captured} | match | nomatch | {error, ErrType}[0m
+  [;1m             when[0m
+  [;1m                 Subject :: iodata() | unicode:charlist(),[0m
+  [;1m                 RE :: mp() | iodata() | unicode:charlist(),[0m
+  [;1m                 Options :: [Option],[0m
+  [;1m                 Option ::[0m
+  [;1m                     anchored | global | notbol | noteol | notempty |[0m
+  [;1m                     notempty_atstart | report_errors |[0m
+  [;1m                     {offset, non_neg_integer()} |[0m
+  [;1m                     {match_limit, non_neg_integer()} |[0m
+  [;1m                     {match_limit_recursion, non_neg_integer()} |[0m
+  [;1m                     {newline, NLSpec :: nl_spec()} |[0m
+  [;1m                     bsr_anycrlf | bsr_unicode |[0m
+  [;1m                     {capture, ValueSpec} |[0m
+  [;1m                     {capture, ValueSpec, Type} |[0m
+  [;1m                     CompileOpt,[0m
+  [;1m                 Type :: index | list | binary,[0m
+  [;1m                 ValueSpec ::[0m
+  [;1m                     all | all_but_first | all_names | first | none |[0m
+  [;1m                     ValueList,[0m
+  [;1m                 ValueList :: [ValueID],[0m
+  [;1m                 ValueID :: integer() | string() | atom(),[0m
+  [;1m                 CompileOpt :: compile_option(),[0m
+  [;1m                 Captured :: [CaptureData] | [[CaptureData]],[0m
+  [;1m                 CaptureData ::[0m
+  [;1m                     {integer(), integer()} |[0m
+  [;1m                     ListConversionData |[0m
+  [;1m                     binary(),[0m
+  [;1m                 ListConversionData ::[0m
+  [;1m                     string() |[0m
+  [;1m                     {error, string(), binary()} |[0m
+  [;1m                     {incomplete, string(), binary()},[0m
+  [;1m                 ErrType ::[0m
+  [;1m                     match_limit | match_limit_recursion |[0m
+  [;1m                     {compile, CompileErr},[0m
+  [;1m                 CompileErr ::[0m
+  [;1m                     {ErrString :: string(),[0m
+  [;1m                      Position :: non_neg_integer()}.[0m
+
+  Executes a regular expression matching, and returns [;;4mmatch/{match,[0m
+  [;;4mCaptured}[0m or [;;4mnomatch[0m. The regular expression can be specified
+  either as [;;4miodata()[0m in which case it is automatically compiled
+  (as by [;;4mcompile/2[0m) and executed, or as a precompiled [;;4mmp()[0m in
+  which case it is executed against the subject directly.
+
+  When compilation is involved, exception [;;4mbadarg[0m is thrown if a
+  compilation error occurs. Call [;;4mcompile/2[0m to get information
+  about the location of the error in the regular expression.
+
+  If the regular expression is previously compiled, the option list
+  can only contain the following options:
+
+   • [;;4manchored[0m
+
+   • [;;4m{capture, ValueSpec}/{capture, ValueSpec, Type}[0m
+
+   • [;;4mglobal[0m
+
+   • [;;4m{match_limit, integer() >= 0}[0m
+
+   • [;;4m{match_limit_recursion, integer() >= 0}[0m
+
+   • [;;4m{newline, NLSpec}[0m
+
+   • [;;4mnotbol[0m
+
+   • [;;4mnotempty[0m
+
+   • [;;4mnotempty_atstart[0m
+
+   • [;;4mnoteol[0m
+
+   • [;;4m{offset, integer() >= 0}[0m
+
+   • [;;4mreport_errors[0m
+
+  Otherwise all options valid for function [;;4mcompile/2[0m are also
+  allowed. Options allowed both for compilation and execution of a
+  match, namely [;;4manchored[0m and [;;4m{newline, NLSpec}[0m, affect both the
+  compilation and execution if present together with a
+  non-precompiled regular expression.
+
+  If the regular expression was previously compiled with option [;;4m[0m
+  [;;4municode[0m, [;;4mSubject[0m is to be provided as a valid Unicode [;;4m[0m
+  [;;4mcharlist()[0m, otherwise any [;;4miodata()[0m will do. If compilation is
+  involved and option [;;4municode[0m is specified, both [;;4mSubject[0m and the
+  regular expression are to be specified as valid Unicode [;;4m[0m
+  [;;4mcharlists()[0m.
+
+  [;;4m{capture, ValueSpec}/{capture, ValueSpec, Type}[0m defines what to
+  return from the function upon successful matching. The [;;4mcapture[0m
+  tuple can contain both a value specification, telling which of the
+  captured substrings are to be returned, and a type specification,
+  telling how captured substrings are to be returned (as index
+  tuples, lists, or binaries). The options are described in detail
+  below.
+
+  If the capture options describe that no substring capturing is to
+  be done ([;;4m{capture, none}[0m), the function returns the single atom [;;4m[0m
+  [;;4mmatch[0m upon successful matching, otherwise the tuple [;;4m{match,[0m
+  [;;4mValueList}[0m. Disabling capturing can be done either by specifying [;;4m[0m
+  [;;4mnone[0m or an empty list as [;;4mValueSpec[0m.
+
+  Option [;;4mreport_errors[0m adds the possibility that an error tuple is
+  returned. The tuple either indicates a matching error ([;;4m[0m
+  [;;4mmatch_limit[0m or [;;4mmatch_limit_recursion[0m), or a compilation error,
+  where the error tuple has the format [;;4m{error, {compile,[0m
+  [;;4mCompileErr}}[0m. Notice that if option [;;4mreport_errors[0m is not
+  specified, the function never returns error tuples, but reports
+  compilation errors as a [;;4mbadarg[0m exception and failed matches
+  because of exceeded match limits simply as [;;4mnomatch[0m.
+
+  The following options are relevant for execution:
+
+  [;;4m[;;4manchored[0m[0m:
+    Limits [;;4mrun/3[0m to matching at the first matching position. If
+    a pattern was compiled with [;;4manchored[0m, or turned out to be
+    anchored by virtue of its contents, it cannot be made
+    unanchored at matching time, hence there is no [;;4munanchored[0m
+    option.
+
+  [;;4m[;;4mglobal[0m[0m:
+    Implements global (repetitive) search (flag [;;4mg[0m in Perl). Each
+    match is returned as a separate [;;4mlist()[0m containing the
+    specific match and any matching subexpressions (or as
+    specified by option [;;4mcapture[0m. The [;;4mCaptured[0m part of the
+    return value is hence a [;;4mlist()[0m of [;;4mlist()[0ms when this option
+    is specified.
+
+    The interaction of option [;;4mglobal[0m with a regular expression
+    that matches an empty string surprises some users. When option [;;4m[0m
+    [;;4mglobal[0m is specified, [;;4mrun/3[0m handles empty matches in the
+    same way as Perl: a zero-length match at any point is also
+    retried with options [;;4m[anchored, notempty_atstart][0m. If that
+    search gives a result of length > 0, the result is included.
+    Example:
+
+      re:run("cat","(|at)",[global]).
+
+    The following matchings are performed:
+
+    [;;4mAt offset [;;4m0[0m[0m:
+      The regular expression [;;4m(|at)[0m first match at the initial
+      position of string [;;4mcat[0m, giving the result set [;;4m[0m
+      [;;4m[{0,0},{0,0}][0m (the second [;;4m{0,0}[0m is because of the
+      subexpression marked by the parentheses). As the length of
+      the match is 0, we do not advance to the next position
+      yet.
+
+    [;;4mAt offset [;;4m0[0m with [;;4m[anchored, notempty_atstart][0m[0m:
+      The search is retried with options [;;4m[anchored,[0m
+      [;;4mnotempty_atstart][0m at the same position, which does not
+      give any interesting result of longer length, so the
+      search position is advanced to the next character ([;;4ma[0m).
+
+    [;;4mAt offset [;;4m1[0m[0m:
+      The search results in [;;4m[{1,0},{1,0}][0m, so this search is
+      also repeated with the extra options.
+
+    [;;4mAt offset [;;4m1[0m with [;;4m[anchored, notempty_atstart][0m[0m:
+      Alternative [;;4mab[0m is found and the result is [{1,2},{1,2}].
+      The result is added to the list of results and the
+      position in the search string is advanced two steps.
+
+    [;;4mAt offset [;;4m3[0m[0m:
+      The search once again matches the empty string, giving [;;4m[0m
+      [;;4m[{3,0},{3,0}][0m.
+
+    [;;4mAt offset [;;4m1[0m with [;;4m[anchored, notempty_atstart][0m[0m:
+      This gives no result of length > 0 and we are at the last
+      position, so the global search is complete.
+
+    The result of the call is:
+
+      {match,[[{0,0},{0,0}],[{1,0},{1,0}],[{1,2},{1,2}],[{3,0},{3,0}]]}
+
+  [;;4m[;;4mnotempty[0m[0m:
+    An empty string is not considered to be a valid match if this
+    option is specified. If alternatives in the pattern exist,
+    they are tried. If all the alternatives match the empty
+    string, the entire match fails.
+
+    Example:
+
+    If the following pattern is applied to a string not beginning
+    with "a" or "b", it would normally match the empty string at
+    the start of the subject:
+
+      a?b?
+
+    With option [;;4mnotempty[0m, this match is invalid, so [;;4mrun/3[0m
+    searches further into the string for occurrences of "a" or
+    "b".
+
+  [;;4m[;;4mnotempty_atstart[0m[0m:
+    Like [;;4mnotempty[0m, except that an empty string match that is not
+    at the start of the subject is permitted. If the pattern is
+    anchored, such a match can occur only if the pattern contains
+    \K.
+
+    Perl has no direct equivalent of [;;4mnotempty[0m or [;;4m[0m
+    [;;4mnotempty_atstart[0m, but it does make a special case of a
+    pattern match of the empty string within its split() function,
+    and when using modifier [;;4m/g[0m. The Perl behavior can be
+    emulated after matching a null string by first trying the
+    match again at the same offset with [;;4mnotempty_atstart[0m and [;;4m[0m
+    [;;4manchored[0m, and then, if that fails, by advancing the starting
+    offset (see below) and trying an ordinary match again.
+
+  [;;4m[;;4mnotbol[0m[0m:
+    Specifies that the first character of the subject string is
+    not the beginning of a line, so the circumflex metacharacter
+    is not to match before it. Setting this without [;;4mmultiline[0m
+    (at compile time) causes circumflex never to match. This
+    option only affects the behavior of the circumflex
+    metacharacter. It does not affect \A.
+
+  [;;4m[;;4mnoteol[0m[0m:
+    Specifies that the end of the subject string is not the end of
+    a line, so the dollar metacharacter is not to match it nor
+    (except in multiline mode) a newline immediately before it.
+    Setting this without [;;4mmultiline[0m (at compile time) causes
+    dollar never to match. This option affects only the behavior
+    of the dollar metacharacter. It does not affect \Z or \z.
+
+  [;;4m[;;4mreport_errors[0m[0m:
+    Gives better control of the error handling in [;;4mrun/3[0m. When
+    specified, compilation errors (if the regular expression is
+    not already compiled) and runtime errors are explicitly
+    returned as an error tuple.
+
+    The following are the possible runtime errors:
+
+    [;;4m[;;4mmatch_limit[0m[0m:
+      The PCRE library sets a limit on how many times the
+      internal match function can be called. Defaults to
+      10,000,000 in the library compiled for Erlang. If [;;4m{error,[0m
+      [;;4mmatch_limit}[0m is returned, the execution of the regular
+      expression has reached this limit. This is normally to be
+      regarded as a [;;4mnomatch[0m, which is the default return value
+      when this occurs, but by specifying [;;4mreport_errors[0m, you
+      are informed when the match fails because of too many
+      internal calls.
+
+    [;;4m[;;4mmatch_limit_recursion[0m[0m:
+      This error is very similar to [;;4mmatch_limit[0m, but occurs
+      when the internal match function of PCRE is "recursively"
+      called more times than the [;;4mmatch_limit_recursion[0m limit,
+      which defaults to 10,000,000 as well. Notice that as long
+      as the [;;4mmatch_limit[0m and [;;4mmatch_limit_default[0m values are
+      kept at the default values, the [;;4mmatch_limit_recursion[0m
+      error cannot occur, as the [;;4mmatch_limit[0m error occurs
+      before that (each recursive call is also a call, but not
+      conversely). Both limits can however be changed, either by
+      setting limits directly in the regular expression string
+      (see section PCRE Regular Eexpression Details) or by
+      specifying options to [;;4mrun/3[0m.
+
+    It is important to understand that what is referred to as
+    "recursion" when limiting matches is not recursion on the C
+    stack of the Erlang machine or on the Erlang process stack.
+    The PCRE version compiled into the Erlang VM uses machine
+    "heap" memory to store values that must be kept over recursion
+    in regular expression matches.
+
+  [;;4m[;;4m{match_limit, integer() >= 0}[0m[0m:
+    Limits the execution time of a match in an
+    implementation-specific way. It is described as follows by the
+    PCRE documentation:
+
+      The match_limit field provides a means of preventing PCRE from using
+      up a vast amount of resources when running patterns that are not going
+      to match, but which have a very large number of possibilities in their
+      search trees. The classic example is a pattern that uses nested
+      unlimited repeats.
+      
+      Internally, pcre_exec() uses a function called match(), which it calls
+      repeatedly (sometimes recursively). The limit set by match_limit is
+      imposed on the number of times this function is called during a match,
+      which has the effect of limiting the amount of backtracking that can
+      take place. For patterns that are not anchored, the count restarts
+      from zero for each position in the subject string.
+
+    This means that runaway regular expression matches can fail
+    faster if the limit is lowered using this option. The default
+    value 10,000,000 is compiled into the Erlang VM.
+
+    Note:
+      This option does in no way affect the execution of the
+      Erlang VM in terms of "long running BIFs". [;;4mrun/3[0m always
+      gives control back to the scheduler of Erlang processes at
+      intervals that ensures the real-time properties of the
+      Erlang system.
+
+  [;;4m[;;4m{match_limit_recursion, integer() >= 0}[0m[0m:
+    Limits the execution time and memory consumption of a match in
+    an implementation-specific way, very similar to [;;4mmatch_limit[0m.
+    It is described as follows by the PCRE documentation:
+
+      The match_limit_recursion field is similar to match_limit, but instead
+      of limiting the total number of times that match() is called, it
+      limits the depth of recursion. The recursion depth is a smaller number
+      than the total number of calls, because not all calls to match() are
+      recursive. This limit is of use only if it is set smaller than
+      match_limit.
+      
+      Limiting the recursion depth limits the amount of machine stack that
+      can be used, or, when PCRE has been compiled to use memory on the heap
+      instead of the stack, the amount of heap memory that can be used.
+
+    The Erlang VM uses a PCRE library where heap memory is used
+    when regular expression match recursion occurs. This therefore
+    limits the use of machine heap, not C stack.
+
+    Specifying a lower value can result in matches with deep
+    recursion failing, when they should have matched:
+
+      1> re:run("aaaaaaaaaaaaaz","(a+)*z").
+      {match,[{0,14},{0,13}]}
+      2> re:run("aaaaaaaaaaaaaz","(a+)*z",[{match_limit_recursion,5}]).
+      nomatch
+      3> re:run("aaaaaaaaaaaaaz","(a+)*z",[{match_limit_recursion,5},report_errors]).
+      {error,match_limit_recursion}
+
+    This option and option [;;4mmatch_limit[0m are only to be used in
+    rare cases. Understanding of the PCRE library internals is
+    recommended before tampering with these limits.
+
+  [;;4m[;;4m{offset, integer() >= 0}[0m[0m:
+    Start matching at the offset (position) specified in the
+    subject string. The offset is zero-based, so that the default
+    is [;;4m{offset,0}[0m (all of the subject string).
+
+  [;;4m[;;4m{newline, NLSpec}[0m[0m:
+    Overrides the default definition of a newline in the subject
+    string, which is LF (ASCII 10) in Erlang.
+
+    [;;4m[;;4mcr[0m[0m:
+      Newline is indicated by a single character CR (ASCII 13).
+
+    [;;4m[;;4mlf[0m[0m:
+      Newline is indicated by a single character LF (ASCII 10),
+      the default.
+
+    [;;4m[;;4mcrlf[0m[0m:
+      Newline is indicated by the two-character CRLF (ASCII 13
+      followed by ASCII 10) sequence.
+
+    [;;4m[;;4manycrlf[0m[0m:
+      Any of the three preceding sequences is be recognized.
+
+    [;;4m[;;4many[0m[0m:
+      Any of the newline sequences above, and the Unicode
+      sequences VT (vertical tab, U+000B), FF (formfeed,
+      U+000C), NEL (next line, U+0085), LS (line separator,
+      U+2028), and PS (paragraph separator, U+2029).
+
+  [;;4m[;;4mbsr_anycrlf[0m[0m:
+    Specifies specifically that \R is to match only the CR LF, or
+    CRLF sequences, not the Unicode-specific newline characters.
+    (Overrides the compilation option.)
+
+  [;;4m[;;4mbsr_unicode[0m[0m:
+    Specifies specifically that \R is to match all the Unicode
+    newline characters (including CRLF, and so on, the default).
+    (Overrides the compilation option.)
+
+  [;;4m[;;4m{capture, ValueSpec}[0m/[;;4m{capture, ValueSpec, Type}[0m[0m:
+    Specifies which captured substrings are returned and in what
+    format. By default, [;;4mrun/3[0m captures all of the matching part
+    of the substring and all capturing subpatterns (all of the
+    pattern is automatically captured). The default return type is
+    (zero-based) indexes of the captured parts of the string,
+    specified as [;;4m{Offset,Length}[0m pairs (the [;;4mindex[0m [;;4mType[0m of
+    capturing).
+
+    As an example of the default behavior, the following call
+    returns, as first and only captured string, the matching part
+    of the subject ("abcd" in the middle) as an index pair [;;4m{3,4}[0m,
+    where character positions are zero-based, just as in offsets:
+
+      re:run("ABCabcdABC","abcd",[]).
+
+    The return value of this call is:
+
+      {match,[{3,4}]}
+
+    Another (and quite common) case is where the regular
+    expression matches all of the subject:
+
+      re:run("ABCabcdABC",".*abcd.*",[]).
+
+    Here the return value correspondingly points out all of the
+    string, beginning at index 0, and it is 10 characters long:
+
+      {match,[{0,10}]}
+
+    If the regular expression contains capturing subpatterns, like
+    in:
+
+      re:run("ABCabcdABC",".*(abcd).*",[]).
+
+    all of the matched subject is captured, as well as the
+    captured substrings:
+
+      {match,[{0,10},{3,4}]}
+
+    The complete matching pattern always gives the first return
+    value in the list and the remaining subpatterns are added in
+    the order they occurred in the regular expression.
+
+    The capture tuple is built up as follows:
+
+    [;;4m[;;4mValueSpec[0m[0m:
+      Specifies which captured (sub)patterns are to be returned. [;;4m[0m
+      [;;4mValueSpec[0m can either be an atom describing a predefined
+      set of return values, or a list containing the indexes or
+      the names of specific subpatterns to return.
+
+      The following are the predefined sets of subpatterns:
+
+      [;;4m[;;4mall[0m[0m:
+        All captured subpatterns including the complete
+        matching string. This is the default.
+
+      [;;4m[;;4mall_names[0m[0m:
+        All named subpatterns in the regular expression, as
+        if a [;;4mlist()[0m of all the names in alphabetical order
+        was specified. The list of all names can also be
+        retrieved with [;;4minspect/2[0m.
+
+      [;;4m[;;4mfirst[0m[0m:
+        Only the first captured subpattern, which is always
+        the complete matching part of the subject. All
+        explicitly captured subpatterns are discarded.
+
+      [;;4m[;;4mall_but_first[0m[0m:
+        All but the first matching subpattern, that is, all
+        explicitly captured subpatterns, but not the complete
+        matching part of the subject string. This is useful if
+        the regular expression as a whole matches a large part
+        of the subject, but the part you are interested in is
+        in an explicitly captured subpattern. If the return
+        type is [;;4mlist[0m or [;;4mbinary[0m, not returning subpatterns
+        you are not interested in is a good way to optimize.
+
+      [;;4m[;;4mnone[0m[0m:
+        Returns no matching subpatterns, gives the single atom [;;4m[0m
+        [;;4mmatch[0m as the return value of the function when
+        matching successfully instead of the [;;4m{match, list()}[0m
+        return. Specifying an empty list gives the same
+        behavior.
+
+      The value list is a list of indexes for the subpatterns to
+      return, where index 0 is for all of the pattern, and 1 is
+      for the first explicit capturing subpattern in the regular
+      expression, and so on. When using named captured
+      subpatterns (see below) in the regular expression, one can
+      use [;;4matom()[0ms or [;;4mstring()[0ms to specify the subpatterns to
+      be returned. For example, consider the regular expression:
+
+        ".*(abcd).*"
+
+      matched against string "ABCabcdABC", capturing only the
+      "abcd" part (the first explicit subpattern):
+
+        re:run("ABCabcdABC",".*(abcd).*",[{capture,[1]}]).
+
+      The call gives the following result, as the first
+      explicitly captured subpattern is "(abcd)", matching
+      "abcd" in the subject, at (zero-based) position 3, of
+      length 4:
+
+        {match,[{3,4}]}
+
+      Consider the same regular expression, but with the
+      subpattern explicitly named 'FOO':
+
+        ".*(?<FOO>abcd).*"
+
+      With this expression, we could still give the index of the
+      subpattern with the following call:
+
+        re:run("ABCabcdABC",".*(?<FOO>abcd).*",[{capture,[1]}]).
+
+      giving the same result as before. But, as the subpattern
+      is named, we can also specify its name in the value list:
+
+        re:run("ABCabcdABC",".*(?<FOO>abcd).*",[{capture,['FOO']}]).
+
+      This would give the same result as the earlier examples,
+      namely:
+
+        {match,[{3,4}]}
+
+      The values list can specify indexes or names not present
+      in the regular expression, in which case the return values
+      vary depending on the type. If the type is [;;4mindex[0m, the
+      tuple [;;4m{-1,0}[0m is returned for values with no
+      corresponding subpattern in the regular expression, but
+      for the other types ([;;4mbinary[0m and [;;4mlist[0m), the values are
+      the empty binary or list, respectively.
+
+    [;;4m[;;4mType[0m[0m:
+      Optionally specifies how captured substrings are to be
+      returned. If omitted, the default of [;;4mindex[0m is used.
+
+      [;;4mType[0m can be one of the following:
+
+      [;;4m[;;4mindex[0m[0m:
+        Returns captured substrings as pairs of byte indexes
+        into the subject string and length of the matching
+        string in the subject (as if the subject string was
+        flattened with [;;4merlang:iolist_to_binary/1[0m or [;;4m[0m
+        [;;4municode:characters_to_binary/2[0m before matching).
+        Notice that option [;;4municode[0m results in byte-oriented
+        indexes in a (possibly virtual) UTF-8 encoded
+        binary. A byte index tuple [;;4m{0,2}[0m can therefore
+        represent one or two characters when [;;4municode[0m is in
+        effect. This can seem counter-intuitive, but has been
+        deemed the most effective and useful way to do it. To
+        return lists instead can result in simpler code if
+        that is desired. This return type is the default.
+
+      [;;4m[;;4mlist[0m[0m:
+        Returns matching substrings as lists of characters
+        (Erlang [;;4mstring()[0ms). It option [;;4municode[0m is used in
+        combination with the \C sequence in the regular
+        expression, a captured subpattern can contain bytes
+        that are not valid UTF-8 (\C matches bytes regardless
+        of character encoding). In that case the [;;4mlist[0m
+        capturing can result in the same types of tuples that [;;4m[0m
+        [;;4municode:characters_to_list/2[0m can return, namely
+        three-tuples with tag [;;4mincomplete[0m or [;;4merror[0m, the
+        successfully converted characters and the invalid
+        UTF-8 tail of the conversion as a binary. The best
+        strategy is to avoid using the \C sequence when
+        capturing lists.
+
+      [;;4m[;;4mbinary[0m[0m:
+        Returns matching substrings as binaries. If option [;;4m[0m
+        [;;4municode[0m is used, these binaries are in UTF-8. If the
+        \C sequence is used together with [;;4municode[0m, the
+        binaries can be invalid UTF-8.
+
+    In general, subpatterns that were not assigned a value in the
+    match are returned as the tuple [;;4m{-1,0}[0m when [;;4mtype[0m is [;;4mindex[0m.
+    Unassigned subpatterns are returned as the empty binary or
+    list, respectively, for other return types. Consider the
+    following regular expression:
+
+      ".*((?<FOO>abdd)|a(..d)).*"
+
+    There are three explicitly capturing subpatterns, where the
+    opening parenthesis position determines the order in the
+    result, hence [;;4m((?<FOO>abdd)|a(..d))[0m is subpattern index 1, [;;4m[0m
+    [;;4m(?<FOO>abdd)[0m is subpattern index 2, and [;;4m(..d)[0m is subpattern
+    index 3. When matched against the following string:
+
+      "ABCabcdABC"
+
+    the subpattern at index 2 does not match, as "abdd" is not
+    present in the string, but the complete pattern matches
+    (because of the alternative [;;4ma(..d)[0m). The subpattern at index
+    2 is therefore unassigned and the default return value is:
+
+      {match,[{0,10},{3,4},{-1,0},{4,3}]}
+
+    Setting the capture [;;4mType[0m to [;;4mbinary[0m gives:
+
+      {match,[<<"ABCabcdABC">>,<<"abcd">>,<<>>,<<"bcd">>]}
+
+    Here the empty binary ([;;4m<<>>[0m) represents the unassigned
+    subpattern. In the [;;4mbinary[0m case, some information about the
+    matching is therefore lost, as [;;4m<<>>[0m can also be an empty
+    string captured.
+
+    If differentiation between empty matches and non-existing
+    subpatterns is necessary, use the [;;4mtype[0m [;;4mindex[0m and do the
+    conversion to the final type in Erlang code.
+
+    When option [;;4mglobal[0m is speciified, the [;;4mcapture[0m
+    specification affects each match separately, so that:
+
+      re:run("cacb","c(a|b)",[global,{capture,[1],list}]).
+
+    gives
+
+      {match,[["a"],["b"]]}
+
+  For a descriptions of options only affecting the compilation step,
+  see [;;4mcompile/2[0m.

@@ -1,0 +1,12 @@
+
+  [;1m-spec hd(List) -> term() when List :: [term(), ...].[0m
+
+  Returns the head of [;;4mList[0m, that is, the first element, for
+  example:
+
+    > hd([1,2,3,4,5]).
+    1
+
+  Allowed in guard tests.
+
+  Failure: [;;4mbadarg[0m if [;;4mList[0m is the empty list [;;4m[][0m.
