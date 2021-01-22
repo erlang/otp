@@ -1845,10 +1845,9 @@ pattern_map(Ps, Vt, Old, St) ->
 %%  Check a pattern group.
 
 pattern_bin(Es, Vt, Old, St0) ->
-    {_Sz,Esvt,Esnew,St1} = foldl(fun (E, Acc) ->
-				       pattern_element(E, Vt, Old, Acc)
-			       end,
-			       {0,[],[],St0}, Es),
+    {_,Esvt,Esnew,St1} = foldl(fun (E, Acc) ->
+                                       pattern_element(E, Vt, Old, Acc)
+                               end, {{0,0},[],[],St0}, Es),
     {Esvt,Esnew,St1}.
 
 pattern_element({bin_element,Anno,{string,_,_},Size,Ts}=Be, Vt,
@@ -1863,7 +1862,8 @@ pattern_element({bin_element,Anno,{string,_,_},Size,Ts}=Be, Vt,
 pattern_element(Be, Vt, Old, Acc) ->
     pattern_element_1(Be, Vt, Old, Acc).
 
-pattern_element_1({bin_element,Anno,E,Sz0,Ts}, Vt, Old, {Size0,Esvt,Esnew,St0}) ->
+pattern_element_1({bin_element,Anno,E,Sz0,Ts}, Vt, Old,
+                  {{PrevSize,PrevAnno},Esvt,Esnew,St0}) ->
     {Pevt,Penew,St1} = pat_bit_expr(E, Old, Esnew, St0),
     {Sz1,Szvt,Sznew,St2} = pat_bit_size(Sz0, Vt, Esnew, St1),
     {Sz2,Bt,St3} = bit_type(Anno, Sz1, Ts, St2),
@@ -1872,8 +1872,11 @@ pattern_element_1({bin_element,Anno,E,Sz0,Ts}, Vt, Old, {Size0,Esvt,Esnew,St0}) 
 	      {{string,_,S},all} -> 8*length(S);
 	      {_,_} -> Sz3
 	  end,
-    {Size1,St5} = add_bit_size(Anno, Sz4, Size0, false, St4),
-    {Size1,vtmerge(Szvt,vtmerge(Pevt, Esvt)),
+    St5 = case PrevSize of
+              all -> add_error(PrevAnno, unsized_binary_not_at_end, St4);
+              _ -> St4
+          end,
+    {{Sz4,Anno},vtmerge(Szvt,vtmerge(Pevt, Esvt)),
      vtmerge(Sznew,vtmerge(Esnew, Penew)), St5}.
 
 good_string_size_type(default, default) ->
@@ -1945,17 +1948,17 @@ is_bit_size_illegal(_) -> false.
 %%  Check an expression group.
 
 expr_bin(Es, Vt, St0, Check) ->
-    {_Sz,Esvt,St1} = foldl(fun (E, Acc) -> bin_element(E, Vt, Acc, Check) end,
-			   {0,[],St0}, Es),
+    {Esvt,St1} = foldl(fun (E, Acc) ->
+                               bin_element(E, Vt, Acc, Check)
+                       end, {[],St0}, Es),
     {Esvt,St1}.
 
-bin_element({bin_element,Anno,E,Sz0,Ts}, Vt, {Size0,Esvt,St0}, Check) ->
+bin_element({bin_element,Anno,E,Sz0,Ts}, Vt, {Esvt,St0}, Check) ->
     {Vt1,St1} = Check(E, Vt, St0),
     {Sz1,Vt2,St2} = bit_size(Sz0, Vt, St1, Check),
     {Sz2,Bt,St3} = bit_type(Anno, Sz1, Ts, St2),
-    {Sz3,St4} = bit_size_check(Anno, Sz2, Bt, St3),
-    {Size1,St5} = add_bit_size(Anno, Sz3, Size0, true, St4),
-    {Size1,vtmerge([Vt2,Vt1,Esvt]),St5}.
+    {_Sz3,St4} = bit_size_check(Anno, Sz2, Bt, St3),
+    {vtmerge([Vt2,Vt1,Esvt]),St4}.
 
 bit_size(default, _Vt, St, _Check) -> {default,[],St};
 bit_size({atom,_Anno,all}, _Vt, St, _Check) -> {all,[],St};
@@ -2012,20 +2015,6 @@ elemtype_check(Anno, float, _Size, St) ->
     add_warning(Anno, {bad_bitsize,"float"}, St);
 elemtype_check(_Anno, _Type, _Size, St) ->  St.
 
-
-%% add_bit_size(Anno, ElementSize, BinSize, Build, State) -> {Size,State}.
-%%  Add bits to group size.
-
-add_bit_size(Anno, _Sz1, all, false, St) ->
-    {all,add_error(Anno, unsized_binary_not_at_end, St)};
-add_bit_size(_Anno, _Sz1, all, true, St) ->
-    {all,St};
-add_bit_size(_Anno, all, _Sz2, _B, St) -> {all,St};
-add_bit_size(_Anno, undefined, _Sz2, _B, St) -> {undefined,St};
-add_bit_size(_Anno, unknown, _Sz2, _B, St) -> {unknown,St};
-add_bit_size(_Anno, _Sz1, undefined, _B, St) -> {unknown,St};
-add_bit_size(_Anno, _Sz1, unknown, _B, St) -> {unknown,St};
-add_bit_size(_Anno, Sz1, Sz2, _B, St) -> {Sz1 + Sz2,St}.
 
 %% guard([GuardTest], VarTable, State) ->
 %%      {UsedVarTable,State}

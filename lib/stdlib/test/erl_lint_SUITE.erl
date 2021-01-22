@@ -2721,9 +2721,9 @@ otp_6885(Config) when is_list(Config) ->
                ok.
 
            ">>,
-    {errors,[{{3,26},erl_lint,unsized_binary_not_at_end},
-             {{4,26},erl_lint,unsized_binary_not_at_end},
-             {{5,19},erl_lint,unsized_binary_not_at_end},
+    {errors,[{{3,17},erl_lint,unsized_binary_not_at_end},
+             {{4,17},erl_lint,unsized_binary_not_at_end},
+             {{5,10},erl_lint,unsized_binary_not_at_end},
              {{10,19},erl_lint,typed_literal_string},
              {{12,19},erl_lint,typed_literal_string},
              {{14,19},erl_lint,typed_literal_string},
