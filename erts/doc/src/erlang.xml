@@ -1972,14 +1972,10 @@ true</pre>
       <fsummary>Check if a function is exported and loaded.</fsummary>
       <desc>
         <p>Returns <c>true</c> if the module <c><anno>Module</anno></c> is
-          loaded and contains an exported function
-          <c><anno>Function</anno>/<anno>Arity</anno></c>,
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">current</seeguide>
+          and contains an exported function <c><anno>Function</anno>/<anno>Arity</anno></c>,
           or if there is a BIF (a built-in function implemented in C)
           with the specified name, otherwise returns <c>false</c>.</p>
-        <note>
-          <p>This function used to return <c>false</c> for BIFs
-            before Erlang/OTP 18.0.</p>
-        </note>
       </desc>
     </func>
 
