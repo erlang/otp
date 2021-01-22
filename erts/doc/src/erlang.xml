@@ -2431,8 +2431,36 @@ os_prompt%</pre>
       <name name="iolist_to_iovec" arity="1" since="OTP 20.1"/>
       <fsummary>Converts an iolist to a iovec.</fsummary>
       <desc>
-        <p>Returns an iovec that is made from the integers and binaries in
-          <c><anno>IoListOrBinary</anno></c>.</p>
+        <p>Returns an <seetype marker="#iovec">iovec</seetype> that is made from
+          the integers and binaries in <c><anno>IoListOrBinary</anno></c>.
+          This function is useful when you want to flatten an iolist but you do
+          not need a single binary. This can be useful for passing the data
+          to nif functions such as
+          <seecref marker="erl_nif#enif_inspect_iovec"><c>enif_inspect_iovec</c></seecref>
+          or do more efficient message passing. The advantage of using this
+          function over
+          <seemfa marker="#iolist_to_binary/1"><c>iolist_to_binary/1</c></seemfa>
+          is that it does not have to copy
+          <seeguide marker="system/efficiency_guide:binaryhandling#refc_binary">
+            off-heap binaries</seeguide>. Example:</p>
+        <pre>
+> <input>Bin1 = &lt;&lt;1,2,3&gt;&gt;.</input>
+&lt;&lt;1,2,3&gt;&gt;
+> <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
+&lt;&lt;4,5&gt;&gt;
+> <input>Bin3 = &lt;&lt;6&gt;&gt;.</input>
+&lt;&lt;6&gt;&gt;
+%% If you pass small binaries and integers it works as iolist_to_binary
+> <input>erlang:iolist_to_iovec([Bin1,1,[2,3,Bin2],4|Bin3]).</input>
+[&lt;&lt;1,2,3,1,2,3,4,5,4,6&gt;&gt;]
+%% If you pass larger binaries, they are split and returned in a form
+%% optimized for calling the C function writev.
+> <input>erlang:iolist_to_iovec([&lt;&lt;1&gt;&gt;,&lt;&lt;2:8096&gt;&gt;,&lt;&lt;3:8096&gt;&gt;]).</input>
+[&lt;&lt;1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,...&gt;&gt;,
+ &lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   ...&gt;&gt;,
+ &lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...&gt;&gt;]</pre>
       </desc>
     </func>
 
