@@ -212,62 +212,58 @@ find_value(KeyPath, PropList) ->
 %%%
 funs({block, {Type, Key, IV, Block}}) ->
     {fun() -> ok end,
-     fun(_) -> crypto:block_encrypt(Type, Key, IV, Block) end,
+     fun(_) -> crypto:crypto_one_time(Type, Key, IV, Block, true) end,
      fun(_) -> ok end};
 
-funs({stream, {Type, Key, IV, Block}}) ->
-    {fun() -> {crypto:stream_init(Type, Key, IV),ok} end,
-     fun({Ctx,_}) -> crypto:stream_encrypt(Ctx, Block) end,
+funs({aead, {Type, Key, IV, AAD, Block, TagSize}}) ->
+    {fun() -> ok end,
+     fun(_) -> crypto:crypto_one_time_aead(Type, Key, IV, Block, AAD, TagSize, true) end,
+     fun(_) -> ok end};
+
+funs({aead, {Type, Key, IV, AAD, Block}}) ->
+    {fun() -> ok end,
+     fun(_) -> crypto:crypto_one_time_aead(Type, Key, IV, Block, AAD, true) end,
      fun(_) -> ok end}.
 
 
-data(aes_cbc, KeySize, BlockSize) ->
-    Type = case KeySize of
-               128 -> aes_cbc128;
-               256 -> aes_cbc256
-           end,
+data(aes_cbc=Type, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(16),
     Block = mk_bin(BlockSize),
     {Type, funs({block, {Type, Key, IV, Block}})};
 
-data(aes_gcm, KeySize, BlockSize) ->
-    Type = aes_gcm,
+data(aes_gcm=Type, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(12),
     Block = mk_bin(BlockSize),
     AAD = <<01,02,03,04>>,
-    {Type, funs({block, {Type, Key, IV, {AAD,Block,16}}})};
+    {Type, funs({aead, {Type, Key, IV, AAD, Block, 16}})};
 
-data(aes_ccm, KeySize, BlockSize) ->
-    Type = aes_ccm,
+data(aes_ccm=Type, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(12),
     Block = mk_bin(BlockSize),
     AAD = <<01,02,03,04>>,
-    {Type, funs({block, {Type, Key, IV, {AAD,Block,12}}})};
+    {Type, funs({aead, {Type, Key, IV, AAD, Block, 12}})};
 
-data(aes_ctr, KeySize, BlockSize) ->
-    Type = aes_ctr,
+data(aes_ctr=Type, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(16),
     Block = mk_bin(BlockSize),
-    {Type, funs({stream, {Type, Key, IV, Block}})};
+    {Type, funs({block, {Type, Key, IV, Block}})};
 
-data(chacha20_poly1305, 256=KeySize, BlockSize) ->
-    Type = chacha20_poly1305,
+data(chacha20_poly1305=Type, 256=KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
-    IV = mk_bin(16),
+    IV = mk_bin(12),
     AAD = <<01,02,03,04>>,
     Block = mk_bin(BlockSize),
-    {Type, funs({block, {Type, Key, IV, {AAD,Block}}})};
+    {Type, funs({aead, {Type, Key, IV, AAD, Block, 16}})};
 
-data(chacha20, 256=KeySize, BlockSize) ->
-    Type = chacha20,
+data(chacha20=Type, 256=KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(16),
     Block = mk_bin(BlockSize),
-    {Type, funs({stream, {Type, Key, IV, Block}})};
+    {Type, funs({block, {Type, Key, IV, Block}})};
 
 data(empty, 0, 0) ->
     {undefined,
