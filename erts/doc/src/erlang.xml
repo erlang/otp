@@ -507,9 +507,11 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="binary_to_existing_atom" arity="2" since=""/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
-        <p>As
+        <p>The same as
           <seemfa marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
-          but the atom must exist.</p>
+          but the atom must exist. An atom exists if it has
+          been created by the run-time system by either loading code or creating
+          a term in which the atom is part.</p>
         <p>Failure: <c>badarg</c> if the atom does not exist.</p>
 	<note>
 	  <p>Note that the compiler may optimize away atoms. For
@@ -2797,7 +2799,9 @@ false</code>
       <desc>
         <p>Returns the atom whose text representation is
           <c><anno>String</anno></c>,
-          but only if there already exists such atom.</p>
+          but only if there already exists such atom. An atom exists if it has
+          been created by the run-time system by either loading code or creating
+          a term in which the atom is part.</p>
         <p>Failure: <c>badarg</c> if there does not already exist an atom
           whose text representation is <c><anno>String</anno></c>.</p>
 	<note>
