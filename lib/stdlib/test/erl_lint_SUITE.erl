@@ -71,7 +71,9 @@
          external_funs/1,otp_15456/1,otp_15563/1,
          unused_type/1,removed/1, otp_16516/1,
          inline_nifs/1,
-         warn_missing_spec/1,otp_16824/1]).
+         warn_missing_spec/1,
+         otp_16824/1,
+         underscore_match/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -94,7 +96,8 @@ all() ->
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, removed, otp_16516,
-     inline_nifs, warn_missing_spec, otp_16824].
+     inline_nifs, warn_missing_spec, otp_16824,
+     underscore_match].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4513,6 +4516,70 @@ otp_16824(Config) ->
     [] = run(Config, Ts),
 
     ok.
+
+underscore_match(Config) when is_list(Config) ->
+    Test = <<"
+                match_underscore() ->
+                    _Test = id(13),
+                    case id(_Test) of               %% Usage: no warning.
+                        _Test -> handle:msg(_Test)  %% Match: warning.
+                    end.
+
+                f(_A, _A, _A) ->                    %% Match: warning.
+                    _A.                             %% Usage: no warning.
+
+                t(_T, _T) ->                            %% Match: warning.
+                    case _T of                          %% Usage: no warning.
+                        {_T,_T} ->                      %% Match: warning.
+                            {_T,_T} =                   %% Match: warning.
+                                fun(_T1, _T1) ->        %% Match: warning.
+                                        {_T,_T} = _T1   %% Match: warning.
+                                end,
+                        [_T = T2 || T2 <- _T],          %% Match: warning.
+                        [{_T,_T} || _ <- _T]            %% Usage: no warning.
+                    end.
+
+                id(I) -> I.
+           ">>,
+
+    run(Config, [
+        {warn_underscore_match, Test, [],
+            {warnings,[{{5,25},erl_lint,{match_underscore_var,'_Test'}},
+                       {{8,19},erl_lint,{match_underscore_var_pat,'_A'}},
+                       {{8,23},erl_lint,{match_underscore_var_pat,'_A'}},
+                       {{8,27},erl_lint,{match_underscore_var_pat,'_A'}},
+                       {{11,19},erl_lint,{match_underscore_var_pat,'_T'}},
+                       {{11,23},erl_lint,{match_underscore_var_pat,'_T'}},
+                       {{13,26},erl_lint,{match_underscore_var,'_T'}},
+                       {{13,29},erl_lint,{match_underscore_var,'_T'}},
+                       {{14,30},erl_lint,{match_underscore_var,'_T'}},
+                       {{14,33},erl_lint,{match_underscore_var,'_T'}},
+                       {{15,37},erl_lint,{match_underscore_var_pat,'_T1'}},
+                       {{15,42},erl_lint,{match_underscore_var_pat,'_T1'}},
+                       {{16,42},erl_lint,{match_underscore_var,'_T'}},
+                       {{16,45},erl_lint,{match_underscore_var,'_T'}},
+                       {{18,26},erl_lint,{match_underscore_var,'_T'}}
+                      ]}},
+        {warn_underscore_match, Test, [warn_underscore_match],
+            {warnings,[{{5,25},erl_lint,{match_underscore_var,'_Test'}},
+                       {{8,19},erl_lint,{match_underscore_var_pat,'_A'}},
+                       {{8,23},erl_lint,{match_underscore_var_pat,'_A'}},
+                       {{8,27},erl_lint,{match_underscore_var_pat,'_A'}},
+                       {{11,19},erl_lint,{match_underscore_var_pat,'_T'}},
+                       {{11,23},erl_lint,{match_underscore_var_pat,'_T'}},
+                       {{13,26},erl_lint,{match_underscore_var,'_T'}},
+                       {{13,29},erl_lint,{match_underscore_var,'_T'}},
+                       {{14,30},erl_lint,{match_underscore_var,'_T'}},
+                       {{14,33},erl_lint,{match_underscore_var,'_T'}},
+                       {{15,37},erl_lint,{match_underscore_var_pat,'_T1'}},
+                       {{15,42},erl_lint,{match_underscore_var_pat,'_T1'}},
+                       {{16,42},erl_lint,{match_underscore_var,'_T'}},
+                       {{16,45},erl_lint,{match_underscore_var,'_T'}},
+                       {{18,26},erl_lint,{match_underscore_var,'_T'}}
+                      ]}},
+        {nowarn_underscore_match, Test, [nowarn_underscore_match],
+            []}
+    ]).
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).
