@@ -3326,15 +3326,6 @@ false</code>
               tables. This memory is part of the memory presented as
               <c>system</c> memory.</p>
           </item>
-          <tag><c>low</c></tag>
-          <item>
-            <p>Only on 64-bit halfword emulator.
-              The total amount of memory allocated in low memory areas
-              that are restricted to &lt; 4 GB, although
-              the system can have more memory.</p>
-            <p>Can be removed in a future release of the halfword
-              emulator.</p>
-          </item>
           <tag><c>maximum</c></tag>
           <item>
             <p>The maximum total amount of memory allocated since
@@ -9807,17 +9798,14 @@ Metadata = #{ pid => pid(),
           <item>
             <p>Returns the size of Erlang term words in bytes as an
               integer, that is, 4 is returned on a 32-bit architecture,
-              and 8 is returned on a pure 64-bit architecture. On a
-              halfword 64-bit emulator, 4 is returned, as the Erlang
-              terms are stored using a virtual word size of half the
-              system word size.</p>
+              and 8 is returned on a 64-bit architecture.</p>
           </item>
           <tag><c>{wordsize, external}</c></tag>
           <item>
             <p>Returns the true word size of the emulator, that is,
               the size of a pointer. The value is given in bytes
               as an integer. On a pure 32-bit architecture, 4 is
-              returned. On both a half word and on a pure
+              returned. On a
               64-bit architecture, 8 is returned.</p>
           </item>
         </taglist>
