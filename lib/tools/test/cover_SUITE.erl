@@ -37,7 +37,7 @@ all() ->
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
                  otp_8270, otp_10979_hanging_node, otp_14817,
-                 local_only, startup_race, otp_16476],
+                 local_only, startup_race, otp_16476, cover_clauses],
     case whereis(cover_server) of
         undefined ->
             [coverage,StartStop ++ NoStartStop];
@@ -1598,6 +1598,15 @@ otp_14817(Config) when is_list(Config) ->
     <<"1..|",_/binary>> = string:find(Bin, "1..|"),
     ok = file:delete(File),
     ok = file:delete(CovOut),
+    ok.
+
+%% Tests a bug where cover failed for an export named clauses
+cover_clauses(Config) when is_list(Config) ->
+    Test = <<"-module(cover_clauses).
+              -export([clauses/0]).
+              clauses() -> ok.
+             ">>,
+    File = cc_mod(cover_clauses, Test, Config),
     ok.
 
 %% Take compiler options from beam in cover:compile_beam
