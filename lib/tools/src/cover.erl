@@ -2179,6 +2179,8 @@ patch_code1({'BUMP',_Line,Index}, {local_only,AbstrCref}) ->
      [AbstrCref,{integer,A,Index},{integer,A,1}]};
 patch_code1({clauses,Cs}, Key) ->
     {clauses,[patch_code1(El, Key) || El <- Cs]};
+patch_code1({attribute, _, _, _} = Attribute, _Key) ->
+    Attribute;
 patch_code1([_|_]=List, Key) ->
     [patch_code1(El, Key) || El <- List];
 patch_code1(Tuple, Key) when tuple_size(Tuple) >= 3 ->
