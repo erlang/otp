@@ -1437,13 +1437,14 @@ test_shell_is_enabled(ConnectionRef, Expect) ->
 
 test_shell_is_enabled(ConnectionRef, Expect, PtyOpts) ->
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    ok = ssh_connection:shell(ConnectionRef,ChannelId),
     case PtyOpts of
         [] ->
             no_alloc;
         _ ->
             success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, PtyOpts)
     end,
+    ok = ssh_connection:shell(ConnectionRef,ChannelId),
+
     ExpSz = size(Expect),
     receive
 	{ssh_cm,ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} ->
