@@ -579,21 +579,37 @@ ok
     replays causing resource limit exhaustion and other similar problems.</p>
     <p>An example of sending early data with automatic and manual session ticket handling:</p>
     <warning>
-    <p>The Early Data feature is implemented only on the client side in this version of OTP.
+    <p>The Early Data feature is experimental in this version of OTP.
     </p>
     </warning>
 
-    <p><em>Server side (openssl s_server):</em></p>
+    <p><em>Server (with NSS key logging)</em></p>
     <code type="none">
-    openssl s_server -accept 11029 \
-        -tls1_3 -verify 2 \
-        -cert certs/server.pem \
-        -CAfile certs/ca.pem \
-        -key certs/server.key \
-        -keylogfile keylog \
-        -msg -debug \
-        -early_data \
-        -no_anti_replay
+    early_data_server() ->
+        application:load(ssl),
+        {ok, _} = application:ensure_all_started(ssl),
+        Port = 11029,
+        LOpts = [{certfile, ?SERVER_CERT},
+             {keyfile, ?SERVER_KEY},
+             {reuseaddr, true},
+             {versions, ['tlsv1.2','tlsv1.3']},
+             {session_tickets, stateless},
+             {early_data, enabled},
+             {keep_secrets, true} %% Enable NSS key log (debug option)
+            ],
+        {ok, LSock} = ssl:listen(Port, LOpts),
+        %% Accept first connection
+        {ok, CSock0} = ssl:transport_accept(LSock),
+        {ok, _} = ssl:handshake(CSock0),
+        %% Accept second connection
+        {ok, CSock1} = ssl:transport_accept(LSock),
+        {ok, Sock} = ssl:handshake(CSock1),
+        Sock.
+    </code>
+    <p><em>Exporting the secrets (optional)</em></p>
+    <code type="none">
+    {ok, [{keylog, KeylogItems}]} = ssl:connection_information(Sock, [keylog]).
+    file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem &lt;- KeylogItems]).
     </code>
     <p><em>Client (automatic ticket handling):</em></p>
     <code type="erl">
