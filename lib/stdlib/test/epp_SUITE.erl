@@ -29,7 +29,7 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1]).
+	 test_if/1,source_name/1,otp_16978/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285, test_if, source_name].
+     otp_14285, test_if, source_name, otp_16978].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1720,19 +1720,40 @@ source_name_1(File, Expected) ->
     Res = epp:parse_file(File, [{source_name, Expected}]),
     {ok, [{attribute,_,file,{Expected,_}} | _Forms]} = Res.
 
+otp_16978(Config) when is_list(Config) ->
+    %% A test of erl_parse:tokens().
+    P = <<"t() -> ?a.">>,
+    Vs = [#{},
+          #{k => 1,[[a],[{}]] => "str"},
+          #{#{} => [{#{x=>#{3=>$3}}},{3.14,#{}}]}],
+    Ts = [{erl_parse_tokens,
+           P,
+           [{d,{a,V}}],
+           V} || V <- Vs],
+    [] = run(Config, Ts),
+
+    ok.
+
 check(Config, Tests) ->
-    eval_tests(Config, fun check_test/2, Tests).
+    eval_tests(Config, fun check_test/3, Tests).
 
 compile(Config, Tests) ->
-    eval_tests(Config, fun compile_test/2, Tests).
+    eval_tests(Config, fun compile_test/3, Tests).
 
 run(Config, Tests) ->
-    eval_tests(Config, fun run_test/2, Tests).
+    eval_tests(Config, fun run_test/3, Tests).
 
 eval_tests(Config, Fun, Tests) ->
-    F = fun({N,P,E}, BadL) ->
+    TestsWithOpts =
+        [case Test of
+             {N,P,E} ->
+                 {N,P,[],E};
+             {_,_,_,_} ->
+                 Test
+         end || Test <- Tests],
+    F = fun({N,P,Opts,E}, BadL) ->
                 %% io:format("Testing ~p~n", [P]),
-                Return = Fun(Config, P),
+                Return = Fun(Config, P, Opts),
                 case message_compare(E, Return) of
                     true ->
                         case E of
@@ -1748,14 +1769,14 @@ eval_tests(Config, Fun, Tests) ->
 			fail()
                 end
         end,
-    lists:foldl(F, [], Tests).
+    lists:foldl(F, [], TestsWithOpts).
 
-check_test(Config, Test) ->
+check_test(Config, Test, Opts) ->
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    case epp:parse_file(File, [PrivDir], []) of
+    case epp:parse_file(File, [PrivDir], Opts) of
 	{ok,Forms} ->
 	    Errors = [E || E={error,_} <- Forms],
 	    call_format_error([E || {error,E} <- Errors]),
@@ -1764,13 +1785,13 @@ check_test(Config, Test) ->
 	    Error
     end.
 
-compile_test(Config, Test0) ->
+compile_test(Config, Test0, Opts0) ->
     Test = [<<"-module(epp_test). ">>, Test0],
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,PrivDir}],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,PrivDir}] ++ Opts0,
     case compile_file(File, Opts) of
         {ok, Ws} -> warnings(File, Ws);
         {errors, Errors}=Else ->
@@ -1821,13 +1842,13 @@ epp_parse_file(File, Opts) ->
 unopaque_forms(Forms) ->
     [erl_parse:anno_to_term(Form) || Form <- Forms].
 
-run_test(Config, Test0) ->
+run_test(Config, Test0, Opts0) ->
     Test = [<<"-module(epp_test). -export([t/0]). ">>, Test0],
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    Opts = [return, {i,PrivDir},{outdir,PrivDir}],
+    Opts = [return, {i,PrivDir},{outdir,PrivDir}] ++ Opts0,
     {ok, epp_test, []} = compile:file(File, Opts),
     AbsFile = filename:rootname(File, ".erl"),
     {module, epp_test} = code:load_abs(AbsFile, epp_test),
