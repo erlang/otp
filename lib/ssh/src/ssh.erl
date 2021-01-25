@@ -45,6 +45,9 @@
          tcpip_tunnel_to_server/5, tcpip_tunnel_to_server/6
 	]).
 
+%%% Internal export
+-export([is_host/2]).
+
 %%% "Deprecated" types export:
 -export_type([ssh_daemon_ref/0, ssh_connection_ref/0, ssh_channel_id/0]).
 -opaque ssh_daemon_ref()     :: daemon_ref().
@@ -119,8 +122,7 @@ stop() ->
       OpenTcpSocket :: open_socket(),
       Options :: client_options().
 
-connect(OpenTcpSocket, Options) when is_port(OpenTcpSocket),
-                                     is_list(Options) ->
+connect(OpenTcpSocket, Options) when is_list(Options) ->
     connect(OpenTcpSocket, Options, infinity).
 
 
@@ -129,8 +131,12 @@ connect(OpenTcpSocket, Options) when is_port(OpenTcpSocket),
            ; (host(), inet:port_number(), client_options()) ->
                      {ok,connection_ref()} | {error,term()}.
 
-connect(Socket, UserOptions, NegotiationTimeout) when is_port(Socket),
-                                                      is_list(UserOptions) ->
+connect(Host, Port, Options) when is_integer(Port),
+                                  Port>0,
+                                  is_list(Options) ->
+    connect(Host, Port, Options, infinity);
+
+connect(Socket, UserOptions, NegotiationTimeout) when is_list(UserOptions) ->
     case ssh_options:handle_options(client, UserOptions) of
 	{error, Error} ->
 	    {error, Error};
@@ -143,12 +149,7 @@ connect(Socket, UserOptions, NegotiationTimeout) when is_port(Socket),
                {error,SockError} ->
                    {error,SockError}
            end
-        end;
-
-connect(Host, Port, Options) when is_integer(Port),
-                                  Port>0,
-                                  is_list(Options) ->
-    connect(Host, Port, Options, infinity).
+        end.
 
 
 -spec connect(Host, Port, Options, NegotiationTimeout) -> {ok,connection_ref()} | {error,term()} when
@@ -275,7 +276,10 @@ daemon(Port) ->
 
 -spec daemon(inet:port_number()|open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}.
 
-daemon(Socket, UserOptions) when is_port(Socket) ->
+daemon(Port, UserOptions) when 0 =< Port,Port =< 65535 ->
+    daemon(any, Port, UserOptions);
+
+daemon(Socket, UserOptions) ->
     try
         #{} = Options = ssh_options:handle_options(server, UserOptions),
 
@@ -311,10 +315,7 @@ daemon(Socket, UserOptions) when is_port(Socket) ->
             {error,Error};
         _C:_E ->
             {error,{cannot_start_daemon,_C,_E}}
-    end;
-
-daemon(Port, UserOptions) when 0 =< Port, Port =< 65535 ->
-    daemon(any, Port, UserOptions).
+    end.
 
 
 -spec daemon(any | inet:ip_address(), inet:port_number(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
@@ -503,9 +504,6 @@ stop_daemon(Address, Port, Profile) ->
 %%--------------------------------------------------------------------
 -spec shell(open_socket() | host() | connection_ref()) ->  _.
 
-shell(Socket) when is_port(Socket) ->
-    shell(Socket, []);
-
 shell(ConnectionRef) when is_pid(ConnectionRef) ->
     case ssh_connection:session_channel(ConnectionRef, infinity) of
 	{ok,ChannelId}  ->
@@ -528,23 +526,37 @@ shell(ConnectionRef) when is_pid(ConnectionRef) ->
 	    Error
     end;
 
-shell(Host) ->
-    shell(Host, ?SSH_DEFAULT_PORT, []).
+shell(Dest) ->
+    case is_host(Dest, []) of
+        true ->
+            shell(Dest, ?SSH_DEFAULT_PORT, []);
+        false ->
+            %% Maybe socket
+            shell_socket(Dest, [])
+    end.
+
 
 
 -spec shell(open_socket() | host(), client_options()) ->  _.
 
-shell(Socket, Options) when is_port(Socket) ->
+shell(Dest, Options) ->
+    case is_host(Dest, Options) of
+        true ->
+            shell(Dest, ?SSH_DEFAULT_PORT, Options);
+        false ->
+            %% Maybe socket
+            shell_socket(Dest, Options)
+    end.
+
+shell_socket(Socket, Options) ->
     case connect(Socket, Options) of
         {ok,ConnectionRef} ->
             shell(ConnectionRef),
             close(ConnectionRef);
         Error ->
             Error
-    end;
-
-shell(Host, Options) ->
-    shell(Host, ?SSH_DEFAULT_PORT, Options).
+    end.
+    
 
 
 -spec shell(Host, Port, Options) -> _ when
@@ -812,6 +824,21 @@ map_ip(Fun, {address,Address}) ->
     map_ip(Fun, IPs);
 map_ip(Fun, IPs) ->
     lists:map(Fun, IPs).
+
+%%%----------------------------------------------------------------
+is_host(X, Opts) ->
+    try is_host1(mangle_connect_address(X, Opts))
+    catch
+        _:_ -> false
+    end.
+            
+
+is_host1(L) when is_list(L) -> true; %% "string()"
+is_host1(T) when is_tuple(T), size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
+                                                      tuple_to_list(T));
+is_host1(T) when is_tuple(T), size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 end,
+                                                       tuple_to_list(T));
+is_host1(loopback) -> true.
 
 %%%----------------------------------------------------------------
 mangle_connect_address(A, SockOpts) ->
