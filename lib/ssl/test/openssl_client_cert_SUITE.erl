@@ -156,10 +156,15 @@ init_per_suite(Config) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-	    ssl_test_lib:clean_start(),
-            Config
+            case ssl_test_lib:working_openssl_client() of
+                true ->
+                    ssl_test_lib:clean_start(),
+                    Config;
+                false ->
+                    {skip, "Broken OpenSSL s_client"}
+            end
     catch _:_ ->
-	    {skip, "Crypto did not start"}
+            {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
@@ -167,9 +172,9 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-init_per_group(openssl_client, Config0) ->
-    Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
+init_per_group(openssl_client, Config) ->
     [{client_type, openssl}, {server_type, erlang} | Config];
+
 init_per_group(Group, Config0) when Group == rsa;
                                     Group == rsa_1_3 ->
     Config = ssl_test_lib:make_rsa_cert(Config0),
