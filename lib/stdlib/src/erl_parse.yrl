@@ -1498,7 +1498,13 @@ tokens({cons,A,Head,Tail}, More) ->
 tokens({tuple,A,[]}, More) ->
     [{'{',A},{'}',A}|More];
 tokens({tuple,A,[E|Es]}, More) ->
-    [{'{',A}|tokens(E, tokens_tuple(Es, ?anno(E), More))].
+    [{'{',A}|tokens(E, tokens_tuple(Es, ?anno(E), More))];
+tokens({map,A,[]}, More) ->
+    [{'#',A},{'{',A},{'}',A}|More];
+tokens({map,A,[P|Ps]}, More) ->
+    [{'#',A},{'{',A}|tokens(P, tokens_tuple(Ps, ?anno(P), More))];
+tokens({map_field_assoc,A,K,V}, More) ->
+    tokens(K, [{'=>',A}|tokens(V, More)]).
 
 tokens_tail({cons,A,Head,Tail}, More) ->
     [{',',A}|tokens(Head, tokens_tail(Tail, More))];
