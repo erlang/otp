@@ -1132,44 +1132,33 @@ float_conv([{L,#b_blk{is=Is0}=Blk0}|Bs0], Fail, Count0) ->
             end
     end.
 
-float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail,bs=Blocks}=Fs0, Count0) ->
+float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail}=Fs0, Count0) ->
+    %% Flush needed.
     #b_blk{last=#b_br{bool=#b_var{},succ=Succ}=Br} = Blk0,
 
-    %% If the success block starts with a floating point operation, we can
-    %% defer flushing to that block as long as it's suitable for optimization.
-    #b_blk{is=Is} = SuccBlk = map_get(Succ, Blocks),
-    CanOptimizeSucc = float_can_optimize_blk(SuccBlk, Fs0),
+    {Bool0,Count1} = new_reg('@ssa_bool', Count0),
+    Bool = #b_var{name=Bool0},
 
-    case Is of
-        [#b_set{anno=#{float_op:=_}}|_] when CanOptimizeSucc ->
-            %% No flush needed.
-            {[],Blk0,Fs0,Count0};
-        _ ->
-            %% Flush needed.
-            {Bool0,Count1} = new_reg('@ssa_bool', Count0),
-            Bool = #b_var{name=Bool0},
+    %% Allocate block numbers.
+    CheckL = Count1,              %For checkerror.
+    FlushL = Count1 + 1,          %For flushing of float regs.
+    Count = Count1 + 2,
+    Blk = Blk0#b_blk{last=Br#b_br{succ=CheckL}},
 
-            %% Allocate block numbers.
-            CheckL = Count1,              %For checkerror.
-            FlushL = Count1 + 1,          %For flushing of float regs.
-            Count = Count1 + 2,
-            Blk = Blk0#b_blk{last=Br#b_br{succ=CheckL}},
+    %% Build the block with the checkerror instruction.
+    CheckIs = [#b_set{op={float,checkerror},dst=Bool}],
+    CheckBr = #b_br{bool=Bool,succ=FlushL,fail=Fail},
+    CheckBlk = #b_blk{is=CheckIs,last=CheckBr},
 
-            %% Build the block with the checkerror instruction.
-            CheckIs = [#b_set{op={float,checkerror},dst=Bool}],
-            CheckBr = #b_br{bool=Bool,succ=FlushL,fail=Fail},
-            CheckBlk = #b_blk{is=CheckIs,last=CheckBr},
+    %% Build the block that flushes all registers.
+    FlushIs = float_flush_regs(Fs0),
+    FlushBr = #b_br{bool=#b_literal{val=true},succ=Succ,fail=Succ},
+    FlushBlk = #b_blk{is=FlushIs,last=FlushBr},
 
-            %% Build the block that flushes all registers.
-            FlushIs = float_flush_regs(Fs0),
-            FlushBr = #b_br{bool=#b_literal{val=true},succ=Succ,fail=Succ},
-            FlushBlk = #b_blk{is=FlushIs,last=FlushBr},
-
-            %% Update state and blocks.
-            Fs = Fs0#fs{s=undefined,regs=#{},fail=none},
-            FlushBs = [{CheckL,CheckBlk},{FlushL,FlushBlk}],
-            {FlushBs,Blk,Fs,Count}
-    end;
+    %% Update state and blocks.
+    Fs = Fs0#fs{s=undefined,regs=#{},fail=none},
+    FlushBs = [{CheckL,CheckBlk},{FlushL,FlushBlk}],
+    {FlushBs,Blk,Fs,Count};
 float_maybe_flush(Blk, Fs, Count) ->
     {[],Blk,Fs,Count}.
 
