@@ -710,8 +710,11 @@ hello
 </pre>
         <warning>
           <p>When decoding binaries from untrusted sources,
-            consider using <c>binary_to_term/2</c> to prevent Denial
-            of Service attacks.</p>
+            the untrusted source may submit data in a way to
+            create resources, such as atoms and remote references,
+            that cannot be garbage collected and lead to Denial
+            of Service attack. In such cases, consider using
+            <c>binary_to_term/2</c> with the <c>safe</c> option.</p>
         </warning>
         <p>See also
           <seemfa marker="#term_to_binary/1"><c>term_to_binary/1</c></seemfa>
@@ -731,7 +734,7 @@ hello
             <p>Use this option when receiving binaries from an untrusted
               source.</p>
             <p>When enabled, it prevents decoding data that can be used to
-              attack the Erlang system. In the event of receiving unsafe
+              attack the Erlang runtime. In the event of receiving unsafe
               data, decoding fails with a <c>badarg</c> error.</p>
             <p>This prevents creation of new atoms directly,
               creation of new atoms indirectly (as they are embedded in
@@ -748,6 +751,15 @@ hello
 > <input>binary_to_term(&lt;&lt;131,100,0,5,"hello">>, [safe]).</input>
 hello
 </pre>
+	    <warning>
+	      <p>The <c>safe</c> option ensures the data is safely
+                processed by the Erlang runtime but it does not
+                guarantee the data is safe to your application.
+                You must always validate data from untrusted sources.
+                If the binary is stored or transits through untrusted
+                sources, you should also consider cryptographically
+                signing it.</p>
+            </warning>	
           </item>
           <tag><c>used</c></tag>
           <item>
