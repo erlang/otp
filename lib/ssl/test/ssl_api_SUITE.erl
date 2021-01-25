@@ -1877,7 +1877,7 @@ new_options_in_handshake(Config) when is_list(Config) ->
                                                     (ecdh_rsa) ->
                                                          true;
                                                     (rsa) ->
-                                                         true;
+                                                         false;
                                                     (_) ->
                                                          false
                                                  end
