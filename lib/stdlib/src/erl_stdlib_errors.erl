@@ -235,7 +235,11 @@ format_maps_error(without, [List, Map]) ->
 
 format_math_error(acos, Args) ->
     maybe_domain_error(Args);
+format_math_error(acosh, Args) ->
+    maybe_domain_error(Args);
 format_math_error(asin, Args) ->
+    maybe_domain_error(Args);
+format_math_error(atanh, Args) ->
     maybe_domain_error(Args);
 format_math_error(log, Args) ->
     maybe_domain_error(Args);

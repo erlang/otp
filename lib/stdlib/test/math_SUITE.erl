@@ -93,8 +93,14 @@ do_floor_ceil(Val) ->
 
 error_info(_Config) ->
     L0 = [{acosh, [a]},
+          {acosh, [0.5]},
+
           {asinh, [a]},
+
           {atanh, [a]},
+          {atanh, [10]},
+          {atanh, [1]},
+
           {cosh, [a]},
           {sinh, [a]},
           {tanh, [a]},
