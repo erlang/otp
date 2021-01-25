@@ -1029,15 +1029,11 @@ cse_suitable(#b_set{}) -> false.
 %%% them in guards would require a new version of the 'fconv'
 %%% instruction that would take a failure label.  Since it is unlikely
 %%% that using float instructions in guards would be benefical, why
-%%% bother implementing a new instruction?  Also, implementing float
-%%% instructions in guards in HiPE could turn out to be a lot of work.
+%%% bother implementing a new instruction?
 %%%
 
 -record(fs,
-        {s=undefined :: 'undefined' | 'cleared',
-         regs=#{} :: #{beam_ssa:b_var():=beam_ssa:b_var()},
-         vars=sets:new([{version, 2}]) :: sets:set(),
-         fail=none :: 'none' | beam_ssa:label(),
+        {regs=#{} :: #{beam_ssa:b_var():=beam_ssa:b_var()},
          non_guards :: gb_sets:set(beam_ssa:label()),
          bs :: beam_ssa:block_map()
         }).
@@ -1074,22 +1070,30 @@ float_opt([], Count, _Fs) ->
 float_opt_1(L, #b_blk{is=Is0}=Blk0, Bs0, Count0, Fs0) ->
     case float_opt_is(Is0, Fs0, Count0, []) of
         {Is1,Fs1,Count1} ->
-            Fs2 = float_fail_label(Blk0, Fs1),
-            Fail = Fs2#fs.fail,
-            {Flush,Blk,Fs,Count2} = float_maybe_flush(Blk0, Fs2, Count1),
-            Split = float_split_conv(Is1, Blk),
-            {Blks0,Count3} = float_number(Split, L, Count2),
-            {Blks,Count4} = float_conv(Blks0, Fail, Count3),
-            {Bs,Count} = float_opt(Bs0, Count4, Fs),
+            {Flush,Blk,Fs,Count2} = float_maybe_flush(Blk0, Fs1, Count1),
+            {Blks,Count3} = float_fixup_conv(L, Is1, Blk, Count2),
+            {Bs,Count} = float_opt(Bs0, Count3, Fs),
             {Blks++Flush++Bs,Count};
         none ->
             {Bs,Count} = float_opt(Bs0, Count0, Fs0),
             {[{L,Blk0}|Bs],Count}
     end.
 
+%% Split out {float,convert} instructions into separate blocks, number
+%% the blocks, and add {succeded,body} in each {float,convert} block.
+float_fixup_conv(L, Is, Blk, Count0) ->
+    Split = float_split_conv(Is, Blk),
+    {Blks,Count} = float_number(Split, L, Count0),
+    #b_blk{last=#b_br{bool=#b_var{},fail=Fail}} = Blk,
+    float_conv(Blks, Fail, Count).
+
 %% Split {float,convert} instructions into individual blocks.
 float_split_conv(Is0, Blk) ->
     Br = #b_br{bool=#b_literal{val=true},succ=0,fail=0},
+
+    %% Note that there may be other instructions such as
+    %% remove_message before the floating point instructions;
+    %% therefore, it is essential that we don't reorder instructions.
     case splitwith(fun(#b_set{op=Op}) ->
                            Op =/= {float,convert}
                    end, Is0) of
@@ -1102,85 +1106,77 @@ float_split_conv(Is0, Blk) ->
             [#b_blk{is=[Conv],last=Br}|float_split_conv(Is1, Blk)]
     end.
 
-%% Number the blocks that were split.
-float_number([B|Bs0], FirstL, Count0) ->
-    {Bs,Count} = float_number(Bs0, Count0),
-    {[{FirstL,B}|Bs],Count}.
+%% Number and chain the blocks that were split.
+float_number(Bs0, FirstL, Count0) ->
+    {[{_,FirstBlk}|Bs],Count} = float_number(Bs0, Count0),
+    {[{FirstL,FirstBlk}|Bs],Count}.
 
+float_number([B], Count) ->
+    {[{Count,B}],Count};
 float_number([B|Bs0], Count0) ->
-    {Bs,Count} = float_number(Bs0, Count0+1),
-    {[{Count0,B}|Bs],Count};
-float_number([], Count) ->
-    {[],Count}.
+    Next = Count0 + 1,
+    {Bs,Count} = float_number(Bs0, Next),
+    Br = #b_br{bool=#b_literal{val=true},succ=Next,fail=Next},
+    {[{Count0,B#b_blk{last=Br}}|Bs],Count}.
 
 %% Insert 'succeeded' instructions after each {float,convert}
 %% instruction.
-float_conv([{L,#b_blk{is=Is0}=Blk0}|Bs0], Fail, Count0) ->
+float_conv([{L,#b_blk{is=Is0,last=Last}=Blk0}|Bs0], Fail, Count0) ->
     case Is0 of
         [#b_set{op={float,convert}}=Conv] ->
-            {Bool0,Count1} = new_reg('@ssa_bool', Count0),
-            Bool = #b_var{name=Bool0},
+            {Bool,Count1} = new_var('@ssa_bool', Count0),
             Succeeded = #b_set{op={succeeded,body},dst=Bool,
                                args=[Conv#b_set.dst]},
             Is = [Conv,Succeeded],
-            [{NextL,_}|_] = Bs0,
-            Br = #b_br{bool=Bool,succ=NextL,fail=Fail},
+            Br = Last#b_br{bool=Bool,fail=Fail},
             Blk = Blk0#b_blk{is=Is,last=Br},
             {Bs,Count} = float_conv(Bs0, Fail, Count1),
             {[{L,Blk}|Bs],Count};
         [_|_] ->
-            case Bs0 of
-                [{NextL,_}|_] ->
-                    Br = #b_br{bool=#b_literal{val=true},
-                               succ=NextL,fail=NextL},
-                    Blk = Blk0#b_blk{last=Br},
-                    {Bs,Count} = float_conv(Bs0, Fail, Count0),
-                    {[{L,Blk}|Bs],Count};
-                [] ->
-                    {[{L,Blk0}],Count0}
-            end
-    end.
+            {Bs,Count} = float_conv(Bs0, Fail, Count0),
+            {[{L,Blk0}|Bs],Count}
+    end;
+float_conv([], _, Count) ->
+    {[],Count}.
 
-float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail,bs=Blocks}=Fs0, Count0) ->
+float_maybe_flush(Blk0, Fs0, Count0) ->
     #b_blk{last=#b_br{bool=#b_var{},succ=Succ}=Br} = Blk0,
 
-    %% If the success block starts with a floating point operation, we can
-    %% defer flushing to that block as long as it's suitable for optimization.
-    #b_blk{is=Is} = SuccBlk = map_get(Succ, Blocks),
-    CanOptimizeSucc = float_can_optimize_blk(SuccBlk, Fs0),
-
-    case Is of
-        [#b_set{anno=#{float_op:=_}}|_] when CanOptimizeSucc ->
+    %% If the success block has an optimizable floating point instruction,
+    %% it is safe to defer flushing.
+    case float_safe_to_skip_flush(Succ, Fs0) of
+        true ->
             %% No flush needed.
             {[],Blk0,Fs0,Count0};
-        _ ->
-            %% Flush needed.
-            {Bool0,Count1} = new_reg('@ssa_bool', Count0),
-            Bool = #b_var{name=Bool0},
-
-            %% Allocate block numbers.
-            CheckL = Count1,              %For checkerror.
-            FlushL = Count1 + 1,          %For flushing of float regs.
-            Count = Count1 + 2,
-            Blk = Blk0#b_blk{last=Br#b_br{succ=CheckL}},
-
-            %% Build the block with the checkerror instruction.
-            CheckIs = [#b_set{op={float,checkerror},dst=Bool}],
-            CheckBr = #b_br{bool=Bool,succ=FlushL,fail=Fail},
-            CheckBlk = #b_blk{is=CheckIs,last=CheckBr},
+        false ->
+            %% Flush needed. Allocate block numbers.
+            FlushL = Count0,              %For flushing of float regs.
+            Count = Count0 + 1,
+            Blk = Blk0#b_blk{last=Br#b_br{succ=FlushL}},
 
             %% Build the block that flushes all registers.
             FlushIs = float_flush_regs(Fs0),
             FlushBr = #b_br{bool=#b_literal{val=true},succ=Succ,fail=Succ},
             FlushBlk = #b_blk{is=FlushIs,last=FlushBr},
 
-            %% Update state and blocks.
-            Fs = Fs0#fs{s=undefined,regs=#{},fail=none},
-            FlushBs = [{CheckL,CheckBlk},{FlushL,FlushBlk}],
+            %% Update state record and blocks.
+            Fs = Fs0#fs{regs=#{}},
+            FlushBs = [{FlushL,FlushBlk}],
             {FlushBs,Blk,Fs,Count}
-    end;
-float_maybe_flush(Blk, Fs, Count) ->
-    {[],Blk,Fs,Count}.
+    end.
+
+float_safe_to_skip_flush(L, #fs{bs=Blocks}=Fs) ->
+    #b_blk{is=Is} = Blk = map_get(L, Blocks),
+    float_can_optimize_blk(Blk, Fs) andalso float_optimizable_is(Is).
+
+float_optimizable_is([#b_set{anno=#{float_op:=_}}|_]) ->
+    true;
+float_optimizable_is([#b_set{op=get_tuple_element}|Is]) ->
+    %% The tuple sinking optimization can sink get_tuple_element instruction
+    %% into a sequence of floating point operations.
+    float_optimizable_is(Is);
+float_optimizable_is(_) ->
+    false.
 
 float_opt_is([#b_set{op={succeeded,_},args=[Src]}=I0],
              #fs{regs=Rs}=Fs, Count, Acc) ->
@@ -1189,7 +1185,7 @@ float_opt_is([#b_set{op={succeeded,_},args=[Src]}=I0],
             I = I0#b_set{args=[Fr]},
             {reverse(Acc, [I]),Fs,Count};
         #{} ->
-            {reverse(Acc, [I0]),Fs,Count}
+            none
     end;
 float_opt_is([#b_set{anno=Anno0}=I0|Is0], Fs0, Count0, Acc) ->
     case Anno0 of
@@ -1199,30 +1195,20 @@ float_opt_is([#b_set{anno=Anno0}=I0|Is0], Fs0, Count0, Acc) ->
             {Is,Fs,Count} = float_make_op(I1, FTypes, Fs0, Count0),
             float_opt_is(Is0, Fs, Count, reverse(Is, Acc));
         #{} ->
-            float_opt_is(Is0, Fs0#fs{regs=#{}}, Count0, [I0|Acc])
+            float_opt_is(Is0, Fs0, Count0, [I0|Acc])
     end;
-float_opt_is([], Fs, _Count, _Acc) ->
-    #fs{s=undefined} = Fs,                      %Assertion.
+float_opt_is([], _Fs, _Count, _Acc) ->
     none.
 
 float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0,anno=Anno}=I0,
-              Ts, #fs{s=S,regs=Rs0,vars=Vs0}=Fs, Count0) ->
+              Ts, #fs{regs=Rs0}=Fs, Count0) ->
     {As1,Rs1,Count1} = float_load(As0, Ts, Anno, Rs0, Count0, []),
     {As,Is0} = unzip(As1),
-    {Fr,Count2} = new_reg('@fr', Count1),
-    FrDst = #b_var{name=Fr},
+    {FrDst,Count2} = new_var('@fr', Count1),
     I = I0#b_set{op={float,Op},dst=FrDst,args=As},
-    Vs = sets:add_element(Dst, Vs0),
     Rs = Rs1#{Dst=>FrDst},
     Is = append(Is0) ++ [I],
-    case S of
-        undefined ->
-            {Ignore,Count} = new_reg('@ssa_ignore', Count2),
-            C = #b_set{op={float,clearerror},dst=#b_var{name=Ignore}},
-            {[C|Is],Fs#fs{s=cleared,regs=Rs,vars=Vs},Count};
-        cleared ->
-            {Is,Fs#fs{regs=Rs,vars=Vs},Count2}
-    end.
+    {Is,Fs#fs{regs=Rs},Count2}.
 
 float_load([A|As], [T|Ts], Anno, Rs0, Count0, Acc) ->
     {Load,Rs,Count} = float_reg_arg(A, T, Anno, Rs0, Count0),
@@ -1235,8 +1221,7 @@ float_reg_arg(A, T, Anno, Rs, Count0) ->
         #{A:=Fr} ->
             {{Fr,[]},Rs,Count0};
         #{} ->
-            {Fr,Count} = new_float_copy_reg(Count0),
-            Dst = #b_var{name=Fr},
+            {Dst,Count} = new_var('@fr_copy', Count0),
             I0 = float_load_reg(T, A, Dst),
             I = I0#b_set{anno=Anno},
             {{Dst,[I]},Rs#{A=>Dst},Count}
@@ -1255,21 +1240,6 @@ float_load_reg(convert, #b_literal{val=Val}=Src, Dst) ->
     end;
 float_load_reg(float, Src, Dst) ->
     #b_set{op={float,put},dst=Dst,args=[Src]}.
-
-new_float_copy_reg(Count) ->
-    new_reg('@fr_copy', Count).
-
-new_reg(Base, Count) ->
-    Fr = {Base,Count},
-    {Fr,Count+1}.
-
-float_fail_label(#b_blk{last=Last}, Fs) ->
-    case Last of
-        #b_br{bool=#b_var{},fail=Fail} ->
-            Fs#fs{fail=Fail};
-        _ ->
-            Fs
-    end.
 
 float_flush_regs(#fs{regs=Rs}) ->
     maps:fold(fun(_, #b_var{name={'@fr_copy',_}}, Acc) ->

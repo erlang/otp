@@ -130,8 +130,6 @@ collect({get_tl,S,D})  ->       {set,[D],[S],get_tl};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,{f,0},Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,{f,0}}}};
-collect(fclearerror)         -> {set,[],[],fclearerror};
-collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
 collect({fmove,S,D})         -> {set,[D],[S],fmove};
 collect({fconv,S,D})         -> {set,[D],[S],fconv};
 collect(_)                   -> error.

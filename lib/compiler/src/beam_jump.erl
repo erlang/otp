@@ -856,8 +856,6 @@ instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({get_map_elements,Lbl,_Src,_List}) ->
     do_instr_labels(Lbl);
-instr_labels({fcheckerror,Lbl}) ->
-    do_instr_labels(Lbl);
 instr_labels({bs_start_match4,Fail,_,_,_}) ->
     case Fail of
         {f,L} -> [L];

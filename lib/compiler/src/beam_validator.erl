@@ -687,8 +687,6 @@ vi(return, Vst) ->
 vi({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
     case is_float_arith_bif(Op, Ss) of
         true ->
-            %% Float arithmetic BIFs neither fail nor throw an exception;
-            %% errors are postponed until the next fcheckerror instruction.
             ?EXCEPTION_LABEL = Fail,            %Assertion.
             validate_float_arith_bif(Ss, Dst, Vst0);
         false ->
@@ -964,16 +962,11 @@ vi({bs_set_position, Ctx, Pos}, Vst0) ->
 %%
 vi({fconv,Src,{fr,_}=Dst}, Vst) ->
     assert_term(Src, Vst),
-
     branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
                    SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
                    set_freg(Dst, SuccVst)
            end);
-vi(fclearerror, Vst) ->
-    Vst;
-vi({fcheckerror, _}, Vst) ->
-    branch(?EXCEPTION_LABEL, Vst);
 
 %%
 %% Exception-raising instructions
@@ -1789,14 +1782,6 @@ assert_arities([Arity,{f,_}|T]) when is_integer(Arity) ->
     assert_arities(T);
 assert_arities([]) -> ok;
 assert_arities(_) -> error(bad_tuple_arity_list).
-
-
-%%%
-%%% Floating point helpers.
-%%%
-%%%   fconv Src {fr,_}
-%%%   fmove Src {fr,_}    %% Move known float INTO floating point register.
-%%%
 
 is_float_arith_bif(fadd, [_, _]) -> true;
 is_float_arith_bif(fdiv, [_, _]) -> true;
@@ -2925,9 +2910,7 @@ will_bif_succeed(raise, [_,_], _Vst) ->
 will_bif_succeed(Op, Ss, Vst) ->
     case is_float_arith_bif(Op, Ss) of
         true ->
-            %% Float arithmetic BIFs can't fail; their error checking is
-            %% deferred until fcheckerror.
-            yes;
+            maybe;
         false ->
             Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
             beam_call_types:will_succeed(erlang, Op, Args)

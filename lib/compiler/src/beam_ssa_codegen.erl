@@ -1206,8 +1206,6 @@ cg_block([#cg_set{op=bs_put,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
 cg_block([#cg_set{op=bs_test_tail,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     [Ctx,{integer,Bits}] = beam_args(Args0, St),
     {[{test,bs_test_tail2,bif_fail(Fail),[Ctx,Bits]}],St};
-cg_block([#cg_set{op={float,checkerror},dst=Bool}], {Bool,Fail}, St) ->
-    {[{fcheckerror,bif_fail(Fail)}],St};
 cg_block([#cg_set{op=is_tagged_tuple,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     [Src,{integer,Arity},Tag] = beam_args(Args0, St),
     {[{test,is_tagged_tuple,ensure_label(Fail, St),[Src,Arity,Tag]}],St};
@@ -1691,8 +1689,6 @@ cg_instr(build_stacktrace, Args, Dst) ->
     setup_args(Args) ++ [build_stacktrace|copy({x,0}, Dst)];
 cg_instr(set_tuple_element=Op, [New,Tuple,{integer,Index}], _Dst) ->
     [{Op,New,Tuple,Index}];
-cg_instr({float,clearerror}, [], _Dst) ->
-    [fclearerror];
 cg_instr({float,get}, [Src], Dst) ->
     [{fmove,Src,Dst}];
 cg_instr({float,put}, [Src], Dst) ->
