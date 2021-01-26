@@ -52,7 +52,9 @@
          openssl_server_early_data_manual_2_tickets/0,
          openssl_server_early_data_manual_2_tickets/1,
          openssl_server_early_data_manual_2_chacha_tickets/0,
-         openssl_server_early_data_manual_2_chacha_tickets/1]).
+         openssl_server_early_data_manual_2_chacha_tickets/1,
+         openssl_client_early_data_basic/0,
+         openssl_client_early_data_basic/1]).
 
 -include("tls_handshake.hrl").
 
@@ -87,7 +89,8 @@ groups() ->
 
 session_tests() ->
     [openssl_client_basic,
-     openssl_client_hrr].
+     openssl_client_hrr,
+     openssl_client_early_data_basic].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -648,4 +651,68 @@ openssl_server_early_data_manual_2_chacha_tickets(Config) when is_list(Config) -
 
     ssl_test_lib:close(Client1),
     ssl_test_lib:close(Server).
+
+openssl_client_early_data_basic() ->
+    [{doc,"Test early data (openssl client - erlang server)"}].
+openssl_client_early_data_basic(Config) when is_list(Config) ->
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+
+    {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
+    TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
+    RequestFile = filename:join([proplists:get_value(priv_dir, Config), "request"]),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+    %% Create request file to be used with early data
+    EarlyData = <<"HEAD / HTTP/1.1\nHost: \nConnection: close\n\n">>,
+    create_request(RequestFile, EarlyData),
+
+    %% Configure session tickets
+    ServerOpts = [{session_tickets, ServerTicketMode},
+                  {early_data, enabled},
+                  {log_level, debug},
+                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+
+    Server0 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+				   {options, ServerOpts}]),
+
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    Client0 = ssl_test_lib:start_client(openssl, [{port, Port0},
+                                                  {options, ClientOpts},
+                                                  {session_args, ["-sess_out", TicketFile0]}], Config),
+    ssl_test_lib:check_result(Server0, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_server_early_data,
+                              [wait_reply, EarlyData]}}},
+
+    %% %% Wait for session ticket
+    ct:sleep(100),
+    ssl_test_lib:close(Client0),
+
+    Client1 = ssl_test_lib:start_client(openssl, [{port, Port0},
+                                                  {options, ClientOpts},
+                                                  {session_args, ["-sess_in", TicketFile0,
+                                                                  "-sess_out", TicketFile1,
+                                                                  "-early_data", RequestFile]}],
+                                        Config),
+
+    ssl_test_lib:check_result(Server0, ok),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Client1).
+
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+
+create_request(File, EarlyData) ->
+    {ok, S} = file:open(File, [write]),
+    io:format(S, "~s", [binary_to_list(EarlyData)]),
+    file:close(S).
 
