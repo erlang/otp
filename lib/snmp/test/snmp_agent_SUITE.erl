@@ -6240,81 +6240,128 @@ loop_mib_3(Config) when is_list(Config) ->
 
 %% Req. As many mibs all possible
 loop_mib_1_test() ->
-    ?DBG("loop_mib_1_test -> entry",[]),
+    ?IPRINT("loop_mib_1_test -> entry"),
     N = loop_it_1([1,1], 0),
-    io:format(user, "found ~w varibles\n", [N]),
+    ?IPRINT("found ~w varibles", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
 
 loop_it_1(Oid, N) ->
-    ?DBG("loop_it_1_test -> entry with~n"
-	   "\tOid: ~p~n"
-	   "\tN:   ~p",[Oid,N]),
+    ?IPRINT("loop_it_1_test -> entry with"
+            "~n      Oid: ~p"
+            "~n      N:   ~p", [Oid, N]),
     case get_next_req([Oid]) of
 	#pdu{type         = 'get-response', 
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid   = NOid,
 				      value = _Value}]} when NOid > Oid ->
-	    ?DBG("loop_it_1_test -> "
-		   "~n   NOid:  ~p"
-		   "~n   Value: ~p", [NOid, _Value]),
+	    ?IPRINT("loop_it_1_test -> expected intermediate (get-next) result: "
+                    "~n   NOid:  ~p"
+                    "~n   Value: ~p", [NOid, _Value]),
 	    ?line [_Value2] = get_req(1, [NOid]), % must not be same
-	    ?DBG("loop_it_1_test -> "
-		   "~n   Value2: ~p", [_Value2]),
+	    ?IPRINT("loop_it_1_test -> expected intermediate (get) result: "
+                    "~n   Value2: ~p", [_Value2]),
 	    loop_it_1(NOid, N+1);
 
 	#pdu{type         = 'get-response', 
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = Vbs} ->
-	    exit({unexpected_vbs, ?LINE, Vbs});
+            ?EPRINT("loop_it_1_test -> unexpected (get-response) vbs: "
+                    "~n      Vbs: ~p", [Vbs]),
+	    exit({unexpected_vbs, ?LINE,
+                  [{get_next_oid, Oid}, 
+                   {counter,      N},
+                   {varbinds,     Vbs}]});
 
 	#pdu{type         = 'get-response', 
 	     error_status = noSuchName, 
 	     error_index = 1,
 	     varbinds    = [_]} ->
-	    ?DBG("loop_it_1_test -> done: ~p",[N]),
+	    ?IPRINT("loop_it_1_test -> done: ~p", [N]),
 	    N;
 
 	#pdu{type         = 'get-response', 
 	     error_status = Err, 
 	     error_index  = Idx,
 	     varbinds     = Vbs} ->
-	    exit({unexpected_pdu, ?LINE, Err, Idx, Vbs});
+            ?EPRINT("loop_it_1_test -> unexpected (get-response) pdu: "
+                    "~n      Err: ~p"
+                    "~n      Idx: ~p"
+                    "~n      Vbs: ~p", [Err, Idx, Vbs]),
+	    exit({unexpected_pdu, ?LINE,
+                  [{get_next_oid, Oid},
+                   {counter,      N},
+                   {error_status, Err},
+                   {error_index,  Idx},
+                   {varbinds,     Vbs}]});
 
 	#pdu{type         = Type, 
 	     error_status = Err, 
 	     error_index  = Idx,
 	     varbinds     = Vbs} ->
-	    exit({unexpected_pdu, ?LINE, Type, Err, Idx, Vbs});
+            ?EPRINT("loop_it_1_test -> unexpected pdu: "
+                    "~n      Type: ~p"
+                    "~n      Err:  ~p"
+                    "~n      Idx:  ~p"
+                    "~n      Vbs:  ~p", [Type, Err, Idx, Vbs]),
+	    exit({unexpected_pdu, ?LINE,
+                  [{get_next_oid, Oid},
+                   {counter,      N},
+                   {type,         Type},
+                   {error_status, Err},
+                   {error_index,  Idx},
+                   {varbinds,     Vbs}]});
 
 	{error, Reason} ->
-	    exit({error, Reason, ?LINE})
+            %% Regardless of the error here (its usually timeout),
+            %% if we have had system events we skip since the results
+            %% in those cases are simply not reliable.
+            %% There is just no point in trying to analyze the reason.
+            ?IPRINT("loop_it_1_test -> receive error: "
+                    "~n      ~p", [Reason]),
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT("loop_it_1_test -> error: "
+                            "~n      ~p", [Reason]),
+                    ?line ?FAIL([{get_next_oid, Oid},
+                                 {counter,      N},
+                                 {reason,       Reason}]);
+
+                        true ->
+                    ?WPRINT("loop_it_1_test -> "
+                            "error when we got system events: "
+                            "~n   Reason:     ~p"
+                            "~n   Sys Events: ~p"
+                            "~n", [Reason, SysEvs]),
+                    ?SKIP([{reason, Reason}, {system_events, SysEvs}])
+            end
     end.
 	    
 
 %% Req. As many mibs all possible
 loop_mib_2_test() ->
-    ?DBG("loop_mib_2_test -> entry",[]),
+    ?IPRINT("loop_mib_2_test -> entry"),
     N = loop_it_2([1,1], 0),
-    io:format(user, "found ~w varibles\n", [N]),
+    ?IPRINT("found ~w varibles", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
 
 loop_it_2(Oid, N) ->
-    ?DBG("loop_it_2 -> entry with"
-	 "~n   Oid: ~p"
-	 "~n   N:   ~p",[Oid, N]),
+    ?IPRINT("loop_it_2 -> entry with"
+            "~n   Oid: ~p"
+            "~n   N:   ~p", [Oid, N]),
     case get_next_req([Oid]) of
 	#pdu{type         = 'get-response', 
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid = _NOid, value = endOfMibView}]} ->
-	    ?DBG("loop_it_2 -> "
-		 "~n   NOid: ~p", [_NOid]),
+	    ?IPRINT("loop_it_2 -> done: "
+                    "~n   NOid: ~p", [_NOid]),
 	    N;
 
 	#pdu{type         = 'get-response', 
@@ -6322,52 +6369,83 @@ loop_it_2(Oid, N) ->
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid   = NOid,
 				      value = _Value}]} when NOid > Oid ->
-	    ?DBG("loop_it_2 -> "
-		 "~n   NOid:  ~p"
-		 "~n   Value: ~p", [NOid, _Value]),
+	    ?IPRINT("loop_it_2 -> expected intermediate (get-next) result: "
+                    "~n   NOid:  ~p"
+                    "~n   Value: ~p", [NOid, _Value]),
 	    ?line [_Value2] = get_req(1, [NOid]), % must not be same
-	    ?DBG("loop_it_2 -> "
-		 "~n   Value2: ~p", [_Value2]),
+	    ?IPRINT("loop_it_2 -> expected intermediate (get) result: "
+                    "~n   Value2: ~p", [_Value2]),
 	    loop_it_2(NOid, N+1);
 
 	#pdu{type         = 'get-response', 
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = Vbs} ->
-	    exit({unexpected_pdu, ?LINE, 
-		  [{varbinds,     Vbs},
-		   {get_next_oid, Oid},
-		   {counter,      N}]});
+            ?EPRINT("loop_it_2 -> unexpected (get-response) vbs: "
+                    "~n      Vbs: ~p", [Vbs]),
+	    exit({unexpected_vbs, ?LINE, 
+		  [{get_next_oid, Oid},
+		   {counter,      N},
+                   {varbinds,     Vbs},
+		   {get_next_oid, Oid}]});
 
 	#pdu{type         = 'get-response', 
 	     error_status = ES, 
 	     error_index  = EI,
 	     varbinds     = Vbs} ->
+            ?EPRINT("loop_it_2 -> unexpected (get-response) pdu: "
+                    "~n      ES:  ~p"
+                    "~n      EI:  ~p"
+                    "~n      Vbs: ~p", [ES, EI, Vbs]),
 	    exit({unexpected_pdu, ?LINE, 
-		  [{error_status, ES}, 
+		  [{get_next_oid, Oid},
+		   {counter,      N},
+                   {error_status, ES}, 
 		   {error_index,  EI},
 		   {varbinds,     Vbs},
-		   {get_next_oid, Oid},
-		   {counter,      N}]});
+		   {get_next_oid, Oid}]});
 
 	#pdu{type         = Type, 
 	     error_status = ES, 
 	     error_index  = EI,
 	     varbinds     = Vbs} ->
+            ?EPRINT("loop_it_2 -> unexpected pdu: "
+                    "~n      Type: ~p"
+                    "~n      ES:   ~p"
+                    "~n      EI:   ~p"
+                    "~n      Vbs:  ~p", [Type, ES, EI, Vbs]),
 	    exit({unexpected_pdu, ?LINE, 
-		  [{type,         Type}, 
+		  [{get_next_oid, Oid},
+		   {counter,      N},
+                   {type,         Type}, 
 		   {error_status, ES}, 
 		   {error_index,  EI},
-		   {varbinds,     Vbs},
-		   {get_next_oid, Oid},
-		   {counter,      N}]});
+		   {varbinds,     Vbs}]});
 
 	{error, Reason} ->
-	    exit({unexpected_result, ?LINE, 
-		  [{reason,       Reason}, 
-		   {get_next_oid, Oid},
-		   {counter,      N}]})
+            %% Regardless of the error here (its usually timeout),
+            %% if we have had system events we skip since the results
+            %% in those cases are simply not reliable.
+            %% There is just no point in trying to analyze the reason.
+            ?IPRINT("loop_it_2 -> receive error: "
+                    "~n      ~p", [Reason]),
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT("loop_it_2 -> error: "
+                            "~n      ~p", [Reason]),
+                    ?line ?FAIL([{get_next_oid, Oid},
+                                 {counter,      N},
+                                 {reason,       Reason}]);
 
+                        true ->
+                    ?WPRINT("loop_it_2 -> "
+                            "error when we got system events: "
+                            "~n   Reason:     ~p"
+                            "~n   Sys Events: ~p"
+                            "~n", [Reason, SysEvs]),
+                    ?SKIP([{reason, Reason}, {system_events, SysEvs}])
+            end
     end.
 	    
 loop_mib_3_test() ->

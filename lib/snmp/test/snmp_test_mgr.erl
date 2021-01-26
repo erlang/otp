@@ -168,6 +168,7 @@ get_timeout() ->
 
 get_timeout(_)       -> 10000. % Trying to improve test results % 3500.
 
+
 %%----------------------------------------------------------------------
 %% Receives a trap from the agent.
 %% Returns: TrapPdu|{error, Reason}
