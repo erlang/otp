@@ -2,7 +2,7 @@
 
 {application, edoc,
  [
-  {description, "EDoc OTP library"},
+  {description, "EDoc, the Erlang documentation engine"},
   {vsn, "%VSN%"},
   {modules, [edoc,
 	     edoc_cli,
