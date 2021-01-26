@@ -1625,13 +1625,7 @@ calculate_client_early_traffic_secret(
   ClientHello, PSK, Cipher, HKDFAlgo,
   #state{connection_states = ConnectionStates,
          ssl_options = #{keep_secrets := KeepSecrets},
-         static_env = #static_env{role = Role},
-         handshake_env =
-             #handshake_env{
-                tls_handshake_history = _HHistory}} = State0) ->
-    #{security_parameters := SecParamsW} =
-        ssl_record:pending_connection_state(ConnectionStates, write),
-    #security_parameters{cipher_suite = _CipherSuite} = SecParamsW,
+         static_env = #static_env{role = Role}} = State0) ->
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
     ClientEarlyTrafficSecret =
         tls_v1:client_early_traffic_secret(HKDFAlgo, EarlySecret, ClientHello),
