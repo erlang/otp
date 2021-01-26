@@ -34,30 +34,36 @@ help() ->
 	      "Environment variable ASAN_LOG_DIR is used if InDir\n"
 	      "is not specified\n\n", []).
 
+-record(logacc, {srcfile,            % full path of current log file
+                 did_output = false, % output contribution from srcfile
+                 app = none,         % current application
+                 app_err = 0,        % nr of reported errors from application
+                 tc_err = 0}).       % nr of reported errors from srcfile (test case)
+
 run(OutDir, InDir) ->
     {ok, InFilesUS} = file:list_dir(InDir),
     InFiles = lists:sort(InFilesUS),
 
     OutFile = filename:join(OutDir, "asan_summary.html"),
-    {ok, FD} = file:open(OutFile, [write]),
+    {ok, Out} = file:open(OutFile, [write]),
 
-    ok = file:write(FD, <<"<!DOCTYPE html>\n"
+    ok = file:write(Out, <<"<!DOCTYPE html>\n"
                           "<html>\n"
                           "<head><title>Address Sanitizer</title>\n">>),
-    ok = file:write(FD, style_block()),
-    ok = file:write(FD, <<"</head><body>\n"
+    ok = file:write(Out, style_block()),
+    ok = file:write(Out, <<"</head><body>\n"
 		          "<h1>Address Sanitizer</h1>\n">>),
 
-    {_, LastApp, LastErrCnt, _} =
-        lists:foldl(fun(File, Acc) ->
-                            io:format("analyze ~s\n", [File]),
-                            analyze_log_file(filename:join(InDir,File),
-                                             FD, Acc)
+    {_, _, LogAcc2} =
+        lists:foldl(fun(File, {LM, RegEx, LogAcc}) ->
+                            analyze_log_file(Out, filename:join(InDir,File),
+                                             {LM, RegEx, LogAcc})
                     end,
-                    {#{}, none, 0, none},
+                    {#{}, none, #logacc{}},
                     InFiles),
 
-    app_end(FD, LastApp, LastErrCnt),
+    LogAcc3 = app_end(Out, LogAcc2),
+    try_delete_srcfile(LogAcc3),
 
     Time = calendar:system_time_to_rfc3339(erlang:system_time(second),
                                            [{time_designator, 32}]),
@@ -65,31 +71,67 @@ run(OutDir, InDir) ->
     ThisFile = escript:script_name(),
     User = string:trim(os:cmd("whoami")),
     {ok, Host} = inet:gethostname(),
-    ok = io:format(FD, "\n<hr><p><small>This page was generated ~s\n"
+    ok = io:format(Out, "\n<hr><p><small>This page was generated ~s\n"
                    " by <tt>~s</tt>\n"
                    " run by ~s@~s.</small></p>\n",
                    [Time, ThisFile, User, Host]),
 
-    ok = file:write(FD, script_block()),
-    ok = file:write(FD, <<"</body>\n</html>\n">>),
-    ok = file:close(FD),
+    ok = file:write(Out, script_block()),
+    ok = file:write(Out, <<"</body>\n</html>\n">>),
+    ok = file:close(Out),
     io:format("Generated file ~s\n", [OutFile]),
     ok.
 
-analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, ErrCnt0, RegEx0}) ->
+analyze_log_file(Out, SrcFile, {LeakMap0, RegEx0, LogAcc0}=Acc) ->
 
-    %% Is it a new application?
-    {App,ErrCnt1} = case string:lexemes(filename:basename(SrcFile), "-") of
-                        [_Exe, PrevApp | _] ->
-                            {PrevApp, ErrCnt0};
-                        [_Exe, NewApp | _] ->
-                            app_end(OutFD, PrevApp, ErrCnt0),
-                            {NewApp, 0}
-                    end,
+    #logacc{app=PrevApp} = LogAcc0,
 
-    {ok, Bin} = file:read_file(SrcFile),
+    case filelib:is_regular(SrcFile) of
+        false ->
+            Acc;
+        true ->
+            FileName = filename:basename(SrcFile),
+            %%io:format("analyze ~s\n", [FileName]),
 
-    {Leaks, RegEx1} =
+            %% Is it a new application?
+            LogAcc2 = case string:lexemes(FileName, "-") of
+                          [_Exe, PrevApp | _] ->
+                              try_delete_srcfile(LogAcc0),
+                              LogAcc0#logacc{srcfile=SrcFile,
+                                             tc_err=0,
+                                             did_output=false};
+                          [_Exe, NewApp | _] ->
+                              LogAcc1 = app_end(Out, LogAcc0),
+                              try_delete_srcfile(LogAcc1),
+                              LogAcc1#logacc{srcfile=SrcFile,
+                                             app=NewApp,
+                                             app_err=0,
+                                             tc_err=0,
+                                             did_output=false}
+                      end,
+
+            case LogAcc2#logacc.app_err of
+                truncated ->
+                    {LeakMap0, RegEx0, LogAcc2};
+                _ ->
+                    {ok, Bin} = file:read_file(SrcFile),
+                    match_loop(Out, Bin, RegEx0, LogAcc2, 0, [], LeakMap0)
+            end
+    end.
+
+-define(APP_ERR_LIMIT, 200).
+
+match_loop(Out, _, RegEx, #logacc{app_err=AppErr}=LogAcc0, _, _, LM)
+  when AppErr >= ?APP_ERR_LIMIT ->
+
+    LogAcc1 = log_error(Out, LogAcc0),
+    ok = io:format(Out, "<h2>WARNING!!! Log truncated for application ~p,"
+                   " more than ~p errors found.</h2>\n",
+                   [LogAcc1#logacc.app, ?APP_ERR_LIMIT]),
+    {LM, RegEx, LogAcc1#logacc{app_err=truncated}};
+
+match_loop(Out, Bin, RegEx0, LogAcc0, PrevEnd, Unmatched0, LM0) ->
+    {Match, RegEx1} =
 	run_regex(Bin, RegEx0,
 		  %% LeakReport
 		  "(?:(Direct|Indirect) leak of ([0-9]+) byte\\(s\\) "
@@ -109,88 +151,86 @@ analyze_log_file(SrcFile, OutFD, {LeakMap0, PrevApp, ErrCnt0, RegEx0}) ->
                   "|"
                   "^\n", % empty lines
 		  [multiline],
-		  [global, {capture, all, index}]),
+		  [{offset, PrevEnd}, {capture, all, index}]),
 
-    %% We indentify a leak by its type (direct or indirect)
-    %% and its full call stack.
 
     BP = fun(PartIx) -> binary:part(Bin, PartIx) end,
 
-    LeakChecker =
-        fun([ErrorReport, {-1,0}, {-1,0}, {-1,0}, {-1,0}, Captured],
-            {Out, PrevEnd, Unmatched0, LM0}) ->
-                {Start,MatchLen} = ErrorReport,
-                FD = fd(Out),
-                ok = io_format(FD, "<p><pre~s>\n", [style(error)]),
-                ok = file_write(FD, BP(Captured)),
-                ok = io_format(FD, "</pre></p>\n", []),
-                Unmatched1 = [BP({PrevEnd, Start-PrevEnd}) | Unmatched0],
-                End = Start + MatchLen,
-                {FD, End, Unmatched1, LM0};
+    case Match of
+        [ErrorReport, {-1,0}, {-1,0}, {-1,0}, {-1,0}, Captured] ->
+            {Start,MatchLen} = ErrorReport,
+            LogAcc1 = log_error(Out, LogAcc0),
+            ok = io:format(Out, "<p><pre~s>\n", [style(error)]),
+            ok = file:write(Out, BP(Captured)),
+            ok = io:format(Out, "</pre></p>\n", []),
+            Unmatched1 = [BP({PrevEnd, Start-PrevEnd}) | Unmatched0],
+            End = Start + MatchLen,
+            match_loop(Out, Bin, RegEx1, LogAcc1, End, Unmatched1, LM0);
 
-           ([LeakReport, TypeIx, BytesIx, BlocksIx, StackIx | _],
-            {Out, PrevEnd, Unmatched0, LM0}) ->
-                {Start, MatchLen} = LeakReport,
-                Bytes = binary_to_integer(BP(BytesIx)),
-                Blocks = binary_to_integer(BP(BlocksIx)),
-                End = Start + MatchLen,
-                Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
-                TypeBin = BP(TypeIx),
-                Key = {TypeBin, BP(StackIx)},
+        [LeakReport, TypeIx, BytesIx, BlocksIx, StackIx | _] ->
+            {Start, MatchLen} = LeakReport,
+            Bytes = binary_to_integer(BP(BytesIx)),
+            Blocks = binary_to_integer(BP(BlocksIx)),
+            End = Start + MatchLen,
+            Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
+            TypeBin = BP(TypeIx),
+
+            %% We indentify a leak by its type (direct or indirect)
+            %% and its full call stack.
+            Key = {TypeBin, BP(StackIx)},
+            {LogAcc2, LM2} =
                 case lookup_leak(LM0, Key) of
                     undefined ->
                         %% A new leak
                         LM1 = insert_leak(LM0, Key, Bytes, Blocks),
-                        FD = fd(Out),
-                        ok = io_format(FD, "<p><pre~s>\n", [style(new, TypeBin)]),
-                        ok = file_write(FD, BP(LeakReport)),
-                        ok = io_format(FD, "</pre></p>\n", []),
-                        {FD, End, Unmatched1, LM1};
+                        LogAcc1 = log_error(Out, LogAcc0),
+                        ok = io:format(Out, "<p><pre~s>\n", [style(new, TypeBin)]),
+                        ok = file:write(Out, BP(LeakReport)),
+                        ok = io:format(Out, "</pre></p>\n", []),
+                        {LogAcc1, LM1};
 
                     {Bytes, Blocks} ->
                         %% Exact same leak(s) repeated, ignore
-                        {Out, End, Unmatched1, LM0};
+                        {LogAcc0, LM0};
 
                     {OldBytes, OldBlocks} ->
                         %% More leaked bytes/blocks of same type&stack as before
                         LM1 = insert_leak(LM0, Key, Bytes, Blocks),
-                        FD = fd(Out),
-                        ok = io_format(FD, "<p><pre~s>\n", [style(more, TypeBin)]),
-                        ok = io_format(FD, "More ~s leak of ~w(~w) byte(s) "
+                        LogAcc1 = log_error(Out, LogAcc0),
+                        ok = io:format(Out, "<p><pre~s>\n", [style(more, TypeBin)]),
+                        ok = io:format(Out, "More ~s leak of ~w(~w) byte(s) "
                                        "in ~w(~w) object(s) allocated from:\n",
                                        [TypeBin, Bytes - OldBytes, Bytes,
                                         Blocks - OldBlocks, Blocks]),
-                        ok = file_write(FD, BP(StackIx)),
-                        ok = io_format(FD, "</pre></p>\n", []),
-                        {FD, End, Unmatched1, LM1}
-                end;
-	   ([SkipLine], {Out, PrevEnd, Unmatched0, LM0}) ->
-                {Start, MatchLen} = SkipLine,
-		%%nomatch = binary:match(BP(SkipLine), <<"\n">>), % Assert single line
-                End = Start + MatchLen,
-                Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
-		{Out, End, Unmatched1, LM0}
-        end,
-    Out0 = {OutFD, App, ErrCnt1, SrcFile},
-    {Out1, LastEnd, Unmatched1, LeakMap1} = lists:foldl(LeakChecker,
-                                                 {Out0, 0, [], LeakMap0},
-                                                 Leaks),
+                        ok = file:write(Out, BP(StackIx)),
+                        ok = io:format(Out, "</pre></p>\n", []),
+                        {LogAcc1, LM1}
+                end,
+            match_loop(Out, Bin, RegEx1, LogAcc2, End, Unmatched1, LM2);
 
-    Unmatched2 = [BP({LastEnd, byte_size(Bin)-LastEnd}) | Unmatched1],
+        [SkipLine] ->
+            {Start, MatchLen} = SkipLine,
+            %%nomatch = binary:match(BP(SkipLine), <<"\n">>), % Assert single line
+            End = Start + MatchLen,
+            Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
+            match_loop(Out, Bin, RegEx1, LogAcc0, End, Unmatched1, LM0);
 
-    Out2 = case iolist_size(Unmatched2) > 500 of
-               true ->
-                   FD = fd(Out1),
-                   ok = io_format(FD, "<h2>WARNING!!! May be unmatched error reports"
-                                  " in file ~s:</h2>\n<p><pre>~s</pre></p>",
-                                  [SrcFile, Unmatched2]),
-                   FD;
-               false ->
-                   Out1
-           end,
-    App = element(2, Out2),
-    ErrCnt2 = element(3, Out2),
-    {LeakMap1, App, ErrCnt2, RegEx1}.
+        nomatch ->
+            Unmatched1 = [BP({PrevEnd, byte_size(Bin)-PrevEnd}) | Unmatched0],
+
+            LogAcc2 =
+                case iolist_size(Unmatched1) > 500 of
+                    true ->
+                        LogAcc1 = log_error(Out, LogAcc0),
+                        ok = io:format(Out, "<h2>WARNING!!! May be unmatched error reports"
+                                       " in file ~s:</h2>\n<p><pre>~s</pre></p>",
+                                       [LogAcc1#logacc.srcfile, Unmatched1]),
+                        LogAcc1#logacc{tc_err = LogAcc1#logacc.tc_err+1};
+                    false ->
+                        LogAcc0
+                end,
+            {LM0, RegEx1, LogAcc2}
+    end.
 
 lookup_leak(LeakMap, Key) ->
     maps:get(Key, LeakMap, undefined).
@@ -198,49 +238,56 @@ lookup_leak(LeakMap, Key) ->
 insert_leak(LeakMap, Key, Bytes, Blocks) ->
     LeakMap#{Key => {Bytes, Blocks}}.
 
-io_format({FD, _App, _ErrCnt}, Format, List) ->
-    io:format(FD, Format, List).
+log_error(Out, #logacc{app_err=AppErr, tc_err=TcErr}=LogAcc) ->
+    DidApp = case AppErr of
+                 0 ->
+                     %% First error in application, print clickable app button
+                     ok = io:format(Out, "<button type=\"button\" "
+                                    "class=\"app_err\">"
+                                    "~s</button>\n"
+                                    "<div class=\"content\">", [LogAcc#logacc.app]),
+                     true;
+                 _ ->
+                     false
+             end,
 
-file_write({FD, _App, _ErrCnt}, Bin) ->
-    file:write(FD, Bin).
+    DidTc = case TcErr of
+                0 ->
+                    %% First error in test case, print test case header
+                    SrcFile = LogAcc#logacc.srcfile,
+                    TcFile = filename:basename(SrcFile),
+                    case string:lexemes(TcFile, "-") of
+                        [_Exe, App, _Rest] ->
+                            ok = io:format(Out, "<h3>Before first test case of ~s</h3>\n",
+                                           [App]);
+                        [_Exe, _App, "tc", Num, Mod, Rest] ->
+                            [Func | _] = string:lexemes(Rest, "."),
+                            ok = io:format(Out, "<h3>Test case #~s ~s:~s</h3>\n", [Num, Mod, Func]);
+                        _ ->
+                            ok = io:format(Out, "<h3>Strange log file name '~s'</h3>\n",
+                                           [SrcFile])
+                    end,
+                    true;
+                _ ->
+                    false
+            end,
+    LogAcc#logacc{app_err=AppErr+1, tc_err=TcErr+1,
+                  did_output = (LogAcc#logacc.did_output or DidApp or DidTc)}.
 
-fd({FD, App, ErrCnt, SrcFile}) ->
-
-    case ErrCnt of
-        0 ->
-            %% First error in application, print clickable app header
-            ok = io:format(FD, "<button type=\"button\" "
-                           "class=\"app_err\">"
-                           "~s</button>\n"
-                           "<div class=\"content\">", [App]);
-        _ ->
-            ok
-    end,
-
-    %% Print test case header
-    TcFile = filename:basename(SrcFile),
-    case string:lexemes(TcFile, "-") of
-	[_Exe, App, _Rest] ->
-	    ok = io:format(FD, "<h3>Before first test case of ~s</h3>\n",
-			   [App]);
-	[_Exe, _App, "tc", Num, Mod, Rest] ->
-	    [Func | _] = string:lexemes(Rest, "."),
-	    ok = io:format(FD, "<h3>Test case #~s ~s:~s</h3>\n", [Num, Mod, Func]);
-	_ ->
-	    ok = io:format(FD, "<h3>Strange log file name '~s'</h3>\n",
-			   [SrcFile])
-    end,
-    {FD, App, ErrCnt+1};
-fd({FD, App, ErrCnt}) ->
-    {FD, App, ErrCnt+1}.
-
-app_end(FD, App, ErrCnt) ->
-    case {App, ErrCnt} of
-        {none,_} -> ignore;
-        {_, 0} ->
-            ok = io:format(FD, "<button class=\"app_ok\" disabled>~s</button>\n", [App]);
-        {_, _} ->
-            ok = io:format(FD, "</div>", [])
+app_end(Out, LogAcc) ->
+    case LogAcc of
+        #logacc{app=none} ->
+            LogAcc;
+        #logacc{app_err=0} ->
+            ok = io:format(Out, "<button class=\"app_ok\" disabled>~s</button>\n",
+                           [LogAcc#logacc.app]),
+            LogAcc#logacc{did_output = true};
+        #logacc{} ->
+            ok = io:format(Out, "<button type=\"button\" "
+                           "class=\"app_err_end\">"
+                           "end of ~s</button>\n", [LogAcc#logacc.app]),
+            ok = io:format(Out, "</div>", []),
+            LogAcc
     end.
 
 style(error) ->
@@ -260,18 +307,42 @@ run_regex(Bin, none, RegExString, CompileOpts, RunOpts) ->
 run_regex(Bin, RegEx, _, _, RunOpts) ->
     case re:run(Bin, RegEx, RunOpts) of
 	nomatch ->
-	    {[], RegEx};
-	{match, List} ->
-	    {List, RegEx}
+	    {nomatch, RegEx};
+	{match, Match} ->
+	    {Match, RegEx}
+    end.
+
+try_delete_srcfile(LogAcc) ->
+    case LogAcc of
+        #logacc{srcfile=undefined} ->
+            ignore;
+        #logacc{did_output=false} ->
+            %% This file did not contribute any output.
+            %% Optimize future script invokations by removing it.
+            delete_file(LogAcc#logacc.srcfile);
+        _ ->
+            keep
+    end.
+
+delete_file(File) ->
+    case filelib:is_regular(File) of
+        true ->
+            io:format("Delete file ~p\n", [File]),
+            Dir = filename:dirname(File),
+            Name = filename:basename(File),
+            Trash = filename:join([Dir, "DELETED", Name]),
+            ok = filelib:ensure_dir(Trash),
+            ok = file:rename(File, Trash);
+        false ->
+            ignore
     end.
 
 style_block() ->
     <<"<style>
 
-.app_err, .app_ok {
+.app_err, .app_err_end, .app_ok {
   color: white;
   padding: 10px;
-  width: 100%;
   /*border: none;*/
   text-align: left;
   /*outline: none;*/
@@ -279,15 +350,24 @@ style_block() ->
 }
 
 .app_err {
+  width: 100%;
   background-color: #D11;
   cursor: pointer;
 }
-.app_ok {
-  background-color: #292;
+.app_err:hover {
+  background-color: #F11;
+}
+.app_err_end {
+  background-color: #D11;
+  cursor: pointer;
+}
+.app_err_end:hover {
+  background-color: #F11;
 }
 
-.active, .app_err:hover {
-  background-color: #F11;
+.app_ok {
+  width: 100%;
+  background-color: #292;
 }
 
 .content {
@@ -301,12 +381,11 @@ style_block() ->
 
 script_block() ->
     <<"<script>
-var coll = document.getElementsByClassName(\"app_err\");
+var app_err = document.getElementsByClassName(\"app_err\");
 var i;
 
-for (i = 0; i < coll.length; i++) {
-  coll[i].addEventListener(\"click\", function() {
-    this.classList.toggle(\"active\");
+for (i = 0; i < app_err.length; i++) {
+  app_err[i].addEventListener(\"click\", function() {
     var content = this.nextElementSibling;
     if (content.style.display === \"block\") {
       content.style.display = \"none\";
@@ -315,5 +394,14 @@ for (i = 0; i < coll.length; i++) {
     }
   });
 }
+
+var app_err_end = document.getElementsByClassName(\"app_err_end\");
+for (i = 0; i < app_err_end.length; i++) {
+  app_err_end[i].addEventListener(\"click\", function() {
+    var content = this.parentElement;
+    content.style.display = \"none\";
+  });
+}
+
 </script>
 ">>.
