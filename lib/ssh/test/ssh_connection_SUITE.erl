@@ -87,7 +87,8 @@
          start_shell_sock_daemon_exec_multi/1,
          start_shell_sock_exec_fun/1,
          start_subsystem_on_closed_channel/1,
-         stop_listener/1
+         stop_listener/1,
+         ssh_exec_echo/2 % called as an MFA
         ]).
 
 -define(SSH_DEFAULT_PORT, 22).
@@ -1436,13 +1437,14 @@ test_shell_is_enabled(ConnectionRef, Expect) ->
 
 test_shell_is_enabled(ConnectionRef, Expect, PtyOpts) ->
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    ok = ssh_connection:shell(ConnectionRef,ChannelId),
     case PtyOpts of
         [] ->
             no_alloc;
         _ ->
             success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, PtyOpts)
     end,
+    ok = ssh_connection:shell(ConnectionRef,ChannelId),
+
     ExpSz = size(Expect),
     receive
 	{ssh_cm,ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} ->
