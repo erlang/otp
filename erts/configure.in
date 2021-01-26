@@ -3526,6 +3526,7 @@ dnl Check for log2
 dnl ----------------------------------------------------------------------
 AC_CHECK_FUNCS([log2])
 
+
 dnl ----------------------------------------------------------------------
 dnl Check for GCC diagnostic ignored "-Waddress-of-packed-member"
 dnl ----------------------------------------------------------------------
@@ -3539,6 +3540,7 @@ AC_TRY_COMPILE([],
          AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER,[1],
            [define if compiler support _Pragma('GCC diagnostic ignored '-Waddress-of-packed-member'')]))
 CFLAGS="$saved_CFLAGS"
+
 
 dnl ----------------------------------------------------------------------
 dnl Enable any -Werror flags
