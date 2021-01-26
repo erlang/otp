@@ -78,9 +78,18 @@
  */
 /* Forward declarations of things needed by utis.ycf.h: */
 #define YCF_CONSUME_REDS(x)
+typedef struct
+{
+    byte* pivot_part_start;
+    byte* pivot_part_end;
+} erts_qsort_partion_array_result;
 
 typedef int (*erts_void_ptr_cmp_t)(const void *, const void *);
 static void erts_qsort_swap(size_t item_size, void* ivp, void* jvp);
+static void erts_qsort_insertion_sort(byte *base,
+                                      size_t nr_of_items,
+                                      size_t item_size,
+                                      erts_void_ptr_cmp_t compare);
 #if defined(DEBUG)
 erts_tsd_key_t erts_ycf_debug_stack_start_tsd_key;
 void ycf_debug_set_stack_start(void * start) {
@@ -5166,20 +5175,14 @@ static void erts_qsort_helper(byte *base,
                               size_t nr_of_items,
                               size_t item_size,
                               erts_void_ptr_cmp_t compare,
-                              int extra_seed);
-static byte*
+                              Uint32 extra_seed);
+static erts_qsort_partion_array_result
 erts_qsort_partion_array(byte *base,
                          size_t nr_of_items,
                          size_t item_size,
                          erts_void_ptr_cmp_t compare,
-                         int extra_seed);
+                         Uint32 extra_seed);
 
-/* **Important Note**
- *
- * A yielding version of this function is generated with YCF. This
- * means that the code has to follow some restrictions. See note about
- * YCF near the top of the file for more information.
- */
 static void erts_qsort_swap(size_t item_size,
                             void* iptr,
                             void* jptr)
@@ -5217,24 +5220,46 @@ static void erts_qsort_swap(size_t item_size,
  * means that the code has to follow some restrictions. See note about
  * YCF near the top of the file for more information.
  */
-static byte*
+static erts_qsort_partion_array_result
 erts_qsort_partion_array(byte *base,
                          size_t nr_of_items,
                          size_t item_size,
                          erts_void_ptr_cmp_t compare,
-                         int extra_seed)
+                         Uint32 extra_seed)
 {
+    /*
+      The array is portioned using a fast-path-slow-path approach. We
+      first assume that the there is no duplicates of the selected
+      pivot item in the array. If this assumption holds, we only need
+      to keep track of two regions (items greater than the pivot, and
+      items smaller than the pivot) which leads to fewer swaps than if
+      we need to keep track of three regions (items greater than the
+      pivot, items smaller than the pivot, and items equal to the
+      pivot). If we find an item that is equal to the pivot, we fall
+      back to the slow path that keeps track of three regions.
+
+      Start of fast path:
+     */
     byte* second_part_start = base + (nr_of_items * item_size);
     byte* curr = base + item_size;
     int found_bigger = 0;
-    size_t pivot_index = nr_of_items / 2;
-
+    int more_than_one_pivot_item = 0;
+    Uint32 rand32bits =
+        (size_t)erts_sched_local_random_hash_64_to_32_shift((Uint64)extra_seed +
+                                                            (Uint64)((UWord)compare) +
+                                                            (Uint64)((UWord)base) -
+                                                            (Uint64)nr_of_items) ;
+    size_t pivot_index = rand32bits % nr_of_items;
     /* Move pivot first */
-    erts_qsort_swap(item_size, base, base + pivot_index*item_size);
+    erts_qsort_swap(item_size, base, base + pivot_index * item_size);
     while (curr != second_part_start) {
-        if (compare(curr, base) <= 0) {
+        int compare_res = compare(curr, base);
+        if (compare_res < 0) {
             /* Include in first part */
             curr += item_size;
+        } else if (compare_res == 0) {
+            more_than_one_pivot_item = 1;
+            break;
         } else {
             /* Move to last part */
             second_part_start -= item_size;
@@ -5242,12 +5267,84 @@ erts_qsort_partion_array(byte *base,
             found_bigger = 1;
         }
     }
-    if (!found_bigger) {
-        /* Nothing was larger than pivot, move it last to be the second part */
-        second_part_start -= item_size;
-        erts_qsort_swap(item_size, base, second_part_start);
+    if (!more_than_one_pivot_item) {
+        /* Fast path successful (we don't need to use the slow path) */
+        if (!found_bigger) {
+            /* Move the pivot into the second part */
+            second_part_start -= item_size;
+            erts_qsort_swap(item_size, base, second_part_start);
+        }
+        {
+            erts_qsort_partion_array_result res;
+            res.pivot_part_start = second_part_start;
+            if (!found_bigger) {
+                res.pivot_part_end = second_part_start + item_size;
+            } else {
+                res.pivot_part_end = second_part_start;
+            }
+            return res;
+        }
+    } else {
+        /*
+           We have more than one item equal to the pivot item and need
+           to keep track of three regions.
+
+           Start of slow path:
+        */
+        byte * pivot_part_start = curr - item_size;
+        byte * pivot_part_end = curr + item_size;
+        byte * last_part_start = second_part_start;
+        if (base != pivot_part_start) {
+            erts_qsort_swap(item_size, base, pivot_part_start);
+        }
+
+        while (pivot_part_end != last_part_start) {
+            int compare_res =
+                compare(pivot_part_end, pivot_part_end - item_size);
+            if (compare_res == 0) {
+                /* Include in pivot part */
+                pivot_part_end += item_size;
+            } else if (compare_res < 0) {
+                /* Move pivot part one step to the right */
+                erts_qsort_swap(item_size, pivot_part_start, pivot_part_end);
+                pivot_part_start += item_size;
+                pivot_part_end += item_size;
+            } else {
+                /* Move to last part */
+                last_part_start -= item_size;
+                erts_qsort_swap(item_size, pivot_part_end, last_part_start);
+            }
+        }
+        {
+            erts_qsort_partion_array_result res;
+            res.pivot_part_start = pivot_part_start;
+            res.pivot_part_end = pivot_part_end;
+            return res;
+        }
     }
-    return second_part_start;
+}
+
+static void erts_qsort_insertion_sort(byte *base,
+                                      size_t nr_of_items,
+                                      size_t item_size,
+                                      erts_void_ptr_cmp_t compare)
+{
+    byte *end = base + ((nr_of_items-1) * item_size);
+    byte *unsorted_start = base;
+    while (unsorted_start < end) {
+        byte *smallest_so_far = unsorted_start;
+        byte *curr = smallest_so_far + item_size;
+        while (curr <= end) {
+            if (compare(curr, smallest_so_far) < 0) {
+                smallest_so_far = curr;
+            }
+            curr += item_size;
+        }
+        if (smallest_so_far != unsorted_start) {
+            erts_qsort_swap(item_size, unsorted_start, smallest_so_far);
+        }
+        unsorted_start += item_size;
+    }
 }
 
 /* **Important Note**
@@ -5260,27 +5357,35 @@ static void erts_qsort_helper(byte *base,
                               size_t nr_of_items,
                               size_t item_size,
                               erts_void_ptr_cmp_t compare,
-                              int extra_seed)
+                              Uint32 extra_seed)
 {
-    byte *second_part_base;
-    size_t nr_of_items_second_part;
-
-    if (nr_of_items <= 1) {
+    erts_qsort_partion_array_result partion_info;
+    size_t nr_of_items_in_first_partion;
+    size_t nr_of_items_second_partion;
+    const size_t qsort_cut_off = 16;
+    if (nr_of_items <= qsort_cut_off) {
+        erts_qsort_insertion_sort(base, nr_of_items, item_size, compare);
+        YCF_CONSUME_REDS(nr_of_items * erts_fit_in_bits_int64(nr_of_items) * 2);
         return;
     }
-    if (nr_of_items == 2) {
-        if (compare(base, base+item_size) > 0) {
-            erts_qsort_swap(item_size, base, base+item_size);
-        }
-        return;
-    }
-    second_part_base = erts_qsort_partion_array(base, nr_of_items, item_size,
-                                                compare, extra_seed);
-    nr_of_items_second_part = nr_of_items - (second_part_base - base) / item_size;
-    erts_qsort_helper(base, (second_part_base - base) / item_size,
-                      item_size, compare, extra_seed + 1);
-    erts_qsort_helper(second_part_base, nr_of_items_second_part,
-                      item_size, compare, extra_seed + 1);
+    partion_info = erts_qsort_partion_array(base,
+                                            nr_of_items,
+                                            item_size,
+                                            compare,
+                                            extra_seed);
+    nr_of_items_in_first_partion =
+        ((partion_info.pivot_part_start - base) / sizeof(byte)) / item_size;
+    nr_of_items_second_partion =
+        nr_of_items - (((partion_info.pivot_part_end - base) / sizeof(byte)) / item_size);
+    erts_qsort_helper(base,
+                      nr_of_items_in_first_partion,
+                      item_size, compare,
+                      extra_seed + 1);
+    erts_qsort_helper(partion_info.pivot_part_end,
+                      nr_of_items_second_partion,
+                      item_size,
+                      compare,
+                      extra_seed + 1);
 }
 
 /***************
@@ -5308,7 +5413,9 @@ void erts_qsort(void *base,
                 size_t item_size,
                 erts_void_ptr_cmp_t compare)
 {
-    erts_qsort_helper((byte*)base, nr_of_items, item_size, compare, 1);
+    const int improved_seed_limit = 128;
+    Uint32 seed = nr_of_items > improved_seed_limit ? erts_sched_local_random(0) : 1;
+    erts_qsort_helper((byte*)base, nr_of_items, item_size, compare, seed);
 }
 
 typedef struct {
