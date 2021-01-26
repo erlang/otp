@@ -2860,6 +2860,7 @@ tailrecur_ne:
 	    case EXTERNAL_PORT_SUBTAG: {
 		ExternalThing *ap;
 		ExternalThing *bp;
+		int i;
 
 		if(!is_external(b))
 		    goto not_equal;
@@ -2867,13 +2868,17 @@ tailrecur_ne:
 		ap = external_thing_ptr(a);
 		bp = external_thing_ptr(b);
 
-		if(ap->header == bp->header && ap->node == bp->node) {
-		    ASSERT(1 == external_data_words(a));
-		    ASSERT(1 == external_data_words(b));
+		if(ap->header != bp->header || ap->node != bp->node)
+		    goto not_equal;
 
-                    if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
+		ASSERT(EXTERNAL_PORT_DATA_WORDS == external_data_words(a));
+		ASSERT(EXTERNAL_PORT_DATA_WORDS == external_data_words(b));
+
+		for (i = 0; i < EXTERNAL_PORT_DATA_WORDS; i++) {
+		    if (ap->data.ui[i] != bp->data.ui[i])
+			goto not_equal;
 		}
-		break; /* not equal */
+		goto pop_next;
 	    }
 	    case EXTERNAL_REF_SUBTAG: {
 		/*
