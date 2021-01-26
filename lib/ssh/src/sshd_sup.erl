@@ -30,7 +30,7 @@
 -include("ssh.hrl").
 
 -export([start_link/0,
-         start_child/4, 
+         start_child/3,
          start_system_subsystem/4,
          stop_child/1,
 	 stop_child/3
@@ -47,7 +47,8 @@
 start_link() ->
     supervisor:start_link({local,?SSHD_SUP}, ?MODULE, []).
 
-start_child(Address, Port, Profile, Options) ->
+start_child(Address, Port, Options) ->
+    Profile = ?GET_OPT(profile,Options),
     case ssh_system_sup:system_supervisor(Address, Port, Profile) of
        undefined ->
             %% Here we start listening on a new Host/Port/Profile

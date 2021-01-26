@@ -40,8 +40,7 @@
 %%====================================================================
 
 %%% Start and stop
--export([start_link/3,
-         start_connection/4, start_connection/5,
+-export([start_link/4, start_link/5, start_link/6,
          socket_control/3,
 	 stop/1
 	]).
@@ -98,12 +97,26 @@
 %% Start / stop
 %%====================================================================
 
-%%--------------------------------------------------------------------
-start_connection(Role, Socket, Options, NegotiationTimeout) ->
-    {ok, {Host,Port}} = inet:sockname(Socket),
-    start_connection(Role, {Host,Port}, Socket, Options, NegotiationTimeout).
+start_link(client, Host, Port, Options, NegotiationTimeout) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
+    try Callback:connect(Host, Port, SocketOpts, ?GET_OPT(connect_timeout,Options)) of
+        {ok, Socket} ->
+            start_link(client, Socket, Options, NegotiationTimeout);
+        {error, Reason} ->
+            {error, Reason}
+    catch
+        _:badarg -> {error, {options,?GET_OPT(socket_options,Options)}};
+        _:{error,Reason} -> {error,Reason};
+        error:Error -> {error,Error};
+        Class:Error -> {error, {Class,Error}}
+    end.
 
-start_connection(Role, {Host,Port}, Socket, Options0, NegotiationTimeout) ->
+start_link(Role, Socket, Options, NegotiationTimeout) ->
+    {ok, {Host,Port}} = inet:sockname(Socket),
+    start_link(Role, Host, Port, Socket, Options, NegotiationTimeout).
+
+start_link(Role, Host, Port, Socket, Options0, NegotiationTimeout) ->
     try
         Options1 = ?PUT_INTERNAL_OPT([{user_pid, self()}
                                      ], Options0),
@@ -118,7 +131,9 @@ start_connection(Role, {Host,Port}, Socket, Options0, NegotiationTimeout) ->
                                                     {subsystem_sup, SubSysSup},
                                                     {connection_sup, ConnectionSup}]}
                                     ], Options1),
-        case ssh_connection_sup:start_child(ConnectionSup, [Role, Socket, Options]) of
+        case ssh_connection_sup:start_child(ConnectionSup,
+                                            [?MODULE, [Role, Socket, Options], [{spawn_opt, [{message_queue_data,off_heap}]}]]
+                                           ) of
             {ok, Pid} ->
                 case socket_control(Socket, Pid, Options) of
                     ok ->
@@ -131,21 +146,10 @@ start_connection(Role, {Host,Port}, Socket, Options0, NegotiationTimeout) ->
         end
     catch
         exit:{noproc,{gen_server,call,_}} -> {error, ssh_not_started};
-        error:Error ->  {error, Error};
-        Class:Error ->  {error, {Class,Error}}
+        _:{error,Error} -> {error,Error};
+        error:Error -> {error,Error};
+        Class:Error -> {error, {Class,Error}}
     end.
-
-%%--------------------------------------------------------------------
--spec start_link(role(),
-		 gen_tcp:socket(),
-                 internal_options()
-		) -> {ok, pid()} | ignore | {error, term()} .
-
-start_link(Role, Socket, Options) when Role==client ; Role==server ->
-    gen_statem:start_link(?MODULE, [Role, Socket, Options],
-                          [{spawn_opt, [{message_queue_data,off_heap}]}
-                          ]).
-
 
 %%--------------------------------------------------------------------
 -spec stop(connection_ref()
@@ -462,12 +466,12 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
                 process_flag(trap_exit, true),
                 {ok, {hello,Role}, D}
             catch
-                _:Error ->
-                    {stop, Error}
+                _:{error,Error} ->
+                    {stop, {error,Error}}
             end;
 
         {error,Error} ->
-            {stop, Error}
+            {stop, {error,Error}}
     end.
 
 %%%----------------------------------------------------------------

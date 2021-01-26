@@ -27,8 +27,7 @@
 %% Internal application API
 -export([start_link/4,
 	 number_of_connections/1,
-	 listen/2,
-	 handle_established_connection/4]).
+	 listen/2]).
 
 %% spawn export  
 -export([acceptor_init/5, acceptor_loop/6]).
@@ -112,11 +111,6 @@ listen(Port, Options) ->
 	    Other
     end.
 
-%%%----------------------------------------------------------------
-handle_established_connection(Address, Port, Options, Socket) ->
-    {_, Callback, _} = ?GET_OPT(transport, Options),
-    handle_connection(Callback, Address, Port, Options, Socket).
-
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -191,7 +185,7 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->
 	    NegTimeout = ?GET_OPT(negotiation_timeout, Options),
-            ssh_connection_handler:start_connection(server, {Address,Port}, Socket, Options, NegTimeout);
+            ssh_connection_handler:start_link(server, Address, Port, Socket, Options, NegTimeout);
 	false ->
 	    Callback:close(Socket),
 	    IPstr = if is_tuple(Address) -> inet:ntoa(Address);

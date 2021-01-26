@@ -144,7 +144,7 @@ connect(Socket, UserOptions, NegotiationTimeout) when is_list(UserOptions) ->
 	Options = #{} ->
             case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
                 ok ->
-                    ssh_connection_handler:start_connection(client, Socket, Options, NegotiationTimeout);
+                    ssh_connection_handler:start_link(client, Socket, Options, NegotiationTimeout);
                 {error,SockError} ->
                     {error,SockError}
             end
@@ -165,19 +165,8 @@ connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
             {error, Reason};
         
         Options ->
-            SockOpts = ?GET_OPT(socket_options, Options),
-            Host = mangle_connect_address(Host0, SockOpts),
-            {_, Callback, _} = ?GET_OPT(transport, Options),
-            SocketOpts = [{active,false} | SockOpts],
-            ConnectionTimeout = ?GET_OPT(connect_timeout, Options),
-            try Callback:connect(Host, Port, SocketOpts, ConnectionTimeout) of
-                {ok, Socket} ->
-                    ssh_connection_handler:start_connection(client, Socket, Options, NegotiationTimeout);
-                {error, Reason} ->
-                    {error, Reason}
-            catch
-                _:Error -> {error, Error}
-            end
+            Host = mangle_connect_address(Host0, Options),
+            ssh_connection_handler:start_link(client, Host, Port, Options, NegotiationTimeout)
     end.
 
 %%--------------------------------------------------------------------
@@ -260,42 +249,47 @@ daemon(Port, UserOptions) when 0 =< Port,Port =< 65535 ->
     daemon(any, Port, UserOptions);
 
 daemon(Socket, UserOptions) ->
-    try
-        #{} = Options = ssh_options:handle_options(server, UserOptions),
+    case ssh_options:handle_options(server, UserOptions) of
+        #{} = Options0 ->
+            case valid_socket_to_use(Socket, ?GET_OPT(transport,Options0)) of
+                ok ->
+                    try
+                        Options = ?PUT_INTERNAL_OPT({connected_socket, Socket}, Options0),
+                        %% throws error:Error if no usable hostkey is found
+                        ssh_connection_handler:available_hkey_algorithms(server, Options),
+                        {ok, {IP,Port}} = inet:sockname(Socket),
+                        case sshd_sup:start_child(IP, Port, Options) of
+                            Result = {ok,_} ->
+                                case ssh_connection_handler:start_link(server, Socket, Options,
+                                                                       ?GET_OPT(negotiation_timeout,Options))
+                                of
+                                    {error,Error} ->
+                                        {error,Error};
+                                    _ ->
+                                        Result
+                                end;
+                            {error, {already_started, _}} ->
+                                {error, eaddrinuse};
+                            {error, Error} ->
+                                {error, Error}
+                        end
+                    catch
+                        error:{shutdown,Err} ->
+                            {error,Err};
+                        exit:{noproc, _} ->
+                            {error, ssh_not_started};
+                        C:R ->
+                            {error,{could_not_start_connection,{C,R}}}
+                    end;
 
-        case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
-            ok ->
-                {ok, {IP,Port}} = inet:sockname(Socket),
-                finalize_start(IP, Port, ?GET_OPT(profile, Options),
-                               ?PUT_INTERNAL_OPT({connected_socket, Socket}, Options),
-                               fun(Opts, DefaultResult) ->
-                                       try ssh_acceptor:handle_established_connection(
-                                             IP, Port, Opts, Socket)
-                                       of
-                                           {error,Error} ->
-                                               {error,Error};
-                                           _ ->
-                                               DefaultResult
-                                       catch
-                                           C:R ->
-                                               {error,{could_not_start_connection,{C,R}}}
-                                       end
-                               end);
-            {error,SockError} ->
-                {error,SockError}
-            end
-    catch
-        throw:bad_fd ->
-            {error,bad_fd};
-        throw:bad_socket ->
-            {error,bad_socket};
-        error:{badmatch,{error,Error}} ->
-            {error,Error};
-        error:Error ->
-            {error,Error};
-        _C:_E ->
-            {error,{cannot_start_daemon,_C,_E}}
-    end.
+                {error,SockError} ->
+                    {error,SockError}
+            end;
+
+        {error,OptionError} ->
+            {error,OptionError}
+        end.
+
 
 
 -spec daemon(any | inet:ip_address(), inet:port_number(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
@@ -307,31 +301,39 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
     try
         {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
         #{} = Options0 = ssh_options:handle_options(server, UserOptions),
-        {open_listen_socket(Host1, Port0, Options0), Options0}
+        open_listen_socket(Host1, Port0, Options0)
     of
-        {{{Host,Port}, ListenSocket}, Options1} ->
+        {Host, Port, ListenSocket, Options1} ->
             try
                 %% Now Host,Port is what to use for the supervisor to register its name,
                 %% and ListenSocket is for listening on connections. But it is still owned
                 %% by self()...
-                finalize_start(Host, Port, ?GET_OPT(profile, Options1),
-                               ?PUT_INTERNAL_OPT({lsocket,{ListenSocket,self()}}, Options1),
-                               fun(Opts, Result) ->
-                                       {_, Callback, _} = ?GET_OPT(transport, Opts),
-                                       receive
-                                           {request_control, ListenSocket, ReqPid} ->
-                                               ok = Callback:controlling_process(ListenSocket, ReqPid),
-                                               ReqPid ! {its_yours,ListenSocket},
-                                               Result
-                                       end
-                               end)
+
+                %% throws error:Error if no usable hostkey is found
+                ssh_connection_handler:available_hkey_algorithms(server, Options1),
+                sshd_sup:start_child(Host, Port, Options1)
             of
-                {error,Err} ->
+                Result = {ok,_} ->
+                    receive
+                        {request_control, ListenSocket, ReqPid} ->
+                            {_, Callback, _} = ?GET_OPT(transport, Options1),
+                            ok = Callback:controlling_process(ListenSocket, ReqPid),
+                            ReqPid ! {its_yours,ListenSocket}
+                    end,
+                    Result;
+                {error, {already_started, _}} ->
+                    close_listen_socket(ListenSocket, Options1),
+                    {error, eaddrinuse};
+                {error, Error} ->
+                    close_listen_socket(ListenSocket, Options1),
+                    {error, Error}
+            catch
+                error:{shutdown,Err} ->
                     close_listen_socket(ListenSocket, Options1),
                     {error,Err};
-                OK ->
-                    OK
-            catch
+                exit:{noproc, _} ->
+                    close_listen_socket(ListenSocket, Options1),
+                    {error, ssh_not_started};
                 error:Error ->
                     close_listen_socket(ListenSocket, Options1),
                     error(Error);
@@ -760,7 +762,7 @@ open_listen_socket(_Host0, Port0, Options0) ->
                 ssh_acceptor:listen(0, Options0)
         end,
     {ok,{LHost,LPort}} = inet:sockname(LSock),
-    {{LHost,LPort}, LSock}.
+    {LHost, LPort, LSock, ?PUT_INTERNAL_OPT({lsocket,{LSock,self()}}, Options0)}.
 
 %%%----------------------------------------------------------------
 close_listen_socket(ListenSocket, Options) ->
@@ -769,27 +771,6 @@ close_listen_socket(ListenSocket, Options) ->
         Callback:close(ListenSocket)
     catch
         _C:_E -> ok
-    end.
-
-%%%----------------------------------------------------------------
-finalize_start(Host, Port, Profile, Options0, F) ->
-    try
-        %% throws error:Error if no usable hostkey is found
-        ssh_connection_handler:available_hkey_algorithms(server, Options0),
-
-        sshd_sup:start_child(Host, Port, Profile, Options0)
-    of
-        {error, {already_started, _}} ->
-            {error, eaddrinuse};
-        {error, Error} ->
-            {error, Error};
-        Result = {ok,_} ->
-            F(Options0, Result)
-    catch
-        error:{shutdown,Err} ->
-            {error,Err};
-        exit:{noproc, _} ->
-            {error, ssh_not_started}
     end.
 
 %%%----------------------------------------------------------------
