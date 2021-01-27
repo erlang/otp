@@ -4764,20 +4764,24 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	if (new_ns == INVALID_SOCKET) {
 	    save_errno = sock_errno();
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    return ctl_error(save_errno, rbuf, rsize);
 	}
 	if (setns(new_ns, CLONE_NEWNET) != 0) {
 	    save_errno = sock_errno();
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    return ctl_error(save_errno, rbuf, rsize);
 	}
 	else {
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	}
     }
 #endif
@@ -4799,15 +4803,18 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	    if (desc->s != INVALID_SOCKET)
 		save_errno = sock_errno();
 	    while (close(desc->s) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    desc->s = INVALID_SOCKET;
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    return ctl_error(save_errno, rbuf, rsize);
 	}
 	else {
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	}
     }
 #endif
@@ -4817,7 +4824,8 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
     if ((desc->event = sock_create_event(desc)) == INVALID_EVENT) {
 	save_errno = sock_errno();
 	while (close(desc->s) == INVALID_SOCKET &&
-	       sock_errno() == EINTR);
+	       sock_errno() == EINTR)
+	    ;
 	desc->s = INVALID_SOCKET;
 	return ctl_error(save_errno, rbuf, rsize);
     }
@@ -5357,22 +5365,26 @@ static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
 	if (new_ns == INVALID_SOCKET) {
 	    save_errno = sock_errno();
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
             ASSERT(save_errno != 0);
 	    return save_errno;
 	}
 	if (setns(new_ns, CLONE_NEWNET) != 0) {
 	    save_errno = sock_errno();
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
             ASSERT(save_errno != 0);
 	    return save_errno;
 	}
 	else {
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	}
     }
 #endif
@@ -5397,7 +5409,8 @@ static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
             }
 	}
         while (close(current_ns) == INVALID_SOCKET &&
-               sock_errno() == EINTR);
+               sock_errno() == EINTR)
+	    ;
     }
 #endif
     return save_errno;
