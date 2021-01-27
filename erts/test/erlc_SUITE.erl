@@ -69,7 +69,8 @@ end_per_group(_GroupName, Config) ->
 %% Tests that compiling Erlang source code works.
 
 compile_erl(Config) when is_list(Config) ->
-    {SrcDir, OutDir, Cmd} = get_cmd(Config),
+    {SrcDir, OutDir, Cmd0} = get_cmd(Config),
+    Cmd = Cmd0 ++ " +brief",
     FileName = filename:join(SrcDir, "erl_test_ok.erl"),
 
     %% By default, warnings are now turned on.
@@ -98,7 +99,6 @@ compile_erl(Config) when is_list(Config) ->
     BadFile = filename:join(SrcDir, "erl_test_bad.erl"),
     run(Config, Cmd, BadFile, "", ["function non_existing/1 undefined\$",
                                    "_ERROR_"]),
-
     ok.
 
 %% Test that compiling yecc source code works.
@@ -221,7 +221,8 @@ deep_cwd_1(PrivDir) ->
 %% Test that a large number of command line switches does not
 %% overflow the argument buffer
 arg_overflow(Config) when is_list(Config) ->
-    {SrcDir, _OutDir, Cmd} = get_cmd(Config),
+    {SrcDir, _OutDir, Cmd0} = get_cmd(Config),
+    Cmd = Cmd0 ++ " +brief",
     FileName = filename:join(SrcDir, "erl_test_ok.erl"),
     %% Each -D option will be expanded to three arguments when
     %% invoking 'erl'.
@@ -266,33 +267,34 @@ erlc() ->
     end.
 
 make_dep_options(Config) ->
-    {SrcDir,OutDir,Cmd} = get_cmd(Config),
+    {SrcDir,OutDir,Cmd0} = get_cmd(Config),
+    Cmd = Cmd0 ++ " +brief",
     FileName = filename:join(SrcDir, "erl_test_ok.erl"),
     BeamFileName = filename:join(OutDir, "erl_test_ok.beam"),
 
     DepRE = ["/erl_test_ok[.]beam: \\\\$",
-             "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
-             "/system_test/erlc_SUITE_data/include/erl_test[.]hrl$",
+             "/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
+             "/erlc_SUITE_data/include/erl_test[.]hrl$",
              "_OK_"],
 
     DepRETarget =
     ["^target: \\\\$",
-     "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
-     "/system_test/erlc_SUITE_data/include/erl_test[.]hrl$",
+     "/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
+     "/erlc_SUITE_data/include/erl_test[.]hrl$",
      "_OK_"],
 
     DepREMP =
     ["/erl_test_ok[.]beam: \\\\$",
-     "/system_test/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
-     "/system_test/erlc_SUITE_data/include/erl_test[.]hrl$",
+     "/erlc_SUITE_data/src/erl_test_ok[.]erl \\\\$",
+     "/erlc_SUITE_data/include/erl_test[.]hrl$",
      [],
-     "/system_test/erlc_SUITE_data/include/erl_test.hrl:$",
+     "/erlc_SUITE_data/include/erl_test.hrl:$",
      "_OK_"],
 
     DepREMissing =
     ["/erl_test_missing_header[.]beam: \\\\$",
-     "/system_test/erlc_SUITE_data/src/erl_test_missing_header[.]erl \\\\$",
-     "/system_test/erlc_SUITE_data/include/erl_test[.]hrl \\\\$",
+     "/erlc_SUITE_data/src/erl_test_missing_header[.]erl \\\\$",
+     "/erlc_SUITE_data/include/erl_test[.]hrl \\\\$",
      "missing.hrl$",
      "_OK_"],
 
@@ -358,9 +360,9 @@ make_dep_options(Config) ->
     %% since compiler is run on the erlang code a warning will be
     %% issued by the compiler, match that.
     WarningRE =
-         "/system_test/erlc_SUITE_data/src/erl_test_ok.erl:[0-9]+:[0-9]+: "
+         "/erlc_SUITE_data/src/erl_test_ok.erl:[0-9]+:[0-9]+: "
         "Warning: function foo/0 is unused$",
-    ErrorRE = "/system_test/erlc_SUITE_data/src/erl_test_missing_header.erl:"
+    ErrorRE = "/erlc_SUITE_data/src/erl_test_missing_header.erl:"
         "[0-9]+:[0-9]+: can't find include file \"missing.hrl\"$",
 
     DepRE_MMD = insert_before("_OK_", WarningRE, DepRE),
