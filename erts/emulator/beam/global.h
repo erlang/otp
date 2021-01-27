@@ -374,7 +374,7 @@ do {							\
     }							\
 } while(0)
 
-#define DESTROY_ESTACK_EXPLECIT_DEFAULT_ARRAY(s, the_estack_default_array) \
+#define DESTROY_ESTACK_EXPLICIT_DEFAULT_ARRAY(s, the_estack_default_array) \
     do {							\
         if ((s).start != the_estack_default_array) {            \
             erts_free((s).alloc_type, (s).start); 		\
@@ -383,7 +383,7 @@ do {							\
 
 /* Allocate an array on the heap and move the stack there if the
    default array (that is allocated on the heap is used) */
-#define ESTACK_ENSURE_HEAP_STACK_ARRAY(s, the_estack_default_array)\
+#define ENSURE_ESTACK_HEAP_STACK_ARRAY(s, the_estack_default_array)\
 do {\
     if ((s).start == the_estack_default_array) {\
 	UWord _wsz = ESTACK_COUNT(s);\
@@ -518,6 +518,15 @@ void erl_grow_wstack(ErtsWStack*, Uint need);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
+#define WSTACK_DEFAULT_VALUE(wstack_default_stack_array, alloc_type)    \
+    (ErtsWStack) {                                                      \
+        wstack_default_stack_array,  /* start */                        \
+        wstack_default_stack_array,  /* sp */                           \
+        wstack_default_stack_array + DEF_ESTACK_SIZE, /* end */         \
+        wstack_default_stack_array,  /* default */                      \
+        alloc_type /* alloc_type */                                     \
+    }
+
 #define WSTACK_DECLARE(s)				\
     UWord WSTK_DEF_STACK(s)[DEF_WSTACK_SIZE];		\
     ErtsWStack s = {					\
@@ -559,6 +568,28 @@ do {							\
     }							\
 } while(0)
 #define DESTROY_WSTACK WSTACK_DESTROY
+
+#define DESTROY_WSTACK_EXPLICIT_DEFAULT_ARRAY(s, the_wstack_default_array) \
+    do {                                                                \
+        if ((s).wstart != the_wstack_default_array) {                   \
+            erts_free((s).alloc_type, (s).wstart);                      \
+        }                                                               \
+    } while(0)
+
+#define ENSURE_WSTACK_HEAP_STACK_ARRAY(s, the_wstack_default_array)\
+do {\
+    if ((s).wstart == the_wstack_default_array) {\
+	UWord _wsz = WSTACK_COUNT(s);\
+        UWord *_prev_stack_array = s.wstart;\
+	(s).wstart = erts_alloc((s).alloc_type,                          \
+                                DEF_WSTACK_SIZE * sizeof(UWord));       \
+	sys_memcpy((s).wstart, _prev_stack_array, _wsz*sizeof(UWord));\
+	(s).wsp = (s).wstart + _wsz;\
+	(s).wend = (s).wstart + DEF_WSTACK_SIZE;\
+	(s).alloc_type = (s).alloc_type;\
+    }\
+    (s).wdefault = NULL;\
+ } while (0)
 
 #define WSTACK_DEBUG(s) \
     do { \

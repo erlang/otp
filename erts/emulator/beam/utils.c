@@ -90,7 +90,7 @@ static void erts_qsort_insertion_sort(byte *base,
                                       size_t nr_of_items,
                                       size_t item_size,
                                       erts_void_ptr_cmp_t compare);
-#if defined(DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
 erts_tsd_key_t erts_ycf_debug_stack_start_tsd_key;
 void ycf_debug_set_stack_start(void * start) {
     erts_tsd_set(erts_ycf_debug_stack_start_tsd_key, start);
@@ -4789,14 +4789,14 @@ Uint tot_bin_allocated;
 
 void erts_init_utils(void)
 {
-#if defined(DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
     erts_tsd_key_create(&erts_ycf_debug_stack_start_tsd_key, "erts_ycf_debug_stack_start_tsd_key");
 #endif
 }
 
 void erts_utils_sched_spec_data_init(void)
 {
-#if defined(DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
     erts_tsd_set(erts_ycf_debug_stack_start_tsd_key, NULL);
 #endif
 }
@@ -5244,12 +5244,11 @@ erts_qsort_partion_array(byte *base,
     byte* curr = base + item_size;
     int found_bigger = 0;
     int more_than_one_pivot_item = 0;
-    Uint32 rand32bits =
-        (size_t)erts_sched_local_random_hash_64_to_32_shift((Uint64)extra_seed +
-                                                            (Uint64)((UWord)compare) +
-                                                            (Uint64)((UWord)base) -
-                                                            (Uint64)nr_of_items) ;
-    size_t pivot_index = rand32bits % nr_of_items;
+    size_t pivot_index =
+        ((size_t)erts_sched_local_random_hash_64_to_32_shift((Uint64)extra_seed +
+                                                             (Uint64)((UWord)compare) +
+                                                             (Uint64)((UWord)base) -
+                                                             (Uint64)nr_of_items)) % nr_of_items;
     /* Move pivot first */
     erts_qsort_swap(item_size, base, base + pivot_index * item_size);
     while (curr != second_part_start) {
@@ -5481,13 +5480,13 @@ BIF_RETTYPE erts_ycf_trap_driver(Process* p,
             /* Continue a trapped call */
             erts_set_gc_state(p, 1);
             state_holder = ERTS_MAGIC_BIN_DATA(state_bin);
-#if defined (DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
             ycf_debug_set_stack_start(&nr_of_reductions);
 #endif
             ret = state_holder->ycf_continue(&nr_of_reductions,
                                              &state_holder->trap_state,
                                              NULL);
-#if defined (DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
             ycf_debug_reset_stack_start();
 #endif
             BUMP_REDS(p, (init_reds - nr_of_reductions) / iterations_per_red);
@@ -5506,7 +5505,7 @@ BIF_RETTYPE erts_ycf_trap_driver(Process* p,
     {
         void *trap_state = NULL;
         BIF_RETTYPE ret;
-#if defined (DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
         ycf_debug_set_stack_start(&nr_of_reductions);
 #endif
         /* Start a new call */
@@ -5521,7 +5520,7 @@ BIF_RETTYPE erts_ycf_trap_driver(Process* p,
                              NULL,
                              p,
                              bif_args);
-#if defined (DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
         ycf_debug_reset_stack_start();
 #endif
         BUMP_REDS(p, (init_reds - nr_of_reductions) / iterations_per_red);

@@ -37,8 +37,12 @@
          error_info/1,
          t_from_list_kill_process/1,
          t_from_keys_kill_process/1,
+         t_values_kill_process/1,
+         t_keys_kill_process/1,
          t_from_list_check_trapping/1,
-         t_from_keys_check_trapping/1]).
+         t_from_keys_check_trapping/1,
+         t_keys_trapping/1,
+         t_values_trapping/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 -define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
@@ -59,8 +63,12 @@ all() ->
      error_info,
      t_from_list_kill_process,
      t_from_keys_kill_process,
+     t_values_kill_process,
+     t_keys_kill_process,
      t_from_list_check_trapping,
-     t_from_keys_check_trapping].
+     t_from_keys_check_trapping,
+     t_keys_trapping,
+     t_values_trapping].
 
 t_from_list_kill_process(Config) when is_list(Config) ->
     Killer = self(),
@@ -122,6 +130,68 @@ t_from_keys_kill_process(Config) when is_list(Config) ->
     end,
     ok.
 
+t_keys_kill_process(Config) when is_list(Config) ->
+    Killer = self(),
+    {Child, ChildRef} =
+        spawn_monitor(
+          fun() ->
+                  MapSize = 500000,
+                  List = lists:seq(1, MapSize),
+                  Map = maps:from_keys(List, ok),
+                  (fun Loop(Round) ->
+                          io:format("Sarting Round ~p~n", [Round]),
+                          case Round =:= 0 of
+                              true ->
+                                  Killer ! starting;
+                              false ->
+                                  ok
+                          end,
+                          Keys = maps:keys(Map),
+                          io:format("Child survived round ~p ~p~n", [Round, hd(Keys)]),
+                          Loop(Round + 1)
+                  end)(0)
+          end),
+    receive
+        starting -> ok
+    end,
+    exit(Child, kill),
+    %wait for exit message
+    receive
+        {'DOWN', ChildRef, process, _, killed} -> ok
+    end,
+    ok.
+
+t_values_kill_process(Config) when is_list(Config) ->
+    Killer = self(),
+    {Child, ChildRef} =
+        spawn_monitor(
+          fun() ->
+                  MapSize = 500000,
+                  List = [{V, V} || V <- lists:seq(1, MapSize)],
+                  Map = maps:from_list(List),
+                  (fun Loop(Round) ->
+                          io:format("Sarting Round ~p~n", [Round]),
+                          case Round =:= 0 of
+                              true ->
+                                  Killer ! starting;
+                              false ->
+                                  ok
+                          end,
+                          Values = maps:values(Map),
+                          io:format("Child survived round ~p ~p~n", [Round, hd(Values)]),
+                          Loop(Round + 1)
+                  end)(0)
+          end),
+    receive
+        starting -> ok
+    end,
+    exit(Child, kill),
+    %wait for exit message
+    receive
+        {'DOWN', ChildRef, process, _, killed} -> ok
+    end,
+    ok.
+
 %% Check that maps:from_list/1 is trapping
 t_from_list_check_trapping(Config) when is_list(Config) ->
     FunToExecute =
@@ -140,7 +210,7 @@ t_from_list_check_trapping(Config) when is_list(Config) ->
 t_from_keys_check_trapping(Config) when is_list(Config) ->
     FunToExecute =
         fun() ->
-                ListTmp = [X || X <- [X || {_,X} <- lists:sort([ {rand:uniform(), N} || N <- lists:seq(1,100000)])]],
+                ListTmp = [X || X <- [X || {_,X} <- lists:sort([ {rand:uniform(), N} || N <- lists:seq(1,1000000)])]],
                 List = [-1 | ListTmp],
                 M = maps:from_keys(List, ok),
                 %% To avoid that compiler optimizes away the call above
@@ -148,6 +218,38 @@ t_from_keys_check_trapping(Config) when is_list(Config) ->
                 ok
         end,
     NoYields = count_nr_of_yields(FunToExecute, {maps, from_keys, 2}),
+    io:format("No of yields: ~p~n", [NoYields]),
+    true = NoYields > 2.
+
+%% Check that maps:keys/1 is trapping
+t_keys_trapping(Config) when is_list(Config) ->
+    FunToExecute =
+        fun() ->
+                ListTmp = [X || X <- [X || {_,X} <- lists:sort([ {rand:uniform(), N} || N <- lists:seq(1,1000000)])]],
+                List = [-1 | ListTmp],
+                M = maps:from_keys(List, ok),
+                Keys = maps:keys(M),
+                %% To avoid that compiler optimizes away the call above
+                [-1 | _] = lists:sort(Keys),
+                ok
+        end,
+    NoYields = count_nr_of_yields(FunToExecute, {maps, keys, 1}),
+    io:format("No of yields: ~p~n", [NoYields]),
+    true = NoYields > 2.
+
+%% Check that maps:values/1 is trapping
+t_values_trapping(Config) when is_list(Config) ->
+    FunToExecute =
+        fun() ->
+                ListTmp = [{X,X} || X <- [X || {_,X} <- lists:sort([ {rand:uniform(), N} || N <- lists:seq(1,1000000)])]],
+                List = [{-1,-1} | ListTmp],
+                M = maps:from_list(List),
+                Values = maps:values(M),
+                %% To avoid that compiler optimizes away the call above
+                [-1 | _] = lists:sort(Values),
+                ok
+        end,
+    NoYields = count_nr_of_yields(FunToExecute, {maps, values, 1}),
     io:format("No of yields: ~p~n", [NoYields]),
     true = NoYields > 2.
 

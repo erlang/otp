@@ -605,7 +605,8 @@ $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
 GENERATE += $(TTF_DIR)/driver_tab.c
 
 
-ifeq ($(TYPE),debug)
+
+ifeq ($(TYPE)@EXTERNAL_WORD_SIZE@,debug64)
 YCF_DEBUG_FLAG = -debug
 MAPS_YCF_OUTPUT=$(TARGET)/erl_map.debug.ycf.h
 UTILS_YCF_OUTPUT=$(TARGET)/utils.debug.ycf.h
@@ -632,9 +633,13 @@ MAPS_YCF_FLAGS=-yield \
 		$(YCF_DEBUG_FLAG) \
 		-static_aux_funs \
 		-only_yielding_funs \
+		-fnoauto maps_keys_1_helper \
+		-fnoauto maps_values_1_helper \
 		-fnoauto maps_from_keys_2_helper \
 		-fnoauto maps_from_list_1_helper \
 		-fnoauto hashmap_from_validated_list \
+		-f hashmap_keys \
+		-f hashmap_values \
 		-f hashmap_from_unsorted_array \
 		-f hashmap_from_sorted_unique_array \
 		-f hashmap_from_chunked_array \

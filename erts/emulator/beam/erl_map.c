@@ -91,8 +91,6 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_
 static Export hashmap_merge_trap_export;
 static BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1);
 static Uint hashmap_subtree_size(Eterm node);
-static Eterm hashmap_keys(Process *p, Eterm map);
-static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node, Eterm *value);
 static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_value, Uint size);
 static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int reject_dupkeys, ErtsAlcType_t temp_memory_allocator);
@@ -130,7 +128,7 @@ static int hxnodecmpkey(hxnode_t* a, hxnode_t* b);
  * code that it transforms.
  *
  */
-#if defined(DEBUG)
+#if defined(DEBUG) && defined(ARCH_64)
 #include "erl_map.debug.ycf.h"
 #else
 #include "erl_map.ycf.h"
@@ -273,7 +271,7 @@ BIF_RETTYPE map_get_2(BIF_ALIST_2) {
  * YCF near the top of the file for more information.
  */
 #ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
-BIF_RETTYPE maps_from_keys_2_helper(Process* p, Eterm* bif_args) {
+static BIF_RETTYPE maps_from_keys_2_helper(Process* p, Eterm* bif_args) {
     Eterm list = bif_args[0];
     Eterm value = bif_args[1];
     Eterm item = list;
@@ -315,7 +313,7 @@ error:
  * YCF near the top of the file for more information.
  */
 #ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
-BIF_RETTYPE maps_from_list_1_helper(Process* p, Eterm* bif_args) {
+static BIF_RETTYPE maps_from_list_1_helper(Process* p, Eterm* bif_args) {
     Eterm list = bif_args[0];
     Eterm res;
     Eterm *kv;
@@ -587,8 +585,6 @@ static Eterm hashmap_from_validated_list(Process *p,
 }
 #endif /* INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS */
 
-#define ITERATIONS_PER_RED 40
-
 /* maps:from_list/1
  * List may be unsorted [{K,V}]
  *
@@ -599,10 +595,11 @@ static Eterm hashmap_from_validated_list(Process *p,
  *
  */
 BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
+    const size_t iterations_per_red = 40;
     return erts_ycf_trap_driver(BIF_P,
                                 BIF__ARGS,
                                 1,
-                                ITERATIONS_PER_RED,
+                                iterations_per_red,
                                 ERTS_ALC_T_MAP_TRAP,
                                 /*Add 2*sizeof(void*) as YCF_STACK_ALLOC may pad both allocations */
                                 sizeof(ErtsHeapFactory) + 2*sizeof(Eterm) + 2*sizeof(void*),
@@ -622,10 +619,11 @@ BIF_RETTYPE maps_from_list_1(BIF_ALIST_1) {
  *
  */
 BIF_RETTYPE maps_from_keys_2(BIF_ALIST_2) {
+    const size_t iterations_per_red = 40;
     return erts_ycf_trap_driver(BIF_P,
                                 BIF__ARGS,
                                 2,
-                                ITERATIONS_PER_RED,
+                                iterations_per_red,
                                 ERTS_ALC_T_MAP_TRAP,
                                 /*Add 2*sizeof(void*) as YCF_STACK_ALLOC may pad both allocations */
                                 sizeof(ErtsHeapFactory) + 2*sizeof(Eterm) + 2*sizeof(void*),
@@ -940,12 +938,12 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory, hxnode_t *hxns
     stack = ESTACK_DEFAULT_VALUE(stack_default_estack, temp_memory_allocator);
     YCF_SPECIAL_CODE_START(ON_SAVE_YIELD_STATE);
     {
-        ESTACK_ENSURE_HEAP_STACK_ARRAY(stack, stack_default_estack);
+        ENSURE_ESTACK_HEAP_STACK_ARRAY(stack, stack_default_estack);
     }
     YCF_SPECIAL_CODE_END();
     YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
     {
-        DESTROY_ESTACK_EXPLECIT_DEFAULT_ARRAY(stack, stack_default_estack);
+        DESTROY_ESTACK_EXPLICIT_DEFAULT_ARRAY(stack, stack_default_estack);
     }
     YCF_SPECIAL_CODE_END();
     /* if we get here with only one element then
@@ -1149,7 +1147,7 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory, hxnode_t *hxns
     res = make_hashmap(nhp);
 
     ASSERT(ESTACK_COUNT(stack) == 0);
-    DESTROY_ESTACK_EXPLECIT_DEFAULT_ARRAY(stack, stack_default_estack);
+    DESTROY_ESTACK_EXPLICIT_DEFAULT_ARRAY(stack, stack_default_estack);
     ERTS_FACTORY_HOLE_CHECK(factory);
     return res;
 }
@@ -1189,31 +1187,59 @@ BIF_RETTYPE is_map_key_2(BIF_ALIST_2) {
 
 /* maps:keys/1 */
 
-BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
-    if (is_flatmap(BIF_ARG_1)) {
-	Eterm *hp, *ks, res = NIL;
+/* **Important Note**
+ *
+ * A yielding version of this function is generated with YCF. This
+ * means that the code has to follow some restrictions. See note about
+ * YCF near the top of the file for more information.
+ */
+#ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
+static BIF_RETTYPE maps_keys_1_helper(Process* p, Eterm* bif_args) {
+    Eterm map = bif_args[0];
+    if (is_flatmap(map)) {
+	Eterm *hp;
+        Eterm *ks;
+        Eterm res = NIL;
 	flatmap_t *mp;
 	Uint n;
 
-	mp  = (flatmap_t*)flatmap_val(BIF_ARG_1);
+	mp  = (flatmap_t*)flatmap_val(map);
 	n   = flatmap_get_size(mp);
 
 	if (n == 0)
 	    BIF_RET(res);
 
-	hp  = HAlloc(BIF_P, (2 * n));
+	hp  = HAlloc(p, (2 * n));
 	ks  = flatmap_get_keys(mp);
 
 	while(n--) {
 	    res = CONS(hp, ks[n], res); hp += 2;
 	}
 
-	BIF_RET(res);
-    } else if (is_hashmap(BIF_ARG_1)) {
-	BIF_RET(hashmap_keys(BIF_P, BIF_ARG_1));
+	return res;
+    } else if (is_hashmap(bif_args[0])) {
+        /* YCF cannot handle function calls as return expression */
+        BIF_RETTYPE res = hashmap_keys(p, map);
+	return res;
     }
-    BIF_P->fvalue = BIF_ARG_1;
-    BIF_ERROR(BIF_P, BADMAP);
+    p->fvalue = map;
+    (p)->freason = BADMAP;
+    return THE_NON_VALUE;
+}
+#endif /* INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS */
+
+BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
+    const size_t iterations_per_red = 15;
+    return erts_ycf_trap_driver(BIF_P,
+                                BIF__ARGS,
+                                1,
+                                iterations_per_red,
+                                ERTS_ALC_T_MAP_TRAP,
+                                0,
+                                BIF_maps_keys_1,
+                                maps_keys_1_helper_ycf_gen_continue,
+                                maps_keys_1_helper_ycf_gen_destroy,
+                                maps_keys_1_helper_ycf_gen_yielding);
 }
 
 /* maps:merge/2 */
@@ -2121,34 +2147,61 @@ BIF_RETTYPE maps_update_3(BIF_ALIST_3) {
     }
 }
 
-
-/* maps:values/1 */
-
-BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
-    if (is_flatmap(BIF_ARG_1)) {
-	Eterm *hp, *vs, res = NIL;
+/* **Important Note**
+ *
+ * A yielding version of this function is generated with YCF. This
+ * means that the code has to follow some restrictions. See note about
+ * YCF near the top of the file for more information.
+ */
+#ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
+static BIF_RETTYPE maps_values_1_helper(Process* p, Eterm* bif_args) {
+    Eterm map = bif_args[0];
+    if (is_flatmap(map)) {
+        Eterm *hp;
+        Eterm *vs;
+        Eterm res = NIL;
 	flatmap_t *mp;
 	Uint n;
 
-	mp  = (flatmap_t*)flatmap_val(BIF_ARG_1);
+	mp  = (flatmap_t*)flatmap_val(map);
 	n   = flatmap_get_size(mp);
 
 	if (n == 0)
 	    BIF_RET(res);
 
-	hp  = HAlloc(BIF_P, (2 * n));
+	hp  = HAlloc(p, (2 * n));
 	vs  = flatmap_get_values(mp);
 
 	while(n--) {
 	    res = CONS(hp, vs[n], res); hp += 2;
 	}
 
-	BIF_RET(res);
-    } else if (is_hashmap(BIF_ARG_1)) {
-	BIF_RET(hashmap_values(BIF_P, BIF_ARG_1));
+	return res;
+    } else if (is_hashmap(map)) {
+        /* YCF cannot handle function calls as return expression */
+        BIF_RETTYPE res = hashmap_values(p, map);
+	return res;
     }
-    BIF_P->fvalue = BIF_ARG_1;
-    BIF_ERROR(BIF_P, BADMAP);
+    p->fvalue = map;
+    (p)->freason = BADMAP;
+    return THE_NON_VALUE;
+}
+#endif /* INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS */
+
+/* maps:values/1 */
+
+BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
+    const size_t iterations_per_red = 15;
+    return erts_ycf_trap_driver(BIF_P,
+                                BIF__ARGS,
+                                1,
+                                iterations_per_red,
+                                ERTS_ALC_T_MAP_TRAP,
+                                0,
+                                BIF_maps_values_1,
+                                maps_values_1_helper_ycf_gen_continue,
+                                maps_values_1_helper_ycf_gen_destroy,
+                                maps_values_1_helper_ycf_gen_yielding);
 }
 
 static ERTS_INLINE
@@ -2551,12 +2604,37 @@ Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
     return res;
 }
 
+/* **Important Note**
+ *
+ * A yielding version of this function is generated with YCF. This
+ * means that the code has to follow some restrictions. See note about
+ * YCF near the top of the file for more information.
+ */
+#ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
 static Eterm hashmap_keys(Process* p, Eterm node) {
-    DECLARE_WSTACK(stack);
+    Eterm stack_default_wstack[16];
+    ErtsWStack stack;
     hashmap_head_t* root;
-    Eterm *hp, *kv;
+    Eterm *hp;
+    Eterm *kv;
     Eterm res = NIL;
-
+#if DEF_WSTACK_SIZE != (16)
+#error "The macro DEF_WSTACK_SIZE has changed from 16 (need to change constant above)"
+    /* We cannot use "UWord stack_default_wstack[DEF_WSTACK_SIZE];"
+       because macros are not expanded before the code is passed to
+       YCF, and YCF needs to know the size of the array */
+#endif
+    stack = WSTACK_DEFAULT_VALUE(stack_default_wstack, ERTS_ALC_T_MAP_TRAP);
+    YCF_SPECIAL_CODE_START(ON_SAVE_YIELD_STATE);
+    {
+        ENSURE_WSTACK_HEAP_STACK_ARRAY(stack, stack_default_wstack);
+    }
+    YCF_SPECIAL_CODE_END();
+    YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
+    {
+        DESTROY_WSTACK_EXPLICIT_DEFAULT_ARRAY(stack, stack_default_wstack);
+    }
+    YCF_SPECIAL_CODE_END();
     root = (hashmap_head_t*) boxed_val(node);
     hp  = HAlloc(p, root->size * 2);
     hashmap_iterator_init(&stack, node, 0);
@@ -2564,15 +2642,42 @@ static Eterm hashmap_keys(Process* p, Eterm node) {
 	res = CONS(hp, CAR(kv), res);
 	hp += 2;
     }
-    DESTROY_WSTACK(stack);
+    DESTROY_WSTACK_EXPLICIT_DEFAULT_ARRAY(stack, stack_default_wstack);
     return res;
 }
+#endif /* INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS */
 
+/* **Important Note**
+ *
+ * A yielding version of this function is generated with YCF. This
+ * means that the code has to follow some restrictions. See note about
+ * YCF near the top of the file for more information.
+ */
+#ifdef INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS
 static Eterm hashmap_values(Process* p, Eterm node) {
-    DECLARE_WSTACK(stack);
+    Eterm stack_default_wstack[16];
+    ErtsWStack stack;
     hashmap_head_t* root;
-    Eterm *hp, *kv;
+    Eterm *hp;
+    Eterm *kv;
     Eterm res = NIL;
+#if DEF_WSTACK_SIZE != (16)
+#error "The macro DEF_WSTACK_SIZE has changed from 16 (need to change constant above)"
+    /* We cannot use "UWord stack_default_wstack[DEF_WSTACK_SIZE];"
+       because macros are not expanded before the code is passed to
+       YCF, and YCF needs to know the size of the array */
+#endif
+    stack = WSTACK_DEFAULT_VALUE(stack_default_wstack, ERTS_ALC_T_MAP_TRAP);
+    YCF_SPECIAL_CODE_START(ON_SAVE_YIELD_STATE);
+    {
+        ENSURE_WSTACK_HEAP_STACK_ARRAY(stack, stack_default_wstack);
+    }
+    YCF_SPECIAL_CODE_END();
+    YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
+    {
+        DESTROY_WSTACK_EXPLICIT_DEFAULT_ARRAY(stack, stack_default_wstack);
+    }
+    YCF_SPECIAL_CODE_END();
 
     root = (hashmap_head_t*) boxed_val(node);
     hp  = HAlloc(p, root->size * 2);
@@ -2581,9 +2686,10 @@ static Eterm hashmap_values(Process* p, Eterm node) {
 	res = CONS(hp, CDR(kv), res);
 	hp += 2;
     }
-    DESTROY_WSTACK(stack);
+    DESTROY_WSTACK_EXPLICIT_DEFAULT_ARRAY(stack, stack_default_wstack);
     return res;
 }
+#endif /* INCLUDE_YCF_TRANSFORMED_ONLY_FUNCTIONS */
 
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
                             Eterm map, Eterm *value) {
