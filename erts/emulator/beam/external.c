@@ -3059,9 +3059,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	}
     }
 
-    /* If pending connect there must be a context and an iov within that context */
-    ASSERT(!(dflags & DFLAG_PENDING_CONNECT) || (ctx && ctx->iov));
-
     goto L_jump_start;
 
  outer_loop:
@@ -3499,6 +3496,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		} else if (dflags & DFLAG_BIT_BINARIES) {
 		    /* Bit-level binary. */
                     if (dflags & DFLAG_PENDING_CONNECT) {
+			ASSERT(ctx);
                         j = off_heap_bytesize;
                         if (!j) {
                             pb_val = NULL;
@@ -3581,8 +3579,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case EXPORT_DEF:
 	    {
 		Export* exp = *((Export **) (export_val(obj) + 1));
-                if (dflags & DFLAG_PENDING_CONNECT)
+                if (dflags & DFLAG_PENDING_CONNECT) {
+		    ASSERT(ctx);
                     hopefull_export(ctx, &ep, exp, dflags, off_heap);
+		}
                 else if ((dflags & DFLAG_EXPORT_PTR_TAG) != 0) {
 		    *ep++ = EXPORT_EXT;
 		    ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
@@ -4981,9 +4981,6 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	}
     }
 
-    /* If pending connect there must be a context and an iov within that context */
-    ASSERT(!(dflags & DFLAG_PENDING_CONNECT) || ctx);
-
 #define LIST_TAIL_OP ((0 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
 #define TERM_ARRAY_OP(N) (((N) << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
 #define TERM_ARRAY_OP_DEC(OP) ((OP) - (1 << _TAG_PRIMARY_SIZE))
@@ -5249,6 +5246,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
                         if (dflags & DFLAG_PENDING_CONNECT) {
                             ASSERT(dflags & DFLAG_BIT_BINARIES);
+			    ASSERT(ctx);
                             vlen += 2; /* for hopefull prolog and epilog */
                             result += (4 /* for hopefull prolog (see below) */
                                        + 4); /* for hopefull epilog (see below) */
@@ -5267,8 +5265,10 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
             else if (dflags & DFLAG_PENDING_CONNECT) {
                 /* This is the odd case when we have an un-aligned bit-string
                    during a pending connect. */
-                Uint csz = result - ctx->last_result;
+                Uint csz;
                 ASSERT(dflags & DFLAG_BIT_BINARIES);
+		ASSERT(ctx);
+                csz = result - ctx->last_result;
                 /* potentially multiple elements leading up to binary */
                 vlen += (csz + MAX_SYSIOVEC_IOVLEN - 1)/MAX_SYSIOVEC_IOVLEN;
 
@@ -5331,6 +5331,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		result += encode_size_struct2(acmp, make_small(ep->info.mfa.arity), dflags);
                 if (dflags & DFLAG_PENDING_CONNECT) {
                     Uint csz;
+		    ASSERT(ctx);
+
                     /*
                      * Fallback is 1 + 1 + Module size + Function size, that is,
                      * the hopefull index + hopefull encoding is larger...
