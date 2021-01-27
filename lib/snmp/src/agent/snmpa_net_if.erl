@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@
 	{socket,
          kind      = all :: all | transport_kind(),
 	 domain    = snmpUDPDomain,
+         address   :: inet:ip_address(),
          port_no   :: pos_integer(),
          port_info :: port_info(),
          %% <EPHEMERAL-FOR-FUTUR-USE>
@@ -273,8 +274,8 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
              %% will be taken from the "global" socket options (which serve as
              %% default values).
              %% Also, note that Ephm are not actually used at this time.
-	     {Ephm, PortInfo, SocketOpts} = socket_opts(Domain, Address,
-                                                        RawSocketOpts, Opts),
+	     {Ephm, IpAddr, PortInfo, SocketOpts} = socket_opts(Domain, Address,
+                                                                RawSocketOpts, Opts),
              ?vtrace("socket opts processed:"
                      "~n      Ephm:        ~p"
                      "~n      Port Info:   ~p"
@@ -296,6 +297,7 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
                 %% or a range), so it could have been "generated".
                 %% Also, shall we push this into the transport (handled by the
                 %% FRAMEWORK MIB)? Would not work for ephemeral sockets.
+                address   = IpAddr,
                 port_no   = IpPort,
                 port_info = PortInfo,
                 ephm      = Ephm,
@@ -2034,7 +2036,7 @@ socket_opts(Domain, {IpAddr, PortInfo}, SocketOpts, DefaultOpts) ->
     %% Ephm = get_ephemeral(SocketOpts),
     %% {Ephm, PortInfo, Opts}.
     %% </EPHEMERAL-FOR-FUTUR-USE>
-    {none, PortInfo, Opts}.
+    {none, IpAddr, PortInfo, Opts}.
 
 
 %% ----------------------------------------------------------------
@@ -2150,10 +2152,21 @@ get_info(#state{transports = Transports, reqs = Reqs}) ->
     [{reqs,           Reqs},
      {counters,       Counters},
      {process_memory, ProcSize},
-     {transport_info, [{PortNo, Kind, get_port_info(Socket)} ||
-                          #transport{socket  = Socket,
-                                     port_no = PortNo,
-                                     kind    = Kind} <- Transports]}].
+     {transport_info, [#{tdomain        => Domain,
+                         taddress       => {Address, PortNo},
+                         transport_kind => Kind,
+                         port_info      => PortInfo,
+                         opts           => Opts,
+                         socket_info    => get_port_info(Socket),
+                         num_reqs       => length(Refs)} ||
+                          #transport{socket    = Socket,
+                                     domain    = Domain,
+                                     address   = Address,
+                                     port_no   = PortNo,
+                                     port_info = PortInfo,
+                                     opts      = Opts,
+                                     kind      = Kind,
+                                     req_refs  = Refs} <- Transports]}].
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of
