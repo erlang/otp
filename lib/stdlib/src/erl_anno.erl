@@ -24,7 +24,7 @@
 -export([column/1, end_location/1, file/1, generated/1,
          line/1, location/1, record/1, text/1]).
 -export([set_file/2, set_generated/2, set_line/2, set_location/2,
-         set_record/2, set_text/2]).
+         set_end_location/2, set_record/2, set_text/2]).
 
 %% To be used when necessary to avoid Dialyzer warnings.
 -export([to_term/1, from_term/1]).
@@ -144,6 +144,10 @@ is_anno2(location, Line) when ?LN(Line) ->
     true;
 is_anno2(location, {Line, Column}) when ?LN(Line), ?COL(Column) ->
     true;
+is_anno2(end_location, Line) when ?LN(Line) ->
+    true;
+is_anno2(end_location, {Line, Column}) when ?LN(Line), ?COL(Column) ->
+    true;
 is_anno2(generated, true) ->
     true;
 is_anno2(file, Filename) ->
@@ -180,17 +184,33 @@ column(Anno) ->
       Anno :: anno().
 
 end_location(Anno) ->
-    case text(Anno) of
+    %% return explicit end_location annotation if present
+    case get_end_location(Anno) of
         undefined ->
-            undefined;
-        Text ->
-            case location(Anno) of
-                {Line, Column} ->
-                    end_location(Text, Line, Column);
-                Line ->
-                    end_location(Text, Line)
-            end
+            %% otherwise calculate from text, if it exists
+            case text(Anno) of
+                undefined ->
+                    %% always return undefined if no exact end location known
+                    undefined;
+                Text ->
+                    case location(Anno) of
+                        {Line, Column} ->
+                            end_location(Text, Line, Column);
+                        Line ->
+                            end_location(Text, Line)
+                    end
+            end;
+        Location ->
+            Location
     end.
+
+% only used internally
+get_end_location(Line) when ?ALINE(Line) ->
+    undefined;
+get_end_location({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
+    undefined;
+get_end_location(Anno) ->
+    anno_info(Anno, end_location).
 
 -spec file(Anno) -> filename() | 'undefined' when
       Anno :: anno().
@@ -296,6 +316,13 @@ set_location({L, C}=Loc, {Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column),
 set_location(Location, Anno) ->
     set(location, Location, Anno).
 
+-spec set_end_location(Location, Anno) -> Anno when
+      Location :: location(),
+      Anno :: anno().
+
+set_end_location(Location, Anno) ->
+    set(end_location, Location, Anno).
+
 -spec set_record(Record, Anno) -> Anno when
       Record :: record(),
       Anno :: anno().
@@ -396,6 +423,10 @@ is_settable(generated, Boolean) when Boolean; not Boolean ->
 is_settable(location, Line) when ?LLINE(Line) ->
     true;
 is_settable(location, {Line, Column}) when ?LLINE(Line), ?LCOLUMN(Column) ->
+    true;
+is_settable(end_location, Line) when ?LLINE(Line) ->
+    true;
+is_settable(end_location, {Line, Column}) when ?LLINE(Line), ?LCOLUMN(Column) ->
     true;
 is_settable(record, Boolean) when Boolean; not Boolean ->
     true;

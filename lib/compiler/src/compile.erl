@@ -1013,18 +1013,19 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                      true -> filename:basename(SourceName0);
                      false -> SourceName0
                  end,
-    StartLocation = case with_columns(Opts) of
-                        true ->
-                            {1,1};
-                        false ->
-                            1
-                    end,
+    {StartLocation, ScanOpts} = case with_columns(Opts) of
+                                    true ->
+                                        {{1,1}, [text]};
+                                    false ->
+                                        {1, []}
+                                end,
     R = epp:parse_file(File,
                        [{includes,[".",Dir|inc_paths(Opts)]},
                         {source_name, SourceName},
                         {macros,pre_defs(Opts)},
                         {default_encoding,DefEncoding},
                         {location,StartLocation},
+                        {scan_opts,ScanOpts},
                         extra]),
     case R of
 	{ok,Forms,Extra} ->
