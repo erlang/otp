@@ -2554,8 +2554,8 @@ prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
     case TlsVer of
         TlsVer when TlsVer == sslv3 orelse TlsVer == tlsv1
                     orelse TlsVer == 'tlsv1.1' orelse TlsVer == 'dtlsv1' ->
-            Ciphers = ssl:cipher_suites(),
-            {_, Expected} = lists:keyfind(md5sha, 1, Results),
+            Ciphers = ssl:cipher_suites(default, TlsVer),
+            Expected = [Expect#{prf := md5sha} || Expect <- Results],
             [[{tls_ver, TlsVer}, {ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
         TlsVer when  TlsVer == 'tlsv1.2' orelse  TlsVer == 'dtlsv1.2'->
             lists:foldl(
@@ -2566,22 +2566,23 @@ prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
                               ct:log("No ciphers for PRF algorithm ~p. Skipping.", [PRF]),
                               Acc;
                           Ciphers ->
-                              {_, Expected} = lists:keyfind(PRF, 1, Results),
+                              Expected = [Expect#{prf := PRF} || Expect <- Results],
                               [[{tls_ver, TlsVer}, {ciphers, Ciphers}, {expected, Expected},
                                 {prf, PRF}] | Acc]
                       end
               end, [], PRFs)
     end.
 
-prf_get_ciphers(_, PRF) ->
-    lists:filter(
-      fun(C) when tuple_size(C) == 4 andalso
-                  element(4, C) == PRF -> 
-              true;
-         (_) -> 
-              false
-      end, 
-      ssl:cipher_suites()).
+prf_get_ciphers(TlsVer, PRF) ->
+    PrfFilter = fun(Value) ->
+                        case Value of
+                            PRF ->
+                                true;
+                            _ ->
+                                false
+                        end
+                end,
+    ssl:filter_cipher_suites(ssl:cipher_suites(default, TlsVer), [{prf, PrfFilter}]).
 
 prf_run_test(_, TlsVer, [], _, Prf) ->
     ct:fail({error, cipher_list_empty, TlsVer, Prf});
