@@ -113,7 +113,7 @@ do_spawn(GenMod, monitor, Mod, Args, Options) ->
 do_spawn(GenMod, _, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Mod, Args, Options], 
+		   [GenMod, self(), 'self', Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
@@ -133,7 +133,7 @@ do_spawn(GenMod, monitor, Name, Mod, Args, Options) ->
 do_spawn(GenMod, _, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Name, Mod, Args, Options], 
+		   [GenMod, self(), 'self', Name, Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
