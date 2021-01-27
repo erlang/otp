@@ -85,6 +85,7 @@ MODULES =  \
 	cerl_inline \
 	cerl_trees \
 	compile \
+	compile_messages \
 	core_lib \
 	core_lint \
 	core_parse \
