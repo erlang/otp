@@ -208,19 +208,15 @@ ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
     #include <sys/mman.h>
 
     ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        /* Note that we don't fall back to MADV_DONTNEED since it promises that
+         * the given region will be zeroed on access, which turned out to be
+         * too much of a performance hit. */
     #ifdef MADV_FREE
-        /* This is preferred as it doesn't necessarily free the pages right
-         * away, which is a bit faster than MADV_DONTNEED. */
         madvise(ptr, size, MADV_FREE);
     #else
-        madvise(ptr, size, MADV_DONTNEED);
+        (void)ptr;
+        (void)size;
     #endif
-    }
-#elif defined(HAVE_SYS_MMAN_H) && defined(HAVE_POSIX_MADVISE) && !(defined(__sun) || defined(__sun__))
-    #include <sys/mman.h>
-
-    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
-        posix_madvise(ptr, size, POSIX_MADV_DONTNEED);
     }
 #elif defined(_WIN32)
     #include <winbase.h>
