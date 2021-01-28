@@ -745,10 +745,18 @@ get_doc(File) ->
 %%  </dt>
 %%  <dd><ul>
 %%       <li>`Macros' = {@type Macro | [Macro]}</li>
-%%       <li>`Macro' = {@type {Name::atom(), Text::string()@}}</li>
+%%       <li>`Macro' = {@type {Name::atom(), Text::string() | MacroFun@}}</li>
+%%       <li>`MacroFun' = {@type fun((MacroArgument::string(),
+%%                                    Line :: integer(),
+%%                                    edoc_lib:edoc_env()) -> (Text::string()))}</li>
 %%      </ul>
-%%    Specifies a set of EDoc macro definitions. See
-%%    <a href="overview-summary.html#Macro_expansion">Inline macro expansion</a>
+%%    Specifies a set of user-defined EDoc macros. The text
+%%    substituted for macro calls is specified as either a {@type
+%%    string()} or a {@type fun()}. The function is called with the
+%%    macro argument text, the current line number, and the current
+%%    environment. The fun is to return a {@type string()}.
+%%    See
+%%    <a href="overview-summary.html#Macro_expansion">Macro expansion</a>
 %%    for details.
 %%  </dd>
 %%  <dt>{@type {hidden, boolean()@}}
