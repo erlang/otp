@@ -7198,9 +7198,9 @@ true</pre>
         <p><c>statistics(microstate_accounting)</c> returns a list of maps
           representing some of the OS threads within ERTS. Each map
           contains <c>type</c> and <c>id</c> fields that can be used to
-          identify what
-          thread it is, and also a counters field that contains data about how
-          much time has been spent in the various states.</p>
+          identify what thread it is, and also a counters field that
+          contains data about how much time has been spent in the various
+          states.</p>
         <p>Example:</p>
         <pre>
 > <input>erlang:statistics(microstate_accounting).</input>
@@ -7441,28 +7441,20 @@ lists:map(
 	    anchor="statistics_scheduler_wall_time" since="OTP R15B01"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
-        <p>Returns a list of tuples with
-          <c>{<anno>SchedulerId</anno>, <anno>ActiveTime</anno>,
-          <anno>TotalTime</anno>}</c>, where
-          <c><anno>SchedulerId</anno></c> is an integer ID of the scheduler,
-          <c><anno>ActiveTime</anno></c> is
-          the duration the scheduler has been busy, and
-          <c><anno>TotalTime</anno></c> is the total time duration since
-          <seeerl marker="#system_flag_scheduler_wall_time">
-          <c>scheduler_wall_time</c></seeerl>
-          activation for the specific scheduler. Note that
-	  activation time can differ significantly between
-	  schedulers. Currently dirty schedulers are activated
-	  at system start while normal schedulers are activated
-	  some time after the <c>scheduler_wall_time</c>
-	  functionality is enabled. The time unit is undefined
-	  and can be subject to change between releases, OSs,
-	  and system restarts. <c>scheduler_wall_time</c> is only
-	  to be used to calculate relative values for scheduler
-	  utilization. <c><anno>ActiveTime</anno></c> can never
-	  exceed <c><anno>TotalTime</anno></c>.</p>
+        <p>Returns information describing how much time
+          <seeerl marker="#system_info_schedulers">normal</seeerl>
+          and <seeerl marker="#system_info_dirty_cpu_schedulers">dirty CPU</seeerl>
+          schedulers in the system have been busy. This value is normally a
+          better indicator of how much load an Erlang node is under instead of
+          looking at the CPU utilization privided by tools such as <c>top</c> or
+          <c>sysstat</c>. This is because <c>scheduler_wall_time</c> also includes
+          time where the scheduler is waiting for some other reasource (such as an internal
+          mutex) to be available but does not use the CPU. In order to better
+          understand what a scheduler is busy doing you can use
+          <seeerl marker="#statistics_microstate_accounting">microstate accounting</seeerl>.</p>
+
         <p>The definition of a busy scheduler is when it is not idle
-          and is not scheduling (selecting) a process or port,
+          and not <seecom marker="erl#+sbwt">busy waiting</seecom> for new work,
           that is:</p>
         <list type="bulleted">
           <item>Executing process code</item>
@@ -7473,38 +7465,65 @@ lists:map(
         </list>
         <p>Notice that a scheduler can also be busy even if the
           OS has scheduled out the scheduler thread.</p>
-        <p>Returns <c>undefined</c> if system flag
+
+        <note><p>It is recommended to use the module
+          <seeerl marker="runtime_tools:scheduler"><c>scheduler</c></seeerl>
+          instead of this function directly as it provides an easier way to
+          get the information that you usually want.</p></note>
+
+        <p>If <seeerl marker="#system_flag_scheduler_wall_time">enabled</seeerl>
+          this function returns a list of tuples with
+          <c>{<anno>SchedulerId</anno>, <anno>ActiveTime</anno>,
+          <anno>TotalTime</anno>}</c>, where <c><anno>SchedulerId</anno></c>
+          is an integer ID of the scheduler, <c><anno>ActiveTime</anno></c> is
+          the duration the scheduler has been busy, and
+          <c><anno>TotalTime</anno></c> is the total time duration since
           <seeerl marker="#system_flag_scheduler_wall_time">
-          <c>scheduler_wall_time</c></seeerl> is turned off.</p>
-        <p>The list of scheduler information is unsorted and can
-          appear in different order between calls.</p>
-	<p>As of ERTS version 9.0, also dirty CPU schedulers will
-	be included in the result. That is, all scheduler threads
-	that are expected to handle CPU bound work. If you also
-	want information about dirty I/O schedulers, use
-	<seeerl marker="#statistics_scheduler_wall_time_all">
-        <c>statistics(scheduler_wall_time_all)</c></seeerl>
-	instead.</p>
-	
+          <c>scheduler_wall_time</c></seeerl> activation for the specific scheduler.
+          The time unit returned is undefined and can be subject to change between
+          releases, OSs, and system restarts. <c>scheduler_wall_time</c> is
+	  only to be used to calculate relative values for scheduler
+	  utilization. The <c><anno>ActiveTime</anno></c> can never
+	  exceed <c><anno>TotalTime</anno></c>. The list of scheduler information
+          is unsorted and can appear in different order between calls.</p>
+
+        <p>The <seeerl marker="#system_flag_scheduler_wall_time">disabled</seeerl>
+          this function returns <c>undefined</c>.</p>
+
+        <p>The activation time can differ significantly between
+	  schedulers. Currently dirty schedulers are activated
+	  at system start while normal schedulers are activated
+	  some time after the <c>scheduler_wall_time</c>
+	  functionality is enabled.</p>
+
+	<p>Only information about schedulers that are expected to handle
+          CPU bound work is included in the return values from this function.
+          If you also want information about
+          <seeerl marker="#system_info_dirty_io_schedulers">dirty I/O schedulers</seeerl>,
+          use <seeerl marker="#statistics_scheduler_wall_time_all">
+          <c>statistics(scheduler_wall_time_all)</c></seeerl>
+	  instead.</p>
+
 	<p>Normal schedulers will have scheduler identifiers in
-	the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
-	</c><seeerl marker="#system_info_schedulers">
-        <c>erlang:system_info(schedulers)</c></seeerl>.
-	Dirty CPU schedulers will have scheduler identifiers in
-	the range <c>erlang:system_info(schedulers) &lt;
-	<anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
-	+
-	</c><seeerl marker="#system_info_dirty_cpu_schedulers">
-        <c>erlang:system_info(dirty_cpu_schedulers)</c></seeerl>.
+	  the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
+	  </c><seeerl marker="#system_info_schedulers">
+          <c>erlang:system_info(schedulers)</c></seeerl>.
+	  Dirty CPU schedulers will have scheduler identifiers in
+	  the range <c>erlang:system_info(schedulers) &lt;
+	  <anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
+	  +
+	  </c><seeerl marker="#system_info_dirty_cpu_schedulers">
+          <c>erlang:system_info(dirty_cpu_schedulers)</c></seeerl>.
 	</p>
 	<note><p>The different types of schedulers handle
-	specific types of jobs. Every job is assigned to a specific
-	scheduler type. Jobs can migrate between different schedulers
-	of the same type, but never between schedulers of different
-	types. This fact has to be taken under consideration when
-	evaluating the result returned.</p></note>
-        <p>Using <c>scheduler_wall_time</c> to calculate
-          scheduler utilization:</p>
+	  specific types of jobs. Every job is assigned to a specific
+	  scheduler type. Jobs can migrate between different schedulers
+	  of the same type, but never between schedulers of different
+	  types. This fact has to be taken under consideration when
+	  evaluating the result returned.</p></note>
+        <p>You can use <c>scheduler_wall_time</c> to calculate
+          scheduler utilization. First you take a sample of the values
+          returned by <c>erlang:statistics(scheduler_wall_time)</c>.</p>
         <pre>
 > <input>erlang:system_flag(scheduler_wall_time, true).</input>
 false
@@ -7555,7 +7574,9 @@ ok
         <note>
           <p><c>scheduler_wall_time</c> is by default disabled. To
             enable it, use
-            <c>erlang:system_flag(scheduler_wall_time, true)</c>.</p>
+            <seeerl marker="#system_flag_scheduler_wall_time">
+              <c>erlang:system_flag(scheduler_wall_time, true)</c></seeerl>.
+          </p>
         </note>
       </desc>
     </func>
