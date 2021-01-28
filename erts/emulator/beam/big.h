@@ -64,7 +64,6 @@ typedef Uint  dsize_t;	 /* Vector size type */
 #define BIG_SIGN(xp)     (!!bignum_header_is_neg(*xp))
 #define BIG_ARITY(xp)    ((Uint)bignum_header_arity(*(xp)))
 #define BIG_DIGIT(xp,i)  *(BIG_V(xp)+(i))
-#define BIG_DIGITS_PER_WORD (sizeof(Uint)/sizeof(ErtsDigit))
 
 #define BIG_SIZE(xp)  BIG_ARITY(xp)
 
