@@ -3032,7 +3032,7 @@ check_memory_leaks(_) ->
 %%
 %% Outputs the formatted string to Valgrind's logfile,if Valgrind is active.
 valgrind_format(Format, Args) ->
-    (catch erlang:system_info({valgrind, print, io_lib:format(Format, Args)})),
+    (catch erlang:system_info({memory_checker, print, io_lib:format(Format, Args)})),
     ok.
 
 asan_take_logpath() ->
