@@ -24,7 +24,7 @@
 #include "../core/api-build_p.h"
 #ifdef ASMJIT_BUILD_X86
 
-#include "../core/arch.h"
+#include "../core/archtraits.h"
 #include "../core/inst.h"
 
 #ifdef ASMJIT_BUILD_X86
@@ -32,7 +32,7 @@
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  #include "../arm/arminstapi_p.h"
+  #include "../arm/a64instapi_p.h"
 #endif
 
 ASMJIT_BEGIN_NAMESPACE
@@ -49,8 +49,8 @@ Error InstAPI::instIdToString(uint32_t arch, uint32_t instId, String& output) no
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (Environment::isFamilyARM(arch))
-    return arm::InstInternal::instIdToString(arch, instId, output);
+  if (Environment::isArchAArch64(arch))
+    return a64::InstInternal::instIdToString(arch, instId, output);
 #endif
 
   return DebugUtils::errored(kErrorInvalidArch);
@@ -63,8 +63,8 @@ uint32_t InstAPI::stringToInstId(uint32_t arch, const char* s, size_t len) noexc
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (Environment::isFamilyARM(arch))
-    return arm::InstInternal::stringToInstId(arch, s, len);
+  if (Environment::isArchAArch64(arch))
+    return a64::InstInternal::stringToInstId(arch, s, len);
 #endif
 
   return 0;
@@ -83,8 +83,8 @@ Error InstAPI::validate(uint32_t arch, const BaseInst& inst, const Operand_* ope
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (Environment::isFamilyARM(arch))
-    return arm::InstInternal::validate(arch, inst, operands, opCount, validationFlags);
+  if (Environment::isArchAArch64(arch))
+    return a64::InstInternal::validate(arch, inst, operands, opCount, validationFlags);
 #endif
 
   return DebugUtils::errored(kErrorInvalidArch);
@@ -106,8 +106,8 @@ Error InstAPI::queryRWInfo(uint32_t arch, const BaseInst& inst, const Operand_* 
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (Environment::isFamilyARM(arch))
-    return arm::InstInternal::queryRWInfo(arch, inst, operands, opCount, out);
+  if (Environment::isArchAArch64(arch))
+    return a64::InstInternal::queryRWInfo(arch, inst, operands, opCount, out);
 #endif
 
   return DebugUtils::errored(kErrorInvalidArch);
@@ -126,8 +126,8 @@ Error InstAPI::queryFeatures(uint32_t arch, const BaseInst& inst, const Operand_
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (Environment::isFamilyARM(arch))
-    return arm::InstInternal::queryFeatures(arch, inst, operands, opCount, out);
+  if (Environment::isArchAArch64(arch))
+    return a64::InstInternal::queryFeatures(arch, inst, operands, opCount, out);
 #endif
 
   return DebugUtils::errored(kErrorInvalidArch);

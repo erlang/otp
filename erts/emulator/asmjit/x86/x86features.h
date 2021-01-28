@@ -74,9 +74,10 @@ public:
     kAVX512_VNNI,              //!< CPU has AVX512_VNNI      (vector neural network instructions).
     kAVX512_VP2INTERSECT,      //!< CPU has AVX512_VP2INTERSECT
     kAVX512_VPOPCNTDQ,         //!< CPU has AVX512_VPOPCNTDQ (VPOPCNT[D|Q] instructions).
+    kAVX_VNNI,                 //!< CPU has AVX_VNNI         (VEX encoding of vpdpbusd/vpdpbusds/vpdpwssd/vpdpwssds).
     kBMI,                      //!< CPU has BMI              (bit manipulation instructions #1).
     kBMI2,                     //!< CPU has BMI2             (bit manipulation instructions #2).
-    kCET_IBT,                  //!< CPU has CET-IBT.
+    kCET_IBT,                  //!< CPU has CET-IBT          (indirect branch tracking).
     kCET_SS,                   //!< CPU has CET-SS.
     kCLDEMOTE,                 //!< CPU has CLDEMOTE         (cache line demote).
     kCLFLUSH,                  //!< CPU has CLFUSH           (Cache Line flush).
@@ -99,6 +100,7 @@ public:
     kGEODE,                    //!< CPU has GEODE extensions (3DNOW additions).
     kGFNI,                     //!< CPU has GFNI             (Galois field instructions).
     kHLE,                      //!< CPU has HLE.
+    kHRESET,                   //!< CPU has HRESET.
     kI486,                     //!< CPU has I486 features    (I486+ support).
     kLAHFSAHF,                 //!< CPU has LAHF/SAHF        (LAHF/SAHF in 64-bit mode) [X86_64].
     kLWP,                      //!< CPU has LWP              (lightweight profiling) [AMD].
@@ -147,6 +149,7 @@ public:
     kTBM,                      //!< CPU has TBM              (trailing bit manipulation) [AMD].
     kTSX,                      //!< CPU has TSX.
     kTSXLDTRK,                 //!< CPU has TSXLDTRK.
+    kUINTR,                    //!< CPU has UINTR            (user interrupts).
     kVAES,                     //!< CPU has VAES             (vector AES 256|512 bit support).
     kVMX,                      //!< CPU has VMX              (virtualization) [INTEL].
     kVPCLMULQDQ,               //!< CPU has VPCLMULQDQ       (vector PCLMULQDQ 256|512-bit support).
@@ -168,6 +171,7 @@ public:
 
   inline Features() noexcept
     : BaseFeatures() {}
+
   inline Features(const Features& other) noexcept
     : BaseFeatures(other) {}
 
@@ -216,8 +220,11 @@ public:
   ASMJIT_X86_FEATURE(AVX512_VNNI)
   ASMJIT_X86_FEATURE(AVX512_VP2INTERSECT)
   ASMJIT_X86_FEATURE(AVX512_VPOPCNTDQ)
+  ASMJIT_X86_FEATURE(AVX_VNNI)
   ASMJIT_X86_FEATURE(BMI)
   ASMJIT_X86_FEATURE(BMI2)
+  ASMJIT_X86_FEATURE(CET_IBT)
+  ASMJIT_X86_FEATURE(CET_SS)
   ASMJIT_X86_FEATURE(CLDEMOTE)
   ASMJIT_X86_FEATURE(CLFLUSH)
   ASMJIT_X86_FEATURE(CLFLUSHOPT)
@@ -239,6 +246,7 @@ public:
   ASMJIT_X86_FEATURE(GEODE)
   ASMJIT_X86_FEATURE(GFNI)
   ASMJIT_X86_FEATURE(HLE)
+  ASMJIT_X86_FEATURE(HRESET)
   ASMJIT_X86_FEATURE(I486)
   ASMJIT_X86_FEATURE(LAHFSAHF)
   ASMJIT_X86_FEATURE(LWP)
@@ -286,6 +294,7 @@ public:
   ASMJIT_X86_FEATURE(TBM)
   ASMJIT_X86_FEATURE(TSX)
   ASMJIT_X86_FEATURE(TSXLDTRK)
+  ASMJIT_X86_FEATURE(UINTR)
   ASMJIT_X86_FEATURE(XSAVE)
   ASMJIT_X86_FEATURE(XSAVEC)
   ASMJIT_X86_FEATURE(XSAVEOPT)

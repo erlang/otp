@@ -51,6 +51,7 @@ Error Compiler::finalize() {
   a.addValidationOptions(validationOptions());
   return serializeTo(&a);
 }
+
 // ============================================================================
 // [asmjit::x86::Compiler - Events]
 // ============================================================================
@@ -61,12 +62,8 @@ Error Compiler::onAttach(CodeHolder* code) noexcept {
     return DebugUtils::errored(kErrorInvalidArch);
 
   ASMJIT_PROPAGATE(Base::onAttach(code));
-
-  bool is32Bit = Environment::is32Bit(arch);
-  _gpRegInfo.setSignature(is32Bit ? uint32_t(Gpd::kSignature)
-                                  : uint32_t(Gpq::kSignature));
-
   Error err = addPassT<X86RAPass>();
+
   if (ASMJIT_UNLIKELY(err)) {
     onDetach(code);
     return err;

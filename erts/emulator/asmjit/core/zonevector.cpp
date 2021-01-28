@@ -312,6 +312,8 @@ static void test_zone_vector(ZoneAllocator* allocator, const char* typeName) {
   EXPECT(vec.size() == uint32_t(kMax));
   EXPECT(vec.indexOf(T(kMax - 1)) == uint32_t(kMax - 1));
 
+  EXPECT(vec.rbegin()[0] == kMax - 1);
+
   vec.release(allocator);
 }
 

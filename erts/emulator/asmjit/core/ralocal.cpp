@@ -243,7 +243,7 @@ Error RALocalAllocator::switchToAssignment(
             // Reset as we will do some changes to the current assignment.
             runId = -1;
 
-            if (_archTraits.hasSwap(group)) {
+            if (_archTraits->hasSwap(group)) {
               ASMJIT_PROPAGATE(onSwapReg(group, curWorkId, physId, dstWorkId, altPhysId));
             }
             else {
@@ -653,7 +653,7 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
             // just a single instruction. However, swap is only available on few
             // architectures and it's definitely not available for each register
             // group. Calling `onSwapReg()` before checking these would be fatal.
-            if (_archTraits.hasSwap(group) && thisPhysId != RAAssignment::kPhysNone) {
+            if (_archTraits->hasSwap(group) && thisPhysId != RAAssignment::kPhysNone) {
               ASMJIT_PROPAGATE(onSwapReg(group, thisWorkId, thisPhysId, targetWorkId, targetPhysId));
 
               thisTiedReg->markUseDone();
@@ -767,7 +767,7 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
         uint32_t dstId = it.next();
         if (dstId == srcId)
           continue;
-        _pass->onEmitMove(workId, dstId, srcId);
+        _pass->emitMove(workId, dstId, srcId);
       }
     }
 
@@ -916,7 +916,7 @@ Error RALocalAllocator::allocBranch(InstNode* node, RABlock* target, RABlock* co
       node->clearInstOptions(BaseInst::kOptionShortForm);
 
       // Finalize the switch assignment sequence.
-      ASMJIT_PROPAGATE(_pass->onEmitJump(savedTarget));
+      ASMJIT_PROPAGATE(_pass->emitJump(savedTarget));
       _cc->_setCursor(injectionPoint);
       _cc->bind(trampoline);
     }
@@ -932,6 +932,9 @@ Error RALocalAllocator::allocBranch(InstNode* node, RABlock* target, RABlock* co
 }
 
 Error RALocalAllocator::allocJumpTable(InstNode* node, const RABlocks& targets, RABlock* cont) noexcept {
+  // TODO: Do we really need to use `cont`?
+  DebugUtils::unused(cont);
+
   if (targets.empty())
     return DebugUtils::errored(kErrorInvalidState);
 

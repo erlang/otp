@@ -24,7 +24,7 @@
 #ifndef ASMJIT_CORE_TARGET_H_INCLUDED
 #define ASMJIT_CORE_TARGET_H_INCLUDED
 
-#include "../core/arch.h"
+#include "../core/archtraits.h"
 #include "../core/func.h"
 
 ASMJIT_BEGIN_NAMESPACE

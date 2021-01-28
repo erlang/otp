@@ -27,6 +27,8 @@
 #include "../core/api-config.h"
 #ifndef ASMJIT_NO_COMPILER
 
+#include "../core/compiler.h"
+#include "../core/emithelper_p.h"
 #include "../core/raassignment_p.h"
 #include "../core/radefs_p.h"
 #include "../core/rastack_p.h"
@@ -80,42 +82,42 @@ public:
   };
 
   //! Register allocator pass.
-  RAPass* _ra;
+  BaseRAPass* _ra;
 
   //! Block id (indexed from zero).
-  uint32_t _blockId;
+  uint32_t _blockId = kUnassignedId;
   //! Block flags, see `Flags`.
-  uint32_t _flags;
+  uint32_t _flags = 0;
 
   //! First `BaseNode` of this block (inclusive).
-  BaseNode* _first;
+  BaseNode* _first = nullptr;
   //! Last `BaseNode` of this block (inclusive).
-  BaseNode* _last;
+  BaseNode* _last = nullptr;
 
   //! Initial position of this block (inclusive).
-  uint32_t _firstPosition;
+  uint32_t _firstPosition = 0;
   //! End position of this block (exclusive).
-  uint32_t _endPosition;
+  uint32_t _endPosition = 0;
 
   //! Weight of this block (default 0, each loop adds one).
-  uint32_t _weight;
+  uint32_t _weight = 0;
   //! Post-order view order, used during POV construction.
-  uint32_t _povOrder;
+  uint32_t _povOrder = 0;
 
   //! Basic statistics about registers.
-  RARegsStats _regsStats;
+  RARegsStats _regsStats = RARegsStats();
   //! Maximum live-count per register group.
-  RALiveCount _maxLiveCount;
+  RALiveCount _maxLiveCount = RALiveCount();
 
   //! Timestamp (used by block visitors).
-  mutable uint64_t _timestamp;
+  mutable uint64_t _timestamp = 0;
   //! Immediate dominator of this block.
-  RABlock* _idom;
+  RABlock* _idom = nullptr;
 
   //! Block predecessors.
-  RABlocks _predecessors;
+  RABlocks _predecessors {};
   //! Block successors.
-  RABlocks _successors;
+  RABlocks _successors {};
 
   enum LiveType : uint32_t {
     kLiveIn = 0,
@@ -126,52 +128,33 @@ public:
   };
 
   //! Liveness in/out/use/kill.
-  ZoneBitVector _liveBits[kLiveCount];
+  ZoneBitVector _liveBits[kLiveCount] {};
 
   //! Shared assignment it or `Globals::kInvalidId` if this block doesn't
   //! have shared assignment. See `RASharedAssignment` for more details.
-  uint32_t _sharedAssignmentId;
+  uint32_t _sharedAssignmentId = Globals::kInvalidId;
   //! Scratch registers that cannot be allocated upon block entry.
-  uint32_t _entryScratchGpRegs;
+  uint32_t _entryScratchGpRegs = 0;
   //! Scratch registers used at exit, by a terminator instruction.
-  uint32_t _exitScratchGpRegs;
+  uint32_t _exitScratchGpRegs = 0;
 
   //! Register assignment (PhysToWork) on entry.
-  PhysToWorkMap* _entryPhysToWorkMap;
+  PhysToWorkMap* _entryPhysToWorkMap = nullptr;
   //! Register assignment (WorkToPhys) on entry.
-  WorkToPhysMap* _entryWorkToPhysMap;
+  WorkToPhysMap* _entryWorkToPhysMap = nullptr;
 
   //! \name Construction & Destruction
   //! \{
 
-  inline RABlock(RAPass* ra) noexcept
-    : _ra(ra),
-      _blockId(kUnassignedId),
-      _flags(0),
-      _first(nullptr),
-      _last(nullptr),
-      _firstPosition(0),
-      _endPosition(0),
-      _weight(0),
-      _povOrder(kUnassignedId),
-      _regsStats(),
-      _maxLiveCount(),
-      _timestamp(0),
-      _idom(nullptr),
-      _predecessors(),
-      _successors(),
-      _sharedAssignmentId(Globals::kInvalidId),
-      _entryScratchGpRegs(0),
-      _exitScratchGpRegs(0),
-      _entryPhysToWorkMap(nullptr),
-      _entryWorkToPhysMap(nullptr) {}
+  inline RABlock(BaseRAPass* ra) noexcept
+    : _ra(ra) {}
 
   //! \}
 
   //! \name Accessors
   //! \{
 
-  inline RAPass* pass() const noexcept { return _ra; }
+  inline BaseRAPass* pass() const noexcept { return _ra; }
   inline ZoneAllocator* allocator() const noexcept;
 
   inline uint32_t blockId() const noexcept { return _blockId; }
@@ -620,21 +603,16 @@ public:
   //! ISA limits (like jecx/loop instructions on x86) or because the registers
   //! are used by jump/branch instruction that uses registers to perform an
   //! indirect jump.
-  uint32_t _entryScratchGpRegs;
+  uint32_t _entryScratchGpRegs = 0;
   //! Union of all live-in registers.
-  ZoneBitVector _liveIn;
+  ZoneBitVector _liveIn {};
   //! Register assignment (PhysToWork).
-  PhysToWorkMap* _physToWorkMap;
+  PhysToWorkMap* _physToWorkMap = nullptr;
   //! Register assignment (WorkToPhys).
-  WorkToPhysMap* _workToPhysMap;
+  WorkToPhysMap* _workToPhysMap = nullptr;
 
-  //! Provided for clarity, most likely never called as we initialize a vector
-  //! of shared assignments to zero.
-  inline RASharedAssignment() noexcept
-    : _entryScratchGpRegs(0),
-      _liveIn(),
-      _physToWorkMap(nullptr),
-      _workToPhysMap(nullptr) {}
+  //! Most likely never called as we initialize a vector of shared assignments to zero.
+  inline RASharedAssignment() noexcept {}
 
   inline uint32_t entryScratchGpRegs() const noexcept { return _entryScratchGpRegs; }
   inline void addEntryScratchGpRegs(uint32_t mask) noexcept { _entryScratchGpRegs |= mask; }
@@ -655,13 +633,13 @@ public:
 };
 
 // ============================================================================
-// [asmjit::RAPass]
+// [asmjit::BaseRAPass]
 // ============================================================================
 
 //! Register allocation pass used by `BaseCompiler`.
-class RAPass : public FuncPass {
+class BaseRAPass : public FuncPass {
 public:
-  ASMJIT_NONCOPYABLE(RAPass)
+  ASMJIT_NONCOPYABLE(BaseRAPass)
   typedef FuncPass Base;
 
   enum Weights : uint32_t {
@@ -672,58 +650,59 @@ public:
   typedef RAAssignment::WorkToPhysMap WorkToPhysMap;
 
   //! Allocator that uses zone passed to `runOnFunction()`.
-  ZoneAllocator _allocator;
+  ZoneAllocator _allocator {};
+  //! Emit helper.
+  BaseEmitHelper* _iEmitHelper = nullptr;
+
   //! Logger, disabled if null.
-  Logger* _logger;
+  Logger* _logger = nullptr;
   //! Debug logger, non-null only if `kOptionDebugPasses` option is set.
-  Logger* _debugLogger;
+  Logger* _debugLogger = nullptr;
   //! Logger flags.
-  uint32_t _loggerFlags;
+  uint32_t _loggerFlags = 0;
 
   //! Function being processed.
-  FuncNode* _func;
+  FuncNode* _func = nullptr;
   //! Stop node.
-  BaseNode* _stop;
+  BaseNode* _stop = nullptr;
   //! Node that is used to insert extra code after the function body.
-  BaseNode* _extraBlock;
+  BaseNode* _extraBlock = nullptr;
 
   //! Blocks (first block is the entry, always exists).
-  RABlocks _blocks;
+  RABlocks _blocks {};
   //! Function exit blocks (usually one, but can contain more).
-  RABlocks _exits;
+  RABlocks _exits {};
   //! Post order view (POV).
-  RABlocks _pov;
+  RABlocks _pov {};
 
   //! Number of instruction nodes.
-  uint32_t _instructionCount;
+  uint32_t _instructionCount = 0;
   //! Number of created blocks (internal).
-  uint32_t _createdBlockCount;
+  uint32_t _createdBlockCount = 0;
 
   //! SharedState blocks.
-  ZoneVector<RASharedAssignment> _sharedAssignments;
+  ZoneVector<RASharedAssignment> _sharedAssignments {};
 
   //! Timestamp generator (incremental).
-  mutable uint64_t _lastTimestamp;
+  mutable uint64_t _lastTimestamp = 0;
 
-  //!< Architecture registers information.
-  const ArchRegs* _archRegsInfo;
   //! Architecture traits.
-  RAArchTraits _archTraits;
+  const ArchTraits* _archTraits = nullptr;
   //! Index to physical registers in `RAAssignment::PhysToWorkMap`.
-  RARegIndex _physRegIndex;
+  RARegIndex _physRegIndex = RARegIndex();
   //! Count of physical registers in `RAAssignment::PhysToWorkMap`.
-  RARegCount _physRegCount;
+  RARegCount _physRegCount = RARegCount();
   //! Total number of physical registers.
-  uint32_t _physRegTotal;
+  uint32_t _physRegTotal = 0;
   //! Indexes of a possible scratch registers that can be selected if necessary.
-  uint8_t _scratchRegIndexes[2];
+  uint8_t _scratchRegIndexes[2] {};
 
   //! Registers available for allocation.
-  RARegMask _availableRegs;
+  RARegMask _availableRegs = RARegMask();
   //! Count of physical registers per group.
-  RARegCount _availableRegCount;
+  RARegCount _availableRegCount = RARegCount();
   //! Registers clobbered by the function.
-  RARegMask _clobberedRegs;
+  RARegMask _clobberedRegs = RARegMask();
 
   //! Work registers (registers used by the function).
   RAWorkRegs _workRegs;
@@ -733,33 +712,33 @@ public:
   //! Register allocation strategy per register group.
   RAStrategy _strategy[BaseReg::kGroupVirt];
   //! Global max live-count (from all blocks) per register group.
-  RALiveCount _globalMaxLiveCount;
+  RALiveCount _globalMaxLiveCount = RALiveCount();
   //! Global live spans per register group.
-  LiveRegSpans* _globalLiveSpans[BaseReg::kGroupVirt];
+  LiveRegSpans* _globalLiveSpans[BaseReg::kGroupVirt] {};
   //! Temporary stack slot.
-  Operand _temporaryMem;
+  Operand _temporaryMem = Operand();
 
   //! Stack pointer.
-  BaseReg _sp;
+  BaseReg _sp = BaseReg();
   //! Frame pointer.
-  BaseReg _fp;
+  BaseReg _fp = BaseReg();
   //! Stack manager.
-  RAStackAllocator _stackAllocator;
+  RAStackAllocator _stackAllocator {};
   //! Function arguments assignment.
-  FuncArgsAssignment _argsAssignment;
+  FuncArgsAssignment _argsAssignment {};
   //! Some StackArgs have to be assigned to StackSlots.
-  uint32_t _numStackArgsToStackSlots;
+  uint32_t _numStackArgsToStackSlots = 0;
 
   //! Maximum name-size computed from all WorkRegs.
-  uint32_t _maxWorkRegNameSize;
+  uint32_t _maxWorkRegNameSize = 0;
   //! Temporary string builder used to format comments.
   StringTmp<80> _tmpString;
 
   //! \name Construction & Reset
   //! \{
 
-  RAPass() noexcept;
-  virtual ~RAPass() noexcept;
+  BaseRAPass() noexcept;
+  virtual ~BaseRAPass() noexcept;
 
   //! \}
 
@@ -949,7 +928,7 @@ public:
   //!      information that is essential for further analysis and register
   //!      allocation.
   //!
-  //! Use `RACFGBuilder` template that provides the necessary boilerplate.
+  //! Use `RACFGBuilderT` template that provides the necessary boilerplate.
   virtual Error buildCFG() noexcept = 0;
 
   //! Called after the CFG is built.
@@ -1135,7 +1114,7 @@ public:
   //! \name Function Prolog & Epilog
   //! \{
 
-  Error updateStackFrame() noexcept;
+  virtual Error updateStackFrame() noexcept;
   Error _markStackArgsToKeep() noexcept;
   Error _updateStackArgs() noexcept;
   Error insertPrologEpilog() noexcept;
@@ -1166,14 +1145,14 @@ public:
   //! \name Emit
   //! \{
 
-  virtual Error onEmitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept = 0;
-  virtual Error onEmitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept = 0;
+  virtual Error emitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept = 0;
+  virtual Error emitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept = 0;
 
-  virtual Error onEmitLoad(uint32_t workId, uint32_t dstPhysId) noexcept = 0;
-  virtual Error onEmitSave(uint32_t workId, uint32_t srcPhysId) noexcept = 0;
+  virtual Error emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept = 0;
+  virtual Error emitSave(uint32_t workId, uint32_t srcPhysId) noexcept = 0;
 
-  virtual Error onEmitJump(const Label& label) noexcept = 0;
-  virtual Error onEmitPreCall(InvokeNode* invokeNode) noexcept = 0;
+  virtual Error emitJump(const Label& label) noexcept = 0;
+  virtual Error emitPreCall(InvokeNode* invokeNode) noexcept = 0;
 
   //! \}
 };

@@ -24,7 +24,7 @@
 #ifndef ASMJIT_CORE_EMITTER_H_INCLUDED
 #define ASMJIT_CORE_EMITTER_H_INCLUDED
 
-#include "../core/arch.h"
+#include "../core/archtraits.h"
 #include "../core/codeholder.h"
 #include "../core/inst.h"
 #include "../core/operand.h"
@@ -54,43 +54,43 @@ public:
   ASMJIT_BASE_CLASS(BaseEmitter)
 
   //! See \ref EmitterType.
-  uint8_t _emitterType;
+  uint8_t _emitterType = 0;
   //! See \ref BaseEmitter::EmitterFlags.
-  uint8_t _emitterFlags;
+  uint8_t _emitterFlags = 0;
   //! Validation flags in case validation is used, see \ref InstAPI::ValidationFlags.
   //!
   //! \note Validation flags are specific to the emitter and they are setup at
   //! construction time and then never changed.
-  uint8_t _validationFlags;
+  uint8_t _validationFlags = 0;
   //! Validation options, see \ref ValidationOptions.
-  uint8_t _validationOptions;
+  uint8_t _validationOptions = 0;
 
   //! Encoding options, see \ref EncodingOptions.
-  uint32_t _encodingOptions;
+  uint32_t _encodingOptions = 0;
 
   //! Forced instruction options, combined with \ref _instOptions by \ref emit().
-  uint32_t _forcedInstOptions;
+  uint32_t _forcedInstOptions = BaseInst::kOptionReserved;
   //! Internal private data used freely by any emitter.
-  uint32_t _privateData;
+  uint32_t _privateData = 0;
 
   //! CodeHolder the emitter is attached to.
-  CodeHolder* _code;
+  CodeHolder* _code = nullptr;
   //! Attached \ref Logger.
-  Logger* _logger;
+  Logger* _logger = nullptr;
   //! Attached \ref ErrorHandler.
-  ErrorHandler* _errorHandler;
+  ErrorHandler* _errorHandler = nullptr;
 
   //! Describes the target environment, matches \ref CodeHolder::environment().
-  Environment _environment;
+  Environment _environment {};
   //! Native GP register signature and signature related information.
-  RegInfo _gpRegInfo;
+  RegInfo _gpRegInfo {};
 
   //! Next instruction options (affects the next instruction).
-  uint32_t _instOptions;
+  uint32_t _instOptions = 0;
   //! Extra register (op-mask {k} on AVX-512) (affects the next instruction).
-  RegOnly _extraReg;
+  RegOnly _extraReg {};
   //! Inline comment of the next instruction (affects the next instruction).
-  const char* _inlineComment;
+  const char* _inlineComment = nullptr;
 
   //! Emitter type.
   enum EmitterType : uint32_t {
@@ -109,6 +109,10 @@ public:
 
   //! Emitter flags.
   enum EmitterFlags : uint32_t {
+    //! Emitter is attached to CodeHolder.
+    kFlagAttached = 0x01u,
+    //! The emitter must emit comments.
+    kFlagLogComments = 0x08u,
     //! The emitter has its own \ref Logger (not propagated from \ref CodeHolder).
     kFlagOwnLogger = 0x10u,
     //! The emitter has its own \ref ErrorHandler (not propagated from \ref CodeHolder).
@@ -493,6 +497,11 @@ public:
   virtual Label newLabel() = 0;
   //! Creates a new named label.
   virtual Label newNamedLabel(const char* name, size_t nameSize = SIZE_MAX, uint32_t type = Label::kTypeGlobal, uint32_t parentId = Globals::kInvalidId) = 0;
+
+  //! Creates a new external label.
+  inline Label newExternalLabel(const char* name, size_t nameSize = SIZE_MAX) {
+    return newNamedLabel(name, nameSize, Label::kTypeExternal);
+  }
 
   //! Returns `Label` by `name`.
   //!

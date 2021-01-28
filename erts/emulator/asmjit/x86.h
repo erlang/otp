@@ -45,6 +45,7 @@
 //!       functions provided are part of all X86 emitters.
 //!     - \ref x86::EmitterImplicitT - Provides all instructions that use
 //!       implicit operands, these cannot be used with \ref x86::Compiler.
+//!
 //!   - Instruction representation:
 //!     - \ref x86::Inst::Id - instruction identifiers.
 //!     - \ref x86::Inst::Options - instruction options.
@@ -74,7 +75,7 @@
 //! ### Memory Operands
 //!
 //!   - \ref x86::Mem - X86/X64 memory operand that provides support for all
-//!     X86 and X64 addressing features, including absolute addresses, index
+//!     X86 and X64 addressing features including absolute addresses, index
 //!     scales, and segment override prefixes.
 //!
 //! ### Other
@@ -102,15 +103,17 @@
 //!     - \ref x86::Predicate::VReduce - `REDUCE[PD|PS|SD|SS]` predicate (AVX512+).
 //!   - \ref x86::TLog - namespace that provides `VPTERNLOG[D|Q]` predicate / operations.
 
-#include "./core.h"
+#include "core.h"
 
-#include "./x86/x86assembler.h"
-#include "./x86/x86builder.h"
-#include "./x86/x86compiler.h"
-#include "./x86/x86emitter.h"
-#include "./x86/x86features.h"
-#include "./x86/x86globals.h"
-#include "./x86/x86instdb.h"
-#include "./x86/x86operand.h"
+#include "asmjit-scope-begin.h"
+#include "x86/x86assembler.h"
+#include "x86/x86builder.h"
+#include "x86/x86compiler.h"
+#include "x86/x86emitter.h"
+#include "x86/x86features.h"
+#include "x86/x86globals.h"
+#include "x86/x86instdb.h"
+#include "x86/x86operand.h"
+#include "asmjit-scope-end.h"
 
 #endif // ASMJIT_X86_H_INCLUDED

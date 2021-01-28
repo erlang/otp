@@ -35,15 +35,21 @@ ASMJIT_BEGIN_NAMESPACE
 //! \{
 
 // ============================================================================
-// [asmjit::CodeBufferWriter]
+// [Forward Declarations]
 // ============================================================================
 
-//! Helper that is used to write into a `CodeBuffer` held by `BaseAssembler`.
-class CodeBufferWriter {
+struct OffsetFormat;
+
+// ============================================================================
+// [asmjit::CodeWriter]
+// ============================================================================
+
+//! Helper that is used to write into a \ref CodeBuffer held by \ref BaseAssembler.
+class CodeWriter {
 public:
   uint8_t* _cursor;
 
-  ASMJIT_INLINE explicit CodeBufferWriter(BaseAssembler* a) noexcept
+  ASMJIT_INLINE explicit CodeWriter(BaseAssembler* a) noexcept
     : _cursor(a->_bufferPtr) {}
 
   ASMJIT_INLINE Error ensureSpace(BaseAssembler* a, size_t n) noexcept {
@@ -180,6 +186,19 @@ public:
     buffer._size = Support::max(buffer._size, newSize);
   }
 };
+
+// ============================================================================
+// [asmjit::CodeWriterUtils]
+// ============================================================================
+
+namespace CodeWriterUtils {
+
+bool encodeOffset32(uint32_t* dst, int64_t offset64, const OffsetFormat& format) noexcept;
+bool encodeOffset64(uint64_t* dst, int64_t offset64, const OffsetFormat& format) noexcept;
+
+bool writeOffset(void* dst, int64_t offset64, const OffsetFormat& format) noexcept;
+
+} // {CodeWriterUtils}
 
 //! \}
 //! \endcond

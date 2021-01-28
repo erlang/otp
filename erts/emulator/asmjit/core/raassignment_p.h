@@ -54,6 +54,17 @@ public:
   };
 
   struct Layout {
+    //! Index of architecture registers per group.
+    RARegIndex physIndex;
+    //! Count of architecture registers per group.
+    RARegCount physCount;
+    //! Count of physical registers of all groups.
+    uint32_t physTotal;
+    //! Count of work registers.
+    uint32_t workCount;
+    //! WorkRegs data (vector).
+    const RAWorkRegs* workRegs;
+
     inline void reset() noexcept {
       physIndex.reset();
       physCount.reset();
@@ -61,54 +72,52 @@ public:
       workCount = 0;
       workRegs = nullptr;
     }
-
-    RARegIndex physIndex;                //!< Index of architecture registers per group.
-    RARegCount physCount;                //!< Count of architecture registers per group.
-    uint32_t physTotal;                  //!< Count of physical registers of all groups.
-    uint32_t workCount;                  //!< Count of work registers.
-    const RAWorkRegs* workRegs;          //!< WorkRegs data (vector).
   };
 
   struct PhysToWorkMap {
-    static inline size_t sizeOf(uint32_t count) noexcept {
-      return sizeof(PhysToWorkMap) - sizeof(uint32_t) + size_t(count) * sizeof(uint32_t);
+    //! Assigned registers (each bit represents one physical reg).
+    RARegMask assigned;
+    //! Dirty registers (spill slot out of sync or no spill slot).
+    RARegMask dirty;
+    //! PhysReg to WorkReg mapping.
+    uint32_t workIds[1 /* ... */];
+
+    static inline size_t sizeOf(size_t count) noexcept {
+      return sizeof(PhysToWorkMap) - sizeof(uint32_t) + count * sizeof(uint32_t);
     }
 
-    inline void reset(uint32_t count) noexcept {
+    inline void reset(size_t count) noexcept {
       assigned.reset();
       dirty.reset();
 
-      for (uint32_t i = 0; i < count; i++)
+      for (size_t i = 0; i < count; i++)
         workIds[i] = kWorkNone;
     }
 
-    inline void copyFrom(const PhysToWorkMap* other, uint32_t count) noexcept {
+    inline void copyFrom(const PhysToWorkMap* other, size_t count) noexcept {
       size_t size = sizeOf(count);
       memcpy(this, other, size);
     }
-
-    RARegMask assigned;                  //!< Assigned registers (each bit represents one physical reg).
-    RARegMask dirty;                     //!< Dirty registers (spill slot out of sync or no spill slot).
-    uint32_t workIds[1 /* ... */];       //!< PhysReg to WorkReg mapping.
   };
 
   struct WorkToPhysMap {
-    static inline size_t sizeOf(uint32_t count) noexcept {
+    //! WorkReg to PhysReg mapping
+    uint8_t physIds[1 /* ... */];
+
+    static inline size_t sizeOf(size_t count) noexcept {
       return size_t(count) * sizeof(uint8_t);
     }
 
-    inline void reset(uint32_t count) noexcept {
-      for (uint32_t i = 0; i < count; i++)
+    inline void reset(size_t count) noexcept {
+      for (size_t i = 0; i < count; i++)
         physIds[i] = kPhysNone;
     }
 
-    inline void copyFrom(const WorkToPhysMap* other, uint32_t count) noexcept {
+    inline void copyFrom(const WorkToPhysMap* other, size_t count) noexcept {
       size_t size = sizeOf(count);
       if (ASMJIT_LIKELY(size))
         memcpy(this, other, size);
     }
-
-    uint8_t physIds[1 /* ... */];        //!< WorkReg to PhysReg mapping
   };
 
   //! Physical registers layout.

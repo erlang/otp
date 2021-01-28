@@ -24,15 +24,15 @@
 #ifndef ASMJIT_X86_X86GLOBALS_H_INCLUDED
 #define ASMJIT_X86_X86GLOBALS_H_INCLUDED
 
-#include "../core/arch.h"
+#include "../core/archtraits.h"
 #include "../core/inst.h"
-
-ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
 //! \namespace asmjit::x86
 //! \ingroup asmjit_x86
 //!
 //! X86/X64 API.
+
+ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
 //! \addtogroup asmjit_x86
 //! \{
@@ -121,6 +121,7 @@ struct Inst : public BaseInst {
     kIdCli,                              //!< Instruction 'cli'.
     kIdClrssbsy,                         //!< Instruction 'clrssbsy' {CET_SS}.
     kIdClts,                             //!< Instruction 'clts'.
+    kIdClui,                             //!< Instruction 'clui' {UINTR} (X64).
     kIdClwb,                             //!< Instruction 'clwb' {CLWB}.
     kIdClzero,                           //!< Instruction 'clzero' {CLZERO}.
     kIdCmc,                              //!< Instruction 'cmc'.
@@ -315,6 +316,7 @@ struct Inst : public BaseInst {
     kIdHaddpd,                           //!< Instruction 'haddpd' {SSE3}.
     kIdHaddps,                           //!< Instruction 'haddps' {SSE3}.
     kIdHlt,                              //!< Instruction 'hlt'.
+    kIdHreset,                           //!< Instruction 'hreset' {HRESET}.
     kIdHsubpd,                           //!< Instruction 'hsubpd' {SSE3}.
     kIdHsubps,                           //!< Instruction 'hsubps' {SSE3}.
     kIdIdiv,                             //!< Instruction 'idiv'.
@@ -338,7 +340,6 @@ struct Inst : public BaseInst {
     kIdIret,                             //!< Instruction 'iret'.
     kIdIretd,                            //!< Instruction 'iretd'.
     kIdIretq,                            //!< Instruction 'iretq' (X64).
-    kIdIretw,                            //!< Instruction 'iretw'.
     kIdJa,                               //!< Instruction 'ja'.
     kIdJae,                              //!< Instruction 'jae'.
     kIdJb,                               //!< Instruction 'jb'.
@@ -424,6 +425,7 @@ struct Inst : public BaseInst {
     kIdKxorw,                            //!< Instruction 'kxorw' {AVX512_F}.
     kIdLahf,                             //!< Instruction 'lahf' {LAHFSAHF}.
     kIdLar,                              //!< Instruction 'lar'.
+    kIdLcall,                            //!< Instruction 'lcall'.
     kIdLddqu,                            //!< Instruction 'lddqu' {SSE3}.
     kIdLdmxcsr,                          //!< Instruction 'ldmxcsr' {SSE}.
     kIdLds,                              //!< Instruction 'lds' (X86).
@@ -436,6 +438,7 @@ struct Inst : public BaseInst {
     kIdLgdt,                             //!< Instruction 'lgdt'.
     kIdLgs,                              //!< Instruction 'lgs'.
     kIdLidt,                             //!< Instruction 'lidt'.
+    kIdLjmp,                             //!< Instruction 'ljmp'.
     kIdLldt,                             //!< Instruction 'lldt'.
     kIdLlwpcb,                           //!< Instruction 'llwpcb' {LWP}.
     kIdLmsw,                             //!< Instruction 'lmsw'.
@@ -464,6 +467,7 @@ struct Inst : public BaseInst {
     kIdMonitor,                          //!< Instruction 'monitor' {MONITOR}.
     kIdMonitorx,                         //!< Instruction 'monitorx' {MONITORX}.
     kIdMov,                              //!< Instruction 'mov'.
+    kIdMovabs,                           //!< Instruction 'movabs' (X64).
     kIdMovapd,                           //!< Instruction 'movapd' {SSE2}.
     kIdMovaps,                           //!< Instruction 'movaps' {SSE}.
     kIdMovbe,                            //!< Instruction 'movbe' {MOVBE}.
@@ -712,6 +716,7 @@ struct Inst : public BaseInst {
     kIdRdtsc,                            //!< Instruction 'rdtsc' {RDTSC}.
     kIdRdtscp,                           //!< Instruction 'rdtscp' {RDTSCP}.
     kIdRet,                              //!< Instruction 'ret'.
+    kIdRetf,                             //!< Instruction 'retf'.
     kIdRmpadjust,                        //!< Instruction 'rmpadjust' {SNP} (X64).
     kIdRmpupdate,                        //!< Instruction 'rmpupdate' {SNP} (X64).
     kIdRol,                              //!< Instruction 'rol'.
@@ -732,6 +737,7 @@ struct Inst : public BaseInst {
     kIdSaveprevssp,                      //!< Instruction 'saveprevssp' {CET_SS}.
     kIdSbb,                              //!< Instruction 'sbb'.
     kIdScas,                             //!< Instruction 'scas'.
+    kIdSenduipi,                         //!< Instruction 'senduipi' {UINTR} (X64).
     kIdSerialize,                        //!< Instruction 'serialize' {SERIALIZE}.
     kIdSeta,                             //!< Instruction 'seta'.
     kIdSetae,                            //!< Instruction 'setae'.
@@ -799,6 +805,7 @@ struct Inst : public BaseInst {
     kIdStos,                             //!< Instruction 'stos'.
     kIdStr,                              //!< Instruction 'str'.
     kIdSttilecfg,                        //!< Instruction 'sttilecfg' {AMX_TILE} (X64).
+    kIdStui,                             //!< Instruction 'stui' {UINTR} (X64).
     kIdSub,                              //!< Instruction 'sub'.
     kIdSubpd,                            //!< Instruction 'subpd' {SSE2}.
     kIdSubps,                            //!< Instruction 'subps' {SSE}.
@@ -808,9 +815,9 @@ struct Inst : public BaseInst {
     kIdSyscall,                          //!< Instruction 'syscall' (X64).
     kIdSysenter,                         //!< Instruction 'sysenter'.
     kIdSysexit,                          //!< Instruction 'sysexit'.
-    kIdSysexit64,                        //!< Instruction 'sysexit64'.
+    kIdSysexitq,                         //!< Instruction 'sysexitq'.
     kIdSysret,                           //!< Instruction 'sysret' (X64).
-    kIdSysret64,                         //!< Instruction 'sysret64' (X64).
+    kIdSysretq,                          //!< Instruction 'sysretq' (X64).
     kIdT1mskc,                           //!< Instruction 't1mskc' {TBM}.
     kIdTdpbf16ps,                        //!< Instruction 'tdpbf16ps' {AMX_BF16} (X64).
     kIdTdpbssd,                          //!< Instruction 'tdpbssd' {AMX_INT8} (X64).
@@ -818,6 +825,7 @@ struct Inst : public BaseInst {
     kIdTdpbusd,                          //!< Instruction 'tdpbusd' {AMX_INT8} (X64).
     kIdTdpbuud,                          //!< Instruction 'tdpbuud' {AMX_INT8} (X64).
     kIdTest,                             //!< Instruction 'test'.
+    kIdTestui,                           //!< Instruction 'testui' {UINTR} (X64).
     kIdTileloadd,                        //!< Instruction 'tileloadd' {AMX_TILE} (X64).
     kIdTileloaddt1,                      //!< Instruction 'tileloaddt1' {AMX_TILE} (X64).
     kIdTilerelease,                      //!< Instruction 'tilerelease' {AMX_TILE} (X64).
@@ -831,6 +839,7 @@ struct Inst : public BaseInst {
     kIdUd0,                              //!< Instruction 'ud0'.
     kIdUd1,                              //!< Instruction 'ud1'.
     kIdUd2,                              //!< Instruction 'ud2'.
+    kIdUiret,                            //!< Instruction 'uiret' {UINTR} (X64).
     kIdUmonitor,                         //!< Instruction 'umonitor' {WAITPKG}.
     kIdUmwait,                           //!< Instruction 'umwait' {WAITPKG}.
     kIdUnpckhpd,                         //!< Instruction 'unpckhpd' {SSE2}.
@@ -859,12 +868,8 @@ struct Inst : public BaseInst {
     kIdVandnps,                          //!< Instruction 'vandnps' {AVX|AVX512_DQ+VL}.
     kIdVandpd,                           //!< Instruction 'vandpd' {AVX|AVX512_DQ+VL}.
     kIdVandps,                           //!< Instruction 'vandps' {AVX|AVX512_DQ+VL}.
-    kIdVblendmb,                         //!< Instruction 'vblendmb' {AVX512_BW+VL}.
-    kIdVblendmd,                         //!< Instruction 'vblendmd' {AVX512_F+VL}.
     kIdVblendmpd,                        //!< Instruction 'vblendmpd' {AVX512_F+VL}.
     kIdVblendmps,                        //!< Instruction 'vblendmps' {AVX512_F+VL}.
-    kIdVblendmq,                         //!< Instruction 'vblendmq' {AVX512_F+VL}.
-    kIdVblendmw,                         //!< Instruction 'vblendmw' {AVX512_BW+VL}.
     kIdVblendpd,                         //!< Instruction 'vblendpd' {AVX}.
     kIdVblendps,                         //!< Instruction 'vblendps' {AVX}.
     kIdVblendvpd,                        //!< Instruction 'vblendvpd' {AVX}.
@@ -1185,12 +1190,16 @@ struct Inst : public BaseInst {
     kIdVpavgb,                           //!< Instruction 'vpavgb' {AVX|AVX2|AVX512_BW+VL}.
     kIdVpavgw,                           //!< Instruction 'vpavgw' {AVX|AVX2|AVX512_BW+VL}.
     kIdVpblendd,                         //!< Instruction 'vpblendd' {AVX2}.
+    kIdVpblendmb,                        //!< Instruction 'vpblendmb' {AVX512_BW+VL}.
+    kIdVpblendmd,                        //!< Instruction 'vpblendmd' {AVX512_F+VL}.
+    kIdVpblendmq,                        //!< Instruction 'vpblendmq' {AVX512_F+VL}.
+    kIdVpblendmw,                        //!< Instruction 'vpblendmw' {AVX512_BW+VL}.
     kIdVpblendvb,                        //!< Instruction 'vpblendvb' {AVX|AVX2}.
     kIdVpblendw,                         //!< Instruction 'vpblendw' {AVX|AVX2}.
     kIdVpbroadcastb,                     //!< Instruction 'vpbroadcastb' {AVX2|AVX512_BW+VL}.
     kIdVpbroadcastd,                     //!< Instruction 'vpbroadcastd' {AVX2|AVX512_F+VL}.
-    kIdVpbroadcastmb2d,                  //!< Instruction 'vpbroadcastmb2d' {AVX512_CDI+VL}.
     kIdVpbroadcastmb2q,                  //!< Instruction 'vpbroadcastmb2q' {AVX512_CDI+VL}.
+    kIdVpbroadcastmw2d,                  //!< Instruction 'vpbroadcastmw2d' {AVX512_CDI+VL}.
     kIdVpbroadcastq,                     //!< Instruction 'vpbroadcastq' {AVX2|AVX512_F+VL}.
     kIdVpbroadcastw,                     //!< Instruction 'vpbroadcastw' {AVX2|AVX512_BW+VL}.
     kIdVpclmulqdq,                       //!< Instruction 'vpclmulqdq' {AVX|AVX512_F+VL & PCLMULQDQ|VPCLMULQDQ}.
@@ -1229,10 +1238,10 @@ struct Inst : public BaseInst {
     kIdVpcomw,                           //!< Instruction 'vpcomw' {XOP}.
     kIdVpconflictd,                      //!< Instruction 'vpconflictd' {AVX512_CDI+VL}.
     kIdVpconflictq,                      //!< Instruction 'vpconflictq' {AVX512_CDI+VL}.
-    kIdVpdpbusd,                         //!< Instruction 'vpdpbusd' {AVX512_VNNI+VL}.
-    kIdVpdpbusds,                        //!< Instruction 'vpdpbusds' {AVX512_VNNI+VL}.
-    kIdVpdpwssd,                         //!< Instruction 'vpdpwssd' {AVX512_VNNI+VL}.
-    kIdVpdpwssds,                        //!< Instruction 'vpdpwssds' {AVX512_VNNI+VL}.
+    kIdVpdpbusd,                         //!< Instruction 'vpdpbusd' {AVX_VNNI|AVX512_VNNI+VL}.
+    kIdVpdpbusds,                        //!< Instruction 'vpdpbusds' {AVX_VNNI|AVX512_VNNI+VL}.
+    kIdVpdpwssd,                         //!< Instruction 'vpdpwssd' {AVX_VNNI|AVX512_VNNI+VL}.
+    kIdVpdpwssds,                        //!< Instruction 'vpdpwssds' {AVX_VNNI|AVX512_VNNI+VL}.
     kIdVperm2f128,                       //!< Instruction 'vperm2f128' {AVX}.
     kIdVperm2i128,                       //!< Instruction 'vperm2i128' {AVX2}.
     kIdVpermb,                           //!< Instruction 'vpermb' {AVX512_VBMI+VL}.
@@ -1602,8 +1611,10 @@ struct Inst : public BaseInst {
 
   //! Instruction options.
   enum Options : uint32_t {
+    kOptionModMR          = 0x00000100u, //!< Use ModMR instead of ModRM if applicable.
+    kOptionModRM          = 0x00000200u, //!< Use ModRM instead of ModMR if applicable.
     kOptionVex3           = 0x00000400u, //!< Use 3-byte VEX prefix if possible (AVX) (must be 0x00000400).
-    kOptionModMR          = 0x00000800u, //!< Use ModMR instead of ModRM when it's available.
+    kOptionVex            = 0x00000800u, //!< Use VEX prefix when both VEX|EVEX prefixes are available (HINT: AVX_VNNI).
     kOptionEvex           = 0x00001000u, //!< Use 4-byte EVEX prefix if possible (AVX-512) (must be 0x00001000).
 
     kOptionLock           = 0x00002000u, //!< LOCK prefix (lock-enabled instructions only).
@@ -1723,16 +1734,16 @@ namespace Condition {
   static constexpr uint16_t cmovccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdCmov) };
   #undef ASMJIT_INST_FROM_COND
 
-  //! Reverse a condition code (reverses the corresponding operands of a comparison).
+  //! Reverses a condition code (reverses the corresponding operands of a comparison).
   static constexpr uint32_t reverse(uint32_t cond) noexcept { return reverseTable[cond]; }
-  //! Negate a condition code.
+  //! Negates a condition code.
   static constexpr uint32_t negate(uint32_t cond) noexcept { return cond ^ 1u; }
 
-  //! Translate a condition code `cond` to a `jcc` instruction id.
+  //! Translates a condition code `cond` to a `jcc` instruction id.
   static constexpr uint32_t toJcc(uint32_t cond) noexcept { return jccTable[cond]; }
-  //! Translate a condition code `cond` to a `setcc` instruction id.
+  //! Translates a condition code `cond` to a `setcc` instruction id.
   static constexpr uint32_t toSetcc(uint32_t cond) noexcept { return setccTable[cond]; }
-  //! Translate a condition code `cond` to a `cmovcc` instruction id.
+  //! Translates a condition code `cond` to a `cmovcc` instruction id.
   static constexpr uint32_t toCmovcc(uint32_t cond) noexcept { return cmovccTable[cond]; }
 }
 

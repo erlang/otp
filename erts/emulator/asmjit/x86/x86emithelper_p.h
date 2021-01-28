@@ -21,10 +21,15 @@
 //    misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-#ifndef ASMJIT_X86_X86CALLCONV_P_H_INCLUDED
-#define ASMJIT_X86_X86CALLCONV_P_H_INCLUDED
+#ifndef ASMJIT_X86_X86EMITHELPER_P_H_INCLUDED
+#define ASMJIT_X86_X86EMITHELPER_P_H_INCLUDED
 
-#include "../core/callconv.h"
+#include "../core/api-config.h"
+
+#include "../core/emithelper_p.h"
+#include "../core/func.h"
+#include "../x86/x86emitter.h"
+#include "../x86/x86operand.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -33,20 +38,41 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! \{
 
 // ============================================================================
-// [asmjit::x86::CallConvInternal]
+// [asmjit::x86::EmitHelper]
 // ============================================================================
 
-//! X86-specific function API (calling conventions and other utilities).
-namespace CallConvInternal {
+static ASMJIT_INLINE uint32_t vecTypeIdToRegType(uint32_t typeId) noexcept {
+  return typeId <= Type::_kIdVec128End ? Reg::kTypeXmm :
+         typeId <= Type::_kIdVec256End ? Reg::kTypeYmm : Reg::kTypeZmm;
+}
 
-//! Initialize `CallConv` structure (X86 specific).
-Error init(CallConv& cc, uint32_t ccId, const Environment& environment) noexcept;
+class EmitHelper : public BaseEmitHelper {
+public:
+  bool _avxEnabled;
 
-} // {CallConvInternal}
+  inline explicit EmitHelper(BaseEmitter* emitter = nullptr, bool avxEnabled = false) noexcept
+    : BaseEmitHelper(emitter),
+      _avxEnabled(avxEnabled) {}
+
+  Error emitRegMove(
+    const Operand_& dst_,
+    const Operand_& src_, uint32_t typeId, const char* comment = nullptr) override;
+
+  Error emitArgMove(
+    const BaseReg& dst_, uint32_t dstTypeId,
+    const Operand_& src_, uint32_t srcTypeId, const char* comment = nullptr) override;
+
+  Error emitRegSwap(
+    const BaseReg& a,
+    const BaseReg& b, const char* comment = nullptr) override;
+
+  Error emitProlog(const FuncFrame& frame);
+  Error emitEpilog(const FuncFrame& frame);
+};
 
 //! \}
 //! \endcond
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_X86_X86CALLCONV_P_H_INCLUDED
+#endif // ASMJIT_X86_X86EMITHELPER_P_H_INCLUDED

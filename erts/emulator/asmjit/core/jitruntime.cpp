@@ -35,11 +35,19 @@ ASMJIT_BEGIN_NAMESPACE
 
 // Only useful on non-x86 architectures.
 static inline void JitRuntime_flushInstructionCache(const void* p, size_t size) noexcept {
-#if defined(_WIN32) && !ASMJIT_ARCH_X86
+#if ASMJIT_ARCH_X86
+  DebugUtils::unused(p, size);
+#else
+# if defined(_WIN32)
   // Windows has a built-in support in `kernel32.dll`.
   ::FlushInstructionCache(::GetCurrentProcess(), p, size);
-#else
+# elif defined(__GNUC__)
+  char* start = static_cast<char*>(const_cast<void*>(p));
+  char* end = start + size;
+  __builtin___clear_cache(start, end);
+# else
   DebugUtils::unused(p, size);
+# endif
 #endif
 }
 

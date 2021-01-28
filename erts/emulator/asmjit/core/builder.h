@@ -97,23 +97,23 @@ public:
   ZoneAllocator _allocator;
 
   //! Array of `Pass` objects.
-  ZoneVector<Pass*> _passes;
+  ZoneVector<Pass*> _passes {};
   //! Maps section indexes to `LabelNode` nodes.
-  ZoneVector<SectionNode*> _sectionNodes;
+  ZoneVector<SectionNode*> _sectionNodes {};
   //! Maps label indexes to `LabelNode` nodes.
-  ZoneVector<LabelNode*> _labelNodes;
+  ZoneVector<LabelNode*> _labelNodes {};
 
   //! Current node (cursor).
-  BaseNode* _cursor;
+  BaseNode* _cursor = nullptr;
   //! First node of the current section.
-  BaseNode* _firstNode;
+  BaseNode* _firstNode = nullptr;
   //! Last node of the current section.
-  BaseNode* _lastNode;
+  BaseNode* _lastNode = nullptr;
 
   //! Flags assigned to each new node.
-  uint32_t _nodeFlags;
+  uint32_t _nodeFlags = 0;
   //! The sections links are dirty (used internally).
-  bool _dirtySectionLinks;
+  bool _dirtySectionLinks = false;
 
   //! \name Construction & Destruction
   //! \{
@@ -1393,9 +1393,9 @@ public:
   ASMJIT_NONCOPYABLE(Pass)
 
   //! BaseBuilder this pass is assigned to.
-  BaseBuilder* _cb;
+  BaseBuilder* _cb = nullptr;
   //! Name of the pass.
-  const char* _name;
+  const char* _name = nullptr;
 
   //! \name Construction & Destruction
   //! \{

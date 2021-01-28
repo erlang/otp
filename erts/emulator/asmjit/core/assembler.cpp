@@ -23,7 +23,7 @@
 
 #include "../core/api-build_p.h"
 #include "../core/assembler.h"
-#include "../core/codebufferwriter_p.h"
+#include "../core/codewriter_p.h"
 #include "../core/constpool.h"
 #include "../core/emitterutils_p.h"
 #include "../core/formatter.h"
@@ -37,11 +37,8 @@ ASMJIT_BEGIN_NAMESPACE
 // ============================================================================
 
 BaseAssembler::BaseAssembler() noexcept
-  : BaseEmitter(kTypeAssembler),
-    _section(nullptr),
-    _bufferData(nullptr),
-    _bufferEnd(nullptr),
-    _bufferPtr(nullptr) {}
+  : BaseEmitter(kTypeAssembler) {}
+
 BaseAssembler::~BaseAssembler() noexcept {}
 
 // ============================================================================
@@ -161,7 +158,7 @@ Error BaseAssembler::embed(const void* data, size_t dataSize) {
   if (dataSize == 0)
     return kErrorOk;
 
-  CodeBufferWriter writer(this);
+  CodeWriter writer(this);
   ASMJIT_PROPAGATE(writer.ensureSpace(this, dataSize));
 
   writer.emitData(data, dataSize);
@@ -194,7 +191,7 @@ Error BaseAssembler::embedDataArray(uint32_t typeId, const void* data, size_t it
   if (ASMJIT_UNLIKELY(of))
     return reportError(DebugUtils::errored(kErrorOutOfMemory));
 
-  CodeBufferWriter writer(this);
+  CodeWriter writer(this);
   ASMJIT_PROPAGATE(writer.ensureSpace(this, totalSize));
 
 #ifndef ASMJIT_NO_LOGGING
@@ -225,7 +222,7 @@ Error BaseAssembler::embedConstPool(const Label& label, const ConstPool& pool) {
   ASMJIT_PROPAGATE(bind(label));
 
   size_t size = pool.size();
-  CodeBufferWriter writer(this);
+  CodeWriter writer(this);
   ASMJIT_PROPAGATE(writer.ensureSpace(this, size));
 
   pool.fill(writer.cursor());
@@ -258,7 +255,7 @@ Error BaseAssembler::embedLabel(const Label& label, size_t dataSize) {
   if (ASMJIT_UNLIKELY(!Support::isPowerOf2(dataSize) || dataSize > 8))
     return reportError(DebugUtils::errored(kErrorInvalidOperandSize));
 
-  CodeBufferWriter writer(this);
+  CodeWriter writer(this);
   ASMJIT_PROPAGATE(writer.ensureSpace(this, dataSize));
 
 #ifndef ASMJIT_NO_LOGGING
@@ -271,21 +268,26 @@ Error BaseAssembler::embedLabel(const Label& label, size_t dataSize) {
   }
 #endif
 
-  Error err = _code->newRelocEntry(&re, RelocEntry::kTypeRelToAbs, uint32_t(dataSize));
+  Error err = _code->newRelocEntry(&re, RelocEntry::kTypeRelToAbs);
   if (ASMJIT_UNLIKELY(err))
     return reportError(err);
 
   re->_sourceSectionId = _section->id();
   re->_sourceOffset = offset();
+  re->_format.resetToDataValue(uint32_t(dataSize));
 
   if (le->isBound()) {
     re->_targetSectionId = le->section()->id();
     re->_payload = le->offset();
   }
   else {
-    LabelLink* link = _code->newLabelLink(le, _section->id(), offset(), 0);
+    OffsetFormat of;
+    of.resetToDataValue(uint32_t(dataSize));
+
+    LabelLink* link = _code->newLabelLink(le, _section->id(), offset(), 0, of);
     if (ASMJIT_UNLIKELY(!link))
       return reportError(DebugUtils::errored(kErrorOutOfMemory));
+
     link->relocId = re->id();
   }
 
@@ -312,7 +314,7 @@ Error BaseAssembler::embedLabelDelta(const Label& label, const Label& base, size
   if (ASMJIT_UNLIKELY(!Support::isPowerOf2(dataSize) || dataSize > 8))
     return reportError(DebugUtils::errored(kErrorInvalidOperandSize));
 
-  CodeBufferWriter writer(this);
+  CodeWriter writer(this);
   ASMJIT_PROPAGATE(writer.ensureSpace(this, dataSize));
 
 #ifndef ASMJIT_NO_LOGGING
@@ -334,7 +336,7 @@ Error BaseAssembler::embedLabelDelta(const Label& label, const Label& base, size
   }
   else {
     RelocEntry* re;
-    Error err = _code->newRelocEntry(&re, RelocEntry::kTypeExpression, uint32_t(dataSize));
+    Error err = _code->newRelocEntry(&re, RelocEntry::kTypeExpression);
     if (ASMJIT_UNLIKELY(err))
       return reportError(err);
 
@@ -347,6 +349,7 @@ Error BaseAssembler::embedLabelDelta(const Label& label, const Label& base, size
     exp->setValueAsLabel(0, labelEntry);
     exp->setValueAsLabel(1, baseEntry);
 
+    re->_format.resetToDataValue(dataSize);
     re->_sourceSectionId = _section->id();
     re->_sourceOffset = offset();
     re->_payload = (uint64_t)(uintptr_t)exp;
@@ -363,20 +366,23 @@ Error BaseAssembler::embedLabelDelta(const Label& label, const Label& base, size
 // ============================================================================
 
 Error BaseAssembler::comment(const char* data, size_t size) {
-  if (ASMJIT_UNLIKELY(!_code))
-    return reportError(DebugUtils::errored(kErrorNotInitialized));
-
-#ifndef ASMJIT_NO_LOGGING
-  if (_logger) {
-    _logger->log(data, size);
-    _logger->log("\n", 1);
+  if (!hasEmitterFlag(kFlagLogComments)) {
+    if (!hasEmitterFlag(kFlagAttached))
+      return reportError(DebugUtils::errored(kErrorNotInitialized));
     return kErrorOk;
   }
+
+#ifndef ASMJIT_NO_LOGGING
+  // Logger cannot be NULL if `kFlagLogComments` is set.
+  ASMJIT_ASSERT(_logger != nullptr);
+
+  _logger->log(data, size);
+  _logger->log("\n", 1);
+  return kErrorOk;
 #else
   DebugUtils::unused(data, size);
-#endif
-
   return kErrorOk;
+#endif
 }
 
 // ============================================================================

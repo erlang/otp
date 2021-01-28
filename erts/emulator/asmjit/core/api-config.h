@@ -68,9 +68,6 @@ namespace asmjit {
 //! Defined to build X86/X64 backend.
 #define ASMJIT_BUILD_X86
 
-//! Defined to build ARM/AArch64 backend.
-#define ASMJIT_BUILD_ARM
-
 //! Defined to build host backend autodetected at compile-time.
 #define ASMJIT_BUILD_HOST
 
@@ -102,7 +99,6 @@ namespace asmjit {
 #define ASMJIT_NO_INTROSPECTION
 
 // Avoid doxygen preprocessor using feature-selection definitions.
-#undef ASMJIT_NO_DEPRECATED
 #undef ASMJIT_NO_BUILDER
 #undef ASMJIT_NO_COMPILER
 #undef ASMJIT_NO_JIT
@@ -115,6 +111,13 @@ namespace asmjit {
 
 } // {asmjit}
 #endif // _DOXYGEN
+
+// Enable all features at IDE level, so it's properly highlighted and indexed.
+#ifdef __INTELLISENSE__
+  #ifndef ASMJIT_BUILD_X86
+    #define ASMJIT_BUILD_X86
+  #endif
+#endif
 
 // ============================================================================
 // [asmjit::Dependencies]
@@ -253,18 +256,10 @@ namespace asmjit {
   #if ASMJIT_ARCH_X86 && !defined(ASMJIT_BUILD_X86)
     #define ASMJIT_BUILD_X86
   #endif
-
-  #if ASMJIT_ARCH_ARM && !defined(ASMJIT_BUILD_ARM)
-    // #define ASMJIT_BUILD_ARM
-  #endif
 #endif
 
 // Define 'ASMJIT_BUILD_HOST' if we know that host architecture will be built.
 #if !defined(ASMJIT_BUILD_HOST) && ASMJIT_ARCH_X86 && defined(ASMJIT_BUILD_X86)
-  #define ASMJIT_BUILD_HOST
-#endif
-
-#if !defined(ASMJIT_BUILD_HOST) && ASMJIT_ARCH_ARM && defined(ASMJIT_BUILD_ARM)
   #define ASMJIT_BUILD_HOST
 #endif
 

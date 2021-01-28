@@ -46,21 +46,18 @@ public:
   typedef ptrdiff_t difference_type;
 
   //! Vector data (untyped).
-  void* _data;
+  void* _data = nullptr;
   //! Size of the vector.
-  size_type _size;
+  size_type _size = 0;
   //! Capacity of the vector.
-  size_type _capacity;
+  size_type _capacity = 0;
 
 protected:
   //! \name Construction & Destruction
   //! \{
 
   //! Creates a new instance of `ZoneVectorBase`.
-  inline ZoneVectorBase() noexcept
-    : _data(nullptr),
-      _size(0),
-      _capacity(0) {}
+  inline ZoneVectorBase() noexcept {}
 
   inline ZoneVectorBase(ZoneVectorBase&& other) noexcept
     : _data(other._data),
@@ -157,8 +154,8 @@ public:
 
   typedef T* iterator;
   typedef const T* const_iterator;
-  typedef std::reverse_iterator<T> reverse_iterator;
-  typedef std::reverse_iterator<const T> const_reverse_iterator;
+  typedef std::reverse_iterator<iterator> reverse_iterator;
+  typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
   //! \name Construction & Destruction
   //! \{
@@ -198,17 +195,17 @@ public:
   inline iterator end() noexcept { return iterator(data() + _size); };
   inline const_iterator end() const noexcept { return const_iterator(data() + _size); };
 
-  inline reverse_iterator rbegin() noexcept { return reverse_iterator(data()); };
-  inline const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(data()); };
+  inline reverse_iterator rbegin() noexcept { return reverse_iterator(end()); };
+  inline const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); };
 
-  inline reverse_iterator rend() noexcept { return reverse_iterator(data() + _size); };
-  inline const_reverse_iterator rend() const noexcept { return const_reverse_iterator(data() + _size); };
+  inline reverse_iterator rend() noexcept { return reverse_iterator(begin()); };
+  inline const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); };
 
   inline const_iterator cbegin() const noexcept { return const_iterator(data()); };
   inline const_iterator cend() const noexcept { return const_iterator(data() + _size); };
 
-  inline const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(data()); };
-  inline const_reverse_iterator crend() const noexcept { return const_reverse_iterator(data() + _size); };
+  inline const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(cend()); };
+  inline const_reverse_iterator crend() const noexcept { return const_reverse_iterator(cbegin()); };
 
   //! \}
 
@@ -436,11 +433,11 @@ public:
   static constexpr uint32_t kBitWordSizeInBits = Support::kBitWordSizeInBits;
 
   //! Bits.
-  BitWord* _data;
+  BitWord* _data = nullptr;
   //! Size of the bit-vector (in bits).
-  uint32_t _size;
+  uint32_t _size = 0;
   //! Capacity of the bit-vector (in bits).
-  uint32_t _capacity;
+  uint32_t _capacity = 0;
 
   ASMJIT_NONCOPYABLE(ZoneBitVector)
 
@@ -473,10 +470,7 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline ZoneBitVector() noexcept
-    : _data(nullptr),
-      _size(0),
-      _capacity(0) {}
+  inline ZoneBitVector() noexcept {}
 
   inline ZoneBitVector(ZoneBitVector&& other) noexcept
     : _data(other._data),

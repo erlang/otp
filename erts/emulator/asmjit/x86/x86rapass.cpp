@@ -31,7 +31,7 @@
 #include "../x86/x86compiler.h"
 #include "../x86/x86instapi_p.h"
 #include "../x86/x86instdb_p.h"
-#include "../x86/x86internal_p.h"
+#include "../x86/x86emithelper_p.h"
 #include "../x86/x86rapass_p.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
@@ -86,20 +86,20 @@ static ASMJIT_INLINE uint32_t raMemIndexRwFlags(uint32_t flags) noexcept {
 }
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder]
+// [asmjit::x86::RACFGBuilder]
 // ============================================================================
 
-class X86RACFGBuilder : public RACFGBuilder<X86RACFGBuilder> {
+class RACFGBuilder : public RACFGBuilderT<RACFGBuilder> {
 public:
   uint32_t _arch;
   bool _is64Bit;
   bool _avxEnabled;
 
-  inline X86RACFGBuilder(X86RAPass* pass) noexcept
-    : RACFGBuilder<X86RACFGBuilder>(pass),
+  inline RACFGBuilder(X86RAPass* pass) noexcept
+    : RACFGBuilderT<RACFGBuilder>(pass),
       _arch(pass->cc()->arch()),
       _is64Bit(pass->registerSize() == 8),
-      _avxEnabled(pass->_avxEnabled) {
+      _avxEnabled(pass->avxEnabled()) {
   }
 
   inline Compiler* cc() const noexcept { return static_cast<Compiler*>(_cc); }
@@ -123,10 +123,10 @@ public:
 };
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder - OnInst]
+// [asmjit::x86::RACFGBuilder - OnInst]
 // ============================================================================
 
-Error X86RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder& ib) noexcept {
+Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder& ib) noexcept {
   InstRWInfo rwInfo;
 
   uint32_t instId = inst->id();
@@ -400,10 +400,10 @@ Error X86RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuild
 }
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder - OnCall]
+// [asmjit::x86::RACFGBuilder - OnInvoke]
 // ============================================================================
 
-Error X86RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
+Error RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
   const FuncDetail& fd = invokeNode->detail();
   uint32_t argCount = invokeNode->argCount();
 
@@ -503,7 +503,7 @@ Error X86RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
             if (workReg->group() != Reg::kGroupVec)
               return DebugUtils::errored(kErrorInvalidAssignment);
 
-            Reg dst = Reg(workReg->signature(), workReg->virtId());
+            Reg dst = Reg::fromSignatureAndId(workReg->signature(), workReg->virtId());
             Mem mem;
 
             uint32_t typeId = Type::baseOf(workReg->typeId());
@@ -543,7 +543,7 @@ Error X86RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
     }
   }
 
-  // This block has function invokeNode(s).
+  // This block has function call(s).
   _curBlock->addFlags(RABlock::kFlagHasFuncCalls);
   _pass->func()->frame().addAttributes(FuncFrame::kAttrHasFuncCalls);
   _pass->func()->frame().updateCallStackSize(fd.argStackSize());
@@ -551,7 +551,7 @@ Error X86RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
   return kErrorOk;
 }
 
-Error X86RACFGBuilder::onInvoke(InvokeNode* invokeNode, RAInstBuilder& ib) noexcept {
+Error RACFGBuilder::onInvoke(InvokeNode* invokeNode, RAInstBuilder& ib) noexcept {
   uint32_t argCount = invokeNode->argCount();
   const FuncDetail& fd = invokeNode->detail();
 
@@ -629,7 +629,7 @@ Error X86RACFGBuilder::onInvoke(InvokeNode* invokeNode, RAInstBuilder& ib) noexc
 }
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder - MoveVecToPtr]
+// [asmjit::x86::RACFGBuilder - MoveVecToPtr]
 // ============================================================================
 
 static uint32_t x86VecRegSignatureBySize(uint32_t size) noexcept {
@@ -641,7 +641,7 @@ static uint32_t x86VecRegSignatureBySize(uint32_t size) noexcept {
     return Xmm::kSignature;
 }
 
-Error X86RACFGBuilder::moveVecToPtr(InvokeNode* invokeNode, const FuncValue& arg, const Vec& src, BaseReg* out) noexcept {
+Error RACFGBuilder::moveVecToPtr(InvokeNode* invokeNode, const FuncValue& arg, const Vec& src, BaseReg* out) noexcept {
   DebugUtils::unused(invokeNode);
   ASMJIT_ASSERT(arg.isReg());
 
@@ -656,7 +656,7 @@ Error X86RACFGBuilder::moveVecToPtr(InvokeNode* invokeNode, const FuncValue& arg
   _funcNode->frame().updateCallStackAlignment(argSize);
   invokeNode->detail()._argStackSize = argStackOffset + argSize;
 
-  Vec vecReg(x86VecRegSignatureBySize(argSize), src.id());
+  Vec vecReg = Vec::fromSignatureAndId(x86VecRegSignatureBySize(argSize), src.id());
   Mem vecPtr = ptr(_pass->_sp.as<Gp>(), int32_t(argStackOffset));
 
   uint32_t vMovInstId = choose(Inst::kIdMovaps, Inst::kIdVmovaps);
@@ -666,7 +666,7 @@ Error X86RACFGBuilder::moveVecToPtr(InvokeNode* invokeNode, const FuncValue& arg
   ASMJIT_PROPAGATE(cc()->_newReg(out, cc()->_gpRegInfo.type(), nullptr));
 
   VirtReg* vReg = cc()->virtRegById(out->id());
-  vReg->setWeight(RAPass::kCallArgWeight);
+  vReg->setWeight(BaseRAPass::kCallArgWeight);
 
   ASMJIT_PROPAGATE(cc()->lea(out->as<Gp>(), vecPtr));
   ASMJIT_PROPAGATE(cc()->emit(vMovInstId, ptr(out->as<Gp>()), vecReg));
@@ -680,10 +680,10 @@ Error X86RACFGBuilder::moveVecToPtr(InvokeNode* invokeNode, const FuncValue& arg
 }
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder - MoveImmToRegArg]
+// [asmjit::x86::RACFGBuilder - MoveImmToRegArg]
 // ============================================================================
 
-Error X86RACFGBuilder::moveImmToRegArg(InvokeNode* invokeNode, const FuncValue& arg, const Imm& imm_, BaseReg* out) noexcept {
+Error RACFGBuilder::moveImmToRegArg(InvokeNode* invokeNode, const FuncValue& arg, const Imm& imm_, BaseReg* out) noexcept {
   DebugUtils::unused(invokeNode);
   ASMJIT_ASSERT(arg.isReg());
 
@@ -718,16 +718,16 @@ MovU32:
   }
 
   ASMJIT_PROPAGATE(cc()->_newReg(out, rTypeId, nullptr));
-  cc()->virtRegById(out->id())->setWeight(RAPass::kCallArgWeight);
+  cc()->virtRegById(out->id())->setWeight(BaseRAPass::kCallArgWeight);
 
   return cc()->mov(out->as<x86::Gp>(), imm);
 }
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder - MoveImmToStackArg]
+// [asmjit::x86::RACFGBuilder - MoveImmToStackArg]
 // ============================================================================
 
-Error X86RACFGBuilder::moveImmToStackArg(InvokeNode* invokeNode, const FuncValue& arg, const Imm& imm_) noexcept {
+Error RACFGBuilder::moveImmToStackArg(InvokeNode* invokeNode, const FuncValue& arg, const Imm& imm_) noexcept {
   DebugUtils::unused(invokeNode);
   ASMJIT_ASSERT(arg.isStack());
 
@@ -786,10 +786,10 @@ MovU32:
 }
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder - MoveRegToStackArg]
+// [asmjit::x86::RACFGBuilder - MoveRegToStackArg]
 // ============================================================================
 
-Error X86RACFGBuilder::moveRegToStackArg(InvokeNode* invokeNode, const FuncValue& arg, const BaseReg& reg) noexcept {
+Error RACFGBuilder::moveRegToStackArg(InvokeNode* invokeNode, const FuncValue& arg, const BaseReg& reg) noexcept {
   DebugUtils::unused(invokeNode);
   ASMJIT_ASSERT(arg.isStack());
 
@@ -992,10 +992,10 @@ MovXmmQ:
 }
 
 // ============================================================================
-// [asmjit::x86::X86RACFGBuilder - OnReg]
+// [asmjit::x86::RACFGBuilder - OnReg]
 // ============================================================================
 
-Error X86RACFGBuilder::onBeforeRet(FuncRetNode* funcRet) noexcept {
+Error RACFGBuilder::onBeforeRet(FuncRetNode* funcRet) noexcept {
   const FuncDetail& funcDetail = _pass->func()->detail();
   const Operand* opArray = funcRet->operands();
   uint32_t opCount = funcRet->opCount();
@@ -1020,7 +1020,7 @@ Error X86RACFGBuilder::onBeforeRet(FuncRetNode* funcRet) noexcept {
         if (workReg->group() != Reg::kGroupVec)
           return DebugUtils::errored(kErrorInvalidAssignment);
 
-        Reg src = Reg(workReg->signature(), workReg->virtId());
+        Reg src = Reg::fromSignatureAndId(workReg->signature(), workReg->virtId());
         Mem mem;
 
         uint32_t typeId = Type::baseOf(workReg->typeId());
@@ -1052,7 +1052,7 @@ Error X86RACFGBuilder::onBeforeRet(FuncRetNode* funcRet) noexcept {
   return kErrorOk;
 }
 
-Error X86RACFGBuilder::onRet(FuncRetNode* funcRet, RAInstBuilder& ib) noexcept {
+Error RACFGBuilder::onRet(FuncRetNode* funcRet, RAInstBuilder& ib) noexcept {
   const FuncDetail& funcDetail = _pass->func()->detail();
   const Operand* opArray = funcRet->operands();
   uint32_t opCount = funcRet->opCount();
@@ -1096,8 +1096,7 @@ Error X86RACFGBuilder::onRet(FuncRetNode* funcRet, RAInstBuilder& ib) noexcept {
 // ============================================================================
 
 X86RAPass::X86RAPass() noexcept
-  : RAPass(),
-    _avxEnabled(false) {}
+  : BaseRAPass() { _iEmitHelper = &_emitHelper; }
 X86RAPass::~X86RAPass() noexcept {}
 
 // ============================================================================
@@ -1108,9 +1107,10 @@ void X86RAPass::onInit() noexcept {
   uint32_t arch = cc()->arch();
   uint32_t baseRegCount = Environment::is32Bit(arch) ? 8u : 16u;
 
-  _archRegsInfo = &opData.archRegs;
-  _archTraits[Reg::kGroupGp] |= RAArchTraits::kHasSwap;
+  _emitHelper._emitter = _cb;
+  _emitHelper._avxEnabled = _func->frame().isAvxEnabled();
 
+  _archTraits = &ArchTraits::byArch(arch);
   _physRegCount.set(Reg::kGroupGp  , baseRegCount);
   _physRegCount.set(Reg::kGroupVec , baseRegCount);
   _physRegCount.set(Reg::kGroupMm  , 8);
@@ -1135,7 +1135,6 @@ void X86RAPass::onInit() noexcept {
 
   _sp = cc()->zsp();
   _fp = cc()->zbp();
-  _avxEnabled = _func->frame().isAvxEnabled();
 }
 
 void X86RAPass::onDone() noexcept {}
@@ -1145,17 +1144,17 @@ void X86RAPass::onDone() noexcept {}
 // ============================================================================
 
 Error X86RAPass::buildCFG() noexcept {
-  return X86RACFGBuilder(this).run();
+  return RACFGBuilder(this).run();
 }
 
 // ============================================================================
 // [asmjit::x86::X86RAPass - OnEmit]
 // ============================================================================
 
-Error X86RAPass::onEmitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept {
+Error X86RAPass::emitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept {
   RAWorkReg* wReg = workRegById(workId);
-  BaseReg dst(wReg->info().signature(), dstPhysId);
-  BaseReg src(wReg->info().signature(), srcPhysId);
+  BaseReg dst = BaseReg::fromSignatureAndId(wReg->info().signature(), dstPhysId);
+  BaseReg src = BaseReg::fromSignatureAndId(wReg->info().signature(), srcPhysId);
 
   const char* comment = nullptr;
 
@@ -1166,10 +1165,10 @@ Error X86RAPass::onEmitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhy
   }
 #endif
 
-  return X86Internal::emitRegMove(cc()->as<Emitter>(), dst, src, wReg->typeId(), _avxEnabled, comment);
+  return _emitHelper.emitRegMove(dst, src, wReg->typeId(), comment);
 }
 
-Error X86RAPass::onEmitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept {
+Error X86RAPass::emitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept {
   RAWorkReg* waReg = workRegById(aWorkId);
   RAWorkReg* wbReg = workRegById(bWorkId);
 
@@ -1184,13 +1183,15 @@ Error X86RAPass::onEmitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId
   }
 #endif
 
-  return cc()->emit(Inst::kIdXchg, Reg(sign, aPhysId), Reg(sign, bPhysId));
+  return cc()->emit(Inst::kIdXchg,
+                    Reg::fromSignatureAndId(sign, aPhysId),
+                    Reg::fromSignatureAndId(sign, bPhysId));
 }
 
-Error X86RAPass::onEmitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
+Error X86RAPass::emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
   RAWorkReg* wReg = workRegById(workId);
-  BaseReg dstReg(wReg->info().signature(), dstPhysId);
-  BaseMem srcMem(workRegAsMem(wReg));
+  BaseReg dstReg = BaseReg::fromSignatureAndId(wReg->info().signature(), dstPhysId);
+  BaseMem srcMem = BaseMem(workRegAsMem(wReg));
 
   const char* comment = nullptr;
 
@@ -1201,13 +1202,13 @@ Error X86RAPass::onEmitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
   }
 #endif
 
-  return X86Internal::emitRegMove(cc()->as<Emitter>(), dstReg, srcMem, wReg->typeId(), _avxEnabled, comment);
+  return _emitHelper.emitRegMove(dstReg, srcMem, wReg->typeId(), comment);
 }
 
-Error X86RAPass::onEmitSave(uint32_t workId, uint32_t srcPhysId) noexcept {
+Error X86RAPass::emitSave(uint32_t workId, uint32_t srcPhysId) noexcept {
   RAWorkReg* wReg = workRegById(workId);
-  BaseMem dstMem(workRegAsMem(wReg));
-  BaseReg srcReg(wReg->info().signature(), srcPhysId);
+  BaseMem dstMem = BaseMem(workRegAsMem(wReg));
+  BaseReg srcReg = BaseReg::fromSignatureAndId(wReg->info().signature(), srcPhysId);
 
   const char* comment = nullptr;
 
@@ -1218,14 +1219,14 @@ Error X86RAPass::onEmitSave(uint32_t workId, uint32_t srcPhysId) noexcept {
   }
 #endif
 
-  return X86Internal::emitRegMove(cc()->as<Emitter>(), dstMem, srcReg, wReg->typeId(), _avxEnabled, comment);
+  return _emitHelper.emitRegMove(dstMem, srcReg, wReg->typeId(), comment);
 }
 
-Error X86RAPass::onEmitJump(const Label& label) noexcept {
+Error X86RAPass::emitJump(const Label& label) noexcept {
   return cc()->jmp(label);
 }
 
-Error X86RAPass::onEmitPreCall(InvokeNode* invokeNode) noexcept {
+Error X86RAPass::emitPreCall(InvokeNode* invokeNode) noexcept {
   if (invokeNode->detail().hasVarArgs() && cc()->is64Bit()) {
     const FuncDetail& fd = invokeNode->detail();
     uint32_t argCount = invokeNode->argCount();

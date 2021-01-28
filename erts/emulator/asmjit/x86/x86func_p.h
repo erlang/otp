@@ -21,44 +21,35 @@
 //    misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-#ifndef ASMJIT_CORE_ARCH_H_INCLUDED
-#define ASMJIT_CORE_ARCH_H_INCLUDED
+#ifndef ASMJIT_X86_X86FUNC_P_H_INCLUDED
+#define ASMJIT_X86_X86FUNC_P_H_INCLUDED
 
-#include "../core/environment.h"
-#include "../core/operand.h"
+#include "../core/func.h"
 
-ASMJIT_BEGIN_NAMESPACE
+ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
-//! \addtogroup asmjit_core
+//! \cond INTERNAL
+//! \addtogroup asmjit_x86
 //! \{
 
 // ============================================================================
-// [asmjit::ArchRegs]
+// [asmjit::x86::FuncInternal]
 // ============================================================================
 
-//! Information about registers of a CPU architecture.
-struct ArchRegs {
-  //! Register information and signatures indexed by `BaseReg::RegType`.
-  RegInfo regInfo[BaseReg::kTypeMax + 1];
-  //! Count (maximum) of registers per `BaseReg::RegType`.
-  uint8_t regCount[BaseReg::kTypeMax + 1];
-  //! Converts RegType to TypeId, see `Type::Id`.
-  uint8_t regTypeToTypeId[BaseReg::kTypeMax + 1];
-};
+//! X86-specific function API (calling conventions and other utilities).
+namespace FuncInternal {
 
-// ============================================================================
-// [asmjit::ArchUtils]
-// ============================================================================
+//! Initialize `CallConv` structure (X86 specific).
+Error initCallConv(CallConv& cc, uint32_t ccId, const Environment& environment) noexcept;
 
-//! Architecture utilities.
-namespace ArchUtils {
+//! Initialize `FuncDetail` (X86 specific).
+Error initFuncDetail(FuncDetail& func, const FuncSignature& signature, uint32_t registerSize) noexcept;
 
-ASMJIT_API Error typeIdToRegInfo(uint32_t arch, uint32_t typeId, uint32_t* typeIdOut, RegInfo* regInfo) noexcept;
-
-} // {ArchUtils}
+} // {FuncInternal}
 
 //! \}
+//! \endcond
 
-ASMJIT_END_NAMESPACE
+ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_CORE_ARCH_H_INCLUDED
+#endif // ASMJIT_X86_X86FUNC_P_H_INCLUDED

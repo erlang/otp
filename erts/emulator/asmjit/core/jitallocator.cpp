@@ -24,7 +24,7 @@
 #include "../core/api-build_p.h"
 #ifndef ASMJIT_NO_JIT
 
-#include "../core/arch.h"
+#include "../core/archtraits.h"
 #include "../core/jitallocator.h"
 #include "../core/osutils_p.h"
 #include "../core/support.h"
@@ -50,8 +50,8 @@ enum JitAllocatorConstants : uint32_t {
   //! Minimum granularity (and the default granularity for pool #0).
   kJitAllocatorBaseGranularity = 64,
 
-  //! Maximum block size (16MB).
-  kJitAllocatorMaxBlockSize = 1024 * 1024 * 16
+  //! Maximum block size (32MB).
+  kJitAllocatorMaxBlockSize = 1024 * 1024 * 32
 };
 
 static inline uint32_t JitAllocator_defaultFillPattern() noexcept {
@@ -64,82 +64,93 @@ static inline uint32_t JitAllocator_defaultFillPattern() noexcept {
 }
 
 // ============================================================================
-// [asmjit::JitAllocator - BitFlipIterator]
+// [asmjit::BitVectorRangeIterator]
 // ============================================================================
 
-//! BitWord[] iterator used by `JitAllocator` that can flip the search pattern
-//! during iteration.
-template<typename T>
-class BitFlipIterator {
+template<typename T, uint32_t B>
+class BitVectorRangeIterator {
 public:
-  ASMJIT_INLINE BitFlipIterator(const T* data, size_t numBitWords, size_t start = 0, T xorMask = 0) noexcept {
-    init(data, numBitWords, start, xorMask);
+  const T* _ptr;
+  size_t _idx;
+  size_t _end;
+  T _bitWord;
+
+  enum : uint32_t { kBitWordSize = Support::bitSizeOf<T>() };
+  enum : T { kXorMask = B == 0 ? Support::allOnes<T>() : T(0) };
+
+  ASMJIT_INLINE BitVectorRangeIterator(const T* data, size_t numBitWords) noexcept {
+    init(data, numBitWords);
   }
 
-  ASMJIT_INLINE void init(const T* data, size_t numBitWords, size_t start = 0, T xorMask = 0) noexcept {
-    const T* ptr = data + (start / Support::bitSizeOf<T>());
-    size_t idx = Support::alignDown(start, Support::bitSizeOf<T>());
-    size_t end = numBitWords * Support::bitSizeOf<T>();
+  ASMJIT_INLINE BitVectorRangeIterator(const T* data, size_t numBitWords, size_t start, size_t end) noexcept {
+    init(data, numBitWords, start, end);
+  }
 
-    T bitWord = T(0);
-    if (idx < end) {
-      bitWord = (*ptr++ ^ xorMask) & (Support::allOnes<T>() << (start % Support::bitSizeOf<T>()));
-      while (!bitWord && (idx += Support::bitSizeOf<T>()) < end)
-        bitWord = *ptr++ ^ xorMask;
-    }
+  ASMJIT_INLINE void init(const T* data, size_t numBitWords) noexcept {
+    init(data, numBitWords, 0, numBitWords * kBitWordSize);
+  }
+
+  ASMJIT_INLINE void init(const T* data, size_t numBitWords, size_t start, size_t end) noexcept {
+    ASMJIT_ASSERT(numBitWords >= (end + kBitWordSize - 1) / kBitWordSize);
+    DebugUtils::unused(numBitWords);
+
+    size_t idx = Support::alignDown(start, kBitWordSize);
+    const T* ptr = data + (idx / kBitWordSize);
+
+    T bitWord = 0;
+    if (idx < end)
+      bitWord = (*ptr ^ kXorMask) & (Support::allOnes<T>() << (start % kBitWordSize));
 
     _ptr = ptr;
     _idx = idx;
     _end = end;
-    _current = bitWord;
-    _xorMask = xorMask;
+    _bitWord = bitWord;
   }
 
-  ASMJIT_INLINE bool hasNext() const noexcept {
-    return _current != T(0);
+  ASMJIT_INLINE bool nextRange(size_t* rangeStart, size_t* rangeEnd, size_t rangeHint = std::numeric_limits<size_t>::max()) noexcept {
+    // Skip all empty BitWords.
+    while (_bitWord == 0) {
+      _idx += kBitWordSize;
+      if (_idx >= _end)
+        return false;
+      _bitWord = (*++_ptr) ^ kXorMask;
+    }
+
+    size_t i = Support::ctz(_bitWord);
+
+    *rangeStart = _idx + i;
+    _bitWord = ~(_bitWord ^ ~(Support::allOnes<T>() << i));
+
+    if (_bitWord == 0) {
+      *rangeEnd = Support::min(_idx + kBitWordSize, _end);
+      while (*rangeEnd - *rangeStart < rangeHint) {
+        _idx += kBitWordSize;
+        if (_idx >= _end)
+          break;
+
+        _bitWord = (*++_ptr) ^ kXorMask;
+        if (_bitWord != Support::allOnes<T>()) {
+          size_t j = Support::ctz(~_bitWord);
+          *rangeEnd = Support::min(_idx + j, _end);
+          _bitWord = _bitWord ^ ~(Support::allOnes<T>() << j);
+          break;
+        }
+
+        *rangeEnd = Support::min(_idx + kBitWordSize, _end);
+        _bitWord = 0;
+        continue;
+      }
+
+      return true;
+    }
+    else {
+      size_t j = Support::ctz(_bitWord);
+      *rangeEnd = Support::min(_idx + j, _end);
+
+      _bitWord = ~(_bitWord ^ ~(Support::allOnes<T>() << j));
+      return true;
+    }
   }
-
-  ASMJIT_INLINE size_t next() noexcept {
-    T bitWord = _current;
-    ASMJIT_ASSERT(bitWord != T(0));
-
-    uint32_t bit = Support::ctz(bitWord);
-    bitWord ^= T(1u) << bit;
-
-    size_t n = _idx + bit;
-    while (!bitWord && (_idx += Support::bitSizeOf<T>()) < _end)
-      bitWord = *_ptr++ ^ _xorMask;
-
-    _current = bitWord;
-    return n;
-  }
-
-  ASMJIT_INLINE size_t nextAndFlip() noexcept {
-    T bitWord = _current;
-    ASMJIT_ASSERT(bitWord != T(0));
-
-    uint32_t bit = Support::ctz(bitWord);
-    bitWord ^= Support::allOnes<T>() << bit;
-    _xorMask ^= Support::allOnes<T>();
-
-    size_t n = _idx + bit;
-    while (!bitWord && (_idx += Support::bitSizeOf<T>()) < _end)
-      bitWord = *_ptr++ ^ _xorMask;
-
-    _current = bitWord;
-    return n;
-  }
-
-  ASMJIT_INLINE size_t peekNext() const noexcept {
-    ASMJIT_ASSERT(_current != T(0));
-    return _idx + Support::ctz(_current);
-  }
-
-  const T* _ptr;
-  size_t _idx;
-  size_t _end;
-  T _current;
-  T _xorMask;
 };
 
 // ============================================================================
@@ -220,6 +231,32 @@ public:
     kFlagDualMapped = 0x00000004u
   };
 
+  //! Link to the pool that owns this block.
+  JitAllocatorPool* _pool;
+  //! Virtual memory mapping - either single mapping (both pointers equal) or
+  //! dual mapping, where one pointer is Read+Execute and the second Read+Write.
+  VirtMem::DualMapping _mapping;
+  //! Virtual memory size (block size) [bytes].
+  size_t _blockSize;
+
+  //! Block flags.
+  uint32_t _flags;
+  //! Size of the whole block area (bit-vector size).
+  uint32_t _areaSize;
+  //! Used area (number of bits in bit-vector used).
+  uint32_t _areaUsed;
+  //! The largest unused continuous area in the bit-vector (or `areaSize` to initiate rescan).
+  uint32_t _largestUnusedArea;
+  //! Start of a search range (for unused bits).
+  uint32_t _searchStart;
+  //! End of a search range (for unused bits).
+  uint32_t _searchEnd;
+
+  //! Used bit-vector (0 = unused, 1 = used).
+  Support::BitWord* _usedBitVector;
+  //! Stop bit-vector (0 = don't care, 1 = stop).
+  Support::BitWord* _stopBitVector;
+
   inline JitAllocatorBlock(
     JitAllocatorPool* pool,
     VirtMem::DualMapping mapping,
@@ -229,35 +266,113 @@ public:
     Support::BitWord* stopBitVector,
     uint32_t areaSize) noexcept
     : ZoneTreeNodeT(),
-      pool(pool),
-      mapping(mapping),
-      blockSize(blockSize),
-      flags(blockFlags),
-      areaSize(areaSize),
-      areaUsed(0),
-      largestUnusedArea(areaSize),
-      searchStart(0),
-      searchEnd(areaSize),
-      usedBitVector(usedBitVector),
-      stopBitVector(stopBitVector) {}
+      _pool(pool),
+      _mapping(mapping),
+      _blockSize(blockSize),
+      _flags(blockFlags),
+      _areaSize(areaSize),
+      _areaUsed(0),
+      _largestUnusedArea(areaSize),
+      _searchStart(0),
+      _searchEnd(areaSize),
+      _usedBitVector(usedBitVector),
+      _stopBitVector(stopBitVector) {}
 
-  inline uint8_t* roPtr() const noexcept { return static_cast<uint8_t*>(mapping.ro); }
-  inline uint8_t* rwPtr() const noexcept { return static_cast<uint8_t*>(mapping.rw); }
+  inline JitAllocatorPool* pool() const noexcept { return _pool; }
 
-  inline bool hasFlag(uint32_t f) const noexcept { return (flags & f) != 0; }
-  inline void addFlags(uint32_t f) noexcept { flags |= f; }
-  inline void clearFlags(uint32_t f) noexcept { flags &= ~f; }
+  inline uint8_t* roPtr() const noexcept { return static_cast<uint8_t*>(_mapping.ro); }
+  inline uint8_t* rwPtr() const noexcept { return static_cast<uint8_t*>(_mapping.rw); }
 
-  inline uint32_t areaAvailable() const noexcept { return areaSize - areaUsed; }
+  inline bool hasFlag(uint32_t f) const noexcept { return (_flags & f) != 0; }
+  inline void addFlags(uint32_t f) noexcept { _flags |= f; }
+  inline void clearFlags(uint32_t f) noexcept { _flags &= ~f; }
 
-  inline void increaseUsedArea(uint32_t value) noexcept {
-    areaUsed += value;
-    pool->totalAreaUsed += value;
-  }
+  inline bool isDirty() const noexcept { return hasFlag(kFlagDirty); }
+  inline void makeDirty() noexcept { addFlags(kFlagDirty); }
+
+  inline size_t blockSize() const noexcept { return _blockSize; }
+
+  inline uint32_t areaSize() const noexcept { return _areaSize; }
+  inline uint32_t areaUsed() const noexcept { return _areaUsed; }
+  inline uint32_t areaAvailable() const noexcept { return _areaSize - _areaUsed; }
+  inline uint32_t largestUnusedArea() const noexcept { return _largestUnusedArea; }
 
   inline void decreaseUsedArea(uint32_t value) noexcept {
-    areaUsed -= value;
-    pool->totalAreaUsed -= value;
+    _areaUsed -= value;
+    _pool->totalAreaUsed -= value;
+  }
+
+  inline void markAllocatedArea(uint32_t allocatedAreaStart, uint32_t allocatedAreaEnd) noexcept {
+    uint32_t allocatedAreaSize = allocatedAreaEnd - allocatedAreaStart;
+
+    // Mark the newly allocated space as occupied and also the sentinel.
+    Support::bitVectorFill(_usedBitVector, allocatedAreaStart, allocatedAreaSize);
+    Support::bitVectorSetBit(_stopBitVector, allocatedAreaEnd - 1, true);
+
+    // Update search region and statistics.
+    _pool->totalAreaUsed += allocatedAreaSize;
+    _areaUsed += allocatedAreaSize;
+
+    if (areaAvailable() == 0) {
+      _searchStart = _areaSize;
+      _searchEnd = 0;
+      _largestUnusedArea = 0;
+      clearFlags(kFlagDirty);
+    }
+    else {
+      if (_searchStart == allocatedAreaStart)
+        _searchStart = allocatedAreaEnd;
+      if (_searchEnd == allocatedAreaEnd)
+        _searchEnd = allocatedAreaStart;
+      addFlags(kFlagDirty);
+    }
+  }
+
+  inline void markReleasedArea(uint32_t releasedAreaStart, uint32_t releasedAreaEnd) noexcept {
+    uint32_t releasedAreaSize = releasedAreaEnd - releasedAreaStart;
+
+    // Update the search region and statistics.
+    _pool->totalAreaUsed -= releasedAreaSize;
+    _areaUsed -= releasedAreaSize;
+    _searchStart = Support::min(_searchStart, releasedAreaStart);
+    _searchEnd = Support::max(_searchEnd, releasedAreaEnd);
+
+    // Unmark occupied bits and also the sentinel.
+    Support::bitVectorClear(_usedBitVector, releasedAreaStart, releasedAreaSize);
+    Support::bitVectorSetBit(_stopBitVector, releasedAreaEnd - 1, false);
+
+    if (areaUsed() == 0) {
+      _searchStart = 0;
+      _searchEnd = _areaSize;
+      _largestUnusedArea = _areaSize;
+      addFlags(kFlagEmpty);
+      clearFlags(kFlagDirty);
+    }
+    else {
+      addFlags(kFlagDirty);
+    }
+  }
+
+  inline void markShrunkArea(uint32_t shrunkAreaStart, uint32_t shrunkAreaEnd) noexcept {
+    uint32_t shrunkAreaSize = shrunkAreaEnd - shrunkAreaStart;
+
+    // Shrunk area cannot start at zero as it would mean that we have shrunk the first
+    // block to zero bytes, which is not allowed as such block must be released instead.
+    ASMJIT_ASSERT(shrunkAreaStart != 0);
+    ASMJIT_ASSERT(shrunkAreaSize != 0);
+
+    // Update the search region and statistics.
+    _pool->totalAreaUsed -= shrunkAreaSize;
+    _areaUsed -= shrunkAreaSize;
+    _searchStart = Support::min(_searchStart, shrunkAreaStart);
+    _searchEnd = Support::max(_searchEnd, shrunkAreaEnd);
+
+    // Unmark the released space and move the sentinel.
+    Support::bitVectorClear(_usedBitVector, shrunkAreaStart, shrunkAreaSize);
+    Support::bitVectorSetBit(_stopBitVector, shrunkAreaEnd - 1, false);
+    Support::bitVectorSetBit(_stopBitVector, shrunkAreaStart - 1, true);
+
+    addFlags(kFlagDirty);
   }
 
   // RBTree default CMP uses '<' and '>' operators.
@@ -265,34 +380,8 @@ public:
   inline bool operator>(const JitAllocatorBlock& other) const noexcept { return roPtr() > other.roPtr(); }
 
   // Special implementation for querying blocks by `key`, which must be in `[BlockPtr, BlockPtr + BlockSize)` range.
-  inline bool operator<(const uint8_t* key) const noexcept { return roPtr() + blockSize <= key; }
+  inline bool operator<(const uint8_t* key) const noexcept { return roPtr() + _blockSize <= key; }
   inline bool operator>(const uint8_t* key) const noexcept { return roPtr() > key; }
-
-  //! Link to the pool that owns this block.
-  JitAllocatorPool* pool;
-  //! Virtual memory mapping - either single mapping (both pointers equal) or
-  //! dual mapping, where one pointer is Read+Execute and the second Read+Write.
-  VirtMem::DualMapping mapping;
-  //! Virtual memory size (block size) [bytes].
-  size_t blockSize;
-
-  //! Block flags.
-  uint32_t flags;
-  //! Size of the whole block area (bit-vector size).
-  uint32_t areaSize;
-  //! Used area (number of bits in bit-vector used).
-  uint32_t areaUsed;
-  //! The largest unused continuous area in the bit-vector (or `areaSize` to initiate rescan).
-  uint32_t largestUnusedArea;
-  //! Start of a search range (for unused bits).
-  uint32_t searchStart;
-  //! End of a search range (for unused bits).
-  uint32_t searchEnd;
-
-  //! Used bit-vector (0 = unused, 1 = used).
-  Support::BitWord* usedBitVector;
-  //! Stop bit-vector (0 = don't care, 1 = stop).
-  Support::BitWord* stopBitVector;
 };
 
 // ============================================================================
@@ -401,7 +490,7 @@ static inline size_t JitAllocatorImpl_bitVectorSizeToByteSize(uint32_t areaSize)
 
 static inline size_t JitAllocatorImpl_calculateIdealBlockSize(JitAllocatorPrivateImpl* impl, JitAllocatorPool* pool, size_t allocationSize) noexcept {
   JitAllocatorBlock* last = pool->blocks.last();
-  size_t blockSize = last ? last->blockSize : size_t(impl->blockSize);
+  size_t blockSize = last ? last->blockSize() : size_t(impl->blockSize);
 
   if (blockSize < kJitAllocatorMaxBlockSize)
     blockSize *= 2u;
@@ -472,17 +561,17 @@ static JitAllocatorBlock* JitAllocatorImpl_newBlock(JitAllocatorPrivateImpl* imp
 static void JitAllocatorImpl_deleteBlock(JitAllocatorPrivateImpl* impl, JitAllocatorBlock* block) noexcept {
   DebugUtils::unused(impl);
 
-  if (block->flags & JitAllocatorBlock::kFlagDualMapped)
-    VirtMem::releaseDualMapping(&block->mapping, block->blockSize);
+  if (block->hasFlag(JitAllocatorBlock::kFlagDualMapped))
+    VirtMem::releaseDualMapping(&block->_mapping, block->blockSize());
   else
-    VirtMem::release(block->mapping.ro, block->blockSize);
+    VirtMem::release(block->roPtr(), block->blockSize());
 
-  ::free(block->usedBitVector);
+  ::free(block->_usedBitVector);
   ::free(block);
 }
 
 static void JitAllocatorImpl_insertBlock(JitAllocatorPrivateImpl* impl, JitAllocatorBlock* block) noexcept {
-  JitAllocatorPool* pool = block->pool;
+  JitAllocatorPool* pool = block->pool();
 
   if (!pool->cursor)
     pool->cursor = block;
@@ -493,12 +582,12 @@ static void JitAllocatorImpl_insertBlock(JitAllocatorPrivateImpl* impl, JitAlloc
 
   // Update statistics.
   pool->blockCount++;
-  pool->totalAreaSize += block->areaSize;
-  pool->totalOverheadBytes += sizeof(JitAllocatorBlock) + JitAllocatorImpl_bitVectorSizeToByteSize(block->areaSize) * 2u;
+  pool->totalAreaSize += block->areaSize();
+  pool->totalOverheadBytes += sizeof(JitAllocatorBlock) + JitAllocatorImpl_bitVectorSizeToByteSize(block->areaSize()) * 2u;
 }
 
 static void JitAllocatorImpl_removeBlock(JitAllocatorPrivateImpl* impl, JitAllocatorBlock* block) noexcept {
-  JitAllocatorPool* pool = block->pool;
+  JitAllocatorPool* pool = block->pool();
 
   // Remove from RBTree and List.
   if (pool->cursor == block)
@@ -509,41 +598,39 @@ static void JitAllocatorImpl_removeBlock(JitAllocatorPrivateImpl* impl, JitAlloc
 
   // Update statistics.
   pool->blockCount--;
-  pool->totalAreaSize -= block->areaSize;
-  pool->totalOverheadBytes -= sizeof(JitAllocatorBlock) + JitAllocatorImpl_bitVectorSizeToByteSize(block->areaSize) * 2u;
+  pool->totalAreaSize -= block->areaSize();
+  pool->totalOverheadBytes -= sizeof(JitAllocatorBlock) + JitAllocatorImpl_bitVectorSizeToByteSize(block->areaSize()) * 2u;
 }
 
 static void JitAllocatorImpl_wipeOutBlock(JitAllocatorPrivateImpl* impl, JitAllocatorBlock* block) noexcept {
-  JitAllocatorPool* pool = block->pool;
+  JitAllocatorPool* pool = block->pool();
 
   if (block->hasFlag(JitAllocatorBlock::kFlagEmpty))
     return;
 
-  uint32_t areaSize = block->areaSize;
+  uint32_t areaSize = block->areaSize();
   uint32_t granularity = pool->granularity;
   size_t numBitWords = pool->bitWordCountFromAreaSize(areaSize);
 
   if (impl->options & JitAllocator::kOptionFillUnusedMemory) {
-    BitFlipIterator<Support::BitWord> it(block->usedBitVector, numBitWords);
-
-    while (it.hasNext()) {
-      uint32_t start = uint32_t(it.nextAndFlip());
-      uint32_t end = areaSize;
-
-      if (it.hasNext())
-        end = uint32_t(it.nextAndFlip());
-
-      JitAllocatorImpl_fillPattern(block->rwPtr() + start * granularity, impl->fillPattern, (end - start) * granularity);
+    uint8_t* rwPtr = block->rwPtr();
+    for (size_t i = 0; i < numBitWords; i++) {
+      Support::BitWordIterator<Support::BitWord> it(block->_usedBitVector[i]);
+      while (it.hasNext()) {
+        size_t index = it.next();
+        JitAllocatorImpl_fillPattern(rwPtr + index * granularity , impl->fillPattern, granularity);
+      }
+      rwPtr += Support::bitSizeOf<Support::BitWord>() * granularity;
     }
   }
 
-  memset(block->usedBitVector, 0, size_t(numBitWords) * sizeof(Support::BitWord));
-  memset(block->stopBitVector, 0, size_t(numBitWords) * sizeof(Support::BitWord));
+  memset(block->_usedBitVector, 0, size_t(numBitWords) * sizeof(Support::BitWord));
+  memset(block->_stopBitVector, 0, size_t(numBitWords) * sizeof(Support::BitWord));
 
-  block->areaUsed = 0;
-  block->largestUnusedArea = areaSize;
-  block->searchStart = 0;
-  block->searchEnd = areaSize;
+  block->_areaUsed = 0;
+  block->_largestUnusedArea = areaSize;
+  block->_searchStart = 0;
+  block->_searchEnd = areaSize;
   block->addFlags(JitAllocatorBlock::kFlagEmpty);
   block->clearFlags(JitAllocatorBlock::kFlagDirty);
 }
@@ -666,55 +753,38 @@ Error JitAllocator::alloc(void** roPtrOut, void** rwPtrOut, size_t size) noexcep
     do {
       JitAllocatorBlock* next = block->hasNext() ? block->next() : pool->blocks.first();
       if (block->areaAvailable() >= areaSize) {
-        if (block->hasFlag(JitAllocatorBlock::kFlagDirty) || block->largestUnusedArea >= areaSize) {
-          uint32_t blockAreaSize = block->areaSize;
-          uint32_t searchStart = block->searchStart;
-          uint32_t searchEnd = block->searchEnd;
+        if (block->isDirty() || block->largestUnusedArea() >= areaSize) {
+          BitVectorRangeIterator<Support::BitWord, 0> it(block->_usedBitVector, pool->bitWordCountFromAreaSize(block->areaSize()), block->_searchStart, block->_searchEnd);
 
-          BitFlipIterator<Support::BitWord> it(
-            block->usedBitVector,
-            pool->bitWordCountFromAreaSize(searchEnd),
-            searchStart,
-            Support::allOnes<Support::BitWord>());
+          size_t rangeStart = 0;
+          size_t rangeEnd = block->areaSize();
 
-          // If there is unused area available then there has to be at least one match.
-          ASMJIT_ASSERT(it.hasNext());
+          size_t searchStart = SIZE_MAX;
+          size_t largestArea = 0;
 
-          uint32_t bestArea = blockAreaSize;
-          uint32_t largestArea = 0;
-          uint32_t holeIndex = uint32_t(it.peekNext());
-          uint32_t holeEnd = holeIndex;
-
-          searchStart = holeIndex;
-          do {
-            holeIndex = uint32_t(it.nextAndFlip());
-            if (holeIndex >= searchEnd) break;
-
-            holeEnd = it.hasNext() ? Support::min(searchEnd, uint32_t(it.nextAndFlip())) : searchEnd;
-            uint32_t holeSize = holeEnd - holeIndex;
-
-            if (holeSize >= areaSize && bestArea >= holeSize) {
-              largestArea = Support::max(largestArea, bestArea);
-              bestArea = holeSize;
-              areaIndex = holeIndex;
+          while (it.nextRange(&rangeStart, &rangeEnd, areaSize)) {
+            size_t rangeSize = rangeEnd - rangeStart;
+            if (rangeSize >= areaSize) {
+              areaIndex = uint32_t(rangeStart);
+              break;
             }
-            else {
-              largestArea = Support::max(largestArea, holeSize);
-            }
-          } while (it.hasNext());
-          searchEnd = holeEnd;
 
-          // Because we have traversed the entire block, we can now mark the
-          // largest unused area that can be used to cache the next traversal.
-          block->searchStart = searchStart;
-          block->searchEnd = searchEnd;
-          block->largestUnusedArea = largestArea;
-          block->clearFlags(JitAllocatorBlock::kFlagDirty);
+            searchStart = Support::min(searchStart, rangeStart);
+            largestArea = Support::max(largestArea, rangeSize);
+          }
 
-          if (areaIndex != kNoIndex) {
-            if (searchStart == areaIndex)
-              block->searchStart += areaSize;
+          if (areaIndex != kNoIndex)
             break;
+
+          if (searchStart != SIZE_MAX) {
+            // Because we have iterated over the entire block, we can now mark the
+            // largest unused area that can be used to cache the next traversal.
+            size_t searchEnd = rangeEnd;
+
+            block->_searchStart = uint32_t(searchStart);
+            block->_searchEnd = uint32_t(searchEnd);
+            block->_largestUnusedArea = uint32_t(largestArea);
+            block->clearFlags(JitAllocatorBlock::kFlagDirty);
           }
         }
       }
@@ -730,152 +800,114 @@ Error JitAllocator::alloc(void** roPtrOut, void** rwPtrOut, size_t size) noexcep
       return DebugUtils::errored(kErrorOutOfMemory);
 
     block = JitAllocatorImpl_newBlock(impl, pool, blockSize);
+    areaIndex = 0;
 
     if (ASMJIT_UNLIKELY(!block))
       return DebugUtils::errored(kErrorOutOfMemory);
 
     JitAllocatorImpl_insertBlock(impl, block);
-    areaIndex = 0;
-    block->searchStart = areaSize;
-    block->largestUnusedArea = block->areaSize - areaSize;
+    block->_searchStart = areaSize;
+    block->_largestUnusedArea = block->areaSize() - areaSize;
   }
-
-  // Update statistics.
-  block->increaseUsedArea(areaSize);
-
-  // Handle special cases.
-  if (block->hasFlag(JitAllocatorBlock::kFlagEmpty)) {
+  else if (block->hasFlag(JitAllocatorBlock::kFlagEmpty)) {
     pool->emptyBlockCount--;
     block->clearFlags(JitAllocatorBlock::kFlagEmpty);
   }
 
-  if (block->areaAvailable() == 0) {
-    // The whole block is filled.
-    block->searchStart = block->areaSize;
-    block->searchEnd = 0;
-    block->largestUnusedArea = 0;
-    block->clearFlags(JitAllocatorBlock::kFlagDirty);
-  }
-
-  // Mark the newly allocated space as occupied and also the sentinel.
-  Support::bitVectorFill(block->usedBitVector, areaIndex, areaSize);
-  Support::bitVectorSetBit(block->stopBitVector, areaIndex + areaSize - 1, true);
+  // Update statistics.
+  block->markAllocatedArea(areaIndex, areaIndex + areaSize);
 
   // Return a pointer to the allocated memory.
   size_t offset = pool->byteSizeFromAreaSize(areaIndex);
-  ASMJIT_ASSERT(offset <= block->blockSize - size);
+  ASMJIT_ASSERT(offset <= block->blockSize() - size);
 
   *roPtrOut = block->roPtr() + offset;
   *rwPtrOut = block->rwPtr() + offset;
   return kErrorOk;
 }
 
-Error JitAllocator::release(void* ro) noexcept {
+Error JitAllocator::release(void* roPtr) noexcept {
   if (ASMJIT_UNLIKELY(_impl == &JitAllocatorImpl_none))
     return DebugUtils::errored(kErrorNotInitialized);
 
-  if (ASMJIT_UNLIKELY(!ro))
+  if (ASMJIT_UNLIKELY(!roPtr))
     return DebugUtils::errored(kErrorInvalidArgument);
 
   JitAllocatorPrivateImpl* impl = static_cast<JitAllocatorPrivateImpl*>(_impl);
   LockGuard guard(impl->lock);
 
-  JitAllocatorBlock* block = impl->tree.get(static_cast<uint8_t*>(ro));
+  JitAllocatorBlock* block = impl->tree.get(static_cast<uint8_t*>(roPtr));
   if (ASMJIT_UNLIKELY(!block))
     return DebugUtils::errored(kErrorInvalidState);
 
   // Offset relative to the start of the block.
-  JitAllocatorPool* pool = block->pool;
-  size_t offset = (size_t)((uint8_t*)ro - block->roPtr());
+  JitAllocatorPool* pool = block->pool();
+  size_t offset = (size_t)((uint8_t*)roPtr - block->roPtr());
 
   // The first bit representing the allocated area and its size.
   uint32_t areaIndex = uint32_t(offset >> pool->granularityLog2);
-  uint32_t areaLast = uint32_t(Support::bitVectorIndexOf(block->stopBitVector, areaIndex, true));
-  uint32_t areaSize = areaLast - areaIndex + 1;
+  uint32_t areaEnd = uint32_t(Support::bitVectorIndexOf(block->_stopBitVector, areaIndex, true)) + 1;
+  uint32_t areaSize = areaEnd - areaIndex;
 
-  // Update the search region and statistics.
-  block->searchStart = Support::min(block->searchStart, areaIndex);
-  block->searchEnd = Support::max(block->searchEnd, areaLast + 1);
-  block->addFlags(JitAllocatorBlock::kFlagDirty);
-  block->decreaseUsedArea(areaSize);
-
-  // Clear all occupied bits and also the sentinel.
-  Support::bitVectorClear(block->usedBitVector, areaIndex, areaSize);
-  Support::bitVectorSetBit(block->stopBitVector, areaLast, false);
+  block->markReleasedArea(areaIndex, areaEnd);
 
   // Fill the released memory if the secure mode is enabled.
   if (impl->options & kOptionFillUnusedMemory)
     JitAllocatorImpl_fillPattern(block->rwPtr() + areaIndex * pool->granularity, impl->fillPattern, areaSize * pool->granularity);
 
   // Release the whole block if it became empty.
-  if (block->areaUsed == 0) {
+  if (block->areaUsed() == 0) {
     if (pool->emptyBlockCount || (impl->options & kOptionImmediateRelease)) {
       JitAllocatorImpl_removeBlock(impl, block);
       JitAllocatorImpl_deleteBlock(impl, block);
     }
     else {
       pool->emptyBlockCount++;
-      block->largestUnusedArea = areaSize;
-      block->searchStart = 0;
-      block->searchEnd = areaSize;
-      block->addFlags(JitAllocatorBlock::kFlagEmpty);
-      block->clearFlags(JitAllocatorBlock::kFlagDirty);
     }
   }
 
   return kErrorOk;
 }
 
-Error JitAllocator::shrink(void* ro, size_t newSize) noexcept {
+Error JitAllocator::shrink(void* roPtr, size_t newSize) noexcept {
   if (ASMJIT_UNLIKELY(_impl == &JitAllocatorImpl_none))
     return DebugUtils::errored(kErrorNotInitialized);
 
-  if (ASMJIT_UNLIKELY(!ro))
+  if (ASMJIT_UNLIKELY(!roPtr))
     return DebugUtils::errored(kErrorInvalidArgument);
 
   if (ASMJIT_UNLIKELY(newSize == 0))
-    return release(ro);
+    return release(roPtr);
 
   JitAllocatorPrivateImpl* impl = static_cast<JitAllocatorPrivateImpl*>(_impl);
   LockGuard guard(impl->lock);
-  JitAllocatorBlock* block = impl->tree.get(static_cast<uint8_t*>(ro));
+  JitAllocatorBlock* block = impl->tree.get(static_cast<uint8_t*>(roPtr));
 
   if (ASMJIT_UNLIKELY(!block))
     return DebugUtils::errored(kErrorInvalidArgument);
 
   // Offset relative to the start of the block.
-  JitAllocatorPool* pool = block->pool;
-  size_t offset = (size_t)((uint8_t*)ro - block->roPtr());
+  JitAllocatorPool* pool = block->pool();
+  size_t offset = (size_t)((uint8_t*)roPtr - block->roPtr());
 
   // The first bit representing the allocated area and its size.
-  uint32_t areaIndex = uint32_t(offset >> pool->granularityLog2);
-  uint32_t areaOldSize = uint32_t(Support::bitVectorIndexOf(block->stopBitVector, areaIndex, true)) + 1 - areaIndex;
-  uint32_t areaNewSize = pool->areaSizeFromByteSize(newSize);
+  uint32_t areaStart = uint32_t(offset >> pool->granularityLog2);
+  uint32_t areaEnd = uint32_t(Support::bitVectorIndexOf(block->_stopBitVector, areaStart, true)) + 1;
 
-  if (ASMJIT_UNLIKELY(areaNewSize > areaOldSize))
+  uint32_t areaPrevSize = areaEnd - areaStart;
+  uint32_t areaShrunkSize = pool->areaSizeFromByteSize(newSize);
+
+  if (ASMJIT_UNLIKELY(areaShrunkSize > areaPrevSize))
     return DebugUtils::errored(kErrorInvalidState);
 
-  uint32_t areaDiff = areaOldSize - areaNewSize;
-  if (!areaDiff)
-    return kErrorOk;
+  uint32_t areaDiff = areaPrevSize - areaShrunkSize;
+  if (areaDiff) {
+    block->markShrunkArea(areaStart + areaShrunkSize, areaEnd);
 
-  // Update the search region and statistics.
-  block->searchStart = Support::min(block->searchStart, areaIndex + areaNewSize);
-  block->searchEnd = Support::max(block->searchEnd, areaIndex + areaOldSize);
-  block->addFlags(JitAllocatorBlock::kFlagDirty);
-  block->decreaseUsedArea(areaDiff);
-
-  // Unmark the released space and move the sentinel.
-  Support::bitVectorClear(block->usedBitVector, areaIndex + areaNewSize, areaDiff);
-  Support::bitVectorSetBit(block->stopBitVector, areaIndex + areaOldSize - 1, false);
-  Support::bitVectorSetBit(block->stopBitVector, areaIndex + areaNewSize - 1, true);
-
-  // Fill released memory if the secure mode is enabled.
-  if (impl->options & kOptionFillUnusedMemory)
-    JitAllocatorImpl_fillPattern(
-      block->rwPtr() + (areaIndex + areaOldSize) * pool->granularity,
-      fillPattern(),
-      areaDiff * pool->granularity);
+    // Fill released memory if the secure mode is enabled.
+    if (impl->options & kOptionFillUnusedMemory)
+      JitAllocatorImpl_fillPattern(block->rwPtr() + (areaStart + areaShrunkSize) * pool->granularity, fillPattern(), areaDiff * pool->granularity);
+  }
 
   return kErrorOk;
 }
@@ -938,11 +970,6 @@ public:
 // Helper class to verify that JitAllocator doesn't return addresses that overlap.
 class JitAllocatorWrapper {
 public:
-  inline explicit JitAllocatorWrapper(const JitAllocator::CreateParams* params) noexcept
-    : _zone(1024 * 1024),
-      _heap(&_zone),
-      _allocator(params) {}
-
   // Address to a memory region of a given size.
   class Range {
   public:
@@ -968,6 +995,16 @@ public:
     inline bool operator>(const uint8_t* key) const noexcept { return addr > key; }
   };
 
+  Zone _zone;
+  ZoneAllocator _heap;
+  ZoneTree<Record> _records;
+  JitAllocator _allocator;
+
+  explicit JitAllocatorWrapper(const JitAllocator::CreateParams* params) noexcept
+    : _zone(1024 * 1024),
+      _heap(&_zone),
+      _allocator(params) {}
+
   void _insert(void* p_, size_t size) noexcept {
     uint8_t* p = static_cast<uint8_t*>(p_);
     uint8_t* pEnd = p + size - 1;
@@ -976,25 +1013,21 @@ public:
 
     record = _records.get(p);
     if (record)
-      EXPECT(record == nullptr,
-             "Address [%p:%p] collides with a newly allocated [%p:%p]\n", record->addr, record->addr + record->size, p, p + size);
+      EXPECT(record == nullptr, "Address [%p:%p] collides with a newly allocated [%p:%p]\n", record->addr, record->addr + record->size, p, p + size);
 
     record = _records.get(pEnd);
     if (record)
-      EXPECT(record == nullptr,
-             "Address [%p:%p] collides with a newly allocated [%p:%p]\n", record->addr, record->addr + record->size, p, p + size);
+      EXPECT(record == nullptr, "Address [%p:%p] collides with a newly allocated [%p:%p]\n", record->addr, record->addr + record->size, p, p + size);
 
     record = _heap.newT<Record>(p, size);
-    EXPECT(record != nullptr,
-           "Out of memory, cannot allocate 'Record'");
+    EXPECT(record != nullptr, "Out of memory, cannot allocate 'Record'");
 
     _records.insert(record);
   }
 
   void _remove(void* p) noexcept {
     Record* record = _records.get(static_cast<uint8_t*>(p));
-    EXPECT(record != nullptr,
-           "Address [%p] doesn't exist\n", p);
+    EXPECT(record != nullptr, "Address [%p] doesn't exist\n", p);
 
     _records.remove(record);
     _heap.release(record, sizeof(Record));
@@ -1005,8 +1038,7 @@ public:
     void* rwPtr;
 
     Error err = _allocator.alloc(&roPtr, &rwPtr, size);
-    EXPECT(err == kErrorOk,
-           "JitAllocator failed to allocate '%u' bytes\n", unsigned(size));
+    EXPECT(err == kErrorOk, "JitAllocator failed to allocate %zu bytes\n", size);
 
     _insert(roPtr, size);
     return roPtr;
@@ -1014,14 +1046,21 @@ public:
 
   void release(void* p) noexcept {
     _remove(p);
-    EXPECT(_allocator.release(p) == kErrorOk,
-           "JitAllocator failed to release '%p'\n", p);
+    EXPECT(_allocator.release(p) == kErrorOk, "JitAllocator failed to release '%p'\n", p);
   }
 
-  Zone _zone;
-  ZoneAllocator _heap;
-  ZoneTree<Record> _records;
-  JitAllocator _allocator;
+  void shrink(void* p, size_t newSize) noexcept {
+    Record* record = _records.get(static_cast<uint8_t*>(p));
+    EXPECT(record != nullptr, "Address [%p] doesn't exist\n", p);
+
+    if (!newSize)
+      return release(p);
+
+    Error err = _allocator.shrink(p, newSize);
+    EXPECT(err == kErrorOk, "JitAllocator failed to shrink %p to %zu bytes\n", p, newSize);
+
+    record->size = newSize;
+  }
 };
 
 static void JitAllocatorTest_shuffle(void** ptrArray, size_t count, Random& prng) noexcept {
@@ -1031,10 +1070,38 @@ static void JitAllocatorTest_shuffle(void** ptrArray, size_t count, Random& prng
 
 static void JitAllocatorTest_usage(JitAllocator& allocator) noexcept {
   JitAllocator::Statistics stats = allocator.statistics();
-  INFO("  Block Count       : %9llu [Blocks]"        , (unsigned long long)(stats.blockCount()));
-  INFO("  Reserved (VirtMem): %9llu [Bytes]"         , (unsigned long long)(stats.reservedSize()));
-  INFO("  Used     (VirtMem): %9llu [Bytes] (%.1f%%)", (unsigned long long)(stats.usedSize()), stats.usedSizeAsPercent());
-  INFO("  Overhead (HeapMem): %9llu [Bytes] (%.1f%%)", (unsigned long long)(stats.overheadSize()), stats.overheadSizeAsPercent());
+  INFO("    Block Count       : %9llu [Blocks]"        , (unsigned long long)(stats.blockCount()));
+  INFO("    Reserved (VirtMem): %9llu [Bytes]"         , (unsigned long long)(stats.reservedSize()));
+  INFO("    Used     (VirtMem): %9llu [Bytes] (%.1f%%)", (unsigned long long)(stats.usedSize()), stats.usedSizeAsPercent());
+  INFO("    Overhead (HeapMem): %9llu [Bytes] (%.1f%%)", (unsigned long long)(stats.overheadSize()), stats.overheadSizeAsPercent());
+}
+
+template<typename T, size_t kPatternSize, bool Bit>
+static void BitVectorRangeIterator_testRandom(Random& rnd, size_t count) noexcept {
+  for (size_t i = 0; i < count; i++) {
+    T in[kPatternSize];
+    T out[kPatternSize];
+
+    for (size_t j = 0; j < kPatternSize; j++) {
+      in[j] = T(uint64_t(rnd.nextUInt32() & 0xFFu) * 0x0101010101010101);
+      out[j] = Bit == 0 ? Support::allOnes<T>() : T(0);
+    }
+
+    {
+      BitVectorRangeIterator<T, Bit> it(in, kPatternSize);
+      size_t rangeStart, rangeEnd;
+      while (it.nextRange(&rangeStart, &rangeEnd)) {
+        if (Bit)
+          Support::bitVectorFill(out, rangeStart, rangeEnd - rangeStart);
+        else
+          Support::bitVectorClear(out, rangeStart, rangeEnd - rangeStart);
+      }
+    }
+
+    for (size_t j = 0; j < kPatternSize; j++) {
+      EXPECT(in[j] == out[j], "Invalid pattern detected at [%zu] (%llX != %llX", j, (unsigned long long)in[j], (unsigned long long)out[j]);
+    }
+  }
 }
 
 UNIT(jit_allocator) {
@@ -1047,56 +1114,38 @@ UNIT(jit_allocator) {
     uint32_t granularity;
   };
 
-  #define OPT(OPTION) JitAllocator::OPTION
   static TestParams testParams[] = {
     { "Default", 0, 0, 0 },
     { "16MB blocks", 0, 16 * 1024 * 1024, 0 },
     { "256B granularity", 0, 0, 256 },
-    { "kOptionUseDualMapping", OPT(kOptionUseDualMapping), 0, 0 },
-    { "kOptionUseMultiplePools", OPT(kOptionUseMultiplePools), 0, 0 },
-    { "kOptionFillUnusedMemory", OPT(kOptionFillUnusedMemory), 0, 0 },
-    { "kOptionImmediateRelease", OPT(kOptionImmediateRelease), 0, 0 },
-    { "kOptionUseDualMapping | kOptionFillUnusedMemory", OPT(kOptionUseDualMapping) | OPT(kOptionFillUnusedMemory), 0, 0 }
+    { "kOptionUseDualMapping", JitAllocator::kOptionUseDualMapping, 0, 0 },
+    { "kOptionUseMultiplePools", JitAllocator::kOptionUseMultiplePools, 0, 0 },
+    { "kOptionFillUnusedMemory", JitAllocator::kOptionFillUnusedMemory, 0, 0 },
+    { "kOptionImmediateRelease", JitAllocator::kOptionImmediateRelease, 0, 0 },
+    { "kOptionUseDualMapping | kOptionFillUnusedMemory", JitAllocator::kOptionUseDualMapping | JitAllocator::kOptionFillUnusedMemory, 0, 0 }
   };
-  #undef OPT
 
-  INFO("BitFlipIterator<uint32_t>");
+  INFO("BitVectorRangeIterator<uint32_t>");
   {
-    static const uint32_t bits[] = { 0x80000000u, 0x80000000u, 0x00000000u, 0x80000000u };
-    BitFlipIterator<uint32_t> it(bits, ASMJIT_ARRAY_SIZE(bits));
-
-    EXPECT(it.hasNext());
-    EXPECT(it.nextAndFlip() == 31);
-    EXPECT(it.hasNext());
-    EXPECT(it.nextAndFlip() == 32);
-    EXPECT(it.hasNext());
-    EXPECT(it.nextAndFlip() == 63);
-    EXPECT(it.hasNext());
-    EXPECT(it.nextAndFlip() == 64);
-    EXPECT(it.hasNext());
-    EXPECT(it.nextAndFlip() == 127);
-    EXPECT(!it.hasNext());
+    Random rnd;
+    BitVectorRangeIterator_testRandom<uint32_t, 64, 0>(rnd, kCount);
   }
 
-  INFO("BitFlipIterator<uint64_t>");
+  INFO("BitVectorRangeIterator<uint64_t>");
   {
-    static const uint64_t bits[] = { 0xFFFFFFFFFFFFFFFFu, 0xFFFFFFFFFFFFFFFF, 0, 0 };
-    BitFlipIterator<uint64_t> it(bits, ASMJIT_ARRAY_SIZE(bits));
-
-    EXPECT(it.hasNext());
-    EXPECT(it.nextAndFlip() == 0);
-    EXPECT(it.hasNext());
-    EXPECT(it.nextAndFlip() == 128);
-    EXPECT(!it.hasNext());
+    Random rnd;
+    BitVectorRangeIterator_testRandom<uint64_t, 64, 0>(rnd, kCount);
   }
 
   for (uint32_t testId = 0; testId < ASMJIT_ARRAY_SIZE(testParams); testId++) {
-    INFO("Testing JitAllocator: %s", testParams[testId].name);
+    INFO("JitAllocator(%s)", testParams[testId].name);
 
     JitAllocator::CreateParams params {};
     params.options = testParams[testId].options;
     params.blockSize = testParams[testId].blockSize;
     params.granularity = testParams[testId].granularity;
+
+    size_t fixedBlockSize = 256;
 
     JitAllocatorWrapper wrapper(&params);
     Random prng(100);
@@ -1109,37 +1158,82 @@ UNIT(jit_allocator) {
     EXPECT(ptrArray != nullptr,
           "Couldn't allocate '%u' bytes for pointer-array", unsigned(sizeof(void*) * size_t(kCount)));
 
-    INFO("  Allocating virtual memory...");
+    // Random blocks tests...
+    INFO("  Allocating random blocks...");
     for (i = 0; i < kCount; i++)
       ptrArray[i] = wrapper.alloc((prng.nextUInt32() % 1024) + 8);
     JitAllocatorTest_usage(wrapper._allocator);
 
-    INFO("  Releasing virtual memory...");
+    INFO("  Releasing all allocated blocks from the beginning...");
     for (i = 0; i < kCount; i++)
       wrapper.release(ptrArray[i]);
     JitAllocatorTest_usage(wrapper._allocator);
 
-    INFO("  Allocating virtual memory...", kCount);
+    INFO("  Allocating random blocks again...", kCount);
     for (i = 0; i < kCount; i++)
       ptrArray[i] = wrapper.alloc((prng.nextUInt32() % 1024) + 8);
     JitAllocatorTest_usage(wrapper._allocator);
 
-    INFO("  Shuffling...");
+    INFO("  Shuffling allocated blocks...");
     JitAllocatorTest_shuffle(ptrArray, unsigned(kCount), prng);
 
-    INFO("  Releasing 50%% blocks...");
+    INFO("  Releasing 50%% of allocated blocks...");
     for (i = 0; i < kCount / 2; i++)
       wrapper.release(ptrArray[i]);
     JitAllocatorTest_usage(wrapper._allocator);
 
-    INFO("  Allocating 50%% blocks again...");
+    INFO("  Allocating 50%% more blocks again...");
     for (i = 0; i < kCount / 2; i++)
       ptrArray[i] = wrapper.alloc((prng.nextUInt32() % 1024) + 8);
     JitAllocatorTest_usage(wrapper._allocator);
 
-    INFO("  Releasing virtual memory...");
+    INFO("  Releasing all allocated blocks from the end...");
+    for (i = 0; i < kCount; i++)
+      wrapper.release(ptrArray[kCount - i - 1]);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    // Fixed blocks tests...
+    INFO("  Allocating %zuB blocks...", fixedBlockSize);
+    for (i = 0; i < kCount / 2; i++)
+      ptrArray[i] = wrapper.alloc(fixedBlockSize);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    INFO("  Shrinking each %zuB block to 1 byte", fixedBlockSize);
+    for (i = 0; i < kCount / 2; i++)
+      wrapper.shrink(ptrArray[i], 1);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    INFO("  Allocating more 64B blocks...", 64);
+    for (i = kCount / 2; i < kCount; i++)
+      ptrArray[i] = wrapper.alloc(64);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    INFO("  Releasing all blocks from the beginning...");
     for (i = 0; i < kCount; i++)
       wrapper.release(ptrArray[i]);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    INFO("  Allocating %zuB blocks...", fixedBlockSize);
+    for (i = 0; i < kCount; i++)
+      ptrArray[i] = wrapper.alloc(fixedBlockSize);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    INFO("  Shuffling allocated blocks...");
+    JitAllocatorTest_shuffle(ptrArray, unsigned(kCount), prng);
+
+    INFO("  Releasing 50%% of allocated blocks...");
+    for (i = 0; i < kCount / 2; i++)
+      wrapper.release(ptrArray[i]);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    INFO("  Allocating 50%% more %zuB blocks again...", fixedBlockSize);
+    for (i = 0; i < kCount / 2; i++)
+      ptrArray[i] = wrapper.alloc(fixedBlockSize);
+    JitAllocatorTest_usage(wrapper._allocator);
+
+    INFO("  Releasing all allocated blocks from the end...");
+    for (i = 0; i < kCount; i++)
+      wrapper.release(ptrArray[kCount - i - 1]);
     JitAllocatorTest_usage(wrapper._allocator);
 
     ::free(ptrArray);

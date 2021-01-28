@@ -1307,7 +1307,7 @@ namespace asmjit {
 //! invoking functions. At the moment it's the easiest way of generating code
 //! in AsmJit as most architecture and OS specifics is properly abstracted and
 //! handled by AsmJit automatically. However, abstractions also mean restrictions,
-//! which means that \ref BaseCompiler has more limitations that \ref BaseAssembler
+//! which means that \ref BaseCompiler has more limitations than \ref BaseAssembler
 //! or \ref BaseBuilder.
 //!
 //! Since \ref BaseCompiler provides register allocation it also establishes the
@@ -2005,41 +2005,41 @@ namespace asmjit {
 // [Core Headers]
 // ============================================================================
 
-#include "./core/globals.h"
-
-#include "./core/arch.h"
-#include "./core/assembler.h"
-#include "./core/builder.h"
-#include "./core/callconv.h"
-#include "./core/codeholder.h"
-#include "./core/compiler.h"
-#include "./core/constpool.h"
-#include "./core/cpuinfo.h"
-#include "./core/datatypes.h"
-#include "./core/emitter.h"
-#include "./core/environment.h"
-#include "./core/errorhandler.h"
-#include "./core/features.h"
-#include "./core/formatter.h"
-#include "./core/func.h"
-#include "./core/inst.h"
-#include "./core/jitallocator.h"
-#include "./core/jitruntime.h"
-#include "./core/logger.h"
-#include "./core/operand.h"
-#include "./core/osutils.h"
-#include "./core/string.h"
-#include "./core/support.h"
-#include "./core/target.h"
-#include "./core/type.h"
-#include "./core/virtmem.h"
-#include "./core/zone.h"
-#include "./core/zonehash.h"
-#include "./core/zonelist.h"
-#include "./core/zonetree.h"
-#include "./core/zonestack.h"
-#include "./core/zonestring.h"
-#include "./core/zonevector.h"
+#include "asmjit-scope-begin.h"
+#include "core/archtraits.h"
+#include "core/assembler.h"
+#include "core/builder.h"
+#include "core/codeholder.h"
+#include "core/compiler.h"
+#include "core/constpool.h"
+#include "core/cpuinfo.h"
+#include "core/datatypes.h"
+#include "core/emitter.h"
+#include "core/environment.h"
+#include "core/errorhandler.h"
+#include "core/features.h"
+#include "core/formatter.h"
+#include "core/func.h"
+#include "core/globals.h"
+#include "core/inst.h"
+#include "core/jitallocator.h"
+#include "core/jitruntime.h"
+#include "core/logger.h"
+#include "core/operand.h"
+#include "core/osutils.h"
+#include "core/string.h"
+#include "core/support.h"
+#include "core/target.h"
+#include "core/type.h"
+#include "core/virtmem.h"
+#include "core/zone.h"
+#include "core/zonehash.h"
+#include "core/zonelist.h"
+#include "core/zonetree.h"
+#include "core/zonestack.h"
+#include "core/zonestring.h"
+#include "core/zonevector.h"
+#include "asmjit-scope-end.h"
 
 // ============================================================================
 // [Deprecated]

@@ -37,29 +37,28 @@ ASMJIT_BEGIN_NAMESPACE
 //! \{
 
 // ============================================================================
-// [asmjit::RACFGBuilder]
+// [asmjit::RACFGBuilderT]
 // ============================================================================
 
 template<typename This>
-class RACFGBuilder {
+class RACFGBuilderT {
 public:
-  RAPass* _pass;
-  BaseCompiler* _cc;
-
-  RABlock* _curBlock;
-  RABlock* _retBlock;
-  FuncNode* _funcNode;
-  RARegsStats _blockRegStats;
-  uint32_t _exitLabelId;
-  ZoneVector<uint32_t> _sharedAssignmentsMap;
+  BaseRAPass* _pass = nullptr;
+  BaseCompiler* _cc = nullptr;
+  RABlock* _curBlock = nullptr;
+  RABlock* _retBlock = nullptr;
+  FuncNode* _funcNode = nullptr;
+  RARegsStats _blockRegStats {};
+  uint32_t _exitLabelId = Globals::kInvalidId;
+  ZoneVector<uint32_t> _sharedAssignmentsMap {};
 
   // Only used by logging, it's fine to be here to prevent more #ifdefs...
-  bool _hasCode;
-  RABlock* _lastLoggedBlock;
+  bool _hasCode = false;
+  RABlock* _lastLoggedBlock = nullptr;
 
 #ifndef ASMJIT_NO_LOGGING
-  Logger* _logger;
-  uint32_t _logFlags;
+  Logger* _logger = nullptr;
+  uint32_t _logFlags = FormatOptions::kFlagPositions;
   StringTmp<512> _sb;
 #endif
 
@@ -72,20 +71,11 @@ public:
   // position that is [at that time] unassigned.
   static constexpr uint32_t kNodePositionDidOnBefore = 0xFFFFFFFFu;
 
-  inline RACFGBuilder(RAPass* pass) noexcept
+  inline RACFGBuilderT(BaseRAPass* pass) noexcept
     : _pass(pass),
-      _cc(pass->cc()),
-      _curBlock(nullptr),
-      _retBlock(nullptr),
-      _funcNode(nullptr),
-      _blockRegStats{},
-      _exitLabelId(Globals::kInvalidId),
-      _hasCode(false),
-      _lastLoggedBlock(nullptr) {
+      _cc(pass->cc()) {
 #ifndef ASMJIT_NO_LOGGING
     _logger = _pass->debugLogger();
-    _logFlags = FormatOptions::kFlagPositions;
-
     if (_logger)
       _logFlags |= _logger->flags();
 #endif
@@ -105,12 +95,13 @@ public:
     logNode(_funcNode, kRootIndentation);
     logBlock(_curBlock, kRootIndentation);
 
+    RABlock* entryBlock = _curBlock;
     BaseNode* node = _funcNode->next();
     if (ASMJIT_UNLIKELY(!node))
       return DebugUtils::errored(kErrorInvalidState);
 
-    _curBlock->setFirst(node);
-    _curBlock->setLast(node);
+    _curBlock->setFirst(_funcNode);
+    _curBlock->setLast(_funcNode);
 
     RAInstBuilder ib;
     ZoneVector<RABlock*> blocksWithUnknownJumps;
@@ -389,9 +380,10 @@ public:
           }
           else {
             // First time we see this label.
-            if (_hasCode) {
+            if (_hasCode || _curBlock == entryBlock) {
               // Cannot continue the current block if it already contains some
-              // code. We need to create a new block and make it a successor.
+              // code or it's a block entry. We need to create a new block and
+              // make it a successor.
               ASMJIT_ASSERT(_curBlock->last() != node);
               _curBlock->setLast(node->prev());
               _curBlock->addFlags(RABlock::kFlagHasConsecutive);
