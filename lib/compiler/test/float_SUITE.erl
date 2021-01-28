@@ -22,7 +22,7 @@
 	 init_per_group/2,end_per_group/2,
 	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,
          subtract_number_type/1,float_followed_by_guard/1,
-         fconv_line_numbers/1,float_zero/1]).
+         fconv_line_numbers/1,float_zero/1,exception_signals/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -31,7 +31,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [pending, bif_calls, math_functions, float_zero,
      mixed_float_and_int, subtract_number_type,
-     float_followed_by_guard,fconv_line_numbers].
+     float_followed_by_guard,fconv_line_numbers,
+     exception_signals].
 
 groups() -> 
     [].
@@ -225,6 +226,23 @@ fconv_line_numbers_1(A) ->
                         (_) ->
                              false
                      end, Stacktrace).
+
+%% ERL-1471: compiler generated invalid 'fclearerror' / 'fcheckerror'
+%% sequences.
+exception_signals(Config) when is_list(Config) ->
+    2.0 = exception_signals_1(id(25), id(true), []),
+    2.0 = exception_signals_1(id(25), id(false), []),
+    2.0 = exception_signals_1(id(25.0), id(true), []),
+    2.0 = exception_signals_1(id(25.0), id(false), []),
+    ok.
+
+exception_signals_1(Width, Value, _Opts) ->
+    Height = Width / 25.0,
+    _Middle = case Value of
+                  true -> Width / 2.0;
+                  false -> 0
+              end,
+    _More = Height + 1.
 
 id(I) -> I.
 

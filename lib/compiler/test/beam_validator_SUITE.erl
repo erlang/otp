@@ -28,7 +28,7 @@
 	 dead_code/1,
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
-	 freg_range/1,freg_uninit/1,freg_state/1,
+	 freg_range/1,freg_uninit/1,
 	 bad_bin_match/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
@@ -63,7 +63,7 @@ groups() ->
        unsafe_catch,dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
-       freg_state,bad_bin_match,bad_dsetel,
+       bad_bin_match,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
@@ -288,28 +288,6 @@ freg_uninit(Config) when is_list(Config) ->
       {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,0}},
        10,
        {uninitialized_reg,{fr,0}}}}] = Errors,
-    ok.
-
-freg_state(Config) when is_list(Config) ->
-    Errors = do_val(freg_state, Config),
-    [{{t,sum_1,2},
-      {{bif,fmul,{f,0},[{fr,0},{fr,1}],{fr,0}},
-       6,
-       {bad_floating_point_state,undefined}}},
-     {{t,sum_2,2},
-      {{fmove,{fr,0},{x,0}},
-       8,
-       {bad_floating_point_state,cleared}}},
-     {{t,sum_3,2},
-      {{bif,'-',{f,0},[{x,1},{x,0}],{x,1}},
-       8,
-       {unsafe_instruction,{float_error_state,cleared}}}},
-     {{t,sum_4,2},
-      {{fcheckerror,{f,0}},
-       4,
-       {bad_floating_point_state,undefined}}},
-     {{t,sum_5,2},
-      {fclearerror,5,{bad_floating_point_state,cleared}}}] = Errors,
     ok.
 
 bad_bin_match(Config) when is_list(Config) ->
