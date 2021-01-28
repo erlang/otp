@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -860,4 +860,10 @@ class EwxGCDC : public wxGCDC {
  EwxGCDC() : wxGCDC() {};
 };
 #endif // wxUSE_GRAPHICS_CONTEXT
+
+class EwxNotificationMessage : public wxNotificationMessage {
+ public: ~EwxNotificationMessage() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxNotificationMessage(const wxString& title,const wxString& message,wxWindow * parent,int flags) : wxNotificationMessage(title,message,parent,flags) {};
+ EwxNotificationMessage() : wxNotificationMessage() {};
+};
 

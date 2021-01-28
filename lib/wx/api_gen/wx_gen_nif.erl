@@ -43,7 +43,8 @@ gen(Defs) ->
     gen_derived_dest(Defs),
     close(),
 
-    Split = split(Defs, 3),
+    Sorted = lists:sort(fun(#class{name=A}, #class{name=B}) -> A < B end, Defs),
+    Split = split(Sorted, "ab;cd;efg;hijkl;mnopqr;s;tuv;wxyz"),
 
     MakeWrappers = fun(Ds, Id) ->
                            File = io_lib:format("../c_src/gen/wxe_wrapper_~w.cpp",[Id]),
@@ -74,11 +75,17 @@ gen(Defs) ->
     build_events(),
     lists:append(Res).
 
-split(List, N) when N > 0 ->
-    {L1,L2} = lists:split(length(List) div 2, List),
-    lists:append(split(L1,N-1),split(L2,N-1));
-split(List, _) ->
-    [List].
+split(Defs, GroupString) ->
+    Groups = string:split(GroupString, ";", all),
+    lists:map(fun(Group) ->
+        lists:filter(fun(#class{name=Name}) ->
+            C = case string:lowercase(Name) of
+                "wx" ++ Rest -> hd(Rest);
+                Other -> hd(Other)
+            end,
+            string:chr(Group, C) > 0
+        end, Defs)
+    end, Groups).
 
 gen_funcs(Defs, First) ->
     w("~n/***** This file is generated do not edit ****/~n~n"),
@@ -1426,6 +1433,7 @@ gen_macros() ->
     w("#include <wx/filename.h>~n"),
     w("#include <wx/sysopt.h>~n"),
     w("#include <wx/overlay.h>~n"),
+    w("#include <wx/notifmsg.h>~n"),
 
     w("~n~n", []),
     w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),

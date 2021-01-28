@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -626,6 +626,9 @@
 %%%  From class wxNotebook
 -define(wxNotebook_NO_IMAGE, -1).
 %%%  From class wxNotebook
+%%%  From class wxNotificationMessage
+-define(wxNotificationMessage_Timeout_Auto, -1).
+-define(wxNotificationMessage_Timeout_Never, 0).
 %%%  From class wxStaticBitmap::ScaleMode
 -define(wxStaticBitmap_Scale_None, 0).
 -define(wxStaticBitmap_Scale_Fill, 1).

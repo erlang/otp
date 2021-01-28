@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@
 #include <wx/filename.h>
 #include <wx/sysopt.h>
 #include <wx/overlay.h>
+#include <wx/notifmsg.h>
 
 
 #ifndef wxICON_DEFAULT_BITMAP_TYPE

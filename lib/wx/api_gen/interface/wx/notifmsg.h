@@ -39,13 +39,13 @@
 
 
     @beginEventEmissionTable{wxCommandEvent}
-    @event{wxEVT_NOTIFICATION_MESSAGE_CLICK(id, func)}
+    @event{EVT_NOTIFICATION_MESSAGE_CLICK(id, func)}
            Process a @c wxEVT_NOTIFICATION_MESSAGE_CLICK event, when a notification
            is clicked.
-    @event{wxEVT_NOTIFICATION_MESSAGE_DISMISSED(id, func)}
+    @event{EVT_NOTIFICATION_MESSAGE_DISMISSED(id, func)}
            Process a @c wxEVT_NOTIFICATION_MESSAGE_DISMISSED event, when a notification
            is dismissed by the user or times out.
-    @event{wxEVT_NOTIFICATION_MESSAGE_ACTION(id, func)}
+    @event{EVT_NOTIFICATION_MESSAGE_ACTION(id, func)}
            Process a @c wxEVT_NOTIFICATION_MESSAGE_ACTION event, when the user
            selects on of the actions added by AddAction()
     @endEventTable
@@ -167,7 +167,7 @@ public:
 
         @return @false if an error occurred.
     */
-    bool Show(int timeout = Timeout_Auto);
+    bool Show(int timeout = wxNotificationMessage::Timeout_Auto);
 
     /**
         If the application already uses a wxTaskBarIcon, it should be connected

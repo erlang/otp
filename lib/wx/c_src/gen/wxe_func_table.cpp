@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3281,6 +3281,20 @@ extern void wxGCDC_new_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxGCDC_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxGCDC_GetGraphicsContext(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxGCDC_SetGraphicsContext(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxNotificationMessage_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxNotificationMessage_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if wxCHECK_VERSION(3,1,0)
+extern void wxNotificationMessage_AddAction(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif
+extern void wxNotificationMessage_Close(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxNotificationMessage_SetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if wxCHECK_VERSION(3,1,0)
+extern void wxNotificationMessage_SetIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif
+extern void wxNotificationMessage_SetMessage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxNotificationMessage_SetParent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxNotificationMessage_SetTitle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxNotificationMessage_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 
 wxe_fns_t wxe_fns[] =
 {
@@ -6904,4 +6918,23 @@ wxe_fns_t wxe_fns[] =
   {NULL, "wxGCDC", "destroy", 1}, // 3541 obj destructor wxGCDC_destruct
   {wxGCDC_GetGraphicsContext, "wxGCDC", "getGraphicsContext", 1}, // 3542
   {wxGCDC_SetGraphicsContext, "wxGCDC", "setGraphicsContext", 2}, // 3543
+  {wxNotificationMessage_new_0, "wxNotificationMessage", "new", 0}, // 3544
+  {wxNotificationMessage_new_2, "wxNotificationMessage", "new", 2}, // 3545
+  {NULL, "wxNotificationMessage", "destroy", 1}, // 3546 obj destructor wxNotificationMessage_destruct
+#if wxCHECK_VERSION(3,1,0)
+  {wxNotificationMessage_AddAction, "wxNotificationMessage", "addAction", 3}, // 3547
+#else
+  {NULL, "wxNotificationMessage", "addAction", 0}, // 3547
+#endif
+  {wxNotificationMessage_Close, "wxNotificationMessage", "close", 1}, // 3548
+  {wxNotificationMessage_SetFlags, "wxNotificationMessage", "setFlags", 2}, // 3549
+#if wxCHECK_VERSION(3,1,0)
+  {wxNotificationMessage_SetIcon, "wxNotificationMessage", "setIcon", 2}, // 3550
+#else
+  {NULL, "wxNotificationMessage", "setIcon", 0}, // 3550
+#endif
+  {wxNotificationMessage_SetMessage, "wxNotificationMessage", "setMessage", 2}, // 3551
+  {wxNotificationMessage_SetParent, "wxNotificationMessage", "setParent", 2}, // 3552
+  {wxNotificationMessage_SetTitle, "wxNotificationMessage", "setTitle", 2}, // 3553
+  {wxNotificationMessage_Show, "wxNotificationMessage", "show", 2}, // 3554
 };
