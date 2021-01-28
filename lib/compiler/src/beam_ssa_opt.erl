@@ -1781,8 +1781,8 @@ ssa_opt_bs_puts({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
 
 opt_bs_puts([{L,#b_blk{is=Is}=Blk0}|Bs], Count0, Acc0) ->
     case Is of
-        [#b_set{op=bs_put}=I0] ->
-            case opt_bs_put(L, I0, Blk0, Count0, Acc0) of
+        [#b_set{op=bs_put},#b_set{op={succeeded,_}}]=Is ->
+            case opt_bs_put(L, Is, Blk0, Count0, Acc0) of
                 not_possible ->
                     opt_bs_puts(Bs, Count0, [{L,Blk0}|Acc0]);
                 {Count,Acc1} ->
@@ -1802,41 +1802,50 @@ opt_bs_puts_merge([{L1,#b_blk{is=Is}=Blk0},{L2,#b_blk{is=AccIs}}=BAcc|Acc]) ->
                        #b_literal{},
                        #b_literal{val=Bin0},
                        #b_literal{val=all},
-                       #b_literal{val=1}]}],
+                       #b_literal{val=1}]},
+          #b_set{op={succeeded,_}}],
          [#b_set{op=bs_put,
                  args=[#b_literal{val=binary},
                        #b_literal{},
                        #b_literal{val=Bin1},
                        #b_literal{val=all},
-                       #b_literal{val=1}]}=I0]} ->
+                       #b_literal{val=1}]}=I0,
+          #b_set{op={succeeded,_}}=Succeeded]} ->
             %% Coalesce the two segments to one.
             Bin = <<Bin0/bitstring,Bin1/bitstring>>,
             I = I0#b_set{args=bs_put_args(binary, Bin, all)},
-            Blk = Blk0#b_blk{is=[I]},
+            Blk = Blk0#b_blk{is=[I,Succeeded]},
             [{L2,Blk}|Acc];
         {_,_} ->
             [{L1,Blk0},BAcc|Acc]
     end.
 
-opt_bs_put(L, I0, #b_blk{last=Br0}=Blk0, Count0, Acc) ->
+opt_bs_put(L, [I0,Succeeded], #b_blk{last=Br0}=Blk0, Count0, Acc) ->
     case opt_bs_put(I0) of
         [Bin] when is_bitstring(Bin) ->
             Args = bs_put_args(binary, Bin, all),
             I = I0#b_set{args=Args},
-            Blk = Blk0#b_blk{is=[I]},
+            Blk = Blk0#b_blk{is=[I,Succeeded]},
             {Count0,[{L,Blk}|Acc]};
         [{int,Int,Size},Bin] when is_bitstring(Bin) ->
             %% Construct a bs_put_integer instruction following
             %% by a bs_put_binary instruction.
             IntArgs = bs_put_args(integer, Int, Size),
             BinArgs = bs_put_args(binary, Bin, all),
-            {BinL,BinVarNum} = {Count0,Count0+1},
-            Count = Count0 + 2,
-            BinVar = #b_var{name={'@ssa_bool',BinVarNum}},
+
+            {BinL,BinVarNum,BinBoolNum} = {Count0,Count0+1,Count0+2},
+            Count = Count0 + 3,
+            BinVar = #b_var{name={'@ssa_bs_put',BinVarNum}},
+            BinBool = #b_var{name={'@ssa_bool',BinBoolNum}},
+
             BinI = I0#b_set{dst=BinVar,args=BinArgs},
-            BinBlk = Blk0#b_blk{is=[BinI],last=Br0#b_br{bool=BinVar}},
+            BinSucceeded = Succeeded#b_set{dst=BinBool,args=[BinVar]},
+            BinBlk = Blk0#b_blk{is=[BinI,BinSucceeded],
+                                last=Br0#b_br{bool=BinBool}},
+
             IntI = I0#b_set{args=IntArgs},
-            IntBlk = Blk0#b_blk{is=[IntI],last=Br0#b_br{succ=BinL}},
+            IntBlk = Blk0#b_blk{is=[IntI,Succeeded],last=Br0#b_br{succ=BinL}},
+
             {Count,[{BinL,BinBlk},{L,IntBlk}|Acc]};
         not_possible ->
             not_possible

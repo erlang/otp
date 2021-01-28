@@ -392,6 +392,9 @@ in_guard(Config) when is_list(Config) ->
 
     ok = in_guard_4(<<15:4>>, 255),
     nope = in_guard_4(<<15:8>>, 255),
+
+    nope = catch in_guard_5(),
+
     ok.
 
 in_guard_1(Bin, A, B) when <<A:13,B:3>> == Bin -> 1;
@@ -411,6 +414,10 @@ in_guard_3(_, _) -> nope.
 
 in_guard_4(Bin, A) when <<A:4>> =:= Bin -> ok;
 in_guard_4(_, _) -> nope.
+
+%% Would crash beam_ssa_recv when the no_copt option was given.
+in_guard_5() when 0; <<'':32,<<42/native>>>> -> ok;
+in_guard_5() -> nope.
 
 in_catch(Config) when is_list(Config) ->
     <<42,0,5>> = small(42, 5),

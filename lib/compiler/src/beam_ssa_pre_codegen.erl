@@ -835,18 +835,15 @@ sanitize_is([#b_set{op={succeeded,Kind},args=[Arg0]} | Is],
             true = Kind =:= guard orelse Kind =:= body, %Assertion.
             sanitize_is(Is, Last, Count, Values, true, Acc)
     end;
-sanitize_is([#b_set{op=Op}=I|Is], Last, Count, Values, Changed, Acc) ->
+sanitize_is([#b_set{op=bs_test_tail}=I], Last, Count, Values, Changed, Acc) ->
     case Last of
         #b_br{succ=Same,fail=Same} ->
-            case is_test_op(Op) of
-                true ->
-                    sanitize_is(Is, Last, Count, Values, true, Acc);
-                false ->
-                    do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc)
-            end;
+            sanitize_is([], Last, Count, Values, true, Acc);
         _ ->
-            do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc)
+            do_sanitize_is(I, [], Last, Count, Values, Changed, Acc)
     end;
+sanitize_is([#b_set{}=I|Is], Last, Count, Values, Changed, Acc) ->
+    do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc);
 sanitize_is([], Last, Count, Values, Changed, Acc) ->
     case Changed of
         true ->
@@ -855,10 +852,6 @@ sanitize_is([], Last, Count, Values, Changed, Acc) ->
             no_change
     end.
 
-is_test_op(bs_put) -> true;
-is_test_op(bs_test_tail) -> true;
-is_test_op(_) -> false.
-    
 do_sanitize_is(#b_set{op=Op,dst=Dst,args=Args0}=I0,
                Is, Last, Count, Values, Changed0, Acc) ->
     Args = sanitize_args(Args0, Values),

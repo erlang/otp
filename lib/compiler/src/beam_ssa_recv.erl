@@ -191,10 +191,6 @@ scan_is([#b_set{op=new_try_tag,dst=Dst}], Blk, Lbl, _Blocks, FuncId, State) ->
     %% ignore that branch.
     #b_br{bool=Dst,succ=Succ} = Blk#b_blk.last, %Assertion.
     scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, State);
-scan_is([#b_set{op=bs_put}], Blk, Lbl, Blocks, FuncId, State) ->
-    %% This may throw and returns a success variable, so we'll treat it as
-    %% that.
-    scan_is([#b_set{op={succeeded,body}}], Blk, Lbl, Blocks, FuncId, State);
 scan_is([#b_set{op=call,args=[#b_remote{} | _]}=Call | Is],
         Blk, Lbl, Blocks, FuncId, State0) ->
     case {Is, Blk#b_blk.last} of
