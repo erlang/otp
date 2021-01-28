@@ -191,8 +191,6 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          h=0,
          %%Available heap size for floats.
          hf=0,
-         %% Floating point state.
-         fls=undefined,
          %% List of hot catch/try tags
          ct=[],
          %% Previous instruction was setelement/3.
@@ -303,8 +301,9 @@ init_function_args(-1, Vst) ->
 init_function_args(X, Vst) ->
     init_function_args(X - 1, create_term(any, argument, [], {x,X}, Vst)).
 
-kill_heap_allocation(St) ->
-    St#st{h=0,hf=0}.
+kill_heap_allocation(#vst{current=St0}=Vst) ->
+    St = St0#st{h=0,hf=0},
+    Vst#vst{current=St}.
 
 validate_branches(MFA, Vst) ->
     #vst{ branched=Targets0, labels=Labels0 } = Vst,
@@ -393,7 +392,6 @@ vi({fmove,Src,{fr,_}=Dst}, Vst) ->
     set_freg(Dst, Vst);
 vi({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
-    assert_fls(checked, Vst0),
     Vst = eat_heap_float(Vst0),
     create_term(#t_float{}, fmove, [], Dst, Vst);
 vi({kill,Reg}, Vst) ->
@@ -680,9 +678,8 @@ vi({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst0) ->
 
     %% Heap allocations and X registers are killed regardless of whether we
     %% fail or not, as we may fail after GC.
-    #vst{current=St0} = Vst0,
-    St = kill_heap_allocation(St0),
-    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
+    Vst1 = kill_heap_allocation(Vst0),
+    Vst = prune_x_regs(Live, Vst1),
 
     validate_bif(gc_bif, Op, Fail, Ss, Dst, Vst0, Vst);
 
@@ -728,13 +725,10 @@ vi({wait,{f,Lbl}}, Vst) ->
 vi({wait_timeout,{f,Lbl},Src}, Vst0) ->
     assert_no_exception(Lbl),
 
-    %% Note that the receive marker is not cleared since we may re-enter the
-    %% loop while waiting. If we time out we'll be transferred to a timeout
-    %% instruction that clears the marker.
     assert_term(Src, Vst0),
     verify_y_init(Vst0),
 
-    Vst = branch(Lbl, prune_x_regs(0, Vst0)),
+    Vst = branch(Lbl, schedule_out(0, Vst0)),
     branch(?EXCEPTION_LABEL, Vst);
 
 %%
@@ -771,14 +765,15 @@ vi({try_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst) ->
 vi({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
         {trytag,_Fail}=Tag ->
-            %% Kill the catch tag, all x registers, and the receive marker.
+            %% Kill the catch tag and all other state (as if we've been
+            %% scheduled out with no live registers). Only previously allocated
+            %% Y registers are alive at this point.
             Vst1 = kill_catch_tag(Reg, Vst0),
-            Vst2 = prune_x_regs(0, Vst1),
-            Vst3 = set_receive_marker(none, Vst2),
+            Vst2 = schedule_out(0, Vst1),
 
             %% Class:Error:Stacktrace
-            Vst4 = create_term(#t_atom{}, try_case, [], {x,0}, Vst3),
-            Vst = create_term(any, try_case, [], {x,1}, Vst4),
+            Vst3 = create_term(#t_atom{}, try_case, [], {x,0}, Vst2),
+            Vst = create_term(any, try_case, [], {x,1}, Vst3),
             create_term(any, try_case, [], {x,2}, Vst);
         Type ->
             error({wrong_tag_type,Type})
@@ -932,26 +927,13 @@ vi({fconv,Src,{fr,_}=Dst}, Vst) ->
     assert_term(Src, Vst),
 
     branch(?EXCEPTION_LABEL, Vst,
-           fun(FailVst) ->
-                   %% This is a hack to supress assert_float_checked/1 in
-                   %% fork_state/2, since this instruction is legal even when
-                   %% the state is unchecked.
-                   set_fls(checked, FailVst)
-           end,
            fun(SuccVst0) ->
                    SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
                    set_freg(Dst, SuccVst)
            end);
 vi(fclearerror, Vst) ->
-    case get_fls(Vst) of
-        undefined -> ok;
-        checked -> ok;
-        Fls -> error({bad_floating_point_state,Fls})
-    end,
-    set_fls(cleared, Vst);
-vi({fcheckerror,_}, Vst0) ->
-    assert_fls(cleared, Vst0),
-    Vst = set_fls(checked, Vst0),
+    Vst;
+vi({fcheckerror, _}, Vst) ->
     branch(?EXCEPTION_LABEL, Vst);
 
 %%
@@ -1125,8 +1107,6 @@ validate_var_info([], _Reg, Vst) ->
 %%  The stackframe must have a known size and be initialized.
 %%  Does not return to the instruction following the call.
 validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
-    assert_float_checked(Vst0),
-
     verify_y_init(Vst0),
     verify_live(Live, Vst0),
     verify_call_args(Func, Live, Vst0),
@@ -1153,18 +1133,15 @@ validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
 %%  The instruction will return to the instruction following the call.
 validate_body_call(Func, Live,
                    #vst{current=#st{numy=NumY}}=Vst) when is_integer(NumY)->
-    assert_float_checked(Vst),
-
     verify_y_init(Vst),
     verify_live(Live, Vst),
     verify_call_args(Func, Live, Vst),
 
-    SuccFun = fun(#vst{current=St0}=SuccVst0) -> 
+    SuccFun = fun(SuccVst0) ->
                       {RetType, _, _} = call_types(Func, Live, SuccVst0),
                       true = RetType =/= none,  %Assertion.
 
-                      St = St0#st{f=init_fregs()},
-                      SuccVst = prune_x_regs(0, SuccVst0#vst{current=St}),
+                      SuccVst = schedule_out(0, SuccVst0),
 
                       create_term(RetType, call, [], {x,0}, SuccVst)
               end,
@@ -1179,13 +1156,6 @@ validate_body_call(Func, Live,
     end;
 validate_body_call(_, _, #vst{current=#st{numy=NumY}}) ->
     error({allocated, NumY}).
-
-assert_float_checked(Vst) ->
-    case get_fls(Vst) of
-        undefined -> ok;
-        checked -> ok;
-        Fls -> error({unsafe_instruction,{float_error_state,Fls}})
-    end.
 
 init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
     assert_no_exception(Fail),
@@ -1336,7 +1306,6 @@ verify_return(#vst{current=#st{recv_marker=Mark}}) when Mark =/= none ->
     %% the message.
     error({return_with_receive_marker,Mark});
 verify_return(Vst) ->
-    assert_float_checked(Vst),
     verify_no_ct(Vst),
     kill_state(Vst).
 
@@ -1349,7 +1318,6 @@ verify_return(Vst) ->
 %%
 
 validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
-    assert_float_checked(Vst),
     case {will_bif_succeed(Op, Ss, Vst), Fail} of
         {yes, _} ->
             %% This BIF cannot fail (neither throw nor branch), make sure it's
@@ -1734,22 +1702,29 @@ test_heap(Heap, Live, Vst0) ->
     heap_alloc(Heap, Vst).
 
 heap_alloc(Heap, #vst{current=St0}=Vst) ->
-    St1 = kill_heap_allocation(St0),
-    St = heap_alloc_1(Heap, St1),
+    {HeapWords, Floats} = heap_alloc_1(Heap),
+
+    St = St0#st{h=HeapWords,hf=Floats},
+
     Vst#vst{current=St}.
 
-heap_alloc_1({alloc,Alloc}, St) ->
-    heap_alloc_2(Alloc, St);
-heap_alloc_1(HeapWords, St) when is_integer(HeapWords) ->
-    St#st{h=HeapWords}.
+heap_alloc_1({alloc, Alloc}) ->
+    heap_alloc_2(Alloc, 0, 0);
+heap_alloc_1(HeapWords) when is_integer(HeapWords) ->
+    {HeapWords, 0}.
 
-heap_alloc_2([{words,HeapWords}|T], St0) ->
-    St = St0#st{h=HeapWords},
-    heap_alloc_2(T, St);
-heap_alloc_2([{floats,Floats}|T], St0) ->
-    St = St0#st{hf=Floats},
-    heap_alloc_2(T, St);
-heap_alloc_2([], St) -> St.
+heap_alloc_2([{words, HeapWords} | T], 0, Floats) ->
+    heap_alloc_2(T, HeapWords, Floats);
+heap_alloc_2([{floats, Floats} | T], HeapWords, 0) ->
+    heap_alloc_2(T, HeapWords, Floats);
+heap_alloc_2([], HeapWords, Floats) ->
+    {HeapWords, Floats}.
+
+schedule_out(Live, Vst0) when is_integer(Live) ->
+    Vst1 = prune_x_regs(Live, Vst0),
+    Vst2 = kill_heap_allocation(Vst1),
+    Vst = kill_fregs(Vst2),
+    set_receive_marker(none, Vst).
 
 prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
     #st{fragile=Fragile0,xs=Xs0} = St0,
@@ -1788,22 +1763,10 @@ assert_arities(_) -> error(bad_tuple_arity_list).
 
 
 %%%
-%%% Floating point checking.
+%%% Floating point helpers.
 %%%
-%%% Possible values for the fls field (=floating point error state).
-%%%
-%%% undefined 	- Undefined (initial state). No float operations allowed.
-%%%
-%%% cleared	- fclearerror/0 has been executed. Float operations
-%%%		  are allowed (such as fadd).
-%%%
-%%% checked	- fcheckerror/1 has been executed. It is allowed to
-%%%               move values out of floating point registers.
-%%%
-%%% The following instructions may be executed in any state:
-%%%
-%%%   fconv Src {fr,_}             
-%%%   fmove Src {fr,_}		%% Move INTO floating point register.
+%%%   fconv Src {fr,_}
+%%%   fmove Src {fr,_}    %% Move known float INTO floating point register.
 %%%
 
 is_float_arith_bif(fadd, [_, _]) -> true;
@@ -1813,24 +1776,15 @@ is_float_arith_bif(fnegate, [_]) -> true;
 is_float_arith_bif(fsub, [_, _]) -> true;
 is_float_arith_bif(_, _) -> false.
 
-validate_float_arith_bif(Ss, Dst, Vst0) ->
-    _ = [assert_freg_set(S, Vst0) || S <- Ss],
-    assert_fls(cleared, Vst0),
-    Vst = set_fls(cleared, Vst0),
+validate_float_arith_bif(Ss, Dst, Vst) ->
+    _ = [assert_freg_set(S, Vst) || S <- Ss],
     set_freg(Dst, Vst).
 
-assert_fls(Fls, Vst) ->
-    case get_fls(Vst) of
-	Fls -> ok;
-	OtherFls -> error({bad_floating_point_state,OtherFls})
-    end.
-
-set_fls(Fls, #vst{current=#st{}=St}=Vst) when is_atom(Fls) ->
-    Vst#vst{current=St#st{fls=Fls}}.
-
-get_fls(#vst{current=#st{fls=Fls}}) when is_atom(Fls) -> Fls.
-
 init_fregs() -> 0.
+
+kill_fregs(#vst{current=St0}=Vst) ->
+    St = St0#st{f=init_fregs()},
+    Vst#vst{current=St}.
 
 set_freg({fr,Fr}=Freg, #vst{current=#st{f=Fregs0}=St}=Vst) ->
     check_limit(Freg),
@@ -2276,7 +2230,7 @@ new_value(Type, Op, Ss, #vst{current=#st{vs=Vs0}=St,ref_ctr=Counter}=Vst) ->
     {Ref, Vst#vst{current=St#st{vs=Vs},ref_ctr=Counter+1}}.
 
 kill_catch_tag(Reg, #vst{current=#st{ct=[Tag|Tags]}=St}=Vst0) ->
-    Vst = Vst0#vst{current=St#st{ct=Tags,fls=undefined}},
+    Vst = Vst0#vst{current=St#st{ct=Tags}},
     Tag = get_tag_type(Reg, Vst),               %Assertion.
     kill_tag(Reg, Vst).
 
@@ -2534,10 +2488,6 @@ branch(Fail, Vst) ->
 %% be used sparingly.
 fork_state(?EXCEPTION_LABEL, Vst0) ->
     #vst{current=#st{ct=CatchTags,numy=NumY}} = Vst0,
-
-    %% Floating-point exceptions must be checked before any other kind of
-    %% exception can be raised.
-    assert_float_checked(Vst0),
 
     %% The stack will be scanned looking for a catch tag, so all Y registers
     %% must be initialized.
