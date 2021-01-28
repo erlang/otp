@@ -49,6 +49,7 @@
          search_filter_and/1,
          search_filter_and_not/1,
          search_filter_equalityMatch/1,
+         search_filter_equalityMatch_objectClass_exists/1,
          search_filter_final/1,
          search_filter_initial/1,
          search_filter_or/1,
@@ -118,6 +119,7 @@ groups() ->
 		      more_add,
 		      add_referral,
 		      search_filter_equalityMatch,
+                      search_filter_equalityMatch_objectClass_exists,
 		      search_filter_substring_any,
 		      search_filter_initial,
 		      search_filter_final,
@@ -566,6 +568,17 @@ search_filter_equalityMatch(Config) ->
 	eldap:search(proplists:get_value(handle, Config),
 		     #eldap_search{base = BasePath,
 				   filter = eldap:equalityMatch("sn", "Jonsson"),
+				   scope=eldap:singleLevel()}).
+
+%%%----------------------------------------------------------------
+search_filter_equalityMatch_objectClass_exists(Config) ->
+    BasePath = proplists:get_value(eldap_path, Config),
+    ExpectedDN = "cn=Jonas Jonsson," ++ BasePath,
+    {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
+	eldap:search(proplists:get_value(handle, Config),
+		     #eldap_search{base = BasePath,
+				   filter = eldap:'and'([eldap:equalityMatch("sn", "Jonsson"),
+                                                         eldap:present("objectclass")]),
 				   scope=eldap:singleLevel()}).
 
 %%%----------------------------------------------------------------
