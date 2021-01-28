@@ -9,11 +9,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
-%% 
+%%
 -module(merl_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
@@ -25,21 +25,22 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
 -export([merl_smoke_test/1,
-         transform_parse_error_test/1, otp_15291/1]).
+         transform_parse_error_test/1, otp_15291/1, anno_test/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [merl_smoke_test,
      transform_parse_error_test,
-     otp_15291].
+     otp_15291,
+     anno_test].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -111,6 +112,13 @@ otp_15291(_Config) ->
     C1 = merl:quote("(_) -> ok"),
     {clause,A1,[{var,A1,'_'}],[],[{atom,A1,ok}]} = C1,
     ok.
+
+anno_test(_Config) ->
+    Anno0 = erl_anno:new(2),
+    Anno1 = erl_anno:set_file(?FILE, Anno0),
+    ?assert(is_integer(Anno0)),
+    ?assertNot(is_integer(Anno1)),
+    merl:quote(Anno1, "{foo, bar}").
 
 %% utilities
 

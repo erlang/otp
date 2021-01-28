@@ -88,9 +88,9 @@ post(T) ->
                   lists:all(fun erl_syntax:is_literal/1, [F|As])
           end,
           fun ([{args, As}, {function, F}]) ->
-                  Line = get_location(F),
+                  Location = get_location(F),
                   [F1|As1] = lists:map(fun erl_syntax:concrete/1, [F|As]),
-                  eval_call(Line, F1, As1, T)
+                  eval_call(Location, F1, As1, T)
           end},
          fun ([{args, As}, {function, F}]) ->
                  merl:switch(
@@ -103,23 +103,23 @@ post(T) ->
          end]},
        fun () -> T end]).
 
-expand_qquote([Line, Text, Env], T, _) ->
-    case erl_syntax:is_literal(Line) of
+expand_qquote([Location, Text, Env], T, _) ->
+    case erl_syntax:is_literal(Location) of
         true ->
-            expand_qquote([Text, Env], T, erl_syntax:concrete(Line));
+            expand_qquote([Text, Env], T, erl_syntax:concrete(Location));
         false ->
             T
     end;
-expand_qquote([Text, Env], T, Line) ->
+expand_qquote([Text, Env], T, Location) ->
     case erl_syntax:is_literal(Text) of
         true ->
-            As = [Line, erl_syntax:concrete(Text)],
-            case eval_call(Line, quote, As, failed) of
+            As = [Location, erl_syntax:concrete(Text)],
+            case eval_call(Location, quote, As, failed) of
                 failed ->
                     T;
                 T1 ->
                     %% expand further if possible
-                    expand(merl:qquote(Line, "merl:subst(_@tree, _@env)",
+                    expand(merl:qquote(Location, "merl:subst(_@tree, _@env)",
                                        [{tree, T1},
                                         {env, Env}]))
             end;
@@ -132,11 +132,11 @@ expand_qquote(_As, T, _StartPos) ->
 expand_template(F, [Pattern | Args], T) ->
     case erl_syntax:is_literal(Pattern) of
         true ->
-            Line = get_location(Pattern),
+            Location = get_location(Pattern),
             As = [erl_syntax:concrete(Pattern)],
-            merl:qquote(Line, "merl:_@function(_@pattern, _@args)",
+            merl:qquote(Location, "merl:_@function(_@pattern, _@args)",
                [{function, F},
-                {pattern, eval_call(Line, template, As, T)},
+                {pattern, eval_call(Location, template, As, T)},
                 {args, Args}]);
         false ->
             T
@@ -144,7 +144,7 @@ expand_template(F, [Pattern | Args], T) ->
 expand_template(_F, _As, T) ->
     T.
 
-eval_call(Line, F, As, T) ->
+eval_call(Location, F, As, T) ->
     try apply(merl, F, As) of
         T1 when F =:= quote ->
             %% lift metavariables in a template to Erlang variables
@@ -152,10 +152,10 @@ eval_call(Line, F, As, T) ->
             Vars = merl:template_vars(Template),
             case lists:any(fun is_inline_metavar/1, Vars) of
                 true when is_list(T1) ->
-                    merl:qquote(Line, "merl:tree([_@template])",
+                    merl:qquote(Location, "merl:tree([_@template])",
                                 [{template, merl:meta_template(Template)}]);
                 true ->
-                    merl:qquote(Line, "merl:tree(_@template)",
+                    merl:qquote(Location, "merl:tree(_@template)",
                                 [{template, merl:meta_template(Template)}]);
                 false ->
                     merl:term(T1)
@@ -166,17 +166,17 @@ eval_call(Line, F, As, T) ->
         throw:_Reason -> T
     end.
 
-pre_expand_match(Expr, Line, Text) ->
-    {Template, Out, _Vars} = rewrite_pattern(Line, Text),
-    merl:qquote(Line, "{ok, _@out} = merl:match(_@template, _@expr)",
+pre_expand_match(Expr, Location, Text) ->
+    {Template, Out, _Vars} = rewrite_pattern(Location, Text),
+    merl:qquote(Location, "{ok, _@out} = merl:match(_@template, _@expr)",
                 [{expr, Expr},
                  {out, Out},
                  {template, erl_syntax:abstract(Template)}]).
 
-rewrite_pattern(Line, Text) ->
+rewrite_pattern(Location, Text) ->
     %% we must rewrite the metavariables in the pattern to use lowercase,
     %% and then use real matching to bind the Erlang-level variables
-    T0 = merl:template(merl:quote(Line, Text)),
+    T0 = merl:template(merl:quote(Location, Text)),
     Vars = [V || V <- merl:template_vars(T0), is_inline_metavar(V)],
     {merl:alpha(T0, [{V, var_to_tag(V)} || V <- Vars]),
      erl_syntax:list([erl_syntax:tuple([erl_syntax:abstract(var_to_tag(V)),
@@ -198,8 +198,8 @@ var_to_tag(V) when is_integer(V) -> V;
 var_to_tag(V) ->
     list_to_atom(string:lowercase(atom_to_list(V))).
 
-pre_expand_case(Expr, Clauses, Line) ->
-    merl:qquote(Line, "merl:switch(_@expr, _@clauses)",
+pre_expand_case(Expr, Clauses, Location) ->
+    merl:qquote(Location, "merl:switch(_@expr, _@clauses)",
                 [{clauses, erl_syntax:list([pre_expand_case_clause(C)
                                             || C <- Clauses])},
                  {expr, Expr}]).
@@ -220,10 +220,10 @@ pre_expand_case_clause(T) ->
         fun (Env) -> merl:qquote("fun () -> _@body end", Env) end}
       ]).
 
-pre_expand_case_clause(Body, Guard, Line, Text) ->
+pre_expand_case_clause(Body, Guard, Location, Text) ->
     %% this is similar to a meta-match ``?Q("...") = Term''
     %% (note that the guards may in fact be arbitrary expressions)
-    {Template, Out, Vars} = rewrite_pattern(Line, Text),
+    {Template, Out, Vars} = rewrite_pattern(Location, Text),
     GuardExprs = rewrite_guard(Guard),
     Param = [{body, Body},
              {guard,GuardExprs},
@@ -232,11 +232,11 @@ pre_expand_case_clause(Body, Guard, Line, Text) ->
              {unused, dummy_uses(Vars)}],
     case GuardExprs of
         [] ->
-            merl:qquote(Line, ["{_@template, ",
+            merl:qquote(Location, ["{_@template, ",
                                " fun (_@out) -> _@unused, _@body end}"],
                         Param);
         _ ->
-            merl:qquote(Line, ["{_@template, ",
+            merl:qquote(Location, ["{_@template, ",
                                " fun (_@out) -> _@unused, _@guard end, ",
                                " fun (_@out) -> _@unused, _@body end}"],
                         Param)
