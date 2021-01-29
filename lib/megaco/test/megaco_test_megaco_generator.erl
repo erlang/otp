@@ -313,6 +313,9 @@ handle_parse({megaco_callback, Verifiers0} = _Instruction, State)
 handle_parse({trigger, Trigger} = Instruction, State)
   when is_function(Trigger) ->
     {ok, Instruction, State};
+handle_parse({trigger, Desc, Trigger} = Instruction, State)
+  when is_list(Desc) andalso is_function(Trigger) ->
+    {ok, Instruction, State};
 
 handle_parse(Instruction, _State) ->
     error({invalid_instruction, Instruction}).
@@ -888,6 +891,10 @@ handle_exec({megaco_cancel, Reason}, #state{conn_handle = CH} = State) ->
 
 handle_exec({trigger, Trigger}, State) when is_function(Trigger) ->
     p("trigger"),
+    (catch Trigger()),
+    {ok, State};
+handle_exec({trigger, Desc, Trigger}, State) when is_function(Trigger) ->
+    p("trigger: ~s", [Desc]),
     (catch Trigger()),
     {ok, State};
 
