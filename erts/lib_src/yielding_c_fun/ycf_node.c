@@ -34,127 +34,148 @@
 
 GENERATE_LIST_FUNCTIONS(ycf_node)
 
-#define YCF_UNIQ_VARIABLE_NAME_NUMBER_PREFIX "_N"
-
-static int ycf_uniq_variable_name_number_counter = 0;
-
-static void uniqify_local_vars_in_node_rename_var_helper(ycf_node* n,
-                                                         char* old_name,
-                                                         char* new_name);
-static void uniqify_local_vars_in_scope_rename_var_helper(ycf_node_code_scope* s,
-                                                          char* old_name,
-                                                          char* new_name);
+static void ycf_scan_node(ycf_node* n,
+                          void (*scanner)(ycf_node*, void* context),
+                          void* context);
 
 
-static void uniqify_local_vars_in_expression_rename_var_helper(ycf_node_expression* n,
-                                                               char* old_name,
-                                                               char* new_name){
-    ycf_node* current = n->content.head;
+void ycf_scan_scope(ycf_node_code_scope* s,
+                    void (*scanner)(ycf_node*, void* context),
+                    void* context);
+
+
+static void ycf_scan_expression(ycf_node_expression* e,
+                                void (*scanner)(ycf_node*, void* context),
+                                void* context){
+    ycf_node* current = e->content.head;
     while(current != NULL){
-        uniqify_local_vars_in_node_rename_var_helper(current,
-                                                     old_name,
-                                                     new_name);
+        ycf_scan_node(current, scanner, context);
         current = current->next;
     }
 }
 
-static void uniqify_local_vars_in_paran_expression_rename_var_helper(ycf_node_parentheses_expression* n,
-                                                                     char* old_name,
-                                                                     char* new_name){
-    uniqify_local_vars_in_expression_rename_var_helper(&n->content,
-                                                       old_name,
-                                                       new_name);
+static void ycf_scan_paran_expression(ycf_node_parentheses_expression* n,
+                                      void (*scanner)(ycf_node*, void* context),
+                                      void* context){
+    ycf_scan_expression(&n->content, scanner, context);
 }
 
-static void uniqify_local_vars_in_fun_call_rename_var_helper(ycf_node_function_call* n,
-                                                             char* old_name,
-                                                             char* new_name)
+static void ycf_scan_function_call(ycf_node_function_call* n,
+                                   void (*scanner)(ycf_node*, void* context),
+                                   void* context)
 {
     ycf_node* e = n->parameter_expressions.head;
     while(e != NULL){
-        uniqify_local_vars_in_node_rename_var_helper(e, old_name, new_name);
+        ycf_scan_node(e, scanner, context);
         e = e->next;
     }
-    if(ycf_symbol_is_text_eq(n->identifier, old_name)){
-        n->identifier = ycf_symbol_copy_change_text(n->identifier, new_name);
-    }
 }
 
-static void uniqify_local_vars_in_assignment_fun_call_rename_var_helper(ycf_node_function_call_assignment* n,
-                                                                        char* old_name,
-                                                                        char* new_name)
-{
-    uniqify_local_vars_in_expression_rename_var_helper(&n->left_side, old_name, new_name);
-    uniqify_local_vars_in_fun_call_rename_var_helper(&n->fun_call, old_name, new_name);
-}
-
-static void uniqify_local_vars_in_node_rename_var_helper(ycf_node* n,
-                                                         char* old_name,
-                                                         char* new_name){
+static void ycf_scan_node(ycf_node* n,
+                          void (*scanner)(ycf_node*, void* context),
+                          void* context){
     if(n == NULL){
         return;
     } else if(n->type == ycf_node_type_code_scope){
-        uniqify_local_vars_in_scope_rename_var_helper(&n->u.code_scope, old_name, new_name);
+        ycf_scan_scope(&n->u.code_scope, scanner, context);
     } else if(n->type == ycf_node_type_on_restore_yield_state_code ||
               n->type == ycf_node_type_on_save_yield_state_code ||
               n->type == ycf_node_type_on_destroy_state_code ||
               n->type == ycf_node_type_on_return_code ||
               n->type == ycf_node_type_on_destroy_state_or_return_code){
-        uniqify_local_vars_in_scope_rename_var_helper(&n->u.special_code_block.code.if_statement->u.code_scope, old_name, new_name);
-    } else if(n->type == ycf_node_type_other &&
-              n->u.other.what->type == ycf_symbol_type_identifier &&
-              ycf_symbol_is_text_eq(n->u.other.what, old_name)){
-        n->u.other.what =
-                ycf_symbol_copy_change_text(n->u.other.what, new_name);
+        ycf_scan_scope(&n->u.special_code_block.code.if_statement->u.code_scope, scanner, context);
     } else if(n->type == ycf_node_type_assignment){
-        uniqify_local_vars_in_expression_rename_var_helper(&n->u.a.left_side, old_name, new_name);
-        uniqify_local_vars_in_expression_rename_var_helper(&n->u.a.right_side, old_name, new_name);
+        ycf_scan_expression(&n->u.a.left_side, scanner, context);
+        ycf_scan_expression(&n->u.a.right_side, scanner, context);
     } else if (n->type == ycf_node_type_function_call){
-        uniqify_local_vars_in_fun_call_rename_var_helper(&n->u.function_call, old_name, new_name);
+        ycf_scan_function_call(&n->u.function_call, scanner, context);
     } else if (n->type == ycf_node_type_statement){
         ycf_node* e = n->u.statement.expression;
-        uniqify_local_vars_in_node_rename_var_helper(e, old_name, new_name);
+        ycf_scan_node(e, scanner, context);
     } else if (n->type == ycf_node_type_return_statement && n->u.return_n.return_expression != NULL){
         ycf_node* e = n->u.return_n.return_expression;
-        uniqify_local_vars_in_node_rename_var_helper(e, old_name, new_name);
+        ycf_scan_node(e, scanner, context);
     } else if (n->type == ycf_node_type_expression){
-        uniqify_local_vars_in_expression_rename_var_helper(&n->u.expression, old_name, new_name);
+        ycf_scan_expression(&n->u.expression, scanner, context);
     } else if (n->type == ycf_node_type_assignment_function_call){
-        uniqify_local_vars_in_assignment_fun_call_rename_var_helper(&n->u.function_call_assignment, old_name, new_name);
-    }else if (n->type == ycf_node_type_parentheses_expression){
-        uniqify_local_vars_in_paran_expression_rename_var_helper(&n->u.parentheses_expression, old_name, new_name);
+        ycf_scan_expression(&n->u.function_call_assignment.left_side, scanner, context);
+        ycf_scan_function_call(&n->u.function_call_assignment.fun_call, scanner, context);
+    } else if (n->type == ycf_node_type_parentheses_expression){
+        ycf_scan_paran_expression(&n->u.parentheses_expression, scanner, context);
     } else if (n->type == ycf_node_type_if){
-        uniqify_local_vars_in_paran_expression_rename_var_helper(&n->u.if_n.expression, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.if_n.if_statement, old_name, new_name);
+        ycf_scan_paran_expression(&n->u.if_n.expression, scanner, context);
+        ycf_scan_node(n->u.if_n.if_statement, scanner, context);
     } else if (n->type == ycf_node_type_if_else){
-        uniqify_local_vars_in_paran_expression_rename_var_helper(&n->u.if_else.if_part.expression, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.if_else.if_part.if_statement, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.if_else.else_statement, old_name, new_name);
+        ycf_scan_paran_expression(&n->u.if_else.if_part.expression, scanner, context);
+        ycf_scan_node(n->u.if_else.if_part.if_statement, scanner, context);
+        ycf_scan_node(n->u.if_else.else_statement, scanner, context);
     } else if (n->type == ycf_node_type_while){
-        uniqify_local_vars_in_paran_expression_rename_var_helper(&n->u.while_n.expression, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.while_n.statement, old_name, new_name);
+        ycf_scan_paran_expression(&n->u.while_n.expression, scanner, context);
+        ycf_scan_node(n->u.while_n.statement, scanner, context);
     } else if (n->type == ycf_node_type_do_while){
-        uniqify_local_vars_in_paran_expression_rename_var_helper(&n->u.do_while.expression, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.do_while.statement, old_name, new_name);
+        ycf_scan_paran_expression(&n->u.do_while.expression, scanner, context);
+        ycf_scan_node(n->u.do_while.statement, scanner, context);
     } else if (n->type == ycf_node_type_switch){
-        uniqify_local_vars_in_paran_expression_rename_var_helper(&n->u.switch_n.expression, old_name, new_name);
-        uniqify_local_vars_in_scope_rename_var_helper(&n->u.switch_n.scope, old_name, new_name);
+        ycf_scan_paran_expression(&n->u.switch_n.expression, scanner, context);
+        ycf_scan_scope(&n->u.switch_n.scope, scanner, context);
     } else if (n->type == ycf_node_type_for){
-        uniqify_local_vars_in_node_rename_var_helper(n->u.for_n.init, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.for_n.stop_cond, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.for_n.end_exp, old_name, new_name);
-        uniqify_local_vars_in_node_rename_var_helper(n->u.for_n.statement, old_name, new_name);
+        ycf_scan_node(n->u.for_n.init, scanner, context);
+        ycf_scan_node(n->u.for_n.stop_cond, scanner, context);
+        ycf_scan_node(n->u.for_n.end_exp, scanner, context);
+        ycf_scan_node(n->u.for_n.statement, scanner, context);
+    }
+    scanner(n, context);
+}
+
+void ycf_scan_scope(ycf_node_code_scope* s,
+                    void (*scanner)(ycf_node*, void* context),
+                    void* context) {
+    ycf_node* current = s->other_nodes.head;
+    while(current != NULL){
+        ycf_scan_node(current, scanner, context);
+        current = current->next;
+    }
+}
+
+#define YCF_UNIQ_VARIABLE_NAME_NUMBER_PREFIX "_N"
+
+static int ycf_uniq_variable_name_number_counter = 0;
+
+static void rename_var_fun_call(ycf_node_function_call* n,
+                                char* old_name,
+                                char* new_name) {
+
+    if(ycf_symbol_is_text_eq(n->identifier, old_name)){
+        n->identifier = ycf_symbol_copy_change_text(n->identifier, new_name);
+    }
+}
+
+typedef struct {
+    char* old_name;
+    char* new_name;
+} change_var_name_info;
+
+static void change_var_name_scanner(ycf_node* node, void* context) {
+    change_var_name_info info = *((change_var_name_info*)context);
+    if (node->type == ycf_node_type_function_call) {
+        rename_var_fun_call(&node->u.function_call, info.old_name, info.new_name);
+    } else if (node->type == ycf_node_type_assignment_function_call) {
+        rename_var_fun_call(&node->u.function_call_assignment.fun_call, info.old_name, info.new_name);
+    } else if(node->type == ycf_node_type_other &&
+       node->u.other.what->type == ycf_symbol_type_identifier &&
+       ycf_symbol_is_text_eq(node->u.other.what, info.old_name)) {
+        node->u.other.what =
+            ycf_symbol_copy_change_text(node->u.other.what, info.new_name);
     }
 }
 
 static void uniqify_local_vars_in_scope_rename_var_helper(ycf_node_code_scope* s,
-                                                   char* old_name,
-                                                   char* new_name){
-    ycf_node* current = s->other_nodes.head;
-    while(current != NULL){
-        uniqify_local_vars_in_node_rename_var_helper(current, old_name, new_name);
-        current = current->next;
-    }
+                                                          char* old_name,
+                                                          char* new_name){
+    change_var_name_info info;
+    info.old_name = old_name;
+    info.new_name = new_name;
+    ycf_scan_scope(s, change_var_name_scanner, &info);
 }
 
 

@@ -1466,6 +1466,61 @@ ycf_node* insert_yielding_function_with_prefix_suffix(ycf_node* tree_to_insert_t
   return yielding_fun;
 }
 
+typedef struct {
+    char *orginal_function_name;
+    ycf_string_item_list* all_yielding_function_names;
+} error_exit_info;
+
+static void error_exit_if_not_fun_call_not_transformed_scanner(ycf_node* node, void* context) {
+    error_exit_info* info = context;
+    ycf_string_item_list* all_yielding_function_names = info->all_yielding_function_names;
+    char *orginal_function_name = info->orginal_function_name;
+    ycf_symbol* ident = NULL;
+    if (node->type == ycf_node_type_function_call) {
+        ident = node->u.function_call.identifier;
+    } else if (node->type == ycf_node_type_assignment_function_call) {
+        ident = node->u.function_call_assignment.fun_call.identifier;
+    } else if(node->type == ycf_node_type_other &&
+       node->u.other.what->type == ycf_symbol_type_identifier) {
+        ident = node->u.other.what;
+    }
+    if (ident != NULL) {
+        ycf_string_item* curr = all_yielding_function_names->head;
+        while(curr != NULL) {
+            if (ycf_symbol_is_text_eq(ident, curr->str)) {
+                fprintf(stderr,
+                        "\n"
+                        "\n"
+                        "ERROR: The function identifier %s (probably a function call)\n"
+                        "in the function %s is not transformed but %s is among\n"
+                        "the functions that shall be transformed. This probably means\n"
+                        "that you have to rewrite the code so the call to %s\n"
+                        "is not nested inside another expression.\n"
+                        "See the documentation of Yielding C Fun for more information.\n"
+                        "\n"
+                        "\n",
+                        curr->str,
+                        orginal_function_name,
+                        curr->str,
+                        curr->str);
+                exit(1);
+            }
+            curr = curr->next;
+        }
+    }
+}
+
+static void error_exit_if_fun_call_not_transformed(ycf_node* fun_change,
+                                                   char *orginal_function_name,
+                                                   ycf_string_item_list* all_yielding_function_names) {
+    error_exit_info info;
+    info.orginal_function_name = orginal_function_name;
+    info.all_yielding_function_names = all_yielding_function_names;
+    ycf_scan_scope(&fun_change->u.function.body,
+                   error_exit_if_not_fun_call_not_transformed_scanner,
+                   &info);
+}
+
 ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
                                                ycf_node* header_tree,
                                                char* yielding_function_name,
@@ -1502,14 +1557,14 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
   if(auto_yield){
     insert_consume_reds_calls(&fun_change->u.function.body);
   }
-  /* Save variable declaraions */
+  /* Save variable declarations */
   ycf_node_list uniqified_parameters =
     ycf_node_list_shallow_copy(fun_change->u.function.definition.parameters);
   ycf_node_list scope_defs =
     ycf_node_list_shallow_copy(ycf_node_get_declarations_in_scope(&fun_change->u.function.body));;
   ycf_node_list defs =
     ycf_node_list_shallow_copy(ycf_node_get_all_definitions_in_function(&fun_change->u.function));
-  /* Add extra vaiables that are needed for yielding */
+  /* Add extra variables that are needed for yielding */
   ycf_node_list extra_ycf_trap_state = mk_trap_extra_state();
   ycf_node_list_concat(&scope_defs, &extra_ycf_trap_state);
   fun_change->u.function.body.definition_nodes = scope_defs;
@@ -1599,6 +1654,11 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
                                           yielding_function_name));
   /* Remove unecessary scopes */
   ycf_node_remove_unecessary_scopes(&fun_change->u.function.body);
+  /* Exit with error message if a function call to a yielding function
+     is not transformed */
+  error_exit_if_fun_call_not_transformed(fun_change,
+                                         yielding_function_name,
+                                         all_yielding_function_names);
   /* Make continue function */
   ycf_node* continue_function =
     mk_continue_function_node(yielding_function_name,

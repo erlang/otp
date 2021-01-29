@@ -37,7 +37,7 @@ EXTRACFLAGSYCFCODE=-Wno-unused-function
 CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
 CXXFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
 
-LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lerl_interface -lei
+LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lei
 LDFLAGS += -shared
 
 # Verbosity.
@@ -62,7 +62,7 @@ $(C_SRC_OUTPUT): $(OBJECTS)
 	$(link_verbose) $(CC) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $(C_SRC_OUTPUT)
 
 gen_yielding_sha_256.c: sha-2/sha-256.c
-	../../../../bin/yielding_c_fun -use_gc -yield -debug -f calc_sha_256 -f calc_chunk  -header_file_name gen_yielding_sha_256.h  "sha-2/sha-256.c" > gen_yielding_sha_256.c
+	../../../../bin/yielding_c_fun -use_gc -yield -f calc_sha_256 -f calc_chunk  -header_file_name gen_yielding_sha_256.h  "sha-2/sha-256.c" > gen_yielding_sha_256.c
 
 gen_yielding_sha_256.o: gen_yielding_sha_256.c
 	$(CC) $(CFLAGS) $(EXTRACFLAGSYCFCODE) $(CPPFLAGS) -c gen_yielding_sha_256.c

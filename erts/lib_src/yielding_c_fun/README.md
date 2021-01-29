@@ -549,9 +549,9 @@ recommended to check that the generated code is correct.
     if(hej=my_fun()) printf("hej\n");
     ```
     
-    YCF ignores calls to yieldable functions that are not in any of
-    the forms described above, so it is important to check the
-    generated source code.
+    YCF prints a message to standard error and exits with an error
+    code if it finds a call to a yieldable function that it cannot
+    transform.
 
 Hooks
 -----

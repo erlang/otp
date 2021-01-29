@@ -451,5 +451,8 @@ ycf_node_assignment* ycf_node_get_assignment(ycf_node* n);
 void ycf_node_print_node_type(ycf_node_type t);
 void ycf_node_normalize_function(ycf_node* fun);
 void ycf_node_remove_unecessary_scopes(ycf_node_code_scope* s);
+void ycf_scan_scope(ycf_node_code_scope* s,
+                    void (*scanner)(ycf_node*, void* context),
+                    void* context);
 
 #endif //YIELDING_C_FUN_YCF_NODE_FUNS_H

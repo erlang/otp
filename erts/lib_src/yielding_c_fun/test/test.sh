@@ -174,6 +174,10 @@ yielding_c_fun.bin $GC $RR -yield \
 $CC $CC_ARGS -I "$TMP_DIR" "$DIR/examples/test_only_output_yielding_funs_ptr_to_stack.c"  -o $TMP_CC_OUT
 (set +e ; $TMP_CC_OUT ; [ $? -ne 0 ])
 
+# Check that untransformed calls to yielding functions can be detected
+#"$DIR/examples/ycf_cannot_transform_fun_call.c"
+(set +e ; yielding_c_fun.bin $GC $RR -yield -f fun -f sub_fun2 -f sub_fun "$DIR/examples/ycf_cannot_transform_fun_call.c" > $TMP_C_FILE ; [ $? -ne 0 ])
+
 # Check that memory usage of the tool can be logged
 MEM_LOG_FILE="$TMP_DIR/my_mem_log_file.txt"
 yielding_c_fun $GC $RR -log_max_mem_usage "$MEM_LOG_FILE" -yield -debug -fnoauto fun "$DIR/examples/multi_scope_yield.c" > $TMP_C_FILE
