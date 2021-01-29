@@ -77,11 +77,13 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
             end
     catch
         error:Reason:Stk ->
+            AllowRename = lists:member(allow_rename, Opts),
             SF = fun(Mod, _, _) -> Mod =:= test_server end,
             Str = erl_error:format_exception(error, Reason, Stk, #{stack_trim_fun => SF}),
             BinStr = iolist_to_binary(Str),
             ArgStr = lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]),
             io:format("\n~p:~p(~s)\n~ts", [Module,F,ArgStr,BinStr]),
+
 
             case Stk of
                 [{Module,ActualF,ActualArgs,Info}|_] ->
@@ -99,17 +101,20 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
                                               [{no_explanation,{F,Args},Info}|Errors0]
                                       end
                               end,
-
                     Errors = case {ActualF,ActualArgs} of
                                  {F,Args} ->
+                                     Errors1;
+                                 _ when AllowRename ->
                                      Errors1;
                                  _ ->
                                      [{renamed,{F,length(Args)},{ActualF,ActualArgs}}|Errors1]
                              end,
 
                     do_error_info(T, Module, Errors);
-                _ ->
+                _ when not AllowRename ->
                     Errors = [{renamed,{F,length(Args)},hd(Stk)}|Errors0],
-                    do_error_info(T, Module, Errors)
+                    do_error_info(T, Module, Errors);
+                _ ->
+                    do_error_info(T, Module, Errors0)
             end
     end.

@@ -69,6 +69,25 @@ format_binary_error(encode_unsigned, [Subject], _) ->
     [must_be_non_neg_integer(Subject)];
 format_binary_error(encode_unsigned, [Subject, Endianness], _) ->
     [must_be_non_neg_integer(Subject), must_be_endianness(Endianness)];
+format_binary_error(encode_hex, [Subject], _) ->
+    [must_be_binary(Subject)];
+format_binary_error(decode_hex, [Subject], _) ->
+    if
+        is_binary(Subject), byte_size(Subject) rem 2 == 1 ->
+            ["must contain an even number of bytes"];
+        true ->
+            [must_be_binary(Subject)]
+    end;
+format_binary_error(decode_hex_char, [Subject], _) ->
+    if
+        is_integer(Subject),
+        (Subject >= $a andalso Subject =< $f) orelse
+        (Subject >= $A andalso Subject =< $F) orelse
+        (Subject >= $0 andalso Subject =< $9) ->
+            [[]];
+        true ->
+            [range]
+    end;
 format_binary_error(first, [Subject], _) ->
     [case Subject of
          <<>> -> empty_binary;
