@@ -1063,9 +1063,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *  External pid layout (OTP 24):
  *    External pids always have two 32-bit words (num and seq).
  *
- *  External port layout:
- *    External ports only have one data word (Data 0) which has
- *    the same layout as internal ports.
+ *  External port layout (OTP 24):
+ *    External ports always have two 32-bit words.
  *
  *  External refs layout:
  *    External refs has the same layout for the data words as in the internal
