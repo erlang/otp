@@ -31,7 +31,7 @@
 -include("ssl_cipher.hrl").
 
 %% API
--export([start_link/4,
+-export([start_link/5,
          new/3,
          use/4
         ]).
@@ -46,18 +46,19 @@
                 stateless,
                 stateful,
                 nonce,
-                lifetime
+                lifetime,
+                max_early_data_size
                }).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec start_link(atom(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
+-spec start_link(atom(), integer(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
-start_link(Mode, Lifetime, TicketStoreSize, AntiReplay) ->
-    gen_server:start_link(?MODULE, [Mode, Lifetime, TicketStoreSize, AntiReplay], []).
+start_link(Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay) ->
+    gen_server:start_link(?MODULE, [Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay], []).
 
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
@@ -81,10 +82,11 @@ init(Args) ->
 handle_call({new_session_ticket, Prf, MasterSecret}, _From, 
             #state{nonce = Nonce, 
                    lifetime = LifeTime,
+                   max_early_data_size = MaxEarlyDataSize,
                    stateful = #{id_generator := IdGen}} = State0) -> 
     Id = stateful_psk_ticket_id(IdGen),
     PSK = tls_v1:pre_shared_key(MasterSecret, ticket_nonce(Nonce), Prf),
-    SessionTicket = new_session_ticket(Id, Nonce, LifeTime),
+    SessionTicket = new_session_ticket(Id, Nonce, LifeTime, MaxEarlyDataSize),
     State = stateful_ticket_store(Id, SessionTicket, Prf, PSK, State0),
     {reply, SessionTicket, State};
 handle_call({new_session_ticket, Prf, MasterSecret}, _From, 
@@ -142,27 +144,30 @@ format_status(_Opt, Status) ->
 %%% Internal functions
 %%%===================================================================
 
-inital_state([stateless, Lifetime, _, undefined]) ->
+inital_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined]) ->
     #state{nonce = 0,
            stateless = #{seed => {crypto:strong_rand_bytes(16), 
                                   crypto:strong_rand_bytes(32)},
                          window => undefined},
-           lifetime = Lifetime
+           lifetime = Lifetime,
+           max_early_data_size = MaxEarlyDataSize
           };
-inital_state([stateless, Lifetime, _, {Window, K, M}]) ->
+inital_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}]) ->
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     #state{nonce = 0,
            stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
                          seed => {crypto:strong_rand_bytes(16),
                                   crypto:strong_rand_bytes(32)},
                          window => Window},
-           lifetime = Lifetime
+           lifetime = Lifetime,
+           max_early_data_size = MaxEarlyDataSize
           };
-inital_state([stateful, Lifetime, TicketStoreSize|_]) ->
+inital_state([stateful, Lifetime, TicketStoreSize, MaxEarlyDataSize|_]) ->
     %% statfeful servers replay
     %% protection is that it saves
     %% all valid tickets
     #state{lifetime = Lifetime,
+           max_early_data_size = MaxEarlyDataSize,
            nonce = 0,
            stateful = #{db => stateful_store(),                    
                         max => TicketStoreSize,
@@ -187,17 +192,21 @@ ticket_nonce(I) ->
     <<?UINT64(I)>>.
 
 new_session_ticket_base(#state{nonce = Nonce,
-                               lifetime = Lifetime}) ->
-    new_session_ticket(undefined, Nonce, Lifetime).
+                               lifetime = Lifetime,
+                               max_early_data_size = MaxEarlyDataSize}) ->
+    new_session_ticket(undefined, Nonce, Lifetime, MaxEarlyDataSize).
 
-new_session_ticket(Id, Nonce, Lifetime) ->
+new_session_ticket(Id, Nonce, Lifetime, MaxEarlyDataSize) ->
     TicketAgeAdd = ticket_age_add(),
+    Extensions = #{early_data =>
+                       #early_data_indication_nst{
+                          indication = MaxEarlyDataSize}},
     #new_session_ticket{
        ticket = Id,
        ticket_lifetime = Lifetime,
        ticket_age_add = TicketAgeAdd,
        ticket_nonce = ticket_nonce(Nonce),
-       extensions = #{}
+       extensions = Extensions
       }.
 
 
@@ -322,7 +331,7 @@ generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce,
                                              timestamp = Timestamp
                                             }, Shard, IV),
     Ticket#new_session_ticket{ticket = Encrypted}.
-    
+
 stateless_use(#offered_psks{
                  identities = Identities,
                  binders = Binders

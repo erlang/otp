@@ -25,6 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("ssl/src/tls_handshake_1_3.hrl").
 
 -export([clean_start/0,
          clean_start/1,
@@ -99,6 +100,9 @@
          verify_active_session_resumption/3,
          verify_active_session_resumption/4,
          verify_active_session_resumption/5,
+         verify_server_early_data/3,
+         verify_session_ticket_extension/2,
+         update_session_ticket_extension/2,
          check_sane_openssl_version/1,
          check_ok/1,
          check_result/4,
@@ -1133,11 +1137,14 @@ check_server_alert(Pid, Alert) ->
 	{Pid, {error, {tls_alert, {Alert, STxt}}}} ->
             check_server_txt(STxt),
             ok;
+        {Pid, {error, {tls_alert, {OtherAlert, STxt}}}} ->
+            ct:fail("Unexpected alert during negative test: ~p - ~p", [OtherAlert, STxt]);
         {Pid, {error, closed}} ->
             ok;
         {Pid, {ok, _}} ->
             ct:fail("Successful connection during negative test.")
     end.
+
 check_server_alert(Server, Client, Alert) ->
     receive
 	{Server, {error, {tls_alert, {Alert, STxt}}}} ->
@@ -1146,6 +1153,7 @@ check_server_alert(Server, Client, Alert) ->
         {Server, {ok, _}} ->
             ct:fail("Successful connection during negative test.")
     end.
+
 check_client_alert(Pid, Alert) ->
     receive
 	{Pid, {error, {tls_alert, {Alert, CTxt}}}} ->
@@ -2595,6 +2603,9 @@ send_recv_result_active_once(Socket) ->
     ssl:send(Socket, Data),
     active_once_recv_list(Socket, length(Data)).
 
+%% This function can verify the following functionalities in clients:
+%% - session resumption, sending/receiving application data, receiving session tickets
+%% - verifying if client early data is accepted/rejected
 verify_active_session_resumption(Socket, SessionResumption) ->
     verify_active_session_resumption(Socket, SessionResumption, wait_reply, no_tickets, no_early_data).
 %%
@@ -2653,6 +2664,69 @@ verify_active_session_resumption(Socket, SessionResumption, WaitForReply, Ticket
         Else3 ->
             ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else3])
     end.
+
+verify_server_early_data(Socket, WaitForReply, EarlyData) ->
+    case ssl:connection_information(Socket, [session_resumption]) of
+        {ok, [{session_resumption, true}]} ->
+            Msg = boolean_to_log_msg(true),
+            ct:log("~p:~p~nSession resumption verified! (expected ~p, got ~p)!",
+                   [?MODULE, ?LINE, Msg, Msg]);
+        {ok, [{session_resumption, Got0}]} ->
+            Expected = boolean_to_log_msg(true),
+            Got = boolean_to_log_msg(Got0),
+            ct:fail("~p:~p~nFailed to verify session resumption! (expected ~p, got ~p)",
+                    [?MODULE, ?LINE, Expected, Got]);
+        {error, Reason} ->
+            ct:fail("~p:~p~nFailed to verify session resumption! Reason: ~p",
+                    [?MODULE, ?LINE, Reason])
+    end,
+    Data =  "Hello world",
+    ssl:send(Socket, Data),
+    Reply =
+        case EarlyData of
+            no_early_data ->
+                Data;
+            _ ->
+                binary_to_list(EarlyData) ++ Data
+        end,
+    ct:log("Expected Reply: ~p~n", [Reply]),
+    case WaitForReply of
+        wait_reply ->
+            Reply = active_recv(Socket, length(Reply));
+        no_reply ->
+            ok;
+        Else1 ->
+            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else1])
+    end,
+    ok.
+
+verify_session_ticket_extension([Ticket0|_], MaxEarlyDataSize) ->
+    #{ticket := #new_session_ticket{
+                   extensions = #{early_data :=
+                                      #early_data_indication_nst{
+                                         indication = Size}}}} = Ticket0,
+      case Size of
+          MaxEarlyDataSize ->
+              ct:log("~p:~p~nmax_early_data_size verified! (expected ~p, got ~p)!",
+                     [?MODULE, ?LINE, MaxEarlyDataSize, Size]);
+          Else ->
+              ct:log("~p:~p~nFailed to verify max_early_data_size! (expected ~p, got ~p)!",
+                     [?MODULE, ?LINE, MaxEarlyDataSize, Else])
+      end.
+
+update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
+    #{ticket := #new_session_ticket{
+                   extensions = #{early_data :=
+                                      #early_data_indication_nst{
+                                         indication = Size}}}} = Ticket,
+    ct:log("~p:~p~nOverwrite max_early_data_size (from ~p to ~p)!",
+                     [?MODULE, ?LINE, Size, MaxEarlyDataSize]),
+    #{ticket := #new_session_ticket{
+                   extensions = #{early_data := Extensions0}} = NST0} = Ticket,
+    Extensions = #{early_data => #early_data_indication_nst{
+                                    indication = MaxEarlyDataSize}},
+    NST = NST0#new_session_ticket{extensions = Extensions},
+    [Ticket#{ticket => NST}].
 
 boolean_to_log_msg(true) ->
     "OK";
