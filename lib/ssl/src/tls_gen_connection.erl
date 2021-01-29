@@ -659,6 +659,17 @@ next_record(#state{connection_env = #connection_env{negotiated_version = {3,4} =
                 [_|_] ->
                     next_record(State, CipherTexts, ConnectionStates, Check, [Fragment|Acc])
             end;
+        {trial_decryption_failed, ConnectionStates} ->
+            case CipherTexts of
+                [] ->
+                    %% End of cipher texts - build and deliver an ?APPLICATION_DATA record
+                    %% from the accumulated fragments
+                    next_record_done(State, [], ConnectionStates,
+                                     #ssl_tls{type = ?APPLICATION_DATA,
+                                              fragment = iolist_to_binary(lists:reverse(Acc))});
+                [_|_] ->
+                    next_record(State, CipherTexts, ConnectionStates, Check, Acc)
+            end;
         {Record, ConnectionStates} when Acc =:= [] ->
             %% Singelton non-?APPLICATION_DATA record - deliver
             next_record_done(State, CipherTexts, ConnectionStates, Record);

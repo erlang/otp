@@ -33,7 +33,9 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handling of incoming data
--export([get_tls_records/5, init_connection_states/2]).
+-export([get_tls_records/5,
+         init_connection_states/2,
+         init_connection_states/3]).
 
 %% Encoding TLS records
 -export([encode_handshake/3, encode_alert_record/3,
@@ -64,16 +66,29 @@
 %% Handling of incoming data
 %%====================================================================
 %%--------------------------------------------------------------------
--spec init_connection_states(client | server, one_n_minus_one | zero_n | disabled) ->
- 				    ssl_record:connection_states().
+-spec init_connection_states(Role, BeastMitigation) ->
+          ssl_record:connection_states() when
+      Role :: client | server,
+      BeastMitigation :: one_n_minus_one | zero_n | disabled.
+
 %% 
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
 init_connection_states(Role, BeastMitigation) ->
+    MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
+    init_connection_states(Role, BeastMitigation, MaxEarlyDataSize).
+%%
+-spec init_connection_states(Role, BeastMitigation, MaxEarlyDataSize) ->
+          ssl_record:connection_states() when
+      Role :: client | server,
+      BeastMitigation :: one_n_minus_one | zero_n | disabled,
+      MaxEarlyDataSize :: non_neg_integer().
+
+init_connection_states(Role, BeastMitigation, MaxEarlyDataSize) ->
     ConnectionEnd = ssl_record:record_protocol_role(Role),
-    Current = initial_connection_state(ConnectionEnd, BeastMitigation),
-    Pending = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation),
+    Current = initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize),
+    Pending = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize),
     #{current_read  => Current,
       pending_read  => Pending,
       current_write => Current,
@@ -181,7 +196,8 @@ encode_data(Data, Version,
 
 %%--------------------------------------------------------------------
 -spec decode_cipher_text(tls_version(), #ssl_tls{}, ssl_record:connection_states(), boolean()) ->
-				{#ssl_tls{}, ssl_record:connection_states()}| #alert{}.
+				{#ssl_tls{} | trial_decryption_failed,
+                                 ssl_record:connection_states()}| #alert{}.
 %%
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
@@ -465,7 +481,7 @@ split_iovec(Data, MaximumFragmentLength) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-initial_connection_state(ConnectionEnd, BeastMitigation) ->
+initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
     #{security_parameters =>
 	  ssl_record:initial_security_params(ConnectionEnd),
       sequence_number => 0,
@@ -476,7 +492,10 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       secure_renegotiation => undefined,
       client_verify_data => undefined,
       server_verify_data => undefined,
-      max_fragment_length => undefined
+      max_early_data_size => MaxEarlyDataSize,
+      max_fragment_length => undefined,
+      trial_decryption => false,
+      early_data_limit => false
      }.
 
 %% Used by logging to recreate the received bytes

@@ -177,6 +177,16 @@
 	</p>
       </item>
 
+      <tag><c><![CDATA[server_session_ticket_max_early_data = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Sets the maximum size of the early data that the server accepts and also configures
+	  its NewSessionTicket messages to include this same size limit in their
+	  early_data_indication extension.
+	  Defaults to 16384. Size limit is enforced by both client and server.
+	</p>
+      </item>
+
       <tag><c><![CDATA[client_session_ticket_lifetime = integer() <optional>]]></c></tag>
       <item>
 	<p>

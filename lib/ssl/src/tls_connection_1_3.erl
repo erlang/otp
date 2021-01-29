@@ -132,6 +132,7 @@
          wait_sh/3,
          wait_ee/3,
          wait_cert_cr/3,
+         wait_eoed/3,
          connection/3,
          downgrade/3
         ]).
@@ -307,8 +308,8 @@ negotiated(internal, Message, State0) ->
 negotiated(info, Msg, State) ->
     tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State).
 
-wait_cert(internal, #change_cipher_spec{}, State) ->
-    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
+wait_cert(internal, #change_cipher_spec{}, State0) ->
+    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State0);
 wait_cert(internal,
           #certificate_1_3{} = Certificate, State0) ->
     case tls_handshake_1_3:do_wait_cert(Certificate, State0) of
@@ -337,9 +338,8 @@ wait_cv(info, Msg, State) ->
 wait_cv(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
-
-wait_finished(internal, #change_cipher_spec{}, State) ->
-    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
+wait_finished(internal, #change_cipher_spec{}, State0) ->
+    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State0);
 wait_finished(internal,
              #finished{} = Finished, State0) ->
     case tls_handshake_1_3:do_wait_finished(Finished, State0) of
@@ -417,6 +417,20 @@ wait_cert_cr(info, Msg, State) ->
 wait_cert_cr(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
+wait_eoed(internal, #change_cipher_spec{}, State) ->
+    tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
+wait_eoed(internal, #end_of_early_data{} = EOED, State0) ->
+    case tls_handshake_1_3:do_wait_eoed(EOED, State0) of
+        {#alert{} = Alert, State} ->
+            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_eoed, State);
+        {State1, NextState} ->
+            tls_gen_connection:next_event(NextState, no_record, State1)
+    end;
+wait_eoed(info, Msg, State) ->
+    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+wait_eoed(Type, Msg, State) ->
+    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+
 connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     handle_new_session_ticket(NewSessionTicket, State),
     tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
@@ -450,7 +464,8 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{erl_dist := IsErlDist,
       client_renegotiation := ClientRenegotiation} = SSLOptions,
-    ConnectionStates = tls_record:init_connection_states(Role, disabled),
+    MaxEarlyDataSize = init_max_early_data_size(Role),
+    ConnectionStates = tls_record:init_connection_states(Role, disabled, MaxEarlyDataSize),
     UserMonitor = erlang:monitor(process, User),
     InitStatEnv = #static_env{
                      role = Role,
@@ -558,3 +573,12 @@ handle_key_update(#key_update{request_update = update_requested},
         {error, Reason} ->
             {error, State1, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason)}
     end.
+
+init_max_early_data_size(client) ->
+    %% Disable trial decryption on the client side
+    %% Servers do trial decryption of max_early_data bytes of plain text.
+    %% Setting it to 0 means that a decryption error will result in an Alert.
+    0;
+init_max_early_data_size(server) ->
+    ssl_config:get_max_early_data_size().
+
