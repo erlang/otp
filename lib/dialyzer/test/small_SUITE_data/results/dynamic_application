@@ -1,0 +1,6 @@
+
+dynamic_application.erl:27:17: The call module_func_wrong_arg_type_list:func('an_arg') will never return since it differs in the 1st argument from the success typing arguments: ([])
+dynamic_application.erl:27:17: The call module_func_wrong_arg_type_number:func('an_arg') will never return since it differs in the 1st argument from the success typing arguments: (2 | 4)
+dynamic_application.erl:27:5: Call to missing or unexported function module_func_missing:func/1
+dynamic_application.erl:31:17: The call module_func_wrong_arg_type_list:func('an_arg') will never return since it differs in the 1st argument from the success typing arguments: ([])
+dynamic_application.erl:31:17: The call module_func_wrong_arg_type_number:func('an_arg') will never return since it differs in the 1st argument from the success typing arguments: (2 | 4)

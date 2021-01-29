@@ -477,7 +477,7 @@ handle_apply_or_call([{local, external}|Left], Args, ArgTypes, Map, Tree, State,
       none -> one;
       _ -> many
     end,
-  NewWarns = {NewHowMany, []},      
+  NewWarns = {NewHowMany, []},
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree, State,
 		       ArgTypes, t_any(), true, NewWarns);
 handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
@@ -490,26 +490,24 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   {CArgs, CRange} =
     case Contr of
       {value, #contract{args = As} = C} ->
-	{As, fun(FunArgs) ->
-		 dialyzer_contracts:get_contract_return(C, FunArgs)
-	     end};
+        {As, fun(FunArgs) -> dialyzer_contracts:get_contract_return(C, FunArgs) end};
       none -> GenSig
     end,
   {BifArgs, BifRange} =
     case TypeOfApply of
       remote ->
-	{M, F, A} = Fun,
-	case erl_bif_types:is_known(M, F, A) of
-	  true ->
-	    BArgs = erl_bif_types:arg_types(M, F, A),
-	    BRange =
-	      fun(FunArgs) ->
-		  erl_bif_types:type(M, F, A, FunArgs, Opaques)
-	      end,
-	    {BArgs, BRange};
+        {M, F, A} = Fun,
+        case erl_bif_types:is_known(M, F, A) of
+          true ->
+            BArgs = erl_bif_types:arg_types(M, F, A),
+            BRange =
+              fun(FunArgs) ->
+            erl_bif_types:type(M, F, A, FunArgs, Opaques)
+              end,
+            {BArgs, BRange};
           false ->
             GenSig
-	end;
+        end;
       local -> GenSig
     end,
   {SigArgs, SigRange} =
@@ -630,6 +628,24 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
       remote ->
         add_bif_warnings(Fun, NewArgTypes, Tree, State2)
     end,
+  State4 =
+    case TypeOfApply of
+      remote ->
+        {MAtom, FAtom, CallArgs} = Fun,
+        % erlang:display({application, MAtom, FAtom, Sig}),
+        case Sig of % TODO Look for module first, then check for the MFA on it, rather than indirectly looking for a sig - or is this too much extra work for the sake of elegance?
+          none ->
+            % erlang:display({plt_for, MAtom, is, dialyzer_plt:lookup_module(PLT, MAtom)}),
+            case state__module_exists(MAtom, State3) of
+              true ->
+                NewMsg = {call_to_missing, [MAtom, FAtom, CallArgs]},
+                state__add_warning(State3, ?WARN_FAILING_CALL, Tree, NewMsg);
+              false -> State3
+            end;
+          _ -> State3 % Normal call logic will check cases where the signature is present
+        end;
+      _ -> State3
+    end,
   NewAccArgTypes =
     case FailedConj of
       true -> AccArgTypes;
@@ -642,8 +658,10 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
     end,
   NewAccRet = t_sup(AccRet, TotalRet),
   ?debug("NewAccRet: ~ts\n", [t_to_string(NewAccRet)]),
-  {NewWarnings, State4} = state__remove_added_warnings(State, State3),
+  {NewWarnings, State5} = state__remove_added_warnings(State, State4),
   {HowMany, OldWarnings} = Warns,
+  % erlang:display("old warns:"),
+  % erlang:display(Warns),
   NewWarns =
     case HowMany of
       none -> {one, NewWarnings};
@@ -657,8 +675,11 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
             end
         end
     end,
+  % erlang:display("new warns:"),
+  % erlang:display(NewWarns),
+  % erlang:display({"More calls to explore:", length(Left)}),
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree,
-		       State4, NewAccArgTypes, NewAccRet, HadExternal, NewWarns);
+		       State5, NewAccArgTypes, NewAccRet, HadExternal, NewWarns);
 handle_apply_or_call([], Args, _ArgTypes, Map, _Tree, State,
 		     AccArgTypes, AccRet, HadExternal, {_, Warnings}) ->
   State1 = state__add_warnings(Warnings, State),
@@ -984,12 +1005,12 @@ handle_call(Tree, Map, State) ->
     false ->
       case t_is_atom(MType) of
 	true ->
-	  %% XXX: Consider doing this for all combinations of MF
 	  case {t_atom_vals(MType), t_atom_vals(FType)} of
-	    {[MAtom], [FAtom]} ->
-	      FunInfo = [{remote, state__fun_info({MAtom, FAtom, length(Args)},
-						  State1)}],
-	      handle_apply_or_call(FunInfo, Args, As, Map2, Tree, State1);
+	    {[_|_] = ListOfModuleAtoms, [FAtom]} ->
+        % erlang:display("Modules in M:F(A)"),
+        % erlang:display(ListOfModuleAtoms),
+	      FunInfos = [{remote, state__fun_info({MAtom, FAtom, length(Args)}, State1)} || MAtom <- ListOfModuleAtoms],
+	      handle_apply_or_call(FunInfos, Args, As, Map2, Tree, State1);
 	    {_MAtoms, _FAtoms} ->
 	      {State1, Map2, t_any()}
 	  end;
@@ -1579,16 +1600,16 @@ bind_pat_vars(Pats, Types, Acc, Map, State) ->
   try
     bind_pat_vars(Pats, Types, Acc, Map, State, false)
   catch
-    throw:Error -> 
+    throw:Error ->
       %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
-      Error 
+      Error
   end.
 
 bind_pat_vars_reverse(Pats, Types, Acc, Map, State) ->
   try
     bind_pat_vars(Pats, Types, Acc, Map, State, true)
   catch
-    throw:Error -> 
+    throw:Error ->
       %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
       Error
   end.
@@ -3581,6 +3602,13 @@ state__records_only(#state{records = Records}) ->
 state__translate_file(FakeFile, State) ->
   #state{codeserver = CodeServer, module = Module} = State,
   dialyzer_codeserver:translate_fake_file(CodeServer, Module, FakeFile).
+
+state__module_exists(MAtom, State) ->
+  #state{plt = PLT} = State,
+  case dialyzer_plt:lookup_module(PLT, MAtom) of
+    {value, _MfaTypes} -> true;
+    none -> false
+  end.
 
 %%% ===========================================================================
 %%%
