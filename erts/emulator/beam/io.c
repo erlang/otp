@@ -1229,14 +1229,9 @@ erts_schedule_port2port_signal(Eterm port_num, ErtsProc2PortSigData *sigdp,
                                int task_flags,
                                ErtsProc2PortSigCallback callback)
 {
-    Port *prt = erts_port_lookup_raw(port_num);
-
-    if (!prt)
-        return -1;
-
     sigdp->caller = ERTS_INVALID_PID;
 
-    return erts_port_task_schedule(prt->common.id,
+    return erts_port_task_schedule(port_num,
                                    NULL,
                                    ERTS_PORT_TASK_PROC_SIG,
                                    sigdp,
