@@ -56,6 +56,8 @@ std_macros(Env) ->
 
 check_defs([{K, D} | Ds]) when is_atom(K), is_list(D) ->
     check_defs(Ds);
+check_defs([{K, D} | Ds]) when is_atom(K), is_function(D, 3) ->
+    check_defs(Ds);
 check_defs([X | _Ds]) ->
     edoc_report:report("bad macro definition: ~P.", [X, 10]),
     exit(error);

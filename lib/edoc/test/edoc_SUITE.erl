@@ -71,6 +71,11 @@ build_std(Config) when is_list(Config) ->
 	    {def, {vsn,"TEST"}},
 	    {dir, PrivDir}]),
 
+    MF = fun(_MacroArg="", _Line, _Env) -> "TEST" end,
+    ok = edoc:application(syntax_tools, [{overview, Overview2},
+	    {def, {vsn,MF}},
+	    {dir, PrivDir}]),
+
     ok = edoc:application(xmerl, [{preprocess,true},{dir, PrivDir}]),
     ok.
 
