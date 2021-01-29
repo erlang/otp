@@ -682,6 +682,12 @@ lexpr({match,_,Lhs,Rhs}, Prec, Opts) ->
     Rl = lexpr(Rhs, R, Opts),
     El = {list,[{cstep,[Pl,' ='],Rl}]},
     maybe_paren(P, Prec, El);
+lexpr({op,_,'^'=Op,Arg}, Prec, Opts) ->
+    %% no space after caret
+    {P,R} = preop_prec(Op),
+    Ol = {reserved, leaf(format("~s", [Op]))},
+    El = [Ol,lexpr(Arg, R, Opts)],
+    maybe_paren(P, Prec, El);
 lexpr({op,_,Op,Arg}, Prec, Opts) ->
     {P,R} = preop_prec(Op),
     Ol = {reserved, leaf(format("~s ", [Op]))},

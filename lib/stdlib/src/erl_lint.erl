@@ -276,6 +276,7 @@ format_error({too_many_arguments,Arity}) ->
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
 %% --- patterns and guards ---
 format_error(illegal_pattern) -> "illegal pattern";
+format_error(illegal_caret) -> "operator ^ is only allowed in patterns";
 format_error(illegal_map_key) -> "illegal map key in pattern";
 format_error(illegal_bin_pattern) ->
     "binary patterns cannot be matched in parallel using '='";
@@ -317,6 +318,9 @@ format_error({unsafe_var,V,{What,Where}}) ->
 format_error({exported_var,V,{What,Where}}) ->
     io_lib:format("variable ~w exported from ~w ~s",
                   [V,What,format_where(Where)]);
+format_error({unpinned_var,V}) ->
+    io_lib:format("variable ~w is already bound - write '^~s' to use its value in a pattern without a warning",
+                  [V, V]);
 format_error({shadowed_var,V,In}) ->
     io_lib:format("variable ~w shadowed in ~w", [V,In]);
 format_error({unused_var, V}) ->
@@ -327,6 +331,10 @@ format_error({stacktrace_guard,V}) ->
     io_lib:format("stacktrace variable ~w must not be used in a guard", [V]);
 format_error({stacktrace_bound,V}) ->
     io_lib:format("stacktrace variable ~w must not be previously bound", [V]);
+format_error(illegal_catch_kind) ->
+    "only variables and atoms throw, exit, and error are allowed in kind position of catch clauses";
+format_error(illegal_catch_stack) ->
+    "only unbound variables are allowed in stacktrace position of catch clauses";
 %% --- binaries ---
 format_error({undefined_bittype,Type}) ->
     io_lib:format("bit type ~tw undefined", [Type]);
@@ -572,6 +580,9 @@ start(File, Opts) ->
 	[{unused_vars,
 	  bool_option(warn_unused_vars, nowarn_unused_vars,
 		      true, Opts)},
+         {unpinned_vars,
+	  bool_option(warn_unpinned_vars, nowarn_unpinned_vars,
+		      false, Opts)},
 	 {export_all,
 	  bool_option(warn_export_all, nowarn_export_all,
 		      true, Opts)},
@@ -1631,6 +1642,11 @@ pattern({var,_Line,'_'}, _Vt, _Old, St) ->
     {[],[],St}; %Ignore anonymous variable
 pattern({var,Line,V}, _Vt, Old, St) ->
     pat_var(V, Line, Old, [], St);
+pattern({op,_,'^',{var,Line,V}}, Vt, _Old, St) when V =/= '_' ->
+    %% this is checked like a normal expression variable,
+    %% since it will actually become a guard test
+    {Vt1,St1} = expr_var(V, Line, Vt, St),
+    {Vt1,[],St1};
 pattern({char,_Line,_C}, _Vt, _Old, St) -> {[],[],St};
 pattern({integer,_Line,_I}, _Vt, _Old, St) -> {[],[],St};
 pattern({float,_Line,_F}, _Vt, _Old, St) -> {[],[],St};
@@ -1862,7 +1878,7 @@ pattern_element(Be, Vt, Old, Acc) ->
     pattern_element_1(Be, Vt, Old, Acc).
 
 pattern_element_1({bin_element,Line,E,Sz0,Ts}, Vt, Old, {Size0,Esvt,Esnew,St0}) ->
-    {Pevt,Penew,St1} = pat_bit_expr(E, Old, Esnew, St0),
+    {Pevt,Penew,St1} = pat_bit_expr(E, Vt, Old, Esnew, St0),
     {Sz1,Szvt,Sznew,St2} = pat_bit_size(Sz0, Vt, Esnew, St1),
     {Sz2,Bt,St3} = bit_type(Line, Sz1, Ts, St2),
     {Sz3,St4} = bit_size_check(Line, Sz2, Bt, St3),
@@ -1884,16 +1900,21 @@ good_string_size_type(default, Ts) ->
 	      end, Ts);
 good_string_size_type(_, _) -> false.
 
-%% pat_bit_expr(Pattern, OldVarTable, NewVars, State) ->
+%% pat_bit_expr(Pattern, VarTable, OldVarTable, NewVars, State) ->
 %%              {UpdVarTable,UpdNewVars,State}.
 %%  Check pattern bit expression, only allow really valid patterns!
 
-pat_bit_expr({var,_,'_'}, _Old, _New, St) -> {[],[],St};
-pat_bit_expr({var,Ln,V}, Old, New, St) -> pat_var(V, Ln, Old, New, St);
-pat_bit_expr({string,_,_}, _Old, _new, St) -> {[],[],St};
-pat_bit_expr({bin,L,_}, _Old, _New, St) ->
+pat_bit_expr({op, _, '^', {var, Ln, V}}, Vt, _Old, _New, St) when V =/= '_' ->
+    %% this is checked like a normal expression variable,
+    %% since it will actually become a guard test
+    {Vt1, St1} = expr_var(V, Ln, Vt, St),
+    {Vt1, [], St1};
+pat_bit_expr({var,_,'_'}, _Vt, _Old, _New, St) -> {[],[],St};
+pat_bit_expr({var,Ln,V}, _Vt, Old, New, St) -> pat_var(V, Ln, Old, New, St);
+pat_bit_expr({string,_,_}, _Vt, _Old, _New, St) -> {[],[],St};
+pat_bit_expr({bin,L,_}, _Vt, _Old, _New, St) ->
     {[],[],add_error(L, illegal_pattern, St)};
-pat_bit_expr(P, _Old, _New, St) ->
+pat_bit_expr(P, _Vt, _Old, _New, St) ->
     case is_pattern_expr(P) of
         true -> {[],[],St};
         false -> {[],[],add_error(element(2, P), illegal_pattern, St)}
@@ -2544,9 +2565,13 @@ expr({'catch',Line,E}, Vt, St0) ->
 expr({match,_Line,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Pnew,St2} = pattern(P, vtupdate(Evt, Vt), St1),
-    St = reject_invalid_alias_expr(P, E, Vt, St2),
+    St3 = shadow_vars(Pnew, Vt, 'match', St2),  %% FIXME: remove?
+    St = reject_invalid_alias_expr(P, E, Vt, St3),
     {vtupdate(Pnew, vtmerge(Evt, Pvt)),St};
 %% No comparison or boolean operators yet.
+expr({op,Line,'^',A}, Vt, St) ->
+    {Vt1,St1} = expr(A, Vt, St),
+    {Vt1,add_error(Line, illegal_caret, St1)};
 expr({op,_Line,_Op,A}, Vt, St) ->
     expr(A, Vt, St);
 expr({op,Line,Op,L,R}, Vt, St0) when Op =:= 'orelse'; Op =:= 'andalso' ->
@@ -3622,18 +3647,21 @@ pat_var(V, Line, Vt, New, St) ->
     case orddict:find(V, New) of
         {ok, {bound,_Usage,Ls}} ->
             %% variable already in NewVars, mark as used
-            {[],[{V,{bound,used,Ls}}],St};
+            St1 = warn_unpinned(V, Line, St),
+            {[],[{V,{bound,used,Ls}}],St1};
         error ->
             case orddict:find(V, Vt) of
                 {ok,{bound,_Usage,Ls}} ->
-                    {[{V,{bound,used,Ls}}],[],St};
+                    St1 = warn_unpinned(V, Line, St),
+                    {[{V,{bound,used,Ls}}],[],St1};
                 {ok,{{unsafe,In},_Usage,Ls}} ->
                     {[{V,{bound,used,Ls}}],[],
                      add_error(Line, {unsafe_var,V,In}, St)};
                 {ok,{{export,From},_Usage,Ls}} ->
+                    St1 = warn_unpinned(V, Line, St),
                     {[{V,{bound,used,Ls}}],[],
                      %% As this is matching, exported vars are risky.
-                     add_warning(Line, {exported_var,V,From}, St)};
+                     add_warning(Line, {exported_var,V,From}, St1)};
                 error when St#lint.recdef_top ->
                     {[],[{V,{bound,unused,[Line]}}],
                      add_error(Line, {variable_in_record_def,V}, St)};
@@ -3641,6 +3669,14 @@ pat_var(V, Line, Vt, New, St) ->
                     %% add variable to NewVars, not yet used
                     {[],[{V,{bound,unused,[Line]}}],St}
             end
+    end.
+
+warn_unpinned(V, L, St) ->
+    case is_warn_enabled(unpinned_vars, St) of
+        true ->
+            add_warning(L, {unpinned_var,V}, St);
+        false ->
+            St
     end.
 
 %% pat_binsize_var(Variable, LineNo, VarTable, NewVars, State) ->

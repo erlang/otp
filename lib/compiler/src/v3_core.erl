@@ -121,6 +121,7 @@
 -record(igen,      {anno=#a{},acc_pat,acc_guard,
 		    skip_pat,tail,tail_pat,arg}).
 -record(isimple,   {anno=#a{},term :: cerl:cerl()}).
+-record(ipin,      {anno=#a{},arg}).
 
 -type iapply()    :: #iapply{}.
 -type ibinary()   :: #ibinary{}.
@@ -141,11 +142,12 @@
 -type ifilter()   :: #ifilter{}.
 -type igen()      :: #igen{}.
 -type isimple()   :: #isimple{}.
+-type ipin()      :: #ipin{}.
 
 -type i() :: iapply()    | ibinary()   | icall()     | icase()  | icatch()
            | iclause()   | ifun()      | iletrec()   | imatch() | imap()
            | iprimop()   | iprotect()  | ireceive1() | ireceive2()
-           | iset()      | itry()      | ifilter()
+           | iset()      | itry()      | ifilter()   | ipin()
            | igen()      | isimple().
 
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
@@ -1833,6 +1835,9 @@ pattern({match,_,P1,P2}, St) ->
     {Cp1,St1} = pattern(P1, St),
     {Cp2,St2} = pattern(P2, St1),
     {pat_alias(Cp1, Cp2),St2};
+pattern({op,_,'^',P}, St) ->
+    {P1, St1} = pattern(P, St),
+    {#ipin{arg=P1},St1};
 %% Evaluate compile-time expressions.
 pattern({op,_,'++',{nil,_},R}, St) ->
     pattern(R, St);
@@ -2346,6 +2351,8 @@ upattern(#c_var{name='_'}, _, St0) ->
 upattern(#c_var{name=V}=Var, Ks, St0) ->
     case is_element(V, Ks) of
 	true ->
+            %% Use of an existing variable - use a new variable in the
+            %% pattern and add a guard test to ensure the values are equal.
 	    {N,St1} = new_var_name(St0),
 	    New = #c_var{name=N},
 	    LA = get_lineno_anno(Var),
@@ -2357,6 +2364,13 @@ upattern(#c_var{name=V}=Var, Ks, St0) ->
 	    {New,[Test],[N],[],St1};
 	false -> {Var,[],[V],[],St0}
     end;
+upattern(#ipin{arg=#c_var{}=Var}, Ks, St0) ->
+    %% We know the var should be in Ks here, so it will become a new var in
+    %% the above clause. (If pinning becomes required, there is no need to
+    %% check if V is in Ks in the #c_var{} case, and that code can be moved
+    %% here instead. Furthermore, pinning could be generalized to any guard
+    %% expression, not just variables.)
+    upattern(Var, Ks, St0);
 upattern(#c_cons{hd=H0,tl=T0}=Cons, Ks, St0) ->
     {H1,Hg,Hv,Hu,St1} = upattern(H0, Ks, St0),
     {T1,Tg,Tv,Tu,St2} = upattern(T0, union(Hv, Ks), St1),
@@ -2532,6 +2546,8 @@ ren_pat(#c_var{name=V}=Old, Ks, {Isub0,Osub0}=Subs, St0) ->
         false ->
             {Old,Subs,St0}
     end;
+ren_pat(#ipin{}=P, _Ks, Subs, St) ->
+    {P,Subs,St};
 ren_pat(#c_literal{}=P, _Ks, {_,_}=Subs, St) ->
     {P,Subs,St};
 ren_pat(#c_alias{var=Var0,pat=Pat0}=Alias, Ks, {_,_}=Subs0, St0) ->
@@ -3167,6 +3183,8 @@ split_pat(#c_binary{segments=Segs0}=Bin, St0) ->
 split_pat(#c_map{es=Es}=Map, St) ->
     split_map_pat(Es, Map, St, []);
 split_pat(#c_var{}, _) ->
+    none;
+split_pat(#ipin{}, _) ->
     none;
 split_pat(#c_alias{pat=Pat}=Alias0, St0) ->
     case split_pat(Pat, St0) of
