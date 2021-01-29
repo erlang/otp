@@ -6257,7 +6257,8 @@ loop_it_1(Oid, N) ->
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid   = NOid,
 				      value = _Value}]} when NOid > Oid ->
-	    ?IPRINT("loop_it_1_test -> expected intermediate (get-next) result: "
+	    ?IPRINT("loop_it_1_test -> "
+                    "expected intermediate (get-next) result: "
                     "~n   NOid:  ~p"
                     "~n   Value: ~p", [NOid, _Value]),
 	    ?line [_Value2] = get_req(1, [NOid]), % must not be same
@@ -6271,10 +6272,10 @@ loop_it_1(Oid, N) ->
 	     varbinds     = Vbs} ->
             ?EPRINT("loop_it_1_test -> unexpected (get-response) vbs: "
                     "~n      Vbs: ~p", [Vbs]),
-	    exit({unexpected_vbs, ?LINE,
-                  [{get_next_oid, Oid}, 
-                   {counter,      N},
-                   {varbinds,     Vbs}]});
+	    ?line ?FAIL({unexpected_vbs,
+                         [{get_next_oid, Oid}, 
+                          {counter,      N},
+                          {varbinds,     Vbs}]});
 
 	#pdu{type         = 'get-response', 
 	     error_status = noSuchName, 
@@ -6291,12 +6292,12 @@ loop_it_1(Oid, N) ->
                     "~n      Err: ~p"
                     "~n      Idx: ~p"
                     "~n      Vbs: ~p", [Err, Idx, Vbs]),
-	    exit({unexpected_pdu, ?LINE,
-                  [{get_next_oid, Oid},
-                   {counter,      N},
-                   {error_status, Err},
-                   {error_index,  Idx},
-                   {varbinds,     Vbs}]});
+	    ?line ?FAIL({unexpected_pdu,
+                         [{get_next_oid, Oid},
+                          {counter,      N},
+                          {error_status, Err},
+                          {error_index,  Idx},
+                          {varbinds,     Vbs}]});
 
 	#pdu{type         = Type, 
 	     error_status = Err, 
@@ -6307,13 +6308,13 @@ loop_it_1(Oid, N) ->
                     "~n      Err:  ~p"
                     "~n      Idx:  ~p"
                     "~n      Vbs:  ~p", [Type, Err, Idx, Vbs]),
-	    exit({unexpected_pdu, ?LINE,
-                  [{get_next_oid, Oid},
-                   {counter,      N},
-                   {type,         Type},
-                   {error_status, Err},
-                   {error_index,  Idx},
-                   {varbinds,     Vbs}]});
+	    ?line ?FAIL({unexpected_pdu,
+                         [{get_next_oid, Oid},
+                          {counter,      N},
+                          {type,         Type},
+                          {error_status, Err},
+                          {error_index,  Idx},
+                          {varbinds,     Vbs}]});
 
 	{error, Reason} ->
             %% Regardless of the error here (its usually timeout),
@@ -6369,7 +6370,8 @@ loop_it_2(Oid, N) ->
 	     error_index  = 0,
 	     varbinds     = [#varbind{oid   = NOid,
 				      value = _Value}]} when NOid > Oid ->
-	    ?IPRINT("loop_it_2 -> expected intermediate (get-next) result: "
+	    ?IPRINT("loop_it_2 -> "
+                    "expected intermediate (get-next) result: "
                     "~n   NOid:  ~p"
                     "~n   Value: ~p", [NOid, _Value]),
 	    ?line [_Value2] = get_req(1, [NOid]), % must not be same
@@ -6383,11 +6385,10 @@ loop_it_2(Oid, N) ->
 	     varbinds     = Vbs} ->
             ?EPRINT("loop_it_2 -> unexpected (get-response) vbs: "
                     "~n      Vbs: ~p", [Vbs]),
-	    exit({unexpected_vbs, ?LINE, 
-		  [{get_next_oid, Oid},
-		   {counter,      N},
-                   {varbinds,     Vbs},
-		   {get_next_oid, Oid}]});
+	    ?line ?FAIL({unexpected_vbs, 
+                         [{get_next_oid, Oid},
+                          {counter,      N},
+                          {varbinds,     Vbs}]});
 
 	#pdu{type         = 'get-response', 
 	     error_status = ES, 
@@ -6397,13 +6398,12 @@ loop_it_2(Oid, N) ->
                     "~n      ES:  ~p"
                     "~n      EI:  ~p"
                     "~n      Vbs: ~p", [ES, EI, Vbs]),
-	    exit({unexpected_pdu, ?LINE, 
-		  [{get_next_oid, Oid},
-		   {counter,      N},
-                   {error_status, ES}, 
-		   {error_index,  EI},
-		   {varbinds,     Vbs},
-		   {get_next_oid, Oid}]});
+	    ?line ?FAIL({unexpected_pdu,
+                         [{get_next_oid, Oid},
+                          {counter,      N},
+                          {error_status, ES}, 
+                          {error_index,  EI},
+                          {varbinds,     Vbs}]});
 
 	#pdu{type         = Type, 
 	     error_status = ES, 
@@ -6414,13 +6414,13 @@ loop_it_2(Oid, N) ->
                     "~n      ES:   ~p"
                     "~n      EI:   ~p"
                     "~n      Vbs:  ~p", [Type, ES, EI, Vbs]),
-	    exit({unexpected_pdu, ?LINE, 
-		  [{get_next_oid, Oid},
-		   {counter,      N},
-                   {type,         Type}, 
-		   {error_status, ES}, 
-		   {error_index,  EI},
-		   {varbinds,     Vbs}]});
+	    ?line ?FAIL({unexpected_pdu,
+                         [{get_next_oid, Oid},
+                          {counter,      N},
+                          {type,         Type}, 
+                          {error_status, ES}, 
+                          {error_index,  EI},
+                          {varbinds,     Vbs}]});
 
 	{error, Reason} ->
             %% Regardless of the error here (its usually timeout),
