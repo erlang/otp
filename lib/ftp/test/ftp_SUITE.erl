@@ -128,7 +128,6 @@ ftp_tests_smoke() ->
 
 ftp_sup_tests() ->
     [
-     start_ftp,
      ftp_worker
     ].
 
@@ -292,22 +291,10 @@ init_per_group(Group, Config) when Group == ftpes_passive;
         _:_ ->
             {skip, "Crypto did not start"}
     end;
-init_per_group(ftp_sup, Config) ->
-    try ftp:start() of
-        ok ->
-            start_ftpd(Config)
-    catch
-        _:_ ->
-            {skip, "Ftp did not start"}
-    end;
+
 init_per_group(_Group, Config) ->
     start_ftpd(Config).
 
-
-end_per_group(ftp_sup, Config) ->
-    ftp:stop(),
-    stop_ftpd(Config),
-    Config;
 end_per_group(_Group, Config) ->
     stop_ftpd(Config),
     Config.
@@ -316,6 +303,7 @@ end_per_group(_Group, Config) ->
 init_per_testcase(T, Config0) when T =:= app; T =:= appup ->
     Config0;
 init_per_testcase(Case, Config0) ->
+    application:ensure_started(ftp),
     case Case of
         error_datafail ->
             catch crypto:stop(),
@@ -362,7 +350,7 @@ init_per_testcase2(Case, Config0) ->
             ftpes_active_reuse  -> ftp__open(Config0, TLSReuse ++  ACTIVE ++ ExtraOpts);
             ftps_passive_reuse  -> ftp__open(Config0, SSLReuse ++ PASSIVE ++ ExtraOpts);
             ftps_active_reuse   -> ftp__open(Config0, SSLReuse ++  ACTIVE ++ ExtraOpts);
-            ftp_sup             -> ftp_start_service(Config0,      ACTIVE ++ ExtraOpts);
+            ftp_sup             -> ftp__open(Config0, ACTIVE ++ ExtraOpts);
             undefined           -> Config0
         end,
     case Case of
@@ -1026,26 +1014,6 @@ clean_shutdown(Config) ->
     end.
 
 %%-------------------------------------------------------------------------
-start_ftp() ->
-    [{doc, "Start/stop of ftp service"}].
-start_ftp(Config) ->
-    Pid0 = proplists:get_value(ftp,Config),
-    Pids0 = [ServicePid || {_, ServicePid} <- ftp:services()],
-    true = lists:member(Pid0, Pids0),
-    {ok, [_|_]} = ftp:service_info(Pid0),
-    ftp:stop_service(Pid0),
-    ct:sleep(100),
-    Pids1 =  [ServicePid || {_, ServicePid} <- ftp:services()],
-    false = lists:member(Pid0, Pids1),
-
-    Host = proplists:get_value(ftpd_host,Config),
-    Port = proplists:get_value(ftpd_port,Config),
-
-    {ok, Pid1} = ftp:start_standalone([{host, Host},{port, Port}]),
-    Pids2 =  [ServicePid || {_, ServicePid} <- ftp:services()],
-    false = lists:member(Pid1, Pids2).
-
-%%-------------------------------------------------------------------------
 ftp_worker() ->
     [{doc, "Makes sure the ftp worker processes are added and removed "
       "appropriatly to/from the supervison tree."}].
@@ -1053,7 +1021,7 @@ ftp_worker(Config) ->
     Pid = proplists:get_value(ftp,Config),
     case supervisor:which_children(ftp_sup) of
         [{_,_, worker, [ftp]}] ->
-            ftp:stop_service(Pid),
+            ftp:close(Pid),
             ct:sleep(5000),
             [] = supervisor:which_children(ftp_sup),
             ok;
@@ -1264,6 +1232,7 @@ ftpd_running(Config) ->
     undefined =/= ChkUp(proplists:get_value(ftpd_start_result,Config)).
 
 ftp__open(Config, Options) ->
+    application:ensure_started(ftp),
     Host = proplists:get_value(ftpd_host,Config),
     Port = proplists:get_value(ftpd_port,Config),
     ct:log("Host=~p, Port=~p",[Host,Port]),

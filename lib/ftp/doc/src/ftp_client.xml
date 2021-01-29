@@ -55,7 +55,7 @@
     <code type="erl"><![CDATA[
       1> ftp:start().
       ok
-      2> {ok, Pid} = ftp:start_service([{host, "erlang.org"}]).
+      2> {ok, Pid} = ftp:open([{host, "erlang.org"}]).
       {ok,<0.22.0>}
       3> ftp:user(Pid, "guest", "password").
       ok
@@ -69,7 +69,7 @@
       ok
       8> ftp:recv(Pid, "appl.erl").
       ok
-      9> ftp:stop_service(Pid).
+      9> ftp:close(Pid).
       ok
       10> ftp:stop().
       ok

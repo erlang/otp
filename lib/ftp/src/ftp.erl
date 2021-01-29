@@ -23,16 +23,14 @@
 
 -behaviour(gen_server).
 
+-deprecated([{start_service, 1, "use ftp:open/2 instead"},
+             {stop_service, 1,  "use ftp:close/1 instead"}]).
+
 -export([start/0,
          start_service/1,
          stop/0,
-         stop_service/1,
-         services/0,
-         service_info/1
+         stop_service/1
         ]).
-
-%% Added for backward compatibility
--export([start_standalone/1]).
 
 -export([start_link/1, start_link/2]).
 
@@ -136,20 +134,10 @@
 start() ->
     application:start(ftp).
 
-start_standalone(Options) ->
-    try
-        {ok, StartOptions} = start_options(Options),
-        case start_link(StartOptions, []) of
-            {ok, Pid} ->
-                call(Pid, {open, ip_comm, Options}, plain);
-            Error1 ->
-                Error1
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end.
-
+%% This should be made an internal function when we remove the deprecation
+%% ftp client processes should always be part of ftp supervisor tree.
+%% We consider it a bug that the "standalone" concept of inets was 
+%% not removed when ftp was broken out, and it is now fixed.
 start_service(Options) ->
     try
         {ok, StartOptions} = start_options(Options),
@@ -169,17 +157,6 @@ stop() ->
 
 stop_service(Pid) ->
     close(Pid).
-
-services() ->
-    [{ftpc, Pid} || {_, Pid, _, _} <-
-                        supervisor:which_children(ftp_sup)].
-service_info(Pid) ->
-    {ok, Info} = call(Pid, info, list),
-    {ok, [proplists:lookup(mode, Info),
-          proplists:lookup(local_port, Info),
-          proplists:lookup(peer, Info),
-          proplists:lookup(peer_port, Info)]}.
-
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -215,7 +192,7 @@ open(Host, Port) when is_integer(Port) ->
 %% </BACKWARD-COMPATIBILLITY>
 
 open(Host, Options) when is_list(Options) ->
-    start_standalone([{host,Host}|Options]).
+    start_service([{host,Host}|Options]).
 
 %%--------------------------------------------------------------------------
 %% user(Pid, User, Pass, <Acc>) -> ok | {error, euser} | {error, econn}
@@ -1520,8 +1497,7 @@ code_change(_Vsn, State, _Extra) ->
 %% start_link([Opts, GenServerOptions]) -> {ok, Pid} | {error, Reason}
 %%
 %% Description: Callback function for the ftp supervisor. It is called
-%%            : when start_service/1 calls ftp_sup:start_child/1 to start an
-%%            : instance of the ftp process. Also called by start_standalone/1
+%%            : when open or legacy is called. 
 %%--------------------------------------------------------------------------
 start_link([Opts, GenServerOptions]) ->
     start_link(Opts, GenServerOptions).

@@ -42,12 +42,10 @@
       to active FTP mode if this fails. This default behavior can be 
       changed by start option <seeerl marker="#mode">mode</seeerl>.</p>
 
-    <marker id="two_start"></marker>
-
-    <p>An FTP client can be started in two ways. One is using the 
-      <seeerl marker="#service_start">service_start</seeerl> function,
-      the other is to start it directly as a standalone process
-      using function <seeerl marker="#open">open</seeerl>.</p>
+      <p>An FTP client is always started as part of the ftp application
+      and legacy 
+      <seeerl marker="#service_start">start_service</seeerl> function,
+      is deprecated in OTP-24 </p>
 
     <p>For a simple example of an FTP session, see 
       <seeguide marker="ftp_client">FTP User's Guide</seeguide>.</p>
@@ -74,16 +72,16 @@
       error if the request is a listing of the contents of a directory
       that exists but is empty.</p>
 
-    <marker id="service_start"></marker>
+      <marker id="service_start"></marker>
   </description>
 
   <section>
-    <title>FTP CLIENT SERVICE START/STOP</title>
+    <title>FTP CLIENT START/STOP</title>
     
     <p>The FTP client can be started and stopped dynamically in runtime by
       calling the <c>ftp</c> application API
-      <c>ftp:start_service(ServiceConfig)</c> and
-      <c>ftp:stop_service(Pid)</c>.</p>
+      <c>ftp:open(Host, Options)</c> and
+      <c>ftp:close(Client)</c>.</p>
 
     <p>The available configuration options are as follows:</p>
     
@@ -538,7 +536,7 @@
     <func>
       <name since="">open(Host) -> {ok, Pid} | {error, Reason}</name>
       <name since="">open(Host, Opts) -> {ok, Pid} | {error, Reason}</name>
-      <fsummary>Starts a standalone FTP client.</fsummary>
+      <fsummary>Starts a FTP client.</fsummary>
       <type>
 	<v>Host = string() | ip_address()</v>
 	<v>Opts = options()</v>
@@ -564,8 +562,7 @@
       </type>
 
       <desc>
-	<p>Starts a standalone FTP client process 
-          (without the <c>ftp</c> service framework) and
+	<p>Starts a FTP client process and
           opens a session with the FTP server at <c>Host</c>. </p>
 
 	<p>If option <c>{tls, tls_options()}</c> is present, the FTP session 
