@@ -48,11 +48,11 @@ all() ->
      cpool_opt].
 
 init_per_suite(Config) ->
-    case test_server:is_asan() of
-	true ->
-	    %% No point testing own allocators under address sanitizer.
-	    {skip, "Address sanitizer"};
-	false ->
+    case test_server:memory_checker() of
+	MC when MC =:= valgrind; MC =:= asan ->
+	    %% No point testing own allocators under valgrind or asan.
+	    {skip, "Memory checker " ++ atom_to_list(MC)};
+	none ->
 	    Config
     end.
 
