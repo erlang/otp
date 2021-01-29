@@ -157,6 +157,37 @@ coverage(Config) when is_list(Config) ->
     Ref = make_ref(),
     receive Ref -> ok after 0 -> ok end,
 
+    %% Cover handling of critical edges in beam_ssa_pre_codegen.
+    self() ! ok, ok = mc_fail_requests(),
+    self() ! {error, true}, ok = mc_fail_requests(),
+    self() ! {error, false}, self() ! {'DOWN', false}, ok = mc_fail_requests(),
+
+    Tid = {commit,[]},
+    self() ! {Tid, pre_commit},
+    self() ! {Tid, committed},
+    ok = commit_participant(whatever, Tid),
+
+    %% Cover handling in beam_kernel_to_ssa of a `receive` at the end of
+    %% an `after` block.
+    X = id(fun() -> ok end),
+    self() ! whatever,
+    try
+        X()
+    after
+        %% Smallish `after` blocks are not moved out to a wrapper
+        %% function, so we will need some filler code to force it
+        %% to move out.
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        receive _ -> ignored end
+    end,
+
+    %% Cover code for handling a non-boolean `br` in beam_ssa_dead.
+    self() ! whatever,
+    {'EXIT',{{badmatch,_},_}} = (catch [a || other = receive whatever -> false end]),
+
     ok.
 
 receive_in_called_function() ->
@@ -272,6 +303,55 @@ receive_sink_tuple({Line,Pattern}) ->
             id({Pattern,Line})
     end.
 
+%% Cover handling of critical edges in beam_ssa_pre_codegen.
+mc_fail_requests() ->
+    receive
+        ok ->
+            ok;
+        {error, ReqId} ->
+            case id(ReqId) of
+                true ->
+                    ok;
+                false ->
+                    receive
+                        {'DOWN', ReqId} ->
+                            ok
+                    after 0 ->
+                            ct:fail(failed)
+                    end
+            end
+    after 0 ->
+            ct:fail(failed)
+    end,
+    ok.
+
+%% Cover handling of critical edges in beam_ssa_pre_codegen.
+-record(commit, {schema_ops}).
+commit_participant(Coord, Tid) ->
+    try id(Tid) of
+        C ->
+            receive
+                {Tid, pre_commit} ->
+                    ExpectAck = C#commit.schema_ops /= [],
+                    receive
+                        {Tid, committed} ->
+                            case ExpectAck of
+                                false ->
+                                    ignore;
+                                true ->
+                                    id(Coord)
+                            end;
+                        Other ->
+                            Other
+                    end
+            after 0 ->
+                    ct:fail(failed)
+            end
+    catch
+        _:_ ->
+            ok
+    end,
+    ok.
 
 %% OTP-7980. Thanks to Vincent de Phily. The following code would
 %% be inccorrectly optimized by beam_jump.

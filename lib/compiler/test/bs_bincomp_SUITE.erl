@@ -265,6 +265,7 @@ trim_coverage(Config) when is_list(Config) ->
     <<0,0,2,43,0,0,3,9,0,0,0,3,64,8,0,0,0,0,0,0,
 	   64,68,0,0,0,0,0,0,192,171,198,0,0,0,0,0>> = 
 	coverage_lightfv(555, 777, {3.0,40.0,-3555.0}),
+    <<"abcabc">> = coverage_strange(0, <<"abc">>),
     ok.
 
 coverage_materialiv(A, B, Params) ->
@@ -288,6 +289,20 @@ coverage_trimmer(Params) ->
 	C <- Params >>.
 
 coverage_summer(A, B, C, D) -> A+B+C+D.
+
+coverage_strange(V, Bin) ->
+    <<
+      << <<X>> || <<X/utf8>> <= Bin >>/bits,
+      << <<Y>> || <<Y>> <= Bin>>:
+      case V of
+          V ->
+              3;
+          0 ->
+              receive
+                  whatever ->
+                      1
+              end
+      end/bytes>>.
 
 nomatch(Config) when is_list(Config) ->
     Bin = id(<<1,2,3,4,5>>),

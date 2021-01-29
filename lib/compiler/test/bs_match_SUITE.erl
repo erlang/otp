@@ -839,6 +839,9 @@ coverage(Config) when is_list(Config) ->
 
     {<<"abc">>,<<"tag">>} = coverage_trim_3([<<"abc","tag">>], 3),
 
+    %% Cover code in beam_ssa_codegen.
+    ok = coverage_beam_ssa_codegen(<<2>>),
+
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -969,6 +972,16 @@ coverage_trim_3(CipherTextFragment, TagLen) ->
 
 printable_char($a) -> true;
 printable_char(_) -> false.
+
+coverage_beam_ssa_codegen(Bin) ->
+    %% With +r21 there will be a copy instruction that copies
+    %% a map literal to an x register, thus covering a line
+    %% beam_ssa_codegen:opt_allocate_defs/2.
+    case #{1 => 42} of
+        #{1 := 42} ->
+            << <<0>> || <<2>> <= Bin >>
+    end,
+    ok.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),

@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
          external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1,
-         duplicated_fun/1,unused_fun/1]).
+         duplicated_fun/1,unused_fun/1,coverage/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -38,7 +38,8 @@ all() ->
 groups() ->
     [{p,[parallel],
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
-       eep37_dup,badarity,badfun,duplicated_fun,unused_fun]}].
+       eep37_dup,badarity,badfun,duplicated_fun,unused_fun,
+       coverage]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -291,6 +292,20 @@ unused_fun(_Config) ->
         _ -> fun() -> ok end
     catch _ -> ok end,
     ok.
+
+coverage(_Config) ->
+    ok = coverage_1(),
+    ok.
+
+coverage_1() ->
+    %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2 when the
+    %% no_make_fun3 option is given.
+    catch
+        fun(whatever) -> 0;
+           ("abc") -> party
+        end,
+        ok.
+
 
 id(I) ->
     I.

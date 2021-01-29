@@ -1100,6 +1100,8 @@ coverage(_Config) ->
     {'EXIT',{{badmatch,$T},_}} = (catch coverage_1()),
 
     error = coverage_2(),
+    ok = coverage_3(),
+
     ok.
 
 coverage_1() ->
@@ -1108,6 +1110,10 @@ coverage_1() ->
 coverage_2() when << []:<<0/native>> >> -> ok;
 coverage_2() -> error.
 
+coverage_3() ->
+    %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2.
+    get(),
+    ok.
 
 %% The identity function.
 id(I) -> I.
