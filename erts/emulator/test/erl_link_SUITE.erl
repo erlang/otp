@@ -967,11 +967,9 @@ check_consistent_link_state(A, B) ->
 check_link(A, B) when node(A) == node(B) ->
     LinkType = get_link_type(A, B),
     [#erl_link{type = LinkType,
-               pid = B,
-               id = Id}] = find_erl_link(A, LinkType, B),
+               pid = B}] = find_erl_link(A, LinkType, B),
     [#erl_link{type = LinkType,
-               pid = A,
-               id = Id}] = find_erl_link(B, LinkType, A),
+               pid = A}] = find_erl_link(B, LinkType, A),
     [] = find_erl_link({node(A), node(B)},
                        LinkType,
                        A),

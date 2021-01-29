@@ -359,9 +359,14 @@ static int calc_lnk_size(ErtsLink *lnk, void *vpsz, Sint reds)
 {
     Uint *psz = vpsz;
     Uint sz = 0;
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
+    UWord addr;
 
-    (void) erts_bld_uword(NULL, &sz, (UWord) ldp);
+    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC)
+        addr = (UWord) erts_link_to_data(lnk);
+    else
+        addr = (UWord) lnk;
+
+    (void) erts_bld_uword(NULL, &sz, (UWord) addr);
 
     *psz += sz;
     *psz += is_immed(lnk->other.item) ? 0 : size_object(lnk->other.item);
@@ -380,9 +385,14 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
 {
     LnkListContext *pllc = vpllc;
     Eterm tup, t, pid, id;
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
+    UWord addr;
 
-    id = erts_bld_uword(&pllc->hp, NULL, (UWord) ldp);
+    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC)
+        addr = (UWord) erts_link_to_data(lnk);
+    else
+        addr = (UWord) lnk;
+
+    id = erts_bld_uword(&pllc->hp, NULL, (UWord) addr);
 
     if (is_immed(lnk->other.item))
         pid = lnk->other.item;

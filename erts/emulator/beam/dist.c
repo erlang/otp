@@ -2012,8 +2012,8 @@ int erts_net_message(Port *prt,
             /* old incarnation of node; reply noproc... */
         }
         else if (is_internal_pid(to)) {
-            ErtsLinkData *ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
-                                                 from, to);
+            ErtsLinkData *ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                                          from, to);
             ASSERT(ldp->a.other.item == to);
             ASSERT(eq(ldp->b.other.item, from));
 
@@ -2674,8 +2674,8 @@ int erts_net_message(Port *prt,
 
             if (flags & ERTS_DIST_SPAWN_FLAG_LINK) {
                 /* Successful spawn-link... */
-                ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
-                                       result, parent);
+                ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                                result, parent);
                 ASSERT(ldp->a.other.item == parent);
                 ASSERT(eq(ldp->b.other.item, result));
                 link_inserted = erts_link_dist_insert(&ldp->a, ede.mld);

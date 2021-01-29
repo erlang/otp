@@ -12097,18 +12097,17 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
         if (so->flags & SPO_LINK) {
             ErtsLink *lnk;
-            ErtsLinkData *ldp = erts_link_create(ERTS_LNK_TYPE_PROC,
-                                                 parent->common.id,
-                                                 p->common.id);
-            lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(parent), &ldp->a);
-            if (lnk) {
+            lnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, p->common.id);
+            if (!!erts_link_tree_lookup_insert(&ERTS_P_LINKS(parent), lnk)) {
                 /*
                  * This should more or less never happen, but could
                  * potentially happen if pid:s wrap...
                  */
                 erts_link_release(lnk);
             }
-            erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->b);
+            lnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC,
+                                            parent->common.id);
+            erts_link_tree_insert(&ERTS_P_LINKS(p), lnk);
         }
 
         /*
@@ -12216,8 +12215,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     
         if (so->flags & SPO_LINK) {
             ErtsLinkData *ldp;
-            ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
-                                   parent_id, p->common.id);
+            ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                            parent_id, p->common.id);
             erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->b);
             if (!erts_link_dist_insert(&ldp->a, so->mld)) {
                 erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,

@@ -400,6 +400,7 @@
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 
+#include "erl_alloc.h"
 
 #if defined(DEBUG) || 0
 #  define ERTS_ML_DEBUG
@@ -720,7 +721,7 @@ ErtsMonitor *erts_monitor_tree_lookup(ErtsMonitor *root, Eterm key);
  * @returns                     Pointer to a monitor with the
  *                              key 'key'. If no monitor with the key
  *                              'key' was found and 'mon' was inserted
- *                              'mon' is returned.
+ *                              'NULL' is returned.
  *
  */
 ErtsMonitor *erts_monotor_tree_lookup_insert(ErtsMonitor **root,
@@ -1597,14 +1598,14 @@ ErtsLink *erts_link_tree_lookup(ErtsLink *root, Eterm item);
  * @returns                     Pointer to a link with the
  *                              key 'key'. If no link with the key
  *                              'key' was found and 'lnk' was inserted
- *                              'lnk' is returned.
+ *                              'NULL' is returned.
  *
  */
 ErtsLink *erts_link_tree_lookup_insert(ErtsLink **root, ErtsLink *lnk);
 
 /**
  *
- * @brief Lookup or create a link in a link tree.
+ * @brief Lookup or create an external link in a link tree.
  *
  * Looks up a link with the key 'other' in the link tree. If it is not
  * found, creates and insert a link with the key 'other'.
@@ -1623,9 +1624,40 @@ ErtsLink *erts_link_tree_lookup_insert(ErtsLink **root, ErtsLink *lnk);
  *
  * @param[in]     other         Id of other entity
  *
+ * @returns                     Pointer to either an already existing
+ *                              link in the tree or a newly created
+ *                              and inserted link.
+ *
  */
-ErtsLink *erts_link_tree_lookup_create(ErtsLink **root, int *created,
-                                       Uint16 type, Eterm this, Eterm other);
+ErtsLink *erts_link_external_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm this, Eterm other);
+
+/**
+ *
+ * @brief Lookup or create an internal link in a link tree.
+ *
+ * Looks up a link with the key 'other' in the link tree. If it is not
+ * found, creates and insert a link with the key 'other'.
+ *
+ * @param[in,out] root          Pointer to pointer to root of link tree
+ *
+ * @param[out]    created       Pointer to integer. The integer is set to
+ *                              a non-zero value if no link with key
+ *                              'other' was found, and a new link
+ *                              was created. If a link was found, it
+ *                              is set to zero.
+ *
+ * @param[in]     type          Type of link
+ *
+ * @param[in]     other         Id of other entity
+ *
+ * @returns                     Pointer to either an already existing
+ *                              link in the tree or a newly created
+ *                              and inserted link.
+ *
+ */
+ErtsLink *erts_link_internal_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm other);
 
 /**
  *
@@ -2052,26 +2084,13 @@ int erts_link_list_foreach_delete_yielding(ErtsLink **list,
 
 /**
  *
- * @brief Create a link
+ * @brief Create an external link
  *
- * Can create all types of links
+ * An external link structure contains two links, one for usage in
+ * the link tree of the process and one for usage in the dist entry.
  *
- * When the function is called it is assumed that:
- * - 'ref' is an internal ordinary reference if type is ERTS_MON_TYPE_PROC,
- *   ERTS_MON_TYPE_PORT, ERTS_MON_TYPE_TIME_OFFSET, or ERTS_MON_TYPE_RESOURCE
- * - 'ref' is NIL if type is ERTS_MON_TYPE_NODE or ERTS_MON_TYPE_NODES
- * - 'ref' is and ordinary internal reference or an external reference if
- *   type is ERTS_MON_TYPE_DIST_PROC
- * - 'name' is an atom or NIL if type is ERTS_MON_TYPE_PROC,
- *   ERTS_MON_TYPE_PORT, or ERTS_MON_TYPE_DIST_PROC
- * - 'name is NIL if type is ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_RESOURCE,
- *   ERTS_MON_TYPE_NODE, or ERTS_MON_TYPE_NODES
- * If the above is not true, bad things will happen.
  *
- * @param[in]     type          ERTS_MON_TYPE_PROC, ERTS_MON_TYPE_PORT,
- *                              ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_DIST_PROC,
- *                              ERTS_MON_TYPE_RESOURCE, ERTS_MON_TYPE_NODE,
- *                              or ERTS_MON_TYPE_NODES
+ * @param[in]     type          ERTS_MON_TYPE_DIST_PROC
  *
  * @param[in]     a             The key of entity a. Link structure a will
  *                              have field other.item set to 'b'.
@@ -2079,8 +2098,23 @@ int erts_link_list_foreach_delete_yielding(ErtsLink **list,
  * @param[in]     b             The key of entity b. Link structure b will
  *                              have field other.item set to 'a'.
  *
+ * @returns                     A pointer to the link data structure
+ *                              containing the link structures.
+ *
  */
-ErtsLinkData *erts_link_create(Uint16 type, Eterm a, Eterm b);
+ErtsLinkData *erts_link_external_create(Uint16 type, Eterm a, Eterm b);
+
+/**
+ *
+ * @brief Create an internal link
+ *
+ * @param[in]     type          ERTS_MON_TYPE_PROC, ERTS_MON_TYPE_PORT,
+ *
+ * @param[in]     id            Id of the entity linked.
+ *
+ * @returns                     A pointer to the link stucture.
+ */
+ErtsLink *erts_link_internal_create(Uint16 type, Eterm id);
 
 /**
  *
@@ -2121,10 +2155,27 @@ ERTS_GLB_INLINE int erts_link_is_in_table(ErtsLink *lnk);
 
 /**
  *
+ * @brief Release an internal link
+ *
+ * When the function is called it is assumed that:
+ * - 'lnk' link is not part of any list or tree
+ * - 'lnk' is not referred to by any other structures
+ * If the above are not true, bad things will happen.
+ *
+ * @param[in]    lnk            Pointer to link
+ *
+ */
+ERTS_GLB_INLINE void erts_link_internal_release(ErtsLink *lnk);
+
+/**
+ *
  * @brief Release link
  *
- * When both link halves part of the link have been released the link
- * structure will be deallocated.
+ * Can be used to release a link half of an external
+ * link as well as an internal link. In the external
+ * case both link halves part of the external link have
+ * to been released before the link structure will be
+ * deallocated.
  *
  * When the function is called it is assumed that:
  * - 'lnk' link is not part of any list or tree
@@ -2138,10 +2189,11 @@ ERTS_GLB_INLINE void erts_link_release(ErtsLink *lnk);
 
 /**
  *
- * @brief Release both link halves of a link simultaneously
+ * @brief Release both link halves of an external link
+ *        simultaneously
  *
- * Release both halves of a link simultaneously and deallocate
- * the structure.
+ * Release both halves of an external link simultaneously and 
+ * deallocate the structure.
  *
  * When the function is called it is assumed that:
  * - Neither of the parts of the link are part of any list or tree
@@ -2295,13 +2347,26 @@ erts_link_list_last(ErtsLink *list)
 }
 
 ERTS_GLB_INLINE void
+erts_link_internal_release(ErtsLink *lnk)
+{
+    ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_PROC
+                   || lnk->type == ERTS_LNK_TYPE_PORT);
+    ERTS_ML_ASSERT(!(lnk->flags & ERTS_ML_FLG_EXTENDED));
+    erts_free(ERTS_ALC_T_LINK, lnk);
+}
+
+ERTS_GLB_INLINE void
 erts_link_release(ErtsLink *lnk)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    ERTS_ML_ASSERT(!(lnk->flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) > 0);
-    if (erts_atomic32_dec_read_nob(&ldp->refc) == 0)
-        erts_link_destroy__(ldp);
+    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED))
+        erts_link_internal_release(lnk);
+    else {
+        ErtsLinkData *ldp = erts_link_to_data(lnk);
+        ERTS_ML_ASSERT(!(lnk->flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) > 0);
+        if (erts_atomic32_dec_read_nob(&ldp->refc) == 0)
+            erts_link_destroy__(ldp);
+    }
 }
 
 ERTS_GLB_INLINE void
@@ -2310,6 +2375,8 @@ erts_link_release_both(ErtsLinkData *ldp)
     ERTS_ML_ASSERT(!(ldp->a.flags & ERTS_ML_FLG_IN_TABLE));
     ERTS_ML_ASSERT(!(ldp->b.flags & ERTS_ML_FLG_IN_TABLE));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) >= 2);
+    ERTS_ML_ASSERT(ldp->a.flags & ERTS_ML_FLG_EXTENDED);
+    ERTS_ML_ASSERT(ldp->b.flags & ERTS_ML_FLG_EXTENDED);
     if (erts_atomic32_add_read_nob(&ldp->refc, (erts_aint32_t) -2) == 0)
         erts_link_destroy__(ldp);
 }

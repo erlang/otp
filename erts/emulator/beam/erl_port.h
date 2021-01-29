@@ -914,7 +914,7 @@ struct ErtsProc2PortSigData_ {
 	} link;
 	struct {
             Eterm port_id;
-	    ErtsLink *lnk;
+	    Eterm proc_id;
 	} unlink;
         struct {
             Eterm port_id;
@@ -1004,7 +1004,7 @@ ErtsPortOpResult erts_port_output(Process *, int, Port *, Eterm, Eterm, Eterm *)
 ErtsPortOpResult erts_port_exit(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_connect(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_link(Process *, Port *, ErtsLink *, Eterm *);
-ErtsPortOpResult erts_port_unlink(Process *, Port *, ErtsLink *, Eterm *);
+ErtsPortOpResult erts_port_unlink(Process *, Port *, Eterm, Eterm *);
 ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);

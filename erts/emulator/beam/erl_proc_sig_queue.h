@@ -301,13 +301,17 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
  *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
  * @param[in]     lnk           Pointer to link structure from
  *                              the sending side. It should
  *                              contain information about
  *                              receiver.
  */
 void
-erts_proc_sig_send_unlink(Process *c_p, ErtsLink *lnk);
+erts_proc_sig_send_unlink(Process *c_p, Eterm from, ErtsLink *lnk);
 
 /**
  *

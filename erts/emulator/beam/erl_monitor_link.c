@@ -1133,29 +1133,46 @@ erts_link_tree_lookup_insert(ErtsLink **root, ErtsLink *lnk)
                                              (ErtsMonLnkNode *) lnk);
 }
 
+static ErtsMonLnkNode *
+create_link_internal(Eterm id, void *vtypep)
+{
+    ErtsMonLnkNode *lnk = erts_link_internal_create(*((Uint16 *) vtypep), id);
+    ERTS_ML_ASSERT(ml_cmp_keys(lnk->other.item, id) == 0);
+    return (ErtsMonLnkNode *) lnk;
+}
+
+ErtsLink *erts_link_internal_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm other)
+{
+    return (ErtsLink *) ml_rbt_lookup_create((ErtsMonLnkNode **) root,
+                                             other, create_link_internal,
+                                             (void *) &type,
+                                             created);
+}
+
 typedef struct {
     Uint16 type;
     Eterm a;
 } ErtsLinkCreateCtxt;
 
 static ErtsMonLnkNode *
-create_link(Eterm b, void *vcctxt)
+create_link_external(Eterm b, void *vcctxt)
 {
     ErtsLinkCreateCtxt *cctxt = vcctxt;
-    ErtsLinkData *ldp = erts_link_create(cctxt->type, cctxt->a, b);
+    ErtsLinkData *ldp = erts_link_external_create(cctxt->type, cctxt->a, b);
     ERTS_ML_ASSERT(ml_cmp_keys(ldp->a.other.item, b) == 0);
     return (ErtsMonLnkNode *) &ldp->a;
 }
 
-ErtsLink *erts_link_tree_lookup_create(ErtsLink **root, int *created,
-                                       Uint16 type, Eterm this,
-                                       Eterm other)
+ErtsLink *erts_link_external_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm this,
+                                                Eterm other)
 {
     ErtsLinkCreateCtxt cctxt;
     cctxt.type = type;
     cctxt.a = this;
     return (ErtsLink *) ml_rbt_lookup_create((ErtsMonLnkNode **) root,
-                                             other, create_link,
+                                             other, create_link_external,
                                              (void *) &cctxt,
                                              created);
 }
@@ -1289,23 +1306,17 @@ erts_link_list_foreach_delete_yielding(ErtsLink **list,
                                               arg, vyspp, limit);
 }
 
-ErtsLinkData *
-erts_link_create(Uint16 type, Eterm a, Eterm b)
+ErtsLink *
+erts_link_internal_create(Uint16 type, Eterm id)
 {
-    ErtsLinkData *ldp;
-
+    ErtsLink *lnk;
 #ifdef ERTS_ML_DEBUG
     switch (type) {
     case ERTS_LNK_TYPE_PROC:
-        ERTS_ML_ASSERT(is_internal_pid(a) && is_internal_pid(a));
+        ERTS_ML_ASSERT(is_internal_pid(id));
         break;
     case ERTS_LNK_TYPE_PORT:
-        ERTS_ML_ASSERT(is_internal_pid(a) || is_internal_pid(b));
-        ERTS_ML_ASSERT(is_internal_port(a) || is_internal_port(b));
-        break;
-    case ERTS_LNK_TYPE_DIST_PROC:
-        ERTS_ML_ASSERT(is_internal_pid(a) || is_internal_pid(b));
-        ERTS_ML_ASSERT(is_external_pid(a) || is_external_pid(b));
+        ERTS_ML_ASSERT(is_internal_pid(id) || is_internal_port(id));
         break;
     default:
         ERTS_INTERNAL_ERROR("Invalid link type");
@@ -1313,67 +1324,78 @@ erts_link_create(Uint16 type, Eterm a, Eterm b)
     }
 #endif
 
-    if (type != ERTS_LNK_TYPE_DIST_PROC) {
-        ldp = erts_alloc(ERTS_ALC_T_LINK, sizeof(ErtsLinkData));
+    lnk = erts_alloc(ERTS_ALC_T_LINK, sizeof(ErtsLink));
 
-        ldp->a.other.item = b;
-        ldp->a.flags = (Uint16) 0;
+    lnk->other.item = id;
+    lnk->flags = (Uint16) 0;
+    lnk->key_offset = (Uint16) offsetof(ErtsLink, other.item);
+    lnk->offset = (Uint16) 0;
+    lnk->type = type;
 
-        ldp->b.other.item = a;
-        ldp->b.flags = (Uint16) 0;
-    }
-    else {
-        ErtsLinkDataExtended *ldep;
-        Uint size, hsz;
-        Eterm *hp;
-        ErlOffHeap oh;
+    return lnk;
+}
 
-        hsz = EXTERNAL_THING_HEAD_SIZE + 1;
-        if (hsz < ERTS_REF_THING_SIZE
-            && (is_internal_ordinary_ref(a)
-                || is_internal_ordinary_ref(b))) {
-            hsz = ERTS_REF_THING_SIZE;
-        }
 
-#ifdef DEBUG
-        if (is_internal_pid(a)) {
-            ERTS_ML_ASSERT(is_external_pid(b)
-                           || is_internal_ordinary_ref(b));
-            ERTS_ML_ASSERT(NC_HEAP_SIZE(b) <= hsz);
-        }
-        else {
-            ERTS_ML_ASSERT(is_internal_pid(b));
-            ERTS_ML_ASSERT(is_external_pid(a)
-                           || is_internal_ordinary_ref(a));
-            ERTS_ML_ASSERT(NC_HEAP_SIZE(a) <= hsz);
-        }
+ErtsLinkData *
+erts_link_external_create(Uint16 type, Eterm a, Eterm b)
+{
+    ErtsLinkData *ldp;
+    ErtsLinkDataExtended *ldep;
+    Uint size, hsz;
+    Eterm *hp;
+    ErlOffHeap oh;
+
+#ifdef ERTS_ML_DEBUG
+    ERTS_ML_ASSERT(type == ERTS_LNK_TYPE_DIST_PROC);
+    ERTS_ML_ASSERT(is_internal_pid(a) || is_internal_pid(b));
+    ERTS_ML_ASSERT(is_external_pid(a) || is_external_pid(b));
 #endif
 
-        size = sizeof(ErtsLinkDataExtended) - sizeof(Eterm);
-        size += hsz*sizeof(Eterm);
-
-        ldp = erts_alloc(ERTS_ALC_T_LINK_EXT, size);
-
-        ldp->a.flags = ERTS_ML_FLG_EXTENDED;
-        ldp->b.flags = ERTS_ML_FLG_EXTENDED;
-
-        ldep = (ErtsLinkDataExtended *) ldp;
-        hp = &ldep->heap[0];
-
-        ERTS_INIT_OFF_HEAP(&oh);
-
-        if (is_internal_pid(a)) {
-            ldp->a.other.item = STORE_NC(&hp, &oh, b);
-            ldp->b.other.item = a;
-        }
-        else {
-            ldp->a.other.item = b;
-            ldp->b.other.item = STORE_NC(&hp, &oh, a);
-        }
-
-        ldep->ohhp = oh.first;
-        ldep->dist = NULL;
+    hsz = EXTERNAL_THING_HEAD_SIZE + 1;
+    if (hsz < ERTS_REF_THING_SIZE
+        && (is_internal_ordinary_ref(a)
+            || is_internal_ordinary_ref(b))) {
+        hsz = ERTS_REF_THING_SIZE;
     }
+
+#ifdef DEBUG
+    if (is_internal_pid(a)) {
+        ERTS_ML_ASSERT(is_external_pid(b)
+                       || is_internal_ordinary_ref(b));
+        ERTS_ML_ASSERT(NC_HEAP_SIZE(b) <= hsz);
+    }
+    else {
+        ERTS_ML_ASSERT(is_internal_pid(b));
+        ERTS_ML_ASSERT(is_external_pid(a)
+                       || is_internal_ordinary_ref(a));
+        ERTS_ML_ASSERT(NC_HEAP_SIZE(a) <= hsz);
+    }
+#endif
+
+    size = sizeof(ErtsLinkDataExtended) - sizeof(Eterm);
+    size += hsz*sizeof(Eterm);
+
+    ldp = erts_alloc(ERTS_ALC_T_LINK_EXT, size);
+
+    ldp->a.flags = ERTS_ML_FLG_EXTENDED;
+    ldp->b.flags = ERTS_ML_FLG_EXTENDED;
+
+    ldep = (ErtsLinkDataExtended *) ldp;
+    hp = &ldep->heap[0];
+
+    ERTS_INIT_OFF_HEAP(&oh);
+
+    if (is_internal_pid(a)) {
+        ldp->a.other.item = STORE_NC(&hp, &oh, b);
+        ldp->b.other.item = a;
+    }
+    else {
+        ldp->a.other.item = b;
+        ldp->b.other.item = STORE_NC(&hp, &oh, a);
+    }
+
+    ldep->ohhp = oh.first;
+    ldep->dist = NULL;
 
     erts_atomic32_init_nob(&ldp->refc, 2);
 
@@ -1435,11 +1457,13 @@ Uint
 erts_link_size(ErtsLink *lnk)
 {
     Uint size, refc;
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
 
-    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED))
-        size = sizeof(ErtsLinkData);
+    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED)) {
+        size = sizeof(ErtsLink);
+        refc = 1;
+    }
     else {
+        ErtsLinkData *ldp = erts_link_to_data(lnk);
         ErtsLinkDataExtended *ldep = (ErtsLinkDataExtended *) ldp;
 
         ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
@@ -1447,10 +1471,10 @@ erts_link_size(ErtsLink *lnk)
 
         size = sizeof(ErtsLinkDataExtended);
         size += thing_arityval(ldep->heap[0])*sizeof(Eterm);
+        refc = (Uint) erts_atomic32_read_nob(&ldp->refc);
+        ASSERT(refc > 0);
     }
     
-    refc = (Uint) erts_atomic32_read_nob(&ldp->refc);
-    ASSERT(refc > 0);
 
     return size / refc;
 }
