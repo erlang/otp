@@ -215,16 +215,10 @@ select_cg(#k_type_clause{type=Type,values=Scs}, Var, Tf, Vf, St0) ->
 select_val_cg(k_atom, {bool,Dst}, Vls, _Tf, _Vf, Sis, St) ->
     %% Generate a br instruction for a known boolean value from
     %% the `wait_timeout` instruction.
+    #b_var{} = Dst,                             %Assertion.
     [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
-    case Dst of
-        #b_var{} ->
-            Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
-            {[Br|Sis],St};
-        #b_literal{val=true}=Bool ->
-            %% A `wait_timeout 0` instruction was optimized away.
-            Br = #b_br{bool=Bool,succ=Succ,fail=Succ},
-            {[Br|Sis],St}
-    end;
+    Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
+    {[Br|Sis],St};
 select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
     [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
     #b_var{} = Dst,                             %Assertion.
