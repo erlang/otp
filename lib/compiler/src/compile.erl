@@ -302,10 +302,6 @@ format_error(bad_crypto_key) ->
     "invalid crypto key.";
 format_error(no_crypto_key) ->
     "no crypto key supplied.";
-format_error({unimplemented_instruction,Instruction}) ->
-    io_lib:fwrite("native-code compilation failed because of an "
-                  "unimplemented instruction (~s).",
-		  [Instruction]);
 format_error({open,E}) ->
     io_lib:format("open error '~ts'", [file:format_error(E)]);
 format_error({epp,E}) ->
@@ -585,8 +581,7 @@ passes(Type, Opts) ->
     Passes2 = select_passes(Passes1, Opts),
 
     %% If the last pass saves the resulting binary to a file,
-    %% insert a first pass to remove the file (unless the
-    %% source file is a BEAM file).
+    %% insert a first pass to remove the file.
     Passes = case last(Passes2) of
                  {save_binary, _TestFun, _Fun} ->
                      [?pass(remove_file) | Passes2];
@@ -614,7 +609,7 @@ pass(_) -> none.
 
 %% For compilation from forms, replace the first pass with a pass
 %% that retrieves the module name. The module name is needed for
-%% proper diagnostics and for compilation to native code.
+%% proper diagnostics.
 
 fix_first_pass([{consult_abstr, _} | Passes]) ->
     [?pass(get_module_name_from_abstr) | Passes];
