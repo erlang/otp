@@ -42,8 +42,17 @@ main(["make_xml",Type,Top,Outfile]) ->
     halt(0).
 
 ebin_directories(Top) ->
-    [filename:join(Top, "erts/preloaded/ebin")] ++
-        filelib:wildcard(filename:join(Top, "lib/*/ebin")).
+    AppDirs0 = filelib:wildcard(filename:join(Top, "lib/*/ebin")),
+
+    %% Filter out erl_interface and jinterface since they lack Erlang code, and
+    %% ODBC because we can't build it on all platforms we develop on. This must
+    %% be fixed before we deprecate or remove functionality in ODBC.
+    AppDirs = [Dir || Dir <- AppDirs0,
+                      not lists:suffix("erl_interface/ebin", Dir),
+                      not lists:suffix("jinterface/ebin", Dir),
+                      not lists:suffix("odbc/ebin", Dir)],
+
+    [filename:join(Top, "erts/preloaded/ebin")] ++ AppDirs.
 
 summarize(Top) ->
     Directories = ebin_directories(Top),
@@ -51,7 +60,16 @@ summarize(Top) ->
 
 summarize_directory(Dir, Acc) ->
     Files = [filename:join(Dir, F) || F <- filelib:wildcard("*.beam", Dir)],
-    foldl(fun summarize_file/2, Acc, Files).
+    case Files of
+        [_|_] ->
+            foldl(fun summarize_file/2, Acc, Files);
+        [] ->
+            Msg = io_lib:format("~p doesn't appear to be built. Make sure to "
+                                "build all OTP applications before updating "
+                                "deprecations.\n", [Dir]),
+            io:put_chars(standard_error, [Msg]),
+            halt(1)
+    end.
 
 summarize_file(File, Acc) ->
     {ok, {Module, [Chunk]}} = beam_lib:chunks(File, [attributes]),
