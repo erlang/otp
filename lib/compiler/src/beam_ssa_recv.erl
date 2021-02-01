@@ -122,13 +122,27 @@ format_error(OptInfo) ->
       Options :: [compile:option()],
       Result :: {ok, beam_ssa:b_module(), list()}.
 
-module(#b_module{}=Mod0, Opts) ->
-    %% Builds a module-wide graph of all blocks (including calls between
-    %% functions), and collects all suitable reference creations and receives
-    %% for later analysis.
-    Scan = scan(Mod0),
+module(#b_module{}=Mod, Opts) ->
+    %% Quickly collect all peek_message instructions in this module,
+    %% allowing us to avoid the expensive building of the module-wide
+    %% graph of all blocks if there are no receives in this module.
+    case scan_peek_message(Mod) of
+        [] ->
+            %% No receives in this module. Nothing more to do.
+            {ok, Mod, []};
+        [_ | _]=Rs0 ->
+            Rs = maps:from_list(Rs0),
+            module_1(Mod, Rs, Opts)
+    end.
 
-    %% Figures out where to place marker creation, usage, and clearing by
+module_1(Mod0, Rs, Opts) ->
+    %% There are some receives in this module. Build a module-wide
+    %% graph of all blocks (including calls between functions) and
+    %% collect all suitable reference creations for later analysis.
+    Scan0 = scan(Mod0),
+    Scan = Scan0#scan{recv_candidates=Rs},
+
+    %% Figure out where to place marker creation, usage, and clearing by
     %% walking through the module-wide graph.
     {Markers, Uses, Clears} = plan(Scan),
 
@@ -140,6 +154,30 @@ module(#b_module{}=Mod0, Opts) ->
          end,
 
     {ok, Mod, Ws}.
+
+scan_peek_message(#b_module{body=Fs}) ->
+    scan_peek_message_fs(Fs).
+
+scan_peek_message_fs([#b_function{bs=Bs}=F | Fs]) ->
+    case scan_peek_message_bs(maps:to_list(Bs)) of
+        [] ->
+            scan_peek_message_fs(Fs);
+        [_ | _] = Rs ->
+            FuncId = get_func_id(F),
+            [{FuncId, Rs} | scan_peek_message_fs(Fs)]
+    end;
+scan_peek_message_fs([]) ->
+    [].
+
+scan_peek_message_bs([{Lbl, Blk} | Bs]) ->
+    case Blk of
+        #b_blk{is=[#b_set{op=peek_message,dst=Dst} | _]} ->
+            [{Lbl, Dst} | scan_peek_message_bs(Bs)];
+        #b_blk{} ->
+            scan_peek_message_bs(Bs)
+    end;
+scan_peek_message_bs([]) ->
+    [].
 
 scan(#b_module{body=Fs0}) ->
     ModMap = foldl(fun(#b_function{bs=Blocks,args=Args}=F, Acc) ->
@@ -167,17 +205,6 @@ scan_bs([Lbl | Lbls], Blocks, FuncId, State0) ->
 scan_bs([], _Blocks, _FuncId, State) ->
     State.
 
-scan_is([#b_set{op=peek_message,dst=Msg} | Is],
-        Blk, Lbl, Blocks, FuncId, State0) ->
-    #scan{recv_candidates=Candidates0} = State0,
-
-    Receives = maps:get(FuncId, Candidates0, []),
-    Receive = {Lbl, Msg},
-
-    Candidates = Candidates0#{ FuncId => [Receive | Receives] },
-
-    State = State0#scan{recv_candidates=Candidates},
-    scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
 scan_is([#b_set{op={succeeded,body}}], Blk, Lbl, _Blocks, FuncId, State) ->
     #b_br{bool=#b_var{},succ=Succ} = Blk#b_blk.last, %Assertion.
 
