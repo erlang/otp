@@ -48,7 +48,7 @@
 -export([is_cover/0,is_debug/0,is_commercial/0]).
 
 -export([break/1,break/2,break/3,continue/0,continue/1]).
--export([is_valgrind/0, is_asan/0]).
+-export([memory_checker/0, is_valgrind/0, is_asan/0]).
 
 
 %%% PRIVATE EXPORTED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3032,7 +3032,7 @@ check_memory_leaks(_) ->
 %%
 %% Outputs the formatted string to Valgrind's logfile,if Valgrind is active.
 valgrind_format(Format, Args) ->
-    (catch erlang:system_info({valgrind, print, io_lib:format(Format, Args)})),
+    (catch erlang:system_info({memory_checker, print, io_lib:format(Format, Args)})),
     ok.
 
 asan_take_logpath() ->
