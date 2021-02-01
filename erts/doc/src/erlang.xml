@@ -850,10 +850,10 @@ hello
       <name name="check_old_code" arity="1" since="OTP R14B04"/>
       <fsummary>Check if a module has old code.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>Module</anno></c> has old code,
+        <p>Returns <c>true</c> if <c><anno>Module</anno></c> has
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">old code</seeguide>,
           otherwise <c>false</c>.</p>
-        <p>See also <seeerl marker="kernel:code">
-          <c>code(3)</c></seeerl>.</p>
+        <p>See also <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
     </func>
 
