@@ -65,16 +65,6 @@ obsolete(crypto, stream_decrypt, 2) ->
     {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
 obsolete(crypto, stream_encrypt, 2) ->
     {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
-obsolete(erl_tidy, dir, 0) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, dir, 1) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, file, 1) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, module, 1) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, module, 2) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
 obsolete(erlang, get_stacktrace, 0) ->
     {deprecated, "use the new try/catch syntax for retrieving the stack backtrace", "OTP 24"};
 obsolete(erlang, now, 0) ->
@@ -497,6 +487,8 @@ obsolete(erl_scan, attributes_info, _) ->
     {removed, "erl_anno:{column,line,location,text}/1 instead"};
 obsolete(erl_scan, token_info, _) ->
     {removed, "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+obsolete(erl_tidy, _, _) ->
+    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(igor, _, _) ->
