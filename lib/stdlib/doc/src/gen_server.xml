@@ -1027,9 +1027,10 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>
         <p>If the initialization is successful, the function is to
-          return <c>{ok,State}</c>, <c>{ok,State,Timeout}</c>, or
-          <c>{ok,State,hibernate}</c>, where <c>State</c> is the internal
-          state of the <c>gen_server</c> process.</p>
+          return <c>{ok,State}</c>, <c>{ok,State,Timeout}</c>,
+          <c>{ok,State,hibernate}</c>, or <c>{ok,State,{continue,Continue}}</c>
+          where <c>State</c> is the internal state of the <c>gen_server</c>
+           process.</p>
         <p>If an integer time-out value is provided, a time-out occurs
           unless a request or a message is received within
           <c>Timeout</c> milliseconds. A time-out is represented by
@@ -1043,6 +1044,10 @@ gen_server:abcast     -----> Module:handle_cast/2
           hibernation when waiting for the next message to arrive (by calling 
           <seemfa marker="proc_lib#hibernate/3">
           <c>proc_lib:hibernate/3</c></seemfa>).</p>
+        <p>If <c>{continue,Continue}</c> is specified, the process will
+          execute the <seemfa marker="#Module:handle_continue/2">
+          <c>Module:handle_continue/2</c></seemfa> callback function, with
+          <c>Continue</c> as the first argument.</p>
         <p>If the initialization fails, the function is to return
           <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
           <c>ignore</c>. An exit signal with this <c>Reason</c> (or with reason

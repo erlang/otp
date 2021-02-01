@@ -395,9 +395,10 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{ok, {ok, State}} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, State, Mod, infinity, HibernateAfterTimeout, Debug);
-	{ok, {ok, State, Timeout}} ->
+	{ok, {ok, State, TimeoutHibernateOrContinue}} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, Mod, Timeout, HibernateAfterTimeout, Debug);
+	    loop(Parent, Name, State, Mod, TimeoutHibernateOrContinue,
+	         HibernateAfterTimeout, Debug);
 	{ok, {stop, Reason}} ->
 	    %% For consistency, we must make sure that the
 	    %% registered name (if any) is unregistered before
