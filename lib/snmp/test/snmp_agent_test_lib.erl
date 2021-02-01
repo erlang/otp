@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -423,7 +423,21 @@ await_tc_runner_done(Runner, OldFlag) ->
             unlink_and_flush_exit(Runner),
 	    case Ret of
 		{error, Reason} ->
-		    exit(Reason);
+                    %% Any failures while we have system events are skipped
+                    SysEvs = snmp_test_global_sys_monitor:events(),
+                    if
+                        (SysEvs =:= []) ->
+                            ?EPRINT("TC failure: "
+                                    "~n   ~p"
+                                    "~n", [Reason]),
+                            exit(Reason);
+                        true ->
+                            ?WPRINT("TC failure when we got system events: "
+                                    "~n   Reason:     ~p"
+                                    "~n   Sys Events: ~p"
+                                    "~n", [Reason, SysEvs]),
+                            skip([{reason, Reason}, {system_events, SysEvs}])
+                    end;
 		{skip, Reason} ->
 		    skip(Reason);
 		OK ->
@@ -526,34 +540,22 @@ tc_run(Mod, Func, Args, Opts) ->
                                    {dir,                 Dir},
                                    {mibs,                mibs(StdM, M)}]) of
 	{ok, _Pid} ->
-	    case (catch apply(Mod, Func, Args)) of
-		{'EXIT', {skip, Reason}} ->
-                    ?WPRINT("apply skip detected: "
-                             "~n   ~p", [Reason]),
-		    (catch snmp_test_mgr:stop()),
-		    ?SKIP(Reason);
-		{'EXIT', Reason} ->
-                    %% We have hosts (mostly *very* slooow VMs) that
-                    %% can timeout anything. Since we are basically
-                    %% testing communication, we therefor must check
-                    %% for system events at every failure. Grrr!
-                    SysEvs = snmp_test_global_sys_monitor:events(),
-		    (catch snmp_test_mgr:stop()),
-                    if
-                        (SysEvs =:= []) ->
-                            ?EPRINT("TC runner failed: "
-                                    "~n   ~p~n", [Reason]),
-                            ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
-                        true ->
-                            ?WPRINT("apply exit catched when we got system events: "
-                                     "~n   Reason:     ~p"
-                                     "~n   Sys Events: ~p"
-                                     "~n", [Reason, SysEvs]),
-                            ?SKIP([{reason, Reason}, {system_events, SysEvs}])
-                    end;
-		Res ->
+	    try apply(Mod, Func, Args) of
+                Res ->
 		    (catch snmp_test_mgr:stop()),
 		    Res
+            catch
+                C:{skip, Reason} ->
+                    ?WPRINT("apply (~w-) skip detected: "
+                            "~n   ~p", [C, Reason]),
+		    (catch snmp_test_mgr:stop()),
+                    ?SKIP(Reason);
+
+                throw:{error, Reason} ->
+                    tc_run_skip_sheck(Mod, Func, Args, Reason, throw);
+
+		exit:Reason ->
+                    tc_run_skip_sheck(Mod, Func, Args, Reason, exit)
 	    end;
 
 	{error, Reason} ->
@@ -568,6 +570,28 @@ tc_run(Mod, Func, Args, Opts) ->
 	    (catch snmp_test_mgr:stop()),
 	    ?line ?FAIL({mgr_start_failure, Err})
     end.
+
+%% We have hosts (mostly *very* slooow VMs) that
+%% can timeout anything. Since we are basically
+%% testing communication, we therefor must check
+%% for system events at every failure. Grrr!
+tc_run_skip_sheck(Mod, Func, Args, Reason, Cat) ->
+    SysEvs = snmp_test_global_sys_monitor:events(),
+    (catch snmp_test_mgr:stop()),
+    if
+        (SysEvs =:= []) ->
+            ?EPRINT("TC runner (~w-) failed: "
+                    "~n   ~p~n", [Cat, Reason]),
+            ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
+        true ->
+            ?WPRINT("apply (~w) catched "
+                    "when we got system events: "
+                    "~n   Reason:     ~p"
+                    "~n   Sys Events: ~p"
+                    "~n", [Cat, Reason, SysEvs]),
+            ?SKIP([{category, Cat},
+                   {reason, Reason}, {system_events, SysEvs}])
+    end.    
 
 
 %% ---------------------------------------------------------------
