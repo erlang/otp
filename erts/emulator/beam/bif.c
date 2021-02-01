@@ -4477,10 +4477,10 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
 #ifdef ARCH_64
-      etp->data.ui[0] = (Uint) num;
+      etp->data.port.id = num;
 #else
-      etp->data.ui[0] = (Uint) (num & 0xffffffff);
-      etp->data.ui[1] = (Uint) ((num >> 32) & 0xffffffff);
+      etp->data.port.low = (Uint32) (num & 0xffffffff);
+      etp->data.port.high = (Uint32) ((num >> 32) & 0xffffffff);
 #endif
 
       MSO(BIF_P).first = (struct erl_off_heap_header*) etp;

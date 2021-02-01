@@ -1084,6 +1084,14 @@ typedef struct external_thing_ {
             Uint32 num;
             Uint32 ser;
         } pid;
+	struct {
+#ifdef ARCH_64
+	    Uint64 id;
+#else
+	    Uint32 low;
+	    Uint32 high;
+#endif
+	} port;
 	Uint32              ui32[1];
 	Uint                ui[1];
     } data;
@@ -1196,11 +1204,11 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_port_node,Wterm)
 #define external_port_node(x) _ET_APPLY(external_port_node,(x))
 
 #ifdef ARCH_64
-#define external_port_number(x) ((Uint64) external_port_data((x))[0])
+#define external_port_number(x) ((Uint64) external_thing_ptr((x))->data.port.id)
 #else
-#define external_port_number(x)					\
-    ((((Uint64) external_port_data((x))[1]) << 32)		\
-     | ((Uint64) external_port_data((x))[0]))
+#define external_port_number(x)						\
+    ((((Uint64) external_thing_ptr((x))->data.port.high) << 32)		\
+     | ((Uint64) external_thing_ptr((x))->data.port.low))
 #endif
 
 #define _unchecked_external_ref_data_words(x) \
