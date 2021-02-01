@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -167,6 +167,7 @@ get_timeout() ->
     end.
 
 get_timeout(_)       -> 10000. % Trying to improve test results % 3500.
+
 
 %%----------------------------------------------------------------------
 %% Receives a trap from the agent.
