@@ -1055,7 +1055,8 @@ cg_binary(Dst, Segs0, FailCtx, Le, St0) ->
     LineAnno = line_anno(Le),
     Anno = Le,
     case PutCode0 of
-        [#b_set{op=bs_put,dst=Bool,args=[_,_,Src,#b_literal{val=all}|_]},
+        [#b_set{op=bs_put,dst=Bin,args=[_,_,Src,#b_literal{val=all}|_]},
+         #b_set{op={succeeded,_},dst=Bool,args=[Bin]},
          #b_br{bool=Bool},
          {label,_}|_] ->
             #k_bin_seg{unit=Unit0,next=Segs} = Segs0,
@@ -1165,10 +1166,9 @@ cg_bin_put_1(#k_bin_seg{size=Size0,unit=U,type=T,flags=Fs,seg=Src0,next=Next},
                true -> [TypeArg,Flags,Src,Size,Unit];
                false -> [TypeArg,Flags,Src]
            end,
-    %% bs_put has its own 'succeeded' logic, and should always jump directly to
-    %% the fail label regardless of whether it's in a catch or not.
-    {_, FailLbl} = FailCtx,
-    {Is,St} = make_cond_branch(bs_put, Args, FailLbl, St0),
+    {Dst,St1} = new_ssa_var('@ssa_bs_put', St0),
+    {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
+    Is = [#b_set{op=bs_put,dst=Dst,args=Args}|TestIs],
     SzCalc = bin_size_calc(T, Src, Size, U),
     cg_bin_put_1(Next, FailCtx, reverse(Is, Acc), [SzCalc|SzCalcAcc], St);
 cg_bin_put_1(#k_bin_end{}, _, Acc, SzCalcAcc, St) ->

@@ -290,7 +290,7 @@ need_heap_terminator([{_,#cg_blk{is=Is,last=#cg_br{succ=L}}}|_], L, N) ->
             case reverse(Is) of
                 [#cg_set{op=succeeded},#cg_set{op=bs_init}|_] ->
                     {[],N};
-                [#cg_set{op=bs_put}|_] ->
+                [#cg_set{op=succeeded},#cg_set{op=bs_put}|_] ->
                     {[],N};
                 _ ->
                     %% Not binary construction. Must emit an allocation
@@ -1167,6 +1167,10 @@ cg_block([#cg_set{op=bs_match_string,args=[CtxVar,#b_literal{val=String0}]},
 
     Is = [{test,bs_match_string,Fail,[CtxReg,Bits,{string,String}]}],
     {Is,St};
+cg_block([#cg_set{op=bs_put,args=Args0},
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
+    Args = beam_args(Args0, St),
+    {cg_bs_put(bif_fail(Fail), Args),St};
 cg_block([#cg_set{dst=Dst0,op=landingpad,args=Args0}|T], Context, St0) ->
     [Dst,{atom,Kind},Tag] = beam_args([Dst0|Args0], St0),
     case Kind of
@@ -1200,9 +1204,6 @@ cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     {cg_test(Op, bif_fail(Fail), Args, Dst, I),St};
-cg_block([#cg_set{op=bs_put,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
-    Args = beam_args(Args0, St),
-    {cg_bs_put(bif_fail(Fail), Args),St};
 cg_block([#cg_set{op=bs_test_tail,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     [Ctx,{integer,Bits}] = beam_args(Args0, St),
     {[{test,bs_test_tail2,bif_fail(Fail),[Ctx,Bits]}],St};
