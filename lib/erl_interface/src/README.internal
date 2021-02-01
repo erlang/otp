@@ -60,10 +60,6 @@ From time to time do a
 
    Handle communication with epmd
 
- * src/registry/
-
-   Key/value database with optional mnesia back up
-
  * src/misc/
 
    The rest of the library
@@ -139,9 +135,6 @@ The base for the config.h.in file was created with 'autoheader'.
 ******************************************************************************
                           Writing source
 ******************************************************************************
-
-C files in "registry" are considered users of 'ei' and should not
-include "eidef.h" or "config.h", only "ei.h".
 
 C files in "prog" could include "config.h" directly.
 

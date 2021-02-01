@@ -270,8 +270,7 @@
 	    Own Id: OTP-16624</p>
         </item>
         <item>
-	    <p>The <c>erl_interface</c> <seecref
-	    marker="erl_interface:registry"><c>registry</c></seecref>
+	    <p>The <c>erl_interface</c> <c>registry</c>
 	    functionality is deprecated as of OTP 23, and will be
 	    removed in OTP 24. Reasonably new <c>gcc</c> compilers
 	    will issue deprecation warnings when using this

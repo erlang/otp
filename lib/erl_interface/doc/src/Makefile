@@ -39,8 +39,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 XML_REF1_FILES = erl_call_cmd.xml
 XML_REF3_FILES = ei_global.xml \
 	ei.xml \
-	ei_connect.xml \
-	registry.xml
+	ei_connect.xml
 
 BOOK_FILES = book.xml
 XML_APPLICATION_FILES = ref_man.xml
