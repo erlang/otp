@@ -2630,7 +2630,6 @@ use_zreg(bs_match_string) -> yes;
 use_zreg(bs_save) -> yes;
 use_zreg(bs_restore) -> yes;
 use_zreg(bs_set_position) -> yes;
-use_zreg({float,clearerror}) -> yes;
 use_zreg(kill_try_tag) -> yes;
 use_zreg(landingpad) -> yes;
 use_zreg(put_tuple_elements) -> yes;
