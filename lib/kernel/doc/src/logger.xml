@@ -156,7 +156,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	  the field named <c>config</c>. See
 	  the <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>
 	  and <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seeerl>
-	  manual pages for information about the specifc configuration
+	  manual pages for information about the specific configuration
 	  for these handlers.</p>
 	<p>See the <seetype marker="logger_formatter#config">
 	    <c>logger_formatter(3)</c></seetype> manual page for
@@ -913,7 +913,7 @@ start(_, []) ->
       <fsummary>Unset the log level for all modules in the specified application.</fsummary>
       <desc>
         <p>Unset the log level for all the modules of the specified application.</p>
-        <p>This function is a convinience function that calls
+        <p>This function is a utility function that calls
           <seemfa marker="#unset_module_level/1">logger:unset_module_level/2</seemfa>
           for each module associated with an application.</p>
       </desc>
@@ -1160,7 +1160,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
       </type>
       <desc>
 	<p>This callback function is optional.</p>
-	<p>The function is called on a temporary process when an new
+	<p>The function is called on a temporary process when a new
 	  handler is about to be added. The purpose is to verify the
 	  configuration and initiate all resources needed by the
 	  handler.</p>
@@ -1199,7 +1199,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	    <c>set_handler_config/2,3</c></seemfa>, and <c>update</c>
 	  if it originates from <seemfa marker="#update_handler_config/2">
 	    <c>update_handler_config/2,3</c></seemfa>. The handler can
-	  use this parameteter to decide how to update the value of
+	  use this parameter to decide how to update the value of
 	  the <c>config</c> field, that is, the handler specific
 	  configuration data. Typically, if <c>SetOrUpdate</c>
 	  equals <c>set</c>, values that are not specified must be
