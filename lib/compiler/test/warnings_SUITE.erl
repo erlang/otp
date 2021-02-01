@@ -1,3 +1,4 @@
+
 %%
 %% %CopyrightBegin%
 %%
@@ -41,7 +42,7 @@
          files/1,effect/1,bin_opt_info/1,bin_construction/1,
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
-	 latin1_fallback/1,underscore/1,no_warnings/1,
+	 underscore/1,no_warnings/1,
 	 bit_syntax/1,inlining/1,tuple_calls/1,
          recv_opt_info/1]).
 
@@ -64,7 +65,7 @@ groups() ->
        bad_arith,bool_cases,bad_apply,files,effect,
        bin_opt_info,bin_construction,comprehensions,maps,
        maps_bin_opt_info,
-       redundant_boolean_clauses,latin1_fallback,
+       redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
        tuple_calls,recv_opt_info]}].
 
@@ -796,51 +797,6 @@ redundant_boolean_clauses(Config) when is_list(Config) ->
            [],
            {warnings,[{{5,22},sys_core_fold,nomatch_shadow}]}}],
     run(Config, Ts),
-    ok.
-
-latin1_fallback(Conf) when is_list(Conf) ->
-    DataDir = ?privdir,
-    IncFile = filename:join(DataDir, "include_me.hrl"),
-    file:write_file(IncFile, <<"%% ",246," in include file\n">>),
-    Ts1 = [{latin1_fallback1,
-	    %% Test that the compiler fall backs to latin-1 with
-	    %% a warning if a file has no encoding and does not
-	    %% contain correct UTF-8 sequences.
-            <<"\n%% Bj",246,"rn
-              t(_) -> \"",246,"\";
-              t(x) -> ok.
-              ">>,
-            [],
-            {warnings,[{{2,1},compile,reparsing_invalid_unicode},
-                       {{4,15},sys_core_fold,{nomatch_shadow,3,{t,1}}}]}}],
-    [] = run(Conf, Ts1),
-
-    Ts2 = [{latin1_fallback2,
-	    %% Test that the compiler fall backs to latin-1 with
-	    %% a warning if a file has no encoding and does not
-	    %% contain correct UTF-8 sequences.
-	    <<"
-
-	      -include(\"include_me.hrl\").
-              ">>,
-	    [],
-	    {warnings,[{{1,1},compile,reparsing_invalid_unicode}]}
-	   }],
-    [] = run(Conf, Ts2),
-
-    Ts3 = [{latin1_fallback3,
-	    %% Test that the compiler fall backs to latin-1 with
-	    %% a warning if a file has no encoding and does not
-	    %% contain correct UTF-8 sequences.
-	    <<"-ifdef(NOTDEFINED).
-              t(_) -> \"",246,"\";
-              t(x) -> ok.
-              -endif.
-              ">>,
-	    [],
-	    {warnings,[{{2,24},compile,reparsing_invalid_unicode}]}}],
-    [] = run(Conf, Ts3),
-
     ok.
 
 underscore(Config) when is_list(Config) ->
