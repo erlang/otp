@@ -97,7 +97,8 @@
 -record(sub, {v=[],                                 %Variable substitutions
               s=sets:new([{version, 2}]) :: sets:set(), %Variables in scope
               t=#{} :: map(),                       %Types
-              in_guard=false}).                     %In guard or not.
+              in_guard=false,                       %In guard or not.
+              top=true}).                           %Not inside a term.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', cerl:c_module(), [_]}.
@@ -176,7 +177,7 @@ expr(#c_var{}=V, Ctxt, Sub) ->
 	effect -> void();
 	value -> sub_get_var(V, Sub)
     end;
-expr(#c_literal{val=Val}=L, Ctxt, _Sub) ->
+expr(#c_literal{val=Val}=L, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    case Val of
@@ -188,35 +189,36 @@ expr(#c_literal{val=Val}=L, Ctxt, _Sub) ->
 		    void();
 		_ ->
 		    %% Warn and replace with void().
-		    add_warning(L, useless_building),
+                    warn_useless_building(L, Sub),
 		    void()
 	    end;
 	value -> L
     end;
 expr(#c_cons{anno=Anno,hd=H0,tl=T0}=Cons, Ctxt, Sub) ->
-    H1 = expr(H0, Ctxt, Sub),
-    T1 = expr(T0, Ctxt, Sub),
+    DeeperSub = descend(Cons, Sub),
+    H1 = expr(H0, Ctxt, DeeperSub),
+    T1 = expr(T0, Ctxt, DeeperSub),
     case Ctxt of
 	effect ->
-	    add_warning(Cons, useless_building),
+            warn_useless_building(Cons, Sub),
 	    make_effect_seq([H1,T1], Sub);
 	value ->
 	    ann_c_cons(Anno, H1, T1)
     end;
 expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
-    Es = expr_list(Es0, Ctxt, Sub),
+    Es = expr_list(Es0, Ctxt, descend(Tuple, Sub)),
     case Ctxt of
 	effect ->
-	    add_warning(Tuple, useless_building),
+            warn_useless_building(Tuple, Sub),
 	    make_effect_seq(Es, Sub);
 	value ->
 	    ann_c_tuple(Anno, Es)
     end;
 expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
-    Es = pair_list(Es0, Ctxt, Sub),
+    Es = pair_list(Es0, Ctxt, descend(Map, Sub)),
     case Ctxt of
 	effect ->
-	    add_warning(Map, useless_building),
+            warn_useless_building(Map, Sub),
 	    make_effect_seq(Es, Sub);
 	value ->
 	    V = expr(V0, Ctxt, Sub),
@@ -226,15 +228,15 @@ expr(#c_binary{segments=Ss}=Bin0, Ctxt, Sub) ->
     %% Warn for useless building, but always build the binary
     %% anyway to preserve a possible exception.
     case Ctxt of
-	effect -> add_warning(Bin0, useless_building);
+	effect -> warn_useless_building(Bin0, Sub);
 	value -> ok
     end,
     Bin1 = Bin0#c_binary{segments=bitstr_list(Ss, Sub)},
     Bin = bin_un_utf(Bin1),
     eval_binary(Bin);
-expr(#c_fun{}=Fun, effect, _) ->
+expr(#c_fun{}=Fun, effect, Sub) ->
     %% A fun is created, but not used. Warn, and replace with the void value.
-    add_warning(Fun, useless_building),
+    warn_useless_building(Fun, Sub),
     void();
 expr(#c_fun{vars=Vs0,body=B0}=Fun, Ctxt0, Sub0) ->
     {Vs1,Sub1} = var_list(Vs0, Sub0),
@@ -2712,6 +2714,63 @@ copy_type(_, _, Tdb) -> Tdb.
 
 void() -> #c_literal{val=ok}.
 
+%%%
+%%% Handling of the `useless_building` warning (building a term that
+%%% is never used).
+%%%
+%%% Consider this code fragment:
+%%%
+%%%     [ {ok,Term} ],
+%%%     ok
+%%%
+%%% The list that is ignored contains a tuple that is also ignored.
+%%% While optimizing this code fragment, two warnings for useless
+%%% building will be generated: one for the list and one for the tuple
+%%% inside. Before the introduction of column numbers, those two warnings
+%%% would be coalesced to one becuase they had the same line number.
+%%%
+%%% With column numbers, we will need a more sophisticated solution to
+%%% avoid emitting annoying duplicate warnings.
+%%%
+%%% Note that if two separate terms are being built on the same line, we
+%%% do expect to get two warnings:
+%%%
+%%%     [ {ok,Term} ],   [ {error,BadTerm} ], ok
+%%%     ^                ^
+%%%
+%%% (The carets mark the expected columns for the warnings.)
+%%%
+%%% To handle those requirements, we will use the #sub{} record to keep
+%%% track of whether we are at the top level or have descended into
+%%% a sub expression.
+%%%
+
+%% Note in the Sub record that we have are no longer at the top level.
+descend(_Core, #sub{top=false}=Sub) ->
+    Sub;
+descend(Core, #sub{top=true}=Sub) ->
+    case should_suppress_warning(Core) of
+        true ->
+            %% In a list comprehension being ignored such as:
+            %%
+            %%   [{error,Z} || Z <- List], ok
+            %%
+            %% the warning for ignoring the cons cell should be
+            %% suppressed, but there should still be a warning for
+            %% ignoring the {error,Z} tuple. Therefore, pretend that
+            %% we are still at the top level.
+            Sub;
+        false ->
+            %% No longer at top level. Warnings for useless building
+            %% should now be suppressed.
+            Sub#sub{top=false}
+    end.
+
+warn_useless_building(Core, #sub{top=Top}) ->
+    case Top of
+        true -> add_warning(Core, useless_building);
+        false -> ok
+    end.
 
 %%%
 %%% Handling of warnings.
@@ -2719,28 +2778,37 @@ void() -> #c_literal{val=ok}.
 
 init_warnings() ->
     put({?MODULE,warnings}, []).
-
 add_warning(Core, Term) ->
     case should_suppress_warning(Core) of
 	true ->
 	    ok;
 	false ->
 	    Anno = cerl:get_ann(Core),
-	    Line = get_line(Anno),
+	    Location = get_location(Anno),
 	    File = get_file(Anno),
 	    Key = {?MODULE,warnings},
 	    case get(Key) of
-		[{File,[{Line,?MODULE,Term}]}|_] ->
+		[{File,[{Location,?MODULE,Term}]}|_] ->
 		    ok;				%We already have
 						%an identical warning.
 		Ws ->
-		    put(Key, [{File,[{Line,?MODULE,Term}]}|Ws])
+		    put(Key, [{File,[{Location,?MODULE,Term}]}|Ws])
 	    end
     end.
 
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _T]) when is_integer(Line) -> Line;
 get_line([_|T]) -> get_line(T);
 get_line([]) -> none.
+
+get_location([Line|_]) when is_integer(Line) ->
+    Line;
+get_location([{Line, Column} | _T]) when is_integer(Line), is_integer(Column) ->
+    {Line,Column};
+get_location([_|T]) ->
+    get_location(T);
+get_location([]) ->
+    none.
 
 get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);

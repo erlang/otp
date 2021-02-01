@@ -1,2 +1,2 @@
 
-receive1.erl:12: Function t/1 has no local return
+receive1.erl:12:1: Function t/1 has no local return

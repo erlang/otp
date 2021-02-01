@@ -30,6 +30,7 @@ f(F) ->
     io:format(a, "abc"),			%1
     io:format(a, [a | "abc"]),			%2
     io:format(4,5,6,7),				%1
+    io:format("~p", "abc" ++ "xyz"),            %2
 
     io:format("la cucaracha~n"),
     io:format(""),

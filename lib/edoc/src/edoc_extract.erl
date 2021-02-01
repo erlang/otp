@@ -385,7 +385,7 @@ collect([F | Fs], Cs, Ss, Ts, Rs, As, Header, Mod) ->
 	comment ->
 	    collect(Fs, [F | Cs], Ss, Ts, Rs, As, Header, Mod);
 	{function, Name} ->
-	    L = erl_syntax:get_pos(F),
+	    L = get_line(F),
 	    Export = ordsets:is_element(Name, Mod#module.exports),
 	    Args = parameters(erl_syntax:function_clauses(F)),
 	    collect(Fs, [], [], [], [],
@@ -394,7 +394,7 @@ collect([F | Fs], Cs, Ss, Ts, Rs, As, Header, Mod) ->
                             data = {comment_text(Cs),Ss,Ts,Rs}} | As],
 		    Header, Mod);
 	{attribute, {module, _}} when Header =:= undefined ->
-	    L = erl_syntax:get_pos(F),
+	    L = get_line(F),
 	    collect(Fs, [], [], [], [], As,
                     #entry{name = module, line = L,
                            data = {comment_text(Cs),Ss,Ts,Rs}},
@@ -441,13 +441,17 @@ comment_text(Cs) ->
     comment_text(Cs, []).
 
 comment_text([C | Cs], Ss) ->
-    L = erl_syntax:get_pos(C),
+    L = get_line(C),
     comment_text(Cs, [#comment{line = L,
 			       text = [remove_percent_chars(S)
 				       || S <- erl_syntax:comment_text(C)]}
 		      | Ss]);
 comment_text([], Ss) ->
     Ss.
+
+get_line(Tree) ->
+    Anno = erl_syntax:get_pos(Tree),
+    erl_anno:line(Anno).
 
 %% @doc Replaces leading `%' characters by spaces. For example, `"%%%
 %% foo" -> "\s\s\s foo"', but `"% % foo" -> "\s % foo"', since the

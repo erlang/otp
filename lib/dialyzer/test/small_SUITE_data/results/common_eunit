@@ -1,2 +1,2 @@
 
-common_eunit.erl:57: The created fun has no local return
+common_eunit.erl:57:5: The created fun has no local return

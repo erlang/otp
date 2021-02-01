@@ -1,134 +1,134 @@
 
-guard_warnings.erl:100: Guard test not
+guard_warnings.erl:100:45: Guard test not
          ('true') can never succeed
-guard_warnings.erl:102: Guard test 
+guard_warnings.erl:102:34: Guard test 
           X :: 'true' =:= 
           'false' can never succeed
-guard_warnings.erl:104: Guard test 
+guard_warnings.erl:104:33: Guard test 
           X :: 'true' == 
           'false' can never succeed
-guard_warnings.erl:106: Guard test 
+guard_warnings.erl:106:52: Guard test 
           X :: 'true' =/= 
           'true' can never succeed
-guard_warnings.erl:12: Guard test 
+guard_warnings.erl:12:1: Guard test 
           X :: 'true' =:= 
           'false' can never succeed
-guard_warnings.erl:14: Guard test 
+guard_warnings.erl:14:1: Guard test 
           X :: 'false' =:= 
           'true' can never succeed
-guard_warnings.erl:16: Guard test not
+guard_warnings.erl:16:22: Guard test not
          (X :: 'true') can never succeed
-guard_warnings.erl:18: Guard test and
+guard_warnings.erl:18:16: Guard test and
          ('true',
           X :: none()) can never succeed
-guard_warnings.erl:20: Guard test not
+guard_warnings.erl:20:22: Guard test not
          (X :: 'true') can never succeed
-guard_warnings.erl:22: Guard test and
+guard_warnings.erl:22:16: Guard test and
          ('true',
           X :: none()) can never succeed
-guard_warnings.erl:28: Guard test not(not
+guard_warnings.erl:28:21: Guard test not(not
          (X :: 'false')) can never succeed
-guard_warnings.erl:30: Guard test not(or
+guard_warnings.erl:30:17: Guard test not(or
          ('false',
           X :: none())) can never succeed
-guard_warnings.erl:32: Guard test not(not
+guard_warnings.erl:32:22: Guard test not(not
          (X :: 'false')) can never succeed
-guard_warnings.erl:34: Guard test not(or
+guard_warnings.erl:34:17: Guard test not(or
          ('false',
           X :: none())) can never succeed
-guard_warnings.erl:36: Guard test and
+guard_warnings.erl:36:18: Guard test and
          ('true',
           'false') can never succeed
-guard_warnings.erl:38: Guard test and
+guard_warnings.erl:38:16: Guard test and
          ('false',
           any()) can never succeed
-guard_warnings.erl:40: Guard test and
+guard_warnings.erl:40:17: Guard test and
          (X :: 'true',
           'false') can never succeed
-guard_warnings.erl:42: Guard test and
+guard_warnings.erl:42:17: Guard test and
          ('false',
           X :: any()) can never succeed
-guard_warnings.erl:44: Guard test and
+guard_warnings.erl:44:17: Guard test and
          (X :: 'true',
           'false') can never succeed
-guard_warnings.erl:46: Guard test and
+guard_warnings.erl:46:17: Guard test and
          ('false',
           X :: any()) can never succeed
-guard_warnings.erl:48: Guard test not(or
+guard_warnings.erl:48:21: Guard test not(or
          ('true',
           any())) can never succeed
-guard_warnings.erl:50: Guard test not(or
+guard_warnings.erl:50:23: Guard test not(or
          ('false',
           'true')) can never succeed
-guard_warnings.erl:52: Guard test not(or
+guard_warnings.erl:52:17: Guard test not(or
          ('true',
           X :: any())) can never succeed
-guard_warnings.erl:54: Guard test not(or
+guard_warnings.erl:54:17: Guard test not(or
          (X :: 'false',
           'true')) can never succeed
-guard_warnings.erl:56: Guard test not(or
+guard_warnings.erl:56:17: Guard test not(or
          ('true',
           X :: any())) can never succeed
-guard_warnings.erl:58: Guard test not(or
+guard_warnings.erl:58:17: Guard test not(or
          (X :: 'false',
           'true')) can never succeed
-guard_warnings.erl:60: Guard test and
+guard_warnings.erl:60:17: Guard test and
          ('false',
           any()) can never succeed
-guard_warnings.erl:62: Guard test and
+guard_warnings.erl:62:19: Guard test and
          ('true',
           'false') can never succeed
-guard_warnings.erl:64: Guard test and
+guard_warnings.erl:64:17: Guard test and
          ('false',
           X :: any()) can never succeed
-guard_warnings.erl:66: Guard test and
+guard_warnings.erl:66:17: Guard test and
          (X :: 'true',
           'false') can never succeed
-guard_warnings.erl:68: Guard test and
+guard_warnings.erl:68:17: Guard test and
          ('false',
           X :: any()) can never succeed
-guard_warnings.erl:70: Guard test and
+guard_warnings.erl:70:17: Guard test and
          (X :: 'true',
           'false') can never succeed
-guard_warnings.erl:72: Guard test and
+guard_warnings.erl:72:15: Guard test and
          ('false',
           'false') can never succeed
-guard_warnings.erl:74: Guard test and
+guard_warnings.erl:74:16: Guard test and
          ('false',
           'false') can never succeed
-guard_warnings.erl:76: Guard test not(and
+guard_warnings.erl:76:20: Guard test not(and
          ('true',
           'true')) can never succeed
-guard_warnings.erl:78: Guard test and
+guard_warnings.erl:78:16: Guard test and
          ('false',
           'false') can never succeed
-guard_warnings.erl:80: Guard test not(and
+guard_warnings.erl:80:20: Guard test not(and
          ('true',
           'true')) can never succeed
-guard_warnings.erl:82: Guard test or
+guard_warnings.erl:82:15: Guard test or
          ('false',
           'false') can never succeed
-guard_warnings.erl:84: Guard test or
+guard_warnings.erl:84:16: Guard test or
          ('false',
           'false') can never succeed
-guard_warnings.erl:86: Guard test or
+guard_warnings.erl:86:20: Guard test or
          ('false',
           'false') can never succeed
-guard_warnings.erl:88: Guard test or
+guard_warnings.erl:88:16: Guard test or
          ('false',
           'false') can never succeed
-guard_warnings.erl:90: Guard test or
+guard_warnings.erl:90:20: Guard test or
          ('false',
           'false') can never succeed
-guard_warnings.erl:92: Guard test 
+guard_warnings.erl:92:15: Guard test 
           'true' =:= 
           'false' can never succeed
-guard_warnings.erl:94: Guard test 
+guard_warnings.erl:94:15: Guard test 
           'true' == 
           'false' can never succeed
-guard_warnings.erl:96: Guard test 
+guard_warnings.erl:96:20: Guard test 
           'true' =:= 
           'false' can never succeed
-guard_warnings.erl:98: Guard test not(
+guard_warnings.erl:98:20: Guard test not(
           'true' == 
           'true') can never succeed

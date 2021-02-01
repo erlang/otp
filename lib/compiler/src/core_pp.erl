@@ -101,6 +101,8 @@ format_anno_list([H], Ctxt) ->
 
 strip_line([A | As]) when is_integer(A) ->
     strip_line(As);
+strip_line([{A,C} | As]) when is_integer(A), is_integer(C) ->
+    strip_line(As);
 strip_line([{file,_File} | As]) ->
     strip_line(As);
 strip_line([A | As]) ->
@@ -109,6 +111,8 @@ strip_line([]) ->
     [].
 
 get_line([L | _As]) when is_integer(L) ->
+    L;
+get_line([{L, _Column} | _As]) when is_integer(L) ->
     L;
 get_line([_ | As]) ->
     get_line(As);

@@ -240,7 +240,7 @@ expr -> function_call : '$1'.
 expr -> record_expr : '$1'.
 expr -> expr_remote : '$1'.
 
-expr_remote -> expr_max ':' expr_max : {remote,?anno('$2'),'$1','$3'}.
+expr_remote -> expr_max ':' expr_max : {remote,first_anno('$1'),'$1','$3'}.
 expr_remote -> expr_max : '$1'.
 
 expr_max -> var : '$1'.
@@ -292,7 +292,7 @@ list -> '[' expr tail : {cons,?anno('$1'),'$2','$3'}.
 
 tail -> ']' : {nil,?anno('$1')}.
 tail -> '|' expr ']' : '$2'.
-tail -> ',' expr tail : {cons,?anno('$2'),'$2','$3'}.
+tail -> ',' expr tail : {cons,first_anno('$2'),'$2','$3'}.
 
 
 binary -> '<<' '>>' : {bin,?anno('$1'),[]}.
@@ -302,7 +302,7 @@ bin_elements -> bin_element : ['$1'].
 bin_elements -> bin_element ',' bin_elements : ['$1'|'$3'].
 
 bin_element -> bit_expr opt_bit_size_expr opt_bit_type_list :
-	{bin_element,?anno('$1'),'$1','$2','$3'}.
+	{bin_element,first_anno('$1'),'$1','$2','$3'}.
 
 bit_expr -> prefix_op expr_max : ?mkop1('$1', '$2').
 bit_expr -> expr_max : '$1'.
@@ -353,10 +353,10 @@ map_field -> map_field_assoc : '$1'.
 map_field -> map_field_exact : '$1'.
 
 map_field_assoc -> map_key '=>' expr :
-	{map_field_assoc,?anno('$1'),'$1','$3'}.
+	{map_field_assoc,?anno('$2'),'$1','$3'}.
 
 map_field_exact -> map_key ':=' expr :
-	{map_field_exact,?anno('$1'),'$1','$3'}.
+	{map_field_exact,?anno('$2'),'$1','$3'}.
 
 map_key -> expr : '$1'.
 
@@ -370,13 +370,13 @@ record_expr -> '#' atom '.' atom :
 record_expr -> '#' atom record_tuple :
 	{record,?anno('$1'),element(3, '$2'),'$3'}.
 record_expr -> expr_max '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
+	{record_field,first_anno('$1'),'$1',element(3, '$3'),'$5'}.
 record_expr -> expr_max '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
+	{record,first_anno('$1'),'$1',element(3, '$3'),'$4'}.
 record_expr -> record_expr '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
+	{record_field,first_anno('$1'),'$1',element(3, '$3'),'$5'}.
 record_expr -> record_expr '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
+	{record,first_anno('$1'),'$1',element(3, '$3'),'$4'}.
 
 record_tuple -> '{' '}' : [].
 record_tuple -> '{' record_fields '}' : '$2'.
@@ -390,7 +390,7 @@ record_field -> atom '=' expr : {record_field,?anno('$1'),'$1','$3'}.
 %% N.B. This is called from expr.
 
 function_call -> expr_remote argument_list :
-	{call,?anno('$1'),'$1',element(1, '$2')}.
+	{call,first_anno('$1'),'$1',element(1, '$2')}.
 
 
 if_expr -> 'if' if_clauses 'end' : {'if',?anno('$1'),'$2'}.
@@ -399,7 +399,7 @@ if_clauses -> if_clause : ['$1'].
 if_clauses -> if_clause ';' if_clauses : ['$1' | '$3'].
 
 if_clause -> guard clause_body :
-	{clause,?anno(hd(hd('$1'))),[],'$1','$2'}.
+	{clause,first_anno(hd(hd('$1'))),[],'$1','$2'}.
 
 
 case_expr -> 'case' expr 'of' cr_clauses 'end' :
@@ -413,7 +413,7 @@ cr_clauses -> cr_clause ';' cr_clauses : ['$1' | '$3'].
 %% should be a better way.
 
 cr_clause -> expr clause_guard clause_body :
-	{clause,?anno('$1'),['$1'],'$2','$3'}.
+	{clause,first_anno('$1'),['$1'],'$2','$3'}.
 
 receive_expr -> 'receive' cr_clauses 'end' :
 	{'receive',?anno('$1'),'$2'}.
@@ -444,7 +444,7 @@ fun_clause -> pat_argument_list clause_guard clause_body :
 	{clause,Anno,'fun',Args,'$2','$3'}.
 
 fun_clause -> var pat_argument_list clause_guard clause_body :
-	{clause,element(2, '$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
+	{clause,?anno('$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
 
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
 	build_try(?anno('$1'),'$2','$4','$5').
@@ -462,15 +462,16 @@ try_clauses -> try_clause : ['$1'].
 try_clauses -> try_clause ';' try_clauses : ['$1' | '$3'].
 
 try_clause -> pat_expr clause_guard clause_body :
-	A = ?anno('$1'),
-	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,A,'_'}]}],'$2','$3'}.
+	A = first_anno('$1'),
+        Az = last_anno('$1'), % Good enough...
+	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,Az,'_'}]}],'$2','$3'}.
 try_clause -> atom ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	T = case '$4' of '_' -> {var,A,'_'}; V -> V end,
+	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
 	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 try_clause -> var ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	T = case '$4' of '_' -> {var,A,'_'}; V -> V end,
+	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
 	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 
 try_opt_stacktrace -> ':' var : '$2'.
@@ -559,6 +560,8 @@ Erlang code.
 -export([type_inop_prec/1,type_preop_prec/1]).
 -export([map_anno/2, fold_anno/3, mapfold_anno/3,
          new_anno/1, anno_to_term/1, anno_from_term/1]).
+
+-export([first_location/1]). % Internal export.
 
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
               abstract_type/0, form_info/0, error_info/0]).
@@ -986,7 +989,7 @@ Erlang code.
 
 -type type_name() :: atom().
 
--type form_info() :: {'eof', erl_anno:line()}
+-type form_info() :: {'eof', erl_anno:location()}
                    | {'error', erl_scan:error_info() | error_info()}
                    | {'warning', erl_scan:error_info() | error_info()}.
 
@@ -994,7 +997,7 @@ Erlang code.
 
 %% XXX. To be refined.
 -type error_description() :: term().
--type error_info() :: {erl_anno:line(), module(), error_description()}.
+-type error_info() :: {erl_anno:location(), module(), error_description()}.
 -type token() :: erl_scan:token().
 
 %% mkop(Op, Arg) -> {op,Anno,Op,Arg}.
@@ -1053,7 +1056,7 @@ parse_exprs(Tokens) ->
     ?ANNO_CHECK(Tokens),
     A = erl_anno:new(0),
     case parse([{atom,A,f},{'(',A},{')',A},{'->',A}|Tokens]) of
-	{ok,{function,_Lf,f,0,[{clause,_Lc,[],[],Exprs}]}} ->
+	{ok,{function,_Af,f,0,[{clause,_Ac,[],[],Exprs}]}} ->
 	    {ok,Exprs};
 	{error,_} = Err -> Err
     end.
@@ -1070,10 +1073,10 @@ parse_term(Tokens) ->
 	    try normalise(Expr) of
 		Term -> {ok,Term}
 	    catch
-		_:_R -> {error,{location(?anno(Expr)),?MODULE,"bad term"}}
+		_:_R -> {error,{first_location(Expr),?MODULE,"bad term"}}
 	    end;
-	{ok,{function,_Af,f,A,[{clause,_Ac,[],[],[_E1,E2|_Es]}]}} ->
-	    {error,{location(?anno(E2)),?MODULE,"bad term"}};
+	{ok,{function,_Af,f,0,[{clause,_Ac,[],[],[_E1,E2|_Es]}]}} ->
+	    {error,{first_location(E2),?MODULE,"bad term"}};
 	{error,_} = Err -> Err
     end.
 
@@ -1089,17 +1092,16 @@ build_typed_attribute({atom,Aa,Attr},
     lists:foreach(fun({var, A, '_'}) -> ret_err(A, "bad type variable");
                      (_)             -> ok
                   end, Args),
-    case lists:all(fun({var, _, _}) -> true;
-                      (_)           -> false
-                   end, Args) of
-        true -> {attribute,Aa,Attr,{TypeName,Type,Args}};
-        false -> error_bad_decl(Aa, Attr)
-    end;
-build_typed_attribute({atom,Aa,Attr},_) ->
+    lists:foreach(fun({var, _, _}) -> true;
+                     (Other)       -> ret_abstr_err(Other,
+                                                    "bad type variable")
+                   end, Args),
+    {attribute,Aa,Attr,{TypeName,Type,Args}};
+build_typed_attribute({atom,Aa,Attr}=Abstr,_) ->
     case Attr of
-        record -> error_bad_decl(Aa, record);
-        type   -> error_bad_decl(Aa, type);
-	opaque -> error_bad_decl(Aa, opaque);
+        record -> error_bad_decl(Abstr, record);
+        type   -> error_bad_decl(Abstr, type);
+	opaque -> error_bad_decl(Abstr, opaque);
         _      -> ret_err(Aa, "bad attribute")
     end.
 
@@ -1129,7 +1131,7 @@ find_arity_from_specs([Spec|_]) ->
 build_compat_constraint({atom, _, is_subtype}, [{var, _, _}=LHS, Type]) ->
     build_constraint(LHS, Type);
 build_compat_constraint({atom, _, is_subtype}, [LHS, _Type]) ->
-    ret_err(?anno(LHS), "bad type variable");
+    ret_abstr_err(LHS, "bad type variable");
 build_compat_constraint({atom, A, Atom}, _Types) ->
     ret_err(A, io_lib:format("unsupported constraint ~tw", [Atom])).
 
@@ -1140,13 +1142,14 @@ build_constraint({atom, A, Atom}, _Foo) ->
 build_constraint({var, A, '_'}, _Types) ->
     ret_err(A, "bad type variable");
 build_constraint(LHS, Type) ->
-    IsSubType = {atom, ?anno(LHS), is_subtype},
-    {type, ?anno(LHS), constraint, [IsSubType, [LHS, Type]]}.
+    Anno = first_anno(LHS),
+    IsSubType = {atom, Anno, is_subtype},
+    {type, Anno, constraint, [IsSubType, [LHS, Type]]}.
 
 lift_unions(T1, {type, _Aa, union, List}) ->
-    {type, ?anno(T1), union, [T1|List]};
+    {type, first_anno(T1), union, [T1|List]};
 lift_unions(T1, T2) ->
-    {type, ?anno(T1), union, [T1, T2]}.
+    {type, first_anno(T1), union, [T1, T2]}.
 
 build_gen_type({atom, Aa, tuple}) ->
     {type, Aa, tuple, any};
@@ -1191,46 +1194,45 @@ build_attribute({atom,Aa,module}, Val) ->
 	    {attribute,Aa,module,Module};
 	[{atom,_Am,Module},ExpList] ->
 	    {attribute,Aa,module,{Module,var_list(ExpList)}};
-	_Other ->
-	    error_bad_decl(Aa, module)
+	[Other|_] -> error_bad_decl(Other, module)
     end;
 build_attribute({atom,Aa,export}, Val) ->
     case Val of
 	[ExpList] ->
 	    {attribute,Aa,export,farity_list(ExpList)};
-	_Other -> error_bad_decl(Aa, export)
+        [_,Other|_] -> error_bad_decl(Other, export)
     end;
 build_attribute({atom,Aa,import}, Val) ->
     case Val of
 	[{atom,_Am,Mod},ImpList] ->
 	    {attribute,Aa,import,{Mod,farity_list(ImpList)}};
-	_Other -> error_bad_decl(Aa, import)
+        [_,Other|_] -> error_bad_decl(Other, import)
     end;
 build_attribute({atom,Aa,record}, Val) ->
     case Val of
 	[{atom,_An,Record},RecTuple] ->
 	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
-	_Other -> error_bad_decl(Aa, record)
+        [Other|_] -> error_bad_decl(Other, record)
     end;
 build_attribute({atom,Aa,file}, Val) ->
     case Val of
 	[{string,_An,Name},{integer,_Al,Line}] ->
 	    {attribute,Aa,file,{Name,Line}};
-	_Other -> error_bad_decl(Aa, file)
+        [Other|_] -> error_bad_decl(Other, file)
     end;
 build_attribute({atom,Aa,Attr}, Val) ->
     case Val of
 	[Expr0] ->
 	    Expr = attribute_farity(Expr0),
 	    {attribute,Aa,Attr,term(Expr)};
-	_Other -> ret_err(Aa, "bad attribute")
+	[_,Other|_] -> ret_abstr_err(Other, "bad attribute")
     end.
 
 var_list({cons,_Ac,{var,_,V},Tail}) ->
     [V|var_list(Tail)];
 var_list({nil,_An}) -> [];
 var_list(Other) ->
-    ret_err(?anno(Other), "bad variable list").
+    ret_abstr_err(Other, "bad variable list").
 
 attribute_farity({cons,A,H,T}) ->
     {cons,A,attribute_farity(H),attribute_farity(T)};
@@ -1251,21 +1253,25 @@ attribute_farity_list(Args) ->
 attribute_farity_map(Args) ->
     [{Op,A,K,attribute_farity(V)} || {Op,A,K,V} <- Args].
 
--spec error_bad_decl(erl_anno:anno(), attributes()) -> no_return().
+-spec error_bad_decl(erl_parse_tree(), attributes()) -> no_return().
 
-error_bad_decl(Anno, S) ->
-    ret_err(Anno, io_lib:format("bad ~tw declaration", [S])).
+error_bad_decl(Abstr, S) ->
+    ret_abstr_err(Abstr, io_lib:format("bad ~tw declaration", [S])).
 
 farity_list({cons,_Ac,{op,_Ao,'/',{atom,_Aa,A},{integer,_Ai,I}},Tail}) ->
     [{A,I}|farity_list(Tail)];
+farity_list({cons,_Ac,{op,_Ao,'/',{atom,_Aa,_A},Other},_Tail}) ->
+    ret_abstr_err(Other, "bad function arity");
+farity_list({cons,_Ac,{op,_Ao,'/',Other,_},_Tail}) ->
+    ret_abstr_err(Other, "bad function name");
 farity_list({nil,_An}) -> [];
 farity_list(Other) ->
-    ret_err(?anno(Other), "bad function arity").
+    ret_abstr_err(Other, "bad Name/Arity").
 
 record_tuple({tuple,_At,Fields}) ->
     record_fields(Fields);
 record_tuple(Other) ->
-    ret_err(?anno(Other), "bad record declaration").
+    ret_abstr_err(Other, "bad record declaration").
 
 record_fields([{atom,Aa,A}|Fields]) ->
     [{record_field,Aa,{atom,Aa,A}}|record_fields(Fields)];
@@ -1275,12 +1281,12 @@ record_fields([{typed,Expr,TypeInfo}|Fields]) ->
     [Field] = record_fields([Expr]),
     [{typed_record_field,Field,TypeInfo}|record_fields(Fields)];
 record_fields([Other|_Fields]) ->
-    ret_err(?anno(Other), "bad record field");
+    ret_abstr_err(Other, "bad record field");
 record_fields([]) -> [].
 
 term(Expr) ->
     try normalise(Expr)
-    catch _:_R -> ret_err(?anno(Expr), "bad attribute")
+    catch _:_R -> ret_abstr_err(Expr, "bad attribute")
     end.
 
 %% build_function([Clause]) -> {function,Anno,Name,Arity,[Clause]}
@@ -1317,6 +1323,54 @@ build_try(A,Es,Scs,{Ccs,As}) ->
 -spec ret_err(_, _) -> no_return().
 ret_err(Anno, S) ->
     return_error(location(Anno), S).
+
+-spec ret_abstr_err(_, _) -> no_return().
+ret_abstr_err(Abstract, S) ->
+    return_error(first_location(Abstract), S).
+
+first_location(Abstract) ->
+    Anno = first_anno(Abstract),
+    erl_anno:location(Anno).
+
+%% Use the fact that fold_anno() visits nodes from left to right.
+%% Could be a bit slow on deeply nested code without column numbers
+%% even though only the left-most branch is traversed.
+first_anno(Abstract) ->
+    Anno0 = element(2, Abstract),
+    F = fun(Anno, Anno1) ->
+                Loc = erl_anno:location(Anno),
+                Loc1 = erl_anno:location(Anno1),
+                case loc_lte(Loc, Loc1) of
+                    true ->
+                        Anno;
+                    false ->
+                        throw(Anno1)
+                end
+        end,
+    catch fold_anno(F, Anno0, Abstract).
+
+last_anno(Abstract) ->
+    Anno = lists:last(sort_annos(Abstract)),
+    case erl_anno:end_location(Anno) of
+        undefined ->
+            Anno;
+        EndLocation ->
+            erl_anno:set_location(EndLocation, Anno)
+    end.
+
+sort_annos(Abstract) ->
+    AllAnnos = fold_anno(fun(Anno, Acc) -> [Anno|Acc] end, [], Abstract),
+    CF = fun(Anno1, Anno2) ->
+                 loc_lte(erl_anno:location(Anno1), erl_anno:location(Anno2))
+         end,
+    lists:sort(CF, AllAnnos).
+
+loc_lte(Line1, Location2) when is_integer(Line1) ->
+    loc_lte({Line1, 1}, Location2);
+loc_lte(Location1, Line2) when is_integer(Line2) ->
+    loc_lte(Location1, {Line2, 1});
+loc_lte(Location1, Location2) ->
+    Location1 =< Location2.
 
 location(Anno) ->
     erl_anno:location(Anno).

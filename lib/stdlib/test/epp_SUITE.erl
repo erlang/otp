@@ -29,7 +29,7 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1,otp_16978/1]).
+	 test_if/1,source_name/1,otp_16978/1,otp_16824/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285, test_if, source_name, otp_16978].
+     otp_14285, test_if, source_name, otp_16978,otp_16824].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -463,7 +463,7 @@ skip_header(Config) when is_list(Config) ->
     io:get_line(Fd, ''),
     io:get_line(Fd, ''),
     io:get_line(Fd, ''),
-    {ok, Epp} = epp:open(list_to_atom(File), Fd, 4, [], []),
+    {ok, Epp} = epp:open([{fd, Fd}, {name, list_to_atom(File)}, {location, 4}]),
 
     Forms = epp:parse_file(Epp),
     [] = [Reason || {error, Reason} <- Forms],
@@ -479,7 +479,7 @@ otp_6277(Config) when is_list(Config) ->
               -define(ASSERT, ?MODULE).
 
               ?ASSERT().">>,
-           [{error,{{4,16},epp,{undefined,'MODULE', none}}}]}],
+           [{error,{4,epp,{undefined,'MODULE', none}}}]}],
     [] = check(Config, Ts),
     ok.
 
@@ -510,34 +510,34 @@ otp_7702(Config) when is_list(Config) ->
 
     {file_7702,[{abstract_code,{_,Forms}}]} = AC,
     Forms2 = unopaque_forms(Forms),
-            [{attribute,1,file,_},
+        [{attribute,{1,1},file,_},
          _,
          _,
          {function,_,t,0,
           [{clause,_,[],[],
-            [{'receive',14,
+            [{'receive',{14,25},
               [_,
-               {clause,14,
-                [{var,14,'M'}],
+               {clause,{14,38},
+                [{var,{14,38},'M'}],
                 [],
                 [{_,_,_,
-                  [{tuple,14,
-                    [{atom,14,unexpected_message},
-                     {var,14,'M'},
-                     {atom,14,on_line},
-                     {integer,14,14},
-                     {atom,14,was_expecting},
-                     {string,14,"foo"}]}]}]}],
-              {integer,14,10000},
-              [{call,14,
-                {atom,14,exit},
-                [{tuple,14,
-                  [{atom,14,timeout},
-                   {atom,14,on_line},
-                   {integer,14,14},
-                   {atom,14,was_expecting},
-                   {string,14,"foo"}]}]}]}]}]},
-         {eof,14}] = Forms2,
+                  [{tuple,{14,38},
+                    [{atom,{14,38},unexpected_message},
+                     {var,{14,38},'M'},
+                     {atom,{14,38},on_line},
+                     {integer,{14,38},14},
+                     {atom,{14,38},was_expecting},
+                     {string,{14,38},"foo"}]}]}]}],
+              {integer,{14,38},10000},
+              [{call,{14,38},
+                {atom,{14,38},exit},
+                [{tuple,{14,38},
+                  [{atom,{14,38},timeout},
+                   {atom,{14,38},on_line},
+                   {integer,{14,38},14},
+                   {atom,{14,38},was_expecting},
+                   {string,{14,38},"foo"}]}]}]}]}]},
+         {eof,{14,43}}] = Forms2,
 
     file:delete(File),
     file:delete(BeamFile),
@@ -687,7 +687,7 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c8,
            <<"\n-include_lib(\"$apa/foo.hrl\").\n">>,
-           {errors,[{{2,2},epp,{include,lib,"$apa/foo.hrl"}}],[]}},
+           {errors,[{{2,14},epp,{include,lib,"$apa/foo.hrl"}}],[]}},
 
 
           {otp_8130_c9a,
@@ -702,23 +702,23 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c10,
            <<"\n-file.">>,
-           {errors,[{{2,2},epp,{bad,file}}],[]}},
+           {errors,[{{2,6},epp,{bad,file}}],[]}},
 
           {otp_8130_c11,
            <<"\n-include_lib 92.">>,
-           {errors,[{{2,2},epp,{bad,include_lib}}],[]}},
+           {errors,[{{2,14},epp,{bad,include_lib}}],[]}},
 
           {otp_8130_c12,
            <<"\n-include_lib(\"kernel/include/fopp.hrl\").\n">>,
-           {errors,[{{2,2},epp,{include,lib,"kernel/include/fopp.hrl"}}],[]}},
+           {errors,[{{2,14},epp,{include,lib,"kernel/include/fopp.hrl"}}],[]}},
 
           {otp_8130_c13,
            <<"\n-include(foo).\n">>,
-           {errors,[{{2,2},epp,{bad,include}}],[]}},
+           {errors,[{{2,10},epp,{bad,include}}],[]}},
 
           {otp_8130_c14,
            <<"\n-undef({foo}).\n">>,
-           {errors,[{{2,2},epp,{bad,undef}}],[]}},
+           {errors,[{{2,8},epp,{bad,undef}}],[]}},
 
           {otp_8130_c15,
            <<"\n-define(a, 1).\n"
@@ -752,11 +752,11 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c21,
            <<"\n-define(A(B, B), B).\n">>,
-           {errors,[{{2,2},epp,{bad,define}}],[]}},
+           {errors,[{{2,14},epp,{duplicated_argument,'B'}}],[]}},
 
           {otp_8130_c22,
            <<"\n-define(a(B, B), B).\n">>,
-           {errors,[{{2,2},epp,{bad,define}}],[]}},
+           {errors,[{{2,14},epp,{duplicated_argument,'B'}}],[]}},
 
           {otp_8130_c23,
            <<"\n-file(?b, 3).\n">>,
@@ -764,11 +764,11 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c24,
            <<"\n-include(\"no such file.erl\").\n">>,
-           {errors,[{{2,2},epp,{include,file,"no such file.erl"}}],[]}},
+           {errors,[{{2,10},epp,{include,file,"no such file.erl"}}],[]}},
 
           {otp_8130_c25,
            <<"\n-define(A.\n">>,
-           {errors,[{{2,2},epp,{bad,define}}],[]}},
+           {errors,[{{2,10},epp,{bad,define}}],[]}},
 
           {otp_8130_7,
            <<"-record(b, {b}).\n"
@@ -782,11 +782,11 @@ otp_8130(Config) when is_list(Config) ->
 
     Cks = [{otp_check_1,
             <<"\n-include_lib(\"epp_test.erl\").\n">>,
-            [{error,{{2,2},epp,{depth,"include_lib"}}}]},
+            [{error,{2,epp,{depth,"include_lib"}}}]},
 
            {otp_check_2,
             <<"\n-include(\"epp_test.erl\").\n">>,
-            [{error,{{2,2},epp,{depth,"include"}}}]}
+            [{error,{2,epp,{depth,"include"}}}]}
            ],
     [] = check(Config, Cks),
 
@@ -885,7 +885,7 @@ ifdef(Config) ->
           {ifdef_c4,
            <<"\n-ifdef a.\n"
              "-endif.\n">>,
-           {errors,[{{2,2},epp,{bad,ifdef}}],[]}},
+           {errors,[{{2,8},epp,{bad,ifdef}}],[]}},
 
           {ifdef_c5,
            <<"-ifdef(a).\n"
@@ -908,7 +908,7 @@ ifdef(Config) ->
              "-else.\n"
              "t() -> a.\n"
              "-endif.\n">>,
-           {errors,[{{2,2},epp,{bad,else}}],[]}},
+           {errors,[{{3,1},epp,{bad,else}}],[]}},
 
           {ifdef_c8,
            <<"-ifdef(a).\n"
@@ -950,11 +950,11 @@ ifdef(Config) ->
           {ifndef_c4,
            <<"\n-ifndef a.\n"
              "-endif.\n">>,
-           {errors,[{{2,2},epp,{bad,ifndef}}],[]}},
+           {errors,[{{2,9},epp,{bad,ifndef}}],[]}},
 
           {define_c5,
            <<"-\ndefine a.\n">>,
-           {errors,[{{2,1},epp,{bad,define}}],[]}}
+           {errors,[{{2,8},epp,{bad,define}}],[]}}
           ],
     [] = compile(Config, Cs),
 
@@ -1046,7 +1046,7 @@ test_error(Config) ->
 	     "-ifdef(NOT_DEFINED).\n"
 	     " -error(\"this one will be skipped\").\n"
 	     "-endif.\n">>,
-           {errors,[{1,epp,{error,"string and macro: epp_test"}}],[]}},
+           {errors,[{{1,21},epp,{error,"string and macro: epp_test"}}],[]}},
 
 	  {error_c2,
 	   <<"-ifdef(CONFIG_A).\n"
@@ -1058,11 +1058,11 @@ test_error(Config) ->
 	     "-error(\"Neither CONFIG_A nor CONFIG_B are available\").\n"
 	     "-endif.\n"
 	     "-endif.\n">>,
-	   {errors,[{7,epp,{error,"Neither CONFIG_A nor CONFIG_B are available"}}],[]}},
+	   {errors,[{{7,2},epp,{error,"Neither CONFIG_A nor CONFIG_B are available"}}],[]}},
 
 	  {error_c3,
 	   <<"-error(a b c).\n">>,
-	   {errors,[{1,epp,{bad,error}}],[]}}
+	   {errors,[{{1,21},epp,{bad,error}}],[]}}
 
 	 ],
 
@@ -1076,7 +1076,7 @@ test_warning(Config) ->
 	     "-ifdef(NOT_DEFINED).\n"
 	     "-warning(\"this one will be skipped\").\n"
 	     "-endif.\n">>,
-           {warnings,[{1,epp,{warning,{a,term,epp_test}}}]}},
+           {warnings,[{{1,21},epp,{warning,{a,term,epp_test}}}]}},
 
 	  {warn_c2,
 	   <<"-ifdef(CONFIG_A).\n"
@@ -1089,11 +1089,11 @@ test_warning(Config) ->
 	     "-warning(\"Using fallback\").\n"
 	     "-endif.\n"
 	     "-endif.\n">>,
-	   {warnings,[{8,epp,{warning,"Using fallback"}}]}},
+	   {warnings,[{{8,2},epp,{warning,"Using fallback"}}]}},
 
 	  {warn_c3,
 	   <<"-warning(a b c).\n">>,
-	   {errors,[{1,epp,{bad,warning}}],[]}}
+	   {errors,[{{1,21},epp,{bad,warning}}],[]}}
 	 ],
 
     [] = compile(Config, Cs),
@@ -1113,10 +1113,10 @@ test_if(Config) ->
 	     "-if(a+3).\n"
 	     "syntax error not triggered here.\n"
 	     "-endif.\n">>,
-           {errors,[{1,epp,{bad,'if'}},
-		    {3,epp,{bad,'if'}},
-		    {5,erl_parse,["syntax error before: ","error"]},
-		    {11,epp,{illegal,"unterminated",'if'}}],
+           {errors,[{{1,23},epp,{bad,'if'}},
+		    {{3,5},epp,{bad,'if'}},
+		    {{5,12},erl_parse,["syntax error before: ","error"]},
+		    {{11,1},epp,{illegal,"unterminated",'if'}}],
 	    []}},
 
 	  {if_2c,			       	%Bad guard expressions.
@@ -1124,42 +1124,42 @@ test_if(Config) ->
 	     "-endif.\n"
 	     "-if(begin true end).\n"
 	     "-endif.\n">>,
-	   {errors,[{1,epp,{bad,'if'}},
-		    {3,epp,{bad,'if'}}],
+	   {errors,[{{1,21},epp,{bad,'if'}},
+		    {{3,2},epp,{bad,'if'}}],
 	    []}},
 
 	  {if_3c,			       	%Invalid use of defined/1.
 	   <<"-if defined(42).\n"
 	     "-endif.\n">>,
-	   {errors,[{1,epp,{bad,'if'}}],[]}},
+	   {errors,[{{1,24},epp,{bad,'if'}}],[]}},
 
 	  {if_4c,
 	   <<"-elif OTP_RELEASE > 18.\n">>,
-	   {errors,[{1,epp,{illegal,"unbalanced",'elif'}}],[]}},
+	   {errors,[{{1,21},epp,{illegal,"unbalanced",'elif'}}],[]}},
 
 	  {if_5c,
 	   <<"-ifdef(not_defined_today).\n"
 	     "-else.\n"
 	     "-elif OTP_RELEASE > 18.\n"
 	     "-endif.\n">>,
-	   {errors,[{3,epp,{illegal,"unbalanced",'elif'}}],[]}},
+	   {errors,[{{3,2},epp,{illegal,"unbalanced",'elif'}}],[]}},
 
 	  {if_6c,
 	   <<"-if(defined(OTP_RELEASE)).\n"
 	     "-else.\n"
 	     "-elif(true).\n"
 	     "-endif.\n">>,
-	   {errors,[{3,epp,elif_after_else}],[]}},
+	   {errors,[{{3,2},epp,elif_after_else}],[]}},
 
 	  {if_7c,
 	   <<"-if(begin true end).\n"		%Not a guard expression.
 	     "-endif.\n">>,
-	   {errors,[{1,epp,{bad,'if'}}],[]}},
+	   {errors,[{{1,21},epp,{bad,'if'}}],[]}},
 
 	  {if_8c,
 	   <<"-if(?foo).\n"                     %Undefined symbol.
 	     "-endif.\n">>,
-	   {errors,[{1,epp,{undefined,foo,none}}],[]}}
+	   {errors,[{{1,25},epp,{undefined,foo,none}}],[]}}
 
 	 ],
     [] = compile(Config, Cs),
@@ -1260,8 +1260,8 @@ overload_mac(Config) when is_list(Config) ->
 
           %% cannot overload predefined macros
           {overload_mac_c2,
-           <<"-define(MODULE(X), X).">>,
-           {errors,[{{1,50},epp,{redefine_predef,'MODULE'}}],[]}},
+           <<"\n-define(MODULE(X), X).">>,
+           {errors,[{{2,9},epp,{redefine_predef,'MODULE'}}],[]}},
 
           %% cannot overload macros with same arity
           {overload_mac_c3,
@@ -1331,15 +1331,15 @@ otp_8388(Config) when is_list(Config) ->
              "t() -> ?m(a,).\n">>,
            {errors,[{{2,9},epp,{arg_error,m}}],[]}},
           {macro_3,
-           <<"-define(LINE, a).\n">>,
-           {errors,[{{1,50},epp,{redefine_predef,'LINE'}}],[]}},
+           <<"\n-define(LINE, a).\n">>,
+           {errors,[{{2,9},epp,{redefine_predef,'LINE'}}],[]}},
           {macro_4,
            <<"-define(A(B, C, D), {B,C,D}).\n"
              "t() -> ?A(a,,3).\n">>,
            {errors,[{{2,9},epp,{mismatch,'A'}}],[]}},
           {macro_5,
            <<"-define(Q, {?F0(), ?F1(,,4)}).\n">>,
-           {errors,[{{1,62},epp,{arg_error,'F1'}}],[]}},
+           {errors,[{{1,40},epp,{arg_error,'F1'}}],[]}},
           {macro_6,
            <<"-define(FOO(X), ?BAR(X)).\n"
              "-define(BAR(X), ?FOO(X)).\n"
@@ -1365,10 +1365,10 @@ otp_8470(Config) when is_list(Config) ->
 %% OTP-8562. Record with no fields is considered typed.
 otp_8562(Config) when is_list(Config) ->
     Cs = [{otp_8562,
-           <<"-define(P(), {a,b}.\n"
+           <<"\n-define(P(), {a,b}.\n"
              "-define(P3, .\n">>,
-           {errors,[{{1,60},epp,missing_parenthesis},
-                    {{2,13},epp,missing_parenthesis}], []}}
+           {errors,[{{2,19},epp,missing_parenthesis},
+                    {{3,13},epp,missing_parenthesis}], []}}
          ],
     [] = compile(Config, Cs),
     ok.
@@ -1413,9 +1413,9 @@ do_otp_8911(Config) ->
 
 %% OTP-8665. Bugfix premature end.
 otp_8665(Config) when is_list(Config) ->
-    Cs = [{otp_8562,
-           <<"-define(A, a)\n">>,
-           {errors,[{{1,54},epp,premature_end}],[]}}
+    Cs = [{otp_8665,
+           <<"\n-define(A, a)\n">>,
+           {errors,[{{2,13},epp,premature_end}],[]}}
          ],
     [] = compile(Config, Cs),
     ok.
@@ -1423,10 +1423,10 @@ otp_8665(Config) when is_list(Config) ->
 %% OTP-10302. Unicode characters scanner/parser.
 otp_10302(Config) when is_list(Config) ->
     %% Two messages (one too many). Keeps otp_4871 happy.
-    Cs = [{otp_8562,
+    Cs = [{otp_10302,
            <<"%% coding: utf-8\n \n \x{E4}">>,
-           {errors,[{3,epp,cannot_parse},
-                    {3,file_io_server,invalid_unicode}],[]}}
+           {errors,[{{3,1},epp,cannot_parse},
+                    {{3,1},file_io_server,invalid_unicode}],[]}}
          ],
     [] = compile(Config, Cs),
     Dir = proplists:get_value(priv_dir, Config),
@@ -1516,7 +1516,7 @@ do_otp_10820(File, C, PC) ->
 %% OTP_14285: Unicode atoms.
 otp_14285(Config) when is_list(Config) ->
     %% This is just a sample of errors.
-    Cs = [{otp_8562,
+    Cs = [{otp_14285,
            <<"-export([f/0]).
               -define('a\x{400}b', 'a\x{400}d').
               f() ->
@@ -1526,8 +1526,8 @@ otp_14285(Config) when is_list(Config) ->
               h() ->
                   ?'a\x{400}no'().
               "/utf8>>,
-           {errors,[{6,epp,{call,[63,[91,["97",44,"1024",44,"98"],93]]}},
-                    {8,epp,{undefined,'a\x{400}no',0}}],
+           {errors,[{{6,20},epp,{call,[63,[91,["97",44,"1024",44,"98"],93]]}},
+                    {{8,20},epp,{undefined,'a\x{400}no',0}}],
             []}}
          ],
     [] = compile(Config, Cs),
@@ -1565,11 +1565,11 @@ encoding(Config) when is_list(Config) ->
            %% ",246,"
 	  ">>,
     ok = file:write_file(ErlFile, C1),
-    {ok,[{attribute,1,file,_},
-	 {attribute,1,module,encoding},
+    {ok,[{attribute,{1,1},file,_},
+	 {attribute,{1,2},module,encoding},
 	 {error,_},
-	 {error,{2,epp,cannot_parse}},
-	 {eof,2}]} = epp_parse_file(ErlFile, []),
+	 {error,{{2,12},epp,cannot_parse}},
+	 {eof,{2,12}}]} = epp_parse_file(ErlFile, [{location, {1,1}}]),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
 	 {eof,3}]} =
@@ -1614,7 +1614,7 @@ encoding(Config) when is_list(Config) ->
 extends(Config) ->
     Cs = [{extends_c1,
 	   <<"-extends(some.other.module).\n">>,
-	   {errors,[{1,erl_parse,["syntax error before: ","'.'"]}],[]}}],
+	   {errors,[{{1,33},erl_parse,["syntax error before: ","'.'"]}],[]}}],
     [] = compile(Config, Cs),
 
     Ts = [{extends_1,
@@ -1637,29 +1637,29 @@ function_macro(Config) ->
 	     "-file(?FUNCTION_ARITY, 1).\n"
 	     "f1() ?FUNCTION_NAME/?FUNCTION_ARITY.\n"
 	     "f2(?FUNCTION_NAME.\n">>,
-	   {errors,[{1,epp,{redefine_predef,'FUNCTION_NAME'}},
-		    {2,epp,{redefine_predef,'FUNCTION_ARITY'}},
-		    {6,epp,{illegal_function,'FUNCTION_NAME'}},
-		    {7,epp,{illegal_function,'FUNCTION_NAME'}},
-		    {8,epp,{illegal_function,'FUNCTION_ARITY'}},
-		    {9,erl_parse,["syntax error before: ","f1"]},
-		    {10,erl_parse,["syntax error before: ","'.'"]}],
+	   {errors,[{{1,28},epp,{redefine_predef,'FUNCTION_NAME'}},
+		    {{2,9},epp,{redefine_predef,'FUNCTION_ARITY'}},
+		    {{6,11},epp,{illegal_function,'FUNCTION_NAME'}},
+		    {{7,9},epp,{illegal_function,'FUNCTION_NAME'}},
+		    {{8,8},epp,{illegal_function,'FUNCTION_ARITY'}},
+		    {{9,7},erl_parse,["syntax error before: ","f1"]},
+		    {{10,18},erl_parse,["syntax error before: ","'.'"]}],
 	    []}},
 
 	  {f_c2,
 	   <<"a({a) -> ?FUNCTION_NAME.\n"
 	     "b(}{) -> ?FUNCTION_ARITY.\n"
 	     "c(?FUNCTION_NAME, ?not_defined) -> ok.\n">>,
-	   {errors,[{1,erl_parse,["syntax error before: ","')'"]},
-		    {2,erl_parse,["syntax error before: ","'}'"]},
-		    {3,epp,{undefined,not_defined,none}}],
+	   {errors,[{{1,24},erl_parse,["syntax error before: ","')'"]},
+		    {{2,3},erl_parse,["syntax error before: ","'}'"]},
+		    {{3,20},epp,{undefined,not_defined,none}}],
 	    []}},
 
 	  {f_c3,
 	   <<"?FUNCTION_NAME() -> ok.\n"
 	     "?FUNCTION_ARITY() -> ok.\n">>,
-	   {errors,[{1,epp,{illegal_function_usage,'FUNCTION_NAME'}},
-		    {2,epp,{illegal_function_usage,'FUNCTION_ARITY'}}],
+	   {errors,[{{1,21},epp,{illegal_function_usage,'FUNCTION_NAME'}},
+		    {{2,2},epp,{illegal_function_usage,'FUNCTION_ARITY'}}],
 	    []}}
 	 ],
 
@@ -1734,9 +1734,232 @@ otp_16978(Config) when is_list(Config) ->
 
     ok.
 
+otp_16824(Config) when is_list(Config) ->
+    Cs = [{otp_16824_1,
+           <<"\n-file(.">>,
+           {errors,[{{2,7},epp,{bad,file}}],[]}},
+
+          {otp_16824_2,
+           <<"\n-file(foo, a).">>,
+           {errors,[{{2,7},epp,{bad,file}}],[]}},
+
+          {otp_16824_3,
+           <<"\n-file(\"foo\" + a).">>,
+           {errors,[{{2,13},epp,{bad,file}}],[]}},
+
+          {otp_16824_4,
+           <<"\n-file(\"foo\", a).">>,
+           {errors,[{{2,14},epp,{bad,file}}],[]}},
+
+          %% The location before "foo", not after, unfortunately.
+          {otp_16824_5,
+           <<"\n-file(\"foo\"">>,
+           {errors,[{{2,7},epp,{bad,file}}],[]}},
+
+          {otp_16824_6,
+           <<"\n-endif()">>,
+           {errors,[{{2,7},epp,{bad,endif}}],[]}},
+
+          {otp_16824_7,
+           <<"\n-if[.\n"
+             "-endif.">>,
+           {errors,[{{2,4},epp,{bad,'if'}}],
+            []}},
+
+          {otp_16824_8,
+           <<"\n-else\n"
+             "-endif.">>,
+           {errors,[{{3,1},epp,{bad,else}}],[]}},
+
+          {otp_16824_9,
+           <<"\n-ifndef.\n"
+             "-endif.">>,
+           {errors,[{{2,8},epp,{bad,ifndef}}],[]}},
+
+          {otp_16824_10,
+           <<"\n-ifndef(.\n"
+             "-endif.">>,
+           {errors,[{{2,9},epp,{bad,ifndef}}],[]}},
+
+          {otp_16824_11,
+           <<"\n-ifndef(a.\n"
+             "-endif.">>,
+           {errors,[{{2,10},epp,{bad,ifndef}}],[]}},
+
+          {otp_16824_12,
+           <<"\n-ifndef(A.\n"
+             "-endif.">>,
+           {errors,[{{2,10},epp,{bad,ifndef}}],[]}},
+
+          {otp_16824_13,
+           <<"\n-ifndef(a,A).\n"
+             "-endif.">>,
+           {errors,[{{2,10},epp,{bad,ifndef}}],[]}},
+
+          {otp_16824_14,
+           <<"\n-ifndef(A,a).\n"
+             "-endif.">>,
+           {errors,[{{2,10},epp,{bad,ifndef}}],[]}},
+
+          {otp_16824_15,
+           <<"\n-ifdef.\n"
+             "-endif.">>,
+           {errors,[{{2,7},epp,{bad,ifdef}}],[]}},
+
+          {otp_16824_16,
+           <<"\n-ifdef(.\n"
+             "-endif.">>,
+           {errors,[{{2,8},epp,{bad,ifdef}}],[]}},
+
+          {otp_16824_17,
+           <<"\n-ifdef(a.\n"
+             "-endif.">>,
+           {errors,[{{2,9},epp,{bad,ifdef}}],[]}},
+
+          {otp_16824_18,
+           <<"\n-ifdef(A.\n"
+             "-endif.">>,
+           {errors,[{{2,9},epp,{bad,ifdef}}],[]}},
+
+          {otp_16824_19,
+           <<"\n-ifdef(a,A).\n"
+             "-endif.">>,
+           {errors,[{{2,9},epp,{bad,ifdef}}],[]}},
+
+          {otp_16824_20,
+           <<"\n-ifdef(A,a).\n"
+             "-endif.">>,
+           {errors,[{{2,9},epp,{bad,ifdef}}],[]}},
+
+          {otp_16824_21,
+           <<"\n-include_lib.\n">>,
+           {errors,[{{2,13},epp,{bad,include_lib}}],[]}},
+
+          {otp_16824_22,
+           <<"\n-include_lib(.\n">>,
+           {errors,[{{2,14},epp,{bad,include_lib}}],[]}},
+
+          {otp_16824_23,
+           <<"\n-include_lib(a.\n">>,
+           {errors,[{{2,14},epp,{bad,include_lib}}],[]}},
+
+          {otp_16824_24,
+           <<"\n-include_lib(\"a\"].\n">>,
+           {errors,[{{2,17},epp,{bad,include_lib}}],[]}},
+
+          {otp_16824_25,
+           <<"\n-include_lib(\"a\", 1).\n">>,
+           {errors,[{{2,17},epp,{bad,include_lib}}],[]}},
+
+          {otp_16824_26,
+           <<"\n-include.\n">>,
+           {errors,[{{2,9},epp,{bad,include}}],[]}},
+
+          {otp_16824_27,
+           <<"\n-include(.\n">>,
+           {errors,[{{2,10},epp,{bad,include}}],[]}},
+
+          {otp_16824_28,
+           <<"\n-include(a.\n">>,
+           {errors,[{{2,10},epp,{bad,include}}],[]}},
+
+          {otp_16824_29,
+           <<"\n-include(\"a\"].\n">>,
+           {errors,[{{2,13},epp,{bad,include}}],[]}},
+
+          {otp_16824_30,
+           <<"\n-include(\"a\", 1).\n">>,
+           {errors,[{{2,13},epp,{bad,include}}],[]}},
+
+          {otp_16824_31,
+           <<"\n-undef.\n">>,
+           {errors,[{{2,7},epp,{bad,undef}}],[]}},
+
+          {otp_16824_32,
+           <<"\n-undef(.\n">>,
+           {errors,[{{2,8},epp,{bad,undef}}],[]}},
+
+          {otp_16824_33,
+           <<"\n-undef(a.\n">>,
+           {errors,[{{2,9},epp,{bad,undef}}],[]}},
+
+          {otp_16824_34,
+           <<"\n-undef(A.\n">>,
+           {errors,[{{2,9},epp,{bad,undef}}],[]}},
+
+          {otp_16824_35,
+           <<"\n-undef(a,A).\n">>,
+           {errors,[{{2,9},epp,{bad,undef}}],[]}},
+
+          {otp_16824_36,
+           <<"\n-undef(A,a).\n">>,
+           {errors,[{{2,9},epp,{bad,undef}}],[]}},
+
+          {otp_16824_37,
+           <<"\n-define.\n">>,
+           {errors,[{{2,8},epp,{bad,define}}],[]}},
+
+          {otp_16824_38,
+           <<"\n-define(.\n">>,
+           {errors,[{{2,9},epp,{bad,define}}],[]}},
+
+          {otp_16824_39,
+           <<"\n-define(1.\n">>,
+           {errors,[{{2,9},epp,{bad,define}}],[]}},
+
+          {otp_16824_40,
+           <<"\n-define(a b.\n">>,
+           {errors,[{{2,11},epp,{bad,define}}],[]}},
+
+          {otp_16824_41,
+           <<"\n-define(A b.\n">>,
+           {errors,[{{2,11},epp,{bad,define}}],[]}},
+
+          {otp_16824_42,
+           <<"\n-define(a(A, A), 1).\n">>,
+           {errors,[{{2,14},epp,{duplicated_argument,'A'}}],[]}},
+
+          {otp_16824_43,
+           <<"\n-define(a(A, A, B), 1).\n">>,
+           {errors,[{{2,14},epp,{duplicated_argument,'A'}}],[]}},
+
+          {otp_16824_44,
+           <<"\n-define(a(.">>,
+           {errors,[{{2,11},epp,{bad,define}}],[]}},
+
+          {otp_16824_45,
+           <<"\n-define(a(1.">>,
+           {errors,[{{2,11},epp,{bad,define}}],[]}},
+
+          {otp_16824_46,
+           <<"\n-define(a().">>,
+           {errors,[{{2,12},epp,missing_comma}],[]}},
+
+          {otp_16824_47,
+           <<"\n-define(a())">>,
+           {errors,[{{2,12},epp,missing_comma}],[]}},
+
+          {otp_16824_48,
+           <<"\n-define(A(A,), foo).\n">>,
+           {errors,[{{2,12},epp,{bad,define}}],[]}},
+
+          {otp_16824_49,
+           <<"\n-warning.">>,
+           {errors,[{{2,9},epp,{bad,warning}}],[]}},
+
+          {otp_16824_50,
+           <<"\n-warning">>,
+           {errors,[{{2,2},epp,{bad,warning}}],[]}}
+
+          ],
+    [] = compile(Config, Cs),
+    ok.
+
+%% Start location is 1.
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/3, Tests).
 
+%% Start location is {1,1}.
 compile(Config, Tests) ->
     eval_tests(Config, fun compile_test/3, Tests).
 
@@ -1860,34 +2083,7 @@ fail() ->
     ct:fail(failed).
 
 message_compare(T, T) ->
-    true;
-message_compare(T1, T2) ->
-    ln(T1) =:= T2.
-
-%% Replaces locations like {Line,Column} with Line.
-ln({warnings,L}) ->
-    {warnings,ln0(L)};
-ln({errors,EL,WL}) ->
-    {errors,ln0(EL),ln0(WL)};
-ln(L) ->
-    ln0(L).
-
-ln0(L) ->
-    lists:keysort(1, ln1(L)).
-
-ln1([]) ->
-    [];
-ln1([{File,Ms}|MsL]) when is_list(File) ->
-    [{File,ln0(Ms)}|ln1(MsL)];
-ln1([M|Ms]) ->
-    [ln2(M)|ln1(Ms)].
-
-ln2({{L,_C},Mod,Mess}) ->
-    {L,Mod,Mess};
-ln2({error,M}) ->
-    {error,ln2(M)};
-ln2(M) ->
-    M.
+    T =:= T.
 
 %% +fnu means a peer node has to be started; slave will not do
 start_node(Name, Xargs) ->

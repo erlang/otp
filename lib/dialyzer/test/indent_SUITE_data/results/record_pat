@@ -1,4 +1,4 @@
 
-record_pat.erl:14: Matching of pattern 
+record_pat.erl:14:1: Matching of pattern 
           {'foo', 'baz'} tagged with a record name violates the declared type of 
           #foo{bar :: integer()}

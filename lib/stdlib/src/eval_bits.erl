@@ -89,9 +89,9 @@ eval_field({bin_element, _, {string, _, S}, {integer,_,8}, [integer,{unit,1},uns
 eval_field({bin_element, _, {string, _, S}, default, default}, Bs0, _Fun) ->
     Latin1 = [C band 16#FF || C <- S],
     {fun() ->list_to_binary(Latin1) end,Bs0};
-eval_field({bin_element, Line, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
+eval_field({bin_element, Anno, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
     {Size1,[Type,{unit,Unit},Sign,Endian]} =
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     {value,Size,Bs1} = Fun(Size1, Bs0),
     {fun() ->
              Res = << <<(eval_exp_field1(C, Size, Unit,
@@ -106,10 +106,10 @@ eval_field({bin_element, Line, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
              end,
              Res
      end,Bs1};
-eval_field({bin_element,Line,E,Size0,Options0}, Bs0, Fun) ->
+eval_field({bin_element,Anno,E,Size0,Options0}, Bs0, Fun) ->
     {value,V,Bs1} = Fun(E, Bs0),
     {Size1,[Type,{unit,Unit},Sign,Endian]} = 
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     {value,Size,Bs} = Fun(Size1, Bs1),
     {fun() -> eval_exp_field1(V, Size, Unit, Type, Endian, Sign) end,Bs}.
 
@@ -209,22 +209,22 @@ bin_gen_field({bin_element,_,{string,_,S},default,default},
         _ ->
             done
     end;
-bin_gen_field({bin_element,Line,{string,SLine,S},Size0,Options0},
+bin_gen_field({bin_element,Anno,{string,SAnno,S},Size0,Options0},
               Bin0, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     case catch Efun(Size1, BBs0) of
         {value, Size, _BBs} -> % 
             F = fun(C, Bin, Bs, BBs) ->
                         bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
-                                       {integer,SLine,C}, Bs, BBs, Mfun)
+                                       {integer,SAnno,C}, Bs, BBs, Mfun)
                 end,
             bin_gen_field_string(S, Bin0, Bs0, BBs0, F)
     end;
-bin_gen_field({bin_element,Line,VE,Size0,Options0}, 
+bin_gen_field({bin_element,Anno,VE,Size0,Options0},
               Bin, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} = 
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
     case catch Efun(Size1, BBs0) of
@@ -295,21 +295,21 @@ match_field_1({bin_element,_,{string,_,S},default,default},
     Size = byte_size(Bits),
     <<Bits:Size/binary,Rest/binary-unit:1>> = Bin,
     {Bs,BBs,Rest};
-match_field_1({bin_element,Line,{string,SLine,S},Size0,Options0},
+match_field_1({bin_element,Anno,{string,SAnno,S},Size0,Options0},
               Bin0, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     Size2 = erl_eval:partial_eval(Size1),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     F = fun(C, Bin, Bs, BBs) ->
                 match_field(Bin, Type, Size, Unit, Sign, Endian,
-                            {integer,SLine,C}, Bs, BBs, Mfun)
+                            {integer,SAnno,C}, Bs, BBs, Mfun)
         end,
     match_field_string(S, Bin0, Bs0, BBs0, F);
-match_field_1({bin_element,Line,VE,Size0,Options0}, 
+match_field_1({bin_element,Anno,VE,Size0,Options0},
               Bin, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} = 
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
     Size2 = erl_eval:partial_eval(Size1),
@@ -329,9 +329,9 @@ match_field(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun) ->
     {Bs,BBs,Rest}.
 
 %% Almost identical to the one in sys_pre_expand.
-coerce_to_float({integer,L,I}=E, float) ->
+coerce_to_float({integer,Anno,I}=E, float) ->
     try
-	{float,L,float(I)}
+	{float,Anno,float(I)}
     catch
 	error:badarg -> E;
 	error:badarith -> E
@@ -410,14 +410,14 @@ get_float(Bin, Size, big) ->
     {Val,Rest}.
 
 %% Identical to the one in sys_pre_expand.
-make_bit_type(Line, default, Type0) ->
+make_bit_type(Anno, default, Type0) ->
     case erl_bits:set_bit_type(default, Type0) of
-        {ok,all,Bt} -> {{atom,Line,all},erl_bits:as_list(Bt)};
-	{ok,undefined,Bt} -> {{atom,Line,undefined},erl_bits:as_list(Bt)};
-        {ok,Size,Bt} -> {{integer,Line,Size},erl_bits:as_list(Bt)};
+        {ok,all,Bt} -> {{atom,Anno,all},erl_bits:as_list(Bt)};
+	{ok,undefined,Bt} -> {{atom,Anno,undefined},erl_bits:as_list(Bt)};
+        {ok,Size,Bt} -> {{integer,Anno,Size},erl_bits:as_list(Bt)};
         {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end;
-make_bit_type(_Line, Size, Type0) -> %Size evaluates to an integer or 'all'
+make_bit_type(_Anno, Size, Type0) -> %Size evaluates to an integer or 'all'
     case erl_bits:set_bit_type(Size, Type0) of
         {ok,Size,Bt} -> {Size,erl_bits:as_list(Bt)};
         {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)

@@ -895,6 +895,8 @@ tidy_float_2([]) -> [].
 
 get_line([L | _As]) when is_integer(L) ->
     L;
+get_line([{L, _Column} | _As]) when is_integer(L) ->
+    L;
 get_line([_ | As]) ->
     get_line(As);
 get_line([]) ->

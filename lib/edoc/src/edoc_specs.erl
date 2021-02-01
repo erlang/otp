@@ -47,8 +47,9 @@ type(Form, TypeDocs) ->
         case Data0 of
             {R, Fs} ->
                 record = Name,
-                L = erl_syntax:get_pos(Form),
-                {{record, R}, {type, L, record, [{atom,L,R} | Fs]}, [], ""};
+                Anno = erl_syntax:get_pos(Form),
+                {{record, R},
+                 {type, Anno, record, [{atom,Anno,R} | Fs]}, [], ""};
             {N,T,As} ->
                 type = tag(Name),
                 Doc0 =
@@ -137,11 +138,11 @@ find_type_docs([F | Fs], Cs, Fun) ->
     try get_name_and_last_line(F) of
         {Name, LastTypeLine} ->
             C0 = erl_syntax:comment(["% @type f(). "]),
-            C1 = erl_syntax:set_pos(C0, LastTypeLine),
+            C1 = erl_syntax:set_pos(C0, anno(LastTypeLine)),
             %% Postcomments before the dot after the typespec are ignored.
             C2 = [C1 | [C ||
                            C <- erl_syntax:get_postcomments(F),
-                           erl_syntax:get_pos(C) >= LastTypeLine]],
+                           get_tree_line(C) >= LastTypeLine]],
             C3 = collect_comments(Fs, LastTypeLine),
             #tag{data = Doc0} = Fun(lists:reverse(C2 ++ C3), LastTypeLine),
             case strip(Doc0) of % Strip away "f(). \n"
@@ -158,7 +159,7 @@ find_type_docs([F | Fs], Cs, Fun) ->
 collect_comments([], _Line) ->
     [];
 collect_comments([F | Fs], Line) ->
-    L1 = erl_syntax:get_pos(F),
+    L1 = get_tree_line(F),
     if
         L1 =:= Line + 1;
         L1 =:= Line -> % a separate postcomment
@@ -175,6 +176,13 @@ collect_comments([F | Fs], Line) ->
 %% by a -type attribute and the include statement is followed by a
 %% comment (which is not meant to be documentation of the type).
 
+anno(Location) ->
+    erl_anno:new(Location).
+
+get_tree_line(Tree) ->
+    Anno = erl_syntax:get_pos(Tree),
+    erl_anno:line(Anno).
+
 is_comment(F) ->
     erl_syntax_lib:analyze_form(F) =:= comment.
 
@@ -190,7 +198,8 @@ strip([_ | S]) ->
 get_name_and_last_line(F) ->
     {Name, Data} = analyze_type_attribute(F),
     type = edoc_specs:tag(Name),
-    Attr = {attribute, erl_syntax:get_pos(F), Name, Data},
+    Anno = erl_syntax:get_pos(F),
+    Attr = {attribute, Anno, Name, Data},
     Fun = fun(A) ->
                   Line = get_line(A),
                   case get('$max_line') of

@@ -57,6 +57,8 @@ format(Node, Ctxt) ->
 	    format_1(Node, Ctxt);
 	[L,{file,_}] when is_integer(L) ->
 	    format_1(Node, Ctxt);
+	[{L,C},{file,_}] when is_integer(L), is_integer(C) ->
+	    format_1(Node, Ctxt);
 	List ->
 	    format_anno(List, Ctxt, fun (Ctxt1) ->
 					    format_1(Node, Ctxt1)

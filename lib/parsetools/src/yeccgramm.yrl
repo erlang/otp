@@ -43,7 +43,10 @@ strings -> string : ['$1'].
 strings -> string strings : ['$1' | '$2'].
 attached_code -> ':' tokens : {erlang_code, '$2'}.
 attached_code -> '$empty' : {erlang_code,
-                             [{atom, erl_anno:new(0), '$undefined'}]}.
+                             [{atom,
+                               erl_anno:set_text("'$undefined'",
+                                                 erl_anno:new(0)),
+                               '$undefined'}]}.
 tokens -> token : ['$1'].
 tokens -> token tokens : ['$1' | '$2'].
 symbol -> var : symbol('$1').

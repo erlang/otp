@@ -766,7 +766,7 @@ t_opaque_from_records(RecMap) ->
 		end, RecMap),
   OpaqueTypeMap =
     maps:map(fun({opaque, Name, _Arity},
-                 {{Module, _FileLine, _Form, ArgNames}, _Type}) ->
+                 {{Module, _FileLocation, _Form, ArgNames}, _Type}) ->
                  %% Args = args_to_types(ArgNames),
                  %% List = lists:zip(ArgNames, Args),
                  %% TmpVarTab = maps:to_list(List),
@@ -4426,26 +4426,28 @@ record_fields_to_string([F|Fs], [{FName, _Abstr, DefType}|FDefs],
 record_fields_to_string([], [], _RecDict, Acc) ->
   lists:reverse(Acc).
 
--spec record_field_diffs_to_string(erl_type(), type_table()) -> string().
+-spec record_field_diffs_to_string(erl_type(), type_table()) ->
+                                      {[FieldPos :: pos_integer()], string()}.
 
 record_field_diffs_to_string(?tuple([_|Fs], Arity, Tag), RecDict) ->
   [TagAtom] = atom_vals(Tag),
   {ok, FieldNames} = lookup_record(TagAtom, Arity-1, RecDict),
   %% io:format("RecCElems = ~p\nRecTypes = ~p\n", [Fs, FieldNames]),
-  FieldDiffs = field_diffs(Fs, FieldNames, RecDict, []),
-  flat_join(FieldDiffs, " and ").
+  Diffs = field_diffs(Fs, FieldNames, 1, RecDict, []),
+  {FNs, FieldDiffs} = lists:unzip(Diffs),
+  {FNs, flat_join(FieldDiffs, " and ")}.
 
-field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], RecDict, Acc) ->
+field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], Pos, RecDict, Acc) ->
   %% Don't care about opacity for now.
   NewAcc =
     case not t_is_none(t_inf(F, DefType)) of
       true -> Acc;
       false ->
 	Str = atom_to_string(FName) ++ "::" ++ t_to_string(DefType, RecDict),
-	[Str|Acc]
+	[{Pos,Str}|Acc]
     end,
-  field_diffs(Fs, FDefs, RecDict, NewAcc);
-field_diffs([], [], _, Acc) ->
+  field_diffs(Fs, FDefs, Pos + 1, RecDict, NewAcc);
+field_diffs([], [], _, _, Acc) ->
   lists:reverse(Acc).
 
 comma_sequence(Types, RecDict) ->
@@ -4610,93 +4612,93 @@ from_form_loop(Form, State, D, Limit, C, T0) ->
 
 from_form(_, _S, D, L, C) when D =< 0 ; L =< 0 ->
   {t_any(), L, C};
-from_form({var, _L, '_'}, _S, _D, L, C) ->
+from_form({var, _Anno, '_'}, _S, _D, L, C) ->
   {t_any(), L, C};
-from_form({var, _L, Name}, S, _D, L, C) ->
+from_form({var, _Anno, Name}, S, _D, L, C) ->
   V = S#from_form.vtab,
   case maps:find(Name, V) of
     error -> {t_var(Name), L, C};
     {ok, Val} -> {Val, L, C}
   end;
-from_form({ann_type, _L, [_Var, Type]}, S, D, L, C) ->
+from_form({ann_type, _Anno, [_Var, Type]}, S, D, L, C) ->
   from_form(Type, S, D, L, C);
-from_form({paren_type, _L, [Type]}, S, D, L, C) ->
+from_form({paren_type, _Anno, [Type]}, S, D, L, C) ->
   from_form(Type, S, D, L, C);
-from_form({remote_type, _L, [{atom, _, Module}, {atom, _, Type}, Args]},
+from_form({remote_type, _Anno, [{atom, _, Module}, {atom, _, Type}, Args]},
 	    S, D, L, C) ->
   remote_from_form(Module, Type, Args, S, D, L, C);
-from_form({atom, _L, Atom}, _S, _D, L, C) ->
+from_form({atom, _Anno, Atom}, _S, _D, L, C) ->
   {t_atom(Atom), L, C};
-from_form({integer, _L, Int}, _S, _D, L, C) ->
+from_form({integer, _Anno, Int}, _S, _D, L, C) ->
   {t_integer(Int), L, C};
-from_form({char, _L, Char}, _S, _D, L, C) ->
+from_form({char, _Anno, Char}, _S, _D, L, C) ->
   {t_integer(Char), L, C};
-from_form({op, _L, _Op, _Arg} = Op, _S, _D, L, C) ->
+from_form({op, _Anno, _Op, _Arg} = Op, _S, _D, L, C) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, Val} ->
       {t_integer(Val), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
   end;
-from_form({op, _L, _Op, _Arg1, _Arg2} = Op, _S, _D, L, C) ->
+from_form({op, _Anno, _Op, _Arg1, _Arg2} = Op, _S, _D, L, C) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, Val} ->
       {t_integer(Val), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
   end;
-from_form({type, _L, any, []}, _S, _D, L, C) ->
+from_form({type, _Anno, any, []}, _S, _D, L, C) ->
   {t_any(), L, C};
-from_form({type, _L, arity, []}, _S, _D, L, C) ->
+from_form({type, _Anno, arity, []}, _S, _D, L, C) ->
   {t_arity(), L, C};
-from_form({type, _L, atom, []}, _S, _D, L, C) ->
+from_form({type, _Anno, atom, []}, _S, _D, L, C) ->
   {t_atom(), L, C};
-from_form({type, _L, binary, []}, _S, _D, L, C) ->
+from_form({type, _Anno, binary, []}, _S, _D, L, C) ->
   {t_binary(), L, C};
-from_form({type, _L, binary, [Base, Unit]} = Type, _S, _D, L, C) ->
+from_form({type, _Anno, binary, [Base, Unit]} = Type, _S, _D, L, C) ->
   case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
     {{integer, _, B}, {integer, _, U}} when B >= 0, U >= 0 ->
       {t_bitstr(U, B), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
-from_form({type, _L, bitstring, []}, _S, _D, L, C) ->
+from_form({type, _Anno, bitstring, []}, _S, _D, L, C) ->
   {t_bitstr(), L, C};
-from_form({type, _L, bool, []}, _S, _D, L, C) ->
+from_form({type, _Anno, bool, []}, _S, _D, L, C) ->
   {t_boolean(), L, C};	% XXX: Temporarily
-from_form({type, _L, boolean, []}, _S, _D, L, C) ->
+from_form({type, _Anno, boolean, []}, _S, _D, L, C) ->
   {t_boolean(), L, C};
-from_form({type, _L, byte, []}, _S, _D, L, C) ->
+from_form({type, _Anno, byte, []}, _S, _D, L, C) ->
   {t_byte(), L, C};
-from_form({type, _L, char, []}, _S, _D, L, C) ->
+from_form({type, _Anno, char, []}, _S, _D, L, C) ->
   {t_char(), L, C};
-from_form({type, _L, float, []}, _S, _D, L, C) ->
+from_form({type, _Anno, float, []}, _S, _D, L, C) ->
   {t_float(), L, C};
-from_form({type, _L, function, []}, _S, _D, L, C) ->
+from_form({type, _Anno, function, []}, _S, _D, L, C) ->
   {t_fun(), L, C};
-from_form({type, _L, 'fun', []}, _S, _D, L, C) ->
+from_form({type, _Anno, 'fun', []}, _S, _D, L, C) ->
   {t_fun(), L, C};
-from_form({type, _L, 'fun', [{type, _, any}, Range]}, S, D, L, C) ->
+from_form({type, _Anno, 'fun', [{type, _, any}, Range]}, S, D, L, C) ->
   {T, L1, C1} = from_form(Range, S, D - 1, L - 1, C),
   {t_fun(T), L1, C1};
-from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
+from_form({type, _Anno, 'fun', [{type, _, product, Domain}, Range]},
           S, D, L, C) ->
   {Dom1, L1, C1} = list_from_form(Domain, S, D, L, C),
   {Ran1, L2, C2} = from_form(Range, S, D, L1, C1),
   {t_fun(Dom1, Ran1), L2, C2};
-from_form({type, _L, identifier, []}, _S, _D, L, C) ->
+from_form({type, _Anno, identifier, []}, _S, _D, L, C) ->
   {t_identifier(), L, C};
-from_form({type, _L, integer, []}, _S, _D, L, C) ->
+from_form({type, _Anno, integer, []}, _S, _D, L, C) ->
   {t_integer(), L, C};
-from_form({type, _L, iodata, []}, _S, _D, L, C) ->
+from_form({type, _Anno, iodata, []}, _S, _D, L, C) ->
   {t_iodata(), L, C};
-from_form({type, _L, iolist, []}, _S, _D, L, C) ->
+from_form({type, _Anno, iolist, []}, _S, _D, L, C) ->
   {t_iolist(), L, C};
-from_form({type, _L, list, []}, _S, _D, L, C) ->
+from_form({type, _Anno, list, []}, _S, _D, L, C) ->
   {t_list(), L, C};
-from_form({type, _L, list, [Type]}, S, D, L, C) ->
+from_form({type, _Anno, list, [Type]}, S, D, L, C) ->
   {T, L1, C1} = from_form(Type, S, D - 1, L - 1, C),
   {t_list(T), L1, C1};
-from_form({type, _L, map, any}, S, D, L, C) ->
+from_form({type, _Anno, map, any}, S, D, L, C) ->
   builtin_type(map, t_map(), S, D, L, C);
-from_form({type, _L, map, List}, S, D0, L, C) ->
+from_form({type, _Anno, map, List}, S, D0, L, C) ->
   {Pairs1, L5, C5} =
     fun PairsFromForm(_, L1, C1) when L1 =< 0 -> {[{?any,?opt,?any}], L1, C1};
 	PairsFromForm([], L1, C1) -> {[], L1, C1};
@@ -4716,88 +4718,88 @@ from_form({type, _L, map, List}, S, D0, L, C) ->
     {t_map(Pairs, DefK, DefV), L5, C5}
   catch none -> {t_none(), L5, C5}
   end;
-from_form({type, _L, mfa, []}, _S, _D, L, C) ->
+from_form({type, _Anno, mfa, []}, _S, _D, L, C) ->
   {t_mfa(), L, C};
-from_form({type, _L, module, []}, _S, _D, L, C) ->
+from_form({type, _Anno, module, []}, _S, _D, L, C) ->
   {t_module(), L, C};
-from_form({type, _L, nil, []}, _S, _D, L, C) ->
+from_form({type, _Anno, nil, []}, _S, _D, L, C) ->
   {t_nil(), L, C};
-from_form({type, _L, neg_integer, []}, _S, _D, L, C) ->
+from_form({type, _Anno, neg_integer, []}, _S, _D, L, C) ->
   {t_neg_integer(), L, C};
-from_form({type, _L, non_neg_integer, []}, _S, _D, L, C) ->
+from_form({type, _Anno, non_neg_integer, []}, _S, _D, L, C) ->
   {t_non_neg_integer(), L, C};
-from_form({type, _L, no_return, []}, _S, _D, L, C) ->
+from_form({type, _Anno, no_return, []}, _S, _D, L, C) ->
   {t_unit(), L, C};
-from_form({type, _L, node, []}, _S, _D, L, C) ->
+from_form({type, _Anno, node, []}, _S, _D, L, C) ->
   {t_node(), L, C};
-from_form({type, _L, none, []}, _S, _D, L, C) ->
+from_form({type, _Anno, none, []}, _S, _D, L, C) ->
   {t_none(), L, C};
-from_form({type, _L, nonempty_list, []}, _S, _D, L, C) ->
+from_form({type, _Anno, nonempty_list, []}, _S, _D, L, C) ->
   {t_nonempty_list(), L, C};
-from_form({type, _L, nonempty_list, [Type]}, S, D, L, C) ->
+from_form({type, _Anno, nonempty_list, [Type]}, S, D, L, C) ->
   {T, L1, C1} = from_form(Type, S, D, L - 1, C),
   {t_nonempty_list(T), L1, C1};
-from_form({type, _L, nonempty_improper_list, [Cont, Term]}, S, D, L, C) ->
+from_form({type, _Anno, nonempty_improper_list, [Cont, Term]}, S, D, L, C) ->
   {T1, L1, C1} = from_form(Cont, S, D, L - 1, C),
   {T2, L2, C2} = from_form(Term, S, D, L1, C1),
   {t_cons(T1, T2), L2, C2};
-from_form({type, _L, nonempty_maybe_improper_list, []}, _S, _D, L, C) ->
+from_form({type, _Anno, nonempty_maybe_improper_list, []}, _S, _D, L, C) ->
   {t_cons(?any, ?any), L, C};
-from_form({type, _L, nonempty_maybe_improper_list, [Cont, Term]},
+from_form({type, _Anno, nonempty_maybe_improper_list, [Cont, Term]},
           S, D, L, C) ->
   {T1, L1, C1} = from_form(Cont, S, D, L - 1, C),
   {T2, L2, C2} = from_form(Term, S, D, L1, C1),
   {t_cons(T1, T2), L2, C2};
-from_form({type, _L, nonempty_string, []}, _S, _D, L, C) ->
+from_form({type, _Anno, nonempty_string, []}, _S, _D, L, C) ->
   {t_nonempty_string(), L, C};
-from_form({type, _L, number, []}, _S, _D, L, C) ->
+from_form({type, _Anno, number, []}, _S, _D, L, C) ->
   {t_number(), L, C};
-from_form({type, _L, pid, []}, _S, _D, L, C) ->
+from_form({type, _Anno, pid, []}, _S, _D, L, C) ->
   {t_pid(), L, C};
-from_form({type, _L, port, []}, _S, _D, L, C) ->
+from_form({type, _Anno, port, []}, _S, _D, L, C) ->
   {t_port(), L, C};
-from_form({type, _L, pos_integer, []}, _S, _D, L, C) ->
+from_form({type, _Anno, pos_integer, []}, _S, _D, L, C) ->
   {t_pos_integer(), L, C};
-from_form({type, _L, maybe_improper_list, []}, _S, _D, L, C) ->
+from_form({type, _Anno, maybe_improper_list, []}, _S, _D, L, C) ->
   {t_maybe_improper_list(), L, C};
-from_form({type, _L, maybe_improper_list, [Content, Termination]},
+from_form({type, _Anno, maybe_improper_list, [Content, Termination]},
           S, D, L, C) ->
   {T1, L1, C1} = from_form(Content, S, D, L - 1, C),
   {T2, L2, C2} = from_form(Termination, S, D, L1, C1),
   {t_maybe_improper_list(T1, T2), L2, C2};
-from_form({type, _L, product, Elements}, S, D, L, C) ->
+from_form({type, _Anno, product, Elements}, S, D, L, C) ->
   {Lst, L1, C1} = list_from_form(Elements, S, D - 1, L, C),
   {t_product(Lst), L1, C1};
-from_form({type, _L, range, [From, To]} = Type, _S, _D, L, C) ->
+from_form({type, _Anno, range, [From, To]} = Type, _S, _D, L, C) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
     {{integer, _, FromVal}, {integer, _, ToVal}} ->
       {t_from_range(FromVal, ToVal), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
-from_form({type, _L, record, [Name|Fields]}, S, D, L, C) ->
+from_form({type, _Anno, record, [Name|Fields]}, S, D, L, C) ->
   record_from_form(Name, Fields, S, D, L, C);
-from_form({type, _L, reference, []}, _S, _D, L, C) ->
+from_form({type, _Anno, reference, []}, _S, _D, L, C) ->
   {t_reference(), L, C};
-from_form({type, _L, string, []}, _S, _D, L, C) ->
+from_form({type, _Anno, string, []}, _S, _D, L, C) ->
   {t_string(), L, C};
-from_form({type, _L, term, []}, _S, _D, L, C) ->
+from_form({type, _Anno, term, []}, _S, _D, L, C) ->
   {t_any(), L, C};
-from_form({type, _L, timeout, []}, _S, _D, L, C) ->
+from_form({type, _Anno, timeout, []}, _S, _D, L, C) ->
   {t_timeout(), L, C};
-from_form({type, _L, tuple, any}, _S, _D, L, C) ->
+from_form({type, _Anno, tuple, any}, _S, _D, L, C) ->
   {t_tuple(), L, C};
-from_form({type, _L, tuple, Args}, S, D, L, C) ->
+from_form({type, _Anno, tuple, Args}, S, D, L, C) ->
   {Lst, L1, C1} = list_from_form(Args, S, D - 1, L, C),
   {t_tuple(Lst), L1, C1};
-from_form({type, _L, union, Args}, S, D, L, C) ->
+from_form({type, _Anno, union, Args}, S, D, L, C) ->
   {Lst, L1, C1} = list_from_form(Args, S, D, L, C),
   {t_sup(Lst), L1, C1};
-from_form({user_type, _L, Name, Args}, S, D, L, C) ->
+from_form({user_type, _Anno, Name, Args}, S, D, L, C) ->
   type_from_form(Name, Args, S, D, L, C);
-from_form({type, _L, Name, Args}, S, D, L, C) ->
+from_form({type, _Anno, Name, Args}, S, D, L, C) ->
   %% Compatibility: modules compiled before Erlang/OTP 18.0.
   type_from_form(Name, Args, S, D, L, C);
-from_form({opaque, _L, Name, {Mod, Args, Rep}}, _S, _D, L, C) ->
+from_form({opaque, _Anno, Name, {Mod, Args, Rep}}, _S, _D, L, C) ->
   %% XXX. To be removed.
   {t_opaque(Mod, Name, Args, Rep), L, C}.
 
@@ -4909,7 +4911,7 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
     {_, {_, _}} when element(1, Site) =:= check ->
       {_ArgTypes, L1, C1} = list_from_form(Args, S, D, L, C),
       {t_any(), L1, C1};
-    {Tag, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
+    {Tag, {{Mod, _FileLocation, Form, ArgNames}, Type}} ->
       NewTypeNames = [RemType|TypeNames],
       S1 = S#from_form{tnames = NewTypeNames},
       {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
@@ -5168,30 +5170,30 @@ t_check_record_fields(Form, ExpTypes, Site, RecDict, VarTable, Cache) ->
 %% If there is something wrong with parse_form()
 %% throw({error, io_lib:chars()} is called.
 
-check_record_fields({var, _L, _}, _S, C) -> C;
-check_record_fields({ann_type, _L, [_Var, Type]}, S, C) ->
+check_record_fields({var, _Anno, _}, _S, C) -> C;
+check_record_fields({ann_type, _Anno, [_Var, Type]}, S, C) ->
   check_record_fields(Type, S, C);
-check_record_fields({paren_type, _L, [Type]}, S, C) ->
+check_record_fields({paren_type, _Anno, [Type]}, S, C) ->
   check_record_fields(Type, S, C);
-check_record_fields({remote_type, _L, [{atom, _, _}, {atom, _, _}, Args]},
+check_record_fields({remote_type, _Anno, [{atom, _, _}, {atom, _, _}, Args]},
                     S, C) ->
   list_check_record_fields(Args, S, C);
-check_record_fields({atom, _L, _}, _S, C) -> C;
-check_record_fields({integer, _L, _}, _S, C) -> C;
-check_record_fields({char, _L, _}, _S, C) -> C;
-check_record_fields({op, _L, _Op, _Arg}, _S, C) -> C;
-check_record_fields({op, _L, _Op, _Arg1, _Arg2}, _S, C) -> C;
-check_record_fields({type, _L, tuple, any}, _S, C) -> C;
-check_record_fields({type, _L, map, any}, _S, C) -> C;
-check_record_fields({type, _L, binary, [_Base, _Unit]}, _S, C) -> C;
-check_record_fields({type, _L, 'fun', [{type, _, any}, Range]}, S, C) ->
+check_record_fields({atom, _Anno, _}, _S, C) -> C;
+check_record_fields({integer, _Anno, _}, _S, C) -> C;
+check_record_fields({char, _Anno, _}, _S, C) -> C;
+check_record_fields({op, _Anno, _Op, _Arg}, _S, C) -> C;
+check_record_fields({op, _Anno, _Op, _Arg1, _Arg2}, _S, C) -> C;
+check_record_fields({type, _Anno, tuple, any}, _S, C) -> C;
+check_record_fields({type, _Anno, map, any}, _S, C) -> C;
+check_record_fields({type, _Anno, binary, [_Base, _Unit]}, _S, C) -> C;
+check_record_fields({type, _Anno, 'fun', [{type, _, any}, Range]}, S, C) ->
   check_record_fields(Range, S, C);
-check_record_fields({type, _L, range, [_From, _To]}, _S, C) -> C;
-check_record_fields({type, _L, record, [Name|Fields]}, S, C) ->
+check_record_fields({type, _Anno, range, [_From, _To]}, _S, C) -> C;
+check_record_fields({type, _Anno, record, [Name|Fields]}, S, C) ->
   check_record(Name, Fields, S, C);
-check_record_fields({type, _L, _, Args}, S, C) ->
+check_record_fields({type, _Anno, _, Args}, S, C) ->
   list_check_record_fields(Args, S, C);
-check_record_fields({user_type, _L, _Name, Args}, S, C) ->
+check_record_fields({user_type, _Anno, _Name, Args}, S, C) ->
   list_check_record_fields(Args, S, C).
 
 check_record({atom, _, Name}, ModFields, S, C) ->
@@ -5276,32 +5278,32 @@ t_var_names([]) ->
 
 -spec t_form_to_string(parse_form()) -> string().
 
-t_form_to_string({var, _L, '_'}) -> "_";
-t_form_to_string({var, _L, Name}) -> atom_to_list(Name);
-t_form_to_string({atom, _L, Atom}) ->
+t_form_to_string({var, _Anno, '_'}) -> "_";
+t_form_to_string({var, _Anno, Name}) -> atom_to_list(Name);
+t_form_to_string({atom, _Anno, Atom}) ->
   io_lib:write_string(atom_to_list(Atom), $'); % To quote or not to quote... '
-t_form_to_string({integer, _L, Int}) -> integer_to_list(Int);
-t_form_to_string({char, _L, Char}) -> integer_to_list(Char);
-t_form_to_string({op, _L, _Op, _Arg} = Op) ->
+t_form_to_string({integer, _Anno, Int}) -> integer_to_list(Int);
+t_form_to_string({char, _Anno, Char}) -> integer_to_list(Char);
+t_form_to_string({op, _Anno, _Op, _Arg} = Op) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, _} = Int -> t_form_to_string(Int);
     _ -> io_lib:format("Badly formed type ~w", [Op])
   end;
-t_form_to_string({op, _L, _Op, _Arg1, _Arg2} = Op) ->
+t_form_to_string({op, _Anno, _Op, _Arg1, _Arg2} = Op) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, _} = Int -> t_form_to_string(Int);
     _ -> io_lib:format("Badly formed type ~w", [Op])
   end;
-t_form_to_string({ann_type, _L, [Var, Type]}) ->
+t_form_to_string({ann_type, _Anno, [Var, Type]}) ->
   t_form_to_string(Var) ++ "::" ++ t_form_to_string(Type);
-t_form_to_string({paren_type, _L, [Type]}) ->
+t_form_to_string({paren_type, _Anno, [Type]}) ->
   flat_format("(~ts)", [t_form_to_string(Type)]);
-t_form_to_string({remote_type, _L, [{atom, _, Mod}, {atom, _, Name}, Args]}) ->
+t_form_to_string({remote_type, _Anno, [{atom, _, Mod}, {atom, _, Name}, Args]}) ->
   ArgString = "(" ++ flat_join(t_form_to_string_list(Args), ",") ++ ")",
   flat_format("~w:~tw", [Mod, Name]) ++ ArgString;
-t_form_to_string({type, _L, arity, []}) -> "arity()";
-t_form_to_string({type, _L, binary, []}) -> "binary()";
-t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
+t_form_to_string({type, _Anno, arity, []}) -> "arity()";
+t_form_to_string({type, _Anno, binary, []}) -> "binary()";
+t_form_to_string({type, _Anno, binary, [Base, Unit]} = Type) ->
   case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
     {{integer, _, B}, {integer, _, U}} ->
       %% the following mirrors the clauses of t_to_string/2
@@ -5315,51 +5317,51 @@ t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
       end;
     _ -> io_lib:format("Badly formed bitstr type ~w", [Type])
   end;
-t_form_to_string({type, _L, bitstring, []}) -> "bitstring()";
-t_form_to_string({type, _L, 'fun', []}) -> "fun()";
-t_form_to_string({type, _L, 'fun', [{type, _, any}, Range]}) ->
+t_form_to_string({type, _Anno, bitstring, []}) -> "bitstring()";
+t_form_to_string({type, _Anno, 'fun', []}) -> "fun()";
+t_form_to_string({type, _Anno, 'fun', [{type, _, any}, Range]}) ->
   "fun(...) -> " ++ t_form_to_string(Range);
-t_form_to_string({type, _L, 'fun', [{type, _, product, Domain}, Range]}) ->
+t_form_to_string({type, _Anno, 'fun', [{type, _, product, Domain}, Range]}) ->
   "fun((" ++ flat_join(t_form_to_string_list(Domain), ",") ++ ") -> "
     ++ t_form_to_string(Range) ++ ")";
-t_form_to_string({type, _L, iodata, []}) -> "iodata()";
-t_form_to_string({type, _L, iolist, []}) -> "iolist()";
-t_form_to_string({type, _L, list, [Type]}) ->
+t_form_to_string({type, _Anno, iodata, []}) -> "iodata()";
+t_form_to_string({type, _Anno, iolist, []}) -> "iolist()";
+t_form_to_string({type, _Anno, list, [Type]}) ->
   "[" ++ t_form_to_string(Type) ++ "]";
-t_form_to_string({type, _L, map, any}) -> "map()";
-t_form_to_string({type, _L, map, Args}) ->
+t_form_to_string({type, _Anno, map, any}) -> "map()";
+t_form_to_string({type, _Anno, map, Args}) ->
   "#{" ++ flat_join(t_form_to_string_list(Args), ",") ++ "}";
-t_form_to_string({type, _L, map_field_assoc, [Key, Val]}) ->
+t_form_to_string({type, _Anno, map_field_assoc, [Key, Val]}) ->
   t_form_to_string(Key) ++ "=>" ++ t_form_to_string(Val);
-t_form_to_string({type, _L, map_field_exact, [Key, Val]}) ->
+t_form_to_string({type, _Anno, map_field_exact, [Key, Val]}) ->
   t_form_to_string(Key) ++ ":=" ++ t_form_to_string(Val);
-t_form_to_string({type, _L, mfa, []}) -> "mfa()";
-t_form_to_string({type, _L, module, []}) -> "module()";
-t_form_to_string({type, _L, node, []}) -> "node()";
-t_form_to_string({type, _L, nonempty_list, [Type]}) ->
+t_form_to_string({type, _Anno, mfa, []}) -> "mfa()";
+t_form_to_string({type, _Anno, module, []}) -> "module()";
+t_form_to_string({type, _Anno, node, []}) -> "node()";
+t_form_to_string({type, _Anno, nonempty_list, [Type]}) ->
   "[" ++ t_form_to_string(Type) ++ ",...]";
-t_form_to_string({type, _L, nonempty_string, []}) -> "nonempty_string()";
-t_form_to_string({type, _L, product, Elements}) ->
+t_form_to_string({type, _Anno, nonempty_string, []}) -> "nonempty_string()";
+t_form_to_string({type, _Anno, product, Elements}) ->
   "<" ++ flat_join(t_form_to_string_list(Elements), ",") ++ ">";
-t_form_to_string({type, _L, range, [From, To]} = Type) ->
+t_form_to_string({type, _Anno, range, [From, To]} = Type) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
     {{integer, _, FromVal}, {integer, _, ToVal}} ->
       flat_format("~w..~w", [FromVal, ToVal]);
     _ -> flat_format("Badly formed type ~w",[Type])
   end;
-t_form_to_string({type, _L, record, [{atom, _, Name}]}) ->
+t_form_to_string({type, _Anno, record, [{atom, _, Name}]}) ->
   flat_format("#~tw{}", [Name]);
-t_form_to_string({type, _L, record, [{atom, _, Name}|Fields]}) ->
+t_form_to_string({type, _Anno, record, [{atom, _, Name}|Fields]}) ->
   FieldString = flat_join(t_form_to_string_list(Fields), ","),
   flat_format("#~tw{~ts}", [Name, FieldString]);
-t_form_to_string({type, _L, field_type, [{atom, _, Name}, Type]}) ->
+t_form_to_string({type, _Anno, field_type, [{atom, _, Name}, Type]}) ->
   flat_format("~tw::~ts", [Name, t_form_to_string(Type)]);
-t_form_to_string({type, _L, term, []}) -> "term()";
-t_form_to_string({type, _L, timeout, []}) -> "timeout()";
-t_form_to_string({type, _L, tuple, any}) -> "tuple()";
-t_form_to_string({type, _L, tuple, Args}) ->
+t_form_to_string({type, _Anno, term, []}) -> "term()";
+t_form_to_string({type, _Anno, timeout, []}) -> "timeout()";
+t_form_to_string({type, _Anno, tuple, any}) -> "tuple()";
+t_form_to_string({type, _Anno, tuple, Args}) ->
   "{" ++ flat_join(t_form_to_string_list(Args), ",") ++ "}";
-t_form_to_string({type, _L, union, Args}) ->
+t_form_to_string({type, _Anno, union, Args}) ->
   flat_join(lists:map(fun(Arg) ->
                           case Arg of
                             {ann_type, _AL, _} ->
@@ -5369,7 +5371,7 @@ t_form_to_string({type, _L, union, Args}) ->
                           end
                       end, Args),
             " | ");
-t_form_to_string({type, _L, Name, []} = T) ->
+t_form_to_string({type, _Anno, Name, []} = T) ->
    try
      M = mod,
      Site = {type, {M,Name,0}},
@@ -5384,12 +5386,12 @@ t_form_to_string({type, _L, Name, []} = T) ->
      t_to_string(T1)
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
-t_form_to_string({user_type, _L, Name, List}) ->
+t_form_to_string({user_type, _Anno, Name, List}) ->
   flat_format("~tw(~ts)",
               [Name, flat_join(t_form_to_string_list(List), ",")]);
-t_form_to_string({type, L, Name, List}) ->
+t_form_to_string({type, Anno, Name, List}) ->
   %% Compatibility: modules compiled before Erlang/OTP 18.0.
-  t_form_to_string({user_type, L, Name, List}).
+  t_form_to_string({user_type, Anno, Name, List}).
 
 t_form_to_string_list(List) ->
   t_form_to_string_list(List, []).
@@ -5454,9 +5456,9 @@ lookup_module_types(Module, CodeTable, Cache) ->
 
 lookup_record(Tag, Table) when is_atom(Tag) ->
   case maps:find({record, Tag}, Table) of
-    {ok, {_FileLine, [{_Arity, Fields}]}} ->
+    {ok, {_FileLocation, [{_Arity, Fields}]}} ->
       {ok, Fields};
-    {ok, {_FileLine, List}} when is_list(List) ->
+    {ok, {_FileLocation, List}} when is_list(List) ->
       %% This will have to do, since we do not know which record we
       %% are looking for.
       error;
@@ -5469,8 +5471,8 @@ lookup_record(Tag, Table) when is_atom(Tag) ->
 
 lookup_record(Tag, Arity, Table) when is_atom(Tag) ->
   case maps:find({record, Tag}, Table) of
-    {ok, {_FileLine, [{Arity, Fields}]}} -> {ok, Fields};
-    {ok, {_FileLine, OrdDict}} -> orddict:find(Arity, OrdDict);
+    {ok, {_FileLocation, [{Arity, Fields}]}} -> {ok, Fields};
+    {ok, {_FileLocation, OrdDict}} -> orddict:find(Arity, OrdDict);
     error -> error
   end.
 

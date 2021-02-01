@@ -375,7 +375,13 @@ internal({forms,Forms}, Opts0) ->
     Source = proplists:get_value(source, Opts0, ""),
     Opts1 = proplists:delete(source, Opts0),
     Compile = build_compile(Opts1),
-    internal_comp(Ps, Forms, Source, "", Compile);
+    NewForms = case with_columns(Opts0) of
+                   true ->
+                       Forms;
+                   false ->
+                       strip_columns(Forms)
+               end,
+    internal_comp(Ps, NewForms, Source, "", Compile);
 internal({file,File}, Opts) ->
     {Ext,Ps} = passes(file, Opts),
     Compile = build_compile(Opts),
@@ -1007,18 +1013,32 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                      true -> filename:basename(SourceName0);
                      false -> SourceName0
                  end,
+    StartLocation = case with_columns(Opts) of
+                        true ->
+                            {1,1};
+                        false ->
+                            1
+                    end,
     R = epp:parse_file(File,
                        [{includes,[".",Dir|inc_paths(Opts)]},
                         {source_name, SourceName},
                         {macros,pre_defs(Opts)},
                         {default_encoding,DefEncoding},
+                        {location,StartLocation},
                         extra]),
     case R of
 	{ok,Forms,Extra} ->
 	    Encoding = proplists:get_value(encoding, Extra),
 	    case find_invalid_unicode(Forms, File) of
 		none ->
-		    {ok,Forms,St#compile{encoding=Encoding}};
+                    Forms1 =
+                        case with_columns(Opts ++ compile_options(Forms)) of
+                            true ->
+                                Forms;
+                            false ->
+                                strip_columns(Forms)
+                        end,
+		    {ok,Forms1,St#compile{encoding=Encoding}};
 		{invalid_unicode,_,_}=Ret ->
 		    case Encoding of
 			none ->
@@ -1031,6 +1051,9 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
+
+with_columns(Opts) ->
+    proplists:get_value(error_location, Opts, column) =:= column.
 
 find_invalid_unicode([H|T], File0) ->
     case H of
@@ -1135,10 +1158,12 @@ foldl_transform([T|Ts], Code0, St) ->
                     Es = [{St#compile.ifile,[{none,compile,
                                               {parse_transform,T,R}}]}],
                     {error,St#compile{errors=St#compile.errors ++ Es}};
-                {warning, Forms, Ws} ->
+                {warning, Forms0, Ws} ->
+                    Forms = maybe_strip_columns(Forms0, T),
                     foldl_transform(Ts, Forms,
                                     St#compile{warnings=St#compile.warnings ++ Ws});
-                Forms ->
+                Forms0 ->
+                    Forms = maybe_strip_columns(Forms0, T),
                     foldl_transform(Ts, Forms, St)
             end;
         false ->
@@ -1147,6 +1172,27 @@ foldl_transform([T|Ts], Code0, St) ->
             {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
 foldl_transform([], Code, St) -> {ok,Code,St}.
+
+%%% It is possible--although unlikely--that parse transforms add
+%%% columns to the abstract code, why this function is called for
+%%% every parse transform.
+maybe_strip_columns(Code, T) ->
+    case erlang:function_exported(T, parse_transform_info, 0) of
+        true ->
+            Info = T:parse_transform_info(),
+            case maps:get(error_location, Info, column) of
+                line ->
+                    strip_columns(Code);
+                _ ->
+                    Code
+            end;
+        false ->
+            Code
+    end.
+
+strip_columns(Code) ->
+    F = fun(A) -> erl_anno:set_location(erl_anno:line(A), A) end,
+    [erl_parse:map_anno(F, Form) || Form <- Code].
 
 get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 
@@ -1729,17 +1775,12 @@ format_message(F, P, [{none,Mod,E}|Es]) ->
     M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~ts:~w:~w ~s~ts\n",
+    M = {{F,Loc},io_lib:format("~ts:~w:~w: ~s~ts\n",
                                 [F,Line,Column,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{Line,Mod,E}|Es]) ->
     M = {{F,{Line,0}},io_lib:format("~ts:~w: ~s~ts\n",
                                 [F,Line,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(F, P, [{Mod,E}|Es]) ->
-    %% Not documented and not expected to be used any more, but
-    %% keep a while just in case.
-    M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(_, _, []) -> [].
 
@@ -1753,11 +1794,6 @@ list_errors(F, [{{Line,Column},Mod,E}|Es]) ->
     list_errors(F, Es);
 list_errors(F, [{Line,Mod,E}|Es]) ->
     io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(F, [{Mod,E}|Es]) ->
-    %% Not documented and not expected to be used any more, but
-    %% keep a while just in case.
-    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
 

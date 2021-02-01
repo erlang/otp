@@ -285,17 +285,21 @@ format_warning(W) ->
 
 format_warning(RawWarning, FOpt) when is_atom(FOpt) ->
   format_warning(RawWarning, [{filename_opt, FOpt}]);
-format_warning({Tag, {File, Line, _MFA}, Msg}, Opts) ->
-  format_warning({Tag, {File, Line}, Msg}, Opts);
-format_warning({_Tag, {File, Line}, Msg}, Opts) when is_list(File),
-                                                     is_integer(Line) ->
+format_warning({Tag, {File, Location, _MFA}, Msg}, Opts) ->
+  format_warning({Tag, {File, Location}, Msg}, Opts);
+format_warning({_Tag, {File, Location}, Msg}, Opts) when is_list(File) ->
   F = case proplists:get_value(filename_opt, Opts, basename) of
 	fullpath -> File;
 	basename -> filename:basename(File)
       end,
   Indent = proplists:get_value(indent_opt, Opts, ?INDENT_OPT),
   String = message_to_string(Msg, Indent),
-  lists:flatten(io_lib:format("~ts:~w: ~ts", [F, Line, String])).
+  lists:flatten(io_lib:format("~ts:~s: ~ts", [F, pos(Location), String])).
+
+pos({Line, Column}) when is_integer(Line), is_integer(Column) ->
+    io_lib:format("~w:~w", [Line, Column]);
+pos(Line) when is_integer(Line) ->
+    io_lib:format("~w", [Line]).
 
 %%-----------------------------------------------------------------------------
 %% Message classification and pretty-printing below. Messages appear in
@@ -408,11 +412,12 @@ message_to_string({contract_supertype, [M, F, _A, Contract, Sig]}, I) ->
   io_lib:format("Type specification ~ts"
 		" is a supertype of the success typing: ~ts\n",
 		[con(M, F, Contract, I), con(M, F, Sig, I)]);
-message_to_string({contract_range, [Contract, M, F, ArgStrings, Line, CRet]},
-                 I) ->
+message_to_string({contract_range, [Contract, M, F, ArgStrings,
+                                    Location, CRet]}, I) ->
   io_lib:format("The contract ~ts cannot be right because the inferred"
-		" return for ~tw~ts on line ~w is ~ts\n",
-		[con(M, F, Contract, I), F, a(ArgStrings, I), Line, t(CRet, I)]);
+		" return for ~tw~ts on position ~s is ~ts\n",
+		[con(M, F, Contract, I), F, a(ArgStrings, I),
+                 pos(Location), t(CRet, I)]);
 message_to_string({invalid_contract, [M, F, A, Sig]}, I) ->
   io_lib:format("Invalid type specification for function ~w:~tw/~w."
 		" The success typing is ~ts\n", [M, F, A, sig(Sig, I)]);

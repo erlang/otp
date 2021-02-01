@@ -434,8 +434,9 @@ handle_apply(Tree, Map, State) ->
 			 [ArgNs,
 			  format_args(Args, ArgTypes, State),
 			  format_type(OpType, State)]},
+                  ArgTree = select_arg(ArgNs, Args, Tree),
 		  State3 = state__add_warning(State2, ?WARN_FAILING_CALL,
-					      Tree, Msg),
+                                              ArgTree, Msg),
 		  {State3, enter_type(Op, OpType1, Map2), t_none()};
 		false ->
 		  Map3 = enter_type_lists(Args, NewArgs, Map2),
@@ -554,9 +555,9 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
       true ->
         Ann = cerl:get_ann(Tree),
         File = get_file(Ann, State),
-        Line = abs(get_line(Ann)),
+        Location = get_location(Tree),
         dialyzer_races:store_race_call(Fun, ArgTypes, Args,
-                                       {File, Line}, State);
+                                       {File, Location}, State);
       false -> State
     end,
   FailedConj = any_none([RetWithoutLocal|NewArgTypes]),
@@ -599,8 +600,21 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
 			 {call_without_opaque, _} -> ?WARN_OPAQUE;
 			 {opaque_type_test, _} -> ?WARN_OPAQUE
 		       end,
+            LocTree = case Msg of
+                        {call, [_M, _F, _ASs, ANs | _]} ->
+                          select_arg(ANs, Args, Tree);
+                        {apply, [_ASs, ANs | _]} ->
+                          select_arg(ANs, Args, Tree);
+                        {call_with_opaque, [_M, _F, _ASs, ANs, _EAs_]} ->
+                          select_arg(ANs, Args, Tree);
+                        {call_without_opaque,
+                         [_M, _F, _ASs, [{N, _T, _TS} | _]]} ->
+                          select_arg([N], Args, Tree);
+                        {opaque_type_test, _} ->
+                          Tree
+		       end,
             Frc = {erlang, is_record, 3} =:= state__lookup_name(Fun, State),
-	    state__add_warning(State1, WarnType, Tree, Msg, Frc)
+	    state__add_warning(State1, WarnType, LocTree, Msg, Frc)
 	end;
       false -> State1
     end,
@@ -942,12 +956,12 @@ handle_call(Tree, Map, State) ->
                                   format_args(Args, As, State1),
                                   MS, format_type(t_module(), State1),
                                   format_type(MType0, State1)]},
-                state__add_warning(State1, ?WARN_FAILING_CALL, Tree, Msg);
+                state__add_warning(State1, ?WARN_FAILING_CALL, M, Msg);
               false ->
                 Msg = {opaque_call, [MS, format_cerl(F),
                                      format_args(Args, As, State1),
                                      MS, format_type(MType0, State1)]},
-                state__add_warning(State1, ?WARN_FAILING_CALL, Tree, Msg)
+                state__add_warning(State1, ?WARN_FAILING_CALL, M, Msg)
             end;
           FOpaque ->
             FS = format_cerl(F),
@@ -957,12 +971,12 @@ handle_call(Tree, Map, State) ->
                                   format_args(Args, As, State1),
                                   FS, format_type(t_atom(), State1),
                                   format_type(FType0, State1)]},
-                state__add_warning(State1, ?WARN_FAILING_CALL, Tree, Msg);
+                state__add_warning(State1, ?WARN_FAILING_CALL, F, Msg);
               false ->
                 Msg = {opaque_call, [format_cerl(M), FS,
                                      format_args(Args, As, State1),
                                      FS, format_type(FType0, State1)]},
-                state__add_warning(State1, ?WARN_FAILING_CALL, Tree, Msg)
+                state__add_warning(State1, ?WARN_FAILING_CALL, F, Msg)
             end;
           true -> State1
 	end,
@@ -1246,10 +1260,12 @@ handle_tuple(Tree, Map, State) ->
                   case t_is_none(InfTupleType) of
                     true ->
                       RecC = format_type(TupleType, State1),
-                      FieldDiffs = format_field_diffs(TupleType, State1),
+                      {FieldPosList, FieldDiffs} =
+                        format_field_diffs(TupleType, State1),
                       Msg = {record_constr, [RecC, FieldDiffs]},
+                      LocTree = lists:nth(hd(FieldPosList), Left),
                       State2 = state__add_warning(State1, ?WARN_MATCHING,
-                                                  Tree, Msg),
+                                                  LocTree, Msg),
                       {State2, Map1, t_none()};
                     false ->
                       case bind_pat_vars(Elements, t_tuple_args(RecType),
@@ -1258,8 +1274,9 @@ handle_tuple(Tree, Map, State) ->
                           Msg = {record_constr,
                                  [TagVal, format_patterns(ErrorPat),
                                   format_type(ErrorType, State1)]},
+                          LocTree = hd(ErrorPat),
                           State2 = state__add_warning(State1, ?WARN_MATCHING,
-                                                      Tree, Msg),
+                                                      LocTree, Msg),
                           {State2, Map1, t_none()};
                         {error, opaque, ErrorPat, ErrorType, OpaqueType} ->
                           OpaqueStr = format_type(OpaqueType, State1),
@@ -1269,8 +1286,9 @@ handle_tuple(Tree, Map, State) ->
                                   " declared to be of type " ++
                                     format_type(ErrorType, State1),
                                   OpaqueStr, OpaqueStr]},
+                          LocTree = hd(ErrorPat),
                           State2 = state__add_warning(State1, ?WARN_OPAQUE,
-                                                      Tree, Msg),
+                                                      LocTree, Msg),
                           {State2, Map1, t_none()};
                         {error, record, ErrorPat, ErrorType, _} ->
                           Msg = {record_match,
@@ -2643,7 +2661,12 @@ signal_guard_failure(Eval, Guard, ArgTypes, Tag, State) ->
         [F, format_args(Args, ArgTypes, State)]
     end,
   Msg = {Kind, FArgs},
-  throw({Tag, {Guard, Msg}}).
+  LocTree =
+    case XInfo of
+      [] -> Guard;
+      [Ns1] -> select_arg(Ns1, Args, Guard)
+    end,
+  throw({Tag, {LocTree, Msg}}).
 
 is_infix_op({erlang, '=:=', 2}) -> true;
 is_infix_op({erlang, '==', 2}) -> true;
@@ -3128,7 +3151,7 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
   case Force of
     true ->
       WarningInfo = {get_file(Ann, State),
-                     abs(get_line(Ann)),
+                     get_location(Tree),
                      State#state.curr_fun},
       Warn = {Tag, WarningInfo, Msg},
       ?debug("MSG ~ts\n", [dialyzer:format_warning(Warn)]),
@@ -3138,7 +3161,7 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
         true -> State;
         false ->
           WarningInfo = {get_file(Ann, State),
-                         get_line(Ann),
+                         get_location(Tree),
                          State#state.curr_fun},
           Warn = {Tag, WarningInfo, Msg},
           case Tag of
@@ -3627,8 +3650,17 @@ add_work(New, {List, Rev, Set} = Work) ->
 %%% ===========================================================================
 
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
+
+get_location(Tree) ->
+  dialyzer_utils:get_location(Tree, 1).
+
+select_arg([], _Args, Tree) ->
+  Tree;
+select_arg([ArgN | _], Args, _Tree) ->
+  lists:nth(ArgN, Args).
 
 get_file([], _State) -> [];
 get_file([{file, FakeFile}|_], State) ->
@@ -3686,7 +3718,8 @@ format_arg(Arg) ->
 format_type(Type, #state{records = R}) ->
   t_to_string(Type, R).
 
--spec format_field_diffs(type(), state()) -> string().
+-spec format_field_diffs(type(), state()) ->
+                            {[FieldPos :: pos_integer()], string()}.
 
 format_field_diffs(RecConstruction, #state{records = R}) ->
   erl_types:record_field_diffs_to_string(RecConstruction, R).

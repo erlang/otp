@@ -1240,9 +1240,11 @@ do_warnings_1([{Name,Ws}|T], F) ->
     end;
 do_warnings_1([], _) -> ok.
 
-do_warnings_2([{Int,_,_}=W|T], Next, F) ->
-    if
-	is_integer(Int) ->
+do_warnings_2([{Pos,_,_}=W|T], Next, F) ->
+    case Pos of
+	Line when is_integer(Line) ->
+	    do_warnings_2(T, Next, F);
+	{Line,Col} when is_integer(Line), is_integer(Col) ->
 	    do_warnings_2(T, Next, F);
 	true ->
 	    io:format("~s:\nMissing line number: ~p\n",
@@ -1502,13 +1504,16 @@ debug_info_attribute(DataDir, Name, Opts) ->
     {ok,_,Bin} = compile:file(File, [binary | Opts]),
     {ok, {_, Attrs}} = beam_lib:chunks(Bin, [debug_info]),
 
-    [{debug_info,{debug_info_v1,erl_abstract_code,
-                  {[{attribute,1,file,{_,1}},
-                    {attribute,1,module,debug_info},
-                    {attribute,2,compile,[debug_info]},
-                    {eof,2}], _}}}] = Attrs,
+    [{debug_info,{debug_info_v1,erl_abstract_code, {Forms, _}}}] = Attrs,
+    [{attribute,{1,1},file,{_,1}},
+     {attribute,{1,2},module,debug_info},
+     {attribute,{2,2},compile,[debug_info]},
+     {eof,_}] = forms_to_terms(Forms),
 
     ok.
+
+forms_to_terms(Forms) ->
+    [erl_parse:anno_to_term(Form) || Form <- Forms].
 
 %%%
 %%% Utilities.

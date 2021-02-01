@@ -338,7 +338,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
         error ->
             %% Invalid call (e.g. M:42/3). Issue a warning, and let
             %% the generated code use the old explict apply.
-            St = add_warning(get_line(A), bad_call, A, St0),
+            St = add_warning(get_location(A), bad_call, A, St0),
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
 			   name=#c_literal{val=apply},
@@ -1066,7 +1066,7 @@ maybe_add_warning(Ke, MatchAnno, St) ->
 	    St;
 	false ->
 	    Anno = get_kanno(Ke),
-	    Line = get_line(Anno),
+	    Line = get_location(Anno),
 	    MatchLine = get_line(MatchAnno),
 	    Warn = case MatchLine of
 		       none -> nomatch_shadow;
@@ -1074,8 +1074,18 @@ maybe_add_warning(Ke, MatchAnno, St) ->
 		   end,
 	    add_warning(Line, Warn, Anno, St)
     end.
-    
+
+get_location([Line|_]) when is_integer(Line) ->
+    Line;
+get_location([{Line, Column} | _T]) when is_integer(Line), is_integer(Column) ->
+    {Line,Column};
+get_location([_|T]) ->
+    get_location(T);
+get_location([]) ->
+    none.
+
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _T]) when is_integer(Line) -> Line;
 get_line([_|T]) -> get_line(T);
 get_line([]) -> none.
 

@@ -285,7 +285,7 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str1} =
         (catch dialyzer:run(Opts)),
-    S1 = string:find(Str1, "dial.erl:2: function undef/0 undefined"),
+    S1 = string:find(Str1, "dial.erl:2:17: function undef/0 undefined"),
     true = is_list(S1),
 
     Prog2 = <<"-module(dial).
@@ -294,7 +294,7 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str2} =
         (catch dialyzer:run(Opts)),
-    S2 = string:find(Str2, "dial.erl:2: badly formed dialyzer "
+    S2 = string:find(Str2, "dial.erl:2:17: badly formed dialyzer "
                            "attribute: {no_return,{undef,1,2}}"),
     true = is_list(S2),
 
@@ -393,7 +393,7 @@ bad_record_type(Config) ->
      "Analysis failed with error:\n" ++ Str} =
         (catch dialyzer:run(Opts)),
     P = string:str(Str,
-                    "bad_record_type.erl:4: Illegal declaration of #r{f}"),
+                    "bad_record_type.erl:4:16: Illegal declaration of #r{f}"),
     true = P > 0,
     ok.
 
