@@ -47,7 +47,8 @@
     </datatype>
     <datatype>
       <name name="binding_struct"/>
-      <desc><p>A binding structure.</p></desc>
+      <desc><p>A binding structure. It is either a <c>map</c> or an <c>orddict</c>.
+        <c>erl_eval</c> will always return the same type as the one given.</p></desc>
     </datatype>
     <datatype>
       <name name="expression"/>
