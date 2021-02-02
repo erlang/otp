@@ -30,6 +30,7 @@
 
 compiler(".erl") ->    {compile,         compile};
 compiler(".S") ->      {compile,         compile_asm};
+compiler(".abstr") ->  {compile,         compile_abstr};
 compiler(".core") ->   {compile,         compile_core};
 compiler(".mib") ->    {snmpc,           compile};
 compiler(".bin") ->    {snmpc,           mib_to_hrl};

@@ -29,7 +29,7 @@
 -export([env_compiler_options/0]).
 
 %% Erlc interface.
--export([compile/3,compile_asm/3,compile_core/3]).
+-export([compile/3,compile_asm/3,compile_core/3,compile_abstr/3]).
 
 %% Utility functions for compiler passes.
 -export([run_sub_passes/2]).
@@ -606,6 +606,8 @@ passes_1([Opt|Opts]) ->
 passes_1([]) ->
     {".erl",[?pass(parse_module)|standard_passes()]}.
 
+pass(from_abstr) ->
+    {".abstr", [?pass(consult_abstr) | abstr_passes(non_verified_abstr)]};
 pass(from_core) ->
     {".core",[?pass(parse_core)|core_passes(non_verified_core)]};
 pass(from_asm) ->
@@ -616,6 +618,8 @@ pass(_) -> none.
 %% that retrieves the module name. The module name is needed for
 %% proper diagnostics and for compilation to native code.
 
+fix_first_pass([{consult_abstr, _} | Passes]) ->
+    [?pass(get_module_name_from_abstr) | Passes];
 fix_first_pass([{parse_core,_}|Passes]) ->
     [?pass(get_module_name_from_core)|Passes];
 fix_first_pass([{beam_consult_asm,_}|Passes]) ->
@@ -787,25 +791,33 @@ standard_passes() ->
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
 
-     %% Add all -compile() directives to #compile.options
-     ?pass(compile_directives),
-
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
 
-     {iff,'dabstr',{listing,"abstr"}},
-     {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
+     {iff,'dabstr',{listing,"abstr"}}
+     | abstr_passes(verified_abstr)].
 
-     ?pass(expand_records),
-     {iff,'dexp',{listing,"expand"}},
-     {iff,'E',{src_listing,"E"}},
-     {iff,'to_exp',{done,"E"}},
+abstr_passes(AbstrStatus) ->
+    case AbstrStatus of
+        non_verified_abstr -> [{unless, no_lint, ?pass(lint_module)}];
+        verified_abstr -> []
+    end ++
+        [
+         %% Add all -compile() directives to #compile.options
+         ?pass(compile_directives),
 
-     %% Conversion to Core Erlang.
-     ?pass(core),
-     {iff,'dcore',{listing,"core"}},
-     {iff,'to_core0',{done,"core"}}
-     | core_passes(verified_core)].
+         {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
+
+         ?pass(expand_records),
+         {iff,'dexp',{listing,"expand"}},
+         {iff,'E',{src_listing,"E"}},
+         {iff,'to_exp',{done,"E"}},
+
+         %% Conversion to Core Erlang.
+         ?pass(core),
+         {iff,'dcore',{listing,"core"}},
+         {iff,'to_core0',{done,"core"}}
+         | core_passes(verified_core)].
 
 core_passes(CoreStatus) ->
     %% Optimization and transforms of Core Erlang code.
@@ -1065,6 +1077,25 @@ find_invalid_unicode([H|T], File0) ->
 	    find_invalid_unicode(T, File0)
     end;
 find_invalid_unicode([], _) -> none.
+
+consult_abstr(_Code, St) ->
+    case file:consult(St#compile.ifile) of
+	{ok,Forms} ->
+            Encoding = epp:read_encoding(St#compile.ifile),
+	    {ok,Forms,St#compile{encoding=Encoding}};
+	{error,E} ->
+	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
+	    {error,St#compile{errors=St#compile.errors ++ Es}}
+    end.
+
+get_module_name_from_abstr(Forms, St) ->
+    try get_module(Forms) of
+        Mod -> {ok, Forms, St#compile{module = Mod}}
+    catch
+        _:_ ->
+            %% Missing module declaration. Let it crash in a later pass.
+            {ok, Forms, St}
+    end.
 
 parse_core(_Code, St) ->
     case file:read_file(St#compile.ifile) of
@@ -1579,6 +1610,8 @@ keep_compile_option(from_asm, _Deterministic) ->
     false;
 keep_compile_option(from_core, _Deterministic) ->
     false;
+keep_compile_option(from_abstr, _Deterministic) ->
+    false;
 %% Parse transform and macros have already been applied.
 keep_compile_option({parse_transform, _}, _Deterministic) ->
     false;
@@ -1992,6 +2025,15 @@ compile_asm(File0, _OutFile, Opts) ->
 compile_core(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),
     case file(File, [from_core|make_erl_options(Opts)]) of
+	{ok,_Mod} -> ok;
+	Other -> Other
+    end.
+
+-spec compile_abstr(file:filename(), _, #options{}) -> 'ok' | 'error'.
+
+compile_abstr(File0, _OutFile, Opts) ->
+    File = shorten_filename(File0),
+    case file(File, [from_abstr|make_erl_options(Opts)]) of
 	{ok,_Mod} -> ok;
 	Other -> Other
     end.

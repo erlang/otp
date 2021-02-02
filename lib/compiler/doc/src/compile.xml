@@ -437,6 +437,14 @@ module.beam: module.erl \
               parsed code before the code is checked for errors.</p>
           </item>
 
+	  <tag><c>from_abstr</c></tag>
+          <item>
+            <p>The input file is expected to contain Erlang terms representing
+            forms in abstract format (default file suffix ".abstr"). Note
+            that the format of such terms can change between releases.</p>
+            <p>See also the <c>no_lint</c> option.</p>
+          </item>
+
 	  <tag><c>from_asm</c></tag>
           <item>
             <p>The input file is expected to be assembler code (default
@@ -512,11 +520,24 @@ module.beam: module.erl \
           </item>
 
           <tag><c>no_line_info</c></tag>
-
           <item>
             <p>Omits line number information to produce a slightly
 	      smaller output file.
 	    </p>
+          </item>
+
+          <tag><c>no_lint</c></tag>
+          <item>
+            <p>Skips the pass that checks for errors and warnings. Only
+            applicable together with the <c>from_abstr</c> option. This is
+            mainly for implementations of other languages on top of Erlang,
+            which have already done their own checks to guarantee
+            correctness of the code.</p>
+            <p>Caveat: When this option is used, there are no guarantees
+            that the code output by the compiler is correct and safe to
+            use. The responsibility for correctness lies on the code or
+            person generating the abstract format. If the code contains
+            errors, the compiler may crash or produce unsafe code.</p>
           </item>
 
           <tag><c>{extra_chunks, [{binary(), binary()}]}</c></tag>
