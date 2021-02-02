@@ -159,7 +159,7 @@ Uint erts_process_memory(Process *p, int include_sigs_in_transit)
          * Size of message queue plus size of all signals
          * in transit to the process!
          */
-        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_queue_lock(p);
         erts_proc_sig_fetch(p);
         erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
 
