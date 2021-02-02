@@ -851,17 +851,17 @@ kernel_passes() ->
      {iff,dssa,{listing,"ssa"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
      {delay,
-      [{unless,no_bool_opt,{pass,beam_ssa_bool}},
+      [{unless,no_share_opt,{pass,beam_ssa_share}},
+       {iff,dssashare,{listing,"ssashare"}},
+       {unless,no_share_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
+       {unless,no_bool_opt,{pass,beam_ssa_bool}},
        {iff,dbool,{listing,"bool"}},
        {unless,no_bool_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
 
        {unless,no_recv_opt,{pass,beam_ssa_recv}},
        {iff,drecv,{listing,"recv"}},
        {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
-
-       {unless,no_share_opt,{pass,beam_ssa_share}},
-       {iff,dssashare,{listing,"ssashare"}},
-       {unless,no_share_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
 
        {unless,no_bsm_opt,{pass,beam_ssa_bsm}},
        {iff,dssabsm,{listing,"ssabsm"}},
