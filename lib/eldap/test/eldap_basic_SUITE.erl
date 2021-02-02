@@ -52,6 +52,8 @@
          search_filter_final/1,
          search_filter_initial/1,
          search_filter_or/1,
+         search_filter_or_sizelimit_ok/1,
+         search_filter_or_sizelimit_exceeded/1,
          search_filter_substring_any/1,
          search_non_existant/1,
          search_referral/1,
@@ -126,6 +128,8 @@ groups() ->
 		      search_filter_and_not,
 		      search_two_hits,
 		      search_referral,
+                      search_filter_or_sizelimit_ok,
+                      search_filter_or_sizelimit_exceeded,
 		      modify,
 		      modify_referral,
 		      delete,
@@ -625,6 +629,39 @@ search_filter_or(Config) ->
 							eldap:equalityMatch("ou","Team")]),
 				   scope=eldap:singleLevel()}),
     ExpectedDNs = lists:sort([DN || #eldap_entry{object_name=DN} <- Es]).
+
+%%%----------------------------------------------------------------
+search_filter_or_sizelimit_ok(Config) ->
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
+    ExpectedDNs = lists:sort(["cn=Foo Bar," ++ BasePath,
+			      "ou=Team," ++ BasePath]),
+    {ok, #eldap_search_result{entries=Es}} =
+	eldap:search(H,
+		     #eldap_search{base = BasePath,
+				   filter = eldap:'or'([eldap:substrings("sn", [{any, "a"}]),
+							eldap:equalityMatch("ou","Team")]),
+                                   size_limit = 2,
+				   scope=eldap:singleLevel()}),
+    ExpectedDNs = lists:sort([DN || #eldap_entry{object_name=DN} <- Es]).
+
+%%%----------------------------------------------------------------
+search_filter_or_sizelimit_exceeded(Config) ->
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
+    %% The quesry without the {size_limit,1} option would return two answers:
+    ExpectedDNs = ["cn=Foo Bar," ++ BasePath,
+                   "ou=Team," ++ BasePath],
+    %% Expect exact one of the two answers, but we don't know which:
+    {ok, #eldap_search_result{entries=[E]}} =
+	eldap:search(H,
+		     #eldap_search{base = BasePath,
+				   filter = eldap:'or'([eldap:substrings("sn", [{any, "a"}]),
+							eldap:equalityMatch("ou","Team")]),
+                                   size_limit = 1,
+				   scope=eldap:singleLevel()}),
+    #eldap_entry{object_name=DN} = E,
+    true = lists:member(DN, ExpectedDNs).
 
 %%%----------------------------------------------------------------
 search_filter_and_not(Config) ->

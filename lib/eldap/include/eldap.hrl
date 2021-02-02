@@ -7,6 +7,7 @@
 -record(eldap_search, {
 	  base = [],             % Baseobject
 	  filter = [],           % Search conditions
+	  size_limit = 0,        % Setting default size limit to 0 makes it unlimited
 	  scope=wholeSubtree,    % Search scope
 	  deref=derefAlways,     % Dereference
 	  attributes = [],       % Attributes to be returned
