@@ -26,8 +26,15 @@
 -include("ssl_connection.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
--export([init/2]).
+-define(DEFAULT_MAX_SESSION_CACHE, 1000).
 
+-export([init/2,
+         pre_1_3_session_opts/0
+        ]).
+
+%%====================================================================
+%% Internal application API
+%%====================================================================
 init(#{erl_dist := ErlDist,
        key := Key,
        keyfile := KeyFile,
@@ -44,6 +51,24 @@ init(#{erl_dist := ErlDist,
     DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
     {ok, Config#{private_key => PrivateKey, dh_params => DHParams}}.
 
+pre_1_3_session_opts() ->
+    CbOpts = case application:get_env(ssl, session_cb) of
+		 {ok, Cb} when is_atom(Cb) ->
+		     InitArgs = session_cb_init_args(),
+		     #{session_cb => Cb,
+                       session_cb_init_args => InitArgs};
+		 _  ->
+		     #{session_cb => ssl_server_session_cache_db,
+                       session_cb_init_args => []}
+	     end,
+    LifeTime = session_lifetime(),
+    Max = max_session_cache_size(),
+    [CbOpts#{lifetime => LifeTime, max => Max}].
+
+
+%%====================================================================
+%% Internal functions 
+%%====================================================================	     
 init_manager_name(false) ->
     put(ssl_manager, ssl_manager:name(normal)),
     put(ssl_pem_cache, ssl_pem_cache:name(normal));
@@ -175,4 +200,28 @@ init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
     catch
 	_:Reason ->
 	    file_error(DHParamFile, {dhfile, Reason}) 
+    end.
+
+session_cb_init_args() ->
+    case application:get_env(ssl, session_cb_init_args) of
+	{ok, Args} when is_list(Args) ->
+	    Args;
+	_  ->
+	    []
+    end.
+
+session_lifetime() ->
+    case application:get_env(ssl, session_lifetime) of
+	{ok, Time} when is_integer(Time) ->
+            Time;
+        _  ->
+            ?'24H_in_sec'
+    end.
+
+max_session_cache_size() ->
+    case application:get_env(ssl, session_cache_server_max) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_ ->
+	   ?DEFAULT_MAX_SESSION_CACHE
     end.

@@ -85,6 +85,7 @@ MODULES= \
 	ssl_server_session_cache \
 	ssl_server_session_cache_db \
 	ssl_server_session_cache_sup \
+	ssl_upgrade_server_session_cache_sup \
 	ssl_session \
 	ssl_session_cache \
 	ssl_srp_primes \

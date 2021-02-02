@@ -27,11 +27,14 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, start_link_dist/0]).
--export([start_child/1, start_child_dist/1]).
+-export([start_link/0, 
+         start_link_dist/0]).
+-export([start_child/1, 
+         start_child_dist/1]).
 
 %% Supervisor callback
--export([init/1]).
+-export([init/1,
+        sup_name/1]).
 
 %%%=========================================================================
 %%%  API
@@ -47,6 +50,11 @@ start_child(Args) ->
 
 start_child_dist(Args) ->
     supervisor:start_child(sup_name(dist), Args).
+
+sup_name(normal) ->
+    ?MODULE;
+sup_name(dist) ->
+    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
   
 %%%=========================================================================
 %%%  Supervisor callback
@@ -66,7 +74,3 @@ init(_O) ->
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
 
-sup_name(normal) ->
-    ?MODULE;
-sup_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
