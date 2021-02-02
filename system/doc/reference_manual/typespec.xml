@@ -476,22 +476,20 @@
       <c>-spec</c> attribute. The general format is as follows:
     </p>
     <pre>
-  -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
+  -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
-      The arity of the function must match the number of arguments,
-      else a compilation error occurs.
+      An implementation of the function with the same name
+      <c>Function</c> must exist in the current module, and the arity
+      of the function must match the number of arguments, else a
+      compilation error occurs.
     </p>
     <p>
-      This form can also be used in header files (.hrl) to declare type
-      information for exported functions.
-      Then these header files can be included in files that (implicitly or
-      explicitly) import these functions.
-    </p>
-    <p>
-      Within a given module, the following shorthand suffices in most cases:
+      The following longer format with module name is also valid as
+      long as <c>Module</c> is the name of the current module. This
+      can be useful for documentation purposes.
     </p>
     <pre>
-  -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
+  -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
       Also, for documentation purposes, argument names can be given:
     </p>
