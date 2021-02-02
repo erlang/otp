@@ -3075,19 +3075,23 @@ close_loop(Port, Time, SentClose) ->
     end.
 
 portable_open_port("openssl" = Exe, Args0) ->
-    case os:getenv("WSLENV") of
-	false ->
-	    AbsPath = os:find_executable(Exe),
-	    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
-		   [AbsPath, Args0]),
-	    open_port({spawn_executable, AbsPath},
-		      [{args, Args0}, stderr_to_stdout]);
+    IsWindows = case os:type() of
+                    {win32, _} -> true;
+                    _ -> false
+                end,
+    case IsWindows andalso os:getenv("WSLENV") of
+        false ->
+            AbsPath = os:find_executable(Exe),
+            ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
+                   [AbsPath, Args0]),
+            open_port({spawn_executable, AbsPath},
+                      [{args, Args0}, stderr_to_stdout]);
 	_ ->
 	    %% I can't get the new windows version of openssl.exe to be stable
 	    %% certain server tests are failing for no reason.
 	    %% This is using "linux" openssl via wslenv
 
-	    Translate = fun("c:/" ++ _ = Path) ->
+	    Translate = fun([_Drive|":/" ++ _ ]= Path) ->
 				string:trim(os:cmd("wsl wslpath -u " ++ Path));
 			   (Arg) ->
 				Arg
@@ -3102,8 +3106,8 @@ portable_open_port("openssl" = Exe, Args0) ->
 portable_open_port(Exe, Args) ->
     AbsPath = os:find_executable(Exe),
     ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
-    open_port({spawn_executable, AbsPath}, 
-	      [{args, Args}, stderr_to_stdout]). 
+    open_port({spawn_executable, AbsPath},
+	      [{args, Args}, stderr_to_stdout]).
 
 portable_cmd(Exe, Args) ->
     Port = portable_open_port(Exe, Args),
@@ -3211,14 +3215,6 @@ protocol_version(Config, atom) ->
            tls_record:protocol_version(protocol_version(Config, tuple))	
    end.
 
-protocol_versions(Config) ->
-    Version = protocol_version(Config),
-    case Version of
-        'tlsv1.3' -> %% TLS-1.3 servers shall also support 1.2
-            ['tlsv1.3', 'tlsv1.2'];
-        _ ->
-            [Version]
-    end.
 protocol_options(Config, Options) ->
     Protocol = proplists:get_value(protocol, Config, tls),
     {Protocol, Opts} = lists:keyfind(Protocol, 1, Options),
@@ -3267,21 +3263,6 @@ clean_start(keep_version) ->
     application:load(ssl),
     clean_env(keep_version),
     ssl:start().
-
-is_psk_anon_suite({psk, _,_}) ->
-    true;
-is_psk_anon_suite({dhe_psk,_,_}) ->
-    true;
-is_psk_anon_suite({ecdhe_psk,_,_}) ->
-    true;
-is_psk_anon_suite({psk, _,_,_}) ->
-    true;
-is_psk_anon_suite({dhe_psk, _,_,_}) ->
-    true;
-is_psk_anon_suite({ecdhe_psk, _,_,_}) ->
-    true;
-is_psk_anon_suite(_) ->
-    false.
 
 
 tls_version('dtlsv1' = Atom) ->
