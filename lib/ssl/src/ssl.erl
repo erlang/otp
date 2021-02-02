@@ -554,7 +554,7 @@ stop() ->
       TCPSocket :: socket(),
       TLSOptions :: [tls_client_option()].
 
-connect(Socket, SslOptions) when is_port(Socket) ->
+connect(Socket, SslOptions) ->
     connect(Socket, SslOptions, infinity).
 
 -spec connect(TCPSocket, TLSOptions, Timeout) ->
@@ -571,23 +571,22 @@ connect(Socket, SslOptions) when is_port(Socket) ->
       Port :: inet:port_number(),
       TLSOptions :: [tls_client_option()].
 
-connect(Socket, SslOptions0, Timeout) when is_port(Socket),
+connect(Socket, SslOptions0, Timeout) when is_list(SslOptions0) andalso 
                                            (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+    
     CbInfo = handle_option_cb_info(SslOptions0, tls),
-
     Transport = element(1, CbInfo),
     EmulatedOptions = tls_socket:emulated_options(),
     {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
     try handle_options(SslOptions0 ++ SocketValues, client) of
-	{ok, Config} ->
-	    tls_socket:upgrade(Socket, Config, Timeout)
+        {ok, Config} ->
+            tls_socket:upgrade(Socket, Config, Timeout)
     catch
-	_:{error, Reason} ->
+        _:{error, Reason} ->
             {error, Reason}
-    end;
+    end; 
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
-
 
 -spec connect(Host, Port, TLSOptions, Timeout) ->
                      {ok, sslsocket()} |
@@ -743,9 +742,8 @@ handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Tim
 %%
 %% If Socket is an sslsocket(): provides extra SSL/TLS/DTLS options to those
 %% specified in ssl:listen/2 and then performs the SSL/TLS/DTLS handshake.
-handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
+handshake(ListenSocket, SslOptions) ->
     handshake(ListenSocket, SslOptions, infinity).
-
 -spec handshake(Socket, Options, Timeout) ->
                        {ok, SslSocket} |
                        {ok, SslSocket, Ext} |
@@ -779,8 +777,7 @@ handshake(#sslsocket{pid = [Pid|_], fd = {_, _, _}} = Socket, SslOpts, Timeout) 
     catch
 	Error = {error, _Reason} -> Error
     end;
-handshake(Socket, SslOptions, Timeout) when is_port(Socket),
-                                            (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+handshake(Socket, SslOptions, Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     CbInfo = handle_option_cb_info(SslOptions, tls),
     Transport = element(1, CbInfo),
     EmulatedOptions = tls_socket:emulated_options(),
