@@ -2404,6 +2404,9 @@ empty_matches(Config) when is_list(Config) ->
     <<0,1,0,2,0,3>> = em_2(id(<<1,2,3>>)),
     <<>> = em_2(id(<<>>)),
 
+    <<1,2,3>> = em_3(id(<<1,2,3>>)),
+    <<>> = em_3(id(<<>>)),
+
     <<Zero:0/unit:1>> = id(<<>>),
     0 = id(Zero),
 
@@ -2421,6 +2424,14 @@ em_2(Bin) ->
     <<
       <<K,N>> || <<K:0,N>> <= Bin
     >>.
+
+%% The validator didn't agree with the type optimization pass on what the unit
+%% of empty binary segments should be.
+em_3(<<V:0/binary,Rest/bits>>) ->
+    em_3_1(V),
+    Rest.
+
+em_3_1(I) -> I.
 
 id(I) -> I.
 
