@@ -80,7 +80,7 @@ tls_server_session_child_spec() ->
 
 ssl_server_session_child_spec() ->
     Name = dist_ssl_server_session_cache_sup,
-    StartFunc = {ssl_server_session_cache_sup, start_link_dist, []},
+    StartFunc = {ssl_upgrade_server_session_cache_sup, start_link_dist, []},
     Restart = permanent,
     Shutdown = 4000,
     Modules = [ssl_server_session_cache_sup],

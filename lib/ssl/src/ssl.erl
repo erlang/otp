@@ -786,25 +786,23 @@ handshake(#sslsocket{pid = [Pid|_], fd = {_, _, _}} = Socket, SslOpts, Timeout) 
 handshake(Socket, SslOptions, Timeout) when is_port(Socket),
                                             (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     CbInfo = handle_option_cb_info(SslOptions, tls),
-
     Transport = element(1, CbInfo),
     EmulatedOptions = tls_socket:emulated_options(),
     {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
     ConnetionCb = connection_cb(SslOptions),
     try handle_options(SslOptions ++ SocketValues, server) of
-	{ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
-	    ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
-	    {ok, Port} = tls_socket:port(Transport, Socket),
-            {ok, SessionIdHandle} = tls_socket:session_id_tracker(SslOpts),
-	    ssl_gen_statem:handshake(ConnetionCb, Port, Socket,
+        {ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
+            ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
+            {ok, Port} = tls_socket:port(Transport, Socket),
+            {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
+            ssl_gen_statem:handshake(ConnetionCb, Port, Socket,
                                      {SslOpts, 
                                       tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
                                       [{session_id_tracker, SessionIdHandle}]},
                                      self(), CbInfo, Timeout)
     catch
-	Error = {error, _Reason} -> Error
-    end.
-
+        Error = {error, _Reason} -> Error
+    end.   
 
 %%--------------------------------------------------------------------
 -spec handshake_continue(HsSocket, Options) ->

@@ -66,6 +66,8 @@
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
+start_link(ssl_unknown_listener = Listner, Map) ->
+    gen_server:start_link({local, Listner}, ?MODULE, [Listner, Map], []);
 start_link(Listner, Map) ->
     gen_server:start_link(?MODULE, [Listner, Map], []).
 
@@ -113,7 +115,7 @@ init([Listner, #{lifetime := Lifetime,
                  max := Max
                 }]) ->
     process_flag(trap_exit, true),
-    erlang:monitor(process, Listner),
+    Monitor = monitor_listener(Listner),
     DbRef = init(Cb, [{role, server} | InitArgs]),
     State = #state{store_cb = Cb,
                    lifetime = Lifetime,
@@ -121,7 +123,7 @@ init([Listner, #{lifetime := Lifetime,
                    max = Max,
                    session_index = #{},
                    id_generator = crypto:strong_rand_bytes(16),
-                   listner = Listner
+                   listner = Monitor
                   },
     {ok, State}.
 
@@ -196,7 +198,7 @@ handle_cast({register_session, #session{session_id = SessionId} = Session},
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
           {noreply, NewState :: term()}.
-handle_info({'DOWN', _, process, Listner, _}, #state{listner = Listner} = State) ->
+handle_info({'DOWN', Monitor, _, _, _}, #state{listner = Monitor} = State) ->
      {stop, normal, State};
 handle_info(_, State) ->
     {noreply, State}.
@@ -270,3 +272,10 @@ size(Cb,Cache) ->
         error:undef ->
             Cb:foldl(fun(_, Acc) -> Acc + 1 end, 0, Cache)
     end.
+
+monitor_listener(ssl_unknown_listener) ->
+    %% Backwards compatible Erlang node
+    %% global process.
+    undefined;
+monitor_listener(Listen) when is_port(Listen) ->
+    erlang:monitor(port, Listen).
