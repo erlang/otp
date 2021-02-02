@@ -69,6 +69,9 @@ MODULES= \
 	ssh_connection_sup \
 	ssh_controller \
 	ssh_file \
+	ssh_fsm_kexinit \
+	ssh_fsm_userauth_client \
+	ssh_fsm_userauth_server \
 	ssh_info \
 	ssh_io \
 	ssh_lib \
@@ -114,7 +117,14 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-INTERNAL_HRL_FILES = ssh_agent.hrl ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_xfer.hrl
+INTERNAL_HRL_FILES = \
+	ssh.hrl \
+	ssh_agent.hrl \
+	ssh_auth.hrl \
+	ssh_connect.hrl \
+	ssh_fsm.hrl \
+	ssh_transport.hrl \
+	ssh_xfer.hrl
 
 # ----------------------------------------------------
 # FLAGS
@@ -183,7 +193,13 @@ $(EBIN)/ssh_connection_sup.$(EMULATOR): ssh_connection_sup.erl
 $(EBIN)/ssh_connection.$(EMULATOR): ssh_connection.erl ssh.hrl ssh_connect.hrl \
   ssh_transport.hrl
 $(EBIN)/ssh_connection_handler.$(EMULATOR): ssh_connection_handler.erl ssh.hrl \
-  ssh_transport.hrl ssh_auth.hrl ssh_connect.hrl
+  ssh_transport.hrl ssh_auth.hrl ssh_connect.hrl ssh_fsm.hrl
+$(EBIN)/ssh_fsm_kexint.$(EMULATOR): ssh.hrl \
+  ssh_transport.hrl ssh_auth.hrl ssh_connect.hrl ssh_fsm.hrl
+$(EBIN)/ssh_fsm_userauth_client.$(EMULATOR): ssh.hrl \
+  ssh_transport.hrl ssh_auth.hrl ssh_connect.hrl ssh_fsm.hrl
+$(EBIN)/ssh_fsm_userauth_server.$(EMULATOR): ssh.hrl \
+  ssh_transport.hrl ssh_auth.hrl ssh_connect.hrl ssh_fsm.hrl
 $(EBIN)/ssh_shell.$(EMULATOR): ssh_shell.erl ssh_connect.hrl
 $(EBIN)/ssh_system_sup.$(EMULATOR): ssh_system_sup.erl ssh.hrl
 $(EBIN)/ssh_subsystem_sup.$(EMULATOR): ssh_subsystem_sup.erl
