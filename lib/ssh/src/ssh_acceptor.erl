@@ -27,8 +27,7 @@
 %% Internal application API
 -export([start_link/4,
 	 number_of_connections/1,
-	 listen/2,
-	 handle_established_connection/4]).
+	 listen/2]).
 
 %% spawn export  
 -export([acceptor_init/5, acceptor_loop/6]).
@@ -112,11 +111,6 @@ listen(Port, Options) ->
 	    Other
     end.
 
-%%%----------------------------------------------------------------
-handle_established_connection(Address, Port, Options, Socket) ->
-    {_, Callback, _} = ?GET_OPT(transport, Options),
-    handle_connection(Callback, Address, Port, Options, Socket).
-
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -167,20 +161,20 @@ request_ownership(LSock, SockOwner) ->
     
 %%%----------------------------------------------------------------    
 acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
-    case (catch Callback:accept(ListenSocket, AcceptTimeout)) of
-	{ok, Socket} ->
-	    handle_connection(Callback, Address, Port, Opts, Socket),
-	    ?MODULE:acceptor_loop(Callback, Port, Address, Opts,
-				  ListenSocket, AcceptTimeout);
-	{error, Reason} ->
-	    handle_error(Reason),
-	    ?MODULE:acceptor_loop(Callback, Port, Address, Opts,
-				  ListenSocket, AcceptTimeout);
-	{'EXIT', Reason} ->
-	    handle_error(Reason),
-	    ?MODULE:acceptor_loop(Callback, Port, Address, Opts,
-				  ListenSocket, AcceptTimeout)
-    end.
+    case Callback:accept(ListenSocket, AcceptTimeout) of
+        {ok,Socket} ->
+            case handle_connection(Callback, Address, Port, Opts, Socket) of
+                {error,Error} ->
+                    catch Callback:close(Socket),
+                    handle_error(Error);
+                _ ->
+                    ok
+            end;
+        {error,Error} ->
+            handle_error(Error)
+    end,
+    ?MODULE:acceptor_loop(Callback, Port, Address, Opts,
+                          ListenSocket, AcceptTimeout).
 
 %%%----------------------------------------------------------------
 handle_connection(Callback, Address, Port, Options, Socket) ->
@@ -190,16 +184,8 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
     MaxSessions = ?GET_OPT(max_sessions, Options),
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->
-	    {ok, SubSysSup} = 
-                ssh_system_sup:start_subsystem(SystemSup, server, Address, Port, Profile, Options),
-	    ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
 	    NegTimeout = ?GET_OPT(negotiation_timeout, Options),
-	    ssh_connection_handler:start_connection(server, Socket,
-                                                    ?PUT_INTERNAL_OPT(
-                                                       {supervisors, [{system_sup, SystemSup},
-                                                                      {subsystem_sup, SubSysSup},
-                                                                      {connection_sup, ConnectionSup}]},
-                                                       Options), NegTimeout);
+            ssh_connection_handler:start_link(server, Address, Port, Socket, Options, NegTimeout);
 	false ->
 	    Callback:close(Socket),
 	    IPstr = if is_tuple(Address) -> inet:ntoa(Address);
@@ -218,29 +204,23 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
 %%%----------------------------------------------------------------
 handle_error(timeout) ->
     ok;
-
 handle_error(enfile) ->
     %% Out of sockets...
     timer:sleep(?SLEEP_TIME);
-
 handle_error(emfile) ->
     %% Too many open files -> Out of sockets...
     timer:sleep(?SLEEP_TIME);
-
 handle_error(closed) ->
     error_logger:info_report("The ssh accept socket was closed by " 
-			     "a third party. "
-			     "This will not have an impact on ssh "
-			     "that will open a new accept socket and " 
-			     "go on as nothing happened. It does however "
-			     "indicate that some other software is behaving "
-			     "badly."),
-    exit(normal);
-
-handle_error(Reason) ->
-    String = lists:flatten(io_lib:format("Accept error: ~p", [Reason])),
-    error_logger:error_report(String),
-    exit({accept_failed, String}).    
+                             "a third party. "
+                             "This will not have an impact on ssh "
+                             "that will open a new accept socket and " 
+                             "go on as nothing happened. It does however "
+                             "indicate that some other software is behaving "
+                             "badly.");
+handle_error(Error) ->
+    String = lists:flatten(io_lib:format("Accept error: ~p", [Error])),
+    error_logger:error_report(String).
 
 %%%################################################################
 %%%#

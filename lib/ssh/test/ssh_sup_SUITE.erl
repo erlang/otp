@@ -115,7 +115,7 @@ default_tree(Config) when is_list(Config) ->
     {value, {sshd_sup, _,supervisor,[sshd_sup]}} = 
 	lists:keysearch(sshd_sup, 1, TopSupChildren),
     ?wait_match([{client_controller,_,worker,_}], supervisor:which_children(sshc_sup)),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([{daemon_controller,_,worker,_}], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 sshc_subtree(Config) when is_list(Config) ->
@@ -164,14 +164,16 @@ sshd_subtree(Config) when is_list(Config) ->
     ct:log("Expect HostIP=~p, Port=~p, Daemon=~p",[HostIP,Port,Daemon]),
     ?wait_match([{{server,ssh_system_sup, ListenIP, Port, ?DEFAULT_PROFILE},
 		  Daemon, supervisor,
-		  [ssh_system_sup]}],
+		  [ssh_system_sup]},
+                 {daemon_controller,_,worker,_}
+                ],
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
     check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([{daemon_controller,_,worker,_}], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 sshd_subtree_profile(Config) when is_list(Config) ->
@@ -186,14 +188,15 @@ sshd_subtree_profile(Config) when is_list(Config) ->
     ct:log("Expect HostIP=~p, Port=~p, Profile=~p, Daemon=~p",[HostIP,Port,Profile,Daemon]),
     ?wait_match([{{server,ssh_system_sup, ListenIP,Port,Profile},
 		  Daemon, supervisor,
-		  [ssh_system_sup]}],
+		  [ssh_system_sup]},
+                 {daemon_controller,_,worker,_}],
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
     check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port, Profile),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([{daemon_controller,_,worker,_}], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 killed_acceptor_restarts(Config) ->
@@ -365,7 +368,7 @@ chk_empty_con_daemon(Daemon) ->
 		[ConnectionSup,ChannelSup]),
     ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
 		supervisor:which_children(AccSup)),
-    ?wait_match([{_, _, worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _, worker,[gen_statem]}],
 		supervisor:which_children(ConnectionSup)),
     ?wait_match([], supervisor:which_children(ChannelSup)),
     [ChannelSup, ConnectionSup, SubSysSup, AccSup].
@@ -401,7 +404,7 @@ check_sshd_system_tree(Daemon, Host, Port, Config) ->
     ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
 		supervisor:which_children(AccSup)),
     
-    ?wait_match([{_, _, worker,[ssh_connection_handler]}],
+    ?wait_match([{_, _, worker,[gen_statem]}],
 		supervisor:which_children(ConnectionSup)),
     
     ?wait_match([], supervisor:which_children(ChannelSup)),
@@ -430,7 +433,7 @@ check_sshc_system_tree(SysSup, Connection, LocalIP, LocalPort, _Config) ->
 		  [ssh_channel_sup]}],
 		supervisor:which_children(SubSysSup),
 		[ConnectionSup,ChannelSup,FwdAccSup]),
-    ?wait_match([{_, Connection, worker,[ssh_connection_handler]}],
+    ?wait_match([{_, Connection, worker,[gen_statem]}],
 		supervisor:which_children(ConnectionSup)),
     ?wait_match([], supervisor:which_children(ChannelSup)),
     ?wait_match([], supervisor:which_children(FwdAccSup)),
