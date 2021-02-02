@@ -63,7 +63,7 @@
 
 -record(state, {
 	  emulated_opts,
-	  port,
+          listen_monitor,      
 	  ssl_opts
 	 }).
 
@@ -318,10 +318,12 @@ start_link(Port, SockOpts, SslOpts) ->
 %%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([Port, Opts, SslOpts]) ->
+init([Listen, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
-    true = link(Port),
-    {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), port = Port, ssl_opts = SslOpts}}.
+    Monitor = monitor_listen(Listen),
+    {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), 
+                listen_monitor = Monitor,
+                ssl_opts = SslOpts}}.
 
 %%--------------------------------------------------------------------
 -spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
@@ -366,7 +368,7 @@ handle_cast(_, State)->
 %%
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------
-handle_info({'EXIT', Port, _}, #state{port = Port} = State) ->
+handle_info({'DOWN', Monitor, _, _, _}, #state{listen_monitor = Monitor} = State) ->
     {stop, normal, State}.
 
 
@@ -394,6 +396,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
+
+monitor_listen(Listen) when is_port(Listen) ->
+    erlang:monitor(port, Listen).
 
 split_options(Opts) ->
     split_options(Opts, emulated_options(), [], []).
