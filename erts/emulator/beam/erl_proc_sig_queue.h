@@ -91,6 +91,9 @@
 #if 0
 #  define ERTS_PROC_SIG_HARD_DEBUG_RECV_MARKER
 #endif
+#if 0
+#  define ERTS_PROC_SIG_HARD_DEBUG_SIGQ_BUFFERS
+#endif
 
 struct erl_mesg;
 struct erl_dist_external;
@@ -237,6 +240,20 @@ void erl_proc_sig_hdbg_chk_recv_marker_block(struct process *c_p);
 
 #include "erl_process.h"
 #include "erl_bif_unique.h"
+
+
+void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state);
+void erts_proc_sig_queue_flush_and_deinstall_buffers(Process* proc);
+ErtsSignalInQueueBufferArray* erts_proc_sig_queue_flush_buffers(Process* proc);
+void erts_proc_sig_queue_lock(Process* proc);
+int erts_proc_sig_queue_try_enqueue_to_buffer(Process* sender, /* is NULL if the sender is not a local process */
+                                              Process* receiver,
+                                              ErtsProcLocks receiver_locks,
+                                              ErtsMessage* first,
+                                              ErtsMessage** last,
+                                              ErtsMessage** last_next,
+                                              Uint len,
+                                              int is_signal);
 
 #define ERTS_SIG_Q_OP_BITS      8                      
 #define ERTS_SIG_Q_OP_SHIFT     0
@@ -1545,7 +1562,7 @@ erts_proc_sig_fetch(Process *proc)
 {
     Sint res = 0;
     ErtsSignal *sig;
-
+    ErtsSignalInQueueBufferArray* buffers;
     ERTS_LC_ASSERT(ERTS_PROC_IS_EXITING(proc)
                    || ((erts_proc_lc_my_proc_locks(proc)
                         & (ERTS_PROC_LOCK_MAIN
@@ -1556,6 +1573,8 @@ erts_proc_sig_fetch(Process *proc)
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
 
+    buffers = erts_proc_sig_queue_flush_buffers(proc);
+
     sig = (ErtsSignal *) proc->sig_inq.first;
     if (sig) {
         if (ERTS_LIKELY(sig->common.tag != ERTS_PROC_SIG_MSGQ_LEN_OFFS_MARK))
@@ -1563,7 +1582,21 @@ erts_proc_sig_fetch(Process *proc)
         else
             res = erts_proc_sig_fetch_msgq_len_offs__(proc);
     }
-
+    if (buffers) {
+        Uint32 state = erts_atomic32_read_nob(&proc->state);
+        if (!(ERTS_PSFLG_SIG_IN_Q & state) &&
+            erts_atomic64_read_relb(&buffers->nonmsg_slots)) {
+            /*
+             * We may have raced with a thread inserting into a buffer
+             * when reseting the flag ERTS_PSFLG_SIG_IN_Q in one of
+             * the fetch functions above so we have to make sure that
+             * it is set when there is a nonmsg signal in the buffers.
+            */
+            erts_atomic32_read_bor_nob(&proc->state,
+                                       ERTS_PSFLG_SIG_IN_Q |
+                                       ERTS_PSFLG_ACTIVE);
+        }
+    }
     res += proc->sig_qs.len;
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
@@ -1740,7 +1773,7 @@ erts_msgq_recv_marker_clear(Process *c_p, Eterm id)
 ERTS_GLB_INLINE Eterm
 erts_msgq_recv_marker_insert(Process *c_p)
 {
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_queue_lock(c_p);
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
@@ -1789,7 +1822,7 @@ erts_msgq_recv_marker_insert_bind(Process *c_p, Eterm id)
 	    ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
 #endif
 
-	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_queue_lock(c_p);
 	erts_proc_sig_fetch(c_p);
 	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
@@ -1881,7 +1914,7 @@ erts_msgq_set_save_end(Process *c_p)
 {
     /* Set save pointer to end of message queue... */
 
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_queue_lock(c_p);
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 

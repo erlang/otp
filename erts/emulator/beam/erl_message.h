@@ -33,6 +33,28 @@
 #define ERTS_MSG_COPY_WORDS_PER_REDUCTION 64
 #endif
 
+/* The number of buffers have to be 64 or less because we currenlty
+   use a single word to implement a bitset with information about
+   non-empty buffers */
+#ifdef DEBUG
+#define ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS 64
+#define ERTS_PROC_SIG_INQ_BUFFERED_CONTENTION_INSTALL_LIMIT 250
+#define ERTS_PROC_SIG_INQ_BUFFERED_ALWAYS_TURN_ON 1
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE 2
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_NO_ENQUEUES_TO_KEEP \
+    (ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE +                    \
+     ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE / 2)
+#else
+#define ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS 64
+#define ERTS_PROC_SIG_INQ_BUFFERED_CONTENTION_INSTALL_LIMIT 50
+#define ERTS_PROC_SIG_INQ_BUFFERED_ALWAYS_TURN_ON 0
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE 8192
+/* At least 1.5 enqueues per flush all op */
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_NO_ENQUEUES_TO_KEEP \
+    (ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE +     \
+     ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE / 2)
+#endif
+
 struct proc_bin;
 struct external_thing_;
 
@@ -339,6 +361,37 @@ typedef struct {
     int may_contain_heap_terms;
 #endif
 } ErtsSignalInQueue;
+
+typedef struct {
+    erts_mtx_t lock;
+    /* 
+     * Boolean value indicateing if the buffer is alive. An enqueue
+     * attempt to a dead buffer has to be canceled
+     */
+    int alive;
+    /* 
+     * The number of enqueues that has been performed to this
+     * buffer. This value is used to decide if we should adapt back to
+     * an unbuffered state
+     */
+    Uint no_of_enqueues;
+    ErtsSignalInQueue queue;
+    byte pad[ERTS_CACHE_LINE_SIZE -
+             (sizeof(erts_mtx_t) + sizeof(int) + sizeof(Uint) + sizeof(ErtsSignalInQueue)) % ERTS_CACHE_LINE_SIZE];
+} ErtsSignalInQueueBuffer;
+
+#if ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS > 64
+#error The data structure holding information about which slots that are non-empty (the nonempty_slots field in the struct below) needs to be changed (it currently only supports up to 64 slots)
+#endif
+
+typedef struct {
+    ErtsSignalInQueueBuffer slots[ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS];
+    ErtsThrPrgrLaterOp free_item;
+    erts_atomic64_t nonempty_slots;
+    erts_atomic64_t nonmsg_slots;
+    Uint no_of_rounds;
+    Uint no_of_enqueues;
+} ErtsSignalInQueueBufferArray;
 
 typedef struct erl_trace_message_queue__ {
     struct erl_trace_message_queue__ *next; /* point to the next receiver */
