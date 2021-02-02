@@ -1026,7 +1026,6 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_length_body_shared)                                                    \
     _(i_loop_rec_shared)                                                       \
     _(i_new_small_map_lit_shared)                                              \
-    _(i_select_val_bins_shared)                                                \
     _(i_test_yield_shared)                                                     \
     _(increment_body_shared)                                                   \
     _(int_div_rem_body_shared)                                                 \
@@ -1288,6 +1287,11 @@ protected:
 
     void emit_nyi(const char *msg);
     void emit_nyi(void);
+
+    void emit_binsearch_nodes(size_t Left,
+                              size_t Right,
+                              const ArgVal &Fail,
+                              const std::vector<ArgVal> &args);
 
     bool emit_optimized_three_way_select(const ArgVal &Fail,
                                          const std::vector<ArgVal> &args);
