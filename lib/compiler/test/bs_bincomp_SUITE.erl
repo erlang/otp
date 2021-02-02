@@ -146,6 +146,9 @@ mixed(Config) when is_list(Config) ->
     <<1,2,3>> = cs_default(match_context_1(<<1,2,3>>)),
     <<4,5,6>> = cs_default(match_context_2(<<4,5,6>>)),
 
+    <<255>> = over_complex_generator(),
+    {'EXIT',_} = catch float_segment_size(),
+
     cs_end().
 
 mixed_nested(L) ->
@@ -185,6 +188,37 @@ match_context_2(<<B/binary>>) ->
 
 do_match_context_2(B) ->
     << <<V>> || <<V>> <= B >>.
+
+%% Would crash beam_ssa_bc_size when the no_copt option was given.
+over_complex_generator() ->
+    <<
+      <<255>> ||
+        <<0:2>> <= <<0:2>>,
+        <<_:8>> <=
+            case true of
+                true ->
+                    <<8>>;
+                [6.6 | bad_tail] ->
+                    ok;
+                [3 | 4] ->
+                    error
+            end
+    >>.
+
+float_segment_size() ->
+    try
+        V = 0.79
+    of
+        _ ->
+            %% Would crash beam_ssa_bc_size when trying to
+            %% interpret V * U = 0.79 * 8 as a size.
+            <<
+              0 || <<5.9:V/unit:8-float>> <= 42
+            >>
+    catch
+        _:_ ->
+            error
+    end.
 
 filters(Config) when is_list(Config) ->
     cs_init(),

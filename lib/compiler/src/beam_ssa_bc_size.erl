@@ -244,8 +244,13 @@ update_successors(#b_br{bool=Bool,succ=Succ,fail=Fail}, Bs0, Map0) ->
             update_successor(Fail, maps:remove(Var, Bs0), Map);
         {'if',Var,TrueType,FalseType} ->
             Bs = maps:remove(Bool, Bs0),
-            Map = update_successor(Succ, Bs#{Var => TrueType}, Map0),
-            update_successor(Fail, Bs#{Var => FalseType}, Map);
+            case Var of
+                #b_var{} ->
+                    Map = update_successor(Succ, Bs#{Var => TrueType}, Map0),
+                    update_successor(Fail, Bs#{Var => FalseType}, Map);
+                #b_literal{} ->
+                    Bs
+            end;
         any ->
             Map = update_successor(Succ, Bs0#{Bool := #b_literal{val=true}}, Map0),
             update_successor(Fail, Bs0#{Bool := #b_literal{val=false}}, Map)
@@ -473,12 +478,15 @@ opt_expr_1({bif,'div'}=Op, [Numerator,#b_literal{val=Denominator}]=Args) ->
         opt_expr_div(Numerator, Denominator)
     catch
         throw:not_possible ->
-            case Denominator band (Denominator - 1) of
+            try Denominator band (Denominator - 1) of
                 0 ->
                     %% The denominator is a power of two.
                     Shift = round(math:log2(Denominator)),
                     {{bif,'bsr'},[Numerator,#b_literal{val=Shift}]};
                 _ ->
+                    {Op,Args}
+            catch
+                _:_ ->
                     {Op,Args}
             end
     end;
