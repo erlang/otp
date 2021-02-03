@@ -476,28 +476,6 @@ esac
 
 dnl ----------------------------------------------------------------------
 dnl
-dnl LM_STRUCT_EXCEPTION
-dnl
-dnl Check to see whether the system supports the matherr function
-dnl and its associated type "struct exception".
-dnl
-
-AC_DEFUN(LM_STRUCT_EXCEPTION,
-[AC_CACHE_CHECK([for struct exception (and matherr function)],
- ac_cv_struct_exception,
-AC_TRY_COMPILE([#include <math.h>],
-  [struct exception x; x.type = DOMAIN; x.type = SING;],
-  ac_cv_struct_exception=yes, ac_cv_struct_exception=no))
-
-case "${ac_cv_struct_exception}" in
-  "yes" ) AC_DEFINE(USE_MATHERR,[1],[Define if you have matherr() function and struct exception type]) ;;
-  *  ) ;;
-esac
-])
-
-
-dnl ----------------------------------------------------------------------
-dnl
 dnl LM_SYS_IPV6
 dnl
 dnl Check for ipv6 support and what the in6_addr structure is called.
