@@ -1207,6 +1207,7 @@ otp_17024(Config) when is_list(Config) ->
     Opts1 = [{location,Line}],
     {integer,Line,1} = erl_parse_abstract(1, Opts1),
     Location = {17, 42},
+    {integer,Location,1} = erl_parse_abstract(1, Location),
     Opts2 = [{location,Location}],
     {integer,Location,1} = erl_parse_abstract(1, Opts2),
     ok.
