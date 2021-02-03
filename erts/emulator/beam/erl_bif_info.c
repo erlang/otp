@@ -351,6 +351,7 @@ make_monitor_list(Process *p, int tree, ErtsMonitor *root, Eterm tail)
   -record(erl_link, {
             type, % process | port | dist_process
 	    pid, % Process or port
+            state, % linked | unlinking
             id % (address)
           }).
 */
@@ -370,7 +371,7 @@ static int calc_lnk_size(ErtsLink *lnk, void *vpsz, Sint reds)
 
     *psz += sz;
     *psz += is_immed(lnk->other.item) ? 0 : size_object(lnk->other.item);
-    *psz += 7; /* CONS + 4-tuple */
+    *psz += 8; /* CONS + 5-tuple */
     return 1;
 }
 
@@ -384,13 +385,20 @@ typedef struct {
 static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
 {
     LnkListContext *pllc = vpllc;
-    Eterm tup, t, pid, id;
+    Eterm tup, t, pid, id, state;
     UWord addr;
+    ERTS_DECL_AM(linked);
+    ERTS_DECL_AM(unlinking);
 
-    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC)
+    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC) {
         addr = (UWord) erts_link_to_data(lnk);
-    else
-        addr = (UWord) lnk;
+        state = AM_linked;
+    }
+    else {
+        ErtsILink *ilnk = (ErtsILink *) lnk;
+        state = ilnk->unlinking ? AM_unlinking : AM_linked;
+        addr = (UWord) ilnk;
+    }
 
     id = erts_bld_uword(&pllc->hp, NULL, (UWord) addr);
 
@@ -419,8 +427,8 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
         break;
     }
 
-    tup = TUPLE4(pllc->hp, pllc->tag, t, pid, id);
-    pllc->hp += 5;
+    tup = TUPLE5(pllc->hp, pllc->tag, t, pid, state, id);
+    pllc->hp += 6;
     pllc->res = CONS(pllc->hp, tup, pllc->res);
     pllc->hp += 2;
     return 1;
@@ -535,6 +543,10 @@ do {							\
 static int collect_one_link(ErtsLink *lnk, void *vmicp, Sint reds)
 {
     MonitorInfoCollection *micp = vmicp;
+    if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+        if (((ErtsILink *) lnk)->unlinking)
+            return 1;
+    }
     EXTEND_MONITOR_INFOS(micp);
     micp->mi[micp->mi_i].entity.term = lnk->other.item;
     micp->sz += 2 + NC_HEAP_SIZE(lnk->other.item);

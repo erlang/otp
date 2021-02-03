@@ -51,7 +51,7 @@
  * Note that not all signal are handled using this functionality!
  */
 
-#define ERTS_SIG_Q_OP_MAX 14
+#define ERTS_SIG_Q_OP_MAX 15
 
 #define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
 #define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
@@ -67,7 +67,8 @@
 #define ERTS_SIG_Q_OP_PROCESS_INFO              11
 #define ERTS_SIG_Q_OP_SYNC_SUSPEND              12
 #define ERTS_SIG_Q_OP_RPC                       13
-#define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          ERTS_SIG_Q_OP_MAX
+#define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
+#define ERTS_SIG_Q_OP_UNLINK_ACK                ERTS_SIG_Q_OP_MAX
 
 #define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 5)
 
@@ -136,11 +137,6 @@ typedef struct {
     Eterm remote; /* external pid (heap for it follow) */
     Eterm heap[EXTERNAL_THING_HEAD_SIZE + 1];
 } ErtsSigDistLinkOp;
-
-typedef struct {
-    ErtsSignalCommon common;
-    Eterm from;
-} ErtsSigUnlinkOp;
 
 typedef struct {
     Eterm message;
@@ -320,13 +316,6 @@ destroy_sig_dist_link_op(ErtsSigDistLinkOp *sdlnk)
                           make_boxed(&sdlnk->heap[0]));
     erts_free(ERTS_ALC_T_SIG_DATA, sdlnk);
 }
-
-static ERTS_INLINE void
-destroy_sig_unlink_op(ErtsSigUnlinkOp *sulnk)
-{
-    erts_free(ERTS_ALC_T_SIG_DATA, sulnk);
-}
-
 
 static ERTS_INLINE ErtsExitSignalData *
 get_exit_signal_data(ErtsMessage *xsig)
@@ -980,6 +969,12 @@ erts_proc_sig_privqs_len(Process *c_p)
     return proc_sig_privqs_len(c_p, 0);
 }
 
+void
+erts_proc_sig_destroy_unlink_op(ErtsSigUnlinkOp *sulnk)
+{
+    erts_free(ERTS_ALC_T_SIG_DATA, sulnk);
+}
+
 ErtsDistExternal *
 erts_proc_sig_get_external(ErtsMessage *msgp)
 {
@@ -1356,26 +1351,81 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk)
     return proc_queue_signal(c_p, to, sig, ERTS_SIG_Q_OP_LINK);
 }
 
-void
+ErtsSigUnlinkOp *
+erts_proc_sig_make_unlink_op(Process *c_p, Eterm from)
+{
+    ErtsSigUnlinkOp *sulnk;
+    Uint64 id;
+    if (c_p) {
+        id = (Uint64) c_p->uniq++;
+        if (id == 0)
+            id = (Uint64) c_p->uniq++;
+    }
+    else {
+        /*
+         * *Only* ports are allowed to call without current
+         * process pointer...
+         */
+        ASSERT(is_internal_port(from));
+        id = (Uint64) erts_raw_get_unique_monotonic_integer();
+        if (id == 0)
+            id = (Uint64) erts_raw_get_unique_monotonic_integer();
+    }
+
+    ASSERT(id != 0);
+
+    sulnk = erts_alloc(ERTS_ALC_T_SIG_DATA, sizeof(ErtsSigUnlinkOp));
+    sulnk->from = from;
+    sulnk->id = id;
+
+    return sulnk;
+}
+
+Uint64
 erts_proc_sig_send_unlink(Process *c_p, Eterm from, ErtsLink *lnk)
 {
+    int res;
     ErtsSignal *sig;
     Eterm to;
-    ErtsSigUnlinkOp *op = erts_alloc(ERTS_ALC_T_SIG_DATA,
-                                     sizeof(ErtsSigUnlinkOp));
-    op->from = from;
+    ErtsSigUnlinkOp *sulnk;
+    Uint64 id;
 
-    sig = (ErtsSignal *) op;
+    ASSERT(lnk->type != ERTS_LNK_TYPE_PROC
+           || lnk->type != ERTS_LNK_TYPE_PORT);
+    ASSERT(lnk->flags & ERTS_ML_FLG_IN_TABLE);
+
+    sulnk = erts_proc_sig_make_unlink_op(c_p, from);
+    id = sulnk->id;
+    sig = (ErtsSignal *) sulnk;
     to = lnk->other.item;
-
-    ASSERT(is_internal_pid(to));
-
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_UNLINK,
                                              lnk->type, 0);
 
-    if (!proc_queue_signal(c_p, to, sig, ERTS_SIG_Q_OP_UNLINK))
-        destroy_sig_unlink_op(op);
-    erts_link_release(lnk);
+    ASSERT(is_internal_pid(to));
+    res = proc_queue_signal(c_p, to, sig, ERTS_SIG_Q_OP_UNLINK);
+    if (res == 0) {
+        erts_proc_sig_destroy_unlink_op(sulnk);
+        return 0;
+    }
+    return id;
+}
+
+void
+erts_proc_sig_send_unlink_ack(Process *c_p, Eterm from, ErtsSigUnlinkOp *sulnk)
+{
+    ErtsSignal *sig = (ErtsSignal *) sulnk;
+    Eterm to = sulnk->from;
+    Uint16 type;
+
+    ASSERT(is_internal_pid(to));
+    ASSERT(is_internal_pid(from) || is_internal_port(from));
+
+    sulnk->from = from;
+    type = is_internal_pid(from) ? ERTS_LNK_TYPE_PROC : ERTS_LNK_TYPE_PORT;
+    sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_UNLINK_ACK,
+                                             type, 0);
+    if (!proc_queue_signal(c_p, to, sig, ERTS_SIG_Q_OP_UNLINK_ACK))
+        erts_proc_sig_destroy_unlink_op(sulnk);    
 }
 
 void
@@ -2238,6 +2288,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     int ignore = 0;
     int save = 0;
     int exit = 0;
+    int linked = 0;
     int cnt = 1;
     Eterm reason;
     Eterm from;
@@ -2246,41 +2297,47 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     
     xsigd = get_exit_signal_data(sig);
     from = xsigd->from;
-    if (op != ERTS_SIG_Q_OP_EXIT_LINKED)
-        ignore = 0;
-    else {
-        ErtsLink *llnk = erts_link_tree_lookup(ERTS_P_LINKS(c_p), from);
-        if (!llnk) {
-            /* Link no longer active; ignore... */
-            ignore = !0;
-            destroy = !0;
+
+    if (op == ERTS_SIG_Q_OP_EXIT_LINKED) {
+        ErtsLink *lnk, *dlnk = NULL;
+        ErtsLinkData *ldp = NULL;
+        lnk = erts_link_tree_lookup(ERTS_P_LINKS(c_p), from);
+        if (!lnk)
+            ignore = destroy = !0; /* No longer active */
+        else if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+            if (((ErtsILink *) lnk)->unlinking)
+                ignore = destroy = !0; /* No longer active */
+            else
+                linked = !0;
         }
         else {
-            ignore = 0;
-            erts_link_tree_delete(&ERTS_P_LINKS(c_p), llnk);
-            if (llnk->type != ERTS_LNK_TYPE_DIST_PROC)
-                erts_link_release(llnk);
-            else {
-                ErtsLinkData *ldp;
-                ErtsLink *dlnk = erts_link_to_other(llnk, &ldp);
-                if (erts_link_dist_delete(dlnk))
-                    erts_link_release_both(ldp);
-                else
-                    erts_link_release(llnk);
-            }
+            dlnk = erts_link_to_other(lnk, &ldp);
+            linked = !0;
+        }
+        if (lnk) {
+            /* Remove link... */
+            erts_link_tree_delete(&ERTS_P_LINKS(c_p), lnk);
+            if (!ldp)
+                erts_link_internal_release(lnk);
+            else if (erts_link_dist_delete(dlnk))
+                erts_link_release_both(ldp);
+            else
+                erts_link_release(lnk);
         }
     }
 
-    /* This GEN_EXIT was received from another node, decode the exit reason */
-    if (ERTS_SIG_IS_GEN_EXIT_EXTERNAL(sig))
-        erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, sig, 1);
+    if (!ignore) {
+        /* This GEN_EXIT was received from another node, decode the exit reason */
+        if (ERTS_SIG_IS_GEN_EXIT_EXTERNAL(sig))
+            erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, sig, 1);
 
-    reason = xsigd->reason;
+        reason = xsigd->reason;
 
-    if (is_non_value(reason)) {
-        /* Bad distribution message; remove it from queue... */
-        ignore = !0;
-        destroy = !0;
+        if (is_non_value(reason)) {
+            /* Bad distribution message; remove it from queue... */
+            ignore = !0;
+            destroy = !0;
+        }
     }
 
     if (!ignore) {
@@ -2323,8 +2380,10 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     if (!exit) {
         if (conv_msg)
             erts_proc_notify_new_message(c_p, ERTS_PROC_LOCK_MAIN);
-        if (op == ERTS_SIG_Q_OP_EXIT_LINKED && tracing->procs)
+        if (linked && tracing->procs) {
+            ASSERT(op == ERTS_SIG_Q_OP_EXIT_LINKED);
             getting_unlinked(c_p, from);
+        }
     }
 
     if (destroy) {
@@ -3881,27 +3940,28 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
         }
 
         case ERTS_SIG_Q_OP_LINK: {
-            ErtsLink *rlnk, *lnk = (ErtsLink *) sig;
+            ErtsLink *lnk, *nlnk = (ErtsLink *) sig;
 
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
 
             remove_nm_sig(c_p, sig, next_nm_sig);
-            rlnk = erts_link_tree_insert_addr_replace(&ERTS_P_LINKS(c_p),
-                                                      lnk);
-            if (!rlnk) {
+            lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(c_p), nlnk);
+            if (!lnk) {
                 if (tracing.procs)
-                    getting_linked(c_p, lnk->other.item);
+                    getting_linked(c_p, nlnk->other.item);
             }
             else {
-                if (rlnk->type != ERTS_LNK_TYPE_DIST_PROC)
-                    erts_link_release(rlnk);
+                if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+                    /* Already linked or unlinking... */
+                    erts_link_release(nlnk);
+                }
                 else {
                     ErtsLinkData *ldp;
-                    ErtsLink *dlnk = erts_link_to_other(rlnk, &ldp);
+                    ErtsLink *dlnk = erts_link_to_other(nlnk, &ldp);
                     if (erts_link_dist_delete(dlnk))
                         erts_link_release_both(ldp);
                     else
-                        erts_link_release(rlnk);
+                        erts_link_release(nlnk);
                 }
             }
 
@@ -3940,16 +4000,47 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 ErtsSigUnlinkOp *sulnk = (ErtsSigUnlinkOp *) sig;
                 llnk = erts_link_tree_lookup(ERTS_P_LINKS(c_p),
                                              sulnk->from);
-                if (llnk) {
+                if (llnk && !((ErtsILink *) llnk)->unlinking) {
                     if (tracing.procs)
-                        getting_unlinked(c_p, llnk->other.item);
+                        getting_unlinked(c_p, sulnk->from);
                     erts_link_tree_delete(&ERTS_P_LINKS(c_p), llnk);
                     erts_link_release(llnk);
                 }
-                destroy_sig_unlink_op(sulnk);
+                if (is_internal_pid(sulnk->from))
+                    erts_proc_sig_send_unlink_ack(c_p, c_p->common.id, sulnk);
+                else {
+                    Port *prt;
+                    ASSERT(is_internal_port(sulnk->from));
+                    prt = erts_port_lookup(sulnk->from,
+                                           ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+                    if (prt)
+                        erts_port_unlink_ack(c_p, prt, sulnk);
+                    else
+                        erts_proc_sig_destroy_unlink_op(sulnk);
+                }
             }
 
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
+            break;
+        }
+
+        case ERTS_SIG_Q_OP_UNLINK_ACK: {
+            ErtsSigUnlinkOp *sulnk;
+            ErtsILink *ilnk;
+            
+            ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
+
+            remove_nm_sig(c_p, sig, next_nm_sig);
+
+            sulnk = (ErtsSigUnlinkOp *) sig;
+            ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(c_p),
+                                                       sulnk->from);
+
+            if (ilnk && ilnk->unlinking == sulnk->id) {
+                erts_link_tree_delete(&ERTS_P_LINKS(c_p), &ilnk->link);
+                erts_link_internal_release(&ilnk->link);
+            }
+            erts_proc_sig_destroy_unlink_op(sulnk);
             break;
         }
 
@@ -4318,8 +4409,23 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
         case ERTS_SIG_Q_OP_UNLINK:
             if (type == ERTS_SIG_Q_TYPE_DIST_LINK)
                 destroy_sig_dist_link_op((ErtsSigDistLinkOp *) sig);
-            else
-                destroy_sig_unlink_op((ErtsSigUnlinkOp *) sig);
+            else if (is_internal_pid(((ErtsSigUnlinkOp *) sig)->from))
+                erts_proc_sig_send_unlink_ack(c_p, c_p->common.id,
+                                              (ErtsSigUnlinkOp *) sig);
+            else {
+                Port *prt;
+                ASSERT(is_internal_port(((ErtsSigUnlinkOp *) sig)->from));
+                prt = erts_port_lookup(((ErtsSigUnlinkOp *) sig)->from,
+                                       ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+                if (prt)
+                    erts_port_unlink_ack(c_p, prt, (ErtsSigUnlinkOp *) sig);
+                else
+                    erts_proc_sig_destroy_unlink_op((ErtsSigUnlinkOp *) sig);
+            }
+            break;
+
+        case ERTS_SIG_Q_OP_UNLINK_ACK:
+            erts_proc_sig_destroy_unlink_op((ErtsSigUnlinkOp *) sig);
             break;
 
         case ERTS_SIG_Q_OP_GROUP_LEADER: {
@@ -4434,6 +4540,7 @@ clear_seq_trace_token(ErtsMessage *sig)
         case ERTS_SIG_Q_OP_DEMONITOR:
         case ERTS_SIG_Q_OP_LINK:
         case ERTS_SIG_Q_OP_UNLINK:
+        case ERTS_SIG_Q_OP_UNLINK_ACK:
         case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
         case ERTS_SIG_Q_OP_GROUP_LEADER:
         case ERTS_SIG_Q_OP_IS_ALIVE:
@@ -4522,6 +4629,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         break;
 
     case ERTS_SIG_Q_OP_UNLINK:
+    case ERTS_SIG_Q_OP_UNLINK_ACK:
         if (type != ERTS_SIG_Q_TYPE_DIST_LINK)
             size = sizeof(ErtsSigUnlinkOp);
         else {
@@ -4531,7 +4639,6 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
             size += sizeof(ErtsSigDistLinkOp);
         }
         break;
-
     case ERTS_SIG_Q_OP_LINK:
         size = erts_link_size((ErtsLink *) sig);
         break;
@@ -5186,10 +5293,12 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     if (type == ERTS_SIG_Q_TYPE_DIST_LINK) {
                         debug_foreach_sig_fake_oh(((ErtsSigDistLinkOp *) sig)->remote,
                                                   oh_func, arg);
-                        break;
                     }
-                    /* Fall through... */
-
+                    break;
+                    
+                case ERTS_SIG_Q_OP_UNLINK_ACK:
+                    break;
+                    
                 case ERTS_SIG_Q_OP_LINK:
                     lnk_func((ErtsLink *) sig, arg, -1);
                     break;

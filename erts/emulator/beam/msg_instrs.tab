@@ -106,8 +106,10 @@ i_loop_rec(Dest) {
         c_p->arity = 0;
         c_p->current = NULL;
         c_p->fcalls = FCALLS;
+        ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
         FCALLS -= erts_proc_sig_receive_helper(c_p, FCALLS, neg_o_reds,
                                                &msgp, &get_out);
+        ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
         if (ERTS_UNLIKELY(msgp == NULL)) {
             if (get_out) {

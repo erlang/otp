@@ -100,6 +100,12 @@ typedef struct {
     Eterm tag;
 } ErtsSignalCommon;
 
+typedef struct {
+    ErtsSignalCommon common;
+    Eterm from;
+    Uint64 id;
+} ErtsSigUnlinkOp;
+
 #define ERTS_SIG_HANDLE_REDS_MAX_PREFERED (CONTEXT_REDS/40)
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
@@ -295,6 +301,36 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
 
 /**
  *
+ * @brief Create an unlink op signal structure
+ *
+ * The structure will contain a newly created unlink id
+ * to be used in the operation.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
+ * @return                      A pointer to the unlink op
+ *                              structure.
+ */
+ErtsSigUnlinkOp *
+erts_proc_sig_make_unlink_op(Process *c_p, Eterm from);
+
+/**
+ *
+ * @brief Destroy an unlink op signal structure
+ *
+ * @param[in]     sulnk         A pointer to the unlink op
+ *                              structure.
+ */
+void
+erts_proc_sig_destroy_unlink_op(ErtsSigUnlinkOp *sulnk);
+
+/**
+ *
  * @brief Send an unlink signal to a process.
  *
  *
@@ -310,8 +346,30 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
  *                              contain information about
  *                              receiver.
  */
-void
+Uint64
 erts_proc_sig_send_unlink(Process *c_p, Eterm from, ErtsLink *lnk);
+
+/**
+ *
+ * @brief Send an unlink acknowledgment signal to a process.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
+ * @param[in]     sulnk         A pointer to the unlink op
+ *                              structure. This structure
+ *                              was typically received by
+ *                              the caller in an unlink
+ *                              signal.
+ */
+void
+erts_proc_sig_send_unlink_ack(Process *c_p, Eterm from,
+                              ErtsSigUnlinkOp *sulnk);
 
 /**
  *

@@ -2489,13 +2489,27 @@ erts_port_connect(Process *c_p,
 }
 
 static void
-port_unlink(Port *prt, Eterm pid)
+port_unlink_failure(Eterm port_id, ErtsSigUnlinkOp *sulnk)
 {
-    ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(prt), pid);
-    if (lnk) {
-        if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_getting_unlinked, pid);
-        erts_link_tree_delete(&ERTS_P_LINKS(prt), lnk);
+    erts_proc_sig_send_unlink_ack(NULL, port_id, sulnk);
+}
+
+static void
+port_unlink(Port *prt, erts_aint32_t state, ErtsSigUnlinkOp *sulnk)
+{
+    if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
+	port_unlink_failure(prt->common.id, sulnk);
+    else {
+        ErtsILink *ilnk;
+        ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(prt),
+                                                   sulnk->from);
+        if (ilnk && !ilnk->unlinking) {
+            if (IS_TRACED_FL(prt, F_TRACE_PORTS))
+                trace_port(prt, am_getting_unlinked, sulnk->from);
+            erts_link_tree_delete(&ERTS_P_LINKS(prt), &ilnk->link);
+            erts_link_internal_release(&ilnk->link);
+        }
+        erts_proc_sig_send_unlink_ack(NULL, prt->common.id, sulnk);
     }
 }
 
@@ -2503,14 +2517,16 @@ static int
 port_sig_unlink(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
 {
     if (op == ERTS_PROC2PORT_SIG_EXEC)
-	port_unlink(prt, sigdp->u.unlink.proc_id);
+	port_unlink(prt, state, sigdp->u.unlink.sulnk);
+    else
+        port_unlink_failure(sigdp->u.unlink.port_id, sigdp->u.unlink.sulnk);
     if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY)
 	port_sched_op_reply(sigdp->caller, sigdp->ref, am_true, prt);
     return ERTS_PORT_REDS_UNLINK;
 }
 
 ErtsPortOpResult
-erts_port_unlink(Process *c_p, Port *prt, Eterm pid, Eterm *refp)
+erts_port_unlink(Process *c_p, Port *prt, ErtsSigUnlinkOp *sulnk, Eterm *refp)
 {
     ErtsProc2PortSigData *sigdp;
     ErtsTryImmDrvCallState try_call_state
@@ -2521,15 +2537,16 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm pid, Eterm *refp)
 					   !refp,
 					   am_unlink);
 
-    ASSERT(is_internal_pid(pid));
+    ASSERT(is_internal_pid(sulnk->from));
     
     switch (try_imm_drv_call(&try_call_state)) {
     case ERTS_TRY_IMM_DRV_CALL_OK:
-	port_unlink(prt, pid);
+	port_unlink(prt, try_call_state.state, sulnk);
 	finalize_imm_drv_call(&try_call_state);
 	BUMP_REDS(c_p, ERTS_PORT_REDS_UNLINK);
 	return ERTS_PORT_OP_DONE;
     case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
+        port_unlink_failure(prt->common.id, sulnk);
 	return ERTS_PORT_OP_DROPPED;
     default:
 	/* Schedule call instead... */
@@ -2539,7 +2556,7 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm pid, Eterm *refp)
     sigdp = erts_port_task_alloc_p2p_sig_data();
     sigdp->flags = ERTS_P2P_SIG_TYPE_UNLINK;
     sigdp->u.unlink.port_id = prt->common.id;
-    sigdp->u.unlink.proc_id = pid;
+    sigdp->u.unlink.sulnk = sulnk;
 
     return erts_schedule_proc2port_signal(c_p,
 					  prt,
@@ -2552,24 +2569,100 @@ erts_port_unlink(Process *c_p, Port *prt, Eterm pid, Eterm *refp)
 }
 
 static void
+port_unlink_ack_failure(Eterm port_id, ErtsSigUnlinkOp *sulnk)
+{
+    erts_proc_sig_destroy_unlink_op(sulnk);
+}
+
+static void
+port_unlink_ack(Port *prt, erts_aint32_t state, ErtsSigUnlinkOp *sulnk)
+{
+    if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
+	port_unlink_ack_failure(prt->common.id, sulnk);
+    else {
+        ErtsILink *ilnk;
+        ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(prt),
+                                                   sulnk->from);
+        if (ilnk && ilnk->unlinking == sulnk->id) {
+            erts_link_tree_delete(&ERTS_P_LINKS(prt), &ilnk->link);
+            erts_link_internal_release(&ilnk->link);
+        }
+        erts_proc_sig_destroy_unlink_op(sulnk);
+    }
+}
+
+static int
+port_sig_unlink_ack(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
+{
+    if (op == ERTS_PROC2PORT_SIG_EXEC)
+	port_unlink_ack(prt, state, sigdp->u.unlink_ack.sulnk);
+    else
+        port_unlink_ack_failure(sigdp->u.unlink_ack.port_id, sigdp->u.unlink_ack.sulnk);
+    return ERTS_PORT_REDS_UNLINK_ACK;
+}
+
+ErtsPortOpResult
+erts_port_unlink_ack(Process *c_p, Port *prt, ErtsSigUnlinkOp *sulnk)
+{
+    ErtsProc2PortSigData *sigdp;
+    ErtsTryImmDrvCallState try_call_state
+	= ERTS_INIT_TRY_IMM_DRV_CALL_STATE(c_p,
+					   prt,
+					   ERTS_PORT_SFLGS_DEAD,
+					   0,
+					   !0,
+					   am_unlink);
+
+    ASSERT(c_p);
+    sulnk->from = c_p->common.id;
+    
+    switch (try_imm_drv_call(&try_call_state)) {
+    case ERTS_TRY_IMM_DRV_CALL_OK:
+	port_unlink_ack(prt, try_call_state.state, sulnk);
+	finalize_imm_drv_call(&try_call_state);
+	BUMP_REDS(c_p, ERTS_PORT_REDS_UNLINK_ACK);
+	return ERTS_PORT_OP_DONE;
+    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
+        port_unlink_ack_failure(prt->common.id, sulnk);
+	return ERTS_PORT_OP_DROPPED;
+    default:
+	/* Schedule call instead... */
+	break;
+    }
+
+    sigdp = erts_port_task_alloc_p2p_sig_data();
+    sigdp->flags = ERTS_P2P_SIG_TYPE_UNLINK_ACK;
+    sigdp->u.unlink_ack.port_id = prt->common.id;
+    sigdp->u.unlink_ack.sulnk = sulnk;
+
+    return erts_schedule_proc2port_signal(c_p,
+					  prt,
+					  c_p->common.id,
+					  NULL,
+					  sigdp,
+					  0,
+					  NULL,
+					  port_sig_unlink_ack);
+}
+
+static void
 port_link_failure(Eterm port_id, ErtsLink *lnk)
 {
     erts_proc_sig_send_link_exit(NULL, port_id, lnk, am_noproc, NIL);
 }
 
 static void
-port_link(Port *prt, erts_aint32_t state, ErtsLink *lnk)
+port_link(Port *prt, erts_aint32_t state, ErtsLink *nlnk)
 {
     if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
-	port_link_failure(prt->common.id, lnk);
+	port_link_failure(prt->common.id, nlnk);
     else {
-        ErtsLink *rlnk;
-        rlnk = erts_link_tree_insert_addr_replace(&ERTS_P_LINKS(prt),
-                                                  lnk);
-        if (rlnk)
-            erts_link_release(rlnk);
+        ErtsLink *lnk;
+        lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(prt), nlnk);
+        if (lnk)
+            erts_link_release(nlnk);
         else if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_getting_linked, lnk->other.item);
+            trace_port(prt, am_getting_linked, nlnk->other.item);
     }
 }
 
@@ -2770,19 +2863,37 @@ erts_port_demonitor(Process *c_p, Port *prt, ErtsMonitor *mon)
                                           port_sig_demonitor);
 }
 
+
+/* Unlink (an internal process) from a port */
+static void
+unlink_proc(Port *prt, Eterm pid)
+{
+    ErtsILink *ilnk;
+
+    ASSERT(prt);
+    ASSERT(is_internal_pid(pid));
+
+    ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(prt),
+                                               pid);
+    if (ilnk && !ilnk->unlinking) {
+        Uint64 id = erts_proc_sig_send_unlink(NULL,
+                                              prt->common.id,
+                                              &ilnk->link);
+        if (id != 0)
+            ilnk->unlinking = id;
+        else {
+            erts_link_tree_delete(&ERTS_P_LINKS(prt), &ilnk->link);
+            erts_link_internal_release(&ilnk->link);
+        }
+    }
+}
+
 static void
 init_ack_send_reply(Port *port, Eterm resp)
 {
 
-    if (!is_internal_port(resp)) {
-        Eterm proc = port->async_open_port->to;
-        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(port),
-                                              proc);
-        if (lnk) {
-            erts_link_tree_delete(&ERTS_P_LINKS(port), lnk);
-            erts_proc_sig_send_unlink(NULL, port->common.id, lnk);
-        }
-    }
+    if (!is_internal_port(resp))
+        unlink_proc(port, port->async_open_port->to);
     port_sched_op_reply(port->async_open_port->to,
                         port->async_open_port->ref,
                         resp,
@@ -7069,7 +7180,6 @@ driver_failure_term(ErlDrvPort ix, Eterm term, int eof)
 int driver_exit(ErlDrvPort ix, int err)
 {
     Port* prt = erts_drvport2port(ix);
-    ErtsLink *lnk;
     Eterm connected;
 
     ERTS_CHK_NO_PROC_LOCKS;
@@ -7078,11 +7188,7 @@ int driver_exit(ErlDrvPort ix, int err)
         return -1;
 
     connected = ERTS_PORT_GET_CONNECTED(prt);
-    lnk = erts_link_tree_lookup(ERTS_P_LINKS(prt), connected);
-    if (lnk) {
-        erts_link_tree_delete(&ERTS_P_LINKS(prt), lnk);
-        erts_proc_sig_send_unlink(NULL, prt->common.id, lnk);
-    }
+    unlink_proc(prt, connected);
 
     if (err == 0)
         return driver_failure_term(ix, am_normal, 0);

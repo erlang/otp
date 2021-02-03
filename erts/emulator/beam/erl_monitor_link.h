@@ -1550,6 +1550,11 @@ typedef struct ErtsMonLnkNode__ ErtsLink;
 typedef int (*ErtsLinkFunc)(ErtsLink *, void *, Sint);
 
 typedef struct {
+    ErtsLink link;
+    Uint64 unlinking;
+} ErtsILink;
+
+typedef struct {
     ErtsLink a;
     ErtsLink b;
     erts_atomic32_t refc;

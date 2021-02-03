@@ -1309,7 +1309,7 @@ erts_link_list_foreach_delete_yielding(ErtsLink **list,
 ErtsLink *
 erts_link_internal_create(Uint16 type, Eterm id)
 {
-    ErtsLink *lnk;
+    ErtsILink *ilnk;
 #ifdef ERTS_ML_DEBUG
     switch (type) {
     case ERTS_LNK_TYPE_PROC:
@@ -1324,15 +1324,16 @@ erts_link_internal_create(Uint16 type, Eterm id)
     }
 #endif
 
-    lnk = erts_alloc(ERTS_ALC_T_LINK, sizeof(ErtsLink));
+    ilnk = erts_alloc(ERTS_ALC_T_LINK, sizeof(ErtsILink));
 
-    lnk->other.item = id;
-    lnk->flags = (Uint16) 0;
-    lnk->key_offset = (Uint16) offsetof(ErtsLink, other.item);
-    lnk->offset = (Uint16) 0;
-    lnk->type = type;
+    ilnk->link.other.item = id;
+    ilnk->link.key_offset = (Uint16) offsetof(ErtsLink, other.item);
+    ilnk->link.offset = (Uint16) 0;
+    ilnk->link.flags = (Uint16) 0;
+    ilnk->link.type = type;
+    ilnk->unlinking = 0;
 
-    return lnk;
+    return &ilnk->link;
 }
 
 

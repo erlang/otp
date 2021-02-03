@@ -59,6 +59,7 @@
 
 -record(erl_link, {type,           % process | port | dist_process
                    pid = [],
+                   state,          % linked | unlinking
                    id}).
 
 % This is to be kept in sync with erl_bif_info.c (make_monitor_list)
@@ -909,7 +910,7 @@ find_erl_monitor(Pid, Item) ->
 find_erl_link(Obj, Type, Item) when is_pid(Item); is_port(Item) -> 
     LinkList = get_link_list(Obj),
     io:format("~p LinkList: ~p~n", [Obj, LinkList]),
-    lists:foldl(fun (#erl_link{type = T, pid = I} = EL,
+    lists:foldl(fun (#erl_link{type = T, pid = I, state = linked} = EL,
                      Acc) when T == Type, I == Item ->
                         [EL|Acc];
                     ({erl_link, T, P, I},
@@ -925,7 +926,7 @@ find_erl_link(Obj, Type, Id) when is_integer(Id) ->
     %% Find by Id
     LinkList = get_link_list(Obj),
     io:format("~p LinkList: ~p~n", [Obj, LinkList]),
-    lists:foldl(fun (#erl_link{type = T, id = I} = EL,
+    lists:foldl(fun (#erl_link{type = T, id = I, state = linked} = EL,
                      Acc) when T == Type, I == Id ->
                         [EL|Acc];
                     ({erl_link, T, P, I},

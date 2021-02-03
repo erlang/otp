@@ -118,8 +118,12 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
                                                     &created,
                                                     ERTS_LNK_TYPE_PROC,
                                                     BIF_ARG_1);
-        if (!created)
-            BIF_RET(am_true);
+        if (!created) {
+            ErtsILink *ilnk = (ErtsILink *) lnk;
+            if (!ilnk->unlinking)
+                BIF_RET(am_true);
+            ilnk->unlinking = 0;
+        }
 
         rlnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, BIF_P->common.id);
 
@@ -141,27 +145,30 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 				     (erts_port_synchronous_ops
 				      ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
 				      : ERTS_PORT_SFLGS_INVALID_LOOKUP));
-	if (!prt) {
+	if (!prt)
 	    goto res_no_proc;
-	}
 
         lnk = erts_link_internal_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
                                                     &created,
                                                     ERTS_LNK_TYPE_PORT,
                                                     BIF_ARG_1);
-        if (!created)
-            BIF_RET(am_true);
+        if (!created) {
+            ErtsILink *ilnk = (ErtsILink *) lnk;
+            if (!ilnk->unlinking)
+                BIF_RET(am_true);
+            ilnk->unlinking = 0;
+        }
 
         rlnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, BIF_P->common.id);
         refp = erts_port_synchronous_ops ? &ref : NULL;
 
         switch (erts_port_link(BIF_P, prt, rlnk, refp)) {
-        case ERTS_PORT_OP_DROPPED:
         case ERTS_PORT_OP_BADARG:
+            erts_link_internal_release(rlnk);
             erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
             erts_link_internal_release(lnk);
-            erts_link_internal_release(rlnk);
             goto res_no_proc;
+        case ERTS_PORT_OP_DROPPED:
         case ERTS_PORT_OP_SCHEDULED:
             if (refp) {
                 ASSERT(is_internal_ordinary_ref(ref));
@@ -915,36 +922,51 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
     }
 
     if (is_internal_pid(BIF_ARG_1)) {
-        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
-        if (lnk) {
-            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-            erts_proc_sig_send_unlink(BIF_P, BIF_P->common.id, lnk);
+        ErtsILink *ilnk;
+        ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(BIF_P),
+                                                   BIF_ARG_1);
+        if (ilnk && !ilnk->unlinking) {
+            Uint64 id = erts_proc_sig_send_unlink(BIF_P,
+                                                  BIF_P->common.id,
+                                                  &ilnk->link);
+            if (id)
+                ilnk->unlinking = id;
+            else {
+                erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), &ilnk->link);
+                erts_link_internal_release(&ilnk->link);
+            }
         }
         BIF_RET(am_true);
     }
 
     if (is_internal_port(BIF_ARG_1)) {
-        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
+        ErtsILink *ilnk;
+        ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(BIF_P),
+                                                   BIF_ARG_1);
 
-	if (lnk) {
+	if (ilnk && !ilnk->unlinking) {
             Eterm ref;
             Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
             ErtsPortOpResult res = ERTS_PORT_OP_DROPPED;
 	    Port *prt;
 
-            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-
 	    /* Send unlink signal */
 	    prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_DEAD);
-	    if (prt) {
+	    if (!prt) {
+                erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), &ilnk->link);
+                erts_link_internal_release(&ilnk->link);
+            }
+            else {
+                ErtsSigUnlinkOp *sulnk;
+
+                sulnk = erts_proc_sig_make_unlink_op(BIF_P, BIF_P->common.id);
+                ilnk->unlinking = sulnk->id;
 #ifdef DEBUG
 		ref = NIL;
 #endif
-		res = erts_port_unlink(BIF_P, prt, BIF_P->common.id, refp);
-
+		res = erts_port_unlink(BIF_P, prt, sulnk, refp);
 	    }
 
-            erts_link_internal_release(lnk);
             if (refp && res == ERTS_PORT_OP_SCHEDULED) {
                 ASSERT(is_internal_ordinary_ref(ref));
                 BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
