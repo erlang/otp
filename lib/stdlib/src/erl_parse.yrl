@@ -1431,7 +1431,7 @@ abstract(T) ->
 %%% abstract/2 takes line and encoding options
 -spec abstract(Data, Options) -> AbsTerm when
       Data :: term(),
-      Options :: Line | [Option],
+      Options :: Location | [Option],
       Option :: {encoding, Encoding}
               | {line, Line}
               | {location, Location},
@@ -1440,9 +1440,6 @@ abstract(T) ->
       Location :: erl_anno:location(),
       AbsTerm :: abstract_expr().
 
-abstract(T, Line) when is_integer(Line) ->
-    Anno = erl_anno:new(Line),
-    abstract(T, Anno, enc_func(epp:default_encoding()));
 abstract(T, Options) when is_list(Options) ->
     Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
     EncFunc = enc_func(Encoding),
@@ -1454,7 +1451,10 @@ abstract(T, Options) when is_list(Options) ->
                 Loc
         end,
     Anno = erl_anno:new(Location),
-    abstract(T, Anno, EncFunc).
+    abstract(T, Anno, EncFunc);
+abstract(T, Location) ->
+    Anno = erl_anno:new(Location),
+    abstract(T, Anno, enc_func(epp:default_encoding())).
 
 -define(UNICODE(C),
          (C < 16#D800 orelse
