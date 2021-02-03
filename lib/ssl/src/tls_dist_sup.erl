@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 %%
 
--module(ssl_dist_connection_sup).
+-module(tls_dist_sup).
 
 -behaviour(supervisor).
 
@@ -42,20 +42,34 @@ start_link() ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([]) ->    
-    TLSSup = tls_sup_child_spec(),
-    {ok, {{one_for_one, 10, 3600}, [TLSSup]}}.
 
-    
+init([]) ->    
+  
+    TLSConnetionSup = tls_connection_child_spec(),
+    ServerInstanceSup = server_instance_child_spec(), 
+
+    {ok, {{one_for_one, 10, 3600}, [TLSConnetionSup, 
+				    ServerInstanceSup
+				   ]}}.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_sup_child_spec() ->
-    Name = dist_tls_sup,  
-    StartFunc = {tls_dist_sup, start_link, []},
+tls_connection_child_spec() ->
+    Name = dist_tls_connection,  
+    StartFunc = {tls_connection_sup, start_link_dist, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [tls_dist_sup],
+    Modules = [tls_connection_sup],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+server_instance_child_spec() ->
+    Name = dist_tls_server_sup,  
+    StartFunc = {tls_dist_server_sup, start_link, []},
+    Restart = permanent, 
+    Shutdown = 4000,
+    Modules = [tls_dist_server_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
