@@ -26,11 +26,18 @@
 -include("ssl_connection.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
--export([get_max_early_data_size/0,
-         get_ticket_lifetime/0,
-         get_ticket_store_size/0,
-         init/2]).
+-define(DEFAULT_MAX_SESSION_CACHE, 1000).
 
+-export([init/2,
+         pre_1_3_session_opts/0,
+         get_max_early_data_size/0,
+         get_ticket_lifetime/0,
+         get_ticket_store_size/0
+        ]).
+
+%%====================================================================
+%% Internal application API
+%%====================================================================
 init(#{erl_dist := ErlDist,
        key := Key,
        keyfile := KeyFile,
@@ -47,6 +54,50 @@ init(#{erl_dist := ErlDist,
     DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
     {ok, Config#{private_key => PrivateKey, dh_params => DHParams}}.
 
+pre_1_3_session_opts() ->
+    CbOpts = case application:get_env(ssl, session_cb) of
+		 {ok, Cb} when is_atom(Cb) ->
+		     InitArgs = session_cb_init_args(),
+		     #{session_cb => Cb,
+                       session_cb_init_args => InitArgs};
+		 _  ->
+		     #{session_cb => ssl_server_session_cache_db,
+                       session_cb_init_args => []}
+	     end,
+    LifeTime = session_lifetime(),
+    Max = max_session_cache_size(),
+    [CbOpts#{lifetime => LifeTime, max => Max}].
+
+
+get_ticket_lifetime() ->
+    case application:get_env(ssl, server_session_ticket_lifetime) of
+	{ok, Seconds} when is_integer(Seconds) andalso
+                           Seconds =< 604800 ->  %% MUST be less than 7 days
+	    Seconds;
+	_  ->
+	    7200 %% Default 2 hours
+    end.
+
+
+get_ticket_store_size() ->
+    case application:get_env(ssl, server_session_ticket_store_size) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_  ->
+	    1000
+    end.
+
+get_max_early_data_size() ->
+    case application:get_env(ssl, server_session_ticket_max_early_data) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_  ->
+	    ?DEFAULT_MAX_EARLY_DATA_SIZE
+    end.
+
+%%====================================================================
+%% Internal functions 
+%%====================================================================	     
 init_manager_name(false) ->
     put(ssl_manager, ssl_manager:name(normal)),
     put(ssl_pem_cache, ssl_pem_cache:name(normal));
@@ -180,28 +231,28 @@ init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
 	    file_error(DHParamFile, {dhfile, Reason}) 
     end.
 
-get_ticket_lifetime() ->
-    case application:get_env(ssl, server_session_ticket_lifetime) of
-	{ok, Seconds} when is_integer(Seconds) andalso
-                           Seconds =< 604800 ->  %% MUST be less than 7 days
-	    Seconds;
+
+session_cb_init_args() ->
+    case application:get_env(ssl, session_cb_init_args) of
+	{ok, Args} when is_list(Args) ->
+	    Args;
 	_  ->
-	    7200 %% Default 2 hours
+	    []
     end.
 
-get_ticket_store_size() ->
-    case application:get_env(ssl, server_session_ticket_store_size) of
-	{ok, Size} when is_integer(Size) ->
-	    Size;
-	_  ->
-	    1000
+session_lifetime() ->
+    case application:get_env(ssl, session_lifetime) of
+	{ok, Time} when is_integer(Time) ->
+            Time;
+        _  ->
+            ?'24H_in_sec'
     end.
 
-get_max_early_data_size() ->
-    case application:get_env(ssl, server_session_ticket_max_early_data) of
+max_session_cache_size() ->
+    case application:get_env(ssl, session_cache_server_max) of
 	{ok, Size} when is_integer(Size) ->
 	    Size;
-	_  ->
-	    ?DEFAULT_MAX_EARLY_DATA_SIZE
+	_ ->
+	   ?DEFAULT_MAX_SESSION_CACHE
     end.
 

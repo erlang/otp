@@ -125,7 +125,8 @@ end_per_suite(_Config) ->
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of
-	true ->
+	true ->   
+            ct:log("Ciphers: ~p~n ", [ssl:cipher_suites(default, GroupName)]),
             ssl_test_lib:init_per_group(GroupName, 
                                         [{client_type, erlang},
                                          {server_type, erlang},

@@ -27,26 +27,34 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, start_link_dist/0]).
--export([start_child/1, start_child_dist/1]).
+-export([start_link/0, 
+         start_link_dist/0]).
+-export([start_child/1, 
+         start_child_dist/1]).
 
 %% Supervisor callback
--export([init/1]).
+-export([init/1,
+        sup_name/1]).
 
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
 start_link() ->
-    supervisor:start_link({local, tracker_name(normal)}, ?MODULE, []).
+    supervisor:start_link({local, sup_name(normal)}, ?MODULE, []).
 
 start_link_dist() ->
-    supervisor:start_link({local, tracker_name(dist)}, ?MODULE, []).
+    supervisor:start_link({local, sup_name(dist)}, ?MODULE, []).
 
 start_child(Args) ->
-    supervisor:start_child(tracker_name(normal), Args).
+    supervisor:start_child(sup_name(normal), Args).
 
 start_child_dist(Args) ->
-    supervisor:start_child(tracker_name(dist), Args).
+    supervisor:start_child(sup_name(dist), Args).
+
+sup_name(normal) ->
+    ?MODULE;
+sup_name(dist) ->
+    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
   
 %%%=========================================================================
 %%%  Supervisor callback
@@ -66,7 +74,3 @@ init(_O) ->
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
 
-tracker_name(normal) ->
-    ?MODULE;
-tracker_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "dist").

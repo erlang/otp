@@ -22,14 +22,15 @@
 %%----------------------------------------------------------------------
 %% Purpose: Supervisor for a listen options tracker
 %%----------------------------------------------------------------------
--module(ssl_server_session_cache_sup).
+-module(ssl_upgrade_server_session_cache_sup).
 
 -behaviour(supervisor).
 
 -include("ssl_internal.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/0,
+         start_link_dist/0]).
 -export([start_child/1]).
 
 %% Supervisor callback
@@ -39,11 +40,22 @@
 %%%  API
 %%%=========================================================================
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    supervisor:start_link({local, sup_name(normal)}, ?MODULE, []).
 
-start_child(Listner) ->
-    supervisor:start_child(?MODULE, [Listner | ssl_config:pre_1_3_session_opts()]).
+start_link_dist() ->
+    supervisor:start_link({local, sup_name(dist)}, ?MODULE, []).
 
+start_child(Type) ->
+    SupName = sup_name(Type),
+    Children = supervisor:count_children(SupName),
+    Workers = proplists:get_value(workers, Children),
+     case Workers of
+        0 ->
+             supervisor:start_child(SupName, [ssl_unknown_listener | ssl_config:pre_1_3_session_opts()]);
+        1 ->
+            [{_,Child,_, _}] = supervisor:which_children(SupName),
+             {ok, Child}
+    end.
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -63,3 +75,7 @@ init(_O) ->
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
 
+sup_name(normal) ->
+    ?MODULE;
+sup_name(dist) ->
+    list_to_atom(atom_to_list(?MODULE) ++ "_dist").

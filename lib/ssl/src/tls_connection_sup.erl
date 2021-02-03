@@ -40,13 +40,13 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 start_link_dist() ->
-    supervisor:start_link({local, ssl_connection_sup_dist}, ?MODULE, []).
+    supervisor:start_link({local, tls_dist_connection_sup}, ?MODULE, []).
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
     
 start_child_dist(Args) ->
-    supervisor:start_child(ssl_connection_sup_dist, Args).
+    supervisor:start_child(tls_dist_connection_sup, Args).
     
 %%%=========================================================================
 %%%  Supervisor callback
