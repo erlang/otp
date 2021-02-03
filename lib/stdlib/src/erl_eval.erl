@@ -45,7 +45,7 @@
 -type(name() :: term()).
 -type(value() :: term()).
 -type(bindings() :: [{name(), value()}]).
--type(binding_struct() :: orddict:orddict()).
+-type(binding_struct() :: orddict:orddict() | map()).
 
 -type(lfun_value_handler() :: fun((Name :: atom(),
                                    Arguments :: [term()]) ->
@@ -287,8 +287,8 @@ expr({'fun',Anno,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
     %% Save only used variables in the function environment.
     %% {value,L,V} are hidden while lint finds used variables.
     {Ex1, _} = hide_calls(Ex, 0),
-    {ok,Used} = erl_lint:used_vars([Ex1], Bs),
-    En = orddict:filter(fun(K,_V) -> member(K,Used) end, Bs),
+    {ok,Used} = erl_lint:used_vars([Ex1], bindings(Bs)),
+    En = filter_bindings(fun(K,_V) -> member(K,Used) end, Bs),
     Info = {En,Lf,Ef,Cs},
     %% This is a really ugly hack!
     F = 
@@ -335,8 +335,8 @@ expr({named_fun,Anno,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
     %% Save only used variables in the function environment.
     %% {value,L,V} are hidden while lint finds used variables.
     {Ex1, _} = hide_calls(Ex, 0),
-    {ok,Used} = erl_lint:used_vars([Ex1], Bs),
-    En = orddict:filter(fun(K,_V) -> member(K,Used) end, Bs),
+    {ok,Used} = erl_lint:used_vars([Ex1], bindings(Bs)),
+    En = filter_bindings(fun(K,_V) -> member(K,Used) end, Bs),
     Info = {En,Lf,Ef,Cs,Name},
     %% This is a really ugly hack!
     F =
@@ -734,7 +734,7 @@ eval_bc1(E, [], Bs, Lf, Ef, Acc) ->
     <<Acc/bitstring,V/bitstring>>.
 
 eval_generate([V|Rest], P, Bs0, Lf, Ef, CompFun, Acc) ->
-    case match(P, V, new_bindings(), Bs0) of
+    case match(P, V, new_bindings(Bs0), Bs0) of
 	{match,Bsn} ->
 	    Bs2 = add_bindings(Bsn, Bs0),
 	    NewAcc = CompFun(Bs2, Acc),
@@ -750,7 +750,7 @@ eval_generate(Term, _P, _Bs0, _Lf, _Ef, _CompFun, _Acc) ->
 eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, Lf, Ef, CompFun, Acc) ->
     Mfun = match_fun(Bs0),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
-    case eval_bits:bin_gen(P, Bin, new_bindings(), Bs0, Mfun, Efun) of
+    case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun) of
 	{match, Rest, Bs1} ->
 	    Bs2 = add_bindings(Bs1, Bs0),
 	    NewAcc = CompFun(Bs2, Acc),
@@ -807,7 +807,7 @@ ret_expr(V, _Bs, value) ->
     V;
 ret_expr(V, Bs, none) ->
     {value,V,Bs};
-ret_expr(V, _Bs, RBs) when is_list(RBs) ->
+ret_expr(V, _Bs, RBs) when is_list(RBs); is_map(RBs) ->
     {value,V,RBs}.
 
 %% eval_fun(Arguments, {Bindings,LocalFunctionHandler,
@@ -819,7 +819,7 @@ eval_fun(As, {Bs0,Lf,Ef,Cs}) ->
     eval_fun(Cs, As, Bs0, Lf, Ef, value).
 
 eval_fun([{clause,_,H,G,B}|Cs], As, Bs0, Lf, Ef, RBs) ->
-    case match_list(H, As, new_bindings(), Bs0) of
+    case match_list(H, As, new_bindings(Bs0), Bs0) of
 	{match,Bsn} ->                      % The new bindings for the head
 	    Bs1 = add_bindings(Bsn, Bs0),   % which then shadow!
 	    case guard(G, Bs1, Lf, Ef) of
@@ -839,7 +839,7 @@ eval_named_fun(As, Fun, {Bs0,Lf,Ef,Cs,Name}) ->
 
 eval_named_fun([{clause,_,H,G,B}|Cs], As, Bs0, Lf, Ef, Name, Fun, RBs) ->
     Bs1 = add_binding(Name, Fun, Bs0),
-    case match_list(H, As, new_bindings(), Bs1) of
+    case match_list(H, As, new_bindings(Bs0), Bs1) of
         {match,Bsn} ->                      % The new bindings for the head
             Bs2 = add_bindings(Bsn, Bs1),   % which then shadow!
             case guard(G, Bs2, Lf, Ef) of
@@ -1260,12 +1260,18 @@ match_list(_, _, _Bs, _BBs) ->
 new_bindings() -> orddict:new().
 
 -spec(bindings(BindingStruct :: binding_struct()) -> bindings()).
-bindings(Bs) -> orddict:to_list(Bs).
+bindings(Bs) when is_map(Bs) -> maps:to_list(Bs);
+bindings(Bs) when is_list(Bs) -> orddict:to_list(Bs).
 
 -spec(binding(Name, BindingStruct) -> {value, value()} | unbound when
       Name :: name(),
       BindingStruct :: binding_struct()).
-binding(Name, Bs) ->
+binding(Name, Bs) when is_map(Bs) ->
+    case maps:find(Name, Bs) of
+        {ok,Val} -> {value,Val};
+        error -> unbound
+    end;
+binding(Name, Bs) when is_list(Bs) ->
     case orddict:find(Name, Bs) of
 	{ok,Val} -> {value,Val};
 	error -> unbound
@@ -1275,17 +1281,26 @@ binding(Name, Bs) ->
       Name :: name(),
       Value :: value(),
       BindingStruct :: binding_struct()).
-add_binding(Name, Val, Bs) -> orddict:store(Name, Val, Bs).
+add_binding(Name, Val, Bs) when is_map(Bs) -> maps:put(Name, Val, Bs);
+add_binding(Name, Val, Bs) when is_list(Bs) -> orddict:store(Name, Val, Bs).
 
 -spec(del_binding(Name, BindingStruct) -> binding_struct() when
       Name :: name(),
       BindingStruct :: binding_struct()).
-del_binding(Name, Bs) -> orddict:erase(Name, Bs).
+del_binding(Name, Bs) when is_map(Bs) -> maps:remove(Name, Bs);
+del_binding(Name, Bs) when is_list(Bs) -> orddict:erase(Name, Bs).
 
+add_bindings(Bs1, Bs2) when is_map(Bs1), is_map(Bs2) ->
+    maps:merge(Bs2, Bs1);
 add_bindings(Bs1, Bs2) ->
     foldl(fun ({Name,Val}, Bs) -> orddict:store(Name, Val, Bs) end,
 	  Bs2, orddict:to_list(Bs1)).
 
+merge_bindings(Bs1, Bs2) when is_map(Bs1), is_map(Bs2) ->
+    maps:merge_with(fun
+	(_K, V, V) -> V;
+	(_K, _, V) -> erlang:raise(error, {badmatch,V}, ?STACKTRACE)
+    end, Bs2, Bs1);
 merge_bindings(Bs1, Bs2) ->
     foldl(fun ({Name,Val}, Bs) ->
 		  case orddict:find(Name, Bs) of
@@ -1296,15 +1311,11 @@ merge_bindings(Bs1, Bs2) ->
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
 
-%% del_bindings(Bs1, Bs2) -> % del all in Bs1 from Bs2
-%%     orddict:fold(
-%%       fun (Name, Val, Bs) ->
-%% 	      case orddict:find(Name, Bs) of
-%% 		  {ok,Val} -> orddict:erase(Name, Bs);
-%% 		  {ok,V1} -> erlang:raise(error,{badmatch,V1},?STACKTRACE);
-%% 		  error -> Bs
-%% 	      end
-%%       end, Bs2, Bs1).
+new_bindings(Bs) when is_map(Bs) -> maps:new();
+new_bindings(Bs) when is_list(Bs) -> orddict:new().
+
+filter_bindings(Fun, Bs) when is_map(Bs) -> maps:filter(Fun, Bs);
+filter_bindings(Fun, Bs) when is_list(Bs) -> orddict:filter(Fun, Bs).
 
 to_terms(Abstrs) ->
     [to_term(Abstr) || Abstr <- Abstrs].
