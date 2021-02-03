@@ -884,13 +884,10 @@ vi({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
 vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,{atom,all},Unit,_],Dst}, Vst) ->
     Type = #t_bitstring{size_unit=Unit},
     validate_bs_get_all(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
-vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,{integer,Sz},Unit,_],Dst}, Vst) ->
-    Stride = Unit * Sz,
-    Type = #t_bitstring{size_unit=max(1, Stride)},
+vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst}, Vst) ->
+    Type = #t_bitstring{size_unit=bsm_size_unit(Size, Unit)},
+    Stride = bsm_stride(Size, Unit),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
-vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
-    Type = #t_bitstring{size_unit=max(1, Unit)},
-    validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,
     [Ctx,{integer,Sz},Unit,{field_flags,Flags}],Dst},Vst) ->
 
@@ -1879,6 +1876,16 @@ bsm_restore(Reg, SavePoint, Vst) ->
         _ ->
             error({illegal_restore, SavePoint, range})
     end.
+
+bsm_stride({integer, Size}, Unit) ->
+    Size * Unit;
+bsm_stride(_Size, Unit) ->
+    Unit.
+
+bsm_size_unit({integer, Size}, Unit) ->
+    max(1, Size) * max(1, Unit);
+bsm_size_unit(_Size, Unit) ->
+    max(1, Unit).
 
 validate_select_val(_Fail, _Choices, _Src, #vst{current=none}=Vst) ->
     %% We've already branched on all of Src's possible values, so we know we
