@@ -4330,10 +4330,10 @@ dec_term_atom_common:
 		    etp->next = factory->off_heap->first;
 		    etp->node = node;
 #ifdef ARCH_64
-		    etp->data.ui[0] = (Uint) num;
+		    etp->data.port.id = num;
 #else
-		    etp->data.ui[0] = (Uint) (num & 0xffffffff);
-		    etp->data.ui[1] = (Uint) ((num >> 32) & 0xffffffff);
+		    etp->data.port.low = (Uint32) (num & 0xffffffff);
+		    etp->data.port.high = (Uint32) ((num >> 32) & 0xffffffff);
 #endif
 
 		    factory->off_heap->first = (struct erl_off_heap_header*)etp;
