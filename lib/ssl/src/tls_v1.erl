@@ -496,10 +496,10 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 suites(Minor) when Minor == 1; Minor == 2 ->
     exclusive_suites(2);
 suites(3) ->
-    exclusive_suites(3) ++ exclusive_suites(2);
+    exclusive_suites(3) ++ suites(2);
 
 suites(4) ->
-    exclusive_suites(4) ++ exclusive_suites(3).
+    exclusive_suites(4) ++ suites(3).
 
 exclusive_suites(4) ->
     [?TLS_AES_256_GCM_SHA384,

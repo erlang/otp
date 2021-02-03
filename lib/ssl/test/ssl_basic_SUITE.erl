@@ -308,7 +308,7 @@ cipher_suites(Config) when is_list(Config) ->
                                          cipher => 'aes_128_cbc',
                                          mac => sha,
                                          prf => default_prf}, 
-    Version = ssl_test_lib:protocol_version(Config),
+    Version = tls_record:highest_protocol_version([]),
     All = [_|_] = ssl:cipher_suites(all, Version),
     Default = [_|_] = ssl:cipher_suites(default, Version),
     Anonymous = [_|_] = ssl:cipher_suites(anonymous, Version),
