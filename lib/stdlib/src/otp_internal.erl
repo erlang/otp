@@ -275,12 +275,8 @@ obsolete(filename, find_src, _) ->
     {removed, "use filelib:find_source/1,3 instead"};
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl_handshake/1,2,3 instead"};
-obsolete(erl_tidy, _, _) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
-obsolete(igor, _, _) ->
-    {deprecated, "use https://github.com/richcarl/igor", "OTP 24"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(os_mon_mib, _, _) ->
