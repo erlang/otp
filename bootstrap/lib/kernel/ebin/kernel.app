@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "7.1"},
+  {vsn, "7.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -147,8 +147,7 @@
                 ddll_server,
                 erl_epmd,
                 inet_db,
-                pg,
-                pg2]},
+                pg]},
   {applications, []},
   {env, [{logger_level, notice},
          {logger_sasl_compatible, false},

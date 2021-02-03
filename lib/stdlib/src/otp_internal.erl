@@ -43,16 +43,6 @@ obsolete(disk_log, lclose, 1) ->
     {deprecated, "use disk_log:close/1 instead", "OTP 26"};
 obsolete(disk_log, lclose, 2) ->
     {deprecated, "use disk_log:close/1 instead", "OTP 26"};
-obsolete(erl_tidy, dir, 0) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, dir, 1) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, file, 1) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, module, 1) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
-obsolete(erl_tidy, module, 2) ->
-    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(erlang, phash, 2) ->
@@ -285,6 +275,8 @@ obsolete(filename, find_src, _) ->
     {removed, "use filelib:find_source/1,3 instead"};
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl_handshake/1,2,3 instead"};
+obsolete(erl_tidy, _, _) ->
+    {deprecated, "use https://github.com/richcarl/erl_tidy", "OTP 24"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(igor, _, _) ->
