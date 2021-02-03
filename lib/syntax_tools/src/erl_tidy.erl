@@ -48,11 +48,7 @@
 %% @type filename() = file:filename().
 
 -module(erl_tidy).
--deprecated([{dir,0,"use https://github.com/richcarl/erl_tidy"}]).
--deprecated([{dir,1,"use https://github.com/richcarl/erl_tidy"}]).
--deprecated([{file,1,"use https://github.com/richcarl/erl_tidy"}]).
--deprecated([{module,1,"use https://github.com/richcarl/erl_tidy"}]).
--deprecated([{module,2,"use https://github.com/richcarl/erl_tidy"}]).
+-deprecated([{'_','_',"use https://github.com/richcarl/erl_tidy"}]).
 
 -export([dir/0, dir/1, dir/2, file/1, file/2, module/1, module/2]).
 
