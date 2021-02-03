@@ -334,9 +334,7 @@ format_error({crash,Pass,Reason}) ->
 format_error({bad_return,Pass,Reason}) ->
     io_lib:format("internal error in ~p;\nbad return value: ~ts", [Pass,format_error_reason(Reason)]);
 format_error({module_name,Mod,Filename}) ->
-    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]);
-format_error(reparsing_invalid_unicode) ->
-    "Non-UTF-8 character(s) detected, but no encoding declared. Encode the file in UTF-8 or add \"%% coding: latin-1\" at the beginning of the file. Note: The compiler will remove support for latin-1 encoded source files without the \"%% coding: latin-1\" string at the beginning of the file in Erlang/OTP 24! Retrying with latin-1 encoding.".
+    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]).
 
 format_error_reason({Reason, Stack}) when is_list(Stack) ->
     StackFun = fun
@@ -1002,21 +1000,12 @@ get_module_name_from_asm(Asm, St) ->
     %% Invalid Beam assembly code. Let it crash in a later pass.
     {ok,Asm,St}.
 
-parse_module(_Code, St0) ->
-    case do_parse_module(utf8, St0) of
+parse_module(_Code, St) ->
+    case do_parse_module(utf8, St) of
 	{ok,_,_}=Ret ->
 	    Ret;
 	{error,_}=Ret ->
-	    Ret;
-	{invalid_unicode,File,Line} ->
-	    case do_parse_module(latin1, St0) of
-		{ok,Code,St} ->
-		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
-		    {ok,Code,St#compile{warnings=Es++St#compile.warnings}};
-		{error,St} ->
-		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
-		    {error,St#compile{errors=Es++St#compile.errors}}
-	    end
+	    Ret
     end.
 
 do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
@@ -1039,26 +1028,15 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                         {location,StartLocation},
                         extra]),
     case R of
-	{ok,Forms,Extra} ->
+	{ok,Forms0,Extra} ->
 	    Encoding = proplists:get_value(encoding, Extra),
-	    case find_invalid_unicode(Forms, File) of
-		none ->
-                    Forms1 =
-                        case with_columns(Opts ++ compile_options(Forms)) of
-                            true ->
-                                Forms;
-                            false ->
-                                strip_columns(Forms)
-                        end,
-		    {ok,Forms1,St#compile{encoding=Encoding}};
-		{invalid_unicode,_,_}=Ret ->
-		    case Encoding of
-			none ->
-			    Ret;
-			_ ->
-			    {ok,Forms,St#compile{encoding=Encoding}}
-		    end
-	    end;
+            Forms = case with_columns(Opts ++ compile_options(Forms0)) of
+                        true ->
+                            Forms0;
+                        false ->
+                            strip_columns(Forms0)
+                    end,
+            {ok,Forms,St#compile{encoding=Encoding}};
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
@@ -1066,17 +1044,6 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 
 with_columns(Opts) ->
     proplists:get_value(error_location, Opts, column) =:= column.
-
-find_invalid_unicode([H|T], File0) ->
-    case H of
-	{attribute,_,file,{File,_}} ->
-	    find_invalid_unicode(T, File);
-	{error,{Line,file_io_server,invalid_unicode}} ->
-	    {invalid_unicode,File0,Line};
-	_Other ->
-	    find_invalid_unicode(T, File0)
-    end;
-find_invalid_unicode([], _) -> none.
 
 consult_abstr(_Code, St) ->
     case file:consult(St#compile.ifile) of

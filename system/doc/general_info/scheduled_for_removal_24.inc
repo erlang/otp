@@ -24,9 +24,3 @@
       will still be supported, even though its no longer necessary to specify
       it this way. </p>
     </section>
-    <section>
-	<title>Compilation of Latin-1 Encoded Erlang Files</title>
-	<p>As of OTP 24, the Erlang compiler will refuse to compile source files
-	encoded in Latin-1 but without a <c>%% coding: latin-1</c> comment at the
-	beginning of the file.</p>
-    </section>

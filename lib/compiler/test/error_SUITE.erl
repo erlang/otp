@@ -276,10 +276,9 @@ maps_warnings(Config) when is_list(Config) ->
     ok.
 
 bad_utf8(Config) ->
-    Ts = [{bad_utf8,
+    Ts = [{bad_explicit_utf8,
 	   %% If coding is specified explicitly as utf-8, there should be
-	   %% a compilation error; we must not fallback to parsing the
-	   %% file in latin-1 mode.
+	   %% a compilation error for a latin-1 comment.
 	   <<"%% coding: utf-8
               %% Bj",246,"rn
               t() -> \"",246,"\".
@@ -288,7 +287,21 @@ bad_utf8(Config) ->
 	   {error,[{{2,15},epp,cannot_parse},
 		   {{2,15},file_io_server,invalid_unicode}],
 	    []}
-	  }],
+	  },
+
+          {bad_implicit_utf8,
+           %% If there is no coding comment given, encoding defaults to utf-8
+	   %% and there should be a compilation error for a latin-1 comment.
+	   <<"
+              %% Bj",246,"rn
+              t() -> \"",246,"\".
+             ">>,
+	   [],
+	   {error,[{{2,15},epp,cannot_parse},
+		   {{2,15},file_io_server,invalid_unicode}],
+	    []}
+          }
+         ],
     [] = run2(Config, Ts),
     ok.
 
