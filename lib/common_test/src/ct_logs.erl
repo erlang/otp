@@ -2017,7 +2017,7 @@ update_all_runs_in_cache(AllRunsData) ->
 	    LogCache = #log_cache{version = cache_vsn(),
 				  all_runs = AllRunsData},
 	    case {self(),whereis(?MODULE)} of
-		{_Pid,_Pid} ->
+		{Pid,Pid} ->
 		    %% save the cache in RAM so it doesn't have to be
 		    %% read from file as long as this logger process is alive
 		    put(ct_log_cache,term_to_binary(LogCache));
@@ -2031,7 +2031,7 @@ update_all_runs_in_cache(AllRunsData) ->
 update_all_runs_in_cache(AllRunsData, LogCache) ->
     LogCache1 = LogCache#log_cache{all_runs = AllRunsData},    
     case {self(),whereis(?MODULE)} of
-	{_Pid,_Pid} ->
+	{Pid,Pid} ->
 	    %% save the cache in RAM so it doesn't have to be
 	    %% read from file as long as this logger process is alive
 	    put(ct_log_cache,term_to_binary(LogCache1));
@@ -2665,7 +2665,7 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
     Tests1 = lists:keysort(1,TempData++Cached1),
     CacheBin = term_to_binary(LogCache#log_cache{tests = Tests1}),
     case {self(),whereis(?MODULE)} of
-	{_Pid,_Pid} ->
+	{Pid,Pid} ->
 	    put(ct_log_cache,CacheBin);
 	_ ->
 	    write_log_cache(CacheBin)
