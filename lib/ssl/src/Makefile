@@ -85,6 +85,7 @@ MODULES= \
 	ssl_server_session_cache \
 	ssl_server_session_cache_db \
 	ssl_server_session_cache_sup \
+	ssl_upgrade_server_session_cache_sup \
 	ssl_session \
 	ssl_session_cache \
 	ssl_srp_primes \
@@ -100,6 +101,8 @@ MODULES= \
 	tls_record \
 	tls_record_1_3 \
 	tls_client_ticket_store \
+	tls_dist_sup \
+	tls_dist_server_sup \
 	tls_sender \
 	tls_server_session_ticket\
 	tls_server_session_ticket_sup\
