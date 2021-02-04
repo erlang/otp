@@ -2695,7 +2695,7 @@ sup_opaque(List) ->
 sup_opaq(L0) ->
   L1 = [{{Mod,Name,Args}, T} ||
          #opaque{mod = Mod, name = Name, args = Args}=T <- L0],
-  F = family(L1),
+  F = dialyzer_utils:family(L1),
   [supl(Ts) || {_, Ts} <- F].
 
 supl([O]) -> O;
@@ -4489,7 +4489,10 @@ mod_name(Mod, Name) ->
 
 -type mta()   :: {module(), atom(), arity()}.
 -type mra()   :: {module(), atom(), arity()}.
--type site()  :: {'type', mta()} | {'spec', mfa()} | {'record', mra()}.
+-type site()  :: {'type', mta(), file:filename()}
+               | {'spec', mfa(), file:filename()}
+               | {'record', mra(), file:filename()}
+               | {'check', mta(), file:filename()}.
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
@@ -4526,16 +4529,16 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 
 -type expand_depth() :: integer().
 
--record(from_form, {site   :: site() | {'check', mta()},
+-record(from_form, {site   :: site(),
                     xtypes :: sets:set(mfa()) | 'replace_by_none',
                     mrecs  :: 'undefined' | mod_type_table(),
                     vtab   :: var_table(),
                     tnames :: type_names()}).
 
--spec t_from_form_check_remote(parse_form(), sets:set(mfa()), mta(),
+-spec t_from_form_check_remote(parse_form(), sets:set(mfa()), site(),
                                mod_type_table()) -> 'ok'.
-t_from_form_check_remote(Form, ExpTypes, MTA, RecDict) ->
-  State = #from_form{site   = {check, MTA},
+t_from_form_check_remote(Form, ExpTypes, Site, RecDict) ->
+  State = #from_form{site   = Site,
                      xtypes = ExpTypes,
                      mrecs  = RecDict,
                      vtab   = var_table__new(),
@@ -4578,9 +4581,9 @@ t_from_form2(Form, State, D, L, C) ->
        {T0, C0}
   end.
 
-initial_typenames({type, _MTA}=Site) -> [Site];
-initial_typenames({spec, _MFA}) -> [];
-initial_typenames({record, _MRA}) -> [].
+initial_typenames({type, MTA, _File}) -> [{type, MTA}];
+initial_typenames({spec, _MFA, _File}) -> [];
+initial_typenames({record, _MRA, _File}) -> [].
 
 from_form_loop(Form, State, D, Limit, C, T0) ->
   {T1, L1, C1} = from_form(Form, State, D, Limit, C),
@@ -4605,7 +4608,7 @@ from_form_loop(Form, State, D, Limit, C, T0) ->
 %% If there is something wrong with parse_form()
 %% throw({error, io_lib:chars()} is called;
 %% for unknown remote types
-%% self() ! {self(), ext_types, {RemMod, Name, ArgsLen}}
+%% self() ! {self(), ext_types, {{RemMod, Name, ArgsLen}, Location}}
 %% is called, unless 'replace_by_none' is given.
 %%
 %% It is assumed that site_module(S) can be found in MR.
@@ -4624,9 +4627,9 @@ from_form({ann_type, _Anno, [_Var, Type]}, S, D, L, C) ->
   from_form(Type, S, D, L, C);
 from_form({paren_type, _Anno, [Type]}, S, D, L, C) ->
   from_form(Type, S, D, L, C);
-from_form({remote_type, _Anno, [{atom, _, Module}, {atom, _, Type}, Args]},
+from_form({remote_type, Anno, [{atom, _, Module}, {atom, _, Type}, Args]},
 	    S, D, L, C) ->
-  remote_from_form(Module, Type, Args, S, D, L, C);
+  remote_from_form(Anno, Module, Type, Args, S, D, L, C);
 from_form({atom, _Anno, Atom}, _S, _D, L, C) ->
   {t_atom(Atom), L, C};
 from_form({integer, _Anno, Int}, _S, _D, L, C) ->
@@ -4849,7 +4852,9 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, Site,
         error ->
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = maps:from_list(List),
-          S2 = S1#from_form{site = TypeName, vtab = TmpV},
+          {SiteTag, MFA} = TypeName,
+          Site1 = {SiteTag, MFA, site_file(Site)},
+          S2 = S1#from_form{site = Site1, vtab = TmpV},
           Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
           {NewType, L3, C3} =
             case Tag of
@@ -4875,7 +4880,7 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, Site,
       throw({error, Msg})
   end.
 
-remote_from_form(RemMod, Name, Args, S, D, L, C) ->
+remote_from_form(Anno, RemMod, Name, Args, S, D, L, C) ->
   #from_form{site = Site, xtypes = ET, mrecs = MR, tnames = TypeNames} = S,
   if
     ET =:= replace_by_none ->
@@ -4885,7 +4890,7 @@ remote_from_form(RemMod, Name, Args, S, D, L, C) ->
       MFA = {RemMod, Name, ArgsLen},
       case lookup_module_types(RemMod, MR, C) of
         error ->
-          self() ! {self(), ext_types, MFA},
+          self() ! {self(), ext_types, ext_types_message(MFA, Anno, Site)},
           {t_any(), L, C};
         {RemDict, C1} ->
           case sets:is_element(MFA, ET) of
@@ -4899,11 +4904,14 @@ remote_from_form(RemMod, Name, Args, S, D, L, C) ->
                   {t_any(), L, C1}
               end;
             false ->
-              self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
+              self() ! {self(), ext_types, ext_types_message(MFA, Anno, Site)},
               {t_any(), L, C1}
           end
       end
   end.
+
+ext_types_message(MFA, Anno, Site) ->
+  {MFA, {site_file(Site), erl_anno:location(Anno)}}.
 
 remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
                   Site, S, D, L, C) ->
@@ -4922,7 +4930,9 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
         error ->
           List = lists:zip(ArgNames, ArgTypes),
           TmpVarTab = maps:from_list(List),
-          S2 = S1#from_form{site = RemType, vtab = TmpVarTab},
+          {SiteTag, MFA} = RemType,
+          Site1 = {SiteTag, MFA, site_file(Site)},
+          S2 = S1#from_form{site = Site1, vtab = TmpVarTab},
           Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
           {NewType, L3, C3} =
             case Tag of
@@ -4983,7 +4993,7 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
           {t_any(), L0, C1};
         {ok, DeclFields} ->
           NewTypeNames = [RecordType|TypeNames],
-          Site1 = {record, {M, Name, length(DeclFields)}},
+          Site1 = {record, {M, Name, length(DeclFields)}, site_file(Site)},
           S1 = S#from_form{site = Site1, tnames = NewTypeNames},
           Fun = fun(D, L) ->
                     {GetModRec, L1, C2} =
@@ -5212,7 +5222,7 @@ check_fields(RecName, [{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
              DeclFields, S, C) ->
   #from_form{site = Site0, xtypes = ET, mrecs = MR, vtab = V} = S,
   M = site_module(Site0),
-  Site = {record, {M, RecName, length(DeclFields)}},
+  Site = {record, {M, RecName, length(DeclFields)}, site_file(Site0)},
   {Type, C1} = t_from_form(Abstr, ET, Site, MR, V, C),
   {Name, _, DeclType} = lists:keyfind(Name, 1, DeclFields),
   TypeNoVars = subst_all_vars_to_any(Type),
@@ -5229,8 +5239,11 @@ list_check_record_fields([H|Tail], S, C) ->
   C1 = check_record_fields(H, S, C),
   list_check_record_fields(Tail, S, C1).
 
-site_module({_, {Module, _, _}}) ->
+site_module({_, {Module, _, _}, _}) ->
   Module.
+
+site_file({_, _, File}) ->
+  File.
 
 -spec cache__new() -> cache().
 
@@ -5374,7 +5387,7 @@ t_form_to_string({type, _Anno, union, Args}) ->
 t_form_to_string({type, _Anno, Name, []} = T) ->
    try
      M = mod,
-     Site = {type, {M,Name,0}},
+     Site = {type, {M,Name,0}, ""},
      V = var_table__new(),
      C = cache__new(),
      State = #from_form{site   = Site,
@@ -5715,11 +5728,6 @@ handle_base(Unit, Pos) when Pos >= 0 ->
   Pos rem Unit;
 handle_base(Unit, Neg) ->
   (Unit+(Neg rem Unit)) rem Unit.
-
-family(L) ->
-  R = sofs:relation(L),
-  F = sofs:relation_to_family(R),
-  sofs:to_external(F).
 
 %%=============================================================================
 %%

@@ -33,8 +33,12 @@
          code_server     = none           :: 'none'
                                            | dialyzer_codeserver:codeserver(),
 	 erlang_mode     = false          :: boolean(),
-	 external_calls  = []             :: [mfa()],
-         external_types  = []             :: [mfa()],
+	 external_calls  = []             :: [{mfa(),
+                                              {file:filename(),
+                                               erl_anno:location()}}],
+         external_types  = []             :: [{mfa(),
+                                               {file:filename(),
+                                                erl_anno:location()}}],
 	 legal_warnings  = ordsets:new()  :: [dial_warn_tag()],
 	 mod_deps        = dict:new()     :: dialyzer_callgraph:mod_deps(),
 	 output          = standard_io	  :: io:device(),
@@ -631,17 +635,16 @@ return_value(State = #cl_state{code_server = CodeServer,
   end.
 
 unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
-  Unknown = case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
-              true ->
-                unknown_functions(State) ++
-                  unknown_types(State);
-              false -> []
-            end,
-  WarningInfo = {_Filename = "", _Location = 0, _MorMFA = ''},
-  [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown].
+  case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+    true ->
+      lists:sort(unknown_functions(State)) ++
+        lists:sort(unknown_types(State));
+    false -> []
+  end.
 
 unknown_functions(#cl_state{external_calls = Calls}) ->
-  [{unknown_function, MFA} || MFA <- Calls].
+  [{?WARN_UNKNOWN, {File, Location, ''},{unknown_function, MFA}} ||
+    {MFA, {File, Location}} <- Calls].
 
 set_warning_id(Warnings) ->
   lists:map(fun({Tag, {File, Location, _MorMFA}, Msg}) ->
@@ -661,24 +664,27 @@ print_ext_calls(#cl_state{output = Output,
 	true -> io:nl(Output); %% Need to do a newline first
 	false -> ok
       end,
+      Calls1 = limit_unknown(Calls),
       case Format of
 	formatted ->
 	  io:put_chars(Output, "Unknown functions:\n"),
-	  do_print_ext_calls(Output, Calls, "  ");
+	  do_print_ext_calls(Output, Calls1, "  ");
 	raw ->
 	  io:put_chars(Output, "%% Unknown functions:\n"),
-	  do_print_ext_calls(Output, Calls, "%%  ")
+	  do_print_ext_calls(Output, Calls1, "%%  ")
       end
   end.
 
-do_print_ext_calls(Output, [{M,F,A}|T], Before) ->
-  io:format(Output, "~s~tp:~tp/~p\n", [Before,M,F,A]),
+do_print_ext_calls(Output, [{{M,F,A},{File,Location}}|T], Before) ->
+  io:format(Output, "~s~tp:~tp/~p (~ts)\n",
+            [Before,M,F,A,file_pos(File, Location)]),
   do_print_ext_calls(Output, T, Before);
 do_print_ext_calls(_, [], _) ->
   ok.
 
 unknown_types(#cl_state{external_types = Types}) ->
-  [{unknown_type, MFA} || MFA <- Types].
+  [{?WARN_UNKNOWN, {File, Location, ''},{unknown_type, MFA}} ||
+    {MFA, {File, Location}} <- Types].
 
 print_ext_types(#cl_state{report_mode = quiet}) ->
   ok;
@@ -694,21 +700,45 @@ print_ext_types(#cl_state{output = Output,
         true -> io:nl(Output); %% Need to do a newline first
         false -> ok
       end,
+      Types1 = limit_unknown(Types),
       case Format of
         formatted ->
           io:put_chars(Output, "Unknown types:\n"),
-          do_print_ext_types(Output, Types, "  ");
+          do_print_ext_types(Output, Types1, "  ");
         raw ->
           io:put_chars(Output, "%% Unknown types:\n"),
-          do_print_ext_types(Output, Types, "%%  ")
+          do_print_ext_types(Output, Types1, "%%  ")
       end
   end.
 
-do_print_ext_types(Output, [{M,F,A}|T], Before) ->
-  io:format(Output, "~s~tp:~tp/~p\n", [Before,M,F,A]),
+do_print_ext_types(Output, [{{M,F,A},{File,Location}}|T], Before) ->
+  io:format(Output, "~s~tp:~tp/~p (~ts)\n",
+            [Before,M,F,A,file_pos(File, Location)]),
   do_print_ext_types(Output, T, Before);
 do_print_ext_types(_, [], _) ->
   ok.
+
+file_pos(File, 0) ->
+  io_lib:format("~ts", [File]);
+file_pos(File, Pos) ->
+  io_lib:format("~ts:~s", [File, pos(Pos)]).
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
+
+%%
+%% Keep one warning per MFA and File. Often too many warnings otherwise.
+%%
+limit_unknown(Unknowns) ->
+  L = [{{MFA, File}, Line} || {MFA, {File, Line}} <- Unknowns],
+  [{MFA, {File, Line}} || {{MFA, File}, [Line|_]} <-
+                            dialyzer_utils:family(L)].
+%% Keep one warning per MFA. This is how it used to be before Erlang/OTP 24.
+%% limit_unknown(Unknowns) ->
+%%   F = dialyzer_utils:family(Unknowns),
+%%   [{MFA, {File, Line}} || {MFA, [{File, Line}|_]} <- F].
 
 print_warnings(#cl_state{stored_warnings = []}) ->
   ok;
