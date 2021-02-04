@@ -1566,6 +1566,7 @@ typedef struct {
     ErtsLinkData ld;
     struct erl_off_heap_header *ohhp;
     ErtsMonLnkDist *dist;
+    Uint64 unlinking;
     Eterm heap[1]; /* heap start... */
 } ErtsELink;
 

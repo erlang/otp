@@ -30,6 +30,7 @@
  *              - Persistent monitor message
  *              - Link
  *              - Unlink
+ *              - Unlink Ack
  *              - Group leader
  *              - Is process alive
  *              - Process info request
@@ -301,13 +302,35 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
 
 /**
  *
- * @brief Create an unlink op signal structure
+ * @brief Create a new unlink identifier
  *
- * The structure will contain a newly created unlink id
- * to be used in the operation.
+ * The newly created unlink identifier is to be used in an
+ * unlink operation.
  *
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
+ *
+ * @return                      A new 64-bit unlink identifier
+ *                              unique in context of the
+ *                              calling process. The identifier
+ *                              may be any value but zero.
+ */
+ERTS_GLB_INLINE Uint64 erts_proc_sig_new_unlink_id(Process *c_p);
+
+/**
+ *
+ * @brief Create an unlink op signal structure
+ *
+ * The structure will contain a newly created unlink
+ * identifier to be used in the operation.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process
+ *                              ('from' is a process
+ *                              identifier), or NULL if not
+ *                              called in the context of an
+ *                              executing process ('from' is
+ *                              a port identifier).
  *
  * @param[in]     from          Id (as an erlang term) of
  *                              entity sending the unlink
@@ -405,11 +428,10 @@ erts_proc_sig_send_dist_link_exit(struct dist_entry_ *dep,
 
 /**
  *
- * @brief Send an unlink signal to a process.
+ * @brief Send an unlink signal to a local process.
  *
  * This function is used instead of erts_proc_sig_send_unlink()
- * when the signal arrives via the distribution and
- * therefore no link structure is available.
+ * when the signal arrives via the distribution.
  *
  * @param[in]     dep           Distribution entry of channel
  *                              that the signal arrived on.
@@ -418,10 +440,37 @@ erts_proc_sig_send_dist_link_exit(struct dist_entry_ *dep,
  *
  * @param[in]     to            Identifier of receiver.
  *
+ * @param[in]     id            Identifier of unlink operation.
  */
 void
-erts_proc_sig_send_dist_unlink(struct dist_entry_ *dep,
-                               Eterm from, Eterm to);
+erts_proc_sig_send_dist_unlink(DistEntry *dep, Uint32 conn_id,
+                               Eterm from, Eterm to, Uint64 id);
+
+/**
+ *
+ * @brief Send an unlink acknowledgment signal to a local process.
+ *
+ * This function is used instead of erts_proc_sig_send_unlink_ack()
+ * when the signal arrives via the distribution.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process or
+ *                              NULL if not called in the context
+ *                              of an executing process.
+ *
+ * @param[in]     dep           Distribution entry of channel
+ *                              that the signal arrived on.
+ *
+ * @param[in]     from          Identifier of sender.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     id            Identifier of unlink operation.
+ */
+void
+erts_proc_sig_send_dist_unlink_ack(Process *c_p, DistEntry *dep,
+                                   Uint32 conn_id, Eterm from, Eterm to,
+                                   Uint64 id);
 
 /**
  *
@@ -1130,6 +1179,18 @@ void erts_proc_sig_fetch__(Process *proc);
 Sint erts_proc_sig_fetch_msgq_len_offs__(Process *proc);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Uint64
+erts_proc_sig_new_unlink_id(Process *c_p)
+{
+    Uint64 id;
+    ASSERT(c_p);
+
+    id = (Uint64) c_p->uniq++;
+    if (id == 0)
+        id = (Uint64) c_p->uniq++;
+    return id;
+}
 
 ERTS_GLB_INLINE Sint
 erts_proc_sig_fetch(Process *proc)

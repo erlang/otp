@@ -117,6 +117,8 @@ dist_links(Config) when is_list(Config) ->
     TP4 = spawn(?MODULE, test_proc, []),
     TP5 = spawn(?MODULE, test_proc, []),
     TP6 = spawn(Node, ?MODULE, test_proc, []),
+    io:format("TP4=~p~nTP5=~p~nTP6=~p~n", [TP4, TP5, TP6]),
+
     true = tp_call(TP6, fun() -> link(TP4) end),
     check_link(TP4, TP6),
     true = tp_call(TP5,

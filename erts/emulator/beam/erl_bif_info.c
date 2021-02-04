@@ -391,8 +391,9 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
     ERTS_DECL_AM(unlinking);
 
     if (lnk->type == ERTS_LNK_TYPE_DIST_PROC) {
-        addr = (UWord) erts_link_to_elink(lnk);
-        state = AM_linked;
+        ErtsELink *elnk = erts_link_to_elink(lnk);
+        state = elnk->unlinking ? AM_unlinking : AM_linked;
+        addr = (UWord) elnk;
     }
     else {
         ErtsILink *ilnk = (ErtsILink *) lnk;
@@ -545,6 +546,11 @@ static int collect_one_link(ErtsLink *lnk, void *vmicp, Sint reds)
     MonitorInfoCollection *micp = vmicp;
     if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
         if (((ErtsILink *) lnk)->unlinking)
+            return 1;
+    }
+    else {
+        ErtsELink *elnk = erts_link_to_elink(lnk);
+        if (elnk->unlinking)
             return 1;
     }
     EXTEND_MONITOR_INFOS(micp);

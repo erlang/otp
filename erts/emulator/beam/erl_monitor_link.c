@@ -1375,6 +1375,7 @@ erts_link_external_create(Uint16 type, Eterm this, Eterm other)
 
     elnk->ohhp = oh.first;
     elnk->dist = NULL;
+    elnk->unlinking = 0;
 
     erts_atomic32_init_nob(&ldp->refc, 2);
 

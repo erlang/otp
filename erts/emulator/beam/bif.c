@@ -185,10 +185,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     }
 
     if (is_external_pid(BIF_ARG_1)) {
-        ErtsELink *elnk;
-        int created;
+        ErtsELink *elnk, *relnk, *pelnk;
+        int created, replace;
         DistEntry *dep;
-        ErtsLink *lnk;
+        ErtsLink *lnk, *rlnk;
         int code;
         ErtsDSigSendContext ctx;
 
@@ -202,10 +202,30 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
                                                     BIF_P->common.id,
                                                     BIF_ARG_1);
 
-        if (!created)
-            BIF_RET(am_true); /* Already present... */
-
         elnk = erts_link_to_elink(lnk);
+
+        if (created) {
+            pelnk = NULL;
+            relnk = NULL;
+            rlnk = NULL;
+        }
+        else {
+            if (!elnk->unlinking)
+                BIF_RET(am_true); /* Already present... */
+            /*
+             * We need to replace the link if the connection has changed.
+             * Prepare a link...
+             */
+            pelnk = (ErtsELink *) erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                                            BIF_P->common.id,
+                                                            BIF_ARG_1);
+            ASSERT(eq(pelnk->ld.proc.other.item, BIF_ARG_1));
+            ASSERT(pelnk->ld.dist.other.item == BIF_P->common.id);
+            /* Release pelnk if not used as replacement... */
+            relnk = pelnk;
+            rlnk = &pelnk->ld.proc;
+        }
+        replace = 0;
 
         ASSERT(eq(elnk->ld.proc.other.item, BIF_ARG_1));
         ASSERT(elnk->ld.dist.other.item == BIF_P->common.id);
@@ -216,31 +236,75 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         switch (code) {
         case ERTS_DSIG_PREP_NOT_ALIVE:
         case ERTS_DSIG_PREP_NOT_CONNECTED:
-            erts_link_set_dead_dist(&elnk->ld.dist, dep->sysname);
+            if (created || elnk->unlinking) {
+                if (elnk->unlinking) {
+                    /*
+                     * Currently unlinking an old link from an old connection; replace
+                     * old link with the prepared one...
+                     */
+                    relnk = NULL;
+                    rlnk = lnk;
+                    elnk = pelnk;
+                    replace = !0;
+                }
+                erts_link_set_dead_dist(&elnk->ld.dist, dep->sysname);
+            }
             erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &elnk->ld.dist,
                                          am_noconnection, NIL);
-            BIF_RET(am_true);
+            break;
 
         case ERTS_DSIG_PREP_PENDING:
         case ERTS_DSIG_PREP_CONNECTED: {
             /*
-             * We have (pending) connection.
+             * We have a connection (or a pending connection).
              * Setup link and enqueue link signal.
              */
-            int inserted = erts_link_dist_insert(&elnk->ld.dist, dep->mld);
-            ASSERT(inserted); (void)inserted;
+            if (created
+                || (elnk->unlinking
+                    && elnk->dist->connection_id != ctx.connection_id)) {
+                int inserted;
+                if (!created) {
+                    /*
+                     * Currently unlinking an old link from an old connection; replace
+                     * old link with the prepared one...
+                     */
+                    rlnk = lnk;
+                    if (erts_link_dist_delete(&elnk->ld.dist))
+                        relnk = elnk;
+                    else
+                        relnk = NULL;
+                    elnk = pelnk;
+                    replace = !0;
+                }
+                inserted = erts_link_dist_insert(&elnk->ld.dist, dep->mld);
+                ASSERT(inserted); (void)inserted;
+            }
+
             erts_de_runlock(dep);
 
             code = erts_dsig_send_link(&ctx, BIF_P->common.id, BIF_ARG_1);
             if (code == ERTS_DSIG_SEND_YIELD)
                 ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
             ASSERT(code == ERTS_DSIG_SEND_OK);
-            BIF_RET(am_true);
             break;
         }
         default:
             ERTS_ASSERT(! "Invalid dsig prepare result");
         }
+
+        if (replace) {
+            ASSERT(pelnk);
+            erts_link_tree_replace(&ERTS_P_LINKS(BIF_P), rlnk, &pelnk->ld.proc);
+        }
+
+        if (relnk)
+            erts_link_release_both(&relnk->ld);
+        else if (rlnk)
+            erts_link_release(rlnk);
+
+        elnk->unlinking = 0;
+
+        BIF_RET(am_true);
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -977,9 +1041,10 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
     }
 
     if (is_external_pid(BIF_ARG_1)) {
-        ErtsLink *lnk, *dlnk;
+        ErtsLink *lnk;
         ErtsELink *elnk;
         DistEntry *dep;
+        Uint64 unlink_id;
 	int code;
 	ErtsDSigSendContext ctx;
 
@@ -991,13 +1056,13 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
         if (!lnk)
             BIF_RET(am_true);
 
-        erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-        dlnk = erts_link_to_other(lnk, &elnk);
+        elnk = erts_link_to_elink(lnk);
 
-        if (erts_link_dist_delete(dlnk))
-            erts_link_release_both(&elnk->ld);
-        else
-            erts_link_release(lnk);
+        if (elnk->unlinking)
+            BIF_RET(am_true);
+
+        unlink_id = erts_proc_sig_new_unlink_id(BIF_P);
+        elnk->unlinking = unlink_id;
 
 	code = erts_dsig_prepare(&ctx, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
 				 ERTS_DSP_NO_LOCK, 0, 1, 0);
@@ -1007,9 +1072,16 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    BIF_RET(am_true);
 	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
-	    code = erts_dsig_send_unlink(&ctx, BIF_P->common.id, BIF_ARG_1);
-	    if (code == ERTS_DSIG_SEND_YIELD)
-		ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+            /*
+             * Do not send unlink signal on another connection than
+             * the one which the link was set up on.
+             */
+            if (elnk->dist->connection_id == ctx.connection_id) {
+                code = erts_dsig_send_unlink(&ctx, BIF_P->common.id, BIF_ARG_1,
+                                             unlink_id);
+                if (code == ERTS_DSIG_SEND_YIELD)
+                    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+            }
             break;
 	default:
 	    ASSERT(! "Invalid dsig prepare result");
