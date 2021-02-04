@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -376,9 +376,18 @@ t_shutdown_async(Config) when is_list(Config) ->
     ?TC_TRY(t_shutdown_async, fun() -> do_shutdown_async(Config) end).
 
 do_shutdown_async(Config) ->
-    {OS, _} = os:type(),
     ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{sndbuf, 4096}]),
+    if
+        is_port(L) ->
+            do_shutdown_async2(Config, L);
+        true ->
+            (catch gen_tcp:close(L)),
+            exit({skip, "inet-only testcase"})
+    end.
+
+do_shutdown_async2(Config, L) ->
+    {OS, _} = os:type(),
     {ok, Port} = inet:port(L),
     ?P("connect"),
     {ok, Client} = gen_tcp:connect(localhost, Port,

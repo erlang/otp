@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2020</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -386,8 +386,22 @@ do_recv(Sock, Bs) ->
       <desc>
         <p>Sends a packet on a socket.</p>
         <p>There is no <c>send</c> call with a time-out option, use socket
-          option <c>send_timeout</c> if time-outs are desired. See section
-          <seeerl marker="#examples">Examples</seeerl>.</p>
+        option <c>send_timeout</c> if time-outs are desired. See section
+        <seeerl marker="#examples">Examples</seeerl>.</p>
+        <note>
+          <p>Async send.</p>
+          <p>If the user tries to send more data than there is room for
+          in the OS send buffers, the 'rest data' is put into (inet driver)
+          internal buffers and sceduled (select) for later (async) sending.
+          The function then returns ok (<em>not</em> informing the caller that 
+          not all of the data was actually sent).
+          Any issue while sending the 'rest data' will be ignored. </p>
+          <p>When using <c>inet_backend = socket</c>, the
+          behaviour is different. There is <em>no</em>
+          buffering done (like the inet-driver does), instead
+          the caller will "hang" until all of the data has been sent or
+          send timeout expires. </p>
+        </note>
       </desc>
     </func>
 
@@ -410,6 +424,20 @@ do_recv(Sock, Bs) ->
           <seemfa marker="#send/2"><c>send/2</c></seemfa>.</p>
         <p>Option <c>{exit_on_close, false}</c> is useful if the peer has done
           a shutdown on the write side.</p>
+        <note>
+          <p>Async shutdown write (write or read_write).</p>
+          <p>If the shutdown attempt is made when there is an ongoing
+          async send, the shutdown is postponed until the (async) send is
+          complete. The function then returns <c>ok</c> and the caller is
+          <em>not</em> informed (that the shutdown has <em>not yet</em> been
+          performed). </p>
+          <p>When using <c>inet_backend = socket</c>, the
+          behaviour is different. A shutdown with
+          <c>How == write | read_write</c>, the operation will
+          take <em>immediate</em> effect, interrupting any ongoing
+          write operations (unlike the inet-driver, which basically
+          saves the operation for later). </p>
+        </note>
       </desc>
     </func>
   </funcs>
