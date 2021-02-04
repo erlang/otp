@@ -1549,23 +1549,25 @@ typedef struct ErtsMonLnkNode__ ErtsLink;
 
 typedef int (*ErtsLinkFunc)(ErtsLink *, void *, Sint);
 
+/* Internal Link */
 typedef struct {
     ErtsLink link;
     Uint64 unlinking;
 } ErtsILink;
 
 typedef struct {
-    ErtsLink a;
-    ErtsLink b;
+    ErtsLink proc;
+    ErtsLink dist;
     erts_atomic32_t refc;
 } ErtsLinkData;
 
+/* External Link */
 typedef struct {
     ErtsLinkData ld;
     struct erl_off_heap_header *ohhp;
     ErtsMonLnkDist *dist;
     Eterm heap[1]; /* heap start... */
-} ErtsLinkDataExtended;
+} ErtsELink;
 
 /*
  * --- Link tree operations ---
@@ -2097,17 +2099,28 @@ int erts_link_list_foreach_delete_yielding(ErtsLink **list,
  *
  * @param[in]     type          ERTS_MON_TYPE_DIST_PROC
  *
- * @param[in]     a             The key of entity a. Link structure a will
- *                              have field other.item set to 'b'.
+ * @param[in]     this          The process identifier of the local
+ *                              process. The link structure in the
+ *                              'dist' field a will have its
+ *                              'other.item' field set to 'this'.
+ *                              The 'dist' link structure is to be
+ *                              inserted on the distribution entry.
  *
- * @param[in]     b             The key of entity b. Link structure b will
- *                              have field other.item set to 'a'.
+ * @param[in]     other         The process identifier of the remote
+ *                              process. The link structure in the
+ *                              'proc' field a will have its
+ *                              'other.item' field set to 'other'.
+ *                              The 'proc' link structure is to be
+ *                              inserted on the local process.
  *
  * @returns                     A pointer to the link data structure
- *                              containing the link structures.
+ *                              containing the link structures. The
+ *                              link data structure is in turn part
+ *                              of the external link structure
+ *                              (ErtsELink).
  *
  */
-ErtsLinkData *erts_link_external_create(Uint16 type, Eterm a, Eterm b);
+ErtsLinkData *erts_link_external_create(Uint16 type, Eterm this, Eterm other);
 
 /**
  *
@@ -2123,28 +2136,29 @@ ErtsLink *erts_link_internal_create(Uint16 type, Eterm id);
 
 /**
  *
- * @brief Get pointer to link data structure
+ * @brief Get pointer to external link data structure
  *
  * @param[in]    lnk            Pointer to link
  *
- * @returns                     Pointer to link data structure
+ * @returns                     Pointer to external link structure
  *
  */
-ERTS_GLB_INLINE ErtsLinkData *erts_link_to_data(ErtsLink *lnk);
+ERTS_GLB_INLINE ErtsELink *erts_link_to_elink(ErtsLink *lnk);
 
 /**
  *
  * @brief Get pointer to the other link structure part of the link
  *
- * @param[in]    lnk            Pointer to link
+ * @param[in]    lnk            Pointer to link structure
  *
- * @param[out]   ldpp           Pointer to pointer to link data structure,
- *                              if a non-NULL value is passed in the call
+ * @param[out]   elnkpp         Pointer to pointer to external link
+ *                              data structure, if a non-NULL value
+ *                              is passed in the call
  *
- * @returns                     Pointer to other link
+ * @returns                     Pointer to other link structure
  *
  */
-ERTS_GLB_INLINE ErtsLink *erts_link_to_other(ErtsLink *lnk, ErtsLinkData **ldpp);
+ERTS_GLB_INLINE ErtsLink *erts_link_to_other(ErtsLink *lnk, ErtsELink **elnkpp);
 
 /**
  *
@@ -2286,39 +2300,43 @@ erts_link_set_dead_dist(ErtsLink *lnk, Eterm nodename);
 Uint erts_link_size(ErtsLink *lnk);
 
 /* internal function... */
-void erts_link_destroy__(ErtsLinkData *ldp);
+void erts_link_destroy_elink__(ErtsELink *elnk);
 
 /* implementations for globally inlined link functions... */
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 #ifdef ERTS_ML_DEBUG
-extern size_t erts_link_a_offset;
-extern size_t erts_link_b_offset;
+extern size_t erts_link_proc_offset;
+extern size_t erts_link_dist_offset;
 extern size_t erts_link_key_offset;
 #endif
 
-ERTS_GLB_INLINE ErtsLinkData *
-erts_link_to_data(ErtsLink *lnk)
+ERTS_GLB_INLINE ErtsELink *
+erts_link_to_elink(ErtsLink *lnk)
 {
-    ErtsLinkData *ldp = erts_ml_node_to_main_struct__((ErtsMonLnkNode *) lnk);
+    ErtsELink *elnk;
+
+    ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
+
+    elnk = erts_ml_node_to_main_struct__((ErtsMonLnkNode *) lnk);
 
 #ifdef ERTS_ML_DEBUG
-    ERTS_ML_ASSERT(erts_link_a_offset == (size_t) ldp->a.offset);
-    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) ldp->a.key_offset);
-    ERTS_ML_ASSERT(erts_link_b_offset == (size_t) ldp->b.offset);
-    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) ldp->b.key_offset);
+    ERTS_ML_ASSERT(erts_link_proc_offset == (size_t) elnk->ld.proc.offset);
+    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) elnk->ld.proc.key_offset);
+    ERTS_ML_ASSERT(erts_link_dist_offset == (size_t) elnk->ld.dist.offset);
+    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) elnk->ld.dist.key_offset);
 #endif
 
-    return ldp;
+    return elnk;
 }
 
 ERTS_GLB_INLINE ErtsLink *
-erts_link_to_other(ErtsLink *lnk, ErtsLinkData **ldpp)
+erts_link_to_other(ErtsLink *lnk, ErtsELink **elnkpp)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    if (ldpp)
-        *ldpp = ldp;
-    return lnk == &ldp->a ? &ldp->b : &ldp->a;
+    ErtsELink *elnk = erts_link_to_elink(lnk);
+    if (elnkpp)
+        *elnkpp = elnk;
+    return lnk == &elnk->ld.proc ? &elnk->ld.dist : &elnk->ld.proc;
 }
 
 ERTS_GLB_INLINE int
@@ -2366,24 +2384,24 @@ erts_link_release(ErtsLink *lnk)
     if (!(lnk->flags & ERTS_ML_FLG_EXTENDED))
         erts_link_internal_release(lnk);
     else {
-        ErtsLinkData *ldp = erts_link_to_data(lnk);
+        ErtsELink *elnk = erts_link_to_elink(lnk);
         ERTS_ML_ASSERT(!(lnk->flags & ERTS_ML_FLG_IN_TABLE));
-        ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) > 0);
-        if (erts_atomic32_dec_read_nob(&ldp->refc) == 0)
-            erts_link_destroy__(ldp);
+        ERTS_ML_ASSERT(erts_atomic32_read_nob(&elnk->ld.refc) > 0);
+        if (erts_atomic32_dec_read_nob(&elnk->ld.refc) == 0)
+            erts_link_destroy_elink__(elnk);
     }
 }
 
 ERTS_GLB_INLINE void
 erts_link_release_both(ErtsLinkData *ldp)
 {
-    ERTS_ML_ASSERT(!(ldp->a.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(!(ldp->b.flags & ERTS_ML_FLG_IN_TABLE));
+    ERTS_ML_ASSERT(!(ldp->proc.flags & ERTS_ML_FLG_IN_TABLE));
+    ERTS_ML_ASSERT(!(ldp->dist.flags & ERTS_ML_FLG_IN_TABLE));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) >= 2);
-    ERTS_ML_ASSERT(ldp->a.flags & ERTS_ML_FLG_EXTENDED);
-    ERTS_ML_ASSERT(ldp->b.flags & ERTS_ML_FLG_EXTENDED);
+    ERTS_ML_ASSERT(ldp->proc.flags & ERTS_ML_FLG_EXTENDED);
+    ERTS_ML_ASSERT(ldp->dist.flags & ERTS_ML_FLG_EXTENDED);
     if (erts_atomic32_add_read_nob(&ldp->refc, (erts_aint32_t) -2) == 0)
-        erts_link_destroy__(ldp);
+        erts_link_destroy_elink__((ErtsELink *) ldp);
 }
 
 ERTS_GLB_INLINE ErtsLink *
@@ -2414,22 +2432,22 @@ erts_link_tree_key_delete(ErtsLink **root, ErtsLink *lnk)
 ERTS_GLB_INLINE int
 erts_link_dist_insert(ErtsLink *lnk, ErtsMonLnkDist *dist)
 {
-    ErtsLinkDataExtended *ldep;
+    ErtsELink *elnk;
     int insert;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
     ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
 
-    ldep = (ErtsLinkDataExtended *) erts_link_to_data(lnk);
+    elnk = erts_link_to_elink(lnk);
 
-    ERTS_ML_ASSERT(!ldep->dist);
+    ERTS_ML_ASSERT(!elnk->dist);
     ERTS_ML_ASSERT(dist);
 
     erts_mtx_lock(&dist->mtx);
 
     insert = dist->alive;
     if (insert) {
-        ldep->dist = dist;
+        elnk->dist = dist;
         erts_mon_link_dist_inc_refc(dist);
         erts_link_list_insert(&dist->links, lnk);
     }
@@ -2442,15 +2460,15 @@ erts_link_dist_insert(ErtsLink *lnk, ErtsMonLnkDist *dist)
 ERTS_GLB_INLINE int
 erts_link_dist_delete(ErtsLink *lnk)
 {
-    ErtsLinkDataExtended *ldep;
+    ErtsELink *elnk;
     ErtsMonLnkDist *dist;
     int delete;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
     ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
 
-    ldep = (ErtsLinkDataExtended *) erts_link_to_data(lnk);
-    dist = ldep->dist;
+    elnk = erts_link_to_elink(lnk);
+    dist = elnk->dist;
     if (!dist)
         return -1;
 

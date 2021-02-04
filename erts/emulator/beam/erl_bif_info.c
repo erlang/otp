@@ -363,7 +363,7 @@ static int calc_lnk_size(ErtsLink *lnk, void *vpsz, Sint reds)
     UWord addr;
 
     if (lnk->type == ERTS_LNK_TYPE_DIST_PROC)
-        addr = (UWord) erts_link_to_data(lnk);
+        addr = (UWord) erts_link_to_elink(lnk);
     else
         addr = (UWord) lnk;
 
@@ -391,7 +391,7 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
     ERTS_DECL_AM(unlinking);
 
     if (lnk->type == ERTS_LNK_TYPE_DIST_PROC) {
-        addr = (UWord) erts_link_to_data(lnk);
+        addr = (UWord) erts_link_to_elink(lnk);
         state = AM_linked;
     }
     else {

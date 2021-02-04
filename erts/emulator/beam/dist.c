@@ -2013,15 +2013,15 @@ int erts_net_message(Port *prt,
         }
         else if (is_internal_pid(to)) {
             ErtsLinkData *ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
-                                                          from, to);
-            ASSERT(ldp->a.other.item == to);
-            ASSERT(eq(ldp->b.other.item, from));
+                                                          to, from);
+            ASSERT(ldp->dist.other.item == to);
+            ASSERT(eq(ldp->proc.other.item, from));
 
-            code = erts_link_dist_insert(&ldp->a, ede.mld);
-            if (erts_proc_sig_send_link(NULL, to, &ldp->b)) {
+            code = erts_link_dist_insert(&ldp->dist, ede.mld);
+            if (erts_proc_sig_send_link(NULL, to, &ldp->proc)) {
                 if (!code) {
                     /* Race: connection already down => send link exit */
-                    erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+                    erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->dist,
                                                  am_noconnection, NIL);
                 }
                 break; /* Done */
@@ -2029,7 +2029,7 @@ int erts_net_message(Port *prt,
 
             /* Failed to send signal; cleanup and reply noproc... */
             if (code) {
-                code = erts_link_dist_delete(&ldp->a);
+                code = erts_link_dist_delete(&ldp->dist);
                 ASSERT(code);
             }
             erts_link_release_both(ldp);
@@ -2675,11 +2675,11 @@ int erts_net_message(Port *prt,
             if (flags & ERTS_DIST_SPAWN_FLAG_LINK) {
                 /* Successful spawn-link... */
                 ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
-                                                result, parent);
-                ASSERT(ldp->a.other.item == parent);
-                ASSERT(eq(ldp->b.other.item, result));
-                link_inserted = erts_link_dist_insert(&ldp->a, ede.mld);
-                lnk = &ldp->b;
+                                                parent, result);
+                ASSERT(ldp->dist.other.item == parent);
+                ASSERT(eq(ldp->proc.other.item, result));
+                link_inserted = erts_link_dist_insert(&ldp->dist, ede.mld);
+                lnk = &ldp->proc;
             }
         }
 
@@ -2702,7 +2702,7 @@ int erts_net_message(Port *prt,
 
             if (lnk) {
                 if (link_inserted) {
-                    code = erts_link_dist_delete(&ldp->a);
+                    code = erts_link_dist_delete(&ldp->dist);
                     ASSERT(code);
                 }
                 erts_link_release_both(ldp);
@@ -2719,7 +2719,7 @@ int erts_net_message(Port *prt,
             }
         }
         else if (lnk && !link_inserted) {
-            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->dist,
                                          am_noconnection, NIL);
         }
 
@@ -4369,6 +4369,7 @@ static int doit_print_link_info(ErtsLink *lnk, void *vptdp, Sint reds)
 {
     struct print_to_data *ptdp = vptdp;
     ErtsLink *lnk2 = erts_link_to_other(lnk, NULL);
+    ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
     erts_print(ptdp->to, ptdp->arg, "Remote link: %T %T\n",
 	       lnk2->other.item, lnk->other.item);
     return 1;

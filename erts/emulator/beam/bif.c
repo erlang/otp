@@ -185,7 +185,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     }
 
     if (is_external_pid(BIF_ARG_1)) {
-        ErtsLinkData *ldp;
+        ErtsELink *elnk;
         int created;
         DistEntry *dep;
         ErtsLink *lnk;
@@ -205,10 +205,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         if (!created)
             BIF_RET(am_true); /* Already present... */
 
-        ldp = erts_link_to_data(lnk);
+        elnk = erts_link_to_elink(lnk);
 
-        ASSERT(eq(ldp->a.other.item, BIF_ARG_1));
-        ASSERT(ldp->b.other.item == BIF_P->common.id);
+        ASSERT(eq(elnk->ld.proc.other.item, BIF_ARG_1));
+        ASSERT(elnk->ld.dist.other.item == BIF_P->common.id);
 
         code = erts_dsig_prepare(&ctx, dep, BIF_P,
                                  ERTS_PROC_LOCK_MAIN,
@@ -216,8 +216,8 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         switch (code) {
         case ERTS_DSIG_PREP_NOT_ALIVE:
         case ERTS_DSIG_PREP_NOT_CONNECTED:
-            erts_link_set_dead_dist(&ldp->b, dep->sysname);
-            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->b,
+            erts_link_set_dead_dist(&elnk->ld.dist, dep->sysname);
+            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &elnk->ld.dist,
                                          am_noconnection, NIL);
             BIF_RET(am_true);
 
@@ -227,7 +227,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
              * We have (pending) connection.
              * Setup link and enqueue link signal.
              */
-            int inserted = erts_link_dist_insert(&ldp->b, dep->mld);
+            int inserted = erts_link_dist_insert(&elnk->ld.dist, dep->mld);
             ASSERT(inserted); (void)inserted;
             erts_de_runlock(dep);
 
@@ -978,7 +978,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 
     if (is_external_pid(BIF_ARG_1)) {
         ErtsLink *lnk, *dlnk;
-        ErtsLinkData *ldp;
+        ErtsELink *elnk;
         DistEntry *dep;
 	int code;
 	ErtsDSigSendContext ctx;
@@ -992,10 +992,10 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
             BIF_RET(am_true);
 
         erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-        dlnk = erts_link_to_other(lnk, &ldp);
+        dlnk = erts_link_to_other(lnk, &elnk);
 
         if (erts_link_dist_delete(dlnk))
-            erts_link_release_both(ldp);
+            erts_link_release_both(&elnk->ld);
         else
             erts_link_release(lnk);
 
