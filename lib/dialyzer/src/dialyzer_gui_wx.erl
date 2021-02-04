@@ -492,7 +492,7 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
       update_editor(Log, LogMsg),
       gui_loop(State);
     {BackendPid, warnings, Warns} ->
-      SortedWarns = lists:keysort(2, Warns),  %% Sort on file/line
+      SortedWarns = lists:keysort(2, Warns),  %% Sort on file/location
       NewState = add_warnings(State, SortedWarns),
       gui_loop(NewState);
     {BackendPid, cserver, CServer, Plt} ->
@@ -1141,6 +1141,7 @@ add_warnings(#gui_state{warnings_box = WarnBox,
 			rawWarnings = RawWarns} = State, Warnings) ->
   NewRawWarns = RawWarns ++ Warnings,
   %% The indentation cannot be turned off.
+  %% The column numbers of locations are always displayed.
   WarnList = [string:trim(dialyzer:format_warning(W), trailing) ||
                W <- NewRawWarns],
   wxListBox:set(WarnBox, WarnList),

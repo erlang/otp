@@ -53,7 +53,10 @@ build(Opts) ->
                                      init_plts = [InitPlt]},
   try
     Opts1 = preprocess_opts(Opts),
-    NewOpts = build_options(Opts1, DefaultOpts1),
+    Env = env_default_opts(),
+    ErrLoc = proplists:get_value(error_location, Env, ?ERROR_LOCATION),
+    EnvOpts = [{error_location, ErrLoc}],
+    NewOpts = build_options(EnvOpts ++ Opts1, DefaultOpts1),
     postprocess_opts(NewOpts)
   catch
     throw:{dialyzer_options_error, Msg} -> {error, Msg}
@@ -196,6 +199,9 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     callgraph_file ->
       assert_filename(Value),
       build_options(Rest, Options#options{callgraph_file = Value});
+    error_location ->
+      assert_error_location(Value),
+      build_options(Rest, Options#options{error_location = Value});
     timing ->
       build_options(Rest, Options#options{timing = Value});
     solvers ->
@@ -278,6 +284,13 @@ is_plt_mode(plt_remove)   -> true;
 is_plt_mode(plt_check)    -> true;
 is_plt_mode(succ_typings) -> false.
 
+assert_error_location(column) ->
+  ok;
+assert_error_location(line) ->
+  ok;
+assert_error_location(Term) ->
+  bad_option("Illegal value for error_location", Term).
+
 assert_solvers([]) ->
   ok;
 assert_solvers([v1|Terms]) ->
@@ -341,3 +354,27 @@ build_warnings([Opt|Opts], Warnings) ->
   build_warnings(Opts, NewWarnings);
 build_warnings([], Warnings) ->
   Warnings.
+
+%%-----------------------------------------------------------------------
+
+%% Copied from compile.erl.
+env_default_opts() ->
+    Key = "ERL_COMPILER_OPTIONS",
+    case os:getenv(Key) of
+	false -> [];
+	Str when is_list(Str) ->
+	    case erl_scan:string(Str) of
+		{ok,Tokens,_} ->
+                    Dot = {dot, erl_anno:new(1)},
+		    case erl_parse:parse_term(Tokens ++ [Dot]) of
+			{ok,List} when is_list(List) -> List;
+			{ok,Term} -> [Term];
+			{error,_Reason} ->
+			    io:format("Ignoring bad term in ~s\n", [Key]),
+			    []
+		    end;
+		{error, {_,_,_Reason}, _} ->
+		    io:format("Ignoring bad term in ~s\n", [Key]),
+		    []
+	    end
+    end.

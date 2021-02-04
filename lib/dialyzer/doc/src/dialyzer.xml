@@ -83,13 +83,14 @@ dialyzer --help</code>
 
     <code type="none">
 dialyzer [--add_to_plt] [--apps applications] [--build_plt]
-         [--check_plt] [-Ddefine]* [-Dname] [--dump_callgraph file]
-         [files_or_dirs] [--fullpath] [--get_warnings] [--gui] [--help]
-         [-I include_dir]* [--no_check_plt] [--no_indentation]
-         [-o outfile] [--output_plt file] [-pa dir]*
-         [--plt plt] [--plt_info] [--plts plt*] [--quiet] [-r dirs]
-         [--raw] [--remove_from_plt] [--shell] [--src] [--statistics]
-         [--verbose] [--version] [-Wwarn]*</code>
+         [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
+         [--error_location flag] [files_or_dirs] [--fullpath]
+         [--get_warnings] [--gui] [--help] [-I include_dir]*
+         [--no_check_plt] [--no_indentation] [-o outfile]
+         [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
+         [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
+         [--shell] [--src] [--statistics] [--verbose] [--version]
+         [-Wwarn]*</code>
 
     <note>
       <p>* denotes that multiple occurrences of the option are possible.</p>
@@ -145,6 +146,14 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
           determined by the filename extension. Supported extensions are:
           <c>raw</c>, <c>dot</c>, and <c>ps</c>. If something else is used as
           filename extension, default format <c>.raw</c> is used.</p>
+      </item>
+      <tag><marker id="error_location"></marker><c>--error_location
+        column | line</c></tag>
+      <item>
+        <p>Use a pair <c>{Line, Column}</c> or an integer <c>Line</c>
+          to pinpoint the location of warnings. The default is to use
+          a pair <c>{Line, Column}</c>. When formatted, the line
+          and the column are separated by a colon.</p>
       </item>
       <tag><c>files_or_dirs</c> (for backward compatibility also
         as <c>-c files_or_dirs</c>)</tag>
@@ -416,6 +425,26 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
   </section>
 
   <section>
+    <title>Default Dialyzer Options</title>
+    <p>The (host operating system) environment variable
+      <c>ERL_COMPILER_OPTIONS</c> can be used to give default Dialyzer
+      options. Its value must be a valid Erlang term. If the value is a
+      list, it is used as is. If it is not a list, it is put
+      into a list.</p>
+
+    <p>The list is appended to any options given to
+    <seemfa marker="#run/1">run/1</seemfa> or on the command line.</p>
+
+    <p>The list can be retrieved with
+    <seemfa marker="compiler:compile#env_compiler_options/0">
+    compile:env_compiler_options/0</seemfa>.</p>
+
+    <p>Currently the only option used is the
+    <seeerl marker="#error_location"><c>error_location</c></seeerl> option.
+    </p>
+  </section>
+
+  <section>
     <marker id="suppression"></marker>
     <title>Requesting or Suppressing Warnings in Source Files</title>
     <p>Attribute <c>-dialyzer()</c> can be used for turning off
@@ -482,6 +511,15 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <desc></desc>
     </datatype>
     <datatype>
+      <name name="error_location"></name>
+      <desc>
+        <p>If the value of this option is <c>line</c>, an integer
+          <c>Line</c> is used as <c>Location</c> in messages.
+          If the value is <c>column</c>, a pair <c>{Line, Column}</c>
+          is used as <c>Location</c>. The default is <c>column</c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="file_location"></name>
     </datatype>
     <datatype>
@@ -514,7 +552,11 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
           <seemfa marker="#run/1"><c>run/1</c></seemfa>.</p>
 	<p>If <c>indent_opt</c> is set to <c>true</c> (default),
           line breaks are inserted in types, contracts, and Erlang
-	  code to improve readability.</p>
+          code to improve readability.</p>
+	<p>If <c>error_location</c> is set to <c>column</c> (default),
+          locations are formatted as <c>Line:Column</c> if the column
+          number is available, otherwise locations are formatted as
+          <c>Line</c> even if the column number is available.</p>
       </desc>
     </func>
 
