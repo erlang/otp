@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1612,16 +1612,17 @@ handle_snmp_error(#pdu{request_id = ReqId} = Pdu, Reason, State) ->
 
 handle_snmp_error(CrapError, Reason, _State) ->
     error_msg("received crap (snmp) error =>"
-	      "~n~p~n~p", [CrapError, Reason]),
+	      "~n   ~p"
+              "~n   ~p", [CrapError, Reason]),
     ok.
 
 handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 
-    ?vtrace("handle_snmp_error -> entry with~n"
-	    "   Domain:  ~p~n"
-	    "   Addr:    ~p~n"
-	    "   ReqId:   ~p~n"
-	    "   Reason:  ~p", [Domain, Addr, ReqId, Reason]),
+    ?vtrace("handle_snmp_error -> entry with"
+	    "~n   Domain:  ~p"
+	    "~n   Addr:    ~p"
+	    "~n   ReqId:   ~p"
+	    "~n   Reason:  ~p", [Domain, Addr, ReqId, Reason]),
 
     case snmpm_config:get_agent_user_id(Domain, Addr) of
 	{ok, UserId} ->
@@ -1629,24 +1630,24 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 		{ok, UserMod, UserData} ->
 		    handle_error(UserId, UserMod, Reason, ReqId, 
 				 UserData, State);
-		_Error ->
+		_Error1 ->
 		    case snmpm_config:user_info() of
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_error(DefUserId, DefMod, Reason, 
 					 ReqId, DefData, State);
-			_Error ->
+			_Error2 ->
 			    error_msg("failed retreiving the default user "
 				      "info handling snmp error "
 				      "<~p,~p>: ~n~w~n~w",
 				      [Domain, Addr, ReqId, Reason])
 		    end
 	    end;
-	_Error ->
+	_Error3 ->
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
 		    handle_error(DefUserId, DefMod, Reason, 
 				 ReqId, DefData, State);
-		_Error ->
+		_Error4 ->
 		    error_msg("failed retreiving the default user "
 			      "info handling snmp error "
 			      "<~p,~p>: ~n~w~n~w",
@@ -1679,10 +1680,10 @@ do_handle_error(Mod, ReqId, Reason, Data) ->
 handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu, 
 		Domain, Addr, State) ->
 
-    ?vtrace("handle_snmp_pdu(get-response) -> entry with~n"
-	    "   Domain:  ~p~n"
-	    "   Addr:    ~p~n"
-	    "   Pdu:     ~p", [Domain, Addr, Pdu]),
+    ?vtrace("handle_snmp_pdu(get-response) -> entry with"
+	    "~n   Domain:  ~p"
+	    "~n   Addr:    ~p"
+	    "~n   Pdu:     ~p", [Domain, Addr, Pdu]),
 
     case ets:lookup(snmpm_request_table, ReqId) of
 
@@ -1842,6 +1843,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 		    end
 	    end
     end;
+
 
 handle_snmp_pdu(CrapPdu, Domain, Addr, _State) ->
     error_msg("received crap (snmp) Pdu from ~w:~w =>"
