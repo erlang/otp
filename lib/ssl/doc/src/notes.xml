@@ -27,6 +27,45 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid that upgrade (from TCP to TLS) servers starts
+	    multiple session cache handlers for the same server. This
+	    applies to Erlang distribution over TLS servers.</p>
+          <p>
+	    Own Id: OTP-17139 Aux Id: ERL-1458, OTP-16239 </p>
+        </item>
+        <item>
+          <p>
+	    Legacy cipher suites defined before TLS-1.2 (but still
+	    supported) should be possible to use in TLS-1.2. They
+	    where accidentally excluded for available cipher suites
+	    for TLS-1.2 in OTP-23.2.2.</p>
+          <p>
+	    Own Id: OTP-17174 Aux Id: ERIERL-597 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enable Erlang distribution over TLS to run TLS-1.3,
+	    although TLS-1.2 will still be default.</p>
+          <p>
+	    Own Id: OTP-16239 Aux Id: ERL-1458, OTP-17139 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
