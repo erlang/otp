@@ -1322,6 +1322,9 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 	return 0;
     } else {
     badarg:
+        /* Ensure intialization. */
+	*posp = 0;
+	*endp = 0;
 	return 1;
     }
 }
@@ -1913,7 +1916,7 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
 {
     int runres;
-    Eterm result;
+    Eterm result = THE_NON_VALUE; /* Used in debug build. */
     Binary *ctx_bin = erts_magic_ref2bin(BIF_ARG_2);
     Binary *pat_bin = erts_magic_ref2bin(BIF_ARG_3);
     BinaryFindContext *ctx = NULL;
@@ -1921,10 +1924,10 @@ static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(ctx_bin) == bf_context_destructor);
     runres = do_binary_find(BIF_P, BIF_ARG_1, &ctx, pat_bin, ctx_bin, &result);
     if (runres == BF_OK) {
-	ASSERT(result != THE_NON_VALUE);
+	ASSERT(is_value(result));
 	BIF_RET(result);
     } else {
-	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
+	ASSERT(is_non_value(result) && ctx->trap_term != result && ctx->pat_term != result);
 	BIF_TRAP3(&binary_find_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 }

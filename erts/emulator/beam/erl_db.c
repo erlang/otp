@@ -1387,6 +1387,9 @@ do_update_counter(Process *p, DbTable* tb,
 	hend = hstart + halloc_size;
     }
     else {
+#ifdef DEBUG
+        ret = THE_NON_VALUE;
+#endif
 	hstart = htop = HAlloc(p, halloc_size);
     }
     hend = hstart + halloc_size;

@@ -431,9 +431,6 @@ double_to_integer(Process* p, double x)
 	xp[i] = d;        /* store digit */
 	x -= d;           /* remove integer part */
     }
-    while ((ds & (BIG_DIGITS_PER_WORD-1)) != 0) {
-	xp[ds++] = 0;
-    }
 
     if (is_negative) {
 	*hp = make_neg_bignum_header(sz-1);
