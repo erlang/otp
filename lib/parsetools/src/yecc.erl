@@ -254,7 +254,8 @@ file(GrammarFile) ->
 -spec file(Grammarfile, Options) -> yecc_ret() when
       Grammarfile :: file:filename(),
       Options :: Option | [Option],
-      Option :: {'includefile', Includefile :: file:filename()}
+      Option :: {'error_location', 'column' | 'line'}
+              | {'includefile', Includefile :: file:filename()}
               | {'report_errors', boolean()}
               | {'report_warnings', boolean()}
               | {'report', boolean()}
