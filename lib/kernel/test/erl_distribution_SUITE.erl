@@ -30,6 +30,7 @@
          nodenames/1, hostnames/1,
          illegal_nodenames/1, hidden_node/1,
          dyn_node_name/1,
+         epmd_reconnect/1,
 	 setopts/1,
 	 table_waste/1, net_setuptime/1,
 	 inet_dist_options_options/1,
@@ -54,6 +55,7 @@
 	 tick_serv_test/2, tick_serv_test1/1,
 	 run_remote_test/1,
          dyn_node_name_do/2,
+         epmd_reconnect_do/2,
 	 setopts_do/2,
 	 keep_conn/1, time_ping/1]).
 
@@ -64,6 +66,8 @@
 -export([pinger/1]).
 
 -define(DUMMY_NODE,dummy@test01).
+-define(ALT_EPMD_PORT, "12321").
+-define(ALT_EPMD_CMD, "epmd -port "++?ALT_EPMD_PORT).
 
 %%-----------------------------------------------------------------
 %% The distribution is mainly tested in the big old test_suite.
@@ -82,6 +86,7 @@ all() ->
      tick, tick_change, nodenames, hostnames, illegal_nodenames,
      connect_node,
      dyn_node_name,
+     epmd_reconnect,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes},
@@ -117,9 +122,15 @@ init_per_testcase(TC, Config) when TC == hostnames;
     file:make_dir("hostnames_nodedir"),
     file:write_file("hostnames_nodedir/ignore_core_files",""),
     Config;
+init_per_testcase(epmd_reconnect, Config) ->
+    [] = os:cmd(?ALT_EPMD_CMD++" -relaxed_command_check -daemon"),
+    Config;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
+end_per_testcase(epmd_reconnect, _Config) ->
+    os:cmd(?ALT_EPMD_CMD++" -kill"),
+    ok;
 end_per_testcase(_Func, _Config) ->
     ok.
 
@@ -426,6 +437,83 @@ tick_cli_test1(Node) ->
 		    end
 	    end
     end.
+
+epmd_reconnect(Config) when is_list(Config) ->
+    NodeNames = [N1,N2,N3] = get_nodenames(3, ?FUNCTION_NAME),
+    Nodes = [atom_to_list(full_node_name(NN)) || NN <- NodeNames],
+
+    DCfg = "-epmd_port "++?ALT_EPMD_PORT,
+
+    {_N1F,Port1} = start_node_unconnected(DCfg, N1, ?MODULE, run_remote_test,
+					["epmd_reconnect_do", atom_to_list(node()), "1" | Nodes]),
+    {_N2F,Port2} = start_node_unconnected(DCfg, N2, ?MODULE, run_remote_test,
+					["epmd_reconnect_do", atom_to_list(node()), "2" | Nodes]),
+    {_N3F,Port3} = start_node_unconnected(DCfg, N3, ?MODULE, run_remote_test,
+					["epmd_reconnect_do", atom_to_list(node()), "3" | Nodes]),
+    Ports = [Port1, Port2, Port3],
+
+    ok = reap_ports(Ports),
+   
+    ok.
+
+reap_ports([]) ->
+    ok;
+reap_ports(Ports) ->
+    case (receive M -> M end) of
+	{Port, Message} ->
+            case lists:member(Port, Ports) andalso Message of
+                {data,String} ->
+                    io:format("~p: ~s\n", [Port, String]),
+                    reap_ports(Ports);
+                {exit_status,0} ->
+                    reap_ports(Ports -- [Port])
+            end
+    end.
+    
+epmd_reconnect_do(_Node, ["1", Node1, Node2, Node3]) ->
+    Names = [Name || Name <- [hd(string:tokens(Node, "@")) || Node <- [Node1, Node2, Node3]]],
+    %% wait until all nodes are registered
+    ok = wait_for_names(Names),
+    "Killed" ++_ = os:cmd(?ALT_EPMD_CMD++" -kill"),
+    open_port({spawn, ?ALT_EPMD_CMD}, []),
+    %% check that all nodes reregister with epmd
+    ok = wait_for_names(Names),
+    lists:foreach(fun(Node) ->
+                          ANode = list_to_atom(Node),
+                          pong = net_adm:ping(ANode),
+                          {epmd_reconnect_do, ANode} ! {stop, Node1, Node}
+                  end, [Node2, Node3]),
+    ok;
+epmd_reconnect_do(_Node, ["2", Node1, Node2, _Node3]) ->
+    register(epmd_reconnect_do, self()),
+    receive {stop, Node1, Node2} ->
+            ok
+    after 7000 ->
+            exit(timeout)
+    end;
+epmd_reconnect_do(_Node, ["3", Node1, _Node2, Node3]) ->
+    register(epmd_reconnect_do, self()),
+    receive {stop, Node1, Node3} ->
+            ok
+    after 7000 ->
+            exit(timeout)
+    end.
+
+wait_for_names(Names) ->
+    %% wait for up to 3 seconds (the current retry timer in erl_epmd is 2s)
+    wait_for_names(lists:sort(Names), 30, 100).
+
+wait_for_names(Names, N, Wait) when N > 0 ->
+    try
+        {ok, Info} = erl_epmd:names(),
+        Names = lists:sort([Name || {Name, _Port} <- Info]),
+        ok
+    catch
+        error:{badmatch, _} ->
+            timer:sleep(Wait),
+            wait_for_names(Names, N-1, Wait)
+    end.
+
 
 dyn_node_name(Config) when is_list(Config) ->
     %%run_dist_configs(fun dyn_node_name/2, Config).

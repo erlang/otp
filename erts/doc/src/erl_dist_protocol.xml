@@ -430,9 +430,6 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 
       <p>where n = <c>Length</c> - 1.</p>
 
-      <p>The current implementation of Erlang does not care if the connection
-        to the EPMD is broken.</p>
-
       <p>The response for a <c>STOP_REQ</c> is as follows:</p>
 
       <table align="left">
