@@ -34,7 +34,25 @@
   </header>
 
 
-  <section><title>SNMP 5.7.2</title>
+  <section><title>SNMP 5.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    [manager] In a function handling snmp errors, an unused
+	    result (_Error) could result in matching issues and
+	    therefor case clause runtime errors (crash). Note that
+	    this would only happen in *very* unusual error cases.</p>
+          <p>
+	    Own Id: OTP-17161</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
