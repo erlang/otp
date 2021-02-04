@@ -260,7 +260,7 @@ convert_rfc850_date(DateStr) ->
 
 convert_rfc850_date([D1,D2,_,
 		     M,O,N,_,
-		     Y1,Y2|_Rest],[H1,H2,_Col,M1,M2,_Col,S1,S2|_Rest2])->    
+		     Y1,Y2|_Rest],[H1,H2,Col,M1,M2,Col,S1,S2|_Rest2])->    
     Year=list_to_integer([50,48,Y1,Y2]),
     Day=list_to_integer([D1,D2]),
     Month = http_util:convert_month([M,O,N]),
@@ -269,12 +269,12 @@ convert_rfc850_date([D1,D2,_,
     Sec=list_to_integer([S1,S2]),
     {ok,{{Year,Month,Day},{Hour,Min,Sec}}}.
 
-convert_ascii_date([_D,_A,_Y,_SP,
-		    M,O,N,_SP,
-		    D1,D2,_SP,
-		    H1,H2,_Col,
-		    M1,M2,_Col,
-		    S1,S2,_SP,
+convert_ascii_date([_D,_A,_Y,SP,
+		    M,O,N,SP,
+		    D1,D2,SP,
+		    H1,H2,Col,
+		    M1,M2,Col,
+		    S1,S2,SP,
 		    Y1,Y2,Y3,Y4| _Rest])->
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=case D1 of 
@@ -289,12 +289,12 @@ convert_ascii_date([_D,_A,_Y,_SP,
     Sec=list_to_integer([S1,S2]),
     {ok,{{Year,Month,Day},{Hour,Min,Sec}}}.
 
-convert_rfc1123_date([_D,_A,_Y,_C,_SP,
-		      D1,D2,_SP,
-		      M,O,N,_SP,
-		      Y1,Y2,Y3,Y4,_SP,
-		      H1,H2,_Col,
-		      M1,M2,_Col,
+convert_rfc1123_date([_D,_A,_Y,_C,SP,
+		      D1,D2,SP,
+		      M,O,N,SP,
+		      Y1,Y2,Y3,Y4,SP,
+		      H1,H2,Col,
+		      M1,M2,Col,
 		      S1,S2|_Rest]) -> 
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=list_to_integer([D1,D2]),
