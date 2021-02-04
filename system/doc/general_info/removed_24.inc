@@ -12,3 +12,12 @@
 	encoded in Latin-1 without a <c>%% coding: latin-1</c> comment at the
 	beginning of the file.</p>
     </section>
+    <section>
+       <title>igor and erl_tidy modules in syntax_tools</title>
+       <p>The <c>igor</c> and <c>erl_tidy</c> modules have been removed from
+       OTP and is now maintained by their original author Richard Carlsson.
+       They can be found at
+       <url href="https://github.com/richcarl/igor">github.com/richcarl/igor</url>
+       and
+       <url href="https://github.com/richcarl/erl_tidy">github.com/richcarl/erl_tidy</url>, respectively.</p>
+    </section>
