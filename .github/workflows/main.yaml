@@ -10,6 +10,12 @@
 ## Also once the windows runner supports WSL we should implement
 ## support for building Erlang/OTP here.
 ##
+## When ghcr.io support using the GITHUB_TOKEN we should migrate
+## over to use it instead as that should allow us to use the
+## built-in caching mechanisms of docker/build-push-action@v2.
+## However as things are now we manually pull the correct image
+## from docker.pkg.github.com
+##
 
 name: Build and check Erlang/OTP
 
@@ -62,20 +68,38 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: otp_git_archive
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          driver: docker
       ## We need to login to the package registry in order to pull
       ## the base debian image.
       - name: Docker login
-        run: docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-      - name: Build ${{ matrix.type }} image
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Calculate BASE image
+        id: base
         run: |
-          docker build -t otp --build-arg ARCHIVE=otp_src.tar.gz \
-          -f .github/dockerfiles/Dockerfile.${{ matrix.type }} .
+          BASE_TAG=$(grep "^FROM" .github/dockerfiles/Dockerfile.${{ matrix.type }} | head -1 | awk '{print $2}')
+          echo "::set-output name=BASE_TAG::${BASE_TAG}"
+          .github/scripts/base-tag "${BASE_TAG}"
+      - name: Pull BASE image
+        run: docker pull ${{ steps.base.outputs.BASE_TAG }}
+      - name: Build ${{ matrix.type }} image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          tags: otp:latest
+          file: .github/dockerfiles/Dockerfile.${{ matrix.type }}
+          build-args: ARCHIVE=otp_src.tar.gz
 
         ## Smoke build tests
       - if: matrix.type == '32-bit' || matrix.type == '64-bit' || matrix.type == 'cross-compile'
         name: Run smoke test
-        run: |
-          docker run -v $PWD/scripts:/scripts otp "cd /tests && /scripts/run-smoke-tests"
+        run: docker run -v $PWD/scripts:/scripts otp "cd /tests && /scripts/run-smoke-tests"
 
         ## Documentation checks
       - if: matrix.type == 'documentation'
