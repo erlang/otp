@@ -466,8 +466,8 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
                 process_flag(trap_exit, true),
                 {ok, {hello,Role}, D}
             catch
-                _:{error,Error} ->
-                    {stop, {error,Error}}
+                _:{error,Error} -> {stop, {error,Error}};
+                error:Error ->     {stop, {error,Error}}
             end;
 
         {error,Error} ->
