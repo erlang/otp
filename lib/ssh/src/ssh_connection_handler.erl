@@ -724,10 +724,10 @@ handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
 
-handle_event(internal, #ssh_msg_ignore{}, _, _) ->
+handle_event(internal, #ssh_msg_ignore{}, _StateName, _) ->
     keep_state_and_data;
 
-handle_event(internal, #ssh_msg_unimplemented{}, _, _) ->
+handle_event(internal, #ssh_msg_unimplemented{}, _StateName, _) ->
     keep_state_and_data;
 
 handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
@@ -1192,7 +1192,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 
 
 %%%==== 
-handle_event(internal, prepare_next_packet, _, D) ->
+handle_event(internal, prepare_next_packet, _StateName, D) ->
     Enough =  erlang:max(8, D#data.ssh_params#ssh.decrypt_block_size),
     case size(D#data.encrypted_data_buffer) of
 	Sz when Sz >= Enough ->
