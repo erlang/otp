@@ -287,15 +287,18 @@ args_and_signature(E = #entry{}) ->
 	    {Args, format_signature(Name, Args)}
     end.
 
-format_signature(Name, Args) ->
-    [list_to_binary(atom_to_list(Name)),  <<"(">> | format_signature(Args)] ++ [<<"\n">>].
+format_signature(Name, []) ->
+    [<<(atom_to_binary(Name, utf8))/bytes, "()">>];
+format_signature(Name, [Arg]) ->
+    [<<(atom_to_binary(Name, utf8))/bytes, "(", (atom_to_binary(Arg, utf8))/bytes, ")">>];
+format_signature(Name, [Arg | Args]) ->
+    [<<(atom_to_binary(Name, utf8))/bytes, "(", (atom_to_binary(Arg, utf8))/bytes, ",">>
+     | format_signature(Args)].
 
-format_signature([]) ->
-    [<<")">>];
 format_signature([Arg]) ->
-    [atom_to_binary(Arg, utf8), <<")">>];
+    [<<(atom_to_binary(Arg, utf8))/bytes, ")">>];
 format_signature([Arg | Args]) ->
-    [<<(atom_to_binary(Arg, utf8))/bytes, ", ">> | format_signature(Args)].
+    [<<(atom_to_binary(Arg, utf8))/bytes, ",">> | format_signature(Args)].
 
 annotate_spec(ArgClauses, Spec, SourceFile, Line) ->
     try

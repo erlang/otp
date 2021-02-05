@@ -234,49 +234,49 @@ equiv(Config) ->
 f_sig_single_simple_clause(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"Arg">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_single_simple_clause(Arg)">>],
 		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
 
 f_sig_single_simple_clause_with_spec(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"Arg">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_single_simple_clause_with_spec(Arg)">>],
 		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
 
 f_sig_multiple_simple_clauses(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"C1A1, ">>,<<"C1A2">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_multiple_simple_clauses(C1A1,">>, <<"C1A2)">>],
 		 get_sig({function, ?FUNCTION_NAME, 2}, Docs)).
 
 f_sig_multiple_simple_clauses_with_spec(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"C1A1, ">>,<<"C1A2">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_multiple_simple_clauses_with_spec(C1A1,">>, <<"C1A2)">>],
 		 get_sig({function, ?FUNCTION_NAME, 2}, Docs)).
 
 f_sig_single_record_clause(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_single_record_clause(R)">>],
 		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
 
 f_sig_single_record_clause_with_spec(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_single_record_clause_with_spec(R)">>],
 		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
 
 f_sig_multiple_record_clauses(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_multiple_record_clauses(R)">>],
 		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
 
 f_sig_multiple_record_clauses_with_spec(Config) ->
     Docs = get_docs(Config, eep48_sigs),
     %?debugVal(Docs, 1000),
-    ?assertEqual([?a2b(?FUNCTION_NAME),<<"(">>,<<"R">>,<<")">>,<<"\n">>],
+    ?assertEqual([<<"f_sig_multiple_record_clauses_with_spec(R)">>],
 		 get_sig({function, ?FUNCTION_NAME, 1}, Docs)).
 
 f_spec_type_without_name(Config) ->
