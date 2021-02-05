@@ -720,12 +720,19 @@ module.beam: module.erl \
 	    Default is to emit no warnings for unused imported functions.</p>
           </item>
 
+          <tag><c>nowarn_underscore_match</c></tag>
+          <item>
+            <p>By default, warnings are emitted when a variable that begins
+              with an underscore is matched after being bound. Use this
+              option to turn off this kind of warning.</p>
+          </item>
+
           <tag><c>nowarn_unused_vars</c></tag>
           <item>
             <p>By default, warnings are emitted for unused variables,
 	      except for variables beginning with an underscore 
 	      ("Prolog style warnings").
-              Use this option to turn off this kind of warnings.</p>
+              Use this option to turn off this kind of warning.</p>
           </item>
 
 	  <tag><c>nowarn_unused_record</c></tag>

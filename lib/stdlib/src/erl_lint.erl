@@ -317,6 +317,15 @@ format_error({unsafe_var,V,{What,Where}}) ->
 format_error({exported_var,V,{What,Where}}) ->
     io_lib:format("variable ~w exported from ~w ~s",
                   [V,What,format_where(Where)]);
+format_error({match_underscore_var, V}) ->
+    io_lib:format("variable ~w is already bound. If you mean to ignore this "
+                  "value, use '_' or a different underscore-prefixed name",
+                  [V]);
+format_error({match_underscore_var_pat, V}) ->
+    io_lib:format("variable ~w is bound multiple times in this pattern. If "
+                  "you mean to ignore this value, use '_' or a different "
+                  "underscore-prefixed name",
+                  [V]);
 format_error({shadowed_var,V,In}) ->
     io_lib:format("variable ~w shadowed in ~w", [V,In]);
 format_error({unused_var, V}) ->
@@ -571,6 +580,9 @@ start(File, Opts) ->
     Enabled0 =
 	[{unused_vars,
 	  bool_option(warn_unused_vars, nowarn_unused_vars,
+		      true, Opts)},
+	 {underscore_match,
+	  bool_option(warn_underscore_match, nowarn_underscore_match,
 		      true, Opts)},
 	 {export_all,
 	  bool_option(warn_export_all, nowarn_export_all,
@@ -1603,10 +1615,12 @@ clause({clause,_Anno,H,G,B}, St0) ->
 head(Ps, Vt, St0) ->
     head(Ps, Vt, Vt, St0).    % Old = Vt
 
-head([P|Ps], Vt, Old, St0) ->
-    {Pvt,Pnew,St1} = pattern(P, Vt, Old, St0),
-    {Psvt,Psnew,St2} = head(Ps, Vt, Old, St1),
-    {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Pnew, Psnew),St2};
+head([P|Ps], Vt0, Old, St0) ->
+    {Pvt, Pnew, St1} = pattern(P, Vt0, Old, St0),
+    {Psvt, Psnew, St2} = head(Ps, Vt0, Old, St1),
+    {Vt, St3} = vtmerge_pat(Pvt, Psvt, St2),
+    {New, St4} = vtmerge_pat(Pnew, Psnew, St3),
+    {Vt, New, St4};
 head([], _Vt, _Env, St) -> {[],[],St}.
 
 %% pattern(Pattern, VarTable, Old, State) ->
@@ -1638,10 +1652,12 @@ pattern({atom,Anno,A}, _Vt, _Old, St) ->
     {[],[],keyword_warning(Anno, A, St)};
 pattern({string,_Anno,_S}, _Vt, _Old, St) -> {[],[],St};
 pattern({nil,_Anno}, _Vt, _Old, St) -> {[],[],St};
-pattern({cons,_Anno,H,T}, Vt, Old,  St0) ->
-    {Hvt,Hnew,St1} = pattern(H, Vt, Old, St0),
-    {Tvt,Tnew,St2} = pattern(T, Vt, Old, St1),
-    {vtmerge_pat(Hvt, Tvt),vtmerge_pat(Hnew,Tnew),St2};
+pattern({cons,_Anno,H,T}, Vt0, Old, St0) ->
+    {Hvt, Hnew, St1} = pattern(H, Vt0, Old, St0),
+    {Tvt, Tnew, St2} = pattern(T, Vt0, Old, St1),
+    {Vt1, St3} = vtmerge_pat(Hvt, Tvt, St2),
+    {New, St4} = vtmerge_pat(Hnew, Tnew, St3),
+    {Vt1, New, St4};
 pattern({tuple,_Anno,Ps}, Vt, Old, St) ->
     pattern_list(Ps, Vt, Old, St);
 pattern({map,_Anno,Ps}, Vt, Old, St) ->
@@ -1671,11 +1687,13 @@ pattern({op,_Anno,'++',{cons,Ai,{integer,_A2,_I},T},R}, Vt, Old, St) ->
     pattern({op,Ai,'++',T,R}, Vt, Old, St);    %Weird, but compatible!
 pattern({op,_Anno,'++',{string,_Ai,_S},R}, Vt, Old, St) ->
     pattern(R, Vt, Old, St);                   %String unimportant here
-pattern({match,_Anno,Pat1,Pat2}, Vt, Old, St0) ->
-    {Lvt,Lnew,St1} = pattern(Pat1, Vt, Old, St0),
-    {Rvt,Rnew,St2} = pattern(Pat2, Vt, Old, St1),
-    St3 = reject_invalid_alias(Pat1, Pat2, Vt, St2),
-    {vtmerge_pat(Lvt, Rvt),vtmerge_pat(Lnew,Rnew),St3};
+pattern({match,_Anno,Pat1,Pat2}, Vt0, Old, St0) ->
+    {Lvt, Lnew, St1} = pattern(Pat1, Vt0, Old, St0),
+    {Rvt, Rnew, St2} = pattern(Pat2, Vt0, Old, St1),
+    St3 = reject_invalid_alias(Pat1, Pat2, Vt0, St2),
+    {Vt1, St4} = vtmerge_pat(Lvt, Rvt, St3),
+    {New, St5} = vtmerge_pat(Lnew, Rnew, St4),
+    {Vt1, New, St5};
 %% Catch legal constant expressions, including unary +,-.
 pattern(Pat, _Vt, _Old, St) ->
     case is_pattern_expr(Pat) of
@@ -1683,10 +1701,12 @@ pattern(Pat, _Vt, _Old, St) ->
         false -> {[],[],add_error(element(2, Pat), illegal_pattern, St)}
     end.
 
-pattern_list(Ps, Vt, Old, St) ->
-    foldl(fun (P, {Psvt,Psnew,St0}) ->
-                  {Pvt,Pnew,St1} = pattern(P, Vt, Old, St0),
-                  {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Psnew,Pnew),St1}
+pattern_list(Ps, Vt0, Old, St) ->
+    foldl(fun (P, {Psvt, Psnew,St0}) ->
+                  {Pvt, Pnew, St1} = pattern(P, Vt0, Old, St0),
+                  {Vt1, St2} = vtmerge_pat(Pvt, Psvt, St1),
+                  {New, St3} = vtmerge_pat(Psnew, Pnew, St2),
+                  {Vt1, New, St3}
           end, {[],[],St}, Ps).
 
 %% Check for '_' initializing no fields.
@@ -1828,17 +1848,18 @@ is_pattern_expr_1({op,_Anno,Op,A1,A2}) ->
     erl_internal:arith_op(Op, 2) andalso all(fun is_pattern_expr/1, [A1,A2]);
 is_pattern_expr_1(_Other) -> false.
 
-pattern_map(Ps, Vt, Old, St) ->
-    foldl(fun({map_field_assoc,A,_,_}, {Psvt,Psnew,St0}) ->
-                  {Psvt,Psnew,add_error(A, illegal_pattern, St0)};
-             ({map_field_exact,_A,K,V}, {Psvt,Psnew,St0}) ->
-                  St1 = St0#lint{gexpr_context=map_key},
-                  {Kvt,St2} = gexpr(K, Vt, St1),
-                  {Vvt,Vnew,St3} = pattern(V, Vt, Old, St2),
-                  {vtmerge_pat(vtmerge_pat(Kvt, Vvt), Psvt),
-                   vtmerge_pat(Psnew, Vnew),
-                   St3}
-          end, {[],[],St}, Ps).
+pattern_map(Ps, Vt0, Old, St0) ->
+    foldl(fun({map_field_assoc,A,_,_}, {Psvt,Psnew,St1}) ->
+                  {Psvt,Psnew,add_error(A, illegal_pattern, St1)};
+             ({map_field_exact,_A,K,V}, {Psvt,Psnew,St1}) ->
+                  St2 = St1#lint{gexpr_context=map_key},
+                  {Kvt, St3} = gexpr(K, Vt0, St2),
+                  {Vvt, Vnew, St4} = pattern(V, Vt0, Old, St3),
+                  {Vt1, St5} = vtmerge_pat(Kvt, Vvt, St4),
+                  {Vt2, St6} = vtmerge_pat(Vt1, Psvt, St5),
+                  {New, St7} = vtmerge_pat(Psnew, Vnew, St6),
+                  {Vt2, New, St7}
+          end, {[],[], St0}, Ps).
 
 %% pattern_bin([Element], VarTable, Old, State) ->
 %%           {UpdVarTable,NewVars,State}.
@@ -2555,11 +2576,11 @@ expr({remote,Anno,_M,_F}, _Vt, St) ->
 %% expr_list(Expressions, Variables, State) ->
 %%      {UsedVarTable,State}
 
-expr_list(Es, Vt, St) ->
-    foldl(fun (E, {Esvt,St0}) ->
-                  {Evt,St1} = expr(E, Vt, St0),
-                  {vtmerge_pat(Evt, Esvt),St1}
-          end, {[],St}, Es).
+expr_list(Es, Vt, St0) ->
+    foldl(fun (E, {Esvt, St1}) ->
+                  {Evt, St2} = expr(E, Vt, St1),
+                  vtmerge_pat(Evt, Esvt, St2)
+          end, {[], St0}, Es).
 
 record_expr(Anno, Rec, Vt, St0) ->
     St1 = warn_invalid_record(Anno, Rec, St0),
@@ -2723,13 +2744,14 @@ used_record(Name, #lint{usage=Usage}=St) ->
 %% check_fields([ChkField], RecordName, [RecDefField], VarTable, State, CheckFun) ->
 %%      {UpdVarTable,State}.
 
-check_fields(Fs, Name, Fields, Vt, St0, CheckFun) ->
+check_fields(Fs, Name, Fields, Vt0, St0, CheckFun) ->
     {_SeenFields,Uvt,St1} =
         foldl(fun (Field, {Sfsa,Vta,Sta}) ->
                       {Sfsb,{Vtb,Stb}} = check_field(Field, Name, Fields,
-                                                     Vt, Sta, Sfsa, CheckFun),
-                      {Sfsb,vtmerge_pat(Vta, Vtb),Stb}
-              end, {[],[],St0}, Fs),
+                                                     Vt0, Sta, Sfsa, CheckFun),
+                      {Vt1, St1} = vtmerge_pat(Vta, Vtb, Stb),
+                      {Sfsb, Vt1, St1}
+              end, {[],[], St0}, Fs),
     {Uvt,St1}.
 
 check_field({record_field,Af,{atom,Aa,F},Val}, Name, Fields,
@@ -2774,10 +2796,12 @@ pattern_fields(Fs, Name, Fields, Vt0, Old, St0) ->
                       case check_field(Field, Name, Fields,
                                        Vt0, Sta, Sfsa, CheckFun) of
                           {Sfsb,{Vtb,Stb}} ->
-                              {Sfsb,vtmerge_pat(Vta, Vtb),[],Stb};
+                              {Vt, St1} = vtmerge_pat(Vta, Vtb, Stb),
+                              {Sfsb, Vt, [], St1};
                           {Sfsb,{Vtb,Newb,Stb}} ->
-                              {Sfsb,vtmerge_pat(Vta, Vtb),
-                               vtmerge_pat(Newa,Newb),Stb}
+                              {Vt, Mst0} = vtmerge_pat(Vta, Vtb, Stb),
+                              {New, Mst} = vtmerge_pat(Newa, Newb, Mst0),
+                              {Sfsb, Vt, New, Mst}
                       end
               end, {[],[],[],St0}, Fs),
     {Uvt,Unew,St1}.
@@ -2842,7 +2866,7 @@ exist_field(_F, []) -> false.
 %% find_field(FieldName, [Field]) -> {ok,Val} | error.
 %%  Find a record field in a field list.
 
-find_field(_F, [{record_field,_Af,{atom,_Aa,_F},Val}|_Fs]) -> {ok,Val};
+find_field(F, [{record_field,_Af,{atom,_Aa,F},Val}|_Fs]) -> {ok,Val};
 find_field(F, [_|Fs]) -> find_field(F, Fs);
 find_field(_F, []) -> error.
 
@@ -3610,32 +3634,60 @@ fun_clause({clause,_Anno,H,G,B}, Vt0, St0) ->
 %% once. New shadows Vt here, which is necessary in order to separate
 %% uses of shadowed and shadowing variables. See also pat_binsize_var.
 
-pat_var(V, Anno, Vt, New, St) ->
+pat_var(V, Anno, Vt, New, St0) ->
     case orddict:find(V, New) of
         {ok, {bound,_Usage,As}} ->
             %% variable already in NewVars, mark as used
+            St = warn_underscore_match(V, Anno, St0),
             {[],[{V,{bound,used,As}}],St};
         error ->
             case orddict:find(V, Vt) of
-                {ok,{bound,_Usage,As}} ->
-                    {[{V,{bound,used,As}}],[],St};
-                {ok,{{unsafe,In},_Usage,As}} ->
-                    {[{V,{bound,used,As}}],[],
-                     add_error(Anno, {unsafe_var,V,In}, St)};
-                {ok,{{export,From},_Usage,As}} ->
-                    {[{V,{bound,used,As}}],[],
+                {ok,{bound,_Usage,Ls}} ->
+                    St = warn_underscore_match(V, Anno, St0),
+                    {[{V,{bound,used,Ls}}],[],St};
+                {ok,{{unsafe,In},_Usage,Ls}} ->
+                    {[{V,{bound,used,Ls}}],[],
+                     add_error(Anno, {unsafe_var,V,In}, St0)};
+                {ok,{{export,From},_Usage,Ls}} ->
+                    St = warn_underscore_match(V, Anno, St0),
+                    {[{V,{bound,used,Ls}}],[],
                      %% As this is matching, exported vars are risky.
                      add_warning(Anno, {exported_var,V,From}, St)};
-                error when St#lint.recdef_top ->
+                error when St0#lint.recdef_top ->
                     {[],[{V,{bound,unused,[Anno]}}],
-                     add_error(Anno, {variable_in_record_def,V}, St)};
+                     add_error(Anno, {variable_in_record_def,V}, St0)};
                 error ->
                     %% add variable to NewVars, not yet used
-                    {[],[{V,{bound,unused,[Anno]}}],St}
+                    {[],[{V,{bound,unused,[Anno]}}],St0}
             end
     end.
 
-%% pat_binsize_var(Variable, Anno, VarTable, NewVars, State) ->
+%% Underscore-prefixed variables merely suppress unused variable warnings, but
+%% are often misunderstood and thought to behave like '_' which can introduce
+%% subtle errors. Warn about this since matching them on purpose is rare.
+warn_underscore_match(V, Anno, St) ->
+    case {is_warn_enabled(underscore_match, St), atom_to_list(V)} of
+        {true, [$_ | _]} ->
+            add_warning(Anno, {match_underscore_var,V}, St);
+        {_, _} ->
+            St
+    end.
+
+warn_underscore_match_pat(V, Annos, St) ->
+    case {is_warn_enabled(underscore_match, St), atom_to_list(V)} of
+        {true, [$_ | _]} ->
+            warn_underscore_match_pat_1(Annos, V, St);
+        {_, _} ->
+            St
+    end.
+
+warn_underscore_match_pat_1([Anno | Annos], V, St0) ->
+    St = add_warning(Anno, {match_underscore_var_pat,V}, St0),
+    warn_underscore_match_pat_1(Annos, V, St);
+warn_underscore_match_pat_1([], _V, St) ->
+    St.
+
+%% pat_binsize_var(Variable, LineNo, VarTable, NewVars, State) ->
 %%      {UpdVarTable,UpdNewVars,State'}
 %% Special case of pat_var/expr_var for variables in binary size expressions
 %% (never adds variables to NewVars, only marks uses).
@@ -3789,12 +3841,33 @@ vtmerge(Vt1, Vt2) ->
 
 vtmerge(Vts) -> foldl(fun (Vt, Mvts) -> vtmerge(Vt, Mvts) end, [], Vts).
 
-%% this version marks variables that exist in both tables as used
-%% (since that implies the compiler will add an equality check)
-vtmerge_pat(Vt1, Vt2) ->
-    orddict:merge(fun (_V, {S1,_Usage1,A1}, {S2,_Usage2,A2}) ->
-                          {merge_state(S1, S2),used, merge_annos(A1, A2)}
-                  end, Vt1, Vt2).
+%% This is similar to vtmerge/2 but marks repeated variables as 'used' because
+%% they're used in the pattern itself (matching). It also returns warnings for
+%% iffy variable uses when appropriate, such as matching on underscore-prefixed
+%% variables:
+%%
+%% f(_Same, _Same) -> ok. %% Should raise a warning
+vtmerge_pat(VtA, VtB, St0) ->
+    Vt0 = orddict:merge(fun(_V, {S1, Usage1, Annos1}, {S2, Usage2, Annos2}) ->
+                                Annos = merge_annos(Annos1, Annos2),
+                                Usage = case {Usage1, Usage2} of
+                                            {unused, unused} ->
+                                                {matched, Annos};
+                                            {unused, _} ->
+                                                {matched, Annos1};
+                                            {_, unused} ->
+                                                {matched, Annos2};
+                                            {_, _} ->
+                                                used
+                                        end,
+                                {merge_state(S1, S2), Usage, Annos}
+                        end, VtA, VtB),
+    lists:mapfoldl(fun({Name, {State, {matched, MatchAs}, As}}, St1) ->
+                           St = warn_underscore_match_pat(Name, MatchAs, St1),
+                           {{Name, {State, used, As}}, St};
+                      (Var, St) ->
+                          {Var, St}
+                   end, St0, Vt0).
 
 merge_annos(As1, As2) ->
     ordsets:union(As1,As2).

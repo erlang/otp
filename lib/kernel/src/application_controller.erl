@@ -933,7 +933,7 @@ handle_application_started(AppName, Res, S) ->
     #state{starting = Starting, running = Running, started = Started, 
 	   start_req = Start_req} = S,
     Start_reqN = reply_to_requester(AppName, Start_req, Res),
-    {_AppName, RestartType, _Type, _From} = lists:keyfind(AppName, 1, Starting),
+    {AppName, RestartType, _Type, _From} = lists:keyfind(AppName, 1, Starting),
     case Res of
 	{ok, Id} ->
 	    case AppName of
@@ -959,8 +959,8 @@ handle_application_started(AppName, Res, S) ->
 			true ->
 			    #state{running = StopRunning, started = StopStarted} = NewS,
 			    case lists:keyfind(AppName, 1, StopRunning) of
-				{_AppName, Id} ->
-				    {_AppName2, Type} =
+				{AppName, Id} ->
+				    {AppName, Type} =
 					lists:keyfind(AppName, 1, StopStarted),
 				    stop_appl(AppName, Id, Type),
 				    NStopRunning = keydelete(AppName, 1, StopRunning),

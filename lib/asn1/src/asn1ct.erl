@@ -1016,11 +1016,11 @@ input_file_type(File) ->
 	    case file:read_file_info(lists:concat([File,".asn1"])) of
 		{ok,_FileInfo} ->
 		    {single_file, lists:concat([File,".asn1"])};
-		_Error ->
+		_ ->
 		    case file:read_file_info(lists:concat([File,".asn"])) of
 			{ok,_FileInfo} ->
 			    {single_file, lists:concat([File,".asn"])};
-			_Error ->
+			_ ->
 			    case file:read_file_info(lists:concat([File,".py"])) of
 				{ok,_FileInfo} ->
 				    {single_file, lists:concat([File,".py"])};
