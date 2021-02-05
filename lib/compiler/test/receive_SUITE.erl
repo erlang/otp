@@ -432,6 +432,7 @@ recv_in_try(_Config) ->
     smoke_receive(fun recv_in_try_2/0),
     smoke_receive(fun recv_in_try_3/0),
     smoke_receive(fun recv_in_try_4/0),
+    smoke_receive(fun recv_in_try_5/0),
     smoke_receive(fun recv_in_catch_1/0),
 
     ok.
@@ -501,6 +502,19 @@ recv_in_try_4() ->
                                         [] when false ->
                                                 ok
                                         end})}.
+recv_in_try_5() ->
+    try [] of
+        [] ->
+            <<
+              << <<0>> || <<3:4>> <= <<3:4>> >>:(get()),
+              receive
+              after
+                  infinity -> ok
+              end
+            >>
+    after
+        ok
+    end.
 
 recv_in_catch_1() ->
     catch

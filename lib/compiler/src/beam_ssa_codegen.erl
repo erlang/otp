@@ -909,7 +909,7 @@ opt_allocate_is([]) -> none.
 %%       br WaitBool, ^timeout_expired, ^new_message_received
 %%
 fix_wait_timeout([{L1,#cg_blk{is=Is0,last=#cg_br{bool=#b_var{},succ=L2}}=Blk1},
-                  {L2,#cg_blk{is=[],last=#cg_br{bool=#b_var{}}=Br}=Blk2}|Bs]) ->
+                  {L2,#cg_blk{is=[],last=#cg_br{}=Br}=Blk2}|Bs]) ->
     case fix_wait_timeout_is(Is0, []) of
         no ->
             [{L1,Blk1},{L2,Blk2}|fix_wait_timeout(Bs)];
