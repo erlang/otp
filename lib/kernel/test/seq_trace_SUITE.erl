@@ -26,7 +26,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([token_set_get/1, tracer_set_get/1, print/1,
-         old_heap_token/1,
+         old_heap_token/1,mature_heap_token/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
          port_clean_token/1,
@@ -54,7 +54,7 @@ suite() ->
 all() -> 
     [token_set_get, tracer_set_get, print, send, send_literal,
      distributed_send, recv, distributed_recv, trace_exit,
-     old_heap_token,
+     old_heap_token, mature_heap_token,
      distributed_exit, call, port, match_set_seq_token,
      port_clean_token,
      gc_seq_token, label_capability_mismatch,
@@ -967,6 +967,24 @@ old_heap_token(Config) when is_list(Config) ->
 
     %% If bug, we now have a ref from old to new heap. Yet another minor gc
     %% will make that a ref to deallocated memory.
+    erlang:garbage_collect(self(), [{type, minor}]),
+    {label,NewLabel} = seq_trace:get_token(label),
+    ok.
+
+%% Verify changing label on existing token when it resides on mature heap.
+%% Bug caused faulty ref from old to new heap.
+mature_heap_token(Config) when is_list(Config) ->
+
+    seq_trace:set_token(label, 1),
+    erlang:garbage_collect(self(), [{type, minor}]),
+    %% Now token should be on mature heap
+    %% Set a new non-literal label which should reside on new-heap.
+    NewLabel = {self(), "new label"},
+    seq_trace:set_token(label, NewLabel),
+
+    %% If bug, we now have a ref from mature to new heap. If we now GC
+    %% twice the token will refer to deallocated memory.
+    erlang:garbage_collect(self(), [{type, minor}]),
     erlang:garbage_collect(self(), [{type, minor}]),
     {label,NewLabel} = seq_trace:get_token(label),
     ok.
