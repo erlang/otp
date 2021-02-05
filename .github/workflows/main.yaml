@@ -13,8 +13,8 @@
 ## When ghcr.io support using the GITHUB_TOKEN we should migrate
 ## over to use it instead as that should allow us to use the
 ## built-in caching mechanisms of docker/build-push-action@v2.
-## However as things are now we manually pull the correct image
-## from docker.pkg.github.com
+## However as things are now we use docker directly to make things
+## work.
 ##
 
 name: Build and check Erlang/OTP
@@ -54,12 +54,6 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: otp_git_archive
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        with:
-          driver: docker
-      ## We need to login to the package registry in order to pull
-      ## the base debian image.
       - name: Docker login
         uses: docker/login-action@v1
         with:
@@ -74,13 +68,16 @@ jobs:
           .github/scripts/base-tag "${BASE_TAG}"
       - name: Pull BASE image
         run: docker pull ${{ steps.base.outputs.BASE_TAG }}
+      - name: Build BASE image
+        run: |
+          docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
+            --cache-from ${{ steps.base.outputs.BASE_TAG }} \
+            --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }} \
+            --build-arg BASE=${{ steps.base.outputs.BASE }} .
       - name: Build ${{ matrix.type }} image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          tags: otp:latest
-          file: .github/dockerfiles/Dockerfile.${{ matrix.type }}
-          build-args: ARCHIVE=otp_src.tar.gz
+        run: |
+          docker build --tag otp --file .github/dockerfiles/Dockerfile.${{ matrix.type }} \
+            --build-arg ARCHIVE=otp_src.tar.gz .
 
         ## Smoke build tests
       - if: matrix.type == '32-bit' || matrix.type == '64-bit' || matrix.type == 'cross-compile'

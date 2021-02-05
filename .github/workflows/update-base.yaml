@@ -31,12 +31,10 @@ jobs:
         id: base
         run: .github/scripts/base-tag "${{ matrix.type }}"
       - name: Build base image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE  }}
-          pull: true
-          build-args: BASE=${{ steps.base.outputs.BASE }}
-          tags: docker.pkg.github.com/${{ github.repository }}/${{ matrix.type }}:latest
+        run: |
+          docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
+            --cache-from ${{ steps.base.outputs.BASE_TAG }} \
+            --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }} \
+            --build-arg BASE=${{ steps.base.outputs.BASE }} .
       - name: Push base image
-        run: docker push docker.pkg.github.com/${{ github.repository }}/${{ matrix.type }}:latest
+        run: docker push ${{ steps.base.outputs.BASE_TAG }}
