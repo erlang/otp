@@ -93,9 +93,10 @@ test_size(Config) when is_list(Config) ->
 	{32, 5} -> ok;
 	{64, 4} -> ok
     end,
-
-    4 = do_test_size(mk_ext_port({a@b, 1}, 1742)),
-
+    case {Arch, do_test_size(mk_ext_port({a@b, 1}, 1742))} of
+	{32, 5} -> ok;
+	{64, 4} -> ok
+    end,
     case {Arch, do_test_size(make_ref())} of
 	{32, 4} -> ok;
 	{64, 3} -> ok
