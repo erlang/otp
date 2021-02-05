@@ -760,8 +760,11 @@ useless_call(effect, #c_call{module=#c_literal{val=Mod},
     case erl_bifs:is_safe(Mod, Name, A) of
 	false ->
 	    case erl_bifs:is_pure(Mod, Name, A) of
-		true -> add_warning(Call, result_ignored);
-		false -> ok
+		true ->
+                    Classified = classify_call(Call),
+                    add_warning(Call, {result_ignored,Classified});
+		false ->
+                    ok
 	    end,
 	    no;
 	true ->
@@ -959,7 +962,8 @@ eval_append(Call, X, Y) ->
 %%  a call to erlang:error(Reason).
 %%
 eval_failure(Call, Reason) ->
-    add_warning(Call, {eval_failure,Reason}),
+    Classified = classify_call(Call),
+    add_warning(Call, {eval_failure,Classified,Reason}),
     Call#c_call{module=#c_literal{val=erlang},
 		name=#c_literal{val=error},
 		args=[#c_literal{val=Reason}]}.
@@ -1663,9 +1667,9 @@ eval_case_warn(#c_primop{anno=Anno,
     case keyfind(eval_failure, 1, Anno) of
 	false ->
 	    ok;
-	{eval_failure,Reason} ->
+	{eval_failure,badmap} ->
 	    %% Example: M = not_map, M#{k:=v}
-	    add_warning(Core, {eval_failure,Reason})
+	    add_warning(Core, bad_map_update)
     end;
 eval_case_warn(_) -> ok.
 
@@ -2829,22 +2833,43 @@ is_result_unwanted(Core) ->
 get_warnings() ->
     ordsets:from_list((erase({?MODULE,warnings}))).
 
--type error() :: 'bad_unicode' | 'bin_argument_order'
-	       | 'bin_left_var_used_in_guard' | 'bin_opt_alias'
-	       | 'bin_partition' | 'bin_var_used' | 'bin_var_used_in_guard'
-	       | 'embedded_binary_size' | 'nomatch_clause_type'
-	       | 'nomatch_guard' | 'nomatch_shadow' | 'no_clause_match'
-	       | 'orig_bin_var_used_in_guard' | 'result_ignored'
-	       | 'useless_building'
-	       | {'eval_failure', term()}
-	       | {'no_effect', {'erlang',atom(),arity()}}
-	       | {'nomatch_shadow', integer()}
-	       | {'embedded_unit', _, _}.
+classify_call(Call) ->
+    Mod = cerl:concrete(cerl:call_module(Call)),
+    Name = cerl:concrete(cerl:call_name(Call)),
+    Arity = cerl:call_arity(Call),
+    case is_operator(Mod, Name, Arity) of
+        true ->
+            {operator,{Name,Arity}};
+        false ->
+            case is_auto_imported(Mod, Name, Arity) of
+                true ->
+                    {function,{Name,Arity}};
+                false ->
+                    {function,{Mod,Name,Arity}}
+            end
+    end.
+
+is_operator(erlang, Name, Arity) ->
+    try
+        _ = erl_internal:op_type(Name, Arity),
+        true
+    catch
+        error:_ ->
+            false
+    end;
+is_operator(_, _, _) -> false.
+
+is_auto_imported(erlang, Name, Arity) ->
+    erl_internal:bif(Name, Arity);
+is_auto_imported(_, _, _) -> false.
+
+-type error() :: atom() | tuple().
 
 -spec format_error(error()) -> nonempty_string().
 
-format_error({eval_failure,Reason}) ->
-    flatten(io_lib:format("this expression will fail with a '~p' exception", [Reason]));
+format_error({eval_failure,Call,Reason}) ->
+    flatten(io_lib:format("~ts will fail with a '~p' exception",
+                          [format_call(Call, false),Reason]));
 format_error(embedded_binary_size) ->
     "binary construction will fail with a 'badarg' exception "
 	"(field size for binary/bitstring greater than actual size)";
@@ -2858,6 +2883,8 @@ format_error(bad_unicode) ->
 format_error(bad_float_size) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid size for a float segment)";
+format_error(bad_map_update) ->
+    "map update will fail with a 'badmap' exception";
 format_error({nomatch_shadow,Line,{Name, Arity}}) ->
     M = io_lib:format("this clause for ~ts/~B cannot match because a previous "
 		      "clause at line ~p always matches", [Name, Arity, Line]),
@@ -2910,13 +2937,35 @@ format_error({no_effect,{erlang,F,A}}) ->
 			 end
 		 end,
     flatten(io_lib:format(Fmt, Args));
-format_error(result_ignored) ->
-    "the result of the expression is ignored "
-	"(suppress the warning by assigning the expression to the _ variable)";
+format_error({result_ignored,Call}) ->
+    Fmt = "the result of ~ts is ignored "
+	"(suppress the warning by assigning the expression to the _ variable)",
+    flatten(io_lib:format(Fmt, [format_call(Call, true)]));
 format_error(invalid_call) ->
     "invalid function call";
 format_error(useless_building) ->
     "a term is constructed, but never used".
+
+format_call({function,{erlang,make_fun,3}}, _) ->
+    "fun construction";
+format_call({function,Call}, UseProgressiveForm) ->
+    [case UseProgressiveForm of
+         true -> "calling";
+         false -> "the call to"
+     end,
+     $\s,
+     case Call of
+         {M,F,A} ->
+             io_lib:format("~p:~p/~p", [M,F,A]);
+         {F,A} ->
+             io_lib:format("~p/~p", [F,A])
+     end];
+format_call({operator,{F,A}}, UseProgressiveForm) ->
+    Eval = case UseProgressiveForm of
+               true -> "evaluating";
+               false -> "evaluation of"
+           end,
+    io_lib:format(Eval ++ " operator ~p/~p", [F,A]).
 
 -ifdef(DEBUG).
 %% In order for simplify_let/2 to work correctly, the list of

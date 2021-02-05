@@ -237,12 +237,16 @@ guard(Config) when is_list(Config) ->
 	   {warnings,
             [{{2,15},sys_core_fold,no_clause_match},
              {{2,15},sys_core_fold,nomatch_guard},
-             {{2,28},sys_core_fold,{eval_failure,badarg}},
+             {{2,28},sys_core_fold,{eval_failure,
+                                    {function,{element,2}},
+                                    badarg}},
              {{4,15},sys_core_fold,no_clause_match},
              {{4,15},sys_core_fold,nomatch_guard},
              {{6,15},sys_core_fold,no_clause_match},
              {{6,15},sys_core_fold,nomatch_guard},
-             {{6,26},sys_core_fold,{eval_failure,badarg}}
+             {{6,26},sys_core_fold,{eval_failure,
+                                    {function,{element,2}},
+                                    badarg}}
 	    ]}}],
     [] = run(Config, Ts),
 
@@ -269,13 +273,21 @@ bad_arith(Config) when is_list(Config) ->
 	   [],
 	   {warnings,
             [{{3,19},sys_core_fold,nomatch_guard},
-             {{3,21},sys_core_fold,{eval_failure,badarith}},
+             {{3,21},sys_core_fold,{eval_failure,
+                                    {operator,{'+',2}},
+                                    badarith}},
              {{9,19},sys_core_fold,nomatch_guard},
              {{9,19},sys_core_fold,{no_effect,{erlang,is_integer,1}}},
-             {{9,36},sys_core_fold,{eval_failure,badarith}},
+             {{9,36},sys_core_fold,{eval_failure,
+                                    {operator,{'+',2}},
+                                    badarith}},
              {{10,19},sys_core_fold,nomatch_guard},
-             {{10,21},sys_core_fold,{eval_failure,badarith}},
-             {{15,19},sys_core_fold,{eval_failure,badarith}}
+             {{10,21},sys_core_fold,{eval_failure,
+                                     {operator,{'+',2}},
+                                     badarith}},
+             {{15,19},sys_core_fold,{eval_failure,
+                                     {operator,{'+',2}},
+                                     badarith}}
 	    ] }}],
     [] = run(Config, Ts),
     ok.
@@ -353,8 +365,12 @@ files(Config) when is_list(Config) ->
            ">>,
            [],
            {warnings,
-            [{"file1",[{{17,20},sys_core_fold,{eval_failure,badarith}}]},
-             {"file2",[{{10,20},sys_core_fold,{eval_failure,badarith}}]}]}}],
+            [{"file1",[{{17,20},sys_core_fold,{eval_failure,
+                                               {operator,{'/',2}},
+                                               badarith}}]},
+             {"file2",[{{10,20},sys_core_fold,{eval_failure,
+                                               {operator,{'/',2}},
+                                               badarith}}]}]}}],
 
     [] = run(Config, Ts),
     ok.
@@ -465,13 +481,13 @@ effect(Config) when is_list(Config) ->
            {warnings,[{{5,22},sys_core_fold,{no_effect,{erlang,is_integer,1}}},
                       {{7,22},sys_core_fold,useless_building},
                       {{9,22},sys_core_fold,useless_building},
-                      {{9,29},sys_core_fold,result_ignored},
+                      {{9,29},sys_core_fold,{result_ignored,{function,{abs,1}}}},
                       {{13,21},sys_core_fold,useless_building},
                       {{15,21},sys_core_fold,useless_building},
                       {{17,21},sys_core_fold,useless_building},
-                      {{19,22},sys_core_fold,result_ignored}]}},
+                      {{19,22},sys_core_fold,{result_ignored,{operator,{'*',2}}}}]}},
 
-           {nested,
+          {nested,
             <<"
              t(X) ->
                case X of
@@ -630,7 +646,7 @@ maps(Config) when is_list(Config) ->
                  ok.
            ">>,
            [],
-           {warnings,[{{4,48},sys_core_fold,{eval_failure,badmap}}]}},
+           {warnings,[{{4,48},sys_core_fold,bad_map_update}]}},
 	   {bad_map_src2,
            <<"
              t() ->
@@ -648,7 +664,7 @@ maps(Config) when is_list(Config) ->
                  ok.
            ">>,
            [],
-           {warnings,[{{3,51},sys_core_fold,{eval_failure,badmap}}]}},
+           {warnings,[{{3,51},sys_core_fold,bad_map_update}]}},
            {ok_map_literal_key,
            <<"
              t() ->
@@ -823,7 +839,7 @@ underscore(Config) when is_list(Config) ->
     Warnings = [{{3,23},sys_core_fold,useless_building},
                 {{4,23},sys_core_fold,useless_building},
                 {{5,23},sys_core_fold,useless_building},
-                {{8,24},sys_core_fold,result_ignored},
+                {{8,24},sys_core_fold,{result_ignored,{operator,{'/',2}}}},
                 {{9,23},sys_core_fold,{no_effect,{erlang,date,0}}},
                 {{12,24},sys_core_fold,useless_building},
                 {{15,24},sys_core_fold,useless_building}],
