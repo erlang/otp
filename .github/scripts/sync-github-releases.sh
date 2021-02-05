@@ -216,11 +216,11 @@ if [ ${UPLOADED} = false ] && [ ${#MISSING_PREBUILD[0]} != 0 ]; then
             ## The 32-bit dockerfile build the doc chunks which we want
             ## to include in VSN >= 23.
             docker build -t otp --build-arg ARCHIVE=otp_src/otp_src.tar.gz \
-                   -f .github/dockerfiles/Dockerfile.32-bit .
+                   -f otp_src/.github/dockerfiles/Dockerfile.32-bit .
             ;;
         *)
             docker build -t otp --build-arg ARCHIVE=otp_src/otp_src.tar.gz \
-                   -f .github/dockerfiles/Dockerfile.64-bit .
+                   -f otp_src/.github/dockerfiles/Dockerfile.64-bit .
             ;;
     esac
     docker run -v "$PWD":/github otp \
