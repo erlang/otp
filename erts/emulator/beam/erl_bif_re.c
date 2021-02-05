@@ -1504,7 +1504,7 @@ re_inspect_2(BIF_ALIST_2)
     tp = tuple_val(BIF_ARG_1);
     if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
 	is_not_small(tp[3]) || is_not_small(tp[4]) || 
-	is_not_binary(tp[5])) {
+	is_not_binary(tp[5]) || binary_size(tp[5]) < 4) {
 	goto error;
     }
     if (BIF_ARG_2 != am_namelist) {
