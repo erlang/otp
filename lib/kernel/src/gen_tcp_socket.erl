@@ -126,15 +126,17 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     %% The {debug, Bool} option is passed in Opts since it is
     %% subversively classified as both start and socket option.
     %%
+
     ExtraOpts =
         if
-            Fd =:= -1      -> [];
-            is_integer(Fd) -> [{fd, Fd}];
+            Fd =:= -1      -> #{};
+            is_integer(Fd) -> #{fd => Fd};
             %% This is an **ugly** hack.
             %% inet:connect_options/2 has the bad taste to use this
             %% for [{netns,NS}] if that option is used...
-            is_list(Fd)    -> Fd
+            is_list(Fd)    -> #{netns => Fd}
         end,
+
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
         start_server(
@@ -233,15 +235,19 @@ listen(Port, Opts) ->
 
 listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
     %% ?DBG({Domain, ListenOpts, Opts, Fd, Backlog, BindAddr}),
+
     ExtraOpts =
         if
-            Fd =:= -1      -> [];
-            is_integer(Fd) -> [{fd, Fd}];
+            Fd =:= -1      -> #{};
+            is_integer(Fd) -> #{fd => Fd};
             %% This is an **ugly** hack.
             %% inet:connect_options/2 has the bad taste to use this
             %% for [{netns,NS}] if that option is used...
-            is_list(Fd)    -> Fd
+            %% Which is never called here, but just to keep it the same
+            %% we use the same for listen!
+            is_list(Fd)    -> #{netns => Fd}
         end,
+
     {SocketOpts, StartOpts0} = setopts_split(socket, Opts),
     StartOpts = [{timeout, infinity} | start_opts(StartOpts0)],
     case start_server(Domain, ExtraOpts, StartOpts) of
@@ -882,9 +888,9 @@ init({open, Domain, ExtraOpts, Owner}) ->
     %%
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
-    Extra = maps:from_list(ExtraOpts),
-    Proto = if (Domain =:= local) -> default; true -> tcp end,
-    case socket:open(Domain, stream, Proto, Extra) of
+    Proto    = if (Domain =:= local) -> default; true -> tcp end,
+    Opts     = #{}, % #{debug => true},
+    case socket_open(Domain, Proto, ExtraOpts, Opts) of
         {ok, Socket} ->
             D  = server_opts(),
             ok = socket:setopt(Socket, {otp,iow}, true),
@@ -910,6 +916,21 @@ init({prepare, D, Owner}) ->
 init(Arg) ->
     error_logger:error_report([{badarg, {?MODULE, init, [Arg]}}]),
     error(badarg, [Arg]).
+
+
+socket_open(Domain, Proto, #{fd := FD} = _Extra, Opts0)
+  when is_integer(FD) andalso (FD > 0) ->
+    Opts = Opts0#{dup      => false,
+                  domain   => Domain,
+                  type     => stream,
+                  protocol => Proto},
+    socket:open(FD, Opts);
+socket_open(Domain, Proto, #{netns := NS} = Extra, Opts0) when is_list(NS) ->
+    Opts = maps:merge(Opts0, Extra),
+    socket:open(Domain, stream, Proto, Opts);
+socket_open(Domain, Proto, _Extra, Opts) ->
+    socket:open(Domain, stream, Proto, Opts).
+
 
 terminate(_Reason, State, P_D) ->
     case State of
@@ -1197,6 +1218,7 @@ handle_event({call, From}, {bind, BindAddr} = _BIND, _State, {P, _D}) ->
 %% to listen/1 yet.  It could be returned from {bind, _},
 %% or from a separate get_socket call, but piggy-backing it
 %% on {listen, _} is convenient.
+%% It also reflects the API behaviour (gen_tcp:listen(...) -> {ok, Socket})
 
 %% Call: listen/1
 handle_event(

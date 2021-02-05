@@ -325,7 +325,7 @@ do_recv_delim(Config) ->
     %% but this testcase has nothing to do with timeouts?
     ?P("read the first chunk"),
     {ok, "abcX"} = gen_tcp:recv(Client, 0), %, 200),
-    ?P("read the first chunk"),
+    ?P("read the second chunk"),
     {ok, "efgX"} = gen_tcp:recv(Client, 0), %, 200),
     ?P("cleanup"),
     ok = gen_tcp:close(Client),
@@ -737,10 +737,19 @@ do_local_fdopen(Config) ->
     C0 = ok(gen_tcp:connect(SAddr, 0, InetBackendOpts ++ [{active,false}])),
     ?P("connected: ~p"
        "~n   => get fd", [C0]),
-    Fd = ok(prim_inet:getfd(C0)),
-    ?P("FD: ~p"
-       "~n   => ignore fd", [Fd]),
-    ok = prim_inet:ignorefd(C0, true),
+    Fd = if
+             is_port(C0) ->
+                 FD0 = ok(prim_inet:getfd(C0)),
+                 ?P("FD: ~p"
+                    "~n   => ignore fd", [FD0]),
+                 %% Turn off C0, so it does not generate any events!
+                 ok = prim_inet:ignorefd(C0, true),
+                 FD0;
+             true ->
+                 [{fd, FD0}] = ok(inet:getopts(C0, [fd])),
+                 ?P("FD: ~p", [FD0]),
+                 FD0
+         end,
     ?P("ignored fd:"
        "~n   => try fdopen (local)"),
     C = ok(gen_tcp:fdopen(Fd, [local])),
@@ -748,10 +757,10 @@ do_local_fdopen(Config) ->
        "~n   => try accept", [C]),
     S = ok(gen_tcp:accept(L)),
     ?P("accepted: ~p"
-       "~n   => sockname", [S]),
+       "~n   => get sockname", [S]),
     SAddr = ok(inet:sockname(L)),
     ?P("sockname: ~p"
-       "~n   => peername (expect enotconn)", [SAddr]),
+       "~n   => try get peername (expect enotconn)", [SAddr]),
     {error,enotconn} = inet:peername(L),
     ?P("try local handshake"),
     local_handshake(S, SAddr, C, {local,<<>>}),
@@ -769,23 +778,56 @@ do_local_fdopen(Config) ->
     ok.
 
 t_local_fdopen_listen(Config) ->
+    ?TC_TRY(t_local_fdopen_listen, fun() -> do_local_fdopen_listen(Config) end).
+
+do_local_fdopen_listen(Config) ->
+    ?P("create local (server) filename"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
     InetBackendOpts = ?INET_BACKEND_OPTS(Config),
-    L0 = ok(gen_tcp:listen(0, InetBackendOpts ++ [{ifaddr,SAddr},{active,false}])),
-    Fd = ok(prim_inet:getfd(L0)),
-    L = ok(gen_tcp:listen(0, InetBackendOpts ++ [{fd,Fd},local,{active,false}])),
+    ?P("create dummy listen socket with ifaddr ~p", [SAddr]),
+    L0 = ok(gen_tcp:listen(0, InetBackendOpts ++
+                               [{ifaddr,SAddr},{active,false}])),
+    ?P("dummy listen socket created: ~p"
+       "~n   => try get FD", [L0]),
+    Fd = if
+             is_port(L0) ->
+                 ok(prim_inet:getfd(L0));
+             true ->
+                 [{fd, FD0}] = ok(inet:getopts(L0, [fd])),
+                 FD0
+         end,
+    ?P("FD: ~p"
+       "~n   => try create proper listen socket (using fd)", [Fd]),
+    snmp:enable_trace(),
+    snmp:set_trace([{gen_tcp_socket,
+                     [{scope, all_functions}]}, socket], [timestamp]),
+    L = ok(gen_tcp:listen(0, InetBackendOpts ++
+                              [{fd,Fd},local,{active,false}])),
+    snmp:reset_trace([gen_tcp_socket, socket]),
+    snmp:disable_trace(),
+    ?P("try connect"),
     C = ok(gen_tcp:connect(SAddr, 0, InetBackendOpts ++ [{active,false}])),
+    ?P("try accept (connection)"),
     S = ok(gen_tcp:accept(L)),
+    ?P("verify (proper) listen socket sockname"),
     SAddr = ok(inet:sockname(L)),
-    {error,enotconn} = inet:peername(L),
+    ?P("verify (proper) listen socket peername (expect enotconn)"),
+    {error, enotconn} = inet:peername(L),
+    ?P("perform handshake"),
     local_handshake(S, SAddr, C, {local,<<>>}),
+    ?P("close (proper) listen socket"),
     ok = gen_tcp:close(L),
+    ?P("close (dummy) listen socket"),
     ok = gen_tcp:close(L0),
+    ?P("close accepted socket"),
     ok = gen_tcp:close(S),
+    ?P("close connected socket"),
     ok = gen_tcp:close(C),
+    ?P("delete file (used for socket)"),
     ok = file:delete(SFile),
+    ?P("done"),
     ok.
 
 t_local_fdopen_listen_unbound(Config) ->
