@@ -341,6 +341,9 @@ parse_contact(Data, Line, _Env, _Where) ->
     end.
 
 parse_typedef(Data, Line, _Env, Where) ->
+    edoc_report:warning(Line, Where,
+			"EDoc @type tags are deprecated. "
+			"Please use -type attributes instead.", []),
     Def = edoc_parser:parse_typedef(Data, Line),
     {#t_typedef{name = #t_name{name = T}, args = As}, _} = Def,
     NAs = length(As),

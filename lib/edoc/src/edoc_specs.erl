@@ -228,16 +228,14 @@ get_name_and_last_line(F) ->
 get_line(Anno) ->
     erl_anno:line(Anno).
 
-%% Collect all Erlang types. Types in comments (@type) shadow Erlang
-%% types (-spec/-opaque).
+%% Collect all types.
+%% Erlang types (-spec/-opaque) shadow types in comments (@type).
 espec_types(Entries) ->
     Tags = get_all_tags(Entries),
-    CommTs = [type_name(T) ||
-                 #tag{name = type, origin = comment}=T <- Tags],
-    CT = sets:from_list(CommTs),
-    [T || #tag{name = Name, origin = code}=T <- Tags,
-          tag(Name) =:= type,
-          not sets:is_element(type_name(T), CT)].
+    CodeTs = [ T || #tag{name = type, origin = code} = T <- Tags ],
+    CT = sets:from_list([ type_name(T) || T <- CodeTs ]),
+    CodeTs ++ [ T || #tag{name = type, origin = comment} = T <- Tags,
+                     not sets:is_element(type_name(T), CT) ].
 
 get_all_tags(Es) ->
     lists:flatmap(fun (#entry{data = Ts}) -> Ts end, Es).
@@ -253,33 +251,45 @@ opaque2abstr(type, T) -> T.
 %% the source parameters as default values
 %% Selects seen types (exported types, types used by specs),
 %% skips records and unused types.
-use_tags(#entry{data = Ts}=E, TypeTable) ->
+use_tags(#entry{data = Ts} = E, TypeTable) ->
     use_tags(Ts, E, TypeTable, []).
 
 use_tags([], E, _TypeTable, NTs) ->
     E#entry{data = lists:reverse(NTs)};
 use_tags([#tag{origin = code} = T | Ts], E, TypeTable, NTs) ->
     case tag(T#tag.name) of
-        callback ->
-            use_tags(Ts, E, TypeTable, [T | NTs]);
-        spec ->
-            Args = params(T, E#entry.args),
-            use_tags(Ts, E#entry{args = Args}, TypeTable, [T | NTs]);
-        type ->
-            TypeName = type_name(T),
-            case ets:lookup(TypeTable, TypeName) of
-                [{{{record,_},_},_,_}] ->
-                    use_tags(Ts, E, TypeTable, NTs);
-                [{_,_,not_seen}] ->
-                    use_tags(Ts, E, TypeTable, NTs);
-                [] ->
-                    use_tags(Ts, E, TypeTable, NTs);
-                [{TypeName, Tag, seen}] ->
-                    use_tags(Ts, E, TypeTable, [Tag | NTs])
-            end
+	callback ->
+	    use_tags(Ts, E, TypeTable, [T | NTs]);
+	spec ->
+	    Args = params(T, E#entry.args),
+	    use_tags(Ts, E#entry{args = Args}, TypeTable, [T | NTs]);
+	type ->
+	    TypeName = type_name(T),
+	    case ets:lookup(TypeTable, TypeName) of
+		[{{{record,_},_},_,_}] ->
+		    use_tags(Ts, E, TypeTable, NTs);
+		[{_,_,not_seen}] ->
+		    use_tags(Ts, E, TypeTable, NTs);
+		[] ->
+		    use_tags(Ts, E, TypeTable, NTs);
+		[{TypeName, Tag, seen}] ->
+		    use_tags(Ts, E, TypeTable, [Tag | NTs])
+	    end
     end;
 use_tags([T | Ts], E, TypeTable, NTs) ->
-    use_tags(Ts, E, TypeTable, [T | NTs]).
+    case T of
+	#tag{name = type, origin = comment} ->
+	    TypeName = type_name(T),
+	    case ets:lookup(TypeTable, TypeName) of
+		[{TypeName, #tag{origin = code}, seen}] ->
+		    %% If this is a @type tag redundant with a -type attr then skip it.
+		    use_tags(Ts, E, TypeTable, NTs);
+		_ ->
+		    use_tags(Ts, E, TypeTable, [T | NTs])
+	    end;
+	_ ->
+	    use_tags(Ts, E, TypeTable, [T | NTs])
+    end.
 
 
 params(#tag{name = spec, data=Data}, Default) when is_list(Data) ->

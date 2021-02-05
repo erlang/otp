@@ -49,7 +49,10 @@
 	 f_spec_arg_type_in_retval/1,
 	 f_redundant_spec/1,
 	 f_only_attr/1,
-	 f_only_tag/1]).
+	 f_only_tag/1,
+	 t_only_attr/1,
+	 t_only_tag/1,
+	 t_redundant/1]).
 
 -define(a2b(A), atom_to_binary(A, utf8)).
 -define(io2b(IO), iolist_to_binary(IO)).
@@ -98,7 +101,10 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  f_spec_arg_type_in_retval,
 	  f_redundant_spec,
 	  f_only_attr,
-	  f_only_tag].
+	  f_only_tag,
+	  t_only_attr,
+	  t_only_tag,
+	  t_redundant].
 
 %% TODO: remove these cases once EDoc supports extracting the relevant tags
 not_supported() -> [type_since_tag,
@@ -420,6 +426,30 @@ f_only_tag(Config) ->
 		     get_pp_spec({function, ?FUNCTION_NAME, 0}, Docs) ),
     ?assertMatch( <<"Function with only a spec tag.">>,
 		  get_flat_doc({function, ?FUNCTION_NAME, 0}, Docs) ).
+
+t_only_attr(Config) ->
+    Docs = get_docs(Config, eep48_redundant),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-type t_only_attr() :: any().\n">>,
+		  get_pp_spec({type, ?FUNCTION_NAME, 0}, Docs) ),
+    ?assertEqual( <<"Type t_only_attr defined with an attribute.">>,
+		  get_flat_doc({type, ?FUNCTION_NAME, 0}, Docs) ).
+
+t_only_tag(Config) ->
+    Docs = get_docs(Config, eep48_redundant),
+    %?debugVal(Docs, 1000),
+    ?assertException(error, {badkey, signature},
+		     get_pp_spec({type, ?FUNCTION_NAME, 0}, Docs) ),
+    ?assertEqual( <<"Type t_only_tag defined with a tag.">>,
+		  get_flat_doc({type, ?FUNCTION_NAME, 0}, Docs) ).
+
+t_redundant(Config) ->
+    Docs = get_docs(Config, eep48_redundant),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-type t_redundant() :: any().\n">>,
+		  get_pp_spec({type, ?FUNCTION_NAME, 0}, Docs) ),
+    ?assertEqual( <<"Type t_redundant defined with an attribute, redundant with a tag.">>,
+		  get_flat_doc({type, ?FUNCTION_NAME, 0}, Docs) ).
 
 %%
 %% Helpers
