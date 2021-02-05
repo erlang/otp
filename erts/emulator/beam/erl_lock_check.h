@@ -98,7 +98,7 @@ int erts_lc_is_emu_thr(void);
 Eterm erts_lc_dump_graph(void);
 
 #define ERTS_LC_ASSERT(A) \
-    ((void) (((A) || ERTS_SOMEONE_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
+    ((void) (((A) || ERTS_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
 #else /* #ifdef ERTS_ENABLE_LOCK_CHECK */
 #define ERTS_LC_ASSERT(A) ((void) 1)
 #endif /* #ifdef ERTS_ENABLE_LOCK_CHECK */
