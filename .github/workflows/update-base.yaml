@@ -28,7 +28,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Calculate BASE image
         id: base
-        run: .github/scripts/base-tag "${{ matrix.type }}"
+        run: |
+          echo "::set-output name=BASE_TAG::docker.pkg.github.com/erlang/otp/${{ matrix.type }}"
+          .github/scripts/base-tag "${{ matrix.type }}"
       - name: Build base image
         run: |
           docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
