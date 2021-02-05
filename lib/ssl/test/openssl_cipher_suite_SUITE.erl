@@ -89,7 +89,7 @@
          ecdhe_ecdsa_with_aes_256_ccm_8/1
         ]).
 
--define(DEFAULT_TIMEOUT, {seconds, 6}).
+-define(DEFAULT_TIMEOUT, {seconds, 10}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -385,7 +385,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(des_ede3, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap({seconds, ?DEFAULT_TIMEOUT}),
             Config;
         _ ->
             {skip, "Missing 3DES crypto support"}

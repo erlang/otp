@@ -169,7 +169,8 @@
          ecdh_dh_anonymous_suites/1,
          ecdsa_suites/1,
          der_to_pem/2,
-         pem_to_der/1
+         pem_to_der/1,
+         appropriate_sha/1
         ]).
 
 -export([maybe_force_ipv4/1,
