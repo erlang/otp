@@ -392,8 +392,7 @@ collect(Fs, Mod) ->
     collect(Fs, Acc, Mod).
 
 collect([F | Fs], Acc, Mod) ->
-    #{comments := Cs, specs := Ss, types := Ts,
-      records := Rs, header := Header} = Acc,
+    #{comments := Cs, types := Ts, records := Rs, header := Header} = Acc,
     case erl_syntax_lib:analyze_form(F) of
 	comment ->
 	    collect(Fs, store(comments, F, Acc), Mod);
@@ -403,14 +402,14 @@ collect([F | Fs], Acc, Mod) ->
 	    Args = parameters(erl_syntax:function_clauses(F)),
 	    Function = #entry{name = Name, args = Args, line = L,
 			      export = Export,
-			      data = {comment_text(Cs), [], Ss, Ts, Rs}},
-	    NewAcc = Acc#{comments := [], specs := [], types := [], records := []},
+			      data = {comment_text(Cs), [], [], Ts, Rs}},
+	    NewAcc = Acc#{comments := [], types := [], records := []},
 	    collect(Fs, store(functions, Function, NewAcc), Mod);
 	{attribute, {module, _}} when Header =:= undefined ->
 	    L = get_line(F),
 	    NewAcc = Acc#{comments := [], specs := [], types := [], records := []},
 	    NewHeader = #entry{name = module, line = L,
-			       data = {comment_text(Cs), [], Ss, Ts, Rs}},
+			       data = {comment_text(Cs), [], [], Ts, Rs}},
 	    collect(Fs, store(header, NewHeader, NewAcc), Mod);
 	{attribute, {record, {_Name, Fields}}} ->
 	    case is_typed_record(Fields) of
@@ -440,12 +439,13 @@ collect([F | Fs], Acc, Mod) ->
 collect([], Acc, _Mod) ->
     #{comments := Cs, callbacks := Cbs, specs := Ss, types := Ts,
       records := Rs, functions := As, header := Header} = Acc,
-    Footer = #entry{name = footer, data = {comment_text(Cs), Cbs, Ss, Ts, Rs}},
+    Footer = #entry{name = footer, data = {comment_text(Cs), Cbs, [], Ts, Rs}},
     As1 = lists:reverse(As),
+    As2 = insert_specs(As1, Ss),
     if Header =:= undefined ->
-	   {#entry{name = module, data = {[],[],[],[],[]}}, Footer, As1};
+	   {#entry{name = module, data = {[],[],[],[],[]}}, Footer, As2};
        true ->
-	   {Header, Footer, As1}
+	   {Header, Footer, As2}
     end.
 
 store(header, Value, Acc) ->
@@ -476,6 +476,24 @@ comment_text([], Ss) ->
 get_line(Tree) ->
     Anno = erl_syntax:get_pos(Tree),
     erl_anno:line(Anno).
+
+insert_specs(As, Ss) ->
+    SpecList = [ {spec_fun_arity(S), [S]} || S <- Ss ],
+    Specs = maps:from_list(SpecList),
+    %% Assert that we've not skipped redundant specs for the same {Fun, Arity}.
+    %% This should never happen, as such a module would not compile.
+    true = length(SpecList) == maps:size(Specs),
+    insert_specs_(As, Specs).
+
+insert_specs_([], _) -> [];
+insert_specs_([#entry{} = A | As], Specs) ->
+    #entry{name = F, data = {Cs, Cbs, _, Ts, Rs}} = A,
+    Ss = maps:get(F, Specs, []),
+    [ A#entry{data = {Cs, Cbs, Ss, Ts, Rs}} | insert_specs_(As, Specs) ].
+
+spec_fun_arity(Form) ->
+    {attribute, _, spec, {FA, _}} = erl_syntax:revert(Form),
+    FA.
 
 %% @doc Replaces leading `%' characters by spaces. For example, `"%%%
 %% foo" -> "\s\s\s foo"', but `"% % foo" -> "\s % foo"', since the
@@ -658,21 +676,28 @@ check_tags_1(Ts, Tags, Where) ->
     Single = Tags#tags.single,
     edoc_tags:check_tags(Ts, Allow, Single, Where).
 
-select_spec(Ts, {_, {_F, _A}}, Specs) ->
-    case edoc_tags:filter_tags(Ts, sets:from_list([spec])) of
-        [] ->
-            %% Just a dummy to get us through check_tags()
-            {[edoc_specs:dummy_spec(S) || S <- Specs] ++ Ts, Specs};
-        _ ->
-            {Ts,[]}
+%% `Specs', that is `-spec' attributes, take precedence before any `@spec' tags.
+%% @see selected_specs/2
+-define(function(_F, _A), {_F, _A}).
+select_spec(Ts, {_, ?function(_F, _A)}, Specs) ->
+    case Specs of
+	[] ->
+	    {Ts, []};
+	[_|_] ->
+	    {Ts, Specs}
     end;
 select_spec(Ts, _Where, _Specs) ->
     {Ts,[]}.
+-undef(function).
 
+skip_specs(Ts) ->
+    [ T || T = #tag{name = N} <- Ts, N /= spec ].
+
+%% If a `-spec' attribute is present, it takes precedence over `@spec' tags.
 selected_specs([], Ts) ->
     Ts;
-selected_specs([F], [_ | Ts]) ->
-    [edoc_specs:spec(F) | Ts].
+selected_specs([F], Ts) ->
+    [edoc_specs:spec(F) | skip_specs(Ts)].
 
 %% Macros for modules
 

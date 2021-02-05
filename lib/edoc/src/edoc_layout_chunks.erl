@@ -258,11 +258,7 @@ function_line_sig_spec(NA, Opts) ->
     case lists:keyfind(spec, #tag.name, E#entry.data) of
 	false ->
 	    {Line, Sig, []};
-	#tag{name = spec, origin = comment, line = L} ->
-	    edoc_report:warning(L, source_file(Opts),
-				"EDoc @spec tags (or redundant @spec tags and -spec attributes) "
-				"are not supported when generating chunks. "
-				"Please rewrite your @spec tags to -spec attributes.\n", []),
+	#tag{name = spec, origin = comment} ->
 	    {Line, Sig, []};
 	#tag{name = spec, origin = code} = T ->
 	    F = erl_syntax:revert(T#tag.form),

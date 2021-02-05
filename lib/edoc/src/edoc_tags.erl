@@ -307,7 +307,10 @@ parse_see(Data, Line, _Env, _Where) ->
 parse_expr(Data, Line, _Env, _Where) ->
     edoc_lib:parse_expr(Data, Line).
 
-parse_spec(Data, Line, _Env, {_, {F, A}} = _Where) ->
+parse_spec(Data, Line, _Env, {_, {F, A}} = Where) ->
+    edoc_report:warning(Line, Where,
+			"EDoc @spec tags are deprecated. "
+			"Please use -spec attributes instead.", []),
     Spec = edoc_parser:parse_spec(Data, Line),
     #t_spec{name = N, type = #t_fun{args = As}} = Spec,
     if length(As) /= A ->
