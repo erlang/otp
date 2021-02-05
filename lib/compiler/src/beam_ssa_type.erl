@@ -979,6 +979,9 @@ will_succeed(#b_set{args=[Src]}, Ts, Ds, Sub) ->
             %% Checked operation never returns.
             no;
         {#{ Src := I }, #{}} ->
+            %% There can't be any substitution because the instruction
+            %% is still there.
+            false = is_map_key(Src, Sub),        %Assertion.
             will_succeed_1(I, Src, Ts, Sub);
         {#{}, #{}} ->
             %% The checked instruction has been removed and substituted, so we
@@ -1082,15 +1085,9 @@ will_succeed_1(#b_set{op=wait_timeout}, _Src, _Ts, _Sub) ->
     %% landingpad, is preserved. If the failure edge is removed, a Y
     %% register holding a `try` tag could be reused prematurely.
     maybe;
-will_succeed_1(#b_set{}, Src, Ts, Sub) ->
-    case simplify_arg(Src, Ts, Sub) of
-        #b_var{}=Src ->
-            %% No substitution; might fail at runtime.
-            maybe;
-        _ ->
-            %% Substituted with literal or other variable; always succeeds.
-            yes
-    end.
+
+will_succeed_1(#b_set{}, _Src, _Ts, _Sub) ->
+    maybe.
 
 simplify_is_record(I, #t_tuple{exact=Exact,
                                size=Size,
