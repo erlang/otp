@@ -1376,27 +1376,21 @@ drop_upto_label([_|Is]) -> drop_upto_label(Is).
 %%  (For convenience, for instructions that don't have a useful return value,
 %%  the code generator would set #b_set.dst to `none`.)
 
-fix_sets([#b_set{op=Op,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
-    NoValue = case Op of
-                  remove_message -> true;
-                  _ -> false
-              end,
-    case NoValue of
-        true ->
-            %% An instruction without value was used in effect
-            %% context in `after` block. Example:
-            %%
-            %%   try
-            %%       ...
-            %%   after
-            %%       receive _ -> ignored end
-            %%   end,
-            %%   ok.
-            %%
-            fix_sets(Is, [Ret#b_ret{arg=#b_literal{val=ok}},Set|Acc], St);
-        false ->
-            fix_sets(Is, [Ret,Set|Acc], St)
-    end;
+fix_sets([#b_set{op=remove_message,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
+    %% The remove_message instruction, which is an instruction without
+    %% value, was used in effect context in an `after` block. Example:
+    %%
+    %%   try
+    %%       . . .
+    %%   after
+    %%       .
+    %%       .
+    %%       .
+    %%       receive _ -> ignored end
+    %%   end,
+    %%   ok.
+    %%
+    fix_sets(Is, [Ret#b_ret{arg=#b_literal{val=ok}},Set|Acc], St);
 fix_sets([#b_set{dst=none}=Set|Is], Acc, St0) ->
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     I = Set#b_set{dst=Dst},
