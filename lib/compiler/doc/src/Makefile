@@ -31,7 +31,7 @@ APPLICATION=compiler
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = compile.xml
+XML_REF3_FILES = compile.xml parse_transform.xml
 EDOC_REF3_FILES =  cerl.xml cerl_trees.xml cerl_clauses.xml
 
 XML_PART_FILES = internal.xml
@@ -48,5 +48,7 @@ XML_FILES = \
 
 $(XMLDIR)/%.xml: ../../internal_doc/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
+
+NO_CHUNKS = parse_transform.xml
 
 include $(ERL_TOP)/make/doc.mk

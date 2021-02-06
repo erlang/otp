@@ -35,5 +35,6 @@
       the Erlang emulator.</p>
   </description>
   <xi:include href="compile.xml"/>
+  <xi:include href="parse_transform.xml"/>
 </application>
 

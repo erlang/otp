@@ -442,7 +442,9 @@ module.beam: module.erl \
           <item>
             <p>Causes the parse transformation function
               <c>Module:parse_transform/2</c> to be applied to the
-              parsed code before the code is checked for errors.</p>
+              parsed code before the code is checked for errors.
+              <c>Module</c> must implement behaviour
+              <seeerl marker="parse_transform">parse_transform</seeerl></p>
           </item>
 
 	  <tag><c>from_abstr</c></tag>
