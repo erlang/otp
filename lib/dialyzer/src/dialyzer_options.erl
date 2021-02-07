@@ -333,6 +333,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_CONTRACT_SUBTYPE, Warnings);
       underspecs ->
 	ordsets:add_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
+      no_underspecs ->
+    ordsets:del_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
       unknown ->
 	ordsets:add_element(?WARN_UNKNOWN, Warnings);
       OtherAtom ->
