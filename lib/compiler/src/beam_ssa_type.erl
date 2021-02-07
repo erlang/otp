@@ -1056,20 +1056,12 @@ will_succeed_1(#b_set{op=call}, _Src, _Ts, _Sub) ->
     maybe;
 will_succeed_1(#b_set{op=get_map_element}, _Src, _Ts, _Sub) ->
     maybe;
-
-will_succeed_1(#b_set{op=wait_timeout,args=[Timeout]}, _Src, Ts, _Sub) ->
-    %% Timeouts that are too long can fail. Conservatively assume that
-    %% anything under a day is okay.
-    MaxTimeout = 24 * (60 * 60 * 1000),
-    case normalized_type(Timeout, Ts) of
-        #t_integer{elements={Min,Max}} when Min >= 0, Max =< MaxTimeout ->
-            yes;
-        #t_atom{elements=[infinity]} ->
-            yes;
-        _ ->
-            maybe
-    end;
-
+will_succeed_1(#b_set{op=wait_timeout}, _Src, _Ts, _Sub) ->
+    %% It is essential to keep the {succeeded,body} instruction to
+    %% ensure that the failure edge, which potentially leads to a
+    %% landingpad, is preserved. If the failure edge is removed, a Y
+    %% register holding a `try` tag could be reused prematurely.
+    maybe;
 will_succeed_1(#b_set{}, Src, Ts, Sub) ->
     case simplify_arg(Src, Ts, Sub) of
         #b_var{}=Src ->
@@ -1763,9 +1755,6 @@ type(put_tuple, Args, _Anno, Ts, _Ds) ->
     #t_tuple{exact=true,size=length(Args),elements=Es};
 type(resume, [_, _], _Anno, _Ts, _Ds) ->
     none;
-type(wait_timeout, [#b_literal{val=0}], _Anno, _Ts, _Ds) ->
-    %% Never waits, jumps directly to 'after' block.
-    beam_types:make_atom(true);
 type(wait_timeout, [#b_literal{val=infinity}], _Anno, _Ts, _Ds) ->
     %% Waits forever, never reaching the 'after' block.
     beam_types:make_atom(false);
