@@ -611,7 +611,9 @@ pass(_) -> none.
 %% proper diagnostics.
 
 fix_first_pass([{consult_abstr, _} | Passes]) ->
-    [?pass(get_module_name_from_abstr) | Passes];
+    %% Simply remove this pass. The module name will be set after
+    %% running the v3_core pass.
+    Passes;
 fix_first_pass([{parse_core,_}|Passes]) ->
     [?pass(get_module_name_from_core)|Passes];
 fix_first_pass([{beam_consult_asm,_}|Passes]) ->
@@ -1046,15 +1048,6 @@ consult_abstr(_Code, St) ->
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
-    end.
-
-get_module_name_from_abstr(Forms, St) ->
-    try get_module(Forms) of
-        Mod -> {ok, Forms, St#compile{module = Mod}}
-    catch
-        _:_ ->
-            %% Missing module declaration. Let it crash in a later pass.
-            {ok, Forms, St}
     end.
 
 parse_core(_Code, St) ->
