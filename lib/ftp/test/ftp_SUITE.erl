@@ -1007,9 +1007,9 @@ clean_shutdown(Config) ->
             exit(HelperPid, shutdown),
             timer:sleep(2000),
             error_logger:logfile(close),
-            case is_error_report_6035(LogFile) of
-                true ->  ok;
-                false -> {fail, "Bad logfile"}
+            case unwanted_error_report(LogFile) of
+                true ->  {fail, "Bad logfile"};
+                false -> ok
             end
     end.
 
@@ -1395,11 +1395,11 @@ progress_report_receiver_loop(Parent, N) ->
 %%%----------------------------------------------------------------
 %%% Help functions for bug OTP-6035
 
-is_error_report_6035(LogFile) ->
+unwanted_error_report(LogFile) ->
     case file:read_file(LogFile) of
         {ok, Bin} ->
             nomatch =/= binary:match(Bin, <<"=ERROR REPORT====">>);
         _ ->
-            false
+            ct:fail({no_logfile, LogFile})
     end.
 
