@@ -3061,10 +3061,11 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name since="OTP 17.3"><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(ErlNifEnv* env,
-        const char* fun_name, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int
-        argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM
-        argv[])</nametext></name>
+      <name since="OTP 17.3"><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(
+        ErlNifEnv* caller_env, const char* fun_name, int flags,
+	ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]),
+	int argc, const ERL_NIF_TERM argv[])</nametext>
+      </name>
       <fsummary>Schedule a NIF for execution.</fsummary>
       <desc>
         <p>Schedules NIF <c>fp</c> to execute. This function allows an
@@ -3072,6 +3073,13 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           calls or to schedule a <seecref marker="#dirty_nifs">
           dirty NIF</seecref> to execute on a dirty scheduler thread.</p>
         <taglist>
+	  <tag><c>caller_env</c></tag>
+          <item>
+	    <p>
+	      Must be <seecref marker="#proc_bound_env">process bound</seecref>
+	      environment of the calling NIF.
+	    </p>
+          </item>
           <tag><c>fun_name</c></tag>
           <item>
             <p>Provides a name for the NIF that is scheduled for execution.

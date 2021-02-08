@@ -337,6 +337,8 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     Process *c_p, *dirty_shadow_proc;
 
     execution_state(env, &c_p, NULL);
+    ASSERT(c_p);
+
     if (c_p == env->proc)
 	dirty_shadow_proc = NULL;
     else
@@ -3064,6 +3066,7 @@ static_schedule_dirty_nif(ErlNifEnv* env, erts_aint32_t dirty_psflg,
     NativeFunPtr fp;
 
     execution_state(env, &proc, NULL);
+    ASSERT(proc);
 
     /*
      * Called in order to schedule statically determined
@@ -3170,6 +3173,8 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
 	return fun_name_atom;
 
     execution_state(env, &proc, &scheduler);
+    ASSERT(proc);
+
     if (scheduler <= 0) {
 	if (scheduler == 0)
 	    enif_make_badarg(env);
