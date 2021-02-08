@@ -28,3 +28,6 @@ f_only_attr() -> ok.
 %% @spec f_only_tag() -> atom()
 %% @doc Function with only a spec tag.
 f_only_tag() -> ok.
+
+-spec eep48_redundant:f_prefixed_spec() -> any().
+f_prefixed_spec() -> ok.
