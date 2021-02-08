@@ -3028,34 +3028,6 @@ dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
-/*
- * Dirty NIF scheduling wrapper function. Schedule a dirty NIF to execute.
- * The dirty scheduler thread type (CPU or I/O) is indicated in flags
- * parameter.
- */
-static ERTS_INLINE ERL_NIF_TERM
-schedule_dirty_nif(ErlNifEnv* env, int flags, NativeFunPtr fp,
-		   Eterm func_name, int argc, const ERL_NIF_TERM argv[])
-{
-    Process* proc;
-
-    ASSERT(is_atom(func_name));
-    ASSERT(fp);
-
-    ASSERT(flags==ERL_NIF_DIRTY_JOB_IO_BOUND || flags==ERL_NIF_DIRTY_JOB_CPU_BOUND);
-
-    execution_state(env, &proc, NULL);
-
-    (void) erts_atomic32_read_bset_nob(&proc->state,
-					   (ERTS_PSFLG_DIRTY_CPU_PROC
-					    | ERTS_PSFLG_DIRTY_IO_PROC),
-					   (flags == ERL_NIF_DIRTY_JOB_CPU_BOUND
-					    ? ERTS_PSFLG_DIRTY_CPU_PROC
-					    : ERTS_PSFLG_DIRTY_IO_PROC));
-
-    return schedule(env, fp, NULL, proc->current->module, func_name, argc, argv);
-}
-
 static ERTS_INLINE ERL_NIF_TERM
 static_schedule_dirty_nif(ErlNifEnv* env, erts_aint32_t dirty_psflg,
 			     int argc, const ERL_NIF_TERM argv[])
@@ -3185,7 +3157,14 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
 	result = schedule(env, execute_nif, fp, proc->current->module,
 			  fun_name_atom, argc, argv);
     else if (!(flags & ~(ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND))) {
-	result = schedule_dirty_nif(env, flags, fp, fun_name_atom, argc, argv);
+        (void) erts_atomic32_read_bset_nob(&proc->state,
+                                           (ERTS_PSFLG_DIRTY_CPU_PROC
+                                            | ERTS_PSFLG_DIRTY_IO_PROC),
+                                           (flags == ERL_NIF_DIRTY_JOB_CPU_BOUND
+                                            ? ERTS_PSFLG_DIRTY_CPU_PROC
+                                            : ERTS_PSFLG_DIRTY_IO_PROC));
+        result = schedule(env, fp, NULL, proc->current->module, fun_name_atom,
+                          argc, argv);
     }
     else
 	result = enif_make_badarg(env);
