@@ -730,6 +730,10 @@ handle_event(internal, #ssh_msg_ignore{}, _StateName, _) ->
 handle_event(internal, #ssh_msg_unimplemented{}, _StateName, _) ->
     keep_state_and_data;
 
+%% Quick fix of failing test case (ssh_options_SUITE:ssh_msg_debug_fun_option_{client|server}/1)
+handle_event(cast, #ssh_msg_debug{} = Msg, State, D) ->
+    handle_event(internal, Msg, State, D);
+
 handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
     debug_fun(Msg, D),
     keep_state_and_data;
