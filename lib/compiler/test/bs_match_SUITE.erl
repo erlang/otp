@@ -603,6 +603,10 @@ sum(<<>>, Last, Sum) -> {Sum,Last}.
 
 bin_and_float(Config) when is_list(Config) ->
     14.0 = bin_and_float(<<1.0/float,2.0/float,3.0/float>>, 0.0),
+
+    Sz = id(1),
+    <<>> = << <<0>> || <<1:Sz/float-unit:63>> <= <<2:30>> >>,
+
     ok.
 
 bin_and_float(<<X/float,Y/float,Z/float,T/binary>>, Sum) when is_float(X),
