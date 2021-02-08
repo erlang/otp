@@ -908,17 +908,19 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     from = c_p ? c_p->common.id : am_undefined;
 
     if (!env || !env->tracee) {
-
-        if (c_p && IS_TRACED_FL(c_p, F_TRACE_SEND)) {
-	    full_flush_env(env);
-            trace_send(c_p, receiver, msg);
-	    full_cache_env(env);
-	}
-        if (c_p && scheduler > 0 && copy_sz > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
-            Uint reds = copy_sz / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
-            if (reds > CONTEXT_REDS)
-                reds = CONTEXT_REDS;
-            BUMP_REDS(c_p, (int) reds);
+        if (c_p) {
+            ASSERT(env);
+            if (IS_TRACED_FL(c_p, F_TRACE_SEND)) {
+                full_flush_env(env);
+                trace_send(c_p, receiver, msg);
+                full_cache_env(env);
+            }
+            if (scheduler > 0 && copy_sz > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
+                Uint reds = copy_sz / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
+                if (reds > CONTEXT_REDS)
+                    reds = CONTEXT_REDS;
+                BUMP_REDS(c_p, (int) reds);
+            }
         }
     }
     else {
