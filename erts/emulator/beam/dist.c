@@ -3033,6 +3033,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                                                    &ctx->vlen,
                                                    &ctx->fragments);
                 if (ctx->no_trap) {
+                    ASSERT(redsp == &reds); /* silence CodeChecker */
                     ctx->reds -= CONTEXT_REDS - reds;
                     if (sz_res == ERTS_EXT_SZ_YIELD) {
                         reds = CONTEXT_REDS;
@@ -3117,6 +3118,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                     goto done;
                 }
                 else {
+                    ASSERT(redsp == &reds); /* silence CodeChecker */
                     ctx->reds -= CONTEXT_REDS - reds;
                     if (res == 0)
                         break;
