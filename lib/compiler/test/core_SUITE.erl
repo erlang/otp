@@ -163,7 +163,7 @@ core_lint_function(Exports, Attributes, Body) ->
     MainFun = cerl:c_fun([], Body),
     MainVar = cerl:c_var({main,0}),
     Mod = cerl:c_module(ModName, Exports, Attributes, [{MainVar,MainFun}]),
-    {error,[{core_lint_test,Errors}],[]} =
+    {error,[{"core_lint_test",Errors}],[]} =
         compile:forms(Mod, [from_core,clint0,return]),
     io:format("~p\n", [Errors]),
     [] = lists:filter(fun({none,core_lint,_}) -> false;

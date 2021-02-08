@@ -22,11 +22,10 @@
 
 -export([format_messages/4, list_errors/3]).
 
--type pos() :: integer() | {integer(), integer()}.
--type err_warn_info() :: tuple().
--type message() :: {Where :: none | {File::string(), pos()}, Text :: iolist()}.
+-type loc() :: erl_anno:location().
+-type message() :: {Where :: none | {File::string(), loc()}, Text :: iolist()}.
 
--spec format_messages(File::string(), Prefix::string(), [err_warn_info()],
+-spec format_messages(File::string(), Prefix::string(), [erl_lint:error_info()],
                       Opts::[term()]) -> [message()].
 
 format_messages(F, P, [{none, Mod, E} | Es], Opts) ->
@@ -48,7 +47,7 @@ format_messages(F, P, [{Loc, Mod, E} | Es], Opts) ->
 format_messages(_, _, [], _Opts) ->
     [].
 
--spec list_errors(File::string(), [err_warn_info()], Opts::[term()]) -> ok.
+-spec list_errors(File::string(), [erl_lint:error_info()], Opts::[term()]) -> ok.
 
 list_errors(F, [{none, Mod, E} | Es], Opts) ->
     io:fwrite("~ts: ~ts\n", [F, Mod:format_error(E)]),
