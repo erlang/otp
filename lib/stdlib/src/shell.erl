@@ -1186,6 +1186,8 @@ record_bindings(Recs0, Bs0) ->
 read_records(FileOrModule, Opts0) ->
     Opts = lists:delete(report_warnings, Opts0),
     case find_file(FileOrModule) of
+        {beam, Beam, File} ->
+            read_records_from_beam(Beam, File);
         {files,[File]} ->
             read_file_records(File, Opts);
         {files,Files} ->
@@ -1204,10 +1206,22 @@ read_records(FileOrModule, Opts0) ->
 find_file(Mod) when is_atom(Mod) ->
     case code:which(Mod) of
 	File when is_list(File) ->
-	    {files,[File]};
-	preloaded ->
-	    {_M,_Bin,File} = code:get_object_code(Mod),
-            {files,[File]};
+            %% Special cases:
+            %% - Modules not in the code path (loaded with code:load_abs/1):
+            %%   code:get_object_code/1 only searches in the code path
+            %%   but code:which/1 finds all loaded modules
+            %% - File can also be a file in an archive,
+            %%   beam_lib:chunks/2 cannot handle such paths but
+            %%   erl_prim_loader:get_file/1 can
+            case erl_prim_loader:get_file(File) of
+                {ok, Beam, _} ->
+                    {beam, Beam, File};
+                error ->
+                    {error, nofile}
+            end;
+    	preloaded ->
+	    {_M, Beam, File} = code:get_object_code(Mod),
+            {beam, Beam, File};
         _Else -> % non_existing, interpreted, cover_compiled
             {error,nofile}
     end;
@@ -1222,26 +1236,29 @@ find_file(File) ->
 read_file_records(File, Opts) ->
     case filename:extension(File) of
         ".beam" ->
-            case beam_lib:chunks(File, [abstract_code,"CInf"]) of
-                {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
-                    case record_attrs(Forms) of
-                        [] when Version =:= raw_abstract_v1 ->
-                            [];
-                        [] -> 
-                            %% If the version is raw_X, then this test
-                            %% is unnecessary.
-                            try_source(File, CB);
-                        Records -> 
-                            Records
-                    end;
-                {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
-                    try_source(File, CB);
-                Error ->
-                    %% Could be that the "Abst" chunk is missing (pre R6).
-                    Error
-            end;
+            read_records_from_beam(File, File);
         _ ->
             parse_file(File, Opts)
+    end.
+
+read_records_from_beam(Beam, File) ->
+    case beam_lib:chunks(Beam, [abstract_code,"CInf"]) of
+        {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
+            case record_attrs(Forms) of
+                [] when Version =:= raw_abstract_v1 ->
+                    [];
+                [] ->
+                    %% If the version is raw_X, then this test
+                    %% is unnecessary.
+                    try_source(File, CB);
+                Records ->
+                    Records
+            end;
+        {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
+            try_source(File, CB);
+        Error ->
+            %% Could be that the "Abst" chunk is missing (pre R6).
+            Error
     end.
 
 %% This is how the debugger searches for source files. See int.erl.

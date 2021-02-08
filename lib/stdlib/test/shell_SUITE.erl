@@ -64,8 +64,9 @@ end_per_testcase(_Case, Config) ->
     OrigPath = proplists:get_value(orig_path,Config),
     code:set_path(OrigPath),
     application:unset_env(stdlib, restricted_shell),
-    (catch code:purge(user_default)),
-    (catch code:delete(user_default)),
+    purge_and_delete(user_default),
+    %% used by `records' test case
+    purge_and_delete(test),
     ok.
 -endif.
 
@@ -298,8 +299,7 @@ restricted_local(Config) when is_list(Config) ->
 	comm_err(<<"begin shell:stop_restricted() end.">>),
     undefined =
 	application:get_env(stdlib, restricted_shell),
-    (catch code:purge(user_default)),
-    true = (catch code:delete(user_default)),
+    true = purge_and_delete(user_default),
     ok.
     
 
@@ -427,6 +427,30 @@ records(Config) when is_list(Config) ->
     [{error,nofile}] = scan(<<"rr(not_a_module).">>),
     [{error,invalid_filename}] = scan(<<"rr({foo}).">>),
     [[]] = scan(<<"rr(\"not_a_file\").">>),
+
+    %% load record from archive
+    true = purge_and_delete(test),
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    AppDir = filename:join(PrivDir, "test_app"),
+    ok = file:make_dir(AppDir),
+    AppEbinDir = filename:join(AppDir, "ebin"),
+    ok = file:make_dir(AppEbinDir),
+
+    ok = file:write_file(Test, Contents),
+    {ok, test} = compile:file(Test, [{outdir, AppEbinDir}]),
+
+    Ext = init:archive_extension(),
+    Archive = filename:join(PrivDir, "test_app" ++ Ext),
+    {ok, _} = zip:create(Archive, ["test_app"], [{compress, []}, {cwd, PrivDir}]),
+
+    ArchiveEbinDir = filename:join(Archive, "test_app/ebin"),
+    true = code:add_path(ArchiveEbinDir),
+    {module, test} = code:load_file(test),
+    BeamInArchive = filename:join(ArchiveEbinDir, "test.beam"),
+    BeamInArchive = code:which(test),
+
+    [[state]] = scan(<<"rr(test).">>),
 
     %% using records
     [2] = scan(<<"rd(foo,{bar}), record_info(size, foo).">>),
@@ -3222,3 +3246,6 @@ start_node(Name, Xargs) ->
     global:sync(),
     N.
 
+purge_and_delete(Module) ->
+    (catch code:purge(Module)),
+    (catch code:delete(Module)).
