@@ -163,21 +163,21 @@ request_ownership(LSock, SockOwner) ->
 acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
     case Callback:accept(ListenSocket, AcceptTimeout) of
         {ok,Socket} ->
-            case handle_connection(Callback, Address, Port, Opts, Socket) of
+            {ok, {FromIP,FromPort}} = inet:peername(Socket), % Just in case of error in next line:
+            case handle_connection(Address, Port, Opts, Socket) of
                 {error,Error} ->
                     catch Callback:close(Socket),
-                    handle_error(Error);
+                    handle_error(Error, Address, Port, FromIP, FromPort);
                 _ ->
                     ok
             end;
         {error,Error} ->
-            handle_error(Error)
+            handle_error(Error, Address, Port)
     end,
-    ?MODULE:acceptor_loop(Callback, Port, Address, Opts,
-                          ListenSocket, AcceptTimeout).
+    ?MODULE:acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout).
 
 %%%----------------------------------------------------------------
-handle_connection(Callback, Address, Port, Options, Socket) ->
+handle_connection(Address, Port, Options, Socket) ->
     Profile =  ?GET_OPT(profile, Options),
     SystemSup = ssh_system_sup:system_supervisor(Address, Port, Profile),
 
@@ -187,40 +187,51 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
 	    NegTimeout = ?GET_OPT(negotiation_timeout, Options),
             ssh_connection_handler:start_link(server, Address, Port, Socket, Options, NegTimeout);
 	false ->
-	    Callback:close(Socket),
-	    IPstr = if is_tuple(Address) -> inet:ntoa(Address);
-		     true -> Address
-		  end,
-	    Str = try io_lib:format('~s:~p',[IPstr,Port])
-		  catch _:_ -> "port "++integer_to_list(Port)
-		  end,
-	    error_logger:info_report("Ssh login attempt to "++Str++" denied due to option "
-				     "max_sessions limits to "++ io_lib:write(MaxSessions) ++
-				     " sessions."
-				     ),
-	    {error,max_sessions}
+	    {error,{max_sessions,MaxSessions}}
     end.
 
 %%%----------------------------------------------------------------
-handle_error(timeout) ->
-    ok;
-handle_error(enfile) ->
-    %% Out of sockets...
-    timer:sleep(?SLEEP_TIME);
-handle_error(emfile) ->
-    %% Too many open files -> Out of sockets...
-    timer:sleep(?SLEEP_TIME);
-handle_error(closed) ->
-    error_logger:info_report("The ssh accept socket was closed by " 
-                             "a third party. "
-                             "This will not have an impact on ssh "
-                             "that will open a new accept socket and " 
-                             "go on as nothing happened. It does however "
-                             "indicate that some other software is behaving "
-                             "badly.");
-handle_error(Error) ->
-    String = lists:flatten(io_lib:format("Accept error: ~p", [Error])),
-    error_logger:error_report(String).
+handle_error(Reason, ToAddress, ToPort) ->
+    handle_error(Reason, ToAddress, ToPort, undefined, undefined).
+
+
+handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
+    case Reason of
+        {max_sessions, MaxSessions} ->
+            error_logger:info_report(
+              lists:concat(["Ssh login attempt to ",ssh_lib:format_address_port(ToAddress,ToPort),
+                            " from ",ssh_lib:format_address_port(FromAddress,FromPort),
+                            " denied due to option max_sessions limits to ",
+                            MaxSessions, " sessions."
+                           ])
+             );
+
+        Limit when Limit==enfile ; Limit==emfile ->
+            %% Out of sockets...
+            error_logger:info_report([atom_to_list(Limit),": out of accept sockets on ",
+                                      ssh_lib:format_address_port(ToAddress, ToPort),
+                                      " - retrying"]),
+            timer:sleep(?SLEEP_TIME);
+
+        closed ->
+            error_logger:info_report(["The ssh accept socket on ",ssh_lib:format_address_port(ToAddress,ToPort),
+                                      "was closed by a third party."]
+                                    );
+
+        timeout ->
+            ok;
+
+        Error when is_list(Error) ->
+            ok;
+        Error when FromAddress=/=undefined,
+                   FromPort=/=undefined ->
+            error_logger:info_report(["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
+                                      " for connect from ",ssh_lib:format_address_port(FromAddress,FromPort),
+                                      io_lib:format(": ~p", [Error])]);
+        Error ->
+            error_logger:info_report(["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
+                                      io_lib:format(": ~p", [Error])])
+    end.
 
 %%%################################################################
 %%%#
@@ -232,31 +243,21 @@ ssh_dbg_trace_points() -> [connections].
 ssh_dbg_flags(connections) -> [c].
 
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
-                           dbg:tpl(?MODULE, handle_connection, 5, x).
+                           dbg:tpl(?MODULE, handle_connection, 4, x).
 
 ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 5),
-                            dbg:ctp(?MODULE, handle_connection, 5).
+                            dbg:ctp(?MODULE, handle_connection, 4).
 
 ssh_dbg_format(connections, {call, {?MODULE,acceptor_init,
                                     [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
-    [io_lib:format("Starting LISTENER on ~s:~p\n", [ntoa(Address),Port])
+    [io_lib:format("Starting LISTENER on ~s:~p\n", [ssh_lib:format_address(Address),Port])
     ];
 ssh_dbg_format(connections, {return_from, {?MODULE,acceptor_init,5}, _Ret}) ->
     skip;
 
-ssh_dbg_format(connections, {call, {?MODULE,handle_connection,[_,_,_,_,_]}}) ->
+ssh_dbg_format(connections, {call, {?MODULE,handle_connection,[_,_,_,_]}}) ->
     skip;
-ssh_dbg_format(connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
+ssh_dbg_format(connections, {return_from, {?MODULE,handle_connection,4}, {error,Error}}) ->
     ["Starting connection to server failed:\n",
      io_lib:format("Error = ~p", [Error])
     ].
-
-
-
-ntoa(A) ->
-    try inet:ntoa(A)
-    catch
-        _:_ when is_list(A) -> A;
-        _:_ -> io_lib:format('~p',[A])
-    end.
-            
