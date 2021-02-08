@@ -492,8 +492,14 @@ insert_specs_([#entry{} = A | As], Specs) ->
     [ A#entry{data = {Cs, Cbs, Ss, Ts, Rs}} | insert_specs_(As, Specs) ].
 
 spec_fun_arity(Form) ->
-    {attribute, _, spec, {FA, _}} = erl_syntax:revert(Form),
-    FA.
+    case erl_syntax:revert(Form) of
+	{attribute, _, spec, {{F, A}, _}} ->
+	    %% -spec F(Args...) -> ...
+	    {F, A};
+	{attribute, _, spec, {{_, F, A}, _}} ->
+	    %% -spec M:F(Args...) -> ...
+	    {F, A}
+    end.
 
 %% @doc Replaces leading `%' characters by spaces. For example, `"%%%
 %% foo" -> "\s\s\s foo"', but `"% % foo" -> "\s % foo"', since the
