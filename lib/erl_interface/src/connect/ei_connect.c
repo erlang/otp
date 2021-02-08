@@ -1029,9 +1029,7 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 	return ERL_ERROR;
     }
 
-    if (this_node_name == NULL) {
-	sprintf(thisalivename, "c%d", (int) getpid());
-    } else if (strlen(this_node_name) >= sizeof(thisalivename)) {
+    if (strlen(this_node_name) >= sizeof(thisalivename)) {
 	EI_TRACE_ERR0("ei_connect_init","ERROR: this_node_name too long");
 	return ERL_ERROR;
     } else {
