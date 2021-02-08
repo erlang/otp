@@ -568,27 +568,25 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="binary_to_existing_atom" arity="2" since=""/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
-        <p>As <seemfa
-        marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
-        but the atom must exist.</p>
+        <p>As <seemfa marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
+          but the atom must exist.</p>
 
-        <p>The Erlang system has a <seeguide
-        marker="system/efficiency_guide:advanced">configurable
-        limit</seeguide> for the total number of atoms that can exist,
-        and atoms are not garbage collected. Therefore, it is not safe
-        to create many atoms from binaries that come from an untrusted
-        source (for example, a file fetched from the Internet), for
-        example, using <seemfa
-        marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>. This
-        function is thus the appropriate option when the input binary
-        comes from an untrusted source.</p>
+        <p>The Erlang system has a <seeguide marker="system/efficiency_guide:advanced">
+          configurable limit</seeguide> for the total number of atoms that can
+          exist, and atoms are not garbage collected. Therefore, it is not safe
+          to create many atoms from binaries that come from an untrusted
+          source (for example, a file fetched from the Internet), for
+          example, using <seemfa marker="#binary_to_atom/2">
+          <c>binary_to_atom/2</c></seemfa>. This function is thus the
+          appropriate option when the input binary comes from an untrusted
+          source.</p>
 
         <p>An atom exists in an Erlang system when included in a
-        loaded Erlang module or when created programmatically (for
-        example, by <c>binary_to_atom/2</c>). See the next note for an
-        example of when an atom exists in the source code for an
-        Erlang module but not in the compiled version of the same
-        module.</p>
+          loaded Erlang module or when created programmatically (for
+          example, by <c>binary_to_atom/2</c>). See the next note for an
+          example of when an atom exists in the source code for an
+          Erlang module but not in the compiled version of the same
+          module.</p>
 
         <p>Failure: <c>badarg</c> if the atom does not exist.</p>
 	<note>
@@ -603,9 +601,9 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 	</note>
         <note>
           <p>The number of characters that are permitted in an atom
-          name is limited. The default limits can be found in the
-          <seeguide marker="system/efficiency_guide:advanced">
-          efficiency guide (section Advanced)</seeguide>.</p>
+            name is limited. The default limits can be found in the
+            <seeguide marker="system/efficiency_guide:advanced">
+            efficiency guide (section Advanced)</seeguide>.</p>
         </note>
       </desc>
     </func>
@@ -962,10 +960,10 @@ hello
       <name name="check_old_code" arity="1" since="OTP R14B04"/>
       <fsummary>Check if a module has old code.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>Module</anno></c> has old code,
+        <p>Returns <c>true</c> if <c><anno>Module</anno></c> has
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">old code</seeguide>,
           otherwise <c>false</c>.</p>
-        <p>See also <seeerl marker="kernel:code">
-          <c>code(3)</c></seeerl>.</p>
+        <p>See also <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -2312,14 +2310,10 @@ uncompiled code with the same arity are mapped to the same list by
       <fsummary>Check if a function is exported and loaded.</fsummary>
       <desc>
         <p>Returns <c>true</c> if the module <c><anno>Module</anno></c> is
-          loaded and contains an exported function
-          <c><anno>Function</anno>/<anno>Arity</anno></c>,
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">current</seeguide>
+          and contains an exported function <c><anno>Function</anno>/<anno>Arity</anno></c>,
           or if there is a BIF (a built-in function implemented in C)
           with the specified name, otherwise returns <c>false</c>.</p>
-        <note>
-          <p>This function used to return <c>false</c> for BIFs
-            before Erlang/OTP 18.0.</p>
-        </note>
       </desc>
     </func>
 
@@ -2761,8 +2755,36 @@ os_prompt%</pre>
       <name name="iolist_to_iovec" arity="1" since="OTP 20.1"/>
       <fsummary>Converts an iolist to a iovec.</fsummary>
       <desc>
-        <p>Returns an iovec that is made from the integers and binaries in
-          <c><anno>IoListOrBinary</anno></c>.</p>
+        <p>Returns an <seetype marker="#iovec">iovec</seetype> that is made from
+          the integers and binaries in <c><anno>IoListOrBinary</anno></c>.
+          This function is useful when you want to flatten an iolist but you do
+          not need a single binary. This can be useful for passing the data
+          to nif functions such as
+          <seecref marker="erl_nif#enif_inspect_iovec"><c>enif_inspect_iovec</c></seecref>
+          or do more efficient message passing. The advantage of using this
+          function over
+          <seemfa marker="#iolist_to_binary/1"><c>iolist_to_binary/1</c></seemfa>
+          is that it does not have to copy
+          <seeguide marker="system/efficiency_guide:binaryhandling#refc_binary">
+            off-heap binaries</seeguide>. Example:</p>
+        <pre>
+> <input>Bin1 = &lt;&lt;1,2,3&gt;&gt;.</input>
+&lt;&lt;1,2,3&gt;&gt;
+> <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
+&lt;&lt;4,5&gt;&gt;
+> <input>Bin3 = &lt;&lt;6&gt;&gt;.</input>
+&lt;&lt;6&gt;&gt;
+%% If you pass small binaries and integers it works as iolist_to_binary
+> <input>erlang:iolist_to_iovec([Bin1,1,[2,3,Bin2],4|Bin3]).</input>
+[&lt;&lt;1,2,3,1,2,3,4,5,4,6&gt;&gt;]
+%% If you pass larger binaries, they are split and returned in a form
+%% optimized for calling the C function writev.
+> <input>erlang:iolist_to_iovec([&lt;&lt;1&gt;&gt;,&lt;&lt;2:8096&gt;&gt;,&lt;&lt;3:8096&gt;&gt;]).</input>
+[&lt;&lt;1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,...&gt;&gt;,
+ &lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   ...&gt;&gt;,
+ &lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...&gt;&gt;]</pre>
       </desc>
     </func>
 
@@ -3174,7 +3196,9 @@ is_process_alive(P2Pid),
       <desc>
         <p>Returns the atom whose text representation is
           <c><anno>String</anno></c>,
-          but only if there already exists such atom.</p>
+          but only if there already exists such atom. An atom exists if it has
+          been created by the run-time system by either loading code or creating
+          a term in which the atom is part.</p>
         <p>Failure: <c>badarg</c> if there does not already exist an atom
           whose text representation is <c><anno>String</anno></c>.</p>
 	<note>
@@ -3491,7 +3515,7 @@ is_process_alive(P2Pid),
           unique reference</seeguide>. The reference is unique among
           connected nodes.</p>
         <warning>
-          <p>Known issue: When a node is restarted multiple
+          <p>Before OTP-23 when a node is restarted multiple
             times with the same node name, references created
             on a newer node can be mistaken for a reference
             created on an older node with the same node name.</p>
@@ -3745,15 +3769,6 @@ is_process_alive(P2Pid),
             <p>The total amount of memory currently allocated for ETS
               tables. This memory is part of the memory presented as
               <c>system</c> memory.</p>
-          </item>
-          <tag><c>low</c></tag>
-          <item>
-            <p>Only on 64-bit halfword emulator.
-              The total amount of memory allocated in low memory areas
-              that are restricted to &lt; 4 GB, although
-              the system can have more memory.</p>
-            <p>Can be removed in a future release of the halfword
-              emulator.</p>
           </item>
           <tag><c>maximum</c></tag>
           <item>
@@ -5481,9 +5496,10 @@ RealSystem = system + MissedSystem</code>
       <fsummary>List all preloaded modules.</fsummary>
       <desc>
         <p>Returns a list of Erlang modules that are preloaded in
-          the system. As all loading of code is done through the file
-          system, the file system must have been loaded previously.
-          Hence, at least the module <c>init</c> must be preloaded.</p>
+          the run-time system. Pre-loaded modules are Erlang modules
+          that are needed to bootstrap the system to load the first
+          Erlang modules from either disk or by using <seeerl marker="kernel:erl_boot_server">
+          <c>erl_boot_server</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -7785,9 +7801,9 @@ true</pre>
         <p><c>statistics(microstate_accounting)</c> returns a list of maps
           representing some of the OS threads within ERTS. Each map
           contains <c>type</c> and <c>id</c> fields that can be used to
-          identify what
-          thread it is, and also a counters field that contains data about how
-          much time has been spent in the various states.</p>
+          identify what thread it is, and also a counters field that
+          contains data about how much time has been spent in the various
+          states.</p>
         <p>Example:</p>
         <pre>
 > <input>erlang:statistics(microstate_accounting).</input>
@@ -8028,28 +8044,20 @@ lists:map(
 	    anchor="statistics_scheduler_wall_time" since="OTP R15B01"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
-        <p>Returns a list of tuples with
-          <c>{<anno>SchedulerId</anno>, <anno>ActiveTime</anno>,
-          <anno>TotalTime</anno>}</c>, where
-          <c><anno>SchedulerId</anno></c> is an integer ID of the scheduler,
-          <c><anno>ActiveTime</anno></c> is
-          the duration the scheduler has been busy, and
-          <c><anno>TotalTime</anno></c> is the total time duration since
-          <seeerl marker="#system_flag_scheduler_wall_time">
-          <c>scheduler_wall_time</c></seeerl>
-          activation for the specific scheduler. Note that
-	  activation time can differ significantly between
-	  schedulers. Currently dirty schedulers are activated
-	  at system start while normal schedulers are activated
-	  some time after the <c>scheduler_wall_time</c>
-	  functionality is enabled. The time unit is undefined
-	  and can be subject to change between releases, OSs,
-	  and system restarts. <c>scheduler_wall_time</c> is only
-	  to be used to calculate relative values for scheduler
-	  utilization. <c><anno>ActiveTime</anno></c> can never
-	  exceed <c><anno>TotalTime</anno></c>.</p>
+        <p>Returns information describing how much time
+          <seeerl marker="#system_info_schedulers">normal</seeerl>
+          and <seeerl marker="#system_info_dirty_cpu_schedulers">dirty CPU</seeerl>
+          schedulers in the system have been busy. This value is normally a
+          better indicator of how much load an Erlang node is under instead of
+          looking at the CPU utilization privided by tools such as <c>top</c> or
+          <c>sysstat</c>. This is because <c>scheduler_wall_time</c> also includes
+          time where the scheduler is waiting for some other reasource (such as an internal
+          mutex) to be available but does not use the CPU. In order to better
+          understand what a scheduler is busy doing you can use
+          <seeerl marker="#statistics_microstate_accounting">microstate accounting</seeerl>.</p>
+
         <p>The definition of a busy scheduler is when it is not idle
-          and is not scheduling (selecting) a process or port,
+          and not <seecom marker="erl#+sbwt">busy waiting</seecom> for new work,
           that is:</p>
         <list type="bulleted">
           <item>Executing process code</item>
@@ -8060,38 +8068,65 @@ lists:map(
         </list>
         <p>Notice that a scheduler can also be busy even if the
           OS has scheduled out the scheduler thread.</p>
-        <p>Returns <c>undefined</c> if system flag
+
+        <note><p>It is recommended to use the module
+          <seeerl marker="runtime_tools:scheduler"><c>scheduler</c></seeerl>
+          instead of this function directly as it provides an easier way to
+          get the information that you usually want.</p></note>
+
+        <p>If <seeerl marker="#system_flag_scheduler_wall_time">enabled</seeerl>
+          this function returns a list of tuples with
+          <c>{<anno>SchedulerId</anno>, <anno>ActiveTime</anno>,
+          <anno>TotalTime</anno>}</c>, where <c><anno>SchedulerId</anno></c>
+          is an integer ID of the scheduler, <c><anno>ActiveTime</anno></c> is
+          the duration the scheduler has been busy, and
+          <c><anno>TotalTime</anno></c> is the total time duration since
           <seeerl marker="#system_flag_scheduler_wall_time">
-          <c>scheduler_wall_time</c></seeerl> is turned off.</p>
-        <p>The list of scheduler information is unsorted and can
-          appear in different order between calls.</p>
-	<p>As of ERTS version 9.0, also dirty CPU schedulers will
-	be included in the result. That is, all scheduler threads
-	that are expected to handle CPU bound work. If you also
-	want information about dirty I/O schedulers, use
-	<seeerl marker="#statistics_scheduler_wall_time_all">
-        <c>statistics(scheduler_wall_time_all)</c></seeerl>
-	instead.</p>
-	
+          <c>scheduler_wall_time</c></seeerl> activation for the specific scheduler.
+          The time unit returned is undefined and can be subject to change between
+          releases, OSs, and system restarts. <c>scheduler_wall_time</c> is
+	  only to be used to calculate relative values for scheduler
+	  utilization. The <c><anno>ActiveTime</anno></c> can never
+	  exceed <c><anno>TotalTime</anno></c>. The list of scheduler information
+          is unsorted and can appear in different order between calls.</p>
+
+        <p>The <seeerl marker="#system_flag_scheduler_wall_time">disabled</seeerl>
+          this function returns <c>undefined</c>.</p>
+
+        <p>The activation time can differ significantly between
+	  schedulers. Currently dirty schedulers are activated
+	  at system start while normal schedulers are activated
+	  some time after the <c>scheduler_wall_time</c>
+	  functionality is enabled.</p>
+
+	<p>Only information about schedulers that are expected to handle
+          CPU bound work is included in the return values from this function.
+          If you also want information about
+          <seeerl marker="#system_info_dirty_io_schedulers">dirty I/O schedulers</seeerl>,
+          use <seeerl marker="#statistics_scheduler_wall_time_all">
+          <c>statistics(scheduler_wall_time_all)</c></seeerl>
+	  instead.</p>
+
 	<p>Normal schedulers will have scheduler identifiers in
-	the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
-	</c><seeerl marker="#system_info_schedulers">
-        <c>erlang:system_info(schedulers)</c></seeerl>.
-	Dirty CPU schedulers will have scheduler identifiers in
-	the range <c>erlang:system_info(schedulers) &lt;
-	<anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
-	+
-	</c><seeerl marker="#system_info_dirty_cpu_schedulers">
-        <c>erlang:system_info(dirty_cpu_schedulers)</c></seeerl>.
+	  the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
+	  </c><seeerl marker="#system_info_schedulers">
+          <c>erlang:system_info(schedulers)</c></seeerl>.
+	  Dirty CPU schedulers will have scheduler identifiers in
+	  the range <c>erlang:system_info(schedulers) &lt;
+	  <anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
+	  +
+	  </c><seeerl marker="#system_info_dirty_cpu_schedulers">
+          <c>erlang:system_info(dirty_cpu_schedulers)</c></seeerl>.
 	</p>
 	<note><p>The different types of schedulers handle
-	specific types of jobs. Every job is assigned to a specific
-	scheduler type. Jobs can migrate between different schedulers
-	of the same type, but never between schedulers of different
-	types. This fact has to be taken under consideration when
-	evaluating the result returned.</p></note>
-        <p>Using <c>scheduler_wall_time</c> to calculate
-          scheduler utilization:</p>
+	  specific types of jobs. Every job is assigned to a specific
+	  scheduler type. Jobs can migrate between different schedulers
+	  of the same type, but never between schedulers of different
+	  types. This fact has to be taken under consideration when
+	  evaluating the result returned.</p></note>
+        <p>You can use <c>scheduler_wall_time</c> to calculate
+          scheduler utilization. First you take a sample of the values
+          returned by <c>erlang:statistics(scheduler_wall_time)</c>.</p>
         <pre>
 > <input>erlang:system_flag(scheduler_wall_time, true).</input>
 false
@@ -8142,7 +8177,9 @@ ok
         <note>
           <p><c>scheduler_wall_time</c> is by default disabled. To
             enable it, use
-            <c>erlang:system_flag(scheduler_wall_time, true)</c>.</p>
+            <seeerl marker="#system_flag_scheduler_wall_time">
+              <c>erlang:system_flag(scheduler_wall_time, true)</c></seeerl>.
+          </p>
         </note>
       </desc>
     </func>
@@ -10416,17 +10453,14 @@ Metadata = #{ pid => pid(),
           <item>
             <p>Returns the size of Erlang term words in bytes as an
               integer, that is, 4 is returned on a 32-bit architecture,
-              and 8 is returned on a pure 64-bit architecture. On a
-              halfword 64-bit emulator, 4 is returned, as the Erlang
-              terms are stored using a virtual word size of half the
-              system word size.</p>
+              and 8 is returned on a 64-bit architecture.</p>
           </item>
           <tag><c>{wordsize, external}</c></tag>
           <item>
             <p>Returns the true word size of the emulator, that is,
               the size of a pointer. The value is given in bytes
               as an integer. On a pure 32-bit architecture, 4 is
-              returned. On both a half word and on a pure
+              returned. On a
               64-bit architecture, 8 is returned.</p>
           </item>
         </taglist>
