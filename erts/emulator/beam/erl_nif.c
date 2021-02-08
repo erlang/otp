@@ -4560,7 +4560,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 
     /* Call load or upgrade:
      */
-
+    ASSERT(lib);
     env.mod_nif = lib;
 
     lib->priv_data = NULL;
