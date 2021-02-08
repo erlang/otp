@@ -436,12 +436,12 @@ collect([F | Fs], Acc, Mod) ->
 	    NewAcc = Acc#{comments := [], specs := [], types := [], records := []},
 	    collect(Fs, NewAcc, Mod)
     end;
-collect([], Acc, _Mod) ->
+collect([], Acc, Mod) ->
     #{comments := Cs, callbacks := Cbs, specs := Ss, types := Ts,
       records := Rs, functions := As, header := Header} = Acc,
     Footer = #entry{name = footer, data = {comment_text(Cs), Cbs, [], Ts, Rs}},
     As1 = lists:reverse(As),
-    As2 = insert_specs(As1, Ss),
+    As2 = insert_specs(As1, Ss, Mod),
     if Header =:= undefined ->
 	   {#entry{name = module, data = {[],[],[],[],[]}}, Footer, As2};
        true ->
@@ -477,28 +477,29 @@ get_line(Tree) ->
     Anno = erl_syntax:get_pos(Tree),
     erl_anno:line(Anno).
 
-insert_specs(As, Ss) ->
-    SpecList = [ {spec_fun_arity(S), [S]} || S <- Ss ],
+insert_specs(As, Ss, Mod) ->
+    ModName = Mod#module.name,
+    SpecList = [ {spec_fun_arity(ModName, S), [S]} || S <- Ss ],
     Specs = maps:from_list(SpecList),
     %% Assert that we've not skipped redundant specs for the same {Fun, Arity}.
     %% This should never happen, as such a module would not compile.
     true = length(SpecList) == maps:size(Specs),
-    insert_specs_(As, Specs).
+    insert_specs_(ModName, As, Specs).
 
-insert_specs_([], _) -> [];
-insert_specs_([#entry{} = A | As], Specs) ->
-    #entry{name = F, data = {Cs, Cbs, _, Ts, Rs}} = A,
-    Ss = maps:get(F, Specs, []),
-    [ A#entry{data = {Cs, Cbs, Ss, Ts, Rs}} | insert_specs_(As, Specs) ].
+insert_specs_(_, [], _) -> [];
+insert_specs_(ModName, [#entry{} = A | As], Specs) ->
+    #entry{name = {F, Arity}, data = {Cs, Cbs, _, Ts, Rs}} = A,
+    Ss = maps:get({ModName, F, Arity}, Specs, []),
+    [ A#entry{data = {Cs, Cbs, Ss, Ts, Rs}} | insert_specs_(ModName, As, Specs) ].
 
-spec_fun_arity(Form) ->
+spec_fun_arity(ModName, Form) ->
     case erl_syntax:revert(Form) of
 	{attribute, _, spec, {{F, A}, _}} ->
 	    %% -spec F(Args...) -> ...
-	    {F, A};
-	{attribute, _, spec, {{_, F, A}, _}} ->
+	    {ModName, F, A};
+	{attribute, _, spec, {{M, F, A}, _}} ->
 	    %% -spec M:F(Args...) -> ...
-	    {F, A}
+	    {M, F, A}
     end.
 
 %% @doc Replaces leading `%' characters by spaces. For example, `"%%%

@@ -50,6 +50,7 @@
 	 f_redundant_spec/1,
 	 f_only_attr/1,
 	 f_only_tag/1,
+	 f_prefixed_spec/1,
 	 t_only_attr/1,
 	 t_only_tag/1,
 	 t_redundant/1]).
@@ -102,6 +103,7 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  f_redundant_spec,
 	  f_only_attr,
 	  f_only_tag,
+	  f_prefixed_spec,
 	  t_only_attr,
 	  t_only_tag,
 	  t_redundant].
@@ -426,6 +428,12 @@ f_only_tag(Config) ->
 		     get_pp_spec({function, ?FUNCTION_NAME, 0}, Docs) ),
     ?assertMatch( <<"Function with only a spec tag.">>,
 		  get_flat_doc({function, ?FUNCTION_NAME, 0}, Docs) ).
+
+f_prefixed_spec(Config) ->
+    Docs = get_docs(Config, eep48_redundant),
+    %?debugVal(Docs, 1000),
+    ?assertEqual( <<"-spec eep48_redundant:f_prefixed_spec() -> any().\n">>,
+		  get_pp_spec({function, ?FUNCTION_NAME, 0}, Docs) ).
 
 t_only_attr(Config) ->
     Docs = get_docs(Config, eep48_redundant),
