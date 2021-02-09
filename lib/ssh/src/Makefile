@@ -71,6 +71,7 @@ MODULES= \
 	ssh_file \
 	ssh_info \
 	ssh_io \
+	ssh_lib \
 	ssh_message \
 	ssh_no_io \
 	ssh_options \
