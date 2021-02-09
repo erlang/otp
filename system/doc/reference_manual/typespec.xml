@@ -467,6 +467,33 @@
       Any unspecified fields are assumed to have the type in the original
       record declaration.
     </p>
+    <note>
+      <p>When records are used to create patterns for ETS and
+        Mnesia match functions, Dialyzer may need some help not to emit
+        bad warnings. For example:</p>
+
+<pre>
+    -type height() :: pos_integer().
+    -record(person, {name :: string(), height :: height()}).
+
+    lookup(Name, Tab) ->
+	ets:match_object(Tab, #person{name = Name, _ = '_'}).</pre>
+
+      <p>Dialyzer will emit a warning since <c>'_'</c> is not in the
+        type of record field <c>height</c>.</p>
+
+      <p>The recommended way of dealing with this is to declare the
+        smallest record field types to accommodate all your needs,
+        and then create refinements as needed. The modified example:</p>
+
+<pre>
+    -record(person, {name :: string(), height :: height() | '_'}).
+
+    -type person() :: #person{height :: height()}.</pre>
+
+      <p>In specifications and type declarations the type
+        <c>person()</c> is to be preferred before <c>#person{}</c>.</p>
+    </note>
   </section>
 
   <section>
