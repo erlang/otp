@@ -1903,8 +1903,8 @@ restart:
     **              ..........
     **            +-------------+
     ** The stack is expected to grow towards *higher* adresses.
-    ** A special case is when the match expression is a single binding 
-    ** (i.e '$1'), then the field single_variable is set to 1.
+    ** A special case is when the match expression is a single binding
+    ** (i.e '$1').
     */
     bp = erts_create_magic_binary(((sizeof(MatchProg) - sizeof(UWord)) +
 				   (DMC_STACK_NUM(text) * sizeof(UWord))),
@@ -1914,7 +1914,6 @@ restart:
     ret->saved_program = NIL;
     ret->term_save = context.save;
     ret->num_bindings = heap.vars_used;
-    ret->single_variable = context.special;
     sys_memcpy(ret->text, DMC_STACK_DATA(text), 
 	       DMC_STACK_NUM(text) * sizeof(UWord));
     ret->stack_offset = heap.vars_used*sizeof(MatchVariable) + FENCE_PATTERN_SIZE;
