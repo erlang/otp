@@ -65,4 +65,10 @@ typedef signed   char  int8;
 typedef signed   short int16;
 typedef signed   int   int32;
 
+#ifdef DEBUG
+#  define ASSERT(Cnd) ((void) ((Cnd) ? 1 : abort()))
+#else
+#  define ASSERT(Cnd)
+#endif
+
 #endif /* _EIDEF_H */
