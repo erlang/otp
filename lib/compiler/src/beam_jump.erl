@@ -351,13 +351,16 @@ share_1([{label,L}=Lbl|Is], Safe, Dict0, Lbls0, [_|_]=Seq0, Acc) ->
         #{} ->
             %% This is first time we have seen this sequence of instructions.
             %% Find out whether it is safe to share the sequence.
-            case map_size(Safe) =:= 0 orelse is_shareable(Seq) of
+            case (map_size(Safe) =:= 0 orelse
+                  is_shareable(Seq)) andalso
+                unambigous_exit_call(Seq)
+            of
                 true ->
                     %% Either this function does not contain any try/catch
                     %% instructions, in which case it is always safe to share
                     %% exception-raising instructions such as if_end and
                     %% case_end, or it this sequence does not include
-                    %% any of the problematic instructions.
+                    %% any problematic instructions.
                     Dict = Dict0#{Seq => L},
                     share_1(Is, Safe, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
                 false ->
@@ -398,6 +401,37 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	true ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
+
+unambigous_exit_call([{call_ext,A,{extfunc,M,F,A}}|Is]) ->
+    case erl_bifs:is_exit_bif(M, F, A) of
+        true ->
+            %% beam_validator requires that the size of the stack
+            %% frame is unambigously known when a function is called.
+            %%
+            %% That means that we must be careful when sharing function
+            %% calls.
+            %%
+            %% In practice, it seems that only exit BIFs can
+            %% potentially be shared in an unsafe way, and only in
+            %% rare circumstances. (See the undecided_allocation_1/1
+            %% function in beam_jump_SUITE.)
+            %%
+            %% To ensure that the frame size is unambigous, only allow
+            %% sharing of a call to exit BIFs if the call is followed
+            %% by an instruction that indicates the size of the stack
+            %% frame (that is almost always the case in real-world
+            %% code).
+            case Is of
+                [{deallocate,_}|_] -> true;
+                [return] -> true;
+                _ -> false
+            end;
+        false ->
+            true
+    end;
+unambigous_exit_call([_|Is]) ->
+    unambigous_exit_call(Is);
+unambigous_exit_call([]) -> true.
 
 %% If the label has a scope set, assign it to any line instruction
 %% in the sequence.
