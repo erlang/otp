@@ -27,7 +27,7 @@
 -include("ssl_internal.hrl").
 
 -export([init/1, terminate/1, lookup/2, update/3, delete/2, foldl/3, 
-	 select_session/2, size/1, take_oldest/1]). 
+	 select_session/2, size/1]).
 
 %%--------------------------------------------------------------------
 %% Description: Return table reference. Called by ssl_manager process. 
@@ -105,14 +105,6 @@ select_session(Cache, PartialKey) ->
 %%--------------------------------------------------------------------
 size(Cache) ->
     ets:info(Cache, size).
-
-%%--------------------------------------------------------------------
-%% Description: Returns the oldest entry
-%%--------------------------------------------------------------------
-take_oldest(Cache) ->
-    {Key, Oldest} = ets:first(Cache),
-    delete(Cache, Key),
-    {Oldest, Cache}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
