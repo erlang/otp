@@ -473,14 +473,14 @@ t_fdconnect(Config) when is_list(Config) ->
     ?TC_TRY(t_fdconnect, fun() -> do_t_fdconnect(Config) end).
 
 do_t_fdconnect(Config) ->
-    Question = "Aaaa... Long time ago in a small town in Germany,",
+    Question  = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
 		 ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
     Question1 = iolist_to_binary(Question2),
-    Answer = "there was a shoemaker, Schumacher was his name.",
-    Path = proplists:get_value(data_dir, Config),
-    Lib = "gen_tcp_api_SUITE",
+    Answer    = "there was a shoemaker, Schumacher was his name.",
+    Path      = proplists:get_value(data_dir, Config),
+    Lib       = "gen_tcp_api_SUITE",
     ?P("try load util nif lib"),
     case erlang:load_nif(filename:join(Path, Lib), []) of
         ok ->
@@ -505,11 +505,10 @@ do_t_fdconnect(Config) ->
     {ok, Port} = inet:port(L),
     ?P("try create file descriptor"),
     FD = gen_tcp_api_SUITE:getsockfd(),
-    ?P("try connect using file descriptor (~w)", [FD]),
+    ?P("try connect using file descriptor ~w", [FD]),
     Client = case gen_tcp:connect(localhost, Port,
                                   ?INET_BACKEND_OPTS(Config) ++
                                       [{fd,     FD},
-                                       {port,   20002},
                                        {active, false}]) of
                  {ok, CSock} ->
                      CSock;
@@ -537,9 +536,10 @@ do_t_fdconnect(Config) ->
     {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
     ok = gen_tcp:send(Server, Answer),
     {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
+    ?P("cleanup"),
     ok = gen_tcp:close(Client),
     FD = gen_tcp_api_SUITE:closesockfd(FD),
-    {error,closed} = gen_tcp:recv(Server, 1, 2000),
+    {error, closed} = gen_tcp:recv(Server, 1, 2000),
     ok = gen_tcp:close(Server),
     ok = gen_tcp:close(L),
     ?P("done"),
