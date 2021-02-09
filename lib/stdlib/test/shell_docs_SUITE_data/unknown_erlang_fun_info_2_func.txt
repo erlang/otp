@@ -1,0 +1,23 @@
+
+  [;1m-spec erlang:fun_info(Fun, Item) -> {Item, Info}[0m
+  [;1m                         when[0m
+  [;1m                             Fun :: function(),[0m
+  [;1m                             Item :: fun_info_item(),[0m
+  [;1m                             Info :: term().[0m
+
+  Types:
+    -type fun_info_item() ::
+          arity | env | index | name | module | new_index | new_uniq |
+          pid | type | uniq.
+
+  Returns information about [;;4mFun[0m as specified by [;;4mItem[0m, in the
+  form [;;4m{Item,Info}[0m.
+
+  For any fun, [;;4mItem[0m can be any of the atoms [;;4mmodule[0m, [;;4mname[0m, [;;4m[0m
+  [;;4marity[0m, [;;4menv[0m, or [;;4mtype[0m.
+
+  For a local fun, [;;4mItem[0m can also be any of the atoms [;;4mindex[0m, [;;4m[0m
+  [;;4mnew_index[0m, [;;4mnew_uniq[0m, [;;4muniq[0m, and [;;4mpid[0m. For an external fun,
+  the value of any of these items is always the atom [;;4mundefined[0m.
+
+  See [;;4merlang:fun_info/1[0m.

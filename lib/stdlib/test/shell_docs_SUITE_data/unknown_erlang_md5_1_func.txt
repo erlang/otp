@@ -1,0 +1,14 @@
+
+  [;1m-spec erlang:md5(Data) -> Digest[0m
+  [;1m                    when Data :: iodata(), Digest :: binary().[0m
+
+  Computes an MD5 message digest from [;;4mData[0m, where the length of
+  the digest is 128 bits (16 bytes). [;;4mData[0m is a binary or a list of
+  small integers and binaries.
+
+  For more information about MD5, see RFC 1321 - The MD5
+  Message-Digest Algorithm.
+
+  Warning:
+    The MD5 Message-Digest Algorithm is not considered safe for
+    code-signing or software-integrity purposes.

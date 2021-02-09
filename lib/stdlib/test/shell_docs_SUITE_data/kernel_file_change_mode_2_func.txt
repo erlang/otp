@@ -1,0 +1,11 @@
+
+  [;1m-spec change_mode(Filename, Mode) -> ok | {error, Reason}[0m
+  [;1m                     when[0m
+  [;1m                         Filename :: name_all(),[0m
+  [;1m                         Mode :: integer(),[0m
+  [;1m                         Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R14B
+
+  Changes permissions of a file. See [;;4mwrite_file_info/2[0m.

@@ -1,0 +1,13 @@
+
+  [;1m-spec apply(Fun, Args) -> term()[0m
+  [;1m               when Fun :: function(), Args :: [term()].[0m
+
+  Calls a fun, passing the elements in [;;4mArgs[0m as arguments.
+
+  If the number of elements in the arguments are known at compile
+  time, the call is better written as [;;4mFun(Arg1, Arg2, ... ArgN)[0m.
+
+  Warning:
+    Earlier, [;;4mFun[0m could also be specified as [;;4m{Module, Function}[0m,
+    equivalent to [;;4mapply(Module, Function, Args)[0m. This use is
+    deprecated and will stop working in a future release.

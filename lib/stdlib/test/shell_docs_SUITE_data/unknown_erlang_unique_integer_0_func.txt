@@ -1,0 +1,8 @@
+
+  [;1m-spec erlang:unique_integer() -> integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Generates and returns an integer unique on current runtime system
+  instance. The same as calling [;;4merlang:unique_integer([])[0m.

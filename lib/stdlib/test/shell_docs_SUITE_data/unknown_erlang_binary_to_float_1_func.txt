@@ -1,0 +1,17 @@
+
+  [;1m-spec binary_to_float(Binary) -> float() when Binary :: binary().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns the float whose text representation is [;;4mBinary[0m, for
+  example:
+
+    > binary_to_float(<<"2.2017764e+0">>).
+    2.2017764
+
+  The float string format is the same as the format for Erlang
+  float literals except for that underscores are not permitted.
+
+  Failure: [;;4mbadarg[0m if [;;4mBinary[0m contains a bad representation of a
+  float.

@@ -1,0 +1,17 @@
+
+  [;1m-spec join(Relation1, I, Relation2, J) -> Relation3[0m
+  [;1m              when[0m
+  [;1m                  Relation1 :: relation(),[0m
+  [;1m                  Relation2 :: relation(),[0m
+  [;1m                  Relation3 :: relation(),[0m
+  [;1m                  I :: pos_integer(),[0m
+  [;1m                  J :: pos_integer().[0m
+
+  Returns the natural join of the relations [;;4mRelation1[0m and [;;4m[0m
+  [;;4mRelation2[0m on coordinates [;;4mI[0m and [;;4mJ[0m.
+
+    1> R1 = sofs:relation([{a,x,1},{b,y,2}]),
+    R2 = sofs:relation([{1,f,g},{1,h,i},{2,3,4}]),
+    J = sofs:join(R1, 3, R2, 1),
+    sofs:to_external(J).
+    [{a,x,1,f,g},{a,x,1,h,i},{b,y,2,3,4}]

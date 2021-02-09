@@ -1,0 +1,8 @@
+
+  [;1m-spec erlang:md5_update(Context, Data) -> NewContext[0m
+  [;1m                           when[0m
+  [;1m                               Context :: binary(),[0m
+  [;1m                               Data :: iodata(),[0m
+  [;1m                               NewContext :: binary().[0m
+
+  Update an MD5 [;;4mContext[0m with [;;4mData[0m and returns a [;;4mNewContext[0m.

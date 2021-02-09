@@ -1,0 +1,15 @@
+
+  [;1m-spec is_equal(AnySet1, AnySet2) -> Bool[0m
+  [;1m                  when[0m
+  [;1m                      AnySet1 :: anyset(),[0m
+  [;1m                      AnySet2 :: anyset(),[0m
+  [;1m                      Bool :: boolean().[0m
+
+  Returns [;;4mtrue[0m if [;;4mAnySet1[0m and [;;4mAnySet2[0m are equal, otherwise [;;4m[0m
+  [;;4mfalse[0m. The following example shows that [;;4m==/2[0m is used when
+  comparing sets for equality:
+
+    1> S1 = sofs:set([1.0]),
+    S2 = sofs:set([1]),
+    sofs:is_equal(S1, S2).
+    true

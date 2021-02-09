@@ -1,0 +1,16 @@
+
+  [;1m-spec erlang:system_time(Unit) -> integer() when Unit :: time_unit().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Returns current Erlang system time converted into the [;;4mUnit[0m
+  passed as argument.
+
+  Calling [;;4merlang:system_time(Unit)[0m is equivalent to [;;4m[0m
+  [;;4merlang:convert_time_unit[0m[;;4m([0m[;;4merlang:system_time()[0m[;;4m, native, Unit)[0m.
+
+  Note:
+    This time is not a monotonically increasing time in the
+    general case. For more information, see the documentation of 
+    time warp modes in the User's Guide.

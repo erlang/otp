@@ -21,9 +21,9 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2]).
 
--export([render/1, links/1, normalize/1, render_prop/1]).
+-export([render/1, render_smoke/1, links/1, normalize/1, render_prop/1]).
 
--export([render_all/1]).
+-export([render_all/1, update_render/0, update_render/1]).
 
 -include_lib("kernel/include/eep48.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -32,7 +32,7 @@ suite() ->
     [{timetrap,{minutes,10}}].
 
 all() ->
-    [render, links, normalize, {group, prop}].
+    [render_smoke, render, links, normalize, {group, prop}].
 
 groups() ->
     [{prop,[],[render_prop]}].
@@ -57,7 +57,61 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-render(_Config) ->
+%% We keep the docs of a couple of complex modules
+%% in the data_dir in order to compare then with the original
+%% when we fix bugs so that we don't break anything.
+%%
+%% This testcase is always run so that we do now forget to
+%% check that any bugfix does not break the current behaviour.
+%%
+%% If you do a bugfix that does not break this testcase when
+%% fixed you should include that module in the list of modules
+%% tested.
+%%
+%% Currently the modules are:
+-define(RENDER_MODULES, [sofs, re, file, erlang]).
+%% If you need to update the definition because this
+%% testcase fails, just run update_render/0,1.
+render(Config) ->
+
+    DataDir = proplists:get_value(data_dir, Config),
+
+    lists:foreach(
+      fun(Module) ->
+              {ok, [D]} = file:consult(filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1")),
+              maps:map(
+                fun(FName, Current) ->
+                        case file:read_file(filename:join(DataDir,FName)) of
+                            {ok, Original} when Original =:= Current ->
+                                ok;
+                            {ok, Original} ->
+                                ct:log("Original: ~n~ts",[Original]),
+                                ct:log("Current : ~n~ts",[Current]),
+                                ct:fail(output_changed)
+                        end
+                end, render_module(Module, D))
+      end, ?RENDER_MODULES).
+
+update_render() ->
+    update_render(
+      filename:join([os:getenv("ERL_TOP"),
+                     "lib", "stdlib", "test", "shell_docs_SUITE_data"])).
+update_render(DataDir) ->
+    lists:foreach(
+      fun(Module) ->
+              case code:get_doc(Module) of
+                  {ok, D} ->
+                      ok = file:write_file(
+                             filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
+                             io_lib:format("~w.",[D])),
+                      maps:map(
+                        fun(FName, Output) ->
+                                ok = file:write_file(filename:join(DataDir, FName), Output)
+                        end, render_module(Module, D))
+              end
+      end, ?RENDER_MODULES).
+
+render_smoke(_Config) ->
     docsmap(
       fun(Mod, #docs_v1{ docs = Docs } = D) ->
               lists:foreach(
@@ -194,41 +248,50 @@ render_all(Dir) ->
           end, code:get_path()),
     [application:load(list_to_atom(filename:basename(filename:rootname(App)))) ||
         App <- PossibleApplications],
-    docsmap(
-      fun(Mod, #docs_v1{ docs = Docs } = D) ->
-              case application:get_application(Mod) of
-                  {ok, App} ->
-                      App;
-                  _ ->
-                      App = unknown
-              end,
-              SMod = atom_to_list(App) ++ "_" ++ atom_to_list(Mod),
-              file:write_file(filename:join(Dir,SMod ++ ".txt"),
-                              unicode:characters_to_binary(shell_docs:render(Mod, D))),
-              file:write_file(filename:join(Dir,SMod ++ "_type.txt"),
-                              unicode:characters_to_binary(shell_docs:render_type(Mod, D))),
-              file:write_file(filename:join(Dir,SMod ++ "_cb.txt"),
-                              unicode:characters_to_binary(shell_docs:render_callback(Mod, D))),
-              lists:foreach(
-                fun({_Type,_Anno,_Sig,none,_Meta}) ->
-                        ok;
-                   ({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
-                        FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
-                        ok = file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
-                                                                          [global,{return,list}])),
-                                             unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D)));
-                   ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
-                        FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
-                        ok = file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
-                                                                          [global,{return,list}])),
-                                             unicode:characters_to_binary(shell_docs:render_type(Mod, Name, Arity, D)));
-                   ({{callback,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
-                        FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_cb.txt",
-                        file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
-                                                                     [global,{return,list}])),
-                                        unicode:characters_to_binary(shell_docs:render_callback(Mod, Name, Arity, D)))
-                end, Docs)
-      end).
+    docsmap(fun(Mod, D) ->
+                    maps:map(
+                      fun(FName, Value) ->
+                              file:write_file(filename:join(Dir, FName), Value) end,
+                      render_module(Mod, D))
+            end).
+
+render_module(Mod, #docs_v1{ docs = Docs } = D) ->
+    Opts = #{ ansi => true, columns => 80, encoding => unicode },
+    case application:get_application(Mod) of
+        {ok, App} ->
+            App;
+        _ ->
+            App = unknown
+    end,
+    SMod = atom_to_list(App) ++ "_" ++ atom_to_list(Mod),
+    Files =
+        #{
+          SMod ++ ".txt" =>
+              unicode:characters_to_binary(shell_docs:render(Mod, D, Opts)),
+          SMod ++ "_type.txt" =>
+              unicode:characters_to_binary(shell_docs:render_type(Mod, D, Opts)),
+          SMod ++ "_cb.txt" =>
+                    unicode:characters_to_binary(shell_docs:render_callback(Mod, D, Opts))
+         },
+    lists:foldl(
+      fun({_Type,_Anno,_Sig,none,_Meta}, Acc) ->
+              Acc;
+         ({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
+              FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
+              Acc#{ sanitize(FName) =>
+                        unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D, Opts))};
+         ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
+              FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
+              Acc#{ sanitize(FName) =>
+                        unicode:characters_to_binary(shell_docs:render_type(Mod, Name, Arity, D, Opts))};
+         ({{callback,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
+              FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_cb.txt",
+              Acc#{ sanitize(FName) =>
+                        unicode:characters_to_binary(shell_docs:render_callback(Mod, Name, Arity, D, Opts))}
+      end, Files, Docs).
+
+sanitize(FName) ->
+    re:replace(FName,"[/:]","_",[global,{return,list}]).
 
 docsmap(Fun) ->
     lists:map(

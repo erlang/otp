@@ -1,0 +1,13 @@
+
+  [;1m-spec map_size(Map) -> non_neg_integer() when Map :: map().[0m
+
+[;;4mSince[0m:
+  OTP 17.0
+
+  Returns an integer, which is the number of key-value pairs in [;;4mMap[0m,
+  for example:
+
+    > map_size(#{a=>1, b=>2, c=>3}).
+    3
+
+  Allowed in guard tests.

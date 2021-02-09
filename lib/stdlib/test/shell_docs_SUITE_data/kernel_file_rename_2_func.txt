@@ -1,0 +1,46 @@
+
+  [;1m-spec rename(Source, Destination) -> ok | {error, Reason}[0m
+  [;1m                when[0m
+  [;1m                    Source :: name_all(),[0m
+  [;1m                    Destination :: name_all(),[0m
+  [;1m                    Reason :: posix() | badarg.[0m
+
+  Tries to rename the file [;;4mSource[0m to [;;4mDestination[0m. It can be used
+  to move files (and directories) between directories, but it is not
+  sufficient to specify the destination only. The destination
+  filename must also be specified. For example, if [;;4mbar[0m is a normal
+  file and [;;4mfoo[0m and [;;4mbaz[0m are directories, [;;4mrename("foo/bar",[0m
+  [;;4m"baz")[0m returns an error, but [;;4mrename("foo/bar", "baz/bar")[0m
+  succeeds. Returns [;;4mok[0m if it is successful.
+
+  Note:
+    Renaming of open files is not allowed on most platforms (see [;;4m[0m
+    [;;4meacces[0m below).
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing read or write permissions for the parent directories
+    of [;;4mSource[0m or [;;4mDestination[0m. On some platforms, this error is
+    given if either [;;4mSource[0m or [;;4mDestination[0m is open.
+
+  [;;4m[;;4meexist[0m[0m:
+    [;;4mDestination[0m is not an empty directory. On some platforms,
+    also given when [;;4mSource[0m and [;;4mDestination[0m are not of the same
+    type.
+
+  [;;4m[;;4meinval[0m[0m:
+    [;;4mSource[0m is a root directory, or [;;4mDestination[0m is a
+    subdirectory of [;;4mSource[0m.
+
+  [;;4m[;;4meisdir[0m[0m:
+    [;;4mDestination[0m is a directory, but [;;4mSource[0m is not.
+
+  [;;4m[;;4menoent[0m[0m:
+    [;;4mSource[0m does not exist.
+
+  [;;4m[;;4menotdir[0m[0m:
+    [;;4mSource[0m is a directory, but [;;4mDestination[0m is not.
+
+  [;;4m[;;4mexdev[0m[0m:
+    [;;4mSource[0m and [;;4mDestination[0m are on different file systems.

@@ -1,0 +1,5 @@
+
+  [;1m-type io_device() :: pid() | fd().[0m
+
+  As returned by [;;4mopen/2[0m; [;;4mpid()[0m is a process handling
+  I/O-protocols.

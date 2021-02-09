@@ -1,0 +1,36 @@
+
+  [;1m-spec port_control(Port, Operation, Data) -> iodata() | binary()[0m
+  [;1m                      when[0m
+  [;1m                          Port :: port() | atom(),[0m
+  [;1m                          Operation :: integer(),[0m
+  [;1m                          Data :: iodata().[0m
+
+  Performs a synchronous control operation on a port. The meaning of [;;4m[0m
+  [;;4mOperation[0m and [;;4mData[0m depends on the port, that is, on the port
+  driver. Not all port drivers support this control feature.
+
+  Returns a list of integers in the range 0..255, or a binary,
+  depending on the port driver. The meaning of the returned data
+  also depends on the port driver.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPort[0m is not an open port or the registered name of an
+    open port.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mOperation[0m cannot fit in a 32-bit integer.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the port driver does not support synchronous control
+    operations.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the port driver so decides for any reason (probably
+    something wrong with [;;4mOperation[0m or [;;4mData[0m).
+    Warning:
+      Do not call [;;4mport_control/3[0m with an unknown [;;4mPort[0m
+      identifier and expect [;;4mbadarg[0m exception. Any undefined
+      behavior is possible (including node crash) depending on
+      how the port driver interprets the supplied arguments.

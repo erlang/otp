@@ -1,0 +1,5 @@
+
+  [;1m-spec is_set(AnySet) -> Bool when AnySet :: anyset(), Bool :: boolean().[0m
+
+  Returns [;;4mtrue[0m if [;;4mAnySet[0m is an unordered set, and [;;4mfalse[0m if [;;4m[0m
+  [;;4mAnySet[0m is an ordered set or an atomic set.

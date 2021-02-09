@@ -1,0 +1,5 @@
+
+  [;1m-type ext_binary() :: binary().[0m
+
+  A binary data object, structured according to the Erlang external
+  term format.

@@ -1,0 +1,10 @@
+
+  [;1m-spec to_sets(ASet) -> Sets[0m
+  [;1m                 when[0m
+  [;1m                     ASet :: a_set() | ordset(),[0m
+  [;1m                     Sets :: tuple_of(AnySet) | [AnySet],[0m
+  [;1m                     AnySet :: anyset().[0m
+
+  Returns the elements of the ordered set [;;4mASet[0m as a tuple of sets,
+  and the elements of the unordered set [;;4mASet[0m as a sorted list of
+  sets without duplicates.

@@ -1,0 +1,12 @@
+
+  [;1m-spec group_leader() -> pid().[0m
+
+  Returns the process identifier of the group leader for the process
+  evaluating the function.
+
+  Every process is a member of some process group and all groups
+  have a group leader. All I/O from the group is channeled to the
+  group leader. When a new process is spawned, it gets the same
+  group leader as the spawning process. Initially, at system
+  startup, [;;4minit[0m is both its own group leader and the group leader
+  of all processes.

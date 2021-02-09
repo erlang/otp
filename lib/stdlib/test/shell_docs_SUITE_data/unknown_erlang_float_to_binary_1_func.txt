@@ -1,0 +1,7 @@
+
+  [;1m-spec float_to_binary(Float) -> binary() when Float :: float().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  The same as [;;4mfloat_to_binary(Float,[{scientific,20}])[0m.

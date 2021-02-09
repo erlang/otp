@@ -1,0 +1,22 @@
+
+  [;1m-spec list_to_integer(String) -> integer() when String :: string().[0m
+
+  Returns an integer whose text representation is [;;4mString[0m, for
+  example:
+
+    > list_to_integer("123").
+    123
+
+    > list_to_integer("-123").
+    -123
+
+    > list_to_integer("+123234982304982309482093833234234").
+    123234982304982309482093833234234
+
+  [;;4mString[0m must contain at least one digit character and can have an
+  optional prefix consisting of a single "[;;4m+[0m" or "[;;4m-[0m" character
+  (that is, [;;4mString[0m must match the regular expression [;;4m[0m
+  [;;4m"^[+-]?[0-9]+$"[0m).
+
+  Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of an
+  integer.

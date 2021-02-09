@@ -1,0 +1,4 @@
+
+  [;1m-type anyset() :: ordset() | a_set().[0m
+
+  Any kind of set (also included are the atomic sets).

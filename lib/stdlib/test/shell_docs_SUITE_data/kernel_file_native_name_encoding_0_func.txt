@@ -1,0 +1,10 @@
+
+  [;1m-spec native_name_encoding() -> latin1 | utf8.[0m
+
+[;;4mSince[0m:
+  OTP R14B01
+
+  Returns the filename encoding mode. If it is [;;4mlatin1[0m, the system
+  translates no filenames. If it is [;;4mutf8[0m, filenames are converted
+  back and forth to the native filename encoding (usually UTF-8, but
+  UTF-16 on Windows).

@@ -1,0 +1,5 @@
+
+  [;1m-spec empty_set() -> Set when Set :: a_set().[0m
+
+  Returns the untyped empty set. [;;4mempty_set()[0m is equivalent to [;;4m[0m
+  [;;4mfrom_term([], ['_'])[0m.

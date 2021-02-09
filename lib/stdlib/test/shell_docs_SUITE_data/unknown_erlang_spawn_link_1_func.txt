@@ -1,0 +1,7 @@
+
+  [;1m-spec spawn_link(Fun) -> pid() when Fun :: function().[0m
+
+  Returns the process identifier of a new process started by the
+  application of [;;4mFun[0m to the empty list [;;4m[][0m. A link is created
+  between the calling process and the new process, atomically.
+  Otherwise works like [;;4mspawn/3[0m.

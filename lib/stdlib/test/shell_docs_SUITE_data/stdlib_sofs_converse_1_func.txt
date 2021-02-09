@@ -1,0 +1,12 @@
+
+  [;1m-spec converse(BinRel1) -> BinRel2[0m
+  [;1m                  when[0m
+  [;1m                      BinRel1 :: binary_relation(),[0m
+  [;1m                      BinRel2 :: binary_relation().[0m
+
+  Returns the converse of the binary relation [;;4mBinRel1[0m.
+
+    1> R1 = sofs:relation([{1,a},{2,b},{3,a}]),
+    R2 = sofs:converse(R1),
+    sofs:to_external(R2).
+    [{a,1},{a,3},{b,2}]

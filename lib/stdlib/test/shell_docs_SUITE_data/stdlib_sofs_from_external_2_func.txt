@@ -1,0 +1,9 @@
+
+  [;1m-spec from_external(ExternalSet, Type) -> AnySet[0m
+  [;1m                       when[0m
+  [;1m                           ExternalSet :: external_set(),[0m
+  [;1m                           AnySet :: anyset(),[0m
+  [;1m                           Type :: type().[0m
+
+  Creates a set from the external set [;;4mExternalSet[0m and the type [;;4m[0m
+  [;;4mType[0m. It is assumed that [;;4mType[0m is a valid type of [;;4mExternalSet[0m.

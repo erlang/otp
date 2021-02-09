@@ -1,0 +1,25 @@
+
+  [;1m-spec erlang:system_monitor(Arg) -> MonSettings[0m
+  [;1m                               when[0m
+  [;1m                                   Arg ::[0m
+  [;1m                                       undefined | {MonitorPid, Options},[0m
+  [;1m                                   MonSettings ::[0m
+  [;1m                                       undefined | {MonitorPid, Options},[0m
+  [;1m                                   MonitorPid :: pid(),[0m
+  [;1m                                   Options :: [system_monitor_option()].[0m
+
+  Types:
+    -type system_monitor_option() ::
+          busy_port | busy_dist_port |
+          {long_gc, non_neg_integer()} |
+          {long_schedule, non_neg_integer()} |
+          {large_heap, non_neg_integer()}.
+
+  When called with argument [;;4mundefined[0m, all system performance
+  monitoring settings are cleared.
+
+  Calling the function with [;;4m{MonitorPid, Options}[0m as argument is
+  the same as calling [;;4merlang:system_monitor(MonitorPid, Options)[0m.
+
+  Returns the previous system monitor settings just like [;;4m[0m
+  [;;4merlang:system_monitor/0[0m.

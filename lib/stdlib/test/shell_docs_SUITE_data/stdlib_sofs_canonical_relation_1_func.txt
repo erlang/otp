@@ -1,0 +1,17 @@
+
+  [;1m-spec canonical_relation(SetOfSets) -> BinRel[0m
+  [;1m                            when[0m
+  [;1m                                BinRel :: binary_relation(),[0m
+  [;1m                                SetOfSets :: set_of_sets().[0m
+
+  Returns the binary relation containing the elements (E, Set) such
+  that Set belongs to [;;4mSetOfSets[0m and E belongs to Set. If [;;4m[0m
+  [;;4mSetOfSets[0m is a partition of a set X and R is the equivalence
+  relation in X induced by [;;4mSetOfSets[0m, then the returned relation
+  is the canonical map from X onto the equivalence classes with
+  respect to R.
+
+    1> Ss = sofs:from_term([[a,b],[b,c]]),
+    CR = sofs:canonical_relation(Ss),
+    sofs:to_external(CR).
+    [{a,[a,b]},{b,[a,b]},{b,[b,c]},{c,[b,c]}]

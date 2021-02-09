@@ -1,0 +1,15 @@
+
+  [;1m-spec byte_size(Bitstring) -> non_neg_integer()[0m
+  [;1m                   when Bitstring :: bitstring().[0m
+
+  Returns an integer that is the number of bytes needed to contain [;;4m[0m
+  [;;4mBitstring[0m. That is, if the number of bits in [;;4mBitstring[0m is not
+  divisible by 8, the resulting number of bytes is rounded up.
+  Examples:
+
+    > byte_size(<<433:16,3:3>>).
+    3
+    > byte_size(<<1,2,3>>).
+    3
+
+  Allowed in guard tests.

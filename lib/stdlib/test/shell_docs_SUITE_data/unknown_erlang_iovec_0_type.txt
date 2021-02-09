@@ -1,0 +1,5 @@
+
+  [;1m-type iovec() :: [binary()].[0m
+
+  A list of binaries. This datatype is useful to use together with [;;4m[0m
+  [;;4menif_inspect_iovec[0m.

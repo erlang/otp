@@ -1,0 +1,14 @@
+
+  [;1m-spec restriction(BinRel1, Set) -> BinRel2[0m
+  [;1m                     when[0m
+  [;1m                         BinRel1 :: binary_relation(),[0m
+  [;1m                         BinRel2 :: binary_relation(),[0m
+  [;1m                         Set :: a_set().[0m
+
+  Returns the restriction of the binary relation [;;4mBinRel1[0m to [;;4mSet[0m.
+
+    1> R1 = sofs:relation([{1,a},{2,b},{3,c}]),
+    S = sofs:set([1,2,4]),
+    R2 = sofs:restriction(R1, S),
+    sofs:to_external(R2).
+    [{1,a},{2,b}]

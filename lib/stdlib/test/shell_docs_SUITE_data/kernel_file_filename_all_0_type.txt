@@ -1,0 +1,4 @@
+
+  [;1m-type filename_all() :: string() | binary().[0m
+
+  See also the documentation of the [;;4mname_all()[0m type.

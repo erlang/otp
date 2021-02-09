@@ -1,0 +1,7 @@
+
+  [;1m-spec spawn(Node, Fun) -> pid() when Node :: node(), Fun :: function().[0m
+
+  Returns the process identifier of a new process started by the
+  application of [;;4mFun[0m to the empty list [;;4m[][0m on [;;4mNode[0m. If [;;4mNode[0m
+  does not exist, a useless pid is returned. Otherwise works like [;;4m[0m
+  [;;4mspawn/3[0m.
