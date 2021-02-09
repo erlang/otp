@@ -63,3 +63,9 @@
 #define HAVE_STRERROR 1
 #define snprintf _snprintf
 #endif
+
+#ifdef DEBUG
+#  define ASSERT(Cnd) ((void)((Cnd) ? 1 : abort()))
+#else
+#  define ASSERT(Cnd)
+#endif
