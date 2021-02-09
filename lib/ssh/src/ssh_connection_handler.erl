@@ -673,9 +673,12 @@ handle_event(internal, {version_exchange,Version}, {hello,Role}, D0) ->
     end;
 
 %%% timeout after tcp:connect but then nothing arrives
-handle_event(internal, no_hello_received, {hello,_Role}=StateName, D0) ->
+handle_event(state_timeout, no_hello_received, {hello,_Role}=StateName, D0 = #data{ssh_params = Ssh0}) ->
+    Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts),
     {Shutdown, D} =
-        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, "No HELLO recieved", StateName, D0),
+        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                         lists:concat(["No HELLO recieved within ",ssh_lib:format_time_ms(Time)]),
+                         StateName, D0),
     {stop, Shutdown, D};
 		  
 
@@ -1350,7 +1353,7 @@ handle_event(Type, Ev, StateName, D0) ->
 	    "ssh_msg_" ++_ when Type==internal ->
                 lists:flatten(io_lib:format("Message ~p in wrong state (~p)", [element(1,Ev), StateName]));
 	    _ ->
-		io_lib:format("Unhandled event in state ~p:~n~p", [StateName,Ev])
+		io_lib:format("Unhandled event in state ~p and type ~p:~n~p", [StateName,Type,Ev])
 	end,
     {Shutdown, D} =  
         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D0),
@@ -1942,15 +1945,18 @@ do_log(F, Reason0, #data{ssh_params = S}) ->
                                Role==client ->
             {PeerRole,PeerVersion} =
                 case Role of
-                    server -> {"Client", S#ssh.c_version};
-                    client -> {"Server", S#ssh.s_version}
+                    server -> {"Peer client", S#ssh.c_version};
+                    client -> {"Peer server", S#ssh.s_version}
                 end,
-            error_logger:F("Erlang SSH ~p ~s ~s.~n"
-                           "~s: ~p~n"
+            error_logger:F("Erlang SSH ~p version: ~s ~s.~n"
+                           "Address: ~s~n"
+                           "~s version: ~p~n"
+                           "Peer address: ~s~n"
                            "~s~n",
-                           [Role,
-                            ssh_log_version(), crypto_log_info(), 
+                           [Role, ssh_log_version(), crypto_log_info(),
+                            ssh_lib:format_address_port(S#ssh.local),
                             PeerRole, PeerVersion,
+                            ssh_lib:format_address_port(element(2,S#ssh.peer)),
                             Reason]);
         _ ->
             error_logger:F("Erlang SSH ~s ~s.~n"
@@ -2114,9 +2120,11 @@ ssh_dbg_format(connections, {call, {?MODULE,init, [[Role, Sock, Opts]]}}) ->
     {ok, {IPp,Portp}} = inet:peername(Sock),
     {ok, {IPs,Ports}} = inet:sockname(Sock),
     [io_lib:format("Starting ~p connection:\n",[Role]),
-     io_lib:format("Socket = ~p, Peer = ~s:~p, Local = ~s:~p,~n"
+     io_lib:format("Socket = ~p, Peer = ~s, Local = ~s,~n"
                    "Non-default options:~n~p",
-                   [Sock,inet:ntoa(IPp),Portp,inet:ntoa(IPs),Ports,
+                   [Sock,
+                    ssh_lib:format_address_port(IPp,Portp),
+                    ssh_lib:format_address_port(IPs,Ports),
                     NonDefaultOpts])
     ];
 ssh_dbg_format(connections, F) ->
