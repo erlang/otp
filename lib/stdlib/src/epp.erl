@@ -73,6 +73,7 @@
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
 	      pre_opened = false :: boolean(),
+              scan_opts = [] :: erl_scan:options(), %Scanner options
               fname = [] :: function_name_type()
 	     }).
 
@@ -560,11 +561,12 @@ init_server(Pid, FileName, Options, St0) ->
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
+            ScanOpts = proplists:get_value(scan_opts, Options, []),
             %% the default location is 1 for backwards compatibility, not {1,1}
             AtLocation = proplists:get_value(location, Options, 1),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
-			 default_encoding=DefEncoding},
+			 scan_opts=ScanOpts, default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
@@ -762,7 +764,7 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.scan_opts) of
 	{ok,Toks,Cl} ->
 	    scan_toks(Toks, From, St#epp{location=Cl});
 	{error,E,Cl} ->

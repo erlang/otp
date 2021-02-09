@@ -95,6 +95,13 @@
 
         <p>Available options:</p>
         <taglist>
+	  <tag><c>brief</c></tag>
+          <item>
+            <p>Restricts error and warning messages to a single line of output.
+            As of OTP 24, the compiler will by default also display the part
+            of the source code that the message refers to.</p>
+          </item>
+
           <tag><c>basic_validation</c></tag>
           <item>
             <p>This option is a fast way to test whether a module will

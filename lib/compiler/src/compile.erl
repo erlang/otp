@@ -1014,18 +1014,19 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                      true -> filename:basename(SourceName0);
                      false -> SourceName0
                  end,
-    StartLocation = case with_columns(Opts) of
-                        true ->
-                            {1,1};
-                        false ->
-                            1
-                    end,
+    {StartLocation, ScanOpts} = case with_columns(Opts) of
+                                    true ->
+                                        {{1,1}, [text]};
+                                    false ->
+                                        {1, []}
+                                end,
     R = epp:parse_file(File,
                        [{includes,[".",Dir|inc_paths(Opts)]},
                         {source_name, SourceName},
                         {macros,pre_defs(Opts)},
                         {default_encoding,DefEncoding},
                         {location,StartLocation},
+                        {scan_opts,ScanOpts},
                         extra]),
     case R of
 	{ok,Forms0,Extra} ->
@@ -1748,8 +1749,8 @@ write_binary(Name, Bin, St) ->
 report_errors(#compile{options=Opts,errors=Errors}) ->
     case member(report_errors, Opts) of
 	true ->
-	    foreach(fun ({{F,_L},Eds}) -> list_errors(F, Eds);
-			({F,Eds}) -> list_errors(F, Eds) end,
+	    foreach(fun ({{F,_L},Eds}) -> compile_messages:list_errors(F, Eds, Opts);
+			({F,Eds}) -> compile_messages:list_errors(F, Eds, Opts) end,
 		    Errors);
 	false -> ok
     end.
@@ -1763,39 +1764,13 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
     ReportWerror = Werror andalso member(report_errors, Opts),
     case member(report_warnings, Opts) orelse ReportWerror of
 	true ->
-	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, P, Eds);
-			     ({F,Eds}) -> format_message(F, P, Eds) end,
+	    Ws1 = flatmap(fun({{F,_L},Eds}) -> compile_messages:format_messages(F, P, Eds, Opts);
+			     ({F,Eds}) -> compile_messages:format_messages(F, P, Eds, Opts) end,
 			  Ws0),
 	    Ws = lists:sort(Ws1),
 	    foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws);
 	false -> ok
     end.
-
-format_message(F, P, [{none,Mod,E}|Es]) ->
-    M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~ts:~w:~w: ~s~ts\n",
-                                [F,Line,Column,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(F, P, [{Line,Mod,E}|Es]) ->
-    M = {{F,{Line,0}},io_lib:format("~ts:~w: ~s~ts\n",
-                                [F,Line,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(_, _, []) -> [].
-
-%% list_errors(File, ErrorDescriptors) -> ok
-
-list_errors(F, [{none,Mod,E}|Es]) ->
-    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(F, [{{Line,Column},Mod,E}|Es]) ->
-    io:fwrite("~ts:~w:~w: ~ts\n", [F,Line,Column,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(_F, []) -> ok.
 
 %% erlfile(Dir, Base) -> ErlFile
 %% outfile(Base, Extension, Options) -> OutputFile

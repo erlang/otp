@@ -94,22 +94,22 @@ Nonassoc 500 '*'. % for binary expressions
 form -> attribute dot : '$1'.
 form -> function dot : '$1'.
 
-attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
-attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
-attribute -> '-' atom '(' typed_attr_val ')' : build_typed_attribute('$2','$4').
-attribute -> '-' 'spec' type_spec            : build_type_spec('$2', '$3').
-attribute -> '-' 'callback' type_spec        : build_type_spec('$2', '$3').
+attribute -> '-' atom attr_val               : ?set_anno(build_attribute('$2', '$3'), ?anno('$1','$3')).
+attribute -> '-' atom typed_attr_val         : ?set_anno(build_typed_attribute('$2','$3'), ?anno('$1','$3')).
+attribute -> '-' atom '(' typed_attr_val ')' : ?set_anno(build_typed_attribute('$2','$4'), ?anno('$1','$5')).
+attribute -> '-' 'spec' type_spec            : ?set_anno(build_type_spec('$2', '$3'), ?anno('$1','$3')).
+attribute -> '-' 'callback' type_spec        : ?set_anno(build_type_spec('$2', '$3'), ?anno('$1','$3')).
 
-type_spec -> spec_fun type_sigs : {'$1', '$2'}.
-type_spec -> '(' spec_fun type_sigs ')' : {'$2', '$3'}.
+type_spec -> spec_fun type_sigs : {type_spec, ?anno('$1','$2'), '$1', '$2'}.
+type_spec -> '(' spec_fun type_sigs ')' : {type_spec, ?anno('$1','$4'), '$2', '$3'}.
 
 spec_fun ->                           atom : '$1'.
 spec_fun ->                  atom ':' atom : {'$1', '$3'}.
 
-typed_attr_val -> expr ',' typed_record_fields : {typed_record, '$1', '$3'}.
-typed_attr_val -> expr '::' top_type           : {type_def, '$1', '$3'}.
+typed_attr_val -> expr ',' typed_record_fields : {typed_record, ?anno('$1','$3'), '$1', '$3'}.
+typed_attr_val -> expr '::' top_type           : {type_def, ?anno('$1','$3'), '$1', '$3'}.
 
-typed_record_fields -> '{' typed_exprs '}' : {tuple, ?anno('$1'), '$2'}.
+typed_record_fields -> '{' typed_exprs '}' : {tuple, ?anno('$1','$3'), '$2'}.
 
 typed_exprs -> typed_expr                 : ['$1'].
 typed_exprs -> typed_expr ',' typed_exprs : ['$1'|'$3'].
@@ -122,7 +122,7 @@ type_sigs -> type_sig                     : ['$1'].
 type_sigs -> type_sig ';' type_sigs       : ['$1'|'$3'].
 
 type_sig -> fun_type                      : '$1'.
-type_sig -> fun_type 'when' type_guards   : {type, ?anno('$1'), bounded_fun,
+type_sig -> fun_type 'when' type_guards   : {type, ?anno('$1','$3'), bounded_fun,
                                              ['$1','$3']}.
 
 type_guards -> type_guard                 : ['$1'].
@@ -134,11 +134,11 @@ type_guard -> var '::' top_type        : build_constraint('$1', '$3').
 top_types -> top_type                     : ['$1'].
 top_types -> top_type ',' top_types       : ['$1'|'$3'].
 
-top_type -> var '::' top_type             : {ann_type, ?anno('$1'), ['$1','$3']}.
+top_type -> var '::' top_type             : {ann_type, ?anno('$1','$3'), ['$1','$3']}.
 top_type -> type '|' top_type             : lift_unions('$1','$3').
 top_type -> type                          : '$1'.
 
-type -> type '..' type                    : {type, ?anno('$1'), range, ['$1', '$3']}.
+type -> type '..' type                    : {type, ?anno('$1','$3'), range, ['$1', '$3']}.
 type -> type add_op type                  : ?mkop2('$1', '$2', '$3').
 type -> type mult_op type                 : ?mkop2('$1', '$2', '$3').
 type -> prefix_op type                    : ?mkop1('$1', '$2').
@@ -147,58 +147,58 @@ type -> var                               : '$1'.
 type -> atom                              : '$1'.
 type -> atom '(' ')'                      : build_gen_type('$1').
 type -> atom '(' top_types ')'            : build_type('$1', '$3').
-type -> atom ':' atom '(' ')'             : {remote_type, ?anno('$1'),
+type -> atom ':' atom '(' ')'             : {remote_type, ?anno('$1','$5'),
                                              ['$1', '$3', []]}.
-type -> atom ':' atom '(' top_types ')'   : {remote_type, ?anno('$1'),
+type -> atom ':' atom '(' top_types ')'   : {remote_type, ?anno('$1','$6'),
                                              ['$1', '$3', '$5']}.
-type -> '[' ']'                           : {type, ?anno('$1'), nil, []}.
-type -> '[' top_type ']'                  : {type, ?anno('$1'), list, ['$2']}.
-type -> '[' top_type ',' '...' ']'        : {type, ?anno('$1'),
+type -> '[' ']'                           : {type, ?anno('$1','$2'), nil, []}.
+type -> '[' top_type ']'                  : {type, ?anno('$1','$3'), list, ['$2']}.
+type -> '[' top_type ',' '...' ']'        : {type, ?anno('$1','$5'),
                                              nonempty_list, ['$2']}.
-type -> '#' '{' '}'                       : {type, ?anno('$1'), map, []}.
-type -> '#' '{' map_pair_types '}'        : {type, ?anno('$1'), map, '$3'}.
-type -> '{' '}'                           : {type, ?anno('$1'), tuple, []}.
-type -> '{' top_types '}'                 : {type, ?anno('$1'), tuple, '$2'}.
-type -> '#' atom '{' '}'                  : {type, ?anno('$1'), record, ['$2']}.
-type -> '#' atom '{' field_types '}'      : {type, ?anno('$1'),
+type -> '#' '{' '}'                       : {type, ?anno('$1','$3'), map, []}.
+type -> '#' '{' map_pair_types '}'        : {type, ?anno('$1','$4'), map, '$3'}.
+type -> '{' '}'                           : {type, ?anno('$1','$2'), tuple, []}.
+type -> '{' top_types '}'                 : {type, ?anno('$1','$3'), tuple, '$2'}.
+type -> '#' atom '{' '}'                  : {type, ?anno('$1','$4'), record, ['$2']}.
+type -> '#' atom '{' field_types '}'      : {type, ?anno('$1','$5'),
                                              record, ['$2'|'$4']}.
 type -> binary_type                       : '$1'.
 type -> integer                           : '$1'.
 type -> char                              : '$1'.
-type -> 'fun' '(' ')'                     : {type, ?anno('$1'), 'fun', []}.
+type -> 'fun' '(' ')'                     : {type, ?anno('$1','$3'), 'fun', []}.
 type -> 'fun' '(' fun_type ')'            : '$3'.
 
-fun_type -> '(' '...' ')' '->' top_type   : {type, ?anno('$1'), 'fun',
-                                             [{type, ?anno('$1'), any}, '$5']}.
-fun_type -> '(' ')' '->' top_type  : {type, ?anno('$1'), 'fun',
-                                      [{type, ?anno('$1'), product, []}, '$4']}.
+fun_type -> '(' '...' ')' '->' top_type   : {type, ?anno('$1','$5'), 'fun',
+                                             [{type, ?anno('$1','$5'), any}, '$5']}.
+fun_type -> '(' ')' '->' top_type  : {type, ?anno('$1','$4'), 'fun',
+                                      [{type, ?anno('$1','$4'), product, []}, '$4']}.
 fun_type -> '(' top_types ')' '->' top_type
-                                   : {type, ?anno('$1'), 'fun',
-                                      [{type, ?anno('$1'), product, '$2'},'$5']}.
+                                   : {type, ?anno('$1','$5'), 'fun',
+                                      [{type, ?anno('$1','$5'), product, '$2'},'$5']}.
 
 map_pair_types -> map_pair_type                    : ['$1'].
 map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
 
-map_pair_type  -> top_type '=>' top_type  : {type, ?anno('$2'),
+map_pair_type  -> top_type '=>' top_type  : {type, ?anno('$1','$3'),
                                              map_field_assoc,['$1','$3']}.
-map_pair_type  -> top_type ':=' top_type  : {type, ?anno('$2'),
+map_pair_type  -> top_type ':=' top_type  : {type, ?anno('$1','$3'),
                                              map_field_exact,['$1','$3']}.
 
 field_types -> field_type                 : ['$1'].
 field_types -> field_type ',' field_types : ['$1'|'$3'].
 
-field_type -> atom '::' top_type          : {type, ?anno('$1'), field_type,
+field_type -> atom '::' top_type          : {type, ?anno('$1','$3'), field_type,
                                              ['$1', '$3']}.
 
-binary_type -> '<<' '>>'                  : {type, ?anno('$1'),binary,
+binary_type -> '<<' '>>'                  : {type, ?anno('$1','$2'),binary,
 					     [abstract2(0, ?anno('$1')),
 					      abstract2(0, ?anno('$1'))]}.
-binary_type -> '<<' bin_base_type '>>'    : {type, ?anno('$1'),binary,
+binary_type -> '<<' bin_base_type '>>'    : {type, ?anno('$1','$3'),binary,
 					     ['$2', abstract2(0, ?anno('$1'))]}.
 binary_type -> '<<' bin_unit_type '>>'    : {type, ?anno('$1'),binary,
                                              [abstract2(0, ?anno('$1')), '$2']}.
 binary_type -> '<<' bin_base_type ',' bin_unit_type '>>'
-                                    : {type, ?anno('$1'), binary, ['$2', '$4']}.
+                                    : {type, ?anno('$1','$5'), binary, ['$2', '$4']}.
 
 bin_base_type -> var ':' type          : build_bin_type(['$1'], '$3').
 
@@ -214,7 +214,7 @@ function_clauses -> function_clause : ['$1'].
 function_clauses -> function_clause ';' function_clauses : ['$1'|'$3'].
 
 function_clause -> atom clause_args clause_guard clause_body :
-	{clause,?anno('$1'),element(3, '$1'),'$2','$3','$4'}.
+	{clause,?anno('$1','$4'),element(3, '$1'),'$2','$3','$4'}.
 
 
 clause_args -> pat_argument_list : element(1, '$1').
@@ -225,8 +225,8 @@ clause_guard -> '$empty' : [].
 clause_body -> '->' exprs: '$2'.
 
 
-expr -> 'catch' expr : {'catch',?anno('$1'),'$2'}.
-expr -> expr '=' expr : {match,?anno('$2'),'$1','$3'}.
+expr -> 'catch' expr : {'catch',?anno('$1','$2'),'$2'}.
+expr -> expr '=' expr : {match,?anno('$2','$3'),'$1','$3'}.
 expr -> expr '!' expr : ?mkop2('$1', '$2', '$3').
 expr -> expr 'orelse' expr : ?mkop2('$1', '$2', '$3').
 expr -> expr 'andalso' expr : ?mkop2('$1', '$2', '$3').
@@ -250,15 +250,15 @@ expr_max -> binary : '$1'.
 expr_max -> list_comprehension : '$1'.
 expr_max -> binary_comprehension : '$1'.
 expr_max -> tuple : '$1'.
-expr_max -> '(' expr ')' : '$2'.
-expr_max -> 'begin' exprs 'end' : {block,?anno('$1'),'$2'}.
+expr_max -> '(' expr ')' : ?set_anno('$2', ?anno('$1', '$3')).
+expr_max -> 'begin' exprs 'end' : {block,?anno('$1','$3'),'$2'}.
 expr_max -> if_expr : '$1'.
 expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
 
-pat_expr -> pat_expr '=' pat_expr : {match,?anno('$2'),'$1','$3'}.
+pat_expr -> pat_expr '=' pat_expr : {match,?anno('$1','$3'),'$1','$3'}.
 pat_expr -> pat_expr comp_op pat_expr : ?mkop2('$1', '$2', '$3').
 pat_expr -> pat_expr list_op pat_expr : ?mkop2('$1', '$2', '$3').
 pat_expr -> pat_expr add_op pat_expr : ?mkop2('$1', '$2', '$3').
@@ -276,27 +276,27 @@ pat_expr_max -> tuple : '$1'.
 pat_expr_max -> '(' pat_expr ')' : '$2'.
 
 map_pat_expr -> '#' map_tuple :
-	{map, ?anno('$1'),'$2'}.
+	{map, ?anno('$1','$2'),'$2'}.
 map_pat_expr -> pat_expr_max '#' map_tuple :
-	{map, ?anno('$2'),'$1','$3'}.
+	{map, ?anno('$1','$3'),'$1','$3'}.
 map_pat_expr -> map_pat_expr '#' map_tuple :
-	{map, ?anno('$2'),'$1','$3'}.
+	{map, ?anno('$1','$3'),'$1','$3'}.
 
 record_pat_expr -> '#' atom '.' atom :
-	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
+	{record_index,?anno('$1','$4'),element(3, '$2'),'$4'}.
 record_pat_expr -> '#' atom record_tuple :
-	{record,?anno('$1'),element(3, '$2'),'$3'}.
+	{record,?anno('$1','$3'),element(3, '$2'),'$3'}.
 
-list -> '[' ']' : {nil,?anno('$1')}.
-list -> '[' expr tail : {cons,?anno('$1'),'$2','$3'}.
+list -> '[' ']' : {nil,?anno('$1','$2')}.
+list -> '[' expr tail : {cons,?anno('$1','$3'),'$2','$3'}.
 
 tail -> ']' : {nil,?anno('$1')}.
-tail -> '|' expr ']' : '$2'.
+tail -> '|' expr ']' : ?set_anno('$2',?anno('$1','$3')).
 tail -> ',' expr tail : {cons,first_anno('$2'),'$2','$3'}.
 
 
-binary -> '<<' '>>' : {bin,?anno('$1'),[]}.
-binary -> '<<' bin_elements '>>' : {bin,?anno('$1'),'$2'}.
+binary -> '<<' '>>' : {bin,?anno('$1','$2'),[]}.
+binary -> '<<' bin_elements '>>' : {bin,?anno('$1','$3'),'$2'}.
 
 bin_elements -> bin_element : ['$1'].
 bin_elements -> bin_element ',' bin_elements : ['$1'|'$3'].
@@ -323,25 +323,25 @@ bit_size_expr -> expr_max : '$1'.
 
 
 list_comprehension -> '[' expr '||' lc_exprs ']' :
-	{lc,?anno('$1'),'$2','$4'}.
+	{lc,?anno('$1','$5'),'$2','$4'}.
 binary_comprehension -> '<<' expr_max '||' lc_exprs '>>' :
-	{bc,?anno('$1'),'$2','$4'}.
+	{bc,?anno('$1','$5'),'$2','$4'}.
 lc_exprs -> lc_expr : ['$1'].
 lc_exprs -> lc_expr ',' lc_exprs : ['$1'|'$3'].
 
 lc_expr -> expr : '$1'.
-lc_expr -> expr '<-' expr : {generate,?anno('$2'),'$1','$3'}.
-lc_expr -> binary '<=' expr : {b_generate,?anno('$2'),'$1','$3'}.
+lc_expr -> expr '<-' expr : {generate,?anno('$1','$3'),'$1','$3'}.
+lc_expr -> binary '<=' expr : {b_generate,?anno('$1','$3'),'$1','$3'}.
 
-tuple -> '{' '}' : {tuple,?anno('$1'),[]}.
-tuple -> '{' exprs '}' : {tuple,?anno('$1'),'$2'}.
+tuple -> '{' '}' : {tuple,?anno('$1','$2'),[]}.
+tuple -> '{' exprs '}' : {tuple,?anno('$1','$3'),'$2'}.
 
 map_expr -> '#' map_tuple :
-	{map, ?anno('$1'),'$2'}.
+	{map, ?anno('$1','$2'),'$2'}.
 map_expr -> expr_max '#' map_tuple :
-	{map, ?anno('$2'),'$1','$3'}.
+	{map, ?anno('$1','$3'),'$1','$3'}.
 map_expr -> map_expr '#' map_tuple :
-	{map, ?anno('$2'),'$1','$3'}.
+	{map, ?anno('$1','$3'),'$1','$3'}.
 
 map_tuple -> '{' '}' : [].
 map_tuple -> '{' map_fields '}' : '$2'.
@@ -353,10 +353,10 @@ map_field -> map_field_assoc : '$1'.
 map_field -> map_field_exact : '$1'.
 
 map_field_assoc -> map_key '=>' expr :
-	{map_field_assoc,?anno('$2'),'$1','$3'}.
+	{map_field_assoc,?anno('$1','$3'),'$1','$3'}.
 
 map_field_exact -> map_key ':=' expr :
-	{map_field_exact,?anno('$2'),'$1','$3'}.
+	{map_field_exact,?anno('$1','$3'),'$1','$3'}.
 
 map_key -> expr : '$1'.
 
@@ -366,9 +366,9 @@ map_key -> expr : '$1'.
 %% always atoms for the moment, this might change in the future.
 
 record_expr -> '#' atom '.' atom :
-	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
+	{record_index,?anno('$1','$4'),element(3, '$2'),'$4'}.
 record_expr -> '#' atom record_tuple :
-	{record,?anno('$1'),element(3, '$2'),'$3'}.
+	{record,?anno('$1','$3'),element(3, '$2'),'$3'}.
 record_expr -> expr_max '#' atom '.' atom :
 	{record_field,first_anno('$1'),'$1',element(3, '$3'),'$5'}.
 record_expr -> expr_max '#' atom record_tuple :
@@ -384,8 +384,8 @@ record_tuple -> '{' record_fields '}' : '$2'.
 record_fields -> record_field : ['$1'].
 record_fields -> record_field ',' record_fields : ['$1' | '$3'].
 
-record_field -> var '=' expr : {record_field,?anno('$1'),'$1','$3'}.
-record_field -> atom '=' expr : {record_field,?anno('$1'),'$1','$3'}.
+record_field -> var '=' expr : {record_field,?anno('$1','$3'),'$1','$3'}.
+record_field -> atom '=' expr : {record_field,?anno('$1','$3'),'$1','$3'}.
 
 %% N.B. This is called from expr.
 
@@ -393,7 +393,7 @@ function_call -> expr_remote argument_list :
 	{call,first_anno('$1'),'$1',element(1, '$2')}.
 
 
-if_expr -> 'if' if_clauses 'end' : {'if',?anno('$1'),'$2'}.
+if_expr -> 'if' if_clauses 'end' : {'if',?anno('$1','$3'),'$2'}.
 
 if_clauses -> if_clause : ['$1'].
 if_clauses -> if_clause ';' if_clauses : ['$1' | '$3'].
@@ -403,7 +403,7 @@ if_clause -> guard clause_body :
 
 
 case_expr -> 'case' expr 'of' cr_clauses 'end' :
-	{'case',?anno('$1'),'$2','$4'}.
+	{'case',?anno('$1','$5'),'$2','$4'}.
 
 cr_clauses -> cr_clause : ['$1'].
 cr_clauses -> cr_clause ';' cr_clauses : ['$1' | '$3'].
@@ -416,19 +416,19 @@ cr_clause -> expr clause_guard clause_body :
 	{clause,first_anno('$1'),['$1'],'$2','$3'}.
 
 receive_expr -> 'receive' cr_clauses 'end' :
-	{'receive',?anno('$1'),'$2'}.
+	{'receive',?anno('$1','$3'),'$2'}.
 receive_expr -> 'receive' 'after' expr clause_body 'end' :
-	{'receive',?anno('$1'),[],'$3','$4'}.
+	{'receive',?anno('$1','$5'),[],'$3','$4'}.
 receive_expr -> 'receive' cr_clauses 'after' expr clause_body 'end' :
-	{'receive',?anno('$1'),'$2','$4','$5'}.
+	{'receive',?anno('$1','$6'),'$2','$4','$5'}.
 
 
 fun_expr -> 'fun' atom '/' integer :
-	{'fun',?anno('$1'),{function,element(3, '$2'),element(3, '$4')}}.
+	{'fun',?anno('$1','$4'),{function,element(3, '$2'),element(3, '$4')}}.
 fun_expr -> 'fun' atom_or_var ':' atom_or_var '/' integer_or_var :
-	{'fun',?anno('$1'),{function,'$2','$4','$6'}}.
+	{'fun',?anno('$1','$6'),{function,'$2','$4','$6'}}.
 fun_expr -> 'fun' fun_clauses 'end' :
-	build_fun(?anno('$1'), '$2').
+	build_fun(?anno('$1','$3'), '$2').
 
 atom_or_var -> atom : '$1'.
 atom_or_var -> var : '$1'.
@@ -440,23 +440,22 @@ fun_clauses -> fun_clause : ['$1'].
 fun_clauses -> fun_clause ';' fun_clauses : ['$1' | '$3'].
 
 fun_clause -> pat_argument_list clause_guard clause_body :
-	{Args,Anno} = '$1',
-	{clause,Anno,'fun',Args,'$2','$3'}.
+	{clause,?anno('$1','$3'),'fun',element(1, '$1'),'$2','$3'}.
 
 fun_clause -> var pat_argument_list clause_guard clause_body :
-	{clause,?anno('$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
+	{clause,?anno('$1','$4'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
 
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
-	build_try(?anno('$1'),'$2','$4','$5').
+	build_try('$1','$2','$4','$5').
 try_expr -> 'try' exprs try_catch :
-	build_try(?anno('$1'),'$2',[],'$3').
+	build_try('$1','$2',[],'$3').
 
 try_catch -> 'catch' try_clauses 'end' :
-	{'$2',[]}.
+	{'$2',[],'$3'}.
 try_catch -> 'catch' try_clauses 'after' exprs 'end' :
-	{'$2','$4'}.
+	{'$2','$4','$3'}.
 try_catch -> 'after' exprs 'end' :
-	{[],'$2'}.
+	{[],'$2','$3'}.
 
 try_clauses -> try_clause : ['$1'].
 try_clauses -> try_clause ';' try_clauses : ['$1' | '$3'].
@@ -466,22 +465,22 @@ try_clause -> pat_expr clause_guard clause_body :
         Az = last_anno('$1'), % Good enough...
 	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,Az,'_'}]}],'$2','$3'}.
 try_clause -> atom ':' pat_expr try_opt_stacktrace clause_guard clause_body :
-	A = ?anno('$1'),
+	A = ?anno('$1','$6'),
 	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
 	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 try_clause -> var ':' pat_expr try_opt_stacktrace clause_guard clause_body :
-	A = ?anno('$1'),
+	A = ?anno('$1','$6'),
 	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
 	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 
 try_opt_stacktrace -> ':' var : '$2'.
 try_opt_stacktrace -> '$empty' : '_'.
 
-argument_list -> '(' ')' : {[],?anno('$1')}.
-argument_list -> '(' exprs ')' : {'$2',?anno('$1')}.
+argument_list -> '(' ')' : {[],?anno('$1','$2')}.
+argument_list -> '(' exprs ')' : {'$2',?anno('$1','$3')}.
 
-pat_argument_list -> '(' ')' : {[],?anno('$1')}.
-pat_argument_list -> '(' pat_exprs ')' : {'$2',?anno('$1')}.
+pat_argument_list -> '(' ')' : {[],?anno('$1','$2')}.
+pat_argument_list -> '(' pat_exprs ')' : {'$2',?anno('$1','$3')}.
 
 exprs -> expr : ['$1'].
 exprs -> expr ',' exprs : ['$1' | '$3'].
@@ -500,7 +499,15 @@ atomic -> strings : '$1'.
 
 strings -> string : '$1'.
 strings -> string strings :
-	{string,?anno('$1'),element(3, '$1') ++ element(3, '$2')}.
+        A0 = ?anno('$1','$2'),
+        A1 = case {erl_anno:text(?anno('$1')), erl_anno:text(?anno('$2'))} of
+                 {T1, T2} when is_list(T1), is_list(T2) ->
+                     %% this normalizes separating whitespace to a single space
+                     %% (note that the string quotes are included in the text)
+                     erl_anno:set_text(T1 ++ " " ++  T2, A0);
+                 _ -> A0
+             end,
+        {string,A1,element(3, '$1') ++ element(3, '$2')}.
 
 prefix_op -> '+' : '$1'.
 prefix_op -> '-' : '$1'.
@@ -1005,18 +1012,22 @@ Erlang code.
 
 -define(mkop2(L, OpAnno, R),
         begin
-            {Op,Anno} = OpAnno,
-            {op,Anno,Op,L,R}
+            {__Op,__Anno} = OpAnno,
+            {op,?anno(L, R),__Op,L,R}
         end).
 
 -define(mkop1(OpAnno, A),
         begin
-            {Op,Anno} = OpAnno,
-            {op,Anno,Op,A}
+            {__Op,__Anno} = OpAnno,
+            {op,?anno(OpAnno,A),__Op,A}
         end).
 
 %% keep track of annotation info in tokens
 -define(anno(Tup), element(2, Tup)).
+
+-define(anno(First, Last), anno(First,Last)).
+
+-define(set_anno(Tup, Anno), setelement(2, Tup, Anno)).
 
 %-define(DEBUG, true).
 
@@ -1084,10 +1095,10 @@ parse_term(Tokens) ->
 		    | 'opaque' | 'record' | 'type'.
 
 build_typed_attribute({atom,Aa,record},
-		      {typed_record, {atom,_An,RecordName}, RecTuple}) ->
+		      {typed_record, _Anno, {atom,_An,RecordName}, RecTuple}) ->
     {attribute,Aa,record,{RecordName,record_tuple(RecTuple)}};
 build_typed_attribute({atom,Aa,Attr},
-                      {type_def, {call,_,{atom,_,TypeName},Args}, Type})
+                      {type_def, _Anno, {call,_,{atom,_,TypeName},Args}, Type})
   when Attr =:= 'type' ; Attr =:= 'opaque' ->
     lists:foreach(fun({var, A, '_'}) -> ret_err(A, "bad type variable");
                      (_)             -> ok
@@ -1105,7 +1116,7 @@ build_typed_attribute({atom,Aa,Attr}=Abstr,_) ->
         _      -> ret_err(Aa, "bad attribute")
     end.
 
-build_type_spec({Kind,Aa}, {SpecFun, TypeSpecs})
+build_type_spec({Kind,Aa}, {type_spec, _TA, SpecFun, TypeSpecs})
   when Kind =:= spec ; Kind =:= callback ->
     NewSpecFun =
 	case SpecFun of
@@ -1294,7 +1305,7 @@ term(Expr) ->
 build_function(Cs) ->
     Name = element(3, hd(Cs)),
     Arity = length(element(4, hd(Cs))),
-    {function,?anno(hd(Cs)),Name,Arity,check_clauses(Cs, Name, Arity)}.
+    {function,?anno(hd(Cs),Cs),Name,Arity,check_clauses(Cs, Name, Arity)}.
 
 %% build_fun(Anno, [Clause]) -> {'fun',Anno,{clauses,[Clause]}}.
 
@@ -1317,8 +1328,8 @@ check_clauses(Cs, Name, Arity) ->
              ret_err(A, "head mismatch")
      end || C <- Cs].
 
-build_try(A,Es,Scs,{Ccs,As}) ->
-    {'try',A,Es,Scs,Ccs,As}.
+build_try(Try,Es,Scs,{Ccs,As,End}) ->
+    {'try',?anno(Try,End),Es,Scs,Ccs,As}.
 
 -spec ret_err(_, _) -> no_return().
 ret_err(Anno, S) ->
@@ -1728,6 +1739,41 @@ anno_from_term(Term) ->
     F = fun(T, Acc) -> {erl_anno:from_term(T), Acc} end,
     {NewTerm, []} = modify_anno1(Term, [], F),
     NewTerm.
+
+%% make it easier to combine annotations when the second
+%% argument may be a list of nodes (possibly empty)
+anno(Left, []) -> ?anno(Left);
+anno(Left, [_|_]=Right) ->
+    merge_anno(?anno(Left), ?anno(lists:last(Right)));
+anno(Left, Right) ->
+    merge_anno(?anno(Left), ?anno(Right)).
+
+merge_anno(Left, Right) ->
+    New = filter_anno(Left),
+    LeftLoc = erl_anno:location(New),
+    case erl_anno:end_location(Right) of
+        undefined ->
+            case erl_anno:location(Right) of
+                LeftLoc -> New;
+                RightLoc ->
+                    erl_anno:set_end_location(RightLoc, New)
+            end;
+        LeftLoc -> New;
+        RightLoc ->
+            erl_anno:set_end_location(RightLoc, New)
+    end.
+
+%% keep annotations to be propagated to parent
+filter_anno([{location,_}=A|As]) ->
+    [A|filter_anno(As)];
+filter_anno([{file,_}=A|As]) ->
+    [A|filter_anno(As)];
+filter_anno([_|As]) ->
+    filter_anno(As);
+filter_anno([]) ->
+    [];
+filter_anno(Pos) ->
+    Pos.  % Line or {Line,Col}
 
 %% Forms.
 modify_anno1({function,F,A}, Ac, _Mf) ->
