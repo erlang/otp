@@ -974,7 +974,7 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 	    if (cix != 0)
 		ptlbdp->chunk[cix].interval
 		    = erts_step_interval_nob(erts_ptab_interval(ptab));
-	    else if (ptlbdp->bif_invocation)
+	    else if (invocation_interval_p)
 		ptlbdp->chunk[0].interval = *invocation_interval_p;
 	    /* else: interval is irrelevant */
 
