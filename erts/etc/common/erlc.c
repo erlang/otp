@@ -574,6 +574,8 @@ run_erlang(char* progname, char** argv)
     int status;
 #endif
 
+    ASSERT(progname && argv[0]);
+
     if (debug > 0) {
         fprintf(stderr, "spawning erl for %s", source_file);
     }
@@ -982,6 +984,7 @@ start_compile_server(char* node_name, char** argv)
         putc('\n', stderr);
     }
 
+    ASSERT(eargv[0]);
 #ifdef __WIN32__
     if (my_spawnvp(0, eargv) == -1) {
 	fprintf(stderr, "erlc: Error executing '%s': %d", progname,
