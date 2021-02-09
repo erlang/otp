@@ -77,8 +77,8 @@
   
   <funcs>
     <func>
-      <name since="@maint@">fresh_crl(DistributionPoint, CRL) -> FreshCRL </name>
-      <name since="OTP 18.0">fresh_crl(DistributionPoint, CRL) -> FreshCRL |   {LoggerInfo, FreshCRL}</name>
+      <name since="OTP 22.2">Module:fresh_crl(DistributionPoint, CRL) -> FreshCRL </name>
+      <name since="OTP 18.0">Module:fresh_crl(DistributionPoint, CRL) -> FreshCRL |   {LoggerInfo, FreshCRL}</name>
       <fsummary> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
       public_key:pkix_crls_validate/3 </fsummary>
       <type>
@@ -100,10 +100,10 @@
     </func>
     
     <func>
-      <name since="@maint@">lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs |
+      <name since="OTP 22.2">Module:lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs |
       {LoggerInfo, CRLs} </name>
-      <name since="OTP 19.0">lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
-      <name since="OTP 18.0">lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
+      <name since="OTP 19.0">Module:lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
+      <name since="OTP 18.0">Module:lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
       <fsummary> </fsummary>
       <type>
 	<v> DistributionPoint = <seetype marker="#dist_point"> dist_point() </seetype> </v>
@@ -137,8 +137,8 @@
     </func>
     
     <func>
-      <name since="@maint@">select(Issuer, DbHandle) -> CRLs | {LoggerInfo, CRLs} </name>
-      <name since="OTP 18.0">select(Issuer, DbHandle) -> CRLs </name>
+      <name since="OTP 22.2">Module:select(Issuer, DbHandle) -> CRLs | {LoggerInfo, CRLs} </name>
+      <name since="OTP 18.0">Module:select(Issuer, DbHandle) -> CRLs </name>
       <fsummary>Select the CRLs in the cache that are issued by <c>Issuer</c></fsummary>
       <type>
 	<v> Issuer = <seetype
