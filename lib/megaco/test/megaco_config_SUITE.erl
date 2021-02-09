@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -600,7 +600,7 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
 
     %% Await the counter worker procs termination
     i("await the counter working procs completion"),
-    await_completion_counter_working_procs(Pids),
+    ok = await_completion_counter_working_procs(Pids),
 
     %% Verify result
     i("verify counter result"),
@@ -656,14 +656,35 @@ start_counter_working_procs([Pid | Pids]) ->
     Pid ! start,
     start_counter_working_procs(Pids).
 
-await_completion_counter_working_procs([]) ->
-    ok;
 await_completion_counter_working_procs(Pids) ->
+    await_completion_counter_working_procs(Pids, [], []).
+
+await_completion_counter_working_procs([], _OKs, [] = _ERRs) ->
+    ok;
+await_completion_counter_working_procs([], _OKs, ERRs) ->
+    {error, ERRs};
+await_completion_counter_working_procs(Pids, OKs, ERRs) ->
     receive
 	{'EXIT', Pid, normal} ->
+            %% i("counter working process completion[~w, ~w, ~w] -> "
+            %%   "Expected exit from counter process: "
+            %%   "~n      Pid: ~p",
+            %%   [length(Pids), length(OKs), length(ERRs), Pid]),
 	    Pids2 = lists:delete(Pid, Pids),
-	    await_completion_counter_working_procs(Pids2);
-	_Any ->
+	    await_completion_counter_working_procs(Pids2, [Pid | OKs], ERRs);
+	{'EXIT', Pid, Reason} ->
+            e("counter working process completion[~w, ~w, ~w] -> "
+              "Unexpected exit from counter process: "
+              "~n      Pid:    ~p"
+              "~n      Reason: ~p",
+              [length(Pids), length(OKs), length(ERRs), Pid, Reason]),
+	    Pids2 = lists:delete(Pid, Pids),
+	    await_completion_counter_working_procs(Pids2, OKs, [Pid | ERRs]);
+
+	Any ->
+            e("counter working process completion[~w, ~w, ~w] -> "
+              "Unexpected message: "
+              "~n      ~p", [length(Pids), length(OKs), length(ERRs), Any]),
 	    await_completion_counter_working_procs(Pids)
     end.
     
@@ -677,119 +698,123 @@ transaction_id_counter_mgc(doc) ->
      "transaction counter handling of the application "
      "in with several connections (MGC). "];
 transaction_id_counter_mgc(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        transaction_id_counter_mgc),
-    process_flag(trap_exit, true),
+    Name = transaction_id_counter_mgc,
+    Pre = fun() ->
+                  i("starting config server"),
+                  {ok, _ConfigPid} = megaco_config:start_link(),
 
-    i("starting"),
+                  %% Basic user data
+                  UserMid = {deviceName, "mgc"},
+                  UserConfig = [
+                                {min_trans_id, 1}
+                               ],
 
-    {ok, _ConfigPid} = megaco_config:start_link(),
-
-    %% Basic user data
-    UserMid = {deviceName, "mgc"},
-    UserConfig = [
-		  {min_trans_id, 1}
-		 ],
-
-    %% Basic connection data
-    RemoteMids = 
-	[
-	 {deviceName, "mg01"},
-	 {deviceName, "mg02"},
-	 {deviceName, "mg03"},
-	 {deviceName, "mg04"},
-	 {deviceName, "mg05"},
-	 {deviceName, "mg06"},
-	 {deviceName, "mg07"},
-	 {deviceName, "mg08"},
-	 {deviceName, "mg09"},
-	 {deviceName, "mg10"}
-	], 
-    RecvHandles = 
-	[
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-				encoding_mod    = ?MODULE,
-				encoding_config = [],
-				send_mod        = ?MODULE}
-	],
-    SendHandle = dummy_send_handle,
-    ControlPid = self(), 
+                  %% Basic connection data
+                  RemoteMids = 
+                      [
+                       {deviceName, "mg01"},
+                       {deviceName, "mg02"},
+                       {deviceName, "mg03"},
+                       {deviceName, "mg04"},
+                       {deviceName, "mg05"},
+                       {deviceName, "mg06"},
+                       {deviceName, "mg07"},
+                       {deviceName, "mg08"},
+                       {deviceName, "mg09"},
+                       {deviceName, "mg10"}
+                      ], 
+                  RecvHandles = 
+                      [
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE}
+                      ],
+                  SendHandle = dummy_send_handle,
+                  ControlPid = self(),
     
-    %% Start user
-    i("start user"),
-    ok = megaco_config:start_user(UserMid, UserConfig),
+                  %% Start user
+                  i("start user"),
+                  ok = megaco_config:start_user(UserMid, UserConfig),
 
-    %% Create connection
-    i("create connection(s)"),
-    CDs = create_connections(RecvHandles, RemoteMids, SendHandle, ControlPid),
+                  %% Create connection
+                  i("create connection(s)"),
+                  CDs = create_connections(RecvHandles,
+                                           RemoteMids,
+                                           SendHandle,
+                                           ControlPid),
 
-    %% Set counter limits
-    i("set counter max limit(s)"),
-    set_counter_max_limits(CDs, 1000),
+                  %% Set counter limits
+                  i("set counter max limit(s)"),
+                  set_counter_max_limits(CDs, 1000),
 
-    %% Create the counter worker procs
-    i("create counter working procs"),
-    Pids = create_counter_working_procs(CDs, ?NUM_CNT_PROCS),
+                  {UserMid, CDs}
+          end,
+    Case = fun({_, CDs}) ->
+                   %% Create the counter worker procs
+                   i("create counter working procs"),
+                   Pids = create_counter_working_procs(CDs, ?NUM_CNT_PROCS),
 
-    %% Start the counter worker procs
-    i("release the counter working procs"),
-    start_counter_working_procs(Pids),
+                   %% Start the counter worker procs
+                   i("release the counter working procs"),
+                   start_counter_working_procs(Pids),
 
-    %% Await the counter worker procs termination
-    i("await the counter working procs completion"),
-    await_completion_counter_working_procs(Pids),
+                   %% Await the counter worker procs termination
+                   i("await the counter working procs completion"),
+                   ok = await_completion_counter_working_procs(Pids),
 
-    %% Verify result
-    i("verify counter result"),
-    verify_counter_results(CDs),
+                   %% Verify result
+                   i("verify counter result"),
+                   verify_counter_results(CDs)
+           end,
 
-    %% Stop test
-    i("disconnect"),
-    delete_connections(CDs), 
-    i("stop user"),
-    ok = megaco_config:stop_user(UserMid),
-    i("stop megaco_config"),
-    ok = megaco_config:stop(),
+    Post = fun({UserMid, CDs}) ->
+                   %% Stop test
+                   i("disconnect"),
+                   delete_connections(CDs), 
+                   i("stop user"),
+                   ok = megaco_config:stop_user(UserMid),
+                   i("stop megaco_config"),
+                   ok = megaco_config:stop()
+           end,
+    try_tc(Name, Pre, Case, Post).
 
-    i("done"),
-    ok.
 
 create_connections(RecvHandles, RemoteMids, SendHandle, ControlPid) ->
     create_connections(RecvHandles, RemoteMids, SendHandle, ControlPid, []).
@@ -1218,6 +1243,15 @@ otp_8183(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 p(F) ->
     p(F, []).
 
@@ -1234,7 +1268,10 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), get(tc), "INF", F, A).
+    print(info, get(verbosity), get(tc), "INFO", F, A).
+
+e(F, A) ->
+    print(info, get(verbosity), get(tc), "ERROR", F, A).
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
