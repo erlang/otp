@@ -68,8 +68,6 @@ swap_opt([]) -> [].
 is_unused(X, [{call,A,_}|_]) when A =< X -> true;
 is_unused(X, [{call_ext,A,_}|_]) when A =< X -> true;
 is_unused(X, [{make_fun2,_,_,_,A}|_]) when A =< X -> true;
-is_unused(X, [{make_fun3,_,_,_,Dst,{list,Env}}|Is]) ->
-    (not lists:member({x,X}, Env)) andalso ({x,X} =:= Dst orelse is_unused(X, Is));
 is_unused(X, [{move,Src,Dst}|Is]) ->
     case {Src,Dst} of
         {{x,X},_} -> false;
