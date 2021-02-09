@@ -3552,6 +3552,7 @@ inet_async_binary_data
         struct msghdr *mptr;
 
         mptr = mp;
+        ASSERT (mptr);
 	ASSERT (hsz == phsz && hsz != 0);
 	sz = len - hsz;  /* Size of the msg data proper, w/o the addr */
 
