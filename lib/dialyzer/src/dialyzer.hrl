@@ -145,9 +145,11 @@
                                            'plt_check' |
                                            'plt_remove'}
                        | {'warnings', [warn_option()]}
-                       | {'get_warnings', boolean()}.
+                       | {'get_warnings', boolean()}
+                       | {'error_location', error_location()}.
 -type dial_options()  :: [dial_option()].
--type fopt()          :: 'basename' | 'fullpath'.
+-type filename_opt()  :: 'basename' | 'fullpath'.
+-type error_location():: 'column' | 'line'.
 -type format()        :: 'formatted' | 'raw'.
 -type iopt()          :: boolean().
 -type label()	      :: non_neg_integer().
@@ -162,6 +164,7 @@
 %%--------------------------------------------------------------------
 
 -define(INDENT_OPT, true).
+-define(ERROR_LOCATION, column).
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
 
@@ -197,10 +200,11 @@
 		  use_contracts   = true           :: boolean(),
 		  output_file     = none	   :: 'none' | file:filename(),
 		  output_format   = formatted      :: format(),
-		  filename_opt	  = basename       :: fopt(),
+		  filename_opt	  = basename       :: filename_opt(),
                   indent_opt      = ?INDENT_OPT    :: iopt(),
 		  callgraph_file  = ""             :: file:filename(),
 		  check_plt       = true           :: boolean(),
+                  error_location  = ?ERROR_LOCATION :: error_location(),
                   solvers         = []             :: [solver()]}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],

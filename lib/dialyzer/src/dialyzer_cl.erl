@@ -43,8 +43,9 @@
 	 mod_deps        = dict:new()     :: dialyzer_callgraph:mod_deps(),
 	 output          = standard_io	  :: io:device(),
 	 output_format   = formatted      :: format(),
-	 filename_opt    = basename       :: fopt(),
+	 filename_opt    = basename       :: filename_opt(),
          indent_opt      = ?INDENT_OPT    :: iopt(),
+         error_location  = ?ERROR_LOCATION :: error_location(),
 	 output_plt      = none           :: 'none' | file:filename(),
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
@@ -487,10 +488,12 @@ new_state() ->
 init_output(State0, #options{output_file = OutFile,
 			     output_format = OutFormat,
 			     filename_opt = FOpt,
-                             indent_opt = IOpt}) ->
+                             indent_opt = IOpt,
+                             error_location = EOpt}) ->
   State = State0#cl_state{output_format = OutFormat,
                           filename_opt = FOpt,
-                          indent_opt = IOpt},
+                          indent_opt = IOpt,
+                          error_location = EOpt},
   case OutFile =:= none of
     true ->
       State;
@@ -600,6 +603,7 @@ return_value(State = #cl_state{code_server = CodeServer,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
+                               error_location = EOpt,
 			       stored_warnings = StoredWarnings},
 	     Plt) ->
   %% Just for now:
@@ -631,7 +635,7 @@ return_value(State = #cl_state{code_server = CodeServer,
     true -> 
       AllWarnings =
         UnknownWarnings ++ process_warnings(StoredWarnings),
-      {RetValue, set_warning_id(AllWarnings)}
+      {RetValue, set_warning_id(AllWarnings, EOpt)}
   end.
 
 unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
@@ -646,10 +650,15 @@ unknown_functions(#cl_state{external_calls = Calls}) ->
   [{?WARN_UNKNOWN, {File, Location, ''},{unknown_function, MFA}} ||
     {MFA, {File, Location}} <- Calls].
 
-set_warning_id(Warnings) ->
+set_warning_id(Warnings, EOpt) ->
   lists:map(fun({Tag, {File, Location, _MorMFA}, Msg}) ->
-                {Tag, {File, Location}, Msg}
+                {Tag, {File, set_location(Location, EOpt)}, Msg}
             end, Warnings).
+
+set_location({Line, _}, line) ->
+  Line;
+set_location(Location, _EOpt) ->
+  Location.
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
@@ -746,19 +755,22 @@ print_warnings(#cl_state{output = Output,
 			 output_format = Format,
 			 filename_opt = FOpt,
                          indent_opt = IOpt,
+                         error_location = EOpt,
 			 stored_warnings = Warnings}) ->
   PrWarnings = process_warnings(Warnings),
   case PrWarnings of
     [] -> ok;
     [_|_] ->
-      PrWarningsId = set_warning_id(PrWarnings),
+      PrWarningsId = set_warning_id(PrWarnings, EOpt),
       S = case Format of
 	    formatted ->
-              Opts = [{filename_opt, FOpt}, {indent_opt, IOpt}],
+              Opts = [{filename_opt, FOpt},
+                      {indent_opt, IOpt},
+                      {error_location, EOpt}],
 	      [dialyzer:format_warning(W, Opts) || W <- PrWarningsId];
 	    raw ->
 	      [io_lib:format("~tp. \n",
-                             [W]) || W <- PrWarningsId]
+                             [W]) || W <- set_warning_id(PrWarningsId, EOpt)]
 	  end,
       io:format(Output, "\n~ts", [S])
   end.

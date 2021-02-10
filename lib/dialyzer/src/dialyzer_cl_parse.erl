@@ -197,6 +197,9 @@ cl(["--dump_callgraph", File|T]) ->
 cl(["--gui"|T]) ->
   put(dialyzer_options_mode, gui),
   cl(T);
+cl(["--error_location", LineOrColumn|T]) ->
+  put(dialyzer_error_location_opt, list_to_atom(LineOrColumn)),
+  cl(T);
 cl(["--solver", Solver|T]) -> % not documented
   append_var(dialyzer_solvers, [list_to_atom(Solver)]),
   cl(T);
@@ -248,20 +251,12 @@ cl_error(Str) ->
   throw({dialyzer_cl_parse_error, Msg}).
 
 init() ->
+  %% By not initializing every option, the modified options can be
+  %% found. If every option were to be returned by cl_options() and
+  %% common_options(), then the environment variables (currently only
+  %% ERL_COMPILER_OPTIONS) would be overwritten by default values.
   put(dialyzer_options_mode, cl),
-  put(dialyzer_options_files_rec, []),
-  put(dialyzer_options_report_mode, normal),
   put(dialyzer_warnings, []),
-  DefaultOpts = #options{},
-  put(dialyzer_include,           DefaultOpts#options.include_dirs),
-  put(dialyzer_options_defines,   DefaultOpts#options.defines),
-  put(dialyzer_options_files,     DefaultOpts#options.files),
-  put(dialyzer_output_format,     formatted),
-  put(dialyzer_filename_opt,      basename),
-  put(dialyzer_indent_opt,        ?INDENT_OPT),
-  put(dialyzer_options_check_plt, DefaultOpts#options.check_plt),
-  put(dialyzer_timing,            DefaultOpts#options.timing),
-  put(dialyzer_solvers,           DefaultOpts#options.solvers),
   ok.
 
 append_defines([Def, Val]) ->
@@ -275,7 +270,12 @@ append_include(Dir) ->
   append_var(dialyzer_include, [Dir]).
 
 append_var(Var, List) when is_list(List) ->
-  put(Var, get(Var) ++ List),
+  case get(Var) of
+    undefined ->
+      put(Var, List);
+    L ->
+      put(Var, L ++ List)
+  end,
   ok.
 
 %%-----------------------------------------------------------------------
@@ -295,29 +295,42 @@ collect_args_1([], Acc) ->
 %%-----------------------------------------------------------------------
 
 cl_options() ->
-  [{files, get(dialyzer_options_files)},
-   {files_rec, get(dialyzer_options_files_rec)},
-   {output_file, get(dialyzer_output)},
-   {output_format, get(dialyzer_output_format)},
-   {filename_opt, get(dialyzer_filename_opt)},
-   {indent_opt, get(dialyzer_indent_opt)},
-   {analysis_type, get(dialyzer_options_analysis_type)},
-   {get_warnings, get(dialyzer_options_get_warnings)},
-   {timing, get(dialyzer_timing)},
-   {callgraph_file, get(dialyzer_callgraph_file)}
-   |common_options()].
+  OptsList = [{files, dialyzer_options_files},
+              {files_rec, dialyzer_options_files_rec},
+              {output_file, dialyzer_output},
+              {output_format, dialyzer_output_format},
+              {filename_opt, dialyzer_filename_opt},
+              {indent_opt, dialyzer_indent_opt},
+              {error_location, dialyzer_error_location_opt},
+              {analysis_type, dialyzer_options_analysis_type},
+              {get_warnings, dialyzer_options_get_warnings},
+              {timing, dialyzer_timing},
+              {callgraph_file, dialyzer_callgraph_file}],
+  get_options(OptsList) ++ common_options().
 
 common_options() ->
-  [{defines, get(dialyzer_options_defines)},
-   {from, get(dialyzer_options_from)},
-   {include_dirs, get(dialyzer_include)},
-   {plts, get(dialyzer_init_plts)},
-   {output_plt, get(dialyzer_output_plt)},
-   {report_mode, get(dialyzer_options_report_mode)},
-   {use_spec, get(dialyzer_options_use_contracts)},
-   {warnings, get(dialyzer_warnings)},
-   {check_plt, get(dialyzer_options_check_plt)},
-   {solvers, get(dialyzer_solvers)}].
+  OptsList = [{defines, dialyzer_options_defines},
+              {from, dialyzer_options_from},
+              {include_dirs, dialyzer_include},
+              {plts, dialyzer_init_plts},
+              {output_plt, dialyzer_output_plt},
+              {report_mode, dialyzer_options_report_mode},
+              {use_spec, dialyzer_options_use_contracts},
+              {warnings, dialyzer_warnings},
+              {check_plt, dialyzer_options_check_plt},
+              {solvers, dialyzer_solvers}],
+  get_options(OptsList).
+
+get_options(TagOptionList) ->
+  lists:append([get_opt(Tag, Opt) || {Tag, Opt} <- TagOptionList]).
+
+get_opt(Tag, Opt) ->
+  case get(Opt) of
+    undefined ->
+      [];
+    V ->
+      [{Tag, V}]
+  end.
 
 %%-----------------------------------------------------------------------
 
@@ -363,15 +376,16 @@ help_warnings() ->
 -spec help_message() -> no_return().
 
 help_message() ->
-  S = "Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
-		[-pa dir]* [--plt plt] [--plts plt*] [-Ddefine]*
-                [-I include_dir]* [--output_plt file] [-Wwarn]* [--raw]
-                [--src] [--gui] [files_or_dirs] [-r dirs]
-                [--apps applications] [-o outfile]
-		[--build_plt] [--add_to_plt] [--remove_from_plt]
-		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--dump_callgraph file] [--fullpath] [--no_indentation]
-                [--statistics]
+  S = "Usage: dialyzer [--add_to_plt] [--apps applications] [--build_plt]
+                [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
+                [--error_location flag] [files_or_dirs] [--fullpath]
+                [--get_warnings] [--gui] [--help] [-I include_dir]*
+                [--no_check_plt] [--no_indentation] [-o outfile]
+                [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
+                [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
+                [--shell] [--src] [--statistics] [--verbose] [--version]
+                [-Wwarn]*
+
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -472,6 +486,10 @@ Options:
       by the file name extension. Supported extensions are: raw, dot, and ps.
       If something else is used as file name extension, default format '.raw'
       will be used.
+  --error_location column | line
+      Use a pair {Line, Column} or an integer Line to pinpoint the location
+      of warnings. The default is to use a pair {Line, Column}. When
+      formatted, the line and the column are separated by a colon.
   --fullpath
       Display the full path names of files for which warnings are emitted.
   --no_indentation
