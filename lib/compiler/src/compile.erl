@@ -355,7 +355,6 @@ format_error_reason(Reason) ->
 		  ifile=""    :: file:filename(),
 		  ofile=""    :: file:filename(),
 		  module=[]   :: module() | [],
-		  core_code=[] :: cerl:c_module() | [],
 		  abstract_code=[] :: abstract_code(), %Abstract code for debugger.
 		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
@@ -846,7 +845,6 @@ kernel_passes() ->
      {iff,dcbsm,{listing,"core_bsm"}},
 
      {iff,clint,?pass(core_lint_module)},
-     {iff,core,?pass(save_core_code)},
 
      %% Kernel Erlang and code generation.
      ?pass(v3_kernel),
@@ -1605,9 +1603,6 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     Bin = crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin1, true),
     TypeString = atom_to_list(Type),
     list_to_binary([0,length(TypeString),TypeString,Bin]).
-
-save_core_code(Code, St) ->
-    {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
 
 beam_validator_strong(Code, St) ->
     beam_validator_1(Code, St, strong).
