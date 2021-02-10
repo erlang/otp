@@ -97,6 +97,12 @@ int erts_lc_is_emu_thr(void);
 
 Eterm erts_lc_dump_graph(void);
 
+/*
+ * ERTS_LC_ASSERT should only be used to check expected locks or other
+ * thread synchronization primitives are held.
+ * Do not use it for data invariants like function contracts
+ * as it contains an exception for crash dumping thread.
+ */
 #define ERTS_LC_ASSERT(A) \
     ((void) (((A) || ERTS_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
 #else /* #ifdef ERTS_ENABLE_LOCK_CHECK */

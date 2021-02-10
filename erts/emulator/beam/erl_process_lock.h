@@ -558,13 +558,13 @@ ERTS_GLB_INLINE void erts_proc_lock_op_debug(Process *, ErtsProcLocks, int);
 
 ERTS_GLB_INLINE void erts_pix_lock(erts_pix_lock_t *pixlck)
 {
-    ERTS_LC_ASSERT(pixlck);
+    ASSERT(pixlck);
     erts_mtx_lock(&pixlck->u.mtx);
 }
 
 ERTS_GLB_INLINE void erts_pix_unlock(erts_pix_lock_t *pixlck)
 {
-    ERTS_LC_ASSERT(pixlck);
+    ASSERT(pixlck);
     erts_mtx_unlock(&pixlck->u.mtx);
 }
 
@@ -671,7 +671,7 @@ erts_proc_lock__(Process *p,
     erts_lcnt_proc_lock(&(p->lock), locks);
 #endif
 
-    ERTS_LC_ASSERT((locks & ~ERTS_PROC_LOCKS_ALL) == 0);
+    ASSERT((locks & ~ERTS_PROC_LOCKS_ALL) == 0);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_proc_lc_lock(p, locks, file, line);
@@ -690,7 +690,7 @@ erts_proc_lock__(Process *p,
 
 #if !ERTS_PROC_LOCK_ATOMIC_IMPL
     else {
-	ERTS_LC_ASSERT(locks == (ERTS_PROC_LOCK_FLGS_READ_(&p->lock) & locks));
+	ASSERT(locks == (ERTS_PROC_LOCK_FLGS_READ_(&p->lock) & locks));
 	erts_pix_unlock(pix_lck);
     }
 #endif
@@ -755,8 +755,8 @@ erts_proc_unlock__(Process *p,
 
     old_lflgs = ERTS_PROC_LOCK_FLGS_READ_(&p->lock);
 
-    ERTS_LC_ASSERT((locks & ~ERTS_PROC_LOCKS_ALL) == 0);
-    ERTS_LC_ASSERT(locks == (old_lflgs & locks));
+    ASSERT((locks & ~ERTS_PROC_LOCKS_ALL) == 0);
+    ASSERT(locks == (old_lflgs & locks));
 
     while (1) {
         /*
@@ -826,7 +826,7 @@ erts_proc_trylock__(Process *p,
     int res;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    ERTS_LC_ASSERT((locks & ~ERTS_PROC_LOCKS_ALL) == 0);
+    ASSERT((locks & ~ERTS_PROC_LOCKS_ALL) == 0);
     if (erts_proc_lc_trylock_force_busy(p, locks)) {
 	res = EBUSY; /* Make sure caller can handle the situation without
 			causing a lock order violation to occur */
@@ -850,8 +850,7 @@ erts_proc_trylock__(Process *p,
 	else {
 	    res = 0;
 
-	    ERTS_LC_ASSERT(locks
-			   == (ERTS_PROC_LOCK_FLGS_READ_(&p->lock) & locks));
+	    ASSERT(locks == (ERTS_PROC_LOCK_FLGS_READ_(&p->lock) & locks));
 
 #if !ERTS_PROC_LOCK_ATOMIC_IMPL
 	    erts_pix_unlock(pix_lck);
@@ -898,11 +897,11 @@ erts_proc_lock_op_debug(Process *p, ErtsProcLocks locks, int locked)
 	    erts_aint32_t lock_count;
 	    if (locked) {
 		lock_count = erts_atomic32_inc_read_nob(&p->lock.locked[i]);
-		ERTS_LC_ASSERT(lock_count == 1);
+		ASSERT(lock_count == 1);
 	    }
 	    else {
 		lock_count = erts_atomic32_dec_read_nob(&p->lock.locked[i]);
-		ERTS_LC_ASSERT(lock_count == 0);
+		ASSERT(lock_count == 0);
 	    }
 	}
     }
