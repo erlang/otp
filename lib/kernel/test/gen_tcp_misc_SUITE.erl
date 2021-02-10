@@ -1758,7 +1758,7 @@ do_linger_zero(Config) ->
     ?P("close client socket"),
     ok = gen_tcp:close(Client),
     ?P("sleep some"),
-    ok = ct:sleep(10000),
+    ok = ct:sleep(1),
 
     lz_verify(Client, Server, PayloadSize),
 
@@ -1798,7 +1798,7 @@ lz_pre(Config) ->
 
 lz_populate(Client, OS, PayloadSize) when is_port(Client) ->
     ?P("[inet] create payload"),
-    Payload = lists:duplicate(PayloadSize, $.),
+    Payload = lz_make_payload(PayloadSize),
     ?P("[inet] ensure non-empty queue"),
     lz_ensure_non_empty_queue(Client, Payload, OS),
     {ok, undefined};
@@ -1814,7 +1814,7 @@ lz_populate(Client, _OS, PayloadSize) ->
 
 lz_populate_sender(Client, PayloadSize) ->
     ?P("[socket] create payload"),
-    Payload = lists:duplicate(PayloadSize, $.),
+    Payload = lz_make_payload(PayloadSize),
     ?P("[socket] send payload (expect failure)"), 
     {error, closed} = gen_tcp:send(Client, Payload),
     ?P("[socket] payload send failed (as expected)"), 
@@ -1832,6 +1832,8 @@ lz_verify(_Client, Server, PayloadSize) ->
     {error, econnreset} = gen_tcp:recv(Server, PayloadSize),
     ok.
 
+lz_make_payload(PayloadSize) ->
+    list_to_binary(lists:duplicate(PayloadSize, $.)).
 
 %% THIS DOES NOT WORK FOR 'SOCKET'
 lz_ensure_non_empty_queue(Sock, Payload, OS) when is_port(Sock) ->
@@ -1845,8 +1847,8 @@ lz_ensure_non_empty_queue(Sock, _Payload, _OS, N) when (N > ?LZ_MAX_SENDS) ->
        "~n   Socket info: ~p", [Sock, erlang:port_info(Sock)]),
     ct:fail("Queue size verification failed");
 lz_ensure_non_empty_queue(Sock, Payload, OS, N) ->
-    ?P("try send payload ~w (on client socket) when port info:"
-       "~n   ~p", [N, erlang:port_info(Sock)]),
+    ?P("try send payload (~w bytes) ~w (on client socket) when port info:"
+       "~n   ~p", [byte_size(Payload), N, erlang:port_info(Sock)]),
     ok = gen_tcp:send(Sock, Payload),
     ?P("try verify client socket queue size"),
     case erlang:port_info(Sock, queue_size) of
@@ -1873,18 +1875,41 @@ do_linger_zero_sndbuf(Config) ->
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty
     %% and the linger zero option is set on the listen socket.
+    {OS, Client, Server} = lzs_pre(Config),
+
+    PayloadSize = 1024 * 1024,
+    {ok, Sender} = lzs_populate(Client, OS, PayloadSize),
+
+    ?P("verify linger: {true, 0}"),
+    {ok, [{linger, {true, 0}}]} = inet:getopts(Server, [linger]),
+    ?P("close client socket"),
+    ok = gen_tcp:close(Server),
+    ok = ct:sleep(1),
+
+    lzs_verify(Client, Server, PayloadSize),
+
+    ?P("cleanup"), % Just in case
+    (catch gen_tcp:close(Server)),
+    if is_pid(Sender) -> exit(Sender, kill);
+       true           -> ok
+    end,
+
+    ?P("done"),
+    ok.
+
+lzs_pre(Config) ->
     {OS, _} = os:type(),
     ?P("create listen socket"),
-    {ok, Listen} =
-        ?LISTEN(Config, 0, [{active, false},
-                           {recbuf, 4096},
-                           {show_econnreset, true},
-                           {linger, {true, 0}}]),
+    {ok, Listen} = ?LISTEN(Config, 0, [{active,          false},
+                                       {recbuf,          4096},
+                                       {show_econnreset, true},
+                                       {linger,          {true, 0}}]),
     {ok, Port} = inet:port(Listen),
     ?P("connect (create client socket)"),
-    Client =
-        case ?CONNECT(Config, localhost, Port,
-                             [{active, false}, {sndbuf, 4096}]) of
+    Client = case ?CONNECT(Config, localhost, Port,
+                           [{nodelay, true},
+                            {active,  false},
+                            {sndbuf,  4096}]) of
             {ok, CSock} ->
                 CSock;
             {error, eaddrnotavail = Reason} ->
@@ -1894,22 +1919,52 @@ do_linger_zero_sndbuf(Config) ->
     {ok, Server} = gen_tcp:accept(Listen),
     ?P("close listen socket"),
     ok = gen_tcp:close(Listen),
-    PayloadSize = 1024 * 1024,
-    Payload = binary:copy(<<"0123456789ABCDEF">>, 256 * 1024), % 1 MB
+    {OS, Client, Server}.
+
+lzs_populate(Client, OS, PayloadSize) when is_port(Client) ->
+    ?P("[inet] create payload"),
+    Payload = lzs_make_payload(PayloadSize),
+    ?P("[inet] ensure non-empty queue"),
     lz_ensure_non_empty_queue(Client, Payload, OS),
-    ?P("verify linger: {true, 0}"),
-    {ok, [{linger, {true, 0}}]} = inet:getopts(Server, [linger]),
-    ?P("close client socket"),
-    ok = gen_tcp:close(Server),
-    ok = ct:sleep(1),
-    ?P("verify client socket (port) not connected"),
+    {ok, undefined};
+lzs_populate(Client, _OS, PayloadSize) ->
+    ?P("[socket] send payload ( = start payload sender)"),
+    Sender = spawn(fun() -> lzs_populate_sender(Client, PayloadSize) end),
+    receive
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            {ok, Sender}
+    end.
+
+lzs_populate_sender(Client, PayloadSize) ->
+    ?P("[socket] create payload"),
+    Payload = lzs_make_payload(PayloadSize),
+    ?P("[socket] send payload (expect failure)"), 
+    {error, closed} = gen_tcp:send(Client, Payload),
+    ?P("[socket] payload send failed (as expected)"), 
+    exit(normal).
+    
+lzs_make_payload(PayloadSize) ->
+    Payload = binary:copy(<<"0123456789ABCDEF">>, 64 * 1024), % 1 MB
+    if (PayloadSize =:= byte_size(Payload)) ->
+            Payload;
+       true ->
+            exit({payload_size, PayloadSize, byte_size(Payload)})
+    end.
+
+lzs_verify(Client, Server, PayloadSize)
+  when is_port(Client) andalso is_port(Server) ->
+    ?P("[inet] verify client socket (port) not connected"),
     undefined = erlang:port_info(Server, connected),
-    ?P("try (and fail) recv (on client socket)"),
+    ?P("[inet] try (and fail) recv (on accepted socket)"),
     {error, closed} = gen_tcp:recv(Client, PayloadSize),
-    ?P("done"),
+    ok;
+lzs_verify(Client, _Server, PayloadSize) ->
+    ?P("[socket] try (and fail) recv (on accepted socket)"),
+    {error, closed} = gen_tcp:recv(Client, PayloadSize),
     ok.
-
-
+    
 %% Thanks to Luke Gorrie. Tests for a very specific problem with 
 %% corrupt data. The testcase will be killed by the timetrap timeout
 %% if the bug is present.
