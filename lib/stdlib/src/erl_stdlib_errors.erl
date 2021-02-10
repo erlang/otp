@@ -206,6 +206,8 @@ format_maps_error(map, [Pred, Map]) ->
     [must_be_fun(Pred, 2), must_be_map_or_iter(Map)];
 format_maps_error(merge, [Map1, Map2]) ->
     [must_be_map(Map1), must_be_map(Map2)];
+format_maps_error(merge_deep, [Map1, Map2]) ->
+    [must_be_map(Map1), must_be_map(Map2)];
 format_maps_error(merge_with, [Combiner, Map1, Map2]) ->
     [must_be_fun(Combiner, 3), must_be_map(Map1), must_be_map(Map2)];
 format_maps_error(put, _Args) ->

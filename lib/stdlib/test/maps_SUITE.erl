@@ -33,7 +33,7 @@
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
-         t_merge_with/1, t_from_keys/1,
+         t_merge_with/1, t_from_keys/1, t_merge_deep/1,
          error_info/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -51,7 +51,7 @@ all() ->
      t_iterator_1,t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
-     t_merge_with, t_from_keys,
+     t_merge_with, t_from_keys, t_merge_deep,
      error_info].
 
 t_from_keys(Config) when is_list(Config) ->
@@ -510,6 +510,31 @@ t_size_1(Config) when is_list(Config) ->
     {'EXIT', {{badmap,<<>>}, _}} = (catch maps:size(id(<<>>))),
     ok.
 
+t_merge_deep(Config) when is_list(Config) ->
+    Map1 = #{1 => #{1 => 1},
+             2 => #{2 => 2},
+             3 => 3,
+             4 => #{4 => 4},
+             5 => #{5 => #{5 => #{5 => 5}}}},
+    Map2 = #{1 => #{1 => <<"override">>, 2 => 2},
+             2 => #{0 => 0},
+             3 => <<"override">>,
+             4 => #{},
+             5 => #{5 => #{5 => #{0 => 0}}}},
+    #{1 := #{1 := <<"override">>, 2 := 2},
+      2 := #{0 := 0, 2 := 2},
+      3 := <<"override">>,
+      4 := #{4 := 4},
+      5 := #{5 := #{5 := #{0 := 0, 5 := 5}}}} = maps:merge_deep(Map1, Map2),
+
+    %% Errors
+    {'EXIT', {{badmap, a}, _}} =
+    (catch maps:merge_deep(#{}, a)),
+    {'EXIT', {{badmap, a}, _}} =
+    (catch maps:merge_deep(a, a)),
+
+    ok.
+
 error_info(_Config) ->
     BadIterator = [-1|#{}],
     GoodIterator = maps:iterator(#{}),
@@ -563,6 +588,8 @@ error_info(_Config) ->
          {merge,[#{a => b}, {a,b}]},
          {merge,[{x,y}, #{a => b}]},
          {merge,[{x,y}, {a,b}]},
+
+         {merge_deep, [a, b]},
 
          {merge_with, [fun(_, _) -> ok end, #{}, #{}]},
          {merge_with, [a, b, c]},
