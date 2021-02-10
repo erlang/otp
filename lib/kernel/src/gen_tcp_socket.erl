@@ -575,6 +575,7 @@ setopts_split(FilterTags, Opts) ->
 setopts_split(_FilterTags, [], True, False) ->
     {reverse(True), reverse(False)};
 setopts_split(FilterTags, [Opt | Opts], True, False) ->
+    %% ?DBG({FilterTags, Opt}),
     Opt_1 = conv_setopt(Opt),
     case member(FilterTags, setopt_categories(Opt_1)) of
         true ->
@@ -613,9 +614,14 @@ socket_setopt(Socket, {raw, Level, Key, Value}) ->
 socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
     socket:setopt_native(Socket, {Level,Key}, Value);
 socket_setopt(Socket, {Tag, Value}) ->
+    %% ?DBG({Tag, Value}),
     case socket_opt() of
         #{Tag := Opt} ->
-            socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value));
+            %% ?DBG(Opt),
+            %% socket:setopt(Socket, otp, debug, true),
+            Res = socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value)),
+            %% socket:setopt(Socket, otp, debug, false),
+            Res;
         #{} -> {error, einval}
     end.
 
@@ -729,37 +735,43 @@ ignore_opt() ->
 
 %% Category 'socket'
 %%
-%% Translation to level and type
+%% Translation to 'level' and 'opt'
 -compile({inline, [socket_opt/0]}).
 socket_opt() ->
-    #{%% Level: otp
+    #{
+      %% Level: otp
       buffer => {otp, rcvbuf},
       debug  => {otp, debug},
       fd     => {otp, fd},
+
       %%
       %% Level: socket
       bind_to_device => {socket, bindtodevice},
-      dontroute => {socket, dontroute},
-      keepalive => {socket, keepalive},
-      linger => {socket, linger},
-      low_watermark => {socket, rcvlowat},
-      priority => {socket, priority},
-      recbuf => {socket, rcvbuf},
-      reuseaddr => {socket, reuseaddr},
-      sndbuf => {socket, sndbuf},
+      dontroute      => {socket, dontroute},
+      keepalive      => {socket, keepalive},
+      linger         => {socket, linger},
+      low_watermark  => {socket, rcvlowat},
+      priority       => {socket, priority},
+      recbuf         => {socket, rcvbuf},
+      reuseaddr      => {socket, reuseaddr},
+      sndbuf         => {socket, sndbuf},
+
       %%
       %% Level: tcp
       nodelay => {tcp, nodelay},
+
       %%
       %% Level: ip
       recvtos => {ip, recvtos},
       recvttl => {ip, recvttl},
-      tos => {ip, tos},
-      ttl => {ip, ttl},
+      tos     => {ip, tos},
+      ttl     => {ip, ttl},
+
       %%
       %% Level: ipv6
-      recvtclass => {ipv6, recvtclass},
-      ipv6_v6only => {ipv6, v6only}
+      recvtclass  => {ipv6, recvtclass},
+      ipv6_v6only => {ipv6, v6only},
+      tclass      => {ipv6, tclass}
       }.
 
 -compile({inline, [socket_inherit_opts/0]}).
@@ -1095,13 +1107,17 @@ handle_event({call, From}, close, State, {P, D} = P_D) ->
 
 %% Call: getopts/1
 handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
+    %% ?DBG({call, getopts, Opts, State, D}),
     Result = state_getopts(P, D, State, Opts),
+    %% ?DBG({call, getopts_result, Result}),
     {keep_state_and_data,
      [{reply, From, Result}]};
 
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
+    %% ?DBG({Opts, State, D}),
     {Result, D_1} = state_setopts(P, D, State, Opts),
+    %% ?DBG({Result, D_1}),
     ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
     Reply = {reply, From, Result},
     case State of
@@ -1948,9 +1964,12 @@ tag(Packet) ->
 state_setopts(_P, D, _State, []) ->
     {ok, D};
 state_setopts(P, D, State, [Opt | Opts]) ->
+    %% ?DBG({entry, State, Opt}),
     Opt_1 = conv_setopt(Opt),
+    %% ?DBG({'option converted', Opt_1}),
     case setopt_categories(Opt_1) of
         #{socket := _} ->
+            %% ?DBG(socket),
             case P#params.socket of
                 undefined ->
                     {{error, closed}, D};
@@ -1964,21 +1983,28 @@ state_setopts(P, D, State, [Opt | Opts]) ->
             end;
         %%
         #{server_write := _} when State =:= 'closed' ->
+            %% ?DBG('server write when state closed'),
             {{error, einval}, D};
         #{server_write := _} ->
+            %% ?DBG('server write'),
             state_setopts_server(P, D, State, Opts, Opt_1);
         %%
         #{server_read := _} when State =:= 'closed' ->
+            %% ?DBG('server read when state closed'),
             {{error, einval}, D};
         #{server_read := _} when (State =:= 'closed_read') orelse
                                  (State =:= 'closed_read_write') ->
+            %% ?DBG('server read when state closed-read or closed-read-write'),
             {{error, einval}, D};
         #{server_read := _} ->
+            %% ?DBG('server read'),
             state_setopts_server(P, D, State, Opts, Opt_1);
         %%
         #{ignore := _} ->
+            %% ?DBG(ignore),
             state_setopts(P, D, State, Opts);
-        #{} -> % extra | einval
+        #{} = _EXTRA -> % extra | einval
+            %% ?DBG({extra, _EXTRA}),
             {{error, einval}, D}
     end.
 
@@ -2048,12 +2074,15 @@ state_getopts(P, D, State, Opts) ->
 state_getopts(_P, _D, _State, [], Acc) ->
     {ok, reverse(Acc)};
 state_getopts(P, D, State, [Tag | Tags], Acc) ->
+    %% ?DBG({'categorize option', Tag, State}),
     case getopt_categories(Tag) of
         #{socket := _} ->
+            %% ?DBG(socket),
             case P#params.socket of
                 undefined ->
                     {error, closed};
                 Socket ->
+                    %% ?DBG('socket getopt'),
                     case socket_getopt(Socket, Tag) of
                         {ok, Value} ->
                             state_getopts(
@@ -2063,19 +2092,25 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
                     end
               end;
         #{server_write := _} when State =:= 'closed' ->
+            %% ?DBG('server write when closed'),
             {error, einval};
         #{server_write := _} ->
+            %% ?DBG('server write'),
             Value = maps:get(Tag, D),
             state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
         #{server_read := _} when State =:= 'closed' ->
+            %% ?DBG('server read when closed'),
             {error, einval};
         #{server_read := _} when (State =:= 'closed_read') orelse
                                  (State =:= 'closed_read_write') ->
+            %% ?DBG('server read when closed-read or closed-read-write'),
             {error, einval};
         #{server_read := _} ->
+            %% ?DBG('server read'),
             Value = maps:get(Tag, D),
             state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
-        #{} -> % extra | einval
+        #{} = _EXTRA -> % extra | einval
+            %% ?DBG({'something else', _EXTRA}),
             {error, einval}
     end.
 

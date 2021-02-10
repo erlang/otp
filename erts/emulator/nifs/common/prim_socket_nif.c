@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2478,7 +2478,7 @@ static struct ESockOpt optLevelIPV6[] =
         {
 #ifdef IPV6_TCLASS
             IPV6_TCLASS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
+            esock_setopt_int_opt, esock_getopt_int_opt,
 #else
             0, NULL, NULL,
 #endif

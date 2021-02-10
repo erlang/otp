@@ -962,16 +962,18 @@ t_accept_inet6_tclass(Config) when is_list(Config) ->
     ?TC_TRY(t_accept_inet6_tclass, fun() -> do_accept_inet6_tclass(Config) end).
 
 do_accept_inet6_tclass(Config) ->
-    TClassOpt = {tclass,8#56 bsl 2}, % Expedited forwarding
-    Loopback = {0,0,0,0,0,0,0,1},
+    TClassOpt = {tclass, 8#56 bsl 2}, % Expedited forwarding
+    Loopback  = {0,0,0,0,0,0,0,1},
     ?P("create listen socket with tclass: ~p", [TClassOpt]),
-    case gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [inet6, {ip, Loopback}, TClassOpt]) of
+    case gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++
+                            [inet6, {ip, Loopback}, TClassOpt]) of
 	{ok, L} ->
             ?P("listen socket created: "
                "~n      ~p", [L]),
 	    LPort = ok(inet:port(L)),
             ?P("try to connect to port ~p", [LPort]),
-	    Sa = ok(gen_tcp:connect(Loopback, LPort, ?INET_BACKEND_OPTS(Config))),
+	    Sa = ok(gen_tcp:connect(Loopback, LPort,
+                                    ?INET_BACKEND_OPTS(Config))),
             ?P("connected: ~p"
                "~n   => accept connection", [Sa]),
 	    Sb = ok(gen_tcp:accept(L)),
