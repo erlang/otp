@@ -464,10 +464,10 @@ enqueue(em_state *state, em_buf_queue *queue, size_t min_size)
 	buf = (em_buffer *) (*state->alloc)(sizeof(em_buffer)
 					    + (sizeof(char)
 					       * (bsize-EM_DEFAULT_BUF_SZ)));
-	if (buf) {
-	    buf->size = bsize;
-	    reset_buffer(buf, bsize);
-	}
+        if (!buf)
+            error(ENOMEM);
+        buf->size = bsize;
+        reset_buffer(buf, bsize);
     }
 
     if (queue->last) {
@@ -568,15 +568,10 @@ get_next_write_area(em_area *area, em_state *state, em_buf_queue *queue,
 	   ? queue->last
 	   : enqueue(state, queue, size));
 
-    if (buf) {
-	ASSERT(buf->end - buf->data_end >= size);
-	area->ptr = buf->data_end;
-	area->size = buf->end - buf->data_end;
-    }
-    else {
-	area->ptr = NULL;
-	area->size = 0;
-    }
+    ASSERT(buf);
+    ASSERT(buf->end - buf->data_end >= size);
+    area->ptr = buf->data_end;
+    area->size = buf->end - buf->data_end;
 
     if (queue->tot_buf_size > queue->max_buf_size) {
 	fprintf(stderr,
