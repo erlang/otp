@@ -205,9 +205,12 @@ ethr_full_fence__(void)
 /*
  * Define ETHR_READ_DEPEND_MEMORY_BARRIER for all architechtures
  * not known to order data dependent loads
+ *
+ * This is a bit too conservative, but better safe than sorry...
+ * Add more archs as needed...
  */
 
-#if !defined(__ia64__) && !defined(__arm__)
+#if !defined(__ia64__) && !defined(__arm__) && !defined(__arm64__)
 #  define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_MEMBAR(ETHR_LoadLoad)
 #endif
 
