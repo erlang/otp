@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1748,46 +1748,90 @@ do_linger_zero(Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty.
-    {OS, _} = os:type(),
-    ?P("create listen socket"),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false},
-				 {recbuf, 4096},
-				 {show_econnreset, true}]),
-    {ok, Port} = inet:port(L),
-    ?P("connect (create client socket)"),
-    Client = case ?CONNECT(Config, localhost, Port,
-                           [{active, false}, {sndbuf, 4096}]) of
-                 {ok, CSock} ->
-                     CSock;
-            {error, eaddrnotavail = Reason} ->
-                ?SKIPT(connect_failed_str(Reason))
-        end,
-    ?P("accept"),
-    {ok, S} = gen_tcp:accept(L),
-    ?P("close listen socket"),
-    ok = gen_tcp:close(L),
-    ?P("create payload"),
-    PayloadSize = 1024 * 1024,
-    Payload = lists:duplicate(PayloadSize, $.),
-    ?P("ensure empty queue"),
-    lz_ensure_non_empty_queue(Client, Payload, OS),
-    ?P("linger: {true, 0}"),
+    {OS, Client, Server} = lz_pre(Config),
+
+    PayloadSize  = 1024 * 1024,
+    {ok, Sender} = lz_populate(Client, OS, PayloadSize),
+
+    ?P("set linger: {true, 0}"),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
     ?P("close client socket"),
     ok = gen_tcp:close(Client),
     ?P("sleep some"),
-    ok = ct:sleep(1),
-    ?P("verify client socket (port) not connected"),
+    ok = ct:sleep(10000),
 
-    %% THIS WILL NOT WORK IF THE NEW 'SOCKET'
-    %% WE NEED TO FIGURE OUT A NEW WAY TO DO THIS OR JUST SKIP IT?
-    undefined = erlang:port_info(Client, connected),
+    lz_verify(Client, Server, PayloadSize),
 
+    ?P("cleanup"), % Just in case
+    (catch gen_tcp:close(Server)),
+    if is_pid(Sender) -> exit(Sender, kill);
+       true           -> ok
+    end,
 
-    ?P("try (and fail) recv (on accepted socket)"),
-    {error, econnreset} = gen_tcp:recv(S, PayloadSize),
     ?P("done"),
     ok.
+
+lz_pre(Config) ->
+    {OS, _} = os:type(),
+    ?P("create listen socket"),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false},
+                                  {recbuf, 4096},
+                                  {show_econnreset, true}]),
+    ?P("listen socket created"),
+    %% inet_backend = inet
+    {ok, Port} = inet:port(L),
+    ?P("connect (create client socket)"),
+    Client = case ?CONNECT(Config, localhost, Port,
+                           [{nodelay, true},
+                            {active,  false},
+                            {sndbuf,  4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+                 {error, eaddrnotavail = Reason} ->
+                     ?SKIPT(connect_failed_str(Reason))
+             end,
+    ?P("accept"),
+    {ok, Server} = gen_tcp:accept(L),
+    ?P("close listen socket"),
+    ok = gen_tcp:close(L),
+    {OS, Client, Server}.
+
+lz_populate(Client, OS, PayloadSize) when is_port(Client) ->
+    ?P("[inet] create payload"),
+    Payload = lists:duplicate(PayloadSize, $.),
+    ?P("[inet] ensure non-empty queue"),
+    lz_ensure_non_empty_queue(Client, Payload, OS),
+    {ok, undefined};
+lz_populate(Client, _OS, PayloadSize) ->
+    ?P("[socket] send payload"),
+    Sender = spawn_link(fun() -> lz_populate_sender(Client, PayloadSize) end),
+    receive
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            {ok, Sender}
+    end.
+
+lz_populate_sender(Client, PayloadSize) ->
+    ?P("[socket] create payload"),
+    Payload = lists:duplicate(PayloadSize, $.),
+    ?P("[socket] send payload (expect failure)"), 
+    {error, closed} = gen_tcp:send(Client, Payload),
+    ?P("[socket] payload send failed (as expected)"), 
+    exit(normal).
+
+lz_verify(Client, Server, PayloadSize)
+  when is_port(Client) andalso is_port(Server) ->
+    ?P("[inet] verify client socket (port) not connected"),
+    undefined = erlang:port_info(Client, connected),
+    ?P("[inet] try (and fail) recv (on accepted socket)"),
+    {error, econnreset} = gen_tcp:recv(Server, PayloadSize),
+    ok;
+lz_verify(_Client, Server, PayloadSize) ->
+    ?P("[socket] try (and fail) recv (on accepted socket)"),
+    {error, econnreset} = gen_tcp:recv(Server, PayloadSize),
+    ok.
+
 
 %% THIS DOES NOT WORK FOR 'SOCKET'
 lz_ensure_non_empty_queue(Sock, Payload, OS) when is_port(Sock) ->
