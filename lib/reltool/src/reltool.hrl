@@ -164,6 +164,7 @@
           maxP         = infinity  :: '_' | integer() | infinity,
           maxT         = infinity  :: '_' | integer() | infinity,
           registered   = []        :: '_' | [atom()],
+          opt_apps     = []        :: '_' | [app_name()],
           incl_apps    = []        :: '_' | '$3' | [app_name()],
           applications = []        :: '_' | '$2' | [app_name()],
           env          = []        :: '_' | [{atom(), term()}],

@@ -73,18 +73,16 @@
       <desc>
         <p>Equivalent to calling
         <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
-            repeatedly on all dependencies that are not yet started for an
-            application that is not yet started.</p>
-        <p>Returns <c>{ok, AppNames}</c>, where <c>AppNames</c> is a list of the application names
-            that was actually started by this call.
-            The list might be empty, or not contain all dependencies if the application
-            or some of its dependencies are already started.</p>
+            repeatedly on all dependencies that are not yet started for an application.
+            Optional dependencies will also be loaded and started if they are available.</p>
+        <p>Returns <c>{ok, AppNames}</c> for a successful start or for an already started
+            application (which is, however, omitted from the <c>AppNames</c> list).</p>
         <p>The function reports <c>{error, {AppName,Reason}}</c> for errors, where
         <c>Reason</c> is any possible reason returned by
         <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
             when starting a specific dependency.</p>
-        <p>If an error occurs, the applications started by the function are stopped
-            to bring the set of running applications back to its initial state.</p>
+	<p>If an error occurs, the applications started by the function are stopped
+	    to bring the set of running applications back to its initial state.</p>
       </desc>
     </func>
     <func>
@@ -352,16 +350,22 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
         <p>The application controller checks the value of
           the application specification key <c>applications</c>, to
           ensure that all applications needed to be started before
-          this application are running. Otherwise,
+          this application are running. If an application is missing
+          and the application is not marked as optional,
           <c>{error,{not_started,App}}</c> is returned, where <c>App</c>
-          is the name of the missing application.</p>
-        <p>The application controller then creates an <em>application master</em>
-          for the application. The application master becomes the
-          group leader of all the processes in the application. I/O is
-          forwarded to the previous group leader, though, this is just
-          a way to identify processes that belong to the application.
-          Used for example to find itself from any process, or,
-          reciprocally, to kill them all when it terminates.</p>
+          is the name of the missing application. Note this function
+          makes no attempt to start any of the applications listed in
+          <c>applications</c>, not even optional ones. See
+          <seemfa marker="#ensure_all_started/1"><c>ensure_all_started/1,2</c></seemfa>
+          for recursively starting the current application and its
+          dependencies.</p>
+        <p>Once validated, the application controller then creates an
+          <em>application master</em> for the application. The application
+          master becomes the group leader of all the processes in the
+          application. I/O is forwarded to the previous group leader,
+          though, this is just a way to identify processes that belong
+          to the application. Used for example to find itself from any
+          process, or, reciprocally, to kill them all when it terminates.</p>
         <p>
           The application master starts the application by calling
           the application callback function <c>Module:start/2</c> as

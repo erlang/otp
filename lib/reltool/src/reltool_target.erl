@@ -250,6 +250,7 @@ gen_app(#app{name = Name,
                               maxP = MaxP,
                               maxT = MaxT,
                               registered = Regs,
+                              opt_apps = OptApps,
                               incl_apps = InclApps,
                               applications = ReqApps,
                               env = Env,
@@ -272,6 +273,7 @@ gen_app(#app{name = Name,
       {modules, Mods},
       {registered, Regs},
       {applications, ReqApps},
+      {optional_applications, OptApps},
       {included_applications, InclApps},
       {env, Env},
       {maxT, MaxT},
@@ -349,12 +351,13 @@ do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType,
 	    do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
 	false ->
 	    {value, App} = lists:keysearch(Name, #app.name, Apps),
-	    MergedApp = merge_app(RelName, RA, RelAppType, App),
-	    ReqNames = (MergedApp#app.info)#app_info.applications,
-	    IncNames = (MergedApp#app.info)#app_info.incl_apps,
-	    Acc2 = [MergedApp | Acc],
+	    #app{info = Info} = MergedApp = merge_app(RelName, RA, RelAppType, App),
+	    #app_info{applications = Children, incl_apps = IncNames, opt_apps = OptNames} = Info,
+	    ReqNames = [ChildName || ChildName <- Children,
+				     not lists:member(ChildName, OptNames),
+				     lists:keymember(ChildName, #app.name, Apps)],
 	    do_merge_apps(RelName, ReqNames ++ IncNames ++ RelApps,
-			  Apps, RelAppType, Acc2)
+			  Apps, RelAppType, [MergedApp | Acc])
     end;
 do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
   case is_already_merged(Name, RelApps, Acc) of
@@ -543,8 +546,9 @@ find_pos([], _OrderedApps) ->
 find_pos(N, Name, [#app{name=Name}|_OrderedApps]) ->
     {N, Name};
 find_pos(N, Name, [_OtherAppl|OrderedApps]) ->
-    find_pos(N+1, Name, OrderedApps).
-
+    find_pos(N+1, Name, OrderedApps);
+find_pos(_N, Name, []) ->
+    {optional, Name}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -578,7 +582,7 @@ sort_apps([#app{name = Name, info = Info} = App | Apps],
 		 Visited,
 		 [],
 		 []),
-    Missing1 = NotFnd1 ++ NotFnd2 ++ Missing,
+    Missing1 = (NotFnd1 -- Info#app_info.opt_apps) ++ NotFnd2 ++ Missing,
     case Uses ++ Incs of
         [] ->
             %% No more app that must be started before this one is

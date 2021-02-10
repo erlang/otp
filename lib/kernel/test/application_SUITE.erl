@@ -31,7 +31,7 @@
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
 	 otp_5606/1,
 	 start_phases/1, get_key/1, get_env/1,
-	 set_env/1, set_env_persistent/1, set_env_errors/1,
+	 set_env/1, set_env_persistent/1, set_env_errors/1, optional_applications/1,
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1, otp_16504/1]).
 
@@ -60,7 +60,7 @@ all() ->
      permit_false_start_dist, get_key, get_env, ensure_all_started,
      set_env, set_env_persistent, set_env_errors,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
-     shutdown_deadlock, config_relative_paths,
+     shutdown_deadlock, config_relative_paths, optional_applications,
      persistent_env, handle_many_config_files, format_log_1, format_log_2,
      configfd_bash, configfd_port_program].
 
@@ -970,7 +970,7 @@ ensure_all_started(_Conf) ->
     w_app9(Fd9),
     file:close(Fd9),
     {ok, Fd10} = file:open("app10.app", [write]),
-    w_app10_dep9(Fd10),
+    w_app10(Fd10, [app9], []),
     file:close(Fd10),
     {ok, FdErr} = file:open("app_chain_error.app", [write]),
     w_app(FdErr, app_chain_error()),
@@ -1037,6 +1037,60 @@ ensure_all_started(_Conf) ->
     ok = application:unload(app10),
     ok = application:unload(app_chain_error2),
     ok = application:unload(app_chain_error),
+    ok.
+
+optional_applications(_Conf) ->
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    {error,{not_started,app9}} = application:start(app10),
+    {ok, []} = application:get_key(app10, optional_applications),
+    ok = application:unload(app10),
+
+    %% List app9 as an optional application and app10 starts
+    {ok, Fd10Opt} = file:open("app10.app", [write]),
+    w_app10(Fd10Opt, [app9], [app9]),
+    file:close(Fd10Opt),
+
+    ok = application:start(app10),
+    {ok, [app9]} = application:get_key(app10, optional_applications),
+    false = lists:keymember(app9,1,application:which_applications()),
+
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% If app9 is defined, we can still start app10 without app9
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+
+    ok = application:start(app10),
+    false = lists:keymember(app9,1,application:which_applications()),
+
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% But if we use ensure all started, then app9 is started too
+    {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+    true = lists:keymember(app9,1,application:which_applications()),
+
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% Finally, let's have an optional dependency with a start error
+    {ok, Fd10Error} = file:open("app10.app", [write]),
+    w_app10(Fd10Error, [app_start_error], [app_start_error]),
+    file:close(Fd10Error),
+
+    {ok, FdAppError} = file:open("app_start_error.app", [write]),
+    w_app_start_error(FdAppError),
+    file:close(FdAppError),
+
+    {error,{app_start_error,_}} = application:ensure_all_started(app10, temporary),
+    ok = application:unload(app10),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -1430,7 +1484,7 @@ otp_4227(Conf) when is_list(Conf) ->
         rpc:multicall(Cps, application, load, [app9()]),
     ?UNTIL(is_loaded(app9, Cps)),
     {[ok,ok],[]} = 
-        rpc:multicall(Cps, application, load, [app10_dep9()]),
+        rpc:multicall(Cps, application, load, [app10([app9], [])]),
     {error, {not_started, app9}} = 
 	rpc:call(Cp1, application, start, [app10]),
 
@@ -1642,6 +1696,7 @@ get_key(Conf) when is_list(Conf) ->
 		{maxT, infinity}, 
 		{registered, []}, 
 		{included_applications, [appinc1, appinc2]}, 
+		{optional_applications, []},
 		{applications, [kernel]}, 
 		{env, Env}, 
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
@@ -1686,6 +1741,7 @@ get_key(Conf) when is_list(Conf) ->
 		{maxT, infinity}, 
 		{registered, []}, 
 		{included_applications, [appinc1, appinc2]}, 
+		{optional_applications, []},
 		{applications, [kernel]}, 
 		{env, Env}, 
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
@@ -2623,13 +2679,14 @@ app9() ->
       {applications, [kernel]},
       {mod, {ch_sup, {app9, 19, 19}}}]}.
 
-app10_dep9() ->
+app10(Apps, OptionalApps) ->
     {application, app10,
      [{description, "ERTS  CXC 138 10"},
       {vsn, "2.0"},
       {modules, []},
       {registered, []},
-      {applications, [kernel, app9]},
+      {applications, [kernel] ++ Apps},
+      {optional_applications, OptionalApps},
       {mod, {ch_sup, {app10, 20, 20}}}]}.
 
 appinc() ->
@@ -2953,8 +3010,8 @@ w_app8(Fd) ->
 w_app9(Fd) ->
     io:format(Fd, "~p.\n", [app9()]).
 
-w_app10_dep9(Fd) ->
-    io:format(Fd, "~p.\n", [app10_dep9()]).
+w_app10(Fd, Deps, Optional) ->
+    io:format(Fd, "~p.\n", [app10(Deps, Optional)]).
 
 w_app_start_error(Fd) ->
     io:format(Fd, "~p.\n", [app_start_error()]).

@@ -642,10 +642,10 @@ read_application(_Name, _, [], _, _, FirstError) ->
 parse_application({application, Name, Dict}, File, Vsn, Incls)
   when is_atom(Name),
        is_list(Dict) ->
-    Items = [vsn,id,description,modules,registered,
-	     applications,included_applications,mod,start_phases,env,maxT,maxP],
+    Items = [vsn,id,description,modules,registered,applications,
+	     optional_applications,included_applications,mod,start_phases,env,maxT,maxP],
     case catch get_items(Items, Dict) of
-	[Vsn,Id,Desc,Mods,Regs,Apps,Incs0,Mod,Phases,Env,MaxT,MaxP] ->
+	[Vsn,Id,Desc,Mods,Regs,Apps,Opts,Incs0,Mod,Phases,Env,MaxT,MaxP] ->
 	    case override_include(Name, Incs0, Incls) of
 		{ok, Incs} ->
 		    {ok, #application{name=Name,
@@ -654,6 +654,7 @@ parse_application({application, Name, Dict}, File, Vsn, Incls)
 				      description=Desc,
 				      modules=Mods,
 				      uses=Apps,
+				      optional=Opts,
 				      includes=Incs,
 				      regs=Regs,
 				      mod=Mod,
@@ -665,7 +666,7 @@ parse_application({application, Name, Dict}, File, Vsn, Incls)
 		{error, IncApps} ->
 		    {error, {override_include, IncApps}}
 	    end;
-	[OtherVsn,_,_,_,_,_,_,_,_,_,_,_] ->
+	[OtherVsn,_,_,_,_,_,_,_,_,_,_,_,_] ->
 	    {error, {no_valid_version, {Vsn, OtherVsn}}};
 	Err ->
 	    {error, {Err, {application, Name, Dict}}}
@@ -729,6 +730,11 @@ check_item({_,{applications,Apps}},I) ->
 	true -> Apps;
 	_ -> throw({bad_param, I})
     end;
+check_item({_,{optional_applications,Apps}},I) ->
+    case a_list_p(Apps) of
+	true -> Apps;
+	_ -> throw({bad_param, I})
+    end;
 check_item({_,{included_applications,Apps}},I) ->
     case a_list_p(Apps) of
 	true -> Apps;
@@ -768,6 +774,8 @@ check_item({_,{maxP,MaxP}},I) ->
 	infinity -> infinity;
 	_ -> throw({bad_param, I})
     end;
+check_item(false, optional_applications) -> % optional !
+    [];
 check_item(false, included_applications) -> % optional !
     [];
 check_item(false, mod) -> % mod is optional !
@@ -905,7 +913,8 @@ find_top_app(App, InclApps) ->
 
 undefined_applications(Appls) ->
     Uses = append(map(fun({_,A}) ->
-			      A#application.uses ++ A#application.includes
+			      (A#application.uses -- A#application.optional) ++
+				       A#application.includes
 		      end, Appls)),
     Defined = map(fun({{X,_},_}) -> X end, Appls),
     filter(fun(X) -> not member(X, Defined) end, Uses).
@@ -958,7 +967,9 @@ find_pos([], _OrderedAppls) ->
 find_pos(N, Name, [{Name,_Vsn,_Type}|_OrderedAppls]) ->
     {N, Name};
 find_pos(N, Name, [_OtherAppl|OrderedAppls]) ->
-    find_pos(N+1, Name, OrderedAppls).
+    find_pos(N+1, Name, OrderedAppls);
+find_pos(_N, Name, []) ->
+    {optional, Name}.
 
 %%______________________________________________________________________
 %% check_modules(Appls, Path, TestP) ->
@@ -1299,7 +1310,7 @@ sort_appls([{N, A}|T], Missing, Circular, Visited) ->
 				   T, Visited, [], []),
     {Incs, T2, NotFnd2} = find_all(Name, lists:reverse(A#application.includes),
 				   T1, Visited, [], []),
-    Missing1 = NotFnd1 ++ NotFnd2 ++ Missing,
+    Missing1 = (NotFnd1 -- A#application.optional) ++ NotFnd2 ++ Missing,
     case Uses ++ Incs of
 	[] -> 
 	    %% No more app that must be started before this one is
@@ -1470,7 +1481,7 @@ load_commands(Mods, Path) ->
 %% Pack an application to an application term.
 
 pack_app(#application{name=Name,vsn=V,id=Id,description=D,modules=M,
-		      uses=App,includes=Incs,regs=Regs,mod=Mod,start_phases=SF,
+		      uses=App,optional=Opts,includes=Incs,regs=Regs,mod=Mod,start_phases=SF,
 		      env=Env,maxT=MaxT,maxP=MaxP}) ->
     {application, Name,
      [{description,D},
@@ -1479,6 +1490,7 @@ pack_app(#application{name=Name,vsn=V,id=Id,description=D,modules=M,
       {modules, M},
       {registered, Regs},
       {applications, App},
+      {optional_applications, Opts},
       {included_applications, Incs},
       {env, Env},
       {maxT, MaxT},
