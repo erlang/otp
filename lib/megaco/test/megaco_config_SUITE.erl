@@ -686,6 +686,22 @@ await_completion_counter_working_procs(Pids, OKs, ERRs) ->
               "Unexpected message: "
               "~n      ~p", [length(Pids), length(OKs), length(ERRs), Any]),
 	    await_completion_counter_working_procs(Pids)
+
+    after 10000 ->
+            %% If nothing has happened for this long, something is wrong:
+            %% Check system events
+            case megaco_test_global_sys_monitor:events() of
+                [] ->
+                    i("counter working process completion[~w, ~w, ~w] -> "
+                      "idle", [length(Pids), length(OKs), length(ERRs)]),
+                    await_completion_counter_working_procs(Pids);
+                SysEvs ->
+                    e("counter working process completion[~w, ~w, ~w] -> "
+                      "system event(s): "
+                      "~n      ~p",
+                      [length(Pids), length(OKs), length(ERRs), SysEvs]),
+                    ?SKIP("TC idle with system events")
+            end
     end.
     
 
