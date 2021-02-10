@@ -561,7 +561,7 @@ Erlang code.
 -export([map_anno/2, fold_anno/3, mapfold_anno/3,
          new_anno/1, anno_to_term/1, anno_from_term/1]).
 
--export([first_location/1]). % Internal export.
+-export([first_anno/1]). % Internal export.
 
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
               abstract_type/0, form_info/0, error_info/0]).

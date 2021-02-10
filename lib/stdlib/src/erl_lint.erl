@@ -4118,7 +4118,7 @@ check_format_2(Fmt, As) ->
         {atom,A,Atom} ->
             check_format_2a(atom_to_list(Atom), A, As);
         _ ->
-            Anno = erl_parse:first_location(Fmt),
+            Anno = erl_parse:first_anno(Fmt),
             {warn,2,Anno,"format string not a textual constant",[]}
     end.
 
@@ -4130,7 +4130,7 @@ check_format_2a(Fmt, FmtAnno, As) ->
             Anno = element(2, As),
             {warn,1,Anno,"format arguments not a list",[]};
         maybe ->
-            Anno = erl_parse:first_location(As),
+            Anno = erl_parse:first_anno(As),
             {warn,2,Anno,"format arguments perhaps not a list",[]}
     end.
 
