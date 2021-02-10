@@ -6437,25 +6437,21 @@ erts_processes_monitoring_nodes(Process *c_p)
     sz = 0;
     ctxt.szp = &sz;
     ctxt.hpp = NULL;
+    ctxt.res = NIL;
+    erts_monitor_list_foreach(nodes_monitors,
+                              nodes_monitor_info,
+                              &ctxt);
 
-    while (1) {
-        ctxt.res = NIL;
-
-        erts_monitor_list_foreach(nodes_monitors,
-                                  nodes_monitor_info,
-                                  (void *) &ctxt);
-
-        if (ctxt.hpp)
-            break;
-
-	hp = HAlloc(c_p, sz);
+    hp = HAlloc(c_p, sz);
 #ifdef DEBUG
-	hend = hp + sz;
+    hend = hp + sz;
 #endif
-	ctxt.hpp = &hp;
-	ctxt.szp = NULL;
-    }
-
+    ctxt.hpp = &hp;
+    ctxt.szp = NULL;
+    ctxt.res = NIL;
+    erts_monitor_list_foreach(nodes_monitors,
+                              nodes_monitor_info,
+                              &ctxt);
     ASSERT(hp == hend);
 
     erts_mtx_unlock(&nodes_monitors_mtx);
