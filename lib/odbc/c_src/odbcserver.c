@@ -259,10 +259,10 @@ static void str_tolower(char *str, int len);
 /* ----------------------------- CODE ------------------------------------*/
 
 #if defined(WIN32)
-#  define DO_EXIT(code) do { ExitProcess((code)); exit((code));} while (0)
-/* exit() called only to avoid a warning */
+#  define DO_EXIT(code) do { ExitProcess((code)); _exit((code));} while (0)
+/* _exit() called only to avoid a warning */
 #else
-#  define DO_EXIT(code) exit((code))
+#  define DO_EXIT(code) _exit((code))
 #endif
 
 /* ----------------- Main functions --------------------------------------*/
