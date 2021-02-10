@@ -1681,9 +1681,9 @@ check_queue(erts_proc_lock_t *lck)
     ErtsProcLocks lflgs = ERTS_PROC_LOCK_FLGS_READ_(lck);
 
     for (lock_no = 0; lock_no <= ERTS_PROC_LOCK_MAX_BIT; lock_no++) {
-	ErtsProcLocks wtr;
-	wtr = (((ErtsProcLocks) 1) << lock_no) << ERTS_PROC_LOCK_WAITER_SHIFT;
-	if (lflgs & wtr) {
+	ErtsProcLocks bit;
+	bit = (((ErtsProcLocks) 1) << lock_no) << ERTS_PROC_LOCK_WAITER_SHIFT;
+	if (lflgs & bit) {
 	    int n;
 	    erts_tse_t *wtr;
 	    ERTS_LC_ASSERT(lck->queue[lock_no]);
