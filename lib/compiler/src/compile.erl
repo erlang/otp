@@ -316,9 +316,6 @@ format_error({rename,From,To,Error}) ->
 format_error({delete,File,Error}) ->
     io_lib:format("failed to delete file ~ts: ~ts",
 		  [File,file:format_error(Error)]);
-format_error({delete_temp,File,Error}) ->
-    io_lib:format("failed to delete temporary file ~ts: ~ts",
-		  [File,file:format_error(Error)]);
 format_error({parse_transform,M,R}) ->
     io_lib:format("error in parse transform '~ts': ~tp", [M, R]);
 format_error({undef_parse_transform,M}) ->
@@ -1698,16 +1695,9 @@ save_binary_1(Code, St) ->
 		ok ->
 		    {ok,none,St};
 		{error,RenameError} ->
-		    Es0 = [{Ofile,[{none,?MODULE,{rename,Tfile,Ofile,
-						  RenameError}}]}],
-		    Es = case file:delete(Tfile) of
-			     ok -> Es0;
-			     {error,DeleteError} ->
-				 Es0 ++
-				     [{Ofile,
-				       [{none,?MODULE,{delete_temp,Tfile,
-						       DeleteError}}]}]
-			 end,
+                    Es = [{Ofile,[{none,?MODULE,{rename,Tfile,Ofile,
+                                                 RenameError}}]}],
+                    _ = file:delete(Tfile),
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end;
 	{error,Error} ->
