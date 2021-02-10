@@ -86,9 +86,19 @@
 #undef ETHR_SPARC_RMO
 
 /* Define as a boolean indicating whether you have a gcc compatible compiler
-   capable of generating the ARM DMB instruction, and are compiling for an ARM
-   processor with ARM DMB instruction support, or not */
+   capable of generating the ARM 'dmb sy' instruction, and are compiling for
+   an ARM processor with ARM DMB instruction support, or not */
 #undef ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dmb ld' instruction, and are compiling for
+   an ARM processor with ARM DMB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dmb st' instruction, and are compiling for
+   an ARM processor with ARM DMB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION
 
 /* Define as a bitmask corresponding to the word sizes that
    __sync_synchronize() can handle on your system */
