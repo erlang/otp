@@ -24,7 +24,7 @@
 #ifndef ASMJIT_CORE_CPUINFO_H_INCLUDED
 #define ASMJIT_CORE_CPUINFO_H_INCLUDED
 
-#include "../core/arch.h"
+#include "../core/archtraits.h"
 #include "../core/features.h"
 #include "../core/globals.h"
 #include "../core/string.h"

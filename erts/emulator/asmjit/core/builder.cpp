@@ -69,13 +69,7 @@ BaseBuilder::BaseBuilder() noexcept
     _codeZone(32768 - Zone::kBlockOverhead),
     _dataZone(16384 - Zone::kBlockOverhead),
     _passZone(65536 - Zone::kBlockOverhead),
-    _allocator(&_codeZone),
-    _passes(),
-    _labelNodes(),
-    _cursor(nullptr),
-    _firstNode(nullptr),
-    _lastNode(nullptr),
-    _nodeFlags(0) {}
+    _allocator(&_codeZone) {}
 
 BaseBuilder::~BaseBuilder() noexcept {
   BaseBuilder_deletePasses(this);
@@ -918,8 +912,7 @@ Error BaseBuilder::onDetach(CodeHolder* code) noexcept {
 // ============================================================================
 
 Pass::Pass(const char* name) noexcept
-  : _cb(nullptr),
-    _name(name) {}
+  : _name(name) {}
 Pass::~Pass() noexcept {}
 
 ASMJIT_END_NAMESPACE

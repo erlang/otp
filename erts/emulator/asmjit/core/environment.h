@@ -101,16 +101,16 @@ public:
     // 8 is not used, even numbers are 64-bit architectures.
 
     //! 32-bit MIPS architecture in (little endian).
-    kArchMIPS_LE = 9,
+    kArchMIPS32_LE = 9,
     //! 32-bit MIPS architecture in (big endian).
-    kArchMIPS_BE = kArchMIPS_LE | kArchBigEndianMask,
+    kArchMIPS32_BE = kArchMIPS32_LE | kArchBigEndianMask,
     //! 64-bit MIPS architecture in (little endian).
     kArchMIPS64_LE = 10,
     //! 64-bit MIPS architecture in (big endian).
     kArchMIPS64_BE = kArchMIPS64_LE | kArchBigEndianMask,
 
     //! Count of architectures.
-    kArchCount
+    kArchCount = 11
   };
 
   //! Sub-architecture.
@@ -246,8 +246,8 @@ public:
     ASMJIT_ARCH_ARM == 64 && ASMJIT_ARCH_LE ? kArchAArch64 :
     ASMJIT_ARCH_ARM == 64 && ASMJIT_ARCH_BE ? kArchAArch64_BE :
 
-    ASMJIT_ARCH_MIPS == 32 && ASMJIT_ARCH_LE ? kArchMIPS_LE :
-    ASMJIT_ARCH_MIPS == 32 && ASMJIT_ARCH_BE ? kArchMIPS_BE :
+    ASMJIT_ARCH_MIPS == 32 && ASMJIT_ARCH_LE ? kArchMIPS32_LE :
+    ASMJIT_ARCH_MIPS == 32 && ASMJIT_ARCH_BE ? kArchMIPS32_BE :
     ASMJIT_ARCH_MIPS == 64 && ASMJIT_ARCH_LE ? kArchMIPS64_LE :
     ASMJIT_ARCH_MIPS == 64 && ASMJIT_ARCH_BE ? kArchMIPS64_BE :
 
@@ -410,6 +410,16 @@ public:
     _reserved = 0;
   }
 
+  inline bool isArchX86() const noexcept { return _arch == kArchX86; }
+  inline bool isArchX64() const noexcept { return _arch == kArchX64; }
+  inline bool isArchRISCV32() const noexcept { return _arch == kArchRISCV32; }
+  inline bool isArchRISCV64() const noexcept { return _arch == kArchRISCV64; }
+  inline bool isArchARM() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchARM; }
+  inline bool isArchThumb() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchThumb; }
+  inline bool isArchAArch64() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchAArch64; }
+  inline bool isArchMIPS32() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchMIPS32_LE; }
+  inline bool isArchMIPS64() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchMIPS64_LE; }
+
   //! Tests whether the architecture is 32-bit.
   inline bool is32Bit() const noexcept { return is32Bit(_arch); }
   //! Tests whether the architecture is 64-bit.
@@ -422,11 +432,11 @@ public:
 
   //! Tests whether this architecture is of X86 family.
   inline bool isFamilyX86() const noexcept { return isFamilyX86(_arch); }
-  //! Tests whether this architecture is of ARM family.
+  //! Tests whether this architecture family is RISC-V (both 32-bit and 64-bit).
   inline bool isFamilyRISCV() const noexcept { return isFamilyRISCV(_arch); }
-  //! Tests whether this architecture is of ARM family.
+  //! Tests whether this architecture family is ARM, Thumb, or AArch64.
   inline bool isFamilyARM() const noexcept { return isFamilyARM(_arch); }
-  //! Tests whether this architecture is of ARM family.
+  //! Tests whether this architecture family is MISP or MIPS64.
   inline bool isFamilyMIPS() const noexcept { return isFamilyMIPS(_arch); }
 
   //! Tests whether the environment platform is Windows.
@@ -486,6 +496,11 @@ public:
   //! \name Static Utilities
   //! \{
 
+  static inline bool isValidArch(uint32_t arch) noexcept {
+    return (arch & ~kArchBigEndianMask) != 0 &&
+           (arch & ~kArchBigEndianMask) < kArchCount;
+  }
+
   //! Tests whether the given architecture `arch` is 32-bit.
   static inline bool is32Bit(uint32_t arch) noexcept {
     return (arch & kArch32BitMask) == kArch32BitMask;
@@ -504,6 +519,12 @@ public:
   //! Tests whether the given architecture `arch` is big endian.
   static inline bool isBigEndian(uint32_t arch) noexcept {
     return (arch & kArchBigEndianMask) == kArchBigEndianMask;
+  }
+
+  //! Tests whether the given architecture is AArch64.
+  static inline bool isArchAArch64(uint32_t arch) noexcept {
+    arch &= ~kArchBigEndianMask;
+    return arch == kArchAArch64;
   }
 
   //! Tests whether the given architecture family is X86 or X64.
@@ -529,7 +550,7 @@ public:
   //! Tests whether the given architecture family is MISP or MIPS64.
   static inline bool isFamilyMIPS(uint32_t arch) noexcept {
     arch &= ~kArchBigEndianMask;
-    return arch == kArchMIPS_LE ||
+    return arch == kArchMIPS32_LE ||
            arch == kArchMIPS64_LE;
   }
 

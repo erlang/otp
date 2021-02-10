@@ -282,11 +282,10 @@ Error BaseCompiler::newVirtReg(VirtReg** out, uint32_t typeId, uint32_t signatur
 }
 
 Error BaseCompiler::_newReg(BaseReg* out, uint32_t typeId, const char* name) {
+  RegInfo regInfo;
   out->reset();
 
-  RegInfo regInfo;
   Error err = ArchUtils::typeIdToRegInfo(arch(), typeId, &typeId, &regInfo);
-
   if (ASMJIT_UNLIKELY(err))
     return reportError(err);
 
@@ -568,6 +567,10 @@ JumpAnnotation* BaseCompiler::newJumpAnnotation() {
 
 Error BaseCompiler::onAttach(CodeHolder* code) noexcept {
   ASMJIT_PROPAGATE(Base::onAttach(code));
+
+  const ArchTraits& archTraits = ArchTraits::byArch(code->arch());
+  uint32_t nativeRegType = Environment::is32Bit(code->arch()) ? BaseReg::kTypeGp32 : BaseReg::kTypeGp64;
+  _gpRegInfo.setSignature(archTraits.regTypeToSignature(nativeRegType));
 
   Error err = addPassT<GlobalConstPoolPass>();
   if (ASMJIT_UNLIKELY(err)) {

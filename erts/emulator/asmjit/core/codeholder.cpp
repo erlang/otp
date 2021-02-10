@@ -23,6 +23,7 @@
 
 #include "../core/api-build_p.h"
 #include "../core/assembler.h"
+#include "../core/codewriter_p.h"
 #include "../core/logger.h"
 #include "../core/support.h"
 
@@ -507,20 +508,7 @@ static uint32_t CodeHolder_hashNameAndGetSize(const char* name, size_t& nameSize
   return hashCode;
 }
 
-static bool CodeHolder_writeDisplacement(void* dst, int64_t displacement, uint32_t displacementSize) {
-  if (displacementSize == 4 && Support::isInt32(displacement)) {
-    Support::writeI32uLE(dst, int32_t(displacement));
-    return true;
-  }
-  else if (displacementSize == 1 && Support::isInt8(displacement)) {
-    Support::writeI8(dst, int8_t(displacement));
-    return true;
-  }
-
-  return false;
-}
-
-LabelLink* CodeHolder::newLabelLink(LabelEntry* le, uint32_t sectionId, size_t offset, intptr_t rel) noexcept {
+LabelLink* CodeHolder::newLabelLink(LabelEntry* le, uint32_t sectionId, size_t offset, intptr_t rel, const OffsetFormat& format) noexcept {
   LabelLink* link = _allocator.allocT<LabelLink>();
   if (ASMJIT_UNLIKELY(!link)) return nullptr;
 
@@ -531,6 +519,7 @@ LabelLink* CodeHolder::newLabelLink(LabelEntry* le, uint32_t sectionId, size_t o
   link->relocId = Globals::kInvalidId;
   link->offset = offset;
   link->rel = rel;
+  link->format = format;
 
   _unresolvedLinkCount++;
   return link;
@@ -577,9 +566,9 @@ Error CodeHolder::newNamedLabelEntry(LabelEntry** entryOut, const char* name, si
       break;
 
     case Label::kTypeGlobal:
+    case Label::kTypeExternal:
       if (ASMJIT_UNLIKELY(parentId != Globals::kInvalidId))
         return DebugUtils::errored(kErrorNonLocalLabelCannotHaveParent);
-
       break;
 
     default:
@@ -656,18 +645,16 @@ ASMJIT_API Error CodeHolder::resolveUnresolvedLinks() noexcept {
           ASMJIT_ASSERT(linkOffset < buf.size());
 
           // Calculate the offset relative to the start of the virtual base.
-          uint64_t fromOffset = Support::addOverflow<uint64_t>(fromSection->offset(), linkOffset, &of);
+          Support::FastUInt8 localOF = of;
+          uint64_t fromOffset = Support::addOverflow<uint64_t>(fromSection->offset(), linkOffset, &localOF);
           int64_t displacement = int64_t(toOffset - fromOffset + uint64_t(int64_t(link->rel)));
 
-          if (!of) {
+          if (!localOF) {
             ASMJIT_ASSERT(size_t(linkOffset) < buf.size());
-
-            // Size of the value we are going to patch. Only BYTE/DWORD is allowed.
-            uint32_t displacementSize = buf._data[linkOffset];
-            ASMJIT_ASSERT(buf.size() - size_t(linkOffset) >= displacementSize);
+            ASMJIT_ASSERT(buf.size() - size_t(linkOffset) >= link->format.valueSize());
 
             // Overwrite a real displacement in the CodeBuffer.
-            if (CodeHolder_writeDisplacement(buf._data + linkOffset, displacement, displacementSize)) {
+            if (CodeWriterUtils::writeOffset(buf._data + linkOffset, displacement, link->format)) {
               link.resolveAndNext(this);
               continue;
             }
@@ -730,11 +717,10 @@ ASMJIT_API Error CodeHolder::bindLabel(const Label& label, uint32_t toSectionId,
       int64_t displacement = int64_t(toOffset - uint64_t(linkOffset) + uint64_t(int64_t(link->rel)));
 
       // Size of the value we are going to patch. Only BYTE/DWORD is allowed.
-      uint32_t displacementSize = buf._data[linkOffset];
-      ASMJIT_ASSERT(buf.size() - size_t(linkOffset) >= displacementSize);
+      ASMJIT_ASSERT(buf.size() - size_t(linkOffset) >= link->format.regionSize());
 
       // Overwrite a real displacement in the CodeBuffer.
-      if (!CodeHolder_writeDisplacement(buf._data + linkOffset, displacement, displacementSize)) {
+      if (!CodeWriterUtils::writeOffset(buf._data + linkOffset, displacement, link->format)) {
         err = DebugUtils::errored(kErrorInvalidDisplacement);
         link.next();
         continue;
@@ -751,7 +737,7 @@ ASMJIT_API Error CodeHolder::bindLabel(const Label& label, uint32_t toSectionId,
 // [asmjit::BaseEmitter - Relocations]
 // ============================================================================
 
-Error CodeHolder::newRelocEntry(RelocEntry** dst, uint32_t relocType, uint32_t valueSize) noexcept {
+Error CodeHolder::newRelocEntry(RelocEntry** dst, uint32_t relocType) noexcept {
   ASMJIT_PROPAGATE(_relocations.willGrow(&_allocator));
 
   uint32_t relocId = _relocations.size();
@@ -764,7 +750,6 @@ Error CodeHolder::newRelocEntry(RelocEntry** dst, uint32_t relocType, uint32_t v
 
   re->_id = relocId;
   re->_relocType = uint8_t(relocType);
-  re->_valueSize = uint8_t(valueSize);
   re->_sourceSectionId = Globals::kInvalidId;
   re->_targetSectionId = Globals::kInvalidId;
   _relocations.appendUnsafe(re);
@@ -946,13 +931,13 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
     uint64_t sourceOffset = re->sourceOffset();
 
     // Make sure that the `RelocEntry` doesn't go out of bounds.
-    size_t regionSize = re->leadingSize() + re->valueSize() + re->trailingSize();
+    size_t regionSize = re->format().regionSize();
     if (ASMJIT_UNLIKELY(re->sourceOffset() >= sourceSection->bufferSize() ||
                         sourceSection->bufferSize() - size_t(re->sourceOffset()) < regionSize))
       return DebugUtils::errored(kErrorInvalidRelocEntry);
 
     uint8_t* buffer = sourceSection->data();
-    size_t valueOffset = size_t(re->sourceOffset()) + re->leadingSize();
+    size_t valueOffset = size_t(re->sourceOffset()) + re->format().valueOffset();
 
     switch (re->relocType()) {
       case RelocEntry::kTypeExpression: {
@@ -984,7 +969,7 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
       }
 
       case RelocEntry::kTypeX64AddressEntry: {
-        if (re->valueSize() != 4 || re->leadingSize() < 2)
+        if (re->format().valueSize() != 4 || valueOffset < 2)
           return DebugUtils::errored(kErrorInvalidRelocEntry);
 
         // First try whether a relative 32-bit displacement would work.
@@ -1038,7 +1023,7 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
         return DebugUtils::errored(kErrorInvalidRelocEntry);
     }
 
-    switch (re->valueSize()) {
+    switch (re->format().valueSize()) {
       case 1:
         Support::writeU8(buffer + valueOffset, uint32_t(value & 0xFFu));
         break;

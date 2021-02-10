@@ -30,29 +30,6 @@
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
 // ============================================================================
-// [asmjit::x86::OpData]
-// ============================================================================
-
-const OpData opData = {
-  {
-    // RegInfo[]
-    #define VALUE(X) { RegTraits<X>::kSignature }
-    { ASMJIT_LOOKUP_TABLE_32(VALUE, 0) },
-    #undef VALUE
-
-    // RegCount[]
-    #define VALUE(X) RegTraits<X>::kCount
-    { ASMJIT_LOOKUP_TABLE_32(VALUE, 0) },
-    #undef VALUE
-
-    // RegTypeToTypeId[]
-    #define VALUE(X) RegTraits<X>::kTypeId
-    { ASMJIT_LOOKUP_TABLE_32(VALUE, 0) }
-    #undef VALUE
-  }
-};
-
-// ============================================================================
 // [asmjit::x86::Operand - Unit]
 // ============================================================================
 
@@ -167,7 +144,7 @@ UNIT(x86_operand) {
   EXPECT(zmm7.ymm() == ymm7);
   EXPECT(zmm7.zmm() == zmm7);
 
-  INFO("Checking x86::FpMm register properties");
+  INFO("Checking x86::Mm register properties");
   EXPECT(Mm().isReg() == true);
   EXPECT(mm2.isReg() == true);
   EXPECT(mm2.id() == 2);

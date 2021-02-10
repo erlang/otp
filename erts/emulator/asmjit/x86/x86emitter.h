@@ -32,144 +32,91 @@
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
 #define ASMJIT_INST_0x(NAME, ID) \
-  inline Error NAME() { return _emitter()->emit(Inst::kId##ID); }
+  inline Error NAME() { return _emitter()->_emitI(Inst::kId##ID); }
 
 #define ASMJIT_INST_1x(NAME, ID, T0) \
-  inline Error NAME(const T0& o0) { return _emitter()->emit(Inst::kId##ID, o0); }
-
-#define ASMJIT_INST_1i(NAME, ID, T0) \
-  inline Error NAME(const T0& o0) { return _emitter()->emit(Inst::kId##ID, o0); } \
-  /** \cond */ \
-  inline Error NAME(int o0) { return _emitter()->emit(Inst::kId##ID, Support::asInt(o0)); } \
-  inline Error NAME(unsigned int o0) { return _emitter()->emit(Inst::kId##ID, Support::asInt(o0)); } \
-  inline Error NAME(int64_t o0) { return _emitter()->emit(Inst::kId##ID, Support::asInt(o0)); } \
-  inline Error NAME(uint64_t o0) { return _emitter()->emit(Inst::kId##ID, Support::asInt(o0)); } \
-  /** \endcond */
+  inline Error NAME(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID, o0); }
 
 #define ASMJIT_INST_1c(NAME, ID, CONV, T0) \
-  inline Error NAME(uint32_t cc, const T0& o0) { return _emitter()->emit(CONV(cc), o0); } \
-  inline Error NAME##a(const T0& o0) { return _emitter()->emit(Inst::kId##ID##a, o0); } \
-  inline Error NAME##ae(const T0& o0) { return _emitter()->emit(Inst::kId##ID##ae, o0); } \
-  inline Error NAME##b(const T0& o0) { return _emitter()->emit(Inst::kId##ID##b, o0); } \
-  inline Error NAME##be(const T0& o0) { return _emitter()->emit(Inst::kId##ID##be, o0); } \
-  inline Error NAME##c(const T0& o0) { return _emitter()->emit(Inst::kId##ID##c, o0); } \
-  inline Error NAME##e(const T0& o0) { return _emitter()->emit(Inst::kId##ID##e, o0); } \
-  inline Error NAME##g(const T0& o0) { return _emitter()->emit(Inst::kId##ID##g, o0); } \
-  inline Error NAME##ge(const T0& o0) { return _emitter()->emit(Inst::kId##ID##ge, o0); } \
-  inline Error NAME##l(const T0& o0) { return _emitter()->emit(Inst::kId##ID##l, o0); } \
-  inline Error NAME##le(const T0& o0) { return _emitter()->emit(Inst::kId##ID##le, o0); } \
-  inline Error NAME##na(const T0& o0) { return _emitter()->emit(Inst::kId##ID##na, o0); } \
-  inline Error NAME##nae(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nae, o0); } \
-  inline Error NAME##nb(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nb, o0); } \
-  inline Error NAME##nbe(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nbe, o0); } \
-  inline Error NAME##nc(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nc, o0); } \
-  inline Error NAME##ne(const T0& o0) { return _emitter()->emit(Inst::kId##ID##ne, o0); } \
-  inline Error NAME##ng(const T0& o0) { return _emitter()->emit(Inst::kId##ID##ng, o0); } \
-  inline Error NAME##nge(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nge, o0); } \
-  inline Error NAME##nl(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nl, o0); } \
-  inline Error NAME##nle(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nle, o0); } \
-  inline Error NAME##no(const T0& o0) { return _emitter()->emit(Inst::kId##ID##no, o0); } \
-  inline Error NAME##np(const T0& o0) { return _emitter()->emit(Inst::kId##ID##np, o0); } \
-  inline Error NAME##ns(const T0& o0) { return _emitter()->emit(Inst::kId##ID##ns, o0); } \
-  inline Error NAME##nz(const T0& o0) { return _emitter()->emit(Inst::kId##ID##nz, o0); } \
-  inline Error NAME##o(const T0& o0) { return _emitter()->emit(Inst::kId##ID##o, o0); } \
-  inline Error NAME##p(const T0& o0) { return _emitter()->emit(Inst::kId##ID##p, o0); } \
-  inline Error NAME##pe(const T0& o0) { return _emitter()->emit(Inst::kId##ID##pe, o0); } \
-  inline Error NAME##po(const T0& o0) { return _emitter()->emit(Inst::kId##ID##po, o0); } \
-  inline Error NAME##s(const T0& o0) { return _emitter()->emit(Inst::kId##ID##s, o0); } \
-  inline Error NAME##z(const T0& o0) { return _emitter()->emit(Inst::kId##ID##z, o0); }
+  inline Error NAME(uint32_t cc, const T0& o0) { return _emitter()->_emitI(CONV(cc), o0); } \
+  inline Error NAME##a(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##a, o0); } \
+  inline Error NAME##ae(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##ae, o0); } \
+  inline Error NAME##b(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##b, o0); } \
+  inline Error NAME##be(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##be, o0); } \
+  inline Error NAME##c(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##c, o0); } \
+  inline Error NAME##e(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##e, o0); } \
+  inline Error NAME##g(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##g, o0); } \
+  inline Error NAME##ge(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##ge, o0); } \
+  inline Error NAME##l(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##l, o0); } \
+  inline Error NAME##le(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##le, o0); } \
+  inline Error NAME##na(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##na, o0); } \
+  inline Error NAME##nae(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nae, o0); } \
+  inline Error NAME##nb(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nb, o0); } \
+  inline Error NAME##nbe(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nbe, o0); } \
+  inline Error NAME##nc(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nc, o0); } \
+  inline Error NAME##ne(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##ne, o0); } \
+  inline Error NAME##ng(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##ng, o0); } \
+  inline Error NAME##nge(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nge, o0); } \
+  inline Error NAME##nl(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nl, o0); } \
+  inline Error NAME##nle(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nle, o0); } \
+  inline Error NAME##no(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##no, o0); } \
+  inline Error NAME##np(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##np, o0); } \
+  inline Error NAME##ns(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##ns, o0); } \
+  inline Error NAME##nz(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##nz, o0); } \
+  inline Error NAME##o(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##o, o0); } \
+  inline Error NAME##p(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##p, o0); } \
+  inline Error NAME##pe(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##pe, o0); } \
+  inline Error NAME##po(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##po, o0); } \
+  inline Error NAME##s(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##s, o0); } \
+  inline Error NAME##z(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID##z, o0); }
 
 #define ASMJIT_INST_2x(NAME, ID, T0, T1) \
-  inline Error NAME(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID, o0, o1); }
-
-#define ASMJIT_INST_2i(NAME, ID, T0, T1) \
-  inline Error NAME(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID, o0, o1); } \
-  /** \cond */ \
-  inline Error NAME(const T0& o0, int o1) { return _emitter()->emit(Inst::kId##ID, o0, Support::asInt(o1)); } \
-  inline Error NAME(const T0& o0, unsigned int o1) { return _emitter()->emit(Inst::kId##ID, o0, Support::asInt(o1)); } \
-  inline Error NAME(const T0& o0, int64_t o1) { return _emitter()->emit(Inst::kId##ID, o0, Support::asInt(o1)); } \
-  inline Error NAME(const T0& o0, uint64_t o1) { return _emitter()->emit(Inst::kId##ID, o0, Support::asInt(o1)); } \
-  /** \endcond */
+  inline Error NAME(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID, o0, o1); }
 
 #define ASMJIT_INST_2c(NAME, ID, CONV, T0, T1) \
-  inline Error NAME(uint32_t cc, const T0& o0, const T1& o1) { return _emitter()->emit(CONV(cc), o0, o1); } \
-  inline Error NAME##a(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##a, o0, o1); } \
-  inline Error NAME##ae(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##ae, o0, o1); } \
-  inline Error NAME##b(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##b, o0, o1); } \
-  inline Error NAME##be(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##be, o0, o1); } \
-  inline Error NAME##c(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##c, o0, o1); } \
-  inline Error NAME##e(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##e, o0, o1); } \
-  inline Error NAME##g(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##g, o0, o1); } \
-  inline Error NAME##ge(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##ge, o0, o1); } \
-  inline Error NAME##l(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##l, o0, o1); } \
-  inline Error NAME##le(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##le, o0, o1); } \
-  inline Error NAME##na(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##na, o0, o1); } \
-  inline Error NAME##nae(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nae, o0, o1); } \
-  inline Error NAME##nb(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nb, o0, o1); } \
-  inline Error NAME##nbe(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nbe, o0, o1); } \
-  inline Error NAME##nc(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nc, o0, o1); } \
-  inline Error NAME##ne(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##ne, o0, o1); } \
-  inline Error NAME##ng(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##ng, o0, o1); } \
-  inline Error NAME##nge(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nge, o0, o1); } \
-  inline Error NAME##nl(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nl, o0, o1); } \
-  inline Error NAME##nle(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nle, o0, o1); } \
-  inline Error NAME##no(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##no, o0, o1); } \
-  inline Error NAME##np(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##np, o0, o1); } \
-  inline Error NAME##ns(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##ns, o0, o1); } \
-  inline Error NAME##nz(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##nz, o0, o1); } \
-  inline Error NAME##o(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##o, o0, o1); } \
-  inline Error NAME##p(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##p, o0, o1); } \
-  inline Error NAME##pe(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##pe, o0, o1); } \
-  inline Error NAME##po(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##po, o0, o1); } \
-  inline Error NAME##s(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##s, o0, o1); } \
-  inline Error NAME##z(const T0& o0, const T1& o1) { return _emitter()->emit(Inst::kId##ID##z, o0, o1); }
+  inline Error NAME(uint32_t cc, const T0& o0, const T1& o1) { return _emitter()->_emitI(CONV(cc), o0, o1); } \
+  inline Error NAME##a(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##a, o0, o1); } \
+  inline Error NAME##ae(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##ae, o0, o1); } \
+  inline Error NAME##b(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##b, o0, o1); } \
+  inline Error NAME##be(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##be, o0, o1); } \
+  inline Error NAME##c(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##c, o0, o1); } \
+  inline Error NAME##e(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##e, o0, o1); } \
+  inline Error NAME##g(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##g, o0, o1); } \
+  inline Error NAME##ge(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##ge, o0, o1); } \
+  inline Error NAME##l(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##l, o0, o1); } \
+  inline Error NAME##le(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##le, o0, o1); } \
+  inline Error NAME##na(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##na, o0, o1); } \
+  inline Error NAME##nae(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nae, o0, o1); } \
+  inline Error NAME##nb(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nb, o0, o1); } \
+  inline Error NAME##nbe(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nbe, o0, o1); } \
+  inline Error NAME##nc(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nc, o0, o1); } \
+  inline Error NAME##ne(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##ne, o0, o1); } \
+  inline Error NAME##ng(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##ng, o0, o1); } \
+  inline Error NAME##nge(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nge, o0, o1); } \
+  inline Error NAME##nl(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nl, o0, o1); } \
+  inline Error NAME##nle(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nle, o0, o1); } \
+  inline Error NAME##no(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##no, o0, o1); } \
+  inline Error NAME##np(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##np, o0, o1); } \
+  inline Error NAME##ns(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##ns, o0, o1); } \
+  inline Error NAME##nz(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##nz, o0, o1); } \
+  inline Error NAME##o(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##o, o0, o1); } \
+  inline Error NAME##p(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##p, o0, o1); } \
+  inline Error NAME##pe(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##pe, o0, o1); } \
+  inline Error NAME##po(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##po, o0, o1); } \
+  inline Error NAME##s(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##s, o0, o1); } \
+  inline Error NAME##z(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID##z, o0, o1); }
 
 #define ASMJIT_INST_3x(NAME, ID, T0, T1, T2) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2); }
-
-#define ASMJIT_INST_3i(NAME, ID, T0, T1, T2) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2); } \
-  /** \cond */ \
-  inline Error NAME(const T0& o0, const T1& o1, int o2) { return _emitter()->emit(Inst::kId##ID, o0, o1, Support::asInt(o2)); } \
-  inline Error NAME(const T0& o0, const T1& o1, unsigned int o2) { return _emitter()->emit(Inst::kId##ID, o0, o1, Support::asInt(o2)); } \
-  inline Error NAME(const T0& o0, const T1& o1, int64_t o2) { return _emitter()->emit(Inst::kId##ID, o0, o1, Support::asInt(o2)); } \
-  inline Error NAME(const T0& o0, const T1& o1, uint64_t o2) { return _emitter()->emit(Inst::kId##ID, o0, o1, Support::asInt(o2)); } \
-  /** \endcond */
-
-#define ASMJIT_INST_3ii(NAME, ID, T0, T1, T2) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2); } \
-  inline Error NAME(const T0& o0, int o1, int o2) { return _emitter()->emit(Inst::kId##ID, o0, Imm(o1), Support::asInt(o2)); }
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2); }
 
 #define ASMJIT_INST_4x(NAME, ID, T0, T1, T2, T3) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3); }
-
-#define ASMJIT_INST_4i(NAME, ID, T0, T1, T2, T3) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3); } \
-  /** \cond */ \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, int o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, Support::asInt(o3)); } \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, unsigned int o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, Support::asInt(o3)); } \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, int64_t o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, Support::asInt(o3)); } \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, uint64_t o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, Support::asInt(o3)); } \
-  /** \endcond */
-
-#define ASMJIT_INST_4ii(NAME, ID, T0, T1, T2, T3) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3); } \
-  inline Error NAME(const T0& o0, const T1& o1, int o2, int o3) { return _emitter()->emit(Inst::kId##ID, o0, o1, Imm(o2), Support::asInt(o3)); }
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3); }
 
 #define ASMJIT_INST_5x(NAME, ID, T0, T1, T2, T3, T4) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3, o4); }
-
-#define ASMJIT_INST_5i(NAME, ID, T0, T1, T2, T3, T4) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3, o4); } \
-  /** \cond */ \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, int o4) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3, Support::asInt(o4)); } \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, unsigned int o4) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3, Support::asInt(o4)); } \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, int64_t o4) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3, Support::asInt(o4)); } \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, uint64_t o4) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3, Support::asInt(o4)); } \
-  /** \endcond */
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3, o4); }
 
 #define ASMJIT_INST_6x(NAME, ID, T0, T1, T2, T3, T4, T5) \
-  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4, const T5& o5) { return _emitter()->emit(Inst::kId##ID, o0, o1, o2, o3, o4, o5); }
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4, const T5& o5) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3, o4, o5); }
 
 //! \addtogroup asmjit_x86
 //! \{
@@ -224,16 +171,16 @@ struct EmitterExplicitT {
   //! \{
 
   //! Returns either GPD or GPQ register of the given `id` depending on the emitter's architecture.
-  inline Gp gpz(uint32_t id) const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), id); }
+  inline Gp gpz(uint32_t id) const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), id); }
 
-  inline Gp zax() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdAx); }
-  inline Gp zcx() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdCx); }
-  inline Gp zdx() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdDx); }
-  inline Gp zbx() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdBx); }
-  inline Gp zsp() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdSp); }
-  inline Gp zbp() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdBp); }
-  inline Gp zsi() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdSi); }
-  inline Gp zdi() const noexcept { return Gp(_emitter()->_gpRegInfo.signature(), Gp::kIdDi); }
+  inline Gp zax() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdAx); }
+  inline Gp zcx() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdCx); }
+  inline Gp zdx() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdDx); }
+  inline Gp zbx() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdBx); }
+  inline Gp zsp() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdSp); }
+  inline Gp zbp() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdBp); }
+  inline Gp zsi() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdSi); }
+  inline Gp zdi() const noexcept { return Gp::fromSignatureAndId(_emitter()->_gpRegInfo.signature(), Gp::kIdDi); }
 
   //! \}
 
@@ -302,12 +249,12 @@ struct EmitterExplicitT {
   //! \overload
   inline Mem intptr_ptr_abs(uint64_t base) const noexcept {
     uint32_t nativeGpSize = _emitter()->registerSize();
-    return Mem(base, nativeGpSize, BaseMem::kSignatureMemAbs);
+    return Mem(base, nativeGpSize, Mem::kSignatureMemAbs);
   }
   //! \overload
   inline Mem intptr_ptr_abs(uint64_t base, const Gp& index, uint32_t shift = 0) const noexcept {
     uint32_t nativeGpSize = _emitter()->registerSize();
-    return Mem(base, index, shift, nativeGpSize, BaseMem::kSignatureMemAbs);
+    return Mem(base, index, shift, nativeGpSize, Mem::kSignatureMemAbs);
   }
 
   //! \}
@@ -393,9 +340,10 @@ public:
   //! \name Encoding Options
   //! \{
 
-  //! Prefer MOD_MR encoding over MOD_RM (the default) when encoding instruction
-  //! that allows both. This option is only applicable to instructions where both
-  //! operands are registers.
+  //! Prefer MOD/RM encoding when both MOD/RM and MOD/MR forms are applicable.
+  inline This& mod_rm() noexcept { return _addInstOptions(Inst::kOptionModRM); }
+
+  //! Prefer MOD/MR encoding when both MOD/RM and MOD/MR forms are applicable.
   inline This& mod_mr() noexcept { return _addInstOptions(Inst::kOptionModMR); }
 
   //! \}
@@ -476,6 +424,8 @@ public:
   //! \name VEX and EVEX Options
   //! \{
 
+  //! Use VEX prefix instead of EVEX prefix (useful to select AVX_VNNI instruction instead of AVX512_VNNI).
+  inline This& vex() noexcept { return _addInstOptions(Inst::kOptionVex); }
   //! Force 3-byte VEX prefix (AVX+).
   inline This& vex3() noexcept { return _addInstOptions(Inst::kOptionVex3); }
   //! Force 4-byte EVEX prefix (AVX512+).
@@ -513,19 +463,19 @@ public:
 
   ASMJIT_INST_2x(adc, Adc, Gp, Gp)                                     // ANY
   ASMJIT_INST_2x(adc, Adc, Gp, Mem)                                    // ANY
-  ASMJIT_INST_2i(adc, Adc, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(adc, Adc, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(adc, Adc, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(adc, Adc, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(adc, Adc, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(add, Add, Gp, Gp)                                     // ANY
   ASMJIT_INST_2x(add, Add, Gp, Mem)                                    // ANY
-  ASMJIT_INST_2i(add, Add, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(add, Add, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(add, Add, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(add, Add, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(add, Add, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(and_, And, Gp, Gp)                                    // ANY
   ASMJIT_INST_2x(and_, And, Gp, Mem)                                   // ANY
-  ASMJIT_INST_2i(and_, And, Gp, Imm)                                   // ANY
+  ASMJIT_INST_2x(and_, And, Gp, Imm)                                   // ANY
   ASMJIT_INST_2x(and_, And, Mem, Gp)                                   // ANY
-  ASMJIT_INST_2i(and_, And, Mem, Imm)                                  // ANY
+  ASMJIT_INST_2x(and_, And, Mem, Imm)                                  // ANY
   ASMJIT_INST_2x(bound, Bound, Gp, Mem)                                // X86
   ASMJIT_INST_2x(bsf, Bsf, Gp, Gp)                                     // ANY
   ASMJIT_INST_2x(bsf, Bsf, Gp, Mem)                                    // ANY
@@ -533,21 +483,21 @@ public:
   ASMJIT_INST_2x(bsr, Bsr, Gp, Mem)                                    // ANY
   ASMJIT_INST_1x(bswap, Bswap, Gp)                                     // ANY
   ASMJIT_INST_2x(bt, Bt, Gp, Gp)                                       // ANY
-  ASMJIT_INST_2i(bt, Bt, Gp, Imm)                                      // ANY
+  ASMJIT_INST_2x(bt, Bt, Gp, Imm)                                      // ANY
   ASMJIT_INST_2x(bt, Bt, Mem, Gp)                                      // ANY
-  ASMJIT_INST_2i(bt, Bt, Mem, Imm)                                     // ANY
+  ASMJIT_INST_2x(bt, Bt, Mem, Imm)                                     // ANY
   ASMJIT_INST_2x(btc, Btc, Gp, Gp)                                     // ANY
-  ASMJIT_INST_2i(btc, Btc, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(btc, Btc, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(btc, Btc, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(btc, Btc, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(btc, Btc, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(btr, Btr, Gp, Gp)                                     // ANY
-  ASMJIT_INST_2i(btr, Btr, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(btr, Btr, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(btr, Btr, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(btr, Btr, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(btr, Btr, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(bts, Bts, Gp, Gp)                                     // ANY
-  ASMJIT_INST_2i(bts, Bts, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(bts, Bts, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(bts, Bts, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(bts, Bts, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(bts, Bts, Mem, Imm)                                   // ANY
   ASMJIT_INST_1x(cbw, Cbw, Gp_AX)                                      // ANY [EXPLICIT] AX      <- Sign Extend AL
   ASMJIT_INST_2x(cdq, Cdq, Gp_EDX, Gp_EAX)                             // ANY [EXPLICIT] EDX:EAX <- Sign Extend EAX
   ASMJIT_INST_1x(cdqe, Cdqe, Gp_EAX)                                   // X64 [EXPLICIT] RAX     <- Sign Extend EAX
@@ -557,14 +507,14 @@ public:
   ASMJIT_INST_1x(call, Call, Gp)                                       // ANY
   ASMJIT_INST_1x(call, Call, Mem)                                      // ANY
   ASMJIT_INST_1x(call, Call, Label)                                    // ANY
-  ASMJIT_INST_1i(call, Call, Imm)                                      // ANY
+  ASMJIT_INST_1x(call, Call, Imm)                                      // ANY
   ASMJIT_INST_2c(cmov, Cmov, Condition::toCmovcc, Gp, Gp)              // CMOV
   ASMJIT_INST_2c(cmov, Cmov, Condition::toCmovcc, Gp, Mem)             // CMOV
   ASMJIT_INST_2x(cmp, Cmp, Gp, Gp)                                     // ANY
   ASMJIT_INST_2x(cmp, Cmp, Gp, Mem)                                    // ANY
-  ASMJIT_INST_2i(cmp, Cmp, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(cmp, Cmp, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(cmp, Cmp, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(cmp, Cmp, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(cmp, Cmp, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(cmps, Cmps, DS_ZSI, ES_ZDI)                           // ANY [EXPLICIT]
   ASMJIT_INST_3x(cmpxchg, Cmpxchg, Gp, Gp, Gp_ZAX)                     // I486 [EXPLICIT]
   ASMJIT_INST_3x(cmpxchg, Cmpxchg, Mem, Gp, Gp_ZAX)                    // I486 [EXPLICIT]
@@ -582,40 +532,38 @@ public:
   ASMJIT_INST_3x(idiv, Idiv, Gp, Gp, Mem)                              // ANY [EXPLICIT] xDX[Rem]:xAX[Quot] <- xDX:xAX / m16|m32|m64
   ASMJIT_INST_2x(imul, Imul, Gp, Gp)                                   // ANY [EXPLICIT] AX <- AL * r8 | ra <- ra * rb
   ASMJIT_INST_2x(imul, Imul, Gp, Mem)                                  // ANY [EXPLICIT] AX <- AL * m8 | ra <- ra * m16|m32|m64
-  ASMJIT_INST_2i(imul, Imul, Gp, Imm)                                  // ANY
-  ASMJIT_INST_3i(imul, Imul, Gp, Gp, Imm)                              // ANY
-  ASMJIT_INST_3i(imul, Imul, Gp, Mem, Imm)                             // ANY
+  ASMJIT_INST_2x(imul, Imul, Gp, Imm)                                  // ANY
+  ASMJIT_INST_3x(imul, Imul, Gp, Gp, Imm)                              // ANY
+  ASMJIT_INST_3x(imul, Imul, Gp, Mem, Imm)                             // ANY
   ASMJIT_INST_3x(imul, Imul, Gp, Gp, Gp)                               // ANY [EXPLICIT] xDX:xAX <- xAX * r16|r32|r64
   ASMJIT_INST_3x(imul, Imul, Gp, Gp, Mem)                              // ANY [EXPLICIT] xDX:xAX <- xAX * m16|m32|m64
   ASMJIT_INST_1x(inc, Inc, Gp)                                         // ANY
   ASMJIT_INST_1x(inc, Inc, Mem)                                        // ANY
   ASMJIT_INST_1c(j, J, Condition::toJcc, Label)                        // ANY
   ASMJIT_INST_1c(j, J, Condition::toJcc, Imm)                          // ANY
-  ASMJIT_INST_1c(j, J, Condition::toJcc, uint64_t)                     // ANY
   ASMJIT_INST_2x(jecxz, Jecxz, Gp, Label)                              // ANY [EXPLICIT] Short jump if CX/ECX/RCX is zero.
   ASMJIT_INST_2x(jecxz, Jecxz, Gp, Imm)                                // ANY [EXPLICIT] Short jump if CX/ECX/RCX is zero.
-  ASMJIT_INST_2x(jecxz, Jecxz, Gp, uint64_t)                           // ANY [EXPLICIT] Short jump if CX/ECX/RCX is zero.
   ASMJIT_INST_1x(jmp, Jmp, Gp)                                         // ANY
   ASMJIT_INST_1x(jmp, Jmp, Mem)                                        // ANY
   ASMJIT_INST_1x(jmp, Jmp, Label)                                      // ANY
   ASMJIT_INST_1x(jmp, Jmp, Imm)                                        // ANY
-  ASMJIT_INST_1x(jmp, Jmp, uint64_t)                                   // ANY
+  ASMJIT_INST_2x(lcall, Lcall, Imm, Imm)                               // ANY
+  ASMJIT_INST_1x(lcall, Lcall, Mem)                                    // ANY
   ASMJIT_INST_2x(lea, Lea, Gp, Mem)                                    // ANY
+  ASMJIT_INST_2x(ljmp, Ljmp, Imm, Imm)                                 // ANY
+  ASMJIT_INST_1x(ljmp, Ljmp, Mem)                                      // ANY
   ASMJIT_INST_2x(lods, Lods, Gp_ZAX, DS_ZSI)                           // ANY [EXPLICIT]
   ASMJIT_INST_2x(loop, Loop, Gp_ZCX, Label)                            // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0.
   ASMJIT_INST_2x(loop, Loop, Gp_ZCX, Imm)                              // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0.
-  ASMJIT_INST_2x(loop, Loop, Gp_ZCX, uint64_t)                         // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0.
   ASMJIT_INST_2x(loope, Loope, Gp_ZCX, Label)                          // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 1.
   ASMJIT_INST_2x(loope, Loope, Gp_ZCX, Imm)                            // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 1.
-  ASMJIT_INST_2x(loope, Loope, Gp_ZCX, uint64_t)                       // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 1.
   ASMJIT_INST_2x(loopne, Loopne, Gp_ZCX, Label)                        // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 0.
   ASMJIT_INST_2x(loopne, Loopne, Gp_ZCX, Imm)                          // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 0.
-  ASMJIT_INST_2x(loopne, Loopne, Gp_ZCX, uint64_t)                     // ANY [EXPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 0.
   ASMJIT_INST_2x(mov, Mov, Gp, Gp)                                     // ANY
   ASMJIT_INST_2x(mov, Mov, Gp, Mem)                                    // ANY
-  ASMJIT_INST_2i(mov, Mov, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(mov, Mov, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(mov, Mov, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(mov, Mov, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(mov, Mov, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(mov, Mov, Gp, CReg)                                   // ANY
   ASMJIT_INST_2x(mov, Mov, CReg, Gp)                                   // ANY
   ASMJIT_INST_2x(mov, Mov, Gp, DReg)                                   // ANY
@@ -624,6 +572,9 @@ public:
   ASMJIT_INST_2x(mov, Mov, Mem, SReg)                                  // ANY
   ASMJIT_INST_2x(mov, Mov, SReg, Gp)                                   // ANY
   ASMJIT_INST_2x(mov, Mov, SReg, Mem)                                  // ANY
+  ASMJIT_INST_2x(movabs, Movabs, Gp, Mem)                              // X64
+  ASMJIT_INST_2x(movabs, Movabs, Gp, Imm)                              // X64
+  ASMJIT_INST_2x(movabs, Movabs, Mem, Gp)                              // X64
   ASMJIT_INST_2x(movnti, Movnti, Mem, Gp)                              // SSE2
   ASMJIT_INST_2x(movs, Movs, ES_ZDI, DS_ZSI)                           // ANY [EXPLICIT]
   ASMJIT_INST_2x(movsx, Movsx, Gp, Gp)                                 // ANY
@@ -647,9 +598,9 @@ public:
   ASMJIT_INST_1x(not_, Not, Mem)                                       // ANY
   ASMJIT_INST_2x(or_, Or, Gp, Gp)                                      // ANY
   ASMJIT_INST_2x(or_, Or, Gp, Mem)                                     // ANY
-  ASMJIT_INST_2i(or_, Or, Gp, Imm)                                     // ANY
+  ASMJIT_INST_2x(or_, Or, Gp, Imm)                                     // ANY
   ASMJIT_INST_2x(or_, Or, Mem, Gp)                                     // ANY
-  ASMJIT_INST_2i(or_, Or, Mem, Imm)                                    // ANY
+  ASMJIT_INST_2x(or_, Or, Mem, Imm)                                    // ANY
   ASMJIT_INST_1x(pop, Pop, Gp)                                         // ANY
   ASMJIT_INST_1x(pop, Pop, Mem)                                        // ANY
   ASMJIT_INST_1x(pop, Pop, SReg);                                      // ANY
@@ -661,7 +612,7 @@ public:
   ASMJIT_INST_1x(push, Push, Gp)                                       // ANY
   ASMJIT_INST_1x(push, Push, Mem)                                      // ANY
   ASMJIT_INST_1x(push, Push, SReg)                                     // ANY
-  ASMJIT_INST_1i(push, Push, Imm)                                      // ANY
+  ASMJIT_INST_1x(push, Push, Imm)                                      // ANY
   ASMJIT_INST_0x(pusha, Pusha)                                         // X86
   ASMJIT_INST_0x(pushad, Pushad)                                       // X86
   ASMJIT_INST_0x(pushf, Pushf)                                         // ANY
@@ -669,66 +620,66 @@ public:
   ASMJIT_INST_0x(pushfq, Pushfq)                                       // X64
   ASMJIT_INST_2x(rcl, Rcl, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(rcl, Rcl, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(rcl, Rcl, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(rcl, Rcl, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(rcl, Rcl, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(rcl, Rcl, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(rcr, Rcr, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(rcr, Rcr, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(rcr, Rcr, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(rcr, Rcr, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(rcr, Rcr, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(rcr, Rcr, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(rol, Rol, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(rol, Rol, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(rol, Rol, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(rol, Rol, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(rol, Rol, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(rol, Rol, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(ror, Ror, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(ror, Ror, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(ror, Ror, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(ror, Ror, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(ror, Ror, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(ror, Ror, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(sbb, Sbb, Gp, Gp)                                     // ANY
   ASMJIT_INST_2x(sbb, Sbb, Gp, Mem)                                    // ANY
-  ASMJIT_INST_2i(sbb, Sbb, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(sbb, Sbb, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(sbb, Sbb, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(sbb, Sbb, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(sbb, Sbb, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(sal, Sal, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(sal, Sal, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(sal, Sal, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(sal, Sal, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(sal, Sal, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(sal, Sal, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(sar, Sar, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(sar, Sar, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(sar, Sar, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(sar, Sar, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(sar, Sar, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(sar, Sar, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(scas, Scas, Gp_ZAX, ES_ZDI)                           // ANY [EXPLICIT]
   ASMJIT_INST_1c(set, Set, Condition::toSetcc, Gp)                     // ANY
   ASMJIT_INST_1c(set, Set, Condition::toSetcc, Mem)                    // ANY
   ASMJIT_INST_2x(shl, Shl, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(shl, Shl, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(shl, Shl, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(shl, Shl, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(shl, Shl, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(shl, Shl, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(shr, Shr, Gp, Gp_CL)                                  // ANY
   ASMJIT_INST_2x(shr, Shr, Mem, Gp_CL)                                 // ANY
-  ASMJIT_INST_2i(shr, Shr, Gp, Imm)                                    // ANY
-  ASMJIT_INST_2i(shr, Shr, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(shr, Shr, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(shr, Shr, Mem, Imm)                                   // ANY
   ASMJIT_INST_3x(shld, Shld, Gp, Gp, Gp_CL)                            // ANY
   ASMJIT_INST_3x(shld, Shld, Mem, Gp, Gp_CL)                           // ANY
-  ASMJIT_INST_3i(shld, Shld, Gp, Gp, Imm)                              // ANY
-  ASMJIT_INST_3i(shld, Shld, Mem, Gp, Imm)                             // ANY
+  ASMJIT_INST_3x(shld, Shld, Gp, Gp, Imm)                              // ANY
+  ASMJIT_INST_3x(shld, Shld, Mem, Gp, Imm)                             // ANY
   ASMJIT_INST_3x(shrd, Shrd, Gp, Gp, Gp_CL)                            // ANY
   ASMJIT_INST_3x(shrd, Shrd, Mem, Gp, Gp_CL)                           // ANY
-  ASMJIT_INST_3i(shrd, Shrd, Gp, Gp, Imm)                              // ANY
-  ASMJIT_INST_3i(shrd, Shrd, Mem, Gp, Imm)                             // ANY
+  ASMJIT_INST_3x(shrd, Shrd, Gp, Gp, Imm)                              // ANY
+  ASMJIT_INST_3x(shrd, Shrd, Mem, Gp, Imm)                             // ANY
   ASMJIT_INST_2x(stos, Stos, ES_ZDI, Gp_ZAX)                           // ANY [EXPLICIT]
   ASMJIT_INST_2x(sub, Sub, Gp, Gp)                                     // ANY
   ASMJIT_INST_2x(sub, Sub, Gp, Mem)                                    // ANY
-  ASMJIT_INST_2i(sub, Sub, Gp, Imm)                                    // ANY
+  ASMJIT_INST_2x(sub, Sub, Gp, Imm)                                    // ANY
   ASMJIT_INST_2x(sub, Sub, Mem, Gp)                                    // ANY
-  ASMJIT_INST_2i(sub, Sub, Mem, Imm)                                   // ANY
+  ASMJIT_INST_2x(sub, Sub, Mem, Imm)                                   // ANY
   ASMJIT_INST_2x(test, Test, Gp, Gp)                                   // ANY
-  ASMJIT_INST_2i(test, Test, Gp, Imm)                                  // ANY
+  ASMJIT_INST_2x(test, Test, Gp, Imm)                                  // ANY
   ASMJIT_INST_2x(test, Test, Mem, Gp)                                  // ANY
-  ASMJIT_INST_2i(test, Test, Mem, Imm)                                 // ANY
-  ASMJIT_INST_1x(ud0, Ud0, Reg)                                        // ANY
-  ASMJIT_INST_1x(ud0, Ud0, Mem)                                        // ANY
-  ASMJIT_INST_1x(ud1, Ud1, Reg)                                        // ANY
-  ASMJIT_INST_1x(ud1, Ud1, Mem)                                        // ANY
+  ASMJIT_INST_2x(test, Test, Mem, Imm)                                 // ANY
+  ASMJIT_INST_2x(ud0, Ud0, Gp, Gp)                                     // ANY
+  ASMJIT_INST_2x(ud0, Ud0, Gp, Mem)                                    // ANY
+  ASMJIT_INST_2x(ud1, Ud1, Gp, Gp)                                     // ANY
+  ASMJIT_INST_2x(ud1, Ud1, Gp, Mem)                                    // ANY
   ASMJIT_INST_0x(ud2, Ud2)                                             // ANY
   ASMJIT_INST_2x(xadd, Xadd, Gp, Gp)                                   // ANY
   ASMJIT_INST_2x(xadd, Xadd, Mem, Gp)                                  // ANY
@@ -737,9 +688,9 @@ public:
   ASMJIT_INST_2x(xchg, Xchg, Gp, Mem)                                  // ANY
   ASMJIT_INST_2x(xor_, Xor, Gp, Gp)                                    // ANY
   ASMJIT_INST_2x(xor_, Xor, Gp, Mem)                                   // ANY
-  ASMJIT_INST_2i(xor_, Xor, Gp, Imm)                                   // ANY
+  ASMJIT_INST_2x(xor_, Xor, Gp, Imm)                                   // ANY
   ASMJIT_INST_2x(xor_, Xor, Mem, Gp)                                   // ANY
-  ASMJIT_INST_2i(xor_, Xor, Mem, Imm)                                  // ANY
+  ASMJIT_INST_2x(xor_, Xor, Mem, Imm)                                  // ANY
 
   //! \}
 
@@ -747,8 +698,8 @@ public:
   //! \{
 
   ASMJIT_INST_1x(aaa, Aaa, Gp)                                         // X86 [EXPLICIT]
-  ASMJIT_INST_2i(aad, Aad, Gp, Imm)                                    // X86 [EXPLICIT]
-  ASMJIT_INST_2i(aam, Aam, Gp, Imm)                                    // X86 [EXPLICIT]
+  ASMJIT_INST_2x(aad, Aad, Gp, Imm)                                    // X86 [EXPLICIT]
+  ASMJIT_INST_2x(aam, Aam, Gp, Imm)                                    // X86 [EXPLICIT]
   ASMJIT_INST_1x(aas, Aas, Gp)                                         // X86 [EXPLICIT]
   ASMJIT_INST_1x(daa, Daa, Gp)                                         // X86 [EXPLICIT]
   ASMJIT_INST_1x(das, Das, Gp)                                         // X86 [EXPLICIT]
@@ -769,12 +720,12 @@ public:
   // NOTE: For some reason Doxygen is messed up here and thinks we are in cond.
   //! \endcond
 
-  ASMJIT_INST_2i(in, In, Gp_ZAX, Imm)                                  // ANY
+  ASMJIT_INST_2x(in, In, Gp_ZAX, Imm)                                  // ANY
   ASMJIT_INST_2x(in, In, Gp_ZAX, Gp_DX)                                // ANY
   ASMJIT_INST_2x(ins, Ins, ES_ZDI, Gp_DX)                              // ANY
   ASMJIT_INST_2x(out, Out, Imm, Gp_ZAX)                                // ANY
-  ASMJIT_INST_2i(out, Out, Gp_DX, Gp_ZAX)                              // ANY
-  ASMJIT_INST_2i(outs, Outs, Gp_DX, DS_ZSI)                            // ANY
+  ASMJIT_INST_2x(out, Out, Gp_DX, Gp_ZAX)                              // ANY
+  ASMJIT_INST_2x(outs, Outs, Gp_DX, DS_ZSI)                            // ANY
 
   //! \}
 
@@ -846,8 +797,8 @@ public:
   ASMJIT_INST_3x(pdep, Pdep, Gp, Gp, Mem)                              // BMI2
   ASMJIT_INST_3x(pext, Pext, Gp, Gp, Gp)                               // BMI2
   ASMJIT_INST_3x(pext, Pext, Gp, Gp, Mem)                              // BMI2
-  ASMJIT_INST_3i(rorx, Rorx, Gp, Gp, Imm)                              // BMI2
-  ASMJIT_INST_3i(rorx, Rorx, Gp, Mem, Imm)                             // BMI2
+  ASMJIT_INST_3x(rorx, Rorx, Gp, Gp, Imm)                              // BMI2
+  ASMJIT_INST_3x(rorx, Rorx, Gp, Mem, Imm)                             // BMI2
   ASMJIT_INST_3x(sarx, Sarx, Gp, Gp, Gp)                               // BMI2
   ASMJIT_INST_3x(sarx, Sarx, Gp, Mem, Gp)                              // BMI2
   ASMJIT_INST_3x(shlx, Shlx, Gp, Gp, Gp)                               // BMI2
@@ -990,7 +941,7 @@ public:
   ASMJIT_INST_2x(arpl, Arpl, Mem, Gp)                                  // X86
   ASMJIT_INST_0x(cli, Cli)                                             // ANY
   ASMJIT_INST_0x(getsec, Getsec)                                       // SMX
-  ASMJIT_INST_1i(int_, Int, Imm)                                       // ANY
+  ASMJIT_INST_1x(int_, Int, Imm)                                       // ANY
   ASMJIT_INST_0x(int3, Int3)                                           // ANY
   ASMJIT_INST_0x(into, Into)                                           // ANY
   ASMJIT_INST_2x(lar, Lar, Gp, Gp)                                     // ANY
@@ -1043,7 +994,19 @@ public:
   //! \name XSAVE Instructions
   //! \{
 
-  ASMJIT_INST_3x(xgetbv, Xgetbv, Gp_EDX, Gp_EAX, Gp_ECX)               // XSAVE [EXPLICIT] EDX:EAX <- XCR[ECX]
+  ASMJIT_INST_3x(xgetbv, Xgetbv, Gp_EDX, Gp_EAX, Gp_ECX)               // XSAVE     [EXPLICIT] EDX:EAX <- XCR[ECX]
+  ASMJIT_INST_3x(xrstor, Xrstor, Mem, Gp_EDX, Gp_EAX)                  // XSAVE     [EXPLICIT]
+  ASMJIT_INST_3x(xrstor64, Xrstor64, Mem, Gp_EDX, Gp_EAX)              // XSAVE+X64 [EXPLICIT]
+  ASMJIT_INST_3x(xrstors, Xrstors, Mem, Gp_EDX, Gp_EAX)                // XSAVE     [EXPLICIT]
+  ASMJIT_INST_3x(xrstors64, Xrstors64, Mem, Gp_EDX, Gp_EAX)            // XSAVE+X64 [EXPLICIT]
+  ASMJIT_INST_3x(xsave, Xsave, Mem, Gp_EDX, Gp_EAX)                    // XSAVE     [EXPLICIT]
+  ASMJIT_INST_3x(xsave64, Xsave64, Mem, Gp_EDX, Gp_EAX)                // XSAVE+X64 [EXPLICIT]
+  ASMJIT_INST_3x(xsavec, Xsavec, Mem, Gp_EDX, Gp_EAX)                  // XSAVE     [EXPLICIT]
+  ASMJIT_INST_3x(xsavec64, Xsavec64, Mem, Gp_EDX, Gp_EAX)              // XSAVE+X64 [EXPLICIT]
+  ASMJIT_INST_3x(xsaveopt, Xsaveopt, Mem, Gp_EDX, Gp_EAX)              // XSAVE     [EXPLICIT]
+  ASMJIT_INST_3x(xsaveopt64, Xsaveopt64, Mem, Gp_EDX, Gp_EAX)          // XSAVE+X64 [EXPLICIT]
+  ASMJIT_INST_3x(xsaves, Xsaves, Mem, Gp_EDX, Gp_EAX)                  // XSAVE     [EXPLICIT]
+  ASMJIT_INST_3x(xsaves64, Xsaves64, Mem, Gp_EDX, Gp_EAX)              // XSAVE+X64 [EXPLICIT]
 
   //! \}
 
@@ -1068,8 +1031,8 @@ public:
   //! \name MONITORX Instructions
   //! \{
 
-  ASMJIT_INST_3x(monitorx, Monitorx, Mem, Gp, Gp)
-  ASMJIT_INST_3x(mwaitx, Mwaitx, Gp, Gp, Gp)
+  ASMJIT_INST_3x(monitorx, Monitorx, Mem, Gp, Gp)                      // MONITORX
+  ASMJIT_INST_3x(mwaitx, Mwaitx, Gp, Gp, Gp)                           // MONITORX
 
   //! \}
 
@@ -1099,9 +1062,9 @@ public:
   //! \name WAITPKG Instructions
   //! \{
 
-  ASMJIT_INST_3x(tpause, Tpause, Gp, Gp, Gp)
-  ASMJIT_INST_1x(umonitor, Umonitor, Mem)
-  ASMJIT_INST_3x(umwait, Umwait, Gp, Gp, Gp)
+  ASMJIT_INST_3x(tpause, Tpause, Gp, Gp, Gp)                           // WAITPKG
+  ASMJIT_INST_1x(umonitor, Umonitor, Mem)                              // WAITPKG
+  ASMJIT_INST_3x(umwait, Umwait, Gp, Gp, Gp)                           // WAITPKG
 
   //! \}
 
@@ -1117,10 +1080,10 @@ public:
   //! \{
 
   ASMJIT_INST_1x(llwpcb, Llwpcb, Gp)                                   // LWP
-  ASMJIT_INST_3i(lwpins, Lwpins, Gp, Gp, Imm)                          // LWP
-  ASMJIT_INST_3i(lwpins, Lwpins, Gp, Mem, Imm)                         // LWP
-  ASMJIT_INST_3i(lwpval, Lwpval, Gp, Gp, Imm)                          // LWP
-  ASMJIT_INST_3i(lwpval, Lwpval, Gp, Mem, Imm)                         // LWP
+  ASMJIT_INST_3x(lwpins, Lwpins, Gp, Gp, Imm)                          // LWP
+  ASMJIT_INST_3x(lwpins, Lwpins, Gp, Mem, Imm)                         // LWP
+  ASMJIT_INST_3x(lwpval, Lwpval, Gp, Gp, Imm)                          // LWP
+  ASMJIT_INST_3x(lwpval, Lwpval, Gp, Mem, Imm)                         // LWP
   ASMJIT_INST_1x(slwpcb, Slwpcb, Gp)                                   // LWP
 
   //! \}
@@ -1128,10 +1091,9 @@ public:
   //! \name RTM & TSX Instructions
   //! \{
 
-  ASMJIT_INST_0x(xabort, Xabort)                                       // RTM
+  ASMJIT_INST_1x(xabort, Xabort, Imm)                                  // RTM
   ASMJIT_INST_1x(xbegin, Xbegin, Label)                                // RTM
   ASMJIT_INST_1x(xbegin, Xbegin, Imm)                                  // RTM
-  ASMJIT_INST_1x(xbegin, Xbegin, uint64_t)                             // RTM
   ASMJIT_INST_0x(xend, Xend)                                           // RTM
   ASMJIT_INST_0x(xtest, Xtest)                                         // TSX
 
@@ -1140,36 +1102,58 @@ public:
   //! \name TSXLDTRK Instructions
   //! \{
 
-  ASMJIT_INST_0x(xresldtrk, Xresldtrk)
-  ASMJIT_INST_0x(xsusldtrk, Xsusldtrk)
+  ASMJIT_INST_0x(xresldtrk, Xresldtrk)                                 // TSXLDTRK
+  ASMJIT_INST_0x(xsusldtrk, Xsusldtrk)                                 // TSXLDTRK
 
   //! \}
 
   //! \name CET-IBT Instructions
   //! \{
 
-  ASMJIT_INST_0x(endbr32, Endbr32)
-  ASMJIT_INST_0x(endbr64, Endbr64)
+  ASMJIT_INST_0x(endbr32, Endbr32)                                     // CET_IBT
+  ASMJIT_INST_0x(endbr64, Endbr64)                                     // CET_IBT
 
   //! \}
 
   //! \name CET-SS Instructions
   //! \{
 
-  ASMJIT_INST_1x(clrssbsy, Clrssbsy, Mem)
-  ASMJIT_INST_0x(setssbsy, Setssbsy)
+  ASMJIT_INST_1x(clrssbsy, Clrssbsy, Mem)                              // CET_SS
+  ASMJIT_INST_0x(setssbsy, Setssbsy)                                   // CET_SS
 
-  ASMJIT_INST_1x(rstorssp, Rstorssp, Mem)
-  ASMJIT_INST_0x(saveprevssp, Saveprevssp)
+  ASMJIT_INST_1x(rstorssp, Rstorssp, Mem)                              // CET_SS
+  ASMJIT_INST_0x(saveprevssp, Saveprevssp)                             // CET_SS
 
-  ASMJIT_INST_1x(incsspd, Incsspd, Gp)
-  ASMJIT_INST_1x(incsspq, Incsspq, Gp)
-  ASMJIT_INST_1x(rdsspd, Rdsspd, Gp)
-  ASMJIT_INST_1x(rdsspq, Rdsspq, Gp)
-  ASMJIT_INST_2x(wrssd, Wrssd, Mem, Gp)
-  ASMJIT_INST_2x(wrssq, Wrssq, Mem, Gp)
-  ASMJIT_INST_2x(wrussd, Wrussd, Mem, Gp)
-  ASMJIT_INST_2x(wrussq, Wrussq, Mem, Gp)
+  ASMJIT_INST_1x(incsspd, Incsspd, Gp)                                 // CET_SS
+  ASMJIT_INST_1x(incsspq, Incsspq, Gp)                                 // CET_SS
+  ASMJIT_INST_1x(rdsspd, Rdsspd, Gp)                                   // CET_SS
+  ASMJIT_INST_1x(rdsspq, Rdsspq, Gp)                                   // CET_SS
+  ASMJIT_INST_2x(wrssd, Wrssd, Gp, Gp)                                 // CET_SS
+  ASMJIT_INST_2x(wrssd, Wrssd, Mem, Gp)                                // CET_SS
+  ASMJIT_INST_2x(wrssq, Wrssq, Gp, Gp)                                 // CET_SS
+  ASMJIT_INST_2x(wrssq, Wrssq, Mem, Gp)                                // CET_SS
+  ASMJIT_INST_2x(wrussd, Wrussd, Gp, Gp)                               // CET_SS
+  ASMJIT_INST_2x(wrussd, Wrussd, Mem, Gp)                              // CET_SS
+  ASMJIT_INST_2x(wrussq, Wrussq, Gp, Gp)                               // CET_SS
+  ASMJIT_INST_2x(wrussq, Wrussq, Mem, Gp)                              // CET_SS
+
+  //! \}
+
+  //! \name HRESET Instructions
+  //! \{
+
+  ASMJIT_INST_2x(hreset, Hreset, Imm, Gp)                              // HRESET
+
+  //! \}
+
+  //! \name UINTR Instructions
+  //! \{
+
+  ASMJIT_INST_0x(clui, Clui)                                           // UINTR
+  ASMJIT_INST_1x(senduipi, Senduipi, Gp)                               // UINTR
+  ASMJIT_INST_0x(testui, Testui)                                       // UINTR
+  ASMJIT_INST_0x(stui, Stui)                                           // UINTR
+  ASMJIT_INST_0x(uiret, Uiret)                                         // UINTR
 
   //! \}
 
@@ -1244,9 +1228,11 @@ public:
   ASMJIT_INST_0x(vmlaunch, Vmlaunch)                                   // VMX
   ASMJIT_INST_1x(vmptrld, Vmptrld, Mem)                                // VMX
   ASMJIT_INST_1x(vmptrst, Vmptrst, Mem)                                // VMX
+  ASMJIT_INST_2x(vmread, Vmread, Gp, Gp)                               // VMX
   ASMJIT_INST_2x(vmread, Vmread, Mem, Gp)                              // VMX
   ASMJIT_INST_0x(vmresume, Vmresume)                                   // VMX
   ASMJIT_INST_2x(vmwrite, Vmwrite, Gp, Mem)                            // VMX
+  ASMJIT_INST_2x(vmwrite, Vmwrite, Gp, Gp)                             // VMX
   ASMJIT_INST_1x(vmxon, Vmxon, Mem)                                    // VMX
 
   //! \}
@@ -1408,22 +1394,22 @@ public:
   ASMJIT_INST_2x(andpd, Andpd, Xmm, Mem)                               // SSE2
   ASMJIT_INST_2x(andps, Andps, Xmm, Xmm)                               // SSE
   ASMJIT_INST_2x(andps, Andps, Xmm, Mem)                               // SSE
-  ASMJIT_INST_3i(blendpd, Blendpd, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(blendpd, Blendpd, Xmm, Mem, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(blendps, Blendps, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(blendps, Blendps, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(blendpd, Blendpd, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(blendpd, Blendpd, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(blendps, Blendps, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(blendps, Blendps, Xmm, Mem, Imm)                      // SSE4_1
   ASMJIT_INST_3x(blendvpd, Blendvpd, Xmm, Xmm, XMM0)                   // SSE4_1 [EXPLICIT]
   ASMJIT_INST_3x(blendvpd, Blendvpd, Xmm, Mem, XMM0)                   // SSE4_1 [EXPLICIT]
   ASMJIT_INST_3x(blendvps, Blendvps, Xmm, Xmm, XMM0)                   // SSE4_1 [EXPLICIT]
   ASMJIT_INST_3x(blendvps, Blendvps, Xmm, Mem, XMM0)                   // SSE4_1 [EXPLICIT]
-  ASMJIT_INST_3i(cmppd, Cmppd, Xmm, Xmm, Imm)                          // SSE2
-  ASMJIT_INST_3i(cmppd, Cmppd, Xmm, Mem, Imm)                          // SSE2
-  ASMJIT_INST_3i(cmpps, Cmpps, Xmm, Xmm, Imm)                          // SSE
-  ASMJIT_INST_3i(cmpps, Cmpps, Xmm, Mem, Imm)                          // SSE
-  ASMJIT_INST_3i(cmpsd, Cmpsd, Xmm, Xmm, Imm)                          // SSE2
-  ASMJIT_INST_3i(cmpsd, Cmpsd, Xmm, Mem, Imm)                          // SSE2
-  ASMJIT_INST_3i(cmpss, Cmpss, Xmm, Xmm, Imm)                          // SSE
-  ASMJIT_INST_3i(cmpss, Cmpss, Xmm, Mem, Imm)                          // SSE
+  ASMJIT_INST_3x(cmppd, Cmppd, Xmm, Xmm, Imm)                          // SSE2
+  ASMJIT_INST_3x(cmppd, Cmppd, Xmm, Mem, Imm)                          // SSE2
+  ASMJIT_INST_3x(cmpps, Cmpps, Xmm, Xmm, Imm)                          // SSE
+  ASMJIT_INST_3x(cmpps, Cmpps, Xmm, Mem, Imm)                          // SSE
+  ASMJIT_INST_3x(cmpsd, Cmpsd, Xmm, Xmm, Imm)                          // SSE2
+  ASMJIT_INST_3x(cmpsd, Cmpsd, Xmm, Mem, Imm)                          // SSE2
+  ASMJIT_INST_3x(cmpss, Cmpss, Xmm, Xmm, Imm)                          // SSE
+  ASMJIT_INST_3x(cmpss, Cmpss, Xmm, Mem, Imm)                          // SSE
   ASMJIT_INST_2x(comisd, Comisd, Xmm, Xmm)                             // SSE2
   ASMJIT_INST_2x(comisd, Comisd, Xmm, Mem)                             // SSE2
   ASMJIT_INST_2x(comiss, Comiss, Xmm, Xmm)                             // SSE
@@ -1480,14 +1466,14 @@ public:
   ASMJIT_INST_2x(divsd, Divsd, Xmm, Mem)                               // SSE2
   ASMJIT_INST_2x(divss, Divss, Xmm, Xmm)                               // SSE
   ASMJIT_INST_2x(divss, Divss, Xmm, Mem)                               // SSE
-  ASMJIT_INST_3i(dppd, Dppd, Xmm, Xmm, Imm)                            // SSE4_1
-  ASMJIT_INST_3i(dppd, Dppd, Xmm, Mem, Imm)                            // SSE4_1
-  ASMJIT_INST_3i(dpps, Dpps, Xmm, Xmm, Imm)                            // SSE4_1
-  ASMJIT_INST_3i(dpps, Dpps, Xmm, Mem, Imm)                            // SSE4_1
-  ASMJIT_INST_3i(extractps, Extractps, Gp, Xmm, Imm)                   // SSE4_1
-  ASMJIT_INST_3i(extractps, Extractps, Mem, Xmm, Imm)                  // SSE4_1
+  ASMJIT_INST_3x(dppd, Dppd, Xmm, Xmm, Imm)                            // SSE4_1
+  ASMJIT_INST_3x(dppd, Dppd, Xmm, Mem, Imm)                            // SSE4_1
+  ASMJIT_INST_3x(dpps, Dpps, Xmm, Xmm, Imm)                            // SSE4_1
+  ASMJIT_INST_3x(dpps, Dpps, Xmm, Mem, Imm)                            // SSE4_1
+  ASMJIT_INST_3x(extractps, Extractps, Gp, Xmm, Imm)                   // SSE4_1
+  ASMJIT_INST_3x(extractps, Extractps, Mem, Xmm, Imm)                  // SSE4_1
   ASMJIT_INST_2x(extrq, Extrq, Xmm, Xmm)                               // SSE4A
-  ASMJIT_INST_3ii(extrq, Extrq, Xmm, Imm, Imm)                         // SSE4A
+  ASMJIT_INST_3x(extrq, Extrq, Xmm, Imm, Imm)                          // SSE4A
   ASMJIT_INST_2x(haddpd, Haddpd, Xmm, Xmm)                             // SSE3
   ASMJIT_INST_2x(haddpd, Haddpd, Xmm, Mem)                             // SSE3
   ASMJIT_INST_2x(haddps, Haddps, Xmm, Xmm)                             // SSE3
@@ -1496,10 +1482,10 @@ public:
   ASMJIT_INST_2x(hsubpd, Hsubpd, Xmm, Mem)                             // SSE3
   ASMJIT_INST_2x(hsubps, Hsubps, Xmm, Xmm)                             // SSE3
   ASMJIT_INST_2x(hsubps, Hsubps, Xmm, Mem)                             // SSE3
-  ASMJIT_INST_3i(insertps, Insertps, Xmm, Xmm, Imm)                    // SSE4_1
-  ASMJIT_INST_3i(insertps, Insertps, Xmm, Mem, Imm)                    // SSE4_1
+  ASMJIT_INST_3x(insertps, Insertps, Xmm, Xmm, Imm)                    // SSE4_1
+  ASMJIT_INST_3x(insertps, Insertps, Xmm, Mem, Imm)                    // SSE4_1
   ASMJIT_INST_2x(insertq, Insertq, Xmm, Xmm)                           // SSE4A
-  ASMJIT_INST_4ii(insertq, Insertq, Xmm, Xmm, Imm, Imm)                // SSE4A
+  ASMJIT_INST_4x(insertq, Insertq, Xmm, Xmm, Imm, Imm)                 // SSE4A
   ASMJIT_INST_2x(lddqu, Lddqu, Xmm, Mem)                               // SSE3
   ASMJIT_INST_3x(maskmovq, Maskmovq, Mm, Mm, DS_ZDI)                   // SSE  [EXPLICIT]
   ASMJIT_INST_3x(maskmovdqu, Maskmovdqu, Xmm, Xmm, DS_ZDI)             // SSE2 [EXPLICIT]
@@ -1588,8 +1574,8 @@ public:
   ASMJIT_INST_2x(movups, Movups, Xmm, Xmm)                             // SSE
   ASMJIT_INST_2x(movups, Movups, Xmm, Mem)                             // SSE
   ASMJIT_INST_2x(movups, Movups, Mem, Xmm)                             // SSE
-  ASMJIT_INST_3i(mpsadbw, Mpsadbw, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(mpsadbw, Mpsadbw, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(mpsadbw, Mpsadbw, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(mpsadbw, Mpsadbw, Xmm, Mem, Imm)                      // SSE4_1
   ASMJIT_INST_2x(mulpd, Mulpd, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(mulpd, Mulpd, Xmm, Mem)                               // SSE2
   ASMJIT_INST_2x(mulps, Mulps, Xmm, Xmm)                               // SSE
@@ -1660,10 +1646,10 @@ public:
   ASMJIT_INST_2x(paddw, Paddw, Mm, Mem)                                // MMX
   ASMJIT_INST_2x(paddw, Paddw, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(paddw, Paddw, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_3i(palignr, Palignr, Mm, Mm, Imm)                        // SSSE3
-  ASMJIT_INST_3i(palignr, Palignr, Mm, Mem, Imm)                       // SSSE3
-  ASMJIT_INST_3i(palignr, Palignr, Xmm, Xmm, Imm)                      // SSSE3
-  ASMJIT_INST_3i(palignr, Palignr, Xmm, Mem, Imm)                      // SSSE3
+  ASMJIT_INST_3x(palignr, Palignr, Mm, Mm, Imm)                        // SSSE3
+  ASMJIT_INST_3x(palignr, Palignr, Mm, Mem, Imm)                       // SSSE3
+  ASMJIT_INST_3x(palignr, Palignr, Xmm, Xmm, Imm)                      // SSSE3
+  ASMJIT_INST_3x(palignr, Palignr, Xmm, Mem, Imm)                      // SSSE3
   ASMJIT_INST_2x(pand, Pand, Mm, Mm)                                   // MMX
   ASMJIT_INST_2x(pand, Pand, Mm, Mem)                                  // MMX
   ASMJIT_INST_2x(pand, Pand, Xmm, Xmm)                                 // SSE2
@@ -1682,10 +1668,10 @@ public:
   ASMJIT_INST_2x(pavgw, Pavgw, Xmm, Mem)                               // SSE2
   ASMJIT_INST_3x(pblendvb, Pblendvb, Xmm, Xmm, XMM0)                   // SSE4_1 [EXPLICIT]
   ASMJIT_INST_3x(pblendvb, Pblendvb, Xmm, Mem, XMM0)                   // SSE4_1 [EXPLICIT]
-  ASMJIT_INST_3i(pblendw, Pblendw, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(pblendw, Pblendw, Xmm, Mem, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(pclmulqdq, Pclmulqdq, Xmm, Xmm, Imm)                  // PCLMULQDQ.
-  ASMJIT_INST_3i(pclmulqdq, Pclmulqdq, Xmm, Mem, Imm)                  // PCLMULQDQ.
+  ASMJIT_INST_3x(pblendw, Pblendw, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(pblendw, Pblendw, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(pclmulqdq, Pclmulqdq, Xmm, Xmm, Imm)                  // PCLMULQDQ.
+  ASMJIT_INST_3x(pclmulqdq, Pclmulqdq, Xmm, Mem, Imm)                  // PCLMULQDQ.
   ASMJIT_INST_6x(pcmpestri, Pcmpestri, Xmm, Xmm, Imm, Gp_ECX, Gp_EAX, Gp_EDX) // SSE4_2 [EXPLICIT]
   ASMJIT_INST_6x(pcmpestri, Pcmpestri, Xmm, Mem, Imm, Gp_ECX, Gp_EAX, Gp_EDX) // SSE4_2 [EXPLICIT]
   ASMJIT_INST_6x(pcmpestrm, Pcmpestrm, Xmm, Xmm, Imm, XMM0, Gp_EAX, Gp_EDX)   // SSE4_2 [EXPLICIT]
@@ -1722,15 +1708,15 @@ public:
   ASMJIT_INST_4x(pcmpistri, Pcmpistri, Xmm, Mem, Imm, Gp_ECX)          // SSE4_2 [EXPLICIT]
   ASMJIT_INST_4x(pcmpistrm, Pcmpistrm, Xmm, Xmm, Imm, XMM0)            // SSE4_2 [EXPLICIT]
   ASMJIT_INST_4x(pcmpistrm, Pcmpistrm, Xmm, Mem, Imm, XMM0)            // SSE4_2 [EXPLICIT]
-  ASMJIT_INST_3i(pextrb, Pextrb, Gp, Xmm, Imm)                         // SSE4_1
-  ASMJIT_INST_3i(pextrb, Pextrb, Mem, Xmm, Imm)                        // SSE4_1
-  ASMJIT_INST_3i(pextrd, Pextrd, Gp, Xmm, Imm)                         // SSE4_1
-  ASMJIT_INST_3i(pextrd, Pextrd, Mem, Xmm, Imm)                        // SSE4_1
-  ASMJIT_INST_3i(pextrq, Pextrq, Gp, Xmm, Imm)                         // SSE4_1
-  ASMJIT_INST_3i(pextrq, Pextrq, Mem, Xmm, Imm)                        // SSE4_1
-  ASMJIT_INST_3i(pextrw, Pextrw, Gp, Mm, Imm)                          // SSE
-  ASMJIT_INST_3i(pextrw, Pextrw, Gp, Xmm, Imm)                         // SSE2
-  ASMJIT_INST_3i(pextrw, Pextrw, Mem, Xmm, Imm)                        // SSE4_1
+  ASMJIT_INST_3x(pextrb, Pextrb, Gp, Xmm, Imm)                         // SSE4_1
+  ASMJIT_INST_3x(pextrb, Pextrb, Mem, Xmm, Imm)                        // SSE4_1
+  ASMJIT_INST_3x(pextrd, Pextrd, Gp, Xmm, Imm)                         // SSE4_1
+  ASMJIT_INST_3x(pextrd, Pextrd, Mem, Xmm, Imm)                        // SSE4_1
+  ASMJIT_INST_3x(pextrq, Pextrq, Gp, Xmm, Imm)                         // SSE4_1
+  ASMJIT_INST_3x(pextrq, Pextrq, Mem, Xmm, Imm)                        // SSE4_1
+  ASMJIT_INST_3x(pextrw, Pextrw, Gp, Mm, Imm)                          // SSE
+  ASMJIT_INST_3x(pextrw, Pextrw, Gp, Xmm, Imm)                         // SSE2
+  ASMJIT_INST_3x(pextrw, Pextrw, Mem, Xmm, Imm)                        // SSE4_1
   ASMJIT_INST_2x(phaddd, Phaddd, Mm, Mm)                               // SSSE3
   ASMJIT_INST_2x(phaddd, Phaddd, Mm, Mem)                              // SSSE3
   ASMJIT_INST_2x(phaddd, Phaddd, Xmm, Xmm)                             // SSSE3
@@ -1757,16 +1743,16 @@ public:
   ASMJIT_INST_2x(phsubw, Phsubw, Mm, Mem)                              // SSSE3
   ASMJIT_INST_2x(phsubw, Phsubw, Xmm, Xmm)                             // SSSE3
   ASMJIT_INST_2x(phsubw, Phsubw, Xmm, Mem)                             // SSSE3
-  ASMJIT_INST_3i(pinsrb, Pinsrb, Xmm, Gp, Imm)                         // SSE4_1
-  ASMJIT_INST_3i(pinsrb, Pinsrb, Xmm, Mem, Imm)                        // SSE4_1
-  ASMJIT_INST_3i(pinsrd, Pinsrd, Xmm, Gp, Imm)                         // SSE4_1
-  ASMJIT_INST_3i(pinsrd, Pinsrd, Xmm, Mem, Imm)                        // SSE4_1
-  ASMJIT_INST_3i(pinsrq, Pinsrq, Xmm, Gp, Imm)                         // SSE4_1
-  ASMJIT_INST_3i(pinsrq, Pinsrq, Xmm, Mem, Imm)                        // SSE4_1
-  ASMJIT_INST_3i(pinsrw, Pinsrw, Mm, Gp, Imm)                          // SSE
-  ASMJIT_INST_3i(pinsrw, Pinsrw, Mm, Mem, Imm)                         // SSE
-  ASMJIT_INST_3i(pinsrw, Pinsrw, Xmm, Gp, Imm)                         // SSE2
-  ASMJIT_INST_3i(pinsrw, Pinsrw, Xmm, Mem, Imm)                        // SSE2
+  ASMJIT_INST_3x(pinsrb, Pinsrb, Xmm, Gp, Imm)                         // SSE4_1
+  ASMJIT_INST_3x(pinsrb, Pinsrb, Xmm, Mem, Imm)                        // SSE4_1
+  ASMJIT_INST_3x(pinsrd, Pinsrd, Xmm, Gp, Imm)                         // SSE4_1
+  ASMJIT_INST_3x(pinsrd, Pinsrd, Xmm, Mem, Imm)                        // SSE4_1
+  ASMJIT_INST_3x(pinsrq, Pinsrq, Xmm, Gp, Imm)                         // SSE4_1
+  ASMJIT_INST_3x(pinsrq, Pinsrq, Xmm, Mem, Imm)                        // SSE4_1
+  ASMJIT_INST_3x(pinsrw, Pinsrw, Mm, Gp, Imm)                          // SSE
+  ASMJIT_INST_3x(pinsrw, Pinsrw, Mm, Mem, Imm)                         // SSE
+  ASMJIT_INST_3x(pinsrw, Pinsrw, Xmm, Gp, Imm)                         // SSE2
+  ASMJIT_INST_3x(pinsrw, Pinsrw, Xmm, Mem, Imm)                        // SSE2
   ASMJIT_INST_2x(pmaddubsw, Pmaddubsw, Mm, Mm)                         // SSSE3
   ASMJIT_INST_2x(pmaddubsw, Pmaddubsw, Mm, Mem)                        // SSSE3
   ASMJIT_INST_2x(pmaddubsw, Pmaddubsw, Xmm, Xmm)                       // SSSE3
@@ -1867,47 +1853,47 @@ public:
   ASMJIT_INST_2x(psadbw, Psadbw, Xmm, Mem)                             // SSE
   ASMJIT_INST_2x(pslld, Pslld, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(pslld, Pslld, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(pslld, Pslld, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(pslld, Pslld, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(pslld, Pslld, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(pslld, Pslld, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(pslld, Pslld, Xmm, Imm)                               // SSE2
-  ASMJIT_INST_2i(pslldq, Pslldq, Xmm, Imm)                             // SSE2
+  ASMJIT_INST_2x(pslld, Pslld, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(pslldq, Pslldq, Xmm, Imm)                             // SSE2
   ASMJIT_INST_2x(psllq, Psllq, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psllq, Psllq, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(psllq, Psllq, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(psllq, Psllq, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(psllq, Psllq, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(psllq, Psllq, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(psllq, Psllq, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(psllq, Psllq, Xmm, Imm)                               // SSE2
   ASMJIT_INST_2x(psllw, Psllw, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psllw, Psllw, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(psllw, Psllw, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(psllw, Psllw, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(psllw, Psllw, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(psllw, Psllw, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(psllw, Psllw, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(psllw, Psllw, Xmm, Imm)                               // SSE2
   ASMJIT_INST_2x(psrad, Psrad, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psrad, Psrad, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(psrad, Psrad, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(psrad, Psrad, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(psrad, Psrad, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(psrad, Psrad, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(psrad, Psrad, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(psrad, Psrad, Xmm, Imm)                               // SSE2
   ASMJIT_INST_2x(psraw, Psraw, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psraw, Psraw, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(psraw, Psraw, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(psraw, Psraw, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(psraw, Psraw, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(psraw, Psraw, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(psraw, Psraw, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(psraw, Psraw, Xmm, Imm)                               // SSE2
   ASMJIT_INST_2x(pshufb, Pshufb, Mm, Mm)                               // SSSE3
   ASMJIT_INST_2x(pshufb, Pshufb, Mm, Mem)                              // SSSE3
   ASMJIT_INST_2x(pshufb, Pshufb, Xmm, Xmm)                             // SSSE3
   ASMJIT_INST_2x(pshufb, Pshufb, Xmm, Mem)                             // SSSE3
-  ASMJIT_INST_3i(pshufd, Pshufd, Xmm, Xmm, Imm)                        // SSE2
-  ASMJIT_INST_3i(pshufd, Pshufd, Xmm, Mem, Imm)                        // SSE2
-  ASMJIT_INST_3i(pshufhw, Pshufhw, Xmm, Xmm, Imm)                      // SSE2
-  ASMJIT_INST_3i(pshufhw, Pshufhw, Xmm, Mem, Imm)                      // SSE2
-  ASMJIT_INST_3i(pshuflw, Pshuflw, Xmm, Xmm, Imm)                      // SSE2
-  ASMJIT_INST_3i(pshuflw, Pshuflw, Xmm, Mem, Imm)                      // SSE2
-  ASMJIT_INST_3i(pshufw, Pshufw, Mm, Mm, Imm)                          // SSE
-  ASMJIT_INST_3i(pshufw, Pshufw, Mm, Mem, Imm)                         // SSE
+  ASMJIT_INST_3x(pshufd, Pshufd, Xmm, Xmm, Imm)                        // SSE2
+  ASMJIT_INST_3x(pshufd, Pshufd, Xmm, Mem, Imm)                        // SSE2
+  ASMJIT_INST_3x(pshufhw, Pshufhw, Xmm, Xmm, Imm)                      // SSE2
+  ASMJIT_INST_3x(pshufhw, Pshufhw, Xmm, Mem, Imm)                      // SSE2
+  ASMJIT_INST_3x(pshuflw, Pshuflw, Xmm, Xmm, Imm)                      // SSE2
+  ASMJIT_INST_3x(pshuflw, Pshuflw, Xmm, Mem, Imm)                      // SSE2
+  ASMJIT_INST_3x(pshufw, Pshufw, Mm, Mm, Imm)                          // SSE
+  ASMJIT_INST_3x(pshufw, Pshufw, Mm, Mem, Imm)                         // SSE
   ASMJIT_INST_2x(psignb, Psignb, Mm, Mm)                               // SSSE3
   ASMJIT_INST_2x(psignb, Psignb, Mm, Mem)                              // SSSE3
   ASMJIT_INST_2x(psignb, Psignb, Xmm, Xmm)                             // SSSE3
@@ -1922,23 +1908,23 @@ public:
   ASMJIT_INST_2x(psignw, Psignw, Xmm, Mem)                             // SSSE3
   ASMJIT_INST_2x(psrld, Psrld, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psrld, Psrld, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(psrld, Psrld, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(psrld, Psrld, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(psrld, Psrld, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(psrld, Psrld, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(psrld, Psrld, Xmm, Imm)                               // SSE2
-  ASMJIT_INST_2i(psrldq, Psrldq, Xmm, Imm)                             // SSE2
+  ASMJIT_INST_2x(psrld, Psrld, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(psrldq, Psrldq, Xmm, Imm)                             // SSE2
   ASMJIT_INST_2x(psrlq, Psrlq, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psrlq, Psrlq, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(psrlq, Psrlq, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(psrlq, Psrlq, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(psrlq, Psrlq, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(psrlq, Psrlq, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(psrlq, Psrlq, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(psrlq, Psrlq, Xmm, Imm)                               // SSE2
   ASMJIT_INST_2x(psrlw, Psrlw, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psrlw, Psrlw, Mm, Mem)                                // MMX
-  ASMJIT_INST_2i(psrlw, Psrlw, Mm, Imm)                                // MMX
+  ASMJIT_INST_2x(psrlw, Psrlw, Mm, Imm)                                // MMX
   ASMJIT_INST_2x(psrlw, Psrlw, Xmm, Xmm)                               // SSE2
   ASMJIT_INST_2x(psrlw, Psrlw, Xmm, Mem)                               // SSE2
-  ASMJIT_INST_2i(psrlw, Psrlw, Xmm, Imm)                               // SSE2
+  ASMJIT_INST_2x(psrlw, Psrlw, Xmm, Imm)                               // SSE2
   ASMJIT_INST_2x(psubb, Psubb, Mm, Mm)                                 // MMX
   ASMJIT_INST_2x(psubb, Psubb, Mm, Mem)                                // MMX
   ASMJIT_INST_2x(psubb, Psubb, Xmm, Xmm)                               // SSE2
@@ -2009,22 +1995,22 @@ public:
   ASMJIT_INST_2x(rcpps, Rcpps, Xmm, Mem)                               // SSE
   ASMJIT_INST_2x(rcpss, Rcpss, Xmm, Xmm)                               // SSE
   ASMJIT_INST_2x(rcpss, Rcpss, Xmm, Mem)                               // SSE
-  ASMJIT_INST_3i(roundpd, Roundpd, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(roundpd, Roundpd, Xmm, Mem, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(roundps, Roundps, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(roundps, Roundps, Xmm, Mem, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(roundsd, Roundsd, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(roundsd, Roundsd, Xmm, Mem, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(roundss, Roundss, Xmm, Xmm, Imm)                      // SSE4_1
-  ASMJIT_INST_3i(roundss, Roundss, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundpd, Roundpd, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundpd, Roundpd, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundps, Roundps, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundps, Roundps, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundsd, Roundsd, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundsd, Roundsd, Xmm, Mem, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundss, Roundss, Xmm, Xmm, Imm)                      // SSE4_1
+  ASMJIT_INST_3x(roundss, Roundss, Xmm, Mem, Imm)                      // SSE4_1
   ASMJIT_INST_2x(rsqrtps, Rsqrtps, Xmm, Xmm)                           // SSE
   ASMJIT_INST_2x(rsqrtps, Rsqrtps, Xmm, Mem)                           // SSE
   ASMJIT_INST_2x(rsqrtss, Rsqrtss, Xmm, Xmm)                           // SSE
   ASMJIT_INST_2x(rsqrtss, Rsqrtss, Xmm, Mem)                           // SSE
-  ASMJIT_INST_3i(shufpd, Shufpd, Xmm, Xmm, Imm)                        // SSE2
-  ASMJIT_INST_3i(shufpd, Shufpd, Xmm, Mem, Imm)                        // SSE2
-  ASMJIT_INST_3i(shufps, Shufps, Xmm, Xmm, Imm)                        // SSE
-  ASMJIT_INST_3i(shufps, Shufps, Xmm, Mem, Imm)                        // SSE
+  ASMJIT_INST_3x(shufpd, Shufpd, Xmm, Xmm, Imm)                        // SSE2
+  ASMJIT_INST_3x(shufpd, Shufpd, Xmm, Mem, Imm)                        // SSE2
+  ASMJIT_INST_3x(shufps, Shufps, Xmm, Xmm, Imm)                        // SSE
+  ASMJIT_INST_3x(shufps, Shufps, Xmm, Mem, Imm)                        // SSE
   ASMJIT_INST_2x(sqrtpd, Sqrtpd, Xmm, Xmm)                             // SSE2
   ASMJIT_INST_2x(sqrtpd, Sqrtpd, Xmm, Mem)                             // SSE2
   ASMJIT_INST_2x(sqrtps, Sqrtps, Xmm, Xmm)                             // SSE
@@ -2139,8 +2125,8 @@ public:
   ASMJIT_INST_2x(aesenclast, Aesenclast, Xmm, Mem)                     // AESNI
   ASMJIT_INST_2x(aesimc, Aesimc, Xmm, Xmm)                             // AESNI
   ASMJIT_INST_2x(aesimc, Aesimc, Xmm, Mem)                             // AESNI
-  ASMJIT_INST_3i(aeskeygenassist, Aeskeygenassist, Xmm, Xmm, Imm)      // AESNI
-  ASMJIT_INST_3i(aeskeygenassist, Aeskeygenassist, Xmm, Mem, Imm)      // AESNI
+  ASMJIT_INST_3x(aeskeygenassist, Aeskeygenassist, Xmm, Xmm, Imm)      // AESNI
+  ASMJIT_INST_3x(aeskeygenassist, Aeskeygenassist, Xmm, Mem, Imm)      // AESNI
 
   //! \}
 
@@ -2153,8 +2139,8 @@ public:
   ASMJIT_INST_2x(sha1msg2, Sha1msg2, Xmm, Mem)                         // SHA
   ASMJIT_INST_2x(sha1nexte, Sha1nexte, Xmm, Xmm)                       // SHA
   ASMJIT_INST_2x(sha1nexte, Sha1nexte, Xmm, Mem)                       // SHA
-  ASMJIT_INST_3i(sha1rnds4, Sha1rnds4, Xmm, Xmm, Imm)                  // SHA
-  ASMJIT_INST_3i(sha1rnds4, Sha1rnds4, Xmm, Mem, Imm)                  // SHA
+  ASMJIT_INST_3x(sha1rnds4, Sha1rnds4, Xmm, Xmm, Imm)                  // SHA
+  ASMJIT_INST_3x(sha1rnds4, Sha1rnds4, Xmm, Mem, Imm)                  // SHA
   ASMJIT_INST_2x(sha256msg1, Sha256msg1, Xmm, Xmm)                     // SHA
   ASMJIT_INST_2x(sha256msg1, Sha256msg1, Xmm, Mem)                     // SHA
   ASMJIT_INST_2x(sha256msg2, Sha256msg2, Xmm, Xmm)                     // SHA
@@ -2170,10 +2156,10 @@ public:
   // NOTE: For some reason Doxygen is messed up here and thinks we are in cond.
   //! \endcond
 
-  ASMJIT_INST_3i(gf2p8affineinvqb, Gf2p8affineinvqb, Xmm, Xmm, Imm)    // GFNI
-  ASMJIT_INST_3i(gf2p8affineinvqb, Gf2p8affineinvqb, Xmm, Mem, Imm)    // GFNI
-  ASMJIT_INST_3i(gf2p8affineqb, Gf2p8affineqb, Xmm, Xmm, Imm)          // GFNI
-  ASMJIT_INST_3i(gf2p8affineqb, Gf2p8affineqb, Xmm, Mem, Imm)          // GFNI
+  ASMJIT_INST_3x(gf2p8affineinvqb, Gf2p8affineinvqb, Xmm, Xmm, Imm)    // GFNI
+  ASMJIT_INST_3x(gf2p8affineinvqb, Gf2p8affineinvqb, Xmm, Mem, Imm)    // GFNI
+  ASMJIT_INST_3x(gf2p8affineqb, Gf2p8affineqb, Xmm, Xmm, Imm)          // GFNI
+  ASMJIT_INST_3x(gf2p8affineqb, Gf2p8affineqb, Xmm, Mem, Imm)          // GFNI
   ASMJIT_INST_2x(gf2p8mulb, Gf2p8mulb, Xmm, Xmm)                       // GFNI
   ASMJIT_INST_2x(gf2p8mulb, Gf2p8mulb, Xmm, Mem)                       // GFNI
 
@@ -2226,14 +2212,14 @@ public:
   ASMJIT_INST_2x(kortestq, Kortestq, KReg, KReg)                       // AVX512_BW
   ASMJIT_INST_2x(kortestw, Kortestw, KReg, KReg)                       // AVX512_F
   ASMJIT_INST_3x(korw, Korw, KReg, KReg, KReg)                         // AVX512_F
-  ASMJIT_INST_3i(kshiftlb, Kshiftlb, KReg, KReg, Imm)                  // AVX512_DQ
-  ASMJIT_INST_3i(kshiftld, Kshiftld, KReg, KReg, Imm)                  // AVX512_BW
-  ASMJIT_INST_3i(kshiftlq, Kshiftlq, KReg, KReg, Imm)                  // AVX512_BW
-  ASMJIT_INST_3i(kshiftlw, Kshiftlw, KReg, KReg, Imm)                  // AVX512_F
-  ASMJIT_INST_3i(kshiftrb, Kshiftrb, KReg, KReg, Imm)                  // AVX512_DQ
-  ASMJIT_INST_3i(kshiftrd, Kshiftrd, KReg, KReg, Imm)                  // AVX512_BW
-  ASMJIT_INST_3i(kshiftrq, Kshiftrq, KReg, KReg, Imm)                  // AVX512_BW
-  ASMJIT_INST_3i(kshiftrw, Kshiftrw, KReg, KReg, Imm)                  // AVX512_F
+  ASMJIT_INST_3x(kshiftlb, Kshiftlb, KReg, KReg, Imm)                  // AVX512_DQ
+  ASMJIT_INST_3x(kshiftld, Kshiftld, KReg, KReg, Imm)                  // AVX512_BW
+  ASMJIT_INST_3x(kshiftlq, Kshiftlq, KReg, KReg, Imm)                  // AVX512_BW
+  ASMJIT_INST_3x(kshiftlw, Kshiftlw, KReg, KReg, Imm)                  // AVX512_F
+  ASMJIT_INST_3x(kshiftrb, Kshiftrb, KReg, KReg, Imm)                  // AVX512_DQ
+  ASMJIT_INST_3x(kshiftrd, Kshiftrd, KReg, KReg, Imm)                  // AVX512_BW
+  ASMJIT_INST_3x(kshiftrq, Kshiftrq, KReg, KReg, Imm)                  // AVX512_BW
+  ASMJIT_INST_3x(kshiftrw, Kshiftrw, KReg, KReg, Imm)                  // AVX512_F
   ASMJIT_INST_2x(ktestb, Ktestb, KReg, KReg)                           // AVX512_DQ
   ASMJIT_INST_2x(ktestd, Ktestd, KReg, KReg)                           // AVX512_BW
   ASMJIT_INST_2x(ktestq, Ktestq, KReg, KReg)                           // AVX512_BW
@@ -2275,12 +2261,12 @@ public:
   ASMJIT_INST_3x(vaesenclast, Vaesenclast, Vec, Vec, Mem)              // AVX+AESNI VAES
   ASMJIT_INST_2x(vaesimc, Vaesimc, Xmm, Xmm)                           // AVX+AESNI
   ASMJIT_INST_2x(vaesimc, Vaesimc, Xmm, Mem)                           // AVX+AESNI
-  ASMJIT_INST_3i(vaeskeygenassist, Vaeskeygenassist, Xmm, Xmm, Imm)    // AVX+AESNI
-  ASMJIT_INST_3i(vaeskeygenassist, Vaeskeygenassist, Xmm, Mem, Imm)    // AVX+AESNI
-  ASMJIT_INST_4i(valignd, Valignd, Vec, Vec, Vec, Imm)                 //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(valignd, Valignd, Vec, Vec, Mem, Imm)                 //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(valignq, Valignq, Vec, Vec, Vec, Imm)                 //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(valignq, Valignq, Vec, Vec, Mem, Imm)                 //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vaeskeygenassist, Vaeskeygenassist, Xmm, Xmm, Imm)    // AVX+AESNI
+  ASMJIT_INST_3x(vaeskeygenassist, Vaeskeygenassist, Xmm, Mem, Imm)    // AVX+AESNI
+  ASMJIT_INST_4x(valignd, Valignd, Vec, Vec, Vec, Imm)                 //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(valignd, Valignd, Vec, Vec, Mem, Imm)                 //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(valignq, Valignq, Vec, Vec, Vec, Imm)                 //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(valignq, Valignq, Vec, Vec, Mem, Imm)                 //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vandnpd, Vandnpd, Vec, Vec, Vec)                      // AVX  AVX512_DQ{kz|b64}
   ASMJIT_INST_3x(vandnpd, Vandnpd, Vec, Vec, Mem)                      // AVX  AVX512_DQ{kz|b64}
   ASMJIT_INST_3x(vandnps, Vandnps, Vec, Vec, Vec)                      // AVX  AVX512_DQ{kz|b32}
@@ -2289,22 +2275,14 @@ public:
   ASMJIT_INST_3x(vandpd, Vandpd, Vec, Vec, Mem)                        // AVX  AVX512_DQ{kz|b64}
   ASMJIT_INST_3x(vandps, Vandps, Vec, Vec, Vec)                        // AVX  AVX512_DQ{kz|b32}
   ASMJIT_INST_3x(vandps, Vandps, Vec, Vec, Mem)                        // AVX  AVX512_DQ{kz|b32}
-  ASMJIT_INST_3x(vblendmb, Vblendmb, Vec, Vec, Vec)                    //      AVX512_BW{kz}
-  ASMJIT_INST_3x(vblendmb, Vblendmb, Vec, Vec, Mem)                    //      AVX512_BW{kz}
-  ASMJIT_INST_3x(vblendmd, Vblendmd, Vec, Vec, Vec)                    //      AVX512_F{kz|b32}
-  ASMJIT_INST_3x(vblendmd, Vblendmd, Vec, Vec, Mem)                    //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vblendmpd, Vblendmpd, Vec, Vec, Vec)                  //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vblendmpd, Vblendmpd, Vec, Vec, Mem)                  //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vblendmps, Vblendmps, Vec, Vec, Vec)                  //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vblendmps, Vblendmps, Vec, Vec, Mem)                  //      AVX512_F{kz|b32}
-  ASMJIT_INST_3x(vblendmq, Vblendmq, Vec, Vec, Vec)                    //      AVX512_F{kz|b64}
-  ASMJIT_INST_3x(vblendmq, Vblendmq, Vec, Vec, Mem)                    //      AVX512_F{kz|b64}
-  ASMJIT_INST_3x(vblendmw, Vblendmw, Vec, Vec, Vec)                    //      AVX512_BW{kz}
-  ASMJIT_INST_3x(vblendmw, Vblendmw, Vec, Vec, Mem)                    //      AVX512_BW{kz}
-  ASMJIT_INST_4i(vblendpd, Vblendpd, Vec, Vec, Vec, Imm)               // AVX
-  ASMJIT_INST_4i(vblendpd, Vblendpd, Vec, Vec, Mem, Imm)               // AVX
-  ASMJIT_INST_4i(vblendps, Vblendps, Vec, Vec, Vec, Imm)               // AVX
-  ASMJIT_INST_4i(vblendps, Vblendps, Vec, Vec, Mem, Imm)               // AVX
+  ASMJIT_INST_4x(vblendpd, Vblendpd, Vec, Vec, Vec, Imm)               // AVX
+  ASMJIT_INST_4x(vblendpd, Vblendpd, Vec, Vec, Mem, Imm)               // AVX
+  ASMJIT_INST_4x(vblendps, Vblendps, Vec, Vec, Vec, Imm)               // AVX
+  ASMJIT_INST_4x(vblendps, Vblendps, Vec, Vec, Mem, Imm)               // AVX
   ASMJIT_INST_4x(vblendvpd, Vblendvpd, Vec, Vec, Vec, Vec)             // AVX
   ASMJIT_INST_4x(vblendvpd, Vblendvpd, Vec, Vec, Mem, Vec)             // AVX
   ASMJIT_INST_4x(vblendvps, Vblendvps, Vec, Vec, Vec, Vec)             // AVX
@@ -2329,22 +2307,22 @@ public:
   ASMJIT_INST_2x(vbroadcastsd, Vbroadcastsd, Vec, Xmm)                 // AVX2 AVX512_F{kz}
   ASMJIT_INST_2x(vbroadcastss, Vbroadcastss, Vec, Mem)                 // AVX  AVX512_F{kz}
   ASMJIT_INST_2x(vbroadcastss, Vbroadcastss, Vec, Xmm)                 // AVX2 AVX512_F{kz}
-  ASMJIT_INST_4i(vcmppd, Vcmppd, Vec, Vec, Vec, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmppd, Vcmppd, Vec, Vec, Mem, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmppd, Vcmppd, KReg, Vec, Vec, Imm)                  //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vcmppd, Vcmppd, KReg, Vec, Mem, Imm)                  //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vcmpps, Vcmpps, Vec, Vec, Vec, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmpps, Vcmpps, Vec, Vec, Mem, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmpps, Vcmpps, KReg, Vec, Vec, Imm)                  //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vcmpps, Vcmpps, KReg, Vec, Mem, Imm)                  //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vcmpsd, Vcmpsd, Xmm, Xmm, Xmm, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmpsd, Vcmpsd, Xmm, Xmm, Mem, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmpsd, Vcmpsd, KReg, Xmm, Xmm, Imm)                  //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vcmpsd, Vcmpsd, KReg, Xmm, Mem, Imm)                  //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vcmpss, Vcmpss, Xmm, Xmm, Xmm, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmpss, Vcmpss, Xmm, Xmm, Mem, Imm)                   // AVX
-  ASMJIT_INST_4i(vcmpss, Vcmpss, KReg, Xmm, Xmm, Imm)                  //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vcmpss, Vcmpss, KReg, Xmm, Mem, Imm)                  //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vcmppd, Vcmppd, Vec, Vec, Vec, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmppd, Vcmppd, Vec, Vec, Mem, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmppd, Vcmppd, KReg, Vec, Vec, Imm)                  //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vcmppd, Vcmppd, KReg, Vec, Mem, Imm)                  //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vcmpps, Vcmpps, Vec, Vec, Vec, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmpps, Vcmpps, Vec, Vec, Mem, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmpps, Vcmpps, KReg, Vec, Vec, Imm)                  //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vcmpps, Vcmpps, KReg, Vec, Mem, Imm)                  //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vcmpsd, Vcmpsd, Xmm, Xmm, Xmm, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmpsd, Vcmpsd, Xmm, Xmm, Mem, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmpsd, Vcmpsd, KReg, Xmm, Xmm, Imm)                  //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vcmpsd, Vcmpsd, KReg, Xmm, Mem, Imm)                  //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vcmpss, Vcmpss, Xmm, Xmm, Xmm, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmpss, Vcmpss, Xmm, Xmm, Mem, Imm)                   // AVX
+  ASMJIT_INST_4x(vcmpss, Vcmpss, KReg, Xmm, Xmm, Imm)                  //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vcmpss, Vcmpss, KReg, Xmm, Mem, Imm)                  //      AVX512_F{kz|sae}
   ASMJIT_INST_2x(vcomisd, Vcomisd, Xmm, Xmm)                           // AVX  AVX512_F{sae}
   ASMJIT_INST_2x(vcomisd, Vcomisd, Xmm, Mem)                           // AVX  AVX512_F{sae}
   ASMJIT_INST_2x(vcomiss, Vcomiss, Xmm, Xmm)                           // AVX  AVX512_F{sae}
@@ -2377,8 +2355,8 @@ public:
   ASMJIT_INST_2x(vcvtps2dq, Vcvtps2dq, Vec, Mem)                       // AVX  AVX512_F{kz|b32}
   ASMJIT_INST_2x(vcvtps2pd, Vcvtps2pd, Vec, Vec)                       // AVX  AVX512_F{kz|b32}
   ASMJIT_INST_2x(vcvtps2pd, Vcvtps2pd, Vec, Mem)                       // AVX  AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vcvtps2ph, Vcvtps2ph, Vec, Vec, Imm)                  // F16C AVX512_F{kz}
-  ASMJIT_INST_3i(vcvtps2ph, Vcvtps2ph, Mem, Vec, Imm)                  // F16C AVX512_F{kz}
+  ASMJIT_INST_3x(vcvtps2ph, Vcvtps2ph, Vec, Vec, Imm)                  // F16C AVX512_F{kz}
+  ASMJIT_INST_3x(vcvtps2ph, Vcvtps2ph, Mem, Vec, Imm)                  // F16C AVX512_F{kz}
   ASMJIT_INST_2x(vcvtps2qq, Vcvtps2qq, Vec, Vec)                       //      AVX512_DQ{kz|b32}
   ASMJIT_INST_2x(vcvtps2qq, Vcvtps2qq, Vec, Mem)                       //      AVX512_DQ{kz|b32}
   ASMJIT_INST_2x(vcvtps2udq, Vcvtps2udq, Vec, Vec)                     //      AVX512_F{kz|b32}
@@ -2441,8 +2419,8 @@ public:
   ASMJIT_INST_3x(vcvtusi2sd, Vcvtusi2sd, Xmm, Xmm, Mem)                //      AVX512_F{er}
   ASMJIT_INST_3x(vcvtusi2ss, Vcvtusi2ss, Xmm, Xmm, Gp)                 //      AVX512_F{er}
   ASMJIT_INST_3x(vcvtusi2ss, Vcvtusi2ss, Xmm, Xmm, Mem)                //      AVX512_F{er}
-  ASMJIT_INST_4i(vdbpsadbw, Vdbpsadbw, Vec, Vec, Vec, Imm)             //      AVX512_BW{kz}
-  ASMJIT_INST_4i(vdbpsadbw, Vdbpsadbw, Vec, Vec, Mem, Imm)             //      AVX512_BW{kz}
+  ASMJIT_INST_4x(vdbpsadbw, Vdbpsadbw, Vec, Vec, Vec, Imm)             //      AVX512_BW{kz}
+  ASMJIT_INST_4x(vdbpsadbw, Vdbpsadbw, Vec, Vec, Mem, Imm)             //      AVX512_BW{kz}
   ASMJIT_INST_3x(vdivpd, Vdivpd, Vec, Vec, Vec)                        // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vdivpd, Vdivpd, Vec, Vec, Mem)                        // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vdivps, Vdivps, Vec, Vec, Vec)                        // AVX  AVX512_F{kz|b32}
@@ -2453,10 +2431,10 @@ public:
   ASMJIT_INST_3x(vdivss, Vdivss, Xmm, Xmm, Mem)                        // AVX  AVX512_F{kz|er}
   ASMJIT_INST_3x(vdpbf16ps, Vdpbf16ps, Vec, Vec, Vec)                  //      AVX512_BF16{kz|b32}
   ASMJIT_INST_3x(vdpbf16ps, Vdpbf16ps, Vec, Vec, Mem)                  //      AVX512_BF16{kz|b32}
-  ASMJIT_INST_4i(vdppd, Vdppd, Vec, Vec, Vec, Imm)                     // AVX
-  ASMJIT_INST_4i(vdppd, Vdppd, Vec, Vec, Mem, Imm)                     // AVX
-  ASMJIT_INST_4i(vdpps, Vdpps, Vec, Vec, Vec, Imm)                     // AVX
-  ASMJIT_INST_4i(vdpps, Vdpps, Vec, Vec, Mem, Imm)                     // AVX
+  ASMJIT_INST_4x(vdppd, Vdppd, Vec, Vec, Vec, Imm)                     // AVX
+  ASMJIT_INST_4x(vdppd, Vdppd, Vec, Vec, Mem, Imm)                     // AVX
+  ASMJIT_INST_4x(vdpps, Vdpps, Vec, Vec, Vec, Imm)                     // AVX
+  ASMJIT_INST_4x(vdpps, Vdpps, Vec, Vec, Mem, Imm)                     // AVX
   ASMJIT_INST_2x(vexp2pd, Vexp2pd, Vec, Vec)                           //      AVX512_ER{kz|sae|b64}
   ASMJIT_INST_2x(vexp2pd, Vexp2pd, Vec, Mem)                           //      AVX512_ER{kz|sae|b64}
   ASMJIT_INST_2x(vexp2ps, Vexp2ps, Vec, Vec)                           //      AVX512_ER{kz|sae|b32}
@@ -2465,36 +2443,36 @@ public:
   ASMJIT_INST_2x(vexpandpd, Vexpandpd, Vec, Mem)                       //      AVX512_F{kz}
   ASMJIT_INST_2x(vexpandps, Vexpandps, Vec, Vec)                       //      AVX512_F{kz}
   ASMJIT_INST_2x(vexpandps, Vexpandps, Vec, Mem)                       //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextractf128, Vextractf128, Vec, Vec, Imm)            // AVX
-  ASMJIT_INST_3i(vextractf128, Vextractf128, Mem, Vec, Imm)            // AVX
-  ASMJIT_INST_3i(vextractf32x4, Vextractf32x4, Vec, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextractf32x4, Vextractf32x4, Mem, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextractf32x8, Vextractf32x8, Vec, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextractf32x8, Vextractf32x8, Mem, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextractf64x2, Vextractf64x2, Vec, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextractf64x2, Vextractf64x2, Mem, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextractf64x4, Vextractf64x4, Vec, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextractf64x4, Vextractf64x4, Mem, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextracti128, Vextracti128, Vec, Vec, Imm)            // AVX2
-  ASMJIT_INST_3i(vextracti128, Vextracti128, Mem, Vec, Imm)            // AVX2
-  ASMJIT_INST_3i(vextracti32x4, Vextracti32x4, Vec, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextracti32x4, Vextracti32x4, Mem, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextracti32x8, Vextracti32x8, Vec, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextracti32x8, Vextracti32x8, Mem, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextracti64x2, Vextracti64x2, Vec, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextracti64x2, Vextracti64x2, Mem, Vec, Imm)          //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vextracti64x4, Vextracti64x4, Vec, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextracti64x4, Vextracti64x4, Mem, Vec, Imm)          //      AVX512_F{kz}
-  ASMJIT_INST_3i(vextractps, Vextractps, Gp, Xmm, Imm)                 // AVX  AVX512_F
-  ASMJIT_INST_3i(vextractps, Vextractps, Mem, Xmm, Imm)                // AVX  AVX512_F
-  ASMJIT_INST_4i(vfixupimmpd, Vfixupimmpd, Vec, Vec, Vec, Imm)         //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vfixupimmpd, Vfixupimmpd, Vec, Vec, Mem, Imm)         //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vfixupimmps, Vfixupimmps, Vec, Vec, Vec, Imm)         //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vfixupimmps, Vfixupimmps, Vec, Vec, Mem, Imm)         //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vfixupimmsd, Vfixupimmsd, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vfixupimmsd, Vfixupimmsd, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vfixupimmss, Vfixupimmss, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vfixupimmss, Vfixupimmss, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_3x(vextractf128, Vextractf128, Vec, Vec, Imm)            // AVX
+  ASMJIT_INST_3x(vextractf128, Vextractf128, Mem, Vec, Imm)            // AVX
+  ASMJIT_INST_3x(vextractf32x4, Vextractf32x4, Vec, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextractf32x4, Vextractf32x4, Mem, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextractf32x8, Vextractf32x8, Vec, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextractf32x8, Vextractf32x8, Mem, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextractf64x2, Vextractf64x2, Vec, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextractf64x2, Vextractf64x2, Mem, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextractf64x4, Vextractf64x4, Vec, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextractf64x4, Vextractf64x4, Mem, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextracti128, Vextracti128, Vec, Vec, Imm)            // AVX2
+  ASMJIT_INST_3x(vextracti128, Vextracti128, Mem, Vec, Imm)            // AVX2
+  ASMJIT_INST_3x(vextracti32x4, Vextracti32x4, Vec, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextracti32x4, Vextracti32x4, Mem, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextracti32x8, Vextracti32x8, Vec, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextracti32x8, Vextracti32x8, Mem, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextracti64x2, Vextracti64x2, Vec, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextracti64x2, Vextracti64x2, Mem, Vec, Imm)          //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vextracti64x4, Vextracti64x4, Vec, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextracti64x4, Vextracti64x4, Mem, Vec, Imm)          //      AVX512_F{kz}
+  ASMJIT_INST_3x(vextractps, Vextractps, Gp, Xmm, Imm)                 // AVX  AVX512_F
+  ASMJIT_INST_3x(vextractps, Vextractps, Mem, Xmm, Imm)                // AVX  AVX512_F
+  ASMJIT_INST_4x(vfixupimmpd, Vfixupimmpd, Vec, Vec, Vec, Imm)         //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vfixupimmpd, Vfixupimmpd, Vec, Vec, Mem, Imm)         //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vfixupimmps, Vfixupimmps, Vec, Vec, Vec, Imm)         //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vfixupimmps, Vfixupimmps, Vec, Vec, Mem, Imm)         //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vfixupimmsd, Vfixupimmsd, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vfixupimmsd, Vfixupimmsd, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vfixupimmss, Vfixupimmss, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vfixupimmss, Vfixupimmss, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
   ASMJIT_INST_3x(vfmadd132pd, Vfmadd132pd, Vec, Vec, Vec)              // FMA  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vfmadd132pd, Vfmadd132pd, Vec, Vec, Mem)              // FMA  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vfmadd132ps, Vfmadd132ps, Vec, Vec, Vec)              // FMA  AVX512_F{kz|b32}
@@ -2615,14 +2593,14 @@ public:
   ASMJIT_INST_3x(vfnmsub231sd, Vfnmsub231sd, Xmm, Xmm, Mem)            // FMA  AVX512_F{kz|er}
   ASMJIT_INST_3x(vfnmsub231ss, Vfnmsub231ss, Xmm, Xmm, Xmm)            // FMA  AVX512_F{kz|er}
   ASMJIT_INST_3x(vfnmsub231ss, Vfnmsub231ss, Xmm, Xmm, Mem)            // FMA  AVX512_F{kz|er}
-  ASMJIT_INST_3i(vfpclasspd, Vfpclasspd, KReg, Vec, Imm)               //      AVX512_DQ{k|b64}
-  ASMJIT_INST_3i(vfpclasspd, Vfpclasspd, KReg, Mem, Imm)               //      AVX512_DQ{k|b64}
-  ASMJIT_INST_3i(vfpclassps, Vfpclassps, KReg, Vec, Imm)               //      AVX512_DQ{k|b32}
-  ASMJIT_INST_3i(vfpclassps, Vfpclassps, KReg, Mem, Imm)               //      AVX512_DQ{k|b32}
-  ASMJIT_INST_3i(vfpclasssd, Vfpclasssd, KReg, Xmm, Imm)               //      AVX512_DQ{k}
-  ASMJIT_INST_3i(vfpclasssd, Vfpclasssd, KReg, Mem, Imm)               //      AVX512_DQ{k}
-  ASMJIT_INST_3i(vfpclassss, Vfpclassss, KReg, Xmm, Imm)               //      AVX512_DQ{k}
-  ASMJIT_INST_3i(vfpclassss, Vfpclassss, KReg, Mem, Imm)               //      AVX512_DQ{k}
+  ASMJIT_INST_3x(vfpclasspd, Vfpclasspd, KReg, Vec, Imm)               //      AVX512_DQ{k|b64}
+  ASMJIT_INST_3x(vfpclasspd, Vfpclasspd, KReg, Mem, Imm)               //      AVX512_DQ{k|b64}
+  ASMJIT_INST_3x(vfpclassps, Vfpclassps, KReg, Vec, Imm)               //      AVX512_DQ{k|b32}
+  ASMJIT_INST_3x(vfpclassps, Vfpclassps, KReg, Mem, Imm)               //      AVX512_DQ{k|b32}
+  ASMJIT_INST_3x(vfpclasssd, Vfpclasssd, KReg, Xmm, Imm)               //      AVX512_DQ{k}
+  ASMJIT_INST_3x(vfpclasssd, Vfpclasssd, KReg, Mem, Imm)               //      AVX512_DQ{k}
+  ASMJIT_INST_3x(vfpclassss, Vfpclassss, KReg, Xmm, Imm)               //      AVX512_DQ{k}
+  ASMJIT_INST_3x(vfpclassss, Vfpclassss, KReg, Mem, Imm)               //      AVX512_DQ{k}
   ASMJIT_INST_2x(vgatherdpd, Vgatherdpd, Vec, Mem)                     //      AVX512_F{k}
   ASMJIT_INST_3x(vgatherdpd, Vgatherdpd, Vec, Mem, Vec)                // AVX2
   ASMJIT_INST_2x(vgatherdps, Vgatherdps, Vec, Mem)                     //      AVX512_F{k}
@@ -2647,18 +2625,18 @@ public:
   ASMJIT_INST_3x(vgetexpsd, Vgetexpsd, Xmm, Xmm, Mem)                  //      AVX512_F{kz|sae}
   ASMJIT_INST_3x(vgetexpss, Vgetexpss, Xmm, Xmm, Xmm)                  //      AVX512_F{kz|sae}
   ASMJIT_INST_3x(vgetexpss, Vgetexpss, Xmm, Xmm, Mem)                  //      AVX512_F{kz|sae}
-  ASMJIT_INST_3i(vgetmantpd, Vgetmantpd, Vec, Vec, Imm)                //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vgetmantpd, Vgetmantpd, Vec, Mem, Imm)                //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vgetmantps, Vgetmantps, Vec, Vec, Imm)                //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vgetmantps, Vgetmantps, Vec, Mem, Imm)                //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vgetmantsd, Vgetmantsd, Xmm, Xmm, Xmm, Imm)           //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vgetmantsd, Vgetmantsd, Xmm, Xmm, Mem, Imm)           //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vgetmantss, Vgetmantss, Xmm, Xmm, Xmm, Imm)           //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vgetmantss, Vgetmantss, Xmm, Xmm, Mem, Imm)           //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vgf2p8affineinvqb, Vgf2p8affineinvqb,Vec,Vec,Vec,Imm) // AVX  AVX512_VL{kz} GFNI
-  ASMJIT_INST_4i(vgf2p8affineinvqb, Vgf2p8affineinvqb,Vec,Vec,Mem,Imm) // AVX  AVX512_VL{kz} GFNI
-  ASMJIT_INST_4i(vgf2p8affineqb, Vgf2p8affineqb, Vec, Vec, Vec, Imm)   // AVX  AVX512_VL{kz} GFNI
-  ASMJIT_INST_4i(vgf2p8affineqb, Vgf2p8affineqb, Vec, Vec, Mem, Imm)   // AVX  AVX512_VL{kz} GFNI
+  ASMJIT_INST_3x(vgetmantpd, Vgetmantpd, Vec, Vec, Imm)                //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vgetmantpd, Vgetmantpd, Vec, Mem, Imm)                //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vgetmantps, Vgetmantps, Vec, Vec, Imm)                //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vgetmantps, Vgetmantps, Vec, Mem, Imm)                //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vgetmantsd, Vgetmantsd, Xmm, Xmm, Xmm, Imm)           //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vgetmantsd, Vgetmantsd, Xmm, Xmm, Mem, Imm)           //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vgetmantss, Vgetmantss, Xmm, Xmm, Xmm, Imm)           //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vgetmantss, Vgetmantss, Xmm, Xmm, Mem, Imm)           //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vgf2p8affineinvqb, Vgf2p8affineinvqb,Vec,Vec,Vec,Imm) // AVX  AVX512_VL{kz} GFNI
+  ASMJIT_INST_4x(vgf2p8affineinvqb, Vgf2p8affineinvqb,Vec,Vec,Mem,Imm) // AVX  AVX512_VL{kz} GFNI
+  ASMJIT_INST_4x(vgf2p8affineqb, Vgf2p8affineqb, Vec, Vec, Vec, Imm)   // AVX  AVX512_VL{kz} GFNI
+  ASMJIT_INST_4x(vgf2p8affineqb, Vgf2p8affineqb, Vec, Vec, Mem, Imm)   // AVX  AVX512_VL{kz} GFNI
   ASMJIT_INST_3x(vgf2p8mulb, Vgf2p8mulb, Vec, Vec, Vec)                // AVX  AVX512_VL{kz} GFNI
   ASMJIT_INST_3x(vgf2p8mulb, Vgf2p8mulb, Vec, Vec, Mem)                // AVX  AVX512_VL{kz} GFNI
   ASMJIT_INST_3x(vhaddpd, Vhaddpd, Vec, Vec, Vec)                      // AVX
@@ -2669,28 +2647,28 @@ public:
   ASMJIT_INST_3x(vhsubpd, Vhsubpd, Vec, Vec, Mem)                      // AVX
   ASMJIT_INST_3x(vhsubps, Vhsubps, Vec, Vec, Vec)                      // AVX
   ASMJIT_INST_3x(vhsubps, Vhsubps, Vec, Vec, Mem)                      // AVX
-  ASMJIT_INST_4i(vinsertf128, Vinsertf128, Vec, Vec, Vec, Imm)         // AVX
-  ASMJIT_INST_4i(vinsertf128, Vinsertf128, Vec, Vec, Mem, Imm)         // AVX
-  ASMJIT_INST_4i(vinsertf32x4, Vinsertf32x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinsertf32x4, Vinsertf32x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinsertf32x8, Vinsertf32x8, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinsertf32x8, Vinsertf32x8, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinsertf64x2, Vinsertf64x2, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinsertf64x2, Vinsertf64x2, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinsertf64x4, Vinsertf64x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinsertf64x4, Vinsertf64x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinserti128, Vinserti128, Vec, Vec, Vec, Imm)         // AVX2
-  ASMJIT_INST_4i(vinserti128, Vinserti128, Vec, Vec, Mem, Imm)         // AVX2
-  ASMJIT_INST_4i(vinserti32x4, Vinserti32x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinserti32x4, Vinserti32x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinserti32x8, Vinserti32x8, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinserti32x8, Vinserti32x8, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinserti64x2, Vinserti64x2, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinserti64x2, Vinserti64x2, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vinserti64x4, Vinserti64x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinserti64x4, Vinserti64x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
-  ASMJIT_INST_4i(vinsertps, Vinsertps, Xmm, Xmm, Xmm, Imm)             // AVX  AVX512_F
-  ASMJIT_INST_4i(vinsertps, Vinsertps, Xmm, Xmm, Mem, Imm)             // AVX  AVX512_F
+  ASMJIT_INST_4x(vinsertf128, Vinsertf128, Vec, Vec, Vec, Imm)         // AVX
+  ASMJIT_INST_4x(vinsertf128, Vinsertf128, Vec, Vec, Mem, Imm)         // AVX
+  ASMJIT_INST_4x(vinsertf32x4, Vinsertf32x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinsertf32x4, Vinsertf32x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinsertf32x8, Vinsertf32x8, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinsertf32x8, Vinsertf32x8, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinsertf64x2, Vinsertf64x2, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinsertf64x2, Vinsertf64x2, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinsertf64x4, Vinsertf64x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinsertf64x4, Vinsertf64x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinserti128, Vinserti128, Vec, Vec, Vec, Imm)         // AVX2
+  ASMJIT_INST_4x(vinserti128, Vinserti128, Vec, Vec, Mem, Imm)         // AVX2
+  ASMJIT_INST_4x(vinserti32x4, Vinserti32x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinserti32x4, Vinserti32x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinserti32x8, Vinserti32x8, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinserti32x8, Vinserti32x8, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinserti64x2, Vinserti64x2, Vec, Vec, Vec, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinserti64x2, Vinserti64x2, Vec, Vec, Mem, Imm)       //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vinserti64x4, Vinserti64x4, Vec, Vec, Vec, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinserti64x4, Vinserti64x4, Vec, Vec, Mem, Imm)       //      AVX512_F{kz}
+  ASMJIT_INST_4x(vinsertps, Vinsertps, Xmm, Xmm, Xmm, Imm)             // AVX  AVX512_F
+  ASMJIT_INST_4x(vinsertps, Vinsertps, Xmm, Xmm, Mem, Imm)             // AVX  AVX512_F
   ASMJIT_INST_2x(vlddqu, Vlddqu, Vec, Mem)                             // AVX
   ASMJIT_INST_1x(vldmxcsr, Vldmxcsr, Mem)                              // AVX
   ASMJIT_INST_3x(vmaskmovdqu, Vmaskmovdqu, Vec, Vec, DS_ZDI)           // AVX  [EXPLICIT]
@@ -2787,8 +2765,8 @@ public:
   ASMJIT_INST_2x(vmovups, Vmovups, Vec, Vec)                           // AVX  AVX512_F{kz}
   ASMJIT_INST_2x(vmovups, Vmovups, Vec, Mem)                           // AVX  AVX512_F{kz}
   ASMJIT_INST_2x(vmovups, Vmovups, Mem, Vec)                           // AVX  AVX512_F{kz}
-  ASMJIT_INST_4i(vmpsadbw, Vmpsadbw, Vec, Vec, Vec, Imm)               // AVX+
-  ASMJIT_INST_4i(vmpsadbw, Vmpsadbw, Vec, Vec, Mem, Imm)               // AVX+
+  ASMJIT_INST_4x(vmpsadbw, Vmpsadbw, Vec, Vec, Vec, Imm)               // AVX+
+  ASMJIT_INST_4x(vmpsadbw, Vmpsadbw, Vec, Vec, Mem, Imm)               // AVX+
   ASMJIT_INST_3x(vmulpd, Vmulpd, Vec, Vec, Vec)                        // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vmulpd, Vmulpd, Vec, Vec, Mem)                        // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vmulps, Vmulps, Vec, Vec, Vec)                        // AVX  AVX512_F{kz|b32}
@@ -2839,8 +2817,8 @@ public:
   ASMJIT_INST_3x(vpaddusw, Vpaddusw, Vec, Vec, Mem)                    // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpaddw, Vpaddw, Vec, Vec, Vec)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpaddw, Vpaddw, Vec, Vec, Mem)                        // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_4i(vpalignr, Vpalignr, Vec, Vec, Vec, Imm)               // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_4i(vpalignr, Vpalignr, Vec, Vec, Mem, Imm)               // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_4x(vpalignr, Vpalignr, Vec, Vec, Vec, Imm)               // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_4x(vpalignr, Vpalignr, Vec, Vec, Mem, Imm)               // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpand, Vpand, Vec, Vec, Vec)                          // AVX+
   ASMJIT_INST_3x(vpand, Vpand, Vec, Vec, Mem)                          // AVX+
   ASMJIT_INST_3x(vpandd, Vpandd, Vec, Vec, Vec)                        //      AVX512_F{kz|b32}
@@ -2857,32 +2835,40 @@ public:
   ASMJIT_INST_3x(vpavgb, Vpavgb, Vec, Vec, Mem)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpavgw, Vpavgw, Vec, Vec, Vec)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpavgw, Vpavgw, Vec, Vec, Mem)                        // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_4i(vpblendd, Vpblendd, Vec, Vec, Vec, Imm)               // AVX2
-  ASMJIT_INST_4i(vpblendd, Vpblendd, Vec, Vec, Mem, Imm)               // AVX2
+  ASMJIT_INST_4x(vpblendd, Vpblendd, Vec, Vec, Vec, Imm)               // AVX2
+  ASMJIT_INST_4x(vpblendd, Vpblendd, Vec, Vec, Mem, Imm)               // AVX2
+  ASMJIT_INST_3x(vpblendmb, Vpblendmb, Vec, Vec, Vec)                  //      AVX512_BW{kz}
+  ASMJIT_INST_3x(vpblendmb, Vpblendmb, Vec, Vec, Mem)                  //      AVX512_BW{kz}
+  ASMJIT_INST_3x(vpblendmd, Vpblendmd, Vec, Vec, Vec)                  //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpblendmd, Vpblendmd, Vec, Vec, Mem)                  //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpblendmq, Vpblendmq, Vec, Vec, Vec)                  //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpblendmq, Vpblendmq, Vec, Vec, Mem)                  //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpblendmw, Vpblendmw, Vec, Vec, Vec)                  //      AVX512_BW{kz}
+  ASMJIT_INST_3x(vpblendmw, Vpblendmw, Vec, Vec, Mem)                  //      AVX512_BW{kz}
   ASMJIT_INST_4x(vpblendvb, Vpblendvb, Vec, Vec, Vec, Vec)             // AVX+
   ASMJIT_INST_4x(vpblendvb, Vpblendvb, Vec, Vec, Mem, Vec)             // AVX+
-  ASMJIT_INST_4i(vpblendw, Vpblendw, Vec, Vec, Vec, Imm)               // AVX+
-  ASMJIT_INST_4i(vpblendw, Vpblendw, Vec, Vec, Mem, Imm)               // AVX+
+  ASMJIT_INST_4x(vpblendw, Vpblendw, Vec, Vec, Vec, Imm)               // AVX+
+  ASMJIT_INST_4x(vpblendw, Vpblendw, Vec, Vec, Mem, Imm)               // AVX+
   ASMJIT_INST_2x(vpbroadcastb, Vpbroadcastb, Vec, Vec)                 // AVX2 AVX512_BW{kz}
   ASMJIT_INST_2x(vpbroadcastb, Vpbroadcastb, Vec, Mem)                 // AVX2 AVX512_BW{kz}
   ASMJIT_INST_2x(vpbroadcastb, Vpbroadcastb, Vec, Gp)                  //      AVX512_BW{kz}
   ASMJIT_INST_2x(vpbroadcastd, Vpbroadcastd, Vec, Vec)                 // AVX2 AVX512_F{kz}
   ASMJIT_INST_2x(vpbroadcastd, Vpbroadcastd, Vec, Mem)                 // AVX2 AVX512_F{kz}
   ASMJIT_INST_2x(vpbroadcastd, Vpbroadcastd, Vec, Gp)                  //      AVX512_F{kz}
-  ASMJIT_INST_2x(vpbroadcastmb2d, Vpbroadcastmb2d, Vec, KReg)          //      AVX512_CD
   ASMJIT_INST_2x(vpbroadcastmb2q, Vpbroadcastmb2q, Vec, KReg)          //      AVX512_CD
+  ASMJIT_INST_2x(vpbroadcastmw2d, Vpbroadcastmw2d, Vec, KReg)          //      AVX512_CD
   ASMJIT_INST_2x(vpbroadcastq, Vpbroadcastq, Vec, Vec)                 // AVX2 AVX512_F{kz}
   ASMJIT_INST_2x(vpbroadcastq, Vpbroadcastq, Vec, Mem)                 // AVX2 AVX512_F{kz}
   ASMJIT_INST_2x(vpbroadcastq, Vpbroadcastq, Vec, Gp)                  //      AVX512_F{kz}
   ASMJIT_INST_2x(vpbroadcastw, Vpbroadcastw, Vec, Vec)                 // AVX2 AVX512_BW{kz}
   ASMJIT_INST_2x(vpbroadcastw, Vpbroadcastw, Vec, Mem)                 // AVX2 AVX512_BW{kz}
   ASMJIT_INST_2x(vpbroadcastw, Vpbroadcastw, Vec, Gp)                  //      AVX512_BW{kz}
-  ASMJIT_INST_4i(vpclmulqdq, Vpclmulqdq, Vec, Vec, Vec, Imm)           // AVX  VPCLMULQDQ AVX512_F
-  ASMJIT_INST_4i(vpclmulqdq, Vpclmulqdq, Vec, Vec, Mem, Imm)           // AVX  VPCLMULQDQ AVX512_F
-  ASMJIT_INST_4i(vpcmpb, Vpcmpb, KReg, Vec, Vec, Imm)                  //      AVX512_BW{k}
-  ASMJIT_INST_4i(vpcmpb, Vpcmpb, KReg, Vec, Mem, Imm)                  //      AVX512_BW{k}
-  ASMJIT_INST_4i(vpcmpd, Vpcmpd, KReg, Vec, Vec, Imm)                  //      AVX512_F{k|b32}
-  ASMJIT_INST_4i(vpcmpd, Vpcmpd, KReg, Vec, Mem, Imm)                  //      AVX512_F{k|b32}
+  ASMJIT_INST_4x(vpclmulqdq, Vpclmulqdq, Vec, Vec, Vec, Imm)           // AVX  VPCLMULQDQ AVX512_F
+  ASMJIT_INST_4x(vpclmulqdq, Vpclmulqdq, Vec, Vec, Mem, Imm)           // AVX  VPCLMULQDQ AVX512_F
+  ASMJIT_INST_4x(vpcmpb, Vpcmpb, KReg, Vec, Vec, Imm)                  //      AVX512_BW{k}
+  ASMJIT_INST_4x(vpcmpb, Vpcmpb, KReg, Vec, Mem, Imm)                  //      AVX512_BW{k}
+  ASMJIT_INST_4x(vpcmpd, Vpcmpd, KReg, Vec, Vec, Imm)                  //      AVX512_F{k|b32}
+  ASMJIT_INST_4x(vpcmpd, Vpcmpd, KReg, Vec, Mem, Imm)                  //      AVX512_F{k|b32}
   ASMJIT_INST_3x(vpcmpeqb, Vpcmpeqb, Vec, Vec, Vec)                    // AVX+
   ASMJIT_INST_3x(vpcmpeqb, Vpcmpeqb, Vec, Vec, Mem)                    // AVX+
   ASMJIT_INST_3x(vpcmpeqb, Vpcmpeqb, KReg, Vec, Vec)                   //      AVX512_BW{k}
@@ -2923,18 +2909,18 @@ public:
   ASMJIT_INST_4x(vpcmpistri, Vpcmpistri, Vec, Mem, Imm, Gp_ECX)        // AVX  [EXPLICIT]
   ASMJIT_INST_4x(vpcmpistrm, Vpcmpistrm, Vec, Vec, Imm, XMM0)          // AVX  [EXPLICIT]
   ASMJIT_INST_4x(vpcmpistrm, Vpcmpistrm, Vec, Mem, Imm, XMM0)          // AVX  [EXPLICIT]
-  ASMJIT_INST_4i(vpcmpq, Vpcmpq, KReg, Vec, Vec, Imm)                  //      AVX512_F{k|b64}
-  ASMJIT_INST_4i(vpcmpq, Vpcmpq, KReg, Vec, Mem, Imm)                  //      AVX512_F{k|b64}
-  ASMJIT_INST_4i(vpcmpub, Vpcmpub, KReg, Vec, Vec, Imm)                //      AVX512_BW{k}
-  ASMJIT_INST_4i(vpcmpub, Vpcmpub, KReg, Vec, Mem, Imm)                //      AVX512_BW{k}
-  ASMJIT_INST_4i(vpcmpud, Vpcmpud, KReg, Vec, Vec, Imm)                //      AVX512_F{k|b32}
-  ASMJIT_INST_4i(vpcmpud, Vpcmpud, KReg, Vec, Mem, Imm)                //      AVX512_F{k|b32}
-  ASMJIT_INST_4i(vpcmpuq, Vpcmpuq, KReg, Vec, Vec, Imm)                //      AVX512_F{k|b64}
-  ASMJIT_INST_4i(vpcmpuq, Vpcmpuq, KReg, Vec, Mem, Imm)                //      AVX512_F{k|b64}
-  ASMJIT_INST_4i(vpcmpuw, Vpcmpuw, KReg, Vec, Vec, Imm)                //      AVX512_BW{k|b64}
-  ASMJIT_INST_4i(vpcmpuw, Vpcmpuw, KReg, Vec, Mem, Imm)                //      AVX512_BW{k|b64}
-  ASMJIT_INST_4i(vpcmpw, Vpcmpw, KReg, Vec, Vec, Imm)                  //      AVX512_BW{k|b64}
-  ASMJIT_INST_4i(vpcmpw, Vpcmpw, KReg, Vec, Mem, Imm)                  //      AVX512_BW{k|b64}
+  ASMJIT_INST_4x(vpcmpq, Vpcmpq, KReg, Vec, Vec, Imm)                  //      AVX512_F{k|b64}
+  ASMJIT_INST_4x(vpcmpq, Vpcmpq, KReg, Vec, Mem, Imm)                  //      AVX512_F{k|b64}
+  ASMJIT_INST_4x(vpcmpub, Vpcmpub, KReg, Vec, Vec, Imm)                //      AVX512_BW{k}
+  ASMJIT_INST_4x(vpcmpub, Vpcmpub, KReg, Vec, Mem, Imm)                //      AVX512_BW{k}
+  ASMJIT_INST_4x(vpcmpud, Vpcmpud, KReg, Vec, Vec, Imm)                //      AVX512_F{k|b32}
+  ASMJIT_INST_4x(vpcmpud, Vpcmpud, KReg, Vec, Mem, Imm)                //      AVX512_F{k|b32}
+  ASMJIT_INST_4x(vpcmpuq, Vpcmpuq, KReg, Vec, Vec, Imm)                //      AVX512_F{k|b64}
+  ASMJIT_INST_4x(vpcmpuq, Vpcmpuq, KReg, Vec, Mem, Imm)                //      AVX512_F{k|b64}
+  ASMJIT_INST_4x(vpcmpuw, Vpcmpuw, KReg, Vec, Vec, Imm)                //      AVX512_BW{k|b64}
+  ASMJIT_INST_4x(vpcmpuw, Vpcmpuw, KReg, Vec, Mem, Imm)                //      AVX512_BW{k|b64}
+  ASMJIT_INST_4x(vpcmpw, Vpcmpw, KReg, Vec, Vec, Imm)                  //      AVX512_BW{k|b64}
+  ASMJIT_INST_4x(vpcmpw, Vpcmpw, KReg, Vec, Mem, Imm)                  //      AVX512_BW{k|b64}
   ASMJIT_INST_2x(vpcompressb, Vpcompressb, Vec, Vec)                   //      AVX512_VBMI2{kz}
   ASMJIT_INST_2x(vpcompressb, Vpcompressb, Mem, Vec)                   //      AVX512_VBMI2{kz}
   ASMJIT_INST_2x(vpcompressd, Vpcompressd, Vec, Vec)                   //      AVX512_F{kz}
@@ -2947,18 +2933,18 @@ public:
   ASMJIT_INST_2x(vpconflictd, Vpconflictd, Vec, Mem)                   //      AVX512_CD{kz|b32}
   ASMJIT_INST_2x(vpconflictq, Vpconflictq, Vec, Vec)                   //      AVX512_CD{kz|b32}
   ASMJIT_INST_2x(vpconflictq, Vpconflictq, Vec, Mem)                   //      AVX512_CD{kz|b32}
-  ASMJIT_INST_3x(vpdpbusd, Vpdpbusd, Vec, Vec, Vec)                    //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_3x(vpdpbusd, Vpdpbusd, Vec, Vec, Mem)                    //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_3x(vpdpbusds, Vpdpbusds, Vec, Vec, Vec)                  //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_3x(vpdpbusds, Vpdpbusds, Vec, Vec, Mem)                  //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_3x(vpdpwssd, Vpdpwssd, Vec, Vec, Vec)                    //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_3x(vpdpwssd, Vpdpwssd, Vec, Vec, Mem)                    //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_3x(vpdpwssds, Vpdpwssds, Vec, Vec, Vec)                  //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_3x(vpdpwssds, Vpdpwssds, Vec, Vec, Mem)                  //      AVX512_VNNI{kz|b32}
-  ASMJIT_INST_4i(vperm2f128, Vperm2f128, Vec, Vec, Vec, Imm)           // AVX
-  ASMJIT_INST_4i(vperm2f128, Vperm2f128, Vec, Vec, Mem, Imm)           // AVX
-  ASMJIT_INST_4i(vperm2i128, Vperm2i128, Vec, Vec, Vec, Imm)           // AVX2
-  ASMJIT_INST_4i(vperm2i128, Vperm2i128, Vec, Vec, Mem, Imm)           // AVX2
+  ASMJIT_INST_3x(vpdpbusd, Vpdpbusd, Vec, Vec, Vec)                    // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_3x(vpdpbusd, Vpdpbusd, Vec, Vec, Mem)                    // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_3x(vpdpbusds, Vpdpbusds, Vec, Vec, Vec)                  // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_3x(vpdpbusds, Vpdpbusds, Vec, Vec, Mem)                  // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_3x(vpdpwssd, Vpdpwssd, Vec, Vec, Vec)                    // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_3x(vpdpwssd, Vpdpwssd, Vec, Vec, Mem)                    // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_3x(vpdpwssds, Vpdpwssds, Vec, Vec, Vec)                  // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_3x(vpdpwssds, Vpdpwssds, Vec, Vec, Mem)                  // AVX_VNNI AVX512_VNNI{kz|b32}
+  ASMJIT_INST_4x(vperm2f128, Vperm2f128, Vec, Vec, Vec, Imm)           // AVX
+  ASMJIT_INST_4x(vperm2f128, Vperm2f128, Vec, Vec, Mem, Imm)           // AVX
+  ASMJIT_INST_4x(vperm2i128, Vperm2i128, Vec, Vec, Vec, Imm)           // AVX2
+  ASMJIT_INST_4x(vperm2i128, Vperm2i128, Vec, Vec, Mem, Imm)           // AVX2
   ASMJIT_INST_3x(vpermb, Vpermb, Vec, Vec, Vec)                        //      AVX512_VBMI{kz}
   ASMJIT_INST_3x(vpermb, Vpermb, Vec, Vec, Mem)                        //      AVX512_VBMI{kz}
   ASMJIT_INST_3x(vpermd, Vpermd, Vec, Vec, Vec)                        // AVX2 AVX512_F{kz|b32}
@@ -2977,18 +2963,20 @@ public:
   ASMJIT_INST_3x(vpermi2w, Vpermi2w, Vec, Vec, Mem)                    //      AVX512_BW{kz}
   ASMJIT_INST_3x(vpermilpd, Vpermilpd, Vec, Vec, Vec)                  // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpermilpd, Vpermilpd, Vec, Vec, Mem)                  // AVX  AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vpermilpd, Vpermilpd, Vec, Vec, Imm)                  // AVX  AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vpermilpd, Vpermilpd, Vec, Mem, Imm)                  // AVX  AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermilpd, Vpermilpd, Vec, Vec, Imm)                  // AVX  AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermilpd, Vpermilpd, Vec, Mem, Imm)                  // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpermilps, Vpermilps, Vec, Vec, Vec)                  // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpermilps, Vpermilps, Vec, Vec, Mem)                  // AVX  AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vpermilps, Vpermilps, Vec, Vec, Imm)                  // AVX  AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vpermilps, Vpermilps, Vec, Mem, Imm)                  // AVX  AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vpermpd, Vpermpd, Vec, Vec, Imm)                      // AVX2
-  ASMJIT_INST_3i(vpermpd, Vpermpd, Vec, Mem, Imm)                      // AVX2
-  ASMJIT_INST_3x(vpermps, Vpermps, Vec, Vec, Vec)                      // AVX2
-  ASMJIT_INST_3x(vpermps, Vpermps, Vec, Vec, Mem)                      // AVX2
-  ASMJIT_INST_3i(vpermq, Vpermq, Vec, Vec, Imm)                        // AVX2 AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vpermq, Vpermq, Vec, Mem, Imm)                        // AVX2 AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermilps, Vpermilps, Vec, Vec, Imm)                  // AVX  AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermilps, Vpermilps, Vec, Mem, Imm)                  // AVX  AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermpd, Vpermpd, Vec, Vec, Imm)                      // AVX2
+  ASMJIT_INST_3x(vpermpd, Vpermpd, Vec, Mem, Imm)                      // AVX2
+  ASMJIT_INST_3x(vpermpd, Vpermpd, Vec, Vec, Vec)                      //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermpd, Vpermpd, Vec, Vec, Mem)                      //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermps, Vpermps, Vec, Vec, Vec)                      // AVX2 AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpermps, Vpermps, Vec, Vec, Mem)                      // AVX2 AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpermq, Vpermq, Vec, Vec, Imm)                        // AVX2 AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpermq, Vpermq, Vec, Mem, Imm)                        // AVX2 AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpermq, Vpermq, Vec, Vec, Vec)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpermq, Vpermq, Vec, Vec, Mem)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpermt2b, Vpermt2b, Vec, Vec, Vec)                    //      AVX512_VBMI{kz}
@@ -3013,14 +3001,14 @@ public:
   ASMJIT_INST_2x(vpexpandq, Vpexpandq, Vec, Mem)                       //      AVX512_F{kz}
   ASMJIT_INST_2x(vpexpandw, Vpexpandw, Vec, Vec)                       //      AVX512_VBMI2{kz}
   ASMJIT_INST_2x(vpexpandw, Vpexpandw, Vec, Mem)                       //      AVX512_VBMI2{kz}
-  ASMJIT_INST_3i(vpextrb, Vpextrb, Gp, Xmm, Imm)                       // AVX  AVX512_BW
-  ASMJIT_INST_3i(vpextrb, Vpextrb, Mem, Xmm, Imm)                      // AVX  AVX512_BW
-  ASMJIT_INST_3i(vpextrd, Vpextrd, Gp, Xmm, Imm)                       // AVX  AVX512_DQ
-  ASMJIT_INST_3i(vpextrd, Vpextrd, Mem, Xmm, Imm)                      // AVX  AVX512_DQ
-  ASMJIT_INST_3i(vpextrq, Vpextrq, Gp, Xmm, Imm)                       // AVX  AVX512_DQ
-  ASMJIT_INST_3i(vpextrq, Vpextrq, Mem, Xmm, Imm)                      // AVX  AVX512_DQ
-  ASMJIT_INST_3i(vpextrw, Vpextrw, Gp, Xmm, Imm)                       // AVX  AVX512_BW
-  ASMJIT_INST_3i(vpextrw, Vpextrw, Mem, Xmm, Imm)                      // AVX  AVX512_BW
+  ASMJIT_INST_3x(vpextrb, Vpextrb, Gp, Xmm, Imm)                       // AVX  AVX512_BW
+  ASMJIT_INST_3x(vpextrb, Vpextrb, Mem, Xmm, Imm)                      // AVX  AVX512_BW
+  ASMJIT_INST_3x(vpextrd, Vpextrd, Gp, Xmm, Imm)                       // AVX  AVX512_DQ
+  ASMJIT_INST_3x(vpextrd, Vpextrd, Mem, Xmm, Imm)                      // AVX  AVX512_DQ
+  ASMJIT_INST_3x(vpextrq, Vpextrq, Gp, Xmm, Imm)                       // AVX  AVX512_DQ
+  ASMJIT_INST_3x(vpextrq, Vpextrq, Mem, Xmm, Imm)                      // AVX  AVX512_DQ
+  ASMJIT_INST_3x(vpextrw, Vpextrw, Gp, Xmm, Imm)                       // AVX  AVX512_BW
+  ASMJIT_INST_3x(vpextrw, Vpextrw, Mem, Xmm, Imm)                      // AVX  AVX512_BW
   ASMJIT_INST_2x(vpgatherdd, Vpgatherdd, Vec, Mem)                     //      AVX512_F{k}
   ASMJIT_INST_3x(vpgatherdd, Vpgatherdd, Vec, Mem, Vec)                // AVX2
   ASMJIT_INST_2x(vpgatherdq, Vpgatherdq, Vec, Mem)                     //      AVX512_F{k}
@@ -3043,14 +3031,14 @@ public:
   ASMJIT_INST_3x(vphsubsw, Vphsubsw, Vec, Vec, Mem)                    // AVX+
   ASMJIT_INST_3x(vphsubw, Vphsubw, Vec, Vec, Vec)                      // AVX+
   ASMJIT_INST_3x(vphsubw, Vphsubw, Vec, Vec, Mem)                      // AVX+
-  ASMJIT_INST_4i(vpinsrb, Vpinsrb, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_BW{kz}
-  ASMJIT_INST_4i(vpinsrb, Vpinsrb, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_BW{kz}
-  ASMJIT_INST_4i(vpinsrd, Vpinsrd, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_DQ{kz}
-  ASMJIT_INST_4i(vpinsrd, Vpinsrd, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_DQ{kz}
-  ASMJIT_INST_4i(vpinsrq, Vpinsrq, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_DQ{kz}
-  ASMJIT_INST_4i(vpinsrq, Vpinsrq, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_DQ{kz}
-  ASMJIT_INST_4i(vpinsrw, Vpinsrw, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_BW{kz}
-  ASMJIT_INST_4i(vpinsrw, Vpinsrw, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_BW{kz}
+  ASMJIT_INST_4x(vpinsrb, Vpinsrb, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_BW{kz}
+  ASMJIT_INST_4x(vpinsrb, Vpinsrb, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_BW{kz}
+  ASMJIT_INST_4x(vpinsrd, Vpinsrd, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_DQ{kz}
+  ASMJIT_INST_4x(vpinsrd, Vpinsrd, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_DQ{kz}
+  ASMJIT_INST_4x(vpinsrq, Vpinsrq, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_DQ{kz}
+  ASMJIT_INST_4x(vpinsrq, Vpinsrq, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_DQ{kz}
+  ASMJIT_INST_4x(vpinsrw, Vpinsrw, Xmm, Xmm, Gp, Imm)                  // AVX  AVX512_BW{kz}
+  ASMJIT_INST_4x(vpinsrw, Vpinsrw, Xmm, Xmm, Mem, Imm)                 // AVX  AVX512_BW{kz}
   ASMJIT_INST_2x(vplzcntd, Vplzcntd, Vec, Vec)                         //      AVX512_CD{kz|b32}
   ASMJIT_INST_2x(vplzcntd, Vplzcntd, Vec, Mem)                         //      AVX512_CD{kz|b32}
   ASMJIT_INST_2x(vplzcntq, Vplzcntq, Vec, Vec)                         //      AVX512_CD{kz|b64}
@@ -3200,18 +3188,18 @@ public:
   ASMJIT_INST_3x(vpord, Vpord, Vec, Vec, Mem)                          //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vporq, Vporq, Vec, Vec, Vec)                          //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vporq, Vporq, Vec, Vec, Mem)                          //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vprold, Vprold, Vec, Vec, Imm)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vprold, Vprold, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vprolq, Vprolq, Vec, Vec, Imm)                        //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vprolq, Vprolq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vprold, Vprold, Vec, Vec, Imm)                        //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vprold, Vprold, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vprolq, Vprolq, Vec, Vec, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vprolq, Vprolq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vprolvd, Vprolvd, Vec, Vec, Vec)                      //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vprolvd, Vprolvd, Vec, Vec, Mem)                      //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vprolvq, Vprolvq, Vec, Vec, Vec)                      //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vprolvq, Vprolvq, Vec, Vec, Mem)                      //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vprord, Vprord, Vec, Vec, Imm)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vprord, Vprord, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vprorq, Vprorq, Vec, Vec, Imm)                        //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vprorq, Vprorq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vprord, Vprord, Vec, Vec, Imm)                        //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vprord, Vprord, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vprorq, Vprorq, Vec, Vec, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vprorq, Vprorq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vprorvd, Vprorvd, Vec, Vec, Vec)                      //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vprorvd, Vprorvd, Vec, Vec, Mem)                      //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vprorvq, Vprorvq, Vec, Vec, Vec)                      //      AVX512_F{kz|b64}
@@ -3222,98 +3210,104 @@ public:
   ASMJIT_INST_2x(vpscatterdq, Vpscatterdq, Mem, Vec)                   //      AVX512_F{k}
   ASMJIT_INST_2x(vpscatterqd, Vpscatterqd, Mem, Vec)                   //      AVX512_F{k}
   ASMJIT_INST_2x(vpscatterqq, Vpscatterqq, Mem, Vec)                   //      AVX512_F{k}
-  ASMJIT_INST_4i(vpshldd, Vpshldd, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
-  ASMJIT_INST_4i(vpshldd, Vpshldd, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshldd, Vpshldd, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshldd, Vpshldd, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshldq, Vpshldq, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshldq, Vpshldq, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshldvd, Vpshldvd, Vec, Vec, Vec)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshldvd, Vpshldvd, Vec, Vec, Mem)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshldvq, Vpshldvq, Vec, Vec, Vec)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshldvq, Vpshldvq, Vec, Vec, Mem)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshldvw, Vpshldvw, Vec, Vec, Vec)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshldvw, Vpshldvw, Vec, Vec, Mem)                    //      AVX512_VBMI2{kz}
-  ASMJIT_INST_4i(vpshrdd, Vpshrdd, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
-  ASMJIT_INST_4i(vpshrdd, Vpshrdd, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshldw, Vpshldw, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshldw, Vpshldw, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshrdd, Vpshrdd, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshrdd, Vpshrdd, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshrdq, Vpshrdq, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshrdq, Vpshrdq, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshrdvd, Vpshrdvd, Vec, Vec, Vec)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshrdvd, Vpshrdvd, Vec, Vec, Mem)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshrdvq, Vpshrdvq, Vec, Vec, Vec)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshrdvq, Vpshrdvq, Vec, Vec, Mem)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshrdvw, Vpshrdvw, Vec, Vec, Vec)                    //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshrdvw, Vpshrdvw, Vec, Vec, Mem)                    //      AVX512_VBMI2{kz}
-  ASMJIT_INST_4i(vpshrdw, Vpshrdw, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
-  ASMJIT_INST_4i(vpshrdw, Vpshrdw, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshrdw, Vpshrdw, Vec, Vec, Vec, Imm)                 //      AVX512_VBMI2{kz}
+  ASMJIT_INST_4x(vpshrdw, Vpshrdw, Vec, Vec, Mem, Imm)                 //      AVX512_VBMI2{kz}
   ASMJIT_INST_3x(vpshufb, Vpshufb, Vec, Vec, Vec)                      // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpshufb, Vpshufb, Vec, Vec, Mem)                      // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpshufbitqmb, Vpshufbitqmb, KReg, Vec, Vec)           //      AVX512_BITALG{k}
   ASMJIT_INST_3x(vpshufbitqmb, Vpshufbitqmb, KReg, Vec, Mem)           //      AVX512_BITALG{k}
-  ASMJIT_INST_3i(vpshufd, Vpshufd, Vec, Vec, Imm)                      // AVX+ AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vpshufd, Vpshufd, Vec, Mem, Imm)                      // AVX+ AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vpshufhw, Vpshufhw, Vec, Vec, Imm)                    // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_3i(vpshufhw, Vpshufhw, Vec, Mem, Imm)                    // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_3i(vpshuflw, Vpshuflw, Vec, Vec, Imm)                    // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_3i(vpshuflw, Vpshuflw, Vec, Mem, Imm)                    // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_3x(vpshufd, Vpshufd, Vec, Vec, Imm)                      // AVX+ AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpshufd, Vpshufd, Vec, Mem, Imm)                      // AVX+ AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpshufhw, Vpshufhw, Vec, Vec, Imm)                    // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_3x(vpshufhw, Vpshufhw, Vec, Mem, Imm)                    // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_3x(vpshuflw, Vpshuflw, Vec, Vec, Imm)                    // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_3x(vpshuflw, Vpshuflw, Vec, Mem, Imm)                    // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsignb, Vpsignb, Vec, Vec, Vec)                      // AVX+
   ASMJIT_INST_3x(vpsignb, Vpsignb, Vec, Vec, Mem)                      // AVX+
   ASMJIT_INST_3x(vpsignd, Vpsignd, Vec, Vec, Vec)                      // AVX+
   ASMJIT_INST_3x(vpsignd, Vpsignd, Vec, Vec, Mem)                      // AVX+
   ASMJIT_INST_3x(vpsignw, Vpsignw, Vec, Vec, Vec)                      // AVX+
   ASMJIT_INST_3x(vpsignw, Vpsignw, Vec, Vec, Mem)                      // AVX+
-  ASMJIT_INST_3i(vpslld, Vpslld, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpslld, Vpslld, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpslld, Vpslld, Vec, Vec, Vec)                        // AVX+ AVX512_F{kz}
   ASMJIT_INST_3x(vpslld, Vpslld, Vec, Vec, Mem)                        // AVX+ AVX512_F{kz}
-  ASMJIT_INST_3i(vpslld, Vpslld, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vpslldq, Vpslldq, Vec, Vec, Imm)                      // AVX+ AVX512_BW
-  ASMJIT_INST_3i(vpslldq, Vpslldq, Vec, Mem, Imm)                      //      AVX512_BW
-  ASMJIT_INST_3i(vpsllq, Vpsllq, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpslld, Vpslld, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpslldq, Vpslldq, Vec, Vec, Imm)                      // AVX+ AVX512_BW
+  ASMJIT_INST_3x(vpslldq, Vpslldq, Vec, Mem, Imm)                      //      AVX512_BW
+  ASMJIT_INST_3x(vpsllq, Vpsllq, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsllq, Vpsllq, Vec, Vec, Vec)                        // AVX+ AVX512_F{kz}
   ASMJIT_INST_3x(vpsllq, Vpsllq, Vec, Vec, Mem)                        // AVX+ AVX512_F{kz}
-  ASMJIT_INST_3i(vpsllq, Vpsllq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpsllq, Vpsllq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsllvd, Vpsllvd, Vec, Vec, Vec)                      // AVX2 AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsllvd, Vpsllvd, Vec, Vec, Mem)                      // AVX2 AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsllvq, Vpsllvq, Vec, Vec, Vec)                      // AVX2 AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsllvq, Vpsllvq, Vec, Vec, Mem)                      // AVX2 AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsllvw, Vpsllvw, Vec, Vec, Vec)                      //      AVX512_BW{kz}
   ASMJIT_INST_3x(vpsllvw, Vpsllvw, Vec, Vec, Mem)                      //      AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsllw, Vpsllw, Vec, Vec, Imm)                        // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_3x(vpsllw, Vpsllw, Vec, Vec, Imm)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsllw, Vpsllw, Vec, Vec, Vec)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsllw, Vpsllw, Vec, Vec, Mem)                        // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsllw, Vpsllw, Vec, Mem, Imm)                        //      AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsrad, Vpsrad, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpsllw, Vpsllw, Vec, Mem, Imm)                        //      AVX512_BW{kz}
+  ASMJIT_INST_3x(vpsrad, Vpsrad, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsrad, Vpsrad, Vec, Vec, Vec)                        // AVX+ AVX512_F{kz}
   ASMJIT_INST_3x(vpsrad, Vpsrad, Vec, Vec, Mem)                        // AVX+ AVX512_F{kz}
-  ASMJIT_INST_3i(vpsrad, Vpsrad, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpsrad, Vpsrad, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsraq, Vpsraq, Vec, Vec, Vec)                        //      AVX512_F{kz}
   ASMJIT_INST_3x(vpsraq, Vpsraq, Vec, Vec, Mem)                        //      AVX512_F{kz}
-  ASMJIT_INST_3i(vpsraq, Vpsraq, Vec, Vec, Imm)                        //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vpsraq, Vpsraq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpsraq, Vpsraq, Vec, Vec, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpsraq, Vpsraq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsravd, Vpsravd, Vec, Vec, Vec)                      // AVX2 AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsravd, Vpsravd, Vec, Vec, Mem)                      // AVX2 AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsravq, Vpsravq, Vec, Vec, Vec)                      //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsravq, Vpsravq, Vec, Vec, Mem)                      //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsravw, Vpsravw, Vec, Vec, Vec)                      //      AVX512_BW{kz}
   ASMJIT_INST_3x(vpsravw, Vpsravw, Vec, Vec, Mem)                      //      AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsraw, Vpsraw, Vec, Vec, Imm)                        // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_3x(vpsraw, Vpsraw, Vec, Vec, Imm)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsraw, Vpsraw, Vec, Vec, Vec)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsraw, Vpsraw, Vec, Vec, Mem)                        // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsraw, Vpsraw, Vec, Mem, Imm)                        //      AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsrld, Vpsrld, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpsraw, Vpsraw, Vec, Mem, Imm)                        //      AVX512_BW{kz}
+  ASMJIT_INST_3x(vpsrld, Vpsrld, Vec, Vec, Imm)                        // AVX+ AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsrld, Vpsrld, Vec, Vec, Vec)                        // AVX+ AVX512_F{kz}
   ASMJIT_INST_3x(vpsrld, Vpsrld, Vec, Vec, Mem)                        // AVX+ AVX512_F{kz}
-  ASMJIT_INST_3i(vpsrld, Vpsrld, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vpsrldq, Vpsrldq, Vec, Vec, Imm)                      // AVX+ AVX512_BW
-  ASMJIT_INST_3i(vpsrldq, Vpsrldq, Vec, Mem, Imm)                      //      AVX512_BW
-  ASMJIT_INST_3i(vpsrlq, Vpsrlq, Vec, Vec, Imm)                        // AVX  AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpsrld, Vpsrld, Vec, Mem, Imm)                        //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vpsrldq, Vpsrldq, Vec, Vec, Imm)                      // AVX+ AVX512_BW
+  ASMJIT_INST_3x(vpsrldq, Vpsrldq, Vec, Mem, Imm)                      //      AVX512_BW
+  ASMJIT_INST_3x(vpsrlq, Vpsrlq, Vec, Vec, Imm)                        // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsrlq, Vpsrlq, Vec, Vec, Vec)                        // AVX  AVX512_F{kz}
   ASMJIT_INST_3x(vpsrlq, Vpsrlq, Vec, Vec, Mem)                        // AVX  AVX512_F{kz}
-  ASMJIT_INST_3i(vpsrlq, Vpsrlq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vpsrlq, Vpsrlq, Vec, Mem, Imm)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsrlvd, Vpsrlvd, Vec, Vec, Vec)                      // AVX2 AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsrlvd, Vpsrlvd, Vec, Vec, Mem)                      // AVX2 AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpsrlvq, Vpsrlvq, Vec, Vec, Vec)                      // AVX2 AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsrlvq, Vpsrlvq, Vec, Vec, Mem)                      // AVX2 AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpsrlvw, Vpsrlvw, Vec, Vec, Vec)                      //      AVX512_BW{kz}
   ASMJIT_INST_3x(vpsrlvw, Vpsrlvw, Vec, Vec, Mem)                      //      AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsrlw, Vpsrlw, Vec, Vec, Imm)                        // AVX+ AVX512_BW{kz}
+  ASMJIT_INST_3x(vpsrlw, Vpsrlw, Vec, Vec, Imm)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsrlw, Vpsrlw, Vec, Vec, Vec)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsrlw, Vpsrlw, Vec, Vec, Mem)                        // AVX+ AVX512_BW{kz}
-  ASMJIT_INST_3i(vpsrlw, Vpsrlw, Vec, Mem, Imm)                        //      AVX512_BW{kz}
+  ASMJIT_INST_3x(vpsrlw, Vpsrlw, Vec, Mem, Imm)                        //      AVX512_BW{kz}
   ASMJIT_INST_3x(vpsubb, Vpsubb, Vec, Vec, Vec)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsubb, Vpsubb, Vec, Vec, Mem)                        // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsubd, Vpsubd, Vec, Vec, Vec)                        // AVX+ AVX512_F{kz|b32}
@@ -3330,10 +3324,10 @@ public:
   ASMJIT_INST_3x(vpsubusw, Vpsubusw, Vec, Vec, Mem)                    // AVX+ AVX512_BW{kz}
   ASMJIT_INST_3x(vpsubw, Vpsubw, Vec, Vec, Vec)                        // AVX  AVX512_BW{kz}
   ASMJIT_INST_3x(vpsubw, Vpsubw, Vec, Vec, Mem)                        // AVX  AVX512_BW{kz}
-  ASMJIT_INST_4i(vpternlogd, Vpternlogd, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vpternlogd, Vpternlogd, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vpternlogq, Vpternlogq, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vpternlogq, Vpternlogq, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vpternlogd, Vpternlogd, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vpternlogd, Vpternlogd, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vpternlogq, Vpternlogq, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vpternlogq, Vpternlogq, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b64}
   ASMJIT_INST_2x(vptest, Vptest, Vec, Vec)                             // AVX
   ASMJIT_INST_2x(vptest, Vptest, Vec, Mem)                             // AVX
   ASMJIT_INST_3x(vptestmb, Vptestmb, KReg, Vec, Vec)                   //      AVX512_BW{k}
@@ -3374,14 +3368,14 @@ public:
   ASMJIT_INST_3x(vpxord, Vpxord, Vec, Vec, Mem)                        //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpxorq, Vpxorq, Vec, Vec, Vec)                        //      AVX512_F{kz|b64}
   ASMJIT_INST_3x(vpxorq, Vpxorq, Vec, Vec, Mem)                        //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vrangepd, Vrangepd, Vec, Vec, Vec, Imm)               //      AVX512_DQ{kz|b64}
-  ASMJIT_INST_4i(vrangepd, Vrangepd, Vec, Vec, Mem, Imm)               //      AVX512_DQ{kz|b64}
-  ASMJIT_INST_4i(vrangeps, Vrangeps, Vec, Vec, Vec, Imm)               //      AVX512_DQ{kz|b32}
-  ASMJIT_INST_4i(vrangeps, Vrangeps, Vec, Vec, Mem, Imm)               //      AVX512_DQ{kz|b32}
-  ASMJIT_INST_4i(vrangesd, Vrangesd, Xmm, Xmm, Xmm, Imm)               //      AVX512_DQ{kz|sae}
-  ASMJIT_INST_4i(vrangesd, Vrangesd, Xmm, Xmm, Mem, Imm)               //      AVX512_DQ{kz|sae}
-  ASMJIT_INST_4i(vrangess, Vrangess, Xmm, Xmm, Xmm, Imm)               //      AVX512_DQ{kz|sae}
-  ASMJIT_INST_4i(vrangess, Vrangess, Xmm, Xmm, Mem, Imm)               //      AVX512_DQ{kz|sae}
+  ASMJIT_INST_4x(vrangepd, Vrangepd, Vec, Vec, Vec, Imm)               //      AVX512_DQ{kz|b64}
+  ASMJIT_INST_4x(vrangepd, Vrangepd, Vec, Vec, Mem, Imm)               //      AVX512_DQ{kz|b64}
+  ASMJIT_INST_4x(vrangeps, Vrangeps, Vec, Vec, Vec, Imm)               //      AVX512_DQ{kz|b32}
+  ASMJIT_INST_4x(vrangeps, Vrangeps, Vec, Vec, Mem, Imm)               //      AVX512_DQ{kz|b32}
+  ASMJIT_INST_4x(vrangesd, Vrangesd, Xmm, Xmm, Xmm, Imm)               //      AVX512_DQ{kz|sae}
+  ASMJIT_INST_4x(vrangesd, Vrangesd, Xmm, Xmm, Mem, Imm)               //      AVX512_DQ{kz|sae}
+  ASMJIT_INST_4x(vrangess, Vrangess, Xmm, Xmm, Xmm, Imm)               //      AVX512_DQ{kz|sae}
+  ASMJIT_INST_4x(vrangess, Vrangess, Xmm, Xmm, Mem, Imm)               //      AVX512_DQ{kz|sae}
   ASMJIT_INST_2x(vrcp14pd, Vrcp14pd, Vec, Vec)                         //      AVX512_F{kz|b64}
   ASMJIT_INST_2x(vrcp14pd, Vrcp14pd, Vec, Mem)                         //      AVX512_F{kz|b64}
   ASMJIT_INST_2x(vrcp14ps, Vrcp14ps, Vec, Vec)                         //      AVX512_F{kz|b32}
@@ -3402,30 +3396,30 @@ public:
   ASMJIT_INST_2x(vrcpps, Vrcpps, Vec, Mem)                             // AVX
   ASMJIT_INST_3x(vrcpss, Vrcpss, Xmm, Xmm, Xmm)                        // AVX
   ASMJIT_INST_3x(vrcpss, Vrcpss, Xmm, Xmm, Mem)                        // AVX
-  ASMJIT_INST_3i(vreducepd, Vreducepd, Vec, Vec, Imm)                  //      AVX512_DQ{kz|b64}
-  ASMJIT_INST_3i(vreducepd, Vreducepd, Vec, Mem, Imm)                  //      AVX512_DQ{kz|b64}
-  ASMJIT_INST_3i(vreduceps, Vreduceps, Vec, Vec, Imm)                  //      AVX512_DQ{kz|b32}
-  ASMJIT_INST_3i(vreduceps, Vreduceps, Vec, Mem, Imm)                  //      AVX512_DQ{kz|b32}
-  ASMJIT_INST_4i(vreducesd, Vreducesd, Xmm, Xmm, Xmm, Imm)             //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vreducesd, Vreducesd, Xmm, Xmm, Mem, Imm)             //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vreducess, Vreducess, Xmm, Xmm, Xmm, Imm)             //      AVX512_DQ{kz}
-  ASMJIT_INST_4i(vreducess, Vreducess, Xmm, Xmm, Mem, Imm)             //      AVX512_DQ{kz}
-  ASMJIT_INST_3i(vrndscalepd, Vrndscalepd, Vec, Vec, Imm)              //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vrndscalepd, Vrndscalepd, Vec, Mem, Imm)              //      AVX512_F{kz|b64}
-  ASMJIT_INST_3i(vrndscaleps, Vrndscaleps, Vec, Vec, Imm)              //      AVX512_F{kz|b32}
-  ASMJIT_INST_3i(vrndscaleps, Vrndscaleps, Vec, Mem, Imm)              //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vrndscalesd, Vrndscalesd, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vrndscalesd, Vrndscalesd, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vrndscaless, Vrndscaless, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
-  ASMJIT_INST_4i(vrndscaless, Vrndscaless, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
-  ASMJIT_INST_3i(vroundpd, Vroundpd, Vec, Vec, Imm)                    // AVX
-  ASMJIT_INST_3i(vroundpd, Vroundpd, Vec, Mem, Imm)                    // AVX
-  ASMJIT_INST_3i(vroundps, Vroundps, Vec, Vec, Imm)                    // AVX
-  ASMJIT_INST_3i(vroundps, Vroundps, Vec, Mem, Imm)                    // AVX
-  ASMJIT_INST_4i(vroundsd, Vroundsd, Xmm, Xmm, Xmm, Imm)               // AVX
-  ASMJIT_INST_4i(vroundsd, Vroundsd, Xmm, Xmm, Mem, Imm)               // AVX
-  ASMJIT_INST_4i(vroundss, Vroundss, Xmm, Xmm, Xmm, Imm)               // AVX
-  ASMJIT_INST_4i(vroundss, Vroundss, Xmm, Xmm, Mem, Imm)               // AVX
+  ASMJIT_INST_3x(vreducepd, Vreducepd, Vec, Vec, Imm)                  //      AVX512_DQ{kz|b64}
+  ASMJIT_INST_3x(vreducepd, Vreducepd, Vec, Mem, Imm)                  //      AVX512_DQ{kz|b64}
+  ASMJIT_INST_3x(vreduceps, Vreduceps, Vec, Vec, Imm)                  //      AVX512_DQ{kz|b32}
+  ASMJIT_INST_3x(vreduceps, Vreduceps, Vec, Mem, Imm)                  //      AVX512_DQ{kz|b32}
+  ASMJIT_INST_4x(vreducesd, Vreducesd, Xmm, Xmm, Xmm, Imm)             //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vreducesd, Vreducesd, Xmm, Xmm, Mem, Imm)             //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vreducess, Vreducess, Xmm, Xmm, Xmm, Imm)             //      AVX512_DQ{kz}
+  ASMJIT_INST_4x(vreducess, Vreducess, Xmm, Xmm, Mem, Imm)             //      AVX512_DQ{kz}
+  ASMJIT_INST_3x(vrndscalepd, Vrndscalepd, Vec, Vec, Imm)              //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vrndscalepd, Vrndscalepd, Vec, Mem, Imm)              //      AVX512_F{kz|b64}
+  ASMJIT_INST_3x(vrndscaleps, Vrndscaleps, Vec, Vec, Imm)              //      AVX512_F{kz|b32}
+  ASMJIT_INST_3x(vrndscaleps, Vrndscaleps, Vec, Mem, Imm)              //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vrndscalesd, Vrndscalesd, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vrndscalesd, Vrndscalesd, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vrndscaless, Vrndscaless, Xmm, Xmm, Xmm, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_4x(vrndscaless, Vrndscaless, Xmm, Xmm, Mem, Imm)         //      AVX512_F{kz|sae}
+  ASMJIT_INST_3x(vroundpd, Vroundpd, Vec, Vec, Imm)                    // AVX
+  ASMJIT_INST_3x(vroundpd, Vroundpd, Vec, Mem, Imm)                    // AVX
+  ASMJIT_INST_3x(vroundps, Vroundps, Vec, Vec, Imm)                    // AVX
+  ASMJIT_INST_3x(vroundps, Vroundps, Vec, Mem, Imm)                    // AVX
+  ASMJIT_INST_4x(vroundsd, Vroundsd, Xmm, Xmm, Xmm, Imm)               // AVX
+  ASMJIT_INST_4x(vroundsd, Vroundsd, Xmm, Xmm, Mem, Imm)               // AVX
+  ASMJIT_INST_4x(vroundss, Vroundss, Xmm, Xmm, Xmm, Imm)               // AVX
+  ASMJIT_INST_4x(vroundss, Vroundss, Xmm, Xmm, Mem, Imm)               // AVX
   ASMJIT_INST_2x(vrsqrt14pd, Vrsqrt14pd, Vec, Vec)                     //      AVX512_F{kz|b64}
   ASMJIT_INST_2x(vrsqrt14pd, Vrsqrt14pd, Vec, Mem)                     //      AVX512_F{kz|b64}
   ASMJIT_INST_2x(vrsqrt14ps, Vrsqrt14ps, Vec, Vec)                     //      AVX512_F{kz|b32}
@@ -3466,18 +3460,18 @@ public:
   ASMJIT_INST_1x(vscatterpf1qps, Vscatterpf1qps, Mem)                  //      AVX512_PF{k}
   ASMJIT_INST_2x(vscatterqpd, Vscatterqpd, Mem, Vec)                   //      AVX512_F{k}
   ASMJIT_INST_2x(vscatterqps, Vscatterqps, Mem, Vec)                   //      AVX512_F{k}
-  ASMJIT_INST_4i(vshuff32x4, Vshuff32x4, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vshuff32x4, Vshuff32x4, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vshuff64x2, Vshuff64x2, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vshuff64x2, Vshuff64x2, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vshufi32x4, Vshufi32x4, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vshufi32x4, Vshufi32x4, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vshufi64x2, Vshufi64x2, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vshufi64x2, Vshufi64x2, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vshufpd, Vshufpd, Vec, Vec, Vec, Imm)                 // AVX  AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vshufpd, Vshufpd, Vec, Vec, Mem, Imm)                 // AVX  AVX512_F{kz|b32}
-  ASMJIT_INST_4i(vshufps, Vshufps, Vec, Vec, Vec, Imm)                 // AVX  AVX512_F{kz|b64}
-  ASMJIT_INST_4i(vshufps, Vshufps, Vec, Vec, Mem, Imm)                 // AVX  AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vshuff32x4, Vshuff32x4, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vshuff32x4, Vshuff32x4, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vshuff64x2, Vshuff64x2, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vshuff64x2, Vshuff64x2, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vshufi32x4, Vshufi32x4, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vshufi32x4, Vshufi32x4, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vshufi64x2, Vshufi64x2, Vec, Vec, Vec, Imm)           //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vshufi64x2, Vshufi64x2, Vec, Vec, Mem, Imm)           //      AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vshufpd, Vshufpd, Vec, Vec, Vec, Imm)                 // AVX  AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vshufpd, Vshufpd, Vec, Vec, Mem, Imm)                 // AVX  AVX512_F{kz|b32}
+  ASMJIT_INST_4x(vshufps, Vshufps, Vec, Vec, Vec, Imm)                 // AVX  AVX512_F{kz|b64}
+  ASMJIT_INST_4x(vshufps, Vshufps, Vec, Vec, Mem, Imm)                 // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_2x(vsqrtpd, Vsqrtpd, Vec, Vec)                           // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_2x(vsqrtpd, Vsqrtpd, Vec, Mem)                           // AVX  AVX512_F{kz|b64}
   ASMJIT_INST_2x(vsqrtps, Vsqrtps, Vec, Vec)                           // AVX  AVX512_F{kz|b32}
@@ -3600,28 +3594,28 @@ public:
   ASMJIT_INST_4x(vpcmov, Vpcmov, Vec, Vec, Vec, Vec)                   // XOP
   ASMJIT_INST_4x(vpcmov, Vpcmov, Vec, Vec, Mem, Vec)                   // XOP
   ASMJIT_INST_4x(vpcmov, Vpcmov, Vec, Vec, Vec, Mem)                   // XOP
-  ASMJIT_INST_4i(vpcomb, Vpcomb, Xmm, Xmm, Xmm, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomb, Vpcomb, Xmm, Xmm, Mem, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomd, Vpcomd, Xmm, Xmm, Xmm, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomd, Vpcomd, Xmm, Xmm, Mem, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomq, Vpcomq, Xmm, Xmm, Xmm, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomq, Vpcomq, Xmm, Xmm, Mem, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomw, Vpcomw, Xmm, Xmm, Xmm, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomw, Vpcomw, Xmm, Xmm, Mem, Imm)                   // XOP
-  ASMJIT_INST_4i(vpcomub, Vpcomub, Xmm, Xmm, Xmm, Imm)                 // XOP
-  ASMJIT_INST_4i(vpcomub, Vpcomub, Xmm, Xmm, Mem, Imm)                 // XOP
-  ASMJIT_INST_4i(vpcomud, Vpcomud, Xmm, Xmm, Xmm, Imm)                 // XOP
-  ASMJIT_INST_4i(vpcomud, Vpcomud, Xmm, Xmm, Mem, Imm)                 // XOP
-  ASMJIT_INST_4i(vpcomuq, Vpcomuq, Xmm, Xmm, Xmm, Imm)                 // XOP
-  ASMJIT_INST_4i(vpcomuq, Vpcomuq, Xmm, Xmm, Mem, Imm)                 // XOP
-  ASMJIT_INST_4i(vpcomuw, Vpcomuw, Xmm, Xmm, Xmm, Imm)                 // XOP
-  ASMJIT_INST_4i(vpcomuw, Vpcomuw, Xmm, Xmm, Mem, Imm)                 // XOP
-  ASMJIT_INST_5i(vpermil2pd, Vpermil2pd, Vec, Vec, Vec, Vec, Imm)      // XOP
-  ASMJIT_INST_5i(vpermil2pd, Vpermil2pd, Vec, Vec, Mem, Vec, Imm)      // XOP
-  ASMJIT_INST_5i(vpermil2pd, Vpermil2pd, Vec, Vec, Vec, Mem, Imm)      // XOP
-  ASMJIT_INST_5i(vpermil2ps, Vpermil2ps, Vec, Vec, Vec, Vec, Imm)      // XOP
-  ASMJIT_INST_5i(vpermil2ps, Vpermil2ps, Vec, Vec, Mem, Vec, Imm)      // XOP
-  ASMJIT_INST_5i(vpermil2ps, Vpermil2ps, Vec, Vec, Vec, Mem, Imm)      // XOP
+  ASMJIT_INST_4x(vpcomb, Vpcomb, Xmm, Xmm, Xmm, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomb, Vpcomb, Xmm, Xmm, Mem, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomd, Vpcomd, Xmm, Xmm, Xmm, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomd, Vpcomd, Xmm, Xmm, Mem, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomq, Vpcomq, Xmm, Xmm, Xmm, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomq, Vpcomq, Xmm, Xmm, Mem, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomw, Vpcomw, Xmm, Xmm, Xmm, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomw, Vpcomw, Xmm, Xmm, Mem, Imm)                   // XOP
+  ASMJIT_INST_4x(vpcomub, Vpcomub, Xmm, Xmm, Xmm, Imm)                 // XOP
+  ASMJIT_INST_4x(vpcomub, Vpcomub, Xmm, Xmm, Mem, Imm)                 // XOP
+  ASMJIT_INST_4x(vpcomud, Vpcomud, Xmm, Xmm, Xmm, Imm)                 // XOP
+  ASMJIT_INST_4x(vpcomud, Vpcomud, Xmm, Xmm, Mem, Imm)                 // XOP
+  ASMJIT_INST_4x(vpcomuq, Vpcomuq, Xmm, Xmm, Xmm, Imm)                 // XOP
+  ASMJIT_INST_4x(vpcomuq, Vpcomuq, Xmm, Xmm, Mem, Imm)                 // XOP
+  ASMJIT_INST_4x(vpcomuw, Vpcomuw, Xmm, Xmm, Xmm, Imm)                 // XOP
+  ASMJIT_INST_4x(vpcomuw, Vpcomuw, Xmm, Xmm, Mem, Imm)                 // XOP
+  ASMJIT_INST_5x(vpermil2pd, Vpermil2pd, Vec, Vec, Vec, Vec, Imm)      // XOP
+  ASMJIT_INST_5x(vpermil2pd, Vpermil2pd, Vec, Vec, Mem, Vec, Imm)      // XOP
+  ASMJIT_INST_5x(vpermil2pd, Vpermil2pd, Vec, Vec, Vec, Mem, Imm)      // XOP
+  ASMJIT_INST_5x(vpermil2ps, Vpermil2ps, Vec, Vec, Vec, Vec, Imm)      // XOP
+  ASMJIT_INST_5x(vpermil2ps, Vpermil2ps, Vec, Vec, Mem, Vec, Imm)      // XOP
+  ASMJIT_INST_5x(vpermil2ps, Vpermil2ps, Vec, Vec, Vec, Mem, Imm)      // XOP
   ASMJIT_INST_2x(vphaddbd, Vphaddbd, Xmm, Xmm)                         // XOP
   ASMJIT_INST_2x(vphaddbd, Vphaddbd, Xmm, Mem)                         // XOP
   ASMJIT_INST_2x(vphaddbq, Vphaddbq, Xmm, Xmm)                         // XOP
@@ -3682,23 +3676,23 @@ public:
   ASMJIT_INST_3x(vprotb, Vprotb, Xmm, Xmm, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotb, Vprotb, Xmm, Mem, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotb, Vprotb, Xmm, Xmm, Mem)                        // XOP
-  ASMJIT_INST_3i(vprotb, Vprotb, Xmm, Xmm, Imm)                        // XOP
-  ASMJIT_INST_3i(vprotb, Vprotb, Xmm, Mem, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotb, Vprotb, Xmm, Xmm, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotb, Vprotb, Xmm, Mem, Imm)                        // XOP
   ASMJIT_INST_3x(vprotd, Vprotd, Xmm, Xmm, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotd, Vprotd, Xmm, Mem, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotd, Vprotd, Xmm, Xmm, Mem)                        // XOP
-  ASMJIT_INST_3i(vprotd, Vprotd, Xmm, Xmm, Imm)                        // XOP
-  ASMJIT_INST_3i(vprotd, Vprotd, Xmm, Mem, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotd, Vprotd, Xmm, Xmm, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotd, Vprotd, Xmm, Mem, Imm)                        // XOP
   ASMJIT_INST_3x(vprotq, Vprotq, Xmm, Xmm, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotq, Vprotq, Xmm, Mem, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotq, Vprotq, Xmm, Xmm, Mem)                        // XOP
-  ASMJIT_INST_3i(vprotq, Vprotq, Xmm, Xmm, Imm)                        // XOP
-  ASMJIT_INST_3i(vprotq, Vprotq, Xmm, Mem, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotq, Vprotq, Xmm, Xmm, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotq, Vprotq, Xmm, Mem, Imm)                        // XOP
   ASMJIT_INST_3x(vprotw, Vprotw, Xmm, Xmm, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotw, Vprotw, Xmm, Mem, Xmm)                        // XOP
   ASMJIT_INST_3x(vprotw, Vprotw, Xmm, Xmm, Mem)                        // XOP
-  ASMJIT_INST_3i(vprotw, Vprotw, Xmm, Xmm, Imm)                        // XOP
-  ASMJIT_INST_3i(vprotw, Vprotw, Xmm, Mem, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotw, Vprotw, Xmm, Xmm, Imm)                        // XOP
+  ASMJIT_INST_3x(vprotw, Vprotw, Xmm, Mem, Imm)                        // XOP
   ASMJIT_INST_3x(vpshab, Vpshab, Xmm, Xmm, Xmm)                        // XOP
   ASMJIT_INST_3x(vpshab, Vpshab, Xmm, Mem, Xmm)                        // XOP
   ASMJIT_INST_3x(vpshab, Vpshab, Xmm, Xmm, Mem)                        // XOP
@@ -3817,23 +3811,20 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
   ASMJIT_INST_0x(iret, Iret)                                           // ANY       [IMPLICIT]
   ASMJIT_INST_0x(iretd, Iretd)                                         // ANY       [IMPLICIT]
   ASMJIT_INST_0x(iretq, Iretq)                                         // X64       [IMPLICIT]
-  ASMJIT_INST_0x(iretw, Iretw)                                         // ANY       [IMPLICIT]
   ASMJIT_INST_1x(jecxz, Jecxz, Label)                                  // ANY       [IMPLICIT] Short jump if CX/ECX/RCX is zero.
   ASMJIT_INST_1x(jecxz, Jecxz, Imm)                                    // ANY       [IMPLICIT] Short jump if CX/ECX/RCX is zero.
-  ASMJIT_INST_1x(jecxz, Jecxz, uint64_t)                               // ANY       [IMPLICIT] Short jump if CX/ECX/RCX is zero.
   ASMJIT_INST_1x(loop, Loop, Label)                                    // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0.
   ASMJIT_INST_1x(loop, Loop, Imm)                                      // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0.
-  ASMJIT_INST_1x(loop, Loop, uint64_t)                                 // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0.
   ASMJIT_INST_1x(loope, Loope, Label)                                  // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 1.
   ASMJIT_INST_1x(loope, Loope, Imm)                                    // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 1.
-  ASMJIT_INST_1x(loope, Loope, uint64_t)                               // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 1.
   ASMJIT_INST_1x(loopne, Loopne, Label)                                // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 0.
   ASMJIT_INST_1x(loopne, Loopne, Imm)                                  // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 0.
-  ASMJIT_INST_1x(loopne, Loopne, uint64_t)                             // ANY       [IMPLICIT] Decrement xCX; short jump if xCX != 0 && ZF == 0.
   ASMJIT_INST_1x(mul, Mul, Gp)                                         // ANY       [IMPLICIT] {AX <- AL * r8} {xDX:xAX <- xAX * r16|r32|r64}
   ASMJIT_INST_1x(mul, Mul, Mem)                                        // ANY       [IMPLICIT] {AX <- AL * m8} {xDX:xAX <- xAX * m16|m32|m64}
   ASMJIT_INST_0x(ret, Ret)
-  ASMJIT_INST_1i(ret, Ret, Imm)
+  ASMJIT_INST_1x(ret, Ret, Imm)
+  ASMJIT_INST_0x(retf, Retf)
+  ASMJIT_INST_1x(retf, Retf, Imm)
   ASMJIT_INST_0x(xlatb, Xlatb)                                         // ANY       [IMPLICIT]
 
   //! \}
@@ -3885,8 +3876,8 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
   //! \endcond
 
   ASMJIT_INST_0x(aaa, Aaa)                                             // X86 [IMPLICIT]
-  ASMJIT_INST_1i(aad, Aad, Imm)                                        // X86 [IMPLICIT]
-  ASMJIT_INST_1i(aam, Aam, Imm)                                        // X86 [IMPLICIT]
+  ASMJIT_INST_1x(aad, Aad, Imm)                                        // X86 [IMPLICIT]
+  ASMJIT_INST_1x(aam, Aam, Imm)                                        // X86 [IMPLICIT]
   ASMJIT_INST_0x(aas, Aas)                                             // X86 [IMPLICIT]
   ASMJIT_INST_0x(daa, Daa)                                             // X86 [IMPLICIT]
   ASMJIT_INST_0x(das, Das)                                             // X86 [IMPLICIT]
@@ -3969,10 +3960,20 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
   //! \name XSAVE Instructions
   //! \{
 
-  // TODO: xrstor and xsave don't have explicit variants yet.
-
   //! \cond
   using EmitterExplicitT<This>::xgetbv;
+  using EmitterExplicitT<This>::xrstor;
+  using EmitterExplicitT<This>::xrstor64;
+  using EmitterExplicitT<This>::xrstors;
+  using EmitterExplicitT<This>::xrstors64;
+  using EmitterExplicitT<This>::xsave;
+  using EmitterExplicitT<This>::xsave64;
+  using EmitterExplicitT<This>::xsavec;
+  using EmitterExplicitT<This>::xsavec64;
+  using EmitterExplicitT<This>::xsaveopt;
+  using EmitterExplicitT<This>::xsaveopt64;
+  using EmitterExplicitT<This>::xsaves;
+  using EmitterExplicitT<This>::xsaves64;
   //! \endcond
 
   ASMJIT_INST_0x(xgetbv, Xgetbv)                                       // XSAVE     [IMPLICIT] EDX:EAX <- XCR[ECX]
@@ -3999,6 +4000,17 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
 
   //! \}
 
+  //! \name HRESET Instructions
+  //! \{
+
+  //! \cond
+  using EmitterExplicitT<This>::hreset;
+  //! \endcond
+
+  ASMJIT_INST_1x(hreset, Hreset, Imm)                                  // HRESET    [IMPLICIT]
+
+  //! \}
+
   //! \name Privileged Instructions
   //! \{
 
@@ -4013,9 +4025,9 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
   ASMJIT_INST_0x(rdmsr, Rdmsr)                                         // ANY       [IMPLICIT]
   ASMJIT_INST_0x(rdpmc, Rdpmc)                                         // ANY       [IMPLICIT]
   ASMJIT_INST_0x(sysexit, Sysexit)                                     // X64       [IMPLICIT]
-  ASMJIT_INST_0x(sysexit64, Sysexit64)                                 // X64       [IMPLICIT]
+  ASMJIT_INST_0x(sysexitq, Sysexitq)                                   // X64       [IMPLICIT]
   ASMJIT_INST_0x(sysret, Sysret)                                       // X64       [IMPLICIT]
-  ASMJIT_INST_0x(sysret64, Sysret64)                                   // X64       [IMPLICIT]
+  ASMJIT_INST_0x(sysretq, Sysretq)                                     // X64       [IMPLICIT]
   ASMJIT_INST_0x(wrmsr, Wrmsr)                                         // ANY       [IMPLICIT]
   ASMJIT_INST_0x(xsetbv, Xsetbv)                                       // XSAVE     [IMPLICIT] XCR[ECX] <- EDX:EAX
 
@@ -4074,14 +4086,14 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
   ASMJIT_INST_2x(pblendvb, Pblendvb, Xmm, Mem)                         // SSE4_1 [IMPLICIT]
   ASMJIT_INST_2x(maskmovq, Maskmovq, Mm, Mm)                           // SSE    [IMPLICIT]
   ASMJIT_INST_2x(maskmovdqu, Maskmovdqu, Xmm, Xmm)                     // SSE2   [IMPLICIT]
-  ASMJIT_INST_3i(pcmpestri, Pcmpestri, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
-  ASMJIT_INST_3i(pcmpestri, Pcmpestri, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
-  ASMJIT_INST_3i(pcmpestrm, Pcmpestrm, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
-  ASMJIT_INST_3i(pcmpestrm, Pcmpestrm, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
-  ASMJIT_INST_3i(pcmpistri, Pcmpistri, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
-  ASMJIT_INST_3i(pcmpistri, Pcmpistri, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
-  ASMJIT_INST_3i(pcmpistrm, Pcmpistrm, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
-  ASMJIT_INST_3i(pcmpistrm, Pcmpistrm, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpestri, Pcmpestri, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpestri, Pcmpestri, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpestrm, Pcmpestrm, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpestrm, Pcmpestrm, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpistri, Pcmpistri, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpistri, Pcmpistri, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpistrm, Pcmpistrm, Xmm, Xmm, Imm)                  // SSE4_1 [IMPLICIT]
+  ASMJIT_INST_3x(pcmpistrm, Pcmpistrm, Xmm, Mem, Imm)                  // SSE4_1 [IMPLICIT]
 
   //! \}
 
@@ -4109,14 +4121,14 @@ struct EmitterImplicitT : public EmitterExplicitT<This> {
   //! \endcond
 
   ASMJIT_INST_2x(vmaskmovdqu, Vmaskmovdqu, Xmm, Xmm)                   // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpestri, Vpcmpestri, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpestri, Vpcmpestri, Xmm, Mem, Imm)                // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpestrm, Vpcmpestrm, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpestrm, Vpcmpestrm, Xmm, Mem, Imm)                // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpistri, Vpcmpistri, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpistri, Vpcmpistri, Xmm, Mem, Imm)                // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpistrm, Vpcmpistrm, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
-  ASMJIT_INST_3i(vpcmpistrm, Vpcmpistrm, Xmm, Mem, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpestri, Vpcmpestri, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpestri, Vpcmpestri, Xmm, Mem, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpestrm, Vpcmpestrm, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpestrm, Vpcmpestrm, Xmm, Mem, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpistri, Vpcmpistri, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpistri, Vpcmpistri, Xmm, Mem, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpistrm, Vpcmpistrm, Xmm, Xmm, Imm)                // AVX [IMPLICIT]
+  ASMJIT_INST_3x(vpcmpistrm, Vpcmpistrm, Xmm, Mem, Imm)                // AVX [IMPLICIT]
 
   //! \}
 };
@@ -4139,19 +4151,12 @@ class Emitter : public BaseEmitter, public EmitterImplicitT<Emitter> {
 
 #undef ASMJIT_INST_0x
 #undef ASMJIT_INST_1x
-#undef ASMJIT_INST_1i
 #undef ASMJIT_INST_1c
 #undef ASMJIT_INST_2x
-#undef ASMJIT_INST_2i
 #undef ASMJIT_INST_2c
 #undef ASMJIT_INST_3x
-#undef ASMJIT_INST_3i
-#undef ASMJIT_INST_3ii
 #undef ASMJIT_INST_4x
-#undef ASMJIT_INST_4i
-#undef ASMJIT_INST_4ii
 #undef ASMJIT_INST_5x
-#undef ASMJIT_INST_5i
 #undef ASMJIT_INST_6x
 
 ASMJIT_END_SUB_NAMESPACE

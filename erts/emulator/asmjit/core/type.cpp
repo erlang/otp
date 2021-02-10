@@ -78,11 +78,11 @@ struct SizeOfTypeId {
 };
 
 const TypeData _typeData = {
-  #define VALUE(X) BaseOfTypeId<X>::kTypeId
+  #define VALUE(x) BaseOfTypeId<x>::kTypeId
   { ASMJIT_LOOKUP_TABLE_256(VALUE, 0) },
   #undef VALUE
 
-  #define VALUE(X) SizeOfTypeId<X>::kTypeSize
+  #define VALUE(x) SizeOfTypeId<x>::kTypeSize
   { ASMJIT_LOOKUP_TABLE_256(VALUE, 0) }
   #undef VALUE
 };

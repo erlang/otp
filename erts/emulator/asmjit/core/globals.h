@@ -296,27 +296,29 @@ enum ErrorCode : uint32_t {
   kErrorInvalidPhysId,
   //! Invalid virtual register id.
   kErrorInvalidVirtId,
-  //! Invalid prefix combination.
+  //! Invalid element index (ARM).
+  kErrorInvalidElementIndex,
+  //! Invalid prefix combination (X86|X64).
   kErrorInvalidPrefixCombination,
-  //! Invalid LOCK prefix.
+  //! Invalid LOCK prefix (X86|X64).
   kErrorInvalidLockPrefix,
-  //! Invalid XACQUIRE prefix.
+  //! Invalid XACQUIRE prefix (X86|X64).
   kErrorInvalidXAcquirePrefix,
-  //! Invalid XRELEASE prefix.
+  //! Invalid XRELEASE prefix (X86|X64).
   kErrorInvalidXReleasePrefix,
-  //! Invalid REP prefix.
+  //! Invalid REP prefix (X86|X64).
   kErrorInvalidRepPrefix,
-  //! Invalid REX prefix.
+  //! Invalid REX prefix (X86|X64).
   kErrorInvalidRexPrefix,
-  //! Invalid {...} register.
+  //! Invalid {...} register (X86|X64).
   kErrorInvalidExtraReg,
-  //! Invalid {k} use (not supported by the instruction).
+  //! Invalid {k} use (not supported by the instruction) (X86|X64).
   kErrorInvalidKMaskUse,
-  //! Invalid {k}{z} use (not supported by the instruction).
+  //! Invalid {k}{z} use (not supported by the instruction) (X86|X64).
   kErrorInvalidKZeroUse,
-  //! Invalid broadcast - Currently only related to invalid use of AVX-512 {1tox}.
+  //! Invalid broadcast - Currently only related to invalid use of AVX-512 {1tox} (X86|X64).
   kErrorInvalidBroadcast,
-  //! Invalid 'embedded-rounding' {er} or 'suppress-all-exceptions' {sae} (AVX-512).
+  //! Invalid 'embedded-rounding' {er} or 'suppress-all-exceptions' {sae} (AVX-512) (X86|X64).
   kErrorInvalidEROrSAE,
   //! Invalid address used (not encodable).
   kErrorInvalidAddress,
@@ -376,6 +378,9 @@ enum ErrorCode : uint32_t {
   kErrorExpressionLabelNotBound,
   //! Arithmetic overflow during expression evaluation.
   kErrorExpressionOverflow,
+
+  //! Failed to open anonymous memory handle or file descriptor.
+  kErrorFailedToOpenAnonymousMemory,
 
   // @EnumValuesEnd@
 

@@ -219,16 +219,50 @@ Error VirtMem::releaseDualMapping(DualMapping* dm, size_t size) noexcept {
 // ============================================================================
 
 #if !defined(_WIN32)
-struct ScopedFD {
-  inline ScopedFD() noexcept
-    : value(-1) {}
+class AnonymousMemory {
+public:
+  enum FileType : uint32_t {
+    kFileTypeNone,
+    kFileTypeTmp,
+    kFileTypeShm
+  };
 
-  inline ~ScopedFD() noexcept {
-    if (value != -1)
-      close(value);
+  int fd;
+  FileType fileType;
+  StringTmp<128> tmpName;
+
+  AnonymousMemory() noexcept
+    : fd(-1),
+      fileType(kFileTypeNone),
+      tmpName() {}
+
+  ~AnonymousMemory() noexcept {
+    unlinkFile();
+    closeFile();
   }
 
-  int value;
+  int closeFile() noexcept {
+    if (fd >= 0) {
+      int result = close(fd);
+      fd = -1;
+      return result;
+    }
+    else {
+      return 0;
+    }
+  }
+
+  int unlinkFile() noexcept {
+    FileType type = fileType;
+    fileType = kFileTypeNone;
+
+    if (type == kFileTypeTmp)
+      return unlink(tmpName.data());
+    else if (type == kFileTypeShm)
+      return shm_unlink(tmpName.data());
+    else
+      return 0;
+  }
 };
 
 static void VirtMem_getInfo(VirtMem::Info& vmInfo) noexcept {
@@ -333,7 +367,7 @@ static ASMJIT_INLINE bool VirtMem_hasMapJitSupport() noexcept {
 #endif
 }
 
-static ASMJIT_INLINE int VirtMem_appleSpecificMMapFlags(uint32_t flags) {
+static ASMJIT_INLINE int VirtMem_appleSpecificMMapFlags(uint32_t flags) noexcept {
   // Always use MAP_JIT flag if user asked for it (could be used for testing
   // on non-hardened processes) and detect whether it must be used when the
   // process is actually hardened (in that case it doesn't make sense to rely
@@ -345,18 +379,20 @@ static ASMJIT_INLINE int VirtMem_appleSpecificMMapFlags(uint32_t flags) {
     return 0;
 }
 #else
-static ASMJIT_INLINE int VirtMem_appleSpecificMMapFlags(uint32_t flags) {
+static ASMJIT_INLINE int VirtMem_appleSpecificMMapFlags(uint32_t flags) noexcept {
   DebugUtils::unused(flags);
   return 0;
 }
 #endif
 
+#if !defined(SHM_ANON)
 static const char* VirtMem_getTmpDir() noexcept {
   const char* tmpDir = getenv("TMPDIR");
   return tmpDir ? tmpDir : "/tmp";
 }
+#endif
 
-static Error VirtMem_openAnonymousMemory(int* fd, bool preferTmpOverDevShm) noexcept {
+static Error VirtMem_openAnonymousMemory(AnonymousMemory* anonMem, bool preferTmpOverDevShm) noexcept {
 #if defined(SYS_memfd_create)
   // Linux specific 'memfd_create' - if the syscall returns `ENOSYS` it means
   // it's not available and we will never call it again (would be pointless).
@@ -366,8 +402,8 @@ static Error VirtMem_openAnonymousMemory(int* fd, bool preferTmpOverDevShm) noex
   static volatile uint32_t memfd_create_not_supported;
 
   if (!memfd_create_not_supported) {
-    *fd = (int)syscall(SYS_memfd_create, "vmem", 0);
-    if (ASMJIT_LIKELY(*fd >= 0))
+    anonMem->fd = (int)syscall(SYS_memfd_create, "vmem", 0);
+    if (ASMJIT_LIKELY(anonMem->fd >= 0))
       return kErrorOk;
 
     int e = errno;
@@ -381,9 +417,9 @@ static Error VirtMem_openAnonymousMemory(int* fd, bool preferTmpOverDevShm) noex
 #if defined(SHM_ANON)
   // Originally FreeBSD extension, apparently works in other BSDs too.
   DebugUtils::unused(preferTmpOverDevShm);
-  *fd = shm_open(SHM_ANON, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+  anonMem->fd = shm_open(SHM_ANON, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 
-  if (ASMJIT_LIKELY(*fd >= 0))
+  if (ASMJIT_LIKELY(anonMem->fd >= 0))
     return kErrorOk;
   else
     return DebugUtils::errored(VirtMem_makeErrorFromErrno(errno));
@@ -394,55 +430,52 @@ static Error VirtMem_openAnonymousMemory(int* fd, bool preferTmpOverDevShm) noex
   // and retries for avoiding collisions. We use `shm_open()` with flags that
   // require creation of the file so we never open an existing shared memory.
   static std::atomic<uint32_t> internalCounter;
-
-  StringTmp<128> uniqueName;
-  const char* kShmFormat = "/shm-id-%08llX";
+  const char* kShmFormat = "/shm-id-%016llX";
 
   uint32_t kRetryCount = 100;
-  uint64_t bits = ((uintptr_t)(void*)&uniqueName) & 0x55555555u;
+  uint64_t bits = ((uintptr_t)(void*)anonMem) & 0x55555555u;
 
   for (uint32_t i = 0; i < kRetryCount; i++) {
     bits -= uint64_t(OSUtils::getTickCount()) * 773703683;
     bits = ((bits >> 14) ^ (bits << 6)) + uint64_t(++internalCounter) * 10619863;
 
     if (!ASMJIT_VM_SHM_DETECT || preferTmpOverDevShm) {
-      uniqueName.assign(VirtMem_getTmpDir());
-      uniqueName.appendFormat(kShmFormat, (unsigned long long)bits);
-      *fd = open(uniqueName.data(), O_RDWR | O_CREAT | O_EXCL, 0);
-      if (ASMJIT_LIKELY(*fd >= 0)) {
-        unlink(uniqueName.data());
+      anonMem->tmpName.assign(VirtMem_getTmpDir());
+      anonMem->tmpName.appendFormat(kShmFormat, (unsigned long long)bits);
+      anonMem->fd = open(anonMem->tmpName.data(), O_RDWR | O_CREAT | O_EXCL, 0);
+      if (ASMJIT_LIKELY(anonMem->fd >= 0)) {
+        anonMem->fileType = AnonymousMemory::kFileTypeTmp;
         return kErrorOk;
       }
     }
     else {
-      uniqueName.assignFormat(kShmFormat, (unsigned long long)bits);
-      *fd = shm_open(uniqueName.data(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
-      if (ASMJIT_LIKELY(*fd >= 0)) {
-        shm_unlink(uniqueName.data());
+      anonMem->tmpName.assignFormat(kShmFormat, (unsigned long long)bits);
+      anonMem->fd = shm_open(anonMem->tmpName.data(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+      if (ASMJIT_LIKELY(anonMem->fd >= 0)) {
+        anonMem->fileType = AnonymousMemory::kFileTypeShm;
         return kErrorOk;
       }
     }
 
     int e = errno;
-    if (e == EEXIST)
-      continue;
-    else
+    if (e != EEXIST)
       return DebugUtils::errored(VirtMem_makeErrorFromErrno(e));
   }
-  return kErrorOk;
+
+  return DebugUtils::errored(kErrorFailedToOpenAnonymousMemory);
 #endif
 }
 
 #if ASMJIT_VM_SHM_DETECT
 static Error VirtMem_detectShmStrategy(uint32_t* strategyOut) noexcept {
-  ScopedFD fd;
+  AnonymousMemory anonMem;
   VirtMem::Info vmInfo = VirtMem::info();
 
-  ASMJIT_PROPAGATE(VirtMem_openAnonymousMemory(&fd.value, false));
-  if (ftruncate(fd.value, off_t(vmInfo.pageSize)) != 0)
+  ASMJIT_PROPAGATE(VirtMem_openAnonymousMemory(&anonMem, false));
+  if (ftruncate(anonMem.fd, off_t(vmInfo.pageSize)) != 0)
     return DebugUtils::errored(VirtMem_makeErrorFromErrno(errno));
 
-  void* ptr = mmap(nullptr, vmInfo.pageSize, PROT_READ | PROT_EXEC, MAP_SHARED, fd.value, 0);
+  void* ptr = mmap(nullptr, vmInfo.pageSize, PROT_READ | PROT_EXEC, MAP_SHARED, anonMem.fd, 0);
   if (ptr == MAP_FAILED) {
     int e = errno;
     if (e == EINVAL) {
@@ -528,15 +561,14 @@ Error VirtMem::allocDualMapping(DualMapping* dm, size_t size, uint32_t flags) no
     preferTmpOverDevShm = (strategy == kShmStrategyTmpDir);
   }
 
-  // ScopedFD will automatically close the file descriptor in its destructor.
-  ScopedFD fd;
-  ASMJIT_PROPAGATE(VirtMem_openAnonymousMemory(&fd.value, preferTmpOverDevShm));
-  if (ftruncate(fd.value, off_t(size)) != 0)
+  AnonymousMemory anonMem;
+  ASMJIT_PROPAGATE(VirtMem_openAnonymousMemory(&anonMem, preferTmpOverDevShm));
+  if (ftruncate(anonMem.fd, off_t(size)) != 0)
     return DebugUtils::errored(VirtMem_makeErrorFromErrno(errno));
 
   void* ptr[2];
   for (uint32_t i = 0; i < 2; i++) {
-    ptr[i] = mmap(nullptr, size, VirtMem_accessToPosixProtection(flags & ~VirtMem_dualMappingFilter[i]), MAP_SHARED, fd.value, 0);
+    ptr[i] = mmap(nullptr, size, VirtMem_accessToPosixProtection(flags & ~VirtMem_dualMappingFilter[i]), MAP_SHARED, anonMem.fd, 0);
     if (ptr[i] == MAP_FAILED) {
       // Get the error now before `munmap` has a chance to clobber it.
       int e = errno;

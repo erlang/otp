@@ -21,39 +21,7 @@
 //    misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-#include "../core/api-build_p.h"
-#include "../core/arch.h"
-
-#ifdef ASMJIT_BUILD_X86
-  #include "../x86/x86archdata_p.h"
+#ifdef _WIN32
+  #pragma pop_macro("min")
+  #pragma pop_macro("max")
 #endif
-
-#ifdef ASMJIT_BUILD_ARM
-  #include "../arm/armarchdata_p.h"
-#endif
-
-ASMJIT_BEGIN_NAMESPACE
-
-// ============================================================================
-// [asmjit::ArchUtils]
-// ============================================================================
-
-ASMJIT_FAVOR_SIZE Error ArchUtils::typeIdToRegInfo(uint32_t arch, uint32_t typeId, uint32_t* typeIdOut, RegInfo* regInfoOut) noexcept {
-  // Zero the output in case the input is invalid.
-  *typeIdOut = 0;
-  regInfoOut->reset();
-
-#ifdef ASMJIT_BUILD_X86
-  if (Environment::isFamilyX86(arch))
-    return x86::ArchInternal::typeIdToRegInfo(arch, typeId, typeIdOut, regInfoOut);
-#endif
-
-#ifdef ASMJIT_BUILD_ARM
-  if (Environment::isFamilyARM(arch))
-    return arm::ArchInternal::typeIdToRegInfo(arch, typeId, typeIdOut, regInfoOut);
-#endif
-
-  return DebugUtils::errored(kErrorInvalidArch);
-}
-
-ASMJIT_END_NAMESPACE

@@ -218,9 +218,8 @@ static constexpr T lsbMask(const CountT& n) noexcept {
   return (sizeof(U) < sizeof(uintptr_t))
     // Prevent undefined behavior by using a larger type than T.
     ? T(U((uintptr_t(1) << n) - uintptr_t(1)))
-    // Prevent undefined behavior by performing `n & (nBits - 1)` so it's always within the range.
-    : shr(sar(neg(T(n)), bitSizeOf<T>() - 1u),
-          neg(T(n)) & CountT(bitSizeOf<T>() - 1u));
+    // Prevent undefined behavior by checking `n` before shift.
+    : n ? T(shr(allOnes<T>(), bitSizeOf<T>() - size_t(n))) : T(0);
 }
 
 //! Tests whether the given value `x` has `n`th bit set.
@@ -271,63 +270,96 @@ static constexpr T fillTrailingBits(const T& x) noexcept {
 
 //! \cond
 namespace Internal {
-  static constexpr uint32_t constCtzImpl(uint32_t xAndNegX) noexcept {
-    return 31 - ((xAndNegX & 0x0000FFFFu) ? 16 : 0)
-              - ((xAndNegX & 0x00FF00FFu) ?  8 : 0)
-              - ((xAndNegX & 0x0F0F0F0Fu) ?  4 : 0)
-              - ((xAndNegX & 0x33333333u) ?  2 : 0)
-              - ((xAndNegX & 0x55555555u) ?  1 : 0);
+namespace {
+
+template<typename T>
+struct BitScanData { T x; uint32_t n; };
+
+template<typename T, uint32_t N>
+struct BitScanCalc {
+  static constexpr BitScanData<T> advanceLeft(const BitScanData<T>& data, uint32_t n) noexcept {
+    return BitScanData<T> { data.x << n, data.n + n };
   }
 
-  static constexpr uint32_t constCtzImpl(uint64_t xAndNegX) noexcept {
-    return 63 - ((xAndNegX & 0x00000000FFFFFFFFu) ? 32 : 0)
-              - ((xAndNegX & 0x0000FFFF0000FFFFu) ? 16 : 0)
-              - ((xAndNegX & 0x00FF00FF00FF00FFu) ?  8 : 0)
-              - ((xAndNegX & 0x0F0F0F0F0F0F0F0Fu) ?  4 : 0)
-              - ((xAndNegX & 0x3333333333333333u) ?  2 : 0)
-              - ((xAndNegX & 0x5555555555555555u) ?  1 : 0);
+  static constexpr BitScanData<T> advanceRight(const BitScanData<T>& data, uint32_t n) noexcept {
+    return BitScanData<T> { data.x >> n, data.n + n };
   }
 
-  template<typename T>
-  static constexpr uint32_t constCtz(T x) noexcept {
-    return constCtzImpl(x & neg(x));
+  static constexpr BitScanData<T> clz(const BitScanData<T>& data) noexcept {
+    return BitScanCalc<T, N / 2>::clz(advanceLeft(data, data.x & (allOnes<T>() << (bitSizeOf<T>() - N)) ? uint32_t(0) : N));
   }
 
-  static ASMJIT_INLINE uint32_t ctz(uint32_t x) noexcept {
-  #if defined(__GNUC__)
-    return uint32_t(__builtin_ctz(x));
-  #elif defined(_MSC_VER) && (ASMJIT_ARCH_X86 || ASMJIT_ARCH_ARM)
-    unsigned long i;
-    _BitScanForward(&i, x);
-    return uint32_t(i);
-  #else
-    return constCtz(x);
-  #endif
+  static constexpr BitScanData<T> ctz(const BitScanData<T>& data) noexcept {
+    return BitScanCalc<T, N / 2>::ctz(advanceRight(data, data.x & (allOnes<T>() >> (bitSizeOf<T>() - N)) ? uint32_t(0) : N));
+  }
+};
+
+template<typename T>
+struct BitScanCalc<T, 0> {
+  static constexpr BitScanData<T> clz(const BitScanData<T>& ctx) noexcept {
+    return BitScanData<T> { 0, ctx.n - uint32_t(ctx.x >> (bitSizeOf<T>() - 1)) };
   }
 
-  static ASMJIT_INLINE uint32_t ctz(uint64_t x) noexcept {
-  #if defined(__GNUC__)
-    return uint32_t(__builtin_ctzll(x));
-  #elif defined(_MSC_VER) && (ASMJIT_ARCH_X86 == 64 || ASMJIT_ARCH_ARM == 64)
-    unsigned long i;
-    _BitScanForward64(&i, x);
-    return uint32_t(i);
-  #else
-    return constCtz(x);
-  #endif
+  static constexpr BitScanData<T> ctz(const BitScanData<T>& ctx) noexcept {
+    return BitScanData<T> { 0, ctx.n - uint32_t(ctx.x & 0x1) };
   }
+};
+
+template<typename T>
+constexpr uint32_t clzFallback(const T& x) noexcept {
+  return BitScanCalc<T, bitSizeOf<T>() / 2u>::clz(BitScanData<T>{x, 1}).n;
 }
+
+template<typename T>
+constexpr uint32_t ctzFallback(const T& x) noexcept {
+  return BitScanCalc<T, bitSizeOf<T>() / 2u>::ctz(BitScanData<T>{x, 1}).n;
+}
+
+template<typename T> constexpr uint32_t constClz(const T& x) noexcept { return clzFallback(asUInt(x)); }
+template<typename T> constexpr uint32_t constCtz(const T& x) noexcept { return ctzFallback(asUInt(x)); }
+
+template<typename T> inline uint32_t clzImpl(const T& x) noexcept { return constClz(x); }
+template<typename T> inline uint32_t ctzImpl(const T& x) noexcept { return constCtz(x); }
+
+#if !defined(ASMJIT_NO_INTRINSICS)
+# if defined(__GNUC__)
+template<> inline uint32_t clzImpl(const uint32_t& x) noexcept { return uint32_t(__builtin_clz(x)); }
+template<> inline uint32_t clzImpl(const uint64_t& x) noexcept { return uint32_t(__builtin_clzll(x)); }
+template<> inline uint32_t ctzImpl(const uint32_t& x) noexcept { return uint32_t(__builtin_ctz(x)); }
+template<> inline uint32_t ctzImpl(const uint64_t& x) noexcept { return uint32_t(__builtin_ctzll(x)); }
+# elif defined(_MSC_VER)
+template<> inline uint32_t clzImpl(const uint32_t& x) noexcept { unsigned long i; _BitScanReverse(&i, x); return uint32_t(i ^ 31); }
+template<> inline uint32_t ctzImpl(const uint32_t& x) noexcept { unsigned long i; _BitScanForward(&i, x); return uint32_t(i); }
+#  if ASMJIT_ARCH_X86 == 64 || ASMJIT_ARCH_ARM == 64
+template<> inline uint32_t clzImpl(const uint64_t& x) noexcept { unsigned long i; _BitScanReverse64(&i, x); return uint32_t(i ^ 63); }
+template<> inline uint32_t ctzImpl(const uint64_t& x) noexcept { unsigned long i; _BitScanForward64(&i, x); return uint32_t(i); }
+#  endif
+# endif
+#endif
+
+} // {anonymous}
+} // {Internal}
 //! \endcond
+
+//! Count leading zeros in `x` (returns a position of a first bit set in `x`).
+//!
+//! \note The input MUST NOT be zero, otherwise the result is undefined.
+template<typename T>
+static inline uint32_t clz(T x) noexcept { return Internal::clzImpl(asUInt(x)); }
+
+//! Count leading zeros in `x` (constant expression).
+template<typename T>
+static constexpr inline uint32_t constClz(T x) noexcept { return Internal::constClz(asUInt(x)); }
 
 //! Count trailing zeros in `x` (returns a position of a first bit set in `x`).
 //!
 //! \note The input MUST NOT be zero, otherwise the result is undefined.
 template<typename T>
-static inline uint32_t ctz(T x) noexcept { return Internal::ctz(asUInt(x)); }
+static inline uint32_t ctz(T x) noexcept { return Internal::ctzImpl(asUInt(x)); }
 
 //! Count trailing zeros in `x` (constant expression).
 template<typename T>
-static constexpr uint32_t constCtz(T x) noexcept { return Internal::constCtz(asUInt(x)); }
+static constexpr inline uint32_t constCtz(T x) noexcept { return Internal::constCtz(asUInt(x)); }
 
 // ============================================================================
 // [asmjit::Support - PopCnt]
@@ -409,6 +441,30 @@ static constexpr T max(const T& a, const T& b) noexcept { return a < b ? b : a; 
 
 template<typename T, typename... Args>
 static constexpr T max(const T& a, const T& b, Args&&... args) noexcept { return max(max(a, b), std::forward<Args>(args)...); }
+
+// ============================================================================
+// [asmjit::Support - Immediate Helpers]
+// ============================================================================
+
+namespace Internal {
+  template<typename T, bool IsFloat>
+  struct ImmConv {
+    static inline int64_t fromT(const T& x) noexcept { return int64_t(x); }
+    static inline T toT(int64_t x) noexcept { return T(uint64_t(x) & Support::allOnes<typename std::make_unsigned<T>::type>()); }
+  };
+
+  template<typename T>
+  struct ImmConv<T, true> {
+    static inline int64_t fromT(const T& x) noexcept { return int64_t(bitCast<int64_t>(double(x))); }
+    static inline T toT(int64_t x) noexcept { return T(bitCast<double>(x)); }
+  };
+}
+
+template<typename T>
+static inline int64_t immediateFromT(const T& x) noexcept { return Internal::ImmConv<T, std::is_floating_point<T>::value>::fromT(x); }
+
+template<typename T>
+static inline T immediateToT(int64_t x) noexcept { return Internal::ImmConv<T, std::is_floating_point<T>::value>::toT(x); }
 
 // ============================================================================
 // [asmjit::Support - Overflow Arithmetic]
@@ -601,8 +657,16 @@ static constexpr bool isInt4(T x) noexcept {
   typedef typename std::make_signed<T>::type S;
   typedef typename std::make_unsigned<T>::type U;
 
-  return std::is_signed<T>::value ? isBetween<S>(S(x), -8, 7)
-                                  : U(x) <= U(7u);
+  return std::is_signed<T>::value ? isBetween<S>(S(x), -8, 7) : U(x) <= U(7u);
+}
+
+//! Checks whether the given integer `x` can be casted to a 7-bit signed integer.
+template<typename T>
+static constexpr bool isInt7(T x) noexcept {
+  typedef typename std::make_signed<T>::type S;
+  typedef typename std::make_unsigned<T>::type U;
+
+  return std::is_signed<T>::value ? isBetween<S>(S(x), -64, 63) : U(x) <= U(63u);
 }
 
 //! Checks whether the given integer `x` can be casted to an 8-bit signed integer.
@@ -611,8 +675,27 @@ static constexpr bool isInt8(T x) noexcept {
   typedef typename std::make_signed<T>::type S;
   typedef typename std::make_unsigned<T>::type U;
 
-  return std::is_signed<T>::value ? sizeof(T) <= 1 || isBetween<S>(S(x), -128, 127)
-                                  : U(x) <= U(127u);
+  return std::is_signed<T>::value ? sizeof(T) <= 1 || isBetween<S>(S(x), -128, 127) : U(x) <= U(127u);
+}
+
+//! Checks whether the given integer `x` can be casted to a 9-bit signed integer.
+template<typename T>
+static constexpr bool isInt9(T x) noexcept {
+  typedef typename std::make_signed<T>::type S;
+  typedef typename std::make_unsigned<T>::type U;
+
+  return std::is_signed<T>::value ? sizeof(T) <= 1 || isBetween<S>(S(x), -256, 255)
+                                  : sizeof(T) <= 1 || U(x) <= U(255u);
+}
+
+//! Checks whether the given integer `x` can be casted to a 10-bit signed integer.
+template<typename T>
+static constexpr bool isInt10(T x) noexcept {
+  typedef typename std::make_signed<T>::type S;
+  typedef typename std::make_unsigned<T>::type U;
+
+  return std::is_signed<T>::value ? sizeof(T) <= 1 || isBetween<S>(S(x), -512, 511)
+                                  : sizeof(T) <= 1 || U(x) <= U(511u);
 }
 
 //! Checks whether the given integer `x` can be casted to a 16-bit signed integer.
@@ -684,6 +767,16 @@ static constexpr bool isUInt32(T x) noexcept {
 template<typename T>
 static constexpr bool isIntOrUInt32(T x) noexcept {
   return sizeof(T) <= 4 ? true : (uint32_t(uint64_t(x) >> 32) + 1u) <= 1u;
+}
+
+static bool inline isEncodableOffset32(int32_t offset, uint32_t nBits) noexcept {
+  uint32_t nRev = 32 - nBits;
+  return Support::sar(Support::shl(offset, nRev), nRev) == offset;
+}
+
+static bool inline isEncodableOffset64(int64_t offset, uint32_t nBits) noexcept {
+  uint32_t nRev = 64 - nBits;
+  return Support::sar(Support::shl(offset, nRev), nRev) == offset;
 }
 
 // ============================================================================
@@ -1070,6 +1163,30 @@ public:
   }
 
   T _bitWord;
+};
+
+// ============================================================================
+// [asmjit::Support - BitWordFlipIterator]
+// ============================================================================
+
+template<typename T>
+class BitWordFlipIterator {
+public:
+  inline explicit BitWordFlipIterator(T bitWord) noexcept
+    : _bitWord(bitWord) {}
+
+  inline void init(T bitWord) noexcept { _bitWord = bitWord; }
+  inline bool hasNext() const noexcept { return _bitWord != 0; }
+
+  inline uint32_t nextAndFlip() noexcept {
+    ASMJIT_ASSERT(_bitWord != 0);
+    uint32_t index = ctz(_bitWord);
+    _bitWord ^= T(1u) << index;
+    return index;
+  }
+
+  T _bitWord;
+  T _xorMask;
 };
 
 // ============================================================================

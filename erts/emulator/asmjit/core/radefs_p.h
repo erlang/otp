@@ -25,11 +25,12 @@
 #define ASMJIT_CORE_RADEFS_P_H_INCLUDED
 
 #include "../core/api-config.h"
-#ifndef ASMJIT_NO_COMPILER
-
-#include "../core/compiler.h"
+#include "../core/archtraits.h"
+#include "../core/compilerdefs.h"
 #include "../core/logger.h"
+#include "../core/operand.h"
 #include "../core/support.h"
+#include "../core/type.h"
 #include "../core/zone.h"
 #include "../core/zonevector.h"
 
@@ -64,12 +65,51 @@ ASMJIT_BEGIN_NAMESPACE
 // [Forward Declarations]
 // ============================================================================
 
-class RAPass;
+class BaseRAPass;
 class RABlock;
+class BaseNode;
 struct RAStackSlot;
 
 typedef ZoneVector<RABlock*> RABlocks;
 typedef ZoneVector<RAWorkReg*> RAWorkRegs;
+
+// ============================================================================
+// [asmjit::RAConstraints]
+// ============================================================================
+
+class RAConstraints {
+public:
+  uint32_t _availableRegs[BaseReg::kGroupVirt] {};
+
+  inline RAConstraints() noexcept {}
+
+  ASMJIT_NOINLINE Error init(uint32_t arch) noexcept {
+    switch (arch) {
+      case Environment::kArchX86:
+      case Environment::kArchX64: {
+        uint32_t registerCount = arch == Environment::kArchX86 ? 8 : 16;
+        _availableRegs[BaseReg::kGroupGp] = Support::lsbMask<uint32_t>(registerCount) & ~Support::bitMask(4u);
+        _availableRegs[BaseReg::kGroupVec] = Support::lsbMask<uint32_t>(registerCount);
+        _availableRegs[BaseReg::kGroupOther0] = Support::lsbMask<uint32_t>(8);
+        _availableRegs[BaseReg::kGroupOther1] = Support::lsbMask<uint32_t>(8);
+        return kErrorOk;
+      }
+
+      case Environment::kArchAArch64: {
+        _availableRegs[BaseReg::kGroupGp] = 0xFFFFFFFFu & ~Support::bitMask(18, 31u);
+        _availableRegs[BaseReg::kGroupVec] = 0xFFFFFFFFu;
+        _availableRegs[BaseReg::kGroupOther0] = 0;
+        _availableRegs[BaseReg::kGroupOther1] = 0;
+        return kErrorOk;
+      }
+
+      default:
+        return DebugUtils::errored(kErrorInvalidArch);
+    }
+  }
+
+  inline uint32_t availableRegs(uint32_t group) const noexcept { return _availableRegs[group]; }
+};
 
 // ============================================================================
 // [asmjit::RAStrategy]
@@ -93,45 +133,6 @@ struct RAStrategy {
   inline bool isComplex() const noexcept { return _type >= kStrategyComplex; }
 };
 
-// ============================================================================
-// [asmjit::RAArchTraits]
-// ============================================================================
-
-//! Traits.
-struct RAArchTraits {
-  enum Flags : uint32_t {
-    //! Registers can be swapped by a single instruction.
-    kHasSwap = 0x01u
-  };
-
-  uint8_t _flags[BaseReg::kGroupVirt];
-
-  //! \name Construction & Destruction
-  //! \{
-
-  inline RAArchTraits() noexcept { reset(); }
-  inline void reset() noexcept { memset(_flags, 0, sizeof(_flags)); }
-
-  //! \}
-
-  //! \name Accessors
-  //! \{
-
-  inline bool hasFlag(uint32_t group, uint32_t flag) const noexcept { return (_flags[group] & flag) != 0; }
-  inline bool hasSwap(uint32_t group) const noexcept { return hasFlag(group, kHasSwap); }
-
-  inline uint8_t& operator[](uint32_t group) noexcept {
-    ASMJIT_ASSERT(group < BaseReg::kGroupVirt);
-    return _flags[group];
-  }
-
-  inline const uint8_t& operator[](uint32_t group) const noexcept {
-    ASMJIT_ASSERT(group < BaseReg::kGroupVirt);
-    return _flags[group];
-  }
-
-  //! \}
-};
 
 // ============================================================================
 // [asmjit::RARegCount]
@@ -317,8 +318,9 @@ struct RARegMask {
 //! before the register allocator tries to do its job. For example to use fast
 //! register allocation inside a block or loop it cannot have clobbered and/or
 //! fixed registers, etc...
-struct RARegsStats {
-  uint32_t _packed;
+class RARegsStats {
+public:
+  uint32_t _packed = 0;
 
   enum Index : uint32_t {
     kIndexUsed       = 0,
@@ -355,12 +357,12 @@ struct RARegsStats {
 //! Count of live registers, per group.
 class RALiveCount {
 public:
-  uint32_t n[BaseReg::kGroupVirt];
+  uint32_t n[BaseReg::kGroupVirt] {};
 
   //! \name Construction & Destruction
   //! \{
 
-  inline RALiveCount() noexcept { reset(); }
+  inline RALiveCount() noexcept = default;
   inline RALiveCount(const RALiveCount& other) noexcept = default;
 
   inline void init(const RALiveCount& other) noexcept {
@@ -674,19 +676,9 @@ public:
 //! Statistics about a register liveness.
 class RALiveStats {
 public:
-  uint32_t _width;
-  float _freq;
-  float _priority;
-
-  //! \name Construction & Destruction
-  //! \{
-
-  inline RALiveStats()
-    : _width(0),
-      _freq(0.0f),
-      _priority(0.0f) {}
-
-  //! \}
+  uint32_t _width = 0;
+  float _freq = 0.0f;
+  float _priority = 0.0f;
 
   //! \name Accessors
   //! \{
@@ -928,46 +920,46 @@ public:
   ASMJIT_NONCOPYABLE(RAWorkReg)
 
   //! RAPass specific ID used during analysis and allocation.
-  uint32_t _workId;
-  //! Copy of ID used by `VirtReg`.
-  uint32_t _virtId;
+  uint32_t _workId = 0;
+  //! Copy of ID used by \ref VirtReg.
+  uint32_t _virtId = 0;
 
-  //! Permanent association with `VirtReg`.
-  VirtReg* _virtReg;
-  //! Temporary association with `RATiedReg`.
-  RATiedReg* _tiedReg;
+  //! Permanent association with \ref VirtReg.
+  VirtReg* _virtReg = nullptr;
+  //! Temporary association with \ref RATiedReg.
+  RATiedReg* _tiedReg = nullptr;
   //! Stack slot associated with the register.
-  RAStackSlot* _stackSlot;
+  RAStackSlot* _stackSlot = nullptr;
 
-  //! Copy of a signature used by `VirtReg`.
-  RegInfo _info;
+  //! Copy of a signature used by \ref VirtReg.
+  RegInfo _info {};
   //! RAPass specific flags used during analysis and allocation.
-  uint32_t _flags;
+  uint32_t _flags = 0;
   //! IDs of all physical registers this WorkReg has been allocated to.
-  uint32_t _allocatedMask;
+  uint32_t _allocatedMask = 0;
   //! IDs of all physical registers that are clobbered during the lifetime of
   //! this WorkReg.
   //!
   //! This mask should be updated by `RAPass::buildLiveness()`, because it's
   //! global and should be updated after unreachable code has been removed.
-  uint32_t _clobberSurvivalMask;
+  uint32_t _clobberSurvivalMask = 0;
 
   //! A byte-mask where each bit represents one valid byte of the register.
-  uint64_t _regByteMask;
+  uint64_t _regByteMask = 0;
 
   //! Argument index (or `kNoArgIndex` if none).
-  uint8_t _argIndex;
+  uint8_t _argIndex = kNoArgIndex;
   //! Argument value index in the pack (0 by default).
-  uint8_t _argValueIndex;
+  uint8_t _argValueIndex = 0;
   //! Global home register ID (if any, assigned by RA).
-  uint8_t _homeRegId;
+  uint8_t _homeRegId = BaseReg::kIdBad;
   //! Global hint register ID (provided by RA or user).
-  uint8_t _hintRegId;
+  uint8_t _hintRegId = BaseReg::kIdBad;
 
   //! Live spans of the `VirtReg`.
-  LiveRegSpans _liveSpans;
+  LiveRegSpans _liveSpans {};
   //! Live statistics.
-  RALiveStats _liveStats;
+  RALiveStats _liveStats {};
 
   //! All nodes that read/write this VirtReg/WorkReg.
   ZoneVector<BaseNode*> _refs;
@@ -1000,20 +992,7 @@ public:
     : _workId(workId),
       _virtId(vReg->id()),
       _virtReg(vReg),
-      _tiedReg(nullptr),
-      _stackSlot(nullptr),
-      _info(vReg->info()),
-      _flags(0),
-      _allocatedMask(0),
-      _clobberSurvivalMask(0),
-      _regByteMask(0),
-      _argIndex(kNoArgIndex),
-      _argValueIndex(0),
-      _homeRegId(BaseReg::kIdBad),
-      _hintRegId(BaseReg::kIdBad),
-      _liveSpans(),
-      _liveStats(),
-      _refs() {}
+      _info(vReg->info()) {}
 
   //! \}
 
@@ -1095,5 +1074,4 @@ public:
 
 ASMJIT_END_NAMESPACE
 
-#endif // !ASMJIT_NO_COMPILER
 #endif // ASMJIT_CORE_RADEFS_P_H_INCLUDED

@@ -207,12 +207,12 @@ public:
   //! Release a memory returned by `alloc()`.
   //!
   //! \remarks This function is thread-safe.
-  ASMJIT_API Error release(void* ro) noexcept;
+  ASMJIT_API Error release(void* roPtr) noexcept;
 
   //! Free extra memory allocated with `p` by restricting it to `newSize` size.
   //!
   //! \remarks This function is thread-safe.
-  ASMJIT_API Error shrink(void* ro, size_t newSize) noexcept;
+  ASMJIT_API Error shrink(void* roPtr, size_t newSize) noexcept;
 
   //! \}
 

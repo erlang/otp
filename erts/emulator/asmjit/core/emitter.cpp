@@ -28,13 +28,13 @@
 #include "../core/support.h"
 
 #ifdef ASMJIT_BUILD_X86
-  #include "../x86/x86internal_p.h"
+  #include "../x86/x86emithelper_p.h"
   #include "../x86/x86instdb_p.h"
 #endif // ASMJIT_BUILD_X86
 
 #ifdef ASMJIT_BUILD_ARM
-  #include "../arm/arminternal_p.h"
-  #include "../arm/arminstdb.h"
+  #include "../arm/a64emithelper_p.h"
+  #include "../arm/a64instdb.h"
 #endif // ASMJIT_BUILD_ARM
 
 ASMJIT_BEGIN_NAMESPACE
@@ -44,21 +44,7 @@ ASMJIT_BEGIN_NAMESPACE
 // ============================================================================
 
 BaseEmitter::BaseEmitter(uint32_t emitterType) noexcept
-  : _emitterType(uint8_t(emitterType)),
-    _emitterFlags(0),
-    _validationFlags(0),
-    _validationOptions(0),
-    _encodingOptions(0),
-    _forcedInstOptions(BaseInst::kOptionReserved),
-    _privateData(0),
-    _code(nullptr),
-    _logger(nullptr),
-    _errorHandler(nullptr),
-    _environment(),
-    _gpRegInfo(),
-    _instOptions(0),
-    _extraReg(),
-    _inlineComment(nullptr) {}
+  : _emitterType(uint8_t(emitterType)) {}
 
 BaseEmitter::~BaseEmitter() noexcept {
   if (_code) {
@@ -80,22 +66,35 @@ Error BaseEmitter::finalize() {
 // [asmjit::BaseEmitter - Internals]
 // ============================================================================
 
-static constexpr uint32_t kEmitterPreservedFlags =
-    BaseEmitter::kFlagOwnLogger |
-    BaseEmitter::kFlagOwnErrorHandler ;
+static constexpr uint32_t kEmitterPreservedFlags = BaseEmitter::kFlagOwnLogger | BaseEmitter::kFlagOwnErrorHandler;
 
 static ASMJIT_NOINLINE void BaseEmitter_updateForcedOptions(BaseEmitter* self) noexcept {
-  bool hasLogger = self->_logger != nullptr;
-  bool hasValidationOptions;
+  bool emitComments = false;
+  bool hasValidationOptions = false;
 
-  if (self->emitterType() == BaseEmitter::kTypeAssembler)
+  if (self->emitterType() == BaseEmitter::kTypeAssembler) {
+    // Assembler: Don't emit comments if logger is not attached.
+    emitComments = self->_code != nullptr && self->_logger != nullptr;
     hasValidationOptions = self->hasValidationOption(BaseEmitter::kValidationOptionAssembler);
-  else
+  }
+  else {
+    // Builder/Compiler: Always emit comments, we cannot assume they won't be used.
+    emitComments = self->_code != nullptr;
     hasValidationOptions = self->hasValidationOption(BaseEmitter::kValidationOptionIntermediate);
+  }
 
-  self->_forcedInstOptions &= ~BaseInst::kOptionReserved;
-  if (hasLogger || hasValidationOptions)
+  if (emitComments)
+    self->_addEmitterFlags(BaseEmitter::kFlagLogComments);
+  else
+    self->_clearEmitterFlags(BaseEmitter::kFlagLogComments);
+
+  // The reserved option tells emitter (Assembler/Builder/Compiler) that there
+  // may be either a border case (CodeHolder not attached, for example) or that
+  // logging or validation is required.
+  if (self->_code == nullptr || self->_logger || hasValidationOptions)
     self->_forcedInstOptions |= BaseInst::kOptionReserved;
+  else
+    self->_forcedInstOptions &= ~BaseInst::kOptionReserved;
 }
 
 // ============================================================================
@@ -257,13 +256,17 @@ ASMJIT_FAVOR_SIZE Error BaseEmitter::emitProlog(const FuncFrame& frame) {
     return DebugUtils::errored(kErrorNotInitialized);
 
 #ifdef ASMJIT_BUILD_X86
-  if (environment().isFamilyX86())
-    return x86::X86Internal::emitProlog(as<x86::Emitter>(), frame);
+  if (environment().isFamilyX86()) {
+    x86::EmitHelper emitHelper(this, frame.isAvxEnabled());
+    return emitHelper.emitProlog(frame);
+  }
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (environment().isFamilyARM())
-    return arm::ArmInternal::emitProlog(as<arm::Emitter>(), frame);
+  if (environment().isArchAArch64()) {
+    a64::EmitHelper emitHelper(this);
+    return emitHelper.emitProlog(frame);
+  }
 #endif
 
   return DebugUtils::errored(kErrorInvalidArch);
@@ -274,13 +277,17 @@ ASMJIT_FAVOR_SIZE Error BaseEmitter::emitEpilog(const FuncFrame& frame) {
     return DebugUtils::errored(kErrorNotInitialized);
 
 #ifdef ASMJIT_BUILD_X86
-  if (environment().isFamilyX86())
-    return x86::X86Internal::emitEpilog(as<x86::Emitter>(), frame);
+  if (environment().isFamilyX86()) {
+    x86::EmitHelper emitHelper(this, frame.isAvxEnabled());
+    return emitHelper.emitEpilog(frame);
+  }
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (environment().isFamilyARM())
-    return arm::ArmInternal::emitEpilog(as<arm::Emitter>(), frame);
+  if (environment().isArchAArch64()) {
+    a64::EmitHelper emitHelper(this);
+    return emitHelper.emitEpilog(frame);
+  }
 #endif
 
   return DebugUtils::errored(kErrorInvalidArch);
@@ -291,13 +298,17 @@ ASMJIT_FAVOR_SIZE Error BaseEmitter::emitArgsAssignment(const FuncFrame& frame, 
     return DebugUtils::errored(kErrorNotInitialized);
 
 #ifdef ASMJIT_BUILD_X86
-  if (environment().isFamilyX86())
-    return x86::X86Internal::emitArgsAssignment(as<x86::Emitter>(), frame, args);
+  if (environment().isFamilyX86()) {
+    x86::EmitHelper emitHelper(this, frame.isAvxEnabled());
+    return emitHelper.emitArgsAssignment(frame, args);
+  }
 #endif
 
 #ifdef ASMJIT_BUILD_ARM
-  if (environment().isFamilyARM())
-    return arm::ArmInternal::emitArgsAssignment(as<arm::Emitter>(), frame, args);
+  if (environment().isArchAArch64()) {
+    a64::EmitHelper emitHelper(this);
+    return emitHelper.emitArgsAssignment(frame, args);
+  }
 #endif
 
   return DebugUtils::errored(kErrorInvalidArch);
@@ -308,15 +319,22 @@ ASMJIT_FAVOR_SIZE Error BaseEmitter::emitArgsAssignment(const FuncFrame& frame, 
 // ============================================================================
 
 Error BaseEmitter::commentf(const char* fmt, ...) {
-  if (ASMJIT_UNLIKELY(!_code))
-    return DebugUtils::errored(kErrorNotInitialized);
+  if (!hasEmitterFlag(kFlagLogComments)) {
+    if (!hasEmitterFlag(kFlagAttached))
+      return reportError(DebugUtils::errored(kErrorNotInitialized));
+    return kErrorOk;
+  }
 
 #ifndef ASMJIT_NO_LOGGING
+  StringTmp<1024> sb;
+
   va_list ap;
   va_start(ap, fmt);
-  Error err = commentv(fmt, ap);
+  Error err = sb.appendVFormat(fmt, ap);
   va_end(ap);
-  return err;
+
+  ASMJIT_PROPAGATE(err);
+  return comment(sb.data(), sb.size());
 #else
   DebugUtils::unused(fmt);
   return kErrorOk;
@@ -324,16 +342,17 @@ Error BaseEmitter::commentf(const char* fmt, ...) {
 }
 
 Error BaseEmitter::commentv(const char* fmt, va_list ap) {
-  if (ASMJIT_UNLIKELY(!_code))
-    return DebugUtils::errored(kErrorNotInitialized);
+  if (!hasEmitterFlag(kFlagLogComments)) {
+    if (!hasEmitterFlag(kFlagAttached))
+      return reportError(DebugUtils::errored(kErrorNotInitialized));
+    return kErrorOk;
+  }
 
 #ifndef ASMJIT_NO_LOGGING
   StringTmp<1024> sb;
   Error err = sb.appendVFormat(fmt, ap);
 
-  if (ASMJIT_UNLIKELY(err))
-    return err;
-
+  ASMJIT_PROPAGATE(err);
   return comment(sb.data(), sb.size());
 #else
   DebugUtils::unused(fmt, ap);
@@ -348,6 +367,11 @@ Error BaseEmitter::commentv(const char* fmt, va_list ap) {
 Error BaseEmitter::onAttach(CodeHolder* code) noexcept {
   _code = code;
   _environment = code->environment();
+  _addEmitterFlags(kFlagAttached);
+
+  const ArchTraits& archTraits = ArchTraits::byArch(code->arch());
+  uint32_t nativeRegType = Environment::is32Bit(code->arch()) ? BaseReg::kTypeGp32 : BaseReg::kTypeGp64;
+  _gpRegInfo.setSignature(archTraits._regInfo[nativeRegType].signature());
 
   onSettingsUpdated();
   return kErrorOk;
@@ -356,15 +380,15 @@ Error BaseEmitter::onAttach(CodeHolder* code) noexcept {
 Error BaseEmitter::onDetach(CodeHolder* code) noexcept {
   DebugUtils::unused(code);
 
-  _clearEmitterFlags(~kEmitterPreservedFlags);
-  _forcedInstOptions = BaseInst::kOptionReserved;
-  _privateData = 0;
-
   if (!hasOwnLogger())
     _logger = nullptr;
 
   if (!hasOwnErrorHandler())
     _errorHandler = nullptr;
+
+  _clearEmitterFlags(~kEmitterPreservedFlags);
+  _forcedInstOptions = BaseInst::kOptionReserved;
+  _privateData = 0;
 
   _environment.reset();
   _gpRegInfo.reset();

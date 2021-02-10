@@ -273,6 +273,7 @@ ASMJIT_FAVOR_SIZE void detectCpu(CpuInfo& cpu) noexcept {
     if (bitTest(regs.ecx,  0)) features.add(Features::kPREFETCHWT1);
     if (bitTest(regs.ecx,  4)) features.add(Features::kOSPKE);
     if (bitTest(regs.ecx,  5)) features.add(Features::kWAITPKG);
+    if (bitTest(regs.ecx,  7)) features.add(Features::kCET_SS);
     if (bitTest(regs.ecx,  8)) features.add(Features::kGFNI);
     if (bitTest(regs.ecx,  9)) features.add(Features::kVAES);
     if (bitTest(regs.ecx, 10)) features.add(Features::kVPCLMULQDQ);
@@ -281,9 +282,11 @@ ASMJIT_FAVOR_SIZE void detectCpu(CpuInfo& cpu) noexcept {
     if (bitTest(regs.ecx, 27)) features.add(Features::kMOVDIRI);
     if (bitTest(regs.ecx, 28)) features.add(Features::kMOVDIR64B);
     if (bitTest(regs.ecx, 29)) features.add(Features::kENQCMD);
+    if (bitTest(regs.edx,  5)) features.add(Features::kUINTR);
     if (bitTest(regs.edx, 14)) features.add(Features::kSERIALIZE);
     if (bitTest(regs.edx, 16)) features.add(Features::kTSXLDTRK);
     if (bitTest(regs.edx, 18)) features.add(Features::kPCONFIG);
+    if (bitTest(regs.edx, 20)) features.add(Features::kCET_IBT);
 
     // Detect 'TSX' - Requires at least one of `HLE` and `RTM` features.
     if (features.hasHLE() || features.hasRTM())
@@ -329,7 +332,9 @@ ASMJIT_FAVOR_SIZE void detectCpu(CpuInfo& cpu) noexcept {
   if (features.hasAVX512_F() && maxSubLeafId_0x7 >= 1) {
     cpuidQuery(&regs, 0x7, 1);
 
+    if (bitTest(regs.eax, 3)) features.add(Features::kAVX_VNNI);
     if (bitTest(regs.eax, 5)) features.add(Features::kAVX512_BF16);
+    if (bitTest(regs.eax, 22)) features.add(Features::kHRESET);
   }
 
   // --------------------------------------------------------------------------

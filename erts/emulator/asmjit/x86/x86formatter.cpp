@@ -188,15 +188,15 @@ static const RegFormatInfo x86RegFormatInfo = {
 
 static const char* x86GetAddressSizeString(uint32_t size) noexcept {
   switch (size) {
-    case 1 : return "byte ";
-    case 2 : return "word ";
-    case 4 : return "dword ";
-    case 6 : return "fword ";
-    case 8 : return "qword ";
-    case 10: return "tword ";
-    case 16: return "oword ";
-    case 32: return "yword ";
-    case 64: return "zword ";
+    case 1 : return "byte ptr ";
+    case 2 : return "word ptr ";
+    case 4 : return "dword ptr ";
+    case 6 : return "fword ptr ";
+    case 8 : return "qword ptr ";
+    case 10: return "tbyte ptr ";
+    case 16: return "xmmword ptr ";
+    case 32: return "ymmword ptr ";
+    case 64: return "zmmword ptr ";
     default: return "";
   }
 }
@@ -238,6 +238,7 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "AVX512_VNNI\0"
     "AVX512_VP2INTERSECT\0"
     "AVX512_VPOPCNTDQ\0"
+    "AVX_VNNI\0"
     "BMI\0"
     "BMI2\0"
     "CET_IBT\0"
@@ -263,6 +264,7 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "GEODE\0"
     "GFNI\0"
     "HLE\0"
+    "HRESET\0"
     "I486\0"
     "LAHFSAHF\0"
     "LWP\0"
@@ -311,6 +313,7 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "TBM\0"
     "TSX\0"
     "TSXLDTRK\0"
+    "UINTR\0"
     "VAES\0"
     "VMX\0"
     "VPCLMULQDQ\0"
@@ -325,17 +328,70 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
 
   static const uint16_t sFeatureIndex[] = {
     0, 5, 8, 11, 17, 24, 28, 34, 44, 53, 62, 71, 75, 80, 94, 108, 120, 134, 144,
-    155, 165, 176, 185, 197, 208, 220, 233, 243, 255, 275, 292, 296, 301, 309,
-    316, 325, 333, 344, 349, 356, 361, 372, 382, 388, 395, 400, 405, 409, 414,
-    418, 427, 432, 440, 446, 451, 455, 460, 469, 473, 479, 487, 491, 496, 504,
-    513, 519, 529, 537, 541, 545, 550, 558, 564, 574, 582, 589, 599, 611, 619,
-    625, 631, 638, 645, 651, 658, 662, 672, 676, 683, 688, 693, 697, 701, 705,
-    710, 715, 722, 729, 735, 741, 745, 749, 753, 762, 767, 771, 782, 790, 799,
-    803, 809, 816, 825, 832
+    155, 165, 176, 185, 197, 208, 220, 233, 243, 255, 275, 292, 301, 305, 310,
+    318, 325, 334, 342, 353, 358, 365, 370, 381, 391, 397, 404, 409, 414, 418,
+    423, 427, 436, 441, 449, 455, 460, 464, 471, 476, 485, 489, 495, 503, 507,
+    512, 520, 529, 535, 545, 553, 557, 561, 566, 574, 580, 590, 598, 605, 615,
+    627, 635, 641, 647, 654, 661, 667, 674, 678, 688, 692, 699, 704, 709, 713,
+    717, 721, 726, 731, 738, 745, 751, 757, 761, 765, 769, 778, 784, 789, 793,
+    804, 812, 821, 825, 831, 838, 847, 854
   };
   // @EnumStringEnd@
 
   return sb.append(sFeatureString + sFeatureIndex[Support::min<uint32_t>(featureId, x86::Features::kCount)]);
+}
+
+// ============================================================================
+// [asmjit::x86::FormatterInternal - Format Register]
+// ============================================================================
+
+ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(String& sb, uint32_t flags, const BaseEmitter* emitter, uint32_t arch, uint32_t rType, uint32_t rId) noexcept {
+  DebugUtils::unused(arch);
+  const RegFormatInfo& info = x86RegFormatInfo;
+
+#ifndef ASMJIT_NO_COMPILER
+  if (Operand::isVirtId(rId)) {
+    if (emitter && emitter->emitterType() == BaseEmitter::kTypeCompiler) {
+      const BaseCompiler* cc = static_cast<const BaseCompiler*>(emitter);
+      if (cc->isVirtIdValid(rId)) {
+        VirtReg* vReg = cc->virtRegById(rId);
+        ASMJIT_ASSERT(vReg != nullptr);
+
+        const char* name = vReg->name();
+        if (name && name[0] != '\0')
+          ASMJIT_PROPAGATE(sb.append(name));
+        else
+          ASMJIT_PROPAGATE(sb.appendFormat("%%%u", unsigned(Operand::virtIdToIndex(rId))));
+
+        if (vReg->type() != rType && rType <= BaseReg::kTypeMax && (flags & FormatOptions::kFlagRegCasts) != 0) {
+          const RegFormatInfo::TypeEntry& typeEntry = info.typeEntries[rType];
+          if (typeEntry.index)
+            ASMJIT_PROPAGATE(sb.appendFormat("@%s", info.typeStrings + typeEntry.index));
+        }
+
+        return kErrorOk;
+      }
+    }
+  }
+#else
+  DebugUtils::unused(emitter, flags);
+#endif
+
+  if (ASMJIT_LIKELY(rType <= BaseReg::kTypeMax)) {
+    const RegFormatInfo::NameEntry& nameEntry = info.nameEntries[rType];
+
+    if (rId < nameEntry.specialCount)
+      return sb.append(info.nameStrings + nameEntry.specialIndex + rId * 4);
+
+    if (rId < nameEntry.count)
+      return sb.appendFormat(info.nameStrings + nameEntry.formatIndex, unsigned(rId));
+
+    const RegFormatInfo::TypeEntry& typeEntry = info.typeEntries[rType];
+    if (typeEntry.index)
+      return sb.appendFormat("%s@%u", info.typeStrings + typeEntry.index, rId);
+  }
+
+  return sb.appendFormat("<Reg-%u>?%u", rType, rId);
 }
 
 // ============================================================================
@@ -363,8 +419,8 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
 
     ASMJIT_PROPAGATE(sb.append('['));
     switch (m.addrType()) {
-      case BaseMem::kAddrTypeAbs: ASMJIT_PROPAGATE(sb.append("abs ")); break;
-      case BaseMem::kAddrTypeRel: ASMJIT_PROPAGATE(sb.append("rel ")); break;
+      case Mem::kAddrTypeAbs: ASMJIT_PROPAGATE(sb.append("abs ")); break;
+      case Mem::kAddrTypeRel: ASMJIT_PROPAGATE(sb.append("rel ")); break;
     }
 
     char opSign = '\0';
@@ -764,59 +820,6 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
 }
 
 // ============================================================================
-// [asmjit::x86::FormatterInternal - Format Register]
-// ============================================================================
-
-ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(String& sb, uint32_t flags, const BaseEmitter* emitter, uint32_t arch, uint32_t rType, uint32_t rId) noexcept {
-  DebugUtils::unused(arch);
-  const RegFormatInfo& info = x86RegFormatInfo;
-
-#ifndef ASMJIT_NO_COMPILER
-  if (Operand::isVirtId(rId)) {
-    if (emitter && emitter->emitterType() == BaseEmitter::kTypeCompiler) {
-      const BaseCompiler* cc = static_cast<const BaseCompiler*>(emitter);
-      if (cc->isVirtIdValid(rId)) {
-        VirtReg* vReg = cc->virtRegById(rId);
-        ASMJIT_ASSERT(vReg != nullptr);
-
-        const char* name = vReg->name();
-        if (name && name[0] != '\0')
-          ASMJIT_PROPAGATE(sb.append(name));
-        else
-          ASMJIT_PROPAGATE(sb.appendFormat("%%%u", unsigned(Operand::virtIdToIndex(rId))));
-
-        if (vReg->type() != rType && rType <= BaseReg::kTypeMax && (flags & FormatOptions::kFlagRegCasts) != 0) {
-          const RegFormatInfo::TypeEntry& typeEntry = info.typeEntries[rType];
-          if (typeEntry.index)
-            ASMJIT_PROPAGATE(sb.appendFormat("@%s", info.typeStrings + typeEntry.index));
-        }
-
-        return kErrorOk;
-      }
-    }
-  }
-#else
-  DebugUtils::unused(emitter, flags);
-#endif
-
-  if (ASMJIT_LIKELY(rType <= BaseReg::kTypeMax)) {
-    const RegFormatInfo::NameEntry& nameEntry = info.nameEntries[rType];
-
-    if (rId < nameEntry.specialCount)
-      return sb.append(info.nameStrings + nameEntry.specialIndex + rId * 4);
-
-    if (rId < nameEntry.count)
-      return sb.appendFormat(info.nameStrings + nameEntry.formatIndex, unsigned(rId));
-
-    const RegFormatInfo::TypeEntry& typeEntry = info.typeEntries[rType];
-    if (typeEntry.index)
-      return sb.appendFormat("%s@%u", info.typeStrings + typeEntry.index, rId);
-  }
-
-  return sb.appendFormat("Reg?%u@%u", rType, rId);
-}
-
-// ============================================================================
 // [asmjit::x86::FormatterInternal - Format Instruction]
 // ============================================================================
 
@@ -832,6 +835,17 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
 
   // Format instruction options and instruction mnemonic.
   if (instId < Inst::_kIdCount) {
+    // VEX|EVEX options.
+    if (options & Inst::kOptionVex) ASMJIT_PROPAGATE(sb.append("{vex} "));
+    if (options & Inst::kOptionVex3) ASMJIT_PROPAGATE(sb.append("{vex3} "));
+    if (options & Inst::kOptionEvex) ASMJIT_PROPAGATE(sb.append("{evex} "));
+
+    // MOD/RM and MOD/MR options
+    if (options & Inst::kOptionModRM)
+      ASMJIT_PROPAGATE(sb.append("{modrm} "));
+    else if (options & Inst::kOptionModMR)
+      ASMJIT_PROPAGATE(sb.append("{modmr} "));
+
     // SHORT|LONG options.
     if (options & Inst::kOptionShortForm) ASMJIT_PROPAGATE(sb.append("short "));
     if (options & Inst::kOptionLongForm) ASMJIT_PROPAGATE(sb.append("long "));
@@ -869,10 +883,6 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
         ASMJIT_PROPAGATE(sb.append("rex "));
       }
     }
-
-    // VEX|EVEX options.
-    if (options & Inst::kOptionVex3) ASMJIT_PROPAGATE(sb.append("vex3 "));
-    if (options & Inst::kOptionEvex) ASMJIT_PROPAGATE(sb.append("evex "));
 
     ASMJIT_PROPAGATE(InstAPI::instIdToString(arch, instId, sb));
   }

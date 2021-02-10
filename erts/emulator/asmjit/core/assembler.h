@@ -54,13 +54,13 @@ public:
   typedef BaseEmitter Base;
 
   //! Current section where the assembling happens.
-  Section* _section;
+  Section* _section = nullptr;
   //! Start of the CodeBuffer of the current section.
-  uint8_t* _bufferData;
+  uint8_t* _bufferData = nullptr;
   //! End (first invalid byte) of the current section.
-  uint8_t* _bufferEnd;
+  uint8_t* _bufferEnd = nullptr;
   //! Pointer in the CodeBuffer of the current section.
-  uint8_t* _bufferPtr;
+  uint8_t* _bufferPtr = nullptr;
 
   //! \name Construction & Destruction
   //! \{

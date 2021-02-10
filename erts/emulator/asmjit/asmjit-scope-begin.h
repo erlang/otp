@@ -21,39 +21,15 @@
 //    misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-#include "../core/api-build_p.h"
-#include "../core/arch.h"
-#include "../core/func.h"
-#include "../core/type.h"
+#ifdef _WIN32
+  #pragma push_macro("min")
+  #pragma push_macro("max")
 
-#ifdef ASMJIT_BUILD_X86
-  #include "../x86/x86callconv_p.h"
+  #ifdef min
+    #undef min
+  #endif
+
+  #ifdef max
+    #undef max
+  #endif
 #endif
-
-#ifdef ASMJIT_BUILD_ARM
-  #include "../arm/armcallconv_p.h"
-#endif
-
-ASMJIT_BEGIN_NAMESPACE
-
-// ============================================================================
-// [asmjit::CallConv - Init / Reset]
-// ============================================================================
-
-ASMJIT_FAVOR_SIZE Error CallConv::init(uint32_t ccId, const Environment& environment) noexcept {
-  reset();
-
-#ifdef ASMJIT_BUILD_X86
-  if (environment.isFamilyX86())
-    return x86::CallConvInternal::init(*this, ccId, environment);
-#endif
-
-#ifdef ASMJIT_BUILD_ARM
-  if (environment.isFamilyARM())
-    return arm::CallConvInternal::init(*this, ccIdv, environment);
-#endif
-
-  return DebugUtils::errored(kErrorInvalidArgument);
-}
-
-ASMJIT_END_NAMESPACE

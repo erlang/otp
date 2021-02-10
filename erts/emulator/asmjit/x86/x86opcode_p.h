@@ -253,7 +253,7 @@ struct Opcode {
     // instructions that use OPCODE+MOD/RM where both values in Mod/RM
     // are part of the opcode.
 
-    kModRM_Shift    = 10,
+    kModRM_Shift    = 13,
     kModRM_Mask     = 0x7u << kModRM_Shift,
 
     kModRM__        = 0x0u,
@@ -431,6 +431,10 @@ struct Opcode {
     };
     return operator|=(mask[size & 0xF]);
   }
+
+  ASMJIT_INLINE Opcode& forceEvex() noexcept { return operator|=(kMM_ForceEvex); }
+  template<typename T>
+  ASMJIT_INLINE Opcode& forceEvexIf(T exp) noexcept { return operator|=(uint32_t(exp) << Support::constCtz(uint32_t(kMM_ForceEvex))); }
 
   //! Extract `O` field (R) from the opcode (specified as /0..7 in instruction manuals).
   ASMJIT_INLINE uint32_t extractModO() const noexcept {

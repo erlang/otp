@@ -68,7 +68,7 @@ UNIT(operand) {
   uint32_t rSig = Operand::kOpReg | (1 << Operand::kSignatureRegTypeShift ) |
                                     (2 << Operand::kSignatureRegGroupShift) |
                                     (8 << Operand::kSignatureSizeShift    ) ;
-  BaseReg r1(rSig, 5);
+  BaseReg r1 = BaseReg::fromSignatureAndId(rSig, 5);
 
   EXPECT(r1.isValid()   == true);
   EXPECT(r1.isReg()     == true);
@@ -126,10 +126,17 @@ UNIT(operand) {
 
   INFO("Checking basic functionality of Imm");
   Imm immValue(-42);
+  EXPECT(immValue.type() == Imm::kTypeInteger);
   EXPECT(Imm(-1).value() == -1);
   EXPECT(imm(-1).value() == -1);
   EXPECT(immValue.value() == -42);
   EXPECT(imm(0xFFFFFFFF).value() == int64_t(0xFFFFFFFF));
+
+  Imm immDouble(0.4);
+  EXPECT(immDouble.type() == Imm::kTypeDouble);
+  EXPECT(immDouble.valueAs<double>() == 0.4);
+  EXPECT(immDouble == imm(0.4));
+
 }
 #endif
 
