@@ -62,7 +62,17 @@ do_recv(Sock, Bs) ->
             {ok, list_to_binary(Bs)}
     end.</code>
     <p>For more examples, see section
-      <seeerl marker="#examples">Examples</seeerl>.</p>
+    <seeerl marker="#examples">Examples</seeerl>.</p>
+    <note>
+      <p>For <c>gen_tcp</c> with <c>inet_backend = socket</c> we have tried
+      to be as "compatible" as possible but it has not always been possible.
+      Here is a list of cases when the behaviour of inet-backend
+      <c>inet</c> (default) and <c>socket</c> are different: </p>
+      <list type="bulleted">
+        <item><p><seeerl marker="#async_send">Async send</seeerl></p></item>
+        <item><p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p></item>
+      </list>
+    </note>
   </description>
 
   <datatypes>
@@ -388,6 +398,7 @@ do_recv(Sock, Bs) ->
         <p>There is no <c>send</c> call with a time-out option, use socket
         option <c>send_timeout</c> if time-outs are desired. See section
         <seeerl marker="#examples">Examples</seeerl>.</p>
+        <marker id="async_send"></marker>
         <note>
           <p>Async send.</p>
           <p>If the user tries to send more data than there is room for
@@ -424,6 +435,7 @@ do_recv(Sock, Bs) ->
           <seemfa marker="#send/2"><c>send/2</c></seemfa>.</p>
         <p>Option <c>{exit_on_close, false}</c> is useful if the peer has done
           a shutdown on the write side.</p>
+        <marker id="async_shutdown_write"></marker>
         <note>
           <p>Async shutdown write (write or read_write).</p>
           <p>If the shutdown attempt is made when there is an ongoing
