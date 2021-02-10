@@ -29,19 +29,8 @@
 
 extern OSErr  CPSSetProcessName (ProcessSerialNumber *psn, char *processname);
 
-void * wxe_ps_init() 
+void * wxe_ps_init()
 {
-   ProcessSerialNumber psn;
-   // Enable GUI 
-   if(!GetCurrentProcess(&psn)) {
-      TransformProcessType(&psn, kProcessTransformToForegroundApplication);
-#ifdef  MAC_OS_X_VERSION_10_6
-      [[NSRunningApplication currentApplication] activateWithOptions:
-       (NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
-#else 
-      SetFrontProcess(&psn);
-#endif
-   }
    return (void *) 0;
 }
 
@@ -66,7 +55,6 @@ void * wxe_ps_init2() {
    char * app_title;
    size_t app_icon_len = 1023;
    char app_icon_buf[1024];
-   char * app_icon;
 
    // Setup and enable gui
    pool = [[NSAutoreleasePool alloc] init];
