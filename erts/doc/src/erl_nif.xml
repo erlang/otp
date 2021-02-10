@@ -140,6 +140,21 @@ $> erl
         However, unused local stub functions will be optimized
         away by the compiler, causing loading of the NIF library to fail.</p>
     </note>
+    <warning>
+      <p>
+	There is a known limitation for Erlang fallback functions of NIFs. Avoid
+	functions involved in traversal of binaries by matching and
+	recursion. If a NIF is loaded over such function, binary arguments to
+	the NIF may get corrupted and cause VM crash or other misbehavior.
+      </p>
+      <p>Example of such bad fallback function:</p>
+	<code type="none">
+skip_until(Byte, &lt;&lt;Byte, Rest/binary&gt;&gt;) ->
+    Rest;
+skip_until(Byte, &lt;&lt;_, Rest/binary&gt;&gt;) ->
+    skip_until(Byte, Rest).
+</code>
+    </warning>
   </section>
 
   <section>
