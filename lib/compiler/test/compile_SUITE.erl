@@ -37,7 +37,7 @@
 	 sys_pre_attributes/1, dialyzer/1, no_core_prepare/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
-         compile_attribute/1
+         compile_attribute/1, error_column/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -55,7 +55,7 @@ all() ->
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
-     compile_attribute].
+     compile_attribute, error_column].
 
 groups() -> 
     [].
@@ -1254,6 +1254,47 @@ do_warnings_2([{Pos,_,_}=W|T], Next, F) ->
 do_warnings_2([], Next, F) ->
     do_warnings_1(Next, F).
 
+error_column(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    BadEncFile = filename:join(DataDir, "bad_enc.erl"),
+    {error,BadEncErrors, []} = compile:file(BadEncFile, [return]),
+    [":7:15: cannot parse file, giving up\n"
+     "%    7| \t    {ok, \"xyz\n"
+     "%     | \t             ^\n\n"
+    ,
+     ":7:15: cannot translate from UTF-8\n"
+     "%    7| \t    {ok, \"xyz\n"
+     "%     | \t             ^\n\n"
+    ] = messages(BadEncErrors),
+    UTF8File = filename:join(DataDir, "col_utf8.erl"),
+    {ok,_,UTF8Errors} = compile:file(UTF8File, [return]),
+    [":5:23: a term is constructed, but never used\n"
+     "%    5|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
+     "%     |                      \t^\n\n"
+    ] = messages(UTF8Errors),
+    Latin1File = filename:join(DataDir, "col_lat1.erl"),
+    {ok,_,Latin1Errors} = compile:file(Latin1File, [return]),
+    [":6:23: a term is constructed, but never used\n"
+     "%    6|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
+     "%     |                      \t^\n\n"
+    ] = messages(Latin1Errors),
+    ok.
+
+messages(Errors) ->
+    lists:flatmap(fun ({{File,_L},Descs}) -> format_descs(File, Descs);
+                      ({File,Descs}) -> format_descs(File, Descs)
+                  end,
+                  Errors).
+
+format_descs(File, Descs) ->
+    [strip_prefix(File, lists:flatten(Text))
+     || {_Where, Text} <- sys_messages:format_messages(File, "", Descs, [])].
+
+strip_prefix(Prefix, String) ->
+    case string:prefix(String, Prefix) of
+        nomatch -> String;
+        Rest -> Rest
+    end.
 
 %% Test that the compile:pre_load/0 function (used by 'erlc')
 %% pre-loads the modules that are used by a typical compilation.
