@@ -1626,6 +1626,11 @@ unset_aux_work_flags(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flgs)
     return erts_atomic32_read_band_nob(&ssi->aux_work, ~flgs);
 }
 
+static ERTS_INLINE erts_aint32_t
+unset_aux_work_flags_mb(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flgs)
+{
+    return erts_atomic32_read_band_mb(&ssi->aux_work, ~flgs);
+}
 
 static ERTS_INLINE void
 haw_chk_later_cleanup_op_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val)
@@ -1721,9 +1726,7 @@ handle_delayed_aux_work_wakeup(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, in
     if (!waiting && awdp->delayed_wakeup.next > awdp->esdp->reductions)
 	return aux_work;
 
-    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP);
-
-    ERTS_THR_MEMORY_BARRIER;
+    unset_aux_work_flags_mb(awdp->ssi, ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP);
 
     max_jix = awdp->delayed_wakeup.jix;
     awdp->delayed_wakeup.jix = -1;
@@ -1847,7 +1850,7 @@ handle_misc_aux_work(ErtsAuxWorkData *awdp,
 {
     ErtsThrQ_t *q = &misc_aux_work_queues[awdp->sched_id].q;
 
-    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MISC);
+    unset_aux_work_flags_mb(awdp->ssi, ERTS_SSI_AUX_WORK_MISC);
     while (1) {
 	erts_misc_aux_work_t *mawp = erts_thr_q_dequeue(q);
 	if (!mawp)
@@ -1949,7 +1952,7 @@ handle_async_ready(ErtsAuxWorkData *awdp,
 
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 
-    unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY);
+    unset_aux_work_flags_mb(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY);
     if (erts_check_async_ready(awdp->async_ready.queue)) {
 	if (set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY)
 	    & ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN) {
@@ -2005,8 +2008,8 @@ handle_fix_alloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 
-    unset_aux_work_flags(ssi, (ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
-			       | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC));
+    unset_aux_work_flags_mb(ssi, (ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
+                                  | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC));
     aux_work &= ~(ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
 		  | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC);
     res = erts_alloc_fix_alloc_shrink(awdp->sched_id, aux_work);
@@ -2054,7 +2057,7 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waitin
 
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 
-    unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD);
+    unset_aux_work_flags_mb(ssi, ERTS_SSI_AUX_WORK_DD);
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ALLOC);
     erts_alloc_scheduler_handle_delayed_dealloc((void *) awdp->esdp,
 						&need_thr_progress,
@@ -2150,7 +2153,7 @@ handle_canceled_timers(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waitin
 
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 
-    unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_CNCLD_TMRS);
+    unset_aux_work_flags_mb(ssi, ERTS_SSI_AUX_WORK_CNCLD_TMRS);
     erts_handle_canceled_timers((void *) awdp->esdp,
 				&need_thr_progress,
 				&wakeup,
@@ -2320,7 +2323,7 @@ handle_debug_wait_completed(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int w
     awdp->debug.wait_completed.callback = NULL;
     awdp->debug.wait_completed.arg = NULL;
 
-    unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED);
+    unset_aux_work_flags_mb(ssi, ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED);
 
     return aux_work & ~ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED;
 }
@@ -2456,7 +2459,7 @@ int erts_halt_code;
 static ERTS_INLINE erts_aint32_t
 handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {
-    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_REAP_PORTS);
+    unset_aux_work_flags_mb(awdp->ssi, ERTS_SSI_AUX_WORK_REAP_PORTS);
     ERTS_RUNQ_FLGS_SET(awdp->esdp->run_queue, ERTS_RUNQ_FLG_HALTING);
 
     if (erts_atomic32_dec_read_acqb(&erts_halt_progress) == 0) {
@@ -2551,7 +2554,7 @@ handle_yield(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 static ERTS_INLINE erts_aint32_t
 handle_mseg_cache_check(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {
-    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK);
+    unset_aux_work_flags_mb(awdp->ssi, ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK);
     erts_mseg_cache_check();
     return aux_work & ~ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK;
 }
@@ -2562,7 +2565,7 @@ handle_mseg_cache_check(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiti
 static ERTS_INLINE erts_aint32_t
 handle_setup_aux_work_timer(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {
-    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_SET_TMO);
+    unset_aux_work_flags_mb(awdp->ssi, ERTS_SSI_AUX_WORK_SET_TMO);
     setup_aux_work_timer(awdp->esdp);
     return aux_work & ~ERTS_SSI_AUX_WORK_SET_TMO;
 }
