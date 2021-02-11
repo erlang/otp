@@ -36,7 +36,25 @@
   <modulesummary>Functions used to render EEP-48 style documentation for a shell.</modulesummary>
   <description>
     <p>This module can be used to render function and type documentation
-      to be printed in a shell. It can only render EEP-48 documentation of the format
+      to be printed in a shell. This is the module that is used to render the
+      docs accessed through the shell through <seemfa marker="c#h/1"><c>c:h/1,2,3</c></seemfa>.
+    Example:</p>
+    <code>
+1> h(maps,new,0).
+
+  -spec new() -> Map when Map :: #{}.
+
+Since:
+  OTP 17.0
+
+  Returns a new empty map.
+
+  Example:
+
+    > maps:new().
+    #{}
+</code>
+    <p>This module can only render EEP-48 documentation of the format
       <c>application/erlang+html</c>. For more information about this format see
       <seeguide marker="erl_docgen:doc_storage">Documentation Storage</seeguide>
       in Erl_Docgen's User's Guide.
