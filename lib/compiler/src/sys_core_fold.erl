@@ -2837,31 +2837,7 @@ classify_call(Call) ->
     Mod = cerl:concrete(cerl:call_module(Call)),
     Name = cerl:concrete(cerl:call_name(Call)),
     Arity = cerl:call_arity(Call),
-    case is_operator(Mod, Name, Arity) of
-        true ->
-            {operator,{Name,Arity}};
-        false ->
-            case is_auto_imported(Mod, Name, Arity) of
-                true ->
-                    {function,{Name,Arity}};
-                false ->
-                    {function,{Mod,Name,Arity}}
-            end
-    end.
-
-is_operator(erlang, Name, Arity) ->
-    try
-        _ = erl_internal:op_type(Name, Arity),
-        true
-    catch
-        error:_ ->
-            false
-    end;
-is_operator(_, _, _) -> false.
-
-is_auto_imported(erlang, Name, Arity) ->
-    erl_internal:bif(Name, Arity);
-is_auto_imported(_, _, _) -> false.
+    {Mod, Name, Arity}.
 
 -type error() :: atom() | tuple().
 
@@ -2946,26 +2922,42 @@ format_error(invalid_call) ->
 format_error(useless_building) ->
     "a term is constructed, but never used".
 
-format_call({function,{erlang,make_fun,3}}, _) ->
+format_call({erlang,make_fun,3}, _) ->
     "fun construction";
-format_call({function,Call}, UseProgressiveForm) ->
-    [case UseProgressiveForm of
-         true -> "calling";
-         false -> "the call to"
-     end,
-     $\s,
-     case Call of
-         {M,F,A} ->
-             io_lib:format("~p:~p/~p", [M,F,A]);
-         {F,A} ->
-             io_lib:format("~p/~p", [F,A])
-     end];
-format_call({operator,{F,A}}, UseProgressiveForm) ->
-    Eval = case UseProgressiveForm of
-               true -> "evaluating";
-               false -> "evaluation of"
-           end,
-    io_lib:format(Eval ++ " operator ~p/~p", [F,A]).
+format_call({Mod, Name, Arity}, UseProgressiveForm) ->
+    case is_operator(Mod, Name, Arity) of
+        true ->
+            Str = case UseProgressiveForm of
+                      true -> "evaluating";
+                      false -> "evaluation of"
+                  end,
+            [Str, io_lib:format(" operator ~p/~p", [Name,Arity])];
+        false ->
+            Str = case UseProgressiveForm of
+                      true -> "calling";
+                      false -> "the call to"
+                  end,
+            case is_auto_imported(Mod, Name, Arity) of
+                true ->
+                    [Str, io_lib:format(" ~p/~p", [Name,Arity])];
+                false ->
+                    [Str, io_lib:format(" ~p:~p/~p", [Mod,Name,Arity])]
+            end
+    end.
+
+is_operator(erlang, Name, Arity) ->
+    try
+        _ = erl_internal:op_type(Name, Arity),
+        true
+    catch
+        error:_ ->
+            false
+    end;
+is_operator(_, _, _) -> false.
+
+is_auto_imported(erlang, Name, Arity) ->
+    erl_internal:bif(Name, Arity);
+is_auto_imported(_, _, _) -> false.
 
 -ifdef(DEBUG).
 %% In order for simplify_let/2 to work correctly, the list of
