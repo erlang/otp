@@ -22,7 +22,7 @@
 -module(compile).
 
 %% High-level interface.
--export([file/1,file/2,noenv_file/2,format_error/1,iofile/1]).
+-export([file/1,file/2,noenv_file/2,format_error/1]).
 -export([forms/1,forms/2,noenv_forms/2]).
 -export([output_generated/1,noenv_output_generated/1]).
 -export([options/0]).
@@ -1721,14 +1721,6 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
 %% objfile(Base, Target, Options) -> ObjFile
 %% tmpfile(ObjFile) -> TmpFile
 %%  Work out the correct input and output file names.
-
--spec iofile(atom() | file:filename_all()) ->
-                    {file:name_all(),file:name_all()}.
-
-iofile(File) when is_atom(File) ->
-    iofile(atom_to_list(File));
-iofile(File) ->
-    {filename:dirname(File), filename:basename(File, ".erl")}.
 
 erlfile(".", Base, Suffix) ->
     Base ++ Suffix;
