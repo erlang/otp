@@ -70,7 +70,25 @@ do_recv(Sock, Bs) ->
       <c>inet</c> (default) and <c>socket</c> are different: </p>
       <list type="bulleted">
         <item><p><seeerl marker="#async_send">Async send</seeerl></p></item>
-        <item><p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p></item>
+	<item><p>Async closed: An async send will detect a remote close, and
+	mark the socket as 'closed', but no other action is taken.
+	If the socket has active set to passive at this point and no one
+	is reading this will not be noticed.
+	But as soon as the socket is activated (active set to, at least, once,
+	an error message will be sent to the controlling process:
+	<c>{tcp_error, Socket, econnreset}</c>.
+	Any data in the OS receive buffers will be lost! </p>
+	<p>This behaviour is <em>not</em> replicated by the socket
+	implementation. If there is an active send (an attempt to send more
+	data that there is room for in the OS buffers), this will have an
+	active select and will detect the remote close and return
+	this to the caller. But do nothing else.
+	A reader will therefor be able to extract any data from the OS buffers.
+	If the socket is set to active = true, for instance, the data
+	will be received as expected (<c>{tcp, ...}</c> and then a closed
+	message (<c>{tcp_closed, ...}</c> will be receive (not an error). </p>
+	</item>
+	<item><p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p></item>
       </list>
     </note>
   </description>
