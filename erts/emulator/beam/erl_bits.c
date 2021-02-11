@@ -1176,17 +1176,21 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	if (BIT_IS_MACHINE_ENDIAN(flags)) {
 	    byte* t = erts_current_bin+BYTE_OFFSET(erts_bin_offset);
 #ifdef WORDS_BIGENDIAN
-	    t[0] = a >> 24;
-	    t[1] = a >> 16;
-	    if (num_bits >= 32) {
+	    if (num_bits == 16) {
+		t[0] = a >> 8;
+		t[1] = a;
+	    } else if (num_bits >= 32) {
+		t[0] = a >> 24;
+		t[1] = a >> 16;
 		t[2] = a >> 8;
 		t[3] = a;
-	    }
-	    if (num_bits == 64) {
-		t[4] = b >> 24;
-		t[5] = b >> 16;
-		t[6] = b >> 8;
-		t[7] = b;
+
+		if (num_bits == 64) {
+		    t[4] = b >> 24;
+		    t[5] = b >> 16;
+		    t[6] = b >> 8;
+		    t[7] = b;
+		}
 	    }
 #else
 	    if (num_bits >= 32) {
@@ -1205,17 +1209,21 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	} else {
 	    byte* t = erts_current_bin+BYTE_OFFSET(erts_bin_offset) + NBYTES(num_bits);
 #ifdef WORDS_BIGENDIAN
-	    t[-1] = a >> 24;
-	    t[-2] = a >> 16;
-	    if (num_bits >= 32) {
+	    if (num_bits == 16) {
+		t[-1] = a >> 8;
+		t[-2] = a;
+	    } else if (num_bits >= 32) {
+		t[-1] = a >> 24;
+		t[-2] = a >> 16;
 	        t[-3] = a >> 8;
 	        t[-4] = a;
-	    }
-	    if (num_bits == 64) {
-		t[-5] = b >> 24;
-		t[-6] = b >> 16;
-		t[-7] = b >> 8;
-		t[-8] = b;
+
+		if (num_bits == 64) {
+		    t[-5] = b >> 24;
+		    t[-6] = b >> 16;
+		    t[-7] = b >> 8;
+		    t[-8] = b;
+		}
 	    }
 #else
 	    t[-1] = a;

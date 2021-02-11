@@ -945,19 +945,19 @@ memsize() ->
 
 -define(FP16(EncodedInt, Float),
         (fun(NlInt, NlFloat) ->
-                 true = <<NlInt:16>> =:= <<NlFloat:16/float>>,
-                 true = <<(NlInt+16#8000):16>> =:= <<-NlFloat:16/float>>,
-                 true = <<NlInt:16/little>> =:= <<NlFloat:16/float-little>>,
-                 true = <<(NlInt+16#8000):16/little>> =:= <<-NlFloat:16/float-little>>,
-                 true = <<NlInt:16/native>> =:= <<NlFloat:16/float-native>>,
-                 true = <<(NlInt+16#8000):16/native>> =:= <<-NlFloat:16/float-native>>
+                 {0, true} = {0, <<NlInt:16>> =:= <<NlFloat:16/float>>},
+                 {1, true} = {1, <<(NlInt+16#8000):16>> =:= <<-NlFloat:16/float>>},
+                 {2, true} = {2, <<NlInt:16/little>> =:= <<NlFloat:16/float-little>>},
+                 {3, true} = {3, <<(NlInt+16#8000):16/little>> =:= <<-NlFloat:16/float-little>>},
+                 {4, true} = {4, <<NlInt:16/native>> =:= <<NlFloat:16/float-native>>},
+                 {5, true} = {5, <<(NlInt+16#8000):16/native>> =:= <<-NlFloat:16/float-native>>}
          end)(nonliteral(EncodedInt), nonliteral(Float)),
-        true = <<EncodedInt:16>> =:= <<Float:16/float>>,
-        true = <<(EncodedInt+16#8000):16>> =:= <<-Float:16/float>>,
-        true = <<EncodedInt:16/little>> =:= <<Float:16/float-little>>,
-        true = <<(EncodedInt+16#8000):16/little>> =:= <<-Float:16/float-little>>,
-        true = <<EncodedInt:16/native>> =:= <<Float:16/float-native>>,
-        true = <<(EncodedInt+16#8000):16/native>> =:= <<-Float:16/float-native>>).
+        {a, true} = {a, <<EncodedInt:16>> =:= <<Float:16/float>>},
+        {b, true} = {b, <<(EncodedInt+16#8000):16>> =:= <<-Float:16/float>>},
+        {c, true} = {c, <<EncodedInt:16/little>> =:= <<Float:16/float-little>>},
+        {d, true} = {d, <<(EncodedInt+16#8000):16/little>> =:= <<-Float:16/float-little>>},
+        {e, true} = {e, <<EncodedInt:16/native>> =:= <<Float:16/float-native>>},
+        {f, true} = {f, <<(EncodedInt+16#8000):16/native>> =:= <<-Float:16/float-native>>}).
 
 fp16(_Config) ->
     %% smallest positive subnormal number
