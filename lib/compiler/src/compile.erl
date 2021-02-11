@@ -1972,7 +1972,6 @@ make_erl_options(Opts) ->
 	     warning=Warning,
 	     verbose=Verbose,
 	     specific=Specific,
-	     output_type=OutputType,
 	     cwd=Cwd} = Opts,
     Options = [verbose || Verbose] ++
 	[report_warnings || Warning =/= 0] ++
@@ -1980,14 +1979,9 @@ make_erl_options(Opts) ->
 		    {d,Name,Value};
 		(Name) ->
 		    {d,Name}
-	    end, Defines) ++
-	case OutputType of
-	    undefined -> [];
-	    jam -> [jam];
-	    beam -> [beam]
-	end,
-    Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir}|
-	        [{i, Dir} || Dir <- Includes]] ++ Specific.
+            end, Defines),
+    Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir} |
+                [{i, Dir} || Dir <- Includes]] ++ Specific.
 
 pre_load() ->
     L = [beam_a,
