@@ -313,9 +313,6 @@ format_error({write_error, Error}) ->
 format_error({rename,From,To,Error}) ->
     io_lib:format("failed to rename ~ts to ~ts: ~ts",
 		  [From,To,file:format_error(Error)]);
-format_error({delete,File,Error}) ->
-    io_lib:format("failed to delete file ~ts: ~ts",
-		  [File,file:format_error(Error)]);
 format_error({parse_transform,M,R}) ->
     io_lib:format("error in parse transform '~ts': ~tp", [M, R]);
 format_error({undef_parse_transform,M}) ->
@@ -1357,7 +1354,7 @@ makedep_add_header(Ifile, Included, LineLen, MainTarget, Phony, File) ->
 	    end,
 
 	    %% Add the file to the dependencies. Lines longer than 76 columns
-	    %% are splitted.
+	    %% are split.
 	    if
 		LineLen + 1 + length(File1) > 76 ->
                     LineLen1 = 2 + length(File1),
@@ -1374,59 +1371,34 @@ makedep_output(Code, #compile{options=Opts,ofile=Ofile}=St) ->
     %% Write this Makefile (Code) to the selected output.
     %% If no output is specified, the default is to write to a file named after
     %% the output file.
-    Output0 = case proplists:get_value(makedep_output, Opts) of
-		  undefined ->
-		      %% Prepare the default filename.
-		      outfile(filename:basename(Ofile, ".beam"), "Pbeam", Opts);
-		  O ->
-		      O
-	      end,
+    Output = case proplists:get_value(makedep_output, Opts) of
+                 undefined ->
+                     %% Prepare the default filename.
+                     outfile(filename:basename(Ofile, ".beam"), "Pbeam", Opts);
+                 Other ->
+                     Other
+             end,
 
-    %% If the caller specified an io_device(), there's nothing to do. If he
-    %% specified a filename, we must create it. Furthermore, this created file
-    %% must be closed before returning.
-    Ret = case Output0 of
-	      _ when is_list(Output0) ->
-		  case file:delete(Output0) of
-		      Ret2 when Ret2 =:= ok; Ret2 =:= {error,enoent} ->
-			  case file:open(Output0, [write]) of
-			      {ok,IODev} ->
-				  {ok,IODev,true};
-			      {error,Reason2} ->
-				  {error,open,Reason2}
-			  end;
-		      {error,Reason1} ->
-			  {error,delete,Reason1}
-		  end;
-	      _ ->
-		  {ok,Output0,false}
-	  end,
-
-    case Ret of
-	{ok,Output1,CloseOutput} ->
-	    try
-		%% Write the Makefile.
-		io:fwrite(Output1, "~ts", [Code]),
-		%% Close the file if relevant.
-		if
-		    CloseOutput -> ok = file:close(Output1);
-		    true -> ok
-		end,
-		{ok,Code,St}
-	    catch
-		error:_ ->
-		    %% Couldn't write to output Makefile.
-		    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
-		    {error,St#compile{errors=St#compile.errors++[Err]}}
-	    end;
-	{error,open,Reason} ->
-	    %% Couldn't open output Makefile.
-	    Err = {St#compile.ifile,[{none,?MODULE,{open,Reason}}]},
-	    {error,St#compile{errors=St#compile.errors++[Err]}};
-	{error,delete,Reason} ->
-	    %% Couldn't open output Makefile.
-	    Err = {St#compile.ifile,[{none,?MODULE,{delete,Output0,Reason}}]},
-	    {error,St#compile{errors=St#compile.errors++[Err]}}
+    if
+        is_list(Output) ->
+            %% Write the depedencies to a file.
+            case file:write_file(Output, Code) of
+                ok ->
+                    {ok,Code,St};
+                {error,Reason} ->
+                    Err = {St#compile.ifile,[{none,?MODULE,{write_error,Reason}}]},
+                    {error,St#compile{errors=St#compile.errors++[Err]}}
+            end;
+        true ->
+            %% Write the depedencies to a device.
+            try io:fwrite(Output, "~ts", [Code]) of
+                ok ->
+                    {ok,Code,St}
+            catch
+                error:_ ->
+                    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
+                    {error,St#compile{errors=St#compile.errors++[Err]}}
+            end
     end.
 
 expand_records(Code0, #compile{options=Opts}=St) ->
