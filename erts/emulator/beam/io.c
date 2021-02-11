@@ -3601,7 +3601,7 @@ terminate_port(Port *prt)
 	erts_cancel_port_timer(prt);
 
     drv = prt->drv_ptr;
-    if ((drv != NULL) && (drv->stop != NULL)) {
+    if (drv->stop != NULL) {
 	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_stop)) {
