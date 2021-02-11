@@ -5277,9 +5277,6 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
     Eterm ret;
     Eterm flg;
     Eterm *hp;
-    Eterm *arr;
-    int n;
-    Eterm l;
     Uint32 ret_flags;
     Uint sz;
     Eterm save_cp;
@@ -5309,26 +5306,27 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    db_match_dis(mps);
 	}
 #endif /* DMC_DEBUG */
-	l = against;
-	n = 0;
-	while (is_list(l)) {
-	    ++n;
-	    l = CDR(list_val(l));
-	}
 	if (trace) {
-	    if (n)
+            Eterm *arr = NULL;
+            int n = 0;
+
+	    if (is_list(against)) {
+                Eterm l = against;
+                do {
+                    ++n;
+                    l = CDR(list_val(l));
+                } while (is_list(l));
+
 		arr = erts_alloc(ERTS_ALC_T_DB_TMP, sizeof(Eterm) * n);
-	    else {
-                ASSERT(!is_list(against));
-		arr = NULL;
+
+                l = against;
+                n = 0;
+                do {
+                    arr[n] = CAR(list_val(l));
+                    ++n;
+                    l = CDR(list_val(l));
+                } while (is_list(l));
             }
-	    l = against;
-	    n = 0;
-	    while (is_list(l)) {
-		arr[n] = CAR(list_val(l));
-		++n;
-		l = CDR(list_val(l));
-	    }
 	    save_cp = p->stop[0];
 	    p->stop[0] = NIL;
 	    res = erts_match_set_run_trace(p, p,
@@ -5336,10 +5334,10 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 		      ERTS_PAM_COPY_RESULT|ERTS_PAM_IGNORE_TRACE_SILENT,
 		      &ret_flags);
 	    p->stop[0] = save_cp;
+            if (arr)
+                erts_free(ERTS_ALC_T_DB_TMP, arr);
 	} else {
-	    n = 0;
-	    arr = NULL;
-	    res = erts_match_set_run_ets(p, mps, against, n, &ret_flags);
+	    res = erts_match_set_run_ets(p, mps, against, 0, &ret_flags);
 	}
 	
 	/* We are in the context of a BIF, 
@@ -5359,9 +5357,6 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	if (ret_flags & MATCH_SET_RETURN_TRACE) {
 	    flg = CONS(hp, am_return_trace, flg);
 	    hp += 2;
-	}
-	if (trace && arr != NULL) {
-	    erts_free(ERTS_ALC_T_DB_TMP, arr);
 	}
 	erts_bin_free(mps);
 	ret = TUPLE4(hp, am_ok, res, flg, lint_res);
