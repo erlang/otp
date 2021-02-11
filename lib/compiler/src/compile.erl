@@ -1727,9 +1727,7 @@ erlfile(".", Base, Suffix) ->
 erlfile(Dir, Base, Suffix) ->
     filename:join(Dir, Base ++ Suffix).
 
-outfile(Base, Ext, Opts) when is_atom(Ext) ->
-    outfile(Base, atom_to_list(Ext), Opts);
-outfile(Base, Ext, Opts) ->
+outfile(Base, Ext, Opts) when is_list(Ext) ->
     Obase = case keyfind(outdir, 1, Opts) of
 		{outdir, Odir} -> filename:join(Odir, Base);
 		_Other -> Base			% Not found or bad format
