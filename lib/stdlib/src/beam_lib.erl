@@ -682,10 +682,13 @@ chunks_to_data([{abst_chunk, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) -
     {NewAtoms, Ret} =
 	case catch chunk_to_data(debug_info, DbgiChunk, File, Cs, Atoms, Module) of
 	    {DbgiAtoms, {debug_info, {debug_info_v1, Backend, Metadata}}} ->
-		case Backend:debug_info(erlang_v1, Module, Metadata, []) of
+		try Backend:debug_info(erlang_v1, Module, Metadata, []) of
 		    {ok, Code} -> {DbgiAtoms, {abstract_code, {raw_abstract_v1, Code}}};
 		    {error, _} -> {DbgiAtoms, {abstract_code, no_abstract_code}}
-		end;
+                catch
+                    error:undef ->
+                        {DbgiAtoms, {abstract_code, no_abstract_code}}
+                end;
             {error,beam_lib,{key_missing_or_invalid,Path,debug_info}} ->
                 error({key_missing_or_invalid,Path,abstract_code});
 	    _ ->
