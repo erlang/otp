@@ -1552,14 +1552,12 @@ do_compile2(File, UserOptions, LocalOnly) ->
 do_compile_beam1(Module,Beam,UserOptions,LocalOnly) ->
     %% Clear database
     do_clear(Module),
-    
+
     %% Extract the abstract format.
     case get_abstract_code(Module, Beam) of
-	no_abstract_code=E ->
-	    {error,E};
-	encrypted_abstract_code=E ->
-	    {error,E};
-	{raw_abstract_v1,Code} ->
+	{error,_}=Error ->
+            Error;
+	{ok,{raw_abstract_v1,Code}} ->
             Forms0 = epp:interpret_file_attribute(Code),
 	    case find_main_filename(Forms0) of
 		{ok,MainFile} ->
@@ -1568,7 +1566,7 @@ do_compile_beam1(Module,Beam,UserOptions,LocalOnly) ->
 		Error ->
 		    Error
 	    end;
-	{_VSN,_Code} ->
+	{ok,{_VSN,_Code}} ->
 	    %% Wrong version of abstract code. Just report that there
 	    %% is no abstract code.
 	    {error,no_abstract_code}
@@ -1577,10 +1575,14 @@ do_compile_beam1(Module,Beam,UserOptions,LocalOnly) ->
 get_abstract_code(Module, Beam) ->
     case beam_lib:chunks(Beam, [abstract_code]) of
 	{ok, {Module, [{abstract_code, AbstractCode}]}} ->
-	    AbstractCode;
+            case AbstractCode of
+                no_abstract_code=E -> {error, E};
+                _ -> {ok,AbstractCode}
+            end;
 	{error,beam_lib,{key_missing_or_invalid,_,_}} ->
-	    encrypted_abstract_code;
-	Error -> Error
+	    {error,encrypted_abstract_code};
+	{error,beam_lib,{missing_backend,_,Backend}} ->
+	    {error,{missing_backend,Backend}}
     end.
 
 do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile,LocalOnly) ->

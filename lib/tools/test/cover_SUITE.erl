@@ -31,6 +31,7 @@ all() ->
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
                    otp_8340,otp_8188,compile_beam_opts,eep37,
                    analyse_no_beam, line_0, compile_beam_no_file,
+                   compile_beam_missing_backend,
                    otp_13277, otp_13289],
     StartStop = [start, compile, analyse, misc, stop,
                  distribution, reconnect, die_and_reconnect,
@@ -1706,11 +1707,41 @@ compile_beam_no_file(Config) ->
     [{error,{no_file_attribute,BeamFile}}] = cover:compile_beam_directory(Dir),
     ok.
 
+%% GH-4353: Don't crash when the backend for generating the abstract code
+%% is missing.
+compile_beam_missing_backend(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = filelib:ensure_dir(filename:join(Dir, "*")),
+    code:add_patha(Dir),
+    Str = lists:append(
+            ["-module(no_backend).\n"
+             "-compile(export_all).\n"
+             "foo() -> ok.\n"]),
+    TT = do_scan(Str),
+    Forms = [ begin {ok,Y} = erl_parse:parse_form(X),Y end || X <- TT ],
+    {ok,_,Bin} = compile:forms(Forms, [debug_info]),
+
+    %% Create a debug_info chunk with a non-existing backend.
+    {ok,no_backend,All0} = beam_lib:all_chunks(Bin),
+    FakeBackend = definitely__not__an__existing__backend,
+    FakeDebugInfo = {debug_info_v1,FakeBackend,nothing_here},
+    All = lists:keyreplace("Dbgi", 1, All0, {"Dbgi", term_to_binary(FakeDebugInfo)}),
+    {ok,NewBeam} = beam_lib:build_module(All),
+    BeamFile = filename:join(Dir, "no_backend.beam"),
+    ok = file:write_file(BeamFile, NewBeam),
+
+    {error,{{missing_backend,FakeBackend},BeamFile}} = cover:compile_beam(no_backend),
+    [{error,{{missing_backend,FakeBackend},BeamFile}}] = cover:compile_beam_directory(Dir),
+
+    ok.
+
 do_scan([]) ->
     [];
 do_scan(Str) ->
     {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
     [ T | do_scan(C) ].
+
 
 %% PR 856. Fix a bc bug.
 otp_13277(Config) ->
