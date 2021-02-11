@@ -20,7 +20,7 @@
 
 -module(maps).
 
--export([get/3, filter/2, filtermap/2, fold/3,
+-export([get/3, filter/2, filtermap/2, fold/3, foreach/2,
          map/2, size/1, new/0,
          update_with/3, update_with/4,
          without/2, with/2,
@@ -292,7 +292,6 @@ get(Key,Map,Default) when is_map(Map) ->
 get(Key,Map,Default) ->
     error_with_info({badmap,Map}, [Key,Map,Default]).
 
-
 -spec filter(Pred, MapOrIter) -> Map when
       Pred :: fun((Key, Value) -> boolean()),
       MapOrIter :: #{Key => Value} | iterator(Key, Value),
@@ -358,6 +357,30 @@ filtermap_1(Pred, {K, V, Iter}) ->
     end;
 filtermap_1(_Pred, none) ->
     [].
+
+-spec foreach(Fun,MapOrIter) -> ok when
+      Fun :: fun((Key, Value) -> term()),
+      MapOrIter :: #{Key => Value} | iterator(Key, Value).
+
+foreach(Fun, MapOrIter) when is_function(Fun, 2) ->
+    Iter = if is_map(MapOrIter) -> iterator(MapOrIter);
+              true -> MapOrIter
+           end,
+    try next(Iter) of
+        Next ->
+            foreach_1(Fun, Next)
+    catch
+        error:_ ->
+            error_with_info({badmap, MapOrIter}, [Fun, MapOrIter])
+    end;
+foreach(Pred, Map) ->
+    badarg_with_info([Pred, Map]).
+
+foreach_1(Fun, {K, V, Iter}) ->
+    Fun(K,V),
+    foreach_1(Fun, next(Iter));
+foreach_1(_Fun, none) ->
+    ok.
 
 -spec fold(Fun,Init,MapOrIter) -> Acc when
     Fun :: fun((Key, Value, AccIn) -> AccOut),

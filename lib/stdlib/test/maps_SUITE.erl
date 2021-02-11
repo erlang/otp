@@ -29,7 +29,7 @@
 
 -export([t_update_with_3/1, t_update_with_4/1,
          t_get_3/1, t_filter_2/1, t_filtermap_2/1,
-         t_fold_3/1,t_map_2/1,t_size_1/1,
+         t_fold_3/1,t_map_2/1,t_size_1/1, t_foreach_2/1,
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
@@ -47,7 +47,7 @@ suite() ->
 all() ->
     [t_update_with_3,t_update_with_4,
      t_get_3,t_filter_2,t_filtermap_2,
-     t_fold_3,t_map_2,t_size_1,
+     t_fold_3,t_map_2,t_size_1,t_foreach_2,
      t_iterator_1,t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
@@ -200,6 +200,25 @@ t_map_2(Config) when is_list(Config) ->
     %% error case
     ?badmap(a,map,[_,a]) = (catch maps:map(fun(_,_) -> ok end, id(a))),
     ?badarg(map,[<<>>,#{}]) = (catch maps:map(id(<<>>),#{})),
+    ok.
+
+t_foreach_2(Config) when is_list(Config) ->
+    %% error case
+    ?badmap(a,foreach,[_,a]) = (catch maps:foreach(fun(_,_) -> ok end, id(a))),
+    ?badmap([],foreach,[_,[]]) = (catch maps:foreach(fun(_,_) -> ok end, id([]))),
+    ?badmap({},foreach,[_,{}]) = (catch maps:foreach(fun(_,_) -> ok end, id({}))),
+    ?badmap(42,foreach,[_,42]) = (catch maps:foreach(fun(_,_) -> ok end, id(42))),
+    ?badmap(<<>>,foreach,[_,<<>>]) = (catch maps:foreach(fun(_,_) -> ok end, id(<<>>))),
+
+    ?badarg(foreach,[<<>>,#{}]) = (catch maps:foreach(id(<<>>),#{})),
+    F0 = fun() -> ok end,
+    F3 = fun(_, _, _) -> ok end,
+    ?badarg(foreach,[F0, #{}]) = (catch maps:foreach(id(F0), #{})),
+    ?badarg(foreach,[F3, #{}]) = (catch maps:foreach(id(F3), #{})),
+    ?badarg(foreach,[a, #{}]) = (catch maps:foreach(id(a), #{})),
+    ?badarg(foreach,[[], #{}]) = (catch maps:foreach(id([]), #{})),
+    ?badarg(foreach,[{}, #{}]) = (catch maps:foreach(id({}), #{})),
+    ?badarg(foreach,[42, #{}]) = (catch maps:foreach(id(42), #{})),
     ok.
 
 t_iterator_1(Config) when is_list(Config) ->
@@ -530,6 +549,11 @@ error_info(_Config) ->
          {fold, [fun(_, _, _) -> true end, init, BadIterator]},
          {fold, [fun(_) -> true end, init, GoodIterator]},
          {fold, [fun(_) -> ok end, init, #{}]},
+
+         {foreach, [fun(_, _) -> ok end, no_map]},
+         {foreach, [fun(_, _) -> ok end, BadIterator]},
+         {foreach, [fun(_) -> ok end, GoodIterator]},
+         {foreach, [fun(_) -> ok end, #{}]},
 
          {from_keys, [#{a => b}, whatever]},
          {from_keys, [[a|b], whatever]},
