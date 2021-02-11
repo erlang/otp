@@ -1447,15 +1447,72 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
             fun() -> do_econnreset_after_async_send_active(Config) end).
 
 do_econnreset_after_async_send_active(Config) ->
-    {OS, _} = os:type(),
-    Payload = lists:duplicate(1024 * 1024, $.),
+    {OS, _}  = os:type(),
+    CPayload = craasa_mk_payload(),
+    SPayload = "Whatever",
 
     %% First confirm everything works with option turned off.
+    ?P("pre 1 (default)"),
+    {Client1, Server1} = craasa_pre(Config, default),
+
+    ?P("populate 1 (default)"),
+    {ok, Sender1} = craasa_populate(OS, default,
+                                    Client1, Server1, CPayload, SPayload),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("[server] set linger true:0"),
+    ok = inet:setopts(Server1, [{linger, {true, 0}}]),
+    ?P("[server] close socket"),
+    ok = gen_tcp:close(Server1),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 1 (default)"),
+    craasa_verify(default, Client1, SPayload),
+
+    ?P("cleanup 1 (default)"),
+    craasa_cleanup(Client1, Sender1),
+
+    %% Now test with option switched on.
+    ?P("pre 2 (true)"),
+    {Client2, Server2} = craasa_pre(Config, true),
+
+    ?P("populate 2 (true)"),
+    {ok, Sender2} = craasa_populate(OS, true,
+                                    Client2, Server2, CPayload, SPayload),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("[server] set linger true:0"),
+    ok = inet:setopts(Server2, [{linger, {true, 0}}]),
+    ?P("[server] close socket"),
+    ok = gen_tcp:close(Server2),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 2 (true)"),
+    craasa_verify(true, Client2, SPayload),
+
+    ?P("cleanup 2 (true)"),
+    craasa_cleanup(Client2, Sender2),
+
+    ?P("done"),
+    ok.
+
+craasa_mk_payload() ->
+    list_to_binary(lists:duplicate(1024 * 1024, $.)).
+
+craasa_pre(Config, EConnReset)
+  when is_boolean(EConnReset) orelse (EConnReset =:= default) ->
     ?P("create listen socket (server) with active = false"),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
+    {ok, L}    = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    ?P("[client] create connect socket (default = off)"),
-    Client = case ?CONNECT(Config, localhost, Port, [{sndbuf, 4096}]) of
+    ?P("[client] create connect socket with show_econnreset: ~p", [EConnReset]),
+    Opts = if (EConnReset =:= default) -> [];
+              is_boolean(EConnReset)   -> [{show_econnreset, EConnReset}]
+           end,
+    Client = case ?CONNECT(Config, localhost, Port, [{sndbuf, 4096}] ++ Opts) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
@@ -1465,107 +1522,126 @@ do_econnreset_after_async_send_active(Config) ->
     {ok, S} = gen_tcp:accept(L),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
-    ?P("[client] send payload"),
-    ok = gen_tcp:send(Client, Payload),
-    ?P("[client] verify socket queue size"),
+    {Client, S}.
+
+craasa_populate(OS, _EConnReset, Client, Server, CPayload, SPayload)
+  when is_port(Client) andalso is_port(Server) ->
+    ?P("send payload (~w bytes) from client to server", [byte_size(CPayload)]),
+    ok = gen_tcp:send(Client, CPayload),
+    ?P("verify client socket queue size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
     ?P("[server] send something"),
-    ok = gen_tcp:send(S, "Whatever"),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[server] set linger true:0"),
-    ok = inet:setopts(S, [{linger, {true, 0}}]),
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] await server data"),
+    ok = gen_tcp:send(Server, SPayload),
+    {ok, undefined};
+craasa_populate(_OS, EConnReset, Client, Server, CPayload, SPayload) ->
+    ExpectedSendRes = if (EConnReset =:= default) -> closed;
+                         (EConnReset =:= true)    -> econnreset
+                      end,
+    Sender = spawn_link(fun() ->
+                                craasa_populate_sender(Client,
+                                                       ExpectedSendRes,
+                                                       CPayload)
+                        end),
     receive
-	{tcp, Client, "Whatever"} ->
-            ?P("[client] received server data - now await socket closed"),
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            ?P("[server] send something"),
+            ok = gen_tcp:send(Server, SPayload),
+            {ok, Sender}
+    end.
+
+craasa_populate_sender(Client, ExpectedSendRes, Payload) ->
+    ?P("[socket] send payload (expect failure)"), 
+    case gen_tcp:send(Client, Payload) of
+        {error, ExpectedSendRes} ->
+            ?P("[socket] payload send failure (as expected)"), 
+            exit(normal);
+        Unexpected ->
+            exit({unexpected, Unexpected})
+    end.
+
+craasa_cleanup(Client, Sender) ->
+    (catch gen_tcp:close(Client)),
+    craasa_cleanup(Sender).
+
+craasa_cleanup(Sender) when is_pid(Sender) ->
+    exit(Sender, kill),
+    receive
+        {'EXIT', Sender, _} ->
+            ok
+    after 0 ->
+            ok
+    end;
+craasa_cleanup(_) ->
+    ok.
+
+craasa_verify(default, Client, Payload) ->
+    ?P("[verify-default] client await server data"),
+    receive
+	{tcp, Client, Payload} ->
+            ?P("[verify-default] "
+               "client received expected server data - "
+               "now await socket closed"),
 	    receive
 		{tcp_closed, Client} ->
-                    ?P("[client] received socket closed"),
+                    ?P("[verify-default] "
+                       "received client socket closed"),
 		    ok;
 		Other1 ->
-                    ?P("[client] awaiting socket closed - received upexpected: "
+                    ?P("[verify-default] "
+                       "awaiting client socket closed - received upexpected: "
                        "~n      ~p", [Other1]),
-		    ct:fail({unexpected1, Other1})
+		    ct:fail({unexpected, tcp_closed, Other1})
 	    end;
 	Other2 ->
-            ?P("[client] awaiting socket data - received upexpected: "
+            ?P("[verify-default] "
+               "awaiting client socket data - received upexpected: "
                "~n      ~p", [Other2]),
-	    ct:fail({unexpected2, Other2})
-    end,
-
-    %% Now test with option switched on.
-    ?P("create listen socket (server) with active = false (default)"),
-    {ok, L1} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
-    {ok, Port1} = inet:port(L1),
-    ?P("[client] create connect socket (on)"),
-    Client1 =
-        case ?CONNECT(Config, localhost, Port1,
-                             [{sndbuf, 4096}, {show_econnreset, true}]) of
-            {ok, CSock1} ->
-                CSock1;
-            {error, eaddrnotavail = Reason1} ->
-                ?SKIPT(connect_failed_str(Reason1))
-        end,
-    ?P("create accept socket (server)"),
-    {ok, S1} = gen_tcp:accept(L1),
-    ?P("close listen socket"),
-    ok = gen_tcp:close(L1),
-    ?P("[client] send payload"),
-    ok = gen_tcp:send(Client1, Payload),
-    ?P("[client] verify socket queue size"),
-    case erlang:port_info(Client1, queue_size) of
-	{queue_size, N1} when N1 > 0 -> ok;
-	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T1 -> ct:fail(T1)
-    end,
-    ?P("[server] send something"),
-    ok = gen_tcp:send(S1, "Whatever"),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[server] set linger true:0"),
-    ok = inet:setopts(S1, [{linger, {true, 0}}]),
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S1),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] await server data"),
+	    ct:fail({unexpected, tcp, Other2})
+    end;
+craasa_verify(true, Client, Payload) ->
+    ?P("[verify-true] client await server data"),
     receive
-	{tcp, Client1, "Whatever"} ->
-            ?P("[client] received server data - now await socket error"),
+	{tcp, Client, Payload} ->
+            ?P("[verify-true] "
+               "client received expected server data - now await socket error"),
 	    receive
-		{tcp_error, Client1, econnreset} ->
-                    ?P("[client] received socket error - now await socket closed"),
+		{tcp_error, Client, econnreset} ->
+                    ?P("[verify-true] "
+                       "client received expected socket error - "
+                       "now await socket closed"),
 		    receive
-			{tcp_closed, Client1} ->
-                            ?P("[client] received socket closed"),
+			{tcp_closed, Client} ->
+                            ?P("[verify-true] "
+                               "client received expected socket closed"),
 			    ok;
-			Other3 ->
-                            ?P("[client] awaiting socket closed - "
+			Other1 ->
+                            ?P("[verify-true] "
+                               "client awaiting socket closed - "
                                "received upexpected: "
-                               "~n      ~p", [Other3]),
-			    ct:fail({unexpected3, Other3})
+                               "~n      ~p", [Other1]),
+			    ct:fail({unexpected, tcp_closed, Other1})
 		    end;
-		Other4 ->
-                    ?P("[client] awaiting socket error - received upexpected: "
-                       "~n      ~p", [Other4]),
-		    ct:fail({unexpected4, Other4})
+		Other2 ->
+                    ?P("[verify-true] "
+                       "client awaiting socket error - received upexpected: "
+                       "~n      ~p", [Other2]),
+		    ct:fail({unexpected, tcp_error, Other2})
 	    end;
-	Other5 ->
-            ?P("[client] awaiting socket data - received upexpected: "
-               "~n      ~p", [Other5]),
-	    ct:fail({unexpected5, Other5})
-    end,
-    ?P("done"),
-    ok.
+	Other3 ->
+            ?P("[verify-true] "
+               "client awaiting socket data - received upexpected: "
+               "~n      ~p", [Other3]),
+	    ct:fail({unexpected, tcp, Other3})
+    end.
+
+
+%% --------------------------------------------------------------------------
 
 econnreset_after_async_send_active_once(Config) when is_list(Config) ->
     ?TC_TRY(econnreset_after_async_send_active_once,
