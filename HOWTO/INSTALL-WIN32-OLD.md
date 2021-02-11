@@ -892,7 +892,7 @@ cannot be built as MsysGIT/MSYS does not handle symbolic links.
 
 
    [1]: http://www.erlang.org/static/doc/mailinglist.html
-   [2]: http://bugs.erlang.org
+   [2]: https://github.com/erlang/otp/issues
    [3]: https://github.com/erlang/otp
 
    [?TOC]: true

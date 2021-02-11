@@ -440,7 +440,8 @@ four times as fast is possible.
 
 BeamAsm tries very hard to not be slower than the interpreter, but there can be cases
 when that happens. One such could be very short-lived small scripts. If you come across
-any scenarios when this happens, please open a bug report at [the Erlang/OTP bug tracker](http://bugs.erlang.org).
+any scenarios when this happens, please open a bug report at
+[the Erlang/OTP bug tracker](https://github.com/erlang/otp/issues).
 
 ### Would it be possible to add support for BeamAsm on ARM?
 

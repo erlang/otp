@@ -36,7 +36,7 @@ http://developercertificate.org/
 
 ## Reporting a bug
 
-Report bugs at https://bugs.erlang.org. See [Bug reports](https://github.com/erlang/otp/wiki/Bug-reports)
+Report bugs at https://github.com/erlang/otp/issues. See [Bug reports](https://github.com/erlang/otp/wiki/Bug-reports)
 for more information.
 
 ## Submitting Pull Requests

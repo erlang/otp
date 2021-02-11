@@ -475,7 +475,7 @@ Frequently Asked Questions
     NSIS 3.05, Win32 OpenSSL 1.1.1d and wxWidgets-3.1.3.
 
 
-   [1]: http://bugs.erlang.org
+   [1]: https://github.com/erlang/otp/issues
    [2]: https://github.com/erlang/otp
 
    [?TOC]: true
