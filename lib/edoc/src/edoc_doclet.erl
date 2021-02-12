@@ -146,7 +146,7 @@ run(#doclet_toc{}=Cmd, Ctxt) ->
     toc(Cmd#doclet_toc.paths, Ctxt).
 
 %% @doc `Sources' is the list of inputs in the order they were found.
-%% Modules are sorted lists of atoms without duplicates. (They
+%% `Modules' are sorted lists of atoms without duplicates. (They
 %% usually include the data from the edoc-info file in the target
 %% directory, if it exists.)
 gen(Sources, App, Modules, Ctxt) ->

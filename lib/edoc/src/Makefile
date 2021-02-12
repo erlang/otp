@@ -26,10 +26,10 @@ XMERL = ../../xmerl
 ERL_COMPILE_FLAGS += -pa $(XMERL) -I../include -I$(XMERL)/include +warn_unused_vars +nowarn_shadow_vars +warn_unused_import +warn_deprecated_guard
 
 SOURCES= \
-	edoc.erl edoc_data.erl edoc_doclet.erl edoc_extract.erl \
-	edoc_layout.erl edoc_lib.erl edoc_macros.erl edoc_parser.erl \
-	edoc_refs.erl edoc_report.erl edoc_run.erl edoc_scanner.erl \
-	edoc_specs.erl edoc_tags.erl edoc_types.erl edoc_wiki.erl
+	edoc.erl edoc_cli.erl edoc_data.erl edoc_doclet.erl edoc_doclet_chunks.erl \
+	edoc_extract.erl edoc_layout.erl edoc_layout_chunks.erl \
+	edoc_lib.erl edoc_macros.erl edoc_parser.erl edoc_refs.erl edoc_report.erl \
+	edoc_run.erl edoc_scanner.erl edoc_specs.erl edoc_tags.erl edoc_types.erl edoc_wiki.erl
 
 OBJECTS=$(SOURCES:%.erl=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 

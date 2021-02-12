@@ -66,7 +66,16 @@ functions(Fs, Opts) ->
     lists:flatmap(fun ({Name, E}) -> function(Name, E, Opts) end, Fs).
 
 function(Name, #xmlElement{content = Es}, Opts) ->
-    TS = get_content(typespec, Es),
+    TSs = get_elem(typespec, Es),
+    case TSs of
+	[] ->
+	    spec_clause(Name, [], Opts);
+	[_|_] ->
+	    lists:concat([ spec_clause(Name, TS, Opts)
+			   || #xmlElement{content = TS} <- TSs ])
+    end.
+
+spec_clause(Name, TS, Opts) ->
     Spec = typespec(TS, Opts),
     [{spec,(Name
             ++ [?IND(2),{contract,Spec}]

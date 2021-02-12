@@ -307,7 +307,10 @@ parse_see(Data, Line, _Env, _Where) ->
 parse_expr(Data, Line, _Env, _Where) ->
     edoc_lib:parse_expr(Data, Line).
 
-parse_spec(Data, Line, _Env, {_, {F, A}} = _Where) ->
+parse_spec(Data, Line, _Env, {_, {F, A}} = Where) ->
+    edoc_report:warning(Line, Where,
+			"EDoc @spec tags are deprecated. "
+			"Please use -spec attributes instead.", []),
     Spec = edoc_parser:parse_spec(Data, Line),
     #t_spec{name = N, type = #t_fun{args = As}} = Spec,
     if length(As) /= A ->
@@ -338,6 +341,9 @@ parse_contact(Data, Line, _Env, _Where) ->
     end.
 
 parse_typedef(Data, Line, _Env, Where) ->
+    edoc_report:warning(Line, Where,
+			"EDoc @type tags are deprecated. "
+			"Please use -type attributes instead.", []),
     Def = edoc_parser:parse_typedef(Data, Line),
     {#t_typedef{name = #t_name{name = T}, args = As}, _} = Def,
     NAs = length(As),
@@ -403,8 +409,7 @@ parse_header(Data, Line, Env, Where) when is_list(Where) ->
 -spec throw_error(line(), err()) -> no_return().
 
 throw_error(L, {read_file, File, R}) ->
-    throw_error(L, {"error reading file '~ts': ~w",
-		    [edoc_lib:filename(File), R]});
+    throw_error(L, {"error reading file '~ts': ~w", [edoc_lib:filename(File), R]});
 throw_error(L, {file_not_found, F}) ->
     throw_error(L, {"file not found: ~ts", [F]});
 throw_error(L, file_not_string) ->

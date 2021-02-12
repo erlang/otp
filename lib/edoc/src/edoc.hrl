@@ -65,4 +65,4 @@
 
 -record(entry, {name, args = [], line = 0, export, data}).
 
--record(tag, {name, line = 0, origin = comment, data}).
+-record(tag, {name, line = 0, origin = comment, data, form}).

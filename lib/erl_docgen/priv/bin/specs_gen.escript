@@ -79,8 +79,7 @@ call_edoc(FileSpec, InclFs, Dir) ->
     try
         Fs = case FileSpec of
                  {file, _} ->
-                     Fs0 = read_file(File, ReadOpts),
-                     clauses(Fs0);
+                     read_file(File, ReadOpts);
                  {module, Module} ->
                      [{attribute,erl_anno:new(0),module,list_to_atom(Module)}]
              end,
@@ -103,27 +102,6 @@ extract(File, Forms, Opts) ->
     Env = edoc_lib:get_doc_env([], [], _Opts=[]),
     {_Module, Doc} = edoc_extract:source(Forms, File, Env, Opts),
     Doc.
-
-clauses(Fs) ->
-    clauses(Fs, no).
-
-clauses([], no) ->
-    [];
-clauses([F | Fs], Spec) ->
-    case F of
-        {attribute,_,spec,_} ->
-            clauses(Fs, F);
-        {function,_,_N,_A,_Cls} when Spec =/= no->
-            {attribute,_,spec,{Name,FunTypes}} = Spec,
-            %% [throw({no,Name,{_N,_A}}) || Name =/= {_N,_A}],
-            %% EDoc doesn't care if a function appears more than once;
-            %% this is how overloaded specs are handled:
-            (lists:append([[setelement(4, Spec, {Name,[T]}),F] ||
-                              T <- FunTypes])
-             ++ clauses(Fs, no));
-        _ ->
-            [F | clauses(Fs, Spec)]
-    end.
 
 write_text(Text, File, Dir) ->
     Base = filename:basename(File, ".erl"),

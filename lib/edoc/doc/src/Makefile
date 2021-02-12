@@ -28,10 +28,15 @@ APPLICATION=edoc
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-EDOC_REF3_FILES = edoc.xml \
+XML_REF1_FILES = \
+	edoc_cmd.xml
+EDOC_REF3_FILES = \
+	edoc.xml \
 	edoc_doclet.xml \
+	edoc_doclet_chunks.xml \
 	edoc_extract.xml \
 	edoc_layout.xml \
+	edoc_layout_chunks.xml \
 	edoc_lib.xml \
 	edoc_run.xml
 
@@ -43,7 +48,7 @@ BOOK_FILES = book.xml
 
 XML_FILES=\
 	$(BOOK_FILES) $(XML_APPLICATION_FILES) \
-	$(XML_PART_FILES) $(XML_NOTES_FILES)
+	$(XML_REF1_FILES) $(XML_PART_FILES) $(XML_NOTES_FILES)
 
 INCLUDES_DIR = ../../include
 INCLUDES = $(INCLUDES_DIR)/edoc_doclet.hrl

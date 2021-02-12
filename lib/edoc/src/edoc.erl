@@ -65,6 +65,7 @@
 	      comment/0,
 	      entry/0,
 	      entry_data/0,
+	      function_name/0,
 	      tag/0,
 	      edoc_module/0]).
 
@@ -88,7 +89,7 @@
 
 
 -type entry() :: #entry{name :: function_name() | atom(),
-			args :: [atom()],
+			args :: [atom() | list()],
 			line :: integer(),
 			export :: boolean(),
 			data :: entry_data()}.
@@ -98,9 +99,12 @@
 
 -type tag() :: #tag{name :: atom(),
 		    line :: integer(),
-		    origin :: comment,
-		    data :: term()}.
+		    origin :: comment | code,
+		    data :: term(),
+		    form :: undefined | erl_parse:abstract_form()}.
 %% Generic tag information.
+%% `#tag.form' is only defined if `#tag.origin' is `code',
+%% that is the `#tag{}' represents a code fragment, not a doc comment tag.
 
 -type edoc_module() :: xmerl_scan:xmlElement().
 %% The EDoc documentation data for a module,
@@ -826,9 +830,11 @@ get_doc(File) ->
 %% INHERIT-OPTIONS: get_doc/3
 %% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
--spec get_doc(File, Options) -> {module(), edoc_module()} when
+-spec get_doc(File, Options) -> R when
       File :: filename(),
-      Options :: proplist().
+      Options :: proplist(),
+      R :: {module(), edoc_module()}
+         | {module(), edoc_module(), [entry()]}.
 get_doc(File, Opts) ->
     Env = edoc_lib:get_doc_env(Opts),
     get_doc(File, Env, Opts).
@@ -844,6 +850,7 @@ get_doc(File, Opts) ->
       File :: filename(),
       Env :: env(),
       Options :: proplist(),
-      R :: {module(), edoc_module()}.
+      R :: {module(), edoc_module()}
+         | {module(), edoc_module(), [entry()]}.
 get_doc(File, Env, Opts) ->
     edoc_extract:source(File, Env, Opts).

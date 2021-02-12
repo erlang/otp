@@ -42,6 +42,8 @@
 %% Convinience functions
 -export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
 
+-export_type([chunk_elements/0, chunk_element_attr/0]).
+
 -record(config, { docs,
                   encoding,
                   ansi,
