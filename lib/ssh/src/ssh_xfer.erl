@@ -809,6 +809,15 @@ decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary,
 encode_names(Vsn, NamesAndAttrs) ->
     lists:mapfoldl(fun(N, L) -> encode_name(Vsn, N, L) end, 0, NamesAndAttrs).
 
+encode_name(Vsn, {{NameUC,LongNameUC},Attr}, Len) when Vsn =< 3 ->
+    Name = binary_to_list(unicode:characters_to_binary(NameUC)),
+    NLen = length(Name),
+	LongName = binary_to_list(unicode:characters_to_binary(LongNameUC)),
+    LNLen = length(LongName),
+	EncAttr = encode_ATTR(Vsn, Attr),
+    ALen = size(EncAttr),
+    NewLen = Len + NLen + LNLen + 4 + 4 + ALen,
+    {[<<?UINT32(NLen)>>, Name, <<?UINT32(LNLen)>>, LongName, EncAttr], NewLen};
 encode_name(Vsn, {NameUC,Attr}, Len) when Vsn =< 3 ->
     Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),
