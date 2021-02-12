@@ -395,6 +395,15 @@ init_per_testcase(connection_information_with_srp, Config) ->
         false ->
             {skip, "Missing SRP crypto support"}
     end;
+init_per_testcase(conf_signature_algs, Config) ->
+    case ssl_test_lib:appropriate_sha(crypto:supports()) of
+        sha256 ->
+            ssl_test_lib:ct_log_supported_protocol_versions(Config),
+            ct:timetrap({seconds, 10}),
+            Config;
+        sha ->
+            {skip, "Tests needs certs with sha256"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
@@ -694,14 +703,16 @@ conf_signature_algs(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 				   {from, self()}, 
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options,  [{active, false}, {signature_algs, [{sha256, rsa}]} | ServerOpts]}]),
+				   {options,  [{active, false}, {signature_algs, [{sha256, rsa}]}, 
+                                               {versions, ['tlsv1.2']} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = 
 	ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 				   {host, Hostname},
 				   {from, self()}, 
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options, [{active, false}, {signature_algs, [{sha256, rsa}]} | ClientOpts]}]),
+				   {options, [{active, false}, {signature_algs, [{sha256, rsa}]},
+                                              {versions, ['tlsv1.2']} | ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 			 [self(), Client, Server]),
