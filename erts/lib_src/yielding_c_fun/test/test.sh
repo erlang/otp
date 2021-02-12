@@ -51,7 +51,7 @@ mkdir -p $TMP_DIR
 TMP_FILE=$TMP_DIR/tmp
 
 TMP_C_FILE=$TMP_DIR/tmp.c
-TMP_INC_FILE=$TMP_DIR/tmp.inc
+TMP_INC_FILE=$TMP_DIR/tmp.ycf.h
 TMP_C_FILE2=$TMP_DIR/tmp2.c
 TMP_O_FILE1=$TMP_DIR/tmp1.o
 TMP_O_FILE2=$TMP_DIR/tmp2.o
@@ -77,6 +77,7 @@ SIMPLE_TEST_FILES=("$DIR/examples/simple_yield.c"
                    "$DIR/examples/custom_code_save_restore_yield_state_alt_syntax.c"
                    "$DIR/examples/destroy_while_yielded.c"
                    "$DIR/examples/consume_reds.c"
+                   "$DIR/examples/consume_reds_variable.c"
                    "$DIR/examples/nested_call_consume_reds.c"
                    "$DIR/examples/auto_yield.c"
                    "$DIR/examples/yield_with_struct.c"
@@ -100,6 +101,7 @@ SIMPLE_TEST_FILES_YIELD_FUNS=("-fnoauto fun"
                               "-fnoauto fun"
                               "-fnoauto fun -fnoauto sub_fun_1 -fnoauto sub_fun_2 -fnoauto sub_fun_3"
                               "-fnoauto A -fnoauto B"
+                              "-fnoauto fun"
                               "-fnoauto fun"
                               "-fnoauto fun"
                               "-fnoauto fun"
@@ -150,7 +152,6 @@ cmp $TMP_FILE "$DIR/examples/test_generated_header_file_main.c.out"
 
 
 # Check generation of only yielding fun
-echo $TMP_INC_FILE
 yielding_c_fun.bin $GC $RR -yield -static_aux_funs -only_yielding_funs -fnoauto fun -output_file_name $TMP_INC_FILE "$DIR/examples/test_only_output_yielding_funs.c"
 $CC $CC_ARGS -I "$TMP_DIR" "$DIR/examples/test_only_output_yielding_funs.c"  -o $TMP_CC_OUT
 $TMP_CC_OUT > $TMP_FILE
@@ -160,6 +161,22 @@ cmp $TMP_FILE "$DIR/examples/test_only_output_yielding_funs.c.out"
 yielding_c_fun $GC $RR -yield -debug -fnoauto fun "$DIR/examples/debug_ptr_to_stack.c" > $TMP_C_FILE
 $CC $CC_ARGS $TMP_C_FILE -o $TMP_CC_OUT
 (set +e ; $TMP_CC_OUT ; [ $? -ne 0 ])
+
+# Check that debug mode can detect pointers to stack even when only generating yielding funs
+yielding_c_fun.bin $GC $RR -yield \
+                           -static_aux_funs \
+                           -debug \
+                           -only_yielding_funs \
+                           -fnoauto fun \
+                           -fnoauto fun2 \
+                           -output_file_name $TMP_INC_FILE \
+                           "$DIR/examples/test_only_output_yielding_funs_ptr_to_stack.c"
+$CC $CC_ARGS -I "$TMP_DIR" "$DIR/examples/test_only_output_yielding_funs_ptr_to_stack.c"  -o $TMP_CC_OUT
+(set +e ; $TMP_CC_OUT ; [ $? -ne 0 ])
+
+# Check that untransformed calls to yielding functions can be detected
+#"$DIR/examples/ycf_cannot_transform_fun_call.c"
+(set +e ; yielding_c_fun.bin $GC $RR -yield -f fun -f sub_fun2 -f sub_fun "$DIR/examples/ycf_cannot_transform_fun_call.c" > $TMP_C_FILE ; [ $? -ne 0 ])
 
 # Check that memory usage of the tool can be logged
 MEM_LOG_FILE="$TMP_DIR/my_mem_log_file.txt"

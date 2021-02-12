@@ -34,9 +34,11 @@
 int fun(int x){
   int i;
   int count = 0;
+  int number_of_reds_to_consume = 5;
+  (void)number_of_reds_to_consume;
   for(i = 0; i < 100; i++){
     count = count + 2;
-    YCF_CONSUME_REDS(10);
+    YCF_CONSUME_REDS( 5 + number_of_reds_to_consume );
   }
   return count + x;
 }

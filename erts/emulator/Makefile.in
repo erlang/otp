@@ -604,6 +604,18 @@ $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
 	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_LIBS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
+
+
+ifeq ($(TYPE)@EXTERNAL_WORD_SIZE@,debug64)
+YCF_DEBUG_FLAG = -debug
+MAPS_YCF_OUTPUT=$(TARGET)/erl_map.debug.ycf.h
+UTILS_YCF_OUTPUT=$(TARGET)/utils.debug.ycf.h
+else
+YCF_DEBUG_FLAG =
+MAPS_YCF_OUTPUT=$(TARGET)/erl_map.ycf.h
+UTILS_YCF_OUTPUT=$(TARGET)/utils.ycf.h
+endif
+
 DB_INSERT_LIST_YCF_FLAGS=-yield \
 		-static_aux_funs \
 		-only_yielding_funs \
@@ -617,22 +629,58 @@ DB_INSERT_LIST_YCF_FLAGS=-yield \
 		-f ets_insert_2_list \
 		-fnoauto ets_insert_2_list_lock_tbl
 
+MAPS_YCF_FLAGS=-yield \
+		$(YCF_DEBUG_FLAG) \
+		-static_aux_funs \
+		-only_yielding_funs \
+		-fnoauto maps_keys_1_helper \
+		-fnoauto maps_values_1_helper \
+		-fnoauto maps_from_keys_2_helper \
+		-fnoauto maps_from_list_1_helper \
+		-fnoauto hashmap_from_validated_list \
+		-f hashmap_keys \
+		-f hashmap_values \
+		-f hashmap_from_unsorted_array \
+		-f hashmap_from_sorted_unique_array \
+		-f hashmap_from_chunked_array \
+		-fexternal erts_qsort
+
+UTILS_YCF_FLAGS=-yield \
+		$(YCF_DEBUG_FLAG) \
+		-only_yielding_funs \
+		-f erts_qsort \
+		-f erts_qsort_helper \
+		-f erts_qsort_partion_array
+# If the array items are large erts_qsort should also trap in the swap
+# function, but this causes terrible performance when the array items
+# are small, so one should investigate a fast-path approach
+# -f erts_qsort_swap
+
+YCF_EXECUTABLE_PATH=""
+
 ifeq ($(CROSS_COMPILING),no)
-$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c $(ERTS_LIB)
-	$(gen_verbose)$(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun$(EXE_SUFFIX) \
-		$(DB_INSERT_LIST_YCF_FLAGS) \
-		-output_file_name $@ $<
+YCF_EXECUTABLE_PATH="$(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun$(EXE_SUFFIX)"
 else
 ## We cannot build a 'yielding_c_fun' that can be executed since we are
 ## cross compiling. A working bootstrap system of valid version *should*
 ## be in the path. Find 'yielding_c_fun' in the bootstrap system...
-$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c
-	$(gen_verbose)CROSS_YCF=`utils/find_cross_ycf` && \
-		"$$CROSS_YCF" $(DB_INSERT_LIST_YCF_FLAGS) \
-		-output_file_name $@ $<
+YCF_EXECUTABLE_PATH=`utils/find_cross_ycf`
 endif
 
-GENERATE += $(TARGET)/erl_db_insert_list.ycf.h
+$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c $(ERTS_LIB)
+	$(gen_verbose)$(YCF_EXECUTABLE_PATH) \
+		$(DB_INSERT_LIST_YCF_FLAGS) \
+		-output_file_name $@ $<
+$(MAPS_YCF_OUTPUT): beam/erl_map.c $(ERTS_LIB)
+	$(gen_verbose)$(YCF_EXECUTABLE_PATH) \
+		$(MAPS_YCF_FLAGS) \
+		-output_file_name $@ $<
+$(UTILS_YCF_OUTPUT): beam/utils.c $(ERTS_LIB)
+	$(gen_verbose)$(YCF_EXECUTABLE_PATH) \
+		$(UTILS_YCF_FLAGS) \
+		-output_file_name $@ $<
+
+GENERATE += $(TARGET)/erl_db_insert_list.ycf.h $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT)
 
 ## ASMJIT source files and headers
 ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) $(wildcard asmjit/x86/*.cpp)

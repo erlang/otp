@@ -105,6 +105,7 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 
 void erts_init_utils(void);
 void erts_init_utils_mem(void);
+void erts_utils_sched_spec_data_init(void);
 
 erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);

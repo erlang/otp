@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 2019. All Rights Reserved.
+ * Copyright Ericsson AB and Kjell Winblad 2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,16 +29,30 @@
 #include <stdlib.h>
 
 #define YCF_YIELD()
-#define YCF_CONSUME_REDS(X)
 
-int fun(int x){
-  int i;
-  int count = 0;
-  for(i = 0; i < 100; i++){
-    count = count + 2;
-    YCF_CONSUME_REDS(10);
+
+void sub_fun(char* x){
+  *x = *x + 1; /* x == 3*/
+  *x = *x + 1; /* x == 4*/
+}
+
+int sub_fun2(int x, int y){
+  return x+y;
+}
+
+int fun(char x){
+  int y;
+  (void)y;
+  x = x + 1; /* x == 2*/
+  sub_fun(((&x)));
+  int r = 10 + 10 * (sub_fun2(10, 20));
+  if (r) {
+      printf("G");
   }
-  return count + x;
+  y = sub_fun2(10, 20);
+  YCF_YIELD();
+  x = x + 1; /* x == 5*/
+  return x;
 }
 
 void* allocator(size_t size, void* context){
@@ -57,26 +71,22 @@ int main( int argc, const char* argv[] )
   void* wb = NULL;
 #endif
   int ret = 0;
-  int nr_of_yields = 0;
+  long nr_of_reductions = 1;
 #ifdef YCF_YIELD_CODE_GENERATED
-  long nr_of_reductions;
   do{
-    nr_of_reductions = 101;
     ret = fun_ycf_gen_yielding(&nr_of_reductions,&wb,NULL,allocator,freer,NULL,0,NULL,1);
     if(wb != NULL){
-      printf("TRAPPED %ld\n", nr_of_reductions);
-      nr_of_yields++;
+      printf("TRAPPED\n");
     }
   }while(wb != NULL);
   if(wb != NULL){
     free(wb);
   }
 #else
-  ret = fun(1);
+  fun(1);
 #endif
-  printf("Number of yields %d\n", nr_of_yields);
   printf("RETURNED %d\n", ret);
-  if(ret != 201){
+  if(ret != 5){
     return 1;
   }else{
     return 0;

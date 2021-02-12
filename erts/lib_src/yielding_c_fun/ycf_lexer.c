@@ -70,7 +70,6 @@ char* get_symbol_type_text(ycf_symbol_type type){
   case ycf_symbol_type_equal_sign: return "ycf_symbol_type_equal_sign";
   case ycf_symbol_type_semicolon: return "ycf_symbol_type_semicolon";
   case ycf_symbol_type_comma: return "ycf_symbol_type_comma";
-  case ycf_symbol_type_consume_reds: return "ycf_symbol_type_consume_reds";
   case ycf_symbol_type_pointer_field_access: return "ycf_symbol_type_pointer_field_access";
   case ycf_symbol_type_period: return "ycf_symbol_type_period";
   case ycf_symbol_type_const: return "ycf_symbol_type_const";
@@ -294,11 +293,6 @@ ycf_symbol_list ycf_symbol_list_from_text(char* text){
       {
         .type = ycf_symbol_type_volatile,
         .str_1 = "volatile",
-        .finder = fixed_alpha_string
-      },
-      {
-        .type = ycf_symbol_type_consume_reds,
-        .str_1 = "YCF_CONSUME_REDS",
         .finder = fixed_alpha_string
       },
       {

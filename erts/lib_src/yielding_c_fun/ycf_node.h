@@ -44,7 +44,6 @@ typedef enum {
     ycf_node_type_return_statement,
     ycf_node_type_assignment,
     ycf_node_type_yield,
-    ycf_node_type_consume_reds,
     ycf_node_type_goto,
     ycf_node_type_parentheses_expression,
     ycf_node_type_function_call,
@@ -409,6 +408,7 @@ ycf_node* ycf_pointer_field_access_new(ycf_symbol* pointer,
 
 ycf_node_list ycf_node_definition_list_from_string(char* str);
 void ycf_node_rename_function(ycf_node_function* f, char* new_name);
+ycf_node* ycf_node_function_definition_copy_change_name(ycf_node* f, char* new_name);
 bool ycf_node_is_void_ret_ending_fun(ycf_node* f_node);
 void ycf_node_remove_const_specifiers_from_declaration(ycf_node* declaration);
 void ycf_node_remove_static_specifiers_from_declaration(ycf_node* declaration);
@@ -451,5 +451,8 @@ ycf_node_assignment* ycf_node_get_assignment(ycf_node* n);
 void ycf_node_print_node_type(ycf_node_type t);
 void ycf_node_normalize_function(ycf_node* fun);
 void ycf_node_remove_unecessary_scopes(ycf_node_code_scope* s);
+void ycf_scan_scope(ycf_node_code_scope* s,
+                    void (*scanner)(ycf_node*, void* context),
+                    void* context);
 
 #endif //YIELDING_C_FUN_YCF_NODE_FUNS_H

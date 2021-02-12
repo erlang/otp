@@ -339,6 +339,15 @@ void erl_grow_estack(ErtsEStack*, Uint need);
 #define ESTK_CONCAT(a,b) a##b
 #define ESTK_DEF_STACK(s) ESTK_CONCAT(s,_default_estack)
 
+#define ESTACK_DEFAULT_VALUE(estack_default_stack_array, alloc_type)    \
+    (ErtsEStack) {                                                      \
+        estack_default_stack_array,  /* start */                        \
+        estack_default_stack_array,  /* sp */                           \
+        estack_default_stack_array + DEF_ESTACK_SIZE, /* end */         \
+        estack_default_stack_array,  /* default */                      \
+        alloc_type /* alloc_type */                                     \
+    }
+
 #define DECLARE_ESTACK(s)				\
     Eterm ESTK_DEF_STACK(s)[DEF_ESTACK_SIZE];		\
     ErtsEStack s = {					\
@@ -364,6 +373,30 @@ do {							\
 	erts_free((s).alloc_type, (s).start); 		\
     }							\
 } while(0)
+
+#define DESTROY_ESTACK_EXPLICIT_DEFAULT_ARRAY(s, the_estack_default_array) \
+    do {							\
+        if ((s).start != the_estack_default_array) {            \
+            erts_free((s).alloc_type, (s).start); 		\
+        }							\
+    } while(0)
+
+/* Allocate an array on the heap and move the stack there if the
+   default array (that is allocated on the heap is used) */
+#define ENSURE_ESTACK_HEAP_STACK_ARRAY(s, the_estack_default_array)\
+do {\
+    if ((s).start == the_estack_default_array) {\
+	UWord _wsz = ESTACK_COUNT(s);\
+        Eterm *_prev_stack_array = s.start;\
+	(s).start = erts_alloc((s).alloc_type,                          \
+			       DEF_ESTACK_SIZE * sizeof(Eterm));\
+	sys_memcpy((s).start, _prev_stack_array, _wsz*sizeof(Eterm));\
+	(s).sp = (s).start + _wsz;\
+	(s).end = (s).start + DEF_ESTACK_SIZE;\
+	(s).alloc_type = (s).alloc_type;\
+    }\
+    (s).edefault = NULL;\
+ } while (0)
 
 
 /*
@@ -485,6 +518,15 @@ void erl_grow_wstack(ErtsWStack*, Uint need);
 #define WSTK_CONCAT(a,b) a##b
 #define WSTK_DEF_STACK(s) WSTK_CONCAT(s,_default_wstack)
 
+#define WSTACK_DEFAULT_VALUE(wstack_default_stack_array, alloc_type)    \
+    (ErtsWStack) {                                                      \
+        wstack_default_stack_array,  /* start */                        \
+        wstack_default_stack_array,  /* sp */                           \
+        wstack_default_stack_array + DEF_ESTACK_SIZE, /* end */         \
+        wstack_default_stack_array,  /* default */                      \
+        alloc_type /* alloc_type */                                     \
+    }
+
 #define WSTACK_DECLARE(s)				\
     UWord WSTK_DEF_STACK(s)[DEF_WSTACK_SIZE];		\
     ErtsWStack s = {					\
@@ -526,6 +568,28 @@ do {							\
     }							\
 } while(0)
 #define DESTROY_WSTACK WSTACK_DESTROY
+
+#define DESTROY_WSTACK_EXPLICIT_DEFAULT_ARRAY(s, the_wstack_default_array) \
+    do {                                                                \
+        if ((s).wstart != the_wstack_default_array) {                   \
+            erts_free((s).alloc_type, (s).wstart);                      \
+        }                                                               \
+    } while(0)
+
+#define ENSURE_WSTACK_HEAP_STACK_ARRAY(s, the_wstack_default_array)\
+do {\
+    if ((s).wstart == the_wstack_default_array) {\
+	UWord _wsz = WSTACK_COUNT(s);\
+        UWord *_prev_stack_array = s.wstart;\
+	(s).wstart = erts_alloc((s).alloc_type,                          \
+                                DEF_WSTACK_SIZE * sizeof(UWord));       \
+	sys_memcpy((s).wstart, _prev_stack_array, _wsz*sizeof(UWord));\
+	(s).wsp = (s).wstart + _wsz;\
+	(s).wend = (s).wstart + DEF_WSTACK_SIZE;\
+	(s).alloc_type = (s).alloc_type;\
+    }\
+    (s).wdefault = NULL;\
+ } while (0)
 
 #define WSTACK_DEBUG(s) \
     do { \
@@ -1286,6 +1350,78 @@ int erts_check_if_stack_grows_downwards(char *ptr) ERTS_NOINLINE;
 
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
+
+typedef Eterm  (*erts_ycf_continue_fun_t)(long* ycf_number_of_reduction_param,
+                                          void** ycf_trap_state,
+                                          void* ycf_extra_context);
+typedef void (*erts_ycf_destroy_trap_state_fun_t)(void *trap_state);
+typedef Eterm (*erts_ycf_yielding_fun_t)(long* ycf_nr_of_reductions_param,
+                                         void** ycf_trap_state,
+                                         void* ycf_extra_context,
+                                         void* (*ycf_yield_alloc_fun) (size_t,void*),
+                                         void (*ycf_yield_free_fun) (void*,void*),
+                                         void* ycf_yield_alloc_free_context,
+                                         size_t ycf_stack_alloc_size_or_max_size,
+                                         void* ycf_stack_alloc_data,
+                                         Process* p,
+                                         Eterm* bif_args);
+Eterm erts_ycf_trap_driver(Process* p,
+                           Eterm* bif_args,
+                           int nr_of_arguments,
+                           int iterations_per_red,
+                           ErtsAlcType_t memory_allocation_type,
+                           size_t ycf_stack_alloc_size,
+                           int export_entry_index,
+                           erts_ycf_continue_fun_t ycf_continue_fun,
+                           erts_ycf_destroy_trap_state_fun_t ycf_destroy_fun,
+                           erts_ycf_yielding_fun_t ycf_yielding_fun);
+
+/* A quick sort function that is compatible with the qsort function
+   declared in stdlib.h. We need our own so that we can yield inside
+   the function */
+void erts_qsort(void *base,
+                size_t nr_of_items,
+                size_t item_size,
+                int (*compare)(const void *, const void *));
+/* YCF generated functions for yielding of erts_qsort
+   See: $ERL_TOP/erts/emulator/internal_doc/AutomaticYieldingOfCCode.md 
+
+   !!!!
+   Note that the erts_qsort_swap that is used by erts_qsort does
+   not have yielding enabled. If the array items are large erts_qsort
+   should also trap in the erts_qsort_swap function, but this causes
+   terrible performance when the array items are small, so one should
+   investigate a fast-path approach
+*/
+void erts_qsort_ycf_gen_destroy(void* ycf_my_trap_state);
+void  erts_qsort_ycf_gen_continue(long* ycf_number_of_reduction_param,
+                                  void** ycf_trap_state,
+                                  void* ycf_extra_context);
+void erts_qsort_ycf_gen_yielding(long* ycf_nr_of_reductions_param,
+                                 void** ycf_trap_state,
+                                 void* ycf_extra_context,
+                                 void* (*ycf_yield_alloc_fun) (size_t,void*),
+                                 void (*ycf_yield_free_fun) (void*,void*),
+                                 void* ycf_yield_alloc_free_context,
+                                 size_t ycf_stack_alloc_size_or_max_size,
+                                 void* ycf_stack_alloc_data,void *base,
+                                 size_t nr_of_items,
+                                 size_t item_size,
+                                 int (*compare)(const void *, const void *));
+#if defined(DEBUG)
+/*
+ * ycf_debug_get_stack_start is used in YCF's debug mode (see
+ * documentation for the -debug flag of the YCF tool). The function
+ * ycf_debug_set_stack_start sets the value that the function
+ * ycf_debug_get_stack_start returns for the current thread. The
+ * function ycf_debug_reset_stack_start sets the value that the
+ * function ycf_debug_get_stack_start returns to NULL for the current
+ * thread.
+ */
+void ycf_debug_set_stack_start(void * start);
+void ycf_debug_reset_stack_start(void);
+void *ycf_debug_get_stack_start(void);
+#endif
 
 #define NC_HEAP_SIZE(NC) \
  (ASSERT(is_node_container((NC))), \
