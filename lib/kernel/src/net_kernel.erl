@@ -928,22 +928,18 @@ handle_info({From,badcookie,_To,_Mess}, State) ->
 %%
 handle_info(tick, State) ->
     ?tckr_dbg(tick),
-    ok = maps:fold(fun (Pid, _Node, ok) ->
-                          Pid ! {self(), tick},
-                          ok
-                   end,
-                   ok,
-                   State#state.conn_owners),
+    maps:foreach(fun (Pid, _Node) ->
+                     Pid ! {self(), tick}
+              end,
+              State#state.conn_owners),
     {noreply,State};
 
 handle_info(aux_tick, State) ->
     ?tckr_dbg(aux_tick),
-    ok = maps:fold(fun (Pid, _Node, ok) ->
-                          Pid ! {self(), aux_tick},
-                          ok
-                   end,
-                   ok,
-                   State#state.conn_owners),
+    maps:foreach(fun (Pid, _Node) ->
+                     Pid ! {self(), aux_tick}
+              end,
+              State#state.conn_owners),
     {noreply,State};
 
 handle_info(transition_period_end,
@@ -2157,4 +2153,3 @@ merge_opts([H|T], B0) ->
 
 getopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
     request({getopts, Node, Opts}).
-

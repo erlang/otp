@@ -933,21 +933,21 @@ terminate_dynamic_children(State) ->
     Sz = maps:size(Pids),
     EStack = case Child#child.shutdown of
                  brutal_kill ->
-                     maps:fold(fun(P, _, _) -> exit(P, kill) end, ok, Pids),
+                     maps:foreach(fun(P, _) -> exit(P, kill) end, Pids),
                      wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
                  infinity ->
-                     maps:fold(fun(P, _, _) -> exit(P, shutdown) end, ok, Pids),
+                     maps:foreach(fun(P, _) -> exit(P, shutdown) end, Pids),
                      wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
                  Time ->
-                     maps:fold(fun(P, _, _) -> exit(P, shutdown) end, ok, Pids),
+                     maps:foreach(fun(P, _) -> exit(P, shutdown) end, Pids),
                      TRef = erlang:start_timer(Time, self(), kill),
                      wait_dynamic_children(Child, Pids, Sz, TRef, EStack0)
              end,
     %% Unroll stacked errors and report them
-    maps:fold(fun(Reason, Ls, _) ->
+    maps:foreach(fun(Reason, Ls) ->
                       ?report_error(shutdown_error, Reason,
                                    Child#child{pid=Ls}, State#state.name)
-              end, ok, EStack).
+              end, EStack).
 
 monitor_dynamic_children(Child,State) ->
     dyn_fold(fun(P,{Pids, EStack}) when is_pid(P) ->
@@ -1005,7 +1005,7 @@ wait_dynamic_children(Child, Pids, Sz, TRef, EStack) ->
                                   TRef, maps_prepend(Reason, Pid, EStack));
 
         {timeout, TRef, kill} ->
-            maps:fold(fun(P, _, _) -> exit(P, kill) end, ok, Pids),
+            maps:foreach(fun(P, _) -> exit(P, kill) end, Pids),
             wait_dynamic_children(Child, Pids, Sz, undefined, EStack)
     end.
 
