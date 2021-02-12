@@ -38,7 +38,9 @@ actions(Source, Forms, Options) ->
         warning ->
             {warning, Forms, Es};
         error ->
-            {error, Es, Ws}
+            {error, Es, Ws};
+        undefined_error ->
+            {error, [{Source, [{{1,1}, ?MODULE, unknown_error}]}], []}
     end.
 
 format_error(bad_moon_phase) ->
