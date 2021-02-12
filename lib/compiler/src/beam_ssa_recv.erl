@@ -106,6 +106,11 @@
 
 -import(lists, [foldl/3, search/2]).
 
+%% Psuedo-block for representing function returns in the block graph. Body
+%% calls add an edge returning _from_ this block.
+-define(RETURN_BLOCK, -1).
+-define(ENTRY_BLOCK, 0).
+
 -spec format_error(term()) -> nonempty_string().
 
 format_error(OptInfo) ->
@@ -187,7 +192,7 @@ scan(#b_module{body=Fs0}) ->
     foldl(fun(F, State0) ->
                   FuncId = get_func_id(F),
 
-                  State = scan_add_vertex({FuncId, 0}, State0),
+                  State = scan_add_vertex({FuncId, ?ENTRY_BLOCK}, State0),
                   scan_function(FuncId, F, State)
           end, #scan{ module = ModMap }, Fs0).
 
@@ -218,9 +223,11 @@ scan_is([#b_set{op=new_try_tag,dst=Dst}], Blk, Lbl, _Blocks, FuncId, State) ->
     %% ignore that branch.
     #b_br{bool=Dst,succ=Succ} = Blk#b_blk.last, %Assertion.
     scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, State);
-scan_is([#b_set{op=call,args=[#b_remote{} | _]}=Call | Is],
+scan_is([#b_set{op=call,dst=Dst,args=[#b_remote{} | _]}=Call | Is],
         Blk, Lbl, Blocks, FuncId, State0) ->
     case {Is, Blk#b_blk.last} of
+        {[], #b_ret{arg=Dst}} ->
+            scan_is(Is, Blk, Lbl, Blocks, FuncId, State0);
         {[#b_set{op={succeeded,body}}], #b_br{bool=Bool,succ=Succ}} ->
             #b_var{} = Bool,                    %Assertion.
             State = si_remote_call(Call, Lbl, Succ, Blocks, FuncId, State0),
@@ -229,12 +236,18 @@ scan_is([#b_set{op=call,args=[#b_remote{} | _]}=Call | Is],
             State = si_remote_call(Call, Lbl, Lbl, Blocks, FuncId, State0),
             scan_is(Is, Blk, Lbl, Blocks, FuncId, State)
     end;
-scan_is([#b_set{op=call,args=[#b_local{}=Callee | Args]} | Is],
+scan_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | Args]}],
+        #b_blk{last=#b_ret{arg=Dst}}, Lbl, _Blocks, FuncId, State) ->
+    scan_add_call(tail, Args, Callee, Lbl, FuncId, State);
+scan_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | Args]} | Is],
         Blk, Lbl, Blocks, FuncId, State0) ->
-    State = scan_add_call(Args, Callee, Lbl, FuncId, State0),
+    [#b_set{op={succeeded,body},args=[Dst]}] = Is, %Assertion.
+    State = scan_add_call(body, Args, Callee, Lbl, FuncId, State0),
     scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
 scan_is([_I | Is], Blk, Lbl, Blocks, FuncId, State) ->
     scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
+scan_is([], #b_blk{last=#b_ret{}}, Lbl, _Blocks, FuncId, State) ->
+    scan_add_edge({FuncId, Lbl}, {FuncId, ?RETURN_BLOCK}, State);
 scan_is([], Blk, Lbl, _Blocks, FuncId, State) ->
     foldl(fun(Succ, Acc) ->
                   scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, Acc)
@@ -242,17 +255,32 @@ scan_is([], Blk, Lbl, _Blocks, FuncId, State) ->
 
 %% Adds an edge to the callee, with argument/parameter translation to let us
 %% follow specific references.
-scan_add_call(Args, Callee, Lbl, Caller, #scan{module=ModMap}=State0) ->
+scan_add_call(Kind, Args, Callee, Lbl, Caller, #scan{module=ModMap}=State0) ->
     #{ Callee := {_Blocks, Params} } = ModMap,
-    Translation = scan_translate_call(Args, Params, #{}, #{}),
-    scan_add_edge({Caller, Lbl}, {Callee, 0}, Translation, State0).
+
+    {Translation, Inverse} = scan_translate_call(Args, Params, #{}, #{}),
+
+    State = scan_add_edge({Caller, Lbl},
+                          {Callee, ?ENTRY_BLOCK},
+                          {Translation, Inverse},
+                          State0),
+
+    case Kind of
+        body ->
+            scan_add_edge({Callee, ?RETURN_BLOCK},
+                          {Caller, Lbl},
+                          {Inverse, Translation},
+                          State);
+        tail ->
+            State
+    end.
 
 scan_translate_call([Arg | Args], [Param | Params], ArgToParams, ParamToArgs) ->
     scan_translate_call(Args, Params,
                         ArgToParams#{ Arg => Param },
                         ParamToArgs#{ Param => Arg });
 scan_translate_call([], [], ArgToParams, ParamToArgs) ->
-    {call, ArgToParams, ParamToArgs}.
+    {ArgToParams, ParamToArgs}.
 
 scan_add_edge(From, To, State) ->
     scan_add_edge(From, To, branch, State).
@@ -385,26 +413,36 @@ propagate_references_1([{Vertex, Ref} | VRefs], G, Acc0) ->
                   Acc0;
               false ->
                   Acc1 = Acc0#{ Vertex => sets:add_element(Ref, Refs) },
-                  Successors = successors(Vertex, Ref, G),
-                  propagate_references_1(Successors, G, Acc1)
+                  Next = pr_successors(beam_digraph:out_edges(G, Vertex), Ref),
+                  propagate_references_1(Next, G, Acc1)
           end,
     propagate_references_1(VRefs, G, Acc);
 propagate_references_1([], _G, Acc) ->
     Acc.
 
-successors(Vertex, Ref, Graph) ->
-    successors_1(beam_digraph:out_edges(Graph, Vertex), Ref).
-
-successors_1([{_From, To, branch} | Edges], Ref) ->
-    [{To, Ref} | successors_1(Edges, Ref)];
-successors_1([{_From, To, {call, ArgToParams, _ParamToArgs}} | Edges], Ref) ->
-    case ArgToParams of
-        #{ Ref := Param } ->
-            [{To, Param} | successors_1(Edges, Ref)];
+pr_successors([{_From, To, branch} | Edges], Ref) ->
+    [{To, Ref} | pr_successors(Edges, Ref)];
+pr_successors([{{_, FromLbl}, To, {Translation, _Inverse}} | Edges], Ref) ->
+    case Translation of
+        #{ Ref := Param } when FromLbl =/= ?RETURN_BLOCK ->
+            %% We ignore return edges to avoid leaking markers to functions
+            %% that lack them. Consider the following:
+            %%
+            %%    t(NotMarker) -> id(NotMarker), receive NotMarker -> ok end.
+            %%    g() -> id(make_ref()).
+            %%    id(I) -> I.
+            %%
+            %% Since id/1 receives a potential marker from at least one source,
+            %% its argument is always treated as a marker. Propagating this
+            %% back to all callers means that `NotMarker` will be treated as a
+            %% marker after the call to id/1, enabling the optimization in the
+            %% following receive. This would not be dangerous but it's a
+            %% pessimization we'd rather avoid.
+            [{To, Param} | pr_successors(Edges, Ref)];
         #{} ->
-            successors_1(Edges, Ref)
+            pr_successors(Edges, Ref)
     end;
-successors_1([], _Ref) ->
+pr_successors([], _Ref) ->
     [].
 
 %% Returns the starting vertex of all suitable receive loops, together with the
@@ -566,9 +604,9 @@ intersect_uses_1([{Vertex, Ref} | Vs], G, RefMap, Acc0) ->
               {true, false} ->
                   %% This block lies between reference creation and the receive
                   %% block, add it to the intersection.
-                  Predecessors = predecessors(Vertex, Ref, G),
+                  Next = iu_predecessors(beam_digraph:in_edges(G, Vertex), Ref),
                   ActiveRefs = sets:add_element(Ref, ActiveRefs0),
-                  intersect_uses_1(Predecessors, G, RefMap,
+                  intersect_uses_1(Next, G, RefMap,
                                    Acc0#{ Vertex => ActiveRefs });
               {false, _} ->
                   %% This block does not succeed the creation of the
@@ -582,21 +620,18 @@ intersect_uses_1([{Vertex, Ref} | Vs], G, RefMap, Acc0) ->
 intersect_uses_1([], _G, _RefMap, Acc) ->
     Acc.
 
-predecessors(Vertex, Ref, Graph) ->
-    predecessors_1(beam_digraph:in_edges(Graph, Vertex), Ref).
-
-predecessors_1([{From, _To, branch} | Edges], Ref) ->
-    [{From, Ref} | predecessors_1(Edges, Ref)];
-predecessors_1([{From, _To, {call, _ArgToParams, ParamToArgs}} | Edges], Ref) ->
-    case ParamToArgs of
+iu_predecessors([{From, _To, branch} | Edges], Ref) ->
+    [{From, Ref} | iu_predecessors(Edges, Ref)];
+iu_predecessors([{From, _To, {_Translation, Inverse}} | Edges], Ref) ->
+    case Inverse of
         #{ Ref := #b_var{}=Arg } ->
-            [{From, Arg} | predecessors_1(Edges, Ref)];
+            [{From, Arg} | iu_predecessors(Edges, Ref)];
         #{} ->
             %% `Ref` is not a function argument (created in first block) or was
             %% passed as a literal on this call, ignore it.
-            predecessors_1(Edges, Ref)
+            iu_predecessors(Edges, Ref)
     end;
-predecessors_1([], _Ref) ->
+iu_predecessors([], _Ref) ->
     [].
 
 %% Returns all candidates that are known to be used in at least one receive.
@@ -639,7 +674,7 @@ plan_clears_1([{From, To, branch} | Edges], ActiveRefs, UsageMap) ->
 
     [{FromLbl, ToLbl, Ref} || Ref <- sets:to_list(Refs)]
         ++ plan_clears_1(Edges, ActiveRefs, UsageMap);
-plan_clears_1([{_From, _To, {call, _, _}} | Edges], ActiveRefs, UsageMap) ->
+plan_clears_1([{_From, _To, {_, _}} | Edges], ActiveRefs, UsageMap) ->
     %% We don't need to clear references on calls: those we haven't passed will
     %% remain valid after we return, and those we do pass will be cleared by
     %% the callee when necessary.
@@ -769,7 +804,7 @@ coi_bs([], _Blocks, _Where, _Defs, Ws) ->
 
 coi_is([#b_set{anno=Anno,op=peek_message,args=[#b_var{}]=Args } | Is],
        Last, Blocks, Where, Defs, Ws) ->
-    [Creation] = coi_creations(Args, Blocks, Defs),
+    [Creation] = coi_creations(Args, Blocks, Defs), %Assertion.
     Warning = make_warning({used_receive_marker, Creation}, Anno, Where),
     coi_is(Is, Last, Blocks, Where, Defs, [Warning | Ws]);
 coi_is([#b_set{anno=Anno,op=peek_message,args=[#b_literal{}] } | Is],
@@ -804,7 +839,7 @@ coi_is([], _Last, _Blocks, _Where, Defs, Ws) ->
 coi_creations([Arg | Args], Blocks, Defs) ->
     case Defs of
         #{ Arg := #b_set{op=call,dst=Dst,args=[#b_remote{}=Callee|_]}=Call } ->
-            case si_makes_ref(Dst, 0, Callee, Blocks) of
+            case si_makes_ref(Dst, ?ENTRY_BLOCK, Callee, Blocks) of
                 {_, _} ->
                     [Call | coi_creations(Args, Blocks, Defs)];
                 no ->
