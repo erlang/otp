@@ -772,6 +772,8 @@ DbTable* db_get_table_aux(Process *p,
      */
     ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
 
+    ASSERT((what == DB_READ_TBL_STRUCT) == (kind == NOLCK_ACCESS));
+
     if (META_DB_LOCK_FREE())
         meta_already_locked = 1;
 
@@ -815,7 +817,8 @@ DbTable* db_get_table_aux(Process *p,
     if (tb) {
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
-        if (erts_atomic_read_nob(&tb->common.dbg_force_trap)) {
+        if (what != DB_READ_TBL_STRUCT
+            && erts_atomic_read_nob(&tb->common.dbg_force_trap)) {
             Uint32 rand = erts_sched_local_random((Uint)&p);
             if ( !(rand & 7) ) {
                 /* About 7 of 8 threads that are on the line above
@@ -828,8 +831,6 @@ DbTable* db_get_table_aux(Process *p,
                     return tb;
                 }
             }
-
-
         }
 #endif
         if (ERTS_UNLIKELY(what != DB_READ_TBL_STRUCT
@@ -1908,12 +1909,8 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
             DbTable* tb;
             /* First check if another process has completed the
                operation without acquiring the lock */
-            if (NULL == (tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, &freason))) {
-                if (freason == TRAP){
-                    erts_set_gc_state(p, 0);
-                    return db_bif_fail(p, freason, bix, NULL);
-                }
-            }
+            tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, &freason);
+            ASSERT(tb || freason != TRAP);
             if (tb != NULL &&
                 (void*)erts_atomic_read_acqb(&tb->common.continuation_state) ==
                 ctx->continuation_state) {
@@ -2126,12 +2123,13 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 
 
     if (is_not_atom(BIF_ARG_2)) {
-        tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason);
+        DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_READ, BIF_ets_rename_2);
         if (tb == NULL) {
+            ASSERT(freason != TRAP);
             /* Report bad table identifier or table name. */
             BIF_ERROR(BIF_P, freason);
         } else {
-            db_unlock(tb, LCK_WRITE);
+            db_unlock(tb, LCK_READ);
             BIF_ERROR(BIF_P, BADARG);
         }
     }
