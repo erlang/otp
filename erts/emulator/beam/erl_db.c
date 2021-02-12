@@ -1903,25 +1903,25 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
         if (ctx->status == ETS_INSERT_2_LIST_GLOBAL) {
             /* An operation that can be helped by other operations is
                handled here */
-            Uint freason__;
+            Uint freason;
             int cret = DB_ERROR_NONE;
             DbTable* tb;
             /* First check if another process has completed the
                operation without acquiring the lock */
-            if (NULL == (tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, &freason__))) {
-                if (freason__ == TRAP){
+            if (NULL == (tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, &freason))) {
+                if (freason == TRAP){
                     erts_set_gc_state(p, 0);
-                    return db_bif_fail(p, freason__, bix, NULL);
+                    return db_bif_fail(p, freason, bix, NULL);
                 }
             }
             if (tb != NULL &&
                 (void*)erts_atomic_read_acqb(&tb->common.continuation_state) ==
                 ctx->continuation_state) {
                 /* The lock has to be taken to complete the operation */
-                if (NULL == (tb = db_get_table(p, tid, DB_WRITE, LCK_WRITE, &freason__))) {
-                    if (freason__ == TRAP){
+                if (NULL == (tb = db_get_table(p, tid, DB_WRITE, LCK_WRITE, &freason))) {
+                    if (freason == TRAP){
                         erts_set_gc_state(p, 0);
-                        return db_bif_fail(p, freason__, bix, NULL);
+                        return db_bif_fail(p, freason, bix, NULL);
                     }
                 }
                 /* Must be done since the db_get_table call did not trap */
