@@ -4730,9 +4730,13 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     do {
 
         if (msg_tracing) {
+	    int tres;
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
-            if (handle_msg_tracing(c_p, &tracing, next_nm_sig) != 0) {
+	    tres = handle_msg_tracing(c_p, &tracing, next_nm_sig);
+            if (tres != 0) {
                 ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
+		if (tres < 0)
+		    yield = !0;
                 break; /* tracing limit or end... */
             }
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
