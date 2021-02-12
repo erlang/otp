@@ -23,7 +23,7 @@
 
 -export([open/1,open/2,open/3,close/1,format_error/1]).
 -export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
--export([parse_file/1, parse_file/2, parse_file/3]).
+-export([scan_file/1, scan_file/2, parse_file/1, parse_file/2, parse_file/3]).
 -export([default_encoding/0, encoding_to_string/1,
          read_encoding_from_binary/1, read_encoding_from_binary/2,
          set_encoding/1, set_encoding/2, read_encoding/1, read_encoding/2]).
@@ -82,6 +82,8 @@
 %% close(Epp)
 %% scan_erl_form(Epp)
 %% parse_erl_form(Epp)
+%% scan_file(Epp)
+%% scan_file(FileName, Options)
 %% parse_file(Epp)
 %% parse_file(FileName, Options)
 %% parse_file(FileName, IncludePath, PreDefMacros)
@@ -150,6 +152,15 @@ close(Epp) ->
     R = epp_request(Epp, close),
     receive {'DOWN',Ref,_,_,_} -> ok end,
     R.
+
+-spec scan_erl_form(Epp) ->
+    {'ok', Tokens} | {error, ErrorInfo} |
+    {'warning',WarningInfo} | {'eof',Line} when
+      Epp :: epp_handle(),
+      Tokens :: erl_scan:tokens(),
+      Line :: erl_anno:line(),
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
+      WarningInfo :: warning_info().
 
 scan_erl_form(Epp) ->
     epp_request(Epp, scan_erl_form).
@@ -229,6 +240,39 @@ format_error({error,Term}) ->
 format_error({warning,Term}) ->
     io_lib:format("-warning(~tp).", [Term]);
 format_error(E) -> file:format_error(E).
+
+-spec scan_file(FileName, Options) ->
+        {'ok', [Form], Extra} | {error, OpenError} when
+      FileName :: file:name(),
+      Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
+		  {'source_name', SourceName :: file:name()} |
+		  {'macros', PredefMacros :: macros()} |
+		  {'default_encoding', DefEncoding :: source_encoding()}],
+      Form :: erl_scan:tokens() | {'error', ErrorInfo} | {'eof', Loc},
+      Loc :: erl_anno:location(),
+      ErrorInfo :: erl_scan:error_info(),
+      Extra :: [{'encoding', source_encoding() | 'none'}],
+      OpenError :: file:posix() | badarg | system_limit.
+
+scan_file(Ifile, Options) ->
+    case open([{name, Ifile}, extra | Options]) of
+	{ok,Epp,Extra} ->
+	    Forms = scan_file(Epp),
+	    close(Epp),
+	    {ok,Forms,Extra};
+	{error,E} ->
+	    {error,E}
+    end.
+
+scan_file(Epp) ->
+    case scan_erl_form(Epp) of
+	{ok,Toks} ->
+            [Toks|scan_file(Epp)];
+	{error,E} ->
+	    [{error,E}|scan_file(Epp)];
+	{eof,Location} ->
+	    [{eof,Location}]
+    end.
 
 -spec parse_file(FileName, IncludePath, PredefMacros) ->
                 {'ok', [Form]} | {error, OpenError} when
