@@ -124,19 +124,24 @@ init_per_testcase(reuse_session_erlang_client, Config) ->
     ssl:start(),
     Config;
 init_per_testcase(reuse_session_erlang_server, Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
-    case ssl_test_lib:is_dtls_version(Version) of
+    case ssl_test_lib:working_openssl_client() of
         true ->
-            case ssl_test_lib:openssl_sane_dtls_session_reuse() of
+            Version = ssl_test_lib:protocol_version(Config),
+            case ssl_test_lib:is_dtls_version(Version) of
                 true ->
-                    ct:timetrap(?TIMEOUT),
-                    Config;
+                    case ssl_test_lib:openssl_sane_dtls_session_reuse() of
+                        true ->
+                            ct:timetrap(?TIMEOUT),
+                            Config;
+                        false ->
+                            {skip, "Broken OpenSSL DTLS session reuse"}
+                    end;
                 false ->
-                    {skip, "Broken OpenSSL DTLS session reuse"}
+                    ct:timetrap(?TIMEOUT),
+                    Config
             end;
-        false ->
-            ct:timetrap(?TIMEOUT),
-            Config
+        false  ->
+            {skip, "Broken OpenSSL s_client"}
     end;
 init_per_testcase(_TestCase, Config) ->
     ct:timetrap(?TIMEOUT),
@@ -171,7 +176,8 @@ reuse_session_erlang_server(Config) when is_list(Config) ->
                                         {from, self()},
                                         {mfa, {ssl_test_lib, active_recv, [length(Data)]}},
                                         {reconnect_times, 5},
-                                        {options, [{ciphers, Ciphers} | ServerOpts]}]),
+                                        {options, [{ciphers, Ciphers},
+                                                   {versions, [Version]}| ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     
@@ -206,7 +212,8 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
                                    {from, self()}, 
                                    {options, [{reuse_sessions, save}, 
                                               {verify, verify_peer},
-                                              {ciphers, Ciphers} | ClientOpts]}]),
+                                              {ciphers, Ciphers},
+                                              {versions, [Version]} | ClientOpts]}]),
     
     SID = receive
               {Client0, Id0} ->
@@ -219,7 +226,8 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
         ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_id, []}},
-                                   {from, self()},  {options, [ {ciphers, Ciphers},
+                                   {from, self()},  {options, [ {ciphers, Ciphers},  
+                                                                {versions, [Version]},
                                                                 {reuse_session, SID} | ClientOpts]}]),
     receive
         {Client1, SID} ->
@@ -237,7 +245,8 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
         ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_id, []}},
-                                   {from, self()},  {options, [{ciphers, Ciphers} | ClientOpts]}]),
+                                   {from, self()},  {options, [{ciphers, Ciphers},
+                                                               {versions, [Version]} | ClientOpts]}]),
     receive
         {Client2, ID} ->
             case ID of
