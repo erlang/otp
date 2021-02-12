@@ -22,6 +22,7 @@
 #define	_WXE_HELPER_H
 
 #include "wxe_memory.h"
+#include <list>
 
 DECLARE_EVENT_TYPE(wxeEVT_META_COMMAND, -1)
 
@@ -51,7 +52,7 @@ class wxeCommand
     void Delete();
 
     ErlNifPid    caller;
-    int          op;
+    int          op;   // -1 in use by wx thread; -2 deleted/unused
     ErlNifEnv    *env;
     int          argc;
     ERL_NIF_TERM args[16];
@@ -60,26 +61,16 @@ class wxeCommand
 
 class wxeFifo {
  public:
-    wxeFifo(unsigned int size);
-    virtual ~wxeFifo();
+  wxeFifo(unsigned int size);
+  virtual ~wxeFifo();
 
-    int Add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
-    void Append(wxeCommand *Other);
+  int Add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
+  void Append(wxeCommand *Other);
 
-    wxeCommand * Get();
-    wxeCommand * Peek(unsigned int *item);
+  wxeCommand * Get();
+  // wxeCommand * Peek(unsigned int *item);
 
-    void Realloc();
-    void Strip();
-    unsigned int Cleanup(unsigned int peek=0);
-
-    unsigned int cb_start;
-    unsigned int m_max;
-    unsigned int m_first;
-    unsigned int m_n;
-    unsigned int m_orig_sz;
-    wxeCommand *m_q;
-    wxeCommand *m_old;
+  std::list <wxeCommand *> m_q;
 };
 
 class wxeErlTerm : public wxClientData
