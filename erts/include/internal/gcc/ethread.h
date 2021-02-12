@@ -44,6 +44,10 @@
 #undef ETHR_GCC_RELB_VERSIONS__
 #undef ETHR_GCC_RELB_MOD_VERSIONS__
 #undef ETHR_GCC_MB_MOD_VERSIONS__
+#undef ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__
+
+#define ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__ \
+    ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS
 
 /*
  * True GNU GCCs before version 4.8 do not emit a memory barrier
@@ -64,6 +68,14 @@
 #elif !ETHR_AT_LEAST_GCC_VSN__(4, 8, 0)
 /* True gcc of version < 4.8, i.e., bug exist... */
 #  define ETHR___atomic_load_ACQUIRE_barrier_bug ETHR_GCC_VERSIONS_MASK__
+#elif ETHR_AT_LEAST_GCC_VSN__(9, 3, 0) \
+    && (defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)) \
+    && ETHR_SIZEOF_PTR == 8
+/* Verified not to have this bug */
+#    define ETHR___atomic_load_ACQUIRE_barrier_bug 0
+/* Also trust builtin barriers */
+#    undef ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__
+#    define ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__ 1
 #else /* True gcc of version >= 4.8 */
 /*
  * Sizes less than or equal to word size have been fixed,
@@ -87,7 +99,7 @@
 #define ETHR_GCC_RELAXED_VERSIONS__ ETHR_GCC_VERSIONS_MASK__
 #define ETHR_GCC_RELAXED_MOD_VERSIONS__ ETHR_GCC_VERSIONS_MASK__
 
-#if ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS
+#if ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__
 #  define ETHR_GCC_ACQB_VERSIONS__ ETHR_GCC_VERSIONS_MASK__
 #  define ETHR_GCC_ACQB_MOD_VERSIONS__ ETHR_GCC_VERSIONS_MASK__
 #  define ETHR_GCC_RELB_VERSIONS__ ETHR_GCC_VERSIONS_MASK__
