@@ -192,8 +192,18 @@
       <p>The log message contains the information to be logged. The
 	message can consist of a format string and arguments (given as
 	two separate parameters in the Logger API), a string or a
-	report. The latter, which is either a map or a key-value list,
-	can be accompanied by a <em>report callback</em> specified in
+        report.</p>
+      <p>Example, format string and arguments:</p>
+      <code>logger:error("The file does not exist: ~ts",[Filename])</code>
+      <p>Example, string:</p>
+      <code>logger:notice("Something strange happened!")</code>
+      <p>A report, which is either a map or a key-value list, is
+        the preferred way to log using Logger as it makes it possible
+        for different backends to filter and format the log event as it
+        needs to.</p>
+      <p>Example, report:</p>
+      <code>?LOG_ERROR(#{ user => joe, filename => Filename, reason => enoent })</code>
+      <p>Reports can be accompanied by a <em>report callback</em> specified in
 	the log event's <seeguide marker="#metadata">metadata</seeguide>.
 	The report callback is a convenience function that
 	the <seeguide marker="#formatters">formatter</seeguide> can use
@@ -219,10 +229,6 @@
 	contain line breaks or not. This variant is used when the
 	formatting of the report depends on the size or single line
 	parameters.</p>
-      <p>Example, format string and arguments:</p>
-      <code>logger:error("The file does not exist: ~ts",[Filename])</code>
-      <p>Example, string:</p>
-      <code>logger:notice("Something strange happened!")</code>
       <p>Example, report, and metadata with report callback:</p>
       <code>
 logger:debug(#{got => connection_request, id => Id, state => State},

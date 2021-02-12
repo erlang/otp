@@ -86,9 +86,11 @@
 -type report_cb_config() :: #{depth       := pos_integer() | unlimited,
                               chars_limit := pos_integer() | unlimited,
                               single_line := boolean()}.
--type msg_fun() :: fun((term()) -> {io:format(),[term()]} |
-                                   report() |
-                                   unicode:chardata()).
+-type msg_fun() :: fun((term()) -> msg_fun_return() | {msg_fun_return(), metadata()}).
+-type msg_fun_return() :: {io:format(),[term()]} |
+                           report() |
+                           unicode:chardata() |
+                           ignore.
 -type metadata() :: #{pid    => pid(),
                       gl     => pid(),
                       time   => timestamp(),
@@ -1060,19 +1062,12 @@ do_log(Level,Msg,Meta) ->
              report() |
              unicode:chardata(),
       Meta :: metadata().
-log_allowed(Location,Level,{Fun,FunArgs},Meta) when is_function(Fun,1) ->
+log_allowed(Location,Level,{Fun,FunArgs}=FunCall,Meta) when is_function(Fun,1) ->
     try Fun(FunArgs) of
-        Msg={Format,Args} when ?IS_FORMAT(Format), is_list(Args) ->
-            log_allowed(Location,Level,Msg,Meta);
-        Report when ?IS_REPORT(Report) ->
-            log_allowed(Location,Level,Report,Meta);
-        String when ?IS_STRING(String) ->
-            log_allowed(Location,Level,String,Meta);
-        Other ->
-            log_allowed(Location,Level,
-                        {"LAZY_FUN ERROR: ~tp; Returned: ~tp",
-                         [{Fun,FunArgs},Other]},
-                        Meta)
+        {FunRes, #{} = FunMeta} ->
+            log_fun_allowed(Location, Level, FunRes, maps:merge(Meta, FunMeta), FunCall);
+        FunRes ->
+            log_fun_allowed(Location, Level, FunRes, Meta, FunCall)
     catch C:R ->
             log_allowed(Location,Level,
                         {"LAZY_FUN CRASH: ~tp; Reason: ~tp",
@@ -1106,6 +1101,23 @@ log_allowed(Location,Level,Msg,LogCallMeta) when is_map(LogCallMeta) ->
             ok
     end,
     do_log_allowed(Level,Msg,Meta,Tid,PrimaryConfig).
+
+log_fun_allowed(Location, Level, FunRes, Meta, FunCall) ->
+    case FunRes of
+        ignore ->
+            ok;
+        Msg={Format,Args} when ?IS_FORMAT(Format), is_list(Args) ->
+            log_allowed(Location,Level,Msg,Meta);
+        Report when ?IS_REPORT(Report) ->
+            log_allowed(Location,Level,Report,Meta);
+        String when ?IS_STRING(String) ->
+            log_allowed(Location,Level,String,Meta);
+        Other ->
+            log_allowed(Location,Level,
+                        {"LAZY_FUN ERROR: ~tp; Returned: ~tp",
+                         [FunCall,Other]},
+                        Meta)
+    end.
 
 do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid,Config)
   when ?IS_LEVEL(Level),

@@ -1355,6 +1355,16 @@ test_log_function(Level) ->
     logger:log(Level,F2=fun(x) -> erlang:error(fun_that_crashes) end,x,#{}),
     ok = check_logged(Level,"LAZY_FUN CRASH: ~tp; Reason: ~tp",
                       [{F2,x},{error,fun_that_crashes}],#{}),
+    logger:log(Level,fun(x) -> {{"~w: ~w ~w",[Level,fun_to_fa,meta]}, #{my=>override}} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>override}),
+    logger:log(Level,fun(x) -> {#{Level=>fun_to_r,meta=>true}, #{my=>override}} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>override}),
+    logger:log(Level,fun(x) -> {<<"fun_to_s">>,#{my=>override}} end,x,#{my=>meta}),
+    ok = check_logged(Level,<<"fun_to_s">>,#{my=>override}),
+    logger:log(Level, fun(x) -> ignore end, x, #{}),
+    ok = check_no_log(),
     ok.
 
 test_macros(emergency=Level) ->

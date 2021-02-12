@@ -256,6 +256,12 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       </desc>
     </datatype>
     <datatype>
+      <name name="msg_fun_return"/>
+      <desc>
+        <p></p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="olp_config"/>
       <desc>
 	<p></p>
@@ -455,12 +461,44 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <type variable="FunArgs" name_i="4"/>
       <type variable="Metadata"/>
       <desc>
-        <p>Log the given message.</p>
+        <p>Create a log event at the given
+          <seeguide marker="logger_chapter#log_level">log level</seeguide>,
+          with the given <seeguide marker="logger_chapter#log_message">message</seeguide>
+          to be logged and
+          <seeguide marker="logger_chapter#metadata"><em>metadata</em></seeguide>.
+        Examples:</p>
+        <code>
+%% A plain string
+logger:log(info, "Hello World").
+%% A plain string with metadata
+logger:log(debug, "Hello World", #{ meta => data }).
+%% A format string with arguments
+logger:log(warning, "The roof is on ~ts",[Cause]).
+%% A report
+logger:log(warning, #{ what => roof, cause => Cause }).
+        </code>
+        <p>The message and metadata can either be given directly in the arguments,
+          or returned from a fun. Passing a fun instead of the message/metadata directly is
+          useful in scenarios when the message/metadata is very expensive to compute.
+          This is because the fun is only evaluted when the message/metadata is
+          actually needed, which may be not at all if the log event is not
+          to be logged. Examples:</p>
+        <code>
+%% A plain string with expensive metadata
+logger:info(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[]).
+%% An expensive report
+logger:debug(fun(What) -> #{ what => What, cause => expensive() } end,roof).
+%% A plain string with expensive metadata and normal metadata
+logger:debug(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[],
+             #{ meta => data }).
+        </code>
+        <p>When metadata is given both as an argument and returned from the fun they
+          are merged. If equal keys exists the values are taken from the metadata
+          returned by the fun.</p>
       </desc>
     </func>
   </funcs>
 
- 
   <funcs>
     <fsdescription>
       <marker id="configuration_API"/>
