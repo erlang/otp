@@ -1640,7 +1640,6 @@ effects_code_generation(Option) ->
 	_ -> true
     end.
 
-save_binary(none, St) -> {ok,none,St};
 save_binary(Code, #compile{module=Mod,ofile=Outfile,options=Opts}=St) ->
     %% Test that the module name and output file name match.
     case member(no_error_module_mismatch, Opts) of
