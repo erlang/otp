@@ -208,7 +208,7 @@ static void linking(Process *c_p, Eterm to);
 static void group_leader_reply(Process *c_p, Eterm to,
                                Eterm ref, int success);
 static int stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
-                         int abs_lim, int *limp);
+                         int abs_lim, int *limp, int save_in_msgq);
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #define ERTS_PROC_SIG_HDBG_PRIV_CHKQ(P, T, NMN)                 \
@@ -4684,7 +4684,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 {
     Eterm tag;
     erts_aint32_t state;
-    int yield, cnt, limit, abs_lim, msg_tracing;
+    int yield, cnt, limit, abs_lim, msg_tracing, save_in_msgq;
     ErtsMessage *sig, ***next_nm_sig;
     ErtsSigRecvTracing tracing;
 
@@ -4703,6 +4703,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     limit = *redsp;
     *redsp = 0;
     yield = 0;
+    save_in_msgq = !0;
 
     if (!c_p->sig_qs.cont) {
         *statep = state;
@@ -5167,6 +5168,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
 						    markp));
                     c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
+		    save_in_msgq = 0;
                 }
                 markp->in_msgq = markp->in_sigq = markp->set_save = 0;
                 remove_nm_sig(c_p, sig, next_nm_sig);
@@ -5188,6 +5190,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
 						    markp));
                     c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
+		    save_in_msgq = 0;
                 }
             }
 
@@ -5201,7 +5204,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
         cnt++;
 
-    } while (cnt <= limit || stretch_limit(c_p, &tracing, abs_lim, &limit));
+    } while (cnt <= limit
+	     || stretch_limit(c_p, &tracing, abs_lim, &limit, save_in_msgq));
 
 stop: {
         int res;
@@ -5358,10 +5362,10 @@ stop: {
 
 static int
 stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
-              int abs_lim, int *limp)
+              int abs_lim, int *limp, int save_in_msgq)
 {
     ErtsMessage **sigpp;
-    int lim;
+    int lim, in_msgq;
     /*
      * Stretch limit up to a maximum of 'abs_lim' if
      * there currently are no messages available to
@@ -5384,15 +5388,22 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
      * message queue as well as middle signal queue (if a
      * receive marker with 'set_save' set just arrived).
      */
-    if (c_p->sig_qs.save == c_p->sig_qs.last)
+    if (c_p->sig_qs.save == c_p->sig_qs.last) {
 	sigpp = &c_p->sig_qs.cont;
-    else
+	in_msgq = 0;
+    }
+    else {
 	sigpp = c_p->sig_qs.save;
+	in_msgq = save_in_msgq;
+    }
 
     while (!0) {
 	Eterm tag;
 	if (!(*sigpp))
 	    return 0; /* No signals to process available... */
+
+	if (!in_msgq)
+	    break;
 
 	if (tp->messages.next == sigpp)
 	    break;
@@ -5402,18 +5413,17 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
 	if (ERTS_SIG_IS_MSG_TAG(tag))
 	    return 0; /* Have message to inspect... */
 
-	if (tag != ERTS_RECV_MARKER_TAG) {
-	    ASSERT(ERTS_SIG_IS_NON_MSG_TAG(tag));
-	    break;
-	}
+	ASSERT(tag == ERTS_RECV_MARKER_TAG);
 
 	/*
 	 * Pass the recv marker without punishing it
 	 * by increasing the 'pass' field...
 	 */
 	sigpp = &(*sigpp)->next;
-	if (sigpp == c_p->sig_qs.last)
+	if (sigpp == c_p->sig_qs.last) {
 	    sigpp = &c_p->sig_qs.cont;
+	    in_msgq = 0;
+	}
     }
 
     /*
