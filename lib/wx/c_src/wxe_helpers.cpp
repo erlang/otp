@@ -60,6 +60,9 @@ wxeFifo::~wxeFifo() {
   for (wxeCommand *cmd : m_q) {
     delete cmd;
   }
+  for (wxeCommand *cmd : free) {
+    delete cmd;
+  }
 }
 
 wxeCommand * wxeFifo::Get()
@@ -76,7 +79,13 @@ wxeCommand * wxeFifo::Get()
 
 int wxeFifo::Add(int argc, const ERL_NIF_TERM argv[], int op, wxe_me_ref *mr, ErlNifPid caller)
 {
-  wxeCommand * curr = new wxeCommand();
+  wxeCommand * curr;
+  if(free.empty()) {
+    curr = new wxeCommand();
+  } else {
+    curr = free.back();
+    free.pop_back();
+  }
   curr->Init(argc, argv, op, mr, caller);
   m_q.push_back(curr);
   size++;
@@ -92,7 +101,9 @@ std::list<wxeCommand *>::iterator wxeFifo::DelQueue(std::list<wxeCommand *>::ite
 
 void wxeFifo::DeleteCmd(wxeCommand *orig)
 {
-  delete orig;
+  orig->op = -2;  // Assert: will crash if op is negativ
+  enif_clear_env(orig->env);
+  free.push_back(orig);
 }
 
 unsigned int wxeFifo::Size()
@@ -102,7 +113,14 @@ unsigned int wxeFifo::Size()
 
 void wxeFifo::Append(wxeCommand *orig)
 {
-  wxeCommand * curr = new wxeCommand();
+  wxeCommand * curr;
+  if(free.empty()) {
+    curr = new wxeCommand();
+  } else {
+    curr = free.back();
+    free.pop_back();
+  }
+
   curr->op  = orig->op;
   curr->caller = orig->caller;
   curr->argc = orig->argc;
@@ -112,5 +130,6 @@ void wxeFifo::Append(wxeCommand *orig)
   curr->env = orig->env;
   orig->env = temp;
   curr->me_ref = orig->me_ref;
+  orig->op = -1; // Assert: will crash if op is negativ
   m_q.push_back(curr);
 }

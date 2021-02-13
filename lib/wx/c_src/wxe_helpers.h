@@ -23,6 +23,7 @@
 
 #include "wxe_memory.h"
 #include <list>
+#include <vector>
 
 DECLARE_EVENT_TYPE(wxeEVT_META_COMMAND, -1)
 
@@ -71,6 +72,7 @@ class wxeFifo {
   wxeCommand * Get();
 
   std::list <wxeCommand *> m_q;
+  std::vector <wxeCommand *> free;
   unsigned int size;  // keep own counter list::size() is not O(1) in old impl
 };
 
