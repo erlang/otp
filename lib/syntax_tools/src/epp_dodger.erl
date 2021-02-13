@@ -76,6 +76,7 @@
 	 parse_form/3, quick_parse_form/2, quick_parse_form/3,
 	 format_error/1, tokens_to_string/1]).
 
+-export([scan_form/2, rewrite_form/1]).
 
 %% The following should be: 1) pseudo-uniquely identifiable, and 2)
 %% cause nice looking error messages when the parser has to give up.
@@ -796,35 +797,68 @@ rewrite(Node) ->
 		_ ->
 		    Node
 	    end;
-	application ->
-	    F = erl_syntax:application_operator(Node),
-	    case erl_syntax:type(F) of
-		atom ->
-		    case erl_syntax:atom_value(F) of
-			?macro_call ->
-			    [A | As] = erl_syntax:application_arguments(Node),
-			    M = erl_syntax:macro(A, rewrite_list(As)),
-			    erl_syntax:copy_pos(Node, M);
-			_ ->
-			    rewrite_1(Node)
-		    end;
-		_ ->
-		    rewrite_1(Node)
-	    end;
-	_ ->
-	    rewrite_1(Node)
+    application ->
+        rewrite_application(
+            Node,
+            fun erl_syntax:application_operator/1,
+            fun erl_syntax:application_arguments/1);
+    type_application ->
+        rewrite_application(
+            Node,
+            fun erl_syntax:type_application_name/1,
+            fun erl_syntax:type_application_arguments/1);
+    user_type_application ->
+        rewrite_application(
+            Node,
+            fun erl_syntax:user_type_application_name/1,
+            fun erl_syntax:user_type_application_arguments/1);
+    attribute ->
+        Name = erl_syntax:attribute_name(Node),
+        case catch erl_syntax:concrete(Name) of
+            spec ->
+                [SpecTuple] = erl_syntax:attribute_arguments(Node),
+                [FuncName, FuncTypes] = erl_syntax:tuple_elements(SpecTuple),
+                Clauses = erl_syntax:concrete(FuncTypes),
+                erl_syntax:copy_pos(
+                  Node,
+                  erl_syntax:attribute(
+                    rewrite(Name),
+                    [erl_syntax:tuple([rewrite(FuncName),
+                                       erl_syntax:abstract(rewrite_list(Clauses))
+                                      ])]
+                   ));
+            _ ->
+                rewrite_subtrees(Node)
+        end;
+    Type when Type == nil; Type == string; Type == integer;
+              Type == variable; Type == eof_marker ->
+        Node;
+    _ ->
+        rewrite_subtrees(Node)
     end.
 
-rewrite_1(Node) ->
-    case erl_syntax:subtrees(Node) of
-	[] ->
-	    Node;
-	Gs ->
-	    Node1 = erl_syntax:make_tree(erl_syntax:type(Node),
-					 [[rewrite(T) || T <- Ts]
-					  || Ts <- Gs]),
-	    erl_syntax:copy_pos(Node, Node1)
+rewrite_application(Node, OpGetter, ArgGetter) ->
+    F = OpGetter(Node),
+    case erl_syntax:type(F) of
+        atom ->
+            case erl_syntax:atom_value(F) of
+                ?macro_call ->
+                    [A | As] = ArgGetter(Node),
+                    M = erl_syntax:macro(A, rewrite_list(As)),
+                    erl_syntax:copy_pos(Node, M);
+                _ ->
+                    rewrite_subtrees(Node)
+            end;
+        _ ->
+            rewrite_subtrees(Node)
     end.
+
+rewrite_subtrees(Node) ->
+    erl_syntax_lib:map_subtrees(
+      fun(ST) when is_list(ST) -> rewrite_list(ST);
+         (ST) -> rewrite(ST)
+      end,
+      Node).
 
 %% attempting a rescue operation on a token sequence for a single form
 %% if it could not be parsed after the normal treatment
