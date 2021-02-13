@@ -297,7 +297,6 @@ int WxeApp::dispatch(wxeFifo * batch)
   while(true) {
     while((event = batch->Get()) != NULL) {
       wait += 1;
-      enif_mutex_unlock(wxe_batch_locker_m);
       switch(event->op) {
       case WXE_BATCH_END:
 	if(blevel>0) {
@@ -325,20 +324,24 @@ int WxeApp::dispatch(wxeFifo * batch)
         } else {
           cb_return = event;   // must be deleted after taken care of
         }
+        enif_mutex_unlock(wxe_batch_locker_m);
 	return 1;
       default:
+        enif_mutex_unlock(wxe_batch_locker_m);
 	if(event->op < OPENGL_START) {
 	  // fprintf(stderr, "  c %d (%d) \r\n", event->op, blevel);
 	  wxe_dispatch(*event);
 	} else {
 	  gl_dispatch(event);
 	}
+        enif_mutex_lock(wxe_batch_locker_m);
 	break;
       }
-      batch->DeleteCmd(event);
-      if(wait > CHECK_EVENTS)
+      if(wait > CHECK_EVENTS) {
+        enif_mutex_unlock(wxe_batch_locker_m);
         return 1; // Let wx check for events
-      enif_mutex_lock(wxe_batch_locker_m);
+      }
+      batch->DeleteCmd(event);
     }
     if(blevel <= 0) {
       enif_mutex_unlock(wxe_batch_locker_m);
@@ -380,7 +383,6 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
 	 (memenv && enif_compare_pids(&event->caller,&memenv->owner) == 0)) {
         it = batch->DelQueue(it);
         peek = batch->Size();
-        enif_mutex_unlock(wxe_batch_locker_m);
         //        enif_fprintf(stderr, "Exec:"); print_cmd(*event);
         switch(event->op) {
 	case WXE_BATCH_END:
@@ -393,32 +395,30 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
           } else {
             cb_return = event;   // must be deleted after taken care of
           }
-	  enif_mutex_lock(wxe_batch_locker_m);
           wxe_needs_wakeup = 1;
-	  enif_mutex_unlock(wxe_batch_locker_m);
+          enif_mutex_unlock(wxe_batch_locker_m);
           return;
 	case WXE_CB_DIED:
           cb_return = NULL;
 	  batch->DeleteCmd(event);
-	  enif_mutex_lock(wxe_batch_locker_m);
           wxe_needs_wakeup = 1;
-	  enif_mutex_unlock(wxe_batch_locker_m);
+          enif_mutex_unlock(wxe_batch_locker_m);
 	  return;
 	case WXE_CB_START:
 	  // CB start from now accept message from CB process only
 	  process = event->caller;
 	  break;
 	default:
+          enif_mutex_unlock(wxe_batch_locker_m);
 	  if(event->op < OPENGL_START) {
 	    wxe_dispatch(*event);
 	  } else {
 	    gl_dispatch(event);
 	  }
+          enif_mutex_lock(wxe_batch_locker_m);
 	  break;
 	}
-	batch->DeleteCmd(event);
-
-	enif_mutex_lock(wxe_batch_locker_m);
+        batch->DeleteCmd(event);
         if(!peek) {
           it = batch->m_q.begin(); //?
           prev = it;
