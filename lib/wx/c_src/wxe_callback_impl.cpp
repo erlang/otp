@@ -100,7 +100,7 @@ bool EwxPrintout::OnBeginDocument(int startPage, int endPage)
     wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
     int ret_value;
     if(cb && enif_get_int(cb->env, cb->args[0], &ret_value)) {
-      cb->Delete();
+      delete cb;
       return ret_value;
     }
   }
@@ -166,7 +166,7 @@ bool EwxPrintout::HasPage(int page)
     wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
     int ret_value;
     if(cb && enif_get_int(cb->env, cb->args[0], &ret_value)) {
-      cb->Delete();
+      delete cb;
       return ret_value;
     }
   }
@@ -183,7 +183,7 @@ bool EwxPrintout::OnPrintPage(int page)
     wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
     int ret_value;
     if(cb && enif_get_int(cb->env, cb->args[0], &ret_value)) {
-      cb->Delete();
+      delete cb;
       return ret_value;
     }
   }
@@ -204,7 +204,7 @@ void EwxPrintout::GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pa
        && enif_get_int(cb->env, cb->args[0], pageFrom)
        && enif_get_int(cb->env, cb->args[0], pageTo)
        ) {
-      cb->Delete();
+      delete cb;
     }
   }
   wxPrintout::GetPageInfo(minPage, maxPage, pageFrom, pageTo);
@@ -224,7 +224,7 @@ wxString EwxListCtrl::OnGetItemText(long item, long col) const {
     ErlNifBinary bin;
     if(cb && enif_inspect_binary(cb->env, cb->args[0], &bin)) {
       wxString str = wxString(bin.data, wxConvUTF8, bin.size);
-      cb->Delete();
+      delete cb;
       return str;
     }
     return wxT("OnGetItemText must return a string");
@@ -241,7 +241,7 @@ wxListItemAttr* EwxListCtrl::OnGetItemAttr(long item) const {
     wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
     if(cb) {
       wxListItemAttr * result = (wxListItemAttr *) memenv->getPtr(cb->env, cb->args[0], "CB item");
-      cb->Delete();
+      delete cb;
       return result;
     }
   }
@@ -262,7 +262,7 @@ int EwxListCtrl::OnGetItemColumnImage(long item, long col) const {
     wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
     int ret_value;
     if(cb && enif_get_int(cb->env, cb->args[0], &ret_value)) {
-      cb->Delete();
+      delete cb;
       return ret_value;
     }
   }
@@ -292,7 +292,7 @@ int wxCALLBACK wxEListCtrlCompare(wxeIntPtr item1, wxeIntPtr item2, wxeIntPtr ca
     wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
     int ret_value;
     if(cb && enif_get_int(cb->env, cb->args[0], &ret_value)) {
-      cb->Delete();
+      delete cb;
       return ret_value;
     }
   }
@@ -314,7 +314,7 @@ wxMenu* EwxTaskBarIcon::CreatePopupMenu() {
       wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
       wxMenu * ret_value;
       if(cb && (ret_value = (wxMenu *) memenv->getPtr(cb->env, cb->args[0], "menu"))) {
-        cb->Delete();
+        delete cb;
         return ret_value;
       }
     }

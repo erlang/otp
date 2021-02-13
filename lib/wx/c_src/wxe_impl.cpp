@@ -74,7 +74,7 @@ void push_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int op, wxe_m
   }
 
   enif_mutex_lock(wxe_batch_locker_m);
-  int n = wxe_queue->Add(env, argc, argv, op, mp, caller);
+  int n = wxe_queue->Add(argc, argv, op, mp, caller);
 
   if(wxe_needs_signal) {
     enif_cond_signal(wxe_batch_locker_c);
@@ -269,7 +269,7 @@ int WxeApp::dispatch_cmds()
     wxeCommand *curr;
     while((curr = delayed_delete->Get()) != NULL) {
       wxe_dispatch(*curr);
-      curr->Delete();
+      delayed_delete->DeleteCmd(curr);
     }
     // delayed_delete->Cleanup();
     if(delayed_cleanup->size() > 0)
@@ -321,7 +321,7 @@ int WxeApp::dispatch(wxeFifo * batch)
         break;
       case WXE_CB_RETURN:
         if(enif_is_identical(event->args[0], WXE_ATOM_ok)) {
-          event->Delete();
+          batch->DeleteCmd(event);
         } else {
           cb_return = event;   // must be deleted after taken care of
         }
@@ -335,7 +335,7 @@ int WxeApp::dispatch(wxeFifo * batch)
 	}
 	break;
       }
-      event->Delete();
+      batch->DeleteCmd(event);
       if(wait > CHECK_EVENTS)
         return 1; // Let wx check for events
       enif_mutex_lock(wxe_batch_locker_m);
@@ -378,8 +378,8 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
          enif_compare_pids(&event->caller, &process) == 0 ||  // Callbacks from CB process only
 	 // Allow connect_cb during CB i.e. msg from wxe_server.
 	 (memenv && enif_compare_pids(&event->caller,&memenv->owner) == 0)) {
-        it = batch->m_q.erase(it);
-        peek = batch->m_q.size();
+        it = batch->DelQueue(it);
+        peek = batch->Size();
         enif_mutex_unlock(wxe_batch_locker_m);
         //        enif_fprintf(stderr, "Exec:"); print_cmd(*event);
         switch(event->op) {
@@ -389,7 +389,7 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
 	  break;
 	case WXE_CB_RETURN:
           if(enif_is_identical(event->args[0], WXE_ATOM_ok)) {
-            event->Delete();
+            batch->DeleteCmd(event);
           } else {
             cb_return = event;   // must be deleted after taken care of
           }
@@ -399,7 +399,7 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
           return;
 	case WXE_CB_DIED:
           cb_return = NULL;
-	  event->Delete();
+	  batch->DeleteCmd(event);
 	  enif_mutex_lock(wxe_batch_locker_m);
           wxe_needs_wakeup = 1;
 	  enif_mutex_unlock(wxe_batch_locker_m);
@@ -416,7 +416,7 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
 	  }
 	  break;
 	}
-	event->Delete();
+	batch->DeleteCmd(event);
 
 	enif_mutex_lock(wxe_batch_locker_m);
         if(!peek) {
@@ -435,8 +435,8 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
     // fprintf(stderr, "\r\n%s:%d: %d: sleep sz %d it pos: %d\r\n", __FILE__, __LINE__, recurse_level,
     // 	    batch->m_q.size(), std::distance(batch->m_q.begin(), it)); fflush(stderr);
     wxe_needs_signal = 1;
-    peek = batch->m_q.size();
-    while(peek >= batch->m_q.size()) {
+    peek = batch->Size();
+    while(peek >= batch->Size()) {
       enif_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
     }
     wxe_needs_signal = 0;
@@ -461,7 +461,6 @@ void WxeApp::wxe_dispatch(wxeCommand& event)
   }
   if (event.me_ref->memenv) {
     if(nif_cb) {
-      event.op = -1;
       try { nif_cb(this, memenv, event); }
       catch (wxe_badarg badarg) {
         wxeReturn rt = wxeReturn(memenv, event.caller, false);

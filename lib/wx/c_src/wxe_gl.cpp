@@ -112,7 +112,6 @@ void no_context(wxeCommand *event) {
                              enif_make_atom(event->env, "_egl_error_"),
                              enif_make_int(event->env, event->op),
                              enif_make_atom(event->env, "no_gl_context")));
-  event->op = -1;
   enif_clear_env(event->env);
 }
 
@@ -148,7 +147,6 @@ void gl_dispatch(wxeCommand *event) {
                                enif_make_int(event->env, event->op),
                                enif_make_atom(event->env, "undef")));
   }
-  event->op = -1;
   enif_clear_env(event->env);
 }
 

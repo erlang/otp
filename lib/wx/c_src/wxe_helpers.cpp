@@ -36,17 +36,24 @@ wxeCommand::~wxeCommand()
     enif_free_env(env);
 }
 
-void wxeCommand::Delete()
+void wxeCommand::Init(int u_argc, const ERL_NIF_TERM u_argv[], int u_op, wxe_me_ref *u_mr, ErlNifPid u_caller)
 {
-  // enif_free(env);
-  delete this;
+  op  = u_op;
+  caller = u_caller;
+
+  argc = u_argc;
+  for(int i=0; i<argc; i++)
+    args[i] = enif_make_copy(env, u_argv[i]);
+  me_ref = u_mr;
 }
+
 
 /* ****************************************************************************
  * wxeFifo
  * ****************************************************************************/
 wxeFifo::wxeFifo(unsigned int sz)
 {
+  size = 0;
 }
 
 wxeFifo::~wxeFifo() {
@@ -62,23 +69,35 @@ wxeCommand * wxeFifo::Get()
   else {
     wxeCommand * cmd = m_q.front();
     m_q.pop_front();
+    size--;
     return cmd;
   }
 }
 
-int wxeFifo::Add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int op, wxe_me_ref *mr, ErlNifPid caller)
+int wxeFifo::Add(int argc, const ERL_NIF_TERM argv[], int op, wxe_me_ref *mr, ErlNifPid caller)
 {
   wxeCommand * curr = new wxeCommand();
-  curr->op  = op;
-  curr->caller = caller;
-
-  curr->argc = argc;
-  for(int i=0; i<argc; i++)
-    curr->args[i] = enif_make_copy(curr->env, argv[i]);
-
-  curr->me_ref = mr;
+  curr->Init(argc, argv, op, mr, caller);
   m_q.push_back(curr);
-  return m_q.size();
+  size++;
+  return size;
+}
+
+std::list<wxeCommand *>::iterator wxeFifo::DelQueue(std::list<wxeCommand *>::iterator it)
+{
+  size--;
+  return m_q.erase(it);
+}
+
+
+void wxeFifo::DeleteCmd(wxeCommand *orig)
+{
+  delete orig;
+}
+
+unsigned int wxeFifo::Size()
+{
+  return size;
 }
 
 void wxeFifo::Append(wxeCommand *orig)
@@ -89,8 +108,9 @@ void wxeFifo::Append(wxeCommand *orig)
   curr->argc = orig->argc;
   for(int i=0; i<curr->argc; i++)
     curr->args[i] = orig->args[i];
+  ErlNifEnv * temp = curr->env;
   curr->env = orig->env;
-  orig->env = NULL;
+  orig->env = temp;
   curr->me_ref = orig->me_ref;
   m_q.push_back(curr);
 }

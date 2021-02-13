@@ -45,18 +45,16 @@ class wxeMetaCommand : public wxEvent
 class wxeCommand
 {
  public:
-    wxeCommand();
-    virtual ~wxeCommand(); // Use Delete()
+  wxeCommand();
+  virtual ~wxeCommand();
+  void Init(int argc, const ERL_NIF_TERM argv[], int op, wxe_me_ref *mr, ErlNifPid caller);
 
-    wxeCommand * Save(int Op) { op = Op; return this; };
-    void Delete();
-
-    ErlNifPid    caller;
-    int          op;   // -1 in use by wx thread; -2 deleted/unused
-    ErlNifEnv    *env;
-    int          argc;
-    ERL_NIF_TERM args[16];
-    wxe_me_ref   * me_ref;
+  ErlNifPid    caller;
+  int          op;
+  ErlNifEnv    *env;
+  int          argc;
+  ERL_NIF_TERM args[16];
+  wxe_me_ref   * me_ref;
 };
 
 class wxeFifo {
@@ -64,13 +62,16 @@ class wxeFifo {
   wxeFifo(unsigned int size);
   virtual ~wxeFifo();
 
-  int Add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
+  int Add(int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
   void Append(wxeCommand *Other);
+  std::list<wxeCommand *>::iterator DelQueue(std::list<wxeCommand *>::iterator it);
+  void DeleteCmd(wxeCommand *);
+  unsigned int Size();
 
   wxeCommand * Get();
-  // wxeCommand * Peek(unsigned int *item);
 
   std::list <wxeCommand *> m_q;
+  unsigned int size;  // keep own counter list::size() is not O(1) in old impl
 };
 
 class wxeErlTerm : public wxClientData
