@@ -67,14 +67,17 @@ wxeFifo::~wxeFifo() {
 
 wxeCommand * wxeFifo::Get()
 {
-  if(m_q.empty())
-    return NULL;
-  else {
-    wxeCommand * cmd = m_q.front();
-    m_q.pop_front();
-    size--;
-    return cmd;
-  }
+  wxeCommand * cmd;
+  do {
+    if(m_q.empty())
+      return NULL;
+    else {
+      cmd = m_q.front();
+      m_q.pop_front();
+    }
+  } while (cmd == NULL);
+  size--;
+  return cmd;
 }
 
 int wxeFifo::Add(int argc, const ERL_NIF_TERM argv[], int op, wxe_me_ref *mr, ErlNifPid caller)
@@ -92,10 +95,10 @@ int wxeFifo::Add(int argc, const ERL_NIF_TERM argv[], int op, wxe_me_ref *mr, Er
   return size;
 }
 
-std::list<wxeCommand *>::iterator wxeFifo::DelQueue(std::list<wxeCommand *>::iterator it)
+void wxeFifo::DelQueue(unsigned int i)
 {
   size--;
-  return m_q.erase(it);
+  m_q[i] = NULL;
 }
 
 

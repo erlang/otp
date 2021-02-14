@@ -22,8 +22,8 @@
 #define	_WXE_HELPER_H
 
 #include "wxe_memory.h"
-#include <list>
 #include <vector>
+#include <deque>
 
 DECLARE_EVENT_TYPE(wxeEVT_META_COMMAND, -1)
 
@@ -65,13 +65,13 @@ class wxeFifo {
 
   int Add(int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
   void Append(wxeCommand *Other);
-  std::list<wxeCommand *>::iterator DelQueue(std::list<wxeCommand *>::iterator it);
+  void DelQueue(unsigned int it);
   void DeleteCmd(wxeCommand *);
   unsigned int Size();
 
   wxeCommand * Get();
 
-  std::list <wxeCommand *> m_q;
+  std::deque <wxeCommand *> m_q;
   std::vector <wxeCommand *> free;
   unsigned int size;  // keep own counter list::size() is not O(1) in old impl
 };

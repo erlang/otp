@@ -58,6 +58,7 @@ extern int wxe_status;
 
 wxeFifo * wxe_queue = NULL;
 
+unsigned int wxe_idle_processed = 0;
 unsigned int wxe_needs_signal = 0;  // inside batch if larger than 0
 unsigned int wxe_needs_wakeup = 0;  // inside batch if larger than 0
 
@@ -294,6 +295,7 @@ int WxeApp::dispatch(wxeFifo * batch)
   int wait = 0; // Let event handling generate events sometime
   wxeCommand *event;
   enif_mutex_lock(wxe_batch_locker_m);
+  wxe_idle_processed = 1;
   while(true) {
     while((event = batch->Get()) != NULL) {
       wait += 1;
@@ -361,91 +363,84 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
   wxeCommand *event;
   unsigned int peek = 0;
   enif_mutex_lock(wxe_batch_locker_m);
-  auto it = batch->m_q.begin();
-  auto prev = it;
+  unsigned int i = 0;
+  unsigned int last = batch->m_q.size();
+  wxe_idle_processed = 0;
   while(true) {
-    // for (auto &i : batch->m_q) {
-    //   print_cmd(*i);
-    // }
-    // fprintf(stderr, "\r\n");
 
-    while (it != batch->m_q.end() ) {
-      event = *it;
-      // enif_fprintf(stderr, "%d: CB %T owner %T  it %d (%d) \r\n",
-      //              recurse_level, event->caller, process,
-      //              std::distance(batch->m_q.begin(), it),
-      //              batch->m_q.size());
-      if(event->op == WXE_CB_START || // Event callback start change process
-         event->op == WXE_CB_DIED ||  // Event callback process died
-         event->op == WXE_DEBUG_PING ||
-         enif_compare_pids(&event->caller, &process) == 0 ||  // Callbacks from CB process only
-	 // Allow connect_cb during CB i.e. msg from wxe_server.
-	 (memenv && enif_compare_pids(&event->caller,&memenv->owner) == 0)) {
-        it = batch->DelQueue(it);
-        peek = batch->Size();
-        //        enif_fprintf(stderr, "Exec:"); print_cmd(*event);
-        switch(event->op) {
-	case WXE_BATCH_END:
-	case WXE_BATCH_BEGIN:
-	case WXE_DEBUG_PING:
-	  break;
-	case WXE_CB_RETURN:
-          if(enif_is_identical(event->args[0], WXE_ATOM_ok)) {
+    while (i < last ) {
+      event = batch->m_q[i];
+      // enif_fprintf(stderr, "%d: CB %T owner %T  it %d %d (%d) \r\n",
+      //              recurse_level, event ? event->caller : process, process,
+      //              i, batch->Size(), batch->m_q.size());
+      if(event &&
+         (event->op == WXE_CB_START || // Event callback start change process
+          event->op == WXE_CB_DIED ||  // Event callback process died
+          event->op == WXE_DEBUG_PING ||
+          enif_compare_pids(&event->caller, &process) == 0 ||  // Callbacks from CB process only
+          // Allow connect_cb during CB i.e. msg from wxe_server.
+          (memenv && enif_compare_pids(&event->caller,&memenv->owner) == 0)
+          ))
+        {
+          // enif_fprintf(stderr, "Exec:"); print_cmd(*event);
+          batch->DelQueue(i);
+          switch(event->op) {
+          case WXE_BATCH_END:
+          case WXE_BATCH_BEGIN:
+          case WXE_DEBUG_PING:
+            break;
+          case WXE_CB_RETURN:
+            if(enif_is_identical(event->args[0], WXE_ATOM_ok)) {
+              batch->DeleteCmd(event);
+            } else {
+              cb_return = event;   // must be deleted after taken care of
+            }
+            wxe_needs_wakeup = 1;
+            enif_mutex_unlock(wxe_batch_locker_m);
+            return;
+          case WXE_CB_DIED:
+            cb_return = NULL;
             batch->DeleteCmd(event);
-          } else {
-            cb_return = event;   // must be deleted after taken care of
+            wxe_needs_wakeup = 1;
+            enif_mutex_unlock(wxe_batch_locker_m);
+            return;
+          case WXE_CB_START:
+            // CB start from now accept message from CB process only
+            process = event->caller;
+            break;
+          default:
+            enif_mutex_unlock(wxe_batch_locker_m);
+            if(event->op < OPENGL_START) {
+              wxe_dispatch(*event);
+            } else {
+              gl_dispatch(event);
+            }
+            enif_mutex_lock(wxe_batch_locker_m);
+            last = batch->m_q.size();
+            if(wxe_idle_processed) {
+              // We have processed cmds inside dispatch()
+              // so the iterator may be wrong, restart from
+              // beginning of the queue
+              i = 0;
+            }
+            break;
           }
-          wxe_needs_wakeup = 1;
-          enif_mutex_unlock(wxe_batch_locker_m);
-          return;
-	case WXE_CB_DIED:
-          cb_return = NULL;
-	  batch->DeleteCmd(event);
-          wxe_needs_wakeup = 1;
-          enif_mutex_unlock(wxe_batch_locker_m);
-	  return;
-	case WXE_CB_START:
-	  // CB start from now accept message from CB process only
-	  process = event->caller;
-	  break;
-	default:
-          enif_mutex_unlock(wxe_batch_locker_m);
-	  if(event->op < OPENGL_START) {
-	    wxe_dispatch(*event);
-	  } else {
-	    gl_dispatch(event);
-	  }
-          enif_mutex_lock(wxe_batch_locker_m);
-	  break;
-	}
-        batch->DeleteCmd(event);
-        if(!peek) {
-          it = batch->m_q.begin(); //?
-          prev = it;
-        }
-        if(it == batch->m_q.end())  // We might have got new events
-          it = prev;
-      } else {
-        // enif_fprintf(stderr, "Ignore:"); print_cmd(*event);
-        prev = it;
-        it++;
+          batch->DeleteCmd(event);
+        } else {
+        // enif_fprintf(stderr, "Ignore:"); event ? print_cmd(*event) : fprintf(stderr, "NULL\r\n");
       }
+      i++;
     }
     // sleep until something happens
-    // fprintf(stderr, "\r\n%s:%d: %d: sleep sz %d it pos: %d\r\n", __FILE__, __LINE__, recurse_level,
-    // 	    batch->m_q.size(), std::distance(batch->m_q.begin(), it)); fflush(stderr);
+    // enif_fprintf(stderr, "\r\n%s:%d: %d: sleep sz %d (%d) it pos: %d\r\n", __FILE__, __LINE__, recurse_level,
+    //              batch->Size(), batch->m_q.size(), i); fflush(stderr);
     wxe_needs_signal = 1;
     peek = batch->Size();
     while(peek >= batch->Size()) {
       enif_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
     }
     wxe_needs_signal = 0;
-    if(!peek) {
-      it = batch->m_q.begin();
-      prev = it;
-    } else {
-      it = prev;
-    }
+    last = batch->m_q.size();
   }
 }
 
