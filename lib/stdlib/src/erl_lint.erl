@@ -3345,7 +3345,9 @@ is_module_dialyzer_option(Option) ->
                   no_match,no_opaque,no_fail_call,no_contracts,
                   no_behaviours,no_undefined_callbacks,unmatched_returns,
                   error_handling,race_conditions,no_missing_calls,
-                  specdiffs,overspecs,underspecs,unknown]).
+                  specdiffs,overspecs,underspecs,unknown,
+                  no_underspecs
+                 ]).
 
 %% try_catch_clauses(Scs, Ccs, In, ImportVarTable, State) ->
 %%      {UpdVt,State}.
