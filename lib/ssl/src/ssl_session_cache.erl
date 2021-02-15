@@ -26,11 +26,17 @@
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
 
--export([init/1, terminate/1, lookup/2, update/3, delete/2, foldl/3, 
-	 select_session/2, size/1]).
+-export([init/1,
+         terminate/1,
+         lookup/2,
+         update/3,
+         delete/2,
+         foldl/3,
+	 select_session/2,
+         size/1]).
 
 %%--------------------------------------------------------------------
-%% Description: Return table reference. Called by ssl_manager process. 
+%% Description: Return table reference. Called by ssl_manager process.
 %%--------------------------------------------------------------------
 init(Options) ->
     ets:new(cache_name(proplists:get_value(role, Options)), [ordered_set, protected]).

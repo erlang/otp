@@ -28,11 +28,11 @@
 
 %% API
 -export([init/1,
+         terminate/1,
          lookup/2,
          update/3,
          delete/2,
-         size/1,
-         take_oldest/1]).
+         size/1]).
 
 %%%===================================================================
 %%% API
@@ -76,8 +76,5 @@ delete(Cache, Key) ->
 size(Cache) ->
     gb_trees:size(Cache).
 
-%%--------------------------------------------------------------
-%% Description: Returns the oldest cache entry
-%%--------------------------------------------------------------------
-take_oldest(Cache) ->
-    gb_trees:take_smallest(Cache).
+terminate(_) ->
+    ok.
