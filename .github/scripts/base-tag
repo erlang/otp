@@ -4,7 +4,7 @@ set -x
 
 case "$1" in
     *i386-debian-base)
-        BASE=i386/debian
+        BASE="i386/debian"
         BASE_TYPE=debian-base
         ;;
     *debian-base)
@@ -12,7 +12,7 @@ case "$1" in
         BASE_TYPE=debian-base
         ;;
     *ubuntu-base)
-        BASE="debian"
+        BASE="ubuntu"
         BASE_TYPE=ubuntu-base
         ;;
 esac
