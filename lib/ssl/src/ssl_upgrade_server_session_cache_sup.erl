@@ -50,12 +50,21 @@ start_child(Type) ->
     Children = supervisor:count_children(SupName),
     Workers = proplists:get_value(workers, Children),
      case Workers of
-        0 ->
-             supervisor:start_child(SupName, [ssl_unknown_listener | ssl_config:pre_1_3_session_opts()]);
-        1 ->
-            [{_,Child,_, _}] = supervisor:which_children(SupName),
+         0 ->
+             %% In case two upgrade servers are started very close to each other
+             %% only one will be able to grab the local name and we will use
+             %% that process for handling pre TLS-1.3 sessions for
+             %% servers with to us unknown listeners. 
+             case supervisor:start_child(SupName, [ssl_unknown_listener | ssl_config:pre_1_3_session_opts()]) of
+                 {error, {already_started, Child}} ->
+                     {ok, Child};
+                 {ok, _} = Return ->
+                     Return
+             end;
+         1 ->
+             [{_,Child,_, _}] = supervisor:which_children(SupName),
              {ok, Child}
-    end.
+     end.
 
 %%%=========================================================================
 %%%  Supervisor callback
