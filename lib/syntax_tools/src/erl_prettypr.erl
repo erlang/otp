@@ -218,13 +218,10 @@ set_nested(Ctxt = #ctxt{formatter = Formatter}, Indent) ->
 set_separator(Ctxt, Char) when is_integer(Char) ->
     set_separator(Ctxt, [Char]);
 set_separator(Ctxt, String) when is_list(String) ->
-    Ctxt#ctxt{separator = prettypr:text(String)};
-set_separator(Ctxt, null) ->
-    reset_separator(Ctxt).
+    Ctxt#ctxt{separator = prettypr:text(String)}.
 
 reset_separator(Ctxt) ->
-    #ctxt{separator = Separator0} = #ctxt{},
-    Ctxt#ctxt{separator = Separator0}.
+    Ctxt#ctxt{separator = empty()}.
 
 %% @spec (context()) -> integer()
 %% @doc Returns the paper widh field of the prettyprinter context.
@@ -314,19 +311,15 @@ set_ctxt_user(Ctxt, X) ->
 file(Name, Opts) ->
     Encoding = [{encoding, Enc} || Enc <- [epp:read_encoding(Name)],
                                    Enc =/= none],
-    case parse_forms(Name, Encoding) of
-        {error, R} ->
-            exit({error, R});
-        {Comments, Forms} ->
-            {ok, FD} = file:open(Name, [write | Encoding]),
-            try
-                FlatForms = erl_syntax:flatten_form_list(erl_syntax:form_list(Forms)),
-                CommentedForms = erl_recomment:recomment_forms(FlatForms, Comments),
-                io:put_chars(FD, format(CommentedForms, Opts ++ Encoding)),
-                io:nl(FD)
-            after
-                file:close(FD)
-            end
+    {Comments, Forms} = parse_forms(Name, Encoding),
+    {ok, FD} = file:open(Name, [write | Encoding]),
+    try
+        FlatForms = erl_syntax:flatten_form_list(erl_syntax:form_list(Forms)),
+        CommentedForms = erl_recomment:recomment_forms(FlatForms, Comments),
+        io:put_chars(FD, format(CommentedForms, Opts ++ Encoding)),
+        io:nl(FD)
+    after
+        file:close(FD)
     end.
 
 parse_forms(Name, Encoding) ->
@@ -347,7 +340,8 @@ scan_forms(FD, Line, Comments, Forms) ->
                     OrigTxt = string:join(token_texts(NoLeadingWs), ""),
                     error_logger:error_msg("~p~n~p", [OrigTxt, Msg]),
                     erl_syntax:text(OrigTxt);
-                {ok, F} -> epp_dodger:rewrite_form(F)
+                {ok, F} ->
+                    epp_dodger:rewrite_form(F)
             end,
             scan_forms(FD,
                        NewLine,
@@ -363,7 +357,11 @@ scan_forms(FD, Line, Comments, Forms) ->
 
 convert_comments([], Acc) -> Acc;
 convert_comments([{comment, Data, Orig} | Rest], Acc) ->
-    Line = proplists:get_value(location, Data, 0),
+    Line =
+    case erl_anno:line(Data) of
+        undefined -> 0;
+        L -> L
+    end,
     convert_comments(
       Rest,
       scan_comment_line(
@@ -563,7 +561,7 @@ best(Node, Options) ->
 -spec layout(erl_syntax:syntaxTree()) -> prettypr:document().
 
 layout(Node) ->
-    layout(Node, #ctxt{}).
+    layout(Node, []).
 
 
 %% =====================================================================
@@ -587,10 +585,8 @@ layout(Node) ->
 
 -spec layout(erl_syntax:syntaxTree(), [term()]) -> prettypr:document().
 
-layout(Node, Ctxt) when is_record(Ctxt, ctxt) ->
-    annotated_layout(Node, Ctxt);
 layout(Node, Options) ->
-    annotated_layout(Node, to_ctxt(Options)).
+    layout_hook(Node, to_ctxt(Options)).
 
 to_ctxt(Ctxt) when is_record(Ctxt, ctxt) -> Ctxt;
 to_ctxt(Options) when is_list(Options) ->
@@ -607,15 +603,16 @@ to_ctxt([{Index, Field} | Rest], Options, Ctxt) ->
             end).
 
 %% This handles annotations and hooks:
-annotated_layout(Node, Ctxt = #ctxt{hook = Hook}) ->
+layout_hook(Node, Ctxt = #ctxt{hook = Hook}) ->
     case erl_syntax:get_ann(Node) of
         %% Hooks are not called if there are no annotations.
-        Ann when Ann == [] orelse Hook == undefined -> commented_layout(Node, Ctxt);
-        _ -> Hook(Node, Ctxt, fun commented_layout/2)
+        Ann when Ann == [] orelse Hook == undefined ->
+            lay_comments(Node, Ctxt);
+        _ -> Hook(Node, Ctxt, fun lay_comments/2)
     end.
 
 %% This handles attached comments:
-commented_layout(Node, Ctxt) ->
+lay_comments(Node, Ctxt) ->
     case erl_syntax:has_comments(Node) of
         true ->
             Pre = erl_syntax:get_precomments(Node),
@@ -630,22 +627,20 @@ commented_layout(Node, Ctxt) ->
 no_pad(Cs) -> [erl_syntax:comment(0, erl_syntax:comment_text(C)) || C <- Cs].
 
 %% This part ignores annotations and comments:
-lay_nodes([], Ctxt) -> lay_nodes(none, Ctxt);
+lay_nodes(Node, _Ctxt) when Node == none; Node == any_size; Node == [] ->
+    empty();
 lay_nodes(Nodes, Ctxt = #ctxt{formatter = Formatter, separator = Separator})
   when is_list(Nodes) ->
     Formatter(
       lists:filter(
         fun(I) -> I =/= prettypr:text("") andalso I =/= empty() end,
         seq(Nodes,
-            if is_list(Separator) -> prettypr:text(Separator);
-               true -> Separator
-            end,
+            Separator,
             Ctxt,
-            fun ({N, #ctxt{} = C}, _) -> layout(N, C);
-                ({N, P}, C) when is_integer(P) -> layout(N, set_prec(C, P));
-                (N, C) -> layout(N, C)
+            fun ({N, #ctxt{} = C}, _) -> layout_hook(N, C);
+                ({N, P}, C) when is_integer(P) -> layout_hook(N, set_prec(C, P));
+                (N, C) -> layout_hook(N, C)
             end)));
-lay_nodes(Node, _Ctxt) when Node == none orelse Node == any_size -> empty();
 lay_nodes(nil, Ctxt) ->
     lay_nodes(erl_syntax:nil(), Ctxt);
 lay_nodes(Node, Ctxt) ->
@@ -677,9 +672,9 @@ lay_type(_Node, _Ctxt, underscore) ->
 lay_type(_Node, _Ctxt, fun_type) ->
     prettypr:text("fun()");
 lay_type(Node, Ctxt, conjunction) ->
-    layout(erl_syntax:conjunction_body(Node), set_separator(Ctxt, $,));
+    layout_hook(erl_syntax:conjunction_body(Node), set_separator(Ctxt, $,));
 lay_type(Node, Ctxt, disjunction) ->
-    layout(erl_syntax:disjunction_body(Node), set_separator(Ctxt, $;));
+    layout_hook(erl_syntax:disjunction_body(Node), set_separator(Ctxt, $;));
 lay_type(Node, Ctxt, tuple) ->
     curlies(conjunction(tuple_elements(Node)), reset_prec(Ctxt));
 lay_type(Node, Ctxt, list) ->
@@ -710,7 +705,7 @@ lay_type(Node, Ctxt, binary_field) ->
     SubType = {binary_field, erl_syntax:binary_field_types(Node)},
     lay_type(Node, Ctxt, SubType);
 lay_type(Node, Ctxt, {binary_field, []}) ->
-    layout(erl_syntax:binary_field_body(Node), set_prec(Ctxt, max_prec()));
+    layout_hook(erl_syntax:binary_field_body(Node), set_prec(Ctxt, max_prec()));
 lay_type(Node, Ctxt, {binary_field, BitTypes}) ->
     BTC = set_separator(Ctxt, $-),
     lay_op(erl_syntax:operator('/'),
@@ -723,7 +718,7 @@ lay_type(Node, Ctxt, form_list) ->
     FlatForm = erl_syntax:flatten_form_list(Node),
     Forms = erl_syntax:form_list_elements(FlatForm),
     ListOfForms = split_form_list(Forms, Ctxt1),
-    layout(ListOfForms, Ctxt);
+    layout_hook(ListOfForms, Ctxt);
 lay_type(Node, Ctxt, parentheses) ->
     parentheses(erl_syntax:parentheses_body(Node), Ctxt);
 lay_type(Node, Ctxt, infix_expr) ->
@@ -827,7 +822,7 @@ lay_type(Node, Ctxt, record_index_expr) ->
 lay_type(Node, Ctxt, record_field) ->
     lay_type(Node, Ctxt, {record_field, erl_syntax:record_field_value(Node)});
 lay_type(Node, Ctxt, {record_field, none}) ->
-    layout(erl_syntax:record_field_name(Node), reset_prec(Ctxt));
+    layout_hook(erl_syntax:record_field_name(Node), reset_prec(Ctxt));
 lay_type(Node, Ctxt, {record_field, Value}) ->
     Name = erl_syntax:record_field_name(Node),
     lay_op(erl_syntax:operator('='),
@@ -884,7 +879,7 @@ lay_type(Node, Ctxt = #ctxt{clause = Name}, clause) ->
 %% Comments on the name itself will be repeated for each
 %% clause, but that seems to be the best way to handle it.
 lay_type(Node, Ctxt, function) ->
-    layout(disjunction(erl_syntax:function_clauses(Node)),
+    layout_hook(disjunction(erl_syntax:function_clauses(Node)),
            reset_prec(set_clause(Ctxt, erl_syntax:function_name(Node))));
 lay_type(Node, Ctxt, receive_expr = Type) ->
     Ctxt1 = reset_prec(set_clause(Ctxt, Type)),
@@ -904,7 +899,7 @@ lay_type(Node, Ctxt, case_expr = Type) ->
     Ctxt2 = set_nested(Ctxt1, sub_indent),
     Arg = disjunction(erl_syntax:case_expr_argument(Node)),
     Clauses = disjunction(erl_syntax:case_expr_clauses(Node)),
-    layout([[erl_syntax:text("case"), {[Arg], Ctxt2}, erl_syntax:text("of")],
+    layout_hook([[erl_syntax:text("case"), {[Arg], Ctxt2}, erl_syntax:text("of")],
             {Clauses, set_nested(set_formatter(Ctxt2, above))},
             erl_syntax:text("end")],
            reset_separator(Ctxt1));
@@ -922,7 +917,7 @@ lay_type(Node, Ctxt, try_expr = Type) ->
                       {disjunction(Handlers), Ctxt3}],
     AftersLayout = [erl_syntax:text("after"),
                     {conjunction(Afters), Ctxt3}],
-    layout([[erl_syntax:text("try"),
+    layout_hook([[erl_syntax:text("try"),
              {conjunction(Body), Ctxt3}
              | if_non_empty(Clauses, ClausesLayout)]]
            ++ if_non_empty(Handlers, HandlersLayout)
@@ -960,7 +955,7 @@ lay_type(Node, Ctxt, function_type = Type) ->
         _ ->
             Spec = erl_syntax:clause(Args, none, Return),
             SpecClause = erl_syntax:clause([{Spec, Ctxt}], none, []),
-            layout(SpecClause, reset_separator(Ctxt1))
+            layout_hook(SpecClause, reset_separator(Ctxt1))
     end;
 lay_type(Node, Ctxt, macro) ->
     %% This is formatted similar to a normal function call, but
@@ -1130,7 +1125,7 @@ lay_type(Node, Ctxt, Type = constrained_function_type) ->
         undefined ->
             wrap("fun", {erl_syntax:parentheses(ArgSpec), Ctxt1}, none, Ctxt1);
         _ ->
-            layout(ArgSpec, reset_separator(Ctxt1))
+            layout_hook(ArgSpec, reset_separator(Ctxt1))
     end;
 lay_type(Node, Ctxt, constraint) ->
     Name = erl_syntax:constraint_argument(Node),
@@ -1205,7 +1200,7 @@ lay_op(Name, Operator, Left, Right, PrecFun, Ctxt) ->
            PrecP, Ctxt).
 
 lay_op(Ops, Prec, Ctxt) ->
-    layout(maybe_parentheses(Ops, Prec, Ctxt), reset_separator(Ctxt)).
+    layout_hook(maybe_parentheses(Ops, Prec, Ctxt), reset_separator(Ctxt)).
 
 
 lay_expr(Expr, Body, Ctxt) ->
@@ -1293,7 +1288,7 @@ wrap(D, Wrapper, Ctxt) ->
 
 wrap(Begin, D, End, Ctxt) ->
     Tail = if_non_empty(End, [erl_syntax:text(End) || is_list(End)]),
-    layout([erl_syntax:text(Begin), D | Tail], reset_separator(Ctxt)).
+    layout_hook([erl_syntax:text(Begin), D | Tail], reset_separator(Ctxt)).
 
 
 maybe_parentheses(D, Prec, #ctxt{prec = P}) when P > Prec ->
@@ -1373,9 +1368,9 @@ split_string_3([X | Xs], N, L, As) when
 %% contexts.
 lay_clause(none, [], _S, none,   [], _Ctxt) -> empty();
 lay_clause(N   ,  P,  S,    G,   [], Ctxt) ->
-    layout([lay_pattern(N, P, S, guard(G), Ctxt)], Ctxt);
+    layout_hook([lay_pattern(N, P, S, guard(G), Ctxt)], Ctxt);
 lay_clause(N   ,  P,  S,    G, Body, Ctxt) ->
-    layout([lay_pattern(N, P, S, guard(G), Ctxt),
+    layout_hook([lay_pattern(N, P, S, guard(G), Ctxt),
             {conjunction(maybe_empty_lines(Body, Ctxt)),
              set_nested(set_formatter(Ctxt, above))}],
            set_separator(Ctxt, " ->")).
@@ -1416,7 +1411,7 @@ lay_error_info(T, Ctxt) ->
     lay_concrete(T, Ctxt).
 
 lay_concrete(T, Ctxt) ->
-    layout(erl_syntax:abstract(T), Ctxt).
+    layout_hook(erl_syntax:abstract(T), Ctxt).
 
 
 lay_call(Name, Arguments, Ctxt) ->
