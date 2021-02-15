@@ -89,7 +89,9 @@
          user :: term(),
          encoding = epp:default_encoding() :: epp:source_encoding(),
          formatter = fun prettypr:sep/1 :: fun((list()) -> prettypr:document()),
-         separator = empty() :: prettypr:empty() | list(non_neg_integer())}).
+         separator = empty() :: prettypr:empty() | list(non_neg_integer()),
+         empty_lines = sets:new() :: sets:set(integer())
+        }).
 
 -type context() :: #ctxt{}.
 
@@ -1374,7 +1376,8 @@ lay_clause(N   ,  P,  S,    G,   [], Ctxt) ->
     layout([lay_pattern(N, P, S, guard(G), Ctxt)], Ctxt);
 lay_clause(N   ,  P,  S,    G, Body, Ctxt) ->
     layout([lay_pattern(N, P, S, guard(G), Ctxt),
-            {conjunction(Body), set_nested(set_formatter(Ctxt, above))}],
+            {conjunction(maybe_empty_lines(Body, Ctxt)),
+             set_nested(set_formatter(Ctxt, above))}],
            set_separator(Ctxt, " ->")).
 
 lay_pattern(none, [], none, Guard, Ctxt) ->
@@ -1489,19 +1492,17 @@ tidy_float_2([$e | Cs]) -> tidy_float_2([$e, $+ | Cs]);
 tidy_float_2([_C | Cs]) -> tidy_float_2(Cs);
 tidy_float_2([]) -> [].
 
-lay_clause_expressions([H], Ctxt) ->
-	lay(H, Ctxt);
-lay_clause_expressions([H | T], Ctxt) ->
-    Clause = beside(lay(H, Ctxt), floating(text(","))),
-    Next = lay_clause_expressions(T, Ctxt),
+maybe_empty_lines([], _Ctxt) -> [];
+maybe_empty_lines([H], _Ctxt) -> [H];
+maybe_empty_lines([H | T], Ctxt) ->
     case is_last_and_before_empty_line(H, T, Ctxt) of
-	true ->
-	    above(above(Clause, text("")), Next);
+        true ->
+            [{[H, none], Ctxt}
+             | maybe_empty_lines(T, Ctxt)];
         false ->
-            above(Clause, Next)
+            [H | maybe_empty_lines(T, Ctxt)]
     end;
-lay_clause_expressions([], _) ->
-    empty().
+maybe_empty_lines(Node, _Ctxt) -> Node.
 
 is_last_and_before_empty_line(H, [], #ctxt{empty_lines = EmptyLines}) ->
     try sets:is_element(get_line(H) + 1, EmptyLines)

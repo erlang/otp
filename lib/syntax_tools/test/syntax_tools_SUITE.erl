@@ -352,7 +352,6 @@ test_files() ->
      "syntax_tools_test.erl",
      "type_specs.erl",
      "specs_and_funs.erl",
-     "empty.erl",
      "pretty.erl",
      "catchthrow.erl"].
 
