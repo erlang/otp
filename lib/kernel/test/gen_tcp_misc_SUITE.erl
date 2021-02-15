@@ -1817,45 +1817,125 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
             fun() -> do_econnreset_after_async_send_passive(Config) end).
 
 do_econnreset_after_async_send_passive(Config) ->
-    {OS, _} = os:type(),
-    Payload = lists:duplicate(1024 * 1024, $.),
+    CPayload = craasp_mk_payload(),
+    SPayload = "Whatever",
 
     %% First confirm everything works with option turned off.
+    ?P("pre 1 (default)"),
+    {Client1, Server1} = craasp_pre(Config, default),
+
+    ?P("populate 1 (default)"),
+    {ok, Sender1} = craasp_populate(default,
+                                    Client1, Server1, CPayload, SPayload),
+
+    ?P("close server socket (1)"),
+    ok = gen_tcp:close(Server1),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 1 (default)"),
+    ?line ok = craasp_verify(Client1, default, SPayload),
+
+    ?P("cleanup 1 (default)"),
+    craasp_cleanup(Client1, Sender1),
+
+    %% Now test with option switched on.
+    ?P("pre 2 (true)"),
+    {Client2, Server2} = craasp_pre(Config, true),
+
+    ?P("populate 2 (default)"),
+    {ok, Sender2} = craasp_populate(true,
+                                    Client2, Server2, CPayload, SPayload),
+
+
+    ?P("close server socket 2"),
+    ok = gen_tcp:close(Server2),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 1 (default)"),
+    ?line ok = craasp_verify(Client2, true, SPayload),
+
+    ?P("cleanup 2 (default)"),
+    craasp_cleanup(Client2, Sender2),
+
+    ?P("done"),
+    ok.
+
+
+craasp_pre(Config, EConnReset)
+  when is_boolean(EConnReset) orelse (EConnReset =:= default) ->
     ?P("create listen socket *** with option switched off (default)"),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
+    {ok, L}    = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    ?P("create connect socket"),
-    Client = case ?CONNECT(Config, localhost, Port,
-                                  [{active, false}, {sndbuf, 4096}]) of
+    ?P("[client] create connect socket with show_econnreset: ~p", [EConnReset]),
+    COpts = [{active, false}, {sndbuf, 4096}] ++
+        if (EConnReset =:= default) -> [];
+           is_boolean(EConnReset)   -> [{show_econnreset, EConnReset}]
+        end,
+    Client = case ?CONNECT(Config, localhost, Port, COpts) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
                 ?SKIPT(connect_failed_str(Reason))
         end,
     ?P("accept connection"),
-    {ok, S} = gen_tcp:accept(L),
+    {ok, Server} = gen_tcp:accept(L),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    {Client, Server}.
+
+craasp_mk_payload() ->
+    list_to_binary(lists:duplicate(1024 * 1024, $.)).
+
+craasp_populate(_EConnReset, Client, Server, CPayload, SPayload)
+  when is_port(Client) andalso is_port(Server) ->
     ?P("[server] set linger: true:0"),
-    ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ok = inet:setopts(Server, [{linger, {true, 0}}]),
     ?P("[server] send some data to client"),
-    ok = gen_tcp:send(S, "Whatever"),
+    ok = gen_tcp:send(Server, SPayload),
     ?P("[client] send some data to server"),
-    ok = gen_tcp:send(Client, Payload),
+    ok = gen_tcp:send(Client, CPayload),
+    {OS, _} = os:type(),
     ?P("[client] verify (port) queue-size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] attempt receive and expect error (closed): "
+    {ok, undefined};
+craasp_populate(EConnReset, Client, Server, CPayload, SPayload) ->
+    ExpectedSendRes = if (EConnReset =:= default) -> closed;
+                         (EConnReset =:= true)    -> econnreset
+                      end,
+    Sender = spawn_link(fun() ->
+                                craasp_populate_sender(Client,
+                                                       ExpectedSendRes,
+                                                       CPayload)
+                        end),
+    receive
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            ?P("[server] send something"),
+            ok = gen_tcp:send(Server, SPayload),
+            {ok, Sender}
+    end.
+    
+craasp_populate_sender(Client, ExpectedSendRes, Payload) ->
+    ?P("[socket] send payload (expect failure)"), 
+    {error, ExpectedSendRes} = gen_tcp:send(Client, Payload),
+    ?P("[socket] payload send failure (as expected)"), 
+    exit(normal).
+
+craasp_verify(Client, EConnReset, _Payload)
+  when is_port(Client) andalso
+       ((EConnReset =:= default) orelse is_boolean(EConnReset)) ->
+    ?P("[client,~w] attempt receive and expect error (closed): "
        "~n   Port Info:     ~p"
        "~n   Socket Status: ~s",
-       [try erlang:port_info(Client)
+       [EConnReset,
+        try erlang:port_info(Client)
         catch
             _:_:_ ->
                 "-"
@@ -1867,54 +1947,51 @@ do_econnreset_after_async_send_passive(Config) ->
             _:_:_ ->
                 "-"
         end]),
-    {error, closed} = gen_tcp:recv(Client, 0),
+    case gen_tcp:recv(Client, 0) of
+        {error, closed}     when (EConnReset =:= default) ->
+            ok;
+        {error, econnreset} when (EConnReset =:= true)    ->
+            ok;
+        {error, Reason} ->
+            {error, {unexpected_error, Reason}};
+        ok ->
+            {error, unexpected_success}
+    end;
+craasp_verify(Client, _EConnReset, Payload) ->
+    ?P("[client] attempt receive and expect success"),
+    case gen_tcp:recv(Client, 0) of
+        {ok, Payload} ->
+            ?P("[client] attempt receive and expect failure (closed)"),
+            case gen_tcp:recv(Client, 0) of
+                {error, closed} ->
+                    ok;
+                {error, Reason2} ->
+                    {error, {unexpected_error2, Reason2}};
+                {ok, _} ->
+                    {error, unexpected_recv2}
+            end;                    
+        {ok, _} ->
+            {error, unexpected_recv1};
+        {error, Reason2} ->
+            {error, {unexpected_error1, Reason2}}
+    end.
 
-    %% Now test with option switched on.
-    ?P("create listen socket *** with option explicitly switched on"),
-    {ok, L1} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
-    {ok, Port1} = inet:port(L1),
-    ?P("create connect socket"),
-    Client1 = case ?CONNECT(Config, localhost, Port1,
-				   [{active, false},
-				    {sndbuf, 4096},
-				    {show_econnreset, true}]) of
-                  {ok, CSock1} ->
-                      CSock1;
-            {error, eaddrnotavail = Reason1} ->
-                ?SKIPT(connect_failed_str(Reason1))
-        end,
-    ?P("accept connection"),
-    {ok, S1} = gen_tcp:accept(L1),
-    ?P("close listen socket"),
-    ok = gen_tcp:close(L1),
-    ?P("[server] set linger: true:0"),
-    ok = inet:setopts(S1, [{linger, {true, 0}}]),
-    ?P("[server] send some data to client"),
-    ok = gen_tcp:send(S1, "Whatever"),
-    ?P("[client] send some data to server"),
-    ok = gen_tcp:send(Client1, Payload),
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S1),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] attempt receive and expect error (econnreset): "
-       "~n   Port Info:     ~p"
-       "~n   Socket Status: ~s",
-       [try erlang:port_info(Client)
-        catch
-            _:_:_ ->
-                "-"
-        end,
-        try prim_inet:getstatus(Client) of
-            {ok, CStatus1} -> ?F("~p", [CStatus1]);
-            _              -> "-"
-        catch
-            _:_:_ ->
-                "-"
-        end]),
-    {error, econnreset} = gen_tcp:recv(Client1, 0),
-    ?P("done"),
+craasp_cleanup(Client, Sender) ->
+    (catch gen_tcp:close(Client)),
+    craasp_cleanup(Sender).
+
+craasp_cleanup(Sender) when is_pid(Sender) ->
+    exit(Sender, kill),
+    receive
+        {'EXIT', Sender, _} ->
+            ok
+    after 0 ->
+            ok
+    end;
+craasp_cleanup(_) ->
     ok.
+
+
 
 %%
 %% Test {linger {true, 0}} aborts a connection

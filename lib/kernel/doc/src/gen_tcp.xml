@@ -88,6 +88,14 @@ do_recv(Sock, Bs) ->
 	will be received as expected (<c>{tcp, ...}</c> and then a closed
 	message (<c>{tcp_closed, ...}</c> will be receive (not an error). </p>
 	</item>
+        <item><p>The option
+	<seeerl marker="inet#option-show_econnreset">show_econnreset</seeerl>
+	basically do <em>not</em>
+	work as described when used with <c>inet_backend = socket</c>.
+	Basically the "issue" is that a remote close (as described above)
+	<em>do</em> allow a reader to extract what is in the read buffers
+	before a close is "delivered".
+	</p></item>
 	<item><p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p></item>
       </list>
     </note>
