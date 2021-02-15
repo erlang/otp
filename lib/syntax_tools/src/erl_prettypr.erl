@@ -357,11 +357,7 @@ scan_forms(FD, Line, Comments, Forms) ->
 
 convert_comments([], Acc) -> Acc;
 convert_comments([{comment, Data, Orig} | Rest], Acc) ->
-    Line =
-    case erl_anno:line(Data) of
-        undefined -> 0;
-        L -> L
-    end,
+    Line = lists:max([0 | [L || is_integer(L = erl_anno:line(Data))]]),
     convert_comments(
       Rest,
       scan_comment_line(
@@ -602,6 +598,18 @@ to_ctxt([{Index, Field} | Rest], Options, Ctxt) ->
                 Value -> erlang:setelement(Index, Ctxt, Value)
             end).
 
+-spec layout_hook(Node, Ctxt) -> Layout when
+      Node :: Tree | list(Tree)
+            | {Tree, Ctxt} | list({Tree, Ctxt})
+            | {Tree, Prec} | list({Tree, Prec}),
+      Tree :: erl_syntax:syntaxTree(),
+      Ctxt :: context(),
+      Prec :: integer(),
+      Layout :: prettypr:document().
+layout_hook({Node, #ctxt{} = Ctxt}, _) ->
+    layout_hook(Node, Ctxt);
+layout_hook({Node, Prec}, Ctxt) when is_integer(Prec) ->
+    layout_hook(Node, set_prec(Ctxt, Prec));
 %% This handles annotations and hooks:
 layout_hook(Node, Ctxt = #ctxt{hook = Hook}) ->
     case erl_syntax:get_ann(Node) of
@@ -634,13 +642,7 @@ lay_nodes(Nodes, Ctxt = #ctxt{formatter = Formatter, separator = Separator})
     Formatter(
       lists:filter(
         fun(I) -> I =/= prettypr:text("") andalso I =/= empty() end,
-        seq(Nodes,
-            Separator,
-            Ctxt,
-            fun ({N, #ctxt{} = C}, _) -> layout_hook(N, C);
-                ({N, P}, C) when is_integer(P) -> layout_hook(N, set_prec(C, P));
-                (N, C) -> layout_hook(N, C)
-            end)));
+        seq(Nodes, Separator, Ctxt, fun layout_hook/2)));
 lay_nodes(nil, Ctxt) ->
     lay_nodes(erl_syntax:nil(), Ctxt);
 lay_nodes(Node, Ctxt) ->
@@ -880,7 +882,7 @@ lay_type(Node, Ctxt = #ctxt{clause = Name}, clause) ->
 %% clause, but that seems to be the best way to handle it.
 lay_type(Node, Ctxt, function) ->
     layout_hook(disjunction(erl_syntax:function_clauses(Node)),
-           reset_prec(set_clause(Ctxt, erl_syntax:function_name(Node))));
+                reset_prec(set_clause(Ctxt, erl_syntax:function_name(Node))));
 lay_type(Node, Ctxt, receive_expr = Type) ->
     Ctxt1 = reset_prec(set_clause(Ctxt, Type)),
     Ctxt2 = set_nested(Ctxt1),
@@ -900,9 +902,9 @@ lay_type(Node, Ctxt, case_expr = Type) ->
     Arg = disjunction(erl_syntax:case_expr_argument(Node)),
     Clauses = disjunction(erl_syntax:case_expr_clauses(Node)),
     layout_hook([[erl_syntax:text("case"), {[Arg], Ctxt2}, erl_syntax:text("of")],
-            {Clauses, set_nested(set_formatter(Ctxt2, above))},
-            erl_syntax:text("end")],
-           reset_separator(Ctxt1));
+                 {Clauses, set_nested(set_formatter(Ctxt2, above))},
+                 erl_syntax:text("end")],
+                reset_separator(Ctxt1));
 lay_type(Node, Ctxt, try_expr = Type) ->
     Body = erl_syntax:try_expr_body(Node),
     Clauses = erl_syntax:try_expr_clauses(Node),
@@ -918,12 +920,12 @@ lay_type(Node, Ctxt, try_expr = Type) ->
     AftersLayout = [erl_syntax:text("after"),
                     {conjunction(Afters), Ctxt3}],
     layout_hook([[erl_syntax:text("try"),
-             {conjunction(Body), Ctxt3}
-             | if_non_empty(Clauses, ClausesLayout)]]
-           ++ if_non_empty(Handlers, HandlersLayout)
-           ++ if_non_empty(Afters, AftersLayout)
-           ++ [erl_syntax:text("end")],
-           reset_separator(Ctxt));
+                  {conjunction(Body), Ctxt3}
+                  | if_non_empty(Clauses, ClausesLayout)]]
+                ++ if_non_empty(Handlers, HandlersLayout)
+                ++ if_non_empty(Afters, AftersLayout)
+                ++ [erl_syntax:text("end")],
+                reset_separator(Ctxt));
 lay_type(Node, Ctxt, block_expr) ->
     Body = conjunction(erl_syntax:block_expr_body(Node)),
     lay_expr("begin", Body, Ctxt);
@@ -1371,9 +1373,9 @@ lay_clause(N   ,  P,  S,    G,   [], Ctxt) ->
     layout_hook([lay_pattern(N, P, S, guard(G), Ctxt)], Ctxt);
 lay_clause(N   ,  P,  S,    G, Body, Ctxt) ->
     layout_hook([lay_pattern(N, P, S, guard(G), Ctxt),
-            {conjunction(maybe_empty_lines(Body, Ctxt)),
-             set_nested(set_formatter(Ctxt, above))}],
-           set_separator(Ctxt, " ->")).
+                 {conjunction(maybe_empty_lines(Body, Ctxt)),
+                  set_nested(set_formatter(Ctxt, above))}],
+                set_separator(Ctxt, " ->")).
 
 lay_pattern(none, [], none, Guard, Ctxt) ->
     {Guard, reset_separator(Ctxt)};
