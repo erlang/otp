@@ -76,6 +76,7 @@ MODULES = \
 	ssl_pem_cache_SUITE \
 	ssl_session_SUITE \
 	ssl_session_cache_SUITE	\
+	ssl_session_cache_api_SUITE\	\
 	ssl_session_ticket_SUITE \
 	openssl_session_ticket_SUITE \
 	openssl_session_SUITE \
