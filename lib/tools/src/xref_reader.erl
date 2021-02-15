@@ -53,7 +53,8 @@
 %% R8:  abstract_v2
 %% R9C: raw_abstract_v1
 
-%% -> {ok, Module, {DefAt, CallAt, LC, XC, X, Attrs}, Unresolved}} | EXIT
+%% -> {ok, Module, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL},
+%%         Unresolved}} | EXIT
 %% Attrs = {ALC, AXC, Bad}
 %% ALC, AXC and Bad are extracted from the attribute 'xref'. An experiment.
 module(Module, Forms, CollectBuiltins, X, DF) ->
@@ -95,16 +96,19 @@ form({function, _, module_info, 0, _Clauses}, S) ->
     S;
 form({function, _, module_info, 1, _Clauses}, S) ->
     S;
-form({function, 0 = _Anno, behaviour_info, 1, _Clauses}, S) ->
-    S;
 form({function, Anno, Name, Arity, Clauses}, S) ->
-    MFA0 = {S#xrefr.module, Name, Arity},
-    MFA = adjust_arity(S, MFA0),
-    S1 = S#xrefr{function = MFA},
-    Line = erl_anno:line(Anno),
-    S2 = S1#xrefr{def_at = [{MFA,Line} | S#xrefr.def_at]},
-    S3 = clauses(Clauses, S2),
-    S3#xrefr{function = []};
+    case {Name, Arity, erl_anno:location(Anno)} of
+        {behaviour_info, 1, 0} ->
+            S; % generated
+        _ ->
+            MFA0 = {S#xrefr.module, Name, Arity},
+            MFA = adjust_arity(S, MFA0),
+            S1 = S#xrefr{function = MFA},
+            Line = erl_anno:line(Anno),
+            S2 = S1#xrefr{def_at = [{MFA,Line} | S#xrefr.def_at]},
+            S3 = clauses(Clauses, S2),
+            S3#xrefr{function = []}
+    end;
 form(_, S) ->
     %% OTP 20. Other uninteresting forms such as {eof, _} and {warning, _}.
     %% Exposed because sys_pre_expand is no longer run.

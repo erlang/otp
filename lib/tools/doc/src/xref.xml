@@ -889,7 +889,9 @@ Evaluates a predefined analysis.
            locally used.</item>
           <tag><c>exports_not_used</c></tag>
           <item>Returns a list of exported functions that have not been
-           externally used.</item>
+           externally used. Note that in <c>modules</c> mode,
+	    <c>M:behaviour_info/1</c> is never reported as unused.
+	  </item>
           <tag><c>deprecated_function_calls</c>(*)</tag>
           <item>Returns a list of external calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>.</item>
           <tag><c>{deprecated_function_calls, <anno>DeprFlag</anno>}</c>(*)</tag>

@@ -49,7 +49,7 @@
          fun_mfa_vars/1, qlc/1]).
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1,
-         behaviour_info_t/1, fake_behaviour_info_t/1]).
+         behaviour/1]).
 
 -export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1,
          otp_14464/1, otp_14344/1]).
@@ -84,7 +84,7 @@ groups() ->
        fun_mfa_vars, qlc]},
      {analyses, [],
 
-      [analyze, basic, md, q, variables, unused_locals, behaviour_info_t, fake_behaviour_info_t]},
+      [analyze, basic, md, q, variables, unused_locals, behaviour]},
      {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708,
                  otp_14464, otp_14344]}].
 
@@ -2453,6 +2453,84 @@ otp_14344(Conf) when is_list(Conf) ->
     ok = file:delete(File1),
     ok = file:delete(Beam1).
 
+%% PR-2752, ERL-1353, ERL-1476, GH-4192.
+behaviour(Config) ->
+    ModMode = [{xref_mode, modules}],
+    FunMode = [],
+
+    Test1 = [{a, <<"-module(a).
+                    -callback a() -> ok.
+                    ">>}],
+    {Undef1, UnusedExports1} = behaviour_test(Test1, Config, FunMode),
+    [] = Undef1,
+    [] = UnusedExports1,
+    {Undef1m, UnusedExports1m} = behaviour_test(Test1, Config, ModMode),
+    [] = Undef1m,
+    [] = UnusedExports1m,
+
+    Test2 = [{a, <<"-module(a).
+                    -export([behaviour_info/1]).
+                    behaviour_info(_) ->
+                        ok.
+                   ">>}],
+    {Undef2, UnusedExports2} = behaviour_test(Test2, Config, FunMode),
+    [] = Undef2,
+    [{a,behaviour_info,1}] = UnusedExports2,
+    {Undef2m, UnusedExports2m} = behaviour_test(Test2, Config, ModMode),
+    [] = Undef2m,
+    %% Without abstract code it is not possible to determine if
+    %% M:behaviour_info/1 is generated or not. The best we can do is
+    %% to assume it is generated since it would otherwise always be
+    %% returned as unused.
+    [] = UnusedExports2m,
+
+    Test3 = [{a, <<"-module(a).
+                    -export([behaviour_info/1]).
+                    behaviour_info(_) ->
+                        ok.
+               ">>},
+             {b, <<"-module(b).
+                    -export([bar/0]).
+                    bar() -> a:behaviour_info(callbacks).
+                   ">>}],
+    {Undef3, UnusedExports3} = behaviour_test(Test3, Config, FunMode),
+    [] = Undef3,
+    [{b,bar,0}] = UnusedExports3,
+    {Undef3m, UnusedExports3m} = behaviour_test(Test3, Config, ModMode),
+    [] = Undef3m,
+    [{b,bar,0}] = UnusedExports3m,
+    ok.
+
+behaviour_test(Tests, Conf, Opts) ->
+    {ok, _} = xref:start(s, Opts),
+    add_modules(Tests, Conf),
+    case lists:keyfind(xref_mode, 1, Opts) of
+        {xref_mode, modules} ->
+            UndefinedFunctionCalls = [];
+        _ ->
+            {ok, UndefinedFunctionCalls} =
+                xref:analyze(s, undefined_function_calls)
+    end,
+    {ok, ExportsNotUsed} = xref:analyze(s, exports_not_used),
+    xref:stop(s),
+    {UndefinedFunctionCalls, ExportsNotUsed}.
+
+add_modules([], _Conf) ->
+    ok;
+add_modules([{Mod, Test} |Tests], Conf) ->
+    Dir = ?copydir,
+    Name = atom_to_list(Mod),
+    File = fname(Dir, Name ++ ".erl"),
+    MFile = fname(Dir, Name),
+    Beam = fname(Dir, Name ++ ".beam"),
+    ok = file:write_file(File, Test),
+    {ok, Mod} = compile:file(File, [debug_info,{outdir,Dir}]),
+    {ok, Mod} = xref:add_module(s, MFile),
+    check_state(s),
+    ok = file:delete(File),
+    ok = file:delete(Beam),
+    add_modules(Tests, Conf).
+
 %%%
 %%% Utilities
 %%%
@@ -2808,24 +2886,3 @@ add_erts_code_path(KernelPath) ->
                     [KernelPath]
             end
     end.
-
-behaviour_info_t(Config) ->
-    bi_t(_Module = bi,
-         _IsExportNotUsed = false,
-         Config).
-
-fake_behaviour_info_t(Config) ->
-    bi_t(_Module = no_bi,
-         _IsExportNotUsed = true,
-         Config).
-
-bi_t(Module, IsExportNotUsed, Conf) ->
-    LibTestDir = fname(?copydir, "lib_test"),
-    XRefServer = s,
-    {ok, Module} = compile:file(fname(LibTestDir, Module),
-                                [debug_info, {outdir, LibTestDir}]),
-    {ok, _} = start(XRefServer),
-    {ok, Module} = xref:add_module(XRefServer, fname(LibTestDir, Module)),
-    {ok, MFAs} = xref:analyze(XRefServer, exports_not_used),
-    true = lists:member({Module, behaviour_info, 1}, MFAs) =:= IsExportNotUsed,
-    _ = xref:stop(XRefServer).
