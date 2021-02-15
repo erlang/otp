@@ -27,6 +27,24 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid race when the first two upgrade server handshakes
+	    (that is servers that use a gen_tcp socket as input to
+	    ssl:handshake/2,3) start close to each other. Could lead
+	    to that one of the handshakes would fail.</p>
+          <p>
+	    Own Id: OTP-17190 Aux Id: ERIERL-606 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
