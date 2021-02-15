@@ -127,74 +127,68 @@ format_error(OptInfo) ->
       Options :: [compile:option()],
       Result :: {ok, beam_ssa:b_module(), list()}.
 
-module(#b_module{}=Mod, Opts) ->
+module(#b_module{}=Mod0, Opts) ->
+    case scan(Mod0) of
+        #scan{}=Scan ->
+            %% Figure out where to place marker creation, usage, and clearing
+            %% by walking through the module-wide graph.
+            {Markers, Uses, Clears} = plan(Scan),
+
+            Mod = optimize(Mod0, Markers, Uses, Clears),
+
+            Ws = case proplists:get_bool(recv_opt_info, Opts) of
+                     true -> collect_opt_info(Mod);
+                     false -> []
+                 end,
+
+            {ok, Mod, Ws};
+        none ->
+            %% No peek_message instructions; just skip it all.
+            {ok, Mod0, []}
+    end.
+
+scan(#b_module{body=Fs}) ->
     %% Quickly collect all peek_message instructions in this module,
     %% allowing us to avoid the expensive building of the module-wide
     %% graph of all blocks if there are no receives in this module.
-    case scan_peek_message(Mod) of
-        [] ->
-            %% No receives in this module. Nothing more to do.
-            {ok, Mod, []};
-        [_ | _]=Rs0 ->
+    case scan_peek_message(Fs) of
+        [_|_]=Rs0 ->
             Rs = maps:from_list(Rs0),
-            module_1(Mod, Rs, Opts)
+            ModMap = foldl(fun(#b_function{bs=Blocks,args=Args}=F, Acc) ->
+                                   FuncId = get_func_id(F),
+                                   Acc#{ FuncId => {Blocks, Args} }
+                           end, #{}, Fs),
+            foldl(fun(F, Scan0) ->
+                          FuncId = get_func_id(F),
+
+                          Scan = scan_add_vertex({FuncId, ?ENTRY_BLOCK}, Scan0),
+                          scan_function(FuncId, F, Scan)
+                  end,
+                  #scan{ module = ModMap, recv_candidates = Rs }, Fs);
+        [] ->
+            none
     end.
 
-module_1(Mod0, Rs, Opts) ->
-    %% There are some receives in this module. Build a module-wide
-    %% graph of all blocks (including calls between functions) and
-    %% collect all suitable reference creations for later analysis.
-    Scan0 = scan(Mod0),
-    Scan = Scan0#scan{recv_candidates=Rs},
-
-    %% Figure out where to place marker creation, usage, and clearing by
-    %% walking through the module-wide graph.
-    {Markers, Uses, Clears} = plan(Scan),
-
-    Mod = optimize(Mod0, Markers, Uses, Clears),
-
-    Ws = case proplists:get_bool(recv_opt_info, Opts) of
-             true -> collect_opt_info(Mod);
-             false -> []
-         end,
-
-    {ok, Mod, Ws}.
-
-scan_peek_message(#b_module{body=Fs}) ->
-    scan_peek_message_fs(Fs).
-
-scan_peek_message_fs([#b_function{bs=Bs}=F | Fs]) ->
+scan_peek_message([#b_function{bs=Bs}=F | Fs]) ->
     case scan_peek_message_bs(maps:to_list(Bs)) of
         [] ->
-            scan_peek_message_fs(Fs);
+            scan_peek_message(Fs);
         [_ | _] = Rs ->
             FuncId = get_func_id(F),
-            [{FuncId, Rs} | scan_peek_message_fs(Fs)]
+            [{FuncId, Rs} | scan_peek_message(Fs)]
     end;
-scan_peek_message_fs([]) ->
+scan_peek_message([]) ->
     [].
 
 scan_peek_message_bs([{Lbl, Blk} | Bs]) ->
     case Blk of
-        #b_blk{is=[#b_set{op=peek_message,dst=Dst} | _]} ->
-            [{Lbl, Dst} | scan_peek_message_bs(Bs)];
+        #b_blk{is=[#b_set{op=peek_message}=I | _]} ->
+            [{Lbl, I} | scan_peek_message_bs(Bs)];
         #b_blk{} ->
             scan_peek_message_bs(Bs)
     end;
 scan_peek_message_bs([]) ->
     [].
-
-scan(#b_module{body=Fs0}) ->
-    ModMap = foldl(fun(#b_function{bs=Blocks,args=Args}=F, Acc) ->
-                           FuncId = get_func_id(F),
-                           Acc#{ FuncId => {Blocks, Args} }
-                   end, #{}, Fs0),
-    foldl(fun(F, State0) ->
-                  FuncId = get_func_id(F),
-
-                  State = scan_add_vertex({FuncId, ?ENTRY_BLOCK}, State0),
-                  scan_function(FuncId, F, State)
-          end, #scan{ module = ModMap }, Fs0).
 
 get_func_id(#b_function{anno=Anno}) ->
     {_,Name,Arity} = maps:get(func_info, Anno),
@@ -301,42 +295,63 @@ scan_add_vertex(Vertex, #scan{graph=Graph0}=State) ->
             State#scan{graph=Graph}
     end.
 
-si_remote_call(Call, CreatedAt, ValidAfter, Blocks, FuncId, State) ->
-    #b_set{anno=Anno,op=call,dst=Dst,args=[#b_remote{}=Callee | _]}=Call,
-    case si_makes_ref(Dst, ValidAfter, Callee, Blocks) of
-        {ExtractedAt, Ref} ->
+si_remote_call(#b_set{anno=Anno,dst=Dst,args=Args}=Call,
+               CalledAt, ValidAfter, Blocks, FuncId, State) ->
+    case si_remote_call_1(Dst, Args, ValidAfter, Blocks) of
+        {makes_ref, ExtractedAt, Ref} ->
             #scan{ref_candidates=Candidates0} = State,
 
             MakeRefs0 = maps:get(FuncId, Candidates0, []),
-            MakeRef = {Anno, CreatedAt, Dst, ExtractedAt, Ref},
+            MakeRef = {Anno, CalledAt, Dst, ExtractedAt, Ref},
 
             Candidates = Candidates0#{ FuncId => [MakeRef | MakeRefs0] },
 
             State#scan{ref_candidates=Candidates};
+        uses_ref ->
+            #scan{recv_candidates=Candidates0} = State,
+
+            UseRefs0 = maps:get(FuncId, Candidates0, []),
+            UseRef = {CalledAt, Call},
+
+            Candidates = Candidates0#{ FuncId => [UseRef | UseRefs0] },
+
+            State#scan{recv_candidates=Candidates};
         no ->
             State
     end.
 
-si_makes_ref(Dst, Lbl, Callee, Blocks) ->
+si_remote_call_1(Dst, [Callee | Args], Lbl, Blocks) ->
     MFA = case Callee of
               #b_remote{mod=#b_literal{val=Mod},
-                        name=#b_literal{val=Func},arity=Arity} ->
+                        name=#b_literal{val=Func},
+                        arity=Arity} ->
                   {Mod, Func, Arity};
               _ ->
                   none
           end,
     case MFA of
-        {erlang,make_ref,0} ->
-            {Lbl, Dst};
         {erlang,alias,A} when 0 =< A, A =< 1 ->
-            {Lbl, Dst};
+            {makes_ref, Lbl, Dst};
+        {erlang,demonitor,2} ->
+            case Args of
+                [_MRef, #b_literal{val=[flush]}] ->
+                    %% If the monitor fired prior to this call, 'flush' will
+                    %% yank out the 'DOWN' message from the queue. Since we
+                    %% want the receive optimization to trigger for that as
+                    %% well, we'll treat it as a receive candidate.
+                    uses_ref;
+                [_MRef, _Options] ->
+                    no
+            end;
+        {erlang,make_ref,0} ->
+            {makes_ref, Lbl, Dst};
         {erlang,monitor,A} when 2 =< A, A =< 3 ->
-            {Lbl, Dst};
-        {erlang,spawn_request,A} when 1 =< A, A =< 5 ->
-            {Lbl, Dst};
+            {makes_ref, Lbl, Dst};
         {erlang,spawn_monitor,A} when 1 =< A, A =< 4 ->
             RPO = beam_ssa:rpo([Lbl], Blocks),
             si_ref_in_tuple(RPO, Blocks, Dst);
+        {erlang,spawn_request,A} when 1 =< A, A =< 5 ->
+            {makes_ref, Lbl, Dst};
         _ ->
             %% As an aside, spawn_opt/2-5 is trivially supported by handling it
             %% like spawn_monitor/1-4, but this is not forward-compatible as
@@ -348,7 +363,7 @@ si_makes_ref(Dst, Lbl, Callee, Blocks) ->
 si_ref_in_tuple([Lbl | Lbls], Blocks, Tuple) ->
     #b_blk{is=Is} = map_get(Lbl, Blocks),
     case si_ref_in_tuple_is(Is, Tuple) of
-        {yes, Ref} -> {Lbl, Ref};
+        {yes, Ref} -> {makes_ref, Lbl, Ref};
         no -> si_ref_in_tuple(Lbls, Blocks, Tuple)
     end;
 si_ref_in_tuple([], _Blocks, _Tuple) ->
@@ -456,14 +471,14 @@ plan_uses(Candidates, RefMap, ModMap) ->
                       end
               end, #{}, Candidates).
 
-plan_uses_1([{Lbl, Msg} | Receives], FuncId, Blocks, RefMap) ->
+plan_uses_1([{Lbl, I} | Receives], FuncId, Blocks, RefMap) ->
     case RefMap of
         #{ {FuncId, Lbl} := Refs } ->
             case search(fun(Ref) ->
-                                pu_is_ref_used(Lbl, Msg, Ref, Blocks)
+                                pu_is_ref_used(I, Ref, Lbl, Blocks)
                         end, sets:to_list(Refs)) of
                 {value, Ref} ->
-                    Use = {Lbl, Msg, Ref},
+                    Use = {Lbl, I, Ref},
                     [Use | plan_uses_1(Receives, FuncId, Blocks, RefMap)];
                 false ->
                     plan_uses_1(Receives, FuncId, Blocks, RefMap)
@@ -476,8 +491,24 @@ plan_uses_1([], _FuncId, _Blocks, _RefMap) ->
 
 %% Checks whether `Ref` matches a part of the `Msg` in all clauses of the given
 %% receive.
-pu_is_ref_used(L, Msg, Ref, Blocks) ->
-    #b_blk{is=[#b_set{op=peek_message,dst=Msg}|_]} = Blk = map_get(L, Blocks),
+pu_is_ref_used(#b_set{op=call,args=[Callee | Args]}, Ref, _Lbl, _Blocks) ->
+    MFA = case Callee of
+              #b_remote{mod=#b_literal{val=Mod},
+                        name=#b_literal{val=Func},
+                        arity=Arity} ->
+                  {Mod, Func, Arity};
+              _ ->
+                  none
+          end,
+    case MFA of
+        {erlang,demonitor,2} ->
+            [MRef | _] = Args,
+            MRef =:= Ref;
+        _ ->
+            false
+    end;
+pu_is_ref_used(#b_set{op=peek_message,dst=Msg}=I, Ref, Lbl, Blocks) ->
+    #b_blk{is=[I | _]} = Blk = map_get(Lbl, Blocks), %Assertion.
     Vs = #{Msg=>message,Ref=>ref,ref=>Ref,ref_matched=>false},
     case pu_is_ref_used_last(Blk, Vs, Blocks) of
         used -> true;
@@ -592,7 +623,7 @@ intersect_uses(UsageMap, G, RefMap) ->
                               [begin
                                    Vertex = {FuncId, Lbl},
                                    {Vertex, Ref}
-                               end || {Lbl, _Msg, Ref} <- Uses] ++ Acc
+                               end || {Lbl, _I, Ref} <- Uses] ++ Acc
                       end, [], UsageMap),
     intersect_uses_1(Roots, G, RefMap, #{}).
 
@@ -751,10 +782,15 @@ insert_bind_is([#b_set{op=Op}=I | Is], Bind) ->
 insert_bind_is([], Bind) ->
     [Bind].
 
-insert_uses([{Lbl, Dst, Ref} | Uses], Blocks0, Count) ->
+insert_uses([{_Lbl, #b_set{op=call}, _Ref} | Uses], Blocks, Count) ->
+    %% The callee uses the marker internally. There's no need to emit a use
+    %% here.
+    insert_uses(Uses, Blocks, Count);
+insert_uses([{Lbl, #b_set{op=peek_message}=Peek0, Ref} | Uses],
+            Blocks0, Count) ->
     #{ Lbl := #b_blk{is=Is0}=Blk } = Blocks0,
 
-    [#b_set{op=peek_message,dst=Dst}=Peek0 | Is] = Is0, %Assertion.
+    [Peek0 | Is] = Is0,                         %Assertion.
     Peek = Peek0#b_set{args=[Ref]},
 
     Blocks = Blocks0#{ Lbl := Blk#b_blk{is=[Peek | Is]} },
@@ -836,21 +872,21 @@ coi_is([#b_set{dst=Dst}=I | Is], Last, Blocks, Where, Defs0, Ws) ->
 coi_is([], _Last, _Blocks, _Where, Defs, Ws) ->
     {Defs, Ws}.
 
-coi_creations([Arg | Args], Blocks, Defs) ->
+coi_creations([Var | Vars], Blocks, Defs) ->
     case Defs of
-        #{ Arg := #b_set{op=call,dst=Dst,args=[#b_remote{}=Callee|_]}=Call } ->
-            case si_makes_ref(Dst, ?ENTRY_BLOCK, Callee, Blocks) of
-                {_, _} ->
-                    [Call | coi_creations(Args, Blocks, Defs)];
-                no ->
-                    coi_creations(Args, Blocks, Defs)
+        #{ Var := #b_set{op=call,dst=Dst,args=Args}=Call } ->
+            case si_remote_call_1(Dst, Args, ?ENTRY_BLOCK, Blocks) of
+                {makes_ref, _, _} ->
+                    [Call | coi_creations(Vars, Blocks, Defs)];
+                _ ->
+                    coi_creations(Vars, Blocks, Defs)
             end;
-        #{ Arg := #b_set{op=get_tuple_element,args=[Tuple|_]}} ->
-            coi_creations([Tuple | Args], Blocks, Defs);
-        #{ Arg := {parameter, _}=Parameter } ->
-            [Parameter | coi_creations(Args, Blocks, Defs)];
+        #{ Var := #b_set{op=get_tuple_element,args=[Tuple|_]}} ->
+            coi_creations([Tuple | Vars], Blocks, Defs);
+        #{ Var := {parameter, _}=Parameter } ->
+            [Parameter | coi_creations(Vars, Blocks, Defs)];
         #{} ->
-            coi_creations(Args, Blocks, Defs)
+            coi_creations(Vars, Blocks, Defs)
     end;
 coi_creations([], _Blocks, _Defs) ->
     [].

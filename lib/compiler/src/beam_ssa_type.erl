@@ -971,7 +971,21 @@ simplify(#b_set{op=call,args=[#b_literal{val=Fun}|Args]}=I, _Ts)
                     name=#b_literal{val=F},
                     arity=A},
     I#b_set{args=[Rem|Args]};
-simplify(I, _Ts) -> I.
+simplify(#b_set{op=peek_message,args=[#b_literal{val=Val}]}=I, _Ts) ->
+    case Val of
+        none ->
+            I;
+        _ ->
+            %% A potential receive marker has been substituted with a literal,
+            %% which means it can't actually be a marker on this path. Replace
+            %% it with a normal receive.
+            I#b_set{args=[#b_literal{val=none}]}
+    end;
+simplify(#b_set{op=recv_marker_clear,args=[#b_literal{}]}, _Ts) ->
+    %% Not a receive marker: see the 'peek_message' case.
+    #b_literal{val=none};
+simplify(I, _Ts) ->
+    I.
 
 will_succeed(#b_set{args=[Src]}, Ts, Ds, Sub) ->
     case {Ds, Ts} of

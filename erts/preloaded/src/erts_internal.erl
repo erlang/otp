@@ -51,7 +51,8 @@
 
 -export([purge_module/2]).
 
--export([flush_monitor_messages/3]).
+-export([flush_monitor_messages/3,
+         '@flush_monitor_messages_refopt'/0]).
 
 -export([await_result/1, gather_io_bytes/2]).
 
@@ -463,6 +464,18 @@ flush_monitor_messages(Ref, Multi, Res) when is_reference(Ref) ->
     after 0 ->
 	    Res
     end.
+
+-spec '@flush_monitor_messages_refopt'() -> ok.
+'@flush_monitor_messages_refopt'() ->
+    %% Enables reference optimization in flush_monitor_messages/3. Note that we
+    %% both body- and tail-call it to ensure that the reference isn't cleared,
+    %% in case the caller to demonitor/2 wants to continue using it.
+    %%
+    %% This never actually runs and is only used to trigger the optimization,
+    %% see the module comment in beam_ssa_recv for details.
+    Ref = make_ref(),
+    flush_monitor_messages(Ref, true, ok),
+    flush_monitor_messages(Ref, true, ok).
 
 -spec erts_internal:time_unit() -> pos_integer().
 

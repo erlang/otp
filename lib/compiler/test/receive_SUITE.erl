@@ -28,7 +28,8 @@
 	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1,
          match_built_terms/1,elusive_common_exit/1,
          return_before_receive/1,trapping/1,
-         after_expression/1,in_after/1]).
+         after_expression/1,in_after/1,
+         type_optimized_markers/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -51,7 +52,8 @@ groups() ->
        recv_in_try,double_recv,receive_var_zero,
        match_built_terms,elusive_common_exit,
        return_before_receive,trapping,
-       after_expression,in_after]},
+       after_expression,in_after,
+       type_optimized_markers]},
      {slow,[],[ref_opt]}].
 
 init_per_suite(Config) ->
@@ -840,6 +842,60 @@ do_in_after(E) ->
         end
     end,
     ok.
+
+type_optimized_markers(_Config) ->
+    Ref = make_ref(),
+
+    self() ! foobar,
+    gurka = tom_1(id(undefined)),
+
+    self() ! Ref,
+    gaffel = tom_1(Ref),
+
+    self() ! foobar,
+    self() ! undefined,
+    gurka = tom_2(id(undefined)),
+
+    self() ! Ref,
+    gaffel = tom_2(Ref),
+
+    ok.
+
+tom_1(Ref) ->
+    receive
+        foobar ->
+            case Ref of
+                undefined ->
+                    %% Type optimization might replace the reference with
+                    %% 'undefined' here, passing an illegal literal argument
+                    %% to 'recv_marker_clear'.
+                    gurka;
+                _ ->
+                    demonitor(Ref, [flush]),
+                    gaffel
+            end;
+        Ref ->
+            gaffel
+    end.
+
+tom_2(Ref) ->
+    receive
+        foobar ->
+            case Ref of
+                undefined ->
+                    %% As tom_1/1 but with 'recv_marker_use'
+                    %% instead.
+                    receive
+                        Ref ->
+                            gurka
+                    end;
+                _ ->
+                    demonitor(Ref, [flush]),
+                    gaffel
+            end;
+        Ref ->
+            gaffel
+    end.
 
 %%%
 %%% Common utilities.
