@@ -89,7 +89,7 @@
          user :: term(),
          encoding = epp:default_encoding() :: epp:source_encoding(),
          formatter = fun prettypr:sep/1 :: fun((list()) -> prettypr:document()),
-         separator = empty() :: prettypr:empty() | list(non_neg_integer()),
+         separator = empty() :: prettypr:document() | list(non_neg_integer()),
          empty_lines = sets:new() :: sets:set(integer())
         }).
 
