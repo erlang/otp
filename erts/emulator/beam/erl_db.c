@@ -2642,18 +2642,19 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 
     /*
      * Note that lock of the process must be taken before the lock
-     * of the table. That makes error handling a little bit awkward.
+     * of the table.
      */
-
-    if (!is_internal_pid(to_pid)) {
-        goto bad_pid;
-    }
     to_proc = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN, to_pid, to_locks);
-    if (to_proc == NULL) {
-        goto bad_pid;
-    }
+    /*
+     * If the table identifier has a problem, we want to report that even if
+     * the Pid is bad.
+     */
+    tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason);
+    if (!tb)
+        goto fail;
 
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason)) == NULL) {
+    if (!to_proc) {
+        freason = BADARG;
         goto fail;
     }
 
@@ -2681,17 +2682,6 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
     erts_proc_unlock(to_proc, to_locks);
     UnUseTmpHeap(5,BIF_P);
     BIF_RET(am_true);
-
- bad_pid:
-    /*
-     * If the table identifier has a problem, we want to report that even if
-     * the Pid is bad.
-     */
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason)) == NULL) {
-        BIF_ERROR(BIF_P, freason);
-    }
-
-    freason = BADARG;
 
  fail:
     if (to_proc != NULL && to_proc != BIF_P) erts_proc_unlock(to_proc, to_locks);
