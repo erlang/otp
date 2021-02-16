@@ -143,7 +143,7 @@ void erts_lcnt_update_db_locks(int enable);
 #endif
 
 #ifdef ETS_DBG_FORCE_TRAP
-extern erts_aint_t erts_ets_dbg_force_trap;
+extern int erts_ets_dbg_force_trap;
 #endif
 
 #endif /* ERL_DB_H__ */

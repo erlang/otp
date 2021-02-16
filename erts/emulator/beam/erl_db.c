@@ -817,29 +817,31 @@ DbTable* db_get_table_aux(Process *p,
     if (tb) {
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
-        if (what != DB_READ_TBL_STRUCT
-            && erts_atomic_read_nob(&tb->common.dbg_force_trap)) {
-            Uint32 rand = erts_sched_local_random((Uint)&p);
-            if ( !(rand & 7) ) {
-                /* About 7 of 8 threads that are on the line above
-                   will get here */
-                if (erts_atomic_add_read_nob(&tb->common.dbg_force_trap, 2) & 2) {
-                    db_unlock(tb, kind);
-                    tb = NULL;
-                    *freason_p = TRAP;
-                    p->fvalue = EXI_TYPE;
-                    return tb;
-                }
+        /*
+         * The ets_SUITE uses this to verify that all table lookups calls
+         * can handle a failed TRAP return correctly.
+         */
+        if (what != DB_READ_TBL_STRUCT && tb->common.dbg_force_trap) {
+            if (!(p->flags & F_ETS_FORCED_TRAP)) {
+                db_unlock(tb, kind);
+                tb = NULL;
+                *freason_p = TRAP;
+                p->fvalue = EXI_TYPE;
+                p->flags |= F_ETS_FORCED_TRAP;
+                return tb;
+            } else {
+                /* back from forced trap */
+                p->flags &= ~F_ETS_FORCED_TRAP;
             }
         }
 #endif
-        if (ERTS_UNLIKELY(what != DB_READ_TBL_STRUCT
-                          /* IMPORTANT: the above check is
-                             necessary as the status field might
-                             be in an intermediate state when
-                             kind==NOLCK_ACCESS */ &&
-                          !(tb->common.status & what)))
+        if (what != DB_READ_TBL_STRUCT
+            /* IMPORTANT: the above check is necessary as the status field
+                          might be in an intermediate state when
+                          kind==NOLCK_ACCESS */
+                && ERTS_UNLIKELY(!(tb->common.status & what))) {
             tb = handle_lacking_permission(p, tb, kind, freason_p);
+        }
     }
     else {
         *freason_p = BADARG | EXF_HAS_EXT_INFO;
@@ -2385,7 +2387,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.fixing_procs = NULL;
     tb->common.compress = is_compressed;
 #ifdef ETS_DBG_FORCE_TRAP
-    erts_atomic_init_nob(&tb->common.dbg_force_trap, erts_ets_dbg_force_trap);
+    tb->common.dbg_force_trap = erts_ets_dbg_force_trap;
 #endif
 
     cret = meth->db_create(BIF_P, tb);
@@ -5334,7 +5336,7 @@ void erts_lcnt_update_db_locks(int enable) {
 #endif /* ERTS_ENABLE_LOCK_COUNT */
 
 #ifdef ETS_DBG_FORCE_TRAP
-erts_aint_t erts_ets_dbg_force_trap = 0;
+int erts_ets_dbg_force_trap = 0;
 #endif
 
 int erts_ets_force_split(Eterm tid, int on)
