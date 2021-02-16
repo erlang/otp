@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the Xref analysis <c>undefined_functions</c> to
+	    not report internally generated behaviour_info/1.</p>
+          <p>
+	    Own Id: OTP-17191 Aux Id: OTP-16922, ERL-1476, GH-4192 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
