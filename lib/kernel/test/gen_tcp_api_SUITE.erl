@@ -212,11 +212,14 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(t_local = _GroupName, Config) ->
-    case gen_tcp:connect({local,<<"/">>}, 0, []) of
+    try gen_tcp:connect({local,<<"/">>}, 0, []) of
 	{error, eafnosupport} ->
             {skip, "AF_LOCAL not supported"};
 	{error,_} ->
 	    Config
+    catch
+        _C:_E:_S ->
+            {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(_GroupName, Config) ->
     Config.
