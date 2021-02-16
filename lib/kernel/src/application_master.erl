@@ -162,7 +162,7 @@ start_it(State, Type) ->
 init_loop(Pid, Tag, State, Type) ->
     receive
  	IoReq when element(1, IoReq) =:= io_request ->
-            relay_to_group_leader(IoReq, State),
+            _ = relay_to_group_leader(IoReq, State),
 	    init_loop(Pid, Tag, State, Type);
 	{Tag, Res} ->
 	    Res;
@@ -179,7 +179,7 @@ init_loop(Pid, Tag, State, Type) ->
 main_loop(Parent, State) ->
     receive
 	IoReq when element(1, IoReq) =:= io_request ->
-            relay_to_group_leader(IoReq, State),
+            _ = relay_to_group_leader(IoReq, State),
 	    main_loop(Parent, State);
 	{'EXIT', Parent, Reason} ->
 	    terminate(Reason, State);
@@ -202,7 +202,7 @@ main_loop(Parent, State) ->
 terminate_loop(Child, State) ->
     receive
  	IoReq when element(1, IoReq) =:= io_request ->
-            relay_to_group_leader(IoReq, State),
+            _ = relay_to_group_leader(IoReq, State),
 	    terminate_loop(Child, State);
 	{'EXIT', Child, _} ->
 	    ok;
