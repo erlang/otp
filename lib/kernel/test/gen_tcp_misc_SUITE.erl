@@ -3821,20 +3821,22 @@ do_accept_timeouts_mixed(Config) ->
 
 %% Check that single acceptor behaves as expected when killed.
 killing_acceptor(Config) when is_list(Config) ->
-    try do_killing_acceptor(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(killing_acceptor, fun() -> do_killing_acceptor(Config) end).
 
 do_killing_acceptor(Config) ->
     ?P("create listen socket"),
-    LS = case ?LISTEN(Config, 0,[]) of
-             {ok, LSocket} ->
-                 LSocket;
-             {error, eaddrnotavail = Reason} ->
-                 ?SKIPT(listen_failed_str(Reason))
-         end,
+    case ?LISTEN(Config, 0,[]) of
+        {ok, LSocket} when is_port(LSocket) ->
+            do_killing_acceptor_inet(LSocket);
+        {ok, LSocket} ->
+            do_killing_acceptor_socket(LSocket);
+        {error, eaddrnotavail = Reason} ->
+            ?SKIPT(listen_failed_str(Reason))
+    end,
+    ?P("done"),
+    ok.
+
+do_killing_acceptor_inet(LS) ->
     ?P("create acceptor process"),
     Pid = spawn(
             fun() ->
@@ -3856,8 +3858,62 @@ do_killing_acceptor(Config) ->
     {ok,L2} = prim_inet:getstatus(LS),
     ?P("verify listen socket *not* accepting"),
     false  = lists:member(accepting, L2),
-    ?P("done"),
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
     ok.
+
+do_killing_acceptor_socket(LS) ->
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 0},
+          num_acceptors := 0} ->
+            ?P("pre validated"),
+            ok;
+        INFO0 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO0]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("create acceptor process"),
+    Pid = spawn(
+            fun() ->
+                    erlang:display({accepted,self(),gen_tcp:accept(LS)})
+            end),
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 1} ->
+            ?P("validated"),
+            ok;
+        INFO1 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO1]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("kill acceptor"),
+    exit(Pid,kill),
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 0} ->
+            ?P("post validated"),
+            ok;
+        INFO2 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO2]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
+    ok.
+    
+
 
 %% Check that multi acceptors behaves as expected when killed.
 killing_multi_acceptors(Config) when is_list(Config) ->

@@ -30,6 +30,9 @@
          sockname/1, peername/1,
          getstat/2]).
 
+%% Utility
+-export([info/1]).
+
 -ifdef(undefined).
 -export([unrecv/2]).
 -export([fdopen/2]).
@@ -447,6 +450,11 @@ peername(?module_socket(_Server, Socket)) ->
 
 getstat(?module_socket(Server, _Socket), What) when is_list(What) ->
     call(Server, {getstat, What}).
+
+%% -------------------------------------------------------------------------
+
+info(?module_socket(_Server, Socket)) ->
+    socket:info(Socket).
 
 %%% ========================================================================
 %%% Socket glue code
