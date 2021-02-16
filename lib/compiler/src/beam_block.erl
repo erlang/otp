@@ -68,8 +68,6 @@ swap_opt([]) -> [].
 is_unused(X, [{call,A,_}|_]) when A =< X -> true;
 is_unused(X, [{call_ext,A,_}|_]) when A =< X -> true;
 is_unused(X, [{make_fun2,_,_,_,A}|_]) when A =< X -> true;
-is_unused(X, [{make_fun3,_,_,_,Dst,{list,Env}}|Is]) ->
-    (not lists:member({x,X}, Env)) andalso ({x,X} =:= Dst orelse is_unused(X, Is));
 is_unused(X, [{move,Src,Dst}|Is]) ->
     case {Src,Dst} of
         {{x,X},_} -> false;
@@ -114,7 +112,6 @@ collect_block([], Acc) ->
 
 collect({allocate,N,R})      -> {set,[],[],{alloc,R,{nozero,N,0,[]}}};
 collect({allocate_heap,Ns,Nh,R}) -> {set,[],[],{alloc,R,{nozero,Ns,Nh,[]}}};
-collect({init,D})            -> {set,[D],[],init};
 collect({test_heap,N,R})     -> {set,[],[],{alloc,R,{nozero,nostack,N,[]}}};
 collect({bif,N,{f,0},As,D})  -> {set,[D],As,{bif,N,{f,0}}};
 collect({gc_bif,N,{f,0},R,As,D}) ->   {set,[D],As,{alloc,R,{gc_bif,N,{f,0}}}};

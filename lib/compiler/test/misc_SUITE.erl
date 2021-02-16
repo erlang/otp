@@ -290,7 +290,7 @@ cover_beam_ssa_bc_size(20) ->
 cover_beam_ssa_bc_size(N) ->
     BcSizeKey = {b_local,{b_literal,name},1},
     %% Try different sizes for the opt_st record.
-    OptSt = erlang:make_tuple(N, whatever, [{1,opt_st}]),
+    OptSt = erlang:make_tuple(N, #{}, [{1,opt_st}]),
     expect_error(fun() -> beam_ssa_bc_size:opt(#{BcSizeKey => OptSt}) end),
     cover_beam_ssa_bc_size(N + 1).
 

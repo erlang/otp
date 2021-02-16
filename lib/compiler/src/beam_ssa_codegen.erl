@@ -1298,15 +1298,13 @@ cg_block([#cg_set{op=match_fail,args=Args0,anno=Anno}|T], Context, St0) ->
     {Is0++Is1,St};
 cg_block([#cg_set{op=wait_timeout,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     Is = case beam_args(Args0, St) of
-             [{atom,infinity}] -> [{wait,Fail}];
-             [{integer,0}] -> [timeout];
-             [Timeout] -> [{wait_timeout,Fail,Timeout},timeout]
+             [{integer,0}] ->
+                 [timeout];
+             [Timeout] ->
+                 true = Timeout =/= {atom,infinity},
+                 [{wait_timeout,Fail,Timeout},timeout]
          end,
     {Is,St};
-cg_block([#cg_set{op=wait_timeout,args=Args} | T], Context, St0) ->
-    [{integer,0}] = beam_args(Args, St0),
-    {Is,St} = cg_block(T, Context, St0),
-    {[timeout | Is],St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),

@@ -144,7 +144,17 @@ signatures_1(StMap, FuncDb0, State0) ->
             {State0, FuncDb0}
     end.
 
-sig_function(Id, StMap, State0, FuncDb0) ->
+sig_function(Id, StMap, State, FuncDb) ->
+    try
+        do_sig_function(Id, StMap, State, FuncDb)
+    catch
+        Class:Error:Stack ->
+            #b_local{name=#b_literal{val=Name},arity=Arity} = Id,
+            io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+            erlang:raise(Class, Error, Stack)
+    end.
+
+do_sig_function(Id, StMap, State0, FuncDb0) ->
     case sig_function_1(Id, StMap, State0, FuncDb0) of
         {false, false, State, FuncDb} ->
             %% No added work and the types are identical. Pop ourselves from
@@ -416,7 +426,17 @@ join_arg_types([], [], Ts) ->
       Ts :: type_db(),
       FuncDb :: func_info_db(),
       Result :: {Linear, FuncDb}.
-opt_function(Linear0, Args, Id, Ts, FuncDb0) ->
+opt_function(Linear, Args, Id, Ts, FuncDb) ->
+    try
+        do_opt_function(Linear, Args, Id, Ts, FuncDb)
+    catch
+        Class:Error:Stack ->
+            #b_local{name=#b_literal{val=Name},arity=Arity} = Id,
+            io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+            erlang:raise(Class, Error, Stack)
+    end.
+
+do_opt_function(Linear0, Args, Id, Ts, FuncDb0) ->
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
@@ -959,6 +979,9 @@ will_succeed(#b_set{args=[Src]}, Ts, Ds, Sub) ->
             %% Checked operation never returns.
             no;
         {#{ Src := I }, #{}} ->
+            %% There can't be any substitution because the instruction
+            %% is still there.
+            false = is_map_key(Src, Sub),        %Assertion.
             will_succeed_1(I, Src, Ts, Sub);
         {#{}, #{}} ->
             %% The checked instruction has been removed and substituted, so we
@@ -1062,15 +1085,9 @@ will_succeed_1(#b_set{op=wait_timeout}, _Src, _Ts, _Sub) ->
     %% landingpad, is preserved. If the failure edge is removed, a Y
     %% register holding a `try` tag could be reused prematurely.
     maybe;
-will_succeed_1(#b_set{}, Src, Ts, Sub) ->
-    case simplify_arg(Src, Ts, Sub) of
-        #b_var{}=Src ->
-            %% No substitution; might fail at runtime.
-            maybe;
-        _ ->
-            %% Substituted with literal or other variable; always succeeds.
-            yes
-    end.
+
+will_succeed_1(#b_set{}, _Src, _Ts, _Sub) ->
+    maybe.
 
 simplify_is_record(I, #t_tuple{exact=Exact,
                                size=Size,

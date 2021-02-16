@@ -105,7 +105,8 @@ INLINE= \
 
 R21= \
         bs_construct \
-        bs_match
+        bs_match \
+        fun
 
 DIALYZER = bs_match
 

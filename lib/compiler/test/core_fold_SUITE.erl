@@ -112,6 +112,8 @@ setelement(Config) when is_list(Config) ->
     {a,b,[1,2,3]} = id(setelement(3, {a,b,c}, New)),
     {a,b,[1,2,3]} = id(setelement(3, {a,X,c}, New)),
 
+    {{d,c,b,a,x}, {z,c,b,a,x}} = setelement_cover(erlang:make_tuple(5, x)),
+
     {'EXIT',{badarg,_}} = (catch setelement_crash({a,b,c,d,e,f})),
     error = setelement_crash_2({a,b,c,d,e,f}, <<42>>),
 
@@ -119,6 +121,14 @@ setelement(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch setelement(3, {a,b}, New)),
 
     ok.
+
+setelement_cover(T0) ->
+    T1 = setelement(4, T0, a),
+    T2 = setelement(3, T1, b),
+    T3 = setelement(2, T2, c),
+    T4 = setelement(1, T3, d),
+    T5 = setelement(1, T3, z),
+    {T4,T5}.
 
 setelement_crash(Tuple) ->
     %% Used to crash the compiler because sys_core_dsetel did not notice that

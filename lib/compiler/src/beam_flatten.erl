@@ -50,7 +50,6 @@ norm_block([], Acc) -> Acc.
 
 norm({set,[D],As,{bif,N,F}})      -> {bif,N,F,As,D};
 norm({set,[D],As,{alloc,R,{gc_bif,N,F}}}) -> {gc_bif,N,F,R,As,D};
-norm({set,[D],[],init})           -> {init,D};
 norm({set,[D],[S],move})          -> {move,S,D};
 norm({set,[D],[S],fmove})         -> {fmove,S,D};
 norm({set,[D],[S],fconv})         -> {fconv,S,D};

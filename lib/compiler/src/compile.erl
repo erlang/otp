@@ -22,7 +22,7 @@
 -module(compile).
 
 %% High-level interface.
--export([file/1,file/2,noenv_file/2,format_error/1,iofile/1]).
+-export([file/1,file/2,noenv_file/2,format_error/1]).
 -export([forms/1,forms/2,noenv_forms/2]).
 -export([output_generated/1,noenv_output_generated/1]).
 -export([options/0]).
@@ -302,10 +302,6 @@ format_error(bad_crypto_key) ->
     "invalid crypto key.";
 format_error(no_crypto_key) ->
     "no crypto key supplied.";
-format_error({unimplemented_instruction,Instruction}) ->
-    io_lib:fwrite("native-code compilation failed because of an "
-                  "unimplemented instruction (~s).",
-		  [Instruction]);
 format_error({open,E}) ->
     io_lib:format("open error '~ts'", [file:format_error(E)]);
 format_error({epp,E}) ->
@@ -317,12 +313,6 @@ format_error({write_error, Error}) ->
 format_error({rename,From,To,Error}) ->
     io_lib:format("failed to rename ~ts to ~ts: ~ts",
 		  [From,To,file:format_error(Error)]);
-format_error({delete,File,Error}) ->
-    io_lib:format("failed to delete file ~ts: ~ts",
-		  [File,file:format_error(Error)]);
-format_error({delete_temp,File,Error}) ->
-    io_lib:format("failed to delete temporary file ~ts: ~ts",
-		  [File,file:format_error(Error)]);
 format_error({parse_transform,M,R}) ->
     io_lib:format("error in parse transform '~ts': ~tp", [M, R]);
 format_error({undef_parse_transform,M}) ->
@@ -359,7 +349,6 @@ format_error_reason(Reason) ->
 		  ifile=""    :: file:filename(),
 		  ofile=""    :: file:filename(),
 		  module=[]   :: module() | [],
-		  core_code=[] :: cerl:c_module() | [],
 		  abstract_code=[] :: abstract_code(), %Abstract code for debugger.
 		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
@@ -585,8 +574,7 @@ passes(Type, Opts) ->
     Passes2 = select_passes(Passes1, Opts),
 
     %% If the last pass saves the resulting binary to a file,
-    %% insert a first pass to remove the file (unless the
-    %% source file is a BEAM file).
+    %% insert a first pass to remove the file.
     Passes = case last(Passes2) of
                  {save_binary, _TestFun, _Fun} ->
                      [?pass(remove_file) | Passes2];
@@ -614,10 +602,12 @@ pass(_) -> none.
 
 %% For compilation from forms, replace the first pass with a pass
 %% that retrieves the module name. The module name is needed for
-%% proper diagnostics and for compilation to native code.
+%% proper diagnostics.
 
 fix_first_pass([{consult_abstr, _} | Passes]) ->
-    [?pass(get_module_name_from_abstr) | Passes];
+    %% Simply remove this pass. The module name will be set after
+    %% running the v3_core pass.
+    Passes;
 fix_first_pass([{parse_core,_}|Passes]) ->
     [?pass(get_module_name_from_core)|Passes];
 fix_first_pass([{beam_consult_asm,_}|Passes]) ->
@@ -851,7 +841,6 @@ kernel_passes() ->
      {iff,dcbsm,{listing,"core_bsm"}},
 
      {iff,clint,?pass(core_lint_module)},
-     {iff,core,?pass(save_core_code)},
 
      %% Kernel Erlang and code generation.
      ?pass(v3_kernel),
@@ -1053,15 +1042,6 @@ consult_abstr(_Code, St) ->
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
-    end.
-
-get_module_name_from_abstr(Forms, St) ->
-    try get_module(Forms) of
-        Mod -> {ok, Forms, St#compile{module = Mod}}
-    catch
-        _:_ ->
-            %% Missing module declaration. Let it crash in a later pass.
-            {ok, Forms, St}
     end.
 
 parse_core(_Code, St) ->
@@ -1374,7 +1354,7 @@ makedep_add_header(Ifile, Included, LineLen, MainTarget, Phony, File) ->
 	    end,
 
 	    %% Add the file to the dependencies. Lines longer than 76 columns
-	    %% are splitted.
+	    %% are split.
 	    if
 		LineLen + 1 + length(File1) > 76 ->
                     LineLen1 = 2 + length(File1),
@@ -1391,59 +1371,34 @@ makedep_output(Code, #compile{options=Opts,ofile=Ofile}=St) ->
     %% Write this Makefile (Code) to the selected output.
     %% If no output is specified, the default is to write to a file named after
     %% the output file.
-    Output0 = case proplists:get_value(makedep_output, Opts) of
-		  undefined ->
-		      %% Prepare the default filename.
-		      outfile(filename:basename(Ofile, ".beam"), "Pbeam", Opts);
-		  O ->
-		      O
-	      end,
+    Output = case proplists:get_value(makedep_output, Opts) of
+                 undefined ->
+                     %% Prepare the default filename.
+                     outfile(filename:basename(Ofile, ".beam"), "Pbeam", Opts);
+                 Other ->
+                     Other
+             end,
 
-    %% If the caller specified an io_device(), there's nothing to do. If he
-    %% specified a filename, we must create it. Furthermore, this created file
-    %% must be closed before returning.
-    Ret = case Output0 of
-	      _ when is_list(Output0) ->
-		  case file:delete(Output0) of
-		      Ret2 when Ret2 =:= ok; Ret2 =:= {error,enoent} ->
-			  case file:open(Output0, [write]) of
-			      {ok,IODev} ->
-				  {ok,IODev,true};
-			      {error,Reason2} ->
-				  {error,open,Reason2}
-			  end;
-		      {error,Reason1} ->
-			  {error,delete,Reason1}
-		  end;
-	      _ ->
-		  {ok,Output0,false}
-	  end,
-
-    case Ret of
-	{ok,Output1,CloseOutput} ->
-	    try
-		%% Write the Makefile.
-		io:fwrite(Output1, "~ts", [Code]),
-		%% Close the file if relevant.
-		if
-		    CloseOutput -> ok = file:close(Output1);
-		    true -> ok
-		end,
-		{ok,Code,St}
-	    catch
-		error:_ ->
-		    %% Couldn't write to output Makefile.
-		    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
-		    {error,St#compile{errors=St#compile.errors++[Err]}}
-	    end;
-	{error,open,Reason} ->
-	    %% Couldn't open output Makefile.
-	    Err = {St#compile.ifile,[{none,?MODULE,{open,Reason}}]},
-	    {error,St#compile{errors=St#compile.errors++[Err]}};
-	{error,delete,Reason} ->
-	    %% Couldn't open output Makefile.
-	    Err = {St#compile.ifile,[{none,?MODULE,{delete,Output0,Reason}}]},
-	    {error,St#compile{errors=St#compile.errors++[Err]}}
+    if
+        is_list(Output) ->
+            %% Write the depedencies to a file.
+            case file:write_file(Output, Code) of
+                ok ->
+                    {ok,Code,St};
+                {error,Reason} ->
+                    Err = {St#compile.ifile,[{none,?MODULE,{write_error,Reason}}]},
+                    {error,St#compile{errors=St#compile.errors++[Err]}}
+            end;
+        true ->
+            %% Write the depedencies to a device.
+            try io:fwrite(Output, "~ts", [Code]) of
+                ok ->
+                    {ok,Code,St}
+            catch
+                error:_ ->
+                    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
+                    {error,St#compile{errors=St#compile.errors++[Err]}}
+            end
     end.
 
 expand_records(Code0, #compile{options=Opts}=St) ->
@@ -1611,9 +1566,6 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     TypeString = atom_to_list(Type),
     list_to_binary([0,length(TypeString),TypeString,Bin]).
 
-save_core_code(Code, St) ->
-    {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
-
 beam_validator_strong(Code, St) ->
     beam_validator_1(Code, St, strong).
 
@@ -1688,7 +1640,6 @@ effects_code_generation(Option) ->
 	_ -> true
     end.
 
-save_binary(none, St) -> {ok,none,St};
 save_binary(Code, #compile{module=Mod,ofile=Outfile,options=Opts}=St) ->
     %% Test that the module name and output file name match.
     case member(no_error_module_mismatch, Opts) of
@@ -1715,16 +1666,9 @@ save_binary_1(Code, St) ->
 		ok ->
 		    {ok,none,St};
 		{error,RenameError} ->
-		    Es0 = [{Ofile,[{none,?MODULE,{rename,Tfile,Ofile,
-						  RenameError}}]}],
-		    Es = case file:delete(Tfile) of
-			     ok -> Es0;
-			     {error,DeleteError} ->
-				 Es0 ++
-				     [{Ofile,
-				       [{none,?MODULE,{delete_temp,Tfile,
-						       DeleteError}}]}]
-			 end,
+                    Es = [{Ofile,[{none,?MODULE,{rename,Tfile,Ofile,
+                                                 RenameError}}]}],
+                    _ = file:delete(Tfile),
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end;
 	{error,Error} ->
@@ -1777,22 +1721,12 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
 %% tmpfile(ObjFile) -> TmpFile
 %%  Work out the correct input and output file names.
 
--spec iofile(atom() | file:filename_all()) ->
-                    {file:name_all(),file:name_all()}.
-
-iofile(File) when is_atom(File) ->
-    iofile(atom_to_list(File));
-iofile(File) ->
-    {filename:dirname(File), filename:basename(File, ".erl")}.
-
 erlfile(".", Base, Suffix) ->
     Base ++ Suffix;
 erlfile(Dir, Base, Suffix) ->
     filename:join(Dir, Base ++ Suffix).
 
-outfile(Base, Ext, Opts) when is_atom(Ext) ->
-    outfile(Base, atom_to_list(Ext), Opts);
-outfile(Base, Ext, Opts) ->
+outfile(Base, Ext, Opts) when is_list(Ext) ->
     Obase = case keyfind(outdir, 1, Opts) of
 		{outdir, Odir} -> filename:join(Odir, Base);
 		_Other -> Base			% Not found or bad format
@@ -1999,7 +1933,6 @@ make_erl_options(Opts) ->
 	     warning=Warning,
 	     verbose=Verbose,
 	     specific=Specific,
-	     output_type=OutputType,
 	     cwd=Cwd} = Opts,
     Options = [verbose || Verbose] ++
 	[report_warnings || Warning =/= 0] ++
@@ -2007,14 +1940,9 @@ make_erl_options(Opts) ->
 		    {d,Name,Value};
 		(Name) ->
 		    {d,Name}
-	    end, Defines) ++
-	case OutputType of
-	    undefined -> [];
-	    jam -> [jam];
-	    beam -> [beam]
-	end,
-    Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir}|
-	        [{i, Dir} || Dir <- Includes]] ++ Specific.
+            end, Defines),
+    Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir} |
+                [{i, Dir} || Dir <- Includes]] ++ Specific.
 
 pre_load() ->
     L = [beam_a,

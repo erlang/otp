@@ -1529,6 +1529,7 @@ expr_export_5() ->
 coverage(_Config) ->
     {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
     ok = coverage_ssa_throw(),
+    error = coverage_pre_codegen(),
     ok.
 
 %% Cover some code in beam_trim.
@@ -1618,5 +1619,16 @@ cst_raw() ->
     end.
 
 cst_raw_1() -> throw(id(gurka)).
+
+%% Cover some code in beam_ssa_pre_codegen.
+coverage_pre_codegen() ->
+    try not (catch 22) of
+        true ->
+            ok
+    catch
+        _:_ ->
+            error
+    end.
+
 
 id(I) -> I.

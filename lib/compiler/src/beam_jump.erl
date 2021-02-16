@@ -646,8 +646,6 @@ opt([{jump,{f,L}=Lbl}=I|Is], Acc0, St0) ->
 %% have any failure labels and where is_unreachable_after(I) =:= false.
 opt([{block,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], St);
-opt([{kill,_}=I|Is], Acc, St) ->
-    opt(Is, [I|Acc], St);
 opt([{call,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], St);
 opt([{deallocate,_}=I|Is], Acc, St) ->

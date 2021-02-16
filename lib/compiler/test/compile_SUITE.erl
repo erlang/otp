@@ -37,7 +37,8 @@
 	 sys_pre_attributes/1, dialyzer/1, no_core_prepare/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
-         compile_attribute/1, error_column/1
+         compile_attribute/1, message_printing/1, other_options/1,
+         transforms/1, erl_compile_api/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -55,7 +56,8 @@ all() ->
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
-     compile_attribute, error_column].
+     compile_attribute, message_printing, other_options, transforms,
+     erl_compile_api].
 
 groups() -> 
     [].
@@ -89,6 +91,9 @@ appup_test(Config) when is_list(Config) ->
 file_1(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
 
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+
     {Simple, Target} = get_files(Config, simple, "file_1"),
     {ok, Cwd} = file:get_cwd(),
     ok = file:set_cwd(filename:dirname(Target)),
@@ -99,10 +104,17 @@ file_1(Config) when is_list(Config) ->
     compile_and_verify(Simple, Target, []),
     compile_and_verify(Simple, Target, [debug_info]),
     compile_and_verify(Simple, Target, [no_postopt]),
-    {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
 
+    {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
     {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
 
+    %% Cover option not in a list (undocumented feature).
+    {ok,simple} = compile:file(Simple, no_postopt),
+
+    %% Test compiling from an .abstr file.
+    {ok,[]} = compile:file(Simple, [dabstr]),
+    {ok,simple} = compile:file(filename:rootname(Target), [from_abstr]),
+    ok = file:delete(filename:rootname(Target) ++ ".abstr"),
 
     %% Test option 'deterministic'.
     {ok,simple} = compile:file(Simple, [deterministic]),
@@ -124,6 +136,32 @@ file_1(Config) when is_list(Config) ->
     true = code:delete(Det),
     false = code:purge(Det),
 
+    %% Cover error handling code.
+    NonExisting = definitely__no__such__module,
+    error = compile:file(NonExisting, [report]),
+    error = compile:file(NonExisting, [from_abstr,report]),
+    error = compile:file(NonExisting, [from_core,report]),
+    error = compile:file(NonExisting, [from_asm,report]),
+
+    error = compile:file(filename:join(DataDir, "bad_core"), [from_core,report]),
+    error = compile:file(filename:join(DataDir, "bad_core_tokens"), [from_core,report]),
+
+    %% Create a directory with the same name as the temp file to cover
+    %% handling of write errors.
+    Simple = filename:join(DataDir, "simple"),
+    SimpleTempFile = filename:join(PrivDir, "simple.bea#"),
+    SimpleOutputFile = filename:join(PrivDir, "simple.beam"),
+    ok = file:make_dir(SimpleTempFile),
+    ok = file:make_dir(SimpleOutputFile),
+    try
+        error = compile:file(Simple, [{outdir,PrivDir}, report]),
+        _ = file:del_dir(SimpleTempFile),
+        error = compile:file(Simple, [{outdir,PrivDir}, report])
+    after
+        _ = file:del_dir(SimpleTempFile),
+        _ = file:del_dir(SimpleOutputFile)
+    end,
+
     %% Cleanup.
     ok = file:delete(Target),
     ok = file:del_dir(filename:dirname(Target)),
@@ -140,11 +178,19 @@ file_1(Config) when is_list(Config) ->
     ok.
 
 forms_2(Config) when is_list(Config) ->
-    Src = "/foo/bar",
+    {Simple, Target} = get_files(Config, simple, "file_1"),
+    ok = file:del_dir(filename:dirname(Target)),
+
+    Src = Simple,
     AbsSrc = filename:absname(Src),
-    Anno = erl_anno:new(1),
-    SimpleCode = [{attribute,Anno,module,simple}],
+    {ok,[],SimpleCode} = compile:file(Simple, [dabstr,binary]),
+
     {ok,simple,Bin1} = compile:forms(SimpleCode, [binary,{source,Src}]),
+    {ok,simple,_} = compile:forms(SimpleCode,
+                                  [binary,{error_location,line},{source,Src}]),
+
+    %% Cover option not in a list (undocumented feature).
+    {ok,simple,_} = compile:forms(SimpleCode, no_postopt),
 
     %% Load and test that the proper source is returned.
     AbsSrc = forms_load_code(simple, Src, Bin1),
@@ -174,6 +220,10 @@ forms_2(Config) when is_list(Config) ->
 
     {ok,simple,Asm} = compile:forms(SimpleCode, [to_asm,binary]),
     forms_compile_and_load(Asm, [from_asm]),
+
+    %% The `from_abstr` option is redundant when compiling from forms,
+    %% but it should work.
+    forms_compile_and_load(SimpleCode, [from_abstr]),
 
     %% Cover the error handling code.
     error = compile:forms(bad_core, [from_core,report]),
@@ -244,8 +294,10 @@ binary(Config) when is_list(Config) ->
 %% Tests that the dependencies-Makefile-related options work.
 
 makedep(Config) when is_list(Config) ->
-    {Simple,Target} = get_files(Config, simple, "makedep"),
     DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    {Simple,Target} = get_files(Config, simple, "makedep"),
     SimpleRootname = filename:rootname(Simple),
     IncludeDir = filename:join(filename:dirname(Simple), "include"),
     IncludeOptions = [
@@ -254,22 +306,26 @@ makedep(Config) when is_list(Config) ->
 		      {d,include_generated},
 		      {i,IncludeDir}
 		     ],
+
     %% Basic rule.
     BasicMf1Name = SimpleRootname ++ "-basic1.mk",
     {ok,BasicMf1} = file:read_file(BasicMf1Name),
     {ok,_,Mf1} = compile:file(Simple, [binary,makedep]),
     BasicMf1 = makedep_canonicalize_result(Mf1, DataDir),
+
     %% Basic rule with one existing header.
     BasicMf2Name = SimpleRootname ++ "-basic2.mk",
     {ok,BasicMf2} = file:read_file(BasicMf2Name),
     {ok,_,Mf2} = compile:file(Simple, [binary,makedep|IncludeOptions]),
     BasicMf2 = makedep_canonicalize_result(Mf2, DataDir),
+
     %% Rule with one existing header and one missing header.
     MissingMfName = SimpleRootname ++ "-missing.mk",
     {ok,MissingMf} = file:read_file(MissingMfName),
     {ok,_,Mf3} = compile:file(Simple,
       [binary,makedep,makedep_add_missing|IncludeOptions]),
     MissingMf = makedep_canonicalize_result(Mf3, DataDir),
+
     %% Rule with modified target.
     TargetMf1Name = SimpleRootname ++ "-target1.mk",
     {ok,TargetMf1} = file:read_file(TargetMf1Name),
@@ -277,6 +333,7 @@ makedep(Config) when is_list(Config) ->
       [binary,makedep,{makedep_target,"$target"}|IncludeOptions]),
     TargetMf1 = makedep_modify_target(
       makedep_canonicalize_result(Mf4, DataDir), "$$target"),
+
     %% Rule with quoted modified target.
     TargetMf2Name = SimpleRootname ++ "-target2.mk",
     {ok,TargetMf2} = file:read_file(TargetMf2Name),
@@ -285,11 +342,13 @@ makedep(Config) when is_list(Config) ->
         IncludeOptions]),
     TargetMf2 = makedep_modify_target(
       makedep_canonicalize_result(Mf5, DataDir), "$$target"),
+
     %% Basic rule written to some file.
     {ok,_} = compile:file(Simple,
       [makedep,{makedep_output,Target}|IncludeOptions]),
     {ok,Mf6} = file:read_file(Target),
     BasicMf2 = makedep_canonicalize_result(Mf6, DataDir),
+
     %% Rule with creating phony target.
     PhonyMfName = SimpleRootname ++ "-phony.mk",
     {ok,PhonyMf} = file:read_file(PhonyMfName),
@@ -297,7 +356,38 @@ makedep(Config) when is_list(Config) ->
       [binary,makedep,makedep_phony|IncludeOptions]),
     PhonyMf = makedep_canonicalize_result(Mf7, DataDir),
 
+    %% Basic rule written to the default file.
+    {ok,_} = compile:file(Simple, [makedep|IncludeOptions]),
+    {ok,Mf8} = file:read_file(Target),
+    BasicMf2 = makedep_canonicalize_result(Mf8, DataDir),
+
+    %% Generate dependencies and compile normally at the same time.
+    GeneratedHrl = filename:join(PrivDir, "generated.hrl"),
+    ok = file:write_file(GeneratedHrl, ""),
+    {ok,simple} = compile:file(Simple, [report,makedep_side_effect,
+                                        {makedep_output,Target},
+                                        {i,PrivDir}|IncludeOptions]),
+    {ok,Mf9} = file:read_file(Target),
+    BasicMf3 = iolist_to_binary([string:trim(BasicMf2), " ", filename:join(PrivDir, "generated.hrl"), "\n"]),
+    BasicMf3 = makedep_canonicalize_result(Mf9, DataDir),
+    error = compile:file(Simple, [report,makedep_side_effect,
+                                  {makedep_output,PrivDir}|IncludeOptions]),
+
+    %% Cover generation of long lines that must be split.
+    CompileModule = filename:join(code:lib_dir(compiler), "src/compile.erl"),
+    {ok,_} = compile:file(CompileModule, [report,
+                                          makedep,{makedep_output,standard_io},
+                                          {i,filename:join(code:lib_dir(stdlib), "include")}]),
+
+    %% Basic rule written to the standard output.
+    {ok,_} = compile:file(Simple, [makedep,{makedep_output,standard_io}|IncludeOptions]),
+
+    %% Test error handling.
+    error = compile:file(Simple, [report,makedep,{makedep_output,DataDir}]),
+    error = compile:file(Simple, [report,makedep,{makedep_output,a_bad_output_device}]),
+
     ok = file:delete(Target),
+    ok = file:delete(GeneratedHrl),
     ok = file:del_dir(filename:dirname(Target)),
     ok.
 
@@ -355,6 +445,17 @@ listings(Config) when is_list(Config) ->
 	    "small",
 	    "small_maps"
 	]),
+
+    %% Cover handling of write errors.
+    Simple = filename:join(DataDir, "simple"),
+    SimpleTarget = filename:join(PrivDir, "simple.S"),
+    ok = file:make_dir(SimpleTarget),
+    try
+        error = compile:file(Simple, ['S', {outdir,PrivDir}, report])
+    after
+        ok = file:del_dir(SimpleTarget)
+    end,
+
     ok.
 
 do_file_listings(_, _, []) -> ok;
@@ -861,6 +962,8 @@ env_1(Simple, Target) ->
     %% file
     {ok,simple,<<_/binary>>} = compile:file(Simple),
     {ok,simple} = compile:noenv_file(Simple, [debug_info]),
+    {ok,simple} = compile:noenv_file(Simple, debug_info),
+
     true = exists(Target),
     {ok,{simple,[{abstract_code,Abstr0}]}} =
 	beam_lib:chunks(Target, [abstract_code]),
@@ -876,6 +979,13 @@ env_1(Simple, Target) ->
     true = compile:noenv_output_generated([]),
 
     ok = file:delete(Target),
+
+    %% Cover error handling.
+    true = os:putenv("ERL_COMPILER_OPTIONS", "'unterminated_atom"),
+    {ok,[]} = compile:forms(Forms, [basic_validation]),
+    true = os:putenv("ERL_COMPILER_OPTIONS", ",,,"),
+    {ok,[]} = compile:forms(Forms, [basic_validation]),
+    {ok,simple,<<"FOR1",_/binary>>} = compile:noenv_forms(Forms, no_postopt),
 
     ok.
 
@@ -1254,10 +1364,12 @@ do_warnings_2([{Pos,_,_}=W|T], Next, F) ->
 do_warnings_2([], Next, F) ->
     do_warnings_1(Next, F).
 
-error_column(Config) when is_list(Config) ->
+message_printing(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     BadEncFile = filename:join(DataDir, "bad_enc.erl"),
+
     {error,BadEncErrors, []} = compile:file(BadEncFile, [return]),
+
     [":7:15: cannot parse file, giving up\n"
      "%    7| \t    {ok, \"xyz\n"
      "%     | \t             ^\n\n"
@@ -1266,18 +1378,29 @@ error_column(Config) when is_list(Config) ->
      "%    7| \t    {ok, \"xyz\n"
      "%     | \t             ^\n\n"
     ] = messages(BadEncErrors),
+
     UTF8File = filename:join(DataDir, "col_utf8.erl"),
     {ok,_,UTF8Errors} = compile:file(UTF8File, [return]),
     [":5:23: a term is constructed, but never used\n"
      "%    5|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
      "%     |                      \t^\n\n"
     ] = messages(UTF8Errors),
+
     Latin1File = filename:join(DataDir, "col_lat1.erl"),
     {ok,_,Latin1Errors} = compile:file(Latin1File, [return]),
     [":6:23: a term is constructed, but never used\n"
      "%    6|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
      "%     |                      \t^\n\n"
     ] = messages(Latin1Errors),
+
+    {ok,OldCwd} = file:get_cwd(),
+    try
+        ok = file:set_cwd(DataDir),
+        {ok,cover_messages,_} = compile:file(cover_messages, [report, binary])
+    after
+        file:set_cwd(OldCwd)
+    end,
+
     ok.
 
 messages(Errors) ->
@@ -1555,6 +1678,127 @@ debug_info_attribute(DataDir, Name, Opts) ->
 
 forms_to_terms(Forms) ->
     [erl_parse:anno_to_term(Form) || Form <- Forms].
+
+%% Test compiler options not tested in other test cases.
+other_options(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+
+    %% Smoke test of no_spawn_compiler_process and brief options.
+    Big = filename:join(DataDir, "big"),
+    {ok,big,<<_/binary>>} =
+        compile:file(Big, [binary, no_spawn_compiler_process, brief, report]),
+
+    %% Test generating a compressed BEAM file. Also cover the redundant
+    %% `beam` option and the `no_inline` option.
+    Small = filename:join(DataDir, "small"),
+    {ok,small} = compile:file(Small, [report, no_inline, compressed, beam]),
+
+    ok.
+
+%% Test core transforms and parse transforms.
+transforms(Config) ->
+    {ok, Cwd} = file:get_cwd(),
+    try
+        do_transforms(Config)
+    after
+        file:set_cwd(Cwd)
+    end.
+
+do_transforms(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TargetDir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(TargetDir),
+    ok = file:set_cwd(TargetDir),
+
+    %% Compile our parse transforms.
+    LinePt = filename:join(DataDir, "line_pt"),
+    {ok,line_pt} = compile:file(LinePt, [report, {outdir,TargetDir}]),
+    ColumnPt = filename:join(DataDir, "column_pt"),
+    {ok,column_pt} = compile:file(ColumnPt, [report, {outdir,TargetDir}]),
+    GenericPt = filename:join(DataDir, "generic_pt"),
+    {ok,generic_pt} = compile:file(GenericPt, [report, {outdir,TargetDir}]),
+
+    %% Compile a file using line_pt and verify that column numbers
+    %% have been stripped.
+    Big = filename:join(DataDir, "big"),
+    {[],[_|_]} = compile_partition_warnings(Big, line_pt),
+
+    %% Compile a file using column_pt and verify that column numbers
+    %% have NOT been stripped.
+    {[_|_],[]} = compile_partition_warnings(Big, column_pt),
+
+    %% Cover transform code implementing the `time` option.
+    {ok,big,_} = compile:file(Big, [binary, time, report,
+                                    {core_transform,generic_pt},
+                                    {parse_transform,generic_pt}]),
+
+    %% Test crashing in a core transform.
+    Simple = filename:join(DataDir, simple),
+    error = compile:file(Simple, [report, {core_transform,generic_pt}, {action, crash}]),
+    {error,_,_} = compile:file(Simple, [return, {core_transform,generic_pt}, {action, crash}]),
+
+    %% Test crashing in a parse transform.
+    error = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, crash}]),
+    {error,_,_} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, crash}]),
+
+    %% Test generating errors and warnings in a parse_transform.
+    {ok,simple} = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, warning}]),
+    {ok,simple,[_|_]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, warning}]),
+    error = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, error}]),
+    {error,[_|_],[_|_]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, error}]),
+
+    ok.
+
+compile_partition_warnings(Source, PT) ->
+    Opts = [binary, return, {core_transform,generic_pt}, {parse_transform,PT}],
+    {ok,big,<<_/binary>>,Ws0} = compile:file(Source, Opts),
+    [{_SourcePath,Ws}] = Ws0,
+
+    %% Return {[ColumnWarning], [LineWarning]}.
+    lists:partition(fun({{L,C},_,_}) when is_integer(L), is_integer(C) -> true;
+                       ({L,_,_}) when is_integer(L) -> false
+                    end, Ws).
+
+%% Cover the erl_compile API used by erlc.
+erl_compile_api(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Simple = filename:join(DataDir, "simple.erl"),
+
+    Opts = #options{outdir=PrivDir},
+    BinOpts = Opts#options{specific=[binary]},
+
+    ok = compile:compile(Simple, "ignored", Opts),
+    ok = compile:compile(Simple, "ignored", Opts#options{cwd=PrivDir,includes=[PrivDir]}),
+    {ok,simple,_} = compile:compile(Simple, "ignored", BinOpts),
+
+    ok = compile:compile(Simple, "ignored", Opts#options{specific=[dabstr]}),
+    ok = compile:compile(Simple, "ignored", Opts#options{specific=[to_core]}),
+    ok = compile:compile(Simple, "ignored", Opts#options{specific=[to_asm]}),
+
+    SimpleAbstr = filename:join(PrivDir, "simple.abstr"),
+    SimpleCore = filename:join(PrivDir, "simple.core"),
+    SimpleAsm = filename:join(PrivDir, "simple.S"),
+
+    ok = compile:compile_abstr(SimpleAbstr, "ignored", Opts),
+    ok = compile:compile_core(SimpleCore, "ignored", Opts),
+    ok = compile:compile_asm(SimpleAsm, "ignored", Opts),
+
+    {ok,simple,<<_/binary>>} = compile:compile_abstr(SimpleAbstr, "ignored", BinOpts),
+    {ok,simple,<<_/binary>>} = compile:compile_core(SimpleCore, "ignored", BinOpts),
+    {ok,simple,<<_/binary>>} = compile:compile_asm(SimpleAsm, "ignored", BinOpts),
+
+    NeedsDefines = filename:join(DataDir, "needs_defines.erl"),
+    ok = compile:compile(NeedsDefines, "ignored", Opts#options{defines=[compile_this,{'TEST_RESULT',whatever}]}),
+
+    ok = file:delete(SimpleAbstr),
+    ok = file:delete(SimpleCore),
+    ok = file:delete(SimpleAsm),
+    ok = file:delete(filename:join(PrivDir, "simple.beam")),
+    ok = file:delete(filename:join(PrivDir, "needs_defines.beam")),
+
+    ok.
 
 %%%
 %%% Utilities.
