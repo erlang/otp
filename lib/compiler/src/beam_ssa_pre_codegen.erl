@@ -2064,46 +2064,89 @@ copy_retval_is([], RC, _, Copy, Count, Acc) ->
 %%
 %% Consider this code:
 %%
-%%   Var = ...
+%%   P = ...
+%%   Q = ...
+%%   ...
+%%   A = call foo/0
+%%   A1 = copy A
+%%   B = call bar/2, P, Q
+%%
+%% If the P or Q variables are no longer used after this code, one of
+%% their Y registers can't be reused for A. To allow one of the Y registers to
+%% be reused we will need to insert 'copy' instructions for arguments
+%% that are in Y registers:
+%%
+%%   P = ...
+%%   Q = ...
 %%   ...
 %%   A1 = call foo/0
+%%   Q1 = copy Q
+%%   P1 = copy P
 %%   A = copy A1
-%%   B = call bar/1, Var
+%%   B = call bar/2, P1, Q1
 %%
-%% If the Var variable is no longer used after this code, its Y register
-%% can't be reused for A. To allow the Y register to be reused
-%% we will need to insert 'copy' instructions for arguments that are
-%% in Y registers:
+%% Note that copies of the arguments are done in reverse order to help the
+%% reserve_xregs/3 function place the copies into the X registers they will
+%% need to be in.
 %%
-%%   Var = ...
-%%   ...
-%%   A1 = call foo/0
-%%   Var1 = copy Var
+%% For this example, P1 needs to be in x0 and Q1 needs to be in x1. If we
+%% would copy the arguments in order the registers would be assigned like
+%% this:
+%%
+%%   x0/A1 = call foo/0
+%%   x1/P1 = copy P
+%%   x2/Q1 = copy Q
 %%   A = copy A1
-%%   B = call bar/1, Var1
+%%   B = call bar/2, P1, Q1
+%%
+%% That is, both P1 and Q1 would be misplaced and would have to be
+%% moved to their correct registers before the call. However, with the
+%% copies in reverse order and with a little help from
+%% reserve_xregs/3, at least the Q1 variable can be can be placed in
+%% the correct register:
+%%
+%%   x0/A1 = call foo/0
+%%   x1/Q1 = copy Q
+%%   x2/P1 = copy P
+%%   A = copy A1
+%%   B = call bar/2, P1, Q1
+%%
+%% In general, all but the first argument can be placed in their correct registers.
 %%
 
 place_retval_copy(I, _Yregs, none, Count, Acc) ->
+    %% There is no copy of a previous return value, so there is nothing
+    %% to gain by copying the function arguments.
     {I,Count,Acc};
-place_retval_copy(#b_set{args=[F|Args0]}=I, Yregs, Copy, Count0, Acc0) ->
-    #b_set{dst=Avoid} = Copy,
-    {Args,Acc1,Count} = copy_func_args(Args0, Yregs, Avoid, Acc0, [], Count0),
-    Acc = [Copy|Acc1],
-    {I#b_set{args=[F|Args]},Count,Acc}.
+place_retval_copy(#b_set{args=[F|Args0]}=I0, Yregs0, RetCopy, Count0, Acc0) ->
+    %% Copy function arguments, but make sure that we don't make an extra
+    %% copy of the previous return value.
+    #b_set{dst=Avoid} = RetCopy,
+    Yregs = sets:del_element(Avoid, Yregs0),
+    {Args,Acc1,Count} = copy_func_args(Args0, Yregs, Acc0, Count0),
+    I = I0#b_set{args=[F|Args]},
 
-copy_func_args([#b_var{name=AName}=A|As], Yregs, Avoid, CopyAcc, Acc, Count0) ->
+    %% Place the copy instruction for the previous return value after the
+    %% copy instruction for the arguments.
+    Acc = [RetCopy|Acc1],
+    {I,Count,Acc}.
+
+copy_func_args(Args, Yregs, Acc, Count) ->
+    copy_func_args_1(reverse(Args), Yregs, Acc, [], Count).
+
+copy_func_args_1([#b_var{name=AName}=A|As], Yregs, InstrAcc, ArgAcc, Count0) ->
     case sets:is_element(A, Yregs) of
-        true when A =/= Avoid ->
+        true ->
             {NewVar,Count} = new_var(AName, Count0),
             Copy = #b_set{op=copy,dst=NewVar,args=[A]},
-            copy_func_args(As, Yregs, Avoid, [Copy|CopyAcc], [NewVar|Acc], Count);
-        _ ->
-            copy_func_args(As, Yregs, Avoid, CopyAcc, [A|Acc], Count0)
+            copy_func_args_1(As, Yregs, [Copy|InstrAcc], [NewVar|ArgAcc], Count);
+        false ->
+            copy_func_args_1(As, Yregs, InstrAcc, [A|ArgAcc], Count0)
     end;
-copy_func_args([A|As], Yregs, Avoid, CopyAcc, Acc, Count) ->
-    copy_func_args(As, Yregs, Avoid, CopyAcc, [A|Acc], Count);
-copy_func_args([], _Yregs, _Avoid, CopyAcc, Acc, Count) ->
-    {reverse(Acc),CopyAcc,Count}.
+copy_func_args_1([A|As], Yregs, InstrAcc, ArgAcc, Count) ->
+    copy_func_args_1(As, Yregs, InstrAcc, [A|ArgAcc], Count);
+copy_func_args_1([], _Yregs, InstrAcc, ArgAcc, Count) ->
+    {ArgAcc,InstrAcc,Count}.
 
 acc_copy(Acc, none) -> Acc;
 acc_copy(Acc, #b_set{}=Copy) -> [Copy|Acc].
