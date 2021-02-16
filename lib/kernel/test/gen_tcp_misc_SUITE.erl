@@ -3760,13 +3760,11 @@ do_accept_timeouts_in_order7(Config) ->
 			  {P1,{error,timeout}},{P3,{error,timeout}},
 			  {P8,{error,timeout}},{P7,{error,timeout}}],infinity,2000).
 
-%% Check that multi-accept timeouts behave correctly when mixed with successful timeouts.
+%% Check that multi-accept timeouts behave correctly when
+%% mixed with successful timeouts.
 accept_timeouts_mixed(Config) when is_list(Config) ->
-    try do_accept_timeouts_mixed(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(accept_timeouts_mixed,
+            fun() -> do_accept_timeouts_mixed(Config) end).
 
 do_accept_timeouts_mixed(Config) ->
     ?P("create listen socket"),
@@ -3778,24 +3776,34 @@ do_accept_timeouts_mixed(Config) ->
          end,
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
+
     ?P("create acceptor process 1 (with timeout 1000)"),
     P1 = spawn(mktmofun(1000,Parent,LS)),
+
     ?P("await ~p accepting", [P1]),
     wait_until_accepting(P1,500),
+
     ?P("create acceptor process 2 (with timeout 2000)"),
     P2 = spawn(mktmofun(2000,Parent,LS)),
+
     ?P("await ~p accepting", [P2]),
     wait_until_accepting(P2,500),
+
     ?P("create acceptor process 3 (with timeout 3000)"),
     P3 = spawn(mktmofun(3000,Parent,LS)),
+
     ?P("await ~p accepting", [P3]),
     wait_until_accepting(P3,500),
+
     ?P("create acceptor process 4 (with timeout 4000)"),
     P4 = spawn(mktmofun(4000,Parent,LS)),
+
     ?P("await ~p accepting", [P4]),
     wait_until_accepting(P4,500),
+
     ?P("expect accept from 1 (~p) with timeout", [P1]),
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],infinity,1500),
+
     ?P("connect"),
     case ?CONNECT(Config, "localhost", PortNo, []) of
         {ok, _} ->
@@ -3803,10 +3811,18 @@ do_accept_timeouts_mixed(Config) ->
         {error, eaddrnotavail = Reason1} ->
             ?SKIPT(connect_failed_str(Reason1))
     end,
+
     ?P("expect accept from 2 (~p) with success", [P2]),
-    ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
+    if is_port(LS) ->
+            ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),
+                                                        infinity,100);
+       true ->
+            ok = ?EXPECT_ACCEPTS([{P2,{ok,_}}],infinity,100)
+    end,
+
     ?P("expect accept from 3 (~p) with timeout", [P3]),
     ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
+
     ?P("connect"),
     case ?CONNECT(Config, "localhost", PortNo, []) of
         {error, eaddrnotavail = Reason2} ->
@@ -3814,8 +3830,15 @@ do_accept_timeouts_mixed(Config) ->
         _  ->
             ok
     end,
+
     ?P("expect accept from 4 (~p) with success", [P4]),
-    ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100),
+    if is_port(LS) ->
+            ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),
+                                                        infinity,100);
+       true ->
+            ok = ?EXPECT_ACCEPTS([{P4,{ok,_Port1}}],infinity,100)
+    end,
+
     ?P("done"),
     ok.
 
@@ -4300,20 +4323,30 @@ wait_until_accepting(Proc,0) ->
     exit({timeout_waiting_for_accepting,Proc});
 wait_until_accepting(Proc,N) ->
     case process_info(Proc,current_function) of
-        {current_function,{prim_inet,accept0,3}} ->
-            case process_info(Proc,status) of
+        {current_function, {prim_inet, accept0, 3}} ->
+            case process_info(Proc, status) of
                 {status,waiting} -> 
                     ok;
                 _O1 ->
                     receive 
                     after 5 ->
-                        wait_until_accepting(Proc,N-1)
+                            wait_until_accepting(Proc, N-1)
                     end
             end;
-         _O2 ->
+        {current_function, {gen, do_call, 4}} ->
+            case process_info(Proc, status) of
+                {status,waiting} -> 
+                    ok;
+                _O1 ->
+                    receive 
+                    after 5 ->
+                            wait_until_accepting(Proc, N-1)
+                    end
+            end;
+        _O2 ->
             receive 
             after 5 ->
-                wait_until_accepting(Proc,N-1)
+                    wait_until_accepting(Proc, N-1)
             end
     end.
 
@@ -4524,38 +4557,6 @@ do_active_n_closed(Config) ->
     inet:setopts(S, [{active, 10}]),
     ?P("start collecting data"),
     RecvSize = anc_await_closed_and_down(S, Pid, MRef),
-    %% {RecvSize, Down} =
-    %%     (fun Server(Size) ->
-    %%              receive
-    %%                  {tcp, S, Bin} ->
-    %%                      %% ?P("got a chunk (~w) of data", [byte_size(Bin)]),
-    %%                      Server(byte_size(Bin) + Size);
-    %%                  {tcp_closed, S} ->
-    %%                      ?P("got closed -> we are done: ~w", [Size]),
-    %%                      Size;
-    %%                  {tcp_passive, S} ->
-    %%                      %% ?P("got passive -> active"),
-    %%                      inet:setopts(S, [{active, 10}]),
-    %%                      Server(Size);
-    %%                  {'DOWN', MRef, process, Pid, Reason} ->
-    %%                      ?P("Received UNEXPECTED down message regarding client:"
-    %%                         "~n   Reason: ~p"
-    %%                         "~n   S:      ~p"
-    %%                         "~n   Port Info: ~p",
-    %%                         [Reason, ]),
-    %%                      ct:fail({unexpected_client_down, Reason});
-    %%                  Msg ->
-    %%                      ?P("ignore: ~p", [Msg]),
-    %%                      Server(Size)
-    %%              end
-    %%      end)(0),
-    %% ?P("await client process termination"),
-    %% receive
-    %%     {'DOWN', MRef, process, Pid, ok} ->
-    %%         ok;
-    %%     {'DOWN', MRef, process, Pid, CloseRes} ->
-    %%         exit({unexpected, close, CloseRes})
-    %% end,
 
     ?P("close listen socket"),
     gen_tcp:close(L),
