@@ -347,7 +347,7 @@
       <desc>
 	<p>
 	  The same as calling
-	  <seemfa marker="#call/5"><c>erpc:multicall(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seemfa>.
+	  <seemfa marker="#multicall/5"><c>erpc:multicall(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seemfa>.
 	  May raise all the same exceptions as <c>erpc:multicall/5</c>
 	  plus an <c>{erpc, badarg}</c> <c>error</c>
 	  exception if <c><anno>Fun</anno></c> is not a fun of
@@ -471,7 +471,7 @@ my_multicall(Nodes, Module, Function, Args) ->
       <desc>
 	<p>
 	  The same as calling
-	  <seemfa marker="#cast/4"><c>erpc:multicast(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
+	  <seemfa marker="#multicast/4"><c>erpc:multicast(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
 	</p>
 	<p><c>erpc:multicast/2</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
@@ -586,7 +586,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
       <desc>
 	<p>
 	  The same as calling
-	  <seemfa marker="#call/5"><c>erpc:send_request(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
+	  <seemfa marker="#send_request/4"><c>erpc:send_request(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
 	</p>
 	<p><c>erpc:send_request/2</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
