@@ -4234,7 +4234,7 @@ do_killing_multi_acceptors2_socket(Config, LS) ->
     ?CONNECT(Config, "localhost", PortNo,[]),
 
     ?P("await accept"),
-    ok = ?EXPECT_ACCEPTS([{Pid3,{ok,CSock}}],1,100),
+    ok = ?EXPECT_ACCEPTS([{Pid3,{ok, _CSock}}],1,100),
 
     ?P("validate state - listening"),
     case gen_tcp_socket:info(LS) of
@@ -4333,8 +4333,11 @@ accept_system_limit(Config) when is_list(Config) ->
 do_accept_system_limit(Config) ->
     ?P("create listen socket"),
     LS = case ?LISTEN(Config, 0, []) of
-             {ok, LSocket} ->
+             {ok, LSocket} when is_port(LSocket) ->
                  LSocket;
+             {ok, LSocket} ->
+                 (catch gen_tcp:close(LSocket)),
+                 ?SKIPT("Non-socket compliant test case");
              {error, eaddrnotavail = Reason} ->
                  ?SKIPT(listen_failed_str(Reason))
         end,             
