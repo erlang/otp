@@ -23,16 +23,14 @@
 
 -behaviour(gen_server).
 
+-deprecated([{start_service, 1, "use ftp:open/2 instead"},
+             {stop_service, 1,  "use ftp:close/1 instead"}]).
+
 -export([start/0,
          start_service/1,
          stop/0,
-         stop_service/1,
-         services/0,
-         service_info/1
+         stop_service/1
         ]).
-
-%% Added for backward compatibility
--export([start_standalone/1]).
 
 -export([start_link/1, start_link/2]).
 
@@ -136,20 +134,10 @@
 start() ->
     application:start(ftp).
 
-start_standalone(Options) ->
-    try
-        {ok, StartOptions} = start_options(Options),
-        case start_link(StartOptions, []) of
-            {ok, Pid} ->
-                call(Pid, {open, ip_comm, Options}, plain);
-            Error1 ->
-                Error1
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end.
-
+%% This should be made an internal function when we remove the deprecation
+%% ftp client processes should always be part of ftp supervisor tree.
+%% We consider it a bug that the "standalone" concept of inets was 
+%% not removed when ftp was broken out, and it is now fixed.
 start_service(Options) ->
     try
         {ok, StartOptions} = start_options(Options),
@@ -169,17 +157,6 @@ stop() ->
 
 stop_service(Pid) ->
     close(Pid).
-
-services() ->
-    [{ftpc, Pid} || {_, Pid, _, _} <-
-                        supervisor:which_children(ftp_sup)].
-service_info(Pid) ->
-    {ok, Info} = call(Pid, info, list),
-    {ok, [proplists:lookup(mode, Info),
-          proplists:lookup(local_port, Info),
-          proplists:lookup(peer, Info),
-          proplists:lookup(peer_port, Info)]}.
-
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -215,7 +192,7 @@ open(Host, Port) when is_integer(Port) ->
 %% </BACKWARD-COMPATIBILLITY>
 
 open(Host, Options) when is_list(Options) ->
-    start_standalone([{host,Host}|Options]).
+    start_service([{host,Host}|Options]).
 
 %%--------------------------------------------------------------------------
 %% user(Pid, User, Pass, <Acc>) -> ok | {error, euser} | {error, econn}
@@ -1120,7 +1097,6 @@ handle_call({_,{type, Type}}, From, #state{chunk = false} = State0) ->
         _ ->
             {reply, {error, etype}, State0}
     end;
-
 handle_call({_,{recv, RemoteFile, LocalFile}}, From,
             #state{chunk = false, ldir = LocalDir} = State) ->
     progress_report({remote_file, RemoteFile}, State),
@@ -1135,12 +1111,10 @@ handle_call({_,{recv, RemoteFile, LocalFile}}, From,
         {error, _What} ->
             {reply, {error, epath}, State}
     end;
-
 handle_call({_, {recv_bin, RemoteFile}}, From, #state{chunk = false} =
             State) ->
     setup_data_connection(State#state{caller = {recv_bin, RemoteFile},
                                       client = From});
-
 handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
             = State) ->
     setup_data_connection(State#state{caller = {start_chunk_transfer,
@@ -1149,18 +1123,38 @@ handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
 
 handle_call({_, recv_chunk}, _, #state{chunk = false} = State) ->
     {reply, {error, "ftp:recv_chunk_start/2 not called"}, State};
-
+handle_call({_, recv_chunk}, _From, #state{chunk = true,
+                                           data = Bin,
+                                           caller = #recv_chunk_closing{dconn_closed       = true,
+                                                                        pos_compl_received = true,
+                                                                        client_called_us = true
+                                                                       } 
+                                          } = State0) ->
+    case Bin of
+        <<>> ->
+            {reply, ok, State0#state{caller = undefined,
+                                     chunk = false,
+                                     client = undefined}};
+        Data ->
+            {reply, Data, State0}
+    end;
 handle_call({_, recv_chunk}, _From, #state{chunk = true,
                                            caller = #recv_chunk_closing{dconn_closed       = true,
                                                                         pos_compl_received = true
                                                                        }
                                           } = State0) ->
     %% The ftp:recv_chunk call was the last event we waited for, finnish and clean up
-    ?DBG("recv_chunk_closing ftp:recv_chunk, last event",[]),
+    ?DBG("Data connection closed recv_chunk_closing ftp:recv_chunk, last event",[]),
     State = activate_ctrl_connection(State0),
     {reply, ok, State#state{caller = undefined,
                              chunk = false,
                              client = undefined}};
+handle_call({_, recv_chunk}, From, #state{chunk = true,
+                                          caller = #recv_chunk_closing{pos_compl_received = true
+                                                                      } = R
+                                         } = State0) ->
+    State = activate_data_connection(State0),
+    {noreply, State#state{client = From, caller = R#recv_chunk_closing{client_called_us=true}}};
 
 handle_call({_, recv_chunk}, From, #state{chunk = true,
                                           caller = #recv_chunk_closing{} = R
@@ -1319,6 +1313,13 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
                           caller = #recv_chunk_closing{dconn_closed     =  true,
                                                        client_called_us =  Client =/= undefined}
                          }};
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
+                                  caller = #recv_chunk_closing{client_called_us = true,
+                                                               pos_compl_received = true} = R} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    %% Maybe handle unprocessed chunk message before acking final chunk
+    self() ! {Cls, Socket}, 
+    {noreply, State#state{caller = R#recv_chunk_closing{dconn_closed = true}}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin,
                                          data = Data} = State0)
@@ -1520,8 +1521,7 @@ code_change(_Vsn, State, _Extra) ->
 %% start_link([Opts, GenServerOptions]) -> {ok, Pid} | {error, Reason}
 %%
 %% Description: Callback function for the ftp supervisor. It is called
-%%            : when start_service/1 calls ftp_sup:start_child/1 to start an
-%%            : instance of the ftp process. Also called by start_standalone/1
+%%            : when open or legacy is called. 
 %%--------------------------------------------------------------------------
 start_link([Opts, GenServerOptions]) ->
     start_link(Opts, GenServerOptions).
@@ -1905,6 +1905,10 @@ handle_ctrl_result({pos_compl, _}, #state{caller = #recv_chunk_closing{}=R}
     ?DBG("recv_chunk_closing pos_compl, wait more",[]),
     {noreply, State0#state{caller = R#recv_chunk_closing{pos_compl_received=true}}};
 
+handle_ctrl_result({pos_compl, _}, #state{caller = undefined, chunk = true}
+                   = State0) ->
+    %% Waiting for user to call recv_chunk
+    {noreply, State0#state{caller = #recv_chunk_closing{pos_compl_received=true}}};
 
 %%--------------------------------------------------------------------------
 %% File handling - recv_file

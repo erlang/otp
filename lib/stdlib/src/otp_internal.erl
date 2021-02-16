@@ -23,6 +23,10 @@
 -include("otp_internal.hrl").
 %%
 -dialyzer({no_match, obsolete/3}).
+obsolete(ftp, start_service, 1) ->
+    {deprecated, "use ftp:open/2 instead"};
+obsolete(ftp, stop_service, 1) ->
+    {deprecated, "use ftp:close/1 instead"};
 obsolete(auth, cookie, 0) ->
     {deprecated, "use erlang:get_cookie/0 instead"};
 obsolete(auth, cookie, 1) ->
