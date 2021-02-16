@@ -845,8 +845,8 @@ typedef struct {
     /* 
      * +++ This is a way to, possibly, detect memory overrides "and stuff" +++
      *
-     * We have two patterns. One is set when the descriptor is created (allocated)
-     * and one is set when the descriptor is dtor'ed.
+     * We have two patterns. One is set when the descriptor is created
+     * (allocated) and one is set when the descriptor is dtor'ed.
      */
     Uint32             pattern;
 
@@ -5796,6 +5796,8 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
         SSDBG( descP, ("SOCKET", "esock_accept {%d} -> try accept\r\n",
                        descP->sock) );
 
+	ESOCK_CNT_INC(env, descP, sockRef, atom_acc_tries, &descP->accTries, 1);
+
         accSock = sock_accept(descP->sock, NULL, NULL);
 
         if (ESOCK_IS_ERROR(accSock)) {
@@ -5814,8 +5816,8 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
     } else {
 
         /* We have an active acceptor and possibly acceptors waiting in queue.
-         * If the pid of the calling process is not the pid of the "current process",
-         * push the requester onto the (acceptor) queue.
+         * If the pid of the calling process is not the pid of the
+	 * "current process", push the requester onto the (acceptor) queue.
          */
 
         SSDBG( descP, ("SOCKET", "esock_accept_accepting -> check: "
@@ -5842,8 +5844,7 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
                     "esock_accept_accepting {%d} -> *not* current acceptor\r\n",
                     descP->sock) );
 
-            return
-	        esock_accept_accepting_other(env, descP, accRef, caller);
+            return esock_accept_accepting_other(env, descP, accRef, caller);
         }
     }
 }
@@ -5877,9 +5878,7 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
                 "esock_accept_listening_error {%d} -> would block\r\n",
                 descP->sock) );
 
-        ESOCK_CNT_INC(env, descP, sockRef, atom_acc_tries, &descP->accTries, 1);
-
-        descP->currentAcceptor.pid = caller;
+	descP->currentAcceptor.pid = caller;
         ESOCK_ASSERT( MONP("esock_accept_listening -> current acceptor",
                            env, descP,
                            &descP->currentAcceptor.pid,
@@ -5946,6 +5945,8 @@ ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
             "esock_accept_accepting_current {%d} -> try accept\r\n",
             descP->sock) );
 
+    ESOCK_CNT_INC(env, descP, sockRef, atom_acc_tries, &descP->accTries, 1);
+	
     accSock = sock_accept(descP->sock, NULL, NULL);
 
     if (ESOCK_IS_ERROR(accSock)) {
@@ -7041,11 +7042,11 @@ ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
      */
     ESOCK_ASSERT( ALLOC_BIN(bufSz, &buf) );
 
-    ESOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
-
     // If it fails (read = -1), we need errno...
     SSDBG( descP, ("SOCKET", "esock_recv {%d} -> try read (%lu)\r\n",
                    descP->sock, (unsigned long) buf.size) );
+
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     read = sock_recv(descP->sock, buf.data, buf.size, flags);
     if (ESOCK_IS_ERROR(read)) {
@@ -16373,6 +16374,10 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
                    "\r\n   readByteCnt:  %u"
                    "\r\n   readTries:    %u"
                    "\r\n   readWaits:    %u"
+                   "\r\n   accSuccess:   %u"
+                   "\r\n   accTries:     %u"
+                   "\r\n   accWaits:     %u"
+                   "\r\n   accFails:     %u"
                    "\r\n",
                    descP->sock, fd,
                    (is_direct_call) ? "called" : "scheduled",
@@ -16385,11 +16390,17 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
                    descP->writeTries,
                    descP->writeWaits,
                    descP->writeFails,
+		   //
                    descP->readPkgCnt,
                    descP->readPkgMax,
                    descP->readByteCnt,
                    descP->readTries,
-                   descP->readWaits) );
+                   descP->readWaits,
+		   //
+		   descP->accSuccess,
+                   descP->accTries,
+                   descP->accWaits,
+		   descP->accFails) );
 
     if (is_direct_call)
         return; // Nothing to do, caller gets ERL_NIF_SELECT_STOP_SCHEDULED

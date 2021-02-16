@@ -1449,8 +1449,10 @@ handle_connect(
     end.
 
 handle_accept(P, D, From, ListenSocket, Timeout) ->
+    %% ?DBG({try_accept, D}),
     case socket:accept(ListenSocket, nowait) of
         {ok, Socket} ->
+            %% ?DBG(accept_success),
             ok = socket:setopt(Socket, {otp,iow}, true),
             ok = socket:setopt(Socket, {otp,meta}, meta(D)),
             [ok = socket_copy_opt(ListenSocket, Opt, Socket)
@@ -1460,13 +1462,15 @@ handle_accept(P, D, From, ListenSocket, Timeout) ->
               [{{timeout, accept}, cancel},
                {reply, From, {ok, Socket}}]);
         {select, SelectInfo} ->
+            %% ?DBG({accept_select, SelectInfo}),
             {next_state,
              #accept{
                 info = SelectInfo, from = From,
                 listen_socket = ListenSocket},
              {P, D#{type => accept}},
              [{{timeout, accept}, Timeout, accept}]};
-        {error, _} = Error ->
+        {error, _Reason} = Error ->
+            %% ?DBG({accept_failure, _Reason}),
             {next_state,
              'accept', {P, D},
              [{{timeout, accept}, cancel},
