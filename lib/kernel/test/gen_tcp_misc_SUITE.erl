@@ -4052,25 +4052,30 @@ do_killing_multi_acceptors_socket(LS) ->
 
 %% Check that multi acceptors behaves as expected when killed (more).
 killing_multi_acceptors2(Config) when is_list(Config) ->
-    try do_killing_multi_acceptors2(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(killing_multi_acceptors2,
+            fun() -> do_killing_multi_acceptors2(Config) end).
 
 do_killing_multi_acceptors2(Config) ->
     ?P("create listen socket"),
-    LS = case ?LISTEN(Config, 0,[]) of
-             {ok, LSocket} ->
-                 LSocket;
-             {error, eaddrnotavail = Reason} ->
-                 ?SKIPT(listen_failed_str(Reason))
-         end,             
+    case ?LISTEN(Config, 0,[]) of
+        {ok, LSocket} when is_port(LSocket) ->
+            do_killing_multi_acceptors2_inet(Config, LSocket);
+        {ok, LSocket} ->
+            do_killing_multi_acceptors2_socket(Config, LSocket);
+        {error, eaddrnotavail = Reason} ->
+            ?SKIPT(listen_failed_str(Reason))
+    end,
+    ?P("done"),
+    ok.
+
+do_killing_multi_acceptors2_inet(Config, LS) ->
     Parent = self(),
     ?P("get port number for listen socket"),
     {ok, PortNo} = inet:port(LS),
+
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     F2 = mktmofun(1000,Parent,LS),
+
     ?P("create acceptor process 1"),
     Pid = spawn(F),
     ?P("create acceptor process 2"),
@@ -4078,48 +4083,177 @@ do_killing_multi_acceptors2(Config) ->
     ?P("wait some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
+
+    ?P("validate state - accepting"),
     {ok, L1} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
     true = lists:member(accepting, L1),
-    ?P("kill acceptor process 1"),
+
+    ?P("kill acceptor 1"),
     exit(Pid,kill),
-    ?P("wait some"),
+
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
+
+    ?P("validate state - (still) accepting"),
     {ok, L2} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
     true  = lists:member(accepting, L2),
-    ?P("kill acceptor process 1"),
-    exit(Pid2,kill),
-    ?P("wait some"),
+
+    ?P("kill acceptor 2"),
+    exit(Pid2, kill),
+
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
+
+    ?P("validate state - listening"),
     {ok, L3} = prim_inet:getstatus(LS),
-    ?P("verify listen socket is *not* accepting"),
     false  = lists:member(accepting, L3),
-    ?P("create acceptor process 3"),
+
+    ?P("create acceptor 3"),
     Pid3 = spawn(F2),
+
     ?P("wait some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
-    {ok,L4} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
+
+    ?P("validate state - accepting"),
+    {ok, L4} = prim_inet:getstatus(LS),
     true  = lists:member(accepting, L4),
+
     ?P("connect to port ~p", [PortNo]),
     ?CONNECT(Config, "localhost", PortNo,[]),
-    ?P("accepts"),
-    ok = ?EXPECT_ACCEPTS([{Pid3,{ok,Port}}] when is_port(Port),1,100),
-    ?P("get status for listen socket"),
+
+    ?P("await accept"),
+    ok = ?EXPECT_ACCEPTS([{Pid3,{ok,CSock}}] when is_port(CSock),1,100),
+
+    ?P("validate state - listening"),
     {ok, L5} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
     false  = lists:member(accepting, L5),
-    ?P("done"),
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
     ok.
-    
+
+do_killing_multi_acceptors2_socket(Config, LS) ->
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 0},
+          num_acceptors := 0} ->
+            ?P("pre validated"),
+            ok;
+        INFO0 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO0]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    Parent = self(),
+    ?P("get port number for listen socket"),
+    {ok, PortNo} = inet:port(LS),
+
+    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    F2 = mktmofun(1000,Parent,LS),
+
+    ?P("create acceptor process 1"),
+    Pid = spawn(F),
+    ?P("create acceptor process 2"),
+    Pid2 = spawn(F),
+
+    ?P("wait some"),
+    ct:sleep(100),
+
+    ?P("validate state - accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 2} ->
+            ?P("validated"),
+            ok;
+        INFO1 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO1]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("kill acceptor 1"),
+    exit(Pid,kill),
+
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    ?P("validate state - (still) accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 1} ->
+            ?P("validated"),
+            ok;
+        INFO2 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO2]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("kill acceptor 2"),
+    exit(Pid2, kill),
+
+    ?P("sleep some"),
+    receive after 100 -> ok
+    end,
+
+    ?P("validate state - listening"),
+    case gen_tcp_socket:info(LS) of
+        %% Still no new accept calls
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 0} ->
+            ?P("validated"),
+            ok;
+        INFO3 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO3]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("create acceptor 3"),
+    Pid3 = spawn(F2),
+
+    ?P("wait some"),
+    ct:sleep(100),
+
+    ?P("validate state - accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 2},
+          num_acceptors := 1} ->
+            ?P("validated"),
+            ok;
+        INFO4 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO4]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("connect to port ~p", [PortNo]),
+    ?CONNECT(Config, "localhost", PortNo,[]),
+
+    ?P("await accept"),
+    ok = ?EXPECT_ACCEPTS([{Pid3,{ok,CSock}}],1,100),
+
+    ?P("validate state - listening"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_success := 1,
+                             acc_tries   := 3},
+          num_acceptors := 0} ->
+            ?P("validated"),
+            ok;
+        INFO5 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO5]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
+    ok.
+
+
 %% Checks that multi-accept works when more than one accept can be
 %% done at once (wb test of inet_driver).
 several_accepts_in_one_go(Config) when is_list(Config) ->
