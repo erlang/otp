@@ -118,6 +118,11 @@ const Eterm etp_magic_ref_header = ERTS_MAGIC_REF_THING_HEADER;
 const Eterm etp_magic_ref_header = ERTS_REF_THING_HEADER;
 #endif
 const Eterm etp_the_non_value = THE_NON_VALUE;
+#ifdef TAG_LITERAL_PTR
+const Eterm etp_ptr_mask = (~(Eterm)7);
+#else
+const Eterm etp_ptr_mask = (~(Eterm)3);
+#endif
 #ifdef ERTS_HOLE_MARKER
 const Eterm etp_hole_marker = ERTS_HOLE_MARKER;
 #else
