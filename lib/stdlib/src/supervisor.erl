@@ -65,7 +65,7 @@
 -type child_id() :: term().
 -type mfargs()   :: {M :: module(), F :: atom(), A :: [term()] | undefined}.
 -type modules()  :: [module()] | 'dynamic'.
--type restart()  :: 'permanent' | 'transient' | 'temporary'.
+-type restart()  :: 'permanent' | 'transient' | 'intrinsic' | 'temporary'.
 -type shutdown() :: 'brutal_kill' | timeout().
 -type worker()   :: 'worker' | 'supervisor'.
 -type sup_name() :: {'local', Name :: atom()}
@@ -141,6 +141,7 @@
 -define(is_simple(State), State#state.strategy =:= simple_one_for_one).
 -define(is_temporary(_Child_), _Child_#child.restart_type=:=temporary).
 -define(is_transient(_Child_), _Child_#child.restart_type=:=transient).
+-define(is_intrinsic(_Child_), _Child_#child.restart_type=:=intrinsic).
 -define(is_permanent(_Child_), _Child_#child.restart_type=:=permanent).
 
 -callback init(Args :: term()) ->
@@ -706,16 +707,28 @@ restart_child(Pid, Reason, State) ->
 do_restart(Reason, Child, State) when ?is_permanent(Child) ->
     ?report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
+do_restart(normal, Child, State) when ?is_intrinsic(Child) ->
+    NState = del_child(Child, State),
+    {shutdown, NState};
 do_restart(normal, Child, State) ->
     NState = del_child(Child, State),
     {ok, NState};
+do_restart(shutdown, Child, State) when ?is_intrinsic(Child) ->
+    NState = del_child(Child, State),
+    {shutdown, NState};
 do_restart(shutdown, Child, State) ->
     NState = del_child(Child, State),
     {ok, NState};
+do_restart({shutdown, _Term}, Child, State) when ?is_intrinsic(Child) ->
+    NState = del_child(Child, State),
+    {shutdown, NState};
 do_restart({shutdown, _Term}, Child, State) ->
     NState = del_child(Child, State),
     {ok, NState};
 do_restart(Reason, Child, State) when ?is_transient(Child) ->
+    ?report_error(child_terminated, Reason, Child, State#state.name),
+    restart(Child, State);
+do_restart(Reason, Child, State) when ?is_intrinsic(Child) ->
     ?report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(Reason, Child, State) when ?is_temporary(Child) ->
@@ -1343,6 +1356,7 @@ validFunc(Func)                      -> throw({invalid_mfa, Func}).
 validRestartType(permanent)   -> true;
 validRestartType(temporary)   -> true;
 validRestartType(transient)   -> true;
+validRestartType(intrinsic)   -> true;
 validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
 
 validShutdown(Shutdown)

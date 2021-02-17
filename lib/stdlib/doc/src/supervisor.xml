@@ -192,7 +192,15 @@ child_spec() = #{id => child_id(),       % mandatory
           death causes the temporary process to be terminated).
           A <c>transient</c> child process is restarted only if
           it terminates abnormally, that is, with another exit reason
-          than <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.</p>
+          than <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.
+          An <c>intrinsic</c> child process is restarted if it terminates
+          abnormally or if the supervisor's restart strategy is 
+          <c>rest_for_one</c> or <c>one_for_all</c> and a sibling's
+          death causes it to terminate. However, if any <c>intrinsic</c>
+          child process terminates normally, that is, with an exit reason
+          of <c>normal</c>, <c>shutdown</c> or <c>{shutdown,Term}</c>,
+          the <c>intrinsic</c> child's supervisor shuts down all remaining
+          childs and then also terminates normally.</p>
         <p>The <c>restart</c> key is optional. If it is not specified,
           it defaults to <c>permanent</c>.</p>
       </item>

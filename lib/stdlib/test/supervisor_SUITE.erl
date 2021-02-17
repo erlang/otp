@@ -48,14 +48,16 @@
 	  child_adm/1, child_adm_simple/1, child_specs/1, extra_return/1,
 	  sup_flags/1]).
 
-%% Tests concept permanent, transient and temporary 
+%% Tests concept permanent, transient, intrinsic and temporary 
 -export([ permanent_normal/1, transient_normal/1,
-	  temporary_normal/1,
+	  intrinsic_normal/1, temporary_normal/1,
 	  permanent_shutdown/1, transient_shutdown/1,
-	  temporary_shutdown/1,
+	  intrinsic_shutdown/1, temporary_shutdown/1,
           faulty_application_shutdown/1,
 	  permanent_abnormal/1, transient_abnormal/1,
-	  temporary_abnormal/1, temporary_bystander/1]).
+	  intrinsic_abnormal/1, temporary_abnormal/1,
+	  temporary_bystander/1, intrinsic_bystander/1,
+	  intrinsic_terminate/1]).
 
 %% Restart strategy tests 
 -export([ multiple_restarts/1,
@@ -103,9 +105,10 @@ all() ->
      do_not_save_start_parameters_for_temporary_children,
      do_not_save_child_specs_for_temporary_children,
      simple_one_for_one_scale_many_temporary_children, temporary_bystander,
-     simple_global_supervisor, hanging_restart_loop,
-     hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
-     code_change, code_change_map, code_change_simple, code_change_simple_map,
+     intrinsic_bystander, intrinsic_terminate, simple_global_supervisor,
+     hanging_restart_loop, hanging_restart_loop_rest_for_one,
+     hanging_restart_loop_simple, code_change, code_change_map,
+     code_change_simple, code_change_simple_map,
      order_of_children, scale_start_stop_many_children,
      format_log_1, format_log_2].
 
@@ -126,12 +129,12 @@ groups() ->
       [sup_stop_infinity, sup_stop_timeout,
        sup_stop_brutal_kill]},
      {normal_termination, [],
-      [permanent_normal, transient_normal, temporary_normal]},
+      [permanent_normal, transient_normal, intrinsic_normal, temporary_normal]},
      {shutdown_termination, [],
-      [permanent_shutdown, transient_shutdown, temporary_shutdown,
-       faulty_application_shutdown]},
+      [permanent_shutdown, transient_shutdown,intrinsic_shutdown,
+       temporary_shutdown, faulty_application_shutdown]},
      {abnormal_termination, [],
-      [permanent_abnormal, transient_abnormal,
+      [permanent_abnormal, transient_abnormal, intrinsic_abnormal,
        temporary_abnormal]},
      {restart_one_for_one, [],
       [one_for_one, one_for_one_escalation]},
@@ -690,6 +693,7 @@ child_specs(Config) when is_list(Config) ->
     C3 = {child, {m,f,[a]}, temporary, 1000, worker, dynamic},
     C4 = {child, {m,f,[a]}, transient, 1000, worker, [m]},
     C5 = {child, {m,f,[a]}, permanent, infinity, worker, [m]},
+    C6 = {child, {m,f,[a]}, intrinsic, 1000, worker, [m]},
 
     {error, {invalid_mfa,mfa}} = supervisor:start_child(sup_test, B1),
     {error, {invalid_restart_type, prmanent}} =
@@ -717,6 +721,7 @@ child_specs(Config) when is_list(Config) ->
     ok = supervisor:check_childspecs([C3]),
     ok = supervisor:check_childspecs([C4]),
     ok = supervisor:check_childspecs([C5]),
+    ok = supervisor:check_childspecs([C6]),
 
     {error,{duplicate_child_name,child}} = supervisor:check_childspecs([C1,C2]),
 
@@ -803,6 +808,28 @@ transient_normal(Config) when is_list(Config) ->
     [1,0,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
+%% An intrinsic child should not be restarted if it exits with reason
+%% normal, but it should cause it's parent to exit.
+intrinsic_normal(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+
+    Child1 = {child1, {supervisor_1, start_child, []}, intrinsic, 1000, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    SupRef = monitor(process, SupPid),
+    unlink(SupPid),
+
+    terminate(SupPid, CPid1, child1, normal),
+
+    receive {'DOWN', SupRef, process, SupPid, shutdown} ->
+	ok
+    after 1000 ->
+	catch link(SupPid),
+	demonitor(SupRef, [flush]),
+	ct:fail({supervisor_intrinsic_not_shutdown, SupPid})
+    end.
+
+%%-------------------------------------------------------------------------
 %% A temporary process should never be restarted.
 temporary_normal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -869,6 +896,39 @@ transient_shutdown(Config) when is_list(Config) ->
 
     [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
     [1,0,0,1] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+%% An intrinsic child should not be restarted if it exits with reason
+%% shutdown or {shutdown,Term}, but it should cause it's parent to exit.
+intrinsic_shutdown(Config) when is_list(Config) ->
+    SupRet = {ok, {{one_for_one, 2, 3600}, []}},
+    Child1 = {child1, {supervisor_1, start_child, []}, intrinsic, 1000, worker, []},
+
+    {ok, SupPid1} = start_link(SupRet),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    SupRef1 = monitor(process, SupPid1),
+    unlink(SupPid1),
+    terminate(SupPid1, CPid1, child1, shutdown),
+    receive {'DOWN', SupRef1, process, SupPid1, shutdown} ->
+	ok
+    after 1000 ->
+	demonitor(SupRef1, [flush]),
+	catch link(SupPid1),
+	ct:fail({supervisor_intrinsic_not_shutdown, SupPid1})
+    end,
+
+    {ok, SupPid2} = start_link(SupRet),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child1),
+    SupRef2 = monitor(process, SupPid2),
+    unlink(SupPid2),
+    terminate(SupPid2, CPid2, child1, {shutdown, some_info}),
+    receive {'DOWN', SupRef2, process, SupPid2, shutdown} ->
+	ok
+    after 1000 ->
+	demonitor(SupRef2, [flush]),
+	catch link(SupPid2),
+	ct:fail({supervisor_intrinsic_not_shutdown, SupPid2})
+    end.
 
 %%-------------------------------------------------------------------------
 %% A temporary process should never be restarted.
@@ -963,6 +1023,25 @@ transient_abnormal(Config) when is_list(Config) ->
     [1,1,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
+%% An intrinsic child should be restarted if it exits with reason abnormal.
+intrinsic_abnormal(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, intrinsic, 1000,
+	      worker, []},
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    terminate(SupPid, CPid1, child1, abnormal),
+
+    [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
+    case is_pid(Pid) of
+	true ->
+	    ok;
+	false ->
+	    ct:fail({intrinsic_child_not_restarted, Child1})
+    end,
+    [1,1,0,1] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
 %% A temporary process should never be restarted.
 temporary_abnormal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -1003,6 +1082,53 @@ temporary_bystander(_Config) ->
     %% Child2 has not been restarted
     [{child1, _, _, _}] = supervisor:which_children(SupPid1),
     [{child1, _, _, _}] = supervisor:which_children(SupPid2).
+
+%%-------------------------------------------------------------------------
+%% An intrinsic process killed as part of a rest_for_one or one_for_all
+%% restart strategy should not cause the parent to exit.
+intrinsic_bystander(_Config) ->
+    Child1 = {child1, {supervisor_1, start_child, []}, permanent, 100,
+	      worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, intrinsic, 100,
+	      worker, []},
+    {ok, SupPid1} = supervisor:start_link(?MODULE, {ok, {{one_for_all, 2, 300}, []}}),
+    {ok, SupPid2} = supervisor:start_link(?MODULE, {ok, {{rest_for_one, 2, 300}, []}}),
+    {ok, CPid1} = supervisor:start_child(SupPid1, Child1),
+    {ok, _CPid2} = supervisor:start_child(SupPid1, Child2),
+    {ok, CPid3} = supervisor:start_child(SupPid2, Child1),
+    {ok, _CPid4} = supervisor:start_child(SupPid2, Child2),
+    unlink(SupPid1),
+    unlink(SupPid2),
+    terminate(SupPid1, CPid1, child1, normal),
+    terminate(SupPid2, CPid3, child1, normal),
+    timer:sleep(350),
+    catch link(SupPid1),
+    catch link(SupPid2),
+    %% The supervisors should not have exited as a cause of the intrinsic
+    %% childs restarting
+    true = erlang:is_process_alive(SupPid1),
+    true = erlang:is_process_alive(SupPid2),
+    %% Both childs should have been restarted
+    [{child2, _, _, _}, {child1, _, _, _}] = supervisor:which_children(SupPid1),
+    [{child2, _, _, _}, {child1, _, _, _}] = supervisor:which_children(SupPid2).
+
+%%-------------------------------------------------------------------------
+%% An intrinsic process terminated via supervisor:terminate_child should
+%% not cause the parent to exit.
+intrinsic_terminate(_Config) ->
+    Child1 = {child1, {supervisor_1, start_child, []}, intrinsic, 1000,
+	      worker, []},
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, _CPid1} = supervisor:start_child(sup_test, Child1),
+    unlink(SupPid), % otherwise we crash with it
+    ok = supervisor:terminate_child(sup_test, child1),
+    timer:sleep(350),
+    catch link(SupPid),
+    %% The supervisor should not have exited as a cause of the intrinsic
+    %% child's termination
+    true = erlang:is_process_alive(SupPid),
+    %% The child should not have been restarted
+    [{child1, undefined, _, _}] = supervisor:which_children(SupPid).
 
 %%-------------------------------------------------------------------------
 %% Test restarting a process multiple times, being careful not
