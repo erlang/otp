@@ -245,6 +245,10 @@ The following tags can be used in an overview file.
       <em>only</em> be used in an overview file. The content can be
       arbitrary text.</dd>
 
+  <dt><a name="otag-vendor">`@vendor'</a></dt>
+      <dd>See the <a href="#mtag-vendor">`@vendor' module tag</a> for
+      details.</dd>
+
   <dt><a name="otag-version">`@version'</a></dt>
       <dd>See the <a href="#mtag-version">`@version' module
       tag</a> for details.</dd>
@@ -338,6 +342,30 @@ The following tags can be used before a module declaration:
       <dd>Specifies when the module was introduced, with respect to
       the application, release or distribution it is part
       of. The content can be arbitrary text.</dd>
+
+  <dt><a name="mtag-vendor">`@vendor'</a></dt>
+      <dd>Specifies the name of the vendor, along with a website URI and
+      logo. An URI can be given within `[...]', and a logo within `<...>'.
+      The URI and logo are optional. A completely empty `@vendor' tag can
+      be used to explicitly indicate "no vendor". Any surrounding
+      whitespaces are stripped from all strings.
+
+      The name is the first nonempty string that is not within `<...>'
+      or `[...]', and does not contain only whitespace. (In other words,
+      the name can come before, between, or after the URI and logo,
+      but cannot be split up; any sections after the first are ignored.)
+
+      Examples:
+```%% @vendor Example Inc. [http://www.example.net/] <http://www.example.net/logo.png>'''
+
+```%% @vendor Example Inc. [http://www.example.net/]'''
+
+```%% @vendor Example Inc. <http://www.example.net/logo.png>'''
+
+```%% @vendor Example Inc.'''
+
+```%% @vendor'''
+      </dd>
 
   <dt><a name="mtag-version">`@version'</a></dt>
       <dd>Specifies the module version. The content can be arbitrary

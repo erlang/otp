@@ -63,7 +63,7 @@
 
 -type tag() :: author | copyright | deprecated | doc | docfile | 'end' | equiv | headerfile
 	     | hidden | param | private | reference | returns | see | since | spec | throws
-	     | title | 'TODO' | todo | type | version.
+	     | title | 'TODO' | todo | type | vendor | version.
 -type parser() :: text | xml | fun().
 -type tag_flag() :: module | footer | function | overview | single.
 
@@ -91,6 +91,7 @@ tags() ->
      {'TODO', xml, All},
      {todo, xml, All},
      {type, fun parse_typedef/4, [module,footer,function]},
+     {vendor, fun parse_vendor/4, [module,overview,single]},
      {version, text, [module,overview,single]}].
 
 aliases('TODO') -> todo;
@@ -335,6 +336,16 @@ parse_contact(Data, Line, _Env, _Where) ->
 	    throw_error(Line, "must specify name or e-mail.");
 	Info ->
 	    Info
+    end.
+
+parse_vendor(Data, Line, _Env, _Where) ->
+    case edoc_lib:parse_vendor(Data, Line) of
+	{"", "", ""} = V ->
+	    V;
+	{"", _, _} ->
+	    throw_error(Line, "must specify name.");
+	V ->
+	    V
     end.
 
 parse_typedef(Data, Line, _Env, Where) ->

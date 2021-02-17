@@ -24,13 +24,13 @@
 
 %% Test cases
 -export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1,
-         build_app/1, otp_14285/1, infer_module_app_test/1]).
+         build_app/1, otp_14285/1, infer_module_app_test/1, vendor_tag/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app,appup,build_std,build_map_module,otp_12008, build_app, otp_14285,
-     infer_module_app_test].
+     infer_module_app_test, vendor_tag].
 
 groups() -> 
     [].
@@ -108,13 +108,39 @@ build_app(Config) ->
 	Src = filename:join(DataDir, "myapp"),
 
 	ok = edoc:application(myapp, Src, [{dir, OutDir}, {subpackages, false}]),
+	true = filelib:is_regular(filename:join(OutDir, "overview-summary.html")),
 	true = filelib:is_regular(filename:join(OutDir, "a.html")),
 	false = filelib:is_regular(filename:join(OutDir, "b.html")),
+	true = filelib:is_regular(filename:join(OutDir, "c.html")),
 
 	ok = edoc:application(myapp, Src, [{dir, OutDir}]),
+	true = filelib:is_regular(filename:join(OutDir, "overview-summary.html")),
 	true = filelib:is_regular(filename:join(OutDir, "a.html")),
 	true = filelib:is_regular(filename:join(OutDir, "b.html")),
+	true = filelib:is_regular(filename:join(OutDir, "c.html")),
 	ok.
+
+vendor_tag(Config) ->
+    DataDir  = ?config(data_dir, Config),
+    PrivDir  = ?config(priv_dir, Config),
+    OutDir = filename:join(PrivDir, "myapp"),
+    Src = filename:join(DataDir, "myapp"),
+    ok = edoc:application(myapp, Src, [{dir, OutDir}]),
+    {ok, OverviewHtml} = file:read_file(filename:join(OutDir, "overview-summary.html")),
+    {ok, AModuleHtml} = file:read_file(filename:join(OutDir, "a.html")),
+    {ok, BModuleHtml} = file:read_file(filename:join(OutDir, "b.html")),
+    {ok, CModuleHtml} = file:read_file(filename:join(OutDir, "c.html")),
+    RE1 = "alt=\"Example\\s+Vendor\"|href=\"http://www\\.example\\.org/\"|src=\"http://www\\.example\\.org/logo.png\"",
+    RE2 = "alt=\"erlang\\s+logo\"|href=\"http://www\\.erlang\\.org/\"|src=\"erlang\\.png\"",
+    {match, [_, _, _, _, _, _]} = re:run(OverviewHtml, RE1, [global]),
+    nomatch = re:run(OverviewHtml, RE2, [global]),
+    nomatch = re:run(AModuleHtml, RE1, [global]),
+    {match, [_, _, _, _, _, _]} = re:run(AModuleHtml, RE2, [global]),
+    nomatch = re:run(BModuleHtml, RE1, [global]),
+    {match, [_, _, _, _, _, _]} = re:run(BModuleHtml, RE2, [global]),
+    {match, [_, _, _, _, _, _]} = re:run(CModuleHtml, RE1, [global]),
+    nomatch = re:run(CModuleHtml, RE2, [global]),
+    ok.
 
 otp_14285(Config) ->
     DataDir  = ?config(data_dir, Config),

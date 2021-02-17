@@ -32,7 +32,7 @@
 -export([count/2, lines/1, split_at/2, split_at_stop/1,
 	 split_at_space/1, filename/1, transpose/1, segment/2,
 	 get_first_sentence/1, is_space/1, strip_space/1, parse_expr/2,
-	 parse_contact/2, escape_uri/1, join_uri/2,
+	 parse_contact/2, parse_vendor/2, escape_uri/1, join_uri/2,
 	 is_name/1, to_label/1, find_doc_dirs/0, find_sources/2,
 	 find_file/2, try_subdir/2, unique/1,
 	 write_file/3, write_file/4, write_info_file/3,
@@ -399,6 +399,49 @@ set_name(I, As) ->
 	"" -> I#info{name = strip_and_reverse(As)};
 	_ -> I
     end.
+
+-record(vendor, {name = "",
+		 uri = "",
+		 logo = ""}).
+
+%% @doc EDoc "vendor information" parsing. This is the type of the
+%% content in e.g.
+%% <a href="overview-summary.html#mtag-vendor">`@vendor'</a> tags.
+%% @private
+
+parse_vendor(S, L) ->
+    V = scan_vendor(S, L, undefined, #vendor{}, []),
+    {V#vendor.name, V#vendor.uri, V#vendor.logo}.
+
+%% The name is taken as the first non-whitespace-only string before,
+%% between, or following the URI/Logo sections. Subsequent text that
+%% is not URI or Logo is ignored.
+
+scan_vendor([], _L, undefined, V, As) ->
+    set_vendor_name(V, As);
+scan_vendor([], L, Exp, _V, _As) ->
+    throw_error({missing, Exp}, L);
+scan_vendor([$[ | Cs], L, undefined, V=#vendor{uri = ""}, As) ->
+    scan_vendor(Cs, L, $], set_vendor_name(V, As), []);
+scan_vendor([$[ | _Cs], L, undefined, _V, _As) ->
+    throw_error("multiple '[...]' sections.", L);
+scan_vendor([$] | Cs], L, $], V, As) ->
+    scan_vendor(Cs, L, undefined, V#vendor{uri = strip_and_reverse(As)}, []);
+scan_vendor([$< | Cs], L, undefined, V=#vendor{logo = ""}, As) ->
+    scan_vendor(Cs, L, $>, set_vendor_name(V, As), []);
+scan_vendor([$< | _Cs], L, undefined, _V, _As) ->
+    throw_error("multiple '<...>' sections.", L);
+scan_vendor([$> | Cs], L, $>, V, As) ->
+    scan_vendor(Cs, L, undefined, V#vendor{logo = strip_and_reverse(As)}, []);
+scan_vendor([$\n | Cs], L, Exp, V, As) ->
+    scan_vendor(Cs, L + 1, Exp, V, [$\n | As]);
+scan_vendor([C | Cs], L, Exp, V, As) ->
+    scan_vendor(Cs, L, Exp, V, [C | As]).
+
+set_vendor_name(V=#vendor{name = ""}, As) ->
+    V#vendor{name = strip_and_reverse(As)};
+set_vendor_name(V, _As) ->
+    V.
 
 strip_and_reverse(As) ->
     edoc_lib:strip_space(lists:reverse(edoc_lib:strip_space(As))).

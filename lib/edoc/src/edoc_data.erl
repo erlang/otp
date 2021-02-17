@@ -40,7 +40,7 @@
 %% TODO: check that variables in @equiv are found in the signature
 %% TODO: copy types from target (if missing) when using @equiv
 
-%% <!ELEMENT module (args?, description?, author*, copyright?,
+%% <!ELEMENT module (args?, description?, vendor?, author*, copyright?,
 %%                   version?, since?, deprecated?, see*, reference*,
 %%                   todo?, behaviour*, callbacks?, typedecls?,
 %%                   functions)>
@@ -55,6 +55,11 @@
 %% <!ELEMENT description (briefDescription, fullDescription?)>
 %% <!ELEMENT briefDescription (#PCDATA)>
 %% <!ELEMENT fullDescription (#PCDATA)>
+%% <!ELEMENT vendor EMPTY>
+%% <!ATTLIST vendor
+%%   name CDATA #REQUIRED
+%%   website CDATA #IMPLIED
+%%   logo CDATA #IMPLIED>
 %% <!ELEMENT author EMPTY>
 %% <!ATTLIST author
 %%   name CDATA #REQUIRED
@@ -106,6 +111,7 @@ module(Module, Entries, Env, Opts) ->
 	   (module_args(Module#module.parameters)
 	    ++ behaviours(Module#module.attributes, Env)
 	    ++ get_doc(HeaderTags)
+	    ++ vendor(HeaderTags)
 	    ++ authors(HeaderTags)
 	    ++ get_version(HeaderTags)
 	    ++ get_since(HeaderTags)
@@ -360,6 +366,23 @@ get_expr_ref(Expr) ->
 	    none
     end.
 
+%% <!ATTLIST vendor
+%%   name CDATA #REQUIRED
+%%   website CDATA #IMPLIED
+%%   logo CDATA #IMPLIED>
+
+vendor(Ts) ->
+    case get_tags(vendor, Ts) of
+	[] ->
+	    [];
+	[#tag{data = {Name, URI, Logo}}] ->
+	    Attrs0 = [],
+	    Attrs1 = if Name =:= "" -> Attrs0; true -> [{name, Name} | Attrs0] end,
+	    Attrs2 = if URI =:= "" -> Attrs1; true -> [{website, URI} | Attrs1] end,
+	    Attrs3 = if Logo =:= "" -> Attrs2; true -> [{logo, Logo} | Attrs2] end,
+	    [{vendor, Attrs3, []}]
+    end.
+
 authors(Ts) ->
     [author(Info) || #tag{data = Info} <- get_tags(author, Ts)].
 
@@ -517,8 +540,8 @@ get_tags(_, []) -> [].
 type(T, Env) ->
     xmerl_lib:expand_element({type, [edoc_types:to_xml(T, Env)]}).
 
-%% <!ELEMENT overview (title, description?, author*, copyright?, version?,
-%%                     since?, see*, reference*, todo?, modules)>
+%% <!ELEMENT overview (title, description?, vendor?, author*, copyright?,
+%%                     version?, since?, see*, reference*, todo?, modules)>
 %% <!ATTLIST overview
 %%   root CDATA #IMPLIED>
 %% <!ELEMENT title (#PCDATA)>
@@ -532,6 +555,7 @@ overview_1(Title, Tags, Env, Opts) ->
     {overview, [{root, Env#env.root}],
      ([{title, [get_title(Tags, Title)]}]
       ++ get_doc(Tags)
+      ++ vendor(Tags)
       ++ authors(Tags)
       ++ get_copyright(Tags)
       ++ get_version(Tags)
