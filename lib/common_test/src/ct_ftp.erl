@@ -19,6 +19,7 @@
 %%
 
 -module(ct_ftp).
+-compile({nowarn_deprecated_function, [{ftp,start_service,1}, {ftp,stop_service,1}]}).
 
 %% API
 -export([get/3,put/3, open/1,close/1, send/2,send/3, 
