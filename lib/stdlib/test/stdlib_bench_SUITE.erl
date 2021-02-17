@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -431,7 +431,7 @@ norm(T, Ref) ->
             "---"
     end.
 
--define(MAX_TIME_SECS, 3).   % s
+-define(MAX_TIME_SECS, 1).   % s
 -define(MAX_TIME, 1000 * ?MAX_TIME_SECS). % ms
 -define(CALLS_PER_LOOP, 5).
 
