@@ -1747,6 +1747,8 @@ do_transforms(Config) ->
     {ok,simple,[_|_]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, warning}]),
     error = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, error}]),
     {error,[_|_],[_|_]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, error}]),
+    error = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, undefined_error}]),
+    {error,[_|_],[]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, undefined_error}]),
 
     ok.
 

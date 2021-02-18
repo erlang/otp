@@ -204,13 +204,8 @@ env_default_opts() ->
 
 do_compile(Input, Opts0) ->
     Opts = expand_opts(Opts0),
-    IntFun = fun() -> try
-                          internal(Input, Opts)
-                      catch
-                          error:Reason ->
-                              {error,Reason}
-                      end
-             end,
+    IntFun = internal_fun(Input, Opts),
+
     %% Some tools, like Dialyzer, has already spawned workers
     %% and spawning extra workers actually slow the compilation
     %% down instead of speeding it up, so we provide a mechanism
@@ -227,6 +222,23 @@ do_compile(Input, Opts0) ->
                 {'DOWN',Ref,process,Pid,Rep} -> Rep
             end
     end.
+
+internal_fun(Input, Opts) ->
+    fun() ->
+            try
+                internal(Input, Opts)
+            catch
+                Class:Reason:Stk ->
+                    internal_error(Class, Reason, Stk)
+            end
+    end.
+
+internal_error(Class, Reason, Stk) ->
+    Error = ["\n*** Internal compiler error ***\n",
+             format_error_reason(Class, Reason, Stk),
+             "\n"],
+    io:put_chars(Error),
+    error.
 
 expand_opts(Opts0) ->
     %% {debug_info_key,Key} implies debug_info.
@@ -319,14 +331,17 @@ format_error({undef_parse_transform,M}) ->
     io_lib:format("undefined parse transform '~ts'", [M]);
 format_error({core_transform,M,R}) ->
     io_lib:format("error in core transform '~s': ~tp", [M, R]);
-format_error({crash,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\ncrash reason: ~ts", [Pass,format_error_reason(Reason)]);
+format_error({crash,Pass,Reason,Stk}) ->
+    io_lib:format("internal error in pass ~p:\n~ts", [Pass,format_error_reason({Reason, Stk})]);
 format_error({bad_return,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\nbad return value: ~ts", [Pass,format_error_reason(Reason)]);
+    io_lib:format("internal error in pass ~p: bad return value:\n~tP", [Pass,Reason,20]);
 format_error({module_name,Mod,Filename}) ->
     io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]).
 
 format_error_reason({Reason, Stack}) when is_list(Stack) ->
+    format_error_reason(error, Reason, Stack).
+
+format_error_reason(Class, Reason, Stack) ->
     StackFun = fun
 	(escript, run,      2) -> true;
 	(escript, start,    1) -> true;
@@ -335,10 +350,9 @@ format_error_reason({Reason, Stack}) when is_list(Stack) ->
 	(_Mod, _Fun, _Arity)   -> false
     end,
     FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
-    [io_lib:format("~tp", [Reason]),"\n\n",
-     erl_error:format_stacktrace(1, Stack, StackFun, FormatFun)];
-format_error_reason(Reason) ->
-    io_lib:format("~tp", [Reason]).
+    Opts = #{stack_trim_fun => StackFun,
+             format_fun => FormatFun},
+    erl_error:format_exception(Class, Reason, Stack, Opts).
 
 -type err_warn_info() :: tuple().
 
@@ -385,27 +399,10 @@ internal_comp(Passes, Code0, File, Suffix, St0) ->
     St1 = St0#compile{filename=File, dir=Dir, base=Base,
 		      ifile=erlfile(Dir, Base, Suffix),
 		      ofile=objfile(Base, St0)},
-    Opts = St1#compile.options,
-    Run0 = case member(time, Opts) of
-	       true  ->
-		   io:format("Compiling ~tp\n", [File]),
-		   fun run_tc/3;
-	       false ->
-                   fun({_Name,Fun}, Code, St) ->
-                           catch Fun(Code, St)
-                   end
-	   end,
-    Run = case keyfind(eprof, 1, Opts) of
-	      {eprof,EprofPass} ->
-		  fun(P, Code, St) ->
-			  run_eprof(P, Code, EprofPass, St)
-		  end;
-	      false ->
-		  Run0
-	  end,
+    Run = runner(File, St1),
     case fold_comp(Passes, Run, Code0, St1) of
-	{ok,Code,St2} -> comp_ret_ok(Code, St2);
-	{error,St2} -> comp_ret_err(St2)
+        {ok,Code,St2} -> comp_ret_ok(Code, St2);
+        {error,St2} -> comp_ret_err(St2)
     end.
 
 fold_comp([{delay,Ps0}|Passes], Run, Code, #compile{options=Opts}=St) ->
@@ -419,16 +416,14 @@ fold_comp([{Name,Test,Pass}|Ps], Run, Code, St) ->
 	    fold_comp([{Name,Pass}|Ps], Run, Code, St)
     end;
 fold_comp([{Name,Pass}|Ps], Run, Code0, St0) ->
-    case Run({Name,Pass}, Code0, St0) of
+    try Run({Name,Pass}, Code0, St0) of
 	{ok,Code,St1} ->
             fold_comp(Ps, Run, Code, St1);
 	{error,_St1}=Error ->
-            Error;
-	{'EXIT',Reason} ->
-	    Es = [{St0#compile.ifile,[{none,?MODULE,{crash,Name,Reason}}]}],
-	    {error,St0#compile{errors=St0#compile.errors ++ Es}};
-	Other ->
-	    Es = [{St0#compile.ifile,[{none,?MODULE,{bad_return,Name,Other}}]}],
+            Error
+    catch
+        error:Reason:Stk ->
+	    Es = [{St0#compile.ifile,[{none,?MODULE,{crash,Name,Reason,Stk}}]}],
 	    {error,St0#compile{errors=St0#compile.errors ++ Es}}
     end;
 fold_comp([], _Run, Code, St) -> {ok,Code,St}.
@@ -445,10 +440,33 @@ run_sub_passes_1([{Name,Run}|Ps], Runner, St0)
     end;
 run_sub_passes_1([], _, St) -> St.
 
+runner(File, #compile{options=Opts}) ->
+    Run0 = fun({_Name,Fun}, Code, St) ->
+                   Fun(Code, St)
+           end,
+    Run1 = case member(time, Opts) of
+               true  ->
+                   case File of
+                       none -> ok;
+                       _ -> io:format("Compiling ~ts\n", [File])
+                   end,
+                   fun run_tc/3;
+               false ->
+                   Run0
+           end,
+    case keyfind(eprof, 1, Opts) of
+        {eprof,EprofPass} ->
+            fun(P, Code, St) ->
+                    run_eprof(P, Code, EprofPass, St)
+            end;
+        false ->
+            Run1
+    end.
+
 run_tc({Name,Fun}, Code, St) ->
     OldTimes = put(?SUB_PASS_TIMES, []),
     T1 = erlang:monotonic_time(),
-    Val = (catch Fun(Code, St)),
+    Val = Fun(Code, St),
     T2 = erlang:monotonic_time(),
     Times = get(?SUB_PASS_TIMES),
     case OldTimes of
@@ -464,11 +482,9 @@ run_tc({Name,Fun}, Code, St) ->
     Val.
 
 print_times(Times0, Name) ->
-    Fam0 = sofs:relation(Times0),
-    Fam1 = sofs:rel2fam(Fam0),
-    Fam2 = sofs:to_external(Fam1),
-    Fam3 = [{W,lists:sum(Times)} || {W,Times} <- Fam2],
-    Fam = reverse(lists:keysort(2, Fam3)),
+    Fam0 = rel2fam(Times0),
+    Fam1 = [{W,lists:sum(Times)} || {W,Times} <- Fam0],
+    Fam = reverse(lists:keysort(2, Fam1)),
     Total = case lists:sum([T || {_,T} <- Fam]) of
                 0 -> 1;
                 Total0 -> Total0
@@ -491,12 +507,14 @@ print_times_1([], _Total) -> ok.
 run_eprof({Name,Fun}, Code, Name, St) ->
     io:format("~p: Running eprof\n", [Name]),
     c:appcall(tools, eprof, start_profiling, [[self()]]),
-    Val = (catch Fun(Code, St)),
-    c:appcall(tools, eprof, stop_profiling, []),
-    c:appcall(tools, eprof, analyze, []),
-    Val;
+    try
+        Fun(Code, St)
+    after
+        c:appcall(tools, eprof, stop_profiling, []),
+        c:appcall(tools, eprof, analyze, [])
+    end;
 run_eprof({_,Fun}, Code, _, St) ->
-    catch Fun(Code, St).
+    Fun(Code, St).
 
 comp_ret_ok(Code, #compile{warnings=Warn0,module=Mod,options=Opts}=St) ->
     case werror(St) of
@@ -626,11 +644,11 @@ fix_first_pass([_|Passes]) ->
 %%    {pass,Mod}	Will be expanded to a call to the external
 %%			function Mod:module(Code, Options).  This
 %%			function must transform the code and return
-%%			{ok,NewCode} or {error,Term}.
-%%			Example: {pass,beam_codegen}
+%%			{ok,NewCode} or {ok,NewCode,Warnings}.
+%%			Example: {pass,beam_ssa_codegen}
 %%
 %%    {Name,Fun}	Name is an atom giving the name of the pass.
-%%    			Fun is an 'fun' taking one argument: a compile record.
+%%    			Fun is an 'fun' taking one argument: a #compile{} record.
 %%			The fun should return {ok,NewCompileRecord} or
 %%			{error,NewCompileRecord}.
 %%			Note: ?pass(Name) is equvivalent to {Name,fun Name/1}.
@@ -670,13 +688,14 @@ fix_first_pass([_|Passes]) ->
 
 select_passes([{pass,Mod}|Ps], Opts) ->
     F = fun(Code0, St) ->
-		case catch Mod:module(Code0, St#compile.options) of
+		case Mod:module(Code0, St#compile.options) of
 		    {ok,Code} ->
 			{ok,Code,St};
 		    {ok,Code,Ws} ->
 			{ok,Code,St#compile{warnings=St#compile.warnings++Ws}};
-		    {error,Es} ->
-			{error,St#compile{errors=St#compile.errors ++ Es}}
+                    Other ->
+                        Es = [{St#compile.ifile,[{none,?MODULE,{bad_return,Mod,Other}}]}],
+                        {error,St#compile{errors=St#compile.errors ++ Es}}
 		end
 	end,
     [{Mod,F}|select_passes(Ps, Opts)];
@@ -1120,22 +1139,11 @@ foldl_transform([T|Ts], Code0, St) ->
             Fun = fun(Code, S) ->
                           T:parse_transform(Code, S#compile.options)
                   end,
-            Run = case member(time, St#compile.options) of
-                      true  ->
-                          fun run_tc/3;
-                      false ->
-                          fun({_Name,F}, Code, S) ->
-                                  catch F(Code, S)
-                          end
-                  end,
-            case Run({Name, Fun}, Code0, St) of
+            Run = runner(none, St),
+            try Run({Name, Fun}, Code0, St) of
                 {error,Es,Ws} ->
                     {error,St#compile{warnings=St#compile.warnings ++ Ws,
                                       errors=St#compile.errors ++ Es}};
-                {'EXIT',R} ->
-                    Es = [{St#compile.ifile,[{none,compile,
-                                              {parse_transform,T,R}}]}],
-                    {error,St#compile{errors=St#compile.errors ++ Es}};
                 {warning, Forms0, Ws} ->
                     Forms = maybe_strip_columns(Forms0, T),
                     foldl_transform(Ts, Forms,
@@ -1143,6 +1151,11 @@ foldl_transform([T|Ts], Code0, St) ->
                 Forms0 ->
                     Forms = maybe_strip_columns(Forms0, T),
                     foldl_transform(Ts, Forms, St)
+            catch
+                error:Reason:Stk ->
+                    Es = [{St#compile.ifile,[{none,compile,
+                                              {parse_transform,T,{Reason,Stk}}}]}],
+                    {error,St#compile{errors=St#compile.errors ++ Es}}
             end;
         false ->
             Es = [{St#compile.ifile,[{none,compile,
@@ -1182,20 +1195,15 @@ core_transforms(Code, St) ->
 foldl_core_transforms([T|Ts], Code0, St) ->
     Name = "core transform " ++ atom_to_list(T),
     Fun = fun(Code, S) -> T:core_transform(Code, S#compile.options) end,
-    Run = case member(time, St#compile.options) of
-	      true ->
-                  fun run_tc/3;
-	      false ->
-                  fun({_Name,F}, Code, S) ->
-                          catch F(Code, S)
-                  end
-	  end,
-    case Run({Name, Fun}, Code0, St) of
-	{'EXIT',R} ->
-	    Es = [{St#compile.ifile,[{none,compile,{core_transform,T,R}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}};
+    Run = runner(none, St),
+    try Run({Name, Fun}, Code0, St) of
 	Forms ->
 	    foldl_core_transforms(Ts, Forms, St)
+    catch
+        error:Reason:Stk ->
+            Es = [{St#compile.ifile,[{none,compile,
+                                      {core_transform,T,{Reason,Stk}}}]}],
+            {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
 foldl_core_transforms([], Code, St) -> {ok,Code,St}.
 
@@ -1872,6 +1880,10 @@ help([_|T]) ->
 help(_) ->
     ok.
 
+rel2fam(S0) ->
+    S1 = sofs:relation(S0),
+    S = sofs:rel2fam(S1),
+    sofs:to_external(S).
 
 %% compile(AbsFileName, Outfilename, Options)
 %%   Compile entry point for erl_compile.
