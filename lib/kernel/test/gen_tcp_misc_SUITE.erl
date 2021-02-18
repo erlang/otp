@@ -1757,7 +1757,7 @@ craasao_verify(Client, Sender, Payload) when is_pid(Sender) ->
     craasao_verify_sender(Sender),
     ?P("ensure no 'unexpected messages' received"),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
-    ?P("set client socket option active (1): once"),
+    ?P("set client socket option active once (1)"),
     ok = inet:setopts(Client, [{active, once}]),
     ?P("client expect (server) data"),
     receive
@@ -1765,17 +1765,26 @@ craasao_verify(Client, Sender, Payload) when is_pid(Sender) ->
             ?P("client received expected data"),
             ok
     end,
-    ?P("set client socket option active (2): once"),
+    ?P("set client socket option active once (2)"),
     ok = inet:setopts(Client, [{active, once}]),
-    ?P("client expect closed"),
+    ?P("await client closed"),
     receive
-	{tcp_closed, Client} ->
-            ?P("client received expected closed message");
-	Other3 ->
-            ?P("client received unexpected message (expected closed): "
+	{tcp_error, Client, econnreset} ->
+            ?P("client received econnreset -> expect socket close message"),
+	    receive
+		{tcp_closed, Client} ->
+		    ?P("client received expected closed message");
+		Other1 ->
+		    ?P("client received unexpected message (expected closed): "
+		       "~n      Unexpected: ~p"
+		       "~n      Flushed:    ~p", [Other1, craasao_flush()]),
+		    ct:fail({unexpected, tcp_closed, Other1})
+	    end;
+	Other2 ->
+            ?P("client received unexpected message (expected error): "
                "~n      Unexpected: ~p"
-               "~n      Flushed:    ~p", [Other3, craasao_flush()]),
-	    ct:fail({unexpected, tcp_closed, Other3})
+               "~n      Flushed:    ~p", [Other2, craasao_flush()]),
+	    ct:fail({unexpected, tcp_error, Other2})
     after 10000 ->
             ?P("client received unexpected timeout (expected error): "
                "~n      Flushed: ~p", [craasao_flush()]),
@@ -1795,6 +1804,7 @@ craasao_verify_sender(Sender) when is_pid(Sender) ->
     ?P("await sender termination"),
     receive
         {'EXIT', Sender, normal} ->
+	    ?P("expected normal sender termination received"),
             ok;
         {'EXIT', Sender, Reason} ->
             ?P("unexpected sender termination: "
