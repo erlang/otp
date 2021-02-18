@@ -277,9 +277,9 @@ syntax(Config) when is_list(Config) ->
     ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol nt. Endsymbol e.
             a - a.">>),
-    {error,[{_,[{{2,15},yecc,{error,_yeccparser,_}}]}],[]} =
+    {error,[{_,[{{2,15},yecc,{error,_,_}}]}],[]} =
         yecc:file(Filename, Ret),
-    ?line {error,[{_,[{2,yecc,{error,_yeccparser,_}}]}],[]} =
+    {error,[{_,[{2,yecc,{error,_,_}}]}],[]} =
         yecc:file(Filename, [{error_location, line} | Ret]),
 
     %% Syntax error: unknown nonterminal.
@@ -2034,7 +2034,7 @@ otp_11286(Config) when is_list(Config) ->
     ok = rpc:call(Node, file, write_file, [Filename, Mini1]),
     {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
     Opts = [return, warn_unused_vars,{outdir,Dir}],
-    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+    {ok,_,_} = rpc:call(Node, compile, file, [ErlFile, Opts]),
 
     Mini2 = <<"Terminals t.
                Nonterminals nt.
@@ -2043,7 +2043,7 @@ otp_11286(Config) when is_list(Config) ->
     ok = rpc:call(Node, file, write_file, [Filename, Mini2]),
     {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
     Opts = [return, warn_unused_vars,{outdir,Dir}],
-    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+    {ok,_,_} = rpc:call(Node, compile, file, [ErlFile, Opts]),
 
     Mini3 = <<"%% coding: latin-1
                Terminals t.
@@ -2053,7 +2053,7 @@ otp_11286(Config) when is_list(Config) ->
     ok = rpc:call(Node, file, write_file, [Filename, Mini3]),
     {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
     Opts = [return, warn_unused_vars,{outdir,Dir}],
-    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+    {ok,_,_} = rpc:call(Node, compile, file, [ErlFile, Opts]),
 
     true = test_server:stop_node(Node),
     ok.

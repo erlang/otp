@@ -72,7 +72,7 @@ big(Config) when is_list(Config) ->
         Pid = spawn_link(dbg_test, loop, [Config]),
         true = register(dbg_test_loop, Pid),
         {ok,_} = dbg:tracer(),
-        {ok,[{matched, _node, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
+        {ok,[{matched, _, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
         ok = dbg:c(dbg_test, test, [Config]),
         ok = dbg:i(),
         dbg_test_loop ! {dbg_test, stop},
@@ -82,7 +82,7 @@ big(Config) when is_list(Config) ->
         %% run/debug a Pid.
         Pid2=spawn_link(dbg_test,loop,[Config]),
         {ok,_} = dbg:tracer(),
-        {ok,[{matched, _node, 1}]} = dbg:p(Pid2,[s,r,p]),
+        {ok,[{matched, _, 1}]} = dbg:p(Pid2,[s,r,p]),
         ok = dbg:c(dbg_test, test, [Config]),
         ok = dbg:i(),
         Pid2 ! {dbg_test, stop},
@@ -182,7 +182,7 @@ send(Config) when is_list(Config) ->
         send_test(Rcvr, [{[self(),'_'],[],[]}]),
 
         %% Test that self() is not the receiving process
-        {ok, [{matched, _node, 1}, {saved, 2}]} =
+        {ok, [{matched, _, 1}, {saved, 2}]} =
             dbg:tpe(send, [{['$1','_'],[{'==','$1',{self}}],[]}]),
         send_test(Rcvr, make_ref(), false),
 
@@ -197,7 +197,7 @@ send(Config) when is_list(Config) ->
         send_test(Rcvr, 2, make_ref(), false),
 
         %% Test clearing of trace pattern
-        {ok, [{matched, _node, 1}]} = dbg:ctpe(send),
+        {ok, [{matched, _, 1}]} = dbg:ctpe(send),
         send_test(Rcvr, make_ref(), true),
 
         %% Test complex message inspection
@@ -291,7 +291,7 @@ recv(Config) when is_list(Config) ->
         recv_test(Rcvr, [{[node(), self(), '_'],[],[]}]),
 
         %% Test that self() is the not sending process
-        {ok, [{matched, _node, 1}, {saved, 2}]} =
+        {ok, [{matched, _, 1}, {saved, 2}]} =
             dbg:tpe('receive', [{[node(), '$1','_'],[{'==','$1',{self}}],[]}]),
         recv_test(Rcvr, make_ref(), false),
 
@@ -306,7 +306,7 @@ recv(Config) when is_list(Config) ->
         recv_test(Rcvr, 2, make_ref(), false),
 
         %% Test clearing of trace pattern
-        {ok, [{matched, _node, 1}]} = dbg:ctpe('receive'),
+        {ok, [{matched, _, 1}]} = dbg:ctpe('receive'),
         recv_test(Rcvr, make_ref(), true),
 
         %% Test complex message inspection
@@ -433,13 +433,13 @@ local_trace(Config) when is_list(Config) ->
         Z = list_to_integer(LZ),
         XYZ = {X, Y, Z},
         io:format("Self = ~w = ~w~n", [S,XYZ]),
-        {ok, [{matched, _node, 1}]} = dbg:p(S,call),
-        {ok, [{matched, _node, 1}]} = dbg:p(XYZ,call),
+        {ok, [{matched, _, 1}]} = dbg:p(S,call),
+        {ok, [{matched, _, 1}]} = dbg:p(XYZ,call),
         if Z =:= 0 ->
-               {ok, [{matched, _node, 1}]} = dbg:p(Y,call);
+               {ok, [{matched, _, 1}]} = dbg:p(Y,call);
            true -> ok
         end,
-        {ok, [{matched, _node, 1}]} = dbg:p(L,call),
+        {ok, [{matched, _, 1}]} = dbg:p(L,call),
         {ok, _} = dbg:tpl(?MODULE,not_exported,[]),
         4 = not_exported(2),
         [{trace,S,call,{?MODULE,not_exported,[2]}}] = flush(),
@@ -506,8 +506,8 @@ saved_patterns(Config) when is_list(Config) ->
     {ok, _} = start(),
     try
         dbg:rtp(File),
-        {ok,[{matched,_node,1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
-        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, [{matched, _, 1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
+        {ok, [{matched, _, 1}]} = dbg:p(self(),call),
         dbg:ltp(),
         S = self(),
         [{trace,S,call,{dbg,ltp,[]},blahonga}] = flush()

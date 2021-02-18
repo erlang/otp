@@ -1331,20 +1331,22 @@ do_otp_7669_stop() ->
 
 %% Verify that sys:get_status correctly calls our format_status/2 fun.
 call_format_status(Config) when is_list(Config) ->
+    Parent = self(),
+
     {ok, Pid} = gen_server:start_link({local, call_format_status},
 				      ?MODULE, [], []),
     Status1 = sys:get_status(call_format_status),
-    {status, Pid, _Mod, [_PDict, running, _Parent, _, Data1]} = Status1,
+    {status, Pid, Mod, [_Pdict1, running, Parent, _, Data1]} = Status1,
     [format_status_called | _] = lists:reverse(Data1),
     Status2 = sys:get_status(call_format_status, 5000),
-    {status, Pid, _Mod, [_PDict, running, _Parent, _, Data2]} = Status2,
+    {status, Pid, Mod, [_Pdict2, running, Parent, _, Data2]} = Status2,
     [format_status_called | _] = lists:reverse(Data2),
 
     %% check that format_status can handle a name being a pid (atom is
     %% already checked by the previous test)
     {ok, Pid3} = gen_server:start_link(gen_server_SUITE, [], []),
     Status3 = sys:get_status(Pid3),
-    {status, Pid3, _Mod, [_PDict3, running, _Parent, _, Data3]} = Status3,
+    {status, Pid3, Mod, [_PDict3, running, Parent, _, Data3]} = Status3,
     [format_status_called | _] = lists:reverse(Data3),
 
     %% check that format_status can handle a name being a term other than a
@@ -1353,13 +1355,13 @@ call_format_status(Config) when is_list(Config) ->
     {ok, Pid4} = gen_server:start_link(GlobalName1,
 				       gen_server_SUITE, [], []),
     Status4 = sys:get_status(Pid4),
-    {status, Pid4, _Mod, [_PDict4, running, _Parent, _, Data4]} = Status4,
+    {status, Pid4, Mod, [_PDict4, running, Parent, _, Data4]} = Status4,
     [format_status_called | _] = lists:reverse(Data4),
     GlobalName2 = {global, {name, "term"}},
     {ok, Pid5} = gen_server:start_link(GlobalName2,
 				       gen_server_SUITE, [], []),
     Status5 = sys:get_status(GlobalName2),
-    {status, Pid5, _Mod, [_PDict5, running, _Parent, _, Data5]} = Status5,
+    {status, Pid5, Mod, [_PDict5, running, Parent, _, Data5]} = Status5,
     [format_status_called | _] = lists:reverse(Data5),
     ok.
 

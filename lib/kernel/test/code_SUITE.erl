@@ -531,7 +531,7 @@ all_available_1(Config) ->
     Loaded = [{atom_to_list(M),P,true} || {M,P} <- code:all_loaded()],
     [] = Loaded -- Available,
 
-    {value, {ModStr,_Path,false} = NotLoaded} =
+    {value, {ModStr,_,false} = NotLoaded} =
         lists:search(fun({Name,_,Loaded}) -> not is_atom(Name) end, Available),
     ct:log("Testing with ~p",[NotLoaded]),
 
@@ -543,7 +543,7 @@ all_available_1(Config) ->
     %% Load it
     Mod:module_info(),
 
-    {value, {ModStr,_Path,true}} =
+    {value, {ModStr,_,true}} =
         lists:search(fun({Name,_,_}) -> Name =:= ModStr end, code:all_available()),
 
     ok.

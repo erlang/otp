@@ -179,7 +179,7 @@ apply_interpreted_fun(Config) when is_list(Config) ->
 
     %% Called from uninterpreted code, error in fun
     F3 = spawn_eval(fun() -> ?IM:give_me_a_bad_fun() end),
-    {'EXIT',{snape,[{?IM,_FunName,_,_}|_]}} =
+    {'EXIT',{snape,[{?IM,_,_,_}|_]}} =
 	spawn_eval(fun() -> F3(snape) end),
 
     %% Called from within interpreted code
@@ -190,7 +190,7 @@ apply_interpreted_fun(Config) when is_list(Config) ->
 	spawn_eval(fun() -> ?IM:do_apply(F1, snape) end),
 
     %% Called from within interpreted code, error in fun
-    {'EXIT',{snape,[{?IM,_FunName,_,_}|_]}} =
+    {'EXIT',{snape,[{?IM,_,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F3, snape) end),
 
     %% Try some more complex funs.
