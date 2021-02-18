@@ -1517,6 +1517,33 @@ AC_ARG_WITH(with_sparc_memory_order,
 	    AS_HELP_STRING([--with-sparc-memory-order=TSO|PSO|RMO],
 			   [specify sparc memory order (defaults to RMO)]))
 
+AC_ARG_ENABLE(ppc-lwsync-instruction,
+AS_HELP_STRING([--enable-ppc-lwsync-instruction], [enable use of powerpc lwsync instruction])
+AS_HELP_STRING([--disable-ppc-lwsync-instruction], [disable use of powerpc lwsync instruction]),
+[ case "$enableval" in
+    no) enable_lwsync=no ;;
+    *)  enable_lwsync=yes ;;
+  esac ],
+[
+  AC_CHECK_SIZEOF(void *)
+  case $host_cpu-$ac_cv_sizeof_void_p in
+       macppc-8|powerpc-8|ppc-8|powerpc64-8|ppc64-8|powerpc64le-8|ppc64le-8|"Power Macintosh"-8)
+           enable_lwsync=yes;;
+       *)
+           enable_lwsync=undefined;;
+  esac ])
+
+case $enable_lwsync in
+     no)
+       AC_DEFINE(ETHR_PPC_HAVE_NO_LWSYNC, [1], [Define if you do not have the powerpc lwsync instruction])
+       ;;
+     yes)
+       AC_DEFINE(ETHR_PPC_HAVE_LWSYNC, [1], [Define if you have the powerpc lwsync instruction])
+       ;;
+     *)
+       ;;
+esac
+
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
@@ -2850,6 +2877,8 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     ppc)	ARCH=ppc;;
     ppc64)	ARCH=ppc64;;
     ppc64le)	ARCH=ppc64le;;
+    powerpc64)	ARCH=ppc64;;
+    powerpc64le) ARCH=ppc64le;;
     "Power Macintosh")	ARCH=ppc;;
     arm64)	ARCH=arm64;;
     armv5b)	ARCH=arm;;
