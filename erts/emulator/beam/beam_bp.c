@@ -718,7 +718,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 	new_tracer = do_call_trace(c_p, info, reg, 1, bp->meta_ms, old_tracer);
 
 	if (!ERTS_TRACER_COMPARE(new_tracer, old_tracer)) {
-            if (old_tracer == erts_atomic_cmpxchg_acqb(
+            if ((erts_aint_t)old_tracer == erts_atomic_cmpxchg_acqb(
                     &bp->meta_tracer->tracer,
                     (erts_aint_t)new_tracer,
                     (erts_aint_t)old_tracer)) {
@@ -1129,12 +1129,15 @@ static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
     Uint ix;
     Uint hval;
 
+    ASSERT(n > 0);
+
     item = (bp_data_time_item_t *)Alloc(size);
     sys_memzero(item, size);
 
     for( ix = 0; ix < n; ++ix) {
 	item[ix].pid = NIL;
     }
+
 
     /* rehash, old hash -> new hash */
 
@@ -1395,7 +1398,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	bp->count = bcp;
     } else if (break_flags & ERTS_BPF_TIME_TRACE) {
 	BpDataTime* bdt;
-	int i;
+	Uint i;
 
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
 	bdt = Alloc(sizeof(BpDataTime));

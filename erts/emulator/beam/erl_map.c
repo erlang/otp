@@ -1119,6 +1119,8 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory, hxnode_t *hxns
 	*hp++ = MAP_HEADER_HAMT_NODE_BITMAP(hdr);
 	*hp++ = res; sz--;
 
+        ASSERT(ESTACK_COUNT(stack) > sz);
+
 	while (sz--) { *hp++ = ESTACK_POP(stack); }
 	res = make_hashmap(nhp);
 	hdr = ESTACK_POP(stack);
@@ -1532,6 +1534,7 @@ recurse:
     if (sp->nodeA == sp->nodeB) {
         res = sp->nodeA;
         ctx->size -= is_list(sp->nodeB) ? 1 : hashmap_subtree_size(sp->nodeB);
+        ASSERT(is_value(res));
     }
     else {
         if (is_list(sp->nodeA)) { /* A is LEAF */
@@ -1547,6 +1550,7 @@ recurse:
                                       + Don't spend time comparing big values.
                                       - Might waste some heap space for internal
                                         nodes that could otherwise be reused. */
+                    ASSERT(is_value(res));
                     goto merge_nodes;
                 }
             }
@@ -2825,6 +2829,8 @@ unroll:
         UnUseTmpHeapNoproc(2);
 	return make_flatmap(mp);
     }
+
+    ASSERT(!ESTACK_ISEMPTY(stack));
 
     hp     = HAlloc(p, size);
     hp_end = hp + size;

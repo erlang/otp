@@ -1342,6 +1342,7 @@ ensure_EargsSz(int sz)
     if (EargsSz < sz)
 	Eargsp = (char **) erealloc((void *) Eargsp,
 				    sizeof(char *) * (EargsSz = sz));
+    ASSERT(Eargsp);
 }
 
 static void

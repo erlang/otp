@@ -3058,6 +3058,7 @@ static void resize_linebuf(LineBuf **b)
  */
 static int flush_linebuf(LineBufContext *bp)
 {
+    ASSERT(*bp->b != NULL);
     bp->retlen = (*bp->b)->ovlen;
     switch(LINEBUF_STATE(*bp)){
     case LINEBUF_CR_INSIDE:
@@ -3595,7 +3596,7 @@ terminate_port(Port *prt)
 	erts_cancel_port_timer(prt);
 
     drv = prt->drv_ptr;
-    if ((drv != NULL) && (drv->stop != NULL)) {
+    if (drv->stop != NULL) {
 	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_stop)) {

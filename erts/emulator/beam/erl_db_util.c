@@ -143,8 +143,6 @@ do {									\
 } while (0)
 
 
-#define TermWords(t) (((t) / (sizeof(UWord)/sizeof(Eterm))) + !!((t) % (sizeof(UWord)/sizeof(Eterm))))
-
 #define add_dmc_err(EINFO, STR, VAR, TERM, SEV) \
        vadd_dmc_err(EINFO, SEV, VAR, STR, TERM)
 
@@ -1905,8 +1903,8 @@ restart:
     **              ..........
     **            +-------------+
     ** The stack is expected to grow towards *higher* adresses.
-    ** A special case is when the match expression is a single binding 
-    ** (i.e '$1'), then the field single_variable is set to 1.
+    ** A special case is when the match expression is a single binding
+    ** (i.e '$1').
     */
     bp = erts_create_magic_binary(((sizeof(MatchProg) - sizeof(UWord)) +
 				   (DMC_STACK_NUM(text) * sizeof(UWord))),
@@ -1916,7 +1914,6 @@ restart:
     ret->saved_program = NIL;
     ret->term_save = context.save;
     ret->num_bindings = heap.vars_used;
-    ret->single_variable = context.special;
     sys_memcpy(ret->text, DMC_STACK_DATA(text), 
 	       DMC_STACK_NUM(text) * sizeof(UWord));
     ret->stack_offset = heap.vars_used*sizeof(MatchVariable) + FENCE_PATTERN_SIZE;
@@ -2226,7 +2223,7 @@ restart:
 		FAIL();
 	    if (sys_memcmp(float_val(*ep) + 1, pc, sizeof(double)))
 		FAIL();
-	    pc += TermWords(2);
+	    pc += sizeof(double) / sizeof(*pc);
 	    ++ep;
 	    break;
 	case matchEqRef: {
@@ -2237,7 +2234,7 @@ restart:
 		FAIL();
 	    }
 	    i = thing_arityval(*epc);
-	    pc += TermWords(i+1);
+	    pc += i+1;
 	    ++ep;
 	    break;
 	}
@@ -2250,7 +2247,7 @@ restart:
 		if (*tp != *epc)
 		    FAIL();
 		i = BIG_ARITY(epc);
-		pc += TermWords(i+1);
+		pc += i+1;
 		while(i--) {
 		    if (*++tp != *++epc) {
 			FAIL();
@@ -3689,9 +3686,7 @@ static DMCRet dmc_one_term(DMCContext *context,
 	}
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    DMC_PUSH2(*text, matchEqFloat, (Uint) float_val(c)[1]);
-#ifdef ARCH_64
-	    DMC_PUSH(*text, (Uint) 0);
-#else
+#ifdef ARCH_32
 	    DMC_PUSH(*text, (Uint) float_val(c)[2]);
 #endif
 	    break;
@@ -5282,9 +5277,6 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
     Eterm ret;
     Eterm flg;
     Eterm *hp;
-    Eterm *arr;
-    int n;
-    Eterm l;
     Uint32 ret_flags;
     Uint sz;
     Eterm save_cp;
@@ -5314,24 +5306,27 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    db_match_dis(mps);
 	}
 #endif /* DMC_DEBUG */
-	l = against;
-	n = 0;
-	while (is_list(l)) {
-	    ++n;
-	    l = CDR(list_val(l));
-	}
 	if (trace) {
-	    if (n)
+            Eterm *arr = NULL;
+            int n = 0;
+
+	    if (is_list(against)) {
+                Eterm l = against;
+                do {
+                    ++n;
+                    l = CDR(list_val(l));
+                } while (is_list(l));
+
 		arr = erts_alloc(ERTS_ALC_T_DB_TMP, sizeof(Eterm) * n);
-	    else 
-		arr = NULL;
-	    l = against;
-	    n = 0;
-	    while (is_list(l)) {
-		arr[n] = CAR(list_val(l));
-		++n;
-		l = CDR(list_val(l));
-	    }
+
+                l = against;
+                n = 0;
+                do {
+                    arr[n] = CAR(list_val(l));
+                    ++n;
+                    l = CDR(list_val(l));
+                } while (is_list(l));
+            }
 	    save_cp = p->stop[0];
 	    p->stop[0] = NIL;
 	    res = erts_match_set_run_trace(p, p,
@@ -5339,10 +5334,10 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 		      ERTS_PAM_COPY_RESULT|ERTS_PAM_IGNORE_TRACE_SILENT,
 		      &ret_flags);
 	    p->stop[0] = save_cp;
+            if (arr)
+                erts_free(ERTS_ALC_T_DB_TMP, arr);
 	} else {
-	    n = 0;
-	    arr = NULL;
-	    res = erts_match_set_run_ets(p, mps, against, n, &ret_flags);
+	    res = erts_match_set_run_ets(p, mps, against, 0, &ret_flags);
 	}
 	
 	/* We are in the context of a BIF, 
@@ -5362,9 +5357,6 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	if (ret_flags & MATCH_SET_RETURN_TRACE) {
 	    flg = CONS(hp, am_return_trace, flg);
 	    hp += 2;
-	}
-	if (trace && arr != NULL) {
-	    erts_free(ERTS_ALC_T_DB_TMP, arr);
 	}
 	erts_bin_free(mps);
 	ret = TUPLE4(hp, am_ok, res, flg, lint_res);
@@ -5540,18 +5532,18 @@ void db_match_dis(Binary *bp)
 		if (is_ordinary_ref_thing(t)) {
 		    ErtsORefThing *rt = (ErtsORefThing *) t;
 		    num = rt->num;
-		    t += TermWords(ERTS_REF_THING_SIZE);
+		    t += ERTS_REF_THING_SIZE;
 		}
 		else if (is_pid_ref_thing(t)) {
 		    ErtsPRefThing *prt = (ErtsPRefThing *) t;
 		    num = prt->num;
-		    t += TermWords(ERTS_PID_REF_THING_SIZE);
+		    t += ERTS_PID_REF_THING_SIZE;
 		}
 		else {
 		    ErtsMRefThing *mrt = (ErtsMRefThing *) t;
 		    ASSERT(is_magic_ref_thing(t));
 		    num = mrt->mb->refn;
-		    t += TermWords(ERTS_MAGIC_REF_THING_SIZE);
+		    t += ERTS_MAGIC_REF_THING_SIZE;
 		}
 
 		erts_printf("EqRef\t(%d) {", (int) ERTS_REF_NUMBERS);
@@ -5575,7 +5567,7 @@ void db_match_dis(Binary *bp)
 	    n = thing_arityval(*t);
 	    {
 		Eterm *et = (Eterm *) t;
-		t += TermWords(n+1);
+		t += n+1;
 		erts_printf("EqBig\t(%d) {", (int) n);
 		first = 1;
 		++n;
@@ -5599,7 +5591,7 @@ void db_match_dis(Binary *bp)
 	    {
 		double num;
 		sys_memcpy(&num,t,sizeof(double));
-		t += TermWords(2);
+		t += sizeof(double) / sizeof(*t);
 		erts_printf("EqFloat\t%f\n", num);
 	    }
 	    break;

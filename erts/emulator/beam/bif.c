@@ -1591,7 +1591,7 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
        if (i == 0)
 	   scb = NULL;
        else {
-	   Uint sz = sizeof(*scb) + (i-1) * sizeof(scb->ct[0]);
+	   Uint sz = sizeof(*scb) + (i-1) * sizeof(*scb->ct);
 	   scb = erts_alloc(ERTS_ALC_T_CALLS_BUF, sz);
 	   scb->len = i;
 	   scb->cur = 0;

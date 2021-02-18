@@ -104,7 +104,7 @@ static int send_challenge(ei_cnode *ec, void *ctx, int pkt_sz,
                           unsigned challenge,
                           DistFlags version, unsigned ms);
 static int recv_challenge(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
-                          unsigned *challenge, unsigned *version,
+                          unsigned *challenge,
 			  DistFlags *flags, char *namebuf, unsigned ms);
 static int send_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
                                 int pkt_sz, unsigned char digest[16], 
@@ -1029,9 +1029,7 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 	return ERL_ERROR;
     }
 
-    if (this_node_name == NULL) {
-	sprintf(thisalivename, "c%d", (int) getpid());
-    } else if (strlen(this_node_name) >= sizeof(thisalivename)) {
+    if (strlen(this_node_name) >= sizeof(thisalivename)) {
 	EI_TRACE_ERR0("ei_connect_init","ERROR: this_node_name too long");
 	return ERL_ERROR;
     } else {
@@ -1300,7 +1298,7 @@ static int ei_connect_helper(ei_cnode* ec,
         goto error;
     if (recv_status(ec, ctx, pkt_sz, tmo))
         goto error;
-    if (recv_challenge(cbs, ctx, pkt_sz, &her_challenge, &her_version,
+    if (recv_challenge(cbs, ctx, pkt_sz, &her_challenge,
                        &her_flags, NULL, tmo))
         goto error;
     her_version = (her_flags & DFLAG_HANDSHAKE_23) ? EI_DIST_6 : EI_DIST_5;
@@ -2422,7 +2420,7 @@ static int send_challenge(ei_cnode *ec,
 }
 
 static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
-                          int pkt_sz, unsigned *challenge, unsigned *version,
+                          int pkt_sz, unsigned *challenge,
 			  DistFlags *flags, char *namebuf, unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
@@ -2430,6 +2428,7 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
     int is_static = 1;
     int buflen = DEFBUF_SIZ;
     int rlen, nodename_len;
+    unsigned version;
     char *s;
     char tag;
     char tmp_nodename[MAXNODELEN+1];
@@ -2451,7 +2450,6 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
 	goto error;
     }
     if (tag == 'n') { /* OLD */
-        unsigned int version;
         if (rlen < 1+2+4+4) {
             EI_TRACE_ERR1("recv_challenge","<- RECV_CHALLENGE 'n' packet too short (%d)",
                           rlen)
@@ -2475,7 +2473,7 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
                           rlen)
             goto error;
         }
-        *version = EI_DIST_6;
+        version = EI_DIST_6;
         *flags = get64be(s);
         *challenge = get32be(s);
         s += 4; /* ignore peer 'creation' */
@@ -2526,7 +2524,7 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
 	    "flags = %u, "
 	    "challenge = %d",
 	    namebuf,
-	    *version,
+	    version,
 	    *flags,
 	    *challenge
 	    );

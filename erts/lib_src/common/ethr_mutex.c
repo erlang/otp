@@ -1058,7 +1058,7 @@ ethr_cond_signal(ethr_cond *cnd)
     ethr_ts_event *tse;
 
     ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(cnd);
+    ETHR_ASSERT(cnd != NULL);
     ETHR_ASSERT(cnd->initialized == ETHR_COND_INITIALIZED);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(cnd);
 

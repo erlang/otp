@@ -5286,6 +5286,7 @@ change_no_used_runqs(int used)
 {
     ErtsMigrationPaths *new_mpaths, *old_mpaths;
     int qix;
+    ASSERT(used > 0);
     erts_mtx_lock(&balance_info.update_mtx);
     set_no_used_runqs(used);
 

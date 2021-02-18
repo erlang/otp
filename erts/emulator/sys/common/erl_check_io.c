@@ -2623,7 +2623,7 @@ static int erts_debug_print_checkio_state(erts_dsprintf_buf_t *dsbufp,
 
     if (state->type == ERTS_EV_TYPE_DRV_SEL) {
         erts_dsprintf(dsbufp, "driver_select ");
-
+        ASSERT(state->driver.select != NULL);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
         if (internal) {
             erts_dsprintf(dsbufp, "internal ");
@@ -2698,6 +2698,7 @@ static int erts_debug_print_checkio_state(erts_dsprintf_buf_t *dsbufp,
     }
     else if (state->type == ERTS_EV_TYPE_NIF) {
         ErtsResource* r;
+        ASSERT(state->driver.nif != NULL);
         erts_dsprintf(dsbufp, "enif_select ");
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
@@ -2823,6 +2824,7 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
     null_des.driver.nif = NULL;
     null_des.driver.stop.drv_ptr = NULL;
     null_des.events = 0;
+    null_des.active_events = 0;
     null_des.type = ERTS_EV_TYPE_NONE;
     null_des.flags = 0;
 

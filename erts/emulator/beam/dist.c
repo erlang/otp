@@ -2847,6 +2847,8 @@ erts_dsig_prepare(ErtsDSigSendContext *ctx,
 {
     int res;
 
+    ASSERT(no_trap || proc);
+
     if (!erts_is_alive)
 	return ERTS_DSIG_PREP_NOT_ALIVE;
     if (!dep) {
@@ -3031,6 +3033,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                                                    &ctx->vlen,
                                                    &ctx->fragments);
                 if (ctx->no_trap) {
+                    ASSERT(redsp == &reds); /* silence CodeChecker */
                     ctx->reds -= CONTEXT_REDS - reds;
                     if (sz_res == ERTS_EXT_SZ_YIELD) {
                         reds = CONTEXT_REDS;
@@ -3115,6 +3118,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                     goto done;
                 }
                 else {
+                    ASSERT(redsp == &reds); /* silence CodeChecker */
                     ctx->reds -= CONTEXT_REDS - reds;
                     if (res == 0)
                         break;
@@ -3626,8 +3630,9 @@ erts_dist_command(Port *prt, int initial_reds)
     if (sched_flags & ERTS_PTS_FLG_BUSY_PORT) {
 	if (oq.first) {
 	    ErtsDistOutputBuf *ob;
-            ErtsDistOutputBuf *last_finalized = NULL;
+            ErtsDistOutputBuf *last_finalized;
 	finalize_only:
+            last_finalized = NULL;
 	    ob = oq.first;
 	    ASSERT(ob);
 	    do {
@@ -6432,25 +6437,21 @@ erts_processes_monitoring_nodes(Process *c_p)
     sz = 0;
     ctxt.szp = &sz;
     ctxt.hpp = NULL;
+    ctxt.res = NIL;
+    erts_monitor_list_foreach(nodes_monitors,
+                              nodes_monitor_info,
+                              &ctxt);
 
-    while (1) {
-        ctxt.res = NIL;
-
-        erts_monitor_list_foreach(nodes_monitors,
-                                  nodes_monitor_info,
-                                  (void *) &ctxt);
-
-        if (ctxt.hpp)
-            break;
-
-	hp = HAlloc(c_p, sz);
+    hp = HAlloc(c_p, sz);
 #ifdef DEBUG
-	hend = hp + sz;
+    hend = hp + sz;
 #endif
-	ctxt.hpp = &hp;
-	ctxt.szp = NULL;
-    }
-
+    ctxt.hpp = &hp;
+    ctxt.szp = NULL;
+    ctxt.res = NIL;
+    erts_monitor_list_foreach(nodes_monitors,
+                              nodes_monitor_info,
+                              &ctxt);
     ASSERT(hp == hend);
 
     erts_mtx_unlock(&nodes_monitors_mtx);

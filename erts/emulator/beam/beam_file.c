@@ -184,7 +184,7 @@ static int beamreader_read_tagged(BeamReader *reader, TaggedNumber *val) {
             TaggedNumber size_prefix;
             Sint unpacked_size;
 
-            beamreader_read_tagged(reader, &size_prefix);
+            LoadAssert(beamreader_read_tagged(reader, &size_prefix));
             LoadAssert(size_prefix.tag == TAG_u);
 
             unpacked_size = size_prefix.word_value;

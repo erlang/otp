@@ -2861,6 +2861,8 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
                   enum ErtsTracerOpt topt, Eterm tag) {
     Eterm nif_result;
 
+    ASSERT(t_p);
+
 #if defined(ERTS_ENABLE_LOCK_CHECK)
     if (c_p)
         ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == c_p_locks

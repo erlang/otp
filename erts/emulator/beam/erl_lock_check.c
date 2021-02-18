@@ -178,7 +178,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
         && \
      ((LCK_FLG) & ERTS_LOCK_FLAGS_MASK_TYPE) != ERTS_LOCK_FLAGS_TYPE_SPINLOCK)
 
-static __decl_noreturn void  __noreturn lc_abort(void);
+static __decl_noreturn void __noreturn lc_abort(void);
 
 static const char *rw_op_str(erts_lock_options_t options)
 {
@@ -465,7 +465,7 @@ print_curr_locks(lc_thread_t *thr)
     if (!thr || !thr->locked.first)
 	erts_fprintf(stderr,
 		     "Currently no locks are locked by the %s thread.\n",
-		     thr->thread_name);
+		     thr ? thr->thread_name : "unknown");
     else {
 	erts_fprintf(stderr,
 		     "Currently these locks are locked by the %s thread:\n",
@@ -548,7 +548,7 @@ type_order_violation(char *op, lc_thread_t *thr,
     lc_abort();
 }
 
-static void
+static void __noreturn
 lock_mismatch(lc_thread_t *thr, int exact,
 	      int failed_have, erts_lc_lock_t *have, int have_len,
 	      int failed_have_not, erts_lc_lock_t *have_not, int have_not_len)
@@ -649,7 +649,7 @@ thread_exit_handler(void)
     }
 }
 
-static __decl_noreturn void
+static __decl_noreturn void __noreturn
 lc_abort(void)
 {
 #ifdef __WIN32__
@@ -689,7 +689,6 @@ erts_lc_assert_failed(const char *file, int line, const char *assertion)
 		 file, line, assertion);
     print_curr_locks(get_my_locked_locks());
     lc_abort();
-    return 0;
 }
 
 void erts_lc_fail(char *fmt, ...)
@@ -1279,11 +1278,11 @@ void erts_lc_might_unlock_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 	ll = thr->required.first;
 	if (find_lock(&ll, lck))
 	    unlock_of_required_lock(thr, lck);
-    }
 
-    ll = thr->locked.first;
-    if (!find_lock(&ll, lck))
-	unlock_of_not_locked(thr, lck);
+        ll = thr->locked.first;
+        if (!find_lock(&ll, lck))
+            unlock_of_not_locked(thr, lck);
+    }
 }
 
 int

@@ -717,8 +717,8 @@ erts_thr_drvport2port(ErlDrvPort drvport, int lock_pdl)
 			   || erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
 	}
 	else {
-	    ERTS_LC_ASSERT(prt->port_data_lock);
-	    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
+	    ERTS_LC_ASSERT(prt->port_data_lock
+                           && erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
 	}
     }
 #endif

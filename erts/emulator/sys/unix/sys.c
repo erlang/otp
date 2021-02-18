@@ -924,7 +924,7 @@ void sys_preload_end(Preload* p)
 */
 int sys_get_key(int fd) {
     int c, ret;
-    unsigned char rbuf[64];
+    unsigned char rbuf[64] = {0};
     fd_set fds;
 
     fflush(stdout);		/* Flush query ??? */

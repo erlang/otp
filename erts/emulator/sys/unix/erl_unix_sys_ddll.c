@@ -169,6 +169,7 @@ int erts_sys_ddll_sym2(void *handle, const char *func_name, void **function,
     sym = dlsym(handle, func_name);
     if ((e = dlerror()) != NULL) {
 	ret = ERL_DE_DYNAMIC_ERROR_OFFSET - find_errcode(e, err);
+        ASSERT(ret != ERL_DE_NO_ERROR);
     } else {
 	*function = sym;
 	ret = ERL_DE_NO_ERROR;

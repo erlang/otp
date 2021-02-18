@@ -466,7 +466,6 @@ typedef struct match_prog {
     ErlHeapFragment *term_save; /* Only if needed, a list of message 
 				    buffers for off heap copies 
 				    (i.e. binaries)*/
-    int single_variable;     /* ets:match needs to know this. */
     int num_bindings;        /* Size of heap */
     /* The following two are only filled in when match specs 
        are used for tracing */

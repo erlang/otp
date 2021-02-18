@@ -581,8 +581,8 @@ Uint erts_mbuf_size(Process *p);
 #define ERTS_FOREACH_SIG_PRIVQS(PROC, MVAR, CODE)                       \
     do {                                                                \
         int i__;                                                        \
-        ErtsMessage *msgs__[] = {(PROC)->sig_qs.first,                  \
-                                 (PROC)->sig_qs.cont};                  \
+        ErtsMessage *msgs__[2] = {(PROC)->sig_qs.first,                 \
+                                  (PROC)->sig_qs.cont};                 \
         for (i__ = 0; i__ < sizeof(msgs__)/sizeof(msgs__[0]); i__++) {  \
             ErtsMessage *MVAR;                                          \
             for (MVAR = msgs__[i__]; MVAR; MVAR = MVAR->next) {         \

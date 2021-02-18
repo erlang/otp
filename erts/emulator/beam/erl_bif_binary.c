@@ -1275,7 +1275,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 	*endp = binary_size(bin);
 	return 0;
     } else if (is_list(l)) {
-	while(is_list(l)) {
+	do {
 	    Eterm t = CAR(list_val(l));
 	    Uint orig_size;
 	    if (!is_tuple(t)) {
@@ -1318,7 +1318,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 		goto badarg;
 	    }
 	    l = CDR(list_val(l));
-	}
+	} while (is_list(l));
 	return 0;
     } else {
     badarg:

@@ -3093,7 +3093,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case ENC_PATCH_FUN_SIZE:
 	    {
 		byte* size_p = (byte *) obj;
-		put_int32(ep - size_p, size_p);
+                Sint32 sz = ep - size_p;
+		put_int32(sz, size_p);
 	    }
 	    goto outer_loop;
 	case ENC_BIN_COPY: {
@@ -3495,6 +3496,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		} else if (dflags & DFLAG_BIT_BINARIES) {
 		    /* Bit-level binary. */
                     if (dflags & DFLAG_PENDING_CONNECT) {
+			ASSERT(ctx);
                         j = off_heap_bytesize;
                         if (!j) {
                             pb_val = NULL;
@@ -3577,9 +3579,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case EXPORT_DEF:
 	    {
 		Export* exp = *((Export **) (export_val(obj) + 1));
-                ASSERT(!(dflags & DFLAG_PENDING_CONNECT) || (ctx && ctx->iov));
-                if (dflags & DFLAG_PENDING_CONNECT)
+                if (dflags & DFLAG_PENDING_CONNECT) {
+		    ASSERT(ctx);
                     hopefull_export(ctx, &ep, exp, dflags, off_heap);
+		}
                 else if ((dflags & DFLAG_EXPORT_PTR_TAG) != 0) {
 		    *ep++ = EXPORT_EXT;
 		    ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
@@ -5243,6 +5246,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
                         if (dflags & DFLAG_PENDING_CONNECT) {
                             ASSERT(dflags & DFLAG_BIT_BINARIES);
+			    ASSERT(ctx);
                             vlen += 2; /* for hopefull prolog and epilog */
                             result += (4 /* for hopefull prolog (see below) */
                                        + 4); /* for hopefull epilog (see below) */
@@ -5261,8 +5265,10 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
             else if (dflags & DFLAG_PENDING_CONNECT) {
                 /* This is the odd case when we have an un-aligned bit-string
                    during a pending connect. */
-                Uint csz = result - ctx->last_result;
+                Uint csz;
                 ASSERT(dflags & DFLAG_BIT_BINARIES);
+		ASSERT(ctx);
+                csz = result - ctx->last_result;
                 /* potentially multiple elements leading up to binary */
                 vlen += (csz + MAX_SYSIOVEC_IOVLEN - 1)/MAX_SYSIOVEC_IOVLEN;
 
@@ -5325,6 +5331,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		result += encode_size_struct2(acmp, make_small(ep->info.mfa.arity), dflags);
                 if (dflags & DFLAG_PENDING_CONNECT) {
                     Uint csz;
+		    ASSERT(ctx);
+
                     /*
                      * Fallback is 1 + 1 + Module size + Function size, that is,
                      * the hopefull index + hopefull encoding is larger...

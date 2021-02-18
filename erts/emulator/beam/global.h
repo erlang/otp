@@ -497,7 +497,7 @@ do {							\
 
 #define ESTACK_COUNT(s) ((s).sp - (s).start)
 #define ESTACK_ISEMPTY(s) ((s).sp == (s).start)
-#define ESTACK_POP(s) (*(--(s).sp))
+#define ESTACK_POP(s) (ASSERT(!ESTACK_ISEMPTY(s)),(*(--(s).sp)))
 
 
 /*
@@ -1087,6 +1087,9 @@ typedef struct {
     ErtsAlcType_t queue_alloc_type;
     UWord  bitstore_default[DEF_WSTACK_SIZE];
     UWord* bitstore_start;
+#ifdef DEBUG
+    UWord* bitstore_stop;
+#endif
     ErtsAlcType_t bitstore_alloc_type;
     Eterm  shtable_default[DEF_ESTACK_SIZE];
     Eterm* shtable_start;

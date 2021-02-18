@@ -117,6 +117,17 @@
 
 #endif /* !WIN32 */
 
+#if defined(__GNUC__)
+#  define PROTO_NORETURN__ void __attribute__((noreturn))
+#  define IMPL_NORETURN__ void
+#elif defined(__WIN32__) && defined(_MSC_VER)
+#  define PROTO_NORETURN__ __declspec(noreturn) void
+#  define IMPL_NORETURN__ __declspec(noreturn) void
+#else
+#  define PROTO_NORETURN__ void
+#  define IMPL_NORETURN__ void
+#endif
+
 #define PACKET_BYTES 4
 #ifdef WIN32
 #define READ_PACKET_BYTES(X,Y,Z) read_int32((X),(Y),(Z))
@@ -298,6 +309,12 @@ static HANDLE debug_console_allocated = INVALID_HANDLE_VALUE;
 #define REALLOC(Old, Size) my_realloc((Old), (Size))
 #define FREE(Ptr) free(Ptr)
 
+#ifdef DEBUG
+#define ASSERT(Cnd) do { if (!(Cnd)) { abort(); } } while(0)
+#else
+#define ASSERT(Cnd)
+#endif
+
 #ifdef WIN32
 #define WAKEUP_WINSOCK() do {			\
     char dummy_buff[100];			\
@@ -309,7 +326,7 @@ static HANDLE debug_console_allocated = INVALID_HANDLE_VALUE;
 static char *format_address(int siz, AddrByte *addr);
 static void debugf(char *format, ...);
 static void warning(char *format, ...);
-static void fatal(char *format, ...);
+static PROTO_NORETURN__ fatal(char *format, ...);
 static void *my_malloc(size_t size);
 static void *my_realloc(void *old, size_t size);
 static int get_int32(AddrByte *buff);
@@ -1721,6 +1738,7 @@ static int worker_loop(void)
 		req = REALLOC(req, (req_size = this_size));
 	    }
 	}
+        ASSERT(req != NULL);
 	if (read_exact(0, req, (size_t) this_size) != this_size) {
 	    DEBUGF(1,("Worker got EOF while reading data, exiting."));
 	    exit(0);
@@ -2120,6 +2138,7 @@ static size_t build_reply(SerialType serial, struct hostent *he,
 			      (*preply_size = need));
 	}
     }
+    ASSERT(*preply != NULL);
     ptr = *preply;
     PUT_PACKET_BYTES(ptr,need - PACKET_BYTES);
     ptr += PACKET_BYTES;
@@ -2179,7 +2198,7 @@ static size_t build_reply_ai(SerialType serial, int addrlen,
 			      (*preply_size = need));
 	}
     }
-
+    ASSERT(*preply != NULL);
     ptr = *preply;
     PUT_PACKET_BYTES(ptr,need - PACKET_BYTES);
     ptr += PACKET_BYTES;
@@ -2592,7 +2611,7 @@ static void warning(char *format, ...)
     va_end(ap);
 }
 
-static void fatal(char *format, ...)
+static IMPL_NORETURN__ fatal(char *format, ...)
 {
     char buff[2048];
     char *ptr;

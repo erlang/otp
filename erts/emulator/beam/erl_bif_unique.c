@@ -813,6 +813,7 @@ bld_unique_integer_term(Eterm **hpp, Uint *szp,
 	else {
 	    int hix;
 	    Eterm *hp = *hpp;
+            ASSERT(hp != NULL);
 	    tmp_hp = big_val(tmp);
 	    for (hix = 0; hix < hsz; hix++)
 		hp[hix] = tmp_hp[hix];

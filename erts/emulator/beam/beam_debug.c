@@ -458,7 +458,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	 * Copy all arguments to a local buffer for the unpacking.
 	 */
 
-	ASSERT(size <= sizeof(args)/sizeof(args[0]));
+	ASSERT(size > 0 && size <= sizeof(args)/sizeof(args[0]));
 	ap = args;
 	for (i = 0; i < size; i++) {
 	    *ap++ = addr[i];
@@ -553,14 +553,14 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    break;
         case 'S':               /* Register */
             {
-                Uint reg_type = (*ap & 1) ? 'y' : 'x';
+                Uint reg_type = (ap[0] & 1) ? 'y' : 'x';
                 Uint n = ap[0] / sizeof(Eterm);
                 erts_print(to, to_arg, "%c(%d)", reg_type, n);
 		ap++;
                 break;
             }
 	case 's':		/* Any source (tagged constant or register) */
-	    tag = loader_tag(*ap);
+	    tag = loader_tag(ap[0]);
 	    if (tag == LOADER_X_REG) {
 		erts_print(to, to_arg, "x(%d)", loader_x_reg_index(*ap));
 		ap++;

@@ -337,6 +337,8 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     Process *c_p, *dirty_shadow_proc;
 
     execution_state(env, &c_p, NULL);
+    ASSERT(c_p);
+
     if (c_p == env->proc)
 	dirty_shadow_proc = NULL;
     else
@@ -906,17 +908,19 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     from = c_p ? c_p->common.id : am_undefined;
 
     if (!env || !env->tracee) {
-
-        if (c_p && IS_TRACED_FL(c_p, F_TRACE_SEND)) {
-	    full_flush_env(env);
-            trace_send(c_p, receiver, msg);
-	    full_cache_env(env);
-	}
-        if (c_p && scheduler > 0 && copy_sz > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
-            Uint reds = copy_sz / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
-            if (reds > CONTEXT_REDS)
-                reds = CONTEXT_REDS;
-            BUMP_REDS(c_p, (int) reds);
+        if (c_p) {
+            ASSERT(env);
+            if (IS_TRACED_FL(c_p, F_TRACE_SEND)) {
+                full_flush_env(env);
+                trace_send(c_p, receiver, msg);
+                full_cache_env(env);
+            }
+            if (scheduler > 0 && copy_sz > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
+                Uint reds = copy_sz / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
+                if (reds > CONTEXT_REDS)
+                    reds = CONTEXT_REDS;
+                BUMP_REDS(c_p, (int) reds);
+            }
         }
     }
     else {
@@ -3026,34 +3030,6 @@ dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
-/*
- * Dirty NIF scheduling wrapper function. Schedule a dirty NIF to execute.
- * The dirty scheduler thread type (CPU or I/O) is indicated in flags
- * parameter.
- */
-static ERTS_INLINE ERL_NIF_TERM
-schedule_dirty_nif(ErlNifEnv* env, int flags, NativeFunPtr fp,
-		   Eterm func_name, int argc, const ERL_NIF_TERM argv[])
-{
-    Process* proc;
-
-    ASSERT(is_atom(func_name));
-    ASSERT(fp);
-
-    ASSERT(flags==ERL_NIF_DIRTY_JOB_IO_BOUND || flags==ERL_NIF_DIRTY_JOB_CPU_BOUND);
-
-    execution_state(env, &proc, NULL);
-
-    (void) erts_atomic32_read_bset_nob(&proc->state,
-					   (ERTS_PSFLG_DIRTY_CPU_PROC
-					    | ERTS_PSFLG_DIRTY_IO_PROC),
-					   (flags == ERL_NIF_DIRTY_JOB_CPU_BOUND
-					    ? ERTS_PSFLG_DIRTY_CPU_PROC
-					    : ERTS_PSFLG_DIRTY_IO_PROC));
-
-    return schedule(env, fp, NULL, proc->current->module, func_name, argc, argv);
-}
-
 static ERTS_INLINE ERL_NIF_TERM
 static_schedule_dirty_nif(ErlNifEnv* env, erts_aint32_t dirty_psflg,
 			     int argc, const ERL_NIF_TERM argv[])
@@ -3064,6 +3040,7 @@ static_schedule_dirty_nif(ErlNifEnv* env, erts_aint32_t dirty_psflg,
     NativeFunPtr fp;
 
     execution_state(env, &proc, NULL);
+    ASSERT(proc);
 
     /*
      * Called in order to schedule statically determined
@@ -3170,6 +3147,8 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
 	return fun_name_atom;
 
     execution_state(env, &proc, &scheduler);
+    ASSERT(proc);
+
     if (scheduler <= 0) {
 	if (scheduler == 0)
 	    enif_make_badarg(env);
@@ -3180,7 +3159,14 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
 	result = schedule(env, execute_nif, fp, proc->current->module,
 			  fun_name_atom, argc, argv);
     else if (!(flags & ~(ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND))) {
-	result = schedule_dirty_nif(env, flags, fp, fun_name_atom, argc, argv);
+        (void) erts_atomic32_read_bset_nob(&proc->state,
+                                           (ERTS_PSFLG_DIRTY_CPU_PROC
+                                            | ERTS_PSFLG_DIRTY_IO_PROC),
+                                           (flags == ERL_NIF_DIRTY_JOB_CPU_BOUND
+                                            ? ERTS_PSFLG_DIRTY_CPU_PROC
+                                            : ERTS_PSFLG_DIRTY_IO_PROC));
+        result = schedule(env, fp, NULL, proc->current->module, fun_name_atom,
+                          argc, argv);
     }
     else
 	result = enif_make_badarg(env);
@@ -4576,7 +4562,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 
     /* Call load or upgrade:
      */
-
+    ASSERT(lib);
     env.mod_nif = lib;
 
     lib->priv_data = NULL;

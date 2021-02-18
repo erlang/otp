@@ -757,6 +757,7 @@ int db_put_dbterm_tree_common(DbTableCommon *tb,
 		    p->balance = 0;
 		    (*this) = p1;
 		} else { /* Double RR rotation */
+                    ASSERT(p1->right);
 		    p2 = p1->right;
 		    p1->right = p2->left;
 		    p2->left = p1;
@@ -787,6 +788,7 @@ int db_put_dbterm_tree_common(DbTableCommon *tb,
 		    p->balance = 0;
 		    (*this) = p1;
 		} else { /* Double RL rotation */
+                    ASSERT(p1->left);
 		    p2 = p1->left;
 		    p1->left = p2->right;
 		    p2->right = p1;
@@ -878,6 +880,7 @@ int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
 		    p->balance = 0;
 		    (*this) = p1;
 		} else { /* Double RR rotation */
+                    ASSERT(p1->right);
 		    p2 = p1->right;
 		    p1->right = p2->left;
 		    p2->left = p1;
@@ -908,6 +911,7 @@ int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
 		    p->balance = 0;
 		    (*this) = p1;
 		} else { /* Double RL rotation */
+                    ASSERT(p1->left);
 		    p2 = p1->left;
 		    p1->left = p2->right;
 		    p2->right = p1;
