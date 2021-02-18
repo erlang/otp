@@ -155,6 +155,7 @@ http_head() ->
 http_get() ->
     [alias, 
      get, 
+     bad_dot_paths,
      %%actions, Add configuration so that this test mod_action
      esi, 
      bad_hex, 
@@ -468,6 +469,50 @@ get(Config) when is_list(Config) ->
 				       transport_opts(Type, Config),
 				       proplists:get_value(node, Config),
 				       http_request("GET /.%252e/.%252e/.%252e/.%252e/.%252e/home/ ", Version, Host),
+				       [{statuscode, 404},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
+					{version, Version}]).
+
+bad_dot_paths() ->
+    [{doc, "Do not allow ..-paths to acesse files outside of doc root"}].
+bad_dot_paths(Config) when is_list(Config) -> 
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    Type = proplists:get_value(type, Config),
+    
+    BadDotPath0 = "/..%2f..%2f...%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc/passwd ",
+    BadDotPath1 = "/..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc/passwd ",
+    BadDotPath2 = "/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc/passwd ",
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
+				       proplists:get_value(port, Config),  
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET " ++ BadDotPath0 , Version, Host),
+				       [{statuscode, 404},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
+					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
+				       proplists:get_value(port, Config),  
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET " ++ BadDotPath1, Version, Host),
+				       [{statuscode, 404},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
+					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host,
+				       proplists:get_value(port, Config),
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET " ++ BadDotPath2, Version, Host),
 				       [{statuscode, 404},
 					{header, "Content-Type", "text/html"},
 					{header, "Date"},
