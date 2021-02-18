@@ -1863,7 +1863,7 @@ do_econnreset_after_async_send_passive(Config) ->
     ?P("sleep some"),
     ok = ct:sleep(20),
 
-    ?P("verify 1 (default)"),
+    ?P("verify 2 (default)"),
     ?line ok = craasp_verify(Client2, true, SPayload),
 
     ?P("cleanup 2 (default)"),
@@ -1967,14 +1967,17 @@ craasp_verify(Client, EConnReset, _Payload)
         ok ->
             {error, unexpected_success}
     end;
-craasp_verify(Client, _EConnReset, Payload) ->
+craasp_verify(Client, EConnReset, Payload) 
+  when (EConnReset =:= default) orelse is_boolean(EConnReset) ->
     ?P("[client] attempt receive and expect success"),
     case gen_tcp:recv(Client, 0) of
         {ok, Payload} ->
             ?P("[client] attempt receive and expect failure (closed)"),
             case gen_tcp:recv(Client, 0) of
-                {error, closed} ->
-                    ok;
+		{error, closed}     when (EConnReset =:= default) ->
+		    ok;
+		{error, econnreset} when (EConnReset =:= true)    ->
+		    ok;
                 {error, Reason2} ->
                     {error, {unexpected_error2, Reason2}};
                 {ok, _} ->
