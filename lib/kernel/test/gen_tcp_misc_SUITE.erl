@@ -2498,21 +2498,25 @@ do_busy_disconnect_active2(Config, MuchoData, N) ->
     busy_disconnect_active_send(Server, S, MuchoData).
 
 busy_disconnect_active_send(Server, S, Data) ->
+    busy_disconnect_active_send(Server, S, Data, 1).
+
+busy_disconnect_active_send(Server, S, Data, Iter) ->
     case gen_tcp:send(S, Data) of
 	ok ->
-            busy_disconnect_active_send(Server, S, Data);
+            busy_disconnect_active_send(Server, S, Data, Iter+1);
 	{error, closed} ->
-            ?P("[active-sender] send failed with closed - await tcp-closed"),
+            ?P("[active-sender,~w] send failed with closed - await tcp-closed",
+	       [Iter]),
             busy_disconnect_active_send_await_closed(Server, S);
         {error, einval = Reason} ->
-            ?P("[active-sender] UNEXPECTED send failure:"
-               "~n   ~p", [Reason]),
+            ?P("[active-sender,~w] UNEXPECTED send failure:"
+               "~n   ~p", [Iter, Reason]),
             ?SKIPT(send_failed_str(Reason));
 
         {error, Reason} ->
-            ?P("[active-sender] UNEXPECTED send failure:"
-               "~n   ~p", [Reason]),
-            ct:fail({unexpected_send_result, Reason})
+            ?P("[active-sender,~w] UNEXPECTED send failure:"
+               "~n   ~p", [Iter, Reason]),
+            ct:fail({unexpected_send_result, Reason, Iter})
     end.
 
 busy_disconnect_active_send_await_closed(Server, S) ->
@@ -3793,7 +3797,7 @@ do_accept_timeouts_in_order7(Config) ->
 %% mixed with successful timeouts.
 accept_timeouts_mixed(Config) when is_list(Config) ->
     ?TC_TRY(accept_timeouts_mixed,
-            fun() -> do_accept_timeouts_mixed(Config) end).
+	    fun() -> do_accept_timeouts_mixed(Config) end).
 
 do_accept_timeouts_mixed(Config) ->
     ?P("create listen socket"),
