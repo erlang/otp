@@ -803,13 +803,8 @@ do_local_fdopen_listen(Config) ->
          end,
     ?P("FD: ~p"
        "~n   => try create proper listen socket (using fd)", [Fd]),
-    snmp:enable_trace(),
-    snmp:set_trace([{gen_tcp_socket,
-                     [{scope, all_functions}]}, socket], [timestamp]),
     L = ok(gen_tcp:listen(0, InetBackendOpts ++
                               [{fd,Fd},local,{active,false}])),
-    snmp:reset_trace([gen_tcp_socket, socket]),
-    snmp:disable_trace(),
     ?P("try connect"),
     C = ok(gen_tcp:connect(SAddr, 0, InetBackendOpts ++ [{active,false}])),
     ?P("try accept (connection)"),
