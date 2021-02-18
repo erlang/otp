@@ -566,4 +566,10 @@ The following options are also available but their use is not recommended:
      Warn when the -spec is different than the success typing.
 
 *** Identifies options that turn on warnings rather than turning them off.
+
+The following options are not strictly needed as they specify the default.
+They are primarily intended to be used with the -dialyzer attribute:
+  -Wno_underspecs
+     Suppress warnings about underspecified functions (those whose -spec
+     is strictly more allowing than the success typing).
 ".

@@ -122,6 +122,7 @@
                        | 'no_opaque'
                        | 'no_return'
                        | 'no_undefined_callbacks'
+                       | 'no_underspecs'
                        | 'no_unused'
                        | 'race_conditions'
                        | 'underspecs'

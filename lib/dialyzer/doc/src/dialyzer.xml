@@ -413,6 +413,22 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <p>*** denotes options that turn on warnings rather than
         turning them off.</p>
     </note>
+
+    <p>The following option is not strictly needed as it specifies
+      the default. It is primarily intended to be used with the
+      <c>-dialyzer</c> attribute. For an example see section <seeerl
+      marker="#suppression">Requesting or Suppressing Warnings in
+      Source Files</seeerl>.</p>
+
+    <taglist>
+      <tag><c>-Wno_underspecs</c></tag>
+      <item>
+        <p>Suppress warnings about underspecified functions (the
+          specification is strictly more allowing than the success typing).
+          </p>
+      </item>
+    </taglist>
+
   </section>
 
   <section>
@@ -475,9 +491,19 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <code type="none">
 -dialyzer({[no_return, no_match], [g/0, h/0]}).</code>
 
+    <p>The warning option for underspecified functions, <c>-Wunderspecs</c>,
+      can result in useful warnings, but often functions with
+      specifications that are strictly more allowing than the success
+      typing cannot easily be modified to be less allowing. To turn
+      off the warning for underspecified function <c>f/0</c>,
+      include the following line:</p>
+
+    <code type="none">
+-dialyzer({no_underspecs, f/0}).</code>
+
     <p>For help on the warning options, use <c>dialyzer -Whelp</c>. The
-      options are also enumerated, see function <seemfa marker="#gui/1">
-      <c>gui/1</c></seemfa> below (<c>WarnOpts</c>).</p>
+      options are also enumerated, see type <seetype marker="#warn_option">
+      <c>warn_option()</c></seetype>.</p>
 
     <note>
       <p>Warning option <c>-Wrace_conditions</c> has no effect when
