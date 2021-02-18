@@ -3111,11 +3111,26 @@ test_prio_udp() ->
 
 %% Tests the so_priority and ip_tos options on sockets when applicable.
 so_priority(Config) when is_list(Config) ->
-    ?TC_TRY(so_priority, fun() -> do_so_priority(Config) end).
+    ?TC_TRY(so_priority,
+	    %% Normally we should have the condition funm here,
+	    %% but since we are (currently) not platform independant,
+	    %% we can't...check in the test case instead.
+	    fun() -> do_so_priority(Config) end).
 
 do_so_priority(Config) ->
     ?P("create listen socket"),
-    {ok,L} = ?LISTEN(Config, 0, [{active,false}]),
+    L = case ?LISTEN(Config, 0, [{active,false}]) of
+	    {ok, LSock} when not is_port(LSock) ->
+		case socket:is_supported(options, socket, priority) of
+		    true ->
+			LSock;
+		    false ->
+			(catch gen_tcp:close(LSock)),
+			?SKIPT("Option 'priority' not supported")
+		end;
+	    {ok, LSock} when is_port(LSock) ->
+		LSock
+	end,
     ?P("set opts on listen socket: prio to 1"),
     ok = inet:setopts(L,[{priority,1}]),
     ?P("verify prio"),
