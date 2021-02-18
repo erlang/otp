@@ -2181,11 +2181,27 @@ lzs_pre(Config) ->
                             {sndbuf,  4096}]) of
             {ok, CSock} ->
                 CSock;
-            {error, eaddrnotavail = Reason} ->
-                ?SKIPT(connect_failed_str(Reason))
+            {error, eaddrnotavail = CReason} ->
+                ?SKIPT(connect_failed_str(CReason))
         end,
     ?P("accept"),
     {ok, Server} = gen_tcp:accept(Listen),
+    %% On *some* platforms, the linger is inherited,
+    %% but not all so do not assume...
+    ?P("check if linger option was inherited"),
+    case inet:getopts(Server, [linger]) of
+	{ok, [{linger, {true, 0}}]} ->
+	    ?P("linger option was inherited"),
+	    ok;
+	{ok, [{linger, {true, TO}}]} ->
+	    ?P("linger option was *not* inherited: ~p", [TO]),
+	    ok = inet:setopts(Server, [{linger, {true, 0}}]),
+	    ok;
+	{error, SReason} ->
+	    ?P("FAILED reading linger option: ~p", [SReason]),
+	    ok = inet:setopts(Server, [{linger, {true, 0}}]),
+	    ok
+    end,
     ?P("close listen socket"),
     ok = gen_tcp:close(Listen),
     {OS, Client, Server}.

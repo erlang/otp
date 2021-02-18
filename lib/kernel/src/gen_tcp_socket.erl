@@ -144,8 +144,9 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
         start_server(
-          Domain, ExtraOpts,
-          [{timeout, inet:timeout(Timer)} | start_opts(StartOpts)])
+          Domain,
+	  [{timeout, inet:timeout(Timer)} | start_opts(StartOpts)],
+	  ExtraOpts)
     of
         {ok, Server} ->
             {Setopts, _} =
@@ -214,9 +215,12 @@ call_bind(Server, BindAddr) ->
 listen(Port, Opts) ->
     %% ?DBG({Port, Opts}),
     {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
+    %% ?DBG([{opts1, Opts_1}]),
     EinvalOpts =:= [] orelse exit(badarg),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
+    %% ?DBG([{mod, Mod}, {opts2, Opts_2}]),
     {StartOpts, Opts_3} = setopts_split(start, Opts_2),
+    %% ?DBG([{start_opts, StartOpts}, {opts3, Opts_3}]),
     case Mod:getserv(Port) of
         {ok, TP} ->
             case inet:listen_options([{port, TP} | Opts_3], Mod) of
@@ -233,6 +237,7 @@ listen(Port, Opts) ->
                     Domain = domain(Mod),
                     %% ?DBG({Domain, BindIP}),
                     BindAddr = bind_addr(Domain, BindIP, BindPort),
+		    %% ?DBG([{listen_opts, ListenOpts}, {backlog, Backlog}]),
                     listen_open(
                       Domain, ListenOpts, StartOpts, Fd, Backlog, BindAddr)
             end;
@@ -243,7 +248,12 @@ listen(Port, Opts) ->
 %% Helpers -------
 
 listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
-    %% ?DBG({Domain, ListenOpts, Opts, Fd, Backlog, BindAddr}),
+    %% ?DBG([{domain,      Domain},
+    %% 	  {listen_opts, ListenOpts},
+    %% 	  {opts,        Opts},
+    %% 	  {fd,          Fd},
+    %% 	  {backlog,     Backlog},
+    %% 	  {bind_addr,   BindAddr}]),
 
     ExtraOpts =
         if
@@ -251,20 +261,24 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
             is_integer(Fd) -> #{fd => Fd};
             %% This is an **ugly** hack.
             %% inet:connect_options/2 has the bad taste to use this
-            %% for [{netns,NS}] if that option is used...
+            %% for [{netns, NS}] if that option is used...
             %% Which is never called here, but just to keep it the same
             %% we use the same for listen!
             is_list(Fd)    -> #{netns => Fd}
         end,
 
     {SocketOpts, StartOpts0} = setopts_split(socket, Opts),
+    %% ?DBG([{socket_opts, SocketOpts}, {start_opts0, StartOpts0}]),
     StartOpts = [{timeout, infinity} | start_opts(StartOpts0)],
-    case start_server(Domain, ExtraOpts, StartOpts) of
+    %% ?DBG([{start_opts, StartOpts}]),
+    case start_server(Domain, StartOpts, ExtraOpts) of
         {ok, Server} ->
+	    %% ?DBG([{server_started, Server}]),
             {Setopts, _} =
                 setopts_split(
                   #{socket => [], server_read => [], server_write => []},
                   ListenOpts),
+	    %% ?DBG([{setopts, Setopts}]),
             ErrRef = make_ref(),
             try
                 ok(ErrRef,
@@ -837,9 +851,9 @@ meta(D) -> maps:with(maps:keys(server_write_opts()), D).
 %% State Machine Engine Call Interface
 
 %% Start for connect or listen - create a socket
-start_server(Domain, ExtraOpts, StartOpts) ->
+start_server(Domain, StartOpts, ExtraOpts) ->
     Owner = self(),
-    Arg = {open, Domain, ExtraOpts, Owner},
+    Arg   = {open, Domain, ExtraOpts, Owner},
     case gen_statem:start(?MODULE, Arg, StartOpts) of
         {ok, Server} -> {ok, Server};
         {error, _} = Error -> Error
@@ -912,11 +926,13 @@ callback_mode() -> handle_event_function.
 init({open, Domain, ExtraOpts, Owner}) ->
     %% Listen or Connect
     %%
+    %% ?DBG([{init, open},
+    %% 	  {domain, Domain}, {extraopts, ExtraOpts}, {owner, Owner}]),
     process_flag(trap_exit, true),
-    OwnerMon = monitor(process, Owner),
-    Proto    = if (Domain =:= local) -> default; true -> tcp end,
-    Opts     = #{}, % #{debug => true},
-    case socket_open(Domain, Proto, ExtraOpts, Opts) of
+    OwnerMon  = monitor(process, Owner),
+    Proto     = if (Domain =:= local) -> default; true -> tcp end,
+    Extra = #{}, % #{debug => true},
+    case socket_open(Domain, Proto, ExtraOpts, Extra) of
         {ok, Socket} ->
             D  = server_opts(),
             ok = socket:setopt(Socket, {otp,iow}, true),
@@ -932,6 +948,7 @@ init({open, Domain, ExtraOpts, Owner}) ->
 init({prepare, D, Owner}) ->
     %% Accept
     %%
+    %% ?DBG([{init, prepare}, {d, D}, {owner, Owner}]),
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
     P =
@@ -944,18 +961,22 @@ init(Arg) ->
     error(badarg, [Arg]).
 
 
-socket_open(Domain, Proto, #{fd := FD} = _Extra, Opts0)
+socket_open(Domain, Proto, #{fd := FD} = _ExtraOpts, Extra)
   when is_integer(FD) andalso (FD > 0) ->
-    Opts = Opts0#{dup      => false,
+    Opts = Extra#{dup      => false,
                   domain   => Domain,
                   type     => stream,
                   protocol => Proto},
+    %% ?DBG([{fd, FD}, {opts, Opts}]),
     socket:open(FD, Opts);
-socket_open(Domain, Proto, #{netns := NS} = Extra, Opts0) when is_list(NS) ->
-    Opts = maps:merge(Opts0, Extra),
+socket_open(Domain, Proto, #{netns := NS} = ExtraOpts, Extra)
+  when is_list(NS) ->
+    Opts = maps:merge(Extra, ExtraOpts),
+    %% ?DBG([{netns, NS}, {opts, Opts}]),
     socket:open(Domain, stream, Proto, Opts);
-socket_open(Domain, Proto, _Extra, Opts) ->
-    socket:open(Domain, stream, Proto, Opts).
+socket_open(Domain, Proto, _ExtraOpts, Extra) ->
+    %% ?DBG([{opts, Extra}]),
+    socket:open(Domain, stream, Proto, Extra).
 
 
 terminate(_Reason, State, P_D) ->
@@ -1129,9 +1150,9 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
 
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
-    %% ?DBG({Opts, State, D}),
+    %% ?DBG([{opts, Opts}, {state, State}, {d, D}]),
     {Result, D_1} = state_setopts(P, D, State, Opts),
-    %% ?DBG({Result, D_1}),
+    %% ?DBG([{result, Result}, {d1, D_1}]),
     ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
     Reply = {reply, From, Result},
     case State of
@@ -1982,7 +2003,7 @@ tag(Packet) ->
 state_setopts(_P, D, _State, []) ->
     {ok, D};
 state_setopts(P, D, State, [Opt | Opts]) ->
-    %% ?DBG({entry, State, Opt}),
+    %% ?DBG([{state, State}, {opt, Opt}]),
     Opt_1 = conv_setopt(Opt),
     %% ?DBG({'option converted', Opt_1}),
     case setopt_categories(Opt_1) of
