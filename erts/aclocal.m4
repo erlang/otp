@@ -1352,28 +1352,55 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     ETHR_CHK_GCC_ATOMIC_OP__(__atomic_compare_exchange_n)
 
     ethr_have_gcc_native_atomics=no
-    ethr_arm_dbm_instr_val=0
+    ethr_arm_dbm_sy_instr_val=0
+    ethr_arm_dbm_st_instr_val=0
+    ethr_arm_dbm_ld_instr_val=0
     case "$GCC-$host_cpu" in
 	yes-arm*)
-	    AC_CACHE_CHECK([for ARM DMB instruction], ethr_cv_arm_dbm_instr,
+	    AC_CACHE_CHECK([for ARM 'dmb sy' instruction], ethr_cv_arm_dbm_sy_instr,
 			   [
-				ethr_cv_arm_dbm_instr=no
+				ethr_cv_arm_dbm_sy_instr=no
 				AC_TRY_LINK([],
 					    [
 						__asm__ __volatile__("dmb sy" : : : "memory");
-						__asm__ __volatile__("dmb st" : : : "memory");
 					    ],
-					    [ethr_cv_arm_dbm_instr=yes])
+					    [ethr_cv_arm_dbm_sy_instr=yes])
 			   ])
-	    if test $ethr_cv_arm_dbm_instr = yes; then
+	    if test $ethr_cv_arm_dbm_sy_instr = yes; then
 		ethr_arm_dbm_instr_val=1
 		test $ethr_cv_64bit___atomic_compare_exchange_n = yes &&
 		    ethr_have_gcc_native_atomics=yes
+	    fi
+	    AC_CACHE_CHECK([for ARM 'dmb st' instruction], ethr_cv_arm_dbm_st_instr,
+			   [
+				ethr_cv_arm_dbm_st_instr=no
+				AC_TRY_LINK([],
+					    [
+						__asm__ __volatile__("dmb st" : : : "memory");
+					    ],
+					    [ethr_cv_arm_dbm_st_instr=yes])
+			   ])
+	    if test $ethr_cv_arm_dbm_sy_instr = yes; then
+		ethr_arm_dbm_st_instr_val=1
+	    fi
+	    AC_CACHE_CHECK([for ARM 'dmb ld' instruction], ethr_cv_arm_dbm_ld_instr,
+			   [
+				ethr_cv_arm_dbm_ld_instr=no
+				AC_TRY_LINK([],
+					    [
+						__asm__ __volatile__("dmb ld" : : : "memory");
+					    ],
+					    [ethr_cv_arm_dbm_ld_instr=yes])
+			   ])
+	    if test $ethr_cv_arm_dbm_ld_instr = yes; then
+		ethr_arm_dbm_ld_instr_val=1
 	    fi;;
 	*)
 	    ;;
     esac
-    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM DMB instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb sy' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION], [$ethr_arm_dbm_st_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb st' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION], [$ethr_arm_dbm_ld_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb ld' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&
     	ethr_have_gcc_native_atomics=yes
     test $ethr_cv_64bit___sync_val_compare_and_swap = yes &&
