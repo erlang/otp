@@ -18,6 +18,7 @@
  */
 
 #include "testcase_driver.h"
+#include <stdio.h>
 
 #ifdef __WIN32__
 #include <windows.h>
