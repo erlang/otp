@@ -334,7 +334,7 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, monitors 
 %% handle remote node down or leaving overlay network
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, nodes = Nodes} = State)  ->
     {{MRef, RemoteMap}, NewNodes} = maps:take(Pid, Nodes),
-    _ = maps:map(fun (Group, Pids) -> leave_remote(Scope, Pids, [Group]) end, RemoteMap),
+    maps:foreach(fun (Group, Pids) -> leave_remote(Scope, Pids, [Group]) end, RemoteMap),
     {noreply, State#state{nodes = NewNodes}};
 
 %% nodedown: ignore, and wait for 'DOWN' signal for monitored process

@@ -114,7 +114,7 @@ validate_docs(hidden) ->
 validate_docs(none) ->
     ok;
 validate_docs(#{} = MDocs) ->
-    _ = maps:map(fun(_Key,MDoc) -> validate_docs(MDoc,[]) end, MDocs),
+    maps:foreach(fun(_Key,MDoc) -> validate_docs(MDoc,[]) end, MDocs),
     ok.
 validate_docs([H|T],Path) when is_tuple(H) ->
     _ = validate_docs(H,Path),
