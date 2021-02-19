@@ -1309,7 +1309,7 @@ makedep(Code0, #compile{ifile=Ifile,ofile=Ofile,options=Opts}=St) ->
 		   true -> MainRule ++ PhonyRules;
 		   _ -> MainRule
 	       end,
-    Code = iolist_to_binary([Makefile,"\n"]),
+    Code = unicode:characters_to_binary([Makefile,"\n"]),
     {ok,Code,St}.
 
 makedep_add_headers(Ifile, [{attribute,_,file,{File,_}}|Rest],
