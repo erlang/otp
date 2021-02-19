@@ -813,9 +813,9 @@ class EwxHtmlWindow : public wxHtmlWindow {
 
 class EwxTaskBarIcon : public wxTaskBarIcon {
  public: ~EwxTaskBarIcon() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) {};
+ EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) { createPopupMenu = 0; };
 
- int createPopupMenu = 0;
+ int createPopupMenu;
  wxe_me_ref *me_ref;
 
  private:

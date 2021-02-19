@@ -22,6 +22,8 @@
 #define	_WXE_HELPER_H
 
 #include "wxe_memory.h"
+#include <vector>
+#include <deque>
 
 DECLARE_EVENT_TYPE(wxeEVT_META_COMMAND, -1)
 
@@ -44,42 +46,34 @@ class wxeMetaCommand : public wxEvent
 class wxeCommand
 {
  public:
-    wxeCommand();
-    virtual ~wxeCommand(); // Use Delete()
+  wxeCommand();
+  virtual ~wxeCommand();
+  void Init(int argc, const ERL_NIF_TERM argv[], int op, wxe_me_ref *mr, ErlNifPid caller);
 
-    wxeCommand * Save(int Op) { op = Op; return this; };
-    void Delete();
-
-    ErlNifPid    caller;
-    int          op;
-    ErlNifEnv    *env;
-    int          argc;
-    ERL_NIF_TERM args[16];
-    wxe_me_ref   * me_ref;
+  ErlNifPid    caller;
+  int          op;
+  ErlNifEnv    *env;
+  int          argc;
+  ERL_NIF_TERM args[16];
+  wxe_me_ref   * me_ref;
 };
 
 class wxeFifo {
  public:
-    wxeFifo(unsigned int size);
-    virtual ~wxeFifo();
+  wxeFifo(unsigned int size);
+  virtual ~wxeFifo();
 
-    int Add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
-    void Append(wxeCommand *Other);
+  int Add(int argc, const ERL_NIF_TERM argv[], int, wxe_me_ref *, ErlNifPid caller);
+  void Append(wxeCommand *Other);
+  void DelQueue(unsigned int it);
+  void DeleteCmd(wxeCommand *);
+  unsigned int Size();
 
-    wxeCommand * Get();
-    wxeCommand * Peek(unsigned int *item);
+  wxeCommand * Get();
 
-    void Realloc();
-    void Strip();
-    unsigned int Cleanup(unsigned int peek=0);
-
-    unsigned int cb_start;
-    unsigned int m_max;
-    unsigned int m_first;
-    unsigned int m_n;
-    unsigned int m_orig_sz;
-    wxeCommand *m_q;
-    wxeCommand *m_old;
+  std::deque <wxeCommand *> m_q;
+  std::vector <wxeCommand *> free;
+  unsigned int size;  // keep own counter list::size() is not O(1) in old impl
 };
 
 class wxeErlTerm : public wxClientData
