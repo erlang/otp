@@ -371,7 +371,7 @@
           the default. In <c><![CDATA[embedded]]></c> mode modules are not auto
           loaded. The latter is recommended when the boot script preloads all
           modules, as conventionally happens in OTP releases. See
-          <seeerl marker="kernel:code"><c>code(3)</c></seeerl></p>.
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><marker id="name"/><c><![CDATA[-name Name]]></c></tag>
       <item>
@@ -1406,8 +1406,8 @@
             <note>
               <p>This feature has been introduced as a temporary workaround
                 for long-executing native code, and native code that does not
-                bump reductions properly in OTP. When these bugs have be fixed,
-                this flag will be removed.</p>
+                bump reductions properly in OTP. When these bugs have been
+                fixed, this flag will be removed.</p>
             </note>
           </item>
           <tag><marker id="+spp"/><c>+spp Bool</c></tag>
@@ -1424,7 +1424,7 @@
               <seeerl marker="erlang#open_port_parallelism">
               <c>parallelism</c></seeerl> to
               <seemfa marker="erlang#open_port/2">
-              <c>erlang:open_port/2</c></seemfa></p>.
+              <c>erlang:open_port/2</c></seemfa>.</p>
           </item>
           <tag><marker id="sched_thread_stack_size"/>
             <c><![CDATA[+sss size]]></c></tag>
