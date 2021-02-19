@@ -541,17 +541,28 @@ do_handle_msg(Msg,State) ->
             From ! {init, ok},
             NewState = State#state{script_name = NewScriptName},
             {new_state, NewState};
-	X ->
-            %% Only call the logger module if the logger_server is running.
-            %% If it is not running, then we don't know that the logger
-            %% module can be loaded.
-            case whereis(logger_server) =/= undefined of
-                true -> logger:info("init got unexpected: ~p", [X],
-                                    #{ error_logger=>#{tag=>info_msg}});
-                false -> erlang:display_string("init got unexpected: "),
-                         erlang:display(X)
+        X ->
+            case whereis(user) of
+                %% io_requests may end up here from various processes that have
+                %% init as their group_leader. Most notably all application_master
+                %% processes have init as their gl, though they will short-circuit
+                %% to `user` if possible.
+                User when element(1, X) =:= io_request,
+                          User =/= undefined ->
+                    User ! X;
+                _ ->
+                    %% Only call the logger module if the logger_server is running.
+                    %% If it is not running, then we don't know that the logger
+                    %% module can be loaded.
+                    case whereis(logger) =/= undefined of
+                        true -> logger:info("init got unexpected: ~p", [X],
+                                            #{ error_logger=>#{tag=>info_msg}});
+                        false ->
+                            erlang:display_string("init got unexpected: "),
+                            erlang:display(X)
+                    end
             end
-    end.		  
+    end.
 
 %%% -------------------------------------------------
 %%% A new release has been installed and made
