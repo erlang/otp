@@ -24,7 +24,7 @@
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
 	 writable_binary_matched/1,otp_7198/1,unordered_bindings/1,
-	 float_middle_endian/1,unsafe_get_binary_reuse/1]).
+	 float_middle_endian/1,unsafe_get_binary_reuse/1, fp16/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +37,7 @@ all() ->
      kenneth, encode_binary, native, happi, size_var, wiger,
      x0_context, huge_float_field, writable_binary_matched,
      otp_7198, unordered_bindings, float_middle_endian,
-     unsafe_get_binary_reuse].
+     unsafe_get_binary_reuse, fp16].
 
 
 %% Test matching of bound variables.
@@ -76,7 +76,7 @@ t_float(Config) when is_list(Config) ->
     fcmp(F, match_float(<<1:13,F:32/float,127:3>>, 32, 13)),
     fcmp(F, match_float(<<1:13,F:64/float,127:3>>, 64, 13)),
 
-    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16, 0)),
+    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 8, 0)),
     {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16#7fffffff, 0)),
 
     ok.
@@ -89,6 +89,7 @@ float_middle_endian(Config) when is_list(Config) ->
     ok.
 
 
+fcmp(0.0, 0.0) -> ok;
 fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok.
     
 match_float(Bin0, Fsz, I) ->
@@ -575,3 +576,61 @@ ubgr_1(<<_CP/utf8, Rest/binary>>) -> id(Rest);
 ubgr_1(_) -> false.
 
 id(I) -> I.
+
+-define(FP16(EncodedInt, Float),
+        (fun(NlInt, NlFloat) ->
+                  <<F1:16/float>> = <<NlInt:16>>,
+                  fcmp(F1, NlFloat),
+                  <<F2:16/float>> = <<(NlInt+16#8000):16>>,
+                  fcmp(F2, NlFloat),
+                  <<F3:16/float-little>> = <<NlInt:16/little>>,
+                  fcmp(F3, NlFloat),
+                  <<F4:16/float-little>> = <<(NlInt+16#8000):16/little>>,
+                  fcmp(F4, NlFloat),
+                  <<F5:16/float-native>> = <<NlInt:16/native>>,
+                  fcmp(F5, NlFloat),
+                  <<F6:16/float-native>> = <<(NlInt+16#8000):16/native>>,
+                  fcmp(F6, NlFloat)
+         end)(nonliteral(EncodedInt), nonliteral(Float)),
+        (fun() ->
+                  <<F1:16/float>> = <<EncodedInt:16>>,
+                  fcmp(F1, Float),
+                  <<F2:16/float>> = <<(EncodedInt+16#8000):16>>,
+                  fcmp(F2, Float),
+                  <<F3:16/float-little>> = <<EncodedInt:16/little>>,
+                  fcmp(F3, Float),
+                  <<F4:16/float-little>> = <<(EncodedInt+16#8000):16/little>>,
+                  fcmp(F4, Float),
+                  <<F3:16/float-native>> = <<EncodedInt:16/native>>,
+                  fcmp(F3, Float),
+                  <<F4:16/float-native>> = <<(EncodedInt+16#8000):16/native>>,
+                  fcmp(F4, Float)
+         end)()).
+
+nonliteral(X) -> X.
+
+fp16(_Config) ->
+    %% smallest positive subnormal number
+    ?FP16(16#0001, 0.000000059604645),
+    %% largest positive subnormal number
+    ?FP16(16#03ff, 0.000060975552),
+    %% smallest positive normal number
+    ?FP16(16#0400, 0.00006103515625),
+    %% largest normal number
+    ?FP16(16#7bff, 65504),
+    ?FP16(16#7bff, 65504.0),
+    %% largest number less than one
+    ?FP16(16#3bff, 0.99951172),
+    %% zero
+    ?FP16(16#0000, 0.0),
+    %% one
+    ?FP16(16#3c00, 1),
+    ?FP16(16#3c00, 1.0),
+    %% smallest number larger than one
+    ?FP16(16#3c01, 1.00097656),
+    %% rounding of 1/3 to nearest
+    ?FP16(16#3555, 0.33325195),
+    %% others
+    ?FP16(16#4000, 2),
+    ?FP16(16#4000, 2.0),
+    ok.
