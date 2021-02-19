@@ -3,9 +3,6 @@
 ##
 FROM docker.pkg.github.com/erlang/otp/i386-debian-base as build
 
-ARG HOST_ARCH=amd64
-ARG HOST_TRIP=x86_64-linux-gnu
-
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
         ERLC_USE_SERVER=yes \
@@ -21,7 +18,8 @@ WORKDIR /buildroot/otp/
 RUN ./configure && make && make install
 
 ## Build pre-build tar ball
-RUN scripts/build-otp-tar -o /buildroot/otp_clean_src.tar.gz /buildroot/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz
+RUN scripts/build-otp-tar -o /buildroot/otp_clean_src.tar.gz /buildroot/otp_src.tar.gz \
+        -b /buildroot/otp/ /buildroot/otp.tar.gz
 
 ## Prepare for a new build using pre-built tar ball
 RUN cd .. && rm -rf otp && tar -xzf ./otp_src.tar.gz
@@ -43,7 +41,9 @@ RUN ./configure --prefix=/otp/ --host=$HOST --build=`erts/autoconf/config.guess`
 ## Build the cross tests
 RUN ./otp_build tests
 RUN cd release/tests/test_server && \
-        erl -sname test@docker -noshell -eval "ts:install([{cross,\"yes\"},{crossflags,[{\"host\",\"$HOST\"}]},{crossroot,\"/$ERL_TOP\"}])." -s ts compile_testcases -s init stop
+        erl -sname test@docker -noshell \
+        -eval "ts:install([{cross,\"yes\"},{crossflags,[{\"host\",\"$HOST\"}]},{crossroot,\"/$ERL_TOP\"}])." \
+        -s ts compile_testcases -s init stop
 
 FROM debian as install
 
