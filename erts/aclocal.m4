@@ -226,6 +226,7 @@ AC_TRY_COMPILE([],[
 #endif
     __label__ lbl1;
     __label__ lbl2;
+    extern int magic(void);
     int x = magic();
     static void *jtab[2];
 
@@ -271,6 +272,7 @@ if test "$ac_cv_prog_emu_cc" != no; then
 #endif
     	__label__ lbl1;
     	__label__ lbl2;
+	extern int magic(void);
     	int x = magic();
     	static void *jtab[2];
 
@@ -2805,6 +2807,7 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     ppc64)	ARCH=ppc64;;
     ppc64le)	ARCH=ppc64le;;
     "Power Macintosh")	ARCH=ppc;;
+    arm64)	ARCH=arm64;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
     armv5tel)	ARCH=arm;;

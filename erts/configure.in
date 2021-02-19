@@ -733,7 +733,7 @@ dnl First remove common_tests skip file.
 
 dnl Adjust LDFLAGS to allow 64bit linkage on DARWIN
 case $ARCH-$OPSYS in
-	amd64-darwin*)
+	amd64-darwin*|arm64-darwin*)
 		AC_MSG_NOTICE([Adjusting LDFLAGS to cope with 64bit Darwin])
 		case $LDFLAGS in
 			*-m64*)
@@ -2191,6 +2191,7 @@ AC_CACHE_CHECK(
 		#include <sys/types.h>
 		#include <sys/socket.h>
 		#include <netinet/in.h>
+		#include <stdio.h>
 	    ]],
 	    [[printf("%d", in6addr_any.s6_addr[16]);]]
 	)],
@@ -2214,6 +2215,7 @@ AC_CACHE_CHECK(
 		#include <sys/types.h>
 		#include <sys/socket.h>
 		#include <netinet/in.h>
+		#include <stdio.h>
 	    ]],
 	    [[printf("%d", in6addr_loopback.s6_addr[16]);]]
 	)],
