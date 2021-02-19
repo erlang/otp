@@ -9,7 +9,7 @@ my $srcdir = shift @ARGV;
 my $outdir = shift @ARGV;
 
 my $verbose = 1;
-my $flavor = "smp";
+my $flavor = "{smp,jit}";
 
 # setup filenames and paths, observe geninfos --base-directory
 # it needs a correct path just after the $geninfo
