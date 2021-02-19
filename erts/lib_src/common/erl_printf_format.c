@@ -318,11 +318,33 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     char format_str[8];
     char sbuf[32];
     char *bufp = sbuf;
+    char *infp = sbuf;
     double dexp;
     int exp;
     size_t max_size = 2;  /* including possible sign */
     int size;
     int new_fmt = fmt;
+
+    if (isinf(val)) {
+        *infp++ = '#';
+        if(signbit(val))
+            *infp++ = '-';
+        *infp++ = 'I';
+        *infp++ = 'n';
+        *infp++ = 'f';
+        *infp = '\0';
+        return fmt_fld(fn, arg, bufp, infp - bufp, 0, width, 0, new_fmt, count);;
+    }
+
+    if (isnan(val)) {
+        *infp++ = '#';
+        *infp++ = 'N';
+        *infp++ = 'a';
+        *infp++ = 'N';
+        *infp = '\0';
+        return fmt_fld(fn, arg, bufp, infp - bufp, 0, width, 0, new_fmt, count);
+    }
+
     if (val < 0.0)
 	dexp = log10(-val);
     else if (val == 0.0)

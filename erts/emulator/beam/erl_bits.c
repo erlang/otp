@@ -544,9 +544,7 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
     ERTS_FP_CHECK_INIT(p);
     if (num_bits == 16) {
 	f.fd = FP16_TO_FP64(f16);
-	ERTS_FP_ERROR_THOROUGH(p, f.fd, return THE_NON_VALUE);
     } else if (num_bits == 32) {
-	ERTS_FP_ERROR_THOROUGH(p, f32, return THE_NON_VALUE);
 	f.fd = f32;
     } else {
 #ifdef DOUBLE_MIDDLE_ENDIAN
@@ -554,9 +552,7 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
 	ftmp.fd = f64;
 	f.fw[0] = ftmp.fw[1];
 	f.fw[1] = ftmp.fw[0];
-	ERTS_FP_ERROR_THOROUGH(p, f.fd, return THE_NON_VALUE);
 #else
-	ERTS_FP_ERROR_THOROUGH(p, f64, return THE_NON_VALUE);
 	f.fd = f64;
 #endif
     }
