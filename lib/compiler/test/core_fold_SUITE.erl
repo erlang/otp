@@ -414,7 +414,7 @@ unused_multiple_values_error(Config) when is_list(Config) ->
     Core = filename:join(Dir, "unused_multiple_values_error"),
     Opts = [no_copt,clint,ssalint,return,from_core,{outdir,PrivDir}
 	   |test_lib:opt_opts(?MODULE)],
-    {error,[{unused_multiple_values_error,
+    {error,[{"unused_multiple_values_error",
 	     [{none,core_lint,{return_mismatch,{hello,1}}}]}],
      []} = c:c(Core, Opts),
     ok.

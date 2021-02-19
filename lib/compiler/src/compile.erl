@@ -55,10 +55,10 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type err_info() :: {erl_anno:line() | 'none',
-		     module(), term()}. %% ErrorDescriptor
--type errors()   :: [{file:filename(), [err_info()]}].
--type warnings() :: [{file:filename(), [err_info()]}].
+-type error_description() :: erl_lint:error_description().
+-type error_info() :: erl_lint:error_info().
+-type errors()   :: [{file:filename(), [error_info()]}].
+-type warnings() :: [{file:filename(), [error_info()]}].
 -type mod_ret()  :: {'ok', module()}
                   | {'ok', module(), cerl:c_module()} %% with option 'to_core'
                   | {'ok',                            %% with option 'to_pp'
@@ -304,9 +304,8 @@ expand_opt_before_21(Os) ->
      no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
      no_utf8_atoms, no_recv_opt | expand_opt(no_bsm3, Os)].
 
-%% format_error(ErrorDescriptor) -> string()
 
--spec format_error(term()) -> iolist().
+-spec format_error(error_description()) -> iolist().
 
 format_error(no_crypto) ->
     "this system is not configured with crypto support.";
@@ -354,8 +353,6 @@ format_error_reason(Class, Reason, Stack) ->
              format_fun => FormatFun},
     erl_error:format_exception(Class, Reason, Stack, Opts).
 
--type err_warn_info() :: tuple().
-
 %% The compile state record.
 -record(compile, {filename="" :: file:filename(),
 		  dir=""      :: file:filename(),
@@ -367,8 +364,8 @@ format_error_reason(Class, Reason, Stack) ->
 		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
                   encoding=none :: none | epp:source_encoding(),
-		  errors=[]     :: [err_warn_info()],
-		  warnings=[]   :: [err_warn_info()],
+		  errors=[]     :: errors(),
+		  warnings=[]   :: warnings(),
 		  extra_chunks=[] :: [{binary(), binary()}]}).
 
 internal({forms,Forms}, Opts0) ->
