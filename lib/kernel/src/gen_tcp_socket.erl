@@ -170,6 +170,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
             ?badarg_exit(Error)
     end.
 
+    
 connect_loop([], _Server, Error, _Timer) -> Error;
 connect_loop([Addr | Addrs], Server, _Error, Timer) ->
     Result = call(Server, {connect, Addr, inet:timeout(Timer)}),
@@ -182,6 +183,10 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
             connect_loop(Addrs, Server, Result, Timer)
     end.
 
+
+bind_addr(_Domain, undefined = _BindIP, _BindPort) ->
+    %% Do not bind!
+    undefined;
 bind_addr(Domain, BindIP, BindPort) ->
     case Domain of
         local ->
