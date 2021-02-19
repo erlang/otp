@@ -1997,7 +1997,6 @@ complete_state(em_state *state)
     int i, j, vpo, vpl;
     void * (*allocp)(size_t);
     void * (*reallocp)(void *, size_t);
-    void (*freep)(void *);
     size_t size = sizeof(emtp_info);
 
     if (!emtp_get_info(&state->trace_info, &size, state->trace_state)
@@ -2025,8 +2024,6 @@ complete_state(em_state *state)
 
     allocp = state->alloc;
     reallocp = state->realloc;
-    freep = state->free;
-
 
     state->carrier_table = (*allocp)((state->trace_info.max_allocator_ix+2)
 				     * sizeof(emtbt_table *));
@@ -2296,7 +2293,6 @@ process_trace(em_state *state)
 static void
 usage(char *sw, char *error)
 {
-    int status = 0;
     FILE *filep = stdout;
 #ifdef __WIN32__
 #define SW_CHAR "/"
@@ -2306,7 +2302,6 @@ usage(char *sw, char *error)
 
     if (error) {
 	ASSERT(sw);
-	status = 1;
 	filep = stderr;
 	fprintf(filep, "emem: %s: %s\n", sw, error);
     }
@@ -2384,8 +2379,6 @@ parse_args(em_state *state, int argc, char *argv[])
 {
     int port;
     int i;
-
-    port = -1;
 
     i = 1;
     while (i < argc) {
@@ -2827,7 +2820,6 @@ main(int argc, char *argv[])
 
     switch (res) {
     case EM_EXIT_RESULT:
-	res = 0;
 	break;
     case EM_TRUNCATED_TRACE_ERROR:
 	error_msg(ires, state->input.error_descr);
