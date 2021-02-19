@@ -186,8 +186,8 @@ run_cryptos(Cryptos, Config) ->
                            )
              end
      catch
-         _:_ ->
-             ct:pal("~p unsupported",[{Crypto,KeySize,BlockSize}])
+         _C:_E ->
+             ct:pal("~p unsupported ~p ~p",[{Crypto,KeySize,BlockSize},_C,_E])
      end
      || Crypto <- Cryptos,
         supported(Crypto)
@@ -226,30 +226,62 @@ funs({aead, {Type, Key, IV, AAD, Block}}) ->
      fun(_) -> ok end}.
 
 
-data(aes_cbc=Type, KeySize, BlockSize) ->
+type(Type, Size) ->
+    Ciphers = ciphers(),
+    case lists:member(Type, Ciphers) of
+        true ->
+            Type;
+        false ->
+            case string:tokens(atom_to_list(Type), "_") of
+                [Family,Mode] ->
+                    NewType = list_to_atom(lists:concat([Family,"_",Size,"_",Mode])),
+                    case lists:member(NewType, Ciphers) of
+                        true ->
+                            NewType;
+                        false ->
+                            false
+                    end;
+                _X -> 
+                    false
+            end
+    end.
+
+
+ciphers() ->
+    try crypto:supports(ciphers)
+    catch
+        _:_ -> proplists:get_value(ciphers, crypto:supports())
+    end.
+                
+
+data(aes_cbc=Type0, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(16),
     Block = mk_bin(BlockSize),
+    Type = type(Type0, KeySize),
     {Type, funs({block, {Type, Key, IV, Block}})};
 
-data(aes_gcm=Type, KeySize, BlockSize) ->
+data(aes_gcm=Type0, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(12),
     Block = mk_bin(BlockSize),
     AAD = <<01,02,03,04>>,
+    Type = type(Type0, KeySize),
     {Type, funs({aead, {Type, Key, IV, AAD, Block, 16}})};
 
-data(aes_ccm=Type, KeySize, BlockSize) ->
+data(aes_ccm=Type0, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(12),
     Block = mk_bin(BlockSize),
     AAD = <<01,02,03,04>>,
+    Type = type(Type0, KeySize),
     {Type, funs({aead, {Type, Key, IV, AAD, Block, 12}})};
 
-data(aes_ctr=Type, KeySize, BlockSize) ->
+data(aes_ctr=Type0, KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(16),
     Block = mk_bin(BlockSize),
+    Type = type(Type0, KeySize),
     {Type, funs({block, {Type, Key, IV, Block}})};
 
 data(chacha20_poly1305=Type, 256=KeySize, BlockSize) ->
