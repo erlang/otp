@@ -355,6 +355,12 @@ types(erlang, Name, Args) ->
 %% Math BIFs
 %%
 
+types(math, is_finite, [_]) ->
+    sub_unsafe(beam_types:make_boolean(), [number]);
+types(math, is_infinite, [_]) ->
+    sub_unsafe(beam_types:make_boolean(), [number]);
+types(math, is_nan, [_]) ->
+    sub_unsafe(beam_types:make_boolean(), [number]);
 types(math, cos, [_]) ->
     sub_unsafe(#t_float{}, [number]);
 types(math, cosh, [_]) ->
