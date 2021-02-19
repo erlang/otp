@@ -939,13 +939,15 @@ cg_linear([{L, #cg_blk{is=[#cg_set{op=peek_message,
           St0)->
     B = B0#cg_blk{is=[Peek#cg_set{args=[]} | Is0]},
     {Is, St} = cg_linear([{L, B} | Bs], St0),
-    case beam_arg(Marker, St0) of
-        {atom, none} ->
+    case Marker of
+        #b_literal{val=Val} ->
+            none = Val,                         %Assertion.
             {Is, St};
-        Reg ->
+        _ ->
             %% We never jump directly into receive loops so we can be certain
             %% that recv_marker_use/1 is always executed despite preceding
             %% the loop label. This is verified by the validator.
+            Reg = beam_arg(Marker, St0),
             {[{recv_marker_use, Reg} | Is], St}
     end;
 cg_linear([{L,#cg_blk{is=Is0,last=Last}}|Bs], St0) ->

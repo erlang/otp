@@ -734,12 +734,15 @@ vi({recv_marker_reserve=Op, Dst}, Vst) ->
 vi({recv_marker_bind, Marker, Ref}, Vst) ->
     assert_type(#t_abstract{kind=receive_marker}, Marker, Vst),
     assert_durable_term(Ref, Vst),
+    assert_not_literal(Ref),
     Vst;
 vi({recv_marker_clear, Ref}, Vst) ->
     assert_durable_term(Ref, Vst),
+    assert_not_literal(Ref),
     Vst;
 vi({recv_marker_use, Ref}, Vst) ->
     assert_durable_term(Ref, Vst),
+    assert_not_literal(Ref),
     update_receive_state(marked_position, Vst);
 vi(remove_message, Vst0) ->
     Vst = update_receive_state(none, Vst0),
