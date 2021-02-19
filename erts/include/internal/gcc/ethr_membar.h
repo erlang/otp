@@ -247,7 +247,8 @@ ethr_full_fence__(void)
  * Add more archs as needed...
  */
 
-#if !defined(__ia64__) && !defined(__arm__) && !defined(__arm64__)
+#if !defined(__ia64__) && !defined(__arm__) && !defined(__arm64__) \
+    && !defined(__aarch32__) && !defined(__aarch64__)
 #  define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_MEMBAR(ETHR_LoadLoad)
 #endif
 
