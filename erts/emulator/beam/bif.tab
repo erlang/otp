@@ -773,3 +773,7 @@ bif erlang:unalias/1
 bif erlang:monitor/3
 bif erlang:error/3
 bif maps:from_keys/2
+
+bif math:is_finite/1
+bif math:is_infinite/1
+bif math:is_nan/1

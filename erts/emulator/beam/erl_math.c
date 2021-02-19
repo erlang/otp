@@ -138,6 +138,72 @@ math_call_2(Process* p, double (*func)(double, double), Eterm arg1, Eterm arg2)
     return res;
 }
 
+BIF_RETTYPE math_is_finite_1(BIF_ALIST_1)
+{
+    FloatDef f;
+
+    ERTS_FP_CHECK_INIT(p);
+    if (is_float(BIF_ARG_1)) {
+	GET_DOUBLE(BIF_ARG_1, f);
+	if (isfinite(f.fd)) {
+	    BIF_RET(am_true);
+	} else {
+	    BIF_RET(am_false);
+	}
+    } else if (is_small(BIF_ARG_1)) {
+	BIF_RET(am_true);
+    } else if (is_big(BIF_ARG_1)) {
+	BIF_RET(am_true);
+    } else {
+	BIF_P->freason = BADARG;
+	return THE_NON_VALUE;
+    }
+}
+
+BIF_RETTYPE math_is_infinite_1(BIF_ALIST_1)
+{
+    FloatDef f;
+
+    ERTS_FP_CHECK_INIT(p);
+    if (is_float(BIF_ARG_1)) {
+	GET_DOUBLE(BIF_ARG_1, f);
+	if (isinf(f.fd)) {
+	    BIF_RET(am_true);
+	} else {
+	    BIF_RET(am_false);
+	}
+    } else if (is_small(BIF_ARG_1)) {
+	BIF_RET(am_false);
+    } else if (is_big(BIF_ARG_1)) {
+	BIF_RET(am_false);
+    } else {
+	BIF_P->freason = BADARG;
+	return THE_NON_VALUE;
+    }
+}
+
+BIF_RETTYPE math_is_nan_1(BIF_ALIST_1)
+{
+    FloatDef f;
+
+    ERTS_FP_CHECK_INIT(p);
+    if (is_float(BIF_ARG_1)) {
+	GET_DOUBLE(BIF_ARG_1, f);
+	if (isnan(f.fd)) {
+	    BIF_RET(am_true);
+	} else {
+	    BIF_RET(am_false);
+	}
+    } else if (is_small(BIF_ARG_1)) {
+	BIF_RET(am_false);
+    } else if (is_big(BIF_ARG_1)) {
+	BIF_RET(am_false);
+    } else {
+	BIF_P->freason = BADARG;
+	return THE_NON_VALUE;
+    }
+}
+
 BIF_RETTYPE math_cos_1(BIF_ALIST_1)
 {
     return math_call_1(BIF_P, cos, BIF_ARG_1);

@@ -4269,10 +4269,6 @@ dec_term_atom_common:
 		ep += 4;
 #endif
 
-        if (!erts_isfinite(ff.fd)) {
-            goto error;
-        }
-
 		*objp = make_float(hp);
 		PUT_DOUBLE(ff, hp);
 		hp += FLOAT_SIZE_OBJECT;

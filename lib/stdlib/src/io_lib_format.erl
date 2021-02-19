@@ -443,14 +443,17 @@ print(T, D, F, right, P, _Pad, Enc, Str, ChLim, _I) ->
 fwrite_e(Fl, none, Adj, none, Pad) ->		%Default values
     fwrite_e(Fl, none, Adj, 6, Pad);
 fwrite_e(Fl, none, _Adj, P, _Pad) when P >= 2 ->
-    float_e(Fl, float_data(Fl), P);
+    float_e(Fl, P);
 fwrite_e(Fl, F, Adj, none, Pad) ->
     fwrite_e(Fl, F, Adj, 6, Pad);
 fwrite_e(Fl, F, Adj, P, Pad) when P >= 2 ->
-    term(float_e(Fl, float_data(Fl), P), F, Adj, F, Pad).
+    term(float_e(Fl, P), F, Adj, F, Pad).
 
-float_e(Fl, Fd, P) ->
-    signbit(Fl) ++ abs_float_e(abs(Fl), Fd, P).
+float_e(Fl, P) ->
+    case math:is_finite(Fl) of
+	true -> signbit(Fl) ++ abs_float_e(abs(Fl), float_data(Fl), P);
+	false -> float_to_list(Fl)
+    end.
 
 abs_float_e(_Fl, {Ds,E}, P) ->
     case float_man(Ds, 1, P-1) of
@@ -558,7 +561,10 @@ float_data([_|Cs], Ds) ->
 -spec fwrite_g(float()) -> string().
 
 fwrite_g(Fl) ->
-    signbit(Fl) ++ abs_fwrite_g(abs(Fl)).
+    case math:is_finite(Fl) of
+	true -> signbit(Fl) ++ abs_fwrite_g(abs(Fl));
+	false -> float_to_list(Fl)
+    end.
 
 abs_fwrite_g(0.0) ->
     "0.0";
