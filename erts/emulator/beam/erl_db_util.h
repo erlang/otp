@@ -327,7 +327,7 @@ typedef struct db_table_common {
     erts_atomic_t continuation_state;
     Binary* continuation_res_bin;
 #ifdef ETS_DBG_FORCE_TRAP
-    erts_atomic_t dbg_force_trap;  /* &1 force enabled, &2 trap this call */
+    int dbg_force_trap;  /* force trap on table lookup */
 #endif
 } DbTableCommon;
 

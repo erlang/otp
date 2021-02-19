@@ -772,6 +772,8 @@ DbTable* db_get_table_aux(Process *p,
      */
     ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
 
+    ASSERT((what == DB_READ_TBL_STRUCT) == (kind == NOLCK_ACCESS));
+
     if (META_DB_LOCK_FREE())
         meta_already_locked = 1;
 
@@ -815,30 +817,31 @@ DbTable* db_get_table_aux(Process *p,
     if (tb) {
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
-        if (erts_atomic_read_nob(&tb->common.dbg_force_trap)) {
-            Uint32 rand = erts_sched_local_random((Uint)&p);
-            if ( !(rand & 7) ) {
-                /* About 7 of 8 threads that are on the line above
-                   will get here */
-                if (erts_atomic_add_read_nob(&tb->common.dbg_force_trap, 2) & 2) {
-                    db_unlock(tb, kind);
-                    tb = NULL;
-                    *freason_p = TRAP;
-                    p->fvalue = EXI_TYPE;
-                    return tb;
-                }
+        /*
+         * The ets_SUITE uses this to verify that all table lookups calls
+         * can handle a failed TRAP return correctly.
+         */
+        if (what != DB_READ_TBL_STRUCT && tb->common.dbg_force_trap) {
+            if (!(p->flags & F_ETS_FORCED_TRAP)) {
+                db_unlock(tb, kind);
+                tb = NULL;
+                *freason_p = TRAP;
+                p->fvalue = EXI_TYPE;
+                p->flags |= F_ETS_FORCED_TRAP;
+                return tb;
+            } else {
+                /* back from forced trap */
+                p->flags &= ~F_ETS_FORCED_TRAP;
             }
-
-
         }
 #endif
-        if (ERTS_UNLIKELY(what != DB_READ_TBL_STRUCT
-                          /* IMPORTANT: the above check is
-                             necessary as the status field might
-                             be in an intermediate state when
-                             kind==NOLCK_ACCESS */ &&
-                          !(tb->common.status & what)))
+        if (what != DB_READ_TBL_STRUCT
+            /* IMPORTANT: the above check is necessary as the status field
+                          might be in an intermediate state when
+                          kind==NOLCK_ACCESS */
+                && ERTS_UNLIKELY(!(tb->common.status & what))) {
             tb = handle_lacking_permission(p, tb, kind, freason_p);
+        }
     }
     else {
         *freason_p = BADARG | EXF_HAS_EXT_INFO;
@@ -1904,25 +1907,21 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
         if (ctx->status == ETS_INSERT_2_LIST_GLOBAL) {
             /* An operation that can be helped by other operations is
                handled here */
-            Uint freason__;
+            Uint freason;
             int cret = DB_ERROR_NONE;
             DbTable* tb;
             /* First check if another process has completed the
                operation without acquiring the lock */
-            if (NULL == (tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, &freason__))) {
-                if (freason__ == TRAP){
-                    erts_set_gc_state(p, 0);
-                    return db_bif_fail(p, freason__, bix, NULL);
-                }
-            }
+            tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, &freason);
+            ASSERT(tb || freason != TRAP);
             if (tb != NULL &&
                 (void*)erts_atomic_read_acqb(&tb->common.continuation_state) ==
                 ctx->continuation_state) {
                 /* The lock has to be taken to complete the operation */
-                if (NULL == (tb = db_get_table(p, tid, DB_WRITE, LCK_WRITE, &freason__))) {
-                    if (freason__ == TRAP){
+                if (NULL == (tb = db_get_table(p, tid, DB_WRITE, LCK_WRITE, &freason))) {
+                    if (freason == TRAP){
                         erts_set_gc_state(p, 0);
-                        return db_bif_fail(p, freason__, bix, NULL);
+                        return db_bif_fail(p, freason, bix, NULL);
                     }
                 }
                 /* Must be done since the db_get_table call did not trap */
@@ -2127,12 +2126,13 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 
 
     if (is_not_atom(BIF_ARG_2)) {
-        tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason);
+        DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_READ, BIF_ets_rename_2);
         if (tb == NULL) {
+            ASSERT(freason != TRAP);
             /* Report bad table identifier or table name. */
             BIF_ERROR(BIF_P, freason);
         } else {
-            db_unlock(tb, LCK_WRITE);
+            db_unlock(tb, LCK_READ);
             BIF_ERROR(BIF_P, BADARG);
         }
     }
@@ -2388,7 +2388,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.fixing_procs = NULL;
     tb->common.compress = is_compressed;
 #ifdef ETS_DBG_FORCE_TRAP
-    erts_atomic_init_nob(&tb->common.dbg_force_trap, erts_ets_dbg_force_trap);
+    tb->common.dbg_force_trap = erts_ets_dbg_force_trap;
 #endif
 
     cret = meth->db_create(BIF_P, tb);
@@ -2643,18 +2643,19 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 
     /*
      * Note that lock of the process must be taken before the lock
-     * of the table. That makes error handling a little bit awkward.
+     * of the table.
      */
-
-    if (!is_internal_pid(to_pid)) {
-        goto bad_pid;
-    }
     to_proc = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN, to_pid, to_locks);
-    if (to_proc == NULL) {
-        goto bad_pid;
-    }
+    /*
+     * If the table identifier has a problem, we want to report that even if
+     * the Pid is bad.
+     */
+    tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason);
+    if (!tb)
+        goto fail;
 
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason)) == NULL) {
+    if (!to_proc) {
+        freason = BADARG;
         goto fail;
     }
 
@@ -2682,17 +2683,6 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
     erts_proc_unlock(to_proc, to_locks);
     UnUseTmpHeap(5,BIF_P);
     BIF_RET(am_true);
-
- bad_pid:
-    /*
-     * If the table identifier has a problem, we want to report that even if
-     * the Pid is bad.
-     */
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, &freason)) == NULL) {
-        BIF_ERROR(BIF_P, freason);
-    }
-
-    freason = BADARG;
 
  fail:
     if (to_proc != NULL && to_proc != BIF_P) erts_proc_unlock(to_proc, to_locks);
@@ -5337,7 +5327,7 @@ void erts_lcnt_update_db_locks(int enable) {
 #endif /* ERTS_ENABLE_LOCK_COUNT */
 
 #ifdef ETS_DBG_FORCE_TRAP
-erts_aint_t erts_ets_dbg_force_trap = 0;
+int erts_ets_dbg_force_trap = 0;
 #endif
 
 int erts_ets_force_split(Eterm tid, int on)
