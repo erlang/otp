@@ -273,28 +273,32 @@ handle_info({ssh_cm, _, _} = Msg, #state{cm = ConnectionManager,
 				       channel_state = ChannelState}}
     end;
 
-handle_info(Msg, #state{cm = ConnectionManager, channel_cb = Module, 
+handle_info(Msg, #state{channel_cb = Module, 
 			channel_state = ChannelState0} = State) -> 
-    case Module:handle_msg(Msg, ChannelState0) of 
+    try Module:handle_msg(Msg, ChannelState0)
+    of 
 	{ok, ChannelState} ->
 	    {noreply, State#state{channel_state = ChannelState}};
 	{ok, ChannelState, Timeout} ->
 	    {noreply, State#state{channel_state = ChannelState}, Timeout};
-	{stop, Reason, ChannelState} when is_atom(Reason)->
-	    {stop, Reason, State#state{close_sent = true,
-				       channel_state = ChannelState}};
 	{stop, ChannelId, ChannelState} ->
-	    Reason =
-		case Msg of
-		    {'EXIT', _Pid, shutdown} ->
-			shutdown;
-		    _ ->
-			normal
-		end,
-	    (catch ssh_connection:close(ConnectionManager, ChannelId)),
-	    {stop, Reason, State#state{close_sent = true,
-				       channel_state = ChannelState}}
+            do_the_close(Msg, ChannelId, State#state{channel_state = ChannelState})
+    catch
+        error:function_clause when size(Msg) == 3,
+                                   element(1,Msg) == 'EXIT' ->
+            do_the_close(Msg, State#state.channel_id, State)
     end.
+
+
+
+do_the_close(Msg, ChannelId, State = #state{close_sent = false,
+                                            cm = ConnectionManager}) ->
+    catch ssh_connection:close(ConnectionManager, ChannelId),
+    do_the_close(Msg, ChannelId, State#state{close_sent=true});
+do_the_close({'EXIT', _Pid, shutdown=Reason},     _, State) -> {stop, Reason, State};
+do_the_close({'EXIT', _Pid, {shutdown,_}=Reason}, _, State) -> {stop, Reason, State};
+do_the_close(_Msg,                                _, State) -> {stop, normal, State}.
+
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
