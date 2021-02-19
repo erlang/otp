@@ -26,7 +26,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([token_set_get/1, tracer_set_get/1, print/1,
-         old_heap_token/1,
+         old_heap_token/1,mature_heap_token/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
          port_clean_token/1,
@@ -54,7 +54,7 @@ suite() ->
 all() -> 
     [token_set_get, tracer_set_get, print, send, send_literal,
      distributed_send, recv, distributed_recv, trace_exit,
-     old_heap_token,
+     old_heap_token, mature_heap_token,
      distributed_exit, call, port, match_set_seq_token,
      port_clean_token,
      gc_seq_token, label_capability_mismatch,
@@ -580,18 +580,24 @@ call(Config) when is_list(Config) ->
 
 %% The token should follow spawn, just like it follows messages.
 inherit_on_spawn(Config) when is_list(Config) ->
-    lists:foreach(fun (Test) ->
-                          inherit_on_spawn_test(Test)
-                  end,
-                  [spawn, spawn_link, spawn_monitor,
-                   spawn_opt, spawn_request]),
+    lists:foreach(
+      fun (Test) ->
+              lists:foreach(
+                fun (TraceFlags) ->
+                        inherit_on_spawn_test(Test, TraceFlags)
+                end,
+                combinations(spawn_trace_flags()))
+      end,
+      [spawn, spawn_link, spawn_monitor,
+       spawn_opt, spawn_request]),
     ok.
 
-inherit_on_spawn_test(Spawn) ->
-    io:format("Testing ~p()~n", [Spawn]),
+inherit_on_spawn_test(Spawn, TraceFlags) ->
+    io:format("Testing ~p() with ~p trace flags~n", [Spawn, TraceFlags]),
 
     seq_trace:reset_trace(),
     start_tracer(),
+    start_spawn_tracer(TraceFlags),
 
     Ref = make_ref(),
     seq_trace:set_token(label,Ref),
@@ -622,6 +628,7 @@ inherit_on_spawn_test(Spawn) ->
 
     receive {gurka,Ref} -> ok end,
     seq_trace:reset_trace(),
+    erlang:trace(self(),false,[procs|TraceFlags]),
 
     Sequence = lists:keysort(3, stop_tracer(6)),
     io:format("Sequence: ~p~n", [Sequence]),
@@ -686,8 +693,34 @@ inherit_on_spawn_test(Spawn) ->
        GurkaMsg},
       _} = RGurkaMsg,
 
+
+    Links = not(spawn =:= spawn orelse Spawn =:= spawn_monitor),
+    SoL = lists:member(set_on_link,TraceFlags) orelse
+        lists:member(set_on_first_link,TraceFlags),
+    SoS = lists:member(set_on_spawn,TraceFlags) orelse
+        lists:member(set_on_first_sapwn,TraceFlags),
+
+    NoTraceMessages =
+        if
+            SoS andalso Links ->
+                4;
+            SoS andalso not Links ->
+                2;
+            SoL andalso Links ->
+                4;
+            SoL andalso not Links->
+                1;
+            Links andalso not SoL andalso not SoS ->
+                2;
+            not Links andalso not SoL andalso not SoS ->
+                1
+        end,
+
+    TraceMessages = stop_spawn_tracer(NoTraceMessages),
+
     unlink(Other),
     exit(Other, kill),
+
 
     ok.
 
@@ -1009,6 +1042,24 @@ old_heap_token(Config) when is_list(Config) ->
 
     %% If bug, we now have a ref from old to new heap. Yet another minor gc
     %% will make that a ref to deallocated memory.
+    erlang:garbage_collect(self(), [{type, minor}]),
+    {label,NewLabel} = seq_trace:get_token(label),
+    ok.
+
+%% Verify changing label on existing token when it resides on mature heap.
+%% Bug caused faulty ref from old to new heap.
+mature_heap_token(Config) when is_list(Config) ->
+
+    seq_trace:set_token(label, 1),
+    erlang:garbage_collect(self(), [{type, minor}]),
+    %% Now token should be on mature heap
+    %% Set a new non-literal label which should reside on new-heap.
+    NewLabel = {self(), "new label"},
+    seq_trace:set_token(label, NewLabel),
+
+    %% If bug, we now have a ref from mature to new heap. If we now GC
+    %% twice the token will refer to deallocated memory.
+    erlang:garbage_collect(self(), [{type, minor}]),
     erlang:garbage_collect(self(), [{type, minor}]),
     {label,NewLabel} = seq_trace:get_token(label),
     ok.
@@ -1408,7 +1459,6 @@ start_tracer(Node) ->
             unlink(Pid),
             Pid
     end.
-           
 
 set_token_flags([]) ->
     ok;
@@ -1420,6 +1470,51 @@ set_token_flags([no_timestamp|Flags]) ->
 set_token_flags([Flag|Flags]) ->
     seq_trace:set_token(Flag, true),
     set_token_flags(Flags).
+
+start_spawn_tracer(TraceFlags) ->
+
+    %% Disable old trace flags
+    erlang:trace(self(), false, spawn_trace_flags()),
+
+    Me = self(),
+    Ref = make_ref(),
+    Pid = spawn_link(
+            fun () ->
+                    register(spawn_tracer, self()),
+                    Me ! Ref,
+                    (fun F(Data) ->
+                             receive
+                                 {get, N, StopRef, Pid} when N =< length(Data) ->
+                                     Pid ! {lists:reverse(Data), StopRef};
+                                 M when element(1,M) =:= trace ->
+                                     F([M|Data])
+                             end
+                    end)([])
+            end),
+    receive
+        Ref ->
+            erlang:trace(self(),true,[{tracer,Pid}, procs | TraceFlags])
+    end.
+
+stop_spawn_tracer(N) ->
+    Ref = make_ref(),
+    spawn_tracer ! {get, N, Ref, self()},
+    receive
+        {Data, Ref} ->
+            Data
+    end.
+
+spawn_trace_flags() ->
+    [set_on_spawn, set_on_link, set_on_spawn,
+     set_on_first_link, set_on_first_spawn].
+
+combinations(Flags) ->
+    %% Do a bit of sofs magic to create a list of lists with
+    %% all the combinations of all the flags above
+    Set = sofs:from_term(Flags),
+    Product = sofs:product(list_to_tuple(lists:duplicate(length(Flags),Set))),
+    Combinations = [lists:usort(tuple_to_list(T)) || T <- sofs:to_external(Product)],
+    [[] | lists:usort(Combinations)].
 
 check_ts(no_timestamp, Ts) ->
     try
