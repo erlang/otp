@@ -139,7 +139,9 @@ all_cases() ->
      accept_timeouts_in_order7, accept_timeouts_mixed,
      killing_acceptor, killing_multi_acceptors,
      killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
-     active_once_closed, send_timeout, send_timeout_active, otp_7731,
+     active_once_closed,
+     send_timeout, send_timeout_active,
+     otp_7731,
      wrapping_oct,
      zombie_sockets, otp_7816, otp_8102, otp_9389,
      otp_12242, delay_send_error, bidirectional_traffic
@@ -4657,8 +4659,8 @@ send_timeout(Config) when is_list(Config) ->
     ?P("begin"),
     Dir = filename:dirname(code:which(?MODULE)),
     ?P("create (slave) node"),
-    {ok,RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-					[{args,"-pa " ++ Dir}]),
+    {ok, RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
+					 [{args,"-pa " ++ Dir}]),
 
     %% Basic
     ?P("basic check wo autoclose"),
@@ -4669,11 +4671,12 @@ send_timeout(Config) when is_list(Config) ->
     BinData = <<1:10000>>,
 
     %% Check timeout length.
-    ?P("check timeout length"),
+    ?P("spawn sink process (check timeout length)"),
     Self = self(),
     {Pid, Mon} = spawn_monitor(
                    fun() ->
-                           A = setup_timeout_sink(Config, RNode, 1000, true),
+                           {A, _} = setup_timeout_sink(Config,
+						       RNode, 1000, true),
                            Send = fun() ->
                                           Res = gen_tcp:send(A, BinData),
                                           Self ! Res,
@@ -4704,20 +4707,37 @@ send_timeout(Config) when is_list(Config) ->
 send_timeout_basic(Config, AutoClose, RNode) ->
     BinData = <<1:10000>>,
 
-    A = setup_timeout_sink(Config, RNode, 1000, AutoClose),
-    Send = fun() -> gen_tcp:send(A, BinData) end,
+    {A, Pid}              = setup_timeout_sink(Config, RNode, 1000, AutoClose),
+    Send                  = fun() -> gen_tcp:send(A, BinData) end,
     {{error, timeout}, _} = timeout_sink_loop(Send),
 
     %% Check that the socket is not busy/closed...
-    {error,Error} = gen_tcp:send(A, <<"Hej">>),
-    after_send_timeout(AutoClose, Error),
-    ok.
+    ?P("verify socket not busy/closed"),
+    case gen_tcp:send(A, <<"Hej">>) of
+	{error, Reason} ->
+	    ?P("(expected) send failure: ~p", [Reason]),
+	    after_send_timeout(AutoClose, Reason),
+	    (catch gen_tcp:close(A)),
+	    exit(Pid, kill),
+	    ok;
+	ok ->
+	    %% This is a bit wierd,
+	    %% we are supposed to verify that the socket is
+	    %% not busy/closed, and a successful send is
+	    %% exactly that, *not* busy or closed.
+	    %% But the test expects to return the errors
+	    %% 'timeout' or 'enotconn', so clearly we are
+	    %% testing something else...
+	    (catch gen_tcp:close(A)),
+	    exit(Pid, kill),
+	    ct:fail("Unexpected send success")
+    end.
 
 send_timeout_para(Config, AutoClose, RNode) ->
     BinData = <<1:10000>>,
 
     ?P("[para] sink"),
-    A = setup_timeout_sink(Config, RNode, 1000, AutoClose),
+    {A, Pid} = setup_timeout_sink(Config, RNode, 1000, AutoClose),
     Self = self(),
     SenderFun = fun() ->
                         ?P("[para:sender] start"),
@@ -4845,7 +4865,10 @@ send_timeout_para(Config, AutoClose, RNode) ->
     end,
     {error,Error_2} = gen_tcp:send(A, <<"Hej">>),
     after_send_timeout(AutoClose, Error_2),
-    ?P("[para] done"),    
+    ?P("cleanup"),
+    (catch gen_tcp:close(A)),
+    exit(Pid, kill),
+    ?P("[para] done"),
     ok.
 
 
@@ -5018,9 +5041,9 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     Host = get_hostname(node()),
     ?P("[sink] create listen socket"),
     {ok, L} = ?LISTEN(Config, 0, [{active,             false},
-                                 {packet,             2},
-				 {send_timeout,       Timeout},
-				 {send_timeout_close, AutoClose}]),
+				  {packet,             2},
+				  {send_timeout,       Timeout},
+				  {send_timeout_close, AutoClose}]),
     Fun = fun(F) ->
 		  receive
 		      {From,X} when is_function(X) ->
@@ -5039,16 +5062,18 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     ?P("[sink] connect from remote node (~p)", [RNode]),
     {ok, C} = Remote(fun() ->
 			     ?CONNECT(Config, Host,Port,
-					     [{active,false},{packet,2}])
+				      [{active,false},{packet,2}])
 		     end),
     ?P("[sink] accept"),
     {ok, A} = gen_tcp:accept(L),
-    ?P("[sink] send message"),
-    gen_tcp:send(A,"Hello"),
-    ?P("[sink] recv message on remote node (~p)", [RNode]),
+    ?P("[sink] accepted - send message"),
+    gen_tcp:send(A, "Hello"),
+    ?P("[sink] message sent - recv message on remote node (~p)", [RNode]),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    ?P("[sink] cleanup"),
+    (catch gen_tcp:close(L)),
     ?P("[sink] done"),
-    A.
+    {A, Pid}.
 
 setup_active_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     Host = get_hostname(node()),

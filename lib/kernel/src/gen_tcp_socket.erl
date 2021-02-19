@@ -249,11 +249,11 @@ listen(Port, Opts) ->
 
 listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
     %% ?DBG([{domain,      Domain},
-    %% 	  {listen_opts, ListenOpts},
-    %% 	  {opts,        Opts},
-    %% 	  {fd,          Fd},
-    %% 	  {backlog,     Backlog},
-    %% 	  {bind_addr,   BindAddr}]),
+    %%  	  {listen_opts, ListenOpts},
+    %%  	  {opts,        Opts},
+    %%  	  {fd,          Fd},
+    %%  	  {backlog,     Backlog},
+    %%  	  {bind_addr,   BindAddr}]),
 
     ExtraOpts =
         if
@@ -483,8 +483,12 @@ info(?module_socket(_Server, Socket)) ->
 socket_send(Socket, Opts, Timeout) ->
     Result = socket:send(Socket, Opts, Timeout),
     case Result of
+        {error, {timeout = Reason, RestData}} when is_binary(RestData) ->
+	    %% This is better then closing the socket for every timeout
+	    %% We need to do something about this!
+	    {error, Reason};
         {error, {_Reason, RestData}} when is_binary(RestData) ->
-            %% To handle RestData we would have to pass
+            %% To properly handle RestData we would have to pass
             %% all writes through a single process that buffers
             %% the write data, which would be a bottleneck
             %%
