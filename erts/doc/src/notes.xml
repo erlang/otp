@@ -3236,6 +3236,42 @@
 
 </section>
 
+<section><title>Erts 10.3.5.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause some work scheduled for
+	    execution on scheduler threads to be delayed until other
+	    similar work appeared. Beside delaying various cleanup of
+	    internal data structures also the following could be
+	    delayed:</p> <list> <item>Termination of a distribution
+	    controller process</item> <item>Disabling of the
+	    distribution on a node</item> <item>Gathering of memory
+	    allocator information using the <c>instrument</c>
+	    module</item> <item>Enabling, disabling, and gathering of
+	    <c>msacc</c> information</item> <item>Delivery of
+	    <c>'CHANGE'</c> messages when time offset is
+	    monitored</item> <item>A call to
+	    <c>erlang:cancel_timer()</c></item> <item>A call to
+	    <c>erlang:read_timer()</c></item> <item>A call to
+	    <c>erlang:statistics(io | garbage_collection |
+	    scheduler_wall_time)</c></item> <item>A call to
+	    <c>ets:all()</c></item> <item>A call to
+	    <c>erlang:memory()</c></item> <item>A call to
+	    <c>erlang:system_info({allocator | allocator_sizes,
+	    _})</c></item> <item>A call to
+	    <c>erlang:trace_delivered()</c></item> </list> <p>The bug
+	    existed on runtime systems running on all types of
+	    hardware except for x86/x86_64.</p>
+          <p>
+	    Own Id: OTP-17185</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
