@@ -26,6 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
+	ssh_cth \
 	ssh_algorithms_SUITE \
 	ssh_options_SUITE \
 	ssh_basic_SUITE \
