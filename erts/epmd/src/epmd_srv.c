@@ -26,6 +26,12 @@
 #include "epmd_int.h"
 #include "erl_printf.h" /* erts_snprintf */
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 #ifndef INADDR_NONE
 #  define INADDR_NONE 0xffffffff
 #endif

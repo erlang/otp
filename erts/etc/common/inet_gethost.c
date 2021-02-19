@@ -93,6 +93,12 @@
 #endif
 #include <sys/times.h>
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 #ifndef RETSIGTYPE
 #define RETSIGTYPE void
 #endif
