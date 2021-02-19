@@ -57,12 +57,15 @@ wxeFifo::wxeFifo(unsigned int sz)
 }
 
 wxeFifo::~wxeFifo() {
-  for (wxeCommand *cmd : m_q) {
-    delete cmd;
+
+  for(std::deque<wxeCommand *>::iterator it = m_q.begin(); it != m_q.end(); ++it) {
+    delete *it;
   }
-  for (wxeCommand *cmd : free) {
-    delete cmd;
-  }
+
+  for(std::vector<wxeCommand *>::iterator it = free.begin(); it != free.end(); ++it) {
+    delete *it;
+ }
+
 }
 
 wxeCommand * wxeFifo::Get()
