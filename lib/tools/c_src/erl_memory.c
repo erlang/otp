@@ -939,6 +939,10 @@ print_emu_arg(em_state *state)
     size_t size;
     char *format = "> Emulator command line argument: +Mit %s\n";
 
+#ifdef __clang_analyzer__
+    /* CodeChecker does not seem to understand getsockname writes to saddr */
+    memset(&saddr, 0, sizeof(saddr));
+#endif
     if (getsockname(state->input.socket,
 		    (struct sockaddr *) &saddr,
 		    &saddr_size) != 0)

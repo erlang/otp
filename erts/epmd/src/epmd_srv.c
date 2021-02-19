@@ -1162,6 +1162,10 @@ static int conn_local_peer_check(EpmdVars *g, int fd)
 #endif
 
   st = sizeof(si);
+#ifdef __clang_analyzer__
+  /* CodeChecker does not seem to understand getpeername writes to 'si' */
+  memset(&si, 0, sizeof(si));
+#endif
 
   /* Determine if connection is from localhost */
   if (getpeername(fd,(struct sockaddr*) &si,&st) ||
