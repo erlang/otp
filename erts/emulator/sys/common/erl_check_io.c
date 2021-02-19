@@ -91,6 +91,7 @@ typedef enum {
 #else
     ERTS_EV_FLAG_FALLBACK      = ERTS_EV_FLAG_CLEAR,
 #endif
+    ERTS_EV_FLAG_WANT_ERROR    = 0x10,  /* ERL_NIF_SELECT_ERROR turned on */
 
     /* Combinations */
     ERTS_EV_FLAG_USED_FALLBACK = ERTS_EV_FLAG_USED | ERTS_EV_FLAG_FALLBACK,
@@ -366,6 +367,7 @@ alloc_nif_select_data(void)
 					     sizeof(ErtsNifSelectDataState));
     dsp->in.pid = NIL;
     dsp->out.pid = NIL;
+    dsp->err.pid = NIL;
     return dsp;
 }
 
@@ -531,7 +533,7 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
         }
 
         /* We were unable to re-insert the fd into the pollset, signal the callback. */
-        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+        if (new_events & ERTS_POLL_EV_NVAL) {
             if (state->active_events & ERTS_POLL_EV_IN)
                 iready(state->driver.select->inport, state);
             if (state->active_events & ERTS_POLL_EV_OUT)
@@ -717,6 +719,7 @@ deselect(ErtsDrvEventState *state, int mode)
         case ERTS_EV_TYPE_NIF:
             clear_select_event(&state->driver.nif->in);
             clear_select_event(&state->driver.nif->out);
+            clear_select_event(&state->driver.nif->err);
             enif_release_resource(state->driver.stop.resource->data);
             state->driver.stop.resource = NULL;
             break;
@@ -737,7 +740,7 @@ deselect(ErtsDrvEventState *state, int mode)
             erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
 
         /* We were unable to re-insert the fd into the pollset, signal the callback. */
-        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+        if (new_events & ERTS_POLL_EV_NVAL) {
             if (state->active_events & ERTS_POLL_EV_IN)
                 iready(state->driver.select->inport, state);
             if (state->active_events & ERTS_POLL_EV_OUT)
@@ -1092,7 +1095,7 @@ enif_select_x(ErlNifEnv* env,
         }
         on = 0;
         mode = ERL_DRV_READ | ERL_DRV_WRITE | ERL_DRV_USE;
-        ctl_events = ERTS_POLL_EV_IN | ERTS_POLL_EV_OUT;
+        ctl_events = ERTS_POLL_EV_IN | ERTS_POLL_EV_OUT | ERTS_POLL_EV_ERR;
         ctl_op = ERTS_POLL_OP_DEL;
     }
     else {
@@ -1103,6 +1106,14 @@ enif_select_x(ErlNifEnv* env,
         }
         if (mode & ERL_DRV_WRITE) {
             ctl_events |= ERTS_POLL_EV_OUT;
+        }
+        if (mode & ERL_NIF_SELECT_ERROR) {
+#if (!ERTS_ENABLE_KERNEL_POLL || ERTS_POLL_USE_EPOLL) && defined(ERTS_USE_POLL)
+            ctl_events |= ERTS_POLL_EV_ERR;
+#else
+            erts_mtx_unlock(fd_mtx(fd));
+            return INT_MIN | ERL_NIF_SELECT_NOTSUP;
+#endif
         }
     }
 
@@ -1152,6 +1163,8 @@ enif_select_x(ErlNifEnv* env,
         state->active_events |= ctl_events;
         if (state->type == ERTS_EV_TYPE_NONE)
             ctl_op = ERTS_POLL_OP_ADD;
+        if (ctl_events & ERTS_POLL_EV_ERR)
+            state->flags |= ERTS_EV_FLAG_WANT_ERROR;
     }
     else {
         ctl_events &= old_events;
@@ -1162,16 +1175,18 @@ enif_select_x(ErlNifEnv* env,
     if (ctl_events || ctl_op == ERTS_POLL_OP_DEL) {
         ErtsPollEvents new_events;
 
-        new_events = erts_io_control_wakeup(state, ctl_op,
+        new_events = erts_io_control_wakeup(state,
+                                            ctl_op,
                                             state->active_events,
                                             &wake_poller);
 
-        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+        if (new_events & ERTS_POLL_EV_NVAL) {
             if (state->type == ERTS_EV_TYPE_NIF && !old_events) {
                 state->type = ERTS_EV_TYPE_NONE;
                 state->flags = 0;
                 state->driver.nif->in.pid = NIL;
                 state->driver.nif->out.pid = NIL;
+                state->driver.nif->err.pid = NIL;
                 state->driver.stop.resource = NULL;
             }
             ret = INT_MIN | ERL_NIF_SELECT_FAILED;
@@ -1203,6 +1218,11 @@ enif_select_x(ErlNifEnv* env,
         if (mode & ERL_DRV_WRITE) {
             prepare_select_msg(&state->driver.nif->out, mode, recipient,
                                resource, msg, msg_env, am_ready_output);
+            msg_env = NULL;
+        }
+        if (mode & ERL_NIF_SELECT_ERROR) {
+            prepare_select_msg(&state->driver.nif->err, mode, recipient,
+                               resource, msg, msg_env, am_ready_error);
         }
         ret = 0;
     }
@@ -1218,6 +1238,11 @@ enif_select_x(ErlNifEnv* env,
                 && is_not_nil(state->driver.nif->out.pid)) {
                 clear_select_event(&state->driver.nif->out);
                 ret |= ERL_NIF_SELECT_WRITE_CANCELLED;
+            }
+            if (mode & ERL_NIF_SELECT_ERROR
+                && is_not_nil(state->driver.nif->err.pid)) {
+                clear_select_event(&state->driver.nif->err);
+                ret |= ERL_NIF_SELECT_ERROR_CANCELLED;
             }
         }
         if (mode & ERL_NIF_SELECT_STOP) {
@@ -1249,6 +1274,7 @@ enif_select_x(ErlNifEnv* env,
                 state->type = ERTS_EV_TYPE_STOP_NIF;
                 ret |= ERL_NIF_SELECT_STOP_SCHEDULED;
             }
+            state->flags &= ~ERTS_EV_FLAG_WANT_ERROR;
         }
         else
             ASSERT(mode & ERL_NIF_SELECT_CANCEL);
@@ -1371,8 +1397,9 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
 	break;
     }
     case ERTS_EV_TYPE_NIF: {
-        Eterm iid = state->driver.nif->in.pid;
-        Eterm oid = state->driver.nif->out.pid;
+        const Eterm iid = state->driver.nif->in.pid;
+        const Eterm oid = state->driver.nif->out.pid;
+        const Eterm eid = state->driver.nif->err.pid;
         const char* with = "with";
         ErlNifResourceType* rt = state->driver.stop.resource->type;
 
@@ -1384,6 +1411,10 @@ steal(erts_dsprintf_buf_t *dsbufp, ErtsDrvEventState *state, int mode)
         }
         if (is_not_nil(oid)) {
             erts_dsprintf(dsbufp, " %s out-pid %T", with, oid);
+            with = "and";
+        }
+        if (is_not_nil(eid)) {
+            erts_dsprintf(dsbufp, " %s err-pid %T", with, eid);
         }
         deselect(state, 0);
         erts_dsprintf(dsbufp, "\n");
@@ -1738,7 +1769,8 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
         DEBUG_PRINT_FD("triggered %s", state, ev2str(revents));
 
-        if (revents & ERTS_POLL_EV_ERR) {
+        if (revents & ERTS_POLL_EV_ERR
+            && !(state->flags & ERTS_EV_FLAG_WANT_ERROR)) {
             /*
              * Handle error events by triggering all in/out events
              * that has been selected on.
@@ -1778,7 +1810,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
                     new_events = erts_io_control(state, ERTS_POLL_OP_MOD, reactive_events);
 
                     /* Unable to re-enable the fd, signal all callbacks */
-                    if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+                    if (new_events & ERTS_POLL_EV_NVAL) {
                         revents |= reactive_events;
                         state->active_events &= ~reactive_events;
                     }
@@ -1812,13 +1844,14 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 	}
 
         case ERTS_EV_TYPE_NIF: { /* Requested via enif_select()... */
-            struct erts_nif_select_event in = {NIL};
-            struct erts_nif_select_event out = {NIL};
+            struct erts_nif_select_event in_ev = {NIL};
+            struct erts_nif_select_event out_ev = {NIL};
+            struct erts_nif_select_event err_ev = {NIL};
 
-            if (revents & (ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) {
+            if (revents & (ERTS_POLL_EV_IN | ERTS_POLL_EV_OUT | ERTS_POLL_EV_ERR)) {
                 if (revents & ERTS_POLL_EV_OUT) {
                     if (is_not_nil(state->driver.nif->out.pid)) {
-                        out = state->driver.nif->out;
+                        out_ev = state->driver.nif->out;
                         resource = state->driver.stop.resource;
                         state->driver.nif->out.pid = NIL;
                         state->driver.nif->out.mp = NULL;
@@ -1826,10 +1859,18 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
                 }
                 if (revents & ERTS_POLL_EV_IN) {
                     if (is_not_nil(state->driver.nif->in.pid)) {
-                        in = state->driver.nif->in;
+                        in_ev = state->driver.nif->in;
                         resource = state->driver.stop.resource;
                         state->driver.nif->in.pid = NIL;
                         state->driver.nif->in.mp = NULL;
+                    }
+                }
+                if (revents & ERTS_POLL_EV_ERR) {
+                    if (is_not_nil(state->driver.nif->err.pid)) {
+                        err_ev = state->driver.nif->err;
+                        resource = state->driver.stop.resource;
+                        state->driver.nif->err.pid = NIL;
+                        state->driver.nif->err.mp = NULL;
                     }
                 }
                 state->events &= ~revents;
@@ -1841,11 +1882,14 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
             erts_mtx_unlock(fd_mtx(fd));
 
-            if (is_not_nil(in.pid)) {
-                send_select_msg(&in);
+            if (is_not_nil(in_ev.pid)) {
+                send_select_msg(&in_ev);
             }
-            if (is_not_nil(out.pid)) {
-                send_select_msg(&out);
+            if (is_not_nil(out_ev.pid)) {
+                send_select_msg(&out_ev);
+            }
+            if (is_not_nil(err_ev.pid)) {
+                send_select_msg(&err_ev);
             }
             continue;
         }
@@ -2725,6 +2769,7 @@ static int erts_debug_print_checkio_state(erts_dsprintf_buf_t *dsbufp,
 #endif
         erts_dsprintf(dsbufp, " inpid=%T", state->driver.nif->in.pid);
         erts_dsprintf(dsbufp, " outpid=%T", state->driver.nif->out.pid);
+        erts_dsprintf(dsbufp, " errpid=%T", state->driver.nif->err.pid);
         r = state->driver.stop.resource;
         erts_dsprintf(dsbufp, " resource=%p(%T:%T)", r, r->type->module, r->type->name);
     }
