@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2018</year><year>2020</year>
+      <year>2018</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -805,14 +805,11 @@
       </row>
       <row>
 	<cell>tclass</cell>
-	<cell>boolean()</cell>
+	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>type = dgram | raw.
-	On some platforms is used to set (=true) in order to
-	get the <c>tclass</c> control message heeader.
-	On others, <c>recvtclass</c> is set in order to get
-	<c>tclass</c> control message heeader. </cell>
+	<cell>Set the traffic class associated with outgoing packets.
+	RFC3542. </cell>
       </row>
       <row>
 	<cell>unicast_hops</cell>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@
          sockname/1, peername/1,
          getstat/2]).
 
+%% Utility
+-export([info/1]).
+
 -ifdef(undefined).
 -export([unrecv/2]).
 -export([fdopen/2]).
@@ -42,6 +45,7 @@
 -include("inet_int.hrl").
 
 -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
 
 %% -------------------------------------------------------------------------
 
@@ -126,15 +130,17 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     %% The {debug, Bool} option is passed in Opts since it is
     %% subversively classified as both start and socket option.
     %%
+
     ExtraOpts =
         if
-            Fd =:= -1      -> [];
-            is_integer(Fd) -> [{fd, Fd}];
+            Fd =:= -1      -> #{};
+            is_integer(Fd) -> #{fd => Fd};
             %% This is an **ugly** hack.
             %% inet:connect_options/2 has the bad taste to use this
             %% for [{netns,NS}] if that option is used...
-            is_list(Fd)    -> Fd
+            is_list(Fd)    -> #{netns => Fd}
         end,
+
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     case
         start_server(
@@ -164,6 +170,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
             ?badarg_exit(Error)
     end.
 
+    
 connect_loop([], _Server, Error, _Timer) -> Error;
 connect_loop([Addr | Addrs], Server, _Error, Timer) ->
     Result = call(Server, {connect, Addr, inet:timeout(Timer)}),
@@ -176,6 +183,10 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
             connect_loop(Addrs, Server, Result, Timer)
     end.
 
+
+bind_addr(_Domain, undefined = _BindIP, _BindPort) ->
+    %% Do not bind!
+    undefined;
 bind_addr(Domain, BindIP, BindPort) ->
     case Domain of
         local ->
@@ -233,21 +244,22 @@ listen(Port, Opts) ->
 
 listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
     %% ?DBG({Domain, ListenOpts, Opts, Fd, Backlog, BindAddr}),
+
     ExtraOpts =
         if
-            Fd =:= -1      -> [];
-            is_integer(Fd) -> [{fd, Fd}];
+            Fd =:= -1      -> #{};
+            is_integer(Fd) -> #{fd => Fd};
             %% This is an **ugly** hack.
             %% inet:connect_options/2 has the bad taste to use this
             %% for [{netns,NS}] if that option is used...
-            is_list(Fd)    -> Fd
+            %% Which is never called here, but just to keep it the same
+            %% we use the same for listen!
+            is_list(Fd)    -> #{netns => Fd}
         end,
-    {SocketOpts, StartOpts} = setopts_split(socket, Opts),
-    case
-        start_server(
-          Domain, ExtraOpts,
-          [{timeout, infinity} | start_opts(StartOpts)])
-    of
+
+    {SocketOpts, StartOpts0} = setopts_split(socket, Opts),
+    StartOpts = [{timeout, infinity} | start_opts(StartOpts0)],
+    case start_server(Domain, ExtraOpts, StartOpts) of
         {ok, Server} ->
             {Setopts, _} =
                 setopts_split(
@@ -364,16 +376,10 @@ recv(?module_socket(Server, _Socket), Length, Timeout) ->
 
 %% -------------------------------------------------------------------------
 
-shutdown(?module_socket(Server, Socket), How) ->
-    Result =
-        case How of
-            write ->
-                socket:shutdown(Socket, How);
-            read ->
-                call(Server, shutdown_read);
-            read_write ->
-                close_server(Server)
-        end,
+shutdown(?module_socket(Server, _Socket), How) ->
+    %% ?DBG({shutdown, How}),
+    Result = call(Server, {shutdown, How}),
+    %% ?DBG({shutdown_result, Result}),
     ?badarg_exit(Result).
 
 %% -------------------------------------------------------------------------
@@ -449,6 +455,11 @@ peername(?module_socket(_Server, Socket)) ->
 
 getstat(?module_socket(Server, _Socket), What) when is_list(What) ->
     call(Server, {getstat, What}).
+
+%% -------------------------------------------------------------------------
+
+info(?module_socket(_Server, Socket)) ->
+    socket:info(Socket).
 
 %%% ========================================================================
 %%% Socket glue code
@@ -578,6 +589,7 @@ setopts_split(FilterTags, Opts) ->
 setopts_split(_FilterTags, [], True, False) ->
     {reverse(True), reverse(False)};
 setopts_split(FilterTags, [Opt | Opts], True, False) ->
+    %% ?DBG({FilterTags, Opt}),
     Opt_1 = conv_setopt(Opt),
     case member(FilterTags, setopt_categories(Opt_1)) of
         true ->
@@ -616,9 +628,14 @@ socket_setopt(Socket, {raw, Level, Key, Value}) ->
 socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
     socket:setopt_native(Socket, {Level,Key}, Value);
 socket_setopt(Socket, {Tag, Value}) ->
+    %% ?DBG({Tag, Value}),
     case socket_opt() of
         #{Tag := Opt} ->
-            socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value));
+            %% ?DBG(Opt),
+            %% socket:setopt(Socket, otp, debug, true),
+            Res = socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value)),
+            %% socket:setopt(Socket, otp, debug, false),
+            Res;
         #{} -> {error, einval}
     end.
 
@@ -732,37 +749,43 @@ ignore_opt() ->
 
 %% Category 'socket'
 %%
-%% Translation to level and type
+%% Translation to 'level' and 'opt'
 -compile({inline, [socket_opt/0]}).
 socket_opt() ->
-    #{%% Level: otp
+    #{
+      %% Level: otp
       buffer => {otp, rcvbuf},
       debug  => {otp, debug},
       fd     => {otp, fd},
+
       %%
       %% Level: socket
       bind_to_device => {socket, bindtodevice},
-      dontroute => {socket, dontroute},
-      keepalive => {socket, keepalive},
-      linger => {socket, linger},
-      low_watermark => {socket, rcvlowat},
-      priority => {socket, priority},
-      recbuf => {socket, rcvbuf},
-      reuseaddr => {socket, reuseaddr},
-      sndbuf => {socket, sndbuf},
+      dontroute      => {socket, dontroute},
+      keepalive      => {socket, keepalive},
+      linger         => {socket, linger},
+      low_watermark  => {socket, rcvlowat},
+      priority       => {socket, priority},
+      recbuf         => {socket, rcvbuf},
+      reuseaddr      => {socket, reuseaddr},
+      sndbuf         => {socket, sndbuf},
+
       %%
       %% Level: tcp
       nodelay => {tcp, nodelay},
+
       %%
       %% Level: ip
       recvtos => {ip, recvtos},
       recvttl => {ip, recvttl},
-      tos => {ip, tos},
-      ttl => {ip, ttl},
+      tos     => {ip, tos},
+      ttl     => {ip, ttl},
+
       %%
       %% Level: ipv6
-      recvtclass => {ipv6, recvtclass},
-      ipv6_v6only => {ipv6, v6only}
+      recvtclass  => {ipv6, recvtclass},
+      ipv6_v6only => {ipv6, v6only},
+      tclass      => {ipv6, tclass}
       }.
 
 -compile({inline, [socket_inherit_opts/0]}).
@@ -877,7 +900,7 @@ callback_mode() -> handle_event_function.
 -record(recv,
         {info :: socket:select_info()}).
 
-%% 'closed_read'
+%% 'closed_read' | 'closed_read_write'
 %% 'closed' % Socket is closed or not created
 
 
@@ -891,11 +914,11 @@ init({open, Domain, ExtraOpts, Owner}) ->
     %%
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
-    Extra = maps:from_list(ExtraOpts),
-    Proto = if (Domain =:= local) -> default; true -> tcp end,
-    case socket:open(Domain, stream, Proto, Extra) of
+    Proto    = if (Domain =:= local) -> default; true -> tcp end,
+    Opts     = #{}, % #{debug => true},
+    case socket_open(Domain, Proto, ExtraOpts, Opts) of
         {ok, Socket} ->
-            D = server_opts(),
+            D  = server_opts(),
             ok = socket:setopt(Socket, {otp,iow}, true),
             ok = socket:setopt(Socket, {otp,meta}, meta(D)),
             P =
@@ -903,7 +926,7 @@ init({open, Domain, ExtraOpts, Owner}) ->
                    socket = Socket,
                    owner = Owner,
                    owner_mon = OwnerMon},
-            {ok, connect, {P, D#{buffer => <<>>}}};
+            {ok, connect, {P, D#{type => undefined, buffer => <<>>}}};
         {error, Reason} -> {stop, {shutdown, Reason}}
     end;
 init({prepare, D, Owner}) ->
@@ -915,10 +938,25 @@ init({prepare, D, Owner}) ->
         #params{
            owner = Owner,
            owner_mon = OwnerMon},
-    {ok, accept, {P, D#{buffer => <<>>}}};
+    {ok, accept, {P, D#{type => undefined, buffer => <<>>}}};
 init(Arg) ->
     error_logger:error_report([{badarg, {?MODULE, init, [Arg]}}]),
     error(badarg, [Arg]).
+
+
+socket_open(Domain, Proto, #{fd := FD} = _Extra, Opts0)
+  when is_integer(FD) andalso (FD > 0) ->
+    Opts = Opts0#{dup      => false,
+                  domain   => Domain,
+                  type     => stream,
+                  protocol => Proto},
+    socket:open(FD, Opts);
+socket_open(Domain, Proto, #{netns := NS} = Extra, Opts0) when is_list(NS) ->
+    Opts = maps:merge(Opts0, Extra),
+    socket:open(Domain, stream, Proto, Opts);
+socket_open(Domain, Proto, _Extra, Opts) ->
+    socket:open(Domain, stream, Proto, Opts).
+
 
 terminate(_Reason, State, P_D) ->
     case State of
@@ -932,6 +970,9 @@ terminate(State, {#params{socket = Socket} = P, D}) ->
     case State of
         'closed' -> ok;
         'closed_read' ->
+            _ = socket_close(Socket),
+            ok;
+        'closed_read_write' ->
             _ = socket_close(Socket),
             ok;
         _ ->
@@ -1065,6 +1106,9 @@ handle_event({call, From}, close, State, {P, D} = P_D) ->
         'closed_read' ->
             {next_state, 'closed', P_D,
              [{reply, From, socket_close(P#params.socket)}]};
+        'closed_read_write' ->
+            {next_state, 'closed', P_D,
+             [{reply, From, socket_close(P#params.socket)}]};
         'closed' ->
             {keep_state_and_data,
              [{reply, From, ok}]};
@@ -1077,13 +1121,17 @@ handle_event({call, From}, close, State, {P, D} = P_D) ->
 
 %% Call: getopts/1
 handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
+    %% ?DBG({call, getopts, Opts, State, D}),
     Result = state_getopts(P, D, State, Opts),
+    %% ?DBG({call, getopts_result, Result}),
     {keep_state_and_data,
      [{reply, From, Result}]};
 
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
+    %% ?DBG({Opts, State, D}),
     {Result, D_1} = state_setopts(P, D, State, Opts),
+    %% ?DBG({Result, D_1}),
     ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
     Reply = {reply, From, Result},
     case State of
@@ -1114,23 +1162,38 @@ handle_event(Type, Content, 'closed' = State, P_D) ->
 %% Handled state: 'closed'
 
 %% Call: shutdown/1
-handle_event({call, From}, shutdown_read, State, {P, D}) ->
+handle_event({call, From}, {shutdown, How} = _SHUTDOWN, State, {P, D}) ->
+    %% ?DBG({handle_event, call, _SHUTDOWN, State}),
     case State of
-        'closed_read' ->
+        'closed_read' when (How =:= read) ->
+            %% ?DBG('already closed-read'),
+            {keep_state_and_data,
+             [{reply, From, ok}]};
+        'closed_read_write' when (How =:= read_write) ->
+            %% ?DBG('already closed-read-write'),
             {keep_state_and_data,
              [{reply, From, ok}]};
         _ ->
-            next_state(
-              P,
-              cleanup_close_read(P, D#{active := false}, State, closed),
-              'closed_read',
-              [{reply, From, socket:shutdown(P#params.socket, read)}])
+            %% ?DBG({'handle shutdown', How, State}),
+            case handle_shutdown(P, State, How) of
+                {keep, SRes} ->
+                    %% ?DBG({'shutdown result', SRes, keep}),
+                    {keep_state_and_data,
+                     [{reply, From, SRes}]};
+                {NextState, SRes} ->
+                    %% ?DBG({'shutdown result', SRes, NextState}),
+                    next_state(
+                      P,
+                      cleanup_close_read(P, D#{active := false}, State, closed),
+                      NextState,
+                      [{reply, From, SRes}])
+            end
     end;
-%% State: 'closed_read' - what is not handled in
+%% State: 'closed_read' | 'closed_read_write' - what is not handled in
 %%        close/0 and shutdown/1 above
-handle_event(Type, Content, 'closed_read' = State, P_D) ->
+handle_event(Type, Content, State, P_D)
+  when (State =:= 'closed_read') orelse (State =:= 'closed_read_write') ->
     handle_closed(Type, Content, State, P_D);
-
 
 
 %% State: 'accept'
@@ -1173,8 +1236,10 @@ handle_event(Type, Content, #accept{} = State, P_D) ->
 %% ------- Socket is defined from here on -----------------------------------
 
 %% Call: bind/1
-handle_event({call, From}, {bind, BindAddr}, _State, {P, _D}) ->
+handle_event({call, From}, {bind, BindAddr} = _BIND, _State, {P, _D}) ->
+    %% ?DBG({handle_event, call, _BIND, _State}),
     Result = socket:bind(P#params.socket, BindAddr),
+    %% ?DBG({bind_result, Result}),
     {keep_state_and_data,
      [{reply, From, Result}]};
 
@@ -1183,17 +1248,20 @@ handle_event({call, From}, {bind, BindAddr}, _State, {P, _D}) ->
 %% to listen/1 yet.  It could be returned from {bind, _},
 %% or from a separate get_socket call, but piggy-backing it
 %% on {listen, _} is convenient.
+%% It also reflects the API behaviour (gen_tcp:listen(...) -> {ok, Socket})
 
 %% Call: listen/1
 handle_event(
-  {call, From}, {listen, Backlog},
-  _State, {#params{socket = Socket} = _P, _D}) ->
+  {call, From}, {listen, Backlog} = _LISTEN,
+  _State, {#params{socket = Socket} = P, D}) ->
+    %% ?DBG({handle_event, call, _LISTEN, _State}),
     Result =
         case socket:listen(Socket, Backlog) of
             ok -> {ok, Socket};
             {error, _} = Error -> Error
         end,
-    {keep_state_and_data,
+    %% ?DBG({listen_result, Result}),
+    {keep_state, {P, D#{type => listen}},
      [{reply, From, Result}]};
 
 %% Call: recv/2 - active socket
@@ -1298,6 +1366,46 @@ handle_event(Type, Content, State, P_D) ->
 %% -------------------------------------------------------------------------
 %% Event handler helpers
 
+
+%% We only accept/perform shutdown when socket is 'connected'.
+%% This is done to be "compatible" with the inet-driver!
+
+handle_shutdown(#params{socket = Socket},
+                connected = _State,
+                write = How) ->
+    {keep, socket:shutdown(Socket, How)};
+handle_shutdown(#params{socket = Socket},
+                #recv{} = _State,
+                write = How) ->
+    {keep, socket:shutdown(Socket, How)};
+handle_shutdown(#params{socket = Socket},
+                connected = _State,
+                read = How) ->
+    handle_shutdown2(Socket, closed_read, How);
+handle_shutdown(#params{socket = Socket},
+                #recv{} = _State,
+                read = How) ->
+    handle_shutdown2(Socket, closed_read, How);
+handle_shutdown(#params{socket = Socket},
+                connected = _State,
+                read_write = How) ->
+    handle_shutdown2(Socket, closed_read_write, How);
+handle_shutdown(#params{socket = Socket},
+                #recv{} = _State,
+                read_write = How) ->
+    handle_shutdown2(Socket, closed_read_write, How);
+handle_shutdown(_Params, _State, _How) ->
+    {keep, {error, enotconn}}.
+
+handle_shutdown2(Socket, NextState, How) ->
+    case socket:shutdown(Socket, How) of
+        ok ->
+            {NextState, ok};
+        Error ->
+            {keep, Error}
+    end.
+
+
 handle_unexpected(Type, Content, State, {P, _D}) ->
     error_logger:warning_report(
       [{module, ?MODULE}, {socket, P#params.socket},
@@ -1330,13 +1438,13 @@ handle_connect(
     case socket:connect(Socket, Addr, nowait) of
         ok ->
             handle_connected(
-              P, D,
+              P, D#{type => connect},
               [{{timeout, connect}, cancel},
                {reply, From, {ok, Socket}}]);
         {select, SelectInfo} ->
             {next_state,
              #connect{info = SelectInfo, from = From, addr = Addr},
-             {P, D},
+             {P, D#{type => connect}},
              [{{timeout, connect}, Timeout, connect}]};
         {error, _} = Error ->
             {next_state,
@@ -1346,24 +1454,28 @@ handle_connect(
     end.
 
 handle_accept(P, D, From, ListenSocket, Timeout) ->
+    %% ?DBG({try_accept, D}),
     case socket:accept(ListenSocket, nowait) of
         {ok, Socket} ->
+            %% ?DBG(accept_success),
             ok = socket:setopt(Socket, {otp,iow}, true),
             ok = socket:setopt(Socket, {otp,meta}, meta(D)),
             [ok = socket_copy_opt(ListenSocket, Opt, Socket)
              || Opt <- socket_inherit_opts()],
             handle_connected(
-              P#params{socket = Socket}, D,
+              P#params{socket = Socket}, D#{type => accept},
               [{{timeout, accept}, cancel},
                {reply, From, {ok, Socket}}]);
         {select, SelectInfo} ->
+            %% ?DBG({accept_select, SelectInfo}),
             {next_state,
              #accept{
                 info = SelectInfo, from = From,
                 listen_socket = ListenSocket},
-             {P, D},
+             {P, D#{type => accept}},
              [{{timeout, accept}, Timeout, accept}]};
-        {error, _} = Error ->
+        {error, _Reason} = Error ->
+            %% ?DBG({accept_failure, _Reason}),
             {next_state,
              'accept', {P, D},
              [{{timeout, accept}, cancel},
@@ -1870,9 +1982,12 @@ tag(Packet) ->
 state_setopts(_P, D, _State, []) ->
     {ok, D};
 state_setopts(P, D, State, [Opt | Opts]) ->
+    %% ?DBG({entry, State, Opt}),
     Opt_1 = conv_setopt(Opt),
+    %% ?DBG({'option converted', Opt_1}),
     case setopt_categories(Opt_1) of
         #{socket := _} ->
+            %% ?DBG(socket),
             case P#params.socket of
                 undefined ->
                     {{error, closed}, D};
@@ -1886,20 +2001,28 @@ state_setopts(P, D, State, [Opt | Opts]) ->
             end;
         %%
         #{server_write := _} when State =:= 'closed' ->
+            %% ?DBG('server write when state closed'),
             {{error, einval}, D};
         #{server_write := _} ->
+            %% ?DBG('server write'),
             state_setopts_server(P, D, State, Opts, Opt_1);
         %%
         #{server_read := _} when State =:= 'closed' ->
+            %% ?DBG('server read when state closed'),
             {{error, einval}, D};
-        #{server_read := _} when State =:= 'closed_read' ->
+        #{server_read := _} when (State =:= 'closed_read') orelse
+                                 (State =:= 'closed_read_write') ->
+            %% ?DBG('server read when state closed-read or closed-read-write'),
             {{error, einval}, D};
         #{server_read := _} ->
+            %% ?DBG('server read'),
             state_setopts_server(P, D, State, Opts, Opt_1);
         %%
         #{ignore := _} ->
+            %% ?DBG(ignore),
             state_setopts(P, D, State, Opts);
-        #{} -> % extra | einval
+        #{} = _EXTRA -> % extra | einval
+            %% ?DBG({extra, _EXTRA}),
             {{error, einval}, D}
     end.
 
@@ -1969,12 +2092,15 @@ state_getopts(P, D, State, Opts) ->
 state_getopts(_P, _D, _State, [], Acc) ->
     {ok, reverse(Acc)};
 state_getopts(P, D, State, [Tag | Tags], Acc) ->
+    %% ?DBG({'categorize option', Tag, State}),
     case getopt_categories(Tag) of
         #{socket := _} ->
+            %% ?DBG(socket),
             case P#params.socket of
                 undefined ->
                     {error, closed};
                 Socket ->
+                    %% ?DBG('socket getopt'),
                     case socket_getopt(Socket, Tag) of
                         {ok, Value} ->
                             state_getopts(
@@ -1984,18 +2110,25 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
                     end
               end;
         #{server_write := _} when State =:= 'closed' ->
+            %% ?DBG('server write when closed'),
             {error, einval};
         #{server_write := _} ->
+            %% ?DBG('server write'),
             Value = maps:get(Tag, D),
             state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
         #{server_read := _} when State =:= 'closed' ->
+            %% ?DBG('server read when closed'),
             {error, einval};
-        #{server_read := _} when State =:= 'closed_read' ->
+        #{server_read := _} when (State =:= 'closed_read') orelse
+                                 (State =:= 'closed_read_write') ->
+            %% ?DBG('server read when closed-read or closed-read-write'),
             {error, einval};
         #{server_read := _} ->
+            %% ?DBG('server read'),
             Value = maps:get(Tag, D),
             state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
-        #{} -> % extra | einval
+        #{} = _EXTRA -> % extra | einval
+            %% ?DBG({'something else', _EXTRA}),
             {error, einval}
     end.
 

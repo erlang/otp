@@ -142,7 +142,8 @@ all_cases() ->
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
      wrapping_oct,
      zombie_sockets, otp_7816, otp_8102, otp_9389,
-     otp_12242, delay_send_error, bidirectional_traffic].
+     otp_12242, delay_send_error, bidirectional_traffic
+    ].
 
 
 init_per_suite(Config0) ->
@@ -1447,15 +1448,72 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
             fun() -> do_econnreset_after_async_send_active(Config) end).
 
 do_econnreset_after_async_send_active(Config) ->
-    {OS, _} = os:type(),
-    Payload = lists:duplicate(1024 * 1024, $.),
+    {OS, _}  = os:type(),
+    CPayload = craasa_mk_payload(),
+    SPayload = "Whatever",
 
     %% First confirm everything works with option turned off.
+    ?P("pre 1 (default)"),
+    {Client1, Server1} = craasa_pre(Config, default),
+
+    ?P("populate 1 (default)"),
+    {ok, Sender1} = craasa_populate(OS, default,
+                                    Client1, Server1, CPayload, SPayload),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("[server] set linger true:0"),
+    ok = inet:setopts(Server1, [{linger, {true, 0}}]),
+    ?P("[server] close socket"),
+    ok = gen_tcp:close(Server1),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 1 (default)"),
+    craasa_verify(default, Client1, SPayload),
+
+    ?P("cleanup 1 (default)"),
+    craasa_cleanup(Client1, Sender1),
+
+    %% Now test with option switched on.
+    ?P("pre 2 (true)"),
+    {Client2, Server2} = craasa_pre(Config, true),
+
+    ?P("populate 2 (true)"),
+    {ok, Sender2} = craasa_populate(OS, true,
+                                    Client2, Server2, CPayload, SPayload),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("[server] set linger true:0"),
+    ok = inet:setopts(Server2, [{linger, {true, 0}}]),
+    ?P("[server] close socket"),
+    ok = gen_tcp:close(Server2),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 2 (true)"),
+    craasa_verify(true, Client2, SPayload),
+
+    ?P("cleanup 2 (true)"),
+    craasa_cleanup(Client2, Sender2),
+
+    ?P("done"),
+    ok.
+
+craasa_mk_payload() ->
+    list_to_binary(lists:duplicate(1024 * 1024, $.)).
+
+craasa_pre(Config, EConnReset)
+  when is_boolean(EConnReset) orelse (EConnReset =:= default) ->
     ?P("create listen socket (server) with active = false"),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
+    {ok, L}    = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    ?P("[client] create connect socket (default = off)"),
-    Client = case ?CONNECT(Config, localhost, Port, [{sndbuf, 4096}]) of
+    ?P("[client] create connect socket with show_econnreset: ~p", [EConnReset]),
+    Opts = if (EConnReset =:= default) -> [];
+              is_boolean(EConnReset)   -> [{show_econnreset, EConnReset}]
+           end,
+    Client = case ?CONNECT(Config, localhost, Port, [{sndbuf, 4096}] ++ Opts) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
@@ -1465,218 +1523,419 @@ do_econnreset_after_async_send_active(Config) ->
     {ok, S} = gen_tcp:accept(L),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
-    ?P("[client] send payload"),
-    ok = gen_tcp:send(Client, Payload),
-    ?P("[client] verify socket queue size"),
+    {Client, S}.
+
+craasa_populate(OS, _EConnReset, Client, Server, CPayload, SPayload)
+  when is_port(Client) andalso is_port(Server) ->
+    ?P("send payload (~w bytes) from client to server", [byte_size(CPayload)]),
+    ok = gen_tcp:send(Client, CPayload),
+    ?P("verify client socket queue size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
     ?P("[server] send something"),
-    ok = gen_tcp:send(S, "Whatever"),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[server] set linger true:0"),
-    ok = inet:setopts(S, [{linger, {true, 0}}]),
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] await server data"),
+    ok = gen_tcp:send(Server, SPayload),
+    {ok, undefined};
+craasa_populate(_OS, EConnReset, Client, Server, CPayload, SPayload) ->
+    ExpectedSendRes = if (EConnReset =:= default) -> closed;
+                         (EConnReset =:= true)    -> econnreset
+                      end,
+    Sender = spawn_link(fun() ->
+                                craasa_populate_sender(Client,
+                                                       ExpectedSendRes,
+                                                       CPayload)
+                        end),
     receive
-	{tcp, Client, "Whatever"} ->
-            ?P("[client] received server data - now await socket closed"),
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            ?P("[server] send something"),
+            ok = gen_tcp:send(Server, SPayload),
+            {ok, Sender}
+    end.
+
+craasa_populate_sender(Client, ExpectedSendRes, Payload) ->
+    ?P("[socket] send payload (expect failure)"), 
+    case gen_tcp:send(Client, Payload) of
+        {error, ExpectedSendRes} ->
+            ?P("[socket] payload send failure (as expected)"), 
+            exit(normal);
+        Unexpected ->
+            exit({unexpected, Unexpected})
+    end.
+
+craasa_cleanup(Client, Sender) ->
+    (catch gen_tcp:close(Client)),
+    craasa_cleanup(Sender).
+
+craasa_cleanup(Sender) when is_pid(Sender) ->
+    exit(Sender, kill),
+    receive
+        {'EXIT', Sender, _} ->
+            ok
+    after 0 ->
+            ok
+    end;
+craasa_cleanup(_) ->
+    ok.
+
+craasa_verify(default, Client, Payload) ->
+    ?P("[verify-default] client await server data"),
+    receive
+	{tcp, Client, Payload} ->
+            ?P("[verify-default] "
+               "client received expected server data - "
+               "now await socket closed"),
 	    receive
 		{tcp_closed, Client} ->
-                    ?P("[client] received socket closed"),
+                    ?P("[verify-default] "
+                       "received client socket closed"),
 		    ok;
 		Other1 ->
-                    ?P("[client] awaiting socket closed - received upexpected: "
+                    ?P("[verify-default] "
+                       "awaiting client socket closed - received upexpected: "
                        "~n      ~p", [Other1]),
-		    ct:fail({unexpected1, Other1})
+		    ct:fail({unexpected, tcp_closed, Other1})
 	    end;
 	Other2 ->
-            ?P("[client] awaiting socket data - received upexpected: "
+            ?P("[verify-default] "
+               "awaiting client socket data - received upexpected: "
                "~n      ~p", [Other2]),
-	    ct:fail({unexpected2, Other2})
-    end,
-
-    %% Now test with option switched on.
-    ?P("create listen socket (server) with active = false (default)"),
-    {ok, L1} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
-    {ok, Port1} = inet:port(L1),
-    ?P("[client] create connect socket (on)"),
-    Client1 =
-        case ?CONNECT(Config, localhost, Port1,
-                             [{sndbuf, 4096}, {show_econnreset, true}]) of
-            {ok, CSock1} ->
-                CSock1;
-            {error, eaddrnotavail = Reason1} ->
-                ?SKIPT(connect_failed_str(Reason1))
-        end,
-    ?P("create accept socket (server)"),
-    {ok, S1} = gen_tcp:accept(L1),
-    ?P("close listen socket"),
-    ok = gen_tcp:close(L1),
-    ?P("[client] send payload"),
-    ok = gen_tcp:send(Client1, Payload),
-    ?P("[client] verify socket queue size"),
-    case erlang:port_info(Client1, queue_size) of
-	{queue_size, N1} when N1 > 0 -> ok;
-	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T1 -> ct:fail(T1)
-    end,
-    ?P("[server] send something"),
-    ok = gen_tcp:send(S1, "Whatever"),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[server] set linger true:0"),
-    ok = inet:setopts(S1, [{linger, {true, 0}}]),
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S1),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] await server data"),
+	    ct:fail({unexpected, tcp, Other2})
+    end;
+craasa_verify(true, Client, Payload) ->
+    ?P("[verify-true] client await server data"),
     receive
-	{tcp, Client1, "Whatever"} ->
-            ?P("[client] received server data - now await socket error"),
+	{tcp, Client, Payload} ->
+            ?P("[verify-true] "
+               "client received expected server data - now await socket error"),
 	    receive
-		{tcp_error, Client1, econnreset} ->
-                    ?P("[client] received socket error - now await socket closed"),
+		{tcp_error, Client, econnreset} ->
+                    ?P("[verify-true] "
+                       "client received expected socket error - "
+                       "now await socket closed"),
 		    receive
-			{tcp_closed, Client1} ->
-                            ?P("[client] received socket closed"),
+			{tcp_closed, Client} ->
+                            ?P("[verify-true] "
+                               "client received expected socket closed"),
 			    ok;
-			Other3 ->
-                            ?P("[client] awaiting socket closed - "
+			Other1 ->
+                            ?P("[verify-true] "
+                               "client awaiting socket closed - "
                                "received upexpected: "
-                               "~n      ~p", [Other3]),
-			    ct:fail({unexpected3, Other3})
+                               "~n      ~p", [Other1]),
+			    ct:fail({unexpected, tcp_closed, Other1})
 		    end;
-		Other4 ->
-                    ?P("[client] awaiting socket error - received upexpected: "
-                       "~n      ~p", [Other4]),
-		    ct:fail({unexpected4, Other4})
+		Other2 ->
+                    ?P("[verify-true] "
+                       "client awaiting socket error - received upexpected: "
+                       "~n      ~p", [Other2]),
+		    ct:fail({unexpected, tcp_error, Other2})
 	    end;
-	Other5 ->
-            ?P("[client] awaiting socket data - received upexpected: "
-               "~n      ~p", [Other5]),
-	    ct:fail({unexpected5, Other5})
-    end,
-    ?P("done"),
-    ok.
+	Other3 ->
+            ?P("[verify-true] "
+               "client awaiting socket data - received upexpected: "
+               "~n      ~p", [Other3]),
+	    ct:fail({unexpected, tcp, Other3})
+    end.
+
+
+%% --------------------------------------------------------------------------
 
 econnreset_after_async_send_active_once(Config) when is_list(Config) ->
     ?TC_TRY(econnreset_after_async_send_active_once,
             fun() -> do_econnreset_after_async_send_active_once(Config) end).
 
 do_econnreset_after_async_send_active_once(Config) ->
-    {OS, _} = os:type(),
+    ?P("pre"),
+    {Client, Server, CPayload, SPayload} = craasao_pre(Config),
+
+    ?P("populate"),
+    {ok, Sender} = craasao_populate(Client, Server, CPayload, SPayload),
+
+    ?P("set server socket option linger: {true, 0}"),
+    ok = inet:setopts(Server, [{linger, {true, 0}}]),
+    ?P("close server socket"),
+    ok = gen_tcp:close(Server),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify"),
+    craasao_verify(Client, Sender, SPayload),
+
+    ?P("cleanup"),
+    craasao_cleanup(Client),
+
+    ?P("done"),
+    ok.
+
+craasao_pre(Config) ->
     ?P("create listen socket with active = false"),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
+    {ok, L}    = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
     ?P("create connect socket (~w)", [Port]),
-    Client = case ?CONNECT(Config, localhost, Port,
-                           [{active, false},
-                            {sndbuf, 4096},
-                            {show_econnreset, true}]) of
-                 {ok, CSock} ->
-                     CSock;
-            {error, eaddrnotavail = Reason} ->
-                ?SKIPT(connect_failed_str(Reason))
-        end,            
+    Client     = case ?CONNECT(Config, localhost, Port,
+                               [{active,          false},
+                                {sndbuf,          4096},
+                                {show_econnreset, true}]) of
+                     {ok, CSock} ->
+                         CSock;
+                     {error, eaddrnotavail = Reason} ->
+                         ?SKIPT(connect_failed_str(Reason))
+                 end,
     ?P("create accept socket"),
-    {ok,S} = gen_tcp:accept(L),
+    {ok, Server} = gen_tcp:accept(L),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
-    ?P("create payload"),
-    Payload = lists:duplicate(1024 * 1024, $.),
-    ?P("[connect] send payload"),
-    ok = gen_tcp:send(Client, Payload),
-    ?P("[connect] verify socket queue size"),
+    {Client, Server, craasao_mk_payload(), "Whatever"}.
+
+craasao_populate(Client, Server, CPayload, SPayload)
+  when is_port(Client) andalso is_port(Server) ->
+    ?P("[inet] client send data"),
+    ok      = gen_tcp:send(Client, CPayload),
+    ?P("[inet] verify client socket queue size"),
+    {OS, _} = os:type(),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
-    ?P("[accept] send something"),
-    ok = gen_tcp:send(S, "Whatever"),
-    ?P("sleep some"),
+    ?P("[inet] server send data"),
+    ok = gen_tcp:send(Server, SPayload),
+    ?P("[inet] sleep some"),
     ok = ct:sleep(20),
-    ?P("[accept] set socket option linger: {true, 0}"),
-    ok = inet:setopts(S, [{linger, {true, 0}}]),
-    ?P("[accept] close socket"),
-    ok = gen_tcp:close(S),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("receive 'unexpected message'"),
+    {ok, undefined};
+craasao_populate(Client, Server, CPayload, SPayload) ->
+    Sender = spawn_link(fun() ->
+                                craasao_populate_sender(Client, CPayload)
+                        end),
+    receive
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            ?P("[server] send something"),
+            ok = gen_tcp:send(Server, SPayload),
+            {ok, Sender}
+    end.
+
+craasao_populate_sender(Client, Payload) ->
+    ?P("[socket] send payload (expect failure)"), 
+    {error, econnreset} = gen_tcp:send(Client, Payload),
+    ?P("[socket] payload send failure (as expected)"), 
+    exit(normal).
+
+craasao_mk_payload() ->
+    list_to_binary(lists:duplicate(1024 * 1024, $.)).
+
+craasao_verify(Client, _Sender, _Payload) when is_port(Client) ->
+    ?P("ensure no 'unexpected messages' received"),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
-    ?P("[connect] set socket option active: once"),
+    ?P("set client socket option active: once"),
     ok = inet:setopts(Client, [{active, once}]),
-    ?P("[connect] expect econreset"),
+    ?P("client expect econnreset"),
     receive
 	{tcp_error, Client, econnreset} ->
-            ?P("[connect] received econreset -> expect socket close message"),
+            ?P("client received econnreset -> expect socket close message"),
 	    receive
 		{tcp_closed, Client} ->
                     ?P("[connect] received socket close message - done"),
 		    ok;
-		Other ->
-                    ?P("[connect] received unexpected message: "
-                       "~n      ~p", [Other]),
-		    ct:fail({unexpected1, Other})
+		Other1 ->
+                    ?P("client received unexpected message (expected closed): "
+                       "~n      ~p", [Other1]),
+		    ct:fail({unexpected, tcp_closed, Other1})
 	    end;
-	Other ->
-            ?P("[connect] received unexpected message: "
-               "~n      ~p", [Other]),
-	    ct:fail({unexpected2, Other})
+	Other2 ->
+            ?P("client received unexpected message (expected error): "
+               "~n      Unexpected: ~p"
+               "~n      Flushed:    ~p", [Other2, craasao_flush()]),
+	    ct:fail({unexpected, tcp_error, Other2})
+    end;
+craasao_verify(Client, Sender, Payload) when is_pid(Sender) ->
+    craasao_verify_sender(Sender),
+    ?P("ensure no 'unexpected messages' received"),
+    ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
+    ?P("set client socket option active (1): once"),
+    ok = inet:setopts(Client, [{active, once}]),
+    ?P("client expect (server) data"),
+    receive
+        {tcp, Client, Payload} ->
+            ?P("client received expected data"),
+            ok
+    end,
+    ?P("set client socket option active (2): once"),
+    ok = inet:setopts(Client, [{active, once}]),
+    ?P("client expect closed"),
+    receive
+	{tcp_closed, Client} ->
+            ?P("client received expected closed message");
+	Other3 ->
+            ?P("client received unexpected message (expected closed): "
+               "~n      Unexpected: ~p"
+               "~n      Flushed:    ~p", [Other3, craasao_flush()]),
+	    ct:fail({unexpected, tcp_closed, Other3})
+    after 10000 ->
+            ?P("client received unexpected timeout (expected error): "
+               "~n      Flushed: ~p", [craasao_flush()]),
+	    ct:fail({unexpected_timeout, tcp_error})            
     end.
+
+craasao_flush() ->
+    craasao_flush([]).
+
+craasao_flush(Acc) ->
+    erlang:yield(),
+    receive Msg    -> craasao_flush([Msg|Acc])
+    after     1000 -> lists:reverse(Acc)
+    end.
+
+craasao_verify_sender(Sender) when is_pid(Sender) ->
+    ?P("await sender termination"),
+    receive
+        {'EXIT', Sender, normal} ->
+            ok;
+        {'EXIT', Sender, Reason} ->
+            ?P("unexpected sender termination: "
+               "~n      ~p", [Reason]),
+	    ct:fail({unexpected_sender_termination, Sender, Reason})
+    after infinity ->
+            ok
+    end;
+craasao_verify_sender(_) ->
+    ok.
+
+craasao_cleanup(Client) ->
+    (catch gen_tcp:close(Client)).
+
+
+%% --------------------------------------------------------------------------
 
 econnreset_after_async_send_passive(Config) when is_list(Config) ->
     ?TC_TRY(econnreset_after_async_send_passive,
             fun() -> do_econnreset_after_async_send_passive(Config) end).
 
 do_econnreset_after_async_send_passive(Config) ->
-    {OS, _} = os:type(),
-    Payload = lists:duplicate(1024 * 1024, $.),
+    CPayload = craasp_mk_payload(),
+    SPayload = "Whatever",
 
     %% First confirm everything works with option turned off.
+    ?P("pre 1 (default)"),
+    {Client1, Server1} = craasp_pre(Config, default),
+
+    ?P("populate 1 (default)"),
+    {ok, Sender1} = craasp_populate(default,
+                                    Client1, Server1, CPayload, SPayload),
+
+    ?P("close server socket (1)"),
+    ok = gen_tcp:close(Server1),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 1 (default)"),
+    ?line ok = craasp_verify(Client1, default, SPayload),
+
+    ?P("cleanup 1 (default)"),
+    craasp_cleanup(Client1, Sender1),
+
+    %% Now test with option switched on.
+    ?P("pre 2 (true)"),
+    {Client2, Server2} = craasp_pre(Config, true),
+
+    ?P("populate 2 (default)"),
+    {ok, Sender2} = craasp_populate(true,
+                                    Client2, Server2, CPayload, SPayload),
+
+
+    ?P("close server socket 2"),
+    ok = gen_tcp:close(Server2),
+    ?P("sleep some"),
+    ok = ct:sleep(20),
+
+    ?P("verify 1 (default)"),
+    ?line ok = craasp_verify(Client2, true, SPayload),
+
+    ?P("cleanup 2 (default)"),
+    craasp_cleanup(Client2, Sender2),
+
+    ?P("done"),
+    ok.
+
+
+craasp_pre(Config, EConnReset)
+  when is_boolean(EConnReset) orelse (EConnReset =:= default) ->
     ?P("create listen socket *** with option switched off (default)"),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
+    {ok, L}    = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
     {ok, Port} = inet:port(L),
-    ?P("create connect socket"),
-    Client = case ?CONNECT(Config, localhost, Port,
-                                  [{active, false}, {sndbuf, 4096}]) of
+    ?P("[client] create connect socket with show_econnreset: ~p", [EConnReset]),
+    COpts = [{active, false}, {sndbuf, 4096}] ++
+        if (EConnReset =:= default) -> [];
+           is_boolean(EConnReset)   -> [{show_econnreset, EConnReset}]
+        end,
+    Client = case ?CONNECT(Config, localhost, Port, COpts) of
                  {ok, CSock} ->
                      CSock;
             {error, eaddrnotavail = Reason} ->
                 ?SKIPT(connect_failed_str(Reason))
         end,
     ?P("accept connection"),
-    {ok, S} = gen_tcp:accept(L),
+    {ok, Server} = gen_tcp:accept(L),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    {Client, Server}.
+
+craasp_mk_payload() ->
+    list_to_binary(lists:duplicate(1024 * 1024, $.)).
+
+craasp_populate(_EConnReset, Client, Server, CPayload, SPayload)
+  when is_port(Client) andalso is_port(Server) ->
     ?P("[server] set linger: true:0"),
-    ok = inet:setopts(S, [{linger, {true, 0}}]),
+    ok = inet:setopts(Server, [{linger, {true, 0}}]),
     ?P("[server] send some data to client"),
-    ok = gen_tcp:send(S, "Whatever"),
+    ok = gen_tcp:send(Server, SPayload),
     ?P("[client] send some data to server"),
-    ok = gen_tcp:send(Client, Payload),
+    ok = gen_tcp:send(Client, CPayload),
+    {OS, _} = os:type(),
     ?P("[client] verify (port) queue-size"),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] attempt receive and expect error (closed): "
+    {ok, undefined};
+craasp_populate(EConnReset, Client, Server, CPayload, SPayload) ->
+    ExpectedSendRes = if (EConnReset =:= default) -> closed;
+                         (EConnReset =:= true)    -> econnreset
+                      end,
+    Sender = spawn_link(fun() ->
+                                craasp_populate_sender(Client,
+                                                       ExpectedSendRes,
+                                                       CPayload)
+                        end),
+    receive
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            ?P("[server] send something"),
+            ok = gen_tcp:send(Server, SPayload),
+            {ok, Sender}
+    end.
+    
+craasp_populate_sender(Client, ExpectedSendRes, Payload) ->
+    ?P("[socket] send payload (expect failure)"), 
+    {error, ExpectedSendRes} = gen_tcp:send(Client, Payload),
+    ?P("[socket] payload send failure (as expected)"), 
+    exit(normal).
+
+craasp_verify(Client, EConnReset, _Payload)
+  when is_port(Client) andalso
+       ((EConnReset =:= default) orelse is_boolean(EConnReset)) ->
+    ?P("[client,~w] attempt receive and expect error (closed): "
        "~n   Port Info:     ~p"
        "~n   Socket Status: ~s",
-       [try erlang:port_info(Client)
+       [EConnReset,
+        try erlang:port_info(Client)
         catch
             _:_:_ ->
                 "-"
@@ -1688,54 +1947,51 @@ do_econnreset_after_async_send_passive(Config) ->
             _:_:_ ->
                 "-"
         end]),
-    {error, closed} = gen_tcp:recv(Client, 0),
+    case gen_tcp:recv(Client, 0) of
+        {error, closed}     when (EConnReset =:= default) ->
+            ok;
+        {error, econnreset} when (EConnReset =:= true)    ->
+            ok;
+        {error, Reason} ->
+            {error, {unexpected_error, Reason}};
+        ok ->
+            {error, unexpected_success}
+    end;
+craasp_verify(Client, _EConnReset, Payload) ->
+    ?P("[client] attempt receive and expect success"),
+    case gen_tcp:recv(Client, 0) of
+        {ok, Payload} ->
+            ?P("[client] attempt receive and expect failure (closed)"),
+            case gen_tcp:recv(Client, 0) of
+                {error, closed} ->
+                    ok;
+                {error, Reason2} ->
+                    {error, {unexpected_error2, Reason2}};
+                {ok, _} ->
+                    {error, unexpected_recv2}
+            end;                    
+        {ok, _} ->
+            {error, unexpected_recv1};
+        {error, Reason2} ->
+            {error, {unexpected_error1, Reason2}}
+    end.
 
-    %% Now test with option switched on.
-    ?P("create listen socket *** with option explicitly switched on"),
-    {ok, L1} = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
-    {ok, Port1} = inet:port(L1),
-    ?P("create connect socket"),
-    Client1 = case ?CONNECT(Config, localhost, Port1,
-				   [{active, false},
-				    {sndbuf, 4096},
-				    {show_econnreset, true}]) of
-                  {ok, CSock1} ->
-                      CSock1;
-            {error, eaddrnotavail = Reason1} ->
-                ?SKIPT(connect_failed_str(Reason1))
-        end,
-    ?P("accept connection"),
-    {ok, S1} = gen_tcp:accept(L1),
-    ?P("close listen socket"),
-    ok = gen_tcp:close(L1),
-    ?P("[server] set linger: true:0"),
-    ok = inet:setopts(S1, [{linger, {true, 0}}]),
-    ?P("[server] send some data to client"),
-    ok = gen_tcp:send(S1, "Whatever"),
-    ?P("[client] send some data to server"),
-    ok = gen_tcp:send(Client1, Payload),
-    ?P("[server] close socket"),
-    ok = gen_tcp:close(S1),
-    ?P("sleep some"),
-    ok = ct:sleep(20),
-    ?P("[client] attempt receive and expect error (econnreset): "
-       "~n   Port Info:     ~p"
-       "~n   Socket Status: ~s",
-       [try erlang:port_info(Client)
-        catch
-            _:_:_ ->
-                "-"
-        end,
-        try prim_inet:getstatus(Client) of
-            {ok, CStatus1} -> ?F("~p", [CStatus1]);
-            _              -> "-"
-        catch
-            _:_:_ ->
-                "-"
-        end]),
-    {error, econnreset} = gen_tcp:recv(Client1, 0),
-    ?P("done"),
+craasp_cleanup(Client, Sender) ->
+    (catch gen_tcp:close(Client)),
+    craasp_cleanup(Sender).
+
+craasp_cleanup(Sender) when is_pid(Sender) ->
+    exit(Sender, kill),
+    receive
+        {'EXIT', Sender, _} ->
+            ok
+    after 0 ->
+            ok
+    end;
+craasp_cleanup(_) ->
     ok.
+
+
 
 %%
 %% Test {linger {true, 0}} aborts a connection
@@ -1748,46 +2004,92 @@ do_linger_zero(Config) ->
     %% All the econnreset tests will prove that {linger, {true, 0}} aborts
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty.
-    {OS, _} = os:type(),
-    ?P("create listen socket"),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false},
-				 {recbuf, 4096},
-				 {show_econnreset, true}]),
-    {ok, Port} = inet:port(L),
-    ?P("connect (create client socket)"),
-    Client = case ?CONNECT(Config, localhost, Port,
-                           [{active, false}, {sndbuf, 4096}]) of
-                 {ok, CSock} ->
-                     CSock;
-            {error, eaddrnotavail = Reason} ->
-                ?SKIPT(connect_failed_str(Reason))
-        end,
-    ?P("accept"),
-    {ok, S} = gen_tcp:accept(L),
-    ?P("close listen socket"),
-    ok = gen_tcp:close(L),
-    ?P("create payload"),
-    PayloadSize = 1024 * 1024,
-    Payload = lists:duplicate(PayloadSize, $.),
-    ?P("ensure empty queue"),
-    lz_ensure_non_empty_queue(Client, Payload, OS),
-    ?P("linger: {true, 0}"),
+    {OS, Client, Server} = lz_pre(Config),
+
+    PayloadSize  = 1024 * 1024,
+    {ok, Sender} = lz_populate(Client, OS, PayloadSize),
+
+    ?P("set linger: {true, 0}"),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
     ?P("close client socket"),
     ok = gen_tcp:close(Client),
     ?P("sleep some"),
     ok = ct:sleep(1),
-    ?P("verify client socket (port) not connected"),
 
-    %% THIS WILL NOT WORK IF THE NEW 'SOCKET'
-    %% WE NEED TO FIGURE OUT A NEW WAY TO DO THIS OR JUST SKIP IT?
-    undefined = erlang:port_info(Client, connected),
+    lz_verify(Client, Server, PayloadSize),
 
+    ?P("cleanup"), % Just in case
+    (catch gen_tcp:close(Server)),
+    if is_pid(Sender) -> exit(Sender, kill);
+       true           -> ok
+    end,
 
-    ?P("try (and fail) recv (on accepted socket)"),
-    {error, econnreset} = gen_tcp:recv(S, PayloadSize),
     ?P("done"),
     ok.
+
+lz_pre(Config) ->
+    {OS, _} = os:type(),
+    ?P("create listen socket"),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false},
+                                  {recbuf, 4096},
+                                  {show_econnreset, true}]),
+    ?P("listen socket created"),
+    %% inet_backend = inet
+    {ok, Port} = inet:port(L),
+    ?P("connect (create client socket)"),
+    Client = case ?CONNECT(Config, localhost, Port,
+                           [{nodelay, true},
+                            {active,  false},
+                            {sndbuf,  4096}]) of
+                 {ok, CSock} ->
+                     CSock;
+                 {error, eaddrnotavail = Reason} ->
+                     ?SKIPT(connect_failed_str(Reason))
+             end,
+    ?P("accept"),
+    {ok, Server} = gen_tcp:accept(L),
+    ?P("close listen socket"),
+    ok = gen_tcp:close(L),
+    {OS, Client, Server}.
+
+lz_populate(Client, OS, PayloadSize) when is_port(Client) ->
+    ?P("[inet] create payload"),
+    Payload = lz_make_payload(PayloadSize),
+    ?P("[inet] ensure non-empty queue"),
+    lz_ensure_non_empty_queue(Client, Payload, OS),
+    {ok, undefined};
+lz_populate(Client, _OS, PayloadSize) ->
+    ?P("[socket] send payload"),
+    Sender = spawn_link(fun() -> lz_populate_sender(Client, PayloadSize) end),
+    receive
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            {ok, Sender}
+    end.
+
+lz_populate_sender(Client, PayloadSize) ->
+    ?P("[socket] create payload"),
+    Payload = lz_make_payload(PayloadSize),
+    ?P("[socket] send payload (expect failure)"), 
+    {error, closed} = gen_tcp:send(Client, Payload),
+    ?P("[socket] payload send failed (as expected)"), 
+    exit(normal).
+
+lz_verify(Client, Server, PayloadSize)
+  when is_port(Client) andalso is_port(Server) ->
+    ?P("[inet] verify client socket (port) not connected"),
+    undefined = erlang:port_info(Client, connected),
+    ?P("[inet] try (and fail) recv (on accepted socket)"),
+    {error, econnreset} = gen_tcp:recv(Server, PayloadSize),
+    ok;
+lz_verify(_Client, Server, PayloadSize) ->
+    ?P("[socket] try (and fail) recv (on accepted socket)"),
+    {error, econnreset} = gen_tcp:recv(Server, PayloadSize),
+    ok.
+
+lz_make_payload(PayloadSize) ->
+    list_to_binary(lists:duplicate(PayloadSize, $.)).
 
 %% THIS DOES NOT WORK FOR 'SOCKET'
 lz_ensure_non_empty_queue(Sock, Payload, OS) when is_port(Sock) ->
@@ -1801,8 +2103,8 @@ lz_ensure_non_empty_queue(Sock, _Payload, _OS, N) when (N > ?LZ_MAX_SENDS) ->
        "~n   Socket info: ~p", [Sock, erlang:port_info(Sock)]),
     ct:fail("Queue size verification failed");
 lz_ensure_non_empty_queue(Sock, Payload, OS, N) ->
-    ?P("try send payload ~w (on client socket) when port info:"
-       "~n   ~p", [N, erlang:port_info(Sock)]),
+    ?P("try send payload (~w bytes) ~w (on client socket) when port info:"
+       "~n   ~p", [byte_size(Payload), N, erlang:port_info(Sock)]),
     ok = gen_tcp:send(Sock, Payload),
     ?P("try verify client socket queue size"),
     case erlang:port_info(Sock, queue_size) of
@@ -1829,18 +2131,41 @@ do_linger_zero_sndbuf(Config) ->
     %% a connection when the driver queue is empty. We will test here
     %% that it also works when the driver queue is not empty
     %% and the linger zero option is set on the listen socket.
+    {OS, Client, Server} = lzs_pre(Config),
+
+    PayloadSize = 1024 * 1024,
+    {ok, Sender} = lzs_populate(Client, OS, PayloadSize),
+
+    ?P("verify linger: {true, 0}"),
+    {ok, [{linger, {true, 0}}]} = inet:getopts(Server, [linger]),
+    ?P("close client socket"),
+    ok = gen_tcp:close(Server),
+    ok = ct:sleep(1),
+
+    lzs_verify(Client, Server, PayloadSize),
+
+    ?P("cleanup"), % Just in case
+    (catch gen_tcp:close(Server)),
+    if is_pid(Sender) -> exit(Sender, kill);
+       true           -> ok
+    end,
+
+    ?P("done"),
+    ok.
+
+lzs_pre(Config) ->
     {OS, _} = os:type(),
     ?P("create listen socket"),
-    {ok, Listen} =
-        ?LISTEN(Config, 0, [{active, false},
-                           {recbuf, 4096},
-                           {show_econnreset, true},
-                           {linger, {true, 0}}]),
+    {ok, Listen} = ?LISTEN(Config, 0, [{active,          false},
+                                       {recbuf,          4096},
+                                       {show_econnreset, true},
+                                       {linger,          {true, 0}}]),
     {ok, Port} = inet:port(Listen),
     ?P("connect (create client socket)"),
-    Client =
-        case ?CONNECT(Config, localhost, Port,
-                             [{active, false}, {sndbuf, 4096}]) of
+    Client = case ?CONNECT(Config, localhost, Port,
+                           [{nodelay, true},
+                            {active,  false},
+                            {sndbuf,  4096}]) of
             {ok, CSock} ->
                 CSock;
             {error, eaddrnotavail = Reason} ->
@@ -1850,22 +2175,52 @@ do_linger_zero_sndbuf(Config) ->
     {ok, Server} = gen_tcp:accept(Listen),
     ?P("close listen socket"),
     ok = gen_tcp:close(Listen),
-    PayloadSize = 1024 * 1024,
-    Payload = binary:copy(<<"0123456789ABCDEF">>, 256 * 1024), % 1 MB
+    {OS, Client, Server}.
+
+lzs_populate(Client, OS, PayloadSize) when is_port(Client) ->
+    ?P("[inet] create payload"),
+    Payload = lzs_make_payload(PayloadSize),
+    ?P("[inet] ensure non-empty queue"),
     lz_ensure_non_empty_queue(Client, Payload, OS),
-    ?P("verify linger: {true, 0}"),
-    {ok, [{linger, {true, 0}}]} = inet:getopts(Server, [linger]),
-    ?P("close client socket"),
-    ok = gen_tcp:close(Server),
-    ok = ct:sleep(1),
-    ?P("verify client socket (port) not connected"),
+    {ok, undefined};
+lzs_populate(Client, _OS, PayloadSize) ->
+    ?P("[socket] send payload ( = start payload sender)"),
+    Sender = spawn(fun() -> lzs_populate_sender(Client, PayloadSize) end),
+    receive
+        {'EXIT', Sender, Reason} ->
+            {error, {unexpected_exit, Sender, Reason}}
+    after 2000 ->
+            {ok, Sender}
+    end.
+
+lzs_populate_sender(Client, PayloadSize) ->
+    ?P("[socket] create payload"),
+    Payload = lzs_make_payload(PayloadSize),
+    ?P("[socket] send payload (expect failure)"), 
+    {error, closed} = gen_tcp:send(Client, Payload),
+    ?P("[socket] payload send failed (as expected)"), 
+    exit(normal).
+    
+lzs_make_payload(PayloadSize) ->
+    Payload = binary:copy(<<"0123456789ABCDEF">>, 64 * 1024), % 1 MB
+    if (PayloadSize =:= byte_size(Payload)) ->
+            Payload;
+       true ->
+            exit({payload_size, PayloadSize, byte_size(Payload)})
+    end.
+
+lzs_verify(Client, Server, PayloadSize)
+  when is_port(Client) andalso is_port(Server) ->
+    ?P("[inet] verify client socket (port) not connected"),
     undefined = erlang:port_info(Server, connected),
-    ?P("try (and fail) recv (on client socket)"),
+    ?P("[inet] try (and fail) recv (on accepted socket)"),
     {error, closed} = gen_tcp:recv(Client, PayloadSize),
-    ?P("done"),
+    ok;
+lzs_verify(Client, _Server, PayloadSize) ->
+    ?P("[socket] try (and fail) recv (on accepted socket)"),
+    {error, closed} = gen_tcp:recv(Client, PayloadSize),
     ok.
-
-
+    
 %% Thanks to Luke Gorrie. Tests for a very specific problem with 
 %% corrupt data. The testcase will be killed by the timetrap timeout
 %% if the bug is present.
@@ -3405,13 +3760,11 @@ do_accept_timeouts_in_order7(Config) ->
 			  {P1,{error,timeout}},{P3,{error,timeout}},
 			  {P8,{error,timeout}},{P7,{error,timeout}}],infinity,2000).
 
-%% Check that multi-accept timeouts behave correctly when mixed with successful timeouts.
+%% Check that multi-accept timeouts behave correctly when
+%% mixed with successful timeouts.
 accept_timeouts_mixed(Config) when is_list(Config) ->
-    try do_accept_timeouts_mixed(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(accept_timeouts_mixed,
+            fun() -> do_accept_timeouts_mixed(Config) end).
 
 do_accept_timeouts_mixed(Config) ->
     ?P("create listen socket"),
@@ -3423,24 +3776,34 @@ do_accept_timeouts_mixed(Config) ->
          end,
     Parent = self(),
     {ok,PortNo}=inet:port(LS),
+
     ?P("create acceptor process 1 (with timeout 1000)"),
     P1 = spawn(mktmofun(1000,Parent,LS)),
+
     ?P("await ~p accepting", [P1]),
     wait_until_accepting(P1,500),
+
     ?P("create acceptor process 2 (with timeout 2000)"),
     P2 = spawn(mktmofun(2000,Parent,LS)),
+
     ?P("await ~p accepting", [P2]),
     wait_until_accepting(P2,500),
+
     ?P("create acceptor process 3 (with timeout 3000)"),
     P3 = spawn(mktmofun(3000,Parent,LS)),
+
     ?P("await ~p accepting", [P3]),
     wait_until_accepting(P3,500),
+
     ?P("create acceptor process 4 (with timeout 4000)"),
     P4 = spawn(mktmofun(4000,Parent,LS)),
+
     ?P("await ~p accepting", [P4]),
     wait_until_accepting(P4,500),
+
     ?P("expect accept from 1 (~p) with timeout", [P1]),
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}}],infinity,1500),
+
     ?P("connect"),
     case ?CONNECT(Config, "localhost", PortNo, []) of
         {ok, _} ->
@@ -3448,10 +3811,18 @@ do_accept_timeouts_mixed(Config) ->
         {error, eaddrnotavail = Reason1} ->
             ?SKIPT(connect_failed_str(Reason1))
     end,
+
     ?P("expect accept from 2 (~p) with success", [P2]),
-    ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),infinity,100),
+    if is_port(LS) ->
+            ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),
+                                                        infinity,100);
+       true ->
+            ok = ?EXPECT_ACCEPTS([{P2,{ok,_}}],infinity,100)
+    end,
+
     ?P("expect accept from 3 (~p) with timeout", [P3]),
     ok = ?EXPECT_ACCEPTS([{P3,{error,timeout}}],infinity,2000),
+
     ?P("connect"),
     case ?CONNECT(Config, "localhost", PortNo, []) of
         {error, eaddrnotavail = Reason2} ->
@@ -3459,27 +3830,36 @@ do_accept_timeouts_mixed(Config) ->
         _  ->
             ok
     end,
+
     ?P("expect accept from 4 (~p) with success", [P4]),
-    ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100),
+    if is_port(LS) ->
+            ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),
+                                                        infinity,100);
+       true ->
+            ok = ?EXPECT_ACCEPTS([{P4,{ok,_Port1}}],infinity,100)
+    end,
+
     ?P("done"),
     ok.
 
 %% Check that single acceptor behaves as expected when killed.
 killing_acceptor(Config) when is_list(Config) ->
-    try do_killing_acceptor(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(killing_acceptor, fun() -> do_killing_acceptor(Config) end).
 
 do_killing_acceptor(Config) ->
     ?P("create listen socket"),
-    LS = case ?LISTEN(Config, 0,[]) of
-             {ok, LSocket} ->
-                 LSocket;
-             {error, eaddrnotavail = Reason} ->
-                 ?SKIPT(listen_failed_str(Reason))
-         end,
+    case ?LISTEN(Config, 0,[]) of
+        {ok, LSocket} when is_port(LSocket) ->
+            do_killing_acceptor_inet(LSocket);
+        {ok, LSocket} ->
+            do_killing_acceptor_socket(LSocket);
+        {error, eaddrnotavail = Reason} ->
+            ?SKIPT(listen_failed_str(Reason))
+    end,
+    ?P("done"),
+    ok.
+
+do_killing_acceptor_inet(LS) ->
     ?P("create acceptor process"),
     Pid = spawn(
             fun() ->
@@ -3501,64 +3881,224 @@ do_killing_acceptor(Config) ->
     {ok,L2} = prim_inet:getstatus(LS),
     ?P("verify listen socket *not* accepting"),
     false  = lists:member(accepting, L2),
-    ?P("done"),
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
     ok.
+
+do_killing_acceptor_socket(LS) ->
+    ?P("validate state - listening"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 0},
+          num_acceptors := 0} ->
+            ?P("pre validated"),
+            ok;
+        INFO0 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO0]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("create acceptor process"),
+    Pid = spawn(
+            fun() ->
+                    erlang:display({accepted,self(),gen_tcp:accept(LS)})
+            end),
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    ?P("validate state - accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 1} ->
+            ?P("validated"),
+            ok;
+        INFO1 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO1]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("kill acceptor"),
+    exit(Pid,kill),
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    ?P("validate state - listening"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 0} ->
+            ?P("post validated"),
+            ok;
+        INFO2 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO2]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
+    ok.
+    
+
 
 %% Check that multi acceptors behaves as expected when killed.
 killing_multi_acceptors(Config) when is_list(Config) ->
-    try do_killing_multi_acceptors(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(killing_multi_acceptors,
+            fun() -> do_killing_multi_acceptors(Config) end).
 
 do_killing_multi_acceptors(Config) ->
-    LS = case ?LISTEN(Config, 0,[]) of
-             {ok, LSocket} ->
-                 LSocket;
-             {error, eaddrnotavail = Reason} ->
-                 ?SKIPT(listen_failed_str(Reason))
-         end,             
+    ?P("create listen socket"),
+    case ?LISTEN(Config, 0,[]) of
+        {ok, LSocket} when is_port(LSocket) ->
+            do_killing_multi_acceptors_inet(LSocket);
+        {ok, LSocket} ->
+            do_killing_multi_acceptors_socket(LSocket);
+        {error, eaddrnotavail = Reason} ->
+            ?SKIPT(listen_failed_str(Reason))
+    end,
+    ?P("done"),
+    ok.
+
+do_killing_multi_acceptors_inet(LS) ->
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     F2 = mktmofun(1000,Parent,LS),
+    ?P("create first acceptor"),
     Pid = spawn(F),
+    ?P("create second acceptor - with timeout"),
     Pid2 = spawn(F2),
+
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
-    {ok,L1} = prim_inet:getstatus(LS),
-    true = lists:member(accepting, L1),
-    exit(Pid,kill),
+
+    ?P("validate state - accepting"),
+    {ok, L1} = prim_inet:getstatus(LS),
+    true     = lists:member(accepting, L1),
+
+    ?P("kill first acceptor"),
+    exit(Pid, kill),
+
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
-    {ok,L2} = prim_inet:getstatus(LS),
-    true  = lists:member(accepting, L2),
+
+    ?P("validate state - still accepting"),
+    {ok, L2} = prim_inet:getstatus(LS),
+    true     = lists:member(accepting, L2),
+
+    ?P("await second acceptor exit - timeout"),
     ok = ?EXPECT_ACCEPTS([{Pid2,{error,timeout}}],1,1000),
-    {ok,L3} = prim_inet:getstatus(LS),
-    false  = lists:member(accepting, L3),
+
+    ?P("validate state - *not* accepting"),
+    {ok, L3} = prim_inet:getstatus(LS),
+    false    = lists:member(accepting, L3),
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
     ok.
+
+do_killing_multi_acceptors_socket(LS) ->
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 0},
+          num_acceptors := 0} ->
+            ?P("pre validated"),
+            ok;
+        INFO0 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO0]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    Parent = self(),
+    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    F2 = mktmofun(1000,Parent,LS),
+    ?P("create first acceptor"),
+    Pid = spawn(F),
+    ?P("create second acceptor - with timeout"),
+    Pid2 = spawn(F2),
+
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    ?P("validate state - accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 2} ->
+            ?P("validated"),
+            ok;
+        INFO1 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO1]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("kill first acceptor"),
+    exit(Pid, kill),
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    ?P("validate state - (still) accepting"),
+    case gen_tcp_socket:info(LS) of
+        %% No new accept call after the previous 'current acceptor'
+        %% terminated, just a new select, so change in the counters.
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 1} ->
+            ?P("validated:1"),
+            ok;
+        INFO2 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO2]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("await second acceptor exit - timeout"),
+    ok = ?EXPECT_ACCEPTS([{Pid2,{error,timeout}}],1,1000),
+
+    ?P("validate state - listening"),
+    case gen_tcp_socket:info(LS) of
+        %% Still no new accept calls
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 0} ->
+            ?P("post validated"),
+            ok;
+        INFO3 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO3]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
+    ok.
+
 
 %% Check that multi acceptors behaves as expected when killed (more).
 killing_multi_acceptors2(Config) when is_list(Config) ->
-    try do_killing_multi_acceptors2(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(killing_multi_acceptors2,
+            fun() -> do_killing_multi_acceptors2(Config) end).
 
 do_killing_multi_acceptors2(Config) ->
     ?P("create listen socket"),
-    LS = case ?LISTEN(Config, 0,[]) of
-             {ok, LSocket} ->
-                 LSocket;
-             {error, eaddrnotavail = Reason} ->
-                 ?SKIPT(listen_failed_str(Reason))
-         end,             
+    case ?LISTEN(Config, 0,[]) of
+        {ok, LSocket} when is_port(LSocket) ->
+            do_killing_multi_acceptors2_inet(Config, LSocket);
+        {ok, LSocket} ->
+            do_killing_multi_acceptors2_socket(Config, LSocket);
+        {error, eaddrnotavail = Reason} ->
+            ?SKIPT(listen_failed_str(Reason))
+    end,
+    ?P("done"),
+    ok.
+
+do_killing_multi_acceptors2_inet(Config, LS) ->
     Parent = self(),
     ?P("get port number for listen socket"),
     {ok, PortNo} = inet:port(LS),
+
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     F2 = mktmofun(1000,Parent,LS),
+
     ?P("create acceptor process 1"),
     Pid = spawn(F),
     ?P("create acceptor process 2"),
@@ -3566,48 +4106,177 @@ do_killing_multi_acceptors2(Config) ->
     ?P("wait some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
+
+    ?P("validate state - accepting"),
     {ok, L1} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
     true = lists:member(accepting, L1),
-    ?P("kill acceptor process 1"),
+
+    ?P("kill acceptor 1"),
     exit(Pid,kill),
-    ?P("wait some"),
+
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
+
+    ?P("validate state - (still) accepting"),
     {ok, L2} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
     true  = lists:member(accepting, L2),
-    ?P("kill acceptor process 1"),
-    exit(Pid2,kill),
-    ?P("wait some"),
+
+    ?P("kill acceptor 2"),
+    exit(Pid2, kill),
+
+    ?P("sleep some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
+
+    ?P("validate state - listening"),
     {ok, L3} = prim_inet:getstatus(LS),
-    ?P("verify listen socket is *not* accepting"),
     false  = lists:member(accepting, L3),
-    ?P("create acceptor process 3"),
+
+    ?P("create acceptor 3"),
     Pid3 = spawn(F2),
+
     ?P("wait some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
-    {ok,L4} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
+
+    ?P("validate state - accepting"),
+    {ok, L4} = prim_inet:getstatus(LS),
     true  = lists:member(accepting, L4),
+
     ?P("connect to port ~p", [PortNo]),
     ?CONNECT(Config, "localhost", PortNo,[]),
-    ?P("accepts"),
-    ok = ?EXPECT_ACCEPTS([{Pid3,{ok,Port}}] when is_port(Port),1,100),
-    ?P("get status for listen socket"),
+
+    ?P("await accept"),
+    ok = ?EXPECT_ACCEPTS([{Pid3,{ok,CSock}}] when is_port(CSock),1,100),
+
+    ?P("validate state - listening"),
     {ok, L5} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *is* accepting"),
     false  = lists:member(accepting, L5),
-    ?P("done"),
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
     ok.
-    
+
+do_killing_multi_acceptors2_socket(Config, LS) ->
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 0},
+          num_acceptors := 0} ->
+            ?P("pre validated"),
+            ok;
+        INFO0 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO0]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    Parent = self(),
+    ?P("get port number for listen socket"),
+    {ok, PortNo} = inet:port(LS),
+
+    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    F2 = mktmofun(1000,Parent,LS),
+
+    ?P("create acceptor process 1"),
+    Pid = spawn(F),
+    ?P("create acceptor process 2"),
+    Pid2 = spawn(F),
+
+    ?P("wait some"),
+    ct:sleep(100),
+
+    ?P("validate state - accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 2} ->
+            ?P("validated"),
+            ok;
+        INFO1 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO1]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("kill acceptor 1"),
+    exit(Pid,kill),
+
+    ?P("sleep some"),
+    ct:sleep(100),
+
+    ?P("validate state - (still) accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 1} ->
+            ?P("validated"),
+            ok;
+        INFO2 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO2]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("kill acceptor 2"),
+    exit(Pid2, kill),
+
+    ?P("sleep some"),
+    receive after 100 -> ok
+    end,
+
+    ?P("validate state - listening"),
+    case gen_tcp_socket:info(LS) of
+        %% Still no new accept calls
+        #{counters      := #{acc_tries := 1},
+          num_acceptors := 0} ->
+            ?P("validated"),
+            ok;
+        INFO3 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO3]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("create acceptor 3"),
+    Pid3 = spawn(F2),
+
+    ?P("wait some"),
+    ct:sleep(100),
+
+    ?P("validate state - accepting"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_tries := 2},
+          num_acceptors := 1} ->
+            ?P("validated"),
+            ok;
+        INFO4 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO4]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("connect to port ~p", [PortNo]),
+    ?CONNECT(Config, "localhost", PortNo,[]),
+
+    ?P("await accept"),
+    ok = ?EXPECT_ACCEPTS([{Pid3,{ok, _CSock}}],1,100),
+
+    ?P("validate state - listening"),
+    case gen_tcp_socket:info(LS) of
+        #{counters      := #{acc_success := 1,
+                             acc_tries   := 3},
+          num_acceptors := 0} ->
+            ?P("validated"),
+            ok;
+        INFO5 ->
+            ?P("Invalid acceptor info: "
+               "~n      ~p", [INFO5]),
+            ct:fail("wrong number of acceptors")
+    end,
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(LS)),
+    ok.
+
+
 %% Checks that multi-accept works when more than one accept can be
 %% done at once (wb test of inet_driver).
 several_accepts_in_one_go(Config) when is_list(Config) ->
@@ -3654,20 +4323,30 @@ wait_until_accepting(Proc,0) ->
     exit({timeout_waiting_for_accepting,Proc});
 wait_until_accepting(Proc,N) ->
     case process_info(Proc,current_function) of
-        {current_function,{prim_inet,accept0,3}} ->
-            case process_info(Proc,status) of
+        {current_function, {prim_inet, accept0, 3}} ->
+            case process_info(Proc, status) of
                 {status,waiting} -> 
                     ok;
                 _O1 ->
                     receive 
                     after 5 ->
-                        wait_until_accepting(Proc,N-1)
+                            wait_until_accepting(Proc, N-1)
                     end
             end;
-         _O2 ->
+        {current_function, {gen, do_call, 4}} ->
+            case process_info(Proc, status) of
+                {status,waiting} -> 
+                    ok;
+                _O1 ->
+                    receive 
+                    after 5 ->
+                            wait_until_accepting(Proc, N-1)
+                    end
+            end;
+        _O2 ->
             receive 
             after 5 ->
-                wait_until_accepting(Proc,N-1)
+                    wait_until_accepting(Proc, N-1)
             end
     end.
 
@@ -3687,8 +4366,11 @@ accept_system_limit(Config) when is_list(Config) ->
 do_accept_system_limit(Config) ->
     ?P("create listen socket"),
     LS = case ?LISTEN(Config, 0, []) of
-             {ok, LSocket} ->
+             {ok, LSocket} when is_port(LSocket) ->
                  LSocket;
+             {ok, LSocket} ->
+                 (catch gen_tcp:close(LSocket)),
+                 ?SKIPT("Non-socket compliant test case");
              {error, eaddrnotavail = Reason} ->
                  ?SKIPT(listen_failed_str(Reason))
         end,             
@@ -3875,38 +4557,6 @@ do_active_n_closed(Config) ->
     inet:setopts(S, [{active, 10}]),
     ?P("start collecting data"),
     RecvSize = anc_await_closed_and_down(S, Pid, MRef),
-    %% {RecvSize, Down} =
-    %%     (fun Server(Size) ->
-    %%              receive
-    %%                  {tcp, S, Bin} ->
-    %%                      %% ?P("got a chunk (~w) of data", [byte_size(Bin)]),
-    %%                      Server(byte_size(Bin) + Size);
-    %%                  {tcp_closed, S} ->
-    %%                      ?P("got closed -> we are done: ~w", [Size]),
-    %%                      Size;
-    %%                  {tcp_passive, S} ->
-    %%                      %% ?P("got passive -> active"),
-    %%                      inet:setopts(S, [{active, 10}]),
-    %%                      Server(Size);
-    %%                  {'DOWN', MRef, process, Pid, Reason} ->
-    %%                      ?P("Received UNEXPECTED down message regarding client:"
-    %%                         "~n   Reason: ~p"
-    %%                         "~n   S:      ~p"
-    %%                         "~n   Port Info: ~p",
-    %%                         [Reason, ]),
-    %%                      ct:fail({unexpected_client_down, Reason});
-    %%                  Msg ->
-    %%                      ?P("ignore: ~p", [Msg]),
-    %%                      Server(Size)
-    %%              end
-    %%      end)(0),
-    %% ?P("await client process termination"),
-    %% receive
-    %%     {'DOWN', MRef, process, Pid, ok} ->
-    %%         ok;
-    %%     {'DOWN', MRef, process, Pid, CloseRes} ->
-    %%         exit({unexpected, close, CloseRes})
-    %% end,
 
     ?P("close listen socket"),
     gen_tcp:close(L),
