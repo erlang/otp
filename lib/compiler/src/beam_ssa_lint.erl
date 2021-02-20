@@ -291,15 +291,15 @@ vvars_block_1([], _Terminator, State) ->
 vvars_terminator(#b_ret{ arg = Arg }=I, From, State) ->
     ok = vvars_assert_args([Arg], I, State),
     TryTags = State#vvars.try_tags,
-    case gb_sets:size(TryTags) of
-        N when N > 0, From =/= ?EXCEPTION_BLOCK ->
-            throw({active_try_tags_on_return, TryTags, I});
-        N when N > 0, From =:= ?EXCEPTION_BLOCK ->
+    case {gb_sets:is_empty(TryTags),From} of
+        {false,?EXCEPTION_BLOCK} ->
             %% Plain guards sometimes branch off to ?EXCEPTION_BLOCK even
             %% though they cannot actually throw exceptions. This ought to be
             %% fixed at the source, but we'll ignore this for now.
             State;
-        0 ->
+        {false,_} ->
+            throw({active_try_tags_on_return, TryTags, I});
+        {true,_} ->
             State
     end;
 vvars_terminator(#b_switch{arg=Arg,fail=Fail,list=Switch}=I, From, State) ->
