@@ -284,6 +284,7 @@ repeated_passes(Opts) ->
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
+          ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_type_continue)],        %Must run after ssa_opt_dead to
                                                 %clean up phi nodes.
     passes_1(Ps, Opts).
@@ -292,7 +293,6 @@ epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
           ?PASS(ssa_opt_sw),
-          ?PASS(ssa_opt_try),
 
           %% Run live one more time to clean up after the previous
           %% epilogue passes.
@@ -1388,11 +1388,7 @@ ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
     RevLinear = reduce_try(Linear0, []),
 
     EmptySet = sets:new([{version, 2}]),
-    Linear1 = trim_try(RevLinear, EmptySet, EmptySet, []),
-
-    %% Unreachable blocks with tuple extractions will cause problems
-    %% for ssa_opt_sink.
-    Linear = beam_ssa:trim_unreachable(Linear1),
+    Linear = trim_try(RevLinear, EmptySet, EmptySet, []),
 
     {St#opt_st{ssa=Linear}, FuncDb}.
 
