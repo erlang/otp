@@ -237,6 +237,7 @@
                 <c>binary</c> is set, nothing is written and the rule is
                 returned in <c>Binary</c>.
             </p>
+            <p>The output will be encoded in UTF-8.</p>
             <p>For example, if you have the following module:
             </p>
             <code>
