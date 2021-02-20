@@ -25,7 +25,8 @@
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
          revert_map_type/1,wrapped_subtrees/1,
-	t_abstract_type/1,t_erl_parse_type/1,t_type/1, t_epp_dodger/1,
+         t_abstract_type/1,t_erl_parse_type/1,t_type/1,
+         t_epp_dodger/1,t_epp_dodger_clever/1,
 	t_comment_scan/1,t_igor/1,t_erl_tidy/1,t_prettypr/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -33,7 +34,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
      wrapped_subtrees,
-    t_abstract_type,t_erl_parse_type,t_type,t_epp_dodger,
+     t_abstract_type,t_erl_parse_type,t_type,
+     t_epp_dodger,t_epp_dodger_clever,
     t_comment_scan,t_igor,t_erl_tidy,t_prettypr].
 
 groups() -> 
@@ -330,6 +332,13 @@ t_epp_dodger(Config) when is_list(Config) ->
     ok = test_epp_dodger(Filenames,DataDir,PrivDir),
     ok.
 
+t_epp_dodger_clever(Config) when is_list(Config) ->
+    DataDir   = ?config(data_dir, Config),
+    PrivDir   = ?config(priv_dir, Config),
+    Filenames = ["epp_dodger_clever.erl"],
+    ok = test_epp_dodger_clever(Filenames,DataDir,PrivDir),
+    ok.
+
 t_comment_scan(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
     Filenames = test_files(),
@@ -447,9 +456,30 @@ test_epp_dodger([Filename|Files],DataDir,PrivDir) ->
     ok = pretty_print_parse_forms(FsForms,PrivDir,Filename),
     test_epp_dodger(Files,DataDir,PrivDir).
 
+test_epp_dodger_clever([], _, _) -> ok;
+test_epp_dodger_clever([Filename|Files],DataDir,PrivDir) ->
+    io:format("Parsing ~p~n", [Filename]),
+    InFile   = filename:join(DataDir, Filename),
+    Parsers  = [{fun(File) ->
+                         epp_dodger:parse_file(File, [clever])
+                 end, parse_file},
+		{fun(File) ->
+                         epp_dodger:quick_parse_file(File, [clever])
+                 end, quick_parse_file}],
+    FsForms  = parse_with(Parsers, InFile),
+    ok = pretty_print_parse_forms(FsForms,PrivDir,Filename),
+    test_epp_dodger_clever(Files,DataDir,PrivDir).
+
 parse_with([],_) -> [];
 parse_with([{Fun,ParserType}|Funs],File) ->
     {ok, Fs} = Fun(File),
+    ErrorMarkers = [begin
+                        print_error_markers(F, File),
+                        F
+                    end
+                    || F <- Fs,
+                       erl_syntax:type(F) =:= error_marker],
+    [] = ErrorMarkers,
     [{Fs,ParserType}|parse_with(Funs,File)].
 
 pretty_print_parse_forms([],_,_) -> ok;

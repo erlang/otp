@@ -544,6 +544,7 @@ quickscan_macros([{'?',_}, {Type, _, _}=N | [{'(',_}|_]=Ts],
     Ts1 = case skip_macro_args(Ts) of
 	      {_, [{'->',_} | _] = Ts2} -> Ts2;
 	      {_, [{'when',_} | _] = Ts2} -> Ts2;
+	      {_, [{':',_} | _] = Ts2} -> Ts2;
 	      _ -> Ts    %% assume macro without arguments
 	  end,
     quickscan_macros_1(N, Ts1, As);
@@ -705,6 +706,8 @@ scan_macros([{'?', L}, {Type, _, _}=N | [{'(',_}|_]=Ts],
 	    macro_call(Args, L, N, Rest, As, Opt);
 	[{'when',_} | _] ->
 	    macro_call(Args, L, N, Rest, As, Opt);
+	[{':',_} | _] ->
+	    macro_call(Args, L, N, Rest, As, Opt);
 	_ ->
 	    macro(L, N, Ts, As, Opt)
     end;
@@ -722,7 +725,7 @@ scan_macros([T | Ts], As, Opt) ->
 scan_macros([], As, _Opt) ->
     lists:reverse(As).
 
-%% Rewriting to a call which will be recognized by the post-parse pass
+%% Rewriting to a tuple which will be recognized by the post-parse pass
 %% (we insert parentheses to preserve the precedences when parsing).
 
 macro(L, {Type, _, A}, Rest, As, Opt) ->
@@ -731,17 +734,28 @@ macro(L, {Type, _, A}, Rest, As, Opt) ->
 macro_call([{'(',_}, {')',_}], L, {_, Ln, _}=N, Rest, As, Opt) ->
     {Open, Close} = parentheses(As),
     scan_macros_1([], Rest,
-		  lists:reverse(Open ++ [{atom,L,?macro_call},
-					 {'(',L}, N, {')',Ln}] ++ Close,
-				As), Opt);
+                  %% {'?macro_call', N }
+                  lists:reverse(Open ++ [{'{', L},
+                                         {atom, L, ?macro_call},
+                                         {',', L},
+                                         N,
+                                         {'}', Ln}] ++ Close,
+                                As), Opt);
 macro_call([{'(',_} | Args], L, {_, Ln, _}=N, Rest, As, Opt) ->
     {Open, Close} = parentheses(As),
+    %% drop closing parenthesis
+    {')', _} = lists:last(Args), %% assert
+    Args1 = lists:droplast(Args),
     %% note that we must scan the argument list; it may not be skipped
-    scan_macros_1(Args ++ Close,
-		  Rest,
-		  lists:reverse(Open ++ [{atom,L,?macro_call},
-					 {'(',L}, N, {',',Ln}],
-				As), Opt).
+    scan_macros_1(Args1 ++ [{'}', Ln} | Close],
+                  Rest,
+                  %% {'?macro_call', N, Arg1, ... }
+                  lists:reverse(Open ++ [{'{', L},
+                                         {atom, L, ?macro_call},
+                                         {',', L},
+                                         N,
+                                         {',', Ln}],
+                                As), Opt).
 
 macro_atom(atom, A) ->
     list_to_atom(?atom_prefix ++ atom_to_list(A));
@@ -798,21 +812,24 @@ rewrite(Node) ->
 		_ ->
 		    Node
 	    end;
-	application ->
-	    F = erl_syntax:application_operator(Node),
-	    case erl_syntax:type(F) of
-		atom ->
-		    case erl_syntax:atom_value(F) of
-			?macro_call ->
-			    [A | As] = erl_syntax:application_arguments(Node),
-			    M = erl_syntax:macro(A, rewrite_list(As)),
-			    erl_syntax:copy_pos(Node, M);
-			_ ->
-			    rewrite_1(Node)
-		    end;
-		_ ->
-		    rewrite_1(Node)
-	    end;
+        tuple ->
+            case erl_syntax:tuple_elements(Node) of
+                [MagicWord, A | As] ->
+                    case erl_syntax:type(MagicWord) of
+                        atom ->
+                            case erl_syntax:atom_value(MagicWord) of
+                                ?macro_call ->
+                                    M = erl_syntax:macro(A, rewrite_list(As)),
+                                    erl_syntax:copy_pos(Node, M);
+                                _ ->
+                                    rewrite_1(Node)
+                            end;
+                        _ ->
+                            rewrite_1(Node)
+                    end;
+                _ ->
+                    rewrite_1(Node)
+            end;
 	_ ->
 	    rewrite_1(Node)
     end.
