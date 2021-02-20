@@ -1468,10 +1468,10 @@ partition_keys(#ialias{pat=Map}=Alias, Ks) ->
 find_key_intersection(Ps) ->
     Sets = [sets:from_list(Ks, [{version, 2}]) || Ks <- Ps],
     Intersection = sets:intersection(Sets),
-    case sets:size(Intersection) of
-        0 ->
+    case sets:is_empty(Intersection) of
+        true ->
             none;
-        _ ->
+        false ->
             All = all(fun (Kset) -> Kset =:= Intersection end, Sets),
             case All of
                 true ->

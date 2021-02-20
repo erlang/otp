@@ -96,11 +96,11 @@ fixpoint(_FuncIds, _Order, _Passes, StMap, FuncDb, 0) ->
 fixpoint(FuncIds0, Order0, Passes, StMap0, FuncDb0, N) ->
     {StMap, FuncDb} = phase(FuncIds0, Passes, StMap0, FuncDb0),
     Repeat = changed(FuncIds0, FuncDb0, FuncDb, StMap0, StMap),
-    case sets:size(Repeat) of
-        0 ->
+    case sets:is_empty(Repeat) of
+        true ->
             %% No change. Fixpoint reached.
             {StMap, FuncDb};
-        _ ->
+        false ->
             %% Repeat the optimizations for functions whose code has
             %% changed or for which there is potentially updated type
             %% information.
@@ -1436,9 +1436,9 @@ do_reduce_try([{L, Blk} | Bs]=Bs0, Ws0) ->
             %% This block is not reachable from the block with the
             %% `new_try_tag` instruction. Retain it. There is no
             %% need to check it for safety.
-            case sets:size(Ws0) of
-                0 -> Bs0;
-                _ -> [{L, Blk} | do_reduce_try(Bs, Ws0)]
+            case sets:is_empty(Ws0) of
+                true -> Bs0;
+                false -> [{L, Blk} | do_reduce_try(Bs, Ws0)]
             end;
         true ->
             Ws1 = sets:del_element(L, Ws0),
@@ -1464,7 +1464,7 @@ do_reduce_try([{L, Blk} | Bs]=Bs0, Ws0) ->
             end
     end;
 do_reduce_try([], Ws) ->
-    0 = sets:size(Ws),                     %Assertion.
+    true = sets:is_empty(Ws),                   %Assertion.
     [].
 
 reduce_try_is([#b_set{op=kill_try_tag}|Is], Acc) ->
@@ -1531,10 +1531,10 @@ trim_try([{L, Blk} | Bs], Unreachable0, Killed, Acc) ->
     Unreachable = sets:subtract(Unreachable0, Successors),
     trim_try(Bs, Unreachable, Killed, [{L, Blk} | Acc]);
 trim_try([], _Unreachable, Killed, Acc0) ->
-    case sets:size(Killed) of
-        0 ->
+    case sets:is_empty(Killed) of
+        true ->
             Acc0;
-        _ ->
+        false ->
             %% Remove all `kill_try_tag` instructions referencing removed
             %% try/catches.
             [{L, Blk#b_blk{is=trim_try_is(Is0, Killed)}} ||

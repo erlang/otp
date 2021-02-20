@@ -106,10 +106,10 @@ scan_1([], Gst) ->
          tlh_edges=Edges,
          throws=Throws} = Gst,
 
-    case sets:size(Throws) of
-        0 ->
+    case sets:is_empty(Throws) of
+        true ->
             no_throws;
-        _ ->
+        false ->
             TLHs = propagate_tlhs(gb_trees:to_list(Roots), Edges, #{}),
             {Throws, TLHs}
     end.
