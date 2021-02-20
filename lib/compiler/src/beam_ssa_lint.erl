@@ -312,10 +312,6 @@ vvars_terminator(#b_br{bool=#b_literal{val=true},succ=Succ}=I, From, State) ->
     Labels = [Succ],
     ok = vvars_assert_labels(Labels, I, State),
     vvars_terminator_1(Labels, From, State);
-vvars_terminator(#b_br{bool=#b_literal{val=false},fail=Fail}=I, From, State) ->
-    Labels = [Fail],
-    ok = vvars_assert_labels(Labels, I, State),
-    vvars_terminator_1(Labels, From, State);
 vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) ->
     ok = vvars_assert_args([Arg], I, State),
     Labels = [Fail, Succ],
