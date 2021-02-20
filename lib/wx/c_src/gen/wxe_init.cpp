@@ -6963,6 +6963,193 @@ void WxeApp::init_consts(wxeMetaCommand& event) {
 //  From "event.h": wxUpdateUIMode
     { enif_make_atom(rt.env,"wxUpdateUIMode"), "wxUPDATE_UI_PROCESS_ALL", rt.make_int(wxUPDATE_UI_PROCESS_ALL) },
     { enif_make_atom(rt.env,"wxUpdateUIMode"), "wxUPDATE_UI_PROCESS_SPECIFIED", rt.make_int(wxUPDATE_UI_PROCESS_SPECIFIED) },
+//  From "webview.h": wxWebViewFindFlags
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_WRAP", rt.make_int(wxWEBVIEW_FIND_WRAP) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_WRAP", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_ENTIRE_WORD", rt.make_int(wxWEBVIEW_FIND_ENTIRE_WORD) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_ENTIRE_WORD", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_MATCH_CASE", rt.make_int(wxWEBVIEW_FIND_MATCH_CASE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_MATCH_CASE", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_HIGHLIGHT_RESULT", rt.make_int(wxWEBVIEW_FIND_HIGHLIGHT_RESULT) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_HIGHLIGHT_RESULT", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_BACKWARDS", rt.make_int(wxWEBVIEW_FIND_BACKWARDS) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_BACKWARDS", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_DEFAULT", rt.make_int(wxWEBVIEW_FIND_DEFAULT) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewFindFlags"), "wxWEBVIEW_FIND_DEFAULT", WXE_ATOM_undefined },
+#endif
+//  From "webview.h": wxWebViewIE_EmulationLevel
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_DEFAULT", rt.make_int(wxWEBVIEWIE_EMU_DEFAULT) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_DEFAULT", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE7", rt.make_int(wxWEBVIEWIE_EMU_IE7) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE7", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE8", rt.make_int(wxWEBVIEWIE_EMU_IE8) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE8", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE8_FORCE", rt.make_int(wxWEBVIEWIE_EMU_IE8_FORCE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE8_FORCE", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE9", rt.make_int(wxWEBVIEWIE_EMU_IE9) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE9", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE9_FORCE", rt.make_int(wxWEBVIEWIE_EMU_IE9_FORCE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE9_FORCE", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE10", rt.make_int(wxWEBVIEWIE_EMU_IE10) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE10", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE10_FORCE", rt.make_int(wxWEBVIEWIE_EMU_IE10_FORCE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE10_FORCE", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE11", rt.make_int(wxWEBVIEWIE_EMU_IE11) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE11", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW_IE && wxCHECK_VERSION(3,1,3)
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE11_FORCE", rt.make_int(wxWEBVIEWIE_EMU_IE11_FORCE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewIE_EmulationLevel"), "wxWEBVIEWIE_EMU_IE11_FORCE", WXE_ATOM_undefined },
+#endif
+//  From "webview.h": wxWebViewNavigationActionFlags
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,2)
+    { enif_make_atom(rt.env,"wxWebViewNavigationActionFlags"), "wxWEBVIEW_NAV_ACTION_NONE", rt.make_int(wxWEBVIEW_NAV_ACTION_NONE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationActionFlags"), "wxWEBVIEW_NAV_ACTION_NONE", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,2)
+    { enif_make_atom(rt.env,"wxWebViewNavigationActionFlags"), "wxWEBVIEW_NAV_ACTION_USER", rt.make_int(wxWEBVIEW_NAV_ACTION_USER) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationActionFlags"), "wxWEBVIEW_NAV_ACTION_USER", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,2)
+    { enif_make_atom(rt.env,"wxWebViewNavigationActionFlags"), "wxWEBVIEW_NAV_ACTION_OTHER", rt.make_int(wxWEBVIEW_NAV_ACTION_OTHER) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationActionFlags"), "wxWEBVIEW_NAV_ACTION_OTHER", WXE_ATOM_undefined },
+#endif
+//  From "webview.h": wxWebViewNavigationError
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_CONNECTION", rt.make_int(wxWEBVIEW_NAV_ERR_CONNECTION) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_CONNECTION", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_CERTIFICATE", rt.make_int(wxWEBVIEW_NAV_ERR_CERTIFICATE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_CERTIFICATE", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_AUTH", rt.make_int(wxWEBVIEW_NAV_ERR_AUTH) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_AUTH", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_SECURITY", rt.make_int(wxWEBVIEW_NAV_ERR_SECURITY) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_SECURITY", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_NOT_FOUND", rt.make_int(wxWEBVIEW_NAV_ERR_NOT_FOUND) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_NOT_FOUND", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_REQUEST", rt.make_int(wxWEBVIEW_NAV_ERR_REQUEST) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_REQUEST", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_USER_CANCELLED", rt.make_int(wxWEBVIEW_NAV_ERR_USER_CANCELLED) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_USER_CANCELLED", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_OTHER", rt.make_int(wxWEBVIEW_NAV_ERR_OTHER) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewNavigationError"), "wxWEBVIEW_NAV_ERR_OTHER", WXE_ATOM_undefined },
+#endif
+//  From "webview.h": wxWebViewReloadFlags
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewReloadFlags"), "wxWEBVIEW_RELOAD_DEFAULT", rt.make_int(wxWEBVIEW_RELOAD_DEFAULT) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewReloadFlags"), "wxWEBVIEW_RELOAD_DEFAULT", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewReloadFlags"), "wxWEBVIEW_RELOAD_NO_CACHE", rt.make_int(wxWEBVIEW_RELOAD_NO_CACHE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewReloadFlags"), "wxWEBVIEW_RELOAD_NO_CACHE", WXE_ATOM_undefined },
+#endif
+//  From "webview.h": wxWebViewZoom
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_TINY", rt.make_int(wxWEBVIEW_ZOOM_TINY) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_TINY", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_SMALL", rt.make_int(wxWEBVIEW_ZOOM_SMALL) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_SMALL", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_MEDIUM", rt.make_int(wxWEBVIEW_ZOOM_MEDIUM) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_MEDIUM", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_LARGE", rt.make_int(wxWEBVIEW_ZOOM_LARGE) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_LARGE", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_LARGEST", rt.make_int(wxWEBVIEW_ZOOM_LARGEST) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewZoom"), "wxWEBVIEW_ZOOM_LARGEST", WXE_ATOM_undefined },
+#endif
+//  From "webview.h": wxWebViewZoomType
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewZoomType"), "wxWEBVIEW_ZOOM_TYPE_LAYOUT", rt.make_int(wxWEBVIEW_ZOOM_TYPE_LAYOUT) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewZoomType"), "wxWEBVIEW_ZOOM_TYPE_LAYOUT", WXE_ATOM_undefined },
+#endif
+#if WXE_WEBVIEW
+    { enif_make_atom(rt.env,"wxWebViewZoomType"), "wxWEBVIEW_ZOOM_TYPE_TEXT", rt.make_int(wxWEBVIEW_ZOOM_TYPE_TEXT) },
+#else
+    { enif_make_atom(rt.env,"wxWebViewZoomType"), "wxWEBVIEW_ZOOM_TYPE_TEXT", WXE_ATOM_undefined },
+#endif
 //  From "window.h": wxWindowVariant
     { enif_make_atom(rt.env,"wxWindowVariant"), "wxWINDOW_VARIANT_NORMAL", rt.make_int(wxWINDOW_VARIANT_NORMAL) },
     { enif_make_atom(rt.env,"wxWindowVariant"), "wxWINDOW_VARIANT_SMALL", rt.make_int(wxWINDOW_VARIANT_SMALL) },

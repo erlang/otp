@@ -294,15 +294,22 @@
 -record(wxUpdateUI, {type :: wxUpdateUIEvent:wxUpdateUIEventType()}). %% Callback event: wxUpdateUIEvent
 -type wxUpdateUI() :: #wxUpdateUI{}. %% Callback event: {@link wxUpdateUIEvent}
 
+-record(wxWebView,{type :: wxWebViewEvent:wxWebViewEventType(), %% Callback event:  wxWebViewEvent
+	string :: unicode:chardata(),
+	int :: integer(),
+	target :: unicode:chardata(),
+	url :: unicode:chardata()}).
+-type wxWebView() :: #wxWebView{}. %% Callback event: {@link wxWebViewEvent}
+
 -record(wxWindowCreate, {type :: wxWindowCreateEvent:wxWindowCreateEventType()}). %% Callback event: wxWindowCreateEvent
 -type wxWindowCreate() :: #wxWindowCreate{}. %% Callback event: {@link wxWindowCreateEvent}
 
 -record(wxWindowDestroy, {type :: wxWindowDestroyEvent:wxWindowDestroyEventType()}). %% Callback event: wxWindowDestroyEvent
 -type wxWindowDestroy() :: #wxWindowDestroy{}. %% Callback event: {@link wxWindowDestroyEvent}
 
--type event() :: wxActivateEvent:wxActivate() | wxAuiManagerEvent:wxAuiManager() | wxAuiNotebookEvent:wxAuiNotebook() | wxBookCtrlEvent:wxBookCtrl() | wxCalendarEvent:wxCalendar() | wxChildFocusEvent:wxChildFocus() | wxClipboardTextEvent:wxClipboardText() | wxCloseEvent:wxClose() | wxColourPickerEvent:wxColourPicker() | wxCommandEvent:wxCommand() | wxContextMenuEvent:wxContextMenu() | wxDateEvent:wxDate() | wxDisplayChangedEvent:wxDisplayChanged() | wxDropFilesEvent:wxDropFiles() | wxEraseEvent:wxErase() | wxFileDirPickerEvent:wxFileDirPicker() | wxFocusEvent:wxFocus() | wxFontPickerEvent:wxFontPicker() | wxGridEvent:wxGrid() | wxHelpEvent:wxHelp() | wxHtmlLinkEvent:wxHtmlLink() | wxIconizeEvent:wxIconize() | wxIdleEvent:wxIdle() | wxInitDialogEvent:wxInitDialog() | wxJoystickEvent:wxJoystick() | wxKeyEvent:wxKey() | wxListEvent:wxList() | wxMaximizeEvent:wxMaximize() | wxMenuEvent:wxMenu() | wxMouseCaptureChangedEvent:wxMouseCaptureChanged() | wxMouseCaptureLostEvent:wxMouseCaptureLost() | wxMouseEvent:wxMouse() | wxMoveEvent:wxMove() | wxNavigationKeyEvent:wxNavigationKey() | wxPaintEvent:wxPaint() | wxPaletteChangedEvent:wxPaletteChanged() | wxQueryNewPaletteEvent:wxQueryNewPalette() | wxSashEvent:wxSash() | wxScrollEvent:wxScroll() | wxScrollWinEvent:wxScrollWin() | wxSetCursorEvent:wxSetCursor() | wxShowEvent:wxShow() | wxSizeEvent:wxSize() | wxSpinEvent:wxSpin() | wxSplitterEvent:wxSplitter() | wxStyledTextEvent:wxStyledText() | wxSysColourChangedEvent:wxSysColourChanged() | wxTaskBarIconEvent:wxTaskBarIcon() | wxTreeEvent:wxTree() | wxUpdateUIEvent:wxUpdateUI() | wxWindowCreateEvent:wxWindowCreate() | wxWindowDestroyEvent:wxWindowDestroy().
+-type event() :: wxActivateEvent:wxActivate() | wxAuiManagerEvent:wxAuiManager() | wxAuiNotebookEvent:wxAuiNotebook() | wxBookCtrlEvent:wxBookCtrl() | wxCalendarEvent:wxCalendar() | wxChildFocusEvent:wxChildFocus() | wxClipboardTextEvent:wxClipboardText() | wxCloseEvent:wxClose() | wxColourPickerEvent:wxColourPicker() | wxCommandEvent:wxCommand() | wxContextMenuEvent:wxContextMenu() | wxDateEvent:wxDate() | wxDisplayChangedEvent:wxDisplayChanged() | wxDropFilesEvent:wxDropFiles() | wxEraseEvent:wxErase() | wxFileDirPickerEvent:wxFileDirPicker() | wxFocusEvent:wxFocus() | wxFontPickerEvent:wxFontPicker() | wxGridEvent:wxGrid() | wxHelpEvent:wxHelp() | wxHtmlLinkEvent:wxHtmlLink() | wxIconizeEvent:wxIconize() | wxIdleEvent:wxIdle() | wxInitDialogEvent:wxInitDialog() | wxJoystickEvent:wxJoystick() | wxKeyEvent:wxKey() | wxListEvent:wxList() | wxMaximizeEvent:wxMaximize() | wxMenuEvent:wxMenu() | wxMouseCaptureChangedEvent:wxMouseCaptureChanged() | wxMouseCaptureLostEvent:wxMouseCaptureLost() | wxMouseEvent:wxMouse() | wxMoveEvent:wxMove() | wxNavigationKeyEvent:wxNavigationKey() | wxPaintEvent:wxPaint() | wxPaletteChangedEvent:wxPaletteChanged() | wxQueryNewPaletteEvent:wxQueryNewPalette() | wxSashEvent:wxSash() | wxScrollEvent:wxScroll() | wxScrollWinEvent:wxScrollWin() | wxSetCursorEvent:wxSetCursor() | wxShowEvent:wxShow() | wxSizeEvent:wxSize() | wxSpinEvent:wxSpin() | wxSplitterEvent:wxSplitter() | wxStyledTextEvent:wxStyledText() | wxSysColourChangedEvent:wxSysColourChanged() | wxTaskBarIconEvent:wxTaskBarIcon() | wxTreeEvent:wxTree() | wxUpdateUIEvent:wxUpdateUI() | wxWebViewEvent:wxWebView() | wxWindowCreateEvent:wxWindowCreate() | wxWindowDestroyEvent:wxWindowDestroy().
 
--type wxEventType() :: wxActivateEvent:wxActivateEventType() | wxAuiManagerEvent:wxAuiManagerEventType() | wxAuiNotebookEvent:wxAuiNotebookEventType() | wxBookCtrlEvent:wxBookCtrlEventType() | wxCalendarEvent:wxCalendarEventType() | wxChildFocusEvent:wxChildFocusEventType() | wxClipboardTextEvent:wxClipboardTextEventType() | wxCloseEvent:wxCloseEventType() | wxColourPickerEvent:wxColourPickerEventType() | wxCommandEvent:wxCommandEventType() | wxContextMenuEvent:wxContextMenuEventType() | wxDateEvent:wxDateEventType() | wxDisplayChangedEvent:wxDisplayChangedEventType() | wxDropFilesEvent:wxDropFilesEventType() | wxEraseEvent:wxEraseEventType() | wxFileDirPickerEvent:wxFileDirPickerEventType() | wxFocusEvent:wxFocusEventType() | wxFontPickerEvent:wxFontPickerEventType() | wxGridEvent:wxGridEventType() | wxHelpEvent:wxHelpEventType() | wxHtmlLinkEvent:wxHtmlLinkEventType() | wxIconizeEvent:wxIconizeEventType() | wxIdleEvent:wxIdleEventType() | wxInitDialogEvent:wxInitDialogEventType() | wxJoystickEvent:wxJoystickEventType() | wxKeyEvent:wxKeyEventType() | wxListEvent:wxListEventType() | wxMaximizeEvent:wxMaximizeEventType() | wxMenuEvent:wxMenuEventType() | wxMouseCaptureChangedEvent:wxMouseCaptureChangedEventType() | wxMouseCaptureLostEvent:wxMouseCaptureLostEventType() | wxMouseEvent:wxMouseEventType() | wxMoveEvent:wxMoveEventType() | wxNavigationKeyEvent:wxNavigationKeyEventType() | wxPaintEvent:wxPaintEventType() | wxPaletteChangedEvent:wxPaletteChangedEventType() | wxQueryNewPaletteEvent:wxQueryNewPaletteEventType() | wxSashEvent:wxSashEventType() | wxScrollEvent:wxScrollEventType() | wxScrollWinEvent:wxScrollWinEventType() | wxSetCursorEvent:wxSetCursorEventType() | wxShowEvent:wxShowEventType() | wxSizeEvent:wxSizeEventType() | wxSpinEvent:wxSpinEventType() | wxSplitterEvent:wxSplitterEventType() | wxStyledTextEvent:wxStyledTextEventType() | wxSysColourChangedEvent:wxSysColourChangedEventType() | wxTaskBarIconEvent:wxTaskBarIconEventType() | wxTreeEvent:wxTreeEventType() | wxUpdateUIEvent:wxUpdateUIEventType() | wxWindowCreateEvent:wxWindowCreateEventType() | wxWindowDestroyEvent:wxWindowDestroyEventType().
+-type wxEventType() :: wxActivateEvent:wxActivateEventType() | wxAuiManagerEvent:wxAuiManagerEventType() | wxAuiNotebookEvent:wxAuiNotebookEventType() | wxBookCtrlEvent:wxBookCtrlEventType() | wxCalendarEvent:wxCalendarEventType() | wxChildFocusEvent:wxChildFocusEventType() | wxClipboardTextEvent:wxClipboardTextEventType() | wxCloseEvent:wxCloseEventType() | wxColourPickerEvent:wxColourPickerEventType() | wxCommandEvent:wxCommandEventType() | wxContextMenuEvent:wxContextMenuEventType() | wxDateEvent:wxDateEventType() | wxDisplayChangedEvent:wxDisplayChangedEventType() | wxDropFilesEvent:wxDropFilesEventType() | wxEraseEvent:wxEraseEventType() | wxFileDirPickerEvent:wxFileDirPickerEventType() | wxFocusEvent:wxFocusEventType() | wxFontPickerEvent:wxFontPickerEventType() | wxGridEvent:wxGridEventType() | wxHelpEvent:wxHelpEventType() | wxHtmlLinkEvent:wxHtmlLinkEventType() | wxIconizeEvent:wxIconizeEventType() | wxIdleEvent:wxIdleEventType() | wxInitDialogEvent:wxInitDialogEventType() | wxJoystickEvent:wxJoystickEventType() | wxKeyEvent:wxKeyEventType() | wxListEvent:wxListEventType() | wxMaximizeEvent:wxMaximizeEventType() | wxMenuEvent:wxMenuEventType() | wxMouseCaptureChangedEvent:wxMouseCaptureChangedEventType() | wxMouseCaptureLostEvent:wxMouseCaptureLostEventType() | wxMouseEvent:wxMouseEventType() | wxMoveEvent:wxMoveEventType() | wxNavigationKeyEvent:wxNavigationKeyEventType() | wxPaintEvent:wxPaintEventType() | wxPaletteChangedEvent:wxPaletteChangedEventType() | wxQueryNewPaletteEvent:wxQueryNewPaletteEventType() | wxSashEvent:wxSashEventType() | wxScrollEvent:wxScrollEventType() | wxScrollWinEvent:wxScrollWinEventType() | wxSetCursorEvent:wxSetCursorEventType() | wxShowEvent:wxShowEventType() | wxSizeEvent:wxSizeEventType() | wxSpinEvent:wxSpinEventType() | wxSplitterEvent:wxSplitterEventType() | wxStyledTextEvent:wxStyledTextEventType() | wxSysColourChangedEvent:wxSysColourChangedEventType() | wxTaskBarIconEvent:wxTaskBarIconEventType() | wxTreeEvent:wxTreeEventType() | wxUpdateUIEvent:wxUpdateUIEventType() | wxWebViewEvent:wxWebViewEventType() | wxWindowCreateEvent:wxWindowCreateEventType() | wxWindowDestroyEvent:wxWindowDestroyEventType().
 
 %% Hardcoded Records
 -record(wxMouseState, {x :: integer(), y :: integer(),
@@ -5075,6 +5082,49 @@
 -define(wxSIGPIPE, 13).
 -define(wxSIGALRM, 14).
 -define(wxSIGTERM, 15).
+%%%  From "webview.h": wxWebViewFindFlags
+-define(wxWEBVIEW_FIND_WRAP, 1).
+-define(wxWEBVIEW_FIND_ENTIRE_WORD, 2).
+-define(wxWEBVIEW_FIND_MATCH_CASE, 4).
+-define(wxWEBVIEW_FIND_HIGHLIGHT_RESULT, 8).
+-define(wxWEBVIEW_FIND_BACKWARDS, 16).
+-define(wxWEBVIEW_FIND_DEFAULT, 0).
+%%%  From "webview.h": wxWebViewIE_EmulationLevel
+-define(wxWEBVIEWIE_EMU_DEFAULT, 0).
+-define(wxWEBVIEWIE_EMU_IE7, 7000).
+-define(wxWEBVIEWIE_EMU_IE8, 8000).
+-define(wxWEBVIEWIE_EMU_IE8_FORCE, 8888).
+-define(wxWEBVIEWIE_EMU_IE9, 9000).
+-define(wxWEBVIEWIE_EMU_IE9_FORCE, 9999).
+-define(wxWEBVIEWIE_EMU_IE10, 10000).
+-define(wxWEBVIEWIE_EMU_IE10_FORCE, 10001).
+-define(wxWEBVIEWIE_EMU_IE11, 11000).
+-define(wxWEBVIEWIE_EMU_IE11_FORCE, 11001).
+%%%  From "webview.h": wxWebViewNavigationActionFlags
+-define(wxWEBVIEW_NAV_ACTION_NONE, 0).
+-define(wxWEBVIEW_NAV_ACTION_USER, 1).
+-define(wxWEBVIEW_NAV_ACTION_OTHER, 2).
+%%%  From "webview.h": wxWebViewNavigationError
+-define(wxWEBVIEW_NAV_ERR_CONNECTION, 0).
+-define(wxWEBVIEW_NAV_ERR_CERTIFICATE, 1).
+-define(wxWEBVIEW_NAV_ERR_AUTH, 2).
+-define(wxWEBVIEW_NAV_ERR_SECURITY, 3).
+-define(wxWEBVIEW_NAV_ERR_NOT_FOUND, 4).
+-define(wxWEBVIEW_NAV_ERR_REQUEST, 5).
+-define(wxWEBVIEW_NAV_ERR_USER_CANCELLED, 6).
+-define(wxWEBVIEW_NAV_ERR_OTHER, 7).
+%%%  From "webview.h": wxWebViewReloadFlags
+-define(wxWEBVIEW_RELOAD_DEFAULT, 0).
+-define(wxWEBVIEW_RELOAD_NO_CACHE, 1).
+%%%  From "webview.h": wxWebViewZoom
+-define(wxWEBVIEW_ZOOM_TINY, 0).
+-define(wxWEBVIEW_ZOOM_SMALL, 1).
+-define(wxWEBVIEW_ZOOM_MEDIUM, 2).
+-define(wxWEBVIEW_ZOOM_LARGE, 3).
+-define(wxWEBVIEW_ZOOM_LARGEST, 4).
+%%%  From "webview.h": wxWebViewZoomType
+-define(wxWEBVIEW_ZOOM_TYPE_LAYOUT, 0).
+-define(wxWEBVIEW_ZOOM_TYPE_TEXT, 1).
 %%%  From "window.h"
 -define(wxTOUCH_NONE, 0).
 -define(wxTOUCH_VERTICAL_PAN_GESTURE, 1).

@@ -76,6 +76,8 @@ gen_static(Files) ->
     w("-include(\"wxe.hrl\").~n",[]),
     %% w("-compile(export_all).~n~n", []),            %% XXXX remove ???
     [gen_static_exports(C) || C <- Files],
+    {ok, MiscExtra} = file:read_file(filename:join([wx_extra, "wx_misc.erl"])),
+    w("~s", [MiscExtra]),
     Classes = [gen_static_methods(C) || C <- Files],
     close(),
     Classes.
@@ -97,10 +99,7 @@ gen_static_methods(C=#class{name=Name, parent="static",methods=Ms}) ->
 gen_class1(C=#class{parent="static"}) ->
     C;
 gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
-    case Opts of
-	["ignore"] -> throw(skipped);
-	_ -> ok
-    end,
+    lists:member("ignore", Opts) andalso throw(skipped),
     open_write("../src/gen/"++Name++".erl"),
     put(current_class, Name),
     erl_copyright(),

@@ -29,6 +29,17 @@ if test -f ./CONF_INFO; then
    rm ./CONF_INFO
 fi
 
+AC_DEFUN([WX_MSG_ERROR],
+[	echo "$1" >> ./CONF_INFO
+    WXERL_CAN_BUILD_DRIVER=false
+    if test X"$with_wx" = X"yes" ; then
+        AC_MSG_ERROR([$1])
+    else
+        AC_MSG_WARN([$1])
+    fi
+])
+
+
 if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
   AC_MSG_ERROR([ERL_TOP is not set])
 else
@@ -36,6 +47,11 @@ else
   AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
   WX_BUILDING_INSIDE_ERLSRC=true
 fi
+
+AC_ARG_WITH(wx,
+[  --with-wxdir=PATH    specify location of wxWidgets include and lib
+  --with-wx             use wxWidgets (default)
+  --without-wx          don't use wxWidgets])
 
 if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
     AC_CANONICAL_HOST
@@ -69,9 +85,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
   [CXX=;])
 AC_LANG_POP([C++])
 if test "X$CXX" = X ; then
-   echo "Can not find C++ compiler" >> ./CONF_INFO
-   WXERL_CAN_BUILD_DRIVER=false
-   AC_MSG_WARN([Can not find C++ compiler])
+   WX_MSG_ERROR([Can not find C++ compiler])
 fi
 WXERL_CAN_BUILD_DRIVER=false
 
@@ -147,10 +161,7 @@ case $host_os in
 	   if test X$APPLE_CC = X -o X$APPLE_CXX = X; then
 	      AC_MSG_RESULT([no])
 	      dnl Complete failure, we cannot build Cocoa code
-	      echo "Can not find compiler to compile Cocoa applications" >> ./CONF_INFO
-	      WXERL_CAN_BUILD_DRIVER=false
-	      AC_MSG_WARN([Can not find compiler to compile Cocoa applications])
-	      WXERL_CAN_BUILD_DRIVER=false
+	      WX_MSG_ERROR([Can not find compiler to compile Cocoa applications])
 	   else
 	      dnl We think we found an Apple compiler and will add 
 	      dnl Apple specific options
@@ -265,9 +276,7 @@ if test X"$host_os" != X"win32" ; then
 	    $as_unset ac_cv_header_GL_gl_h
 	    AC_CHECK_HEADERS([GL/gl.h])
 	    if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
-		AC_MSG_WARN([No OpenGL headers found, wx will NOT be usable])
-		echo "No OpenGL headers found, wx will NOT be usable" >> ./CONF_INFO
-		WXERL_CAN_BUILD_DRIVER=false
+		WX_MSG_ERROR([No OpenGL headers found, wx will NOT be usable])
 		CPPFLAGS="$saved_CPPFLAGS"
 	    else
 	    	GL_LIBS="-L/usr/local/lib $GL_LIBS"
@@ -286,9 +295,7 @@ if test X"$host_os" != X"win32" ; then
     if test X"$ac_cv_header_GL_glu_h" != Xyes &&
         test X"$ac_cv_header_OpenGL_glu_h" != Xyes
     then
-	AC_MSG_WARN([No GLU headers found, wx will NOT be usable])
-	echo "No GLU headers (glu.h) found, wx will NOT be usable" >> ./CONF_INFO
-	WXERL_CAN_BUILD_DRIVER=false
+    WX_MSG_ERROR([No GLU headers found, wx will NOT be usable])
     fi
 else
     AC_CHECK_HEADERS([gl/glu.h],[],[],[#include <windows.h>])
@@ -318,25 +325,44 @@ dnl
 dnl  Check for wxwidgets
 dnl 
 if test "$cross_compiling" = "yes"; then
-    echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >> ./CONF_INFO
-    WXERL_CAN_BUILD_DRIVER=false
+    WX_MSG_ERROR([Cross compilation of the wx driver is not supported yet, wx will NOT be usable])
 elif test  X"$MIXED_VC" = X"no"; then
-    WX_VERSION=`wx-config --version`
-    case $WX_VERSION in
-         2.8.*)
-		m4_include(wxwin-2.8.m4)
-		;;
-	 *)
-		m4_include(wxwin-2.9.m4)
-		;;
-    esac
+    m4_include(wxwin-nothrow.m4)
 
     AM_OPTIONS_WXCONFIG
     reqwx=3.0.2
-    # Try to find debug libs first 
-    # wxelibs=core,base,gl,aui,adv
+	AM_PATH_WXCONFIG($reqwx, [], [], [core,base,html,webview], [--unicode])
+	AC_MSG_CHECKING(for wxwidgets webview)
+	AC_LANG_PUSH(C++)
+	saved_CXXFLAGS=$CXXFLAGS
+	CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
+        saved_LIBS=$LIBS
+        LIBS=$WX_LIBS
 
-    AM_PATH_WXCONFIG($reqwx, wxWinWithGLDBG=1, wxWinWithGLDBG=0, [stc,xrc,html,adv,xml,core,base,gl,aui], [--unicode --debug=yes])
+	AC_LINK_IFELSE(
+ 	  [AC_LANG_PROGRAM([[
+	  #include "wx/wx.h"
+          #include "wx/webview.h"
+	  ]], [[
+             wxWebView::New();
+	  ]])],
+	  HAVE_WEBVIEW_SUPPORT=yes, HAVE_WEBVIEW_SUPPORT=no)
+
+	CXXFLAGS=$saved_CXXFLAGS
+        LIBS=$saved_LIBS
+	AC_LANG_POP(C++)
+	AC_MSG_RESULT($HAVE_WEBVIEW_SUPPORT)
+
+	if test X"$HAVE_WEBVIEW_SUPPORT" != X"yes" ; then
+	  WXELIBS=stc,xrc,html,adv,xml,core,base,gl,aui
+	  echo "wxWidgets was not compiled with --enable-webview or wxWebView developer package is not installed, wxWebView will NOT be available" >> ./CONF_INFO
+	else
+	  WXELIBS=stc,xrc,html,adv,xml,core,base,gl,aui,webview
+          AC_DEFINE([WXE_WEBVIEW])
+	fi
+
+    # Try to find debug libs first 
+    AM_PATH_WXCONFIG($reqwx, wxWinWithGLDBG=1, wxWinWithGLDBG=0, [$WXELIBS], [--unicode --debug=yes])
 
     AC_MSG_CHECKING(for debug build of wxWidgets)
     if test "$wxWinWithGLDBG" = 1; then
@@ -354,7 +380,7 @@ elif test  X"$MIXED_VC" = X"no"; then
     AC_SUBST(DEBUG_WX_LIBS)
     AC_SUBST(DEBUG_WX_LIBS_STATIC)
     
-    AM_PATH_WXCONFIG($reqwx, wxWinWithGL=1, wxWinWithGL=0, [stc,xrc,html,adv,xml,core,base,gl,aui], [--unicode --debug=no])
+    AM_PATH_WXCONFIG($reqwx, wxWinWithGL=1, wxWinWithGL=0, [$WXELIBS], [--unicode --debug=no])
 
     AC_MSG_CHECKING(for standard build of wxWidgets)
     if test "$wxWinWithGL" = 1; then
@@ -389,19 +415,16 @@ elif test  X"$MIXED_VC" = X"no"; then
     fi    
     AC_SUBST(FORCED_DEBUG_BUILD)
     RC_FILE_TYPE=o
-define(wx_warn_text,[
-                wxWidgets must be installed on your system.
- 
-		Please check that wx-config is in path, the directory
-		where wxWidgets libraries are installed (returned by
-		'wx-config --libs' or 'wx-config --static --libs' command)
-		is in LD_LIBRARY_PATH or equivalent variable and
-		wxWidgets version is $reqwx or above.])
 
     if test "$wxWin" != 1; then
-       echo "wxWidgets not found, wx will NOT be usable" >> ./CONF_INFO
-       WXERL_CAN_BUILD_DRIVER=false
-       AC_MSG_WARN([wx_warn_text])
+       WX_MSG_ERROR([
+        wxWidgets must be installed on your system.
+ 
+        Please check that wx-config is in path, the directory
+        where wxWidgets libraries are installed (returned by
+        'wx-config --libs' or 'wx-config --static --libs' command)
+        is in LD_LIBRARY_PATH or equivalent variable and
+        wxWidgets version is $reqwx or above.])
     fi
 else
     AC_MSG_CHECKING(for wxWidgets in standard locations)
@@ -493,15 +516,14 @@ else
 
     if test -z "$WX_LIBS_STATIC"; then
 	AC_MSG_RESULT([failed])
-	echo "No usable wxWidgets not found, wx will not be useable" >> ./CONF_INFO
-	WXERL_CAN_BUILD_DRIVER=false
-	AC_MSG_WARN([Cannot find core lib version for wxWidgets])
+	WX_MSG_ERROR([Cannot find core lib version for wxWidgets])
     fi
     WX_HAVE_STATIC_LIBS=true
     AC_SUBST(WX_CFLAGS)
     AC_SUBST(WX_CXXFLAGS)
     AC_SUBST(WX_LIBS_STATIC)
     AC_SUBST(WX_RESCOMP)
+    AC_DEFINE([WXE_WEBVIEW])
 fi
 
 if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
@@ -534,8 +556,7 @@ AC_LANG_POP(C++)
 AC_MSG_RESULT($HAVE_COMPAT30_SUPPORT)
 
 if test X"$HAVE_COMPAT30_SUPPORT" != X"yes" ; then
-   echo "wxWidgets was not compiled with --enable-compat30, wx will NOT be useable" >> ./CONF_INFO
-   WXERL_CAN_BUILD_DRIVER=false
+   WX_MSG_ERROR([wxWidgets was not compiled with --enable-compat30, wx will NOT be useable])
 fi
 
 AC_MSG_CHECKING(for wxwidgets opengl support)
@@ -566,8 +587,7 @@ AC_MSG_RESULT($HAVE_GL_SUPPORT)
 AC_SUBST(HAVE_GL_SUPPORT)
 
 if test X"$HAVE_GL_SUPPORT" != X"yes" ; then
-   echo "wxWidgets don't have gl support, wx will NOT be useable" >> ./CONF_INFO
-   WXERL_CAN_BUILD_DRIVER=false
+   WX_MSG_ERROR([wxWidgets don't have gl support, wx will NOT be useable])
 fi
 
 dnl Check for GLintptr
@@ -623,9 +643,7 @@ dnl
 
 AC_CHECK_HEADERS([wx/stc/stc.h],
         [],
-    	[WXERL_CAN_BUILD_DRIVER=false
-	 echo "wxWidgets don't have wxStyledTextControl (stc.h), wx will NOT be useable" >> ./CONF_INFO
-     	 AC_MSG_WARN([Can not find wx/stc/stc.h $CXXFLAGS])      
+    	[WX_MSG_ERROR([Can not find wx/stc/stc.h $CXXFLAGS])      
      	],
 	[#ifdef WIN32
 	 # include <windows.h>
@@ -676,9 +694,7 @@ AC_LANG_POP(C++)
 AC_MSG_RESULT($CAN_LINK_WX)
 
 if test X"$CAN_LINK_WX" != X"yes" ; then
-   echo "Can not link the wx driver, wx will NOT be useable" >> ./CONF_INFO
-   WXERL_CAN_BUILD_DRIVER=false
-   AC_MSG_WARN([Can not link wx program are all developer packages installed?])
+   WX_MSG_ERROR([Can not link wx program are all developer packages installed?])
 fi
 
 fi dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"

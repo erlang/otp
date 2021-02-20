@@ -452,6 +452,8 @@ declare_type(N,false,_,#type{name="wxDateTime"}) ->
     w("  wxDateTime ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxColour"}) ->
     w("  wxColour ~s;~n", [N]);
+declare_type(N,false,_,#type{name="wxString"}) ->
+    w("  wxString ~s;~n", [N]);
 declare_type(N,false,_,#type{name=Type, base=int, ref=reference}) ->
     w("  ~s ~s;~n", [Type,N]);
 declare_type(N,false,_,#type{name=Type, base=int64, ref=reference}) ->
@@ -1233,19 +1235,29 @@ mods([]) -> "".
 
 
 gen_func_table(Defs) ->
-    Ms = [{Class,Method} ||
-             #class{name=Class, methods=Ms} <- Defs,
-             Method <- lists:keysort(#method.id, lists:flatten(Ms))],
     w("~n"),
     w("#include <wx/wx.h>~n"),
     w("#include \"../wxe_impl.h\"~n"),
     w("~n"),
-    {_Id, Entries} = lists:foldl(fun gen_func_defs/2, {0,[]}, Ms),
+    {_Id, Entries} = gen_class_func_defs(Defs, {0,[]}),
     w("~n"),
     w("wxe_fns_t wxe_fns[] =~n{~n"),
     [w("~s", [Str]) || Str <- lists:reverse(Entries)],
     w("};~n").
 
+gen_class_func_defs([Class | Rest], Acc) ->
+    #class{name=Name, methods=Ms, options=Opts} = Class,
+    Methods = lists:keysort(#method.id, lists:flatten(Ms)),
+	AddOpts = case lists:keysearch(ifdef,1,Opts) of
+        {value, {ifdef, What}} when is_atom(What) -> [{ifdef, atom_to_list(What)}];
+        {value, {ifdef, What}} when is_list(What) -> [{ifdef, What}];
+        false -> []
+    end,
+    Acc2 = lists:foldl(fun (Method = #method{opts=FOpts}, InAcc) -> 
+        gen_func_defs({Name, Method#method{opts=FOpts ++ AddOpts}}, InAcc) 
+    end, Acc, Methods),
+    gen_class_func_defs(Rest, Acc2);
+gen_class_func_defs([], Acc) -> Acc.
 
 gen_func_defs({_, #method{where=erl_no_opt}}, Acc) -> Acc;
 gen_func_defs({_, #method{where=erl_alias}}, Acc) -> Acc;
@@ -1258,11 +1270,17 @@ gen_func_defs({Class, #method{id=Id, method_type=MT, opts=FOpts, params=Ps}=Mtd}
                                           "wxEvtHandler_Disconnect_1",
                                           "wxEvtHandler_Disconnect_0"]),
     N = wx_gen_erl:erl_args_count(Ps, c),
-    Endif1 = gen_if(deprecated, FOpts, true),
-    Endif2 = gen_if(test_if, FOpts, true),
-    Depr = gen_if(deprecated, FOpts, false),
-    Vers = gen_if(test_if, FOpts, false),
     Name = wx_gen_erl:erl_func_name(Mtd),
+    Restrictions = [IfDef || {value, {_, IfDef}} <- [lists:keysearch(What, 1, FOpts) || What <- [ifdef, deprecated, test_if]]],
+    {Prefix, Stub, Postfix} = if 
+            Restrictions == [] -> {"", "", ""};
+            true -> {
+                io_lib:format("#if ~s~n", [string:join(Restrictions, " && ")]), 
+                io_lib:format("#else~n  {NULL, \"~s\", \"~s\", 0}, // ~w~n", [Class, Name, Id]),
+                io_lib:format("#endif // ~s~n", [string:join(Restrictions, " && ")])
+            }
+        end,
+    w(Prefix),
     Str1 = if IsObjectDest ->
                   io_lib:format("  {NULL, \"~s\", \"~s\", 1}, // ~w obj destructor ~s~n", [Class, Name, Id, Func]);
              IsTaylorMadeErl ->
@@ -1271,12 +1289,8 @@ gen_func_defs({Class, #method{id=Id, method_type=MT, opts=FOpts, params=Ps}=Mtd}
                   w("extern void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);~n", [Func]),
                   io_lib:format("  {~s, \"~s\", \"~s\", ~w}, // ~w~n", [Func, Class, Name, N, Id])
           end,
-    Str2 = if Endif1 orelse Endif2 ->
-                   w("#endif~n"),
-                   io_lib:format("#else~n  {NULL, \"~s\", \"~s\", 0}, // ~w~n#endif~n", [Class, Name, Id]);
-              true -> ""
-           end,
-    {Id+1, [[Depr,Vers,Str1,Str2]|Strs]};
+    w(Postfix),
+    {Id+1, [[Prefix,Str1,Stub,Postfix]|Strs]};
 gen_func_defs({_, _}=CM, {50=Id, Strs}) ->
     w("extern void wxe_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);~n", []),
     Str = io_lib:format("  {wxe_destroy, \"wxe_util\", \"destroy\", 1}, // ~w~n", [Id]),
@@ -1434,6 +1448,11 @@ gen_macros() ->
     w("#include <wx/sysopt.h>~n"),
     w("#include <wx/overlay.h>~n"),
     w("#include <wx/notifmsg.h>~n"),
+    w("#include <wx/webview.h>~n"),
+    w("#if wxUSE_WEBVIEW && wxUSE_WEBVIEW_IE~n"),
+    w("#include <wx/msw/webview_ie.h>~n"),
+    w("#endif~n"),
+
 
     w("~n~n", []),
     w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),
@@ -1583,6 +1602,11 @@ encode_events(Evs) ->
 
 encode_event(C = #class{name=Class, id=Id, options=Opts}) ->
     ?WTC("encode_event"),
+    case proplists:get_value(ifdef, Opts) of
+    undefined -> ok;
+    What when is_list(What)-> w("#if ~s~n",[What]);
+    What when is_atom(What) -> w("#if ~p~n",[What])
+    end,    
     case proplists:get_value("mixed_event", Opts) of
 	undefined ->
 	    w("  case ~p: {// ~s~n", [Id,Class]),
@@ -1598,7 +1622,11 @@ encode_event(C = #class{name=Class, id=Id, options=Opts}) ->
 	    w("  }~n",[]),
 	    ok
     end,
-    w("    break;~n  }~n").
+    w("    break;~n  }~n"),
+    case proplists:get_value(ifdef, Opts) of
+    undefined -> ok;
+    Endif -> w("#endif // ~p~n~n",[Endif])
+    end.
 
 encode_event2(#class{}=Class) ->
     Attrs = build_event_attrs(Class),

@@ -45,7 +45,7 @@ dnl        ...
 dnl        ...
 dnl     WX_CONFIG_CHECK([2.6.0], [wxWin=1])
 dnl     if test "$wxWin" != 1; then
-dnl        AC_MSG_ERROR([
+dnl        WX_MSG_ERROR([
 dnl                wxWidgets must be installed on your system
 dnl                but wx-config script couldn't be found.
 dnl
@@ -323,30 +323,24 @@ AC_DEFUN([WX_CONFIG_CHECK],
        WX_RESCOMP=""
 
        if test ! -z "$5"; then
-
           wx_error_message="
     The configuration you asked for $PACKAGE_NAME requires a wxWidgets
     build with the following settings:
         $5
     but such build is not available.
-
     To see the wxWidgets builds available on this system, please use
     'wx-config --list' command. To use the default build, returned by
     'wx-config --selected-config', use the options with their 'auto'
     default values."
-
        fi
-
        wx_error_message="
     The requested wxWidgets build couldn't be found.
     $wx_error_message
-
     If you still get this error, then check that 'wx-config' is
     in path, the directory where wxWidgets libraries are installed
     (returned by 'wx-config --libs' command) is in LD_LIBRARY_PATH
     or equivalent variable and wxWidgets version is $1 or above."
-
-       ifelse([$3], , AC_MSG_ERROR([$wx_error_message]), [$3])
+       ifelse([$3], , WX_MSG_ERROR([$wx_error_message]), [$3])
 
     fi
   else
@@ -393,7 +387,7 @@ dnl     WX_CONFIG_OPTIONS
 dnl        ...
 dnl     WX_CONFIG_CHECK(2.6.0, wxWin=1)
 dnl     if test "$wxWin" != 1; then
-dnl        AC_MSG_ERROR([
+dnl        WX_MSG_ERROR([
 dnl                wxWidgets must be installed on your system
 dnl                but wx-config script couldn't be found.
 dnl
@@ -406,7 +400,7 @@ dnl     fi
 dnl
 dnl     WXRC_CHECK([HAVE_WXRC=1], [HAVE_WXRC=0])
 dnl     if test "x$HAVE_WXRC" != x1; then
-dnl         AC_MSG_ERROR([
+dnl         WX_MSG_ERROR([
 dnl                The wxrc program was not installed or not found.
 dnl
 dnl                Please check the wxWidgets installation.
@@ -439,7 +433,7 @@ AC_DEFUN([WXRC_CHECK],
   AC_ARG_VAR([WXRC], [Path to wxWidget's wxrc resource compiler])
 
   if test "x$WX_CONFIG_NAME" = x; then
-    AC_MSG_ERROR([The wxrc tests must run after wxWidgets test.])
+    WX_MSG_ERROR([The wxrc tests must run after wxWidgets test.])
   else
 
     AC_MSG_CHECKING([for wxrc])
@@ -522,7 +516,7 @@ AC_DEFUN([WX_ARG_ENABLE_YESNOAUTO],
                 AC_MSG_RESULT([will be automatically detected])
                 $2="auto"
             else
-                AC_MSG_ERROR([
+                WX_MSG_ERROR([
     Unrecognized option value (allowed values: yes, no, auto)
                 ])
             fi
@@ -548,7 +542,7 @@ AC_DEFUN([WX_ARG_WITH_YESNOAUTO],
                 AC_MSG_RESULT([will be automatically detected])
                 $2="auto"
             else
-                AC_MSG_ERROR([
+                WX_MSG_ERROR([
     Unrecognized option value (allowed values: yes, auto)
                 ])
             fi
@@ -607,7 +601,7 @@ AC_DEFUN([WX_STANDARD_OPTIONS],
                             "$TOOLKIT" != "msw" -a "$TOOLKIT" != "motif" -a \
                             "$TOOLKIT" != "osx_carbon" -a "$TOOLKIT" != "osx_cocoa" -a \
                             "$TOOLKIT" != "dfb" -a "$TOOLKIT" != "x11"; then
-                        AC_MSG_ERROR([
+                        WX_MSG_ERROR([
     Unrecognized option value (allowed values: auto, gtk1, gtk2, msw, motif, osx_carbon, osx_cocoa, dfb, x11)
                         ])
                     fi
@@ -683,7 +677,7 @@ AC_DEFUN([WX_STANDARD_OPTIONS],
                     dnl both vars above must be exactly 1 digit
                     if test "${#wx_requested_major_version}" != "1" -o \
                             "${#wx_requested_minor_version}" != "1" ; then
-                        AC_MSG_ERROR([
+                        WX_MSG_ERROR([
     Unrecognized option value (allowed values: auto, 2.6, 2.7, 2.8, 2.9, 3.0)
                         ])
                     fi
@@ -808,7 +802,7 @@ AC_DEFUN([WX_DETECT_STANDARD_OPTION_VALUES],
         WX_RELEASE="$WX_VERSION_MAJOR""$WX_VERSION_MINOR"
         if test $WX_RELEASE -lt 26 ; then
 
-            AC_MSG_ERROR([
+            WX_MSG_ERROR([
     Cannot detect the wxWidgets configuration for the selected wxWidgets build
     since its version is $WX_VERSION < 2.6.0; please install a newer
     version of wxWidgets.
@@ -892,7 +886,7 @@ AC_DEFUN([WX_DETECT_STANDARD_OPTION_VALUES],
             dnl check at least one of the WX_*PORT has been set !
 
             if test "$WX_PORT" = "unknown" ; then
-                AC_MSG_ERROR([
+                WX_MSG_ERROR([
         Cannot detect the currently installed wxWidgets port !
         Please check your 'wx-config --cxxflags'...
                             ])
@@ -928,7 +922,7 @@ AC_DEFUN([WX_DETECT_STANDARD_OPTION_VALUES],
         dnl      ./configure --enable-shared
         dnl but there is only a static build of wxWidgets available.
         if test "$WX_SHARED" = "0" -a "$SHARED" = "1"; then
-            AC_MSG_ERROR([
+            WX_MSG_ERROR([
     Cannot build shared library against a static build of wxWidgets !
     This error happens because the wxWidgets build which was selected
     has been detected as static while you asked to build $PACKAGE_NAME

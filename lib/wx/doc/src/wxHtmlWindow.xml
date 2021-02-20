@@ -29,7 +29,7 @@
 <modulesummary>Functions for wxHtmlWindow class</modulesummary>
 <description><p><seeerl marker="wxHtmlWindow"><c>wxHtmlWindow</c></seeerl> is probably the only class you will directly use unless you want to do something special (like adding new tag handlers or MIME filters).
       </p><p>The purpose of this class is to display rich content pages (either local file or downloaded via HTTP protocol) in a window based on a subset of the HTML standard. The width of the window is constant, given in the constructor and virtual height is changed dynamically depending on page size. Once the window is created you can set its content by calling <seemfa marker="#setPage/2"><c>setPage/2</c></seemfa> with raw HTML, <seemfa marker="#loadPage/2"><c>loadPage/2</c></seemfa> with a <c>wxFileSystem</c> (not implemented in wx) location or <seemfa marker="#loadFile/2"><c>loadFile/2</c></seemfa> with a filename.
-      </p><p>Note: If you want complete HTML/CSS support as well as a Javascript engine, consider using <c>wxWebView</c> (not implemented in wx) instead.
+      </p><p>Note: If you want complete HTML/CSS support as well as a Javascript engine, consider using <seeerl marker="wxWebView"><c>wxWebView</c></seeerl> instead.
       </p><p><seeerl marker="wxHtmlWindow"><c>wxHtmlWindow</c></seeerl> uses the <seeerl marker="wxImage"><c>wxImage</c></seeerl> class for displaying images, so you need to initialize the handlers for any image formats you use before loading a page. See ?wxInitAllImageHandlers and <c>wxImage::AddHandler</c> (not implemented in wx).
       </p><p>Styles</p><p>This class supports the following styles:
       </p><p>See: <seeerl marker="wxHtmlLinkEvent"><c>wxHtmlLinkEvent</c></seeerl>, <c>wxHtmlCellEvent</c> (not implemented in wx)

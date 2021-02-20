@@ -67,7 +67,7 @@ extern void wxWindow_GetCursor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 extern void wxWindow_GetDropTarget(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if wxCHECK_VERSION(3,1,4)
 extern void wxWindow_GetDPIScaleFactor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,4)
 extern void wxWindow_GetExtraStyle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxWindow_GetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxWindow_GetForegroundColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -195,35 +195,35 @@ extern void wxWindow_CanSetTransparent(WxeApp *app, wxeMemEnv *memenv, wxeComman
 extern void wxWindow_IsDoubleBuffered(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if wxCHECK_VERSION(3,1,0) || (!defined(__WXMAC__) && wxCHECK_VERSION(3,0,0))
 extern void wxWindow_SetDoubleBuffered(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0) || (!defined(__WXMAC__) && wxCHECK_VERSION(3,0,0))
 extern void wxWindow_GetContentScaleFactor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if wxCHECK_VERSION(3,1,3)
 extern void wxWindow_GetDPI(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,3)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_FromDIP_1_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_FromDIP_1_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_FromDIP_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_FromDIP_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_ToDIP_1_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_ToDIP_1_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_ToDIP_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
 extern void wxWindow_ToDIP_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 extern void wxTopLevelWindow_GetIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxTopLevelWindow_GetIcons(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxTopLevelWindow_GetTitle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -319,7 +319,7 @@ extern void wxGrid_CanDragCell(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 extern void wxGrid_CanDragColMove(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if wxCHECK_VERSION(3,1,4)
 extern void wxGrid_CanDragGridRowEdges(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,4)
 extern void wxGrid_CanDragColSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxGrid_CanDragRowSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxGrid_CanDragGridSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -631,8 +631,14 @@ extern void wxDC_StartDoc(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxDC_StartPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMirrorDC_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxScreenDC_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if wxUSE_POSTSCRIPT
 extern void wxPostScriptDC_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POSTSCRIPT
+#if wxUSE_POSTSCRIPT
 extern void wxPostScriptDC_new_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POSTSCRIPT
+#if wxUSE_POSTSCRIPT
+#endif // wxUSE_POSTSCRIPT
 extern void wxWindowDC_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxClientDC_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxPaintDC_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -647,99 +653,291 @@ extern void wxBufferedDC_Init_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
 extern void wxBufferedDC_Init_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxBufferedPaintDC_new_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxBufferedPaintDC_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if wxUSE_GRAPHICS_CONTEXT
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsObject_GetRenderer(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsObject_IsNull(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_Create_STAT_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_Create_STAT_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreatePen(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateBrush(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateRadialGradientBrush_7(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateRadialGradientBrush_6(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateLinearGradientBrush_6(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateLinearGradientBrush_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateFont_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateFont_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreateMatrix(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_CreatePath(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_Clip_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_Clip_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_ResetClip(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawEllipse(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawLines(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawPath(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawRectangle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawRoundedRectangle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawText_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawText_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawText_4_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_DrawText_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_FillPath(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_StrokePath(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_GetPartialTextExtents(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_GetTextExtent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_Rotate(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_Scale(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_Translate(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_GetTransform(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_SetTransform(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_ConcatTransform(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_SetBrush(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_SetFont_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_SetFont_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_SetPen(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_StrokeLine(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsContext_StrokeLines(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_Concat(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_Get(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_Invert(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_IsEqual(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_IsIdentity(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_Rotate(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_Scale(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_Translate(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_Set(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_TransformPoint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsMatrix_TransformDistance(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_MoveToPoint_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_MoveToPoint_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddArc_6(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddArc_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddArcToPoint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddCircle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddCurveToPoint_6(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddCurveToPoint_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddEllipse(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddLineToPoint_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddLineToPoint_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddPath(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddQuadCurveToPoint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddRectangle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_AddRoundedRectangle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_CloseSubpath(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_Contains_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_Contains_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_GetBox(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_GetCurrentPoint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsPath_Transform(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_GetDefaultRenderer(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreateContext(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreateBrush(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreateLinearGradientBrush(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreateRadialGradientBrush(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreateFont_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreateFont_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreateMatrix(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsRenderer_CreatePath(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_Item(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_GetCount(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_SetStartColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_GetStartColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_SetEndColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_GetEndColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGraphicsGradientStops_Add(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
+#endif // wxUSE_GRAPHICS_CONTEXT
 extern void wxMenuBar_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMenuBar_new_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMenuBar_Append(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -759,13 +957,13 @@ extern void wxMenuBar_Insert(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMenuBar_IsChecked(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if defined(__WXMAC__)
 extern void wxMenuBar_SetAutoWindowMenu(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // defined(__WXMAC__)
 #if defined(__WXMAC__)
 extern void wxMenuBar_GetAutoWindowMenu(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // defined(__WXMAC__)
 #if defined(__WXMAC__)
 extern void wxMenuBar_OSXGetAppleMenu(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // defined(__WXMAC__)
 extern void wxMenuBar_IsEnabled(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMenuBar_Remove(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMenuBar_Replace(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -1317,7 +1515,7 @@ extern void wxButton_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxButton_GetDefaultSize_STAT_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if wxCHECK_VERSION(3,1,3)
 extern void wxButton_GetDefaultSize_STAT_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,3)
 extern void wxButton_SetDefault(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxButton_SetLabel(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxButton_GetBitmapDisabled(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -1342,7 +1540,7 @@ extern void wxCalendarCtrl_SetDate(WxeApp *app, wxeMemEnv *memenv, wxeCommand& E
 extern void wxCalendarCtrl_GetDate(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if !wxCHECK_VERSION(2,9,0)
 extern void wxCalendarCtrl_EnableYearChange(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // !wxCHECK_VERSION(2,9,0)
 extern void wxCalendarCtrl_EnableMonthChange(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxCalendarCtrl_EnableHolidayDisplay(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxCalendarCtrl_SetHeaderColours(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -2230,157 +2428,467 @@ extern void wxHtmlEasyPrinting_PageSetup(WxeApp *app, wxeMemEnv *memenv, wxeComm
 extern void wxHtmlEasyPrinting_SetFonts(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxHtmlEasyPrinting_SetHeader(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxHtmlEasyPrinting_SetFooter(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if wxUSE_GLCANVAS
 extern void wxGLCanvas_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
 extern void wxGLCanvas_SetCurrent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
 extern void wxGLCanvas_SwapBuffers(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
 extern void wxGLContext_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
 extern void wxGLContext_SetCurrent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
+#endif // wxUSE_GLCANVAS
+#if wxUSE_AUI
 extern void wxAuiManager_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_AddPane_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_AddPane_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_AddPane_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_DetachPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetAllPanes(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetArtProvider(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetDockSizeConstraint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetManagedWindow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetManager(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetPane_1_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_GetPane_1_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_HideHint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_InsertPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_LoadPaneInfo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_LoadPerspective(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_SavePaneInfo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_SavePerspective(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_SetArtProvider(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_SetDockSizeConstraint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_SetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_SetManagedWindow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_ShowHint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_UnInit(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiManager_Update(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_new_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_BestSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_BestSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Bottom(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_BottomDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Caption(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_CaptionVisible(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Centre(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_CentrePane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_CloseButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_DefaultPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_DestroyOnClose(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Direction(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Dock(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Dockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Fixed(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Float(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Floatable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_FloatingPosition_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_FloatingPosition_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_FloatingSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_FloatingSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Gripper(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GripperTop(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasBorder(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasCaption(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasCloseButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasFlag(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasGripper(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasGripperTop(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasMaximizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasMinimizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_HasPinButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Hide(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsBottomDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsDocked(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsFixed(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsFloatable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsFloating(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsLeftDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsMovable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsOk(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsResizable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsRightDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsShown(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsToolbar(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_IsTopDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Layer(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Left(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_LeftDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_MaxSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_MaxSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_MaximizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_MinSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_MinSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_MinimizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Movable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Name(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_PaneBorder(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_PinButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Position(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Resizable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Right(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_RightDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Row(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_SafeSet(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_SetFlag(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_ToolbarPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Top(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_TopDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_Window(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetWindow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetFrame(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetDirection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetLayer(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetRow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetPosition(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetFloatingPosition(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_GetFloatingSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiPaneInfo_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_AddPage_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_AddPage_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_Create_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_DeletePage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_GetArtProvider(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_GetPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_GetPageBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_GetPageCount(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_GetPageIndex(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_GetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_GetSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_InsertPage_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_InsertPage_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_RemovePage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_SetArtProvider(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_SetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_SetPageBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_SetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_SetSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_SetTabCtrlHeight(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiNotebook_SetUniformBitmapSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiTabArt_SetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiTabArt_SetMeasuringFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiTabArt_SetNormalFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiTabArt_SetSelectedFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiTabArt_SetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiTabArt_SetActiveColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiDockArt_GetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiDockArt_GetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiDockArt_GetMetric(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiDockArt_SetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiDockArt_SetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiDockArt_SetMetric(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiSimpleTabArt_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
+#if wxUSE_AUI
 extern void wxAuiSimpleTabArt_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_AUI
 extern void wxMDIParentFrame_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMDIParentFrame_new_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMDIParentFrame_ActivateNext(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -3242,14 +3750,34 @@ extern void wxLocale_GetSystemLanguage(WxeApp *app, wxeMemEnv *memenv, wxeComman
 extern void wxLocale_IsLoaded(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxLocale_IsOk(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxActivateEvent_GetActive(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if wxUSE_POPUPWIN
 extern void wxPopupWindow_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
 extern void wxPopupWindow_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
 extern void wxPopupWindow_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
 extern void wxPopupWindow_Position(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
 extern void wxPopupTransientWindow_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
 extern void wxPopupTransientWindow_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
 extern void wxPopupTransientWindow_Popup(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
 extern void wxPopupTransientWindow_Dismiss(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
+#endif // wxUSE_POPUPWIN
 extern void wxOverlay_new(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxOverlay_destruct(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxOverlay_Reset(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -3260,41 +3788,226 @@ extern void wxDCOverlay_Clear(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxDropFilesEvent_GetPosition(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxDropFilesEvent_GetNumberOfFiles(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxDropFilesEvent_GetFiles(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if wxUSE_DISPLAY
 extern void wxDisplay_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_new_1_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#if wxCHECK_VERSION(3,1,3)
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY && wxCHECK_VERSION(3,1,3)
 extern void wxDisplay_new_1_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxUSE_DISPLAY && wxCHECK_VERSION(3,1,3)
+#if wxUSE_DISPLAY
 extern void wxDisplay_destruct(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_IsOk(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_GetClientArea(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_GetGeometry(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_GetName(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_IsPrimary(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_GetCount(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_GetFromPoint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
 extern void wxDisplay_GetFromWindow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#if wxCHECK_VERSION(3,1,2)
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY && wxCHECK_VERSION(3,1,2)
 extern void wxDisplay_GetPPI(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxUSE_DISPLAY && wxCHECK_VERSION(3,1,2)
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGCDC_new_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGCDC_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGCDC_GetGraphicsContext(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
 extern void wxGCDC_SetGraphicsContext(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // wxUSE_GRAPHICS_CONTEXT
 extern void wxNotificationMessage_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxNotificationMessage_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if wxCHECK_VERSION(3,1,0)
 extern void wxNotificationMessage_AddAction(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 extern void wxNotificationMessage_Close(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxNotificationMessage_SetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #if wxCHECK_VERSION(3,1,0)
 extern void wxNotificationMessage_SetIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 extern void wxNotificationMessage_SetMessage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxNotificationMessage_SetParent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxNotificationMessage_SetTitle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxNotificationMessage_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if WXE_WEBVIEW
+extern void wxWebView_New(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetCurrentTitle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetCurrentURL(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetPageSource(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_IsBusy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_IsEditable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_LoadURL(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Print(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Reload(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
+extern void wxWebView_RunScript(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
+#if WXE_WEBVIEW
+extern void wxWebView_SetEditable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_SetPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Stop(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanCopy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanCut(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanPaste(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Copy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Cut(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Paste(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_EnableContextMenu(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_IsContextMenuEnabled(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanGoBack(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanGoForward(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_ClearHistory(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_EnableHistory(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GoBack(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GoForward(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_ClearSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_DeleteSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetSelectedSource(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetSelectedText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_HasSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_SelectAll(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanRedo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanUndo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Redo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Undo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_Find(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_CanSetZoomType(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetZoom(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_GetZoomType(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_SetZoom(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebView_SetZoomType(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+extern void wxWebView_GetZoomFactor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+extern void wxWebView_SetZoomFactor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+extern void wxWebView_IsBackendAvailable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+#if WXE_WEBVIEW
+extern void wxWebViewEvent_GetString(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebViewEvent_GetInt(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebViewEvent_GetTarget(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+extern void wxWebViewEvent_GetURL(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // WXE_WEBVIEW
 
 wxe_fns_t wxe_fns[] =
 {
@@ -3451,7 +4164,7 @@ wxe_fns_t wxe_fns[] =
   {wxWindow_GetDPIScaleFactor, "wxWindow", "getDPIScaleFactor", 1}, // 149
 #else
   {NULL, "wxWindow", "getDPIScaleFactor", 0}, // 149
-#endif
+#endif // wxCHECK_VERSION(3,1,4)
   {wxWindow_GetExtraStyle, "wxWindow", "getExtraStyle", 1}, // 150
   {wxWindow_GetFont, "wxWindow", "getFont", 1}, // 151
   {wxWindow_GetForegroundColour, "wxWindow", "getForegroundColour", 1}, // 152
@@ -3585,57 +4298,57 @@ wxe_fns_t wxe_fns[] =
   {wxWindow_SetDoubleBuffered, "wxWindow", "setDoubleBuffered", 2}, // 279
 #else
   {NULL, "wxWindow", "setDoubleBuffered", 0}, // 279
-#endif
+#endif // wxCHECK_VERSION(3,1,0) || (!defined(__WXMAC__) && wxCHECK_VERSION(3,0,0))
   {wxWindow_GetContentScaleFactor, "wxWindow", "getContentScaleFactor", 1}, // 280
 #if wxCHECK_VERSION(3,1,3)
   {wxWindow_GetDPI, "wxWindow", "getDPI", 1}, // 281
 #else
   {NULL, "wxWindow", "getDPI", 0}, // 281
-#endif
+#endif // wxCHECK_VERSION(3,1,3)
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_FromDIP_1_1, "wxWindow", "fromDIP", 2}, // 282
 #else
   {NULL, "wxWindow", "fromDIP", 0}, // 282
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
   {NULL, "", "", 0}, // 283
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_FromDIP_1_0, "wxWindow", "fromDIP", 2}, // 284
 #else
   {NULL, "wxWindow", "fromDIP", 0}, // 284
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_FromDIP_2_1, "wxWindow", "fromDIP", 2}, // 285
 #else
   {NULL, "wxWindow", "fromDIP", 0}, // 285
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
   {NULL, "", "", 0}, // 286
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_FromDIP_2_0, "wxWindow", "fromDIP", 2}, // 287
 #else
   {NULL, "wxWindow", "fromDIP", 0}, // 287
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_ToDIP_1_1, "wxWindow", "toDIP", 2}, // 288
 #else
   {NULL, "wxWindow", "toDIP", 0}, // 288
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
   {NULL, "", "", 0}, // 289
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_ToDIP_1_0, "wxWindow", "toDIP", 2}, // 290
 #else
   {NULL, "wxWindow", "toDIP", 0}, // 290
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_ToDIP_2_1, "wxWindow", "toDIP", 2}, // 291
 #else
   {NULL, "wxWindow", "toDIP", 0}, // 291
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
   {NULL, "", "", 0}, // 292
 #if wxCHECK_VERSION(3,1,0)
   {wxWindow_ToDIP_2_0, "wxWindow", "toDIP", 2}, // 293
 #else
   {NULL, "wxWindow", "toDIP", 0}, // 293
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
   {wxTopLevelWindow_GetIcon, "wxTopLevelWindow", "getIcon", 1}, // 294
   {wxTopLevelWindow_GetIcons, "wxTopLevelWindow", "getIcons", 1}, // 295
   {wxTopLevelWindow_GetTitle, "wxTopLevelWindow", "getTitle", 1}, // 296
@@ -3743,7 +4456,7 @@ wxe_fns_t wxe_fns[] =
   {wxGrid_CanDragGridRowEdges, "wxGrid", "canDragGridRowEdges", 1}, // 397
 #else
   {NULL, "wxGrid", "canDragGridRowEdges", 0}, // 397
-#endif
+#endif // wxCHECK_VERSION(3,1,4)
   {wxGrid_CanDragColSize, "wxGrid", "canDragColSize", 2}, // 398
   {wxGrid_CanDragRowSize, "wxGrid", "canDragRowSize", 2}, // 399
   {wxGrid_CanDragGridSize, "wxGrid", "canDragGridSize", 1}, // 400
@@ -4066,9 +4779,21 @@ wxe_fns_t wxe_fns[] =
   {NULL, "wxMirrorDC", "'Destroy'", 1}, // 717 obj destructor wxMirrorDC_destroy
   {wxScreenDC_new, "wxScreenDC", "new", 0}, // 718
   {NULL, "wxScreenDC", "'Destroy'", 1}, // 719 obj destructor wxScreenDC_destroy
+#if wxUSE_POSTSCRIPT
   {wxPostScriptDC_new_0, "wxPostScriptDC", "new", 0}, // 720
+#else
+  {NULL, "wxPostScriptDC", "new", 0}, // 720
+#endif // wxUSE_POSTSCRIPT
+#if wxUSE_POSTSCRIPT
   {wxPostScriptDC_new_1, "wxPostScriptDC", "new", 1}, // 721
+#else
+  {NULL, "wxPostScriptDC", "new", 0}, // 721
+#endif // wxUSE_POSTSCRIPT
+#if wxUSE_POSTSCRIPT
   {NULL, "wxPostScriptDC", "'Destroy'", 1}, // 722 obj destructor wxPostScriptDC_destroy
+#else
+  {NULL, "wxPostScriptDC", "'Destroy'", 0}, // 722
+#endif // wxUSE_POSTSCRIPT
   {wxWindowDC_new, "wxWindowDC", "new", 1}, // 723
   {NULL, "wxWindowDC", "'Destroy'", 1}, // 724 obj destructor wxWindowDC_destroy
   {wxClientDC_new, "wxClientDC", "new", 1}, // 725
@@ -4090,114 +4815,498 @@ wxe_fns_t wxe_fns[] =
   {wxBufferedPaintDC_new_3, "wxBufferedPaintDC", "new", 3}, // 741
   {wxBufferedPaintDC_new_2, "wxBufferedPaintDC", "new", 2}, // 742
   {NULL, "wxBufferedPaintDC", "destroy", 1}, // 743 obj destructor wxBufferedPaintDC_destruct
+#if wxUSE_GRAPHICS_CONTEXT
   {NULL, "wxGraphicsObject", "destroy", 1}, // 744 obj destructor wxGraphicsObject_destruct
+#else
+  {NULL, "wxGraphicsObject", "destroy", 0}, // 744
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsObject_GetRenderer, "wxGraphicsObject", "getRenderer", 1}, // 745
+#else
+  {NULL, "wxGraphicsObject", "getRenderer", 0}, // 745
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsObject_IsNull, "wxGraphicsObject", "isNull", 1}, // 746
+#else
+  {NULL, "wxGraphicsObject", "isNull", 0}, // 746
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {NULL, "wxGraphicsContext", "destroy", 1}, // 747 obj destructor wxGraphicsContext_destruct
+#else
+  {NULL, "wxGraphicsContext", "destroy", 0}, // 747
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 748
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_Create_STAT_1, "wxGraphicsContext", "create", 1}, // 749
+#else
+  {NULL, "wxGraphicsContext", "create", 0}, // 749
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 750
   {NULL, "", "", 0}, // 751
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_Create_STAT_0, "wxGraphicsContext", "create", 0}, // 752
+#else
+  {NULL, "wxGraphicsContext", "create", 0}, // 752
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreatePen, "wxGraphicsContext", "createPen", 2}, // 753
+#else
+  {NULL, "wxGraphicsContext", "createPen", 0}, // 753
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateBrush, "wxGraphicsContext", "createBrush", 2}, // 754
+#else
+  {NULL, "wxGraphicsContext", "createBrush", 0}, // 754
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateRadialGradientBrush_7, "wxGraphicsContext", "createRadialGradientBrush", 8}, // 755
+#else
+  {NULL, "wxGraphicsContext", "createRadialGradientBrush", 0}, // 755
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateRadialGradientBrush_6, "wxGraphicsContext", "createRadialGradientBrush", 7}, // 756
+#else
+  {NULL, "wxGraphicsContext", "createRadialGradientBrush", 0}, // 756
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateLinearGradientBrush_6, "wxGraphicsContext", "createLinearGradientBrush", 7}, // 757
+#else
+  {NULL, "wxGraphicsContext", "createLinearGradientBrush", 0}, // 757
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateLinearGradientBrush_5, "wxGraphicsContext", "createLinearGradientBrush", 6}, // 758
+#else
+  {NULL, "wxGraphicsContext", "createLinearGradientBrush", 0}, // 758
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateFont_2, "wxGraphicsContext", "createFont", 3}, // 759
+#else
+  {NULL, "wxGraphicsContext", "createFont", 0}, // 759
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateFont_3, "wxGraphicsContext", "createFont", 4}, // 760
+#else
+  {NULL, "wxGraphicsContext", "createFont", 0}, // 760
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreateMatrix, "wxGraphicsContext", "createMatrix", 2}, // 761
+#else
+  {NULL, "wxGraphicsContext", "createMatrix", 0}, // 761
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_CreatePath, "wxGraphicsContext", "createPath", 1}, // 762
+#else
+  {NULL, "wxGraphicsContext", "createPath", 0}, // 762
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_Clip_1, "wxGraphicsContext", "clip", 2}, // 763
+#else
+  {NULL, "wxGraphicsContext", "clip", 0}, // 763
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_Clip_4, "wxGraphicsContext", "clip", 5}, // 764
+#else
+  {NULL, "wxGraphicsContext", "clip", 0}, // 764
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_ResetClip, "wxGraphicsContext", "resetClip", 1}, // 765
+#else
+  {NULL, "wxGraphicsContext", "resetClip", 0}, // 765
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawBitmap, "wxGraphicsContext", "drawBitmap", 6}, // 766
+#else
+  {NULL, "wxGraphicsContext", "drawBitmap", 0}, // 766
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawEllipse, "wxGraphicsContext", "drawEllipse", 5}, // 767
+#else
+  {NULL, "wxGraphicsContext", "drawEllipse", 0}, // 767
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawIcon, "wxGraphicsContext", "drawIcon", 6}, // 768
+#else
+  {NULL, "wxGraphicsContext", "drawIcon", 0}, // 768
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawLines, "wxGraphicsContext", "drawLines", 3}, // 769
+#else
+  {NULL, "wxGraphicsContext", "drawLines", 0}, // 769
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawPath, "wxGraphicsContext", "drawPath", 3}, // 770
+#else
+  {NULL, "wxGraphicsContext", "drawPath", 0}, // 770
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawRectangle, "wxGraphicsContext", "drawRectangle", 5}, // 771
+#else
+  {NULL, "wxGraphicsContext", "drawRectangle", 0}, // 771
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawRoundedRectangle, "wxGraphicsContext", "drawRoundedRectangle", 6}, // 772
+#else
+  {NULL, "wxGraphicsContext", "drawRoundedRectangle", 0}, // 772
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawText_3, "wxGraphicsContext", "drawText", 4}, // 773
+#else
+  {NULL, "wxGraphicsContext", "drawText", 0}, // 773
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawText_4_0, "wxGraphicsContext", "drawText", 5}, // 774
+#else
+  {NULL, "wxGraphicsContext", "drawText", 0}, // 774
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawText_4_1, "wxGraphicsContext", "drawText", 5}, // 775
+#else
+  {NULL, "wxGraphicsContext", "drawText", 0}, // 775
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_DrawText_5, "wxGraphicsContext", "drawText", 6}, // 776
+#else
+  {NULL, "wxGraphicsContext", "drawText", 0}, // 776
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_FillPath, "wxGraphicsContext", "fillPath", 3}, // 777
+#else
+  {NULL, "wxGraphicsContext", "fillPath", 0}, // 777
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_StrokePath, "wxGraphicsContext", "strokePath", 2}, // 778
+#else
+  {NULL, "wxGraphicsContext", "strokePath", 0}, // 778
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_GetPartialTextExtents, "wxGraphicsContext", "getPartialTextExtents", 2}, // 779
+#else
+  {NULL, "wxGraphicsContext", "getPartialTextExtents", 0}, // 779
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_GetTextExtent, "wxGraphicsContext", "getTextExtent", 2}, // 780
+#else
+  {NULL, "wxGraphicsContext", "getTextExtent", 0}, // 780
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_Rotate, "wxGraphicsContext", "rotate", 2}, // 781
+#else
+  {NULL, "wxGraphicsContext", "rotate", 0}, // 781
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_Scale, "wxGraphicsContext", "scale", 3}, // 782
+#else
+  {NULL, "wxGraphicsContext", "scale", 0}, // 782
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_Translate, "wxGraphicsContext", "translate", 3}, // 783
+#else
+  {NULL, "wxGraphicsContext", "translate", 0}, // 783
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_GetTransform, "wxGraphicsContext", "getTransform", 1}, // 784
+#else
+  {NULL, "wxGraphicsContext", "getTransform", 0}, // 784
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_SetTransform, "wxGraphicsContext", "setTransform", 2}, // 785
+#else
+  {NULL, "wxGraphicsContext", "setTransform", 0}, // 785
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_ConcatTransform, "wxGraphicsContext", "concatTransform", 2}, // 786
+#else
+  {NULL, "wxGraphicsContext", "concatTransform", 0}, // 786
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 787
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_SetBrush, "wxGraphicsContext", "setBrush", 2}, // 788
+#else
+  {NULL, "wxGraphicsContext", "setBrush", 0}, // 788
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_SetFont_2, "wxGraphicsContext", "setFont", 3}, // 789
+#else
+  {NULL, "wxGraphicsContext", "setFont", 0}, // 789
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_SetFont_1, "wxGraphicsContext", "setFont", 2}, // 790
+#else
+  {NULL, "wxGraphicsContext", "setFont", 0}, // 790
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_SetPen, "wxGraphicsContext", "setPen", 2}, // 791
+#else
+  {NULL, "wxGraphicsContext", "setPen", 0}, // 791
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 792
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_StrokeLine, "wxGraphicsContext", "strokeLine", 5}, // 793
+#else
+  {NULL, "wxGraphicsContext", "strokeLine", 0}, // 793
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 794
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsContext_StrokeLines, "wxGraphicsContext", "strokeLines", 2}, // 795
+#else
+  {NULL, "wxGraphicsContext", "strokeLines", 0}, // 795
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_Concat, "wxGraphicsMatrix", "concat", 2}, // 796
+#else
+  {NULL, "wxGraphicsMatrix", "concat", 0}, // 796
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 797
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_Get, "wxGraphicsMatrix", "get", 1}, // 798
+#else
+  {NULL, "wxGraphicsMatrix", "get", 0}, // 798
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_Invert, "wxGraphicsMatrix", "invert", 1}, // 799
+#else
+  {NULL, "wxGraphicsMatrix", "invert", 0}, // 799
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_IsEqual, "wxGraphicsMatrix", "isEqual", 2}, // 800
+#else
+  {NULL, "wxGraphicsMatrix", "isEqual", 0}, // 800
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 801
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_IsIdentity, "wxGraphicsMatrix", "isIdentity", 1}, // 802
+#else
+  {NULL, "wxGraphicsMatrix", "isIdentity", 0}, // 802
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_Rotate, "wxGraphicsMatrix", "rotate", 2}, // 803
+#else
+  {NULL, "wxGraphicsMatrix", "rotate", 0}, // 803
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_Scale, "wxGraphicsMatrix", "scale", 3}, // 804
+#else
+  {NULL, "wxGraphicsMatrix", "scale", 0}, // 804
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_Translate, "wxGraphicsMatrix", "translate", 3}, // 805
+#else
+  {NULL, "wxGraphicsMatrix", "translate", 0}, // 805
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_Set, "wxGraphicsMatrix", "set", 2}, // 806
+#else
+  {NULL, "wxGraphicsMatrix", "set", 0}, // 806
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_TransformPoint, "wxGraphicsMatrix", "transformPoint", 1}, // 807
+#else
+  {NULL, "wxGraphicsMatrix", "transformPoint", 0}, // 807
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsMatrix_TransformDistance, "wxGraphicsMatrix", "transformDistance", 1}, // 808
+#else
+  {NULL, "wxGraphicsMatrix", "transformDistance", 0}, // 808
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_MoveToPoint_2, "wxGraphicsPath", "moveToPoint", 3}, // 809
+#else
+  {NULL, "wxGraphicsPath", "moveToPoint", 0}, // 809
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_MoveToPoint_1, "wxGraphicsPath", "moveToPoint", 2}, // 810
+#else
+  {NULL, "wxGraphicsPath", "moveToPoint", 0}, // 810
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddArc_6, "wxGraphicsPath", "addArc", 7}, // 811
+#else
+  {NULL, "wxGraphicsPath", "addArc", 0}, // 811
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddArc_5, "wxGraphicsPath", "addArc", 6}, // 812
+#else
+  {NULL, "wxGraphicsPath", "addArc", 0}, // 812
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddArcToPoint, "wxGraphicsPath", "addArcToPoint", 6}, // 813
+#else
+  {NULL, "wxGraphicsPath", "addArcToPoint", 0}, // 813
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddCircle, "wxGraphicsPath", "addCircle", 4}, // 814
+#else
+  {NULL, "wxGraphicsPath", "addCircle", 0}, // 814
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddCurveToPoint_6, "wxGraphicsPath", "addCurveToPoint", 7}, // 815
+#else
+  {NULL, "wxGraphicsPath", "addCurveToPoint", 0}, // 815
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddCurveToPoint_3, "wxGraphicsPath", "addCurveToPoint", 4}, // 816
+#else
+  {NULL, "wxGraphicsPath", "addCurveToPoint", 0}, // 816
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddEllipse, "wxGraphicsPath", "addEllipse", 5}, // 817
+#else
+  {NULL, "wxGraphicsPath", "addEllipse", 0}, // 817
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddLineToPoint_2, "wxGraphicsPath", "addLineToPoint", 3}, // 818
+#else
+  {NULL, "wxGraphicsPath", "addLineToPoint", 0}, // 818
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddLineToPoint_1, "wxGraphicsPath", "addLineToPoint", 2}, // 819
+#else
+  {NULL, "wxGraphicsPath", "addLineToPoint", 0}, // 819
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddPath, "wxGraphicsPath", "addPath", 2}, // 820
+#else
+  {NULL, "wxGraphicsPath", "addPath", 0}, // 820
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddQuadCurveToPoint, "wxGraphicsPath", "addQuadCurveToPoint", 5}, // 821
+#else
+  {NULL, "wxGraphicsPath", "addQuadCurveToPoint", 0}, // 821
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddRectangle, "wxGraphicsPath", "addRectangle", 5}, // 822
+#else
+  {NULL, "wxGraphicsPath", "addRectangle", 0}, // 822
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_AddRoundedRectangle, "wxGraphicsPath", "addRoundedRectangle", 6}, // 823
+#else
+  {NULL, "wxGraphicsPath", "addRoundedRectangle", 0}, // 823
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_CloseSubpath, "wxGraphicsPath", "closeSubpath", 1}, // 824
+#else
+  {NULL, "wxGraphicsPath", "closeSubpath", 0}, // 824
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_Contains_2, "wxGraphicsPath", "contains", 3}, // 825
+#else
+  {NULL, "wxGraphicsPath", "contains", 0}, // 825
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_Contains_3, "wxGraphicsPath", "contains", 4}, // 826
+#else
+  {NULL, "wxGraphicsPath", "contains", 0}, // 826
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_GetBox, "wxGraphicsPath", "getBox", 1}, // 827
+#else
+  {NULL, "wxGraphicsPath", "getBox", 0}, // 827
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 828
   {NULL, "", "", 0}, // 829
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_GetCurrentPoint, "wxGraphicsPath", "getCurrentPoint", 1}, // 830
+#else
+  {NULL, "wxGraphicsPath", "getCurrentPoint", 0}, // 830
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsPath_Transform, "wxGraphicsPath", "transform", 2}, // 831
+#else
+  {NULL, "wxGraphicsPath", "transform", 0}, // 831
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_GetDefaultRenderer, "wxGraphicsRenderer", "getDefaultRenderer", 0}, // 832
+#else
+  {NULL, "wxGraphicsRenderer", "getDefaultRenderer", 0}, // 832
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 833
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreateContext, "wxGraphicsRenderer", "createContext", 2}, // 834
+#else
+  {NULL, "wxGraphicsRenderer", "createContext", 0}, // 834
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 835
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreateBrush, "wxGraphicsRenderer", "createBrush", 2}, // 836
+#else
+  {NULL, "wxGraphicsRenderer", "createBrush", 0}, // 836
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreateLinearGradientBrush, "wxGraphicsRenderer", "createLinearGradientBrush", 6}, // 837
+#else
+  {NULL, "wxGraphicsRenderer", "createLinearGradientBrush", 0}, // 837
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreateRadialGradientBrush, "wxGraphicsRenderer", "createRadialGradientBrush", 7}, // 838
+#else
+  {NULL, "wxGraphicsRenderer", "createRadialGradientBrush", 0}, // 838
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreateFont_2, "wxGraphicsRenderer", "createFont", 3}, // 839
+#else
+  {NULL, "wxGraphicsRenderer", "createFont", 0}, // 839
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreateFont_3, "wxGraphicsRenderer", "createFont", 4}, // 840
+#else
+  {NULL, "wxGraphicsRenderer", "createFont", 0}, // 840
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreateMatrix, "wxGraphicsRenderer", "createMatrix", 2}, // 841
+#else
+  {NULL, "wxGraphicsRenderer", "createMatrix", 0}, // 841
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsRenderer_CreatePath, "wxGraphicsRenderer", "createPath", 1}, // 842
+#else
+  {NULL, "wxGraphicsRenderer", "createPath", 0}, // 842
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_new, "wxGraphicsGradientStops", "new", 1}, // 843
+#else
+  {NULL, "wxGraphicsGradientStops", "new", 0}, // 843
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_Item, "wxGraphicsGradientStops", "item", 2}, // 844
+#else
+  {NULL, "wxGraphicsGradientStops", "item", 0}, // 844
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_GetCount, "wxGraphicsGradientStops", "getCount", 1}, // 845
+#else
+  {NULL, "wxGraphicsGradientStops", "getCount", 0}, // 845
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_SetStartColour, "wxGraphicsGradientStops", "setStartColour", 2}, // 846
+#else
+  {NULL, "wxGraphicsGradientStops", "setStartColour", 0}, // 846
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_GetStartColour, "wxGraphicsGradientStops", "getStartColour", 1}, // 847
+#else
+  {NULL, "wxGraphicsGradientStops", "getStartColour", 0}, // 847
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_SetEndColour, "wxGraphicsGradientStops", "setEndColour", 2}, // 848
+#else
+  {NULL, "wxGraphicsGradientStops", "setEndColour", 0}, // 848
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_GetEndColour, "wxGraphicsGradientStops", "getEndColour", 1}, // 849
+#else
+  {NULL, "wxGraphicsGradientStops", "getEndColour", 0}, // 849
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGraphicsGradientStops_Add, "wxGraphicsGradientStops", "add", 3}, // 850
+#else
+  {NULL, "wxGraphicsGradientStops", "add", 0}, // 850
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {NULL, "wxGraphicsGradientStops", "'Destroy'", 1}, // 851 obj destructor wxGraphicsGradientStops_destroy
+#else
+  {NULL, "wxGraphicsGradientStops", "'Destroy'", 0}, // 851
+#endif // wxUSE_GRAPHICS_CONTEXT
   {wxMenuBar_new_0, "wxMenuBar", "new", 0}, // 852
   {wxMenuBar_new_1, "wxMenuBar", "new", 1}, // 853
   {NULL, "", "", 0}, // 854
@@ -4221,17 +5330,17 @@ wxe_fns_t wxe_fns[] =
   {wxMenuBar_SetAutoWindowMenu, "wxMenuBar", "setAutoWindowMenu", 1}, // 871
 #else
   {NULL, "wxMenuBar", "setAutoWindowMenu", 0}, // 871
-#endif
+#endif // defined(__WXMAC__)
 #if defined(__WXMAC__)
   {wxMenuBar_GetAutoWindowMenu, "wxMenuBar", "getAutoWindowMenu", 0}, // 872
 #else
   {NULL, "wxMenuBar", "getAutoWindowMenu", 0}, // 872
-#endif
+#endif // defined(__WXMAC__)
 #if defined(__WXMAC__)
   {wxMenuBar_OSXGetAppleMenu, "wxMenuBar", "oSXGetAppleMenu", 1}, // 873
 #else
   {NULL, "wxMenuBar", "oSXGetAppleMenu", 0}, // 873
-#endif
+#endif // defined(__WXMAC__)
   {wxMenuBar_IsEnabled, "wxMenuBar", "isEnabled", 2}, // 874
   {wxMenuBar_Remove, "wxMenuBar", "remove", 2}, // 875
   {wxMenuBar_Replace, "wxMenuBar", "replace", 4}, // 876
@@ -4841,7 +5950,7 @@ wxe_fns_t wxe_fns[] =
   {wxButton_GetDefaultSize_STAT_1, "wxButton", "getDefaultSize", 1}, // 1479
 #else
   {NULL, "wxButton", "getDefaultSize", 0}, // 1479
-#endif
+#endif // wxCHECK_VERSION(3,1,3)
   {wxButton_SetDefault, "wxButton", "setDefault", 1}, // 1480
   {wxButton_SetLabel, "wxButton", "setLabel", 2}, // 1481
   {wxButton_GetBitmapDisabled, "wxButton", "getBitmapDisabled", 1}, // 1482
@@ -4872,7 +5981,7 @@ wxe_fns_t wxe_fns[] =
   {wxCalendarCtrl_EnableYearChange, "wxCalendarCtrl", "enableYearChange", 2}, // 1506
 #else
   {NULL, "wxCalendarCtrl", "enableYearChange", 0}, // 1506
-#endif
+#endif // !wxCHECK_VERSION(2,9,0)
   {wxCalendarCtrl_EnableMonthChange, "wxCalendarCtrl", "enableMonthChange", 2}, // 1507
   {wxCalendarCtrl_EnableHolidayDisplay, "wxCalendarCtrl", "enableHolidayDisplay", 2}, // 1508
   {wxCalendarCtrl_SetHeaderColours, "wxCalendarCtrl", "setHeaderColours", 3}, // 1509
@@ -5842,161 +6951,781 @@ wxe_fns_t wxe_fns[] =
   {wxHtmlEasyPrinting_SetHeader, "wxHtmlEasyPrinting", "setHeader", 3}, // 2473
   {wxHtmlEasyPrinting_SetFooter, "wxHtmlEasyPrinting", "setFooter", 3}, // 2474
   {NULL, "wxHtmlEasyPrinting", "'Destroy'", 1}, // 2475 obj destructor wxHtmlEasyPrinting_destroy
+#if wxUSE_GLCANVAS
   {wxGLCanvas_new, "wxGLCanvas", "new", 2}, // 2476
+#else
+  {NULL, "wxGLCanvas", "new", 0}, // 2476
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
   {wxGLCanvas_SetCurrent, "wxGLCanvas", "setCurrent", 2}, // 2477
+#else
+  {NULL, "wxGLCanvas", "setCurrent", 0}, // 2477
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
   {wxGLCanvas_SwapBuffers, "wxGLCanvas", "swapBuffers", 1}, // 2478
+#else
+  {NULL, "wxGLCanvas", "swapBuffers", 0}, // 2478
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
   {NULL, "wxGLCanvas", "'Destroy'", 1}, // 2479 obj destructor wxGLCanvas_destroy
+#else
+  {NULL, "wxGLCanvas", "'Destroy'", 0}, // 2479
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
   {wxGLContext_new, "wxGLContext", "new", 2}, // 2480
+#else
+  {NULL, "wxGLContext", "new", 0}, // 2480
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
   {wxGLContext_SetCurrent, "wxGLContext", "setCurrent", 2}, // 2481
+#else
+  {NULL, "wxGLContext", "setCurrent", 0}, // 2481
+#endif // wxUSE_GLCANVAS
+#if wxUSE_GLCANVAS
   {NULL, "wxGLContext", "'Destroy'", 1}, // 2482 obj destructor wxGLContext_destroy
+#else
+  {NULL, "wxGLContext", "'Destroy'", 0}, // 2482
+#endif // wxUSE_GLCANVAS
+#if wxUSE_AUI
   {wxAuiManager_new, "wxAuiManager", "new", 1}, // 2483
+#else
+  {NULL, "wxAuiManager", "new", 0}, // 2483
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {NULL, "wxAuiManager", "destroy", 1}, // 2484 obj destructor wxAuiManager_destruct
+#else
+  {NULL, "wxAuiManager", "destroy", 0}, // 2484
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_AddPane_2_1, "wxAuiManager", "addPane", 3}, // 2485
+#else
+  {NULL, "wxAuiManager", "addPane", 0}, // 2485
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_AddPane_2_0, "wxAuiManager", "addPane", 3}, // 2486
+#else
+  {NULL, "wxAuiManager", "addPane", 0}, // 2486
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_AddPane_3, "wxAuiManager", "addPane", 4}, // 2487
+#else
+  {NULL, "wxAuiManager", "addPane", 0}, // 2487
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_DetachPane, "wxAuiManager", "detachPane", 2}, // 2488
+#else
+  {NULL, "wxAuiManager", "detachPane", 0}, // 2488
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetAllPanes, "wxAuiManager", "getAllPanes", 1}, // 2489
+#else
+  {NULL, "wxAuiManager", "getAllPanes", 0}, // 2489
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetArtProvider, "wxAuiManager", "getArtProvider", 1}, // 2490
+#else
+  {NULL, "wxAuiManager", "getArtProvider", 0}, // 2490
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetDockSizeConstraint, "wxAuiManager", "getDockSizeConstraint", 1}, // 2491
+#else
+  {NULL, "wxAuiManager", "getDockSizeConstraint", 0}, // 2491
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetFlags, "wxAuiManager", "getFlags", 1}, // 2492
+#else
+  {NULL, "wxAuiManager", "getFlags", 0}, // 2492
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetManagedWindow, "wxAuiManager", "getManagedWindow", 1}, // 2493
+#else
+  {NULL, "wxAuiManager", "getManagedWindow", 0}, // 2493
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetManager, "wxAuiManager", "getManager", 1}, // 2494
+#else
+  {NULL, "wxAuiManager", "getManager", 0}, // 2494
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetPane_1_1, "wxAuiManager", "getPane", 2}, // 2495
+#else
+  {NULL, "wxAuiManager", "getPane", 0}, // 2495
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_GetPane_1_0, "wxAuiManager", "getPane", 2}, // 2496
+#else
+  {NULL, "wxAuiManager", "getPane", 0}, // 2496
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_HideHint, "wxAuiManager", "hideHint", 1}, // 2497
+#else
+  {NULL, "wxAuiManager", "hideHint", 0}, // 2497
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_InsertPane, "wxAuiManager", "insertPane", 4}, // 2498
+#else
+  {NULL, "wxAuiManager", "insertPane", 0}, // 2498
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_LoadPaneInfo, "wxAuiManager", "loadPaneInfo", 3}, // 2499
+#else
+  {NULL, "wxAuiManager", "loadPaneInfo", 0}, // 2499
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_LoadPerspective, "wxAuiManager", "loadPerspective", 3}, // 2500
+#else
+  {NULL, "wxAuiManager", "loadPerspective", 0}, // 2500
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_SavePaneInfo, "wxAuiManager", "savePaneInfo", 2}, // 2501
+#else
+  {NULL, "wxAuiManager", "savePaneInfo", 0}, // 2501
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_SavePerspective, "wxAuiManager", "savePerspective", 1}, // 2502
+#else
+  {NULL, "wxAuiManager", "savePerspective", 0}, // 2502
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_SetArtProvider, "wxAuiManager", "setArtProvider", 2}, // 2503
+#else
+  {NULL, "wxAuiManager", "setArtProvider", 0}, // 2503
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_SetDockSizeConstraint, "wxAuiManager", "setDockSizeConstraint", 3}, // 2504
+#else
+  {NULL, "wxAuiManager", "setDockSizeConstraint", 0}, // 2504
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_SetFlags, "wxAuiManager", "setFlags", 2}, // 2505
+#else
+  {NULL, "wxAuiManager", "setFlags", 0}, // 2505
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_SetManagedWindow, "wxAuiManager", "setManagedWindow", 2}, // 2506
+#else
+  {NULL, "wxAuiManager", "setManagedWindow", 0}, // 2506
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_ShowHint, "wxAuiManager", "showHint", 2}, // 2507
+#else
+  {NULL, "wxAuiManager", "showHint", 0}, // 2507
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_UnInit, "wxAuiManager", "unInit", 1}, // 2508
+#else
+  {NULL, "wxAuiManager", "unInit", 0}, // 2508
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiManager_Update, "wxAuiManager", "update", 1}, // 2509
+#else
+  {NULL, "wxAuiManager", "update", 0}, // 2509
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_new_0, "wxAuiPaneInfo", "new", 0}, // 2510
+#else
+  {NULL, "wxAuiPaneInfo", "new", 0}, // 2510
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_new_1, "wxAuiPaneInfo", "new", 1}, // 2511
+#else
+  {NULL, "wxAuiPaneInfo", "new", 0}, // 2511
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_BestSize_1, "wxAuiPaneInfo", "bestSize", 2}, // 2512
+#else
+  {NULL, "wxAuiPaneInfo", "bestSize", 0}, // 2512
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_BestSize_2, "wxAuiPaneInfo", "bestSize", 3}, // 2513
+#else
+  {NULL, "wxAuiPaneInfo", "bestSize", 0}, // 2513
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Bottom, "wxAuiPaneInfo", "bottom", 1}, // 2514
+#else
+  {NULL, "wxAuiPaneInfo", "bottom", 0}, // 2514
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_BottomDockable, "wxAuiPaneInfo", "bottomDockable", 2}, // 2515
+#else
+  {NULL, "wxAuiPaneInfo", "bottomDockable", 0}, // 2515
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Caption, "wxAuiPaneInfo", "caption", 2}, // 2516
+#else
+  {NULL, "wxAuiPaneInfo", "caption", 0}, // 2516
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_CaptionVisible, "wxAuiPaneInfo", "captionVisible", 2}, // 2517
+#else
+  {NULL, "wxAuiPaneInfo", "captionVisible", 0}, // 2517
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Centre, "wxAuiPaneInfo", "centre", 1}, // 2518
+#else
+  {NULL, "wxAuiPaneInfo", "centre", 0}, // 2518
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_CentrePane, "wxAuiPaneInfo", "centrePane", 1}, // 2519
+#else
+  {NULL, "wxAuiPaneInfo", "centrePane", 0}, // 2519
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_CloseButton, "wxAuiPaneInfo", "closeButton", 2}, // 2520
+#else
+  {NULL, "wxAuiPaneInfo", "closeButton", 0}, // 2520
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_DefaultPane, "wxAuiPaneInfo", "defaultPane", 1}, // 2521
+#else
+  {NULL, "wxAuiPaneInfo", "defaultPane", 0}, // 2521
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_DestroyOnClose, "wxAuiPaneInfo", "destroyOnClose", 2}, // 2522
+#else
+  {NULL, "wxAuiPaneInfo", "destroyOnClose", 0}, // 2522
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Direction, "wxAuiPaneInfo", "direction", 2}, // 2523
+#else
+  {NULL, "wxAuiPaneInfo", "direction", 0}, // 2523
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Dock, "wxAuiPaneInfo", "dock", 1}, // 2524
+#else
+  {NULL, "wxAuiPaneInfo", "dock", 0}, // 2524
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Dockable, "wxAuiPaneInfo", "dockable", 2}, // 2525
+#else
+  {NULL, "wxAuiPaneInfo", "dockable", 0}, // 2525
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Fixed, "wxAuiPaneInfo", "fixed", 1}, // 2526
+#else
+  {NULL, "wxAuiPaneInfo", "fixed", 0}, // 2526
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Float, "wxAuiPaneInfo", "float", 1}, // 2527
+#else
+  {NULL, "wxAuiPaneInfo", "float", 0}, // 2527
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Floatable, "wxAuiPaneInfo", "floatable", 2}, // 2528
+#else
+  {NULL, "wxAuiPaneInfo", "floatable", 0}, // 2528
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_FloatingPosition_1, "wxAuiPaneInfo", "floatingPosition", 2}, // 2529
+#else
+  {NULL, "wxAuiPaneInfo", "floatingPosition", 0}, // 2529
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_FloatingPosition_2, "wxAuiPaneInfo", "floatingPosition", 3}, // 2530
+#else
+  {NULL, "wxAuiPaneInfo", "floatingPosition", 0}, // 2530
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_FloatingSize_1, "wxAuiPaneInfo", "floatingSize", 2}, // 2531
+#else
+  {NULL, "wxAuiPaneInfo", "floatingSize", 0}, // 2531
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_FloatingSize_2, "wxAuiPaneInfo", "floatingSize", 3}, // 2532
+#else
+  {NULL, "wxAuiPaneInfo", "floatingSize", 0}, // 2532
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Gripper, "wxAuiPaneInfo", "gripper", 2}, // 2533
+#else
+  {NULL, "wxAuiPaneInfo", "gripper", 0}, // 2533
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GripperTop, "wxAuiPaneInfo", "gripperTop", 2}, // 2534
+#else
+  {NULL, "wxAuiPaneInfo", "gripperTop", 0}, // 2534
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasBorder, "wxAuiPaneInfo", "hasBorder", 1}, // 2535
+#else
+  {NULL, "wxAuiPaneInfo", "hasBorder", 0}, // 2535
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasCaption, "wxAuiPaneInfo", "hasCaption", 1}, // 2536
+#else
+  {NULL, "wxAuiPaneInfo", "hasCaption", 0}, // 2536
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasCloseButton, "wxAuiPaneInfo", "hasCloseButton", 1}, // 2537
+#else
+  {NULL, "wxAuiPaneInfo", "hasCloseButton", 0}, // 2537
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasFlag, "wxAuiPaneInfo", "hasFlag", 2}, // 2538
+#else
+  {NULL, "wxAuiPaneInfo", "hasFlag", 0}, // 2538
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasGripper, "wxAuiPaneInfo", "hasGripper", 1}, // 2539
+#else
+  {NULL, "wxAuiPaneInfo", "hasGripper", 0}, // 2539
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasGripperTop, "wxAuiPaneInfo", "hasGripperTop", 1}, // 2540
+#else
+  {NULL, "wxAuiPaneInfo", "hasGripperTop", 0}, // 2540
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasMaximizeButton, "wxAuiPaneInfo", "hasMaximizeButton", 1}, // 2541
+#else
+  {NULL, "wxAuiPaneInfo", "hasMaximizeButton", 0}, // 2541
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasMinimizeButton, "wxAuiPaneInfo", "hasMinimizeButton", 1}, // 2542
+#else
+  {NULL, "wxAuiPaneInfo", "hasMinimizeButton", 0}, // 2542
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_HasPinButton, "wxAuiPaneInfo", "hasPinButton", 1}, // 2543
+#else
+  {NULL, "wxAuiPaneInfo", "hasPinButton", 0}, // 2543
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Hide, "wxAuiPaneInfo", "hide", 1}, // 2544
+#else
+  {NULL, "wxAuiPaneInfo", "hide", 0}, // 2544
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsBottomDockable, "wxAuiPaneInfo", "isBottomDockable", 1}, // 2545
+#else
+  {NULL, "wxAuiPaneInfo", "isBottomDockable", 0}, // 2545
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsDocked, "wxAuiPaneInfo", "isDocked", 1}, // 2546
+#else
+  {NULL, "wxAuiPaneInfo", "isDocked", 0}, // 2546
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsFixed, "wxAuiPaneInfo", "isFixed", 1}, // 2547
+#else
+  {NULL, "wxAuiPaneInfo", "isFixed", 0}, // 2547
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsFloatable, "wxAuiPaneInfo", "isFloatable", 1}, // 2548
+#else
+  {NULL, "wxAuiPaneInfo", "isFloatable", 0}, // 2548
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsFloating, "wxAuiPaneInfo", "isFloating", 1}, // 2549
+#else
+  {NULL, "wxAuiPaneInfo", "isFloating", 0}, // 2549
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsLeftDockable, "wxAuiPaneInfo", "isLeftDockable", 1}, // 2550
+#else
+  {NULL, "wxAuiPaneInfo", "isLeftDockable", 0}, // 2550
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsMovable, "wxAuiPaneInfo", "isMovable", 1}, // 2551
+#else
+  {NULL, "wxAuiPaneInfo", "isMovable", 0}, // 2551
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsOk, "wxAuiPaneInfo", "isOk", 1}, // 2552
+#else
+  {NULL, "wxAuiPaneInfo", "isOk", 0}, // 2552
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsResizable, "wxAuiPaneInfo", "isResizable", 1}, // 2553
+#else
+  {NULL, "wxAuiPaneInfo", "isResizable", 0}, // 2553
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsRightDockable, "wxAuiPaneInfo", "isRightDockable", 1}, // 2554
+#else
+  {NULL, "wxAuiPaneInfo", "isRightDockable", 0}, // 2554
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsShown, "wxAuiPaneInfo", "isShown", 1}, // 2555
+#else
+  {NULL, "wxAuiPaneInfo", "isShown", 0}, // 2555
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsToolbar, "wxAuiPaneInfo", "isToolbar", 1}, // 2556
+#else
+  {NULL, "wxAuiPaneInfo", "isToolbar", 0}, // 2556
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_IsTopDockable, "wxAuiPaneInfo", "isTopDockable", 1}, // 2557
+#else
+  {NULL, "wxAuiPaneInfo", "isTopDockable", 0}, // 2557
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Layer, "wxAuiPaneInfo", "layer", 2}, // 2558
+#else
+  {NULL, "wxAuiPaneInfo", "layer", 0}, // 2558
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Left, "wxAuiPaneInfo", "left", 1}, // 2559
+#else
+  {NULL, "wxAuiPaneInfo", "left", 0}, // 2559
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_LeftDockable, "wxAuiPaneInfo", "leftDockable", 2}, // 2560
+#else
+  {NULL, "wxAuiPaneInfo", "leftDockable", 0}, // 2560
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_MaxSize_1, "wxAuiPaneInfo", "maxSize", 2}, // 2561
+#else
+  {NULL, "wxAuiPaneInfo", "maxSize", 0}, // 2561
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_MaxSize_2, "wxAuiPaneInfo", "maxSize", 3}, // 2562
+#else
+  {NULL, "wxAuiPaneInfo", "maxSize", 0}, // 2562
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_MaximizeButton, "wxAuiPaneInfo", "maximizeButton", 2}, // 2563
+#else
+  {NULL, "wxAuiPaneInfo", "maximizeButton", 0}, // 2563
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_MinSize_1, "wxAuiPaneInfo", "minSize", 2}, // 2564
+#else
+  {NULL, "wxAuiPaneInfo", "minSize", 0}, // 2564
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_MinSize_2, "wxAuiPaneInfo", "minSize", 3}, // 2565
+#else
+  {NULL, "wxAuiPaneInfo", "minSize", 0}, // 2565
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_MinimizeButton, "wxAuiPaneInfo", "minimizeButton", 2}, // 2566
+#else
+  {NULL, "wxAuiPaneInfo", "minimizeButton", 0}, // 2566
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Movable, "wxAuiPaneInfo", "movable", 2}, // 2567
+#else
+  {NULL, "wxAuiPaneInfo", "movable", 0}, // 2567
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Name, "wxAuiPaneInfo", "name", 2}, // 2568
+#else
+  {NULL, "wxAuiPaneInfo", "name", 0}, // 2568
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_PaneBorder, "wxAuiPaneInfo", "paneBorder", 2}, // 2569
+#else
+  {NULL, "wxAuiPaneInfo", "paneBorder", 0}, // 2569
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_PinButton, "wxAuiPaneInfo", "pinButton", 2}, // 2570
+#else
+  {NULL, "wxAuiPaneInfo", "pinButton", 0}, // 2570
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Position, "wxAuiPaneInfo", "position", 2}, // 2571
+#else
+  {NULL, "wxAuiPaneInfo", "position", 0}, // 2571
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Resizable, "wxAuiPaneInfo", "resizable", 2}, // 2572
+#else
+  {NULL, "wxAuiPaneInfo", "resizable", 0}, // 2572
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Right, "wxAuiPaneInfo", "right", 1}, // 2573
+#else
+  {NULL, "wxAuiPaneInfo", "right", 0}, // 2573
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_RightDockable, "wxAuiPaneInfo", "rightDockable", 2}, // 2574
+#else
+  {NULL, "wxAuiPaneInfo", "rightDockable", 0}, // 2574
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Row, "wxAuiPaneInfo", "row", 2}, // 2575
+#else
+  {NULL, "wxAuiPaneInfo", "row", 0}, // 2575
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_SafeSet, "wxAuiPaneInfo", "safeSet", 2}, // 2576
+#else
+  {NULL, "wxAuiPaneInfo", "safeSet", 0}, // 2576
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_SetFlag, "wxAuiPaneInfo", "setFlag", 3}, // 2577
+#else
+  {NULL, "wxAuiPaneInfo", "setFlag", 0}, // 2577
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Show, "wxAuiPaneInfo", "show", 2}, // 2578
+#else
+  {NULL, "wxAuiPaneInfo", "show", 0}, // 2578
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_ToolbarPane, "wxAuiPaneInfo", "toolbarPane", 1}, // 2579
+#else
+  {NULL, "wxAuiPaneInfo", "toolbarPane", 0}, // 2579
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Top, "wxAuiPaneInfo", "top", 1}, // 2580
+#else
+  {NULL, "wxAuiPaneInfo", "top", 0}, // 2580
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_TopDockable, "wxAuiPaneInfo", "topDockable", 2}, // 2581
+#else
+  {NULL, "wxAuiPaneInfo", "topDockable", 0}, // 2581
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_Window, "wxAuiPaneInfo", "window", 2}, // 2582
+#else
+  {NULL, "wxAuiPaneInfo", "window", 0}, // 2582
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetWindow, "wxAuiPaneInfo", "getWindow", 1}, // 2583
+#else
+  {NULL, "wxAuiPaneInfo", "getWindow", 0}, // 2583
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetFrame, "wxAuiPaneInfo", "getFrame", 1}, // 2584
+#else
+  {NULL, "wxAuiPaneInfo", "getFrame", 0}, // 2584
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetDirection, "wxAuiPaneInfo", "getDirection", 1}, // 2585
+#else
+  {NULL, "wxAuiPaneInfo", "getDirection", 0}, // 2585
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetLayer, "wxAuiPaneInfo", "getLayer", 1}, // 2586
+#else
+  {NULL, "wxAuiPaneInfo", "getLayer", 0}, // 2586
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetRow, "wxAuiPaneInfo", "getRow", 1}, // 2587
+#else
+  {NULL, "wxAuiPaneInfo", "getRow", 0}, // 2587
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetPosition, "wxAuiPaneInfo", "getPosition", 1}, // 2588
+#else
+  {NULL, "wxAuiPaneInfo", "getPosition", 0}, // 2588
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetFloatingPosition, "wxAuiPaneInfo", "getFloatingPosition", 1}, // 2589
+#else
+  {NULL, "wxAuiPaneInfo", "getFloatingPosition", 0}, // 2589
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_GetFloatingSize, "wxAuiPaneInfo", "getFloatingSize", 1}, // 2590
+#else
+  {NULL, "wxAuiPaneInfo", "getFloatingSize", 0}, // 2590
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiPaneInfo_destroy, "wxAuiPaneInfo", "'Destroy'", 1}, // 2591
+#else
+  {NULL, "wxAuiPaneInfo", "'Destroy'", 0}, // 2591
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_new_0, "wxAuiNotebook", "new", 0}, // 2592
+#else
+  {NULL, "wxAuiNotebook", "new", 0}, // 2592
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_new_2, "wxAuiNotebook", "new", 2}, // 2593
+#else
+  {NULL, "wxAuiNotebook", "new", 0}, // 2593
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_AddPage_3, "wxAuiNotebook", "addPage", 4}, // 2594
+#else
+  {NULL, "wxAuiNotebook", "addPage", 0}, // 2594
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_AddPage_4, "wxAuiNotebook", "addPage", 5}, // 2595
+#else
+  {NULL, "wxAuiNotebook", "addPage", 0}, // 2595
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_Create_2, "wxAuiNotebook", "create", 3}, // 2596
+#else
+  {NULL, "wxAuiNotebook", "create", 0}, // 2596
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_Create_3, "wxAuiNotebook", "create", 4}, // 2597
+#else
+  {NULL, "wxAuiNotebook", "create", 0}, // 2597
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_DeletePage, "wxAuiNotebook", "deletePage", 2}, // 2598
+#else
+  {NULL, "wxAuiNotebook", "deletePage", 0}, // 2598
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_GetArtProvider, "wxAuiNotebook", "getArtProvider", 1}, // 2599
+#else
+  {NULL, "wxAuiNotebook", "getArtProvider", 0}, // 2599
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_GetPage, "wxAuiNotebook", "getPage", 2}, // 2600
+#else
+  {NULL, "wxAuiNotebook", "getPage", 0}, // 2600
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_GetPageBitmap, "wxAuiNotebook", "getPageBitmap", 2}, // 2601
+#else
+  {NULL, "wxAuiNotebook", "getPageBitmap", 0}, // 2601
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_GetPageCount, "wxAuiNotebook", "getPageCount", 1}, // 2602
+#else
+  {NULL, "wxAuiNotebook", "getPageCount", 0}, // 2602
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_GetPageIndex, "wxAuiNotebook", "getPageIndex", 2}, // 2603
+#else
+  {NULL, "wxAuiNotebook", "getPageIndex", 0}, // 2603
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_GetPageText, "wxAuiNotebook", "getPageText", 2}, // 2604
+#else
+  {NULL, "wxAuiNotebook", "getPageText", 0}, // 2604
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_GetSelection, "wxAuiNotebook", "getSelection", 1}, // 2605
+#else
+  {NULL, "wxAuiNotebook", "getSelection", 0}, // 2605
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_InsertPage_4, "wxAuiNotebook", "insertPage", 5}, // 2606
+#else
+  {NULL, "wxAuiNotebook", "insertPage", 0}, // 2606
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_InsertPage_5, "wxAuiNotebook", "insertPage", 6}, // 2607
+#else
+  {NULL, "wxAuiNotebook", "insertPage", 0}, // 2607
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_RemovePage, "wxAuiNotebook", "removePage", 2}, // 2608
+#else
+  {NULL, "wxAuiNotebook", "removePage", 0}, // 2608
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_SetArtProvider, "wxAuiNotebook", "setArtProvider", 2}, // 2609
+#else
+  {NULL, "wxAuiNotebook", "setArtProvider", 0}, // 2609
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_SetFont, "wxAuiNotebook", "setFont", 2}, // 2610
+#else
+  {NULL, "wxAuiNotebook", "setFont", 0}, // 2610
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_SetPageBitmap, "wxAuiNotebook", "setPageBitmap", 3}, // 2611
+#else
+  {NULL, "wxAuiNotebook", "setPageBitmap", 0}, // 2611
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_SetPageText, "wxAuiNotebook", "setPageText", 3}, // 2612
+#else
+  {NULL, "wxAuiNotebook", "setPageText", 0}, // 2612
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_SetSelection, "wxAuiNotebook", "setSelection", 2}, // 2613
+#else
+  {NULL, "wxAuiNotebook", "setSelection", 0}, // 2613
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_SetTabCtrlHeight, "wxAuiNotebook", "setTabCtrlHeight", 2}, // 2614
+#else
+  {NULL, "wxAuiNotebook", "setTabCtrlHeight", 0}, // 2614
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiNotebook_SetUniformBitmapSize, "wxAuiNotebook", "setUniformBitmapSize", 2}, // 2615
+#else
+  {NULL, "wxAuiNotebook", "setUniformBitmapSize", 0}, // 2615
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {NULL, "wxAuiNotebook", "'Destroy'", 1}, // 2616 obj destructor wxAuiNotebook_destroy
+#else
+  {NULL, "wxAuiNotebook", "'Destroy'", 0}, // 2616
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiTabArt_SetFlags, "wxAuiTabArt", "setFlags", 2}, // 2617
+#else
+  {NULL, "wxAuiTabArt", "setFlags", 0}, // 2617
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiTabArt_SetMeasuringFont, "wxAuiTabArt", "setMeasuringFont", 2}, // 2618
+#else
+  {NULL, "wxAuiTabArt", "setMeasuringFont", 0}, // 2618
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiTabArt_SetNormalFont, "wxAuiTabArt", "setNormalFont", 2}, // 2619
+#else
+  {NULL, "wxAuiTabArt", "setNormalFont", 0}, // 2619
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiTabArt_SetSelectedFont, "wxAuiTabArt", "setSelectedFont", 2}, // 2620
+#else
+  {NULL, "wxAuiTabArt", "setSelectedFont", 0}, // 2620
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiTabArt_SetColour, "wxAuiTabArt", "setColour", 2}, // 2621
+#else
+  {NULL, "wxAuiTabArt", "setColour", 0}, // 2621
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiTabArt_SetActiveColour, "wxAuiTabArt", "setActiveColour", 2}, // 2622
+#else
+  {NULL, "wxAuiTabArt", "setActiveColour", 0}, // 2622
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiDockArt_GetColour, "wxAuiDockArt", "getColour", 2}, // 2623
+#else
+  {NULL, "wxAuiDockArt", "getColour", 0}, // 2623
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiDockArt_GetFont, "wxAuiDockArt", "getFont", 2}, // 2624
+#else
+  {NULL, "wxAuiDockArt", "getFont", 0}, // 2624
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiDockArt_GetMetric, "wxAuiDockArt", "getMetric", 2}, // 2625
+#else
+  {NULL, "wxAuiDockArt", "getMetric", 0}, // 2625
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiDockArt_SetColour, "wxAuiDockArt", "setColour", 3}, // 2626
+#else
+  {NULL, "wxAuiDockArt", "setColour", 0}, // 2626
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiDockArt_SetFont, "wxAuiDockArt", "setFont", 3}, // 2627
+#else
+  {NULL, "wxAuiDockArt", "setFont", 0}, // 2627
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiDockArt_SetMetric, "wxAuiDockArt", "setMetric", 3}, // 2628
+#else
+  {NULL, "wxAuiDockArt", "setMetric", 0}, // 2628
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiSimpleTabArt_new, "wxAuiSimpleTabArt", "new", 0}, // 2629
+#else
+  {NULL, "wxAuiSimpleTabArt", "new", 0}, // 2629
+#endif // wxUSE_AUI
+#if wxUSE_AUI
   {wxAuiSimpleTabArt_destroy, "wxAuiSimpleTabArt", "'Destroy'", 1}, // 2630
+#else
+  {NULL, "wxAuiSimpleTabArt", "'Destroy'", 0}, // 2630
+#endif // wxUSE_AUI
   {wxMDIParentFrame_new_0, "wxMDIParentFrame", "new", 0}, // 2631
   {wxMDIParentFrame_new_4, "wxMDIParentFrame", "new", 4}, // 2632
   {NULL, "wxMDIParentFrame", "destroy", 1}, // 2633 obj destructor wxMDIParentFrame_destruct
@@ -6870,16 +8599,56 @@ wxe_fns_t wxe_fns[] =
   {wxLocale_IsLoaded, "wxLocale", "isLoaded", 2}, // 3501
   {wxLocale_IsOk, "wxLocale", "isOk", 1}, // 3502
   {wxActivateEvent_GetActive, "wxActivateEvent", "getActive", 1}, // 3503
+#if wxUSE_POPUPWIN
   {wxPopupWindow_new_0, "wxPopupWindow", "new", 0}, // 3504
+#else
+  {NULL, "wxPopupWindow", "new", 0}, // 3504
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {wxPopupWindow_new_2, "wxPopupWindow", "new", 2}, // 3505
+#else
+  {NULL, "wxPopupWindow", "new", 0}, // 3505
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {wxPopupWindow_Create, "wxPopupWindow", "create", 3}, // 3506
+#else
+  {NULL, "wxPopupWindow", "create", 0}, // 3506
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {wxPopupWindow_Position, "wxPopupWindow", "position", 3}, // 3507
+#else
+  {NULL, "wxPopupWindow", "position", 0}, // 3507
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {NULL, "wxPopupWindow", "'Destroy'", 1}, // 3508 obj destructor wxPopupWindow_destroy
+#else
+  {NULL, "wxPopupWindow", "'Destroy'", 0}, // 3508
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {wxPopupTransientWindow_new_0, "wxPopupTransientWindow", "new", 0}, // 3509
+#else
+  {NULL, "wxPopupTransientWindow", "new", 0}, // 3509
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {wxPopupTransientWindow_new_2, "wxPopupTransientWindow", "new", 2}, // 3510
+#else
+  {NULL, "wxPopupTransientWindow", "new", 0}, // 3510
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {wxPopupTransientWindow_Popup, "wxPopupTransientWindow", "popup", 2}, // 3511
+#else
+  {NULL, "wxPopupTransientWindow", "popup", 0}, // 3511
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {wxPopupTransientWindow_Dismiss, "wxPopupTransientWindow", "dismiss", 1}, // 3512
+#else
+  {NULL, "wxPopupTransientWindow", "dismiss", 0}, // 3512
+#endif // wxUSE_POPUPWIN
+#if wxUSE_POPUPWIN
   {NULL, "wxPopupTransientWindow", "'Destroy'", 1}, // 3513 obj destructor wxPopupTransientWindow_destroy
+#else
+  {NULL, "wxPopupTransientWindow", "'Destroy'", 0}, // 3513
+#endif // wxUSE_POPUPWIN
   {wxOverlay_new, "wxOverlay", "new", 0}, // 3514
   {wxOverlay_destruct, "wxOverlay", "destroy", 1}, // 3515
   {wxOverlay_Reset, "wxOverlay", "reset", 1}, // 3516
@@ -6890,34 +8659,98 @@ wxe_fns_t wxe_fns[] =
   {wxDropFilesEvent_GetPosition, "wxDropFilesEvent", "getPosition", 1}, // 3521
   {wxDropFilesEvent_GetNumberOfFiles, "wxDropFilesEvent", "getNumberOfFiles", 1}, // 3522
   {wxDropFilesEvent_GetFiles, "wxDropFilesEvent", "getFiles", 1}, // 3523
+#if wxUSE_DISPLAY
   {wxDisplay_new_0, "wxDisplay", "new", 0}, // 3524
+#else
+  {NULL, "wxDisplay", "new", 0}, // 3524
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_new_1_0, "wxDisplay", "new", 1}, // 3525
-#if wxCHECK_VERSION(3,1,3)
+#else
+  {NULL, "wxDisplay", "new", 0}, // 3525
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY && wxCHECK_VERSION(3,1,3)
   {wxDisplay_new_1_1, "wxDisplay", "new", 1}, // 3526
 #else
   {NULL, "wxDisplay", "new", 0}, // 3526
-#endif
+#endif // wxUSE_DISPLAY && wxCHECK_VERSION(3,1,3)
+#if wxUSE_DISPLAY
   {wxDisplay_destruct, "wxDisplay", "destroy", 1}, // 3527
+#else
+  {NULL, "wxDisplay", "destroy", 0}, // 3527
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_IsOk, "wxDisplay", "isOk", 1}, // 3528
+#else
+  {NULL, "wxDisplay", "isOk", 0}, // 3528
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_GetClientArea, "wxDisplay", "getClientArea", 1}, // 3529
+#else
+  {NULL, "wxDisplay", "getClientArea", 0}, // 3529
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_GetGeometry, "wxDisplay", "getGeometry", 1}, // 3530
+#else
+  {NULL, "wxDisplay", "getGeometry", 0}, // 3530
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_GetName, "wxDisplay", "getName", 1}, // 3531
+#else
+  {NULL, "wxDisplay", "getName", 0}, // 3531
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_IsPrimary, "wxDisplay", "isPrimary", 1}, // 3532
+#else
+  {NULL, "wxDisplay", "isPrimary", 0}, // 3532
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_GetCount, "wxDisplay", "getCount", 0}, // 3533
+#else
+  {NULL, "wxDisplay", "getCount", 0}, // 3533
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_GetFromPoint, "wxDisplay", "getFromPoint", 1}, // 3534
+#else
+  {NULL, "wxDisplay", "getFromPoint", 0}, // 3534
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
   {wxDisplay_GetFromWindow, "wxDisplay", "getFromWindow", 1}, // 3535
-#if wxCHECK_VERSION(3,1,2)
+#else
+  {NULL, "wxDisplay", "getFromWindow", 0}, // 3535
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY && wxCHECK_VERSION(3,1,2)
   {wxDisplay_GetPPI, "wxDisplay", "getPPI", 1}, // 3536
 #else
   {NULL, "wxDisplay", "getPPI", 0}, // 3536
-#endif
+#endif // wxUSE_DISPLAY && wxCHECK_VERSION(3,1,2)
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGCDC_new_1, "wxGCDC", "new", 1}, // 3537
+#else
+  {NULL, "wxGCDC", "new", 0}, // 3537
+#endif // wxUSE_GRAPHICS_CONTEXT
   {NULL, "", "", 0}, // 3538
   {NULL, "", "", 0}, // 3539
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGCDC_new_0, "wxGCDC", "new", 0}, // 3540
+#else
+  {NULL, "wxGCDC", "new", 0}, // 3540
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {NULL, "wxGCDC", "destroy", 1}, // 3541 obj destructor wxGCDC_destruct
+#else
+  {NULL, "wxGCDC", "destroy", 0}, // 3541
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGCDC_GetGraphicsContext, "wxGCDC", "getGraphicsContext", 1}, // 3542
+#else
+  {NULL, "wxGCDC", "getGraphicsContext", 0}, // 3542
+#endif // wxUSE_GRAPHICS_CONTEXT
+#if wxUSE_GRAPHICS_CONTEXT
   {wxGCDC_SetGraphicsContext, "wxGCDC", "setGraphicsContext", 2}, // 3543
+#else
+  {NULL, "wxGCDC", "setGraphicsContext", 0}, // 3543
+#endif // wxUSE_GRAPHICS_CONTEXT
   {wxNotificationMessage_new_0, "wxNotificationMessage", "new", 0}, // 3544
   {wxNotificationMessage_new_2, "wxNotificationMessage", "new", 2}, // 3545
   {NULL, "wxNotificationMessage", "destroy", 1}, // 3546 obj destructor wxNotificationMessage_destruct
@@ -6925,16 +8758,272 @@ wxe_fns_t wxe_fns[] =
   {wxNotificationMessage_AddAction, "wxNotificationMessage", "addAction", 3}, // 3547
 #else
   {NULL, "wxNotificationMessage", "addAction", 0}, // 3547
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
   {wxNotificationMessage_Close, "wxNotificationMessage", "close", 1}, // 3548
   {wxNotificationMessage_SetFlags, "wxNotificationMessage", "setFlags", 2}, // 3549
 #if wxCHECK_VERSION(3,1,0)
   {wxNotificationMessage_SetIcon, "wxNotificationMessage", "setIcon", 2}, // 3550
 #else
   {NULL, "wxNotificationMessage", "setIcon", 0}, // 3550
-#endif
+#endif // wxCHECK_VERSION(3,1,0)
   {wxNotificationMessage_SetMessage, "wxNotificationMessage", "setMessage", 2}, // 3551
   {wxNotificationMessage_SetParent, "wxNotificationMessage", "setParent", 2}, // 3552
   {wxNotificationMessage_SetTitle, "wxNotificationMessage", "setTitle", 2}, // 3553
   {wxNotificationMessage_Show, "wxNotificationMessage", "show", 2}, // 3554
+  {NULL, "", "", 0}, // 3555
+#if WXE_WEBVIEW
+  {wxWebView_New, "wxWebView", "new", 3}, // 3556
+#else
+  {NULL, "wxWebView", "new", 0}, // 3556
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetCurrentTitle, "wxWebView", "getCurrentTitle", 1}, // 3557
+#else
+  {NULL, "wxWebView", "getCurrentTitle", 0}, // 3557
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetCurrentURL, "wxWebView", "getCurrentURL", 1}, // 3558
+#else
+  {NULL, "wxWebView", "getCurrentURL", 0}, // 3558
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetPageSource, "wxWebView", "getPageSource", 1}, // 3559
+#else
+  {NULL, "wxWebView", "getPageSource", 0}, // 3559
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetPageText, "wxWebView", "getPageText", 1}, // 3560
+#else
+  {NULL, "wxWebView", "getPageText", 0}, // 3560
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_IsBusy, "wxWebView", "isBusy", 1}, // 3561
+#else
+  {NULL, "wxWebView", "isBusy", 0}, // 3561
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_IsEditable, "wxWebView", "isEditable", 1}, // 3562
+#else
+  {NULL, "wxWebView", "isEditable", 0}, // 3562
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_LoadURL, "wxWebView", "loadURL", 2}, // 3563
+#else
+  {NULL, "wxWebView", "loadURL", 0}, // 3563
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Print, "wxWebView", "print", 1}, // 3564
+#else
+  {NULL, "wxWebView", "print", 0}, // 3564
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Reload, "wxWebView", "reload", 2}, // 3565
+#else
+  {NULL, "wxWebView", "reload", 0}, // 3565
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
+  {wxWebView_RunScript, "wxWebView", "runScript", 2}, // 3566
+#else
+  {NULL, "wxWebView", "runScript", 0}, // 3566
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
+#if WXE_WEBVIEW
+  {wxWebView_SetEditable, "wxWebView", "setEditable", 2}, // 3567
+#else
+  {NULL, "wxWebView", "setEditable", 0}, // 3567
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_SetPage, "wxWebView", "setPage", 3}, // 3568
+#else
+  {NULL, "wxWebView", "setPage", 0}, // 3568
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Stop, "wxWebView", "stop", 1}, // 3569
+#else
+  {NULL, "wxWebView", "stop", 0}, // 3569
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanCopy, "wxWebView", "canCopy", 1}, // 3570
+#else
+  {NULL, "wxWebView", "canCopy", 0}, // 3570
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanCut, "wxWebView", "canCut", 1}, // 3571
+#else
+  {NULL, "wxWebView", "canCut", 0}, // 3571
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanPaste, "wxWebView", "canPaste", 1}, // 3572
+#else
+  {NULL, "wxWebView", "canPaste", 0}, // 3572
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Copy, "wxWebView", "copy", 1}, // 3573
+#else
+  {NULL, "wxWebView", "copy", 0}, // 3573
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Cut, "wxWebView", "cut", 1}, // 3574
+#else
+  {NULL, "wxWebView", "cut", 0}, // 3574
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Paste, "wxWebView", "paste", 1}, // 3575
+#else
+  {NULL, "wxWebView", "paste", 0}, // 3575
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_EnableContextMenu, "wxWebView", "enableContextMenu", 2}, // 3576
+#else
+  {NULL, "wxWebView", "enableContextMenu", 0}, // 3576
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_IsContextMenuEnabled, "wxWebView", "isContextMenuEnabled", 1}, // 3577
+#else
+  {NULL, "wxWebView", "isContextMenuEnabled", 0}, // 3577
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanGoBack, "wxWebView", "canGoBack", 1}, // 3578
+#else
+  {NULL, "wxWebView", "canGoBack", 0}, // 3578
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanGoForward, "wxWebView", "canGoForward", 1}, // 3579
+#else
+  {NULL, "wxWebView", "canGoForward", 0}, // 3579
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_ClearHistory, "wxWebView", "clearHistory", 1}, // 3580
+#else
+  {NULL, "wxWebView", "clearHistory", 0}, // 3580
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_EnableHistory, "wxWebView", "enableHistory", 2}, // 3581
+#else
+  {NULL, "wxWebView", "enableHistory", 0}, // 3581
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GoBack, "wxWebView", "goBack", 1}, // 3582
+#else
+  {NULL, "wxWebView", "goBack", 0}, // 3582
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GoForward, "wxWebView", "goForward", 1}, // 3583
+#else
+  {NULL, "wxWebView", "goForward", 0}, // 3583
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_ClearSelection, "wxWebView", "clearSelection", 1}, // 3584
+#else
+  {NULL, "wxWebView", "clearSelection", 0}, // 3584
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_DeleteSelection, "wxWebView", "deleteSelection", 1}, // 3585
+#else
+  {NULL, "wxWebView", "deleteSelection", 0}, // 3585
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetSelectedSource, "wxWebView", "getSelectedSource", 1}, // 3586
+#else
+  {NULL, "wxWebView", "getSelectedSource", 0}, // 3586
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetSelectedText, "wxWebView", "getSelectedText", 1}, // 3587
+#else
+  {NULL, "wxWebView", "getSelectedText", 0}, // 3587
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_HasSelection, "wxWebView", "hasSelection", 1}, // 3588
+#else
+  {NULL, "wxWebView", "hasSelection", 0}, // 3588
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_SelectAll, "wxWebView", "selectAll", 1}, // 3589
+#else
+  {NULL, "wxWebView", "selectAll", 0}, // 3589
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanRedo, "wxWebView", "canRedo", 1}, // 3590
+#else
+  {NULL, "wxWebView", "canRedo", 0}, // 3590
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanUndo, "wxWebView", "canUndo", 1}, // 3591
+#else
+  {NULL, "wxWebView", "canUndo", 0}, // 3591
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Redo, "wxWebView", "redo", 1}, // 3592
+#else
+  {NULL, "wxWebView", "redo", 0}, // 3592
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Undo, "wxWebView", "undo", 1}, // 3593
+#else
+  {NULL, "wxWebView", "undo", 0}, // 3593
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_Find, "wxWebView", "find", 3}, // 3594
+#else
+  {NULL, "wxWebView", "find", 0}, // 3594
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_CanSetZoomType, "wxWebView", "canSetZoomType", 2}, // 3595
+#else
+  {NULL, "wxWebView", "canSetZoomType", 0}, // 3595
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetZoom, "wxWebView", "getZoom", 1}, // 3596
+#else
+  {NULL, "wxWebView", "getZoom", 0}, // 3596
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_GetZoomType, "wxWebView", "getZoomType", 1}, // 3597
+#else
+  {NULL, "wxWebView", "getZoomType", 0}, // 3597
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_SetZoom, "wxWebView", "setZoom", 2}, // 3598
+#else
+  {NULL, "wxWebView", "setZoom", 0}, // 3598
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebView_SetZoomType, "wxWebView", "setZoomType", 2}, // 3599
+#else
+  {NULL, "wxWebView", "setZoomType", 0}, // 3599
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+  {wxWebView_GetZoomFactor, "wxWebView", "getZoomFactor", 1}, // 3600
+#else
+  {NULL, "wxWebView", "getZoomFactor", 0}, // 3600
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+  {wxWebView_SetZoomFactor, "wxWebView", "setZoomFactor", 2}, // 3601
+#else
+  {NULL, "wxWebView", "setZoomFactor", 0}, // 3601
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+#if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+  {wxWebView_IsBackendAvailable, "wxWebView", "isBackendAvailable", 1}, // 3602
+#else
+  {NULL, "wxWebView", "isBackendAvailable", 0}, // 3602
+#endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
+#if WXE_WEBVIEW
+  {wxWebViewEvent_GetString, "wxWebViewEvent", "getString", 1}, // 3603
+#else
+  {NULL, "wxWebViewEvent", "getString", 0}, // 3603
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebViewEvent_GetInt, "wxWebViewEvent", "getInt", 1}, // 3604
+#else
+  {NULL, "wxWebViewEvent", "getInt", 0}, // 3604
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebViewEvent_GetTarget, "wxWebViewEvent", "getTarget", 1}, // 3605
+#else
+  {NULL, "wxWebViewEvent", "getTarget", 0}, // 3605
+#endif // WXE_WEBVIEW
+#if WXE_WEBVIEW
+  {wxWebViewEvent_GetURL, "wxWebViewEvent", "getURL", 1}, // 3606
+#else
+  {NULL, "wxWebViewEvent", "getURL", 0}, // 3606
+#endif // WXE_WEBVIEW
 };

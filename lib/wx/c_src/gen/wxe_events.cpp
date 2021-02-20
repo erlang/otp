@@ -323,6 +323,24 @@ void initEventTable()
      {wxEVT_HIBERNATE, 235, "hibernate", "wxActivateEvent", "wxActivate"},
      {wxEVT_MOUSE_CAPTURE_LOST, 238, "mouse_capture_lost", "wxMouseCaptureLostEvent", "wxMouseCaptureLost"},
      {wxEVT_DROP_FILES, 241, "drop_files", "wxDropFilesEvent", "wxDropFiles"},
+#if WXE_WEBVIEW
+     {wxEVT_WEBVIEW_NAVIGATING, 246, "webview_navigating", "wxWebViewEvent", "wxWebView"},
+#endif
+#if WXE_WEBVIEW
+     {wxEVT_WEBVIEW_NAVIGATED, 246, "webview_navigated", "wxWebViewEvent", "wxWebView"},
+#endif
+#if WXE_WEBVIEW
+     {wxEVT_WEBVIEW_LOADED, 246, "webview_loaded", "wxWebViewEvent", "wxWebView"},
+#endif
+#if WXE_WEBVIEW
+     {wxEVT_WEBVIEW_ERROR, 246, "webview_error", "wxWebViewEvent", "wxWebView"},
+#endif
+#if WXE_WEBVIEW
+     {wxEVT_WEBVIEW_NEWWINDOW, 246, "webview_newwindow", "wxWebViewEvent", "wxWebView"},
+#endif
+#if WXE_WEBVIEW
+     {wxEVT_WEBVIEW_TITLE_CHANGED, 246, "webview_title_changed", "wxWebViewEvent", "wxWebView"},
+#endif
      {-1, 0, "", "", ""}
   };
 
@@ -852,6 +870,20 @@ bool sendevent(wxEvent *event, wxeMemEnv *memenv)
 );
     break;
   }
+#if WXE_WEBVIEW
+  case 246: {// wxWebViewEvent
+    wxWebViewEvent * ev = (wxWebViewEvent *) event;
+    ev_term = enif_make_tuple6(rt.env,
+        Etype->evRecord,
+        Etype->evName,
+        rt.make(ev->GetString()),
+        rt.make_int(ev->GetInt()),
+        rt.make(ev->GetTarget()),
+        rt.make(ev->GetURL()));
+    break;
+  }
+#endif // "WXE_WEBVIEW"
+
   }
 
   ERL_NIF_TERM wx_ev =

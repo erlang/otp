@@ -28,6 +28,830 @@
 #include "wxe_macros.h"
 #include "wxe_derived_dest.h"
 
+#if WXE_WEBVIEW
+// wxWebView::New
+void wxWebView_New(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxString url= wxWebViewDefaultURLStr;
+  wxPoint pos= wxDefaultPosition;
+  wxSize size= wxDefaultSize;
+  wxString backend= wxWebViewBackendDefault;
+  long style=0;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWindow *parent;
+  parent = (wxWindow *) memenv->getPtr(env, argv[0], "parent");
+  int id;
+  if(!enif_get_int(env, argv[1], &id)) Badarg("id"); // wxWindowID
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[2];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "url"))) {
+  ErlNifBinary url_bin;
+  if(!enif_inspect_binary(env, tpl[1], &url_bin)) Badarg("url");
+  url = wxString(url_bin.data, wxConvUTF8, url_bin.size);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "pos"))) {
+  const ERL_NIF_TERM *pos_t;
+  int pos_sz;
+  if(!enif_get_tuple(env, tpl[1], &pos_sz, &pos_t)) Badarg("pos");
+  int posX;
+  if(!enif_get_int(env, pos_t[0], &posX)) Badarg("pos");
+  int posY;
+  if(!enif_get_int(env, pos_t[1], &posY)) Badarg("pos");
+  pos = wxPoint(posX,posY);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "size"))) {
+  const ERL_NIF_TERM *size_t;
+  int size_sz;
+  if(!enif_get_tuple(env, tpl[1], &size_sz, &size_t)) Badarg("size");
+  int sizeW;
+  if(!enif_get_int(env, size_t[0], &sizeW)) Badarg("size");
+  int sizeH;
+  if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
+  size = wxSize(sizeW,sizeH);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "backend"))) {
+  ErlNifBinary backend_bin;
+  if(!enif_inspect_binary(env, tpl[1], &backend_bin)) Badarg("backend");
+  backend = wxString(backend_bin.data, wxConvUTF8, backend_bin.size);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "style"))) {
+  if(!enif_get_long(env, tpl[1], &style)) Badarg("style");
+    } else        Badarg("Options");
+  };
+  wxWebView * Result = (wxWebView*)wxWebView::New(parent,id,url,pos,size,backend,style);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxWebView"));
+
+}
+
+// wxWebView::GetCurrentTitle
+void wxWebView_GetCurrentTitle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  wxString Result = This->GetCurrentTitle();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebView::GetCurrentURL
+void wxWebView_GetCurrentURL(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  wxString Result = This->GetCurrentURL();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebView::GetPageSource
+void wxWebView_GetPageSource(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  wxString Result = This->GetPageSource();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebView::GetPageText
+void wxWebView_GetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  wxString Result = This->GetPageText();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebView::IsBusy
+void wxWebView_IsBusy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->IsBusy();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::IsEditable
+void wxWebView_IsEditable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->IsEditable();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::LoadURL
+void wxWebView_LoadURL(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ErlNifBinary url_bin;
+  wxString url;
+  if(!enif_inspect_binary(env, argv[1], &url_bin)) Badarg("url");
+  url = wxString(url_bin.data, wxConvUTF8, url_bin.size);
+  if(!This) throw wxe_badarg("This");
+  This->LoadURL(url);
+
+}
+
+// wxWebView::Print
+void wxWebView_Print(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->Print();
+
+}
+
+// wxWebView::Reload
+void wxWebView_Reload(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+ wxWebViewReloadFlags flags=wxWEBVIEW_RELOAD_DEFAULT;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[1];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "flags"))) {
+  if(!enif_get_int(env, tpl[1], (int *) &flags)) Badarg("flags"); // enum
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  This->Reload(flags);
+
+}
+
+#if wxCHECK_VERSION(3,1,1)
+// wxWebView::RunScript
+void wxWebView_RunScript(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxString output;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ErlNifBinary javascript_bin;
+  wxString javascript;
+  if(!enif_inspect_binary(env, argv[1], &javascript_bin)) Badarg("javascript");
+  javascript = wxString(javascript_bin.data, wxConvUTF8, javascript_bin.size);
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->RunScript(javascript,&output);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  ERL_NIF_TERM msg = enif_make_tuple2(rt.env,
+  rt.make_bool(Result),
+    rt.make(output));
+  rt.send(msg);
+
+}
+
+#endif
+// wxWebView::SetEditable
+void wxWebView_SetEditable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  bool enable=true;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[1];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "enable"))) {
+  enable = enif_is_identical(tpl[1], WXE_ATOM_true);
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  This->SetEditable(enable);
+
+}
+
+// wxWebView::SetPage
+void wxWebView_SetPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ErlNifBinary html_bin;
+  wxString html;
+  if(!enif_inspect_binary(env, argv[1], &html_bin)) Badarg("html");
+  html = wxString(html_bin.data, wxConvUTF8, html_bin.size);
+  ErlNifBinary baseUrl_bin;
+  wxString baseUrl;
+  if(!enif_inspect_binary(env, argv[2], &baseUrl_bin)) Badarg("baseUrl");
+  baseUrl = wxString(baseUrl_bin.data, wxConvUTF8, baseUrl_bin.size);
+  if(!This) throw wxe_badarg("This");
+  This->SetPage(html,baseUrl);
+
+}
+
+// wxWebView::Stop
+void wxWebView_Stop(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->Stop();
+
+}
+
+// wxWebView::CanCopy
+void wxWebView_CanCopy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanCopy();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::CanCut
+void wxWebView_CanCut(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanCut();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::CanPaste
+void wxWebView_CanPaste(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanPaste();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::Copy
+void wxWebView_Copy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->Copy();
+
+}
+
+// wxWebView::Cut
+void wxWebView_Cut(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->Cut();
+
+}
+
+// wxWebView::Paste
+void wxWebView_Paste(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->Paste();
+
+}
+
+// wxWebView::EnableContextMenu
+void wxWebView_EnableContextMenu(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  bool enable=true;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[1];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "enable"))) {
+  enable = enif_is_identical(tpl[1], WXE_ATOM_true);
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  This->EnableContextMenu(enable);
+
+}
+
+// wxWebView::IsContextMenuEnabled
+void wxWebView_IsContextMenuEnabled(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->IsContextMenuEnabled();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::CanGoBack
+void wxWebView_CanGoBack(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanGoBack();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::CanGoForward
+void wxWebView_CanGoForward(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanGoForward();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::ClearHistory
+void wxWebView_ClearHistory(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->ClearHistory();
+
+}
+
+// wxWebView::EnableHistory
+void wxWebView_EnableHistory(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  bool enable=true;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[1];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "enable"))) {
+  enable = enif_is_identical(tpl[1], WXE_ATOM_true);
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  This->EnableHistory(enable);
+
+}
+
+// wxWebView::GoBack
+void wxWebView_GoBack(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->GoBack();
+
+}
+
+// wxWebView::GoForward
+void wxWebView_GoForward(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->GoForward();
+
+}
+
+// wxWebView::ClearSelection
+void wxWebView_ClearSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->ClearSelection();
+
+}
+
+// wxWebView::DeleteSelection
+void wxWebView_DeleteSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->DeleteSelection();
+
+}
+
+// wxWebView::GetSelectedSource
+void wxWebView_GetSelectedSource(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  wxString Result = This->GetSelectedSource();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebView::GetSelectedText
+void wxWebView_GetSelectedText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  wxString Result = This->GetSelectedText();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebView::HasSelection
+void wxWebView_HasSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->HasSelection();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::SelectAll
+void wxWebView_SelectAll(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->SelectAll();
+
+}
+
+// wxWebView::CanRedo
+void wxWebView_CanRedo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanRedo();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::CanUndo
+void wxWebView_CanUndo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanUndo();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::Redo
+void wxWebView_Redo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->Redo();
+
+}
+
+// wxWebView::Undo
+void wxWebView_Undo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  This->Undo();
+
+}
+
+// wxWebView::Find
+void wxWebView_Find(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+ wxWebViewFindFlags flags=wxWEBVIEW_FIND_DEFAULT;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  ErlNifBinary text_bin;
+  wxString text;
+  if(!enif_inspect_binary(env, argv[1], &text_bin)) Badarg("text");
+  text = wxString(text_bin.data, wxConvUTF8, text_bin.size);
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[2];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "flags"))) {
+  if(!enif_get_int(env, tpl[1], (int *) &flags)) Badarg("flags"); // enum
+    } else        Badarg("Options");
+  };
+  if(!This) throw wxe_badarg("This");
+  long Result = This->Find(text,flags);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
+// wxWebView::CanSetZoomType
+void wxWebView_CanSetZoomType(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  wxWebViewZoomType type;
+  if(!enif_get_int(env, argv[1], (int *) &type)) Badarg("type"); // enum
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->CanSetZoomType(type);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxWebView::GetZoom
+void wxWebView_GetZoom(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  int Result = This->GetZoom();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
+// wxWebView::GetZoomType
+void wxWebView_GetZoomType(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  int Result = This->GetZoomType();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
+// wxWebView::SetZoom
+void wxWebView_SetZoom(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  wxWebViewZoom zoom;
+  if(!enif_get_int(env, argv[1], (int *) &zoom)) Badarg("zoom"); // enum
+  if(!This) throw wxe_badarg("This");
+  This->SetZoom(zoom);
+
+}
+
+// wxWebView::SetZoomType
+void wxWebView_SetZoomType(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  wxWebViewZoomType zoomType;
+  if(!enif_get_int(env, argv[1], (int *) &zoomType)) Badarg("zoomType"); // enum
+  if(!This) throw wxe_badarg("This");
+  This->SetZoomType(zoomType);
+
+}
+
+#if wxCHECK_VERSION(3,1,4)
+// wxWebView::GetZoomFactor
+void wxWebView_GetZoomFactor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  float Result = This->GetZoomFactor();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_double(Result));
+
+}
+
+#endif
+#if wxCHECK_VERSION(3,1,4)
+// wxWebView::SetZoomFactor
+void wxWebView_SetZoomFactor(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebView *This;
+  This = (wxWebView *) memenv->getPtr(env, argv[0], "This");
+  float zoom;
+  if(!wxe_get_float(env, argv[1], &zoom)) Badarg("zoom");
+  if(!This) throw wxe_badarg("This");
+  This->SetZoomFactor(zoom);
+
+}
+
+#endif
+#if wxCHECK_VERSION(3,1,4)
+// wxWebView::IsBackendAvailable
+void wxWebView_IsBackendAvailable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  ErlNifBinary backend_bin;
+  wxString backend;
+  if(!enif_inspect_binary(env, argv[0], &backend_bin)) Badarg("backend");
+  backend = wxString(backend_bin.data, wxConvUTF8, backend_bin.size);
+  bool Result = wxWebView::IsBackendAvailable(backend);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+#endif
+#endif // "WXE_WEBVIEW"
+#if WXE_WEBVIEW
+// wxWebViewEvent::GetString
+void wxWebViewEvent_GetString(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebViewEvent *This;
+  This = (wxWebViewEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  wxString Result = This->GetString();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebViewEvent::GetInt
+void wxWebViewEvent_GetInt(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebViewEvent *This;
+  This = (wxWebViewEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  int Result = This->GetInt();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
+// wxWebViewEvent::GetTarget
+void wxWebViewEvent_GetTarget(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebViewEvent *This;
+  This = (wxWebViewEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  const wxString Result = This->GetTarget();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxWebViewEvent::GetURL
+void wxWebViewEvent_GetURL(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxWebViewEvent *This;
+  This = (wxWebViewEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  const wxString Result = This->GetURL();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+#endif // "WXE_WEBVIEW"
 // wxWindow::wxWindow
 void wxWindow_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
