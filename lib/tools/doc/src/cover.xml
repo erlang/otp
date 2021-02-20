@@ -217,9 +217,10 @@
 	<v>ModFiles = ModFile | [ModFile]</v>
         <v>ModFile = Module | BeamFile</v>
         <v>&nbsp;Module = atom()</v>
+        <v>&nbsp;BackendModule = atom()</v>
         <v>&nbsp;BeamFile = string()</v>
         <v>Result = {ok,Module} | {error,BeamFile} | {error,Reason}</v>
-        <v>&nbsp;Reason = non_existing | {no_abstract_code,BeamFile} | {encrypted_abstract_code,BeamFile} | {already_cover_compiled,no_beam_found,Module} | not_main_node</v>
+        <v>&nbsp;Reason = non_existing | {no_abstract_code,BeamFile} | {{missing_backend,BackendModule},BeamFile} | {encrypted_abstract_code,BeamFile} | {already_cover_compiled,no_beam_found,Module} | not_main_node</v>
       </type>
       <desc>
         <p>Does the same as <c>compile/1,2</c>, but uses an existing

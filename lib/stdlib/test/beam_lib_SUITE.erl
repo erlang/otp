@@ -36,7 +36,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, strip_add_chunks/1, otp_6711/1,
-         building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
+         building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1,
+         missing_debug_info_backend/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -46,7 +47,7 @@ suite() ->
 
 all() -> 
     [error, normal, cmp, cmp_literals, strip, strip_add_chunks, otp_6711,
-     building, md5, encrypted_abstr, encrypted_abstr_file].
+     building, md5, encrypted_abstr, encrypted_abstr_file, missing_debug_info_backend].
 
 groups() -> 
     [].
@@ -774,6 +775,29 @@ write_crypt_file(Contents0) ->
     Contents = list_to_binary([Contents0]),
     io:format("~s\n", [binary_to_list(Contents)]),
     ok = file:write_file(".erlang.crypt", Contents).
+
+%% GH-4353: Don't crash when the backend for generating the abstract code
+%% is missing.
+missing_debug_info_backend(Conf) ->
+    PrivDir = ?privdir,
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source),
+
+    %% Create a debug_info chunk with a non-existing backend.
+    {ok,simple} = compile:file(Source, [{outdir,PrivDir}]),
+    {ok,simple,All0} = beam_lib:all_chunks(BeamFile),
+    FakeBackend = definitely__not__an__existing__backend,
+    FakeDebugInfo = {debug_info_v1, FakeBackend, nothing_here},
+    All = lists:keyreplace("Dbgi", 1, All0, {"Dbgi", term_to_binary(FakeDebugInfo)}),
+    {ok,NewBeam} = beam_lib:build_module(All),
+    ok = file:write_file(BeamFile, NewBeam),
+
+    %% beam_lib should not crash, but return an error.
+    verify(missing_backend, beam_lib:chunks(BeamFile, [abstract_code])),
+
+    ok.
 
 compare_chunks(File1, File2, ChunkIds) ->
     {ok, {_, Chunks1}} = beam_lib:chunks(File1, ChunkIds),
