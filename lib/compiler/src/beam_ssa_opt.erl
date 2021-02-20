@@ -1299,7 +1299,7 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},sets:union(sets:from_list(Vs, [{version, 2}]), Live0)} ||
+                    PhiLive = [{{L,P},list_set_union(Vs, Live0)} ||
                                   {P,Vs} <- PhiLive0],
                     maps:merge(LiveMap, maps:from_list(PhiLive));
                 [] ->
@@ -1309,7 +1309,7 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
     end.
 
 live_opt_blk(#b_blk{is=Is0,last=Last}=Blk, Live0) ->
-    Live1 = sets:union(Live0, sets:from_list(beam_ssa:used(Last), [{version, 2}])),
+    Live1 = list_set_union(beam_ssa:used(Last), Live0),
     {Is,Live} = live_opt_is(reverse(Is0), Live1, []),
     {Blk#b_blk{is=Is},Live}.
 
@@ -1359,8 +1359,7 @@ live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
 live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
     case sets:is_element(Dst, Live0) of
         true ->
-            LiveUsed = sets:from_list(beam_ssa:used(I), [{version, 2}]),
-            Live1 = sets:union(Live0, LiveUsed),
+            Live1 = list_set_union(beam_ssa:used(I), Live0),
             Live = sets:del_element(Dst, Live1),
             live_opt_is(Is, Live, [I|Acc]);
         false ->
@@ -1368,8 +1367,7 @@ live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
                 true ->
                     live_opt_is(Is, Live0, Acc);
                 false ->
-                    LiveUsed = sets:from_list(beam_ssa:used(I), [{version, 2}]),
-                    Live = sets:union(Live0, LiveUsed),
+                    Live = list_set_union(beam_ssa:used(I), Live0),
                     live_opt_is(Is, Live, [I|Acc])
             end
     end;
@@ -1444,8 +1442,7 @@ do_reduce_try([{L, Blk} | Bs]=Bs0, Ws0) ->
                     %% This block does not execute any instructions
                     %% that would require a try. Analyze successors.
                     Successors = beam_ssa:successors(Blk),
-                    Ws = sets:union(sets:from_list(Successors, [{version, 2}]),
-                                         Ws1),
+                    Ws = list_set_union(Successors, Ws1),
                     [{L, Blk#b_blk{is=Is}} | do_reduce_try(Bs, Ws)];
                 unsafe ->
                     %% There is something unsafe in the block, for
@@ -3055,6 +3052,13 @@ is_tail_call_is([], _Bool, _Ret, _Acc) -> no.
 %%%
 %%% Common utilities.
 %%%
+
+list_set_union([], Set) ->
+    Set;
+list_set_union([E], Set) ->
+    sets:add_element(E, Set);
+list_set_union(List, Set) ->
+    sets:union(sets:from_list(List, [{version, 2}]), Set).
 
 non_guards(Linear) ->
     gb_sets:from_list(non_guards_1(Linear)).
