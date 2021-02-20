@@ -326,11 +326,11 @@ vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) -
       Labels :: list(beam_ssa:label()),
       From :: beam_ssa:label(),
       State :: #vvars{}.
-vvars_terminator_1(Labels0, From, State0) ->
+vvars_terminator_1(Labels0, From, #vvars{branches=Branches}=State0) ->
     %% Filter out all branches that have already been taken. This should result
     %% in either all of Labels0 or an empty list.
     Labels = [To || To <- Labels0,
-                    not maps:is_key({From, To}, State0#vvars.branches)],
+                    not maps:is_key({From, To}, Branches)],
     true = Labels =:= Labels0 orelse Labels =:= [], %Assertion
     State1 = foldl(fun(To, State) ->
                            vvars_save_branch(From, To, State)
