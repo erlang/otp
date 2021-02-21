@@ -837,6 +837,7 @@ missing_debug_info_backend(Conf) ->
 
     %% beam_lib should not crash, but return an error.
     verify(missing_backend, beam_lib:chunks(BeamFile, [abstract_code])),
+    file:delete(BeamFile),
 
     ok.
 
