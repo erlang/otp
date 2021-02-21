@@ -431,7 +431,17 @@ head(Config) when is_list(Config) ->
 				       proplists:get_value(port, Config),  
                                        proplists:get_value(node, Config),
 				       http_request("HEAD /index.html ", Version, Host),
-				       [{statuscode, head_status(Version)},
+				       [{statuscode, head_status(Version, 200)},
+					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
+				       proplists:get_value(port, Config),  
+				       proplists:get_value(node, Config),
+				       http_request("HEAD /open/ ", Version, Host),
+				       [{statuscode, head_status(Version, 403)},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
 					{version, Version}]).
 
 get() ->
@@ -2081,10 +2091,11 @@ http_request_missing_CR(Request, "HTTP/1.1" = Version, Host) ->
 http_request_missing_CR(Request, Version, _) ->
     Request ++ Version ++ "\r\n\n".
 
-head_status("HTTP/0.9") ->
+head_status("HTTP/0.9", _) ->
     501; %% Not implemented in HTTP/0.9
-head_status(_) ->
-    200.
+head_status(_, Expected) ->
+    Expected.
+
 
 basic_conf() ->
     [{modules, [mod_alias, mod_range, mod_responsecontrol,
