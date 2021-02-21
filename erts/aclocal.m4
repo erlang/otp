@@ -1356,7 +1356,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     ethr_arm_dbm_st_instr_val=0
     ethr_arm_dbm_ld_instr_val=0
     case "$GCC-$host_cpu" in
-	yes-arm*)
+	yes-arm*|yes-aarch*)
 	    AC_CACHE_CHECK([for ARM 'dmb sy' instruction], ethr_cv_arm_dbm_sy_instr,
 			   [
 				ethr_cv_arm_dbm_sy_instr=no
@@ -1367,7 +1367,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 					    [ethr_cv_arm_dbm_sy_instr=yes])
 			   ])
 	    if test $ethr_cv_arm_dbm_sy_instr = yes; then
-		ethr_arm_dbm_instr_val=1
+		ethr_arm_dbm_sy_instr_val=1
 		test $ethr_cv_64bit___atomic_compare_exchange_n = yes &&
 		    ethr_have_gcc_native_atomics=yes
 	    fi
@@ -1380,7 +1380,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 					    ],
 					    [ethr_cv_arm_dbm_st_instr=yes])
 			   ])
-	    if test $ethr_cv_arm_dbm_sy_instr = yes; then
+	    if test $ethr_cv_arm_dbm_st_instr = yes; then
 		ethr_arm_dbm_st_instr_val=1
 	    fi
 	    AC_CACHE_CHECK([for ARM 'dmb ld' instruction], ethr_cv_arm_dbm_ld_instr,
@@ -1398,7 +1398,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	*)
 	    ;;
     esac
-    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb sy' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_sy_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb sy' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION], [$ethr_arm_dbm_st_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb st' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION], [$ethr_arm_dbm_ld_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb ld' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&
@@ -2889,6 +2889,9 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     armv6hl)	ARCH=arm;;
     armv7l)	ARCH=arm;;
     armv7hl)	ARCH=arm;;
+    armv8*)	ARCH=arm;;
+    aarch64)	ARCH=arm64;;
+    aarch*)	ARCH=arm;;
     tile)	ARCH=tile;;
     e2k)        ARCH=e2k;;
     *)	 	ARCH=noarch;;
@@ -2926,8 +2929,8 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
 	ARCH=ppc64
 	;;
     arm-8)
-	AC_MSG_RESULT(yes: adjusting ARCH=arm to ARCH=noarch)
-	ARCH=noarch
+	AC_MSG_RESULT(yes: adjusting ARCH=arm to ARCH=arm64)
+	ARCH=arm64
 	;;
     *)
 	AC_MSG_RESULT(no: ARCH is $ARCH)
