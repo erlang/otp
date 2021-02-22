@@ -2467,13 +2467,17 @@ do_busy_disconnect_passive2(Config, MuchoData, N) ->
     ?P("[passive,~w] *** prepare server *** ", [N]),
     {_Server, S} = busy_disconnect_prepare_server(Config, [{active,false}]),
     ?P("[passive,~w] server prepared - start sending", [N]),
-    busy_disconnect_passive_send(S, MuchoData).
+    {_OSFam, OSName} = os:type(),
+    busy_disconnect_passive_send(S, MuchoData, OSName).
 
-busy_disconnect_passive_send(S, Data) ->
+busy_disconnect_passive_send(S, Data, OS) ->
     case gen_tcp:send(S, Data) of
 	ok ->
-            busy_disconnect_passive_send(S, Data);
+            busy_disconnect_passive_send(S, Data, OS);
 	{error, closed} ->
+            ok;
+	{error, eprototype = Reason} when (OS =:= darwin) ->
+	    ?P("send failed with ~w", [Reason]),
             ok
     end.
 
@@ -2500,16 +2504,23 @@ do_busy_disconnect_active2(Config, MuchoData, N) ->
     busy_disconnect_active_send(Server, S, MuchoData).
 
 busy_disconnect_active_send(Server, S, Data) ->
-    busy_disconnect_active_send(Server, S, Data, 1).
+    {_OSFam, OSName} = os:type(),
+    busy_disconnect_active_send(Server, S, Data, 1, OSName).
 
-busy_disconnect_active_send(Server, S, Data, Iter) ->
+busy_disconnect_active_send(Server, S, Data, Iter, OS) ->
     case gen_tcp:send(S, Data) of
 	ok ->
-            busy_disconnect_active_send(Server, S, Data, Iter+1);
+            busy_disconnect_active_send(Server, S, Data, Iter+1, OS);
 	{error, closed} ->
             ?P("[active-sender,~w] send failed with closed - await tcp-closed",
 	       [Iter]),
             busy_disconnect_active_send_await_closed(Server, S);
+
+	{error, eprototype = Reason} when (OS =:= darwin) ->
+            ?P("[active-sender,~w] send failed with ~w - await tcp-closed",
+	       [Iter, Reason]),
+            busy_disconnect_active_send_await_closed(Server, S);
+
         {error, einval = Reason} ->
             ?P("[active-sender,~w] UNEXPECTED send failure:"
                "~n   ~p", [Iter, Reason]),
@@ -3234,9 +3245,9 @@ recvtclass(Config) ->
 %% platforms - change {unix,_} to false?
 
 %% pktoptions is not supported for IPv4
-recvtos_ok({unix,netbsd}, _OSVer) -> false;
+recvtos_ok({unix,netbsd},  _OSVer) -> false;
 recvtos_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
-recvtos_ok({unix,darwin}, OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
+recvtos_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
 recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
@@ -3247,9 +3258,9 @@ recvtos_ok({unix,_}, _) -> true;
 recvtos_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv4
-recvttl_ok({unix,netbsd}, _OSVer) -> false;
+recvttl_ok({unix,netbsd},  _OSVer) -> false;
 recvttl_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
-recvttl_ok({unix,darwin}, OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
+recvttl_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
 %% Using the option returns einval, so it is not implemented.
 recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
 recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
@@ -3260,9 +3271,9 @@ recvttl_ok({unix,_}, _) -> true;
 recvttl_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv6
-recvtclass_ok({unix,netbsd}, _OSVer) -> false;
-recvtclass_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
-recvtclass_ok({unix,darwin}, OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
+recvtclass_ok({unix,netbsd},  _OSVer) -> false;
+recvtclass_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer,{6,9,0});
+recvtclass_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer,{19,6,0});
 recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Using the option returns einval, so it is not implemented.
 recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
