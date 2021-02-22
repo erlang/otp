@@ -2586,9 +2586,7 @@ static void debugf(char *format, ...)
 	WriteFile(debug_console_allocated,buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void) write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 }
@@ -2610,9 +2608,7 @@ static void warning(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void) write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 }
@@ -2634,9 +2630,7 @@ static IMPL_NORETURN__ fatal(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void) write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 #ifndef WIN32
