@@ -648,17 +648,19 @@ check_arg(Arg, _) ->
 check_wrap_arg({ok, Res}, {0,0}, _Version) when Res#arg.size =:= infinity ->
     {error, {badarg, size}};
 check_wrap_arg({ok, Res}, OldSize, Version) when Res#arg.size =:= infinity ->
-    NewRes = Res#arg{size = OldSize},
-    check_wrap_arg({ok, NewRes}, OldSize, Version);
+    {ok,  Res#arg{version = Version, old_size = OldSize, size = OldSize}};
 check_wrap_arg({ok, Res}, {0,0}, Version) ->
-    {ok, Res#arg{version = Version}};
+    {ok, Res#arg{version = Version, old_size = Res#arg.size}};
 check_wrap_arg({ok, Res}, OldSize, Version) when OldSize =:= Res#arg.size ->
-    {ok, Res#arg{version = Version}};
-check_wrap_arg({ok, Res}, _OldSize, Version) when Res#arg.repair =:= truncate,
-						  is_tuple(Res#arg.size) ->
-    {ok, Res#arg{version = Version}};
-check_wrap_arg({ok, Res}, OldSize, _Version) when is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
+check_wrap_arg({ok, Res}, OldSize, Version) when Res#arg.repair =:= truncate,
+                                                 is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
+check_wrap_arg({ok, Res}, OldSize, _Version) when Res#arg.size =/= OldSize,
+                                                  Res#arg.mode =:= read_only ->
     {error, {size_mismatch, OldSize, Res#arg.size}};
+check_wrap_arg({ok, Res}, OldSize, Version) when is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
 check_wrap_arg({ok, _Res}, _OldSize, _Version) ->
     {error, {badarg, size}};
 check_wrap_arg(Ret, _OldSize, _Version) ->
@@ -946,7 +948,23 @@ handle({Server, {internal_open, A}}, S) ->
 	    case do_open(A) of % does the put
 		{ok, Res, L, Cnt} ->
 		    put(log, opening_pid(A#arg.linkto, A#arg.notify, L)),
-		    reply(Server, Res, S#state{args=A, cnt=Cnt});
+                    #arg{size = Size, old_size = OldSize} = A,
+                    S1 = S#state{args=A, cnt=Cnt},
+                    case Size =:= OldSize of
+                        true ->
+                            reply(Server, Res, S1);
+                        false ->
+                            case catch do_change_size(get(log), Size) of % does the put
+                                ok ->
+                                    reply(Server, Res, S1);
+                                {big, _CurSize} ->
+                                    %% Note: halt logs are opened even if the
+                                    %% given size is too small.
+                                    reply(Server, Res, S1);
+                                Else ->
+                                    reply(Server, Else, S1)
+                            end
+                    end;
 		Res ->
 		    do_fast_exit(S, Server, Res)
 	    end;
@@ -1273,6 +1291,10 @@ compare_arg(format, F, A) when F =/= A#arg.format ->
 compare_arg(repair, R, A) when R =/= A#arg.repair ->
     %% not used, but check it anyway...
     {not_ok, A#arg.repair};
+compare_arg(size, Sz, A) when Sz =/= A#arg.size, A#arg.type =:= wrap ->
+    %% Note: if the given size does not match the size of an open
+    %% halt log, the given size is ignored.
+    {error, {size_mismatch, A#arg.size, Sz}};
 compare_arg(_Attr, _Val, _A) -> 
     ok.
 
@@ -1280,10 +1302,10 @@ compare_arg(_Attr, _Val, _A) ->
 do_open(A) ->
     #arg{type = Type, format = Format, name = Name, head = Head0,
          file = FName, repair = Repair, size = Size, mode = Mode,
-         quiet = Quiet, version = V} = A,
+         quiet = Quiet, version = V, old_size = OldSize} = A,
     disk_log_1:set_quiet(Quiet),
     Head = mk_head(Head0, Format),
-    case do_open2(Type, Format, Name, FName, Repair, Size, Mode, Head, V) of
+    case do_open2(Type, Format, Name, FName, Repair, OldSize, Mode, Head, V) of
         {ok, Ret, Extra, FormatType, NoItems} ->
             L = #log{name = Name, type = Type, format = Format,
                      filename = FName, size = Size,

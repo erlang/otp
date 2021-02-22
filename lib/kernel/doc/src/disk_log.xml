@@ -817,11 +817,28 @@
               at least the header (if there is one) and one
               item are written on each wrap log file before
               wrapping to the next file.</p>
+            <p>The first time an existing wrap log is opened, that is,
+              when the disk log process is created, the value of the
+              option <c>size</c> is allowed to differ from the current
+              log size, and the size of the disk log is changed as per
+              <seemfa
+              marker="#change_size/2"><c>change_size/2</c></seemfa>.
+              </p>
             <p>When opening an existing wrap log, it is not
-              necessary to supply a value for option <c>Size</c>, but any
-              supplied value must equal the current log size, otherwise
+              necessary to supply a value for option <c>size</c>,
+              but if the log is already open, that is, the disk log
+              process exists,
+              the supplied value must equal the current log size, otherwise
               the tuple <c>{error, {size_mismatch, <anno>CurrentSize</anno>,
-	      <anno>NewSize</anno>}}</c> is returned.</p>
+              <anno>NewSize</anno>}}</c> is returned.</p>
+            <note>
+              <p>Before Erlang/OTP 24.0, the supplied value of option
+                <c>size</c> was to be equal to the current log size when
+                opening an existing wrap log for the first time, that
+                is, when creating the disk log process.</p>
+            </note>
+	    <p>When opening an already open halt log, option <c>size</c>
+	      is ignored.</p>
           </item>
 	  <tag><c>{notify, boolean()}</c><marker id="notify"></marker></tag>
           <item>
