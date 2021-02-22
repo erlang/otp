@@ -1708,7 +1708,7 @@
     </func>
 
     <func>
-      <name name="info" arity="0" since="OTP @master@"/>
+      <name name="info" arity="0" since="OTP @OTP-16749@"/>
       <fsummary>Get miscellaneous socket library info.</fsummary>
       <desc>
         <p>Get miscellaneous info about the socket library.</p>
