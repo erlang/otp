@@ -1136,7 +1136,9 @@ handle_call({_, recv_chunk}, _From, #state{chunk = true,
                                      chunk = false,
                                      client = undefined}};
         Data ->
-            {reply, Data, State0}
+            {reply, Data, State0#state{caller = undefined,
+                                       chunk = false,
+                                       client = undefined}}
     end;
 handle_call({_, recv_chunk}, _From, #state{chunk = true,
                                            caller = #recv_chunk_closing{dconn_closed       = true,
@@ -2327,6 +2329,8 @@ call(GenServer, Msg, Format, Timeout) ->
     case (catch gen_server:call(GenServer, Req, Timeout)) of
         {ok, Bin} when is_binary(Bin) andalso (Format =:= string) ->
             {ok, binary_to_list(Bin)};
+        {'EXIT', _, _} ->
+            {error, eclosed};
         {'EXIT', _} ->
             {error, eclosed};
         Result ->

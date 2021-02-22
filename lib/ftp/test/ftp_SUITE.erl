@@ -1216,7 +1216,7 @@ start_ftpd(Config0) ->
                 Class:Exception ->
                     ct:log("Ftp server ~p started on ~p:~p but is unusable:~n~p:~p",
                            [AbsName,Host,Port,Class,Exception]),
-                    stop_ftpd(Config),
+                    catch stop_ftpd(Config),
                     {skip, [AbsName," started but unusuable"]}
             end;
         {error,Msg} ->
