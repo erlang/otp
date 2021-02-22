@@ -586,7 +586,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
  </func>
 
  <func>
-    <name name="pkix_hash_type" arity="1" since="@master@"/>
+    <name name="pkix_hash_type" arity="1" since="OTP 23.0"/>
     <fsummary>Translates OID to Erlang digest type</fsummary>
     <desc> 
       <p>Translates OID to Erlang digest type</p> 
