@@ -23,7 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2]).
+-export([all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 
 -export([sendfile_server/2, sendfile_do_recv/2, init/1, handle_event/2]).
 
@@ -107,7 +107,27 @@ init_per_testcase(TC,Config) when TC == t_sendfile_recvduring;
 	    {skip,"Not supported"}
     end;
 init_per_testcase(_TC,Config) ->
-    Config.
+    case read_fd_info() of
+        {ok, NumFDs, FDDetails} ->
+            [{fds,NumFDs},{details,FDDetails}|Config];
+        {error,_Reason} ->
+            Config
+    end.
+
+end_per_testcase(_TC,Config) ->
+    case proplists:get_value(fds, Config) of
+        undefined ->
+            ok;
+        NumOldFDs ->
+            case read_fd_info() of
+                {ok, NumFDs, FDDetails} when NumFDs =/= NumOldFDs ->
+                    ct:log("FDs: ~n~ts~nOldFDs: ~n~ts~n",
+                           [FDDetails,proplists:get_value(details,Config)]),
+                    {fail,"Too many (or too few) fds open"};
+                _ ->
+                    ok
+            end
+    end.
 
 t_sendfile_small(Config) when is_list(Config) ->
     Filename = proplists:get_value(small_file, Config),
@@ -171,7 +191,7 @@ t_sendfile_big_size(Config) ->
 		      {ok, #file_info{size = Size}} =
 			  file:read_file_info(Filename),
 		      {ok,D} = file:open(Filename,[read|FileOpts]),
-		      {ok, Size} = file:sendfile(D, Sock,0,Size,SendfileOpts),
+		      {ok,Size} = file:sendfile(D,Sock,0,Size,SendfileOpts),
 		      Size
 	      end,
 
@@ -507,6 +527,18 @@ sendfile(Filename,Sock,Opts) ->
 	    Res
     end.
 
+%% This function returns the number of open fds on a system
+%% and also a string representing more detailed information
+%% for debugging.
+%% It only supports linux for now.
+read_fd_info() ->
+    ProcFd = "/proc/" ++ os:getpid() ++ "/fd",
+    case file:list_dir(ProcFd) of
+        {ok, FDs} ->
+            {ok, length(FDs), os:cmd("ls -l " ++ ProcFd)};
+        Error ->
+            Error
+    end.
 
 %% Error handler 
 
