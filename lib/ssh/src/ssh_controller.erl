@@ -104,11 +104,17 @@ handle_call({start_system_subsystem, Sup, Address, Port, Profile, Options, Child
 
 
 handle_call({stop_system,SysSup}, _From, D) ->
-    case supervisor:which_children(SysSup) of
-        [] ->
-            ssh_system_sup:stop_system(D#data.role, SysSup);
-        _X ->
-            ok
+    try
+        case supervisor:which_children(SysSup) of
+            [] ->
+                ssh_system_sup:stop_system(D#data.role, SysSup);
+            _X ->
+                ok
+        end
+    catch
+        _:_ ->
+            %% Already stopped (?)
+            skip
     end,
     {reply, ok, D}.
 
