@@ -192,6 +192,7 @@ t_sendfile_big_size(Config) ->
 			  file:read_file_info(Filename),
 		      {ok,D} = file:open(Filename,[read|FileOpts]),
 		      {ok,Size} = file:sendfile(D,Sock,0,Size,SendfileOpts),
+                      ok = file:close(D),
 		      Size
 	      end,
 
