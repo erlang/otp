@@ -39,6 +39,8 @@
          basic/1,
          payload/0,
          payload/1,
+         dist_port_overload/0,
+         dist_port_overload/1,
          plain_options/0,
          plain_options/1,
          plain_verify_options/0,
@@ -91,6 +93,7 @@ start_ssl_node_name(Name, Args) ->
 all() ->
     [basic,
      payload,
+     dist_port_overload,
      plain_options,
      plain_verify_options,
      nodelay_option,
@@ -163,6 +166,61 @@ payload() ->
     [{doc,"Test that send a lot of data between the ssl distributed nodes"}].
 payload(Config) when is_list(Config) ->
     gen_dist_test(payload_test, Config).
+
+%%--------------------------------------------------------------------
+dist_port_overload() ->
+    [{doc, "Test that TLS distribution connections can be accepted concurrently"}].
+dist_port_overload(Config) when is_list(Config) ->
+    %% Start a node, and get the port number it's listening on.
+    #node_handle{nodename = NodeName} = NH1 = start_ssl_node(Config),
+    [Name, Host] = string:lexemes(atom_to_list(NodeName), "@"),
+    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
+    {Name, Port} = lists:keyfind(Name, 1, NodesPorts),
+    %% Run 4 connections concurrently. When TLS handshake is not concurrent,
+    %%  and with default net_setuptime of 7 seconds, only one connection per 7
+    %%  seconds is closed from server side. With concurrent accept, all 7 will
+    %%  be dropped in 7 seconds
+    RequiredConcurrency = 4,
+    Started = [connect(self(), Host, Port) || _ <- lists:seq(1, RequiredConcurrency)],
+    %% give 10 seconds (more than 7, less than 2x7 seconds)
+    Responded = barrier(RequiredConcurrency, [], erlang:system_time(millisecond) + 10000),
+    %% clean up
+    stop_ssl_node(NH1),
+    [R ! exit || R <- Responded],
+    [exit(P, kill) || P <- Started -- Responded],
+    %% Ensure some amount of concurrency was reached.
+    (length(Responded) >= RequiredConcurrency) orelse
+        ct:fail({actual, length(Responded), expected, RequiredConcurrency}),
+    success(Config).
+
+barrier(0, Responded, _Until) ->
+    Responded;
+barrier(RequiredConcurrency, Responded, Until) ->
+    Timeout = Until - erlang:system_time(millisecond),
+    receive
+        {waiting, Pid} ->
+            barrier(RequiredConcurrency - 1, [Pid | Responded], Until);
+        {error, Error} ->
+            ct:fail(Error)
+    after
+        Timeout -> Responded
+    end.
+
+connect(Control, Host, Port) ->
+    spawn(
+        fun () ->
+            case gen_tcp:connect(Host, Port, [{active, true}]) of
+                {ok, Sock} ->
+                    receive
+                        {tcp_closed, Sock} ->
+                            Control ! {waiting, self()};
+                        exit ->
+                            gen_tcp:close(Sock)
+                    end;
+                Error ->
+                    Control ! {error, Error}
+            end
+        end).
 
 %%--------------------------------------------------------------------
 plain_options() ->

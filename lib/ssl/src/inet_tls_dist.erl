@@ -223,27 +223,62 @@ gen_accept(Driver, Listen) ->
     monitor_pid(
       spawn_opt(
         fun () ->
-                accept_loop(Driver, Listen, Kernel)
+            process_flag(trap_exit, true),
+            LOpts = application:get_env(kernel, inet_dist_listen_options, []),
+            MaxPending =
+                case lists:keyfind(backlog, 1, LOpts) of
+                    {backlog, Backlog} -> Backlog;
+                    false -> 128
+                end,
+            DLK = {Driver, Listen, Kernel},
+            accept_loop(DLK, spawn_accept(DLK), MaxPending, #{})
         end,
         [link, {priority, max}])).
 
-accept_loop(Driver, Listen, Kernel) ->
-    case Driver:accept(Listen) of
-        {ok, Socket} ->
-	    case check_ip(Driver, Socket) of
-                true ->
-                    accept_loop(Driver, Listen, Kernel, Socket);
-                {false,IP} ->
-		    ?LOG_ERROR(
-                      "** Connection attempt from "
-                      "disallowed IP ~w ** ~n", [IP]),
-		    ?shutdown2(no_node, trace({disallowed, IP}))
-	    end;
-	Error ->
-	    exit(trace(Error))
+%% Concurrent accept loop will spawn a new HandshakePid when
+%%  there is no HandshakePid already running, and Pending map is
+%%  smaller than MaxPending
+accept_loop(DLK, undefined, MaxPending, Pending) when map_size(Pending) < MaxPending ->
+    accept_loop(DLK, spawn_accept(DLK), MaxPending, Pending);
+accept_loop(DLK, HandshakePid, MaxPending, Pending) ->
+    receive
+        {continue, HandshakePid} when is_pid(HandshakePid) ->
+            accept_loop(DLK, undefined, MaxPending, Pending#{HandshakePid => true});
+        {'EXIT', Pid, Reason} when is_map_key(Pid, Pending) ->
+            Reason =/= normal andalso
+                ?LOG_ERROR("TLS distribution handshake failed: ~p~n", [Reason]),
+            accept_loop(DLK, HandshakePid, MaxPending, maps:remove(Pid, Pending));
+        {'EXIT', HandshakePid, Reason} when is_pid(HandshakePid) ->
+            %% HandshakePid crashed before turning into Pending, which means
+            %%  error happened in accept. Need to restart the listener.
+            exit(Reason);
+        Unexpected ->
+            ?LOG_WARNING("TLS distribution: unexpected message: ~p~n" ,[Unexpected]),
+            accept_loop(DLK, HandshakePid, MaxPending, Pending)
     end.
 
-accept_loop(Driver, Listen, Kernel, Socket) ->
+spawn_accept({Driver, Listen, Kernel}) ->
+    AcceptLoop = self(),
+    spawn_link(
+        fun () ->
+            case Driver:accept(Listen) of
+                {ok, Socket} ->
+                    AcceptLoop ! {continue, self()},
+                    case check_ip(Driver, Socket) of
+                        true ->
+                            accept_one(Driver, Kernel, Socket);
+                        {false,IP} ->
+                            ?LOG_ERROR(
+                                "** Connection attempt from "
+                                "disallowed IP ~w ** ~n", [IP]),
+                            trace({disallowed, IP})
+                    end;
+                Error ->
+                    exit(Error)
+            end
+        end).
+
+accept_one(Driver, Kernel, Socket) ->
     Opts = setup_verify_client(Socket, get_ssl_options(server)),
     wait_for_code_server(),
     case
@@ -259,13 +294,18 @@ accept_loop(Driver, Listen, Kernel, Socket) ->
                    Driver:family(), tls}),
             receive
                 {Kernel, controller, Pid} ->
-                    ok = ssl:controlling_process(SslSocket, Pid),
-                    trace(
-                      Pid ! {self(), controller});
+                    case ssl:controlling_process(SslSocket, Pid) of
+                        ok ->
+                            trace(Pid ! {self(), controller});
+                        Error ->
+                            trace(Pid ! {self(), exit}),
+                            ?LOG_ERROR(
+                                "Cannot control TLS distribution connection: ~p~n",
+                                [Error])
+                    end;
                 {Kernel, unsupported_protocol} ->
-                    exit(trace(unsupported_protocol))
-            end,
-            accept_loop(Driver, Listen, Kernel);
+                    trace(unsupported_protocol)
+            end;
         {error, {options, _}} = Error ->
             %% Bad options: that's probably our fault.
             %% Let's log that.
@@ -273,10 +313,10 @@ accept_loop(Driver, Listen, Kernel, Socket) ->
               "Cannot accept TLS distribution connection: ~s~n",
               [ssl:format_error(Error)]),
             gen_tcp:close(Socket),
-            exit(trace(Error));
+            trace(Error);
         Other ->
             gen_tcp:close(Socket),
-            exit(trace(Other))
+            trace(Other)
     end.
 
 
@@ -412,9 +452,9 @@ gen_accept_connection(
 
 do_accept(
   _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
-    {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
     receive
 	{AcceptPid, controller} ->
+            {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
 	    Timer = dist_util:start_timer(SetupTime),
             NewAllowed = allowed_nodes(SslSocket, Allowed),
             HSData0 = hs_data_common(SslSocket),
@@ -427,7 +467,11 @@ do_accept(
                   this_flags = 0,
                   allowed = NewAllowed},
             link(DistCtrl),
-            dist_util:handshake_other_started(trace(HSData))
+            dist_util:handshake_other_started(trace(HSData));
+        {AcceptPid, exit} ->
+            %% this can happen when connection was initiated, but dropped
+            %%  between TLS handshake completion and dist handshake start
+            ?shutdown2(MyNode, connection_setup_failed)
     end.
 
 allowed_nodes(_SslSocket, []) ->
