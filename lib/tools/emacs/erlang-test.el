@@ -62,8 +62,6 @@
 
 ;;; Code:
 
-(eval-when-compile
-  (require 'cl))
 (require 'ert)
 (require 'erlang)
 
@@ -127,8 +125,8 @@ concatenated to form an erlang file to test on.")
 
 (defun erlang-test-create-erlang-file (erlang-file)
   (with-temp-file erlang-file
-    (loop for (_ . code) in erlang-test-code
-          do (insert code "\n"))))
+    (cl-loop for (_ . code) in erlang-test-code
+             do (insert code "\n"))))
 
 (defun erlang-test-compile-tags (erlang-file tags-file)
   (should (zerop (call-process "etags" nil nil nil
@@ -143,20 +141,20 @@ concatenated to form an erlang file to test on.")
                  (sort (erlang-expected-completion-table) #'string-lessp))))
 
 (defun erlang-expected-completion-table ()
-  (append (loop for (symbol . _) in erlang-test-code
-                when (stringp symbol)
-                append (list symbol (concat "erlang_test:" symbol)))
+  (append (cl-loop for (symbol . _) in erlang-test-code
+                   when (stringp symbol)
+                   append (list symbol (concat "erlang_test:" symbol)))
           (list "erlang_test:" "erlang_test:module_info")))
 
 (defun erlang-test-xref-find-definitions (erlang-file erlang-buffer)
-  (loop for (tagname . code) in erlang-test-code
-        for line = 1 then (1+ line)
-        do (when tagname
-             (switch-to-buffer erlang-buffer)
-             (erlang-test-xref-jump tagname erlang-file line)
-             (when (string-equal tagname "function")
-               (erlang-test-xref-jump (concat "erlang_test:" tagname)
-                                      erlang-file line))))
+  (cl-loop for (tagname . code) in erlang-test-code
+           for line = 1 then (1+ line)
+           do (when tagname
+                (switch-to-buffer erlang-buffer)
+                (erlang-test-xref-jump tagname erlang-file line)
+                (when (string-equal tagname "function")
+                  (erlang-test-xref-jump (concat "erlang_test:" tagname)
+                                         erlang-file line))))
   (erlang-test-xref-jump "erlang_test:" erlang-file 1))
 
 (defun erlang-test-xref-jump (id expected-file expected-line)
@@ -225,27 +223,27 @@ concatenated to form an erlang file to test on.")
 
 
 (ert-deftest erlang-test-parse-id ()
-  (loop for id-string in '("fun/10"
-                           "qualified-function module:fun/10"
-                           "record reko"
-                           "macro _SYMBOL"
-                           "macro MACRO/10"
-                           "module modula"
-                           "macro"
-                           nil)
-        for id-list in '((nil nil "fun" 10)
-                         (qualified-function "module" "fun" 10)
-                         (record nil "reko" nil)
-                         (macro nil "_SYMBOL" nil)
-                         (macro nil "MACRO" 10)
-                         (module nil "modula" nil)
-                         (nil nil "macro" nil)
-                         nil)
-        for id-list2 = (erlang-id-to-list id-string)
-        do (should (equal id-list id-list2))
-        for id-string2 = (erlang-id-to-string id-list)
-        do (should (equal id-string id-string2))
-        collect id-list2))
+  (cl-loop for id-string in '("fun/10"
+                              "qualified-function module:fun/10"
+                              "record reko"
+                              "macro _SYMBOL"
+                              "macro MACRO/10"
+                              "module modula"
+                              "macro"
+                              nil)
+           for id-list in '((nil nil "fun" 10)
+                            (qualified-function "module" "fun" 10)
+                            (record nil "reko" nil)
+                            (macro nil "_SYMBOL" nil)
+                            (macro nil "MACRO" 10)
+                            (module nil "modula" nil)
+                            (nil nil "macro" nil)
+                            nil)
+           for id-list2 = (erlang-id-to-list id-string)
+           do (should (equal id-list id-list2))
+           for id-string2 = (erlang-id-to-string id-list)
+           do (should (equal id-string id-string2))
+           collect id-list2))
 
 
 (provide 'erlang-test)
