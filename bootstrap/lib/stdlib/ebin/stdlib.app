@@ -71,6 +71,7 @@
 	     io,
 	     io_lib,
 	     io_lib_format,
+	     io_lib_format_ryu_table,
 	     io_lib_fread,
 	     io_lib_pretty,
 	     lists,
