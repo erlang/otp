@@ -3092,6 +3092,7 @@ execute_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM result;
 
     execution_state(env, &proc, NULL);
+    ASSERT(proc);
 
     ep = ErtsContainerStruct(proc->current, ErtsNativeFunc, trampoline.info.mfa);
     fp = ep->func;
