@@ -4499,62 +4499,98 @@ open_ports(L) ->
 
 %% Check that active once and tcp_close messages behave as expected.
 active_once_closed(Config) when is_list(Config) ->
-    try do_active_once_closed(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(active_once_closed, fun() -> do_active_once_closed(Config) end).
 
 do_active_once_closed(Config) ->
     ?P("stage 1"),
     (fun() ->
+	     ?P("[stage1] begin setup"),
 	     {Loop,A} = setup_closed_ao(Config),
+	     ?P("[stage1] begin send"),
 	     Loop({{error,closed},{error,econnaborted}},
                   fun() -> gen_tcp:send(A,"Hello") end),
-	     ok = inet:setopts(A,[{active,once}]),
+	     ?P("[stage1] try set active:once => expect success"),
+	     ok = inet:setopts(A, [{active,once}]),
+	     ?P("[stage1] await socket closed"),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     ?P("[stage1] try set active:once => expect failure (einval)"),
 	     {error,einval} = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+	     ?P("[stage1] await socket closed - expect timeout"),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end,
+	     ?P("[stage1] done"),
+	     ok
      end)(),
     ?P("stage 2"),
     (fun() ->
+	     ?P("[stage2] begin setup"),
 	     {Loop,A} = setup_closed_ao(Config),
+	     ?P("[stage2] begin send"),
 	     Loop({{error,closed},{error,econnaborted}},
                   fun() -> gen_tcp:send(A,"Hello") end),
+	     ?P("[stage2] try set active:true => expect success"),
 	     ok = inet:setopts(A,[{active,true}]),
+	     ?P("[stage2] await socket closed"),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     ?P("[stage2] try set active:true => expect failure (einval)"),
 	     {error,einval} = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+	     ?P("[stage2] await socket closed - expect timeout"),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end,
+	     ?P("[stage2] done"),
+	     ok
      end)(),
     ?P("stage 3"),
     (fun() ->
+	     ?P("[stage3] begin setup"),
 	     {Loop,A} = setup_closed_ao(Config),
+	     ?P("[stage3] begin send"),
 	     Loop({{error,closed},{error,econnaborted}},
                   fun() -> gen_tcp:send(A,"Hello") end),
+	     ?P("[stage3] try set active:true => expect success"),
 	     ok = inet:setopts(A,[{active,true}]),
+	     ?P("[stage3] await socket closed"),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     ?P("[stage3] try set active:once => expect failure (einval)"),
 	     {error,einval} = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+	     ?P("[stage3] await socket closed - expect timeout"),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end,
+	     ?P("[stage3] done"),
+	     ok
      end)(),
     ?P("stage 4"),
     (fun() ->
+	     ?P("[stage4] begin setup"),
 	     {Loop,A} = setup_closed_ao(Config),
+	     ?P("[stage4] begin send"),
 	     Loop({{error,closed},{error,econnaborted}},
 			fun() -> gen_tcp:send(A,"Hello") end),
+	     ?P("[stage1] try set active:once => expect success"),
 	     ok = inet:setopts(A,[{active,once}]),
+	     ?P("[stage4] await socket closed"),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     ?P("[stage4] try set active:true => expect failure (einval)"),
 	     {error,einval} = inet:setopts(A,[{active,true}]),
-	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end
+	     ?P("[stage4] await socket closed - expect timeout"),
+	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end,
+	     ?P("[stage4] done"),
+	     ok
      end)(),
     ?P("stage 5"),
     (fun() ->
+	     ?P("[stage5] begin setup"),
 	     {Loop,A} = setup_closed_ao(Config),
+	     ?P("[stage5] begin send"),
 	     Loop({{error,closed},{error,econnaborted}},
 			fun() -> gen_tcp:send(A,"Hello") end),
+	     ?P("[stage5] try set active:false => expect success"),
 	     ok = inet:setopts(A,[{active,false}]),
+	     ?P("[stage5] await socket closed => expect timeout"),
 	     ok = receive {tcp_closed, A} -> error after 1000 -> ok end,
+	     ?P("[stage5] try set active:once => expect success"),
 	     ok = inet:setopts(A,[{active,once}]),
-	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end
+	     ?P("[stage5] await socket closed"),
+	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end,
+	     ?P("[stage5] done"),
+	     ok
      end)(),
     ?P("done"),
     ok.
@@ -5026,7 +5062,7 @@ setup_closed_ao(Config) ->
                 (catch test_server:stop_node(R)),
                 ?SKIPT(accept_failed_str(AReason))
         end,
-    ?P("[setup] send message"),
+    ?P("[setup] send (local) and receive (remote) message"),
     gen_tcp:send(A,"Hello"),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
     ?P("[setup] close (remote) connection"),
@@ -5035,9 +5071,9 @@ setup_closed_ao(Config) ->
 		    {failure, timeout}; 
 	       (L2,{MA,MB},F2,N) ->
 		    case F2() of
-			MA -> MA;
-			MB -> MB;
-			Other -> ?P("~p",[Other]),
+			MA -> ?P("[setup] action result (MA): ~p", [MA] ), MA;
+			MB -> ?P("[setup] action result (MB): ~p", [MB] ), MB;
+			Other -> ?P("[setup] Loop2: ~p",[Other]),
 				 receive after 1000 -> ok end,
 				 L2(L2,{MA,MB},F2,N-1)
 		    end

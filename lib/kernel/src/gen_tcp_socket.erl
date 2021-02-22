@@ -1163,7 +1163,18 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
     %% ?DBG([{opts, Opts}, {state, State}, {d, D}]),
     {Result, D_1} = state_setopts(P, D, State, Opts),
     %% ?DBG([{result, Result}, {d1, D_1}]),
-    ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
+    case Result of
+	{error, einval} ->
+	    %% If we get this error, either the options where crap or
+	    %% the socket is in a "bad state" (maybe its closed).
+	    %% So, if that is the case we accept that we may not be
+	    %% able to update the meta data.
+	    socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
+	    ok;
+	_ ->
+	    %% We should really handle this better. stop_and_reply?
+	    ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1))
+    end,
     Reply = {reply, From, Result},
     case State of
         'connected' ->
