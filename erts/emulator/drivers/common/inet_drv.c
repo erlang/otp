@@ -10311,6 +10311,13 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
             return ctl_error(EINVAL, rbuf, rsize);
         } else if (!IS_CONNECTED(INETP(desc))) {
             return ctl_error(ENOTCONN, rbuf, rsize);
+        } else if (desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+            /* This should not happen as prim_inet.erl makes
+               sure that only the controlling process can
+               use the sendfile operation. But we add this
+               check here anyways just in case that prim_inet
+               is changed... */
+            return ctl_error(EINVAL, rbuf, rsize);
         }
 
         sys_memcpy(&raw_file_fd, buf, sizeof(raw_file_fd));
