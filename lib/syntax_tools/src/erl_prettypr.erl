@@ -42,7 +42,6 @@
         [above/2,
          beside/2,
          empty/0,
-         follow/3,
          nest/2]).
 
 -import(erl_parse,
@@ -73,10 +72,9 @@
 -define(RIBBON, 80).
 
 -type hook() :: fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
--type clause_t() :: 'case_expr' | 'fun_expr'
-                  | 'if_expr' | 'receive_expr' | 'try_expr'
-                  | {'function', prettypr:document()}
-                  | 'spec'.
+-type clause_name_t() :: undefined | none | erl_syntax:syntaxTree().
+-type clause_gsep_t() :: none | nonempty_string().
+-type clause_t() :: {clause_name_t(), clause_gsep_t()}.
 
 -record(ctxt,
         {prec = 0 :: integer(),
@@ -131,9 +129,28 @@ reset_prec(Ctxt) ->
 max_prec(Ctxt) ->
     set_prec(Ctxt, max_prec()).
 
-set_clause(Ctxt, Clause) ->
-    Ctxt#ctxt{clause = Clause}.
+set_clause(Ctxt, Clause)
+  when Clause == if_expr orelse
+       Clause == function_type ->
+    Ctxt#ctxt{clause = {none, none}};
+set_clause(Ctxt, Clause)
+  when Clause == receive_timeout ->
+    Ctxt#ctxt{clause = {none, "after"}};
+set_clause(Ctxt, Clause)
+  when Clause == case_expr orelse
+       Clause == receive_expr orelse
+       Clause == try_expr orelse
+       Clause == constrained_function_type ->
+    set_clause(Ctxt, none);
+set_clause(Ctxt, Clause)
+  when Clause == fun_expr orelse
+       Clause == implicit_fun ->
+    set_clause(Ctxt, undefined);
+set_clause(Ctxt, Name) ->
+    Ctxt#ctxt{clause = {Name, "when"}}.
 
+%% If a clause is formatted out of context, we
+%% use a "fun-expression" clause style.
 reset_clause(Ctxt) ->
     set_clause(Ctxt, undefined).
 
@@ -631,7 +648,7 @@ lay_comments(Node, Ctxt) ->
 no_pad(Cs) -> [erl_syntax:comment(0, erl_syntax:comment_text(C)) || C <- Cs].
 
 %% This part ignores annotations and comments:
-lay_tree(Node, _Ctxt) when Node == none ->
+lay_tree(none, _Ctxt) ->
     empty();
 %lay_tree(nil, Ctxt) ->
 %    lay_tree(erl_syntax:nil(), Ctxt);
@@ -850,23 +867,6 @@ lay_type(Node, Ctxt = #ctxt{clause = {Name, GuardSep}}, clause)
     Guard = erl_syntax:clause_guard(Node),
     Body = erl_syntax:clause_body(Node),
     lay_clause(Name, Patterns, GuardSep, Guard, Body, Ctxt1);
-lay_type(Node, Ctxt = #ctxt{clause = Clause}, clause) when Clause == if_expr orelse
-                                                           Clause == function_type ->
-    lay_type(Node, Ctxt#ctxt{clause = {none, none}}, clause);
-lay_type(Node, Ctxt = #ctxt{clause = Clause}, clause) when Clause == receive_timeout ->
-    lay_type(Node, Ctxt#ctxt{clause = {none, "after"}}, clause);
-lay_type(Node, Ctxt = #ctxt{clause = Clause}, clause) when Clause == case_expr orelse
-                                                           Clause == receive_expr orelse
-                                                           Clause == try_expr orelse
-                                                           Clause == constrained_function_type ->
-    lay_type(Node, Ctxt#ctxt{clause = none}, clause);
-%% If a clause is formatted out of context, we
-%% use a "fun-expression" clause style.
-lay_type(Node, Ctxt = #ctxt{clause = Clause}, clause) when Clause == fun_expr;
-                                                           Clause == implicit_fun ->
-    lay_type(Node, Ctxt#ctxt{clause = undefined}, clause);
-lay_type(Node, Ctxt = #ctxt{clause = Name}, clause) ->
-    lay_type(Node, Ctxt#ctxt{clause = {Name, "when"}}, clause);
 %% Comments on the name itself will be repeated for each
 %% clause, but that seems to be the best way to handle it.
 lay_type(Node, Ctxt, function) ->
@@ -932,17 +932,21 @@ lay_type(Node, Ctxt, implicit_fun = Type) ->
     Ctxt1 = reset_prec(set_clause(Ctxt, Type)),
     wrap("fun", {erl_syntax:implicit_fun_name(Node), Ctxt1}, none, Ctxt1);
 lay_type(Node, Ctxt, function_type = Type) ->
+    Ctxt1 = set_clause(Ctxt, Type),
     Args =
     case erl_syntax:function_type_arguments(Node) of
         any_arity -> [erl_syntax:text("...")];
         Arguments -> Arguments
     end,
     Return = erl_syntax:function_type_return(Node),
-    Ctxt1 = set_clause(Ctxt, Type),
+    Nil = erl_syntax:text(""),
     case Ctxt#ctxt.clause of
-        undefined ->
+        C when C == undefined orelse C == {undefined, "when"} ->
             Spec = erl_syntax:clause(erl_syntax:parentheses(Args), none, Return),
             wrap("fun", {erl_syntax:parentheses(Spec), Ctxt1}, none, Ctxt1);
+        {Nil, "when"} ->
+            Spec = erl_syntax:clause(Args, none, Return),
+            layout_hook(Spec, reset_clause(Ctxt));
         _ ->
             Spec = erl_syntax:clause(Args, none, Return),
             SpecClause = erl_syntax:clause([{Spec, Ctxt}], none, []),
@@ -989,9 +993,7 @@ lay_type(Node, Ctxt, attribute) ->
     Name = erl_syntax:attribute_name(Node),
     Tag = (catch erl_syntax:concrete(Name)),
     Ctxt1 = reset_separator(reset_prec(Ctxt)),
-    {Arguments, Ctxt2} = lay_type(Node, Ctxt1, {attribute, Tag}),
-    Follow =  fun(A, B) -> follow(A, B, Ctxt#ctxt.break_indent) end,
-    prefix("-", [Name | Arguments], set_formatter(Ctxt2, Follow));
+    prefix("-", lay_type(Node, Ctxt1, {attribute, Tag}));
 lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= spec orelse
                                             Tag =:= callback ->
     [SpecTuple] = erl_syntax:attribute_arguments(Node),
@@ -1004,19 +1006,20 @@ lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= spec orelse
                 [M0, F0, _] -> erl_syntax:module_qualifier(M0, F0);
                 _ -> FuncName
             end;
-        _ ->
-            FuncName
+        _ -> FuncName
     end,
-    ClauseCtxt = set_clause(Ctxt, FuncName1),
+    ClausesLayout =
     case erl_syntax:concrete(dodge_macros(FuncTypes)) of
         [Clause] ->
-            {[Clause], ClauseCtxt};
-        [Clause | Rest] ->
-            RestCtxt = set_clause(Ctxt, fun_expr), % TODO
-            Clauses = disjunction([{Clause, ClauseCtxt}
-                                   | [{R, RestCtxt} || R <- Rest]]),
-            {[{Clauses, set_formatter(Ctxt, sep)}], Ctxt}
-    end;
+            {[Clause], set_clause(Ctxt, FuncName1)};
+        Clauses ->
+            Nil = erl_syntax:text(""),
+            {[FuncName1,
+              {disjunction(Clauses), set_formatter(set_clause(Ctxt, Nil), sep)}],
+             Ctxt}
+    end,
+    Name = erl_syntax:attribute_name(Node),
+    {[Name, ClausesLayout], set_separator(Ctxt, $\s)};
 lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= type orelse
                                             Tag =:= opaque ->
     [TypeTuple] = erl_syntax:attribute_arguments(Node),
@@ -1030,14 +1033,13 @@ lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= type orelse
                  call_layout(TypeName, TypeElements, reset_prec(Ctxt)),
                  Prec, Ctxt),
     TypeLayout = maybe_parentheses(
-                   [{TypeHead, set_formatter(Ctxt, beside)},
+                   [{TypeHead, Ctxt},
                     {erl_syntax:operator('::'), set_prec(Ctxt, 0)},
                     {TypeBody, set_prec(Ctxt, OpPrec)}],
                    OpPrec,
                    set_formatter(Ctxt, par)),
-
-    Follow =  fun(A, B) -> follow(A, B, Ctxt#ctxt.break_indent) end,
-    {TypeLayout, set_formatter(Ctxt, Follow)};
+    Name = erl_syntax:attribute_name(Node),
+    {[Name, TypeLayout], set_separator(Ctxt, $\s)};
 lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= export_type orelse
                                             Tag =:= optional_callbacks ->
     [FuncNames] = erl_syntax:attribute_arguments(Node),
@@ -1047,12 +1049,14 @@ lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= export_type orelse
          erl_syntax:atom(Atom),
          erl_syntax:integer(Arity))
        || {Atom, Arity} <- erl_syntax:concrete(dodge_macros(FuncNames))]),
-    FakeNode = erl_syntax:attribute(erl_syntax:tree(Tag), FuncArityQualifiers),
+    Name = erl_syntax:attribute_name(Node),
+    FakeNode = erl_syntax:attribute(Name, FuncArityQualifiers),
     lay_type(FakeNode, Ctxt, {attribute, dodge_macros});
 lay_type(Node, Ctxt, {attribute, _Tag}) ->
+    Name = erl_syntax:attribute_name(Node),
     case erl_syntax:attribute_arguments(Node) of
-        none -> {[], Ctxt};
-        Args -> {call_layout(undefined, Args, Ctxt), Ctxt}
+        none -> {[Name], Ctxt};
+        Args -> hd(call_layout(Name, Args, Ctxt))
     end;
 lay_type(Node, Ctxt, record_type_field) ->
     lay_op(erl_syntax:operator('::'),
@@ -1113,7 +1117,7 @@ lay_type(Node, Ctxt, Type = constrained_function_type) ->
     ArgSpec = erl_syntax:clause([{Spec, Ctxt}], Argument, []),
     Ctxt1 = set_clause(Ctxt, Type),
     case Ctxt#ctxt.clause of
-        undefined ->
+        C when C == undefined -> %orelse C == {undefined, "when"} ->
             wrap("fun", {erl_syntax:parentheses(ArgSpec), Ctxt1}, none, Ctxt1);
         _ ->
             layout_hook(ArgSpec, reset_separator(Ctxt1))
@@ -1185,9 +1189,10 @@ lay_op(operator, Operator, Left, Right, PrecFun, Ctxt) ->
     lay_op(Name, Operator, Left, Right, PrecFun, Ctxt);
 lay_op(Name, Operator, Left, Right, PrecFun, Ctxt) ->
     {PrecL, PrecO, PrecR, PrecP} = PrecFun(Name),
-    lay_op([{Left, set_prec(Ctxt, PrecL)},
-            {Operator, set_prec(Ctxt, PrecO)},
-            {Right, set_nested(set_prec(Ctxt, PrecR), sub_indent)}],
+    Ctxt1 = reset_separator(Ctxt),
+    lay_op([{[{Left, set_prec(Ctxt, PrecL)},
+              {Operator, set_prec(Ctxt, PrecO)}], Ctxt1},
+            {[Right], set_nested(set_prec(Ctxt, PrecR), sub_indent)}],
            PrecP, Ctxt).
 
 lay_op(Ops, Prec, Ctxt) ->
@@ -1265,7 +1270,7 @@ nosep(Ds) when is_list(Ds) ->
 nosep(Guide) when is_function(Guide) ->
     fun(Ds) -> nosep(Ds, Guide) end.
 
-prefix(Prefix, D, Ctxt) ->
+prefix(Prefix, {D, Ctxt}) ->
     wrap(Prefix, {D, Ctxt}, none, set_formatter(Ctxt, beside)).
 
 curlies(D, Ctxt) -> wrap(D, "{}", Ctxt).
@@ -1380,13 +1385,21 @@ lay_pattern(none, [], none, Guard, Ctxt) ->
 lay_pattern(none, [], Separator, Guard, Ctxt) ->
     {[erl_syntax:text("") | Guard], set_separator(Ctxt, Separator)};
 lay_pattern(Name, Patterns, Separator, Guard, Ctxt) when is_list(Separator) ->
-    {_, Prec} = func_prec(),
-    Head = maybe_parentheses(call_layout(Name, Patterns, Ctxt), Prec, Ctxt),
-    HeadCtxt = reset_separator(set_formatter(Ctxt, beside)),
+    PatternLayout = pattern(Name, Patterns, Ctxt),
     GuardLayout = if_non_empty(Guard, [{Guard, set_nested(Ctxt, sub_indent)}]),
-    {[{Head, HeadCtxt} | GuardLayout], set_separator(Ctxt, [$\s | Separator])};
+    {[PatternLayout | GuardLayout], set_separator(Ctxt, [$\s | Separator])};
 lay_pattern(Name, Patterns, none, Guard, Ctxt) ->
     lay_pattern(Name, Patterns, [], Guard, Ctxt).
+
+pattern(none, Patterns, Ctxt) ->
+    Case = case_layout(Patterns, Ctxt),
+    Ctxt1 = reset_separator(set_formatter(Ctxt, beside)),
+    {Case, Ctxt1};
+pattern(Name, Patterns, Ctxt) ->
+    {_, Prec} = func_prec(),
+    Call = maybe_parentheses(call_layout(Name, Patterns, Ctxt), Prec, Ctxt),
+    Ctxt1 = reset_separator(set_formatter(Ctxt, beside)),
+    {Call, Ctxt1}.
 
 guard(none) -> [];
 guard(Guard) when is_list(Guard) andalso is_list(hd(Guard)) ->
@@ -1419,25 +1432,36 @@ lay_call(Name, Arguments, Ctxt) ->
     lay_op(call_layout(Name, Arguments, Ctxt), Prec, Ctxt).
 
 
-call_layout(none, Arguments, Ctxt) when is_list(Arguments) ->
+case_layout(Arguments, Ctxt) when is_list(Arguments) ->
     ArgsCtxt = set_formatter(reset_prec(Ctxt), sep),
     [{conjunction(Arguments), ArgsCtxt}];
-call_layout(none, Arguments, Ctxt) ->
-    call_layout(none, [Arguments], Ctxt);
+case_layout(Arguments, Ctxt) ->
+    case_layout([Arguments], Ctxt).
+
 call_layout(undefined, Arguments, Ctxt) ->
-    [{Arguments1, Ctxt1}] = call_layout(none, Arguments, Ctxt),
+    [{Arguments1, Ctxt1}] = case_layout(Arguments, Ctxt),
     [{erl_syntax:parentheses(Arguments1), Ctxt1}];
-call_layout(Name, none, Ctxt) ->
+call_layout(Name, none, Ctxt) when Name =/= none ->
     {LeftPrec, _Prec} = func_prec(),
     [{Name, set_prec(Ctxt, LeftPrec)}];
+call_layout(Name, [], Ctxt) when Name =/= none ->
+    Ctxt0 = reset_separator(set_formatter(Ctxt, beside)),
+    call_layout([Name, erl_syntax:text("()")], none, Ctxt0);
+call_layout(Name, [Argument], Ctxt) when Name =/= none ->
+    Ctxt0 = reset_separator(set_formatter(Ctxt, beside)),
+    [{Name, NCtxt}] = call_layout(Name, none, Ctxt0),
+    [{Arguments1, ACtxt}] = call_layout(undefined, [Argument], Ctxt0),
+    [{[{Name, NCtxt},
+       {Arguments1, set_nested(ACtxt, sub_indent)}],
+      NCtxt}];
 call_layout(Name, Arguments, Ctxt) when Name =/= none ->
     Ctxt0 = reset_separator(set_formatter(Ctxt, beside)),
     [{Name, NCtxt}] = call_layout(Name, none, Ctxt0),
-    [{Arguments1, ACtxt}] = call_layout(none, Arguments, Ctxt0),
+    [{Arguments1, ACtxt}] = case_layout(Arguments, Ctxt0),
     [{[{[Name, erl_syntax:text("(")], NCtxt},
        {[{Arguments1, set_nested(ACtxt, sub_indent)},
          erl_syntax:text(")")],
-        Ctxt0}],
+        NCtxt}],
       ACtxt}].
 
 lay_seq([], _Ctxt) -> empty();
