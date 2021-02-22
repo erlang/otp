@@ -5856,73 +5856,67 @@ delay_send_error2(Sock, N) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-send_failed_str(Reason) ->
-    ?F("Send failed: ~w", [Reason]).
-
-connect_failed_str(Reason) ->
-    ?F("Connect failed: ~w", [Reason]).
-
-listen_failed_str(Reason) ->
-    ?F("Listen failed: ~w", [Reason]).
-
-accept_failed_str(Reason) ->
-    ?F("Accept failed: ~w", [Reason]).
-
-port_failed_str(Reason) ->
-    ?F("Port failed: ~w", [Reason]).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 -define(ACTIVE_N, 20).
 
-%% 30-second test for gen_tcp in {active, N} mode, ensuring it does not get stuck.
+%% 30-second test for gen_tcp in {active, N} mode,
+%% ensuring it does not get stuck.
 %% Verifies that erl_check_io properly handles extra EPOLLIN signals.
 bidirectional_traffic(Config) when is_list(Config) ->
     ?TC_TRY(bidirectional_traffic,
             fun() -> do_bidirectional_traffic(Config) end).
 
-do_bidirectional_traffic(_Config) ->
+do_bidirectional_traffic(Config) ->
     ?P("begin"),
     Workers = erlang:system_info(schedulers_online) * 2,
     ?P("Use ~w workers", [Workers]),
     Payload = crypto:strong_rand_bytes(32),
     ?P("create listen socket"),
-    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
+    {ok, LSock} = ?LISTEN(Config,
+			  0,
+			  [binary,
+			   {packet, 0},
+			   {active, false},
+			   {reuseaddr, true}]),
     %% get all sockets to know failing ends
     {ok, Port} = inet:port(LSock),
     ?P("listen socket port number ~w", [Port]),
     Control = self(),
     ?P("create ~w receivers", [Workers]),
-    Receivers = [spawn_link(fun () -> exchange(LSock, Port, Payload, Control) end) || _ <- lists:seq(1, Workers)],
+    Receivers = [spawn_link(fun () -> 
+				    exchange(Config, LSock, Port, Payload, Control)
+			    end) || _ <- lists:seq(1, Workers)],
     ?P("await the result"),
     Result =
+	%% If any of the receivers report, we have an error
         receive
             {timeout, Socket, Total} ->
                 ?P("timeout msg for ~p: ~w", [Socket, Total]),
                 {fail, {timeout, Socket, Total}};
-            {error, Socket, Reason} ->
+	    {error, Socket, Reason} ->
                 ?P("error msg for ~p: ~p", [Socket, Reason]),
                 {fail, {error, Socket, Reason}}
         after 30000 ->
                 %% if it does not fail in 30 seconds, it most likely works
-                ?P("timeout => success?"),
+                ?P("timeout => success"),
                 ok
         end,
-    ?P("terminate receivers"),
+    ?P("ensure all receivers terminated"),
     [begin unlink(Rec), exit(Rec, kill) end || Rec <- Receivers],
     ?P("done"),
     Result.
 
-exchange(LSock, Port, Payload, Control) ->
+    
+exchange(Config, LSock, Port, Payload, Control) ->
     %% spin up client
     _ClntRcv = spawn(
         fun () ->
                 ?P("connect"),
                 {ok, Client} =
-                    gen_tcp:connect("localhost",
-                                    Port,
-                                    [binary, {packet, 0}, {active, ?ACTIVE_N}]),
+                    ?CONNECT(Config,
+			     "localhost",
+			     Port,
+			     [binary, {packet, 0}, {active, ?ACTIVE_N}]),
                 ?P("connected: ~p", [Client]),
                 send_recv_loop(Client, Payload, Control)
         end),
@@ -5954,9 +5948,12 @@ recv(Socket, Total, Control) ->
             inet:setopts(Socket, [{active, ?ACTIVE_N}]),
             recv(Socket, Total, Control);
         {tcp_closed, Socket} ->
-            ?P("[recv] closed when total received: ~w", [Total]),
-            exit(terminate);
-        Other ->
+            ?P("[recv] closed when total received: ~w"
+               "~n      Socket Info: ~p",
+	       [Total,
+                (catch gen_tcp_socket:info(Socket))]),
+	    ok;
+        Other when is_port(Socket) ->
             ?P("[recv] received unexpected when total received: ~w"
                "~n      ~p"
                "~n      Socket:      ~p"
@@ -5968,18 +5965,57 @@ recv(Socket, Total, Control) ->
                 (catch inet:getstat(Socket)),
                 (catch prim_inet:getstatus(Socket)),
                 (catch erlang:port_info(Socket))]),
+            Control ! {error, Socket, Other};
+        Other ->
+            ?P("[recv] received unexpected when total received: ~w"
+               "~n      ~p"
+               "~n      Socket:      ~p"
+               "~n      Socket Info: ~p",
+               [Total, Other,
+                Socket,
+                (catch gen_tcp_socket:info(Socket))]),
             Control ! {error, Socket, Other}
     after 2000 ->
-            %% no data received in 2 seconds, test failed
-            ?P("[recv] received nothing when total received: ~w"
-               "~n      Socket:      ~p"
-               "~n      Port stat:   ~p"
-               "~n      Port status: ~p"
-               "~n      Port Info:   ~p",
-               [Total,
-                Socket,
-                (catch inet:getstat(Socket)),
-                (catch prim_inet:getstatus(Socket)),
-                (catch erlang:port_info(Socket))]),
-            Control ! {timeout, Socket, Total}
+	    if
+		is_port(Socket) ->
+		    %% no data received in 2 seconds, test failed
+		    ?P("[recv] received nothing when total received: ~w"
+		       "~n      Socket:      ~p"
+		       "~n      Port stat:   ~p"
+		       "~n      Port status: ~p"
+		       "~n      Port Info:   ~p",
+		       [Total,
+			Socket,
+			(catch inet:getstat(Socket)),
+			(catch prim_inet:getstatus(Socket)),
+			(catch erlang:port_info(Socket))]),
+		    Control ! {timeout, Socket, Total};
+		true ->
+		    %% no data received in 2 seconds, test failed
+		    ?P("[recv] received nothing when total received: ~w"
+		       "~n      Socket:      ~p"
+		       "~n      Socket Info: ~p",
+		       [Total,
+			Socket,
+			(catch gen_tcp_socket:info(Socket))]),
+		    Control ! {timeout, Socket, Total}
+	    end
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+send_failed_str(Reason) ->
+    ?F("Send failed: ~w", [Reason]).
+
+connect_failed_str(Reason) ->
+    ?F("Connect failed: ~w", [Reason]).
+
+listen_failed_str(Reason) ->
+    ?F("Listen failed: ~w", [Reason]).
+
+accept_failed_str(Reason) ->
+    ?F("Accept failed: ~w", [Reason]).
+
+port_failed_str(Reason) ->
+    ?F("Port failed: ~w", [Reason]).
