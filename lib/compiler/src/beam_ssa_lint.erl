@@ -291,15 +291,15 @@ vvars_block_1([], _Terminator, State) ->
 vvars_terminator(#b_ret{ arg = Arg }=I, From, State) ->
     ok = vvars_assert_args([Arg], I, State),
     TryTags = State#vvars.try_tags,
-    case gb_sets:size(TryTags) of
-        N when N > 0, From =/= ?EXCEPTION_BLOCK ->
-            throw({active_try_tags_on_return, TryTags, I});
-        N when N > 0, From =:= ?EXCEPTION_BLOCK ->
+    case {gb_sets:is_empty(TryTags),From} of
+        {false,?EXCEPTION_BLOCK} ->
             %% Plain guards sometimes branch off to ?EXCEPTION_BLOCK even
             %% though they cannot actually throw exceptions. This ought to be
             %% fixed at the source, but we'll ignore this for now.
             State;
-        0 ->
+        {false,_} ->
+            throw({active_try_tags_on_return, TryTags, I});
+        {true,_} ->
             State
     end;
 vvars_terminator(#b_switch{arg=Arg,fail=Fail,list=Switch}=I, From, State) ->
@@ -312,10 +312,6 @@ vvars_terminator(#b_br{bool=#b_literal{val=true},succ=Succ}=I, From, State) ->
     Labels = [Succ],
     ok = vvars_assert_labels(Labels, I, State),
     vvars_terminator_1(Labels, From, State);
-vvars_terminator(#b_br{bool=#b_literal{val=false},fail=Fail}=I, From, State) ->
-    Labels = [Fail],
-    ok = vvars_assert_labels(Labels, I, State),
-    vvars_terminator_1(Labels, From, State);
 vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) ->
     ok = vvars_assert_args([Arg], I, State),
     Labels = [Fail, Succ],
@@ -326,11 +322,11 @@ vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) -
       Labels :: list(beam_ssa:label()),
       From :: beam_ssa:label(),
       State :: #vvars{}.
-vvars_terminator_1(Labels0, From, State0) ->
+vvars_terminator_1(Labels0, From, #vvars{branches=Branches}=State0) ->
     %% Filter out all branches that have already been taken. This should result
     %% in either all of Labels0 or an empty list.
     Labels = [To || To <- Labels0,
-                    not maps:is_key({From, To}, State0#vvars.branches)],
+                    not maps:is_key({From, To}, Branches)],
     true = Labels =:= Labels0 orelse Labels =:= [], %Assertion
     State1 = foldl(fun(To, State) ->
                            vvars_save_branch(From, To, State)

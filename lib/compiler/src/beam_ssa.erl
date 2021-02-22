@@ -889,6 +889,9 @@ trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
             case successors(Blk) of
                 [] ->
                     [{L,Blk}|trim_unreachable_1(Bs, Seen0)];
+                [Next] ->
+                    Seen = sets:add_element(Next, Seen0),
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen)];
                 [_|_]=Successors ->
                     Seen = sets:union(Seen0, sets:from_list(Successors, [{version, 2}])),
                     [{L,Blk}|trim_unreachable_1(Bs, Seen)]

@@ -383,7 +383,7 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             %% Some variables defined in this block are used by
             %% successors. We must update the set of unset variables.
             SetInThisBlock = [V || #b_set{dst=V} <- Is],
-            sets:union(UnsetVars, sets:from_list(SetInThisBlock, [{version, 2}]))
+            list_set_union(SetInThisBlock, UnsetVars)
     end.
 
 shortcut_two_way(#b_br{succ=Succ,fail=Fail}, From, Bs0, UnsetVars0, St0) ->
@@ -1108,7 +1108,7 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},sets:union(sets:from_list(Vs, [{version, 2}]), Live0)} ||
+                    PhiLive = [{{L,P},list_set_union(Vs, Live0)} ||
                                   {P,Vs} <- PhiLive0],
                     maps:merge(UsedVars, maps:from_list(PhiLive));
                 [] ->
@@ -1118,13 +1118,13 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
     end.
 
 used_vars_blk(#b_blk{is=Is,last=Last}, Used0) ->
-    Used = sets:union(Used0, sets:from_list(beam_ssa:used(Last), [{version, 2}])),
+    Used = list_set_union(beam_ssa:used(Last), Used0),
     used_vars_is(reverse(Is), Used).
 
 used_vars_is([#b_set{op=phi}|Is], Used) ->
     used_vars_is(Is, Used);
 used_vars_is([#b_set{dst=Dst}=I|Is], Used0) ->
-    Used1 = sets:union(Used0, sets:from_list(beam_ssa:used(I), [{version, 2}])),
+    Used1 = list_set_union(beam_ssa:used(I), Used0),
     Used = sets:del_element(Dst, Used1),
     used_vars_is(Is, Used);
 used_vars_is([], Used) ->
@@ -1133,6 +1133,13 @@ used_vars_is([], Used) ->
 %%%
 %%% Common utilities.
 %%%
+
+list_set_union([], Set) ->
+    Set;
+list_set_union([E], Set) ->
+    sets:add_element(E, Set);
+list_set_union(List, Set) ->
+    sets:union(sets:from_list(List, [{version, 2}]), Set).
 
 sub(#b_set{args=Args}=I, Sub) when map_size(Sub) =/= 0 ->
     I#b_set{args=[sub_arg(A, Sub) || A <- Args]};
