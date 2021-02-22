@@ -357,6 +357,12 @@ send(?module_socket(Server, Socket), Data) ->
 %%
 send_result(Server, Meta, Result) ->
     case Result of
+	%% We should really return the rest data rather then just ignoring it,
+	%% but for now...
+        {error, {timeout = Reason, RestData}} when is_binary(RestData) ->
+	    _ = maps:get(send_timeout_close, Meta)
+		andalso close_server(Server),
+	    {error, Reason};
         {error, Reason} ->
             %% To handle RestData we would have to pass
             %% all writes through a single process that buffers
