@@ -105,16 +105,10 @@ do_connect(Addr = {?FAMILY, _}, 0, Opts, Time) ->
 	    port = 0,
 	    opts = SockOpts}}
 	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
-	     BAddr =:= any ->
+	     BAddr =:= undefined ->
 	    case inet:open(
-		   Fd,
-		   case BAddr of
-		       any ->
-			   undefined;
-		       _ ->
-			   BAddr
-		   end,
-		   0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+		   Fd, BAddr, 0, SockOpts,
+                   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, 0, Time) of
 			ok -> {ok,S};
