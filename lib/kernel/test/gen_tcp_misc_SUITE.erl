@@ -4415,23 +4415,22 @@ wait_until_accepting(Proc,N) ->
 %% Check that accept returns {error, system_limit}
 %% (and not {error, enfile}) when running out of ports.
 accept_system_limit(Config) when is_list(Config) ->
-    OldFlag = process_flag(trap_exit, true),
-    Res = try do_accept_system_limit(Config)
-          catch
-              exit:{skip, _} = SKIP ->
-                  SKIP
-          end,
-    process_flag(trap_exit, OldFlag),
-    Res.
+    Cond = fun() ->
+		   case ?IS_SOCKET_BACKEND(Config) of
+		       true ->
+			   {skip, "Not complient with socket"};
+		       false ->
+			   ok
+		   end
+	   end,
+    TC   = fun() -> do_accept_system_limit(Config) end,
+    ?TC_TRY(accept_system_limit, Cond, TC).
 
 do_accept_system_limit(Config) ->
     ?P("create listen socket"),
     LS = case ?LISTEN(Config, 0, []) of
-             {ok, LSocket} when is_port(LSocket) ->
-                 LSocket;
              {ok, LSocket} ->
-                 (catch gen_tcp:close(LSocket)),
-                 ?SKIPT("Non-socket compliant test case");
+                 LSocket;
              {error, eaddrnotavail = Reason} ->
                  ?SKIPT(listen_failed_str(Reason))
         end,             
@@ -5683,142 +5682,198 @@ otp_13939(Config) when is_list(Config) ->
         ct:fail("Server process blocked on send.")
     end.
 
+
+%% No point in running this as the test case with inet_backend = socket
+%% as it tests a bug in the inet driver that cannot reproduced with
+%% inet_backend = socket.
 otp_12242(Config) when is_list(Config) ->
-    case os:type() of
-        {win32,_} ->
-            %% Even if we set sndbuf and recbuf to small sizes
-            %% Windows either happily accepts to send GBytes of data
-            %% in no time, so the second send below that is supposed
-            %% to time out just succedes, or the first send that
-            %% is supposed to fill the inet_drv I/O queue and
-            %% start waiting for when more data can be sent
-            %% instead sends all data but suffers a send
-            %% failure that closes the socket
-            {skipped,backpressure_broken_on_win32};
-        _ ->
-            %% Find the IPv4 address of an up and running interface
-            %% that is not loopback nor pointtopoint
-            {ok,IFList} = inet:getifaddrs(),
-            ct:pal("IFList ~p~n", [IFList]),
-            case
-                lists:flatten(
-                  [lists:filtermap(
-                     fun ({addr,Addr}) when tuple_size(Addr) =:= 4 ->
-                             {true,Addr};
-                         (_) ->
-                             false
-                     end, Opts)
-                   || {_,Opts} <- IFList,
-                      case lists:keyfind(flags, 1, Opts) of
-                          {_,Flags} ->
-                              lists:member(up, Flags)
-                                  andalso
-                                  lists:member(running, Flags)
-                                  andalso
-                                  not lists:member(loopback, Flags)
-                                  andalso
-                                  not lists:member(pointtopoint, Flags);
-                          false ->
-                              false
-                      end])
-            of
-                [Addr|_] ->
-                    otp_12242(Config, Addr);
-                Other ->
-                    {skipped,{no_external_address,Other}}
-            end
+    Cond = fun() ->
+		   case os:type() of
+		       {win32,_} ->
+			   %% Even if we set sndbuf and recbuf to small sizes
+			   %% Windows either happily accepts to send GBytes of
+			   %% data in no time, so the second send below that
+			   %% is supposed to time out just succedes, or the 
+			   %% first send that is supposed to fill the inet_drv
+			   %% I/O queue and start waiting for when more data
+			   %% can be sent instead sends all data but suffers
+			   %% a send failure that closes the socket.
+			   {skip, backpressure_broken_on_win32};
+		       _ ->
+			   case ?IS_SOCKET_BACKEND(Config) of
+			       true ->
+				   {skip, "Not complient with socket"};
+			       false ->
+				   ok
+			   end
+		   end
+	   end,
+    TC = fun() -> do_otp_12242(Config) end,
+    ?TC_TRY(otp_12242, Cond, TC).
+
+do_otp_12242(Config) when is_list(Config) ->
+    %% Find the IPv4 address of an up and running interface
+    %% that is not loopback nor pointtopoint
+    {ok, IFList} = inet:getifaddrs(),
+    ?P("IFList "
+       "~n      ~p", [IFList]),
+    case
+	lists:flatten(
+	  [lists:filtermap(
+	     fun ({addr, Addr}) when (tuple_size(Addr) =:= 4) ->
+		     {true, Addr};
+		 (_) ->
+		     false
+	     end, Opts)
+	   || {_,Opts} <- IFList,
+	      case lists:keyfind(flags, 1, Opts) of
+		  {_,Flags} ->
+		      lists:member(up, Flags)
+			  andalso
+			  lists:member(running, Flags)
+			  andalso
+			  not lists:member(loopback, Flags)
+			  andalso
+			  not lists:member(pointtopoint, Flags);
+		  false ->
+		      false
+	      end])
+    of
+	[Addr|_] ->
+	    otp_12242(Config, Addr);
+	Other ->
+	    ?SKIPT({no_external_address, Other})
     end.
+
 %%
-otp_12242(Config, Addr) when tuple_size(Addr) =:= 4 ->
+otp_12242(Config, Addr) when (tuple_size(Addr) =:= 4) ->
     ct:timetrap(30000),
-    ct:pal("Using address ~p~n", [Addr]),
-    Bufsize = 16 * 1024,
+    ?P("Using address ~p", [Addr]),
+    Bufsize  = 16 * 1024,
     Datasize = 128 * 1024 * 1024, % At least 1 s on GBit interface
-    Blob = binary:copy(<<$x>>, Datasize),
+    Blob     = binary:copy(<<$x>>, Datasize),
     LOpts =
-        [{backlog,4},{reuseaddr,true},{ip,Addr},
-         binary,{active,false},
-         {recbuf,Bufsize},{sndbuf,Bufsize},{buffer,Bufsize}],
+        [{backlog,   4},
+	 {reuseaddr, true},
+	 {ip,        Addr},
+         binary,
+	 {active,    false},
+         {recbuf,    Bufsize},
+	 {sndbuf,    Bufsize},
+	 {buffer,    Bufsize}],
     COpts =
-        [binary,{active,false},{ip,Addr},
-         {linger,{true,1}}, % 1 s
-         {send_timeout,500},
-         {recbuf,Bufsize},{sndbuf,Bufsize},{buffer,Bufsize}],
+        [binary,
+	 {active,       false},
+	 {ip,           Addr},
+         {linger,       {true, 1}}, % 1 s
+         {send_timeout, 500},
+         {recbuf,       Bufsize},
+	 {sndbuf,       Bufsize},
+	 {buffer,       Bufsize}],
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,ListenerNode} =
+    {ok, ListenerNode} =
         test_server:start_node(
-          ?UNIQ_NODE_NAME, slave, [{args,"-pa " ++ Dir}]),
+          ?UNIQ_NODE_NAME, slave, [{args, "-pa " ++ Dir}]),
     Tester = self(),
-    Listener =
-        spawn(
+    ?P("create listener"),
+    {Listener, ListenerMRef} =
+        spawn_opt(
           ListenerNode,
           fun () ->
-                  {ok,L} = ?LISTEN(Config, 0, LOpts),
+		  ?P("create listen socket"),
+                  {ok,L}     = ?LISTEN(Config, 0, LOpts),
                   {ok,LPort} = inet:port(L),
-                  Tester ! {self(),port,LPort},
-                  {ok,A} = gen_tcp:accept(L),
-                  ok = gen_tcp:close(L),
+		  ?P("inform tester about port number: ~w", [LPort]),
+                  Tester ! {self(), port, LPort},
+		  ?P("try accept"),
+                  {ok, A}    = gen_tcp:accept(L),
+		  ?P("accepted - close listen socket"),
+                  ok         = gen_tcp:close(L),
+		  ?P("await close order"),
                   receive
-                      {Tester,stop} ->
+                      {Tester, stop} ->
+			  ?P("close order received - close accepted socket"),
                           ok = gen_tcp:close(A)
                   end
-          end),
-    ListenerMref = monitor(process, Listener),
+          end, [monitor]),
+    ?P("await listen port"),
     LPort = receive {Listener,port,P} -> P end,
+    ?P("try connect to ~w", [LPort]),
     {ok,C} = ?CONNECT(Config, Addr, LPort, COpts, infinity),
-    {ok,ReadCOpts} = inet:getopts(C, [recbuf,sndbuf,buffer]),
-    ct:pal("ReadCOpts ~p~n", [ReadCOpts]),
-    %%
+    ?P("connected - get buffers"),
+    {ok, ReadCOpts} = inet:getopts(C, [recbuf,sndbuf,buffer]),
+    ?P("connected sockets buffers:"
+       "~n      ~p", [ReadCOpts]),
+
+    otp_12242_2(C, Blob, Datasize),
+
+    ?P("send listener stop"),
+    Listener ! {Tester, stop},
+    ?P("await listener termination"),
+    wait(ListenerMRef),
+    ?P("stop listener node"),
+    test_server:stop_node(ListenerNode),
+    ?P("done"),
+    ok.
+    
+
+otp_12242_2(C, Blob, Datasize) when is_port(C) ->
     %% Fill the buffers
-    ct:pal("Sending ~p bytes~n", [Datasize]),
+    ?P("sending ~p bytes", [Datasize]),
     ok = gen_tcp:send(C, Blob),
-    ct:pal("Sent ~p bytes~n", [Datasize]),
-    %% Spawn the Closer,
-    %% try to ensure that the close call is in progress
+    ?P("sent ~p bytes", [Datasize]),
+
+    %% Try to ensure that the close call is in progress
     %% before the owner proceeds with sending
-    Owner = self(),
-    {_Closer,CloserMref} =
-        spawn_opt(
-          fun () ->
-                  Owner ! {tref, erlang:start_timer(50, Owner, closing)},
-                  ct:pal("Calling gen_tcp:close(C)~n"),
-                  try gen_tcp:close(C) of
-                      Result ->
-                          ct:pal("gen_tcp:close(C) -> ~p~n", [Result]),
-                          ok = Result
-                  catch
-                      Class:Reason:Stacktrace ->
-                          ct:pal(
-                            "gen_tcp:close(C) >< ~p:~p~n    ~p~n",
-                            [Class,Reason,Stacktrace]),
-                          erlang:raise(Class, Reason, Stacktrace)
-                  end
-          end, [link,monitor]),
+    CloserMRef = otp_12242_closer(C),
+    
+    ?P("await tref"),
     receive
         {tref,Tref} ->
+	    ?P("tref received - now await trigger timeout"),
             receive {timeout,Tref,_} -> ok end,
-            ct:pal("Sending ~p bytes again~n", [Datasize]),
+            ?P("trigger timeout received - try send ~p bytes again",
+	       [Datasize]),
             %% Now should the close be in progress...
             %% All buffers are full, remote end is not reading,
             %% and the send timeout is 1 s so this will timeout:
-            {error,timeout} = gen_tcp:send(C, Blob),
-            ct:pal("Sending ~p bytes again timed out~n", [Datasize]),
-            ok = inet:setopts(C, [{send_timeout,10000}]),
+            {error, timeout} = gen_tcp:send(C, Blob),
+            ?P("expected timeout - update send_timeout (to 10000)"),
+            ok = inet:setopts(C, [{send_timeout, 10000}]),
             %% There is a hidden timeout here.  Port close is sampled
             %% every 5 s by prim_inet:send_recv_reply.
             %% Linger is 3 s so the Closer will finish this send:
-            ct:pal("Sending ~p bytes with 10 s timeout~n", [Datasize]),
-            {error,closed} = gen_tcp:send(C, Blob),
-            ct:pal("Sending ~p bytes with 10 s timeout was closed~n",
-                   [Datasize]),
-            normal = wait(CloserMref),
-            ct:pal("The Closer has exited~n"),
-            Listener ! {Tester,stop},
-            receive {'DOWN',ListenerMref,_,_,_} -> ok end,
-            ct:pal("The Listener has exited~n"),
-            test_server:stop_node(ListenerNode),
+            ?P("try send ~p bytes - expect error (closed)", [Datasize]),
+            {error, closed} = gen_tcp:send(C, Blob),
+            ?P("await closer termination"),
+            normal = wait(CloserMRef),
             ok
     end.
+
+otp_12242_closer(C) ->
+    Owner = self(),
+    {_Closer, CloserMref} =
+        spawn_opt(
+          fun () ->
+                  ?P("[closer] starting"),
+                  Owner ! {tref, erlang:start_timer(50, Owner, closing)},
+                  ?P("[closer] calling gen_tcp:close(C)"),
+                  try gen_tcp:close(C) of
+                      Result ->
+                          ?P("[closer] gen_tcp:close(C) -> ~p", [Result]),
+                          ok = Result
+                  catch
+                      Class:Reason:Stacktrace ->
+                          ?P("[closer] catched gen_tcp:close(C):"
+			     "~n      Error Class:  ~p"
+			     "~n      Error:        ~p"
+			     "~n      Stack trace:  ~p",
+                            [Class, Reason, Stacktrace]),
+                          erlang:raise(Class, Reason, Stacktrace)
+                  end
+          end, [link, monitor]),
+    CloserMref.
+
 
 wait(Mref) ->
     receive {'DOWN',Mref,_,_,Reason} -> Reason end.

@@ -356,6 +356,7 @@ send(?module_socket(Server, Socket), Data) ->
     end.
 %%
 send_result(Server, Meta, Result) ->
+    %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
 	%% We should really return the rest data rather then just ignoring it,
 	%% but for now...
@@ -486,12 +487,13 @@ info(?module_socket(_Server, Socket)) ->
 %%%
 
 -compile({inline, [socket_send/3]}).
-socket_send(Socket, Opts, Timeout) ->
-    Result = socket:send(Socket, Opts, Timeout),
+socket_send(Socket, Data, Timeout) ->
+    Result = socket:send(Socket, Data, Timeout),
     case Result of
         {error, {timeout = Reason, RestData}} when is_binary(RestData) ->
 	    %% This is better then closing the socket for every timeout
 	    %% We need to do something about this!
+	    %% ?DBG({timeout, byte_size(RestData)}),
 	    {error, Reason};
         {error, {_Reason, RestData}} when is_binary(RestData) ->
             %% To properly handle RestData we would have to pass
@@ -501,8 +503,10 @@ socket_send(Socket, Opts, Timeout) ->
             %% Since send data may have been lost, and there is no room
             %% in this API to inform the caller, we at least close
             %% the socket in the write direction
+	    %% ?DBG({_Reason, byte_size(RestData)}),
             {error, econnreset};
         {error, Reason} ->
+	    %% ?DBG(Reason),
             {error,
              case Reason of
                  epipe -> econnreset;
@@ -512,6 +516,7 @@ socket_send(Socket, Opts, Timeout) ->
             %% Can not happen for stream socket, but that
             %% does not show in the type spec
             %% - make believe a fatal connection error
+	    %% ?DBG({ok, byte_size(RestData)}),
             {error, econnreset};
         ok ->
             ok

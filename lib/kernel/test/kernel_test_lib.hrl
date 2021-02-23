@@ -41,6 +41,7 @@
 -define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
 -define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
+-define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
 -define(F(FORMAT, ARGS),         ?LIB:f(FORMAT, ARGS)).
 -define(P(F),                    ?LIB:print(F)).

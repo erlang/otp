@@ -25,6 +25,7 @@
 -export([tc_try/3]).
 -export([listen/3,
          connect/4, connect/5,
+         is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0,
          test_inet_backends/0]).
@@ -1709,6 +1710,14 @@ inet_backend_opts(Config) when is_list(Config) ->
             InetBackendOpts;
         false ->
             []
+    end.
+
+is_socket_backend(Config) when is_list(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, [{inet_backend, socket}]}} ->
+            true;
+        _ ->
+            false
     end.
 
 
