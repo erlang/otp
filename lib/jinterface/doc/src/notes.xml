@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Accept 64-bit process identifiers from external nodes.
+	    This is the first step in an upgrade path toward using
+	    64-bit pids in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-16720 Aux Id: PR-2680 </p>
+        </item>
+        <item>
+          <p>
+	    Accept references up to a size of 160-bits from remote
+	    nodes. This is the first step in an upgrade path toward
+	    using references up to 160-bits in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17005 Aux Id: OTP-16718 </p>
+        </item>
+        <item>
+          <p>
+	    Accept 64-bit port identifiers from external nodes. This
+	    is the first step in an upgrade path toward using 64-bit
+	    port identifiers in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17007</p>
+        </item>
+        <item>
+          <p>
+	    Make <c>OtpErlangExternalFun</c>'s fields <c>module</c>,
+	    <c>function</c> and <c>arity</c> public.</p>
+          <p>
+	    Own Id: OTP-17170 Aux Id: PR-3005 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.11</title>
 
     <section><title>Improvements and New Features</title>

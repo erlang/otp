@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+        <item>
+          <p>
+	    Recognize new key 'optional_applications' in application
+	    resource files.</p>
+          <p>
+	    Own Id: OTP-17189 Aux Id: PR-2675 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 4.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

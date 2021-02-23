@@ -316,8 +316,8 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="alias" arity="0" since="OTP @OTP-16718@"/>
-      <name name="alias" arity="1" since="OTP @OTP-16718@"/>
+      <name name="alias" arity="0" since="OTP 24.0"/>
+      <name name="alias" arity="1" since="OTP 24.0"/>
       <fsummary>Create an alias.</fsummary>
       <desc>
 	<p>
@@ -4097,9 +4097,9 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="monitor" arity="3" clause_i="1" since="OTP @OTP-16718@"/>
-      <name name="monitor" arity="3" clause_i="2" since="OTP @OTP-16718@"/>
-      <name name="monitor" arity="3" clause_i="3" since="OTP @OTP-16718@"/>
+      <name name="monitor" arity="3" clause_i="1" since="OTP 24.0"/>
+      <name name="monitor" arity="3" clause_i="2" since="OTP 24.0"/>
+      <name name="monitor" arity="3" clause_i="3" since="OTP 24.0"/>
       <fsummary>Start monitoring with options.</fsummary>
       <type name="registered_name"/>
       <type name="registered_process_identifier"/>
@@ -12389,7 +12389,7 @@ improper_end</pre>
     </func>
 
     <func>
-      <name name="unalias" arity="1" since="OTP @OTP-16718@"/>
+      <name name="unalias" arity="1" since="OTP 24.0"/>
       <fsummary>Create an alias.</fsummary>
       <desc>
 	<p>

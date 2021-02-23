@@ -31,6 +31,49 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would crash when compiling a module
+	    having an exported function named <c>clauses</c>.</p>
+          <p>
+	    Own Id: OTP-17162 Aux Id: elixir-lang/elixir#10666 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for handling abstract code created before OTP R15
+	    has been dropped.</p>
+          <p>
+	    Own Id: OTP-16678 Aux Id: PR-2627 </p>
+        </item>
+        <item>
+          <p>
+	    Add types and specifications for documentation.</p>
+          <p>
+	    Own Id: OTP-16957</p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

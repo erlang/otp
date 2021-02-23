@@ -33,7 +33,37 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Ftp 1.0.5</title>
+  <section><title>Ftp 1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use OTP supervisor as intended, avoiding surprising
+	    behavior as the killing of the user's process. Also, FTP
+	    state handling logic is improved to avoid race conditions
+	    that could result in unexpected errors.</p>
+          <p>
+	    Own Id: OTP-16926 Aux Id: ERL-1450, GH-4473 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for FTPES (explicit FTP over TLS).</p>
+          <p>
+	    Own Id: OTP-15523 Aux Id: OTP-15352, PR-1968 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ftp 1.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
