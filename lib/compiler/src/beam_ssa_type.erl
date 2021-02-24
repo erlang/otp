@@ -180,7 +180,8 @@ do_sig_function(Id, StMap, State0, FuncDb0) ->
                   end,
 
             #func_info{in=Cs0} = map_get(Id, FuncDb0),
-            Callers = [C || C <- Cs0, is_map_key(C, State#sig_st.updates)],
+            Updates = State#sig_st.updates,
+            Callers = [C || C <- Cs0, is_map_key(C, Updates)],
             Wl = wl_defer_list(Callers, Wl0),
 
             {State#sig_st{wl=Wl}, FuncDb}
