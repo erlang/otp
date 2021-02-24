@@ -216,7 +216,7 @@ make_sure_expired(Host, Port, Id) ->
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),
 
-    case ssl_session_cache:lookup(ClientCache, {{Host,  Port}, Id}) of
+    case ssl_client_session_cache_db:lookup(ClientCache, {{Host,  Port}, Id}) of
 	undefined ->
    	   ok; 
 	#session{is_resumable = false} ->

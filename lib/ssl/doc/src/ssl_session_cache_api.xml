@@ -105,6 +105,11 @@
 	The function returns the final value of the accumulator.
 	<c>Acc0</c> is returned if the cache is empty.
 	</p>
+
+	<note><p>Since OTP-23.3 this functions is only used on the client side
+	and does not need to implemented for a server cache.
+	</p></note>
+
       </desc>
     </func>
 
@@ -158,9 +163,12 @@
 	<v>Session = <seetype marker="#session">session()</seetype></v>
       </type>
       <desc>
-	<p>Selects sessions that can be reused. Is to be callable
-	from any process.
-	</p>
+	<p>Selects sessions that can be reused, that is sessions that
+	include <c>PartialKey</c> in its key. Is to be callable from
+	any process.</p>
+	<note><p>Since OTP-23.3 This functions is only used on the client side
+	and does not need to implemented for a server cache.
+	</p></note>
       </desc>
     </func>
 

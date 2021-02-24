@@ -29,10 +29,11 @@
 -define(DEFAULT_MAX_SESSION_CACHE, 1000).
 
 -export([init/2,
-         pre_1_3_session_opts/0,
+         pre_1_3_session_opts/1,
          get_max_early_data_size/0,
          get_ticket_lifetime/0,
-         get_ticket_store_size/0
+         get_ticket_store_size/0,
+         get_internal_active_n/0
         ]).
 
 %%====================================================================
@@ -54,20 +55,13 @@ init(#{erl_dist := ErlDist,
     DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
     {ok, Config#{private_key => PrivateKey, dh_params => DHParams}}.
 
-pre_1_3_session_opts() ->
-    CbOpts = case application:get_env(ssl, session_cb) of
-		 {ok, Cb} when is_atom(Cb) ->
-		     InitArgs = session_cb_init_args(),
-		     #{session_cb => Cb,
-                       session_cb_init_args => InitArgs};
-		 _  ->
-		     #{session_cb => ssl_server_session_cache_db,
-                       session_cb_init_args => []}
-	     end,
-    LifeTime = session_lifetime(),
-    Max = max_session_cache_size(),
-    [CbOpts#{lifetime => LifeTime, max => Max}].
-
+pre_1_3_session_opts(Role) ->
+    {Cb, InitArgs} = session_cb_opts(Role),
+    CbOpts = #{session_cb => Cb,
+               session_cb_init_args => InitArgs},
+    LifeTime = session_lifetime(Role),
+    Max = max_session_cache_size(Role),
+    CbOpts#{lifetime => LifeTime, max => Max}.
 
 get_ticket_lifetime() ->
     case application:get_env(ssl, server_session_ticket_lifetime) of
@@ -77,7 +71,6 @@ get_ticket_lifetime() ->
 	_  ->
 	    7200 %% Default 2 hours
     end.
-
 
 get_ticket_store_size() ->
     case application:get_env(ssl, server_session_ticket_store_size) of
@@ -94,6 +87,14 @@ get_max_early_data_size() ->
 	_  ->
 	    ?DEFAULT_MAX_EARLY_DATA_SIZE
     end.
+
+get_internal_active_n() ->
+     case application:get_env(ssl, internal_active_n) of
+         {ok, N} when is_integer(N) ->
+             N;
+         _  ->
+             ?INTERNAL_ACTIVE_N
+     end.
 
 %%====================================================================
 %% Internal functions 
@@ -232,15 +233,32 @@ init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
     end.
 
 
-session_cb_init_args() ->
-    case application:get_env(ssl, session_cb_init_args) of
-	{ok, Args} when is_list(Args) ->
-	    Args;
-	_  ->
-	    []
+session_cb_init_args(client) ->
+    case application:get_env(ssl, client_session_cb_init_args) of
+        undefined ->
+            case application:get_env(ssl, session_cb_init_args) of
+                {ok, Args} when is_list(Args) ->
+                    Args;
+                _  ->
+                    []
+            end;
+        {ok, Args} ->
+            Args
+    end;
+session_cb_init_args(server) ->
+    case application:get_env(ssl, server_session_cb_init_args) of
+        undefined ->
+            case application:get_env(ssl, session_cb_init_args) of
+                {ok, Args} when is_list(Args) ->
+                    Args;
+                _  ->
+                    []
+            end;
+        {ok, Args} ->
+            Args
     end.
 
-session_lifetime() ->
+session_lifetime(_Role) ->
     case application:get_env(ssl, session_lifetime) of
 	{ok, Time} when is_integer(Time) ->
             Time;
@@ -248,7 +266,14 @@ session_lifetime() ->
             ?'24H_in_sec'
     end.
 
-max_session_cache_size() ->
+max_session_cache_size(client) ->
+    case application:get_env(ssl, session_cache_client_max) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_ ->
+	   ?DEFAULT_MAX_SESSION_CACHE
+    end;
+max_session_cache_size(server) ->
     case application:get_env(ssl, session_cache_server_max) of
 	{ok, Size} when is_integer(Size) ->
 	    Size;
@@ -256,3 +281,17 @@ max_session_cache_size() ->
 	   ?DEFAULT_MAX_SESSION_CACHE
     end.
 
+session_cb_opts(client = Role)->
+    case application:get_env(ssl, session_cb, ssl_client_session_cache_db) of
+        ssl_client_session_cache_db = ClientCb ->
+            {ClientCb, []};
+        ClientCb ->
+            {ClientCb, session_cb_init_args(Role)}
+    end;
+session_cb_opts(server = Role) ->
+    case application:get_env(ssl, session_cb, ssl_server_session_cache_db) of
+        ssl_server_session_cache_db = ServerCb ->
+            {ServerCb, []};
+        ServerCb ->
+            {ServerCb, session_cb_init_args(Role)}
+    end.

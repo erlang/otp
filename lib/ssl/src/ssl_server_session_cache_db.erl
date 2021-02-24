@@ -24,7 +24,7 @@
 
 -module(ssl_server_session_cache_db).
 
-%%-behaviour(ssl_session_cache_api).
+-behaviour(ssl_session_cache_api).
 
 %% API
 -export([init/1,

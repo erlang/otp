@@ -82,7 +82,7 @@ client_cb() ->
     [{doc, "Test ssl_session_cache_api client callback implementation"}].
 
 client_cb(Config) when is_list(Config) ->
-    Cb = ssl_session_cache,
+    Cb = ssl_client_session_cache_db,
     Db = Cb:init([]),
     Id0 = crypto:strong_rand_bytes(32),
     DummySession0 = #session{session_id = Id0},

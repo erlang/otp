@@ -19,7 +19,7 @@
 %%
 
 %%
--module(ssl_session_cache).
+-module(ssl_client_session_cache_db).
 
 -behaviour(ssl_session_cache_api).
 
@@ -42,7 +42,7 @@ init(Options) ->
     ets:new(cache_name(proplists:get_value(role, Options)), [ordered_set, protected]).
 
 %%--------------------------------------------------------------------
-%% Description: Handles cache table at termination of ssl manager. 
+%% Description: Handles cache table at termination of ssl manager.
 %%--------------------------------------------------------------------
 terminate(Cache) ->
     ets:delete(Cache).
@@ -91,17 +91,17 @@ foldl(Fun, Acc0, Cache) ->
         _:_ ->
             Acc0
     end.
-  
+
 %%--------------------------------------------------------------------
 %% Description: Selects a session that could be reused. Should be callable
 %% from any process.
 %%--------------------------------------------------------------------
-select_session(Cache, PartialKey) ->    
-    try ets:select(Cache, 
+select_session(Cache, PartialKey) ->
+    try ets:select(Cache,
                    [{{{PartialKey,'_'}, '$1'},[],['$1']}]) of
         Result ->
             Result
-    catch 
+    catch
         _:_ ->
             []
     end.

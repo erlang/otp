@@ -220,14 +220,20 @@ init([ManagerName, PemCacheName, Opts]) ->
     put(ssl_manager, ManagerName),
     put(ssl_pem_cache, PemCacheName),
     process_flag(trap_exit, true),
-    CacheCb = proplists:get_value(session_cb, Opts, ssl_session_cache),
+
+    #{session_cb := DefaultCacheCb,
+      session_cb_init_args := DefaultCacheCbInitArgs,
+      lifetime := DefaultSessLifeTime,
+      max := ClientSessMax
+     } = ssl_config:pre_1_3_session_opts(client),
+    CacheCb = proplists:get_value(session_cb, Opts, DefaultCacheCb),
     SessionLifeTime =  
-	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
-    CertDb = ssl_pkix_db:create(PemCacheName),
+	proplists:get_value(session_lifetime, Opts, DefaultSessLifeTime),
     ClientSessionCache = 
 	CacheCb:init([{role, client} | 
-		      proplists:get_value(session_cb_init_args, Opts, [])]),
+		      proplists:get_value(session_cb_init_args, Opts, DefaultCacheCbInitArgs)]),
 
+    CertDb = ssl_pkix_db:create(PemCacheName),
     Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
     {ok, #state{certificate_db = CertDb,
@@ -235,8 +241,7 @@ init([ManagerName, PemCacheName, Opts]) ->
 		session_cache_client_cb = CacheCb,
 		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer,
-		session_cache_client_max = 
-		    max_session_cache_size(session_cache_client_max),
+		session_cache_client_max = ClientSessMax,
 		session_client_invalidator = undefined,
                 options = Opts,
                 client_session_order = gb_trees:empty()
@@ -421,14 +426,6 @@ session_validation({{{Host, Port}, _}, Session}, LifeTime) ->
 session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
-
-max_session_cache_size(CacheType) ->
-    case application:get_env(ssl, CacheType) of
-	{ok, Size} when is_integer(Size) ->
-	    Size;
-	_ ->
-	   ?DEFAULT_MAX_SESSION_CACHE
-    end.
 
 invalidate_session(Cache, CacheCb, Key, _Session,
                    #state{client_session_order = Order} = State) ->

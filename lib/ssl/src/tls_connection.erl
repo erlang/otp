@@ -452,17 +452,12 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
       erl_dist := IsErlDist,
       client_renegotiation := ClientRenegotiation} = SSLOptions,
     ConnectionStates = tls_record:init_connection_states(Role, BeastMitigation),
-    SessionCacheCb = case application:get_env(ssl, session_cb) of
-			 {ok, Cb} when is_atom(Cb) ->
-			    Cb;
-			 _  ->
-			     ssl_session_cache
-		     end,
-    InternalActiveN =  case application:get_env(ssl, internal_active_n) of
-                           {ok, N} when is_integer(N) andalso (not IsErlDist) ->
-                               N;
-                           _  ->
-                               ?INTERNAL_ACTIVE_N
+    #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
+    InternalActiveN =  case IsErlDist of
+                           true ->
+                               ?INTERNAL_ACTIVE_N;
+                           false ->
+                               ssl_config:get_internal_active_n()
                        end,
     UserMonitor = erlang:monitor(process, User),
     InitStatEnv = #static_env{
