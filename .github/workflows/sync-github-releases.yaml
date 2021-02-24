@@ -35,4 +35,4 @@ jobs:
       - name: Sync releases
         run: >
           .github/scripts/sync-github-releases.sh ${{ github.repository }}
-          "Bearer ${{ secrets.GITHUB_TOKEN }}" "^2[123]\\..*" 25m
+          "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m
