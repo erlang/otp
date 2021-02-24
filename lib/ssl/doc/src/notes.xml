@@ -27,39 +27,6 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
-<section><title>SSL 10.3</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Removed ssl:ssl_accept/1,2,3 and ssl:cipher:suites/0,1
-	    use ssl:handshake/1,2,3 and ssl:cipher_suites/2,3
-	    instead.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-16974</p>
-        </item>
-        <item>
-          <p>
-	    Make TLS handshakes in Erlang distribution concurrent.</p>
-          <p>
-	    Own Id: OTP-17044 Aux Id: PR-2654 </p>
-        </item>
-        <item>
-          <p>
-	    Randomize internal <c>{active,n}</c> optimization when
-	    running Erlang distribution over TLS to spread RAM/CPU
-	    spike that may occur when starting up a big cluster.</p>
-          <p>
-	    Own Id: OTP-17117 Aux Id: PR-2933 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>SSL 10.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

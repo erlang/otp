@@ -31,51 +31,6 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
-<section><title>Crypto 5.0</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Add <c>/usr/local/opt/openssl</c> to the openssl
-	    configure search path. This path is where some tools on
-	    OS X place openssl.</p>
-          <p>
-	    Own Id: OTP-16882</p>
-        </item>
-        <item>
-          <p>
-	    Fix compiler warnings produced by the clang compiler.</p>
-          <p>
-	    Own Id: OTP-17105 Aux Id: PR-2872 </p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    The functions and cipher names that were deprecated in
-	    OTP-23.0 are now removed.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-16656</p>
-        </item>
-        <item>
-          <p>
-	    Removed installed directory priv/obj/ containing
-	    superfluous object files.</p>
-          <p>
-	    Own Id: OTP-17001 Aux Id: PR-2852 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Crypto 4.8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

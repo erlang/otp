@@ -32,22 +32,7 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.13.3</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Fix compiler warnings produced by the clang compiler.</p>
-          <p>
-	    Own Id: OTP-17105 Aux Id: PR-2872 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>ODBC 2.13.2</title>
+  <section><title>ODBC 2.13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

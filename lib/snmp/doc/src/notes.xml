@@ -34,22 +34,7 @@
   </header>
 
 
-  <section><title>SNMP 5.7.4</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Removed deprecated functions marked for removal.</p>
-          <p>
-	    Own Id: OTP-17049</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>SNMP 5.7.3</title>
+  <section><title>SNMP 5.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

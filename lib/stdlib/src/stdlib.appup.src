@@ -19,9 +19,9 @@
 %%
 %% We allow upgrade from, and downgrade to all previous
 %% versions from the following OTP releases:
+%% - OTP 21
 %% - OTP 22
 %% - OTP 23
-%% - OTP 24
 %%
 %% We also allow upgrade from, and downgrade to all
 %% versions that have branched off from the above
@@ -41,8 +41,18 @@
   {<<"^3\\.13\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.13\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^3\\.13\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^3\\.14$">>,[restart_new_emulator]},
-  {<<"^3\\.14\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.5$">>,[restart_new_emulator]},
+  {<<"^3\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.6$">>,[restart_new_emulator]},
+  {<<"^3\\.6\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.7$">>,[restart_new_emulator]},
+  {<<"^3\\.7\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.7\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.8$">>,[restart_new_emulator]},
+  {<<"^3\\.8\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.8\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.8\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^3\\.9$">>,[restart_new_emulator]},
   {<<"^3\\.9\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.9\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
@@ -60,8 +70,18 @@
   {<<"^3\\.13\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.13\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^3\\.13\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^3\\.14$">>,[restart_new_emulator]},
-  {<<"^3\\.14\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.5$">>,[restart_new_emulator]},
+  {<<"^3\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.6$">>,[restart_new_emulator]},
+  {<<"^3\\.6\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.7$">>,[restart_new_emulator]},
+  {<<"^3\\.7\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.7\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.8$">>,[restart_new_emulator]},
+  {<<"^3\\.8\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.8\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.8\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^3\\.9$">>,[restart_new_emulator]},
   {<<"^3\\.9\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.9\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},

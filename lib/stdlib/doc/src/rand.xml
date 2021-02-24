@@ -380,7 +380,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
   <funcs>
     <func>
-      <name name="bytes" arity="1" since="OTP 24.0"/>
+      <name name="bytes" arity="1" since="OTP @OTP-14646@"/>
       <fsummary>Return a random binary.</fsummary>
       <desc><marker id="bytes-1"/>
       <p>
@@ -394,7 +394,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="bytes_s" arity="2" since="OTP 24.0"/>
+      <name name="bytes_s" arity="2" since="OTP @OTP-14646@"/>
       <fsummary>Return a random binary.</fsummary>
       <desc><marker id="bytes-1"/>
       <p>
@@ -493,7 +493,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
     <func>
       <name name="seed" arity="1" clause_i="1" since="OTP 18.0"/>
-      <name name="seed" arity="1" clause_i="2" since="OTP 24.0"/>
+      <name name="seed" arity="1" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <marker id="seed-1"/>
@@ -515,7 +515,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
     <func>
       <name name="seed" arity="2" clause_i="1" since="OTP 18.0"/>
-      <name name="seed" arity="2" clause_i="2" since="OTP 24.0"/>
+      <name name="seed" arity="2" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
         <p>
@@ -532,7 +532,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
     <func>
       <name name="seed_s" arity="1" clause_i="1" since="OTP 18.0"/>
-      <name name="seed_s" arity="1" clause_i="2" since="OTP 24.0"/>
+      <name name="seed_s" arity="1" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <p>
@@ -553,7 +553,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
     <func>
       <name name="seed_s" arity="2" clause_i="1" since="OTP 18.0"/>
-      <name name="seed_s" arity="2" clause_i="2" since="OTP 24.0"/>
+      <name name="seed_s" arity="2" clause_i="2" since="OTP @OTP-14646@"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
         <p>

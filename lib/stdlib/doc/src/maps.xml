@@ -143,7 +143,7 @@
     </func>
 
     <func>
-      <name name="foreach" arity="2" since="OTP 24.0"/>
+      <name name="foreach" arity="2" since="OTP @OTP-17179@"/>
       <fsummary>Apply a function to each element of a map.</fsummary>
       <desc>
         <p>Calls <c>fun F(Key, Value)</c> for every <c><anno>Key</anno></c>
@@ -228,7 +228,7 @@ val1
     </func>
 
     <func>
-      <name name="intersect" arity="2" since="OTP 24.0"/>
+      <name name="intersect" arity="2" since="OTP @OTP-16936@"/>
       <fsummary></fsummary>
       <desc>
         <p>Intersects two maps into a single map
@@ -248,7 +248,7 @@ val1
     </func>
 
     <func>
-      <name name="intersect_with" arity="3" since="OTP 24.0"/>
+      <name name="intersect_with" arity="3" since="OTP @OTP-16936@"/>
       <fsummary></fsummary>
       <desc>
         <p>Intersects two maps into a single map
@@ -379,7 +379,7 @@ none</code>
     </func>
 
     <func>
-      <name name="merge_with" arity="3" since="OTP 24.0"/>
+      <name name="merge_with" arity="3" since="OTP @OTP-16936@"/>
       <fsummary></fsummary>
       <desc>
         <p>Merges two maps into a single map

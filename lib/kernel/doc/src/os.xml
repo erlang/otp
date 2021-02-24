@@ -144,7 +144,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
     </func>
 
     <func>
-      <name name="env" arity="0" since="OTP 24.0"/>
+      <name name="env" arity="0" since="OTP @OTP-16793@"/>
       <fsummary>List all environment variables.</fsummary>
       <desc>
         <p>Returns a list of all environment variables.

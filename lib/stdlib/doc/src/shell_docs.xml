@@ -181,7 +181,7 @@ Since:
     </func>
 
     <func>
-      <name name="supported_tags" arity="0" since="OTP 24.0"/>
+      <name name="supported_tags" arity="0" since="OTP @OTP-17120@"/>
       <fsummary>Which tags are supported</fsummary>
       <desc>
         <p>This function can be used to find out which tags are

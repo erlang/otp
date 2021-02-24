@@ -32,21 +32,6 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
-<section><title>Observer 2.9.6</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Updated gui parts to work with the new wx version.</p>
-          <p>
-	    Own Id: OTP-17214</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Observer 2.9.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

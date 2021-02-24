@@ -30,35 +30,6 @@
     <file>notes.xml</file>
   </header>
 
-<section><title>Ssh 4.11</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Removed usage of <c>erlang:is_port/1</c> from the SSH
-	    implementation.</p>
-          <p>
-	    Own Id: OTP-16750</p>
-        </item>
-        <item>
-          <p>
-	    Internal connection setup refactoring.</p>
-          <p>
-	    Own Id: OTP-17051</p>
-        </item>
-        <item>
-          <p>
-	    Refactor SSH fsm into a (hopefully) more comprehensible
-	    set of gen_statem callback-files.</p>
-          <p>
-	    Own Id: OTP-17140</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Ssh 4.10.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
