@@ -1788,7 +1788,7 @@ check(F, String, Result, BoundVars, LFH, EFH) ->
         {value, Result, Bs} ->
             %% We just assume that Bs is an orddict...
             Keys = orddict:fetch_keys(Bs),
-            case sort(BoundVars) == Keys of
+            case sort(BoundVars) == sort(Keys) of
                 true ->
                     ok;
                 false ->
