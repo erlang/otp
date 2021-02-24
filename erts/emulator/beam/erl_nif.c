@@ -2326,6 +2326,17 @@ static void resource_down_during_takeover(ErlNifEnv* env, void* obj,
     rt->fn_real.down(env, obj, pid, mon);
     erts_rwmtx_runlock(&erts_nif_call_tab_lock);
 }
+static void resource_dyncall_during_takeover(ErlNifEnv* env, void* obj,
+                                             void* call_data)
+{
+    ErtsResource* resource = DATA_TO_RESOURCE(obj);
+    ErlNifResourceType* rt = resource->type;
+
+    erts_rwmtx_rlock(&erts_nif_call_tab_lock);
+    ASSERT(rt->fn_real.dyncall);
+    rt->fn_real.dyncall(env, obj, call_data);
+    erts_rwmtx_runlock(&erts_nif_call_tab_lock);
+}
 
 static void resource_dtor_nop(ErlNifEnv* env, void* obj)
 {
@@ -2351,7 +2362,7 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
                                        const ErlNifResourceTypeInit* init,
                                        ErlNifResourceFlags flags,
                                        ErlNifResourceFlags* tried,
-                                       size_t sizeof_init)
+                                       int init_members)
 {
     ErlNifResourceType* type = NULL;
     ErlNifResourceFlags op = flags;
@@ -2393,10 +2404,19 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
 	ort->op = op;
 	ort->type = type;
         sys_memzero(&ort->new_callbacks, sizeof(ErlNifResourceTypeInit));
-        ASSERT(sizeof_init > 0 && sizeof_init <= sizeof(ErlNifResourceTypeInit));
-        sys_memcpy(&ort->new_callbacks, init, sizeof_init);
+        switch (init_members) {
+        case 4: ort->new_callbacks.dyncall = init->dyncall;
+        case 3: ort->new_callbacks.down = init->down;
+        case 2: ort->new_callbacks.stop = init->stop;
+        case 1: ort->new_callbacks.dtor = init->dtor;
+        case 0:
+            break;
+        default:
+            ERTS_ASSERT(!"Invalid number of ErlNifResourceTypeInit members");
+        }
         if (!ort->new_callbacks.dtor && (ort->new_callbacks.down ||
-                                         ort->new_callbacks.stop)) {
+                                         ort->new_callbacks.stop ||
+                                         ort->new_callbacks.dyncall)) {
             /* Set dummy dtor for fast rt_have_callbacks()
              * This case should be rare anyway */
             ort->new_callbacks.dtor = resource_dtor_nop;
@@ -2418,10 +2438,9 @@ enif_open_resource_type(ErlNifEnv* env,
 			ErlNifResourceFlags flags,
 			ErlNifResourceFlags* tried)
 {
-    ErlNifResourceTypeInit init =  {dtor, NULL};
+    ErlNifResourceTypeInit init = {dtor};
     ASSERT(module_str == NULL); /* for now... */
-    return open_resource_type(env, name_str, &init, flags, tried,
-                              sizeof(init));
+    return open_resource_type(env, name_str, &init, flags, tried, 1);
 }
 
 ErlNifResourceType*
@@ -2431,8 +2450,17 @@ enif_open_resource_type_x(ErlNifEnv* env,
                           ErlNifResourceFlags flags,
                           ErlNifResourceFlags* tried)
 {
-    return open_resource_type(env, name_str, init, flags, tried,
-                              env->mod_nif->entry.sizeof_ErlNifResourceTypeInit);
+    return open_resource_type(env, name_str, init, flags, tried, 3);
+}
+
+ErlNifResourceType*
+enif_init_resource_type(ErlNifEnv* env,
+                        const char* name_str,
+                        const ErlNifResourceTypeInit* init,
+                        ErlNifResourceFlags flags,
+                        ErlNifResourceFlags* tried)
+{
+    return open_resource_type(env, name_str, init, flags, tried, init->members);
 }
 
 static void prepare_opened_rt(struct erl_module_nif* lib)
@@ -2459,6 +2487,7 @@ static void prepare_opened_rt(struct erl_module_nif* lib)
             type->fn.dtor = resource_dtor_during_takeover;
             type->fn.stop = resource_stop_during_takeover;
             type->fn.down = resource_down_during_takeover;
+            type->fn.dyncall = resource_dyncall_during_takeover;
 	}
         type->owner = lib;
 
@@ -2895,6 +2924,34 @@ size_t enif_sizeof_resource(void* obj)
         Binary* bin = &ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource)->binary;
         return ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(bin) - offsetof(ErtsResource,data);
     }
+}
+
+int enif_dynamic_resource_call(ErlNifEnv* caller_env,
+                               ERL_NIF_TERM rt_module_atom,
+                               ERL_NIF_TERM rt_name_atom,
+                               ERL_NIF_TERM resource_term,
+                               void* call_data)
+{
+    Binary* mbin;
+    ErtsResource* resource;
+    ErlNifResourceType* rt;
+
+    if (!is_internal_magic_ref(resource_term))
+        return 1;
+
+    mbin = erts_magic_ref2bin(resource_term);
+    resource = (ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(mbin);
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != NIF_RESOURCE_DTOR)
+        return 1;
+    rt = resource->type;
+    ASSERT(rt->owner);
+    if (rt->module != rt_module_atom || rt->name != rt_name_atom
+        || !rt->fn.dyncall) {
+        return 1;
+    }
+
+    rt->fn.dyncall(caller_env, &resource->data, call_data);
+    return 0;
 }
 
 

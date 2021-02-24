@@ -693,8 +693,9 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
 	    <seecref marker="#upgrade"><c>upgrade</c></seecref>,
 	    <seecref marker="#unload"><c>unload</c></seecref>,
 	    <seecref marker="#ErlNifResourceDtor"><c>dtor</c></seecref>,
-	    <seecref marker="#ErlNifResourceDown"><c>down</c></seecref> and
-	    <seecref marker="#ErlNifResourceStop"><c>stop</c></seecref>).
+	    <seecref marker="#ErlNifResourceDown"><c>down</c></seecref>,
+	    <seecref marker="#ErlNifResourceStop"><c>stop</c></seecref> and
+	    <seecref marker="#ErlNifResourceDynCall"><c>dyncall</c></seecref>).
 	    Works like a process bound environment but with a temporary
 	    pseudo process that "terminates" when the callback has
 	    returned. Terms may be created in this environment but they will
@@ -823,12 +824,15 @@ typedef struct {
       <item>
         <code type="none">
 typedef struct {
-    ErlNifResourceDtor* dtor;
-    ErlNifResourceStop* stop;
-    ErlNifResourceDown* down;
+    ErlNifResourceDtor* dtor;       // #1 Destructor
+    ErlNifResourceStop* stop;       // #2 Select stop
+    ErlNifResourceDown* down;       // #3 Monitor down
+    int members;
+    ErlNifResourceDynCall* dyncall; // #4 Dynamic call
 } ErlNifResourceTypeInit;</code>
-        <p>Initialization structure read by <seecref marker="#enif_open_resource_type_x">
-	enif_open_resource_type_x</seecref>.</p>
+        <p>Initialization structure read by
+	<seecref marker="#enif_open_resource_type_x">enif_open_resource_type_x</seecref>
+	<seecref marker="#enif_init_resource_type">enif_init_resource_type</seecref>.</p>
       </item>
       <tag><marker id="ErlNifResourceDtor"/><c>ErlNifResourceDtor</c></tag>
       <item>
@@ -860,6 +864,18 @@ typedef void ErlNifResourceStop(ErlNifEnv* caller_env, void* obj, ErlNifEvent ev
 	  enif_select</seecref>. <c>obj</c> is the resource, <c>event</c> is OS event,
 	  <c>is_direct_call</c> is true if the call is made directly from <c>enif_select</c>
 	  or false if it is a scheduled call (potentially from another thread).</p>
+      </item>
+      <tag><marker id="ErlNifResourceDynCall"/><c>ErlNifResourceDynCall</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceDynCall(ErlNifEnv* caller_env, void* obj, void* call_data);</code>
+        <p>
+	  The function prototype of a dynamic resource call function, called by
+	  <seecref marker="#enif_dynamic_resource_call">
+	  enif_dynamic_resource_call</seecref>. Argument <c>obj</c> is the
+	  resource object and <c>call_data</c> is the last argument to
+	  <c>enif_dynamic_resource_call</c> passed through.
+	</p>
       </item>
       <tag><marker id="ErlNifCharEncoding"/><c>ErlNifCharEncoding</c></tag>
       <item>
@@ -1288,6 +1304,38 @@ typedef struct {
         <p>This function is only thread-safe when the emulator with SMP support
           is used. It can only be used in a non-SMP emulator from a NIF-calling
           thread.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-14753@"><ret>int</ret>
+        <nametext>enif_dynamic_resource_call(ErlNifEnv* caller_env,
+	ERL_NIF_MODULE rt_module, ERL_NIF_MODULE rt_name, ERL_NIF_TERM resource,
+	void* call_data)</nametext>
+      </name>
+      <fsummary>Call a resource in another module.</fsummary>
+      <desc>
+        <p>
+	  Call code of a resource type implemented by another NIF module. The
+	  atoms <c>rt_module</c> and <c>rt_name</c> identifies the resource type
+	  to be called. Argument <c>resource</c> identifies a resource object of
+	  that type.
+	</p>
+	<p>
+	  The callback <seecref marker="#ErlNifResourceDynCall"><c>dyncall</c></seecref>
+	  of the identified resource type will be called with a pointer to the
+	  resource objects <c>obj</c> and the argument <c>call_data</c> passed
+	  through. The <c>call_data</c> argument is typically a pointer to a
+	  struct used to passed both arguments to the <c>dyncall</c> function as
+	  well as results back to the caller.
+	</p>
+	<p>
+	  Returns 0 if the <c>dyncall</c> callback function was called.
+	  Returns a non-zero value if no call was made, which happens if <c>rt_module</c>
+	  and <c>rt_name</c> did not identify a resource type with a
+	  <c>dyncall</c> callback or if <c>resource</c> was not a resource
+	  object of that type.
+	</p>
       </desc>
     </func>
 
@@ -2842,7 +2890,41 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>Argument <c>init</c> is a pointer to an
 	  <seecref marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seecref>
 	  structure that contains the function pointers for destructor, down and stop callbacks
-	  for the resource type.</p>
+	  for the resource type.
+	</p>
+	<note>
+	  <p>
+	    Only members <c>dtor</c>, <c>down</c> and <c>stop</c> in <seecref
+	    marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seecref>
+	    are read by <c>enif_open_resource_type_x</c>. To implement the new
+	    <c>dyncall</c> callback use <seecref
+	    marker="#enif_init_resource_type"><c>enif_init_resource_type</c></seecref>.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-14753@"><ret>ErlNifResourceType *</ret>
+        <nametext>enif_init_resource_type(ErlNifEnv* env, const char* name,
+	const ErlNifResourceTypeInit* init,
+        ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
+      </name>
+      <fsummary>Create or takeover a resource type.</fsummary>
+      <desc>
+	<p>Same as <seecref marker="#enif_open_resource_type_x"><c>enif_open_resource_type_x</c></seecref>
+	  except it accepts an additional callback function for resource types that are
+	  used together with <seecref marker="#enif_dynamic_resource_call">
+	  <c>enif_dynamic_resource_call</c></seecref>.</p>
+	<p>Argument <c>init</c> is a pointer to an
+	  <seecref marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seecref>
+	  structure that contains the callback function pointers <c>dtor</c>,
+	  <c>down</c>, <c>stop</c> and the new <c>dyncall</c>. The struct also
+	  contains the field <c>members</c> that must be set to the number of initialized
+	  callbacks counted from the top of the struct. For example, to
+	  initialize all callbacks including <c>dyncall</c>, <c>members</c>
+	  should be set to 4. All callbacks are optional and may be set to <c>NULL</c>.
+	</p>
       </desc>
     </func>
 
