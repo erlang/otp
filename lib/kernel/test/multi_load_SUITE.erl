@@ -274,25 +274,6 @@ failing_on_load_module(Mod) ->
 	"-on_load(f/0).\n",
 	"f() -> fail.\n"]).
 
-make_and_load(Mod, Fun, Opts) ->
-    {Mod,_,Code} = make_module(Mod, "", Fun, Opts),
-    {module,Mod} = code:load_binary(Mod, "", Code),
-    Mod.
-
-calling_module_fun(Called) ->
-    fun(Mod) ->
-	    ?Q(["-module('@Mod@').\n",
-		"-export([call/0]).\n",
-		"call() -> _@Called@:f().\n"])
-    end.
-
-called_module_fun(Ret) ->
-    fun(Mod) ->
-	    ?Q(["-module('@Mod@').\n",
-		"-export([f/0]).\n",
-		"f() -> _@Ret@.\n"])
-    end.
-
 %%%
 %%% Common utilities
 %%%

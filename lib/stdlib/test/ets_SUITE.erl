@@ -6002,8 +6002,6 @@ fill_sets_int(N,Opts) ->
     filltabint3(Tab4,N),
     [Tab1,Tab2,Tab3,Tab4].
 
-fill_sets_intup(N) ->
-    fill_sets_int(N,[]).
 fill_sets_intup(N,Opts) ->
     Tab1 = ets_new(xxx, [ordered_set|Opts]),
     filltabintup(Tab1,N),
