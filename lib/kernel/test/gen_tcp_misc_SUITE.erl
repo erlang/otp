@@ -5607,68 +5607,129 @@ otp_9389_loop(S, OrigLinkHdr, State) ->
     end.
 
 wrapping_oct() ->
-    [{timetrap,{minutes,10}}].
+    [{timetrap,{minutes,15}}].
 
 %% Check that 64bit octet counters work.
 wrapping_oct(Config) when is_list(Config) ->
-    {ok,Sock} = ?LISTEN(Config, 0,[{active,false},{mode,binary}]),
-    {ok,Port} = inet:port(Sock),
-    spawn_link(?MODULE,oct_acceptor,[Sock]),
-    Res = oct_datapump(Config, Port, 16#10000FFFF),
-    gen_tcp:close(Sock),
+    ?TC_TRY(wrapping_oct, fun() -> do_wrapping_oct(Config) end).
+
+do_wrapping_oct(Config) ->
+    ?P("create listen socket"),
+    {ok, LSock} = ?LISTEN(Config, 0, [{active,false},{mode,binary}]),
+    {ok, LPort} = inet:port(LSock),
+    ?P("spawn acceptor"),
+    spawn_link(?MODULE, oct_acceptor, [LSock]),
+    Res = oct_datapump(Config, LPort, 16#10000FFFF),
+    ?P("close listen socket"),
+    gen_tcp:close(LSock),
+    ?P("verify result"),
     ok = Res,
+    ?P("done"),
     ok.
 
 oct_datapump(Config, Port, N) ->
-    {ok,Sock} = ?CONNECT(Config, "localhost", Port,
-                         [{active,false},{mode,binary}]),
-    oct_pump(Sock,N,binary:copy(<<$a:8>>,100000),0).
+    ?P("[pump] connect to listener"),
+    {ok, CSock} = ?CONNECT(Config, "localhost", Port,
+			   [{active,false},{mode,binary}]),
+    ?P("[pump] connected - start 'pumping'"),
+    oct_pump(CSock, N, binary:copy(<<$a:8>>,100000), 0).
 
-oct_pump(S,N,_,_) when N =< 0 ->
-    gen_tcp:close(S),
+oct_pump(S, N, _, _) when N =< 0 ->
+    ?P("[pump] done"),
+    (catch gen_tcp:close(S)),
     ok;
-oct_pump(S,N,Bin,Last) ->
+oct_pump(S, N, Bin, Last) ->
     case gen_tcp:send(S,Bin) of
 	ok ->
-	    {ok,Stat}=inet:getstat(S),
-	    {_,R}=lists:keyfind(send_oct,1,Stat),
-	    case (R < Last) of
-		true ->
-		    io:format("ERROR (output) ~p < ~p~n",[R,Last]),
-		    output_counter_error;
-		false ->
-		    oct_pump(S,N-byte_size(Bin),Bin,R)
+	    case inet:getstat(S) of
+		{ok, Stat} ->
+		    {_, R} = lists:keyfind(send_oct, 1, Stat),
+		    case (R < Last) of
+			true ->
+			    ?P("[pump] send counter error ~p < ~p",[R, Last]),
+			    {error, {output_counter, R, Last, N}};
+			false ->
+			    oct_pump(S, N-byte_size(Bin), Bin, R)
+		    end;
+		{error, StatReason} ->
+		    ?P("[pump] get stat failed:"
+		       "~n      Reason:    ~p"
+		       "~n   when"
+		       "~n      Remaining: ~p"
+		       "~n      Last:      ~p", [StatReason, N, Last]),
+		    (catch gen_tcp:close(S)),
+		    {error, {stat_failure, StatReason, N, Last}}
 	    end;
-	_ ->
-	    input_counter_error
+	{error, SendReason} ->
+	    ?P("[pump] send failed:"
+	       "~n      Reason:    ~p"
+	       "~n   when"
+	       "~n      Remaining: ~p"
+	       "~n      Last:      ~p", [SendReason, N, Last]),
+	    (catch gen_tcp:close(S)),
+	    {error, {send_failure, SendReason, N, Last}}
     end.
     
 
-oct_acceptor(Sock) ->
-    {ok,Data} = gen_tcp:accept(Sock),
-    oct_aloop(Data,0,0).
+oct_acceptor(LSock) ->
+    ?P("[acceptor] accept connection"),
+    {ok, ASock} = gen_tcp:accept(LSock),
+    ?P("[acceptor] connection accepted"),
+    InitialInfo = if
+		      is_port(ASock) -> erlang:port_info(ASock);
+		      true           -> gen_tcp_socket:info(ASock)
+		  end,
+    oct_aloop(ASock, [], InitialInfo, 0, 0).
 
-oct_aloop(S,X,Times) ->
-    case gen_tcp:recv(S,0) of
-	{ok,_} ->
-	    {ok,Stat}=inet:getstat(S),
-	    {_,R}=lists:keyfind(recv_oct,1,Stat),
-	    case (R < X) of
-		true ->
-		    io:format("ERROR ~p < ~p~n",[R,X]),
-		    gen_tcp:close(S),
-		    input_counter_error;
-		false ->
-		    case Times rem 16#FFFFF of
-			0 ->
-			    io:format("Read: ~p~n",[R]);
-			_ ->
-			    ok
-		    end,
-		    oct_aloop(S,R,Times+1)
+oct_aloop(S, LastStat, LastInfo, Received, Times) ->
+    case gen_tcp:recv(S, 0) of
+	{ok, _} ->
+	    Info = if
+		       is_port(S) -> erlang:port_info(S);
+		       true -> gen_tcp_socket:info(S)
+		   end,
+	    case inet:getstat(S) of
+		{ok, Stat} ->
+		    {_, R} = lists:keyfind(recv_oct, 1, Stat),
+		    case (R < Received) of
+			true ->
+			    ?P("[acceptor] recv counter error:"
+			       "~n      Recv Cnt:  ~p"
+			       "~n      Received:  ~p"
+			       "~n      Times:     ~p"
+			       "~n      Stat:      ~p"
+			       "~n      Last Stat: ~p"
+			       "~n      Info:      ~p"
+			       "~n      Last Info: ~p",
+			       [R, Received, Times, Stat,
+				LastStat, Info, LastInfo]),
+			    (catch gen_tcp:close(S)),
+			    {error, {output_counter, R, Received, Times}};
+			false ->
+			    case Times rem 16#FFFFF of
+				0 ->
+				    ?P("[acceptor] read: ~p", [R]);
+				_ ->
+				    ok
+			    end,
+			    oct_aloop(S, Stat, Info, R, Times+1)
+		    end;
+		{error, StatReason} ->
+		    ?P("[acceptor] get stat failed:"
+		       "~n      Reason:   ~p"
+		       "~n   when"
+		       "~n      Received: ~p"
+		       "~n      Times:    ~p", [StatReason, Received, Times]),
+		    (catch gen_tcp:close(S)),
+		    {error, {stat_failure, StatReason, Received, Times}}
 	    end;
-	_ ->
-	    gen_tcp:close(S),
+	{error, RecvReason} ->
+	    ?P("[acceptor] receive failed:"
+	       "~n      Reason:   ~p"
+	       "~n   when"
+	       "~n      Received: ~p"
+	       "~n      Times:    ~p", [RecvReason, Received, Times]),
+	    (catch gen_tcp:close(S)),
 	    closed
     end.
 
