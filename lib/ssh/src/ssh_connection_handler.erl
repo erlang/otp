@@ -118,22 +118,31 @@ start_link(Role, Host, Port, Socket, Options0, NegotiationTimeout) ->
         Options1 = ?PUT_INTERNAL_OPT([{user_pid, self()}
                                      ], Options0),
         Profile = ?GET_OPT(profile, Options1),
-        {ok, {SystemSup, SubSysSup}} =
-            case Role of
-                client -> sshc_sup:start_system_subsystem(Host, Port, Profile, Options1);
-                server -> sshd_sup:start_system_subsystem(Host, Port, Profile, Options1)
+        Sup = case Role of
+                client -> sshc_sup;
+                server -> sshd_sup
             end,
+        {ok, {SystemSup, SubSysSup}} =
+            Sup:start_system_subsystem(Host, Port, Profile, Options1),
         ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
         Options = ?PUT_INTERNAL_OPT([{supervisors, [{system_sup, SystemSup},
                                                     {subsystem_sup, SubSysSup},
                                                     {connection_sup, ConnectionSup}]}
                                     ], Options1),
+
+        %% This is essentially gen_statem:start_link/3 :
         case ssh_connection_sup:start_child(ConnectionSup,
-                                            [?MODULE, [Role, Socket, Options], [{spawn_opt, [{message_queue_data,off_heap}]}]]
+                                            [?MODULE,
+                                             [Role, Socket, Options],
+                                             [{spawn_opt, [{message_queue_data,off_heap}]}]]
                                            ) of
             {ok, Pid} ->
+                %% Now the connection_handler process is started, but no message handling
+                %% begins until the socket_control is called
                 case socket_control(Socket, Pid, Options) of
                     ok ->
+                        %% handshake returns {ok,Pid} after a successful connection setup.
+                        %% or {error,Reason} after an unsuccesful one:
                         handshake(Pid, erlang:monitor(process,Pid), NegotiationTimeout);
                     {error, Reason} ->
                         {error, Reason}
