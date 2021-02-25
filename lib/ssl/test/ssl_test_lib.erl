@@ -1950,8 +1950,8 @@ accepters(Acc, N) ->
 
 
 basic_test(COpts, SOpts, Config) ->
-    SType = proplists:get_value(server_type, Config),
-    CType = proplists:get_value(client_type, Config),
+    SType = proplists:get_value(server_type, Config, erlang),
+    CType = proplists:get_value(client_type, Config, erlang),
     {Server, Port} = start_server(SType, COpts, SOpts, Config),
     Client = start_client(CType, Port, COpts, Config),
     gen_check_result(Server, SType, Client, CType),
