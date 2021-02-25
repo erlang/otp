@@ -677,9 +677,6 @@ void erts_replace_intr(void) {
 void init_break_handler(void)
 {
    sys_signal(SIGINT,  request_break);
-#ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_signal(SIGUSR1, generic_signal_handler);
-#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
    sys_signal(SIGQUIT, generic_signal_handler);
 }
 
@@ -694,6 +691,9 @@ void
 erts_sys_unix_later_init(void)
 {
     sys_signal(SIGTERM, generic_signal_handler);
+#ifndef ETHR_UNUSABLE_SIGUSRX
+   sys_signal(SIGUSR1, generic_signal_handler);
+#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
 
     /* Ignore SIGCHLD to ensure orphaned processes don't turn into zombies on
      * death when we're pid 1. */
