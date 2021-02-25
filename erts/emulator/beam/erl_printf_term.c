@@ -621,14 +621,15 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 		PRINT_CHAR(res, fn, arg, '>');
 	    }
 	    break;
-	case MAP_DEF:
-            if (is_flatmap(wobj)) {
+	case MAP_DEF: {
+            Eterm *head = boxed_val(wobj);
+
+            if (is_flatmap_header(*head)) {
                 Uint n;
                 Eterm *ks, *vs;
-                flatmap_t *mp = (flatmap_t *)flatmap_val(wobj);
-                n  = flatmap_get_size(mp);
-                ks = flatmap_get_keys(mp);
-                vs = flatmap_get_values(mp);
+                n  = flatmap_get_size(head);
+                ks = flatmap_get_keys(head);
+                vs = flatmap_get_values(head);
 
                 PRINT_CHAR(res, fn, arg, '#');
                 PRINT_CHAR(res, fn, arg, '{');
@@ -643,8 +644,6 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 }
             } else {
                 Uint n, mapval;
-                Eterm *head;
-                head = hashmap_val(wobj);
                 mapval = MAP_HEADER_VAL(*head);
                 switch (MAP_HEADER_TYPE(*head)) {
                 case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
@@ -689,6 +688,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 }
             }
             break;
+        }
 	case MATCHSTATE_DEF:
 	    PRINT_STRING(res, fn, arg, "#MatchState");
 	    break;

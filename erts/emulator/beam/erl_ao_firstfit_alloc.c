@@ -603,9 +603,11 @@ rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
     /* Find node to splice out */
     if (!z->left || !z->right)
 	y = z;
-    else
+    else {
 	/* Set y to z:s successor */
-	for(y = z->right; y->left; y = y->left);
+	for(y = z->right; y->left; y = y->left)
+	    ;
+    }
     /* splice out y */
     x = y->left ? y->left : y->right;
     spliced_is_black = IS_BLACK(y);
@@ -1073,7 +1075,8 @@ static Block_t *aoff_first_fblk_in_mbc(Allctr_t *allctr, Carrier_t *carrier)
         AOFF_RBTree_t *blk;
 
         /* Descend to the rightmost block of the tree. */
-        for (blk = crr->root; blk->right; blk = blk->right);
+        for (blk = crr->root; blk->right; blk = blk->right)
+            ;
 
         return (Block_t*)blk;
     }
@@ -1093,7 +1096,8 @@ static Block_t *aoff_next_fblk_in_mbc(Allctr_t *allctr, Carrier_t *carrier,
 
     if (blk->left) {
         /* Descend to the rightmost block of the left subtree. */
-        for (blk = blk->left; blk->right; blk = blk->right);
+        for (blk = blk->left; blk->right; blk = blk->right)
+            ;
 
         return (Block_t*)blk;
     }

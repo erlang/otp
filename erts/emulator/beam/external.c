@@ -497,7 +497,7 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 	int iix, flgs_bytes, flgs_buf_ix, used_half_bytes;
         ErtsAtomCache* cache = dep->cache;
 #ifdef DEBUG
-	int tot_used_half_bytes;
+	int tot_used_half_bytes, top_buf_ix;
 #endif
 
 	flgs_bytes = ERTS_DIST_HDR_ATOM_CACHE_FLAG_BYTES(ci);
@@ -562,9 +562,13 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 	}
 	ASSERT(tot_used_half_bytes == 2*flgs_bytes);
 	flgs_buf[flgs_buf_ix] = flgs;
+#ifdef DEBUG
+        top_buf_ix = flgs_buf_ix;
+#endif
 	flgs_buf_ix = 0;
 	while (1) {
-	    flgs = flgs_buf[flgs_buf_ix];
+            ASSERT(flgs_buf_ix <= top_buf_ix);
+            flgs = flgs_buf[flgs_buf_ix];
 	    if (flgs_bytes > 4) {
 		*--ep = (byte) ((flgs >> 24) & 0xff);
 		*--ep = (byte) ((flgs >> 16) & 0xff);
@@ -574,6 +578,7 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 		flgs_bytes -= 4;
 	    }
 	    else {
+                ASSERT(flgs_buf_ix == top_buf_ix);
 		switch (flgs_bytes) {
 		case 4:
 		    *--ep = (byte) ((flgs >> 24) & 0xff);

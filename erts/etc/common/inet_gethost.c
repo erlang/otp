@@ -93,6 +93,12 @@
 #endif
 #include <sys/times.h>
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 #ifndef RETSIGTYPE
 #define RETSIGTYPE void
 #endif
@@ -2580,9 +2586,7 @@ static void debugf(char *format, ...)
 	WriteFile(debug_console_allocated,buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void) write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 }
@@ -2604,9 +2608,7 @@ static void warning(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void) write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 }
@@ -2628,9 +2630,7 @@ static IMPL_NORETURN__ fatal(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void) write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 #ifndef WIN32
