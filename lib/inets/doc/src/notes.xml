@@ -33,7 +33,30 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.3.1</title>
+  <section><title>Inets 7.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Solves CVE-2021-27563, that is make sure no form of
+	    relative path can be used to go outside webservers
+	    directory.</p>
+          <p>
+	    Own Id: OTP-17205 Aux Id: ERIERL-608 </p>
+        </item>
+        <item>
+          <p>
+	    Make sure HEAD requests rejects directory links</p>
+          <p>
+	    Own Id: OTP-17220</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
