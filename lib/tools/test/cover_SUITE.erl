@@ -32,7 +32,7 @@ all() ->
                    otp_8340,otp_8188,compile_beam_opts,eep37,
                    analyse_no_beam, line_0, compile_beam_no_file,
                    compile_beam_missing_backend,
-                   otp_13277, otp_13289],
+                   otp_13277, otp_13289, guard_in_lc],
     StartStop = [start, compile, analyse, misc, stop,
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1781,6 +1781,29 @@ otp_13289(Config) ->
              ">>,
     File = cc_mod(t, Test, Config),
     <<1,2,3>> = t:t(),
+    ok = file:delete(File),
+    ok.
+
+guard_in_lc(Config) ->
+    Test = <<"-module(t).
+              -export([lc/1]).
+
+              lc(L) ->
+                  [V || V <- L, V == a orelse element(1, V) == a].
+             ">>,
+
+    %% The filter in the list comprehension must be compiled as a
+    %% guard expression. Therefore, `cover` must NOT rewrite the list
+    %% comprehension in the test code like this:
+    %%
+    %% [V || V <- L,
+    %%       case V == a of
+    %%           true -> true;
+    %%           false -> element(1, V) == a
+    %%       end].
+
+    File = cc_mod(t, Test, Config),
+    [a,{a,good}] = t:lc([a, b, {x,y}, {a,good}, "ignore"]),
     ok = file:delete(File),
     ok.
 
