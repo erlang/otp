@@ -76,6 +76,8 @@ public abstract class AbstractConnection extends Thread {
     protected static final int exitTTTag = 13;
     protected static final int regSendTTTag = 16;
     protected static final int exit2TTTag = 18;
+    protected static final int unlinkIdTag = 35;
+    protected static final int unlinkIdAckTag = 36;
 
     // MD5 challenge messsage tags
     protected static final int ChallengeReply = 'r';
@@ -355,10 +357,8 @@ public abstract class AbstractConnection extends Thread {
     // link to pid
 
     /**
-     * Create a link between the local node and the specified process on the
-     * remote node. If the link is still active when the remote process
-     * terminates, an exit signal will be sent to this connection. Use
-     * {@link #sendUnlink unlink()} to remove the link.
+     *
+     * Send link signal to remote process.
      *
      * @param dest
      *            the Erlang PID of the remote process.
@@ -393,9 +393,8 @@ public abstract class AbstractConnection extends Thread {
     }
 
     /**
-     * Remove a link between the local node and the specified process on the
-     * remote node. This method deactivates links created with {@link #sendLink
-     * link()}.
+     *
+     * Send unlink signal to remote process.
      *
      * @param dest
      *            the Erlang PID of the remote process.
@@ -404,7 +403,8 @@ public abstract class AbstractConnection extends Thread {
      *                if the connection is not active or a communication error
      *                occurs.
      */
-    protected void sendUnlink(final OtpErlangPid from, final OtpErlangPid dest)
+    protected void sendUnlink(final OtpErlangPid from, final OtpErlangPid dest,
+                              long unlink_id)
             throws IOException {
         if (!connected) {
             throw new IOException("Not connected");
@@ -417,16 +417,73 @@ public abstract class AbstractConnection extends Thread {
         header.write1(passThrough);
         header.write1(version);
 
-        // header
-        header.write_tuple_head(3);
-        header.write_long(unlinkTag);
-        header.write_any(from);
-        header.write_any(dest);
+        if ((peer.flags & AbstractNode.dFlagUnlinkId) != 0) {
+            // header
+            header.write_tuple_head(4);
+            header.write_long(unlinkIdTag);
+            header.write_long(unlink_id);
+            header.write_any(from);
+            header.write_any(dest);
+        }
+        else {
+            /*
+             * A node that isn't capable of talking the new link protocol.
+             *
+             * Send an old unlink op, and send ourselves an unlink-ack. We may
+             * end up in an inconsistent state as we could before the new link
+             * protocol was introduced...
+             */
+            // header
+            header.write_tuple_head(3);
+            header.write_long(unlinkTag);
+            header.write_any(from);
+            header.write_any(dest);
+            deliver(new OtpMsg(unlinkIdAckTag, dest, from, unlink_id));
+        }
 
         // fix up length in preamble
         header.poke4BE(0, header.size() - 4);
 
         do_send(header);
+    }
+
+    /**
+     * Send unlink acknowledgment signal to remote process.
+     *
+     * @param dest
+     *            the Erlang PID of the remote process.
+     *
+     * @exception java.io.IOException
+     *                if the connection is not active or a communication error
+     *                occurs.
+     */
+    protected void sendUnlinkAck(final OtpErlangPid from, final OtpErlangPid dest,
+                                 long unlink_id)
+            throws IOException {
+        if (!connected) {
+            throw new IOException("Not connected");
+        }
+        if ((peer.flags & AbstractNode.dFlagUnlinkId) != 0) {
+            @SuppressWarnings("resource")
+            final OtpOutputStream header = new OtpOutputStream(headerLen);
+
+            // preamble: 4 byte length + "passthrough" tag
+            header.write4BE(0); // reserve space for length
+            header.write1(passThrough);
+            header.write1(version);
+
+            // header
+            header.write_tuple_head(4);
+            header.write_long(unlinkIdAckTag);
+            header.write_long(unlink_id);
+            header.write_any(from);
+            header.write_any(dest);
+            // fix up length in preamble
+            header.poke4BE(0, header.size() - 4);
+
+            do_send(header);
+        }
+
     }
 
     /* used internally when "processes" terminate */
@@ -685,7 +742,21 @@ public abstract class AbstractConnection extends Thread {
                     from = (OtpErlangPid) head.elementAt(1);
                     to = (OtpErlangPid) head.elementAt(2);
 
-                    deliver(new OtpMsg(tag, from, to));
+                    deliver(new OtpMsg(tag, from, to, 0));
+                    break;
+
+                case unlinkIdTag: // { UNLINK_ID, UnlinkId, FromPid, ToPid}
+                case unlinkIdAckTag: // { UNLINK_ID_Ack, UnlinkId, FromPid, ToPid}
+                    if (traceLevel >= ctrlThreshold) {
+                        System.out.println("<- " + headerType(head) + " "
+                                + head);
+                    }
+
+                    long unlink_id = ((OtpErlangLong) head.elementAt(1)).longValue();
+                    from = (OtpErlangPid) head.elementAt(2);
+                    to = (OtpErlangPid) head.elementAt(3);
+
+                    deliver(new OtpMsg(tag, from, to, unlink_id));
                     break;
 
                 // absolutely no idea what to do with these, so we ignore
@@ -876,6 +947,12 @@ public abstract class AbstractConnection extends Thread {
 
         case unlinkTag:
             return "UNLINK";
+
+        case unlinkIdTag:
+            return "UNLINK_ID";
+
+        case unlinkIdAckTag:
+            return "UNLINK_ID_ACK";
 
         case regSendTag:
             return "REG_SEND";

@@ -50,6 +50,10 @@ class MboxLinkUnlink {
     private static final int kill_mbox_from_erlang = 12;
     private static final int erl_exit_with_reason_any_term = 13;
     private static final int java_exit_with_reason_any_term = 14;
+    private static final int erl_link_unlink_link_and_exit = 15;
+    private static final int erl_link_java_unlink_link_and_exit = 16;
+    private static final int simultaneous_erl_link_java_link_unlink = 17;
+    private static final int simultaneous_erl_link_unlink_java_link = 18;
 
     private static boolean dbg = true;
 
@@ -94,15 +98,74 @@ class MboxLinkUnlink {
 		    break;
 		case erl_exit_with_reason_any_term:
 		case erl_link_and_exit:
+		case erl_link_unlink_link_and_exit:
 		    dbg("Java got \"erl_link_and_exit\" or " +
-			"\"erl_exit_with_reason_any_term\"");
+			"\"erl_exit_with_reason_any_term\" or " +
+                        "\"erl_link_unlink_link_and_exit\"");
+                    if (!is_linked(mbox, (OtpErlangPid)tuple.elementAt(1)))
+                        System.exit(17);
 		    mbox.send((OtpErlangPid)tuple.elementAt(1),
 			      new OtpErlangAtom("ok"));
 		    waiting = true;
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000);
 		    System.exit(2);
-            break;
+                    break;
+		case erl_link_java_unlink_link_and_exit:
+		    dbg("Java got \"erl_link_java_unlink_link_and_exit\"");
+		    mbox.unlink((OtpErlangPid)tuple.elementAt(1));
+		    mbox.unlink((OtpErlangPid)tuple.elementAt(1));
+		    mbox.link((OtpErlangPid)tuple.elementAt(1));
+                    if (!is_linked(mbox, (OtpErlangPid)tuple.elementAt(1)))
+                        System.exit(16);
+		    mbox.send((OtpErlangPid)tuple.elementAt(1),
+			      new OtpErlangAtom("ok"));
+		    waiting = true;
+		    expected = tuple.elementAt(2);
+		    mbox.receive(1000);
+		    System.exit(2);
+                    break;
+                case simultaneous_erl_link_java_link_unlink: {
+		    dbg("Java got \"simultaneous_erl_link_java_link_unlink\"");
+                    OtpErlangPid remote = (OtpErlangPid) tuple.elementAt(1);
+                    long go_time = ((OtpErlangLong) tuple.elementAt(2)).longValue();
+                    spin_wait_until(go_time);
+		    mbox.link(remote);
+		    mbox.unlink(remote);
+                    OtpErlangAtom check_link = new OtpErlangAtom("check_link");
+                    mbox.send(remote, check_link);
+                    OtpErlangObject chk_msg = mbox.receive(2000);
+                    if (chk_msg == null)
+                        System.exit(14);
+                    else if (!((OtpErlangAtom) chk_msg).equals(check_link))
+                        System.exit(15);
+                    mbox.send(remote, new OtpErlangAtom(is_linked(mbox, remote)
+                                                        ? "linked"
+                                                        : "not_linked"));
+                    mbox.close();
+                    break;
+                }
+                case simultaneous_erl_link_unlink_java_link: {
+		    dbg("Java got \"simultaneous_erl_link_unlink_java_link\"");
+                    OtpErlangPid remote = (OtpErlangPid) tuple.elementAt(1);
+                    long go_time = ((OtpErlangLong) tuple.elementAt(2)).longValue();
+                    spin_wait_until(go_time);
+		    mbox.link(remote);
+                    OtpErlangAtom check_link = new OtpErlangAtom("check_link");
+                    OtpErlangObject chk_msg = mbox.receive(2000);
+                    if (chk_msg == null)
+                        System.exit(14);
+                    else if (!((OtpErlangAtom) chk_msg).equals(check_link))
+                        System.exit(15);
+                    // We now know the unlink should have reached us and we
+                    // should have sent the unlink ack...
+                    mbox.send(remote, check_link);
+                    mbox.send(remote, new OtpErlangAtom(is_linked(mbox, remote)
+                                                        ? "linked"
+                                                        : "not_linked"));
+                    mbox.close();
+                    break;
+                }
 		case erl_link_java_exit:
 		    dbg("Java got \"erl_link_java_exit\"");
 		    mbox.exit(tuple.elementAt(2));
@@ -211,6 +274,25 @@ class MboxLinkUnlink {
 
     private static void dbg(String str) {
 	if (dbg) System.out.println(str);
+    }
+
+    private static void spin_wait_until(final long ms) {
+        long time;
+        do {
+            time = System.currentTimeMillis();
+        } while (time < ms);
+    }
+
+    private static boolean is_linked(OtpMbox mbox, OtpErlangPid pid) {
+        final OtpErlangPid[] linked = mbox.linked();
+        if (linked != null) {
+            final int len = linked.length;
+            for (int i = 0; i < len; i++) {
+                if (pid.equals(linked[i]))
+                    return true;
+            }
+        }
+        return false;
     }
 
 }
