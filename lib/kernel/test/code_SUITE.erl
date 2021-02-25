@@ -1925,9 +1925,6 @@ module_status() ->
 compile_beam(Sleep) ->
     compile(Sleep, []).
 
-compile_native(Sleep) ->
-    compile(Sleep, [native]).
-
 compile(Sleep, Opts) ->
     timer:sleep(Sleep),  % increment compilation timestamp
     {ok,?TESTMOD} = compile:file(?TESTMODSRC, Opts).
@@ -1938,12 +1935,6 @@ load_code() ->
 
 remove_code() ->
     ok = file:delete(?TESTMODOBJ).
-
-has_native(Module) ->
-    case erlang:get_module_info(Module, native_addresses) of
-	[] -> false;
-	[_|_] -> true
-    end.
 
 make_source_file(Body) ->
     ok = file:write_file(?TESTMODSRC, dummy_source(Body)).

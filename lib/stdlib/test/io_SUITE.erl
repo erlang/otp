@@ -2214,14 +2214,10 @@ io_lib_width_too_small(_Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 io_with_huge_message_queue(Config) when is_list(Config) ->
-    case {test_server:is_native(gen),test_server:is_cover()} of
-	{true,_} ->
-	    {skip,
-	     "gen is native - huge message queue optimization "
-	     "is not implemented"};
-	{_,true} ->
+    case test_server:is_cover() of
+	true ->
 	    {skip,"Running under cover"};
-	{false,false} ->
+	false ->
 	    do_io_with_huge_message_queue(Config)
     end.
 

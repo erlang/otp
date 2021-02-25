@@ -1471,16 +1471,6 @@ replace_state(Config) when is_list(Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 call_with_huge_message_queue(Config) when is_list(Config) ->
-    case test_server:is_native(gen) of
-	true ->
-	    {skip,
-	     "gen is native - huge message queue optimization "
-	     "is not implemented"};
-	false ->
-	    do_call_with_huge_message_queue()
-    end.
-
-do_call_with_huge_message_queue() ->
     Pid = spawn_link(fun echo_loop/0),
 
     {Time,ok} = tc(fun() -> calls(10000, Pid) end),

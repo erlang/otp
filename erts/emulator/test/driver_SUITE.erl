@@ -576,12 +576,6 @@ try_change_timer(Port, Timeout) ->
 %% 1) Queue up data in a driver that uses the full driver_queue API to do this.
 %% 2) Get the data back, a random amount at a time.
 queue_echo(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-        true -> exit(crashes_native_code);
-        false -> queue_echo_1(Config)
-    end.
-
-queue_echo_1(Config) ->
     ct:timetrap({minutes, 10}),
     Name = 'queue_drv',
     P = start_driver(Config, Name, true),

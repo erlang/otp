@@ -369,11 +369,10 @@ is_truncated(File) ->
     end.
 
 incomplete_allowed(File) ->
-    %% Incomplete heap is allowed for native libs, since some literals
-    %% are not dumped - and for pre OTP-20 (really pre 20.2) releases,
-    %% since literals were not dumped at all then.
+    %% Incomplete heap is allowed for pre OTP-20 (really pre 20.2)
+    %% releases, since literals were not dumped at all then.
     Rel = get_rel_from_dump_name(File),
-    Rel < 20 orelse test_server:is_native(lists).
+    Rel < 20.
 
 special(File,Procs) ->
     case filename:extension(File) of

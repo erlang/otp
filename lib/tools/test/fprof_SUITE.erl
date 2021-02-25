@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server framework exports
--export([all/0, suite/0, not_run/1]).
+-export([all/0, suite/0]).
 
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
@@ -53,18 +53,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,240}}].
 
-all() -> 
-    case test_server:is_native(fprof_SUITE) of
-        true -> [not_run];
-        false ->
-            [stack_seq, tail_seq, create_file_slow, spawn_simple,
-             imm_tail_seq, imm_create_file_slow, imm_compile,
-             cpu_create_file_slow, unicode, parsify_maps]
-    end.
-
-
-not_run(Config) when is_list(Config) ->
-    {skipped, "Native code"}.
+all() ->
+    [stack_seq, tail_seq, create_file_slow, spawn_simple,
+     imm_tail_seq, imm_create_file_slow, imm_compile,
+     cpu_create_file_slow, unicode, parsify_maps].
 
 %%%---------------------------------------------------------------------
 
@@ -164,15 +156,6 @@ tail_seq(Config) when is_list(Config) ->
 
 %% Tests the create_file_slow benchmark.
 create_file_slow(Config) ->
-    case test_server:is_native(lists) orelse
-         test_server:is_native(file) of
-        true ->
-            {skip,"Native libs -- tracing does not work"};
-        false ->
-            do_create_file_slow(Config)
-    end.
-
-do_create_file_slow(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_create_file_slow.trace"),

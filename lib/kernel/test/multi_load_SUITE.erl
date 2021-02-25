@@ -258,13 +258,7 @@ do_ensure_modules_loaded(Dir) ->
     ok = file:write_file(filename:absname(BadFile, Dir), <<"bad_code">>),
     BadOLMod = make_module_file(Dir, fun failing_on_load_module/1),
     BadEgg = bad__egg,
-    NativeMod = a_native_module,
-    NativeModFile = atom_to_list(NativeMod) ++ ".beam",
-    {NativeMod,_,NativeCode} = make_module(NativeMod, NativeModFile,
-					   fun basic_module/1, [native]),
-    ok = file:write_file(filename:absname(NativeModFile, Dir), NativeCode),
-    ModulesToLoad = [OLMod,?MODULE,Mod,BadOLMod,NativeMod,
-		     BadEgg,BadMod,lists],
+    ModulesToLoad = [OLMod,?MODULE,Mod,BadOLMod,BadEgg,BadMod,lists],
     {error,Error0} = code:ensure_modules_loaded(ModulesToLoad),
     Error = lists:sort([{BadEgg,nofile},
 			{BadMod,badfile},
@@ -272,9 +266,6 @@ do_ensure_modules_loaded(Dir) ->
     Error = lists:sort(Error0),
     true = is_loaded(Mod),
     true = is_loaded(OLMod),
-    true = is_loaded(NativeMod),
-
-    false = NativeMod:module_info(native),
 
     ok.
 

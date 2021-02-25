@@ -16,9 +16,6 @@ do_it(Priv, Data, Type, Opts) ->
 
     {ok,my_code_test2} = c:c(File, [{outdir,Priv} | Opts]),
 
-    IsNative = lists:member(native,Opts),
-    IsNative = code:is_module_native(my_code_test2),
-
     T = ets:new(my_code_test2_fun_table, []),
     ets:insert(T, {my_fun,my_code_test2:make_fun(4711)}),
     ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),

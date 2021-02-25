@@ -742,24 +742,6 @@ false_dependency(Config) when is_list(Config) ->
     do_false_dependency(fun cpbugx:before2/0, Code),
     do_false_dependency(fun cpbugx:before3/0, Code),
 
-    %%     %% Spawn process. Make sure it has called cpbugx:before/0 and returned.
-    %%     Parent = self(),
-    %%     Pid = spawn_link(fun() -> false_dependency_loop(Parent) end),
-    %%     receive initialized -> ok end,
-
-    %%     %% Reload the module. Make sure the process is still alive.
-    %%     {module,cpbugx} = erlang:load_module(cpbugx, Bin),
-    %%     io:put_chars(binary_to_list(element(2, process_info(Pid, backtrace)))),
-    %%     true = is_process_alive(Pid),
-
-    %%     %% There should not be any dependency to cpbugx.
-    %%     false = erlang:check_process_code(Pid, cpbugx),
-
-
-
-
-    %%     %% Kill the process.
-    %%     unlink(Pid), exit(Pid, kill),
     ok.
 
 do_false_dependency(Init, Code) ->
@@ -783,9 +765,7 @@ do_false_dependency(Init, Code) ->
     unlink(Pid), exit(Pid, kill),
     true = erlang:purge_module(cpbugx),
     true = erlang:delete_module(cpbugx),
-    code:is_module_native(cpbugx),  % test is_module_native on deleted code
     true = erlang:purge_module(cpbugx),
-    code:is_module_native(cpbugx),  % test is_module_native on purged code
     ok.
 
 false_dependency_loop(Parent, Init, SendInitAck) ->
@@ -803,9 +783,7 @@ false_dependency_loop(Parent, Init, SendInitAck) ->
     end.
 
 coverage(Config) when is_list(Config) ->
-    code:is_module_native(?MODULE),
     {'EXIT',{badarg,_}} = (catch erlang:purge_module({a,b,c})),
-    {'EXIT',{badarg,_}} = (catch code:is_module_native({a,b,c})),
     {'EXIT',{badarg,_}} = (catch erlang:check_process_code(not_a_pid, ?MODULE)),
     {'EXIT',{badarg,_}} = (catch erlang:check_process_code(self(), [not_a_module])),
     {'EXIT',{badarg,_}} = (catch erlang:delete_module([a,b,c])),

@@ -28,24 +28,16 @@
 	 trace_nif_local/1,
 	 trace_nif_meta/1,
 	 trace_nif_timestamp_local/1,
-	 trace_nif_return/1,
-	 not_run/1]).
+	 trace_nif_return/1]).
 
 -export([nif_process/0, nif/0, nif/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    case test_server:is_native(trace_nif_SUITE) of
-	true -> [not_run];
-	false ->
-	    [trace_nif, trace_nif_timestamp, trace_nif_local,
-	     trace_nif_meta, trace_nif_timestamp_local,
-	     trace_nif_return]
-    end.
-
-not_run(Config) when is_list(Config) -> 
-    {skipped,"Native code"}.
+all() ->
+    [trace_nif, trace_nif_timestamp, trace_nif_local,
+     trace_nif_meta, trace_nif_timestamp_local,
+     trace_nif_return].
 
 %% Test tracing NIFs.
 trace_nif(Config) when is_list(Config) ->
