@@ -586,10 +586,6 @@ handshake(Pid, Ref, Timeout) ->
 %% The state names must fulfill some rules regarding
 %% where the role() and the renegotiate_flag() is placed:
 
--spec role(state_name()) -> role().
-role({_,Role}) -> Role;
-role({_,Role,_}) -> Role.
-
 -spec renegotiation(state_name()) -> boolean().
 renegotiation({_,_,ReNeg}) -> ReNeg == renegotiate;
 renegotiation(_) -> false.
@@ -730,7 +726,7 @@ handle_event(internal, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
 
 handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {disconnect, _, RepliesCon} =
-	ssh_connection:handle_msg(Msg, D0#data.connection_state, role(StateName), D0#data.ssh_params),
+	ssh_connection:handle_msg(Msg, D0#data.connection_state, ?role(StateName), D0#data.ssh_params),
     {Actions,D} = send_replies(RepliesCon, D0),
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
@@ -752,7 +748,7 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
 handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
                                                         connection_state = Connection0,
                                                         event_queue = Qev0} = D0) ->
-    Role = role(StateName),
+    Role = ?role(StateName),
     Rengotation = renegotiation(StateName),
     try ssh_connection:handle_msg(Msg, Connection0, Role, D0#data.ssh_params) of
 	{disconnect, Reason0, RepliesConn} ->
@@ -1039,7 +1035,7 @@ handle_event({call,From}, get_misc, StateName,
              #data{connection_state = #connection{options = Opts}} = D) when ?CONNECTED(StateName) ->
     Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
     SubSysSup = proplists:get_value(subsystem_sup,  Sups),
-    Reply = {ok, {SubSysSup, role(StateName), Opts}},
+    Reply = {ok, {SubSysSup, ?role(StateName), Opts}},
     {keep_state, D, [{reply,From,Reply}]};
 
 handle_event({call,From},
@@ -1258,8 +1254,8 @@ handle_event({timeout,idle_time}, _Data,  _StateName, _D) ->
     {stop, {shutdown, "Timeout"}};
 
 %%% So that terminate will be run when supervisor is shutdown
-handle_event(info, {'EXIT', _Sup, Reason}, StateName, _) ->
-    Role = role(StateName),
+handle_event(info, {'EXIT', _Sup, Reason}, StateName, _D) ->
+    Role = ?role(StateName),
     if
 	Role == client ->
 	    %% OTP-8111 tells this function clause fixes a problem in
@@ -1282,7 +1278,7 @@ handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{
                 channel_cache = Cache,
                 sub_system_supervisor = SubSysSup} = Connection,
     Channel = ssh_client_channel:cache_lookup(Cache, ChId),
-    {ok,Pid} = ssh_subsystem_sup:start_channel(role(StateName), SubSysSup, self(), ChanCB, ChId, [Sock], undefined, Options),
+    {ok,Pid} = ssh_subsystem_sup:start_channel(?role(StateName), SubSysSup, self(), ChanCB, ChId, [Sock], undefined, Options),
     ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
     gen_tcp:controlling_process(Sock, Pid),
     inet:setopts(Sock, [{active,once}]),
