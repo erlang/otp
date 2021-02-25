@@ -55,10 +55,10 @@ class intList {
 class wxe_badarg
 {
  public:
- wxe_badarg(int Ref) : ref(Ref) { } ;
- wxe_badarg(const char * Var) : var(Var) { } ;
-    int ref;
-    const char * var = NULL;
+  wxe_badarg(int Ref) : ref(Ref) { var = NULL; } ;
+  wxe_badarg(const char * Var) : var(Var) { } ;
+  int ref;
+  const char * var;
 };
 
 class wxeMemEnv {
