@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.10.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't timeout slow connection setups and tear-downs. A
+	    rare crash risk for the controller is also removed.</p>
+          <p>
+	    Own Id: OTP-17173 Aux Id: ERIERL-581 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
