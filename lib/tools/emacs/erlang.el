@@ -81,7 +81,9 @@
 (require 'tempo)
 
 ;;; `caddr' is builtin since Emacs 26.
-(or (fboundp 'caddr) (defun caddr (x) (car (cdr (cdr x)))))
+(eval-and-compile
+  (or (fboundp 'caddr)
+      (defun caddr (x) (car (cdr (cdr x))))))
 
 ;; Variables:
 
