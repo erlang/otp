@@ -2126,15 +2126,10 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 
 
     if (is_not_atom(BIF_ARG_2)) {
+        /* Do lookup to report bad table identifier or table name. */
         DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_READ, BIF_ets_rename_2);
-        if (tb == NULL) {
-            ASSERT(freason != TRAP);
-            /* Report bad table identifier or table name. */
-            BIF_ERROR(BIF_P, freason);
-        } else {
-            db_unlock(tb, LCK_READ);
-            BIF_ERROR(BIF_P, BADARG);
-        }
+        db_unlock(tb, LCK_READ);
+        BIF_ERROR(BIF_P, BADARG);
     }
 
     (void) meta_name_tab_bucket(BIF_ARG_2, &lck1);
