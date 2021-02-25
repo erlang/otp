@@ -161,7 +161,7 @@ display_file(FileName) ->
     ok.
 
 mk_name(Config) when is_list(Config) ->
-    {A, B, C} = now(),
+    {A, B, C} = erlang:timestamp(),
     list_to_atom(atom_to_list(?MODULE)
                  ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
                  ++ "-" ++ integer_to_list(A)

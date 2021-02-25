@@ -564,15 +564,10 @@ ip_port_busy(Config) when is_list(Config) ->
     end,
     ok.
 
-
-
 %% Test tracing to file port (simple)
 file_port(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
+    FName = make_temp_name(Config),
     Port = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port),
     try
@@ -598,12 +593,8 @@ file_port(Config) when is_list(Config) ->
 %% Test tracing to file port with 'follow_file'
 file_port2(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
-    "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
-    %% Ok, lets try with flush and follow_file, not a chance on VxWorks
-    %% with NFS caching...
+    FName = make_temp_name(Config),
+    %% Ok, lets try with flush and follow_file.
     Port2 = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port2),
     try
@@ -632,11 +623,8 @@ file_port2(Config) when is_list(Config) ->
 wrap_port(Config) when is_list(Config) ->
     Self = self(),
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
-    FNameWildcard = FName++"*"++".trace",
+    FName = make_temp_name(Config),
+    FNameWildcard = FName ++ "*" ++ ".trace",
     %% WrapSize=0 and WrapCnt=11 will force the trace to wrap after
     %% every trace message, and to contain only the last 10 entries
     %% after trace stop since the last file will be empty waiting
@@ -726,10 +714,7 @@ wrap_port_result([{trace, S, call, {?MODULE, tracee2, [M]}, hej},
 %% Test tracing to time limited wrapping file port
 wrap_port_time(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
+    FName = make_temp_name(Config),
     %% WrapTime=2 and WrapCnt=4 will force the trace to wrap after
     %% every 2 seconds, and to contain between 3*2 and 4*2 seconds
     %% of trace entries.
@@ -938,8 +923,7 @@ trace(_, _, _, _, _) ->
 %%
 
 start_slave() ->
-    {A, B, C} = now(),
-    Name = "asdkxlkmd" ++ integer_to_list(A+B+C),
+    Name = "asdkxlkmd" ++ integer_to_list(erlang:unique_integer([positive])),
     {ok, Node} = test_server:start_node(Name,slave,[]),
     ok = wait_node(Node, 15),
     Node.
@@ -991,3 +975,9 @@ start() ->
 
 stop() ->
     dbg:stop().
+
+make_temp_name(Config) ->
+    {A,B,C} = erlang:timestamp(),
+    FTMP = atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
+    integer_to_list(B) ++ "-" ++ integer_to_list(C),
+    filename:join(proplists:get_value(data_dir, Config), FTMP).
