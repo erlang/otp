@@ -94,11 +94,32 @@ typedef int socklen_t;
 
 #define PRINT_OPERATIONS 0
 
+/* In VC++, noreturn is a declspec that has to be before the types,
+ * but in GNUC it is an attribute to be placed between return type
+ * and function name, hence __decl_noreturn <types> __noreturn <function name>
+ *
+ * at some platforms (e.g. Android) __noreturn is defined at sys/cdef.h
+ */
+#if __GNUC__
+#  define __decl_noreturn
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
+#endif
+
 /* Our own assert() ... */
 #ifdef DEBUG
 #define ASSERT(A) ((void) ((A) ? 1 : assert_failed(__FILE__, __LINE__, #A)))
 #include <stdio.h>
-static int assert_failed(char *f, int l, char *a)
+__decl_noreturn static int __noreturn assert_failed(char *f, int l, char *a)
 {
     fprintf(stderr, "%s:%d: Assertion failed: %s\n", f, l, a);
     abort();
@@ -131,8 +152,8 @@ static int assert_failed(char *f, int l, char *a)
 #define EM_MIN_TRACE_READ_SIZE (EM_DEFAULT_BUF_SZ/20)
 #define EM_TIME_FIELD_WIDTH 11
 
-static void error(int res);
-static void error_msg(int res, char *msg);
+__decl_noreturn static void __noreturn error(int res);
+__decl_noreturn static void __noreturn error_msg(int res, char *msg);
 
 typedef struct {
     usgnd_int_max size;
@@ -1887,13 +1908,13 @@ error_string(int error)
     return error_str;
 }
 
-static void
+__decl_noreturn static void __noreturn
 error(int res)
 {
     error_msg(res, NULL);
 }
 
-static void
+__decl_noreturn static void __noreturn
 error_msg(int res, char *msg)
 {
     fprintf(stderr,
