@@ -216,8 +216,12 @@ groups() ->
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
-    erts_debug:set_internal_state(ets_force_trap, true),
-    Config.
+    case erts_debug:set_internal_state(ets_force_trap, true) of
+        ok ->
+            [{ets_force_trap, true} | Config];
+        notsup ->
+            Config
+    end.
 
 end_per_suite(_Config) ->
     stop_spawn_logger(),
@@ -4030,25 +4034,27 @@ delete_large_tab(Config) when is_list(Config) ->
     KeyRange = 16#ffffff,
     Data = [{erlang:phash2(I, KeyRange),I} || I <- lists:seq(1, 200000)],
     EtsMem = etsmem(),
-    repeat_for_opts(fun(Opts) -> delete_large_tab_do(key_range(Opts,KeyRange),
-                                                     Data) end),
+    repeat_for_opts(fun(Opts) -> delete_large_tab_do(Config,
+                                                     key_range(Opts,KeyRange),
+                                                     Data)
+                    end),
     verify_etsmem(EtsMem).
 
-delete_large_tab_do(Opts,Data) ->
-    delete_large_tab_1(foo_hash, Opts, Data, false),
-    delete_large_tab_1(foo_tree, [ordered_set | Opts], Data, false),
-    delete_large_tab_1(foo_tree, [stim_cat_ord_set | Opts], Data, false),
-    delete_large_tab_1(foo_hash_fix, Opts, Data, true).
+delete_large_tab_do(Config, Opts,Data) ->
+    delete_large_tab_1(Config, foo_hash, Opts, Data, false),
+    delete_large_tab_1(Config, foo_tree, [ordered_set | Opts], Data, false),
+    delete_large_tab_1(Config, foo_tree, [stim_cat_ord_set | Opts], Data, false),
+    delete_large_tab_1(Config, foo_hash_fix, Opts, Data, true).
 
 
-delete_large_tab_1(Name, Flags, Data, Fix) ->
+delete_large_tab_1(Config, Name, Flags, Data, Fix) ->
     case is_redundant_opts_combo(Flags) of
         true -> skip;
         false ->
-            delete_large_tab_2(Name, Flags, Data, Fix)
+            delete_large_tab_2(Config, Name, Flags, Data, Fix)
     end.
 
-delete_large_tab_2(Name, Flags, Data, Fix) ->
+delete_large_tab_2(Config, Name, Flags, Data, Fix) ->
     Tab = ets_new(Name, Flags),
     ets:insert(Tab, Data),
 
@@ -4061,14 +4067,21 @@ delete_large_tab_2(Name, Flags, Data, Fix) ->
 
     {priority, Prio} = process_info(self(), priority),
     Deleter = self(),
+    ForceTrap = proplists:get_bool(ets_force_trap, Config),
     [SchedTracer]
 	= start_loopers(1,
 			Prio,
 			fun (SC) ->
 				receive
 				    {trace, Deleter, out, _} ->
-					undefined = ets:info(Tab),
-					SC+1;
+                                        case {ets:info(Tab), SC, ForceTrap} of
+                                            {undefined, _, _} -> ok;
+                                            {_, 0, true} ->
+                                                %% Forced first trap of ets:delete,
+                                                %% tab still reachable
+                                                ok
+                                        end,
+                                        SC+1;
 				    {trace,
 				     Deleter,
 				     register,
