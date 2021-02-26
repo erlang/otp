@@ -76,10 +76,14 @@
 ;;     M-x toggle-debug-on-error RET
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'align)
 (require 'comint)
 (require 'tempo)
+
+;;; `caddr' is builtin since Emacs 26.
+(eval-and-compile
+  (or (fboundp 'caddr)
+      (defun caddr (x) (car (cdr (cdr x))))))
 
 ;; Variables:
 
@@ -1420,7 +1424,7 @@ Other commands:
   (erlang-electric-init)
   (erlang-menu-init)
   (erlang-mode-variables)
-  (erlang-check-module-name-init)
+  (add-hook 'before-save-hook 'erlang-check-module-name nil t)
   (erlang-man-init)
   (erlang-tags-init)
   (erlang-font-lock-init)
@@ -1431,7 +1435,6 @@ Other commands:
         (setq-local eldoc-documentation-function #'ignore))
     (add-function :before-until (local 'eldoc-documentation-function)
                   #'erldoc-eldoc-function))
-  (run-hooks 'erlang-mode-hook)
 
   ;; Align maps.
   (add-to-list 'align-rules-list
@@ -2674,8 +2677,6 @@ This is automagically called by the user level function `indent-region'."
 
 (defmacro erlang-push (x stack) (list 'setq stack (list 'cons x stack)))
 (defmacro erlang-pop (stack) (list 'setq stack (list 'cdr stack)))
-;; Would much prefer to make caddr a macro but this clashes.
-(defun erlang-caddr (x) (car (cdr (cdr x))))
 
 
 (defun erlang-calculate-indent (&optional parse-start)
@@ -3076,8 +3077,8 @@ Return nil if inside string, t if in a comment."
                         (if (eq (car stack-top) '->)
                             (erlang-pop stack))
                         (cond ((and stack (looking-at ";"))
-                               (+ (erlang-caddr (car stack)) (- erlang-indent-level 2)))
-                              (stack (erlang-caddr (car stack)))
+                               (+ (caddr (car stack)) (- erlang-indent-level 2)))
+                              (stack (caddr (car stack)))
                               (t off)))
                        ((looking-at "catch\\b\\($\\|[^_a-zA-Z0-9]\\)")
                         ;; Are we in a try
@@ -3091,12 +3092,12 @@ Return nil if inside string, t if in a comment."
                                    (if (eq (car stack-top) '->)
                                        (erlang-pop stack))
                                    (if stack
-                                       (erlang-caddr (car stack))
+                                       (caddr (car stack))
                                      0)))
                                 (t (erlang-indent-standard indent-point token base 'nil))))) ;; old catch
                        ;; Indent result types
                        ((eq (car (car (cdr stack))) 'spec_arg)
-                        (setq base (+ (erlang-caddr (car (last stack))) erlang-indent-level))
+                        (setq base (+ (caddr (car (last stack))) erlang-indent-level))
                         (erlang-indent-standard indent-point token base 'nil))
                        (t
                         (erlang-indent-standard indent-point token base 'nil)
@@ -3224,7 +3225,7 @@ Return nil if inside string, t if in a comment."
                   ;; Take parent identation + offset,
                   ;; else just erlang-indent-level if no parent
                   (if stack
-                      (+ (erlang-caddr (car stack))
+                      (+ (caddr (car stack))
                          offset)
                     erlang-indent-level))
               (erlang-skip-blank indent-point)
@@ -4084,11 +4085,11 @@ of arguments could be found, otherwise nil."
 (defun erlang-match-next-exported-function (max)
   "Returns non-nil if there is an exported function in the current
 buffer between point and MAX."
-  (block nil
-         (while (and (not erlang-inhibit-exported-function-name-face)
-                     (erlang-match-next-function max))
-           (when (erlang-last-match-exported-p)
-             (return (match-data))))))
+  (catch 'return
+    (while (and (not erlang-inhibit-exported-function-name-face)
+                (erlang-match-next-function max))
+      (when (erlang-last-match-exported-p)
+        (throw 'return (match-data))))))
 
 (defun erlang-match-next-function (max)
   "Searches forward in current buffer for the next erlang function,
@@ -4116,28 +4117,6 @@ exported function."
 
 ;;; Check module name
 
-;; The function `write-file', bound to C-x C-w, calls
-;; `set-visited-file-name' which clears the hook.  :-(
-;; To make sure that the hook always is present, we advise
-;; `set-visited-file-name'.
-(defun erlang-check-module-name-init ()
-  "Initialize the functionality to compare file and module names.
-
-Unless we have `before-save-hook', we advice the function
-`set-visited-file-name' since it clears the variable
-`local-write-file-hooks'."
-  (if (boundp 'before-save-hook)
-      (add-hook 'before-save-hook 'erlang-check-module-name nil t)
-    (require 'advice)
-    (when (fboundp 'ad-advised-definition-p)
-      (unless (ad-advised-definition-p 'set-visited-file-name)
-        (defadvice set-visited-file-name (after erlang-set-visited-file-name
-                                                activate)
-          (if (eq major-mode 'erlang-mode)
-              (add-hook 'local-write-file-hooks 'erlang-check-module-name))))
-      (add-hook 'local-write-file-hooks 'erlang-check-module-name))))
-
-
 (defun erlang-check-module-name ()
   "If the module name doesn't match file name, ask for permission to change.
 
@@ -4146,7 +4125,7 @@ function.  It it is nil, this function does nothing.  If it is t, the
 source is silently changed.  If it is set to the atom `ask', the user
 is prompted.
 
-This function is normally placed in the hook `local-write-file-hooks'."
+This function is normally placed in the hook `before-save-hook'."
   (if erlang-check-module-name
       (let ((mn (erlang-add-quotes-if-needed
                  (erlang-get-module)))
@@ -5358,7 +5337,7 @@ is non-nil then TAG is a regexp."
         (cl-loop for xref in xrefs
                  for loc = (xref-item-location xref)
                  for file = (xref-location-group loc)
-                 do (pushnew file files :test 'string-equal))
+                 do (cl-pushnew file files :test 'string-equal))
         (or (cl-loop for file in files
                      append (erlang-xrefs-in-file file kind tag is-regexp))
             ;; Failed for some reason.  Pretend like it is raining and

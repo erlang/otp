@@ -60,9 +60,10 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'url-parse))
 (require 'cl-lib)
+(require 'json)
 (require 'erlang)
+(eval-when-compile (require 'url-parse))
 
 (eval-and-compile                       ;for emacs < 24.3
   (or (fboundp 'user-error) (defalias 'user-error 'error)))
@@ -268,7 +269,6 @@ up the indexing."
     (with-temp-buffer
       (if (not json)
           (pp table (current-buffer))
-        (eval-and-compile (require 'json))
         (let ((json-encoding-pretty-print t))
           (insert (json-encode table))))
       (unless (file-directory-p (file-name-directory output))
