@@ -85,12 +85,14 @@ undefined_functions(Config) when is_list(Config) ->
                       [UndefS,ExcludeFrom]),
     {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
 
-    Undef1 = ssl_crypto_filter(Undef0),
-    Undef2 = eunit_filter(Undef1),
-    Undef3 = dialyzer_filter(Undef2),
-    Undef4 = wx_filter(Undef3),
-    Undef5 = gs_filter(Undef4),
-    Undef = diameter_filter(Undef5),
+    Filters = [fun ssl_crypto_filter/1,
+               fun eunit_filter/1,
+               fun dialyzer_filter/1,
+               fun wx_filter/1,
+               fun diameter_filter/1],
+    Undef = lists:foldl(fun(Filter, Acc) ->
+                                Filter(Acc)
+                        end, Undef0, Filters),
 
     case Undef of
         [] -> ok;
@@ -151,17 +153,6 @@ wx_filter(Undef) ->
                                "wx"++_ -> false;
                                _ -> true
                            end
-                   end, Undef);
-        _ -> Undef
-    end.
-
-gs_filter(Undef) ->
-    case code:lib_dir(gs) of
-        {error,bad_name} ->
-            filter(fun({_,{gs,_,_}}) -> false;
-                      ({_,{gse,_,_}}) -> false;
-                      ({_,{tool_utils,_,_}}) -> false;
-                      (_) -> true
                    end, Undef);
         _ -> Undef
     end.
@@ -243,7 +234,7 @@ call_to_size_1(Config) when is_list(Config) ->
 call_to_now_0(Config) when is_list(Config) ->
     %% Applications that do not call erlang:now/1:
     Apps = [asn1,common_test,compiler,debugger,dialyzer,
-            gs,kernel,mnesia,observer,parsetools,reltool,
+            kernel,mnesia,observer,parsetools,reltool,
             runtime_tools,sasl,stdlib,syntax_tools,
             tools],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
