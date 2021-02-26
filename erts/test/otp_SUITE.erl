@@ -43,29 +43,7 @@ all() ->
      runtime_dependencies].
 
 init_per_suite(Config) ->
-    Root = code:root_dir(),
-    Server = daily_xref,
-    xref:start(Server),
-    xref:set_default(Server, [{verbose,false},
-                              {warnings,false},
-                              {builtins,true}]),
-    {ok,_Relname} = xref:add_release(Server, Root, {name,otp}),
-
-    %% If we are running the tests in the source tree, the ERTS application
-    %% is not in the code path. We must add it explicitly.
-    case code:lib_dir(erts) of
-        {error,bad_name} ->
-            Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
-            {ok,_} = xref:add_directory(Server, Erts, []);
-        LibDir ->
-            case file:read_file_info(filename:join([LibDir,"ebin"])) of
-                {error,enoent} ->
-                    Erts = filename:join([LibDir, "preloaded","ebin"]),
-                    {ok,_} = xref:add_directory(Server, Erts, []);
-                _ ->
-                    ok
-            end
-    end,
+    Server = start_xref_server(daily_xref, functions),
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->
@@ -387,7 +365,6 @@ runtime_dependencies(Config) ->
     %% found by xref.
     IgnoreApps = [diameter],
 
-
     %% Verify that (at least) OTP application runtime dependencies found
     %% by xref are listed in the runtime_dependencies field of the .app file
     %% of each application.
@@ -511,3 +488,31 @@ app_exists(AppAtom) ->
                     false
             end
     end.
+
+start_xref_server(Server, Mode) ->
+    Root = code:root_dir(),
+    xref:start(Server),
+    xref:set_default(Server, [{xref_mode,Mode},
+                              {verbose,false},
+                              {warnings,false},
+                              {builtins,true}]),
+    {ok,_Relname} = xref:add_release(Server, Root, {name,otp}),
+
+    case code:lib_dir(erts) of
+        {error,bad_name} ->
+            %% This should not be possible since code_server always adds
+            %% an entry for erts.
+            ct:fail(no_erts_lib_dir);
+        LibDir ->
+            case filelib:is_dir(filename:join(LibDir, "ebin")) of
+                false ->
+                    %% If we are running the tests in the git repository,
+                    %% the preloaded BEAM files for Erts are not in the
+                    %% code path. We must add them explicitly.
+                    Erts = filename:join([LibDir,"preloaded","ebin"]),
+                    {ok,_} = xref:add_directory(Server, Erts, []);
+                true ->
+                    ok
+            end
+    end,
+    Server.
