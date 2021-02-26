@@ -1053,9 +1053,11 @@ static void do_request(g, fd, s, buf, bsize)
 	      }
 	    dbg_tty_printf(g,1,"** sent STOP_RESP NOEXIST");
 	  }
-
-	conn_close_fd(g,node_fd);
-	dbg_tty_printf(g,1,"epmd connection stopped");
+        else
+          {
+            conn_close_fd(g,node_fd);
+            dbg_tty_printf(g,1,"epmd connection stopped");
+          }
 
 	if (!reply(g, fd,"STOPPED",7))
 	  {
