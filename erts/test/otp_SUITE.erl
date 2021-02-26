@@ -25,7 +25,9 @@
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
          obsolete_but_not_deprecated/1,call_to_deprecated/1,
          call_to_size_1/1,call_to_now_0/1,strong_components/1,
-         erl_file_encoding/1,xml_file_encoding/1,runtime_dependencies/1]).
+         erl_file_encoding/1,xml_file_encoding/1,
+         runtime_dependencies_functions/1,
+         runtime_dependencies_modules/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +42,8 @@ all() ->
      obsolete_but_not_deprecated, call_to_deprecated,
      call_to_size_1, call_to_now_0, strong_components,
      erl_file_encoding, xml_file_encoding,
-     runtime_dependencies].
+     runtime_dependencies_functions,
+     runtime_dependencies_modules].
 
 init_per_suite(Config) ->
     Server = start_xref_server(daily_xref, functions),
@@ -360,7 +363,32 @@ is_bad_encoding(File) ->
             true
     end.
 
-runtime_dependencies(Config) ->
+%% Test runtime dependencies when using an Xref server running in
+%% 'functions' mode.
+
+runtime_dependencies_functions(Config) ->
+    Server = proplists:get_value(xref_server, Config),
+    runtime_dependencies(Server).
+
+%% Test runtime dependencies when using an xref server running in
+%% 'modules' mode. Note that more module edges can potentially be
+%% found in this mode because the analysis is based on the BEAM
+%% code after all optimizations. For example, an apply in the source
+%% code could after optimizations be resolved to a specific function.
+%%
+%% It is important to test 'modules' because reltool runs xref in
+%% 'modules' mode (the BEAM files to be released might not contain
+%% debug information).
+
+runtime_dependencies_modules(_Config) ->
+    Server = start_xref_server(?FUNCTION_NAME, modules),
+    try
+        runtime_dependencies(Server)
+    after
+        catch xref:stop(Server)
+    end.
+
+runtime_dependencies(Server) ->
     %% Ignore applications intentionally not declaring dependencies
     %% found by xref.
     IgnoreApps = [diameter],
@@ -368,7 +396,6 @@ runtime_dependencies(Config) ->
     %% Verify that (at least) OTP application runtime dependencies found
     %% by xref are listed in the runtime_dependencies field of the .app file
     %% of each application.
-    Server = proplists:get_value(xref_server, Config),
     {ok, AE} = xref:q(Server, "AE"),
     SAE = lists:keysort(1, AE),
     put(ignored_failures, []),
@@ -383,7 +410,7 @@ runtime_dependencies(Config) ->
                                     end,
                                     {undefined, []},
                                     SAE),
-    check_apps_deps([AppDep|AppDeps], IgnoreApps),
+    [] = check_apps_deps([AppDep|AppDeps], IgnoreApps),
     case IgnoreApps of
         [] ->
             ok;
@@ -401,7 +428,7 @@ have_rdep(App, [RDep | RDeps], Dep) ->
     [AppStr, _VsnStr] = string:lexemes(RDep, "-"),
     case Dep == list_to_atom(AppStr) of
         true ->
-            io:format("~p -> ~s~n", [App, RDep]),
+            %% io:format("~p -> ~s~n", [App, RDep]),
             true;
         false ->
             have_rdep(App, RDeps, Dep)
@@ -491,9 +518,8 @@ app_exists(AppAtom) ->
 
 start_xref_server(Server, Mode) ->
     Root = code:root_dir(),
-    xref:start(Server),
-    xref:set_default(Server, [{xref_mode,Mode},
-                              {verbose,false},
+    xref:start(Server, [{xref_mode,Mode}]),
+    xref:set_default(Server, [{verbose,false},
                               {warnings,false},
                               {builtins,true}]),
     {ok,_Relname} = xref:add_release(Server, Root, {name,otp}),
