@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 
 -export([file_desc_to_ref/2]).
 
--export([ipread_s32bu_p32bu/3, sendfile/8, altname/1, get_handle/1]).
+-export([ipread_s32bu_p32bu/3, sendfile/8, altname/1,
+         get_handle/1, get_fd_data/1]).
 
 -export([read_file/1, write_file/2]).
 

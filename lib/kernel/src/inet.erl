@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@
         'ewouldblock' |
         'exbadport' | 'exbadseq' | file:posix().
 -type module_socket() :: {'$inet', Handler :: module(), Handle :: term()}.
+-define(module_socket(Handler, Handle), {'$inet', (Handler), (Handle)}).
 -type socket() :: port() | module_socket().
 
 -type socket_setopt() ::
@@ -213,7 +214,7 @@ close(Socket) ->
 		       returned_non_ip_address()} |
 		      {error, posix()}.
 
-peername({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+peername(?module_socket(GenSocketMod, _) = Socket) when is_atom(GenSocketMod) ->
     GenSocketMod:?FUNCTION_NAME(Socket);
 peername(Socket) -> 
     prim_inet:peername(Socket).
@@ -257,7 +258,7 @@ peernames(Socket, Assoc) ->
 		       returned_non_ip_address()} |
 		      {error, posix()}.
 
-sockname({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+sockname(?module_socket(GenSocketMod, _) = Socket) when is_atom(GenSocketMod) ->
     GenSocketMod:?FUNCTION_NAME(Socket);
 sockname(Socket) -> 
     prim_inet:sockname(Socket).
@@ -299,7 +300,7 @@ socknames(Socket, Assoc) ->
       Socket :: socket(),
       Port :: port_number().
 
-port({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+port(?module_socket(GenSocketMod, _) = Socket) when is_atom(GenSocketMod) ->
     case GenSocketMod:sockname(Socket) of
         {ok, {_, Port}} -> {ok, Port};
         {error, _} = Error -> Error
@@ -320,7 +321,7 @@ send(Socket, Packet) ->
       Socket :: socket(),
       Options :: [socket_setopt()].
 
-setopts({'$inet', GenSocketMod, _} = Socket, Opts) when is_atom(GenSocketMod) ->
+setopts(?module_socket(GenSocketMod, _) = Socket, Opts) when is_atom(GenSocketMod) ->
     GenSocketMod:?FUNCTION_NAME(Socket, Opts);
 setopts(Socket, Opts) -> 
     SocketOpts =
@@ -338,7 +339,7 @@ setopts(Socket, Opts) ->
       Options :: [socket_getopt()],
       OptionValues :: [socket_setopt() | gen_tcp:pktoptions_value()].
 
-getopts({'$inet', GenSocketMod, _} = Socket, Opts)
+getopts(?module_socket(GenSocketMod, _) = Socket, Opts)
   when is_atom(GenSocketMod) ->
     GenSocketMod:?FUNCTION_NAME(Socket, Opts);
 getopts(Socket, Opts) ->
@@ -531,7 +532,7 @@ getstat(Socket) ->
       Options :: [stat_option()],
       OptionValues :: [{stat_option(), integer()}].
 
-getstat({'$inet', GenSocketMod, _} = Socket, What)
+getstat(?module_socket(GenSocketMod, _) = Socket, What)
   when is_atom(GenSocketMod) ->
     GenSocketMod:?FUNCTION_NAME(Socket, What);
 getstat(Socket, What) ->

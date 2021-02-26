@@ -24,6 +24,7 @@
 %% gen_tcp
 -export([connect/4, listen/2, accept/2,
          send/2, recv/3,
+         sendfile/4,
          shutdown/2, close/1, controlling_process/2]).
 %% inet
 -export([setopts/2, getopts/2,
@@ -397,6 +398,40 @@ send_result(Server, Meta, Result) ->
             end;
         ok ->
             ok
+    end.
+
+%% -------------------------------------------------------------------------
+%% Handler called by file:sendfile/5 to handle ?module_socket()s
+%% as a sibling of prim_file:sendfile/8
+
+sendfile(
+  ?module_socket(_Server, Socket),
+  FileHandle, Offset, Count) ->
+    %%
+    case socket:getopt(Socket, {otp,meta}) of
+        {ok, #{packet := _}} ->
+            try
+                %% XXX should we do cork/uncork here, like in prim_inet?
+                %%     And, maybe file:advise too, like prim_file
+                socket:sendfile(Socket, FileHandle, Offset, Count, infinity)
+            catch
+                Class : Reason : Stacktrace
+                  when Class =:= error, Reason =:= badarg ->
+                    %% Convert badarg exception into return value
+                    %% to look like file:sendfile
+                    case Stacktrace of
+                        [{socket, sendfile, _, _} | _] ->
+                            {Class, Reason};
+                        _ ->
+                            erlang:raise(Class, Reason, Stacktrace)
+                    end;
+                Class : notsup when Class =:= error ->
+                    {Class, enotsup}
+            end;
+        {ok, _BadMeta} ->
+            {error, badarg};
+        {error, _} = Error ->
+            Error
     end.
 
 %% -------------------------------------------------------------------------

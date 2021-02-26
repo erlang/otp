@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1754,7 +1754,7 @@ ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err)
 
 /* Create an error two (2) tuple in the form:
  *
- *          {error, {invalid, {What, Info}}}
+ *          {error, {invalid, What}}}
  */
 extern
 ERL_NIF_TERM esock_make_error_invalid(ErlNifEnv* env, ERL_NIF_TERM what)
