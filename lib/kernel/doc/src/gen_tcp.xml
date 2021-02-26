@@ -135,7 +135,16 @@ do_recv(Sock, Bs) ->
 	  ignore this error for <c>inet_backend = socket</c>. </p>
 	</item>
 
-	<item><p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p></item>
+	<item>
+	  <p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p>
+	  <p>Calling
+	  <seemfa marker="#shutdown/2">gen_tcp:shutdown(Socket, write | read_write)</seemfa>
+	  on a socket created with <c>inet_backend = socket</c>
+	  will take <em>immediate</em> effect,
+	  unlike for a socket created with <c>inet_backend = inet</c>.</p>
+	  <p>See <seeerl marker="#async_shutdown_write">async shutdown write</seeerl>
+	  for more info. </p>
+	</item>
       </list>
     </note>
   </description>
