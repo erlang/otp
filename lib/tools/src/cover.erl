@@ -1851,8 +1851,17 @@ expand(Expr) ->
     Expr1.
 
 expand({clause,Anno,Pattern,Guards,Body}, Vs, N) ->
+    %% We must not expand andalso/orelse in guards.
     {ExpandedBody,N2} = expand(Body, Vs, N),
     {{clause,Anno,Pattern,Guards,ExpandedBody},N2};
+expand({lc,Anno,Expr,Qs}, Vs, N) ->
+    {ExpandedExpr,N2} = expand(Expr, Vs, N),
+    {ExpandedQs,N3} = expand_qualifiers(Qs, Vs, N2),
+    {{lc,Anno,ExpandedExpr,ExpandedQs},N3};
+expand({bc,Anno,Expr,Qs}, Vs, N) ->
+    {ExpandedExpr,N2} = expand(Expr, Vs, N),
+    {ExpandedQs,N3} = expand_qualifiers(Qs, Vs, N2),
+    {{bc,Anno,ExpandedExpr,ExpandedQs},N3};
 expand({op,_Anno,'andalso',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
@@ -1880,6 +1889,29 @@ expand([E|Es], Vs, N) ->
     {[E2|Es2],N3};
 expand(T, _Vs, N) ->
     {T,N}.
+
+expand_qualifiers([Q|Qs], Vs, N) ->
+    {Q2,N2} = case erl_lint:is_guard_test(Q) of
+                  true ->
+                      %% This qualifier is a guard test and will be
+                      %% compiled as such. Don't expand andalso/orelse
+                      %% because that would turn it into a body
+                      %% expression that may raise an exception. Here
+                      %% is an example of a filter where the error
+                      %% behaviour would change:
+                      %%
+                      %%      V == a orelse element(1, V) == a
+                      %%
+                      {Q,N};
+                  false ->
+                      %% A generator or a filter that is not a guard
+                      %% test.
+                      expand(Q, Vs, N)
+              end,
+    {Qs2,N3} = expand_qualifiers(Qs, Vs, N2),
+    {[Q2|Qs2],N3};
+expand_qualifiers([], _Vs, N) ->
+    {[],N}.
 
 vars(A, {var,_,V}) when V =/= '_' ->
     [V|A];
