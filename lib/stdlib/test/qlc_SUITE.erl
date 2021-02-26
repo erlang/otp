@@ -2382,10 +2382,12 @@ filter(Config) when is_list(Config) ->
                       false = lookup_keys(QH)
               end, [{1,1},{2,2},{3,3}])">>,
 
-       <<"fun(Z) ->
+       {cres,
+        <<"fun(Z) ->
             Q = qlc:q([X || Z < 2, X <- [1,2,3]]),
             [] = qlc:e(Q)
-          end(3)">>,
+           end(3)">>, [], {warnings,[{{2,31},sys_core_fold,no_clause_match},
+                                     {{2,31},sys_core_fold,nomatch_guard}]}},
 
        <<"H = qlc:q([{P1,A,P2,B,P3,C} ||
                   P1={A,_} <- [{1,a},{2,b}],
@@ -3095,13 +3097,14 @@ lookup2(Config) when is_list(Config) ->
         %% {warnings,[{{4,35},qlc,nomatch_filter}]}},
         []},
 
-       <<"F = fun(U) ->
+       {cres,
+        <<"F = fun(U) ->
                 Q = qlc:q([X || {X} <- [a,b,c], 
                                  X =:= if U -> true; true -> false end]),
                 [] = qlc:eval(Q),
                 false = lookup_keys(Q)
               end,
-          F(apa)">>,
+           F(apa)">>, [], {warnings,[{{3,43},sys_core_fold,nomatch_guard}]}},
 
        {cres,
         <<"etsc(fun(E) ->

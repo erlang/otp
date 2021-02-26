@@ -106,10 +106,10 @@ do_fun(Bool) ->
     F(Bool).					%Tail-recursive
 
 do_fun2(Bool) ->
-    F = fun(true) ->
+    F = fun(true, _) ->
 		cons(Bool)			%Tail-recursive
 	end,
-    F(Bool),					%Not tail-recursive
+    F(Bool, F),                                 %Not tail-recursive. (The fun is not inlined)
     ?LINE.
 
 cons(Bool) ->
