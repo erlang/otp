@@ -1206,12 +1206,16 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           <tag><c>binary</c></tag>
           <item>
             <p>Received <c>Packet</c> is delivered as a binary.</p>
+            <marker id="option-nodelay"></marker>
           </item>
           <tag><c>{nodelay, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
             <p>If <c>Boolean == true</c>, option <c>TCP_NODELAY</c>
-              is turned on for the socket, which means that also small
-              amounts of data are sent immediately.</p>
+            is turned on for the socket, which means that also small
+            amounts of data are sent immediately.</p>
+	    <p>This option is <em>not</em> supported for
+	    <c>domain = local</c>, but if <c>inet_backend =/= socket</c>
+	    this error will be <em>ignored</em>. </p>
           </item>
           <tag><c>{nopush, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
