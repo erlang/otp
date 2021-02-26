@@ -1083,13 +1083,16 @@ handle_event(
 handle_event(
   info, ?socket_counter_wrap(Socket, Counter),
   'connected' = _State, {#params{socket = Socket} = P, D}) ->
+    %% ?DBG([{state, _State}, {counter, Counter}]),
     {keep_state, {P, wrap_counter(Counter, D)}};
 handle_event(
   info, ?socket_counter_wrap(Socket, Counter),
   #recv{} = _State, {#params{socket = Socket} = P, D}) ->
+    %% ?DBG([{state, _State}, {counter, Counter}]),
     {keep_state, {P, wrap_counter(Counter, D)}};
 handle_event(
   info, ?socket_counter_wrap(_Socket, _Counter), _State, _P_D) ->
+    %% ?DBG([{state, _State}, {counter, _Counter}]),
     {keep_state_and_data,
      [postpone]};
 
@@ -2237,6 +2240,7 @@ socket_info_counters(Socket) ->
 receive_counter_wrap(Socket, D, Wrapped) ->
     receive
         ?socket_counter_wrap(Socket, Counter) ->
+	    %% ?DBG([{counter, Counter}]),
             receive_counter_wrap(
               Socket, wrap_counter(Counter, D) , [Counter | Wrapped])
     after 0 ->
