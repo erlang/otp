@@ -107,7 +107,7 @@ compile_and_load(_Config) ->
                 %% Workaround byte-compile-error-on-warn which seem broken in
                 %% Emacs 25.
                 "\"(advice-add #'display-warning :after "
-                    "(lambda (_ f _ _) (error \"%s\" f)))\"";
+                    "(lambda (_ f &optional _ _) (error \\\"%s\\\" f)))\"";
             _ ->
                 "\"(setq byte-compile-error-on-warn t)\""
         end,
