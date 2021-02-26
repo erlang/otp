@@ -70,7 +70,20 @@ do_recv(Sock, Bs) ->
       Here is a list of cases when the behaviour of inet-backend
       <c>inet</c> (default) and <c>socket</c> are different: </p>
       <list type="bulleted">
-        <item><p><seeerl marker="#non_blocking_send">Non-blocking send</seeerl></p></item>
+        <item>
+	  <p><seeerl marker="#non_blocking_send">Non-blocking send</seeerl></p>
+	  <p>If a user calling
+	  <seemfa marker="#send/2"><c>gen_tcp:send/2</c></seemfa>     
+	  with <c>inet_backend = inet</c>,
+	  tries to send more data than there is room for in the OS buffers,
+	  the "rest data" is buffered by the inet driver (and later sent in the
+	  background).
+	  The effect for the user is that the call is non-blocking.</p>
+	  <p>This is <em>not</em> the effect when
+	  <c>inet_backend = socket</c>, since there is no buffering.
+	  Instead the user hangs either until all data has been sent or the
+	  <c>send_timeout</c> timeout has been reached. </p>
+	</item>
 
 	<item><p>Remote close detected by background send. </p>
 	<p>An background send will detect a 'remote close' and
