@@ -2460,10 +2460,9 @@ foo\Kbar</code>
 
     <p>The following are the supported class names:</p>
 
-    <taglist>  
+    <taglist>
       <tag>alnum</tag><item>Letters and digits</item>
       <tag>alpha</tag><item>Letters</item>
-      <tag>ascii</tag><item>Character codes 0-127</item>
       <tag>blank</tag><item>Space or tab only</item>
       <tag>cntrl</tag><item>Control characters</item>
       <tag>digit</tag><item>Decimal digits (same as \d)</item>
@@ -2477,6 +2476,11 @@ foo\Kbar</code>
       <tag>word</tag><item>"Word" characters (same as \w)</item>
       <tag>xdigit</tag><item>Hexadecimal digits</item>
     </taglist>
+
+    <p>There is another character class, <c>ascii</c>, that erroneously matches
+      Latin-1 characters instead of the 0-127 range specified by POSIX. This
+      cannot be fixed without altering the behaviour of other classes, so we
+      recommend matching the range with <c>[\\0-\x7f]</c> instead.</p>
 
     <p>The default "space" characters are HT (9), LF (10), VT (11), FF (12),
     CR (13), and space (32). If locale-specific matching is taking place, the
