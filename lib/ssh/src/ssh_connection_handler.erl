@@ -137,8 +137,15 @@ start_link(Role, Host, Port, Socket, Options0, NegotiationTimeout) ->
                                              [{spawn_opt, [{message_queue_data,off_heap}]}]]
                                            ) of
             {ok, Pid} ->
-                %% Now the connection_handler process is started, but no message handling
-                %% begins until the socket_control is called
+                %% Now the connection_handler process is started
+                %% First set the group leader if it is a client:
+                case Role of
+                    client ->
+                        group_leader(group_leader(), Pid);
+                    _ ->
+                        ok
+                end,
+                %% No message handling yet. It begins when the socket_control/3 is called
                 case socket_control(Socket, Pid, Options) of
                     ok ->
                         %% handshake returns {ok,Pid} after a successful connection setup.
@@ -543,14 +550,6 @@ handshake(Pid, Ref, Timeout) ->
 	    {ok, Pid};
 	{Pid, not_connected, Reason} ->
 	    {error, Reason};
-	{Pid, user_password} ->
-	    Pass = io:get_password(),
-	    Pid ! Pass,
-	    handshake(Pid, Ref, Timeout);
-	{Pid, question} ->
-	    Answer = io:get_line(""),
-	    Pid ! Answer,
-	    handshake(Pid, Ref, Timeout);
 	{'DOWN', _, process, Pid, {shutdown, Reason}} ->
 	    {error, Reason};
 	{'DOWN', _, process, Pid, Reason} ->
