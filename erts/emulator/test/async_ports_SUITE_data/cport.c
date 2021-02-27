@@ -10,6 +10,9 @@
 #endif
 
 typedef unsigned char byte;
+int write_exact(byte *buf, int len);
+
+int read_exact(byte *buf, int len);
 
 int read_cmd(byte *buf)
 {
@@ -28,7 +31,7 @@ int write_cmd(byte *buf, int len)
   li[1] = (len >> 16) & 0xff;
   li[2] = (len >> 8)  & 0xff;
   li[3] = len  & 0xff;
-  write_exact(&li, 4);
+  write_exact(li, 4);
 
   return write_exact(buf, len);
 }
