@@ -1750,14 +1750,14 @@ start_monitor(Offender,P) ->
                           just_stay_alive -> ok
                       end
               end),
-    Ref = receive
+    Res = receive
               {Q,ref,R} ->
-                  R
+                  {Q, R}
           after  5000 ->
                      error
           end,
-    io:format("Ref is ~p~n",[Ref]),
-    ok.
+    io:format("Res is ~p~n",[Res]),
+    Res.
 start_link(Offender,P) ->
     Parent = self(),
     Q = spawn(Offender,
@@ -1769,14 +1769,14 @@ start_link(Offender,P) ->
                           just_stay_alive -> ok
                       end
               end),
-    Ref = receive
+    Res = receive
               {Q,ref,R} ->
                   R
           after  5000 ->
                      error
           end,
-    io:format("Ref is ~p~n",[Ref]),
-    ok.
+    io:format("Res is ~p~n",[Res]),
+    Res.
 
 %% Test dist messages with valid structure (binary to term ok) but malformed control content
 bad_dist_structure(Config) when is_list(Config) ->
@@ -1924,20 +1924,38 @@ bad_dist_fragments(Config) when is_list(Config) ->
                       [{hdr, 3, binary:part(Msg, 10,byte_size(Msg)-10)},
                        close]),
 
-    start_monitor(Offender,P),
-    ExitVictim = spawn(Victim, fun() -> receive ok -> ok end end),
-    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_EXIT,P,ExitVictim},2,
+    ExitVictim = spawn(Victim, fun() ->
+                                       receive
+                                           {link, Proc} ->
+                                               link(Proc),
+                                               Parent ! {self(), linked}
+                                       end,
+                                       receive ok -> ok end
+                               end),
+    OP1 = start_link(Offender,ExitVictim),
+    ExitVictim ! {link, OP1},
+    receive {ExitVictim, linked} -> ok end,
+    send_bad_fragments(Offender, Victim, ExitVictim,{?DOP_PAYLOAD_EXIT,OP1,ExitVictim},0,
                       [{hdr, 1, [131]}]),
 
-    start_monitor(Offender,P),
     Exit2Victim = spawn(Victim, fun() -> receive ok -> ok end end),
-    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_EXIT2,P,Exit2Victim},2,
+    {OP2, _} = start_monitor(Offender,Exit2Victim),
+    send_bad_fragments(Offender, Victim, Exit2Victim,{?DOP_PAYLOAD_EXIT2,OP2,Exit2Victim},0,
                       [{hdr, 1, [132]}]),
 
-    start_monitor(Offender,P),
-    DownVictim = spawn(Victim, fun() -> receive ok -> ok end end),
-    DownRef = erlang:monitor(process, DownVictim),
-    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_MONITOR_P_EXIT,P,DownVictim,DownRef},2,
+    DownVictim = spawn(Victim, fun() ->
+                                       receive
+                                           {monitor, Proc} ->
+                                               DR = erlang:monitor(process, Proc),
+                                               Parent ! {self(), DR}
+                                       end,
+                                       Parent ! {self, DR},
+                                       receive ok -> ok end
+                               end),
+    {OP3, _} = start_monitor(Offender,DownVictim),
+    DownVictim ! {monitor, OP3},
+    DownRef = receive {DownVictim, DR} -> DR end,
+    send_bad_fragments(Offender, Victim, DownVictim,{?DOP_PAYLOAD_MONITOR_P_EXIT,OP3,DownVictim,DownRef},0,
                       [{hdr, 1, [133]}]),
 
     P ! two,
