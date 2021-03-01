@@ -960,8 +960,8 @@ maybe_warn_repeated_keys(Ck, K0, Used, St) ->
             K = cerl:concrete(Ck),
             case sets:is_element(K,Used) of
                 true ->
-                    Location = element(2, K0),
-                    {Used, add_warning(Location, {map_key_repeated,K}, St)};
+                    L = erl_parse:first_anno(K0),
+                    {Used, add_warning(L, {map_key_repeated,K}, St)};
                 false ->
                     {sets:add_element(K,Used), St}
             end
@@ -1008,7 +1008,7 @@ try_after(Line, Es0, As0, St0) ->
 %% to suppress false "unmatched return" warnings in tools that look at core
 %% Erlang, such as `dialyzer`.
 ta_sanitize_as([Expr], Line) ->
-    [{match, Line, {var,[],'_'}, Expr}];
+    [{match, Line, {var,Line,'_'}, Expr}];
 ta_sanitize_as([Expr | Exprs], Line) ->
     [Expr | ta_sanitize_as(Exprs, Line)].
 

@@ -2576,8 +2576,8 @@ expr({op,Anno,Op,L,R}, Vt, St0) when Op =:= 'orelse'; Op =:= 'andalso' ->
 expr({op,_Anno,_Op,L,R}, Vt, St) ->
     expr_list([L,R], Vt, St);                   %They see the same variables
 %% The following are not allowed to occur anywhere!
-expr({remote,Anno,_M,_F}, _Vt, St) ->
-    {[],add_error(Anno, illegal_expr, St)}.
+expr({remote,_Anno,M,_F}, _Vt, St) ->
+    {[],add_error(erl_parse:first_anno(M), illegal_expr, St)}.
 
 %% expr_list(Expressions, Variables, State) ->
 %%      {UsedVarTable,State}
