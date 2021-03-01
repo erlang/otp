@@ -20,6 +20,8 @@
 -module(group_history).
 -export([load/0, add/1]).
 
+-include_lib("kernel/include/logger.hrl").
+
 %% Make a minimal size that should encompass set of lines and then make
 %% a file rotation for N files of this size.
 -define(DEFAULT_HISTORY_FILE, "erlang-shell-log").
@@ -427,7 +429,7 @@ show_custom_provider_faulty_add_return(Provider, Return) ->
 show(Key, Format, Args) ->
     case get(Key) of
         undefined ->
-            io:format(standard_error, Format, Args),
+            ?LOG_ERROR(Format, Args),
             put(Key, true),
             ok;
         true ->
