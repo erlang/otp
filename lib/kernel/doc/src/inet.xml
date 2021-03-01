@@ -1048,7 +1048,7 @@ get_tcpi_sacked(Sock) ->
               socket when no other data is exchanged. If
               the other end does not respond, the connection is
               considered broken and an error message is sent to
-              the controlling process. Defaults to <c>disabled</c>.</p>
+              the controlling process. Defaults to <c>false</c>.</p>
             <marker id="option-linger"></marker>
           </item>
           <tag><c>{linger, {true|false, Seconds}}</c></tag>
