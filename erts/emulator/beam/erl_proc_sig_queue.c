@@ -2893,7 +2893,7 @@ recv_marker_uniq(Process *c_p, Eterm *uniqp)
 {
     Eterm res = *uniqp;
     if (res == am_new_uniq) {
-	Sint64 val = c_p->sig_qs.recv_mrk_uniq++;
+	Sint64 val = MIN_SMALL + c_p->uniq++;
 	Uint hsz = ERTS_SINT64_HEAP_SIZE(val);
 	if (hsz == 0)
 	    res = make_small((Sint) val);

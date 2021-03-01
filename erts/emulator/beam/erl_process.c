@@ -11923,14 +11923,13 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     erts_get_default_proc_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER(p));
 
-    p->uniq = 1;
+    p->uniq = 0;
     p->sig_qs.first = NULL;
     p->sig_qs.last = &p->sig_qs.first;
     p->sig_qs.cont = NULL;
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
-    p->sig_qs.recv_mrk_uniq = MIN_SMALL;
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
@@ -12427,14 +12426,13 @@ void erts_init_empty_process(Process *p)
     ERTS_P_MONITORS(p) = NULL;
     ERTS_P_LT_MONITORS(p) = NULL;
     ERTS_P_LINKS(p) = NULL;         /* List of links */
-    p->uniq = 1;
+    p->uniq = 0;
     p->sig_qs.first = NULL;
     p->sig_qs.last = &p->sig_qs.first;
     p->sig_qs.cont = NULL;
     p->sig_qs.cont_last = &p->sig_qs.cont;
     p->sig_qs.save = &p->sig_qs.first;
     p->sig_qs.recv_mrk_blk = NULL;
-    p->sig_qs.recv_mrk_uniq = MIN_SMALL;
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
