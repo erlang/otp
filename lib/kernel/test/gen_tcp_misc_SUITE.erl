@@ -143,7 +143,9 @@ all_cases() ->
      send_timeout, send_timeout_active,
      otp_7731,
      wrapping_oct,
-     zombie_sockets, otp_7816, otp_8102, otp_9389,
+     zombie_sockets,
+     otp_7816,
+     otp_8102, otp_9389,
      otp_12242, delay_send_error, bidirectional_traffic
     ].
 
@@ -5420,92 +5422,202 @@ zombie_server_handler(Socket, Bin) ->
 
 %% Hanging send on windows when sending iolist with more than 16 binaries.
 otp_7816(Config) when is_list(Config) ->
-    Client = self(),
-    Server = spawn_link(fun()-> otp_7816_server(Config, Client) end),
+    ?TC_TRY(otp_7816, fun() -> do_otp_7816(Config) end).
+
+do_otp_7816(Config) ->
+    Ctrl = self(),
+    ?P("[ctrl] create server process..."),
+    Server = spawn_link(fun() -> otp_7816_server(Config, Ctrl) end),
+    ?P("[ctrl] await server process ready..."),
     receive {Server, ready, PortNum} -> ok end,
 
+    ?P("[ctrl] connect to server..."),
     {ok, Socket} = ?CONNECT(Config, "localhost", PortNum,
                             [binary, {active, false}, {packet, 4},
                              {send_timeout, 10}]),
+
     %% We use the undocumented feature that sending can be resumed after
     %% a send_timeout without any data loss if the peer starts to receive data.
     %% Unless of course the 7816-bug is in affect, in which case the write event
     %% for the socket is lost on windows and not all data is sent.
 
-    [otp_7816_send(Socket,18,BinSize,Server) || BinSize <- lists:seq(1000, 2000, 123)],
+    ?P("[ctrl] begin sending..."),
 
-    io:format("Sending complete...\n",[]),
+    [otp_7816_ctrl(Socket, 18, BinSize, Server) ||
+	BinSize <- lists:seq(1000, 2000, 123)],
+
+    ?P("[ctrl] sending complete..."),
 
     ok = gen_tcp:close(Socket),
     Server ! {self(), closed},
     {Server, closed} = receive M -> M end.
 
-    
-otp_7816_send(Socket, BinNr, BinSize, Server) ->
+
+otp_7816_ctrl(Socket, BinNr, BinSize, Server) ->
+    ?P("[ctrl] create payload (BinSz: ~w)...", [BinSize]),
     Data = lists:duplicate(BinNr, <<1:(BinSize*8)>>),
-    SentBytes = otp_7816_send_data(Socket, Data, 0) * BinNr * BinSize,
-    io:format("Client sent ~p bytes...\n",[SentBytes]),
-    Server ! {self(),recv,SentBytes},
-    {Server, ok} = receive M -> M end.
-
+    ?P("[ctrl] socket info prior to start sending: "
+       "~n      ~p",
+       [if is_port(Socket) -> erlang:port_info(Socket);
+	   true -> gen_tcp_socket:info(Socket)
+	end]),
+    Ctrl   = self(),
+    Client = spawn_link(fun() -> otp_7816_send_data(Ctrl, Socket, Data) end),
+    SentBytes =
+	receive
+	    {Client, continue, Loops} ->
+		?P("[ctrl] received continue from client: ~p", [Loops]),
+		SB = Loops * BinNr * BinSize,
+		Server ! {self(), recv, SB},
+		SB
+	end,
+    ct:sleep(1000),
+    ?P("[ctrl] socket info after sending ~w bytes: "
+       "~n      ~p",
+       [SentBytes,
+	if is_port(Socket) -> erlang:port_info(Socket);
+	   true -> gen_tcp_socket:info(Socket)
+	end]),
+    ?P("[ctrl] await server result..."),
+    ok = receive
+	     {Server, SR} ->
+		 ?P("[ctrl] server result: ~p", [SR]),
+		 SR
+	 end,
+    ?P("[ctrl] await client termination..."),
+    ok = receive
+	     {'EXIT', Client, normal} ->
+		 ?P("[ctrl] client normal exit"),
+		 ok;
+	     {'EXIT', Client, CR} ->
+		 ?P("[ctrl] client unexpected exit reason: ~p", [CR]),
+		 CR
+	 end,
+    ?P("[ctrl] done with BinSz: ~p", [BinSize]),
+    ok.
     
 
-otp_7816_send_data(Socket, Data, Loops) ->
-    io:format("Client sending data...\n",[]),
+otp_7816_send_data(Ctrl, Socket, Data) ->
+    otp_7816_send_data(Ctrl, Socket, Data, 0).
+
+otp_7816_send_data(Ctrl, Socket, Data, Loops) ->
+    ?P("[client] sending data (~w bytes, ~w)...", [iolist_size(Data), Loops]),
     case gen_tcp:send(Socket, Data) of
 	ok ->
-	    otp_7816_send_data(Socket,Data, Loops+1);
-	{error,timeout} ->
-	    Loops+1
+	    otp_7816_send_data(Ctrl, Socket, Data, Loops+1);
+
+	{error, timeout} when is_port(Socket) ->
+	    %% For the 'classic' sockets, when the OS buffers are
+	    %% full, the rest data are put into the (inet driver)
+	    %% internal, for later sending. SO, it can be counted
+	    %% as sent.
+	    ?P("[client] send timeout when Loops: ~p (+1)", [Loops]),
+	    Ctrl ! {self(), continue, Loops + 1},
+	    exit(normal);
+
+	{error, timeout} ->
+	    %% For inet_backend = 'socket' when we nothing of the
+	    %% message was sent.
+	    ?P("[client] send timeout when Loops: ~p", [Loops]),
+	    Ctrl ! {self(), continue, Loops},
+	    exit(normal);
+
+	{error, {timeout, RestData}} ->
+	    %% A timeout means that **some** of the data was not sent,
+	    %% currently there is no way to know how much.
+	    %% NOTE THAT THIS MEANS THAT WE HAVE A PARTIAL PACKAGE
+	    %% WRITTEN, INCLUDING A HEADER THAT INDUCATES A DATA
+	    %% SIZE THAT IS **NOT** PRESENT!!
+	    %% So for this trest case to work, we need to write the rest.
+	    %% But we cannot do that without first setting the package to raw.
+	    %% 
+	    ?P("[client] send timeout"
+	       "~n      with ~w bytes of rest data"
+	       "~n      when Loops: ~p", [byte_size(RestData), Loops]),
+	    Ctrl ! {self(), continue, Loops + 1},
+	    ?P("[client] packet to 'raw'..."),
+	    ok = inet:setopts(Socket, [{packet, raw}, {send_timeout, 1000}]),
+	    ?P("[client] send ~w bytes of rest data...",
+	       [byte_size(RestData)]),
+	    ok = gen_tcp:send(Socket, RestData),
+	    ?P("[client] packet (back) to '4'..."),
+	    ok = inet:setopts(Socket, [{packet, 4}, {send_timeout, 10}]),
+	    ?P("[client] done"),
+	    exit(normal)
+
+
     end.
     
     
-otp_7816_server(Config, Client) ->
+otp_7816_server(Config, Ctrl) ->
+    ?P("[server] create listening socket"),
     {ok, LSocket} = ?LISTEN(Config, 0, [binary, {packet, 4},
                                         {active, false}]),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
-    ?P("Listening on ~w with port number ~p", [LSocket, PortNum]),
-    Client ! {self(), ready, PortNum},
+    ?P("[server] listening on ~w with port number ~p", [LSocket, PortNum]),
+    Ctrl ! {self(), ready, PortNum},
 
-    {ok, CSocket} = gen_tcp:accept(LSocket),
-    ?P("Server got connection..."),
+    ?P("[server] accept connection..."),
+    {ok, ASocket} = gen_tcp:accept(LSocket),
+    ?P("[server] got connection..."),
     gen_tcp:close(LSocket),
 
-    otp_7816_server_loop(CSocket),
+    otp_7816_server_loop(ASocket, Ctrl),
 
-    ?P("Server terminating.").
+    ?P("[server] terminating").
 
 
-otp_7816_server_loop(CSocket) ->
-    ?P("Server waiting for order..."),
-
+otp_7816_server_loop(Socket, Ctrl) ->
+    ?P("[server] waiting for order..."),
     receive 
-	{Client, recv, RecvBytes} -> 
-	    ?P("Server start receiving..."),
+	{Ctrl, recv, RecvBytes} -> 
+	    ?P("[server] start receiving (~w bytes)...", [RecvBytes]),
 
-	    ok = otp_7816_recv(CSocket, RecvBytes),
+	    ok = otp_7816_recv(Socket, RecvBytes),
 	    
-	    Client ! {self(), ok},
-	    otp_7816_server_loop(CSocket);
+	    Ctrl ! {self(), ok},
+	    otp_7816_server_loop(Socket, Ctrl);
 	
-	{Client, closed} ->
-	    {error, closed} = gen_tcp:recv(CSocket, 0, 1000),
-	    Client ! {self(), closed}
+	{Ctrl, closed} ->
+	    {error, closed} = gen_tcp:recv(Socket, 0, 1000),
+	    Ctrl ! {self(), closed}
+    end.
+
+otp_7816_recv(Socket, BytesLeft) ->
+    otp_7816_recv(Socket, BytesLeft, 1).
+
+otp_7816_recv(_, 0, _) ->
+    ?P("[server] got all data"),
+    ok;
+otp_7816_recv(Socket, BytesLeft, N) ->
+    ?P("[server] try recv ~w (~p bytes left)", [N, BytesLeft]),
+    case gen_tcp:recv(Socket, 0, 1000) of
+	{ok, Bin} when (byte_size(Bin) =< BytesLeft) andalso
+		       (byte_size(Bin) > 0) -> 
+	    ?P("[server] received ~p of ~p bytes",
+	       [size(Bin), BytesLeft]),
+	    otp_7816_recv(Socket, BytesLeft - byte_size(Bin), N+1);
+	{ok, Bin} ->
+	    ?P("[server] received unexpected data (~w): "
+	       "~n   Expected:    ~p bytes"
+	       "~n   Received:    ~p bytes"
+	       "~n   Socket Info: ~p",
+	       [N, BytesLeft, byte_size(Bin),
+		if is_port(Socket) -> erlang:port_info(Socket);
+		   true -> gen_tcp_socket:info(Socket)
+		end]),
+	    {error, {unexpected_data, BytesLeft, byte_size(Bin)}};
+	{error, timeout} ->
+	    ?P("[server] got receive timeout when expecting more data:"
+	       "~n      Socket Info: ~p",
+	       [if is_port(Socket) -> erlang:port_info(Socket);
+		   true -> gen_tcp_socket:info(Socket)
+		end]),
+	    {error, timeout}
     end.
 
 
-otp_7816_recv(_, 0) ->
-    io:format("Server got all.\n",[]),
-    ok;
-otp_7816_recv(CSocket, BytesLeft) ->
-    case gen_tcp:recv(CSocket, 0, 1000) of
-	      {ok, Bin} when byte_size(Bin) =< BytesLeft -> 
-		  io:format("Server received ~p of ~p bytes.\n",[size(Bin), BytesLeft]),
-		  otp_7816_recv(CSocket, BytesLeft - byte_size(Bin));
-	      {error,timeout} ->
-		  io:format("Server got receive timeout when expecting more data\n",[]),
-		  error
-	  end.
+%% ----------------------------------------------------------------------
 
 %% Receive a packet with a faulty packet header.
 otp_8102(Config) when is_list(Config) ->

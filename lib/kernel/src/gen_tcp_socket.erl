@@ -340,6 +340,7 @@ send(?module_socket(Server, Socket), Data) ->
                 Packet =:= 2;
                 Packet =:= 4 ->
                     Size = iolist_size(Data),
+		    %% ?DBG([{packet, Packet}, {data_size, Size}]),
                     Header = <<?header(Packet, Size)>>,
                     Result =
                         socket_send(Socket, [Header, Data], SendTimeout),
@@ -358,12 +359,18 @@ send(?module_socket(Server, Socket), Data) ->
 send_result(Server, Meta, Result) ->
     %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
-	%% We should really return the rest data rather then just ignoring it,
-	%% but for now...
-        {error, {timeout = Reason, RestData}} when is_binary(RestData) ->
-	    _ = maps:get(send_timeout_close, Meta)
-		andalso close_server(Server),
-	    {error, Reason};
+	%% We should really return the rest data rather then just ignoring it.
+	%% In the case we get a timeout when sending and 'send_timeout_close'
+	%% is set true, we close the connection and only returns the timeout.
+	%% Otherwise we return the full error.
+        {error, {timeout = Reason, RestData}} = E when is_binary(RestData) ->
+	    case maps:get(send_timeout_close, Meta) of
+		true ->
+		    close_server(Server),
+		    {error, Reason};
+		false ->
+		    E
+	    end;
         {error, Reason} ->
             %% To handle RestData we would have to pass
             %% all writes through a single process that buffers
@@ -376,7 +383,7 @@ send_result(Server, Meta, Result) ->
             case Reason of
                 econnreset ->
                     case maps:get(show_econnreset, Meta) of
-                        true -> {error, econnreset};
+                        true  -> {error, econnreset};
                         false -> {error, closed}
                     end;
                 timeout ->
@@ -490,11 +497,12 @@ info(?module_socket(_Server, Socket)) ->
 socket_send(Socket, Data, Timeout) ->
     Result = socket:send(Socket, Data, Timeout),
     case Result of
-        {error, {timeout = Reason, RestData}} when is_binary(RestData) ->
+        {error, {timeout = _Reason, RestData}} = E when is_binary(RestData) ->
 	    %% This is better then closing the socket for every timeout
 	    %% We need to do something about this!
 	    %% ?DBG({timeout, byte_size(RestData)}),
-	    {error, Reason};
+	    %% {error, Reason};
+	    E;
         {error, {_Reason, RestData}} when is_binary(RestData) ->
             %% To properly handle RestData we would have to pass
             %% all writes through a single process that buffers
@@ -824,8 +832,8 @@ socket_inherit_opts() ->
 -compile({inline, [server_read_write_opts/0]}).
 server_read_write_opts() ->
     %% Common for read and write side
-    #{packet => raw,
-      packet_size => 16#4000000, % 64 MByte
+    #{packet          => raw,
+      packet_size     => 16#4000000, % 64 MByte
       show_econnreset => false}.
 -compile({inline, [server_read_opts/0]}).
 server_read_opts() ->
@@ -1376,6 +1384,7 @@ handle_event(Type, Content, #connect{} = State, P_D) ->
 %% Call: recv/2 - last part
 handle_event(
   {call, From}, {recv, Length, Timeout}, State, {P, D}) ->
+    %% ?DBG([recv, {length, Length}, {timeout, Timeout}, {state, State}]),
     case State of
         'connected' ->
             handle_recv_start(P, D, From, Length, Timeout);
@@ -1572,6 +1581,7 @@ handle_recv_start(P, D, From, _Length, Timeout) ->
       [{{timeout, recv}, Timeout, recv}]).
 
 handle_recv(P, #{packet := Packet, recv_length := Length} = D, ActionsR) ->
+    %% ?DBG({recv_len, Length}),
     if
         0 < Length ->
             handle_recv_length(P, D, ActionsR, Length);
@@ -1588,14 +1598,19 @@ handle_recv(P, #{packet := Packet, recv_length := Length} = D, ActionsR) ->
 
 handle_recv_peek(P, D, ActionsR, Packet) ->
     %% Peek Packet bytes
+    %% ?DBG({packet, Packet}),
     case D of
         #{buffer := Buffer} when is_list(Buffer) ->
+	    %% ?DBG('buffer is list - condence'),
             Data = condense_buffer(Buffer),
             handle_recv_peek(P, D#{buffer := Data}, ActionsR, Packet);
         #{buffer := <<Data:Packet/binary, _Rest/binary>>} ->
+	    %% ?DBG('buffer contains header'),
             handle_recv_peek(P, D, ActionsR, Packet, Data);
         #{buffer := <<ShortData/binary>>} ->
             N = Packet - byte_size(ShortData),
+	    %% ?DBG({'buffer does not contain complete header',
+	    %% 	  Packet, N, byte_size(ShortData)}),
             case socket_recv_peek(P#params.socket, N) of
                 {ok, <<FinalData/binary>>} ->
                     handle_recv_peek(
@@ -1621,10 +1636,13 @@ handle_recv_peek(P, D, ActionsR, Packet) ->
 handle_recv_peek(P, D, ActionsR, Packet, Data) ->
     <<?header(Packet, N)>> = Data,
     #{packet_size := PacketSize} = D,
+    %% ?DBG({'packet size', Packet, N, PacketSize}),
     if
         0 < PacketSize, PacketSize < N ->
+	    %% ?DBG({emsgsize}),
             handle_recv_error(P, D, ActionsR, emsgsize);
         true ->
+	    %% ?DBG({'read a message'}),
             handle_recv_length(P, D, ActionsR, Packet + N)
     end.
 
@@ -1668,16 +1686,20 @@ handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
             handle_recv_error(P, D#{buffer := Buffer}, ActionsR, Reason)
     end;
 handle_recv_length(P, D, ActionsR, _0, Buffer) ->
+    %% ?DBG({byte_size(Buffer)}),
     case Buffer of
         <<>> ->
             %% We should not need to update the buffer field here
             %% since the only way to get here with empty Buffer
             %% is when Buffer comes from the buffer field
             Socket = P#params.socket,
+	    %% ?DBG({'try read some more', byte_size(Buffer)}),
             case socket_recv(Socket, 0) of
                 {ok, <<Data/binary>>} ->
+		    %% ?DBG({'got some', byte_size(Data)}),
                     handle_recv_deliver(P, D, ActionsR, Data);
                 {ok, {Data, SelectInfo}} ->
+		    %% ?DBG({'got another select with data', byte_size(Data)}),
                     case socket:cancel(Socket, SelectInfo) of
                         ok ->
                             handle_recv_deliver(P, D, ActionsR, Data);
@@ -1685,13 +1707,16 @@ handle_recv_length(P, D, ActionsR, _0, Buffer) ->
                             handle_recv_error(P, D, ActionsR, Reason, Data)
                     end;
                 {select, SelectInfo} ->
+		    %% ?DBG({'got another select', SelectInfo}),
                     {next_state,
                      #recv{info = SelectInfo},
                      {P, D},
                      reverse(ActionsR)};
                 {error, {Reason, <<Data/binary>>}} ->
+		    %% ?DBG({'error with data', Reason, byte_size(Data)}),
                     handle_recv_error(P, D, ActionsR, Reason, Data);
                 {error, Reason} ->
+		    %% ?DBG({'error', Reason}),
                     handle_recv_error(P, D, ActionsR, Reason)
             end;
         <<Data/binary>> ->
@@ -1790,7 +1815,7 @@ handle_recv_error(P, D, ActionsR, Reason, Data) ->
     handle_recv_error(P, D_1, ActionsR_1, Reason).
 %%
 handle_recv_error(P, D, ActionsR, Reason) ->
-%%%    ?DBG(Reason),
+    %% ?DBG(Reason),
     {D_1, ActionsR_1} =
         cleanup_recv_reply(P, D#{buffer := <<>>}, ActionsR, Reason),
     case Reason of
