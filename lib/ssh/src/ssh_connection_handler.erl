@@ -50,6 +50,7 @@
 -export([available_hkey_algorithms/2,
 	 open_channel/6,
          start_channel/5,
+         handshake/2,
          handle_direct_tcpip/6,
 	 request/6, request/7,
 	 reply_request/3, 
@@ -545,19 +546,23 @@ socket_control(Socket, Pid, Options) ->
 
 handshake(Pid, Ref, Timeout) ->
     receive
-	ssh_connected ->
+	{Pid, ssh_connected} ->
 	    erlang:demonitor(Ref),
 	    {ok, Pid};
-	{Pid, not_connected, Reason} ->
+	{Pid, {not_connected, Reason}} ->
+	    erlang:demonitor(Ref),
 	    {error, Reason};
-	{'DOWN', _, process, Pid, {shutdown, Reason}} ->
+	{'DOWN', Ref, process, Pid, {shutdown, Reason}} ->
 	    {error, Reason};
-	{'DOWN', _, process, Pid, Reason} ->
+	{'DOWN', Ref, process, Pid, Reason} ->
 	    {error, Reason}
     after Timeout ->
 	    ssh_connection_handler:stop(Pid),
 	    {error, timeout}
     end.
+
+handshake(Msg, #data{starter = User}) ->
+    User ! {self(), Msg}.
 
 %%====================================================================
 %% gen_statem callbacks
@@ -745,8 +750,7 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
     debug_fun(Msg, D),
     keep_state_and_data;
 
-handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
-                                                        connection_state = Connection0,
+handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Connection0,
                                                         event_queue = Qev0} = D0) ->
     Role = ?role(StateName),
     Rengotation = renegotiation(StateName),
@@ -756,7 +760,7 @@ handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
             case {Reason0,Role} of
                 {{_, Reason}, client} when ((StateName =/= {connected,client})
                                             and (not Rengotation)) ->
-		   User ! {self(), not_connected, Reason};
+                    handshake({not_connected,Reason}, D);
                 _ ->
                     ok
             end,
