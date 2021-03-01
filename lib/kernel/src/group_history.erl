@@ -79,33 +79,55 @@ load() ->
         disabled ->
             [];
         Provider ->
-            Provider:load()
+            try Provider:load() of
+                History when is_list(History) ->
+                    History;
+                Error ->
+                    show_custom_provider_faulty_load_return(Provider, Error),
+                    disable_history(),
+                    []
+            catch E:R:ST ->
+                    show_custom_provider_crash(Provider, E, R, ST),
+                    disable_history(),
+                    []
+            end
     end.
 
 %% @doc adds a log line to the erlang history log, if configured to do so.
 -spec add(iodata()) -> ok.
-add(Line) -> add(Line, history_status()).
-
-add(Line, enabled) ->
+add(Line) ->
     case lists:member(Line, to_drop()) of
         false ->
-            case disk_log:log(?LOG_NAME, Line) of
-                ok ->
-                    ok;
-                {error, no_such_log} ->
-                    _ = open_log(), % a wild attempt we hope works!
-                    disk_log:log(?LOG_NAME, Line);
-                {error, _Other} ->
-                    % just ignore, we're too late
-                    ok
-            end;
+            add(Line, history_status());
         true ->
+            ok
+    end.
+
+add(Line, enabled) ->
+    case disk_log:log(?LOG_NAME, Line) of
+        ok ->
+            ok;
+        {error, no_such_log} ->
+            _ = open_log(), % a wild attempt we hope works!
+            disk_log:log(?LOG_NAME, Line);
+        {error, _Other} ->
+                                                % just ignore, we're too late
             ok
     end;
 add(_Line, disabled) ->
     ok;
 add(Line, Provider) ->
-    lists:member(Line, to_drop()) orelse Provider:add(Line).
+    try Provider:add(Line) of
+        ok ->
+            ok;
+        Error ->
+            show_custom_provider_faulty_add_return(Provider, Error),
+            ok
+    catch E:R:ST ->
+            show_custom_provider_crash(Provider, E, R, ST),
+            disable_history(),
+            ok
+    end.
 
 %%%%%%%%%%%%%%%
 %%% PRIVATE %%%
@@ -382,6 +404,25 @@ show_size_warning(_Current, _New) ->
     show('$#erlang-history-size',
          "The configured log history file size is different from "
          "the size of the log file on disk.~n", []).
+
+show_custom_provider_crash(Provider, Class, Reason, StackTrace) ->
+    show('$#erlang-history-custom-crash',
+         "The configured custom shell_history provider '~p' crashed. ~n"
+         "Did you mean to write 'enabled'?~n"
+         "~ts~n",
+         [Provider, erl_error:format_exception(Class, Reason, StackTrace)]).
+
+show_custom_provider_faulty_load_return(Provider, Return) ->
+    show('$#erlang-history-custom-return',
+         "The configured custom shell_history provider ~p:load/0 did not return a list.~n"
+         "It returned ~p.~n",
+        [Provider, Return]).
+
+show_custom_provider_faulty_add_return(Provider, Return) ->
+    show('$#erlang-history-custom-return',
+         "The configured custom shell_history provider ~p:add/1 did not return ok.~n"
+         "It returned ~p.~n",
+        [Provider, Return]).
 
 show(Key, Format, Args) ->
     case get(Key) of
