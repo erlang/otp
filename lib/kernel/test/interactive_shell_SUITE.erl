@@ -237,14 +237,76 @@ custom_shell_history(Config) when is_list(Config) ->
                 {putline, "echo."},
                 {getline, "!echo"} %% exclamation sign is printed by custom history module
             ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-                " -pz " ++ filename:dirname(code:which(?MODULE)))
+                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+            %% Check that we can start with a node with an undefined
+            %% provider module.
+            rtnode([
+                {putline, "echo."},
+                    {getline, "echo"}
+                   ], [], [], " -kernel shell_history very_broken " ++
+                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+            %% Check that we can start with a node with a provider module
+            %% that crashes in load/0
+            rtnode([
+                    {putline, "echo."},
+                    {getline, "echo"}
+                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+                       " -kernel provider_load crash" ++
+                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+            %% Check that we can start with a node with a provider module
+            %% that return incorrect in load/0
+            rtnode([
+                    {putline, "echo."},
+                    {getline, "echo"}
+                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+                       " -kernel provider_load badreturn" ++
+                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+            %% Check that we can start with a node with a provider module
+            %% that crashes in load/0
+            rtnode([
+                    {putline, "echo."},
+                    {getline, "Disabling shell history logging."},
+                    {getline, "echo"}
+                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+                       " -kernel provider_add crash" ++
+                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+            %% Check that we can start with a node with a provider module
+            %% that return incorrect in load/0
+            rtnode([
+                    {putline, "echo."},
+                    {getline, "It returned {error,badreturn}."},
+                    {getline, "echo"}
+                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+                       " -kernel provider_add badreturn" ++
+                       " -pz " ++ filename:dirname(code:which(?MODULE)))
     end.
 
 load() ->
-    ["0.\n\n"].
+    case application:get_env(kernel,provider_load) of
+        {ok, crash} ->
+            error(crash);
+        {ok, badreturn} ->
+            %% Should return a list of string()
+            ok;
+        _ ->
+            ["0.\n\n"]
+    end.
 
 add(_Line) ->
-    io:format("!", []).
+    case application:get_env(kernel,provider_add) of
+        {ok, crash} ->
+            error(crash);
+        {ok, badreturn} ->
+            %% Should return ok
+            {error, badreturn};
+        _ ->
+            io:format("!", [])
+    end.
 
 %% Tests that local shell can be started by means of job control.
 job_control_local(Config) when is_list(Config) ->
