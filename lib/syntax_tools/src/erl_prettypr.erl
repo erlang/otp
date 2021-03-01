@@ -73,8 +73,8 @@
 
 -type hook() :: fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
 -type clause_name_t() :: undefined | none | erl_syntax:syntaxTree().
--type clause_gsep_t() :: none | nonempty_string().
--type clause_t() :: {clause_name_t(), clause_gsep_t()}.
+-type guard_sep_t() :: none | nonempty_string().
+-type clause_t() :: {clause_name_t(), guard_sep_t()}.
 
 -record(ctxt,
         {prec = 0 :: integer(),
@@ -129,6 +129,9 @@ reset_prec(Ctxt) ->
 max_prec(Ctxt) ->
     set_prec(Ctxt, max_prec()).
 
+-spec set_clause(Ctxt, Clause) -> Ctxt when
+      Ctxt :: context(),
+      Clause :: clause_name_t().
 set_clause(Ctxt, Clause)
   when Clause == if_expr ->
     Ctxt#ctxt{clause = {none, none}};
@@ -647,8 +650,11 @@ lay_comments(Node, Ctxt) ->
 
 no_pad(Cs) -> [erl_syntax:comment(0, erl_syntax:comment_text(C)) || C <- Cs].
 
--spec lay_tree(node | erl_syntax:syntaxTree(), context()) -> any().
-%% This part ignores annotations and comments:
+-spec lay_tree(Node, Ctxt) -> Layout when
+      Node :: Tree | none,
+      Tree :: erl_syntax:syntaxTree(),
+      Ctxt :: context(),
+      Layout :: prettypr:document().
 lay_tree(none, _Ctxt) ->
     empty();
 %lay_tree(nil, Ctxt) ->
@@ -657,7 +663,7 @@ lay_tree(Node, Ctxt) ->
     Type =  erl_syntax:type(Node),
     lay_type(Node, set_formatter(Ctxt, Type), Type).
 
-
+%% This part ignores annotations and comments.
 %% We list literals and other common cases first.
 lay_type(Node, _Ctxt, operator) ->
     prettypr:text(operator_literal(Node));
@@ -947,9 +953,9 @@ lay_type(Node, Ctxt, function_type = Type) ->
         {Nil, "when" = _GuardSep} ->
             Spec = clause_layout(Args, none, Return, Ctxt1),
             lay_seq(Spec, reset_clause(Ctxt1));
-        {_Name, _GuardSep} ->
+        {_Name, "when" = GuardSep} ->
             Spec = clause_layout(Args, none, Return, Ctxt),
-            lay_seq(clause_layout(none, none, [], set_clause(Ctxt1, Spec)),
+            lay_seq(clause_layout(Spec, none, GuardSep, none, [], Ctxt),
                     reset_separator(Ctxt1))
     end;
 lay_type(Node, Ctxt, macro) ->
@@ -1293,7 +1299,6 @@ if_non_empty([], _) -> [];
 if_non_empty(_, Result) -> Result.
 
 
-
 lay_string(S, Ctxt) ->
     %% S includes leading/trailing double-quote characters. The segment
     %% width is 2/3 of the ribbon width - this seems to work well.
@@ -1355,7 +1360,13 @@ split_string_3([X | Xs], N, L, As) when
   X >= $0, X =< $9 ->
     split_string_1(Xs, N - 1, L -1, [X | As]).
 
-
+-spec clause_layout(Patterns, Guard, Body, Ctxt) -> Items when
+      Tree :: erl_syntax:syntaxTree(),
+      Ctxt :: context(),
+      Patterns :: [Tree],
+      Guard :: [Tree] | [[Tree]],
+      Body :: [Tree],
+      Items :: [Tree | {Tree, Ctxt} | Items].
 clause_layout(Patterns, Guard, Body, Ctxt = #ctxt{clause = {Name, GS}}) ->
     clause_layout(Name, Patterns, GS, Guard, Body, reset_clause(Ctxt)).
 
@@ -1395,10 +1406,6 @@ pattern(Name, Patterns, Ctxt) ->
     {Call, Ctxt1}.
 
 guard(none) -> [];
-guard(Guard) when is_list(Guard) andalso is_list(hd(Guard)) ->
-    guard(disjunction([conjunction(G) || G <- Guard]));
-guard(Guard) when is_list(Guard) andalso length(Guard) > 0 ->
-    guard(conjunction(Guard));
 guard(Guard) ->
     [Guard].
 
@@ -1457,6 +1464,12 @@ call_layout(Name, Arguments, Ctxt) when Name =/= none ->
         NCtxt}],
       ACtxt}].
 
+-spec lay_seq(Items, Ctxt) -> Layout when
+      Tree :: erl_syntax:syntaxTree(),
+      Doc :: prettypr:document(),
+      Ctxt :: context(),
+      Items :: [Tree | {Tree, Ctxt} | Items],
+      Layout :: Doc.
 lay_seq([], _Ctxt) -> empty();
 lay_seq(Items, Ctxt = #ctxt{formatter = Formatter, separator = Separator}) when is_list(Items) ->
     Formatter(seq(Items, Separator, Ctxt, fun layout_hook/2)).
@@ -1464,6 +1477,14 @@ lay_seq(Items, Ctxt = #ctxt{formatter = Formatter, separator = Separator}) when 
 seq(Items, Separator, Ctxt, Fun) ->
     seq(Items, Separator, Ctxt, Fun, []).
 
+-spec seq(Items, Separator, Ctxt, Fun, Acc) -> Acc when
+      Tree :: erl_syntax:syntaxTree(),
+      Ctxt :: context(),
+      Doc :: prettypr:document(),
+      Items :: [Tree | {Tree, Ctxt} | Items],
+      Separator :: Doc,
+      Fun :: fun((Tree, Ctxt) -> Doc),
+      Acc :: [Doc].
 seq([], _, _, _, Acc) -> lists:reverse(Acc);
 seq([{H, C = #ctxt{}} | T], Separator, Ctxt, Fun, Acc) when is_list(H) ->
     case lay_seq(H, C) of
@@ -1474,7 +1495,6 @@ seq([{H, C = #ctxt{}} | T], Separator, Ctxt, Fun, Acc) when is_list(H) ->
     end;
 seq([{H, C = #ctxt{}} | T], Separator, Ctxt, Fun, Acc) ->
     Empty = prettypr:empty(),
-    % Nil = prettypr:text(""),
     case Fun(H, C) of
         Layout when Layout == Empty ->
             seq(T, Separator, Ctxt, Fun, Acc);
