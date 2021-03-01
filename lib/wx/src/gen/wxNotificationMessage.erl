@@ -20,8 +20,9 @@
 
 -module(wxNotificationMessage).
 -include("wxe.hrl").
--export([addAction/2,addAction/3,close/1,destroy/1,new/0,new/1,new/2,setFlags/2,
-  setIcon/2,setMessage/2,setParent/2,setTitle/2,show/1,show/2]).
+-export([addAction/2,addAction/3,close/1,destroy/1,mSWUseToasts/0,mSWUseToasts/1,
+  new/0,new/1,new/2,setFlags/2,setIcon/2,setMessage/2,setParent/2,setTitle/2,
+  show/1,show/2,useTaskBarIcon/1]).
 
 %% inherited exports
 -export([connect/2,connect/3,disconnect/1,disconnect/2,disconnect/3,parent_class/1]).
@@ -154,6 +155,33 @@ show(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxNotificationMessage_Show),
   wxe_util:rec(?wxNotificationMessage_Show).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotificationmessage.html#wxnotificationmessageusetaskbaricon">external documentation</a>.
+-spec useTaskBarIcon(Icon) -> wxTaskBarIcon:wxTaskBarIcon() when
+	Icon::wxTaskBarIcon:wxTaskBarIcon().
+useTaskBarIcon(#wx_ref{type=IconT}=Icon) ->
+  ?CLASS(IconT,wxTaskBarIcon),
+  wxe_util:queue_cmd(Icon,?get_env(),?wxNotificationMessage_UseTaskBarIcon),
+  wxe_util:rec(?wxNotificationMessage_UseTaskBarIcon).
+
+%% @equiv mSWUseToasts([])
+-spec mSWUseToasts() -> boolean().
+
+mSWUseToasts() ->
+  mSWUseToasts([]).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotificationmessage.html#wxnotificationmessagemswusetoasts">external documentation</a>.
+-spec mSWUseToasts([Option]) -> boolean() when
+	Option :: {'shortcutPath', unicode:chardata()}
+		 | {'appId', unicode:chardata()}.
+mSWUseToasts(Options)
+ when is_list(Options) ->
+  MOpts = fun({shortcutPath, ShortcutPath}) ->   ShortcutPath_UC = unicode:characters_to_binary(ShortcutPath),{shortcutPath,ShortcutPath_UC};
+          ({appId, AppId}) ->   AppId_UC = unicode:characters_to_binary(AppId),{appId,AppId_UC};
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Opts,?get_env(),?wxNotificationMessage_MSWUseToasts),
+  wxe_util:rec(?wxNotificationMessage_MSWUseToasts).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxNotificationMessage()) -> 'ok'.

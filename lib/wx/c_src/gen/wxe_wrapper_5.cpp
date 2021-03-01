@@ -3846,6 +3846,54 @@ void wxNotificationMessage_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
 
 }
 
+#if __WXMSW__ 
+// wxNotificationMessage::UseTaskBarIcon
+void wxNotificationMessage_UseTaskBarIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTaskBarIcon *icon;
+  icon = (wxTaskBarIcon *) memenv->getPtr(env, argv[0], "icon");
+  wxTaskBarIcon * Result = (wxTaskBarIcon*)wxNotificationMessage::UseTaskBarIcon(icon);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxTaskBarIcon"));
+
+}
+
+#endif
+#if __WXMSW__ && wxCHECK_VERSION(3,1,0)
+// wxNotificationMessage::MSWUseToasts
+void wxNotificationMessage_MSWUseToasts(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxString shortcutPath= wxString();
+  wxString appId= wxString();
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[0];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "shortcutPath"))) {
+  ErlNifBinary shortcutPath_bin;
+  if(!enif_inspect_binary(env, tpl[1], &shortcutPath_bin)) Badarg("shortcutPath");
+  shortcutPath = wxString(shortcutPath_bin.data, wxConvUTF8, shortcutPath_bin.size);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "appId"))) {
+  ErlNifBinary appId_bin;
+  if(!enif_inspect_binary(env, tpl[1], &appId_bin)) Badarg("appId");
+  appId = wxString(appId_bin.data, wxConvUTF8, appId_bin.size);
+    } else        Badarg("Options");
+  };
+  bool Result = wxNotificationMessage::MSWUseToasts(shortcutPath,appId);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+#endif
 // wxNotifyEvent::Allow
 void wxNotifyEvent_Allow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
