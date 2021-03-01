@@ -869,7 +869,9 @@ handle_event(cast, {reply_request,Resp,ChannelId}, StateName, D) when ?CONNECTED
 
         #channel{} ->
             Details = io_lib:format("Unhandled reply in state ~p:~n~p", [StateName,Resp]),
-            ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D);
+            {_Shutdown, D1} =
+                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D),
+            {keep_state, D1};
 
 	undefined ->
 	    keep_state_and_data
