@@ -130,24 +130,24 @@ max_prec(Ctxt) ->
     set_prec(Ctxt, max_prec()).
 
 -spec set_clause(Ctxt, Clause) -> Ctxt when
-      Ctxt :: context(),
-      Clause :: clause_name_t().
-set_clause(Ctxt, Clause)
-  when Clause == if_expr ->
+      NodeType :: if_expr | receive_timeout
+                  | case_expr | receive_expr | try_expr
+                  | constrained_function_type
+                  | fun_expr | function_type | implicit_fun,
+      Clause :: NodeType | clause_name_t(),
+      Ctxt :: context().
+set_clause(Ctxt, Clause) when Clause == if_expr ->
     Ctxt#ctxt{clause = {none, none}};
-set_clause(Ctxt, Clause)
-  when Clause == receive_timeout ->
+set_clause(Ctxt, Clause) when Clause == receive_timeout ->
     Ctxt#ctxt{clause = {none, "after"}};
-set_clause(Ctxt, Clause)
-  when Clause == case_expr orelse
-       Clause == receive_expr orelse
-       Clause == try_expr orelse
-       Clause == constrained_function_type ->
+set_clause(Ctxt, Clause) when Clause == case_expr orelse
+                              Clause == receive_expr orelse
+                              Clause == try_expr orelse
+                              Clause == constrained_function_type ->
     set_clause(Ctxt, none);
-set_clause(Ctxt, Clause)
-  when Clause == fun_expr orelse
-       Clause == function_type orelse
-       Clause == implicit_fun ->
+set_clause(Ctxt, Clause) when Clause == fun_expr orelse
+                              Clause == function_type orelse
+                              Clause == implicit_fun ->
     reset_clause(Ctxt);
 set_clause(Ctxt, Name) ->
     Ctxt#ctxt{clause = {Name, "when"}}.
@@ -868,13 +868,12 @@ lay_type(Node, Ctxt, map_field_exact) ->
            erl_syntax:map_field_exact_value(Node),
            fun(_) -> {0, 0, 0, 0} end,
            Ctxt);
-lay_type(Node, Ctxt = #ctxt{clause = {Name, GuardSep}}, clause)
-  when Name == none orelse Name == undefined orelse not is_atom(Name) ->
-    Ctxt1 = reset_clause(reset_prec(Ctxt)),
+lay_type(Node, Ctxt, clause) ->
+    Ctxt1 = reset_prec(Ctxt),
     Patterns = erl_syntax:clause_patterns(Node),
     Guard = erl_syntax:clause_guard(Node),
     Body = erl_syntax:clause_body(Node),
-    lay_seq(clause_layout(Name, Patterns, GuardSep, Guard, Body, Ctxt1), Ctxt1);
+    lay_seq(clause_layout(Patterns, Guard, Body, Ctxt1), Ctxt1);
 %% Comments on the name itself will be repeated for each
 %% clause, but that seems to be the best way to handle it.
 lay_type(Node, Ctxt, function) ->
@@ -887,8 +886,8 @@ lay_type(Node, Ctxt, receive_expr = Type) ->
     ClausesLayout = [{disjunction(Clauses), set_clause(Ctxt2, Type)}],
     Timeout =  erl_syntax:receive_expr_timeout(Node),
     Action = erl_syntax:receive_expr_action(Node),
-    #ctxt{clause = {Name, GuardSep}} = set_clause(Ctxt2, receive_timeout),
-    After = clause_layout(Name, [], GuardSep, Timeout, Action, Ctxt2),
+    Ctxt3 = set_clause(Ctxt2, receive_timeout),
+    After = clause_layout([], Timeout, Action, Ctxt3),
     lay_seq(wrap("receive",
                  if_non_empty(Clauses, ClausesLayout) ++ After,
                  "end",
@@ -948,13 +947,13 @@ lay_type(Node, Ctxt, function_type = Type) ->
     case Ctxt#ctxt.clause of
         {Name, "when" = _GuardSep} when Name == undefined orelse Name == none ->
             Ctxt2 = set_formatter(Ctxt1, beside),
-            Spec = clause_layout(Args, none, Return, Ctxt1),
+            Spec = clause_layout(Args, none, [Return], Ctxt1),
             lay_seq(prefix("fun", {parentheses(Spec, Ctxt1), Ctxt2}), Ctxt2);
         {Nil, "when" = _GuardSep} ->
-            Spec = clause_layout(Args, none, Return, Ctxt1),
+            Spec = clause_layout(Args, none, [Return], Ctxt1),
             lay_seq(Spec, reset_clause(Ctxt1));
         {_Name, "when" = GuardSep} ->
-            Spec = clause_layout(Args, none, Return, Ctxt),
+            Spec = clause_layout(Args, none, [Return], Ctxt),
             lay_seq(clause_layout(Spec, none, GuardSep, none, [], Ctxt),
                     reset_separator(Ctxt1))
     end;
@@ -1117,7 +1116,7 @@ lay_type(Node, Ctxt, Type = constrained_function_type) ->
     Args = function_type_arguments(Body),
     Return = erl_syntax:function_type_return(Body),
     Argument = erl_syntax:constrained_function_type_argument(Node),
-    BodyLayout = clause_layout(Args, none, Return, Ctxt),
+    BodyLayout = clause_layout(Args, none, [Return], Ctxt),
     ArgumentLayout = clause_layout(BodyLayout, Argument, [], Ctxt1),
     lay_seq(ArgumentLayout, reset_separator(reset_clause(Ctxt1)));
 lay_type(Node, Ctxt, constraint) ->
@@ -1364,10 +1363,11 @@ split_string_3([X | Xs], N, L, As) when
       Tree :: erl_syntax:syntaxTree(),
       Ctxt :: context(),
       Patterns :: [Tree],
-      Guard :: [Tree] | [[Tree]],
+      Guard :: none | Tree,
       Body :: [Tree],
       Items :: [Tree | {Tree, Ctxt} | Items].
-clause_layout(Patterns, Guard, Body, Ctxt = #ctxt{clause = {Name, GS}}) ->
+clause_layout(Patterns, Guard, Body, Ctxt = #ctxt{clause = {Name, GS}})
+  when Name == none orelse Name == undefined orelse not is_atom(Name) ->
     clause_layout(Name, Patterns, GS, Guard, Body, reset_clause(Ctxt)).
 
 %% Note that for the clause-making functions, the guard argument
@@ -1380,9 +1380,7 @@ clause_layout(N   ,  P,  S,    G, Body, Ctxt) when is_list(Body) ->
     [{[lay_pattern(N, P, S, guard(G), Ctxt),
        {conjunction(maybe_empty_lines(Body, Ctxt)),
         set_nested(set_formatter(Ctxt, above))}],
-      set_separator(Ctxt, " ->")}];
-clause_layout(N   ,  P,  S,    G, Body, Ctxt) ->
-    clause_layout(N, P, S, G, [Body], Ctxt).
+      set_separator(Ctxt, " ->")}].
 
 lay_pattern(none, [], none, Guard, Ctxt) ->
     {Guard, reset_separator(Ctxt)};
