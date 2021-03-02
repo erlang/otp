@@ -38,6 +38,78 @@ jobs:
           name: otp_git_archive
           path: otp_src.tar.gz
 
+
+  build-windows:
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    name: Build Erlang/OTP on Windows
+    runs-on: windows-latest
+    needs: pack
+    steps:
+      - uses: Vampire/setup-wsl@v1
+        with:
+          distribution: Ubuntu-18.04
+
+      - name: Install WSL dependencies
+        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip
+
+      - name: Install openssl
+        shell: cmd
+        run: |
+          choco install openssl
+          move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64"
+
+      - name: Download wxWidgets
+        run: |
+          mkdir -p /mnt/c/opt/local64/pgm/
+          cd /mnt/c/opt/local64/pgm/
+          wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.4/wxWidgets-3.1.4.zip
+          unzip wxWidgets-3.1.4.zip -d wxWidgets-3.1.4
+          sed -i -r -e 's/wxUSE_POSTSCRIPT +0/wxUSE_POSTSCRIPT 1/' /mnt/c/opt/local64/pgm/wxWidgets-3.1.4/include/wx/msw/setup.h
+          sed -i -r -e 's/wxUSE_WEBVIEW_EDGE +0/wxUSE_WEBVIEW_EDGE 1/' /mnt/c/opt/local64/pgm/wxWidgets-3.1.4/include/wx/msw/setup.h
+
+      - name: Install WebView2
+        shell: cmd
+        run: |
+          c:
+          cd c:\\opt\\local64\\pgm\\wxWidgets-3.1.4\\3rdparty
+          nuget install Microsoft.Web.WebView2 -Version 1.0.705.50
+          rename Microsoft.Web.WebView2.1.0.705.50 webview2
+
+      - name: Build wxWidgets
+        shell: cmd
+        run: |
+          c:
+          cd c:\\opt\\local64\\pgm\\wxWidgets-3.1.4\\build\\msw
+          call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\Auxiliary\\Build\\vcvars64.bat"
+          nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
+
+      - name: Download source archive
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_git_archive
+
+      - name: Compile Erlang
+        run: |
+          tar -xzf ./otp_src.tar.gz
+          cd otp
+          export ERL_TOP=`pwd`
+          eval `./otp_build env_win32 x64`
+          ./otp_build autoconf
+          ./otp_build configure
+          if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
+          ./otp_build boot -a
+          ./otp_build release -a
+          cp /mnt/c/opt/local64/pgm/wxWidgets-3.1.4/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
+          ./otp_build installer_win32
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_prebuilt_win32
+          path: otp/release/win32/otp*.exe
+
   build:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
