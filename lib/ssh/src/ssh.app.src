@@ -58,5 +58,6 @@
 			  "erts-9.0",
 			  "kernel-5.3",
 			  "public_key-1.6.1",
-			  "stdlib-3.4.1"
+                          "stdlib-3.4.1",
+                          "runtime_tools-1.15.1"
 			 ]}]}.

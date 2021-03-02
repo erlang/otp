@@ -25,7 +25,9 @@
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
          obsolete_but_not_deprecated/1,call_to_deprecated/1,
          call_to_size_1/1,call_to_now_0/1,strong_components/1,
-         erl_file_encoding/1,xml_file_encoding/1,runtime_dependencies/1]).
+         erl_file_encoding/1,xml_file_encoding/1,
+         runtime_dependencies_functions/1,
+         runtime_dependencies_modules/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,32 +42,11 @@ all() ->
      obsolete_but_not_deprecated, call_to_deprecated,
      call_to_size_1, call_to_now_0, strong_components,
      erl_file_encoding, xml_file_encoding,
-     runtime_dependencies].
+     runtime_dependencies_functions,
+     runtime_dependencies_modules].
 
 init_per_suite(Config) ->
-    Root = code:root_dir(),
-    Server = daily_xref,
-    xref:start(Server),
-    xref:set_default(Server, [{verbose,false},
-                              {warnings,false},
-                              {builtins,true}]),
-    {ok,_Relname} = xref:add_release(Server, Root, {name,otp}),
-
-    %% If we are running the tests in the source tree, the ERTS application
-    %% is not in the code path. We must add it explicitly.
-    case code:lib_dir(erts) of
-        {error,bad_name} ->
-            Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
-            {ok,_} = xref:add_directory(Server, Erts, []);
-        LibDir ->
-            case file:read_file_info(filename:join([LibDir,"ebin"])) of
-                {error,enoent} ->
-                    Erts = filename:join([LibDir, "preloaded","ebin"]),
-                    {ok,_} = xref:add_directory(Server, Erts, []);
-                _ ->
-                    ok
-            end
-    end,
+    Server = start_xref_server(daily_xref, functions),
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->
@@ -382,16 +363,39 @@ is_bad_encoding(File) ->
             true
     end.
 
-runtime_dependencies(Config) ->
+%% Test runtime dependencies when using an Xref server running in
+%% 'functions' mode.
+
+runtime_dependencies_functions(Config) ->
+    Server = proplists:get_value(xref_server, Config),
+    runtime_dependencies(Server).
+
+%% Test runtime dependencies when using an xref server running in
+%% 'modules' mode. Note that more module edges can potentially be
+%% found in this mode because the analysis is based on the BEAM
+%% code after all optimizations. For example, an apply in the source
+%% code could after optimizations be resolved to a specific function.
+%%
+%% It is important to test 'modules' because reltool runs xref in
+%% 'modules' mode (the BEAM files to be released might not contain
+%% debug information).
+
+runtime_dependencies_modules(_Config) ->
+    Server = start_xref_server(?FUNCTION_NAME, modules),
+    try
+        runtime_dependencies(Server)
+    after
+        catch xref:stop(Server)
+    end.
+
+runtime_dependencies(Server) ->
     %% Ignore applications intentionally not declaring dependencies
     %% found by xref.
     IgnoreApps = [diameter],
 
-
     %% Verify that (at least) OTP application runtime dependencies found
     %% by xref are listed in the runtime_dependencies field of the .app file
     %% of each application.
-    Server = proplists:get_value(xref_server, Config),
     {ok, AE} = xref:q(Server, "AE"),
     SAE = lists:keysort(1, AE),
     put(ignored_failures, []),
@@ -406,7 +410,7 @@ runtime_dependencies(Config) ->
                                     end,
                                     {undefined, []},
                                     SAE),
-    check_apps_deps([AppDep|AppDeps], IgnoreApps),
+    [] = check_apps_deps([AppDep|AppDeps], IgnoreApps),
     case IgnoreApps of
         [] ->
             ok;
@@ -424,7 +428,7 @@ have_rdep(App, [RDep | RDeps], Dep) ->
     [AppStr, _VsnStr] = string:lexemes(RDep, "-"),
     case Dep == list_to_atom(AppStr) of
         true ->
-            io:format("~p -> ~s~n", [App, RDep]),
+            %% io:format("~p -> ~s~n", [App, RDep]),
             true;
         false ->
             have_rdep(App, RDeps, Dep)
@@ -511,3 +515,30 @@ app_exists(AppAtom) ->
                     false
             end
     end.
+
+start_xref_server(Server, Mode) ->
+    Root = code:root_dir(),
+    xref:start(Server, [{xref_mode,Mode}]),
+    xref:set_default(Server, [{verbose,false},
+                              {warnings,false},
+                              {builtins,true}]),
+    {ok,_Relname} = xref:add_release(Server, Root, {name,otp}),
+
+    case code:lib_dir(erts) of
+        {error,bad_name} ->
+            %% This should not be possible since code_server always adds
+            %% an entry for erts.
+            ct:fail(no_erts_lib_dir);
+        LibDir ->
+            case filelib:is_dir(filename:join(LibDir, "ebin")) of
+                false ->
+                    %% If we are running the tests in the git repository,
+                    %% the preloaded BEAM files for Erts are not in the
+                    %% code path. We must add them explicitly.
+                    Erts = filename:join([LibDir,"preloaded","ebin"]),
+                    {ok,_} = xref:add_directory(Server, Erts, []);
+                true ->
+                    ok
+            end
+    end,
+    Server.
