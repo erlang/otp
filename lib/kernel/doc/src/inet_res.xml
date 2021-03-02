@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2020</year>
+      <year>2009</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -75,9 +75,13 @@
     <marker id="servfail_retry_timeout"/>
     <p>But before all name servers are tried again, there is a
     (user configurable) timeout, <c>servfail_retry_timeout</c>.
-    The point of this is to prevent the new query to be handled
-    by to the servfail cache (a client that is to eager will
-    actually only get what is in the servfail cache). </p>
+    The point of this is to prevent the new query to be handled by
+    a server's servfail cache (a client that is to eager will
+    actually only get what is in the servfail cache).
+    If there is too little time left
+    of the resolver call's timeout to do a retry,
+    the resolver call may return
+    before the call's timeout has expired. </p>
 
     <p>For queries not using the <c>search</c> list,
     if the query to all <c>nameservers</c> results in
