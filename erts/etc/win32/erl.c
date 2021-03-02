@@ -74,7 +74,8 @@ int wmain(int argc, wchar_t **argv)
           wslpathlen = wcslen(wslpath);
       }
   }
-  pathlen = (wcslen(path) + wslpathlen + wcslen(erlexec_dir) + 2);
+  /* Add size for path delimiters and eos */
+  pathlen = (wcslen(path) + wslpathlen + wcslen(erlexec_dir) + 3);
   npath = (wchar_t *) malloc(pathlen*sizeof(wchar_t));
   if(wslpathlen > 0) {
       swprintf(npath,pathlen,L"%s;%s;%s",erlexec_dir,path,wslpath);
