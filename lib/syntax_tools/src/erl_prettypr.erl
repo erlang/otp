@@ -622,8 +622,7 @@ to_ctxt([{Index, Field} | Rest], Options, Ctxt) ->
             end).
 
 -spec layout_hook(Node, Ctxt) -> Layout when
-      Node :: Tree | none, %| nil
-      Tree :: erl_syntax:syntaxTree(),
+      Node :: erl_syntax:syntaxTree(),
       Ctxt :: context(),
       Layout :: prettypr:document().
 %% This handles annotations and hooks:
@@ -645,21 +644,16 @@ lay_comments(Node, Ctxt) ->
             Ctxt1 = set_formatter(reset_separator(Ctxt), above),
             lay_seq([no_pad(Pre ++ Post), NoComment], Ctxt1);
         false ->
-            lay_tree(Node, Ctxt)
+            lay_type(Node, Ctxt)
     end.
 
 no_pad(Cs) -> [erl_syntax:comment(0, erl_syntax:comment_text(C)) || C <- Cs].
 
--spec lay_tree(Node, Ctxt) -> Layout when
-      Node :: Tree | none,
-      Tree :: erl_syntax:syntaxTree(),
+-spec lay_type(Node, Ctxt) -> Layout when
+      Node :: erl_syntax:syntaxTree(),
       Ctxt :: context(),
       Layout :: prettypr:document().
-lay_tree(none, _Ctxt) ->
-    empty();
-%lay_tree(nil, Ctxt) ->
-%    lay_tree(erl_syntax:nil(), Ctxt);
-lay_tree(Node, Ctxt) ->
+lay_type(Node, Ctxt) ->
     Type =  erl_syntax:type(Node),
     lay_type(Node, set_formatter(Ctxt, Type), Type).
 
@@ -1466,7 +1460,7 @@ call_layout(Name, Arguments, Ctxt) when Name =/= none ->
       Tree :: erl_syntax:syntaxTree(),
       Doc :: prettypr:document(),
       Ctxt :: context(),
-      Items :: [Tree | {Tree, Ctxt} | Items],
+      Items :: [none | Tree | {none | Tree, Ctxt} | Items],
       Layout :: Doc.
 lay_seq([], _Ctxt) -> empty();
 lay_seq(Items, Ctxt = #ctxt{formatter = Formatter, separator = Separator}) when is_list(Items) ->
@@ -1491,6 +1485,8 @@ seq([{H, C = #ctxt{}} | T], Separator, Ctxt, Fun, Acc) when is_list(H) ->
         Layout ->
             seq(T, Separator, Ctxt, Fun, [beside(Layout, Separator) | Acc])
     end;
+seq([{H, _} | T], Separator, Ctxt, Fun, Acc) when H == none ->
+    seq(T, Separator, Ctxt, Fun, Acc);
 seq([{H, C = #ctxt{}} | T], Separator, Ctxt, Fun, Acc) ->
     Empty = prettypr:empty(),
     case Fun(H, C) of
