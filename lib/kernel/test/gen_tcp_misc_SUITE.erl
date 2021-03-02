@@ -5218,6 +5218,15 @@ timeout_sink_loop(Action, N) ->
             after 1 -> ok
             end,
 	    timeout_sink_loop(Action, N+1);
+	{error, {timeout, RestData}} ->
+            ?P("[sink-loop] action result: "
+               "~n   Number of actions: ~p"
+               "~n   Elapsed time:      ~p msec"
+               "~n   Result:            timeout with ~w of rest data",
+               [N2,
+                erlang:convert_time_unit(get(elapsed), native, millisecond),
+                byte_size(RestData)]),
+	    {{error, timeout}, N2};
 	Other ->
             ?P("[sink-loop] action result: "
                "~n   Number of actions: ~p"
