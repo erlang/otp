@@ -33,7 +33,7 @@
 #include "beam_asm.h"
 
 #ifdef ADDRESS_SANITIZER
-#  include <sanitizer/lsan_interface.h>
+#    include <sanitizer/lsan_interface.h>
 #endif
 
 static void init_label(Label *lp);
