@@ -4741,19 +4741,19 @@ do_send_timeout(Config) ->
     ?P("create (slave) node"),
     {ok, RNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
 
-    {BinData, SndBuf} = 
+    {SndTimeout, BinData, SndBuf} = 
 	case ?IS_SOCKET_BACKEND(Config) of
 	    true ->
-		{binary:copy(<<$a:8>>, 10*1024), 4*1024};
+		{3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
 	    false ->
-		{binary:copy(<<$a:8>>, 1*1024),  16*1024}
+		{1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
 	end,
 
     %% Basic
     ?P("basic check wo autoclose"),
-    send_timeout_basic(Config, BinData, SndBuf, false, RNode),
+    send_timeout_basic(Config, BinData, SndBuf, SndTimeout, false, RNode),
     ?P("basic check w autoclose"),
-    send_timeout_basic(Config, BinData, SndBuf, true, RNode),
+    send_timeout_basic(Config, BinData, SndBuf, SndTimeout, true, RNode),
 
     %% Check timeout length.
     ?P("spawn sink process (check timeout length)"),
@@ -4761,7 +4761,7 @@ do_send_timeout(Config) ->
     {Pid, Mon} = spawn_monitor(
                    fun() ->
                            {A, _} = setup_timeout_sink(Config,
-						       RNode, 1000,
+						       RNode, SndTimeout,
 						       true, SndBuf),
                            Send = fun() ->
                                           Res = gen_tcp:send(A, BinData),
@@ -4772,7 +4772,7 @@ do_send_timeout(Config) ->
                    end),
     Diff = get_max_diff(),
     ?P("Max time for send: ~p", [Diff]),
-    true = (Diff > 500) and (Diff < 1500),
+    true = (Diff > (SndTimeout - 500)) and (Diff < (SndTimeout + 500)),
 
     %% Wait for the process to die.
     ?P("await (timeout checker) process death"),
@@ -4780,9 +4780,9 @@ do_send_timeout(Config) ->
 
     %% Check that parallell writers do not hang forever
     ?P("check parallell writers wo autoclose"),
-    send_timeout_para(Config, BinData, SndBuf, false, RNode),
+    send_timeout_para(Config, BinData, SndBuf, SndTimeout, false, RNode),
     ?P("check parallell writers w autoclose"),
-    send_timeout_para(Config, BinData, SndBuf, true, RNode),
+    send_timeout_para(Config, BinData, SndBuf, SndTimeout, true, RNode),
 
     ?P("stop (slave) node"),
     ?STOP_NODE(RNode),
@@ -4790,38 +4790,38 @@ do_send_timeout(Config) ->
     ?P("done"),
     ok.
 
-send_timeout_basic(Config, BinData, SndBuf, AutoClose, RNode) ->
+send_timeout_basic(Config, BinData, SndBuf, SndTimeout, AutoClose, RNode) ->
     ?P("[basic] sink"),
-    {A, Pid}              = setup_timeout_sink(Config, RNode, 1000,
+    {A, Pid}              = setup_timeout_sink(Config, RNode, SndTimeout,
 					       AutoClose, SndBuf),
     Send                  = fun() -> gen_tcp:send(A, BinData) end,
     {{error, timeout}, _} = timeout_sink_loop(Send),
 
     %% Check that the socket is not busy/closed...
     ?P("verify socket not busy/closed"),
-    case gen_tcp:send(A, <<"Hej">>) of
+    case gen_tcp:send(A, BinData) of
 	{error, Reason} ->
-	    ?P("(expected) send failure: ~p", [Reason]),
+	    ?P("(expected) send failure"),
 	    after_send_timeout(AutoClose, Reason),
 	    (catch gen_tcp:close(A)),
 	    exit(Pid, kill),
 	    ok;
 	ok ->
-	    %% This is a bit wierd,
-	    %% we are supposed to verify that the socket is
-	    %% not busy/closed, and a successful send is
-	    %% exactly that, *not* busy or closed.
-	    %% But the test expects to return the errors
-	    %% 'timeout' or 'enotconn', so clearly we are
-	    %% testing something else...
+            %% Note that there is no active reader on the other end,
+            %% so a 'channel' has been filled, should remain filled.
 	    (catch gen_tcp:close(A)),
 	    exit(Pid, kill),
 	    ct:fail("Unexpected send success")
     end.
 
-send_timeout_para(Config, BinData, BufSz, AutoClose, RNode) ->
-    ?P("[para] sink"),
-    {A, Pid} = setup_timeout_sink(Config, RNode, 1000, AutoClose, BufSz),
+send_timeout_para(Config, BinData, BufSz, SndTimeout, AutoClose, RNode) ->
+    ?P("[para] sink -> entry with"
+       "~n      size(BinData): ~p"
+       "~n      BufSz:         ~p"
+       "~n      SndTimeout:    ~p"
+       "~n      AutoClose:     ~p",
+       [byte_size(BinData), BufSz, SndTimeout, AutoClose]),
+    {A, Pid} = setup_timeout_sink(Config, RNode, SndTimeout, AutoClose, BufSz),
     Self = self(),
     SenderFun = fun() ->
                         ?P("[para:sender] start"),
@@ -4964,7 +4964,7 @@ send_timeout_para(Config, BinData, BufSz, AutoClose, RNode) ->
             ct:sleep(?SECS(1)),
 	    exit({timeout, AutoClose, Second})
     end,
-    {error, Error_2} = gen_tcp:send(A, <<"Hej">>),
+    {error, Error_2} = gen_tcp:send(A, BinData),
     after_send_timeout(AutoClose, Error_2),
     ?P("cleanup - close socket"),
     (catch gen_tcp:close(A)),
@@ -5009,16 +5009,23 @@ get_max_diff(Max) ->
 	    
 after_send_timeout(AutoClose, Reason) ->
     case Reason of
-        timeout when AutoClose =:= false -> ok;
-        enotconn when AutoClose =:= true -> ok;
-%%%        timeout -> ok;
-%%%        enotconn when AutoClose -> ok;
-	closed when AutoClose -> ok
+        timeout              when AutoClose =:= false -> ok;
+        {timeout, _RestData} when AutoClose =:= false -> ok;
+        enotconn             when AutoClose =:= true  -> ok;
+	closed               when AutoClose           -> ok;
+        _ ->
+            ?P("after_send_timeout -> "
+               "~n      AutoClose: ~w"
+               "~n      Reason:    ~p", [AutoClose, Reason]),
+            exit({after_send_timeout, AutoClose, Reason})
     end.
 
 
 %% Test the send_timeout socket option for active sockets.
 send_timeout_active(Config) when is_list(Config) ->
+    ?TC_TRY(send_timeout_active, fun() -> do_send_timeout_active(Config) end).
+
+do_send_timeout_active(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
     {ok, RNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
     do_send_timeout_active(Config, false, RNode),
@@ -5032,29 +5039,80 @@ do_send_timeout_active(Config, AutoClose, RNode) ->
     Mad = spawn_link(RNode, fun() -> mad_sender(C) end),
     ListData = lists:duplicate(1000, $a),
     F = fun() ->
+                ?P("[sink action] await data"),
 		receive
 		    {tcp, _Sock, _Data} ->
+                        ?P("[sink action] active -> once"),
 			inet:setopts(A, [{active, once}]),
+                        ?P("[sink action] send payload"),
 			Res = gen_tcp:send(A, ListData),
 			Res;
-		    Err ->
-			io:format("sock closed: ~p~n", [Err]),
-			Err
+		    Unexpected ->
+			?P("[sink action] unexpected message: "
+                           "~n      ~p", [Unexpected]),
+			Unexpected
 		end
 	end,
-    {{error, timeout}, _} = timeout_sink_loop(F),
+    {{error, timeout}, _} = timeout_sink_loop(F, 1),
     unlink(Mad),
     exit(Mad, kill),
     flush(),
     ok.
 
 mad_sender(S) ->
+    put(action,  nothing),
+    put(sent,    0),
+    put(elapsed, 0),
+    mad_sender(S, 0).
+
+mad_sender(S, N) ->
     U = rand:uniform(1000000),
-    case gen_tcp:send(S, integer_to_list(U)) of
+    put(action, send),
+    Start   = erlang:monotonic_time(),
+    Ret     = gen_tcp:send(S, integer_to_list(U)),
+    Stop    = erlang:monotonic_time(),
+    Elapsed = get(elapsed),
+    put(elapsed, Elapsed + (Stop - Start)),
+    put(action, sent),
+    N2 = N + 1,
+    put(sent,   N2),
+    case Ret of
         ok ->
-            mad_sender(S);
-        Err ->
-            Err
+            mad_sender(S, N + 1);
+        {error, timeout} = ERROR1 ->
+            ?P("mad_sender -> send failed: timeout"
+               "~n   Number of sends:     ~w"
+               "~n   Elapsed (send) time: ~w msec",
+               [N2,
+                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+            ERROR1;
+        {error, {timeout, RestData}} = ERROR2 ->
+            ?P("mad_sender -> "
+               "send failed: timeout with ~w bytes of rest data"
+               "~n   Number of sends:     ~w"
+               "~n   Elapsed (send) time: ~w msec",
+               [byte_size(RestData),
+                N2,
+                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+            ERROR2;
+        {error, Reason} = ERROR3 ->
+            ?P("mad_sender -> send failed: "
+               "~n   ~p"
+               "~n   Number of sends:     ~w"
+               "~n   Elapsed (send) time: ~w msec",
+               [Reason,
+                N2,
+                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+            ERROR3;
+        ERROR4 ->
+            ?P("mad_sender -> send failed: "
+               "~n   ~p"
+               "~n   Number of sends:     ~w"
+               "~n   Elapsed (send) time: ~w msec",
+               [ERROR4,
+                N2,
+                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+            ERROR4
     end.
 
 flush() ->
@@ -5143,7 +5201,7 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
     Host    = get_hostname(node()),
     ?P("[sink] create listen socket"),
     {ok, L} = ?LISTEN(Config, 0, [{active,             false},
-				  {packet,             2},
+				  {packet,             4},
 				  {sndbuf,             BufSz},
 				  {send_timeout,       Timeout},
 				  {send_timeout_close, AutoClose}]),
@@ -5166,14 +5224,15 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
     {ok, C} = Remote(fun() ->
 			     ?CONNECT(Config, Host,Port,
 				      [{active, false},
-				       {packet, 2},
-				       {sndbuf, BufSz}])
+				       {packet, 4},
+				       {sndbuf, BufSz div 2}])
 		     end),
     ?P("[sink] accept"),
     {ok, A} = gen_tcp:accept(L),
-    ?P("[sink] accepted - send message"),
+    ?P("[sink] accepted - send 'check' message"),
     gen_tcp:send(A, "Hello"),
-    ?P("[sink] message sent - recv message on remote node (~p)", [RNode]),
+    ?P("[sink] message sent - recv 'check' message on remote node (~p)",
+       [RNode]),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
     ?P("[sink] cleanup"),
     (catch gen_tcp:close(L)),
@@ -5214,12 +5273,15 @@ setup_active_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     {A, C}.
 
 timeout_sink_loop(Action) ->
+    timeout_sink_loop(Action, 100).
+
+timeout_sink_loop(Action, To) ->
     put(action,  nothing),
     put(sent,    0),
     put(elapsed, 0),
-    timeout_sink_loop(Action, 0).
+    timeout_sink_loop(Action, To, 0).
 
-timeout_sink_loop(Action, N) ->
+timeout_sink_loop(Action, To, N) ->
     put(action, send),
     Start   = erlang:monotonic_time(),
     Ret     = Action(),
@@ -5241,9 +5303,8 @@ timeout_sink_loop(Action, N) ->
                        "~n   Socket Status: ~p",
                        [PortStatus, SockOpts, SockStat, SockStatus]),
                     exit(normal)
-            after 1 -> ok
-            end,
-	    timeout_sink_loop(Action, N+1);
+            after To -> ok end,
+	    timeout_sink_loop(Action, To, N+1);
 	{error, {timeout, RestData}} ->
             ?P("[sink-loop] action result: "
                "~n   Number of actions: ~p"
