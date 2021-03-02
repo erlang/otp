@@ -2137,7 +2137,7 @@ static int send_status(ei_socket_callbacks *cbs, void *ctx,
     char *buf, *s;
     char dbuf[DEFBUF_SIZ];
     int siz = strlen(status) + 1 + pkt_sz;
-    int err;
+    int err, ret;
     ssize_t len;
 
     buf = (siz > DEFBUF_SIZ) ? malloc(siz) : dbuf;
@@ -2154,7 +2154,8 @@ static int send_status(ei_socket_callbacks *cbs, void *ctx,
         put32be(s,siz - 4);
         break;
     default:
-        return -1;
+        ret = -1;
+        goto done;
     }
     put8(s, 's');
     memcpy(s, status, strlen(status));
@@ -2168,13 +2169,16 @@ static int send_status(ei_socket_callbacks *cbs, void *ctx,
 	if (buf != dbuf)
 	    free(buf);        
         EI_CONN_SAVE_ERRNO__(err);
-	return -1;
+	ret = -1;
+    }
+    else {
+        ret =  0;
     }
     EI_TRACE_CONN1("send_status","-> SEND_STATUS (%s)",status);
-
+done:
     if (buf != dbuf)
 	free(buf);
-    return 0;
+    return ret;
 }
 
 static int recv_status(ei_cnode *ec, void *ctx,
@@ -2281,7 +2285,7 @@ static int send_name(ei_cnode *ec,
     const char* name_ptr;
     unsigned int name_len;
     int siz;
-    int err;
+    int err, ret;
     ssize_t len;
     DistFlags flags = preferred_flags();
     char tag;
@@ -2318,7 +2322,8 @@ static int send_name(ei_cnode *ec,
         put32be(s,siz - 4);
         break;
     default:
-        return -1;
+        ret = -1;
+        goto done;
     }
 
     put8(s, tag);
@@ -2341,12 +2346,15 @@ static int send_name(ei_cnode *ec,
 	if (buf != dbuf)
 	    free(buf);
         EI_CONN_SAVE_ERRNO__(err);
-	return -1;
+	ret = -1;
     }
-
+    else {
+        ret = 0;
+    }
+done:
     if (buf != dbuf)
 	free(buf);
-    return 0;
+    return ret;
 }
 
 static int send_challenge(ei_cnode *ec,
@@ -2361,7 +2369,7 @@ static int send_challenge(ei_cnode *ec,
     char dbuf[DEFBUF_SIZ];
     const unsigned int nodename_len = strlen(ec->thisnodename);
     int siz;
-    int err;
+    int err, ret;
     ssize_t len;
     DistFlags flags;
     const char tag = (her_flags & DFLAG_HANDSHAKE_23) ? 'N' : 'n';
@@ -2385,7 +2393,8 @@ static int send_challenge(ei_cnode *ec,
         put32be(s,siz - 4);
         break;
     default:
-        return -1;
+        ret = -1;
+        goto done;
     }
 
     flags = preferred_flags();
@@ -2411,12 +2420,14 @@ static int send_challenge(ei_cnode *ec,
 	if (buf != dbuf)
 	    free(buf);
         EI_CONN_SAVE_ERRNO__(err);
-	return -1;
+	ret = -1;
     }
-    
+    else
+        ret = 0;
+done:
     if (buf != dbuf)
 	free(buf);
-    return 0;
+    return ret;
 }
 
 static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
@@ -2543,6 +2554,7 @@ static int send_complement(ei_cnode *ec,
                             DistFlags her_flags,
                             unsigned ms)
 {
+    int ret = 0;
     if (epmd_says_version == EI_DIST_5 && (her_flags & DFLAG_HANDSHAKE_23)) {
         char *buf;
         unsigned char *s;
@@ -2566,7 +2578,8 @@ static int send_complement(ei_cnode *ec,
             put32be(s,siz - 4);
             break;
         default:
-            return -1;
+            ret = -1;
+            goto done;
         }
         flagsHigh = preferred_flags() >> 32;
 
@@ -2583,13 +2596,13 @@ static int send_complement(ei_cnode *ec,
             if (buf != dbuf)
                 free(buf);
             EI_CONN_SAVE_ERRNO__(err);
-            return -1;
+            ret = -1;
         }
-
+    done:
         if (buf != dbuf)
             free(buf);
     }
-    return 0;
+    return ret;
 }
 
 
