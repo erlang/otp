@@ -50,6 +50,7 @@
 -export([available_hkey_algorithms/2,
 	 open_channel/6,
          start_channel/5,
+         handshake/2,
          handle_direct_tcpip/6,
 	 request/6, request/7,
 	 reply_request/3, 
@@ -118,22 +119,38 @@ start_link(Role, Host, Port, Socket, Options0, NegotiationTimeout) ->
         Options1 = ?PUT_INTERNAL_OPT([{user_pid, self()}
                                      ], Options0),
         Profile = ?GET_OPT(profile, Options1),
-        {ok, {SystemSup, SubSysSup}} =
-            case Role of
-                client -> sshc_sup:start_system_subsystem(Host, Port, Profile, Options1);
-                server -> sshd_sup:start_system_subsystem(Host, Port, Profile, Options1)
+        Sup = case Role of
+                client -> sshc_sup;
+                server -> sshd_sup
             end,
+        {ok, {SystemSup, SubSysSup}} =
+            Sup:start_system_subsystem(Host, Port, Profile, Options1),
         ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
         Options = ?PUT_INTERNAL_OPT([{supervisors, [{system_sup, SystemSup},
                                                     {subsystem_sup, SubSysSup},
                                                     {connection_sup, ConnectionSup}]}
                                     ], Options1),
+
+        %% This is essentially gen_statem:start_link/3 :
         case ssh_connection_sup:start_child(ConnectionSup,
-                                            [?MODULE, [Role, Socket, Options], [{spawn_opt, [{message_queue_data,off_heap}]}]]
+                                            [?MODULE,
+                                             [Role, Socket, Options],
+                                             [{spawn_opt, [{message_queue_data,off_heap}]}]]
                                            ) of
             {ok, Pid} ->
+                %% Now the connection_handler process is started
+                %% First set the group leader if it is a client:
+                case Role of
+                    client ->
+                        group_leader(group_leader(), Pid);
+                    _ ->
+                        ok
+                end,
+                %% No message handling yet. It begins when the socket_control/3 is called
                 case socket_control(Socket, Pid, Options) of
                     ok ->
+                        %% handshake returns {ok,Pid} after a successful connection setup.
+                        %% or {error,Reason} after an unsuccesful one:
                         handshake(Pid, erlang:monitor(process,Pid), NegotiationTimeout);
                     {error, Reason} ->
                         {error, Reason}
@@ -529,27 +546,23 @@ socket_control(Socket, Pid, Options) ->
 
 handshake(Pid, Ref, Timeout) ->
     receive
-	ssh_connected ->
+	{Pid, ssh_connected} ->
 	    erlang:demonitor(Ref),
 	    {ok, Pid};
-	{Pid, not_connected, Reason} ->
+	{Pid, {not_connected, Reason}} ->
+	    erlang:demonitor(Ref),
 	    {error, Reason};
-	{Pid, user_password} ->
-	    Pass = io:get_password(),
-	    Pid ! Pass,
-	    handshake(Pid, Ref, Timeout);
-	{Pid, question} ->
-	    Answer = io:get_line(""),
-	    Pid ! Answer,
-	    handshake(Pid, Ref, Timeout);
-	{'DOWN', _, process, Pid, {shutdown, Reason}} ->
+	{'DOWN', Ref, process, Pid, {shutdown, Reason}} ->
 	    {error, Reason};
-	{'DOWN', _, process, Pid, Reason} ->
+	{'DOWN', Ref, process, Pid, Reason} ->
 	    {error, Reason}
     after Timeout ->
 	    ssh_connection_handler:stop(Pid),
 	    {error, timeout}
     end.
+
+handshake(Msg, #data{starter = User}) ->
+    User ! {self(), Msg}.
 
 %%====================================================================
 %% gen_statem callbacks
@@ -577,10 +590,6 @@ handshake(Pid, Ref, Timeout) ->
 
 %% The state names must fulfill some rules regarding
 %% where the role() and the renegotiate_flag() is placed:
-
--spec role(state_name()) -> role().
-role({_,Role}) -> Role;
-role({_,Role,_}) -> Role.
 
 -spec renegotiation(state_name()) -> boolean().
 renegotiation({_,_,ReNeg}) -> ReNeg == renegotiate;
@@ -722,7 +731,7 @@ handle_event(internal, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
 
 handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {disconnect, _, RepliesCon} =
-	ssh_connection:handle_msg(Msg, D0#data.connection_state, role(StateName), D0#data.ssh_params),
+	ssh_connection:handle_msg(Msg, D0#data.connection_state, ?role(StateName), D0#data.ssh_params),
     {Actions,D} = send_replies(RepliesCon, D0),
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
@@ -741,10 +750,9 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
     debug_fun(Msg, D),
     keep_state_and_data;
 
-handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
-                                                        connection_state = Connection0,
+handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Connection0,
                                                         event_queue = Qev0} = D0) ->
-    Role = role(StateName),
+    Role = ?role(StateName),
     Rengotation = renegotiation(StateName),
     try ssh_connection:handle_msg(Msg, Connection0, Role, D0#data.ssh_params) of
 	{disconnect, Reason0, RepliesConn} ->
@@ -752,7 +760,7 @@ handle_event(internal, {conn_msg,Msg}, StateName, #data{starter = User,
             case {Reason0,Role} of
                 {{_, Reason}, client} when ((StateName =/= {connected,client})
                                             and (not Rengotation)) ->
-		   User ! {self(), not_connected, Reason};
+                    handshake({not_connected,Reason}, D);
                 _ ->
                     ok
             end,
@@ -869,7 +877,9 @@ handle_event(cast, {reply_request,Resp,ChannelId}, StateName, D) when ?CONNECTED
 
         #channel{} ->
             Details = io_lib:format("Unhandled reply in state ~p:~n~p", [StateName,Resp]),
-            ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D);
+            {_Shutdown, D1} =
+                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, Details, StateName, D),
+            {keep_state, D1};
 
 	undefined ->
 	    keep_state_and_data
@@ -1029,7 +1039,7 @@ handle_event({call,From}, get_misc, StateName,
              #data{connection_state = #connection{options = Opts}} = D) when ?CONNECTED(StateName) ->
     Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
     SubSysSup = proplists:get_value(subsystem_sup,  Sups),
-    Reply = {ok, {SubSysSup, role(StateName), Opts}},
+    Reply = {ok, {SubSysSup, ?role(StateName), Opts}},
     {keep_state, D, [{reply,From,Reply}]};
 
 handle_event({call,From},
@@ -1248,8 +1258,8 @@ handle_event({timeout,idle_time}, _Data,  _StateName, _D) ->
     {stop, {shutdown, "Timeout"}};
 
 %%% So that terminate will be run when supervisor is shutdown
-handle_event(info, {'EXIT', _Sup, Reason}, StateName, _) ->
-    Role = role(StateName),
+handle_event(info, {'EXIT', _Sup, Reason}, StateName, _D) ->
+    Role = ?role(StateName),
     if
 	Role == client ->
 	    %% OTP-8111 tells this function clause fixes a problem in
@@ -1272,7 +1282,7 @@ handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{
                 channel_cache = Cache,
                 sub_system_supervisor = SubSysSup} = Connection,
     Channel = ssh_client_channel:cache_lookup(Cache, ChId),
-    {ok,Pid} = ssh_subsystem_sup:start_channel(role(StateName), SubSysSup, self(), ChanCB, ChId, [Sock], undefined, Options),
+    {ok,Pid} = ssh_subsystem_sup:start_channel(?role(StateName), SubSysSup, self(), ChanCB, ChId, [Sock], undefined, Options),
     ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
     gen_tcp:controlling_process(Sock, Pid),
     inet:setopts(Sock, [{active,once}]),

@@ -53,3 +53,5 @@
 
 
 -define(CALL_FUN(Key,D), catch (?GET_OPT(Key, (D#data.ssh_params)#ssh.opts)) ).
+
+-define(role(StateName), element(2,StateName)).

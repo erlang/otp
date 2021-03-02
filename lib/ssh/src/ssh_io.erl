@@ -27,48 +27,30 @@
 -export([yes_no/2, read_password/2, read_line/2, format/2]).
 -include("ssh.hrl").
 
-read_line(Prompt, Opts) ->
+read_line(Prompt, _Opts) ->
     format("~s", [listify(Prompt)]),
-    ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), question},
-    receive
-	Answer when is_list(Answer) or is_binary(Answer) ->
-	    unicode:characters_to_list(Answer)
-    end.
+    unicode:characters_to_list(io:get_line("")).
 
 yes_no(Prompt, Opts) ->
     format("~s [y/n]?", [Prompt]),
-    ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), question},
-    receive
-	%% I can't see that the atoms y and n are ever received, but it must
-	%% be investigated before removing
-	y -> yes;
-	n -> no;
-
-	Answer when is_list(Answer) or is_binary(Answer) ->
-	    case trim(Answer) of
-		"y" -> yes;
-		"n" -> no;
-		"Y" -> yes;
-		"N" -> no;
-		_ ->
-		    format("please answer y or n\n",[]),
-		    yes_no(Prompt, Opts)
-	    end
+    case trim(io:get_line("")) of
+        "y" -> yes;
+        "n" -> no;
+        "Y" -> yes;
+        "N" -> no;
+        _ ->
+            format("please answer y or n\n",[]),
+            yes_no(Prompt, Opts)
     end.
 
 read_password(Prompt, Opts) ->
     format("~s", [listify(Prompt)]),
-    ?GET_INTERNAL_OPT(user_pid, Opts) ! {self(), user_password},
-    receive
-	Answer when is_list(Answer) or is_binary(Answer) ->
-	     case trim(Answer) of
-		 "" ->
-		     read_password(Prompt, Opts);
-		 Pwd ->
-		     Pwd
-	     end
+    case trim(io:get_password()) of
+        "" ->
+            read_password(Prompt, Opts);
+        Pwd ->
+            Pwd
     end.
-
 
 format(Fmt, Args) ->
     io:format(Fmt, Args).
