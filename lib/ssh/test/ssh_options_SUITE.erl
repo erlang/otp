@@ -1454,7 +1454,7 @@ max_sessions_drops_tcp_connects(Config) ->
     FloodSessions = 1000,
     ParallelLogin = true,
     NegTimeOut = 8*1000,
-    HelloTimeOut = 1*1000,
+    HelloTimeOut = 200,
 
     %% Start a test daemon
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
