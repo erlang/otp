@@ -1043,14 +1043,14 @@ otp_9395_check_and_purge(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% Do check_install_release, and check that old code still exists
-    {ok, _RelVsn1, []} =
+    {ok, _, []} =
 	rpc:call(Node, release_handler, check_install_release, [RelVsn2]),
     true = rpc:call(Node,erlang,check_old_code,[b_lib]),
     true = rpc:call(Node,erlang,check_old_code,[b_server]),
 
     %% Do check_install_release with option 'purge' and check that old
     %% code is gone
-    {ok, _RelVsn1, []} =
+    {ok, _, []} =
 	rpc:call(Node, release_handler, check_install_release, [RelVsn2,[purge]]),
     false = rpc:call(Node,erlang,check_old_code,[b_lib]),
     false = rpc:call(Node,erlang,check_old_code,[b_server]),
@@ -1130,7 +1130,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     true = rpc:call(Node,erlang,check_old_code,[m10]),
 
     %% Run check_install_release with purge before install this time
-    {_TCheck,{ok, _RelVsn1, []}} =
+    {_TCheck,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
 %    ct:log("check_install_release with purge: ~.2f",[_TCheck/1000000]),
@@ -1140,7 +1140,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     SWTFlag0 ! die,
     rpc:call(Node,?MODULE,garbage_collect,[]),
     _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
-    {TInst2,{ok, _RelVsn1, []}} =
+    {TInst2,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
 %    ct:log("install_release: ~.2f",[TInst2/1000000]),
@@ -1245,7 +1245,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     true = rpc:call(Node,erlang,check_old_code,[m10]),
 
     %% Run check_install_release with purge before install this time
-    {_TCheck,{ok, _RelVsn1, []}} =
+    {_TCheck,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
 %    ct:log("check_install_release with purge: ~.2f",[_TCheck/1000000]),
@@ -1255,7 +1255,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     SWTFlag0 ! die,
     rpc:call(Node,?MODULE,garbage_collect,[]),
     _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
-    {TInst2,{ok, _RelVsn1, []}} =
+    {TInst2,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
 %    ct:log("install_release: ~.2f",[TInst2/1000000]),

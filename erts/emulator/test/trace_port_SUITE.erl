@@ -47,51 +47,45 @@ all() ->
 
 %% Test sending call trace messages to a port.
 call_trace(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) orelse
-         test_server:is_native(lists) of
-        true -> 
-            {skip,"Native code"};
-        false ->
-            start_tracer(Config),
-            Self = self(),
-            trace_func({lists,reverse,1}, []),
-            trace_pid(Self, true, [call]),
-            trace_info(Self, flags),
-            trace_info(Self, tracer),
-            [b,a] = lists:reverse([a,b]),
-            expect({trace,Self,call,{lists,reverse,[[a,b]]}}),
+    start_tracer(Config),
+    Self = self(),
+    trace_func({lists,reverse,1}, []),
+    trace_pid(Self, true, [call]),
+    trace_info(Self, flags),
+    trace_info(Self, tracer),
+    [b,a] = lists:reverse([a,b]),
+    expect({trace,Self,call,{lists,reverse,[[a,b]]}}),
 
-            trace_pid(Self, true, [timestamp]),
-            trace_info(Self, flags),
-            Huge = huge_data(),
-            lists:reverse(Huge),
-            expect({trace_ts,Self,call,{lists,reverse,[Huge]},ts}),
+    trace_pid(Self, true, [timestamp]),
+    trace_info(Self, flags),
+    Huge = huge_data(),
+    lists:reverse(Huge),
+    expect({trace_ts,Self,call,{lists,reverse,[Huge]},ts}),
 
-            trace_pid(Self, true, [arity]),
-            trace_info(Self, flags),
-            [y,x] = lists:reverse([x,y]),
-            expect({trace_ts,Self,call,{lists,reverse,1},ts}),
+    trace_pid(Self, true, [arity]),
+    trace_info(Self, flags),
+    [y,x] = lists:reverse([x,y]),
+    expect({trace_ts,Self,call,{lists,reverse,1},ts}),
 
-            trace_pid(Self, false, [timestamp]),
-            trace_info(Self, flags),
-            [z,y,x] = lists:reverse([x,y,z]),
-            expect({trace,Self,call,{lists,reverse,1}}),
+    trace_pid(Self, false, [timestamp]),
+    trace_info(Self, flags),
+    [z,y,x] = lists:reverse([x,y,z]),
+    expect({trace,Self,call,{lists,reverse,1}}),
 
-            %% OTP-7399. Delayed sub-binary creation optimization.
-            trace_pid(Self, false, [arity]),
-            trace_info(Self, flags),
-            trace_func({?MODULE,bs_sum_c,2}, [], [local]),
-            26 = bs_sum_c(<<3:4,5:4,7:4,11:4>>, 0),
-            trace_func({?MODULE,bs_sum_c,2}, false, [local]),
-            expect({trace,Self,call,{?MODULE,bs_sum_c,[<<3:4,5:4,7:4,11:4>>,0]}}),
-            expect({trace,Self,call,{?MODULE,bs_sum_c,[<<5:4,7:4,11:4>>,3]}}),
-            expect({trace,Self,call,{?MODULE,bs_sum_c,[<<7:4,11:4>>,8]}}),
-            expect({trace,Self,call,{?MODULE,bs_sum_c,[<<11:4>>,15]}}),
-            expect({trace,Self,call,{?MODULE,bs_sum_c,[<<>>,26]}}),
+    %% OTP-7399. Delayed sub-binary creation optimization.
+    trace_pid(Self, false, [arity]),
+    trace_info(Self, flags),
+    trace_func({?MODULE,bs_sum_c,2}, [], [local]),
+    26 = bs_sum_c(<<3:4,5:4,7:4,11:4>>, 0),
+    trace_func({?MODULE,bs_sum_c,2}, false, [local]),
+    expect({trace,Self,call,{?MODULE,bs_sum_c,[<<3:4,5:4,7:4,11:4>>,0]}}),
+    expect({trace,Self,call,{?MODULE,bs_sum_c,[<<5:4,7:4,11:4>>,3]}}),
+    expect({trace,Self,call,{?MODULE,bs_sum_c,[<<7:4,11:4>>,8]}}),
+    expect({trace,Self,call,{?MODULE,bs_sum_c,[<<11:4>>,15]}}),
+    expect({trace,Self,call,{?MODULE,bs_sum_c,[<<>>,26]}}),
 
-            trace_func({lists,reverse,1}, false),
-            ok
-    end.
+    trace_func({lists,reverse,1}, false),
+    ok.
 
 bs_sum_c(<<H:4,T/bits>>, Acc) -> bs_sum_c(T, H+Acc);
 bs_sum_c(<<>>, Acc) -> Acc.
@@ -99,38 +93,32 @@ bs_sum_c(<<>>, Acc) -> Acc.
 
 %% Test the new return trace.
 return_trace(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) orelse
-         test_server:is_native(lists) of
-        true -> 
-            {skip,"Native code"};
-        false ->
-            start_tracer(Config),
-            Self = self(),
-            MFA = {lists,reverse,1},
+    start_tracer(Config),
+    Self = self(),
+    MFA = {lists,reverse,1},
 
-            %% Plain (no timestamp, small data).
+    %% Plain (no timestamp, small data).
 
-            trace_func(MFA, [{['$1'],[],[{return_trace},
-                                         {message,false}]}]),
-            trace_pid(Self, true, [call]),
-            trace_info(Self, flags),
-            trace_info(Self, tracer),
-            trace_info(MFA, match_spec),
-            {traced,global} = trace_info(MFA, traced),
-            [b,a] = lists:reverse([a,b]),
-            expect({trace,Self,return_from,MFA,[b,a]}),
+    trace_func(MFA, [{['$1'],[],[{return_trace},
+                                 {message,false}]}]),
+    trace_pid(Self, true, [call]),
+    trace_info(Self, flags),
+    trace_info(Self, tracer),
+    trace_info(MFA, match_spec),
+    {traced,global} = trace_info(MFA, traced),
+    [b,a] = lists:reverse([a,b]),
+    expect({trace,Self,return_from,MFA,[b,a]}),
 
-            %% Timestamp, huge data.
-            trace_pid(Self, true, [timestamp]),
-            Result = lists:reverse(huge_data()),
-            expect({trace_ts,Self,return_from,MFA,Result,ts}),
+    %% Timestamp, huge data.
+    trace_pid(Self, true, [timestamp]),
+    Result = lists:reverse(huge_data()),
+    expect({trace_ts,Self,return_from,MFA,Result,ts}),
 
-            %% Turn off trace.
-            trace_func(MFA, false),
-            trace_info(MFA, match_spec),
-            {traced,false} = trace_info(MFA, traced),
-            ok
-    end.
+    %% Turn off trace.
+    trace_func(MFA, false),
+    trace_info(MFA, match_spec),
+    {traced,false} = trace_info(MFA, traced),
+    ok.
 
 %% Test sending send trace messages to a port.
 send(Config) when is_list(Config) ->
@@ -303,40 +291,32 @@ default_tracer(Config) when is_list(Config) ->
     ok.
 
 tracer_port_crash(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) orelse
-         test_server:is_native(lists) of
-        true -> 
-            {skip,"Native code"};
-        false ->
-            Tr = start_tracer(Config),
-            Port = get(tracer_port),
-            Tracee = spawn(fun () ->
-                                   register(trace_port_linker, self()),
-                                   link(Port),
-                                   receive go -> ok end,
-                                   lists:reverse([1,b,c]),
-                                   receive die -> ok end
-                           end),
-            Tr ! {unlink_tracer_port, self()},
-            receive {unlinked_tracer_port, Tr} -> ok end,
-            port_control(Port, $c, []), %% Make port commands crash tracer port...
-            trace_func({lists,reverse,1}, []),
-            trace_pid(Tracee, true, [call]),
-            trace_info(Tracee, flags),
-            trace_info(self(), tracer),
-            Tracee ! go,
-            receive after 1000 -> ok end,
-            case whereis(trace_port_linker) of
-                undefined ->
-                    ok;
-                Id ->
-                    %		    erts_debug:set_internal_state(available_internal_state, true),
-                    %		    erts_debug:set_internal_state(abort, {trace_port_linker, Id})
-                    ct:fail({trace_port_linker, Id})
-            end,
-            undefined = process_info(Tracee),
-            ok
-    end.
+    Tr = start_tracer(Config),
+    Port = get(tracer_port),
+    Tracee = spawn(fun () ->
+                           register(trace_port_linker, self()),
+                           link(Port),
+                           receive go -> ok end,
+                           lists:reverse([1,b,c]),
+                           receive die -> ok end
+                   end),
+    Tr ! {unlink_tracer_port, self()},
+    receive {unlinked_tracer_port, Tr} -> ok end,
+    port_control(Port, $c, []), %Make port commands crash tracer port...
+    trace_func({lists,reverse,1}, []),
+    trace_pid(Tracee, true, [call]),
+    trace_info(Tracee, flags),
+    trace_info(self(), tracer),
+    Tracee ! go,
+    receive after 1000 -> ok end,
+    case whereis(trace_port_linker) of
+        undefined ->
+            ok;
+        Id ->
+            ct:fail({trace_port_linker, Id})
+    end,
+    undefined = process_info(Tracee),
+    ok.
 
 %%% Help functions.
 

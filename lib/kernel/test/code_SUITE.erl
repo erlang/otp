@@ -531,7 +531,7 @@ all_available_1(Config) ->
     Loaded = [{atom_to_list(M),P,true} || {M,P} <- code:all_loaded()],
     [] = Loaded -- Available,
 
-    {value, {ModStr,_Path,false} = NotLoaded} =
+    {value, {ModStr,_,false} = NotLoaded} =
         lists:search(fun({Name,_,Loaded}) -> not is_atom(Name) end, Available),
     ct:log("Testing with ~p",[NotLoaded]),
 
@@ -543,7 +543,7 @@ all_available_1(Config) ->
     %% Load it
     Mod:module_info(),
 
-    {value, {ModStr,_Path,true}} =
+    {value, {ModStr,_,true}} =
         lists:search(fun({Name,_,_}) -> Name =:= ModStr end, code:all_available()),
 
     ok.
@@ -1925,9 +1925,6 @@ module_status() ->
 compile_beam(Sleep) ->
     compile(Sleep, []).
 
-compile_native(Sleep) ->
-    compile(Sleep, [native]).
-
 compile(Sleep, Opts) ->
     timer:sleep(Sleep),  % increment compilation timestamp
     {ok,?TESTMOD} = compile:file(?TESTMODSRC, Opts).
@@ -1938,12 +1935,6 @@ load_code() ->
 
 remove_code() ->
     ok = file:delete(?TESTMODOBJ).
-
-has_native(Module) ->
-    case erlang:get_module_info(Module, native_addresses) of
-	[] -> false;
-	[_|_] -> true
-    end.
 
 make_source_file(Body) ->
     ok = file:write_file(?TESTMODSRC, dummy_source(Body)).

@@ -1702,7 +1702,7 @@ do_compare([Gen1, Gen2]) ->
 
 maps_lessthan(M1, M2) ->
   case {maps:size(M1),maps:size(M2)} of
-      {_S,_S} ->
+      {S,S} ->
 	  {K1,V1} = lists:unzip(term_sort(maps:to_list(M1))),
 	  {K2,V2} = lists:unzip(term_sort(maps:to_list(M2))),
 
@@ -1721,9 +1721,9 @@ term_sort(L) ->
 	       L).
 
 
-cmp(T1, T2, Exact) when is_tuple(T1) and is_tuple(T2) ->
-    case {size(T1),size(T2)} of
-	{_S,_S} -> cmp(tuple_to_list(T1), tuple_to_list(T2), Exact);
+cmp(T1, T2, Exact) when is_tuple(T1), is_tuple(T2) ->
+    case {tuple_size(T1),tuple_size(T2)} of
+	{S,S} -> cmp(tuple_to_list(T1), tuple_to_list(T2), Exact);
 	{S1,S2} when S1 < S2 -> -1;
 	{S1,S2} when S1 > S2 -> 1
     end;
@@ -1741,7 +1741,7 @@ cmp(M1, M2, Exact) ->
 
 cmp_maps(M1, M2, Exact) ->
     case {maps:size(M1),maps:size(M2)} of
-	{_S,_S} ->
+	{S,S} ->
 	    {K1,V1} = lists:unzip(term_sort(maps:to_list(M1))),
 	    {K2,V2} = lists:unzip(term_sort(maps:to_list(M2))),
 

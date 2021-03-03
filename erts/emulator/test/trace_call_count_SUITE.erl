@@ -65,7 +65,7 @@ config(priv_dir,_) ->
 %% When run in test server.
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, on_and_off/1, info/1, 
 	 pause_and_restart/1, combo/1]).
 	 
@@ -82,12 +82,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 4}}].
 
-all() -> 
-    case test_server:is_native(trace_call_count_SUITE) of
-	true -> [not_run];
-	false ->
-	    [basic, on_and_off, info, pause_and_restart, combo]
-    end.
+all() ->
+    [basic, on_and_off, info, pause_and_restart, combo].
 
 groups() -> 
     [].
@@ -104,9 +100,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-not_run(Config) when is_list(Config) -> 
-    {skipped,"Native code"}.
 
 %% Tests basic call count trace
 basic(Config) when is_list(Config) ->

@@ -72,7 +72,7 @@ big(Config) when is_list(Config) ->
         Pid = spawn_link(dbg_test, loop, [Config]),
         true = register(dbg_test_loop, Pid),
         {ok,_} = dbg:tracer(),
-        {ok,[{matched, _node, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
+        {ok,[{matched, _, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
         ok = dbg:c(dbg_test, test, [Config]),
         ok = dbg:i(),
         dbg_test_loop ! {dbg_test, stop},
@@ -82,7 +82,7 @@ big(Config) when is_list(Config) ->
         %% run/debug a Pid.
         Pid2=spawn_link(dbg_test,loop,[Config]),
         {ok,_} = dbg:tracer(),
-        {ok,[{matched, _node, 1}]} = dbg:p(Pid2,[s,r,p]),
+        {ok,[{matched, _, 1}]} = dbg:p(Pid2,[s,r,p]),
         ok = dbg:c(dbg_test, test, [Config]),
         ok = dbg:i(),
         Pid2 ! {dbg_test, stop},
@@ -182,7 +182,7 @@ send(Config) when is_list(Config) ->
         send_test(Rcvr, [{[self(),'_'],[],[]}]),
 
         %% Test that self() is not the receiving process
-        {ok, [{matched, _node, 1}, {saved, 2}]} =
+        {ok, [{matched, _, 1}, {saved, 2}]} =
             dbg:tpe(send, [{['$1','_'],[{'==','$1',{self}}],[]}]),
         send_test(Rcvr, make_ref(), false),
 
@@ -197,7 +197,7 @@ send(Config) when is_list(Config) ->
         send_test(Rcvr, 2, make_ref(), false),
 
         %% Test clearing of trace pattern
-        {ok, [{matched, _node, 1}]} = dbg:ctpe(send),
+        {ok, [{matched, _, 1}]} = dbg:ctpe(send),
         send_test(Rcvr, make_ref(), true),
 
         %% Test complex message inspection
@@ -291,7 +291,7 @@ recv(Config) when is_list(Config) ->
         recv_test(Rcvr, [{[node(), self(), '_'],[],[]}]),
 
         %% Test that self() is the not sending process
-        {ok, [{matched, _node, 1}, {saved, 2}]} =
+        {ok, [{matched, _, 1}, {saved, 2}]} =
             dbg:tpe('receive', [{[node(), '$1','_'],[{'==','$1',{self}}],[]}]),
         recv_test(Rcvr, make_ref(), false),
 
@@ -306,7 +306,7 @@ recv(Config) when is_list(Config) ->
         recv_test(Rcvr, 2, make_ref(), false),
 
         %% Test clearing of trace pattern
-        {ok, [{matched, _node, 1}]} = dbg:ctpe('receive'),
+        {ok, [{matched, _, 1}]} = dbg:ctpe('receive'),
         recv_test(Rcvr, make_ref(), true),
 
         %% Test complex message inspection
@@ -433,13 +433,13 @@ local_trace(Config) when is_list(Config) ->
         Z = list_to_integer(LZ),
         XYZ = {X, Y, Z},
         io:format("Self = ~w = ~w~n", [S,XYZ]),
-        {ok, [{matched, _node, 1}]} = dbg:p(S,call),
-        {ok, [{matched, _node, 1}]} = dbg:p(XYZ,call),
+        {ok, [{matched, _, 1}]} = dbg:p(S,call),
+        {ok, [{matched, _, 1}]} = dbg:p(XYZ,call),
         if Z =:= 0 ->
-               {ok, [{matched, _node, 1}]} = dbg:p(Y,call);
+               {ok, [{matched, _, 1}]} = dbg:p(Y,call);
            true -> ok
         end,
-        {ok, [{matched, _node, 1}]} = dbg:p(L,call),
+        {ok, [{matched, _, 1}]} = dbg:p(L,call),
         {ok, _} = dbg:tpl(?MODULE,not_exported,[]),
         4 = not_exported(2),
         [{trace,S,call,{?MODULE,not_exported,[2]}}] = flush(),
@@ -506,8 +506,8 @@ saved_patterns(Config) when is_list(Config) ->
     {ok, _} = start(),
     try
         dbg:rtp(File),
-        {ok,[{matched,_node,1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
-        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, [{matched, _, 1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
+        {ok, [{matched, _, 1}]} = dbg:p(self(),call),
         dbg:ltp(),
         S = self(),
         [{trace,S,call,{dbg,ltp,[]},blahonga}] = flush()
@@ -564,15 +564,10 @@ ip_port_busy(Config) when is_list(Config) ->
     end,
     ok.
 
-
-
 %% Test tracing to file port (simple)
 file_port(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
+    FName = make_temp_name(Config),
     Port = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port),
     try
@@ -598,12 +593,8 @@ file_port(Config) when is_list(Config) ->
 %% Test tracing to file port with 'follow_file'
 file_port2(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
-    "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
-    %% Ok, lets try with flush and follow_file, not a chance on VxWorks
-    %% with NFS caching...
+    FName = make_temp_name(Config),
+    %% Ok, lets try with flush and follow_file.
     Port2 = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port2),
     try
@@ -632,11 +623,8 @@ file_port2(Config) when is_list(Config) ->
 wrap_port(Config) when is_list(Config) ->
     Self = self(),
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
-    FNameWildcard = FName++"*"++".trace",
+    FName = make_temp_name(Config),
+    FNameWildcard = FName ++ "*" ++ ".trace",
     %% WrapSize=0 and WrapCnt=11 will force the trace to wrap after
     %% every trace message, and to contain only the last 10 entries
     %% after trace stop since the last file will be empty waiting
@@ -726,10 +714,7 @@ wrap_port_result([{trace, S, call, {?MODULE, tracee2, [M]}, hej},
 %% Test tracing to time limited wrapping file port
 wrap_port_time(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
+    FName = make_temp_name(Config),
     %% WrapTime=2 and WrapCnt=4 will force the trace to wrap after
     %% every 2 seconds, and to contain between 3*2 and 4*2 seconds
     %% of trace entries.
@@ -938,8 +923,7 @@ trace(_, _, _, _, _) ->
 %%
 
 start_slave() ->
-    {A, B, C} = now(),
-    Name = "asdkxlkmd" ++ integer_to_list(A+B+C),
+    Name = "asdkxlkmd" ++ integer_to_list(erlang:unique_integer([positive])),
     {ok, Node} = test_server:start_node(Name,slave,[]),
     ok = wait_node(Node, 15),
     Node.
@@ -992,120 +976,8 @@ start() ->
 stop() ->
     dbg:stop().
 
-
-
-schedstat_handler(TraceMsg, {Parent, Tag, Data} = State) ->
-    case TraceMsg of
-        {trace_ts, Pid, in, _, Ts} ->
-            NewData =
-            case lists:keysearch(Pid, 1, Data) of
-                {value, {Pid, Acc}} ->
-                    [{Pid, Acc, Ts} | lists:keydelete(Pid, 1, Data)];
-                false ->
-                    [{Pid, {0, 0, 0}, Ts} | Data];
-                Other ->
-                    exit(Parent, {?MODULE, ?LINE, Other}),
-                    erlang:display({?MODULE, ?LINE, Other}),
-                    Data
-            end,
-            {Parent, Tag, NewData};
-        {trace_ts, Pid, out, _, {A3, B3, C3}} ->
-            NewData =
-            case lists:keysearch(Pid, 1, Data) of
-                {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
-                    [{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
-                     lists:keydelete(Pid, 1, Data)];
-                Other ->
-                    exit(Parent, {?MODULE, ?LINE, Other}),
-                    erlang:display({?MODULE, ?LINE, Other}),
-                    Data
-            end,
-            {Parent, Tag, NewData};
-        {trace_ts,_Pid,spawned,_OtherPid,_,_Ts} ->
-            State;
-        {trace_ts,_Pid,getting_linked,_OtherPid,_Ts} ->
-            State;
-        {trace_ts, Pid, exit, normal, {A3, B3, C3}} ->
-            NewData =
-            case lists:keysearch(Pid, 1, Data) of
-                {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
-                    [{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
-                     lists:keydelete(Pid, 1, Data)];
-                {value, {Pid, _Acc}} ->
-                    Data;
-                false ->
-                    [{Pid, {0, 0, 0}} | Data];
-                Other ->
-                    exit(Parent, {?MODULE, ?LINE, Other}),
-                    erlang:display({?MODULE, ?LINE, Other}),
-                    Data
-            end,
-            {Parent, Tag, NewData};
-        {trace_ts, _Pid, send, _Msg, _OtherPid, _Ts} ->
-            State;
-        end_of_trace ->
-            Parent ! {Tag, Data},
-            State
-    end.
-
-
-
-pass_token(Token, Next, Loops) ->
-    receive
-        {Token, 1} = Msg ->
-            sendloop(Loops),
-            Next ! Msg;
-        {Token, _Cnt} = Msg->
-            sendloop(Loops),
-            Next ! Msg,
-            pass_token(Token, Next, Loops)
-    end.
-
-pass_token(Token, Final, Cnt, Loops) ->
-    receive
-        {Token, start, Next} ->
-            sendloop(Loops),
-            Msg = {Token, Cnt},
-            Next ! Msg,
-            pass_token(Token, Final, Next, Cnt, Loops)
-    end.
-
-pass_token(Token, Final, Next, Cnt, Loops) ->
-    receive
-        {Token, 1} ->
-            sendloop(Loops),
-            Msg = {Token, done},
-            Final ! Msg;
-        {Token, Cnt} ->
-            sendloop(Loops),
-            NextCnt = Cnt-1,
-            Msg = {Token, NextCnt},
-            Next ! Msg,
-            pass_token(Token, Final, Next, NextCnt, Loops)
-    end.
-
-sendloop(Loops) ->
-    sendloop(make_ref(), Loops).
-
-sendloop(_Tag, 0) ->
-    ok;
-sendloop(Tag, Loops) ->
-    self() ! {Tag, Loops},
-    receive {Tag, Loops} -> ok end,
-    sendloop(Tag, Loops-1).
-
-token_volleyball(N, Cnt, Loops)
-  when is_integer(N), N >= 1, is_integer(Cnt), Cnt >= 1,
-       is_integer(Loops), Loops >= 0 ->
-    Self = self(),
-    Token = make_ref(),
-    Last = spawn_link(fun() -> pass_token(Token, Self, Cnt, Loops) end),
-    First = token_volleyball(Token, Last, N-1, Loops),
-    Last ! {Token, start, First},
-    receive {Token, done} -> ok end.
-
-token_volleyball(Token, Next, 1, Loops) ->
-    spawn_link(fun() -> pass_token(Token, Next, Loops) end);
-token_volleyball(Token, Next, N, Loops) ->
-    Pid = spawn_link(fun() -> pass_token(Token, Next, Loops) end),
-    token_volleyball(Token, Pid, N-1, Loops).
+make_temp_name(Config) ->
+    {A,B,C} = erlang:timestamp(),
+    FTMP = atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
+    integer_to_list(B) ++ "-" ++ integer_to_list(C),
+    filename:join(proplists:get_value(data_dir, Config), FTMP).

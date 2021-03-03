@@ -377,12 +377,12 @@ t_split_binary(Config) when is_list(Config) ->
 
     %% Sub binary of heap binary.
     split(L, make_sub_binary(B), size(B)),
-    {X,_Y} = split_binary(B, size(B) div 2),
+    {X,Y} = split_binary(B, size(B) div 2),
     split(binary_to_list(X), X, size(X)),
 
     %% Unaligned sub binary of heap binary.
     split(L, make_unaligned_sub_binary(B), size(B)),
-    {X,_Y} = split_binary(B, size(B) div 2),
+    {X,Y} = split_binary(B, size(B) div 2),
     split(binary_to_list(X), X, size(X)),
     
     %% Reference-counted binary.
@@ -392,12 +392,12 @@ t_split_binary(Config) when is_list(Config) ->
 
     %% Sub binary of reference-counted binary.
     split(L2, make_sub_binary(B2), size(B2)),
-    {X2,_Y2} = split_binary(B2, size(B2) div 2),
+    {X2,Y2} = split_binary(B2, size(B2) div 2),
     split(binary_to_list(X2), X2, size(X2)),
 
     %% Unaligned sub binary of reference-counted binary.
     split(L2, make_unaligned_sub_binary(B2), size(B2)),
-    {X2,_Y2} = split_binary(B2, size(B2) div 2),
+    {X2,Y2} = split_binary(B2, size(B2) div 2),
     split(binary_to_list(X2), X2, size(X2)),
 
     ok.

@@ -1999,8 +1999,8 @@ replace_app_relup(Config) when is_list(Config) ->
 
 check_start_stop_order(UpOrder, DownOrder) ->
 
-    {ok, [{_V0, [{_V1, [], Up}],
-                [{_V1, [], Down}]
+    {ok, [{_V0, [{V1, [], Up}],
+                [{V1, [], Down}]
             }]} = file:consult(relup),
 
     GetAppStartStop = fun(Instr) ->

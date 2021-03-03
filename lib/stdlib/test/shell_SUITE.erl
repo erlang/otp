@@ -2401,26 +2401,19 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"V = lists:seq(1, 20), case V of a -> ok end.">>),
     "exception error: no function clause matching" =
         comm_err(<<"fun(P) when is_pid(P) -> true end(a).">>),
-    case test_server:is_native(erl_eval) of
-	true ->
-	    %% Native code has different exit reason. Don't bother
-	    %% testing them.
-	    ok;
-	false ->
-	    "exception error: {function_clause," =
-		comm_err(<<"erlang:error(function_clause, "
-			  "[unproper | list]).">>),
-	    %% Cheating:
-	    "exception error: no function clause matching "
-		"shell:apply_fun(4)" ++ _ =
-		comm_err(<<"erlang:error(function_clause, [4]).">>),
-		"exception error: no function clause matching "
-		"lists:reverse(" ++ _ =
-		comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
-		"exception error: no function clause matching "
-		"lists:reverse(34) (lists.erl, line " ++ _ =
-		comm_err(<<"lists:reverse(34).">>)
-    end,
+    "exception error: {function_clause," =
+        comm_err(<<"erlang:error(function_clause, "
+                   "[unproper | list]).">>),
+    %% Cheating:
+    "exception error: no function clause matching "
+        "shell:apply_fun(4)" ++ _ =
+        comm_err(<<"erlang:error(function_clause, [4]).">>),
+    "exception error: no function clause matching "
+        "lists:reverse(" ++ _ =
+        comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
+    "exception error: no function clause matching "
+        "lists:reverse(34) (lists.erl, line " ++ _ =
+        comm_err(<<"lists:reverse(34).">>),
     "exception error: function_clause" =
         comm_err(<<"erlang:error(function_clause, 4).">>),
     "exception error: no function clause matching" ++ _ =

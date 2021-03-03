@@ -246,12 +246,8 @@ otp_4871(Config) when is_list(Config) ->
     ok.
 
 current_module(Pid, Mod) ->
-    case process_info(Pid, current_function) of
-        {current_function, undefined} ->
-            true = test_server:is_native(Mod);
-        {current_function, {Mod, _, _}} ->
-            true
-    end.
+    {current_function, {Mod, _, _}} = process_info(Pid, current_function),
+    true.
 
 otp_4871_parse_file(Epp) ->
     case epp:parse_erl_form(Epp) of

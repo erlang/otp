@@ -447,35 +447,6 @@ do_large_file_heavy(_Config) ->
 %%--------------------------------------------------------------------------
 %% Utility functions
 
-compare(FdA, FdB) ->
-    Size = 65536,
-    case {?FILE_MODULE:read(FdA, Size), ?FILE_MODULE:read(FdB, Size)} of
-	{{error, _} = Error, _} ->
-	    Error;
-	{_, {error, _} = Error} ->
-	    Error;
-	{{ok, A}, {ok, B}} ->
-	    case compare_data(A, B) of
-		true ->
-		    compare(FdA, FdB);
-		false ->
-		    false
-	    end;
-	{eof, eof} ->
-	    true;
-	_ ->
-	    false
-    end.
-
-compare_data(A, B) when is_list(A), is_list(B) ->
-    list_to_binary(A) == list_to_binary(B);
-compare_data(A, B) when is_list(A), is_binary(B) ->
-    list_to_binary(A) == B;
-compare_data(A, B) when is_binary(A), is_list(B) ->
-    A == list_to_binary(B);
-compare_data(A, B) when is_binary(A), is_binary(B) ->
-    A == B.
-
 sizeof(Data) when is_list(Data) ->
     length(Data);
 sizeof(Data) when is_binary(Data) ->

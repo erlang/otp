@@ -63,7 +63,7 @@
 
 %% When run in test server.
 -export([all/0, suite/0,
-	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, on_and_off/1, info/1,
          disable_ongoing/1,
 	 pause_and_restart/1, scheduling/1, called_function/1, combo/1, 
@@ -85,18 +85,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 10}}].
 
-all() -> 
-    case test_server:is_native(trace_call_time_SUITE) of
-	true -> [not_run];
-	false ->
-	    [basic, on_and_off, info, pause_and_restart, scheduling,
-             disable_ongoing,
-	     combo, bif, nif, called_function, dead_tracer, return_stop,
-             catch_crash]
-    end.
-
-not_run(Config) when is_list(Config) ->
-    {skipped,"Native code"}.
+all() ->
+    [basic, on_and_off, info, pause_and_restart, scheduling,
+     disable_ongoing,
+     combo, bif, nif, called_function, dead_tracer, return_stop,
+     catch_crash].
 
 %% Tests basic call time trace
 basic(Config) when is_list(Config) ->

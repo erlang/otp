@@ -1251,7 +1251,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  {local, gstm}, ?MODULE, start_arg(Config, []), []),
     Status2 = sys:get_status(gstm),
-    {status,Pid2,_Mod,[_PDict2,running,_,_,Data2]} = Status2,
+    {status,Pid2,Mod,[_PDict2,running,_,_,Data2]} = Status2,
     [format_status_called|_] = lists:reverse(Data2),
     stop_it(Pid2),
 
@@ -1262,7 +1262,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  GlobalName1, ?MODULE, start_arg(Config, []), []),
     Status3 = sys:get_status(GlobalName1),
-    {status,Pid3,_Mod,[_PDict3,running,_,_,Data3]} = Status3,
+    {status,Pid3,Mod,[_PDict3,running,_,_,Data3]} = Status3,
     [format_status_called|_] = lists:reverse(Data3),
     stop_it(Pid3),
     GlobalName2 = {global,{name, "term"}},
@@ -1270,7 +1270,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  GlobalName2, ?MODULE, start_arg(Config, []), []),
     Status4 = sys:get_status(GlobalName2),
-    {status,Pid4,_Mod,[_PDict4,running,_,_, Data4]} = Status4,
+    {status,Pid4,Mod,[_PDict4,running,_,_, Data4]} = Status4,
     [format_status_called|_] = lists:reverse(Data4),
     stop_it(Pid4),
 
@@ -1280,7 +1280,7 @@ call_format_status(Config) ->
     ViaName1 = {via,dummy_via,"CallFormatStatus"},
     {ok,Pid5} = gen_statem:start(ViaName1, ?MODULE, start_arg(Config, []), []),
     Status5 = sys:get_status(ViaName1),
-    {status,Pid5,_Mod, [_PDict5,running,_,_, Data5]} = Status5,
+    {status,Pid5,Mod, [_PDict5,running,_,_, Data5]} = Status5,
     [format_status_called|_] = lists:reverse(Data5),
     stop_it(Pid5),
     ViaName2 = {via,dummy_via,{name,"term"}},
@@ -1288,7 +1288,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  ViaName2, ?MODULE, start_arg(Config, []), []),
     Status6 = sys:get_status(ViaName2),
-    {status,Pid6,_Mod,[_PDict6,running,_,_,Data6]} = Status6,
+    {status,Pid6,Mod,[_PDict6,running,_,_,Data6]} = Status6,
     [format_status_called|_] = lists:reverse(Data6),
     stop_it(Pid6).
 

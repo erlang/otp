@@ -152,12 +152,6 @@ worker_foo(_Arg) ->
 
 %% Basic test of the call tracing (we trace one process).
 basic(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> basic()
-    end.
-
-basic() ->
     start_tracer(),
     trace_info(self(), flags),
     trace_info(self(), tracer),
@@ -372,12 +366,6 @@ compile_version(Module, Version, Config) ->
 %% Test flags (arity, timestamp) for call_trace/3.
 %% Also, test the '{tracer,Pid}' option.
 flags(_Config) ->
-    case test_server:is_native(filename) of
-        true -> {skip,"filename is native"};
-        false -> flags()
-    end.
-
-flags() ->
     Tracer = start_tracer_loop(),
     trace_pid(self(), true, [call,{tracer,Tracer}]),
 
@@ -537,12 +525,6 @@ pam_foo(A, B) ->
 
 %% Test changing PAM programs for a function.
 change_pam(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> change_pam()
-    end.
-
-change_pam() ->
     start_tracer(),
     Self = self(),
 
@@ -581,12 +563,6 @@ change_pam_trace(Prog) ->
     ok.
 
 return_trace(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> return_trace()
-    end.
-
-return_trace() ->
     X = {save,me},
     start_tracer(),
     Self = self(),
@@ -602,7 +578,7 @@ return_trace() ->
     {match_spec,Prog1} = trace_info({erlang,process_info,2}, match_spec),
 
     [x,y] = lists:append(id([x]), id([y])),
-    Current = {current_function,{?MODULE,return_trace,0}},
+    Current = {current_function,{?MODULE,return_trace,1}},
     Current = erlang:process_info(Self, current_function),
     expect({trace_ts,Self,call,{lists,append,[[x],[y]]},Stupid,ts}),
     expect({trace_ts,Self,return_from,{lists,append,2},[x,y],ts}),
@@ -653,12 +629,6 @@ nasty() ->
     exit(good_bye).
 
 exception_trace(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> exception_trace()
-    end.
-
-exception_trace() ->
     X = {save,me},
     start_tracer(),
     Self = self(),
@@ -675,7 +645,7 @@ exception_trace() ->
     trace_info({erlang,process_info,2}, match_spec),
 
     [x,y] = lists:append(id([x]), id([y])),
-    Current = {current_function,{?MODULE,exception_trace,0}},
+    Current = {current_function,{?MODULE,exception_trace,1}},
     Current = erlang:process_info(Self, current_function),
     expect({trace_ts,Self,call,{lists,append,[[x],[y]]},Stupid,ts}),
     expect({trace_ts,Self,return_from,{lists,append,2},[x,y],ts}),

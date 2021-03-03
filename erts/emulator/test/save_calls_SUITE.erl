@@ -90,12 +90,6 @@ trace_handler(Acc,Parent,Client) ->
 
 %% Test call saving.
 save_calls_1(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-        true -> {skipped,"Native code"};
-        false -> save_calls_1()
-    end.
-
-save_calls_1() ->
     erlang:process_flag(self(), save_calls, 0),
     {last_calls, false} = process_info(self(), last_calls),
     

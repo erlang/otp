@@ -335,11 +335,7 @@ run_test_module(Cases, GuardsOk) ->
 
     %% Compile, load, and run the generated module.
 
-    Native = case test_server:is_native(?MODULE) of
-                 true -> [native];
-                 false -> []
-             end,
-    {ok,Mod,Code1} = compile:forms(Module, [time|Native]),
+    {ok,Mod,Code1} = compile:forms(Module, [time]),
     code:delete(Mod),
     code:purge(Mod),
     {module,Mod} = code:load_binary(Mod, Mod, Code1),
