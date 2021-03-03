@@ -5336,70 +5336,96 @@ has_superfluous_schedulers() ->
 
 %% Leaking message from inet_drv {inet_reply,P,ok}
 %% when a socket sending resumes working after a send_timeout.
+%% Should we even bother testing this if 'inet_backend = socket'?
 otp_7731(Config) when is_list(Config) ->
+    ?TC_TRY(otp_7731, fun() -> do_otp_7731(Config) end).
+
+do_otp_7731(Config) when is_list(Config) ->
+    ?P("[ctrl] create server"),
     ServerPid = spawn_link(?MODULE, otp_7731_server, [Config, self()]),
+    ?P("[ctrl] await listening port (number) from server"),
     receive {ServerPid, ready, PortNum} -> ok end,
 
+    ?P("[ctrl] connect to server on port ~w", [PortNum]),
     {ok, Socket} = ?CONNECT(Config, "localhost", PortNum,
                             [binary, {active, false}, {packet, raw},
                              {send_timeout, 1000}]),
-    otp_7731_send(Socket),
-    ?P("Sending complete..."),
-    ServerPid ! {self(), recv},
-    receive {ServerPid, ok} -> ok end,
 
-    ?P("Client waiting for leaking messages..."),
+    ?P("[ctrl] send data"),
+    otp_7731_send(Socket),
+    ?P("[ctrl] sending complete - order server to recv"),
+    ServerPid ! {self(), recv},
+    ?P("[ctrl] await 'recv complete' from server"),
+    receive {ServerPid, ok} -> ?P("[ctrl] received 'recv complete'"), ok end,
 
     %% Now make sure inet_drv does not leak any internal messages.
+    ?P("[ctrl] waiting for leaking messages..."),
     receive Msg ->
+            ?P("[ctrl] got unexpected message: "
+               "~n      ~p", [Msg]),
 	    ct:fail({unexpected, Msg})
     after 1000 ->
 	    ok
     end,
-    ?P("No leaking messages. Done."),
-    gen_tcp:close(Socket).
+    ?P("[ctrl] no leaking messages - cleanup"),
+    (catch gen_tcp:close(Socket)),
+    ServerPid ! {self(), die},
+    ?P("[ctrl] done."),
+    ok.
     
 otp_7731_send(Socket) ->
     Bin = <<1:10000>>,
-    io:format("Client sending ~p bytes...\n",[size(Bin)]),
+    ?P("[client] sending ~p bytes...", [byte_size(Bin)]),
     case gen_tcp:send(Socket, Bin) of
-        ok -> otp_7731_send(Socket);
-        {error,timeout} -> ok
+        ok ->
+            otp_7731_send(Socket);
+        {error, {timeout, RestData}} ->
+            ?P("[client] send timeout with ~w bytes of rest data",
+               [byte_size(RestData)]),
+            ok;
+        {error, timeout} ->
+            ?P("[client] send timeout"),
+            ok
     end.
 
-otp_7731_server(Config, ClientPid) ->
+otp_7731_server(Config, Ctrl) ->
+    ?P("[server] create listen socket"),
     {ok, LSocket} = ?LISTEN(Config, 0, [binary, {packet, raw},
                                        {active, false}]),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
-    ?P("Listening on ~w with port number ~p", [LSocket, PortNum]),
-    ClientPid ! {self(), ready, PortNum},
+    ?P("[server] listening on port number ~p", [PortNum]),
+    Ctrl ! {self(), ready, PortNum},
 
+    ?P("[server] accept"),
     {ok, CSocket} = gen_tcp:accept(LSocket),
+    ?P("[server] accepted - close listen socket"),
     gen_tcp:close(LSocket),
 
-    ?P("Server got connection, wait for recv order..."),
-
-    receive {ClientPid, recv} -> ok end,
+    ?P("[server] await recv order"),
+    receive {Ctrl, recv} -> ok end,
     
-    ?P("Server start receiving..."),
-
+    ?P("[server] start receiving..."),
     otp_7731_recv(CSocket),
 
-    ClientPid ! {self(), ok},
+    ?P("[server] announce recv done"),
+    Ctrl ! {self(), ok},
 
-    ?P("Server finished, closing..."),
-    gen_tcp:close(CSocket).
+    ?P("[server] finished, (connection) closing..."),
+    gen_tcp:close(CSocket),
+    receive {Ctrl, die} -> ok end,
+    ?P("[server] done"),
+    exit(normal).
 
 
 otp_7731_recv(Socket) ->
     case gen_tcp:recv(Socket, 0, 1000) of
-	      {ok, Bin} -> 
-		  ?P("Server received ~p bytes", [size(Bin)]),
-		  otp_7731_recv(Socket);
-	      {error,timeout} ->
-		  ?P("Server got receive timeout"),
-		  ok
-	  end.
+        {ok, Bin} ->
+            ?P("[server] received ~p bytes", [size(Bin)]),
+            otp_7731_recv(Socket);
+        {error, timeout} ->
+            ?P("[server] receive timeout - done recv"),
+            ok
+    end.
 
 
 %% OTP-7615: TCP-ports hanging in CLOSING state when sending large
