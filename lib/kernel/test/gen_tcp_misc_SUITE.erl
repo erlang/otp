@@ -2329,7 +2329,10 @@ do_busy_send(Config) ->
         fun() ->
                 ?P("[server] create listen socket"),
                 case ?LISTEN(Config, 0, [{active,false},binary,
-                                        {reuseaddr,true},{packet,0}]) of
+                                         {reuseaddr,true},
+                                         {packet,0},
+                                         {recbuf,4096},
+                                         {sndbuf,4096}]) of
                     {ok, L} ->
                         ?P("[server] listen socket created"),
                         {ok, Port} = inet:port(L),
@@ -2337,7 +2340,7 @@ do_busy_send(Config) ->
                         ?P("[server] await continue"),
                         receive
                             {Master, continue} ->
-                                ?P("[server] continue"),
+                                ?P("[server] received continue"),
                                 busy_send_srv(L, Master, Msg)
                         end;
                     {error, Reason} ->
@@ -2350,9 +2353,13 @@ do_busy_send(Config) ->
     ListenPort =
         receive
             {'EXIT', Server, {skip, _} = SKIP} ->
+                ?P("[master] server issued skip: "
+                   "~n      ~p", [SKIP]),
                 throw(SKIP);
 
             {'EXIT', Server, Reason} ->
+                ?P("[master] server crashed: "
+                   "~n      ~p", [Reason]),
                 exit({server, Reason});
 
             {Server, listen_port, LP} ->
@@ -2370,7 +2377,11 @@ do_busy_send(Config) ->
                   end,
               ?P("[client] connect to ~w", [Port]),
 	      case ?CONNECT(Config, "localhost", Port,
-                                   [{active,false},binary,{packet,0}]) of
+                                   [{active,false},
+                                    binary,
+                                    {packet,0},
+                                    {recbuf,4096},
+                                    {sndbuf,4096}]) of
                   {ok, Socket} ->
                       Master ! {self(), connected},
                       ?P("[client] connected - await recv"),
@@ -2409,15 +2420,15 @@ busy_send_loop(Server, Client, N) ->
             ?P("[master] send timeout: server send queue full (N = ~w+1)", [N]),
             %% Send queue full, sender blocked 
             %% -> stop sender and release client
-            ?P("Send timeout, time to receive..."),
             Server ! {self(), close},
             Client ! {self(), recv, N+1},
+            ?P("[master] await server 'send'..."),
             receive
                 {Server, send} ->
                     busy_send_2(Server, Client, N+1)
             after 10000 ->
                     %% If this happens, see busy_send_srv
-                    ?P("UNEXPECTED: server send timeout"),
+                    ?P("[master] UNEXPECTED: server send timeout"),
                     ct:fail({timeout,{server,not_send,flush([])}})
             end
     end.
@@ -2425,24 +2436,27 @@ busy_send_loop(Server, Client, N) ->
 busy_send_2(Server, Client, _N) ->
     %% Master
     %%
+    ?P("[master] await (server) closed"),
     receive
         {Server, [closed]} ->
-            ?P("[master] received expected (server) closed"),
+            ?P("[master] received expected (server) closed - "
+               "await client closed"),
             receive
                 {Client, [0,{error,closed}]} ->
                     ?P("[master] received expected (client) closed"),
                     ok
             end
     after 10000 ->
-            ?P("UNEXPECTED: server closed timeout"),
+            ?P("[master] UNEXPECTED: server closed timeout"),
             ct:fail({timeout, {server, not_closed, flush([])}})
     end.
 
 busy_send_srv(L, Master, Msg) ->
     %% Server
     %% Sometimes this accept does not return, do not really know why
-    %% but is causes the timeout error in busy_send_loop to be
+    %% but it causes the timeout error in busy_send_loop to be
     %% triggered. Only happens on OS X Leopard?!?
+    ?P("[server] try accept"),
     case gen_tcp:accept(L) of
         {ok, Socket} ->
             ?P("[server] accepted"),
@@ -2474,6 +2488,8 @@ busy_send_client_loop(Socket, Master, Msg, N) ->
 	{ok, Msg} ->
 	    busy_send_client_loop(Socket, Master, Msg, N-1);
 	Other ->
+            ?P("[client] recv response: "
+               "~n      ~p", [Other]),
 	    Master ! {self(), flush([Other,N])}
     end.
 
