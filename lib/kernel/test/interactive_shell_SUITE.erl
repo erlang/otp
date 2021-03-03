@@ -19,10 +19,15 @@
 %%
 -module(interactive_shell_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("kernel/include/file.hrl").
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
-	 job_control_remote/1,stop_during_init/1, custom_shell_history/1,
+	 job_control_remote/1,stop_during_init/1,
+         shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
+         shell_history_repair/1, shell_history_repair_corrupt/1,
+         shell_history_corrupt/1,
+         shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
          remsh/1, remsh_longnames/1, remsh_no_epmd/1]).
@@ -47,11 +52,20 @@ all() ->
     [get_columns_and_rows_escript,get_columns_and_rows,
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys, stop_during_init, custom_shell_history,
+     ctrl_keys, stop_during_init, {group, shell_history},
      remsh, remsh_longnames, remsh_no_epmd].
 
 groups() -> 
-    [].
+    [{shell_history, [],
+      [shell_history,
+       shell_history_resize,
+       shell_history_eaccess,
+       shell_history_repair,
+       shell_history_repair_corrupt,
+       shell_history_corrupt,
+       shell_history_custom,
+       shell_history_custom_errors
+      ]}].
 
 init_per_suite(Config) ->
     Term = os:getenv("TERM", "dumb"),
@@ -64,6 +78,11 @@ end_per_suite(Config) ->
     os:putenv("TERM",Term),
     ok.
 
+init_per_group(shell_history, Config) ->
+    case proplists:get_value(default_shell, Config) of
+        old -> {skip, "Not supported in old shell"};
+        new -> Config
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -225,66 +244,270 @@ stop_during_init(Config) when is_list(Config) ->
 	    end
      end.
 
-custom_shell_history(Config) when is_list(Config) ->
-    case proplists:get_value(default_shell, Config) of
-        old -> {skip, "Not supported in old shell"};
-        new ->%% Up key: Ctrl + P = Cp=[$\^p]
-            rtnode([
+%% This testcase tests that shell_history works as it should.
+%% We use Ctrl + P = Cp=[$\^p] in order to navigate up
+%% We use Ctrl + N = Cp=[$\^n] in order to navigate down
+%% We use Ctrl + B = Cp=[$\^b] in order to navigate left
+%% in the console. We also need to sleep for a while in order
+%% for the system to update the display before we enter more
+%% commands.
+shell_history(Config) when is_list(Config) ->
+    Path = shell_history_path(Config, "basic"),
+    rtnode([
+            {putline, "echo1."},
+            {getline, "echo1"},
+            {putline, "echo2."},
+            {getline, "echo2"},
+            {putline, "echo3."},
+            {getline, "echo3"},
+            {putline, "echo4."},
+            {getline, "echo4"},
+            {putline, "echo5."},
+            {getline, "echo5"}
+           ], [], [], " -kernel shell_history enabled " ++
+               "-kernel shell_history_drop '[\\\"init:stop().\\\"]' " ++
+               mk_sh_param(Path)),
+    rtnode([
+            {putline, ""},
+            %% the init:stop that stopped the node is dropped
+            {putdata, [$\^p]}, {sleep,50}, %% the echo5.
+            {putdata, [$\n]},
+            {getline, "echo5"},
+            {putdata, [$\^p]}, {sleep,50}, %% the echo5.
+            {putdata, [$\^p]}, {sleep,50}, %% the echo4.
+            {putdata, [$\^p]}, {sleep,50}, %% the echo3.
+            {putdata, [$\^p]}, {sleep,50}, %% the echo2.
+            {putdata, [$\^n]}, {sleep,50}, %% the echo3.
+            {putdata, [$\^n]}, {sleep,50}, %% the echo4.
+            {putdata, [$\^b]}, {sleep,50}, %% the echo4. (cursor moved one left)
+            {putline, ["echo"]},
+            {getline, "echo4echo"}
+           ], [], [], " -kernel shell_history enabled " ++ mk_sh_param(Path)).
+
+shell_history_resize(Config) ->
+    Path = shell_history_path(Config, "resize"),
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history_file_bytes 123456 " ++
+               "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    {ok, Logs} =
+        rtnode([
                 {putline, ""},
-                {putline, [$\^p]},
-                {putline_raw, ""},
-                {getline, "0"},
-                {putline, "echo."},
-                {getline, "!echo"} %% exclamation sign is printed by custom history module
-            ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+                {putdata, [$\^p]}, {sleep,50}, %% the init:stop that stopped the node
+                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], " -kernel shell_history_file_bytes 654321 " ++
+                   "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
-            %% Check that we can start with a node with an undefined
-            %% provider module.
-            rtnode([
-                {putline, "echo."},
-                    {getline, "echo"}
-                   ], [], [], " -kernel shell_history very_broken " ++
-                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+    rtnode_check_logs(
+      "erlang.log.1",
+      "The configured log history file size is different from the size "
+      "of the log file on disk", Logs),
 
-            %% Check that we can start with a node with a provider module
-            %% that crashes in load/0
-            rtnode([
-                    {putline, "echo."},
-                    {getline, "echo"}
-                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-                       " -kernel provider_load crash" ++
-                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+    ok.
 
-            %% Check that we can start with a node with a provider module
-            %% that return incorrect in load/0
+shell_history_eaccess(Config) ->
+    Path = shell_history_path(Config, "eaccess"),
+    file:make_dir(filename:dirname(Path)),
+    ok = file:make_dir(Path),
+    {ok, Info} = file:read_file_info(Path),
+    try
+        NoExecMode = Info#file_info.mode band (bnot 8#111),
+        file:write_file_info(Path,Info#file_info{ mode = NoExecMode }),
+
+        %% Cannot create history log in folder
+        {ok, Logs1} =
             rtnode([
                     {putline, "echo."},
                     {getline, "echo"}
-                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-                       " -kernel provider_load badreturn" ++
-                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+                   ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
-            %% Check that we can start with a node with a provider module
-            %% that crashes in load/0
+        rtnode_check_logs("erlang.log.1", "Error handling file", Logs1),
+
+        %% shell_docs recursively creates the folder to store the
+        %% logs. This test checks that erlang still starts if we
+        %% cannot create the folders to the path.
+        {ok, Logs2} = 
             rtnode([
                     {putline, "echo."},
-                    {getline, "Disabling shell history logging."},
                     {getline, "echo"}
-                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-                       " -kernel provider_add crash" ++
-                       " -pz " ++ filename:dirname(code:which(?MODULE))),
+                   ], [], [], "-kernel shell_history enabled " ++
+                       mk_sh_param(filename:join(Path,"logs"))),
 
-            %% Check that we can start with a node with a provider module
-            %% that return incorrect in load/0
-            rtnode([
-                    {putline, "echo."},
-                    {getline, "It returned {error,badreturn}."},
-                    {getline, "echo"}
-                   ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-                       " -kernel provider_add badreturn" ++
-                       " -pz " ++ filename:dirname(code:which(?MODULE)))
+        rtnode_check_logs("erlang.log.1", "Error handling file", Logs2)
+
+    after
+        file:write_file_info(Path, Info)
     end.
+
+shell_history_repair(Config) ->
+    Path = shell_history_path(Config, "repair"),
+
+    %% We stop a node without closing the log
+    try rtnode([
+            {putline, "echo."},
+            {getline, "echo"},
+            {sleep, 2500}, %% disk_log internal cache timer is 2000 ms
+            {putline, "erlang:halt(0)."}
+           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
+        _ ->
+            ok
+    catch _:_ ->
+            ok
+    end,
+
+    {ok, Logs} =
+        rtnode([
+                {putline, ""},
+                {putdata, [$\^p]}, {sleep,50}, %% the halt.
+                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    %% The regexp below checks that he string is NOT part of the log
+    rtnode_check_logs("erlang.log.1", 
+                      "The shell history log file was corrupted and was repaired",
+                      false,
+                      Logs),
+    ok.
+
+shell_history_repair_corrupt(Config) ->
+    Path = shell_history_path(Config, "repair_corrupt"),
+
+    %% We stop a node without closing the log
+    try rtnode([
+            {putline, "echo."},
+            {getline, "echo"},
+            {sleep, 2500}, %% disk_log internal cache timer is 2000 ms
+            {putline, "erlang:halt(0)."}
+           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
+        _ ->
+            ok
+    catch _:_ ->
+            ok
+    end,
+
+    %% We corrupt the disklog
+    {ok, D} = file:open(filename:join(Path,"erlang-shell-log.1"), [read,append]),
+    ok = file:write(D, [10,10]),
+    ok = file:close(D),
+
+    {ok, Logs} =
+        rtnode([
+                {putline, ""},
+                {putdata, [$\^p]}, {sleep,50}, %% the halt.
+                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    rtnode_check_logs("erlang.log.1", 
+                      "The shell history log file was corrupted and was repaired.",
+                      Logs),
+    ok.
+
+shell_history_corrupt(Config) ->
+    Path = shell_history_path(Config, "corrupt"),
+
+    %% We stop a node without closing the log
+    try rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
+        _ ->
+            ok
+    catch _:_ ->
+            ok
+    end,
+
+    %% We corrupt the disklog
+    {ok, D} = file:open(filename:join(Path,"erlang-shell-log.1"), [read, append]),
+    ok = file:write(D, [10, 10]),
+    ok = file:close(D),
+
+    {ok, Logs} =
+        rtnode([
+                {putline, ""},
+                {putdata, [$\^p]}, {sleep,50}, %% the halt.
+                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    rtnode_check_logs("erlang.log.1",  "Invalid chunk in the file", Logs),
+    ok.
+
+    
+shell_history_path(Config, TestCase) ->
+        filename:join([proplists:get_value(priv_dir, Config),
+                       "shell_history", TestCase]).
+
+mk_sh_param(Path) ->
+    "-kernel shell_history_path '\\\""  ++ Path ++ "\\\"'".
+
+shell_history_custom(_Config) ->
+    %% Up key: Ctrl + P = Cp=[$\^p]
+    rtnode([
+            {putline, ""},
+            {putline, [$\^p]},
+            {putline_raw, ""},
+            {getline, "0"},
+            {putline, "echo."},
+            {getline, "!echo"} %% exclamation sign is printed by custom history module
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))).
+
+shell_history_custom_errors(_Config) ->
+
+    %% Check that we can start with a node with an undefined
+    %% provider module.
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history very_broken " ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that crashes in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_load crash" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that return incorrect in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_load badreturn" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that crashes in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "Disabling shell history logging."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_add crash" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that return incorrect in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "It returned {error,badreturn}."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_add badreturn" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))).    
 
 load() ->
     case application:get_env(kernel,provider_load) of
@@ -579,8 +802,14 @@ rtnode(Commands,Nodename,ErlPrefix,Args) ->
         {ok, _SPid, CPid, RTState} ->
             erase(getline_skipped),
             Res = (catch get_and_put(CPid, Commands, 1)),
-            rtstop(RTState),
-            ok = Res;
+            Logs = rtstop(RTState),
+            case Res of
+                ok ->
+                    {Res, Logs};
+                _Else ->
+                    rtnode_dump_logs(Logs),
+                    ok = Res
+            end;
         Skip ->
             Skip
     end.
@@ -625,8 +854,19 @@ rtstop({CPid, SPid, ToErl, Tempdir}) ->
             ok
     end,
     wait_for_runerl_server(SPid),
+    {ok, LogFiles} = file:list_dir(Tempdir),
+    Logs =
+        lists:foldl(
+          fun(File, Acc) ->
+                  case file:read_file(filename:join(Tempdir, File)) of
+                      {ok, Data} ->
+                          Acc#{ File => Data };
+                      _ ->
+                          Acc
+                  end
+          end, #{}, LogFiles),
     file:del_dir_r(Tempdir),
-    ok.
+    Logs.
 
 timeout(long) ->
     2 * timeout(normal);
@@ -737,6 +977,19 @@ get_and_put(CPid, [{putline, Line}|T],N) ->
 	    error_logger:error_msg("~p: putline timeout (~p) sending "
 				   "\"~s\" (command number ~p)~n[~p]~n",
 				   [?MODULE, Timeout, Line, N,get()]),
+	    {error, timeout}
+    end;
+get_and_put(CPid, [{putdata, Data}|T],N) ->
+    ?dbg({putdata, Data}),
+    CPid ! {self(), {send_data, Data}},
+    Timeout = timeout(normal),
+    receive
+	{send_data, ok} ->
+	    get_and_put(CPid, T,N+1)
+    after Timeout ->
+	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
+				   "\"~s\" (command number ~p)~n",
+				   [?MODULE, Timeout, Data, N]),
 	    {error, timeout}
     end.
 
@@ -944,6 +1197,10 @@ toerl_loop(Port,Acc) ->
 	    Port ! {self(),{command, Data7++"\n"}},
 	    Pid ! {send_line, ok},
 	    toerl_loop(Port,Acc);
+        {Pid, {send_data, Data}} ->
+            Port ! {self(),{command, Data}},
+	    Pid ! {send_data, ok},
+	    toerl_loop(Port,Acc);
         {Pid, {kill_emulator_command, Cmd}} ->
             put(kill_emulator_command, Cmd),
             Pid ! {kill_emulator_command, ok},
@@ -1003,6 +1260,25 @@ get_data_within(Port, Timeout, Acc) ->
     after Timeout ->
 	    timeout
     end.
+
+rtnode_check_logs(Logname, Pattern, Logs) ->
+rtnode_check_logs(Logname, Pattern, true, Logs).
+rtnode_check_logs(Logname, Pattern, Match, Logs) ->
+        case re:run(maps:get(Logname, Logs), Pattern) of
+            {match, [_]} when Match ->
+                ok;
+            nomatch when not Match ->
+                ok;
+            _ ->
+                rtnode_dump_logs(Logs),
+                ct:fail("~p not found in log ~ts",[Pattern, Logname])
+        end.
+
+rtnode_dump_logs(Logs) ->
+    maps:foreach(
+      fun(File, Data) ->
+              ct:pal("~ts: ~ts",[File, Data])
+      end, Logs).
 
 get_default_shell() ->
     try
