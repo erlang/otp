@@ -125,6 +125,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
 
 connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     %% ?DBG({Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr}),
+
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2.
     %% The {debug, Bool} option is passed in Opts since it is
@@ -142,6 +143,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
         end,
 
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
+    %% ?DBG([{socket, SocketOpts}, {start, StartOpts}]),
     case
         start_server(
           Domain,
@@ -949,8 +951,10 @@ callback_mode() -> handle_event_function.
 init({open, Domain, ExtraOpts, Owner}) ->
     %% Listen or Connect
     %%
+
     %% ?DBG([{init, open},
-    %% 	  {domain, Domain}, {extraopts, ExtraOpts}, {owner, Owner}]),
+    %%  	  {domain, Domain}, {extraopts, ExtraOpts}, {owner, Owner}]),
+
     process_flag(trap_exit, true),
     OwnerMon  = monitor(process, Owner),
     Proto     = if (Domain =:= local) -> default; true -> tcp end,
@@ -966,7 +970,9 @@ init({open, Domain, ExtraOpts, Owner}) ->
                    owner = Owner,
                    owner_mon = OwnerMon},
             {ok, connect, {P, D#{type => undefined, buffer => <<>>}}};
-        {error, Reason} -> {stop, {shutdown, Reason}}
+        {error, Reason} ->
+	    %% ?DBG({open_failed, Reason}),
+	    {stop, {shutdown, Reason}}
     end;
 init({prepare, D, Owner}) ->
     %% Accept

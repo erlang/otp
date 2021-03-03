@@ -4937,18 +4937,20 @@ static
 BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
                                  ERL_NIF_TERM eopts, int* domain)
 {
-    int          edomain;
-
+    ERL_NIF_TERM edomain;
+    
     SGDBG( ("SOCKET", "esock_open2_get_domain -> entry with"
-            "\r\n   eopts: %T"
-            "\r\n", eopts) );
+	    "\r\n   eopts: %T"
+	    "\r\n", eopts) );
 
-    if (esock_extract_int_from_map(env, eopts,
-                                   esock_atom_domain, &edomain)) {
-        return esock_decode_domain(env, edomain, domain);
-    } else {
-        return FALSE;
-    }
+    if (!GET_MAP_VAL(env, eopts,
+		     esock_atom_domain, &edomain))
+      return FALSE;
+
+    if (! esock_decode_domain(env, edomain, domain))
+      return FALSE;
+
+    return TRUE;
 }
 #endif // #ifndef __WIN32__
 
