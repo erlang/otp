@@ -27,6 +27,23 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance logging option log_level to support none and all,
+	    also restore backwards compatibility for log_alert
+	    option.</p>
+          <p>
+	    Own Id: OTP-17228 Aux Id: ERIERL-614 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,27 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When using the DNS resolver option
+	    <c>servfail_retry_timeout</c> it did not honour the
+	    overall call time-out in e.g <c>inet_res:getbyname/3</c>.
+	    This misbehaviour has now been fixed. Also, the
+	    <c>servfail_retry_timeout</c> behaviour has been improved
+	    to only be enforced for servers that gives a servfail
+	    answer.</p>
+          <p>
+	    Own Id: OTP-12960 Aux Id: ERIERL-598, PR-4509 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
