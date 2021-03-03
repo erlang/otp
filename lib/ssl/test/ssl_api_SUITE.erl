@@ -2084,7 +2084,8 @@ cb_info(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------
 log_alert() ->
-    [{doc,"Test that we can set log_alert."}].
+    [{doc,"Test that we can set log_alert and that it translates to correct log_level" 
+      " that has replaced this option"}].
 
 log_alert(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
@@ -2094,15 +2095,17 @@ log_alert(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                        {options,  [{log_alert, false} | ServerOpts]}]),
+                                        {options,  [{log_alert, true} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                        {host, Hostname},
-                                        {from, self()},
-                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                        {options, [{log_alert, false} | ClientOpts]}]),
-
+    {Client, CSock} = ssl_test_lib:start_client([return_socket,
+                                                 {node, ClientNode}, {port, Port},
+                                                 {host, Hostname},
+                                                 {from, self()},
+                                                 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                                 {options, [{log_alert, false} | ClientOpts]}]),
+    
+    {ok, [{log_level, none}]} = ssl:connection_information(CSock, [log_level]),
+    
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
 

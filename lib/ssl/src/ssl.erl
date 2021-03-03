@@ -366,7 +366,7 @@
 -type srp_identity()             :: {Username :: string(), Password :: string()}.
 -type psk_identity()             :: string().
 -type log_alert()                :: boolean().
--type logging_level()            :: logger:level().
+-type logging_level()            :: logger:level() | none | all.
 -type client_session_tickets()   :: disabled | manual | auto.
 -type server_session_tickets()   :: disabled | stateful | stateless.
 -type session_tickets()          :: client_session_tickets() | server_session_tickets().
@@ -1906,12 +1906,10 @@ maybe_map_key_internal(client_preferred_next_protocols) ->
 maybe_map_key_internal(K) ->
     K.
 
-
 maybe_map_key_external(next_protocol_selector) ->
     client_preferred_next_protocols;
 maybe_map_key_external(K) ->
     K.
-
 
 check_dependencies(K, OptionsMap, Env) ->
     Rules =  maps:get(rules, Env),
@@ -1945,10 +1943,10 @@ dependecies_already_defined(L, OptionsMap) ->
 expand_options(Opts0, Rules) ->
     Opts1 = proplists:expand([{binary, [{mode, binary}]},
                       {list, [{mode, list}]}], Opts0),
-    assert_proplist(Opts1),
+    Opts2 = handle_option_format(Opts1, []),
 
     %% Remove depricated ssl_imp option
-    Opts = proplists:delete(ssl_imp, Opts1),
+    Opts = proplists:delete(ssl_imp, Opts2),
     AllOpts = maps:keys(Rules),
     SockOpts = lists:foldl(fun(Key, PropList) -> proplists:delete(Key, PropList) end,
                            Opts,
@@ -1976,7 +1974,6 @@ add_missing_options({L0, S, _C}, Rules) ->
     AllOpts = maps:keys(Rules),
     L = lists:foldl(Fun, L0, AllOpts),
     {L, S, length(L)}.
-
 
 default_value(Key, Rules) ->
     {Default, _} = maps:get(Key, Rules, {undefined, []}),
@@ -2219,20 +2216,18 @@ validate_option(key_update_at, Value, _)
   when is_integer(Value) andalso
        Value > 0 ->
     Value;
-validate_option(log_alert, true, _) ->
-    notice;
-validate_option(log_alert, false, _) ->
-    warning;
-validate_option(log_level, Value, _)
-  when is_atom(Value) andalso
-       (Value =:= emergency orelse
-        Value =:= alert orelse
-        Value =:= critical orelse
-        Value =:= error orelse
-        Value =:= warning orelse
-        Value =:= notice orelse
-        Value =:= info orelse
-        Value =:= debug) ->
+validate_option(log_level, Value, _) when
+      is_atom(Value) andalso
+      (Value =:= none orelse
+       Value =:= all orelse
+       Value =:= emergency orelse
+       Value =:= alert orelse
+       Value =:= critical orelse
+       Value =:= error orelse
+       Value =:= warning orelse
+       Value =:= notice orelse
+       Value =:= info orelse
+       Value =:= debug) ->
     Value;
 %% RFC 6066, Section 4
 validate_option(max_fragment_length, I, _)
@@ -2722,20 +2717,34 @@ binary_filename(FileName) ->
     Enc = file:native_name_encoding(),
     unicode:characters_to_binary(FileName, unicode, Enc).
 
-assert_proplist([]) ->
-    true;
-assert_proplist([{Key,_} | Rest]) when is_atom(Key) ->
-    assert_proplist(Rest);
+%% Assert that basic options are on the format {Key, Value}
+%% with a few exceptions and phase out log_alert 
+handle_option_format([], Acc) ->
+    Acc;
+handle_option_format([{log_alert, Bool} | Rest], Acc) when is_boolean(Bool) ->
+    case proplists:get_value(log_level, Acc ++ Rest, undefined) of
+        undefined -> 
+            handle_option_format(Rest, [{log_level, 
+                                         map_log_level(Bool)} | Acc]);
+        _ ->                             
+            handle_option_format(Rest, Acc)
+    end;                             
+handle_option_format([{Key,_} = Opt | Rest], Acc) when is_atom(Key) ->
+    handle_option_format(Rest, [Opt | Acc]);
 %% Handle exceptions 
-assert_proplist([{raw,_,_,_} | Rest]) ->
-    assert_proplist(Rest);
-assert_proplist([inet | Rest]) ->
-    assert_proplist(Rest);
-assert_proplist([inet6 | Rest]) ->
-    assert_proplist(Rest);
-assert_proplist([Value | _]) ->
+handle_option_format([{raw,_,_,_} = Opt | Rest], Acc) ->
+    handle_option_format(Rest,  [Opt | Acc]);
+handle_option_format([inet = Opt | Rest], Acc) ->
+    handle_option_format(Rest,  [Opt | Acc]);
+handle_option_format([inet6 = Opt | Rest], Acc) ->
+    handle_option_format(Rest,  [Opt | Acc]);
+handle_option_format([Value | _], _) ->
     throw({option_not_a_key_value_tuple, Value}).
 
+map_log_level(true) ->
+    notice;
+map_log_level(false) ->
+    none.
 
 handle_verify_option(verify_none, #{fail_if_no_peer_cert := false} = OptionsMap) ->
     OptionsMap#{verify => verify_none};
