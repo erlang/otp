@@ -32,6 +32,10 @@
 
 #include "beam_asm.h"
 
+#ifdef ADDRESS_SANITIZER
+#    include <sanitizer/lsan_interface.h>
+#endif
+
 static void init_label(Label *lp);
 
 void beam_load_prepare_emit(LoaderState *stp) {
@@ -826,6 +830,16 @@ void beam_load_finalize_code(LoaderState *stp,
     inst_p->native_module_rw = stp->native_module_rw;
     inst_p->code_hdr = stp->code_hdr;
     inst_p->code_length = code_size;
+#ifdef ADDRESS_SANITIZER
+    /*
+     * LeakSanitizer ignores directly mmap'ed memory by default. This causes
+     * false positive leak reports of literal areas if only pointed to by
+     * mmap'ed jit code. To suprress this we tell leak sanitizer that
+     * the jit code is part of the "root set" when doing leak analysis.
+     * Module purge should do a corresponding "unregister".
+     */
+    __lsan_register_root_region(inst_p->code_hdr, inst_p->code_length);
+#endif
 
     /* Update ranges (used for finding a function from a PC value). */
     erts_update_ranges(inst_p->code_hdr, code_size);

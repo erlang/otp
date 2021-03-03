@@ -42,6 +42,10 @@
 
 #include "jit/beam_asm.h"
 
+#if defined(BEAMASM) && defined(ADDRESS_SANITIZER)
+#  include <sanitizer/lsan_interface.h>
+#endif
+
 static struct {
     Eterm module;
     erts_mtx_t mtx;
@@ -2091,6 +2095,10 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 #ifndef BEAMASM
                 erts_free(ERTS_ALC_T_CODE, (void *) modp->old.code_hdr);
 #else
+#  ifdef ADDRESS_SANITIZER
+                __lsan_unregister_root_region(modp->old.code_hdr,
+                                              modp->old.code_length);
+#  endif
                 beamasm_purge_module(modp->old.native_module_exec,
                                      modp->old.native_module_rw);
 #endif
