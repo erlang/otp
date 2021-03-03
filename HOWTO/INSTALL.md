@@ -351,11 +351,6 @@ Some of the available `configure` options are:
     `configure` scripts (parallel execution is enabled by default)
 *   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
     default if possible)
-*   `--{enable,disable}-fp-exceptions` - Floating point exceptions (an
-    optimization for floating point operations). The default differs
-    depending on operating system and hardware platform. Note that by
-    enabling this you might get a seemingly working system that sometimes
-    fail on floating point operations.
 *   `--enable-m64-build` - Build 64-bit binaries using the `-m64` flag to
     `(g)cc`
 *   `--enable-m32-build` - Build 32-bit binaries using the `-m32` flag to
