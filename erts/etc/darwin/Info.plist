@@ -10,8 +10,6 @@
 	<string>English</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.erlang.beam</string>
-	<!-- <key>NSUserNotificationAlertStyle</key>
-	<string>alert</string> -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>
