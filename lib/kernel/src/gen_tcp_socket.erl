@@ -964,8 +964,9 @@ init({open, Domain, ExtraOpts, Owner}) ->
     case socket_open(Domain, Proto, ExtraOpts, Extra) of
         {ok, Socket} ->
             D  = server_opts(),
-            ok = socket:setopt(Socket, {otp,iow}, true),
-            ok = socket:setopt(Socket, {otp,meta}, meta(D)),
+            ok = socket:setopt(Socket, {otp,iow},    true),
+            ok = socket:setopt(Socket, {otp,meta},   meta(D)),
+            %% ok = socket:setopt(Socket, {otp,rcvbuf}, {8, 8*1024}),
             P =
                 #params{
                    socket = Socket,

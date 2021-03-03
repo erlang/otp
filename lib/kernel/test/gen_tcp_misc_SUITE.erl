@@ -63,7 +63,7 @@
          not_owner/1,
          passive_sockets_server/3,
          priority_server/2, 
-	 oct_acceptor/1,
+	 %% oct_acceptor/1,
          otp_3924_sender/5,
 	 otp_7731_server/2,
          zombie_server/3,
@@ -5857,65 +5857,125 @@ otp_9389_loop(S, OrigLinkHdr, State) ->
     end.
 
 wrapping_oct() ->
-    [{timetrap,{minutes,15}}].
+    [{timetrap, {minutes,20}}].
 
 %% Check that 64bit octet counters work.
 wrapping_oct(Config) when is_list(Config) ->
     ?TC_TRY(wrapping_oct, fun() -> do_wrapping_oct(Config) end).
 
+%% {recbuf, 8192}, {sndbuf, 8192}
 do_wrapping_oct(Config) ->
-    ?P("create listen socket"),
+    ?P("[ctrl] create listen socket"),
+    Ctrl = self(),
     {ok, LSock} = ?LISTEN(Config, 0, [{active,false},{mode,binary}]),
     {ok, LPort} = inet:port(LSock),
-
-    ?P("spawn acceptor"),
-    Acc = spawn_link(?MODULE, oct_acceptor, [LSock]),
-
-    ?P("start 'pumping' data"),
-    Res = oct_datapump(Config, LPort, 16#10000FFFF),
-
-    ?P("close listen socket"),
+    ?P("[ctrl] spawn acceptor"),
+    Acceptor = spawn_link(fun() -> oct_acceptor(Ctrl, LSock) end),
+    ?P("[ctrl] spawn pump"),
+    Pump     = spawn_link(fun() -> 
+                                  oct_datapump(Ctrl,
+                                               Config, LPort, 16#10000FFFF)
+                          end),
+    ?P("[ctrl] await acceptor socket"),
+    ASock = wc_await_socket("acceptor", Acceptor),
+    ?P("[ctrl] await pump socket"),
+    PSock = wc_await_socket("pump", Pump),
+    ?P("[ctrl] await completion (from pump)"),
+    Res = wc_await_completion(Acceptor, ASock, Pump, PSock),
+    ?P("[ctrl] close listen socket"),
     gen_tcp:close(LSock),
-
-    ?P("await acceptor termination"),
-    receive
-        {'EXIT', Acc, Reason} ->
-            ?P("acceptor terminated (as expected):"
-               "~n      ~p", [Reason])
-    after 5000 ->
-            ?P("acceptor termination timeout -> kill"),
-            exit(Acc, kill)
-    end,
-
-    ?P("verify result"),
+    ?P("[ctrl] verify result"),
     ok = Res,
-
-    ?P("done"),
+    ?P("[ctrl] done"),
     ok.
 
-oct_datapump(Config, Port, N) ->
+wc_await_socket(Tag, Pid) ->
+    receive
+        {Pid, socket, AS} ->
+            ?P("received ~s socket: "
+               "~n      ~p", [Tag, AS]),
+            AS
+    end.
+
+wc_await_completion(Acceptor, ASock, Pump, PSock) ->
+    receive
+        {'EXIT', Pump, Res} ->
+            ?P("[ctrl] Received pump exit: "
+               "~n      ~p", [Res]),
+            Res;
+        {'EXIT', Acceptor, Res} ->
+            ?P("[ctrl] Received unexpected acceptor exit: "
+               "~n      ~p", [Res]),
+            wc_await_completion(undefined, ASock, Pump, PSock)
+                
+    after 10000 ->
+            ASockStat = wc_sock_stat(ASock),
+            AccInfo   = wc_proc_info(Acceptor),
+            PSockStat = wc_sock_stat(PSock),
+            PumpInfo  = wc_proc_info(Pump),
+            ?P("Info: "
+               "~n   Acceptor Socket Stat: ~p"
+               "~n   Acceptor Info:        ~p"
+               "~n   Pump Socket Stat:     ~p"
+               "~n   Pump Info:            ~p",
+               [ASockStat, AccInfo, PSockStat, PumpInfo]),
+            wc_await_completion(Acceptor, ASock, Pump, PSock)
+    end.
+            
+wc_sock_stat(S) ->
+    inet:getstat(S).
+
+wc_proc_info(P) when is_pid(P) ->
+    try erlang:process_info(P)
+    catch
+        _:_:_ ->
+            undefined
+    end;
+wc_proc_info(_) ->
+    undefined.
+
+%% {recbuf, 16*1024}, {sndbuf, 16*1024}
+oct_datapump(Ctrl, Config, Port, N) ->
     ?P("[pump] connect to listener"),
     {ok, CSock} = ?CONNECT(Config, "localhost", Port,
-			   [{active,false},{mode,binary}]),
-    ?P("[pump] connected - start 'pumping'"),
-    oct_pump(CSock, N, binary:copy(<<$a:8>>,100000), 0).
+			   [{active, false}, {mode, binary}]),
+    ?P("[pump] announce to ctrl"),
+    Ctrl ! {self(), socket, CSock},
+    {ok, [{sndbuf,SndBuf}]} = inet:getopts(CSock, [sndbuf]),
+    ?P("[pump] connected - start 'pumping' with"
+       "~n      SndBuf: ~w", [SndBuf]),
+    put(action,  nothing),
+    put(sent,    0),
+    put(elapsed, 0),
+    put(rem_bytes, N),
+    oct_pump(CSock, N, binary:copy(<<$a:8>>,100000), 0, 0).
 
-oct_pump(S, N, _, _) when N =< 0 ->
+oct_pump(S, N, _, _, _Sent) when N =< 0 ->
     ?P("[pump] done"),
     (catch gen_tcp:close(S)),
-    ok;
-oct_pump(S, N, Bin, Last) ->
-    case gen_tcp:send(S,Bin) of
+    exit(ok);
+oct_pump(S, N, Bin, Last, Sent) ->
+    put(action, send),
+    Start   = erlang:monotonic_time(nanosecond),
+    Res     = gen_tcp:send(S, Bin),
+    Stop    = erlang:monotonic_time(nanosecond),
+    Elapsed = get(elapsed),
+    put(elapsed, Elapsed + (Stop - Start)),
+    put(action,  sent),
+    put(sent,    Sent+1),
+    case Res of
 	ok ->
 	    case inet:getstat(S) of
 		{ok, Stat} ->
 		    {_, R} = lists:keyfind(send_oct, 1, Stat),
 		    case (R < Last) of
 			true ->
-			    ?P("[pump] send counter error ~p < ~p",[R, Last]),
-			    {error, {output_counter, R, Last, N}};
+			    ?P("[pump] send counter error ~p < ~p", [R, Last]),
+                            (catch gen_tcp:close(S)),
+			    exit({error, {output_counter, R, Last, N}});
 			false ->
-			    oct_pump(S, N-byte_size(Bin), Bin, R)
+                            put(rem_bytes, N - byte_size(Bin)),
+			    oct_pump(S, N-byte_size(Bin), Bin, R, Sent+1)
 		    end;
 		{error, StatReason} ->
 		    ?P("[pump] get stat failed:"
@@ -5924,7 +5984,7 @@ oct_pump(S, N, Bin, Last) ->
 		       "~n      Remaining: ~p"
 		       "~n      Last:      ~p", [StatReason, N, Last]),
 		    (catch gen_tcp:close(S)),
-		    {error, {stat_failure, StatReason, N, Last}}
+		    exit({error, {stat_failure, StatReason, N, Last}})
 	    end;
 	{error, SendReason} ->
 	    ?P("[pump] send failed:"
@@ -5933,22 +5993,37 @@ oct_pump(S, N, Bin, Last) ->
 	       "~n      Remaining: ~p"
 	       "~n      Last:      ~p", [SendReason, N, Last]),
 	    (catch gen_tcp:close(S)),
-	    {error, {send_failure, SendReason, N, Last}}
+	    exit({error, {send_failure, SendReason, N, Last}})
     end.
     
 
-oct_acceptor(LSock) ->
+oct_acceptor(Ctrl, LSock) ->
     ?P("[acceptor] accept connection"),
     {ok, ASock} = gen_tcp:accept(LSock),
-    ?P("[acceptor] connection accepted"),
+    ?P("[acceptor] announce to ctrl"),
+    Ctrl ! {self(), socket, ASock},
+    {ok, [{recbuf,RecBuf}]} = inet:getopts(ASock, [recbuf]),
+    ?P("[acceptor] connection accepted - start receiving with: "
+       "~n      RecBuf: ~w", [RecBuf]),
     InitialInfo = if
 		      is_port(ASock) -> erlang:port_info(ASock);
 		      true           -> gen_tcp_socket:info(ASock)
 		  end,
+    put(action,  nothing),
+    put(recv,    0),
+    put(elapsed, 0),
     oct_aloop(ASock, [], InitialInfo, 0, 0).
 
 oct_aloop(S, LastStat, LastInfo, Received, Times) ->
-    case gen_tcp:recv(S, 0) of
+    put(action, recv),
+    Start   = erlang:monotonic_time(),
+    Res     = gen_tcp:recv(S, 0),
+    Stop    = erlang:monotonic_time(),
+    Elapsed = get(elapsed),
+    put(elapsed, Elapsed + (Stop - Start)),
+    put(action,  received),
+    put(recv,    Times+1),
+    case Res of
 	{ok, _} ->
 	    Info = if
 		       is_port(S) -> erlang:port_info(S);
@@ -5974,7 +6049,11 @@ oct_aloop(S, LastStat, LastInfo, Received, Times) ->
 			false ->
 			    case Times rem 16#FFFFF of
 				0 ->
-				    ?P("[acceptor] read: ~p", [R]);
+				    ?P("[acceptor] read: ~p"
+                                       "~n      Times: ~w"
+                                       "~n      Stat:  ~p"
+                                       "~n      Info:  ~p",
+                                       [R, Times, Stat, Info]);
 				_ ->
 				    ok
 			    end,
@@ -5987,7 +6066,7 @@ oct_aloop(S, LastStat, LastInfo, Received, Times) ->
 		       "~n      Received: ~p"
 		       "~n      Times:    ~p", [StatReason, Received, Times]),
 		    (catch gen_tcp:close(S)),
-		    {error, {stat_failure, StatReason, Received, Times}}
+		    exit({error, {stat_failure, StatReason, Received, Times}})
 	    end;
 	{error, RecvReason} ->
 	    ?P("[acceptor] receive failed:"
@@ -5996,7 +6075,8 @@ oct_aloop(S, LastStat, LastInfo, Received, Times) ->
 	       "~n      Received: ~p"
 	       "~n      Times:    ~p", [RecvReason, Received, Times]),
 	    (catch gen_tcp:close(S)),
-	    closed
+            ct:sleep(1000), % Just give the 'pump' a chance to get there first
+	    exit(closed)
     end.
 
 ok({ok,V}) -> V.
