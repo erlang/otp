@@ -10094,6 +10094,15 @@ static void tcp_inet_stop(ErlDrvData e)
     tcp_close_check(desc);
     tcp_clear_input(desc);
 
+#ifdef HAVE_SENDFILE
+    if(desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+        desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
+        close(desc->sendfile.dup_file_fd);
+        DEBUGF(("tcp_inet_stop(%p): SENDFILE dup closed %d\r\n",
+                desc->inet.port, desc->sendfile.dup_file_fd));
+    }
+#endif
+
     DEBUGF(("tcp_inet_stop(%p) }\r\n", desc->inet.port));
     inet_stop(INETP(desc));
 }
@@ -10109,12 +10118,6 @@ static void tcp_inet_stop(ErlDrvData e)
  * will be freed through tcp_inet_stop later on. */
 static void tcp_desc_close(tcp_descriptor* desc)
 {
-#ifdef HAVE_SENDFILE
-    if(desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
-        desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
-        close(desc->sendfile.dup_file_fd);
-    }
-#endif
 
     tcp_clear_input(desc);
     tcp_clear_output(desc);
@@ -10489,12 +10492,22 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
             return ctl_error(EINVAL, rbuf, rsize);
         } else if (!IS_CONNECTED(INETP(desc))) {
             return ctl_error(ENOTCONN, rbuf, rsize);
+        } else if (desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+            /* This should not happen as prim_inet.erl makes
+               sure that only the controlling process can
+               use the sendfile operation. But we add this
+               check here anyways just in case that prim_inet
+               is changed... */
+            return ctl_error(EINVAL, rbuf, rsize);
         }
 
         sys_memcpy(&raw_file_fd, buf, sizeof(raw_file_fd));
         buf += sizeof(raw_file_fd);
 
         desc->sendfile.dup_file_fd = dup(raw_file_fd);
+
+        DEBUGF(("tcp_inet_ctl(%p): SENDFILE dup %d\r\n",
+                desc->inet.port, desc->sendfile.dup_file_fd));
 
         if(desc->sendfile.dup_file_fd == -1) {
             return ctl_error(errno, rbuf, rsize);
@@ -10679,11 +10692,9 @@ static void tcp_inet_flush(ErlDrvData e)
 
 #ifdef HAVE_SENDFILE
     /* The old file driver aborted when it was stopped during sendfile, so
-     * we'll clear the flag and discard all output. */
+     * we'll clear the flag and discard all output. It is the job of
+     * tcp_inet_stop to close the extra sendfile fd. */
     if(desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
-        desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
-        close(desc->sendfile.dup_file_fd);
-
         discard_output = 1;
     }
 #endif
@@ -11843,6 +11854,9 @@ static int tcp_sendfile_completed(tcp_descriptor* desc) {
 
     desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
     close(desc->sendfile.dup_file_fd);
+
+    DEBUGF(("tcp_sendfile_completed(%p): SENDFILE dup closed %d\r\n",
+            desc->inet.port, desc->sendfile.dup_file_fd));
 
     /* While we flushed the output queue prior to sending the file, we've
      * deferred clearing busy status until now as there's no point in doing so
