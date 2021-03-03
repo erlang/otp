@@ -1494,35 +1494,45 @@ reduce_try_is([], Acc) ->
 %% unreachable landing pads, removing them from the set whenever we see a
 %% branch to that block. When we encounter a `new_try_tag` instruction that
 %% references a block in the unreachable set, we'll remove the try/catch.
-trim_try([{L, #b_blk{is=[#b_set{op=new_try_tag,dst=Tag}],
-                     last=Last0}=Blk0} | Bs],
-         Unreachable0, Killed0, Acc) ->
-    #b_br{succ=SuccLbl,fail=PadLbl} = Last0,
-    case sets:is_element(PadLbl, Unreachable0) of
-        true ->
-            %% The landing pad can't be reached in any way, remove the entire
-            %% try/catch.
-            Blk = Blk0#b_blk{is=[],
-                             last=#b_br{bool=#b_literal{val=true},
-                                        succ=SuccLbl,fail=SuccLbl}},
-
-            Unreachable = sets:del_element(PadLbl, Unreachable0),
-            Killed = sets:add_element(Tag, Killed0),
-            trim_try(Bs, Unreachable, Killed, [{L, Blk} | Acc]);
-        false ->
-            trim_try(Bs, Unreachable0, Killed0, [{L, Blk0} | Acc])
-    end;
 trim_try([{L, #b_blk{is=[#b_set{op=landingpad} | _]}=Blk}| Bs],
          Unreachable0, Killed, Acc) ->
     Unreachable1 = sets:add_element(L, Unreachable0),
-
     Successors = sets:from_list(beam_ssa:successors(Blk)),
     Unreachable = sets:subtract(Unreachable1, Successors),
     trim_try(Bs, Unreachable, Killed, [{L, Blk} | Acc]);
-trim_try([{L, Blk} | Bs], Unreachable0, Killed, Acc) ->
-    Successors = sets:from_list(beam_ssa:successors(Blk)),
-    Unreachable = sets:subtract(Unreachable0, Successors),
-    trim_try(Bs, Unreachable, Killed, [{L, Blk} | Acc]);
+trim_try([{L, #b_blk{last=#b_ret{}}=Blk} | Bs], Unreachable, Killed, Acc) ->
+    %% Nothing to update and nothing to optimize.
+    trim_try(Bs, Unreachable, Killed, [{L,Blk}|Acc]);
+trim_try([{L, Blk0} | Bs], Unreachable0, Killed0, Acc) ->
+    case sets:is_empty(Unreachable0) of
+        true ->
+            %% Nothing to update and nothing to optimize.
+            trim_try(Bs, Unreachable0, Killed0, [{L,Blk0}|Acc]);
+        false ->
+            #b_blk{is=Is0,last=Last0} = Blk0,
+            case reverse(Is0) of
+                [#b_set{op=new_try_tag,dst=Tag}|Is] ->
+                    #b_br{succ=SuccLbl,fail=PadLbl} = Last0,
+                    Unreachable = sets:del_element(PadLbl, Unreachable0),
+                    case sets:is_element(PadLbl, Unreachable0) of
+                        true ->
+                            %% The landing pad can't be reached in any way,
+                            %% remove the entire try/catch.
+                            Blk = Blk0#b_blk{is=reverse(Is),
+                                             last=#b_br{bool=#b_literal{val=true},
+                                                        succ=SuccLbl,fail=SuccLbl}},
+                            Killed = sets:add_element(Tag, Killed0),
+                            trim_try(Bs, Unreachable, Killed, [{L,Blk}|Acc]);
+                        false ->
+                            trim_try(Bs, Unreachable, Killed0, [{L,Blk0}|Acc])
+                    end;
+                _ ->
+                    %% Update the set of unreachable landing_pad blocks.
+                    Successors = sets:from_list(beam_ssa:successors(Blk0)),
+                    Unreachable = sets:subtract(Unreachable0, Successors),
+                    trim_try(Bs, Unreachable, Killed0, [{L,Blk0}|Acc])
+            end
+    end;
 trim_try([], _Unreachable, Killed, Acc0) ->
     case sets:is_empty(Killed) of
         true ->
