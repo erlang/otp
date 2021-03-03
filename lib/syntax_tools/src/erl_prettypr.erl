@@ -989,8 +989,7 @@ lay_type(Node, Ctxt, attribute) ->
     %% a function call, but prefixed with a "-" and followed by
     %% a period. If the arguments is `none', we only output the
     %% attribute name, without following parentheses.
-    Name = erl_syntax:attribute_name(Node),
-    Tag = (catch erl_syntax:concrete(Name)),
+    Tag = attribute_tag(Node),
     Ctxt1 = reset_separator(reset_prec(Ctxt)),
     lay_seq(prefix("-", lay_type(Node, Ctxt1, {attribute, Tag})), Ctxt1);
 lay_type(Node, Ctxt, {attribute, Tag}) when Tag =:= spec orelse
@@ -1055,7 +1054,7 @@ lay_type(Node, Ctxt, {attribute, _Tag}) ->
     Name = erl_syntax:attribute_name(Node),
     case erl_syntax:attribute_arguments(Node) of
         none -> {[Name], Ctxt};
-        Args -> hd(call_layout(Name, Args, Ctxt))
+        Args -> {call_layout(Name, Args, Ctxt), Ctxt}
     end;
 lay_type(Node, Ctxt, record_type_field) ->
     lay_op(erl_syntax:operator('::'),
@@ -1211,24 +1210,31 @@ form_filter(Forms) ->
 split_form_list([], _Ctxt) -> [eof_marker()];
 split_form_list([First | Forms], Ctxt) ->
     T1 = erl_syntax:type(First),
-    {SameCtxt, Same, Rest} =
-    lists:foldl(
-      fun(F, {C, Yes, No}) ->
-              case erl_syntax:type(F) of
-                  T1 when T1 == attribute orelse
-                          T1 == test orelse
-                          T1 == comment ->
-                      C1 = set_formatter(C, above),
-                      {C1, [F | Yes], No};
-                  T when T == T1 -> {C, [F | Yes], No};
-                  _ -> {C, Yes, [F | No]}
-              end
+    {Same, Rest} =
+    lists:splitwith(
+      fun(F) ->
+        case erl_syntax:type(F) of
+            TF when T1 == attribute andalso TF == function ->
+                attribute_tag(First) == spec;
+            TF when T1 == attribute andalso TF == T1 ->
+                AF = attribute_tag(F),
+                attribute_tag(First) == AF andalso AF =/= spec;
+            TF -> TF == T1
+        end
       end,
-      {Ctxt, [], []},
       Forms),
-    SameList = {[First | lists:reverse(Same)], SameCtxt},
-    [SameList | split_form_list(lists:reverse(Rest), Ctxt)].
+    SameCtxt =
+    if T1 == attribute orelse
+       T1 == test orelse
+       T1 == comment -> set_formatter(Ctxt, above);
+       true -> Ctxt
+    end,
+    SameList = {[First | Same], SameCtxt},
+    [SameList | split_form_list(Rest, Ctxt)].
 
+attribute_tag(Node) ->
+    Name = erl_syntax:attribute_name(Node),
+    catch erl_syntax:concrete(Name).
 
 %% Macros are not handled well.
 dodge_macros([Type]) ->
