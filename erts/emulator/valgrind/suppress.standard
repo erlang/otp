@@ -391,3 +391,10 @@ fun:_dlerror_run
 ...
 }
 
+{
+getnameinfo() seen to leak memory at beam exit (?)
+Memcheck:Leak
+...
+fun:getnameinfo
+...
+}
