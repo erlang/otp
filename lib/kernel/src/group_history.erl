@@ -239,6 +239,9 @@ read_full_log(Name) ->
         {error, no_such_log} ->
             show_unexpected_close_warning(),
             [];
+        {error, Reason} ->
+            show_invalid_chunk_warning(Name, Reason),
+            [];
         eof ->
             [];
         {Cont, Logs} ->
@@ -260,6 +263,9 @@ read_full_log(Name, Cont) ->
     case disk_log:chunk(Name, Cont) of
         {error, no_such_log} ->
             show_unexpected_close_warning(),
+            [];
+        {error, Reason} ->
+            show_invalid_chunk_warning(Name, Reason),
             [];
         eof ->
             [];
@@ -383,6 +389,12 @@ show_rename_warning() ->
          "been started for the shell of this node. The old "
          "name will keep being used for this session.~n",
          []).
+
+show_invalid_chunk_warning(Name, Reason) ->
+    show('$#erlang-history-invalid-chunk-warn',
+         "Invalid chunk in the file ~ts.~n"
+         "Some entries may have been lost.~nReason ~p.",
+         [proplists:get_value(file,disk_log:info(Name)), Reason]).
 
 show_invalid_file_warning(FileName) ->
     show('$#erlang-history-invalid-file',
