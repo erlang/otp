@@ -237,7 +237,7 @@
     <datatype>
       <name name="message_queue_data"></name>
       <desc>
-        <p>Process message queue data configuration. For more info see
+        <p>Process message queue data configuration. For more information, see
         <seeerl marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
 	MQD)</c></seeerl> </p>
       </desc>
@@ -5088,37 +5088,37 @@ RealSystem = system + MissedSystem</code>
       </fsummary>
       <type name="message_queue_data"/>
       <desc>
-        <p>This flag determines how messages in the message queue
+        <p>Determines how messages in the message queue
           are stored, as follows:</p>
         <taglist>
           <tag><c>off_heap</c></tag>
           <item>
             <p><em>All</em> messages in the message queue will be stored
-              outside of the process heap. This implies that <em>no</em>
+              outside the process heap. This implies that <em>no</em>
               messages in the message queue will be part of a garbage
               collection of the process.</p>
           </item>
           <tag><c>on_heap</c></tag>
           <item>
             <p>All messages in the message queue will eventually be
-              placed on heap. They can however temporarily be stored
-              off heap. This is how messages always have been stored
+              placed on the process heap. They can, however, be temporarily
+              stored off the heap. This is how messages have always been stored
               up until ERTS 8.0.</p>
           </item>
         </taglist>
-        <p>The default <c>message_queue_data</c> process flag is determined
-          by command-line argument <seecom marker="erl#+hmqd">
+        <p>The default value of the <c>message_queue_data</c> process flag is
+          determined by the command-line argument <seecom marker="erl#+hmqd">
           <c>+hmqd</c></seecom> in <c>erl(1)</c>.</p>
-        <p>If the process potentially can get many messages in its queue,
-          you are advised to set the flag to <c>off_heap</c>. This
-          because a garbage collection with many messages placed on
-          the heap can become extremely expensive and the process can
-          consume large amounts of memory. Performance of the
-          actual message passing is however generally better when not
-          using flag <c>off_heap</c>.</p>
-        <p>When changing this flag messages will be moved. This work
-          has been initiated but not completed when this function
-          call returns.</p>
+        <p>If the process may potentially accumulate a large number of messages
+          in its queue it is recommended to set the flag value to <c>off_heap</c>.
+          This is due to the fact that the garbage collection of a process that
+          has a large number of messages stored on the heap can become extremely
+          expensive and the process can consume large amounts of memory.
+          The performance of the actual message passing is, however, generally
+          better when the flag value is <c>on_heap</c>.</p>
+        <p>Changing the flag value causes any existing messages to be moved.
+          The move operation is initiated, but not necessarily completed,
+          by the time the function returns.</p>
         <p>Returns the old value of the flag.</p>
       </desc>
     </func>
@@ -5386,9 +5386,10 @@ RealSystem = system + MissedSystem</code>
               removed without prior notice. In the current implementation
               <c><anno>BinInfo</anno></c> is a list of tuples. The tuples
               contain; <c>BinaryId</c>, <c>BinarySize</c>, <c>BinaryRefcCount</c>.</p>
-            <p>The message queue is on the heap depending on the
-              process flag <seeerl marker="#process_flag_message_queue_data">
-            <c>message_queue_data</c></seeerl>.</p>
+            <p>Depending on the value of the
+              <seeerl marker="#process_flag_message_queue_data">
+              <c>message_queue_data</c></seeerl> process flag the message queue
+              may be stored on the heap.</p>
           </item>
           <tag><c>{catchlevel, <anno>CatchLevel</anno>}</c></tag>
           <item>
@@ -5542,8 +5543,8 @@ RealSystem = system + MissedSystem</code>
           </item>
           <tag><c>{message_queue_data, <anno>MQD</anno>}</c></tag>
           <item>
-            <p>Returns the current state of process flag
-              <c>message_queue_data</c>. <c><anno>MQD</anno></c> is either
+            <p><c><anno>MQD</anno></c> is the current value of the
+              <c>message_queue_data</c> process flag, which can be either
               <c>off_heap</c> or <c>on_heap</c>. For more
               information, see the documentation of
               <seeerl marker="#process_flag_message_queue_data">
@@ -6531,11 +6532,11 @@ true</pre>
           </item>
           <tag><c>{message_queue_data, <anno>MQD</anno>}</c></tag>
           <item>
-            <p>Sets the state of the <c>message_queue_data</c> process
-              flag. <c><anno>MQD</anno></c> is to be either <c>off_heap</c>
-              or <c>on_heap</c>. The default
+            <p>Sets the value of the <c>message_queue_data</c> process
+              flag. <c><anno>MQD</anno></c> can be either <c>off_heap</c>
+              or <c>on_heap</c>. The default value of the
               <c>message_queue_data</c> process flag is determined by
-              command-line argument <seecom marker="erl#+hmqd">
+              the command-line argument <seecom marker="erl#+hmqd">
               <c>+hmqd</c></seecom> in <c>erl(1)</c>.
               For more information, see the documentation of
               <seeerl marker="#process_flag_message_queue_data">
@@ -8812,11 +8813,10 @@ Metadata = #{ pid => pid(),
             <c>message_queue_data</c></tag>
           <item>
             <p>Returns the default value of the <c>message_queue_data</c>
-              process flag, which is either <c>off_heap</c> or <c>on_heap</c>.
-              This default is set by command-line argument
+              process flag, which can be either <c>off_heap</c> or <c>on_heap</c>.
+              The default value is set by the command-line argument
               <seecom marker="erl#+hmqd"><c>+hmqd</c></seecom> in
-              <c>erl(1)</c>. For more information on the
-              <c>message_queue_data</c> process flag, see documentation of
+              <c>erl(1)</c>. For more information, see the documentation of
               <seeerl marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
           </item>
