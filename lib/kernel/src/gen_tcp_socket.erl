@@ -1191,7 +1191,7 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
 	    %% the socket is in a "bad state" (maybe its closed).
 	    %% So, if that is the case we accept that we may not be
 	    %% able to update the meta data.
-	    socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
+	    _ = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
 	    ok;
 	_ ->
 	    %% We should really handle this better. stop_and_reply?
