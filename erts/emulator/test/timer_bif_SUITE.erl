@@ -30,7 +30,8 @@
 	 cleanup/1, evil_timers/1, registered_process/1, same_time_yielding/1,
 	 same_time_yielding_with_cancel/1, same_time_yielding_with_cancel_other/1,
 %	 same_time_yielding_with_cancel_other_accessor/1,
-	 auto_cancel_yielding/1]).
+	 auto_cancel_yielding/1,
+         multizero_timeout_in_timeout/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -68,7 +69,8 @@ all() ->
      same_time_yielding, same_time_yielding_with_cancel,
      same_time_yielding_with_cancel_other,
 %     same_time_yielding_with_cancel_other_accessor,
-     auto_cancel_yielding].
+     auto_cancel_yielding,
+     multizero_timeout_in_timeout].
 
 
 %% Basic start_timer/3 functionality
@@ -629,6 +631,26 @@ auto_cancel_yielding(Config) when is_list(Config) ->
     wait_until(fun () -> process_is_cleaned_up(P) end),
     Mem = mem(),
     ok.
+
+multizero_timeout_in_timeout(Config) when is_list(Config) ->
+    Timeout = 500,
+    MaxTimeoutDiff = 1000,
+
+    %% We want to operate on the same timer wheel all the time...
+    process_flag(scheduler, erlang:system_info(schedulers_online)),
+
+    erlang:send_after(5*(Timeout+MaxTimeoutDiff), self(), pling),
+    erlang:yield(),
+    Start = erlang:monotonic_time(),
+    erts_debug:set_internal_state(multizero_timeout_in_timeout, Timeout),
+    receive multizero_timeout_in_timeout_done -> ok end,
+    End = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(End-Start, native, millisecond),
+    io:format("Time=~p~n", [Time]),
+    true = Time < Timeout + MaxTimeoutDiff,
+    ok.
+            
+        
 
 process_is_cleaned_up(P) when is_pid(P) ->
     undefined == erts_debug:get_internal_state({process_status, P}).
