@@ -142,7 +142,7 @@
         {'access_mode', 'read_write' | 'read_only'} |
         {'attributes', [atom()]} |
         {'disc_copies', [node()]} |
-        {'disc_only_copies', [node]} |
+        {'disc_only_copies', [node()]} |
         {'index', [index_attr()]} |
         {'load_order', non_neg_integer()} |
         {'majority', boolean()} |
