@@ -1429,7 +1429,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <desc><p>Lists all possible cipher suites corresponding to
       <c>Description</c> that are available. The 
       <c>exclusive</c> option will exclusively list cipher suites
-      introduced in <c>Version</c> whereas the the other options
+      introduced in <c>Version</c> whereas the other options
       are inclusive from the lowest possible version to 
       <c>Version</c>. The <c>all</c> options includes all suites
       except the anonymous.
