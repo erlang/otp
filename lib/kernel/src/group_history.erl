@@ -291,13 +291,11 @@ handle_open_error({invalid_header, Term}) ->
     show('$#erlang-history-invalid-header',
          "Shell history expects to be able to use the log files "
          "which currently have unknown headers (~p) and may belong to "
-         "another mechanism. History logging will be "
-         "disabled.~n",
+         "another mechanism.~n",
          [Term]);
 handle_open_error({file_error, FileName, Reason}) ->
     show('$#erlang-history-file-error',
-         "Error handling File ~ts. Reason: ~p~n"
-         "History logging will be disabled.~n",
+         "Error handling file ~ts. Reason: ~p~n",
          [FileName, Reason]);
 handle_open_error(Err) ->
     show_unexpected_warning({disk_log, open, 1}, Err).
@@ -340,14 +338,14 @@ resize_log(Name, _OldSize, NewSize) ->
     case disk_log:change_size(Name, NewSize) of
         ok ->
             show('$#erlang-history-resize-result',
-                 "ok~n", []);
+                 "resized the log history file~n", []);
         {error, {new_size_too_small, _, _}} -> % cannot happen
             show('$#erlang-history-resize-result',
-                 "failed (new size is too small)~n", []),
+                 "failed to resize the log history file (new size is too small)~n", []),
             disable_history();
         {error, Reason} ->
             show('$#erlang-history-resize-result',
-                 "failed (~p)~n", [Reason]),
+                 "failed to resize the log history file (~p)~n", [Reason]),
             disable_history()
     end,
     _ = disk_log:close(?LOG_NAME),
@@ -400,8 +398,7 @@ show_invalid_file_warning(FileName) ->
     show('$#erlang-history-invalid-file',
          "Shell history expects to be able to use the file ~ts "
          "which currently exists and is not a file usable for "
-         "history logging purposes. History logging will be "
-         "disabled.~n", [FileName]).
+         "history logging purposes.~n", [FileName]).
 
 show_unexpected_warning({M,F,A}, Term) ->
     show('$#erlang-history-unexpected-return',
