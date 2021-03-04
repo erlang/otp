@@ -65,7 +65,8 @@
 
 	 unblock/1,
 
-	 open_overwrite/1, open_size/1, open_truncate/1, open_error/1,
+	 open_overwrite/1, open_size/1, open_change_size/1,
+         open_truncate/1, open_error/1,
 
 	 close_race/1, close_block/1, close_deadlock/1,
 
@@ -117,8 +118,8 @@
 	[halt_int, wrap_int, halt_ext, wrap_ext, read_mode, head,
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
-	 change_attribute, otp_6278, otp_10131, otp_16768,
-         otp_16809]).
+	 open_change_size, change_attribute, otp_6278, otp_10131,
+         otp_16768, otp_16809]).
 
 %% These tests should be skipped if the VxWorks card is configured *with*
 %% nfs cache.
@@ -159,7 +160,8 @@ groups() ->
       [wrap_notif, full_notif, trunc_notif, blocked_notif]},
      {block, [], [block_blocked, block_queue, block_queue2]},
      {open, [],
-      [open_overwrite, open_size, open_truncate, open_error]},
+      [open_overwrite, open_size, open_change_size, open_truncate,
+       open_error]},
      {close, [], [close_race, close_block, close_deadlock]},
      {error, [], [error_repair, error_log, error_index]},
      {info, [], [info_current]},
@@ -1911,7 +1913,8 @@ open_size(Conf) when is_list(Conf) ->
 		       {mode, read_only}, {format, internal},
 		       {size, {100, No + 1}}]),
     "The given size" ++ _ = format_error(Error1),
-    {ok, nn} = disk_log:open([{name, nn}, {file, File}, {type, wrap},
+    {ok, nn} =
+        disk_log:open([{name, nn}, {file, File}, {type, wrap},
 			      {mode, read_only},
 			      {format, internal},{size, {100, No}}]),
     [_, _, _, _] = get_all_terms1(nn, start, []),
@@ -1919,21 +1922,132 @@ open_size(Conf) when is_list(Conf) ->
 
     ok = disk_log:unblock(n),
     ok = disk_log:close(n),
+    del(File, No),
+
+    ok.
+
+%% OTP-17062. When opening a disk log for the first time, the 'size'
+%% option can change the size of the file.
+open_change_size(Conf) when is_list(Conf) ->
+
+    %% wrap logs
+
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "n.LOG"),
+
+    No = 4,
+    file:delete(File),
+    del(File, No),	% cleanup
+
+    {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
+			     {format, internal},{size, {100, No}}]),
+    [n] = disk_log:all(),
+    1 = curf(n),
+    B = mk_bytes(60),
+    ok = disk_log:log_terms(n, [B, B, B, B]),
+    4 = curf(n),
+    disk_log:close(n),
+
+    %% size option does not match existing size file, read_only
+    Error1 = {error, {size_mismatch, _, _}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {mode, read_only}, {format, internal},
+		       {size, {100, No + 1}}]),
+    "The given size" ++ _ = format_error(Error1),
+    {ok, nn} =
+        disk_log:open([{name, nn}, {file, File}, {type, wrap},
+			      {mode, read_only},
+			      {format, internal},{size, {100, No}}]),
+    [_, _, _, _] = get_all_terms(nn),
+    {error, {size_mismatch, _, _}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {mode, read_only}, {format, internal},
+		       {size, {100, No + 1}}]),
+    {error,{badarg,repair_read_only}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {mode, read_only}, {format, internal},
+		       {repair, truncate}, {size, {100, No + 1}}]),
+    disk_log:close(nn),
 
     %% size option does not match existing size file, read_write
+    No1 = No + 1,
+    No2 = No + 2,
+    %% open/1 can change the size of a newly opened wrap log
+    {ok, nn} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, {100, No1}}]),
+    {100, No1} = info(nn, size, foo),
+    4 = curf(nn),
+    %% open/1 cannot change the size of an open wrap log
     {error, {size_mismatch, _, _}} =
-	disk_log:open([{name, nn}, {file, File}, {type, wrap}, 
-		       {format, internal}, {size, {100, No + 1}}]),
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, {100, No2}}]),
+    ok = disk_log:close(nn),
+
+    %% open/1 cannot change the size of a newly opened wrap log to 'infinity'
+    {ok, nn} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, infinity}]),
+    {100, 5} = info(nn, size, foo),
+    4 = curf(nn),
+    %% open/1 cannot change the size of an open wrap log
+    {error, {size_mismatch, {100,5}, infinity}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, infinity}]),
+    ok = disk_log:close(nn),
+
     %% size option does not match existing size file, truncating
     {ok, nn} =
-	disk_log:open([{name, nn}, {file, File}, {type, wrap}, 
-		       {repair, truncate}, {format, internal}, 
-		       {size, {100, No + 1}}]),
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {repair, truncate}, {format, internal},
+		       {size, {100, No2}}]),
+    {100, No2} = info(nn, size, foo),
+    1 = curf(nn),
+    [] = get_all_terms(nn),
+    %% open/1 cannot change the size of an open wrap log
+    {error, {size_mismatch, _, _}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {repair, truncate}, {format, internal},
+		       {size, {100, No2 + 1}}]),
     ok = disk_log:close(nn),
 
     del(File, No),
-    ok.
 
+    %% halt logs
+    Name = 'log.LOG',
+    HFile = "log.LOG",
+    Finite = 10000,
+    {ok, _} = disk_log:open([{name,Name}, {type,halt}, {size,infinity},
+			     {format,internal}, {file,HFile}]),
+    ok = disk_log:blog(Name, B),
+
+    %% open/1 ignores the given size if the halt log is open,
+    %% which is backwards compatible.
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,Finite},
+                       {format,internal}, {file,HFile}]),
+    infinity = info(Name, size, foo),
+    ok = disk_log:close(Name),
+    %% open/1 can change the size of a newly opened halt log
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,Finite},
+                       {format,internal}, {file,HFile}]),
+    Finite = info(Name, size, foo),
+    %% open/1 ignores the given size if the halt log is open,
+    %% which is backwards compatible.
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,infinity},
+                       {format,internal}, {file,HFile}]),
+    Finite = info(Name, size, foo),
+    ok = disk_log:close(Name),
+
+    %% open/1 can open a halt log even if the given size is too small,
+    %% which is backwards compatible.
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,10},
+                       {format,internal}, {file,HFile}]),
+    file:delete(HFile),
+    ok.
 
 %% Test open/1 with {repair, truncate}.
 open_truncate(Conf) when is_list(Conf) ->

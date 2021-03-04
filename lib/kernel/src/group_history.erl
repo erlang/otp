@@ -44,9 +44,14 @@ load() ->
     wait_for_kernel_safe_sup(),
     case history_status() of
         enabled ->
-            try open_log() of
+            %% If the size option were included the log file would be
+            %% silently resized. If the log file does not exist, a
+            %% {badarg, size} error is returned and a new log file
+            %% created. If the file exists, the log file is resized if
+            %% needed, with a size warning.
+            try open_log_no_size() of
                 {ok, ?LOG_NAME} ->
-                    read_full_log(?LOG_NAME);
+                    maybe_resize_log(?LOG_NAME);
                 {repaired, ?LOG_NAME, {recovered, Good}, {badbytes, Bad}} ->
                     report_repairs(?LOG_NAME, Good, Bad),
                     read_full_log(?LOG_NAME);
@@ -57,13 +62,11 @@ load() ->
                 {error, {name_already_open, _}} ->
                     show_rename_warning(),
                     read_full_log(?LOG_NAME);
-                {error, {size_mismatch, Current, New}} ->
-                    show_size_warning(Current, New),
-                    resize_log(?LOG_NAME, Current, New),
-                    load();
                 {error, {invalid_header, {vsn, Version}}} ->
                     upgrade_version(?LOG_NAME, Version),
                     load();
+                {error, {badarg, size}} ->
+                    open_new_log(?LOG_NAME);
                 {error, Reason} ->
                     handle_open_error(Reason),
                     disable_history(),
@@ -122,8 +125,7 @@ wait_for_kernel_safe_sup() ->
 
 %% Repair the log out of band
 repair_log(Name) ->
-    Opts = lists:keydelete(size, 1, log_options()),
-    case disk_log:open(Opts) of
+    case open_log_no_size() of
         {repaired, ?LOG_NAME, {recovered, Good}, {badbytes, Bad}} ->
             report_repairs(?LOG_NAME, Good, Bad);
         _ ->
@@ -131,6 +133,16 @@ repair_log(Name) ->
     end,
     _ = disk_log:close(Name),
     load().
+
+open_new_log(Name) ->
+    case open_log() of
+        {error, Reason} ->
+            handle_open_error(Reason),
+            disable_history();
+        _ ->
+            _ = disk_log:close(Name),
+            load()
+    end.
 
 %% Return whether the shell history is enabled or not
 -spec history_status() -> enabled | disabled | module().
@@ -168,6 +180,12 @@ open_log() ->
     _ = ensure_path(Opts),
     disk_log:open(Opts).
 
+%% Like open_log(), but with no 'size' option.
+open_log_no_size() ->
+    Opts = lists:keydelete(size, 1, log_options()),
+    _ = ensure_path(Opts),
+    disk_log:open(Opts).
+
 %% Return logger options
 log_options() ->
     Path = find_path(),
@@ -201,6 +219,17 @@ read_full_log(Name) ->
             [];
         {Cont, Logs} ->
             lists:reverse(maybe_drop_header(Logs) ++ read_full_log(Name, Cont))
+    end.
+
+%% Resize or read an open log
+maybe_resize_log(Name) ->
+    case {disk_log_info(size), find_wrap_values()} of
+        {Sz, Sz} ->
+            read_full_log(Name);
+        {Current, New} ->
+            show_size_warning(Current, New),
+            resize_log(Name, Current, New),
+            load()
     end.
 
 read_full_log(Name, Cont) ->
@@ -243,6 +272,10 @@ handle_open_error({file_error, FileName, Reason}) ->
 handle_open_error(Err) ->
     show_unexpected_warning({disk_log, open, 1}, Err).
 
+disk_log_info(Tag) ->
+    {Tag, Value} = lists:keyfind(size, 1, disk_log:info(?LOG_NAME)),
+    Value.
+
 find_wrap_values() ->
     ConfSize = case application:get_env(kernel, shell_history_file_bytes) of
         undefined -> ?DEFAULT_SIZE;
@@ -267,19 +300,18 @@ report_repairs(_, Good, Bad) ->
 resize_log(Name, _OldSize, NewSize) ->
     show('$#erlang-history-resize-attempt',
          "Attempting to resize the log history file to ~p...", [NewSize]),
-    Opts = lists:keydelete(size, 1, log_options()),
-    _ = case disk_log:open(Opts) of
-        {error, {need_repair, _}} ->
-            _ = repair_log(Name),
-            disk_log:open(Opts);
-        _ ->
-            ok
-    end,
+    _ = case open_log_no_size() of
+            {error, {need_repair, _}} ->
+                _ = repair_log(Name),
+                _ = open_log_no_size();
+            _ ->
+                ok
+        end,
     case disk_log:change_size(Name, NewSize) of
         ok ->
             show('$#erlang-history-resize-result',
                  "ok~n", []);
-        {error, {new_size_too_small, _, _}} ->
+        {error, {new_size_too_small, _, _}} -> % cannot happen
             show('$#erlang-history-resize-result',
                  "failed (new size is too small)~n", []),
             disable_history();
@@ -287,7 +319,9 @@ resize_log(Name, _OldSize, NewSize) ->
             show('$#erlang-history-resize-result',
                  "failed (~p)~n", [Reason]),
             disable_history()
-    end.
+    end,
+    _ = disk_log:close(?LOG_NAME),
+    ok.
 
 upgrade_version(_Name, Unsupported) ->
     %% We only know of one version and can't support a newer one
@@ -299,7 +333,7 @@ upgrade_version(_Name, Unsupported) ->
 
 disable_history() ->
     show('$#erlang-history-disable', "Disabling shell history logging.~n", []),
-    application:set_env(kernel, shell_history, force_disabled).
+    application:set_env(kernel, shell_history, disabled).
 
 find_path() ->
     case application:get_env(kernel, shell_history_path) of

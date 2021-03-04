@@ -95,6 +95,7 @@
 	      file = none         :: 'none' | file:filename(),
 	      repair = true       :: dlog_repair(),
 	      size = infinity     :: dlog_size(),
+	      old_size = infinity :: dlog_size(), % read from size file
 	      type = halt         :: dlog_type(),
 	      format = internal   :: dlog_format(),
 	      linkto = self()     :: 'none' | pid(),
