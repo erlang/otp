@@ -904,9 +904,9 @@ $ <input>erl \
       </item>
       <tag><marker id="+hmqd"/><c>+hmqd off_heap|on_heap</c></tag>
       <item>
-        <p>Sets the default value for process flag <c>message_queue_data</c>.
+        <p>Sets the default value of the <c>message_queue_data</c> process flag.
           Defaults to <c>on_heap</c>. If <c>+hmqd</c> is not
-	  passed, <c>on_heap</c> will be the default. For more information, see
+          passed, <c>on_heap</c> will be the default. For more information, see
           <seeerl marker="erlang#process_flag_message_queue_data">
           <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
       </item>
