@@ -142,38 +142,38 @@ inet_backend_socket_cases() ->
 
 all_cases() ->
     [
-     controlling_process, controlling_process_self, no_accept,
-     close_with_pending_output, data_before_close,
-     iter_max_socks, passive_sockets, active_n, active_n_closed,
-     accept_closed_by_other_process, otp_3924, closed_socket,
-     shutdown_active, shutdown_passive, shutdown_pending,
-     show_econnreset_active, show_econnreset_active_once,
-     show_econnreset_passive, econnreset_after_sync_send,
-     econnreset_after_async_send_active,
-     econnreset_after_async_send_active_once,
-     econnreset_after_async_send_passive,
-     linger_zero, linger_zero_sndbuf,
-     default_options, http_bad_packet, busy_send,
-     busy_disconnect_passive, busy_disconnect_active,
-     fill_sendq, partial_recv_and_close,
-     partial_recv_and_close_2, partial_recv_and_close_3,
-     so_priority, recvtos, recvttl, recvtosttl,
-     recvtclass, primitive_accept,
-     multi_accept_close_listen, accept_timeout,
-     accept_timeouts_in_order, accept_timeouts_in_order2,
-     accept_timeouts_in_order3, accept_timeouts_in_order4,
-     accept_timeouts_in_order5, accept_timeouts_in_order6,
-     accept_timeouts_in_order7, accept_timeouts_mixed,
-     killing_acceptor, killing_multi_acceptors,
-     killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
-     active_once_closed,
-     send_timeout, send_timeout_active,
-     otp_7731,
-     wrapping_oct,
-     zombie_sockets,
-     otp_7816,
-     otp_8102, otp_9389,
-     otp_12242, delay_send_error, bidirectional_traffic
+     %% controlling_process, controlling_process_self, no_accept,
+     %% close_with_pending_output, data_before_close,
+     %% iter_max_socks, passive_sockets, active_n, active_n_closed,
+     %% accept_closed_by_other_process, otp_3924, closed_socket,
+     %% shutdown_active, shutdown_passive, shutdown_pending,
+     %% show_econnreset_active, show_econnreset_active_once,
+     %% show_econnreset_passive, econnreset_after_sync_send,
+     %% econnreset_after_async_send_active,
+     %% econnreset_after_async_send_active_once,
+     econnreset_after_async_send_passive% ,
+     %% linger_zero, linger_zero_sndbuf,
+     %% default_options, http_bad_packet, busy_send,
+     %% busy_disconnect_passive, busy_disconnect_active,
+     %% fill_sendq, partial_recv_and_close,
+     %% partial_recv_and_close_2, partial_recv_and_close_3,
+     %% so_priority, recvtos, recvttl, recvtosttl,
+     %% recvtclass, primitive_accept,
+     %% multi_accept_close_listen, accept_timeout,
+     %% accept_timeouts_in_order, accept_timeouts_in_order2,
+     %% accept_timeouts_in_order3, accept_timeouts_in_order4,
+     %% accept_timeouts_in_order5, accept_timeouts_in_order6,
+     %% accept_timeouts_in_order7, accept_timeouts_mixed,
+     %% killing_acceptor, killing_multi_acceptors,
+     %% killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
+     %% active_once_closed,
+     %% send_timeout, send_timeout_active,
+     %% otp_7731,
+     %% wrapping_oct,
+     %% zombie_sockets,
+     %% otp_7816,
+     %% otp_8102, otp_9389,
+     %% otp_12242, delay_send_error, bidirectional_traffic
     ].
 
 
@@ -1705,42 +1705,51 @@ do_econnreset_after_async_send_active_once(Config) ->
     ok.
 
 craasao_pre(Config) ->
-    ?P("create listen socket with active = false"),
+    ?P("[pre] create listen socket with active = false"),
     {ok, L}    = ?LISTEN(Config, 0, [{active, false}, {recbuf, 4096}]),
+    ?P("[pre] listen socket: "
+       "~n      ~p", [L]),
     {ok, Port} = inet:port(L),
-    ?P("create connect socket (~w)", [Port]),
+    ?P("[pre] create connect socket (~w)", [Port]),
     Client     = case ?CONNECT(Config, localhost, Port,
                                [{active,          false},
                                 {sndbuf,          4096},
                                 {show_econnreset, true}]) of
                      {ok, CSock} ->
+                         ?P("[pre] connect socket created:"
+                              "~n      ~p", [CSock]),
                          CSock;
                      {error, eaddrnotavail = Reason} ->
                          ?SKIPT(connect_failed_str(Reason))
                  end,
-    ?P("create accept socket"),
+    ?P("[pre] create accept socket"),
     {ok, Server} = gen_tcp:accept(L),
-    ?P("close listen socket"),
+    ?P("[pre] close listen socket"),
     ok = gen_tcp:close(L),
     {Client, Server, craasao_mk_payload(), "Whatever"}.
 
 craasao_populate(Client, Server, CPayload, SPayload)
   when is_port(Client) andalso is_port(Server) ->
-    ?P("[inet] client send data"),
+    ?P("[populate,inet] client send data when"
+       "~n      Client: ~p"
+       "~n      Server: ~p", [Client, Server]),
     ok      = gen_tcp:send(Client, CPayload),
-    ?P("[inet] verify client socket queue size"),
+    ?P("[populate,inet] verify client socket queue size"),
     {OS, _} = os:type(),
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail(T)
     end,
-    ?P("[inet] server send data"),
+    ?P("[populate,inet] server send data"),
     ok = gen_tcp:send(Server, SPayload),
-    ?P("[inet] sleep some"),
+    ?P("[populate,inet] sleep some"),
     ok = ct:sleep(20),
     {ok, undefined};
 craasao_populate(Client, Server, CPayload, SPayload) ->
+    ?P("[populate,socket] entry when"
+       "~n      Client: ~p"
+       "~n      Server: ~p", [Client, Server]),
     Sender = spawn_link(fun() ->
                                 craasao_populate_sender(Client, CPayload)
                         end),
@@ -1748,78 +1757,87 @@ craasao_populate(Client, Server, CPayload, SPayload) ->
         {'EXIT', Sender, Reason} ->
             {error, {unexpected_exit, Sender, Reason}}
     after 2000 ->
-            ?P("[server] send something"),
+            ?P("[populate,socket] send something"),
             ok = gen_tcp:send(Server, SPayload),
             {ok, Sender}
     end.
 
 craasao_populate_sender(Client, Payload) ->
-    ?P("[socket] send payload (expect failure)"), 
+    ?P("[populate,sender] send payload (expect failure)"), 
     {error, econnreset} = gen_tcp:send(Client, Payload),
-    ?P("[socket] payload send failure (as expected)"), 
+    ?P("[populate,sender] payload send failure (as expected)"), 
     exit(normal).
 
 craasao_mk_payload() ->
     list_to_binary(lists:duplicate(1024 * 1024, $.)).
 
 craasao_verify(Client, _Sender, _Payload) when is_port(Client) ->
-    ?P("ensure no 'unexpected messages' received"),
+    ?P("[verify] ensure no 'unexpected messages' received"),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
-    ?P("set client socket option active: once"),
+    ?P("[verify] set client socket option active: once"),
     ok = inet:setopts(Client, [{active, once}]),
-    ?P("client expect econnreset"),
+    ?P("[verify] expect client econnreset"),
     receive
 	{tcp_error, Client, econnreset} ->
-            ?P("client received econnreset -> expect socket close message"),
+            ?P("[verify] received client econnreset -> "
+               "expect client closed message"),
 	    receive
 		{tcp_closed, Client} ->
-                    ?P("[connect] received socket close message - done"),
+                    ?P("[verify] "
+                       "received expected client closed message - done"),
 		    ok;
 		Other1 ->
-                    ?P("client received unexpected message (expected closed): "
+                    ?P("[verify] client received unexpected message "
+                         "(expected closed): "
                        "~n      ~p", [Other1]),
 		    ct:fail({unexpected, tcp_closed, Other1})
 	    end;
 	Other2 ->
-            ?P("client received unexpected message (expected error): "
+            ?P("[verify] client received unexpected message (expected error): "
                "~n      Unexpected: ~p"
                "~n      Flushed:    ~p", [Other2, craasao_flush()]),
 	    ct:fail({unexpected, tcp_error, Other2})
     end;
 craasao_verify(Client, Sender, Payload) when is_pid(Sender) ->
+    ?P("[verify] begin with"
+       "~n      Client: ~p"
+       "~n      Sender: ~p", [Client, Sender]),
     craasao_verify_sender(Sender),
-    ?P("ensure no 'unexpected messages' received"),
+    ?P("[verify] ensure no 'unexpected messages' received"),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
-    ?P("set client socket option active once (1)"),
+    ?P("[verify] set client socket option active once (1)"),
     ok = inet:setopts(Client, [{active, once}]),
-    ?P("client expect (server) data"),
+    ?P("[verify] client expect (server) data"),
     receive
         {tcp, Client, Payload} ->
-            ?P("client received expected data"),
+            ?P("[verify] client received expected data"),
             ok
     end,
-    ?P("set client socket option active once (2)"),
+    ?P("[verify] set client socket option active once (2)"),
     ok = inet:setopts(Client, [{active, once}]),
-    ?P("await client closed"),
+    ?P("[verify] await client econnreset"),
     receive
 	{tcp_error, Client, econnreset} ->
-            ?P("client received econnreset -> expect socket close message"),
+            ?P("[verify] client received expected econnreset -> "
+               "expect socket close message"),
 	    receive
 		{tcp_closed, Client} ->
-		    ?P("client received expected closed message");
+		    ?P("[verify] client received expected closed message"),
+                    ok;
 		Other1 ->
-		    ?P("client received unexpected message (expected closed): "
+		    ?P("[verify] client received unexpected message "
+                         "(expected closed): "
 		       "~n      Unexpected: ~p"
 		       "~n      Flushed:    ~p", [Other1, craasao_flush()]),
 		    ct:fail({unexpected, tcp_closed, Other1})
 	    end;
 	Other2 ->
-            ?P("client received unexpected message (expected error): "
+            ?P("[verify] client received unexpected message (expected error): "
                "~n      Unexpected: ~p"
                "~n      Flushed:    ~p", [Other2, craasao_flush()]),
 	    ct:fail({unexpected, tcp_error, Other2})
     after 10000 ->
-            ?P("client received unexpected timeout (expected error): "
+            ?P("[verify] client received unexpected timeout (expected error): "
                "~n      Flushed: ~p", [craasao_flush()]),
 	    ct:fail({unexpected_timeout, tcp_error})            
     end.
