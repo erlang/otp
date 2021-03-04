@@ -758,7 +758,7 @@ insert_reserve_is([I | Is], Reserve, Var) ->
     [I | insert_reserve_is(Is, Reserve, Var)].
 
 insert_bind(Lbl, Ref, Marker, Blocks0, Count0) ->
-    #{ Lbl := #b_blk{is=Is0}=Blk } = Blocks0,
+    #{ Lbl := #b_blk{is=Is0,last=Last}=Blk } = Blocks0,
 
     Ignored = #b_var{name={'@ssa_ignored', Count0}},
     Count = Count0 + 1,
@@ -767,19 +767,21 @@ insert_bind(Lbl, Ref, Marker, Blocks0, Count0) ->
                    args=[Marker,Ref],
                    dst=Ignored },
 
-    Is = insert_bind_is(Is0, Bind),
+    Is = insert_bind_is(Is0, Bind, Last),
     Blocks = Blocks0#{ Lbl := Blk#b_blk{is=Is} },
 
     {Blocks, Count}.
 
-insert_bind_is([#b_set{}, #b_set{op={succeeded,_}}]=Is, Bind) ->
+insert_bind_is([#b_set{}, #b_set{op={succeeded,_}}]=Is, Bind, _Last) ->
     [Bind | Is];
-insert_bind_is([#b_set{op=new_try_tag}]=Is, Bind) ->
+insert_bind_is([#b_set{op=call,dst=Ret}]=Is, Bind, #b_ret{arg=Ret}) ->
     [Bind | Is];
-insert_bind_is([#b_set{op=Op}=I | Is], Bind) ->
+insert_bind_is([#b_set{op=new_try_tag}]=Is, Bind, _Last) ->
+    [Bind | Is];
+insert_bind_is([#b_set{op=Op}=I | Is], Bind, Last) ->
     true = Op =/= bs_put,                       %Assertion.
-    [I | insert_bind_is(Is, Bind)];
-insert_bind_is([], Bind) ->
+    [I | insert_bind_is(Is, Bind, Last)];
+insert_bind_is([], Bind, _Last) ->
     [Bind].
 
 insert_uses([{_Lbl, #b_set{op=call}, _Ref} | Uses], Blocks, Count) ->
