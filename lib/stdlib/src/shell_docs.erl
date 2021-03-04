@@ -335,8 +335,8 @@ trim_last([],_What) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec get_doc(Module :: module()) -> chunk_elements().
 get_doc(Module) ->
-    {ok, #docs_v1{ module_doc = ModuleDoc } } = code:get_doc(Module),
-    get_local_doc(Module, ModuleDoc).
+    {ok, #docs_v1{ module_doc = ModuleDoc } = D } = code:get_doc(Module),
+    get_local_doc(Module, ModuleDoc, D).
 
 -spec get_doc(Module :: module(), Function, Arity) ->
           [{{Function,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
@@ -346,7 +346,7 @@ get_doc(Module) ->
       Signature :: [binary()],
       Metadata :: #{}.
 get_doc(Module, Function, Arity) ->
-    {ok, #docs_v1{ docs = Docs } } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                              F =:= Function andalso A =:= Arity;
@@ -354,7 +354,7 @@ get_doc(Module, Function, Arity) ->
                              false
                      end, Docs),
 
-    [{F,A,S,get_local_doc({F,A},D),M} || {F,A,S,D,M} <- FnFunctions].
+    [{F,A,S,get_local_doc({F,A},Dc,D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
 -spec render(Module, Docs) -> unicode:chardata() when
       Module :: module(),
@@ -375,7 +375,7 @@ render(Module, #docs_v1{ } = D) when is_atom(Module) ->
 render(Module, #docs_v1{ module_doc = ModuleDoc } = D, Config)
   when is_atom(Module), is_map(Config) ->
     render_headers_and_docs([[{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]}]],
-                            get_local_doc(Module, ModuleDoc), D, Config);
+                            get_local_doc(Module, ModuleDoc, D), D, Config);
 render(_Module, Function, #docs_v1{ } = D) ->
     render(_Module, Function, D, #{}).
 
@@ -430,14 +430,14 @@ render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
       Signature :: [binary()],
       Metadata :: #{}.
 get_type_doc(Module, Type, Arity) ->
-    {ok, #docs_v1{ docs = Docs } } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Type andalso A =:= Arity;
                         (_) ->
                              false
                      end, Docs),
-    [{F,A,S,get_local_doc(F, D),M} || {F,A,S,D,M} <- FnFunctions].
+    [{F,A,S,get_local_doc(F, Dc, D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
 -spec render_type(Module, Docs) -> unicode:chardata() when
       Module :: module(),
@@ -501,14 +501,14 @@ render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
       Signature :: [binary()],
       Metadata :: #{}.
 get_callback_doc(Module, Callback, Arity) ->
-    {ok, #docs_v1{ docs = Docs } } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Callback andalso A =:= Arity;
                         (_) ->
                              false
                      end, Docs),
-    [{F,A,S,get_local_doc(F, D),M} || {F,A,S,D,M} <- FnFunctions].
+    [{F,A,S,get_local_doc(F, Dc, D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
 -spec render_callback(Module, Docs) -> unicode:chardata() when
       Module :: module(),
@@ -562,22 +562,27 @@ render_callback(_Module, Callback, Arity, #docs_v1{ docs = Docs } = D, Config) -
                    end, Docs), D, Config).
 
 %% Get the docs in the correct locale if it exists.
-get_local_doc(MissingMod, Docs) when is_atom(MissingMod) ->
-    get_local_doc(atom_to_binary(MissingMod), Docs);
-get_local_doc({F,A}, Docs) ->
-    get_local_doc(unicode:characters_to_binary(io_lib:format("~tp/~p",[F,A])), Docs);
-get_local_doc(_Missing, #{ <<"en">> := Docs }) ->
+get_local_doc(MissingMod, Docs, D) when is_atom(MissingMod) ->
+    get_local_doc(atom_to_binary(MissingMod), Docs, D);
+get_local_doc({F,A}, Docs, D) ->
+    get_local_doc(unicode:characters_to_binary(io_lib:format("~tp/~p",[F,A])), Docs, D);
+get_local_doc(_Missing, #{ <<"en">> := Docs }, D) ->
     %% English if it exists
-    normalize(Docs);
-get_local_doc(_Missing, ModuleDoc) when map_size(ModuleDoc) > 0 ->
+    normalize_format(Docs, D);
+get_local_doc(_Missing, ModuleDoc, D) when map_size(ModuleDoc) > 0 ->
     %% Otherwise take first alternative found
-    normalize(maps:get(hd(maps:keys(ModuleDoc)), ModuleDoc));
-get_local_doc(Missing, hidden) ->
+    normalize_format(maps:get(hd(maps:keys(ModuleDoc)), ModuleDoc), D);
+get_local_doc(Missing, hidden, _D) ->
     [{p,[],[<<"The documentation for ">>,Missing,
             <<" is hidden. This probably means that it is internal "
               "and not to be used by other applications.">>]}];
-get_local_doc(Missing, None) when None =:= none; None =:= #{} ->
+get_local_doc(Missing, None, _D) when None =:= none; None =:= #{} ->
     [{p,[],[<<"There is no documentation for ">>,Missing]}].
+
+normalize_format(Docs, #docs_v1{ format = ?NATIVE_FORMAT }) ->
+    normalize(Docs);
+normalize_format(Docs, #docs_v1{ format = <<"text/", _/binary>> }) when is_binary(Docs) ->
+    [{pre, [], [Docs]}].
 
 %%% Functions for rendering reference documentation
 render_function([], _D, _Config) ->
@@ -599,13 +604,13 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
                                         Doc =/= #{}
                                 end, Members) of
                   {value, {_,_,_,Doc,_Meta}} ->
-                      render_headers_and_docs(Signatures, get_local_doc({F,A},Doc), D, Config);
+                      render_headers_and_docs(Signatures, get_local_doc({F,A},Doc,D), D, Config);
                   false ->
                       case lists:keyfind(Group, 1, Docs) of
                           false ->
-                              render_headers_and_docs(Signatures, get_local_doc({F,A},none), D, Config);
+                              render_headers_and_docs(Signatures, get_local_doc({F,A},none,D), D, Config);
                           {_,_,_,Doc,_} ->
-                              render_headers_and_docs(Signatures, get_local_doc({F,A},Doc), D, Config)
+                              render_headers_and_docs(Signatures, get_local_doc({F,A},Doc,D), D, Config)
                       end
               end
       end, maps:to_list(Grouping)).
@@ -682,12 +687,12 @@ render_signature_listing(Module, Type, #docs_v1{ docs = Docs } = D, Config) ->
                    {br,[],[]}, Hdr], D, Config)
     end.
 
-render_typecb_docs([], _D) ->
+render_typecb_docs([], _C) ->
     {error,type_missing};
-render_typecb_docs(TypeCBs, #config{} = D) when is_list(TypeCBs) ->
-    [render_typecb_docs(TypeCB, D) || TypeCB <- TypeCBs];
-render_typecb_docs({{_,F,A},_,_Sig,Docs,_Meta} = TypeCB, #config{} = D) ->
-    render_headers_and_docs(render_signature(TypeCB), get_local_doc({F,A},Docs), D).
+render_typecb_docs(TypeCBs, #config{} = C) when is_list(TypeCBs) ->
+    [render_typecb_docs(TypeCB, C) || TypeCB <- TypeCBs];
+render_typecb_docs({{_,F,A},_,_Sig,Docs,_Meta} = TypeCB, #config{docs = D} = C) ->
+    render_headers_and_docs(render_signature(TypeCB), get_local_doc({F,A},Docs,D), C).
 render_typecb_docs(Docs, D, Config) ->
     render_typecb_docs(Docs, init_config(D, Config)).
 

@@ -19,9 +19,10 @@
 %%
 -module(shell_docs_SUITE).
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
-	 init_per_group/2, end_per_group/2]).
+   init_per_group/2, end_per_group/2]).
 
--export([render/1, render_smoke/1, links/1, normalize/1, render_prop/1]).
+-export([render/1, render_smoke/1, links/1, normalize/1, render_prop/1,
+         render_non_native/1]).
 
 -export([render_all/1, update_render/0, update_render/1]).
 
@@ -32,7 +33,7 @@ suite() ->
     [{timetrap,{minutes,10}}].
 
 all() ->
-    [render_smoke, render, links, normalize, {group, prop}].
+    [render_smoke, render, render_non_native, links, normalize, {group, prop}].
 
 groups() ->
     [{prop,[],[render_prop]}].
@@ -234,6 +235,24 @@ b2a(Bin) ->
         {ok,[{atom,_,A}],_} -> A;
         {ok,[{A,_}],_} -> A
     end.
+
+%% Test rendering of non-native modules
+render_non_native(_Config) ->
+    Docs = #docs_v1{
+        anno = erl_anno:new(13),
+        beam_language = not_erlang,
+        format = <<"text/asciidoc">>,
+        module_doc = #{<<"en">> => <<"This is\n\npure text">>},
+        docs= []
+    },
+
+    <<"\n\tnot_an_erlang_module\n\n"
+      "    This is\n"
+      "    \n"
+      "    pure text\n">> =
+        unicode:characters_to_binary(shell_docs:render(not_an_erlang_module, Docs, #{})),
+
+    ok.
 
 %% Testing functions
 render_all(Dir) ->

@@ -158,10 +158,14 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
 -type ht_return() :: h_return() | {error, type_missing}.
 -type hcb_return() :: h_return() | {error, callback_missing}.
 
+-define(RENDERABLE_FORMAT(Format),
+        Format =:= ?NATIVE_FORMAT;
+        binary_part(Format, 0, 5) =:= <<"text/">>).
+
 -spec h(module()) -> h_return().
 h(Module) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render(Module, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -172,7 +176,7 @@ h(Module) ->
 -spec h(module(),function()) -> hf_return().
 h(Module,Function) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render(Module, Function, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -183,7 +187,7 @@ h(Module,Function) ->
 -spec h(module(),function(),arity()) -> hf_return().
 h(Module,Function,Arity) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render(Module, Function, Arity, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -194,7 +198,7 @@ h(Module,Function,Arity) ->
 -spec ht(module()) -> h_return().
 ht(Module) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_type(Module, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -205,7 +209,7 @@ ht(Module) ->
 -spec ht(module(),Type :: atom()) -> ht_return().
 ht(Module,Type) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_type(Module, Type, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -217,7 +221,7 @@ ht(Module,Type) ->
           ht_return().
 ht(Module,Type,Arity) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_type(Module, Type, Arity, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -228,7 +232,7 @@ ht(Module,Type,Arity) ->
 -spec hcb(module()) -> h_return().
 hcb(Module) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_callback(Module, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -239,7 +243,7 @@ hcb(Module) ->
 -spec hcb(module(),Callback :: atom()) -> hcb_return().
 hcb(Module,Callback) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_callback(Module, Callback, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -251,7 +255,7 @@ hcb(Module,Callback) ->
           hcb_return().
 hcb(Module,Callback,Arity) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_callback(Module, Callback, Arity, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
