@@ -1688,7 +1688,7 @@ handle_recv_length(P, #{buffer := Buffer} = D, ActionsR, Length) ->
 %% is the last argument binary and D#{buffer} is not updated
 %%
 handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
-    %% ?DBG('try socket recv'),
+    %5 ?DBG('try socket recv'),
     case socket_recv(P#params.socket, Length) of
         {ok, <<Data/binary>>} ->
             handle_recv_deliver(
@@ -1895,6 +1895,7 @@ cleanup_recv(P, D, State, Reason) ->
 
 cleanup_recv_reply(
   P, #{show_econnreset := ShowEconnreset} = D, ActionsR, Reason) ->
+    %% ?DBG({ShowEconnreset, Reason}),
     case D of
         #{active := false} -> ok;
         #{active := _} ->
@@ -1936,6 +1937,7 @@ cleanup_recv_reply(
              Reason_1 =
                  case Reason of
                      econnreset when ShowEconnreset =:= false -> closed;
+                     closed     when ShowEconnreset =:= true  -> econnreset;
                      _ -> Reason
                  end,
              [{reply, From, {error, Reason_1}},

@@ -142,38 +142,38 @@ inet_backend_socket_cases() ->
 
 all_cases() ->
     [
-     %% controlling_process, controlling_process_self, no_accept,
-     %% close_with_pending_output, data_before_close,
-     %% iter_max_socks, passive_sockets, active_n, active_n_closed,
-     %% accept_closed_by_other_process, otp_3924, closed_socket,
-     %% shutdown_active, shutdown_passive, shutdown_pending,
-     %% show_econnreset_active, show_econnreset_active_once,
-     %% show_econnreset_passive, econnreset_after_sync_send,
-     %% econnreset_after_async_send_active,
-     %% econnreset_after_async_send_active_once,
-     econnreset_after_async_send_passive% ,
-     %% linger_zero, linger_zero_sndbuf,
-     %% default_options, http_bad_packet, busy_send,
-     %% busy_disconnect_passive, busy_disconnect_active,
-     %% fill_sendq, partial_recv_and_close,
-     %% partial_recv_and_close_2, partial_recv_and_close_3,
-     %% so_priority, recvtos, recvttl, recvtosttl,
-     %% recvtclass, primitive_accept,
-     %% multi_accept_close_listen, accept_timeout,
-     %% accept_timeouts_in_order, accept_timeouts_in_order2,
-     %% accept_timeouts_in_order3, accept_timeouts_in_order4,
-     %% accept_timeouts_in_order5, accept_timeouts_in_order6,
-     %% accept_timeouts_in_order7, accept_timeouts_mixed,
-     %% killing_acceptor, killing_multi_acceptors,
-     %% killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
-     %% active_once_closed,
-     %% send_timeout, send_timeout_active,
-     %% otp_7731,
-     %% wrapping_oct,
-     %% zombie_sockets,
-     %% otp_7816,
-     %% otp_8102, otp_9389,
-     %% otp_12242, delay_send_error, bidirectional_traffic
+     controlling_process, controlling_process_self, no_accept,
+     close_with_pending_output, data_before_close,
+     iter_max_socks, passive_sockets, active_n, active_n_closed,
+     accept_closed_by_other_process, otp_3924, closed_socket,
+     shutdown_active, shutdown_passive, shutdown_pending,
+     show_econnreset_active, show_econnreset_active_once,
+     show_econnreset_passive, econnreset_after_sync_send,
+     econnreset_after_async_send_active,
+     econnreset_after_async_send_active_once,
+     econnreset_after_async_send_passive,
+     linger_zero, linger_zero_sndbuf,
+     default_options, http_bad_packet, busy_send,
+     busy_disconnect_passive, busy_disconnect_active,
+     fill_sendq, partial_recv_and_close,
+     partial_recv_and_close_2, partial_recv_and_close_3,
+     so_priority, recvtos, recvttl, recvtosttl,
+     recvtclass, primitive_accept,
+     multi_accept_close_listen, accept_timeout,
+     accept_timeouts_in_order, accept_timeouts_in_order2,
+     accept_timeouts_in_order3, accept_timeouts_in_order4,
+     accept_timeouts_in_order5, accept_timeouts_in_order6,
+     accept_timeouts_in_order7, accept_timeouts_mixed,
+     killing_acceptor, killing_multi_acceptors,
+     killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
+     active_once_closed,
+     send_timeout, send_timeout_active,
+     otp_7731,
+     wrapping_oct,
+     zombie_sockets,
+     otp_7816,
+     otp_8102, otp_9389,
+     otp_12242, delay_send_error, bidirectional_traffic
     ].
 
 
@@ -2020,24 +2020,34 @@ craasp_verify(Client, EConnReset, _Payload)
     end;
 craasp_verify(Client, EConnReset, Payload) 
   when (EConnReset =:= default) orelse is_boolean(EConnReset) ->
-    ?P("[client] attempt receive and expect success"),
+    ?P("[client] attempt first recv and expect success"),
     case gen_tcp:recv(Client, 0) of
         {ok, Payload} ->
-            ?P("[client] attempt receive and expect failure (closed)"),
+            ?P("[client] attempt second recv and expect failure (~w)",
+               [EConnReset]),
             case gen_tcp:recv(Client, 0) of
 		{error, closed}     when (EConnReset =:= default) ->
+                    ?P("[client] expected failure (closed)"),
 		    ok;
 		{error, econnreset} when (EConnReset =:= true)    ->
+                    ?P("[client] expected failure (econnreset)"),
 		    ok;
                 {error, Reason2} ->
-                    {error, {unexpected_error2, Reason2}};
+                    ?P("[client] unexpected failure:"
+                       "~n      EConnReset: ~p"
+                       "~n      Reason:     ~p", [EConnReset, Reason2]),
+                    {error, {unexpected_error2, EConnReset, Reason2}};
                 {ok, _} ->
+                    ?P("[client] unexpected success"),
                     {error, unexpected_recv2}
             end;                    
         {ok, _} ->
+            ?P("[client] unexpected first recv success (wrong payload)"),
             {error, unexpected_recv1};
-        {error, Reason2} ->
-            {error, {unexpected_error1, Reason2}}
+        {error, Reason1} ->
+            ?P("[client] unexpected first recv failure: "
+               "~n      Reason: ~p", [Reason1]),
+            {error, {unexpected_error1, Reason1}}
     end.
 
 craasp_cleanup(Client, Sender) ->
