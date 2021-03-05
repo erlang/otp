@@ -2470,7 +2470,7 @@
 	    <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
 	  </xsl:when>
 	  <xsl:otherwise>
-	    <xsl:value-of select="$title"/>
+            <xsl:copy-of select="$title"/>
 	  </xsl:otherwise>
         </xsl:choose>
       </a>
