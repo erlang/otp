@@ -29,6 +29,7 @@
 
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
+         monitor/1,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3
         ]).
@@ -832,6 +833,29 @@ info(?socket(SockRef)) when is_reference(SockRef) ->
     prim_socket:info(SockRef);
 info(Socket) ->
     erlang:error(badarg, [Socket]).
+
+
+%% ===========================================================================
+%%
+%% monitor - Monitor a socket
+%%
+%% If a socket "dies", a down message, similar to erlang:monitor, will be
+%% sent to the requesting process:
+%%
+%%       {'DOWN', MonitorRef, socket, Socket, Info}
+%%
+%% ===========================================================================
+
+-spec monitor(Socket) -> socket_monitor().
+
+%% Should it be possible to specify a modification of the 'Socket' part
+%% of the DOWN-message? The point would be to make it possible for
+%% a gen_tcp_socket-socket to use this and get the proper 'socket'
+%% as part of the message.
+
+monitor(Socket) ->
+    prim_socket:monitor(Socket).
+
 
 
 %% ===========================================================================

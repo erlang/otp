@@ -27,9 +27,12 @@
          sendfile/4,
          shutdown/2, close/1, controlling_process/2]).
 %% inet
--export([setopts/2, getopts/2,
+-export([
+         %% monitor/1,
+         setopts/2, getopts/2,
          sockname/1, peername/1,
-         getstat/2]).
+         getstat/2
+        ]).
 
 %% Utility
 -export([info/1]).
@@ -490,12 +493,21 @@ controlling_process(S, NewOwner, Server, Msg) ->
     NewOwner ! Msg,
     controlling_process(S, NewOwner, Server).
 
+
 %% -------------------------------------------------------------------------
 %% Module inet backends
 %% -------------------------------------------------------------------------
 
-setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
+%% monitor(?module_socket(Server, _Socket)) ->
+%%     %% Do we really need the pid? Its part of the call info
+%%     call(Server, {monitor, self()}).
+
+
+%% -------------------------------------------------------------------------
+
+setopts(?module_socket(Server, _Socket), Opts) when is_list(Opts) ->
     call(Server, {setopts, Opts}).
+
 
 %% -------------------------------------------------------------------------
 

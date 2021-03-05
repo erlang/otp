@@ -208,6 +208,29 @@ close(Socket) ->
     end.
 
 
+%% -spec monitor(Socket) -> reference() when
+%%       Socket :: socket().
+
+%% monitor({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+%%     MRef = GenSocketMod:?FUNCTION_NAME(Socket),
+%%     case inet_db:socket_monitor(MRef, inet) of
+%%         ok ->
+%%             MRef;
+%%         error ->
+%%             GenSocketMod:demonitor(MRef),
+%%             badarg()
+%%     end;
+%% monitor(Socket) when is_port(Socket) ->
+%%     MRef = erlang:monitor(port, Socket),
+%%     case inet_db:socket_monitor(MRef, inet) of
+%%         ok ->
+%%             MRef;
+%%         error ->
+%%             erlang:demonitor(MRef, [flush]),
+%%             badarg()
+%%     end.
+
+
 -spec peername(Socket :: socket()) ->
 		      {ok,
 		       {ip_address(), port_number()} |
