@@ -92,7 +92,7 @@ end_per_group(_GroupName, Config) ->
 
 %%-define(DEBUG,1).
 -ifdef(DEBUG).
--define(dbg(Data),erlang:display(Data)).
+-define(dbg(Data),ct:pal("~p",[Data])).
 -else.
 -define(dbg(Data),noop).
 -endif.
@@ -270,15 +270,15 @@ shell_history(Config) when is_list(Config) ->
     rtnode([
             {putline, ""},
             %% the init:stop that stopped the node is dropped
-            {putdata, [$\^p]}, {sleep,50}, %% the echo5.
+            {putdata, [$\^p]}, {getdata, "echo5."},
             {putdata, [$\n]},
             {getline, "echo5"},
-            {putdata, [$\^p]}, {sleep,50}, %% the echo5.
-            {putdata, [$\^p]}, {sleep,50}, %% the echo4.
-            {putdata, [$\^p]}, {sleep,50}, %% the echo3.
-            {putdata, [$\^p]}, {sleep,50}, %% the echo2.
-            {putdata, [$\^n]}, {sleep,50}, %% the echo3.
-            {putdata, [$\^n]}, {sleep,50}, %% the echo4.
+            {putdata, [$\^p]}, {getdata,"echo5."},
+            {putdata, [$\^p]}, {getdata,"echo4."},
+            {putdata, [$\^p]}, {getdata,"echo3."},
+            {putdata, [$\^p]}, {getdata,"echo2."},
+            {putdata, [$\^n]}, {getdata,"echo3."},
+            {putdata, [$\^n]}, {getdata,"echo4."},
             {putdata, [$\^b]}, {sleep,50}, %% the echo4. (cursor moved one left)
             {putline, ["echo"]},
             {getline, "echo4echo"}
@@ -295,8 +295,8 @@ shell_history_resize(Config) ->
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {sleep,50}, %% the init:stop that stopped the node
-                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\^p]}, {getdata,"init:stop()."},
+                {putdata, [$\^p]}, {getdata,"echo."},
                 {putdata, [$\n]},
                 {getline, "echo"}
                ], [], [], " -kernel shell_history_file_bytes 654321 " ++
@@ -362,8 +362,7 @@ shell_history_repair(Config) ->
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {sleep,50}, %% the halt.
-                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\^p]}, {getdata,"echo."},
                 {putdata, [$\n]},
                 {getline, "echo"}
                ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
@@ -399,8 +398,7 @@ shell_history_repair_corrupt(Config) ->
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {sleep,50}, %% the halt.
-                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\^p]}, {getdata,"echo."},
                 {putdata, [$\n]},
                 {getline, "echo"}
                ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
@@ -432,8 +430,8 @@ shell_history_corrupt(Config) ->
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {sleep,50}, %% the halt.
-                {putdata, [$\^p]}, {sleep,50}, %% the echo.
+                {putdata, [$\^p]}, {getdata,"init:stop()."},
+                {putdata, [$\^p]}, {getdata,"echo."},
                 {putdata, [$\n]},
                 {getline, "echo"}
                ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
@@ -453,8 +451,8 @@ shell_history_custom(_Config) ->
     %% Up key: Ctrl + P = Cp=[$\^p]
     rtnode([
             {putline, ""},
-            {putline, [$\^p]},
-            {putline_raw, ""},
+            {putdata, [$\^p]}, {getdata,"0."},
+            {putdata, [$\n]},
             {getline, "0"},
             {putline, "echo."},
             {getline, "!echo"} %% exclamation sign is printed by custom history module
@@ -721,8 +719,8 @@ remsh(Config) when is_list(Config) ->
 
             %% Test that remsh works with explicit -sname
             rtnode(Cmds ++ [{putline,"nodes()."},
-                            {getline,"['Remshtest@"++Host++"']"}], [],
-                   [], " -sname Remshtest -remsh " ++ NodeStr),
+                            {getline,"['Remshtest@"++Host++"']"}],
+                   "Remshtest", [], "-remsh " ++ NodeStr),
 
             %% Test that remsh works without -sname
             rtnode(Cmds, [], [], " -remsh " ++ NodeStr)
@@ -952,6 +950,20 @@ get_and_put(CPid, [{getline_re, Match}|T],N) ->
 	    end
     end;
 
+get_and_put(CPid, [{getdata, Match}|T],N) ->
+    ?dbg({getdata, Match}),
+    CPid ! {self(), {get_data, timeout(normal), Match}},
+    receive
+	{get_data, timeout} ->
+	    error_logger:error_msg("~p: getdata timeout waiting for \"~s\" "
+				   "(command number ~p, skipped: ~p)~n",
+				   [?MODULE, Match,N,get(getline_skipped)]),
+	    {error, timeout};
+	{get_data, _Data} ->
+	    ?dbg({CPid,data,_Data}),
+            get_and_put(CPid, T, N+1)
+    end;
+
 get_and_put(CPid, [{putline_raw, Line}|T],N) ->
     ?dbg({putline_raw, Line}),
     CPid ! {self(), {send_line, Line}},
@@ -1120,13 +1132,11 @@ try_to_erl(_Command, 0) ->
     {error, cannot_to_erl};
 try_to_erl(Command, N) ->
     ?dbg({?LINE,N}),
-    Port = open_port({spawn, Command},[eof,{line,1000}]),
-    Timeout = timeout(normal) div 2,
+    Port = open_port({spawn, Command},[eof]),
+    Timeout = timeout(short) div 2,
     receive
-	{Port, eof} -> 	
-	    receive after Timeout ->
-			    ok
-		    end,
+	{Port, eof} ->
+            timer:sleep(Timeout),
 	    try_to_erl(Command, N-1)
     after Timeout ->
 	    ?dbg(Port),
@@ -1134,7 +1144,7 @@ try_to_erl(Command, N) ->
     end.
 
 toerl_server(Parent,ToErl,Tempdir) ->
-    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null",8),
+    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null", 8),
     case Port of
 	P when is_port(P) ->
 	    Parent ! {self(),started};
@@ -1142,7 +1152,7 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    Parent ! {self(),error,Other},
 	    exit(Other)
     end,
-    case toerl_loop(Port,[]) of
+    case toerl_loop(#{ port => Port}) of
 	normal ->
 	    ok;
 	{error, Reason} ->
@@ -1151,67 +1161,61 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    exit(Reason)
     end.
 
-toerl_loop(Port,Acc) ->
-    ?dbg({toerl_loop, Port, Acc}),
+toerl_loop(#{ port := Port } = State0) ->
+    ?dbg({toerl_loop, Port, maps:get(acc,State0,[]),
+          maps:get(match,State0,nomatch)}),
+
+    State = handle_match(State0),
+
     receive
-	{Port,{data,{Tag0,Data}}} when is_port(Port) ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    case Acc of
-		[{noeol,Data0}|T0] ->
-		    toerl_loop(Port,[{Tag0, Data0++Data}|T0]);
-		_ ->
-		    toerl_loop(Port,[{Tag0,Data}|Acc])
-	    end;
-	{Pid,{get_line,Timeout}} ->
-	    case Acc of
-		[] ->
-		    case get_data_within(Port,Timeout,[]) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[]);
-			{noeol,Data1} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data1}]);
-			{eol,Data2} ->
-			    Pid ! {get_line, Data2}, 
-			    toerl_loop(Port,[])
-		    end;
-		[{noeol,Data3}] ->
-		    case get_data_within(Port,Timeout,Data3) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,Acc);
-			{noeol,Data4} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data4}]);
-			{eol,Data5} ->
-			    Pid ! {get_line, Data5},
-			    toerl_loop(Port,[])
-		    end;
-		List ->
-		    {NewAcc,[{eol,Data6}]} = lists:split(length(List)-1,List),
-		    Pid ! {get_line,Data6},
-		    toerl_loop(Port,NewAcc)
-	    end;
+	{Port,{data,Data}} when is_port(Port) ->
+	    ?dbg({?LINE,Port,{data,Data}}),
+            toerl_loop(State#{ acc => lists:flatten([maps:get(acc,State,[]),Data])});
+        {Pid, {get_data, Timeout, Match}} ->
+            toerl_loop(
+              State#{ get =>
+                          #{ match => Match,
+                             timer => erlang:start_timer(Timeout, self(), timeout),
+                             tag => get_data,
+                             from => Pid }
+                    });
+        {Pid, {get_line, Timeout}} ->
+            toerl_loop(
+              State#{ get =>
+                          #{ match => "\r\n",
+                             timer => erlang:start_timer(Timeout, self(), timeout),
+                             tag => get_line,
+                             from => Pid }
+                    });
 	{Pid, {send_line, Data7}} ->
 	    Port ! {self(),{command, Data7++"\n"}},
 	    Pid ! {send_line, ok},
-	    toerl_loop(Port,Acc);
+	    toerl_loop(State);
         {Pid, {send_data, Data}} ->
             Port ! {self(),{command, Data}},
 	    Pid ! {send_data, ok},
-	    toerl_loop(Port,Acc);
+	    toerl_loop(State);
         {Pid, {kill_emulator_command, Cmd}} ->
             put(kill_emulator_command, Cmd),
             Pid ! {kill_emulator_command, ok},
-	    toerl_loop(Port,Acc);
+	    toerl_loop(State);
 	{_Pid, kill_emulator} ->
             case get(kill_emulator_command) of
                 undefined ->
                     Port ! {self(),{command, "init:stop().\n"}};
                 sigint ->
-                    Port ! {self(),{command, [3]}},
-                    timer:sleep(200),
+                    ?dbg({putdata,[$\^c]}),
+                    Port ! {self(),{command, [$\^c]}},
+                    Port ! {self(),{command, [$\^c]}},
+                    Port ! {self(),{command, [$\^c]}},
+                    receive
+                        {Port,{data,_Data}} ->
+                            ?dbg({exit_data, _Data}),
+                            ok
+                    after 2000 ->
+                            ok
+                    end,
+                    ?dbg({putdata,"a\n"}),
                     Port ! {self(),{command, "a\n"}}
             end,
 	    Timeout1 = timeout(long),
@@ -1221,45 +1225,37 @@ toerl_loop(Port,Acc) ->
 	    after Timeout1 ->
 		    {error, kill_timeout}
 	    end;
+        {timeout,Timer,timeout} ->
+            #{ get := #{ tag := Tag, from := Pid, timer := Timer } } = State,
+            Pid ! {Tag, timeout},
+            toerl_loop(maps:remove(get, State));
 	{Port, eof} ->
 	    {error, unexpected_eof};
 	Other ->
 	    {error, {unexpected, Other}}
     end.
 
-millistamp() ->
-    erlang:monotonic_time(millisecond).
-
-get_data_within(Port, X, Acc) when X =< 0 ->
-    ?dbg({get_data_within, X, Acc, ?LINE}),
-    receive
-	{Port,{data,{Tag0,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    {Tag0, Acc++Data}
-    after 0 ->
-	    case Acc of
-		[] ->
-		    timeout;
-		Noeol ->
-		    {noeol,Noeol}
-	    end
+handle_match(#{ acc := Acc, get := #{ tag := Tag,
+                                      match := Match,
+                                      from := From,
+                                      timer := Timer}} = State) ->
+    case string:split(Acc, Match) of
+        [Pre,Post] ->
+            ?dbg({match,Pre}),
+            From ! {Tag, Pre},
+            erlang:cancel_timer(Timer),
+            receive
+                {timeout,Timer,timeout} ->
+                    ok
+            after 0 ->
+                    ok
+            end,
+            maps:put(acc, Post, maps:remove(get, State));
+        [Acc] ->
+            State
     end;
-
-
-get_data_within(Port, Timeout, Acc) ->	
-    ?dbg({get_data_within, Timeout, Acc, ?LINE}),
-    T1 = millistamp(),
-    receive 
-	{Port,{data,{noeol,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{noeol,Data}}}),
-	    Elapsed = millistamp() - T1 + 1,
-	    get_data_within(Port, Timeout - Elapsed, Acc ++ Data); 
-	{Port,{data,{eol,Data1}}} ->
-	    ?dbg({?LINE,Port,{data,{eol,Data1}}}),
-	    {eol, Acc ++ Data1}
-    after Timeout ->
-	    timeout
-    end.
+handle_match(State) ->
+    State.
 
 rtnode_check_logs(Logname, Pattern, Logs) ->
 rtnode_check_logs(Logname, Pattern, true, Logs).
