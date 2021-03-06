@@ -28,7 +28,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([floor_ceil/1, error_info/1]).
+-export([floor_ceil/1, nearbyint/1, error_info/1]).
 
 
 suite() ->
@@ -36,7 +36,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [floor_ceil, error_info].
+    [floor_ceil, nearbyint, error_info].
 
 groups() ->
     [].
@@ -58,6 +58,31 @@ init_per_testcase(_Case, Config) ->
     Config.
 
 end_per_testcase(_Case, _Config) ->
+    ok.
+
+nearbyint(_Config) ->
+    0 = math:nearbyint(0.0),
+    0 = math:nearbyint(-0.0),
+    0 = math:nearbyint(0.3),
+    0 = math:nearbyint(0.5),
+    1 = math:nearbyint(0.7),
+    0 = math:nearbyint(-0.3),
+    0 = math:nearbyint(-0.5),
+    -1 = math:nearbyint(-0.7),
+
+    0 = math:nearbyint(0),
+    1 = math:nearbyint(1),
+    -1 = math:nearbyint(-1),
+
+    1 = math:nearbyint(1.0),
+    -1 = math:nearbyint(-1.0),
+    1 = math:nearbyint(1.3),
+    2 = math:nearbyint(1.5),
+    2 = math:nearbyint(1.7),
+    -1 = math:nearbyint(-1.3),
+    -2 = math:nearbyint(-1.5),
+    -2 = math:nearbyint(-1.7),
+
     ok.
 
 floor_ceil(_Config) ->

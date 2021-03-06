@@ -22,10 +22,12 @@
 #  include "config.h"
 #endif
 
+#include <fenv.h>
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
+#include "erl_math.h"
 #include "error.h"
 #include "bif.h"
 #include "big.h"
@@ -292,4 +294,85 @@ BIF_RETTYPE math_floor_1(BIF_ALIST_1)
 BIF_RETTYPE math_fmod_2(BIF_ALIST_2)
 {
     return math_call_2(BIF_P, fmod, BIF_ARG_1, BIF_ARG_2);
+}
+
+BIF_RETTYPE math_nearbyint_1(BIF_ALIST_1)
+{
+    Eterm res;
+    FloatDef f;
+    int curr_direction;
+
+    /* check arg */
+    if (is_not_float(BIF_ARG_1)) {
+	if (is_integer(BIF_ARG_1)) {
+	    BIF_RET(BIF_ARG_1);
+	}
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    /* get the float */
+    GET_DOUBLE(BIF_ARG_1, f);
+
+#pragma STDC FENV_ACCESS ON
+    curr_direction = fegetround();
+    fesetround(FE_TONEAREST);
+    res = double_to_integer(BIF_P, nearbyint(f.fd));
+    fesetround(curr_direction);
+    BIF_RET(res);
+}
+
+/*
+ * Generate the integer part from a double.
+ */
+Eterm double_to_integer(Process* p, double x)
+{
+    int is_negative;
+    int ds;
+    ErtsDigit* xp;
+    int i;
+    Eterm res;
+    size_t sz;
+    Eterm* hp;
+    double dbase;
+
+    if ((x < (double) (MAX_SMALL+1)) && (x > (double) (MIN_SMALL-1))) {
+	Sint xi = x;
+	return make_small(xi);
+    }
+
+    if (x >= 0) {
+	is_negative = 0;
+    } else {
+	is_negative = 1;
+	x = -x;
+    }
+
+    /* Unscale & (calculate exponent) */
+    ds = 0;
+    dbase = ((double)(D_MASK)+1);
+    while(x >= 1.0) {
+	x /= dbase;         /* "shift" right */
+	ds++;
+    }
+    sz = BIG_NEED_SIZE(ds);          /* number of words including arity */
+
+    hp = HeapFragOnlyAlloc(p, sz);
+    res = make_big(hp);
+    xp = (ErtsDigit*) (hp + 1);
+
+    for (i = ds-1; i >= 0; i--) {
+	ErtsDigit d;
+
+	x *= dbase;      /* "shift" left */
+	d = x;            /* trunc */
+	xp[i] = d;        /* store digit */
+	x -= d;           /* remove integer part */
+    }
+
+    if (is_negative) {
+	*hp = make_neg_bignum_header(sz-1);
+    } else {
+	*hp = make_pos_bignum_header(sz-1);
+    }
+    return res;
 }

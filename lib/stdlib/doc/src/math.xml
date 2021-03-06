@@ -82,6 +82,25 @@
     </func>
 
     <func>
+      <name name="nearbyint" arity="1" since="OTP 24.0"/>
+      <fsummary>Rounds to nearest integer.</fsummary>
+      <desc>
+        <p>Rounds to nearest integer where ties round towards even numbers.
+          This is a contrast to <seemfa marker="erts:erlang#round/1"><c>
+          erlang:round/1</c></seemfa> which rounds ties away from zero.</p>
+        <pre>
+> erlang:round(0.5).
+1
+> math:nearbyint(0.5).
+0
+> erlang:round(-0.5).
+-1
+> math:nearbyint(0.5).
+0</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="erf" arity="1" since=""/>
       <fsummary>Error function.</fsummary>
       <desc>
