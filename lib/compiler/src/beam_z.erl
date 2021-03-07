@@ -24,7 +24,7 @@
 
 -export([module/2]).
 
--import(lists, [dropwhile/2,map/2]).
+-import(lists, [dropwhile/2,map/2,sort/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
@@ -85,10 +85,10 @@ undo_renames([{bif,raise,_,_,_}=I|Is0]) ->
 		      (_) -> true
 		   end, Is0),
     [I|undo_renames(Is)];
-undo_renames([{get_hd,Src,Dst1},{get_tl,Src,Dst2}|Is]) ->
-    [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
-undo_renames([{get_tl,Src,Dst2},{get_hd,Src,Dst1}|Is]) ->
-    [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
+undo_renames([{get_hd,Src,Hd},{get_tl,Src,Tl}|Is]) ->
+    get_list(Src, Hd, Tl, Is);
+undo_renames([{get_tl,Src,Tl},{get_hd,Src,Hd}|Is]) ->
+    get_list(Src, Hd, Tl, Is);
 undo_renames([{bs_put,_,{bs_put_binary,1,_},
                [{atom,all},{literal,<<>>}]}|Is]) ->
     undo_renames(Is);
@@ -118,6 +118,16 @@ undo_renames([{bs_put,Fail,{bs_put_binary,1,_Flags},
 undo_renames([I|Is]) ->
     [undo_rename(I)|undo_renames(Is)];
 undo_renames([]) -> [].
+
+get_list(Src, Hd, Tl, [{swap,R1,R2}|Is]=Is0) ->
+    case sort([Hd,Tl]) =:= sort([R1,R2]) of
+        true ->
+            [{get_list,Src,Tl,Hd}|undo_renames(Is)];
+        false ->
+            [{get_list,Src,Hd,Tl}|undo_renames(Is0)]
+    end;
+get_list(Src, Hd, Tl, Is) ->
+    [{get_list,Src,Hd,Tl}|undo_renames(Is)].
 
 undo_rename({bs_put,F,{I,U,Fl},[Sz,Src]}) ->
     {I,F,Sz,U,Fl,Src};
