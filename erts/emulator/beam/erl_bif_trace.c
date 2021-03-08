@@ -465,19 +465,25 @@ erts_trace_flags(Eterm List,
 	    cpu_timestamp = !0;
 #endif
 	} else if (is_tuple(item)) {
+            ERTS_TRACER_CLEAR(&tracer);
             tracer = erts_term_to_tracer(am_tracer, item);
             if (tracer == THE_NON_VALUE)
                 goto error;
 	} else goto error;
 	list = CDR(list_val(list));
     }
-    if (is_not_nil(list)) goto error;
+    if (is_not_nil(list)) {
+        goto error;
+    }
     
     if (mask)                        *pMask         = mask;
     if (!ERTS_TRACER_IS_NIL(tracer)) *pTracer       = tracer;
     if (cpu_timestamp)               *pCpuTimestamp = cpu_timestamp;
     return !0;
+
  error:
+    if (tracer != THE_NON_VALUE)
+	ERTS_TRACER_CLEAR(&tracer);
     return 0;
 }
 
@@ -541,6 +547,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
+        ERTS_TRACER_CLEAR(&tracer);
 	ERTS_BIF_YIELD3(&bif_trap_export[BIF_erts_internal_trace_3],
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
