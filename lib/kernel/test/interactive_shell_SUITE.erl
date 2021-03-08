@@ -771,19 +771,27 @@ remsh_no_epmd(Config) when is_list(Config) ->
             EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
             case rtstart([],"ERL_EPMD_PORT=12345 ",
                          EPMD_ARGS ++ " -sname " ++ atom_to_list(?FUNCTION_NAME)) of
-                {ok, _SRPid, _STPid, SState} ->
-                    {ok, _CRPid, CTPid, CState} =
-                        rtstart([],"ERL_EPMD_PORT=12345 ",
-                                EPMD_ARGS ++ " -remsh "++atom_to_list(?FUNCTION_NAME)),
+                {ok, _SRPid, STPid, SState} ->
                     try
                         ok = get_and_put(
-                               CTPid,
-                               [{kill_emulator_command,sigint},
-                                {putline,""},
+                               STPid,
+                               [{putline,""},
                                 {putline,"node()."},
-                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
+                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1),
+                            {ok, _CRPid, CTPid, CState} =
+                            rtstart([],"ERL_EPMD_PORT=12345 ",
+                                    EPMD_ARGS ++ " -remsh "++atom_to_list(?FUNCTION_NAME)),
+                        try
+                            ok = get_and_put(
+                                   CTPid,
+                                   [{kill_emulator_command,sigint},
+                                    {putline,""},
+                                    {putline,"node()."},
+                                    {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
+                        after
+                            rtstop(CState)
+                        end
                     after
-                        rtstop(CState), %% Stop client before server
                         rtstop(SState)
                     end;
                 Else ->
@@ -1205,8 +1213,6 @@ toerl_loop(#{ port := Port } = State0) ->
                     Port ! {self(),{command, "init:stop().\n"}};
                 sigint ->
                     ?dbg({putdata,[$\^c]}),
-                    Port ! {self(),{command, [$\^c]}},
-                    Port ! {self(),{command, [$\^c]}},
                     Port ! {self(),{command, [$\^c]}},
                     receive
                         {Port,{data,_Data}} ->
