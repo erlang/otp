@@ -207,7 +207,7 @@ end_per_suite(Config0) ->
     Config1 = ?LIB:end_per_suite(Config0),
 
     ?P("end_per_suite -> "
-            "~n      Nodes: ~p", [erlang:nodes()]),
+       "~n      Nodes: ~p", [erlang:nodes()]),
 
     Config1.
 
@@ -4785,19 +4785,21 @@ do_send_timeout(Config) ->
     ?P("create (slave) node"),
     {ok, RNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
 
-    {SndTimeout, BinData, SndBuf} = 
+    {TslTimeout, SndTimeout, BinData, SndBuf} = 
 	case ?IS_SOCKET_BACKEND(Config) of
 	    true ->
-		{3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
+		{100, 3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
 	    false ->
-		{1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
+		{1,   1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
 	end,
 
     %% Basic
     ?P("basic check wo autoclose"),
-    send_timeout_basic(Config, BinData, SndBuf, SndTimeout, false, RNode),
+    send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+		       false, RNode),
     ?P("basic check w autoclose"),
-    send_timeout_basic(Config, BinData, SndBuf, SndTimeout, true, RNode),
+    send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+		       true, RNode),
 
     %% Check timeout length.
     ?P("spawn sink process (check timeout length)"),
@@ -4812,7 +4814,8 @@ do_send_timeout(Config) ->
                                           Self ! Res,
                                           Res
                                   end,
-                           {{error, timeout}, _} = timeout_sink_loop(Send)
+                           {{error, timeout}, _} =
+			       timeout_sink_loop(Send, TslTimeout)
                    end),
     Diff = get_max_diff(),
     ?P("Max time for send: ~p", [Diff]),
@@ -4824,9 +4827,11 @@ do_send_timeout(Config) ->
 
     %% Check that parallell writers do not hang forever
     ?P("check parallell writers wo autoclose"),
-    send_timeout_para(Config, BinData, SndBuf, SndTimeout, false, RNode),
+    send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+		      false, RNode),
     ?P("check parallell writers w autoclose"),
-    send_timeout_para(Config, BinData, SndBuf, SndTimeout, true, RNode),
+    send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+		      true, RNode),
 
     ?P("stop (slave) node"),
     ?STOP_NODE(RNode),
@@ -4834,12 +4839,13 @@ do_send_timeout(Config) ->
     ?P("done"),
     ok.
 
-send_timeout_basic(Config, BinData, SndBuf, SndTimeout, AutoClose, RNode) ->
+send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+		   AutoClose, RNode) ->
     ?P("[basic] sink"),
     {A, Pid}              = setup_timeout_sink(Config, RNode, SndTimeout,
 					       AutoClose, SndBuf),
     Send                  = fun() -> gen_tcp:send(A, BinData) end,
-    {{error, timeout}, _} = timeout_sink_loop(Send),
+    {{error, timeout}, _} = timeout_sink_loop(Send, TslTimeout),
 
     %% Check that the socket is not busy/closed...
     ?P("verify socket not busy/closed"),
@@ -4858,7 +4864,8 @@ send_timeout_basic(Config, BinData, SndBuf, SndTimeout, AutoClose, RNode) ->
 	    ct:fail("Unexpected send success")
     end.
 
-send_timeout_para(Config, BinData, BufSz, SndTimeout, AutoClose, RNode) ->
+send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
+		  AutoClose, RNode) ->
     ?P("[para] sink -> entry with"
        "~n      size(BinData): ~p"
        "~n      BufSz:         ~p"
@@ -4870,7 +4877,7 @@ send_timeout_para(Config, BinData, BufSz, SndTimeout, AutoClose, RNode) ->
     SenderFun = fun() ->
                         ?P("[para:sender] start"),
 			Send = fun() -> gen_tcp:send(A, BinData) end,
-			Self ! {self(), timeout_sink_loop(Send)}
+			Self ! {self(), timeout_sink_loop(Send, TslTimeout)}
 		end,
     Info = fun() ->
 		   if is_port(A) ->
@@ -5316,8 +5323,8 @@ setup_active_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     {ok, "H"++_} = Remote(fun() -> gen_tcp:recv(C, 0) end),
     {A, C}.
 
-timeout_sink_loop(Action) ->
-    timeout_sink_loop(Action, 100).
+%% timeout_sink_loop(Action) ->
+%%     timeout_sink_loop(Action, 1).
 
 timeout_sink_loop(Action, To) ->
     put(action,  nothing),
