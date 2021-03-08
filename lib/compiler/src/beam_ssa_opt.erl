@@ -898,7 +898,7 @@ is_tagged_tuple_4([], _, _) -> no.
 %%%
 
 ssa_opt_cse({#opt_st{ssa=Linear}=St, FuncDb}) ->
-    M = #{0=>#{}},
+    M = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
     {St#opt_st{ssa=cse(Linear, #{}, M)}, FuncDb}.
 
 cse([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs], Sub0, M0) ->
@@ -934,19 +934,31 @@ cse_successors_1([L|Ls], Es0, M) ->
             %% since the intersection will be empty.
             cse_successors_1(Ls, Es0, M);
         #{L:=Es1} ->
-            %% Calculate the intersection of the two maps.
-            %% Both keys and values must match.
-            Es = maps:filter(fun(Key, Value) ->
-                                     case Es1 of
-                                         #{Key:=Value} -> true;
-                                         #{} -> false
-                                     end
-                             end, Es0),
+            Es = cse_intersection(Es0, Es1),
             cse_successors_1(Ls, Es0, M#{L:=Es});
         #{} ->
             cse_successors_1(Ls, Es0, M#{L=>Es0})
     end;
 cse_successors_1([], _, M) -> M.
+
+%% Calculate the intersection of the two maps. Both keys and values
+%% must match.
+cse_intersection(M1, M2) ->
+    if
+        map_size(M1) < map_size(M2) ->
+            cse_intersection_1(maps:to_list(M1), M2, M1);
+        true ->
+            cse_intersection_1(maps:to_list(M2), M1, M2)
+    end.
+
+cse_intersection_1([{Key,Value}|KVs], M, Result) ->
+    case M of
+        #{Key := Value} ->
+            cse_intersection_1(KVs, M, Result);
+        #{} ->
+            cse_intersection_1(KVs, M, maps:remove(Key, Result))
+    end;
+cse_intersection_1([], _, Result) -> Result.
 
 cse_is([#b_set{op={succeeded,_},dst=Bool,args=[Src]}=I0|Is], Es, Sub0, Acc) ->
     I = sub(I0, Sub0),
@@ -980,13 +992,41 @@ cse_is([#b_set{dst=Dst}=I0|Is], Es0, Sub0, Acc) ->
                             Sub = Sub0#{Dst=>Src},
                             cse_is(Is, Es0, Sub, Acc);
                         #{} ->
-                            Es = Es0#{ExprKey=>Dst},
+                            Es1 = Es0#{ExprKey=>Dst},
+                            Es = cse_add_inferred_exprs(I, Es1),
                             cse_is(Is, Es, Sub0, [I|Acc])
                     end
             end
     end;
 cse_is([], Es, Sub, Acc) ->
     {Acc,Es,Sub}.
+
+cse_add_inferred_exprs(#b_set{op=put_list,dst=List,args=[Hd,Tl]}, Es) ->
+    Es#{{get_hd,[List]} => Hd,
+        {get_tl,[List]} => Tl};
+cse_add_inferred_exprs(#b_set{op=put_tuple,dst=Tuple,args=[E1,E2|_]}, Es) ->
+    %% Adding tuple elements beyond the first two does not seem to be
+    %% worthwhile (at least not in the sample used by scripts/diffable).
+    Es#{{get_tuple_element,[Tuple,#b_literal{val=0}]} => E1,
+        {get_tuple_element,[Tuple,#b_literal{val=1}]} => E2};
+cse_add_inferred_exprs(#b_set{op={bif,element},dst=E,
+                              args=[#b_literal{val=N},Tuple]}, Es)
+  when is_integer(N) ->
+    Es#{{get_tuple_element,[Tuple,#b_literal{val=N-1}]} => E};
+cse_add_inferred_exprs(#b_set{op={bif,hd},dst=Hd,args=[List]}, Es) ->
+    Es#{{get_hd,[List]} => Hd};
+cse_add_inferred_exprs(#b_set{op={bif,tl},dst=Tl,args=[List]}, Es) ->
+    Es#{{get_tl,[List]} => Tl};
+cse_add_inferred_exprs(#b_set{op={bif,map_get},dst=Value,args=[Key,Map]}, Es) ->
+    Es#{{get_map_element,[Map,Key]} => Value};
+cse_add_inferred_exprs(#b_set{op=put_map,dst=Map,args=Args}, Es) ->
+    cse_add_map_get(Args, Map, Es);
+cse_add_inferred_exprs(_, Es) -> Es.
+
+cse_add_map_get([Key,Value|T], Map, Es0) ->
+    Es = Es0#{{get_map_element,[Map,Key]} => Value},
+    cse_add_map_get(T, Map, Es);
+cse_add_map_get([], _, Es) -> Es.
 
 cse_expr(#b_set{op=Op,args=Args}=I) ->
     case cse_suitable(I) of
@@ -999,6 +1039,8 @@ cse_suitable(#b_set{op=get_tl}) -> true;
 cse_suitable(#b_set{op=put_list}) -> true;
 cse_suitable(#b_set{op=get_tuple_element}) -> true;
 cse_suitable(#b_set{op=put_tuple}) -> true;
+cse_suitable(#b_set{op=get_map_element}) -> true;
+cse_suitable(#b_set{op=put_map}) -> true;
 cse_suitable(#b_set{op={bif,tuple_size}}) ->
     %% Doing CSE for tuple_size/1 can prevent the
     %% creation of test_arity and select_tuple_arity
