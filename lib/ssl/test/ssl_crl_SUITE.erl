@@ -43,6 +43,10 @@
          crl_verify_valid/1,
          crl_verify_revoked/0,
          crl_verify_revoked/1,
+         crl_verify_valid_derCAs/0,
+         crl_verify_valid_derCAs/1,
+         crl_verify_revoked_derCAs/0,
+         crl_verify_revoked_derCAs/1,
          crl_verify_no_crl/0,
          crl_verify_no_crl/1,
          crl_hash_dir_collision/0,
@@ -84,7 +88,11 @@ groups() ->
      {crl_verify_crldp_crlissuer, [], [crl_verify_valid]}].
 
 basic_tests() ->
-    [crl_verify_valid, crl_verify_revoked, crl_verify_no_crl].
+    [crl_verify_valid,
+     crl_verify_revoked,
+     crl_verify_valid_derCAs,
+     crl_verify_revoked_derCAs,
+     crl_verify_no_crl].
 
 crl_hash_dir_tests() ->
     [crl_hash_dir_collision, crl_hash_dir_expired].
@@ -220,13 +228,13 @@ crl_verify_valid(Config) when is_list(Config) ->
 		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
     ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
-			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
+			  [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
 			   {crl_check, Check},
 			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
 			   {verify, verify_peer}];
 		      false ->
 			  proplists:get_value(crl_cache_opts, Config) ++
-			      [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
+			      [{cacertfile, filename:join([PrivDir, "client", "cacerts.pem"])},
 			       {crl_check, Check},
 			       {verify, verify_peer}]
 		  end,			  
@@ -266,15 +274,79 @@ crl_verify_revoked(Config)  when is_list(Config) ->
     
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
                      certificate_revoked).
+crl_verify_valid_derCAs() ->
+    [{doc,"Verify a simple valid CRL chain"}].
+crl_verify_valid_derCAs(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
+
+    CaCerts = der_cas(filename:join([PrivDir, "client", "cacerts.pem"])),
+
+    ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
+                   {certfile, filename:join([PrivDir, "server", "cert.pem"])},
+                   {cacerts, der_cas(filename:join([PrivDir, "server", "cacerts.pem"]))}
+                  ],
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of
+		      true ->
+			  [{cacerts, CaCerts},
+			   {crl_check, Check},
+			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
+			   {verify, verify_peer}];
+		      false ->
+			  proplists:get_value(crl_cache_opts, Config) ++
+			      [{cacerts, CaCerts},
+			       {crl_check, Check},
+			       {verify, verify_peer}]
+		  end,
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
+    ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+
+    crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts).
+
+crl_verify_revoked_derCAs() ->
+    [{doc,"Verify a simple CRL chain when peer cert is reveoked"}].
+crl_verify_revoked_derCAs(Config)  when is_list(Config) ->
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
+
+    CaCerts = der_cas(filename:join([PrivDir, "revoked", "cacerts.pem"])),
+
+    ServerOpts = [{keyfile, filename:join([PrivDir, "revoked", "key.pem"])},
+		  {certfile, filename:join([PrivDir, "revoked", "cert.pem"])},
+		  {cacerts,  der_cas(filename:join([PrivDir, "server", "cacerts.pem"]))}],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
+    ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of
+		      true ->
+			  [{cacerts, CaCerts},
+			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
+			   {crl_check, Check},
+			   {verify, verify_peer}];
+		      false ->
+			  proplists:get_value(crl_cache_opts, Config) ++
+			      [{cacerts, CaCerts},
+			       {crl_check, Check},
+			       {verify, verify_peer}]
+		  end,
+
+    crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
+                     certificate_revoked).
 
 crl_verify_no_crl() ->
     [{doc,"Verify a simple CRL chain when the CRL is missing"}].
 crl_verify_no_crl(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(cert_dir, Config),
     Check = proplists:get_value(crl_check, Config),
+
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
-      		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
-		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
+                   {certfile, filename:join([PrivDir, "server", "cert.pem"])},
+		   {cacertfile,  filename:join([PrivDir, "server", "cacerts.pem"])}],
     ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
 			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
@@ -552,3 +624,9 @@ new_ca(FileName, CA1, CA2) ->
     Pem = public_key:pem_encode(E1 ++E2),
     file:write_file(FileName,  Pem),
     FileName.
+
+
+der_cas(CAcertsFile) ->
+    {ok, Pem} = file:read_file(CAcertsFile),
+    Decoded = public_key:pem_decode(Pem),
+    [DER || {_, DER, _} <- Decoded].
