@@ -318,7 +318,8 @@ shell_channel_tree(Config) ->
     ct:log("GroupPid = ~p, ShellPid = ~p",[GroupPid,ShellPid]),
 
     receive
-        {ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"TimeoutShell started!\r\n">>}} ->
+        {ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"TimeoutShell started!",Rest/binary>>}} ->
+            ct:log("TimeoutShell started. Rest = ~p", [Rest]),
             receive
                 %%---- wait for the subsystem to terminate
                 {ssh_cm,ConnectionRef,{closed,ChannelId0}} ->
@@ -340,16 +341,17 @@ shell_channel_tree(Config) ->
                             ct:fail("Sup tree changed!")
                     end
             after 10000 ->
+                    ct:log("~p:~p  Flush unexpected: ~p", [?MODULE,?LINE,flush_rest()]),
                     ssh:close(ConnectionRef),
                     ssh:stop_daemon(Daemon),
-                    ct:fail("CLI Timeout")
+                    ct:fail("CLI Timeout 1")
             end
     after 10000 ->
+            ct:log("~p:~p  Flush unexpected: ~p", [?MODULE,?LINE,flush_rest()]),
             ssh:close(ConnectionRef),
             ssh:stop_daemon(Daemon),
-            ct:fail("CLI Timeout")
+            ct:fail("CLI Timeout 2")
     end.
-
 
 chk_empty_con_daemon(Daemon) ->
     ?wait_match([{_,SubSysSup, supervisor,[ssh_subsystem_sup]},
@@ -490,3 +492,10 @@ acceptor_pid(DaemonPid) ->
     after 2000 -> timeout
     end.
 
+%%%----------------------------------------------------------------
+flush_rest() -> lists:reverse(flush_rest([])).
+
+flush_rest(Acc) ->
+    receive Any -> [Any|Acc]
+    after 0 -> Acc
+    end.
