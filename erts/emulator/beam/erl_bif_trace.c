@@ -473,9 +473,9 @@ erts_trace_flags(Eterm List,
     }
     if (is_not_nil(list)) goto error;
     
-    if (pMask && mask)                           *pMask         = mask;
-    if (pTracer && !ERTS_TRACER_IS_NIL(tracer))  *pTracer       = tracer;
-    if (pCpuTimestamp && cpu_timestamp)          *pCpuTimestamp = cpu_timestamp;
+    if (mask)                        *pMask         = mask;
+    if (!ERTS_TRACER_IS_NIL(tracer)) *pTracer       = tracer;
+    if (cpu_timestamp)               *pCpuTimestamp = cpu_timestamp;
     return !0;
  error:
     return 0;
