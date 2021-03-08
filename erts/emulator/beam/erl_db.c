@@ -822,16 +822,16 @@ DbTable* db_get_table_aux(Process *p,
          * can handle a failed TRAP return correctly.
          */
         if (what != DB_READ_TBL_STRUCT && tb->common.dbg_force_trap) {
-            if (!(p->flags & F_ETS_FORCED_TRAP)) {
+            if (!(p->flags & F_DBG_FORCED_TRAP)) {
                 db_unlock(tb, kind);
                 tb = NULL;
                 *freason_p = TRAP;
                 p->fvalue = EXI_TYPE;
-                p->flags |= F_ETS_FORCED_TRAP;
+                p->flags |= F_DBG_FORCED_TRAP;
                 return tb;
             } else {
                 /* back from forced trap */
-                p->flags &= ~F_ETS_FORCED_TRAP;
+                p->flags &= ~F_DBG_FORCED_TRAP;
             }
         }
 #endif

@@ -115,12 +115,27 @@ static int try_seize_cwp(Process* c_p,
                          void (*aux_func)(void *),
                          void *aux_arg);
 
+#if defined(DEBUG) || defined(ADDRESS_SANITIZER)
+#    define CWP_DBG_FORCE_TRAP
+#endif
+
 /*
  * Calller _must_ yield if we return 0
  */
 int erts_try_seize_code_write_permission(Process* c_p)
 {
     ASSERT(c_p != NULL);
+
+#ifdef CWP_DBG_FORCE_TRAP
+    if (!(c_p->flags & F_DBG_FORCED_TRAP)) {
+        c_p->flags |= F_DBG_FORCED_TRAP;
+        return 0;
+    } else {
+        /* back from forced trap */
+        c_p->flags &= ~F_DBG_FORCED_TRAP;
+    }
+#endif
+
     return try_seize_cwp(c_p, NULL, NULL);
 }
 
