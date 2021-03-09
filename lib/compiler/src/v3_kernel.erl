@@ -277,8 +277,8 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
 	{Kv,Ep,St1} ->
 	    {#k_binary{anno=A,segs=Kv},Ep,St1}
     catch
-	throw:bad_element_size ->
-	    St1 = add_warning(get_line(A), bad_segment_size, A, St0),
+	throw:{bad_segment_size,Location} ->
+	    St1 = add_warning(Location, {failed,bad_segment_size}, A, St0),
 	    Erl = #c_literal{val=erlang},
 	    Name = #c_literal{val=error},
 	    Args = [#c_literal{val=badarg}],
@@ -338,7 +338,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
         error ->
             %% Invalid call (e.g. M:42/3). Issue a warning, and let
             %% the generated code use the old explict apply.
-            St = add_warning(get_location(A), bad_call, A, St0),
+            St = add_warning(get_location(A), {failed,bad_call}, A, St0),
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
 			   name=#c_literal{val=apply},
@@ -606,7 +606,7 @@ atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
 	   Sub, St0) ->
     {E,Ap1,St1} = atomic(E0, Sub, St0),
     {S1,Ap2,St2} = atomic(S0, Sub, St1),
-    validate_bin_element_size(S1),
+    validate_bin_element_size(S1, A),
     U1 = cerl:concrete(U0),
     Fs1 = cerl:concrete(Fs0),
     {Es,Ap3,St3} = atomic_bin(Es0, Sub, St2),
@@ -618,13 +618,13 @@ atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
      Ap1++Ap2++Ap3,St3};
 atomic_bin([], _Sub, St) -> {#k_bin_end{},[],St}.
 
-validate_bin_element_size(#k_var{}) -> ok;
-validate_bin_element_size(#k_literal{val=Val}) ->
+validate_bin_element_size(#k_var{}, _Anno) -> ok;
+validate_bin_element_size(#k_literal{val=Val}, Anno) ->
     case Val of
         all -> ok;
         undefined -> ok;
         _ when is_integer(Val), Val >= 0 -> ok;
-        _ -> throw(bad_element_size)
+        _ -> throw({bad_segment_size,get_location(Anno)})
     end.
 
 %% atomic_list([Cexpr], Sub, State) -> {[Kexpr],[PreKexpr],State}.
@@ -1069,8 +1069,8 @@ maybe_add_warning(Ke, MatchAnno, St) ->
 	    Line = get_location(Anno),
 	    MatchLine = get_line(MatchAnno),
 	    Warn = case MatchLine of
-		       none -> nomatch_shadow;
-		       _ -> {nomatch_shadow,MatchLine}
+		       none -> {nomatch,shadow};
+		       _ -> {nomatch,{shadow,MatchLine}}
 		   end,
 	    add_warning(Line, Warn, Anno, St)
     end.
@@ -2187,20 +2187,20 @@ integers(_, _) -> [].
 %%% Handling of errors and warnings.
 %%%
 
--type error() :: 'bad_call' | 'nomatch_shadow' | {'nomatch_shadow', integer()}.
+-type error() :: {'failed' | 'nomatch', term()}.
 
 -spec format_error(error()) -> string().
 
-format_error({nomatch_shadow,Line}) ->
+format_error({nomatch,{shadow,Line}}) ->
     M = io_lib:format("this clause cannot match because a previous clause at line ~p "
 		      "always matches", [Line]),
     flatten(M);
-format_error(nomatch_shadow) ->
+format_error({nomatch,shadow}) ->
     "this clause cannot match because a previous clause always matches";
-format_error(bad_call) ->
+format_error({failed,bad_call}) ->
     "invalid module and/or function name; this call will always fail";
-format_error(bad_segment_size) ->
-    "binary construction will fail because of a type mismatch".
+format_error({failed,bad_segment_size}) ->
+    "binary construction will fail because the size of a segment is invalid".
 
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
