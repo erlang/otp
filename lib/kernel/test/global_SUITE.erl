@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include("kernel_test_lib.hrl").
 
 -define(NODES, [node()|nodes()]).
 
@@ -419,22 +420,44 @@ lock_global2(Id, Parent) ->
 %% Kill Pid2 and check that 'test' isn't registered.
 
 names(Config) when is_list(Config) ->
+    ?TC_TRY(names, fun() -> do_names(Config) end).
+
+do_names(Config) ->
+    ?P("names -> begin when"
+       "~n   Nodes: ~p"
+       "~n   Names: ~p",
+       [nodes(),
+        case net_adm:names() of
+            {ok, N} ->
+                N;
+            _ ->
+                "-"
+        end]),
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
+    ?P("names -> init high level trace"),
     init_high_level_trace(Timeout),
+    ?P("names -> init condition"),
     init_condition(Config),
+    ?P("names -> get registered names"),
     OrigNames = global:registered_names(),
 
+    ?P("names -> start node cp1"),
     {ok, Cp1} = start_node(cp1, Config),
+    ?P("names -> start node cp2"),
     {ok, Cp2} = start_node(cp2, Config),
+    ?P("names -> start node cp3"),
     {ok, Cp3} = start_node(cp3, Config),
 
+    ?P("names -> wait for ready net"),
     wait_for_ready_net(Config),
 
     %% start a proc and register it
+    ?P("names -> start and register process 'test'"),
     {Pid, yes} = start_proc(test),
 
     %% test that it is registered at all nodes
+    ?P("names -> verify process has been registered on all nodes"),
         ?UNTIL(begin
             (Pid =:= global:whereis_name(test)) and
             (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
@@ -444,25 +467,32 @@ names(Config) when is_list(Config) ->
            end),
     
     %% try to register the same name
+    ?P("names -> try register (locally) another 'test' (and expect rejection)"),
     no = global:register_name(test, self()),
+    ?P("names -> try register (on cp1) another 'test' (and expect rejection)"),
     no = rpc:call(Cp1, global, register_name, [test, self()]),
     
     %% let process exit, check that it is unregistered automatically
+    ?P("names -> terminate the 'test' process"),
     exit_p(Pid),
 
+    ?P("names -> verify 'test' process has been automatically unregistered"),
         ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
     
     %% test re_register
+    ?P("names -> start and register another process 'test'"),
     {Pid2, yes} = start_proc(test),
+    ?P("names -> verify process 'test' has been registered"),
     ?UNTIL(Pid2 =:= rpc:call(Cp3, global, whereis_name, [test])),
     Pid3 = rpc:call(Cp3, ?MODULE, start_proc2, [test]),
     ?UNTIL(Pid3 =:= rpc:call(Cp3, global, whereis_name, [test])),
     Pid3 = global:whereis_name(test),
 
     %% test sending
+    ?P("names -> test sending (from local)"),
     global:send(test, {ping, self()}),
     receive
 	{pong, Cp3} -> ok
@@ -470,6 +500,7 @@ names(Config) when is_list(Config) ->
 	2000 -> ct:fail(timeout1)
     end,
 
+    ?P("names -> test sending (from cp1)"),
     rpc:call(Cp1, global, send, [test, {ping, self()}]),
     receive
 	{pong, Cp3} -> ok
@@ -477,31 +508,43 @@ names(Config) when is_list(Config) ->
 	2000 -> ct:fail(timeout2)
     end,
 
+    ?P("names -> unregister 'test' process"),
     _ = global:unregister_name(test),
         ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
 
+    ?P("names -> terminate process 'test'"),
     exit_p(Pid3),
 
+    ?P("names -> verify not registered"),
     ?UNTIL(undefined =:= global:whereis_name(test)),
 
     %% register a proc
+    ?P("names -> register a process"),
     {_Pid6, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
 
+    ?P("names -> write high level trace"),
     write_high_level_trace(Config),
 
     %% stop the nodes, and make sure names are released.
+    ?P("names -> stop node cp1"),
     stop_node(Cp1),
+    ?P("names -> stop node cp2"),
     stop_node(Cp2),
+    ?P("names -> stop node cp3"),
     stop_node(Cp3),
 
+    ?P("names -> verify not registered"),
     ?UNTIL(undefined =:= global:whereis_name(test)),
     exit_p(Pid2),
 
+    ?P("names -> verify not registered"),
     ?UNTIL(undefined =:= global:whereis_name(test)),
     init_condition(Config),
+
+    ?P("names -> done"),
     ok.
 
 %% Tests that names on a hidden node doesn't interfere with names on
