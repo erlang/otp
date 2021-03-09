@@ -55,12 +55,6 @@ init_per_testcase(receive_opt_deferred_save, Config) ->
 init_per_testcase(erl_1199, Config) ->
     SO = erlang:system_info(schedulers_online),
     [{schedulers_online, SO}|Config];
-init_per_testcase(MultiRecvOpt, Config) when MultiRecvOpt == multi_recv_opt;
-					     MultiRecvOpt == multi_recv_opt_clear ->
-    %% To be removed when we got compiler support for new
-    %% recv marker instructions...
-    erts_debug:set_internal_state(available_internal_state, true),
-    Config;
 init_per_testcase(_, Config) ->
     Config.
 
@@ -76,11 +70,6 @@ end_per_testcase(erl_1199, Config) ->
     end,
     Config;
 end_per_testcase(receive_opt_deferred_save, Config) ->
-    erts_debug:set_internal_state(available_internal_state, false),
-    Config;
-end_per_testcase(MultiRecvOpt, Config)  when MultiRecvOpt == multi_recv_opt;
-					     MultiRecvOpt == multi_recv_opt_clear ->
-    %% To be removed when we got compiler support...
     erts_debug:set_internal_state(available_internal_state, false),
     Config;
 end_per_testcase(_Name, Config) ->
@@ -470,35 +459,17 @@ multi_call(_Srv, 0, _Msg, _Responses, _Clear, _Fun) ->
     ok;
 multi_call(Srv, N, Msg, Responses, Clear, Fun) ->
 
-    %% To be removed when we got compiler support...
-    IId = erts_debug:set_internal_state(recv_marker_insert, ok),
-
     Mref = erlang:monitor(process, Srv),
 
-    %% To be removed when we got compiler support...
-    erts_debug:set_internal_state(recv_marker_bind, {IId, Mref}),
-    
     Srv ! {Mref, self(), Msg, Responses},
     Fun(),
     multi_receive(Mref, Msg, Responses),
     erlang:demonitor(Mref, [flush]),
-    case Clear of
-	false ->
-	    ok;
-	true ->
-
-	    %% To be removed when we got compiler support...
-	    erts_debug:set_internal_state(recv_marker_clear, Mref)
-
-    end,
     multi_call(Srv, N-1, Msg, Responses, Clear, Fun).
     
 multi_receive(_Mref, _Msg, 0) ->
     ok;
 multi_receive(Mref, Msg, N) ->
-
-    %% To be removed when we got compiler support...
-    erts_debug:set_internal_state(recv_marker_set_save, Mref),
 
     receive
 	{Mref, RMsg} ->
