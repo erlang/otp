@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "7.2"},
+  {vsn, "7.2.1"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -154,6 +154,6 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-16718@", "stdlib-3.13", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-@OTP-16718@", "stdlib-3.13", "sasl-3.0", "crypto-5.0"]}
  ]
 }.
