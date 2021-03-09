@@ -28,7 +28,7 @@
 
 -include("beam_ssa.hrl").
 -import(lists, [append/1,keymember/3,last/1,member/2,
-                reverse/1,sort/1,takewhile/2]).
+                reverse/1,takewhile/2]).
 
 -type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:var_name())}.
 
@@ -145,12 +145,17 @@ shortcut_terminator(#b_switch{arg=Bool,fail=Fail0,list=List0}=Sw,
                     _Is, From, St) ->
     Fail = shortcut_sw_fail(Fail0, List0, Bool, From, St),
     List = shortcut_sw_list(List0, Bool, From, St),
-    beam_ssa:normalize(Sw#b_switch{fail=Fail,list=List});
+
+    %% There no need to call beam_ssa:normalize/1 (and invoke the
+    %% cost of sorting List), because the previous optimizations
+    %% could only have changed labels.
+    Sw#b_switch{fail=Fail,list=List};
 shortcut_terminator(Last, _Is, _From, _St) ->
     Last.
 
 shortcut_sw_fail(Fail0, List, Bool, From, St0) ->
-    case sort(List) of
+    %% List has been sorted by beam_ssa:normalize/1.
+    case List of
         [{#b_literal{val=false},_},
          {#b_literal{val=true},_}] ->
             RelOp = {{'not',is_boolean},Bool},

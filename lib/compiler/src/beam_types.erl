@@ -180,9 +180,14 @@ mts_records(_RsA, _RsB, []) ->
 
 -spec join([type()]) -> type().
 
-join([T1, T2| Ts]) ->
-    join([join(T1, T2) | Ts]);
-join([T]) -> T.
+join([T | Ts]) ->
+    join_list(Ts, T).
+
+join_list([T | Ts], T) ->
+    join_list(Ts, T);
+join_list([T1 | Ts], T) ->
+    join_list(Ts, join(T1, T));
+join_list([], T) -> T.
 
 %% Return the "join" of Type1 and Type2, which is more general than Type1 and
 %% Type2. This is identical to lub/2 but can operate on and produce unions.
