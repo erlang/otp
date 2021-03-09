@@ -1569,6 +1569,18 @@ config_file(Config) ->
     ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),   
     Nkex = length(proplists:get_value(kex, CommonAlgs, [])),
 
+    %% Adjust for very old ssh daemons that only supports ssh-rsa and ssh-dss:
+    AdjustClient =
+        case proplists:get_value(public_key,ServerAlgs,[]) -- ['ssh-rsa','ssh-dss'] of
+            [] ->
+                %% Old, let the client support them also:
+                ct:log("Adjust the client's public_key set", []),
+                [{public_key, ['ssh-rsa','ssh-dss']}];
+            [_|_] ->
+                %% Ok, let the client be un-modified:
+                []
+        end,
+
     case {ServerAlgs, ssh_test_lib:some_empty(CommonAlgs)} of
         {[],_} ->
             {skip, "No server algorithms found"};
@@ -1586,7 +1598,7 @@ config_file(Config) ->
                 [{ssh, [{preferred_algorithms,
                          [{cipher, [Ch1]},
                           {kex,    [K1a]}
-                         ]},
+                         ] ++ AdjustClient},
                         {client_options,
                          [{modify_algorithms,
                            [{rm,     [{kex, [K1a]}]},
