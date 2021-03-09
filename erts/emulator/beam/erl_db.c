@@ -1843,7 +1843,11 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
  * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  */
+#if defined(DEBUG) && defined(ARCH_64)
+#include "erl_db_insert_list.debug.ycf.h"
+#else
 #include "erl_db_insert_list.ycf.h"
+#endif
 
 static void* ets_insert_2_yield_alloc(size_t size, void* ctx)
 {
@@ -1873,7 +1877,13 @@ static void ets_insert_2_list_continuation(long *reds_ptr,
                                            void** state,
                                            void* extra_context)
 {
+#if defined(DEBUG) && defined(ARCH_64)
+    ycf_debug_set_stack_start(reds_ptr);
+#endif
     ets_insert_2_list_ycf_gen_continue(reds_ptr, state, extra_context);
+#if defined(DEBUG) && defined(ARCH_64)
+    ycf_debug_reset_stack_start();
+#endif
 }
 
 static int db_insert_new_2_res_bin_dtor(Binary *context_bin)
@@ -1935,9 +1945,15 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
             }
             return ets_cret_to_return_value(NULL, cret);
         } else {
+#if defined(DEBUG) && defined(ARCH_64)
+            ycf_debug_set_stack_start(&nr_of_reductions);
+#endif
             ret = ets_insert_2_list_ycf_gen_continue(&nr_of_reductions,
                                                      &ctx->continuation_state,
                                                      ctx);
+#if defined(DEBUG) && defined(ARCH_64)
+            ycf_debug_reset_stack_start();
+#endif
         }
     } else {
         /* Start call */
@@ -1946,6 +1962,9 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
         ictx.tb = NULL;
         ctx = &ictx;
         DB_GET_TABLE(ctx->tb, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, bix, NULL, p);
+#if defined(DEBUG) && defined(ARCH_64)
+        ycf_debug_set_stack_start(&nr_of_reductions);
+#endif
         ret = ets_insert_2_list_ycf_gen_yielding(&nr_of_reductions,
                                                  &ctx->continuation_state,
                                                  ctx,
@@ -1959,6 +1978,9 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
                                                  ctx->tb,
                                                  list,
                                                  is_insert_new);
+#if defined(DEBUG) && defined(ARCH_64)
+        ycf_debug_reset_stack_start();
+#endif
         if (ctx->continuation_state != NULL) {
             Binary* state_bin = erts_create_magic_binary(sizeof(ets_insert_2_list_info),
                                                          ets_insert_2_list_yield_dtor);

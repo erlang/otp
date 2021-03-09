@@ -610,13 +610,16 @@ ifeq ($(TYPE)@EXTERNAL_WORD_SIZE@,debug64)
 YCF_DEBUG_FLAG = -debug
 MAPS_YCF_OUTPUT=$(TARGET)/erl_map.debug.ycf.h
 UTILS_YCF_OUTPUT=$(TARGET)/utils.debug.ycf.h
+DB_INSERT_LIST_OUTPUT=$(TARGET)/erl_db_insert_list.debug.ycf.h
 else
 YCF_DEBUG_FLAG =
 MAPS_YCF_OUTPUT=$(TARGET)/erl_map.ycf.h
 UTILS_YCF_OUTPUT=$(TARGET)/utils.ycf.h
+DB_INSERT_LIST_OUTPUT=$(TARGET)/erl_db_insert_list.ycf.h
 endif
 
 DB_INSERT_LIST_YCF_FLAGS=-yield \
+		$(YCF_DEBUG_FLAG) \
 		-static_aux_funs \
 		-only_yielding_funs \
 		-f ets_insert_2_list_check \
@@ -667,7 +670,7 @@ else
 YCF_EXECUTABLE_PATH=`utils/find_cross_ycf`
 endif
 
-$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c $(ERTS_LIB)
+$(DB_INSERT_LIST_OUTPUT): beam/erl_db.c $(ERTS_LIB)
 	$(gen_verbose)$(YCF_EXECUTABLE_PATH) \
 		$(DB_INSERT_LIST_YCF_FLAGS) \
 		-output_file_name $@ $<
@@ -680,7 +683,7 @@ $(UTILS_YCF_OUTPUT): beam/utils.c $(ERTS_LIB)
 		$(UTILS_YCF_FLAGS) \
 		-output_file_name $@ $<
 
-GENERATE += $(TARGET)/erl_db_insert_list.ycf.h $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT)
+GENERATE += $(DB_INSERT_LIST_OUTPUT) $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT)
 
 ## ASMJIT source files and headers
 ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) $(wildcard asmjit/x86/*.cpp)
