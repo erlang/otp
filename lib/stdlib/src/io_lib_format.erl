@@ -765,18 +765,6 @@ insert_decimal(Place, S, Float) ->
                     {S0, S1} = lists:split(L + Place, S),
                     S0 ++ "." ++ S1;
                 2 - Place - L =< ExpCost ->
-                    %% All integers in the range [-2^53, 2^53] can
-                    %% be stored without loss of precision in an
-                    %% IEEE 754 64-bit double but 2^53+1 cannot be
-                    %% stored in an IEEE 754 64-bit double without
-                    %% loss of precision (float((1 bsl 53)+1) =:=
-                    %% float(1 bsl 53)). It thus makes sense to
-                    %% show floats that are >= 2^53 or <= -2^53 in
-                    %% scientific notation to indicate that the
-                    %% number is so large that there could be loss
-                    %% in precion when adding or subtracting 1.
-                    %%
-                    %% https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double?answertab=votes#tab-top
                     "0." ++ lists:duplicate(-Place - L, $0) ++ S;
                 true ->
                     insert_exp(ExpL, S)
@@ -784,6 +772,18 @@ insert_decimal(Place, S, Float) ->
         true ->
             Dot = if L =:= 1 -> 1; true -> 0 end,
             if
+                %% All integers in the range [-2^53, 2^53] can
+                %% be stored without loss of precision in an
+                %% IEEE 754 64-bit double but 2^53+1 cannot be
+                %% stored in an IEEE 754 64-bit double without
+                %% loss of precision (float((1 bsl 53)+1) =:=
+                %% float(1 bsl 53)). It thus makes sense to
+                %% show floats that are >= 2^53 or <= -2^53 in
+                %% scientific notation to indicate that the
+                %% number is so large that there could be loss
+                %% in precion when adding or subtracting 1.
+                %%
+                %% https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double?answertab=votes#tab-top
                 ExpCost + Dot >= Place + 2 andalso abs(Float) < float(1 bsl 53) ->
                     S ++ lists:duplicate(Place, $0) ++ ".0";
                 true ->
