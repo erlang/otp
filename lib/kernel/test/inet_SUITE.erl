@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1013,6 +1013,7 @@ hosts_file_quirks(Config) when is_list(Config) ->
     %% ensure it has our RC
     Rc = rpc:call(TestNode, inet_db, get_rc, []),
     {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
+    false = lists:keyfind(host, 1, Rc),
     %%
     %% check entries
     io:format("Check hosts file contents~n", []),
@@ -1031,14 +1032,13 @@ hosts_file_quirks(Config) when is_list(Config) ->
     hosts_file_quirks_verify(TestNode, V1),
     %%
     %% test add and del
-    ok =
-        rpc:call(
-          TestNode, inet_db, add_host,
-          [inet_ex(1), [h_ex("a"), h_ex("B")]]),
+    A1 = inet_ex(1),
+    Hs1 = [h_ex("a"), h_ex("B")],
+    ok = rpc:call(TestNode, inet_db, add_host, [A1, Hs1]),
     io:format("Check after add host~n", []),
     hosts_file_quirks_verify(
       TestNode,
-      [{R1, inet_ex(1)},
+      [{R1, A1},
        {R2, inet_ex(2)},
        {R3, inet6_ex(3)},
        {R5, inet_ex(5)},
@@ -1049,6 +1049,8 @@ hosts_file_quirks(Config) when is_list(Config) ->
        {R3, h_ex("a"), inet6},
        {R3, h_ex("c"), inet6}
       ]),
+    {host, A1, Hs1} =
+        lists:keyfind(host, 1, rpc:call(TestNode, inet_db, get_rc, [])),
     ok = rpc:call(TestNode, inet_db, del_host, [inet_ex(1)]),
     io:format("Check after del host~n", []),
     hosts_file_quirks_verify(TestNode, V1),

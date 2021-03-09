@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -430,10 +430,12 @@ get_rc_ns([], _Tag, Ks, Ls) ->
     get_rc(Ks, Ls).
 
 get_rc_hosts(Ks, Ls, Tab) ->
-    case ets:tab2list(Tab) of
-	[] -> get_rc(Ks, Ls);
-	Hosts -> get_rc(Ks, [ [{host, IP, Names} || {{_Fam, IP}, Names} <- Hosts] | Ls])
-    end.
+    get_rc(Ks, get_rc_hosts(ets:tab2list(Tab), Ls)).
+
+get_rc_hosts([], Ls) ->
+    Ls;
+get_rc_hosts([{{_Fam, IP}, Names} | Hosts], Ls) ->
+    get_rc_hosts(Hosts, [{host, IP, Names} | Ls]).
 
 %%
 %% Resolver options
