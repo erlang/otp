@@ -282,7 +282,7 @@ expr(#c_let{}=Let0, Ctxt, Sub) ->
     end;
 expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     %% This is named fun in an 'effect' context. Warn and ignore.
-    add_warning(Letrec, useless_building),
+    add_warning(Letrec, {ignored,useless_building}),
     void();
 expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
@@ -345,7 +345,7 @@ expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
             Apply = Apply0#c_apply{op=Op1,args=As1},
             fold_apply(Apply, Op1, As1);
 	true ->
-	    add_warning(Apply0, invalid_call),
+	    add_warning(Apply0, {failed,bad_call}),
 	    Err = #c_call{anno=Anno,
 			  module=#c_literal{val=erlang},
 			  name=#c_literal{val=error},
@@ -603,7 +603,7 @@ eval_binary(#c_binary{anno=Anno,segments=Ss}=Bin) ->
 	throw:impossible ->
 	    Bin;
 	  throw:{badarg,Warning} ->
-	    add_warning(Bin, Warning),
+	    add_warning(Bin, {failed,Warning}),
 	    #c_call{anno=Anno,
 		    module=#c_literal{val=erlang},
 		    name=#c_literal{val=error},
@@ -763,13 +763,13 @@ useless_call(effect, #c_call{module=#c_literal{val=Mod},
 	    case erl_bifs:is_pure(Mod, Name, A) of
 		true ->
                     Classified = classify_call(Call),
-                    add_warning(Call, {result_ignored,Classified});
+                    add_warning(Call, {ignored,{result,Classified}});
 		false ->
                     ok
 	    end,
 	    no;
 	true ->
-	    add_warning(Call, {no_effect,{Mod,Name,A}}),
+	    add_warning(Call, {ignored,{no_effect,{Mod,Name,A}}}),
 	    {yes,make_effect_seq(Args, sub_new())}
     end;
 useless_call(_, _) -> no.
@@ -964,7 +964,7 @@ eval_append(Call, X, Y) ->
 %%
 eval_failure(Call, Reason) ->
     Classified = classify_call(Call),
-    add_warning(Call, {eval_failure,Classified,Reason}),
+    add_warning(Call, {failed,{eval_failure,Classified,Reason}}),
     Call#c_call{module=#c_literal{val=erlang},
 		name=#c_literal{val=error},
 		args=[#c_literal{val=Reason}]}.
@@ -1204,9 +1204,9 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 	{_,_} ->
             case member(size_was_all, SizeAnno) of
                 true ->
-                    add_warning(Pat, {nomatch_bit_syntax_size,all});
+                    add_warning(Pat, {nomatch,{bit_syntax_size,all}});
                 false ->
-                    add_warning(Pat, {nomatch_bit_syntax_size,Sz})
+                    add_warning(Pat, {nomatch,{bit_syntax_size,Sz}})
             end,
 	    throw(nomatch)
     end,
@@ -1224,7 +1224,7 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 	{utf32,#c_literal{val=Val}} when is_integer(Val) ->
 	    bit_pat_warn_unicode(Val, Pat);
 	{_,#c_literal{val=Val}} ->
-	    add_warning(Pat, {nomatch_bit_syntax_type,Val,Type}),
+            add_warning(Pat, {nomatch,{bit_syntax_type,Val,Type}}),
 	    throw(nomatch);
 	{_,_} ->
 	    ok
@@ -1235,7 +1235,7 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},val=Val0,flags=Fl}=Pat) ->
 	{integer,#c_literal{val=Val}} when is_integer(Val) ->
 	    case signedness(Fl) of
 		unsigned when Val < 0 ->
-		    add_warning(Pat, {nomatch_bit_syntax_unsigned,Val}),
+                    add_warning(Pat, {nomatch,{bit_syntax_unsigned,Val}}),
 		    throw(nomatch);
 		_ ->
 		    ok
@@ -1243,7 +1243,7 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},val=Val0,flags=Fl}=Pat) ->
 	{float,#c_literal{val=Val}} when is_float(Val) ->
 	    ok;
 	{_,#c_literal{val=Val}} ->
-	    add_warning(Pat, {nomatch_bit_syntax_type,Val,Type}),
+            add_warning(Pat, {nomatch,{bit_syntax_type,Val,Type}}),
 	    throw(nomatch);
 	{_,_} ->
 	    ok
@@ -1254,36 +1254,36 @@ bit_pat_warn_int(Val, 0, signed, Pat) ->
 	Val =:= 0 ->
 	    ok;
 	true ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,0}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,signed,Val,0}}),
 	    throw(nomatch)
     end;
 bit_pat_warn_int(Val, Sz, signed, Pat) ->
     if
 	Val < 0, Val bsr (Sz - 1) =/= -1 ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,Sz}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,signed,Val,Sz}}),
 	    throw(nomatch);
 	Val > 0, Val bsr (Sz - 1) =/= 0 ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,Sz}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,signed,Val,Sz}}),
 	    throw(nomatch);
 	true ->
 	    ok
     end;
 bit_pat_warn_int(Val, _Sz, unsigned, Pat) when Val < 0 ->
-    add_warning(Pat, {nomatch_bit_syntax_unsigned,Val}),
+    add_warning(Pat, {nomatch,{bit_syntax_unsigned,Val}}),
     throw(nomatch);
 bit_pat_warn_int(Val, Sz, unsigned, Pat) ->
     if
 	Val bsr Sz =:= 0 ->
 	    ok;
 	true ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,unsigned,Val,Sz}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,unsigned,Val,Sz}}),
 	    throw(nomatch)
     end.
 
 bit_pat_warn_unicode(U, _Pat) when 0 =< U, U =< 16#10FFFF ->
     ok;
 bit_pat_warn_unicode(U, Pat) ->
-    add_warning(Pat, {nomatch_bit_syntax_unicode,U}),
+    add_warning(Pat, {nomatch,{bit_syntax_unicode,U}}),
     throw(nomatch).
 
 signedness(#c_literal{val=Flags}) ->
@@ -1386,7 +1386,7 @@ warn_no_clause_match(CaseOrig, CaseOpt) ->
 	    %% The original list of clauses did contain at least one
 	    %% user-specified clause, but none of them will match.
 	    %% That is probably a mistake.
-	    add_warning(CaseOrig, no_clause_match);
+	    add_warning(CaseOrig, {nomatch,no_clause});
 	false ->
 	    %% Either there were user-specified clauses left in
 	    %% the transformed clauses, or else none of the original
@@ -1415,7 +1415,7 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr, Anno) ->
 	    end,
 	    [C1];				%Skip the rest
 	{_Mat,no} ->				%Guard fails.
-	    add_warning(C1, nomatch_guard),
+            add_warning(C1, {nomatch,guard}),
 	    clauses(E, Cs, Ctxt, Sub, LitExpr, Anno);	%Skip this clause
 	{_Mat,_Suc} ->
 	    [C1|clauses(E, Cs, Ctxt, Sub, LitExpr, Anno)]
@@ -1423,14 +1423,14 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr, Anno) ->
 clauses(_, [], _, _, _, _) -> [].
 
 shadow_warning([C|Cs], none, Anno) ->
-    add_warning(C, nomatch_shadow),
+    add_warning(C, {nomatch,shadow}),
     shadow_warning(Cs, none, Anno);
 shadow_warning([C|Cs], Line, Anno) ->
     case keyfind(function, 1, Anno) of
 	{function, {Name, Arity}} ->
-	    add_warning(C, {nomatch_shadow, Line, {Name, Arity}});
+            add_warning(C, {nomatch,{shadow,Line,{Name,Arity}}});
 	_ ->
-	    add_warning(C, {nomatch_shadow, Line})
+            add_warning(C, {nomatch,{shadow,Line}})
     end,
     shadow_warning(Cs, Line, Anno);
 shadow_warning([], _, _) -> ok.
@@ -1515,7 +1515,7 @@ opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
     case is_boolean(Lit) of
 	false ->
 	    %% Not a boolean - this clause can't match.
-	    add_warning(C, nomatch_clause_type),
+            add_warning(C, {nomatch,clause_type}),
 	    opt_bool_clauses(Cs, SeenT, SeenF);
 	true ->
 	    %% This clause will match.
@@ -1525,7 +1525,7 @@ opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
                 {true,false,_} ->
                     [C|opt_bool_clauses(Cs, true, SeenF)];
                 _ ->
-                    add_warning(C, nomatch_shadow),
+                    add_warning(C, {nomatch,shadow}),
                     opt_bool_clauses(Cs, SeenT, SeenF)
 	    end
     end;
@@ -1540,7 +1540,7 @@ opt_bool_clauses([#c_clause{pats=Ps,guard=#c_literal{val=true}}=C|Cs], SeenT, Se
 	_ ->
 	    %% The clause cannot possible match a boolean.
 	    %% We can remove it.
-	    add_warning(C, nomatch_clause_type),
+	    add_warning(C, {nomatch,clause_type}),
 	    opt_bool_clauses(Cs, SeenT, SeenF)
     end;
 opt_bool_clauses([_|_], _, _) ->
@@ -1670,7 +1670,7 @@ eval_case_warn(#c_primop{anno=Anno,
 	    ok;
 	{eval_failure,badmap} ->
 	    %% Example: M = not_map, M#{k:=v}
-	    add_warning(Core, bad_map_update)
+	    add_warning(Core, {failed,bad_map_update})
     end;
 eval_case_warn(_) -> ok.
 
@@ -1815,7 +1815,7 @@ case_opt_nomatch(E, [{[P|_],C,_,_}=Current|Cs], LitExpr) ->
             %% the clause.  Unless the entire case expression is a
             %% literal, also emit a warning.
             case LitExpr of
-                false -> add_warning(C, nomatch_clause_type);
+                false -> add_warning(C, {nomatch,clause_type});
                 true -> ok
             end,
             case_opt_nomatch(E, Cs, LitExpr);
@@ -2810,7 +2810,7 @@ descend(Core, #sub{top=true}=Sub) ->
 
 warn_useless_building(Core, #sub{top=Top}) ->
     case Top of
-        true -> add_warning(Core, useless_building);
+        true -> add_warning(Core, {ignored,useless_building});
         false -> ok
     end.
 
@@ -2877,41 +2877,43 @@ classify_call(Call) ->
     Arity = cerl:call_arity(Call),
     {Mod, Name, Arity}.
 
--type error() :: atom() | tuple().
+-type error() :: {'failed' | 'nomatch' | 'ignored', term()}.
 
 -spec format_error(error()) -> nonempty_string().
 
-format_error({eval_failure,Call,Reason}) ->
+format_error({failed,{eval_failure,Call,Reason}}) ->
     flatten(io_lib:format("~ts will fail with a '~p' exception",
                           [format_call(Call, false),Reason]));
-format_error(embedded_binary_size) ->
+format_error({failed,embedded_binary_size}) ->
     "binary construction will fail with a 'badarg' exception "
 	"(field size for binary/bitstring greater than actual size)";
-format_error({embedded_unit,Unit,Size}) ->
+format_error({failed,{embedded_unit,Unit,Size}}) ->
     M = io_lib:format("binary construction will fail with a 'badarg' exception "
 		      "(size ~p cannot be evenly divided by unit ~p)", [Size,Unit]),
     flatten(M);
-format_error(bad_unicode) ->
+format_error({failed,bad_unicode}) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid Unicode code point in a utf8/utf16/utf32 segment)";
-format_error(bad_float_size) ->
+format_error({failed,bad_float_size}) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid size for a float segment)";
-format_error(bad_map_update) ->
+format_error({failed,bad_map_update}) ->
     "map update will fail with a 'badmap' exception";
-format_error({nomatch_shadow,Line,{Name, Arity}}) ->
+format_error({failed,bad_call}) ->
+    "invalid function call";
+format_error({nomatch,{shadow,Line,{Name, Arity}}}) ->
     M = io_lib:format("this clause for ~ts/~B cannot match because a previous "
 		      "clause at line ~p always matches", [Name, Arity, Line]),
     flatten(M);
-format_error({nomatch_shadow,Line}) ->
+format_error({nomatch,{shadow,Line}}) ->
     M = io_lib:format("this clause cannot match because a previous clause at line ~p "
 		      "always matches", [Line]),
     flatten(M);
-format_error(nomatch_shadow) ->
+format_error({nomatch,shadow}) ->
     "this clause cannot match because a previous clause always matches";
-format_error(nomatch_guard) ->
-    "the guard for this clause evaluates to 'false'";
-format_error({nomatch_bit_syntax_truncated,Signess,Val,Sz}) ->
+format_error({nomatch,guard}) ->
+    "this caluse cannot match because its guard evaluates to 'false'";
+format_error({nomatch,{bit_syntax_truncated,Signess,Val,Sz}}) ->
     S = case Signess of
 	    signed -> "a 'signed'";
 	    unsigned -> "an 'unsigned'"
@@ -2919,26 +2921,26 @@ format_error({nomatch_bit_syntax_truncated,Signess,Val,Sz}) ->
     F = "this clause cannot match because the value ~P"
 	" will not fit in ~s binary segment of size ~p",
     flatten(io_lib:format(F, [Val,10,S,Sz]));
-format_error({nomatch_bit_syntax_unsigned,Val}) ->
+format_error({nomatch,{bit_syntax_unsigned,Val}}) ->
     F = "this clause cannot match because the negative value ~P"
 	" will never match the value of an 'unsigned' binary segment",
     flatten(io_lib:format(F, [Val,10]));
-format_error({nomatch_bit_syntax_size,Sz}) ->
+format_error({nomatch,{bit_syntax_size,Sz}}) ->
     F = "this clause cannot match because '~P' is not a valid size for a binary segment",
     flatten(io_lib:format(F, [Sz,10]));
-format_error({nomatch_bit_syntax_type,Val,Type}) ->
+format_error({nomatch,{bit_syntax_type,Val,Type}}) ->
     F = "this clause cannot match because '~P' is not of the"
 	" expected type '~p'",
     flatten(io_lib:format(F, [Val,10,Type]));
-format_error({nomatch_bit_syntax_unicode,Val}) ->
+format_error({nomatch,{bit_syntax_unicode,Val}}) ->
     F = "this clause cannot match because the value ~p"
 	" is not a valid Unicode code point",
     flatten(io_lib:format(F, [Val]));
-format_error(no_clause_match) ->
+format_error({nomatch,no_clause}) ->
     "no clause will ever match";
-format_error(nomatch_clause_type) ->
+format_error({nomatch,clause_type}) ->
     "this clause cannot match because of different types/sizes";
-format_error({no_effect,{erlang,F,A}}) ->
+format_error({ignored,{no_effect,{erlang,F,A}}}) ->
     {Fmt,Args} = case erl_internal:comp_op(F, A) of
 		     true ->
 			 {"use of operator ~p has no effect",[F]};
@@ -2951,13 +2953,11 @@ format_error({no_effect,{erlang,F,A}}) ->
 			 end
 		 end,
     flatten(io_lib:format(Fmt, Args));
-format_error({result_ignored,Call}) ->
+format_error({ignored,{result,Call}}) ->
     Fmt = "the result of ~ts is ignored "
 	"(suppress the warning by assigning the expression to the _ variable)",
     flatten(io_lib:format(Fmt, [format_call(Call, true)]));
-format_error(invalid_call) ->
-    "invalid function call";
-format_error(useless_building) ->
+format_error({ignored,useless_building}) ->
     "a term is constructed, but never used".
 
 format_call({erlang,make_fun,3}, _) ->

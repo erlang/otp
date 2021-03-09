@@ -475,7 +475,7 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
            ">>,
            [warn_unused_vars],
            {warnings,[{{6,18},erl_lint,{unused_var,'C1'}},
-                      {{7,19},sys_core_fold,no_clause_match},
+                      {{7,19},sys_core_fold,{nomatch,no_clause}},
                       {{9,25},erl_lint,{unused_var,'C3'}}]}},
 
           {lc21,
@@ -586,7 +586,7 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                       {{4,25},erl_lint,{unused_var,'A'}},
                       {{4,25},erl_lint,{shadowed_var,'A','fun'}},
                       {{5,26},erl_lint,{unused_var,'Q'}},
-                      {{8,19},sys_core_fold,useless_building},
+                      {{8,19},sys_core_fold,{ignored,useless_building}},
                       {{8,23},erl_lint,{unused_var,'E'}},
                       {{8,23},erl_lint,{shadowed_var,'E','fun'}},
                       {{12,26},erl_lint,{unused_var,'E'}}]}},
@@ -2309,9 +2309,9 @@ otp_5371(Config) when is_list(Config) ->
                   {X,Y}.
              ">>,
 	   [],
-	   {warnings,[{{4,15},v3_core,nomatch},
-		      {{6,15},v3_core,nomatch},
-		      {{8,15},v3_core,nomatch}]}}
+	   {warnings,[{{4,15},v3_core,{nomatch,pattern}},
+		      {{6,15},v3_core,{nomatch,pattern}},
+		      {{8,15},v3_core,{nomatch,pattern}}]}}
 	 ],
     [] = run(Config, Ts),
     ok.
