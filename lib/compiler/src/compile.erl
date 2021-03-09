@@ -514,6 +514,7 @@ run_eprof({_,Fun}, Code, _, St) ->
     Fun(Code, St).
 
 comp_ret_ok(Code, #compile{warnings=Warn0,module=Mod,options=Opts}=St) ->
+    Warn1 = filter_warnings(Warn0, Opts),
     case werror(St) of
         true ->
             case member(report_warnings, Opts) of
@@ -525,7 +526,7 @@ comp_ret_ok(Code, #compile{warnings=Warn0,module=Mod,options=Opts}=St) ->
             end,
             comp_ret_err(St);
         false ->
-            Warn = messages_per_file(Warn0),
+            Warn = messages_per_file(Warn1),
             report_warnings(St#compile{warnings = Warn}),
             Ret1 = case member(binary, Opts) andalso
 		       not member(no_code_generation, Opts) of
@@ -1719,6 +1720,41 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
 	    foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws);
 	false -> ok
     end.
+
+%%%
+%%% Filter warnings.
+%%%
+
+filter_warnings(Ws, Opts) ->
+    Ignore = ignore_tags(Opts, sets:new([{version,2}])),
+    filter_warnings_1(Ws, Ignore).
+
+filter_warnings_1([{Source,Ws0}|T], Ignore) ->
+    Ws = [W || W <- Ws0, not ignore_warning(W, Ignore)],
+    [{Source,Ws}|filter_warnings_1(T, Ignore)];
+filter_warnings_1([], _Ignore) -> [].
+
+ignore_warning({_Location,Pass,{Category,_}}, Ignore) ->
+    IgnoreMod = case Pass of
+                    v3_core -> true;
+                    sys_core_fold -> true;
+                    v3_kernel -> true;
+                    _ -> false
+                end,
+    IgnoreMod andalso sets:is_element(Category, Ignore);
+ignore_warning(_, _) -> false.
+
+ignore_tags([nowarn_opportunistic|_], _Ignore) ->
+    sets:from_list([failed,ignored,nomatch], [{version,2}]);
+ignore_tags([nowarn_failed|Opts], Ignore) ->
+    ignore_tags(Opts, sets:add_element(failed, Ignore));
+ignore_tags([nowarn_ignored|Opts], Ignore) ->
+    ignore_tags(Opts, sets:add_element(ignored, Ignore));
+ignore_tags([nowarn_nomatch|Opts], Ignore) ->
+    ignore_tags(Opts, sets:add_element(nomatch, Ignore));
+ignore_tags([_|Opts], Ignore) ->
+    ignore_tags(Opts, Ignore);
+ignore_tags([], Ignore) -> Ignore.
 
 %% erlfile(Dir, Base) -> ErlFile
 %% outfile(Base, Extension, Options) -> OutputFile

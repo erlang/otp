@@ -43,7 +43,7 @@
          redundant_boolean_clauses/1,
 	 underscore/1,no_warnings/1,
 	 bit_syntax/1,inlining/1,tuple_calls/1,
-         recv_opt_info/1]).
+         recv_opt_info/1,opportunistic_warnings/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -66,7 +66,7 @@ groups() ->
        maps_bin_opt_info,
        redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
-       tuple_calls,recv_opt_info]}].
+       tuple_calls,recv_opt_info,opportunistic_warnings]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1086,6 +1086,79 @@ recv_opt_info(Config) when is_list(Config) ->
 
     %% For coverage: don't give the recv_opt_info option.
     [] = (catch run_test(Config, Code, [])),
+
+    ok.
+
+%% OTP-17260: Test that opportunistic warnings can be disabled.
+opportunistic_warnings(Config) ->
+    Source = <<"m(_) -> ok;
+                m(_) -> error.
+
+                a() -> <<0.5>>.
+                b() -> Bin = <<1,2,3,7:4>>, <<Bin/binary>>.
+                c() -> Size = bad_size, <<1:Size>>.
+
+                i() -> {a,b,c}, ok.
+           ">>,
+
+    %% Don't disable any warnings.
+    Ts1 = [{nothing_disabled,
+            Source,
+            [],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts1),
+
+    %% Disable all opportunistic warnings.
+    Ts2 = [{all_disabled,
+            Source,
+            [nowarn_opportunistic],
+            []}],
+    [] = run(Config, Ts2),
+
+    %% Disable warnings for patterns that don't match.
+    Ts3 = [{nomatch_disabled,
+            Source,
+            [nowarn_nomatch],
+            {warnings,[{{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts3),
+
+    %% Disable warnings for failures.
+    Ts4 = [{failures_disabled,
+            Source,
+            [nowarn_failed],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts4),
+
+    %% Disable warnings for useless building.
+    Ts5 = [{disabled_useless_building,
+            Source,
+            [nowarn_ignored],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}}
+                      ]}}],
+    [] = run(Config, Ts5),
+
+    %% Disable warnings for useless building and failures.
+    Ts6 = [{disabled_combination,
+            Source,
+            [nowarn_ignored,nowarn_failed],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}}
+                      ]}}],
+    [] = run(Config, Ts6),
+
 
     ok.
 
