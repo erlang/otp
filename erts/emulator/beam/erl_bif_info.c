@@ -4510,6 +4510,28 @@ static void broken_halt_test(Eterm bif_arg_2)
     erts_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
 }
 
+static void
+test_multizero_timeout_in_timeout3(void *vproc)
+{
+    Process *proc = (Process *) vproc;
+    ErtsMessage *mp = erts_alloc_message(0, NULL);
+    ERTS_DECL_AM(multizero_timeout_in_timeout_done);
+    erts_queue_message(proc, 0, mp, AM_multizero_timeout_in_timeout_done, am_system);
+    erts_proc_dec_refc(proc);
+}
+
+static void
+test_multizero_timeout_in_timeout2(void *vproc)
+{
+    erts_start_timer_callback(0, test_multizero_timeout_in_timeout3, vproc);
+}
+
+static void
+test_multizero_timeout_in_timeout(void *vproc)
+{
+    erts_start_timer_callback(0, test_multizero_timeout_in_timeout2, vproc);
+}
+
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 {
     /*
@@ -4889,6 +4911,18 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             case am_false:
                 erts_release_code_write_permission();
                 BIF_RET(am_true);
+            }
+        }
+        else if (ERTS_IS_ATOM_STR("multizero_timeout_in_timeout", BIF_ARG_1)) {
+            Sint64 timeout;
+            if (term_to_Sint64(BIF_ARG_2, &timeout)) {
+                if (timeout < 0)
+                    timeout = 0;
+                erts_proc_inc_refc(BIF_P);
+                erts_start_timer_callback((ErtsMonotonicTime) timeout,
+                                          test_multizero_timeout_in_timeout,
+                                          (void *) BIF_P);
+                BIF_RET(am_ok);
             }
         }
     }
