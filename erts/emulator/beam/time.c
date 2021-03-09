@@ -871,6 +871,8 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 	    }
 
 	    if (tiw->pos >= bump_to) {
+                if (tiw->at_once.nto)
+                    continue;
                 ERTS_MSACC_POP_STATE_M_X();
 		break;
             }
