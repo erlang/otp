@@ -39,7 +39,7 @@
          parse_path/1, parse_pct_encoded_fragment/1, parse_pct_encoded_query/1,
          parse_pct_encoded_userinfo/1, parse_port/1,
          parse_query/1, parse_scheme/1, parse_userinfo/1,
-	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1,
+         parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1,
          parse_special/1, parse_special2/1, parse_negative/1,
          recompose_fragment/1, recompose_parse_fragment/1,
          recompose_query/1, recompose_parse_query/1,
@@ -148,7 +148,9 @@ all() ->
      regression_recompose,
      regression_normalize,
      recompose_host_relative_path,
-     recompose_host_absolute_path
+     recompose_host_absolute_path,
+     verify_proper_decoding,
+     verify_proper_encoding
     ].
 
 groups() ->
@@ -1330,5 +1332,17 @@ recompose_host_absolute_path(_Config) ->
     "//example.com/foo" =
         uri_string:recompose(#{host => <<"example.com">>,
                                path => [<<"/f">>,<<"oo">>]}),
+    ok.
+
+verify_proper_decoding(_Config) ->
+    ?USERINFO = uri_string:percent_decode(?USERINFO_ENC),
+    ?HOST     = uri_string:percent_decode(?HOST_ENC),
+    ?FRAGMENT = uri_string:percent_decode(?FRAGMENT_ENC),
+    ok.
+
+verify_proper_encoding(_Config) ->
+    ?USERINFO_ENC = uri_string:percent_encode(?USERINFO),
+    ?HOST_ENC     = uri_string:percent_encode(?HOST),
+    ?FRAGMENT_ENC = uri_string:percent_encode(?FRAGMENT),
     ok.
 
