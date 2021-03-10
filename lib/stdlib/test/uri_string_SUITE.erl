@@ -53,7 +53,9 @@
          interop_query_latin1/1, interop_query_utf8/1,
          regression_parse/1, regression_recompose/1, regression_normalize/1,
          recompose_host_relative_path/1,
-         recompose_host_absolute_path/1
+         recompose_host_absolute_path/1,
+         verify_proper_decoding/1,
+         verify_proper_encoding/1
         ]).
 
 
