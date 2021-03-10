@@ -992,6 +992,7 @@ struct process {
 
     Process *next;		/* Pointer to next process in run queue */
 
+    Sint64 uniq;                /* Used for process unique integer */
     ErtsSignalPrivQueues sig_qs; /* Signal queues */
     ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
 

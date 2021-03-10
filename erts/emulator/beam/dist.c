@@ -156,6 +156,10 @@ static char *erts_dop_to_string(enum dop dop) {
         return "SPAWN_REQUEST_TT";
     if (dop == DOP_SPAWN_REPLY)
         return "SPAWN_REPLY";
+    if (dop == DOP_UNLINK_ID)
+        return "UNLINK_ID";
+    if (dop == DOP_UNLINK_ID_ACK)
+        return "UNLINK_ID_ACK";
     ASSERT(0);
     return "UNKNOWN";
 }
@@ -1288,9 +1292,56 @@ erts_dsig_send_link(ErtsDSigSendContext *ctx, Eterm local, Eterm remote)
 }
 
 int
-erts_dsig_send_unlink(ErtsDSigSendContext *ctx, Eterm local, Eterm remote)
+erts_dsig_send_unlink(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Uint64 id)
 {
-    Eterm ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_UNLINK), local, remote);
+    Eterm big_heap[ERTS_MAX_UINT64_HEAP_SIZE];
+    Eterm unlink_id;    
+    Eterm ctl;
+    if (ctx->dflags & DFLAG_UNLINK_ID) {
+        if (IS_USMALL(0, id))
+            unlink_id = make_small(id);
+        else {
+            Eterm *hp = &big_heap[0];
+            unlink_id = erts_uint64_to_big(id, &hp);
+        }
+        ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_UNLINK_ID),
+                     unlink_id, local, remote);
+    }
+    else {
+        /*
+         * A node that isn't capable of talking the new link protocol.
+         *
+         * Send an old unlink op, and send ourselves an unlink-ack. We may
+         * end up in an inconsistent state as we could before the new link
+         * protocol was introduced...
+         */
+        erts_proc_sig_send_dist_unlink_ack(ctx->c_p, ctx->dep, ctx->connection_id,
+                                           remote, local, id);
+        ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_UNLINK), local, remote);
+    }
+    return dsig_send_ctl(ctx, ctl);
+}
+
+int
+erts_dsig_send_unlink_ack(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Uint64 id)
+{
+    Eterm big_heap[ERTS_MAX_UINT64_HEAP_SIZE];
+    Eterm unlink_id;
+    Eterm ctl;
+
+    if (!(ctx->dflags & DFLAG_UNLINK_ID)) {
+        /* Receiving node does not understand it, so drop it... */
+        return ERTS_DSIG_SEND_OK;
+    }
+
+    if (IS_USMALL(0, id))
+        unlink_id = make_small(id);
+    else {
+        Eterm *hp = &big_heap[0];
+        unlink_id = erts_uint64_to_big(id, &hp);
+    }
+    ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_UNLINK_ID_ACK),
+                 unlink_id, local, remote);
     return dsig_send_ctl(ctx, ctl);
 }
 
@@ -2012,16 +2063,16 @@ int erts_net_message(Port *prt,
             /* old incarnation of node; reply noproc... */
         }
         else if (is_internal_pid(to)) {
-            ErtsLinkData *ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
-                                                 from, to);
-            ASSERT(ldp->a.other.item == to);
-            ASSERT(eq(ldp->b.other.item, from));
+            ErtsLinkData *ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                                          to, from);
+            ASSERT(ldp->dist.other.item == to);
+            ASSERT(eq(ldp->proc.other.item, from));
 
-            code = erts_link_dist_insert(&ldp->a, ede.mld);
-            if (erts_proc_sig_send_link(NULL, to, &ldp->b)) {
+            code = erts_link_dist_insert(&ldp->dist, ede.mld);
+            if (erts_proc_sig_send_link(NULL, to, &ldp->proc)) {
                 if (!code) {
                     /* Race: connection already down => send link exit */
-                    erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+                    erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->dist,
                                                  am_noconnection, NIL);
                 }
                 break; /* Done */
@@ -2029,7 +2080,7 @@ int erts_net_message(Port *prt,
 
             /* Failed to send signal; cleanup and reply noproc... */
             if (code) {
-                code = erts_link_dist_delete(&ldp->a);
+                code = erts_link_dist_delete(&ldp->dist);
                 ASSERT(code);
             }
             erts_link_release_both(ldp);
@@ -2044,12 +2095,29 @@ int erts_net_message(Port *prt,
 	break;
     }
 
-    case DOP_UNLINK: {
-	if (tuple_arity != 3) {
+    case DOP_UNLINK_ID: {
+        Eterm *element;
+        Uint64 id;
+	if (tuple_arity != 4)
 	    goto invalid_message;
-	}
-	from = tuple[2];
-	to = tuple[3];
+
+        element = &tuple[2];
+        if (!term_to_Uint64(*(element++), &id))
+            goto invalid_message;
+
+        if (id == 0)
+            goto invalid_message;
+
+        if (0) {
+        case DOP_UNLINK:
+            if (tuple_arity != 3)
+                goto invalid_message;
+            element = &tuple[2];
+            id = 0;
+        }
+        
+	from = *(element++);
+	to = *element;
 	if (is_not_external_pid(from))
 	    goto invalid_message;
         if (dep != external_pid_dist_entry(from))
@@ -2062,10 +2130,37 @@ int erts_net_message(Port *prt,
         if (is_not_internal_pid(to))
             goto invalid_message;
 
-        erts_proc_sig_send_dist_unlink(dep, from, to);
+        erts_proc_sig_send_dist_unlink(dep, conn_id, from, to, id);
 	break;
     }
     
+    case DOP_UNLINK_ID_ACK: {
+        Uint64 id;
+	if (tuple_arity != 4)
+	    goto invalid_message;
+
+        if (!term_to_Uint64(tuple[2], &id))
+            goto invalid_message;
+
+	from = tuple[3];
+	to = tuple[4];
+	if (is_not_external_pid(from))
+	    goto invalid_message;
+        if (dep != external_pid_dist_entry(from))
+	    goto invalid_message;
+
+        if (is_external_pid(to)
+            && erts_this_dist_entry == external_pid_dist_entry(from))
+            break;
+
+        if (is_not_internal_pid(to))
+            goto invalid_message;
+
+        erts_proc_sig_send_dist_unlink_ack(NULL, dep, conn_id,
+                                           from, to, id);
+	break;
+    }
+
     case DOP_MONITOR_P: {
 	/* A remote process wants to monitor us, we get:
 	   {DOP_MONITOR_P, Remote pid, local pid or name, ref} */
@@ -2674,12 +2769,12 @@ int erts_net_message(Port *prt,
 
             if (flags & ERTS_DIST_SPAWN_FLAG_LINK) {
                 /* Successful spawn-link... */
-                ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
-                                       result, parent);
-                ASSERT(ldp->a.other.item == parent);
-                ASSERT(eq(ldp->b.other.item, result));
-                link_inserted = erts_link_dist_insert(&ldp->a, ede.mld);
-                lnk = &ldp->b;
+                ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                                parent, result);
+                ASSERT(ldp->dist.other.item == parent);
+                ASSERT(eq(ldp->proc.other.item, result));
+                link_inserted = erts_link_dist_insert(&ldp->dist, ede.mld);
+                lnk = &ldp->proc;
             }
         }
 
@@ -2702,7 +2797,7 @@ int erts_net_message(Port *prt,
 
             if (lnk) {
                 if (link_inserted) {
-                    code = erts_link_dist_delete(&ldp->a);
+                    code = erts_link_dist_delete(&ldp->dist);
                     ASSERT(code);
                 }
                 erts_link_release_both(ldp);
@@ -2719,7 +2814,7 @@ int erts_net_message(Port *prt,
             }
         }
         else if (lnk && !link_inserted) {
-            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->dist,
                                          am_noconnection, NIL);
         }
 
@@ -4369,6 +4464,7 @@ static int doit_print_link_info(ErtsLink *lnk, void *vptdp, Sint reds)
 {
     struct print_to_data *ptdp = vptdp;
     ErtsLink *lnk2 = erts_link_to_other(lnk, NULL);
+    ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
     erts_print(ptdp->to, ptdp->arg, "Remote link: %T %T\n",
 	       lnk2->other.item, lnk->other.item);
     return 1;
