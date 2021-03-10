@@ -1576,6 +1576,7 @@ encode(Component, Fun) when is_list(Component) ->
 encode(Component, Fun) when is_binary(Component) ->
     encode(Component, Fun, <<>>).
 %%
+-spec encode(binary(), fun(), binary()) -> binary().
 encode(<<Char/utf8, Rest/binary>>, Fun, Acc) ->
     C = encode_codepoint_binary(Char, Fun),
     encode(Rest, Fun, <<Acc/binary,C/binary>>);
