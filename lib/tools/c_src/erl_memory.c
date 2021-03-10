@@ -117,13 +117,12 @@ typedef int socklen_t;
 
 /* Our own assert() ... */
 #ifdef DEBUG
-#define ASSERT(A) ((void) ((A) ? 1 : assert_failed(__FILE__, __LINE__, #A)))
+#define ASSERT(A) ((A) ? (void)1 : assert_failed(__FILE__, __LINE__, #A))
 #include <stdio.h>
-__decl_noreturn static int __noreturn assert_failed(char *f, int l, char *a)
+__decl_noreturn static void __noreturn assert_failed(char *f, int l, char *a)
 {
     fprintf(stderr, "%s:%d: Assertion failed: %s\n", f, l, a);
     abort();
-    return 0;
 }
 
 #else
