@@ -1572,6 +1572,9 @@ is_path(Char) -> is_pchar(Char).
 %%-------------------------------------------------------------------------
 %% Helper functions for percent-encode
 %%-------------------------------------------------------------------------
+-spec encode(list()|binary()) -> list() | binary().
+encode(Val) -> encode(Val, fun is_unreserved/1).
+
 -spec encode(list()|binary(), fun()) -> list() | binary().
 encode(Component, Fun) when is_list(Component) ->
     B = unicode:characters_to_binary(Component),
