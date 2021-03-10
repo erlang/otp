@@ -228,6 +228,23 @@
     </func>
 
     <func>
+      <name name="decode" arity="1" since="OTP 24"/>
+      <fsummary>Decode percent-encoded triplets in the input.</fsummary>
+      <desc>
+	<p>Decodes all percent-encoded triplets in the input. Input to this
+  function is expected to be either a <c>list()</c> or a <c>binary()</c>.
+  Note, that this function performs raw decoding. Applying this function
+  directly on a standard URI can change it.</p>
+	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input><![CDATA[uri_string:decode("This%20isn%27t%20a%20drill.").]]></input>
+<![CDATA["This isn't a drill."]]>
+	</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="dissect_query" arity="1" since="OTP 21.0"/>
       <fsummary>Dissect query string.</fsummary>
       <desc>
