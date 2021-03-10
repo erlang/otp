@@ -1357,9 +1357,9 @@ id(I) -> I.
 
 %% Get code path, including the path for the erts application.
 get_code_path() ->
-    case code:lib_dir(erts) of
-	{error,bad_name} ->
-	    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
+    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
+    case filelib:is_dir(Erts) of
+	true->
 	    [Erts|code:get_path()];
 	_ ->
 	    code:get_path()
