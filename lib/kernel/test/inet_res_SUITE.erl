@@ -72,7 +72,7 @@ suite() ->
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
-     last_ms_answer,
+     nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
      label_compression_limit,
@@ -939,14 +939,16 @@ do_files_monitor(Config) ->
 %% Check that we get the error code from the first server.
 
 nxdomain_reply(Config) when is_list(Config) ->
-    NS        = ns(Config),
-    Name      = "nxdomain.otptest",
-    Class     = in,
-    Type      = a,
-    Opts      = [{nameservers,[NS]}, {servfail_retry_timeout, 1000}, verbose],
+    NS    = ns(Config),
+    Name  = "nxdomain.otptest",
+    Class = in,
+    Type  = a,
+    Opts  =
+        [{nameservers,[NS]}, {servfail_retry_timeout, 1000}, verbose],
     ?P("try resolve"),
     {error, nxdomain} = inet_res:resolve(Name, Class, Type, Opts),
-    {error, {nxdomain, Rec}} = inet_res:resolve(Name, Class, Type, [nxdomain_reply|Opts]),
+    {error, {nxdomain, Rec}} =
+        inet_res:resolve(Name, Class, Type, [nxdomain_reply|Opts]),
     ?P("resolved: "
        "~n      ~p", [Rec]),
     ok.

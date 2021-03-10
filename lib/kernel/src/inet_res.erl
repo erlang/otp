@@ -263,8 +263,10 @@ do_nslookup(Name, Class, Type, Opts, Timeout) ->
 %% options record
 %%
 -record(options, { % These must be sorted!
-	  alt_nameservers,edns,inet6,nameservers,nxdomain_reply,recurse,
-	  retry,servfail_retry_timeout,timeout,udp_payload_size,usevc,
+	  alt_nameservers,edns,inet6,nameservers,
+          nxdomain_reply, % this is a local option, not in inet_db
+          recurse,retry,servfail_retry_timeout,timeout,
+          udp_payload_size,usevc,
 	  verbose}). % this is a local option, not in inet_db
 %%
 %% Opts when is_list(Opts) -> #options{}
@@ -299,13 +301,9 @@ make_options(Opts0) ->
 make_options([_|_]=Opts0, []=Names0) ->
     erlang:error(badarg, [Opts0,Names0]);
 make_options([], []) -> [];
-make_options([{verbose,Val}|Opts]=Opts0, [verbose|Names]=Names0) ->
-    if is_boolean(Val) ->
-	    [Val|make_options(Opts, Names)];
-       true ->
-	    erlang:error(badarg, [Opts0,Names0])
-    end;
-make_options([{nxdomain_reply,Val}|Opts]=Opts0, [nxdomain|Names]=Names0) ->
+make_options([{Opt,Val}|Opts]=Opts0, [Opt|Names]=Names0)
+  when Opt =:= nxdomain_reply;
+       Opt =:= verbose ->
     if is_boolean(Val) ->
 	    [Val|make_options(Opts, Names)];
        true ->
@@ -318,9 +316,10 @@ make_options([{Opt,Val}|Opts]=Opts0, [Opt|Names]=Names0) ->
 	false ->
 	    erlang:error(badarg, [Opts0,Names0])
     end;
-make_options(Opts, [verbose|Names]) ->
-    [false|make_options(Opts, Names)];
+%% Handling default values (for options not in Opts)
 make_options(Opts, [nxdomain_reply|Names]) ->
+    [false|make_options(Opts, Names)];
+make_options(Opts, [verbose|Names]) ->
     [false|make_options(Opts, Names)];
 make_options(Opts, [Name|Names]) ->
     [inet_db:res_option(Name)|make_options(Opts, Names)].
