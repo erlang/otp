@@ -229,11 +229,10 @@
 -export([allowed_characters/0,
          compose_query/1,
          compose_query/2,
-         decode/1,
          dissect_query/1,
-         encode/1,
          normalize/1,
          normalize/2,
+         percent_encode/1,
          percent_decode/1,
          parse/1,
          recompose/1,
@@ -1566,8 +1565,8 @@ is_path(Char) -> is_pchar(Char).
 %%-------------------------------------------------------------------------
 %% Helper functions for percent-encode
 %%-------------------------------------------------------------------------
--spec encode(list()|binary()) -> list() | binary().
-encode(Val) -> encode(Val, fun is_unreserved/1).
+-spec percent_encode(list()|binary()) -> list() | binary().
+percent_encode(Val) -> encode(Val, fun is_unreserved/1).
 
 -spec encode(list()|binary(), fun()) -> list() | binary().
 encode(Component, Fun) when is_list(Component) ->
