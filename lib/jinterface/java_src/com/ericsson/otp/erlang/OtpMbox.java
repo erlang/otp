@@ -84,6 +84,7 @@ public class OtpMbox {
     GenericQueue queue;
     String name;
     Links links;
+    private long unlink_id;
 
     // package constructor: called by OtpNode:createMbox(name)
     // to create a named mbox
@@ -91,6 +92,7 @@ public class OtpMbox {
         this.self = self;
         this.home = home;
         this.name = name;
+        this.unlink_id = 1;
         queue = new GenericQueue();
         links = new Links(10);
     }
@@ -516,7 +518,10 @@ public class OtpMbox {
      *                or could not be reached.
      *
      */
-    public void link(final OtpErlangPid to) throws OtpErlangExit {
+    public synchronized void link(final OtpErlangPid to) throws OtpErlangExit {
+        if (!links.addLink(self, to, true))
+            return; /* Already linked... */
+
         try {
             final String node = to.node();
             if (node.equals(home.node())) {
@@ -526,17 +531,18 @@ public class OtpMbox {
             } else {
                 final OtpCookedConnection conn = home.getConnection(node);
                 if (conn != null) {
-                    conn.link(self, to);
+                    conn.link(self, to); // may throw 'noproc'
+                    conn.node_link(self, to, true);
                 } else {
                     throw new OtpErlangExit("noproc", to);
                 }
             }
         } catch (final OtpErlangExit e) {
+            links.removeLink(self, to);
             throw e;
         } catch (final Exception e) {
         }
 
-        links.addLink(self, to);
     }
 
     /**
@@ -552,21 +558,37 @@ public class OtpMbox {
      *            from.
      *
      */
-    public void unlink(final OtpErlangPid to) {
-        links.removeLink(self, to);
-
-        try {
-            final String node = to.node();
-            if (node.equals(home.node())) {
-                home.deliver(new OtpMsg(OtpMsg.unlinkTag, self, to));
-            } else {
-                final OtpCookedConnection conn = home.getConnection(node);
-                if (conn != null) {
-                    conn.unlink(self, to);
+    public synchronized void unlink(final OtpErlangPid to) {
+        long unlink_id = this.unlink_id++;
+        if (unlink_id == 0)
+            unlink_id = this.unlink_id++;
+        if (links.setUnlinking(self, to, unlink_id)) {
+            try {
+                final String node = to.node();
+                if (node.equals(home.node())) {
+                    home.deliver(new OtpMsg(OtpMsg.unlinkTag, self, to));
+                } else {
+                    final OtpCookedConnection conn = home.getConnection(node);
+                    if (conn != null) {
+                        conn.unlink(self, to, unlink_id);
+                    }
                 }
+            } catch (final Exception e) {
             }
-        } catch (final Exception e) {
         }
+    }
+
+    /**
+     * <p>
+     * Get information about all processes and/or mail boxes currently
+     * linked to this mail box.
+     * </p>
+     *
+     * @return an array of all pids currently linked to this mail box.
+     *
+     */
+    public synchronized OtpErlangPid[] linked() {
+        return links.remotePids();
     }
 
     /**
@@ -688,40 +710,92 @@ public class OtpMbox {
      * called by OtpNode to deliver message to this mailbox.
      *
      * About exit and exit2: both cause exception to be raised upon receive().
-     * However exit (not 2) causes any link to be removed as well, while exit2
-     * leaves any links intact.
+     * However exit (not 2) only has an effect if there exist a link.
      */
     void deliver(final OtpMsg m) {
         switch (m.type()) {
-        case OtpMsg.linkTag:
-            links.addLink(self, m.getSenderPid());
-            break;
-
-        case OtpMsg.unlinkTag:
-            links.removeLink(self, m.getSenderPid());
-            break;
-
         case OtpMsg.exitTag:
-            links.removeLink(self, m.getSenderPid());
-            queue.put(m);
+        case OtpMsg.linkTag:
+        case OtpMsg.unlinkTag:
+        case AbstractConnection.unlinkIdTag:
+        case AbstractConnection.unlinkIdAckTag:
+            handle_link_operation(m);
             break;
-
-        case OtpMsg.exit2Tag:
         default:
             queue.put(m);
             break;
         }
     }
 
+    private synchronized void handle_link_operation(final OtpMsg m) {
+        final OtpErlangPid remote = m.getSenderPid();
+        final String node = remote.node();
+        final boolean is_local = node.equals(home.node());
+        final OtpCookedConnection conn = is_local ? null : home.getConnection(node);
+
+        switch (m.type()) {
+        case OtpMsg.linkTag:
+            if (links.addLink(self, remote, false)) {
+                if (!is_local) {
+                    if (conn != null)
+                        conn.node_link(self, remote, true);
+                    else {
+                        links.removeLink(self, remote);
+                        queue.put(new OtpMsg(OtpMsg.exitTag, remote, self,
+                                             new OtpErlangAtom("noconnection")));
+                    }
+                }
+            }
+            break;
+
+        case OtpMsg.unlinkTag:
+        case AbstractConnection.unlinkIdTag: {
+            final long unlink_id = m.getUnlinkId();
+            final boolean removed = links.removeActiveLink(self, remote);
+            try {
+                if (is_local) {
+                    home.deliver(new OtpMsg(AbstractConnection.unlinkIdAckTag,
+                                            self, remote, unlink_id));
+                } else if (conn != null) {
+                    if (removed)
+                        conn.node_link(self, remote, false);
+                    conn.unlink_ack(self, remote, unlink_id);
+                }
+            } catch (final Exception e) {
+            }
+            break;
+        }
+
+        case AbstractConnection.unlinkIdAckTag:
+            links.removeUnlinkingLink(self, m.getSenderPid(), m.getUnlinkId());
+            break;
+
+        case OtpMsg.exitTag:
+            if (links.removeActiveLink(self, m.getSenderPid())) {
+                queue.put(m);
+            }
+            break;
+        }
+    }
+
     // used to break all known links to this mbox
-    void breakLinks(final OtpErlangObject reason) {
+    synchronized void breakLinks(final OtpErlangObject reason) {
         final Link[] l = links.clearLinks();
 
         if (l != null) {
             final int len = l.length;
 
             for (int i = 0; i < len; i++) {
-                exit(1, l[i].remote(), reason);
+                if (l[i].getUnlinking() == 0) {
+                    OtpErlangPid remote = l[i].remote();
+                    final String node = remote.node();
+                    if (!node.equals(home.node())) {
+                        final OtpCookedConnection conn = home.getConnection(node);
+                        if (conn != null)
+                            conn.node_link(self, remote, false);
+                    }
+                    exit(1, remote, reason);
+                }
             }
         }
     }

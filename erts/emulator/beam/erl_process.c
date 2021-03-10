@@ -11923,6 +11923,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     erts_get_default_proc_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER(p));
 
+    p->uniq = 1;
     p->sig_qs.first = NULL;
     p->sig_qs.last = &p->sig_qs.first;
     p->sig_qs.cont = NULL;
@@ -12121,18 +12122,17 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
         if (so->flags & SPO_LINK) {
             ErtsLink *lnk;
-            ErtsLinkData *ldp = erts_link_create(ERTS_LNK_TYPE_PROC,
-                                                 parent->common.id,
-                                                 p->common.id);
-            lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(parent), &ldp->a);
-            if (lnk) {
+            lnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, p->common.id);
+            if (!!erts_link_tree_lookup_insert(&ERTS_P_LINKS(parent), lnk)) {
                 /*
                  * This should more or less never happen, but could
                  * potentially happen if pid:s wrap...
                  */
                 erts_link_release(lnk);
             }
-            erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->b);
+            lnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC,
+                                            parent->common.id);
+            erts_link_tree_insert(&ERTS_P_LINKS(p), lnk);
         }
 
         /*
@@ -12242,11 +12242,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     
         if (so->flags & SPO_LINK) {
             ErtsLinkData *ldp;
-            ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
-                                   parent_id, p->common.id);
-            erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->b);
-            if (!erts_link_dist_insert(&ldp->a, so->mld)) {
-                erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->a,
+            ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                            p->common.id, parent_id);
+            erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->proc);
+            if (!erts_link_dist_insert(&ldp->dist, so->mld)) {
+                erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->dist,
                                              am_noconnection, NIL);
             }
         }
@@ -12427,6 +12427,7 @@ void erts_init_empty_process(Process *p)
     ERTS_P_MONITORS(p) = NULL;
     ERTS_P_LT_MONITORS(p) = NULL;
     ERTS_P_LINKS(p) = NULL;         /* List of links */
+    p->uniq = 1;
     p->sig_qs.first = NULL;
     p->sig_qs.last = &p->sig_qs.first;
     p->sig_qs.cont = NULL;
@@ -13124,7 +13125,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ErtsMonLnkDist *dist;
     DistEntry *dep;
     ErtsLink *dlnk;
-    ErtsLinkData *ldp = NULL;
+    ErtsELink *elnk = NULL;
     ErtsHeapFactory factory;
     Sint reds_consumed = 0;
 
@@ -13133,8 +13134,8 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ASSERT(ctxt->dist_state == NIL);
     ASSERT(!ctxt->yield);
 
-    dlnk = erts_link_to_other(lnk, &ldp);
-    dist = ((ErtsLinkDataExtended *) ldp)->dist;
+    dlnk = erts_link_to_other(lnk, &elnk);
+    dist = elnk->dist;
 
     ASSERT(is_external_pid(lnk->other.item));
     dep = external_pid_dist_entry(lnk->other.item);
@@ -13142,7 +13143,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ASSERT(dep != erts_this_dist_entry);
 
     if (!erts_link_dist_delete(dlnk))
-        ldp = NULL;
+        elnk = NULL;
 
     code = erts_dsig_prepare(&ctx, dep, c_p, ERTS_PROC_LOCK_MAIN,
                              ERTS_DSP_NO_LOCK, 0, 0, 0);
@@ -13192,8 +13193,8 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         ASSERT(! "Invalid dsig prep exit monitor result");
         break;
     }
-    if (ldp)
-        erts_link_release_both(ldp);
+    if (elnk)
+        erts_link_release_both(&elnk->ld);
     else if (lnk)
         erts_link_release(lnk);
     return reds_consumed;
@@ -13205,7 +13206,7 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ErtsProcExitContext *ctxt = (ErtsProcExitContext *) vctxt;
     Process *c_p = ((ErtsProcExitContext *) vctxt)->c_p;
     Eterm reason = ((ErtsProcExitContext *) vctxt)->reason;
-    ErtsLinkData *ldp = NULL;
+    ErtsELink *elnk = NULL;
 
     switch (lnk->type) {
     case ERTS_LNK_TYPE_PROC:
@@ -13237,8 +13238,8 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
         int code;
 
         if (is_immed(reason)) {
-            dlnk = erts_link_to_other(lnk, &ldp);
-            dist = ((ErtsLinkDataExtended *) ldp)->dist;
+            dlnk = erts_link_to_other(lnk, &elnk);
+            dist = elnk->dist;
 
             ASSERT(is_external_pid(lnk->other.item));
             dep = external_pid_dist_entry(lnk->other.item);
@@ -13246,7 +13247,7 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
             ASSERT(dep != erts_this_dist_entry);
 
             if (!erts_link_dist_delete(dlnk))
-                ldp = NULL;
+                elnk = NULL;
 
             code = erts_dsig_prepare(&ctx, dep, c_p, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
@@ -13275,8 +13276,8 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
         break;
     }
 
-    if (ldp)
-        erts_link_release_both(ldp);
+    if (elnk)
+        erts_link_release_both(&elnk->ld);
     else if (lnk)
         erts_link_release(lnk);
     return 1;

@@ -50,7 +50,8 @@
 #define DFLAG_EXIT_PAYLOAD        ((Uint64)0x400000)
 #define DFLAG_FRAGMENTS           ((Uint64)0x800000)
 #define DFLAG_HANDSHAKE_23       ((Uint64)0x1000000)
-#define DFLAG_RESERVED                   0xfe000000
+#define DFLAG_UNLINK_ID          ((Uint64)0x2000000)
+#define DFLAG_RESERVED          ((Uint64)0xfc000000)
 /*
  * As the old handshake only support 32 flag bits, we reserve the remaining
  * bits in the lower 32 for changes in the handshake protocol or potentially
@@ -78,7 +79,8 @@
                               | DFLAG_DIST_MONITOR              \
                               | DFLAG_DIST_MONITOR_NAME         \
                               | DFLAG_SPAWN                     \
-                              | DFLAG_ALIAS)
+			      | DFLAG_ALIAS			\
+                              | DFLAG_UNLINK_ID)
 
 /* Our preferred set of flags. Used for connection setup handshake */
 #define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
@@ -96,7 +98,8 @@
                             | DFLAG_HANDSHAKE_23              \
                             | DFLAG_SPAWN                     \
                             | DFLAG_V4_NC		      \
-                            | DFLAG_ALIAS)
+                            | DFLAG_ALIAS		      \
+                            | DFLAG_UNLINK_ID)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
@@ -156,7 +159,10 @@ enum dop {
     DOP_SPAWN_REPLY_TT      = 32,
 
     DOP_ALIAS_SEND          = 33,
-    DOP_ALIAS_SEND_TT       = 34
+    DOP_ALIAS_SEND_TT       = 34,
+
+    DOP_UNLINK_ID           = 35,
+    DOP_UNLINK_ID_ACK       = 36
 };
 
 #define ERTS_DIST_SPAWN_FLAG_LINK       (1 << 0)
@@ -383,7 +389,8 @@ extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm);
 extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_link(ErtsDSigSendContext *, Eterm, Eterm);
 extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm);
+extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm, Uint64);
+extern int erts_dsig_send_unlink_ack(ErtsDSigSendContext *, Eterm, Eterm, Uint64);
 extern int erts_dsig_send_group_leader(ErtsDSigSendContext *, Eterm, Eterm);
 extern int erts_dsig_send_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_exit2(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
