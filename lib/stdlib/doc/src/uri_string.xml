@@ -228,23 +228,6 @@
     </func>
 
     <func>
-      <name name="decode" arity="1" since="OTP 24"/>
-      <fsummary>Decode percent-encoded triplets in the input.</fsummary>
-      <desc>
-	<p>Decodes all percent-encoded triplets in the input. Input to this
-  function is expected to be either a <c>list()</c> or a <c>binary()</c>.
-  Note, that this function performs raw decoding. Applying this function
-  directly on a standard URI can change it.</p>
-	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
-        <p><em>Example:</em></p>
-        <pre>
-1> <input><![CDATA[uri_string:decode("This%20isn%27t%20a%20drill.").]]></input>
-<![CDATA["This isn't a drill."]]>
-	</pre>
-      </desc>
-    </func>
-
-    <func>
       <name name="dissect_query" arity="1" since="OTP 21.0"/>
       <fsummary>Dissect query string.</fsummary>
       <desc>
@@ -266,21 +249,6 @@
 2> <![CDATA[uri_string:dissect_query(<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>).]]>
 <![CDATA[[{<<"foo bar">>,<<"1">>},
  {<<"city">>,<<230,157,177,228,186,172>>}] ]]>
-	</pre>
-      </desc>
-    </func>
-
-    <func>
-      <name name="encode" arity="1" since="OTP 24"/>
-      <fsummary>Percent-encode reserved characters in the input.</fsummary>
-      <desc>
-	<p>Encodes all RFC-3986 reserved characters in the input. Input to this
-  function is expected to be either a <c>list()</c> or a <c>binary()</c>.</p>
-	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
-        <p><em>Example:</em></p>
-        <pre>
-1> <input><![CDATA[uri_string:encode("This isn't a drill.").]]></input>
-<![CDATA["This%20isn%27t%20a%20drill."]]>
 	</pre>
       </desc>
     </func>
@@ -386,6 +354,32 @@
 4> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
 <<"http://local/host/path">>]]>
         </pre></warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="percent_encode" arity="1" since="OTP 24"/>
+      <fsummary>Percent-encode reserved characters in the input.</fsummary>
+      <desc>
+	<p>Encodes all RFC-3986 reserved characters in the input. Input to this
+  function is expected to be either a <c>list()</c> or a <c>binary()</c>.</p>
+	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input><![CDATA[uri_string:encode("örebro").]]></input>
+<![CDATA["%C3%B6rebro"]]>
+	</pre>
+	<warning><p>
+	Using <c>uri_string:percent_encode/1</c> directly on a URI is not safe. This
+	example shows that after each consecutive application of the function
+	the resulting value will be changed. What was a uri with an accessor method
+	becomes something else entirely.</p>
+	<pre>
+<![CDATA[2> uri_string:percent_encode(<<"http://local/host/path">>).
+<<"http%3A%2F%2Flocal%2Fhost%2Fpath">>
+3> uri_string:percent_decode(<<"http%3A%2F%2Flocal%2Fhost%2Fpath">>).
+<<"http%253A%252F%252Flocal%252Fhost%252Fpath">>]]>
+	</pre></warning>
       </desc>
     </func>
 
