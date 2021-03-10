@@ -58,7 +58,7 @@ TMP_O_FILE2=$TMP_DIR/tmp2.o
 TMP_H_FILE=$TMP_DIR/tmp.h
 TMP_CC_OUT=$TMP_DIR/a.out
 
-CC_ARGS="-std=c99 -pedantic -Wall"
+CC_ARGS="-std=c99 -pedantic -Wall -g"
 
 CC=clang
 
@@ -102,7 +102,7 @@ SIMPLE_TEST_FILES_YIELD_FUNS=("-fnoauto fun"
                               "-fnoauto fun -fnoauto sub_fun_1 -fnoauto sub_fun_2 -fnoauto sub_fun_3"
                               "-fnoauto A -fnoauto B"
                               "-fnoauto fun"
-                              "-fnoauto fun"
+                              "-fnoauto fun -fnoauto fun2"
                               "-fnoauto fun"
                               "-fnoauto fun"
                               "-fnoauto fun"

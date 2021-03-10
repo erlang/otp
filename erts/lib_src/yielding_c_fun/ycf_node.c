@@ -289,21 +289,6 @@ void ycf_node_search_and_replace_statements_in_node(ycf_node* n, ycf_node* (*rep
                                                                                         ycf_node_code_scope* s){
     if(n->type == ycf_node_type_code_scope){
         ycf_node_search_and_replace_statements_in_scope(&n->u.code_scope, replacer, context);
-    } else if(n->type == ycf_node_type_on_destroy_state_code ||
-              n->type == ycf_node_type_on_restore_yield_state_code ||
-              n->type == ycf_node_type_on_save_yield_state_code ||
-              n->type == ycf_node_type_on_destroy_state_or_return_code ||
-              n->type == ycf_node_type_on_return_code) {
-        ycf_node* replace_candidate = n->u.special_code_block.code.if_statement;
-        ycf_node* possible_replacement = replacer(replace_candidate, s, context);
-        if(replace_candidate != possible_replacement){
-            n->u.special_code_block.code.if_statement = possible_replacement;
-        } else {
-            ycf_node_search_and_replace_statements_in_node(n->u.special_code_block.code.if_statement,
-                                                           replacer,
-                                                           context,
-                                                           s);
-        }
     } else if (n->type == ycf_node_type_if){
         ycf_node_search_and_replace_statements_in_node(n->u.if_n.if_statement, replacer, context, s);
     } else if (n->type == ycf_node_type_if_else){
