@@ -424,8 +424,22 @@ format_ets_error(match_object, [_], _Cause) ->
     [bad_continuation];
 format_ets_error(match_object, [_,_,_]=Args, Cause) ->
     format_limit(Args, Cause);
+format_ets_error(match_spec_compile, [_], _Cause) ->
+    [bad_matchspec];
 format_ets_error(next, Args, Cause) ->
     format_default(bad_key, Args, Cause);
+format_ets_error(new, [Name,Options], _Cause) ->
+    NameError = if
+                    is_atom(Name) -> [];
+                    true -> not_atom
+                end,
+    OptsError = must_be_list(Options),
+    case {NameError,OptsError} of
+        {[],[]} ->
+            [[],bad_options];
+        {_,_} ->
+            [NameError,OptsError]
+    end;
 format_ets_error(prev, Args, Cause) ->
     format_default(bad_key, Args, Cause);
 format_ets_error(rename, [_,NewName]=Args, Cause) ->
@@ -455,6 +469,8 @@ format_ets_error(internal_select_delete, Args, Cause) ->
     format_default(bad_matchspec, Args, Cause);
 format_ets_error(select_replace, Args, Cause) ->
     format_default(bad_matchspec, Args, Cause);
+format_ets_error(select_reverse, [_], _Cause) ->
+    [bad_continuation];
 format_ets_error(select_reverse, [_,_]=Args, Cause) ->
     format_default(bad_matchspec, Args, Cause);
 format_ets_error(select_reverse, [_,_,_]=Args, Cause) ->
@@ -794,6 +810,8 @@ expand_error(empty_tuple) ->
     <<"is an empty tuple">>;
 expand_error(name_already_exists) ->
     <<"table name already exists">>;
+expand_error(not_atom) ->
+    <<"not an atom">>;
 expand_error(not_binary) ->
     <<"not a binary">>;
 expand_error(not_compiled_regexp) ->

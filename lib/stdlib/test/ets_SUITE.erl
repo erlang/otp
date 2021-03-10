@@ -8618,7 +8618,18 @@ error_info(_Config) ->
          {delete_all_objects, ['$Tab'], [renamed]},
          {delete_object, ['$Tab', bad_object]},
          {delete_object, ['$Tab', {tag,non_existing}], [no_fail]},
+
+         {file2tab, 1},                          %Not BIF.
+         {file2tab, 2},                          %Not BIF.
+
          {first, ['$Tab']},
+
+         {foldl, 3},                            %Not BIF.
+         {foldr, 3},                            %Not BIF.
+
+         {from_dets, 2},                        %Not BIF.
+
+         {fun2ms, 1},                           %Not BIF.
 
          {give_away, ['$Tab', not_a_pid, bad_pid]},
          {give_away, ['$Tab', '$Self', already_owner], [{error_term,owner}]},
@@ -8627,8 +8638,14 @@ error_info(_Config) ->
 
          {give_away, [UnownedTable, '$Living', gift_data], [{error_term,not_owner}]},
 
+         {i, 1},                                %Not BIF.
+         {i, 2},                                %Not BIF.
+         {i, 3},                                %Not BIF.
+
          {info, ['$Tab']},
          {info, ['$Tab', invalid_item]},
+
+         {init_table, 2},                       %Not BIF.
 
          {insert, ['$Tab', bad_object]},
          {insert, ['$Tab', {}]},
@@ -8641,6 +8658,11 @@ error_info(_Config) ->
          {insert_new, ['$Tab', {a,b,c}], [no_fail]},
          {insert_new, ['$Tab', [a,{a,b,c}]]},
          {insert_new, ['$Tab', [a|b]]},
+
+         {internal_delete_all, 2},              %Internal function.
+         {internal_select_delete, 2},           %Internal function.
+
+         {is_compiled_ms, [bad_ms], [no_fail, no_table]},
 
          {last, ['$Tab']},
 
@@ -8664,7 +8686,16 @@ error_info(_Config) ->
          {match_object, ['$Tab', <<1,2,3>>], [no_fail]},
          {match_object, ['$Tab', <<1,2,3>>, bad_limit]},
 
+         {match_spec_compile, [bad_match_spec], [no_table]},
+         {match_spec_run, 2},                   %Not BIF.
+         {match_spec_run_r, 3},                 %Internal BIF.
+
          {member, ['$Tab', no_key], [no_fail]},
+
+         {new, [name, not_list], [no_table]},
+         {new, [name, [a|b]], [no_table]},
+         {new, [name, [a,b]], [no_table]},
+         {new, [{bad,name}, [a,b]], [no_table]},
 
          %% For a set, ets:next/2 and ets:prev/2 fails if the key does
          %% not exist.
@@ -8679,6 +8710,8 @@ error_info(_Config) ->
          {rename, ['$Tab', {bad,name}]},
          {rename, [NamedTable, '$named_table']},
          {rename, [NamedTable, {bad,name}]},
+
+         {repair_continuation, 2},              %Not BIF.
 
          {safe_fixtable, ['$Tab', true], [no_fail]},
          {safe_fixtable, ['$Tab', not_boolean]},
@@ -8704,6 +8737,8 @@ error_info(_Config) ->
 
          {select_replace, [BagTab, [{{'$1','$2','$3'},[],[{{'$1','$3','$2'}}]}]], [{error_term,table_type}]},
 
+         {select_reverse, [bad_continuation], [no_table]},
+
          {select_reverse, ['$Tab', Ms], [no_fail]},
          {select_reverse, ['$Tab', bad_match_spec]},
 
@@ -8716,7 +8751,17 @@ error_info(_Config) ->
          {slot, ['$Tab', -1]},
          {slot, ['$Tab', not_an_integer]},
 
+         {tab2file, 2},                         %Not BIF.
+         {tab2file, 3},                         %Not BIF.
+         {tab2list, 1},                         %Not BIF.
+         {tabfile_info, 1},                     %Not BIF.
+         {table, 1},                            %Not BIF.
+         {table, 2},                            %Not BIF.
+
          {take, ['$Tab', no_key], [no_fail]},
+
+         {test_ms, 2},                          %Not BIF.
+         {to_dets, 2},                          %Not BIF.
 
          {update_counter, ['$Tab', no_key, 1], [{error_term,badkey}]},
          {update_counter, ['$Tab', no_key, bad_increment], [{error_term,badkey}]},
@@ -8770,7 +8815,20 @@ error_info(_Config) ->
             ct:fail({length(Errors),errors})
     end.
 
-eval_ets_bif_errors(List) ->
+eval_ets_bif_errors(L0) ->
+    L1 = lists:foldl(fun({_,A}, Acc) when is_integer(A) -> Acc;
+                        ({F,A}, Acc) -> [{F,A,[]}|Acc];
+                        ({F,A,Opts}, Acc) -> [{F,A,Opts}|Acc]
+                     end, [], L0),
+    Tests = ordsets:from_list([{F,length(A)} || {F,A,_} <- L1] ++
+                                  [{F,A} || {F,A} <- L0, is_integer(A)]),
+    Bifs0 = [{F,A} || {F,A} <- ets:module_info(exports),
+                      A =/= 0,
+                      F =/= module_info],
+    Bifs = ordsets:from_list(Bifs0),
+    NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
+    L = lists:sort(NYI ++ L1),
+
     spawn(fun() ->
                   true = register(living, self()),
                   Ref = make_ref(),
@@ -8779,12 +8837,20 @@ eval_ets_bif_errors(List) ->
                           ok
                   end
           end),
-    do_eval_ets_bif_errors(List).
+
+    do_eval_ets_bif_errors(L).
 
 do_eval_ets_bif_errors([H|T]) ->
     case H of
         {F, Args} ->
             eval_ets_bif_errors(F, Args, []);
+        {_, Args, nyi} ->
+            case lists:all(fun(A) -> A =:= '*' end, Args) of
+                true ->
+                    store_error(nyi, H, error);
+                false ->
+                    store_error(bad_nyi, H, error)
+            end;
         {F, Args, Opts} when is_list(Opts) ->
             case lists:member(no_table, Opts) of
                 true ->
@@ -8801,12 +8867,15 @@ ets_eval_bif_errors_once(F, Args, Opts) ->
     MFA = {ets,F,Args},
     io:format("\n\n*** ets:~p/~p", [F,length(Args)]),
 
+    NoFail = lists:member(no_fail, Opts),
     case ets_apply(F, Args, Opts) of
         {error,none} ->
             ok;
         {error,Info} ->
             store_error(wrong_failure_reason, MFA, Info);
-        ok ->
+        ok when NoFail ->
+            ok;
+        ok when not NoFail ->
             %% This ETS function was supposed to fail.
             store_error(expected_failure, MFA, ok)
     end.
@@ -8893,7 +8962,7 @@ should_apply([_], _Opts) ->
     %% the argument is valid.
     false;
 should_apply([_,_|_], Opts) ->
-    %% Applying the function on valid table would have side effects
+    %% Applying the function on a valid table would have side effects
     %% that would cause problems down the line (e.g. successfully
     %% giving away a table).
     not lists:member(only_bad_table, Opts).
