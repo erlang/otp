@@ -60,8 +60,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
     Eterm res;
     char *str;
     int err_type, err_num;
-    ErtsLinkData *ldp;
-    ErtsLink *lnk;
+    ErtsLink *proc_lnk, *port_lnk;
 
     port = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_type, &err_num);
     if (!port) {
@@ -86,15 +85,15 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         BIF_RET(res);
     }
 
-    ldp = erts_link_create(ERTS_LNK_TYPE_PORT, BIF_P->common.id, port->common.id);
-    ASSERT(ldp->a.other.item == port->common.id);
-    ASSERT(ldp->b.other.item == BIF_P->common.id);
+    proc_lnk = erts_link_internal_create(ERTS_LNK_TYPE_PORT, port->common.id);
+    port_lnk = erts_link_internal_create(ERTS_LNK_TYPE_PORT, BIF_P->common.id);
     /*
      * This link should not already be present, but can potentially
      * due to id wrapping...
      */
-    lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(BIF_P), &ldp->a);
-    erts_link_tree_insert(&ERTS_P_LINKS(port), &ldp->b);
+    if (!!erts_link_tree_lookup_insert(&ERTS_P_LINKS(BIF_P), proc_lnk))
+        erts_link_internal_release(proc_lnk);
+    erts_link_tree_insert(&ERTS_P_LINKS(port), port_lnk);
 
     if (port->drv_ptr->flags & ERL_DRV_FLAG_USE_INIT_ACK) {
 
@@ -122,9 +121,6 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
     ERTS_BIF_PREP_RET(ret, res);
 
     erts_port_release(port);
-
-    if (lnk)
-        erts_link_release(lnk);
 
     return ret;
 }

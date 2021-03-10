@@ -104,8 +104,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
     if (is_internal_pid(BIF_ARG_1)) {
         int created;
-        ErtsLinkData *ldp;
-        ErtsLink *lnk;
+        ErtsLink *lnk, *rlnk;
 
         if (BIF_P->common.id == BIF_ARG_1)
             BIF_RET(am_true);
@@ -113,56 +112,61 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         if (!erts_proc_lookup(BIF_ARG_1))
             goto res_no_proc;
 
-        lnk = erts_link_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
-                                           &created,
-                                           ERTS_LNK_TYPE_PROC,
-                                           BIF_P->common.id,
-                                           BIF_ARG_1);
-        if (!created)
-            BIF_RET(am_true);
+        lnk = erts_link_internal_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
+                                                    &created,
+                                                    ERTS_LNK_TYPE_PROC,
+                                                    BIF_ARG_1);
+        if (!created) {
+            ErtsILink *ilnk = (ErtsILink *) lnk;
+            if (!ilnk->unlinking)
+                BIF_RET(am_true);
+            ilnk->unlinking = 0;
+        }
 
-        ldp = erts_link_to_data(lnk);
-        
+        rlnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, BIF_P->common.id);
 
-        if (erts_proc_sig_send_link(BIF_P, BIF_ARG_1, &ldp->b))
+        if (erts_proc_sig_send_link(BIF_P, BIF_ARG_1, rlnk))
             BIF_RET(am_true);
 
         erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-        erts_link_release_both(ldp);
+        erts_link_internal_release(lnk);
+        erts_link_internal_release(rlnk);
         goto res_no_proc;
     }
 
     if (is_internal_port(BIF_ARG_1)) {
         int created;
-        ErtsLinkData *ldp;
-        ErtsLink *lnk;
+        ErtsLink *lnk, *rlnk;
         Eterm ref;
         Eterm *refp;
 	Port *prt = erts_port_lookup(BIF_ARG_1,
 				     (erts_port_synchronous_ops
 				      ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
 				      : ERTS_PORT_SFLGS_INVALID_LOOKUP));
-	if (!prt) {
+	if (!prt)
 	    goto res_no_proc;
-	}
 
-        lnk = erts_link_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
-                                           &created,
-                                           ERTS_LNK_TYPE_PORT,
-                                           BIF_P->common.id,
-                                           BIF_ARG_1);
-        if (!created)
-            BIF_RET(am_true);
+        lnk = erts_link_internal_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
+                                                    &created,
+                                                    ERTS_LNK_TYPE_PORT,
+                                                    BIF_ARG_1);
+        if (!created) {
+            ErtsILink *ilnk = (ErtsILink *) lnk;
+            if (!ilnk->unlinking)
+                BIF_RET(am_true);
+            ilnk->unlinking = 0;
+        }
 
-        ldp = erts_link_to_data(lnk);
+        rlnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, BIF_P->common.id);
         refp = erts_port_synchronous_ops ? &ref : NULL;
 
-        switch (erts_port_link(BIF_P, prt, &ldp->b, refp)) {
-        case ERTS_PORT_OP_DROPPED:
+        switch (erts_port_link(BIF_P, prt, rlnk, refp)) {
         case ERTS_PORT_OP_BADARG:
+            erts_link_internal_release(rlnk);
             erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-            erts_link_release_both(ldp);
+            erts_link_internal_release(lnk);
             goto res_no_proc;
+        case ERTS_PORT_OP_DROPPED:
         case ERTS_PORT_OP_SCHEDULED:
             if (refp) {
                 ASSERT(is_internal_ordinary_ref(ref));
@@ -179,10 +183,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     }
 
     if (is_external_pid(BIF_ARG_1)) {
-        ErtsLinkData *ldp;
-        int created;
+        ErtsELink *elnk, *relnk, *pelnk;
+        int created, replace;
         DistEntry *dep;
-        ErtsLink *lnk;
+        ErtsLink *lnk, *rlnk;
         int code;
         ErtsDSigSendContext ctx;
 
@@ -190,16 +194,39 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         if (dep == erts_this_dist_entry)
             goto res_no_proc;
 
-        lnk = erts_link_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
-                                           &created,
-                                           ERTS_LNK_TYPE_DIST_PROC,
-                                           BIF_P->common.id,
-                                           BIF_ARG_1);
+        lnk = erts_link_external_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
+                                                    &created,
+                                                    ERTS_LNK_TYPE_DIST_PROC,
+                                                    BIF_P->common.id,
+                                                    BIF_ARG_1);
 
-        if (!created)
-            BIF_RET(am_true); /* Already present... */
+        elnk = erts_link_to_elink(lnk);
 
-        ldp = erts_link_to_data(lnk);
+        if (created) {
+            pelnk = NULL;
+            relnk = NULL;
+            rlnk = NULL;
+        }
+        else {
+            if (!elnk->unlinking)
+                BIF_RET(am_true); /* Already present... */
+            /*
+             * We need to replace the link if the connection has changed.
+             * Prepare a link...
+             */
+            pelnk = (ErtsELink *) erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                                            BIF_P->common.id,
+                                                            BIF_ARG_1);
+            ASSERT(eq(pelnk->ld.proc.other.item, BIF_ARG_1));
+            ASSERT(pelnk->ld.dist.other.item == BIF_P->common.id);
+            /* Release pelnk if not used as replacement... */
+            relnk = pelnk;
+            rlnk = &pelnk->ld.proc;
+        }
+        replace = 0;
+
+        ASSERT(eq(elnk->ld.proc.other.item, BIF_ARG_1));
+        ASSERT(elnk->ld.dist.other.item == BIF_P->common.id);
 
         code = erts_dsig_prepare(&ctx, dep, BIF_P,
                                  ERTS_PROC_LOCK_MAIN,
@@ -207,31 +234,75 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         switch (code) {
         case ERTS_DSIG_PREP_NOT_ALIVE:
         case ERTS_DSIG_PREP_NOT_CONNECTED:
-            erts_link_set_dead_dist(&ldp->b, dep->sysname);
-            erts_proc_sig_send_link_exit(NULL, BIF_ARG_1, &ldp->b,
+            if (created || elnk->unlinking) {
+                if (elnk->unlinking) {
+                    /*
+                     * Currently unlinking an old link from an old connection; replace
+                     * old link with the prepared one...
+                     */
+                    relnk = NULL;
+                    rlnk = lnk;
+                    elnk = pelnk;
+                    replace = !0;
+                }
+                erts_link_set_dead_dist(&elnk->ld.dist, dep->sysname);
+            }
+            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &elnk->ld.dist,
                                          am_noconnection, NIL);
-            BIF_RET(am_true);
+            break;
 
         case ERTS_DSIG_PREP_PENDING:
         case ERTS_DSIG_PREP_CONNECTED: {
             /*
-             * We have (pending) connection.
+             * We have a connection (or a pending connection).
              * Setup link and enqueue link signal.
              */
-            int inserted = erts_link_dist_insert(&ldp->b, dep->mld);
-            ASSERT(inserted); (void)inserted;
+            if (created
+                || (elnk->unlinking
+                    && elnk->dist->connection_id != ctx.connection_id)) {
+                int inserted;
+                if (!created) {
+                    /*
+                     * Currently unlinking an old link from an old connection; replace
+                     * old link with the prepared one...
+                     */
+                    rlnk = lnk;
+                    if (erts_link_dist_delete(&elnk->ld.dist))
+                        relnk = elnk;
+                    else
+                        relnk = NULL;
+                    elnk = pelnk;
+                    replace = !0;
+                }
+                inserted = erts_link_dist_insert(&elnk->ld.dist, dep->mld);
+                ASSERT(inserted); (void)inserted;
+            }
+
             erts_de_runlock(dep);
 
             code = erts_dsig_send_link(&ctx, BIF_P->common.id, BIF_ARG_1);
             if (code == ERTS_DSIG_SEND_YIELD)
                 ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
             ASSERT(code == ERTS_DSIG_SEND_OK);
-            BIF_RET(am_true);
             break;
         }
         default:
             ERTS_ASSERT(! "Invalid dsig prepare result");
         }
+
+        if (replace) {
+            ASSERT(pelnk);
+            erts_link_tree_replace(&ERTS_P_LINKS(BIF_P), rlnk, &pelnk->ld.proc);
+        }
+
+        if (relnk)
+            erts_link_release_both(&relnk->ld);
+        else if (rlnk)
+            erts_link_release(rlnk);
+
+        elnk->unlinking = 0;
+
+        BIF_RET(am_true);
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -1019,38 +1090,52 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
     }
 
     if (is_internal_pid(BIF_ARG_1)) {
-        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
-        if (lnk) {
-            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-            erts_proc_sig_send_unlink(BIF_P, lnk);
+        ErtsILink *ilnk;
+        ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(BIF_P),
+                                                   BIF_ARG_1);
+        if (ilnk && !ilnk->unlinking) {
+            Uint64 id = erts_proc_sig_send_unlink(BIF_P,
+                                                  BIF_P->common.id,
+                                                  &ilnk->link);
+            if (id)
+                ilnk->unlinking = id;
+            else {
+                erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), &ilnk->link);
+                erts_link_internal_release(&ilnk->link);
+            }
         }
         BIF_RET(am_true);
     }
 
     if (is_internal_port(BIF_ARG_1)) {
-        ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
+        ErtsILink *ilnk;
+        ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(BIF_P),
+                                                   BIF_ARG_1);
 
-	if (lnk) {
+	if (ilnk && !ilnk->unlinking) {
             Eterm ref;
             Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
             ErtsPortOpResult res = ERTS_PORT_OP_DROPPED;
 	    Port *prt;
 
-            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-
 	    /* Send unlink signal */
 	    prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_DEAD);
-	    if (prt) {
+	    if (!prt) {
+                erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), &ilnk->link);
+                erts_link_internal_release(&ilnk->link);
+            }
+            else {
+                ErtsSigUnlinkOp *sulnk;
+
+                sulnk = erts_proc_sig_make_unlink_op(BIF_P, BIF_P->common.id);
+                ilnk->unlinking = sulnk->id;
 #ifdef DEBUG
 		ref = NIL;
 #endif
-		res = erts_port_unlink(BIF_P, prt, lnk, refp);
-
+		res = erts_port_unlink(BIF_P, prt, sulnk, refp);
 	    }
 
-            if (res == ERTS_PORT_OP_DROPPED)
-                erts_link_release(lnk);
-            else if (refp && res == ERTS_PORT_OP_SCHEDULED) {
+            if (refp && res == ERTS_PORT_OP_SCHEDULED) {
                 ASSERT(is_internal_ordinary_ref(ref));
                 BIF_TRAP3(await_port_send_result_trap, BIF_P, ref, am_true, am_true);
             }
@@ -1060,9 +1145,10 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
     }
 
     if (is_external_pid(BIF_ARG_1)) {
-        ErtsLink *lnk, *dlnk;
-        ErtsLinkData *ldp;
+        ErtsLink *lnk;
+        ErtsELink *elnk;
         DistEntry *dep;
+        Uint64 unlink_id;
 	int code;
 	ErtsDSigSendContext ctx;
 
@@ -1074,13 +1160,13 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
         if (!lnk)
             BIF_RET(am_true);
 
-        erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-        dlnk = erts_link_to_other(lnk, &ldp);
+        elnk = erts_link_to_elink(lnk);
 
-        if (erts_link_dist_delete(dlnk))
-            erts_link_release_both(ldp);
-        else
-            erts_link_release(lnk);
+        if (elnk->unlinking)
+            BIF_RET(am_true);
+
+        unlink_id = erts_proc_sig_new_unlink_id(BIF_P);
+        elnk->unlinking = unlink_id;
 
 	code = erts_dsig_prepare(&ctx, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
 				 ERTS_DSP_NO_LOCK, 0, 1, 0);
@@ -1090,9 +1176,16 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    BIF_RET(am_true);
 	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
-	    code = erts_dsig_send_unlink(&ctx, BIF_P->common.id, BIF_ARG_1);
-	    if (code == ERTS_DSIG_SEND_YIELD)
-		ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+            /*
+             * Do not send unlink signal on another connection than
+             * the one which the link was set up on.
+             */
+            if (elnk->dist->connection_id == ctx.connection_id) {
+                code = erts_dsig_send_unlink(&ctx, BIF_P->common.id, BIF_ARG_1,
+                                             unlink_id);
+                if (code == ERTS_DSIG_SEND_YIELD)
+                    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+            }
             break;
 	default:
 	    ASSERT(! "Invalid dsig prepare result");

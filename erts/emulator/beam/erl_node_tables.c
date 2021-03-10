@@ -1641,18 +1641,21 @@ clear_visited_dist_monitors(DistEntry *dep)
 
 static void insert_link_data(ErtsLink *lnk, int type, Eterm id)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    if ((ldp->a.flags & (ERTS_ML_FLG_DBG_VISITED
-                         | ERTS_ML_FLG_EXTENDED)) == ERTS_ML_FLG_EXTENDED) {
-        ErtsLinkDataExtended *ldep = (ErtsLinkDataExtended *) ldp;
-        if (ldep->ohhp) {
+    if ((lnk->flags & (ERTS_ML_FLG_DBG_VISITED
+                       | ERTS_ML_FLG_EXTENDED)) != ERTS_ML_FLG_EXTENDED) {
+        lnk->flags |= ERTS_ML_FLG_DBG_VISITED;
+    }
+    else {
+        ErtsELink *elnk = erts_link_to_elink(lnk);
+        if (elnk->ohhp) {
             ErlOffHeap oh;
             ERTS_INIT_OFF_HEAP(&oh);
-            oh.first = ldep->ohhp;
+            oh.first = elnk->ohhp;
             insert_offheap(&oh, type, id);
         }
+        elnk->ld.proc.flags |= ERTS_ML_FLG_DBG_VISITED;
+        elnk->ld.dist.flags |= ERTS_ML_FLG_DBG_VISITED;
     }
-    ldp->a.flags |= ERTS_ML_FLG_DBG_VISITED;
 }
 
 static int insert_link(ErtsLink *lnk, void *idp, Sint reds)
@@ -1664,8 +1667,13 @@ static int insert_link(ErtsLink *lnk, void *idp, Sint reds)
 
 static int clear_visited_link(ErtsLink *lnk, void *p, Sint reds)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    ldp->a.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED))
+        lnk->flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    else {
+        ErtsELink *elnk = erts_link_to_elink(lnk);
+        elnk->ld.proc.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+        elnk->ld.dist.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    }
     return 1;
 }
 

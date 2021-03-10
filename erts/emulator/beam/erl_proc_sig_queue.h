@@ -30,6 +30,7 @@
  *              - Persistent monitor message
  *              - Link
  *              - Unlink
+ *              - Unlink Ack
  *              - Group leader
  *              - Is process alive
  *              - Process info request
@@ -106,7 +107,7 @@ typedef struct {
  * Note that not all signal are handled using this functionality!
  */
 
-#define ERTS_SIG_Q_OP_MAX 16
+#define ERTS_SIG_Q_OP_MAX 17
 
 #define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
 #define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
@@ -124,7 +125,8 @@ typedef struct {
 #define ERTS_SIG_Q_OP_RPC                       13
 #define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
 #define ERTS_SIG_Q_OP_ALIAS_MSG                 15
-#define ERTS_SIG_Q_OP_RECV_MARK                 ERTS_SIG_Q_OP_MAX
+#define ERTS_SIG_Q_OP_RECV_MARK                 16
+#define ERTS_SIG_Q_OP_UNLINK_ACK                ERTS_SIG_Q_OP_MAX
 
 #define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 9)
 
@@ -182,6 +184,12 @@ typedef struct {
     (((ErtsSignal *) (Sig))->common.tag == ERTS_RECV_MARKER_TAG)
 
 #define ERTS_RECV_MARKER_PASS_MAX 4
+
+typedef struct {
+    ErtsSignalCommon common;
+    Eterm from;
+    Uint64 id;
+} ErtsSigUnlinkOp;
 
 #define ERTS_SIG_HANDLE_REDS_MAX_PREFERED (CONTEXT_REDS/40)
 
@@ -394,19 +402,97 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
 
 /**
  *
+ * @brief Create a new unlink identifier
+ *
+ * The newly created unlink identifier is to be used in an
+ * unlink operation.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @return                      A new 64-bit unlink identifier
+ *                              unique in context of the
+ *                              calling process. The identifier
+ *                              may be any value but zero.
+ */
+ERTS_GLB_INLINE Uint64 erts_proc_sig_new_unlink_id(Process *c_p);
+
+/**
+ *
+ * @brief Create an unlink op signal structure
+ *
+ * The structure will contain a newly created unlink
+ * identifier to be used in the operation.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process
+ *                              ('from' is a process
+ *                              identifier), or NULL if not
+ *                              called in the context of an
+ *                              executing process ('from' is
+ *                              a port identifier).
+ *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
+ * @return                      A pointer to the unlink op
+ *                              structure.
+ */
+ErtsSigUnlinkOp *
+erts_proc_sig_make_unlink_op(Process *c_p, Eterm from);
+
+/**
+ *
+ * @brief Destroy an unlink op signal structure
+ *
+ * @param[in]     sulnk         A pointer to the unlink op
+ *                              structure.
+ */
+void
+erts_proc_sig_destroy_unlink_op(ErtsSigUnlinkOp *sulnk);
+
+/**
+ *
  * @brief Send an unlink signal to a process.
  *
  *
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
  *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
  * @param[in]     lnk           Pointer to link structure from
  *                              the sending side. It should
  *                              contain information about
  *                              receiver.
  */
+Uint64
+erts_proc_sig_send_unlink(Process *c_p, Eterm from, ErtsLink *lnk);
+
+/**
+ *
+ * @brief Send an unlink acknowledgment signal to a process.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
+ * @param[in]     sulnk         A pointer to the unlink op
+ *                              structure. This structure
+ *                              was typically received by
+ *                              the caller in an unlink
+ *                              signal.
+ */
 void
-erts_proc_sig_send_unlink(Process *c_p, ErtsLink *lnk);
+erts_proc_sig_send_unlink_ack(Process *c_p, Eterm from,
+                              ErtsSigUnlinkOp *sulnk);
 
 /**
  *
@@ -442,11 +528,10 @@ erts_proc_sig_send_dist_link_exit(struct dist_entry_ *dep,
 
 /**
  *
- * @brief Send an unlink signal to a process.
+ * @brief Send an unlink signal to a local process.
  *
  * This function is used instead of erts_proc_sig_send_unlink()
- * when the signal arrives via the distribution and
- * therefore no link structure is available.
+ * when the signal arrives via the distribution.
  *
  * @param[in]     dep           Distribution entry of channel
  *                              that the signal arrived on.
@@ -455,10 +540,37 @@ erts_proc_sig_send_dist_link_exit(struct dist_entry_ *dep,
  *
  * @param[in]     to            Identifier of receiver.
  *
+ * @param[in]     id            Identifier of unlink operation.
  */
 void
-erts_proc_sig_send_dist_unlink(struct dist_entry_ *dep,
-                               Eterm from, Eterm to);
+erts_proc_sig_send_dist_unlink(DistEntry *dep, Uint32 conn_id,
+                               Eterm from, Eterm to, Uint64 id);
+
+/**
+ *
+ * @brief Send an unlink acknowledgment signal to a local process.
+ *
+ * This function is used instead of erts_proc_sig_send_unlink_ack()
+ * when the signal arrives via the distribution.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process or
+ *                              NULL if not called in the context
+ *                              of an executing process.
+ *
+ * @param[in]     dep           Distribution entry of channel
+ *                              that the signal arrived on.
+ *
+ * @param[in]     from          Identifier of sender.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     id            Identifier of unlink operation.
+ */
+void
+erts_proc_sig_send_dist_unlink_ack(Process *c_p, DistEntry *dep,
+                                   Uint32 conn_id, Eterm from, Eterm to,
+                                   Uint64 id);
 
 /**
  *
@@ -1364,6 +1476,18 @@ void erts_msgq_remove_leading_recv_markers(Process *c_p);
     ((int) ((MRKP) - &(BLKP)->marker[0]))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Uint64
+erts_proc_sig_new_unlink_id(Process *c_p)
+{
+    Uint64 id;
+    ASSERT(c_p);
+
+    id = (Uint64) c_p->uniq++;
+    if (id == 0)
+        id = (Uint64) c_p->uniq++;
+    return id;
+}
 
 ERTS_GLB_INLINE Sint
 erts_proc_sig_fetch(Process *proc)

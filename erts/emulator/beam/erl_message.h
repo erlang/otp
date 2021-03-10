@@ -326,7 +326,6 @@ typedef struct {
     
     /* Common for inner and middle queue */
     ErtsRecvMarkerBlock *recv_mrk_blk;
-    Sint64 recv_mrk_uniq;
     Sint len; /* NOT message queue length (see above) */
     Uint32 flags;
 } ErtsSignalPrivQueues;

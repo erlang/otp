@@ -368,6 +368,7 @@ Eterm erts_request_io_bytes(Process *c_p);
 #define ERTS_PORT_REDS_EXIT		(CONTEXT_REDS/100)
 #define ERTS_PORT_REDS_CONNECT		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_UNLINK		(CONTEXT_REDS/200)
+#define ERTS_PORT_REDS_UNLINK_ACK	(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_LINK		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_MONITOR		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_DEMONITOR	(CONTEXT_REDS/200)
@@ -852,7 +853,8 @@ enum {
     ERTS_P2P_SIG_TYPE_LINK      = 8,
     ERTS_P2P_SIG_TYPE_UNLINK    = 9,
     ERTS_P2P_SIG_TYPE_MONITOR   = 10,
-    ERTS_P2P_SIG_TYPE_DEMONITOR = 11
+    ERTS_P2P_SIG_TYPE_DEMONITOR = 11,
+    ERTS_P2P_SIG_TYPE_UNLINK_ACK = 12
 };
 
 #define ERTS_P2P_SIG_TYPE_BITS			4
@@ -914,8 +916,12 @@ struct ErtsProc2PortSigData_ {
 	} link;
 	struct {
             Eterm port_id;
-	    ErtsLink *lnk;
+	    ErtsSigUnlinkOp *sulnk;
 	} unlink;
+	struct {
+            Eterm port_id;
+	    ErtsSigUnlinkOp *sulnk;
+	} unlink_ack;
         struct {
             Eterm port_id;
             ErtsMonitor *mon;
@@ -1004,7 +1010,8 @@ ErtsPortOpResult erts_port_output(Process *, int, Port *, Eterm, Eterm, Eterm *)
 ErtsPortOpResult erts_port_exit(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_connect(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_link(Process *, Port *, ErtsLink *, Eterm *);
-ErtsPortOpResult erts_port_unlink(Process *, Port *, ErtsLink *, Eterm *);
+ErtsPortOpResult erts_port_unlink(Process *, Port *, ErtsSigUnlinkOp *, Eterm *);
+ErtsPortOpResult erts_port_unlink_ack(Process *, Port *, ErtsSigUnlinkOp *);
 ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);

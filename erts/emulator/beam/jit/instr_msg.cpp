@@ -138,6 +138,28 @@ void BeamModuleAssembler::emit_recv_marker_use(const ArgVal &Reference) {
     emit_leave_runtime();
 }
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+int erts_lc_proc_sig_receive_helper(Process *c_p,
+                                    int fcalls,
+                                    int neg_o_reds,
+                                    ErtsMessage **msgpp,
+                                    int *get_outp) {
+    int res;
+    /*
+     * erts_proc_sig_receive_helper() may temporarliy release
+     * its own main lock...
+     */
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    res = erts_proc_sig_receive_helper(c_p,
+                                       fcalls,
+                                       neg_o_reds,
+                                       msgpp,
+                                       get_outp);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    return res;
+}
+#endif
+
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     Label restart = a.newLabel(), peek_message = a.newLabel(),
           schedule_out = a.newLabel(), check_is_distributed = a.newLabel(),
@@ -177,7 +199,11 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         mov_imm(ARG3, 0);
         a.lea(ARG4, message_ptr);
         a.lea(ARG5, get_out);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+        runtime_call<5>(erts_lc_proc_sig_receive_helper);
+#else
         runtime_call<5>(erts_proc_sig_receive_helper);
+#endif
 
         /* erts_proc_sig_receive_helper merely inspects FCALLS, so we don't
          * need to update it here.

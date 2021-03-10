@@ -5745,7 +5745,66 @@ error:
 }
 
 #define ERTS_TRANSCODE_REDS_FACT 4
+typedef struct {
+    ErtsHeapFactory factory;
+    Eterm *hp;
+} ErtsTranscodeDecodeState;
 
+static Eterm
+transcode_decode_ctl_msg(ErtsTranscodeDecodeState *state,
+                         SysIOVec *iov,
+                         int end_ix)
+{
+    Eterm ctl_msg, *hp;
+    Uint buf_sz;
+    byte *buf_start, *buf_end;
+    const byte *ptr;
+    Uint hsz;
+
+    if (end_ix == 3) {
+        /* The whole control message is in iov[2].iov_base */
+        buf_sz = (Uint) iov[2].iov_len;
+        buf_start = (byte *) iov[2].iov_base;
+        buf_end = buf_start + buf_sz;
+    }
+    else {
+        /* Control message over multiple buffers... */
+        int ix;
+        buf_sz = 0;
+        for (ix = 2; ix < end_ix; ix++)
+            buf_sz += iov[ix].iov_len;
+        ptr = buf_start = erts_alloc(ERTS_ALC_T_TMP, buf_sz);
+        buf_end = buf_start + buf_sz;
+        for (ix = 2; ix < end_ix; ix++) {
+            sys_memcpy((void *) ptr,
+                       (void *) iov[ix].iov_base,
+                       iov[ix].iov_len);
+            ptr += iov[ix].iov_len;
+        }
+    }
+
+    hsz = decoded_size(buf_start, buf_end, 0, NULL);
+    state->hp = hp = erts_alloc(ERTS_ALC_T_TMP, hsz*sizeof(Eterm));
+    erts_factory_tmp_init(&state->factory, hp, hsz, ERTS_ALC_T_TMP);
+            
+    ptr = dec_term(NULL, &state->factory, buf_start, &ctl_msg, NULL, 0);
+    ASSERT(ptr); (void)ptr;
+    ASSERT(is_tuple(ctl_msg));
+
+    if (buf_start != (byte *) iov[2].iov_base)
+        erts_free(ERTS_ALC_T_TMP, buf_start);
+    
+    return ctl_msg;
+}
+
+static void
+transcode_decode_state_destroy(ErtsTranscodeDecodeState *state)
+{
+    erts_factory_close(&state->factory);
+    erts_free(ERTS_ALC_T_TMP, state->hp);    
+}
+
+static
 Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
                          DistEntry* dep,
                          Uint64 dflags,
@@ -5842,46 +5901,15 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
          * this packet to an empty (tick) packet, and inform
          * spawning process that this is not supported...
          */
-        ErtsHeapFactory factory;
-        Eterm ctl_msg, ref, pid, token, *tp, *hp;
-        Uint buf_sz;
-        byte *buf_start, *buf_end;
-        const byte *ptr;
-        Uint hsz;
+        ErtsTranscodeDecodeState tds;
+        Eterm ctl_msg, ref, pid, token, *tp;
         int i;
 
         hdr += 4;
         payload_ix = get_int32(hdr);
         ASSERT(payload_ix >= 3);
 
-        if (payload_ix == 3) {
-            /* The whole control message is in iov[2].iov_base */
-            buf_sz = (Uint) iov[2].iov_len;
-            buf_start = (byte *) iov[2].iov_base;
-            buf_end = buf_start + buf_sz;
-        }
-        else {
-            /* Control message over multiple buffers... */
-            int ix;
-            buf_sz = 0;
-            for (ix = 2; ix < payload_ix; ix++)
-                buf_sz += iov[ix].iov_len;
-            ptr = buf_start = erts_alloc(ERTS_ALC_T_TMP, buf_sz);
-            buf_end = buf_start + buf_sz;
-            for (ix = 2; ix < payload_ix; ix++) {
-                sys_memcpy((void *) ptr,
-                           (void *) iov[ix].iov_base,
-                           iov[ix].iov_len);
-                ptr += iov[ix].iov_len;
-            }
-        }
-
-        hsz = decoded_size(buf_start, buf_end, 0, NULL);
-        hp = erts_alloc(ERTS_ALC_T_TMP, hsz*sizeof(Eterm));
-        erts_factory_tmp_init(&factory, hp, hsz, ERTS_ALC_T_TMP);
-            
-        ptr = dec_term(NULL, &factory, buf_start, &ctl_msg, NULL, 0);
-        ASSERT(ptr); (void)ptr;
+        ctl_msg = transcode_decode_ctl_msg(&tds, iov, payload_ix);
 
         ASSERT(is_tuple_arity(ctl_msg, 6)
                || is_tuple_arity(ctl_msg, 8));
@@ -5905,10 +5933,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
                                                    NULL, am_notsup,
                                                    token);
 
-        erts_factory_close(&factory);
-        erts_free(ERTS_ALC_T_TMP, hp);
-        if (buf_start != (byte *) iov[2].iov_base)
-            erts_free(ERTS_ALC_T_TMP, buf_start);
+        transcode_decode_state_destroy(&tds);
 
         for (i = 1; i < ob->eiov->vsize; i++) {
             if (ob->eiov->binv[i])
@@ -5919,6 +5944,119 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         
         reds -= 4;
         
+        if (reds < 0)
+            return 0;
+        return reds;
+    }
+
+    if ((~dflags & DFLAG_UNLINK_ID)
+        && ep[0] == SMALL_TUPLE_EXT
+        && ep[1] == 4
+        && ep[2] == SMALL_INTEGER_EXT
+        && (ep[3] == DOP_UNLINK_ID_ACK || ep[3] == DOP_UNLINK_ID)) {
+
+        if (ep[3] == DOP_UNLINK_ID_ACK) {
+            /* Drop DOP_UNLINK_ID_ACK signal... */
+            int i;
+            for (i = 1; i < ob->eiov->vsize; i++) {
+                if (ob->eiov->binv[i])
+                    driver_free_binary(ob->eiov->binv[i]);
+            }
+            ob->eiov->vsize = 1;
+            ob->eiov->size = 0;
+        }
+        else {
+            Eterm ctl_msg, remote, local, *tp;
+            ErtsTranscodeDecodeState tds;
+            Uint64 id;
+            byte *ptr;
+            ASSERT(ep[3] == DOP_UNLINK_ID);
+            /*
+             * Rewrite the DOP_UNLINK_ID signal into a
+             * DOP_UNLINK signal and send an unlink ack
+             * to the local sender.
+             */
+
+            /*
+             * decode control message so we get info
+             * needed for unlink ack signal to send...
+             */
+            ASSERT(get_int32(hdr + 4) == 0); /* No payload */
+            ctl_msg = transcode_decode_ctl_msg(&tds, iov, eiov->vsize);
+
+            ASSERT(is_tuple_arity(ctl_msg, 4));
+            
+            tp = tuple_val(ctl_msg);
+            ASSERT(tp[1] == make_small(DOP_UNLINK_ID));
+
+            if (!term_to_Uint64(tp[2], &id))
+                ERTS_INTERNAL_ERROR("Invalid encoding of DOP_UNLINK_ID signal");
+            
+            local = tp[3];
+            remote = tp[4];
+
+            ASSERT(is_internal_pid(local));
+            ASSERT(is_external_pid(remote));
+
+            /*
+             * Rewrite buffer to an unlink signal by removing
+             * second element and change first element to
+             * DOP_UNLINK. That is, to: {DOP_UNLINK, local, remote}
+             */
+
+            ptr = &ep[4];
+            switch (*ptr) {
+            case SMALL_INTEGER_EXT:
+                ptr += 1;
+                break;
+            case INTEGER_EXT:
+                ptr += 4;
+                break;
+            case SMALL_BIG_EXT:
+                ptr += 1;
+                ASSERT(*ptr <= 8);
+                ptr += *ptr + 1;
+                break;
+            default:
+                ERTS_INTERNAL_ERROR("Invalid encoding of DOP_UNLINK_ID signal");
+                break;
+            }
+
+            ASSERT((ptr - ep) <= 16);
+            ASSERT((ptr - ep) <= iov[2].iov_len);
+            
+            *(ptr--) = DOP_UNLINK;
+            *(ptr--) = SMALL_INTEGER_EXT;
+            *(ptr--) = 3;
+            *ptr = SMALL_TUPLE_EXT;
+
+            iov[2].iov_base = ptr;
+            iov[2].iov_len -= (ptr - ep);
+
+#ifdef DEBUG
+            {
+                ErtsTranscodeDecodeState dbg_tds;
+                Eterm new_ctl_msg = transcode_decode_ctl_msg(&dbg_tds,
+                                                             iov,
+                                                             eiov->vsize);
+                ASSERT(is_tuple_arity(new_ctl_msg, 3));
+                tp = tuple_val(new_ctl_msg);
+                ASSERT(tp[1] == make_small(DOP_UNLINK));
+                ASSERT(tp[2] == local);
+                ASSERT(eq(tp[3], remote));
+                transcode_decode_state_destroy(&dbg_tds);
+            }
+#endif
+
+            /* Send unlink ack to local sender... */
+            erts_proc_sig_send_dist_unlink_ack(NULL, dep,
+                                               dep->connection_id,
+                                               remote, local, id);
+
+            transcode_decode_state_destroy(&tds);
+
+            reds -= 5;
+        }
         if (reds < 0)
             return 0;
         return reds;

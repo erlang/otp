@@ -27,10 +27,10 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+#include "global.h"
 #define ERTS_PTAB_WANT_BIF_IMPL__
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
-#include "global.h"
 #include "erl_binary.h"
 
 typedef struct ErtsPTabListBifData_ ErtsPTabListBifData;
