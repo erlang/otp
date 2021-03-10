@@ -360,7 +360,7 @@
 
     <func>
       <name name="percent_decode" arity="1" since="OTP 23.2"/>
-      <fsummary>Decode percent-decode triplets in the input.</fsummary>
+      <fsummary>Decode percent-encoded triplets in the input.</fsummary>
       <desc>
 	<p>Decodes all percent-encoded triplets in the input that can be both a
 	<c>uri_string()</c> and a <c>uri_map()</c>. Note, that this function performs
