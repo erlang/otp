@@ -1220,27 +1220,19 @@ is_fragment(Char) -> is_pchar(Char).
 
 %% Return true if input char is reserved.
 -spec is_reserved(char()) -> boolean().
-is_reserved($:) -> true;
-is_reserved($/) -> true;
-is_reserved($?) -> true;
-is_reserved($#) -> true;
-is_reserved($[) -> true;
-is_reserved($]) -> true;
-is_reserved($@) -> true;
+is_reserved(Char) -> is_gen_delim(Char) orelse is_sub_delim(Char).
 
-is_reserved($!) -> true;
-is_reserved($$) -> true;
-is_reserved($&) -> true;
-is_reserved($') -> true;
-is_reserved($() -> true;
-is_reserved($)) -> true;
 
-is_reserved($*) -> true;
-is_reserved($+) -> true;
-is_reserved($,) -> true;
-is_reserved($;) -> true;
-is_reserved($=) -> true;
-is_reserved(_) -> false.
+%% Check if char is gen-delim.
+-spec is_gen_delim(char()) -> boolean().
+is_gen_delim($:) -> true;
+is_gen_delim($/) -> true;
+is_gen_delim($?) -> true;
+is_gen_delim($#) -> true;
+is_gen_delim($[) -> true;
+is_gen_delim($]) -> true;
+is_gen_delim($@) -> true;
+is_gen_delim(_) -> false.
 
 
 %% Check if char is sub-delim.
