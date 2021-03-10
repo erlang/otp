@@ -824,13 +824,11 @@ handle_call({stop_application, AppName}, _From, S) ->
     end;
 
 handle_call({change_application_data, Applications, Config}, _From, S) ->
-    OldAppls = ets:filter(ac_tab,
-			  fun([{{loaded, _AppName}, Appl}]) ->
-				  {true, Appl};
-			     (_) ->
-				  false
-			  end,
-			  []),
+    OldAppls = ets:foldl(fun({{loaded, _AppName}, Appl}, Acc) ->
+                                 [Appl|Acc];
+                            (_, Acc) ->
+                                 Acc
+                         end, [], ac_tab),
     case catch do_change_apps(Applications, Config, OldAppls) of
 	{error, _} = Error ->
 	    {reply, Error, S};
