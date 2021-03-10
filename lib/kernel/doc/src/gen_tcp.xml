@@ -70,7 +70,20 @@ do_recv(Sock, Bs) ->
       Here is a list of cases when the behaviour of inet-backend
       <c>inet</c> (default) and <c>socket</c> are different: </p>
       <list type="bulleted">
-        <item><p><seeerl marker="#non_blocking_send">Non-blocking send</seeerl></p></item>
+        <item>
+	  <p><seeerl marker="#non_blocking_send">Non-blocking send</seeerl></p>
+	  <p>If a user calling
+	  <seemfa marker="#send/2"><c>gen_tcp:send/2</c></seemfa>     
+	  with <c>inet_backend = inet</c>,
+	  tries to send more data than there is room for in the OS buffers,
+	  the "rest data" is buffered by the inet driver (and later sent in the
+	  background).
+	  The effect for the user is that the call is non-blocking.</p>
+	  <p>This is <em>not</em> the effect when
+	  <c>inet_backend = socket</c>, since there is no buffering.
+	  Instead the user hangs either until all data has been sent or the
+	  <c>send_timeout</c> timeout has been reached. </p>
+	</item>
 
 	<item><p>Remote close detected by background send. </p>
 	<p>An background send will detect a 'remote close' and
@@ -97,16 +110,41 @@ do_recv(Sock, Bs) ->
 	message (<c>{tcp_closed, ...}</c> will be received (not an error). </p>
 	</item>
 
-        <item><p>The option
-	<seeerl marker="inet#option-show_econnreset">show_econnreset</seeerl>
-	basically do <em>not</em>
-	work as described when used with <c>inet_backend = socket</c>.
-	The "issue" is that a remote close (as described above)
-	<em>do</em> allow a reader to extract what is in the read buffers
-	before a close is "delivered".
-	</p></item>
+        <item>
+	  <p>The option
+	  <seeerl marker="inet#option-show_econnreset">show_econnreset</seeerl>
+	  basically do <em>not</em>
+	  work as described when used with <c>inet_backend = socket</c>.
+	  The "issue" is that a remote close (as described above)
+	  <em>do</em> allow a reader to extract what is in the read buffers
+	  before a close is "delivered".</p>
+	</item>
 
-	<item><p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p></item>
+        <item>
+	  <p>The option
+	  <seeerl marker="inet#option-nodelay">nodelay</seeerl>
+	  is a TCP specific option that is <em>not</em> compatible with
+	  <c>domain = local</c>. </p>
+	  <p>When using <c>inet_backend = socket</c>, trying to create a socket
+	  (via listen or connect) with <c>domain = local</c>
+	  (for example with option {ifaddr, {local,"/tmp/test"}})
+	  <em>will fail</em> with <c>{error, enotsup}</c>. </p>
+	  <p>This does not actually work for <c>inet_backend = inet</c> either,
+	  but in that case the error is simply <em>ignored</em>,
+	  which is a <em>bad</em> idea. We have choosen to <em>not</em>
+	  ignore this error for <c>inet_backend = socket</c>. </p>
+	</item>
+
+	<item>
+	  <p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p>
+	  <p>Calling
+	  <seemfa marker="#shutdown/2">gen_tcp:shutdown(Socket, write | read_write)</seemfa>
+	  on a socket created with <c>inet_backend = socket</c>
+	  will take <em>immediate</em> effect,
+	  unlike for a socket created with <c>inet_backend = inet</c>.</p>
+	  <p>See <seeerl marker="#async_shutdown_write">async shutdown write</seeerl>
+	  for more info. </p>
+	</item>
       </list>
     </note>
   </description>
