@@ -271,6 +271,21 @@
     </func>
 
     <func>
+      <name name="encode" arity="1" since="OTP 24"/>
+      <fsummary>Percent-encode reserved characters in the input.</fsummary>
+      <desc>
+	<p>Encodes all RFC-3986 reserved characters in the input. Input to this
+  function is expected to be either a <c>list()</c> or a <c>binary()</c>.</p>
+	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input><![CDATA[uri_string:encode("This isn't a drill.").]]></input>
+<![CDATA["This%20isn%27t%20a%20drill."]]>
+	</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="normalize" arity="1" since="OTP 21.0"/>
       <fsummary>Syntax-based normalization.</fsummary>
       <desc>
