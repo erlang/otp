@@ -133,20 +133,6 @@ void BeamModuleAssembler::emit_gc_test(const ArgVal &Ns,
     a.bind(after_gc_check);
 }
 
-#if defined(DEBUG) && defined(HARD_DEBUG)
-static void validate_term(Eterm term) {
-    if (is_boxed(term)) {
-        Eterm header = *boxed_val(term);
-
-        if (header_is_bin_matchstate(header)) {
-            return;
-        }
-    }
-
-    size_object_x(term, nullptr);
-}
-#endif
-
 void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
 #ifdef DEBUG
     Label next = a.newLabel(), crash = a.newLabel();
@@ -174,7 +160,7 @@ void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
 
     for (unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, getXRef(i));
-        runtime_call<1>(validate_term);
+        runtime_call<1>(beam_jit_validate_term);
     }
 
     emit_leave_runtime();

@@ -95,82 +95,6 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgVal &Size,
     }
 }
 
-void TEST_BIN_VHEAP(Process *c_p, Eterm *reg, Uint VNh, Uint Nh, Uint Live) {
-    int need = Nh;
-
-    if (c_p->stop - c_p->htop < (need + S_RESERVED) ||
-        MSO(c_p).overhead + VNh >= BIN_VHEAP_SZ(c_p)) {
-        c_p->fcalls -=
-                erts_garbage_collect_nobump(c_p, need, reg, Live, c_p->fcalls);
-    }
-}
-
-void GC_TEST(Process *c_p, Eterm *reg, Uint Ns, Uint Nh, Uint Live) {
-    int need = Nh + Ns;
-
-    if (ERTS_UNLIKELY(c_p->stop - c_p->htop < (need + S_RESERVED))) {
-        c_p->fcalls -=
-                erts_garbage_collect_nobump(c_p, need, reg, Live, c_p->fcalls);
-    }
-}
-
-Eterm i_bs_init(Process *c_p,
-                Eterm *reg,
-                ERL_BITS_DECLARE_STATEP,
-                Eterm BsOp1,
-                Eterm BsOp2,
-                unsigned Live) {
-    if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin *hb;
-        Uint bin_need;
-
-        bin_need = heap_bin_size(BsOp1);
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
-        GC_TEST(c_p, reg, 0, bin_need + BsOp2 + ERL_SUB_BIN_SIZE, Live);
-        hb = (ErlHeapBin *)c_p->htop;
-        c_p->htop += bin_need;
-        hb->thing_word = header_heap_bin(BsOp1);
-        hb->size = BsOp1;
-        erts_current_bin = (byte *)hb->data;
-        return make_binary(hb);
-    } else {
-        Binary *bptr;
-        ProcBin *pb;
-
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
-        TEST_BIN_VHEAP(c_p,
-                       reg,
-                       BsOp1 / sizeof(Eterm),
-                       BsOp2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE,
-                       Live);
-
-        /*
-         * Allocate the binary struct itself.
-         */
-        bptr = erts_bin_nrml_alloc(BsOp1);
-        erts_current_bin = (byte *)bptr->orig_bytes;
-
-        /*
-         * Now allocate the ProcBin on the heap.
-         */
-        pb = (ProcBin *)c_p->htop;
-        c_p->htop += PROC_BIN_SIZE;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = BsOp1;
-        pb->next = MSO(c_p).first;
-        MSO(c_p).first = (struct erl_off_heap_header *)pb;
-        pb->val = bptr;
-        pb->bytes = (byte *)bptr->orig_bytes;
-        pb->flags = 0;
-
-        OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
-
-        return make_binary(pb);
-    }
-}
-
 void BeamModuleAssembler::emit_i_bs_init_heap(const ArgVal &Size,
                                               const ArgVal &Heap,
                                               const ArgVal &Live,
@@ -185,29 +109,18 @@ void BeamModuleAssembler::emit_i_bs_init_heap(const ArgVal &Size,
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     load_erl_bits_state(ARG3);
-    runtime_call<6>(i_bs_init);
+    runtime_call<6>(beam_jit_bs_init);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     mov_arg(Dst, RET);
 }
 
-static void bs_field_size_argument_error(Process *c_p, Eterm size) {
-    if (((is_small(size) && signed_val(size) >= 0) ||
-         (is_big(size) && !big_sign(size)))) {
-        /* If the argument is a positive integer, we must've had a system_limit
-         * error. */
-        c_p->freason = SYSTEM_LIMIT;
-    } else {
-        c_p->freason = BADARG;
-    }
-}
-
 /* Set the error reason when a size check has failed. */
 void BeamGlobalAssembler::emit_bs_size_check_shared() {
     emit_enter_runtime();
     a.mov(ARG1, c_p);
-    runtime_call<2>(bs_field_size_argument_error);
+    runtime_call<2>(beam_jit_bs_field_size_argument_error);
     emit_leave_runtime();
     a.ret();
 }
@@ -236,7 +149,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgVal &Size,
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         load_erl_bits_state(ARG3);
-        runtime_call<6>(i_bs_init);
+        runtime_call<6>(beam_jit_bs_init);
 
         emit_leave_runtime<Update::eReductions | Update::eStack |
                            Update::eHeap>();
@@ -276,90 +189,6 @@ void BeamModuleAssembler::emit_i_bs_init_fail(const ArgVal &Size,
     emit_i_bs_init_fail_heap(Size, Heap, Fail, Live, Dst);
 }
 
-static Eterm i_bs_init_bits(Process *c_p,
-                            Eterm *reg,
-                            ERL_BITS_DECLARE_STATEP,
-                            Uint num_bits,
-                            Uint alloc,
-                            unsigned Live) {
-    Eterm new_binary;
-    Uint num_bytes = ((Uint64)num_bits + (Uint64)7) >> 3;
-
-    if (num_bits & 7) {
-        alloc += ERL_SUB_BIN_SIZE;
-    }
-    if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-        alloc += heap_bin_size(num_bytes);
-    } else {
-        alloc += PROC_BIN_SIZE;
-    }
-    GC_TEST(c_p, reg, 0, alloc, Live);
-
-    /* num_bits = Number of bits to build
-     * num_bytes = Number of bytes to allocate in the binary
-     * alloc = Total number of words to allocate on heap
-     * Operands: NotUsed NotUsed Dst
-     */
-    if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin *hb;
-
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
-        hb = (ErlHeapBin *)c_p->htop;
-        c_p->htop += heap_bin_size(num_bytes);
-        hb->thing_word = header_heap_bin(num_bytes);
-        hb->size = num_bytes;
-        erts_current_bin = (byte *)hb->data;
-        new_binary = make_binary(hb);
-
-    do_bits_sub_bin:
-        if (num_bits & 7) {
-            ErlSubBin *sb;
-
-            sb = (ErlSubBin *)c_p->htop;
-            c_p->htop += ERL_SUB_BIN_SIZE;
-            sb->thing_word = HEADER_SUB_BIN;
-            sb->size = num_bytes - 1;
-            sb->bitsize = num_bits & 7;
-            sb->offs = 0;
-            sb->bitoffs = 0;
-            sb->is_writable = 0;
-            sb->orig = new_binary;
-            new_binary = make_binary(sb);
-        }
-        /*    HEAP_SPACE_VERIFIED(0); */
-        return new_binary;
-    } else {
-        Binary *bptr;
-        ProcBin *pb;
-
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
-
-        /*
-         * Allocate the binary struct itself.
-         */
-        bptr = erts_bin_nrml_alloc(num_bytes);
-        erts_current_bin = (byte *)bptr->orig_bytes;
-
-        /*
-         * Now allocate the ProcBin on the heap.
-         */
-        pb = (ProcBin *)c_p->htop;
-        c_p->htop += PROC_BIN_SIZE;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = num_bytes;
-        pb->next = MSO(c_p).first;
-        MSO(c_p).first = (struct erl_off_heap_header *)pb;
-        pb->val = bptr;
-        pb->bytes = (byte *)bptr->orig_bytes;
-        pb->flags = 0;
-        OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
-        new_binary = make_binary(pb);
-        goto do_bits_sub_bin;
-    }
-}
-
 void BeamModuleAssembler::emit_i_bs_init_bits(const ArgVal &NumBits,
                                               const ArgVal &Live,
                                               const ArgVal &Dst) {
@@ -381,7 +210,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_heap(const ArgVal &NumBits,
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     load_erl_bits_state(ARG3);
-    runtime_call<6>(i_bs_init_bits);
+    runtime_call<6>(beam_jit_bs_init_bits);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
@@ -422,7 +251,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(const ArgVal &NumBits,
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         load_erl_bits_state(ARG3);
-        runtime_call<6>(i_bs_init_bits);
+        runtime_call<6>(beam_jit_bs_init_bits);
 
         emit_leave_runtime<Update::eReductions | Update::eStack |
                            Update::eHeap>();
@@ -818,38 +647,6 @@ void BeamModuleAssembler::emit_i_bs_get_position(const ArgVal &Ctx,
     mov_arg(Dst, ARG1);
 }
 
-static Eterm i_bs_get_integer(Process *c_p,
-                              Eterm *reg,
-                              Eterm context,
-                              Uint flags,
-                              Uint size,
-                              Uint Live) {
-    ErlBinMatchBuffer *mb;
-
-    if (size >= SMALL_BITS) {
-        Uint wordsneeded;
-
-        /* Check bits size before potential gc.
-         * We do not want a gc and then realize we don't need
-         * the allocated space (i.e. if the op fails).
-         *
-         * Remember to re-acquire the matchbuffer after gc.
-         */
-        mb = ms_matchbuffer(context);
-        if (mb->size - mb->offset < size) {
-            return THE_NON_VALUE;
-        }
-
-        wordsneeded = 1 + WSIZE(NBYTES((Uint)size));
-        reg[Live] = context;
-        GC_TEST(c_p, reg, 0, wordsneeded, Live + 1);
-        context = reg[Live];
-    }
-
-    mb = ms_matchbuffer(context);
-    return erts_bs_get_integer_2(c_p, size, flags, mb);
-}
-
 /* ARG3 = flags | (size << 3),
  * ARG4 = tagged match context */
 void BeamGlobalAssembler::emit_bs_fixed_integer_shared() {
@@ -1108,7 +905,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer(const ArgVal &Ctx,
 
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<6>(i_bs_get_integer);
+        runtime_call<6>(beam_jit_bs_get_integer);
 
         emit_leave_runtime<Update::eReductions | Update::eStack |
                            Update::eHeap>();
@@ -1569,24 +1366,11 @@ void BeamModuleAssembler::emit_bs_test_unit(const ArgVal &Fail,
     a.jnz(labels[Fail.getValue()]);
 }
 
-/* Set the exception code for bs_add argument errors after the fact, which is
- * much easier and more compact than discriminating within module code. */
-static void bs_add_argument_error(Process *c_p, Eterm A, Eterm B) {
-    if (((is_small(A) && signed_val(A) >= 0) || (is_big(A) && !big_sign(A))) &&
-        ((is_small(B) && signed_val(B) >= 0) || (is_big(B) && !big_sign(B)))) {
-        /* If all arguments are positive integers, we must've had a system_limit
-         * error. */
-        c_p->freason = SYSTEM_LIMIT;
-    } else {
-        c_p->freason = BADARG;
-    }
-}
-
 /* Set the error reason when bs_add has failed. */
 void BeamGlobalAssembler::emit_bs_add_shared() {
     emit_enter_runtime();
     a.mov(ARG1, c_p);
-    runtime_call<3>(bs_add_argument_error);
+    runtime_call<3>(beam_jit_bs_add_argument_error);
     emit_leave_runtime();
     a.ret();
 }
@@ -1762,79 +1546,6 @@ void BeamModuleAssembler::emit_bs_init_writable() {
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 }
 
-static Eterm i_bs_start_match2_gc_test_preserve(Process *c_p,
-                                                Eterm *reg,
-                                                Uint need,
-                                                Uint live,
-                                                Eterm preserve) {
-    Uint words_left = (Uint)(STACK_TOP(c_p) - HEAP_TOP(c_p));
-
-    if (ERTS_UNLIKELY(words_left < need + S_RESERVED)) {
-        reg[live] = preserve;
-        PROCESS_MAIN_CHK_LOCKS(c_p);
-        c_p->fcalls -= erts_garbage_collect_nobump(c_p,
-                                                   need,
-                                                   reg,
-                                                   live + 1,
-                                                   c_p->fcalls);
-        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-        PROCESS_MAIN_CHK_LOCKS(c_p);
-        preserve = reg[live];
-    }
-
-    return preserve;
-}
-
-static Eterm i_bs_start_match2(Eterm context,
-                               Uint live,
-                               Uint slots,
-                               Process *c_p,
-                               Eterm *reg) {
-    Eterm header;
-    if (!is_boxed(context)) {
-        return THE_NON_VALUE;
-    }
-    header = *boxed_val(context);
-
-    slots++;
-
-    if (header_is_bin_matchstate(header)) {
-        ErlBinMatchState *ms = (ErlBinMatchState *)boxed_val(context);
-        Uint actual_slots = HEADER_NUM_SLOTS(header);
-
-        /* We're not compatible with contexts created by bs_start_match3. */
-        ASSERT(actual_slots >= 1);
-
-        ms->save_offset[0] = ms->mb.offset;
-        if (ERTS_UNLIKELY(actual_slots < slots)) {
-            ErlBinMatchState *expanded;
-            Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-            context = i_bs_start_match2_gc_test_preserve(c_p,
-                                                         reg,
-                                                         wordsneeded,
-                                                         live,
-                                                         context);
-            ms = (ErlBinMatchState *)boxed_val(context);
-            expanded = (ErlBinMatchState *)HEAP_TOP(c_p);
-            *expanded = *ms;
-            *HEAP_TOP(c_p) = HEADER_BIN_MATCHSTATE(slots);
-            HEAP_TOP(c_p) += wordsneeded;
-            context = make_matchstate(expanded);
-        }
-        return context;
-    } else if (is_binary_header(header)) {
-        Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-        context = i_bs_start_match2_gc_test_preserve(c_p,
-                                                     reg,
-                                                     wordsneeded,
-                                                     live,
-                                                     context);
-        return erts_bs_start_match_2(c_p, context, slots);
-    } else {
-        return THE_NON_VALUE;
-    }
-}
-
 /* Old compatibility instructions for <= OTP-21. Kept in order to be able to
  * load old code. While technically we could remove these in OTP-24, we've
  * decided to keep them until at least OTP-25 to make things easier for
@@ -1852,7 +1563,7 @@ void BeamModuleAssembler::emit_i_bs_start_match2(const ArgVal &Src,
 
     a.mov(ARG4, c_p);
     load_x_reg_array(ARG5);
-    runtime_call<5>(i_bs_start_match2);
+    runtime_call<5>(beam_jit_bs_start_match2);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
@@ -1883,41 +1594,12 @@ void BeamModuleAssembler::emit_i_bs_restore2(const ArgVal &Ctx,
     a.mov(emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)), ARG2);
 }
 
-static void bs_context_to_binary(Eterm context) {
-    if (is_boxed(context) && header_is_bin_matchstate(*boxed_val(context))) {
-        Uint orig, size, offs, hole_size;
-        ErlBinMatchBuffer *mb;
-        ErlBinMatchState *ms;
-        ErlSubBin *sb;
-        ms = (ErlBinMatchState *)boxed_val(context);
-        mb = &ms->mb;
-        offs = ms->save_offset[0];
-        size = mb->size - offs;
-        orig = mb->orig;
-        sb = (ErlSubBin *)boxed_val(context);
-        /* Since we're going to overwrite the match state with the result, an
-         * ErlBinMatchState must be at least as large as an ErlSubBin. */
-        ERTS_CT_ASSERT(sizeof(ErlSubBin) <= sizeof(ErlBinMatchState));
-        hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
-        sb->thing_word = HEADER_SUB_BIN;
-        sb->size = BYTE_OFFSET(size);
-        sb->bitsize = BIT_OFFSET(size);
-        sb->offs = BYTE_OFFSET(offs);
-        sb->bitoffs = BIT_OFFSET(offs);
-        sb->is_writable = 0;
-        sb->orig = orig;
-        if (hole_size) {
-            sb[1].thing_word = make_pos_bignum_header(hole_size - 1);
-        }
-    }
-}
-
 void BeamModuleAssembler::emit_bs_context_to_binary(const ArgVal &Src) {
     mov_arg(ARG1, Src);
 
     emit_enter_runtime();
 
-    runtime_call<1>(bs_context_to_binary);
+    runtime_call<1>(beam_jit_bs_context_to_binary);
 
     emit_leave_runtime();
 }
