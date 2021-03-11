@@ -32,7 +32,7 @@
 	 init_per_testcase/2, end_per_testcase/2
         ]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
-	 last_ms_answer/1, intermediate_error/1,
+	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
          label_compression_limit/1
         ]).
@@ -72,7 +72,7 @@ suite() ->
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
-     last_ms_answer,
+     nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
      label_compression_limit,
@@ -127,6 +127,7 @@ zone_dir(TC) ->
 	resolve            -> otptest;
 	edns0              -> otptest;
 	files_monitor      -> otptest;
+	nxdomain_reply     -> otptest;
 	last_ms_answer     -> otptest;
         intermediate_error ->
             {internal,
@@ -932,6 +933,26 @@ do_files_monitor(Config) ->
 		 h_addr_list = [{127,0,0,28}]}} =
 	inet:gethostbyname("resolve.otptest"),
     ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Get full DNS answer on nxdomain (when option set)
+%% Check that we get the error code from the first server.
+
+nxdomain_reply(Config) when is_list(Config) ->
+    NS    = ns(Config),
+    Name  = "nxdomain.otptest",
+    Class = in,
+    Type  = a,
+    Opts  =
+        [{nameservers,[NS]}, {servfail_retry_timeout, 1000}, verbose],
+    ?P("try resolve"),
+    {error, nxdomain} = inet_res:resolve(Name, Class, Type, Opts),
+    {error, {nxdomain, Rec}} =
+        inet_res:resolve(Name, Class, Type, [nxdomain_reply|Opts]),
+    ?P("resolved: "
+       "~n      ~p", [Rec]),
+    ok.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

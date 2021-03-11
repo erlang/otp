@@ -61,7 +61,8 @@
       | {retry, integer()}
       | {timeout, integer()}
       | {udp_payload_size, integer()}
-      | {usevc, boolean()}.
+      | {usevc, boolean()}
+      | {nxdomain_reply, boolean()}.
 
 -type nameserver() :: {inet:ip_address(), Port :: 1..65535}.
 
@@ -262,8 +263,10 @@ do_nslookup(Name, Class, Type, Opts, Timeout) ->
 %% options record
 %%
 -record(options, { % These must be sorted!
-	  alt_nameservers,edns,inet6,nameservers,recurse,
-	  retry,servfail_retry_timeout,timeout,udp_payload_size,usevc,
+	  alt_nameservers,edns,inet6,nameservers,
+          nxdomain_reply, % this is a local option, not in inet_db
+          recurse,retry,servfail_retry_timeout,timeout,
+          udp_payload_size,usevc,
 	  verbose}). % this is a local option, not in inet_db
 %%
 %% Opts when is_list(Opts) -> #options{}
@@ -298,7 +301,9 @@ make_options(Opts0) ->
 make_options([_|_]=Opts0, []=Names0) ->
     erlang:error(badarg, [Opts0,Names0]);
 make_options([], []) -> [];
-make_options([{verbose,Val}|Opts]=Opts0, [verbose|Names]=Names0) ->
+make_options([{Opt,Val}|Opts]=Opts0, [Opt|Names]=Names0)
+  when Opt =:= nxdomain_reply;
+       Opt =:= verbose ->
     if is_boolean(Val) ->
 	    [Val|make_options(Opts, Names)];
        true ->
@@ -311,6 +316,9 @@ make_options([{Opt,Val}|Opts]=Opts0, [Opt|Names]=Names0) ->
 	false ->
 	    erlang:error(badarg, [Opts0,Names0])
     end;
+%% Handling default values (for options not in Opts)
+make_options(Opts, [nxdomain_reply|Names]) ->
+    [false|make_options(Opts, Names)];
 make_options(Opts, [verbose|Names]) ->
     [false|make_options(Opts, Names)];
 make_options(Opts, [Name|Names]) ->
@@ -778,10 +786,10 @@ do_query(#q{options=#options{retry=Retry}}=Q, NSs, Timer) ->
 
 %% Loop until out of retries or name servers
 %%
-query_retries(_Q, _NSs, _Timer, Retry, I, S, Reason) when Retry =:= I ->
-    query_retries_error(S, Reason);
-query_retries(_Q, [], _Timer, _Retry, _I, S, Reason) ->
-    query_retries_error(S, Reason);
+query_retries(Q, _NSs, _Timer, Retry, I, S, Reason) when Retry =:= I ->
+    query_retries_error(Q, S, Reason);
+query_retries(Q, [], _Timer, _Retry, _I, S, Reason) ->
+    query_retries_error(Q, S, Reason);
 query_retries(Q, NSs, Timer, Retry, I, S, Reason) ->
     query_nss(Q, NSs, Timer, Retry, I, S, Reason, []).
 
@@ -878,9 +886,9 @@ query_nss_result(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result) ->
             _ = udp_close(S),
             Result;
 	timeout -> % Out of total time timeout
-            query_retries_error(S, Reason); % The best reason we have
-	{error,{nxdomain=E,_}} ->
-            query_retries_error(S, E); % Definite answer
+            query_retries_error(Q, S, Reason); % The best reason we have
+	{error,{nxdomain,_} = E} ->
+            query_retries_error(Q, S, E); % Definite answer
 	{error,{E,_}=NewReason}
           when E =:= qfmterror;
                E =:= notimp;
@@ -924,9 +932,14 @@ query_nss_result(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result) ->
 	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, [NS|RetryNSs])
     end.
 
-query_retries_error(S, Reason) ->
+query_retries_error(#q{options=#options{nxdomain_reply=NxReply}}, S, Reason) ->
     _ = udp_close(S),
-    {error, Reason}.
+    case Reason of
+        {nxdomain, _} when not NxReply ->
+            {error, nxdomain};
+        _ ->
+            {error, Reason}
+    end.
 
 
 query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
