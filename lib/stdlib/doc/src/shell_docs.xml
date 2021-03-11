@@ -54,10 +54,11 @@ Since:
     > maps:new().
     #{}
 </code>
-    <p>This module can only render EEP-48 documentation of the format
-      <c>application/erlang+html</c>. For more information about this format see
-      <seeguide marker="erl_docgen:doc_storage">Documentation Storage</seeguide>
-      in Erl_Docgen's User's Guide.
+    <p>This module formats and renders EEP-48 documentation of
+      the format <c>application/erlang+html</c>. For more information about
+      this format see <seeguide marker="erl_docgen:doc_storage">Documentation
+      Storage</seeguide> in Erl_Docgen's User's Guide. It can also render
+      any other format of "text" type, although those will be rendered as is.
     </p>
   </description>
 
