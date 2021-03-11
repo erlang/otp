@@ -132,8 +132,22 @@ handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
     %% Spawn not to block the rex server.
     ExecCall = fun () ->
                        set_group_leader(Gleader),
+                       GleaderBeforeCall = group_leader(),
                        Reply = execute_call(Mod, Fun, Args),
-                       gen_server:reply(To, Reply)
+                       case Gleader of
+                           {send_stdout_to_caller, _} ->
+                               %% The group leader sends the response
+                               %% to make sure that the client gets
+                               %% all stdout that it should get before
+                               %% the response
+                               Ref = erlang:make_ref(),
+                               GleaderBeforeCall ! {stop, self(), Ref, To, Reply},
+                               receive
+                                   Ref -> ok
+                               end;
+                           _ ->
+                               gen_server:reply(To, Reply)
+                       end
                end,
     try
         {_,Mon} = spawn_monitor(ExecCall),
@@ -199,9 +213,17 @@ handle_info({From, {send, Name, Msg}}, S) ->
                 ok    %% It's up to Name to respond !!!!!
         end,
     {noreply, S};
-handle_info({From, {call, _Mod, _Fun, _Args, _Gleader} = Request}, S) ->
+handle_info({From, {call, Mod, Fun, Args, Gleader}}, S) ->
     %% Special for hidden C node's, uugh ...
     To = {From, ?NAME},
+    NewGleader =
+        case Gleader of
+            send_stdout_to_caller ->
+                {send_stdout_to_caller, From};
+            _ ->
+                Gleader
+        end,
+    Request = {call, Mod, Fun, Args, NewGleader},
     case handle_call(Request, To, S) of
         {noreply, _NewS} = Return ->
             Return;
@@ -249,6 +271,8 @@ execute_call(Mod, Fun, Args) ->
 
 set_group_leader(Gleader) when is_pid(Gleader) -> 
     group_leader(Gleader, self());
+set_group_leader({send_stdout_to_caller, CallerPid}) ->
+    group_leader(cnode_call_group_leader_start(CallerPid), self());
 set_group_leader(user) -> 
     %% For example, hidden C nodes doesn't want any I/O.
     Gleader = case whereis(user) of
@@ -1265,3 +1289,114 @@ pinfo(Pid, Item) when node(Pid) =:= node() ->
     process_info(Pid, Item);
 pinfo(Pid, Item) ->
     block_call(node(Pid), erlang, process_info, [Pid, Item]).
+
+%% The following functions with the cnode_call_group_leader_ prefix
+%% are used for RPC requests with the group leader field set to
+%% send_stdout_to_caller. The group leader that these functions
+%% implement sends back data that are written to stdout during the
+%% call. The group leader implementation is heavily inspired by the
+%% example from the documentation of "The Erlang I/O Protocol".
+
+
+%% A record is used for the state even though it consists of only one
+%% pid to make future extension easier
+-record(cnode_call_group_leader_state,
+        {
+         caller_pid :: pid()
+        }).
+
+-spec cnode_call_group_leader_loop(State :: #cnode_call_group_leader_state{}) -> ok | no_return().
+
+cnode_call_group_leader_loop(State) ->
+    receive
+	{io_request, From, ReplyAs, Request} ->
+	    {_, Reply, NewState}
+                = cnode_call_group_leader_request(Request, State),
+            From ! {io_reply, ReplyAs, Reply},
+            cnode_call_group_leader_loop(NewState);
+        {stop, StopRequesterPid, Ref, To, Reply} ->
+            gen_server:reply(To, Reply),
+            StopRequesterPid ! Ref,
+            ok;
+	_Unknown ->
+            cnode_call_group_leader_loop(State)
+    end.
+
+-spec cnode_call_group_leader_request(Request, State) -> Result when
+      Request :: any(),
+      State :: #cnode_call_group_leader_state{},
+      Result :: {ok | error, Reply, NewState},
+      Reply :: term(),
+      NewState :: #cnode_call_group_leader_state{}.
+
+cnode_call_group_leader_request({put_chars, Encoding, Chars},
+                                State) ->
+    cnode_call_group_leader_put_chars(Chars, Encoding, State);
+cnode_call_group_leader_request({put_chars, Encoding, Module, Function, Args},
+                                State) ->
+    try
+	cnode_call_group_leader_request({put_chars,
+                                         Encoding,
+                                         apply(Module, Function, Args)},
+                                        State)
+    catch
+	_:_ ->
+	    {error, {error, Function}, State}
+    end;
+cnode_call_group_leader_request({requests, Reqs}, State) ->
+     cnode_call_group_leader_multi_request(Reqs, {ok, ok, State});
+cnode_call_group_leader_request({get_until, _, _, _, _, _}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({get_chars, _, _, _}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({get_line, _, _}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({get_geometry,_}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({setopts, _Opts}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request(getopts, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request(_Other, State) ->
+    {error, {error,request}, State}.
+
+-spec cnode_call_group_leader_multi_request(Requests, PrevResponse) -> Result when
+      Requests :: list(),
+      PrevResponse :: {ok | error, Reply, State :: #cnode_call_group_leader_state{}},
+      Result :: {ok | error, Reply, NewState :: #cnode_call_group_leader_state{}},
+      Reply :: term().
+
+cnode_call_group_leader_multi_request([R|Rs], {ok, _Res, State}) ->
+    cnode_call_group_leader_multi_request(Rs, cnode_call_group_leader_request(R, State));
+cnode_call_group_leader_multi_request([_|_], Error) ->
+    Error;
+cnode_call_group_leader_multi_request([], Result) ->
+    Result.
+
+-spec cnode_call_group_leader_put_chars(Chars, Encoding, State) -> Result when
+      Chars :: unicode:latin1_chardata() | unicode:chardata() | unicode:external_chardata(),
+      Encoding :: unicode:encoding(),
+      State :: #cnode_call_group_leader_state{},
+      Result :: {ok | error, term(), NewState},
+      NewState :: #cnode_call_group_leader_state{}.
+
+cnode_call_group_leader_put_chars(Chars, Encoding, State) ->
+    CNodePid = State#cnode_call_group_leader_state.caller_pid,
+    case unicode:characters_to_binary(Chars,Encoding,utf8) of
+        Data when is_binary(Data) ->
+            CNodePid ! {rex_stdout, Data},
+            {ok, ok, State};
+        Error ->
+            {error, {error, Error}, state}
+    end.
+
+-spec cnode_call_group_leader_init(CallerPid :: pid()) -> ok | no_return().
+
+cnode_call_group_leader_init(CallerPid) ->
+    State = #cnode_call_group_leader_state{caller_pid = CallerPid},
+    cnode_call_group_leader_loop(State).
+
+-spec cnode_call_group_leader_start(CallerPid :: pid()) -> pid().
+
+cnode_call_group_leader_start(CallerPid) ->
+    spawn_link(fun() -> cnode_call_group_leader_init(CallerPid) end).

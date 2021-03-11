@@ -122,7 +122,8 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 #define ERL_DEMONITOR_P    20
 #define ERL_MONITOR_P_EXIT 21
 
-
+/* For ei_xrpc_to */
+#define EI_RPC_FETCH_STDOUT 1
 /* -------------------------------------------------------------------- */
 /*           Defines used for ei_get_type_internal() output             */
 /* -------------------------------------------------------------------- */
@@ -435,6 +436,8 @@ int ei_reg_send_tmo(ei_cnode* ec, int fd, char *server_name, char* buf, int len,
 
 int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
 	   const char* inbuf, int inbuflen, ei_x_buff* x);
+int ei_xrpc_to(ei_cnode* ec, int fd, char *mod, char *fun,
+               const char* buf, int len, int flags);
 int ei_rpc_to(ei_cnode* ec, int fd, char *mod, char *fun,
 	      const char* buf, int len);
 int ei_rpc_from(ei_cnode* ec, int fd, int timeout, erlang_msg* msg,
