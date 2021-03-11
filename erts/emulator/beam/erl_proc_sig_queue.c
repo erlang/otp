@@ -3135,17 +3135,16 @@ recv_marker_insert(Process *c_p, ErtsRecvMarker *markp)
 #endif
         if (!c_p->sig_qs.nmsigs.last) {
             ASSERT(!c_p->sig_qs.nmsigs.next);
-            ASSERT(c_p->sig_qs.cont_last && *c_p->sig_qs.cont_last);
             c_p->sig_qs.nmsigs.next = c_p->sig_qs.cont_last;
-            c_p->sig_qs.nmsigs.last = c_p->sig_qs.cont_last;
         }
         else {
             ErtsSignal *lsig = (ErtsSignal *) *c_p->sig_qs.nmsigs.last;
             ASSERT(c_p->sig_qs.nmsigs.next);
             ASSERT(lsig && !lsig->common.specific.next);
             lsig->common.specific.next = c_p->sig_qs.cont_last;
-            c_p->sig_qs.nmsigs.last = c_p->sig_qs.cont_last;
         }
+
+	c_p->sig_qs.nmsigs.last = c_p->sig_qs.cont_last;
 
         *c_p->sig_qs.cont_last = (ErtsMessage *) &markp->sig;
         c_p->sig_qs.cont_last = &markp->sig.common.next;

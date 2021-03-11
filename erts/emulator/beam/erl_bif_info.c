@@ -4587,30 +4587,6 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_true);
 	    }
 	}
-	else if (ERTS_IS_ATOM_STR("recv_marker_insert", BIF_ARG_1)) {
-	    /* receive_SUITE (emulator) */
-	    Eterm res = erts_msgq_recv_marker_insert(BIF_P);
-	    ASSERT(is_small(res) || is_big(res) || res == am_undefined);
-	    BIF_RET(res);
-	}
-	else if (ERTS_IS_ATOM_STR("recv_marker_bind", BIF_ARG_1)) {
-	    /* receive_SUITE (emulator) */
-	    if (is_tuple_arity(BIF_ARG_2, 2)) {
-		Eterm *tp = tuple_val(BIF_ARG_2);
-		erts_msgq_recv_marker_bind(BIF_P, tp[1], tp[2]);
-		BIF_RET(am_ok);
-	    }
-	}
-	else if (ERTS_IS_ATOM_STR("recv_marker_set_save", BIF_ARG_1)) {
-	    /* receive_SUITE (emulator) */
-	    erts_msgq_recv_marker_set_save(BIF_P, BIF_ARG_2);
-	    BIF_RET(am_ok);		
-	}
-	else if (ERTS_IS_ATOM_STR("recv_marker_clear", BIF_ARG_1)) {
-	    /* receive_SUITE (emulator) */
-	    erts_msgq_recv_marker_clear(BIF_P, BIF_ARG_2);
-	    BIF_RET(am_ok);		
-	}
 	else if (ERTS_IS_ATOM_STR("block", BIF_ARG_1)
 		 || ERTS_IS_ATOM_STR("sleep", BIF_ARG_1)) {
 	    int block = ERTS_IS_ATOM_STR("block", BIF_ARG_1);
