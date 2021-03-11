@@ -295,6 +295,16 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     % empty group should be deleted.
     ?assertEqual(#{}, NewRemoteMap),
 
+    %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
+    RemotePid2 = erlang:spawn(TwoPeer, forever()),
+    ?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid2]])),
+    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual([RemotePid, RemotePid2], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    %% now leave
+    ?assertEqual(ok, rpc:call(TwoPeer, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
+    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {state, _, _, #{RemoteNode := {_, NewRemoteMap}}} = sys:get_state(?FUNCTION_NAME),
     stop_node(TwoPeer, Socket),
     ok.
 
