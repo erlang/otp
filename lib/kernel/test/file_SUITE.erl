@@ -1289,7 +1289,7 @@ open_errors(Config) when is_list(Config) ->
     Real = filename:join(DataDir, "realmen.html"),
     {error, enotdir} = ?FILE_MODULE:open(Real, [directory]),
 
-    {'EXIT', {badarg, _}} = catch(?FILE_MODULE:open("foo", [raw, ram])),
+    {'EXIT', {badarg, _}} = (catch ?FILE_MODULE:open("foo", [raw, ram])),
     [] = flush(),
     ok.
 
