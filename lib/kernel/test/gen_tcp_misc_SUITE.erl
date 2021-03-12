@@ -5738,13 +5738,29 @@ do_wrapping_oct(Config) ->
     ?P("create listen socket"),
     {ok, LSock} = ?LISTEN(Config, 0, [{active,false},{mode,binary}]),
     {ok, LPort} = inet:port(LSock),
+
     ?P("spawn acceptor"),
-    spawn_link(?MODULE, oct_acceptor, [LSock]),
+    Acc = spawn_link(?MODULE, oct_acceptor, [LSock]),
+
+    ?P("start 'pumping' data"),
     Res = oct_datapump(Config, LPort, 16#10000FFFF),
+
     ?P("close listen socket"),
     gen_tcp:close(LSock),
+
+    ?P("await acceptor termination"),
+    receive
+        {'EXIT', Acc, Reason} ->
+            ?P("acceptor terminated (as expected):"
+               "~n      ~p", [Reason])
+    after 5000 ->
+            ?P("acceptor termination timeout -> kill"),
+            exit(Acc, kill)
+    end,
+
     ?P("verify result"),
     ok = Res,
+
     ?P("done"),
     ok.
 
