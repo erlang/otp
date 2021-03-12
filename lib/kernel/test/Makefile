@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2020. All Rights Reserved.
+# Copyright Ericsson AB 1997-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ SOCKET_MODULES = \
 
 MODULES= \
 	kernel_test_lib \
+	kernel_test_global_sys_monitor \
+	kernel_test_sys_monitor \
 	erpc_SUITE \
 	rpc_SUITE \
 	pdict_SUITE \

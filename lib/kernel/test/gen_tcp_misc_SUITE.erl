@@ -70,9 +70,27 @@
          do_iter_max_socks/3]).
 
 init_per_testcase(_Func, Config) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config: ~p"
+       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    ?P("init_per_testcase -> done when"
+       "~n      Nodes: ~p", [erlang:nodes()]),
     Config.
 
-end_per_testcase(_Func, _Config) ->
+end_per_testcase(_Func, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config: ~p"
+       "~n   Nodes:  ~p",
+       [Config, erlang:nodes()]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes: ~p", [erlang:nodes()]),
     ok.
 
 suite() ->
@@ -165,6 +183,9 @@ init_per_suite(Config0) ->
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
             
+            %% We need a monitor on this node also
+            kernel_test_sys_monitor:start(),
+
             Config1
     end.
 

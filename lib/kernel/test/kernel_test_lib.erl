@@ -58,6 +58,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                 true ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
+                    kernel_test_global_sys_monitor:start(),
                     [{kernel_factor, Factor} | Config]
             catch
                 throw:{skip, _} = SKIP ->
@@ -1680,8 +1681,18 @@ start_node(Name, Type, Args) ->
     start_node(Name, Type, Args, []).
 
 start_node(Name, Type, Args, Opts) ->
-    test_server:start_node(Name, Type, [{args, Args}|Opts]).
-
+    Pa = filename:dirname(code:which(?MODULE)),
+    A = Args ++
+        " -pa " ++ Pa ++ 
+        " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
+        " -s global sync",
+    case test_server:start_node(Name, Type, [{args, A}|Opts]) of
+        {ok, _Node} = OK ->
+            global:sync(),
+	    OK;
+        ERROR ->
+            ERROR
+    end.
 
 stop_node(Node) ->
     test_server:stop_node(Node).
