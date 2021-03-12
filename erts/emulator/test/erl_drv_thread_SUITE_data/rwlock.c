@@ -26,6 +26,7 @@
 #include <unistd.h>
 #endif
 #include <errno.h>
+#include <stdio.h>
 
 #define NO_OF_THREADS 17
 
