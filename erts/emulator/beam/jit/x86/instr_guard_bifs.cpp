@@ -49,7 +49,7 @@ void BeamGlobalAssembler::emit_handle_hd_error() {
     a.mov(getXRef(0), RET);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(BADARG));
     a.mov(ARG4, imm(&mfa));
-    a.jmp(labels[handle_error_shared_prologue]);
+    a.jmp(labels[raise_exception]);
 }
 
 /*
@@ -88,18 +88,19 @@ void BeamGlobalAssembler::emit_handle_element_error() {
     a.mov(getXRef(1), ARG2);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(BADARG));
     a.mov(ARG4, imm(&mfa));
-    a.jmp(labels[handle_error_shared_prologue]);
+
+    a.jmp(labels[raise_exception]);
 }
 
-/*
- * ARG1 = Position (1-based)
+/* ARG1 = Position (1-based)
  * ARG2 = Tuple
  * ARG3 = 0 if if in body, otherwise address of failure label.
  *
- * Will return with a value in RET only if the element operation succeeds.
- */
+ * Will return with a value in RET only if the element operation succeeds. */
 void BeamGlobalAssembler::emit_bif_element_shared() {
     Label error = a.newLabel();
+
+    emit_enter_frame();
 
     a.mov(RETd, ARG1d);
     a.and_(RETb, imm(_TAG_IMMED1_MASK));
@@ -127,20 +128,20 @@ void BeamGlobalAssembler::emit_bif_element_shared() {
 
     a.inc(ARG4);
     a.mov(RET, x86::qword_ptr(ARG5, ARG4, 3));
-    a.test(RETd, RETd);
+
+    emit_leave_frame();
     a.ret();
 
     a.bind(error);
     {
-        Label exception = a.newLabel();
+        emit_leave_frame();
 
         a.test(ARG3, ARG3);
-        a.short_().je(exception);
-        emit_discard_cp();
-        a.jmp(ARG3);
+        a.je(labels[handle_element_error]);
 
-        a.bind(exception);
-        a.jmp(labels[handle_element_error]);
+        /* Discard return address and jump to fail label. */
+        a.add(x86::rsp, imm(8));
+        a.jmp(ARG3);
     }
 }
 

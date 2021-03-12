@@ -93,7 +93,7 @@ using namespace asmjit;
 
 void BeamModuleAssembler::emit_error(int reason) {
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(reason));
-    emit_handle_error();
+    emit_raise_exception();
 }
 
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgVal &Need,
@@ -204,14 +204,19 @@ void BeamModuleAssembler::emit_allocate(const ArgVal &NeedStack,
 void BeamModuleAssembler::emit_deallocate(const ArgVal &Deallocate) {
     ASSERT(Deallocate.getType() == ArgVal::TYPE::u);
     ASSERT(Deallocate.getValue() <= 1023);
-    ArgVal dealloc = Deallocate;
+
+    if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+        ArgVal dealloc = Deallocate;
 
 #if !defined(NATIVE_ERLANG_STACK)
-    dealloc = dealloc + CP_SIZE;
+        dealloc = dealloc + CP_SIZE;
 #endif
 
-    if (dealloc.getValue() > 0) {
-        a.add(E, imm(dealloc.getValue() * sizeof(Eterm)));
+        if (dealloc.getValue() > 0) {
+            a.add(E, imm(dealloc.getValue() * sizeof(Eterm)));
+        }
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
     }
 }
 
@@ -1414,6 +1419,8 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     atom_compare = a.newLabel();
     generic_compare = a.newLabel();
 
+    emit_enter_frame();
+
     /* Are both floats?
      *
      * This is done first as relative comparisons on atoms doesn't make much
@@ -1447,6 +1454,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.setae(x86::al);
     a.dec(x86::al);
 
+    emit_leave_frame();
     a.ret();
 
     a.bind(atom_compare);
@@ -1470,6 +1478,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
         /* !! erts_cmp_atoms returns int, not Sint !! */
         a.test(RETd, RETd);
 
+        emit_leave_frame();
         a.ret();
     }
 
@@ -1486,6 +1495,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 
         a.test(RET, RET);
 
+        emit_leave_frame();
         a.ret();
     }
 }
@@ -1642,6 +1652,8 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     Label not_throw = a.newLabel(), not_error = a.newLabel(),
           after_gc = a.newLabel();
 
+    emit_enter_frame();
+
     /* Load thrown value / reason into ARG2 for add_stacktrace */
     a.mov(ARG2, getXRef(2));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), imm(NIL));
@@ -1652,6 +1664,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     /* Thrown value, return it in x0 */
     a.mov(getXRef(0), ARG2);
 
+    emit_leave_frame();
     a.ret();
 
     a.bind(not_throw);
@@ -1700,6 +1713,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
         a.mov(getXRef(0), RET);
     }
 
+    emit_leave_frame();
     a.ret();
 }
 
@@ -1750,7 +1764,7 @@ void BeamModuleAssembler::emit_raise(const ArgVal &Trace, const ArgVal &Value) {
 
     emit_leave_runtime();
 
-    emit_handle_error();
+    emit_raise_exception();
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
@@ -1780,7 +1794,7 @@ void BeamModuleAssembler::emit_raw_raise() {
 
     a.test(RET, RET);
     a.short_().jne(next);
-    emit_handle_error();
+    emit_raise_exception();
     a.bind(next);
     a.mov(getXRef(0), imm(am_badarg));
 }
@@ -1788,13 +1802,20 @@ void BeamModuleAssembler::emit_raw_raise() {
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     int mfa_offset = -(int)sizeof(ErtsCodeMFA) - BEAM_ASM_FUNC_PROLOGUE_SIZE;
 
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+        /* Subtract the size of an `emit_enter_frame` sequence. */
+        mfa_offset -= 4;
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+    }
+
+    a.add(x86::rsp, imm(8));
+
     /* Yield address is in ARG3. */
     a.lea(ARG2, x86::qword_ptr(ARG3, mfa_offset));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG2);
     a.mov(ARG2, x86::qword_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), ARG2);
-
-    emit_discard_cp();
 
     a.jmp(labels[context_switch_simplified]);
 }
@@ -1804,14 +1825,26 @@ void BeamModuleAssembler::emit_i_test_yield() {
 
     /* When present, this is guaranteed to be the first instruction after the
      * breakpoint trampoline. */
-
     ASSERT(a.offset() % 8 == 0);
+
+    emit_enter_frame();
+
     a.bind(entry);
     a.dec(FCALLS);
     a.short_().jg(next);
     a.lea(ARG3, x86::qword_ptr(entry));
     a.call(funcYield);
     a.bind(next);
+
+#if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x86::rbp);
+    a.mov(ARG3, x86::rsp);
+
+    emit_enter_runtime<Update::eStack>();
+    runtime_call<3>(erts_validate_stack);
+    emit_leave_runtime<Update::eStack>();
+#endif
 }
 
 void BeamModuleAssembler::emit_i_yield() {

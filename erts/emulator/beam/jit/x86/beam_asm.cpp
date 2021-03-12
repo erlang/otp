@@ -28,6 +28,10 @@ extern "C"
 #include "export.h"
 }
 
+#ifdef ERLANG_FRAME_POINTERS
+ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
+#endif
+
 /* Global configuration variables (under the `+J` prefix) */
 #ifdef HAVE_LINUX_PERF_SUPPORT
 int erts_jit_perf_support;
@@ -201,6 +205,18 @@ void beamasm_init() {
     ERTS_DECL_AM(erts_beamasm);
     mod_name = AM_erts_beamasm;
 
+    /* erts_frame_layout is hardcoded to ERTS_FRAME_LAYOUT_RA when Erlang
+     * frame pointers are disabled or unsupported. */
+#if defined(ERLANG_FRAME_POINTERS)
+    if (erts_jit_perf_support & BEAMASM_PERF_MAP) {
+        erts_frame_layout = ERTS_FRAME_LAYOUT_FP_RA;
+    } else {
+        erts_frame_layout = ERTS_FRAME_LAYOUT_RA;
+    }
+#else
+    ERTS_CT_ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+#endif
+
     beamasm_init_perf();
     beamasm_init_gdb_jit_info();
 
@@ -209,12 +225,15 @@ void beamasm_init() {
      * short instructions. Before removing any of these assertions, please
      * consider the effect it will have on code size and/or performance.
      */
-
     ERTS_CT_ASSERT(offsetof(Process, htop) < 128);
     ERTS_CT_ASSERT(offsetof(Process, stop) < 128);
     ERTS_CT_ASSERT(offsetof(Process, fcalls) < 128);
     ERTS_CT_ASSERT(offsetof(Process, freason) < 128);
     ERTS_CT_ASSERT(offsetof(Process, fvalue) < 128);
+
+#ifdef ERLANG_FRAME_POINTERS
+    ERTS_CT_ASSERT(offsetof(Process, frame_pointer) < 128);
+#endif
 
     cpuinfo = CpuInfo::host();
 
@@ -423,6 +442,12 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         Label not_exiting = a.newLabel();
 
+#ifdef ERLANG_FRAME_POINTERS
+        /* Kill the current frame pointer to avoid confusing `perf` and similar
+         * tools. */
+        a.sub(frame_pointer, frame_pointer);
+#endif
+
 #ifdef DEBUG
         Label check_i = a.newLabel();
         /* Check that ARG3 is set to a valid CP. */
@@ -433,6 +458,14 @@ void BeamGlobalAssembler::emit_process_main() {
 #endif
 
         a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG3);
+
+#if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)
+        a.mov(ARG1, c_p);
+        a.mov(ARG2, x86::qword_ptr(c_p, offsetof(Process, frame_pointer)));
+        a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, stop)));
+
+        runtime_call<3>(erts_validate_stack);
+#endif
 
 #ifdef WIN32
         a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.value)));
@@ -496,6 +529,15 @@ void BeamGlobalAssembler::emit_process_main() {
             a.mov(ARG3, start_time);
         }
         a.bind(schedule);
+
+#ifdef ERLANG_FRAME_POINTERS
+        if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+            /* Kill the current frame pointer so that misc jobs that execute
+             * during `erts_schedule` aren't attributed to the function we
+             * were scheduled out of. */
+            a.sub(frame_pointer, frame_pointer);
+        }
+#endif
 
         mov_imm(ARG1, 0);
         a.mov(ARG2, c_p);
@@ -800,8 +842,6 @@ extern "C"
 
     void beamasm_purge_module(const void *native_module_exec,
                               void *native_module_rw) {
-        ASSERT(native_module_exec != native_module_rw);
-
         jit_allocator->release(const_cast<void *>(native_module_exec));
     }
 

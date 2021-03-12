@@ -50,6 +50,7 @@ void BeamModuleAssembler::emit_ensure_map(const ArgVal &map) {
 }
 
 void BeamGlobalAssembler::emit_new_map_shared() {
+    emit_enter_frame();
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
@@ -57,6 +58,7 @@ void BeamGlobalAssembler::emit_new_map_shared() {
     runtime_call<5>(erts_gc_new_map);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_frame();
 
     a.ret();
 }
@@ -78,6 +80,7 @@ void BeamModuleAssembler::emit_new_map(const ArgVal &Dst,
 }
 
 void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
+    emit_enter_frame();
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
@@ -85,6 +88,7 @@ void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
     runtime_call<5>(erts_gc_new_small_map_lit);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_frame();
 
     a.ret();
 }
@@ -188,6 +192,7 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
 void BeamGlobalAssembler::emit_update_map_assoc_shared() {
+    emit_enter_frame();
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
@@ -195,6 +200,7 @@ void BeamGlobalAssembler::emit_update_map_assoc_shared() {
     runtime_call<5>(erts_gc_update_map_assoc);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_frame();
 
     a.ret();
 }
@@ -223,6 +229,7 @@ void BeamModuleAssembler::emit_update_map_assoc(
  *
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
+    emit_enter_frame();
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
@@ -230,6 +237,7 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
     runtime_call<5>(erts_gc_update_map_exact);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_frame();
 
     emit_test_the_non_value(RET);
     a.ret();
@@ -241,6 +249,7 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
 void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     Label error = a.newLabel();
 
+    emit_enter_frame();
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
@@ -248,6 +257,7 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     runtime_call<5>(erts_gc_update_map_exact);
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_frame();
 
     emit_test_the_non_value(RET);
     a.short_().je(error);
@@ -257,7 +267,7 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     a.bind(error);
     {
         mov_imm(ARG4, 0);
-        emit_handle_error();
+        a.jmp(labels[raise_exception]);
     }
 }
 

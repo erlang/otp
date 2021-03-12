@@ -103,9 +103,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [async-threads:%d]"
 #ifdef BEAMASM
 #ifdef NATIVE_ERLANG_STACK
-				     " [jit]"
+				     " [jit:ns%s]"
 #else
-				     " [jit:no-native-stack]"
+				     " [jit%s]"
 #endif
 #endif
 #ifdef ET_DEBUG
@@ -493,6 +493,7 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
 		      , total, online
 		      , dirty_cpu, dirty_cpu_onln, dirty_io
 		      , erts_async_max_threads
+              , (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? ":fp" : "")
 	);
 }
 

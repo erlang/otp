@@ -56,7 +56,7 @@ JIT_ENABLED=no
 endif
 
 ifeq ($(FLAVOR),jit)
-OMIT_OMIT_FP=no
+OMIT_OMIT_FP=yes
 OPCODE_TABLES += \
     beam/jit/$(JIT_ARCH)/ops.tab \
     beam/jit/$(JIT_ARCH)/predicates.tab \

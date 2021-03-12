@@ -60,6 +60,7 @@
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_unicode.h"
+#include "beam_common.h"
 
 /* *******************************
  * ** Yielding C Fun (YCF) Note **

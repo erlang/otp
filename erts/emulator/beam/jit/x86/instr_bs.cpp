@@ -165,7 +165,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgVal &Size,
         {
             mov_arg(ARG2, Size);
             safe_fragment_call(ga->get_bs_size_check_shared());
-            emit_handle_error();
+            emit_raise_exception();
         }
 
         a.bind(next);
@@ -267,7 +267,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(const ArgVal &NumBits,
         {
             mov_arg(ARG2, NumBits);
             safe_fragment_call(ga->get_bs_size_check_shared());
-            emit_handle_error();
+            emit_raise_exception();
         }
 
         a.bind(next);
@@ -1456,7 +1456,7 @@ void BeamModuleAssembler::emit_bs_add(const ArgVal &Fail,
             mov_arg(ARG2, Src1);
             mov_arg(ARG3, Src2);
             safe_fragment_call(ga->get_bs_add_shared());
-            emit_handle_error();
+            emit_raise_exception();
         }
 
         a.bind(next);
@@ -1500,7 +1500,7 @@ void BeamModuleAssembler::emit_i_bs_append(const ArgVal &Fail,
     } else {
         a.short_().jne(next);
         /* The error has been prepared in `erts_bs_append` */
-        emit_handle_error();
+        emit_raise_exception();
         a.bind(next);
     }
 
@@ -1536,7 +1536,7 @@ void BeamModuleAssembler::emit_i_bs_private_append(const ArgVal &Fail,
     } else {
         a.short_().jne(next);
         /* The error has been prepared in `erts_bs_private_append` */
-        emit_handle_error();
+        emit_raise_exception();
         a.bind(next);
     }
 

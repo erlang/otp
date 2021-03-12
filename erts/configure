@@ -22076,15 +22076,27 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext;;
   esac
 
-  if test X${enable_native_stack} = Xyes; then
+  case "$JIT_ARCH" in
+    x86)
+      if test X${enable_native_stack} = Xyes; then
 
 $as_echo "#define NATIVE_ERLANG_STACK /**/" >>confdefs.h
 
-  fi
+      fi
+      ;;
+    *)
+      ;;
+  esac
 fi
 
 case $OPSYS in
     linux*)
+        if test X${enable_native_stack} = Xyes; then
+
+$as_echo "#define ERLANG_FRAME_POINTERS /**/" >>confdefs.h
+
+        fi
+
 
 $as_echo "#define HAVE_LINUX_PERF_SUPPORT 1" >>confdefs.h
 

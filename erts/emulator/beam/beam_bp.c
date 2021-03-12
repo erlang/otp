@@ -653,25 +653,53 @@ erts_clear_export_break(Module* modp, Export *ep)
  * being the function which is the caller, but rather the function
  * which we are about to return to.
  */
-static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
+static void fixup_cp_before_trace(Process *c_p,
+                                  Eterm cp_save[2],
+                                  int *return_to_trace)
 {
+    const ErtsFrameLayout frame_layout = erts_frame_layout;
     Eterm *cpp = c_p->stop;
 
+    if (frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+        ASSERT(is_CP(cpp[1]));
+        cp_save[1] = cpp[1];
+    }
+
+    ASSERT(is_CP(cpp[0]));
+    cp_save[0] = cpp[0];
+
     for (;;) {
-        ErtsCodePtr w = cp_val(*cpp);
+        ErtsCodePtr w;
+
+        erts_inspect_frame(cpp, &w);
+
         if (BeamIsReturnTrace(w)) {
-            cpp += 3;
+            cpp += CP_SIZE + 2;
+        } else if (BeamIsReturnTimeTrace(w)) {
+            cpp += CP_SIZE + 1;
         } else if (BeamIsReturnToTrace(w)) {
             *return_to_trace = 1;
-            cpp += 1;
-        } else if (BeamIsReturnTimeTrace(w)) {
-            cpp += 2;
+            cpp += CP_SIZE;
         } else {
-            break;
+            if (frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+                ASSERT(is_CP(cpp[1]));
+                c_p->stop[1] = cpp[1];
+            }
+
+            ASSERT(is_CP(cpp[0]));
+            c_p->stop[0] = cpp[0];
+
+            return;
         }
     }
-    c_p->stop[0] = (Eterm) cp_val(*cpp);
-    ASSERT(is_CP(*cpp));
+}
+
+static void restore_cp_after_trace(Process *c_p, const Eterm cp_save[2]) {
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+        c_p->stop[1] = cp_save[1];
+    }
+
+    c_p->stop[0] = cp_save[0];
 }
 
 BeamInstr
@@ -738,24 +766,41 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
         ErtsCodePtr w;
         Eterm* E;
 
-        prev_info= erts_trace_time_call(c_p, info, bp->time);
+        prev_info = erts_trace_time_call(c_p, info, bp->time);
+
         E = c_p->stop;
-        w = (ErtsCodePtr) E[0];
-	if (!(BeamIsReturnTrace(w) || BeamIsReturnToTrace(w) || BeamIsReturnTimeTrace(w))) {
-	    ASSERT(c_p->htop <= E && E <= c_p->hend);
-	    if (HeapWordsLeft(c_p) < 2) {
-		(void) erts_garbage_collect(c_p, 2, reg, info->mfa.arity);
-		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	    }
-	    E = c_p->stop;
 
-	    ASSERT(c_p->htop <= E && E <= c_p->hend);
+        erts_inspect_frame(E, &w);
 
-	    E -= 2;
-	    E[1] = prev_info ? make_cp(erts_codeinfo_to_code(prev_info)) : NIL;
-	    E[0] = (Eterm) beam_return_time_trace;
-	    c_p->stop = E;
-	}
+        if (!(BeamIsReturnTrace(w) ||
+              BeamIsReturnToTrace(w) ||
+              BeamIsReturnTimeTrace(w))) {
+            int need = CP_SIZE + 1;
+
+            ASSERT(c_p->htop <= E && E <= c_p->hend);
+
+            if (HeapWordsLeft(c_p) < need) {
+                (void) erts_garbage_collect(c_p, need,
+                                            reg, info->mfa.arity);
+                ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+            }
+
+            E = c_p->stop;
+
+            ASSERT(c_p->htop <= E && E <= c_p->hend);
+
+            E -= 2;
+            E[1] = prev_info ? make_cp(erts_codeinfo_to_code(prev_info)) : NIL;
+            E[0] = make_cp(beam_return_time_trace);
+
+            if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+                E -= 1;
+                E[0] = make_cp(FRAME_POINTER(c_p));
+                FRAME_POINTER(c_p) = E;
+            }
+
+            c_p->stop = E;
+        }
     }
 
     if (bp_flags & ERTS_BPF_DEBUG) {
@@ -769,56 +814,91 @@ static ErtsTracer
 do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 	      int local, Binary* ms, ErtsTracer tracer)
 {
+    Eterm cp_save[2] = {0, 0};
     int return_to_trace = 0;
     Uint32 flags;
     Uint need = 0;
-    Eterm cp_save;
-    Eterm* E = c_p->stop;
+    Eterm* E;
 
-    cp_save = E[0];
+    fixup_cp_before_trace(c_p, cp_save, &return_to_trace);
 
-    fixup_cp_before_trace(c_p, &return_to_trace);
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     flags = erts_call_trace(c_p, info, ms, reg, local, &tracer);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
 
-    E[0] = cp_save;
+    restore_cp_after_trace(c_p, cp_save);
+
+    E = c_p->stop;
 
     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+
     if ((flags & MATCH_SET_RETURN_TO_TRACE) && !return_to_trace) {
-	need += 1;
+        need += CP_SIZE;
     }
+
     if (flags & MATCH_SET_RX_TRACE) {
-	need += 3 + size_object(tracer);
+        need += CP_SIZE + 2 + size_object(tracer);
     }
+
     if (need) {
-	ASSERT(c_p->htop <= E && E <= c_p->hend);
-	if (HeapWordsLeft(c_p) < need) {
-	    (void) erts_garbage_collect(c_p, need, reg, info->mfa.arity);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	    E = c_p->stop;
-	}
+        ASSERT(c_p->htop <= E && E <= c_p->hend);
+
+        if (HeapWordsLeft(c_p) < need) {
+            (void) erts_garbage_collect(c_p, need, reg, info->mfa.arity);
+            ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+            E = c_p->stop;
+        }
+
+        if ((flags & MATCH_SET_RETURN_TO_TRACE) && !return_to_trace) {
+            E -= CP_SIZE;
+
+            if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+                E[0] = make_cp(beam_return_to_trace);
+            } else {
+                E[1] = make_cp(beam_return_to_trace);
+                E[0] = make_cp(FRAME_POINTER(c_p));
+                FRAME_POINTER(c_p) = E;
+            }
+
+            ASSERT(c_p->htop <= E && E <= c_p->hend);
+
+            c_p->stop = E;
+        }
+
+        if (flags & MATCH_SET_RX_TRACE) {
+            ErtsCodePtr trace_cp;
+
+            if (flags & MATCH_SET_EXCEPTION_TRACE) {
+                trace_cp = beam_exception_trace;
+            } else {
+                trace_cp = beam_return_trace;
+            }
+
+            E -= 2;
+            E[1] = copy_object(tracer, c_p);
+            E[0] = make_cp(&info->mfa.module);
+
+            E -= CP_SIZE;
+            if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+                E[0] = make_cp(trace_cp);
+            } else {
+                E[1] = make_cp(trace_cp);
+                E[0] = make_cp(FRAME_POINTER(c_p));
+                FRAME_POINTER(c_p) = E;
+            }
+
+            ASSERT(c_p->htop <= E && E <= c_p->hend);
+            ASSERT(is_CP((Eterm)(&info->mfa.module)));
+            ASSERT(IS_TRACER_VALID(tracer));
+
+            c_p->stop = E;
+
+            erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+            ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
+            erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+        }
     }
-    if (flags & MATCH_SET_RETURN_TO_TRACE && !return_to_trace) {
-	E -= 1;
-	ASSERT(c_p->htop <= E && E <= c_p->hend);
-	E[0] = (Eterm) beam_return_to_trace;
-        c_p->stop = E;
-    }
-    if (flags & MATCH_SET_RX_TRACE) {
-	E -= 3;
-        c_p->stop = E;
-	ASSERT(c_p->htop <= E && E <= c_p->hend);
-	ASSERT(is_CP((Eterm) (UWord) (&info->mfa.module)));
-	ASSERT(IS_TRACER_VALID(tracer));
-        E[2] = copy_object(tracer, c_p);
-        E[1] = make_cp(&info->mfa.module);
-        E[0] = (Eterm) ((flags & MATCH_SET_EXCEPTION_TRACE) ?
-                        beam_exception_trace : beam_return_trace);
-	erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-	ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
-	erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-    }
+
     return tracer;
 }
 

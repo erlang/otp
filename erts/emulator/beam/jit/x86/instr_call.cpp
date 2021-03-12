@@ -46,6 +46,8 @@ void BeamModuleAssembler::emit_return() {
     emit_validate(ArgVal(ArgVal::u, 1));
 #endif
 
+    emit_leave_frame();
+
 #if !defined(NATIVE_ERLANG_STACK)
     a.mov(ARG3, getCPRef());
     a.mov(getCPRef(), imm(NIL));
@@ -76,10 +78,14 @@ void BeamModuleAssembler::emit_i_call_last(const ArgVal &CallDest,
                                            const ArgVal &Deallocate) {
     emit_deallocate(Deallocate);
 
+    emit_leave_frame();
+
     a.jmp(labels[CallDest.getValue()]);
 }
 
 void BeamModuleAssembler::emit_i_call_only(const ArgVal &CallDest) {
+    emit_leave_frame();
+
     a.jmp(labels[CallDest.getValue()]);
 }
 
@@ -116,6 +122,8 @@ void BeamModuleAssembler::emit_i_call_ext(const ArgVal &Exp) {
 void BeamModuleAssembler::emit_i_call_ext_only(const ArgVal &Exp) {
     make_move_patch(RET, imports[Exp.getValue()].patches);
     x86::Mem destination = emit_setup_export_call(RET);
+
+    emit_leave_frame();
     a.jmp(destination);
 }
 
@@ -125,6 +133,8 @@ void BeamModuleAssembler::emit_i_call_ext_last(const ArgVal &Exp,
 
     make_move_patch(RET, imports[Exp.getValue()].patches);
     x86::Mem destination = emit_setup_export_call(RET);
+
+    emit_leave_frame();
     a.jmp(destination);
 }
 
@@ -155,7 +165,7 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     a.test(RET, RET);
     a.short_().jne(dispatch);
-    emit_handle_error(entry, &apply3_mfa);
+    emit_raise_exception(entry, &apply3_mfa);
     a.bind(dispatch);
 
     return emit_setup_export_call(RET);
@@ -173,6 +183,8 @@ void BeamModuleAssembler::emit_i_apply_last(const ArgVal &Deallocate) {
 
 void BeamModuleAssembler::emit_i_apply_only() {
     x86::Mem dest = emit_variable_apply(true);
+
+    emit_leave_frame();
     a.jmp(dest);
 }
 
@@ -205,7 +217,7 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
     a.test(RET, RET);
     a.short_().jne(dispatch);
 
-    emit_handle_error(entry, &apply3_mfa);
+    emit_raise_exception(entry, &apply3_mfa);
     a.bind(dispatch);
 
     return emit_setup_export_call(RET);
@@ -221,6 +233,8 @@ void BeamModuleAssembler::emit_apply_last(const ArgVal &Arity,
     emit_deallocate(Deallocate);
 
     x86::Mem dest = emit_fixed_apply(Arity, true);
+
+    emit_leave_frame();
     a.jmp(dest);
 }
 
@@ -247,7 +261,7 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
     a.mov(RET, TMP_MEM1q);
 
     a.short_().jne(dispatch);
-    emit_handle_error();
+    emit_raise_exception();
     a.bind(dispatch);
 
     return ARG2;
@@ -268,6 +282,7 @@ void BeamModuleAssembler::emit_i_apply_fun_last(const ArgVal &Deallocate) {
 void BeamModuleAssembler::emit_i_apply_fun_only() {
     x86::Gp dest = emit_apply_fun();
 
+    emit_leave_frame();
     a.jmp(dest);
 }
 
@@ -295,7 +310,7 @@ x86::Gp BeamModuleAssembler::emit_call_fun(const ArgVal &Fun) {
     a.mov(RET, TMP_MEM1q);
 
     a.short_().jne(dispatch);
-    emit_handle_error();
+    emit_raise_exception();
     a.bind(dispatch);
 
     return ARG2;
@@ -313,5 +328,7 @@ void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Fun,
     emit_deallocate(Deallocate);
 
     x86::Gp dest = emit_call_fun(Fun);
+
+    emit_leave_frame();
     a.jmp(dest);
 }

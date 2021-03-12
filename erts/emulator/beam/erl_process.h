@@ -955,6 +955,21 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
     (ASSERT((p)->htop <= (p)->stop),                                           \
      MAX((p)->htop, (p)->stop - S_REDZONE))
 
+#ifdef ERLANG_FRAME_POINTERS
+/* The current frame pointer on the Erlang stack. */
+#  define FRAME_POINTER(p)  (p)->frame_pointer
+#else
+/* We define this to a trapping lvalue when frame pointers are unsupported to
+ * provoke crashes when used without checking `erts_frame_layout`. The checks
+ * will not have a runtime cost in this case since said variable is hardcoded
+ * to `ERTS_FRAME_LAYOUT_RA`. */
+#  define FRAME_POINTER(p)  (((volatile Eterm**)0xbadf00d)[0])
+
+#  ifndef erts_frame_layout
+#    error "erts_frame_layout has not been hardcoded to ERTS_FRAME_LAYOUT_RA"
+#  endif
+#endif
+
 #  define HEAP_END(p)       (p)->hend
 #  define HEAP_SIZE(p)      (p)->heap_sz
 #  define STACK_START(p)    (p)->hend
@@ -994,8 +1009,13 @@ struct process {
      * shorter instruction can be used to access them.
      */
 
-    Eterm* htop;		/* Heap top */
-    Eterm* stop;		/* Stack top */
+    Eterm *htop;                /* Heap top */
+    Eterm *stop;                /* Stack top */
+
+#ifdef ERLANG_FRAME_POINTERS
+    Eterm *frame_pointer;       /* Frame pointer */
+#endif
+
     Sint fcalls;		/* Number of reductions left to execute.
 				 * Only valid for the current process.
 				 */

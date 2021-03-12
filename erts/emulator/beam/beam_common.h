@@ -294,4 +294,27 @@ extern ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
 extern ErtsCodePtr beam_exception_trace;   /* OpCode(i_exception_trace) */
 extern ErtsCodePtr beam_return_time_trace; /* OpCode(i_return_time_trace) */
 
+/** @brief Inspects an Erlang stack frame, returning the base of the data
+ *         (first Y register).
+ * @param[in] frame The frame to inspect. Must point at a CP.
+ * @param[out] return_address The return address of \p frame */
+ERTS_GLB_INLINE
+const Eterm *erts_inspect_frame(Eterm *frame, ErtsCodePtr *return_address);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE
+const Eterm *erts_inspect_frame(Eterm *frame, ErtsCodePtr *return_address) {
+    ASSERT(is_CP(frame[0]));
+
+    if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+        *return_address = (ErtsCodePtr)cp_val(frame[0]);
+        return &frame[1];
+    }
+
+    ASSERT(cp_val(frame[0]) == NULL || frame < (Eterm*)cp_val(frame[0]));
+    *return_address = (ErtsCodePtr)cp_val(frame[1]);
+    return &frame[2];
+}
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 #endif /* _BEAM_COMMON_H_ */

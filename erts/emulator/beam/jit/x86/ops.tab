@@ -528,6 +528,21 @@ i_load_nif
 %hot
 
 #
+# The call_on_load_function/1 BIF is an instruction.
+#
+
+call_ext u==1 u$func:erlang:call_on_load_function/1 => \
+    i_call_on_load_function
+call_ext_last u==1 u$func:erlang:call_on_load_function/1 D => \
+    i_call_on_load_function | deallocate D | return
+call_ext_only u==1 u$func:erlang:call_on_load_function/1 => \
+    i_call_on_load_function | return
+
+%cold
+i_call_on_load_function
+%hot
+
+#
 # apply/2 is an instruction, not a BIF.
 #
 
@@ -643,7 +658,6 @@ bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst => \
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
 
 bif2 Fail u$bif:erlang:element/2 S1=ixy S2 Dst => bif_element Fail S1 S2 Dst
-
 bif_element j? s s d
 
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst

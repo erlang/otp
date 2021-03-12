@@ -27,9 +27,17 @@
  */
 /* #define FORCE_HEAP_FRAGS */
 
-/* valgrind can't handle stack switching, so we will turn off native stack. */
+/* `valgrind` can't handle stack switching, so we will turn off native
+ * stack. */
 #ifdef VALGRIND
 #undef NATIVE_ERLANG_STACK
+#undef ERLANG_FRAME_POINTERS
+#endif
+
+/* Frame pointer support costs an extra word per process even when unused, so
+ * it's worth disabling for compact builds. */
+#ifdef CODE_MODEL_SMALL
+#undef ERLANG_FRAME_POINTERS
 #endif
 
 #if defined(DEBUG) && !defined(CHECK_FOR_HOLES) && !defined(__WIN32__)
@@ -54,7 +62,23 @@
 #define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
 #define H_DEFAULT_MAX_SIZE 0       /* default max heap size is off */
 
-#define CP_SIZE 1
+typedef enum {
+    /* Return address only */
+    ERTS_FRAME_LAYOUT_RA,
+    /* Frame pointer, return address */
+    ERTS_FRAME_LAYOUT_FP_RA
+} ErtsFrameLayout;
+
+ERTS_GLB_INLINE
+const int erts_cp_size(void);
+
+#if defined(BEAMASM) && defined(ERLANG_FRAME_POINTERS)
+extern ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
+#   define CP_SIZE erts_cp_size()
+#else
+#   define erts_frame_layout ERTS_FRAME_LAYOUT_RA
+#   define CP_SIZE 1
+#endif
 
 /* In the JIT we're not guaranteed to have allocated a word for the CP when
  * allocating a stack frame (it's still reserved however), as the `call` and
@@ -290,5 +314,18 @@ extern void** beam_ops;
     ((w) == beam_return_trace || (w) == beam_exception_trace)
 
 #endif /* BEAMASM */
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE
+const int erts_cp_size()
+{
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+        return 1;
+    }
+
+    ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+    return 2;
+}
+#endif
 
 #endif	/* __ERL_VM_H__ */

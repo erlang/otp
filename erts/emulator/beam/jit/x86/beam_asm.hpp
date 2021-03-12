@@ -69,16 +69,18 @@ protected:
      * when running on the runtime stack. */
     const x86::Gp E = x86::rsp;
 
-    /* Cached copy of Erlang stack pointer used to speed up stack switches when
-     * we know that the runtime doesn't read or modify the Erlang stack.
-     *
-     * If we find ourselves pressed for registers in the future, we could save
-     * this in the same slot as `registers` as that can be trivially recomputed
-     * from the top of the runtime stack. */
-    const x86::Gp E_saved = x86::r12;
+#    ifdef ERLANG_FRAME_POINTERS
+    /* Current frame pointer, used when we emit native stack frames (e.g. to
+     * better support `perf`). */
+    const x86::Gp frame_pointer = x86::rbp;
+#    endif
 
+    /* When we're not using frame pointers, we can keep the Erlang stack in
+     * RBP when running on the runtime stack, which is slightly faster than
+     * reading and writing from c_p->stop. */
+    const x86::Gp E_saved = x86::rbp;
 #else
-    const x86::Gp E = x86::r12;
+    const x86::Gp E = x86::rbp;
 #endif
 
     const x86::Gp c_p = x86::r13;
@@ -90,7 +92,7 @@ protected:
      * This is set to ERTS_SAVE_CALLS_CODE_IX when save_calls is active, which
      * routes us to a common handler routine that calls save_calls before
      * jumping to the actual code. */
-    const x86::Gp active_code_ix = x86::rbp;
+    const x86::Gp active_code_ix = x86::r12;
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
     const x86::Mem erts_msacc_cache = getSchedulerRegRef(
@@ -593,14 +595,6 @@ protected:
         return x86::qword_ptr(RET, CodeIndex, 3, offsetof(Export, addresses));
     }
 
-    /* Discards a continuation pointer, including the frame pointer if
-     * applicable. */
-    void emit_discard_cp() {
-        emit_assert_erlang_stack();
-
-        a.add(x86::rsp, imm(CP_SIZE * sizeof(Eterm)));
-    }
-
     void emit_assert_runtime_stack() {
 #ifdef JIT_HARD_DEBUG
         Label crash = a.newLabel(), next = a.newLabel();
@@ -655,6 +649,36 @@ protected:
         eCodeIndex = (1 << 3)
     };
 
+    void emit_enter_frame() {
+#ifdef NATIVE_ERLANG_STACK
+        if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+#    ifdef ERLANG_FRAME_POINTERS
+            a.push(frame_pointer);
+            a.mov(frame_pointer, E);
+#    endif
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+        }
+#endif
+    }
+
+    void emit_leave_frame() {
+#ifdef NATIVE_ERLANG_STACK
+        if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+            a.leave();
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+        }
+#endif
+    }
+
+    void emit_unwind_frame() {
+        emit_assert_erlang_stack();
+
+        emit_leave_frame();
+        a.add(x86::rsp, imm(sizeof(UWord)));
+    }
+
     template<int Spec = 0>
     void emit_enter_runtime() {
         emit_assert_erlang_stack();
@@ -662,46 +686,65 @@ protected:
         ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
                                 Update::eHeap)) == Spec);
 
-#ifdef NATIVE_ERLANG_STACK
-        if (!(Spec & Update::eStack)) {
-            a.mov(E_saved, E);
-        }
-#endif
-
-        if ((Spec & (Update::eHeap | Update::eStack)) ==
-            (Update::eHeap | Update::eStack)) {
-            /* To update both heap and stack we use sse instructions like gcc
-               -O3 does. Basically it is this function run through gcc -O3:
-
-               struct a { long a; long b; long c; };
-
-               void test(long a, long b, long c, struct a *s) {
-                 s->a = a;
-                 s->b = b;
-                 s->c = c;
-               }
-            */
-            ERTS_CT_ASSERT(offsetof(Process, stop) - offsetof(Process, htop) ==
-                           8);
-            a.movq(x86::xmm0, HTOP);
-            a.movq(x86::xmm1, E);
-            if (Spec & Update::eReductions) {
-                a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+        if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+            if ((Spec & (Update::eHeap | Update::eStack)) ==
+                (Update::eHeap | Update::eStack)) {
+                /* To update both heap and stack we use sse instructions like
+                 * gcc -O3 does. Basically it is this function run through
+                 * gcc -O3:
+                 *
+                 *    struct a { long a; long b; long c; };
+                 *    void test(long a, long b, long c, struct a *s) {
+                 *      s->a = a;
+                 *      s->b = b;
+                 *      s->c = c;
+                 *    } */
+                ERTS_CT_ASSERT((offsetof(Process, stop) -
+                                offsetof(Process, htop)) == sizeof(Eterm *));
+                a.movq(x86::xmm0, HTOP);
+                a.movq(x86::xmm1, E);
+                a.punpcklqdq(x86::xmm0, x86::xmm1);
+                a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)),
+                         x86::xmm0);
+            } else if (Spec & Update::eHeap) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
+            } else if (Spec & Update::eStack) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
             }
-            a.punpcklqdq(x86::xmm0, x86::xmm1);
-            a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)), x86::xmm0);
+
+#ifdef NATIVE_ERLANG_STACK
+            if (!(Spec & Update::eStack)) {
+                a.mov(E_saved, E);
+            }
+#endif
         } else {
-            if ((Spec & Update::eStack)) {
+#ifdef ERLANG_FRAME_POINTERS
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+
+            if (Spec & Update::eStack) {
+                ERTS_CT_ASSERT((offsetof(Process, frame_pointer) -
+                                offsetof(Process, stop)) == sizeof(Eterm *));
+                a.movq(x86::xmm0, E);
+                a.movq(x86::xmm1, frame_pointer);
+                a.punpcklqdq(x86::xmm0, x86::xmm1);
+                a.movups(x86::xmmword_ptr(c_p, offsetof(Process, stop)),
+                         x86::xmm0);
+            } else {
+                /* We can skip updating the frame pointer whenever the process
+                 * doesn't have to inspect the stack. We still need to update
+                 * the stack pointer to switch stacks, though, since we don't
+                 * have enough spare callee-save registers. */
                 a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
             }
 
             if (Spec & Update::eHeap) {
                 a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
             }
+#endif
+        }
 
-            if (Spec & Update::eReductions) {
-                a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
-            }
+        if (Spec & Update::eReductions) {
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
         }
 
 #ifdef NATIVE_ERLANG_STACK
@@ -724,13 +767,25 @@ protected:
         ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
                                 Update::eHeap | Update::eCodeIndex)) == Spec);
 
+        if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+            if (Spec & Update::eStack) {
+                a.mov(E, x86::qword_ptr(c_p, offsetof(Process, stop)));
+            } else {
 #ifdef NATIVE_ERLANG_STACK
-        if (!(Spec & Update::eStack)) {
-            a.mov(E, E_saved);
-        }
+                a.mov(E, E_saved);
 #endif
-        if ((Spec & Update::eStack)) {
+            }
+        } else {
+#ifdef ERLANG_FRAME_POINTERS
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+
             a.mov(E, x86::qword_ptr(c_p, offsetof(Process, stop)));
+
+            if (Spec & Update::eStack) {
+                a.mov(frame_pointer,
+                      x86::qword_ptr(c_p, offsetof(Process, frame_pointer)));
+            }
+#endif
         }
 
         if (Spec & Update::eHeap) {
@@ -901,6 +956,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(call_light_bif_shared)                                                   \
     _(call_nif_early)                                                          \
     _(call_nif_shared)                                                         \
+    _(call_nif_yield_helper)                                                   \
     _(catch_end_shared)                                                        \
     _(dispatch_bif)                                                            \
     _(dispatch_nif)                                                            \
@@ -912,8 +968,6 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(generic_bp_global)                                                       \
     _(generic_bp_local)                                                        \
     _(debug_bp)                                                                \
-    _(handle_error_shared_prologue)                                            \
-    _(handle_error_shared)                                                     \
     _(handle_element_error)                                                    \
     _(handle_hd_error)                                                         \
     _(i_band_body_shared)                                                      \
@@ -946,6 +1000,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(plus_body_shared)                                                        \
     _(plus_guard_shared)                                                       \
     _(process_main)                                                            \
+    _(raise_exception)                                                         \
+    _(raise_exception_shared)                                                  \
     _(times_body_shared)                                                       \
     _(times_guard_shared)                                                      \
     _(unary_minus_body_shared)                                                 \
@@ -984,8 +1040,6 @@ class BeamGlobalAssembler : public BeamAssembler {
     void emit_bitwise_fallback_guard(T(*func_ptr));
 
     x86::Mem emit_i_length_common(Label fail, int state_size);
-
-    void emit_handle_error();
 
 public:
     BeamGlobalAssembler(JitAllocator *allocator);
@@ -1169,9 +1223,9 @@ protected:
                            const ArgVal &Fail,
                            const ArgVal &Flags);
 
-    void emit_handle_error();
-    void emit_handle_error(const ErtsCodeMFA *exp);
-    void emit_handle_error(Label I, const ErtsCodeMFA *exp);
+    void emit_raise_exception();
+    void emit_raise_exception(const ErtsCodeMFA *exp);
+    void emit_raise_exception(Label I, const ErtsCodeMFA *exp);
     void emit_validate(const ArgVal &arity);
     void emit_bs_skip_bits(const ArgVal &Fail, const ArgVal &Ctx);
 

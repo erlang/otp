@@ -134,9 +134,11 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
         a.ret();
 
         a.align(kAlignCode, 16);
+        ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 1);
         abs_jmp(ga->get_call_nif_early());
 
         a.align(kAlignCode, 16);
+        ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 2);
         aligned_call(ga->get_generic_bp_local());
         a.ret();
 
@@ -347,6 +349,7 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
 
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_FUNCTION_CLAUSE);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
+
     a.jmp(labels[error_action_code]);
 }
 

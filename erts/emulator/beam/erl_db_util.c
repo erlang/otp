@@ -2642,7 +2642,16 @@ restart:
 	    break;
         case matchCaller:
             ASSERT(c_p == self);
-            t = c_p->stop[0];
+
+            /* Note that we can't use `erts_inspect_frame` here as the top of
+             * the stack could point at something other than a frame. */
+            if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+                t = c_p->stop[0];
+            } else {
+                ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+                t = c_p->stop[1];
+            }
+
             if (is_not_CP(t)) {
                 *esp++ = am_undefined;
             } else if (!(cp = erts_find_function_from_pc(cp_val(t)))) {

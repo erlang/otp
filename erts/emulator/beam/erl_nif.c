@@ -58,6 +58,7 @@
 #include "erl_utils.h"
 #include "erl_io_queue.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 #undef ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -335,6 +336,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 {
     ErtsNativeFunc *ep;
     Process *c_p, *dirty_shadow_proc;
+    ErtsCodePtr caller;
 
     execution_state(env, &c_p, NULL);
     ASSERT(c_p);
@@ -346,9 +348,11 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
+    erts_inspect_frame(c_p->stop, &caller);
+
     ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
-                                  cp_val(c_p->stop[0]),
+                                  caller,
                              #ifdef BEAMASM
 				  op_call_nif_WWW,
                              #else
@@ -552,22 +556,15 @@ struct enif_msg_environment_t
     Process phony_proc;
 };
 
-#if S_REDZONE == 0
-/*
- * Arrays of size zero are not allowed (although some compilers do
- * allow it). Be sure to set the array size to 1 if there is no
- * redzone to ensure that the code can be compiled with any compiler.
- */
-static Eterm phony_heap[1];
-#else
-static Eterm phony_heap[S_REDZONE];
-#endif
+static Eterm phony_heap[32];
 
 static ERTS_INLINE void
 setup_nif_env(struct enif_msg_environment_t* msg_env,
               struct erl_module_nif* mod,
               Process* tracee)
 {
+    ASSERT(sizeof(phony_heap) > (S_REDZONE * sizeof(Eterm)));
+
     msg_env->env.hp = &phony_heap[0];
     msg_env->env.hp_end = &phony_heap[0];
     msg_env->env.heap_frag = NULL;
@@ -4318,7 +4315,7 @@ typedef struct {
         /* data */
 #ifdef BEAMASM
         BeamInstr prologue[BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord)];
-        BeamInstr call_nif[10];
+        BeamInstr call_nif[7];
 #else
         BeamInstr call_nif[4];
 #endif
