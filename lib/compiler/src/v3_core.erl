@@ -287,7 +287,7 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
             %% the pattern to a pattern that will bind the same
             %% variables and ensure that the clause can't be executed
             %% by letting the guard return false.
-            St1 = add_warning(Lc, nomatch, St0),
+            St1 = add_warning(Lc, {nomatch,pattern}, St0),
             H1 = [sanitize(P) || P <- H0],
             false = H0 =:= H1,                  %Assertion.
             G1 = [[{atom,Lc,false}]],
@@ -613,7 +613,7 @@ expr({bin,L,Es0}, St0) ->
 	{_,_,_}=Res -> Res
     catch
 	throw:{bad_binary,Eps,St1} ->
-	    St = add_warning(L, bad_binary, St1),
+	    St = add_warning(L, {failed,bad_binary}, St1),
 	    LineAnno = lineno_anno(L, St),
 	    As = [#c_literal{anno=LineAnno,val=badarg}],
 	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
@@ -748,7 +748,7 @@ expr({match,L,P0,E0}, St0) ->
 	    %%        error({badmatch,Other})
 	    %%   end.
 	    %%
-	    St6 = add_warning(L, nomatch, St5),
+	    St6 = add_warning(L, {nomatch,pattern}, St5),
 	    {Expr,Eps3,St7} = safe(E1, St6),
 	    SanPat0 = sanitize(P1),
 	    {SanPat,St} = pattern(SanPat0, St7),
@@ -1203,7 +1203,7 @@ bitstr({bin_element,Line,{string,_,S},Sz0,Ts}, St0) ->
     Es = [Bitstr#c_bitstr{val=#c_literal{anno=full_anno(Line, St1),val=C}} ||
              C <- S],
     {Es,Eps,St1};
-bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
+bitstr({bin_element,Line,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
     {E1,Eps0,St1} = safe(E0, St0),
     {Size1,Eps1,St2} = safe(Size0, St1),
     Eps = Eps0 ++ Eps1,
@@ -1227,7 +1227,8 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	#c_literal{val=all} -> ok;
 	_ -> throw({bad_binary,Eps,St2})
     end,
-    {[#c_bitstr{val=E1,size=Size1,
+    {[#c_bitstr{anno=lineno_anno(Line, St2),
+                val=E1,size=Size1,
                 unit=#c_literal{val=Unit},
                 type=#c_literal{val=Type},
                 flags=#c_literal{val=Flags}}],
@@ -1705,7 +1706,7 @@ list_gen_pattern(P0, Line, St) ->
     try
 	pattern(P0, St)
     catch
-	nomatch -> {nomatch,add_warning(Line, nomatch, St)}
+	nomatch -> {nomatch,add_warning(Line, {nomatch,pattern}, St)}
     end.
 
 %% is_guard_test(Expression) -> true | false.
@@ -3435,18 +3436,23 @@ is_simple_list(Es) -> lists:all(fun is_simple/1, Es).
 %%% Handling of warnings.
 %%%
 
--type err_desc() :: 'bad_binary' | 'nomatch'.
+-type err_desc() :: {'failed' | 'nomatch' | 'ignored', term()} |
+                    {'map_key_repeated',term()}.
 
 -spec format_error(err_desc()) -> nonempty_string().
 
-format_error(nomatch) ->
+format_error({nomatch,pattern}) ->
     "pattern cannot possibly match";
-format_error(bad_binary) ->
+format_error({failed,bad_binary}) ->
     "binary construction will fail because of a type mismatch";
-format_error({map_key_repeated,Key}) when is_atom(Key) ->
-    io_lib:format("key '~w' will be overridden in expression", [Key]);
 format_error({map_key_repeated,Key}) ->
-    io_lib:format("key ~p will be overridden in expression", [Key]).
+    %% This warning does not fit neatly into any category.
+    if
+        is_atom(Key) ->
+            io_lib:format("key '~w' will be overridden in expression", [Key]);
+        true ->
+            io_lib:format("key ~p will be overridden in expression", [Key])
+    end.
 
 add_warning(Anno, Term, #core{ws=Ws,file=[{file,File}]}=St) ->
     case erl_anno:generated(Anno) of

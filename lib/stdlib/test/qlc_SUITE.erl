@@ -366,7 +366,7 @@ nomatch(Config) when is_list(Config) ->
                     end]).
         ">>,
         [],
-        {warnings,[{{5,24},v3_kernel,{nomatch_shadow,4}}]}},
+        {warnings,[{{5,24},v3_kernel,{nomatch,{shadow,4}}}]}},
 
        {nomatch1,
         <<"generator1() ->
@@ -374,7 +374,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{2,27},qlc,nomatch_pattern}]}},
-        {warnings,[{{2,21},v3_core,nomatch}]}},
+        {warnings,[{{2,21},v3_core,{nomatch,pattern}}]}},
 
        {nomatch2,
         <<"nomatch() ->
@@ -386,7 +386,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{3,33},qlc,nomatch_pattern}]}},
-        {warnings,[{{3,27},v3_core,nomatch}]}},
+        {warnings,[{{3,27},v3_core,{nomatch,pattern}}]}},
  
        {nomatch3,
         <<"nomatch() ->
@@ -399,7 +399,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{3,52},qlc,nomatch_pattern}]}},
-        {warnings,[{{3,37},v3_core,nomatch}]}},
+        {warnings,[{{3,37},v3_core,{nomatch,pattern}}]}},
 
        {nomatch4,
         <<"nomatch() ->
@@ -423,7 +423,7 @@ nomatch(Config) when is_list(Config) ->
                      end, [{\"ab\"}]).
         ">>,
         [],
-        {warnings,[{{3,38},v3_core,nomatch}]}}
+        {warnings,[{{3,38},v3_core,{nomatch,pattern}}]}}
 
       ],
     [] = compile(Config, Ts),
@@ -2386,8 +2386,8 @@ filter(Config) when is_list(Config) ->
         <<"fun(Z) ->
             Q = qlc:q([X || Z < 2, X <- [1,2,3]]),
             [] = qlc:e(Q)
-           end(3)">>, [], {warnings,[{{2,31},sys_core_fold,no_clause_match},
-                                     {{2,31},sys_core_fold,nomatch_guard}]}},
+           end(3)">>, [], {warnings,[{{2,31},sys_core_fold,{nomatch,guard}},
+                                     {{2,31},sys_core_fold,{nomatch,no_clause}}]}},
 
        <<"H = qlc:q([{P1,A,P2,B,P3,C} ||
                   P1={A,_} <- [{1,a},{2,b}],
@@ -3104,7 +3104,7 @@ lookup2(Config) when is_list(Config) ->
                 [] = qlc:eval(Q),
                 false = lookup_keys(Q)
               end,
-           F(apa)">>, [], {warnings,[{{3,43},sys_core_fold,nomatch_guard}]}},
+           F(apa)">>, [], {warnings,[{{3,43},sys_core_fold,{nomatch,guard}}]}},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -6174,28 +6174,28 @@ otp_7238(Config) when is_list(Config) ->
                {qlc:q([X || X={X} <- []]), [t || \"a\"=\"b\" <- []]}.">>,
         [],
         %% {warnings,[{{2,30},qlc,nomatch_pattern},
-        {warnings,[{{2,44},v3_core,nomatch}]}},
+        {warnings,[{{2,44},v3_core,{nomatch,pattern}}]}},
 
        %% Not found by qlc...
        {nomatch_2,
         <<"nomatch_2() ->
                qlc:q([t || {\"a\"++\"b\"} = {\"ac\"} <- []]).">>,
         [],
-        {warnings,[{{2,22},v3_core,nomatch}]}},
+        {warnings,[{{2,22},v3_core,{nomatch,pattern}}]}},
 
        {nomatch_3,
         <<"nomatch_3() ->
                qlc:q([t || [$a, $b] = \"ba\" <- []]).">>,
         [],
         %% {warnings,[{{2,37},qlc,nomatch_pattern}]}},
-        {warnings,[{{2,22},v3_core,nomatch}]}},
+        {warnings,[{{2,22},v3_core,{nomatch,pattern}}]}},
 
        %% Not found by qlc...
        {nomatch_4,
         <<"nomatch_4() ->
                qlc:q([t || \"a\"++_=\"b\" <- []]).">>,
         [],
-        {warnings,[{{2,22},v3_core,nomatch}]}},
+        {warnings,[{{2,22},v3_core,{nomatch,pattern}}]}},
 
        %% Found neither by the compiler nor by qlc...
        {nomatch_5,
@@ -6246,7 +6246,7 @@ otp_7238(Config) when is_list(Config) ->
                qlc:q([X || X <- [], x =:= []]).">>,
         [],
         %% {warnings,[{{2,39},qlc,nomatch_filter}]}},
-        {warnings,[{{2,22},sys_core_fold,nomatch_guard}]}},
+        {warnings,[{{2,22},sys_core_fold,{nomatch,guard}}]}},
 
        {nomatch_12,
         <<"nomatch_12() ->
@@ -6289,7 +6289,7 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_template1() ->
                qlc:q([{X} = {} || X <- []]).">>,
         [],
-        {warnings,[{{2,27},sys_core_fold,no_clause_match}]}}
+        {warnings,[{{2,27},sys_core_fold,{nomatch,no_clause}}]}}
          ],
     [] = compile(Config, T1),
 

@@ -194,7 +194,7 @@ guard(Config) when is_list(Config) ->
 
     ok = file:write_file(File, Test),
     {ok, guard, Ws} = compile:file(File, [return,{outdir,?privdir}]),
-    Warnings = [L || {_File,WL} <- Ws, {L,_M,nomatch_guard} <- WL],
+    Warnings = [L || {_File,WL} <- Ws, {L,sys_core_fold,{nomatch,guard}} <- WL],
     [{7,15}, {9,15}, {11,15}, {13,15}, {15,15}, {17,15},
      {19,15}, {21,15}, {23,15}, {25,15}, {27,15}] = Warnings,
 

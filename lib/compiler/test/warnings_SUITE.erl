@@ -1,4 +1,3 @@
-
 %%
 %% %CopyrightBegin%
 %%
@@ -44,7 +43,7 @@
          redundant_boolean_clauses/1,
 	 underscore/1,no_warnings/1,
 	 bit_syntax/1,inlining/1,tuple_calls/1,
-         recv_opt_info/1]).
+         recv_opt_info/1,opportunistic_warnings/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -67,7 +66,7 @@ groups() ->
        maps_bin_opt_info,
        redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
-       tuple_calls,recv_opt_info]}].
+       tuple_calls,recv_opt_info,opportunistic_warnings]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -100,9 +99,10 @@ pattern(Config) when is_list(Config) ->
            ">>,
            [warn_unused_vars],
            {warnings,
-            [{{2,15},v3_core,nomatch},
-             {{6,20},v3_core,nomatch},
-             {{11,20},v3_core,nomatch} ] }}],
+            [{{2,15},v3_core,{nomatch,pattern}},
+             {{6,20},v3_core,{nomatch,pattern}},
+             {{11,20},v3_core,{nomatch,pattern}}
+            ]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -111,22 +111,29 @@ pattern2(Config) when is_list(Config) ->
     %% If we disable Core Erlang optimizations, we expect that
     %% v3_kernel should generate some of the warnings.
     Source = <<"f(A) -> ok;
-              f(B) -> error.
-              t(A, B, C) ->
-              case {A,B,C} of
-                {a,B} -> ok;
-                {_,B} -> ok
-               end.
+                f(B) -> error.
+                t(A, B, C) ->
+                  case {A,B,C} of
+                    {a,B} -> ok;
+                    {_,B} -> ok
+                  end.
+                c(E) ->
+                  case E of
+                    _ -> ok;
+                    _ -> ok
+                  end.
            ">>,
 
     %% Test warnings from sys_core_fold.
     Ts = [{pattern2,
 	   Source,
 	   [nowarn_unused_vars],
-           {warnings,[{{2,15},sys_core_fold,{nomatch_shadow,1,{f,1}}},
-                      {{4,15},sys_core_fold,no_clause_match},
-                      {{5,17},sys_core_fold,nomatch_clause_type},
-                      {{6,17},sys_core_fold,nomatch_clause_type}]}}],
+           {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{f,1}}}},
+                      {{4,19},sys_core_fold,{nomatch,no_clause}},
+                      {{5,21},sys_core_fold,{nomatch,clause_type}},
+                      {{6,21},sys_core_fold,{nomatch,clause_type}},
+                      {{11,21},sys_core_fold,{nomatch,{shadow,10}}}
+                     ]}}],
     [] = run(Config, Ts),
 
     %% Disable Core Erlang optimizations. v3_kernel should produce
@@ -135,7 +142,9 @@ pattern2(Config) when is_list(Config) ->
 	    Source,
 	    [nowarn_unused_vars,no_copt],
 	    {warnings,
-	     [{{2,15},v3_kernel,{nomatch_shadow,1}}]}}],
+	     [{{2,17},v3_kernel,{nomatch,{shadow,1}}},
+              {{11,21},v3_kernel,{nomatch,{shadow,10}}}
+             ]}}],
     [] = run(Config, Ts2),
     ok.
 
@@ -151,7 +160,7 @@ pattern3(Config) when is_list(Config) ->
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-            [{{4,13},v3_kernel,{nomatch_shadow,2}}]}}],
+            [{{4,13},v3_kernel,{nomatch,{shadow,2}}}]}}],
     [] = run(Config, Ts),
 
     ok.
@@ -206,12 +215,12 @@ pattern4(Config) when is_list(Config) ->
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-            [{{9,16},sys_core_fold,no_clause_match},
-             {{11,18},sys_core_fold,nomatch_shadow},
-             {{15,18},sys_core_fold,nomatch_shadow},
-             {{18,16},sys_core_fold,no_clause_match},
-             {{23,16},sys_core_fold,no_clause_match},
-             {{33,16},sys_core_fold,no_clause_match}
+            [{{9,16},sys_core_fold,{nomatch,no_clause}},
+             {{11,18},sys_core_fold,{nomatch,shadow}},
+             {{15,18},sys_core_fold,{nomatch,shadow}},
+             {{18,16},sys_core_fold,{nomatch,no_clause}},
+             {{23,16},sys_core_fold,{nomatch,no_clause}},
+             {{33,16},sys_core_fold,{nomatch,no_clause}}
 	    ]}}],
     [] = run(Config, Ts),
 
@@ -235,18 +244,21 @@ guard(Config) when is_list(Config) ->
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-            [{{2,15},sys_core_fold,no_clause_match},
-             {{2,15},sys_core_fold,nomatch_guard},
-             {{2,28},sys_core_fold,{eval_failure,
-                                    {erlang,element,2},
-                                    badarg}},
-             {{4,15},sys_core_fold,no_clause_match},
-             {{4,15},sys_core_fold,nomatch_guard},
-             {{6,15},sys_core_fold,no_clause_match},
-             {{6,15},sys_core_fold,nomatch_guard},
-             {{6,26},sys_core_fold,{eval_failure,
-                                    {erlang,element,2},
-                                    badarg}}
+            [{{2,15},sys_core_fold,{nomatch,guard}},
+             {{2,15},sys_core_fold,{nomatch,no_clause}},
+             {{2,28},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,element,2},
+                       badarg}}},
+             {{4,15},sys_core_fold,{nomatch,guard}},
+             {{4,15},sys_core_fold,{nomatch,no_clause}},
+             {{6,15},sys_core_fold,{nomatch,guard}},
+             {{6,15},sys_core_fold,{nomatch,no_clause}},
+             {{6,26},sys_core_fold,
+              {failed,
+               {eval_failure,
+                {erlang,element,2},
+                badarg}}}
 	    ]}}],
     [] = run(Config, Ts),
 
@@ -272,22 +284,27 @@ bad_arith(Config) when is_list(Config) ->
            ">>,
 	   [],
 	   {warnings,
-            [{{3,19},sys_core_fold,nomatch_guard},
-             {{3,21},sys_core_fold,{eval_failure,
-                                    {erlang,'+',2},
-                                    badarith}},
-             {{9,19},sys_core_fold,nomatch_guard},
-             {{9,19},sys_core_fold,{no_effect,{erlang,is_integer,1}}},
-             {{9,36},sys_core_fold,{eval_failure,
-                                    {erlang,'+',2},
-                                    badarith}},
-             {{10,19},sys_core_fold,nomatch_guard},
-             {{10,21},sys_core_fold,{eval_failure,
-                                     {erlang,'+',2},
-                                     badarith}},
-             {{15,19},sys_core_fold,{eval_failure,
-                                     {erlang,'+',2},
-                                     badarith}}
+            [{{3,19},sys_core_fold,{nomatch,guard}},
+             {{3,21},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}},
+             {{9,19},sys_core_fold,
+              {ignored,{no_effect,{erlang,is_integer,1}}}},
+             {{9,19},sys_core_fold,{nomatch,guard}},
+             {{9,36},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}},
+             {{10,19},sys_core_fold,{nomatch,guard}},
+             {{10,21},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}},
+             {{15,19},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}}
 	    ] }}],
     [] = run(Config, Ts),
     ok.
@@ -318,9 +335,9 @@ bool_cases(Config) when is_list(Config) ->
            ">>,
            [nowarn_unused_vars],
            {warnings,
-            [{{6,18},sys_core_fold,nomatch_shadow},
-             {{13,18},sys_core_fold,nomatch_shadow},
-             {{18,18},sys_core_fold,nomatch_clause_type} ]} }],
+            [{{6,18},sys_core_fold,{nomatch,shadow}},
+             {{13,18},sys_core_fold,{nomatch,shadow}},
+             {{18,18},sys_core_fold,{nomatch,clause_type}} ]} }],
     [] = run(Config, Ts),
     ok.
 
@@ -331,15 +348,18 @@ bad_apply(Config) when is_list(Config) ->
              t(2) -> erlang:42();
              t(3) -> 42:start();
              t(4) -> []:start();
-             t(5) -> erlang:[]().
+             t(5) -> erlang:[]();
+             t(6) -> [a,b,c]().
            ">>,
            [],
            {warnings,
-            [{{2,22},v3_kernel,bad_call},
-             {{3,22},v3_kernel,bad_call},
-             {{4,22},v3_kernel,bad_call},
-             {{5,22},v3_kernel,bad_call},
-             {{6,22},v3_kernel,bad_call}]}}],
+            [{{2,22},v3_kernel,{failed,bad_call}},
+             {{3,22},v3_kernel,{failed,bad_call}},
+             {{4,22},v3_kernel,{failed,bad_call}},
+             {{5,22},v3_kernel,{failed,bad_call}},
+             {{6,22},v3_kernel,{failed,bad_call}},
+             {{7,22},sys_core_fold,{failed,bad_call}}
+            ]}}],
     [] = run(Config, Ts),
 
     %% Also verify that the generated code generates the correct error.
@@ -365,12 +385,14 @@ files(Config) when is_list(Config) ->
            ">>,
            [],
            {warnings,
-            [{"file1",[{{17,20},sys_core_fold,{eval_failure,
-                                               {erlang,'/',2},
-                                               badarith}}]},
-             {"file2",[{{10,20},sys_core_fold,{eval_failure,
-                                               {erlang,'/',2},
-                                               badarith}}]}]}}],
+            [{"file1",[{{17,20},sys_core_fold,
+                        {failed,{eval_failure,
+                                 {erlang,'/',2},
+                                 badarith}}}]},
+             {"file2",[{{10,20},sys_core_fold,
+                        {failed,{eval_failure,
+                                 {erlang,'/',2},
+                                 badarith}}}]}]}}],
 
     [] = run(Config, Ts),
     ok.
@@ -478,14 +500,15 @@ effect(Config) when is_list(Config) ->
                ok.
              ">>,
            [],
-           {warnings,[{{5,22},sys_core_fold,{no_effect,{erlang,is_integer,1}}},
-                      {{7,22},sys_core_fold,useless_building},
-                      {{9,22},sys_core_fold,useless_building},
-                      {{9,29},sys_core_fold,{result_ignored,{erlang,abs,1}}},
-                      {{13,21},sys_core_fold,useless_building},
-                      {{15,21},sys_core_fold,useless_building},
-                      {{17,21},sys_core_fold,useless_building},
-                      {{19,22},sys_core_fold,{result_ignored,{erlang,'*',2}}}]}},
+           {warnings,[{{5,22},sys_core_fold,{ignored,{no_effect,{erlang,is_integer,1}}}},
+                      {{7,22},sys_core_fold,{ignored,useless_building}},
+                      {{9,22},sys_core_fold,{ignored,useless_building}},
+                      {{9,29},sys_core_fold,{ignored,{result,{erlang,abs,1}}}},
+                      {{13,21},sys_core_fold,{ignored,useless_building}},
+                      {{15,21},sys_core_fold,{ignored,useless_building}},
+                      {{17,21},sys_core_fold,{ignored,useless_building}},
+                      {{19,22},sys_core_fold,{ignored,{result, {erlang,'*',2}}}}
+                     ]}},
 
           {nested,
             <<"
@@ -519,18 +542,19 @@ effect(Config) when is_list(Config) ->
                ok.
              ">>,
            [],
-           {warnings,[{{5,21},sys_core_fold,useless_building},
-                      {{5,26},sys_core_fold,{no_effect,{erlang,node,0}}},
-                      {{5,46},sys_core_fold,{no_effect,{erlang,self,0}}},
-                      {{5,54},sys_core_fold,{no_effect,{erlang,time,0}}},
-                      {{5,61},sys_core_fold,{no_effect,{erlang,date,0}}},
-                      {{5,69},sys_core_fold,{no_effect,{erlang,time,0}}},
-                      {{6,22},sys_core_fold,{no_effect,{erlang,is_integer,1}}},
-                      {{8,21},sys_core_fold,useless_building},
-                      {{10,21},sys_core_fold,useless_building},
-                      {{12,21},sys_core_fold,useless_building},
-                      {{20,23},sys_core_fold,{no_effect,{erlang,'=:=',2}}},
-                      {{22,21},sys_core_fold,{no_effect,{erlang,get_cookie,0}}}]}},
+           {warnings,[{{5,21},sys_core_fold,{ignored,useless_building}},
+                      {{5,26},sys_core_fold,{ignored,{no_effect,{erlang,node,0}}}},
+                      {{5,46},sys_core_fold,{ignored,{no_effect,{erlang,self,0}}}},
+                      {{5,54},sys_core_fold,{ignored,{no_effect,{erlang,time,0}}}},
+                      {{5,61},sys_core_fold,{ignored,{no_effect,{erlang,date,0}}}},
+                      {{5,69},sys_core_fold,{ignored,{no_effect,{erlang,time,0}}}},
+                      {{6,22},sys_core_fold,{ignored,{no_effect,{erlang,is_integer,1}}}},
+                      {{8,21},sys_core_fold,{ignored,useless_building}},
+                      {{10,21},sys_core_fold,{ignored,useless_building}},
+                      {{12,21},sys_core_fold,{ignored,useless_building}},
+                      {{20,23},sys_core_fold,{ignored,{no_effect,{erlang,'=:=',2}}}},
+                      {{22,21},sys_core_fold,{ignored,{no_effect,{erlang,get_cookie,0}}}}
+                      ]}},
 
           {seq,
            <<"
@@ -539,8 +563,8 @@ effect(Config) when is_list(Config) ->
                ok.
              ">>,
            [],
-           {warnings,[{{3,16},sys_core_fold,useless_building},
-                      {{3,30},sys_core_fold,useless_building}]}}
+           {warnings,[{{3,16},sys_core_fold,{ignored,useless_building}},
+                      {{3,30},sys_core_fold,{ignored,useless_building}}]}}
          ],
     [] = run(Config, Ts),
     ok.
@@ -603,12 +627,25 @@ bin_construction(Config) when is_list(Config) ->
              x() ->
                  Bin = <<1,2,3,7:4>>,
                  <<Bin/binary>>.
+
+             y() -> <<0.5>>.
+             z() -> <<99999999999999/utf8>>.
+             w() -> <<0.5:1/float>>.
+
+             a() ->
+               Size = bad_size,
+               <<1:Size>>.
            ">>,
            [],
-           {warnings,[{{4,18},sys_core_fold,embedded_binary_size},
-                      {{8,18},sys_core_fold,{embedded_unit,8,28}}]}}],
+           {warnings,[{{4,18},sys_core_fold,{failed,embedded_binary_size}},
+                      {{8,18},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                      {{10,21},v3_core,{failed,bad_binary}},
+                      {{11,21},sys_core_fold,{failed,bad_unicode}},
+                      {{12,21},sys_core_fold,{failed,bad_float_size}},
+                      {{16,18},v3_kernel,{failed,bad_segment_size}}
+                     ]}}],
     [] = run(Config, Ts),
-    
+
     ok.
 
 comprehensions(Config) when is_list(Config) ->
@@ -636,8 +673,8 @@ maps(Config) when is_list(Config) ->
                  end.
            ">>,
            [],
-           {warnings,[{{3,18},sys_core_fold,no_clause_match},
-                      {{9,22},sys_core_fold,nomatch_clause_type}]}},
+           {warnings,[{{3,18},sys_core_fold,{nomatch,no_clause}},
+                      {{9,22},sys_core_fold,{nomatch,clause_type}}]}},
 	   {bad_map_src1,
            <<"
              t() ->
@@ -646,7 +683,7 @@ maps(Config) when is_list(Config) ->
                  ok.
            ">>,
            [],
-           {warnings,[{{4,48},sys_core_fold,bad_map_update}]}},
+           {warnings,[{{4,48},sys_core_fold,{failed,bad_map_update}}]}},
 	   {bad_map_src2,
            <<"
              t() ->
@@ -664,7 +701,7 @@ maps(Config) when is_list(Config) ->
                  ok.
            ">>,
            [],
-           {warnings,[{{3,51},sys_core_fold,bad_map_update}]}},
+           {warnings,[{{3,51},sys_core_fold,{failed,bad_map_update}}]}},
            {ok_map_literal_key,
            <<"
              t() ->
@@ -721,7 +758,8 @@ maps(Config) when is_list(Config) ->
                       {{20,21},v3_core,{map_key_repeated,"a"}},
                       {{23,20},v3_core,{map_key_repeated,"a"}},
                       {{28,21},v3_core,{map_key_repeated,"a"}},
-                      {{31,21},v3_core,{map_key_repeated,<<"a">>}}]}},
+                      {{31,21},v3_core,{map_key_repeated,<<"a">>}}
+                     ]}},
            {repeated_keys2,
            <<"
              foo4(K) ->
@@ -782,7 +820,8 @@ maps(Config) when is_list(Config) ->
                       {{21,21},v3_core,{map_key_repeated,{<<"a">>,1}}},
                       {{25,20},v3_core,{map_key_repeated,#{"a" => 1}}},
                       {{28,21},v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
-                      {{32,21},v3_core,{map_key_repeated,#{<<"a">> => 1}}}]}}
+                      {{32,21},v3_core,{map_key_repeated,#{<<"a">> => 1}}}
+                     ]}}
          ],
     run(Config, Ts),
     ok.
@@ -811,7 +850,7 @@ redundant_boolean_clauses(Config) when is_list(Config) ->
                  end.
            ">>,
            [],
-           {warnings,[{{5,22},sys_core_fold,nomatch_shadow}]}}],
+           {warnings,[{{5,22},sys_core_fold,{nomatch,shadow}}]}}],
     run(Config, Ts),
     ok.
 
@@ -836,13 +875,13 @@ underscore(Config) when is_list(Config) ->
 	 ">>,
 
     %% Define all possible warnings.
-    Warnings = [{{3,23},sys_core_fold,useless_building},
-                {{4,23},sys_core_fold,useless_building},
-                {{5,23},sys_core_fold,useless_building},
-                {{8,24},sys_core_fold,{result_ignored,{erlang,'/',2}}},
-                {{9,23},sys_core_fold,{no_effect,{erlang,date,0}}},
-                {{12,24},sys_core_fold,useless_building},
-                {{15,24},sys_core_fold,useless_building}],
+    Warnings = [{{3,23},sys_core_fold,{ignored,useless_building}},
+                {{4,23},sys_core_fold,{ignored,useless_building}},
+                {{5,23},sys_core_fold,{ignored,useless_building}},
+                {{8,24},sys_core_fold,{ignored,{result,{erlang,'/',2}}}},
+                {{9,23},sys_core_fold,{ignored,{no_effect,{erlang,date,0}}}},
+                {{12,24},sys_core_fold,{ignored,useless_building}},
+                {{15,24},sys_core_fold,{ignored,useless_building}}],
 
 
     %% Compile the unmodified template. Assigning to variable that
@@ -928,25 +967,28 @@ bit_syntax(Config) ->
                   <<42:Sz/float>> -> ok;
                   <<42:Sz/binary>> -> ok
                 end.
+              d(<<16#110000/utf8>>) -> error;
+              d(_) -> ok.
              ">>,
 	   [],
-           {warnings,[{{2,15},sys_core_fold,no_clause_match},
-                      {{2,19},sys_core_fold,{nomatch_bit_syntax_unsigned,-1}},
-                      {{3,19},sys_core_fold,{nomatch_bit_syntax_truncated,
-                                             unsigned,1023,8}},
-                      {{4,19},sys_core_fold,{nomatch_bit_syntax_truncated,
-                                             signed,777,8}},
-                      {{5,19},sys_core_fold,{nomatch_bit_syntax_type,a,binary}},
-                      {{6,19},sys_core_fold,{nomatch_bit_syntax_type,a,integer}},
-                      {{7,19},sys_core_fold,{nomatch_bit_syntax_type,a,float}},
-                      {{8,19},sys_core_fold,{nomatch_bit_syntax_type,a,utf8}},
-                      {{9,19},sys_core_fold,{nomatch_bit_syntax_type,a,utf16}},
-                      {{10,19},sys_core_fold,{nomatch_bit_syntax_type,a,utf32}},
-                      {{11,19},sys_core_fold,{nomatch_bit_syntax_type,a,utf32}},
-                      {{12,37},sys_core_fold,{nomatch_bit_syntax_size,bad}},
-                      {{12,45},sys_core_fold,no_clause_match},
-                      {{15,21},sys_core_fold,{nomatch_bit_syntax_unsigned,-42}},
-                      {{17,21},sys_core_fold,{nomatch_bit_syntax_type,42,binary}}
+           {warnings,[{{2,15},sys_core_fold,{nomatch,no_clause}},
+                      {{2,19},sys_core_fold,{nomatch,{bit_syntax_unsigned,-1}}},
+                      {{3,19},sys_core_fold,{nomatch,{bit_syntax_truncated,
+                                             unsigned,1023,8}}},
+                      {{4,19},sys_core_fold,{nomatch,{bit_syntax_truncated,
+                                             signed,777,8}}},
+                      {{5,19},sys_core_fold,{nomatch,{bit_syntax_type,a,binary}}},
+                      {{6,19},sys_core_fold,{nomatch,{bit_syntax_type,a,integer}}},
+                      {{7,19},sys_core_fold,{nomatch,{bit_syntax_type,a,float}}},
+                      {{8,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf8}}},
+                      {{9,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf16}}},
+                      {{10,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf32}}},
+                      {{11,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf32}}},
+                      {{12,37},sys_core_fold,{nomatch,{bit_syntax_size,bad}}},
+                      {{12,45},sys_core_fold,{nomatch,no_clause}},
+                      {{15,21},sys_core_fold,{nomatch,{bit_syntax_unsigned,-42}}},
+                      {{17,21},sys_core_fold,{nomatch,{bit_syntax_type,42,binary}}},
+                      {{19,19},sys_core_fold,{nomatch,{bit_syntax_unicode,1114112}}}
                      ]}
           }],
     run(Config, Ts),
@@ -1044,6 +1086,79 @@ recv_opt_info(Config) when is_list(Config) ->
 
     %% For coverage: don't give the recv_opt_info option.
     [] = (catch run_test(Config, Code, [])),
+
+    ok.
+
+%% OTP-17260: Test that opportunistic warnings can be disabled.
+opportunistic_warnings(Config) ->
+    Source = <<"m(_) -> ok;
+                m(_) -> error.
+
+                a() -> <<0.5>>.
+                b() -> Bin = <<1,2,3,7:4>>, <<Bin/binary>>.
+                c() -> Size = bad_size, <<1:Size>>.
+
+                i() -> {a,b,c}, ok.
+           ">>,
+
+    %% Don't disable any warnings.
+    Ts1 = [{nothing_disabled,
+            Source,
+            [],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts1),
+
+    %% Disable all opportunistic warnings.
+    Ts2 = [{all_disabled,
+            Source,
+            [nowarn_opportunistic],
+            []}],
+    [] = run(Config, Ts2),
+
+    %% Disable warnings for patterns that don't match.
+    Ts3 = [{nomatch_disabled,
+            Source,
+            [nowarn_nomatch],
+            {warnings,[{{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts3),
+
+    %% Disable warnings for failures.
+    Ts4 = [{failures_disabled,
+            Source,
+            [nowarn_failed],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts4),
+
+    %% Disable warnings for useless building.
+    Ts5 = [{disabled_useless_building,
+            Source,
+            [nowarn_ignored],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}}
+                      ]}}],
+    [] = run(Config, Ts5),
+
+    %% Disable warnings for useless building and failures.
+    Ts6 = [{disabled_combination,
+            Source,
+            [nowarn_ignored,nowarn_failed],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}}
+                      ]}}],
+    [] = run(Config, Ts6),
+
 
     ok.
 
