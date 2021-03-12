@@ -292,10 +292,10 @@ do_default_options(Config) ->
 
 do_delay_on_other_node(XArgs, Function) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-                                       [{args,"-pa " ++ Dir ++ " " ++ XArgs}]),
+    {ok, Node} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME,
+                                   "-pa " ++ Dir ++ " " ++ XArgs),
     Res = rpc:call(Node,erlang,apply,[Function,[]]),
-    test_server:stop_node(Node),
+    ?STOP_NODE(Node),
     Res.
 
 do_delay_send_1(Config) ->
@@ -656,7 +656,7 @@ otp_3924_1(Config, MaxDelay) ->
     repeat(10, fun(N) ->
                        ok = otp_3924(Config, MaxDelay, Node, Data, DataLen, N)
                end),
-    test_server:stop_node(Node),
+    ?STOP_NODE(Node),
     ok.
 
 otp_3924(Config, MaxDelay, Node, Data, DataLen, N) ->
@@ -826,14 +826,13 @@ iter_max_socks(Config) when is_list(Config) ->
         end,
     %% Run on a different node in order to limit the effect if this test fails.
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(test_iter_max_socks,slave,
-                                        [{args,"+Q 2048 -pa " ++ Dir}]),
+    {ok, Node} = ?START_SLAVE_NODE(test_iter_max_socks, "+Q 2048 -pa " ++ Dir),
     %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
     L = iter_max_socks_run(Node,
                            fun() ->
                                    exit(do_iter_max_socks(Config, Tries, initalize))
                            end),
-    test_server:stop_node(Node),
+    ?STOP_NODE(Node),
 
     io:format("Result: ~p", [L]),
     all_equal(L),
@@ -937,11 +936,11 @@ do_accept(Config, L, Port) ->
 
 start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
+    ?START_SLAVE_NODE(Name, "-pa " ++ Pa).
 
 start_remote(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{remote, true}, {args, "-pa " ++ Pa}]).
+    ?START_SLAVE_NODE(Name, "-pa " ++ Pa, [{remote, true}]).
 
 %% Tests that when 'the other side' on a passive socket closes, the
 %% connecting side can still read until the end of data.
@@ -4710,8 +4709,7 @@ do_send_timeout(Config) ->
     ?P("begin"),
     Dir = filename:dirname(code:which(?MODULE)),
     ?P("create (slave) node"),
-    {ok, RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-					 [{args,"-pa " ++ Dir}]),
+    {ok, RNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
 
     {BinData, SndBuf} = 
 	case ?IS_SOCKET_BACKEND(Config) of
@@ -4757,7 +4755,7 @@ do_send_timeout(Config) ->
     send_timeout_para(Config, BinData, SndBuf, true, RNode),
 
     ?P("stop (slave) node"),
-    test_server:stop_node(RNode),
+    ?STOP_NODE(RNode),
 
     ?P("done"),
     ok.
@@ -4992,11 +4990,10 @@ after_send_timeout(AutoClose, Reason) ->
 %% Test the send_timeout socket option for active sockets.
 send_timeout_active(Config) when is_list(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-					[{args,"-pa " ++ Dir}]),
+    {ok, RNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
     do_send_timeout_active(Config, false, RNode),
     do_send_timeout_active(Config, true, RNode),
-    test_server:stop_node(RNode),
+    ?STOP_NODE(RNode),
     ok.
 
 do_send_timeout_active(Config, AutoClose, RNode) ->
@@ -5041,8 +5038,7 @@ flush() ->
 setup_closed_ao(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
     ?P("[setup] start slave node"),
-    R = case test_server:start_node(?UNIQ_NODE_NAME, slave,
-                                    [{args,"-pa " ++ Dir}]) of
+    R = case ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir) of
             {ok, Slave} ->
                 Slave;
             {error, Reason} ->
@@ -5054,7 +5050,7 @@ setup_closed_ao(Config) ->
             {ok, LSock} ->
                 LSock;
             {error, eaddrnotavail = LReason} ->
-                (catch test_server:stop_node(R)),
+                (catch ?STOP_NODE(R)),
                 ?SKIPT(listen_failed_str(LReason))
         end,
     Fun = fun(F) ->
@@ -5080,7 +5076,7 @@ setup_closed_ao(Config) ->
             {ok, CSock} ->
                 CSock;
             {error, eaddrnotavail = CReason} ->
-                (catch test_server:stop_node(R)),
+                (catch ?STOP_NODE(R)),
                 ?SKIPT(connect_failed_str(CReason))
         end,
     ?P("[setup] accept (local) connection"),
@@ -5088,7 +5084,7 @@ setup_closed_ao(Config) ->
             {ok, ASock} ->
                 ASock;
             {error, eaddrnotavail = AReason} ->
-                (catch test_server:stop_node(R)),
+                (catch ?STOP_NODE(R)),
                 ?SKIPT(accept_failed_str(AReason))
         end,
     ?P("[setup] send (local) and receive (remote) message"),
@@ -5109,7 +5105,7 @@ setup_closed_ao(Config) ->
 	    end,
     Loop = fun(Match2,F3) ->  Loop2(Loop2,Match2,F3,10) end,
     ?P("[setup] stop slave node"),
-    test_server:stop_node(R),
+    ?STOP_NODE(R),
     ?P("[setup] done"),
     {Loop,A}.
     
@@ -6004,9 +6000,7 @@ otp_12242(Config, Addr) when (tuple_size(Addr) =:= 4) ->
 	 {sndbuf,       Bufsize},
 	 {buffer,       Bufsize}],
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok, ListenerNode} =
-        test_server:start_node(
-          ?UNIQ_NODE_NAME, slave, [{args, "-pa " ++ Dir}]),
+    {ok, ListenerNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
     Tester = self(),
     ?P("create listener"),
     {Listener, ListenerMRef} =
@@ -6045,7 +6039,7 @@ otp_12242(Config, Addr) when (tuple_size(Addr) =:= 4) ->
     ?P("await listener termination"),
     wait(ListenerMRef),
     ?P("stop listener node"),
-    test_server:stop_node(ListenerNode),
+    ?STOP_NODE(ListenerNode),
     ?P("done"),
     ok.
     

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,13 @@
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
 -define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
+-define(START_SLAVE_NODE(__N__, __A__),
+        ?LIB:start_slave_node(__N__, __A__)).
+-define(START_SLAVE_NODE(__N__, __A__, __O__),
+        ?LIB:start_slave_node(__N__, __A__, __O__)).
+
+-define(STOP_NODE(__N__),        ?LIB:stop_node(__N__)).
+                         
 -define(F(FORMAT, ARGS),         ?LIB:f(FORMAT, ARGS)).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).

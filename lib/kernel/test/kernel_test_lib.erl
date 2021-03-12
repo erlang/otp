@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,9 @@
          inet_backend_opts/1,
          explicit_inet_backend/0,
          test_inet_backends/0]).
+-export([start_slave_node/2, start_slave_node/3,
+         start_node/3, start_node/4,
+         stop_node/1]).
 -export([f/2,
          print/1, print/2]).
 -export([good_hosts/1,
@@ -1663,6 +1666,26 @@ tc_which_name() ->
             Name
     end.
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_slave_node(Name, Args) ->
+    start_slave_node(Name, Args, []).
+
+start_slave_node(Name, Args, Opts) ->
+    start_node(Name, slave, Args, Opts).
+
+
+start_node(Name, Type, Args) ->
+    start_node(Name, Type, Args, []).
+
+start_node(Name, Type, Args, Opts) ->
+    test_server:start_node(Name, Type, [{args, Args}|Opts]).
+
+
+stop_node(Node) ->
+    test_server:stop_node(Node).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
