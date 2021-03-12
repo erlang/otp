@@ -50,6 +50,9 @@ my $code_model = 'unknown';
 my $jit = 'no';
 my %defs;                        # Defines (from command line).
 
+# Intentionally unused macros, predicates, and generators.
+my %intentionally_unused;
+
 # This is shift counts and mask for the packer.
 my $WHOLE_WORD = '';
 
@@ -453,6 +456,24 @@ while (<>) {
     }
 
     #
+    # Handle %unused.
+    #
+    if (/^\%unused\s+(\S+)/) {
+        my $name = $1;
+        error("Illegal predicate/generator name '$name'")
+            unless $name =~ /^[a-z][.\w\d_]*$/;
+        $intentionally_unused{$name} = 1;
+        next;
+    }
+
+    #
+    # Handle unrecognized % directives.
+    #
+    if (/^\%(\S+)/) {
+        error("Unrecognized directive '%$1'");
+    }
+
+    #
     # Handle transformations.
     #
     if (/=>/) {
@@ -621,7 +642,8 @@ error("there were previous type errors") if $any_errors;
 #
 {
     my(@unused) = grep(!$c_code_used{$_}, keys %c_code);
-    foreach my $unused (@unused) {
+    @unused = grep(!$intentionally_unused{$_}, @unused);
+    foreach my $unused (sort @unused) {
         my(undef,$where) = @{$c_code{$unused}};
         warn "$where: $unused is unused\n";
     }
@@ -636,6 +658,13 @@ sub emulator_output {
     my $i;
     my $name;
     my $key;			# Loop variable.
+
+    foreach $key (sort keys %c_code) {
+        if ($intentionally_unused{$key}) {
+            delete $c_code{$key};
+        }
+#        print STDERR "$key: ", defined($c_code{$key}), "\n";
+    }
 
     # Initialize common information always needed.
     foreach $key (keys %specific_op) {

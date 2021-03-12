@@ -661,11 +661,11 @@ typedef struct ErtsSchedulerRegisters_ {
     ErtsCodePtr start_time_i;
     UWord start_time;
 
-#if !defined(NATIVE_ERLANG_STACK) && defined(JIT_HARD_DEBUG)
+#if (!defined(NATIVE_ERLANG_STACK) || defined(__aarch64__)) && defined(JIT_HARD_DEBUG)
     /* Holds the initial thread stack pointer. Used to ensure that everything
      * that is pushed to the stack is also popped. */
     UWord *initial_sp;
-#elif defined(NATIVE_ERLANG_STACK) && defined(DEBUG)
+#elif defined(NATIVE_ERLANG_STACK) && defined(DEBUG) && !defined(__aarch64__)
     /* Raw pointers to the start and end of the stack. Used to test bounds
      * without clobbering any registers. */
     UWord *runtime_stack_start;

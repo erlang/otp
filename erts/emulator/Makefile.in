@@ -696,7 +696,7 @@ ASMJIT_H = $(wildcard asmjit/*.h) $(wildcard asmjit/core/*.h) $(wildcard asmjit/
 ASMJIT_TTF_H = $(foreach HEADER,$(ASMJIT_H),$(TTF_DIR)/$(HEADER))
 
 ifeq ($(FLAVOR),jit)
-GENERATE+=$(ASMJIT_TTF_H)
+GENERATE+=$(ASMJIT_TTF_H) $(TTF_DIR)/asmjit/asmjit.hpp
 endif
 
 # Preloaded code.
@@ -1013,6 +1013,20 @@ JIT_OBJS = \
     $(OBJDIR)/process_main.o
 
 ifeq ($(JIT_ARCH), x86)
+JIT_OBJS += \
+	$(OBJDIR)/instr_arith.o \
+	$(OBJDIR)/instr_bs.o \
+	$(OBJDIR)/instr_bif.o \
+	$(OBJDIR)/instr_call.o \
+	$(OBJDIR)/instr_common.o \
+	$(OBJDIR)/instr_float.o \
+	$(OBJDIR)/instr_fun.o \
+	$(OBJDIR)/instr_guard_bifs.o \
+	$(OBJDIR)/instr_map.o \
+	$(OBJDIR)/instr_msg.o \
+	$(OBJDIR)/instr_select.o \
+	$(OBJDIR)/instr_trace.o
+else
 JIT_OBJS += \
 	$(OBJDIR)/instr_arith.o \
 	$(OBJDIR)/instr_bs.o \

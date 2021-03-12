@@ -21697,9 +21697,12 @@ if test ${enable_jit} != no; then
         amd64)
            JIT_ARCH=x86
            ;;
+        arm64)
+           JIT_ARCH=arm
+           ;;
         *)
            if test ${enable_jit} = yes; then
-             as_fn_error $? "JIT only works on x86 64-bit" "$LINENO" 5
+             as_fn_error $? "JIT only works on x86 64-bit and ARM 64-bit" "$LINENO" 5
            else
              enable_jit=no
              { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack to support on $ARCH-$OPSYS" >&5

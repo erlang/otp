@@ -26,6 +26,12 @@ extern "C"
 #include "beam_common.h"
 #include "code_ix.h"
 #include "export.h"
+
+#if defined(__APPLE__)
+#    include <libkern/OSCacheControl.h>
+#elif defined(WIN32)
+#    include <windows.h>
+#endif
 }
 
 #ifdef ERLANG_FRAME_POINTERS
@@ -456,6 +462,25 @@ extern "C"
         return 0;
 #else
         return 1;
+#endif
+    }
+
+    void beamasm_flush_icache(const void *address, size_t size) {
+#if defined(__aarch64__)
+#    if defined(WIN32)
+        FlushInstructionCache(GetCurrentProcess(), address, size);
+#    elif defined(__APPLE__)
+        sys_icache_invalidate((char *)address, size);
+#    elif defined(__GNUC__)
+        __builtin___clear_cache(&((char *)address)[0],
+                                &((char *)address)[size]);
+#    else
+#        error "Platform lacks implementation for clearing instruction cache." \
+                "Please report this bug."
+#    endif
+#else
+        (void)address;
+        (void)size;
 #endif
     }
 

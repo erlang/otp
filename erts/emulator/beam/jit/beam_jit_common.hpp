@@ -139,6 +139,16 @@ struct ArgVal : public BeamOpArg {
         }
     }
 
+    struct Hash {
+        size_t operator()(const ArgVal &key) const {
+            return ((size_t)key.getType() << 48) ^ (size_t)key.getValue();
+        }
+    };
+
+    bool operator==(const ArgVal &other) const {
+        return getType() == other.getType() && getValue() == other.getValue();
+    }
+
     template<typename T>
     ArgVal operator+(T val) const {
         return ArgVal(getType(), getValue() + val);

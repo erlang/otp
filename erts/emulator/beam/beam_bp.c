@@ -123,7 +123,8 @@ static void bp_meta_unref(BpMetaTracer *bmt);
 static void bp_count_unref(BpCount *bcp);
 static void bp_time_unref(BpDataTime *bdt);
 static void consolidate_bp_data(Module *modp, ErtsCodeInfo *ci, int local);
-static void uninstall_breakpoint(ErtsCodeInfo *ci);
+static void uninstall_breakpoint(ErtsCodeInfo *ci_rw,
+                                 const ErtsCodeInfo *ci_exec);
 
 /* bp_hash */
 #define BP_TIME_ADD(pi0, pi1)                       \
@@ -188,31 +189,33 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 	}
 
 	for (fi = 0; fi < num_functions; fi++) {
-            ErtsCodeInfo* ci;
+            const ErtsCodeInfo* ci_exec;
+            ErtsCodeInfo* ci_rw;
             void *w_ptr;
 
-            w_ptr = erts_writable_code_ptr(&module[current]->curr,
-                                           code_hdr->functions[fi]);
-            ci = (ErtsCodeInfo*)w_ptr;
+            ci_exec = code_hdr->functions[fi];
+            w_ptr = erts_writable_code_ptr(&module[current]->curr, ci_exec);
+            ci_rw = (ErtsCodeInfo*)w_ptr;
 
 #ifndef BEAMASM
-	    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+	    ASSERT(BeamIsOpCode(ci_rw->op, op_i_func_info_IaaI));
 #endif
             switch (specified) {
             case 3:
-                if (ci->mfa.arity != mfa->arity)
+                if (ci_rw->mfa.arity != mfa->arity)
                     continue;
             case 2:
-                if (ci->mfa.function != mfa->function)
+                if (ci_rw->mfa.function != mfa->function)
                     continue;
             case 1:
-                if (ci->mfa.module != mfa->module)
+                if (ci_rw->mfa.module != mfa->module)
                     continue;
             case 0:
                 break;
             }
             /* Store match */
-            f->matching[i].ci = ci;
+            f->matching[i].ci_exec = ci_exec;
+            f->matching[i].ci_rw = ci_rw;
             f->matching[i].mod = module[current];
             i++;
 	}
@@ -260,12 +263,13 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint));
         }
 
-	f->matching[ne].ci = &ep->info;
-	f->matching[ne].mod = erts_get_module(ep->info.mfa.module, code_ix);
+        f->matching[ne].ci_exec = &ep->info;
+        f->matching[ne].ci_rw = &ep->info;
+        f->matching[ne].mod = erts_get_module(ep->info.mfa.module, code_ix);
 
-	ne++;
-
+        ne++;
     }
+
     f->matched = ne;
 }
 
@@ -288,14 +292,14 @@ erts_consolidate_bp_data(BpFunctions* f, int local)
     ERTS_LC_ASSERT(erts_has_code_write_permission());
 
     for (i = 0; i < n; i++) {
-	consolidate_bp_data(fs[i].mod, fs[i].ci, local);
+        consolidate_bp_data(fs[i].mod, fs[i].ci_rw, local);
     }
 }
 
 static void
-consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
+consolidate_bp_data(Module* modp, ErtsCodeInfo *ci_rw, int local)
 {
-    GenericBp* g = ci->u.gen_bp;
+    GenericBp* g = ci_rw->u.gen_bp;
     GenericBpData* src;
     GenericBpData* dst;
     Uint flags;
@@ -343,14 +347,15 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
 	    ASSERT(modp->curr.num_traced_exports >= 0);
 #if !defined(BEAMASM) && defined(DEBUG)
             {
-                BeamInstr instr = *(const BeamInstr*)erts_codeinfo_to_code(ci);
+                BeamInstr instr = *(const BeamInstr*)erts_codeinfo_to_code(ci_rw);
                 ASSERT(!BeamIsOpCode(instr, op_i_generic_breakpoint));
             }
 #endif
-	}
-	ci->u.gen_bp = NULL;
-	Free(g);
-	return;
+        }
+
+        ci_rw->u.gen_bp = NULL;
+        Free(g);
+        return;
     }
 
     /*
@@ -396,11 +401,12 @@ erts_install_breakpoints(BpFunctions* f)
     Uint n = f->matched;
 
     for (i = 0; i < n; i++) {
-	ErtsCodeInfo* ci = f->matching[i].ci;
-	GenericBp* g = ci->u.gen_bp;
-        Module* modp = f->matching[i].mod;
+        const ErtsCodeInfo *ci_exec = f->matching[i].ci_exec;
+        ErtsCodeInfo *ci_rw = f->matching[i].ci_rw;
+        GenericBp *g = ci_rw->u.gen_bp;
+        Module *modp = f->matching[i].mod;
 #ifdef BEAMASM
-        if ((erts_asm_bp_get_flags(ci) & ERTS_ASM_BP_FLAG_BP) == 0 && g) {
+        if ((erts_asm_bp_get_flags(ci_exec) & ERTS_ASM_BP_FLAG_BP) == 0 && g) {
 	    /*
 	     * The breakpoint must be disabled in the active data
 	     * (it will enabled later by switching bp indices),
@@ -409,12 +415,16 @@ erts_install_breakpoints(BpFunctions* f)
 	    ASSERT(g->data[erts_active_bp_ix()].flags == 0);
 	    ASSERT(g->data[erts_staging_bp_ix()].flags != 0);
 
-            erts_asm_bp_set_flag(ci, ERTS_ASM_BP_FLAG_BP);
+            erts_asm_bp_set_flag(ci_rw, ci_exec, ERTS_ASM_BP_FLAG_BP);
             modp->curr.num_breakpoints++;
         }
 #else
-        BeamInstr volatile *pc = (BeamInstr*)erts_codeinfo_to_code(ci);
+        BeamInstr volatile *pc = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
         BeamInstr instr = *pc;
+
+        ASSERT(ci_exec == ci_rw);
+        (void)ci_exec;
+
 	if (!BeamIsOpCode(instr, op_i_generic_breakpoint) && g) {
             BeamInstr br = BeamOpCodeAddr(op_i_generic_breakpoint);
 
@@ -452,30 +462,33 @@ erts_uninstall_breakpoints(BpFunctions* f)
     Uint n = f->matched;
 
     for (i = 0; i < n; i++) {
-        uninstall_breakpoint(f->matching[i].ci);
+        uninstall_breakpoint(f->matching[i].ci_rw, f->matching[i].ci_exec);
     }
 }
 
 #ifdef BEAMASM
 static void
-uninstall_breakpoint(ErtsCodeInfo *ci)
+uninstall_breakpoint(ErtsCodeInfo *ci_rw, const ErtsCodeInfo *ci_exec)
 {
-    if (erts_asm_bp_get_flags(ci) & ERTS_ASM_BP_FLAG_BP) {
-        GenericBp* g = ci->u.gen_bp;
+    if (erts_asm_bp_get_flags(ci_rw) & ERTS_ASM_BP_FLAG_BP) {
+        GenericBp* g = ci_rw->u.gen_bp;
 
         if (g->data[erts_active_bp_ix()].flags == 0) {
-            erts_asm_bp_unset_flag(ci, ERTS_ASM_BP_FLAG_BP);
+            erts_asm_bp_unset_flag(ci_rw, ci_exec, ERTS_ASM_BP_FLAG_BP);
         }
     }
 }
 #else
 static void
-uninstall_breakpoint(ErtsCodeInfo *ci)
+uninstall_breakpoint(ErtsCodeInfo *ci_rw, const ErtsCodeInfo *ci_exec)
 {
-    BeamInstr *pc = (BeamInstr*)erts_codeinfo_to_code(ci);
+    BeamInstr *pc = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
+
+    ASSERT(ci_rw == ci_exec);
+    (void)ci_exec;
 
     if (BeamIsOpCode(*pc, op_i_generic_breakpoint)) {
-        GenericBp* g = ci->u.gen_bp;
+        GenericBp* g = ci_rw->u.gen_bp;
 
         if (g->data[erts_active_bp_ix()].flags == 0) {
             /*
@@ -574,7 +587,7 @@ erts_clear_time_break(BpFunctions* f)
 {
     clear_break(f, ERTS_BPF_TIME_TRACE|ERTS_BPF_TIME_TRACE_ACTIVE);
 }
-
+ 
 void
 erts_clear_all_breaks(BpFunctions* f)
 {
@@ -605,16 +618,18 @@ erts_clear_module_break(Module *modp) {
     erts_commit_staged_bp();
 
     for (i = 0; i < n; ++i) {
-        ErtsCodeInfo* ci;
+        const ErtsCodeInfo *ci_exec;
+        ErtsCodeInfo *ci_rw;
         void *w_ptr;
 
-        w_ptr = erts_writable_code_ptr(&modp->curr,
-                                       code_hdr->functions[i]);
-        ci = (ErtsCodeInfo*)w_ptr;
+        ci_exec = code_hdr->functions[i];
+        w_ptr = erts_writable_code_ptr(&modp->curr, ci_exec);
+        ci_rw = (ErtsCodeInfo*)w_ptr;
 
-        uninstall_breakpoint(ci);
-        consolidate_bp_data(modp, ci, 1);
-        ASSERT(ci->u.gen_bp == NULL);
+        uninstall_breakpoint(ci_rw, ci_exec);
+        consolidate_bp_data(modp, ci_rw, 1);
+
+        ASSERT(ci_rw->u.gen_bp == NULL);
     }
 
     return n;
@@ -1367,9 +1382,9 @@ set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
 
     n = f->matched;
     for (i = 0; i < n; i++) {
-	set_function_break(f->matching[i].ci,
+        set_function_break(f->matching[i].ci_rw,
                            match_spec, break_flags,
-			   count_op, tracer);
+                           count_op, tracer);
     }
 }
 
@@ -1503,7 +1518,7 @@ clear_break(BpFunctions* f, Uint break_flags)
 
     n = f->matched;
     for (i = 0; i < n; i++) {
-	clear_function_break(f->matching[i].ci, break_flags);
+        clear_function_break(f->matching[i].ci_exec, break_flags);
     }
 }
 

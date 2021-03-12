@@ -70,7 +70,7 @@ typedef enum {
 } ErtsFrameLayout;
 
 ERTS_GLB_INLINE
-const int erts_cp_size(void);
+int erts_cp_size(void);
 
 #if defined(BEAMASM) && defined(ERLANG_FRAME_POINTERS)
 extern ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
@@ -99,6 +99,8 @@ extern ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
  * purpose. */
 
 #if defined(BEAMASM) && defined(NATIVE_ERLANG_STACK)
+#define S_REDZONE (CP_SIZE * 3)
+#elif defined(BEAMASM) && defined(__aarch64__)
 #define S_REDZONE (CP_SIZE * 3)
 #elif defined(DEBUG)
 /* Ensure that a redzone won't cause problems in the interpreter. */
@@ -317,7 +319,7 @@ extern void** beam_ops;
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE
-const int erts_cp_size()
+int erts_cp_size()
 {
     if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
         return 1;

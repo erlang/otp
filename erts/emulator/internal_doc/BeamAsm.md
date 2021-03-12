@@ -228,16 +228,17 @@ The `erts_writable_code_ptr` function can be used to get writable pointers,
 given a module instance:
 
     for (i = 0; i < n; ++i) {
-        ErtsCodeInfo* ci;
+        const ErtsCodeInfo* ci_exec;
+        ErtsCodeInfo* ci_rw;
         void *w_ptr;
 
-        w_ptr = erts_writable_code_ptr(&modp->curr,
-                                       code_hdr->functions[i]);
-        ci = (ErtsCodeInfo*)w_ptr;
+        ci_exec = code_hdr->functions[i];
+        w_ptr = erts_writable_code_ptr(&modp->curr, ci_exec);
+        ci_rw = (ErtsCodeInfo*)w_ptr;
 
-        uninstall_breakpoint(ci);
-        consolidate_bp_data(modp, ci, 1);
-        ASSERT(ci->u.gen_bp == NULL);
+        uninstall_breakpoint(ci_rw, ci_exec);
+        consolidate_bp_data(modp, ci_rw, 1);
+        ASSERT(ci_rw->u.gen_bp == NULL);
     }
 
 Without the module instance there's no reliable way to figure out the writable

@@ -2881,9 +2881,12 @@ if test ${enable_jit} != no; then
         amd64)
            JIT_ARCH=x86
            ;;
+        arm64)
+           JIT_ARCH=arm
+           ;;
         *)
            if test ${enable_jit} = yes; then
-             AC_MSG_ERROR([JIT only works on x86 64-bit])
+             AC_MSG_ERROR([JIT only works on x86 64-bit and ARM 64-bit])
            else
              enable_jit=no
              AC_MSG_WARN([JIT disabled due to lack to support on $ARCH-$OPSYS])

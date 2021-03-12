@@ -27,6 +27,10 @@
 #    include "beam_file.h"
 #    include "beam_common.h"
 
+#    if defined(__APPLE__)
+#        include <libkern/OSCacheControl.h>
+#    endif
+
 /* Global configuration variables */
 #    ifdef HAVE_LINUX_PERF_SUPPORT
 #        define BEAMASM_PERF_DUMP (1 << 0)
@@ -77,8 +81,16 @@ char *beamasm_get_base(void *instance);
 /* Return current instruction offset, for line information. */
 size_t beamasm_get_offset(void *ba);
 
-// Number of bytes emitted at first label in order to support trace and nif load
-#    define BEAM_ASM_FUNC_PROLOGUE_SIZE 8
+void beamasm_flush_icache(const void *address, size_t size);
+
+/* Number of bytes emitted at first label in order to support trace and nif
+ * load. */
+#    if defined(__aarch64__)
+#        define BEAM_ASM_BP_RETURN_OFFSET 16
+#        define BEAM_ASM_FUNC_PROLOGUE_SIZE 16
+#    else
+#        define BEAM_ASM_FUNC_PROLOGUE_SIZE 8
+#    endif
 
 /*
  * The code below is used to deal with intercepting the execution of
@@ -88,7 +100,7 @@ size_t beamasm_get_offset(void *ba);
  * the first instruction in a function. In asm mode it is not as simple as
  * our code changes have to be to executing native code.
  *
- * The solution is as follows:
+ * On x86, the solution is as follows:
  *
  *   When emitting a function the first word (or function prologue) is:
  *      0x0: jmp 6
@@ -117,6 +129,12 @@ size_t beamasm_get_offset(void *ba);
  *   is updated. So if CALL_NIF_EARLY is set, then it is updated to be
  *   genericBPTramp + 0x10. If BP is set, it is updated to genericBPTramp + 0x20
  *   and the combination makes it be genericBPTramp + 0x30.
+ *
+ * The solution for AArch64 is similar but we move the flag to a register
+ * before jumping to `genericBPTramp`, where we branch on said flag value. This
+ * is necessary because the maximum jump distance is limited to 128MB and we
+ * need veneers to jump further than that, which are very annoying to deal with
+ * here.
  */
 
 enum erts_asm_bp_flag {
@@ -127,9 +145,61 @@ enum erts_asm_bp_flag {
             ERTS_ASM_BP_FLAG_CALL_NIF_EARLY | ERTS_ASM_BP_FLAG_BP
 };
 
-static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci,
+static inline enum erts_asm_bp_flag erts_asm_bp_get_flags(
+        const ErtsCodeInfo *ci_exec) {
+    enum erts_asm_bp_flag flag;
+
+#    if defined(__aarch64__)
+    Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
+
+    /* MOVZ instruction, flag lives in bits 5..21 */
+    const Uint32 flag_immed_shift = 5;
+    const Uint32 flag_immed_mask = ((1 << 16) - 1) << flag_immed_shift;
+
+    Uint32 set_flag = exec_code[2]; /* MOVZ x0, flag */
+
+    ASSERT((set_flag & ~flag_immed_mask) == 0xd2800000);
+    flag = (enum erts_asm_bp_flag)((set_flag & flag_immed_mask) >>
+                                   flag_immed_shift);
+
+#    else /* x86_64 */
+    byte *codebytes = (byte *)erts_codeinfo_to_code(ci_exec);
+    /* 0xEB = relative jmp, 0xE8 = relative call */
+    flag = (enum erts_asm_bp_flag)codebytes[2];
+#    endif
+
+    return flag;
+}
+
+static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
+                                        const ErtsCodeInfo *ci_exec,
                                         enum erts_asm_bp_flag flag) {
-    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci);
+#    if defined(__aarch64__)
+    const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
+    Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
+
+    const Uint32 branch_target_shift = 0;
+    const Uint32 branch_target_mask = ((1 << 26) - 1) << branch_target_shift;
+    const Uint32 flag_immed_shift = 5;
+    const Uint32 flag_immed_mask = ((1 << 16) - 1) << flag_immed_shift;
+
+    Uint32 old_guard_branch = rw_code[1]; /* B next */
+    Uint32 old_set_flag = rw_code[2];     /* MOVZ x0, flag */
+
+    ASSERT((old_guard_branch & ~branch_target_mask) == 0x14000000);
+    ASSERT((old_set_flag & ~flag_immed_mask) == 0xd2800000);
+    (void)flag_immed_mask;
+
+    /* MOVZ instruction, flag lives in bits 5..21 */
+    rw_code[2] = old_set_flag | (flag << flag_immed_shift);
+
+    /* Reroute the initial branch instruction to the flag instruction. */
+    rw_code[1] = (old_guard_branch & ~branch_target_mask) |
+                 (1 << branch_target_shift);
+
+    beamasm_flush_icache(&exec_code[1], sizeof(Uint32[2]));
+#    else /* x86_64 */
+    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci_rw);
     BeamInstr code = *code_ptr;
     byte *codebytes = (byte *)&code;
     Uint32 *code32 = (Uint32 *)(codebytes + 4);
@@ -139,16 +209,50 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci,
     codebytes[2] |= flag;
     *code32 += flag * 16;
     code_ptr[0] = code;
+
+    (void)ci_exec;
+#    endif
 }
 
-static inline enum erts_asm_bp_flag erts_asm_bp_get_flags(ErtsCodeInfo *ci) {
-    byte *codebytes = (byte *)erts_codeinfo_to_code(ci);
-    return (enum erts_asm_bp_flag)codebytes[2];
-}
-
-static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci,
+static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
+                                          const ErtsCodeInfo *ci_exec,
                                           enum erts_asm_bp_flag flag) {
-    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci);
+#    if defined(__aarch64__)
+    const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
+    Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
+
+    const Uint32 flag_immed_shift = 5;
+    const Uint32 flag_immed_mask = ((1 << 16) - 1) << flag_immed_shift;
+    const Uint32 branch_target_shift = 0;
+    const Uint32 branch_target_mask = ((1 << 26) - 1) << branch_target_shift;
+
+    Uint32 old_guard_branch = rw_code[1]; /* B next */
+    Uint32 old_set_flag = rw_code[2];     /* MOVZ x0, flag */
+    Uint32 new_set_flag;
+
+    ASSERT((old_guard_branch & ~branch_target_mask) == 0x14000000);
+    ASSERT((old_set_flag & ~flag_immed_mask) == 0xd2800000);
+
+    new_set_flag = old_set_flag & ~(flag << flag_immed_shift);
+    rw_code[2] = new_set_flag;
+
+    ERTS_CT_ASSERT(ERTS_ASM_BP_FLAG_NONE == 0);
+    if ((new_set_flag & flag_immed_mask) == 0) {
+        Uint32 new_guard_branch, new_target;
+
+        /* We've removed the last flag, route the branch instruction back
+         * past the prologue. */
+        new_target = (BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(Uint32) - 1);
+
+        new_guard_branch = (old_guard_branch & ~branch_target_mask) |
+                           (new_target << branch_target_shift);
+        rw_code[1] = new_guard_branch;
+    }
+
+    beamasm_flush_icache(&exec_code[1], sizeof(Uint32[2]));
+
+#    else /* x86_64 */
+    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci_rw);
     BeamInstr code = *code_ptr;
     byte *codebytes = (byte *)&code;
     Uint32 *code32 = (Uint32 *)(codebytes + 4);
@@ -160,6 +264,9 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci,
         codebytes[1] = 6;
     }
     code_ptr[0] = code;
+
+    (void)ci_exec;
+#    endif
 }
 
 #endif
