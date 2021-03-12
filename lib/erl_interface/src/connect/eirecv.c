@@ -38,10 +38,17 @@
 #include "putget.h"
 #include "ei_trace.h"
 #include "show_msg.h"
+#include "ei_connect_int.h"
 
 #include <errno.h>
 
 #define EIRECVBUF 2048 /* largest possible header is approx 1300 bytes */
+
+static int
+send_unlink_id_ack(ei_socket_callbacks *cbs, void *ctx,
+                   char *id_ext, size_t id_size,
+                   erlang_pid *from, erlang_pid *to,
+                   unsigned tmo);
 
 /* length (4), PASS_THOUGH (1), header, message */
 int 
@@ -160,7 +167,46 @@ ei_recv_internal (int fd,
     }
 
     break;
-    
+
+  case ERL_UNLINK_ID: { /* {UNLINK_ID, Id, From, To} */
+      int id;
+      size_t id_size;
+
+      /* Expose old ERL_UNLINK tag to user... */
+      msg->msgtype = ERL_UNLINK;
+
+      if (ei_tracelevel >= 4) show_this_msg = 1;
+      /* Save id on external format... */
+      id = index;
+      if (ei_skip_term(header, &index)) {
+          EI_CONN_SAVE_ERRNO__(EBADMSG);      
+          return ERL_ERROR;
+      }
+      id_size = index - id;
+
+      if (ei_decode_pid(header,&index,&msg->from) 
+          || ei_decode_pid(header,&index,&msg->to)) {
+          EI_CONN_SAVE_ERRNO__(EBADMSG);      
+          return ERL_ERROR;
+      }
+      
+      if (send_unlink_id_ack(cbs, ctx, &header[0] + id, id_size,
+                             &msg->to, &msg->from, tmo)) {
+          return ERL_ERROR;
+      }
+          
+      break;
+  }
+
+  case ERL_UNLINK_ID_ACK: /* {UNLINK_ID_ACK, Id, From, To} */
+      /*
+       * ei currently do not support setting up links and removing
+       * links from the ei side, so an 'unlink id ack' signal should
+       * never arrive...
+       */
+      EI_CONN_SAVE_ERRNO__(EBADMSG);      
+      return ERL_ERROR;
+
   case ERL_EXIT:         /* { EXIT, From, To, Reason } */
   case ERL_EXIT2:        /* { EXIT2, From, To, Reason } */
     if (ei_tracelevel >= 4) show_this_msg = 1;
@@ -288,6 +334,60 @@ ei_recv_internal (int fd,
   if (msg->msgtype > 10) msg->msgtype -= 10;
   
   return msg->msgtype;
+}
+
+static int
+send_unlink_id_ack(ei_socket_callbacks *cbs, void *ctx,
+                   char *id_ext, size_t id_size,
+                   erlang_pid *from, erlang_pid *to,
+                   unsigned tmo)
+{
+    /* Send: {ERL_UNLINK_ID_ACK, Id, From, To} */
+    int err, index;
+    ssize_t wlen;
+    char ctl[EIRECVBUF]; /* should be large enough for any ctrl msg */
+    char *s;
+
+    EI_CONN_SAVE_ERRNO__(EINVAL);
+
+    /* leave space for packet size and pass through marker... */
+    index = 5;
+    if (ei_encode_version(ctl, &index) < 0)
+        return ERL_ERROR;
+    if (ei_encode_tuple_header(ctl, &index, 4) < 0)
+        return ERL_ERROR;
+    if (ei_encode_long(ctl, &index, ERL_UNLINK_ID_ACK) < 0)
+        return ERL_ERROR;
+    s = &ctl[0] + index;
+    index += id_size;
+    memcpy((void *) s, (void *) id_ext, id_size);
+    if (ei_encode_pid(ctl, &index, from) < 0)
+        return ERL_ERROR;
+    if (ei_encode_pid(ctl, &index, to) < 0)
+        return ERL_ERROR;
+
+    s = &ctl[0];
+    /* packet size */
+    put32be(s, index - 4);
+    /* pass throug */
+    put8(s, ERL_PASS_THROUGH);
+
+    if (ei_tracelevel >= 4) {
+        if (ei_show_sendmsg(stderr, ctl, NULL) < 0)
+            return ERL_ERROR;
+    }
+
+    wlen = (ssize_t) index;
+    err = ei_write_fill_ctx_t__(cbs, ctx, ctl, &wlen, tmo);
+    if (!err && wlen != (ssize_t) index)
+        err = EIO;
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
+  }
+
+  erl_errno = 0;
+  return 0;
 }
 
 int ei_receive_encoded(int fd, char **mbufp, int *bufsz,

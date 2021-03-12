@@ -2265,7 +2265,8 @@ static DistFlags preferred_flags(void)
         | DFLAG_EXPORT_PTR_TAG
         | DFLAG_BIT_BINARIES
         | DFLAG_HANDSHAKE_23
-        | DFLAG_V4_NC;
+        | DFLAG_V4_NC
+        | DFLAG_UNLINK_ID;
     if (ei_internal_use_21_bitstr_expfun()) {
         flags &= ~(DFLAG_EXPORT_PTR_TAG
                    | DFLAG_BIT_BINARIES);
