@@ -44,7 +44,7 @@ Erlang, for example, is `otp_win64_%OTP-REL%.exe`.
 If you feel comfortable with the environment and build
 system, and have all the necessary tools, you have a great opportunity
 to make the Erlang/OTP distribution for Windows better. Please submit
-any suggestions to our [JIRA] [2] and patches to our [git project] [3] to let
+any suggestions or patches to our [git project] [2] to let
 them find their way into the next version of Erlang. If making changes
 to the build system (like makefiles etc) please bear in mind that the
 same makefiles are used on Unix/VxWorks, so that your changes
@@ -892,7 +892,6 @@ cannot be built as MsysGIT/MSYS does not handle symbolic links.
 
 
    [1]: http://www.erlang.org/static/doc/mailinglist.html
-   [2]: https://github.com/erlang/otp/issues
-   [3]: https://github.com/erlang/otp
+   [2]: https://github.com/erlang/otp
 
    [?TOC]: true
