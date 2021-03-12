@@ -693,7 +693,7 @@ public:
   //! Emitters can be only attached to initialized `CodeHolder` instances.
   inline bool isInitialized() const noexcept { return _environment.isInitialized(); }
 
-  //! Initializes CodeHolder to hold code described by code `info`.
+  //! Initializes CodeHolder to hold code described by the given `environment` and `baseAddress`.
   ASMJIT_API Error init(const Environment& environment, uint64_t baseAddress = Globals::kNoBaseAddress) noexcept;
   //! Detaches all code-generators attached and resets the `CodeHolder`.
   ASMJIT_API void reset(uint32_t resetPolicy = Globals::kResetSoft) noexcept;

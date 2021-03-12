@@ -77,6 +77,7 @@ public:
   // --------------------------------------------------------------------------
 
   inline bool avxEnabled() const noexcept { return _emitHelper._avxEnabled; }
+  inline bool avx512Enabled() const noexcept { return _emitHelper._avx512Enabled; }
 
   inline uint32_t choose(uint32_t sseInstId, uint32_t avxInstId) noexcept {
     return avxEnabled() ? avxInstId : sseInstId;
@@ -94,6 +95,12 @@ public:
   // --------------------------------------------------------------------------
 
   Error buildCFG() noexcept override;
+
+  // --------------------------------------------------------------------------
+  // [Rewrite]
+  // --------------------------------------------------------------------------
+
+  Error _rewrite(BaseNode* first, BaseNode* stop) noexcept override;
 
   // --------------------------------------------------------------------------
   // [Emit]

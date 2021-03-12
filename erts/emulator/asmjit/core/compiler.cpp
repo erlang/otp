@@ -219,7 +219,7 @@ Error BaseCompiler::_newInvokeNode(InvokeNode** out, uint32_t instId, const Oper
   if (argCount) {
     node->_args = static_cast<InvokeNode::OperandPack*>(_allocator.alloc(argCount * sizeof(InvokeNode::OperandPack)));
     if (!node->_args)
-      reportError(DebugUtils::errored(kErrorOutOfMemory));
+      return reportError(DebugUtils::errored(kErrorOutOfMemory));
     memset(node->_args, 0, argCount * sizeof(InvokeNode::OperandPack));
   }
 

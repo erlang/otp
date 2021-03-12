@@ -801,7 +801,7 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
 
         uint32_t physId = tiedReg->outId();
         if (physId == RAAssignment::kPhysNone) {
-          uint32_t allocableRegs = _availableRegs[group] & ~(outRegs | avoidRegs);
+          uint32_t allocableRegs = tiedReg->_allocableRegs & ~(outRegs | avoidRegs);
 
           if (!(allocableRegs & ~liveRegs)) {
             // There are no more registers, decide which one to spill.
