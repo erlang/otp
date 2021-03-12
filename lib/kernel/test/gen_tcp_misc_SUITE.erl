@@ -71,26 +71,35 @@
 
 init_per_testcase(_Func, Config) ->
     ?P("init_per_testcase -> entry with"
-       "~n   Config: ~p"
-       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
 
     kernel_test_global_sys_monitor:reset_events(),
 
     ?P("init_per_testcase -> done when"
-       "~n      Nodes: ~p", [erlang:nodes()]),
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
     Config.
 
 end_per_testcase(_Func, Config) ->
     ?P("end_per_testcase -> entry with"
-       "~n   Config: ~p"
-       "~n   Nodes:  ~p",
-       [Config, erlang:nodes()]),
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
 
     ?P("system events during test: "
        "~n   ~p", [kernel_test_global_sys_monitor:events()]),
 
     ?P("end_per_testcase -> done with"
-       "~n   Nodes: ~p", [erlang:nodes()]),
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
     ok.
 
 suite() ->
@@ -6210,7 +6219,6 @@ do_bidirectional_traffic(Config) ->
     Workers = erlang:system_info(schedulers_online) * 2,
     ?P("Use ~w workers", [Workers]),
     Payload = crypto:strong_rand_bytes(32),
-    ?P("create listen socket"),
     {ok, LSock} = ?LISTEN(Config,
 			  0,
 			  [binary,
@@ -6218,6 +6226,8 @@ do_bidirectional_traffic(Config) ->
 			   {active, false},
 			   {reuseaddr, true}]),
     %% get all sockets to know failing ends
+    ?P("listen socket created: "
+       "~n      ~p", [LSock]),
     {ok, Port} = inet:port(LSock),
     ?P("listen socket port number ~w", [Port]),
     Control = self(),
@@ -6242,13 +6252,15 @@ do_bidirectional_traffic(Config) ->
         end,
     ?P("ensure all receivers terminated"),
     [begin unlink(Rec), exit(Rec, kill) end || Rec <- Receivers],
+    ?P("close listen socket"),
+    (catch gen_tcp:close(LSock)),
     ?P("done"),
     Result.
 
     
 exchange(Config, LSock, Port, Payload, Control) ->
     %% spin up client
-    _ClntRcv = spawn(
+    _ClntRcv = spawn_link(
         fun () ->
                 ?P("connect"),
                 {ok, Client} =
@@ -6273,8 +6285,14 @@ send_recv_loop(Socket, Payload, Control) ->
     ?P("spawn sender"),
     _Snd = spawn_link(
         fun Sender() ->
-            _ = gen_tcp:send(Socket, Payload),
-            Sender()
+            case gen_tcp:send(Socket, Payload) of
+                ok ->
+                    Sender();
+                {error, Reason} ->
+                    ?P("Send failed: "
+                       "~n      ~p", [Reason]),
+                    exit({send_failed, Reason})
+            end
         end),
     ?P("begin recv"),
     recv(Socket, 0, Control).
@@ -6341,6 +6359,13 @@ recv(Socket, Total, Control) ->
 	    end
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
