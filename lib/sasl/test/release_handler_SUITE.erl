@@ -1847,14 +1847,19 @@ otp_10463_upgrade_script_regexp(cleanup,Config) ->
     code:del_path(filename:join([DataDir,regexp_appup,app1,ebin])),
     ok.
 
-no_dot_erlang(_Conf) ->
-    case init:get_argument(home) of
-        {ok,[[Home]]} when is_list(Home) ->
-            no_dot_erlang_1(Home);
-        _ -> ok
+no_dot_erlang(Conf) ->
+    case {os:type(),init:get_argument(home)} of
+        {{unix,_},_} ->
+            %% On unix we set HOME to priv_dir so that we
+            %% do not have to change the users ~/.erlang
+            Home = ?config(priv_dir, Conf),
+            no_dot_erlang_1("HOME=\""++ Home ++"\" ",Home);
+        {{win32,_},{ok,[[Home]]}} when is_list(Home) ->
+            no_dot_erlang_1("",Home);
+        _ -> {skip,"Could not find home directory"}
     end.
 
-no_dot_erlang_1(Home) ->
+no_dot_erlang_1(Prefix, Home) ->
     DotErlang = filename:join(Home, ".erlang"),
     BupErlang = filename:join(Home, ".erlang_testbup"),
     try
@@ -1869,7 +1874,7 @@ no_dot_erlang_1(Home) ->
 	Args = " -noinput -run c pwd -run erlang halt",
 	ok = file:write_file(DotErlang, <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
 
-	CMD1 = Quote ++ Erl ++ Quote ++ Args ,
+	CMD1 = Prefix ++ Quote ++ Erl ++ Quote ++ Args ,
 	case os:cmd(CMD1) of
 	    "DOT_ERLANG_READ" ++ _ ->
                 io:format("~p: Success~n", [?LINE]);
@@ -1880,7 +1885,7 @@ no_dot_erlang_1(Home) ->
 		exit({failed_to_start, test_error})
 	end,
 	NO_DOT_ERL = " -boot no_dot_erlang",
-	CMD2 = Quote ++ Erl ++ Quote ++ NO_DOT_ERL ++ Args,
+	CMD2 = Prefix ++ Quote ++ Erl ++ Quote ++ NO_DOT_ERL ++ Args,
 	case lists:prefix(Wd, Other2 = os:cmd(CMD2)) of
 	    true -> io:format("~p: Success~n", [?LINE]);
 	    false ->
