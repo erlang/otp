@@ -327,8 +327,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -466,8 +466,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -594,6 +594,12 @@
 	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
+      </row>
 
       <row>
         <cell align="left" valign="middle"></cell>
@@ -624,6 +630,12 @@
         <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">use_srtp (RFC5764)</cell>
+        <cell align="left" valign="middle"><em>C</em></cell>
+        <cell align="left" valign="middle">26.0</cell>
       </row>
 
       <row>

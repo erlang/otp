@@ -402,6 +402,8 @@
 -type middlebox_comp_mode()      :: boolean().
 -type client_early_data()        :: binary().
 -type server_early_data()        :: disabled | enabled.
+-type use_srtp_protection_profiles() :: [binary()].
+-type use_srtp_mki()             :: binary().
 -type spawn_opts()               :: [erlang:spawn_opt_option()].
 
 %% -------------------------------------------------------------------------------------------------------
@@ -423,7 +425,9 @@
                                 {certificate_authorities, client_certificate_authorities()} |
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
-                                {early_data, client_early_data()}.
+                                {early_data, client_early_data()} |
+                                {use_srtp_protection_profiles, use_srtp_protection_profiles()} |
+                                {use_srtp_mki, use_srtp_mki()}.
                                 %% {ocsp_stapling, ocsp_stapling()} |
                                 %% {ocsp_responder_certs, ocsp_responder_certs()} |
                                 %% {ocsp_nonce, ocsp_nonce()}.
@@ -475,7 +479,9 @@
                                 {stateless_tickets_seed, stateless_tickets_seed()} |
                                 {anti_replay, anti_replay()} |
                                 {cookie, cookie()} |
-                                {early_data, server_early_data()}.
+                                {early_data, server_early_data()} |
+                                {use_srtp_protection_profiles, use_srtp_protection_profiles()} |
+                                {use_srtp_mki, use_srtp_mki()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
 -type server_cafile()            :: file:filename().
@@ -1551,6 +1557,8 @@ ssl_options() ->
      srp_identity,
      supported_groups,
      use_ticket,
+     use_srtp_protection_profiles,
+     use_srtp_mki,
      user_lookup_fun,
      verify, verify_fun,
      versions
@@ -1583,7 +1591,8 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts15 = opt_supported_groups(UserSslOptsMap, SslOpts14, Env),
     SslOpts16 = opt_crl(UserSslOptsMap, SslOpts15, Env),
     SslOpts17 = opt_handshake(UserSslOptsMap, SslOpts16, Env),
-    SslOpts = opt_process(UserSslOptsMap, SslOpts17, Env),
+    SslOpts18 = opt_use_srtp(UserSslOptsMap, SslOpts17, Env),
+    SslOpts = opt_process(UserSslOptsMap, SslOpts18, Env),
     SslOpts.
 
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
@@ -2233,6 +2242,27 @@ opt_handshake(UserOpts, Opts, _Env) ->
 
     Opts#{handshake => HS, max_handshake_size => MHSS}.
 
+opt_use_srtp(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
+    PPs = case get_opt_list(use_srtp_protection_profiles, undefined, UserOpts, Opts) of
+              {old, PPs0} ->
+                  PPs0;
+              {default, undefined} ->
+                  undefined;
+              {new, PPs0} ->
+                  assert_protocol_dep(use_srtp_protection_profiles, Protocol, [dtls]),
+                  validate_use_srtp_protection_profiles(PPs0)
+          end,
+    {_, MKI} = get_opt_bin(use_srtp_mki, <<>>, UserOpts, Opts),
+    Opts#{use_srtp_protection_profiles => PPs, use_srtp_mki => MKI}.
+
+validate_use_srtp_protection_profiles(PPs) ->
+    IsValidProfile = fun(<<_, _>>) -> true; (_) -> false end,
+    case lists:all(IsValidProfile, PPs) of
+        true -> PPs;
+        false -> option_error(use_srtp_protection_profiles, PPs)
+    end.
+
+
 opt_process(UserOpts, Opts0, _Env) ->
     Opts1 = set_opt_list(receiver_spawn_opts, [], UserOpts, Opts0),
     Opts2 = set_opt_list(sender_spawn_opts, [], UserOpts, Opts1),
@@ -2419,6 +2449,12 @@ option_error(Tag, What) ->
 -spec throw_error(_) -> no_return().
 throw_error(Err) ->
     throw({error, Err}).
+
+assert_protocol_dep(Option, Protocol, AllowedProtos) ->
+    case lists:member(Protocol, AllowedProtos) of
+        true -> ok;
+        false -> option_incompatible([Option, {protocol, Protocol}])
+    end.
 
 assert_version_dep(Option, Vsns, AllowedVsn) ->
     assert_version_dep(true, Option, Vsns, AllowedVsn).

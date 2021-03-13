@@ -1231,6 +1231,36 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	</desc>
       </datatype>
 
+      <datatype>
+        <name name="use_srtp_protection_profiles"/>
+        <desc>
+          <p>Configures the list of the client's acceptable SRTP Protection Profiles.</p>
+          <p>In order to negotiate the use of SRTP data protection, clients
+          include an extension of type "use_srtp" in the DTLS extended client
+          hello.  This extension MUST only be used when the data being
+          transported is RTP or RTCP.</p>
+          <p>This extension MUST only be used with DTLS, and not with TLS</p>
+          <p>OTP does not handle SRTP, so an external implementation of SRTP
+          encoder/decoder and a packet demultiplexer are needed to make use
+          of the use_srtp extension. See also <c>cb_info</c> option</p>
+        </desc>
+      </datatype>
+
+      <datatype>
+        <name name="use_srtp_mki"/>
+        <desc>
+          <p>Configures the SRTP Master Key Identifier chosen by the client.</p>
+          <p>This options only has effect only when <c>use_srtp_protection_profiles</c>
+          option is specified.</p>
+          <p>The srtp_mki field contains the value of the SRTP MKI which is associated
+          with the SRTP master keys derived from this handshake.  Each SRTP
+          session MUST have exactly one master key that is used to protect
+          packets at any given time.  The client MUST choose the MKI value so
+          that it is distinct from the last MKI value that was used, and it
+          SHOULD make these values unique for the duration of the TLS session.</p>
+        </desc>
+      </datatype>
+
     <!--   <datatype> -->
   <!-- 	<name name="ocsp_stapling"/> -->
   <!-- 	<desc><p>If true, OCSP stapling will be enabled, an extension of type "status_request" will be -->
@@ -1579,6 +1609,31 @@ fun(srp, Username :: binary(), UserState :: term()) ->
           </p>
 	  <warning><p>This option is a placeholder, early data is not yet implemented on the server side.
           </p></warning>
+        </desc>
+      </datatype>
+
+      <datatype>
+        <name name="use_srtp_protection_profiles"/>
+        <desc>
+          <p>Configures the server's chosen SRTP Protection Profile (as a list of a single profile).</p>
+          <p>Servers that receive an extended hello containing a "use_srtp"
+          extension can agree to use SRTP by including an extension of type
+          "use_srtp", with the chosen protection profile in the extended server
+          hello.</p>
+        </desc>
+      </datatype>
+
+      <datatype>
+        <name name="use_srtp_mki"/>
+        <desc>
+          <p>Configures the server's SRTP Master Key Identifier.</p>
+          <p>Upon receipt of a "use_srtp" extension containing a "srtp_mki" field,
+          the server MUST either (assuming it accepts the extension at all):</p>
+	  <list type="bulleted">
+	    <item><p>include a matching "srtp_mki" value in its "use_srtp" extension
+            to indicate that it will make use of the MKI, or</p></item>
+	    <item><p>return an empty "srtp_mki" value to indicate that it cannot make use of the MKI.</p></item>
+	  </list>
         </desc>
       </datatype>
 

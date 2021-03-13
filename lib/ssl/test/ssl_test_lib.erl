@@ -1152,10 +1152,8 @@ client_cont_loop(_Node, Host, Port, Pid, Transport, Options, ContOpts0, Opts) ->
             case Transport:handshake_continue(Socket0, ContOpts) of
                 {ok, Socket} ->
                     Pid ! {connected, Socket},
-                    {Module, Function, Args} = proplists:get_value(mfa, Opts),
-                    ?LOG("~nClient: apply(~p,~p,~p)~n",
-                           [Module, Function, [Socket | Args]]),
-                    case apply(Module, Function, [Socket | Args]) of
+                    MFA = proplists:get_value(mfa, Opts),
+                    case client_apply_mfa(Socket, MFA) of
                         no_result_msg ->
                             ok;
                         Msg ->

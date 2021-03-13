@@ -2295,6 +2295,7 @@ options_whitebox(Config) when is_list(Config) ->
     options_sni(Config),
     options_sign_alg(Config),
     options_supported_groups(Config),
+    options_use_srtp(Config),
     ok.
 
 options_protocol(_Config) ->
@@ -2986,6 +2987,23 @@ options_supported_groups(_Config) ->
     ?ERR({supported_groups, not_a_list}, [{supported_groups, not_a_list}], client),
     ?ERR({supported_groups, none_valid},  [{supported_groups, []}], client),
     ?ERR({supported_groups, none_valid},  [{supported_groups, [foo]}], client),
+    ok.
+
+options_use_srtp(_Config) ->
+    ?OK(#{use_srtp_protection_profiles := [<<0,2>>, <<0,5>>], use_srtp_mki := <<>>},
+        [{protocol, dtls}, {use_srtp_protection_profiles, [<<0,2>>, <<0,5>>]}], client),
+    ?OK(#{use_srtp_protection_profiles := [<<0,2>>], use_srtp_mki := <<>>},
+        [{protocol, dtls}, {use_srtp_protection_profiles, [<<0,2>>]}], server),
+    ?OK(#{use_srtp_protection_profiles := [<<0,2>>, <<0,5>>], use_srtp_mki := <<"123">>},
+        [{protocol, dtls}, {use_srtp_protection_profiles, [<<0,2>>, <<0,5>>]},
+         {use_srtp_mki, <<"123">>}], client),
+    ?OK(#{use_srtp_protection_profiles := [<<0,2>>], use_srtp_mki := <<"123">>},
+        [{protocol, dtls}, {use_srtp_protection_profiles, [<<0,2>>]},
+         {use_srtp_mki, <<"123">>}], server),
+
+    % use_srtp is DTLS-only extension, by default setting its options should raise an error
+    ?ERR({options, incompatible, _}, [{use_srtp_protection_profiles, [<<0,2>>, <<0,5>>]}], client),
+    ?ERR({options, incompatible, _}, [{use_srtp_protection_profiles, [<<0,2>>]}], server),
     ok.
 
 %%-------------------------------------------------------------------

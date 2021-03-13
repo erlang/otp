@@ -371,6 +371,17 @@
 -define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 5764 section 4 Datagram Transport Layer Security (DTLS) Extensions
+%% for SRTP (Secure Real-time Transport Protocol) Key Establishment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(USE_SRTP_EXT, 14).
+
+-record(use_srtp, {
+    protection_profiles,
+    mki
+   }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ECC RFC 4492 Handshake Messages, Section 5
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
