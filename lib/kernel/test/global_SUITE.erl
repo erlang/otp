@@ -19,8 +19,11 @@
 %%
 -module(global_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, groups/0, 
 	 init_per_suite/1, end_per_suite/1,
+         init_per_group/2,end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+
 	 names/1, names_hidden/1, locks/1, locks_hidden/1,
 	 bad_input/1, names_and_locks/1, lock_die/1, name_die/1,
 	 basic_partition/1, basic_name_partition/1,
@@ -38,16 +41,74 @@
 	 both_known_1/1,
          lost_unregister/1,
 	 mass_death/1,
-	 garbage_messages/1]).
+	 garbage_messages/1,
 
--export([global_load/3, lock_global/2, lock_global2/2]).
+         ring_line/1
+        ]).
 
--export([]).
--export([init_mass_spawn/1]).
+%% Not used
+-export([simple_dis/4,
+         config_dc/4,
+         w/2,
+         check_same/2,
+         check_same/1,
+         stop/0,
+         start_nodes_serially/3]).
+
+-export([lock_global/2, lock_global2/2]).
+
+-export([
+         %% Called via ?RES
+         resolve_none/3,
+         resolve_first/3,
+         resolve_second/3,
+         bad_resolver/3,
+         badrpc_resolver/3,
+         lock_resolver/3,
+         exit_resolver/3,
+         disconnect_first/3,
+         halt_second/3,
+         init_mass_spawn/1,
+
+         %% Called via rpc_cast
+         part_2_2/4,
+         part1/4,
+         part1_5/4,
+         part2/10,
+         part3/10,
+         crash/1,
+         single_node/3,
+         part_ext/4,
+         isolated_node/4,
+         mk_part_node/3,
+         alone/2,
+         global_load/3,
+
+         %% Called via rpc:call
+         halt_node/1,
+         start_proc/0, start_proc/1,
+         start_proc2/1,
+         start_proc3/1,
+         start_proc4/1,
+         start_proc_basic/1,
+         start_resolver/2,
+
+         %% Called as a fun (fun ?MODULE:function/x) 
+         fix_basic_name/3,
+
+         %% Called via spawn
+         init_proc_basic/2,
+         init_2/0,
+         p_init/1, p_init/2,
+         p_init2/2
+
+        ]).
 
 -export([start_tracer/0, stop_tracer/0, get_trace/0]).
 
--compile(export_all).
+%% Exports for error_logger handler
+-export([init/1, handle_event/2, handle_info/2, handle_call/2, terminate/2]).
+
 
 -include_lib("common_test/include/ct.hrl").
 -include("kernel_test_lib.hrl").
@@ -1237,7 +1298,7 @@ advanced_partition(Config) when is_list(Config) ->
 
     %% make cp3-cp6 connected, partitioned from us and cp0-cp2
     rpc_cast(Cp3, ?MODULE, part2,
-	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
+	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]),
     ?UNTIL(is_ready_partition(Config)),
 
     %% start different processes in this partition
@@ -1339,7 +1400,7 @@ stress_partition(Config) when is_list(Config) ->
     %% make cp3-cp5 connected, partitioned from us and cp0-cp2
     %% cp6 is alone (single node).  cp6 pings cp0 and cp3 in 12 secs...
     rpc_cast(Cp3, ?MODULE, part3,
-	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
+	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]),
     ?UNTIL(is_ready_partition(Config)),
 
     %% start different processes in this partition
