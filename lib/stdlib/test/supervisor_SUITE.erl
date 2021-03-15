@@ -412,7 +412,8 @@ sup_start_map_simple(Config) when is_list(Config) ->
     {ok, Child2} = supervisor:start_child(Pid, []),
     {ok, Child3} = supervisor:start_child(Pid, []),
 
-    Spec = ChildSpec#{type=>worker, shutdown=>5000, modules=>[supervisor_1]},
+    Spec = ChildSpec#{type=>worker, shutdown=>5000, modules=>[supervisor_1],
+		      significant=>false},
 
     {ok, Spec} = supervisor:get_childspec(Pid, Child1),
     {ok, Spec} = supervisor:get_childspec(Pid, Child2),

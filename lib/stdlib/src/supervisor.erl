@@ -61,40 +61,44 @@
 
 %%--------------------------------------------------------------------------
 
--type child()    :: 'undefined' | pid().
--type child_id() :: term().
--type mfargs()   :: {M :: module(), F :: atom(), A :: [term()] | undefined}.
--type modules()  :: [module()] | 'dynamic'.
--type restart()  :: 'permanent' | 'transient' | 'temporary'.
--type shutdown() :: 'brutal_kill' | timeout().
--type worker()   :: 'worker' | 'supervisor'.
--type sup_name() :: {'local', Name :: atom()}
-                  | {'global', Name :: atom()}
-                  | {'via', Module :: module(), Name :: any()}.
--type sup_ref()  :: (Name :: atom())
-                  | {Name :: atom(), Node :: node()}
-                  | {'global', Name :: atom()}
-                  | {'via', Module :: module(), Name :: any()}
-                  | pid().
--type child_spec() :: #{id := child_id(),       % mandatory
-			start := mfargs(),      % mandatory
-			restart => restart(),   % optional
-			shutdown => shutdown(), % optional
-			type => worker(),       % optional
-			modules => modules()}   % optional
-                    | {Id :: child_id(),
-                       StartFunc :: mfargs(),
-                       Restart :: restart(),
-                       Shutdown :: shutdown(),
-                       Type :: worker(),
-                       Modules :: modules()}.
+-type auto_shutdown() :: 'never' | 'any_significant' | 'all_significant'.
+-type child()         :: 'undefined' | pid().
+-type child_id()      :: term().
+-type mfargs()        :: {M :: module(), F :: atom(), A :: [term()] | undefined}.
+-type modules()       :: [module()] | 'dynamic'.
+-type restart()       :: 'permanent' | 'transient' | 'temporary'.
+-type significant()   :: boolean().
+-type shutdown()      :: 'brutal_kill' | timeout().
+-type worker()        :: 'worker' | 'supervisor'.
+-type sup_name()      :: {'local', Name :: atom()}
+                       | {'global', Name :: atom()}
+                       | {'via', Module :: module(), Name :: any()}.
+-type sup_ref()       :: (Name :: atom())
+                       | {Name :: atom(), Node :: node()}
+                       | {'global', Name :: atom()}
+                       | {'via', Module :: module(), Name :: any()}
+                       | pid().
+-type child_spec()    :: #{id := child_id(),             % mandatory
+			   start := mfargs(),            % mandatory
+			   restart => restart(),         % optional
+			   significant => significant(), % optional
+			   shutdown => shutdown(),       % optional
+			   type => worker(),             % optional
+			   modules => modules()}         % optional
+                       | {Id :: child_id(),
+                          StartFunc :: mfargs(),
+                          Restart :: restart(),
+                          Shutdown :: shutdown(),
+                          Type :: worker(),
+                          Modules :: modules()}.
 
 -type strategy() :: 'one_for_all' | 'one_for_one'
                   | 'rest_for_one' | 'simple_one_for_one'.
 
--type sup_flags() :: #{strategy => strategy(),         % optional
-		       intensity => non_neg_integer(), % optional
-		       period => pos_integer()}        % optional
+-type sup_flags() :: #{strategy => strategy(),           % optional
+		       intensity => non_neg_integer(),   % optional
+		       period => pos_integer(),          % optional
+		       auto_shutdown => auto_shutdown()} % optional
                    | {RestartStrategy :: strategy(),
                       Intensity :: non_neg_integer(),
                       Period :: pos_integer()}.
@@ -102,9 +106,10 @@
 
 %%--------------------------------------------------------------------------
 %% Defaults
--define(default_flags, #{strategy  => one_for_one,
-			 intensity => 1,
-			 period    => 5}).
+-define(default_flags, #{strategy      => one_for_one,
+			 intensity     => 1,
+			 period        => 5,
+			 auto_shutdown => never}).
 -define(default_child_spec, #{restart  => permanent,
 			      type     => worker}).
 %% Default 'shutdown' is 5000 for workers and infinity for supervisors.
@@ -119,6 +124,7 @@
 		id              :: child_id(),
 		mfargs          :: mfargs(),
 		restart_type    :: restart(),
+		significant     :: significant(),
 		shutdown        :: shutdown(),
 		child_type      :: worker(),
 		modules = []    :: modules()}).
@@ -134,6 +140,7 @@
 		period                 :: pos_integer() | 'undefined',
 		restarts = [],
 		dynamic_restarts = 0   :: non_neg_integer(),
+		auto_shutdown          :: auto_shutdown(),
 	        module,
 	        args}).
 -type state() :: #state{}.
@@ -142,6 +149,7 @@
 -define(is_temporary(_Child_), _Child_#child.restart_type=:=temporary).
 -define(is_transient(_Child_), _Child_#child.restart_type=:=transient).
 -define(is_permanent(_Child_), _Child_#child.restart_type=:=permanent).
+-define(is_significant(_Child_), _Child_#child.significant=:=true).
 
 -callback init(Args :: term()) ->
     {ok, {SupFlags :: sup_flags(), [ChildSpec :: child_spec()]}}
@@ -708,20 +716,54 @@ do_restart(Reason, Child, State) when ?is_permanent(Child) ->
     restart(Child, State);
 do_restart(normal, Child, State) ->
     NState = del_child(Child, State),
-    {ok, NState};
+    do_auto_shutdown(Child, NState);
 do_restart(shutdown, Child, State) ->
     NState = del_child(Child, State),
-    {ok, NState};
+    do_auto_shutdown(Child, NState);
 do_restart({shutdown, _Term}, Child, State) ->
     NState = del_child(Child, State),
-    {ok, NState};
+    do_auto_shutdown(Child, NState);
 do_restart(Reason, Child, State) when ?is_transient(Child) ->
     ?report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(Reason, Child, State) when ?is_temporary(Child) ->
     ?report_error(child_terminated, Reason, Child, State#state.name),
     NState = del_child(Child, State),
-    {ok, NState}.
+    do_auto_shutdown(Child, NState).
+
+do_auto_shutdown(_Child, State=#state{auto_shutdown = never}) ->
+    {ok, State};
+do_auto_shutdown(Child, State) when not ?is_significant(Child)->
+    {ok, State};
+do_auto_shutdown(_Child, State=#state{auto_shutdown = any_significant}) ->
+    {shutdown, State};
+do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant})
+  when ?is_simple(State) ->
+    case dyn_size(State) of
+	0 ->
+	    {shutdown, State};
+	_ ->
+	    {ok, State}
+    end;
+do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant}) ->
+    case
+	children_any(
+	    fun
+		(_, #child{pid = undefined}) ->
+		    false;
+		(_, #child{significant = true}) ->
+		    true;
+		(_, _) ->
+		    false
+	    end,
+	    State#state.children
+	)
+    of
+	true ->
+	    {ok, State};
+	false ->
+	    {shutdown, State}
+    end.
 
 restart(Child, State) ->
     case add_restart(State) of
@@ -1201,6 +1243,16 @@ children_to_list(_Fun,[],_Db,Acc) ->
 children_fold(Fun,Init,{_Ids,Db}) ->
     maps:fold(Fun, Init, Db).
 
+%% The order is not important - so ignore Ids
+children_any(Pred, {_Ids, Db}) ->
+    Iter=maps:iterator(Db),
+    children_any1(Pred, maps:next(Iter)).
+
+children_any1(_Pred, none) ->
+    false;
+children_any1(Pred, {Key, Value, Iter}) ->
+    Pred(Key, Value) orelse children_any1(Pred, maps:next(Iter)).
+
 -spec append(children(), children()) -> children().
 append({Ids1,Db1},{Ids2,Db2}) ->
     {Ids1++Ids2,maps:merge(Db1,Db2)}.
@@ -1221,14 +1273,17 @@ append({Ids1,Db1},{Ids2,Db2}) ->
 init_state(SupName, Type, Mod, Args) ->
     set_flags(Type, #state{name = supname(SupName,Mod),
 			   module = Mod,
-			   args = Args}).
+			   args = Args,
+			   auto_shutdown = never}).
 
 set_flags(Flags, State) ->
     try check_flags(Flags) of
-	#{strategy := Strategy, intensity := MaxIntensity, period := Period} ->
+	#{strategy := Strategy, intensity := MaxIntensity, period := Period,
+	  auto_shutdown := AutoShutdown} ->
 	    {ok, State#state{strategy = Strategy,
 			     intensity = MaxIntensity,
-			     period = Period}}
+			     period = Period,
+			     auto_shutdown = AutoShutdown}}
     catch
 	Thrown -> Thrown
     end.
@@ -1238,16 +1293,19 @@ check_flags(SupFlags) when is_map(SupFlags) ->
 check_flags({Strategy, MaxIntensity, Period}) ->
     check_flags(#{strategy => Strategy,
 		  intensity => MaxIntensity,
-		  period => Period});
+		  period => Period,
+		  auto_shutdown => never});
 check_flags(What) ->
     throw({invalid_type, What}).
 
 do_check_flags(#{strategy := Strategy,
 		 intensity := MaxIntensity,
-		 period := Period} = Flags) ->
+		 period := Period,
+		 auto_shutdown := AutoShutdown} = Flags) ->
     validStrategy(Strategy),
     validIntensity(MaxIntensity),
     validPeriod(Period),
+    validAutoShutdown(AutoShutdown),
     Flags.
 
 validStrategy(simple_one_for_one) -> true;
@@ -1263,6 +1321,12 @@ validIntensity(What)               -> throw({invalid_intensity, What}).
 validPeriod(Period) when is_integer(Period),
                          Period > 0 -> true;
 validPeriod(What)                   -> throw({invalid_period, What}).
+
+validAutoShutdown(never)           -> true;
+validAutoShutdown(any_significant) -> true;
+validAutoShutdown(all_significant) -> true;
+validAutoShutdown(What)            -> throw({invalid_auto_shutdown, What}).
+
 
 supname(self, Mod) -> {self(), Mod};
 supname(N, _)      -> N.
@@ -1296,6 +1360,7 @@ check_childspec({Id, Func, RestartType, Shutdown, ChildType, Mods}) ->
     check_childspec(#{id => Id,
 		      start => Func,
 		      restart => RestartType,
+		      significant => false,
 		      shutdown => Shutdown,
 		      type => ChildType,
 		      modules => Mods});
@@ -1314,6 +1379,11 @@ do_check_childspec(#{restart := RestartType,
     validId(Id),
     validFunc(Func),
     validRestartType(RestartType),
+    Significant = case ChildSpec of
+		      #{significant := Signf} -> Signf;
+		      _ -> false
+                  end,
+    validSignificant(Significant),
     validChildType(ChildType),
     Shutdown = case ChildSpec of
 		   #{shutdown := S} -> S;
@@ -1327,7 +1397,8 @@ do_check_childspec(#{restart := RestartType,
 	   end,
     validMods(Mods),
     {ok, #child{id = Id, mfargs = Func, restart_type = RestartType,
-		shutdown = Shutdown, child_type = ChildType, modules = Mods}}.
+		significant = Significant, shutdown = Shutdown,
+		child_type = ChildType, modules = Mods}}.
 
 validChildType(supervisor) -> true;
 validChildType(worker) -> true;
@@ -1344,6 +1415,9 @@ validRestartType(permanent)   -> true;
 validRestartType(temporary)   -> true;
 validRestartType(transient)   -> true;
 validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
+
+validSignificant(Significant) when is_boolean(Significant) -> true;
+validSignificant(Significant) -> throw({invalid_significant, Significant}).
 
 validShutdown(Shutdown)
   when is_integer(Shutdown), Shutdown > 0 -> true;
@@ -1365,12 +1439,14 @@ validMods(Mods) -> throw({invalid_modules, Mods}).
 child_to_spec(#child{id = Id,
 		    mfargs = Func,
 		    restart_type = RestartType,
+		    significant = Significant,
 		    shutdown = Shutdown,
 		    child_type = ChildType,
 		    modules = Mods}) ->
     #{id => Id,
       start => Func,
       restart => RestartType,
+      significant => Significant,
       shutdown => Shutdown,
       type => ChildType,
       modules => Mods}.
@@ -1419,6 +1495,7 @@ extract_child(Child) when is_list(Child#child.pid) ->
      {id, Child#child.id},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
+     {significant, Child#child.significant},
      {shutdown, Child#child.shutdown},
      {child_type, Child#child.child_type}];
 extract_child(Child) ->
@@ -1426,6 +1503,7 @@ extract_child(Child) ->
      {id, Child#child.id},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
+     {significant, Child#child.significant},
      {shutdown, Child#child.shutdown},
      {child_type, Child#child.child_type}].
 
