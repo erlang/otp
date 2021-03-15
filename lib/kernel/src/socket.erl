@@ -3307,9 +3307,9 @@ cancel(?socket(SockRef), ?SELECT_INFO(Tag, Ref))
   when is_reference(SockRef) ->
     case Tag of
         {OpName, _} when is_atom(OpName) ->
-            cancel(SockRef, Tag, Ref);
+            cancel(SockRef, OpName, Ref);
         OpName when is_atom(OpName) ->
-            cancel(SockRef, Tag, Ref)
+            cancel(SockRef, OpName, Ref)
     end;
 cancel(Socket, SelectInfo) ->
     erlang:error(badarg, [Socket, SelectInfo]).
