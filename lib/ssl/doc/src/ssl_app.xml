@@ -65,14 +65,16 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c>protocol_version = </c><seetype marker="ssl#protocol">ssl:ssl_tls_protocol()</seetype><c><![CDATA[<optional>]]></c></tag>
+      <tag><c>protocol_version = </c><seetype marker="ssl#tls_version">ssl:tls_version()</seetype> |
+        [<seetype marker="ssl#tls_version">ssl:tls_version()</seetype>] <c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       TLS protocols currently supported, more might be configurable, by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
-      <tag><c>dtls_protocol_version = </c><seetype marker="ssl#protocol">ssl:dtls_protocol()</seetype><c><![CDATA[<optional>]]></c></tag>
+      <tag><c>dtls_protocol_version = </c><seetype marker="ssl#dtls_version">ssl:dtls_version()</seetype> |
+        [<seetype marker="ssl#dtls_version">ssl:dtls_version()</seetype>] <c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       DTLS protocols currently supported, more might be configurable, by the SSL application.
