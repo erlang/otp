@@ -155,7 +155,7 @@
         {'user_properties', proplists:proplist()}.
 
 -type t_result(Res) :: {'atomic', Res} | {'aborted', Reason::term()}.
--type result() :: ok | {'error', Reason::term()}.
+-type result() :: 'ok' | {'error', Reason::term()}.
 -type activity() :: 'ets' | 'async_dirty' | 'sync_dirty' | 'transaction' | 'sync_transaction' |
                     {'transaction', Retries::non_neg_integer()} |
                     {'sync_transaction', Retries::non_neg_integer()}.
@@ -169,9 +169,9 @@
 -type snmp_struct() :: [{atom(), snmp_type() | tuple_of(snmp_type())}].
 -type snmp_type() :: 'fix_string' | 'string' | 'integer'.
 -type tuple_of(_T) :: tuple().
--type config_key() :: extra_db_nodes | dc_dump_limit.
+-type config_key() :: 'extra_db_nodes' | 'dc_dump_limit'.
 -type config_value() :: [node()] | number().
--type config_result() :: {ok, config_value()} | {error, term()}.
+-type config_result() :: {'ok', config_value()} | {'error', term()}.
 -type debug_level() :: 'none' | 'verbose' | 'debug' | 'trace'.
 
 -define(DEFAULT_ACCESS, ?MODULE).
@@ -530,7 +530,7 @@ lock(LockItem, LockKind) ->
 
 -spec lock_table(Tab::table(), LockKind) -> [MnesiaNode] | no_return() when
       MnesiaNode :: node(),
-      LockKind :: lock_kind() | load.
+      LockKind :: lock_kind() | 'load'.
 lock_table(Tab, LockKind) ->
     lock({table, Tab}, LockKind).
 
@@ -552,13 +552,13 @@ lock(Tid, Ts, LockItem, LockKind) ->
     end.
 
 %% Grab a read lock on a whole table
--spec read_lock_table(Tab::table()) -> ok.
+-spec read_lock_table(Tab::table()) -> 'ok'.
 read_lock_table(Tab) ->
     lock({table, Tab}, read),
     ok.
 
 %% Grab a write lock on a whole table
--spec write_lock_table(Tab::table()) -> ok.
+-spec write_lock_table(Tab::table()) -> 'ok'.
 write_lock_table(Tab) ->
     lock({table, Tab}, write),
     ok.
@@ -2206,12 +2206,12 @@ bad_info_reply(_Tab, memory) -> 0;
 bad_info_reply(Tab, Item) -> abort({no_exists, Tab, Item}).
 
 %% Raw info about all tables
--spec schema() -> ok.
+-spec schema() -> 'ok'.
 schema() ->
     mnesia_schema:info().
 
 %% Raw info about one tables
--spec schema(Tab::table()) -> ok.
+-spec schema(Tab::table()) -> 'ok'.
 schema(Tab) ->
     mnesia_schema:info(Tab).
 
@@ -2219,7 +2219,7 @@ schema(Tab) ->
 error_description(Err) ->
     mnesia_lib:error_desc(Err).
 
--spec info() -> ok.
+-spec info() -> 'ok'.
 info() ->
     case mnesia_lib:is_running() of
 	yes ->
@@ -2659,8 +2659,8 @@ create_schema(Ns) ->
 
 -spec create_schema(Ns::[node()], [Prop]) -> result() when
       Prop :: BackendType | IndexPlugin,
-      BackendType :: {backend_types, [{Name::atom(), Module::module()}]},
-      IndexPlugin :: {index_plugins, [{{Name::atom()}, Module::module(), Function::atom()}]}.
+      BackendType :: {'backend_types', [{Name::atom(), Module::module()}]},
+      IndexPlugin :: {'index_plugins', [{{Name::atom()}, Module::module(), Function::atom()}]}.
 create_schema(Ns, Properties) ->
     mnesia_bup:create_schema(Ns, Properties).
 
@@ -2760,29 +2760,29 @@ create_table(Name, Arg) ->
 delete_table(Tab) ->
     mnesia_schema:delete_table(Tab).
 
--spec add_table_copy(Tab, N, ST) -> t_result(ok) when
+-spec add_table_copy(Tab, N, ST) -> t_result('ok') when
       Tab :: table(), N::node(), ST::storage_type().
 add_table_copy(Tab, N, S) ->
     mnesia_schema:add_table_copy(Tab, N, S).
 
--spec del_table_copy(Tab::table(), N::node()) -> t_result(ok).
+-spec del_table_copy(Tab::table(), N::node()) -> t_result('ok').
 del_table_copy(Tab, N) ->
     mnesia_schema:del_table_copy(Tab, N).
 
--spec move_table_copy(Tab::table(), From::node(), To::node()) -> t_result(ok).
+-spec move_table_copy(Tab::table(), From::node(), To::node()) -> t_result('ok').
 move_table_copy(Tab, From, To) ->
     mnesia_schema:move_table(Tab, From, To).
 
--spec add_table_index(Tab, I) -> t_result(ok) when
+-spec add_table_index(Tab, I) -> t_result('ok') when
       Tab :: table(), I :: index_attr().
 add_table_index(Tab, Ix) ->
     mnesia_schema:add_table_index(Tab, Ix).
--spec del_table_index(Tab, I) -> t_result(ok) when
+-spec del_table_index(Tab, I) -> t_result('ok') when
       Tab::table(), I::index_attr().
 del_table_index(Tab, Ix) ->
     mnesia_schema:del_table_index(Tab, Ix).
 
--spec transform_table(Tab::table(), Fun, [Attr]) -> t_result(ok) when
+-spec transform_table(Tab::table(), Fun, [Attr]) -> t_result('ok') when
       Attr :: atom(),
       Fun:: fun((Record::tuple()) -> Transformed::tuple()) | ignore.
 transform_table(Tab, Fun, NewA) ->
@@ -2792,18 +2792,18 @@ transform_table(Tab, Fun, NewA) ->
 	    mnesia:abort(Reason)
     end.
 
--spec transform_table(Tab::table(), Fun, [Attr], RecName) -> t_result(ok) when
+-spec transform_table(Tab::table(), Fun, [Attr], RecName) -> t_result('ok') when
       RecName :: atom(),
       Attr :: atom(),
       Fun:: fun((Record::tuple()) -> Transformed::tuple()) | ignore.
 transform_table(Tab, Fun, NewA, NewRN) ->
     mnesia_schema:transform_table(Tab, Fun, NewA, NewRN).
 
--spec change_table_copy_type(Tab::table(), Node::node(), To::storage_type()) -> t_result(ok).
+-spec change_table_copy_type(Tab::table(), Node::node(), To::storage_type()) -> t_result('ok').
 change_table_copy_type(T, N, S) ->
     mnesia_schema:change_table_copy_type(T, N, S).
 
--spec clear_table(Tab::table()) -> t_result(ok).
+-spec clear_table(Tab::table()) -> t_result('ok').
 clear_table(Tab) ->
     case get(mnesia_activity_state) of
 	State = {Mod, Tid, _Ts} when element(1, Tid) =/= tid ->
@@ -2837,18 +2837,18 @@ clear_table(Tid, Ts, Tab, Obj) when element(1, Tid) =:= tid ->
 read_table_property(Tab, PropKey) ->
     val({Tab, user_property, PropKey}).
 
--spec write_table_property(Tab::table(), Prop::tuple()) -> t_result(ok).
+-spec write_table_property(Tab::table(), Prop::tuple()) -> t_result('ok').
 write_table_property(Tab, Prop) ->
     mnesia_schema:write_table_property(Tab, Prop).
 
--spec delete_table_property(Tab::table(), PropKey::term()) -> t_result(ok).
+-spec delete_table_property(Tab::table(), PropKey::term()) -> t_result('ok').
 delete_table_property(Tab, PropKey) ->
     mnesia_schema:delete_table_property(Tab, PropKey).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt - user properties
 
--spec change_table_frag(Tab::table(), FP::term()) -> t_result(ok).
+-spec change_table_frag(Tab::table(), FP::term()) -> t_result('ok').
 change_table_frag(Tab, FragProp) ->
     mnesia_schema:change_table_frag(Tab, FragProp).
 
@@ -2856,7 +2856,7 @@ change_table_frag(Tab, FragProp) ->
 %% Table mgt - table load
 
 %% Dump a ram table to disc
--spec dump_tables([Tab::table()]) -> t_result(ok).
+-spec dump_tables([Tab::table()]) -> t_result('ok').
 dump_tables(Tabs) ->
     mnesia_schema:dump_tables(Tabs).
 
@@ -2873,17 +2873,17 @@ force_load_table(Tab) ->
 	Other -> Other
     end.
 
--spec change_table_access_mode(Tab::table(), Mode) -> t_result(ok) when
+-spec change_table_access_mode(Tab::table(), Mode) -> t_result('ok') when
       Mode :: 'read_only'|'read_write'.
 change_table_access_mode(T, Access) ->
     mnesia_schema:change_table_access_mode(T, Access).
 
--spec change_table_load_order(Tab::table(), Order) -> t_result(ok) when
+-spec change_table_load_order(Tab::table(), Order) -> t_result('ok') when
       Order :: non_neg_integer().
 change_table_load_order(T, O) ->
     mnesia_schema:change_table_load_order(T, O).
 
--spec change_table_majority(Tab::table(), M::boolean()) -> t_result(ok).
+-spec change_table_majority(Tab::table(), M::boolean()) -> t_result('ok').
 change_table_majority(T, M) ->
     mnesia_schema:change_table_majority(T, M).
 
@@ -3001,11 +3001,11 @@ report_event(Event) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Snmp
--spec snmp_open_table(Tab::table(), Snmp::snmp_struct()) -> ok.
+-spec snmp_open_table(Tab::table(), Snmp::snmp_struct()) -> 'ok'.
 snmp_open_table(Tab, Us) ->
     mnesia_schema:add_snmp(Tab, Us).
 
--spec snmp_close_table(Tab::table()) -> ok.
+-spec snmp_close_table(Tab::table()) -> 'ok'.
 snmp_close_table(Tab) ->
     mnesia_schema:del_snmp(Tab).
 
@@ -3151,7 +3151,7 @@ snmp_filter_key(undefined, RowIndex, Tab, Store) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Textfile access
--spec load_textfile(File::file:filename()) -> t_result(ok) | {'error', term()}.
+-spec load_textfile(File::file:filename()) -> t_result('ok') | {'error', term()}.
 load_textfile(F) ->
     mnesia_text:load_textfile(F).
 
@@ -3169,7 +3169,7 @@ table(Tab) ->
 -spec table(Tab::table(), Options) -> qlc:query_handle() when
       Options   :: Option | [Option],
       Option    :: MnesiaOpt | QlcOption,
-      MnesiaOpt :: {'traverse', SelectOp} | {lock, lock_kind()} | {n_objects, non_neg_integer()},
+      MnesiaOpt :: {'traverse', SelectOp} | {'lock', lock_kind()} | {'n_objects', non_neg_integer()},
       SelectOp  ::  'select' | {'select', ets:match_spec()},
       QlcOption :: {'key_equality', '==' | '=:='}.
 table(Tab,Opts) ->

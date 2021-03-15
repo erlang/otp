@@ -1978,15 +1978,15 @@ cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := best_effort, %%TOD
 
 maybe_check_crl(_, #{crl_check := false}, _, _, _) ->
     valid;
-maybe_check_crl(_, #{crl_check := peer}, _, valid, _) -> %% Do not check CAs with this option.
+maybe_check_crl(_, #{crl_check := peer}, valid, _, _) -> %% Do not check CAs with this option.
     valid;
 maybe_check_crl(OtpCert, #{crl_check := Check, 
                      certdb := CertDbHandle,
                      certdb_ref := CertDbRef,
                      crl_db := {Callback, CRLDbHandle}}, _, CertPath, LogLevel) ->
     Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
-				     ssl_crl:trusted_cert_and_path(CRL, Issuer, {CertPath,
-                                                                                 DBInfo})
+				     ssl_crl:trusted_cert_and_path(CRL, Issuer, CertPath,
+                                                                   DBInfo)
 			     end, {CertDbHandle, CertDbRef}}}, 
 	       {update_crl, fun(DP, CRL) ->
                                     case Callback:fresh_crl(DP, CRL) of
