@@ -76,6 +76,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
 
 end_per_suite(Config) when is_list(Config) ->
+    kernel_test_global_sys_monitor:stop(),
     Config.
 
 analyze_and_print_host_info() ->
