@@ -58,7 +58,7 @@
 	]).
 
 %% Encode
--export([encode_handshake/2, encode_hello_extensions/2, encode_extensions/1, encode_extensions/2,
+-export([encode_handshake/2, encode_hello_extensions/2, encode_extensions/1,
 	 encode_client_protocol_negotiation/2, encode_protocols_advertised_on_server/1]).
 %% Decode
 -export([decode_handshake/3, decode_vector/1, decode_hello_extensions/4, decode_extensions/3,
@@ -606,175 +606,128 @@ encode_handshake(#finished{verify_data = VerifyData}, _Version) ->
 encode_hello_extensions(_, {3, 0}) ->
     <<>>;
 encode_hello_extensions(Extensions, _) ->
-    encode_extensions(hello_extensions_list(Extensions), <<>>).
+    encode_extensions(hello_extensions_list(Extensions)).
 
 encode_extensions(Exts) ->
-    encode_extensions(Exts, <<>>).
-    
-encode_extensions([], <<>>) ->
-    <<?UINT16(0)>>;
-encode_extensions([], Acc) ->
-    Size = byte_size(Acc),
-    <<?UINT16(Size), Acc/binary>>;
-encode_extensions([#alpn{extension_data = ExtensionData} | Rest], Acc) ->
-    Len = byte_size(ExtensionData),
-    ExtLen = Len + 2,
-    encode_extensions(Rest, <<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len),
-                              ExtensionData/binary, Acc/binary>>);
-encode_extensions([#next_protocol_negotiation{extension_data = ExtensionData} | Rest], Acc) ->
-    Len = byte_size(ExtensionData),
-    encode_extensions(Rest, <<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len),
-				    ExtensionData/binary, Acc/binary>>);
-encode_extensions([#renegotiation_info{renegotiated_connection = undefined} | Rest], Acc) ->
-    encode_extensions(Rest, Acc);
-encode_extensions([#renegotiation_info{renegotiated_connection = ?byte(0) = Info} | Rest], Acc) ->
-    Len = byte_size(Info),
-    encode_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info/binary, Acc/binary>>);
+    %% TODO: maybe get rid of lists:reverse here. It was left to resemble old behaviour
+    PreparedExts = lists:reverse([encode_extension(E) || E <- Exts]),
+    EncodedExtensionsHead = << <<?UINT16(ExtId), ?UINT16((byte_size(ExtData))), ExtData/binary>> ||
+                           {ExtId, ExtData} <- PreparedExts >>,
+    EncodedExtensionsTail = << <<?UINT16(ExtId), ?UINT16((byte_size(ExtData))), ExtData/binary>> ||
+                           {last, ExtId, ExtData} <- PreparedExts >>,
+    EncodedExtensions = <<EncodedExtensionsHead/binary, EncodedExtensionsTail/binary>>,
+    Len = byte_size(EncodedExtensions),
+    <<?UINT16(Len), EncodedExtensions/binary>>.
 
-encode_extensions([#renegotiation_info{renegotiated_connection = Info} | Rest], Acc) ->
+encode_extension(#alpn{extension_data = ExtensionData}) ->
+    Len = byte_size(ExtensionData),
+    {?ALPN_EXT, <<?UINT16(Len), ExtensionData/binary>>};
+encode_extension(#next_protocol_negotiation{extension_data = ExtensionData}) ->
+    {?NEXTPROTONEG_EXT, ExtensionData};
+encode_extension(#renegotiation_info{renegotiated_connection = undefined}) ->
+    undefined;
+encode_extension(#renegotiation_info{renegotiated_connection = ?byte(0) = Info}) ->
+    {?RENEGOTIATION_EXT, Info};
+encode_extension(#renegotiation_info{renegotiated_connection = Info}) ->
     InfoLen = byte_size(Info),
-    Len = InfoLen +1,
-    encode_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen),
-				    Info/binary, Acc/binary>>);
-encode_extensions([#elliptic_curves{elliptic_curve_list = EllipticCurves} | Rest], Acc) ->
+    {?RENEGOTIATION_EXT, <<?BYTE(InfoLen), Info/binary>>};
 
+encode_extension(#elliptic_curves{elliptic_curve_list = EllipticCurves}) ->
     EllipticCurveList = << <<(tls_v1:oid_to_enum(X)):16>> || X <- EllipticCurves>>,
     ListLen = byte_size(EllipticCurveList),
-    Len = ListLen + 2,
-    encode_extensions(Rest, <<?UINT16(?ELLIPTIC_CURVES_EXT),
-				 ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary, Acc/binary>>);
-encode_extensions([#supported_groups{supported_groups = SupportedGroups} | Rest], Acc) ->
-
+    {?ELLIPTIC_CURVES_EXT, <<?UINT16(ListLen), EllipticCurveList/binary>>};
+encode_extension(#supported_groups{supported_groups = SupportedGroups}) ->
     SupportedGroupList = << <<(tls_v1:group_to_enum(X)):16>> || X <- SupportedGroups>>,
     ListLen = byte_size(SupportedGroupList),
-    Len = ListLen + 2,
-    encode_extensions(Rest, <<?UINT16(?ELLIPTIC_CURVES_EXT),
-                              ?UINT16(Len), ?UINT16(ListLen), 
-                              SupportedGroupList/binary, Acc/binary>>);
-encode_extensions([#ec_point_formats{ec_point_format_list = ECPointFormats} | Rest], Acc) ->
+    {?ELLIPTIC_CURVES_EXT, <<?UINT16(ListLen), SupportedGroupList/binary>>};
+encode_extension(#ec_point_formats{ec_point_format_list = ECPointFormats}) ->
     ECPointFormatList = list_to_binary(ECPointFormats),
     ListLen = byte_size(ECPointFormatList),
-    Len = ListLen + 1,
-    encode_extensions(Rest, <<?UINT16(?EC_POINT_FORMATS_EXT),
-				 ?UINT16(Len), ?BYTE(ListLen), ECPointFormatList/binary, Acc/binary>>);
-encode_extensions([#srp{username = UserName} | Rest], Acc) ->
+    {?EC_POINT_FORMATS_EXT, <<?BYTE(ListLen), ECPointFormatList/binary>>};
+
+encode_extension(#srp{username = UserName}) ->
     SRPLen = byte_size(UserName),
-    Len = SRPLen + 1,
-    encode_extensions(Rest, <<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
-				    UserName/binary, Acc/binary>>);
-encode_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Acc) ->
+    {?SRP_EXT, <<?BYTE(SRPLen), UserName/binary>>};
+
+encode_extension(#hash_sign_algos{hash_sign_algos = HashSignAlgos}) ->
     SignAlgoList = << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
 		       {Hash, Sign} <- HashSignAlgos >>,
     ListLen = byte_size(SignAlgoList),
-    Len = ListLen + 2,
-    encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
-				 ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>);
-encode_extensions([#signature_algorithms{
-                            signature_scheme_list = SignatureSchemes} | Rest], Acc) ->
+    {?SIGNATURE_ALGORITHMS_EXT, <<?UINT16(ListLen), SignAlgoList/binary>>};
+encode_extension(#signature_algorithms{signature_scheme_list = SignatureSchemes}) ->
     SignSchemeList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- SignatureSchemes >>,
     ListLen = byte_size(SignSchemeList),
-    Len = ListLen + 2,
-    encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
-				 ?UINT16(Len), ?UINT16(ListLen), SignSchemeList/binary, Acc/binary>>);
-encode_extensions([#signature_algorithms_cert{
-                            signature_scheme_list = SignatureSchemes} | Rest], Acc) ->
+    {?SIGNATURE_ALGORITHMS_EXT, <<?UINT16(ListLen), SignSchemeList/binary>>};
+encode_extension(#signature_algorithms_cert{signature_scheme_list = SignatureSchemes}) ->
     SignSchemeList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- SignatureSchemes >>,
     ListLen = byte_size(SignSchemeList),
-    Len = ListLen + 2,
-    encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT),
-				 ?UINT16(Len), ?UINT16(ListLen), SignSchemeList/binary, Acc/binary>>);
-encode_extensions([#sni{hostname = ""} | Rest], Acc) ->
-    HostnameBin = <<>>,
-    encode_extensions(Rest, <<?UINT16(?SNI_EXT), ?UINT16(0),
-                              HostnameBin/binary,
-                              Acc/binary>>);
-encode_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
+    {?SIGNATURE_ALGORITHMS_CERT_EXT, <<?UINT16(ListLen), SignSchemeList/binary>>};
+
+encode_extension(#sni{hostname = ""}) ->
+    {?SNI_EXT, <<>>};
+encode_extension(#sni{hostname = Hostname}) ->
     HostLen = length(Hostname),
     HostnameBin = list_to_binary(Hostname),
     % Hostname type (1 byte) + Hostname length (2 bytes) + Hostname (HostLen bytes)
     ServerNameLength = 1 + 2 + HostLen,
-    % ServerNameListSize (2 bytes) + ServerNameLength
-    ExtLength = 2 + ServerNameLength,
-    encode_extensions(Rest, <<?UINT16(?SNI_EXT), ?UINT16(ExtLength),
-                              ?UINT16(ServerNameLength),
-                              ?BYTE(?SNI_NAMETYPE_HOST_NAME),
-                              ?UINT16(HostLen), HostnameBin/binary,
-                              Acc/binary>>);
-encode_extensions([#max_frag_enum{enum = MaxFragEnum} | Rest], Acc) ->
-    ExtLength = 1,
-    encode_extensions(Rest, <<?UINT16(?MAX_FRAGMENT_LENGTH_EXT), ?UINT16(ExtLength), ?BYTE(MaxFragEnum),
-                              Acc/binary>>);
-encode_extensions([#client_hello_versions{versions = Versions0} | Rest], Acc) ->
+    {?SNI_EXT, <<?UINT16(ServerNameLength),
+                 ?BYTE(?SNI_NAMETYPE_HOST_NAME),
+                 ?UINT16(HostLen), HostnameBin/binary>>};
+
+encode_extension(#max_frag_enum{enum = MaxFragEnum}) ->
+    {?MAX_FRAGMENT_LENGTH_EXT, <<?BYTE(MaxFragEnum)>>};
+
+encode_extension(#client_hello_versions{versions = Versions0}) ->
     Versions = encode_versions(Versions0),
     VerLen = byte_size(Versions),
-    Len = VerLen + 1,
-    encode_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
-                              ?UINT16(Len), ?BYTE(VerLen), Versions/binary, Acc/binary>>);
-encode_extensions([#server_hello_selected_version{selected_version = Version0} | Rest], Acc) ->
+    {?SUPPORTED_VERSIONS_EXT, <<?BYTE(VerLen), Versions/binary>>};
+encode_extension(#server_hello_selected_version{selected_version = Version0}) ->
     Version = encode_versions([Version0]),
-    Len = byte_size(Version), %% 2
-    encode_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
-                              ?UINT16(Len), Version/binary, Acc/binary>>);
-encode_extensions([#key_share_client_hello{client_shares = ClientShares0} | Rest], Acc) ->
+    {?SUPPORTED_VERSIONS_EXT, Version};
+
+encode_extension(#key_share_client_hello{client_shares = ClientShares0}) ->
     ClientShares = encode_client_shares(ClientShares0),
     ClientSharesLen = byte_size(ClientShares),
-    Len = ClientSharesLen + 2,
-    encode_extensions(Rest, <<?UINT16(?KEY_SHARE_EXT),
-                              ?UINT16(Len), ?UINT16(ClientSharesLen),
-                              ClientShares/binary, Acc/binary>>);
-encode_extensions([#key_share_server_hello{server_share = ServerShare0} | Rest], Acc) ->
+    {?KEY_SHARE_EXT, <<?UINT16(ClientSharesLen), ClientShares/binary>>};
+encode_extension(#key_share_server_hello{server_share = ServerShare0}) ->
     ServerShare = encode_key_share_entry(ServerShare0),
-    Len = byte_size(ServerShare),
-    encode_extensions(Rest, <<?UINT16(?KEY_SHARE_EXT),
-                              ?UINT16(Len), ServerShare/binary, Acc/binary>>);
-encode_extensions([#key_share_hello_retry_request{selected_group = Group0} | Rest], Acc) ->
+    {?KEY_SHARE_EXT, ServerShare};
+encode_extension(#key_share_hello_retry_request{selected_group = Group0}) ->
     Group = tls_v1:group_to_enum(Group0),
-    encode_extensions(Rest, <<?UINT16(?KEY_SHARE_EXT),
-                              ?UINT16(2), ?UINT16(Group), Acc/binary>>);
-encode_extensions([#psk_key_exchange_modes{ke_modes = KEModes0} | Rest], Acc) ->
+    {?KEY_SHARE_EXT, <<?UINT16(Group)>>};
+encode_extension(#psk_key_exchange_modes{ke_modes = KEModes0}) ->
     KEModes = encode_psk_key_exchange_modes(KEModes0),
     KEModesLen = byte_size(KEModes),
-    ExtLen = KEModesLen + 1,
-    encode_extensions(Rest, <<?UINT16(?PSK_KEY_EXCHANGE_MODES_EXT),
-                              ?UINT16(ExtLen), ?BYTE(KEModesLen), KEModes/binary, Acc/binary>>);
-encode_extensions([
-    #certificate_status_request{
-        status_type = StatusRequest,
-        request = Request} | Rest], Acc) ->
-    CertStatusReq = encode_cert_status_req(StatusRequest, Request),
-    Len = byte_size(CertStatusReq),
-    encode_extensions(
-        Rest, <<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
-        CertStatusReq/binary, Acc/binary>>);
-encode_extensions([#pre_shared_key_client_hello{
+    {?PSK_KEY_EXCHANGE_MODES_EXT, <<?BYTE(KEModesLen), KEModes/binary>>};
+encode_extension(#pre_shared_key_client_hello{
                       offered_psks = #offered_psks{
                                         identities = Identities0,
-                                        binders = Binders0}} | Rest], Acc) ->
+                                        binders = Binders0}}) ->
     Identities = encode_psk_identities(Identities0),
     Binders = encode_psk_binders(Binders0),
-    Len = byte_size(Identities) + byte_size(Binders),
     %% The "pre_shared_key" extension MUST be the last extension in the
     %% ClientHello (this facilitates implementation as described below).
     %% Servers MUST check that it is the last extension and otherwise fail
     %% the handshake with an "illegal_parameter" alert.
-    encode_extensions(Rest, <<Acc/binary,?UINT16(?PRE_SHARED_KEY_EXT),
-                              ?UINT16(Len), Identities/binary, Binders/binary>>);
-encode_extensions([#pre_shared_key_server_hello{selected_identity = Identity} | Rest], Acc) ->
-    encode_extensions(Rest, <<?UINT16(?PRE_SHARED_KEY_EXT),
-                              ?UINT16(2), ?UINT16(Identity), Acc/binary>>);
-encode_extensions([#cookie{cookie = Cookie} | Rest], Acc) ->
+    {last, ?PRE_SHARED_KEY_EXT, <<Identities/binary, Binders/binary>>};
+encode_extension(#pre_shared_key_server_hello{selected_identity = Identity}) ->
+    {?PRE_SHARED_KEY_EXT, <<?UINT16(Identity)>>};
+
+encode_extension(#certificate_status_request{status_type = StatusRequest, request = Request}) ->
+    CertStatusReq = encode_cert_status_req(StatusRequest, Request),
+    {?STATUS_REQUEST, CertStatusReq};
+
+encode_extension(#cookie{cookie = Cookie}) ->
     CookieLen = byte_size(Cookie),
-    Len = CookieLen + 2,
-    encode_extensions(Rest, <<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
-                              Cookie/binary, Acc/binary>>);
-encode_extensions([#early_data_indication{} | Rest], Acc) ->
-    encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
-                              ?UINT16(0), Acc/binary>>);
-encode_extensions([#early_data_indication_nst{indication = MaxSize} | Rest], Acc) ->
-    encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
-                              ?UINT16(4), ?UINT32(MaxSize), Acc/binary>>).
+    {?COOKIE_EXT, <<?UINT16(CookieLen), Cookie/binary>>};
+
+encode_extension(#early_data_indication{}) ->
+    {?EARLY_DATA_EXT, <<>>};
+encode_extension(#early_data_indication_nst{indication = MaxSize}) ->
+    {?EARLY_DATA_EXT, <<?UINT32(MaxSize)>>}.
+
 
 encode_cert_status_req(
     StatusType,
@@ -2595,54 +2548,47 @@ process_supported_versions_extension(_, LocalVersion, LegacyVersion)
 process_supported_versions_extension(_, LocalVersion, _) ->
     LocalVersion.
 
-decode_extensions(<<>>, _Version, _MessageType, Acc) ->
-    Acc;
-decode_extensions(<<?UINT16(?ALPN_EXT), ?UINT16(ExtLen), ?UINT16(Len),
-                    ExtensionData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Len + 2 =:= ExtLen ->
+
+decode_extensions(Extensions, Version, MessageType, Acc) ->
+    SplitExtensions = [{ExtId, ExtData} ||
+                       <<?UINT16(ExtId), ?UINT16(ExtLen), ExtData:ExtLen/binary>> <= Extensions],
+    DecFun = fun({ExtId, ExtData}, AccIn) ->
+                     decode_extension(ExtId, ExtData, Version, MessageType, AccIn)
+             end,
+    Decoded = lists:foldl(DecFun, Acc, SplitExtensions),
+    Decoded.
+
+
+decode_extension(?ALPN_EXT, <<?UINT16(Len), ExtensionData:Len/binary>>, _, _, Acc) ->
     ALPN = #alpn{extension_data = ExtensionData},
-    decode_extensions(Rest, Version, MessageType, Acc#{alpn => ALPN});
-decode_extensions(<<?UINT16(?NEXTPROTONEG_EXT), ?UINT16(Len),
-                    ExtensionData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
+    Acc#{alpn => ALPN};
+decode_extension(?NEXTPROTONEG_EXT, ExtensionData, _, _, Acc) ->
     NextP = #next_protocol_negotiation{extension_data = ExtensionData},
-    decode_extensions(Rest, Version, MessageType, Acc#{next_protocol_negotiation => NextP});
-decode_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len),
-                    Info:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
-    RenegotiateInfo = case Len of
-			  1 ->  % Initial handshake
+    Acc#{next_protocol_negotiation => NextP};
+decode_extension(?RENEGOTIATION_EXT, Info, _, _, Acc) ->
+    RenegotiateInfo = case Info of
+			  <<?BYTE(_)>> ->  % Initial handshake
 			      Info; % should be <<0>> will be matched in handle_renegotiation_info
-			  _ ->
-			      VerifyLen = Len - 1,
-			      <<?BYTE(VerifyLen), VerifyInfo/binary>> = Info,
+			  <<?BYTE(VerifyLen), VerifyInfo:VerifyLen/binary>> ->
 			      VerifyInfo
 		      end,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{renegotiation_info =>
-                               #renegotiation_info{renegotiated_connection =
-                                                       RenegotiateInfo}});
+    Acc#{renegotiation_info =>
+         #renegotiation_info{renegotiated_connection = RenegotiateInfo}};
 
-decode_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
-                    SRP:SRPLen/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Len == SRPLen + 1 ->
-    decode_extensions(Rest, Version, MessageType, Acc#{srp => #srp{username = SRP}});
+decode_extension(?SRP_EXT, <<?BYTE(SRPLen), SRP:SRPLen/binary>>, _, _, Acc) ->
+    Acc#{srp => #srp{username = SRP}};
 
-decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+decode_extension(?SIGNATURE_ALGORITHMS_EXT, ExtData, Version, _, Acc)
   when Version < {3,4} ->
-    SignAlgoListLen = Len - 2,
-    <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
+    <<?UINT16(SignAlgoListLen), SignAlgoList:SignAlgoListLen/binary>> = ExtData,
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
 			<<?BYTE(Hash), ?BYTE(Sign)>> <= SignAlgoList],
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{signature_algs =>
-                               #hash_sign_algos{hash_sign_algos =
-                                                    HashSignAlgos}});
+    Acc#{signature_algs =>
+         #hash_sign_algos{hash_sign_algos = HashSignAlgos}};
 
-decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+decode_extension(?SIGNATURE_ALGORITHMS_EXT, ExtData, Version, _, Acc)
   when Version =:= {3,4} ->
-    SignSchemeListLen = Len - 2,
-    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+    <<?UINT16(SignSchemeListLen), SignSchemeList:SignSchemeListLen/binary>> = ExtData,
     %% Ignore unknown signature algorithms
     Fun = fun(Elem) ->
                   case ssl_cipher:signature_scheme(Elem) of
@@ -2654,15 +2600,11 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
           end,
     SignSchemes= lists:filtermap(Fun, [SignScheme ||
                                           <<?UINT16(SignScheme)>> <= SignSchemeList]),
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{signature_algs =>
-                               #signature_algorithms{
-                                  signature_scheme_list = SignSchemes}});
+    Acc#{signature_algs =>
+         #signature_algorithms{signature_scheme_list = SignSchemes}};
 
-decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
-    SignSchemeListLen = Len - 2,
-    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+decode_extension(?SIGNATURE_ALGORITHMS_CERT_EXT, ExtData, _, _, Acc) ->
+    <<?UINT16(SignSchemeListLen), SignSchemeList:SignSchemeListLen/binary>> = ExtData,
     %% Ignore unknown signature algorithms
     Fun = fun(Elem) ->
                   case ssl_cipher:signature_scheme(Elem) of
@@ -2674,13 +2616,10 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
           end,
     SignSchemes= lists:filtermap(Fun, [SignScheme ||
                                           <<?UINT16(SignScheme)>> <= SignSchemeList]),
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{signature_algs_cert =>
-                               #signature_algorithms_cert{
-                                  signature_scheme_list = SignSchemes}});
+    Acc#{signature_algs_cert =>
+         #signature_algorithms_cert{signature_scheme_list = SignSchemes}};
 
-decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+decode_extension(?ELLIPTIC_CURVES_EXT, ExtData, Version, _, Acc)
   when Version < {3,4} ->
     <<?UINT16(_), EllipticCurveList/binary>> = ExtData,
     %% Ignore unknown curves
@@ -2693,13 +2632,10 @@ decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		   end
 	   end,
     EllipticCurves = lists:filtermap(Pick, [ECC || <<ECC:16>> <= EllipticCurveList]),
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{elliptic_curves =>
-                               #elliptic_curves{elliptic_curve_list =
-                                                    EllipticCurves}});
+    Acc#{elliptic_curves =>
+         #elliptic_curves{elliptic_curve_list = EllipticCurves}};
 
-decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+decode_extension(?ELLIPTIC_CURVES_EXT, ExtData, Version, _, Acc)
   when Version =:= {3,4} ->
     <<?UINT16(_), GroupList/binary>> = ExtData,
     %% Ignore unknown curves
@@ -2712,160 +2648,105 @@ decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		   end
 	   end,
     SupportedGroups = lists:filtermap(Pick, [Group || <<Group:16>> <= GroupList]),
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{elliptic_curves =>
-                               #supported_groups{supported_groups =
-                                                     SupportedGroups}});
+    Acc#{elliptic_curves =>
+         #supported_groups{supported_groups = SupportedGroups}};
 
-decode_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
-                    ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
+decode_extension(?EC_POINT_FORMATS_EXT, ExtData, _, _, Acc) ->
     <<?BYTE(_), ECPointFormatList/binary>> = ExtData,
     ECPointFormats = binary_to_list(ECPointFormatList),
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{ec_point_formats =>
-                               #ec_point_formats{ec_point_format_list =
-                                                     ECPointFormats}});
+    Acc#{ec_point_formats =>
+         #ec_point_formats{ec_point_format_list = ECPointFormats}};
 
-decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
-                    Rest/binary>>, Version, MessageType, Acc) when Len == 0 ->
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{sni => #sni{hostname = ""}}); %% Server may send an empy SNI
+decode_extension(?SNI_EXT, <<>>, _, _, Acc) ->
+    Acc#{sni => #sni{hostname = ""}}; %% Server may send an empy SNI
 
-decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
-                ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
+decode_extension(?SNI_EXT, ExtData, _, _, Acc) ->
     <<?UINT16(_), NameList/binary>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{sni => dec_sni(NameList)});
+    Acc#{sni => dec_sni(NameList)};
 
-decode_extensions(<<?UINT16(?MAX_FRAGMENT_LENGTH_EXT), ?UINT16(1), ?BYTE(MaxFragEnum), Rest/binary>>,
-                  Version, MessageType, Acc) ->
+decode_extension(?MAX_FRAGMENT_LENGTH_EXT, <<?BYTE(MaxFragEnum)>>, _, _, Acc) ->
     %% RFC 6066 Section 4
-    decode_extensions(Rest, Version, MessageType, Acc#{max_frag_enum => #max_frag_enum{enum = MaxFragEnum}});
-decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
-                       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) when Len > 2 ->
+    Acc#{max_frag_enum => #max_frag_enum{enum = MaxFragEnum}};
+
+decode_extension(?SUPPORTED_VERSIONS_EXT, ExtData, _, _, Acc) when byte_size(ExtData) > 2 ->
     <<?BYTE(_),Versions/binary>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{client_hello_versions =>
-                               #client_hello_versions{
-                                  versions = decode_versions(Versions)}});
+    Acc#{client_hello_versions =>
+         #client_hello_versions{versions = decode_versions(Versions)}};
 
-decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
-                       ?UINT16(SelectedVersion), Rest/binary>>, Version, MessageType, Acc)
-  when Len =:= 2, SelectedVersion =:= 16#0304 ->
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{server_hello_selected_version =>
-                               #server_hello_selected_version{selected_version =
-                                                                  {3,4}}});
+decode_extension(?SUPPORTED_VERSIONS_EXT, <<?UINT16(SelectedVersion)>>, _, _, Acc)
+  when SelectedVersion =:= 16#0304 ->
+    Acc#{server_hello_selected_version =>
+         #server_hello_selected_version{selected_version = {3,4}}};
 
-decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
-                       ExtData:Len/binary, Rest/binary>>,
-                  Version, MessageType = client_hello, Acc) ->
+decode_extension(?KEY_SHARE_EXT, ExtData, _, client_hello, Acc) ->
     <<?UINT16(_),ClientShares/binary>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{key_share =>
-                               #key_share_client_hello{
-                                  client_shares = decode_client_shares(ClientShares)}});
+    Acc#{key_share =>
+         #key_share_client_hello{client_shares = decode_client_shares(ClientShares)}};
 
-decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
-                    ExtData:Len/binary, Rest/binary>>,
-                  Version, MessageType = server_hello, Acc) ->
+decode_extension(?KEY_SHARE_EXT, ExtData, _, server_hello, Acc) ->
     <<?UINT16(Group),?UINT16(KeyLen),KeyExchange:KeyLen/binary>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{key_share =>
-                               #key_share_server_hello{
-                                  server_share =
-                                      #key_share_entry{
-                                         group = tls_v1:enum_to_group(Group),
-                                         key_exchange = KeyExchange}}});
+    Acc#{key_share =>
+         #key_share_server_hello{
+            server_share =
+            #key_share_entry{
+               group = tls_v1:enum_to_group(Group),
+               key_exchange = KeyExchange}}};
 
-decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
-                    ExtData:Len/binary, Rest/binary>>,
-                  Version, MessageType = hello_retry_request, Acc) ->
+decode_extension(?KEY_SHARE_EXT, ExtData, _, hello_retry_request, Acc) ->
     <<?UINT16(Group)>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{key_share =>
-                               #key_share_hello_retry_request{
-                                  selected_group = tls_v1:enum_to_group(Group)}});
+    Acc#{key_share =>
+         #key_share_hello_retry_request{selected_group = tls_v1:enum_to_group(Group)}};
 
-decode_extensions(<<?UINT16(?PSK_KEY_EXCHANGE_MODES_EXT), ?UINT16(Len),
-                       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
+decode_extension(?PSK_KEY_EXCHANGE_MODES_EXT, ExtData, _, _, Acc) ->
     <<?BYTE(PLen),KEModes:PLen/binary>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{psk_key_exchange_modes =>
-                               #psk_key_exchange_modes{
-                                  ke_modes = decode_psk_key_exchange_modes(KEModes)}});
+    Acc#{psk_key_exchange_modes =>
+         #psk_key_exchange_modes{ke_modes = decode_psk_key_exchange_modes(KEModes)}};
 
-decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
-                       ExtData:Len/binary, Rest/binary>>,
-                  Version, MessageType = client_hello, Acc) ->
+decode_extension(?PRE_SHARED_KEY_EXT, ExtData, _, client_hello, Acc) ->
     <<?UINT16(IdLen),Identities:IdLen/binary,?UINT16(BLen),Binders:BLen/binary>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{pre_shared_key =>
-                               #pre_shared_key_client_hello{
-                                  offered_psks = #offered_psks{
-                                                    identities = decode_psk_identities(Identities),
-                                                    binders = decode_psk_binders(Binders)}}});
+    Acc#{pre_shared_key =>
+         #pre_shared_key_client_hello{
+            offered_psks = #offered_psks{
+                              identities = decode_psk_identities(Identities),
+                              binders = decode_psk_binders(Binders)}}};
 
-decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
-                       ExtData:Len/binary, Rest/binary>>,
-                  Version, MessageType = server_hello, Acc) ->
+decode_extension(?PRE_SHARED_KEY_EXT, ExtData, _, server_hello, Acc) ->
     <<?UINT16(Identity)>> = ExtData,
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{pre_shared_key =>
-                               #pre_shared_key_server_hello{
-                                  selected_identity = Identity}});
+    Acc#{pre_shared_key =>
+         #pre_shared_key_server_hello{selected_identity = Identity}};
 
-decode_extensions(<<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
-                    Cookie:CookieLen/binary, Rest/binary>>,
-                  Version, MessageType, Acc)
-  when Len == CookieLen + 2 ->
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{cookie => #cookie{cookie = Cookie}});
+decode_extension(?COOKIE_EXT, <<?UINT16(CookieLen), Cookie:CookieLen/binary>>, _, _, Acc) ->
+    Acc#{cookie => #cookie{cookie = Cookie}};
 
 %% RFC6066, if a server returns a "CertificateStatus" message, then
 %% the server MUST have included an extension of type "status_request"
 %% with empty "extension_data" in the extended server hello.
-decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
-                    _ExtensionData:Len/binary, Rest/binary>>, Version,
-                    MessageType = server_hello, Acc)
-  when Len =:= 0 ->
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{status_request => undefined});
+decode_extension(?STATUS_REQUEST, <<>>, _, server_hello, Acc) ->
+    Acc#{status_request => undefined};
 %% RFC8446 4.4.2.1, In TLS1.3, the body of the "status_request" extension
 %% from the server MUST be a CertificateStatus structure as defined in
 %% RFC6066.
-decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
-                    CertStatus:Len/binary, Rest/binary>>, Version,
-                    MessageType, Acc) ->
+decode_extension(?STATUS_REQUEST, CertStatus, _, _, Acc) ->
     case CertStatus of
         <<?BYTE(?CERTIFICATE_STATUS_TYPE_OCSP),
           ?UINT24(OCSPLen),
           ASN1OCSPResponse:OCSPLen/binary>> ->
-            decode_extensions(Rest, Version, MessageType,
-                      Acc#{status_request => #certificate_status{response = ASN1OCSPResponse}});
+            Acc#{status_request => #certificate_status{response = ASN1OCSPResponse}};
         _Other ->
-            decode_extensions(Rest, Version, MessageType, Acc)
+            Acc
     end;
 
-decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(0), Rest/binary>>,
-                  Version, MessageType, Acc) ->
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{early_data => #early_data_indication{}});
+decode_extension(?EARLY_DATA_EXT, <<>>, _, _, Acc) ->
+    Acc#{early_data => #early_data_indication{}};
 
-decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(4), ?UINT32(MaxSize),
-                    Rest/binary>>,
-                  Version, MessageType, Acc) ->
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{early_data =>
-                               #early_data_indication_nst{indication = MaxSize}});
+decode_extension(?EARLY_DATA_EXT, <<?UINT32(MaxSize)>>, _, _, Acc) ->
+    Acc#{early_data => #early_data_indication_nst{indication = MaxSize}};
 
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
-decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
-    decode_extensions(Rest, Version, MessageType, Acc);
-%% This theoretically should not happen if the protocol is followed, but if it does it is ignored.
-decode_extensions(_, _, _, Acc) ->
+decode_extension(_, _, _, _, Acc) ->
     Acc.
+
 
 dec_hashsign(<<?BYTE(HashAlgo), ?BYTE(SignAlgo)>>) ->
     {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)}.
