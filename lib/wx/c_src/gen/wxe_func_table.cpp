@@ -3855,6 +3855,12 @@ extern void wxNotificationMessage_SetMessage(WxeApp *app, wxeMemEnv *memenv, wxe
 extern void wxNotificationMessage_SetParent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxNotificationMessage_SetTitle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxNotificationMessage_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#if __WXMSW__ 
+extern void wxNotificationMessage_UseTaskBarIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // __WXMSW__ 
+#if __WXMSW__ && wxCHECK_VERSION(3,1,0)
+extern void wxNotificationMessage_MSWUseToasts(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // __WXMSW__ && wxCHECK_VERSION(3,1,0)
 #if WXE_WEBVIEW
 extern void wxWebView_New(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #endif // WXE_WEBVIEW
@@ -8770,260 +8776,270 @@ wxe_fns_t wxe_fns[] =
   {wxNotificationMessage_SetParent, "wxNotificationMessage", "setParent", 2}, // 3552
   {wxNotificationMessage_SetTitle, "wxNotificationMessage", "setTitle", 2}, // 3553
   {wxNotificationMessage_Show, "wxNotificationMessage", "show", 2}, // 3554
-  {NULL, "", "", 0}, // 3555
-#if WXE_WEBVIEW
-  {wxWebView_New, "wxWebView", "new", 3}, // 3556
+#if __WXMSW__ 
+  {wxNotificationMessage_UseTaskBarIcon, "wxNotificationMessage", "useTaskBarIcon", 1}, // 3555
 #else
-  {NULL, "wxWebView", "new", 0}, // 3556
+  {NULL, "wxNotificationMessage", "useTaskBarIcon", 0}, // 3555
+#endif // __WXMSW__ 
+#if __WXMSW__ && wxCHECK_VERSION(3,1,0)
+  {wxNotificationMessage_MSWUseToasts, "wxNotificationMessage", "mSWUseToasts", 1}, // 3556
+#else
+  {NULL, "wxNotificationMessage", "mSWUseToasts", 0}, // 3556
+#endif // __WXMSW__ && wxCHECK_VERSION(3,1,0)
+  {NULL, "", "", 0}, // 3557
+#if WXE_WEBVIEW
+  {wxWebView_New, "wxWebView", "new", 3}, // 3558
+#else
+  {NULL, "wxWebView", "new", 0}, // 3558
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetCurrentTitle, "wxWebView", "getCurrentTitle", 1}, // 3557
+  {wxWebView_GetCurrentTitle, "wxWebView", "getCurrentTitle", 1}, // 3559
 #else
-  {NULL, "wxWebView", "getCurrentTitle", 0}, // 3557
+  {NULL, "wxWebView", "getCurrentTitle", 0}, // 3559
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetCurrentURL, "wxWebView", "getCurrentURL", 1}, // 3558
+  {wxWebView_GetCurrentURL, "wxWebView", "getCurrentURL", 1}, // 3560
 #else
-  {NULL, "wxWebView", "getCurrentURL", 0}, // 3558
+  {NULL, "wxWebView", "getCurrentURL", 0}, // 3560
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetPageSource, "wxWebView", "getPageSource", 1}, // 3559
+  {wxWebView_GetPageSource, "wxWebView", "getPageSource", 1}, // 3561
 #else
-  {NULL, "wxWebView", "getPageSource", 0}, // 3559
+  {NULL, "wxWebView", "getPageSource", 0}, // 3561
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetPageText, "wxWebView", "getPageText", 1}, // 3560
+  {wxWebView_GetPageText, "wxWebView", "getPageText", 1}, // 3562
 #else
-  {NULL, "wxWebView", "getPageText", 0}, // 3560
+  {NULL, "wxWebView", "getPageText", 0}, // 3562
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_IsBusy, "wxWebView", "isBusy", 1}, // 3561
+  {wxWebView_IsBusy, "wxWebView", "isBusy", 1}, // 3563
 #else
-  {NULL, "wxWebView", "isBusy", 0}, // 3561
+  {NULL, "wxWebView", "isBusy", 0}, // 3563
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_IsEditable, "wxWebView", "isEditable", 1}, // 3562
+  {wxWebView_IsEditable, "wxWebView", "isEditable", 1}, // 3564
 #else
-  {NULL, "wxWebView", "isEditable", 0}, // 3562
+  {NULL, "wxWebView", "isEditable", 0}, // 3564
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_LoadURL, "wxWebView", "loadURL", 2}, // 3563
+  {wxWebView_LoadURL, "wxWebView", "loadURL", 2}, // 3565
 #else
-  {NULL, "wxWebView", "loadURL", 0}, // 3563
+  {NULL, "wxWebView", "loadURL", 0}, // 3565
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Print, "wxWebView", "print", 1}, // 3564
+  {wxWebView_Print, "wxWebView", "print", 1}, // 3566
 #else
-  {NULL, "wxWebView", "print", 0}, // 3564
+  {NULL, "wxWebView", "print", 0}, // 3566
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Reload, "wxWebView", "reload", 2}, // 3565
+  {wxWebView_Reload, "wxWebView", "reload", 2}, // 3567
 #else
-  {NULL, "wxWebView", "reload", 0}, // 3565
+  {NULL, "wxWebView", "reload", 0}, // 3567
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
-  {wxWebView_RunScript, "wxWebView", "runScript", 2}, // 3566
+  {wxWebView_RunScript, "wxWebView", "runScript", 2}, // 3568
 #else
-  {NULL, "wxWebView", "runScript", 0}, // 3566
+  {NULL, "wxWebView", "runScript", 0}, // 3568
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
 #if WXE_WEBVIEW
-  {wxWebView_SetEditable, "wxWebView", "setEditable", 2}, // 3567
+  {wxWebView_SetEditable, "wxWebView", "setEditable", 2}, // 3569
 #else
-  {NULL, "wxWebView", "setEditable", 0}, // 3567
+  {NULL, "wxWebView", "setEditable", 0}, // 3569
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SetPage, "wxWebView", "setPage", 3}, // 3568
+  {wxWebView_SetPage, "wxWebView", "setPage", 3}, // 3570
 #else
-  {NULL, "wxWebView", "setPage", 0}, // 3568
+  {NULL, "wxWebView", "setPage", 0}, // 3570
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Stop, "wxWebView", "stop", 1}, // 3569
+  {wxWebView_Stop, "wxWebView", "stop", 1}, // 3571
 #else
-  {NULL, "wxWebView", "stop", 0}, // 3569
+  {NULL, "wxWebView", "stop", 0}, // 3571
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanCopy, "wxWebView", "canCopy", 1}, // 3570
+  {wxWebView_CanCopy, "wxWebView", "canCopy", 1}, // 3572
 #else
-  {NULL, "wxWebView", "canCopy", 0}, // 3570
+  {NULL, "wxWebView", "canCopy", 0}, // 3572
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanCut, "wxWebView", "canCut", 1}, // 3571
+  {wxWebView_CanCut, "wxWebView", "canCut", 1}, // 3573
 #else
-  {NULL, "wxWebView", "canCut", 0}, // 3571
+  {NULL, "wxWebView", "canCut", 0}, // 3573
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanPaste, "wxWebView", "canPaste", 1}, // 3572
+  {wxWebView_CanPaste, "wxWebView", "canPaste", 1}, // 3574
 #else
-  {NULL, "wxWebView", "canPaste", 0}, // 3572
+  {NULL, "wxWebView", "canPaste", 0}, // 3574
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Copy, "wxWebView", "copy", 1}, // 3573
+  {wxWebView_Copy, "wxWebView", "copy", 1}, // 3575
 #else
-  {NULL, "wxWebView", "copy", 0}, // 3573
+  {NULL, "wxWebView", "copy", 0}, // 3575
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Cut, "wxWebView", "cut", 1}, // 3574
+  {wxWebView_Cut, "wxWebView", "cut", 1}, // 3576
 #else
-  {NULL, "wxWebView", "cut", 0}, // 3574
+  {NULL, "wxWebView", "cut", 0}, // 3576
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Paste, "wxWebView", "paste", 1}, // 3575
+  {wxWebView_Paste, "wxWebView", "paste", 1}, // 3577
 #else
-  {NULL, "wxWebView", "paste", 0}, // 3575
+  {NULL, "wxWebView", "paste", 0}, // 3577
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_EnableContextMenu, "wxWebView", "enableContextMenu", 2}, // 3576
+  {wxWebView_EnableContextMenu, "wxWebView", "enableContextMenu", 2}, // 3578
 #else
-  {NULL, "wxWebView", "enableContextMenu", 0}, // 3576
+  {NULL, "wxWebView", "enableContextMenu", 0}, // 3578
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_IsContextMenuEnabled, "wxWebView", "isContextMenuEnabled", 1}, // 3577
+  {wxWebView_IsContextMenuEnabled, "wxWebView", "isContextMenuEnabled", 1}, // 3579
 #else
-  {NULL, "wxWebView", "isContextMenuEnabled", 0}, // 3577
+  {NULL, "wxWebView", "isContextMenuEnabled", 0}, // 3579
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanGoBack, "wxWebView", "canGoBack", 1}, // 3578
+  {wxWebView_CanGoBack, "wxWebView", "canGoBack", 1}, // 3580
 #else
-  {NULL, "wxWebView", "canGoBack", 0}, // 3578
+  {NULL, "wxWebView", "canGoBack", 0}, // 3580
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanGoForward, "wxWebView", "canGoForward", 1}, // 3579
+  {wxWebView_CanGoForward, "wxWebView", "canGoForward", 1}, // 3581
 #else
-  {NULL, "wxWebView", "canGoForward", 0}, // 3579
+  {NULL, "wxWebView", "canGoForward", 0}, // 3581
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_ClearHistory, "wxWebView", "clearHistory", 1}, // 3580
+  {wxWebView_ClearHistory, "wxWebView", "clearHistory", 1}, // 3582
 #else
-  {NULL, "wxWebView", "clearHistory", 0}, // 3580
+  {NULL, "wxWebView", "clearHistory", 0}, // 3582
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_EnableHistory, "wxWebView", "enableHistory", 2}, // 3581
+  {wxWebView_EnableHistory, "wxWebView", "enableHistory", 2}, // 3583
 #else
-  {NULL, "wxWebView", "enableHistory", 0}, // 3581
+  {NULL, "wxWebView", "enableHistory", 0}, // 3583
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GoBack, "wxWebView", "goBack", 1}, // 3582
+  {wxWebView_GoBack, "wxWebView", "goBack", 1}, // 3584
 #else
-  {NULL, "wxWebView", "goBack", 0}, // 3582
+  {NULL, "wxWebView", "goBack", 0}, // 3584
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GoForward, "wxWebView", "goForward", 1}, // 3583
+  {wxWebView_GoForward, "wxWebView", "goForward", 1}, // 3585
 #else
-  {NULL, "wxWebView", "goForward", 0}, // 3583
+  {NULL, "wxWebView", "goForward", 0}, // 3585
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_ClearSelection, "wxWebView", "clearSelection", 1}, // 3584
+  {wxWebView_ClearSelection, "wxWebView", "clearSelection", 1}, // 3586
 #else
-  {NULL, "wxWebView", "clearSelection", 0}, // 3584
+  {NULL, "wxWebView", "clearSelection", 0}, // 3586
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_DeleteSelection, "wxWebView", "deleteSelection", 1}, // 3585
+  {wxWebView_DeleteSelection, "wxWebView", "deleteSelection", 1}, // 3587
 #else
-  {NULL, "wxWebView", "deleteSelection", 0}, // 3585
+  {NULL, "wxWebView", "deleteSelection", 0}, // 3587
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetSelectedSource, "wxWebView", "getSelectedSource", 1}, // 3586
+  {wxWebView_GetSelectedSource, "wxWebView", "getSelectedSource", 1}, // 3588
 #else
-  {NULL, "wxWebView", "getSelectedSource", 0}, // 3586
+  {NULL, "wxWebView", "getSelectedSource", 0}, // 3588
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetSelectedText, "wxWebView", "getSelectedText", 1}, // 3587
+  {wxWebView_GetSelectedText, "wxWebView", "getSelectedText", 1}, // 3589
 #else
-  {NULL, "wxWebView", "getSelectedText", 0}, // 3587
+  {NULL, "wxWebView", "getSelectedText", 0}, // 3589
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_HasSelection, "wxWebView", "hasSelection", 1}, // 3588
+  {wxWebView_HasSelection, "wxWebView", "hasSelection", 1}, // 3590
 #else
-  {NULL, "wxWebView", "hasSelection", 0}, // 3588
+  {NULL, "wxWebView", "hasSelection", 0}, // 3590
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SelectAll, "wxWebView", "selectAll", 1}, // 3589
+  {wxWebView_SelectAll, "wxWebView", "selectAll", 1}, // 3591
 #else
-  {NULL, "wxWebView", "selectAll", 0}, // 3589
+  {NULL, "wxWebView", "selectAll", 0}, // 3591
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanRedo, "wxWebView", "canRedo", 1}, // 3590
+  {wxWebView_CanRedo, "wxWebView", "canRedo", 1}, // 3592
 #else
-  {NULL, "wxWebView", "canRedo", 0}, // 3590
+  {NULL, "wxWebView", "canRedo", 0}, // 3592
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanUndo, "wxWebView", "canUndo", 1}, // 3591
+  {wxWebView_CanUndo, "wxWebView", "canUndo", 1}, // 3593
 #else
-  {NULL, "wxWebView", "canUndo", 0}, // 3591
+  {NULL, "wxWebView", "canUndo", 0}, // 3593
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Redo, "wxWebView", "redo", 1}, // 3592
+  {wxWebView_Redo, "wxWebView", "redo", 1}, // 3594
 #else
-  {NULL, "wxWebView", "redo", 0}, // 3592
+  {NULL, "wxWebView", "redo", 0}, // 3594
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Undo, "wxWebView", "undo", 1}, // 3593
+  {wxWebView_Undo, "wxWebView", "undo", 1}, // 3595
 #else
-  {NULL, "wxWebView", "undo", 0}, // 3593
+  {NULL, "wxWebView", "undo", 0}, // 3595
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Find, "wxWebView", "find", 3}, // 3594
+  {wxWebView_Find, "wxWebView", "find", 3}, // 3596
 #else
-  {NULL, "wxWebView", "find", 0}, // 3594
+  {NULL, "wxWebView", "find", 0}, // 3596
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanSetZoomType, "wxWebView", "canSetZoomType", 2}, // 3595
+  {wxWebView_CanSetZoomType, "wxWebView", "canSetZoomType", 2}, // 3597
 #else
-  {NULL, "wxWebView", "canSetZoomType", 0}, // 3595
+  {NULL, "wxWebView", "canSetZoomType", 0}, // 3597
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetZoom, "wxWebView", "getZoom", 1}, // 3596
+  {wxWebView_GetZoom, "wxWebView", "getZoom", 1}, // 3598
 #else
-  {NULL, "wxWebView", "getZoom", 0}, // 3596
+  {NULL, "wxWebView", "getZoom", 0}, // 3598
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetZoomType, "wxWebView", "getZoomType", 1}, // 3597
+  {wxWebView_GetZoomType, "wxWebView", "getZoomType", 1}, // 3599
 #else
-  {NULL, "wxWebView", "getZoomType", 0}, // 3597
+  {NULL, "wxWebView", "getZoomType", 0}, // 3599
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SetZoom, "wxWebView", "setZoom", 2}, // 3598
+  {wxWebView_SetZoom, "wxWebView", "setZoom", 2}, // 3600
 #else
-  {NULL, "wxWebView", "setZoom", 0}, // 3598
+  {NULL, "wxWebView", "setZoom", 0}, // 3600
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SetZoomType, "wxWebView", "setZoomType", 2}, // 3599
+  {wxWebView_SetZoomType, "wxWebView", "setZoomType", 2}, // 3601
 #else
-  {NULL, "wxWebView", "setZoomType", 0}, // 3599
+  {NULL, "wxWebView", "setZoomType", 0}, // 3601
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
-  {wxWebView_GetZoomFactor, "wxWebView", "getZoomFactor", 1}, // 3600
+  {wxWebView_GetZoomFactor, "wxWebView", "getZoomFactor", 1}, // 3602
 #else
-  {NULL, "wxWebView", "getZoomFactor", 0}, // 3600
+  {NULL, "wxWebView", "getZoomFactor", 0}, // 3602
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
-  {wxWebView_SetZoomFactor, "wxWebView", "setZoomFactor", 2}, // 3601
+  {wxWebView_SetZoomFactor, "wxWebView", "setZoomFactor", 2}, // 3603
 #else
-  {NULL, "wxWebView", "setZoomFactor", 0}, // 3601
+  {NULL, "wxWebView", "setZoomFactor", 0}, // 3603
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
-  {wxWebView_IsBackendAvailable, "wxWebView", "isBackendAvailable", 1}, // 3602
+  {wxWebView_IsBackendAvailable, "wxWebView", "isBackendAvailable", 1}, // 3604
 #else
-  {NULL, "wxWebView", "isBackendAvailable", 0}, // 3602
+  {NULL, "wxWebView", "isBackendAvailable", 0}, // 3604
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetString, "wxWebViewEvent", "getString", 1}, // 3603
+  {wxWebViewEvent_GetString, "wxWebViewEvent", "getString", 1}, // 3605
 #else
-  {NULL, "wxWebViewEvent", "getString", 0}, // 3603
+  {NULL, "wxWebViewEvent", "getString", 0}, // 3605
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetInt, "wxWebViewEvent", "getInt", 1}, // 3604
+  {wxWebViewEvent_GetInt, "wxWebViewEvent", "getInt", 1}, // 3606
 #else
-  {NULL, "wxWebViewEvent", "getInt", 0}, // 3604
+  {NULL, "wxWebViewEvent", "getInt", 0}, // 3606
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetTarget, "wxWebViewEvent", "getTarget", 1}, // 3605
+  {wxWebViewEvent_GetTarget, "wxWebViewEvent", "getTarget", 1}, // 3607
 #else
-  {NULL, "wxWebViewEvent", "getTarget", 0}, // 3605
+  {NULL, "wxWebViewEvent", "getTarget", 0}, // 3607
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetURL, "wxWebViewEvent", "getURL", 1}, // 3606
+  {wxWebViewEvent_GetURL, "wxWebViewEvent", "getURL", 1}, // 3608
 #else
-  {NULL, "wxWebViewEvent", "getURL", 0}, // 3606
+  {NULL, "wxWebViewEvent", "getURL", 0}, // 3608
 #endif // WXE_WEBVIEW
 };
