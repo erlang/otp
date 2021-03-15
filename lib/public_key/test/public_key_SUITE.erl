@@ -800,24 +800,26 @@ pkix_verify_hostname_subjAltName(Config) ->
 
     %% Check that a dns_id matches a DNS subjAltName:
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]),
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"KB.EXAMPLE.ORG"}]),
 
     %% Check that a dns_id does not match a DNS subjAltName wiht wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}]),
 
     %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}],
-                                            [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}
-                                            ]
-                                             ),
+    MatchFun = {match_fun, public_key:pkix_verify_hostname_match_fun(https)},
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}], [MatchFun]),
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"OTHER.EXAMPLE.ORG"}], [MatchFun]),
 
     %% Check that a uri_id does not match a DNS subjAltName wiht wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}]),
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}]),
 
     %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
-    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}],
-                                            [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}
-                                            ]
-                                             ).
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}], [MatchFun]),
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}], [MatchFun]),
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.example.org"}], [MatchFun]),
+
+    ok.
 
 %%--------------------------------------------------------------------
 %% Uses the pem-file for pkix_verify_hostname_cn

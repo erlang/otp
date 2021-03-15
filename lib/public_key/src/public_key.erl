@@ -1815,8 +1815,8 @@ verify_hostname_match_default0(_, _) ->
 
 
 verify_hostname_match_wildcard(FQDN, Name) ->
-    [F1|Fs] = string:tokens(FQDN, "."),
-    [N1|Ns] = string:tokens(Name, "."),
+    [F1|Fs] = string:tokens(to_lower_ascii(FQDN), "."),
+    [N1|Ns] = string:tokens(to_lower_ascii(Name), "."),
     match_wild(F1,N1) andalso Fs==Ns.
 
 
