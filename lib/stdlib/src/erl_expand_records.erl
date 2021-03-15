@@ -540,13 +540,8 @@ normalise_fields(Fs) ->
 
 record_fields(R, Anno, St) ->
     Fields = maps:get(R, St#exprec.records),
-    case St#exprec.dialyzer of
-        true ->
-            [{record_field,Anno,{atom,Anno,F},copy_expr(Di, Anno)} ||
-                {record_field,_Anno,{atom,_AnnoA,F},Di} <- Fields];
-        false ->
-            Fields
-    end.
+    [{record_field,Anno,{atom,Anno,F},copy_expr(Di, Anno)} ||
+        {record_field,_Anno,{atom,_AnnoA,F},Di} <- Fields].
 
 find_field(F, [{record_field,_,{atom,_,F},Val} | _]) -> {ok,Val};
 find_field(F, [_ | Fs]) -> find_field(F, Fs);
@@ -707,7 +702,7 @@ record_update(R, Name, Fs, Us0, St0) ->
         end,
     {{block,Anno,Pre ++ [{match,Anno,Var,R},Update]},St}.
 
-%% record_match(Record, RecordName, [RecDefField], [Update], State)
+%% record_match(Record, RecordName, Anno, [RecDefField], [Update], State)
 %%  Build a 'case' expression to modify record fields.
 
 record_match(R, Name, AnnoR, Fs, Us, St0) ->

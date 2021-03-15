@@ -6289,7 +6289,7 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_template1() ->
                qlc:q([{X} = {} || X <- []]).">>,
         [],
-        {warnings,[{{2,27},sys_core_fold,{nomatch,no_clause}}]}}
+        {warnings,[{{2,23},sys_core_fold,{nomatch,no_clause}}]}}
          ],
     [] = compile(Config, T1),
 

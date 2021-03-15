@@ -101,7 +101,7 @@ pattern(Config) when is_list(Config) ->
            {warnings,
             [{{2,15},v3_core,{nomatch,pattern}},
              {{6,20},v3_core,{nomatch,pattern}},
-             {{11,20},v3_core,{nomatch,pattern}}
+             {{11,18},v3_core,{nomatch,pattern}}
             ]}}],
     [] = run(Config, Ts),
     ok.
@@ -984,8 +984,8 @@ bit_syntax(Config) ->
                       {{9,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf16}}},
                       {{10,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf32}}},
                       {{11,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf32}}},
+                      {{12,35},sys_core_fold,{nomatch,no_clause}},
                       {{12,37},sys_core_fold,{nomatch,{bit_syntax_size,bad}}},
-                      {{12,45},sys_core_fold,{nomatch,no_clause}},
                       {{15,21},sys_core_fold,{nomatch,{bit_syntax_unsigned,-42}}},
                       {{17,21},sys_core_fold,{nomatch,{bit_syntax_type,42,binary}}},
                       {{19,19},sys_core_fold,{nomatch,{bit_syntax_unicode,1114112}}}

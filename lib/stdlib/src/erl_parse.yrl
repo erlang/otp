@@ -226,7 +226,7 @@ clause_body -> '->' exprs: '$2'.
 
 
 expr -> 'catch' expr : {'catch',?anno('$1'),'$2'}.
-expr -> expr '=' expr : {match,?anno('$2'),'$1','$3'}.
+expr -> expr '=' expr : {match,first_anno('$1'),'$1','$3'}.
 expr -> expr '!' expr : ?mkop2('$1', '$2', '$3').
 expr -> expr 'orelse' expr : ?mkop2('$1', '$2', '$3').
 expr -> expr 'andalso' expr : ?mkop2('$1', '$2', '$3').
@@ -240,7 +240,7 @@ expr -> function_call : '$1'.
 expr -> record_expr : '$1'.
 expr -> expr_remote : '$1'.
 
-expr_remote -> expr_max ':' expr_max : {remote,first_anno('$1'),'$1','$3'}.
+expr_remote -> expr_max ':' expr_max : {remote,?anno('$2'),'$1','$3'}.
 expr_remote -> expr_max : '$1'.
 
 expr_max -> var : '$1'.
@@ -258,7 +258,7 @@ expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
 
-pat_expr -> pat_expr '=' pat_expr : {match,?anno('$2'),'$1','$3'}.
+pat_expr -> pat_expr '=' pat_expr : {match,first_anno('$1'),'$1','$3'}.
 pat_expr -> pat_expr comp_op pat_expr : ?mkop2('$1', '$2', '$3').
 pat_expr -> pat_expr list_op pat_expr : ?mkop2('$1', '$2', '$3').
 pat_expr -> pat_expr add_op pat_expr : ?mkop2('$1', '$2', '$3').
@@ -370,13 +370,13 @@ record_expr -> '#' atom '.' atom :
 record_expr -> '#' atom record_tuple :
 	{record,?anno('$1'),element(3, '$2'),'$3'}.
 record_expr -> expr_max '#' atom '.' atom :
-	{record_field,first_anno('$1'),'$1',element(3, '$3'),'$5'}.
+	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
 record_expr -> expr_max '#' atom record_tuple :
-	{record,first_anno('$1'),'$1',element(3, '$3'),'$4'}.
+	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
 record_expr -> record_expr '#' atom '.' atom :
-	{record_field,first_anno('$1'),'$1',element(3, '$3'),'$5'}.
+	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
 record_expr -> record_expr '#' atom record_tuple :
-	{record,first_anno('$1'),'$1',element(3, '$3'),'$4'}.
+	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
 
 record_tuple -> '{' '}' : [].
 record_tuple -> '{' record_fields '}' : '$2'.
@@ -1350,7 +1350,17 @@ first_anno(Abstract) ->
     catch fold_anno(F, Anno0, Abstract).
 
 last_anno(Abstract) ->
-    Anno = lists:last(sort_annos(Abstract)),
+    Fun = fun(Anno, '*') ->
+                  Anno;
+             (Anno, Anno0) ->
+                  case loc_lte(Anno, Anno0) of
+                      true ->
+                          Anno0;
+                      false ->
+                          Anno
+                  end
+          end,
+    Anno = find_anno(Abstract, Fun),
     case erl_anno:end_location(Anno) of
         undefined ->
             Anno;
@@ -1358,12 +1368,8 @@ last_anno(Abstract) ->
             erl_anno:set_location(EndLocation, Anno)
     end.
 
-sort_annos(Abstract) ->
-    AllAnnos = fold_anno(fun(Anno, Acc) -> [Anno|Acc] end, [], Abstract),
-    CF = fun(Anno1, Anno2) ->
-                 loc_lte(erl_anno:location(Anno1), erl_anno:location(Anno2))
-         end,
-    lists:sort(CF, AllAnnos).
+find_anno(Abstract, Fun) ->
+    fold_anno(Fun, '*', Abstract).
 
 loc_lte(Line1, Location2) when is_integer(Line1) ->
     loc_lte({Line1, 1}, Location2);
