@@ -103,28 +103,58 @@ end_per_suite(_Config) ->
 -define(nodes_tag, '$global_nodes').
 -define(registered, proplists:get_value(registered, Config)).
 
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    ok = gen_server:call(global_name_server, high_level_trace_start,infinity),
+init_per_testcase(Case, Config0) when is_atom(Case) andalso is_list(Config0) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ok = gen_server:call(global_name_server,
+                         high_level_trace_start,
+                         infinity),
 
     %% Make sure that everything is dead and done. Otherwise there are problems
     %% on platforms on which it takes a long time to shut down a node.
     stop_nodes(nodes()),
     timer:sleep(1000),
 
-    [{?TESTCASE, Case}, {registered, registered()} | Config].
+    Config1 = [{?TESTCASE, Case}, {registered, registered()} | Config0],
+
+    ?P("init_per_testcase -> done when"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [Config1, erlang:nodes(), pi(links), pi(monitors)]),
+
+    Config1.
 
 end_per_testcase(_Case, Config) ->
-    ct:log("Calling end_per_testcase!",[]),
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
     write_high_level_trace(Config),
-    _ =
-        gen_server:call(global_name_server, high_level_trace_stop, infinity),
+    _ = gen_server:call(global_name_server, high_level_trace_stop, infinity),
     [global:unregister_name(N) || N <- global:registered_names()],
     InitRegistered = ?registered,
     Registered = registered(),
-    [io:format("~s local names: ~p~n", [What, N]) ||
+
+    [?P("end_per_testcase -> "
+        "~n   ~s local names: ~p", [What, N]) ||
 	{What, N} <- [{"Added", Registered -- InitRegistered},
 		      {"Removed", InitRegistered -- Registered}],
 	N =/= []],
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [erlang:nodes(), pi(links), pi(monitors)]),
 
     ok.
 
@@ -386,7 +416,7 @@ write_high_level_trace(Config) ->
     end.
 
 write_high_level_trace(Nodes, Config) ->
-    When = now(),
+    When = erlang:timestamp(),
     %% 'info' returns more than the trace, which is nice.
     Data = [{Node, {info, rpc:call(Node, global, info, [])}} ||
                Node <- Nodes],
@@ -1946,9 +1976,9 @@ otp_5737(Config) when is_list(Config) ->
     {'EXIT', _} = (catch global:set_lock(LockId, Nodes, -1)),
     {'EXIT', _} = (catch global:set_lock(LockId, Nodes, a)),
     true = global:set_lock(LockId, Nodes, 0),
-    Time1 = now(),
+    Time1 = erlang:timestamp(),
     false = global:set_lock({?MODULE,not_me}, Nodes, 0),
-    true = timer:now_diff(now(), Time1) < 5000,
+    true = timer:now_diff(erlang:timestamp(), Time1) < 5000,
     _ = global:del_lock(LockId, Nodes),
 
     Fun = fun() -> ok end,
@@ -2923,7 +2953,7 @@ sync_until() ->
     sync_until(no_log_file).
 
 sync_until(LogFile) ->
-    Time = ?UNTIL_LOOP - (msec(now()) rem ?UNTIL_LOOP),
+    Time = ?UNTIL_LOOP - (msec(erlang:timestamp()) rem ?UNTIL_LOOP),
     catch append_to_file(LogFile, {sync_until, Time}),
     timer:sleep(Time).
 
@@ -3480,11 +3510,11 @@ is_node_in_part(File, MyPart) ->
                 Rs ->
                     erlang:display({is_node_in_part, resolvers, Rs}),
                     trace_message({node(), is_node_in_part, Rs}),
-                    append_to_file(File, {now(), Known, Nodes, Rs}),
+                    append_to_file(File, {erlang:timestamp(), Known, Nodes, Rs}),
                     false
             end;
         _ ->
-            append_to_file(File, {now(), Known, Nodes}),
+            append_to_file(File, {erlang:timestamp(), Known, Nodes}),
             false
     end.
 
@@ -3623,7 +3653,7 @@ loop_2() ->
     end.
 
 msec() ->
-    msec(now()).
+    msec(erlang:timestamp()).
 
 msec(T) ->
     element(1,T)*1000000000 + element(2,T)*1000 + element(3,T) div 1000.
@@ -3835,7 +3865,7 @@ node_names(Names, Config) ->
 %% simple_resolve assumes that the node name comes first.
 node_name(Name, Config) ->
     U = "_",
-    {{Y,M,D}, {H,Min,S}} = calendar:now_to_local_time(now()),
+    {{Y,M,D}, {H,Min,S}} = calendar:now_to_local_time(erlang:timestamp()),
     Date = io_lib:format("~4w_~2..0w_~2..0w__~2..0w_~2..0w_~2..0w", 
                          [Y,M,D, H,Min,S]),
     L = lists:flatten(Date),
@@ -3956,13 +3986,13 @@ mass_death(Config) when is_list(Config) ->
     {H,M,S} = time(),
     io:format("Started probing: ~.4.0w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w~n",
 	      [YYYY,MM,DD,H,M,S]),
-    wait_mass_death(Nodes, OrigNames, erlang:now(), Config).
+    wait_mass_death(Nodes, OrigNames, erlang:timestamp(), Config).
 
 wait_mass_death(Nodes, OrigNames, Then, Config) ->
     Names = global:registered_names(),
     case Names--OrigNames of
 	[] ->
-	    T = now_diff(erlang:now(), Then) div 1000,
+	    T = now_diff(erlang:timestamp(), Then) div 1000,
 	    lists:foreach(
 	      fun (Node) ->
 		      stop_node(Node)
@@ -4223,7 +4253,7 @@ rpc_cast(Node, Module, Function, Args, File) ->
         pong ->
             rpc:cast(Node, Module, Function, Args);
         Else ->
-            append_to_file(File, {now(), {rpc_cast, Node, Module, Function,
+            append_to_file(File, {erlang:timestamp(), {rpc_cast, Node, Module, Function,
                                           Args, Else}})
             %% Maybe we should crash, but it probably doesn't matter.
     end.
@@ -4261,14 +4291,14 @@ start_tracer() ->
 tracer(L) ->
     receive 
         %% {save, Term} ->
-        %%     tracer([{now(),Term} | L]);
+        %%     tracer([{erlang:timestamp(),Term} | L]);
         {get, From} ->
             From ! {trace, lists:reverse(L)},
             tracer([]);
         stop ->
             exit(normal);
         Term ->
-            tracer([{now(),Term} | L])
+            tracer([{erlang:timestamp(),Term} | L])
     end.
 
 stop_tracer() ->
@@ -4298,6 +4328,15 @@ trace_message(M) ->
         _ ->
             ok
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used for OTP-6931.
