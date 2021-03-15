@@ -78,8 +78,7 @@ dummy_server_init(Caller, ssl, Inet, Extra) ->
     ContentCb = proplists:get_value(content_cb, Extra),
     SSLOptions = proplists:get_value(ssl, Extra),
     Conf = proplists:get_value(conf, Extra),
-    BaseOpts = [binary, {reuseaddr,true}, {active, false}, {nodelay, true} |
-	        SSLOptions], 
+    BaseOpts = [binary, {active, false}, {nodelay, true} | SSLOptions], 
     dummy_ssl_server_init(Caller, BaseOpts, Inet, ContentCb, Conf).
 
 dummy_ssl_server_init(Caller, BaseOpts, Inet, ContentCb, Conf) ->
