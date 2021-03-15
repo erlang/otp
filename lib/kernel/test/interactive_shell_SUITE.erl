@@ -239,8 +239,10 @@ stop_during_init(Config) when is_list(Config) ->
 		Tempdir ->
 		    XArg = " -kernel shell_history enabled -s init stop",
 		    start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++XArg),
-		    {ok, Binary} = file:read_file(filename:join(Tempdir, "erlang.log.1")),
-		    nomatch = binary:match(Binary, <<"*** ERROR: Shell process terminated! ***">>)
+                    Logs = rtnode_read_logs(Tempdir),
+                    rtnode_dump_logs(Logs),
+		    nomatch = binary:match(maps:get("erlang.log.1",Logs),
+                                           <<"*** ERROR: Shell process terminated! ***">>)
 	    end
      end.
 
@@ -860,17 +862,7 @@ rtstop({CPid, SPid, ToErl, Tempdir}) ->
             ok
     end,
     wait_for_runerl_server(SPid),
-    {ok, LogFiles} = file:list_dir(Tempdir),
-    Logs =
-        lists:foldl(
-          fun(File, Acc) ->
-                  case file:read_file(filename:join(Tempdir, File)) of
-                      {ok, Data} ->
-                          Acc#{ File => Data };
-                      _ ->
-                          Acc
-                  end
-          end, #{}, LogFiles),
+    Logs = rtnode_read_logs(Tempdir),
     file:del_dir_r(Tempdir),
     Logs.
 
@@ -1281,6 +1273,18 @@ rtnode_dump_logs(Logs) ->
       fun(File, Data) ->
               ct:pal("~ts: ~ts",[File, Data])
       end, Logs).
+
+rtnode_read_logs(Tempdir) ->
+    {ok, LogFiles} = file:list_dir(Tempdir),
+    lists:foldl(
+      fun(File, Acc) ->
+              case file:read_file(filename:join(Tempdir, File)) of
+                  {ok, Data} ->
+                      Acc#{ File => Data };
+                  _ ->
+                      Acc
+              end
+      end, #{}, LogFiles).
 
 get_default_shell() ->
     try
