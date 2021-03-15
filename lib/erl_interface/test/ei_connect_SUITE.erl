@@ -36,7 +36,8 @@
          ei_set_get_tracelevel/1,
          ei_connect_host_port_test/1,
          ei_make_ref/1,
-         ei_make_pid/1]).
+         ei_make_pid/1,
+         ei_link_unlink/1]).
 
 -import(runner, [get_term/1,send_term/2]).
 
@@ -44,7 +45,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 30}}].
 
-all() -> 
+all() ->
     [ei_threaded_send,
      ei_connect_host_port_test,
      {group, default},
@@ -58,7 +59,8 @@ groups() ->
                ei_reg_send,
                ei_rpc,
                ei_make_ref,
-               ei_make_pid],
+               ei_make_pid,
+               ei_link_unlink],
     [{default, [], Members},
      {ussi, [], Members}].
 
@@ -306,6 +308,46 @@ chk_pids([NewPid|NewPids], CNode, Pids) ->
     CNode = node(NewPid),
     chk_pids(NewPids, CNode, [NewPid|Pids]).
 
+ei_link_unlink(Config) when is_list(Config) ->
+    P = runner:start(Config, ?interpret),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
+    {ok,Fd} = ei_connect(P, node()),
+
+    EiPid = ei_self(P),
+    io:format("~p ~p~n", [EiPid, node(EiPid)]),
+
+    true = lists:member(node(EiPid), nodes(hidden)),
+
+    Proc = spawn_link(fun link_srv/0),
+    
+    Proc ! {link, EiPid},
+    ok = ei_recv_signal(P, Fd, link, Proc, EiPid, undefined),
+
+    Proc ! {unlink, EiPid},
+    ok = ei_recv_signal(P, Fd, unlink, Proc, EiPid, undefined),
+
+    unlink(Proc),
+    Proc ! {link, EiPid},
+    Proc ! {exit, bang},
+    ok = ei_recv_signal(P, Fd, link, Proc, EiPid, undefined),
+    ok = ei_recv_signal(P, Fd, exit, Proc, EiPid, bang),
+
+    runner:send_eot(P),
+    runner:recv_eot(P),
+    ok.
+
+link_srv() ->
+    receive
+        {link, Pid} ->
+            link(Pid);
+        {unlink, Pid} ->
+            unlink(Pid);
+        {exit, Reason} ->
+            exit(Reason)
+    end,
+    link_srv().
+                
+
 %%% Interface functions for ei (erl_interface) functions.
 
 ei_connect_init(P, Num, Cookie, Creation, SockImpl) ->
@@ -362,6 +404,19 @@ ei_make_pids(P, Fd, To) ->
     send_command(P, ei_make_pids, [Fd,To]),
     get_send_result(P).
 
+ei_self(P) ->
+    send_command(P, ei_self, []),
+    case get_term(P) of
+        {term, Pid} when is_pid(Pid) ->
+            Pid;
+        {term, Unexpected} ->
+            io:format("Unexpected return value: ~p", [Unexpected]),
+            ct:fail(bad_return_value)
+    end.
+
+ei_recv_signal(P, Fd, SigType, From, To, Extra) ->
+    send_command(P, ei_recv_signal, [Fd, SigType, From, To, Extra]),
+    get_send_result(P).
 
 get_send_result(P) ->
     case get_term(P) of

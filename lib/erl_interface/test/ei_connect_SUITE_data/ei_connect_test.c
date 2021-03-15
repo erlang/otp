@@ -42,6 +42,8 @@ static void cmd_ei_rpc(char* buf, int len);
 static void cmd_ei_set_get_tracelevel(char* buf, int len);
 static void cmd_ei_make_refs(char* buf, int len);
 static void cmd_ei_make_pids(char* buf, int len);
+static void cmd_ei_self(char* buf, int len);
+static void cmd_ei_recv_signal(char* buf, int len);
 
 static void send_errno_result(int value);
 
@@ -64,6 +66,8 @@ static struct {
     "ei_format_pid",         2, cmd_ei_format_pid,
     "ei_make_refs",          2, cmd_ei_make_refs,
     "ei_make_pids",          2, cmd_ei_make_pids,
+    "ei_self",               0, cmd_ei_self,
+    "ei_recv_signal",        5, cmd_ei_recv_signal
 };
 
 
@@ -406,6 +410,86 @@ static void cmd_ei_rpc(char* buf, int len)
     /*send_errno_result(ei_send(&ec, fd, &pid, x.buff, x.index));*/
     ei_x_free(&x);
     ei_x_free(&rpc_x);
+}
+
+static void cmd_ei_self(char* buf, int len)
+{
+    ei_x_buff x;
+    erlang_pid *self;
+
+    ei_x_new_with_version(&x);
+    self = ei_self(&ec);
+    if (!self)
+        fail("ei_self() failed");
+    if (ei_x_encode_pid(&x, self))
+        fail("ei_x_encode_pid() failed");
+    send_bin_term(&x);
+    ei_x_free(&x);
+}
+
+static void cmd_ei_recv_signal(char *buf, int len)
+{
+    int index = 0;
+    ei_x_buff x;
+    erlang_pid from, to;
+    erlang_msg msg;
+    char sigtype[MAXATOMLEN];
+    char extra[MAXATOMLEN];
+    long fd;
+    
+    if (ei_decode_long(buf, &index, &fd) < 0)
+	fail("expected long");
+    if (ei_decode_atom(buf, &index, sigtype) < 0)
+	fail("expected atom (signal type)");
+    if (ei_decode_pid(buf, &index, &from) < 0)
+	fail("expected pid (test process)");
+    if (ei_decode_pid(buf, &index, &to) < 0)
+	fail("expected pid (self)");
+    if (ei_decode_atom(buf, &index, extra) < 0)
+	fail("expected atom (extra)");
+
+    ei_x_new(&x);
+    while (!0) {
+	int res = ei_xreceive_msg(fd, &msg, &x);
+	if (res == ERL_TICK)
+	    continue;
+	if (res == ERL_ERROR) {
+            send_errno_result(res);
+            return;
+        }
+	break;
+    }
+
+    if (strcmp("link", sigtype) == 0) {
+        if (msg.msgtype != ERL_LINK)
+            fail1("Expected ERL_LINK, got: %d", msg.msgtype);
+    }
+    else if (strcmp("unlink", sigtype) == 0) {
+        if (msg.msgtype != ERL_UNLINK)
+            fail1("Expected ERL_UNLINK, got: %d", msg.msgtype);
+    }
+    else if (strcmp("exit", sigtype) == 0) {
+        char reason[MAXATOMLEN];
+        if (msg.msgtype != ERL_EXIT)
+            fail1("Expected ERL_EXIT, got: %d", msg.msgtype);
+        index = 0;
+        if (ei_decode_atom(x.buff, &index, reason) < 0)
+            fail("expected atom (reason)");
+        if (strcmp(extra, reason) != 0)
+            fail("unexpected exit reason");
+    }
+    else {
+        fail1("Not yet handled signal received: %d", msg.msgtype);
+    }
+
+    ei_x_free(&x);
+
+    if (ei_cmp_pids(&from, &msg.from) != 0)
+        fail("From pids mismatch");
+    if (ei_cmp_pids(&to, &msg.to) != 0)
+        fail("To pids mismatch");
+
+    send_errno_result(0);
 }
 
 static void send_errno_result(int value)
