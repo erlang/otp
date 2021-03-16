@@ -115,6 +115,7 @@ static char* ei_chk_strdup(char *s);
 static int rpc_print_node_stdout(ei_cnode* ec, int fd, char *mod,
                                  char *fun, const char* inbuf,
                                  int inbuflen, ei_x_buff* x);
+static void exit_free_flags_fields(int exit_status, struct call_flags* flags);
 
 /* Converts the given hostname to a shortname, if required. */
 static void format_node_hostname(const struct call_flags *flags,
@@ -158,7 +159,10 @@ int main(int argc, char *argv[])
     flags.hostname = NULL;
     flags.fetch_stdout = 0;
     flags.print_result_term = 1;
-
+    flags.script = NULL;
+    flags.hidden = NULL;
+    flags.apply = NULL;
+    flags.cookie = NULL;
     ei_init();
 
     /* Get the command line options */
@@ -367,7 +371,7 @@ int main(int argc, char *argv[])
       /* gethostname requires len to be max(hostname) + 1 */
       if (gethostname(h_hostname, EI_MAXHOSTNAMELEN+1) < 0) {
           fprintf(stderr,"erl_call: failed to get host name: %d\n", errno);
-          exit(1);
+          exit_free_flags_fields(1, &flags);
       }
 
       if (flags.use_localhost_fallback || (hp = ei_gethostbyname(h_hostname)) == 0) {
@@ -385,7 +389,7 @@ int main(int argc, char *argv[])
       if (h_alivename) {
           if (strlen(h_alivename) + strlen(h_hostname) + 2 > sizeof(h_nodename_buf)) {
               fprintf(stderr,"erl_call: hostname too long: %s\n", h_hostname);
-              exit(1);
+              exit_free_flags_fields(1, &flags);
           }
           sprintf(h_nodename, "%s@%s", h_alivename, h_hostname);
       }
@@ -399,7 +403,7 @@ int main(int argc, char *argv[])
 			   (short) creation) < 0) {
 	  fprintf(stderr,"erl_call: can't create C node %s; %d\n",
 		  h_nodename, erl_errno);
-      	  exit(1);
+          exit_free_flags_fields(1, &flags);
       }
 
     }
@@ -425,7 +429,7 @@ int main(int argc, char *argv[])
     } else {
         if ((hp = ei_gethostbyname(host)) == 0) {
             fprintf(stderr,"erl_call: can't ei_gethostbyname(%s)\n", host);
-            exit(1);
+            exit_free_flags_fields(1, &flags);
         }
 
         format_node_hostname(&flags, hp->h_name, host_name);
@@ -434,7 +438,7 @@ int main(int argc, char *argv[])
     if (flags.port == -1) {
         if (strlen(flags.node) + strlen(host_name) + 2 > sizeof(nodename)) {
             fprintf(stderr,"erl_call: nodename too long: %s\n", flags.node);
-            exit(1);
+            exit_free_flags_fields(1, &flags);
         }
         sprintf(nodename, "%s@%s", flags.node, host_name);
     }
@@ -449,11 +453,11 @@ int main(int argc, char *argv[])
             /* We failed to connect ourself */
             /* FIXME do we really know we failed because of node not up? */
             if (flags.haltp) {
-                exit(0);
+                exit_free_flags_fields(0, &flags);
             } else {
                 fprintf(stderr,"erl_call: failed to connect to node %s\n",
                         nodename);
-                exit(1);
+                exit_free_flags_fields(1, &flags);
             }
         }
     } else {
@@ -462,12 +466,12 @@ int main(int argc, char *argv[])
             /* We failed to connect ourself */
             /* FIXME do we really know we failed because of node not up? */
             if (flags.haltp) {
-                exit(0);
+                exit_free_flags_fields(0, &flags);
             } else {
                 fprintf(stderr,"erl_call: failed to connect to node with address \"%s:%ld\"\n",
                         flags.hostname == NULL ? "" : flags.hostname,
                         flags.port);
-                exit(1);
+                exit_free_flags_fields(1, &flags);
             }
         }
     }
@@ -491,7 +495,7 @@ int main(int argc, char *argv[])
 	ei_rpc(&ec, fd, "erlang", "halt", p, i, &reply);
 	free(p);
 	ei_x_free(&reply);
-	exit(0);
+        exit_free_flags_fields(0, &flags);
     }
 
     if (flags.verbosep) {
@@ -513,7 +517,7 @@ int main(int argc, char *argv[])
 
       if (strlen(modname) + 4 + 1 > sizeof(fname)) {
       fprintf(stderr,"erl_call: module name too long: %s\n", modname);
-      exit(1);
+      exit_free_flags_fields(1, &flags);
       }
       strcpy(fname, modname);
       strcat(fname, ".erl");
@@ -547,7 +551,7 @@ int main(int argc, char *argv[])
 	      ei_x_free(&reply);
 	      fprintf(stderr,"erl_call: can't write to source file %s\n",
 		      fname);
-	      exit(1);
+              exit_free_flags_fields(1, &flags);
 	  }
 	  free(p);
 	  ei_x_free(&reply);
@@ -642,7 +646,7 @@ int main(int argc, char *argv[])
 	      free(p);
 	      free(evalbuf);	/* Allocated in read_stdin() */
 	      ei_x_free(&reply);
-	      exit(1);
+              exit_free_flags_fields(1, &flags);
 	  }
           if (flags.print_result_term) {
               i = 0;
@@ -670,7 +674,7 @@ int main(int argc, char *argv[])
       
       if (ei_x_format_wo_ver(&e, args) < 0) {
 	  /* FIXME no error message and why -1 ? */
-	  exit(-1);
+          exit_free_flags_fields(-1, &flags);
       }
 
       ei_x_new_with_version(&reply);
@@ -684,7 +688,7 @@ int main(int argc, char *argv[])
 	  /* FIXME no error message and why -1 ? */
 	  ei_x_free(&e);
 	  ei_x_free(&reply);
-	  exit(-1);
+          exit_free_flags_fields(-1, &flags);
       } else {
           if (flags.print_result_term) {
               int i = 0;
@@ -694,7 +698,7 @@ int main(int argc, char *argv[])
 	  ei_x_free(&reply);
       }
     }
-
+    exit_free_flags_fields(0, &flags);
     return(0);
 }
 
@@ -751,7 +755,7 @@ static int do_connect(ei_cnode *ec, char *nodename, struct call_flags *flags)
 	if ((r=erl_start_sys(ec,alive,(Erl_IpAddr)(h->h_addr_list[0]),
 			     start_flags,flags->script,args)) < 0) {
 	    fprintf(stderr,"erl_call: unable to start node, error = %d\n", r);
-	    exit(1);
+            exit_free_flags_fields(1, flags);
 	}
 
 	if ((fd=ei_connect(ec, nodename)) >= 0) {
@@ -765,19 +769,19 @@ static int do_connect(ei_cnode *ec, char *nodename, struct call_flags *flags)
 	    switch (fd) {
 	    case ERL_NO_DAEMON:
 		fprintf(stderr,"erl_call: no epmd running\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    case ERL_CONNECT_FAIL:
 		fprintf(stderr,"erl_call: connect failed\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    case ERL_NO_PORT:
 		fprintf(stderr,"erl_call: node is not running\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    case ERL_TIMEOUT:
 		fprintf(stderr,"erl_call: connect timed out\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    default:
 		fprintf(stderr,"erl_call: error during connect\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    }
 	}
     }
@@ -1111,4 +1115,21 @@ static int rpc_print_node_stdout(ei_cnode* ec, int fd, char *mod,
 ebadmsg:
 
     return ERL_ERROR;
+}
+
+
+void exit_free_flags_fields(int exit_status, struct call_flags* flags) {
+    if (flags->script != NULL) {
+        free(flags->script);
+    }
+    if (flags->hidden != NULL) {
+        free(flags->hidden);
+    }
+    if (flags->cookie != NULL) {
+        free(flags->cookie);
+    }
+    if (flags->apply != NULL) {
+        free(flags->apply);
+    }
+    exit(exit_status);
 }
