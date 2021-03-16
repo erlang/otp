@@ -65,6 +65,7 @@ MODULES= \
 	ssl_certificate \
 	ssl_cipher \
 	ssl_cipher_format \
+	ssl_client_session_cache_db \
 	ssl_config \
 	ssl_connection_sup \
 	ssl_crl \
@@ -87,7 +88,6 @@ MODULES= \
 	ssl_server_session_cache_sup \
 	ssl_upgrade_server_session_cache_sup \
 	ssl_session \
-	ssl_session_cache \
 	ssl_srp_primes \
 	ssl_sup \
 	tls_bloom_filter \

@@ -48,13 +48,14 @@
 
 -record(state, {
 	  session_cache_client    :: db_handle(),
-	  session_cache_cb        :: atom(),
+	  session_cache_client_cb :: atom(),
 	  session_lifetime        :: integer(),
 	  certificate_db          :: db_handle(),
 	  session_validation_timer :: reference(),
 	  session_cache_client_max   :: integer(),
           session_client_invalidator :: undefined | pid(),
-          options                    :: list()      
+          options                    :: list(),
+          client_session_order       :: gb_trees:tree()
 	 }).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
@@ -219,25 +220,31 @@ init([ManagerName, PemCacheName, Opts]) ->
     put(ssl_manager, ManagerName),
     put(ssl_pem_cache, PemCacheName),
     process_flag(trap_exit, true),
-    CacheCb = proplists:get_value(session_cb, Opts, ssl_session_cache),
+
+    #{session_cb := DefaultCacheCb,
+      session_cb_init_args := DefaultCacheCbInitArgs,
+      lifetime := DefaultSessLifeTime,
+      max := ClientSessMax
+     } = ssl_config:pre_1_3_session_opts(client),
+    CacheCb = proplists:get_value(session_cb, Opts, DefaultCacheCb),
     SessionLifeTime =  
-	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
-    CertDb = ssl_pkix_db:create(PemCacheName),
+	proplists:get_value(session_lifetime, Opts, DefaultSessLifeTime),
     ClientSessionCache = 
 	CacheCb:init([{role, client} | 
-		      proplists:get_value(session_cb_init_args, Opts, [])]),
+		      proplists:get_value(session_cb_init_args, Opts, DefaultCacheCbInitArgs)]),
 
+    CertDb = ssl_pkix_db:create(PemCacheName),
     Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
     {ok, #state{certificate_db = CertDb,
 		session_cache_client = ClientSessionCache,
-		session_cache_cb = CacheCb,
+		session_cache_client_cb = CacheCb,
 		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer,
-		session_cache_client_max = 
-		    max_session_cache_size(session_cache_client_max),
+		session_cache_client_max = ClientSessMax,
 		session_client_invalidator = undefined,
-                options = Opts
+                options = Opts,
+                client_session_order = gb_trees:empty()
 	       }}.
 
 %%--------------------------------------------------------------------
@@ -306,7 +313,7 @@ handle_cast({register_session, Host, Port, Session, true}, State0) ->
 handle_cast({invalidate_session, Host, Port,
 	     #session{session_id = ID} = Session},
 	    #state{session_cache_client = Cache,
-		   session_cache_cb = CacheCb} = State) ->
+		   session_cache_client_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
 handle_cast({insert_crls, Path, CRLs},   
 	    #state{certificate_db = Db} = State) ->
@@ -326,7 +333,7 @@ handle_cast({delete_crls, CRLsOrPath},
 %%
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------
-handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
+handle_info(validate_sessions, #state{session_cache_client_cb = CacheCb,
 				      session_cache_client = ClientCache,
 				      session_lifetime = LifeTime,
 				      session_client_invalidator = Client
@@ -362,7 +369,7 @@ handle_info(_Info, State) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, #state{certificate_db = Db,
 			  session_cache_client = ClientSessionCache,
-			  session_cache_cb = CacheCb,
+			  session_cache_client_cb = CacheCb,
 			  session_validation_timer = Timer}) ->
     erlang:cancel_timer(Timer),
     ssl_pkix_db:remove(Db),
@@ -420,21 +427,15 @@ session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
 
-max_session_cache_size(CacheType) ->
-    case application:get_env(ssl, CacheType) of
-	{ok, Size} when is_integer(Size) ->
-	    Size;
-	_ ->
-	   ?DEFAULT_MAX_SESSION_CACHE
-    end.
-
-invalidate_session(Cache, CacheCb, Key, _Session, State) ->
+invalidate_session(Cache, CacheCb, Key, _Session,
+                   #state{client_session_order = Order} = State) ->
     case CacheCb:lookup(Cache, Key) of
 	undefined -> %% Session is already invalidated
 	    {noreply, State};
-	#session{} ->
+	#session{internal_id = InternalId} ->
 	    CacheCb:delete(Cache, Key),
-	    {noreply, State}
+	    {noreply, State#state{session_cache_client = Cache,
+                                  client_session_order = gb_trees:delete(InternalId, Order)}}
     end.
 
 clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File) ->
@@ -448,49 +449,61 @@ clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File) ->
     end.
 
 client_register_unique_session(Host, Port, Session, #state{session_cache_client = Cache0,
-                                                           session_cache_cb = CacheCb,
+                                                           session_cache_client_cb = CacheCb,
                                                            session_cache_client_max = Max,
-                                                           options = Options} = State) ->
+                                                           options = Options,
+                                                           client_session_order = Order0} = State) ->
     TimeStamp = erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
     
     case CacheCb:select_session(Cache0, {Host, Port}) of
 	no_session ->
-	    Cache = do_register_session({{Host, Port}, 
-                                         NewSession#session.session_id}, 
-                                        NewSession, Max, Cache0, CacheCb, Options),
-	    State#state{session_cache_client = Cache};
+	    {Cache, Order} = do_register_session({{Host, Port},
+                                                  NewSession#session.session_id},
+                                                 NewSession, Max, Cache0, CacheCb, Options, Order0),
+	    State#state{session_cache_client = Cache, client_session_order = Order};
 	Sessions ->
 	    register_unique_session(Sessions, NewSession, {Host, Port}, State)
     end.
 
 client_register_session(Host, Port, Session, #state{session_cache_client = Cache0,
-                                                    session_cache_cb = CacheCb,
+                                                    session_cache_client_cb = CacheCb,
                                                     session_cache_client_max = Max,
-                                                    options = Options} = State) ->
+                                                    options = Options,
+                                                    client_session_order = Order0} = State) ->
     TimeStamp = erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
-    Cache = do_register_session({{Host, Port}, 
-                                 NewSession#session.session_id}, 
-                                NewSession, Max, Cache0, CacheCb, Options),
-    State#state{session_cache_client = Cache}.
+    SessionId = NewSession#session.session_id,
+    {Cache, Order} = do_register_session({{Host, Port}, SessionId},
+                                         NewSession, Max, Cache0, CacheCb, Options, Order0),
+    State#state{session_cache_client = Cache,
+                client_session_order = Order}.
 
-do_register_session(Key, Session, Max, Cache0, CacheCb, Options) ->
+do_register_session(Key, #session{time_stamp = TimeStamp} = Session0,
+                    Max, Cache, CacheCb, Options, Order0) ->
     try 
-        case CacheCb:size(Cache0) of
+        case CacheCb:size(Cache) of
             Max ->
-                {_, Cache} = CacheCb:take_oldest(Cache0),
+                InternalId = {TimeStamp, erlang:unique_integer([monotonic])},
+                Session = Session0#session{internal_id = InternalId},
+                {_, OldKey, Order1} = gb_trees:take_smallest(Order0),
+                Order = gb_trees:insert(InternalId, Key, Order1),
+                CacheCb:delete(Cache, OldKey),
                 CacheCb:update(Cache, Key, Session),
-                Cache;
-            _ ->	
-                CacheCb:update(Cache0, Key, Session),
-                Cache0
+                {Cache, Order};
+            _ ->
+                InternalId = {TimeStamp, erlang:unique_integer([monotonic])},
+                Session = Session0#session{internal_id = InternalId},
+                Order = gb_trees:insert(InternalId, Key, Order0),
+                CacheCb:update(Cache, Key, Session),
+                {Cache, Order}
         end
     catch 
 	_:_ ->
+            %% Backwards compatibility if size functions is not implemented by callback
             Args = proplists:get_value(session_cb_init_args, Options, []),
-            CacheCb:terminate(Cache0),
-	    CacheCb:init(Args)
+            CacheCb:terminate(Cache),
+	    {CacheCb:init(Args), gb_trees:empty()}
     end.
 
 
@@ -499,16 +512,18 @@ do_register_session(Key, Session, Max, Cache0, CacheCb, Options) ->
 register_unique_session(Sessions, Session, PartialKey, 
 			#state{session_cache_client_max = Max,
 			       session_cache_client = Cache0,
-			       session_cache_cb = CacheCb,
-                               options = Options} = State) ->
+			       session_cache_client_cb = CacheCb,
+                               options = Options,
+                               client_session_order = Order0} = State) ->
     case exists_equivalent(Session , Sessions) of
 	true ->
 	    State;
 	false ->
-	    Cache = do_register_session({PartialKey, 
-                                         Session#session.session_id}, 
-                                        Session, Max, Cache0, CacheCb, Options),
-	    State#state{session_cache_client = Cache}
+	    {Cache, Order} = do_register_session({PartialKey,
+                                                  Session#session.session_id},
+                                                 Session, Max, Cache0, CacheCb, Options, Order0),
+	    State#state{session_cache_client = Cache,
+                        client_session_order = Order}
     end.
 
 exists_equivalent(_, []) ->

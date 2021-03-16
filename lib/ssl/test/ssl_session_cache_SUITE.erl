@@ -63,6 +63,7 @@
 -define(SLEEP, 1000).
 -define(TIMEOUT, {seconds, 20}).
 -define(MAX_TABLE_SIZE, 5).
+-define(CLIENT_CB, ssl_client_session_cache_db).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -225,7 +226,7 @@ client_unique_session(Config) when is_list(Config) ->
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),
 
-    1 = ssl_session_cache:size(ClientCache),
+    1 = ?CLIENT_CB:size(ClientCache),
   
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient).
@@ -263,7 +264,7 @@ session_cleanup(Config) when is_list(Config) ->
     SessionTimer = element(6, State),
 
     Id = proplists:get_value(session_id, SessionInfo),
-    CSession = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
+    CSession = ?CLIENT_CB:lookup(ClientCache, {{Hostname, Port}, Id}),
 
     true = CSession =/= undefined,
 
@@ -272,7 +273,7 @@ session_cleanup(Config) when is_list(Config) ->
     
     ct:sleep(?SLEEP),  %% Make sure clean has had time to run
     
-    undefined = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
+    undefined = ?CLIENT_CB:lookup(ClientCache, {{Hostname, Port}, Id}),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server),
@@ -335,7 +336,7 @@ save_specific_session(Config) when is_list(Config) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),
-    2 = ssl_session_cache:size(ClientCache),
+    2 = ?CLIENT_CB:size(ClientCache),
 
     Server ! listen,
 
@@ -379,7 +380,7 @@ max_table_size(Config) when is_list(Config) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),	
-    M = ssl_session_cache:size(ClientCache),
+    M = ?CLIENT_CB:size(ClientCache),
     ct:pal("~p",[M]),
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient),

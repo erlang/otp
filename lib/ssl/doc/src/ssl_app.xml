@@ -88,14 +88,36 @@
       </p></item>
 
       <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
-      <item><p>Name of the session cache callback module that implements
+      <item><p> Deprecated Since OTP-23.3 replaced by <c>client_session_cb</c>
+      and <c>server_session_cb</c>
+      </p></item>
+
+      <tag><c><![CDATA[client_session_cb = atom() <optional>]]></c></tag>
+      <item><p> Since OTP-23.3 Name client of the session cache callback module that implements
       the <c>ssl_session_cache_api</c> behavior. Defaults to
-      <c>ssl_session_cache</c>.</p></item>
+      <c>ssl_client_session_cache_db</c>.</p></item>
+
+
+      <tag><c><![CDATA[server_session_cb = atom() <optional>]]></c></tag>
+      <item><p>Since OTP-23.3 Name of the server session cache callback module that implements
+      the <c>ssl_session_cache_api</c> behavior. Defaults to
+      <c>ssl_server_session_cache_db</c>.</p></item>
 
       <tag><c><![CDATA[session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
 
+      <item><p>Deprecated Since OTP-23.3 replaced by <c>client_session_cb_init_args</c>
+      and <c>server_session_cb_init_args</c></p></item>
+
+      <tag><c><![CDATA[client_session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
+
       <item><p>List of extra user-defined arguments to the <c>init</c> function
       in the session cache callback module. Defaults to <c>[]</c>.</p></item>
+
+      <tag><c><![CDATA[server_session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
+
+      <item><p>List of extra user-defined arguments to the <c>init</c> function
+      in the session cache callback module. Defaults to <c>[]</c>.</p></item>
+
 
       <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c><br/></tag>
       <item><p>Limits the growth of the clients session cache, that is
