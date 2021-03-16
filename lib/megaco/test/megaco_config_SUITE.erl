@@ -864,17 +864,28 @@ create_counter_working_procs2([#conn_data{conn_handle = CH} | CDs],
      create_counter_working_procs2(CDs, NumCntProcs)].
 
 
-verify_counter_results([]) ->
+verify_counter_results(CDs) ->
+    verify_counter_results(CDs, [], []).
+
+verify_counter_results([], _OKs, [] = _Errors) ->
+    i("counter verification success"),
     ok;
-verify_counter_results([#conn_data{conn_handle = CH} | CDs]) ->
+verify_counter_results([], OKs, Errors) ->
+    e("counter verification failed: "
+      "~n      Num OKs:    ~p"
+      "~n      Num Errors: ~p", [length(OKs), length(Errors)]),
+    error;
+verify_counter_results([#conn_data{conn_handle = CH} = CD| CDs], OKs, Errors) ->
     TransId = megaco_config:conn_info(CH, trans_id),
     if
 	(TransId =:= 1) ->
-	    ok;
+	    verify_counter_results(CDs, [CD|OKs], Errors);
 	true ->
-	    ?ERROR({trans_id_verification_failed, CH, TransId})
-    end,
-    verify_counter_results(CDs).
+            e("invalid transaction is for connection: "
+              "~n      CD:      ~p"
+              "~n      TransId: ~p", [CD, TransId]),
+            verify_counter_results(CDs, OKs, [{CD, TransId}|Errors])
+    end.
 
 
 delete_connections([]) ->
