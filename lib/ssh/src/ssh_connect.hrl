@@ -25,7 +25,6 @@
 -define(DEFAULT_PACKET_SIZE, 65536).
 -define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
 
--define(DEFAULT_TIMEOUT, 5000).
 -define(MAX_PROTO_VERSION, 255).      % Max length of the hello string
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -268,7 +267,5 @@
 	  cli_spec,
 	  options,
 	  exec,
-	  system_supervisor,
-	  sub_system_supervisor,
-	  connection_supervisor
+	  sub_system_supervisor
 	 }).

@@ -36,6 +36,8 @@
 
 -define(DEFAULT_SHELL, {shell, start, []} ).
 
+-define(DEFAULT_TIMEOUT, 5000).
+
 -define(MAX_RND_PADDING_LEN, 15).
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
@@ -410,6 +412,11 @@
 
 
 %% Records
+-record(address, {address,
+                  port,
+                  profile
+                 }).
+
 -record(ssh,
 	{
 	  role :: client | role(),

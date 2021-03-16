@@ -25,12 +25,12 @@
 -include("ssh.hrl").
 
 %% Internal application API
--export([start_link/4,
+-export([start_link/3,
 	 number_of_connections/1,
 	 listen/2]).
 
 %% spawn export  
--export([acceptor_init/5, acceptor_loop/6]).
+-export([acceptor_init/4, acceptor_loop/7]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
@@ -40,61 +40,9 @@
 %%====================================================================
 %% Internal application API
 %%====================================================================
-start_link(Port, Address, Options, AcceptTimeout) ->
-    Args = [self(), Port, Address, Options, AcceptTimeout],
-    proc_lib:start_link(?MODULE, acceptor_init, Args).
-
-%%%----------------------------------------------------------------
-number_of_connections(SysSup) ->
-    length([S || S <- supervisor:which_children(SysSup),
-                 has_worker(SysSup,S)]).
-
-
-has_worker(SysSup, {R,SubSysSup,supervisor,[ssh_subsystem_sup]}) when is_reference(R),
-                                                                      is_pid(SubSysSup) ->
-    try
-        {{server, ssh_connection_sup, _, _}, Pid, supervisor, [ssh_connection_sup]} =
-            lists:keyfind([ssh_connection_sup], 4, supervisor:which_children(SubSysSup)),
-        {Pid, supervisor:which_children(Pid)}
-    of
-        {ConnSup,[]} ->
-            %% Strange. Since the connection supervisor exists, there should have been
-            %% a connection here.
-            %% It might be that the connection_handler worker has "just died", maybe
-            %% due to a exit(_,kill). It might also be so that the worker is starting.
-            %% Spawn a killer that redo the test and kills it if the problem persists.
-            %% TODO: Fix this better in the supervisor tree....
-            spawn(fun() ->
-                          timer:sleep(10),
-                          try supervisor:which_children(ConnSup)
-                          of
-                              [] ->
-                                  %% we are on the server-side:
-                                  ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
-                              [_] ->
-                                  %% is ok now
-                                  ok;
-                          _ ->
-                                  %% What??
-                                  error
-                          catch _:_ ->
-                                  %% What??
-                                  error
-                          end
-                  end),
-            false;
-        {_ConnSup,[_]}->
-            true;
-         _ ->
-            %% What??
-            false
-    catch _:_ ->
-            %% What??
-            false
-    end;
-
-has_worker(_,_) ->
-    false.
+%% Supposed to be called in a child-spec of the ssh_acceptor_sup
+start_link(SystemSup, Address, Options) ->
+    proc_lib:start_link(?MODULE, acceptor_init, [self(),SystemSup,Address,Options]).
 
 %%%----------------------------------------------------------------
 listen(Port, Options) ->
@@ -114,29 +62,43 @@ listen(Port, Options) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
-    try
-        ?GET_INTERNAL_OPT(lsocket, Opts)
-    of
+acceptor_init(Parent, SystemSup,
+              #address{address=Address, port=Port, profile=_Profile},
+              Opts) ->
+    AcceptTimeout = ?GET_INTERNAL_OPT(timeout, Opts, ?DEFAULT_TIMEOUT),
+    {_, Callback, _} =  ?GET_OPT(transport, Opts),
+    case ?GET_INTERNAL_OPT(lsocket, Opts, undefined) of
         {LSock, SockOwner} ->
+            %% A listening socket (or fd option) was provided in the ssh:daemon call
             case inet:sockname(LSock) of
-                {ok,{_,Port}} -> % A usable, open LSock
+                {ok,{_,Port}} ->
+                    %% A usable, open LSock
                     proc_lib:init_ack(Parent, {ok, self()}),
                     request_ownership(LSock, SockOwner),
-                    {_, Callback, _} =  ?GET_OPT(transport, Opts),
-                    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
+                    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
 
-                {error,_} -> % Not open, a restart
-                    %% Allow gen_tcp:listen to fail 4 times if eaddrinuse:
-                    {ok,NewLSock} = try_listen(Port, Opts, 4),
+                {error,_Error} ->
+                    %% Not open, a restart
+                    %% Allow gen_tcp:listen to fail 4 times if eaddrinuse (It is a bug fix):
+                    case try_listen(Port, Opts, 4) of
+                        {ok,NewLSock} ->
+                            proc_lib:init_ack(Parent, {ok, self()}),
+                            Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
+                            acceptor_loop(Callback, Port, Address, Opts1, NewLSock, AcceptTimeout, SystemSup);
+                        {error,Error} ->
+                            proc_lib:init_ack(Parent, {error,Error})
+                    end
+            end;
+
+        undefined ->
+            %% No listening socket (nor fd option) was provided; open a listening socket:
+            case listen(Port, Opts) of
+                {ok,LSock} ->
                     proc_lib:init_ack(Parent, {ok, self()}),
-                    Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
-                    {_, Callback, _} =  ?GET_OPT(transport, Opts1),
-                    acceptor_loop(Callback, Port, Address, Opts1, NewLSock, AcceptTimeout)
+                    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
+                {error,Error} ->
+                    proc_lib:init_ack(Parent, {error,Error})
             end
-    catch
-        _:_ ->
-            {error,use_existing_socket_failed}
     end.
 
 
@@ -160,11 +122,11 @@ request_ownership(LSock, SockOwner) ->
     end.
     
 %%%----------------------------------------------------------------    
-acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
+acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
     case Callback:accept(ListenSocket, AcceptTimeout) of
         {ok,Socket} ->
             {ok, {FromIP,FromPort}} = inet:peername(Socket), % Just in case of error in next line:
-            case handle_connection(Address, Port, Opts, Socket) of
+            case handle_connection(SystemSup, Address, Port, Opts, Socket) of
                 {error,Error} ->
                     catch Callback:close(Socket),
                     handle_error(Error, Address, Port, FromIP, FromPort);
@@ -174,18 +136,22 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
         {error,Error} ->
             handle_error(Error, Address, Port)
     end,
-    ?MODULE:acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout).
+    ?MODULE:acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
 
 %%%----------------------------------------------------------------
-handle_connection(Address, Port, Options, Socket) ->
-    Profile =  ?GET_OPT(profile, Options),
-    SystemSup = ssh_system_sup:system_supervisor(Address, Port, Profile),
-
-    MaxSessions = ?GET_OPT(max_sessions, Options),
+handle_connection(SystemSup, Address, Port, Options0, Socket) ->
+    MaxSessions = ?GET_OPT(max_sessions, Options0),
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->
-	    NegTimeout = ?GET_OPT(negotiation_timeout, Options),
-            ssh_connection_handler:start_link(server, Address, Port, Socket, Options, NegTimeout);
+            Options = ?PUT_INTERNAL_OPT([{user_pid, self()}
+                                        ], Options0),
+            ssh_system_sup:start_subsystem(server,
+                                           #address{address = Address,
+                                                    port = Port,
+                                                    profile = ?GET_OPT(profile,Options)
+                                                   },
+                                           Socket,
+                                           Options);
 	false ->
 	    {error,{max_sessions,MaxSessions}}
     end.
@@ -233,6 +199,12 @@ handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
                                       io_lib:format(": ~p", [Error])])
     end.
 
+%%%----------------------------------------------------------------
+number_of_connections(SysSupPid) ->
+    lists:foldl(fun({_Ref,_Pid,supervisor,[ssh_subsystem_sup]}, N) -> N+1;
+                   (_, N) -> N
+                end, 0, supervisor:which_children(SysSupPid)).
+
 %%%################################################################
 %%%#
 %%%# Tracing
@@ -242,17 +214,16 @@ ssh_dbg_trace_points() -> [connections].
 
 ssh_dbg_flags(connections) -> [c].
 
-ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
+ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 4, x),
                            dbg:tpl(?MODULE, handle_connection, 4, x).
 
-ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 5),
+ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 4),
                             dbg:ctp(?MODULE, handle_connection, 4).
 
-ssh_dbg_format(connections, {call, {?MODULE,acceptor_init,
-                                    [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
-    [io_lib:format("Starting LISTENER on ~s:~p\n", [ssh_lib:format_address(Address),Port])
+ssh_dbg_format(connections, {call, {?MODULE,acceptor_init, [_Parent, _SysSup, Address, _Opts]}}) ->
+    [io_lib:format("Starting LISTENER on ~s\n", [ssh_lib:format_address(Address)])
     ];
-ssh_dbg_format(connections, {return_from, {?MODULE,acceptor_init,5}, _Ret}) ->
+ssh_dbg_format(connections, {return_from, {?MODULE,acceptor_init,4}, _Ret}) ->
     skip;
 
 ssh_dbg_format(connections, {call, {?MODULE,handle_connection,[_,_,_,_]}}) ->

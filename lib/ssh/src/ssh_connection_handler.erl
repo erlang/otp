@@ -42,7 +42,8 @@
 %%====================================================================
 
 %%% Start and stop
--export([start_link/4, start_link/5, start_link/6,
+-export([start_link_ng/4, start_link_ng/5,
+         takeover/4,
 	 stop/1
 	]).
 
@@ -95,74 +96,44 @@
 %% Start / stop
 %%====================================================================
 
-start_link(client, Host, Port, Options, NegotiationTimeout) ->
-    {_, Callback, _} = ?GET_OPT(transport, Options),
-    SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
-    try Callback:connect(Host, Port, SocketOpts, ?GET_OPT(connect_timeout,Options)) of
-        {ok, Socket} ->
-            start_link(client, Socket, Options, NegotiationTimeout);
-        {error, Reason} ->
-            {error, Reason}
-    catch
-        _:badarg -> {error, {options,?GET_OPT(socket_options,Options)}};
-        _:{error,Reason} -> {error,Reason};
-        error:Error -> {error,Error};
-        Class:Error -> {error, {Class,Error}}
+start_link_ng(Role, Address, Socket, Options) ->
+    start_link_ng(Role, Address, undefined, Socket, Options).
+
+start_link_ng(Role, _Address=#address{}, Id, Socket, Options) ->
+    case gen_statem:start_link(?MODULE,
+                               [Role, Socket, Options],
+                               [{spawn_opt, [{message_queue_data,off_heap}]}]) of
+
+        {ok, Pid} when Id =/= undefined ->
+            %% Announce the ConnectionRef to the system supervisor so it could
+            %%   1) initiate the socket handover, and
+            %%   2) be returned to whoever called for example ssh:connect; the Pid
+            %%      returned from this function is "consumed" by the subsystem
+            %%      supervisor.
+            ?GET_INTERNAL_OPT(user_pid,Options) ! {new_connection_ref, Id, Pid},
+            {ok, Pid};
+
+        Others ->
+            Others
     end.
 
-start_link(Role, Socket, Options, NegotiationTimeout) ->
-    {ok, {Host,Port}} = inet:sockname(Socket),
-    start_link(Role, Host, Port, Socket, Options, NegotiationTimeout).
 
-start_link(Role, Host, Port, Socket, Options0, NegotiationTimeout) ->
-    try
-        Options1 = ?PUT_INTERNAL_OPT([{user_pid, self()}
-                                     ], Options0),
-        Profile = ?GET_OPT(profile, Options1),
-        Sup = case Role of
-                client -> sshc_sup;
-                server -> sshd_sup
-            end,
-        {ok, {SystemSup, SubSysSup}} =
-            Sup:start_system_subsystem(Host, Port, Profile, Options1),
-        ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
-        Options = ?PUT_INTERNAL_OPT([{supervisors, [{system_sup, SystemSup},
-                                                    {subsystem_sup, SubSysSup},
-                                                    {connection_sup, ConnectionSup}]}
-                                    ], Options1),
+takeover(ConnPid, client, Socket, Options) ->
+    group_leader(group_leader(), ConnPid),
+    takeover(ConnPid, common, Socket, Options);
 
-        %% This is essentially gen_statem:start_link/3 :
-        case ssh_connection_sup:start_child(ConnectionSup,
-                                            [?MODULE,
-                                             [Role, Socket, Options],
-                                             [{spawn_opt, [{message_queue_data,off_heap}]}]]
-                                           ) of
-            {ok, Pid} ->
-                %% Now the connection_handler process is started
-                %% First set the group leader if it is a client:
-                case Role of
-                    client ->
-                        group_leader(group_leader(), Pid);
-                    _ ->
-                        ok
-                end,
-                %% No message handling yet. It begins when the socket_control/3 is called
-                case socket_control(Socket, Pid, Options) of
-                    ok ->
-                        %% handshake returns {ok,Pid} after a successful connection setup.
-                        %% or {error,Reason} after an unsuccesful one:
-                        handshake(Pid, erlang:monitor(process,Pid), NegotiationTimeout);
-                    {error, Reason} ->
-                        {error, Reason}
-                end;
-            {error, Reason} ->
-                {error, Reason}
-        end
-    catch
-        exit:{noproc,{gen_server,call,_}} -> {error, ssh_not_started};
-        _:{error,Error} -> {error,Error};
-        error:Error -> {error,Error};
-        Class:Error -> {error, {Class,Error}}
+takeover(ConnPid, _, Socket, Options) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    case Callback:controlling_process(Socket, ConnPid) of
+        ok ->
+            gen_statem:cast(ConnPid, socket_control),
+            NegTimeout = ?GET_INTERNAL_OPT(negotiation_timeout,
+                                           Options,
+                                           ?GET_OPT(negotiation_timeout, Options)
+                                          ),
+            handshake(ConnPid, erlang:monitor(process,ConnPid), NegTimeout);
+        {error, Reason}	->
+            {error, Reason}
     end.
 
 %%--------------------------------------------------------------------
@@ -455,14 +426,11 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
 %%% Connection start and initalization helpers
 
 init_connection_record(Role, Opts) ->
-    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
     C = #connection{channel_cache = ssh_client_channel:cache_create(),
                     channel_id_seed = 0,
                     requests = [],
                     options = Opts,
-                    system_supervisor =     proplists:get_value(system_sup,     Sups),
-                    sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
-                    connection_supervisor = proplists:get_value(connection_sup, Sups)
+                    sub_system_supervisor = ?GET_INTERNAL_OPT(subsystem_sup, Opts)
                    },
     case Role of
         server ->
@@ -534,29 +502,20 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
     end.
 
 
-socket_control(Socket, Pid, Options) ->
-    {_, Callback, _} =	?GET_OPT(transport, Options),
-    case Callback:controlling_process(Socket, Pid) of
-	ok ->
-	    gen_statem:cast(Pid, socket_control);
-	{error, Reason}	->
-	    {error, Reason}
-    end.
-
-
 handshake(Pid, Ref, Timeout) ->
     receive
 	{Pid, ssh_connected} ->
-	    erlang:demonitor(Ref),
+	    erlang:demonitor(Ref, [flush]),
 	    {ok, Pid};
 	{Pid, {not_connected, Reason}} ->
-	    erlang:demonitor(Ref),
+	    erlang:demonitor(Ref, [flush]),
 	    {error, Reason};
 	{'DOWN', Ref, process, Pid, {shutdown, Reason}} ->
 	    {error, Reason};
 	{'DOWN', Ref, process, Pid, Reason} ->
 	    {error, Reason}
     after Timeout ->
+	    erlang:demonitor(Ref, [flush]),
 	    ssh_connection_handler:stop(Pid),
 	    {error, timeout}
     end.
@@ -1037,8 +996,7 @@ handle_event({call,From}, {eof, ChannelId}, StateName, D0)
 
 handle_event({call,From}, get_misc, StateName,
              #data{connection_state = #connection{options = Opts}} = D) when ?CONNECTED(StateName) ->
-    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
-    SubSysSup = proplists:get_value(subsystem_sup,  Sups),
+    SubSysSup = ?GET_INTERNAL_OPT(subsystem_sup, Opts),
     Reply = {ok, {SubSysSup, ?role(StateName), Opts}},
     {keep_state, D, [{reply,From,Reply}]};
 
@@ -1384,23 +1342,10 @@ handle_event(Type, Ev, StateName, D0) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 terminate(normal, _StateName, D) ->
-    stop_subsystem(D),
-    close_transport(D);
-
-terminate({shutdown,"Connection closed"}, _StateName, D) ->
-    %% Normal: terminated by a sent by peer
-    stop_subsystem(D),
-    close_transport(D);
-
-terminate({shutdown,{init,Reason}}, StateName, D) ->
-    %% Error in initiation. "This error should not occur".
-    log(error, D, "Shutdown in init (StateName=~p): ~p~n", [StateName,Reason]),
-    stop_subsystem(D),
     close_transport(D);
 
 terminate({shutdown,_R}, _StateName, D) ->
     %% Internal termination, usually already reported via ?send_disconnect resulting in a log entry
-    stop_subsystem(D),
     close_transport(D);
 
 terminate(shutdown, _StateName, D0) ->
@@ -1411,11 +1356,6 @@ terminate(shutdown, _StateName, D0) ->
                  D0),
     close_transport(D);
 
-terminate(killed, _StateName, D) ->
-    %% Got a killed signal
-    stop_subsystem(D),
-    close_transport(D);
-
 terminate(Reason, StateName, D0) ->
     %% Others, e.g  undef, {badmatch,_}, ...
     log(error, D0, Reason),
@@ -1423,7 +1363,6 @@ terminate(Reason, StateName, D0) ->
                                             "Internal error",
                                             io_lib:format("Reason: ~p",[Reason]),
                                             StateName, D0),
-    stop_subsystem(D),
     close_transport(D).
 
 %%--------------------------------------------------------------------
@@ -1501,51 +1440,10 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Starting
-
-%%--------------------------------------------------------------------
-%% Stopping
-
-stop_subsystem(#data{ssh_params = 
-                         #ssh{role = Role},
-                     connection_state =
-                         #connection{system_supervisor = SysSup,
-                                     sub_system_supervisor = SubSysSup}
-                    }) when is_pid(SysSup) andalso is_pid(SubSysSup)  ->
-    C = self(),
-    spawn(fun() ->
-                  wait_until_dead(C, 10000),
-                  case Role of
-                      server ->
-                          ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
-                      client ->
-                          ssh_system_sup:stop_subsystem(SysSup, SubSysSup),
-                          wait_until_dead(SubSysSup, 1000),
-                          sshc_sup:stop_system(SysSup)
-                  end
-          end);
-stop_subsystem(_) ->
-    ok.
-
-
-wait_until_dead(Pid, Timeout) ->
-    Mref = erlang:monitor(process, Pid),
-    receive
-        {'DOWN', Mref, process, Pid, _Info} -> ok
-    after
-        Timeout -> ok
-    end.
-
-
 close_transport(#data{transport_cb = Transport,
                       socket = Socket}) ->
-    try
-        Transport:close(Socket)
-    of
-        _ -> ok
-    catch
-        _:_ -> ok
-    end.
+    catch Transport:close(Socket),
+    ok.
 
 %%--------------------------------------------------------------------
 available_hkey_algorithms(client, Options) ->

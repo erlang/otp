@@ -20,16 +20,62 @@
 
 %%
 
-%% Purpose : Application master for SSH.
+%%%=========================================================================
+%%% Purpose : Application master and top supervisors for SSH.
+%%%
+%%%  -----> ssh_sup -----+-----> sshc_sup --+--> "system sup" (etc)
+%%%                      |                  |
+%%%                      |                  +--> "system sup" (etc)
+%%%                      |                  :
+%%%                      |                  +--> "system sup" (etc)
+%%%                      |
+%%%                      +-----> sshc_sup --+--> "system sup" (etc)
+%%%                                         |
+%%%                                         +--> "system sup" (etc)
+%%%                                         :
+%%%                                         +--> "system sup" (etc)
 
 -module(ssh_app).
 
 -behaviour(application).
+-behaviour(supervisor).
 
+%% 'application' export:
 -export([start/2, stop/1]).
 
+%% 'supervisor' export:
+-export([init/1]).
+
+
+%%%=========================================================================
+%%%  Application callback
+%%%=========================================================================
 start(_Type, _State) ->
-    supervisor:start_link({local, ssh_sup}, ssh_sup, []).
+    supervisor:start_link({local,ssh_sup}, ?MODULE, [ssh_sup]).
 
 stop(_State) ->
     ok.
+
+%%%=========================================================================
+%%%  Supervisor callback
+%%%=========================================================================
+init([ssh_sup]) ->
+    SupFlags = #{strategy  => one_for_one,
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => SupName,
+                    start    => {supervisor, start_link,
+                                 [{local,SupName}, ?MODULE, [sshX_sup]]},
+                    type     => supervisor}
+                  || SupName <- [sshd_sup, sshc_sup]
+                 ],
+    {ok, {SupFlags,ChildSpecs}};
+
+init([sshX_sup]) ->
+    SupFlags = #{strategy  => one_for_one,
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [],
+    {ok, {SupFlags,ChildSpecs}}.

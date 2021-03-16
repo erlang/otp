@@ -918,8 +918,7 @@ handle_msg(#ssh_msg_global_request{name = <<"tcpip-forward">>,
             {[{connection_reply, request_failure_msg()}], Connection};
 
         true ->
-            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
-            SubSysSup = proplists:get_value(subsystem_sup,  Sups),
+            SubSysSup = ?GET_INTERNAL_OPT(subsystem_sup, Opts),
             FwdSup = ssh_subsystem_sup:tcpip_fwd_supervisor(SubSysSup),
             ConnPid = self(),
             case ssh_tcpip_forward_acceptor:supervised_start(FwdSup,

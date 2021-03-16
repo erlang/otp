@@ -40,34 +40,16 @@ start_link(Args) ->
 
 
 start_child(client, ChannelSup, ConnRef, Callback, Id, Args, Exec, _Opts) when is_pid(ConnRef) ->
-    start_the_child(ssh_client_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
+    start_the_channel(ssh_client_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
+
 start_child(server, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts) when is_pid(ConnRef) ->
      case max_num_channels_not_exceeded(ChannelSup, Opts) of
          true ->
-             start_the_child(ssh_server_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
+             start_the_channel(ssh_server_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
          false ->
              {error, max_num_channels_exceeded}
     end.
 
-
-start_the_child(ChanMod, ChannelSup, ConnRef, Callback, Id, Args, Exec) ->
-    ChildSpec =
-        #{id       => make_ref(),
-          start    => {ChanMod, start_link, [ConnRef, Id, Callback, Args, Exec]},
-          restart  => temporary,
-          type     => worker,
-          modules  => [ChanMod]
-         },
-    case supervisor:start_child(ChannelSup, ChildSpec) of
-        {ok, Pid} ->
-            {ok, Pid};
-        {ok, Pid, _Info} ->
-            {ok,Pid};
-        {error, {Error,_Info}} ->
-            {error, Error};
-        {error, Error} ->
-            {error, Error}
-    end.
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -88,3 +70,20 @@ max_num_channels_not_exceeded(ChannelSup, Opts) ->
 				   supervisor:which_children(ChannelSup)]),
     %% Note that NumChannels is BEFORE starting a new one
     NumChannels < MaxNumChannels.
+
+
+start_the_channel(ChanMod, ChannelSup, ConnRef, Callback, Id, Args, Exec) ->
+    ChildSpec =
+        #{id       => make_ref(),
+          start    => {ChanMod, start_link, [ConnRef, Id, Callback, Args, Exec]},
+          restart  => temporary,
+          type     => worker,
+          modules  => [ChanMod]
+         },
+    case supervisor:start_child(ChannelSup, ChildSpec) of
+        {ok, Pid} ->              {ok, Pid};
+        {ok, Pid, _Info} ->       {ok, Pid};
+        {error, {Error,_Info}} -> {error, Error};
+        {error, Error} ->         {error, Error}
+    end.
+

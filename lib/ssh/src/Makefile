@@ -66,8 +66,6 @@ MODULES= \
 	ssh_cli \
 	ssh_connection \
 	ssh_connection_handler \
-	ssh_connection_sup \
-	ssh_controller \
 	ssh_file \
 	ssh_fsm_kexinit \
 	ssh_fsm_userauth_client \
@@ -83,16 +81,13 @@ MODULES= \
 	ssh_sftpd_file\
 	ssh_shell \
 	ssh_subsystem_sup \
-	ssh_sup \
 	ssh_system_sup \
 	ssh_tcpip_forward_srv \
 	ssh_tcpip_forward_client \
 	ssh_tcpip_forward_acceptor_sup \
 	ssh_tcpip_forward_acceptor \
 	ssh_transport \
-	ssh_xfer \
-	sshc_sup \
-	sshd_sup
+	ssh_xfer
 
 HRL_FILES =
 

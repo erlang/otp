@@ -29,10 +29,8 @@
 -include("ssh.hrl").
 
 -export([start_link/5,
-	 connection_supervisor/1,
-	 channel_supervisor/1,
-         tcpip_fwd_supervisor/1,
-         start_channel/8
+         start_channel/8,
+         tcpip_fwd_supervisor/1
 	]).
 
 %% Supervisor callback
@@ -41,81 +39,72 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Role, Address, Port, Profile, Options) ->
-    supervisor:start_link(?MODULE, [Role, Address, Port, Profile, Options]).
-
-connection_supervisor(SupPid) ->
-    Children = supervisor:which_children(SupPid),
-    ssh_connection_sup(Children).
-
-channel_supervisor(SupPid) when is_pid(SupPid) ->    
-    Children = supervisor:which_children(SupPid),
-    ssh_channel_sup(Children).
-
-tcpip_fwd_supervisor(SupPid) when is_pid(SupPid) ->    
-    Children = supervisor:which_children(SupPid),
-    tcpip_fwd_sup(Children).
+start_link(Role, Address=#address{}, Id, Socket, Options) ->
+    case supervisor:start_link(?MODULE, [Role, Address, Id, Socket, Options]) of
+        {error, {shutdown, {failed_to_start_child, _, Error}}} ->
+            {error,Error};
+        Other ->
+            Other
+    end.
 
 start_channel(Role, SupPid, ConnRef, Callback, Id, Args, Exec, Opts) ->
     ChannelSup = channel_supervisor(SupPid),
     ssh_channel_sup:start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts).
 
+tcpip_fwd_supervisor(SubSysSup) ->
+    find_child(tcpip_forward_acceptor_sup, SubSysSup).
+
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([Role, Address, Port, Profile, Options]) ->
-    SupFlags = #{strategy  => one_for_all,
-                 intensity =>    0,
-                 period    => 3600
+init([Role, Address, Id, Socket, Options]) ->
+    SubSysSup = self(),
+    SupFlags = #{strategy      => one_for_all,
+                 auto_shutdown => any_significant,
+                 intensity     =>    0,
+                 period        => 3600
                 },
-    ChildSpecs = child_specs(Role, Address, Port, Profile, Options),
+    ChildSpecs = [#{id          => connection,
+                    restart     => temporary,
+                    type        => worker,
+                    significant => true,
+                    start       => {ssh_connection_handler,
+                                    start_link_ng,
+                                    [Role, Address, Id, Socket,
+                                     ?PUT_INTERNAL_OPT([
+                                                        {subsystem_sup, SubSysSup}
+                                                       ], Options)
+                                    ]
+                                   }
+                   },
+                  #{id      => channel_sup,
+                    restart => temporary,
+                    type    => supervisor,
+                    start   => {ssh_channel_sup, start_link, [Options]}
+                   },
+
+                 #{id      => tcpip_forward_acceptor_sup,
+                   restart => temporary,
+                   type    => supervisor,
+                   start   => {ssh_tcpip_forward_acceptor_sup, start_link, []}
+                  }
+                 ],
     {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_specs(Role, Address, Port, Profile, Options) ->
-    [ssh_channel_child_spec(Role, Address, Port, Profile, Options), 
-     ssh_connection_child_spec(Role, Address, Port, Profile, Options),
-     ssh_tcpip_forward_acceptor_child_spec()].
-  
-ssh_connection_child_spec(Role, Address, Port, _Profile, Options) ->
-    #{id       => id(Role, ssh_connection_sup, Address, Port),
-      start    => {ssh_connection_sup, start_link, [Options]},
-      restart  => temporary,
-      type     => supervisor
-     }.
+channel_supervisor(SubSysSup) -> find_child(channel_sup, SubSysSup).
 
-ssh_channel_child_spec(Role, Address, Port, _Profile, Options) ->
-    #{id       => id(Role, ssh_channel_sup, Address, Port),
-      start    => {ssh_channel_sup, start_link, [Options]},
-      restart  => temporary,
-      type     => supervisor
-     }.
-
-ssh_tcpip_forward_acceptor_child_spec() ->
-    #{id       => make_ref(),
-      start    => {ssh_tcpip_forward_acceptor_sup, start_link, []},
-      restart  => temporary,
-      type     => supervisor
-     }.
-
-
-id(Role, Sup, Address, Port) ->
-    {Role, Sup, Address, Port}.
-
-ssh_connection_sup([{_, Child, _, [ssh_connection_sup]} | _]) ->
-    Child;
-ssh_connection_sup([_ | Rest]) ->
-    ssh_connection_sup(Rest).
-
-ssh_channel_sup([{_, Child, _, [ssh_channel_sup]} | _]) ->
-    Child;
-ssh_channel_sup([_ | Rest]) ->
-    ssh_channel_sup(Rest).
-
-tcpip_fwd_sup([{_, Child, _, [ssh_tcpip_forward_acceptor_sup]} | _]) ->
-    Child;
-tcpip_fwd_sup([_ | Rest]) ->
-    tcpip_fwd_sup(Rest).
+find_child(Id, Sup) when is_pid(Sup) ->
+    try
+       {Id, Pid, _, _} = lists:keyfind(Id, 1, supervisor:which_children(Sup)),
+       Pid
+    catch
+        exit:{no_proc,_} ->
+            {error, no_proc};
+        _:_ ->
+            {error, {id_not_found,?MODULE,Id}}
+    end.
 
