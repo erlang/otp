@@ -612,6 +612,8 @@ type({atom,Anno,A}) ->
     {atom,Anno,A};
 type({integer,Anno,I}) ->
     {integer,Anno,I};
+type({char,Anno,C}) ->
+    {char,Anno,C};
 type({op,Anno,Op,T}) ->
     T1 = type(T),
     {op,Anno,Op,T1};
