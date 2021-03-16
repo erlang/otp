@@ -613,6 +613,8 @@ type({atom,Line,A}) ->
     {atom,Line,A};
 type({integer,Line,I}) ->
     {integer,Line,I};
+type({char,Line,C}) ->
+    {char,Line,C};
 type({op,Line,Op,T}) ->
     T1 = type(T),
     {op,Line,Op,T1};
