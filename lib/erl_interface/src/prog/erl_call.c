@@ -20,10 +20,15 @@
 
  */
 /*
- * Function: Makes it possible to send and receive Erlang
- *    messages from the (Unix) command line. 
- *    Note: We don't free any memory at all since we only
- *    live for a short while.   
+ * Description: This file implements the erl_call command line
+ * utility. The erl_call command can be used to:
+ *
+ * * Execute code on an Erlang node and get the result back
+ * * Start and stop Erlang nodes
+ * * Upload and compile a module on an Erlang node
+ *
+ * See the erl_call man page or HTML documentation for additional
+ * information.
  *
  */
 
