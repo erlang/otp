@@ -587,10 +587,8 @@ add_rr(Domain, Class, Type, TTL, Data) ->
     call({add_rr, #dns_rr { domain = Domain, class = Class,
 		       type = Type, ttl = TTL, data = Data}}).
 
-del_rr(Domain, Class, Type, Data) ->
-    call({del_rr, #dns_rr { domain = Domain, class = Class,
-		       type = Type, cnt = '_', tm = '_', ttl = '_',
-		       bm = '_', func = '_', data = Data}}).
+del_rr(Domain, Class, Type, _Data) ->
+    call({del_rr, {Domain, Class, Type}}).
 
 res_cache_answer(Rec) ->
     lists:foreach( fun(RR) -> add_rr(RR) end, Rec#dns_rec.anlist).
@@ -979,10 +977,9 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    do_add_rr(RR, Db, State),
 	    {reply, ok, State};
 
-	{del_rr, RR} when is_record(RR, dns_rr) ->
-	    %% note. del_rr will handle wildcards !!!
+	{del_rr, {_Domain, _Class, _Type} = Key} ->
 	    Cache = State#state.cache,
-	    ets:delete(Cache, cache_key(RR)),
+	    ets:delete(Cache, Key),
 	    {reply, ok, State};
 
 	{listop, Opt, Op, E} ->
@@ -1605,20 +1602,18 @@ is_reqname(_) -> false.
 %% Add a resource record to the cache if there are space left.
 %% If the cache is full this function first deletes old entries,
 %% i.e. entries with oldest latest access time.
-%% #dns_rr.cnt is used to store the access time instead of number of
-%% accesses.
 do_add_rr(RR, Db, State) ->
     CacheDb = State#state.cache,
     TM = times(),
     case alloc_entry(Db, CacheDb, TM) of
 	true ->
-	    cache_rr(CacheDb, RR#dns_rr{tm = TM, cnt = TM});
+	    cache_rr(CacheDb, RR#dns_rr{tm = TM, cnt = TM}, TM);
 	_ ->
 	    false
     end.
 
-cache_rr(Cache, RR) ->
-    ets:insert(Cache, {cache_key(RR), RR}).
+cache_rr(Cache, RR, Count) ->
+    ets:insert(Cache, {cache_key(RR), RR, Count}).
 
 times() ->
     erlang:monotonic_time(second).
@@ -1630,16 +1625,20 @@ times() ->
 match_rr({_, _, _} = Key) ->
     Time = times(),
     case ets:lookup(inet_cache, Key) of
-	[{_,RR}] when RR#dns_rr.ttl =:= 0 -> %% at least once
+	[{_,RR,_}] when RR#dns_rr.ttl =:= 0 ->
+	    %% ttl=0 is served once (by the current process) as we request
+	    %% a deletion immediately. It is served at least once concurrently.
+	    %% Deletions are safe thanks to the use of safe_fixtable.
 	    ets:delete(inet_cache, Key),
 	    [RR];
-	[{_,RR}] when RR#dns_rr.tm + RR#dns_rr.ttl < Time ->
+	[{_,RR,_}] when RR#dns_rr.tm + RR#dns_rr.ttl < Time ->
 	    ets:delete(inet_cache, Key),
 	    [];
-	[{_,RR}] ->
-        %% This may fail if cache pruning removes this entry
-        %% at the same time we are updating it, so ignore the result.
-	    _ = ets:update_element(inet_cache, Key, {2, RR#dns_rr{cnt = Time}}),
+	[{_,RR,_}] ->
+	    %% Update the entry concurrently. If the server deletes it, we ignore
+	    %% the result. If the server updates it, we will race on the time part
+	    %% which should be close enough to each other (as we are racing).
+	    _ = ets:update_element(inet_cache, Key, {3, Time}),
 	    [RR];
 	[] ->
 	    []
@@ -1727,7 +1726,10 @@ cache_refresh() ->
 %% in the cache.
 do_refresh_cache(CacheDb) ->
     Now = times(),
-    do_refresh_cache(ets:first(CacheDb), CacheDb, Now, Now).
+    true = ets:safe_fixtable(CacheDb, true),
+    Res = do_refresh_cache(ets:first(CacheDb), CacheDb, Now, Now),
+    true = ets:safe_fixtable(CacheDb, false),
+    Res.
 
 do_refresh_cache('$end_of_table', _, _, OldestT) ->
     OldestT;
@@ -1735,10 +1737,10 @@ do_refresh_cache(Key, CacheDb, Now, OldestT) ->
     Next = ets:next(CacheDb, Key),
     OldT =
         case ets:lookup(CacheDb, Key) of
-	    [{_,RR}] when RR#dns_rr.tm + RR#dns_rr.ttl < Now ->
+	    [{_,RR,_}] when RR#dns_rr.tm + RR#dns_rr.ttl < Now ->
 		ets:delete(CacheDb, Key),
 		OldestT;
-	     [{_,#dns_rr{cnt = C}}] when C < OldestT ->
+	     [{_,#dns_rr{},C}] when C < OldestT ->
 		C;
 	     _ ->
 		OldestT
@@ -1783,7 +1785,10 @@ delete_n_oldest(CacheDb, TM, OldestTM, N) ->
 %% Delete max N number of entries.
 %% Returns the number of deleted entries.
 delete_older(CacheDb, TM, N) ->
-    delete_older(ets:first(CacheDb), CacheDb, TM, N, 0).
+    true = ets:safe_fixtable(CacheDb, true),
+    Res = delete_older(ets:first(CacheDb), CacheDb, TM, N, 0),
+    true = ets:safe_fixtable(CacheDb, false),
+    Res.
 
 delete_older('$end_of_table', _, _, _, M) ->
     M;
@@ -1793,7 +1798,7 @@ delete_older(Key, CacheDb, TM, N, M) ->
     Next = ets:next(CacheDb, Key),
     M1 =
 	case ets:lookup(CacheDb, Key) of
-	    [{_,RR}] when RR#dns_rr.cnt =< TM ->
+	    [{_,_,Cnt}] when Cnt =< TM ->
 		ets:delete(CacheDb, Key),
 		M + 1;
 	    _ ->
