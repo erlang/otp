@@ -9526,15 +9526,20 @@ cre_serviceChangeProf(Name, Ver) when is_list(Name) andalso is_integer(Ver) ->
 await_ack(_User, 0, Timeout, _Expected) ->
     d("await_ack -> done when Timeout = ~p", [Timeout]),
     ok;
-await_ack(User, N, Timeout, Expected) when (N > 0) andalso is_integer(Timeout) ->
-    d("await_ack -> entry with N: ~p, Timeout: ~p", [N,Timeout]),
+await_ack(User, N, Timeout, Expected)
+  when (N > 0) andalso is_integer(Timeout) ->
+    d("await_ack -> entry with N: ~p, Timeout: ~p", [N, Timeout]),
     T = tim(),
     receive
 	{ack_received, User, Expected} ->
 	    d("await_ack -> received another expected ack"),
 	    await_ack(User, N-1, Timeout - (tim() - T), Expected);
 	{ack_received, User, UnExpected} ->
-	    e("await_ack -> received unexpected ack result: ~p", [UnExpected]),
+	    e("await_ack -> received unexpected ack result: ~p"
+              "~n   when"
+              "~n      N:         ~p"
+              "~n      Remaining: ~p",
+              [UnExpected, N, Timeout - (tim() - T)]),
 	    exit({unexpected_ack_result, UnExpected, Expected})
     after Timeout ->
 	    exit({await_ack_timeout, N})
@@ -9546,7 +9551,9 @@ await_ack(User, N, infinity, Expected) when N > 0 ->
 	    d("await_ack -> received another ack"),
 	    await_ack(User, N-1, infinity, Expected);
 	{ack_received, User, UnExpected} ->
-	    e("await_ack -> unexpected ack result: ~p", [UnExpected]),
+	    e("await_ack -> unexpected ack result: ~p"
+              "~n   when"
+              "~n      N: ~p", [UnExpected, N]),
 	    exit({unexpected_ack_result, UnExpected, Expected})
     end.
 
