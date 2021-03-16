@@ -674,9 +674,12 @@ int main(int argc, char *argv[])
       
       if (ei_x_format_wo_ver(&e, args) < 0) {
 	  /* FIXME no error message and why -1 ? */
+          free(mod);
+          free(fun);
+          free(args);
           exit_free_flags_fields(-1, &flags);
       }
-
+      free(args);
       ei_x_new_with_version(&reply);
 
       if (flags.fetch_stdout) {
@@ -688,6 +691,8 @@ int main(int argc, char *argv[])
 	  /* FIXME no error message and why -1 ? */
 	  ei_x_free(&e);
 	  ei_x_free(&reply);
+          free(mod);
+          free(fun);
           exit_free_flags_fields(-1, &flags);
       } else {
           if (flags.print_result_term) {
@@ -697,6 +702,8 @@ int main(int argc, char *argv[])
 	  ei_x_free(&e);
 	  ei_x_free(&reply);
       }
+      free(mod);
+      free(fun);
     }
     exit_free_flags_fields(0, &flags);
     return(0);
