@@ -3079,39 +3079,85 @@ is_process_alive(P2Pid),
 
     <func>
       <name name="link" arity="1" since=""/>
-      <fsummary>Create a link to another process (or port).</fsummary>
+      <fsummary>Create a link to another process or port.</fsummary>
       <desc>
 
-        <p>Creates a link between the calling process and another process (or
-          port) <c><anno>PidOrPort</anno></c>. If the link already exists or a
-          process attempts to create a link to itself, nothing is done. Returns
-          <c>true</c> if the link is set up.</p>
+	<p>
+	  Sets up and activates a link between the calling process and
+	  another process or a port identified by
+	  <c><anno>PidOrPort</anno></c>. We will from here on call the
+	  identified process or port linkee. If the linkee is a port, it
+	  must reside on the same node as the caller.
+	</p>
 
-        <p>If <c><anno>PidOrPort</anno></c> does not exist and checking it is
-          cheap, a <c>noproc</c> error is raised. Currently, checking is cheap
-          if the <c><anno>PidOrPort</anno></c> is local and the caller does not
-          trap exits (see <seemfa marker="#process_flag/2"><c>process_flag/2
-          </c></seemfa>).</p>
+	<p>
+	  If one of the participants of a link terminates, it will
+	  <seeguide marker="system/reference_manual:processes#sending_exit_signals">send
+	  an exit signal</seeguide> to the other participant. The exit
+	  signal will contain the
+	  <seeguide marker="system/reference_manual:processes#link_exit_signal_reason">exit
+	  reason</seeguide> of the terminated participant. Other cases when
+	  exit signals are triggered due to a link are when no linkee exist
+	  (<c>noproc</c> exit reason) and when the connection between linked
+	  processes on different nodes is lost or cannot be established
+	  (<c>noconnection</c> exit reason).
+	</p>
 
-        <p>Apart from any exit signals from the linked process itself, two
-          special exit signals may be sent to the calling process:</p>
+	<p>
+	  An existing link can be removed by calling
+	  <seemfa marker="#unlink/1"><c>unlink/1</c></seemfa>.
+	  For more information on links and exit signals due to links, see
+	  the <i>Processes</i> chapter in the <i>Erlang Reference Manual</i>:
+	</p>
+	<list>
+	  <item>
+            <seeguide marker="system/reference_manual:processes#links">Links</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#sending_exit_signals">Sending
+	    Exit Signals</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#receiving_exit_signals">Receiving
+	    Exit Signals</seeguide>
+	  </item>
+	</list>
 
-        <list type="bulleted">
+	<p>
+	  For historical reasons, <c>link/1</c> has a strange
+	  semi-synchronous behavior when it is "cheap" to check if the
+	  linkee exists or not, and the caller does not
+	  <seeerl marker="erlang#process_flag_trap_exit">trap exits</seeerl>.
+	  If the above is true and the linkee does not exist, <c>link/1</c>
+	  will raise a <c>noproc</c> error <em>exception</em>. The expected
+	  behavior would instead have been that <c>link/1</c> returned
+	  <c>true</c>, and the caller later was sent an exit signal
+	  with <c>noproc</c> exit reason, but this is unfortunately not the
+	  case. The <c>noproc</c>
+	  <seeguide marker="system/reference_manual:errors#exceptions">
+	  exception</seeguide> is not to be confused with an
+	  <seeguide marker="system/reference_manual:processes#sending_exit_signals">exit
+	  signal</seeguide> with exit reason <c>noproc</c>. Currently it is "cheap"
+	  to check if the linkee exists when it is supposed to reside on
+	  the same node as the calling process.
+	</p>
 
-          <item><p><c>noproc</c> is sent immediately if
-            <c><anno>PidOrPort</anno></c> does not exist at the time of linking
-            (if the caller is trapping exits or <c><anno>PidOrPort</anno></c> is
-            remote).</p></item>
+	<p>
+	  The link setup and activation is performed asynchronously. If the
+	  link already exists, or if the caller attempts to create a link
+	  to itself, nothing is done. A detailed description of the
+	  <seeguide marker="erts:erl_dist_protocol#link_protocol">link
+	  protocol</seeguide> can be found in the <i>Distribution Protocol</i>
+	  chapter of the <i>ERTS User's Guide</i>.
+	</p>
 
-          <item><p><c>noconnection</c> if <c><anno>PidOrPort</anno></c> is
-            remote and a connection between the nodes could not be established
-            or was severed.</p></item>
-
-        </list>
-
-        <p>See <seeguide marker="system/reference_manual:processes#links">Processes
-          ➜ Links</seeguide> in the Erlang Reference Manual for more details.</p>
-
+	<p>Failure:</p>
+	<list>
+	  <item><c>badarg</c> if <c><anno>PidOrPort</anno></c> does not identify
+	  a process or a node local port.</item>
+	  <item><c>noproc</c> linkee does not exist and it is "cheap" to check
+	  if it exists as described above.</item>
+	</list>
       </desc>
     </func>
 
@@ -5518,7 +5564,8 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="1" since=""/>
+      <name name="process_flag" arity="2" clause_i="1"
+	    anchor="process_flag_trap_exit" since=""/>
       <fsummary>Set process flag trap_exit for the calling process.</fsummary>
       <desc>
         <p>When <c>trap_exit</c> is set to <c>true</c>, exit signals
@@ -12545,27 +12592,50 @@ improper_end</pre>
       <name name="unlink" arity="1" since=""/>
       <fsummary>Remove a link to another process or port.</fsummary>
       <desc>
-        <p>Removes the link, if there is one, between the calling
-          process and the process or port referred to by
-          <c><anno>Id</anno></c>.</p>
-        <p>Returns <c>true</c> and does not fail, even if there is no
-          link to <c><anno>Id</anno></c>, or if <c><anno>Id</anno></c>
-          does not exist.</p>
-        <p>Once <c>unlink(<anno>Id</anno>)</c> has returned,
-          it is guaranteed that
-          the link between the caller and the entity referred to by
-          <c><anno>Id</anno></c> has no effect on the caller
-          in the future (unless
-          the link is setup again). If the caller is trapping exits, an
-          <c>{'EXIT', <anno>Id</anno>, _}</c> message from the link
-          can have been placed in the caller's message queue before
-          the call.</p>
-        <p>Notice that the <c>{'EXIT', <anno>Id</anno>, _}</c>
-          message can be the
-          result of the link, but can also be the result of <c>Id</c>
-          calling <c>exit/2</c>. Therefore, it <em>can</em> be
-          appropriate to clean up the message queue when trapping exits
-          after the call to <c>unlink(<anno>Id</anno>)</c>, as follows:</p>
+	<p>
+	  Removes a link between the calling process and another process
+	  or a port identified by <c><anno>Id</anno></c>. We will from
+	  here on call the identified process or port unlinkee.
+	</p>
+
+        <p>
+	  A link can be set up using the
+	  <seemfa marker="#link/1"><c>link/1</c></seemfa> BIF. For more
+	  information on links and exit signals due to links, see the
+	  <i>Processes</i> chapter in the <i>Erlang Reference Manual</i>:
+	</p>
+	<list>
+	  <item>
+            <seeguide marker="system/reference_manual:processes#links">Links</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#sending_exit_signals">Sending
+	    Exit Signals</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#receiving_exit_signals">Receiving
+	    Exit Signals</seeguide>
+	  </item>
+	</list>
+
+        <p>
+	  Once <c>unlink(<anno>Id</anno>)</c> has returned, it is
+	  guaranteed that the link between the caller and the unlinkee
+	  has no effect on the caller in the future (unless the link is
+	  setup again). Note that if the caller is
+	  <seeerl marker="erts:erlang#process_flag_trap_exit">trapping
+	  exits</seeerl>, an <c>{'EXIT', <anno>Id</anno>, ExitReason}</c>
+	  message due to the link may have been placed in the message
+	  queue of the caller before the <c>unlink(<anno>Id</anno>)</c>
+	  call completed. Also note that the <c>{'EXIT', <anno>Id</anno>,
+	  ExitReason}</c> message may be the result of the link, but
+	  may also be the result of the unlikee sending the caller an
+	  exit signal by calling the
+	  <seemfa marker="#exit/2"><c>exit/2</c></seemfa> BIF.
+	  Therefore, it may or may not be appropriate to clean up
+	  the message queue after a call to <c>unlink(<anno>Id</anno>)</c>
+	  as follows, when trapping exits:
+	</p>
         <code type="none">
 unlink(Id),
 receive
@@ -12574,16 +12644,19 @@ receive
 after 0 ->
         true
 end</code>
-        <note>
-          <p>Before Erlang/OTP R11B (ERTS 5.5) <c>unlink/1</c>
-            behaved completely asynchronously, that is, the link was active
-            until the "unlink signal" reached the linked entity. This
-            had an undesirable effect, as you could never know when
-            you were guaranteed <em>not</em> to be effected by the link.</p>
-          <p>The current behavior can be viewed as two combined operations:
-            asynchronously send an "unlink signal" to the linked entity
-            and ignore any future results of the link.</p>
-        </note>
+
+	<p>
+	  The link removal is performed asynchronously. If such a link
+	  does not exist, nothing is done. A detailed description of the
+	  <seeguide marker="erts:erl_dist_protocol#link_protocol">link
+	  protocol</seeguide> can be found in the <i>Distribution Protocol</i>
+	  chapter of the <i>ERTS User's Guide</i>.
+	</p>
+
+        <p>
+	  Failure: <c>badarg</c> if <c>Id</c> does not identify a process
+	  or a node local port.
+	</p>
       </desc>
     </func>
 

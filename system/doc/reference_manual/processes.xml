@@ -122,14 +122,39 @@ spawn(Module, Name, Args) -> pid()
 
   <section>
     <title>Links</title>
-    <p>Two processes can be <em>linked</em> to each other. A link
-      between two processes <c>Pid1</c> and <c>Pid2</c> is created
-      by <c>Pid1</c> calling the BIF <c>link(Pid2)</c> (or conversely).
-      There also exist a number of <c>spawn_link</c> BIFs, which spawn
-      and link to a process in one operation.</p>
-    <p>Links are bidirectional and there can only be one link between
-      two processes. Repeated calls to <c>link(Pid)</c> have no effect.</p>
-    <p>A link can be removed by calling the BIF <c>unlink(Pid)</c>.</p>
+    <p>
+      Two processes can be <em>linked</em> to each other. Also a
+      process and a port that reside on the same node can be linked
+      to each other. A link beteen two processes can be created
+      if one of them calls the
+      <seemfa marker="erts:erlang#link/1"><c>link/1</c></seemfa> BIF
+      with the process identifier of the other process as argument.
+      Links can also be created using one the following spawn BIFs
+      <seemfa marker="erts:erlang#spawn_link/4"><c>spawn_link()</c></seemfa>,
+      <seemfa marker="erts:erlang#spawn_opt/5"><c>spawn_opt()</c></seemfa>, or
+      <seemfa marker="erts:erlang#spawn_request/5"><c>spawn_request()</c></seemfa>.
+      The spawn operation and the link operation will 
+      be performed atomically, in these cases.
+    </p>
+    <p>
+      If one of the participants of a link terminates, it will
+      <seeguide marker="system/reference_manual:processes#sending_exit_signals">send
+      an exit signal</seeguide> to the other participant. The exit
+      signal will contain the
+      <seeguide marker="system/reference_manual:processes#link_exit_signal_reason">exit
+      reason</seeguide> of the terminated participant.
+    </p>
+    <p>
+      A link can be removed by calling the
+      <seemfa marker="erts:erlang#unlink/1"><c>unlink/1</c></seemfa>
+      BIF.
+    </p>
+    <p>
+      Links are bidirectional and there can only be one link between
+      two processes. Repeated calls to <c>link()</c> have no effect.
+      Either one of the involved processes may create or remove a
+      link.
+    </p>
     <p>Links are used to monitor the behaviour of other processes, see
       <seeguide marker="#errors">Error Handling</seeguide>.</p>
   </section>
@@ -149,35 +174,198 @@ spawn(Module, Name, Args) -> pid()
       OTP supervision trees, which use this feature.</p>
 
     <section>
-      <title>Emitting Exit Signals</title>
-      <p>When a process terminates, it terminates with an
-        <em>exit reason</em> as explained in <seeguide marker="#term">
-        Process Termination</seeguide>. This exit reason is emitted in
-        an <em>exit signal</em> to all linked processes.</p>
-      <p>A process can also call the function <c>exit(Pid,Reason)</c>.
-        This results in an exit signal with exit reason
-        <c>Reason</c> being emitted to <c>Pid</c>, but does not affect
-        the calling process.</p>
+      <marker id="sending_exit_signals"/>
+      <title>Sending Exit Signals</title>
+      <p>
+	When a process or port
+	<seeguide marker="#term">terminates</seeguide> it will
+	send exit signals to all processes and ports that it
+	is <seeguide marker="#links">linked</seeguide> to.
+	The exit signal will contain the following information:
+      </p>
+      <taglist>
+	<tag>Sender identifier</tag>
+	<item><p>
+	  The process or port identifier of the process or port
+	  that terminated.
+	</p></item>
+	<tag>Receiver identifier</tag>
+	<item><p>
+	  The process or port identifier of the process or port
+	  which the exit signal is sent to.
+	</p></item>
+	<tag>The <c>link</c> flag</tag>
+	<item><p>
+	  This flag will be set indicating that the exit signal
+	  was sent due to a link.
+	</p></item>
+	<tag><marker id="link_exit_signal_reason"/>Exit reason</tag>
+	<item><p>
+	  The exit reason of the process or port that
+	  terminated or the atom:</p>
+	  <list>
+	    <item><p>
+	      <c>noproc</c> in case no process or port was
+	      found when setting up a link in a preceeding
+	      call to the
+	      <seemfa marker="erts:erlang#link/1"><c>link(PidOrPort)</c></seemfa>
+	      BIF. The process or port identified as sender
+	      of the exit signal will equal the <c>PidOrPort</c>
+	      argument passed to <c>link/1</c>.
+	    </p></item>
+	    <item><p>
+	      <c>noconnection</c> in case the linked
+	      processes resides on different nodes and
+	      the connection between the nodes was lost or
+	      could not be established. The process or port
+	      identified as sender of the exit signal might
+	      in this case still be alive.
+	    </p></item>
+	  </list>
+	</item>
+      </taglist>
+      
+      <p>
+	Exit signals can also be sent explicitly by calling the
+	<seemfa marker="erts:erlang#exit/2"><c>exit(PidOrPort,
+	Reason)</c></seemfa> BIF. The exit signal is sent to the
+	process or port identified by the <c>PidOrPort</c> argument.
+	The exit signal sent will contain the following information:
+      </p>
+      <taglist>
+	<tag>Sender identifier</tag>
+	<item><p>
+	  The process identifier of the process that called
+	  <c>exit/2</c>.
+	</p></item>
+	<tag>Receiver identifier</tag>
+	<item><p>
+	  The process or port identifier of the process or port
+	  which the exit signal is sent to.
+	</p></item>
+	<tag>The <c>link</c> flag</tag>
+	<item><p>
+	  This flag will not be set, indicating that this exit
+	  signal was not sent due to a link.
+	</p></item>
+	<tag>Exit reason</tag>
+	<item><p>
+	  The term passed as <c>Reason</c> in the call to
+	  <c>exit/2</c>. If <c>Reason</c> is the atom <c>kill</c>,
+	  the receiver cannot
+	  <seeerl marker="erts:erlang#process_flag_trap_exit">trap
+	  the exit</seeerl> signal and will unconditionally
+	  terminate when it receives the signal.
+	</p></item>
+      </taglist>
     </section>
 
     <section>
+      <marker id="receiving_exit_signals"/>
       <title>Receiving Exit Signals</title>
-      <p>The default behaviour when a process receives an exit signal
-        with an exit reason other than <c>normal</c>, is to terminate
-        and in turn emit exit signals with the same exit reason to its
-        linked processes. An exit signal with reason <c>normal</c> is
-        ignored.</p>
-      <p>A process can be set to trap exit signals by calling:</p>
-      <pre>
-process_flag(trap_exit, true)</pre>
-      <p>When a process is trapping exits, it does not terminate when
-        an exit signal is received. Instead, the signal is transformed
-        into a message <c>{'EXIT',FromPid,Reason}</c>, which is put into
-        the mailbox of the process, just like a regular message.</p>
-      <p>An exception to the above is if the exit reason is <c>kill</c>,
-        that is if <c>exit(Pid,kill)</c> has been called. This
-        unconditionally terminates the process, regardless of if it is
-        trapping exit signals.</p>
+
+      <p>What happens when a process receives an exit signal depends on:</p>
+      <list>
+	<item><p>
+	  The <seeerl marker="erts:erlang#process_flag_trap_exit">trap exit</seeerl>
+	  state of the receiver at the time when the exit signal is received.
+	</p></item>
+	<item><p>
+	  The exit reason of the exit signal.
+	</p></item>
+	<item><p>
+	  The sender of the exit signal.
+	</p></item>
+	<item><p>
+	  The state of the <c>link</c> flag of the exit signal. If the
+	  <c>link</c> flag is set, the exit signal was sent due to a
+	  link; otherwise, the exit signal was sent by a call to the
+	  <seemfa marker="erts:erlang#exit/2"><c>exit/2</c></seemfa> BIF.
+	</p></item>
+	<item><p>
+	  If the <c>link</c> flag is set, what happens also depends on
+	  whether the <seemfa marker="erts:erlang#unlink/1">link is still active
+	  or not</seemfa> when the exit signal is received.
+	</p></item>
+      </list>
+
+      <p>
+	Based on the above states, the following will happen when an
+	exit signal is received by a process:
+      </p>
+      <list>
+	<item>
+	  <p>The exit signal is silently dropped if:</p>
+	  <list>
+	    <item><p>
+	      the <c>link</c> flag of the exit signal is set and
+	      the corresponding link has been deactivated.
+	    </p></item>
+	    <item><p>
+	      the exit reason of the exit signal is the atom <c>normal</c>,
+	      the receiver is not trapping exits, and the receiver and
+	      sender are not the same process.
+	    </p></item>
+	  </list>
+	</item>
+	<item>
+	  <p>The receiving process is terminated if:</p>
+	  <list>
+	    <item><p>
+	      the <c>link</c> flag of the exit signal
+	      is not set, and the exit reason of the exit signal
+	      is the atom <c>kill</c>. The receiving process will
+	      terminate with the atom <c>killed</c> as exit reason.
+	    </p></item>
+	    <item><p>
+	      the receiver is not trapping exits, and the exit
+	      reason is something other than the atom <c>normal</c>.
+	      Also, if the <c>link</c> flag of the exit signal
+	      is set, the link also needs to be active otherwise the
+	      exit signal will be dropped. The exit reason of the
+	      receiving process will equal the exit reason of the
+	      exit signal. Note that if the <c>link</c> flag
+	      is set, an exit reason of <c>kill</c> will <em>not</em>
+	      be converted to <c>killed</c>.
+	    </p></item>
+	    <item><p>
+	      the exit reason of the exit signal is the atom
+	      <c>normal</c> and the sender of the exit signal is
+	      the same process as the receiver. The <c>link</c>
+	      flag cannot be set in this case. The exit reason
+	      of the receiving process will be the atom <c>normal</c>.
+	    </p></item>
+	  </list>
+	</item>
+	<item>
+	  <p>
+	    The exit signal is converted to a message signal and
+	    moved into the message queue of the receiver, if the
+	    receiver is trapping exits, the <c>link</c> flag
+	    of the exit signal is:
+	  </p>
+	    <list>
+	      <item><p>
+		not set, and the exit reason of the signal is not
+		the atom <c>kill</c>.
+	      </p></item>
+	      <item><p>
+		set, and the corresponding link is active.
+		Note that an exit reason of <c>kill</c> will
+		<em>not</em> terminate the process in this
+		case and it will not be converted to
+		<c>killed</c>.
+	      </p></item>
+	    </list>
+	    <p>
+	      The converted message will be on the form
+	      <c>{'EXIT', SenderID, Reason}</c> where <c>Reason</c>
+	      equals the exit reason of the exit signal and
+	      <c>SenderID</c> is the identifier of the process
+	      or port that sent the exit signal.
+	    </p>
+	</item>
+      </list>
     </section>
   </section>
 
@@ -216,4 +404,3 @@ erase(Key)
 erase()</pre>
   </section>
 </chapter>
-
