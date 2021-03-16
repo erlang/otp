@@ -60,8 +60,8 @@
 -define(SINGLE_USER_LOAD_NUM_REQUESTS, 1000).
 -define(MULTI_USER_LOAD_NUM_REQUESTS,  1000).
 
--define(MGC_START(Pid, Mid, ET, Conf, Verb), 
-        megaco_test_mgc:start(Pid, Mid, ET, 
+-define(MGC_START(Node, Mid, ET, Conf, Verb), 
+        megaco_test_mgc:start(Node, Mid, ET, 
 			      [{megaco_trace, false}] ++ Conf, Verb)).
 -define(MGC_STOP(Pid), megaco_test_mgc:stop(Pid)).
 -define(MGC_USER_INFO(Pid,Tag), megaco_test_mgc:user_info(Pid,Tag)).

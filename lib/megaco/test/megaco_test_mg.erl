@@ -110,32 +110,28 @@ start(Node, Mid, Encoding, Transport, Conf, Verbosity) ->
 		case (catch mg(Self, Verbosity, Config)) of
 		    {'EXIT', Reason} ->
 			e("LOADER(~p,~p) terminating with exit"
-                          "~n      ~p", [self(), node(), Reason]),
+                          "~n      ~p", [Self, node(), Reason]),
 			exit(Reason);
 		    Else ->
 			i("LOADER(~p,~p) terminating with"
-                          "~n      ~p", [self(), node(), Else]),
+                          "~n      ~p", [Self, node(), Else]),
 			Else
 		end
 	end,
-    true = erlang:monitor_node(Node, true),
-    Pid = spawn_link(Node, Fun),
-    %% Pid = spawn_link(Node, ?MODULE, mg, [self(), Verbosity, Config]),
-    MonRef = (catch erlang:monitor(process, Pid)),
-    NodePing = net_adm:ping(Node), 
-    ProcInfo = (catch proc_info(Pid)), 
-    i("start -> "
-      "~n      self():           ~p"
-      "~n      node():           ~p"
-      "~n      net_adm:ping(~p): ~p" 
-      "~n      Loader:           ~p"
-      "~n      Monitor ref:      ~p"
-      "~n      Process info:     ~p", 
-      [self(), node(), 
-       Node, NodePing, 
-       Pid, 
-       MonRef, ProcInfo]),
-    await_started(Node, MonRef, Pid).
+    true        = erlang:monitor_node(Node, true),
+    {Pid, MRef} = spawn_monitor(Node, Fun),
+    NodePing    = net_adm:ping(Node),
+    ProcInfo    = (catch proc_info(Pid)),
+    i("start mg[~p] -> ~p"
+      "~n      self():       ~p"
+      "~n      node():       ~p"
+      "~n      Node ping:    ~p" 
+      "~n      Loader:       ~p"
+      "~n      Monitor ref:  ~p"
+      "~n      Process info: ~p", 
+      [Node, Pid,
+       Self, node(), NodePing, Pid, MRef, ProcInfo]),
+    await_started(Node, MRef, Pid).
 
 proc_info(Pid) ->
     rpc:call(node(Pid), erlang, process_info, [Pid]).
