@@ -583,19 +583,8 @@ initial_state(Role, Host, Port, Socket,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{beast_mitigation := BeastMitigation} = SSLOptions,
     ConnectionStates = dtls_record:init_connection_states(Role, BeastMitigation),
-    
-    SessionCacheCb = case application:get_env(ssl, session_cb) of
-			 {ok, Cb} when is_atom(Cb) ->
-			    Cb;
-			 _  ->
-			     ssl_session_cache
-		     end,
-    InternalActiveN =  case application:get_env(ssl, internal_active_n) of
-                           {ok, N} when is_integer(N) ->
-                               N;
-                           _  ->
-                               ?INTERNAL_ACTIVE_N
-                       end,
+    #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
+    InternalActiveN = ssl_config:get_internal_active_n(),
     Monitor = erlang:monitor(process, User),
     InitStatEnv = #static_env{
                      role = Role,

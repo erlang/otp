@@ -19,24 +19,30 @@
 %%
 
 %%
--module(ssl_session_cache).
+-module(ssl_client_session_cache_db).
 
 -behaviour(ssl_session_cache_api).
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
 
--export([init/1, terminate/1, lookup/2, update/3, delete/2, foldl/3, 
-	 select_session/2, size/1, take_oldest/1]). 
+-export([init/1,
+         terminate/1,
+         lookup/2,
+         update/3,
+         delete/2,
+         foldl/3,
+	 select_session/2,
+         size/1]).
 
 %%--------------------------------------------------------------------
-%% Description: Return table reference. Called by ssl_manager process. 
+%% Description: Return table reference. Called by ssl_manager process.
 %%--------------------------------------------------------------------
 init(Options) ->
     ets:new(cache_name(proplists:get_value(role, Options)), [ordered_set, protected]).
 
 %%--------------------------------------------------------------------
-%% Description: Handles cache table at termination of ssl manager. 
+%% Description: Handles cache table at termination of ssl manager.
 %%--------------------------------------------------------------------
 terminate(Cache) ->
     ets:delete(Cache).
@@ -85,17 +91,17 @@ foldl(Fun, Acc0, Cache) ->
         _:_ ->
             Acc0
     end.
-  
+
 %%--------------------------------------------------------------------
 %% Description: Selects a session that could be reused. Should be callable
 %% from any process.
 %%--------------------------------------------------------------------
-select_session(Cache, PartialKey) ->    
-    try ets:select(Cache, 
+select_session(Cache, PartialKey) ->
+    try ets:select(Cache,
                    [{{{PartialKey,'_'}, '$1'},[],['$1']}]) of
         Result ->
             Result
-    catch 
+    catch
         _:_ ->
             []
     end.
@@ -105,14 +111,6 @@ select_session(Cache, PartialKey) ->
 %%--------------------------------------------------------------------
 size(Cache) ->
     ets:info(Cache, size).
-
-%%--------------------------------------------------------------------
-%% Description: Returns the oldest entry
-%%--------------------------------------------------------------------
-take_oldest(Cache) ->
-    {Key, Oldest} = ets:first(Cache),
-    delete(Cache, Key),
-    {Oldest, Cache}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
