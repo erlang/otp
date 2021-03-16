@@ -88,7 +88,6 @@
         nodelay |
         packet |
         packet_size |
-        pktoptions |
         priority |
         {raw,
          Protocol :: non_neg_integer(),
