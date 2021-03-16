@@ -34,6 +34,10 @@
 %%
 -export([test_init_restart_cmd/1]).
 
+%% Test writing helper
+-export([find_colliding_keys/0]).
+
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,10}}].
@@ -579,30 +583,28 @@ collisions_delete([], _) ->
     ok.
 
 colliding_keys() ->
-    %% Collisions found by Jesper L. Andersen for breaking maps.
-    L = [[764492191,2361333849],
-         [49527266765044,90940896816021,20062927283041,267080852079651],
-         [249858369443708,206247021789428,20287304470696,25847120931175],
-         [10645228898670,224705626119556,267405565521452,258214397180678],
-         [264783762221048,166955943492306,98802957003141,102012488332476],
-         [69425677456944,177142907243411,137138950917722,228865047699598],
-         [116031213307147,29203342183358,37406949328742,255198080174323],
-         [200358182338308,235207156008390,120922906095920,116215987197289],
-         [58728890318426,68877471005069,176496507286088,221041411345780],
-         [91094120814795,50665258299931,256093108116737,19777509566621],
-         [74646746200247,98350487270564,154448261001199,39881047281135],
-         [23408943649483,164410325820923,248161749770122,274558342231648],
-         [169531547115055,213630535746863,235098262267796,200508473898303],
-         [235098564415817,85039146398174,51721575960328,173069189684390],
-         [176136386396069,155368359051606,147817099696487,265419485459634],
-         [137542881551462,40028925519736,70525669519846,63445773516557],
-         [173854695142814,114282444507812,149945832627054,99605565798831],
-         [177686773562184,127158716984798,132495543008547],
-         [227073396444896,139667311071766,158915951283562],
-         [26212438434289,94902985796531,198145776057315],
-         [266279278943923,58550737262493,74297973216378],
-         [32373606512065,131854353044428,184642643042326],
-         [34335377662439,85341895822066,273492717750246]],
+    %% Collisions found by find_colliding_keys() below
+    L = [[77674392,148027],
+	 [103370644,950908],
+	 [106444046,870178],
+	 [22217246,735880],
+	 [18088843,694607],
+	 [63426007,612179],
+	 [117354942,906431],
+	 [121434305,94282311,816072],
+	 [118441466,93873772,783366],
+	 [124338174,1414801,123089],
+	 [20240282,17113486,923647],
+	 [126495528,61463488,164994],
+	 [125341723,5729072,445539],
+	 [127450932,80442669,348245],
+	 [123354692,85724182,14241288,180793],
+	 [99159367,65959274,61680971,289939],
+	 [107637580,104512101,62639807,181644],
+	 [139547511,51654420,2062545,151944],
+	 [88078274,73031465,53388204,428872],
+	 [141314238,75761379,55699508,861797],
+	 [88045216,59272943,21030492,180903]],
 
     %% Verify that the keys still collide (this will fail if the
     %% internal hash function has been changed).
@@ -625,6 +627,58 @@ verify_colliding_keys([]) ->
 
 internal_hash(Term) ->
     erts_debug:get_internal_state({internal_hash,Term}).
+
+%% Use this function to (re)generate the list in colliding_keys/0
+find_colliding_keys() ->
+    MaxCollSz = 4,
+    OfEachSz = 7,
+    erts_debug:set_internal_state(available_internal_state, true),
+    MaxInserts = 1 bsl 20,
+    T = ets:new(x, [set, private]),
+    ok = fck_loop_1(T, 1, MaxInserts, MaxCollSz, OfEachSz),
+    fck_collect(T, MaxCollSz, OfEachSz, []).
+
+fck_collect(_T, 1, _OfEachSz, Acc) ->
+    Acc;
+fck_collect(T, CollSz, OfEachSz, Acc) ->
+    {List, _} = ets:select(T,
+			   [{{'$1','$2'}, [{'==',{length,'$2'},CollSz}], ['$2']}],
+			   OfEachSz),
+    fck_collect(T, CollSz-1, OfEachSz, List ++ Acc).
+
+
+fck_loop_1(T, Key, 0, MaxCollSz, MaxSzLeft) ->
+    fck_loop_2(T, Key, MaxCollSz, MaxSzLeft);
+fck_loop_1(T, Key, Inserts, MaxCollSz, MaxSzLeft) ->
+    Hash = internal_hash(Key),
+    case ets:insert_new(T, {Hash, [Key]}) of
+	true ->
+	    fck_loop_1(T, Key+1, Inserts-1, MaxCollSz, MaxSzLeft);
+	false ->
+	    [{Hash, KeyList}] = ets:lookup(T, Hash),
+	    true = ets:insert(T, {Hash, [Key | KeyList]}),
+	    fck_loop_1(T, Key+1, Inserts, MaxCollSz, MaxSzLeft)
+    end.
+
+fck_loop_2(_T, _Key, _MaxCollSz, 0) ->
+    ok;
+fck_loop_2(T, Key, MaxCollSz, MaxSzLeft0) ->
+    Hash = internal_hash(Key),
+    case ets:lookup(T, Hash) of
+	[] ->
+	    fck_loop_2(T, Key+1, MaxCollSz, MaxSzLeft0);
+	[{Hash, KeyList}] ->
+	    true = ets:insert(T, {Hash, [Key | KeyList]}),
+	    MaxSzLeft1 = case length(KeyList)+1 of
+			     MaxCollSz ->
+				 MaxSzLeft0 - 1;
+			     _ ->
+				 MaxSzLeft0
+			 end,
+	    fck_loop_2(T, Key+1, MaxCollSz, MaxSzLeft1)
+    end.
+
+
 
 %% Test that all persistent terms are erased by init:restart/0.
 

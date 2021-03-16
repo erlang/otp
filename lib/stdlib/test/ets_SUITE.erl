@@ -31,6 +31,7 @@
 -export([match_delete3/1]).
 -export([firstnext/1,firstnext_concurrent/1]).
 -export([slot/1]).
+-export([hash_clash/1]).
 -export([match1/1, match2/1, match_object/1, match_object2/1]).
 -export([dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
 -export([info_binary_stress/1]).
@@ -132,7 +133,7 @@ suite() ->
 
 all() ->
     [{group, new}, {group, insert}, {group, lookup},
-     {group, delete}, firstnext, firstnext_concurrent, slot,
+     {group, delete}, firstnext, firstnext_concurrent, slot, hash_clash,
      {group, match}, t_match_spec_run,
      {group, lookup_element}, {group, misc}, {group, files},
      {group, heavy}, {group, insert_list}, ordered, ordered_match,
@@ -4571,6 +4572,16 @@ slot_loop(Tab,SlotNo,EltsSoFar) ->
 	Elts ->
 	    slot_loop(Tab,SlotNo+1,EltsSoFar+length(Elts))
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+hash_clash(Config) when is_list(Config) ->
+    %% ensure that erlang:phash2 and ets:slot use different hash seed
+    Tab = ets:new(tab, [set]),
+    Buckets = erlang:element(1, ets:info(Tab, stats)),
+    Phash = erlang:phash2(<<"123">>, Buckets),
+    true = ets:insert(Tab, {<<"123">>, "extra"}),
+    [] = ets:slot(Tab, Phash).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

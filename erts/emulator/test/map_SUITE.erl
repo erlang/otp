@@ -2792,6 +2792,13 @@ t_hashmap_balance(_Config) ->
     ok.
 
 hashmap_balance(KeyFun) ->
+    %% For uniformly distributed hash values, the average number of nodes N
+    %% in a hashmap varies between 0.3*K and 0.4*K where K is number of keys.
+    %% The standard deviation of N is about sqrt(K)/3.
+
+    %% For simplicity we use the higher expected average 0.4*K
+    %% and verfies that no map is too many standard deviation above it.
+
     F = fun(I, {M0,Max0}) ->
 		Key = KeyFun(I),
 		M1 = M0#{Key => Key},
@@ -2803,9 +2810,9 @@ hashmap_balance(KeyFun) ->
 			       SD_diff = abs(Nodes - Avg) / StdDev,
 			       %%io:format("~p keys: ~p nodes avg=~p SD_diff=~p\n",
 			       %%          [maps:size(M1), Nodes, Avg, SD_diff]),
-			       {MaxDiff0, _} = Max0,
+			       {MaxDiff0, _, Cnt} = Max0,
 			       case {Nodes > Avg, SD_diff > MaxDiff0} of
-				   {true, true} -> {SD_diff, M1};
+				   {true, true} -> {SD_diff, M1, Cnt+1};
 				   _ -> Max0
 			       end;
 
@@ -2814,16 +2821,23 @@ hashmap_balance(KeyFun) ->
 		{M1, Max1}
 	end,
 
-    {_,{MaxDiff,MaxMap}} = lists:foldl(F,
-				       {#{}, {0, 0}},
-				       lists:seq(1,10000)),
-    io:format("Max std dev diff ~p for map of size ~p (nodes=~p, flatsize=~p)\n",
-	      [MaxDiff, maps:size(MaxMap), hashmap_nodes(MaxMap), erts_debug:flat_size(MaxMap)]),
+    {_,{MaxDiff,MaxMap, FatCnt}} = lists:foldl(F,
+					       {#{}, {0, undefined, 0}},
+					       lists:seq(1,10000)),
+    case MaxMap of
+	undefined ->
+	    io:format("Wow, no map with more than \"average\" number of nodes\n");
+	_ ->
+	    io:format("Found ~p maps with more than \"average\" number of nodes\n",
+		      [FatCnt]),
+	    io:format("Max std dev diff ~p for map of size ~p (nodes=~p, flatsize=~p)\n",
+		      [MaxDiff, maps:size(MaxMap), hashmap_nodes(MaxMap),
+		       erts_debug:flat_size(MaxMap)])
+    end,
 
     true = (MaxDiff < 6),  % The probability of this line failing is about 0.000000001
                            % for a uniform hash. I've set the probability this "high" for now
                            % to detect flaws in our make_internal_hash.
-                           % Hard limit is 15 (see hashmap_over_estimated_heap_size).
     ok.
 
 hashmap_nodes(M) ->
