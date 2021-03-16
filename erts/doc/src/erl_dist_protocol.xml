@@ -972,7 +972,7 @@ DiB == gen_digest(ChA, ICA)?
       <marker id="dflags"/>
       <title>Distribution Flags</title>
       <p>Early in the distribution handshake the two participating nodes
-      exchange capability flags. This in order to determine how the
+      exchange capability flags. This is done in order to determine how the
       communication between the two nodes should be performed. The intersection
       of the capabilities presented by the two nodes defines the capabilities
       that will be used. The following capability flags are defined:</p>
@@ -1101,7 +1101,7 @@ DiB == gen_digest(ChA, ICA)?
         <item>
 	  <p>Use the <seeguide marker="#new_link_protocol">new link protocol</seeguide>.</p>
 	  <note><p>This flag will become mandatory in OTP 26.</p></note>
-	  <p>Unless both nodes has set the <c>DFLAG_UNLINK_ID</c> flag, the
+	  <p>Unless both nodes have set the <c>DFLAG_UNLINK_ID</c> flag, the
 	  <seeguide marker="#old_link_protocol">old link protocol</seeguide>
 	  will be used as a fallback.</p>
 	</item>
@@ -1652,16 +1652,16 @@ DiB == gen_digest(ChA, ICA)?
       <p>
 	In order to set up a link, a <c>LINK</c> signal is sent, from
 	the process initiating the operation, to the process that it
-	wants to link with. In order to remove a link, an
+	wants to link to. In order to remove a link, an
 	<c>UNLINK_ID</c> signal is sent, from the process initiating
 	the operation, to the linked process. The receiver of an
 	<c>UNLINK_ID</c> signal responds with an <c>UNLINK_ID_ACK</c>
 	signal. Upon reception of an <c>UNLINK_ID</c> signal, the
 	corresponding <c>UNLINK_ID_ACK</c> signal <em>must</em> be
 	sent before any other signals are sent to the sender of the
-	<c>UNLINK_ID</c> signal. This together with
+	<c>UNLINK_ID</c> signal. Together with
 	<seeguide marker="erts:communication#passing-of-signals">the
-	signal ordering guarantees</seeguide> of Erlang makes it
+	signal ordering guarantees</seeguide> of Erlang this makes it
 	possible for the sender of the <c>UNLINK_ID</c> signal to know
 	the order of other signals which is essential for the protocol.
 	The <c>UNLINK_ID_ACK</c> signal should contain the same
@@ -1673,11 +1673,11 @@ DiB == gen_digest(ChA, ICA)?
 	Processes also need to maintain process local information about
 	links. The state of this process local information is changed
 	when the signals above are sent and received. This process
-	local information also determine if a signal should be sent
+	local information also determines if a signal should be sent
 	when a process calls
 	<seemfa marker="erlang#link/1"><c>link/1</c></seemfa> or
 	<seemfa marker="erlang#unlink/1"><c>unlink/1</c></seemfa>.
-	A <c>LINK</c> signal is only sent if there currently does not
+	A <c>LINK</c> signal is only sent if there does not currently
 	exist an active link between the processes according to the
 	process local information and an <c>UNLINK_ID</c> signal is
 	only sent if there currently exists an active link between the
@@ -1697,14 +1697,14 @@ DiB == gen_digest(ChA, ICA)?
 	  If set, the link is active and the process will react on
 	  <seeguide marker="system/reference_manual:processes#receiving_exit_signals">incoming
 	  exit signals</seeguide> issued due to the link. If not set,
-	  the link is inactive and incoming exit signals issued due
-	  to the link will be ignored. That is, the processes are
+	  the link is inactive and incoming exit signals, issued due
+	  to the link, will be ignored. That is, the processes are
 	  considered as <em>not</em> linked.
 	</item>
 	<tag>Unlink Id</tag>
 	<item>
 	  Identifier of an outstanding unlink operation. That is,
-	  an unlink operation that has not been acknowledged yet.
+	  an unlink operation that has not yet been acknowledged.
 	  This information is only used when the active flag is not
 	  set.
 	</item>
@@ -1733,14 +1733,14 @@ DiB == gen_digest(ChA, ICA)?
 	<item>
 	  If no link information already exists, it is created, the
 	  active flag is set and unlink id is cleared. If the link
-	  information already exists, the signal is silently ignored.
-	  This regardless of whether the active flag is set or not.
+	  information already exists, the signal is silently ignored,
+	  regardless of whether the active flag is set or not.
 	  That is, if we have an outstanding unlink operation we will
 	  <em>not</em> activate the link. In this scenario, the sender
 	  of the <c>LINK</c> signal has not yet sent an
 	  <c>UNLINK_ID_ACK</c> signal corresponding to our
 	  <c>UNLINK_ID</c> signal which means that it will receive
-	  the our <c>UNLINK_ID</c> signal after it sent this
+	  our <c>UNLINK_ID</c> signal after it sent its
 	  <c>LINK</c> signal. This in turn means that both processes
 	  in the end will agree that there is no link between them.
 	</item>
@@ -1761,11 +1761,11 @@ DiB == gen_digest(ChA, ICA)?
 	<tag>An <c>UNLINK_ID_ACK</c> signal is sent</tag>
 	<item>
 	  This is done when an <c>UNLINK_ID</c> signal is received and
-	  cause no further changes of the link information.
+	  causes no further changes of the link information.
 	</item>
 	<tag>An <c>UNLINK_ID_ACK</c> signal is received</tag>
 	<item>
-	  If information about the link exist, the active flag is not
+	  If information about the link exists, the active flag is not
 	  set, and the unlink id in the link information equals the
 	  <c>Id</c> in the signal, the link information is removed;
 	  otherwise, the signal is ignored.

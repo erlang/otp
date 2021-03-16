@@ -124,7 +124,7 @@ spawn(Module, Name, Args) -> pid()
     <title>Links</title>
     <p>
       Two processes can be <em>linked</em> to each other. Also a
-      process and a port that resides on the same node can be linked
+      process and a port that reside on the same node can be linked
       to each other. A link beteen two processes can be created
       if one of them calls the
       <seemfa marker="erts:erlang#link/1"><c>link/1</c></seemfa> BIF
@@ -133,8 +133,8 @@ spawn(Module, Name, Args) -> pid()
       <seemfa marker="erts:erlang#spawn_link/4"><c>spawn_link()</c></seemfa>,
       <seemfa marker="erts:erlang#spawn_opt/5"><c>spawn_opt()</c></seemfa>, or
       <seemfa marker="erts:erlang#spawn_request/5"><c>spawn_request()</c></seemfa>.
-      The spawn operation and the link operation will in these cases
-      be performed atomically.
+      The spawn operation and the link operation will 
+      be performed atomically, in these cases.
     </p>
     <p>
       If one of the participants of a link terminates, it will
@@ -404,4 +404,3 @@ erase(Key)
 erase()</pre>
   </section>
 </chapter>
-
