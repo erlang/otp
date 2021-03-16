@@ -196,6 +196,8 @@ int main(int argc, char *argv[])
                 char* address_string_end = strchr(hostname_port_arg, ':');
                 if (address_string_end == NULL) {
                     flags.port = strtol(hostname_port_arg, NULL, 10);
+                    free(hostname_port_arg);
+                    hostname_port_arg = NULL;
                 } else {
                     flags.port = strtol(address_string_end + 1, NULL, 10);
                     /* Remove port part from hostname_port_arg*/
@@ -206,6 +208,9 @@ int main(int argc, char *argv[])
                 }
 
                 if (flags.port < 1 || flags.port > 65535) {
+                    if (hostname_port_arg != NULL) {
+                        free(hostname_port_arg);
+                    }
                     usage_error(progname, "-address");
                 }
                 i++;
@@ -1137,6 +1142,9 @@ void exit_free_flags_fields(int exit_status, struct call_flags* flags) {
     }
     if (flags->apply != NULL) {
         free(flags->apply);
+    }
+    if (flags->hostname != NULL) {
+        free(flags->hostname);
     }
     exit(exit_status);
 }
