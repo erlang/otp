@@ -1433,8 +1433,13 @@ handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D) ->
       end, [], Cache),
     {keep_state, D, cond_set_idle_timer(D)};
 
-handle_event({timeout,idle_time}, _Data,  _StateName, _D) ->
-    {stop, {shutdown, "Timeout"}};
+handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
+    case ssh_client_channel:cache_info(num_entries, cache(D)) of
+        0 -> 
+            {stop, {shutdown, "Timeout"}};
+        _ ->
+            keep_state_and_data
+    end;
 
 %%% So that terminate will be run when supervisor is shutdown
 handle_event(info, {'EXIT', _Sup, Reason}, StateName, _) ->
