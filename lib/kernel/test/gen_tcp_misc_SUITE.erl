@@ -157,8 +157,9 @@ all_cases() ->
      busy_disconnect_passive, busy_disconnect_active,
      fill_sendq, partial_recv_and_close,
      partial_recv_and_close_2, partial_recv_and_close_3,
-     so_priority, recvtos, recvttl, recvtosttl,
-     recvtclass, primitive_accept,
+     so_priority,
+     recvtos, recvttl, recvtosttl, recvtclass,
+     primitive_accept,
      multi_accept_close_listen, accept_timeout,
      accept_timeouts_in_order, accept_timeouts_in_order2,
      accept_timeouts_in_order3, accept_timeouts_in_order4,
@@ -3383,6 +3384,12 @@ semver_lt(V1, {_,_,_} = V2) ->
     false.
 
 test_pktoptions(Config, Family, Spec, OSFilter, CheckConnect) ->
+    ?P("test_pktoptions -> begin test with"
+       "~n   Config:       ~p"
+       "~n   Family:       ~p"
+       "~n   Spec:         ~p"
+       "~n   CheckConnect: ~p",
+       [Config, Family, Spec, CheckConnect]),
     OSType = os:type(),
     OSVer  = os:version(),
     case OSFilter(OSType, OSVer) of
@@ -3417,26 +3424,25 @@ test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
         end,
     %%
     %% Set RecvOpts on listen socket
-    ?P("create listen socket with"
-       "~n   ~p", [TrueRecvOpts]),
-    {ok,L} =
+    ?P("try create listen socket with: ~p", [TrueRecvOpts]),
+    {ok, L} =
         ?LISTEN(Config, 
-          0,
-          [Family,binary,{active,false},{send_timeout,Timeout}
-           |TrueRecvOpts]),
-    {ok,P} = inet:port(L),
+                0,
+                [Family,binary,{active,false},{send_timeout,Timeout}
+                 |TrueRecvOpts]),
+    {ok, P} = inet:port(L),
     ?P("get (recv) options for listen socket: "
        "~n   ~p", [RecvOpts]),
-    {ok,TrueRecvOpts} = inet:getopts(L, RecvOpts),
+    {ok, TrueRecvOpts} = inet:getopts(L, RecvOpts),
     ?P("get options for listen socket: "
        "~n   ~p", [Opts]),
-    {ok,OptsValsDefault} = inet:getopts(L, Opts),
+    {ok, OptsValsDefault} = inet:getopts(L, Opts),
 
     %%
     %% Set RecvOpts and Option values on connect socket
     ?P("create connect socket with"
        "~n   ~p", [TrueRecvOpts ++ OptsVals]),
-    {ok,S2} =
+    {ok, S2} =
         ?CONNECT(Config,
                  Address, P,
                  [Family,binary,{active,false},{send_timeout,Timeout}
@@ -3444,33 +3450,42 @@ test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
                  Timeout),
     ?P("get (recv) options for connect socket: "
        "~n   ~p", [RecvOpts]),
-    {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
+    {ok, TrueRecvOpts} = inet:getopts(S2, RecvOpts),
     ?P("get options for connect socket: "
        "~n   ~p", [Opts]),
-    {ok,OptsVals} = inet:getopts(S2, Opts),
+    {ok, OptsVals} = inet:getopts(S2, Opts),
 
     %%
     %% Accept socket inherits the options from listen socket
-    ?P("create accept socket"),
-    {ok,S1} = gen_tcp:accept(L, Timeout),
+    ?P("try create accept socket"),
+    {ok, S1} = gen_tcp:accept(L, Timeout),
     ?P("get (recv) options for accept socket: "
        "~n   ~p", [RecvOpts]),
-    {ok,TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    {ok, TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+
     ?P("get options for accept socket: "
        "~n   ~p", [Opts]),
-    {ok,OptsValsDefault} = inet:getopts(S1, Opts),
+    {ok, OptsValsDefault} = inet:getopts(S1, Opts),
+    ?P("accept socket option values: "
+       "~n   ~p", [OptsValsDefault]),
+
 %%%    %%
 %%%    %% Handshake
 %%%    ok = gen_tcp:send(S1, <<"hello">>),
 %%%    {ok,<<"hello">>} = gen_tcp:recv(S2, 5, Timeout),
 %%%    ok = gen_tcp:send(S2, <<"hi">>),
 %%%    {ok,<<"hi">>} = gen_tcp:recv(S1, 2, Timeout),
+
     %%
     %% Verify returned remote options
     VerifyRemOpts =
         fun(S, Role) ->
                 case inet:getopts(S, [pktoptions]) of
+                    {ok, []} ->
+                        ?SKIPT("pktoptions not supported");
                     {ok, [{pktoptions, PktOpts1}]} ->
+                        ?P("PktOptions (~w): "
+                           "~n      ~p", [Role, PktOpts1]),
                         PktOpts1;
                     {ok, UnexpOK1} ->
                         ?P("Unexpected OK (~w): "
