@@ -186,6 +186,9 @@ set_env(char *key, char *value)
     efree(str);
 #endif
 #endif
+    /* codechecker_intentional [Malloc] we may leak str if we don't
+       have copying putenv but that is fine since we only have a
+       constant amount of environment variables */
 }
 
 static void
