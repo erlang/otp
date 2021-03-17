@@ -124,6 +124,23 @@ prop_tls_extraneous_and_unordered_path() ->
             end
            ).
 
+prop_client_cert_auth() ->
+    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), client_cert_auth_opts(Version)),
+            try
+                [TLSVersion] = proplists:get_value(versions, ClientOptions),
+                 ssl_test_lib:basic_test(ClientOptions, ServerOptions, [{server_type, erlang},
+                                                                        {client_type, erlang},
+                                                                        {version, TLSVersion}
+                                                                       ])
+            of
+                 _ ->
+                     true
+            catch
+                _:_ ->
+                    false
+            end
+           ).
+
 %%--------------------------------------------------------------------
 %% Chain Generators  -----------------------------------------------
 %%--------------------------------------------------------------------
@@ -232,6 +249,9 @@ unordered_extraneous_options(Version) ->
 der_extraneous_and_unorder_options(Version) ->
     ?LET(Alg, key_alg(Version), der_extraneous_and_unorder_chain(Version, Alg)).
 
+client_cert_auth_opts(Version) ->
+    ?LET({SAlg, CAlg}, {key_alg(Version), key_alg(Version)}, der_cert_chains(Version, CAlg,SAlg)).
+
 extraneous_der_cert_chain_opts(Version, Alg) ->
     #{cert := OrgSRoot} = SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", root_key(Alg)), 
     #{cert := OrgCRoot} = CRoot = public_key:pkix_test_root_cert("OTP test client ROOT", root_key(Alg)), 
@@ -275,7 +295,6 @@ extraneous_pem_cert_chain_opts(Version, Alg, PrivDir) ->
                                  extraneous_pem_conf(ServerChain, ClientRoot, OrgCRoot, ServerConf0, PrivDir)]}. 
 
 extra_extraneous_der_cert_chain_opts(Version, Alg) ->
-    
     #{cert := OrgSRoot} = SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", root_key(Alg)), 
     #{cert := OrgCRoot} = CRoot = public_key:pkix_test_root_cert("OTP test client ROOT", root_key(Alg)), 
 
@@ -304,7 +323,6 @@ extra_extraneous_der_cert_chain_opts(Version, Alg) ->
 
 
 der_extraneous_and_unorder_chain(Version, Alg) ->
-    
     #{cert := OrgSRoot} = SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", root_key(Alg)), 
     #{cert := OrgCRoot} = CRoot = public_key:pkix_test_root_cert("OTP test client ROOT", root_key(Alg)), 
 
@@ -330,6 +348,20 @@ der_extraneous_and_unorder_chain(Version, Alg) ->
                                  extraneous_der_conf(ClientChain, ServerRoot1, [OrgSRoot, ServerRoot0], ClientConf0)], 
      server_options(Version) ++ [protocol(Version), {versions, [Version]} | 
                                  extraneous_der_conf(ServerChain, ClientRoot1, [OrgCRoot, ClientRoot0], ServerConf0)]}. 
+
+der_cert_chains(Version, CAlg, SAlg) ->
+    SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", root_key(SAlg)),
+    CRoot = public_key:pkix_test_root_cert("OTP test client ROOT", root_key(CAlg)),
+
+    #{server_config := ServerConf,
+      client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
+                                                                                    intermediates => intermediates(SAlg, 1),
+                                                                                    peer => peer_key(SAlg)},
+                                                                  client_chain => #{root => CRoot,
+                                                                                    intermediates => intermediates(CAlg, 1),
+                                                                                    peer => peer_key(CAlg)}}),
+    {client_options(Version) ++ [protocol(Version), {versions, [Version]} | ClientConf],
+     server_options(Version) ++ [protocol(Version), {versions, [Version]} | ServerConf]}.
 
 chain_and_root(Config) ->
     OwnCert = proplists:get_value(cert, Config),
