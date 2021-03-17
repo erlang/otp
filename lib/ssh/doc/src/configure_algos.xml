@@ -429,7 +429,49 @@
       but it is possible if an unforeseen need should arise.</p>
     </section>
     
-    
+    <section>
+      <title>Example 8</title>
+      <p>In this example, we need to use a diffie-hellman-group1-sha1 key exchange algorithm
+      although it is unsage and disabled by default.
+      </p>
+      <p>We use the
+      <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
+      option, because we want to keep all other algorithm definitions.
+      </p>
+      <p>We add the option:
+      </p>
+      <code type="erl">
+  {modify_algorithms, [{append, [{kex,['diffie-hellman-group1-sha1']}]}]}
+      </code>
+      <p>either to the Options list in a function call, in the <c>ssh.app</c> file or in a <c>.config</c> file for
+      the <c>erl</c> command.
+      See the chapter
+      <seeguide marker="ssh:configurations">Configuration in SSH</seeguide>
+      in the SSH User's Guide.
+      </p>
+    </section>
+
+    <section>
+      <title>Example 9</title>
+      <p>In this example, we need to use a DSA key for sign and verify.
+      It might be either as a user's key, a host's key or both.
+      </p>
+      <p>To do that, we enable the 'ssh-dss' algorithm that is disabled by default by security reasons. We use the
+      <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
+      option, because we want to keep all other algorithm definitions.
+      </p>
+      <p>We add the option:
+      </p>
+      <code type="erl">
+  {modify_algorithms, [{append, [{public_key,['ssh-dss']}]}]}
+      </code>
+      <p>either to the Options list in a function call, in the <c>ssh.app</c> file or in a <c>.config</c> file for
+      the <c>erl</c> command.
+      See the chapter
+      <seeguide marker="ssh:configurations">Configuration in SSH</seeguide>
+      in the SSH User's Guide.
+      </p>
+    </section>
     
   </section>
 
