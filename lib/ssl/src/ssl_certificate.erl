@@ -75,7 +75,7 @@ trusted_cert_and_paths(Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
     %% If the chain contains extraneous certificates there could be
     %% more than one possible path such chains might be used to phase out 
     %% an old certificate. 
-    Paths = paths(Chain, CertDbHandle, CertDbRef),
+    Paths = paths(Chain, CertDbHandle),
     lists:map(fun(Path) ->
                       case handle_partial_chain(Path, PartialChainHandler, CertDbHandle, CertDbRef) of
                           {unknown_ca, _} = Result ->
@@ -439,38 +439,38 @@ pre_1_3_hash(sha1) ->
 pre_1_3_hash(Hash) ->
     Hash.
 
-paths(Chain, CertDbHandle, CertDbRef) ->
-    paths(Chain, Chain, CertDbHandle, CertDbRef, []).
+paths(Chain, CertDbHandle) ->
+    paths(Chain, Chain, CertDbHandle, []).
 
-paths([Root], _, _, _, Path) ->
-    [[Root | Path]]; 
-paths([Cert1, Cert2 | Rest], Chain, CertDbHandle, CertDbRef, Path) ->
+paths([Root], _, _, Path) ->
+    [[Root | Path]];
+paths([Cert1, Cert2 | Rest], Chain, CertDbHandle, Path) ->
     case public_key:pkix_is_issuer(Cert1, Cert2) of
         true ->
             %% Chain orded so far
-            paths([Cert2 | Rest], Chain, CertDbHandle, CertDbRef, [Cert1 | Path]);
+            paths([Cert2 | Rest], Chain, CertDbHandle, [Cert1 | Path]);
         false ->
             %% Chain is unorded and/or contains extraneous certificates
-            unorded_or_extraneous(Chain, CertDbHandle, CertDbRef)
+            unorded_or_extraneous(Chain, CertDbHandle)
     end.
-        
-unorded_or_extraneous([Peer | FalseChain], CertDbHandle, CertDbRef) ->
-    ChainCandidates = extraneous_chains(FalseChain),
-    lists:map(fun(Candidate) -> 
-                      path_candidate(Peer, Candidate, CertDbHandle, CertDbRef)
-              end, 
+
+unorded_or_extraneous([Peer | UnorderedChain], CertDbHandle) ->
+    ChainCandidates = extraneous_chains(UnorderedChain),
+    lists:map(fun(Candidate) ->
+                      path_candidate(Peer, Candidate, CertDbHandle)
+              end,
               ChainCandidates).
 
-path_candidate(Peer, ChainCandidateCAs, CertDbHandle, _CertDbRef) ->
+path_candidate(Peer, ChainCandidateCAs, CertDbHandle) ->
     {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, ChainCandidateCAs}),
-    %% certificate_chain/4 will make sure the chain is ordered 
-    case certificate_chain(Peer, CertDbHandle, ExtractedCerts, []) of        
+    %% certificate_chain/4 will make sure the chain is ordered
+    case certificate_chain(Peer, CertDbHandle, ExtractedCerts, []) of
         {ok, undefined, Chain} ->
             lists:reverse(Chain);
         {ok, Root, Chain} ->
             [Root | lists:reverse(Chain)]
-    end.            
-   
+    end.
+
 handle_partial_chain([IssuerCert| Rest] = Path, PartialChainHandler, CertDbHandle, CertDbRef) ->
     case public_key:pkix_is_self_signed(IssuerCert) of
         true -> %% IssuerCert = ROOT (That is ROOT was included in chain)
@@ -546,8 +546,8 @@ extraneous_chains(Certs) ->
     Subjects = [{subject(Cert), Cert} || Cert <- Certs],
     Duplicates = find_duplicates(Subjects),
     %% Number of certs with duplicates (same subject) has been limited
-    %% to two and the maximum number of combinations is limited to 4.
-    build_candidates(Duplicates, 2, 4).
+    %% to 4 and the maximum number of combinations is limited to 16.
+    build_candidates(Duplicates, 4, 16).
 
 build_candidates(Map, Duplicates, Combinations) ->
     Subjects = maps:keys(Map),
@@ -568,7 +568,7 @@ build_candidates([H|T], Map, Duplicates, Combinations, Max, Acc0) ->
 		    Acc = [[Cert|L] || Cert <- Certs, L <- Acc0],
 		    build_candidates(T, Map, Duplicates - 1, Combinations * Counter, Max, Acc)
 		end;
-	{[Cert|_], _} ->
+	{[Cert|_Throw], _Counter} ->
 	    case Acc0 of
 		[] ->
 		    Acc = [[Cert]],
