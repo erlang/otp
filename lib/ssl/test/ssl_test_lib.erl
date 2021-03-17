@@ -176,7 +176,9 @@
          ecdsa_suites/1,
          der_to_pem/2,
          pem_to_der/1,
-         appropriate_sha/1
+         appropriate_sha/1,
+         format_certs/1,
+         format_cert/1
         ]).
 
 -export([maybe_force_ipv4/1,
@@ -206,6 +208,7 @@
 -record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
 -define(DEFAULT_CURVE, secp256r1).
+-define(PRINT_DEPTH, 100).
 
 %%====================================================================
 %% API
@@ -418,7 +421,7 @@ run_server(Opts) ->
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
+    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, format_options(Options)]),
     %% {ok, ListenSocket} = Transport:listen(Port, Options),
     case Transport:listen(Port, Options) of
         {ok, ListenSocket} ->
@@ -542,9 +545,9 @@ connect(ListenSocket, _Opts) ->
 connect(_, _, 0, AcceptSocket, _, _, _) ->
     AcceptSocket;
 connect(ListenSocket, Node, _N, _, Timeout, SslOpts, cancel) ->
-    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, SslOpts,Timeout]),
+    ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, format_options(SslOpts),Timeout]),
 
     case ssl:handshake(AcceptSocket, SslOpts, Timeout) of
 	{ok, Socket0, Ext} ->
@@ -556,7 +559,7 @@ connect(ListenSocket, Node, _N, _, Timeout, SslOpts, cancel) ->
 	    Result
     end;
 connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
-    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
     ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, SslOpts,Timeout]),
 
@@ -588,7 +591,7 @@ connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
 	    Result
     end;
 connect(ListenSocket, Node, N, _, Timeout, [], ContOpts) ->
-    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
     ct:log("~p:~p~nssl:handshake(~p, ~p)~n", [?MODULE,?LINE, AcceptSocket, Timeout]),
 
@@ -600,7 +603,7 @@ connect(ListenSocket, Node, N, _, Timeout, [], ContOpts) ->
 	    Result
     end;
 connect(ListenSocket, _Node, _, _, Timeout, Opts, _) ->
-    ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
+    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
     ct:log("ssl:handshake(~p,~p, ~p)~n", [AcceptSocket, Opts, Timeout]),
     ssl:handshake(AcceptSocket, Opts, Timeout),
@@ -915,7 +918,7 @@ run_client(Opts) ->
     Options = proplists:get_value(options, Opts),
     ContOpts = proplists:get_value(continue_options, Opts, []),
     ct:log("~p:~p~n~p:connect(~p, ~p)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Node]),
-    ct:log("SSLOpts: ~p", [Options]),
+    ct:log("SSLOpts: ~p", [format_options(Options)]),
     case ContOpts of
         [] ->
             client_loop(Node, Host, Port, Pid, Transport, Options, Opts);
@@ -1242,6 +1245,44 @@ wait_for_result(Pid, Msg) ->
 	%% Unexpected ->
 	%%     Unexpected
     end.
+
+format_options([{cacerts, Certs}|R]) ->
+    [{cacerts, format_certs(Certs)} | format_options(R)];
+format_options([{cert, Certs}|R]) ->
+    [{cert, format_certs(Certs)} | format_options(R)];
+format_options([{key, Key}|R]) ->
+    [{key, lists:flatten(io_lib:format("~W",[Key, ?PRINT_DEPTH]))} | format_options(R)];
+format_options([Opt|R]) ->
+    [Opt | format_options(R)];
+format_options([]) ->
+    [].
+
+format_certs(Certs) when is_list(Certs) ->
+    [lists:flatten(format_cert(C)) || C <- Certs];
+format_certs(Cert) when is_binary(Cert) ->
+    lists:flatten(format_cert(Cert)).
+
+format_cert(BinCert) when is_binary(BinCert) ->
+    OtpCert = #'OTPCertificate'{tbsCertificate = Cert} = public_key:pkix_decode_cert(BinCert, otp),
+    #'OTPTBSCertificate'{subject = Subject, serialNumber = Nr, issuer = Issuer} = Cert,
+    case public_key:pkix_is_self_signed(OtpCert) of
+        true ->
+            io_lib:format("~.3w: ~s ->   selfsigned", [Nr, format_subject(Subject)]);
+        false ->
+            case public_key:pkix_issuer_id(OtpCert, other) of
+                {ok, {IsNr, Issuer0}} ->
+                    io_lib:format("~.3w:~s -> ~.3w:~s", [Nr, format_subject(Subject), IsNr, format_subject(Issuer0)]);
+                {error, _} ->
+                    io_lib:format("~.3w:~s ->    :~s", [Nr, format_subject(Subject), format_subject(Issuer)])
+            end
+    end.
+
+format_subject({rdnSequence, Seq}) ->
+    format_subject(Seq);
+format_subject([[{'AttributeTypeAndValue', ?'id-at-commonName', {_, String}}]|_]) ->
+    String;
+format_subject([_|R]) ->
+    format_subject(R).
 
 cert_options(Config) ->
     ClientCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
@@ -1909,8 +1950,8 @@ accepters(Acc, N) ->
 
 
 basic_test(COpts, SOpts, Config) ->
-    SType = proplists:get_value(server_type, Config),
-    CType = proplists:get_value(client_type, Config),
+    SType = proplists:get_value(server_type, Config, erlang),
+    CType = proplists:get_value(client_type, Config, erlang),
     {Server, Port} = start_server(SType, COpts, SOpts, Config),
     Client = start_client(CType, Port, COpts, Config),
     gen_check_result(Server, SType, Client, CType),
@@ -3068,19 +3109,23 @@ close_loop(Port, Time, SentClose) ->
     end.
 
 portable_open_port("openssl" = Exe, Args0) ->
-    case os:getenv("WSLENV") of
-	false ->
-	    AbsPath = os:find_executable(Exe),
-	    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
-		   [AbsPath, Args0]),
-	    open_port({spawn_executable, AbsPath},
-		      [{args, Args0}, stderr_to_stdout]);
+    IsWindows = case os:type() of
+                    {win32, _} -> true;
+                    _ -> false
+                end,
+    case IsWindows andalso os:getenv("WSLENV") of
+        false ->
+            AbsPath = os:find_executable(Exe),
+            ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
+                   [AbsPath, Args0]),
+            open_port({spawn_executable, AbsPath},
+                      [{args, Args0}, stderr_to_stdout]);
 	_ ->
 	    %% I can't get the new windows version of openssl.exe to be stable
 	    %% certain server tests are failing for no reason.
 	    %% This is using "linux" openssl via wslenv
 
-	    Translate = fun("c:/" ++ _ = Path) ->
+	    Translate = fun([_Drive|":/" ++ _ ]= Path) ->
 				string:trim(os:cmd("wsl wslpath -u " ++ Path));
 			   (Arg) ->
 				Arg
@@ -3095,8 +3140,8 @@ portable_open_port("openssl" = Exe, Args0) ->
 portable_open_port(Exe, Args) ->
     AbsPath = os:find_executable(Exe),
     ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
-    open_port({spawn_executable, AbsPath}, 
-	      [{args, Args}, stderr_to_stdout]). 
+    open_port({spawn_executable, AbsPath},
+	      [{args, Args}, stderr_to_stdout]).
 
 portable_cmd(Exe, Args) ->
     Port = portable_open_port(Exe, Args),
@@ -3204,14 +3249,6 @@ protocol_version(Config, atom) ->
            tls_record:protocol_version(protocol_version(Config, tuple))	
    end.
 
-protocol_versions(Config) ->
-    Version = protocol_version(Config),
-    case Version of
-        'tlsv1.3' -> %% TLS-1.3 servers shall also support 1.2
-            ['tlsv1.3', 'tlsv1.2'];
-        _ ->
-            [Version]
-    end.
 protocol_options(Config, Options) ->
     Protocol = proplists:get_value(protocol, Config, tls),
     {Protocol, Opts} = lists:keyfind(Protocol, 1, Options),
@@ -3260,21 +3297,6 @@ clean_start(keep_version) ->
     application:load(ssl),
     clean_env(keep_version),
     ssl:start().
-
-is_psk_anon_suite({psk, _,_}) ->
-    true;
-is_psk_anon_suite({dhe_psk,_,_}) ->
-    true;
-is_psk_anon_suite({ecdhe_psk,_,_}) ->
-    true;
-is_psk_anon_suite({psk, _,_,_}) ->
-    true;
-is_psk_anon_suite({dhe_psk, _,_,_}) ->
-    true;
-is_psk_anon_suite({ecdhe_psk, _,_,_}) ->
-    true;
-is_psk_anon_suite(_) ->
-    false.
 
 
 tls_version('dtlsv1' = Atom) ->
