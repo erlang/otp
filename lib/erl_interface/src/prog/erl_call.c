@@ -163,6 +163,8 @@ int main(int argc, char *argv[])
     flags.hidden = NULL;
     flags.apply = NULL;
     flags.cookie = NULL;
+    flags.node = NULL;
+
     ei_init();
 
     /* Get the command line options */
@@ -175,7 +177,9 @@ int main(int argc, char *argv[])
 	    if (i+1 >= argc) {
 		usage_arg(progname, "-sname ");
 	    }
-
+            if (flags.node != NULL) {
+                free(flags.node);
+            }
 	    flags.node = ei_chk_strdup(argv[i+1]);
 	    i++;
 	    flags.use_long_name = 0;
@@ -183,7 +187,9 @@ int main(int argc, char *argv[])
 	    if (i+1 >= argc) {
 		usage_arg(progname, "-name ");
 	    }
-
+            if (flags.node != NULL) {
+                free(flags.node);
+            }
 	    flags.node = ei_chk_strdup(argv[i+1]);
 	    i++;
 	    flags.use_long_name = 1;
@@ -204,6 +210,9 @@ int main(int argc, char *argv[])
                     *address_string_end = '\0';
                     if (strlen(hostname_port_arg) > 0) {
                         flags.hostname = hostname_port_arg;
+                    } else {
+                        free(hostname_port_arg);
+                        hostname_port_arg = NULL;
                     }
                 }
 
@@ -272,6 +281,9 @@ int main(int argc, char *argv[])
 		    usage_arg(progname, "-c ");
 		}
 		flags.cookiep = 1;
+                if (flags.cookie != NULL) {
+                    free(flags.cookie);
+                }
 		flags.cookie = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
@@ -279,6 +291,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-n ");
 		}
+                if (flags.node != NULL) {
+                    free(flags.node);
+                }
 		flags.node = ei_chk_strdup(argv[i+1]);
 		flags.use_long_name = 1;
 		i++;
@@ -287,6 +302,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-h ");
 		}
+                if (flags.hidden != NULL) {
+                    free(flags.hidden);
+                }
 		flags.hidden = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
@@ -294,6 +312,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-x ");
 		}
+                if (flags.script != NULL) {
+                    free(flags.script);
+                }
 		flags.script = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
@@ -301,6 +322,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-a ");
 		}
+                if (flags.apply != NULL) {
+                    free(flags.apply);
+                }
 		flags.apply = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
