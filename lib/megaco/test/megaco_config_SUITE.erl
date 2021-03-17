@@ -657,49 +657,86 @@ start_counter_working_procs([Pid | Pids]) ->
     start_counter_working_procs(Pids).
 
 await_completion_counter_working_procs(Pids) ->
-    await_completion_counter_working_procs(Pids, [], []).
+    await_completion_counter_working_procs(ts(), Pids, [], []).
 
-await_completion_counter_working_procs([], _OKs, [] = _ERRs) ->
+await_completion_counter_working_procs(_TS, [], _OKs, [] = _ERRs) ->
     ok;
-await_completion_counter_working_procs([], _OKs, ERRs) ->
+await_completion_counter_working_procs(_TS, [], _OKs, ERRs) ->
     {error, ERRs};
-await_completion_counter_working_procs(Pids, OKs, ERRs) ->
+await_completion_counter_working_procs(TS, Pids, OKs, ERRs) ->
     receive
 	{'EXIT', Pid, normal} ->
             %% i("counter working process completion[~w, ~w, ~w] -> "
             %%   "Expected exit from counter process: "
+            %%   "~n      Time since last event: ~s"
             %%   "~n      Pid: ~p",
-            %%   [length(Pids), length(OKs), length(ERRs), Pid]),
+            %%   [length(Pids), length(OKs), length(ERRs), tsd(TS), Pid]),
 	    Pids2 = lists:delete(Pid, Pids),
-	    await_completion_counter_working_procs(Pids2, [Pid | OKs], ERRs);
-	{'EXIT', Pid, Reason} ->
-            e("counter working process completion[~w, ~w, ~w] -> "
-              "Unexpected exit from counter process: "
-              "~n      Pid:    ~p"
-              "~n      Reason: ~p",
-              [length(Pids), length(OKs), length(ERRs), Pid, Reason]),
-	    Pids2 = lists:delete(Pid, Pids),
-	    await_completion_counter_working_procs(Pids2, OKs, [Pid | ERRs]);
+	    await_completion_counter_working_procs(ts(),
+                                                   Pids2, [Pid | OKs], ERRs);
 
-	Any ->
+	{'EXIT', Pid, {timetrap_timeout, _Timeout, Stack} = _Reason} ->
             e("counter working process completion[~w, ~w, ~w] -> "
-              "Unexpected message: "
-              "~n      ~p", [length(Pids), length(OKs), length(ERRs), Any]),
-	    await_completion_counter_working_procs(Pids)
-
-    after 10000 ->
-            %% If nothing has happened for this long, something is wrong:
-            %% Check system events
+              "Unexpected exit from counter process: test case timeout"
+              "~n      Time since last event: ~s"
+              "~n      Pid:                   ~p"
+              "~n      Stack:                 ~p",
+              [length(Pids), length(OKs), length(ERRs), tsd(TS), Pid, Stack]),
+            %% The test case (timetrap) has timed out, which either means
+            %% we are running on very slow hw or some system functions
+            %% are slowing us down (this test case should never normally
+            %% time out).
             case megaco_test_global_sys_monitor:events() of
                 [] ->
-                    i("counter working process completion[~w, ~w, ~w] -> "
-                      "idle", [length(Pids), length(OKs), length(ERRs)]),
-                    await_completion_counter_working_procs(Pids);
+                    i("counter working process completion[~w, ~w, ~w] -> idle",
+                      [length(Pids), length(OKs), length(ERRs)]),
+                    ?SKIP("TC idle");
                 SysEvs ->
                     e("counter working process completion[~w, ~w, ~w] -> "
                       "system event(s): "
                       "~n      ~p",
                       [length(Pids), length(OKs), length(ERRs), SysEvs]),
+                    ?SKIP("TC system events")
+            end;
+
+	{'EXIT', Pid, Reason} ->
+            TSD = tsd(TS),
+            e("counter working process completion[~w, ~w, ~w] -> "
+              "Unexpected exit from counter process: "
+              "~n      Time since last event: ~s"
+              "~n      Pid:                   ~p"
+              "~n      Reason:                ~p",
+              [length(Pids), length(OKs), length(ERRs), TSD, Pid, Reason]),
+	    Pids2 = lists:delete(Pid, Pids),
+	    await_completion_counter_working_procs(ts(),
+                                                   Pids2, OKs, [Pid | ERRs]);
+
+	Any ->
+            TSD = tsd(TS),
+            e("counter working process completion[~w, ~w, ~w] -> "
+              "Unexpected message: "
+              "~n      Time since last event: ~s"
+              "~n      ~p",
+              [length(Pids), length(OKs), length(ERRs), TSD, Any]),
+	    await_completion_counter_working_procs(TS, Pids, OKs, ERRs)
+
+    after 10000 ->
+            %% If nothing has happened for this long, something is wrong:
+            %% Check system events
+            TSD = tsd(TS),
+            case megaco_test_global_sys_monitor:events() of
+                [] ->
+                    i("counter working process completion[~w, ~w, ~w] -> idle"
+                      "~n      Time since last event: ~s",
+                      [length(Pids), length(OKs), length(ERRs), TSD]),
+                    await_completion_counter_working_procs(TS,
+                                                           Pids, OKs, ERRs);
+                SysEvs ->
+                    e("counter working process completion[~w, ~w, ~w] -> "
+                      "system event(s): "
+                      "~n      Time since last event: ~s"
+                      "~n      ~p",
+                      [length(Pids), length(OKs), length(ERRs), TSD, SysEvs]),
                     ?SKIP("TC idle with system events")
             end
     end.
@@ -1275,6 +1312,22 @@ try_tc(TCName, Pre, Case, Post) ->
 
 try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
     ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ts() ->
+    erlang:monotonic_time(milli_seconds).
+
+tsd(TS) ->
+    TSD = ts() - TS,
+    if (TSD < 1000) ->
+            ?F("~w ms", [TSD]);
+       (TSD < 60000) ->
+            ?F("~w secs", [TSD div 1000]);
+       true ->
+            ?F("~w mins", [TSD div 60000])
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
