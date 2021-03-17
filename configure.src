@@ -148,7 +148,14 @@ while test $# != 0; do
 	    case $1 in
 		--without-*)
 		    skip_app=`expr "$1" : '--without-\(.*\)'`
-		    if test -d "lib/$skip_app"; then
+                    if [ "$skip_app" = "stdlib" ] ||
+                           [ "$skip_app" = "kernel" ] ||
+                           [ "$skip_app" = "sasl" ] ||
+                           [ "$skip_app" = "compiler" ] ||
+                           [ "$skip_app" = "erl_interface" ]; then
+                        echo "ERROR: $skip_app is a mandatory application" 1>&2
+                        exit 1
+		    elif test -d "lib/$skip_app"; then
 			skip_applications="$skip_applications $skip_app"
 		    fi;;
 		*)
