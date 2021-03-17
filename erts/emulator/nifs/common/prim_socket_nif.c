@@ -650,8 +650,9 @@ static const struct msg_flag {
 
 #define ESOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)                \
     do {                                                                \
-        if (cnt_inc((CNT), (INC)) && (__D__)->iow)                      \
-            esock_send_wrap_msg((__E__), (__D__), (SF), (ACNT));        \
+        if (cnt_inc((CNT), (INC))) {					\
+	  esock_send_wrap_msg((__E__), (__D__), (SF), (ACNT));		\
+	}								\
     } while (0)
 
 
@@ -799,47 +800,65 @@ typedef struct {
 } ESockRequestQueue;
 
 /*** The point of this is primarily testing ***/
-
+/*
+#if defined(ESOCK_COUNTER_SIZE)
+#undef ESOCK_COUNTER_SIZE
 // #define ESOCK_COUNTER_SIZE 16
 // #define ESOCK_COUNTER_SIZE 24
 // #define ESOCK_COUNTER_SIZE 32
 // #define ESOCK_COUNTER_SIZE 48
+// #define ESOCK_COUNTER_SIZE 64
+
+#endif
+*/
 
 #if ESOCK_COUNTER_SIZE == 16
 
-typedef Uint16 ESockCounter;
-#define ESOCK_COUNTER_MAX 0xFFFF
-#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI((ENV), (CNT)))
+typedef Uint16                   ESockCounter;
+#define ESOCK_COUNTER_MAX        ((ESockCounter) 0xFFFF)
+#define MKCNT(ENV, CNT)          MKUI((ENV), (CNT))
+#define MKCT(ENV, TAG, CNT)      MKT2((ENV), (TAG), MKCNT((CNT)))
+#define ESOCK_COUNTER_FORMAT_STR "%u"
 
 #elif ESOCK_COUNTER_SIZE == 24
 
-typedef Uint32 ESockCounter;
-#define ESOCK_COUNTER_MAX 0xFFFFFF
-#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI((ENV), (CNT)))
+typedef Uint32                   ESockCounter;
+#define ESOCK_COUNTER_MAX        ((ESockCounter) 0xFFFFFF)
+#define MKCNT(ENV, CNT)          MKUI((ENV), (CNT))
+#define MKCT(ENV, TAG, CNT)      MKT2((ENV), (TAG), MKCNT((ENV), (CNT)))
+#define ESOCK_COUNTER_FORMAT_STR "%lu"
 
 #elif ESOCK_COUNTER_SIZE == 32
 
 typedef Uint32 ESockCounter;
-#define ESOCK_COUNTER_MAX 0xFFFFFFFF
-#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI((ENV), (CNT)))
+#define ESOCK_COUNTER_MAX        (~((ESockCounter) 0))
+#define MKCNT(ENV, CNT)          MKUI((ENV), (CNT))
+#define MKCT(ENV, TAG, CNT)      MKT2((ENV), (TAG), MKCNT((ENV), (CNT)))
+#define ESOCK_COUNTER_FORMAT_STR "%lu"
 
 #elif ESOCK_COUNTER_SIZE == 48
 
-typedef Uint64 ESockCounter;
-#define ESOCK_COUNTER_MAX 0xFFFFFFFFFFFF
-#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI64((ENV), (CNT)))
+typedef Uint64                   ESockCounter;
+#define ESOCK_COUNTER_MAX        ((ESockCounter) 0xFFFFFFFFFFFF)
+#define MKCNT(ENV, CNT)          MKUI64((ENV), (CNT))
+#define MKCT(ENV, TAG, CNT)      MKT2((ENV), (TAG), MKCNT((ENV), (CNT)))
+#define ESOCK_COUNTER_FORMAT_STR "%llu"
 
 #elif ESOCK_COUNTER_SIZE == 64
 
-typedef Uint64 ESockCounter;
-#define ESOCK_COUNTER_MAX 0xFFFFFFFFFFFFFFFF
-#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI64((ENV), (CNT)))
+typedef Uint64                   ESockCounter;
+#define ESOCK_COUNTER_MAX        (~((ESockCounter) 0))
+#define MKCNT(ENV, CNT)          MKUI64((ENV), (CNT))
+#define MKCT(ENV, TAG, CNT)      MKT2((ENV), (TAG), MKCNT((ENV), (CNT)))
+#define ESOCK_COUNTER_FORMAT_STR "%llu"
 
 #else
 
 #error "Invalid counter size"
 
 #endif
+
+// static const ESockCounter esock_counter_max = ESOCK_COUNTER_MAX;
 
 typedef struct {
     /* 
@@ -4077,24 +4096,24 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                            atom_acc_tries,
                            atom_acc_waits};
     unsigned int numKeys = NUM(keys);
-    ERL_NIF_TERM vals[] = {MKUI(env, descP->readByteCnt),
-                           MKUI(env, descP->readFails),
-                           MKUI(env, descP->readPkgCnt),
-                           MKUI(env, descP->readPkgMax),
-                           MKUI(env, descP->readTries),
-                           MKUI(env, descP->readWaits),
-                           MKUI(env, descP->writeByteCnt),
-                           MKUI(env, descP->writeFails),
-                           MKUI(env, descP->writePkgCnt),
-                           MKUI(env, descP->writePkgMax),
-                           MKUI(env, descP->writeTries),
-                           MKUI(env, descP->writeWaits),
-                           MKUI(env, descP->accSuccess),
-                           MKUI(env, descP->accFails),
-                           MKUI(env, descP->accTries),
-                           MKUI(env, descP->accWaits)};
+    ERL_NIF_TERM vals[] = {MKCNT(env, descP->readByteCnt),
+                           MKCNT(env, descP->readFails),
+                           MKCNT(env, descP->readPkgCnt),
+                           MKCNT(env, descP->readPkgMax),
+                           MKCNT(env, descP->readTries),
+                           MKCNT(env, descP->readWaits),
+                           MKCNT(env, descP->writeByteCnt),
+                           MKCNT(env, descP->writeFails),
+                           MKCNT(env, descP->writePkgCnt),
+                           MKCNT(env, descP->writePkgMax),
+                           MKCNT(env, descP->writeTries),
+                           MKCNT(env, descP->writeWaits),
+                           MKCNT(env, descP->accSuccess),
+                           MKCNT(env, descP->accFails),
+                           MKCNT(env, descP->accTries),
+                           MKCNT(env, descP->accWaits)};
     unsigned int numVals = NUM(vals);
-    ERL_NIF_TERM info;
+    ERL_NIF_TERM cnts;
 
     SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> "
                    "\r\n   numKeys: %d"
@@ -4102,13 +4121,13 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                    "\r\n", numKeys, numVals) );
 
     ESOCK_ASSERT( numKeys == numVals );
-    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &cnts) );
 
     SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> done with"
-                   "\r\n   info: %T"
-                   "\r\n", info) );
+                   "\r\n   cnts: %T"
+                   "\r\n", cnts) );
 
-    return info;
+    return cnts;
 }
 #endif // #ifndef __WIN32__
 
@@ -4918,18 +4937,20 @@ static
 BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
                                  ERL_NIF_TERM eopts, int* domain)
 {
-    int          edomain;
-
+    ERL_NIF_TERM edomain;
+    
     SGDBG( ("SOCKET", "esock_open2_get_domain -> entry with"
-            "\r\n   eopts: %T"
-            "\r\n", eopts) );
+	    "\r\n   eopts: %T"
+	    "\r\n", eopts) );
 
-    if (esock_extract_int_from_map(env, eopts,
-                                   esock_atom_domain, &edomain)) {
-        return esock_decode_domain(env, edomain, domain);
-    } else {
-        return FALSE;
-    }
+    if (!GET_MAP_VAL(env, eopts,
+		     esock_atom_domain, &edomain))
+      return FALSE;
+
+    if (! esock_decode_domain(env, edomain, domain))
+      return FALSE;
+
+    return TRUE;
 }
 #endif // #ifndef __WIN32__
 
@@ -16121,11 +16142,11 @@ BOOLEAN_T cnt_inc(ESockCounter* cnt, ESockCounter inc)
     ESockCounter current = *cnt;
 
     if ((max - inc) >= current) {
-        *cnt += inc;
-        wrap  = FALSE;
+      *cnt += inc;
+      wrap  = FALSE;
     } else {
-        *cnt = inc - (max - current) - 1;
-        wrap = TRUE;
+      *cnt = inc - (max - current) - 1;
+      wrap = TRUE;
     }
 
     return (wrap);
@@ -16967,7 +16988,7 @@ ErlNifFunc esock_funcs[] =
 #ifndef __WIN32__
 static
 char* extract_debug_filename(ErlNifEnv*   env,
-                                 ERL_NIF_TERM map)
+			     ERL_NIF_TERM map)
 {
     /* See the functions above */
     ERL_NIF_TERM val;

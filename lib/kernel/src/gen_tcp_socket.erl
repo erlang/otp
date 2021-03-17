@@ -125,6 +125,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
 
 connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
     %% ?DBG({Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr}),
+
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2.
     %% The {debug, Bool} option is passed in Opts since it is
@@ -142,10 +143,12 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
         end,
 
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
+    %% ?DBG([{socket, SocketOpts}, {start, StartOpts}]),
     case
         start_server(
-          Domain, ExtraOpts,
-          [{timeout, inet:timeout(Timer)} | start_opts(StartOpts)])
+          Domain,
+	  [{timeout, inet:timeout(Timer)} | start_opts(StartOpts)],
+	  ExtraOpts)
     of
         {ok, Server} ->
             {Setopts, _} =
@@ -214,9 +217,12 @@ call_bind(Server, BindAddr) ->
 listen(Port, Opts) ->
     %% ?DBG({Port, Opts}),
     {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
+    %% ?DBG([{opts1, Opts_1}]),
     EinvalOpts =:= [] orelse exit(badarg),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
+    %% ?DBG([{mod, Mod}, {opts2, Opts_2}]),
     {StartOpts, Opts_3} = setopts_split(start, Opts_2),
+    %% ?DBG([{start_opts, StartOpts}, {opts3, Opts_3}]),
     case Mod:getserv(Port) of
         {ok, TP} ->
             case inet:listen_options([{port, TP} | Opts_3], Mod) of
@@ -233,6 +239,7 @@ listen(Port, Opts) ->
                     Domain = domain(Mod),
                     %% ?DBG({Domain, BindIP}),
                     BindAddr = bind_addr(Domain, BindIP, BindPort),
+		    %% ?DBG([{listen_opts, ListenOpts}, {backlog, Backlog}]),
                     listen_open(
                       Domain, ListenOpts, StartOpts, Fd, Backlog, BindAddr)
             end;
@@ -243,7 +250,12 @@ listen(Port, Opts) ->
 %% Helpers -------
 
 listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
-    %% ?DBG({Domain, ListenOpts, Opts, Fd, Backlog, BindAddr}),
+    %% ?DBG([{domain,      Domain},
+    %%  	  {listen_opts, ListenOpts},
+    %%  	  {opts,        Opts},
+    %%  	  {fd,          Fd},
+    %%  	  {backlog,     Backlog},
+    %%  	  {bind_addr,   BindAddr}]),
 
     ExtraOpts =
         if
@@ -251,20 +263,24 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
             is_integer(Fd) -> #{fd => Fd};
             %% This is an **ugly** hack.
             %% inet:connect_options/2 has the bad taste to use this
-            %% for [{netns,NS}] if that option is used...
+            %% for [{netns, NS}] if that option is used...
             %% Which is never called here, but just to keep it the same
             %% we use the same for listen!
             is_list(Fd)    -> #{netns => Fd}
         end,
 
     {SocketOpts, StartOpts0} = setopts_split(socket, Opts),
+    %% ?DBG([{socket_opts, SocketOpts}, {start_opts0, StartOpts0}]),
     StartOpts = [{timeout, infinity} | start_opts(StartOpts0)],
-    case start_server(Domain, ExtraOpts, StartOpts) of
+    %% ?DBG([{start_opts, StartOpts}]),
+    case start_server(Domain, StartOpts, ExtraOpts) of
         {ok, Server} ->
+	    %% ?DBG([{server_started, Server}]),
             {Setopts, _} =
                 setopts_split(
                   #{socket => [], server_read => [], server_write => []},
                   ListenOpts),
+	    %% ?DBG([{setopts, Setopts}]),
             ErrRef = make_ref(),
             try
                 ok(ErrRef,
@@ -326,6 +342,7 @@ send(?module_socket(Server, Socket), Data) ->
                 Packet =:= 2;
                 Packet =:= 4 ->
                     Size = iolist_size(Data),
+		    %% ?DBG([{packet, Packet}, {data_size, Size}]),
                     Header = <<?header(Packet, Size)>>,
                     Result =
                         socket_send(Socket, [Header, Data], SendTimeout),
@@ -342,7 +359,20 @@ send(?module_socket(Server, Socket), Data) ->
     end.
 %%
 send_result(Server, Meta, Result) ->
+    %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
+	%% We should really return the rest data rather then just ignoring it.
+	%% In the case we get a timeout when sending and 'send_timeout_close'
+	%% is set true, we close the connection and only returns the timeout.
+	%% Otherwise we return the full error.
+        {error, {timeout = Reason, RestData}} = E when is_binary(RestData) ->
+	    case maps:get(send_timeout_close, Meta) of
+		true ->
+		    close_server(Server),
+		    {error, Reason};
+		false ->
+		    E
+	    end;
         {error, Reason} ->
             %% To handle RestData we would have to pass
             %% all writes through a single process that buffers
@@ -355,7 +385,7 @@ send_result(Server, Meta, Result) ->
             case Reason of
                 econnreset ->
                     case maps:get(show_econnreset, Meta) of
-                        true -> {error, econnreset};
+                        true  -> {error, econnreset};
                         false -> {error, closed}
                     end;
                 timeout ->
@@ -466,19 +496,27 @@ info(?module_socket(_Server, Socket)) ->
 %%%
 
 -compile({inline, [socket_send/3]}).
-socket_send(Socket, Opts, Timeout) ->
-    Result = socket:send(Socket, Opts, Timeout),
+socket_send(Socket, Data, Timeout) ->
+    Result = socket:send(Socket, Data, Timeout),
     case Result of
+        {error, {timeout = _Reason, RestData}} = E when is_binary(RestData) ->
+	    %% This is better then closing the socket for every timeout
+	    %% We need to do something about this!
+	    %% ?DBG({timeout, byte_size(RestData)}),
+	    %% {error, Reason};
+	    E;
         {error, {_Reason, RestData}} when is_binary(RestData) ->
-            %% To handle RestData we would have to pass
+            %% To properly handle RestData we would have to pass
             %% all writes through a single process that buffers
             %% the write data, which would be a bottleneck
             %%
             %% Since send data may have been lost, and there is no room
             %% in this API to inform the caller, we at least close
             %% the socket in the write direction
+	    %% ?DBG({_Reason, byte_size(RestData)}),
             {error, econnreset};
         {error, Reason} ->
+	    %% ?DBG(Reason),
             {error,
              case Reason of
                  epipe -> econnreset;
@@ -488,6 +526,7 @@ socket_send(Socket, Opts, Timeout) ->
             %% Can not happen for stream socket, but that
             %% does not show in the type spec
             %% - make believe a fatal connection error
+	    %% ?DBG({ok, byte_size(RestData)}),
             {error, econnreset};
         ok ->
             ok
@@ -795,8 +834,8 @@ socket_inherit_opts() ->
 -compile({inline, [server_read_write_opts/0]}).
 server_read_write_opts() ->
     %% Common for read and write side
-    #{packet => raw,
-      packet_size => 16#4000000, % 64 MByte
+    #{packet          => raw,
+      packet_size     => 16#4000000, % 64 MByte
       show_econnreset => false}.
 -compile({inline, [server_read_opts/0]}).
 server_read_opts() ->
@@ -837,9 +876,9 @@ meta(D) -> maps:with(maps:keys(server_write_opts()), D).
 %% State Machine Engine Call Interface
 
 %% Start for connect or listen - create a socket
-start_server(Domain, ExtraOpts, StartOpts) ->
+start_server(Domain, StartOpts, ExtraOpts) ->
     Owner = self(),
-    Arg = {open, Domain, ExtraOpts, Owner},
+    Arg   = {open, Domain, ExtraOpts, Owner},
     case gen_statem:start(?MODULE, Arg, StartOpts) of
         {ok, Server} -> {ok, Server};
         {error, _} = Error -> Error
@@ -912,11 +951,15 @@ callback_mode() -> handle_event_function.
 init({open, Domain, ExtraOpts, Owner}) ->
     %% Listen or Connect
     %%
+
+    %% ?DBG([{init, open},
+    %%  	  {domain, Domain}, {extraopts, ExtraOpts}, {owner, Owner}]),
+
     process_flag(trap_exit, true),
-    OwnerMon = monitor(process, Owner),
-    Proto    = if (Domain =:= local) -> default; true -> tcp end,
-    Opts     = #{}, % #{debug => true},
-    case socket_open(Domain, Proto, ExtraOpts, Opts) of
+    OwnerMon  = monitor(process, Owner),
+    Proto     = if (Domain =:= local) -> default; true -> tcp end,
+    Extra = #{}, % #{debug => true},
+    case socket_open(Domain, Proto, ExtraOpts, Extra) of
         {ok, Socket} ->
             D  = server_opts(),
             ok = socket:setopt(Socket, {otp,iow}, true),
@@ -927,11 +970,14 @@ init({open, Domain, ExtraOpts, Owner}) ->
                    owner = Owner,
                    owner_mon = OwnerMon},
             {ok, connect, {P, D#{type => undefined, buffer => <<>>}}};
-        {error, Reason} -> {stop, {shutdown, Reason}}
+        {error, Reason} ->
+	    %% ?DBG({open_failed, Reason}),
+	    {stop, {shutdown, Reason}}
     end;
 init({prepare, D, Owner}) ->
     %% Accept
     %%
+    %% ?DBG([{init, prepare}, {d, D}, {owner, Owner}]),
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
     P =
@@ -944,18 +990,22 @@ init(Arg) ->
     error(badarg, [Arg]).
 
 
-socket_open(Domain, Proto, #{fd := FD} = _Extra, Opts0)
+socket_open(Domain, Proto, #{fd := FD} = _ExtraOpts, Extra)
   when is_integer(FD) andalso (FD > 0) ->
-    Opts = Opts0#{dup      => false,
+    Opts = Extra#{dup      => false,
                   domain   => Domain,
                   type     => stream,
                   protocol => Proto},
+    %% ?DBG([{fd, FD}, {opts, Opts}]),
     socket:open(FD, Opts);
-socket_open(Domain, Proto, #{netns := NS} = Extra, Opts0) when is_list(NS) ->
-    Opts = maps:merge(Opts0, Extra),
+socket_open(Domain, Proto, #{netns := NS} = ExtraOpts, Extra)
+  when is_list(NS) ->
+    Opts = maps:merge(Extra, ExtraOpts),
+    %% ?DBG([{netns, NS}, {opts, Opts}]),
     socket:open(Domain, stream, Proto, Opts);
-socket_open(Domain, Proto, _Extra, Opts) ->
-    socket:open(Domain, stream, Proto, Opts).
+socket_open(Domain, Proto, _ExtraOpts, Extra) ->
+    %% ?DBG([{opts, Extra}]),
+    socket:open(Domain, stream, Proto, Extra).
 
 
 terminate(_Reason, State, P_D) ->
@@ -1047,13 +1097,16 @@ handle_event(
 handle_event(
   info, ?socket_counter_wrap(Socket, Counter),
   'connected' = _State, {#params{socket = Socket} = P, D}) ->
+    %% ?DBG([{state, _State}, {counter, Counter}]),
     {keep_state, {P, wrap_counter(Counter, D)}};
 handle_event(
   info, ?socket_counter_wrap(Socket, Counter),
   #recv{} = _State, {#params{socket = Socket} = P, D}) ->
+    %% ?DBG([{state, _State}, {counter, Counter}]),
     {keep_state, {P, wrap_counter(Counter, D)}};
 handle_event(
   info, ?socket_counter_wrap(_Socket, _Counter), _State, _P_D) ->
+    %% ?DBG([{state, _State}, {counter, _Counter}]),
     {keep_state_and_data,
      [postpone]};
 
@@ -1129,10 +1182,21 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
 
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
-    %% ?DBG({Opts, State, D}),
+    %% ?DBG([{opts, Opts}, {state, State}, {d, D}]),
     {Result, D_1} = state_setopts(P, D, State, Opts),
-    %% ?DBG({Result, D_1}),
-    ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
+    %% ?DBG([{result, Result}, {d1, D_1}]),
+    case Result of
+	{error, einval} ->
+	    %% If we get this error, either the options where crap or
+	    %% the socket is in a "bad state" (maybe its closed).
+	    %% So, if that is the case we accept that we may not be
+	    %% able to update the meta data.
+	    _ = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
+	    ok;
+	_ ->
+	    %% We should really handle this better. stop_and_reply?
+	    ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1))
+    end,
     Reply = {reply, From, Result},
     case State of
         'connected' ->
@@ -1326,6 +1390,7 @@ handle_event(Type, Content, #connect{} = State, P_D) ->
 %% Call: recv/2 - last part
 handle_event(
   {call, From}, {recv, Length, Timeout}, State, {P, D}) ->
+    %% ?DBG([recv, {length, Length}, {timeout, Timeout}, {state, State}]),
     case State of
         'connected' ->
             handle_recv_start(P, D, From, Length, Timeout);
@@ -1522,6 +1587,7 @@ handle_recv_start(P, D, From, _Length, Timeout) ->
       [{{timeout, recv}, Timeout, recv}]).
 
 handle_recv(P, #{packet := Packet, recv_length := Length} = D, ActionsR) ->
+    %% ?DBG({recv_len, Length}),
     if
         0 < Length ->
             handle_recv_length(P, D, ActionsR, Length);
@@ -1538,14 +1604,19 @@ handle_recv(P, #{packet := Packet, recv_length := Length} = D, ActionsR) ->
 
 handle_recv_peek(P, D, ActionsR, Packet) ->
     %% Peek Packet bytes
+    %% ?DBG({packet, Packet}),
     case D of
         #{buffer := Buffer} when is_list(Buffer) ->
+	    %% ?DBG('buffer is list - condence'),
             Data = condense_buffer(Buffer),
             handle_recv_peek(P, D#{buffer := Data}, ActionsR, Packet);
         #{buffer := <<Data:Packet/binary, _Rest/binary>>} ->
+	    %% ?DBG('buffer contains header'),
             handle_recv_peek(P, D, ActionsR, Packet, Data);
         #{buffer := <<ShortData/binary>>} ->
             N = Packet - byte_size(ShortData),
+	    %% ?DBG({'buffer does not contain complete header',
+	    %% 	  Packet, N, byte_size(ShortData)}),
             case socket_recv_peek(P#params.socket, N) of
                 {ok, <<FinalData/binary>>} ->
                     handle_recv_peek(
@@ -1571,10 +1642,13 @@ handle_recv_peek(P, D, ActionsR, Packet) ->
 handle_recv_peek(P, D, ActionsR, Packet, Data) ->
     <<?header(Packet, N)>> = Data,
     #{packet_size := PacketSize} = D,
+    %% ?DBG({'packet size', Packet, N, PacketSize}),
     if
         0 < PacketSize, PacketSize < N ->
+	    %% ?DBG({emsgsize}),
             handle_recv_error(P, D, ActionsR, emsgsize);
         true ->
+	    %% ?DBG({'read a message'}),
             handle_recv_length(P, D, ActionsR, Packet + N)
     end.
 
@@ -1618,16 +1692,20 @@ handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
             handle_recv_error(P, D#{buffer := Buffer}, ActionsR, Reason)
     end;
 handle_recv_length(P, D, ActionsR, _0, Buffer) ->
+    %% ?DBG({byte_size(Buffer)}),
     case Buffer of
         <<>> ->
             %% We should not need to update the buffer field here
             %% since the only way to get here with empty Buffer
             %% is when Buffer comes from the buffer field
             Socket = P#params.socket,
+	    %% ?DBG({'try read some more', byte_size(Buffer)}),
             case socket_recv(Socket, 0) of
                 {ok, <<Data/binary>>} ->
+		    %% ?DBG({'got some', byte_size(Data)}),
                     handle_recv_deliver(P, D, ActionsR, Data);
                 {ok, {Data, SelectInfo}} ->
+		    %% ?DBG({'got another select with data', byte_size(Data)}),
                     case socket:cancel(Socket, SelectInfo) of
                         ok ->
                             handle_recv_deliver(P, D, ActionsR, Data);
@@ -1635,13 +1713,16 @@ handle_recv_length(P, D, ActionsR, _0, Buffer) ->
                             handle_recv_error(P, D, ActionsR, Reason, Data)
                     end;
                 {select, SelectInfo} ->
+		    %% ?DBG({'got another select', SelectInfo}),
                     {next_state,
                      #recv{info = SelectInfo},
                      {P, D},
                      reverse(ActionsR)};
                 {error, {Reason, <<Data/binary>>}} ->
+		    %% ?DBG({'error with data', Reason, byte_size(Data)}),
                     handle_recv_error(P, D, ActionsR, Reason, Data);
                 {error, Reason} ->
+		    %% ?DBG({'error', Reason}),
                     handle_recv_error(P, D, ActionsR, Reason)
             end;
         <<Data/binary>> ->
@@ -1740,7 +1821,7 @@ handle_recv_error(P, D, ActionsR, Reason, Data) ->
     handle_recv_error(P, D_1, ActionsR_1, Reason).
 %%
 handle_recv_error(P, D, ActionsR, Reason) ->
-%%%    ?DBG(Reason),
+    %% ?DBG(Reason),
     {D_1, ActionsR_1} =
         cleanup_recv_reply(P, D#{buffer := <<>>}, ActionsR, Reason),
     case Reason of
@@ -1982,7 +2063,7 @@ tag(Packet) ->
 state_setopts(_P, D, _State, []) ->
     {ok, D};
 state_setopts(P, D, State, [Opt | Opts]) ->
-    %% ?DBG({entry, State, Opt}),
+    %% ?DBG([{state, State}, {opt, Opt}]),
     Opt_1 = conv_setopt(Opt),
     %% ?DBG({'option converted', Opt_1}),
     case setopt_categories(Opt_1) of
@@ -2190,6 +2271,7 @@ socket_info_counters(Socket) ->
 receive_counter_wrap(Socket, D, Wrapped) ->
     receive
         ?socket_counter_wrap(Socket, Counter) ->
+	    %% ?DBG([{counter, Counter}]),
             receive_counter_wrap(
               Socket, wrap_counter(Counter, D) , [Counter | Wrapped])
     after 0 ->

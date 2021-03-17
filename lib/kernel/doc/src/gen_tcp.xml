@@ -472,6 +472,8 @@ do_recv(Sock, Bs) ->
         <p>There is no <c>send</c> call with a time-out option, use socket
         option <c>send_timeout</c> if time-outs are desired. See section
         <seeerl marker="#examples">Examples</seeerl>.</p>
+	<p>The return value <c>{error, {timeout, RestData}}</c> can
+	only be returned when <c>inet_backend = socket</c>. </p>
         <marker id="non_blocking_send"></marker>
         <note>
           <p>Non-blocking send.</p>
@@ -488,6 +490,12 @@ do_recv(Sock, Bs) ->
           send timeout (as specified by the <c>send_timeout</c> option)
           expires (the function can hang even when using 'inet' backend
           if the internal buffers are full). </p>
+	  <p>If this happens when using <c>packet =/= raw</c>, we have a partial
+	  package written. A new package therefor <em>must not</em> be written
+	  at this point, as there is no way for the peer to distinguish this
+	  from the data portion of the current package. Instead, set package
+	  to raw, send the rest data (as raw data) and then set package to
+	  the wanted package type again. </p>
         </note>
       </desc>
     </func>

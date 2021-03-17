@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,9 +25,13 @@
 -export([tc_try/3]).
 -export([listen/3,
          connect/4, connect/5,
+         is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0,
          test_inet_backends/0]).
+-export([start_slave_node/2, start_slave_node/3,
+         start_node/3, start_node/4,
+         stop_node/1]).
 -export([f/2,
          print/1, print/2]).
 -export([good_hosts/1,
@@ -54,6 +58,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                 true ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
+                    kernel_test_global_sys_monitor:start(),
                     [{kernel_factor, Factor} | Config]
             catch
                 throw:{skip, _} = SKIP ->
@@ -71,6 +76,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
 
 end_per_suite(Config) when is_list(Config) ->
+    kernel_test_global_sys_monitor:stop(),
     Config.
 
 analyze_and_print_host_info() ->
@@ -1663,6 +1669,36 @@ tc_which_name() ->
     end.
     
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_slave_node(Name, Args) ->
+    start_slave_node(Name, Args, []).
+
+start_slave_node(Name, Args, Opts) ->
+    start_node(Name, slave, Args, Opts).
+
+
+start_node(Name, Type, Args) ->
+    start_node(Name, Type, Args, []).
+
+start_node(Name, Type, Args, Opts) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    A = Args ++
+        " -pa " ++ Pa ++ 
+        " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
+        " -s global sync",
+    case test_server:start_node(Name, Type, [{args, A}|Opts]) of
+        {ok, _Node} = OK ->
+            global:sync(),
+	    OK;
+        ERROR ->
+            ERROR
+    end.
+
+stop_node(Node) ->
+    test_server:stop_node(Node).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 timetrap_scale_factor() ->
@@ -1709,6 +1745,14 @@ inet_backend_opts(Config) when is_list(Config) ->
             InetBackendOpts;
         false ->
             []
+    end.
+
+is_socket_backend(Config) when is_list(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, [{inet_backend, socket}]}} ->
+            true;
+        _ ->
+            false
     end.
 
 
