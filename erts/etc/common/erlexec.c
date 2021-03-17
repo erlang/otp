@@ -574,7 +574,7 @@ int main(int argc, char **argv)
             in_index = bindir_slug_index + bindir_slug_length;
             out_index += block_length;
         }
-
+        efree((void*)bindir_slug);
         strcpy(out_index, in_index);
     }
 
