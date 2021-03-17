@@ -310,6 +310,7 @@
                                 {keep_secrets, keep_secrets()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
+                                {custom_extensions, custom_extensions()} |
                                 {crl_check, crl_check()} |
                                 {crl_cache, crl_cache_opts()} |
                                 {max_handshake_size, handshake_size()} |
@@ -365,6 +366,7 @@
 -type beast_mitigation()         :: one_n_minus_one | zero_n | disabled.
 -type srp_identity()             :: {Username :: string(), Password :: string()}.
 -type psk_identity()             :: string().
+-type custom_extensions()        :: {[ExtType :: integer()], CallbackMod :: atom(), CbOpts :: any()}.
 -type log_alert()                :: boolean().
 -type logging_level()            :: logger:level() | none | all.
 -type client_session_tickets()   :: disabled | manual | auto.
@@ -2367,6 +2369,12 @@ validate_option(srp_identity, {Username, Password}, _)
        length(Username) =< 255 ->
     {unicode:characters_to_binary(Username),
      unicode:characters_to_binary(Password)};
+validate_option(custom_extensions, undefined, _) ->
+    undefined;
+validate_option(custom_extensions, {ExtTypes, CbMod, _CbOpts} = Value, _) when is_list(ExtTypes), is_atom(CbMod) ->
+    BadExtTypes = [Type || Type <- ExtTypes, not is_integer(Type) orelse Type < 0 orelse Type >= 16#10000],
+    (BadExtTypes == []) orelse throw({error, {options, {custom_extensions, {BadExtTypes, '_', '_'}}}}),
+    Value;
 validate_option(user_lookup_fun, undefined, _) ->
     undefined;
 validate_option(user_lookup_fun, {Fun, _} = Value, _)

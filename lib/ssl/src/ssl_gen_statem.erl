@@ -656,9 +656,11 @@ connection(Type, Msg, State) ->
 %%====================================================================
 %%  Event/Msg handling
 %%====================================================================
-handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
-		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
+handle_common_event(internal, {handshake, {Handshake0, Raw}}, StateName,
+                    #state{ssl_options = SslOpts,
+                           handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
                            connection_env = #connection_env{negotiated_version = _Version}} = State0) ->
+    Handshake = ssl_handshake:maybe_decode_custom_extensions(Handshake0, SslOpts),
     Hist = ssl_handshake:update_handshake_history(Hist0, Raw),
     {next_state, StateName,
      State0#state{handshake_env =

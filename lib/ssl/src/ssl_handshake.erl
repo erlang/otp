@@ -62,6 +62,7 @@
 	 encode_client_protocol_negotiation/2, encode_protocols_advertised_on_server/1]).
 %% Decode
 -export([decode_handshake/3, decode_vector/1, decode_hello_extensions/4, decode_extensions/3,
+	 maybe_decode_custom_extensions/2,
 	 decode_server_key/3, decode_client_key/3,
 	 decode_suites/2
 	]).
@@ -609,13 +610,27 @@ encode_hello_extensions(Extensions, _) ->
     encode_extensions(hello_extensions_list(Extensions)).
 
 encode_extensions(Exts) ->
-    %% TODO: maybe get rid of lists:reverse here. It was left to resemble old behaviour
-    PreparedExts = lists:reverse([encode_extension(E) || E <- Exts]),
-    EncodedExtensionsHead = << <<?UINT16(ExtId), ?UINT16((byte_size(ExtData))), ExtData/binary>> ||
-                           {ExtId, ExtData} <- PreparedExts >>,
-    EncodedExtensionsTail = << <<?UINT16(ExtId), ?UINT16((byte_size(ExtData))), ExtData/binary>> ||
-                           {last, ExtId, ExtData} <- PreparedExts >>,
-    EncodedExtensions = <<EncodedExtensionsHead/binary, EncodedExtensionsTail/binary>>,
+    %% Some extensions (well, only "pre_shared_key" in ClientHello)
+    %% must go after all other extensions.
+    %% So, encode_extension may explicitly mark such extensions as 'last',
+    %% and they are moved to the end of extension list before making the extensions binary
+
+    CustomExts = [E || E = #custom_extension{} <- Exts],
+    PreparedCustomExts = [encode_extension(E) || E <- CustomExts],
+    PreparedCustomExtsNormal = [{Type, ExtData} || {Type, ExtData} <- PreparedCustomExts],
+    PreparedCustomExtsLast = [{Type, ExtData} || {last, Type, ExtData} <- PreparedCustomExts],
+    CustomTypes = [T || #custom_extension{type = T} <- CustomExts],
+
+    PreparedExts = [encode_extension(E) || E <- Exts, element(1, E) /= custom_extension],
+    %% If 'custom_extensions' ssl option lists some extension type, that
+    %% extension must not be encoded by any means but callback_mod
+    PreparedExtsNormal = [{Type, ExtData} || {Type, ExtData} <- PreparedExts, not lists:member(Type, CustomTypes)],
+    PreparedExtsLast = [{Type, ExtData} || {last, Type, ExtData} <- PreparedExts, not lists:member(Type, CustomTypes)],
+
+    ExtsToEncode = [PreparedExtsNormal, PreparedCustomExtsNormal, PreparedExtsLast, PreparedCustomExtsLast],
+    EncodedExtensions = << <<?UINT16(Type), ?UINT16((byte_size(ExtData))), ExtData/binary>> ||
+                           ExtsSubList <- ExtsToEncode, {Type, ExtData} <- ExtsSubList >>,
+
     Len = byte_size(EncodedExtensions),
     <<?UINT16(Len), EncodedExtensions/binary>>.
 
@@ -726,7 +741,17 @@ encode_extension(#cookie{cookie = Cookie}) ->
 encode_extension(#early_data_indication{}) ->
     {?EARLY_DATA_EXT, <<>>};
 encode_extension(#early_data_indication_nst{indication = MaxSize}) ->
-    {?EARLY_DATA_EXT, <<?UINT32(MaxSize)>>}.
+    {?EARLY_DATA_EXT, <<?UINT32(MaxSize)>>};
+
+encode_extension(#custom_extension{type = ExtType, module = CbMod, options = CbOpts, context = Context}) ->
+    case CbMod:encode_extension(ExtType, CbOpts, Context) of
+        ExtData when is_binary(ExtData) ->
+            {ExtType, ExtData};
+        {last, ExtData} when is_binary(ExtData) ->
+            {last, ExtType, ExtData};
+        undefined ->
+            undefined
+    end.
 
 
 encode_cert_status_req(
@@ -1106,7 +1131,10 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
     HelloExtensions0 = add_tls12_extensions(Version, SslOpts, ConnectionStates, Renegotiation),
     HelloExtensions1 = add_common_extensions(Version, HelloExtensions0, CipherSuites, SslOpts),
     HelloExtensions2 = maybe_add_certificate_status_request(Version, SslOpts, OcspNonce, HelloExtensions1),
-    maybe_add_tls13_extensions(Version, HelloExtensions2, SslOpts, KeyShare, TicketData).
+    HelloExtensions3 = maybe_add_tls13_extensions(Version, HelloExtensions2, SslOpts, KeyShare, TicketData),
+    ExtensionContext = #{version => Version, cipher_suites => CipherSuites, ssl_opts => SslOpts,
+                         connection_states => ConnectionStates},
+    maybe_add_custom_extensions(HelloExtensions3, SslOpts, ExtensionContext).
 
 
 add_tls12_extensions(_Version,
@@ -1283,6 +1311,66 @@ dummy_binder(HKDF) ->
     binary:copy(<<0>>, ssl_cipher:hash_size(HKDF)).
 
 
+maybe_add_custom_extensions(Extensions, #{custom_extensions := {ExtTypes, CbMod, CbOpts}}, Context) ->
+    AddFun =
+        fun(ExtType, AccIn) ->
+                add_custom_extension(ExtType, CbMod, CbOpts, Context, AccIn)
+        end,
+    UpdatedExtensions = lists:foldl(AddFun, Extensions, ExtTypes),
+    UpdatedExtensions;
+maybe_add_custom_extensions(Extensions, _, _) ->
+    Extensions.
+
+add_custom_extension(ExtType, CbMod, CbOpts, Context, AccIn) ->
+    Extension = #custom_extension{type = ExtType, module = CbMod, options = CbOpts, context = Context},
+    AccIn#{{custom, ExtType} => Extension}.
+
+
+
+%% decode_extensions/4 does not have access to SslOptions, so we need to do a second pass
+%% to handle custom extension types. This should not be expensive.
+maybe_decode_custom_extensions(#client_hello{extensions = Extensions} = Hello, SslOpts) ->
+    Hello#client_hello{extensions = decode_custom_extensions(Extensions, SslOpts)};
+maybe_decode_custom_extensions(#server_hello{extensions = Extensions} = Hello, SslOpts) ->
+    Hello#server_hello{extensions = decode_custom_extensions(Extensions, SslOpts)};
+maybe_decode_custom_extensions(Handshake, _) ->
+    Handshake.
+
+decode_custom_extensions(#{raw_extensions := _} = Extensions,
+                         #{custom_extensions := {CustomTypes, CbMod, _}}) ->
+    #raw_extensions{
+       context = Context,
+       empty = EmptyExtensions, split = SplitExtensions
+      } = maps:get(raw_extensions, Extensions),
+    case lists:partition(fun({Type, _}) -> lists:member(Type, CustomTypes) end, SplitExtensions) of
+        {[], _} ->
+            maps:without([raw_extensions], Extensions);
+        {CustomExtensions, NormalExtensions} ->
+            #{version := Version, message_type := MessageType} = Context,
+            NormalDecoded = do_decode_extensions(NormalExtensions, Version, MessageType, EmptyExtensions),
+            AllDecoded = do_decode_custom_extensions(CustomExtensions, Context, CbMod, NormalDecoded),
+            AllDecoded
+    end;
+decode_custom_extensions(Extensions, #{}) ->
+    maps:without([raw_extensions], Extensions).
+
+do_decode_custom_extensions(Extensions, Context, CbMod, Decoded0) ->
+    Dec = fun({ExtType, ExtData}, AccIn) ->
+                  decode_custom_extension(ExtType, ExtData, Context, CbMod, AccIn)
+          end,
+    Decoded = lists:foldl(Dec, Decoded0, Extensions),
+    Decoded.
+
+decode_custom_extension(ExtType, ExtData, Context, CbMod, AccIn) ->
+    case CbMod:decode_extension(ExtType, ExtData, Context) of
+        {Tag, Value} ->
+            AccIn#{Tag => Value};
+        undefined ->
+            AccIn
+    end.
+
+
+
 add_server_share(server_hello, Extensions, KeyShare) ->
     #key_share_server_hello{server_share = ServerShare0} = KeyShare,
     %% Keep only public keys
@@ -1353,12 +1441,15 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                            true ->
                                 MaxFragEnum
                         end,
-    ServerHelloExtensions = Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
+    ServerHelloExtensions0 = Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
                                                                             ConnectionStates, Renegotiation),
                                    ec_point_formats => server_ecc_extension(Version, 
                                                                             maps:get(ec_point_formats, Exts, undefined)),
                                    max_frag_enum => ServerMaxFragEnum
                                   },
+    ExtensionContext = #{version => Version, client_cipher_suites => ClientCipherSuites, ssl_opts => Opts,
+                         connection_states => ConnectionStates},
+    ServerHelloExtensions = maybe_add_custom_extensions(ServerHelloExtensions0, Opts, ExtensionContext),
     
     %% If we receive an ALPN extension and have ALPN configured for this connection,
     %% we handle it. Otherwise we check for the NPN extension.
@@ -2549,13 +2640,23 @@ process_supported_versions_extension(_, LocalVersion, _) ->
     LocalVersion.
 
 
-decode_extensions(Extensions, Version, MessageType, Acc) ->
-    SplitExtensions = [{ExtId, ExtData} ||
-                       <<?UINT16(ExtId), ?UINT16(ExtLen), ExtData:ExtLen/binary>> <= Extensions],
-    DecFun = fun({ExtId, ExtData}, AccIn) ->
-                     decode_extension(ExtId, ExtData, Version, MessageType, AccIn)
+decode_extensions(Extensions, Version, MessageType, EmptyExtensions) ->
+    SplitExtensions = [{ExtType, ExtData} ||
+                       <<?UINT16(ExtType), ?UINT16(ExtLen), ExtData:ExtLen/binary>> <= Extensions],
+    Context = #{version => Version, message_type => MessageType},
+    RawExtensions = #raw_extensions{
+                       context = Context,
+                       split = SplitExtensions,
+                       empty = EmptyExtensions
+                      },
+    Decoded = do_decode_extensions(SplitExtensions, Version, MessageType, EmptyExtensions),
+    Decoded#{raw_extensions => RawExtensions}.
+
+do_decode_extensions(SplitExtensions, Version, MessageType, EmptyExtensions) ->
+    DecFun = fun({ExtType, ExtData}, AccIn) ->
+                     decode_extension(ExtType, ExtData, Version, MessageType, AccIn)
              end,
-    Decoded = lists:foldl(DecFun, Acc, SplitExtensions),
+    Decoded = lists:foldl(DecFun, EmptyExtensions, SplitExtensions),
     Decoded.
 
 

@@ -189,6 +189,7 @@
                                                      sni_hosts]},
           sni_hosts                  => {[],        [versions]},
           srp_identity               => {undefined, [versions]},
+          custom_extensions          => {undefined, [versions]},
           supported_groups           => {undefined, [versions]},
           use_ticket                 => {undefined, [versions]},
           user_lookup_fun            => {undefined, [versions]},

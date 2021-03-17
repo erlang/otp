@@ -197,6 +197,24 @@
 -define(SIGNATURE_RSA, 1).
 -define(SIGNATURE_DSA, 2).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% User-specified extension overrides
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-record(custom_extension, {
+    type,             %% extension_type, such as ?SUPPORTED_VERSIONS_EXT
+    module,
+    options,
+    context
+   }).
+
+-record(raw_extensions, {
+    context,
+    empty,            %% empty extensions as passed to decode_extensions/4
+    split             %% list of {ExtType, ExtData}
+   }).
+
+
 -record(hello_request, {}).
 -record(server_hello_done, {}).
 
