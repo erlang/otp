@@ -1200,7 +1200,9 @@ int main(int argc, char **argv)
                         if (flavor == NULL) {
                             flavor = type;
                         } else {
-                            currbuff += sprintf(currbuff,"-emu_type %s ", strndup(type,flavor - type));
+                            char* emu_type = strndup(type,flavor - type);
+                            currbuff += sprintf(currbuff,"-emu_type %s ", emu_type);
+                            free(emu_type);
                             flavor++;
                         }
                         currbuff += sprintf(currbuff,"-emu_flavor %s", flavor);
