@@ -1980,10 +1980,10 @@ static int worker_loop(void)
     }
     close_mesq(readfrom);
     close_mesq(writeto);
+#endif
     if (reply) {
 	FREE(reply);
     }
-#endif
     return 1;
 }
 
