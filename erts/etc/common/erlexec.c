@@ -1041,6 +1041,8 @@ int main(int argc, char **argv)
 	}
     }
 
+    efree(emu_name);
+
     if (process_args) {
 	ADD_BOOT_CONFIG;
     }
