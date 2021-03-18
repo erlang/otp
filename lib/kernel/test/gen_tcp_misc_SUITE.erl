@@ -165,7 +165,8 @@ all_cases() ->
      accept_timeouts_in_order5, accept_timeouts_in_order6,
      accept_timeouts_in_order7, accept_timeouts_mixed,
      killing_acceptor, killing_multi_acceptors,
-     killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
+     killing_multi_acceptors2,
+     several_accepts_in_one_go, accept_system_limit,
      active_once_closed,
      send_timeout, send_timeout_active,
      otp_7731,
@@ -3996,6 +3997,9 @@ do_killing_acceptor(Config) ->
     ok.
 
 do_killing_acceptor_inet(LS) ->
+    ?P("validate state - listening"),
+    validate_acceptor_state(LS, [listen], []),
+
     ?P("create acceptor process"),
     Pid = spawn(
             fun() ->
@@ -4004,35 +4008,26 @@ do_killing_acceptor_inet(LS) ->
     ?P("sleep some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
-    {ok,L1} = prim_inet:getstatus(LS),
-    ?P("verify listen socket accepting"),
-    true = lists:member(accepting, L1),
+
+    ?P("validate state - accepting"),
+    validate_acceptor_state(LS, [accepting], []),
+
     ?P("kill acceptor"),
-    exit(Pid,kill),
+    exit(Pid, kill),
     ?P("sleep some"),
     receive after 100 -> ok
     end,
-    ?P("get status for listen socket"),
-    {ok,L2} = prim_inet:getstatus(LS),
-    ?P("verify listen socket *not* accepting"),
-    false  = lists:member(accepting, L2),
+
+    ?P("validate state - listening"),
+    validate_acceptor_state(LS, [listen], [accepting]),
+
     ?P("cleanup"),
     (catch gen_tcp:close(LS)),
     ok.
 
 do_killing_acceptor_socket(LS) ->
     ?P("validate state - listening"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 0},
-          num_acceptors := 0} ->
-            ?P("pre validated"),
-            ok;
-        INFO0 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO0]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 0, [listening], []),
 
     ?P("create acceptor process"),
     Pid = spawn(
@@ -4043,39 +4038,113 @@ do_killing_acceptor_socket(LS) ->
     ct:sleep(100),
 
     ?P("validate state - accepting"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 1} ->
-            ?P("validated"),
-            ok;
-        INFO1 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO1]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 1, [accepting], []),
 
     ?P("kill acceptor"),
-    exit(Pid,kill),
+    exit(Pid, kill),
     ?P("sleep some"),
     ct:sleep(100),
 
     ?P("validate state - listening"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 0} ->
-            ?P("post validated"),
-            ok;
-        INFO2 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO2]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 0, [listening], [accepting]),
 
     ?P("cleanup"),
     (catch gen_tcp:close(LS)),
     ok.
     
+validate_acceptor_state(LS, ExpStates, ExpNotStates) when is_port(LS) ->
+    case inet:info(LS) of
+        #{states := States} ->
 
+            ?P("try validate state when: "
+               "~n   Exp States:     ~p"
+               "~n   Exp Not States: ~p"
+               "~n   States:         ~p", [ExpStates, ExpNotStates, States]),
+
+            %% State *shall* contain ExpStates => States1 =/= States
+            States1 = States -- ExpStates,
+
+            %% State shall *not* contain ExpNotStates => States2 =:= States
+            States2 = States -- ExpNotStates,
+
+            if
+                (States1 =/= States) andalso
+                (States2 =:= States) ->
+                    ?P("validated: "
+                       "~n    Expected States:     ~p"
+                       "~n    Expected Not States: ~p",
+                       [ExpStates, ExpNotStates]),
+                    ok;
+               true ->
+                    ?P("invalid states: "
+                       "~n   Expected States:     ~p"
+                       "~n   Expected Not States: ~p"
+                       "~n   States:              ~p",
+                       [ExpStates, ExpNotStates, States]),
+                    ct:fail("Invalid state(s)")
+            end;
+
+        InvalidInfo ->
+            ?P("invalid info: "
+               "~n   Expected States:     ~p"
+               "~n   Expected Not States: ~p"
+               "~n   Invalid Info:        ~p",
+               [ExpStates, ExpNotStates, InvalidInfo]),
+            ct:fail("Invalid state")
+    end.
+
+validate_acceptor_state(LS, ExpNumAcc, ExpState, ExpNotState) ->
+    case inet:info(LS) of
+        #{num_acceptors := ExpNumAcc, rstate := State} ->
+            ?P("try validate state when: "
+               "~n   Expected State:     ~p"
+               "~n   Expected Not State: ~p"
+               "~n   RState:             ~p", [ExpState, ExpNotState, State]),
+
+            %% State *shall* contain ExpState => State1 =/= State
+            State1 = State -- ExpState,
+            
+            %% State shall *not* contain ExpNotState => State2 =:= State
+            State2 = State -- ExpNotState,
+
+            if
+                (State1 =/= State) andalso
+                (State2 =:= State) ->
+                    ?P("validated: "
+                       "~n    Expected States:     ~p"
+                       "~n    Expected Not States: ~p",
+                       [ExpState, ExpNotState]),
+                    ok;
+               true ->
+                    ?P("invalid states: "
+                       "~n   Expected State:     ~p"
+                       "~n   Expected Not State: ~p"
+                       "~n   State:              ~p",
+                       [ExpState, ExpNotState, State]),
+                    ct:fail("Invalid state(s)")
+            end;
+
+        #{num_acceptors := NumAcc, rstate := RState, wstate := WState} ->
+            ?P("invalid state: "
+               "~n   Expected Num Acceptors: ~w"
+               "~n   Num Acceptors:          ~w"
+               "~n   Expected State:         ~p"
+               "~n   Expected Not State:     ~p"
+               "~n   RState:                 ~p"
+               "~n   WState:                 ~p",
+               [ExpNumAcc, NumAcc, ExpState, RState, WState]),
+            ct:fail("Invalid state");
+
+        InvalidInfo ->
+            ?P("invalid info: "
+               "~n   Expected Num Acceptors: ~w"
+               "~n   Expected State:         ~p"
+               "~n   Expected Not State:     ~p"
+               "~n   Invalid Info:           ~p",
+               [ExpNumAcc, ExpState, InvalidInfo]),
+            ct:fail("Invalid state")
+    end.
+    
 
 %% Check that multi acceptors behaves as expected when killed.
 killing_multi_acceptors(Config) when is_list(Config) ->
@@ -4096,6 +4165,9 @@ do_killing_multi_acceptors(Config) ->
     ok.
 
 do_killing_multi_acceptors_inet(LS) ->
+    ?P("validate state - listen"),
+    validate_acceptor_state(LS, [listen], []),
+
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
     F2 = mktmofun(1000,Parent,LS),
@@ -4109,8 +4181,7 @@ do_killing_multi_acceptors_inet(LS) ->
     end,
 
     ?P("validate state - accepting"),
-    {ok, L1} = prim_inet:getstatus(LS),
-    true     = lists:member(accepting, L1),
+    validate_acceptor_state(LS, [accepting], []),
 
     ?P("kill first acceptor"),
     exit(Pid, kill),
@@ -4120,31 +4191,21 @@ do_killing_multi_acceptors_inet(LS) ->
     end,
 
     ?P("validate state - still accepting"),
-    {ok, L2} = prim_inet:getstatus(LS),
-    true     = lists:member(accepting, L2),
+    validate_acceptor_state(LS, [accepting], []),
 
     ?P("await second acceptor exit - timeout"),
-    ok = ?EXPECT_ACCEPTS([{Pid2,{error,timeout}}],1,1000),
+    ok = ?EXPECT_ACCEPTS([{Pid2, {error,timeout}}], 1, 1000),
 
     ?P("validate state - *not* accepting"),
-    {ok, L3} = prim_inet:getstatus(LS),
-    false    = lists:member(accepting, L3),
+    validate_acceptor_state(LS, [listen], [accepting]),
 
     ?P("cleanup"),
     (catch gen_tcp:close(LS)),
     ok.
 
 do_killing_multi_acceptors_socket(LS) ->
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 0},
-          num_acceptors := 0} ->
-            ?P("pre validated"),
-            ok;
-        INFO0 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO0]),
-            ct:fail("wrong number of acceptors")
-    end,
+    ?P("validate state - listening"),
+    validate_acceptor_state(LS, 0, [listening], []),
 
     Parent = self(),
     F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
@@ -4158,16 +4219,7 @@ do_killing_multi_acceptors_socket(LS) ->
     ct:sleep(100),
 
     ?P("validate state - accepting"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 2} ->
-            ?P("validated"),
-            ok;
-        INFO1 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO1]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 2, [accepting], []),
 
     ?P("kill first acceptor"),
     exit(Pid, kill),
@@ -4175,34 +4227,13 @@ do_killing_multi_acceptors_socket(LS) ->
     ct:sleep(100),
 
     ?P("validate state - (still) accepting"),
-    case gen_tcp_socket:info(LS) of
-        %% No new accept call after the previous 'current acceptor'
-        %% terminated, just a new select, so change in the counters.
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 1} ->
-            ?P("validated:1"),
-            ok;
-        INFO2 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO2]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 1, [accepting], []),
 
     ?P("await second acceptor exit - timeout"),
     ok = ?EXPECT_ACCEPTS([{Pid2,{error,timeout}}],1,1000),
 
     ?P("validate state - listening"),
-    case gen_tcp_socket:info(LS) of
-        %% Still no new accept calls
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 0} ->
-            ?P("post validated"),
-            ok;
-        INFO3 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO3]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 0, [listening], [accepting]),
 
     ?P("cleanup"),
     (catch gen_tcp:close(LS)),
@@ -4228,6 +4259,9 @@ do_killing_multi_acceptors2(Config) ->
     ok.
 
 do_killing_multi_acceptors2_inet(Config, LS) ->
+    ?P("validate state - listen"),
+    validate_acceptor_state(LS, [listen], []),
+
     Parent = self(),
     ?P("get port number for listen socket"),
     {ok, PortNo} = inet:port(LS),
@@ -4244,8 +4278,7 @@ do_killing_multi_acceptors2_inet(Config, LS) ->
     end,
 
     ?P("validate state - accepting"),
-    {ok, L1} = prim_inet:getstatus(LS),
-    true = lists:member(accepting, L1),
+    validate_acceptor_state(LS, [accepting], []),
 
     ?P("kill acceptor 1"),
     exit(Pid,kill),
@@ -4266,8 +4299,7 @@ do_killing_multi_acceptors2_inet(Config, LS) ->
     end,
 
     ?P("validate state - listening"),
-    {ok, L3} = prim_inet:getstatus(LS),
-    false  = lists:member(accepting, L3),
+    validate_acceptor_state(LS, [listen], [accepting]),
 
     ?P("create acceptor 3"),
     Pid3 = spawn(F2),
@@ -4277,8 +4309,7 @@ do_killing_multi_acceptors2_inet(Config, LS) ->
     end,
 
     ?P("validate state - accepting"),
-    {ok, L4} = prim_inet:getstatus(LS),
-    true  = lists:member(accepting, L4),
+    validate_acceptor_state(LS, [accepting], []),
 
     ?P("connect to port ~p", [PortNo]),
     ?CONNECT(Config, "localhost", PortNo,[]),
@@ -4287,24 +4318,15 @@ do_killing_multi_acceptors2_inet(Config, LS) ->
     ok = ?EXPECT_ACCEPTS([{Pid3,{ok,CSock}}] when is_port(CSock),1,100),
 
     ?P("validate state - listening"),
-    {ok, L5} = prim_inet:getstatus(LS),
-    false  = lists:member(accepting, L5),
+    validate_acceptor_state(LS, [listen], [accepting]),
 
     ?P("cleanup"),
     (catch gen_tcp:close(LS)),
     ok.
 
 do_killing_multi_acceptors2_socket(Config, LS) ->
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 0},
-          num_acceptors := 0} ->
-            ?P("pre validated"),
-            ok;
-        INFO0 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO0]),
-            ct:fail("wrong number of acceptors")
-    end,
+    ?P("validate state - listening"),
+    validate_acceptor_state(LS, 0, [listening], []),
 
     Parent = self(),
     ?P("get port number for listen socket"),
@@ -4322,16 +4344,7 @@ do_killing_multi_acceptors2_socket(Config, LS) ->
     ct:sleep(100),
 
     ?P("validate state - accepting"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 2} ->
-            ?P("validated"),
-            ok;
-        INFO1 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO1]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 2, [accepting], []),
 
     ?P("kill acceptor 1"),
     exit(Pid,kill),
@@ -4340,16 +4353,7 @@ do_killing_multi_acceptors2_socket(Config, LS) ->
     ct:sleep(100),
 
     ?P("validate state - (still) accepting"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 1} ->
-            ?P("validated"),
-            ok;
-        INFO2 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO2]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 1, [accepting], []),
 
     ?P("kill acceptor 2"),
     exit(Pid2, kill),
@@ -4359,17 +4363,7 @@ do_killing_multi_acceptors2_socket(Config, LS) ->
     end,
 
     ?P("validate state - listening"),
-    case gen_tcp_socket:info(LS) of
-        %% Still no new accept calls
-        #{counters      := #{acc_tries := 1},
-          num_acceptors := 0} ->
-            ?P("validated"),
-            ok;
-        INFO3 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO3]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 0, [listening], [accepting]),
 
     ?P("create acceptor 3"),
     Pid3 = spawn(F2),
@@ -4378,16 +4372,7 @@ do_killing_multi_acceptors2_socket(Config, LS) ->
     ct:sleep(100),
 
     ?P("validate state - accepting"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_tries := 2},
-          num_acceptors := 1} ->
-            ?P("validated"),
-            ok;
-        INFO4 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO4]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 1, [accepting], []),
 
     ?P("connect to port ~p", [PortNo]),
     ?CONNECT(Config, "localhost", PortNo,[]),
@@ -4396,17 +4381,7 @@ do_killing_multi_acceptors2_socket(Config, LS) ->
     ok = ?EXPECT_ACCEPTS([{Pid3,{ok, _CSock}}],1,100),
 
     ?P("validate state - listening"),
-    case gen_tcp_socket:info(LS) of
-        #{counters      := #{acc_success := 1,
-                             acc_tries   := 3},
-          num_acceptors := 0} ->
-            ?P("validated"),
-            ok;
-        INFO5 ->
-            ?P("Invalid acceptor info: "
-               "~n      ~p", [INFO5]),
-            ct:fail("wrong number of acceptors")
-    end,
+    validate_acceptor_state(LS, 0, [listening], [accepting]),
 
     ?P("cleanup"),
     (catch gen_tcp:close(LS)),
@@ -4879,63 +4854,25 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
 			Send = fun() -> gen_tcp:send(A, BinData) end,
 			Self ! {self(), timeout_sink_loop(Send, TslTimeout)}
 		end,
-    Info = fun() ->
-		   if is_port(A) ->
-			   {(catch erlang:port_info(A)),
-			    try inet:getopts(A, [send_timeout]) of
-				{ok, [V2]} ->
-				    V2;
-				{error, R2} ->
-				    ?F("ERROR: ~p", [R2]);
-				X2 ->
-				    ?F("UNKNOWN: ~p", [X2])
-			    catch
-				C2:E2:S2 ->
-				    ?F("CATCHED: ~p, ~p, ~p", [C2, E2, S2])
-			    end,
-			    try inet:getstat(A) of
-				{ok, S3} ->
-				    S3;
-				{error, R3} ->
-				    ?F("ERROR: ~p", [R3]);
-				X3 ->
-				    ?F("UNKNOWN: ~p", [X3])
-			    catch
-				C3:E3:S3 ->
-				    ?F("CATCHED: ~p, ~p, ~p", [C3, E3, S3])
-			    end,
-			    try prim_inet:getstatus(A) of
-				{ok, S4} ->
-				    S4;
-				{error, R4} ->
-				    ?F("ERROR: ~p", [R4]);
-				X4 ->
-				    ?F("UNKNOWN: ~p", [X4])
-			    catch
-				C4:E4:S4 ->
-				    ?F("CATCHED: ~p, ~p, ~p", [C4, E4, S4])
-			    end};
-		      true ->
-			   {(catch gen_tcp_socket:info(A)),
-			    try inet:getopts(A, [send_timeout]) of
-				{ok, [V2]} ->
-				    V2;
-				{error, R2} ->
-				    ?F("ERROR: ~p", [R2]);
-				X2 ->
-				    ?F("UNKNOWN: ~p", [X2])
-			    catch
-				C2:E2:S2 ->
-				    ?F("CATCHED: ~p, ~p, ~p", [C2, E2, S2])
-			    end,
-			    "-",
-			    "-"}
-		   end
-           end,
     ?P("[para] spawn process 1 with sender fun"),
     Snd1 = spawn_link(SenderFun),
     ?P("[para] spawn process 2 with sender fun"),
     Snd2 = spawn_link(SenderFun),
+
+    SockInfo    = fun() -> (catch inet:info(A)) end,
+    SockTimeout = fun() ->
+                          try inet:getopts(A, [send_timeout]) of
+                              {ok, [V2]} ->
+                                  V2;
+                              {error, R2} ->
+                                  ?F("ERROR: ~p", [R2]);
+                              X2 ->
+                                  ?F("UNKNOWN: ~p", [X2])
+                          catch
+                              C2:E2:S2 ->
+                                  ?F("CATCHED: ~p, ~p, ~p", [C2, E2, S2])
+                          end
+                  end,
 
     ?P("[para] await sender timeout when"
        "~n   Sender 1: ~p"
@@ -4949,22 +4886,21 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
                 ?P("[para] timeout received from sender 2 (~p, ~p)", [Snd2, N]),
                 2
         after 20000 ->
-                {PortStatus1, SockOpts1, SockStat1, SockStatus1} = Info(),
+                SockInfo1 = SockInfo(),
+                SockTo1   = SockTimeout(),
                 ?P("[para] UNEXPECTED timeout(1,~w) when:"
                    "~n   Sender 1 Info: ~p"
                    "~n   Sender 2 Info: ~p"
                    "~n   Socket Info:   ~p"
                    "~n   Send Timeout:  ~p"
-                   "~n   Socket Stats:  ~p"
-                   "~n   Socket Status: ~p"
                    "~n   Message Queue: ~p",
                    [AutoClose,
                     (catch process_info(Snd1)),
                     (catch process_info(Snd2)),
-                    PortStatus1, SockOpts1, SockStat1, SockStatus1,
+                    SockInfo1, SockTo1,
                     flush([])]),
-                Snd1 ! {info_and_die, Info},
-                Snd2 ! {info_and_die, Info},
+                Snd1 ! {info_and_die, SockInfo, SockTimeout},
+                Snd2 ! {info_and_die, SockInfo, SockTimeout},
                 ct:sleep(?SECS(1)),
                 exit({timeout, AutoClose})
         end,
@@ -4982,35 +4918,31 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
             after_send_timeout(AutoClose, Error_1)
     after 10000 ->
             if (Second =:= 1) ->
-                    {PortStatus21, SockOpts21, SockStat21, SockStatus21} =
-                        Info(),
+                    SockInfo21 = SockInfo(),
+                    SockTo21   = SockTimeout(),
                     ?P("[para] UNEXPECTED timeout(2,~w):"
                        "~n   Sender 1 Info: ~p"
                        "~n   Socket Info:   ~p"
                        "~n   Send Timeout:  ~p"
-                       "~n   Socket Stats:  ~p"
-                       "~n   Socket Status: ~p"
                        "~n   Message Queue: ~p",
                        [AutoClose,
                         (catch process_info(Snd1)),
-                        PortStatus21, SockOpts21, SockStat21, SockStatus21,
+                        SockInfo21, SockTo21,
                         flush([])]),
-                Snd1 ! {info_and_die, Info};
+                Snd1 ! {info_and_die, SockInfo, SockTimeout};
                true ->
-                    {PortStatus22, SockOpts22, SockStat22, SockStatus22} =
-                        Info(),
+                    SockInfo22 = SockInfo(),
+                    SockTo22   = SockTimeout(),
                     ?P("[para] UNEXPECTED timeout(2,~w):"
                        "~n   Sender 2 Info: ~p"
                        "~n   Socket Info:   ~p"
                        "~n   Send Timeout:  ~p"
-                       "~n   Socket Stats:  ~p"
-                       "~n   Socket Status: ~p"
                        "~n   Message Queue: ~p",
                        [AutoClose,
                         (catch process_info(Snd2)),
-                        PortStatus22, SockOpts22, SockStat22, SockStatus22,
+                        SockInfo22, SockTo22,
                         flush([])]),
-                    Snd2 ! {info_and_die, Info}
+                    Snd2 ! {info_and_die, SockInfo, SockTimeout}
             end,
             ct:sleep(?SECS(1)),
 	    exit({timeout, AutoClose, Second})
@@ -5345,14 +5277,11 @@ timeout_sink_loop(Action, To, N) ->
     case Ret of
 	ok ->
 	    receive
-                {info_and_die, Info} ->
-                    {PortStatus, SockOpts, SockStat, SockStatus} = Info(),
+                {info_and_die, SockInfo, SockTimeout} ->
                     ?P("[sink-loop] info and die: "
-                       "~n   Port Status:   ~p"
-                       "~n   Send Timeout:  ~p"
-                       "~n   Socket Stats:  ~p"
-                       "~n   Socket Status: ~p",
-                       [PortStatus, SockOpts, SockStat, SockStatus]),
+                       "~n   Socket Info:  ~p"
+                       "~n   Send Timeout: ~p",
+                       [SockInfo(), SockTimeout()]),
                     exit(normal)
             after To -> ok end,
 	    timeout_sink_loop(Action, To, N+1);
