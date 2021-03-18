@@ -68,7 +68,11 @@ load() ->
                     upgrade_version(?LOG_NAME, Version),
                     load();
                 {error, {badarg, size}} ->
-                    open_new_log(?LOG_NAME);
+                    try open_new_log(?LOG_NAME)
+                    catch exit:_ ->
+                            %% Same reason as comment in catch below
+                            []
+                    end;
                 {error, Reason} ->
                     handle_open_error(Reason),
                     disable_history(),
