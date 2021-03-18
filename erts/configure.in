@@ -2159,14 +2159,33 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite memmove strerror strerror_r strncasecmp \
-		gethrtime localtime_r gmtime_r inet_pton mprotect madvise posix_madvise \
+		gethrtime localtime_r gmtime_r mprotect madvise posix_madvise \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall ppoll vsyslog])
 
+## We have a special check for inet_pton as AC_CHECK_FUCNS does not work
+## on windows 32-bit as there a macro is used to rename the symbol...
+AC_MSG_CHECKING([for inet_pton])
+AC_TRY_LINK([
+#ifdef WIN32
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#endif
+],[inet_pton(2,"",(void*)0)], have_inet_pton=yes, have_inet_pton=no)
+
+if test $have_inet_pton = yes; then
+    AC_DEFINE(HAVE_INET_PTON,[1],
+              [Define to 1 if you have the `inet_pton' function.])
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+fi
+
 AC_MSG_CHECKING([for isfinite])
 AC_TRY_LINK([#include <math.h>],
-            [isfinite(0);], have_isfinite=yes, have_isfinite=no),
+            [isfinite(0);], have_isfinite=yes, have_isfinite=no)
 
 if test $have_isfinite = yes; then
     AC_DEFINE(HAVE_ISFINITE,[1],
