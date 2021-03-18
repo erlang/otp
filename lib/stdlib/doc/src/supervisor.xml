@@ -74,9 +74,10 @@
       The type definition for the supervisor flags is as follows:</p>
 
     <pre>
-sup_flags() = #{strategy => strategy(),         % optional
-                intensity => non_neg_integer(), % optional
-                period => pos_integer()}        % optional</pre>
+sup_flags() = #{strategy => strategy(),           % optional
+                intensity => non_neg_integer(),   % optional
+                period => pos_integer(),          % optional
+                auto_shutdown => auto_shutdown()} % optional</pre>
 
     <p>A supervisor can have one of the following <em>restart strategies</em>
       specified with the <c>strategy</c> key in the above map:</p>
@@ -141,12 +142,13 @@ sup_flags() = #{strategy => strategy(),         % optional
     <p>The type definition of a child specification is as follows:</p>
 
     <pre>
-child_spec() = #{id => child_id(),       % mandatory
-                 start => mfargs(),      % mandatory
-                 restart => restart(),   % optional
-                 shutdown => shutdown(), % optional
-                 type => worker(),       % optional
-                 modules => modules()}   % optional</pre>
+child_spec() = #{id => child_id(),             % mandatory
+                 start => mfargs(),            % mandatory
+                 restart => restart(),         % optional
+                 significant => significant(), % optional
+                 shutdown => shutdown(),       % optional
+                 type => worker(),             % optional
+                 modules => modules()}         % optional</pre>
 
     <p>The old tuple format is kept for backwards compatibility,
       see <seetype marker="#child_spec">child_spec()</seetype>,
@@ -268,6 +270,9 @@ child_spec() = #{id => child_id(),       % mandatory
 
   <datatypes>
     <datatype>
+      <name name="auto_shutdown"/>
+    </datatype>
+    <datatype>
       <name name="child"/>
     </datatype>
     <datatype>
@@ -298,6 +303,9 @@ child_spec() = #{id => child_id(),       % mandatory
     </datatype>
     <datatype>
       <name name="shutdown"/>
+    </datatype>
+    <datatype>
+      <name name="significant"/>
     </datatype>
     <datatype>
       <name name="startchild_err"/>
