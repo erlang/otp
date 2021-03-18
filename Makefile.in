@@ -832,26 +832,28 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 #	copy jinterface priv directory
-	$(V_at)for x in lib/jinterface/priv/OtpErlang.jar; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			cp $$x $$TF; \
-		test '!' -f $$TF && \
-			cp $$x $$TF; \
-		true; \
-	done
-	$(V_at)for x in lib/jinterface/priv/com/ericsson/otp/erlang/*; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			cp $$x $$TF; \
-		test '!' -f $$TF && \
-			cp $$x $$TF; \
-		true; \
-	done
+	$(V_at)if test -d lib/jinterface/priv; then \
+		for x in lib/jinterface/priv/OtpErlang.jar; do \
+			BN=`basename $$x`; \
+			TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/$$BN; \
+			test -f  $$TF && \
+			test '!' -z "`find $$x -newer $$TF -print`" && \
+				cp $$x $$TF; \
+			test '!' -f $$TF && \
+				cp $$x $$TF; \
+			true; \
+		done; \
+		for x in lib/jinterface/priv/com/ericsson/otp/erlang/*; do \
+			BN=`basename $$x`; \
+			TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang/$$BN; \
+			test -f  $$TF && \
+			test '!' -z "`find $$x -newer $$TF -print`" && \
+				cp $$x $$TF; \
+			test '!' -f $$TF && \
+				cp $$x $$TF; \
+			true; \
+		done; \
+	fi
 #	$(V_at)cp lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
 
 doc_bootstrap_build:
