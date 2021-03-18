@@ -31,6 +31,7 @@
 	 getif/1, getif/0, getiflist/0, getiflist/1,
 	 ifget/3, ifget/2, ifset/3, ifset/2,
 	 getstat/1, getstat/2,
+         info/1,
 	 ip/1, stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
@@ -602,6 +603,52 @@ gethostbyaddr(Address,Timeout) ->
 gethostbyaddr_tm(Address,Timer) ->
     gethostbyaddr_tm(Address, Timer, inet_db:res_option(lookup)).
 
+
+-spec info(Socket) -> Info when
+      Socket :: socket(),
+      Info :: term().
+
+info({'$inet', GenSocketMod, _} = Socket)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket);
+info(Socket) ->
+    PortInfo = port_info(Socket),
+    States =
+        case prim_inet:getstatus(Socket) of
+            {ok, State0} ->
+                State0;
+            _ ->
+                #{}
+        end,
+    Stats =
+        case getstat(Socket) of
+            {ok, Stats0} ->
+                maps:from_list(Stats0);
+            _ ->
+                []
+        end,
+    PortInfo#{counters => Stats,
+              states   => States}.
+
+port_info(P) when is_port(P) ->
+    PI = port_info(erlang:port_info(P),
+                   [connected, links, input, output]) ++
+        [erlang:port_info(P, memory),
+         erlang:port_info(P, monitors)],
+    maps:from_list(PI);
+port_info(_) ->
+    #{}.
+
+port_info(PI, Items) ->
+    port_info(PI, Items, []).
+
+port_info(_PI, [], Acc) ->
+    Acc;
+port_info(PI, [Item | Items], Acc) ->
+    Val = proplists:get_value(Item, PI),
+    port_info(PI, Items, [{Item, Val} | Acc]).
+
+
 -spec ip(Ip :: ip_address() | string() | atom()) ->
 	{'ok', ip_address()} | {'error', posix()}.
 
@@ -781,11 +828,13 @@ stats() ->
     [recv_oct, recv_cnt, recv_max, recv_avg, recv_dvi,
      send_oct, send_cnt, send_max, send_avg, send_pend].
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Available options for tcp:connect
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
-    [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+    [tos, tclass, priority, reuseaddr, keepalive, linger, nodelay,
+     sndbuf, recbuf,
      recvtos, recvtclass, ttl, recvttl,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,

@@ -486,10 +486,12 @@ peername(?module_socket(_Server, Socket)) ->
 getstat(?module_socket(Server, _Socket), What) when is_list(What) ->
     call(Server, {getstat, What}).
 
+
 %% -------------------------------------------------------------------------
 
-info(?module_socket(_Server, Socket)) ->
-    socket:info(Socket).
+info(?module_socket(Server, _Socket)) ->
+    call(Server, info).
+
 
 %%% ========================================================================
 %%% Socket glue code
@@ -1218,6 +1220,18 @@ handle_event({call, From}, {getstat, What}, State, {P, D}) ->
             {D_1, Result} = getstat(P#params.socket, D, What),
             {keep_state, {P, D_1},
              [{reply, From, {ok, Result}}]}
+    end;
+
+%% Call: info/1
+handle_event({call, From}, info, State, {P, D}) ->
+    case State of
+        'closed' ->
+            {keep_state_and_data,
+             [{reply, From, #{}}]};
+        _ ->
+            {D_1, Result} = handle_info(P#params.socket, D),
+            {keep_state, {P, D_1},
+             [{reply, From, Result}]}
     end;
 
 %% State: 'closed' - what is not handled above
@@ -2213,7 +2227,22 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
             {error, einval}
     end.
 
-
+handle_info(Socket, D) -> 
+    %% Read counters
+    Counters_1 = socket_info_counters(Socket),
+    %% Check for recent wraps
+    {D_1, Wrapped} = receive_counter_wrap(Socket, D, []),
+    %%
+    %% Assumption: a counter that we just now got a wrap message from
+    %% will not wrap again before we read the updated value
+    %%
+    %% Update wrapped counters
+    Info = #{counters := Counters_2} = socket:info(Socket),
+    Counters_3 = maps:merge(Counters_1, maps:with(Wrapped, Counters_2)),
+    %% Go ahead with wrap updated counters
+    Counters_4 = maps:from_list(getstat_what(D_1, Counters_3)),
+    {D_1, Info#{counters => Counters_4}}.
+    
 getstat(Socket, D, What) ->
     %% Read counters
     Counters_1 = socket_info_counters(Socket),
@@ -2228,6 +2257,9 @@ getstat(Socket, D, What) ->
     Counters_3 = maps:merge(Counters_1, maps:with(Wrapped, Counters_2)),
     %% Go ahead with wrap updated counters
     {D_1, getstat_what(What, D_1, Counters_3)}.
+
+getstat_what(D, C) ->
+    getstat_what(inet:stats(), D, C).
 
 getstat_what([], _D, _C) -> [];
 getstat_what([Tag | What], D, C) ->
@@ -2273,7 +2305,7 @@ receive_counter_wrap(Socket, D, Wrapped) ->
         ?socket_counter_wrap(Socket, Counter) ->
 	    %% ?DBG([{counter, Counter}]),
             receive_counter_wrap(
-              Socket, wrap_counter(Counter, D) , [Counter | Wrapped])
+              Socket, wrap_counter(Counter, D), [Counter | Wrapped])
     after 0 ->
             {D, Wrapped}
     end.

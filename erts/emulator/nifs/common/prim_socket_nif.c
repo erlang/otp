@@ -1128,6 +1128,8 @@ static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                                ESockDescriptor* descP);
 static ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
                                             ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
+					    unsigned int state);
 #define ESOCK_SOCKET_INFO_REQ_FUNCS              \
     ESOCK_SOCKET_INFO_REQ_FUNC_DEF(readers);     \
     ESOCK_SOCKET_INFO_REQ_FUNC_DEF(writers);     \
@@ -3564,6 +3566,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 
 /* *** Local atoms *** */
 #define LOCAL_ATOMS                    \
+    LOCAL_ATOM_DECL(accepting);	       \
     LOCAL_ATOM_DECL(acc_success);      \
     LOCAL_ATOM_DECL(acc_fails);        \
     LOCAL_ATOM_DECL(acc_tries);        \
@@ -3578,11 +3581,14 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(assoc_id);         \
     LOCAL_ATOM_DECL(authentication);   \
     LOCAL_ATOM_DECL(boolean);          \
+    LOCAL_ATOM_DECL(bound);	       \
     LOCAL_ATOM_DECL(bufsz);            \
     LOCAL_ATOM_DECL(close);            \
     LOCAL_ATOM_DECL(closed);           \
     LOCAL_ATOM_DECL(closing);          \
     LOCAL_ATOM_DECL(code);             \
+    LOCAL_ATOM_DECL(connected);        \
+    LOCAL_ATOM_DECL(connecting);       \
     LOCAL_ATOM_DECL(cookie_life);      \
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(counters);         \
@@ -3594,6 +3600,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(dest_unreach);     \
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
+    LOCAL_ATOM_DECL(dtor);             \
     LOCAL_ATOM_DECL(dup);              \
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
@@ -3609,6 +3616,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(integer);          \
     LOCAL_ATOM_DECL(iov_max);          \
     LOCAL_ATOM_DECL(iow);              \
+    LOCAL_ATOM_DECL(listening);	       \
     LOCAL_ATOM_DECL(local_rwnd);       \
     LOCAL_ATOM_DECL(max);              \
     LOCAL_ATOM_DECL(max_attempts);     \
@@ -3671,7 +3679,9 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(registry);         \
     LOCAL_ATOM_DECL(reject_route);     \
     LOCAL_ATOM_DECL(remote);           \
+    LOCAL_ATOM_DECL(rstate);           \
     LOCAL_ATOM_DECL(select);           \
+    LOCAL_ATOM_DECL(selected);         \
     LOCAL_ATOM_DECL(sender_dry);       \
     LOCAL_ATOM_DECL(send_failure);     \
     LOCAL_ATOM_DECL(shutdown);         \
@@ -3698,6 +3708,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(write_pkg_max);    \
     LOCAL_ATOM_DECL(write_tries);      \
     LOCAL_ATOM_DECL(write_waits);      \
+    LOCAL_ATOM_DECL(wstate);           \
     LOCAL_ATOM_DECL(zero);             \
     LOCAL_ATOM_DECL(zerocopy)
 
@@ -3935,6 +3946,8 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
  *    type:      The type of the socket
  *    protocol:  The protocol of the socket
  *    ctrl:      Controlling process of the socket)
+ *    rstate:    Socket read state
+ *    wstate:    Socket write state
  *    counters:  A list of each socket counter and there current values
  *    readers:   The number of current and waiting readers
  *    writers:   The number of current and waiting writers
@@ -3949,6 +3962,8 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM type      = esock_socket_info_type(env, descP);
     ERL_NIF_TERM protocol  = MKI(env, descP->protocol);
     ERL_NIF_TERM ctrlPid   = MKPID(env, &descP->ctrlPid);
+    ERL_NIF_TERM rstate    = esock_socket_info_state(env, descP->readState);
+    ERL_NIF_TERM wstate    = esock_socket_info_state(env, descP->writeState);
     ERL_NIF_TERM ctype     = esock_socket_info_ctype(env, descP);
     ERL_NIF_TERM counters  = esock_socket_info_counters(env, descP);
     ERL_NIF_TERM readers   = esock_socket_info_readers(env, descP);
@@ -3961,6 +3976,8 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                esock_atom_type,
                esock_atom_protocol,
                esock_atom_ctrl,
+               atom_rstate,
+               atom_wstate,
                atom_ctype,
                atom_counters,
                atom_num_readers,
@@ -3971,6 +3988,8 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                type,
                protocol,
                ctrlPid,
+               rstate,
+               wstate,
                ctype,
                counters,
                readers,
@@ -4067,6 +4086,100 @@ ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
                    "\r\n", descP->sock, ctype) );
 
     return ctype;
+}
+#endif // #ifndef __WIN32__
+
+
+/*
+ * Encode the socket "state"
+ * That is "show" how this socket was created:
+ *
+ *           normal | fromfd | {fromfd, integer()}
+ */
+#ifndef __WIN32__
+static
+ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
+                                     unsigned int state)
+{
+    SocketTArray estate = TARRAY_CREATE(10);
+    ERL_NIF_TERM estateList;
+
+
+    if ((state & ESOCK_STATE_BOUND) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> bound"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_bound);
+    }
+
+    if ((state & ESOCK_STATE_LISTENING) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> listening"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_listening);
+    }
+
+    if ((state & ESOCK_STATE_ACCEPTING) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> accepting"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_accepting);
+    }
+
+    if ((state & ESOCK_STATE_CONNECTING) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> connecting"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_connecting);
+    }
+
+    if ((state & ESOCK_STATE_CONNECTED) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> connected"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_connected);
+    }
+
+    if ((state & ESOCK_STATE_SELECTED) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> selected"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_selected);
+    }
+
+    if ((state & ESOCK_STATE_CLOSING) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> closing"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_closing);
+    }
+
+    if ((state & ESOCK_STATE_CLOSED) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> closed"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_closed);
+    }
+
+    if ((state & ESOCK_STATE_DTOR) != 0) {
+      /*
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> dror"
+		     "\r\n", descP->sock) );
+      */
+      TARRAY_ADD(estate, atom_dtor);
+    }
+
+    TARRAY_TOLIST(estate, env, &estateList);
+
+    return estateList;
 }
 #endif // #ifndef __WIN32__
 

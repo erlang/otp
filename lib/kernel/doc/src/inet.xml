@@ -686,6 +686,16 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
+      <name name="info" arity="1"  since="@OTP-17203@"/>
+      <fsummary>Retreive miscellaneous information about a socket</fsummary>
+      <desc>
+        <p>
+          Produces a term containg miscellaneous information about a socket.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="ntoa" arity="1"  since="OTP R16B02"/>
       <fsummary>Convert IPv6/IPV4 address to ASCII.</fsummary>
       <desc>
