@@ -3397,7 +3397,7 @@ test_pktoptions(Config, Family, Spec, OSFilter, CheckConnect) ->
             ?P("OS: ~p, ~p", [OSType, OSVer]),
             test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer);
         false ->
-            {skip,{not_supported_for_os_version,{OSType,OSVer}}}
+            {skip, {not_supported_for_os_version, {OSType,OSVer}}}
     end.
 %%
 test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
@@ -3575,14 +3575,18 @@ test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
     ok = gen_tcp:close(S3),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
-    ?P("verify final result"),
+    ?P("verify final result"
+       "~n   Result1:       ~p"
+       "~n   Check Connect: ~p"
+       "~n   Result2:       ~p"
+       "~n   Result3:       ~p",
+      [Result1, CheckConnect, Result2, Result3]),
     (Result1 and ((not CheckConnect) or (Result2 and Result3)))
         orelse
         exit({failed,
               [{OptsVals1,OptsVals4,OptsVals},
                {OptsVals2,OptsValsDefault}],
               {OSType,OSVer}}),
-%%    exit({{OSType,OSVer},success}), % In search for the truth
     ?P("done"),
     ok.
 

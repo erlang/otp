@@ -719,6 +719,7 @@ socket_getopt(Socket, Tag) when is_atom(Tag) ->
             %% ?DBG({'socket_getopt - match', Tag}),
             %% _ = socket:setopt(Socket, otp, debug, true),
             Res = socket:getopt(Socket, Opt),
+            %% ?DBG({'socket_getopt - result', Res}),
             %% _ = socket:setopt(Socket, otp, debug, false),
             socket_getopt_value(Tag, Res);
 
@@ -736,6 +737,7 @@ socket_getopt(Socket, Tag) when is_atom(Tag) ->
                             %% _ = socket:setopt(Socket, otp, debug, true),
                             Res = socket:getopt(Socket, Opt),
                             %% _ = socket:setopt(Socket, otp, debug, false),
+                            %% ?DBG({'socket_getopt - result', Res}),
                             socket_getopt_value(Tag, Res);
                         false ->
                             %% ?DBG({'socket_getopt - invalid domain', Tag, Domain, DomainProps}),
@@ -753,6 +755,9 @@ socket_getopt(Socket, Tag) when is_atom(Tag) ->
 
 socket_getopt_value(linger, {ok, #{onoff := OnOff, linger := Linger}}) ->
     {ok, {OnOff, Linger}};
+socket_getopt_value(pktoptions, {ok, PktOpts0}) when is_list(PktOpts0) ->
+    PktOpts = [{Type, Value} || #{type := Type, value := Value} <- PktOpts0],
+    {ok, PktOpts};
 socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 
@@ -1759,7 +1764,7 @@ handle_recv_length(P, #{buffer := Buffer} = D, ActionsR, Length) ->
 %% is the last argument binary and D#{buffer} is not updated
 %%
 handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
-    %5 ?DBG('try socket recv'),
+    %% ?DBG('try socket recv'),
     case socket_recv(P#params.socket, Length) of
         {ok, <<Data/binary>>} ->
             handle_recv_deliver(
