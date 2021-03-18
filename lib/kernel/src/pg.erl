@@ -306,8 +306,8 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, nodes = Node
     end;
 
 %% we're being discovered, let's exchange!
-handle_info({discover, Peer}, #state{scope = Scope, nodes = Nodes} = State) ->
-    gen_server:cast(Peer, {sync, self(), all_local_pids(Scope)}),
+handle_info({discover, Peer}, #state{nodes = Nodes, monitors = Monitors} = State) ->
+    gen_server:cast(Peer, {sync, self(), all_local_pids(Monitors)}),
     %% do we know who is looking for us?
     case maps:is_key(Peer, Nodes) of
         true ->
@@ -524,9 +524,20 @@ leave_remote(Scope, Pids, Groups) ->
         end ||
         Group <- Groups].
 
-all_local_pids(Scope) ->
-    %% selector: ets:fun2ms(fun({N,_,L}) when L =/=[] -> {N,L}end).
-    ets:select(Scope, [{{'$1','_','$2'},[{'=/=','$2',[]}],[{{'$1','$2'}}]}]).
+all_local_pids(Monitors) ->
+    maps:to_list(maps:fold(
+        fun(Pid, {_Ref, Groups}, Acc) ->
+            lists:foldl(
+                fun(Group, Acc1) ->
+                    Acc1#{Group => [Pid | maps:get(Group, Acc1, [])]}
+                end,
+                Acc,
+                Groups
+            )
+        end,
+        #{},
+        Monitors
+    )).
 
 %% Works as gen_server:abcast(), but accepts a list of processes
 %%   instead of nodes list.
