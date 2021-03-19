@@ -474,7 +474,8 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         a.bind(check_bif_return);
         emit_test_the_non_value(ARG3);
 
-        a.short_().je(trap);
+        /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
+        a.je(trap);
 
         a.mov(HTOP, ARG5);
 #ifdef NATIVE_ERLANG_STACK

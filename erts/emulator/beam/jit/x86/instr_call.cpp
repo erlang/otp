@@ -41,7 +41,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 void BeamModuleAssembler::emit_return() {
     Label dispatch_return = a.newLabel();
 
-#ifdef HARD_DEBUG
+#ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgVal(ArgVal::u, 1));
 #endif
@@ -236,6 +236,8 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
     a.lea(ARG5, TMP_MEM1q);
     runtime_call<5>(apply_fun);
 
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
     a.mov(ARG2, RET);
     a.test(RET, RET);
 
@@ -243,8 +245,6 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
      * convention in case we applied an external fun. See
      * `emit_setup_export_call` for details. */
     a.mov(RET, TMP_MEM1q);
-
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
 
     a.short_().jne(dispatch);
     emit_handle_error();
@@ -284,6 +284,8 @@ x86::Gp BeamModuleAssembler::emit_call_fun(const ArgVal &Fun) {
     a.lea(ARG5, TMP_MEM1q);
     runtime_call<5>(call_fun);
 
+    emit_leave_runtime<Update::eStack | Update::eHeap>();
+
     a.mov(ARG2, RET);
     a.test(RET, RET);
 
@@ -291,8 +293,6 @@ x86::Gp BeamModuleAssembler::emit_call_fun(const ArgVal &Fun) {
      * convention in case we called an external fun. See
      * `emit_setup_export_call` for details. */
     a.mov(RET, TMP_MEM1q);
-
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
 
     a.short_().jne(dispatch);
     emit_handle_error();

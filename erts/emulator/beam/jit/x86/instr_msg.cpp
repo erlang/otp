@@ -201,7 +201,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it */
         a.mov(ARG1, message_ptr);
         a.test(ARG1, ARG1);
-        a.short_().jne(check_is_distributed);
+        /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
+        a.jne(check_is_distributed);
 
         /* Did we receive a signal or run out of reds? */
         a.cmp(get_out, imm(0));
@@ -234,7 +235,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     {
         a.cmp(x86::qword_ptr(ARG1, offsetof(ErtsSignal, common.tag)),
               imm(THE_NON_VALUE));
-        a.short_().jne(done);
+        /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
+        a.jne(done);
 
         a.sub(FCALLS, imm(10));
 
@@ -355,7 +357,11 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
     ERTS_CT_ASSERT(RET_next < RET_wait && RET_wait < RET_badarg);
     a.cmp(RET, RET_wait);
     a.short_().je(wait);
+#ifdef JIT_HARD_DEBUG
+    a.jl(next);
+#else
     a.short_().jl(next);
+#endif
 
     emit_handle_error(currLabel, (ErtsCodeMFA *)nullptr);
 

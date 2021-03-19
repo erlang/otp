@@ -26,7 +26,7 @@
 #include "erl_vm.h"
 #include "global.h"
 
-#if defined(DEBUG) && defined(HARD_DEBUG)
+#if defined(DEBUG) && defined(JIT_HARD_DEBUG)
 void beam_jit_validate_term(Eterm term);
 #endif
 

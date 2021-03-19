@@ -557,7 +557,11 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgVal &Src,
 
     a.and_(RETb, imm(_HEADER_SUBTAG_MASK));
     a.cmp(RETb, imm(BIN_MATCHSTATE_SUBTAG));
+#ifdef JIT_HARD_DEBUG
+    a.je(next);
+#else
     a.short_().je(next);
+#endif
 
     if (Fail.getValue() != 0) {
         comment("is_binary_header");
@@ -687,7 +691,11 @@ x86::Mem BeamModuleAssembler::emit_bs_get_integer_prologue(Label next,
 
     /* The above call can't fail since we work on small numbers and
      * bounds-tested above. */
+#ifdef JIT_HARD_DEBUG
+    a.jmp(next);
+#else
     a.short_().jmp(next);
+#endif
 
     a.bind(aligned);
     {

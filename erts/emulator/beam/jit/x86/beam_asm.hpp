@@ -268,9 +268,9 @@ protected:
     }
 
 #if !defined(NATIVE_ERLANG_STACK)
-#    ifdef HARD_DEBUG
+#    ifdef JIT_HARD_DEBUG
     constexpr x86::Mem getInitialSPRef() const {
-        int base = offsetof(ErtsSchedulerRegisters, aux_regs.d.initial_sp);
+        int base = offsetof(ErtsSchedulerRegisters, initial_sp);
 
         return getSchedulerRegRef(base);
     }
@@ -348,21 +348,27 @@ protected:
         a.lea(reg, getSchedulerRegRef(offset));
     }
 
+    /* Ensure that the Erlang stack is used and the redzone is unused.
+     * We combine those test to minimize the number of instructions.
+     */
     void emit_assert_redzone_unused() {
-#ifdef HARD_DEBUG
+#ifdef JIT_HARD_DEBUG
         const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
-        Label next = a.newLabel();
+        Label ok = a.newLabel(), crash = a.newLabel();
 
         /* We modify the stack pointer to avoid spilling into a register,
          * TMP_MEM, or using the stack. */
         a.sub(E, imm(REDZONE_BYTES));
         a.cmp(HTOP, E);
-        a.add(E, imm(REDZONE_BYTES));
+        a.short_().ja(crash);
+        a.cmp(E, x86::qword_ptr(c_p, offsetof(Process, hend)));
+        a.short_().jle(ok);
 
-        a.jbe(next);
+        a.bind(crash);
         a.ud2();
 
-        a.bind(next);
+        a.bind(ok);
+        a.add(E, imm(REDZONE_BYTES));
 #endif
     }
 
@@ -374,7 +380,6 @@ protected:
 #ifdef NATIVE_ERLANG_STACK
         /* We use the Erlang stack as the native stack. We can use a
          * native `call` instruction. */
-        emit_assert_erlang_stack();
         emit_assert_redzone_unused();
         aligned_call(Target);
 #else
@@ -400,10 +405,9 @@ protected:
      */
     template<typename Any>
     void fragment_call(Any Target) {
-        emit_assert_erlang_stack();
         emit_assert_redzone_unused();
 
-#if defined(HARD_DEBUG) && !defined(NATIVE_ERLANG_STACK)
+#if defined(JIT_HARD_DEBUG) && !defined(NATIVE_ERLANG_STACK)
         /* Verify that the stack has not grown. */
         Label next = a.newLabel();
         a.cmp(x86::rsp, getInitialSPRef());
@@ -417,7 +421,7 @@ protected:
 
     /*
      * Calls the given function pointer. In a debug build with
-     * HARD_DEBUG defined, it will be enforced that the redzone is
+     * JIT_HARD_DEBUG defined, it will be enforced that the redzone is
      * unused.
      *
      * The return will NOT be aligned, and thus will not form a valid
@@ -427,7 +431,6 @@ protected:
      * switch.
      */
     void safe_fragment_call(void (*Target)()) {
-        emit_assert_erlang_stack();
         emit_assert_redzone_unused();
         a.call(imm(Target));
     }
@@ -476,7 +479,7 @@ protected:
             a.embed(nops[nop_count - 1], nop_count);
         }
 
-#ifdef HARD_DEBUG
+#ifdef JIT_HARD_DEBUG
         /* TODO: When frame pointers are in place, assert (at runtime) that the
          * destination has a `push rbp; mov rbp, rsp` sequence. */
 #endif
@@ -599,12 +602,8 @@ protected:
     }
 
     void emit_assert_runtime_stack() {
-#ifdef HARD_DEBUG
+#ifdef JIT_HARD_DEBUG
         Label crash = a.newLabel(), next = a.newLabel();
-
-        /* Are we 16-byte aligned? */
-        a.test(E, (16 - 1));
-        a.jne(crash);
 
 #    ifdef NATIVE_ERLANG_STACK
         /* Ensure that we are using the runtime stack. */
@@ -614,32 +613,37 @@ protected:
         start_offs = offsetof(ErtsSchedulerRegisters, runtime_stack_start);
 
         a.cmp(E, getSchedulerRegRef(end_offs));
-        a.short_().jl(crash);
+        a.short_().jbe(crash);
         a.cmp(E, getSchedulerRegRef(start_offs));
-        a.short_().jle(next);
-
+        a.short_().ja(crash);
 #    endif
+
+        /* Are we 16-byte aligned? */
+        a.test(x86::rsp, (16 - 1));
+        a.short_().je(next);
+
         a.bind(crash);
         a.ud2();
+
         a.bind(next);
 #endif
     }
 
     void emit_assert_erlang_stack() {
-#ifdef HARD_DEBUG
+#ifdef JIT_HARD_DEBUG
         Label crash = a.newLabel(), next = a.newLabel();
 
         /* Are we term-aligned? */
         a.test(E, imm(sizeof(Eterm) - 1));
-        a.jne(crash);
+        a.short_().jne(crash);
 
         a.cmp(E, x86::qword_ptr(c_p, offsetof(Process, heap)));
-        a.jl(crash);
+        a.short_().jl(crash);
         a.cmp(E, x86::qword_ptr(c_p, offsetof(Process, hend)));
-        a.jle(next);
+        a.short_().jle(next);
 
         a.bind(crash);
-        a.hlt();
+        a.ud2();
         a.bind(next);
 #endif
     }

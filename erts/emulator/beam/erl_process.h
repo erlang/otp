@@ -661,7 +661,7 @@ typedef struct ErtsSchedulerRegisters_ {
     ErtsCodePtr start_time_i;
     UWord start_time;
 
-#if !defined(NATIVE_ERLANG_STACK) && defined(HARD_DEBUG)
+#if !defined(NATIVE_ERLANG_STACK) && defined(JIT_HARD_DEBUG)
     /* Holds the initial thread stack pointer. Used to ensure that everything
      * that is pushed to the stack is also popped. */
     UWord *initial_sp;
