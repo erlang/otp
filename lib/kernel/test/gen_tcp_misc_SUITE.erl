@@ -4096,21 +4096,21 @@ validate_acceptor_state(LS, ExpStates, ExpNotStates) when is_port(LS) ->
 
 validate_acceptor_state(LS, ExpNumAcc, ExpState, ExpNotState) ->
     case inet:info(LS) of
-        #{num_acceptors := ExpNumAcc, rstate := State} ->
+        #{num_acceptors := ExpNumAcc, rstates := States} ->
             ?P("try validate state when: "
                "~n   Expected State:     ~p"
                "~n   Expected Not State: ~p"
-               "~n   RState:             ~p", [ExpState, ExpNotState, State]),
+               "~n   RStates:            ~p", [ExpState, ExpNotState, States]),
 
-            %% State *shall* contain ExpState => State1 =/= State
-            State1 = State -- ExpState,
+            %% States *shall* contain ExpState => States1 =/= States
+            States1 = States -- ExpState,
             
-            %% State shall *not* contain ExpNotState => State2 =:= State
-            State2 = State -- ExpNotState,
+            %% States shall *not* contain ExpNotState => States2 =:= States
+            States2 = States -- ExpNotState,
 
             if
-                (State1 =/= State) andalso
-                (State2 =:= State) ->
+                (States1 =/= States) andalso
+                (States2 =:= States) ->
                     ?P("validated: "
                        "~n    Expected States:     ~p"
                        "~n    Expected Not States: ~p",
@@ -4120,20 +4120,20 @@ validate_acceptor_state(LS, ExpNumAcc, ExpState, ExpNotState) ->
                     ?P("invalid states: "
                        "~n   Expected State:     ~p"
                        "~n   Expected Not State: ~p"
-                       "~n   State:              ~p",
-                       [ExpState, ExpNotState, State]),
+                       "~n   States:             ~p",
+                       [ExpState, ExpNotState, States]),
                     ct:fail("Invalid state(s)")
             end;
 
-        #{num_acceptors := NumAcc, rstate := RState, wstate := WState} ->
+        #{num_acceptors := NumAcc, rstates := RStates, wstates := WStates} ->
             ?P("invalid state: "
                "~n   Expected Num Acceptors: ~w"
                "~n   Num Acceptors:          ~w"
                "~n   Expected State:         ~p"
                "~n   Expected Not State:     ~p"
-               "~n   RState:                 ~p"
-               "~n   WState:                 ~p",
-               [ExpNumAcc, NumAcc, ExpState, RState, WState]),
+               "~n   RStates:                ~p"
+               "~n   WStates:                ~p",
+               [ExpNumAcc, NumAcc, ExpState, RStates, WStates]),
             ct:fail("Invalid state");
 
         InvalidInfo ->
@@ -4142,7 +4142,7 @@ validate_acceptor_state(LS, ExpNumAcc, ExpState, ExpNotState) ->
                "~n   Expected State:         ~p"
                "~n   Expected Not State:     ~p"
                "~n   Invalid Info:           ~p",
-               [ExpNumAcc, ExpState, InvalidInfo]),
+               [ExpNumAcc, ExpNumAcc, ExpState, InvalidInfo]),
             ct:fail("Invalid state")
     end.
     
