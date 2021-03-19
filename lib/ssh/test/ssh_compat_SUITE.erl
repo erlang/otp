@@ -310,6 +310,7 @@ all_algorithms_sftp_exec_reneg_otp_is_client(Config) ->
 %%--------------------------------------------------------------------
 renegotiation_otp_is_server(Config) ->
     PublicKeyAlgs = [A || {public_key,A} <- proplists:get_value(common_remote_client_algs, Config, [])],
+    ct:log("PublicKeyAlgs = ~p", [PublicKeyAlgs]),
     UserDir = setup_remote_priv_and_local_auth_keys(hd(PublicKeyAlgs), Config),
     SftpRootDir = new_dir(Config),
     ct:log("Rootdir = ~p",[SftpRootDir]),
@@ -321,6 +322,7 @@ renegotiation_otp_is_server(Config) ->
                              {user_dir, UserDir},
                              {user_passwords, [{?USER,?PASSWD}]},
                              {failfun, fun ssh_test_lib:failfun/2},
+                             {modify_algorithms, [{append, [{public_key,PublicKeyAlgs}]}]},
                              {connectfun,
                               fun(_,_,_) ->
                                       HostConnRef = self(),
@@ -1237,13 +1239,13 @@ call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir, Ref) ->
 recv_log_msgs(C, Ch) ->
     receive
         {ssh_cm,C,{closed,Ch}} ->
-            %% ct:log("Channel closed ~p",[{closed,1}]),
+            ct:log("Channel closed ~p",[{closed,1}]),
             ok;
         {ssh_cm,C,{data,Ch,1,Msg}} ->
             ct:log("*** ERROR from docker:~n~s",[Msg]),
             recv_log_msgs(C, Ch);
         {ssh_cm,C,_Msg} ->
-            %% ct:log("Got ~p",[_Msg]),
+            ct:log("Got ~p",[_Msg]),
             recv_log_msgs(C, Ch)
     after
         30000 ->

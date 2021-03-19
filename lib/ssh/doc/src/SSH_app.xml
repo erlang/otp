@@ -206,11 +206,11 @@
 	  <item>ssh-ed448</item>
 	  <item>rsa-sha2-256</item>
 	  <item>rsa-sha2-512</item>
-	  <item>ssh-rsa <i>(SHA1 sign/verify are supported but disabled by default from OTP-24)</i></item>
 	</list>
-	<p>The following unsecure <c>SHA1</c> algorithm is supported but disabled by default:</p>
+	<p>The following unsecure <c>SHA1</c> algorithms are supported but disabled by default:</p>
 	<list>
 	  <item>(ssh-dss)</item>
+	  <item>(ssh-rsa)</item>
 	</list>
 	<p>See 
 	Disabled public key algorithms can be enabled with the
@@ -318,6 +318,7 @@
 	<item>6.6.  Public Key Algorithms
 	<list type="bulleted">
 	  <item>ssh-dss</item>
+	  <item>ssh-rsa</item>
 	</list>
 	</item>
       </list>
