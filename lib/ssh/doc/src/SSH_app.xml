@@ -450,7 +450,7 @@
       </item>
 
       <item>
-	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</url>
+	<url href="https://tools.ietf.org/html/rfc8731">Secure Shell (SSH) Key Exchange Method Using Curve25519 and Curve448</url>
 	<p/>
       </item>
 
