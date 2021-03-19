@@ -6258,6 +6258,22 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
     next_sig = tracing->messages.next;
     sig = *next_sig;
 
+    if (!sig) {
+        ASSERT(!*next_nm_sig);
+        return 1; /* end... */
+    }
+    
+    if (ERTS_SIG_IS_RECV_MARKER(sig) && ((ErtsRecvMarker *) sig)->in_msgq) {
+	/*
+	 * Skip already handled receive marker that just entered
+	 * the message queue...
+	 */
+        next_sig = &sig->next;
+        sig = *next_sig;
+	ASSERT(!ERTS_SIG_IS_RECV_MARKER(sig)
+	       || !((ErtsRecvMarker *) sig)->in_msgq);
+    }
+    
     /*
      * Receive tracing active. Handle all messages
      * until next non-message signal...
