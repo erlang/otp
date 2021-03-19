@@ -5862,32 +5862,52 @@ wc_await_socket(Tag, Pid) ->
     end.
 
 wc_await_completion(Acceptor, ASock, Pump, PSock) ->
+    wc_await_completion(Acceptor, ASock, Pump, PSock, 1, undefined).
+
+wc_await_completion(undefined = _Acceptor, _ASock,
+                    undefined = _Pump,     _PSock, 
+                    Loops, Res) ->
+    ?P("completed after ~w loops", [Loops]),
+    Res;
+wc_await_completion(Acceptor, ASock, Pump, PSock, Loops, CRes) ->
     receive
         {'EXIT', Pump, Res} ->
             ?P("[ctrl] Received pump exit: "
-               "~n      ~p", [Res]),
-            Res;
+               "~n   Loops:  ~w"
+               "~n   Reason: ~p", [Loops, Res]),
+            wc_await_completion(Acceptor,  ASock,
+                                undefined, PSock,
+                                Loops + 1, Res);
         {'EXIT', Acceptor, Res} ->
-            ?P("[ctrl] Received unexpected acceptor exit: "
-               "~n      ~p", [Res]),
-            wc_await_completion(undefined, ASock, Pump, PSock)
+            ?P("[ctrl] Received acceptor exit: "
+               "~n   Loops:  ~w"
+               "~n   Reason: ~p", [Loops, Res]),
+            wc_await_completion(undefined, ASock,
+                                Pump,      PSock,
+                                Loops + 1, CRes)
                 
     after 10000 ->
-            ASockStat = wc_sock_stat(ASock),
+            ASockInfo = wc_sock_info(ASock),
             AccInfo   = wc_proc_info(Acceptor),
-            PSockStat = wc_sock_stat(PSock),
+            PSockInfo = wc_sock_info(PSock),
             PumpInfo  = wc_proc_info(Pump),
-            ?P("Info: "
-               "~n   Acceptor Socket Stat: ~p"
+            ?P("Info ~w while waiting for clompletion: "
+               "~n   Acceptor Socket Info: ~p"
                "~n   Acceptor Info:        ~p"
-               "~n   Pump Socket Stat:     ~p"
+               "~n   Pump Socket Info:     ~p"
                "~n   Pump Info:            ~p",
-               [ASockStat, AccInfo, PSockStat, PumpInfo]),
-            wc_await_completion(Acceptor, ASock, Pump, PSock)
+               [Loops, ASockInfo, AccInfo, PSockInfo, PumpInfo]),
+            wc_await_completion(Acceptor,  ASock,
+                                Pump,      PSock,
+                                Loops + 1, CRes)
     end.
             
-wc_sock_stat(S) ->
-    inet:getstat(S).
+wc_sock_info(S) ->
+    try inet:info(S)
+    catch
+        _:_:_ ->
+            undefined
+    end.
 
 wc_proc_info(P) when is_pid(P) ->
     try erlang:process_info(P)
@@ -5969,16 +5989,12 @@ oct_acceptor(Ctrl, LSock) ->
     {ok, [{recbuf,RecBuf}]} = inet:getopts(ASock, [recbuf]),
     ?P("[acceptor] connection accepted - start receiving with: "
        "~n      RecBuf: ~w", [RecBuf]),
-    InitialInfo = if
-		      is_port(ASock) -> erlang:port_info(ASock);
-		      true           -> gen_tcp_socket:info(ASock)
-		  end,
     put(action,  nothing),
     put(recv,    0),
     put(elapsed, 0),
-    oct_aloop(ASock, [], InitialInfo, 0, 0).
+    oct_aloop(ASock, inet:info(ASock), 0, 0).
 
-oct_aloop(S, LastStat, LastInfo, Received, Times) ->
+oct_aloop(S, LastInfo, Received, Times) ->
     put(action, recv),
     Start   = erlang:monotonic_time(),
     Res     = gen_tcp:recv(S, 0),
@@ -5989,49 +6005,31 @@ oct_aloop(S, LastStat, LastInfo, Received, Times) ->
     put(recv,    Times+1),
     case Res of
 	{ok, _} ->
-	    Info = if
-		       is_port(S) -> erlang:port_info(S);
-		       true -> gen_tcp_socket:info(S)
-		   end,
-	    case inet:getstat(S) of
-		{ok, Stat} ->
-		    {_, R} = lists:keyfind(recv_oct, 1, Stat),
-		    case (R < Received) of
-			true ->
-			    ?P("[acceptor] recv counter error:"
-			       "~n      Recv Cnt:  ~p"
-			       "~n      Received:  ~p"
-			       "~n      Times:     ~p"
-			       "~n      Stat:      ~p"
-			       "~n      Last Stat: ~p"
-			       "~n      Info:      ~p"
-			       "~n      Last Info: ~p",
-			       [R, Received, Times, Stat,
-				LastStat, Info, LastInfo]),
-			    (catch gen_tcp:close(S)),
-			    {error, {output_counter, R, Received, Times}};
-			false ->
-			    case Times rem 16#FFFFF of
-				0 ->
-				    ?P("[acceptor] read: ~p"
-                                       "~n      Times: ~w"
-                                       "~n      Stat:  ~p"
-                                       "~n      Info:  ~p",
-                                       [R, Times, Stat, Info]);
-				_ ->
-				    ok
-			    end,
-			    oct_aloop(S, Stat, Info, R, Times+1)
-		    end;
-		{error, StatReason} ->
-		    ?P("[acceptor] get stat failed:"
-		       "~n      Reason:   ~p"
-		       "~n   when"
-		       "~n      Received: ~p"
-		       "~n      Times:    ~p", [StatReason, Received, Times]),
-		    (catch gen_tcp:close(S)),
-		    exit({error, {stat_failure, StatReason, Received, Times}})
-	    end;
+            #{counters := #{recv_oct := R} = _Stat} = Info = inet:info(S),
+            case (R < Received) of
+                true ->
+                    ?P("[acceptor] recv counter error:"
+                       "~n      Recv Cnt:  ~p"
+                       "~n      Received:  ~p"
+                       "~n      Times:     ~p"
+                       "~n      Info:      ~p"
+                       "~n      Last Info: ~p",
+                       [R, Received, Times, Info, LastInfo]),
+                    (catch gen_tcp:close(S)),
+                    {error, {output_counter, R, Received, Times}};
+                false ->
+                    case Times rem 16#FFFFF of
+                        0 ->
+                            ?P("[acceptor] read: ~p"
+                               "~n      Times: ~w"
+                               "~n      Info:  ~p",
+                               [R, Times, Info]);
+                        _ ->
+                            ok
+                    end,
+                    oct_aloop(S, Info, R, Times+1)
+            end;
+
 	{error, RecvReason} ->
 	    ?P("[acceptor] receive failed:"
 	       "~n      Reason:   ~p"
