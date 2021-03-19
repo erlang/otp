@@ -313,7 +313,8 @@ expr({record,Anno0,Name,Is}, St) ->
     expr({tuple,Anno,[{atom,Anno0,Name} |
                       record_inits(record_fields(Name, Anno0, St), Is)]},
          St);
-expr({record_field,Anno,R,Name,F}, St) ->
+expr({record_field,_A,R,Name,F}, St) ->
+    Anno = erl_parse:first_anno(R),
     get_record_field(Anno, R, F, Name, St);
 expr({record,Anno,R,Name,Us}, St0) ->
     {Ue,St1} = record_update(R, Name, record_fields(Name, Anno, St0), Us, St0),
