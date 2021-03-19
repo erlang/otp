@@ -1,8 +1,7 @@
     <section>
       <title>Crypto Old API</title>
-      <p>The <seeguide marker="crypto:new_api#the-old-api">Old API</seeguide> is now deprecated
-      and has also been
-      <seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>.</p>
+      <p>The <seeguide marker="crypto:new_api#the-old-api">Old API</seeguide> is deprecated
+      as of OTP 23 and has been <seeguide marker="removed#otp-24">removed in OTP 24</seeguide>.</p>
       <p>For replacement functions see the
       <seeguide marker="crypto:new_api#the-new-api">New API</seeguide>.</p>
     </section>
@@ -35,8 +34,7 @@
 	As of OTP 23, the distributed
 	<seeerl marker="kernel:disk_log"><c>disk_log</c></seeerl>
 	feature has been deprecated and it has also been
-	<seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>
-	in OTP 24.
+	<seeguide marker="removed#otp-24">removed in OTP 24</seeguide>.
       </p>
     </section>
 
@@ -45,6 +43,6 @@
       <p>
 	As of OTP 23, the <c>registry</c> functionality part of
 	<c>erl_interface</c> has been deprecated and it has also been
-	removed in OTP 24.
+	<seeguide marker="removed#otp-24">removed in OTP 24</seeguide>.
       </p>
     </section>
