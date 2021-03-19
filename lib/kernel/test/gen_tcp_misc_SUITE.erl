@@ -174,7 +174,8 @@ all_cases() ->
      zombie_sockets,
      otp_7816,
      otp_8102, otp_9389,
-     otp_12242, delay_send_error, bidirectional_traffic
+     otp_12242, delay_send_error,
+     bidirectional_traffic
     ].
 
 
@@ -5559,10 +5560,7 @@ otp_7816_ctrl(Socket, BinNr, BinSize, Server) ->
     ?P("[ctrl] create payload (BinSz: ~w)...", [BinSize]),
     Data = lists:duplicate(BinNr, <<1:(BinSize*8)>>),
     ?P("[ctrl] socket info prior to start sending: "
-       "~n      ~p",
-       [if is_port(Socket) -> erlang:port_info(Socket);
-	   true -> gen_tcp_socket:info(Socket)
-	end]),
+       "~n      ~p", [inet:info(Socket)]),
     Ctrl   = self(),
     Client = spawn_link(fun() -> otp_7816_send_data(Ctrl, Socket, Data) end),
     SentBytes =
@@ -5575,11 +5573,7 @@ otp_7816_ctrl(Socket, BinNr, BinSize, Server) ->
 	end,
     ct:sleep(1000),
     ?P("[ctrl] socket info after sending ~w bytes: "
-       "~n      ~p",
-       [SentBytes,
-	if is_port(Socket) -> erlang:port_info(Socket);
-	   true -> gen_tcp_socket:info(Socket)
-	end]),
+       "~n      ~p", [SentBytes, inet:info(Socket)]),
     ?P("[ctrl] await server result..."),
     ok = receive
 	     {Server, SR} ->
@@ -5704,17 +5698,11 @@ otp_7816_recv(Socket, BytesLeft, N) ->
 	       "~n   Expected:    ~p bytes"
 	       "~n   Received:    ~p bytes"
 	       "~n   Socket Info: ~p",
-	       [N, BytesLeft, byte_size(Bin),
-		if is_port(Socket) -> erlang:port_info(Socket);
-		   true -> gen_tcp_socket:info(Socket)
-		end]),
+	       [N, BytesLeft, byte_size(Bin), inet:info(Socket)]),
 	    {error, {unexpected_data, BytesLeft, byte_size(Bin)}};
 	{error, timeout} ->
 	    ?P("[server] got receive timeout when expecting more data:"
-	       "~n      Socket Info: ~p",
-	       [if is_port(Socket) -> erlang:port_info(Socket);
-		   true -> gen_tcp_socket:info(Socket)
-		end]),
+	       "~n      Socket Info: ~p", [inet:info(Socket)]),
 	    {error, timeout}
     end.
 
@@ -6452,56 +6440,22 @@ recv(Socket, Total, Control) ->
         {tcp_closed, Socket} ->
             ?P("[recv] closed when total received: ~w"
                "~n      Socket Info: ~p",
-	       [Total,
-                (catch gen_tcp_socket:info(Socket))]),
+	       [Total, (catch inet:info(Socket))]),
 	    ok;
-        Other when is_port(Socket) ->
-            ?P("[recv] received unexpected when total received: ~w"
-               "~n      ~p"
-               "~n      Socket:      ~p"
-               "~n      Port stat:   ~p"
-               "~n      Port status: ~p"
-               "~n      Port Info:   ~p",
-               [Total, Other,
-                Socket,
-                (catch inet:getstat(Socket)),
-                (catch prim_inet:getstatus(Socket)),
-                (catch erlang:port_info(Socket))]),
-            Control ! {error, Socket, Other};
         Other ->
             ?P("[recv] received unexpected when total received: ~w"
                "~n      ~p"
                "~n      Socket:      ~p"
                "~n      Socket Info: ~p",
-               [Total, Other,
-                Socket,
-                (catch gen_tcp_socket:info(Socket))]),
+               [Total, Other, Socket, (catch inet:info(Socket))]),
             Control ! {error, Socket, Other}
     after 2000 ->
-	    if
-		is_port(Socket) ->
-		    %% no data received in 2 seconds, test failed
-		    ?P("[recv] received nothing when total received: ~w"
-		       "~n      Socket:      ~p"
-		       "~n      Port stat:   ~p"
-		       "~n      Port status: ~p"
-		       "~n      Port Info:   ~p",
-		       [Total,
-			Socket,
-			(catch inet:getstat(Socket)),
-			(catch prim_inet:getstatus(Socket)),
-			(catch erlang:port_info(Socket))]),
-		    Control ! {timeout, Socket, Total};
-		true ->
-		    %% no data received in 2 seconds, test failed
-		    ?P("[recv] received nothing when total received: ~w"
-		       "~n      Socket:      ~p"
-		       "~n      Socket Info: ~p",
-		       [Total,
-			Socket,
-			(catch gen_tcp_socket:info(Socket))]),
-		    Control ! {timeout, Socket, Total}
-	    end
+            %% no data received in 2 seconds => test failed
+            ?P("[recv] received nothing when total received: ~w"
+               "~n      Socket:      ~p"
+               "~n      Socket Info: ~p",
+               [Total, Socket, (catch inet:info(Socket))]),
+            Control ! {timeout, Socket, Total}
     end.
 
 
