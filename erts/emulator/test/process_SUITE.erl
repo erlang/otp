@@ -47,7 +47,8 @@
          process_info_reductions/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
-	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1,
+	 process_info_messages/1, process_flag_badarg/1,
+         process_flag_fullsweep_after/1, process_flag_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
@@ -106,7 +107,8 @@ all() ->
      process_info_reductions,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
-     process_flag_badarg, process_flag_heap_size,
+     process_flag_badarg,
+     process_flag_fullsweep_after, process_flag_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
      spawn_huge_arglist,
      spawn_request_bif,
@@ -1595,6 +1597,7 @@ process_flag_badarg(Config) when is_list(Config) ->
     chk_badarg(fun () -> process_flag(gurka, banan) end),
     chk_badarg(fun () -> process_flag(trap_exit, gurka) end),
     chk_badarg(fun () -> process_flag(error_handler, 1) end),
+    chk_badarg(fun () -> process_flag(fullsweep_after, gurka) end),
     chk_badarg(fun () -> process_flag(min_heap_size, gurka) end),
     chk_badarg(fun () -> process_flag(min_bin_vheap_size, gurka) end),
     chk_badarg(fun () -> process_flag(min_bin_vheap_size, -1) end),
@@ -2211,6 +2214,15 @@ processes_gc_trap(Config) when is_list(Config) ->
 
     unlink(Suspendee),
     exit(Suspendee, bang),
+    ok.
+
+process_flag_fullsweep_after(Config) when is_list(Config) ->
+    {fullsweep_after, OldFSA} = process_info(self(), fullsweep_after),
+    OldFSA = process_flag(fullsweep_after, 12345),
+    {fullsweep_after, 12345} = process_info(self(), fullsweep_after),
+    12345 = process_flag(fullsweep_after, 0),
+    {fullsweep_after, 0} = process_info(self(), fullsweep_after),
+    0 = process_flag(fullsweep_after, OldFSA),
     ok.
 
 process_flag_heap_size(Config) when is_list(Config) ->

@@ -1854,6 +1854,19 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        else
 	   BIF_RET(old_value);
    }
+   else if (BIF_ARG_1 == am_fullsweep_after) {
+       Sint i;
+       if (!is_small(BIF_ARG_2)) {
+	   goto error;
+       }
+       i = signed_val(BIF_ARG_2);
+       if (i < 0) {
+	   goto error;
+       }
+       old_value = make_small(BIF_P->max_gen_gcs);
+       BIF_P->max_gen_gcs = i;
+       BIF_RET(old_value);
+   }
    else if (BIF_ARG_1 == am_min_heap_size) {
        Sint i;
        if (!is_small(BIF_ARG_2)) {
