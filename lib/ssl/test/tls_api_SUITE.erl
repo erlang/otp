@@ -39,6 +39,8 @@
 %% Test cases
 -export([tls_upgrade/0,
          tls_upgrade/1,
+         tls_upgrade_new_opts/0,
+         tls_upgrade_new_opts/1,         
          tls_upgrade_with_timeout/0,
          tls_upgrade_with_timeout/1,
          tls_downgrade/0,
@@ -83,6 +85,7 @@
 
 %% Apply export
 -export([upgrade_result/1,
+         upgrade_result_new_opts/1,
          tls_downgrade_result/2,
          tls_shutdown_result/2,
          tls_shutdown_write_result/2,
@@ -117,6 +120,7 @@ groups() ->
 api_tests() ->
     [
      tls_upgrade,
+     tls_upgrade_new_opts,
      tls_upgrade_with_timeout,
      tls_downgrade,
      tls_shutdown,
@@ -199,6 +203,44 @@ tls_upgrade(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+tls_upgrade_new_opts() ->
+    [{doc,"Test that you can upgrade an tcp connection to an ssl connection and give new socket opts"}].
+
+tls_upgrade_new_opts(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+
+    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0}, 
+						{from, self()}, 
+						{mfa, {?MODULE, 
+						       upgrade_result_new_opts, []}},
+						{tcp_options, 
+						 [{active, false} | TcpOpts]},
+						{ssl_options, [{verify, verify_peer},
+                                                               {mode, list} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_upgrade_client([{node, ClientNode}, 
+						{port, Port}, 
+				   {host, Hostname},
+				   {from, self()}, 
+				   {mfa, {?MODULE, upgrade_result_new_opts, []}},
+				   {tcp_options, [binary]},
+				   {ssl_options,  [{verify, verify_peer},
+                                                   {mode, list},
+                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 %%--------------------------------------------------------------------
 tls_upgrade_with_timeout() ->
     [{doc,"Test handshake/3"}].
@@ -815,6 +857,14 @@ upgrade_result(Socket) ->
     %% Make sure binary is inherited from tcp socket and that we do
     %% not get the list default!
     <<"Hello world">> =  ssl_test_lib:active_recv(Socket, length("Hello world")),
+    ok.
+
+upgrade_result_new_opts(Socket) ->
+    ssl:setopts(Socket, [{active, true}]),
+    ok = ssl:send(Socket, "Hello world"),
+    %% Make sure list option set in ssl:connect/handskae overrides 
+    %% previous gen_tcp socket option that was set to binary.
+    "Hello world" =  ssl_test_lib:active_recv(Socket, length("Hello world")),
     ok.
 
 tls_downgrade_result(Socket, Pid) ->

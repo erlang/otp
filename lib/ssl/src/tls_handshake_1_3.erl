@@ -896,10 +896,15 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     end.
 
 
-do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
+do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, #state{static_env = #static_env{role = Role}} = State0) ->
     {Ref,Maybe} = maybe(),
     try
-        State1 = Maybe(verify_signature_algorithm(State0, CertificateVerify)),
+        State1 = case Role of
+                     server ->
+                         Maybe(verify_signature_algorithm(State0, CertificateVerify));
+                     client ->
+                         State0
+                 end,
         Maybe(verify_certificate_verify(State1, CertificateVerify))
     catch
         {Ref, {#alert{} = Alert, State}} ->
@@ -1403,26 +1408,33 @@ process_certificate_request(#certificate_request_1_3{},
     {ok, {State#state{client_certificate_requested = true}, wait_cert}};
 
 process_certificate_request(#certificate_request_1_3{
-                              extensions = Extensions},
-                            #state{session = #session{own_certificates = [Cert|_]} = Session} = 
+                               extensions = Extensions},
+                            #state{ssl_options = #{signature_algs := ClientSignAlgs},
+                                   session = #session{own_certificates = [Cert|_]} = Session} =
                                 State) ->
     ServerSignAlgs = get_signature_scheme_list(
                        maps:get(signature_algs, Extensions, undefined)),
     ServerSignAlgsCert = get_signature_scheme_list(
                            maps:get(signature_algs_cert, Extensions, undefined)),
 
-    {_PublicKeyAlgo, SignAlgo, SignHash, _} = get_certificate_params(Cert),
-
-    %% Check if server supports signature algorithm of client certificate
-    case check_cert_sign_algo(SignAlgo, SignHash, ServerSignAlgs, ServerSignAlgsCert) of
-        ok ->
-            {ok, {State#state{client_certificate_requested = true}, wait_cert}};
-        {error, _} ->
-            %% Certificate not supported: send empty certificate in state 'wait_finished'
+    {PublicKeyAlgo, SignAlgo, SignHash, MaybeRSAKeySize} = get_certificate_params(Cert),
+    {Ref, Maybe} = maybe(),
+    try
+        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, MaybeRSAKeySize, ServerSignAlgs, ClientSignAlgs)),
+        %% Check if server supports signature algorithm of client certificate
+        case check_cert_sign_algo(SignAlgo, SignHash, ServerSignAlgs, ServerSignAlgsCert) of
+            ok ->
             {ok, {State#state{client_certificate_requested = true,
-                              session = Session#session{own_certificates = undefined}}, wait_cert}}
+                              session = Session#session{sign_alg = SelectedSignAlg}}, wait_cert}};
+            {error, _} ->
+                %% Certificate not supported: send empty certificate in state 'wait_finished'
+                {ok, {State#state{client_certificate_requested = true,
+                                  session = Session#session{own_certificates = undefined}}, wait_cert}}
+        end
+         catch
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
-
 
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
@@ -2079,13 +2091,12 @@ maybe_update_selected_sign_alg(State, _, _) ->
     State.
 
 
-verify_certificate_verify(#state{
-                             static_env = #static_env{role = Role},
-                             connection_states = ConnectionStates,
-                             handshake_env =
-                                 #handshake_env{
-                                    public_key_info = PublicKeyInfo,
-                                    tls_handshake_history = HHistory}} = State0,
+verify_certificate_verify(#state{static_env = #static_env{role = Role},
+                                 connection_states = ConnectionStates,
+                                 handshake_env =
+                                     #handshake_env{
+                                        public_key_info = PublicKeyInfo,
+                                        tls_handshake_history = HHistory}} = State0,
                           #certificate_verify_1_3{
                              algorithm = SignatureScheme,
                              signature = Signature}) ->
@@ -2311,12 +2322,12 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 
 
 %% DSA keys are not supported by TLS 1.3
-select_sign_algo(dsa, _RSAKeySize, _ClientSignAlgs, _ServerSignAlgs) ->
+select_sign_algo(dsa, _RSAKeySize, _PeerSignAlgs, _OwnSignAlgs) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(_, _RSAKeySize, [], _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
-select_sign_algo(PublicKeyAlgo, RSAKeySize, [C|ClientSignAlgs], ServerSignAlgs) ->
-    {_, S, _} = ssl_cipher:scheme_to_components(C),
+select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs) ->
+    {_, S, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
     %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
     %%
@@ -2328,25 +2339,25 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [C|ClientSignAlgs], ServerSignAlgs) 
           orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
           orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa))
         andalso
-        lists:member(C, ServerSignAlgs) of
+        lists:member(PeerSignAlg, OwnSignAlgs) of
         true ->
             validate_key_compatibility(PublicKeyAlgo, RSAKeySize,
-                                       [C|ClientSignAlgs], ServerSignAlgs);
+                                       [PeerSignAlg|PeerSignAlgs], OwnSignAlgs);
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, ClientSignAlgs, ServerSignAlgs)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs)
     end.
 
-validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [C|ClientSignAlgs], ServerSignAlgs)
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs)
   when PublicKeyAlgo =:= rsa orelse
        PublicKeyAlgo =:= rsa_pss_pss ->
-    case is_rsa_key_compatible(RSAKeySize, C) of
+    case is_rsa_key_compatible(RSAKeySize, PeerSignAlg) of
         true ->
-            {ok, C};
+            {ok, PeerSignAlg};
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, ClientSignAlgs, ServerSignAlgs)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs)
     end;
-validate_key_compatibility(_, _, [C|_], _) ->
-    {ok, C}.
+validate_key_compatibility(_, _, [PeerSignAlg|_], _) ->
+    {ok, PeerSignAlg}.
 
 is_rsa_key_compatible(KeySize, SigAlg) ->
     {Hash, _, _} = ssl_cipher:scheme_to_components(SigAlg),
