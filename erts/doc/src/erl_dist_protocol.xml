@@ -1122,7 +1122,7 @@ DiB == gen_digest(ChA, ICA)?
 	<tag><marker id="DFLAG_V4_NC"/><c>-define(DFLAG_V4_NC, (1 bsl 34)).</c></tag>
         <item>
 	  <p>The node accepts a larger amount of data in pids, ports and
-	  references (node container types). In the pid case full 32-bit
+	  references (node container types version 4). In the pid case full 32-bit
 	  <c>ID</c> and <c>Serial</c> fields in
 	  <seeguide marker="erl_ext_dist#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>,
 	  in the port case a 64-bit integer in
@@ -1130,6 +1130,7 @@ DiB == gen_digest(ChA, ICA)?
 	  and in the reference case up to 5 32-bit ID words are now accepted in
 	  <seeguide marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seeguide>.
 	  Introduced in OTP 24.</p>
+	  <note><p>This flag will become mandatory in OTP 26.</p></note>
         </item>
 	<tag><marker id="DFLAG_ALIAS"/><c>-define(DFLAG_ALIAS, (1 bsl 35)).</c></tag>
         <item>

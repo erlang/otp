@@ -2,7 +2,8 @@
       <title>VxWorks Support</title>
       <p>Some parts of OTP has had limited VxWorks support, such as for
       example <seeapp marker="erl_interface:index"><c>erl_interface</c></seeapp>.
-      This support is now deprecated and has also been scheduled for removal in OTP 23.</p>
+      This support is as of OTP 22 formally deprecated and has also been
+      <seeguide marker="removed#otp-23">removed in OTP 23</seeguide>.</p>
     </section>
     <section>
       <title>Legacy parts of erl_interface</title>
@@ -13,7 +14,8 @@
       the <c>erl_interface</c> library with the use of the <c>ei</c> library
       which also is part of the <c>erl_interface</c> application. The old legacy
       <seeapp marker="erl_interface:index"><c>erl_interface</c></seeapp>
-      library has also been scheduled for removal in OTP 23.</p>
+      library has also been
+      <seeguide marker="removed#otp-23">removed in OTP 23</seeguide>.</p>
     </section>
     <section>
       <title>System Events</title>
