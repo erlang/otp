@@ -3659,6 +3659,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(origin);           \
     LOCAL_ATOM_DECL(otp);              \
     LOCAL_ATOM_DECL(otp_socket_option);\
+    LOCAL_ATOM_DECL(owner);            \
     LOCAL_ATOM_DECL(partial_delivery); \
     LOCAL_ATOM_DECL(peer_error);       \
     LOCAL_ATOM_DECL(peer_rwnd);        \
@@ -3679,7 +3680,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(registry);         \
     LOCAL_ATOM_DECL(reject_route);     \
     LOCAL_ATOM_DECL(remote);           \
-    LOCAL_ATOM_DECL(rstate);           \
+    LOCAL_ATOM_DECL(rstates);          \
     LOCAL_ATOM_DECL(select);           \
     LOCAL_ATOM_DECL(selected);         \
     LOCAL_ATOM_DECL(sender_dry);       \
@@ -3708,7 +3709,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(write_pkg_max);    \
     LOCAL_ATOM_DECL(write_tries);      \
     LOCAL_ATOM_DECL(write_waits);      \
-    LOCAL_ATOM_DECL(wstate);           \
+    LOCAL_ATOM_DECL(wstates);          \
     LOCAL_ATOM_DECL(zero);             \
     LOCAL_ATOM_DECL(zerocopy)
 
@@ -3945,9 +3946,9 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
  *    domain:    The domain of the socket
  *    type:      The type of the socket
  *    protocol:  The protocol of the socket
- *    ctrl:      Controlling process of the socket)
- *    rstate:    Socket read state
- *    wstate:    Socket write state
+ *    owner:     Controlling process (owner) of the socket)
+ *    rstates:   Socket read state(s)
+ *    wstates:   Socket write state(s)
  *    counters:  A list of each socket counter and there current values
  *    readers:   The number of current and waiting readers
  *    writers:   The number of current and waiting writers
@@ -3962,8 +3963,8 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM type      = esock_socket_info_type(env, descP);
     ERL_NIF_TERM protocol  = MKI(env, descP->protocol);
     ERL_NIF_TERM ctrlPid   = MKPID(env, &descP->ctrlPid);
-    ERL_NIF_TERM rstate    = esock_socket_info_state(env, descP->readState);
-    ERL_NIF_TERM wstate    = esock_socket_info_state(env, descP->writeState);
+    ERL_NIF_TERM rstates   = esock_socket_info_state(env, descP->readState);
+    ERL_NIF_TERM wstates   = esock_socket_info_state(env, descP->writeState);
     ERL_NIF_TERM ctype     = esock_socket_info_ctype(env, descP);
     ERL_NIF_TERM counters  = esock_socket_info_counters(env, descP);
     ERL_NIF_TERM readers   = esock_socket_info_readers(env, descP);
@@ -3975,9 +3976,9 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
             = {esock_atom_domain,
                esock_atom_type,
                esock_atom_protocol,
-               esock_atom_ctrl,
-               atom_rstate,
-               atom_wstate,
+               atom_owner,
+               atom_rstates,
+               atom_wstates,
                atom_ctype,
                atom_counters,
                atom_num_readers,
@@ -3988,8 +3989,8 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                type,
                protocol,
                ctrlPid,
-               rstate,
-               wstate,
+               rstates,
+               wstates,
                ctype,
                counters,
                readers,
