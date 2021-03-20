@@ -281,19 +281,7 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, nodes = Node
     case maps:get(Peer, Nodes, []) of
         {MRef, RemoteMap} ->
             _ = leave_remote(Scope, PidOrPids, Groups),
-            NewRemoteMap = lists:foldl(
-                fun (Group, Acc) ->
-                    case maps:get(Group, Acc) of
-                        PidOrPids ->
-                            maps:remove(Group, Acc);
-                        [PidOrPids] ->
-                            maps:remove(Group, Acc);
-                        Existing when is_pid(PidOrPids) ->
-                            Acc#{Group => lists:delete(PidOrPids, Existing)};
-                        Existing ->
-                            Acc#{Group => Existing-- PidOrPids}
-                    end
-                end, RemoteMap, Groups),
+            NewRemoteMap = leave_update_remote_map(PidOrPids, RemoteMap, Groups),
             {noreply, State#state{nodes = Nodes#{Peer => {MRef, NewRemoteMap}}}};
         [] ->
             %% Handle race condition: remote node disconnected, but scope process
@@ -523,6 +511,19 @@ leave_remote(Scope, Pids, Groups) ->
                 true
         end ||
         Group <- Groups].
+
+leave_update_remote_map(Pid, RemoteMap, Groups) when is_pid(Pid) ->
+    leave_update_remote_map([Pid], RemoteMap, Groups);
+leave_update_remote_map(Pids, RemoteMap, Groups) ->
+    lists:foldl(
+        fun (Group, Acc) ->
+            case maps:get(Group, Acc) -- Pids of
+                [] ->
+                    maps:remove(Group, Acc);
+                Remaining ->
+                    Acc#{Group => Remaining}
+            end
+        end, RemoteMap, Groups).
 
 all_local_pids(Monitors) ->
     maps:to_list(maps:fold(
