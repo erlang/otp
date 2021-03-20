@@ -397,7 +397,7 @@ do_handle_call(#request{address = Addr} = Request, From,
                                         queue:len(NewPipeline) + 1,
                                         client_close = ClientClose},
                     insert_session(NewSession, ProfileName),
-                    {reply, ok, State1#state{
+                    {noreply, State1#state{
 				  request = OldRequest,
 				  pipeline = NewPipeline,
 				  session  = NewSession,
