@@ -992,10 +992,19 @@ pkix_path_validation(TrustedCert, CertChain, Options)
 pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
   when is_list(CertChain), is_list(Options) ->
     MaxPathDefault = length(CertChain),
-    ValidationState = pubkey_cert:init_validation_state(TrustedCert, 
-							MaxPathDefault, 
-							Options),
-    path_validation(CertChain, ValidationState).
+    {VerifyFun, Userstat0} =
+	proplists:get_value(verify_fun, Options, ?DEFAULT_VERIFYFUN),
+    try pubkey_cert:validate_time(TrustedCert, Userstat0, VerifyFun) of
+        Userstate1 -> 
+            ValidationState = pubkey_cert:init_validation_state(TrustedCert, 
+                                                                MaxPathDefault, 
+                                                                [{verify_fun, {VerifyFun, Userstate1}} | 
+                                                                 proplists:delete(verify_fun, Options)]),
+            path_validation(CertChain, ValidationState)
+    catch
+        throw:{bad_cert, cert_expired} = Reason ->
+            {error, Reason}    
+    end.
 
 %--------------------------------------------------------------------
 -spec pkix_crls_validate(OTPcertificate, DPandCRLs, Options) ->
