@@ -1,4 +1,3 @@
-
 %%
 %% %CopyrightBegin%
 %%
@@ -85,6 +84,8 @@
          pkix_emailaddress/1,
          pkix_path_validation/0,
          pkix_path_validation/1,
+         pkix_path_validation_root_expired/0,
+         pkix_path_validation_root_expired/1,
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
@@ -126,12 +127,18 @@ suite() ->
     [].
 
 all() -> 
-    [app, appup,
+    [app, 
+     appup,
      {group, pem_decode_encode},
      encrypt_decrypt,
      {group, sign_verify},
-     pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, 
+     pkix, 
+     pkix_countryname, 
+     pkix_emailaddress, 
+     pkix_path_validation,
+     pkix_path_validation_root_expired,
+     pkix_iso_rsa_oid, 
+     pkix_iso_dsa_oid, 
      pkix_dsa_sha2_oid,
      pkix_crl, 
      pkix_hash_type,
@@ -142,7 +149,8 @@ all() ->
      pkix_verify_hostname_options,
      pkix_test_data_all_default,
      pkix_test_data,
-     short_cert_issuer_hash, short_crl_issuer_hash
+     short_cert_issuer_hash, 
+     short_crl_issuer_hash
     ].
 
 groups() -> 
@@ -737,9 +745,24 @@ pkix_path_validation(Config) when is_list(Config) ->
 
     {error, custom_reason} =
         public_key:pkix_path_validation(selfsigned_peer, [Trusted], [{verify_fun,
-                                                                     VerifyFunAndState2}]),
-    ok.
-
+                                                                      VerifyFunAndState2}]).
+pkix_path_validation_root_expired() ->
+    [{doc, "Test root expiration so that it does not fall between chairs"}].
+pkix_path_validation_root_expired(Config) when is_list(Config) ->
+    {Year, Month, Day} = date(),
+    SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", [{validity, {{Year-2, Month, Day}, 
+                                                                                {Year-1, Month, Day}}}]),
+    #{server_config := Conf} = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
+                                                                             intermediates => [],
+                                                                             peer => []},
+                                                           client_chain => #{root => [], 
+                                                                             intermediates => [],
+                                                                             peer => []}}),
+    [ICA, Root] = proplists:get_value(cacerts, Conf),
+    true = public_key:pkix_is_self_signed(Root),
+    Peer = proplists:get_value(cert, Conf),
+    {error, {bad_cert, cert_expired}} = public_key:pkix_path_validation(Root, [ICA, Peer], []).
+    
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
 %%
