@@ -6610,7 +6610,7 @@ true</pre>
 	send operator</seeguide>:
 	<c><anno>Dest</anno> ! <anno>Msg</anno></c>.</p>
         <p><c><anno>Dest</anno></c> can be a remote or local process identifier,
-          a (local) port, a locally registered name, or a tuple
+          an alias, a (local) port, a locally registered name, or a tuple
           <c>{<anno>RegName</anno>, <anno>Node</anno>}</c>
         for a registered name at another node.</p>
 	<p>The function fails with a <c>badarg</c> run-time error if
