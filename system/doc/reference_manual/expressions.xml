@@ -402,12 +402,15 @@ Expr1 ! Expr2</pre>
     <p>Sends the value of <c>Expr2</c> as a message to the process
       specified by <c>Expr1</c>. The value of <c>Expr2</c> is also
       the return value of the expression.</p>
-    <p><c>Expr1</c> must evaluate to a pid, a registered name (atom), or
+    <p><c>Expr1</c> must evaluate to a pid, an alias (reference),
+      a port, a registered name (atom), or
       a tuple <c>{Name,Node}</c>. <c>Name</c> is an atom and
       <c>Node</c> is a node name, also an atom.</p>
     <list type="bulleted">
       <item>If <c>Expr1</c> evaluates to a name, but this name is not
        registered, a <c>badarg</c> run-time error occurs.</item>
+      <item>Sending a message to a reference never fails, even if the
+       reference is no longer (or never was) an alias.</item>
       <item>Sending a message to a pid never fails, even if the pid
        identifies a non-existing process.</item>
       <item>Distributed message sending, that is, if <c>Expr1</c>
