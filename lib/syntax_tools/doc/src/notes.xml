@@ -32,6 +32,35 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>epp_dodger</c> was unable to handle a parameterized
+	    macro in a function head.</p>
+          <p>
+	    Own Id: OTP-17064 Aux Id: GH-4445, PR-2964 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>All functions in <c>erl_tidy</c> in syntax_tools have
+	    now been deprecated and are scheduled for removal in OTP
+	    24. Users who still need it can find it at <url
+	    href="https://github.com/richcarl/erl_tidy">https://github.com/richcarl/erl_tidy</url>.</p>
+          <p>
+	    Own Id: OTP-17167 Aux Id: OTP-17046 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.4</title>
 
     <section><title>Improvements and New Features</title>

@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 4.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix dependent application to be stopped after the primary
+	    application when upgrading a release and the primary and
+	    dependent application is removed.</p>
+          <p>
+	    Example: In a release where app1 depends on app2 and we
+	    should remove app1 and app2 using a release upgrade. When
+	    the release upgrade is done app1 should be stopped and
+	    purged before app2 as otherwise app1 could start crashing
+	    when its dependency is removed.</p>
+          <p>
+	    This bugfix changes the order of removal to be correct.</p>
+          <p>
+	    Own Id: OTP-17113 Aux Id: ERL-1410 PR-2882 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 4.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

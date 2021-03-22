@@ -31,6 +31,40 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would crash when compiling a module
+	    having an exported function named <c>clauses</c>.</p>
+          <p>
+	    Own Id: OTP-17162 Aux Id: GH-4549, PR-2997, PR-4555,
+	    elixir-lang/elixir#10666 </p>
+        </item>
+        <item>
+	    <p>If <c>beam_lib</c> is asked to return abstract code
+	    for a BEAM file produced by Elixir and Elixir is not
+	    installed on the computer, <c>beam_lib</c> will no longer
+	    crash, but will return an error tuple. The
+	    <c>cover:compile_beam()</c> and
+	    <c>cover:compile_beam_directory()</c> functions have been
+	    updated to also return an error tuple in that
+	    situation.</p>
+          <p>
+	    Own Id: OTP-17194 Aux Id: GH-4353 </p>
+        </item>
+        <item>
+          <p>
+	    Make emacs mode work on emacs-27.</p>
+          <p>
+	    Own Id: OTP-17225 Aux Id: PR-4542, GH-4451 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

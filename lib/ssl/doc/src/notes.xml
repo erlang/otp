@@ -27,6 +27,73 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix CRL handling that previously could fail to find the
+	    issuer cert under some circumstances.</p>
+          <p>
+	    Own Id: OTP-17261 Aux Id: GH-4589 </p>
+        </item>
+        <item>
+          <p>
+	    TLS-1.3 client could, under some circumstances, select an
+	    incorrect algorithm to sign the certificate verification
+	    message causing a TLS Decrypt Alert being issued by the
+	    server.</p>
+          <p>
+	    Own Id: OTP-17281 Aux Id: GH-4620 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of default values for emulated socket
+	    options and retain the order of the ssl options list to
+	    ensure backwards compatible behavior if options should be
+	    set more than once.</p>
+          <p>
+	    Own Id: OTP-17282</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enhance pre TLS-1.3 session handling so the client and
+	    server side handling is completely separated and client
+	    disregards oldest session when reaching max limit of the
+	    session table.</p>
+          <p>
+	    Own Id: OTP-16876</p>
+        </item>
+        <item>
+          <p>
+	    This change implements the early data feature for TLS 1.3
+	    clients.</p>
+          <p>
+	    TLS 1.3 allows clients to send data in the first flight
+	    using a Pre-Shared Key to authenticate the server and to
+	    encrypt the early data.</p>
+          <p>
+	    Own Id: OTP-16985</p>
+        </item>
+        <item>
+          <p>
+	    This change implements the early data feature for TLS 1.3
+	    servers.</p>
+          <p>
+	    Own Id: OTP-17042</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

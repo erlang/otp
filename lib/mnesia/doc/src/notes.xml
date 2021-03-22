@@ -39,7 +39,42 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.18.1</title>
+  <section><title>Mnesia 4.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed the type spec for <c>disc_only_copies</c>.</p>
+          <p>
+	    Own Id: OTP-17249 Aux Id: PR-4578 </p>
+        </item>
+        <item>
+          <p>
+	    Do not crash in <c>mnesia:change_config/2</c> if mnesia
+	    is stopping or starting.</p>
+          <p>
+	    Own Id: OTP-17274 Aux Id: GH-4616 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimized table loading time for tables that are updated
+	    during the loading.</p>
+          <p>
+	    Own Id: OTP-17271 Aux Id: PR-4575 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.18.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

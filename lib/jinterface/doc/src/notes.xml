@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A <seeguide
+	    marker="erts:erl_dist_protocol#new_link_protocol">new
+	    link protocol</seeguide> has been introduced which
+	    prevents links from ending up in an inconsistent state
+	    where one participant considers itself linked while the
+	    other doesn't. This bug has always existed in the
+	    distributed case, but has since OTP 21 also existed in
+	    the node local case since the distributed link protocol
+	    then was adopted also for node local links. The bug
+	    could, however, only trigger if both participants
+	    operated on the link simultaneously.</p>
+          <p>
+	    Own Id: OTP-17127</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.11</title>
 
     <section><title>Improvements and New Features</title>

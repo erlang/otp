@@ -31,6 +31,47 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.14.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle maps in <c>erl_parse:tokens()</c>.</p>
+          <p>
+	    Own Id: OTP-16978</p>
+        </item>
+        <item>
+          <p>
+	    The erlang shell function <c>rr</c> has been fixed to be
+	    able to read records from files within a code archive.</p>
+          <p>
+	    Own Id: OTP-17182 Aux Id: PR-3002 </p>
+        </item>
+        <item>
+	    <p>If <c>beam_lib</c> is asked to return abstract code
+	    for a BEAM file produced by Elixir and Elixir is not
+	    installed on the computer, <c>beam_lib</c> will no longer
+	    crash, but will return an error tuple. The
+	    <c>cover:compile_beam()</c> and
+	    <c>cover:compile_beam_directory()</c> functions have been
+	    updated to also return an error tuple in that
+	    situation.</p>
+          <p>
+	    Own Id: OTP-17194 Aux Id: GH-4353 </p>
+        </item>
+        <item>
+          <p>
+	    Correct example module <c>erl_id_trans</c> regarding the
+	    <c>{char, C}</c> type.</p>
+          <p>
+	    Own Id: OTP-17273</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,7 +32,23 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.13.2</title>
+  <section><title>ODBC 2.13.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure odbc c-process exits when erlang process orders
+	    it to shutdown.</p>
+          <p>
+	    Own Id: OTP-17188 Aux Id: ERL-1448 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
