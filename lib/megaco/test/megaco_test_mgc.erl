@@ -93,10 +93,27 @@ start(Node, Mid, ET, Conf, Verbosity) ->
     d("start mgc[~p]: ~p"
       "~n      ET:   ~p"
       "~n      Conf: ~p", [Node, Mid, ET, Conf]),
-    RI = {receive_info, mk_recv_info(ET)},
-    Config = [{local_mid, Mid}, RI] ++ Conf,
-    Pid = spawn_link(Node, ?MODULE, mgc, [self(), Verbosity, Config]),
-    await_started(Pid).
+    RI          = {receive_info, mk_recv_info(ET)},
+    Config      = [{local_mid, Mid}, RI] ++ Conf,
+    Self        = self(),
+    true        = erlang:monitor_node(Node, true),
+    MGC         = fun() -> mgc(Self, Verbosity, Config) end,
+    {Pid, MRef} = spawn_monitor(Node, MGC),
+    NodePing    = net_adm:ping(Node),
+    ProcInfo    = (catch proc_info(Pid)),
+    i("start mgc[~p] -> ~p"
+      "~n      self():       ~p"
+      "~n      node():       ~p"
+      "~n      Node ping:    ~p" 
+      "~n      Loader:       ~p"
+      "~n      Monitor ref:  ~p"
+      "~n      Process info: ~p", 
+      [Node, Pid,
+       Self, node(), NodePing, Pid, MRef, ProcInfo]),
+    await_started(Node, Pid, MRef).
+
+proc_info(Pid) ->
+    rpc:call(node(Pid), erlang, process_info, [Pid]).
 
 mk_recv_info(ET) ->
     mk_recv_info(ET, []).
@@ -155,20 +172,40 @@ select_transport(Transport) ->
     throw({error, {invalid_transport, Transport}}).
 
 
-await_started(Pid) ->
+await_started(Node, Pid, MRef) ->
     receive
 	{started, Pid} ->
-	    d("await_started ~p: ok", [Pid]),
+	    i("await_started ~p: ok", [Pid]),
+	    true = erlang:monitor_node(Node, false),	    
+	    erlang:demonitor(MRef),
 	    {ok, Pid};
-	{'EXIT', Pid, 
-	 {failed_starting_tcp_listen, {could_not_start_listener, {gen_tcp_listen, eaddrinuse}}}} ->
+
+	{nodedown, Node} ->
+	    i("await_started ~p - received node down", [Pid]),
+	    exit({node_down, Node}); 
+
+        {'DOWN', MRef, process, Pid, 
+         {failed_starting_tcp_listen,
+          {could_not_start_listener, {gen_tcp_listen, eaddrinuse}}}} ->
 	    e("await_started ~p: address already in use", [Pid]),
+	    true = erlang:monitor_node(Node, false),	    
 	    ?SKIP(eaddrinuse);
-	{'EXIT', Pid, Reason} ->
+
+        {'DOWN', MRef, process, Pid, Reason} ->
 	    e("await_started ~p: received exit signal: ~p", [Pid, Reason]),
+	    true = erlang:monitor_node(Node, false),	    
 	    exit({failed_starting, Pid, Reason})
+
     after 10000 ->
-	    e("await_started ~p: timeout", [Pid]),
+	    NodePing = net_adm:ping(Node), 
+	    ProcInfo = (catch proc_info(Pid)),
+	    FlushQ = megaco_test_lib:flush(), 
+	    e("await_started ~p - timeout: "
+	      "~n      net_adm:ping(~p):     ~p" 
+	      "~n      Process info:         ~p"
+	      "~n      Messages in my queue: ~p", 
+	      [Pid, Node, NodePing, ProcInfo, FlushQ]),
+	    true = erlang:monitor_node(Node, false),	    
 	    exit({error, timeout})
     end.
 
