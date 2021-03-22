@@ -631,10 +631,11 @@ info(Socket) ->
               states   => States}.
 
 port_info(P) when is_port(P) ->
-    PI = port_info(erlang:port_info(P),
-                   [connected, links, input, output]) ++
+    PI0 = port_info(erlang:port_info(P),
+                    [connected, links, input, output]) ++
         [erlang:port_info(P, memory),
          erlang:port_info(P, monitors)],
+    PI = pi_replace([{connected, owner}], PI0),
     maps:from_list(PI);
 port_info(_) ->
     #{}.
@@ -648,6 +649,16 @@ port_info(PI, [Item | Items], Acc) ->
     Val = proplists:get_value(Item, PI),
     port_info(PI, Items, [{Item, Val} | Acc]).
 
+pi_replace([], Items) ->
+    Items;
+pi_replace([{Key1, Key2}|Keys], Items) ->
+    case lists:keysearch(Key1, 1, Items) of
+        {value, {Key1, Value}} ->
+            Items2 = lists:keyreplace(Key1, 1, Items, {Key2, Value}),
+            pi_replace(Keys, Items2);
+        false ->
+            pi_replace(Keys, Items)
+    end.
 
 -spec ip(Ip :: ip_address() | string() | atom()) ->
 	{'ok', ip_address()} | {'error', posix()}.

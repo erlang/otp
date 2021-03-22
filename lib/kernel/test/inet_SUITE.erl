@@ -147,13 +147,33 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(gethostnative_debug_level, Config) ->
+
+init_per_testcase(Case, Config0) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    Config1 = init_per_testcase2(Case, Config0),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [Config1, erlang:nodes(), pi(links), pi(monitors)]),
+    Config1.
+
+init_per_testcase2(gethostnative_debug_level, Config) ->
     ?TT(?MINS(2)),
     Config;
-init_per_testcase(gethostnative_soft_restart, Config) ->
+init_per_testcase2(gethostnative_soft_restart, Config) ->
     ?TT(?MINS(2)),
     Config;
-init_per_testcase(lookup_bad_search_option, Config) ->
+init_per_testcase2(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
     %% The bad option cannot enter through inet_db:set_lookup/1,
@@ -163,17 +183,37 @@ init_per_testcase(lookup_bad_search_option, Config) ->
     ets:insert(Db, {Key,[lookup_bad_search_option]}),
     ?P("init_per_testcase -> Misconfigured resolver lookup order"),
     [{Key,Prev}|Config];
-init_per_testcase(_Func, Config) ->
+init_per_testcase2(_Func, Config) ->
     Config.
 
-end_per_testcase(lookup_bad_search_option, Config) ->
-    Db = inet_db,
-    Key = res_lookup,
+end_per_testcase(Case, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    end_per_testcase2(Case, Config),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+    ok.
+
+end_per_testcase2(lookup_bad_search_option, Config) ->
+    ?P("end_per_testcase2 -> restore resolver lookup order"),
+    Db   = inet_db,
+    Key  = res_lookup,
     Prev = proplists:get_value(Key, Config),
     ets:delete(Db, Key),
     ets:insert(Db, Prev),
-    ?P("end_per_testcase -> Restored resolver lookup order");
-end_per_testcase(_Func, _Config) ->
+    ?P("end_per_testcase2 -> resolver lookup order restored");
+end_per_testcase2(_Func, _Config) ->
     ok.
 
 t_gethostbyaddr() ->
@@ -1756,4 +1796,12 @@ add_del_host_v6(_Config) ->
     {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet6),
     ok = inet_db:add_host(Ip, [Name, Alias]),
     {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
 

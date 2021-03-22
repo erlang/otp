@@ -964,8 +964,9 @@ init({open, Domain, ExtraOpts, Owner}) ->
     case socket_open(Domain, Proto, ExtraOpts, Extra) of
         {ok, Socket} ->
             D  = server_opts(),
-            ok = socket:setopt(Socket, {otp,iow}, true),
-            ok = socket:setopt(Socket, {otp,meta}, meta(D)),
+            ok = socket:setopt(Socket, {otp,iow},    true),
+            ok = socket:setopt(Socket, {otp,meta},   meta(D)),
+            %% ok = socket:setopt(Socket, {otp,rcvbuf}, {8, 8*1024}),
             P =
                 #params{
                    socket = Socket,
@@ -1010,7 +1011,8 @@ socket_open(Domain, Proto, _ExtraOpts, Extra) ->
     socket:open(Domain, stream, Proto, Extra).
 
 
-terminate(_Reason, State, P_D) ->
+terminate(_Reason, State, {_P, _} = P_D) ->
+    %% ?DBG({_P#params.socket, State, _Reason}),
     case State of
         #controlling_process{state = OldState} ->
             terminate(OldState, P_D);
@@ -1019,6 +1021,7 @@ terminate(_Reason, State, P_D) ->
     end.
 %%
 terminate(State, {#params{socket = Socket} = P, D}) ->
+    %% ?DBG({Socket, State}),
     case State of
         'closed' -> ok;
         'closed_read' ->
@@ -1157,6 +1160,7 @@ handle_event(
 
 %% Call: close/0
 handle_event({call, From}, close, State, {P, D} = P_D) ->
+    %% ?DBG({P#params.socket, State}),
     case State of
         'closed_read' ->
             {next_state, 'closed', P_D,
@@ -1241,7 +1245,7 @@ handle_event(Type, Content, 'closed' = State, P_D) ->
 
 %% Call: shutdown/1
 handle_event({call, From}, {shutdown, How} = _SHUTDOWN, State, {P, D}) ->
-    %% ?DBG({handle_event, call, _SHUTDOWN, State}),
+    %% ?DBG({P#params.socket, _SHUTDOWN, State}),
     case State of
         'closed_read' when (How =:= read) ->
             %% ?DBG('already closed-read'),
@@ -1259,7 +1263,7 @@ handle_event({call, From}, {shutdown, How} = _SHUTDOWN, State, {P, D}) ->
                     {keep_state_and_data,
                      [{reply, From, SRes}]};
                 {NextState, SRes} ->
-                    %% ?DBG({'shutdown result', SRes, NextState}),
+                    %% ?DBG({P#params.socket, 'shutdown result', SRes, NextState}),
                     next_state(
                       P,
                       cleanup_close_read(P, D#{active := false}, State, closed),
@@ -1429,12 +1433,14 @@ handle_event(
   #recv{info = ?select_info(SelectRef)},
   {#params{socket = Socket} = P, D}) ->
     %%
+    %% ?DBG({abort, Reason}),
     handle_connected(P, cleanup_recv_reply(P, D, [], Reason));
 %%
 %% Timeout on recv in non-active mode
 handle_event(
   {timeout, recv}, recv, #recv{} = State, {P, D}) ->
     %%
+    %% ?DBG({timeout, recv}),
     handle_connected(P, cleanup_recv(P, D, State, timeout));
 
 %% Catch-all
@@ -1682,6 +1688,7 @@ handle_recv_length(P, #{buffer := Buffer} = D, ActionsR, Length) ->
 %% is the last argument binary and D#{buffer} is not updated
 %%
 handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
+    %5 ?DBG('try socket recv'),
     case socket_recv(P#params.socket, Length) of
         {ok, <<Data/binary>>} ->
             handle_recv_deliver(
@@ -1700,9 +1707,11 @@ handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
              reverse(ActionsR)};
         {error, {Reason, <<Data/binary>>}} ->
             %% Error before all data
+            %% ?DBG({'recv error w rest-data', Reason, byte_size(Data)}),
             handle_recv_error(
               P, D#{buffer := [Data | Buffer]}, ActionsR, Reason);
         {error, Reason} ->
+            %% ?DBG({'recv error wo rest-data', Reason}),
             handle_recv_error(P, D#{buffer := Buffer}, ActionsR, Reason)
     end;
 handle_recv_length(P, D, ActionsR, _0, Buffer) ->
@@ -1817,9 +1826,11 @@ handle_recv_more(P, D, ActionsR, BufferedData) ->
              {P, D#{buffer := BufferedData}},
              reverse(ActionsR)};
         {error, {Reason, <<MoreData/binary>>}} ->
+            %% ?DBG({P#params.socket, error, Reason, byte_size(MoreData)}),
             Data = catbin(BufferedData, MoreData),
             handle_recv_error_decode(P, D, ActionsR, Reason, Data);
         {error, Reason} ->
+            %% ?DBG({P#params.socket, error, Reason}),
             handle_recv_error(
               P, D#{buffer := BufferedData}, ActionsR, Reason)
     end.
@@ -1835,7 +1846,7 @@ handle_recv_error(P, D, ActionsR, Reason, Data) ->
     handle_recv_error(P, D_1, ActionsR_1, Reason).
 %%
 handle_recv_error(P, D, ActionsR, Reason) ->
-    %% ?DBG(Reason),
+    %% ?DBG({P#params.socket, Reason}),
     {D_1, ActionsR_1} =
         cleanup_recv_reply(P, D#{buffer := <<>>}, ActionsR, Reason),
     case Reason of
@@ -1857,6 +1868,7 @@ next_state(P, {D, ActionsR}, State, Actions) ->
     {next_state, State, {P, D}, reverse(ActionsR, Actions)}.
 
 cleanup_close_read(P, D, State, Reason) ->
+    %% ?DBG({P#params.socket, State, Reason}),    
     case State of
         #accept{
            info = SelectInfo, from = From, listen_socket = ListenSocket} ->
@@ -1872,6 +1884,7 @@ cleanup_close_read(P, D, State, Reason) ->
     end.
 
 cleanup_recv(P, D, State, Reason) ->
+    %% ?DBG({P#params.socket, State, Reason}),    
     case State of
         #recv{info = SelectInfo} ->
             socket_cancel(P#params.socket, SelectInfo),
@@ -1882,26 +1895,37 @@ cleanup_recv(P, D, State, Reason) ->
 
 cleanup_recv_reply(
   P, #{show_econnreset := ShowEconnreset} = D, ActionsR, Reason) ->
+    %% ?DBG({ShowEconnreset, Reason}),
     case D of
         #{active := false} -> ok;
         #{active := _} ->
             ModuleSocket = module_socket(P),
             Owner = P#params.owner,
-%%%            ?DBG({ModuleSocket, Reason}),
+            %% ?DBG({ModuleSocket, Reason}),
             case Reason of
                 timeout ->
+                    %% ?DBG({P#params.socket, 'timeout'}),
                     Owner ! {tcp_error, ModuleSocket, Reason},
                     ok;
+                closed when (ShowEconnreset =:= true) ->
+                    %% ?DBG({P#params.socket, 'closed'}),
+                    %% Time to bug-compatible with the inet-driver...
+                    Owner ! {tcp_error, ModuleSocket, econnreset},
+                    Owner ! {tcp_closed, ModuleSocket},
+                    ok;
                 closed ->
+                    %% ?DBG({P#params.socket, 'closed'}),
                     Owner ! {tcp_closed, ModuleSocket},
                     ok;
                 emsgsize ->
                     Owner ! {tcp_error, ModuleSocket, Reason},
                     ok;
-                econnreset when ShowEconnreset =:= false ->
+                econnreset when (ShowEconnreset =:= false) ->
+                    %% ?DBG({P#params.socket, 'do not show econnreset'}),
                     Owner ! {tcp_closed, ModuleSocket},
                     ok;
                 _ ->
+                    %% ?DBG({P#params.socket, 'show econnreset'}),
                     Owner ! {tcp_error, ModuleSocket, Reason},
                     Owner ! {tcp_closed, ModuleSocket},
                     ok
@@ -1913,6 +1937,7 @@ cleanup_recv_reply(
              Reason_1 =
                  case Reason of
                      econnreset when ShowEconnreset =:= false -> closed;
+                     closed     when ShowEconnreset =:= true  -> econnreset;
                      _ -> Reason
                  end,
              [{reply, From, {error, Reason_1}},
@@ -1956,6 +1981,7 @@ recv_data_deliver(
             {recv_stop(next_packet(D_1, Packet, Data)),
              ActionsR};
         #{active := Active} ->
+            %% ?DBG({active, Active}),
             ModuleSocket = module_socket(P),
             Owner !
                 case Deliver of
@@ -1964,6 +1990,7 @@ recv_data_deliver(
                     port ->
                         {ModuleSocket, {data, DeliverData}}
                 end,
+            %% ?DBG('package delivered'),
             case Active of
                 true ->
                     {recv_start(next_packet(D, Packet, Data)),
