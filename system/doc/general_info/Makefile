@@ -85,13 +85,13 @@ debug opt:
 
 DEPRECATIONS_SCRIPT = $(ERL_TOP)/lib/stdlib/scripts/update_deprecations
 
-$(XMLDIR)/deprecations.xml: DEPRECATIONS
+$(XMLDIR)/deprecations.xml: DEPRECATIONS $(wildcard deprecations_*.inc)
 	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml deprecations $(ERL_TOP) $@
 
-$(XMLDIR)/scheduled_for_removal.xml: DEPRECATIONS
+$(XMLDIR)/scheduled_for_removal.xml: DEPRECATIONS $(wildcard scheduled_*.inc)
 	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml scheduled_for_removal $(ERL_TOP) $@
 
-$(XMLDIR)/removed.xml: DEPRECATIONS
+$(XMLDIR)/removed.xml: DEPRECATIONS $(wildcard removed_*.inc)
 	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml removed $(ERL_TOP) $@
 
 clean clean_docs:

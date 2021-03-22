@@ -1069,7 +1069,9 @@
       </xsl:for-each>
       <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
       <xsl:call-template name="title_link">
-        <xsl:with-param name="title" select="title"/>
+        <xsl:with-param name="title">
+          <xsl:value-of select="title"/>
+        </xsl:with-param>
       </xsl:call-template>
     </h4>
     <xsl:apply-templates>
@@ -1102,7 +1104,9 @@
 	<xsl:call-template name="marker-before-title"/>
       </xsl:for-each>
       <xsl:call-template name="title_link">
-        <xsl:with-param name="title" select="title"/>
+        <xsl:with-param name="title">
+          <xsl:value-of select="title"/>
+        </xsl:with-param>
       </xsl:call-template>
     </h3>
     <div class="REFBODY rb-3">
