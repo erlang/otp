@@ -128,7 +128,8 @@ all() ->
     case init:get_argument(ring_line) of
 	{ok, _} -> [ring_line];
 	_ ->
-	    [names, names_hidden, locks, locks_hidden, bad_input,
+	    [
+             names, names_hidden, locks, locks_hidden, bad_input,
 	     names_and_locks, lock_die, name_die, basic_partition,
 	     advanced_partition, basic_name_partition,
 	     stress_partition, simple_ring, simple_line, ring, line,
@@ -137,7 +138,8 @@ all() ->
 	     simple_resolve2, simple_resolve3, leftover_name,
 	     re_register_name, name_exit, external_nodes, many_nodes,
 	     sync_0, global_groups_change, register_1, both_known_1,
-	     lost_unregister, mass_death, garbage_messages]
+	     lost_unregister, mass_death, garbage_messages
+            ]
     end.
 
 groups() -> 
@@ -3631,7 +3633,7 @@ collect_resolves() -> cr(0).
 cr(Res) ->
     receive
 	{resolve_called, Name, Node} ->
-	    io:format("resolve called: ~w ~w~n", [Name, Node]),
+	    ?P("resolve called: ~w ~w", [Name, Node]),
  	    cr(Res+1)
     after
 	0 -> Res
@@ -4262,17 +4264,68 @@ garbage_messages(Config) when is_list(Config) ->
     ok.
 
 wait_for_ready_net(Config) ->
-    wait_for_ready_net(?NODES, Config).
+    {Pid, MRef} = spawn_monitor(fun() ->
+                                        wait_for_ready_net(?NODES, Config)
+                                end),
+    wait_for_ready_net_loop(Pid, MRef).
+
+wait_for_ready_net_loop(Pid, MRef) ->
+    receive
+        {'DOWN', MRef, process, Pid, Info} ->
+            ?P("wait-for-ready-net process terminated: "
+               "~n      ~p", [Info]),
+            ok;
+
+        {'EXIT', ParentPid, {timetrap_timeout, _Timeout, _Stack}} ->
+            ?P("wait-for-ready-net -> received timetrap timeout:"
+               "~n   Regarding: ~p"
+               "~n   Waiter:    ~p"
+               "~n      Current Location: ~p"
+               "~n      Mesages:          ~p",
+               [ParentPid, Pid, pi(Pid, current_location), pi(Pid, messages)]),
+            ct:fail("Timeout waiting for ready network")
+
+    end.
 
 wait_for_ready_net(Nodes0, Config) ->
     Nodes = lists:sort(Nodes0),
-    io:format("wait_for_ready_net ~p~n", [Nodes]),
+    ?P("wait_for_ready_net ->"
+       "~n   Nodes: ~p", [Nodes]),
     ?UNTIL(begin
-               lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
+               lists:all(fun(N) ->
+                                 ?P("wait_for_ready_net -> "
+                                    "get known (by global) for ~p", [N]),
+                                 GNs = get_known(N),
+                                 ?P("wait_for_ready_net -> verify same for ~p:"
+                                    "~n   Global Known: ~p"
+                                    "~n   Nodes:        ~p", [N, GNs, Nodes]),
+                                 GRes = Nodes =:= GNs,
+                                 ?P("wait_for_ready_net => ~p", [GRes]),
+                                 GRes
+                         end,
+                         Nodes) and
 		   lists:all(fun(N) ->
-				     LNs = rpc:call(N, erlang, nodes, []),
-				     Nodes =:= lists:sort([N | LNs])
-			     end, Nodes)
+                                     ?P("wait_for_ready_net -> "
+                                        "get erlang nodes for ~p", [N]),
+				     case rpc:call(N, erlang, nodes, []) of
+                                         RNs0 when is_list(RNs0) ->
+                                             RNs = lists:sort([N | RNs0]),
+                                             ?P("wait_for_ready_net -> "
+                                                "verify same for ~p: "
+                                                "~n   Remote nodes:  ~p"
+                                                "~n   (Local) Nodes: ~p",
+                                                [N, RNs, Nodes]),
+                                             ERes = Nodes =:= RNs,
+                                             ?P("wait_for_ready_net => ~p",
+                                                [ERes]),
+                                             ERes;
+                                         BadRes ->
+                                             ?P("failed get remote nodes: "
+                                                "~n      ~p", [BadRes]),
+                                             false
+                                     end
+			     end,
+                             Nodes)
            end).
 
 get_known(Node) ->
@@ -4393,7 +4446,9 @@ trace_message(M) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 pi(Item) ->
-    {Item, Val} = process_info(self(), Item),
+    pi(self(), Item).
+pi(Pid, Item) ->
+    {Item, Val} = process_info(Pid, Item),
     Val.
     
 
