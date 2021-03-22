@@ -20,6 +20,8 @@
 -module(group_history).
 -export([load/0, add/1]).
 
+-include_lib("kernel/include/logger.hrl").
+
 %% Make a minimal size that should encompass set of lines and then make
 %% a file rotation for N files of this size.
 -define(DEFAULT_HISTORY_FILE, "erlang-shell-log").
@@ -66,7 +68,11 @@ load() ->
                     upgrade_version(?LOG_NAME, Version),
                     load();
                 {error, {badarg, size}} ->
-                    open_new_log(?LOG_NAME);
+                    try open_new_log(?LOG_NAME)
+                    catch exit:_ ->
+                            %% Same reason as comment in catch below
+                            []
+                    end;
                 {error, Reason} ->
                     handle_open_error(Reason),
                     disable_history(),
@@ -79,33 +85,55 @@ load() ->
         disabled ->
             [];
         Provider ->
-            Provider:load()
+            try Provider:load() of
+                History when is_list(History) ->
+                    History;
+                Error ->
+                    show_custom_provider_faulty_load_return(Provider, Error),
+                    disable_history(),
+                    []
+            catch E:R:ST ->
+                    show_custom_provider_crash(Provider, E, R, ST),
+                    disable_history(),
+                    []
+            end
     end.
 
 %% @doc adds a log line to the erlang history log, if configured to do so.
 -spec add(iodata()) -> ok.
-add(Line) -> add(Line, history_status()).
-
-add(Line, enabled) ->
+add(Line) ->
     case lists:member(Line, to_drop()) of
         false ->
-            case disk_log:log(?LOG_NAME, Line) of
-                ok ->
-                    ok;
-                {error, no_such_log} ->
-                    _ = open_log(), % a wild attempt we hope works!
-                    disk_log:log(?LOG_NAME, Line);
-                {error, _Other} ->
-                    % just ignore, we're too late
-                    ok
-            end;
+            add(Line, history_status());
         true ->
+            ok
+    end.
+
+add(Line, enabled) ->
+    case disk_log:log(?LOG_NAME, Line) of
+        ok ->
+            ok;
+        {error, no_such_log} ->
+            _ = open_log(), % a wild attempt we hope works!
+            disk_log:log(?LOG_NAME, Line);
+        {error, _Other} ->
+                                                % just ignore, we're too late
             ok
     end;
 add(_Line, disabled) ->
     ok;
 add(Line, Provider) ->
-    lists:member(Line, to_drop()) orelse Provider:add(Line).
+    try Provider:add(Line) of
+        ok ->
+            ok;
+        Error ->
+            show_custom_provider_faulty_add_return(Provider, Error),
+            ok
+    catch E:R:ST ->
+            show_custom_provider_crash(Provider, E, R, ST),
+            disable_history(),
+            ok
+    end.
 
 %%%%%%%%%%%%%%%
 %%% PRIVATE %%%
@@ -215,6 +243,9 @@ read_full_log(Name) ->
         {error, no_such_log} ->
             show_unexpected_close_warning(),
             [];
+        {error, Reason} ->
+            show_invalid_chunk_warning(Name, Reason),
+            [];
         eof ->
             [];
         {Cont, Logs} ->
@@ -236,6 +267,9 @@ read_full_log(Name, Cont) ->
     case disk_log:chunk(Name, Cont) of
         {error, no_such_log} ->
             show_unexpected_close_warning(),
+            [];
+        {error, Reason} ->
+            show_invalid_chunk_warning(Name, Reason),
             [];
         eof ->
             [];
@@ -261,13 +295,11 @@ handle_open_error({invalid_header, Term}) ->
     show('$#erlang-history-invalid-header',
          "Shell history expects to be able to use the log files "
          "which currently have unknown headers (~p) and may belong to "
-         "another mechanism. History logging will be "
-         "disabled.~n",
+         "another mechanism.~n",
          [Term]);
 handle_open_error({file_error, FileName, Reason}) ->
     show('$#erlang-history-file-error',
-         "Error handling File ~ts. Reason: ~p~n"
-         "History logging will be disabled.~n",
+         "Error handling file ~ts. Reason: ~p~n",
          [FileName, Reason]);
 handle_open_error(Err) ->
     show_unexpected_warning({disk_log, open, 1}, Err).
@@ -310,14 +342,14 @@ resize_log(Name, _OldSize, NewSize) ->
     case disk_log:change_size(Name, NewSize) of
         ok ->
             show('$#erlang-history-resize-result',
-                 "ok~n", []);
+                 "resized the log history file~n", []);
         {error, {new_size_too_small, _, _}} -> % cannot happen
             show('$#erlang-history-resize-result',
-                 "failed (new size is too small)~n", []),
+                 "failed to resize the log history file (new size is too small)~n", []),
             disable_history();
         {error, Reason} ->
             show('$#erlang-history-resize-result',
-                 "failed (~p)~n", [Reason]),
+                 "failed to resize the log history file (~p)~n", [Reason]),
             disable_history()
     end,
     _ = disk_log:close(?LOG_NAME),
@@ -360,12 +392,17 @@ show_rename_warning() ->
          "name will keep being used for this session.~n",
          []).
 
+show_invalid_chunk_warning(Name, Reason) ->
+    show('$#erlang-history-invalid-chunk-warn',
+         "Invalid chunk in the file ~ts.~n"
+         "Some entries may have been lost.~nReason ~p.",
+         [proplists:get_value(file,disk_log:info(Name)), Reason]).
+
 show_invalid_file_warning(FileName) ->
     show('$#erlang-history-invalid-file',
          "Shell history expects to be able to use the file ~ts "
          "which currently exists and is not a file usable for "
-         "history logging purposes. History logging will be "
-         "disabled.~n", [FileName]).
+         "history logging purposes.~n", [FileName]).
 
 show_unexpected_warning({M,F,A}, Term) ->
     show('$#erlang-history-unexpected-return',
@@ -383,10 +420,29 @@ show_size_warning(_Current, _New) ->
          "The configured log history file size is different from "
          "the size of the log file on disk.~n", []).
 
+show_custom_provider_crash(Provider, Class, Reason, StackTrace) ->
+    show('$#erlang-history-custom-crash',
+         "The configured custom shell_history provider '~p' crashed. ~n"
+         "Did you mean to write 'enabled'?~n"
+         "~ts~n",
+         [Provider, erl_error:format_exception(Class, Reason, StackTrace)]).
+
+show_custom_provider_faulty_load_return(Provider, Return) ->
+    show('$#erlang-history-custom-return',
+         "The configured custom shell_history provider ~p:load/0 did not return a list.~n"
+         "It returned ~p.~n",
+        [Provider, Return]).
+
+show_custom_provider_faulty_add_return(Provider, Return) ->
+    show('$#erlang-history-custom-return',
+         "The configured custom shell_history provider ~p:add/1 did not return ok.~n"
+         "It returned ~p.~n",
+        [Provider, Return]).
+
 show(Key, Format, Args) ->
     case get(Key) of
         undefined ->
-            io:format(standard_error, Format, Args),
+            ?LOG_ERROR(Format, Args),
             put(Key, true),
             ok;
         true ->
