@@ -661,7 +661,7 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
         *return_to_trace = 1;
         cpp = &E[0];
     } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
-        cpp = &E[0];
+        cpp = &E[1];
     } else {
         cpp = NULL;
     }
