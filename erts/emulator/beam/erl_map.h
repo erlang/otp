@@ -85,7 +85,7 @@ int    erts_maps_take(Process *p, Eterm key, Eterm map, Eterm *res, Eterm *value
 
 Eterm  erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			   Eterm node, int is_update);
-int    erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
+int    erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint *sz,
 			        Uint *upsz, struct ErtsEStack_ *sp, int is_update);
 Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			      Uint *upsz, struct ErtsEStack_ *sp);

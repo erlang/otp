@@ -2370,17 +2370,29 @@ Eterm erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
     Uint size, upsz;
     Eterm *hp, res = THE_NON_VALUE;
     DECLARE_ESTACK(stack);
-    if (erts_hashmap_insert_down(hx, key, map, &size, &upsz, &stack, is_update)) {
-	hp  = HAlloc(p, size);
-	res = erts_hashmap_insert_up(hp, key, value, &upsz, &stack);
+    if (erts_hashmap_insert_down(hx, key, value, map, &size, &upsz, &stack,
+                                 is_update)) {
+        if (size) {
+            /* We are putting a new value (under a new or existing key) */
+	    hp  = HAlloc(p, size);
+	    res = erts_hashmap_insert_up(hp, key, value, &upsz, &stack);
+	}
+        else {
+            /* We are putting the same key-value */
+            res = map;
+        }
     }
-    DESTROY_ESTACK(stack);
+    else {
+        /* We are updating and the key does not exist */
+        ASSERT(is_update);
+    }
 
+    DESTROY_ESTACK(stack);
     return res;
 }
 
 
-int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
+int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint *sz,
 			     Uint *update_size, ErtsEStack *sp, int is_update) {
     Eterm *ptr;
     Eterm hdr, ckey;
@@ -2398,6 +2410,10 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 		ptr  = list_val(node);
 		ckey = CAR(ptr);
 		if (EQ(ckey, key)) {
+		    if (CDR(ptr) == value) {
+                        *sz = 0; /* same value, same map, no heap needed */
+                        return 1;
+                    }
 		    *update_size = 0;
 		    goto unroll;
 		}

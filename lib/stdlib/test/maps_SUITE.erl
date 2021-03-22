@@ -495,8 +495,12 @@ iter_kv(I) ->
 
 t_put_opt(Config) when is_list(Config) ->
     Value = id(#{complex => map}),
-    Map = id(#{a => Value}),
-    true = erts_debug:same(maps:put(a, Value, Map), Map),
+    Small = id(#{a => Value}),
+    true = erts_debug:same(maps:put(a, Value, Small), Small),
+
+    LargeBase = maps:from_list([{I,I}||I<-lists:seq(1,200)]),
+    Large = LargeBase#{a => Value},
+    true = erts_debug:same(maps:put(a, Value, Large), Large),
     ok.
 
 t_merge_opt(Config) when is_list(Config) ->
