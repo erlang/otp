@@ -243,6 +243,34 @@
     </func>
 
     <func>
+      <name name="encode_hex" arity="1" since="OTP @OTP-17236@"/>
+      <fsummary>Encodes a binary into a hex encoded binary.</fsummary>
+      <desc>
+      <p>Encodes a binary into a hex encoded binary.</p>
+
+      <p><em>Example:</em></p>
+
+      <code>
+1> binary:encode_hex(&lt;&lt;"f"&gt;&gt;).
+&lt;&lt;"66"&gt;&gt;</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="decode_hex" arity="1" since="OTP @OTP-17236@"/>
+      <fsummary>Decodes a hex encoded binary into a binary.</fsummary>
+      <desc>
+      <p>Decodes a hex encoded binary into a binary.</p>
+
+      <p><em>Example</em></p>
+
+      <code>
+1> binary:decode_hex(&lt;&lt;"66"&gt;&gt;).
+&lt;&lt;"f"&gt;&gt;</code>
+      </desc>
+    </func>
+
+    <func>
       <name name="first" arity="1" since="OTP R14B"/>
       <fsummary>Return the first byte of a binary.</fsummary>
       <desc>

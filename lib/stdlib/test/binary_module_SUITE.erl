@@ -23,7 +23,7 @@
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
-         check_no_invalid_read_bug/1,error_info/1]).
+         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -38,11 +38,10 @@ all() ->
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
-     error_info].
+     error_info, hex_encoding].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
-
 
 %% Test various badarg exceptions in the module.
 badargs(Config) when is_list(Config) ->
@@ -238,6 +237,12 @@ badargs(Config) when is_list(Config) ->
     badarg =
 	?MASK_ERROR(
 	   binary:at([1,2,4],2)),
+
+    badarg = ?MASK_ERROR(binary:encode_hex("abc")),
+    badarg = ?MASK_ERROR(binary:encode_hex(123)),
+    badarg = ?MASK_ERROR(binary:encode_hex([])),
+    badarg = ?MASK_ERROR(binary:encode_hex(#{})),
+    badarg = ?MASK_ERROR(binary:encode_hex(foo)),
     ok.
 
 %% Whitebox test to force special trap conditions in
@@ -1455,9 +1460,41 @@ error_info(_Config) ->
 
          {split, [<<1:15>>, <<"a">>, []]},
          {split, [<<1,2,3>>, {bm,make_ref()}, []]},
-         {split, [<<1,2,3>>, <<"2">>, [bad_option]]}
+         {split, [<<1,2,3>>, <<"2">>, [bad_option]]},
+
+         {encode_hex, [{no,a,binary}]},
+         {decode_hex, [{no,a,binary}]},
+         {decode_hex, [<<"000">>],[allow_rename]},
+         {decode_hex, [<<"GG">>],[allow_rename]}
         ],
     error_info_lib:test_error_info(binary, L).
+
+hex_encoding(Config) when is_list(Config) ->
+    %% Vector test imported from the RFC 4648 section 10.
+    <<>> = binary:encode_hex(<<>>),
+    <<"66">> = binary:encode_hex(<<"f">>),
+    <<"666F">> = binary:encode_hex(<<"fo">>),
+    <<"666F6F">> = binary:encode_hex(<<"foo">>),
+    <<"666F6F62">> = binary:encode_hex(<<"foob">>),
+    <<"666F6F6261">> = binary:encode_hex(<<"fooba">>),
+    <<"666F6F626172">> = binary:encode_hex(<<"foobar">>),
+
+    <<>> = binary:decode_hex(<<>>),
+    <<"f">> = binary:decode_hex(<<"66">>),
+    <<"fo">> = binary:decode_hex(<<"666F">>),
+    <<"foo">> = binary:decode_hex(<<"666F6F">>),
+    <<"foob">> = binary:decode_hex(<<"666F6F62">>),
+    <<"fooba">> = binary:decode_hex(<<"666F6F6261">>),
+    <<"foobar">> = binary:decode_hex(<<"666F6F626172">>),
+
+    <<"fo">> = binary:decode_hex(<<"666f">>),
+    <<"foo">> = binary:decode_hex(<<"666f6f">>),
+    <<"foob">> = binary:decode_hex(<<"666f6f62">>),
+    <<"fooba">> = binary:decode_hex(<<"666f6f6261">>),
+    <<"foobar">> = binary:decode_hex(<<"666f6f626172">>),
+
+    <<"foobar">> = binary:decode_hex(<<"666f6F626172">>),
+    ok.
 
 %%%
 %%% Utilities.

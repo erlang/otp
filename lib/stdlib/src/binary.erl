@@ -20,7 +20,8 @@
 -module(binary).
 %%
 %% Implemented in this module:
--export([replace/3,replace/4]).
+-export([replace/3,replace/4,
+         encode_hex/1, decode_hex/1]).
 
 -export_type([cp/0]).
 
@@ -346,8 +347,6 @@ splitat(H,N,[]) ->
 splitat(H,N,[I|T]) ->
     [binary:part(H,{N,I-N})|splitat(H,I,T)].
 
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Simple helper functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -362,6 +361,65 @@ get_opts_replace([{insert_replaced,N} | T],{Part,Global,_Insert}) ->
     get_opts_replace(T,{Part,Global,N});
 get_opts_replace(_,_) ->
     throw(badopt).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Hex encoding functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec encode_hex(Bin) -> Bin2 when
+      Bin :: binary(),
+      Bin2 :: binary().
+encode_hex(Bin) when is_binary(Bin) ->
+    encode_hex(Bin, <<>>);
+encode_hex(Bin) ->
+    badarg_with_info([Bin]).
+
+-spec encode_hex(Bin, Acc) -> Bin2 when
+      Bin :: binary(),
+      Acc :: binary(),
+      Bin2 :: Acc.
+encode_hex(<<>>, Acc) ->
+    Acc;
+encode_hex(<<A0:4, B0:4, Rest/binary>>, Acc) ->
+    A = encode_hex_digit(A0),
+    B = encode_hex_digit(B0),
+    encode_hex(Rest, <<Acc/binary, A, B>>).
+
+-spec encode_hex_digit(0..15) -> byte().
+encode_hex_digit(Char) when Char =< 9 ->
+    Char + $0;
+encode_hex_digit(Char) when Char =< 15 ->
+    Char + $A - 10.
+
+-spec decode_hex(Bin) -> Bin2 when
+      Bin :: binary(),
+      Bin2 :: binary().
+decode_hex(Bin) when is_binary(Bin) ->
+    decode_hex(Bin, <<>>);
+decode_hex(Bin) ->
+    badarg_with_info([Bin]).
+
+-spec decode_hex(Bin, Acc) -> Bin2 when
+      Bin :: binary(),
+      Acc :: binary(),
+      Bin2 :: Acc.
+decode_hex(<<>>, Acc) ->
+    Acc;
+decode_hex(<<A0:8, B0:8, Rest/binary>>, Acc) ->
+    A = decode_hex_char(A0),
+    B = decode_hex_char(B0),
+    decode_hex(Rest, <<Acc/binary, A:4, B:4>>);
+decode_hex(Bin, _Acc) ->
+    badarg_with_info([Bin]).
+
+-spec decode_hex_char($A..$F | $a..$f | $0..$9) -> 0..15.
+decode_hex_char(Char) when Char >= $a, Char =< $f ->
+    Char - $a + 10;
+decode_hex_char(Char) when Char >= $A, Char =< $F ->
+    Char - $A + 10;
+decode_hex_char(Char) when Char >= $0, Char =< $9 ->
+    Char - $0;
+decode_hex_char(Char) ->
+    badarg_with_cause([<<Char>>], invalid_hex).
 
 badarg_with_cause(Args, Cause) ->
     erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors,
