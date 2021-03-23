@@ -19859,23 +19859,23 @@ api_opt_ip_recvtos_udp(InitState) ->
                            end
                    end},
 
-         #{desc => "set tos = mincost on src sock",
+         #{desc => "set tos = reliability on src sock",
            cmd  => fun(#{sock_src := Sock}) ->
-                           ok = socket:setopt(Sock, ip, tos, mincost)
+                           ok = socket:setopt(Sock, ip, tos, reliability)
                    end},
-         #{desc => "send req (to dst) (w tos = mincost)",
+         #{desc => "send req (to dst) (w tos = reliability)",
            cmd  => fun(#{sock_src := Sock,
                          sa_dst   := Dst,
                          send     := Send}) ->
                            Send(Sock, ?BASIC_REQ, Dst, default)
                    end},
 
-         %% #{desc => "send req (to dst) (w explicit tos = mincost)",
+         %% #{desc => "send req (to dst) (w explicit tos = reliability)",
          %%   cmd  => fun(#{sock_src := Sock,
          %%                 sa_dst   := Dst,
          %%                 send     := Send}) ->
          %%                   socket:setopt(Sock, otp, debug, true),
-         %%                   case Send(Sock, ?BASIC_REQ, Dst, mincost) of
+         %%                   case Send(Sock, ?BASIC_REQ, Dst, reliability) of
          %%                       ok ->
          %%                           socket:setopt(Sock, otp, debug, false),
          %%                           ok;
@@ -19978,21 +19978,21 @@ api_opt_ip_recvtos_udp(InitState) ->
                            end
                    end},
 
-         #{desc => "set tos = mincost on src sock",
+         #{desc => "set tos = reliability on src sock",
            cmd  => fun(#{sock_src := Sock}) ->
-                           ok = socket:setopt(Sock, ip, tos, mincost)
+                           ok = socket:setopt(Sock, ip, tos, reliability)
                    end},
 
          #{desc => "send req (to dst) (w tos = mincost)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
                            Send(Sock, ?BASIC_REQ, Dst, default)
                    end},
-         #{desc => "recv req (from src) - w tos = mincost",
+         #{desc => "recv req (from src) - w tos = reliability",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := TOS,
-                                             value := mincost = TOSData}],
+                                             value := reliability = TOSData}],
                                      ?BASIC_REQ}} 
                                  when ((TOS =:= tos) orelse (TOS =:= recvtos)) ->
                                    ?SEV_IPRINT("got expected TOS (~w) = ~w "
