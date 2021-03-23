@@ -90,6 +90,76 @@ spawn(Module, Name, Args) -> pid()
   </section>
 
   <section>
+    <title>Process Aliases</title>
+    <p>
+      When sending a message to a process, the receiving process can be
+      identified by a <seeguide marker="data_types#pid">PID</seeguide>,
+      a <seeguide marker="#registered-processes">registered name</seeguide>,
+      or a <i>process alias</i> which is a term of the type
+      <seeguide marker="data_types#reference">reference</seeguide>.
+      The typical use case that process aliases were designed for is a
+      request/reply scenario. Using a process alias when sending the reply
+      makes it possible for the receiver of the reply to prevent the reply
+      from reaching its message queue if the operation times out or if the
+      connection between the processes is lost.
+    </p>
+    <p>
+      A process alias can be used as identifier of the receiver when
+      sending a message using the
+      <seeguide marker="expressions#send">send operator <c>!</c></seeguide> or
+      send BIFs such as
+      <seemfa marker="erts:erlang#send/2"><c>erlang:send/2</c></seemfa>.
+      As long as the process alias is active, messages will be
+      delivered the same way as if the process identifier of the process
+      that created the alias had been used. When the alias has been
+      deactivated, messages sent using the alias will be dropped before
+      entering the message queue of the receiver. Note that messages that
+      at deactivation time already have entered the message queue will
+      <em>not</em> be removed.
+    </p>
+    <p>
+      A process alias is created either by calling one of the
+      <seemfa marker="erts:erlang#alias/0"><c>alias/0,1</c></seemfa>
+      BIFs or by creating an alias and a monitor simultaneously. If the
+      alias is created together with a monitor, the same reference
+      will be used both as monitor reference and alias. Creating
+      a monitor and an alias at the same time is done by passing the
+      <c>{alias, _}</c> option to the 
+      <seemfa marker="erts:erlang#monitor/3"><c>monitor/3</c></seemfa>
+      BIF. The <c>{alias, _}</c> option can also be passed when
+      creating a monitor via
+      <seemfa marker="erts:erlang#spawn_opt/5"><c>spawn_opt()</c></seemfa>, or
+      <seemfa marker="erts:erlang#spawn_request/5"><c>spawn_request()</c></seemfa>.
+    </p>
+    <p>
+      A process alias can be deactivated by the process that created it
+      by calling the
+      <seemfa marker="erts:erlang#unalias/1"><c>unalias/1</c></seemfa> BIF.
+      It is also possible to automatically deactivate an alias on
+      certain events. See the documentation of the
+      <seemfa marker="erts:erlang#alias/1"><c>alias/1</c></seemfa> BIF,
+      and the <c>{alias, _}</c> option of the 
+      <seemfa marker="erts:erlang#monitor/3"><c>monitor/3</c></seemfa> BIF
+      for more information about automatic deactivation of aliases.
+    </p>
+    <p>
+      It is <em>not</em> possible to:
+    </p>
+    <list>
+      <item>create an alias identifying another process than the caller.</item>
+      <item>deactivate an alias unless it identifies the caller.</item>
+      <item>look up an alias.</item>
+      <item>look up the process identified by an alias.</item>
+      <item>check if an alias is active or not.</item>
+      <item>check if a reference is an alias.</item>
+    </list>
+    <p>
+      These are all intentional design decisions relating to
+      performance, scalability, and distribution transparency.
+    </p>
+  </section>
+
+  <section>
     <marker id="term"></marker>
     <title>Process Termination</title>
     <p>When a process terminates, it always terminates with an
