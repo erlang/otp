@@ -36,11 +36,17 @@ EDOC_REF3_FILES =  cerl.xml cerl_trees.xml cerl_clauses.xml
 
 XML_PART_FILES = internal.xml
 XML_NOTES_FILES = notes.xml
+XML_INTERNAL_FILES = beam_ssa.xml
+
+XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
 
 BOOK_FILES = book.xml
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_NOTES_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
+
+$(XMLDIR)/%.xml: ../../internal_doc/%.md $(ERL_TOP)/make/emd2exml
+	$(ERL_TOP)/make/emd2exml $< $@
 
 include $(ERL_TOP)/make/doc.mk

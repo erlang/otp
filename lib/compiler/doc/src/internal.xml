@@ -34,5 +34,6 @@
   <xi:include href="cerl.xml"/>
   <xi:include href="cerl_trees.xml"/>
   <xi:include href="cerl_clauses.xml"/>
+  <xi:include href="beam_ssa.xml"/>
 </internal>
 
