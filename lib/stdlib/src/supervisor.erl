@@ -72,11 +72,11 @@
 -type shutdown()      :: 'brutal_kill' | timeout().
 -type worker()        :: 'worker' | 'supervisor'.
 -type sup_name()      :: {'local', Name :: atom()}
-                       | {'global', Name :: atom()}
+                       | {'global', Name :: term()}
                        | {'via', Module :: module(), Name :: any()}.
 -type sup_ref()       :: (Name :: atom())
                        | {Name :: atom(), Node :: node()}
-                       | {'global', Name :: atom()}
+                       | {'global', Name :: term()}
                        | {'via', Module :: module(), Name :: any()}
                        | pid().
 -type child_spec()    :: #{id := child_id(),             % mandatory
@@ -161,7 +161,7 @@
 %%% ---------------------------------------------------
 %%% This is a general process supervisor built upon gen_server.erl.
 %%% Servers/processes should/could also be built using gen_server.erl.
-%%% SupName = {local, atom()} | {global, atom()}.
+%%% SupName = {local, atom()} | {global, term()}.
 %%% ---------------------------------------------------
 
 -type startlink_err() :: {'already_started', pid()}
@@ -371,7 +371,7 @@ init_dynamic(_State, StartSpec) ->
 %%-----------------------------------------------------------------
 %% Func: start_children/2
 %% Args: Children = children() % Ids in start order
-%%       SupName = {local, atom()} | {global, atom()} | {pid(), Mod}
+%%       SupName = {local, atom()} | {global, term()} | {pid(), Mod}
 %% Purpose: Start all children.  The new map contains #child's
 %%          with pids.
 %% Returns: {ok, NChildren} | {error, NChildren, Reason}
@@ -879,7 +879,7 @@ try_again_restart(TryAgainId) ->
 %%-----------------------------------------------------------------
 %% Func: terminate_children/2
 %% Args: Children = children() % Ids in termination order
-%%       SupName = {local, atom()} | {global, atom()} | {pid(),Mod}
+%%       SupName = {local, atom()} | {global, term()} | {pid(),Mod}
 %% Returns: NChildren = children() % Ids in startup order
 %%                                 % (reversed termination order)
 %%-----------------------------------------------------------------
@@ -1296,7 +1296,7 @@ append({Ids1,Db1},{Ids2,Db2}) ->
 
 %%-----------------------------------------------------------------
 %% Func: init_state/4
-%% Args: SupName = {local, atom()} | {global, atom()} | self
+%% Args: SupName = {local, atom()} | {global, term()} | self
 %%       Type = {Strategy, MaxIntensity, Period}
 %%         Strategy = one_for_one | one_for_all | simple_one_for_one |
 %%                    rest_for_one
