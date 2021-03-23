@@ -919,18 +919,26 @@
         <xsl:with-param name="chapnum" select="$chapnum"/>
       </xsl:call-template>
     </xsl:if>
-    <xsl:if test="(local-name() = 'internal' and descendant::chapter) or ((local-name() = 'chapter') and ancestor::internal)">
-      <!-- .../internal or .../internal/chapter  -->
-      <xsl:call-template name="menu.internal.ug">
-        <xsl:with-param name="chapnum" select="$chapnum"/>
-      </xsl:call-template>
-    </xsl:if>
-    <xsl:if test="(local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal)">
-      <!-- .../internal,.../internal/erlref, .../internal/comref or .../internal/cref  or .../internal/fileref or .../internal/appref -->
-      <xsl:call-template name="menu.internal.ref">
-        <xsl:with-param name="curModule" select="$curModule"/>
-      </xsl:call-template>
-    </xsl:if>
+
+    <xsl:choose>
+      <!-- Ugly hack to avoid two menus when we have internal documentation covering both modules and chapters -->
+      <xsl:when test="((local-name() = 'internal' and descendant::chapter) or ((local-name() = 'chapter') and ancestor::internal)) and ((local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal))">
+	<xsl:call-template name="menu.internal.ug_ref">
+	</xsl:call-template>
+      </xsl:when>
+      <xsl:when test="(local-name() = 'internal' and descendant::chapter) or ((local-name() = 'chapter') and ancestor::internal)">
+	<!-- .../internal or .../internal/chapter  -->
+	<xsl:call-template name="menu.internal.ug">
+          <xsl:with-param name="chapnum" select="$chapnum"/>
+	</xsl:call-template>
+      </xsl:when>
+      <xsl:when test="(local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal)">
+	<!-- .../internal,.../internal/erlref, .../internal/comref or .../internal/cref  or .../internal/fileref or .../internal/appref -->
+	<xsl:call-template name="menu.internal.ref">
+          <xsl:with-param name="curModule" select="$curModule"/>
+	</xsl:call-template>
+      </xsl:when>
+    </xsl:choose>
     <xsl:if test="(local-name() = 'application') or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::application)">
       <!-- .../application,.../application/erlref, .../application/comref or .../application/cref  or .../application/fileref or .../application/appref -->
       <xsl:call-template name="menu.ref">
@@ -1483,6 +1491,39 @@
     </div>
   </xsl:template>
 
+  <!-- Menu.internal.chapter combined when we have both modules and free-form chapters -->
+  <xsl:template name="menu.internal.ug_ref">
+    <div id="leftnav">
+      <div class="leftnav-tube">
+
+        <xsl:call-template name="erlang_logo"/>
+        <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
+        <p class="section-subtitle">Internal Documentation</p>
+        <p class="section-version">Version <xsl:value-of select="$appver"/></p>
+
+        <xsl:call-template name="menu_top"/>
+
+        <xsl:call-template name="menu_middle"/>
+
+        <h3>Chapters</h3>
+
+        <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
+          <xsl:call-template name="menu.chapter">
+            <xsl:with-param name="entries" select="/book/internals/internal/chapter[header/title]"/>
+          </xsl:call-template>
+        </ul>
+
+        <h3>Modules</h3>
+
+        <ul class="flipMenu">
+          <xsl:call-template name="menu.ref2">
+            <xsl:with-param name="entries" select="/book/internals/internal/erlref[module]|/book/internals/internal/cref[lib]|/book/internals/internal/comref[com]|/book/internals/internal/fileref[file]|/book/internals/internal/appref[app]"/>
+            <!--xsl:with-param name="genFuncMenu" select="true"/-->
+          </xsl:call-template>
+        </ul>
+      </div>
+    </div>
+  </xsl:template>
 
   <!--Users Guide -->
 
