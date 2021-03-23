@@ -163,8 +163,15 @@ phone_number
 
   <section>
     <title>Reference</title>
-    <p>A reference is a term that is unique in an Erlang runtime
-      system, created by calling <c>make_ref/0</c>.</p>
+    <p>
+      A term that is
+      <seeguide marker="system/efficiency_guide:advanced#unique_references">unique</seeguide>
+      among connected nodes. A reference can be created by calling the
+      <seemfa marker="erts:erlang#make_ref/0"><c>make_ref/0</c></seemfa>
+      BIF. The
+      <seemfa marker="erts:erlang#is_reference/1"><c>is_reference/1</c></seemfa>
+      BIF can be used to test if a term is a reference.
+    </p>
   </section>
 
   <section>
