@@ -88,7 +88,7 @@ all(DataDir, PrivDir, C = #config{}) ->
     create_rnd(DataDir, PrivDir),			% For all requests
     rootCA(PrivDir, "erlangCA", C),
     intermediateCA(PrivDir, "otpCA", "erlangCA", C),
-    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "a.server", "b.server"], C),
+    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "undetermined", "a.server", "b.server"], C),
     endusers(PrivDir, "erlangCA", ["localhost"], C),
     %% Create keycert files 
     SDir = filename:join([PrivDir, "server"]),
@@ -107,6 +107,12 @@ all(DataDir, PrivDir, C = #config{}) ->
     RKC = filename:join([RDir, "keycert.pem"]),
     revoke(PrivDir, "otpCA", "revoked", C),
     append_files([RK, RC], RKC),
+    MDir = filename:join([PrivDir, "undetermined"]),
+    MC = filename:join([MDir, "cert.pem"]),
+    MK = filename:join([MDir, "key.pem"]),
+    MKC = filename:join([MDir, "keycert.pem"]),
+    remove_entry(PrivDir, "otpCA", "undetermined", C),
+    append_files([MK, MC], MKC),
     remove_rnd(PrivDir),
     {ok, C}.
 
@@ -175,6 +181,18 @@ revoke(Root, CA, User, C) ->
 	   " -config ", CACnfFile],
     Env = [{"ROOTDIR", filename:absname(Root)}], 
     cmd(Cmd, Env),
+    gencrl(Root, CA, C).
+
+%% Remove the certificate's entry from the database. The OCSP responder
+%% will consider the certificate unknown.
+remove_entry(Root, CA, User, C) ->
+    Db = filename:join([Root, CA, "index.txt"]),
+    Cmd = ["grep", " -v"
+       " \"/CN=", User ,"/\" ", Db,
+       " > ", Db, "~new"],
+    cmd(Cmd, []),
+    Cmd2 = ["mv ", Db, "~new ", Db],
+    cmd(Cmd2, []),
     gencrl(Root, CA, C).
 
 gencrl(Root, CA, C) ->
