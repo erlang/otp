@@ -3036,8 +3036,8 @@ exit(P2Pid, kill),
 is_process_alive(P2Pid),
 % P2 is not alive (the call above always return false)
 </pre>
-       <p>See the documentation about <seeguide
-       marker="erts:communication">communication in Erlang</seeguide>
+       <p>See the documentation about
+        <seeguide marker="system/reference_manual:processes#signals">signals</seeguide>
        and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
        information about signals and exit singnals.</p>
       </desc>
