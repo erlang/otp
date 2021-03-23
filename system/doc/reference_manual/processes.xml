@@ -40,18 +40,24 @@
 
   <section>
     <title>Process Creation</title>
-    <p>A process is created by calling <c>spawn</c>:</p>
+    <p>A process is created by calling <c>spawn()</c>:</p>
     <pre>
 spawn(Module, Name, Args) -> pid()
   Module = Name = atom()
   Args = [Arg1,...,ArgN]
     ArgI = term()</pre>
-    <p><c>spawn</c> creates a new process and returns the pid.</p>
+    <p><c>spawn()</c> creates a new process and returns the pid.</p>
     <p>The new process starts executing in
       <c>Module:Name(Arg1,...,ArgN)</c> where the arguments are
       the elements of the (possible empty) <c>Args</c> argument list.</p>
-    <p>There exist a number of other <c>spawn</c> BIFs, for example,
-      <c>spawn/4</c> for spawning a process at another node.</p>
+    <p>There exist a number of different <c>spawn</c> BIFs:</p>
+    <list>
+    	<item><seemfa marker="erts:erlang#spawn/4"><c>spawn/1,2,3,4</c></seemfa></item>
+	<item><seemfa marker="erts:erlang#spawn_link/4"><c>spawn_link/1,2,3,4</c></seemfa></item>
+	<item><seemfa marker="erts:erlang#spawn_monitor/4"><c>spawn_monitor/1,2,3,4</c></seemfa></item>
+	<item><seemfa marker="erts:erlang#spawn_opt/5"><c>spawn_opt/2,3,4,5</c></seemfa></item>
+	<item><seemfa marker="erts:erlang#spawn_request/5"><c>spawn_request/1,2,3,4,5</c></seemfa></item>
+    </list>
   </section>
 
   <section>
