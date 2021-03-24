@@ -857,9 +857,9 @@ stop_dist(Config) when is_list(Config) ->
                  ++ " -noshell -pa "
                  ++ proplists:get_value(data_dir, Config)
                  ++ " -s run"),
-    %% The "true" may be followed by an error report, so ignore anything that
-    %% follows it.
-    "true\n"++_ = Str,
+    %% The "true" may be followed or prepended by an error report
+    Lines = string:lexemes(Str, "\n"),
+    true = lists:member("true", Lines),
 
     %% "May fail on FreeBSD due to differently configured name lookup - ask Arndt",
     %% if you can find him.

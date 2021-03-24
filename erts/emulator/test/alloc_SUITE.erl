@@ -197,11 +197,11 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
                     {false, {os,_}} -> ok
                 end,
 
-                Self ! {Ref, ok}
+                exit(ok)
         end,
 
-    spawn_link(Node, F),
-    Result = receive {Ref, Rslt} -> Rslt end,
+    {Pid, MRef} = spawn_monitor(Node, F),
+    Result = receive {'DOWN', MRef, process, Pid, Rslt} -> Rslt end,
     stop_node(Node),
     Result.
 
