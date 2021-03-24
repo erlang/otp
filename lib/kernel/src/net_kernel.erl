@@ -1805,7 +1805,7 @@ start_protos_listen(Name, Host, Node, [Proto | Ps], Ls, CleanHalt) ->
     catch error:undef ->
             proto_error(CleanHalt, Proto, "not supported"),
             start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt);
-          error:Reason ->
+          _:Reason ->
             register_error(CleanHalt, Proto, Reason),
             start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
     end;
