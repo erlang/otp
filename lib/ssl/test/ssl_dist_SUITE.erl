@@ -828,14 +828,17 @@ localhost_ip(InetVer) ->
 
 localhost_ipstr(InetVer) ->
     {ok, Addr} = inet:getaddr(net_adm:localhost(), InetVer),
-    case InetVer of
-        inet ->
-            lists:flatten(io_lib:format("'{~p,~p,~p,~p}'",
-                                        erlang:tuple_to_list(Addr)));
-        inet6 ->
-            lists:flatten(io_lib:format("'{~p,~p,~p,~p,~p,~p,~p,~p}'",
-                                        erlang:tuple_to_list(Addr)))
-    end.
+    Str = case InetVer of
+              inet ->
+                  io_lib:format("{~p,~p,~p,~p}", erlang:tuple_to_list(Addr));
+              inet6 ->
+                  io_lib:format("{~p,~p,~p,~p,~p,~p,~p,~p}", erlang:tuple_to_list(Addr))
+          end,
+    Qouted = case os:type() of
+                 {win32, _} -> Str;
+                 _ -> [$',Str,$']
+             end,
+    lists:flatten(Qouted).
 
 inet_ver() ->
     inet.
