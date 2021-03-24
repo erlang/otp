@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the type optimization pass that could
+	    yield incorrect values or cause the wrong clauses to be
+	    executed.</p>
+          <p>
+	    Own Id: OTP-17073</p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the validator that could cause it to
+	    reject valid code.</p>
+          <p>
+	    Own Id: OTP-17126 Aux Id: ERL-1471 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

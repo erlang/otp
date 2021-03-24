@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarify documentation of module 'scheduler'.</p>
+          <p>
+	    Own Id: OTP-17208 Aux Id: GH-4502, PR-4532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.15.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

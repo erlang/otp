@@ -31,6 +31,60 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The range check for compression pointers in DNS encoding
+	    was faulty, which caused incorrect label compression
+	    encoding for very large DNS messages; larger than about
+	    16 kBytes, such as AXFR responses. This more than 11 year
+	    old bug has now been corrected.</p>
+          <p>
+	    Own Id: OTP-13641 Aux Id: PR-2959 </p>
+        </item>
+        <item>
+          <p>
+	    Fix of internal links in the <c>erpc</c> documentation.</p>
+          <p>
+	    Own Id: OTP-17202 Aux Id: PR-4516 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where complex seq_trace tokens (that is lists,
+	    tuples, maps etc) could becomes corrupted by the GC. The
+	    bug was introduced in OTP-21.</p>
+          <p>
+	    Own Id: OTP-17209 Aux Id: PR-3039 </p>
+        </item>
+        <item>
+	    <p>When running Xref in the <c>modules</c> mode, the
+	    Debugger application would show up as a depency for the
+	    Kernel applications.</p>
+          <p>
+	    Own Id: OTP-17223 Aux Id: GH-4546, PR-4554 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <seeerl marker="erl_epmd"><c>erl_epmd</c></seeerl> (the
+	    epmd client) will now try to reconnect to the local EPMD
+	    if the connection is broken.</p>
+          <p>
+	    Own Id: OTP-17178 Aux Id: PR-3003 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed wx initialization on mac, top level menus did not
+	    always work on newer MacOS versions. The menues will not
+	    work until wxWidgets-3.1.5 is released and used on these
+	    MacOS versions.</p>
+          <p>
+	    Own Id: OTP-17187</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

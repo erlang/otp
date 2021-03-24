@@ -33,6 +33,21 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.20</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Various address sanitizer support.</p>
+          <p>
+	    Own Id: OTP-16959 Aux Id: PR-2965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.19.1</title>
 
     <section><title>Improvements and New Features</title>

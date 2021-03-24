@@ -31,6 +31,54 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix minor memory leaks in crypto ENGINE and robustify the
+	    code.</p>
+          <p>
+	    Own Id: OTP-17212</p>
+        </item>
+        <item>
+          <p>
+	    The otp_test_engine no longer fails if NO_EC* is set in
+	    the OpenSSL configuration.</p>
+          <p>
+	    Own Id: OTP-17256 Aux Id: PR-4580, GH-4573 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Various address sanitizer support.</p>
+          <p>
+	    Own Id: OTP-16959 Aux Id: PR-2965 </p>
+        </item>
+        <item>
+          <p>
+	    EVP is now disabled for OpenSSL cryptolib versions up to
+	    and including 1.0.2</p>
+          <p>
+	    Own Id: OTP-17116 Aux Id: PR-2972 </p>
+        </item>
+        <item>
+          <p>
+	    Warning for unused C function removed</p>
+          <p>
+	    Own Id: OTP-17145 Aux Id: OTP-17105, PR-2872 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

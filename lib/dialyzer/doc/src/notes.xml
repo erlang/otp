@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of PLTs in the GUI.</p>
+          <p>
+	    Own Id: OTP-17091</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.3</title>
 
     <section><title>Improvements and New Features</title>

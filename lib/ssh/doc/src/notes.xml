@@ -30,6 +30,24 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The long name field in SSH_FXP_NAME responses to display
+	    file information in sftp version 3 now contains the
+	    expanded format defined in the sftp draft. It is similar
+	    to what is returned by "ls -l" on Unix systems.</p>
+          <p>
+	    Own Id: OTP-17197 Aux Id: PR- 3049 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -35,6 +35,46 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed case insensitive hostname check.</p>
+          <p>
+	    Own Id: OTP-17242 Aux Id: GH-4500 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add sanity check of trusted anchor certificate expiration
+	    to pkix_path_validation/3. Although the anchor is
+	    considered a trusted input this sanity check does provide
+	    extra security for the users of the public_key
+	    application as this property needs to be checked at time
+	    of usage and fits very well with the other checks
+	    performed here.</p>
+          <p>
+	    Own Id: OTP-16907</p>
+        </item>
+        <item>
+          <p>
+	    Adjust generation of test certificates to conform to RFC
+	    5280 rules for formatting of the certificates validity</p>
+          <p>
+	    Own Id: OTP-17111</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.9.2</title>
 
     <section><title>Improvements and New Features</title>
