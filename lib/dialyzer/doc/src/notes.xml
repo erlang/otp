@@ -32,6 +32,66 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Some internal HiPE modules have been moved into the
+	    dialyzer application so that dialyzer works when HiPE is
+	    disabled.</p>
+          <p>
+	    Own Id: OTP-16883</p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+        <item>
+          <p>
+	    Add warning option <c>no_underspecs</c>.</p>
+          <p>
+	    Own Id: OTP-16986 Aux Id: ERL-1379, ERL-1480, GH-4033 </p>
+        </item>
+        <item>
+          <p>
+	    Report filename and location for warnings returned due to
+	    the <c>-Wunknown</c> option. When used from the
+	    command-line, one location per file is printed.</p>
+          <p>
+	    Own Id: OTP-16995 Aux Id: ERL-1348 </p>
+        </item>
+        <item>
+          <p>
+	    Add types and specifications for documentation.</p>
+          <p>
+	    Own Id: OTP-17084</p>
+        </item>
+        <item>
+          <p>
+	    Add option <c>error_location</c>. The option is
+	    recognized if included in the environment variable
+	    ERL_COMPILER_OPTIONS.</p>
+          <p>
+	    Own Id: OTP-17177 Aux Id: OTP-16824 </p>
+        </item>
+        <item>
+          <p>
+	    Clarify how to declare records used in match patterns.</p>
+          <p>
+	    Own Id: OTP-17183 Aux Id: ERL-892, GH-4493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

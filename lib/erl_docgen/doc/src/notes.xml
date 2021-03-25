@@ -31,7 +31,58 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.0.2</title>
+  <section><title>Erl_Docgen 1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <seeerl
+	    marker="stdlib:shell_docs"><c>shell_docs</c></seeerl> and
+	    <c>erl_docgen</c> that interpreted <c>em</c> tags as
+	    <c>strong</c>.</p>
+          <p>
+	    Own Id: OTP-17122</p>
+        </item>
+        <item>
+	    <p>Missing runtime dependencies has been added to this
+	    application.</p>
+          <p>
+	    Own Id: OTP-17243 Aux Id: PR-4557 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where <c>see*</c> elements within
+	    <c>type</c>/<c>name</c> were removed when generating
+	    html. Bug has been present since OTP-21.</p>
+          <p>
+	    Own Id: OTP-17257</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for displaying <c>.svg</c> images.</p>
+          <p>
+	    Own Id: OTP-16877</p>
+        </item>
+        <item>
+          <p>
+	    Updated the way specs are generated after changes in
+	    edoc.</p>
+          <p>
+	    Own Id: OTP-17192 Aux Id: PR-2803 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

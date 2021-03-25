@@ -31,6 +31,404 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Time-outs in <c>gen_statem</c> with relative time
+	    <c>0</c> did not behave quite according to the intended
+	    model. This has now been corrected.</p> <p>The correction
+	    introduces a small potential incompatibility e.g when
+	    combining a state time-out with inserted events, and the
+	    inserted event does a state change in the state with the
+	    time-out. Before this correction the state time-out could
+	    be delivered even after the second state change, but now
+	    it is guaranteed that a state time-out is only delivered
+	    in the state it was started for, even in this corner
+	    case.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15107 Aux Id: ERL-1381, PR-2813 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs in <c>erl_eval</c> concerning bitstring
+	    comprehensions.</p>
+          <p>
+	    Own Id: OTP-16865</p>
+        </item>
+        <item>
+	    <p>File names that start with a dot (such as
+	    "<c>.gitignore</c>" are now treated as file names and not
+	    extensions by <c>filename:extension/1</c> and
+	    <c>filename:rootname/1</c>.</p>
+          <p>
+	    Own Id: OTP-16905</p>
+        </item>
+        <item>
+	    <p>Fixed a bug where <c>beam_lib:chunks/3</c> with the
+	    <c>allow_missing_chunks</c> option would crash if a named
+	    chunk was missing.</p>
+          <p>
+	    Own Id: OTP-16950 Aux Id: ERL-1378 </p>
+        </item>
+        <item>
+          <p>
+	    A floating point zero (0.0) can be both positive (+0.0)
+	    and negative (-0.0). Multiple bugs in the compiler,
+	    runtime system, and STDLIB have been fixed to ensure that
+	    the minus sign on 0.0 is not lost.</p>
+          <p>
+	    Own Id: OTP-17077 Aux Id: ERL-1431, PR-2903, PR-2905,
+	    PR-2906 </p>
+        </item>
+        <item>
+	    <p>Eliminated a Dialyzer crashed when the <c>-MMD</c>
+	    option is used to generate a dependency file and a BEAM
+	    file a the same time.</p>
+          <p>
+	    Own Id: OTP-17118 Aux Id: PR-2825 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <seeerl
+	    marker="stdlib:shell_docs"><c>shell_docs</c></seeerl> and
+	    <c>erl_docgen</c> that interpreted <c>em</c> tags as
+	    <c>strong</c>.</p>
+          <p>
+	    Own Id: OTP-17122</p>
+        </item>
+        <item>
+	    <p>On Solaris, the <c>math:acos/1</c> and
+	    <c>math:asin/1</c> functions would not fail for arguments
+	    outside the valid domain.</p>
+          <p>
+	    Own Id: OTP-17133</p>
+        </item>
+        <item>
+	    <p>Documented a deficiency in the <c>re</c> module
+	    regarding the <c>[:ascii:]</c> character class matching
+	    Latin-1 characters.</p>
+          <p>
+	    Own Id: OTP-17222 Aux Id: GH-4544 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>In the <c>rand</c> module it is now possible to seed
+	    the default algorithm using an algorithm alias:
+	    <c>default</c>. </p> <p> Generating pseudo random
+	    binaries has been implemented with <c>rand:bytes/1</c>
+	    and <c>rand:bytes_s/2</c>. </p>
+          <p>
+	    Own Id: OTP-14646 Aux Id: PR-2920 </p>
+        </item>
+        <item>
+          <p>
+	    New functions have been added to the <c>proplists</c>
+	    module: <c>to_map/1,2</c> and <c>from_map/1</c>.</p>
+          <p>
+	    Own Id: OTP-14647 Aux Id: PR-2910 </p>
+        </item>
+        <item>
+          <p>
+	    New functions have been added to the <c>queue</c> module:
+	    <c>all/2</c>, <c>any/2</c>, <c>delete/2</c>,
+	    <c>delete_r/2</c>, <c>delete_with/2</c>, and
+	    <c>delete_with_r/2</c>.</p>
+          <p>
+	    Own Id: OTP-14650 Aux Id: PR-2850 </p>
+        </item>
+        <item>
+          <p>
+	    New function have been added to the <c>queue</c> module:
+	    <c>fold/2</c> and <c>filtermap/2</c>.</p>
+          <p>
+	    Own Id: OTP-14793 Aux Id: PR-2791 </p>
+        </item>
+        <item>
+          <p>
+	    Support for handling abstract code created before OTP R15
+	    has been dropped.</p>
+          <p>
+	    Own Id: OTP-16678 Aux Id: PR-2627 </p>
+        </item>
+        <item>
+          <p>
+	    Extended error information for failing BIF calls as
+	    proposed in <url
+	    href="https://github.com/erlang/eep/blob/master/eeps/eep-0054.md">EEP
+	    54</url> has been implemented.</p>
+          <p>
+	    When a BIF call from the Erlang shell fails, more
+	    information about which argument or arguments that were
+	    in error will be printed. The same extended error
+	    information will by <c>proc_lib</c>, <c>common_test</c>,
+	    and <c>qlc</c> when BIF calls fail.</p>
+          <p>
+	    For applications that wish to provide the same extended
+	    error information, there are new functions
+	    <c>erl_error:format_exception/3</c> and
+	    <c>erl_error:format_exception/4</c>.</p>
+          <p>
+	    There is a new <c>error/3</c> BIF that allows
+	    applications or libraries to provide extended error
+	    information in the same way for their own exceptions.</p>
+          <p>
+	    Own Id: OTP-16686</p>
+        </item>
+        <item>
+          <p>
+	    Process aliases as outlined by <url
+	    href="https://github.com/erlang/eep/blob/master/eeps/eep-0053.md">EEP
+	    53</url> has been introduced. Process aliases is
+	    introduced in order to provide a lightweight mechanism
+	    that can prevent late replies after timeout or connection
+	    loss. For more information, see EEP 53 and the
+	    documentation of the new <seemfa
+	    marker="erts:erlang#alias/1"><c>alias/1</c></seemfa> BIF
+	    and the new options to the <seemfa
+	    marker="erts:erlang#monitor/3"><c>monitor/3</c></seemfa>
+	    BIF.</p>
+          <p>
+	    The <c>call</c> operation in the framework used by
+	    <c>gen_server</c>, <c>gen_statem</c>, and
+	    <c>gen_event</c> has been updated to utilize alias in
+	    order to prevent late responses. The <c>gen_statem</c>
+	    behavior still use a proxy process in the distributed
+	    case, since it has always prevented late replies and
+	    aliases wont work against pre OTP 24 nodes. The proxy
+	    process can be removed in OTP 26.</p>
+          <p>
+	    The alias feature also made it possible to introduce new
+	    functions similar to the <seemfa
+	    marker="kernel:erpc#receive_response/2"><c>erpc:receive_response()</c></seemfa>
+	    function in the gen behaviors, so the new functions
+	    <seemfa
+	    marker="stdlib:gen_server#receive_response/2"><c>gen_server:receive_response()</c></seemfa>,
+	    <seemfa
+	    marker="stdlib:gen_statem#receive_response/2"><c>gen_statem:receive_response()</c></seemfa>,
+	    <seemfa
+	    marker="stdlib:gen_event#receive_response/2"><c>gen_event:receive_response()</c></seemfa>
+	    have also been introduced.</p>
+          <p>
+	    Own Id: OTP-16718 Aux Id: PR-2735 </p>
+        </item>
+        <item>
+          <p>
+	    Improved documentation about exit signals emitted when a
+	    <c>gen_server</c> terminates.</p>
+          <p>
+	    Own Id: OTP-16910 Aux Id: PR-2771 </p>
+        </item>
+        <item>
+          <p>
+	    New functions have been added to the <c>maps</c> module:
+	    <c>merge_with/3</c>, <c>intersect/2</c>,
+	    <c>intersect_with/3</c>, <c>filtermap/2</c>,
+	    <c>from_keys/2</c>, and <c>maps:foreach/2</c>.</p>
+          <p>
+	    <c>maps:merge_with/3</c> is the same as <c>merge/2</c>
+	    but takes an extra fun that is used to combine items with
+	    the same key.</p>
+          <p>
+	    <c>maps:intersect/2</c> computes the intersection of two
+	    maps.</p>
+          <p>
+	    <c>maps:intersect_with/3</c> is the same as
+	    <c>intersect/2</c> but takes an extra fun that is used to
+	    combine intersecting items.</p>
+          <p>
+	    <c>maps:filtermap/2</c> allows filtering and mapping of a
+	    map in a single pass.</p>
+          <p>
+	    <c>maps:from_keys/2</c> constructs a map from a list of
+	    keys and a single value and can be used to to optimize
+	    sets operations such as from_list/1, filter/2,
+	    intersection/2, and subtract/2.</p>
+          <p>
+	    <c>maps:foreach/2</c> allows iteration over a map without
+	    returning any value.</p>
+          <p>
+	    Own Id: OTP-16936 Aux Id: ERL-1367 </p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+        <item>
+          <p>
+	    The <c>filename:src/1</c> function which was deprecated
+	    in OTP 20 has been removed. Use
+	    <c>filelib:find_source/1,3</c> instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16971</p>
+        </item>
+        <item>
+          <p>
+	    The pretty printer for floating point number have been
+	    changed to make it easier to see if the integer part of
+	    the number has been rounded. After the change the digit
+	    that may have been rounded always appears last or just
+	    before the exponent character (e or E). This is
+	    accomplished by always printing the number using
+	    scientific notation if it is so large that the integer
+	    part could be rounded.</p>
+          <p>
+	    Own Id: OTP-16980 Aux Id: ERL-1308 </p>
+        </item>
+        <item>
+          <p>
+	    Accept references up to a size of 160-bits from remote
+	    nodes. This is the first step in an upgrade path toward
+	    using references up to 160-bits in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17005 Aux Id: OTP-16718 </p>
+        </item>
+        <item>
+          <p>
+	    Add option <c>location</c> to
+	    <c>erl_parse:abstract/2</c>.</p>
+          <p>
+	    Own Id: OTP-17024</p>
+        </item>
+        <item>
+          <p>
+	    All long running functions in the maps API are now
+	    yielding. In previous releases the functions
+	    <c>maps:from_list/1</c>, <c>maps:keys/1</c> and
+	    <c>maps:values/1</c> did not yield. This could cause
+	    unfair scheduling of processes.</p>
+          <p>
+	    Own Id: OTP-17057</p>
+        </item>
+        <item>
+	    <p>The <c>sets</c> module now has an optional map-based
+	    implementation, as described in <c>EEP 50</c>.</p>
+	    <p>To use this implementation, pass the
+	    <c>{version,2}</c> option to <c>sets:new/1</c> or
+	    <c>sets:from_list/2</c>.</p>
+          <p>
+	    Own Id: OTP-17059 Aux Id: PR-2864 </p>
+        </item>
+        <item>
+          <p>
+	    Added <seemfa
+	    marker="shell_docs#supported_tags/0"><c>shell_docs:supported_tags/0</c></seemfa>.
+	    This function can be used to retrieve the tags currently
+	    supported by <c>shell_docs</c>.</p>
+          <p>
+	    Own Id: OTP-17120</p>
+        </item>
+        <item>
+          <p>
+	    The <c>application/erlang+html</c> documentation storage
+	    format used by <seeerl
+	    marker="shell_docs"><c>shell_docs</c></seeerl> has been
+	    updated to include the tags <c>b</c>, <c>strong</c>,
+	    <c>h4</c>, <c>h5</c> and <c>h6</c>.</p>
+          <p>
+	    Own Id: OTP-17121</p>
+        </item>
+        <item>
+          <p>
+	    Improved explanation of <c>{continue,Continue}</c> in
+	    <c>Module:init/1</c> of the <c>gen_server</c>
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-17171 Aux Id: PR-3011 </p>
+        </item>
+        <item>
+	    <p>The <c>erl_eval</c> module now accepts a map for
+	    keeping track of bindings. Using an <c>orddict</c> for
+	    bindings will still work.</p>
+          <p>
+	    Own Id: OTP-17175</p>
+        </item>
+        <item>
+	    <p>Documented <c>epp:scan_erl_form/1</c> and added
+	    <c>epp:scan_file/2</c>.</p>
+          <p>
+	    Own Id: OTP-17199 Aux Id: PR-2658 </p>
+        </item>
+        <item>
+          <p>
+	    The standard floating point printing algorithm used by
+	    the <c>io</c> and <c>io_lib</c> modules has been changed
+	    from the algorithm described in [1] to the Ryu algorithm
+	    [2]. This gives a significant speed improvement for the
+	    printing of most floating point numbers and a small
+	    memory consumption improvement.</p>
+          <p>
+	    [1]: Robert G. Burger and R. Kent Dybvig. 1996. Printing
+	    floating-point numbers quickly and accurately. In
+	    Proceedings of the ACM SIGPLAN 1996 conference on
+	    Programming language design and implementation (PLDI
+	    '96). Association for Computing Machinery, New York, NY,
+	    USA, 108–116. DOI:https://doi.org/10.1145/231379.231397</p>
+          <p>
+	    [2]: Ulf Adams. 2018. Ryū: fast float-to-string
+	    conversion. In Proceedings of the 39th ACM SIGPLAN
+	    Conference on Programming Language Design and
+	    Implementation (PLDI 2018). Association for Computing
+	    Machinery, New York, NY, USA, 270–282.
+	    DOI:https://doi.org/10.1145/3192366.3192369</p>
+          <p>
+	    Thanks to Thomas Depierre</p>
+          <p>
+	    Own Id: OTP-17210</p>
+        </item>
+        <item>
+          <p>
+	    Add hex encoding and decoding functions in the binary
+	    module.</p>
+          <p>
+	    Own Id: OTP-17236 Aux Id: PR-3014 </p>
+        </item>
+        <item>
+	    <p>The undocumented and partially broken
+	    <c>ets:filter/3</c> function has been removed.</p>
+          <p>
+	    Own Id: OTP-17263</p>
+        </item>
+        <item>
+          <p>
+	    Add support in <seeerl
+	    marker="shell_docs"><c>shell_docs</c></seeerl> to display
+	    any <c>"text"</c> documentation format. This means that
+	    <c>h(Module)</c> in the shell now can display the
+	    <c>"text/markdown"</c> of Elixir documentation.</p>
+          <p>
+	    Own Id: OTP-17267</p>
+        </item>
+        <item>
+          <p>
+	    The internal hashing of keys within ETS tables of types
+	    <c>set</c>, <c>bag</c>, <c>duplicate_bag</c> has been
+	    salted to diverge from <c>erlang:phash2</c>. This to
+	    avoid bad hashing if <c>phash2</c> is used to distribute
+	    the keys over separate tables/nodes.</p>
+          <p>
+	    Own Id: OTP-17276 Aux Id: PR-2979 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.14.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

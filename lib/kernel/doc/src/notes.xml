@@ -31,6 +31,405 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug has been fixed for the internal <c>inet_res</c>
+	    resolver cache that handled a resolver configuration file
+	    status timer incorrectly and caused performance problems
+	    due to many unnecessary file system accesses.</p>
+          <p>
+	    Own Id: OTP-14700 Aux Id: PR-2848 </p>
+        </item>
+        <item>
+          <p>
+	    Change the value of the tag <c>head</c> returned by
+	    <c>disk_log:info/1</c> from <c>{ok, Head}</c> to just
+	    <c>Head</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16809 Aux Id: ERL-1313 </p>
+        </item>
+        <item>
+	    <p>Missing runtime dependencies has been added to this
+	    application.</p>
+          <p>
+	    Own Id: OTP-17243 Aux Id: PR-4557 </p>
+        </item>
+        <item>
+          <p>
+	    <c>inet:get_rc/0</c> has been corrected to return host
+	    entries as separate entries instead of (incorrectly) in a
+	    list within the list. This bug was introduced by
+	    OTP-16487 in OTP-23.0-rc1.</p>
+          <p>
+	    Own Id: OTP-17262 Aux Id: GH-4588, PR-4604, OTP-16487 </p>
+        </item>
+        <item>
+          <p>
+	    The type gen_tcp:option_name() had a duplicate pktoptions
+	    value.</p>
+          <p>
+	    Own Id: OTP-17277</p>
+        </item>
+        <item>
+          <p>
+	    Fixed removal of empty groups from internal state in
+	    <c>pg</c>.</p>
+          <p>
+	    Own Id: OTP-17286 Aux Id: PR-4619 </p>
+        </item>
+        <item>
+          <p>
+	    <c>erl -remsh</c> now prints an error message when it
+	    fails to connect to the remote node.</p>
+          <p>
+	    Own Id: OTP-17287 Aux Id: PR-4581 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs related to corrupt shell history files.</p>
+          <p>
+	    Error messages printed by shell history are now logged as
+	    logger error reports instead of written to standard
+	    error.</p>
+          <p>
+	    Own Id: OTP-17288 Aux Id: PR-4581 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The cache used by the DNS resolver <c>inet_res</c> has
+	    been improved to use ETS lookups instead of server calls.
+	    This is a considerable speed improvement for cache hits.</p>
+          <p>
+	    Own Id: OTP-13126 Aux Id: PR-3041 </p>
+        </item>
+        <item>
+          <p>
+	    The cache ETS table type for the internal DNS resolver
+	    <c>inet_res</c> has changed type (internally) to get
+	    better speed and atomicity.</p>
+          <p>
+	    Own Id: OTP-14485 Aux Id: PR-2891 </p>
+        </item>
+        <item>
+          <p>
+	    The experimental <c>socket</c> module can now use any
+	    protocol (by name) the OS supports. Suggested in PR-2641,
+	    implemented in PR-2670.</p>
+          <p>
+	    Own Id: OTP-14601 Aux Id: PR-2641, PR-2670, OTP-16749 </p>
+        </item>
+        <item>
+          <p>
+	    The DNS resolver <c>inet_res</c> has been updated to
+	    support CAA (RFC 6844) and URI (RFC 7553) records.</p>
+          <p>
+	    Own Id: OTP-16517 Aux Id: PR-2827 </p>
+        </item>
+        <item>
+          <p>
+	    A compatibility adaptor for <c>gen_tcp</c> to use the new
+	    <c>socket</c> API has been implemented
+	    (<c>gen_tcp_socket</c>). Used when setting the kernel
+	    application variable <c>inet_backend = socket</c>.</p>
+          <p>
+	    Own Id: OTP-16611 Aux Id: OTP-16749 </p>
+        </item>
+        <item>
+          <p>
+	    Extended error information for failing BIF calls as
+	    proposed in <url
+	    href="https://github.com/erlang/eep/blob/master/eeps/eep-0054.md">EEP
+	    54</url> has been implemented.</p>
+          <p>
+	    When a BIF call from the Erlang shell fails, more
+	    information about which argument or arguments that were
+	    in error will be printed. The same extended error
+	    information will by <c>proc_lib</c>, <c>common_test</c>,
+	    and <c>qlc</c> when BIF calls fail.</p>
+          <p>
+	    For applications that wish to provide the same extended
+	    error information, there are new functions
+	    <c>erl_error:format_exception/3</c> and
+	    <c>erl_error:format_exception/4</c>.</p>
+          <p>
+	    There is a new <c>error/3</c> BIF that allows
+	    applications or libraries to provide extended error
+	    information in the same way for their own exceptions.</p>
+          <p>
+	    Own Id: OTP-16686</p>
+        </item>
+        <item>
+	    <p>The file server can now be bypassed in
+	    <c>file:delete/1,2</c> with the <c>raw</c> option.</p>
+          <p>
+	    Own Id: OTP-16698 Aux Id: PR-2634 </p>
+        </item>
+        <item>
+          <p>
+	    An example implementation of Erlang distribution over UDS
+	    using distribution processes has been introduced.</p>
+          <p>
+	    Thanks to Jérôme de Bretagne</p>
+          <p>
+	    Own Id: OTP-16703 Aux Id: PR-2620 </p>
+        </item>
+        <item>
+          <p>
+	    Process aliases as outlined by <url
+	    href="https://github.com/erlang/eep/blob/master/eeps/eep-0053.md">EEP
+	    53</url> has been introduced. Process aliases is
+	    introduced in order to provide a lightweight mechanism
+	    that can prevent late replies after timeout or connection
+	    loss. For more information, see EEP 53 and the
+	    documentation of the new <seemfa
+	    marker="erts:erlang#alias/1"><c>alias/1</c></seemfa> BIF
+	    and the new options to the <seemfa
+	    marker="erts:erlang#monitor/3"><c>monitor/3</c></seemfa>
+	    BIF.</p>
+          <p>
+	    The <c>call</c> operation in the framework used by
+	    <c>gen_server</c>, <c>gen_statem</c>, and
+	    <c>gen_event</c> has been updated to utilize alias in
+	    order to prevent late responses. The <c>gen_statem</c>
+	    behavior still use a proxy process in the distributed
+	    case, since it has always prevented late replies and
+	    aliases wont work against pre OTP 24 nodes. The proxy
+	    process can be removed in OTP 26.</p>
+          <p>
+	    The alias feature also made it possible to introduce new
+	    functions similar to the <seemfa
+	    marker="kernel:erpc#receive_response/2"><c>erpc:receive_response()</c></seemfa>
+	    function in the gen behaviors, so the new functions
+	    <seemfa
+	    marker="stdlib:gen_server#receive_response/2"><c>gen_server:receive_response()</c></seemfa>,
+	    <seemfa
+	    marker="stdlib:gen_statem#receive_response/2"><c>gen_statem:receive_response()</c></seemfa>,
+	    <seemfa
+	    marker="stdlib:gen_event#receive_response/2"><c>gen_event:receive_response()</c></seemfa>
+	    have also been introduced.</p>
+          <p>
+	    Own Id: OTP-16718 Aux Id: PR-2735 </p>
+        </item>
+        <item>
+	    <p> The experimental new socket API has been further
+	    developed. Some backwards incompatible changes with
+	    respect to OTP 23 have been made. </p><p> The control
+	    message format has been changed so a decoded value is now
+	    in the 'value' field instead of in the 'data' field. The
+	    'data' field now always contains binary data. </p><p>
+	    Some type names have been changed regarding message
+	    headers and control message headers. </p><p>
+	    <c>socket:bind/2</c> now returns plain <c>ok</c> instead
+	    of <c>{ok, Port}</c> which was only relevant for the
+	    <c>inet</c> and <c>inet6</c> address families and often
+	    not interesting. To find out which port was chosen use
+	    <c>socket:sockname/1</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16749 Aux Id: OTP-14601 </p>
+        </item>
+        <item>
+          <p>
+	    New function <c>os:env/0</c> returns all OS environment
+	    variables as a list of 2-tuples.</p>
+          <p>
+	    Own Id: OTP-16793 Aux Id: ERL-1332, PR-2740 </p>
+        </item>
+        <item>
+          <p>
+	    Remove the support for distributed disk logs. The new
+	    function <c>disk_log:all/0</c> is to be used instead of
+	    <c>disk_log:accessible_logs/0</c>. The function
+	    <c>disk_log:close/1</c> is to be used instead of
+	    <c>disk_log:lclose/1,2</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16811</p>
+        </item>
+        <item>
+          <p>
+	    Expand the spec for <c>erl_epmd:listen_port_please/2</c>
+	    to mirror <c>erl_epmd:port_please/2</c>.</p>
+          <p>
+	    Own Id: OTP-16947 Aux Id: PR-2781 </p>
+        </item>
+        <item>
+          <p>
+	    A new erl parameter for specifying a file descriptor with
+	    configuration data has been added. This makes it possible
+	    to pass the parameter "-configfd FD" when executing the
+	    erl command. When this option is given, the system will
+	    try to read and parse configuration parameters from the
+	    file descriptor.</p>
+          <p>
+	    Own Id: OTP-16952</p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+        <item>
+	    <p>The <c>pg2</c> module has been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16968</p>
+        </item>
+        <item>
+          <p>
+	    Accept references up to a size of 160-bits from remote
+	    nodes. This is the first step in an upgrade path toward
+	    using references up to 160-bits in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17005 Aux Id: OTP-16718 </p>
+        </item>
+        <item>
+          <p>
+	    Allow utf-8 binaries as parts of logger_formatter
+	    template.</p>
+          <p>
+	    Own Id: OTP-17015</p>
+        </item>
+        <item>
+          <p>
+	    Let <c>disk_log:open/1</c> change the size if a wrap log
+	    is opened for the first time, that is, the disk log
+	    process does not exist, and the value of option
+	    <c>size</c> does not match the current size of the disk
+	    log.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17062 Aux Id: ERL-1418, GH-4469, ERIERL-537 </p>
+        </item>
+        <item>
+          <p>
+	    Allow the shell history of an erlang node to be fetched
+	    and stores using a custom callback module. See
+	    <c>shell_history</c> configuration parameter in the
+	    <seeapp marker="kernel:kernel_app">kernel
+	    documentation</seeapp> for more details.</p>
+          <p>
+	    Own Id: OTP-17103 Aux Id: PR-2949 </p>
+        </item>
+        <item>
+          <p>
+	    The simple logger (used to log events that happen before
+	    kernel has been started) has been improved to print
+	    prettier error messages.</p>
+          <p>
+	    Own Id: OTP-17106 Aux Id: PR-2885 </p>
+        </item>
+        <item>
+          <p>
+	    Fix various issues with the gen_tcp_socket. Including
+	    documenting some incompatibilities.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17156</p>
+        </item>
+        <item>
+          <p>
+	    Added support in logger for setting primary metadata. The
+	    primary metadata is passed as a base metadata to all log
+	    events in the system. See <seeguide
+	    marker="logger_chapter#metadata">Metadata</seeguide> in
+	    the Logger chapter of the Kernel User's Guide for more
+	    details.</p>
+          <p>
+	    Own Id: OTP-17181 Aux Id: PR-2457 </p>
+        </item>
+        <item>
+          <p>
+	    Recognize new key 'optional_applications' in application
+	    resource files.</p>
+          <p>
+	    Own Id: OTP-17189 Aux Id: PR-2675 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>Fun</c>'s passed to logger:log/2,3,4 can now
+	    return metadata that will only be fetched when needed.
+	    See <seemfa
+	    marker="logger#log/2"><c>logger:log/2,3,4</c></seemfa>
+	    for more details.</p>
+          <p>
+	    Own Id: OTP-17198 Aux Id: PR-2721 </p>
+        </item>
+        <item>
+          <p>
+	    <c>erpc:multicall()</c> has been rewritten to be able to
+	    utilize the newly introduced and improved
+	    reference/receive optimization.</p>
+          <p>
+	    Own Id: OTP-17201 Aux Id: PR-4534 </p>
+        </item>
+        <item>
+          <p>
+	    Add utility fiunction inet:info/1 to provide
+	    miscellaneous info about a socket.</p>
+          <p>
+	    Own Id: OTP-17203 Aux Id: OTP-17156 </p>
+        </item>
+        <item>
+	    <p> The behaviour for <c>gen_tcp:connect/3,4</c> has been
+	    changed to not per default bind to an address, which
+	    allows the network stack to delay the address and port
+	    selection to when the remote address is known. This
+	    allows better port re-use, and thus enables far more
+	    outgoing connections, since the ephemeral port range no
+	    longer has to be a hard limit. </p><p> There is a
+	    theoretical possibility that this behaviour change can
+	    affect the set of possible error values, or have other
+	    small implications on some platforms. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17216 Aux Id: PR-2989 </p>
+        </item>
+        <item>
+          <p>
+	    An option <c>{nxdomain_reply, boolean()}</c> has been
+	    implemented in the DNS resolver <c>inet_res</c>. It is
+	    useful since an <c>nxdomain</c> error from a name server
+	    does contain the SOA record if the domain exists at all.
+	    This record is useful to determine a TTL for negative
+	    caching of the failed entry.</p>
+          <p>
+	    Own Id: OTP-17266 Aux Id: PR-4564 </p>
+        </item>
+        <item>
+          <p>
+	    Optimized lookup of local processes part of groups in
+	    <c>pg</c>.</p>
+          <p>
+	    Own Id: OTP-17284 Aux Id: PR-4615 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

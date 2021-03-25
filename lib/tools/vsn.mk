@@ -1,1 +1,1 @@
-TOOLS_VSN = 3.4.4
+TOOLS_VSN = 3.5

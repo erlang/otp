@@ -394,7 +394,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name since="OTP @OTP-16718@">receive_response(RequestId, Timeout) -> Result</name>
+      <name since="OTP 24.0">receive_response(RequestId, Timeout) -> Result</name>
       <fsummary>Receive for a reply from a server.</fsummary>
       <type>
 	<v>RequestId = request_id()</v>
