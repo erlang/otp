@@ -576,9 +576,7 @@ connect(Socket, SslOptions0, Timeout) when is_list(SslOptions0) andalso
     
     CbInfo = handle_option_cb_info(SslOptions0, tls),
     Transport = element(1, CbInfo),
-    EmulatedOptions = tls_socket:emulated_options(),
-    {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
-    try handle_options(SslOptions0 ++ SocketValues, client) of
+    try handle_options(Transport, Socket, SslOptions0, client, undefined) of
         {ok, Config} ->
             tls_socket:upgrade(Socket, Config, Timeout)
     catch
@@ -780,10 +778,8 @@ handshake(#sslsocket{pid = [Pid|_], fd = {_, _, _}} = Socket, SslOpts, Timeout) 
 handshake(Socket, SslOptions, Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     CbInfo = handle_option_cb_info(SslOptions, tls),
     Transport = element(1, CbInfo),
-    EmulatedOptions = tls_socket:emulated_options(),
-    {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
     ConnetionCb = connection_cb(SslOptions),
-    try handle_options(SslOptions ++ SocketValues, server) of
+    try handle_options(Transport, Socket, SslOptions, server, undefined) of
         {ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
             ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
             {ok, Port} = tls_socket:port(Transport, Socket),
@@ -1573,24 +1569,24 @@ do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_g
 do_listen(Port,  Config, dtls_gen_connection) ->
     dtls_socket:listen(Port, Config).
 	
-
-
 -spec handle_options([any()], client | server) -> {ok, #config{}};
                     ([any()], ssl_options()) -> ssl_options().
 
 handle_options(Opts, Role) ->
-    handle_options(Opts, Role, undefined).   
+    handle_options(undefined, undefined, Opts, Role, undefined).   
 
+handle_options(Opts, Role, InheritedSslOpts) ->
+    handle_options(undefined, undefined, Opts, Role, InheritedSslOpts).   
 
 %% Handle ssl options at handshake, handshake_continue
-handle_options(Opts0, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
+handle_options(_, _, Opts0, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
     {SslOpts, _} = expand_options(Opts0, ?RULES),
     process_options(SslOpts, InheritedSslOpts, #{role => Role,
                                                  rules => ?RULES});
 %% Handle all options in listen, connect and handshake
-handle_options(Opts0, Role, Host) ->
-    {SslOpts0, SockOpts} = expand_options(Opts0, ?RULES),
-
+handle_options(Transport, Socket, Opts0, Role, Host) ->
+    {SslOpts0, SockOpts0} = expand_options(Opts0, ?RULES),
+    
     %% Ensure all options are evaluated at startup
     SslOpts1 = add_missing_options(SslOpts0, ?RULES),
     SslOpts = #{protocol := Protocol}
@@ -1601,7 +1597,7 @@ handle_options(Opts0, Role, Host) ->
                             rules => ?RULES}),
     
     %% Handle special options
-    {Sock, Emulated} = emulated_options(Protocol, SockOpts),
+    {Sock, Emulated} = emulated_options(Transport, Socket, Protocol, SockOpts0),
     ConnetionCb = connection_cb(Protocol),
     CbInfo = handle_option_cb_info(Opts0, Protocol),
 
@@ -2003,8 +1999,9 @@ expand_options(Opts0, Rules) ->
                                 cb_info,
                                 client_preferred_next_protocols,  %% next_protocol_selector
                                 log_alert]),                      %% obsoleted by log_level
-
-    SslOpts = {Opts -- SockOpts, [], length(Opts -- SockOpts)},
+    
+    SslOpts0 = Opts -- SockOpts,
+    SslOpts = {SslOpts0, [], length(SslOpts0)},
     {SslOpts, SockOpts}.
 
 
@@ -2531,13 +2528,18 @@ ca_cert_default(verify_peer, {Fun,_}, _) when is_function(Fun) ->
 %% some trusted certs.
 ca_cert_default(verify_peer, undefined, _) ->
     "".
-emulated_options(Protocol, Opts) ->
+emulated_options(undefined, undefined, Protocol, Opts) ->
     case Protocol of
 	tls ->
 	    tls_socket:emulated_options(Opts);
 	dtls ->
 	    dtls_socket:emulated_options(Opts)
-    end.
+    end;
+emulated_options(Transport, Socket, Protocol, Opts) ->
+    EmulatedOptions = tls_socket:emulated_options(),
+    {ok, Original} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
+    {Inet, Emulated0} = emulated_options(undefined, undefined, Protocol, Opts),
+    {Inet, lists:ukeymerge(1, Emulated0, Original)}.
 
 handle_cipher_option(Value, Versions)  when is_list(Value) ->       
     try binary_cipher_suites(Versions, Value) of
