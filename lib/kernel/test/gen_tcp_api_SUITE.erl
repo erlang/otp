@@ -186,6 +186,9 @@ end_per_suite(Config0) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
+
     Config1 = ?LIB:end_per_suite(Config0),
 
     ?P("end_per_suite -> "
