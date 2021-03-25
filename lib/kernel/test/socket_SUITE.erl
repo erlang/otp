@@ -28079,11 +28079,16 @@ sc_rc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host, node_id := NodeID} = State) ->
-                           case start_node(Host, l2a(f("client_~w", [NodeID]))) of
+                           case start_node(Host,
+                                           l2a(f("client_~w", [NodeID]))) of
                                {ok, Node} ->
-                                   ?SEV_IPRINT("client node ~p started", [Node]),
+                                   ?SEV_IPRINT("client node ~p started",
+                                               [Node]),
                                    {ok, State#{node => Node}};
                                {error, Reason} ->
+                                   ?SEV_EPRINT("failed starting "
+                                               "client node ~p (=> SKIP):"
+                                               "~n   ~p", [NodeID, Reason]),
                                    {skip, Reason}
                            end
                    end},
@@ -28495,9 +28500,9 @@ sc_rc_receive_response_tcp(InitState) ->
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator"),
-    ok = ?SEV_AWAIT_FINISH([Server,
-                            Client1, Client2, Client3,
-                            Tester]).
+    ?line ok = ?SEV_AWAIT_FINISH([Server,
+                                  Client1, Client2, Client3,
+                                  Tester]).
 
 
 sc_rc_tcp_client_start(Node) ->
