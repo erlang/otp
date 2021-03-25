@@ -70,10 +70,26 @@ semantics(_Alias, _) ->
 
 init_backend() ->
     ?DBG(init_backend),
+    ct:log("init_backend ~p", [?MODULE]),
+    %% cheat and stuff a marker in mnesia_gvar
+    K = backend_init_marker(),
+    case try mnesia_lib:val(K) catch _:_ -> error end of
+        error ->
+            ct:log("BACKEND marker will be inserted (~p)", [?MODULE]),
+            mnesia_lib:set(K, true);
+        Other ->
+            ct:log("BACKEND marker already present (~p)", [?MODULE]),
+            error({backend_already_initialized, {?MODULE, Other}})
+    end,
     ok.
+
+backend_init_marker() ->
+    {test, ?MODULE, backend_init}.
 
 add_aliases(_As) ->
     ?DBG(_As),
+    ct:log("add_aliases(~p)", [_As]),
+    true = mnesia_lib:val(backend_init_marker()),
     ok.
 
 remove_aliases(_) ->
