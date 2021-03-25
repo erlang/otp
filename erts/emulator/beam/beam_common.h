@@ -282,7 +282,7 @@ void check_monitor_long_schedule(Process *c_p, Uint64 start_time,
                                  ErtsCodePtr start_time_i);
 
 
-extern ErtsCodePtr beam_apply;
+extern ErtsCodePtr beam_run_process;
 extern ErtsCodePtr beam_normal_exit;
 extern ErtsCodePtr beam_exit;
 extern ErtsCodePtr beam_save_calls;

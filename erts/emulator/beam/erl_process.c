@@ -12029,7 +12029,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = &p->u.initial;
 
-    p->i = beam_apply;
+    p->i = beam_run_process;
 
     switch (erts_frame_layout) {
     case ERTS_FRAME_LAYOUT_RA:

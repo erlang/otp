@@ -259,11 +259,6 @@ void BeamModuleAssembler::emit_continue_exit() {
     abs_jmp(ga->get_do_schedule());
 }
 
-/* This is an alias for handle_error */
-void BeamModuleAssembler::emit_error_action_code() {
-    abs_jmp(ga->get_error_action_code());
-}
-
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
 void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
     a.hlt();

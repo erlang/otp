@@ -41,7 +41,7 @@ int erts_jit_perf_support;
  * Special Beam instructions.
  */
 
-ErtsCodePtr beam_apply;
+ErtsCodePtr beam_run_process;
 ErtsCodePtr beam_normal_exit;
 ErtsCodePtr beam_exit;
 ErtsCodePtr beam_export_trampoline;
@@ -187,19 +187,25 @@ void beamasm_init() {
 
     struct operands {
         Eterm name;
+        int arity;
         BeamInstr operand;
         ErtsCodePtr *target;
     };
 
     std::vector<struct operands> operands = {
-            {am_exit, op_error_action_code, &beam_exit},
-            {am_continue_exit, op_continue_exit, &beam_continue_exit},
-            {am_return_trace, op_return_trace, &beam_return_trace},
-            {am_return_to_trace, op_i_return_to_trace, &beam_return_to_trace},
+            {am_run_process, 3, op_i_apply_only, &beam_run_process},
+            {am_normal_exit, 0, op_normal_exit, &beam_normal_exit},
+            {am_continue_exit, 0, op_continue_exit, &beam_continue_exit},
+            {am_exception_trace, 0, op_return_trace, &beam_exception_trace},
+            {am_return_trace, 0, op_return_trace, &beam_return_trace},
+            {am_return_to_trace,
+             0,
+             op_i_return_to_trace,
+             &beam_return_to_trace},
             {am_return_time_trace,
+             0,
              op_i_return_time_trace,
-             &beam_return_time_trace},
-            {am_exception_trace, op_return_trace, &beam_exception_trace}};
+             &beam_return_time_trace}};
 
     Eterm mod_name;
     ERTS_DECL_AM(erts_beamasm);
@@ -241,7 +247,7 @@ void beamasm_init() {
 
     bga = new BeamGlobalAssembler(jit_allocator);
 
-    bma = new BeamModuleAssembler(bga, mod_name, 4 + operands.size() * 2);
+    bma = new BeamModuleAssembler(bga, mod_name, 1 + operands.size() * 2);
 
     for (auto &op : operands) {
         unsigned func_label, entry_label;
@@ -254,9 +260,9 @@ void beamasm_init() {
                    ArgVal(ArgVal::u, sizeof(UWord))});
         bma->emit(op_i_func_info_IaaI,
                   {ArgVal(ArgVal::i, func_label),
-                   ArgVal(ArgVal::i, am_erts_internal),
+                   ArgVal(ArgVal::i, mod_name),
                    ArgVal(ArgVal::i, op.name),
-                   ArgVal(ArgVal::i, 0)});
+                   ArgVal(ArgVal::i, op.arity)});
         bma->emit(op_aligned_label_Lt,
                   {ArgVal(ArgVal::i, entry_label),
                    ArgVal(ArgVal::u, sizeof(UWord))});
@@ -265,43 +271,15 @@ void beamasm_init() {
         op.operand = entry_label;
     }
 
+    bma->emit(op_int_code_end, {});
+
     {
-        unsigned func_label, apply_label, normal_exit_label;
-
-        func_label = label++;
-        apply_label = label++;
-        normal_exit_label = label++;
-
-        bma->emit(op_aligned_label_Lt,
-                  {ArgVal(ArgVal::i, func_label),
-                   ArgVal(ArgVal::u, sizeof(UWord))});
-        bma->emit(op_i_func_info_IaaI,
-                  {ArgVal(ArgVal::i, func_label),
-                   ArgVal(ArgVal::i, am_erts_internal),
-                   ArgVal(ArgVal::i, am_apply),
-                   ArgVal(ArgVal::i, 3)});
-        bma->emit(op_aligned_label_Lt,
-                  {ArgVal(ArgVal::i, apply_label),
-                   ArgVal(ArgVal::u, sizeof(UWord))});
-        bma->emit(op_i_apply, {});
-        bma->emit(op_aligned_label_Lt,
-                  {ArgVal(ArgVal::i, normal_exit_label),
-                   ArgVal(ArgVal::u, sizeof(UWord))});
-        bma->emit(op_normal_exit, {});
-
-        bma->emit(op_int_code_end, {});
-
-        {
-            /* We have no need of the module pointers as we use `getCode(...)`
-             * for everything, and the code will live as long as the emulator
-             * itself. */
-            const void *_ignored_exec;
-            void *_ignored_rw;
-            bma->codegen(jit_allocator, &_ignored_exec, &_ignored_rw);
-        }
-
-        beam_apply = bma->getCode(apply_label);
-        beam_normal_exit = bma->getCode(normal_exit_label);
+        /* We have no need of the module pointers as we use `getCode(...)`
+         * for everything, and the code will live as long as the emulator
+         * itself. */
+        const void *_ignored_exec;
+        void *_ignored_rw;
+        bma->codegen(jit_allocator, &_ignored_exec, &_ignored_rw);
     }
 
     for (auto op : operands) {
@@ -310,11 +288,18 @@ void beamasm_init() {
         }
     }
 
-    /* This instruction relies on register contents, and can only be reached
-     * from a `call_ext_*`-instruction, hence the lack of a wrapper function. */
+    /* These instructions rely on register contents, and can only be reached
+     * from a `call_ext_*`-instruction or trapping from the emulator, hence the
+     * lack of wrapper functions. */
     beam_save_calls = (ErtsCodePtr)bga->get_dispatch_save_calls();
     beam_export_trampoline = (ErtsCodePtr)bga->get_export_trampoline();
+
+    /* Used when trappping to Erlang code from the emulator, setting up
+     * registers in the same way as call_ext so that save_calls and tracing
+     * works when trapping. */
     beam_bif_export_trap = (ErtsCodePtr)bga->get_bif_export_trap();
+
+    beam_exit = (ErtsCodePtr)bga->get_process_exit();
 }
 
 bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
@@ -374,9 +359,12 @@ void BeamGlobalAssembler::emit_process_main() {
           x86::qword_ptr(x86::rsp,
                          offsetof(ErtsSchedulerRegisters, x_reg_array.d)));
 
+    load_erl_bits_state(ARG1);
+    runtime_call<1>(erts_bits_init_state);
+
 #if defined(DEBUG) && defined(NATIVE_ERLANG_STACK)
     /* Save stack bounds so they can be tested without clobbering anything. */
-    a.call(erts_get_stacklimit);
+    runtime_call<0>(erts_get_stacklimit);
 
     a.mov(getSchedulerRegRef(
                   offsetof(ErtsSchedulerRegisters, runtime_stack_end)),
@@ -401,9 +389,6 @@ void BeamGlobalAssembler::emit_process_main() {
     a.sub(x86::rsp, imm(15));
     a.and_(x86::rsp, imm(-16));
 #endif
-
-    load_erl_bits_state(ARG1);
-    runtime_call<1>(erts_bits_init_state);
 
     a.mov(start_time_i, imm(0));
     a.mov(start_time, imm(0));

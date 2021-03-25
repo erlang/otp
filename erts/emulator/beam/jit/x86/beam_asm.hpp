@@ -962,7 +962,6 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(dispatch_nif)                                                            \
     _(dispatch_return)                                                         \
     _(dispatch_save_calls)                                                     \
-    _(error_action_code)                                                       \
     _(export_trampoline)                                                       \
     _(garbage_collect)                                                         \
     _(generic_bp_global)                                                       \
@@ -999,6 +998,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(new_map_shared)                                                          \
     _(plus_body_shared)                                                        \
     _(plus_guard_shared)                                                       \
+    _(process_exit)                                                            \
     _(process_main)                                                            \
     _(raise_exception)                                                         \
     _(raise_exception_shared)                                                  \

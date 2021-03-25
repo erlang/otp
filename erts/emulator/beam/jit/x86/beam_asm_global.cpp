@@ -214,7 +214,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
                            Update::eHeap>();
 
         a.test(RET, RET);
-        a.je(labels[error_action_code]);
+        a.je(labels[process_exit]);
 
         emit_leave_frame();
         a.jmp(emit_setup_export_call(RET));
@@ -264,16 +264,20 @@ void BeamModuleAssembler::emit_raise_exception(Label I,
     abs_jmp(ga->get_raise_exception_shared());
 }
 
-/* Raises the exception currently set up in the process structure. `freason`
- * and `current` must be set prior to jumping here.
- *
- * Assumes that the stack is well-formed with a frame pointer if those are
- * enabled. */
-void BeamGlobalAssembler::emit_error_action_code() {
+void BeamGlobalAssembler::emit_process_exit() {
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
     mov_imm(ARG2, 0);
     mov_imm(ARG4, 0);
+    load_x_reg_array(ARG3);
+    runtime_call<4>(handle_error);
 
-    a.jmp(labels[raise_exception_shared]);
+    emit_leave_runtime();
+
+    a.test(RET, RET);
+    a.je(labels[do_schedule]);
+    a.ud2();
 }
 
 /* Helper function for throwing exceptions from global fragments.

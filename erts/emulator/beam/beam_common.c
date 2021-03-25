@@ -1663,7 +1663,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     }
 
     c_p->catches = 0;
-    c_p->i = beam_apply;
+    c_p->i = beam_run_process;
 
     /*
      * If there are no waiting messages, garbage collect and

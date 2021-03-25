@@ -475,6 +475,7 @@ atom nodeup
 atom noeol
 atom noproc
 atom normal
+atom normal_exit
 atom nosuspend
 atom no_fail
 atom no_float
@@ -589,6 +590,7 @@ atom return_time_trace
 atom return_to
 atom return_to_trace
 atom return_trace
+atom run_process
 atom run_queue
 atom run_queue_lengths
 atom run_queue_lengths_all

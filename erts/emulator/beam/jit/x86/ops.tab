@@ -470,7 +470,6 @@ call_bif W
 call_bif_mfa a a I
 call_nif W W W
 call_error_handler
-error_action_code
 return_trace
 %hot
 

@@ -107,9 +107,11 @@
  * Special Beam instructions.
  */
 
-static BeamInstr beam_apply_[2];
-ErtsCodePtr beam_apply;             /* beam_apply_[0]; */
-ErtsCodePtr beam_normal_exit;       /* beam_apply_[1]; */
+static BeamInstr beam_run_process_[1];
+ErtsCodePtr beam_run_process;
+
+static BeamInstr beam_normal_exit_[1];
+ErtsCodePtr beam_normal_exit;
 
 static BeamInstr beam_exit_[1];
 ErtsCodePtr beam_exit;
@@ -669,11 +671,11 @@ init_emulator_finish(void)
     }
 #endif
 
-    beam_apply_[0]             = BeamOpCodeAddr(op_i_apply);
-    beam_apply_[1]             = BeamOpCodeAddr(op_normal_exit);
+    beam_run_process_[0]       = BeamOpCodeAddr(op_i_apply_only);
+    beam_run_process = (ErtsCodePtr)&beam_run_process_[0];
 
-    beam_apply = (ErtsCodePtr)&beam_apply_[0];
-    beam_normal_exit = (ErtsCodePtr)&beam_apply_[1];
+    beam_normal_exit_[0]       = BeamOpCodeAddr(op_normal_exit);
+    beam_normal_exit = (ErtsCodePtr)&beam_normal_exit_[0];
 
     beam_exit_[0]              = BeamOpCodeAddr(op_error_action_code);
     beam_exit = (ErtsCodePtr)&beam_exit_[0];

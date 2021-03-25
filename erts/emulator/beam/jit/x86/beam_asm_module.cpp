@@ -350,7 +350,9 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_FUNCTION_CLAUSE);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
 
-    a.jmp(labels[error_action_code]);
+    mov_imm(ARG2, 0);
+    mov_imm(ARG4, 0);
+    a.jmp(labels[raise_exception_shared]);
 }
 
 void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
