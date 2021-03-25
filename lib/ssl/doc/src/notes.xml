@@ -27,6 +27,26 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.2.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Backport of OTP-17282</p>
+          <p>
+	    Correct handling of default values for emulated socket
+	    options and retain the order of the ssl options list to
+	    ensure backwards compatible behavior if options should be
+	    set more than once.</p>
+          <p>
+	    Own Id: OTP-17289 Aux Id: GH-4585 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
