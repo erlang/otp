@@ -5092,16 +5092,27 @@ static void dbg_assert_in_env(ErlNifEnv* env, Eterm term,
         real_htop = env->hp;
     }
     if (!erts_dbg_within_proc(ptr_val(term), env->proc, real_htop)) {
-        fprintf(stderr, "\r\nFAILED ASSERTION in %s:\r\n", func);
-        if (nr) {
-            fprintf(stderr, "Term #%d of the %s is not from same ErlNifEnv.",
-                    nr, type);
+        int ok = 0;
+        if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
+            Process* real_proc = env->proc->next;
+            ASSERT(real_proc);
+            erts_proc_lock(real_proc, ERTS_PROC_LOCK_MAIN);
+            ok = (ERTS_PROC_IS_EXITING(real_proc)
+                  || erts_dbg_within_proc(ptr_val(term), real_proc, NULL));
+            erts_proc_unlock(real_proc, ERTS_PROC_LOCK_MAIN);
         }
-        else {
-            fprintf(stderr, "The %s is not from the same ErlNifEnv.", type);
+        if (!ok) {
+            fprintf(stderr, "\r\nFAILED ASSERTION in %s:\r\n", func);
+            if (nr) {
+                fprintf(stderr, "Term #%d of the %s is not from same ErlNifEnv.",
+                        nr, type);
+            }
+            else {
+                fprintf(stderr, "The %s is not from the same ErlNifEnv.", type);
+            }
+            fprintf(stderr, "\r\nABORTING\r\n");
+            abort();
         }
-        fprintf(stderr, "\r\nABORTING\r\n");
-        abort();
     }
     if (env->heap_frag) {
         env->heap_frag->used_size = saved_used_size;
