@@ -104,14 +104,14 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     floatMax = a.newLabel();
     a.align(kAlignCode, 8);
     a.bind(floatMax);
-    double max = DBL_MAX;
-    a.embed((char *)&max, sizeof(double));
+    a.embedDouble(DBL_MAX);
 
     floatSignMask = a.newLabel();
-    a.align(kAlignCode, 16); /* 128-bit aligned */
+    /* This is 128-bit aligned to allow its direct use in SSE instructions,
+     * saving us from needing a separate `movupd` instruction. */
+    a.align(kAlignCode, 16);
     a.bind(floatSignMask);
-    uint64_t signMask = 0x7FFFFFFFFFFFFFFFul;
-    a.embed((char *)&signMask, sizeof(double));
+    a.embedUInt64(0x7FFFFFFFFFFFFFFFul);
 
     /* Shared trampoline for function_clause errors, which can't jump straight
      * to `i_func_info_shared` due to size restrictions. */
@@ -259,14 +259,13 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
      * alternative instructions. The call is filled with a relative call to a
      * trampoline in the module header and then the jmp target is zeroed so that
      * it effectively becomes a nop */
-    byte flag = ERTS_ASM_BP_FLAG_NONE;
     Label next = a.newLabel();
 
     a.short_().jmp(next);
 
     /* We embed a zero byte here, which is used to flag whether to make an early
      * nif call, call a breakpoint handler, or both. */
-    a.embed(&flag, sizeof(flag));
+    a.embedUInt8(ERTS_ASM_BP_FLAG_NONE);
 
     if (genericBPTramp.isValid()) {
         a.call(genericBPTramp);
