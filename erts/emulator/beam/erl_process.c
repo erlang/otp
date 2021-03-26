@@ -437,7 +437,8 @@ typedef enum {
     ERTS_PSTT_COHMQ,    /* Change off heap message queue */
     ERTS_PSTT_FTMQ,     /* Flush trace msg queue */
     ERTS_PSTT_ETS_FREE_FIXATION,
-    ERTS_PSTT_PRIO_SIG  /* Elevate prio on signal management */
+    ERTS_PSTT_PRIO_SIG,  /* Elevate prio on signal management */
+    ERTS_PSTT_TEST
 } ErtsProcSysTaskType;
 
 #define ERTS_MAX_PROC_SYS_TASK_ARGS 2
@@ -446,6 +447,7 @@ struct ErtsProcSysTask_ {
     ErtsProcSysTask *next;
     ErtsProcSysTask *prev;
     ErtsProcSysTaskType type;
+    Eterm prio;
     Eterm requester;
     Eterm reply_tag;
     Eterm req_id;
@@ -10386,6 +10388,9 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
             }
             break;
         }
+        case ERTS_PSTT_TEST:
+            st_res = am_true;
+            break;
 	default:
 	    ERTS_INTERNAL_ERROR("Invalid process sys task type");
 	    st_res = am_false;
@@ -10443,6 +10448,7 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	case ERTS_PSTT_CPC:
         case ERTS_PSTT_COHMQ:
         case ERTS_PSTT_ETS_FREE_FIXATION:
+        case ERTS_PSTT_TEST:
 	    st_res = am_false;
 	    break;
 	case ERTS_PSTT_CLA:
@@ -10584,7 +10590,7 @@ erts_execute_dirty_system_task(Process *c_p)
 static BIF_RETTYPE
 dispatch_system_task(Process *c_p, erts_aint_t fail_state,
 		     ErtsProcSysTask *st, Eterm target,
-		     Eterm prio, Eterm operation)
+		     Eterm operation)
 {
     Process *rp;
     ErtsProcLocks rp_locks = 0;
@@ -10596,9 +10602,19 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
 
     switch (st->type) {
     case ERTS_PSTT_CPC:
-	rp = erts_dirty_process_signal_handler;
 	ASSERT(fail_state & (ERTS_PSFLG_DIRTY_RUNNING
 			     | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+	switch (st->prio) {
+	case am_max:
+	    rp = erts_dirty_process_signal_handler_max;
+	    break;
+	case am_high:
+	    rp = erts_dirty_process_signal_handler_high;
+	    break;
+	default:
+	    rp = erts_dirty_process_signal_handler;
+	    break;
+	}
 	if (c_p == rp) {
 	    ERTS_BIF_PREP_RET(ret, am_dirty_execution);
 	    return ret;
@@ -10618,7 +10634,7 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
 
     ASSERT(is_immed(st->requester));
     ASSERT(is_immed(target));
-    ASSERT(is_immed(prio));
+    ASSERT(is_immed(st->prio));
 
     osz = size_object(operation);
     hsz = 5 /* 4-tuple */ + osz;
@@ -10626,7 +10642,7 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
     mp = erts_alloc_message_heap(rp, &rp_locks, hsz, &hp, &ohp);
 
     msg = copy_struct(operation, osz, &hp, ohp);
-    msg = TUPLE4(hp, st->requester, target, prio, msg);
+    msg = TUPLE4(hp, st->requester, target, st->prio, msg);
 
     erts_queue_message(rp, rp_locks, mp, msg, am_system);
 
@@ -10636,16 +10652,19 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
     return ret;
 }
 
+static Eterm
+sched_sig_sys_task(Process *c_p, void *vst, int *redsp, ErlHeapFragment **bp);
 
 static BIF_RETTYPE
 request_system_task(Process *c_p, Eterm requester, Eterm target,
-		    Eterm priority, Eterm operation)
+		    Eterm priority_req, Eterm operation)
 {
     BIF_RETTYPE ret;
     Process *rp = erts_proc_lookup(target);
     ErtsProcSysTask *st = NULL;
     erts_aint32_t prio, fail_state = ERTS_PSFLG_EXITING;
-    Eterm noproc_res, req_type;
+    Eterm noproc_res, req_type, priority = priority_req;
+    int signal = 0;
 
     if (!rp && !is_internal_pid(target)) {
 	if (!is_external_pid(target))
@@ -10654,12 +10673,27 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	    goto badarg;
     }
 
-    switch (priority) {
+    switch (priority_req) {
     case am_max:	prio = PRIORITY_MAX;	break;
     case am_high:	prio = PRIORITY_HIGH;	break;
     case am_normal:	prio = PRIORITY_NORMAL;	break;
     case am_low:	prio = PRIORITY_LOW;	break;
-    default: goto badarg;
+    case am_inherit: {
+	erts_aint32_t state = erts_atomic32_read_nob(&c_p->state);
+        prio = ERTS_PSFLGS_GET_USR_PRIO(state);
+	switch (prio) {
+	case PRIORITY_MAX: priority = am_max; break;
+	case PRIORITY_HIGH: priority = am_high; break;
+	case PRIORITY_NORMAL: priority = am_normal; break;
+	case PRIORITY_LOW: priority = am_low; break;
+	default:
+	    ERTS_INTERNAL_ERROR("Unexpected prio");
+	    break;
+	}
+	break;
+    }
+    default:
+	goto badarg;
     }
 
     if (is_not_tuple(operation))
@@ -10705,6 +10739,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	hp = &st->heap[0];
 
 	st->requester = requester;
+	st->prio = priority;
 	st->reply_tag = req_type;
 	st->req_id_sz = req_id_sz;
 	st->req_id = req_id_sz == 0 ? req_id : copy_struct(req_id,
@@ -10720,9 +10755,13 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	ASSERT(&st->heap[0] + tot_sz == hp);
     }
 
+    ERTS_BIF_PREP_RET(ret, am_ok);
+
     switch (req_type) {
 
     case am_garbage_collect:
+	if (c_p->common.id == requester)
+	    signal = !0;
         switch (st->arg[0]) {
         case am_minor:  st->type = ERTS_PSTT_GC_MINOR; break;
         case am_major:  st->type = ERTS_PSTT_GC_MAJOR; break;
@@ -10734,6 +10773,8 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	break;
 
     case am_check_process_code:
+	if (c_p->common.id == requester)
+	    signal = !0;
 	if (is_not_atom(st->arg[0]))
 	    goto badarg;
 	noproc_res = am_false;
@@ -10759,29 +10800,59 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	break;
 
     default:
+        if (ERTS_IS_ATOM_STR("system_task_test", req_type)) {
+            st->type = ERTS_PSTT_TEST;
+            noproc_res = am_false;
+            if (!rp)
+                goto noproc;
+            break;
+        }
 	goto badarg;
     }
 
+    ASSERT(rp);
+
+    if (signal) {
+        erts_aint32_t state;
+	if (priority_req != am_inherit)
+	    goto badarg;
+        state = erts_atomic32_read_acqb(&rp->state);
+        if (state & fail_state & ERTS_PSFLG_EXITING)
+            goto noproc;
+        if (state & (ERTS_PSFLG_SIG_Q | ERTS_PSFLG_SIG_IN_Q)) {
+            /*
+             * Send rpc request signal without reply,
+             * and reply from the system task...
+             */
+            Eterm res = erts_proc_sig_send_rpc_request(c_p,
+                                                       target,
+                                                       0, /* no reply */
+                                                       sched_sig_sys_task,
+                                                       (void *) st);
+            if (is_non_value(res))
+                goto noproc;
+            return ret; /* signal sent... */
+	}
+	/*
+	 * schedule system task directly since we wont violate
+	 * signal order...
+	 */
+    }
     if (!schedule_process_sys_task(rp, prio, st, &fail_state)) {
-	Eterm failure;
 	if (fail_state & ERTS_PSFLG_EXITING) {
 	noproc:
-	    failure = noproc_res;
+	    notify_sys_task_executed(c_p, st, noproc_res, 1);
 	}
 	else if (fail_state & (ERTS_PSFLG_DIRTY_RUNNING
 			       | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
 	    ret = dispatch_system_task(c_p, fail_state, st,
-				       target, priority, operation);
+				       target, operation);
 	    goto cleanup_return;
 	}
 	else {
 	    ERTS_INTERNAL_ERROR("Unknown failure schedule_process_sys_task()");
-	    failure = am_internal_error;
 	}
-	notify_sys_task_executed(c_p, st, failure, 1);
     }
-
-    ERTS_BIF_PREP_RET(ret, am_ok);
 
     return ret;
 
@@ -10797,6 +10868,64 @@ cleanup_return:
     }
 
     return ret;
+}
+
+static Eterm
+sched_sig_sys_task(Process *c_p, void *vst, int *redsp, ErlHeapFragment **bp)
+{
+    ErtsProcSysTask *st = (ErtsProcSysTask *) vst;
+    erts_aint32_t prio, fail_state = ERTS_PSFLG_EXITING;
+    Eterm priority = st->prio;
+
+    switch (priority) {
+    case am_max:	prio = PRIORITY_MAX;	break;
+    case am_high:	prio = PRIORITY_HIGH;	break;
+    case am_normal:	prio = PRIORITY_NORMAL;	break;
+    case am_low:	prio = PRIORITY_LOW;	break;
+    default:
+	ERTS_INTERNAL_ERROR("Invalid prio");
+	prio = -1;
+	break;
+    }
+
+    switch (st->reply_tag) {
+    case am_garbage_collect:
+	break;
+    case am_check_process_code:
+	fail_state |= ERTS_PSFLG_DIRTY_RUNNING;
+	break;
+    default:
+	ERTS_INTERNAL_ERROR("system task not supported as signal");
+	break;
+    }
+    if (!schedule_process_sys_task(c_p, prio, st, &fail_state)) {
+	if (fail_state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_FREE))
+	    notify_sys_task_executed(c_p, st, am_false, 1);
+	else if (fail_state & ERTS_PSFLG_DIRTY_RUNNING) {
+	    int i, arity = 2;
+	    Eterm heap[1 + 2 + ERTS_MAX_PROC_SYS_TASK_ARGS];
+	    heap[1] = st->reply_tag;
+	    heap[2] = st->req_id;
+	    for (i = 0;
+		 i < ERTS_MAX_PROC_SYS_TASK_ARGS && is_value(st->arg[i]);
+		 i++) {
+		arity++;
+		heap[3 + i] = st->arg[i];
+	    }
+	    heap[0] = make_arityval(arity);
+	    (void) dispatch_system_task(c_p, fail_state, st,
+					c_p->common.id, make_tuple(&heap[0]));
+	    erts_cleanup_offheap(&st->off_heap);
+	    erts_free(ERTS_ALC_T_PROC_SYS_TSK, st);
+	}
+	else {
+	    ERTS_INTERNAL_ERROR("Unknown failure schedule_process_sys_task()");
+	}
+    }
+
+    *redsp = 1;
+
+    return THE_NON_VALUE;
 }
 
 BIF_RETTYPE

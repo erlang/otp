@@ -278,6 +278,7 @@ atom free
 atom fullsweep_after
 atom functions
 atom function_clause
+atom garbage_collect
 atom garbage_collecting
 atom garbage_collection
 atom garbage_collection_info
@@ -328,6 +329,7 @@ atom infinity
 atom info
 atom info_msg
 atom info_trap
+atom inherit
 atom init
 atom initial_call
 atom input
