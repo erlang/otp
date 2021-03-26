@@ -1,1 +1,1 @@
-SASL_VSN = 4.1
+SASL_VSN = 4.0.2

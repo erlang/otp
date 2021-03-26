@@ -32,24 +32,6 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
-<section><title>Runtime_Tools 1.16.1</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p>The experimental HiPE application has been removed,
-	    together with all related functionality in other
-	    applications.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-16963</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Runtime_Tools 1.16</title>
 
     <section><title>Improvements and New Features</title>
