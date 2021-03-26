@@ -2912,7 +2912,7 @@ format_error({nomatch,{shadow,Line}}) ->
 format_error({nomatch,shadow}) ->
     "this clause cannot match because a previous clause always matches";
 format_error({nomatch,guard}) ->
-    "this caluse cannot match because its guard evaluates to 'false'";
+    "this clause cannot match because its guard evaluates to 'false'";
 format_error({nomatch,{bit_syntax_truncated,Signess,Val,Sz}}) ->
     S = case Signess of
 	    signed -> "a 'signed'";
