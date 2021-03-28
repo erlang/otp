@@ -57,6 +57,8 @@
          bad_verify_name/1,
          cipher_info/0,
          cipher_info/1,
+         cipher_info_aead_attr/0,
+         cipher_info_aead_attr/1,
          cipher_padding/1,
          compute/0,
          compute/1,
@@ -1242,6 +1244,45 @@ cipher_info(Config) when is_list(Config) ->
             ct:fail('Cipher unsupported',[])
     end.
                                                                          
+cipher_info_aead_attr() ->
+    [{doc, "crypto cipher_info aead attribute testing"}].
+cipher_info_aead_attr(Config) when is_list(Config) ->
+    AeadCiphers = [aes_128_ccm, aes_192_ccm, aes_256_ccm, aes_128_gcm, aes_192_gcm, aes_256_gcm, chacha20_poly1305],
+    case lists:foldl(fun(C,Ok) ->
+                        case crypto:cipher_info(C) of
+                            #{aead := true} ->
+                                true;
+                            _ ->
+                                false
+                        end
+                     end,
+                     true,
+                     AeadCiphers
+                    )
+    of
+        true ->
+            ok;
+        false ->
+            ct:fail('AEAD Cipher attribute reported false',[])
+    end,
+    NonAeadCiphers = [aes_ige256, blowfish_cbc, blowfish_cfb64],
+    case lists:foldl(fun(C,Ok) ->
+                        case crypto:cipher_info(C) of
+                            #{aead := false} ->
+                                true;
+                            _ ->
+                                false
+                        end
+                     end,
+                     true,
+                     NonAeadCiphers
+                    )
+    of
+        true ->
+            ok;
+        false ->
+            ct:fail('Non-AEAD Cipher attribute reported true',[])
+    end.
 
 %%--------------------------------------------------------------------
 hash_info() ->

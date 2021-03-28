@@ -229,6 +229,7 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         enif_make_int(env, EVP_CIPHER_iv_length(cipher)), &ret);
     enif_make_map_put(env, ret, atom_block_size,
         enif_make_int(env, EVP_CIPHER_block_size(cipher)), &ret);
+    enif_make_map_put(env, ret, atom_aead, (((EVP_CIPHER_flags(cipher) & EVP_CIPH_FLAG_AEAD_CIPHER) != 0) ? atom_true : atom_false), &ret);
 
     mode = EVP_CIPHER_mode(cipher);
     switch (mode) {
