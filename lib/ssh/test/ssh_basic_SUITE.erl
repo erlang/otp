@@ -430,43 +430,40 @@ exec_compressed(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-%%% Idle timeout test, client 
-idle_time_client(Config) ->
+%%% Idle timeout test
+idle_time_client(Config) -> idle_time_common([], [{idle_time, 2000}], Config).
+
+idle_time_server(Config) -> idle_time_common([{idle_time, 2000}], [], Config).
+
+
+idle_time_common(DaemonExtraOpts, ClientExtraOpts, Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+					     {failfun, fun ssh_test_lib:failfun/2}
+                                             | DaemonExtraOpts
+                                            ]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
-					  {user_interaction, false},
-					  {idle_time, 2000}]),
-    {ok, Id} = ssh_connection:session_channel(ConnectionRef, 1000),
-    ssh_connection:close(ConnectionRef, Id),
-    receive
-    after 10000 ->
-	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
-    end,
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-%%% Idle timeout test, server
-idle_time_server(Config) ->
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
-    UserDir = proplists:get_value(priv_dir, Config),
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-                                             {idle_time, 2000},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-    ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user_dir, UserDir},
-					  {user_interaction, false}]),
-    {ok, Id} = ssh_connection:session_channel(ConnectionRef, 1000),
-    ssh_connection:close(ConnectionRef, Id),
+					  {user_interaction, false}
+                                          | ClientExtraOpts
+                                         ]),
+    {ok, Id1} = ssh_sftp:start_channel(ConnectionRef),
+    {ok, Id2} = ssh_sftp:start_channel(ConnectionRef),
+    ssh_sftp:stop_channel(Id2),
+    timer:sleep(2500),
+    {ok, Id3} = ssh_sftp:start_channel(ConnectionRef),
+    ssh_sftp:stop_channel(Id1),
+    ssh_sftp:stop_channel(Id3),
+    timer:sleep(1000),
+    {ok, Id4} = ssh_sftp:start_channel(ConnectionRef),
+    timer:sleep(2500),
+    {ok, Id5} = ssh_sftp:start_channel(ConnectionRef),
+    ssh_sftp:stop_channel(Id4),
+    ssh_sftp:stop_channel(Id5),
     receive
     after 10000 ->
 	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
