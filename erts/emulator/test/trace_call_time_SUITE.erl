@@ -65,6 +65,7 @@
 -export([all/0, suite/0,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, on_and_off/1, info/1,
+         apply_bif_bug/1, abb_worker/1,
          disable_ongoing/1,
 	 pause_and_restart/1, scheduling/1, called_function/1, combo/1, 
 	 bif/1, nif/1]).
@@ -88,6 +89,7 @@ suite() ->
 all() ->
     [basic, on_and_off, info, pause_and_restart, scheduling,
      disable_ongoing,
+     apply_bif_bug,
      combo, bif, nif, called_function, dead_tracer, return_stop,
      catch_crash].
 
@@ -824,3 +826,26 @@ loop() ->
             Pid ! {self(), answer, erlang:apply(M, F, A)},
             loop()
     end.
+
+%% OTP-17290, GH-4635
+apply_bif_bug(_Config) ->
+    Pid = spawn(?MODULE, abb_worker, [self()]),
+    erlang:trace(Pid, true, [call]),
+    erlang:trace_pattern({?MODULE,abb_foo,'_'}, true, [call_time]),
+    erlang:trace_pattern({erlang,display,1}, true, [call_time]),
+    Pid ! {call, erlang, display, ["Hej"]},
+    receive
+        done -> ok
+    end,
+    erlang:trace_pattern({'_','_','_'}, false, [call_time]).
+
+abb_worker(Papa) ->
+    receive
+        {call, M, F, Args} ->
+            abb_foo(M, F, Args),
+            Papa ! done
+    end.
+
+
+abb_foo(M,F,Args) ->
+    apply(M,F,Args).
