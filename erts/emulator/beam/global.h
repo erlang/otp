@@ -1263,7 +1263,7 @@ extern int erts_initialized;
 extern int erts_compat_rel;
 
 #ifdef BEAMASM
-extern int erts_asm_dump;
+extern int erts_jit_asm_dump;
 #endif
 
 void erl_start(int, char**);
