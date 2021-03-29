@@ -141,6 +141,7 @@ public:
         for (BeamAssembler::AsmRange &r : ranges) {
             size_t nameLen = r.name.size();
             ptrdiff_t codeSize = (char *)r.stop - (char *)r.start;
+            ASSERT(codeSize > 0);
             record.header.total_size = sizeof(record) + nameLen + 1 + codeSize;
             record.vma = (Uint64)r.start;
             record.code_addr = (Uint64)r.start;
@@ -184,6 +185,7 @@ public:
             ptrdiff_t size = stop - start;
             fprintf(file, "%p %tx $%s\n", start, size, r.name.c_str());
         }
+        fflush(file);
     }
 };
 
