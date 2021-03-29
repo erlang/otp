@@ -1669,7 +1669,7 @@ erl_start(int argc, char **argv)
                 }
                 break;
             default:
-                erts_fprintf(stderr, "invalid JIT option %s\n", arg);
+                erts_fprintf(stderr, "invalid JIT option %s\n", argv[i]);
                 erts_usage();
                 break;
             }
