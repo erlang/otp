@@ -30,6 +30,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The idle_time timer was not cancelled when a channel was
+	    opened within the timeout time on an empty connection
+	    that have had channels previously.</p>
+          <p>
+	    Own Id: OTP-17279</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.11</title>
 
     <section><title>Improvements and New Features</title>
