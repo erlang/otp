@@ -2399,11 +2399,10 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
     Uint32 ix, cix, bp, hval, chx;
     Uint slot, lvl = 0, clvl;
     Uint size = 0, n = 0;
-    DeclareTmpHeapNoproc(th,2);
+    Eterm th[2];
 
     *update_size = 1;
 
-    UseTmpHeapNoproc(2);
     for (;;) {
 	switch(primary_tag(node)) {
 	    case TAG_PRIMARY_LIST: /* LEAF NODE [K|V] */
@@ -2418,7 +2417,6 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
 		    goto unroll;
 		}
 		if (is_update) {
-                    UnUseTmpHeapNoproc(2);
 		    return 0;
 		}
 		goto insert_subnodes;
@@ -2451,7 +2449,6 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
 
                         if (!(bp & hval)) { /* not occupied */
                             if (is_update) {
-				UnUseTmpHeapNoproc(2);
                                 return 0;
                             }
                             size += HAMT_NODE_BITMAP_SZ(n+1);
@@ -2483,7 +2480,6 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
 			}
 			/* not occupied */
 			if (is_update) {
-                            UnUseTmpHeapNoproc(2);
 			    return 0;
 			}
 			size += HAMT_HEAD_BITMAP_SZ(n+1);
@@ -2517,7 +2513,6 @@ insert_subnodes:
 
 unroll:
     *sz = size + /* res cons */ 2;
-    UnUseTmpHeapNoproc(2);
     return 1;
 }
 
