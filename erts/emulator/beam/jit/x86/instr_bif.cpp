@@ -439,6 +439,32 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         runtime_call(RET, 3);
 #endif
 
+#ifdef ERTS_MSACC_EXTENDED_STATES
+        {
+            Label skip_msacc = a.newLabel();
+
+            a.cmp(erts_msacc_cache, imm(0));
+            a.short_().je(skip_msacc);
+
+            /* update cache if it was changed in the bif */
+            a.mov(TMP_MEM1q, RET);
+            a.lea(ARG1, erts_msacc_cache);
+            runtime_call<1>(erts_msacc_update_cache);
+            a.mov(RET, TMP_MEM1q);
+
+            /* set state to emulator if msacc has been enabled */
+            a.cmp(erts_msacc_cache, imm(0));
+            a.short_().je(skip_msacc);
+            a.mov(ARG1, erts_msacc_cache);
+            a.mov(ARG2, imm(ERTS_MSACC_STATE_EMULATOR));
+            a.mov(ARG3, imm(1));
+            runtime_call<3>(erts_msacc_set_state_m__);
+            a.mov(RET, TMP_MEM1q);
+
+            a.bind(skip_msacc);
+        }
+#endif
+
         /* ERTS_IS_GC_DESIRED_INTERNAL */
         {
             a.mov(ARG2, x86::qword_ptr(c_p, offsetof(Process, stop)));
