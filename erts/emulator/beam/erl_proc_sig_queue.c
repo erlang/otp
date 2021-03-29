@@ -6270,7 +6270,7 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
 	 */
         next_sig = &sig->next;
         sig = *next_sig;
-	ASSERT(!ERTS_SIG_IS_RECV_MARKER(sig)
+	ASSERT(!sig || !ERTS_SIG_IS_RECV_MARKER(sig)
 	       || !((ErtsRecvMarker *) sig)->in_msgq);
     }
     
