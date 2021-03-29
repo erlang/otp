@@ -88,7 +88,7 @@ Eterm  erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 int    erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint *sz,
 			        Uint *upsz, struct ErtsEStack_ *sp, int is_update);
 Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
-			      Uint *upsz, struct ErtsEStack_ *sp);
+			      Uint upsz, struct ErtsEStack_ *sp);
 
 int    erts_validate_and_sort_flatmap(flatmap_t* map);
 void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node, int reverse);

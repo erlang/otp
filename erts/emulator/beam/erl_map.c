@@ -2375,7 +2375,7 @@ Eterm erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
         if (size) {
             /* We are putting a new value (under a new or existing key) */
 	    hp  = HAlloc(p, size);
-	    res = erts_hashmap_insert_up(hp, key, value, &upsz, &stack);
+	    res = erts_hashmap_insert_up(hp, key, value, upsz, &stack);
 	}
         else {
             /* We are putting the same key-value */
@@ -2517,7 +2517,7 @@ unroll:
 }
 
 Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
-			     Uint *update_size, ErtsEStack *sp) {
+			     Uint update_size, ErtsEStack *sp) {
     Eterm node, *ptr, hdr;
     Eterm res;
     Eterm *nhp = NULL;
@@ -2562,7 +2562,7 @@ Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			nhp   = hp;
 			n     = HAMT_HEAD_ARRAY_SZ - 2;
 			*hp++ = MAP_HEADER_HAMT_HEAD_ARRAY; ptr++;
-			*hp++ = (*ptr++) + *update_size;
+			*hp++ = (*ptr++) + update_size;
 			while(n--) { *hp++ = *ptr++; }
 			nhp[slot+2] = res;
 			res = make_hashmap(nhp);
@@ -2590,7 +2590,7 @@ Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			hval  = MAP_HEADER_VAL(hdr);
 			nhp   = hp;
 			*hp++ = MAP_HEADER_HAMT_HEAD_BITMAP(hval | bp); ptr++;
-			*hp++ = (*ptr++) + *update_size;
+			*hp++ = (*ptr++) + update_size;
 
 			n -= slot;
 			while(slot--) { *hp++ = *ptr++; }
