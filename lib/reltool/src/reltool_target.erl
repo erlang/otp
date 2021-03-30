@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -796,12 +796,8 @@ do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
     PathFlag = true,
     {ok, Script} = do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables),
     {ok, BootBin} = gen_boot(Script),
-    Date = date(),
-    Time = time(),
-    RelIoList = io_lib:format("%% rel generated at ~w ~w\n~tp.\n\n",
-                              [Date, Time, GenRel]),
-    ScriptIoList = io_lib:format("%% script generated at ~w ~w\n~tp.\n\n",
-                                 [Date, Time, Script]),
+    RelIoList = io_lib:format("~tp.\n\n", [GenRel]),
+    ScriptIoList = io_lib:format("~tp.\n\n", [Script]),
     [
      {write_file, RelFile, to_utf8_bin_with_enc_comment(RelIoList)},
      {write_file, ScriptFile, to_utf8_bin_with_enc_comment(ScriptIoList)},
@@ -1199,8 +1195,7 @@ spec_app_file(#app{name = Name,
                                                    Info#app_info.modules)],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
-                                      [date(), time(), Contents]),
+            AppIoList = io_lib:format("~tp.\n\n", [Contents]),
             [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}];
         all ->
             %% Include all included modules
@@ -1208,8 +1203,7 @@ spec_app_file(#app{name = Name,
             ModNames = [M#mod.name || M <- Mods, M#mod.is_included],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
-                                      [date(), time(), Contents]),
+            AppIoList = io_lib:format("~tp.\n\n", [Contents]),
             [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}]
 
     end.
