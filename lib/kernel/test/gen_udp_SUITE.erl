@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,6 +100,9 @@ init_per_suite(Config0) ->
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
             
+            %% We need a monitor on this node also
+            kernel_test_sys_monitor:start(),
+
             Config1
     end.
 
@@ -109,10 +112,13 @@ end_per_suite(Config0) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
+
     Config1 = ?LIB:end_per_suite(Config0),
 
     ?P("end_per_suite -> "
-            "~n      Nodes: ~p", [erlang:nodes()]),
+       "~n      Nodes: ~p", [erlang:nodes()]),
 
     Config1.
 
@@ -133,14 +139,48 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(read_packets, Config) ->
+init_per_testcase(Case, Config0) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    Config1 = init_per_testcase2(Case, Config0),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+    Config1.
+
+init_per_testcase2(read_packets, Config) ->
     ct:timetrap({minutes, 2}),
     Config;
-init_per_testcase(_Case, Config) ->
+init_per_testcase2(_Case, Config) ->
     Config.
 
-end_per_testcase(_Case, _Config) ->
+
+end_per_testcase(_Case, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
     ok.
+
 
 %%-------------------------------------------------------------
 %% Send two packets to a closed port (on some systems this causes the socket
@@ -793,7 +833,7 @@ sendtos_ok({unix,_}, _) -> true;
 sendtos_ok(_, _) -> false.
 
 %% Using the option returns einval, so it is not implemented.
-sendttl_ok({unix,darwin}, OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
+sendttl_ok({unix,darwin}, _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
 sendttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
 %% Using the option returns enoprotoopt, so it is not implemented.
 sendttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
@@ -1276,6 +1316,13 @@ get_localaddr([Localhost|Ls]) ->
            get_localaddr(Ls)
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
