@@ -758,7 +758,7 @@ child_specs(Config) when is_list(Config) ->
 %% Tests child specs (map form), invalid formats should be rejected.
 child_specs_map(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, Pid} = start_link({ok, {#{}, []}}),
     {error, _} = supervisor:start_child(sup_test, hej),
 
     CS0 = #{id => child, start => {m, f, [a]}},
@@ -805,9 +805,16 @@ child_specs_map(Config) when is_list(Config) ->
 	supervisor:check_childspecs([B10]),
 
     lists:foreach(
-	fun (ChildSpec) ->
-	    ChildSpec1 = maps:filter(fun (_, V) -> V =/= undefined end, ChildSpec),
-	    ok = supervisor:check_childspecs([ChildSpec1])
+	fun
+	    (ChildSpec = #{restart := undefined, significant := true}) ->
+		ChildSpec1 = maps:filter(fun (_, V) -> V =/= undefined end, ChildSpec),
+		{error, {invalid_significant, true}} = supervisor:check_childspecs([ChildSpec1]);
+	    (ChildSpec = #{restart := permanent, significant := true}) ->
+		ChildSpec1 = maps:filter(fun (_, V) -> V =/= undefined end, ChildSpec),
+		{error, {invalid_significant, true}} = supervisor:check_childspecs([ChildSpec1]);
+	    (ChildSpec) ->
+		ChildSpec1 = maps:filter(fun (_, V) -> V =/= undefined end, ChildSpec),
+		ok = supervisor:check_childspecs([ChildSpec1])
 	end,
 	[
 	    CS0#{restart => Restart,
@@ -841,6 +848,10 @@ child_specs_map(Config) when is_list(Config) ->
 	start_link({ok, {{simple_one_for_one, 2, 3600}, []}}),
     {error,{bad_start_spec,[CS0,CS0]}} =
 	start_link({ok, {{simple_one_for_one, 2, 3600}, [CS0,CS0]}}),
+
+    %% auto_shutdown => never should not accept significant children
+    {error, {start_spec, {invalid_significant, true}}} =
+	start_link({ok, {#{auto_shutdown => never}, [CS0#{significant => true}]}}),
 
     ok.
 
@@ -3184,17 +3195,15 @@ significant_upgrade_never_any(_Config) ->
 	       restart => transient,
 	       significant => true},
     {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, []}}),
-    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
-    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
-    link(ChildPid1),
-    link(ChildPid2),
+    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child1),
     S1 = sys:get_state(Sup1),
     ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => any_significant}, []}}),
     S2 = sys:get_state(Sup1),
     true = (S1 /= S2),
-    error = check_exit([ChildPid1], 1000),
-    error = check_exit([ChildPid2], 1000),
-    error = check_exit([Sup1], 1000),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
+    link(ChildPid1),
+    link(ChildPid2),
     terminate(ChildPid1, normal),
     ok = check_exit([ChildPid1, ChildPid2, Sup1]),
     ok.
@@ -3203,6 +3212,10 @@ significant_upgrade_never_any(_Config) ->
 significant_upgrade_any_never(_Config) ->
     process_flag(trap_exit, true),
     Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    Child2 = #{id => child2,
 	       start => {supervisor_1, start_child, []},
 	       restart => transient,
 	       significant => true},
@@ -3215,9 +3228,14 @@ significant_upgrade_any_never(_Config) ->
     true = (S1 /= S2),
     error = check_exit([ChildPid1], 1000),
     error = check_exit([Sup1], 1000),
+    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child2),
     terminate(ChildPid1, normal),
     ok = check_exit([ChildPid1]),
     error = check_exit([Sup1], 1000),
+    {ok, ChildPid2} = supervisor:restart_child(Sup1, child1),
+    link(ChildPid2),
+    terminate(Sup1, shutdown),
+    ok = check_exit([ChildPid2, Sup1]),
     ok.
 
 % Test upgrading auto-shutdown from never to all_significant.
@@ -3232,17 +3250,15 @@ significant_upgrade_never_all(_Config) ->
 	       restart => transient,
 	       significant => true},
     {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, []}}),
-    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
-    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
-    link(ChildPid1),
-    link(ChildPid2),
+    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child1),
     S1 = sys:get_state(Sup1),
     ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => all_significant}, []}}),
     S2 = sys:get_state(Sup1),
     true = (S1 /= S2),
-    error = check_exit([ChildPid1], 1000),
-    error = check_exit([ChildPid2], 1000),
-    error = check_exit([Sup1], 1000),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
+    link(ChildPid1),
+    link(ChildPid2),
     terminate(ChildPid1, normal),
     ok = check_exit([ChildPid1]),
     error = check_exit([ChildPid2], 1000),
@@ -3258,6 +3274,10 @@ significant_upgrade_all_never(_Config) ->
 	       start => {supervisor_1, start_child, []},
 	       restart => transient,
 	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
     {ok, Sup1} = start_link({ok, {#{auto_shutdown => all_significant}, []}}),
     {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
     link(ChildPid1),
@@ -3267,9 +3287,14 @@ significant_upgrade_all_never(_Config) ->
     true = (S1 /= S2),
     error = check_exit([ChildPid1], 1000),
     error = check_exit([Sup1], 1000),
+    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child2),
     terminate(ChildPid1, normal),
     ok = check_exit([ChildPid1]),
     error = check_exit([Sup1], 1000),
+    {ok, ChildPid2} = supervisor:restart_child(Sup1, child1),
+    link(ChildPid2),
+    terminate(Sup1, shutdown),
+    ok = check_exit([ChildPid2, Sup1]),
     ok.
 
 % Test upgrading auto-shutdown from any_significant to all_significant.
@@ -3343,36 +3368,50 @@ significant_upgrade_child(_Config) ->
 	      restart => transient,
 	      significant => true},
 
-    % Start with a non-significant child, upgrade it to significant
-    % and ensure that it triggers auto-shutdown.
-    {ok, Sup1} = start_link({ok, {#{auto_shutdown => any_significant}, [Child1]}}),
+    % A supervisor with auto-shutdown set to never should not allow upgrading
+    % a non-significant child to significant.
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, [Child1]}}),
     [{child, ChildPid1, _, _}] = supervisor:which_children(Sup1),
     link(ChildPid1),
     S1_1 = sys:get_state(Sup1),
-    ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => any_significant}, [Child2]}}),
+    {error, _} = fake_upgrade(Sup1, {ok, {#{auto_shutdown => never}, [Child2]}}),
     S1_2 = sys:get_state(Sup1),
     true = (S1_1 /= S1_2),
     error = check_exit([ChildPid1], 1000),
     error = check_exit([Sup1], 1000),
-    terminate(ChildPid1, normal),
+    terminate(Sup1, shutdown),
     ok = check_exit([ChildPid1, Sup1]),
 
-    % Start with a significant child, upgrade it to non-significant
-    % and ensure that it does not trigger auto-shutdown.
-    {ok, Sup2} = start_link({ok, {#{auto_shutdown => any_significant}, [Child2]}}),
+    % Start with a non-significant child, upgrade it to significant
+    % and ensure that it triggers auto-shutdown.
+    {ok, Sup2} = start_link({ok, {#{auto_shutdown => any_significant}, [Child1]}}),
     [{child, ChildPid2, _, _}] = supervisor:which_children(Sup2),
     link(ChildPid2),
     S2_1 = sys:get_state(Sup2),
-    ok = fake_upgrade(Sup2, {ok, {#{auto_shutdown => any_significant}, [Child1]}}),
+    ok = fake_upgrade(Sup2, {ok, {#{auto_shutdown => any_significant}, [Child2]}}),
     S2_2 = sys:get_state(Sup2),
     true = (S2_1 /= S2_2),
     error = check_exit([ChildPid2], 1000),
     error = check_exit([Sup2], 1000),
     terminate(ChildPid2, normal),
-    ok = check_exit([ChildPid2]),
-    error = check_exit([Sup2], 1000),
-    terminate(Sup2, shutdown),
-    ok = check_exit([Sup2]),
+    ok = check_exit([ChildPid2, Sup2]),
+
+    % Start with a significant child, upgrade it to non-significant
+    % and ensure that it does not trigger auto-shutdown.
+    {ok, Sup3} = start_link({ok, {#{auto_shutdown => any_significant}, [Child2]}}),
+    [{child, ChildPid3, _, _}] = supervisor:which_children(Sup3),
+    link(ChildPid3),
+    S3_1 = sys:get_state(Sup3),
+    ok = fake_upgrade(Sup3, {ok, {#{auto_shutdown => any_significant}, [Child1]}}),
+    S3_2 = sys:get_state(Sup3),
+    true = (S3_1 /= S3_2),
+    error = check_exit([ChildPid3], 1000),
+    error = check_exit([Sup3], 1000),
+    terminate(ChildPid3, normal),
+    ok = check_exit([ChildPid3]),
+    error = check_exit([Sup3], 1000),
+    terminate(Sup3, shutdown),
+    ok = check_exit([Sup3]),
 
     ok.
 
