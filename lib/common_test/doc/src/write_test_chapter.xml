@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -29,12 +29,12 @@
     <rev></rev>
     <file>write_test_chapter.xml</file>
   </header>
-         
+
   <section>
     <marker id="intro"></marker>
     <title>Support for Test Suite Authors</title>
 
-    <p>The <seeerl marker="ct"><c>ct</c></seeerl> module provides the main 
+    <p>The <seeerl marker="ct"><c>ct</c></seeerl> module provides the main
     interface for writing test cases. This includes for example, the following:</p>
 
     <list type="bulleted">
@@ -45,8 +45,8 @@
     </list>
 
     <p>For details about these functions, see module <seeerl marker="ct"><c>ct</c></seeerl>.</p>
-    
-    <p>The <c>Common Test</c> application also includes other modules named 
+
+    <p>The <c>Common Test</c> application also includes other modules named
       <c><![CDATA[ct_<component>]]></c>, which
       provide various support, mainly simplified use of communication
       protocols such as RPC, SNMP, FTP, Telnet, and others.</p>
@@ -55,10 +55,10 @@
 
   <section>
     <title>Test Suites</title>
-    
+
     <p>A test suite is an ordinary Erlang module that contains test
       cases. It is recommended that the module has a name on the form
-      <c>*_SUITE.erl</c>. Otherwise, the directory and auto compilation 
+      <c>*_SUITE.erl</c>. Otherwise, the directory and auto compilation
       function in <c>Common Test</c> cannot locate it (at least not by default).
     </p>
 
@@ -66,10 +66,10 @@
       in all test suite modules.
     </p>
 
-    <p>Each test suite module must export function 
+    <p>Each test suite module must export function
     <seemfa marker="ct_suite#Module:all/0"><c>all/0</c></seemfa>,
-      which returns the list of all test case groups and test cases 
-      to be executed in that module. 
+      which returns the list of all test case groups and test cases
+      to be executed in that module.
     </p>
 
     <p>The callback functions to be implemented by the test suite are
@@ -84,16 +84,16 @@
 
     <p>Each test suite module can contain the optional configuration functions
     <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
-    and <seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite/1</c></seemfa>. 
+    and <seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite/1</c></seemfa>.
     If the init function is defined, so must the end function be.
-    </p>    
+    </p>
 
     <p>If <c>init_per_suite</c> exists, it is called initially before the
     test cases are executed. It typically contains initializations common
-    for all test cases in the suite, which are only to be performed once. 
-    <c>init_per_suite</c> is recommended for setting up and verifying state 
-    and environment on the System Under Test (SUT) or the <c>Common Test</c> 
-    host node, or both, so that the test cases in the suite executes correctly. 
+    for all test cases in the suite, which are only to be performed once.
+    <c>init_per_suite</c> is recommended for setting up and verifying state
+    and environment on the System Under Test (SUT) or the <c>Common Test</c>
+    host node, or both, so that the test cases in the suite executes correctly.
     The following are examples of initial configuration operations:
     </p>
     <list type="bulleted">
@@ -103,10 +103,10 @@
     </list>
 
     <p><c>end_per_suite</c> is called as the final stage of the test suite execution
-    (after the last test case has finished). The function is meant to be used 
-    for cleaning up after <c>init_per_suite</c>. 
+    (after the last test case has finished). The function is meant to be used
+    for cleaning up after <c>init_per_suite</c>.
     </p>
-    
+
     <p><c>init_per_suite</c> and <c>end_per_suite</c> execute on dedicated
     Erlang processes, just like the test cases do. The result of these functions
     is however not included in the test run statistics of successful, failed, and
@@ -115,16 +115,16 @@
 
     <p>The argument to <c>init_per_suite</c> is <c>Config</c>, that is, the
     same key-value list of runtime configuration data that each test case takes
-    as input argument. <c>init_per_suite</c> can modify this parameter with 
+    as input argument. <c>init_per_suite</c> can modify this parameter with
     information that the test cases need. The possibly modified <c>Config</c>
     list is the return value of the function.
     </p>
 
     <p>If <c>init_per_suite</c> fails, all test cases in the test
-    suite are skipped automatically (so called <em>auto skipped</em>), 
+    suite are skipped automatically (so called <em>auto skipped</em>),
     including <c>end_per_suite</c>.
     </p>
-    
+
     <p>Notice that if <c>init_per_suite</c> and <c>end_per_suite</c> do not exist
       in the suite, <c>Common Test</c> calls dummy functions (with the same names)
       instead, so that output generated by hook functions can be saved to the log
@@ -139,16 +139,19 @@
 
     <p>Each test suite module can contain the optional configuration functions
     <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
-    and <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>. 
+    and <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>.
     If the init function is defined, so must the end function be.</p>
 
     <p>If <c>init_per_testcase</c> exists, it is called before each
     test case in the suite. It typically contains initialization that
-    must be done for each test case (analog to <c>init_per_suite</c> for the 
+    must be done for each test case (analog to <c>init_per_suite</c> for the
     suite).</p>
 
     <p><c>end_per_testcase/2</c> is called after each test case has
     finished, enabling cleanup after <c>init_per_testcase</c>.</p>
+
+    <note><p>If <c>end_per_testcase</c> crashes, however, test results are unaffected.
+    At the same time, this occurrence is reported in the test execution logs.</p></note>
 
     <p>The first argument to these functions is the name of the test
     case. This value can be used with pattern matching in function clauses
@@ -159,17 +162,17 @@
     <p>The second argument is the <c>Config</c> key-value list of runtime
     configuration data, which has the same value as the list returned by
     <c>init_per_suite</c>. <c>init_per_testcase/2</c> can modify this
-    parameter or return it "as is". The return value of <c>init_per_testcase/2</c> 
+    parameter or return it "as is". The return value of <c>init_per_testcase/2</c>
     is passed as parameter <c>Config</c> to the test case itself.</p>
-	  
+
     <p>The return value of <c>end_per_testcase/2</c> is ignored by the
-    test server, with exception of the 
+    test server, with exception of the
     <seeguide marker="dependencies_chapter#save_config"><c>save_config</c></seeguide>
     and <c>fail</c> tuple.</p>
 
-    <p><c>end_per_testcase</c> can check if the test case was successful. 
-    (which in turn can determine how cleanup is to be performed). 
-    This is done by reading the value tagged with <c>tc_status</c> from 
+    <p><c>end_per_testcase</c> can check if the test case was successful.
+    (which in turn can determine how cleanup is to be performed).
+    This is done by reading the value tagged with <c>tc_status</c> from
     <c>Config</c>. The value is one of the following:
     </p>
     <list type="bulleted">
@@ -178,7 +181,7 @@
        </item>
        <item>
 	 <p><c>{failed,Reason}</c></p>
-	 <p>where <c>Reason</c> is <c>timetrap_timeout</c>, information from <c>exit/1</c>, 
+	 <p>where <c>Reason</c> is <c>timetrap_timeout</c>, information from <c>exit/1</c>,
        or details of a runtime error</p></item>
        <item>
        <p><c>{skipped,Reason}</c></p>
@@ -186,7 +189,7 @@
      </list>
 
     <p>Function <c>end_per_testcase/2</c> is even called if a
-      test case terminates because of a call to 
+      test case terminates because of a call to
       <seemfa marker="ct#abort_current_testcase/1"><c>ct:abort_current_testcase/1</c></seemfa>,
       or after a timetrap time-out. However, <c>end_per_testcase</c>
       then executes on a different process than the test case
@@ -198,7 +201,7 @@
     </p>
     <list type="bulleted">
        <item>If <c>init_per_testcase</c> crashes (called <em>auto skipped</em>).</item>
-       <item>If <c>init_per_testcase</c> returns a tuple <c>{skip,Reason}</c> 
+       <item>If <c>init_per_testcase</c> returns a tuple <c>{skip,Reason}</c>
        (called <em>user skipped</em>).</item>
      </list>
     <p>The test case can also be marked as failed without executing it
@@ -209,7 +212,7 @@
     </p></note>
 
     <p>If it is determined during execution of <c>end_per_testcase</c> that
-    the status of a successful test case is to be changed to failed, 
+    the status of a successful test case is to be changed to failed,
     <c>end_per_testcase</c> can return the tuple <c>{fail,Reason}</c>
     (where <c>Reason</c> describes why the test case fails).</p>
 
@@ -221,20 +224,20 @@
   <section>
     <marker id="test_cases"></marker>
     <title>Test Cases</title>
-    
+
     <p>The smallest unit that the test server is concerned with is a
       test case. Each test case can test many things, for
       example, make several calls to the same interface function with
       different parameters.
     </p>
-      
+
     <p>The author can choose to put many or few tests into each test
       case. Some things to keep in mind follows:
-    </p>      
+    </p>
  <list type="bulleted">
        <item><p>Many small test cases tend to result in extra, and possibly
       duplicated code, as well as slow test execution because of
-      large overhead for initializations and cleanups. Avoid duplicated 
+      large overhead for initializations and cleanups. Avoid duplicated
       code, for example, by using common help functions. Otherwise,
       the resulting suite becomes difficult to read and understand, and
       expensive to maintain.
@@ -243,52 +246,52 @@
       fails. Also, large portions of test code risk being skipped
       when errors occur.</p>
        </item>
-      <item><p>Readability and maintainability suffer 
-      when test cases become too large and extensive. It is not certain 
-      that the resulting log files reflect very well the  number of tests 
+      <item><p>Readability and maintainability suffer
+      when test cases become too large and extensive. It is not certain
+      that the resulting log files reflect very well the  number of tests
       performed.
     </p></item>
      </list>
 
     <p>The test case function takes one argument, <c>Config</c>, which
       contains configuration information such as <c>data_dir</c> and
-      <c>priv_dir</c>. (For details about these, see section 
+      <c>priv_dir</c>. (For details about these, see section
       <seeguide marker="#data_priv_dir">Data and Private Directories</seeguide>.
-      The value of <c>Config</c> at the time of the call, is the same 
+      The value of <c>Config</c> at the time of the call, is the same
       as the return value from <c>init_per_testcase</c>, mentioned earlier.
     </p>
 
-    <note><p>The test case function argument <c>Config</c> is not to be 
+    <note><p>The test case function argument <c>Config</c> is not to be
 	confused with the information that can be retrieved from the
 	configuration files (using <seemfa marker="ct#get_config/1"><c>
 	ct:get_config/1/2</c></seemfa>). The test case argument <c>Config</c>
-	is to be used for runtime configuration of the test suite and the 
-	test cases, while configuration files are to contain data 
-	related to the SUT. These two types of configuration data are handled 
+	is to be used for runtime configuration of the test suite and the
+	test cases, while configuration files are to contain data
+	related to the SUT. These two types of configuration data are handled
 	differently.</p></note>
-    
+
     <p>As parameter <c>Config</c> is a list of key-value tuples, that is,
     a data type called a property list, it can be handled by the
     <seeerl marker="stdlib:proplists"><c>proplists</c></seeerl> module.
-    A value can, for example, be searched for and returned with function 
+    A value can, for example, be searched for and returned with function
     <seemfa marker="stdlib:proplists#get_value/2"><c>proplists:get_value/2</c></seemfa>.
     Also, or alternatively, the general <seeerl marker="stdlib:lists"><c>lists</c></seeerl>
-    module contains useful functions. Normally, the only operations 
-    performed on <c>Config</c> is insert (adding a tuple to the head of the list) 
-    and lookup. <c>Common Test</c> provides a simple macro named <c>?config</c>, 
-    which returns a value of an item in <c>Config</c> given the key (exactly like 
+    module contains useful functions. Normally, the only operations
+    performed on <c>Config</c> is insert (adding a tuple to the head of the list)
+    and lookup. <c>Common Test</c> provides a simple macro named <c>?config</c>,
+    which returns a value of an item in <c>Config</c> given the key (exactly like
     <c>proplists:get_value</c>). Example: <c>PrivDir = ?config(priv_dir, Config)</c>.
     </p>
 
-    <p>If the test case function crashes or exits purposely, it is considered 
-    <em>failed</em>. If it returns a value (no matter what value), it is 
-    considered successful. An exception to this rule is the return value 
-    <c>{skip,Reason}</c>. If this tuple is returned, the test case is considered 
-    skipped and is logged as such.</p> 
+    <p>If the test case function crashes or exits purposely, it is considered
+    <em>failed</em>. If it returns a value (no matter what value), it is
+    considered successful. An exception to this rule is the return value
+    <c>{skip,Reason}</c>. If this tuple is returned, the test case is considered
+    skipped and is logged as such.</p>
 
     <p>If the test case returns the tuple <c>{comment,Comment}</c>, the case
-    is considered successful and <c>Comment</c> is printed in the overview 
-    log file. This is equal to calling 
+    is considered successful and <c>Comment</c> is printed in the overview
+    log file. This is equal to calling
     <seemfa marker="ct#comment/1"><c>ct:comment(Comment)</c></seemfa>.
     </p>
 
@@ -297,13 +300,13 @@
   <section>
     <marker id="info_function"></marker>
       <title>Test Case Information Function</title>
-      
+
       <p>For each test case function there can be an extra function
 	with the same name but without arguments. This is the test case
-	information function. It is expected to return a list of tagged 
+	information function. It is expected to return a list of tagged
 	tuples that specifies various properties regarding the test case.
       </p>
-      
+
       <p>The following tags have special meaning:</p>
       <taglist>
 	<tag><c>timetrap</c></tag>
@@ -311,9 +314,9 @@
 	  <p>
 	    Sets the maximum time the test case is allowed to execute. If
 	    this time is exceeded, the test case fails with
-	    reason <c>timetrap_timeout</c>. Notice that <c>init_per_testcase</c> 
+	    reason <c>timetrap_timeout</c>. Notice that <c>init_per_testcase</c>
 	    and <c>end_per_testcase</c> are included in the timetrap time.
-	    For details, see section 
+	    For details, see section
 	    <seeguide marker="write_test_chapter#timetraps">Timetrap Time-Outs</seeguide>.
 	  </p>
 	</item>
@@ -321,7 +324,7 @@
 	<item>
 	  <p>
 	    Specifies any data related to the test case. This
-	    data can be retrieved at any time using the 
+	    data can be retrieved at any time using the
 	    <seemfa marker="ct#userdata/3"><c>ct:userdata/3</c></seemfa>
 	    utility function.
 	  </p>
@@ -329,7 +332,7 @@
 	<tag><c>silent_connections</c></tag>
 	<item>
 	  <p>
-	    For details, see section 
+	    For details, see section
 	    <seeguide marker="run_test_chapter#silent_connections">Silent Connections</seeguide>.
 	  </p>
 	</item>
@@ -339,25 +342,25 @@
 	    Specifies configuration variables required by the
 	    test case. If the required configuration variables are not
 	    found in any of the test system configuration files, the test case is
-	    skipped.</p> 
+	    skipped.</p>
 	  <p>
-	    A required variable can also be given a default value to 
-	    be used if the variable is not found in any configuration file. To specify 
-	    a default value, add a tuple on the form 
-	    <c>{default_config,ConfigVariableName,Value}</c> to the test case information list 
+	    A required variable can also be given a default value to
+	    be used if the variable is not found in any configuration file. To specify
+	    a default value, add a tuple on the form
+	    <c>{default_config,ConfigVariableName,Value}</c> to the test case information list
 	    (the position in the list is irrelevant).
 	    </p>
 	    <p><em>Examples:</em></p>
-      
+
 	  <pre>
- testcase1() -> 
+ testcase1() ->
      [{require, ftp},
       {default_config, ftp, [{ftp, "my_ftp_host"},
                              {username, "aladdin"},
                              {password, "sesame"}]}}].</pre>
 
 	  <pre>
- testcase2() -> 
+ testcase2() ->
      [{require, unix_telnet, unix},
       {require, {unix, [telnet, username, password]}},
       {default_config, unix, [{telnet, "my_telnet_host"},
@@ -369,16 +372,16 @@
 	<p>For more information about <c>require</c>, see section
 	<seeguide marker="config_file_chapter#require_config_data">
 	Requiring and Reading Configuration Data</seeguide>
-	in section External Configuration Data and function 
+	in section External Configuration Data and function
 	<seemfa marker="ct#require/1"><c>ct:require/1/2</c></seemfa>.</p>
 
       <note><p>Specifying a default value for a required variable can result
 	  in a test case always getting executed. This might not be a desired behavior.</p>
-      </note>  
-    
+      </note>
+
       <p>If <c>timetrap</c> or <c>require</c>, or both, is not set specifically for
 	a particular test case, default values specified by function
-	<seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa> 
+	<seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa>
 	are used.
       </p>
 
@@ -395,7 +398,7 @@
       {require,interfaces},
       {userdata,
           [{description,"System Upgrade: RpuAddition Normal RebootNode"},
-           {fts,"http://someserver.ericsson.se/test_doc4711.pdf"}]}                  
+           {fts,"http://someserver.ericsson.se/test_doc4711.pdf"}]}
      ].</pre>
 
   </section>
@@ -404,23 +407,23 @@
     <marker id="suite"></marker>
     <title>Test Suite Information Function</title>
 
-      <p>Function <seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa> 
-        can, for example, be used in a test suite module to set a default 
-	<c>timetrap</c> value and to <c>require</c> external configuration data. 
+      <p>Function <seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa>
+        can, for example, be used in a test suite module to set a default
+	<c>timetrap</c> value and to <c>require</c> external configuration data.
 	If a test case, or a group information function also specifies any of the information tags, it
-	overrides the default values set by <c>suite/0</c>. For details, 
-	see 
+	overrides the default values set by <c>suite/0</c>. For details,
+	see
 	<seeguide marker="#info_function">Test Case Information Function</seeguide> and
 	<seeguide marker="#test_case_groups">Test Case Groups</seeguide>.
       </p>
-      
+
       <p>The following options can also be specified with the suite information list:</p>
       <list type="bulleted">
-	<item><c>stylesheet</c>, 
+	<item><c>stylesheet</c>,
 	  see <seeguide marker="run_test_chapter#html_stylesheet">HTML Style Sheets</seeguide></item>
-	<item><c>userdata</c>, 
+	<item><c>userdata</c>,
 	  see <seeguide marker="#info_function">Test Case Information Function</seeguide></item>
-	<item><c>silent_connections</c>, 
+	<item><c>silent_connections</c>,
 	  see <seeguide marker="run_test_chapter#silent_connections">Silent Connections</seeguide></item>
       </list>
 
@@ -435,16 +438,16 @@
       {userdata,[{info,"This suite tests database transactions."}]},
       {silent_connections,[telnet]},
       {stylesheet,"db_testing.css"}
-     ].</pre>    
-    
+     ].</pre>
+
   </section>
 
   <section>
     <marker id="test_case_groups"></marker>
     <title>Test Case Groups</title>
-    <p>A test case group is a set of test cases sharing configuration 
+    <p>A test case group is a set of test cases sharing configuration
     functions and execution properties. Test case groups are defined by
-    function 
+    function
     <seemfa marker="ct_suite#Module:groups/0"><c>groups/0</c></seemfa>
     according to the following syntax:</p>
     <pre>
@@ -461,9 +464,9 @@
  TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</pre>
 
     <p><c>GroupName</c> is the name of the group and must be unique within
-    the test suite module. Groups can be nested, by including a group definition 
-    within the <c>GroupsAndTestCases</c> list of another group. 
-    <c>Properties</c> is the list of execution 
+    the test suite module. Groups can be nested, by including a group definition
+    within the <c>GroupsAndTestCases</c> list of another group.
+    <c>Properties</c> is the list of execution
     properties for the group. The possible values are as follows:</p>
     <pre>
  Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]
@@ -484,24 +487,24 @@
        <tag><c>shuffle</c></tag>
        <item><p>The cases in the group are executed in random order.</p></item>
        <tag><c>repeat, repeat_until_*</c></tag>
-       <item><p>Orders <c>Common Test</c> to repeat execution of all the cases in the 
+       <item><p>Orders <c>Common Test</c> to repeat execution of all the cases in the
        group a given number of times, or until any, or all, cases fail or succeed.</p></item>
      </taglist>
-      
+
     <p><em>Example:</em></p>
     <pre>
  groups() -> [{group1, [parallel], [test1a,test1b]},
               {group2, [shuffle,sequence], [test2a,test2b,test2c]}].</pre>
 
     <p>To specify in which order groups are to be executed (also with respect
-    to test cases that are not part of any group), add tuples on the form 
+    to test cases that are not part of any group), add tuples on the form
     <c>{group,GroupName}</c> to the <c>all/0</c> list.</p>
     <p><em>Example:</em></p>
     <pre>
  all() -> [testcase1, {group,group1}, {testcase,testcase2,[{repeat,10}]}, {group,group2}].</pre>
 
-    <p>Execution properties with a group tuple in 
-    <c>all/0</c>: <c>{group,GroupName,Properties}</c> can also be specified. 
+    <p>Execution properties with a group tuple in
+    <c>all/0</c>: <c>{group,GroupName,Properties}</c> can also be specified.
       These properties override those specified in the group definition (see
       <c>groups/0</c> earlier). This way, the same set of tests can be run,
       but with different properties, without having to make copies of the group
@@ -544,7 +547,7 @@
      {tests3, [{repeat,2}], [t3a,t3b,t3c]}].
 
  all() ->
-    [{group, tests1, default, 
+    [{group, tests1, default,
       [{tests2, default,
         [{tests3, [parallel,{repeat,100}]}]}]}].</pre>
 
@@ -561,33 +564,33 @@
       execution is immediately stopped and the remaining cases are skipped.</p>
 
     <p>Before execution of a group begins, the configuration function
-    <seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group(GroupName, Config)</c></seemfa> 
-    is called. The list of tuples returned from this function is passed to the 
-    test cases in the usual manner by argument <c>Config</c>. 
-    <c>init_per_group/2</c> is meant to be used for initializations common 
+    <seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group(GroupName, Config)</c></seemfa>
+    is called. The list of tuples returned from this function is passed to the
+    test cases in the usual manner by argument <c>Config</c>.
+    <c>init_per_group/2</c> is meant to be used for initializations common
     for the test cases in the group. After execution of the group is finished, function
-    <seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group(GroupName, Config)</c></seemfa> 
-    is called. This function is meant to be used for cleaning up after 
+    <seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group(GroupName, Config)</c></seemfa>
+    is called. This function is meant to be used for cleaning up after
     <c>init_per_group/2</c>. If the init function is defined, so must the end function be.</p>
 
     <p>Whenever a group is executed, if <c>init_per_group</c> and
       <c>end_per_group</c> do not exist in the suite, <c>Common Test</c> calls
       dummy functions (with the same names) instead. Output generated by
       hook functions are saved to the log files for these dummies.
-      For more information, see section 
+      For more information, see section
       <seeguide marker="ct_hooks_chapter#manipulating">Manipulating Tests</seeguide>
       in section Common Test Hooks.
     </p>
 
     <note><p><c>init_per_testcase/2</c> and <c>end_per_testcase/2</c>
-    are always called for each individual test case, no matter if the case 
+    are always called for each individual test case, no matter if the case
     belongs to a group or not.</p></note>
 
-    <p>The properties for a group are always printed in the top of the HTML log 
+    <p>The properties for a group are always printed in the top of the HTML log
     for <c>init_per_group/2</c>. The total execution time for a group is
     included at the bottom of the log for <c>end_per_group/2</c>.</p>
 
-    <p>Test case groups can be nested so sets of groups can be 
+    <p>Test case groups can be nested so sets of groups can be
     configured with the same <c>init_per_group/2</c> and <c>end_per_group/2</c>
     functions. Nested groups can be defined by including a group definition,
     or a group name reference, in the test case list of another group.</p>
@@ -602,7 +605,7 @@
               {group5, [sequence], [test5a,test5b,test5c]}].</pre>
 
     <p>In the previous example, if <c>all/0</c> returns group name references
-    in the order <c>[{group,group1},{group,group3}]</c>, the order of the 
+    in the order <c>[{group,group1},{group,group3}]</c>, the order of the
     configuration functions and test cases becomes the following (notice that
     <c>init_per_testcase/2</c> and <c>end_per_testcase/2:</c> are also
     always called, but not included in this example for simplification):</p>
@@ -613,7 +616,7 @@
            test2a(Config2), test2b(Config2)
       end_per_group(group2, Config2)
       test1b(Config1)
- end_per_group(group1, Config1) 
+ end_per_group(group1, Config1)
  init_per_group(group3, Config) -> Config3
       init_per_group(group4, Config3) -> Config4
            test4a(Config4), test4b(Config4)  (**)
@@ -626,36 +629,36 @@
     <p>(*) The order of test case <c>test1a</c>, <c>test1b</c>, and <c>group2</c> is
         undefined, as <c>group1</c> has a shuffle property.</p>
     <p>(**) These cases are not executed in order, but in parallel.</p>
-    <p>Properties are not inherited from top-level groups to nested 
-    subgroups. For instance, in the previous example, the test cases in <c>group2</c> 
+    <p>Properties are not inherited from top-level groups to nested
+    subgroups. For instance, in the previous example, the test cases in <c>group2</c>
     are not executed in random order (which is the property of <c>group1</c>).</p>
   </section>
 
   <section>
     <title>Parallel Property and Nested Groups</title>
     <p>If a group has a parallel property, its test cases are spawned
-    simultaneously and get executed in parallel. However, a test case is not 
+    simultaneously and get executed in parallel. However, a test case is not
     allowed to execute in parallel with <c>end_per_group/2</c>, which means
     that the time to execute a parallel group is equal to the
     execution time of the slowest test case in the group. A negative side
     effect of running test cases in parallel is that the HTML summary pages
-    are not updated with links to the individual test case logs until function 
+    are not updated with links to the individual test case logs until function
     <c>end_per_group/2</c> for the group has finished.</p>
 
-    <p>A group nested under a parallel group starts executing in parallel 
-    with previous (parallel) test cases (no matter what properties the nested 
-    group has). However, as test cases are never executed in parallel with 
-    <c>init_per_group/2</c> or <c>end_per_group/2</c> of the same group, it is 
-    only after a nested group has finished that remaining parallel cases 
+    <p>A group nested under a parallel group starts executing in parallel
+    with previous (parallel) test cases (no matter what properties the nested
+    group has). However, as test cases are never executed in parallel with
+    <c>init_per_group/2</c> or <c>end_per_group/2</c> of the same group, it is
+    only after a nested group has finished that remaining parallel cases
     in the previous group become spawned.</p>
   </section>
 
   <section>
     <title>Parallel Test Cases and I/O</title>
-    <p>A parallel test case has a private I/O server as its group leader. 
+    <p>A parallel test case has a private I/O server as its group leader.
       (For a description of the group leader concept, see
       <seeapp marker="erts:index">ERTS</seeapp>).
-      The central I/O server process, which handles the output from 
+      The central I/O server process, which handles the output from
       regular test cases and configuration functions, does not respond to I/O messages
       during execution of parallel groups. This is important to understand
       to avoid certain traps, like the following:</p>
@@ -676,13 +679,13 @@
     (specified by an integer) or indefinitely (specified by <c>forever</c>).
     The repetition can also be stopped too early if any or all cases
     fail or succeed, that is, if any of the properties <c>repeat_until_any_fail</c>,
-    <c>repeat_until_any_ok</c>, <c>repeat_until_all_fail</c>, or 
+    <c>repeat_until_any_ok</c>, <c>repeat_until_all_fail</c>, or
     <c>repeat_until_all_ok</c> is used. If the basic <c>repeat</c>
-    property is used, status of test cases is irrelevant for the repeat 
+    property is used, status of test cases is irrelevant for the repeat
     operation.</p>
-    
+
     <p>The status of a subgroup can be returned (<c>ok</c> or
-    <c>failed</c>), to affect the execution of the group on the level above. 
+    <c>failed</c>), to affect the execution of the group on the level above.
     This is accomplished by, in <c>end_per_group/2</c>, looking up the value
     of <c>tc_group_properties</c> in the <c>Config</c> list and checking the
     result of the test cases in the group. If status <c>failed</c> is to be
@@ -692,9 +695,9 @@
     group is to be repeated or not (unless the basic <c>repeat</c>
     property is used).</p>
 
-    <p>The value of <c>tc_group_properties</c> is a list of status tuples, 
+    <p>The value of <c>tc_group_properties</c> is a list of status tuples,
     each with the key <c>ok</c>, <c>skipped</c>, and <c>failed</c>. The
-    value of a status tuple is a list with names of test cases 
+    value of a status tuple is a list with names of test cases
     that have been executed with the corresponding status as result.</p>
 
     <p>The following is an example of how to return the status from a group:</p>
@@ -702,7 +705,7 @@
  end_per_group(_Group, Config) ->
      Status = ?config(tc_group_result, Config),
      case proplists:get_value(failed, Status) of
-         [] ->                                   % no failed cases 
+         [] ->                                   % no failed cases
              {return_group_result,ok};
          _Failed ->                              % one or more failed
              {return_group_result,failed}
@@ -721,27 +724,27 @@
      case lists:member({group_result,group2}, Failed) of
            true ->
                {return_group_result,failed};
-           false ->                                                    
+           false ->
                {return_group_result,ok}
-     end; 
+     end;
  ...</pre>
 
-    <note><p>When a test case group is repeated, the configuration 
-    functions <c>init_per_group/2</c> and <c>end_per_group/2</c> are 
+    <note><p>When a test case group is repeated, the configuration
+    functions <c>init_per_group/2</c> and <c>end_per_group/2</c> are
     also always called with each repetition.</p></note>
   </section>
 
   <section>
     <title>Shuffled Test Case Order</title>
     <p>The order in which test cases in a group are executed is under normal
-    circumstances the same as the order specified in the test case list 
+    circumstances the same as the order specified in the test case list
     in the group definition. With property <c>shuffle</c> set, however,
     <c>Common Test</c> instead executes the test cases in random order.</p>
 
     <p>You can provide a seed value (a tuple of three integers) with
     the shuffle property <c>{shuffle,Seed}</c>. This way, the same shuffling
     order can be created every time the group is executed. If no seed value
-    is specified, <c>Common Test</c> creates a "random" seed for the shuffling operation 
+    is specified, <c>Common Test</c> creates a "random" seed for the shuffling operation
     (using the return value of <c>erlang:timestamp/0</c>). The seed value is always
     printed to the <c>init_per_group/2</c> log file so that it can be used to
     recreate the same execution order in a subsequent test run.</p>
@@ -750,9 +753,9 @@
     reset between turns.</p></note>
 
     <p>If a subgroup is specified in a group with a <c>shuffle</c> property,
-    the execution order of this subgroup in relation to the test cases 
+    the execution order of this subgroup in relation to the test cases
     (and other subgroups) in the group, is random. The order of the
-    test cases in the subgroup is however not random (unless the 
+    test cases in the subgroup is however not random (unless the
     subgroup has a <c>shuffle</c> property).</p>
   </section>
 
@@ -770,10 +773,10 @@
  group(connection_tests) ->
     [{require,login_data},
      {timetrap,1000}].</pre>
-	
+
       <p>The group information properties override those set with the
 	suite information function, and can in turn be overridden by test
-	case information properties. For a list of valid information properties 
+	case information properties. For a list of valid information properties
 	and more general information, see the
 	<seeguide marker="#info_function">Test Case Information Function</seeguide>.
       </p>
@@ -784,10 +787,10 @@
       <p>Information functions can also be used for functions <c>init_per_suite</c>,
 	<c>end_per_suite</c>, <c>init_per_group</c>, and <c>end_per_group</c>,
 	and they work the same way as with the
-	<seeguide marker="#info_function">Test Case Information Function</seeguide>. 
-	This is useful, for example, for setting timetraps and requiring 
-	external configuration data relevant only for the configuration 
-	function in question (without affecting properties set for groups 
+	<seeguide marker="#info_function">Test Case Information Function</seeguide>.
+	This is useful, for example, for setting timetraps and requiring
+	external configuration data relevant only for the configuration
+	function in question (without affecting properties set for groups
       and test cases in the suite).</p>
 
       <p>The information function <c>init/end_per_suite()</c> is called for
@@ -797,7 +800,7 @@
 	cannot be used with <c>init/end_per_testcase(TestCase, Config)</c>,
 	as these configuration functions execute on the test case process
 	and use the same properties as the test case (that is, the properties
-	set by the test case information function, <c>TestCase()</c>). For a list 
+	set by the test case information function, <c>TestCase()</c>). For a list
 	of valid information properties and more general information, see the
 	<seeguide marker="#info_function">Test Case Information Function</seeguide>.
       </p>
@@ -807,9 +810,9 @@
     <marker id="data_priv_dir"></marker>
     <title>Data and Private Directories</title>
 
-    <p>In the data directory, <c>data_dir</c>, the test module has 
-      its own files needed for the testing. The name of <c>data_dir</c> 
-      is the the name of the test suite followed by <c>"_data"</c>. 
+    <p>In the data directory, <c>data_dir</c>, the test module has
+      its own files needed for the testing. The name of <c>data_dir</c>
+      is the the name of the test suite followed by <c>"_data"</c>.
       For example, <c>"some_path/foo_SUITE.beam"</c> has the data directory
       <c>"some_path/foo_SUITE_data/"</c>. Use this directory for portability,
       that is, to avoid hardcoding directory names in your suite. As the data
@@ -829,11 +832,11 @@
       Especially if the same test cases are executed multiple times during
       a test run (that is, if they belong to a test case group with property
       <c>repeat</c>) and there is a risk that files in the private directory get
-      overwritten. Under these circumstances, <c>Common Test</c> can be 
+      overwritten. Under these circumstances, <c>Common Test</c> can be
       configured to create one dedicated private directory per
       test case and execution instead. This is accomplished with
       the flag/option <c>create_priv_dir</c> (to be used with the
-      <seecom marker="ct_run"><c>ct_run</c></seecom> program, the 
+      <seecom marker="ct_run"><c>ct_run</c></seecom> program, the
       <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa> function, or
       as test specification term). There are three possible values
       for this option as follows:
@@ -848,19 +851,19 @@
       one private directory created per test run. The two latter
       values tell <c>Common Test</c> to generate a unique test directory name
       per test case and execution. If the auto version is used, <em>all</em>
-      private directories are created automatically. This can become very 
-      inefficient for test runs with many test cases or repetitions, or both. 
-      Therefore, if the manual version is used instead, the test case must tell 
+      private directories are created automatically. This can become very
+      inefficient for test runs with many test cases or repetitions, or both.
+      Therefore, if the manual version is used instead, the test case must tell
       <c>Common Test</c> to create <c>priv_dir</c> when it needs it.
-      It does this by calling the function 
+      It does this by calling the function
       <seemfa marker="ct#make_priv_dir/0"><c>ct:make_priv_dir/0</c></seemfa>.
       </p>
 
       <note><p>Do not depend on the current working directory for
-	  reading and writing data files, as this is not portable. All 
-	  scratch files are to be written in the <c>priv_dir</c> and all 
-	  data files are to be located in <c>data_dir</c>. Also, 
-	  the <c>Common Test</c> server sets the current working directory to 
+	  reading and writing data files, as this is not portable. All
+	  scratch files are to be written in the <c>priv_dir</c> and all
+	  data files are to be located in <c>data_dir</c>. Also,
+	  the <c>Common Test</c> server sets the current working directory to
 	  the test case log directory at the start of every case.
     </p></note>
 
@@ -871,12 +874,12 @@
 
     <p>Each test case is executed by a dedicated Erlang process. The
       process is spawned when the test case starts, and terminated when
-      the test case is finished. The configuration functions 
-      <c>init_per_testcase</c> and <c>end_per_testcase</c> execute on the 
+      the test case is finished. The configuration functions
+      <c>init_per_testcase</c> and <c>end_per_testcase</c> execute on the
       same process as the test case.
     </p>
 
-    <p>The configuration functions <c>init_per_suite</c> and 
+    <p>The configuration functions <c>init_per_suite</c> and
       <c>end_per_suite</c> execute, like test cases, on dedicated Erlang
       processes.
     </p>
@@ -898,30 +901,30 @@
     for a subgroup, it overrides that of its higher level groups. Timetrap
     values set by individual test cases (by the test case information
     function) override both group- and suite- level timetraps.</p>
-    
+
     <p>A timetrap can also be set or reset dynamically during the
-    execution of a test case, or configuration function. 
+    execution of a test case, or configuration function.
     This is done by calling
-    <seemfa marker="ct#timetrap/1"><c>ct:timetrap/1</c></seemfa>. 
-    This function cancels the current timetrap and starts a new one 
+    <seemfa marker="ct#timetrap/1"><c>ct:timetrap/1</c></seemfa>.
+    This function cancels the current timetrap and starts a new one
     (that stays active until time-out, or end of the current function).</p>
-    
+
     <p>Timetrap values can be extended with a multiplier value specified at
     startup with option <c>multiply_timetraps</c>. It is also possible
     to let the test server decide to scale up timetrap time-out values
-    automatically. That is, if tools such as <c>cover</c> or <c>trace</c> 
-    are running during the test. This feature is disabled by default and 
+    automatically. That is, if tools such as <c>cover</c> or <c>trace</c>
+    are running during the test. This feature is disabled by default and
     can be enabled with start option <c>scale_timetraps</c>.</p>
-    
+
     <p>If a test case needs to suspend itself for a time that also gets
     multipled by <c>multiply_timetraps</c> (and possibly also scaled up if
-    <c>scale_timetraps</c> is enabled), the function 
+    <c>scale_timetraps</c> is enabled), the function
     <seemfa marker="ct#sleep/1"><c>ct:sleep/1</c></seemfa>
     can be used (instead of, for example, <c>timer:sleep/1</c>).</p>
-    
-    <p>A function (<c>fun/0</c> or <c>{Mod,Func,Args}</c> (MFA) tuple) can be 
-    specified as timetrap value in the suite-, group- and test case information 
-    function, and as argument to function 
+
+    <p>A function (<c>fun/0</c> or <c>{Mod,Func,Args}</c> (MFA) tuple) can be
+    specified as timetrap value in the suite-, group- and test case information
+    function, and as argument to function
     <seemfa marker="ct#timetrap/1"><c>ct:timetrap/1</c></seemfa>.</p>
     <p><em>Examples:</em></p>
 
@@ -936,12 +939,12 @@
     </list>
     <p>Before execution of the timetrap function (which is performed
     on a parallel, dedicated timetrap process), <c>Common Test</c> cancels
-    any previously set timer for the test case or configuration function.    
+    any previously set timer for the test case or configuration function.
     When the timetrap function returns, the time-out is triggered, <em>unless</em>
     the return value is a valid timetrap time, such as an integer,
     or a <c>{SecMinOrHourTag,Time}</c> tuple (for details, see module
-    <seeerl marker="common_test">common_test</seeerl>). If a time value 
-    is returned, a new timetrap is started to generate a time-out after 
+    <seeerl marker="common_test">common_test</seeerl>). If a time value
+    is returned, a new timetrap is started to generate a time-out after
     the specified time.</p>
 
     <p>The user timetrap function can return a time value after a delay.
@@ -952,19 +955,19 @@
   <section>
     <marker id="logging"></marker>
     <title>Logging - Categories and Verbosity Levels</title>
-    <p><c>Common Test</c> provides the following three main functions for 
+    <p><c>Common Test</c> provides the following three main functions for
     printing strings:</p>
     <list type="bulleted">
       <item><c>ct:log(Category, Importance, Format, FormatArgs, Opts)</c></item>
       <item><c>ct:print(Category, Importance, Format, FormatArgs)</c></item>
       <item><c>ct:pal(Category, Importance, Format, FormatArgs)</c></item>
     </list>
-    <p>The <seemfa marker="ct#log/1"><c>log/1,2,3,4,5</c></seemfa> function 
-    prints a string to the test case log file. 
-    The <seemfa marker="ct#print/1"><c>print/1,2,3,4</c></seemfa> function 
+    <p>The <seemfa marker="ct#log/1"><c>log/1,2,3,4,5</c></seemfa> function
+    prints a string to the test case log file.
+    The <seemfa marker="ct#print/1"><c>print/1,2,3,4</c></seemfa> function
     prints the string to screen.
-    The <seemfa marker="ct#pal/1"><c>pal/1,2,3,4</c></seemfa> function 
-    prints the same string both to file and screen. The functions are described 
+    The <seemfa marker="ct#pal/1"><c>pal/1,2,3,4</c></seemfa> function
+    prints the same string both to file and screen. The functions are described
     in module <seeerl marker="ct">ct</seeerl>.
     </p>
 
@@ -984,7 +987,7 @@
     exist in the <c>ct.hrl</c> header file. The default importance level,
     <c>?STD_IMPORTANCE</c> (used if argument <c>Importance</c> is not
     provided), is 50. This is also the importance used for standard I/O,
-    for example, from printouts made with <c>io:format/2</c>, 
+    for example, from printouts made with <c>io:format/2</c>,
     <c>io:put_chars/1</c>, and so on.</p>
 
     <p><c>Importance</c> is compared to a verbosity level set by the
@@ -1046,11 +1049,11 @@ ct:pal(?LOW_IMPORTANCE, "Info report: ~p", [Info])</pre>
 
 ct:log(?INFO, "Info report: ~p", [Info])
 ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
- 
+
     <p>The functions <seemfa marker="ct#set_verbosity/2"><c>ct:set_verbosity/2</c></seemfa>
     and <seemfa marker="ct#get_verbosity/1"><c>ct:get_verbosity/1</c></seemfa> may be used
     to modify and read verbosity levels during test execution.</p>
-    
+
     <p>The arguments <c>Format</c> and <c>FormatArgs</c> in <c>ct:log/print/pal</c> are
     always passed on to the STDLIB function <c>io:format/3</c> (For details,
     see the <seeerl marker="stdlib:io"><c>io</c></seeerl> manual page).</p>
@@ -1064,7 +1067,7 @@ ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
     <p>How categories can be mapped to CSS tags is documented in section
     <seeguide marker="run_test_chapter#html_stylesheet">HTML Style Sheets</seeguide>
     in section Running Tests and Analyzing Results.</p>
-    
+
     <p>Common Test will escape special HTML characters (&lt;, &gt; and &amp;) in printouts
     to the log file made with <c>ct:pal/4</c> and <c>io:format/2</c>. In order to print
     strings with HTML tags to the log, use the <c>ct:log/3,4,5</c> function. The character
@@ -1078,55 +1081,55 @@ ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
     supported in test specifications).</p>
 
     <p>For more information about log files, see section
-    <seeguide marker="run_test_chapter#log_files">Log Files</seeguide> 
+    <seeguide marker="run_test_chapter#log_files">Log Files</seeguide>
     in section Running Tests and Analyzing Results.</p>
   </section>
-  
+
   <section>
     <title>Illegal Dependencies</title>
 
     <p>Even though it is highly efficient to write test suites with
       the <c>Common Test</c> framework, mistakes can be made,
-      mainly because of illegal dependencies. Some of the 
-      more frequent mistakes from our own experience with running the 
+      mainly because of illegal dependencies. Some of the
+      more frequent mistakes from our own experience with running the
       Erlang/OTP test suites follows:</p>
 
     <list type="bulleted">
 	<item><p>Depending on current directory, and writing there:</p>
-	    
+
 	    <p>This is a common error in test suites. It is assumed that
 	      the current directory is the same as the author used as
 	      current directory when the test case was developed. Many test
 	      cases even try to write scratch files to this directory. Instead
-	      <c>data_dir</c> and <c>priv_dir</c> are to be used to locate 
+	      <c>data_dir</c> and <c>priv_dir</c> are to be used to locate
 	      data and for writing scratch files.
 	    </p>
 	</item>
 
 	<item><p>Depending on execution order:</p>
-	
-	    <p>During development of test suites, make no assumptions on the 
-	    execution order of the test cases or suites. For example, a test 
-	    case must not assume that a server it depends on is already 
+
+	    <p>During development of test suites, make no assumptions on the
+	    execution order of the test cases or suites. For example, a test
+	    case must not assume that a server it depends on is already
 	    started by a previous test case. Reasons for this follows:
 	    </p>
 	    <list type="bulleted">
 	      <item>The user/operator can specify the order at will, and maybe
-	      a different execution order is sometimes more relevant or 
+	      a different execution order is sometimes more relevant or
 	      efficient.</item>
-	      <item>If the user specifies a whole directory of test suites 
-	      for the test, the execution order of the suites depends on 
-	      how the files are listed by the operating system, which varies 
+	      <item>If the user specifies a whole directory of test suites
+	      for the test, the execution order of the suites depends on
+	      how the files are listed by the operating system, which varies
 	      between systems.</item>
-	      <item>If a user wants to run only a subset of a test suite, 
-	      there is no way one test case could successfully depend on 
+	      <item>If a user wants to run only a subset of a test suite,
+	      there is no way one test case could successfully depend on
 	      another.</item>
 	    </list>
 	</item>
 
 	<item><p>Depending on Unix:</p>
-	    
-	    <p>Running Unix commands through <c>os:cmd</c> are likely 
+
+	    <p>Running Unix commands through <c>os:cmd</c> are likely
 	    not to work on non-Unix platforms.
 	    </p>
 	</item>
@@ -1134,36 +1137,36 @@ ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
 	<item><p>Nested test cases:</p>
 
 	    <p>Starting a test case from another not only tests the same
-	      thing twice, but also makes it harder to follow what is being 
+	      thing twice, but also makes it harder to follow what is being
 	      tested. Also, if the called test case fails for some
 	      reason, so do the caller. This way, one error gives cause to
 	      several error reports, which is to be avoided.
 	    </p>
-	    <p>Functionality common for many test case functions can be 
-	       implemented in common help functions. If these functions are 
-	       useful for test cases across suites, put the help functions 
+	    <p>Functionality common for many test case functions can be
+	       implemented in common help functions. If these functions are
+	       useful for test cases across suites, put the help functions
 	       into common help modules.
 	    </p>
 	</item>
-	
+
       <item><p>Failure to crash or exit when things go wrong:</p>
-	    
+
 	    <p>Making requests without checking that the return value
 	      indicates success can be OK if the test case fails
 	      later, but it is never acceptable just to print an error
-	      message (into the log file) and return successfully. Such test 
-	      cases do harm, as they create a false sense of security when 
+	      message (into the log file) and return successfully. Such test
+	      cases do harm, as they create a false sense of security when
 	      overviewing the test results.
 	    </p>
 	</item>
 
       <item><p>Messing up for subsequent test cases:</p>
-	
+
 	    <p>Test cases are to restore as much of the execution
 	      environment as possible, so that subsequent test cases
-	      do not crash because of their execution order. 
-	      The function 
-	      <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa> 
+	      do not crash because of their execution order.
+	      The function
+	      <seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa>
 	      is suitable for this.
 	    </p>
 	</item>
