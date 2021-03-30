@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,11 @@
 %%
 -module(global_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, groups/0, 
 	 init_per_suite/1, end_per_suite/1,
+         init_per_group/2,end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+
 	 names/1, names_hidden/1, locks/1, locks_hidden/1,
 	 bad_input/1, names_and_locks/1, lock_die/1, name_die/1,
 	 basic_partition/1, basic_name_partition/1,
@@ -38,18 +41,77 @@
 	 both_known_1/1,
          lost_unregister/1,
 	 mass_death/1,
-	 garbage_messages/1]).
+	 garbage_messages/1,
 
--export([global_load/3, lock_global/2, lock_global2/2]).
+         ring_line/1
+        ]).
 
--export([]).
--export([init_mass_spawn/1]).
+%% Not used
+-export([simple_dis/4,
+         config_dc/4,
+         w/2,
+         check_same/2,
+         check_same/1,
+         stop/0,
+         start_nodes_serially/3]).
+
+-export([lock_global/2, lock_global2/2]).
+
+-export([
+         %% Called via ?RES
+         resolve_none/3,
+         resolve_first/3,
+         resolve_second/3,
+         bad_resolver/3,
+         badrpc_resolver/3,
+         lock_resolver/3,
+         exit_resolver/3,
+         disconnect_first/3,
+         halt_second/3,
+         init_mass_spawn/1,
+
+         %% Called via rpc_cast
+         part_2_2/4,
+         part1/4,
+         part1_5/4,
+         part2/10,
+         part3/10,
+         crash/1,
+         single_node/3,
+         part_ext/4,
+         isolated_node/4,
+         mk_part_node/3,
+         alone/2,
+         global_load/3,
+
+         %% Called via rpc:call
+         halt_node/1,
+         start_proc/0, start_proc/1,
+         start_proc2/1,
+         start_proc3/1,
+         start_proc4/1,
+         start_proc_basic/1,
+         start_resolver/2,
+
+         %% Called as a fun (fun ?MODULE:function/x) 
+         fix_basic_name/3,
+
+         %% Called via spawn
+         init_proc_basic/2,
+         init_2/0,
+         p_init/1, p_init/2,
+         p_init2/2
+
+        ]).
 
 -export([start_tracer/0, stop_tracer/0, get_trace/0]).
 
--compile(export_all).
+%% Exports for error_logger handler
+-export([init/1, handle_event/2, handle_info/2, handle_call/2, terminate/2]).
+
 
 -include_lib("common_test/include/ct.hrl").
+-include("kernel_test_lib.hrl").
 
 -define(NODES, [node()|nodes()]).
 
@@ -66,7 +128,8 @@ all() ->
     case init:get_argument(ring_line) of
 	{ok, _} -> [ring_line];
 	_ ->
-	    [names, names_hidden, locks, locks_hidden, bad_input,
+	    [
+             names, names_hidden, locks, locks_hidden, bad_input,
 	     names_and_locks, lock_die, name_die, basic_partition,
 	     advanced_partition, basic_name_partition,
 	     stress_partition, simple_ring, simple_line, ring, line,
@@ -75,7 +138,8 @@ all() ->
 	     simple_resolve2, simple_resolve3, leftover_name,
 	     re_register_name, name_exit, external_nodes, many_nodes,
 	     sync_0, global_groups_change, register_1, both_known_1,
-	     lost_unregister, mass_death, garbage_messages]
+	     lost_unregister, mass_death, garbage_messages
+            ]
     end.
 
 groups() -> 
@@ -102,28 +166,58 @@ end_per_suite(_Config) ->
 -define(nodes_tag, '$global_nodes').
 -define(registered, proplists:get_value(registered, Config)).
 
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    ok = gen_server:call(global_name_server, high_level_trace_start,infinity),
+init_per_testcase(Case, Config0) when is_atom(Case) andalso is_list(Config0) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ok = gen_server:call(global_name_server,
+                         high_level_trace_start,
+                         infinity),
 
     %% Make sure that everything is dead and done. Otherwise there are problems
     %% on platforms on which it takes a long time to shut down a node.
     stop_nodes(nodes()),
     timer:sleep(1000),
 
-    [{?TESTCASE, Case}, {registered, registered()} | Config].
+    Config1 = [{?TESTCASE, Case}, {registered, registered()} | Config0],
+
+    ?P("init_per_testcase -> done when"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [Config1, erlang:nodes(), pi(links), pi(monitors)]),
+
+    Config1.
 
 end_per_testcase(_Case, Config) ->
-    ct:log("Calling end_per_testcase!",[]),
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
     write_high_level_trace(Config),
-    _ =
-        gen_server:call(global_name_server, high_level_trace_stop, infinity),
+    _ = gen_server:call(global_name_server, high_level_trace_stop, infinity),
     [global:unregister_name(N) || N <- global:registered_names()],
     InitRegistered = ?registered,
     Registered = registered(),
-    [io:format("~s local names: ~p~n", [What, N]) ||
+
+    [?P("end_per_testcase -> "
+        "~n   ~s local names: ~p", [What, N]) ||
 	{What, N} <- [{"Added", Registered -- InitRegistered},
 		      {"Removed", InitRegistered -- Registered}],
 	N =/= []],
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [erlang:nodes(), pi(links), pi(monitors)]),
 
     ok.
 
@@ -385,7 +479,7 @@ write_high_level_trace(Config) ->
     end.
 
 write_high_level_trace(Nodes, Config) ->
-    When = now(),
+    When = erlang:timestamp(),
     %% 'info' returns more than the trace, which is nice.
     Data = [{Node, {info, rpc:call(Node, global, info, [])}} ||
                Node <- Nodes],
@@ -419,22 +513,44 @@ lock_global2(Id, Parent) ->
 %% Kill Pid2 and check that 'test' isn't registered.
 
 names(Config) when is_list(Config) ->
+    ?TC_TRY(names, fun() -> do_names(Config) end).
+
+do_names(Config) ->
+    ?P("names -> begin when"
+       "~n   Nodes: ~p"
+       "~n   Names: ~p",
+       [nodes(),
+        case net_adm:names() of
+            {ok, N} ->
+                N;
+            _ ->
+                "-"
+        end]),
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
+    ?P("names -> init high level trace"),
     init_high_level_trace(Timeout),
+    ?P("names -> init condition"),
     init_condition(Config),
+    ?P("names -> get registered names"),
     OrigNames = global:registered_names(),
 
+    ?P("names -> start node cp1"),
     {ok, Cp1} = start_node(cp1, Config),
+    ?P("names -> start node cp2"),
     {ok, Cp2} = start_node(cp2, Config),
+    ?P("names -> start node cp3"),
     {ok, Cp3} = start_node(cp3, Config),
 
+    ?P("names -> wait for ready net"),
     wait_for_ready_net(Config),
 
     %% start a proc and register it
+    ?P("names -> start and register process 'test'"),
     {Pid, yes} = start_proc(test),
 
     %% test that it is registered at all nodes
+    ?P("names -> verify process has been registered on all nodes"),
         ?UNTIL(begin
             (Pid =:= global:whereis_name(test)) and
             (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
@@ -444,25 +560,32 @@ names(Config) when is_list(Config) ->
            end),
     
     %% try to register the same name
+    ?P("names -> try register (locally) another 'test' (and expect rejection)"),
     no = global:register_name(test, self()),
+    ?P("names -> try register (on cp1) another 'test' (and expect rejection)"),
     no = rpc:call(Cp1, global, register_name, [test, self()]),
     
     %% let process exit, check that it is unregistered automatically
+    ?P("names -> terminate the 'test' process"),
     exit_p(Pid),
 
+    ?P("names -> verify 'test' process has been automatically unregistered"),
         ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
     
     %% test re_register
+    ?P("names -> start and register another process 'test'"),
     {Pid2, yes} = start_proc(test),
+    ?P("names -> verify process 'test' has been registered"),
     ?UNTIL(Pid2 =:= rpc:call(Cp3, global, whereis_name, [test])),
     Pid3 = rpc:call(Cp3, ?MODULE, start_proc2, [test]),
     ?UNTIL(Pid3 =:= rpc:call(Cp3, global, whereis_name, [test])),
     Pid3 = global:whereis_name(test),
 
     %% test sending
+    ?P("names -> test sending (from local)"),
     global:send(test, {ping, self()}),
     receive
 	{pong, Cp3} -> ok
@@ -470,6 +593,7 @@ names(Config) when is_list(Config) ->
 	2000 -> ct:fail(timeout1)
     end,
 
+    ?P("names -> test sending (from cp1)"),
     rpc:call(Cp1, global, send, [test, {ping, self()}]),
     receive
 	{pong, Cp3} -> ok
@@ -477,31 +601,43 @@ names(Config) when is_list(Config) ->
 	2000 -> ct:fail(timeout2)
     end,
 
+    ?P("names -> unregister 'test' process"),
     _ = global:unregister_name(test),
         ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
 
+    ?P("names -> terminate process 'test'"),
     exit_p(Pid3),
 
+    ?P("names -> verify not registered"),
     ?UNTIL(undefined =:= global:whereis_name(test)),
 
     %% register a proc
+    ?P("names -> register a process"),
     {_Pid6, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
 
+    ?P("names -> write high level trace"),
     write_high_level_trace(Config),
 
     %% stop the nodes, and make sure names are released.
+    ?P("names -> stop node cp1"),
     stop_node(Cp1),
+    ?P("names -> stop node cp2"),
     stop_node(Cp2),
+    ?P("names -> stop node cp3"),
     stop_node(Cp3),
 
+    ?P("names -> verify not registered"),
     ?UNTIL(undefined =:= global:whereis_name(test)),
     exit_p(Pid2),
 
+    ?P("names -> verify not registered"),
     ?UNTIL(undefined =:= global:whereis_name(test)),
     init_condition(Config),
+
+    ?P("names -> done"),
     ok.
 
 %% Tests that names on a hidden node doesn't interfere with names on
@@ -1164,7 +1300,7 @@ advanced_partition(Config) when is_list(Config) ->
 
     %% make cp3-cp6 connected, partitioned from us and cp0-cp2
     rpc_cast(Cp3, ?MODULE, part2,
-	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
+	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]),
     ?UNTIL(is_ready_partition(Config)),
 
     %% start different processes in this partition
@@ -1266,7 +1402,7 @@ stress_partition(Config) when is_list(Config) ->
     %% make cp3-cp5 connected, partitioned from us and cp0-cp2
     %% cp6 is alone (single node).  cp6 pings cp0 and cp3 in 12 secs...
     rpc_cast(Cp3, ?MODULE, part3,
-	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
+	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]),
     ?UNTIL(is_ready_partition(Config)),
 
     %% start different processes in this partition
@@ -1903,9 +2039,9 @@ otp_5737(Config) when is_list(Config) ->
     {'EXIT', _} = (catch global:set_lock(LockId, Nodes, -1)),
     {'EXIT', _} = (catch global:set_lock(LockId, Nodes, a)),
     true = global:set_lock(LockId, Nodes, 0),
-    Time1 = now(),
+    Time1 = erlang:timestamp(),
     false = global:set_lock({?MODULE,not_me}, Nodes, 0),
-    true = timer:now_diff(now(), Time1) < 5000,
+    true = timer:now_diff(erlang:timestamp(), Time1) < 5000,
     _ = global:del_lock(LockId, Nodes),
 
     Fun = fun() -> ok end,
@@ -2880,7 +3016,7 @@ sync_until() ->
     sync_until(no_log_file).
 
 sync_until(LogFile) ->
-    Time = ?UNTIL_LOOP - (msec(now()) rem ?UNTIL_LOOP),
+    Time = ?UNTIL_LOOP - (msec(erlang:timestamp()) rem ?UNTIL_LOOP),
     catch append_to_file(LogFile, {sync_until, Time}),
     timer:sleep(Time).
 
@@ -3437,11 +3573,11 @@ is_node_in_part(File, MyPart) ->
                 Rs ->
                     erlang:display({is_node_in_part, resolvers, Rs}),
                     trace_message({node(), is_node_in_part, Rs}),
-                    append_to_file(File, {now(), Known, Nodes, Rs}),
+                    append_to_file(File, {erlang:timestamp(), Known, Nodes, Rs}),
                     false
             end;
         _ ->
-            append_to_file(File, {now(), Known, Nodes}),
+            append_to_file(File, {erlang:timestamp(), Known, Nodes}),
             false
     end.
 
@@ -3497,7 +3633,7 @@ collect_resolves() -> cr(0).
 cr(Res) ->
     receive
 	{resolve_called, Name, Node} ->
-	    io:format("resolve called: ~w ~w~n", [Name, Node]),
+	    ?P("resolve called: ~w ~w", [Name, Node]),
  	    cr(Res+1)
     after
 	0 -> Res
@@ -3580,7 +3716,7 @@ loop_2() ->
     end.
 
 msec() ->
-    msec(now()).
+    msec(erlang:timestamp()).
 
 msec(T) ->
     element(1,T)*1000000000 + element(2,T)*1000 + element(3,T) div 1000.
@@ -3792,7 +3928,7 @@ node_names(Names, Config) ->
 %% simple_resolve assumes that the node name comes first.
 node_name(Name, Config) ->
     U = "_",
-    {{Y,M,D}, {H,Min,S}} = calendar:now_to_local_time(now()),
+    {{Y,M,D}, {H,Min,S}} = calendar:now_to_local_time(erlang:timestamp()),
     Date = io_lib:format("~4w_~2..0w_~2..0w__~2..0w_~2..0w_~2..0w", 
                          [Y,M,D, H,Min,S]),
     L = lists:flatten(Date),
@@ -3913,13 +4049,13 @@ mass_death(Config) when is_list(Config) ->
     {H,M,S} = time(),
     io:format("Started probing: ~.4.0w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w~n",
 	      [YYYY,MM,DD,H,M,S]),
-    wait_mass_death(Nodes, OrigNames, erlang:now(), Config).
+    wait_mass_death(Nodes, OrigNames, erlang:timestamp(), Config).
 
 wait_mass_death(Nodes, OrigNames, Then, Config) ->
     Names = global:registered_names(),
     case Names--OrigNames of
 	[] ->
-	    T = now_diff(erlang:now(), Then) div 1000,
+	    T = now_diff(erlang:timestamp(), Then) div 1000,
 	    lists:foreach(
 	      fun (Node) ->
 		      stop_node(Node)
@@ -4128,17 +4264,68 @@ garbage_messages(Config) when is_list(Config) ->
     ok.
 
 wait_for_ready_net(Config) ->
-    wait_for_ready_net(?NODES, Config).
+    {Pid, MRef} = spawn_monitor(fun() ->
+                                        wait_for_ready_net(?NODES, Config)
+                                end),
+    wait_for_ready_net_loop(Pid, MRef).
+
+wait_for_ready_net_loop(Pid, MRef) ->
+    receive
+        {'DOWN', MRef, process, Pid, Info} ->
+            ?P("wait-for-ready-net process terminated: "
+               "~n      ~p", [Info]),
+            ok;
+
+        {'EXIT', ParentPid, {timetrap_timeout, _Timeout, _Stack}} ->
+            ?P("wait-for-ready-net -> received timetrap timeout:"
+               "~n   Regarding: ~p"
+               "~n   Waiter:    ~p"
+               "~n      Current Location: ~p"
+               "~n      Mesages:          ~p",
+               [ParentPid, Pid, pi(Pid, current_location), pi(Pid, messages)]),
+            ct:fail("Timeout waiting for ready network")
+
+    end.
 
 wait_for_ready_net(Nodes0, Config) ->
     Nodes = lists:sort(Nodes0),
-    io:format("wait_for_ready_net ~p~n", [Nodes]),
+    ?P("wait_for_ready_net ->"
+       "~n   Nodes: ~p", [Nodes]),
     ?UNTIL(begin
-               lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
+               lists:all(fun(N) ->
+                                 ?P("wait_for_ready_net -> "
+                                    "get known (by global) for ~p", [N]),
+                                 GNs = get_known(N),
+                                 ?P("wait_for_ready_net -> verify same for ~p:"
+                                    "~n   Global Known: ~p"
+                                    "~n   Nodes:        ~p", [N, GNs, Nodes]),
+                                 GRes = Nodes =:= GNs,
+                                 ?P("wait_for_ready_net => ~p", [GRes]),
+                                 GRes
+                         end,
+                         Nodes) and
 		   lists:all(fun(N) ->
-				     LNs = rpc:call(N, erlang, nodes, []),
-				     Nodes =:= lists:sort([N | LNs])
-			     end, Nodes)
+                                     ?P("wait_for_ready_net -> "
+                                        "get erlang nodes for ~p", [N]),
+				     case rpc:call(N, erlang, nodes, []) of
+                                         RNs0 when is_list(RNs0) ->
+                                             RNs = lists:sort([N | RNs0]),
+                                             ?P("wait_for_ready_net -> "
+                                                "verify same for ~p: "
+                                                "~n   Remote nodes:  ~p"
+                                                "~n   (Local) Nodes: ~p",
+                                                [N, RNs, Nodes]),
+                                             ERes = Nodes =:= RNs,
+                                             ?P("wait_for_ready_net => ~p",
+                                                [ERes]),
+                                             ERes;
+                                         BadRes ->
+                                             ?P("failed get remote nodes: "
+                                                "~n      ~p", [BadRes]),
+                                             false
+                                     end
+			     end,
+                             Nodes)
            end).
 
 get_known(Node) ->
@@ -4180,7 +4367,7 @@ rpc_cast(Node, Module, Function, Args, File) ->
         pong ->
             rpc:cast(Node, Module, Function, Args);
         Else ->
-            append_to_file(File, {now(), {rpc_cast, Node, Module, Function,
+            append_to_file(File, {erlang:timestamp(), {rpc_cast, Node, Module, Function,
                                           Args, Else}})
             %% Maybe we should crash, but it probably doesn't matter.
     end.
@@ -4218,14 +4405,14 @@ start_tracer() ->
 tracer(L) ->
     receive 
         %% {save, Term} ->
-        %%     tracer([{now(),Term} | L]);
+        %%     tracer([{erlang:timestamp(),Term} | L]);
         {get, From} ->
             From ! {trace, lists:reverse(L)},
             tracer([]);
         stop ->
             exit(normal);
         Term ->
-            tracer([{now(),Term} | L])
+            tracer([{erlang:timestamp(),Term} | L])
     end.
 
 stop_tracer() ->
@@ -4255,6 +4442,17 @@ trace_message(M) ->
         _ ->
             ok
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    pi(self(), Item).
+pi(Pid, Item) ->
+    {Item, Val} = process_info(Pid, Item),
+    Val.
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used for OTP-6931.
