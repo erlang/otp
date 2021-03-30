@@ -39,7 +39,7 @@
 	 int_to_enum/2, int_to_enum/3, 
 	 enum_to_int/2, enum_to_int/3,
 
-	 info/0, info/1, old_info_format/1, 
+	 info/0, info/1,
 	 load_mib/1, load_mib/2, 
 	 load_mibs/1, load_mibs/2, load_mibs/3, 
 	 unload_mib/1, unload_mib/2, 
@@ -124,9 +124,6 @@
 	      mib_storage_module/0, 
 	      mib_storage_options/0
              ]).
-
--deprecated([{old_info_format, 1, "use \"new\" format instead"}]).
-
 
 -include("snmpa_atl.hrl").
 -include("snmpa_internal.hrl").
@@ -280,16 +277,6 @@ get_next(Agent, Vars, Context) -> snmpa_agent:get_next(Agent, Vars, Context).
 info()      -> info(snmp_master_agent).
 info(Agent) -> snmpa_agent:info(Agent).
 
-old_info_format(Info) when is_list(Info) ->
-    {value, Vsns}         = lists:keysearch(vsns,            1, Info),
-    {value, {_, MibInfo}} = lists:keysearch(mib_server,      1, Info),
-    {value, SAa}          = lists:keysearch(subagents,       1, MibInfo),
-    {value, LoadedMibs}   = lists:keysearch(loaded_mibs,     1, MibInfo),
-    {value, TreeSz}       = lists:keysearch(tree_size_bytes, 1, MibInfo),
-    {value, ProcMem}      = lists:keysearch(process_memory,  1, MibInfo),
-    {value, DbMem}        = lists:keysearch(db_memory,       1, MibInfo),
-    [Vsns, SAa, LoadedMibs, TreeSz, ProcMem, DbMem].
-    
 
 %% -
 

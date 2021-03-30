@@ -89,8 +89,6 @@ obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
-obsolete(snmpa, old_info_format, 1) ->
-    {deprecated, "use \"new\" format instead", "OTP 24"};
 obsolete(snmpm, async_get, 3) ->
     {deprecated, "use snmpm:async_get2/3 instead.", "OTP 25"};
 obsolete(snmpm, async_get, 4) ->
