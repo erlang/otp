@@ -126,9 +126,21 @@ all() ->
 
 groups() -> 
     [
-     {inet_backend_default, [], inet_backend_default_cases()},
-     {inet_backend_inet,    [], inet_backend_inet_cases()},
-     {inet_backend_socket,  [], inet_backend_socket_cases()}
+     {inet_backend_default,   [], inet_backend_default_cases()},
+     {inet_backend_inet,      [], inet_backend_inet_cases()},
+     {inet_backend_socket,    [], inet_backend_socket_cases()},
+
+     {ctrl_proc,              [], ctrl_proc_cases()},
+     {close,                  [], close_cases()},
+     {active,                 [], active_cases()},
+     {shutdown,               [], shutdown_cases()},
+     {econnreset,             [], econnreset_cases()},
+     {linger_zero,            [], linger_zero_cases()},
+     {busy_disconnect,        [], busy_disconnect_cases()},
+     {partial_recv_and_close, [], partial_recv_and_close_cases()},
+     {pktoptions,             [], pktoptions_cases()},
+     {accept,                 [], accept_cases()},
+     {send_timeout,           [], send_timeout_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -142,34 +154,21 @@ inet_backend_socket_cases() ->
 
 all_cases() ->
     [
-     controlling_process, controlling_process_self, no_accept,
-     close_with_pending_output, data_before_close,
-     iter_max_socks, passive_sockets, active_n, active_n_closed,
-     accept_closed_by_other_process, otp_3924, closed_socket,
-     shutdown_active, shutdown_passive, shutdown_pending,
-     show_econnreset_active, show_econnreset_active_once,
-     show_econnreset_passive, econnreset_after_sync_send,
-     econnreset_after_async_send_active,
-     econnreset_after_async_send_active_once,
-     econnreset_after_async_send_passive,
-     linger_zero, linger_zero_sndbuf,
+     {group, ctrl_proc},
+     iter_max_socks,
+     {group, close},
+     {group, active},
+     {group, shutdown},
+     {group, econnreset},
+     {group, linger_zero},
      default_options, http_bad_packet, busy_send,
-     busy_disconnect_passive, busy_disconnect_active,
-     fill_sendq, partial_recv_and_close,
-     partial_recv_and_close_2, partial_recv_and_close_3,
+     {group, busy_disconnect},
+     fill_sendq,
+     {group, partial_recv_and_close},
      so_priority,
-     recvtos, recvttl, recvtosttl, recvtclass,
-     primitive_accept,
-     multi_accept_close_listen, accept_timeout,
-     accept_timeouts_in_order, accept_timeouts_in_order2,
-     accept_timeouts_in_order3, accept_timeouts_in_order4,
-     accept_timeouts_in_order5, accept_timeouts_in_order6,
-     accept_timeouts_in_order7, accept_timeouts_mixed,
-     killing_acceptor, killing_multi_acceptors,
-     killing_multi_acceptors2,
-     several_accepts_in_one_go, accept_system_limit,
-     active_once_closed,
-     send_timeout, send_timeout_active,
+     {group, pktoptions},
+     {group, accept},
+     {group, send_timeout},
      otp_7731,
      wrapping_oct,
      zombie_sockets,
@@ -179,6 +178,100 @@ all_cases() ->
      bidirectional_traffic
     ].
 
+close_cases() ->
+    [
+     no_accept,
+     close_with_pending_output,
+     data_before_close,
+     accept_closed_by_other_process,
+     otp_3924,
+     closed_socket
+    ].
+
+ctrl_proc_cases() ->
+    [
+     controlling_process,
+     controlling_process_self
+    ].
+
+active_cases() ->
+    [
+     passive_sockets,
+     active_n,
+     active_n_closed,
+     active_once_closed
+    ].
+
+shutdown_cases() ->
+    [
+     shutdown_active,
+     shutdown_passive,
+     shutdown_pending
+    ].
+
+econnreset_cases() ->
+    [
+     show_econnreset_active,
+     show_econnreset_active_once,
+     show_econnreset_passive,
+     econnreset_after_sync_send,
+     econnreset_after_async_send_active,
+     econnreset_after_async_send_active_once,
+     econnreset_after_async_send_passive
+    ].
+
+linger_zero_cases() ->
+    [
+     linger_zero,
+     linger_zero_sndbuf
+    ].
+
+busy_disconnect_cases() ->
+    [
+     busy_disconnect_passive,
+     busy_disconnect_active
+    ].
+
+partial_recv_and_close_cases() ->
+    [
+     partial_recv_and_close,
+     partial_recv_and_close_2,
+     partial_recv_and_close_3
+    ].
+
+pktoptions_cases() ->
+    [
+     recvtos,
+     recvttl,
+     recvtosttl,
+     recvtclass
+    ].
+
+accept_cases() ->
+    [
+     primitive_accept,
+     multi_accept_close_listen,
+     accept_timeout,
+     accept_timeouts_in_order,
+     accept_timeouts_in_order2,
+     accept_timeouts_in_order3,
+     accept_timeouts_in_order4,
+     accept_timeouts_in_order5,
+     accept_timeouts_in_order6,
+     accept_timeouts_in_order7,
+     accept_timeouts_mixed,
+     killing_acceptor,
+     killing_multi_acceptors,
+     killing_multi_acceptors2,
+     several_accepts_in_one_go,
+     accept_system_limit
+    ].
+
+send_timeout_cases() ->
+    [
+     send_timeout,
+     send_timeout_active
+    ].
 
 init_per_suite(Config0) ->
 
