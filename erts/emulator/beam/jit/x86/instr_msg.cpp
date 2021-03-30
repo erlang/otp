@@ -30,24 +30,6 @@ extern "C"
 #endif
 }
 
-static ErtsMessage *decode_dist(Process *c_p, ErtsMessage *msgp) {
-    if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
-        /*
-         * A corrupt distribution message that we weren't able to decode;
-         * remove it...
-         */
-
-        /* TODO: Add DTrace probe for this bad message situation? */
-        erts_msgq_unlink_msg(c_p, msgp);
-        msgp->next = NULL;
-        erts_cleanup_messages(msgp);
-
-        return nullptr;
-    }
-
-    return msgp;
-}
-
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 
 static void recv_mark(Process *p) {
@@ -219,7 +201,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it */
         a.mov(ARG1, message_ptr);
         a.test(ARG1, ARG1);
-        a.short_().jne(check_is_distributed);
+        /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
+        a.jne(check_is_distributed);
 
         /* Did we receive a signal or run out of reds? */
         a.cmp(get_out, imm(0));
@@ -252,7 +235,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     {
         a.cmp(x86::qword_ptr(ARG1, offsetof(ErtsSignal, common.tag)),
               imm(THE_NON_VALUE));
-        a.short_().jne(done);
+        /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
+        a.jne(done);
 
         a.sub(FCALLS, imm(10));
 
@@ -260,7 +244,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
         a.mov(ARG2, ARG1);
         a.mov(ARG1, c_p);
-        runtime_call<2>(decode_dist);
+        runtime_call<2>(beam_jit_decode_dist);
 
         emit_leave_runtime();
 
@@ -291,119 +275,6 @@ void BeamModuleAssembler::emit_i_loop_rec(const ArgVal &Wait) {
     fragment_call(ga->get_i_loop_rec_shared());
 }
 
-/* Remove a (matched) message from the message queue. */
-static Sint remove_message(Process *c_p,
-                           Sint FCALLS,
-                           Eterm *HTOP,
-                           Eterm *E,
-                           Uint32 active_code_ix) {
-    ErtsMessage *msgp;
-
-    ERTS_CHK_MBUF_SZ(c_p);
-
-    if (active_code_ix == ERTS_SAVE_CALLS_CODE_IX) {
-        save_calls(c_p, &exp_receive);
-    }
-
-    msgp = erts_msgq_peek_msg(c_p);
-
-    if (ERL_MESSAGE_TOKEN(msgp) == NIL) {
-#ifdef USE_VM_PROBES
-        if (DT_UTAG(c_p) != NIL) {
-            if (DT_UTAG_FLAGS(c_p) & DT_UTAG_PERMANENT) {
-                SEQ_TRACE_TOKEN(c_p) = am_have_dt_utag;
-            } else {
-                DT_UTAG(c_p) = NIL;
-                SEQ_TRACE_TOKEN(c_p) = NIL;
-            }
-        } else {
-#endif
-            SEQ_TRACE_TOKEN(c_p) = NIL;
-#ifdef USE_VM_PROBES
-        }
-        DT_UTAG_FLAGS(c_p) &= ~DT_UTAG_SPREADING;
-#endif
-    } else if (ERL_MESSAGE_TOKEN(msgp) != am_undefined) {
-        Eterm msg;
-        SEQ_TRACE_TOKEN(c_p) = ERL_MESSAGE_TOKEN(msgp);
-#ifdef USE_VM_PROBES
-        if (ERL_MESSAGE_TOKEN(msgp) == am_have_dt_utag) {
-            if (DT_UTAG(c_p) == NIL) {
-                DT_UTAG(c_p) = ERL_MESSAGE_DT_UTAG(msgp);
-            }
-            DT_UTAG_FLAGS(c_p) |= DT_UTAG_SPREADING;
-        } else {
-#endif
-            ASSERT(is_tuple(SEQ_TRACE_TOKEN(c_p)));
-            ASSERT(SEQ_TRACE_TOKEN_ARITY(c_p) == 5);
-            ASSERT(is_small(SEQ_TRACE_TOKEN_SERIAL(c_p)));
-            ASSERT(is_small(SEQ_TRACE_TOKEN_LASTCNT(c_p)));
-            ASSERT(is_small(SEQ_TRACE_TOKEN_FLAGS(c_p)));
-            ASSERT(is_pid(SEQ_TRACE_TOKEN_SENDER(c_p)) ||
-                   is_atom(SEQ_TRACE_TOKEN_SENDER(c_p)));
-            c_p->seq_trace_lastcnt = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
-            if (c_p->seq_trace_clock <
-                unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p))) {
-                c_p->seq_trace_clock =
-                        unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
-            }
-            msg = ERL_MESSAGE_TERM(msgp);
-            seq_trace_output(SEQ_TRACE_TOKEN(c_p),
-                             msg,
-                             SEQ_TRACE_RECEIVE,
-                             c_p->common.id,
-                             c_p);
-#ifdef USE_VM_PROBES
-        }
-#endif
-    }
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(message_receive)) {
-        Eterm token2 = NIL;
-        DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
-        Sint tok_label = 0;
-        Sint tok_lastcnt = 0;
-        Sint tok_serial = 0;
-        Sint len = erts_proc_sig_privqs_len(c_p);
-
-        dtrace_proc_str(c_p, receiver_name);
-        token2 = SEQ_TRACE_TOKEN(c_p);
-        if (have_seqtrace(token2)) {
-            tok_label = SEQ_TRACE_T_DTRACE_LABEL(token2);
-            tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token2));
-            tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token2));
-        }
-        DTRACE6(message_receive,
-                receiver_name,
-                size_object(ERL_MESSAGE_TERM(msgp)),
-                len, /* This is NOT message queue len, but its something... */
-                tok_label,
-                tok_lastcnt,
-                tok_serial);
-    }
-#endif
-    erts_msgq_unlink_msg(c_p, msgp);
-    erts_msgq_set_save_first(c_p);
-    CANCEL_TIMER(c_p);
-
-    erts_save_message_in_proc(c_p, msgp);
-    c_p->flags &= ~F_DELAY_GC;
-
-    if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E)) {
-        /*
-         * We want to GC soon but we leave a few
-         * reductions giving the message some time
-         * to turn into garbage.
-         */
-        ERTS_VBUMP_LEAVE_REDS_INTERNAL(c_p, 5, FCALLS);
-    }
-
-    ERTS_CHK_MBUF_SZ(c_p);
-
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    return FCALLS;
-}
-
 void BeamModuleAssembler::emit_remove_message() {
     /* HTOP and E are passed explicitly and only read from, so we don't need to
      * swap them out. */
@@ -415,21 +286,17 @@ void BeamModuleAssembler::emit_remove_message() {
     a.mov(ARG1, c_p);
     a.mov(ARG2, FCALLS);
     a.mov(ARG5, active_code_ix);
-    runtime_call<5>(remove_message);
+    runtime_call<5>(beam_jit_remove_message);
     a.mov(FCALLS, RET);
 
     emit_leave_runtime();
-}
-
-static void save_message(Process *c_p) {
-    erts_msgq_set_save_next(c_p);
 }
 
 void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(save_message);
+    runtime_call<1>(erts_msgq_set_save_next);
 
     emit_leave_runtime();
 
@@ -437,32 +304,12 @@ void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
     a.jmp(labels[Dest.getValue()]);
 }
 
-static void take_receive_lock(Process *c_p) {
-    erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-}
-
-static void wait_locked(Process *c_p, ErtsCodePtr cp) {
-    c_p->arity = 0;
-    if (!ERTS_PTMR_IS_TIMED_OUT(c_p)) {
-        erts_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
-    }
-    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-    c_p->current = NULL;
-    c_p->i = cp;
-}
-
-static void wait_unlocked(Process *c_p, ErtsCodePtr cp) {
-    take_receive_lock(c_p);
-    wait_locked(c_p, cp);
-}
-
 void BeamModuleAssembler::emit_wait_unlocked(const ArgVal &Dest) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
-    runtime_call<2>(wait_unlocked);
+    runtime_call<2>(beam_jit_wait_unlocked);
 
     emit_leave_runtime();
 
@@ -474,46 +321,11 @@ void BeamModuleAssembler::emit_wait_locked(const ArgVal &Dest) {
 
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
-    runtime_call<2>(wait_locked);
+    runtime_call<2>(beam_jit_wait_locked);
 
     emit_leave_runtime();
 
     abs_jmp(ga->get_do_schedule());
-}
-
-enum tmo_ret { RET_next = 0, RET_wait = 1, RET_badarg = 2 };
-
-static enum tmo_ret wait_timeout(Process *c_p,
-                                 Eterm timeout_value,
-                                 ErtsCodePtr next) {
-    /*
-     * If we have already set the timer, we must NOT set it again.  Therefore,
-     * we must test the F_INSLPQUEUE flag as well as the F_TIMO flag.
-     */
-    if ((c_p->flags & (F_INSLPQUEUE | F_TIMO)) == 0) {
-        if (timeout_value == make_small(0)) {
-            erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-            return RET_next;
-        } else if (timeout_value == am_infinity) {
-            c_p->flags |= F_TIMO;
-        } else {
-            int tres = erts_set_proc_timer_term(c_p, timeout_value);
-            if (tres == 0) {
-                /*
-                 * The timer routiner will set c_p->i to the value in
-                 * c_p->def_arg_reg[0].  Note that it is safe to use this
-                 * location because there are no living x registers in
-                 * a receive statement.
-                 */
-                c_p->def_arg_reg[0] = (Eterm)next;
-            } else { /* Wrong time */
-                erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-                c_p->freason = EXC_TIMEOUT_VALUE;
-                return RET_badarg;
-            }
-        }
-    }
-    return RET_wait;
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgVal &Src,
@@ -521,7 +333,7 @@ void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgVal &Src,
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(take_receive_lock);
+    runtime_call<1>(beam_jit_take_receive_lock);
 
     emit_leave_runtime();
 
@@ -538,14 +350,18 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
 
     a.mov(ARG1, c_p);
     a.lea(ARG3, x86::qword_ptr(next));
-    runtime_call<3>(wait_timeout);
+    runtime_call<3>(beam_jit_wait_timeout);
 
     emit_leave_runtime();
 
     ERTS_CT_ASSERT(RET_next < RET_wait && RET_wait < RET_badarg);
     a.cmp(RET, RET_wait);
     a.short_().je(wait);
+#ifdef JIT_HARD_DEBUG
+    a.jl(next);
+#else
     a.short_().jl(next);
+#endif
 
     emit_handle_error(currLabel, (ErtsCodeMFA *)nullptr);
 
@@ -556,27 +372,11 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
     a.bind(next);
 }
 
-static void timeout(Process *c_p) {
-    if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
-        trace_receive(c_p, am_clock_service, am_timeout, NULL);
-    }
-    if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
-        save_calls(c_p, &exp_timeout);
-    }
-    c_p->flags &= ~F_TIMO;
-    erts_msgq_set_save_first(c_p);
-}
-
-static void timeout_locked(Process *c_p) {
-    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-    timeout(c_p);
-}
-
 void BeamModuleAssembler::emit_timeout_locked() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(timeout_locked);
+    runtime_call<1>(beam_jit_timeout_locked);
 
     emit_leave_runtime();
 }
@@ -585,7 +385,7 @@ void BeamModuleAssembler::emit_timeout() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(timeout);
+    runtime_call<1>(beam_jit_timeout);
 
     emit_leave_runtime();
 }

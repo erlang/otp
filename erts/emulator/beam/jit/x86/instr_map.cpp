@@ -134,71 +134,6 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
     }
 }
 
-static Uint i_get_map_elements(Eterm map,
-                               Eterm *reg,
-                               Eterm *E,
-                               Uint n,
-                               Eterm *fs) {
-    Uint sz;
-
-    /* This instruction assumes Arg1 is a map, i.e. that it follows a test
-     * is_map if needed. */
-
-    if (is_flatmap(map)) {
-        flatmap_t *mp;
-        Eterm *ks;
-        Eterm *vs;
-
-        mp = (flatmap_t *)flatmap_val(map);
-        sz = flatmap_get_size(mp);
-
-        if (sz == 0) {
-            return 0;
-        }
-
-        ks = flatmap_get_keys(mp);
-        vs = flatmap_get_values(mp);
-
-        while (sz) {
-            if (EQ(fs[0], *ks)) {
-                PUT_TERM_REG(*vs, fs[1]);
-
-                n--;
-                fs += 3;
-
-                /* no more values to fetch, we are done */
-                if (n == 0) {
-                    return 1;
-                }
-            }
-
-            ks++, sz--, vs++;
-        }
-        return 0;
-    } else {
-        ASSERT(is_hashmap(map));
-
-        while (n--) {
-            const Eterm *v;
-            Uint32 hx;
-
-            hx = fs[2];
-            ASSERT(hx == hashmap_make_hash(fs[0]));
-
-            if ((v = erts_hashmap_get(hx, fs[0], map)) == NULL) {
-                return 0;
-            }
-
-            PUT_TERM_REG(*v, fs[1]);
-            fs += 3;
-        }
-
-        return 1;
-    }
-}
-
-#undef PUT_TERM_REG
-
 void BeamModuleAssembler::emit_i_get_map_elements(
         const ArgVal &Fail,
         const ArgVal &Src,
@@ -216,7 +151,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(
     mov_imm(ARG4, args.size() / 3);
     a.lea(ARG5, x86::qword_ptr(data));
     load_x_reg_array(ARG2);
-    runtime_call<5>(i_get_map_elements);
+    runtime_call<5>(beam_jit_get_map_elements);
 
     emit_leave_runtime();
 

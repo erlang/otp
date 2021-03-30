@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 JIT_ENABLED=@JIT_ENABLED@
+JIT_ARCH=@JIT_ARCH@
 DTRACE_ENABLED=@DTRACE_ENABLED@
 DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
 USE_VM_PROBES=@USE_VM_PROBES@
@@ -57,9 +58,9 @@ endif
 ifeq ($(FLAVOR),jit)
 OMIT_OMIT_FP=no
 OPCODE_TABLES += \
-    beam/jit/ops.tab \
-    beam/jit/predicates.tab \
-    beam/jit/generators.tab
+    beam/jit/$(JIT_ARCH)/ops.tab \
+    beam/jit/$(JIT_ARCH)/predicates.tab \
+    beam/jit/$(JIT_ARCH)/generators.tab
 else
 OMIT_OMIT_FP=no
 OPCODE_TABLES += \
@@ -414,8 +415,8 @@ CREATE_DIRS += $(OBJDIR) \
 	$(ZLIB_OBJDIR)
 
 ifeq ($(FLAVOR),jit)
-CREATE_DIRS+=$(OBJDIR)/asmjit/ $(OBJDIR)/asmjit/core $(OBJDIR)/asmjit/x86
-CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/x86
+CREATE_DIRS+=$(OBJDIR)/asmjit/ $(OBJDIR)/asmjit/core $(OBJDIR)/asmjit/$(JIT_ARCH)
+CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/$(JIT_ARCH)
 endif
 
 BINDIR = $(ERL_TOP)/bin/$(TARGET)
@@ -690,8 +691,8 @@ $(UTILS_YCF_OUTPUT): beam/utils.c $(ERTS_LIB)
 GENERATE += $(DB_INSERT_LIST_OUTPUT) $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT)
 
 ## ASMJIT source files and headers
-ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) $(wildcard asmjit/x86/*.cpp)
-ASMJIT_H = $(wildcard asmjit/*.h) $(wildcard asmjit/core/*.h) $(wildcard asmjit/x86/*.h)
+ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) $(wildcard asmjit/$(JIT_ARCH)/*.cpp)
+ASMJIT_H = $(wildcard asmjit/*.h) $(wildcard asmjit/core/*.h) $(wildcard asmjit/$(JIT_ARCH)/*.h)
 ASMJIT_TTF_H = $(foreach HEADER,$(ASMJIT_H),$(TTF_DIR)/$(HEADER))
 
 ifeq ($(FLAVOR),jit)
@@ -775,6 +776,10 @@ endif
 COMMON_INCLUDES += -Ipcre
 COMMON_INCLUDES += -I../include -I../include/$(TARGET)
 COMMON_INCLUDES += -I../include/internal -I../include/internal/$(TARGET)
+
+ifeq ($(FLAVOR),jit)
+COMMON_INCLUDES += -Ibeam/jit -Ibeam/jit/$(JIT_ARCH)
+endif
 
 INCLUDES  =  -I$(TTF_DIR) $(COMMON_INCLUDES)
 
@@ -901,7 +906,7 @@ ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DA
 ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
 ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
 
-$(OBJDIR)/%.o: beam/jit/%.cpp beam/jit/beam_asm.hpp $(ASMJIT_PCH_OBJ)
+$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp $(ASMJIT_PCH_OBJ)
 	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
           $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
@@ -987,7 +992,11 @@ COMMON_OBJS = \
 ASMJIT_OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(ASMJIT_CPP))
 
 JIT_OBJS = \
-	$(OBJDIR)/asm_load.o \
+        $(OBJDIR)/asm_load.o \
+        $(OBJDIR)/beam_jit_common.o
+
+ifeq ($(JIT_ARCH), x86)
+JIT_OBJS += \
 	$(OBJDIR)/beam_asm.o \
 	$(OBJDIR)/beam_asm_global.o \
 	$(OBJDIR)/beam_asm_module.o \
@@ -1002,9 +1011,10 @@ JIT_OBJS = \
 	$(OBJDIR)/instr_map.o \
 	$(OBJDIR)/instr_msg.o \
 	$(OBJDIR)/instr_select.o \
-	$(OBJDIR)/instr_trace.o \
-	$(ASMJIT_OBJS)
+	$(OBJDIR)/instr_trace.o
+endif
 
+JIT_OBJS += $(ASMJIT_OBJS)
 
 EMU_OBJS = \
 	$(OBJDIR)/emu_load.o
@@ -1262,7 +1272,7 @@ BEAM_SRC=$(wildcard beam/*.c)
 ifeq ($(FLAVOR),emu)
 BEAM_SRC+=$(wildcard beam/emu/*.c)
 else
-BEAM_CPP_SRC=$(wildcard beam/*.cpp) $(wildcard beam/jit/*.cpp)
+BEAM_CPP_SRC=$(wildcard beam/*.cpp) $(wildcard beam/jit/*.cpp) $(wildcard beam/jit/$(JIT_ARCH)/*.cpp)
 endif
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
@@ -1315,7 +1325,7 @@ DEP_INCLUDES=$(INCLUDES) \
 	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
 	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
 DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(DEP_INCLUDES)
-DEP_CXXFLAGS=-MM $(MG_FLAG) $(CXXFLAGS) $(DEP_INCLUDES)
+DEP_CXXFLAGS=-MM $(MG_FLAG) $(CXXFLAGS) $(DEP_INCLUDES) $(ASMJIT_FLAGS)
 SYS_SRC=$(ALL_SYS_SRC)
 endif
 
@@ -1378,9 +1388,12 @@ compdb:
 	cat $(TTF_DIR)/*.json > $(ERL_TOP)/compile_commands.json
 
 format-check:
-	clang-format --Werror --dry-run -i beam/jit/*.cpp beam/jit/*.hpp beam/jit/*.c beam/jit/*.h
+	clang-format --Werror --dry-run -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
+            beam/jit/*/*.cpp beam/jit/*/*.hpp
+
 format:
-	clang-format -i beam/jit/*.cpp beam/jit/*.hpp beam/jit/*.c beam/jit/*.h
+	clang-format -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
+            beam/jit/*/*.cpp beam/jit/*/*.hpp
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)

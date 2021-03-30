@@ -133,20 +133,6 @@ void BeamModuleAssembler::emit_gc_test(const ArgVal &Ns,
     a.bind(after_gc_check);
 }
 
-#if defined(DEBUG) && defined(HARD_DEBUG)
-static void validate_term(Eterm term) {
-    if (is_boxed(term)) {
-        Eterm header = *boxed_val(term);
-
-        if (header_is_bin_matchstate(header)) {
-            return;
-        }
-    }
-
-    size_object_x(term, nullptr);
-}
-#endif
-
 void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
 #ifdef DEBUG
     Label next = a.newLabel(), crash = a.newLabel();
@@ -169,16 +155,17 @@ void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
     a.hlt();
     a.bind(next);
 
-#    ifdef HARD_DEBUG
+#    ifdef JIT_HARD_DEBUG
     emit_enter_runtime();
 
     for (unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, getXRef(i));
-        runtime_call<1>(validate_term);
+        runtime_call<1>(beam_jit_validate_term);
     }
 
     emit_leave_runtime();
 #    endif
+
 #endif
 }
 
@@ -1220,7 +1207,11 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
     mov_arg(ARG1, X);
 
     a.cmp(ARG1, ARG2);
+#ifdef JIT_HARD_DEBUG
+    a.je(next);
+#else
     a.short_().je(next);
+#endif
 
     /* Fancy way of checking if both are immediates. */
     a.mov(RETd, ARG1d);
@@ -1279,7 +1270,11 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgVal &Fail,
     a.and_(RETd, ARG2d);
     a.and_(RETb, imm(_TAG_PRIMARY_MASK));
     a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+#ifdef JIT_HARD_DEBUG
+    a.je(next);
+#else
     a.short_().je(next);
+#endif
 
     emit_enter_runtime();
 
@@ -1437,7 +1432,9 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.sub(ARG3d, imm(_TAG_HEADER_FLOAT));
     a.sub(ARG5d, imm(_TAG_HEADER_FLOAT));
     a.or_(ARG3d, ARG5d);
-    a.short_().jne(generic_compare);
+
+    /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
+    a.jne(generic_compare);
 
     boxed_ptr = emit_ptr_val(ARG1, ARG1);
     a.movsd(x86::xmm0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
@@ -1660,7 +1657,8 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     a.bind(not_throw);
     {
         a.cmp(getXRef(1), imm(am_error));
-        a.short_().jne(not_error);
+        /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
+        a.jne(not_error);
 
         /* This is an error, attach a stacktrace to the reason. */
         emit_enter_runtime<Update::eStack | Update::eHeap>();

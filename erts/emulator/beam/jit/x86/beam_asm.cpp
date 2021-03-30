@@ -355,12 +355,9 @@ void BeamGlobalAssembler::emit_process_main() {
           x86::qword_ptr(x86::rsp,
                          offsetof(ErtsSchedulerRegisters, x_reg_array.d)));
 
-    load_erl_bits_state(ARG1);
-    runtime_call<1>(erts_bits_init_state);
-
 #if defined(DEBUG) && defined(NATIVE_ERLANG_STACK)
     /* Save stack bounds so they can be tested without clobbering anything. */
-    runtime_call<0>(erts_get_stacklimit);
+    a.call(erts_get_stacklimit);
 
     a.mov(getSchedulerRegRef(
                   offsetof(ErtsSchedulerRegisters, runtime_stack_end)),
@@ -371,7 +368,7 @@ void BeamGlobalAssembler::emit_process_main() {
 #elif !defined(NATIVE_ERLANG_STACK)
     /* Save the initial SP of the thread so that we can verify that it
      * doesn't grow. */
-#    ifdef HARD_DEBUG
+#    ifdef JIT_HARD_DEBUG
     a.mov(getInitialSPRef(), x86::rsp);
 #    endif
 
@@ -385,6 +382,9 @@ void BeamGlobalAssembler::emit_process_main() {
     a.sub(x86::rsp, imm(15));
     a.and_(x86::rsp, imm(-16));
 #endif
+
+    load_erl_bits_state(ARG1);
+    runtime_call<1>(erts_bits_init_state);
 
     a.mov(start_time_i, imm(0));
     a.mov(start_time, imm(0));

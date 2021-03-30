@@ -2866,9 +2866,11 @@ AC_CHECK_PROG(M4, m4, m4)
 
 
 dnl Test if JIT can be enabled
+JIT_ARCH=
 if test ${enable_jit} != no; then
    case "$ARCH" in
         amd64)
+           JIT_ARCH=x86
            ;;
         *)
            if test ${enable_jit} = yes; then
@@ -3009,6 +3011,7 @@ else
 fi
 
 AC_SUBST(JIT_ENABLED)
+AC_SUBST(JIT_ARCH)
 AC_SUBST(PRIMARY_FLAVOR)
 AC_SUBST(FLAVORS)
 
