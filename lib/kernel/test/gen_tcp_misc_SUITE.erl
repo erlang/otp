@@ -4397,7 +4397,8 @@ several_accepts_in_one_go(Config) when is_list(Config) ->
 
 do_several_accepts_in_one_go(Config) ->
     ?P("create listen socket"),
-    LS = case ?LISTEN(Config, 0,[]) of
+    NumActors = 8,
+    LS = case ?LISTEN(Config, 0, [{backlog, NumActors}]) of
              {ok, LSock} ->
                  LSock;
              {error, eaddrnotavail = Reason} ->
@@ -4405,13 +4406,15 @@ do_several_accepts_in_one_go(Config) ->
          end,
     Parent = self(),
     {ok, PortNo} = inet:port(LS),
-    F1 = fun() -> ?P("acceptor starting"),
-                  Parent ! {accepted,self(),gen_tcp:accept(LS)}
+    F1 = fun() ->
+		 ?P("acceptor starting"),
+		 Parent ! {accepted,self(),gen_tcp:accept(LS)}
          end,
-    F2 = fun() -> ?P("connector starting"),
-                  Parent ! {connected,self(),?CONNECT(Config, "localhost",PortNo,[])}
+    F2 = fun() ->
+		 ?P("connector starting"),
+		 Parent ! {connected,self(),?CONNECT(Config, "localhost",PortNo,[])}
          end,
-    Ns = lists:seq(1,8),
+    Ns = lists:seq(1, NumActors),
     ?P("start acceptors"),
     _  = [spawn(F1) || _ <- Ns],
     ?P("await accept timeouts"),
@@ -4419,7 +4422,7 @@ do_several_accepts_in_one_go(Config) ->
     ?P("start connectors"),
     _  = [spawn(F2) || _ <- Ns],
     ?P("await accepts"),
-    ok = ?EXPECT_ACCEPTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],8,15000),
+    ok = ?EXPECT_ACCEPTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],NumActors,15000),
     ?P("await connects"),
     ok = ?EXPECT_CONNECTS([{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}},{_,{ok,_}}],1000),
     ?P("done"),

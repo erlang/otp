@@ -848,9 +848,9 @@ server_read_opts() ->
         header => 0,
         deliver => term,
         start_opts => [], % Just to make it settable
+        line_delimiter => $\n,
         %% XXX not implemented yet
-        exit_on_close => true,
-        line_delimiter => $\n},
+        exit_on_close => true},
       server_read_write_opts()).
 -compile({inline, [server_write_opts/0]}).
 server_write_opts() ->
@@ -1426,6 +1426,7 @@ handle_event(
   #recv{info = ?select_info(SelectRef)},
   {#params{socket = Socket} = P, D}) ->
     %%
+    %% ?DBG([info, {socket, Socket}, {ref, SelectRef}]),
     handle_recv(P, D, []);
 %%
 handle_event(
@@ -1520,6 +1521,7 @@ handle_closed(Type, Content, State, {P, _D}) ->
 handle_connect(
   #params{socket = Socket} = P, D, From, Addr, Timeout) ->
     %%
+    %% ?DBG([{d, D}, {addr, Addr}]),
     case socket:connect(Socket, Addr, nowait) of
         ok ->
             handle_connected(
@@ -1571,6 +1573,7 @@ handle_connected(P, {D, ActionsR}) ->
     handle_connected(P, D, ActionsR).
 %%
 handle_connected(P, D, ActionsR) ->
+    %% ?DBG([{p, P}, {d, D}, {actions_r, ActionsR}]),
     case D of
         #{active := false} ->
             {next_state, 'connected',
@@ -1585,6 +1588,7 @@ handle_recv_start(
   when Packet =:= raw, 0 < Length;
        Packet =:= 0, 0 < Length ->
     Size = iolist_size(Buffer),
+    %% ?DBG([{packet, Packet}, {length, Length}, {buf_sz, Size}]),
     if
         Length =< Size ->
             {Data, NewBuffer} =
@@ -1602,12 +1606,13 @@ handle_recv_start(
               [{{timeout, recv}, Timeout, recv}])
     end;
 handle_recv_start(P, D, From, _Length, Timeout) ->
+    %% ?DBG([{p, P}, {d, D}]),
     handle_recv(
       P, D#{recv_length => 0, recv_from => From},
       [{{timeout, recv}, Timeout, recv}]).
 
 handle_recv(P, #{packet := Packet, recv_length := Length} = D, ActionsR) ->
-    %% ?DBG({recv_len, Length}),
+    %% ?DBG([{packet, Packet}, {recv_length, Length}]),
     if
         0 < Length ->
             handle_recv_length(P, D, ActionsR, Length);
@@ -1755,13 +1760,23 @@ handle_recv_length(P, D, ActionsR, _0, Buffer) ->
             handle_recv_deliver(P, D#{buffer := <<>>}, ActionsR, Data)
     end.
 
-handle_recv_decode(P, #{packet_size := PacketSize} = D, ActionsR, Data) ->
-    case
-        erlang:decode_packet(
-          decode_packet(D), Data,
-          [{packet_size, PacketSize},
-           {line_length, PacketSize}])
-    of
+handle_recv_decode(P,
+		   #{packet         := line,
+		     line_delimiter := LineDelimiter,
+		     packet_size    := PacketSize} = D,
+		   ActionsR, Data) ->
+    DecodeOpts = [{line_delimiter, LineDelimiter},
+		  {line_length,    PacketSize}],
+    handle_recv_decode(P, D,
+		       ActionsR, Data, DecodeOpts);
+handle_recv_decode(P, D, ActionsR, Data) ->
+    handle_recv_decode(P, D, ActionsR, Data, []).
+
+handle_recv_decode(P, #{packet_size := PacketSize} = D,
+		   ActionsR, Data, DecocdeOpts0) ->
+    %% ?DBG([{packet_sz, PacketSize}, {decode_opts0, DecocdeOpts0}]),
+    DecodeOpts = [{packet_size, PacketSize}|DecocdeOpts0], 
+    case erlang:decode_packet(decode_packet(D), Data, DecodeOpts) of
         {ok, Decoded, Rest} ->
             %% is_list(Buffer) -> try to decode first
             %% is_binary(Buffer) -> get more data first
@@ -1818,9 +1833,11 @@ handle_recv_error_decode(
 handle_recv_more(P, D, ActionsR, BufferedData) ->
     case socket_recv(P#params.socket, 0) of
         {ok, <<MoreData/binary>>} ->
-            Data = catbin(BufferedData, MoreData),
+	    %% ?DBG([{more_data_sz, byte_size(MoreData)}]), 
+	    Data = catbin(BufferedData, MoreData),
             handle_recv_decode(P, D, ActionsR, Data);
         {select, SelectInfo} ->
+	    %% ?DBG([{select_info, SelectInfo}]), 
             {next_state,
              #recv{info = SelectInfo},
              {P, D#{buffer := BufferedData}},
@@ -1969,6 +1986,9 @@ recv_data_deliver(
     packet := Packet} = D,
   ActionsR, Data) ->
     %%
+    %% ?DBG([{owner, Owner},
+    %% 	  {mode, Mode},
+    %% 	  {header, Header}, {deliver, Deliver}, {packet, Packet}]), 
     DeliverData = deliver_data(Data, Mode, Header, Packet),
     case D of
         #{recv_from := From} ->
@@ -2170,6 +2190,7 @@ state_setopts_server(P, D, State, Opts, {Tag, Value}) ->
                     {{error, einval}, D}
             end;
         _ ->
+	    %% ?DBG([{tag, Tag}, {value, Value}]),
             state_setopts(P, D#{Tag => Value}, State, Opts)
     end.
 
