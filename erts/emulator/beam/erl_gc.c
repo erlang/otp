@@ -3477,19 +3477,21 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             Eterm *o_hp, *hp, args = NIL;
 
             /* Build the format message */
-            erts_dsprintf(dsbufp, "     Process:          ~p ");
+            erts_dsprintf(dsbufp, "     Process:            ~p ");
             if (alive)
                 erts_dsprintf(dsbufp, "on node ~p");
-            erts_dsprintf(dsbufp, "~n     Context:          maximum heap size reached~n");
-            erts_dsprintf(dsbufp, "     Max Heap Size:    ~p~n");
-            erts_dsprintf(dsbufp, "     Total Heap Size:  ~p~n");
-            erts_dsprintf(dsbufp, "     Kill:             ~p~n");
-            erts_dsprintf(dsbufp, "     Error Logger:     ~p~n");
-            erts_dsprintf(dsbufp, "     GC Info:          ~p~n");
+            erts_dsprintf(dsbufp, "~n     Context:            maximum heap size reached~n");
+            erts_dsprintf(dsbufp, "     Max Heap Size:      ~p~n");
+            erts_dsprintf(dsbufp, "     Total Heap Size:    ~p~n");
+            erts_dsprintf(dsbufp, "     Kill:               ~p~n");
+            erts_dsprintf(dsbufp, "     Error Logger:       ~p~n");
+            erts_dsprintf(dsbufp, "     Message Queue Len:  ~p~n");
+            erts_dsprintf(dsbufp, "     GC Info:            ~p~n");
 
             /* Build the args in reverse order */
-            o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, 2*(alive ? 7 : 6) * sizeof(Eterm));
+            o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, 2*(alive ? 8 : 7) * sizeof(Eterm));
             args = CONS(hp, msg, args); hp += 2;
+            args = CONS(hp, make_small((p)->sig_inq.len), args); hp += 2;
             args = CONS(hp, am_true, args); hp += 2;
             args = CONS(hp, (max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false), args); hp += 2;
             args = CONS(hp, make_small(total_heap_size), args); hp += 2;
