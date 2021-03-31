@@ -3367,27 +3367,56 @@ do_so_priority(Config) ->
 %% It is only used for recvtclass that is an IPv6 option
 %% and there we get valid values from both socket ends.
 
+has_support_ip_pktoptions() ->
+    has_support_ip_option(pktoptions).
+
+has_support_ip_recvtos() ->
+    has_support_ip_option(recvtos).
+
+has_support_ip_recvttl() ->
+    has_support_ip_option(recvttl).
+
+has_support_ipv6_pktoptions() ->
+    has_support_ipv6_option(pktoptions).
+
+has_support_ipv6_tclass() ->
+    has_support_ipv6_option(tclass).
+
+has_support_ip_option(Opt) ->
+    has_support_option(ip, Opt).
+
+has_support_ipv6_option(Opt) ->
+    has_support_option(ipv6, Opt).
+
+has_support_option(Level, Option) ->
+    try socket:is_supported(options, Level, Option)
+    catch
+	_:_:_ -> false % Any platform that does not support socket!
+    end.
+
 recvtos(Config) ->
     test_pktoptions(
       Config,
       inet, [{recvtos,tos,96}],
-      fun recvtos_ok/2,
+      fun has_support_ip_recvtos/0, "recvtos",
       false).
 
 recvtosttl(Config) ->
     test_pktoptions(
       Config,
       inet, [{recvtos,tos,96},{recvttl,ttl,33}],
-      fun (OSType, OSVer) ->
-              recvtos_ok(OSType, OSVer) andalso recvttl_ok(OSType, OSVer)
+      fun() ->
+              has_support_ip_recvtos() andalso
+		  has_support_ip_recvttl()
       end,
+      "recvtos and/or recvttl",
       false).
 
 recvttl(Config) ->
     test_pktoptions(
       Config,
       inet, [{recvttl,ttl,33}],
-      fun recvttl_ok/2,
+      fun has_support_ip_recvttl/0, "recvttl",
       false).
 
 recvtclass(Config) ->
@@ -3401,107 +3430,44 @@ recvtclass(Config) ->
             test_pktoptions(
               Config,
               inet6, [{recvtclass,tclass,224}],
-              fun recvtclass_ok/2,
+              fun has_support_ipv6_tclass/0, "tclass",
               true);
         [] ->
             {skip,{ipv6_not_supported,IFs}}
     end.
 
-%% These version numbers are above the highest noted
-%% in daily tests where the test fails for a plausible reason,
-%% so skip on platforms of lower version, i.e they are future
-%% versions where it is possible that it might not fail.
-%%
-%% When machines with newer versions gets installed,
-%% if the test still fails for a plausible reason these
-%% version numbers simply should be increased.
-%% Or maybe we should change to only test on known good
-%% platforms - change {unix,_} to false?
-
-%% pktoptions is not supported for IPv4
-recvtos_ok({unix,netbsd},  _OSVer) -> false;
-recvtos_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
-recvtos_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
-%% Using the option returns einval, so it is not implemented.
-recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
-recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
-%% Does not return any value - not implemented for pktoptions
-recvtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
-%%
-recvtos_ok({unix,_}, _) -> true;
-recvtos_ok(_, _) -> false.
-
-%% pktoptions is not supported for IPv4
-recvttl_ok({unix,netbsd},  _OSVer) -> false;
-recvttl_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
-recvttl_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
-%% Using the option returns einval, so it is not implemented.
-recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
-recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
-%% Does not return any value - not implemented for pktoptions
-recvttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,7,0});
-%%
-recvttl_ok({unix,_}, _) -> true;
-recvttl_ok(_, _) -> false.
-
-%% pktoptions is not supported for IPv6
-recvtclass_ok({unix,netbsd},  _OSVer) -> false;
-recvtclass_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer,{6,9,0});
-recvtclass_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer,{19,6,0});
-recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
-%% Using the option returns einval, so it is not implemented.
-recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
-%% Does not return any value - not implemented for pktoptions
-recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
-%%
-recvtclass_ok({unix,_}, _) -> true;
-recvtclass_ok(_, _) -> false.
-
-semver_lt({X1,Y1,Z1} = V1, {X2,Y2,Z2} = V2) ->
-    ?P("semver_lt -> OS version check:"
-       "~n   Version 1: ~p"
-       "~n   Version 2: ~p", [V1, V2]),
-    if
-        X1 > X2 -> ?P("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
-        X1 < X2 -> ?P("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
-        Y1 > Y2 -> ?P("semver_lt -> Y1 > Y2: ~p > ~p", [Y1, Y2]), false;
-        Y1 < Y2 -> ?P("semver_lt -> Y1 < Y2: ~p < ~p", [Y1, Y2]), true;
-        Z1 > Z2 -> ?P("semver_lt -> Z1 > Z2: ~p > ~p", [Z1, Z2]), false;
-        Z1 < Z2 -> ?P("semver_lt -> Z1 < Z2: ~p < ~p", [Z1, Z2]), true;
-        true    -> ?P("semver_lt -> default"), false
-    end;
-semver_lt(V1, {_,_,_} = V2) ->
-    ?P("semver_lt -> fallback OS version check when: "
-       "~n   Version 1: ~p"
-       "~n   Version 2: ~p", [V1, V2]),
-    false.
-
-test_pktoptions(Config, Family, Spec, OSFilter, CheckConnect) ->
+test_pktoptions(Config, Family, Spec, OptCond, OptStr, CheckConnect) ->
     ?P("test_pktoptions -> begin test with"
        "~n   Config:       ~p"
        "~n   Family:       ~p"
        "~n   Spec:         ~p"
        "~n   CheckConnect: ~p",
        [Config, Family, Spec, CheckConnect]),
-    OSType = os:type(),
-    OSVer  = os:version(),
-    case OSFilter(OSType, OSVer) of
-        true ->
-            ?P("OS: ~p, ~p", [OSType, OSVer]),
-            test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer);
+    PktOptsCond = fun(inet)  -> has_support_ip_pktoptions();
+		     (inet6) -> has_support_ipv6_pktoptions()
+		  end,
+    case PktOptsCond(Family) of
+	true ->
+	    ?P("pktoptions supported for domain ~w", [Family]),
+	    case OptCond() of
+		true ->
+		    ?P("options supported: "
+		       "~n   ~p", [Spec]),
+		    test_pktoptions(Config, Family, Spec, CheckConnect);
+		false ->
+		    {skip, ?F("Option(s) ~s not supported", [OptStr])}
+	    end;
         false ->
-            {skip, {not_supported_for_os_version, {OSType,OSVer}}}
+            {skip, "Option PktOptions not supported"}
     end.
 %%
-test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
+test_pktoptions(Config, Family, Spec, CheckConnect) ->
     ?P("test_pktoptions -> begin test with"
        "~n   Config:       ~p"
        "~n   Family:       ~p"
        "~n   Spec:         ~p"
-       "~n   CheckConnect: ~p"
-       "~n   OSType:       ~p"
-       "~n   OSVer:        ~p",
-       [Config, Family, Spec, CheckConnect, OSType, OSVer]),
+       "~n   CheckConnect: ~p",
+       [Config, Family, Spec, CheckConnect]),
     Timeout = 5000,
     RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
     TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
@@ -3678,8 +3644,7 @@ test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
         orelse
         exit({failed,
               [{OptsVals1,OptsVals4,OptsVals},
-               {OptsVals2,OptsValsDefault}],
-              {OSType,OSVer}}),
+               {OptsVals2,OptsValsDefault}]}),
     ?P("done"),
     ok.
 
