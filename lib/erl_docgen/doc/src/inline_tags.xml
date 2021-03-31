@@ -122,8 +122,8 @@
         <p>Points to an Erlang module or a custom <seeguide marker="#markerTAG">marker</seeguide>
           within a module. Example:</p>
         <pre><![CDATA[
-<seeerl marker="stdlib:string">string(3)</seemfa>,
-<seeerl marker="stdlib:string#oldapi">Old API in string</seemfa>
+<seeerl marker="stdlib:string">string(3)</seeerl>,
+<seeerl marker="stdlib:string#oldapi">Old API in string</seeerl>
 ]]></pre>
         results in: <seeerl marker="stdlib:string">string(3)</seeerl>,<seeerl marker="stdlib:string#oldapi">Old API in string</seeerl>.
       </item>
