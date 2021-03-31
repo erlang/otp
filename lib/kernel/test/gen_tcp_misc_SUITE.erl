@@ -3310,10 +3310,14 @@ do_so_priority(Config) ->
     ?P("create listen socket"),
     L = case ?LISTEN(Config, 0, [{active,false}]) of
 	    {ok, LSock} when not is_port(LSock) ->
-		case socket:is_supported(options, socket, priority) of
+		try socket:is_supported(options, socket, priority) of
 		    true ->
 			LSock;
 		    false ->
+			(catch gen_tcp:close(LSock)),
+			?SKIPT("Option 'priority' not supported")
+                catch
+                    _:_:_ ->
 			(catch gen_tcp:close(LSock)),
 			?SKIPT("Option 'priority' not supported")
 		end;
@@ -3448,9 +3452,9 @@ test_pktoptions(Config, Family, Spec, OptCond, OptStr, CheckConnect) ->
     PktOptsCond = fun(inet)  -> has_support_ip_pktoptions();
 		     (inet6) -> has_support_ipv6_pktoptions()
 		  end,
-    case PktOptsCond(Family) of
+    try PktOptsCond(Family) of
 	true ->
-	    ?P("pktoptions supported for domain ~w", [Family]),
+	    ?P("pktoptions supported for family ~w", [Family]),
 	    case OptCond() of
 		true ->
 		    ?P("options supported: "
@@ -3460,7 +3464,12 @@ test_pktoptions(Config, Family, Spec, OptCond, OptStr, CheckConnect) ->
 		    {skip, ?F("Option(s) ~s not supported", [OptStr])}
 	    end;
         false ->
-            {skip, "Option PktOptions not supported"}
+            {skip,
+             ?F("Option 'pktoptions' not supported for family ~w", [Family])}
+    catch
+        _:_:_ ->
+            {skip,
+             ?F("Option 'pktoptions' not supported for family ~w", [Family])}
     end.
 %%
 test_pktoptions(Config, Family, Spec, CheckConnect) ->
