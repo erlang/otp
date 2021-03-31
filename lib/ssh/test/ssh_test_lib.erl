@@ -244,8 +244,7 @@ std_simple_sftp(Host, Port, Config, Opts) ->
     Data = crypto:strong_rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
     ok = ssh_sftp:write_file(ChannelRef, DataFile, Data),
     {ok,ReadData} = file:read_file(DataFile),
-    ok = ssh:close(ConnectionRef),
-    Data == ReadData.
+    {Data == ReadData, ConnectionRef}.
 
 %%%----------------------------------------------------------------
 std_simple_exec(Host, Port, Config) ->
