@@ -31,6 +31,50 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in the timer implementation which could cause
+	    timers that were set to more than 37.25 hours in the
+	    future to be delayed. This could occur if there were
+	    multiple timers scheduled to be triggered very close in
+	    time, but still at different times, and the scheduler
+	    thread handling the timers was not able to handle them
+	    quickly enough. Delayed timers were in this case
+	    triggered when another unrelated timer was triggered.</p>
+          <p>
+	    Own Id: OTP-17253</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in call_time tracing (used by eprof) that could
+	    cause VM crash. Bug exists since OTP-22.2 (but not in
+	    OTP-23).</p>
+          <p>
+	    Own Id: OTP-17290 Aux Id: GH-4635 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix a file descriptor leak when using sendfile and the
+	    remote side closes the connection. This bug has been
+	    present since OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-17244</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

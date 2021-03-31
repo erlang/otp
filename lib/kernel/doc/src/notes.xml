@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.5.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When running Xref in the <c>modules</c> mode, the
+	    Debugger application would show up as a depency for the
+	    Kernel applications.</p>
+          <p>
+	    Own Id: OTP-17223 Aux Id: GH-4546, PR-4554 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.5.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
