@@ -1385,7 +1385,7 @@ do_add_backend_type(Name, Module) ->
     ModuleRegistered = lists:keymember(Module, 2, Types),
     do_write_table_property(schema, {mnesia_backend_types,
 				     [{Name, Module}|Types]}),
-    ModuleRegistered.
+    not ModuleRegistered.
 
 delete_backend_type(Name) ->
     schema_transaction(fun() -> do_delete_backend_type(Name) end).
