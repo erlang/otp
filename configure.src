@@ -48,6 +48,7 @@ help=no
 user_srcdir=
 config_arguments=
 skip_applications=
+pkg_config=no
 while test $# != 0; do
     case $1 in
 	-srcdir=* | --srcdir=*)
@@ -135,7 +136,10 @@ while test $# != 0; do
 	    pie_cflags="-fno-PIE"
 	    pie_ldflags="-no-pie"
 	    ;;
-	CFLAGS=* | LDFLAGS=*)
+        --enable-pkg-config)
+	    pkg_config=yes
+	    ;;
+        CFLAGS=* | LDFLAGS=*)
 	    flgs_var=`expr "$1" : '\([^=]*\)=.*'`
 	    flgs_val=`expr "$1" : '[^=]*=\(.*\)'`
 	    eval $flgs_var=\$flgs_val
@@ -307,6 +311,14 @@ else
 	    ;;
     esac
 fi
+
+case "$pkg_config" in
+    no)
+      ;;
+    yes)
+      config_arguments="$config_arguments --enable-pkg-config"
+      ;;
+esac
 
 config_arguments="$config_arguments --disable-option-checking"
 

@@ -42,6 +42,10 @@ include $(TARGET)/eidefs.mk
 
 include $(ERL_TOP)/make/output.mk
 
+prefix          = @prefix@
+exec_prefix     = @exec_prefix@
+libdir          = @libdir@
+
 EBINDIR=../ebin
 
 APP_FILE= erl_interface.app
@@ -113,6 +117,8 @@ INSTALL = @INSTALL@
 INSTALL_DIR = @INSTALL_DIR@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
+
+ENABLE_PKG_CONFIG = @ENABLE_PKG_CONFIG@
 
 # The default library (no extra extension in name) is for Unix with
 # thread support if exists.  For windows MD is the default.
@@ -668,7 +674,18 @@ EXTRA = \
 	README.internal \
 	$(TARGET)/eidefs.mk
 
-release: opt
+PKG-CONFIG = \
+	$(TARGET)/erl_ei.pc
+
+ifdef ENABLE_PKG_CONFIG
+pkg-config:
+	$(INSTALL_DIR) "$(DESTDIR)/$(libdir)/pkgconfig"
+	$(INSTALL_DATA) $(PKG-CONFIG) "$(DESTDIR)/$(libdir)/pkgconfig"
+else
+pkg-config:
+endif
+
+release: opt pkg-config
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
 	$(INSTALL_DIR) "$(RELSYSDIR)/bin"
