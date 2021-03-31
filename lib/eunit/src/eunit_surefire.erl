@@ -95,6 +95,7 @@ start(Options) ->
 
 init(Options) ->
     XMLDir = proplists:get_value(dir, Options, ?XMLDIR),
+    ensure_xmldir(XMLDir),
     St = #state{verbose = proplists:get_bool(verbose, Options),
 		xmldir = XMLDir,
 		testsuites = []},
@@ -253,6 +254,19 @@ add_testcase_to_testsuite({error, Exception}, TestCaseTmp, TestSuite) ->
 	    TestSuite#testsuite{
 	      aborted = TestSuite#testsuite.aborted+1,
 	      testcases = [TestCase|TestSuite#testsuite.testcases] }
+    end.
+
+ensure_xmldir(XMLDir) ->
+    Steps = [
+        fun filelib:ensure_dir/1,
+        fun file:make_dir/1],
+    lists:foldl(fun ensure_xmldir/2, XMLDir, Steps).
+
+ensure_xmldir(Fun, XMLDir) ->
+    case Fun(XMLDir) of
+        ok -> XMLDir;
+        {error, eexist} -> XMLDir;
+        {error, _Reason} = Error -> throw(Error)
     end.
 
 %% ----------------------------------------------------------------------------

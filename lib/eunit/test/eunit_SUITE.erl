@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 app_test/1,appup_test/1,eunit_test/1,surefire_utf8_test/1,surefire_latin_test/1,
-	 surefire_c0_test/1]).
+	 surefire_c0_test/1, surefire_ensure_dir_test/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -30,7 +30,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app_test, appup_test, eunit_test, surefire_utf8_test, surefire_latin_test,
-     surefire_c0_test].
+     surefire_c0_test, surefire_ensure_dir_test].
 
 groups() ->
     [].
@@ -75,6 +75,11 @@ surefire_c0_test(Config) when is_list(Config) ->
     true = lists:member($\r, Chars),
     true = lists:member($\t, Chars),
     ok.
+
+surefire_ensure_dir_test(Config) when is_list(Config) ->
+    XMLDir = filename:join(proplists:get_value(priv_dir, Config), "c1"),
+    ok = eunit:test(tc0, [{report,{eunit_surefire,[{dir,XMLDir}]}}]),
+    ok = file:del_dir_r(XMLDir).
 
 check_surefire(Module) ->
 	File = "TEST-"++atom_to_list(Module)++".xml",
