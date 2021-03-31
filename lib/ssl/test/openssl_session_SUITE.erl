@@ -168,7 +168,6 @@ reuse_session_erlang_server(Config) when is_list(Config) ->
     
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     
-    Ciphers = common_ciphers(Version),
 
     Data = "From openssl to erlang",
     
@@ -176,14 +175,13 @@ reuse_session_erlang_server(Config) when is_list(Config) ->
                                         {from, self()},
                                         {mfa, {ssl_test_lib, active_recv, [length(Data)]}},
                                         {reconnect_times, 5},
-                                        {options, [{ciphers, Ciphers},
-                                                   {versions, [Version]}| ServerOpts]}]),
+                                        {options, [{versions, [Version]}| ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     
     {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
                                                                  {reconnect, true},
-                                                                 {options, [{ciphers, Ciphers} | ClientOpts]}, 
+                                                                 {options, ClientOpts}, 
                                                                  return_port], Config),
     true = port_command(OpenSSLPort, Data),
     
@@ -200,9 +198,8 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-    Ciphers = common_ciphers(Version),
     Server = ssl_test_lib:start_server(openssl, [], 
-                                       [{server_opts, [{ciphers, Ciphers} | ServerOpts]} | Config]),
+                                       [{server_opts, ServerOpts} | Config]),
     Port = ssl_test_lib:inet_port(Server),    
     
     Client0 =
@@ -212,7 +209,6 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
                                    {from, self()}, 
                                    {options, [{reuse_sessions, save}, 
                                               {verify, verify_peer},
-                                              {ciphers, Ciphers},
                                               {versions, [Version]} | ClientOpts]}]),
     
     SID = receive
@@ -226,9 +222,8 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
         ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_id, []}},
-                                   {from, self()},  {options, [ {ciphers, Ciphers},  
-                                                                {versions, [Version]},
-                                                                {reuse_session, SID} | ClientOpts]}]),
+                                   {from, self()},  {options, [{versions, [Version]},
+                                                               {reuse_session, SID} | ClientOpts]}]),
     receive
         {Client1, SID} ->
             ok
@@ -245,8 +240,7 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
         ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
                                    {mfa, {ssl_test_lib, session_id, []}},
-                                   {from, self()},  {options, [{ciphers, Ciphers},
-                                                               {versions, [Version]} | ClientOpts]}]),
+                                   {from, self()},  {options, [{versions, [Version]} | ClientOpts]}]),
     receive
         {Client2, ID} ->
             case ID of
@@ -257,15 +251,4 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
             end
     end,
     ssl_test_lib:close(Client2).
-
-
-%%--------------------------------------------------------------------
-%% Internal functions ------------------------------------------------
-%%--------------------------------------------------------------------
-
-common_ciphers(Version) ->
-    OpenSSLCiphers = ssl_test_lib:openssl_ciphers(),
-    ErlOpenSSLCiphers = [ssl:str_to_suite(C) || C <- OpenSSLCiphers],
-    ErlCiphers = ssl:cipher_suites(all, Version),
-    [Suite || Suite <- ErlOpenSSLCiphers, lists:member(Suite, ErlCiphers)].
 
