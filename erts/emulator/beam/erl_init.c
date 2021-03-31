@@ -205,7 +205,7 @@ int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
 int erts_no_line_info = 0;	/* -L: Don't load line information */
 
 #ifdef BEAMASM
-int erts_asm_dump = 0;		/* -asmdump: Dump assembly code */
+int erts_jit_asm_dump = 0;	/* -JDdump: Dump assembly code */
 #endif
 
 /*
@@ -1629,6 +1629,20 @@ erl_start(int argc, char **argv)
 
             switch (sub_param[0])
             {
+            case 'D':
+                sub_param++;
+                if (has_prefix("dump", sub_param)) {
+                    arg = get_arg(sub_param+4, argv[i + 1], &i);
+                    if (sys_strcmp(arg, "true") == 0) {
+                        erts_jit_asm_dump = 1;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_jit_asm_dump = 0;
+                    } else {
+                        erts_fprintf(stderr, "bad +JDdump flag %s\n", arg);
+                        erts_usage();
+                    }
+                }
+                break;
             case 'P':
                 sub_param++;
 
@@ -1655,7 +1669,7 @@ erl_start(int argc, char **argv)
                 }
                 break;
             default:
-                erts_fprintf(stderr, "invalid JIT option %s\n", arg);
+                erts_fprintf(stderr, "invalid JIT option %s\n", argv[i]);
                 erts_usage();
                 break;
             }
@@ -2116,12 +2130,6 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'a':
-#ifdef BEAMASM
-	    if (strcmp(argv[i]+2, "smdump") == 0) {
-		erts_asm_dump = 1;
-		break;
-	    }
-#endif
 	    /* suggested stack size (Kilo Words) for threads in thread pool */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    erts_async_thread_suggested_stack_size = atoi(arg);

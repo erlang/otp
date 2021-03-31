@@ -187,7 +187,7 @@ public:
     }
 
     BeamAssembler(const std::string &log) : BeamAssembler() {
-        if (erts_asm_dump) {
+        if (erts_jit_asm_dump) {
             setLogger(log + ".asm");
         }
     }
