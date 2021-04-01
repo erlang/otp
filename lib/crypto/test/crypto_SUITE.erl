@@ -1269,7 +1269,7 @@ cipher_info_aead_attr(Config) when is_list(Config) ->
     case lists:foldl(fun(C,Ok) ->
                         case crypto:cipher_info(C) of
                             #{aead := false} ->
-                                true;
+                                true and Ok;
                             _ ->
                                 false
                         end
