@@ -53,7 +53,7 @@ encode_jer({sequence_tab,Simple,Sname,Arity,CompInfos},Value)
 encode_jer({sequence,Sname,Arity,CompInfos},Value) 
   when tuple_size(Value) == Arity+1 ->
     [Sname|Clist] = tuple_to_list(Value),
-    encode_jer_component(CompInfos,Clist,#{});
+    encode_jer_component(CompInfos,Clist,[]);
 encode_jer(string,Str) when is_list(Str) ->
     list_to_binary(Str);
 encode_jer({string,_Prop},Str) when is_list(Str) ->
@@ -168,15 +168,17 @@ encode_jer_component_tab([{Name, Type, _OptOrDefault} | CompInfos], [Value | Res
 encode_jer_component_tab([], _, _Simple, MapAcc) ->
     MapAcc.
 
-encode_jer_component([{_Name, _Type, 'OPTIONAL'} | CompInfos], [asn1_NOVALUE | Rest], MapAcc) ->
-    encode_jer_component(CompInfos, Rest, MapAcc);
-encode_jer_component([{_Name, _Type, {'DEFAULT',_}} | CompInfos], [asn1_DEFAULT | Rest], MapAcc) ->
-    encode_jer_component(CompInfos, Rest, MapAcc);
-encode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], [Value | Rest], MapAcc) ->
+encode_jer_component([{_Name, _Type, 'OPTIONAL'} | CompInfos], [asn1_NOVALUE | Rest], Acc) ->
+    encode_jer_component(CompInfos, Rest, Acc);
+encode_jer_component([{_Name, _Type, {'DEFAULT',_}} | CompInfos], [asn1_DEFAULT | Rest], Acc) ->
+    encode_jer_component(CompInfos, Rest, Acc);
+encode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], [Value | Rest], Acc) ->
     Enc = encode_jer(Type, Value),
-    encode_jer_component(CompInfos, Rest, MapAcc#{Name => Enc});
-encode_jer_component([], _, MapAcc) ->
-    MapAcc.
+    encode_jer_component(CompInfos, Rest, [{Name,Enc}|Acc]);
+encode_jer_component([], _, []) ->
+    #{}; % ensure that it is encoded as an empty object in JSON
+encode_jer_component([], _, Acc) ->
+    lists:reverse(Acc).
 
 decode_jer(Module,InfoFunc,Val) ->
     Info = Module:InfoFunc(),
