@@ -69,7 +69,8 @@
 	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
 
 %% Significant child tests
--export([ significant_temporary/1, significant_transient/1,
+-export([ nonsignificant_temporary/1, nonsignificant_transient/1,
+	  significant_temporary/1, significant_transient/1,
 	  significant_simple/1, significant_bystander/1,
 	  significant_escalation/1, significant_upgrade_never_any/1,
 	  significant_upgrade_any_never/1, significant_upgrade_never_all/1,
@@ -155,7 +156,8 @@ groups() ->
       [rest_for_one, rest_for_one_escalation,
        rest_for_one_other_child_fails_restart]},
      {significant, [],
-      [significant_temporary, significant_transient,
+      [nonsignificant_temporary, nonsignificant_transient,
+       significant_temporary, significant_transient,
        significant_simple, significant_bystander,
        significant_escalation,
        significant_upgrade_never_any, significant_upgrade_any_never,
@@ -2832,6 +2834,113 @@ format_log_2(_Config) ->
 flatten_format_log(Report, Format) ->
     lists:flatten(supervisor:format_log(Report, Format)).
 
+% Test that terminations of temporary non-significant children do not
+% trigger auto-shutdown regardless of the supervisor's auto_shutdown
+% mode.
+nonsignificant_temporary(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => temporary,
+	       significant => false},
+
+    lists:foreach(
+	fun (AutoShutdown) ->
+	    {ok, Sup1} = start_link({ok, {#{auto_shutdown => AutoShutdown}, []}}),
+
+	    % Terminating a temporary non-significant child via the supervisor
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid1),
+	    terminate(Sup1, ChildPid1, child1, supervisor),
+	    ok = check_exit([ChildPid1]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Killing a temporary non-significant child should not trigger
+	    % auto-shutdown.
+	    {ok, ChildPid2} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid2),
+	    terminate(ChildPid2, kill),
+	    ok = check_exit([ChildPid2]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Abnormal termination of a temporary non-significant child
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid3} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid3),
+	    terminate(ChildPid3, abnormal),
+	    ok = check_exit([ChildPid3]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Normal termination of a temporary non-significant child
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid4} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid4),
+	    terminate(ChildPid4, normal),
+	    ok = check_exit([ChildPid4]),
+	    error = check_exit([Sup1], 1000),
+
+	    terminate(Sup1, shutdown),
+	    ok = check_exit([Sup1])
+	end,
+	[never, any_significant, all_significant]),
+
+    ok.
+
+% Test that terminations of transient non-significant children do not
+% trigger auto-shutdown regardless of the supervisor's auto_shutdown
+% mode.
+nonsignificant_transient(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => false},
+
+    lists:foreach(
+	fun (AutoShutdown) ->
+	    {ok, Sup1} = start_link({ok, {#{intensity => 5,
+					    auto_shutdown => AutoShutdown}, []}}),
+
+	    % Terminating a transient non-significant child via the supervisor
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid1),
+	    terminate(Sup1, ChildPid1, child1, supervisor),
+	    ok = check_exit([ChildPid1]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Killing a transient non-significant child should not trigger
+	    % auto-shutdown. The killed child should be restarted.
+	    {ok, ChildPid2} = supervisor:restart_child(Sup1, child1),
+	    link(ChildPid2),
+	    terminate(ChildPid2, kill),
+	    ok = check_exit([ChildPid2]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Abnormal termination of a transient non-significant child should
+	    % not trigger auto-shutdown. The terminated child should be restarted.
+	    [{child1, ChildPid3, _, _}] = supervisor:which_children(Sup1),
+	    link(ChildPid3),
+	    terminate(ChildPid3, abnormal),
+	    ok = check_exit([ChildPid3]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Normal termination of a transient non-significant child should not
+	    % trigger  auto-shutdown.
+	    [{child1, ChildPid4, _, _}] = supervisor:which_children(Sup1),
+	    link(ChildPid4),
+	    terminate(ChildPid4, normal),
+	    ok = check_exit([ChildPid4]),
+	    error = check_exit([Sup1], 1000),
+
+	    terminate(Sup1, shutdown),
+	    ok = check_exit([Sup1])
+	end,
+	[never, any_significant, all_significant]),
+
+    ok.
+
 % Test the auto-shutdown feature with temporary significant children.
 significant_temporary(_Config) ->
     process_flag(trap_exit, true),
@@ -2977,7 +3086,6 @@ significant_transient(_Config) ->
     error = check_exit([ChildPid1_3], 1000),
     error = check_exit([Sup1], 1000),
     supervisor:restart_child(Sup1, child1),
-
 
     % Killing a transient significant child should not trigger
     % auto-shutdown. The killed child should be restarted.
