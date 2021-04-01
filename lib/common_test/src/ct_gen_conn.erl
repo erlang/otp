@@ -235,9 +235,6 @@ do_start(Opts) ->
     receive
 	{connected,Pid} ->
 	    erlang:demonitor(MRef, [flush]),
-	    ct_util:register_connection(Opts#gen_opts.name,
-					Opts#gen_opts.address,
-					Opts#gen_opts.callback, Pid),
 	    {ok,Pid};
 	{Error,Pid} ->
 	    receive {'DOWN',MRef,process,_,_} -> ok end,
@@ -308,6 +305,10 @@ init_gen(Parent,Opts) ->
 	    put(conn_pid,ConnPid),
 	    CtUtilServer = whereis(ct_util_server),
 	    link(CtUtilServer),
+	    ct_util:register_connection(Opts#gen_opts.name,
+					Opts#gen_opts.address,
+					Opts#gen_opts.callback,
+                                        self()),
 	    Parent ! {connected,self()},
 	    loop(Opts#gen_opts{conn_pid=ConnPid,
 			       cb_state=State,
