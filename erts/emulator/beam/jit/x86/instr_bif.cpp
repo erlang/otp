@@ -446,11 +446,12 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             a.cmp(erts_msacc_cache, imm(0));
             a.short_().je(skip_msacc);
 
-            /* update cache if it was changed in the bif */
-            a.mov(TMP_MEM1q, RET);
+            /* update cache if it was changed in the bif.
+               TMP_MEM1q is already taken to save ARG1 above */
+            a.mov(TMP_MEM2q, RET);
             a.lea(ARG1, erts_msacc_cache);
             runtime_call<1>(erts_msacc_update_cache);
-            a.mov(RET, TMP_MEM1q);
+            a.mov(RET, TMP_MEM2q);
 
             /* set state to emulator if msacc has been enabled */
             a.cmp(erts_msacc_cache, imm(0));
@@ -459,7 +460,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             a.mov(ARG2, imm(ERTS_MSACC_STATE_EMULATOR));
             a.mov(ARG3, imm(1));
             runtime_call<3>(erts_msacc_set_state_m__);
-            a.mov(RET, TMP_MEM1q);
+            a.mov(RET, TMP_MEM2q);
 
             a.bind(skip_msacc);
         }
