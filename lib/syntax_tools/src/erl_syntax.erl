@@ -5177,7 +5177,7 @@ function_type(Type) ->
 %%      Arguments = [erl_parse()]
 %%      Type = erl_parse()
 
--spec function_type('any_arity' | syntaxTree(), syntaxTree()) -> syntaxTree().
+-spec function_type('any_arity' | [syntaxTree()], syntaxTree()) -> syntaxTree().
 
 function_type(Arguments, Return) ->
     tree(function_type,
