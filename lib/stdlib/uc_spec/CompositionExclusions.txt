@@ -1,5 +1,5 @@
-# CompositionExclusions-12.1.0.txt
-# Date: 2019-03-08, 23:59:00 GMT [KW, LI]
+# CompositionExclusions-13.0.0.txt
+# Date: 2019-10-15, 18:27:00 GMT [KW, LI]
 # © 2019 Unicode®, Inc.
 # For terms of use, see http://www.unicode.org/terms_of_use.html
 #
@@ -23,6 +23,19 @@
 # (1) Script Specifics
 #
 # This list of characters cannot be derived from the UnicodeData.txt file.
+#
+# Included are the following subcategories:
+#
+# - Many precomposed characters using a nukta diacritic in the Devanagari,
+#   Bangla/Bengali, Gurmukhi, or Odia/Oriya scripts.
+# - Tibetan letters and subjoined letters with decompositions including 
+#   U+0FB7 TIBETAN SUBJOINED LETTER HA or U+0FB5 TIBETAN SUBJOINED LETTER SSA.
+# - Two two-part Tibetan vowel signs involving top and bottom pieces.
+# - A large collection of compatibility precomposed characters for Hebrew
+#   involving dagesh and/or other combining marks.
+#
+# This list is unlikely to grow.
+#
 # ================================================
 
 0958    #  DEVANAGARI LETTER QA
