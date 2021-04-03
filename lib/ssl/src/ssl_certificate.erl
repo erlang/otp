@@ -86,8 +86,7 @@ trusted_cert_and_paths(Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
                           Result ->
                               Result
                       end
-              end, Paths).     
-
+              end, Paths).
 %%--------------------------------------------------------------------
 -spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | {extracted, list()}) ->
 			  {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
@@ -533,7 +532,12 @@ handle_incomplete_chain([PeerCert| _] = Chain0, PartialChainHandler, Default, Ce
     %% See if we have the certificates to rebuild it. 
     case certificate_chain(PeerCert, CertDbHandle, CertDbRef) of
         {ok, _, [PeerCert | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found          
-            handle_partial_chain(lists:reverse(Chain), PartialChainHandler, CertDbHandle, CertDbRef);
+            case lists:prefix(Chain0, Chain) of 
+                true ->
+                    handle_partial_chain(lists:reverse(Chain), PartialChainHandler, CertDbHandle, CertDbRef);
+                false ->
+                    Default
+            end;
         _  ->
             Default
     end.
