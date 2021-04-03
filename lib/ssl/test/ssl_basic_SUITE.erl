@@ -73,7 +73,9 @@
          fake_root_no_intermediate_legacy/0,
          fake_root_no_intermediate_legacy/1,
          fake_intermediate_cert/0,
-         fake_intermediate_cert/1
+         fake_intermediate_cert/1,
+         incompleat_chain_length/0,
+         incompleat_chain_length/1
         ]).
 
 %% Apply export
@@ -124,7 +126,8 @@ basic_tests() ->
      fake_root_no_intermediate,
      fake_root_legacy,
      fake_root_no_intermediate_legacy,
-     fake_intermediate_cert
+     fake_intermediate_cert,
+     incompleat_chain_length
     ].
 
 options_tests() ->
@@ -729,6 +732,74 @@ fake_intermediate_cert(Config) when is_list(Config) ->
                                                {options, [{verify, verify_peer} | ClientConf]}]),
     
     ssl_test_lib:check_client_alert(Client1, bad_certificate).
+
+incompleat_chain_length() -> 
+    [{doc,"Test that attempts to reconstruct incomplete chains does not make shorter incomplete chains"}].
+incompleat_chain_length(Config) when is_list(Config)-> 
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),   
+    Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
+    ROOT = public_key:pkix_test_root_cert("SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(6)},
+                                                             {extensions, Ext}]),
+    
+    OtherROOT = public_key:pkix_test_root_cert("OTHER SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                                                              {extensions, Ext}]),
+    
+    
+    #{client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => 
+                                                                     #{root => ROOT,
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
+                                                                 client_chain => 
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}], 
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
+                                                              ),
+    
+    #{server_config := ServerConf} = public_key:pkix_test_data(#{server_chain => 
+                                                                     #{root => OtherROOT,
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}],
+                                                                                         [{key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                                                                         ],
+                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(1)}]},
+                                                                 client_chain => 
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}], 
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
+                                                              ),
+
+
+    VerifyFun = {fun(_,{bad_cert, unknown_ca}, UserState) -> 
+                         %% accept this error to provoke the 
+                         %% building of an shorter incomplete chain
+                         %% than the one recived  
+                         {valid, UserState};
+                    (_,{extension, _} = Extension, #{ext := N} = UserState) ->
+                         ct:pal("~p", [Extension]),
+                         {unknown,  UserState#{ext => N +1}};
+                    (_, valid, #{intermediates := N} = UserState) ->
+                         {valid, UserState#{intermediates => N +1}};
+                    (_, valid_peer, #{intermediates := 2,
+                                      ext := 1} = UserState) ->
+                         {valid, UserState};
+                    (_, valid_peer, UserState) ->
+                         ct:pal("~p", [UserState]),
+                         {error, {bad_cert, too_short_path}}
+                 end, #{intermediates => 0,
+                        ext => 0}},
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+                                        {from, self()}, 
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ServerConf}
+                                        ]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+                                        {host, Hostname},
+                                        {from, self()}, 
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{verify, verify_peer}, {verify_fun, VerifyFun} | ClientConf]}]),
+    ssl_test_lib:check_result(Client, ok, Server, ok).
 
 %%--------------------------------------------------------------------
 %% callback functions ------------------------------------------------
