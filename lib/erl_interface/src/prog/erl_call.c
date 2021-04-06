@@ -20,12 +20,20 @@
 
  */
 /*
- * Function: Makes it possible to send and receive Erlang
- *    messages from the (Unix) command line. 
- *    Note: We don't free any memory at all since we only
- *    live for a short while.   
+ * Description: This file implements the erl_call command line
+ * utility. The erl_call command can be used to:
+ *
+ * * Execute code on an Erlang node and get the result back
+ * * Start and stop Erlang nodes
+ * * Upload and compile a module on an Erlang node
+ *
+ * See the erl_call man page or HTML documentation for additional
+ * information.
  *
  */
+
+/* An exception from using eidef.h, use config.h directly */
+#include "config.h"
 
 #ifdef __WIN32__
 #include <winsock2.h>
@@ -35,16 +43,23 @@
 
 #else /* unix */
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/times.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <sys/time.h>
+#include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
-#include <sys/param.h> 
-#include <netdb.h>
-#include <sys/times.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #if TIME_WITH_SYS_TIME
 # include <sys/time.h>
@@ -59,6 +74,8 @@
 
 #endif
 
+#include <sys/types.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -69,8 +86,24 @@
 
 #include "ei.h"
 #include "ei_resolve.h"
-#include "erl_start.h"		/* FIXME remove dependency */
 
+#define ERL_START_MSG "gurka" /* make something up */
+#define ERL_START_TIME 10000   /* wait this long (ms) */
+#define ERL_START_LOGFILE ".erl_start.out" /* basename of logfile */
+
+/* flags used by erl_connect and erl_xconnect */
+#define ERL_START_ENODE   0x0001
+#define ERL_START_EPMD    0x0002
+#define ERL_START_LONG    0x0004
+#define ERL_START_COOKIE  0x0008
+#define ERL_START_DEBUG   0x0010
+#define ERL_START_VERBOSE 0x0020
+#define ERL_START_REMOTE  0x0040
+
+/* error return values */
+#define ERL_S_TIMEOUT    -51  /* a timeout occurred */
+#define ERL_BADARG     -52  /* an argument contained an incorrect value */
+#define ERL_SYS_ERROR  -99  /* a system error occurred (check errno) */
 
 struct call_flags {
     int startp;
@@ -95,6 +128,9 @@ struct call_flags {
     char *script;
 };
 
+/* start an erlang system */
+int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr addr, int flags,
+		  char *erl, char *add_args[]);
 static void usage_arg(const char *progname, const char *switchname);
 static void usage_error(const char *progname, const char *switchname);
 static void usage(const char *progname);
@@ -110,6 +146,7 @@ static char* ei_chk_strdup(char *s);
 static int rpc_print_node_stdout(ei_cnode* ec, int fd, char *mod,
                                  char *fun, const char* inbuf,
                                  int inbuflen, ei_x_buff* x);
+static void exit_free_flags_fields(int exit_status, struct call_flags* flags);
 
 /* Converts the given hostname to a shortname, if required. */
 static void format_node_hostname(const struct call_flags *flags,
@@ -153,6 +190,11 @@ int main(int argc, char *argv[])
     flags.hostname = NULL;
     flags.fetch_stdout = 0;
     flags.print_result_term = 1;
+    flags.script = NULL;
+    flags.hidden = NULL;
+    flags.apply = NULL;
+    flags.cookie = NULL;
+    flags.node = NULL;
 
     ei_init();
 
@@ -166,7 +208,9 @@ int main(int argc, char *argv[])
 	    if (i+1 >= argc) {
 		usage_arg(progname, "-sname ");
 	    }
-
+            if (flags.node != NULL) {
+                free(flags.node);
+            }
 	    flags.node = ei_chk_strdup(argv[i+1]);
 	    i++;
 	    flags.use_long_name = 0;
@@ -174,7 +218,9 @@ int main(int argc, char *argv[])
 	    if (i+1 >= argc) {
 		usage_arg(progname, "-name ");
 	    }
-
+            if (flags.node != NULL) {
+                free(flags.node);
+            }
 	    flags.node = ei_chk_strdup(argv[i+1]);
 	    i++;
 	    flags.use_long_name = 1;
@@ -187,16 +233,24 @@ int main(int argc, char *argv[])
                 char* address_string_end = strchr(hostname_port_arg, ':');
                 if (address_string_end == NULL) {
                     flags.port = strtol(hostname_port_arg, NULL, 10);
+                    free(hostname_port_arg);
+                    hostname_port_arg = NULL;
                 } else {
                     flags.port = strtol(address_string_end + 1, NULL, 10);
                     /* Remove port part from hostname_port_arg*/
                     *address_string_end = '\0';
                     if (strlen(hostname_port_arg) > 0) {
                         flags.hostname = hostname_port_arg;
+                    } else {
+                        free(hostname_port_arg);
+                        hostname_port_arg = NULL;
                     }
                 }
 
                 if (flags.port < 1 || flags.port > 65535) {
+                    if (hostname_port_arg != NULL) {
+                        free(hostname_port_arg);
+                    }
                     usage_error(progname, "-address");
                 }
                 i++;
@@ -258,6 +312,9 @@ int main(int argc, char *argv[])
 		    usage_arg(progname, "-c ");
 		}
 		flags.cookiep = 1;
+                if (flags.cookie != NULL) {
+                    free(flags.cookie);
+                }
 		flags.cookie = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
@@ -265,6 +322,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-n ");
 		}
+                if (flags.node != NULL) {
+                    free(flags.node);
+                }
 		flags.node = ei_chk_strdup(argv[i+1]);
 		flags.use_long_name = 1;
 		i++;
@@ -273,6 +333,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-h ");
 		}
+                if (flags.hidden != NULL) {
+                    free(flags.hidden);
+                }
 		flags.hidden = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
@@ -280,6 +343,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-x ");
 		}
+                if (flags.script != NULL) {
+                    free(flags.script);
+                }
 		flags.script = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
@@ -287,6 +353,9 @@ int main(int argc, char *argv[])
 		if (i+1 >= argc) {
 		    usage_arg(progname, "-a ");
 		}
+                if (flags.apply != NULL) {
+                    free(flags.apply);
+                }
 		flags.apply = ei_chk_strdup(argv[i+1]);
 		i++;
 		break;
@@ -362,7 +431,7 @@ int main(int argc, char *argv[])
       /* gethostname requires len to be max(hostname) + 1 */
       if (gethostname(h_hostname, EI_MAXHOSTNAMELEN+1) < 0) {
           fprintf(stderr,"erl_call: failed to get host name: %d\n", errno);
-          exit(1);
+          exit_free_flags_fields(1, &flags);
       }
 
       if (flags.use_localhost_fallback || (hp = ei_gethostbyname(h_hostname)) == 0) {
@@ -380,7 +449,7 @@ int main(int argc, char *argv[])
       if (h_alivename) {
           if (strlen(h_alivename) + strlen(h_hostname) + 2 > sizeof(h_nodename_buf)) {
               fprintf(stderr,"erl_call: hostname too long: %s\n", h_hostname);
-              exit(1);
+              exit_free_flags_fields(1, &flags);
           }
           sprintf(h_nodename, "%s@%s", h_alivename, h_hostname);
       }
@@ -394,7 +463,7 @@ int main(int argc, char *argv[])
 			   (short) creation) < 0) {
 	  fprintf(stderr,"erl_call: can't create C node %s; %d\n",
 		  h_nodename, erl_errno);
-      	  exit(1);
+          exit_free_flags_fields(1, &flags);
       }
 
     }
@@ -420,7 +489,7 @@ int main(int argc, char *argv[])
     } else {
         if ((hp = ei_gethostbyname(host)) == 0) {
             fprintf(stderr,"erl_call: can't ei_gethostbyname(%s)\n", host);
-            exit(1);
+            exit_free_flags_fields(1, &flags);
         }
 
         format_node_hostname(&flags, hp->h_name, host_name);
@@ -429,7 +498,7 @@ int main(int argc, char *argv[])
     if (flags.port == -1) {
         if (strlen(flags.node) + strlen(host_name) + 2 > sizeof(nodename)) {
             fprintf(stderr,"erl_call: nodename too long: %s\n", flags.node);
-            exit(1);
+            exit_free_flags_fields(1, &flags);
         }
         sprintf(nodename, "%s@%s", flags.node, host_name);
     }
@@ -444,11 +513,11 @@ int main(int argc, char *argv[])
             /* We failed to connect ourself */
             /* FIXME do we really know we failed because of node not up? */
             if (flags.haltp) {
-                exit(0);
+                exit_free_flags_fields(0, &flags);
             } else {
                 fprintf(stderr,"erl_call: failed to connect to node %s\n",
                         nodename);
-                exit(1);
+                exit_free_flags_fields(1, &flags);
             }
         }
     } else {
@@ -457,12 +526,12 @@ int main(int argc, char *argv[])
             /* We failed to connect ourself */
             /* FIXME do we really know we failed because of node not up? */
             if (flags.haltp) {
-                exit(0);
+                exit_free_flags_fields(0, &flags);
             } else {
                 fprintf(stderr,"erl_call: failed to connect to node with address \"%s:%ld\"\n",
                         flags.hostname == NULL ? "" : flags.hostname,
                         flags.port);
-                exit(1);
+                exit_free_flags_fields(1, &flags);
             }
         }
     }
@@ -486,7 +555,7 @@ int main(int argc, char *argv[])
 	ei_rpc(&ec, fd, "erlang", "halt", p, i, &reply);
 	free(p);
 	ei_x_free(&reply);
-	exit(0);
+        exit_free_flags_fields(0, &flags);
     }
 
     if (flags.verbosep) {
@@ -508,7 +577,7 @@ int main(int argc, char *argv[])
 
       if (strlen(modname) + 4 + 1 > sizeof(fname)) {
       fprintf(stderr,"erl_call: module name too long: %s\n", modname);
-      exit(1);
+      exit_free_flags_fields(1, &flags);
       }
       strcpy(fname, modname);
       strcat(fname, ".erl");
@@ -542,7 +611,7 @@ int main(int argc, char *argv[])
 	      ei_x_free(&reply);
 	      fprintf(stderr,"erl_call: can't write to source file %s\n",
 		      fname);
-	      exit(1);
+              exit_free_flags_fields(1, &flags);
 	  }
 	  free(p);
 	  ei_x_free(&reply);
@@ -637,7 +706,7 @@ int main(int argc, char *argv[])
 	      free(p);
 	      free(evalbuf);	/* Allocated in read_stdin() */
 	      ei_x_free(&reply);
-	      exit(1);
+              exit_free_flags_fields(1, &flags);
 	  }
           if (flags.print_result_term) {
               i = 0;
@@ -665,9 +734,12 @@ int main(int argc, char *argv[])
       
       if (ei_x_format_wo_ver(&e, args) < 0) {
 	  /* FIXME no error message and why -1 ? */
-	  exit(-1);
+          free(mod);
+          free(fun);
+          free(args);
+          exit_free_flags_fields(-1, &flags);
       }
-
+      free(args);
       ei_x_new_with_version(&reply);
 
       if (flags.fetch_stdout) {
@@ -679,7 +751,9 @@ int main(int argc, char *argv[])
 	  /* FIXME no error message and why -1 ? */
 	  ei_x_free(&e);
 	  ei_x_free(&reply);
-	  exit(-1);
+          free(mod);
+          free(fun);
+          exit_free_flags_fields(-1, &flags);
       } else {
           if (flags.print_result_term) {
               int i = 0;
@@ -688,8 +762,10 @@ int main(int argc, char *argv[])
 	  ei_x_free(&e);
 	  ei_x_free(&reply);
       }
+      free(mod);
+      free(fun);
     }
-
+    exit_free_flags_fields(0, &flags);
     return(0);
 }
 
@@ -746,7 +822,7 @@ static int do_connect(ei_cnode *ec, char *nodename, struct call_flags *flags)
 	if ((r=erl_start_sys(ec,alive,(Erl_IpAddr)(h->h_addr_list[0]),
 			     start_flags,flags->script,args)) < 0) {
 	    fprintf(stderr,"erl_call: unable to start node, error = %d\n", r);
-	    exit(1);
+            exit_free_flags_fields(1, flags);
 	}
 
 	if ((fd=ei_connect(ec, nodename)) >= 0) {
@@ -760,19 +836,19 @@ static int do_connect(ei_cnode *ec, char *nodename, struct call_flags *flags)
 	    switch (fd) {
 	    case ERL_NO_DAEMON:
 		fprintf(stderr,"erl_call: no epmd running\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    case ERL_CONNECT_FAIL:
 		fprintf(stderr,"erl_call: connect failed\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    case ERL_NO_PORT:
 		fprintf(stderr,"erl_call: node is not running\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    case ERL_TIMEOUT:
 		fprintf(stderr,"erl_call: connect timed out\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    default:
 		fprintf(stderr,"erl_call: error during connect\n");
-		exit(1);
+                exit_free_flags_fields(1, flags);
 	    }
 	}
     }
@@ -1107,3 +1183,606 @@ ebadmsg:
 
     return ERL_ERROR;
 }
+
+
+void exit_free_flags_fields(int exit_status, struct call_flags* flags) {
+    if (flags->script != NULL) {
+        free(flags->script);
+    }
+    if (flags->hidden != NULL) {
+        free(flags->hidden);
+    }
+    if (flags->cookie != NULL) {
+        free(flags->cookie);
+    }
+    if (flags->apply != NULL) {
+        free(flags->apply);
+    }
+    if (flags->hostname != NULL) {
+        free(flags->hostname);
+    }
+    exit(exit_status);
+}
+
+
+/* Constants and helper functions used by erl_start_sys */
+
+/* FIXME is this a case a vfork can be used? */
+#if !HAVE_WORKING_VFORK
+# define vfork fork
+#endif
+
+#ifndef MAXPATHLEN
+#define MAXPATHLEN 1024
+#endif
+
+#ifndef RSH
+#define RSH "/usr/bin/ssh"
+#endif
+
+#ifndef HAVE_SOCKLEN_T
+typedef int SocklenType;
+#else
+typedef socklen_t SocklenType;
+#endif
+
+/* FIXME check errors from malloc */
+
+static struct in_addr *get_addr(const char *hostname, struct in_addr *oaddr);
+
+static int wait_for_erlang(int sockd, int magic, struct timeval *timeout);
+#if defined(__WIN32__)
+static int unique_id(void);
+static HANDLE spawn_erlang_epmd(ei_cnode *ec,
+				       char *alive,
+				       Erl_IpAddr adr,
+				       int flags,
+				       char *erl_or_epmd,
+				       char *args[],
+				       int port,
+				       int is_erlang);
+#else
+static int exec_erlang(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
+		       char *erl, char *args[],int port);
+#endif
+
+#if defined(__WIN32__)
+#define DEF_ERL_COMMAND "erl"
+#define DEF_EPMD_COMMAND "epmd"
+#define ERL_REPLY_FMT   "-s erl_reply reply \"%s\" \"%d\" \"%d\""
+#define ERL_NAME_FMT    "-noinput -name %s"
+#define ERL_SNAME_FMT   "-noinput -sname %s"
+
+#define IP_ADDR_CHARS 15
+#define FORMATTED_INT_LEN 10
+
+static int unique_id(void){
+    return (int) GetCurrentThreadId();
+}
+
+static int enquote_args(char **oargs, char ***qargs){
+    char **args;
+    int len;
+    int i;
+    int qwhole;
+    int extra;
+    char *ptr;
+    char *ptr2;
+
+    if(oargs == NULL){
+	*qargs = malloc(sizeof(char *));
+	**qargs = NULL;
+	return 0;
+    };
+
+    for(len=0;oargs[len] != NULL; ++len)
+	;
+    args = malloc(sizeof(char *) * (len + 1));
+
+    for(i = 0; i < len; ++i){
+	qwhole = strchr(oargs[i],' ') != NULL;
+	extra = qwhole * 2;
+	for(ptr = oargs[i]; *ptr != '\0'; ++ptr)
+	    extra += (*ptr == '"');
+	args[i] = malloc(strlen(oargs[i]) +
+			     extra +
+			     1);
+	ptr2 = args[i];
+	if(qwhole)
+	    *(ptr2++) = '"';
+	for(ptr = oargs[i]; *ptr != '\0'; ++ptr){
+	    if(*ptr == '"')
+		*(ptr2++) = '\\';
+	    *(ptr2++) = *ptr;
+	}
+	if(qwhole)
+	    *(ptr2++) = '"';
+	*ptr2 = '\0';
+    }
+    args[len] = NULL;
+    *qargs = args;
+    return len;
+}
+
+static void free_args(char **args){
+    char **ptr = args;
+    while(*ptr != NULL)
+	free(*(ptr++));
+    free(args);
+}
+
+/* In NT we cannot fork(), Erlang and Epmd gets 
+   spawned by this function instead. */
+
+static HANDLE spawn_erlang_epmd(ei_cnode *ec,
+				       char *alive,
+				       Erl_IpAddr adr,
+				       int flags,
+				       char *erl_or_epmd,
+				       char *args[],
+				       int port,
+				       int is_erlang)
+{
+    STARTUPINFO sinfo;
+    SECURITY_ATTRIBUTES sa;
+    PROCESS_INFORMATION pinfo;
+    char *cmdbuf;
+    int cmdlen;
+    char *ptr;
+    int i;
+    int num_args;
+    char *name_format;
+    struct in_addr myaddr;
+    struct in_addr *hisaddr = (struct in_addr *)adr;
+    char iaddrbuf[IP_ADDR_CHARS + 1];
+    HANDLE ret;
+
+    if(is_erlang){
+	get_addr(ei_thishostname(ec), &myaddr);
+	if((ptr = inet_ntoa(myaddr)) == NULL)
+	    return INVALID_HANDLE_VALUE;
+	else
+	    strcpy(iaddrbuf,ptr);
+    }
+    if ((flags & ERL_START_REMOTE) ||
+	(is_erlang && (hisaddr->s_addr != myaddr.s_addr))) {
+	return INVALID_HANDLE_VALUE;
+    } else {
+	num_args = enquote_args(args, &args);
+	for(cmdlen = i = 0; args[i] != NULL; ++i)
+	    cmdlen += strlen(args[i]) + 1;
+	if(!erl_or_epmd)
+	    erl_or_epmd = (is_erlang) ? DEF_ERL_COMMAND :
+	    DEF_EPMD_COMMAND;
+	if(is_erlang){
+	    name_format = (flags & ERL_START_LONG) ? ERL_NAME_FMT :
+		ERL_SNAME_FMT;
+	    cmdlen +=
+		strlen(erl_or_epmd) + (*erl_or_epmd != '\0') +
+		strlen(name_format) + 1 + strlen(alive) +
+		strlen(ERL_REPLY_FMT) + 1 + strlen(iaddrbuf) + 2 * FORMATTED_INT_LEN + 1;
+	    ptr = cmdbuf = malloc(cmdlen);
+	    if(*erl_or_epmd != '\0')
+		ptr += sprintf(ptr,"%s ",erl_or_epmd);
+	    ptr += sprintf(ptr, name_format,
+			   alive);
+	    ptr += sprintf(ptr, " " ERL_REPLY_FMT,
+		       iaddrbuf, port, unique_id());
+	} else { /* epmd */
+	    cmdlen += strlen(erl_or_epmd) + (*erl_or_epmd != '\0') + 1;
+	    ptr = cmdbuf = malloc(cmdlen);
+	    if(*erl_or_epmd != '\0')
+		ptr += sprintf(ptr,"%s ",erl_or_epmd);
+	    else
+		*(ptr++) = '\0';
+	}
+	for(i= 0; args[i] != NULL; ++i){
+	    *(ptr++) = ' ';
+	    strcpy(ptr,args[i]);
+	    ptr += strlen(args[i]);
+	}
+	free_args(args);
+	if (flags & ERL_START_VERBOSE) {
+	    fprintf(stderr,"erl_call: commands are %s\n",cmdbuf);
+	}
+	/* OK, one single command line... */
+	/* Hmmm, hidden or unhidden window??? */
+	memset(&sinfo,0,sizeof(sinfo));
+	sinfo.cb = sizeof(STARTUPINFO); 
+	sinfo.dwFlags = STARTF_USESHOWWINDOW /*| 
+	    STARTF_USESTDHANDLES*/;
+	sinfo.wShowWindow = SW_HIDE; /* Hidden! */
+	sinfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+	sinfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+	sinfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+	sa.nLength = sizeof(sa);
+	sa.lpSecurityDescriptor = NULL;
+	sa.bInheritHandle = /*TRUE*/ FALSE;
+	if(!CreateProcess(
+			  NULL,
+			  cmdbuf,
+			  &sa,
+			  NULL,
+			  /*TRUE*/ FALSE,
+			  0 | CREATE_NEW_CONSOLE,
+			  NULL,
+			  NULL,
+			  &sinfo,
+			  &pinfo))
+	    ret = INVALID_HANDLE_VALUE;
+	else
+	    ret = pinfo.hProcess;
+	free(cmdbuf);
+	return ret;
+    }
+    /* NOTREACHED */
+}
+#else /* Unix */
+
+/* call this from the child process to start an erlang system. This
+ * function just builds the erlang command line and then calls it.
+ *
+ * node - the nodename for the new node
+ * flags - various options that can be set (see erl_start.h)
+ * erl - name of the erlang executable, or NULL for default ("erl")
+ * args - additional arguments to pass to erlang executable
+ * port - the port number where we wait for acknowledgment from the enode
+ *
+ * we have a potential problem if args conflicts with any of the 
+ * arguments we use here.
+ */
+static int exec_erlang(ei_cnode *ec,
+		       char *alive,
+		       Erl_IpAddr adr,
+		       int flags,
+		       char *erl,
+		       char *args[],
+		       int port)
+{
+#if !defined(__WIN32__) 
+  int fd,len,l,i;
+  char **s;
+  char *argv[4];
+  char argbuf[BUFSIZ];
+  struct in_addr myaddr;
+  struct in_addr *hisaddr = (struct in_addr *)adr;
+
+  if (!get_addr(ei_thishostname(ec), &myaddr)) {
+      fprintf(stderr,"erl_call: failed to find hostname\r\n");
+      return ERL_SYS_ERROR;
+  }
+
+  /* on this host? */
+  /* compare ip addresses, unless forced by flag setting to use rsh */
+  if ((flags & ERL_START_REMOTE) || (hisaddr->s_addr != myaddr.s_addr)) {
+    argv[0] = RSH;
+    len = strlen(inet_ntoa(*hisaddr));
+    argv[1] = malloc(len+1);
+    strcpy(argv[1],inet_ntoa(*hisaddr));
+  }
+  else {
+  /* Yes - use sh to start local Erlang */
+    argv[0] = "sh";
+    argv[1] = "-c";
+  }
+  argv[2] = argbuf;
+  argv[3] = NULL;
+
+  len = 0;
+  *argbuf=(char)0;
+
+  sprintf(argbuf,"exec %s ", (erl? erl: "erl"));
+  len = strlen(argbuf);
+
+  /* *must* be noinput or node (seems to) hang... */
+  /* long or short names? */
+  sprintf(&argbuf[len], "-noinput %s %s ",
+	  ((flags & ERL_START_LONG) ? "-name" : "-sname"),
+	  alive);
+  len = strlen(argbuf);
+
+  /* now make the new node report back when it's ready */
+  /* add: myip, myport and replymsg */
+  sprintf(&argbuf[len],
+	  "-s erl_reply reply %s %d %d ",
+	  inet_ntoa(myaddr),port,(int)getpid());
+#ifdef DEBUG
+  fprintf(stderr,"erl_call: debug %s\n",&argbuf[len]);
+#endif
+  len = strlen(argbuf);
+
+  /* additional arguments to be passed to the other system */
+  /* make sure that they will fit first */
+  for (l=0, s = args; s && *s; s++) l+= strlen(*s) + 1;
+
+  if (len + l + 1 > BUFSIZ) return ERL_BADARG;
+  else {
+    for (s = args; s && *s; s++) {
+      strcat(argbuf," ");
+      strcat(argbuf,*s);
+    }
+    len += l + 1;
+  }
+
+  if (flags & ERL_START_VERBOSE) {
+    fprintf(stderr,"erl_call: %s %s %s\n",argv[0],argv[1],argv[2]);
+  }
+
+  /* close all descriptors in child */
+  for (i=0; i<64; i++) close(i);
+
+  /* debug output to file? */
+  if (flags & ERL_START_DEBUG) {
+    char debugfile[MAXPATHLEN+1];
+    char *home=getenv("HOME");
+    sprintf(debugfile,"%s/%s.%s",home,ERL_START_LOGFILE,alive);
+    if ((fd=open(debugfile, O_WRONLY | O_CREAT | O_APPEND, 0644)) >= 0) {
+      time_t t = time(NULL);
+      dup2(fd,1);
+      dup2(fd,2);
+      fprintf(stderr,"\n\n===== Log started ======\n%s \n",ctime(&t));
+      fprintf(stderr,"erl_call: %s %s %s\n",argv[0],argv[1],argv[2]);
+    }
+  }
+
+  /* start the system */
+  execvp(argv[0], argv);
+
+  if (flags & ERL_START_DEBUG) {
+    fprintf(stderr,"erl_call: exec failed: (%d) %s %s %s\n",
+	    errno,argv[0],argv[1],argv[2]);
+  }
+
+#endif
+  /* (hopefully) NOT REACHED */
+  return ERL_SYS_ERROR;
+} /* exec_erlang() */
+
+#endif /* defined(WINDOWS) */
+
+#if defined(__WIN32__)
+static void gettimeofday(struct timeval *now,void *dummy){
+    SYSTEMTIME systime;
+	FILETIME ft;
+    DWORD x;
+    GetSystemTime(&systime);
+    SystemTimeToFileTime(&systime,&ft);
+    x = ft.dwLowDateTime / 10;
+    now->tv_sec = x / 1000000;
+    now->tv_usec = x % 1000000;
+}
+
+#endif
+
+
+/* wait for the remote system to reply */
+/*
+ * sockd - an open socket where we expect a connection from the e-node
+ * magic - sign on message the e-node must provide for verification
+ * timeout - how long to wait before returning failure
+ *
+ * OBS: the socket is blocking, and there is a potential deadlock if we
+ * get an accept but the peer sends no data (and does not close).
+ * in normal cases the timeout will work ok however, i.e. either we
+ * never get any connection, or we get connection then close().
+ */
+static int wait_for_erlang(int sockd, int magic, struct timeval *timeout)
+{
+  struct timeval to;
+  struct timeval stop_time;
+  struct timeval now;
+  fd_set rdset;
+  int fd;
+  int n,i;
+  char buf[16];
+  struct sockaddr_in peer;
+  SocklenType len = (SocklenType) sizeof(peer);
+
+  /* determine when we should exit this function */
+  gettimeofday(&now,NULL);
+  stop_time.tv_sec = now.tv_sec + timeout->tv_sec;
+  stop_time.tv_usec = now.tv_usec + timeout->tv_usec;
+  while (stop_time.tv_usec > 1000000) {
+    stop_time.tv_sec++;
+    stop_time.tv_usec -= 1000000;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr,"erl_call: debug time is %ld.%06ld, "
+	  "will timeout at %ld.%06ld\n",
+	  now.tv_sec,now.tv_usec,stop_time.tv_sec,stop_time.tv_usec);
+#endif
+
+  while (1) {
+    FD_ZERO(&rdset);
+    FD_SET(sockd,&rdset);
+
+    /* adjust the timeout to (stoptime - now) */
+    gettimeofday(&now,NULL);
+    to.tv_sec = stop_time.tv_sec - now.tv_sec;
+    to.tv_usec = stop_time.tv_usec - now.tv_usec;
+    while ((to.tv_usec < 0) && (to.tv_sec > 0)) {
+      to.tv_usec += 1000000;
+      to.tv_sec--;
+    }
+    if (to.tv_sec < 0) return ERL_TIMEOUT;
+
+#ifdef DEBUG
+    fprintf(stderr,"erl_call: debug remaining to timeout: %ld.%06ld\n",
+	    to.tv_sec,to.tv_usec);
+#endif
+    switch ((i = select(sockd+1,&rdset,NULL,NULL,&to))) {
+    case -1:
+      return ERL_SYS_ERROR;
+      break;
+
+    case 0: /* timeout */
+#ifdef DEBUG
+      gettimeofday(&now,NULL);
+      fprintf(stderr,"erl_call: debug timed out at %ld.%06ld\n",
+	      now.tv_sec,now.tv_usec);
+#endif
+      return ERL_TIMEOUT;
+      break;
+
+    default: /* ready descriptors */
+#ifdef DEBUG
+      gettimeofday(&now,NULL);
+      fprintf(stderr,"erl_call: debug got select at %ld.%06ld\n",
+	      now.tv_sec,now.tv_usec);
+#endif
+      if (FD_ISSET(sockd,&rdset)) {
+	if ((fd = accept(sockd,(struct sockaddr *)&peer,&len)) < 0)
+	  return ERL_SYS_ERROR;
+
+	/* now get sign-on message and terminate it */
+#if defined(__WIN32__)
+	if ((n=recv(fd,buf,16,0)) >= 0) buf[n]=0x0;
+	closesocket(fd);
+#else
+	if ((n=read(fd,buf,16)) >= 0) buf[n]=0x0;
+	close(fd);
+#endif
+#ifdef DEBUG
+	fprintf(stderr,"erl_call: debug got %d, expected %d\n",
+		atoi(buf),magic);
+#endif
+	if (atoi(buf) == magic) return 0; /* success */
+      } /* if FD_SET */
+    } /* switch */
+  } /* while */
+
+  /* unreached? */
+  return ERL_SYS_ERROR;
+} /* wait_for_erlang() */
+
+
+static struct in_addr *get_addr(const char *hostname, struct in_addr *oaddr)
+{
+  struct hostent *hp;
+
+#if !defined (__WIN32__)
+  char buf[1024];
+  struct hostent host;
+  int herror;
+
+  hp = ei_gethostbyname_r(hostname,&host,buf,1024,&herror);
+#else
+  hp = ei_gethostbyname(hostname);
+#endif
+
+  if (hp) {
+    memmove(oaddr,hp->h_addr_list[0],sizeof(*oaddr));
+    return oaddr;
+  }
+  return NULL;
+}
+
+/* Start an Erlang node. return value 0 indicates that node was
+ * started successfully, negative values indicate error. 
+ * 
+ * node -  the name of the remote node to start (alivename@hostname).
+ * flags - turn on or off certain options. See erl_start.h for a list.
+ * erl -  is the name of the erl script to call. If NULL, the default
+ * name "erl" will be used.
+ * args - a NULL-terminated list of strings containing
+ * additional arguments to be sent to the remote Erlang node. These
+ * strings are simply appended to the end of the command line, so any
+ * quoting of special characters, etc must be done by the caller.
+ * There may be some conflicts between some of these arguments and the
+ * default arguments hard-coded into this function, so be careful. 
+ */
+int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
+		  char *erl, char *args[])
+{
+  struct timeval timeout;
+  struct sockaddr_in addr;
+  SocklenType namelen;
+  int port;
+  int sockd = 0;
+  int one = 1;
+#if defined(__WIN32__)
+  HANDLE pid;
+#else
+  int pid;
+#endif
+  int r = 0;
+
+  if (((sockd = socket(AF_INET, SOCK_STREAM, 0)) < 0) ||
+      (setsockopt(sockd, SOL_SOCKET, SO_REUSEADDR, (char *)&one, sizeof(one)) < 0)) {
+    r = ERL_SYS_ERROR;
+    goto done;
+  }
+
+  memset(&addr,0,sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  addr.sin_port = 0;
+
+  if (bind(sockd,(struct sockaddr *)&addr,sizeof(addr))<0) {
+      return ERL_SYS_ERROR;
+  }
+  namelen = sizeof(addr);
+  if (getsockname(sockd,(struct sockaddr *)&addr,&namelen)<0) {
+      return ERL_SYS_ERROR;
+  }
+  port = ntohs(addr.sin_port);
+
+  listen(sockd,5);
+
+#if defined(__WIN32__)
+  pid = spawn_erlang_epmd(ec,alive,adr,flags,erl,args,port,1);
+  if (pid == INVALID_HANDLE_VALUE)
+     return ERL_SYS_ERROR;
+  timeout.tv_usec = 0;
+  timeout.tv_sec = 10; /* ignoring ERL_START_TIME */
+  if((r = wait_for_erlang(sockd,unique_id(),&timeout))
+     == ERL_TIMEOUT) {
+      /* Well, this is not a nice way to do it, and it does not 
+	 always kill the emulator, but the alternatives are few.*/
+      TerminateProcess(pid,1);
+  }
+#else /* Unix */
+  switch ((pid = fork())) {
+  case -1:
+    r = ERL_SYS_ERROR;
+    break;
+
+  case 0:
+    /* child - start the erlang node */
+    exec_erlang(ec, alive, adr, flags, erl, args, port);
+
+    /* error if reached - parent reports back to caller after timeout
+       so we just exit here */
+    exit(1);
+    break;
+
+  default:
+
+    /* parent - waits for response from Erlang node */
+    /* child pid used here as magic number */
+    timeout.tv_usec = 0;
+    timeout.tv_sec = 10; /* ignoring ERL_START_TIME */
+    if ((r = wait_for_erlang(sockd,pid,&timeout)) == ERL_TIMEOUT) {
+      /* kill child if no response */
+      kill(pid,SIGINT);
+      sleep(1);
+      if (waitpid(pid,NULL,WNOHANG) != pid) {
+	/* no luck - try harder */
+	kill(pid,SIGKILL);
+	sleep(1);
+	waitpid(pid,NULL,WNOHANG);
+      }
+    }
+
+  }
+#endif /* defined(__WIN32__) */
+
+done:
+#if defined(__WIN32__)
+  if (sockd) closesocket(sockd);
+#else
+  if (sockd) close(sockd);
+#endif
+  return r;
+} /* erl_start_sys() */

@@ -390,8 +390,7 @@ NEVERUSED = \
 	send_link.c
 
 ERLCALL = \
-	prog/erl_call.c \
-	prog/erl_start.c
+	prog/erl_call.c
 
 
 # Note that encode/decode_term.c defines ei functions that is
