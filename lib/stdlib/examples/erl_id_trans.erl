@@ -31,7 +31,7 @@ parse_transform(Forms, _Options) ->
     forms(Forms).
 
 parse_transform_info() ->
-    #{columns => true}.
+    #{error_location => column}.
 
 %% forms(Fs) -> lists:map(fun (F) -> form(F) end, Fs).
 
