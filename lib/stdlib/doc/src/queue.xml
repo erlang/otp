@@ -122,7 +122,7 @@
       <title>Original API</title>
     </fsdescription>
     <func>
-      <name name="all" arity="2" since=""/>
+      <name name="all" arity="2" since="OTP 24.0"/>
       <fsummary>Return <c>true</c> if all items in a queue satisfy
         <c>Pred</c>.</fsummary>
       <desc>
@@ -133,7 +133,7 @@
     </func>
 
     <func>
-      <name name="any" arity="2" since=""/>
+      <name name="any" arity="2" since="OTP 24.0"/>
       <fsummary>Return <c>true</c> if any of the items in a queue satisfy
         <c>Pred</c>.</fsummary>
       <desc>
@@ -144,7 +144,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="2" since=""/>
+      <name name="delete" arity="2" since="OTP 24.0"/>
       <fsummary>Delete an item from the front of a queue.</fsummary>
       <desc>
         <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
@@ -154,7 +154,7 @@
     </func>
 
     <func>
-      <name name="delete_r" arity="2" since=""/>
+      <name name="delete_r" arity="2" since="OTP 24.0"/>
       <fsummary>Delete an item from the rear of a queue.</fsummary>
       <desc>
         <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
@@ -164,7 +164,7 @@
     </func>
 
     <func>
-      <name name="delete_with" arity="2" since=""/>
+      <name name="delete_with" arity="2" since="OTP 24.0"/>
       <fsummary>Delete an item matching a predicate from the front of a
         queue.</fsummary>
       <desc>
@@ -175,7 +175,7 @@
     </func>
 
     <func>
-      <name name="delete_with_r" arity="2" since=""/>
+      <name name="delete_with_r" arity="2" since="OTP 24.0"/>
       <fsummary>Delete an item matching a predicate from the rear of a
         queue.</fsummary>
       <desc>
@@ -207,7 +207,7 @@
     </func>
 
     <func>
-      <name name="filtermap" arity="2" since=""/>
+      <name name="filtermap" arity="2" since="OTP 24.0"/>
       <fsummary>Filter and map a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
@@ -222,7 +222,7 @@
     </func>
 
     <func>
-      <name name="fold" arity="3" since=""/>
+      <name name="fold" arity="3" since="OTP 24.0"/>
       <fsummary>Fold a function over a queue.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>Item</anno>, <anno>AccIn</anno>)</c>
