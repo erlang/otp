@@ -806,26 +806,35 @@ child_specs_map(Config) when is_list(Config) ->
     {error, {invalid_significant, maybe}} =
 	supervisor:check_childspecs([B10]),
 
+    CSFilter = fun (CS) -> maps:filter(fun (_, V) -> V =/= undefined end, CS) end,
     lists:foreach(
 	fun
-	    (ChildSpec = #{restart := undefined, significant := true}) ->
-		ChildSpec1 = maps:filter(fun (_, V) -> V =/= undefined end, ChildSpec),
-		{error, {invalid_significant, true}} = supervisor:check_childspecs([ChildSpec1]);
-	    (ChildSpec = #{restart := permanent, significant := true}) ->
-		ChildSpec1 = maps:filter(fun (_, V) -> V =/= undefined end, ChildSpec),
-		{error, {invalid_significant, true}} = supervisor:check_childspecs([ChildSpec1]);
-	    (ChildSpec) ->
-		ChildSpec1 = maps:filter(fun (_, V) -> V =/= undefined end, ChildSpec),
-		ok = supervisor:check_childspecs([ChildSpec1])
+	    ({never, ChildSpec = #{significant := true}}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		{error, {invalid_significant, true}} =
+		    supervisor:check_childspecs([ChildSpec1], never);
+	    ({AutoShutdown, ChildSpec = #{restart := undefined, significant := true}}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		{error, {invalid_significant, true}} =
+		    supervisor:check_childspecs([ChildSpec1], AutoShutdown);
+	    ({AutoShutdown, ChildSpec = #{restart := permanent, significant := true}}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		{error, {invalid_significant, true}} =
+		    supervisor:check_childspecs([ChildSpec1], AutoShutdown);
+	    ({AutoShutdown, ChildSpec}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		ok = supervisor:check_childspecs([ChildSpec1], AutoShutdown)
 	end,
 	[
-	    CS0#{restart => Restart,
-		 shutdown => Shutdown,
-		 type => Type,
-		 modules => Modules,
-		 significant => Significant,
-		 dummy => Dummy}
+	    {AutoShutdown,
+	     CS0#{restart => Restart,
+		  shutdown => Shutdown,
+		  type => Type,
+		  modules => Modules,
+		  significant => Significant,
+		  dummy => Dummy}}
 	    ||
+		AutoShutdown <- [undefined, never, any_significant, all_significant],
 		Restart <- [undefined, permanent, transient, temporary],
 		Shutdown <- [undefined, 1000, infinity, brutal_kill],
 		Type <- [undefined, supervisor, worker],

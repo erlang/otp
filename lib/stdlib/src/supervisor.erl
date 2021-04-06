@@ -26,7 +26,8 @@
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
 	 which_children/1, count_children/1,
-	 check_childspecs/1, get_childspec/2]).
+	 check_childspecs/1, check_childspecs/2,
+	 get_childspec/2]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -264,12 +265,32 @@ call(Supervisor, Req) ->
 -spec check_childspecs(ChildSpecs) -> Result when
       ChildSpecs :: [child_spec()],
       Result :: 'ok' | {'error', Error :: term()}.
-check_childspecs(ChildSpecs) when is_list(ChildSpecs) ->
-    case check_startspec(ChildSpecs, undefined) of
+check_childspecs(ChildSpecs) ->
+    check_childspecs(ChildSpecs, undefined).
+
+-spec check_childspecs(ChildSpecs, AutoShutdown) -> Result when
+      ChildSpecs :: [child_spec()],
+      AutoShutdown :: undefined | auto_shutdown(),
+      Result :: 'ok' | {'error', Error :: term()}.
+check_childspecs(ChildSpecs, AutoShutdown) when is_list(ChildSpecs) ->
+    check_childspecs1(ChildSpecs, AutoShutdown);
+check_childspecs(X, _AutoShutdown) -> {error, {badarg, X}}.
+
+check_childspecs1(ChildSpecs, undefined) ->
+    check_childspecs2(ChildSpecs, undefined);
+check_childspecs1(ChildSpecs, never) ->
+    check_childspecs2(ChildSpecs, never);
+check_childspecs1(ChildSpecs, any_significant) ->
+    check_childspecs2(ChildSpecs, any_significant);
+check_childspecs1(ChildSpecs, all_significant) ->
+    check_childspecs2(ChildSpecs, all_significant);
+check_childspecs1(_, X) -> {error, {badarg, X}}.
+
+check_childspecs2(ChildSpecs, AutoShutdown) ->
+    case check_startspec(ChildSpecs, AutoShutdown) of
 	{ok, _} -> ok;
 	Error -> {error, Error}
-    end;
-check_childspecs(X) -> {error, {badarg, X}}.
+    end.
 
 %%%-----------------------------------------------------------------
 %%% Called by release_handler during upgrade
@@ -733,7 +754,7 @@ do_restart(Reason, Child, State) when ?is_temporary(Child) ->
 
 do_auto_shutdown(_Child, State=#state{auto_shutdown = never}) ->
     {ok, State};
-do_auto_shutdown(Child, State) when not ?is_significant(Child)->
+do_auto_shutdown(Child, State) when not ?is_significant(Child) ->
     {ok, State};
 do_auto_shutdown(_Child, State=#state{auto_shutdown = any_significant}) ->
     {shutdown, State};
