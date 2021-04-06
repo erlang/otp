@@ -16,9 +16,11 @@ EcpkParameters FROM PKIX1Algorithms88;
 
 ECPrivateKey ::= SEQUENCE {
   version        INTEGER,
-  privateKey     OCTET STRING,
+  privateKey     CurvePrivateKey,
   parameters [0] EcpkParameters OPTIONAL,
   publicKey  [1] BIT STRING OPTIONAL
 }
+
+CurvePrivateKey ::= OCTET STRING
 
 END

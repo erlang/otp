@@ -55,6 +55,8 @@
          ec_pem2/1,
          ec_priv_pkcs8/0,
          ec_priv_pkcs8/1,
+         eddsa_priv_pkcs8/0,
+         eddsa_priv_pkcs8/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
          ec_pem_encode_generated/1,
@@ -157,6 +159,7 @@ groups() ->
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, ec_pem, encrypted_pem,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
+                              eddsa_priv_pkcs8,
                               ec_pem_encode_generated,
                               gen_ec_param_prime_field, gen_ec_param_char_2_field
                              ]},
@@ -398,6 +401,20 @@ ec_priv_pkcs8(Config) when is_list(Config) ->
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
+eddsa_priv_pkcs8() ->
+    [{doc, "EDDSA PKCS8 private key decode/encode"}].
+eddsa_priv_pkcs8(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "eddsa_key_pkcs8.pem")),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(ECPrivPem),
+    ECPrivKey = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
+    true = ECPrivKey#'ECPrivateKey'.parameters == {namedCurve, ?'id-Ed25519'},
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
+    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
 
 init_ec_pem_encode_generated(Config) ->
     case catch true = lists:member('secp384r1', crypto:ec_curves()) of

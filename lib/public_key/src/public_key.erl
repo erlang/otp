@@ -227,6 +227,18 @@ pem_entry_encode('SubjectPublicKeyInfo',
             {'AlgorithmIdentifier', ?'id-dsa', ParamDer}, KeyDer},
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
+		 {#'ECPoint'{point = Key}, {namedCurve, ?'id-Ed25519' = ID}}) when is_binary(Key)->
+    Spki = {'SubjectPublicKeyInfo',
+	    {'AlgorithmIdentifier', ID, asn1_NOVALUE},
+	    Key},
+    pem_entry_encode('SubjectPublicKeyInfo', Spki);
+pem_entry_encode('SubjectPublicKeyInfo',
+		 {#'ECPoint'{point = Key}, {namedCurve, ?'id-Ed448' = ID}}) when is_binary(Key)->
+    Spki = {'SubjectPublicKeyInfo',
+	    {'AlgorithmIdentifier', ID , asn1_NOVALUE},
+	    Key},
+    pem_entry_encode('SubjectPublicKeyInfo', Spki);
+pem_entry_encode('SubjectPublicKeyInfo',
 		 {#'ECPoint'{point = Key}, ECParam}) when is_binary(Key)->
     Params = der_encode('EcpkParameters',ECParam),
     Spki = {'SubjectPublicKeyInfo',
@@ -270,9 +282,10 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo,
 %%
 %% Description: Decodes a public key asn1 der encoded entity.
 %%--------------------------------------------------------------------
-der_decode(Asn1Type, Der) when (Asn1Type == 'PrivateKeyInfo') or 
-			       (Asn1Type == 'EncryptedPrivateKeyInfo')
-			       andalso is_binary(Der) ->
+der_decode(Asn1Type, Der) when (((Asn1Type == 'PrivateKeyInfo')
+                                 orelse
+                                   (Asn1Type == 'EncryptedPrivateKeyInfo'))
+                                andalso is_binary(Der)) ->
     try
 	{ok, Decoded} = 'PKCS-FRAME':decode(Asn1Type, Der),
 	der_priv_key_decode(Decoded)
@@ -294,6 +307,11 @@ der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'id-ecPublicKey', {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
 	EcPrivKey = der_decode('ECPrivateKey', PrivKey),
 	EcPrivKey#'ECPrivateKey'{parameters = der_decode('EcpkParameters', Parameters)};
+der_priv_key_decode({'PrivateKeyInfo', v1,
+                     {'PrivateKeyInfo_privateKeyAlgorithm', CurveOId, _}, PrivKey, _}) when
+      CurveOId == ?'id-Ed25519'orelse
+      CurveOId == ?'id-Ed448' ->
+    #'ECPrivateKey'{version = 1, parameters = {namedCurve, CurveOId}, privateKey = PrivKey};
 der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', _}, PrivKey, _}) ->
 	der_decode('RSAPrivateKey', PrivKey);
@@ -336,6 +354,14 @@ der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
                 {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
                  {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}},
                 der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
+der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = {namedCurve, CurveOId} = Parameters,
+                                             privateKey = PrivKey}) when
+      CurveOId == ?'id-Ed25519' orelse
+      CurveOId == ?'id-Ed448' ->
+    der_encode('PrivateKeyInfo',
+               {'PrivateKeyInfo', v1,
+		{'PrivateKeyInfo_privateKeyAlgorithm', CurveOId, asn1_NOVALUE},
+                PrivKey, asn1_NOVALUE});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey) ->
     der_encode('PrivateKeyInfo',
                {'PrivateKeyInfo', v1,
@@ -588,6 +614,12 @@ generate_key({rsa, ModulusSize, PublicExponent}) ->
                                   MyECDHkey :: #'ECPrivateKey'{},
                                   SharedSecret :: binary().
 compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
+						       parameters = {namedCurve, Curve} = Param})
+  when (Curve == ?'id-X25519') orelse
+       (Curve == ?'id-X448') ->
+    ECCurve = ec_curve_spec(Param),
+    crypto:compute_key(eddh, Point, PrivKey, ECCurve);
+compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
 						       parameters = Param}) ->
     ECCurve = ec_curve_spec(Param),
     crypto:compute_key(ecdh, Point, PrivKey, ECCurve).
@@ -606,7 +638,7 @@ compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
                              {DigestType, SignatureType}
                                  when AlgorithmId :: oid(),
                                       %% Relevant dsa digest type is a subset of rsa_digest_type()
-                                      DigestType :: crypto:rsa_digest_type(),
+                                      DigestType :: crypto:rsa_digest_type() | none,
                                       SignatureType :: rsa | dsa | ecdsa .
 %% Description:
 %%--------------------------------------------------------------------
@@ -639,7 +671,11 @@ pkix_sign_types(?'ecdsa-with-SHA256') ->
 pkix_sign_types(?'ecdsa-with-SHA384') ->
     {sha384, ecdsa};
 pkix_sign_types(?'ecdsa-with-SHA512') ->
-    {sha512, ecdsa}.
+    {sha512, ecdsa};
+pkix_sign_types(?'id-Ed25519') ->
+    {none, eddsa};
+pkix_sign_types(?'id-Ed448') ->
+    {none, eddsa}.
 
 %%--------------------------------------------------------------------
 -spec pkix_hash_type(HashOid::oid()) -> DigestType:: md5 | crypto:sha1() | crypto:sha2().
@@ -833,10 +869,21 @@ pkix_verify(DerCert,  {#'RSAPublicKey'{} = RSAKey, #'RSASSA-PSS-params'{} = Para
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
     verify(PlainText, DigestType, Signature, RSAKey, rsa_opts(Params));
 
-pkix_verify(DerCert, Key = {#'ECPoint'{}, _})
-  when is_binary(DerCert) ->
-    {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
-    verify(PlainText, DigestType, Signature,  Key).
+pkix_verify(DerCert, Key = {#'ECPoint'{}, {namedCurve, Curve}}) when (Curve == ?'id-Ed25519'orelse
+                                                                      Curve == ?'id-Ed448') andalso is_binary(DerCert) ->
+    case pubkey_cert:verify_data(DerCert) of
+        {none = DigestType, PlainText, Signature} ->
+            verify(PlainText, DigestType, Signature, Key);
+        _ ->
+            false
+    end;
+pkix_verify(DerCert, Key = {#'ECPoint'{}, _}) when is_binary(DerCert) ->
+    case pubkey_cert:verify_data(DerCert) of
+        {none, _, _} ->
+            false;
+        {DigestType, PlainText, Signature} ->
+            verify(PlainText, DigestType, Signature, Key)
+    end.
 
 %%--------------------------------------------------------------------
 -spec pkix_crl_verify(CRL, Cert) -> boolean()
@@ -1366,8 +1413,13 @@ format_sign_key(Key = #'RSAPrivateKey'{}) ->
     {rsa, format_rsa_private_key(Key)};
 format_sign_key(#'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
     {dss, [P, Q, G, X]};
+format_sign_key(#'ECPrivateKey'{privateKey = PrivKey, parameters = {namedCurve, Curve} = Param})
+  when (Curve == ?'id-Ed25519') orelse (Curve == ?'id-Ed448')->
+    ECCurve = ec_curve_spec(Param),
+    {eddsa, [PrivKey, ECCurve]};
 format_sign_key(#'ECPrivateKey'{privateKey = PrivKey, parameters = Param}) ->
-    {ecdsa, [PrivKey, ec_curve_spec(Param)]};
+    ECCurve = ec_curve_spec(Param),
+    {ecdsa, [PrivKey, ECCurve]};
 format_sign_key({ed_pri, Curve, _Pub, Priv}) ->
     {eddsa, [Priv,Curve]};
 format_sign_key(_) ->
@@ -1375,8 +1427,13 @@ format_sign_key(_) ->
 
 format_verify_key(#'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
     {rsa, [Exp, Mod]};
+format_verify_key({#'ECPoint'{point = Point}, {namedCurve, Curve} = Param}) when (Curve == ?'id-Ed25519') orelse
+                                                                                 (Curve == ?'id-Ed448') ->
+    ECCurve = ec_curve_spec(Param),
+    {eddsa, [Point, ECCurve]};
 format_verify_key({#'ECPoint'{point = Point}, Param}) ->
-    {ecdsa, [Point, ec_curve_spec(Param)]};
+    ECCurve = ec_curve_spec(Param),
+    {ecdsa, [Point, ECCurve]};
 format_verify_key({Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     {dss, [P, Q, G, Key]};
 format_verify_key({ed_pub, Curve, Key}) ->
@@ -1628,7 +1685,8 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 -spec ec_generate_key(ecpk_parameters_api()) -> #'ECPrivateKey'{}.
 ec_generate_key(Params) ->
     Curve = ec_curve_spec(Params),
-    Term = crypto:generate_key(ecdh, Curve),
+    CurveType = ec_curve_type(Curve),
+    Term = crypto:generate_key(CurveType, Curve),
     NormParams = ec_normalize_params(Params),
     ec_key(Term, NormParams).
 
@@ -1646,15 +1704,30 @@ ec_curve_spec( #'ECParameters'{fieldID = #'FieldID'{fieldType = Type,
     Curve = {PCurve#'Curve'.a, PCurve#'Curve'.b, none},
     {Field, Curve, Base, Order, CoFactor};
 ec_curve_spec({ecParameters, ECParams}) ->
-	ec_curve_spec(ECParams);
+    ec_curve_spec(ECParams);
 ec_curve_spec({namedCurve, OID}) when is_tuple(OID), is_integer(element(1,OID)) ->
     ec_curve_spec({namedCurve,  pubkey_cert_records:namedCurves(OID)});
 ec_curve_spec({namedCurve, x25519 = Name}) ->
     Name;
 ec_curve_spec({namedCurve, x448 = Name}) ->
     Name;
+ec_curve_spec({namedCurve, ed25519 = Name}) ->
+    Name;
+ec_curve_spec({namedCurve, ed448 = Name}) ->
+    Name;
 ec_curve_spec({namedCurve, Name}) when is_atom(Name) ->
     crypto:ec_curve(Name).
+
+ec_curve_type(ed25519) ->
+    eddsa;
+ec_curve_type(ed448) ->
+    eddsa;
+ec_curve_type(x25519) ->
+    eddh;
+ec_curve_type(x448) ->
+    eddh;
+ec_curve_type(_) ->
+    ecdh.
 
 format_field(characteristic_two_field = Type, Params0) ->
     #'Characteristic-two'{

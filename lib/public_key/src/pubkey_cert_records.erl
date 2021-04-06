@@ -111,7 +111,11 @@ supportedPublicKeyAlgorithms(?'id-dsa') -> 'DSAPublicKey';
 supportedPublicKeyAlgorithms(?'dhpublicnumber') -> 'DHPublicKey';
 supportedPublicKeyAlgorithms(?'id-keyExchangeAlgorithm') -> 'KEA-PublicKey';
 supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint';
-supportedPublicKeyAlgorithms(?'id-RSASSA-PSS') -> 'RSAPublicKey'.
+supportedPublicKeyAlgorithms(?'id-RSASSA-PSS') -> 'RSAPublicKey';
+supportedPublicKeyAlgorithms(?'id-Ed25519') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-Ed448') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-X25519') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-X448') -> 'ECPoint'.
 
 supportedCurvesTypes(?'characteristic-two-field') -> characteristic_two_field;
 supportedCurvesTypes(?'prime-field') -> prime_field;
@@ -152,6 +156,8 @@ namedCurves(?'secp256r1') -> secp256r1;
 namedCurves(?'secp192r1') -> secp192r1;
 namedCurves(?'id-X25519') -> x25519;
 namedCurves(?'id-X448') -> x448;
+namedCurves(?'id-Ed25519') -> ed25519;
+namedCurves(?'id-Ed448') -> ed448;
 namedCurves(?'brainpoolP160r1') -> brainpoolP160r1;
 namedCurves(?'brainpoolP160t1') -> brainpoolP160t1;
 namedCurves(?'brainpoolP192r1') -> brainpoolP192r1;
@@ -201,6 +207,8 @@ namedCurves(secp256r1) -> ?'secp256r1';
 namedCurves(secp192r1) -> ?'secp192r1';
 namedCurves(x25519)    -> ?'id-X25519';
 namedCurves(x448)      -> ?'id-X448';
+namedCurves(ed25519)    -> ?'id-Ed25519';
+namedCurves(ed448)      -> ?'id-Ed448';
 namedCurves(brainpoolP160r1) -> ?'brainpoolP160r1';
 namedCurves(brainpoolP160t1) -> ?'brainpoolP160t1';
 namedCurves(brainpoolP192r1) -> ?'brainpoolP192r1';
