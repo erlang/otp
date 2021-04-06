@@ -84,13 +84,17 @@ init(_Args) ->
     <title>Supervisor Flags</title>
     <p>This is the type definition for the supervisor flags:</p>
     <code type="none"><![CDATA[
-sup_flags() = #{strategy => strategy(),         % optional
-                intensity => non_neg_integer(), % optional
-                period => pos_integer()}        % optional
+sup_flags() = #{strategy => strategy(),           % optional
+                intensity => non_neg_integer(),   % optional
+                period => pos_integer(),          % optional
+                auto_shutdown => auto_shutdown()} % optional
     strategy() = one_for_all
                | one_for_one
                | rest_for_one
-               | simple_one_for_one]]></code>
+               | simple_one_for_one
+    auto_shutdown() = never
+                    | any_significant
+                    | all_significant]]></code>
     <list type="bulleted">
       <item>
 	<p><c>strategy</c> specifies
@@ -101,6 +105,11 @@ sup_flags() = #{strategy => strategy(),         % optional
 	<p><c>intensity</c> and <c>period</c> specify
 	  the <seeguide marker="#max_intensity">maximum restart
 	  intensity</seeguide>.</p>
+      </item>
+      <item>
+        <p><c>auto_shutdown</c> specifies if and when a supervisor should
+          <seeguide marker="#auto_shutdown">automatically shut itself
+          down</seeguide>.</p>
       </item>
     </list>
   </section>
@@ -241,20 +250,85 @@ SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
   </section>
 
   <section>
+    <marker id="auto_shutdown"></marker>
+    <title>Automatic Shutdown</title>
+    <p>A supervisor can be configured to automatically shut itself down when
+      <seeguide marker="#significant_child">significant children</seeguide>
+      terminate.</p>
+    <p>Auto-shutdown is specified by the <c>auto_shutdown</c> key in the
+      supervisor flags map returned by the callback function <c>init</c>:</p>
+    <code type="none">
+SupFlags = #{auto_shutdown => AutoShutdown, ...}</code>
+    <p>The <c>auto_shutdown</c> key is optional in this map. If it is not
+      given, it defaults to <c>never</c>.</p>
+    <note>
+      <p>The auto-shutdown facility only applies when significant children
+        terminate by themselves, that is, when their termination was not
+        caused by means of the supervisor. Specifically, neither the
+        termination of a child as a consequence of a sibling's  death in the
+        <c>one_for_all</c> or <c>rest_for_one</c> strategies nor the manual
+        termination of a child by means of <c>supervisor:terminate_child/2</c>
+        will trigger an automatic shutdown.</p>
+    </note>
+
+    <section>
+      <title>never</title>
+      <p>Automatic shutdown is disabled.</p>
+      <p>In this mode, significant children are not accepted. If the
+        child specs returned from <c>init</c> contains significant
+        children, the supervisor will refuse to start. Attempts to
+        start significant children dynamically will be rejected.</p>
+      <p>This is the default setting.</p>
+    </section>
+
+    <section>
+      <title>any_significant</title>
+      <p>The supervisor will automatically shut down itself when
+        <em>any</em> significant child terminates, that is, when a
+        transient significant child terminates normally or when a
+        temporary significant child terminates normally or
+        abnormally.</p>
+    </section>
+
+    <section>
+      <title>all_significant</title>
+      <p>The supervisor will automatically shut down itself when
+        <em>all</em> significant children have terminated, that is,
+        when the <em>last active</em> significant child terminates.
+        The same rules as for <c>any_significant</c> apply.</p>
+    </section>
+
+    <warning>
+      <p>The auto-shutdown feature appeared in OTP 24.0, but
+        applications using this feature will also compile and
+        run with older OTP versions.</p>
+      <p>However, such applications, when compiled with an OTP version
+        that predates the appearance of the auto-shutdown feature,
+        will leak processes because the automatic shutdowns they rely
+        on will not happen.</p>
+      <p>It is up to implementors to take proper precautions if they
+        expect that their applications may be compiled with older OTP
+        versions.</p>
+    </warning>
+  </section>
+
+  <section>
     <marker id="spec"></marker>
     <title>Child Specification</title>
     <p>The type definition for a child specification is as follows:</p>
     <code type="none"><![CDATA[
-child_spec() = #{id => child_id(),       % mandatory
-                 start => mfargs(),      % mandatory
-                 restart => restart(),   % optional
-                 shutdown => shutdown(), % optional
-                 type => worker(),       % optional
-                 modules => modules()}   % optional
+child_spec() = #{id => child_id(),             % mandatory
+                 start => mfargs(),            % mandatory
+                 restart => restart(),         % optional
+                 significant => significant(), % optional
+                 shutdown => shutdown(),       % optional
+                 type => worker(),             % optional
+                 modules => modules()}         % optional
     child_id() = term()
     mfargs() = {M :: module(), F :: atom(), A :: [term()]}
     modules() = [module()] | dynamic
     restart() = permanent | transient | temporary
+    significant() = boolean()
     shutdown() = brutal_kill | timeout()
     worker() = worker | supervisor]]></code>
     <list type="bulleted">
@@ -284,6 +358,7 @@ child_spec() = #{id => child_id(),       % mandatory
 	<p>The <c>start</c> key is mandatory.</p>
       </item>
       <item>
+        <marker id="restart"></marker>
         <p><c>restart</c> defines when a terminated child process is to
           be restarted.</p>
         <list type="bulleted">
@@ -298,6 +373,17 @@ child_spec() = #{id => child_id(),       % mandatory
         </list>
 	<p>The <c>restart</c> key is optional. If it is not given, the
 	  default value <c>permanent</c> will be used.</p>
+      </item>
+      <item>
+        <marker id="significant_child"></marker>
+        <p><c>significant</c> defines if a child is considered significant
+          for <seeguide marker="#auto_shutdown">automatic
+          self-shutdown</seeguide> of the supervisor.</p>
+        <p>It is invalid to set this option to <c>true</c> for a child
+          with <seeguide marker="#restart">restart type</seeguide>
+          <c>permanent</c> or in a supervisor with
+          <seeguide marker="#auto_shutdown">auto-shutdown</seeguide>
+          <c>never</c>.</p>
       </item>
       <item>
         <marker id="shutdown"></marker>

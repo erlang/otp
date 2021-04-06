@@ -138,6 +138,47 @@ sup_flags() = #{strategy => strategy(),           % optional
       <c>intensity</c> defaults to <c>1</c> and <c>period</c> defaults to
       <c>5</c>.</p>
 
+    <marker id="auto_shutdown"/>
+    <p>A supervisor can be configured to automatically shut itself down
+      when <seeerl marker="#significant_child">significant children</seeerl>
+      terminate with the <c>auto_shutdown</c> key in the above map:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><c>never</c> - Automic shutdown is disabled. This is the default
+          setting.</p>
+        <p>With <c>auto_shutdown</c> set to <c>never</c>, child specs
+          with the <c>significant</c> flag set to <c>true</c> are
+          considered invalid and will be rejected.</p>
+      </item>
+      <item>
+        <p><c>any_significant</c> - The supervisor will shut itself down
+          when <em>any</em> significant child terminates, that is, when
+          a <c>transient</c> significant child terminates normally or
+          when a <c> temporary</c> significant child terminates
+          normally or abnormally.</p>
+      </item>
+      <item>
+        <p><c>all_significant</c> - The supervisor will shut itself down
+          when <em>all</em> significant children have terminated, that is,
+          when the <em>last active</em> significant child terminates.
+          The same rules as for <c>any_significant</c> apply.</p>
+      </item>
+    </list>
+
+    <warning>
+      <p>The auto-shutdown feature appeared in OTP 24.0, but
+        applications using this feature will also compile and
+        run with older OTP versions.</p>
+      <p>However, such applications, when compiled with an OTP version
+        that predates the appearance of the auto-shutdown feature,
+        will leak processes because the automatic shutdowns they rely
+        on will not happen.</p>
+      <p>It is up to implementors to take proper precautions if they
+        expect that their applications may be compiled with older OTP
+        versions.</p>
+    </warning>
+
     <marker id="child_spec"/>
     <p>The type definition of a child specification is as follows:</p>
 
@@ -186,6 +227,7 @@ child_spec() = #{id => child_id(),             % mandatory
         <p>The <c>start</c> key is mandatory.</p>
       </item>
       <item>
+        <marker id="restart"/>
         <p><c>restart</c> defines when a terminated child process
           must be restarted. A <c>permanent</c> child process is
           always restarted. A <c>temporary</c> child process is
@@ -197,6 +239,20 @@ child_spec() = #{id => child_id(),             % mandatory
           than <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.</p>
         <p>The <c>restart</c> key is optional. If it is not specified,
           it defaults to <c>permanent</c>.</p>
+      </item>
+      <item>
+        <marker id="significant_child"/>
+        <p><c>significant</c> defines if a child is considered significant
+          for <seeerl marker="#auto_shutdown">automatic self-shutdown</seeerl>
+          of the supervisor.</p>
+        <p>Setting this option to <c>true</c> when the
+          <seeerl marker="#restart">restart type</seeerl> is <c>permanent</c> is
+          invalid. Also, it is considered invalid to
+          start children with this option set to <c>true</c> in a supervisor
+          when the <seeerl marker="#auto_shutdown"><c>auto_shutdown</c></seeerl>
+          supervisor flag is set to <c>never</c>.</p>
+        <p>The <c>significant</c> key is optional. If it is not specified,
+          it defaults to <c>false</c>.</p>
       </item>
       <item>
         <p><c>shutdown</c> defines how a child process must be
@@ -339,12 +395,17 @@ child_spec() = #{id => child_id(),             % mandatory
   <funcs>
     <func>
       <name name="check_childspecs" arity="1" since=""/>
+      <name name="check_childspecs" arity="2" since="OTP 24.0"/>
       <fsummary>Check if children specifications are syntactically correct.
       </fsummary>
       <desc>
         <p>Takes a list of child specification as argument
           and returns <c>ok</c> if all of them are syntactically
           correct, otherwise <c>{error,<anno>Error</anno>}</c>.</p>
+        <p>If the optional <c><anno>AutoShutdown</anno></c> argument
+          is given and not <c>undefined</c>, also checks if the child
+          specifications are allowed for the given
+          <seeerl marker="#auto_shutdown">auto-shutdown</seeerl> option.</p>
       </desc>
     </func>
 
