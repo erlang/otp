@@ -141,6 +141,22 @@
 
 </section>
 
+<section><title>Tools 3.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would crash when compiling a module
+	    having an exported function named <c>clauses</c>.</p>
+          <p>
+	    Own Id: OTP-17162 Aux Id: GH-4549, PR-2997, PR-4555,
+	    elixir-lang/elixir#10666 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
