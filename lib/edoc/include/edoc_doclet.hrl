@@ -26,6 +26,9 @@
 %% Author contact: carlsson.richard@gmail.com
 %% =====================================================================
 
+%% Keep this define for backwards compatibility
+-define(NO_APP, no_app).
+
 -record(doclet_context, {dir = "",
 			 env,
 			 opts = []}).
