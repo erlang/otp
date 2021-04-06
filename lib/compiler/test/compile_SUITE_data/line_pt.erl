@@ -24,5 +24,17 @@
 parse_transform_info() ->
     #{error_location => line}.
 
-parse_transform(Forms, _Options) ->
-    Forms.
+parse_transform(Forms,_Options) ->
+    lists:map(
+      fun
+          ({eof,Location}) ->
+              Anno = erl_anno:new(Location),
+              false = erl_anno:column(Anno) =/= undefined,
+              {eof,Location};
+          (Form) ->
+              erl_parse:map_anno(
+                fun(Anno) ->
+                        false = erl_anno:column(Anno) =/= undefined,
+                        Anno
+                end, Form)
+      end, Forms).

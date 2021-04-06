@@ -1724,11 +1724,44 @@ do_transforms(Config) ->
     %% Compile a file using line_pt and verify that column numbers
     %% have been stripped.
     Big = filename:join(DataDir, "big"),
-    {[],[_|_]} = compile_partition_warnings(Big, line_pt),
+    {[],[_|_]} = compile_partition_warnings(Big, [{parse_transform,line_pt}]),
 
     %% Compile a file using column_pt and verify that column numbers
     %% have NOT been stripped.
-    {[_|_],[]} = compile_partition_warnings(Big, column_pt),
+    {[_|_],[]} = compile_partition_warnings(Big, [{parse_transform,column_pt}]),
+
+    %% Compile a file using column_pt and error_location=line and verify
+    %% that column numbers have been stripped.
+    {[],[_|_]} = compile_partition_warnings(Big, [{error_location,line},
+                                                  {parse_transform,column_pt}]),
+
+    %% Compile a file using column_pt, line_pt and verify
+    %% that column numbers have been stripped.
+    {[],[_|_]} = compile_partition_warnings(Big, [{parse_transform,column_pt},
+                                                  {parse_transform,line_pt}]),
+
+    %% Compile a file using column_pt that adds columns and error_location=line and
+    %% verify that column numbers have been stripped.
+    {[],[_|_]} = compile_partition_warnings(Big, [{error_location,line},
+                                                  add_columns,
+                                                  {parse_transform,column_pt}]),
+
+    %% Compile a file using column_pt that adds columns and error_location=line and
+    %% then call column_pt again to check that columns are stripped in between calls.
+    %% and then verify that column numbers have been stripped from output.
+    {[],[_|_]} = compile_partition_warnings(Big, [{error_location,line},
+                                                  add_columns,
+                                                  {parse_transform,column_pt},
+                                                  {parse_transform,column_pt}]),
+
+    %% Compile a file using column_pt that adds columns and en error and error_location=line and
+    %% verify that column numbers have been stripped.
+    {error,[{_What,[{Line,_,_}]}],[_|_]} =
+        compile_partition_warnings(Big, [{error_location,line},
+                                         add_columns,
+                                         add_error,
+                                         {parse_transform,column_pt}]),
+    true = is_integer(Line),
 
     %% Cover transform code implementing the `time` option.
     {ok,big,_} = compile:file(Big, [binary, time, report,
@@ -1754,15 +1787,18 @@ do_transforms(Config) ->
 
     ok.
 
-compile_partition_warnings(Source, PT) ->
-    Opts = [binary, return, {core_transform,generic_pt}, {parse_transform,PT}],
-    {ok,big,<<_/binary>>,Ws0} = compile:file(Source, Opts),
-    [{_SourcePath,Ws}] = Ws0,
+compile_partition_warnings(Source, Opts) ->
+    case compile:file(Source, [binary, return | Opts]) of
+        {ok,big,<<_/binary>>,Ws0} ->
+            [{_SourcePath,Ws}] = Ws0,
 
-    %% Return {[ColumnWarning], [LineWarning]}.
-    lists:partition(fun({{L,C},_,_}) when is_integer(L), is_integer(C) -> true;
-                       ({L,_,_}) when is_integer(L) -> false
-                    end, Ws).
+            %% Return {[ColumnWarning], [LineWarning]}.
+            lists:partition(fun({{L,C},_,_}) when is_integer(L), is_integer(C) -> true;
+                               ({L,_,_}) when is_integer(L) -> false
+                            end, Ws);
+        Error ->
+            Error
+    end.
 
 %% Cover the erl_compile API used by erlc.
 erl_compile_api(Config) ->
