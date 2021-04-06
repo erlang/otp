@@ -1851,18 +1851,26 @@ int ei_xreceive_msg_tmo(int fd, erlang_msg *msg, ei_x_buff *x, unsigned ms)
     return ei_do_receive_msg(fd, 0, msg, x, ms);
 }
 
-/* 
-* The RPC consists of two parts, send and receive.
-* Here is the send part ! 
-* { PidFrom, { call, Mod, Fun, Args, user }} 
-*/
 /*
-* Now returns non-negative number for success, negative for failure.
+* A remote process call consists of two parts, sending a request and
+* receiving a response. This function sends the request and the
+* ei_rpc_from function receives the response.
+*
+* Here is the term that is sent when (flags & EI_RPC_FETCH_STDOUT) != 0:
+*
+* { PidFrom, { call, Mod, Fun, Args, send_stdout_to_caller }}
+*
+* Here is the term that is sent otherwise:
+*
+* { PidFrom, { call, Mod, Fun, Args, user }}
+*
+* Returns a non-negative number for success and a negative number for
+* failure.
+*
 */
-int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
-	      const char *buf, int len)
+int ei_xrpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
+               const char *buf, int len, int flags)
 {
-
     ei_x_buff x;
     erlang_pid *self = ei_self(ec);
     int err = ERL_ERROR;
@@ -1872,10 +1880,10 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
         goto einval;
     if (ei_x_encode_tuple_header(&x, 2) < 0)  /* A */
         goto einval;
-    
+
     if (ei_x_encode_pid(&x, self) < 0)	      /* A 1 */
         goto einval;
-    
+
     if (ei_x_encode_tuple_header(&x, 5) < 0)  /* B A 2 */
         goto einval;
     if (ei_x_encode_atom(&x, "call") < 0)     /* B 1 */
@@ -1886,14 +1894,19 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
         goto einval;
     if (ei_x_append_buf(&x, buf, len) < 0)    /* B 4 */
         goto einval;
-    if (ei_x_encode_atom(&x, "user") < 0)     /* B 5 */
-        goto einval;
-    
+    if (flags & EI_RPC_FETCH_STDOUT) {
+        if (ei_x_encode_atom(&x, "send_stdout_to_caller") < 0)     /* B 5 */
+            goto einval;
+    } else {
+        if (ei_x_encode_atom(&x, "user") < 0)     /* B 5 */
+            goto einval;
+    }
+
     err = ei_send_reg_encoded(fd, self, "rex", x.buff, x.index);
     if (err)
         goto error;
-    
-    ei_x_free(&x);	
+
+    ei_x_free(&x);
 
     return 0;
 
@@ -1904,6 +1917,13 @@ error:
     if (x.buff != NULL)
         ei_x_free(&x);
     return err;
+} /* xrpc_to */
+
+
+int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
+	      const char *buf, int len)
+{
+    return ei_xrpc_to(ec, fd, mod, fun, buf, len, 0);
 } /* rpc_to */
 
   /*
