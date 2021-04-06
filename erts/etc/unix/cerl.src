@@ -34,6 +34,8 @@
 #               You have to start beam in gdb using "run".
 #   -rgdb       Run the debug compiled emulator in gdb.
 #               You have to start beam in gdb using "run".
+#   -lldb       Run the debug compiled emulator in lldb.
+#               You have to start beam in lldb using "run".
 #   -dump       Dump the bt of all threads in a core.
 #   -break F    Run the debug compiled emulator in emacs and gdb and set break.
 #               The session is started, i.e. "run" is already don for you.
@@ -170,6 +172,10 @@ while [ $# -gt 0 ]; do
 	    shift
 	    GDB=gdb
 	    ;;
+    "-lldb")
+        shift
+        GDB=lldb
+        ;;
 	"-break")
 	    shift
 	    GDB=gdb
@@ -421,6 +427,20 @@ elif [ "x$GDB" = "xgdb" ]; then
     echo "source $ROOTDIR/erts/etc/unix/etp-commands" > $cmdfile
     # Fire up gdb in emacs...
     exec gdb $GDBBP -x $cmdfile $gdbcmd
+elif [ "x$GDB" = "xlldb" ]; then
+    case "x$core" in
+        x)
+            beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+            lldbcmd="-- $beam_args"
+            ;;
+        *)
+            lldbcmd="--core ${core}"
+            ;;
+    esac
+    cmdfile="/tmp/.cerllldb.$$"
+    echo "env TERM=dumb" > $cmdfile
+    echo "command script import $ROOTDIR/erts/etc/unix/etp.py" >> $cmdfile
+    exec lldb -s $cmdfile $EMU_NAME $lldbcmd
 elif [ "x$GDB" = "xegdb" ]; then
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs
