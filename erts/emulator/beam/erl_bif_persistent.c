@@ -439,7 +439,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 
 BIF_RETTYPE persistent_term_get_0(BIF_ALIST_0)
 {
-    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    HashTable* hash_table;
     TrapData* trap_data;
     Eterm res = NIL;
     Eterm magic_ref;
@@ -449,6 +449,8 @@ BIF_RETTYPE persistent_term_get_0(BIF_ALIST_0)
     if (!try_seize_update_permission(BIF_P)) {
         ERTS_BIF_YIELD0(&bif_trap_export[BIF_persistent_term_get_0], BIF_P);
     }
+
+    hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
 
     magic_ref = alloc_trap_data(BIF_P);
     mbp = erts_magic_ref2bin(magic_ref);
@@ -673,7 +675,7 @@ BIF_RETTYPE erts_internal_erase_persistent_terms_0(BIF_ALIST_0)
 
 BIF_RETTYPE persistent_term_info_0(BIF_ALIST_0)
 {
-    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    HashTable* hash_table;
     TrapData* trap_data;
     Eterm res = NIL;
     Eterm magic_ref;
@@ -683,6 +685,8 @@ BIF_RETTYPE persistent_term_info_0(BIF_ALIST_0)
     if (!try_seize_update_permission(BIF_P)) {
         ERTS_BIF_YIELD0(&bif_trap_export[BIF_persistent_term_info_0], BIF_P);
     }
+
+    hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
 
     magic_ref = alloc_trap_data(BIF_P);
     mbp = erts_magic_ref2bin(magic_ref);
