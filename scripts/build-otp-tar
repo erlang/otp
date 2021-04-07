@@ -21,6 +21,7 @@ prebuilt_filename=prebuilt.files
 configure_args="--disable-hybrid-heap"
 pbskip_name=prebuild.skip
 pbdel_name=prebuild.delete
+pbkeep_name=prebuild.keep
 skip_name=SKIP
 script_name=`basename $0`
 verbose=true
@@ -498,6 +499,14 @@ else
 	error "Failed to build OTP"
     fi
     echo " " >> $build_log
+    echo " === Building OTP doc chunks ========================= " >> $build_log
+    echo " " >> $build_log
+    echo "make docs DOC_TARGETS=chunks" >> $build_log
+    make docs DOC_TARGETS=chunks >> $build_log 2>&1
+    if [ $? -ne 0 ]; then
+	error "Failed to build OTP"
+    fi
+    echo " " >> $build_log
     echo " ==================================================== " >> $build_log
 
     cd $start_dir
@@ -591,6 +600,33 @@ for delete_file in $delete_files; do
     remove $src_root/$delete_file
 done
 
+progress "Searching for $pbkeep_name files in source-directory"
+cd $src_root
+keep_files=`find . -name $pbkeep_name`
+
+for keep_file in $keep_files; do
+    progress "Removing $keep_file from source-directory"
+    remove $src_root/$keep_file
+done
+
+## We search for $pbkeep_name before we do the deletion as otherwise
+## the deletion may delete these files. However, we want to execute
+## the actions of the keep file after.
+progress "Searching for $pbkeep_name files in pre-build-directory"
+cd $prebld_root
+keep_files=`find . -name $pbkeep_name`
+kobjs=""
+for keep_file in $keep_files; do
+    dir=`dirname $keep_file`
+    keep_objs=`cat $keep_file`
+    for keep_obj in $keep_objs; do
+        kobj=`check_filename $keep_file $dir $keep_obj`
+        kobjs="$kobjs $kobj"
+    done
+
+    remove $prebld_root/$keep_file
+done
+
 progress "Searching for $pbskip_name files in pre-build-directory"
 cd $prebld_root
 skip_files=`find . -name $pbskip_name`
@@ -621,6 +657,11 @@ for delete_file in $delete_files; do
 
     progress "Removing $delete_file from pre-build-directory"
     remove $prebld_root/$delete_file
+done
+
+for kobj in $kobjs; do
+    progress "Keeping $kobj in pre-build-directory"
+    copy $build_dir/../$kobj $prebld_root/$kobj
 done
 
 cd $prebld_dir
