@@ -220,6 +220,8 @@ decode_jer({string,_Prop},Str) when is_binary(Str) ->
     binary_to_list(Str);
 decode_jer('INTEGER',Int) when is_integer(Int) ->
     Int;
+decode_jer({'INTEGER',{Min,Max}},Int) when is_integer(Int),Max >=Int, Int >= Min ->
+    Int;
 decode_jer({Type = {'INTEGER_NNL',_NNList},_},Int) ->
     decode_jer(Type,Int);
 decode_jer({'INTEGER_NNL',NNList},Int) ->
@@ -229,8 +231,6 @@ decode_jer({'INTEGER_NNL',NNList},Int) ->
         _ ->
             Int
     end;
-decode_jer({'INTEGER',_Prop},Int) when is_integer(Int) ->
-    Int;
 decode_jer('BOOLEAN',Bool) when is_boolean(Bool) ->
     Bool;
 decode_jer({'BOOLEAN',_Prop},Bool) when is_boolean(Bool) ->
@@ -280,7 +280,9 @@ decode_jer('RELATIVE-OID',OidBin) when is_binary(OidBin) ->
 decode_jer({'ObjClassFieldType',_,_},Bin) when is_binary(Bin) ->
     Bin;
 decode_jer('ASN1_OPEN_TYPE',Bin) when is_binary(Bin) ->
-    Bin.
+    Bin;
+decode_jer(Type,Val) ->
+    exit({error,{asn1,{{decode,Type},Val}}}).
 
 decode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], VMap, Acc)
     when is_map_key(Name, VMap) ->
