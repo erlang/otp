@@ -482,7 +482,7 @@ unhex(26160) -> 240; unhex(26161) -> 241; unhex(26162) -> 242; unhex(26163) -> 2
 unhex(26177) -> 250; unhex(26178) -> 251; unhex(26179) -> 252; unhex(26180) -> 253; unhex(26181) -> 254; unhex(26182) -> 255;
 unhex(26209) -> 250; unhex(26210) -> 251; unhex(26211) -> 252; unhex(26212) -> 253; unhex(26213) -> 254; unhex(26214) -> 255;
 unhex(Char) ->
-    badarg_with_cause([<<Char>>], invalid_hex).
+    badarg_with_info([<<Char:16>>]).
 
 badarg_with_cause(Args, Cause) ->
     erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors,

@@ -79,15 +79,7 @@ format_binary_error(decode_hex, [Subject], _) ->
             [must_be_binary(Subject)]
     end;
 format_binary_error(unhex, [Subject], _) ->
-    if
-        is_integer(Subject),
-        (Subject >= $a andalso Subject =< $f) orelse
-        (Subject >= $A andalso Subject =< $F) orelse
-        (Subject >= $0 andalso Subject =< $9) ->
-            [[]];
-        true ->
-            [range]
-    end;
+    [<<(Subject)/binary, " is not a valid hex">>];
 format_binary_error(first, [Subject], _) ->
     [case Subject of
          <<>> -> empty_binary;
