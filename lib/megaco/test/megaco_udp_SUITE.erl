@@ -748,48 +748,42 @@ block_unblock_server_commands(TO, Port) ->
 	       end},
 
      #{id   => 7,
-       desc => "Await continue",
+       desc => "Await continue - and nothing else",
        cmd  => fun(State) ->
 		       server_await_continue_signal(State, TO)
 	       end},
 
      #{id   => 8,
-       desc => "Send message (hejsan)",
+       desc => "Send message (hejsan) (client is blocked)",
        cmd  => fun(State) -> 
 		       server_send_message(State, "hejsan") 
 	       end},
 
      #{id   => 9,
-       desc => "Await nothing before receiving (hoppsan) reply",
-       cmd  => fun(State) -> 
-		       server_await_nothing(State, TO div 2)
-	       end},
-
-     #{id   => 10,
        desc => "Await reply (hoppsan) to message",
        cmd  => fun(State) -> 
 		       server_await_message(State, "hoppsan", TO)
 	       end},
 
-     #{id   => 11,
+     #{id   => 10,
        desc => "Await nothing before closing",
        cmd  => fun(State) -> 
 		       server_await_nothing(State, TO div 5)
 	       end},
 
-     #{id   => 12,
+     #{id   => 11,
        desc => "Close",
        cmd  => fun(State) -> 
 		       server_close(State) 
 	       end},
 
-     #{id   => 13,
+     #{id   => 12,
        desc => "Await nothing before stopping transport",
        cmd  => fun(State) -> 
 		       server_await_nothing(State, TO div 5)
 	       end},
 
-     #{id   => 14,
+     #{id   => 13,
        desc => "Stop",
        cmd  => fun(State) -> 
 		       server_stop_transport(State) 
@@ -899,7 +893,7 @@ block_unblock_client_commands(TO, ServerPort, ServerHost) ->
                                      [Active, erlang:port_info(Socket)]),
                                    ok
                            end,
-		       client_await_nothing(State, Fail, TO)
+		       client_await_nothing(State, Fail, TO div 2)
 	       end},
 
      #{id   => 13,
@@ -1083,7 +1077,11 @@ server_await_continue_signal(#{parent := Parent} = State, Timeout) ->
     receive
 	{continue, Parent} ->
             p("received expected continue signal"),
-	    {ok, State}
+	    {ok, State};
+        Any ->
+            p("received UNEXPECTED message: "
+              "~n   ~p", [Any]),
+            {error, {unexpected, Any}}
     after Timeout ->
 	    {error, timeout}
     end.
