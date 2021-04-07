@@ -2712,7 +2712,7 @@ binary_filename(FileName) ->
 %% Assert that basic options are on the format {Key, Value}
 %% with a few exceptions and phase out log_alert 
 handle_option_format([], Acc) ->
-    Acc;
+    lists:reverse(Acc);
 handle_option_format([{log_alert, Bool} | Rest], Acc) when is_boolean(Bool) ->
     case proplists:get_value(log_level, Acc ++ Rest, undefined) of
         undefined -> 
