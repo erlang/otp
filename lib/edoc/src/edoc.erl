@@ -77,7 +77,8 @@
 			       exports :: ordset(function_name()),
 			       attributes :: ordset({atom(), term()}),
 			       records :: [{atom(), [{atom(), term()}]}],
-			       encoding :: epp:source_encoding()}.
+			       encoding :: epp:source_encoding(),
+			       file :: file:filename()}.
 %% Module information.
 
 -type env() :: #env{}.
