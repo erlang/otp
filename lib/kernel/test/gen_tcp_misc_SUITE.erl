@@ -3400,11 +3400,59 @@ has_support_option(Level, Option) ->
 	_:_:_ -> false % Any platform that does not support socket!
     end.
 
+has_os_support_recvtos() ->
+    has_os_support_recvtos(os:type(), os:version()).
+
+has_os_support_recvtos({unix, linux}, Version) ->
+    not semver_lt(Version, {3,1,0});
+has_os_support_recvtos(_, _) ->
+    true.
+
+has_os_support_recvttl() ->
+    has_os_support_recvttl(os:type(), os:version()).
+
+has_os_support_recvttl({unix, linux}, Version) ->
+    not semver_lt(Version, {2,7,0});
+has_os_support_recvttl(_, _) ->
+    %% We should not even get here, but just in case...
+    false.
+
+has_os_support_recvtclass() ->
+    has_os_support_recvtclass(os:type(), os:version()).
+
+has_os_support_recvtclass({unix, linux}, Version) ->
+    not semver_lt(Version, {3,1,0});
+has_os_support_recvtclass(_, _) ->
+    true.
+
+semver_lt({X1,Y1,Z1} = V1, {X2,Y2,Z2} = V2) ->
+    ?P("semver_lt -> OS version check:"
+       "~n   (Actual)  Version 1: ~p"
+       "~n   (Request) Version 2: ~p", [V1, V2]),
+    if
+        X1 > X2 -> ?P("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
+        X1 < X2 -> ?P("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
+        Y1 > Y2 -> ?P("semver_lt -> Y1 > Y2: ~p > ~p", [Y1, Y2]), false;
+        Y1 < Y2 -> ?P("semver_lt -> Y1 < Y2: ~p < ~p", [Y1, Y2]), true;
+        Z1 > Z2 -> ?P("semver_lt -> Z1 > Z2: ~p > ~p", [Z1, Z2]), false;
+        Z1 < Z2 -> ?P("semver_lt -> Z1 < Z2: ~p < ~p", [Z1, Z2]), true;
+        true    -> ?P("semver_lt -> default"), false
+    end;
+semver_lt(V1, {_,_,_} = V2) ->
+    ?P("semver_lt -> fallback OS version check when: "
+       "~n   Version 1: ~p"
+       "~n   Version 2: ~p", [V1, V2]),
+    false.
+
 recvtos(Config) ->
     test_pktoptions(
       Config,
       inet, [{recvtos,tos,96}],
-      fun has_support_ip_recvtos/0, "recvtos",
+      fun() ->
+              has_support_ip_recvtos() andalso
+                  has_os_support_recvtos() 
+     end,
+      "recvtos",
       false).
 
 recvtosttl(Config) ->
@@ -3413,7 +3461,9 @@ recvtosttl(Config) ->
       inet, [{recvtos,tos,96},{recvttl,ttl,33}],
       fun() ->
               has_support_ip_recvtos() andalso
-		  has_support_ip_recvttl()
+		  has_support_ip_recvttl() andalso
+                  has_os_support_recvtos() andalso
+                  has_os_support_recvttl()
       end,
       "recvtos and/or recvttl",
       false).
@@ -3422,7 +3472,11 @@ recvttl(Config) ->
     test_pktoptions(
       Config,
       inet, [{recvttl,ttl,33}],
-      fun has_support_ip_recvttl/0, "recvttl",
+      fun() ->
+              has_support_ip_recvttl() andalso
+                  has_os_support_recvttl()
+      end,
+      "recvttl",
       false).
 
 recvtclass(Config) ->
@@ -3436,7 +3490,11 @@ recvtclass(Config) ->
             test_pktoptions(
               Config,
               inet6, [{recvtclass,tclass,224}],
-              fun has_support_ipv6_tclass/0, "tclass",
+              fun() ->
+                      has_support_ipv6_tclass() andalso
+                          has_os_support_recvtclass()
+              end,
+              "tclass",
               true);
         [] ->
             {skip,{ipv6_not_supported,IFs}}
