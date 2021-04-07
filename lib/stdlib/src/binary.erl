@@ -366,6 +366,7 @@ get_opts_replace(_,_) ->
 %% Hex encoding functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(HEX(X), (hex(X)):16).
+-compile({inline,[hex/1]}).
 -spec encode_hex(Bin) -> Bin2 when
       Bin :: binary(),
       Bin2 :: <<_:_*16>>.
