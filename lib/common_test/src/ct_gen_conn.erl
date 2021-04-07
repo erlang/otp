@@ -220,40 +220,51 @@ end_log() ->
       Result :: term().
 
 %% Return the result of evaluating Fun, or interrupt after Tmo
-%% milliseconds or if the connection is closed.
+%% milliseconds or if the connection is closed. Assumes the caller
+%% is trapping exits.
 
-do_within_time(Fun,Timeout) ->
-    Self = self(),
-    Silent = get(silent),
-    TmpPid = spawn_link(fun() -> 
-                                ct_util:mark_process(),
-                                put(silent,Silent),
-                                R = Fun(),
-                                Self ! {self(),R}
-			end),
-    ConnPid = get(conn_pid),
+do_within_time(Fun, Tmo) ->
+    do_within_time(Fun, Tmo, get(silent), get(conn_pid)).
+
+%% Work around the fact that ct_telnet calls do_within_time/2 in its
+%% init callback, before it returns the connection pid for init/1 to
+%% write to the process dictionary. Monitoring on self() is pointless,
+%% but harmless. Should really be fixed by not using the process
+%% dictionary to pass arguments.
+do_within_time(Fun, Tmo, Silent, undefined) ->
+    do_within_time(Fun, Tmo, Silent, self());
+
+do_within_time(Fun, Tmo, Silent, ConnPid) ->
+    MRef = monitor(process, ConnPid),
+    Pid = spawn_link(fun() ->
+                             ct_util:mark_process(),
+                             put(silent, Silent),
+                             exit({MRef, Fun()})
+                     end),
+    down(Pid, MRef, Tmo, failure).
+
+down(Pid, MRef, Tmo, Reason) ->
     receive
-	{TmpPid,Result} ->
-	    Result;
-	{'EXIT',ConnPid,_Reason}=M ->
-	    unlink(TmpPid),
-	    exit(TmpPid,kill),
-	    self() ! M,
-	    {error,connection_closed}
-    after
-	Timeout ->
-	    exit(TmpPid,kill),
-	    receive
-		{TmpPid,Result} ->
-		    %% TmpPid just managed to send the result at the same time
-		    %% as the timeout expired.
-		    receive {'EXIT',TmpPid,_reason} -> ok end,
-		    Result;
-		{'EXIT',TmpPid,killed} ->
-		    %% TmpPid did not send the result before the timeout expired.
-		    {error,timeout}
-	    end
+        {'EXIT', Pid, T} ->
+            infinity == Tmo orelse demonitor(MRef, [flush]),
+            rc(MRef, T, Reason);
+        {'DOWN', MRef, process, _, _} ->
+            down(Pid, MRef, connection_closed)
+    after Tmo ->
+            demonitor(MRef, [flush]),
+            down(Pid, MRef, timeout)
     end.
+
+down(Pid, MRef, Reason) ->
+    exit(Pid, kill),
+    down(Pid, MRef, infinity, Reason).
+
+rc(Ref, {Ref, RC}, _Reason) ->
+    RC;
+rc(_, Reason, failure) ->  %% failure before timeout or lost connection
+    {error, Reason};
+rc(_, _, Reason) ->
+    {error, Reason}.
 
 %% ===========================================================================
 
