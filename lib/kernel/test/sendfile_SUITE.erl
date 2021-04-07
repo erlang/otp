@@ -145,8 +145,9 @@ end_per_testcase(_TC,Config) ->
         NumOldFDs ->
             case read_fd_info() of
                 {ok, NumFDs, FDDetails} when NumFDs =/= NumOldFDs ->
-                    ct:log("FDs: ~n~ts~nOldFDs: ~n~ts~n",
-                           [FDDetails,proplists:get_value(details,Config)]),
+                    ct:log("FDs: ~p~n~ts~nOldFDs: ~p~n~ts~n",
+                           [NumFDs, FDDetails,
+                            NumOldFDs, proplists:get_value(details,Config)]),
                     {fail,"Too many (or too few) fds open"};
                 _ ->
                     ok
@@ -565,10 +566,13 @@ sendfile(Filename,Sock,Opts) ->
 %% for debugging.
 %% It only supports linux for now.
 read_fd_info() ->
+    receive after 1000 -> ok end,
     ProcFd = "/proc/" ++ os:getpid() ++ "/fd",
     case file:list_dir(ProcFd) of
         {ok, FDs} ->
-            {ok, length(FDs), os:cmd("ls -l " ++ ProcFd)};
+            {ok, length(FDs),
+             lists:flatten(lists:join(" ", FDs)) ++
+                 ("\r\n"++os:cmd("ls -l " ++ ProcFd))};
         Error ->
             Error
     end.
