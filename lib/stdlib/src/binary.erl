@@ -369,7 +369,7 @@ get_opts_replace(_,_) ->
 -spec encode_hex(Bin) -> Bin2 when
       Bin :: binary(),
       Bin2 :: <<_:_*16>>.
-encode_hex(Data) when byte_size(Data) band 7 =:= 0 ->
+encode_hex(Data) when byte_size(Data) rem 8 =:= 0 ->
     << <<?HEX(A),?HEX(B),?HEX(C),?HEX(D),?HEX(E),?HEX(F),?HEX(G),?HEX(H)>> || <<A,B,C,D,E,F,G,H>> <= Data >>;
 encode_hex(Data) when byte_size(Data) rem 7 =:= 0 ->
     << <<?HEX(A),?HEX(B),?HEX(C),?HEX(D),?HEX(E),?HEX(F),?HEX(G)>> || <<A,B,C,D,E,F,G>> <= Data >>;
