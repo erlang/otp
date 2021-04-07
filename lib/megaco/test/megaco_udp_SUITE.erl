@@ -656,6 +656,7 @@ do_block_unblock(Factor, [ServerNode, ClientNode]) ->
     TOCalc = fun(BaseTO) -> to_calc(Factor, BaseTO) end,
     TO     = TOCalc(?SECS(5)),
     ServerPort = 2944,
+    p("generated command sequences with timeout: ~w msec", [TO]),
     ServerCmds = block_unblock_server_commands(TO, ServerPort),
     {ok, ServerHost} = inet:gethostname(),
     ClientCmds = block_unblock_client_commands(TO, ServerPort, ServerHost),
@@ -761,13 +762,13 @@ block_unblock_server_commands(TO, Port) ->
      #{id   => 9,
        desc => "Await nothing before receiving (hoppsan) reply",
        cmd  => fun(State) -> 
-		       server_await_nothing(State, TO)
+		       server_await_nothing(State, TO div 2)
 	       end},
 
      #{id   => 10,
        desc => "Await reply (hoppsan) to message",
        cmd  => fun(State) -> 
-		       server_await_message(State, "hoppsan", TO div 2)
+		       server_await_message(State, "hoppsan", TO)
 	       end},
 
      #{id   => 11,
@@ -1081,6 +1082,7 @@ server_notify_operational(#{parent := Parent} = State) ->
 server_await_continue_signal(#{parent := Parent} = State, Timeout) ->
     receive
 	{continue, Parent} ->
+            p("received expected continue signal"),
 	    {ok, State}
     after Timeout ->
 	    {error, timeout}
