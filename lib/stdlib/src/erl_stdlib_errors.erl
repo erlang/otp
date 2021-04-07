@@ -78,7 +78,7 @@ format_binary_error(decode_hex, [Subject], _) ->
         true ->
             [must_be_binary(Subject)]
     end;
-format_binary_error(decode_hex_char, [Subject], _) ->
+format_binary_error(unhex, [Subject], _) ->
     if
         is_integer(Subject),
         (Subject >= $a andalso Subject =< $f) orelse

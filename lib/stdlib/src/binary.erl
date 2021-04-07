@@ -480,7 +480,9 @@ unhex(25921) -> 234; unhex(25922) -> 235; unhex(25923) -> 236; unhex(25924) -> 2
 unhex(25953) -> 234; unhex(25954) -> 235; unhex(25955) -> 236; unhex(25956) -> 237; unhex(25957) -> 238; unhex(25958) -> 239;
 unhex(26160) -> 240; unhex(26161) -> 241; unhex(26162) -> 242; unhex(26163) -> 243; unhex(26164) -> 244; unhex(26165) -> 245; unhex(26166) -> 246; unhex(26167) -> 247; unhex(26168) -> 248; unhex(26169) -> 249;
 unhex(26177) -> 250; unhex(26178) -> 251; unhex(26179) -> 252; unhex(26180) -> 253; unhex(26181) -> 254; unhex(26182) -> 255;
-unhex(26209) -> 250; unhex(26210) -> 251; unhex(26211) -> 252; unhex(26212) -> 253; unhex(26213) -> 254; unhex(26214) -> 255.
+unhex(26209) -> 250; unhex(26210) -> 251; unhex(26211) -> 252; unhex(26212) -> 253; unhex(26213) -> 254; unhex(26214) -> 255;
+unhex(Char) ->
+    badarg_with_cause([<<Char>>], invalid_hex).
 
 badarg_with_cause(Args, Cause) ->
     erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors,
