@@ -52,7 +52,7 @@ ERL_NIF_TERM atom_not_supported;
 ERL_NIF_TERM atom_type;
 ERL_NIF_TERM atom_size;
 ERL_NIF_TERM atom_block_size;
-ERL_NIF_TERM atom_aead;
+ERL_NIF_TERM atom_prop_aead;
 ERL_NIF_TERM atom_key_length;
 ERL_NIF_TERM atom_iv_length;
 ERL_NIF_TERM atom_mode;
@@ -187,7 +187,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_type = enif_make_atom(env,"type");
     atom_size = enif_make_atom(env,"size");
     atom_block_size = enif_make_atom(env,"block_size");
-    atom_aead = enif_make_atom(env,"aead");
+    atom_prop_aead = enif_make_atom(env,"prop_aead");
     atom_key_length = enif_make_atom(env,"key_length");
     atom_iv_length = enif_make_atom(env,"iv_length");
     atom_mode = enif_make_atom(env,"mode");

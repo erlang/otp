@@ -726,7 +726,7 @@ mac_final_nif(_Ref) -> ?nif_stub.
                                                 block_size := integer(),
                                                 mode := CipherModes,
                                                 type := undefined | integer(),
-                                                aead := boolean()
+                                                prop_aead := boolean()
                                                },
                                     CipherModes :: undefined
                                                  | cbc_mode

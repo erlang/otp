@@ -57,7 +57,7 @@ extern ERL_NIF_TERM atom_type;
 extern ERL_NIF_TERM atom_size;
 extern ERL_NIF_TERM atom_block_size;
 extern ERL_NIF_TERM atom_key_length;
-extern ERL_NIF_TERM atom_aead;
+extern ERL_NIF_TERM atom_prop_aead;
 extern ERL_NIF_TERM atom_iv_length;
 extern ERL_NIF_TERM atom_mode;
 extern ERL_NIF_TERM atom_encrypt;
