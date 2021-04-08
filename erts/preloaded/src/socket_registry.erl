@@ -30,15 +30,41 @@
 -export([
          start/0,
          number_of/0,
-         which_sockets/1
+         which_sockets/1,
+	 monitor/1,
+	 demonitor/1
         ]).
 
 
+-record(esock_xref,
+	{
+	 mref :: reference(),
+	 sock :: socket:socket()
+	}).
+
+-record(esock_monitor,
+	{
+	 pid  :: pid(),
+	 mref :: reference()
+	}).
+
 -record(esock_info,
         {
-         sock  :: socket:socket(),
-         atime :: integer()  % Add time - erlang:monotonic_time(milli_seconds)
+         sock       :: socket:socket(),
+	 %% Add time - erlang:monotonic_time(milli_seconds)
+         atime      :: integer(),
+	 mons  = [] :: [esock_monitor()]
         }).
+
+-record(state,
+	{
+	 db   = [] :: [esock_info()],
+	 xref = [] :: [esock_xref()]
+	}).
+
+-type esock_xref()    :: #esock_xref{}.
+-type esock_monitor() :: #esock_monitor{}.
+-type esock_info()    :: #esock_info{}.
 
 
 %% =========================================================================
@@ -48,7 +74,7 @@
 start() ->
     erlang:register(?MODULE, self()),
     process_flag(trap_exit, true),
-    loop([]).
+    loop(#state{}).
 
 number_of() ->
     request(number_of).
@@ -66,16 +92,32 @@ which_sockets(Filter)
 which_sockets(Filter) ->
     erlang:error(badarg, [Filter]).
 
+monitor(Socket) ->
+    case request({monitor, Socket}) of
+	{ok, MRef} ->
+	    MRef;
+	{error, Reason} ->
+	    erlang:error(badarg, [Socket, Reason])
+    end.
+
+demonitor(MRef) ->
+    case request({demonitor, MRef}) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    erlang:error(badarg, [MRef, Reason])
+    end.
+
 
 %% =========================================================================
 
-loop(DB) ->
+loop(State) ->
     receive
         {'$socket', add, Socket} ->
-            loop( handle_add_socket(DB, Socket) );
+            loop( handle_add_socket(State, Socket) );
 
         {'$socket', del, Socket} ->
-            loop( handle_delete_socket(DB, Socket) );
+            loop( handle_delete_socket(State, Socket) );
 
         {'$socket', sendfile_deferred_close = Fname, Socket} ->
             Closer =
@@ -101,37 +143,67 @@ loop(DB) ->
                         end
                 end,
             _ = spawn(Closer),
-            loop(DB);
+            loop(State);
 
         {?MODULE, request, From, ReqId, Req} = _REQ ->
             %% erlang:display(REQ),
-            {NewDB, Reply} = handle_request(DB, Req),
+            {NewState, Reply} = handle_request(State, Req, From),
             reply(ReqId, From, Reply),
-            loop(NewDB);
+            loop(NewState);
         
         Msg ->
-            NewDB = handle_unexpected_msg(DB, Msg),
-            loop(NewDB)
+            NewState = handle_unexpected_msg(State, Msg),
+            loop(NewState)
     end.
 
 
 %% =========================================================================
 
-handle_add_socket(DB, Sock) ->
-    [#esock_info{sock = Sock, atime = timestamp()} | DB].
 
-handle_delete_socket(DB, Sock) ->
-    lists:keydelete(Sock, #esock_info.sock, DB).
+%% =========================================================================
+
+handle_add_socket(#state{db = DB} = State, Sock) ->
+    DB2 = [#esock_info{sock = Sock, atime = timestamp()} | DB],
+    State#state{db = DB2}.
+
+handle_delete_socket(#state{db   = DB,
+			    xref = XRef} = State, Sock) ->
+    case db_sock_lookup(DB, Sock) of
+	{value, #esock_info{mons = Mons}} ->
+	    handle_send_down(Mons, Sock),
+	    DB2   = db_sock_delete(DB, Sock),
+	    XRef2 = xref_sock_delete(XRef, Sock),
+	    State#state{db = DB2, xref = XRef2};
+	false ->
+	    State
+    end.
+
+handle_send_down([], _Sock) ->
+    ok;
+handle_send_down([#esock_monitor{pid = Pid, mref = MRef}|Mons], Sock) ->
+    send_down(Pid, MRef, Sock),
+    handle_send_down(Mons, Sock).
+
+send_down(Pid, MRef, Sock) ->
+    %% We do not yet have a 'reason', so use 'closed'...
+    Pid ! mk_down_msg(MRef, Sock, closed).
 
 
-handle_request(DB, number_of) ->
-    {DB, db_size(DB)};
 
-handle_request(DB, {which_sockets, Filter}) ->
-    {DB, do_which_sockets(DB, Filter)};
+handle_request(#state{db = DB} = State, number_of, _From) ->
+    {State, db_size(DB)};
 
-handle_request(DB, BadRequest) ->
-    {DB, {error, {bad_request, BadRequest}}}.
+handle_request(#state{db = DB} = State, {which_sockets, Filter}, _From) ->
+    {State, do_which_sockets(DB, Filter)};
+
+handle_request(State, {monitor, Socket}, From) ->
+    do_monitor_socket(State, Socket, From);
+
+handle_request(State, {demonitor, MRef}, From) ->
+    do_demonitor_socket(State, MRef, From);
+
+handle_request(State, BadRequest, _From) ->
+    {State, {error, {bad_request, BadRequest}}}.
 
 
 %% ---
@@ -180,6 +252,9 @@ mk_log_msg(Level, Tag, F, A) ->
              error_logger => #{tag => Tag}},
     {log, Level, F, A, Meta}.
 
+mk_down_msg(MRef, Sock, Info) ->
+    {'DOWN', MRef, socket, Sock, Info}.
+
 
 %% ---
 
@@ -211,6 +286,129 @@ do_which_sockets(DB, Filter) ->
             %% Filter/1 must have failed
             badarg
     end.
+    
+do_monitor_socket(#state{db   = DB,
+			 xref = XRefs} = State, Sock, From) ->
+    case db_sock_lookup(DB, Sock) of
+	{value, #esock_info{mons = Mons} = SI} ->
+	    %% Check if this process has already monitored this socket
+	    %% Or shall we allow multiple monitors?
+	    %% That is, the same process can have multiple monitors
+	    %% to the same socket?
+	    case mons_pid_lookup(Mons, From) of
+		{value, #esock_monitor{mref = MRef}} ->
+		    Result = {ok, MRef},
+		    {State, Result};
+		false ->
+		    MRef   = make_ref(),
+		    Mon    = #esock_monitor{pid  = From,
+					    mref = MRef},
+		    Mons2  = [Mon|Mons],
+		    SI2    = SI#esock_info{mons = Mons2},
+		    DB2    = db_sock_replace(DB, Sock, SI2),
+		    XRefs2 = [#esock_xref{mref = MRef, sock = Sock}|XRefs],
+		    Result = {ok, MRef},
+		    {State#state{db = DB2, xref = XRefs2}, Result}
+	    end;
+	false ->
+	    Result = {error, unknown_socket},
+	    {State, Result}
+    end.
+
+
+do_demonitor_socket(#state{db = DB, xref = XRefs} = State, MRef, From) ->
+    case xref_mref_lookup(XRefs, MRef) of
+	{value, #esock_xref{sock = Sock}} ->
+	    %% So far so good
+	    case db_sock_lookup(Sock, DB) of
+		%% So faar so goood
+		{value, #esock_info{mons = Mons} = SI} ->
+		    Mons2  = mons_pid_delete(Mons, From),
+		    SI2    = SI#esock_info{mons = Mons2},
+		    DB2    = db_sock_replace(DB, Sock, SI2),
+		    XRefs2 = xref_mref_delete(XRefs, MRef),
+		    Result = ok,
+		    {State#state{db = DB2, xref = XRefs2}, Result};
+		false ->
+		    %% The socket has been deleted => race
+		    Result = {error, unknown_socket},
+		    XRefs2 = xref_mref_delete(XRefs, MRef),
+		    {State#state{xref = XRefs2}, Result}
+	    end;
+	false ->
+	    %% No such monitor => race
+	    Result = {error, unknown_monitor},
+	    {State, Result}
+    end.
+
+
+
+%% =========================================================================
+
+%% --- XRef utility functions ---
+
+xref_sock_delete(XRefs, Sock) ->
+    xref_delete(XRefs, #esock_xref.sock, Sock).
+
+xref_mref_delete(XRefs, Sock) ->
+    xref_delete(XRefs, #esock_xref.mref, Sock).
+
+xref_delete([] = XRefs, _Pos, _Key) ->
+    XRefs;
+xref_delete(XRefs, Pos, Key) ->
+    case lists:keydelete(Key, Pos, XRefs) of
+	XRefs ->
+	    XRefs;
+	XRefs2 ->
+	    xref_delete(XRefs2, Pos, Key)
+    end.
+
+
+xref_mref_lookup(XRefs, MRef) ->
+    xref_lookup(XRefs, #esock_xref.mref, MRef).
+
+xref_lookup(XRefs, Pos, Key) ->
+    lists:keysearch(Key, Pos, XRefs).
+
+
+
+%% --- DB utility functions ---
+
+db_sock_lookup(DB, Sock) ->
+    db_lookup(DB, #esock_info.sock, Sock).
+
+db_lookup(DB, Pos, Key) ->
+    lists:keysearch(Key, Pos, DB).
+
+
+db_sock_delete(DB, Sock) ->
+    db_delete(DB, #esock_info.sock, Sock).
+
+db_delete(DB, Pos, Key) ->
+    lists:keydelete(Key, Pos, DB).
+
+
+db_sock_replace(DB, Sock, Info) ->
+    db_replace(DB, #esock_info.sock, Sock, Info).
+
+db_replace(DB, Pos, Key, Info) ->
+    lists:keyreplace(Key, Pos, DB, Info).
+
+
+%% --- Monitors utility functions ---
+
+mons_pid_delete(Mons, Pid) ->
+    mons_delete(Mons, #esock_monitor.pid, Pid).
+
+mons_delete(Mons, Pos, Key) ->
+    lists:keydelete(Key, Pos, Mons).
+
+
+mons_pid_lookup(Mons, Sock) ->
+    mons_lookup(Mons, #esock_monitor.pid, Sock).
+
+mons_lookup(Mons, Pos, Key) ->
+    lists:keysearch(Key, Pos, Mons).
 
 
 %% =========================================================================

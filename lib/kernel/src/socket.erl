@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
-         monitor/1,
+         monitor/1, demonitor/1,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3
         ]).
@@ -66,6 +66,7 @@
 -export_type([
               socket/0,
               socket_handle/0,
+              socket_monitor/0,
 
               select_tag/0,
               select_handle/0,
@@ -515,8 +516,10 @@
 %% Messages sent from the nif-code to erlang processes:
 -define(socket_msg(Socket, Tag, Info), {?socket_tag, (Socket), (Tag), (Info)}).
 
--type socket() :: ?socket(socket_handle()).
+-type socket()          :: ?socket(socket_handle()).
 -opaque socket_handle() :: reference().
+
+-opaque socket()         :: ?socket(reference()).
 
 %% Some flags are used for send, others for recv, and yet again
 %% others are found in a cmsg().  They may occur in multiple locations..
@@ -846,16 +849,44 @@ info(Socket) ->
 %%
 %% ===========================================================================
 
--spec monitor(Socket) -> socket_monitor().
+-spec monitor(Socket) -> socket_monitor() when
+      Socket :: socket().
 
 %% Should it be possible to specify a modification of the 'Socket' part
 %% of the DOWN-message? The point would be to make it possible for
 %% a gen_tcp_socket-socket to use this and get the proper 'socket'
 %% as part of the message.
 
-monitor(Socket) ->
-    prim_socket:monitor(Socket).
+monitor(?socket(SockRef) = Socket) when is_reference(SockRef) ->
+    case prim_socket:setopt(SockRef, {otp, use_registry}, true) of
+        ok ->
+            socket_registry:monitor(Socket);
+        {error, _Reason} ->
+            erlang:error(badarg, [Socket])
+    end.
 
+
+%% ===========================================================================
+%%
+%% demonitor - Demonitor a socket
+%%
+%% If MonitorRef is a reference that the socket obtained
+%% by calling monitor/1, this monitoring is turned off.
+%% If the monitoring is already turned off, nothing happens.
+%%
+%% ===========================================================================
+
+-spec demonitor(MRef) -> ok when
+      MRef :: socket_monitor().
+
+demonitor(MRef) ->
+    socket_registry:demonitor(MRef),
+    receive
+        {'DOWN', MRef, socket, _, _} ->
+            ok
+    after 0 ->
+            ok
+    end.
 
 
 %% ===========================================================================
