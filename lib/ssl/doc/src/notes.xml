@@ -94,6 +94,22 @@
 
 </section>
 
+<section><title>SSL 10.2.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of emulated socket options, the previous
+	    patch was incomplete,</p>
+          <p>
+	    Own Id: OTP-17305</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
