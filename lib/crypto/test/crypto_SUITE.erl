@@ -1250,7 +1250,7 @@ cipher_info_prop_aead_attr(Config) when is_list(Config) ->
     AeadCiphers = [aes_128_ccm, aes_192_ccm, aes_256_ccm, aes_128_gcm, aes_192_gcm, aes_256_gcm, chacha20_poly1305],
     case lists:foldl(fun(C,Ok) ->
                         case crypto:cipher_info(C) of
-                            #{aead := true} ->
+                            #{prop_aead := true} ->
                                 true and Ok;
                             _ ->
                                 false
