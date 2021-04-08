@@ -584,11 +584,10 @@ add_rr(RR) ->
     call({add_rr, RR}).
 
 add_rr(Domain, Class, Type, TTL, Data) ->
-    call({add_rr, #dns_rr { domain = Domain, class = Class,
-		       type = Type, ttl = TTL, data = Data}}).
+    call({add_rr, dns_rr_add(Domain, Class, Type, TTL, Data)}).
 
-del_rr(Domain, Class, Type, _Data) ->
-    call({del_rr, {Domain, Class, Type}}).
+del_rr(Domain, Class, Type, Data) ->
+    call({del_rr, dns_rr_match(Domain, Class, Type, Data)}).
 
 res_cache_answer(Rec) ->
     lists:foreach( fun(RR) -> add_rr(RR) end, Rec#dns_rec.anlist).
@@ -694,10 +693,9 @@ lookup_type(Domain, Type) ->
 lookup_cname(Domain) ->
     [R#dns_rr.data || R <- lookup_rr(Domain, in, ?S_CNAME) ].
 
-%% Have to do all lookups (changes to the db) in the
-%% process in order to make it possible to refresh the cache.
+%% lookup resource record
 lookup_rr(Domain, Class, Type) ->
-    match_rr({Domain, Class, Type}).
+    match_rr(dns_rr_match(tolower(Domain), Class, Type)).
 
 %%
 %% hostent_by_domain (newly resolved version)
@@ -743,7 +741,7 @@ res_lookup_type(Domain,Type,RRs) ->
 gethostbyaddr(IP) ->
     case dnip(IP) of
 	{ok, {IP1, HType, HLen, DnIP}} ->
-	    RRs = match_rr({DnIP, in, ptr}),
+            RRs = match_rr(dns_rr_match(DnIP, in, ptr)),
 	    ent_gethostbyaddr(RRs,  IP1, HType, HLen);
 	Error -> Error
     end.
@@ -888,7 +886,8 @@ init([]) ->
     end,
     Db = ets:new(inet_db, [public, named_table]),
     reset_db(Db),
-    Cache = ets:new(inet_cache, [public, set, named_table]),
+    CacheOpts = [public, bag, {keypos,#dns_rr.domain}, named_table],
+    Cache = ets:new(inet_cache, CacheOpts),
     HostsByname = ets:new(inet_hosts_byname, [named_table]),
     HostsByaddr = ets:new(inet_hosts_byaddr, [named_table]),
     HostsFileByname = ets:new(inet_hosts_file_byname, [named_table]),
@@ -977,9 +976,9 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    do_add_rr(RR, Db, State),
 	    {reply, ok, State};
 
-	{del_rr, {_Domain, _Class, _Type} = Key} ->
+	{del_rr, RR} when is_record(RR, dns_rr) ->
 	    Cache = State#state.cache,
-	    ets:delete(Cache, Key),
+            ets:match_delete(Cache, RR),
 	    {reply, ok, State};
 
 	{listop, Opt, Op, E} ->
@@ -1599,55 +1598,132 @@ is_reqname(clear_cache) -> true;
 is_reqname(clear_hosts) -> true;
 is_reqname(_) -> false.
 
-%% Add a resource record to the cache if there are space left.
+%% Add a resource record to the cache if there is space left.
 %% If the cache is full this function first deletes old entries,
-%% i.e. entries with oldest latest access time.
+%% i.e. entries with the oldest access time.
+%%
+%% #dns_rr.cnt is used to store the access time
+%% instead of number of accesses.
+%%
 do_add_rr(RR, Db, State) ->
     CacheDb = State#state.cache,
     TM = times(),
     case alloc_entry(Db, CacheDb, TM) of
 	true ->
-	    cache_rr(CacheDb, RR#dns_rr{tm = TM, cnt = TM}, TM);
-	_ ->
+            %% Add to cache
+            #dns_rr{
+               domain = Domain, class = Class, type = Type,
+               data = Data} = RR,
+            DeleteRRs =
+                ets:match_object(
+                  CacheDb, dns_rr_match(Domain, Class, Type, Data)),
+            InsertRR = RR#dns_rr{tm = TM, cnt = TM},
+            %% Insert before delete to always have an RR present.
+            %% Watch out to not delete what we insert.
+            case lists:member(InsertRR, DeleteRRs) of
+                true ->
+                    _ = [ets:delete_object(CacheDb, DelRR) ||
+                            DelRR <- DeleteRRs,
+                            DelRR =/= InsertRR],
+                    true;
+                false ->
+                    ets:insert(CacheDb, InsertRR),
+                    _ = [ets:delete_object(CacheDb, DelRR) ||
+                            DelRR <- DeleteRRs],
+                    true
+            end;
+	false ->
 	    false
     end.
 
-cache_rr(Cache, RR, Count) ->
-    ets:insert(Cache, {cache_key(RR), RR, Count}).
 
 times() ->
     erlang:monotonic_time(second).
-    %% erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),
-    %%     		     native, second).
 
-%% match and remove old entries
 
-match_rr({_, _, _} = Key) ->
-    Time = times(),
-    case ets:lookup(inet_cache, Key) of
-	[{_,RR,_}] when RR#dns_rr.ttl =:= 0 ->
-	    %% ttl=0 is served once (by the current process) as we request
-	    %% a deletion immediately. It is served at least once concurrently.
-	    %% Deletions are safe thanks to the use of safe_fixtable.
-	    ets:delete(inet_cache, Key),
-	    [RR];
-	[{_,RR,_}] when RR#dns_rr.tm + RR#dns_rr.ttl < Time ->
-	    ets:delete(inet_cache, Key),
-	    [];
-	[{_,RR,_}] ->
-	    %% Update the entry concurrently. If the server deletes it, we ignore
-	    %% the result. If the server updates it, we will race on the time part
-	    %% which should be close enough to each other (as we are racing).
-	    _ = ets:update_element(inet_cache, Key, {3, Time}),
-	    [RR];
-	[] ->
-	    []
+%% ETS match expressions
+%%
+-compile({inline, [dns_rr_match/3, dns_rr_match/4]}).
+dns_rr_match(Domain, Class, Type) ->
+    #dns_rr{
+       domain = Domain, class = Class, type = Type, data = '_',
+       cnt = '_', tm = '_', ttl = '_', bm = '_', func = '_'}.
+%%
+dns_rr_match(Domain, Class, Type, Data) ->
+    #dns_rr{
+       domain = Domain, class = Class, type = Type, data = Data,
+       cnt = '_', tm = '_', ttl = '_', bm = '_', func = '_'}.
+
+%% RR creation
+-compile({inline, [dns_rr_add/5]}).
+dns_rr_add(Domain, Class, Type, TTL, Data) ->
+    #dns_rr{
+       domain = Domain, class = Class, type = Type,
+       ttl = TTL, data = Data}.
+
+
+%% We are simultaneously updating the table from all clients
+%% and the server, so we might get duplicate recource records
+%% in the table, i.e identical domain, class, type and data.
+%% We embrace that and eliminate duplicates here.
+%%
+%% Look up all matching objects.  The still valid ones
+%% should be returned, and updated with a new cnt time.
+%% All expired ones should be deleted.  We count TTL 0
+%% RRs as valid but immediately expired.
+%%
+match_rr(MatchRR) ->
+    CacheDb = inet_cache,
+    RRs = ets:match_object(CacheDb, MatchRR),
+    match_rr(CacheDb, RRs, times(), #{}, #{}, []).
+%%
+match_rr(CacheDb, [], _Time, ResultRRs, InsertRRs, DeleteRRs) ->
+    %% We insert first so an RR always is present,
+    %% which may create duplicates
+    _ = [ets:insert(CacheDb, RR) || RR <- maps:values(InsertRRs)],
+    _ = [ets:delete_object(CacheDb, RR) || RR <- DeleteRRs],
+    maps:values(ResultRRs);
+match_rr(CacheDb, [RR | RRs], Time, ResultRRs, InsertRRs, DeleteRRs) ->
+    %%
+    #dns_rr{ttl = TTL, tm = TM, cnt = Cnt} = RR,
+    if
+        TTL =:= 0 ->
+            %% Valid, immediately expired; return and delete
+            Key = match_rr_key(RR),
+            match_rr(
+              CacheDb, RRs, Time,
+              ResultRRs#{Key => RR}, InsertRRs, [RRs | DeleteRRs]);
+        TM + TTL < Time ->
+            %% Expired, delete
+            match_rr(
+              CacheDb, RRs, Time,
+              ResultRRs, InsertRRs, [RRs | DeleteRRs]);
+        Time =< Cnt ->
+            %% Valid and just updated, return and do not update
+            Key = match_rr_key(RR),
+            match_rr(
+              CacheDb, RRs, Time,
+              ResultRRs#{Key => RR}, InsertRRs, DeleteRRs);
+        true ->
+            %% Valid; return and re-insert with updated cnt time.
+            %% The clause above ensures that the cnt field is changed
+            %% which is essential to not accidentally delete
+            %% a record we also insert.
+            Key = match_rr_key(RR),
+            match_rr(
+              CacheDb, RRs, Time,
+              ResultRRs#{Key => RR},
+              InsertRRs#{Key => RR#dns_rr{cnt = Time}},
+              [RR | DeleteRRs])
     end.
 
-cache_key(#dns_rr{domain = Domain, class = Class, type = Type}) ->
-    {Domain, Class, Type}.
+-compile({inline, [match_rr_key/1]}).
+match_rr_key(
+  #dns_rr{domain = Domain, class = Class, type = Type, data = Data}) ->
+    {Domain, Class, Type, Data}.
 
-%% Lower case the domain name before storage.
+
+%% Lowercase the domain name before storage.
 %%
 lower_rr(#dns_rr{domain=Domain}=RR) when is_list(Domain) ->
     RR#dns_rr { domain = tolower(Domain) };
@@ -1657,7 +1733,7 @@ lower_rr(RR) -> RR.
 %% Case fold upper-case to lower-case according to RFC 4343
 %% "Domain Name System (DNS) Case Insensitivity Clarification".
 %%
-%% NOTE: this code is in kernel and we don't want to relay
+%% NOTE: this code is in kernel and we don't want to rely
 %% to much on stdlib. Furthermore string:to_lower/1
 %% does not follow RFC 4343.
 %%
@@ -1726,26 +1802,20 @@ cache_refresh() ->
 %% in the cache.
 do_refresh_cache(CacheDb) ->
     Now = times(),
-    true = ets:safe_fixtable(CacheDb, true),
-    Res = do_refresh_cache(ets:first(CacheDb), CacheDb, Now, Now),
-    true = ets:safe_fixtable(CacheDb, false),
-    Res.
+    [OldestT | RRsToDelete] =
+        ets:foldl(
+          fun (#dns_rr{tm = TM, ttl = TTL} = RR, [T | RRs])
+                when TM + TTL < Now -> % Expired - delete it
+                  [T, RR | RRs];
+              (#dns_rr{cnt = C}, [T | RRs])
+                when C < T -> % Older than previously oldest - use this cnt
+                  [C | RRs];
+              (#dns_rr{}, T_RRs) -> % Keep - do not delete
+                  T_RRs
+          end, [Now], CacheDb),
+    _ = [ets:delete_object(CacheDb, RR) || RR <- RRsToDelete],
+    OldestT.
 
-do_refresh_cache('$end_of_table', _, _, OldestT) ->
-    OldestT;
-do_refresh_cache(Key, CacheDb, Now, OldestT) ->
-    Next = ets:next(CacheDb, Key),
-    OldT =
-        case ets:lookup(CacheDb, Key) of
-	    [{_,RR,_}] when RR#dns_rr.tm + RR#dns_rr.ttl < Now ->
-		ets:delete(CacheDb, Key),
-		OldestT;
-	     [{_,#dns_rr{},C}] when C < OldestT ->
-		C;
-	     _ ->
-		OldestT
-	end,
-    do_refresh_cache(Next, CacheDb, Now, OldT).
 
 %% -------------------------------------------------------------------
 %% Allocate room for a new entry in the cache.
@@ -1783,28 +1853,26 @@ delete_n_oldest(CacheDb, TM, OldestTM, N) ->
 
 %% Delete entries with latest access time older than TM.
 %% Delete max N number of entries.
-%% Returns the number of deleted entries.
+%% Return the number of deleted entries.
+%%
 delete_older(CacheDb, TM, N) ->
-    true = ets:safe_fixtable(CacheDb, true),
-    Res = delete_older(ets:first(CacheDb), CacheDb, TM, N, 0),
-    true = ets:safe_fixtable(CacheDb, false),
-    Res.
+    RRsToDelete =
+        ets:foldl(
+          fun (#dns_rr{cnt = C} = RR, RRs)
+              when C =< TM -> % Candidate for deletion
+                  [RR | RRs];
+              (#dns_rr{}, RRs) ->
+                  RRs
+          end, [], CacheDb),
+    N - delete_older_n(CacheDb, lists:keysort(#dns_rr.cnt, RRsToDelete), N).
 
-delete_older('$end_of_table', _, _, _, M) ->
-    M;
-delete_older(_, _, _, M, M) ->
-    M;
-delete_older(Key, CacheDb, TM, N, M) ->
-    Next = ets:next(CacheDb, Key),
-    M1 =
-	case ets:lookup(CacheDb, Key) of
-	    [{_,_,Cnt}] when Cnt =< TM ->
-		ets:delete(CacheDb, Key),
-		M + 1;
-	    _ ->
-		M
-	  end,
-    delete_older(Next, CacheDb, TM, N, M1).
+delete_older_n(_CacheDb, RRs, 0) when is_list(RRs) ->
+    0;
+delete_older_n(_CacheDb, [], N) ->
+    N;
+delete_older_n(CacheDb, [RR | RRs], N) ->
+    ets:delete_object(CacheDb, RR),
+    delete_older_n(CacheDb, RRs, N - 1).
 
 
 %% as lists:delete/2, but delete all exact matches
