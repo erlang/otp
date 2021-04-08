@@ -34,18 +34,26 @@ init_per_suite(Config) ->
         false ->
             {skip, "perf not found"};
         _Perf ->
-            DataFile = filename:join(
-                         proplists:get_value(priv_dir, Config),
-                         "init_test.data"),
-            Cmd = "perf record -q -o " ++ DataFile ++ " ls",
-            os:cmd(Cmd),
-            Script = os:cmd("perf script -i " ++ DataFile),
-            ct:log("~ts",[Script]),
-            case re:run(Script, "^\\W+ls",[multiline]) of
-                {match, _} ->
-                    [{sobefore,get_tmp_so_files()}|Config];
-                nomatch ->
-                    {skip, "could not run `"++ Cmd ++"`"}
+            PerfVsn = os:cmd("perf version"),
+            {match,[Vsn]} = re:run(PerfVsn, "perf version ([^.])",
+                                   [{capture,all_but_first,list}]),
+            case list_to_integer(Vsn) >= 5 of
+                true ->
+                    DataFile = filename:join(
+                                 proplists:get_value(priv_dir, Config),
+                                 "init_test.data"),
+                    Cmd = "perf record -q -o " ++ DataFile ++ " ls",
+                    os:cmd(Cmd),
+                    Script = os:cmd("perf script -i " ++ DataFile),
+                    ct:log("~ts",[Script]),
+                    case re:run(Script, "^\\W+ls",[multiline]) of
+                        {match, _} ->
+                            [{sobefore,get_tmp_so_files()}|Config];
+                        nomatch ->
+                            {skip, "could not run `"++ Cmd ++"`"}
+                    end;
+                false ->
+                    {skip,"too old perf version: " ++ PerfVsn}
             end
     end.
 
@@ -81,7 +89,7 @@ symbols(Config) ->
             ct:log("Found these symbols: ~p",[lists:usort(Matches)]),
             ok;
         nomatch ->
-            ct:log("Did not find lists:seq symbol in:~n~ts",[Script])
+            ct:fail("Did not find lists:seq symbol in:~n~ts",[Script])
     end.
     
 annotate(Config) ->
@@ -96,20 +104,17 @@ annotate(Config) ->
     %% from $lists:seq_loop/3 to lists:seq_loop/3. I don't know why that
     %% is, seems like a very odd bug in perf... so we only include it
     %% in our match if it exists
-    case re:run(Script,"\\$?lists:seq[^/]+/[0-9]",[global,{capture,first,list}]) of
-        {match,Symbols} ->
-            [Symbol|_] = lists:usort(Symbols),
-            JitFile = DataFile ++ ".jit.data",
-            "" = os:cmd("perf inject -j -i " ++ DataFile ++ " -o " ++ JitFile),
-            Anno = os:cmd("perf annotate --stdio -i " ++ JitFile ++ " " ++ Symbol ++ ""),
-            case re:run(Anno,"Disassembly of section .text:") of
-                {match,_} ->
-                    ok;
-                nomatch ->
-                    ct:log("Did not find disassembly test for ~ts.~n~ts",
-                           [Symbol, Anno])
-            end;
+    {match, Symbols} = re:run(Script, "\\$?lists:seq[^/]+/[0-9]+",
+                              [global,{capture,first,list}]),
+    [Symbol|_] = lists:usort(Symbols),
+    JitFile = DataFile ++ ".jit.data",
+    "" = os:cmd("perf inject -j -i " ++ DataFile ++ " -o " ++ JitFile),
+    Anno = os:cmd("perf annotate --stdio -i " ++ JitFile ++ " " ++ Symbol ++ ""),
+    case re:run(Anno,"Disassembly of section .text:") of
+        {match,_} ->
+            ok;
         nomatch ->
-            {skip,"No symbol found"}
+            ct:log("Did not find disassembly test for ~ts.~n~ts",
+                   [Symbol, Anno])
     end.
     
