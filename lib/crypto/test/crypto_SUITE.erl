@@ -1268,7 +1268,7 @@ cipher_info_prop_aead_attr(Config) when is_list(Config) ->
     NonAeadCiphers = [aes_ige256, blowfish_cbc, blowfish_cfb64],
     case lists:foldl(fun(C,Ok) ->
                         case crypto:cipher_info(C) of
-                            #{aead := false} ->
+                            #{prop_aead := false} ->
                                 true and Ok;
                             _ ->
                                 false
