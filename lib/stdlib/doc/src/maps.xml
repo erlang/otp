@@ -73,7 +73,7 @@
     </func>
 
     <func>
-      <name name="filtermap" arity="2" since=""/>
+      <name name="filtermap" arity="2" since="OTP 24.0"/>
       <fsummary>Filter and map a map.</fsummary>
       <desc>
         <p>Returns a map <c><anno>Map</anno></c> that is the result of calling

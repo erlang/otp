@@ -138,7 +138,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="from_map" arity="1" since=""/>
+      <name name="from_map" arity="1" since="OTP 24.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Converts the map <c><anno>Map</anno></c> to a property list.</p>
@@ -373,7 +373,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
     </func>
 
     <func>
-      <name name="to_map" arity="1" since=""/>
+      <name name="to_map" arity="1" since="OTP 24.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Converts the property list <c><anno>List</anno></c> to a map.</p>
@@ -397,7 +397,7 @@ to_map([a, {b, 1}, {c, 2}, {c, 3}])</code>
     </func>
 
     <func>
-      <name name="to_map" arity="2" since=""/>
+      <name name="to_map" arity="2" since="OTP 24.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Converts the property list <c><anno>List</anno></c> to a map after
