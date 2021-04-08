@@ -186,6 +186,9 @@ set_env(char *key, char *value)
     efree(str);
 #endif
 #endif
+    /* codechecker_intentional [Malloc] we may leak str if we don't
+       have copying putenv but that is fine since we only have a
+       constant amount of environment variables */
 }
 
 static void
@@ -892,6 +895,8 @@ find_executable(char* progname)
             struct stat s;
             if (stat(real_name, &s) == 0 && s.st_mode & S_IFREG) {
                 return real_name;
+            } else {
+                free(real_name);
             }
         }
     } while (*path++ == ':');
@@ -908,7 +913,11 @@ safe_realpath(char* file)
      * Solaris.
      */
     char* real_name = emalloc(PATH_MAX + 1);
-    return realpath(file, real_name);
+    char* result = realpath(file, real_name);
+    if (result != real_name) {
+        free(real_name);
+    }
+    return result;
 }
 #endif
 

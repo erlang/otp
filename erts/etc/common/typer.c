@@ -163,6 +163,7 @@ main(int argc, char** argv)
     eargv = eargv_base;
     eargc = 0;
     push_words(emulator);
+    free(emulator);
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
@@ -410,7 +411,7 @@ get_default_emulator(char* progname)
     char* s;
 
     if (strlen(progname) >= sizeof(sbuf))
-        return ERL_NAME;
+        return strsave(ERL_NAME);
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
@@ -421,7 +422,7 @@ get_default_emulator(char* progname)
 	    break;
 	}
     }
-    return ERL_NAME;
+    return strsave(ERL_NAME);
 }
 
 #ifdef __WIN32__

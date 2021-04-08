@@ -1878,7 +1878,8 @@ static int worker_loop(void)
 		DEBUGF(5,("getnameinfo returned %d", error_num));
 		if (error_num) {
 		    error_num = map_netdb_error_ai(error_num);
-		    sa = NULL;
+                    FREE(sa);
+                    sa = NULL;
 		}
 #elif defined(HAVE_GETIPNODEBYADDR) /*#ifdef HAVE_GETNAMEINFO*/
 		struct in6_addr ia;
@@ -1980,10 +1981,10 @@ static int worker_loop(void)
     }
     close_mesq(readfrom);
     close_mesq(writeto);
+#endif
     if (reply) {
 	FREE(reply);
     }
-#endif
     return 1;
 }
 

@@ -224,14 +224,14 @@ static void destroy(struct gdb_reader_funcs *self){
 
 struct gdb_reader_funcs *gdb_init_reader(void){
     struct gdb_reader_funcs *funcs = malloc(sizeof(struct gdb_reader_funcs));
-    priv *priv = malloc(sizeof(priv));
-    priv->num_ranges = 1;
-    priv->ranges = malloc(sizeof(range));
-    priv->ranges[0].start = 0;
-    priv->ranges[0].end = 0;
+    priv *priv_data = malloc(sizeof(priv));
+    priv_data->num_ranges = 1;
+    priv_data->ranges = malloc(sizeof(range));
+    priv_data->ranges[0].start = 0;
+    priv_data->ranges[0].end = 0;
 
     funcs->reader_version = GDB_READER_INTERFACE_VERSION;
-    funcs->priv_data = priv;
+    funcs->priv_data = priv_data;
 
     funcs->read = read_debug_info;
     funcs->unwind = unwind;

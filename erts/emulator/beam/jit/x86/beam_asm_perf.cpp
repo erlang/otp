@@ -71,24 +71,6 @@ class JitPerfDump {
         Uint64 timestamp;
     };
 
-    struct JitCodeLoadRecord {
-        RecordHeader header;
-        Uint32 pid;
-        Uint32 tid;
-        Uint64 vma;
-        Uint64 code_addr;
-        Uint64 code_size;
-        Uint64 code_index;
-        /* Null terminated M:F/A */
-        /* Native code */
-
-        JitCodeLoadRecord() {
-            header.id = JIT_CODE_LOAD;
-            pid = getpid();
-            tid = erts_thr_self();
-        }
-    };
-
 public:
     bool init() {
         char name[MAXPATHLEN];
@@ -137,7 +119,21 @@ public:
 
     void update_perf_info(std::string modulename,
                           std::vector<BeamAssembler::AsmRange> &ranges) {
+        struct JitCodeLoadRecord {
+            RecordHeader header;
+            Uint32 pid;
+            Uint32 tid;
+            Uint64 vma;
+            Uint64 code_addr;
+            Uint64 code_size;
+            Uint64 code_index;
+            /* Null terminated M:F/A */
+            /* Native code */
+        };
         JitCodeLoadRecord record;
+        record.header.id = JIT_CODE_LOAD;
+        record.pid = getpid();
+        record.tid = erts_thr_self();
         for (BeamAssembler::AsmRange &r : ranges) {
             size_t nameLen = r.name.size();
             ptrdiff_t codeSize = (char *)r.stop - (char *)r.start;

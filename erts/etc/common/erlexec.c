@@ -574,7 +574,7 @@ int main(int argc, char **argv)
             in_index = bindir_slug_index + bindir_slug_length;
             out_index += block_length;
         }
-
+        efree((void*)bindir_slug);
         strcpy(out_index, in_index);
     }
 
@@ -1041,6 +1041,8 @@ int main(int argc, char **argv)
 	}
     }
 
+    efree(emu_name);
+
     if (process_args) {
 	ADD_BOOT_CONFIG;
     }
@@ -1198,7 +1200,9 @@ int main(int argc, char **argv)
                         if (flavor == NULL) {
                             flavor = type;
                         } else {
-                            currbuff += sprintf(currbuff,"-emu_type %s ", strndup(type,flavor - type));
+                            char* emu_type = strndup(type,flavor - type);
+                            currbuff += sprintf(currbuff,"-emu_type %s ", emu_type);
+                            free(emu_type);
                             flavor++;
                         }
                         currbuff += sprintf(currbuff,"-emu_flavor %s", flavor);
