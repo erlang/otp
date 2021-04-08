@@ -28,3 +28,10 @@
       </p>
     </section>
  
+    <section>
+      <title>?NO_APP macro</title>
+      <p>
+        The ?NO_APP macro in the edoc include file <c>edoc_doclet.hrl</c> has
+        been deprecated.
+      </p>
+    </section>
