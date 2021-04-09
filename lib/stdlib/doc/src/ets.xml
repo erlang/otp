@@ -1681,7 +1681,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
           the match specification the object is not considered a match and is
           therefore not counted.</p>
         <p>This function can be described as a
-          <seemfa marker="#match_delete/2"><c>match_delete/2</c></seemfa>
+          <seemfa marker="#select_delete/2"><c>select_delete/2</c></seemfa>
           function that does not delete any elements, but only counts them.</p>
         <p>The function returns the number of objects matched.</p>
       </desc>
