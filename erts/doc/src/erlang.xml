@@ -11715,6 +11715,12 @@ improper_end</pre>
               <item>The total size of binaries allowed in the virtual
                 old heap in the process before doing a garbage
                 collection.</item>
+              <tag><c>wordsize</c></tag>
+              <item>For the <c>gc_minor_start</c> event it is the size
+              of the need that triggered the GC. For the corresponding
+              <c>gc_minor_end</c> event it is the size of reclaimed
+              memory = start <c>heap_size</c> - end
+              <c>heap_size</c>.</item>
             </taglist>
             <p>All sizes are in words.</p>
           </item>
