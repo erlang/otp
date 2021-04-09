@@ -72,6 +72,7 @@ def process_info(proc):
     print('  Pid: %s' % eterm(proc.GetChildMemberWithName('common').GetChildMemberWithName('id')))
     print('  State: %s' % process_state(proc))
     print('  Flags: %s' % process_flags(proc))
+    print_process_reg_name(proc)
     current = proc.GetChildMemberWithName('current')
     if current.unsigned != 0 and proc.GetChildMemberWithName('state').GetChildMemberWithName('counter').unsigned & 0x800 == 0:
         print('  Current function: %s' % mfa(current))
@@ -83,6 +84,14 @@ def process_info(proc):
     else:
         print('  I: %s' % 'unknown')
     print('  Pointer: %#x' % proc.unsigned)
+
+def print_process_reg_name(proc):
+    state = proc.GetChildMemberWithName('state').unsigned
+    if (state & 0x800) == 0:
+        # Not exiting.
+        reg = proc.GetChildMemberWithName('common').GetChildMemberWithName('u').GetChildMemberWithName('alive').GetChildMemberWithName('reg')
+        if reg.unsigned != 0:
+            print('  Registered name: %s' % eterm(reg.GetChildMemberWithName('name')))
 
 def process_state(proc):
     state = proc.GetChildMemberWithName('state').unsigned
