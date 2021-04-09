@@ -1360,7 +1360,8 @@ rand_seed_nif(_Seed) -> ?nif_stub.
                  when Algorithm :: pk_sign_verify_algs(),
                       DigestType :: rsa_digest_type()
                                   | dss_digest_type()
-                                  | ecdsa_digest_type(),
+                                  | ecdsa_digest_type()
+                                  | none,
                       Msg :: iodata() | {digest,iodata()},
                       Key :: rsa_private()
                            | dss_private()
@@ -1426,7 +1427,8 @@ verify(Algorithm, Type, Data, Signature, Key) ->
                    when Algorithm :: pk_sign_verify_algs(),
                         DigestType :: rsa_digest_type()
                                     | dss_digest_type()
-                                    | ecdsa_digest_type(),
+                                    | ecdsa_digest_type()
+                                    | none,
                         Msg :: iodata() | {digest,iodata()},
                         Signature :: binary(),
                         Key :: rsa_public()
