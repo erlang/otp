@@ -291,7 +291,7 @@ der_decode(Asn1Type, Der) when (((Asn1Type == 'PrivateKeyInfo')
 	der_priv_key_decode(Decoded)
     catch
 	error:{badmatch, {error, _}} = Error ->
-	    erlang:error(Error)
+            handle_pkcs_frame_error(Asn1Type, Der, Error)
     end;
 
 der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
@@ -303,6 +303,17 @@ der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
 	    erlang:error(Error)
     end.
 
+handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
+    try
+	{ok, Decoded} = 'PKCS-FRAME':decode('OneAsymmetricKey', Der),
+	der_priv_key_decode(Decoded)
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+handle_pkcs_frame_error(_, _, Error) ->
+    erlang:error(Error).
+
 der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'id-ecPublicKey', {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
 	EcPrivKey = der_decode('ECPrivateKey', PrivKey),
@@ -312,6 +323,13 @@ der_priv_key_decode({'PrivateKeyInfo', v1,
       CurveOId == ?'id-Ed25519'orelse
       CurveOId == ?'id-Ed448' ->
     #'ECPrivateKey'{version = 1, parameters = {namedCurve, CurveOId}, privateKey = PrivKey};
+der_priv_key_decode({'OneAsymmetricKey', _,
+                     {'OneAsymmetricKey_privateKeyAlgorithm', CurveOId, _}, PrivKey, Attr, PubKey}) when
+      CurveOId == ?'id-Ed25519'orelse
+      CurveOId == ?'id-Ed448' ->
+    #'ECPrivateKey'{version = 2, parameters = {namedCurve, CurveOId}, privateKey = PrivKey,
+                    attributes = Attr,
+                    publicKey = PubKey};
 der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', _}, PrivKey, _}) ->
 	der_decode('RSAPrivateKey', PrivKey);
@@ -351,10 +369,10 @@ der_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
 der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
     der_encode('PrivateKeyInfo',
                {'PrivateKeyInfo', v1,
-                {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
+                {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS',
                  {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}},
                 der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
-der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = {namedCurve, CurveOId} = Parameters,
+der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
                                              privateKey = PrivKey}) when
       CurveOId == ?'id-Ed25519' orelse
       CurveOId == ?'id-Ed448' ->
@@ -369,7 +387,19 @@ der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey)
                  {asn1_OPENTYPE, der_encode('EcpkParameters', Parameters)}},
                 der_encode('ECPrivateKey', PrivKey#'ECPrivateKey'{parameters = asn1_NOVALUE}), 
                 asn1_NOVALUE});
-der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') or
+der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
+                                               privateKey = PrivKey,
+                                               attributes = Attr,
+                                               publicKey = PubKey}) ->
+    der_encode('OneAsymmetricKey',
+               {'OneAsymmetricKey', 1,
+		{'OneAsymmetricKey_privateKeyAlgorithm', CurveOId, asn1_NOVALUE},
+                PrivKey,
+                Attr,
+                PubKey
+               });
+der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') orelse
+                                  (Asn1Type == 'OneAsymmetricKey') orelse
 				  (Asn1Type == 'EncryptedPrivateKeyInfo') ->
      try
          {ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
