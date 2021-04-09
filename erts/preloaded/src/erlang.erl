@@ -2359,6 +2359,9 @@ open_port(PortName, PortSettings) ->
                   (error_handler, Module) -> OldModule when
       Module :: atom(),
       OldModule :: atom();
+                  (fullsweep_after, FullsweepAfter) -> OldFullsweepAfter when
+      FullsweepAfter :: non_neg_integer(),
+      OldFullsweepAfter :: non_neg_integer();
                   (min_heap_size, MinHeapSize) -> OldMinHeapSize when
       MinHeapSize :: non_neg_integer(),
       OldMinHeapSize :: non_neg_integer();
