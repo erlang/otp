@@ -1193,7 +1193,7 @@ handle_cast(_Msg, State) ->
 -spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info(refresh_timeout, State) ->
-    do_refresh_cache(State#state.cache),
+    _ = delete_expired(State#state.cache, times()),
     {noreply, State#state{cache_timer = init_timer()}};
 
 handle_info(_Info, State) ->
@@ -1598,7 +1598,7 @@ is_reqname(clear_cache) -> true;
 is_reqname(clear_hosts) -> true;
 is_reqname(_) -> false.
 
-%% Add a resource record to the cache if there is space left.
+%% Add a resource record to the cache if there is a cache.
 %% If the cache is full this function first deletes old entries,
 %% i.e. entries with the oldest access time.
 %%
@@ -1643,7 +1643,20 @@ times() ->
 
 %% ETS match expressions
 %%
--compile({inline, [dns_rr_match/3, dns_rr_match/4]}).
+-compile(
+   {inline,
+    [dns_rr_match_tm_ttl_cnt/3, dns_rr_match_cnt/1,
+     dns_rr_match/3, dns_rr_match/4]}).
+%%
+dns_rr_match_tm_ttl_cnt(TM, TTL, Cnt) ->
+    #dns_rr{
+       domain = '_', class = '_', type = '_', data = '_',
+       cnt = Cnt, tm = TM, ttl = TTL, bm = '_', func = '_'}.
+dns_rr_match_cnt(Cnt) ->
+    #dns_rr{
+       domain = '_', class = '_', type = '_', data = '_',
+       cnt = Cnt, tm = '_', ttl = '_', bm = '_', func = '_'}.
+%%
 dns_rr_match(Domain, Class, Type) ->
     #dns_rr{
        domain = Domain, class = Class, type = Type, data = '_',
@@ -1656,6 +1669,7 @@ dns_rr_match(Domain, Class, Type, Data) ->
 
 %% RR creation
 -compile({inline, [dns_rr_add/5]}).
+%%
 dns_rr_add(Domain, Class, Type, TTL, Data) ->
     #dns_rr{
        domain = Domain, class = Class, type = Type,
@@ -1798,81 +1812,98 @@ cache_refresh() ->
     end.
 
 %% Delete all entries with expired TTL.
-%% Returns the access time of the entry with the oldest access time
-%% in the cache.
-do_refresh_cache(CacheDb) ->
-    Now = times(),
-    [OldestT | RRsToDelete] =
-        ets:foldl(
-          fun (#dns_rr{tm = TM, ttl = TTL} = RR, [T | RRs])
-                when TM + TTL < Now -> % Expired - delete it
-                  [T, RR | RRs];
-              (#dns_rr{cnt = C}, [T | RRs])
-                when C < T -> % Older than previously oldest - use this cnt
-                  [C | RRs];
-              (#dns_rr{}, T_RRs) -> % Keep - do not delete
-                  T_RRs
-          end, [Now], CacheDb),
-    _ = [ets:delete_object(CacheDb, RR) || RR <- RRsToDelete],
-    OldestT.
+%% Returns the number of deleted entries.
+%%
+delete_expired(CacheDb, TM) ->
+    ets:select_delete(
+      CacheDb,
+      [{dns_rr_match_tm_ttl_cnt('$1', '$2', '_'), [],
+        %% Delete all with tm + ttl < TM
+        [{'<', {'+', '$1', '$2'}, {const, TM}}]}]).
 
 
 %% -------------------------------------------------------------------
 %% Allocate room for a new entry in the cache.
+%%
 %% Deletes entries with expired TTL and all entries with latest
-%% access time older than
-%% trunc((TM - OldestTM) * 0.3) + OldestTM from the cache if it
-%% is full. Does not delete more than 10% of the entries in the cache
+%% access time older than trunc((TM - OldestTM) / 3) + OldestTM
+%% from the cache if it is full.
+%%
+%% Does not delete more than 1/10 of the entries in the cache
 %% though, unless they there deleted due to expired TTL.
-%% Returns: true if space for a new entry otherwise false.
+%% Returns: true if space for a new entry otherwise false
+%% (true if we have a cache since we always make room for new).
 %% -------------------------------------------------------------------
 alloc_entry(Db, CacheDb, TM) ->
-    CurSize = ets:info(CacheDb, size),
-    case ets:lookup_element(Db, cache_size, 2) of
-	Size when Size =< CurSize, Size > 0 ->
-	    alloc_entry(CacheDb, CurSize, TM, trunc(Size * 0.1) + 1);
-	Size when Size =< 0 ->
+    Size = ets:lookup_element(Db, cache_size, 2),
+    if
+	Size =< 0 ->
 	    false;
-	_Size ->
-	    true
+        true ->
+            CurSize = ets:info(CacheDb, size),
+            if
+                Size =< CurSize ->
+                    N = ((Size - 1) div 10) + 1,
+                    _ = delete_oldest(CacheDb, TM, N),
+                    true;
+                true ->
+                    true
+            end
     end.
 
-alloc_entry(CacheDb, OldSize, TM, N) ->
-    OldestTM = do_refresh_cache(CacheDb),     % Delete timedout entries
-    case ets:info(CacheDb, size) of
-	OldSize ->
-	    %% No entrys timedout
-	    delete_n_oldest(CacheDb, TM, OldestTM, N);
-	_ ->
-	    true
-    end.
-
-delete_n_oldest(CacheDb, TM, OldestTM, N) ->
-    DelTM = trunc((TM - OldestTM) * 0.3) + OldestTM,
-    delete_older(CacheDb, DelTM, N) =/= 0.
-
-%% Delete entries with latest access time older than TM.
-%% Delete max N number of entries.
-%% Return the number of deleted entries.
+%% This deletion should always give some room since
+%% it removes a percentage of the oldest entries.
 %%
-delete_older(CacheDb, TM, N) ->
-    RRsToDelete =
-        ets:foldl(
-          fun (#dns_rr{cnt = C} = RR, RRs)
-              when C =< TM -> % Candidate for deletion
-                  [RR | RRs];
-              (#dns_rr{}, RRs) ->
-                  RRs
-          end, [], CacheDb),
-    N - delete_older_n(CacheDb, lists:keysort(#dns_rr.cnt, RRsToDelete), N).
-
-delete_older_n(_CacheDb, RRs, 0) when is_list(RRs) ->
-    0;
-delete_older_n(_CacheDb, [], N) ->
-    N;
-delete_older_n(CacheDb, [RR | RRs], N) ->
-    ets:delete_object(CacheDb, RR),
-    delete_older_n(CacheDb, RRs, N - 1).
+%% Fetch all cnt times, sort them, calculate a limit
+%% as the earliest of the time 1/3 from the oldest to now,
+%% and the 1/10 oldest entry,.
+%%
+%% Delete all entries with a cnt time older than that,
+%% and all expired (tm + ttl < now).
+%%
+delete_oldest(CacheDb, TM, N) ->
+    case
+        lists:sort(
+          ets:select(
+            CacheDb,
+            %% All cnt vals
+            [{dns_rr_match_cnt('$1'), [], ['$1']}]))
+        %% That could be space optimized by using ets:select/3
+        %% with a limit, and storing the returned times in
+        %% gb_sets with size limitation of N.  Then we would
+        %% never have to sort the whole list and find
+        %% the N:th element, but instead take the smallest
+        %% and largest elements from gb_sets.
+        %%
+        %% The size of the whole list is, however, already
+        %% much smaller than all table entries, so is is
+        %% unclear how much of an improvement that would be.
+        %%
+        %% Note that since gb_sets does not store duplicate
+        %% times, that will not work nicely if there are
+        %% many duplicate times, which is not unlikely
+        %% given the second resolution.  Therefore it is
+        %% possible that gb_trees and storing the number
+        %% of occurences for a cnt time might be needed,
+        %% so insertion gets more complicated and slower,
+        %% and we need our own concept of set size.
+        %%
+    of
+        [] -> % Empty table, this should not happen,
+            0;
+        [OldestTM | _] = TMs ->
+            DelTM_A = ((TM - OldestTM) div 3) + OldestTM,
+            DelTM_B = lists_nth(N, TMs, DelTM_A), % N:th cnt time
+            DelTM = min(DelTM_A, DelTM_B),
+            %%
+            ets:select_delete(
+              CacheDb,
+              [{dns_rr_match_tm_ttl_cnt('$1', '$2', '$3'), [],
+                %% RRs with cnt =< DelTM or tm + ttl < TM
+                [{'orelse',
+                  {'=<', '$3', {const, DelTM}},
+                  {'<', {'+', '$1', '$2'}, {const, TM}}}]}])
+    end.
 
 
 %% as lists:delete/2, but delete all exact matches
@@ -1893,3 +1924,13 @@ lists_keydelete(K, N, [T|Ts]) when element(N, T) =:= K ->
     lists_keydelete(K, N, Ts);
 lists_keydelete(K, N, [X|Ts]) ->
     [X|lists_keydelete(K, N, Ts)].
+
+%% as lists:nth/2 but return Default for out of bounds
+lists_nth(0, List, Default) when is_list(List) ->
+    Default;
+lists_nth(1, [H | _], _Default) ->
+    H;
+lists_nth(_N, [], Default) ->
+    Default;
+lists_nth(N, [_ | T], Default) ->
+    lists_nth(N - 1, T, Default).
