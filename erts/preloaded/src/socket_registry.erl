@@ -66,6 +66,8 @@
 -type esock_monitor() :: #esock_monitor{}.
 -type esock_info()    :: #esock_info{}.
 
+-define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
 
 %% =========================================================================
 
@@ -101,6 +103,7 @@ monitor(Socket) ->
     end.
 
 demonitor(MRef) ->
+    %% ?DBG(MRef),
     case request({demonitor, MRef}) of
 	ok ->
 	    ok;
@@ -200,6 +203,7 @@ handle_request(State, {monitor, Socket}, From) ->
     do_monitor_socket(State, Socket, From);
 
 handle_request(State, {demonitor, MRef}, From) ->
+    %% ?DBG({demonitor, MRef, From}),
     do_demonitor_socket(State, MRef, From);
 
 handle_request(State, BadRequest, _From) ->
@@ -319,10 +323,12 @@ do_monitor_socket(#state{db   = DB,
 do_demonitor_socket(#state{db = DB, xref = XRefs} = State, MRef, From) ->
     case xref_mref_lookup(XRefs, MRef) of
 	{value, #esock_xref{sock = Sock}} ->
+	    %% ?DBG({xref, Sock}),
 	    %% So far so good
-	    case db_sock_lookup(Sock, DB) of
+	    case db_sock_lookup(DB, Sock) of
 		%% So faar so goood
 		{value, #esock_info{mons = Mons} = SI} ->
+		    %% ?DBG({mons, Mons}),
 		    Mons2  = mons_pid_delete(Mons, From),
 		    SI2    = SI#esock_info{mons = Mons2},
 		    DB2    = db_sock_replace(DB, Sock, SI2),
@@ -347,11 +353,11 @@ do_demonitor_socket(#state{db = DB, xref = XRefs} = State, MRef, From) ->
 
 %% --- XRef utility functions ---
 
-xref_sock_delete(XRefs, Sock) ->
+xref_sock_delete(XRefs, Sock) when is_list(XRefs) ->
     xref_delete(XRefs, #esock_xref.sock, Sock).
 
-xref_mref_delete(XRefs, Sock) ->
-    xref_delete(XRefs, #esock_xref.mref, Sock).
+xref_mref_delete(XRefs, MRef) when is_list(XRefs) andalso is_reference(MRef) ->
+    xref_delete(XRefs, #esock_xref.mref, MRef).
 
 xref_delete([] = XRefs, _Pos, _Key) ->
     XRefs;
@@ -364,7 +370,7 @@ xref_delete(XRefs, Pos, Key) ->
     end.
 
 
-xref_mref_lookup(XRefs, MRef) ->
+xref_mref_lookup(XRefs, MRef) when is_list(XRefs) andalso is_reference(MRef) ->
     xref_lookup(XRefs, #esock_xref.mref, MRef).
 
 xref_lookup(XRefs, Pos, Key) ->
@@ -374,21 +380,21 @@ xref_lookup(XRefs, Pos, Key) ->
 
 %% --- DB utility functions ---
 
-db_sock_lookup(DB, Sock) ->
+db_sock_lookup(DB, Sock) when is_list(DB) ->
     db_lookup(DB, #esock_info.sock, Sock).
 
 db_lookup(DB, Pos, Key) ->
     lists:keysearch(Key, Pos, DB).
 
 
-db_sock_delete(DB, Sock) ->
+db_sock_delete(DB, Sock) when is_list(DB) ->
     db_delete(DB, #esock_info.sock, Sock).
 
 db_delete(DB, Pos, Key) ->
     lists:keydelete(Key, Pos, DB).
 
 
-db_sock_replace(DB, Sock, Info) ->
+db_sock_replace(DB, Sock, Info) when is_list(DB) ->
     db_replace(DB, #esock_info.sock, Sock, Info).
 
 db_replace(DB, Pos, Key, Info) ->
@@ -397,15 +403,15 @@ db_replace(DB, Pos, Key, Info) ->
 
 %% --- Monitors utility functions ---
 
-mons_pid_delete(Mons, Pid) ->
+mons_pid_delete(Mons, Pid) when is_list(Mons) ->
     mons_delete(Mons, #esock_monitor.pid, Pid).
 
 mons_delete(Mons, Pos, Key) ->
     lists:keydelete(Key, Pos, Mons).
 
 
-mons_pid_lookup(Mons, Sock) ->
-    mons_lookup(Mons, #esock_monitor.pid, Sock).
+mons_pid_lookup(Mons, Pid) when is_list(Mons) andalso is_pid(Pid) ->
+    mons_lookup(Mons, #esock_monitor.pid, Pid).
 
 mons_lookup(Mons, Pos, Key) ->
     lists:keysearch(Key, Pos, Mons).
