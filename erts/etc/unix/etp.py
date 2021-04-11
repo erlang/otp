@@ -28,6 +28,7 @@ import lldb
 import shlex
 
 unquoted_atom_re = re.compile(u'^[a-zß-öø-ÿ][a-zA-Zß-öø-ÿ0-9@]*$')
+code_pointers = {}
 
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand('type format add -f hex Eterm')
@@ -44,6 +45,7 @@ def __lldb_init_module(debugger, internal_dict):
 ####################################
 def processes_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = erts_proc(target)
     proc_r_o = proc.GetChildMemberWithName('r').GetChildMemberWithName('o')
     proc_max_ix = proc_r_o.GetChildMemberWithName('max')
@@ -65,6 +67,7 @@ def processes_cmd(debugger, command, result, internal_dict):
 ############################################
 def process_info_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(command).Cast(ProcessPtr(target))
     process_info(proc)
 
@@ -235,6 +238,7 @@ def process_flags(proc):
 ############################################
 def stacktrace_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(command).Cast(ProcessPtr(target))
     stackdump(proc, False)
 
@@ -243,6 +247,7 @@ def stacktrace_cmd(debugger, command, result, internal_dict):
 ############################################
 def stackdump_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(command).Cast(ProcessPtr(target))
     stackdump(proc, True)
 
@@ -268,6 +273,7 @@ def stackdump(proc, dump):
 def eterm_cmd(debugger, command, result, internal_dict):
     args = shlex.split(command)
     target = debugger.GetSelectedTarget()
+    init(target)
     term = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(args[0]).Cast(EtermPtr(target))
     if len(args) >= 2:
         print(eterm(term, int(args[1])))
@@ -431,7 +437,11 @@ def imm(valobj):
 def cp(valobj):
     mfaptr = erts_lookup_function_info(valobj)
     if mfaptr == None:
-        return '#Cp<%#x>' % valobj.unsigned
+        pointer = code_pointers.get(valobj.unsigned)
+        if pointer != None:
+            return '#Cp<%s>' % pointer
+        else:
+            return '#Cp<%#x>' % valobj.unsigned
     else:
         return '#Cp<%s>' % mfa(mfaptr)
 
@@ -648,6 +658,14 @@ def pixdata2data(valobj):
     data |= (pixdata >> pix_cl_shift) & pix_cl_mask
     data |= (pixdata & pix_cli_mask) << pix_cli_shift
     return data
+
+def init(target):
+    names = ['beam_apply', 'beam_normal_exit', 'beam_exit', 'beam_save_calls',
+             'beam_bif_export_trap', 'beam_export_trampoline', 'beam_continue_exit',
+             'beam_return_to_trace', 'beam_return_trace', 'beam_exception_trace',
+             'beam_return_time_trace']
+    for name in names:
+        code_pointers[global_var(name, target).unsigned] = name
 
 # LLDB utils
 
