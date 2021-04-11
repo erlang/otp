@@ -48,7 +48,7 @@ def processes_cmd(debugger, command, result, internal_dict):
     proc_r_o = proc.GetChildMemberWithName('r').GetChildMemberWithName('o')
     proc_max_ix = proc_r_o.GetChildMemberWithName('max')
     proc_tab = proc_r_o.GetChildMemberWithName('tab').Cast(ProcessPtrPtr(target))
-    proc_cnt = proc.GetChildMemberWithName('vola').GetChildMemberWithName('tile').GetChildMemberWithName('count').GetChildMemberWithName('counter').unsigned
+    proc_cnt = atomic_value(proc.GetChildMemberWithName('vola').GetChildMemberWithName('tile').GetChildMemberWithName('count'))
     invalid_proc = global_var('erts_invalid_process', target).address_of
     for proc_ix in range(0, proc_max_ix.unsigned):
         proc = offset(proc_ix, proc_tab).deref
@@ -74,7 +74,7 @@ def process_info(proc):
     print('  Flags: %s' % process_flags(proc))
     print_process_reg_name(proc)
     current = proc.GetChildMemberWithName('current')
-    if current.unsigned != 0 and proc.GetChildMemberWithName('state').GetChildMemberWithName('counter').unsigned & 0x800 == 0:
+    if current.unsigned != 0 and atomic_value(proc.GetChildMemberWithName('state')) & 0x800 == 0:
         print('  Current function: %s' % mfa(current))
     else:
         print('  Current function: %s' % 'unknown')
@@ -250,7 +250,7 @@ def stackdump(proc, dump):
     stop = proc.GetChildMemberWithName('stop')
     send = proc.GetChildMemberWithName('hend')
     cnt = 0
-    if proc.GetChildMemberWithName('state').GetChildMemberWithName('counter').unsigned & 0x8000:
+    if atomic_value(proc.GetChildMemberWithName('state')) & 0x8000:
         print('%%%%%% WARNING: The process is currently running, so c_p->stop will not be correct')
     print(F'%% Stacktrace ({send.unsigned - stop.unsigned})');
     i = proc.GetChildMemberWithName('i')
@@ -618,9 +618,11 @@ def find_range(valobj):
     range_pointer_type = range_type.GetPointerType()
     mid = ranges.GetChildMemberWithName('mid').Cast(range_pointer_type)
     while low.unsigned < high.unsigned:
-        if pc < mid.GetChildMemberWithName('start').unsigned:
+        start = mid.GetChildMemberWithName('start').unsigned
+        end = atomic_value(mid.GetChildMemberWithName('end'))
+        if pc < start:
             high = mid
-        elif pc > mid.GetChildMemberWithName('end').GetChildMemberWithName('counter').unsigned:
+        elif pc > end:
             low = offset(1, mid).Cast(range_pointer_type)
         else:
             return mid
@@ -659,3 +661,10 @@ def offset(i, valobj):
         return val.address_of.Cast(valobj.GetType())
     else:
         return val
+
+def atomic_value(valobj):
+    value = valobj.GetChildMemberWithName('counter')
+    if value.IsValid():
+        return value.unsigned
+    else:
+        return valobj.GetChildMemberWithName('value').unsigned
