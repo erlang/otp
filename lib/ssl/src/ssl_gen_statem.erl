@@ -774,33 +774,9 @@ handle_call({set_opts, Opts0}, From, StateName,
 handle_call(renegotiate, From, StateName, _) when StateName =/= connection ->
     {keep_state_and_data, [{reply, From, {error, already_renegotiating}}]};
 
-handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
-	    #state{connection_states = ConnectionStates,
-		   connection_env = #connection_env{negotiated_version = Version}}) ->
-    #{security_parameters := SecParams} =
-	ssl_record:current_connection_state(ConnectionStates, read),
-    #security_parameters{master_secret = MasterSecret,
-			 client_random = ClientRandom,
-			 server_random = ServerRandom,
-			 prf_algorithm = PRFAlgorithm} = SecParams,
-    Reply = try
-		SecretToUse = case Secret of
-				  _ when is_binary(Secret) -> Secret;
-				  master_secret -> MasterSecret
-			      end,
-		SeedToUse = lists:reverse(
-			      lists:foldl(fun(X, Acc) when is_binary(X) -> [X|Acc];
-					     (client_random, Acc) -> [ClientRandom|Acc];
-					     (server_random, Acc) -> [ServerRandom|Acc]
-					  end, [], Seed)),
-		ssl_handshake:prf(ssl:tls_version(Version), PRFAlgorithm, SecretToUse, Label, SeedToUse, WantedLength)
-	    catch
-		exit:_ -> {error, badarg};
-		error:Reason -> {error, Reason}
-	    end,
-    {keep_state_and_data, [{reply, From, Reply}]};
 handle_call(_,_,_,_) ->
     {keep_state_and_data, [postpone]}.
+
 handle_info({ErrorTag, Socket, econnaborted}, StateName,
 	    #state{static_env = #static_env{role = Role,
                                             host = Host,

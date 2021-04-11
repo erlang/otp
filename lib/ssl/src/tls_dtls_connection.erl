@@ -646,6 +646,8 @@ connection({call, From}, negotiated_protocol,
                                                  negotiated_protocol = undefined}} = State) ->
     ssl_gen_statem:hibernate_after(?FUNCTION_NAME, State,
                                        [{reply, From, {ok, SelectedProtocol}}]);
+connection({call, From}, Msg, State) when element(1, Msg) =:= prf ->
+    handle_call(Msg, From, ?FUNCTION_NAME, State);
 connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static_env{protocol_cb = tls_gen_connection},
                                                             handshake_env = HsEnv,
                                                             connection_states = ConnectionStates}
