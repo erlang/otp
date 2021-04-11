@@ -247,7 +247,8 @@ since_1_2() ->
 pre_1_3() ->
     [
      default_reject_anonymous,
-     connection_information_with_srp
+     connection_information_with_srp,
+     prf
     ].
 
 gen_api_tests() ->
@@ -376,7 +377,7 @@ init_per_testcase(prf, Config) ->
          {sha512, <<145,8,98,38,243,96,42,94,163,33,53,49,241,4,127,28>>},
          %% TLS 1.0 and 1.1 PRF:
          {md5sha, <<63,136,3,217,205,123,200,177,251,211,17,229,132,4,173,80>>}],
-    TestPlan = prf_create_plan([Version], PRFS, ExpectedPrfResults),
+    TestPlan = prf_create_plan(Version, PRFS, ExpectedPrfResults),
     [{prf_test_plan, TestPlan} | Config];
 init_per_testcase(handshake_continue_tls13_client, Config) ->
     case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
@@ -647,18 +648,15 @@ keylog_connection_info(Config, KeepSecrets) ->
 prf() ->
     [{doc,"Test that ssl:prf/5 uses the negotiated PRF."}].
 prf(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
     TestPlan = proplists:get_value(prf_test_plan, Config),
     case TestPlan of
         [] -> ct:fail({error, empty_prf_test_plan});
-        _ -> lists:foreach(fun(Suite) ->
-                                   lists:foreach(
-                                     fun(Test) ->
-                                             V = proplists:get_value(tls_ver, Test),
-                                             C = proplists:get_value(ciphers, Test),
-                                             E = proplists:get_value(expected, Test),
-                                             P = proplists:get_value(prf, Test),
-                                             prf_run_test(Config, V, C, E, P)
-                                     end, Suite)
+        _ -> lists:foreach(fun(Test) ->
+                                   C = proplists:get_value(ciphers, Test),
+                                   E = proplists:get_value(expected, Test),
+                                   P = proplists:get_value(prf, Test),
+                                   prf_run_test(Config, Version, C, E, P)
                            end, TestPlan)
     end.
 
@@ -2653,36 +2651,25 @@ connection_info_result(Socket) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-prf_create_plan(TlsVersions, PRFs, Results) ->
-    lists:foldl(fun(Ver, Acc) ->
-                        A = prf_ciphers_and_expected(Ver, PRFs, Results),
-                        [A|Acc]
-                end, [], TlsVersions).
-
-
-
-prf_ciphers_and_expected(TlsVer, PRFs, Results) ->
-    case TlsVer of
-        TlsVer when TlsVer == tlsv1
-                    orelse TlsVer == 'tlsv1.1' orelse TlsVer == 'dtlsv1' ->
-            Ciphers = ssl:cipher_suites(default, TlsVer),
-            Expected = [Expect#{prf := md5sha} || Expect <- Results],
-            [[{tls_ver, TlsVer}, {ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
-        TlsVer when  TlsVer == 'tlsv1.2' orelse  TlsVer == 'dtlsv1.2'->
-            lists:foldl(
-              fun(PRF, Acc) ->
-                      Ciphers = prf_get_ciphers(TlsVer, PRF),
-                      case Ciphers of
-                          [] ->
-                              ct:log("No ciphers for PRF algorithm ~p. Skipping.", [PRF]),
-                              Acc;
-                          Ciphers ->
-                              Expected = [Expect#{prf := PRF} || Expect <- Results],
-                              [[{tls_ver, TlsVer}, {ciphers, Ciphers}, {expected, Expected},
-                                {prf, PRF}] | Acc]
-                      end
-              end, [], PRFs)
-    end.
+prf_create_plan(TlsVer, _PRFs, Results) when TlsVer == tlsv1
+                                             orelse TlsVer == 'tlsv1.1'
+                                             orelse TlsVer == 'dtlsv1' ->
+    Ciphers = ssl:cipher_suites(default, TlsVer),
+    {_, Expected} = lists:keyfind(md5sha, 1, Results),
+    [[{ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
+prf_create_plan(TlsVer, PRFs, Results) when TlsVer == 'tlsv1.2' orelse TlsVer == 'dtlsv1.2' ->
+    lists:foldl(
+      fun(PRF, Acc) ->
+              Ciphers = prf_get_ciphers(TlsVer, PRF),
+              case Ciphers of
+                  [] ->
+                      ct:log("No ciphers for PRF algorithm ~p. Skipping.", [PRF]),
+                      Acc;
+                  Ciphers ->
+                      {_, Expected} = lists:keyfind(PRF, 1, Results),
+                      [[{ciphers, Ciphers}, {expected, Expected}, {prf, PRF}] | Acc]
+              end
+      end, [], PRFs).
 
 prf_get_ciphers(TlsVer, PRF) ->
     PrfFilter = fun(Value) ->
@@ -2700,8 +2687,8 @@ prf_run_test(_, TlsVer, [], _, Prf) ->
 prf_run_test(Config, TlsVer, Ciphers, Expected, Prf) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     BaseOpts = [{active, true}, {versions, [TlsVer]}, {ciphers, Ciphers}, {protocol, tls_or_dtls(TlsVer)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_opts, Config),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_opts, Config),
+    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
+    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
     Server = ssl_test_lib:start_server(
                [{node, ServerNode}, {port, 0}, {from, self()},
                 {mfa, {?MODULE, prf_verify_value, [TlsVer, Expected, Prf]}},
