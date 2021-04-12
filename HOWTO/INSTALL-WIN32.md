@@ -68,7 +68,7 @@ This is the short story though, for the experienced and impatient:
         <http://www.erlang.org/download.html>) and unpack with `tar`
         to the windows disk for example to: /mnt/c/src/
 
-    *   Install mingw-gcc, make and autoconf: `sudo apt install gcc-mingw-w64 make autoconf`
+    *   Install mingw-gcc, make and autoconf: `sudo apt install g++-mingw-w64 gcc-mingw-w64 make autoconf`
 
     *   `$ cd UNPACK_DIR`
 
@@ -153,22 +153,22 @@ the different tools:
 *   wxWidgets (optional)
     You need this to build wx and use gui's in debugger and observer.
 
-    We recommend v3.1.3 or later.
-    Unpack into `c:/opt/local64/pgm/wxWidgets-3.1.3`
+    We recommend v3.1.4 or later.
+    Unpack into `c:/opt/local64/pgm/wxWidgets-3.1.4`
 
-    If the `wxUSE_POSTSCRIPT` isn't enabled in  `c:/opt/local64/pgm/wxWidgets-3.1.3/include/wx/msw/setup.h`,
+    If the `wxUSE_POSTSCRIPT` isn't enabled in  `c:/opt/local64/pgm/wxWidgets-3.1.4/include/wx/msw/setup.h`,
     enable it.
 
-    We recommend to enable for wxWebView  wxUSE_WEBVIEW_EDGE.
-    Download the WebView2 SDK nuget package (Version 0.9.488 or newer)
-    Extract the package (it's a zip archive) to wxWidgets/3rdparty/webview2 (you should have 3rdparty/webview2/build/native/include/WebView2.h file after unpacking it)
-    Enable wxUSE_WEBVIEW_EDGE in CMake or setup.h
-    After `otp_build release -a` copy WebView2Loader.dll from the subdirectory corresponding to the architecture used (x86 or x64) of wxWidgets/3rdparty/webview2/build/ to your $ERL_TOP/release/win32/erts-*/bin/ directory
+    We recommend to enable for wxWebView wxUSE_WEBVIEW_EDGE.
+    *   Download the nuget package 'Microsoft.Web.WebView2' (Version 0.9.488 or newer)
+    *   Extract the package (it's a zip archive) to wxWidgets/3rdparty/webview2 (you should have 3rdparty/webview2/build/native/include/WebView2.h file after unpacking it)
+    *   Enable wxUSE_WEBVIEW_EDGE in `c:/opt/local64/pgm/wxWidgets-3.1.4/include/wx/msw/setup.h`
+    *   After `otp_build release -a` copy WebView2Loader.dll from the subdirectory corresponding to the architecture used (x86 or x64) of wxWidgets/3rdparty/webview2/build/ to your $ERL_TOP/release/win32/erts-*/bin/ directory
         `cp /mnt/c/opt/local64/pgm/wxWidgets-3.1.4/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-11.1.7/bin/`
 
     Build with:
 
-        C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.1.3\build\msw
+        C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.1.4\build\msw
         C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
     Remove the `TARGET_CPU=amd64` for 32bit build.
