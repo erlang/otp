@@ -328,7 +328,8 @@ get_module_info(Forms, File) ->
 	    exports = ordsets:intersection(Exports, Functions),
 	    attributes = Attributes,
 	    records = Records,
-	    encoding = Encoding}.
+	    encoding = Encoding,
+	    file = File}.
 
 get_list_keyval(Key, L) ->
     case lists:keyfind(Key, 1, L) of
@@ -483,8 +484,18 @@ insert_specs(As, Ss, Mod) ->
     Specs = maps:from_list(SpecList),
     %% Assert that we've not skipped redundant specs for the same {Fun, Arity}.
     %% This should never happen, as such a module would not compile.
-    true = length(SpecList) == maps:size(Specs),
+    case length(SpecList) == maps:size(Specs) of
+	true -> ok;
+	false -> error_redundant_specs(Mod, SpecList, Specs)
+    end,
     insert_specs_(ModName, As, Specs).
+
+error_redundant_specs(Mod, SpecList, Specs) ->
+    [{RedundantMFA, [Form]} | _] = lists:sort(SpecList) -- lists:sort(maps:to_list(Specs)),
+    {_, Line, _, _} = erl_syntax:revert(Form),
+    {_, F, A} = RedundantMFA,
+    edoc_report:error(Line, {Mod#module.file, {F, A}}, "Redundant -spec attribute found. Try setting {preprocess, true}."),
+    erlang:exit({redundant_spec, RedundantMFA}).
 
 insert_specs_(_, [], _) -> [];
 insert_specs_(ModName, [#entry{} = A | As], Specs) ->

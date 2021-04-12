@@ -50,7 +50,8 @@
 		 exports = [],
 		 attributes = [],
 		 records = [],
-		 encoding = latin1}).
+		 encoding = latin1,
+		 file}).
 
 -record(env, {module = [],
 	      root = "",
