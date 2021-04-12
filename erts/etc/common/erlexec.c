@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -185,7 +185,7 @@ static char *plusz_val_switches[] = {
 
 void usage(const char *switchname);
 static void usage_format(char *format, ...);
-void start_epmd(char *epmd);
+void start_epmd_daemon(char *epmd);
 void error(char* format, ...);
 
 /*
@@ -422,6 +422,8 @@ int main(int argc, char **argv)
 				 * of the arguments. */
     int isdistributed = 0;
     int no_epmd = 0;
+    int proto_dist = 0;
+    int start_epmd = 1;         /* Whether epmd should be started */
     int i;
     char* s;
     char *epmd_prog = NULL;
@@ -750,6 +752,19 @@ int main(int argc, char **argv)
 		    } else if (strcmp(argv[i], "-no_epmd") == 0) {
 			add_arg("-no_epmd");
 			no_epmd = 1;
+			start_epmd = 0;
+		    } else {
+			add_arg(argv[i]);
+		    }
+		    break;
+
+		  case 'p':
+		    if (strcmp(argv[i], "-proto_dist") == 0) {
+			NEXT_ARG_CHECK();
+			add_arg(argv[i]);
+			add_arg(argv[i+1]);
+			proto_dist = 1;
+			i++;
 		    } else {
 			add_arg(argv[i]);
 		    }
@@ -783,10 +798,10 @@ int main(int argc, char **argv)
 
 			if (strcmp(argv[i+1], "true") == 0) {
 			    /* The default */
-			    no_epmd = 0;
+			    start_epmd = 1;
 			}
 			else if (strcmp(argv[i+1], "false") == 0) {
-			    no_epmd = 1;
+			    start_epmd = 0;
 			}
 			else
 			    usage_format("Expected boolean argument for \'-start_epmd\'.\n");
@@ -1028,14 +1043,21 @@ int main(int argc, char **argv)
     }
 #undef ADD_BOOT_CONFIG
 
+    /* The default distribution protocol (inet_tcp) relies on epmd,
+       so the -no_epmd option can only work when using an alternative
+       protocol for Erlang distribution. */
+    if (no_epmd && !proto_dist) {
+        error("Missing -proto_dist option, expected when using -no_epmd.");
+    }
+
     /* Doesn't conflict with -extra, since -make skips all the rest of
        the arguments. */
     if (haltAfterwards) {
 	add_args("-s", "erlang", "halt", NULL);
     }
 
-    if (isdistributed && !no_epmd)
-	start_epmd(epmd_prog);
+    if (isdistributed && start_epmd)
+	start_epmd_daemon(epmd_prog);
 
 #if (! defined(__WIN32__)) && defined(DEBUG)
     if (start_detached && get_env("ERL_CONSOLE_MODE")) {
@@ -1251,7 +1273,7 @@ usage_format(char *format, ...)
 }
 
 void
-start_epmd(char *epmd)
+start_epmd_daemon(char *epmd)
 {
     char  epmd_cmd[MAXPATHLEN+100];
 #ifdef __WIN32__
