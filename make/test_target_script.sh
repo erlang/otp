@@ -231,7 +231,6 @@ $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
         -pa "$ERL_TOP/lib/common_test/test_server"\
         ${ARGS}\
         -erl_args\
-        -env "$PATH"\
         -env ERL_CRASH_DUMP "$MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\
         -boot start_sasl\
         -sasl errlog_type error\

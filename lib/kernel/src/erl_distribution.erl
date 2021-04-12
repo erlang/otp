@@ -109,6 +109,10 @@ do_start_link([{Arg,Flag}|T]) ->
             ?LOG_WARNING("Multiple -~p given to erl, using the first, ~p",
                          [Arg, Name]),
 	    start_link([list_to_atom(Name),Flag|ticktime()], true, net_sup);
+        {ok,[Invalid|_]} ->
+            ?LOG_ERROR("Invalid -~p given to erl, ~ts",
+                       [Arg, lists:join(" ",Invalid)]),
+	    do_start_link(T);
 	_ ->
 	    do_start_link(T)
     end;
