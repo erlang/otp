@@ -310,7 +310,14 @@ def cons(valobj, depth = float('inf')):
     improper = False
     truncated = False
     depth *= 20
-    
+
+    ptr = cdr.CreateValueFromData(
+        "unconsed",
+        lldb.SBData.CreateDataFromInt(cdr.unsigned - 1),
+        EtermPtr(cdr.target))
+    if ptr.deref.error.fail:
+        return "#ConsError<%x>" % cdr.unsigned;
+
     while True:
         ptr = cdr.CreateValueFromData(
             "unconsed",
@@ -370,7 +377,10 @@ def boxed(valobj, depth = float('inf')):
         "unboxed",
         lldb.SBData.CreateDataFromInt(valobj.unsigned - 2),
         EtermPtr(valobj.target))
-    boxed_hdr = ptr.deref.unsigned
+    boxed_hdr = ptr.deref
+    if boxed_hdr.error.fail:
+        return "#BoxedError<%x>" % valobj.unsigned;
+    boxed_hdr = boxed_hdr.unsigned
     if boxed_hdr & 0x3f == 0x00:
         arity = (boxed_hdr >> 6)
         terms = []
