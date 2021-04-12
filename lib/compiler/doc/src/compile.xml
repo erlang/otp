@@ -363,7 +363,7 @@ module.beam: module.erl \
             since R13B04.</p>
           </item>
 
-	  <tag><c>error_location</c></tag>
+	  <tag><c>{error_location,line | column}</c></tag>
 	  <item>
             <p>If the value of this flag is <c>line</c>, the location
             <seeerl marker="#error_information"><c>ErrorLocation</c></seeerl>

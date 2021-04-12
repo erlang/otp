@@ -1049,7 +1049,10 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
     end.
 
 with_columns(Opts) ->
-    proplists:get_value(error_location, Opts, column) =:= column.
+    case proplists:get_value(error_location, Opts, column) of
+        column -> true;
+        line -> false
+    end.
 
 consult_abstr(_Code, St) ->
     case file:consult(St#compile.ifile) of
@@ -1138,16 +1141,15 @@ foldl_transform([T|Ts], Code0, St) ->
                           T:parse_transform(Code, S#compile.options)
                   end,
             Run = runner(none, St),
-            try Run({Name, Fun}, Code0, St) of
+            StrippedCode = maybe_strip_columns(Code0, T, St),
+            try Run({Name, Fun}, StrippedCode, St) of
                 {error,Es,Ws} ->
                     {error,St#compile{warnings=St#compile.warnings ++ Ws,
                                       errors=St#compile.errors ++ Es}};
-                {warning, Forms0, Ws} ->
-                    Forms = maybe_strip_columns(Forms0, T),
+                {warning, Forms, Ws} ->
                     foldl_transform(Ts, Forms,
                                     St#compile{warnings=St#compile.warnings ++ Ws});
-                Forms0 ->
-                    Forms = maybe_strip_columns(Forms0, T),
+                Forms ->
                     foldl_transform(Ts, Forms, St)
             catch
                 error:Reason:Stk ->
@@ -1160,28 +1162,43 @@ foldl_transform([T|Ts], Code0, St) ->
                                       {undef_parse_transform,T}}]}],
             {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
-foldl_transform([], Code, St) -> {ok,Code,St}.
+foldl_transform([], Code, St) ->
+    %% We may need to strip columns added by parse transforms before returning
+    %% them back to the compiler. We pass ?MODULE as a bit of a hack to get the
+    %% correct default.
+    {ok, maybe_strip_columns(Code, ?MODULE, St), St}.
 
-%%% It is possible--although unlikely--that parse transforms add
-%%% columns to the abstract code, why this function is called for
-%%% every parse transform.
-maybe_strip_columns(Code, T) ->
-    case erlang:function_exported(T, parse_transform_info, 0) of
-        true ->
-            Info = T:parse_transform_info(),
-            case maps:get(error_location, Info, column) of
-                line ->
-                    strip_columns(Code);
-                _ ->
-                    Code
-            end;
-        false ->
-            Code
+%%% If a parse transform does not support column numbers it can say so using
+%%% the parse_transform_info callback. The error_location is taken from both
+%%% compiler options and from the parse transform and if either of them want
+%%% to only use lines, we strip columns.
+maybe_strip_columns(Code, T, St) ->
+    PTErrorLocation =
+        case erlang:function_exported(T, parse_transform_info, 0) of
+            true ->
+                maps:get(error_location, T:parse_transform_info(), column);
+            false ->
+                column
+        end,
+    ConfigErrorLocation = proplists:get_value(error_location, St#compile.options, column),
+    if 
+        PTErrorLocation =:= line; ConfigErrorLocation =:= line ->
+            strip_columns(Code);
+        true -> Code
     end.
 
 strip_columns(Code) ->
     F = fun(A) -> erl_anno:set_location(erl_anno:line(A), A) end,
-    [erl_parse:map_anno(F, Form) || Form <- Code].
+    [case Form of
+         {eof,{Line,_Col}} ->
+             {eof,Line};
+         {ErrorOrWarning,{{Line,_Col},Module,Reason}}
+           when ErrorOrWarning =:= error;
+                ErrorOrWarning =:= warning ->
+             {ErrorOrWarning,{Line,Module,Reason}};
+         Form ->
+             erl_parse:map_anno(F, Form)
+     end || Form <- Code].
 
 get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 

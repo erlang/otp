@@ -195,11 +195,14 @@
             The word <c>LOCATION</c> represents a location, and denotes the
             number of the last line, and possibly the number of the last
 	    column on that line, in the source file. See <seeerl
-	    marker="stdlib:erl_anno">erl_anno(3)</seeerl> for
+	    marker="stdlib:erl_anno"><c>erl_anno(3)</c></seeerl> for
 	    details.
           </p>
         </item>
       </list>
+      <p>See <seetype marker="stdlib:erl_parse#form_info">
+        <c>the form_info/0</c></seetype> type in
+        <c>erl_parse(3)</c> for more details about these values.</p>
     </section>
   </section>
 
