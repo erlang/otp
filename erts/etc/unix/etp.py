@@ -394,9 +394,9 @@ def boxed(valobj, depth = float('inf')):
         return F"{{{res}}}"
     if boxed_hdr & 0x3c == 0x3c:
         if boxed_hdr & 0xc0 == 0x0:
-            return "flat_map"
+            return "#FlatMap"
         else:
-            return "hash_map"
+            return "#HashMap"
     boxed_type = (boxed_hdr >> 2) & 0xF
     if boxed_type == 0xC:
         return '#ExternalPid'
