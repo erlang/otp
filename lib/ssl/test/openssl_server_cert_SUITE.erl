@@ -97,6 +97,9 @@ groups() ->
      {rsa_pss_rsae, [], all_version_tests() ++ tls_1_3_tests()},
      {rsa_pss_pss, [], all_version_tests() ++ tls_1_3_tests()},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     %% Enable test later when we have OpenSSL version that
+     %% is able to read EDDSA private key files
+     %%{eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 protocol_groups() ->
@@ -116,10 +119,6 @@ protocol_groups() ->
             ]
     end. 
 
-ssl_protocol_groups() ->
-    [{group, rsa},
-     {group, dsa}].
-
 pre_tls_1_3_protocol_groups() ->
     [{group, rsa},
      {group, ecdsa},
@@ -129,7 +128,9 @@ tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
      {group, rsa_pss_rsae},
      {group, rsa_pss_pss},
-     {group, ecdsa_1_3}].
+     {group, ecdsa_1_3}
+     %%{group, eddsa_1_3}
+    ].
 
 tls_1_3_tests() ->
     [
@@ -145,7 +146,6 @@ all_version_tests() ->
      no_auth,
      auth,
      missing_root_cert_no_auth
-     %%invalid_signature_client
     ].
 
 init_per_suite(Config) ->
@@ -292,7 +292,33 @@ init_per_group(ecdsa_1_3 = Group, Config0) ->
         false ->
             {skip, "Missing EC crypto support"}
     end;
-init_per_group(Group, Config0) when Group == dsa ->
+
+init_per_group(eddsa_1_3, Config0) ->
+    PKAlg = crypto:supports(public_keys),
+    PrivDir = proplists:get_value(priv_dir, Config0),
+    case lists:member(eddsa, PKAlg) andalso (lists:member(ecdh, PKAlg)) of
+        true ->
+            Conf = public_key:pkix_test_data(#{server_chain => #{root => ssl_test_lib:eddsa_conf(),
+                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
+                                                                 peer =>  ssl_test_lib:eddsa_conf()},
+                                               client_chain => #{root => ssl_test_lib:eddsa_conf(),
+                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
+                                                                 peer =>  ssl_test_lib:eddsa_conf()}}),
+            [{server_config, SOpts},
+             {client_config, COpts}] = x509_test:gen_pem_config_files(Conf, filename:join(PrivDir, "client_eddsa"),
+                                                                      filename:join(PrivDir, "server_eddsa")),
+
+            [{cert_key_alg, eddsa} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, COpts},
+                           {server_cert_opts, SOpts} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config0))]
+                         )];
+        false ->
+            {skip, "Missing EC crypto support"}
+    end;
+init_per_group(dsa = Group, Config0) ->
     PKAlg = crypto:supports(public_keys),
     case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg)  andalso 
         (ssl_test_lib:openssl_dsa_suites() =/= [])  of
@@ -390,16 +416,6 @@ missing_root_cert_no_auth() ->
 missing_root_cert_no_auth(Config) when is_list(Config) ->
     ssl_cert_tests:missing_root_cert_no_auth(Config).
 
-%%--------------------------------------------------------------------
-invalid_signature_client() ->
-    ssl_cert_tests:invalid_signature_client().
-invalid_signature_client(Config) when is_list(Config) ->
-    ssl_cert_tests:invalid_signature_client(Config).
-%%--------------------------------------------------------------------
-invalid_signature_server() ->
-    ssl_cert_tests:invalid_signature_client().
-invalid_signature_server(Config) when is_list(Config) ->
-    ssl_cert_tests:invalid_signature_client(Config).
 
 %%--------------------------------------------------------------------
 %% TLS 1.3 Test Cases ------------------------------------------------

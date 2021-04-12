@@ -417,6 +417,10 @@ verify_signature({3, Minor}, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey
     end;
 verify_signature({3, 4}, Hash, {HashAlgo, _SignAlgo}, Signature, {?'id-ecPublicKey', PubKey, PubKeyParams}) ->
     public_key:verify(Hash, HashAlgo, Signature, {PubKey, PubKeyParams});
+verify_signature({3, 4}, Msg, {_, eddsa}, Signature, {?'id-Ed25519', PubKey, PubKeyParams}) ->
+    public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
+verify_signature({3, 4}, Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, PubKeyParams}) ->
+    public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
 verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
     public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams});

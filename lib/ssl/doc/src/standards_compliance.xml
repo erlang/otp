@@ -134,7 +134,7 @@
       <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
       <item>Ciphers: all cipher suites are supported</item>
       <item>Signature Algorithms: All algorithms form RFC 8446</item>
-      <item>Certificates: RSA and ECDSA keys</item>
+      <item>Certificates: RSA, ECDSA and EDDSA keys</item>
     </list>
     <p>Other notable features:</p>
     <list type="bulleted">
@@ -762,13 +762,13 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed25519</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed448</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
       <row>
@@ -865,13 +865,13 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed25519</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed448</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
+	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
       <row>

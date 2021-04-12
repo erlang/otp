@@ -178,7 +178,10 @@
          pem_to_der/1,
          appropriate_sha/1,
          format_certs/1,
-         format_cert/1
+         format_cert/1,
+         ecdsa_conf/0,
+         eddsa_conf/0,
+         default_ecc_cert_chain_conf/1
         ]).
 
 -export([maybe_force_ipv4/1,
@@ -373,6 +376,18 @@ openssl_support_rsa_kex() ->
         _ ->
             true
     end.
+
+ecdsa_conf() ->
+    [{key, {namedCurve, ?DEFAULT_CURVE}},
+     {digest, appropriate_sha(crypto:supports())}].
+
+eddsa_conf() ->
+    [{key, {namedCurve, ed25519}}].
+
+default_ecc_cert_chain_conf(eddsa_1_3) ->
+    lists:map(fun(L) -> [{key, {namedCurve, ed25519}} | L] end, default_cert_chain_conf());
+default_ecc_cert_chain_conf(_) ->
+    default_cert_chain_conf().
 
 %%====================================================================
 %% Internal functions
@@ -1385,7 +1400,7 @@ make_dsa_cert(Config) ->
 make_cert_chains_der(Alg, UserConf) ->
     ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
     ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
-    CertChainConf = gen_conf(Alg, Alg, ClientChain, ServerChain),
+    CertChainConf = gen_conf(Alg, Alg, ClientChain, ServerChain, curve_default(Alg)),
     public_key:pkix_test_data(CertChainConf).
 
 make_cert_chains_pem(Alg, UserConf, Config, Suffix) ->
@@ -1550,6 +1565,12 @@ chain_spec(_Role, ecdhe_rsa, _) ->
      [Digest, {key, hardcode_rsa_key(2)}],
      [Digest, {key, hardcode_rsa_key(3)}]];
 chain_spec(_Role, ecdsa, Curve) ->
+    Digest = {digest, appropriate_sha(crypto:supports())},
+    CurveOid = pubkey_cert_records:namedCurves(Curve),
+    [[Digest, {key, {namedCurve, CurveOid}}],
+     [Digest, {key, {namedCurve, CurveOid}}],
+     [Digest, {key, {namedCurve, CurveOid}}]];
+chain_spec(_Role, eddsa, Curve) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
     CurveOid = pubkey_cert_records:namedCurves(Curve),
     [[Digest, {key, {namedCurve, CurveOid}}],
@@ -3808,3 +3829,7 @@ verify_early_data(Atom) ->
             Other
     end.
 
+curve_default(eddsa) ->
+    ed25519;
+curve_default(_) ->
+    ?DEFAULT_CURVE.
