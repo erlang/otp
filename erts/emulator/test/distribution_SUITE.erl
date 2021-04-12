@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@
          bad_dist_ext_control/1,
          bad_dist_ext_connection_id/1,
          bad_dist_ext_size/1,
-	 start_epmd_false/1, epmd_module/1,
+	 start_epmd_false/1, no_epmd/1, epmd_module/1,
          bad_dist_fragments/1,
          message_latency_large_message/1,
          message_latency_large_link_exit/1,
@@ -104,7 +104,7 @@ all() ->
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
      {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
-     start_epmd_false, epmd_module, system_limit,
+     start_epmd_false, no_epmd, epmd_module, system_limit,
      hopefull_data_encoding, hopefull_export_fun_bug,
      huge_iovec].
 
@@ -2546,6 +2546,11 @@ start_epmd_false(Config) when is_list(Config) ->
     stop_node(OtherNode),
 
     ok.
+
+no_epmd(Config) when is_list(Config) ->
+    %% Trying to start a node with -no_epmd but without passing the
+    %% --proto_dist option should fail.
+    {error, timeout} = start_node(no_epmd, "-no_epmd").
 
 epmd_module(Config) when is_list(Config) ->
     %% We need a relay node to test this, since the test node uses the
