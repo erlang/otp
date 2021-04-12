@@ -460,7 +460,7 @@ $ <input>erl \
           become distributed; see <seeerl marker="kernel:net_kernel">
           <c>net_kernel(3)</c></seeerl>. It is also ensured that
           <c><![CDATA[epmd]]></c> runs on the current host before Erlang is
-          started; see <seecom marker="epmd"><c>epmd(1)</c></seecom>.and the
+          started; see <seecom marker="epmd"><c>epmd(1)</c></seecom> and the
           <seecom marker="#start_epmd"><c>-start_epmd</c></seecom> option.</p>
         <p>The node name will be <c><![CDATA[Name@Host]]></c>, where
           <c><![CDATA[Host]]></c> is the fully qualified host name of the
@@ -501,6 +501,22 @@ $ <input>erl \
             network is configured to keep potential attackers out.
           </p>
         </warning>
+      </item>
+      <tag><c><![CDATA[-no_epmd]]></c></tag>
+      <item>
+        <p>Specifies that the distributed node does not need
+          <seecom marker="epmd">epmd</seecom> at all.</p>
+        <p>This option ensures that the Erlang runtime system does not
+          start <seecom marker="epmd">epmd</seecom> and does not start
+          the <seeerl marker="kernel:erl_epmd">erl_epmd</seeerl> process
+          for distribution either.</p>
+        <p>This option only works if Erlang is started as a distributed node
+          with the <seecom marker="#proto_dist">-proto_dist</seecom> option
+          using an alternative protocol for Erlang distribution which
+          does not rely on epmd for node registration and discovery.
+          For more information, see <seeguide marker="erts:alt_dist">How
+          to implement an Alternative Carrier for the Erlang
+          Distribution</seeguide>.</p>
       </item>
       <tag><c><![CDATA[-noinput]]></c></tag>
       <item>
