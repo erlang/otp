@@ -373,7 +373,7 @@ try_catch(Config) when is_list(Config) ->
            <<"t() -> case catch foo of bar -> foo end.">>},
           {catch_3,
            <<"t() -> catch begin begin foo, bar, foo:bar(kljsldkfjdls,kljsdl),
-                           (catch bar:foo(foo)) end end.">>}
+                           catch bar:foo(foo) end end.">>}
           ],
     compile(Config, Ts),
     ok = pp_expr(<<"try
@@ -1304,7 +1304,10 @@ otp_16435(_Config) ->
 
     CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
            "          A <- []\n    >>.\n"),
-    CheckF("f() ->\n    [ \n     (catch foo) ||\n         A <- []\n    ].\n"),
+    CheckF("f() ->\n    [ \n     catch foo ||\n         A <- []\n    ].\n"),
+    CheckF("f() ->\n    1 = catch 1.\n"),
+    CheckF("f() ->\n    catch 1 = catch 1.\n"),
+    CheckF("f() ->\n    A = catch 1 / 0.\n"),
     CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
 
     Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
