@@ -9469,7 +9469,7 @@ ERL_NIF_TERM esock_setopt_otp_use_registry(ErlNifEnv*       env,
 
     if (! IS_OPEN(descP->writeState)) {
         SSDBG( descP,
-               ("SOCKET", "esock_setopt_otp_debug {%d} -> closed\r\n",
+               ("SOCKET", "esock_setopt_otp_use_registry {%d} -> closed\r\n",
                 descP->sock) );
         return esock_make_error(env, atom_closed);
     }
@@ -9489,7 +9489,7 @@ ERL_NIF_TERM esock_setopt_otp_use_registry(ErlNifEnv*       env,
     }
 
     SSDBG( descP,
-           ("SOCKET", "esock_setopt_otp_debug {%d} -> ok"
+           ("SOCKET", "esock_setopt_otp_use_registry {%d} -> ok"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
 
