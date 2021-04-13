@@ -146,6 +146,8 @@ add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
 
 extract_trusted_certs({der, DerList}) ->
     {ok, {extracted, certs_from_der(DerList)}};
+extract_trusted_certs({der_otp, DerList}) ->
+    {ok, {extracted, certs_from_der(DerList)}};
 extract_trusted_certs(File) ->
     case file:read_file(File) of
         {ok, PemBin} ->
@@ -301,13 +303,19 @@ add_certs(Cert, Ref, CertsDb) ->
 	    ok
     end.
 
-decode_certs(Ref, Cert) ->
-    try  ErlCert = public_key:pkix_decode_cert(Cert, otp),
-	 TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
-	 SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
-	 Issuer = public_key:pkix_normalize_name(
-		    TBSCertificate#'OTPTBSCertificate'.issuer),
-	 {decoded, {{Ref, SerialNumber, Issuer}, {Cert, ErlCert}}}
+decode_certs(Ref, DerOrBoth) ->
+    try
+        {Cert, ErlCert} = case DerOrBoth of
+                             {_, _} ->
+                                  DerOrBoth;
+                             Der ->
+                                 {Der, public_key:pkix_decode_cert(Der, otp)}
+                         end,
+        TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
+        SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
+        Issuer = public_key:pkix_normalize_name(
+                   TBSCertificate#'OTPTBSCertificate'.issuer),
+        {decoded, {{Ref, SerialNumber, Issuer}, {Cert, ErlCert}}}
     catch
 	error:_ ->
 	    ?LOG_NOTICE("SSL WARNING: Ignoring a CA cert as "

@@ -222,7 +222,8 @@ all_version_tests() ->
      extended_key_usage_client_auth,
      cert_expired,
      no_auth_key_identifier_ext,
-     no_auth_key_identifier_ext_keyEncipherment
+     no_auth_key_identifier_ext_keyEncipherment,
+     duplicate_chain
     ].
 
 init_per_suite(Config) ->
