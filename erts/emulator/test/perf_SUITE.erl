@@ -39,16 +39,21 @@ init_per_suite(Config) ->
                                    [{capture,all_but_first,list}]),
             case list_to_integer(Vsn) >= 5 of
                 true ->
+                    BuildIdDir = "--buildid-dir " ++
+                        filename:join(
+                          proplists:get_value(priv_dir, Config),
+                          ".debug"),
                     DataFile = filename:join(
                                  proplists:get_value(priv_dir, Config),
                                  "init_test.data"),
-                    Cmd = "perf record -q -o " ++ DataFile ++ " ls",
+                    Cmd = "perf " ++ BuildIdDir ++ " record -q -o " ++ DataFile ++ " ls",
                     os:cmd(Cmd),
-                    Script = os:cmd("perf script -i " ++ DataFile),
+                    Script = os:cmd("perf " ++ BuildIdDir ++ " script -i " ++ DataFile),
                     ct:log("~ts",[Script]),
                     case re:run(Script, "^\\W+ls",[multiline]) of
                         {match, _} ->
-                            [{sobefore,get_tmp_so_files()}|Config];
+                            [{sobefore,get_tmp_so_files()},
+                             {buildiddir,BuildIdDir}|Config];
                         nomatch ->
                             {skip, "could not run `"++ Cmd ++"`"}
                     end;
@@ -78,12 +83,13 @@ get_tmp_so_files() ->
         filelib:wildcard(filename:join([Home,".debug","tmp","jitted-*.so"])).
 
 symbols(Config) ->
+    BuildIdDir = proplists:get_value(buildiddir, Config),
     DataFile = filename:join(
                  proplists:get_value(priv_dir, Config),
                  atom_to_list(?FUNCTION_NAME) ++ ".data"),
-    os:cmd("perf record -q -o " ++ DataFile ++ " " ++
+    os:cmd("perf "++ BuildIdDir ++" record -q -o " ++ DataFile ++ " " ++
            "erl +S 1 +JPperf true -noshell -eval '[lists:seq(1,10000) || _ <- lists:seq(1,1000)].' -s init stop"),
-    Script = os:cmd("perf script -i " ++ DataFile),
+    Script = os:cmd("perf "++ BuildIdDir ++" script -i " ++ DataFile),
     case re:run(Script,"\\$lists:seq[^/]+/[0-9]",[global,{capture,first,list}]) of
         {match,Matches} ->
             ct:log("Found these symbols: ~p",[lists:usort(Matches)]),
@@ -93,12 +99,13 @@ symbols(Config) ->
     end.
     
 annotate(Config) ->
+    BuildIdDir = proplists:get_value(buildiddir, Config),
     DataFile = filename:join(
                  proplists:get_value(priv_dir, Config),
                  atom_to_list(?FUNCTION_NAME) ++ ".data"),
-    os:cmd("perf record -k mono -q -o " ++ DataFile ++ " " ++
+    os:cmd("perf "++ BuildIdDir ++" record -k mono -q -o " ++ DataFile ++ " " ++
            "erl +S 1 +JPperf true -noshell -eval '[lists:seq(1,10000) || _ <- lists:seq(1,1000)].' -s init stop"),
-    Script = os:cmd("perf script -i " ++ DataFile),
+    Script = os:cmd("perf "++ BuildIdDir ++" script -i " ++ DataFile),
 
     %% When doing "perf inject" the symbol of each function is changed
     %% from $lists:seq_loop/3 to lists:seq_loop/3. I don't know why that
@@ -108,8 +115,8 @@ annotate(Config) ->
                               [global,{capture,first,list}]),
     [Symbol|_] = lists:usort(Symbols),
     JitFile = DataFile ++ ".jit.data",
-    "" = os:cmd("perf inject -j -i " ++ DataFile ++ " -o " ++ JitFile),
-    Anno = os:cmd("perf annotate --stdio -i " ++ JitFile ++ " " ++ Symbol ++ ""),
+    "" = os:cmd("perf "++ BuildIdDir ++" inject -j -i " ++ DataFile ++ " -o " ++ JitFile),
+    Anno = os:cmd("perf "++ BuildIdDir ++" annotate --stdio -i " ++ JitFile ++ " " ++ Symbol ++ ""),
     case re:run(Anno,"Disassembly of section .text:") of
         {match,_} ->
             ok;
