@@ -844,7 +844,7 @@ lay_2(Node, Ctxt) ->
 				   beside(D2, floating(text("]"))))]));
 
 	binary_comp ->
-	    Ctxt1 = reset_prec(Ctxt),
+	    Ctxt1 = set_prec(Ctxt, max_prec()),
 	    D1 = lay(erl_syntax:binary_comp_template(Node), Ctxt1),
 	    D2 = par(seq(erl_syntax:binary_comp_body(Node),
 			 floating(text(",")), Ctxt1,
