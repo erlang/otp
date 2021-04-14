@@ -192,15 +192,46 @@ handle_add_socket(#state{db = DB} = State, Sock) ->
     State#state{db = DB2}.
 
 handle_delete_socket(#state{db   = DB,
-			    xref = XRef} = State, Sock) ->
+			    xref = XRef,
+			    user = Users} = State, Sock) ->
     case db_sock_lookup(DB, Sock) of
 	{value, #esock_info{mons = Mons}} ->
 	    handle_send_down(Mons, XRef, Sock),
-	    DB2   = db_sock_delete(DB, Sock),
-	    XRef2 = xref_sock_delete(XRef, Sock),
-	    State#state{db = DB2, xref = XRef2};
+	    Users2 = user_sock_delete_update(Mons, Users, XRef),
+	    XRef2  = xref_sock_delete(XRef, Sock),
+	    DB2    = db_sock_delete(DB, Sock),
+	    State#state{db = DB2, xref = XRef2, user = Users2};
 	false ->
 	    State
+    end.
+
+user_sock_delete_update([], Users, _XRef) ->
+    Users;
+user_sock_delete_update([Mon|Mons], Users, XRef) ->
+    ?DBG(['try find monitor', Mon]),
+    case xref_mref_lookup(XRef, Mon) of
+	{value, #esock_xref{pid = Pid}} ->
+	    ?DBG(['found xref - with user', Pid]),
+	    case user_pid_lookup(Users, Pid) of
+		{value, #esock_user{mref = MRef, mons = [Mon]}} ->
+		    ?DBG(['only one monitor -> delete user', MRef]),
+		    erlang:demonitor(MRef, [flush]),
+		    Users2 = user_pid_delete(Users, Pid),
+		    user_sock_delete_update(Mons, Users2, XRef);
+		{value, #esock_user{mons = UMons} = User} ->
+		    ?DBG(['several monitor(s)']),
+		    UMons2 = lists:delete(Mon, UMons),
+		    User2  = User#esock_user{mons = UMons2},
+		    Users2 = lists:keyreplace(Pid, #esock_user.pid,
+					      Users, User2),
+		    user_sock_delete_update(Mons, Users2, XRef);
+		false -> % race?
+		    ?DBG(['no user found']),
+		    user_sock_delete_update(Mons, Users, XRef)
+	    end;
+	false -> % race?
+	    ?DBG(['no xref found']),
+	    user_sock_delete_update(Mons, Users, XRef)
     end.
 
 handle_send_down([], _XRef, _Sock) ->
@@ -403,7 +434,7 @@ do_demonitor_socket(#state{db = DB, xref = XRefs, user = Users} = State,
 		{value, #esock_info{mons = Mons} = SI} ->
 		    %% ?DBG({mons, Mons}),
 		    Mons2  = lists:delete(MRef, Mons),
-		    Users2 = user_pid_update(Users, From, MRef),
+		    Users2 = user_pid_delete_mon(Users, From, MRef),
 		    SI2    = SI#esock_info{mons = Mons2},
 		    DB2    = db_sock_replace(DB, Sock, SI2),
 		    XRefs2 = xref_mref_delete(XRefs, MRef),
@@ -516,7 +547,8 @@ user_pid_add(Users, Pid, SMRef)
 	    [User|Users]
     end.
 
-user_pid_update(Users, Pid, SMRef) when is_list(Users) ->
+user_pid_delete_mon(Users, Pid, SMRef)
+  when is_list(Users) andalso is_reference(SMRef) ->
     Pos = #esock_user.pid,
     case lists:keysearch(Pid, Pos, Users) of
 	%% The last monitor of this process
