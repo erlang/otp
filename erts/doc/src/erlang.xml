@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -248,7 +248,7 @@
 	MQD)</c></seeerl> </p>
       </desc>
     </datatype>
-    
+
 
   </datatypes>
 
@@ -283,7 +283,7 @@
       <name name="adler32" arity="2" since=""/>
       <fsummary>Compute adler32 checksum.</fsummary>
       <desc>
-        <p>Continues computing the adler32 checksum by combining 
+        <p>Continues computing the adler32 checksum by combining
           the previous checksum, <c><anno>OldAdler</anno></c>, with
           the checksum of <c><anno>Data</anno></c>.</p>
         <p>The following code:</p>
@@ -757,7 +757,7 @@ hello
                 If the binary is stored or transits through untrusted
                 sources, you should also consider cryptographically
                 signing it.</p>
-            </warning>	
+            </warning>
           </item>
           <tag><c>used</c></tag>
           <item>
@@ -1204,7 +1204,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <item>
             <p>The header is <em>not</em> stripped off.</p>
             <p>The meanings of the packet types are as follows:</p>
-            <taglist>     
+            <taglist>
               <tag><c>asn1</c> - ASN.1 BER</tag><item></item>
               <tag><c>sunrm</c> - Sun's RPC encoding</tag><item></item>
               <tag><c>cdr</c> - CORBA (GIOP 1.1)</tag><item></item>
@@ -1234,7 +1234,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
               The following calls are to use <c>httph</c> to get
               <c><anno>HttpHeader</anno></c>s until
               <c>http_eoh</c> is returned, which marks the end of the
-              headers and the beginning of any following message body.</p> 
+              headers and the beginning of any following message body.</p>
             <p>The variants <c>http_bin</c> and <c>httph_bin</c> return
               strings (<c>HttpString</c>) as binaries instead of lists.</p>
           </item>
@@ -1663,7 +1663,7 @@ end</code>
 	</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="element" arity="2" since=""/>
       <fsummary>Return the Nth element of a tuple.</fsummary>
@@ -2008,7 +2008,7 @@ true</pre>
         options.</fsummary>
       <desc>
         <p>Returns a binary corresponding to the text
-          representation of <c><anno>Float</anno></c> using fixed decimal 
+          representation of <c><anno>Float</anno></c> using fixed decimal
           point formatting. <c><anno>Options</anno></c> behaves in the same
           way as <seemfa marker="#float_to_list/2">
           <c>float_to_list/2</c></seemfa>. Examples:</p>
@@ -3336,7 +3336,7 @@ is_process_alive(P2Pid),
       <name name="list_to_pid" arity="1" since=""/>
       <fsummary>Convert from text representation to a pid.</fsummary>
       <desc>
-        <p>Returns a process identifier whose text representation is a 
+        <p>Returns a process identifier whose text representation is a
           <c><anno>String</anno></c>, for example:</p>
         <pre>
 > <input>list_to_pid("&lt;0.4.1>").</input>
@@ -4017,7 +4017,7 @@ RealSystem = system + MissedSystem</code>
           <tag><c>Object</c></tag>
           <item>
             <p>The monitored entity, which triggered the event. When monitoring
-              a local process or port, <c>Object</c> will be equal to the
+              a process or a local port, <c>Object</c> will be equal to the
               <c>pid()</c> or <c>port()</c> that was being monitored. When
               monitoring process or port by name, <c>Object</c> will have format
               <c>{RegisteredName, Node}</c> where <c>RegisteredName</c> is the
@@ -4175,7 +4175,7 @@ RealSystem = system + MissedSystem</code>
 	    <taglist>
 	      <tag><c>explicit_unalias</c></tag>
 	      <item><p>
-		Only an explicit call to 
+		Only an explicit call to
 		<seemfa marker="erlang#unalias/1"><c>unalias/1</c></seemfa>
 		will deactivate the alias.
 	      </p></item>
@@ -4183,7 +4183,7 @@ RealSystem = system + MissedSystem</code>
 	      <item><p>
 		The alias will be automatically deactivated when
 		the monitor is removed. This either via an explicit
-		call to 
+		call to
 		<seemfa marker="#demonitor/1"><c>demonitor/1</c></seemfa>
 		or when it is automatically removed at the same time
 		as a <c>'DOWN'</c> message is delivered due to the
@@ -4658,7 +4658,7 @@ RealSystem = system + MissedSystem</code>
               on some OSs, be desirable. How the program
               responds to this is highly system-dependent and no specific
               effect is guaranteed.</p>
-          </item> 
+          </item>
           <tag><c>exit_status</c></tag>
           <item>
             <p>Only valid for <c>{spawn, <anno>Command</anno>}</c>, where
@@ -4995,7 +4995,7 @@ RealSystem = system + MissedSystem</code>
           (the connected process). If the calling process is linked to
           the port identified by <c><anno>Port</anno></c>, the exit
           signal from the port is guaranteed to be delivered before
-          <c>port_close/1</c> returns.</p> 
+          <c>port_close/1</c> returns.</p>
         <p>For comparison: <c><anno>Port</anno> ! {self(), close}</c>
           only fails with <c>badarg</c> if <c><anno>Port</anno></c> does
           not refer to a port or a process. If <c><anno>Port</anno></c>
@@ -5004,7 +5004,7 @@ RealSystem = system + MissedSystem</code>
           the port replies with <c>{Port, closed}</c> when all buffers
           have been flushed and the port really closes. If the calling
           process is not the port owner, the <em>port owner</em> fails
-          with <c>badsig</c>.</p> 
+          with <c>badsig</c>.</p>
         <p>Notice that any process can close a port using
           <c><anno>Port</anno> ! {PortOwner, close}</c> as if it itself was
           the port owner, but the reply always goes to the port owner.</p>
@@ -5035,7 +5035,7 @@ RealSystem = system + MissedSystem</code>
         <p>For comparison: <c><anno>Port</anno> ! {PortOwner, {command,
           Data}}</c> only fails with <c>badarg</c> if <c><anno>Port</anno></c>
           does not refer to a port or a process. If <c><anno>Port</anno></c> is
-          a closed port, the data message disappears 
+          a closed port, the data message disappears
           without a sound. If <c><anno>Port</anno></c> is open and the calling
           process is not the port owner, the <em>port owner</em> fails
           with <c>badsig</c>. The port owner fails with <c>badsig</c>
@@ -5099,7 +5099,7 @@ RealSystem = system + MissedSystem</code>
           <tag><c>nosuspend</c></tag>
           <item>The calling process is not suspended if the port is
             busy, instead the port command is aborted and
-            <c>false</c> is returned. 
+            <c>false</c> is returned.
           </item>
         </taglist>
         <note>
@@ -5648,7 +5648,7 @@ RealSystem = system + MissedSystem</code>
               <c>min_heap_size</c></seeerl>. The size check is only done when
               a garbage collection is triggered.</p>
             <p><c>size</c> is the entire heap of the process when garbage collection
-              is triggered. This includes all generational heaps, the process stack, 
+              is triggered. This includes all generational heaps, the process stack,
               any <seeerl marker="#process_flag_message_queue_data">
               messages that are considered to be part of the heap</seeerl>, and any
               extra memory that the garbage collector needs during collection.</p>
@@ -6462,7 +6462,7 @@ end</pre>
             If using option <c>{async, false}</c>, the calling
             process is blocked until the operation has been performed.</p>
          </note>
-        <p>See also 
+        <p>See also
           <seemfa marker="#send_after/4"><c>erlang:send_after/4</c></seemfa>,
           <seemfa marker="#start_timer/4">
           <c>erlang:start_timer/4</c></seemfa>, and
@@ -7309,7 +7309,7 @@ true</pre>
 	</p>
       </desc>
     </func>
-        
+
     <func>
       <name name="spawn_request" arity="4" clause_i="2" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
@@ -7330,7 +7330,7 @@ true</pre>
 	  Asynchronously send a spawn request. Returns a request
 	  identifier <c><anno>ReqId</anno></c>.
 	</p>
-	
+
 	<marker id="spawn_request_success_message"/>
 	<p>
 	  If the spawn operation succeeds, a new process is
@@ -7442,7 +7442,7 @@ true</pre>
 	      Pid, MonitorOpts)</c></seemfa> where <c>Pid</c> is
 	      the process identifier of the newly created process.
 	      See the <c>monitor</c> option above for more
-	      information. 
+	      information.
 	    </p>
 	    <p>
 	      Note that the monitor will not be activated for the
@@ -7498,7 +7498,7 @@ true</pre>
 		option is set to <c>yes</c>, the caller is
 		guaranteed to be delivered either a
 		<seeerl marker="#spawn_request_success_message"><i>success
-		message</i></seeerl> or an 
+		message</i></seeerl> or an
 		<seeerl marker="#spawn_request_error_message"><i>error
 		message</i></seeerl>. The <c>reply</c> option is by
 		default set to <c>yes</c>.
@@ -7578,7 +7578,7 @@ true</pre>
 	</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="spawn_request_abandon" arity="1" since="OTP 23.0"/>
       <fsummary>Abandon a previously issued spawn request.</fsummary>
@@ -7644,7 +7644,7 @@ true</pre>
 	<c><anno>ReqId</anno></c> is not a reference.</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="split_binary" arity="2" since=""/>
       <fsummary>Split a binary into two.</fsummary>
@@ -8352,7 +8352,7 @@ ok
           scheduled for execution until the process has been resumed.</p>
         <p>A process can be suspended by multiple processes and can
           be suspended multiple times by a single process. A suspended
-          process does not leave the suspended state until its suspend 
+          process does not leave the suspended state until its suspend
           count reaches zero. The suspend count of
           <c><anno>Suspendee</anno></c> is decreased when
           <seemfa marker="#resume_process/1">
@@ -9467,7 +9467,7 @@ Metadata = #{ pid => pid(),
           <tag><marker id="system_info_heap_sizes"/>
             <c>heap_sizes</c></tag>
           <item>
-            <p>Returns a list of integers representing valid heap sizes 
+            <p>Returns a list of integers representing valid heap sizes
               in words. All Erlang heaps are sized from sizes in this
               list.</p>
           </item>
@@ -10752,7 +10752,7 @@ Metadata = #{ pid => pid(),
           </item>
           <tag><c>runnable_ports</c></tag>
           <item>
-            <p>If a port is put into or removed from the run queue, a 
+            <p>If a port is put into or removed from the run queue, a
               message, <c>{profile, Port, State, 0, Ts}</c>, is sent to
               <c><anno>ProfilerPid</anno></c>.</p>
           </item>
@@ -10935,7 +10935,7 @@ hello
         <p>Returns the encoding of <c><anno>Term</anno></c> according to
 	the Erlang external term format as
 	<seetype marker="#ext_iovec"><c>ext_iovec()</c></seetype>.</p>
-	
+
 	<p>This function produce the same encoding as
 	<seemfa marker="#term_to_binary/1"><c>term_to_binary/1</c></seemfa>,
 	but with another return type. The call
@@ -10951,7 +10951,7 @@ hello
 	<seemfa marker="#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="term_to_iovec" arity="2" since="OTP 23.0"/>
       <fsummary>Encode a term to en Erlang external term format as iovec().
@@ -10960,7 +10960,7 @@ hello
         <p>Returns the encoding of <c><anno>Term</anno></c> according to
 	the Erlang external term format as
 	<seetype marker="#ext_iovec"><c>ext_iovec()</c></seetype>.</p>
-	
+
 	<p>This function produce the same encoding as
 	<seemfa marker="#term_to_binary/2"><c>term_to_binary/2</c></seemfa>,
 	but with another return type. The call
@@ -10974,7 +10974,7 @@ hello
 	<c>term_to_binary()</c> provide. <c>term_to_iovec()</c> can for example
 	refer directly to off heap binaries instead of copying the binary
 	data into the result.</p>
-	
+
 	<p>See also
 	<seemfa marker="#term_to_binary/2"><c>term_to_binary/2</c></seemfa>.</p>
       </desc>
@@ -11082,7 +11082,7 @@ end</code>
         <p>Returns current
           <seeguide marker="time_correction#Erlang_System_Time">
           Erlang system time</seeguide>
-          on the format <c>{MegaSecs, Secs, MicroSecs}</c>. This format is 
+          on the format <c>{MegaSecs, Secs, MicroSecs}</c>. This format is
           the same as <seemfa marker="kernel:os#timestamp/0">
           <c>os:timestamp/0</c></seemfa>
           and the deprecated <seemfa marker="#now/0">
@@ -11234,7 +11234,7 @@ improper_end</pre>
               a trace on many or even all processes in the system.
               The trace can then be activated and deactivated using the match
               specification function <c>{silent,Bool}</c>, giving
-              a high degree of control of which functions with which 
+              a high degree of control of which functions with which
               arguments that trigger the trace.</p>
             <p>Message tags:
               <seeerl marker="#trace_3_trace_messages_call">
@@ -11543,7 +11543,7 @@ improper_end</pre>
           <item>
             <p>When <c>Pid</c> exits <em>from</em> the specified
               function because of an exception. This trace message is
-              sent if flag <c>call</c> is set, and the function has 
+              sent if flag <c>call</c> is set, and the function has
               a match specification with an <c>exception_trace</c> action.</p>
           </item>
           <tag>
