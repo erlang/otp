@@ -241,6 +241,7 @@
          monitor_simple_open_and_close/1,
 	 monitor_simple_open_and_exit/1,
 	 monitor_open_and_close_multi_socks/1,
+	 monitor_open_and_exit_multi_socks/1,
 	 monitor_open_and_close_multi_mon/1,
 	 monitor_open_and_exit_multi_mon/1,
 	 monitor_open_and_close_multi_socks_and_mon/1,
@@ -1096,6 +1097,7 @@ monitor_cases() ->
      monitor_simple_open_and_close,
      monitor_simple_open_and_exit,
      monitor_open_and_close_multi_socks,
+     monitor_open_and_exit_multi_socks,
      monitor_open_and_close_multi_mon,
      monitor_open_and_exit_multi_mon,
      monitor_open_and_close_multi_socks_and_mon
@@ -26358,6 +26360,296 @@ mon_open_and_close_multi_socks(InitState) ->
                                {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start (socket) owner evaluator"),
+    Owner = ?SEV_START("owner", OwnerSeq, InitState),
+
+    i("start tester evaluator"),
+    TesterInitState = #{owner => Owner#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator"),
+    ok = ?SEV_AWAIT_FINISH([Owner, Tester]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Create several sockets, monitor from a different process then exit
+%% the owner process.
+%% The process that did the monitor shall receive a socket DOWN.
+
+monitor_open_and_exit_multi_socks(suite) ->
+    [];
+monitor_open_and_exit_multi_socks(doc) ->
+    [];
+monitor_open_and_exit_multi_socks(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(monitor_open_and_exit_multi_socks,
+           fun() ->
+		   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = mon_open_and_exit_multi_socks(InitState)
+           end).
+
+
+mon_open_and_exit_multi_socks(InitState) ->
+    OwnerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "create socket 1",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock1 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create socket 2",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock2 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create socket 3",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock3 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create socket 4",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock4 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create socket 5",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock5 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester,
+			 sock1  := Sock1,
+			 sock2  := Sock2,
+			 sock3  := Sock3,
+			 sock4  := Sock4,
+			 sock5  := Sock5} = _State) ->
+			   Socks = [Sock1, Sock2, Sock3, Sock4, Sock5],
+                           ?SEV_ANNOUNCE_READY(Tester, init, Socks),
+                           ok
+                   end},
+
+
+         %% The actual test
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor owner",
+           cmd  => fun(#{owner := Owner} = _State) ->
+                           _MRef = erlang:monitor(process, Owner),
+                           ok
+                   end},
+         #{desc => "order (owner) start",
+           cmd  => fun(#{owner := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await (owner) ready",
+           cmd  => fun(#{owner := Pid} = State) ->
+                           {ok, [Sock1, Sock2, Sock3, Sock4, Sock5]} =
+			       ?SEV_AWAIT_READY(Pid, owner, init),
+                           {ok, State#{sock1 => Sock1,
+				       sock2 => Sock2,
+				       sock3 => Sock3,
+				       sock4 => Sock4,
+				       sock5 => Sock5}}
+                   end},
+         #{desc => "monitor socket",
+           cmd  => fun(#{sock1 := Sock1,
+			 sock2 := Sock2,
+			 sock3 := Sock3,
+			 sock4 := Sock4,
+			 sock5 := Sock5} = State) ->
+                           MRef1 = socket:monitor(Sock1),
+                           MRef2 = socket:monitor(Sock2),
+                           MRef3 = socket:monitor(Sock3),
+                           MRef4 = socket:monitor(Sock4),
+                           MRef5 = socket:monitor(Sock5),
+			   ?SEV_IPRINT("Monitors:"
+				       "~n   1: ~p"
+				       "~n   2: ~p"
+				       "~n   3: ~p"
+				       "~n   4: ~p"
+				       "~n   5: ~p",
+				       [MRef1, MRef2, MRef3, MRef4, MRef5]),
+			   {ok, State#{mon1 => MRef1,
+				       mon2 => MRef2,
+				       mon3 => MRef3,
+				       mon4 => MRef4,
+				       mon5 => MRef5}}
+                   end},
+
+         %% The actual test
+         #{desc => "order (owner) terminate",
+           cmd  => fun(#{owner := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+
+         #{desc => "await (owner) termination",
+           cmd  => fun(#{owner := Pid} = _State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "await socket 1 down",
+           cmd  => fun(#{sock1 := Sock,
+			 mon1  := MRef} = State) ->
+			   receive
+			       {'DOWN', MRef, socket, Sock, Info} ->
+				   ?SEV_IPRINT("received expected down: "
+					       "~n      MRef:   ~p"
+					       "~n      Socket: ~p"
+					       "~n      Info:   ~p",
+					       [MRef, Sock, Info]),
+				   State2 = maps:remove(sock1, State),
+				   State3 = maps:remove(mon1,  State2),
+				   {ok, State3}
+			   after 5000 ->
+				   ?SEV_EPRINT("socket down timeout"),
+				   {error, timeout}
+			   end
+                   end},
+         #{desc => "await socket 2 down",
+           cmd  => fun(#{sock2 := Sock,
+			 mon2  := MRef} = State) ->
+			   receive
+			       {'DOWN', MRef, socket, Sock, Info} ->
+				   ?SEV_IPRINT("received expected down: "
+					       "~n      MRef:   ~p"
+					       "~n      Socket: ~p"
+					       "~n      Info:   ~p",
+					       [MRef, Sock, Info]),
+				   State2 = maps:remove(sock2, State),
+				   State3 = maps:remove(mon2,  State2),
+				   {ok, State3}
+			   after 5000 ->
+				   ?SEV_EPRINT("socket down timeout"),
+				   {error, timeout}
+			   end
+                   end},
+         #{desc => "await socket 3 down",
+           cmd  => fun(#{sock3 := Sock,
+			 mon3  := MRef} = State) ->
+			   receive
+			       {'DOWN', MRef, socket, Sock, Info} ->
+				   ?SEV_IPRINT("received expected down: "
+					       "~n      MRef:   ~p"
+					       "~n      Socket: ~p"
+					       "~n      Info:   ~p",
+					       [MRef, Sock, Info]),
+				   State2 = maps:remove(sock3, State),
+				   State3 = maps:remove(mon3,  State2),
+				   {ok, State3}
+			   after 5000 ->
+				   ?SEV_EPRINT("socket down timeout"),
+				   {error, timeout}
+			   end
+                   end},
+         #{desc => "await socket 4 down",
+           cmd  => fun(#{sock4 := Sock,
+			 mon4  := MRef} = State) ->
+			   receive
+			       {'DOWN', MRef, socket, Sock, Info} ->
+				   ?SEV_IPRINT("received expected down: "
+					       "~n      MRef:   ~p"
+					       "~n      Socket: ~p"
+					       "~n      Info:   ~p",
+					       [MRef, Sock, Info]),
+				   State2 = maps:remove(sock4, State),
+				   State3 = maps:remove(mon4,  State2),
+				   {ok, State3}
+			   after 5000 ->
+				   ?SEV_EPRINT("socket down timeout"),
+				   {error, timeout}
+			   end
+                   end},
+         #{desc => "await socket 5 down",
+           cmd  => fun(#{sock5 := Sock,
+			 mon5  := MRef} = State) ->
+			   receive
+			       {'DOWN', MRef, socket, Sock, Info} ->
+				   ?SEV_IPRINT("received expected down: "
+					       "~n      MRef:   ~p"
+					       "~n      Socket: ~p"
+					       "~n      Info:   ~p",
+					       [MRef, Sock, Info]),
+				   State2 = maps:remove(sock5, State),
+				   State3 = maps:remove(mon5,  State2),
+				   {ok, State3}
+			   after 5000 ->
+				   ?SEV_EPRINT("socket down timeout"),
+				   {error, timeout}
+			   end
                    end},
 
          %% *** We are done ***
