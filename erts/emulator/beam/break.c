@@ -348,11 +348,11 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 	     if (j < 0)
 		j += scb->len;
 	     if (scb->ct[j] == &exp_send)
-		erts_print(to, to_arg, "send");
+		erts_print(to, to_arg, "send\n");
 	     else if (scb->ct[j] == &exp_receive)
-		erts_print(to, to_arg, "'receive'");
+		erts_print(to, to_arg, "'receive'\n");
 	     else if (scb->ct[j] == &exp_timeout)
-		   erts_print(to, to_arg, "timeout");
+		   erts_print(to, to_arg, "timeout\n");
 	     else
 		 erts_print(to, to_arg, "%T:%T/%bpu\n",
 			    scb->ct[j]->info.mfa.module,
