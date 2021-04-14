@@ -745,8 +745,20 @@ module.beam: module.erl \
 
 	  <tag><c>nowarn_unused_record</c></tag>
           <item>
-            <p>Turns off warnings for unused record types. Default is to 
-	    emit warnings for unused locally defined record types.</p>
+            <p>Turns off warnings for unused record definitions. Default is to
+	    emit warnings for unused locally defined records.</p>
+          </item>
+
+	  <tag><c>{nowarn_unused_record, RecordNames}</c></tag>
+          <item>
+            <p>Turns off warnings for unused record definitions. Default is to
+	    emit warnings for unused locally defined records.</p>
+          </item>
+
+	  <tag><c>nowarn_unused_type</c></tag>
+          <item>
+            <p>Turns off warnings for unused type declarations. Default is to
+	    emit warnings for unused local type declarations.</p>
           </item>
 
           <tag><c>nowarn_nif_inline</c></tag>
