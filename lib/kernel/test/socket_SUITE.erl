@@ -239,6 +239,7 @@
 
          %% Socket Monitor
          monitor_simple_open_and_close/1,
+	 monitor_simple_open_and_exit/1,
 	 monitor_open_and_close_multi_socks/1,
 	 monitor_open_and_close_multi_mon/1,
 	 monitor_open_and_close_multi_socks_and_mon/1,
@@ -1092,6 +1093,7 @@ reg_simple_cases() ->
 monitor_cases() ->
     [
      monitor_simple_open_and_close,
+     monitor_simple_open_and_exit,
      monitor_open_and_close_multi_socks,
      monitor_open_and_close_multi_mon,
      monitor_open_and_close_multi_socks_and_mon
@@ -25845,6 +25847,147 @@ mon_simple_open_and_close(InitState) ->
                                {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start (socket) owner evaluator"),
+    Owner = ?SEV_START("owner", OwnerSeq, InitState),
+
+    i("start tester evaluator"),
+    TesterInitState = #{owner => Owner#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator"),
+    ok = ?SEV_AWAIT_FINISH([Owner, Tester]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Create one socket, monitor from a different process then stop the
+%% owner process.
+%% The process that did the monitor shall receive a socket DOWN.
+
+monitor_simple_open_and_exit(suite) ->
+    [];
+monitor_simple_open_and_exit(doc) ->
+    [];
+monitor_simple_open_and_exit(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(monitor_simple_open_and_exit,
+           fun() ->
+		   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = mon_simple_open_and_exit(InitState)
+           end).
+
+
+mon_simple_open_and_exit(InitState) ->
+    OwnerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "create socket",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, sock := Sock} = _State) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Sock),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor owner",
+           cmd  => fun(#{owner := Owner} = _State) ->
+                           _MRef = erlang:monitor(process, Owner),
+                           ok
+                   end},
+         #{desc => "order (owner) start",
+           cmd  => fun(#{owner := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await (owner) ready",
+           cmd  => fun(#{owner := Pid} = State) ->
+                           {ok, Sock} = ?SEV_AWAIT_READY(Pid, owner, init),
+                           {ok, State#{sock => Sock}}
+                   end},
+         #{desc => "monitor socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           MRef = socket:monitor(Sock),
+			   ?SEV_IPRINT("Monitor: ~p", [MRef]),
+			   {ok, State#{mon => MRef}}
+                   end},
+
+         %% The actual test
+         #{desc => "order (owner) terminate",
+           cmd  => fun(#{owner := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await (owner) termination",
+           cmd  => fun(#{owner := Pid} = _State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "await socket down",
+           cmd  => fun(#{sock := Sock,
+			 mon  := MRef} = _State) ->
+			   receive
+			       {'DOWN', MRef, socket, Sock, Info} ->
+				   ?SEV_IPRINT("received expected down: "
+					       "~n      MRef:   ~p"
+					       "~n      Socket: ~p"
+					       "~n      Info:   ~p",
+					       [MRef, Sock, Info]),
+				   ok
+			   after 5000 ->
+				   ?SEV_EPRINT("socket down timeout"),
+				   {error, timeout}
+			   end
                    end},
 
          %% *** We are done ***
