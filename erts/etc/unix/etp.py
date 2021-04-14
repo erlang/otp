@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2013-2022. All Rights Reserved.
+# Copyright Ericsson AB 2013-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 #
-# This script was orinally written by Anthony Ramine (aka nox) in 2013
+# This script was orinally written by Anthony Ramine (aka nox) in 2013.
 # A lot of things have changed since then, but the same base remains.
 #
 
