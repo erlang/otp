@@ -768,7 +768,7 @@ handle_call({reject_io_reqs,Bool}, _From, State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call({multiply_timetraps,N}, _, State) -> ok
-%% N = integer() | infinity
+%% N = number() | infinity
 %%
 %% Multiplies all timetraps set by test cases with N
 
