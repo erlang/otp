@@ -73,6 +73,7 @@ MODULES= \
 	guard_SUITE \
 	hash_SUITE \
 	hash_property_test_SUITE \
+	hello_SUITE \
 	hibernate_SUITE \
 	iovec_SUITE \
 	list_bif_SUITE \
