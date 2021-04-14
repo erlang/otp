@@ -208,29 +208,29 @@ handle_delete_socket(#state{db   = DB,
 user_sock_delete_update([], Users, _XRef) ->
     Users;
 user_sock_delete_update([Mon|Mons], Users, XRef) ->
-    ?DBG(['try find monitor', Mon]),
+    %% ?DBG(['try find monitor', Mon]),
     case xref_mref_lookup(XRef, Mon) of
 	{value, #esock_xref{pid = Pid}} ->
-	    ?DBG(['found xref - with user', Pid]),
+	    %% ?DBG(['found xref - with user', Pid]),
 	    case user_pid_lookup(Users, Pid) of
 		{value, #esock_user{mref = MRef, mons = [Mon]}} ->
-		    ?DBG(['only one monitor -> delete user', MRef]),
+		    %% ?DBG(['only one monitor -> delete user', MRef]),
 		    erlang:demonitor(MRef, [flush]),
 		    Users2 = user_pid_delete(Users, Pid),
 		    user_sock_delete_update(Mons, Users2, XRef);
 		{value, #esock_user{mons = UMons} = User} ->
-		    ?DBG(['several monitor(s)']),
+		    %% ?DBG(['several monitor(s)']),
 		    UMons2 = lists:delete(Mon, UMons),
 		    User2  = User#esock_user{mons = UMons2},
 		    Users2 = lists:keyreplace(Pid, #esock_user.pid,
 					      Users, User2),
 		    user_sock_delete_update(Mons, Users2, XRef);
 		false -> % race?
-		    ?DBG(['no user found']),
+		    %% ?DBG(['no user found']),
 		    user_sock_delete_update(Mons, Users, XRef)
 	    end;
 	false -> % race?
-	    ?DBG(['no xref found']),
+	    %% ?DBG(['no xref found']),
 	    user_sock_delete_update(Mons, Users, XRef)
     end.
 
