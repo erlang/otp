@@ -3205,55 +3205,53 @@ significant_bystander(_Config) ->
     Child1 = #{id => child1,
                start => {supervisor_1, start_child, []},
                restart => transient,
-               significant => false},
+               significant => true},
     Child2 = #{id => child2,
                start => {supervisor_1, start_child, []},
                restart => transient,
-               significant => true},
+               significant => false},
     Child3 = #{id => child3,
                start => {supervisor_1, start_child, []},
                restart => transient,
                significant => true},
 
-    % Test with auto-shutdown triggered by the termination of any significant
-    % child.
-    {ok, Sup1} = start_link({ok, {#{strategy => one_for_all,
-				   intensity => 5,
-				   auto_shutdown => any_significant}, []}}),
-    supervisor:start_child(Sup1, Child1),
-    supervisor:start_child(Sup1, Child2),
-    supervisor:start_child(Sup1, Child3),
-    [{child3, ChildPid1_3, _, _},
-     {child2, ChildPid1_2, _, _},
-     {child1, ChildPid1_1, _, _}] = supervisor:which_children(Sup1),
-    link(ChildPid1_1),
-    link(ChildPid1_2),
-    link(ChildPid1_3),
-    terminate(ChildPid1_1, kill),
-    ok = check_exit([ChildPid1_1, ChildPid1_2, ChildPid1_3]),
-    error = check_exit([Sup1], 1000),
-    terminate(Sup1, shutdown),
-    ok = check_exit([Sup1]),
-
-    % Test with auto-shutdown triggered by the termination of all significant
-    % children.
-    {ok, Sup2} = start_link({ok, {#{strategy => one_for_all,
-				   intensity => 5,
-				   auto_shutdown => all_significant}, []}}),
-    supervisor:start_child(Sup2, Child1),
-    supervisor:start_child(Sup2, Child2),
-    supervisor:start_child(Sup2, Child3),
-    [{child3, ChildPid2_3, _, _},
-     {child2, ChildPid2_2, _, _},
-     {child1, ChildPid2_1, _, _}] = supervisor:which_children(Sup2),
-    link(ChildPid2_1),
-    link(ChildPid2_2),
-    link(ChildPid2_3),
-    terminate(ChildPid2_1, kill),
-    ok = check_exit([ChildPid2_1, ChildPid2_2, ChildPid2_3]),
-    error = check_exit([Sup2], 1000),
-    terminate(Sup2, shutdown),
-    ok = check_exit([Sup2]),
+    lists:foreach(
+        fun ({Strategy, AutoShutdown}) ->
+            {ok, Sup} = start_link({ok, {#{strategy => Strategy,
+                                           intensity => 5,
+                                           auto_shutdown => AutoShutdown}, []}}),
+            supervisor:start_child(Sup, Child1),
+            supervisor:start_child(Sup, Child2),
+            supervisor:start_child(Sup, Child3),
+            [{child3, ChildPid3, _, _},
+             {child2, ChildPid2, _, _},
+             {child1, ChildPid1, _, _}] = supervisor:which_children(Sup),
+            link(ChildPid1),
+            link(ChildPid2),
+            link(ChildPid3),
+            terminate(ChildPid2, kill),
+            _ = case Strategy of
+		one_for_one ->
+		    ok = check_exit([ChildPid2]),
+		    error = check_exit([ChildPid1], 1000),
+		    error = check_exit([ChildPid2], 1000);
+                one_for_all ->
+                    ok = check_exit([ChildPid1, ChildPid2, ChildPid3]);
+                rest_for_one ->
+                    ok = check_exit([ChildPid2, ChildPid3]),
+                    error = check_exit([ChildPid1], 1000)
+            end,
+            error = check_exit([Sup], 1000),
+            terminate(Sup, shutdown),
+            ok = check_exit([Sup])
+        end,
+        [
+            {Strategy, AutoShutdown}
+            ||
+                Strategy <- [one_for_one, one_for_all, rest_for_one],
+                AutoShutdown <- [any_significant, all_significant]
+        ]
+    ),
 
     ok.
 
