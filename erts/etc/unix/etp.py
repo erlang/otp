@@ -290,6 +290,7 @@ def eterm_summary(valobj, internal_dict):
 
 def eterm(valobj, depth = float('inf')):
     val = valobj.unsigned
+    valobj = strip_literal_tag(valobj)
     tag = val & 0x3
     if tag == 0x1:
         return cons(valobj, depth)
@@ -306,7 +307,7 @@ def eterm(valobj, depth = float('inf')):
 
 def cons(valobj, depth = float('inf')):
     items = []
-    cdr = valobj
+    cdr = strip_literal_tag(valobj)
     improper = False
     truncated = False
     depth *= 20
@@ -319,6 +320,7 @@ def cons(valobj, depth = float('inf')):
         return "#ConsError<%x>" % cdr.unsigned;
 
     while True:
+        cdr = strip_literal_tag(cdr)
         ptr = cdr.CreateValueFromData(
             "unconsed",
             lldb.SBData.CreateDataFromInt(cdr.unsigned - 1),
@@ -668,6 +670,20 @@ def pixdata2data(valobj):
     data |= (pixdata >> pix_cl_shift) & pix_cl_mask
     data |= (pixdata & pix_cli_mask) << pix_cli_shift
     return data
+
+def strip_literal_tag(valobj):
+    if valobj.size == 4:
+        # This is a 32-bit executable. There are no literal tags.
+        return valobj
+
+    # Strip literal tags from list and boxed terms.
+    primary_tag = valobj.unsigned & 0x03
+    if (primary_tag == 1 or primary_tag == 2) and valobj.unsigned & 0x04:
+        valobj = valobj.CreateValueFromData(
+            valobj.name,
+            lldb.SBData.CreateDataFromInt(valobj.unsigned - 0x04),
+            Eterm(valobj.target))
+    return valobj
 
 def init(target):
     names = ['beam_apply', 'beam_normal_exit', 'beam_exit', 'beam_save_calls',
