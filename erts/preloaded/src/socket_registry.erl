@@ -33,6 +33,8 @@
          start/0,
          number_of/0,
          which_sockets/1,
+	 number_of_monitors/0, number_of_monitors/1,
+         which_monitors/1,
 	 monitor/1,
 	 demonitor/1
         ]).
@@ -107,6 +109,17 @@ which_sockets(Filter)
     end;
 which_sockets(Filter) ->
     erlang:error(badarg, [Filter]).
+
+
+number_of_monitors() ->
+    request(number_of_monitors).
+
+number_of_monitors(Pid) when is_pid(Pid) ->
+    request({number_of_monitors, Pid}).
+
+which_monitors(Pid) when is_pid(Pid) ->
+    request({which_monitors, Pid}).
+
 
 monitor(Socket) ->
     case request({monitor, Socket}) of
@@ -254,8 +267,18 @@ send_down(Pid, MRef, Sock) ->
 handle_request(#state{db = DB} = State, number_of, _From) ->
     {State, db_size(DB)};
 
+handle_request(#state{xref = XRef} = State, number_of_monitors, _From) ->
+    {State, xref_size(XRef)};
+
+handle_request(#state{user = Users} = State,
+	       {number_of_monitors, Pid}, _From) ->
+    {State, user_size(Users, Pid)};
+
 handle_request(#state{db = DB} = State, {which_sockets, Filter}, _From) ->
     {State, do_which_sockets(DB, Filter)};
+
+handle_request(#state{user = Users} = State, {which_monitors, Pid}, _From) ->
+    {State, user_which_monitors(Users, Pid)};
 
 handle_request(State, {monitor, Socket}, From) ->
     do_monitor_socket(State, Socket, From);
@@ -489,6 +512,8 @@ xref_pid_lookup(XRefs, Pid) when is_list(XRefs) andalso is_pid(Pid) ->
 xref_lookup(XRefs, Pos, Key) ->
     lists:keysearch(Key, Pos, XRefs).
 
+xref_size(XRefs) when is_list(XRefs) ->
+    length(XRefs).
 
 
 %% --- DB utility functions ---
@@ -570,6 +595,18 @@ user_pid_delete(Users, Pid) when is_list(Users) ->
 
 user_pid_lookup(Users, Pid) when is_list(Users) ->
     lists:keysearch(Pid, #esock_user.pid, Users).
+
+user_which_monitors(Users, Pid) when is_list(Users) andalso is_pid(Pid) ->
+    case user_pid_lookup(Users, Pid) of
+	{value, #esock_user{mons = Mons}} ->
+	    Mons;
+	false ->
+	    []
+    end.
+
+user_size(Users, Pid) when is_list(Users) andalso is_pid(Pid) ->
+    length(user_which_monitors(Users, Pid)).
+
 
 %% =========================================================================
 

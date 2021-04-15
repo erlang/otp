@@ -24,8 +24,13 @@
 
 %% Administrative and "global" utility functions
 -export([
+	 %% (registry) Socket functions
          number_of/0,
          which_sockets/0, which_sockets/1,
+
+	 %% (registry) Socket monitor functions
+         number_of_monitors/0, number_of_monitors/1,
+         which_monitors/1,
 
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
@@ -741,17 +746,18 @@ number_of() ->
 %% Interface function to the socket registry
 %% Returns a list of all the sockets, accoring to the filter rule.
 %%
+
 -spec which_sockets() -> [socket()].
 
 which_sockets() ->
     ?REGISTRY:which_sockets(true).
 
 -spec which_sockets(FilterRule) -> [socket()] when
-      FilterRule :: 'inet' | 'inet6' |
-                    'stream' | 'dgram' | 'seqpacket' |
-                    'sctp' | 'tcp' | 'udp' |
-                    pid() |
-                    fun((socket_info()) -> boolean()).
+	FilterRule :: 'inet' | 'inet6' |
+	'stream' | 'dgram' | 'seqpacket' |
+	'sctp' | 'tcp' | 'udp' |
+	pid() |
+	fun((socket_info()) -> boolean()).
 
 which_sockets(Domain)
   when Domain =:= inet;
@@ -780,6 +786,37 @@ which_sockets(Filter) when is_function(Filter, 1) ->
 which_sockets(Other) ->
     erlang:error(badarg, [Other]).
 
+
+
+
+%% *** number_of_monitors ***
+%%
+%% Interface function to the socket registry
+%% returns the number of existing socket monitors.
+%%
+
+-spec number_of_monitors() -> non_neg_integer().
+
+number_of_monitors() ->
+    ?REGISTRY:number_of_monitors().
+
+-spec number_of_monitors(pid()) -> non_neg_integer().
+
+number_of_monitors(Pid) when is_pid(Pid) ->
+    ?REGISTRY:number_of_monitors(Pid).
+
+
+%% *** which_monitors/1 ***
+%%
+%% Interface function to the socket registry
+%% Returns a list of all the monitors of the process.
+%%
+
+-spec which_monitors(Pid) -> [reference()] when
+	 Pid :: pid().
+
+which_monitors(Pid) when is_pid(Pid) ->
+    ?REGISTRY:which_monitors(Pid).
 
 
 %% ===========================================================================
