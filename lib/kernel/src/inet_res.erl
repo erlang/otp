@@ -382,7 +382,7 @@ gethostbyaddr_tm(_,_) -> {error, formerr}.
 %%  2. the list of alternative name servers
 %%
 res_gethostbyaddr(Addr, IP, Timer) ->
-    case res_query(Addr, in, ptr, [], Timer) of
+    case res_query(Addr, in, ?S_PTR, [], Timer) of
 	{ok, Rec} ->
 	    inet_db:res_gethostbyaddr(IP, Rec);
 	{error,{qfmterror,_}} -> {error,einval};
@@ -649,6 +649,7 @@ make_query(Dname, Class, Type, Opts) ->
 make_query(Dname, Class, Type, Options, Edns) ->
     Id = inet_db:res_option(next_id),
     Recurse = Options#options.recurse,
+    RD = Recurse =:= 1 orelse Recurse =:= true, % (0 | 1 | true | false)
     ARList = case Edns of
 		 false -> [];
 		 _ ->
@@ -656,17 +657,18 @@ make_query(Dname, Class, Type, Options, Edns) ->
 		     [#dns_rr_opt{udp_payload_size=PSz,
 				  version=Edns}]
 	     end,
-    Msg = #dns_rec{header=#dns_header{id=Id, 
+    Msg = #dns_rec{header=#dns_header{id=Id,
+                                      qr=false,
 				      opcode='query',
-				      rd=Recurse,
+				      rd=RD,
 				      rcode=?NOERROR},
-		    qdlist=[#dns_query{domain=Dname, 
-				       type=Type, 
-				       class=Class}],
+                   qdlist=[#dns_query{domain=Dname,
+                                      type=Type,
+                                      class=Class}],
 		   arlist=ARList},
     ?verbose(Options#options.verbose, "Query: ~p~n", [dns_msg(Msg)]),
     Buffer = inet_dns:encode(Msg),
-    {Id, Buffer}.
+    {Msg, Buffer}.
 
 %% --------------------------------------------------------------------------
 %% socket helpers
@@ -820,13 +822,13 @@ query_nss_edns(
   #q{options =
          #options{
             udp_payload_size = PSz}=Options,
-     edns = {Id,Buffer}}=Q,
+     edns = EDNSQuery}=Q,
   [NsSpec|NSs], Timer, Retry, I, S_0, Reason, RetryNSs) ->
     %%
     {IP,Port} = NS = servfail_retry_wait(NsSpec),
     {S,Result} =
 	query_ns(
-          S_0, Id, Buffer, IP, Port, Timer, Retry, I, Options, PSz),
+          S_0, EDNSQuery, IP, Port, Timer, Retry, I, Options, PSz),
     case Result of
 	{error,{E,_}}
           when E =:= qfmterror;
@@ -848,19 +850,21 @@ query_nss_edns(
     end.
 
 query_nss_dns(
-  #q{dns = Qdns}=Q_0,
+  #q{dns = DNSQuery_0}=Q_0,
   [NsSpec|NSs], Timer, Retry, I, S_0, Reason, RetryNSs) ->
     %%
     {IP,Port} = NS = servfail_retry_wait(NsSpec),
     #q{options = Options,
-       dns = {Id,Buffer}}=Q =
+       dns = DNSQuery}=Q =
 	if
-	    is_function(Qdns, 0) -> Q_0#q{dns=Qdns()};
-	    true -> Q_0
+	    is_function(DNSQuery_0, 0) ->
+                Q_0#q{dns=DNSQuery_0()};
+	    true ->
+                Q_0
 	end,
     {S,Result} =
 	query_ns(
-	  S_0, Id, Buffer, IP, Port, Timer, Retry, I, Options, ?PACKETSZ),
+	  S_0, DNSQuery, IP, Port, Timer, Retry, I, Options, ?PACKETSZ),
     query_nss_result(
       Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result).
 
@@ -952,14 +956,14 @@ query_retries_error(#q{options=#options{nxdomain_reply=NxReply}}, S, Reason) ->
     end.
 
 
-query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
+query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
 	 #options{timeout=Tm,usevc=UseVC,verbose=Verbose},
 	 PSz) ->
     case UseVC orelse iolist_size(Buffer) > PSz of
 	true ->
 	    TcpTimeout = inet:timeout(Tm*5, Timer),
 	    {S0,
-             query_tcp(TcpTimeout, Id, Buffer, IP, Port, Verbose)};
+             query_tcp(TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 	false ->
 	    case udp_open(S0, IP) of
 		{ok,S} ->
@@ -967,13 +971,13 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 			inet:timeout( (Tm * (1 bsl I)) div Retry, Timer),
 		     case
                          query_udp(
-                           S, Id, Buffer, IP, Port, UdpTimeout, Verbose)
+                           S, Msg, Buffer, IP, Port, UdpTimeout, Verbose)
                      of
 			 {ok,#dns_rec{header=H}} when H#dns_header.tc ->
 			     TcpTimeout = inet:timeout(Tm*5, Timer),
 			     {S,
                               query_tcp(
-                                TcpTimeout, Id, Buffer, IP, Port, Verbose)};
+                                TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 			{error, econnrefused} = Err ->
                             ok = udp_close(S),
 	                    {#sock{}, Err};
@@ -984,9 +988,9 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 	    end
     end.
 
-query_udp(_S, _Id, _Buffer, _IP, _Port, 0, _Verbose) ->
+query_udp(_S, _Msg, _Buffer, _IP, _Port, 0, _Verbose) ->
     timeout;
-query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
+query_udp(S, Msg, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
 	     [IP,Port,Timeout]),
     case
@@ -999,7 +1003,7 @@ query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
 	    Decode =
 		fun ({RecIP,RecPort,Answer})
 		      when RecIP =:= IP, RecPort =:= Port ->
-			case decode_answer(Answer, Id, Verbose) of
+			case decode_answer(Answer, Msg, Verbose) of
 			    {error,badid} ->
 				false;
 			    Reply ->
@@ -1020,9 +1024,9 @@ query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
 	    {error,econnrefused}
     end.
 
-query_tcp(0, _Id, _Buffer, _IP, _Port, _Verbose) ->
+query_tcp(0, _Msg, _Buffer, _IP, _Port, _Verbose) ->
     timeout;
-query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
+query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
     ?verbose(Verbose, "Try TCP server : ~p:~p (timeout=~w)\n",
 	     [IP, Port, Timeout]),
     Family = case IP of
@@ -1038,7 +1042,7 @@ query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
 		    case gen_tcp:recv(S, 0, Timeout) of
 			{ok, Answer} ->
 			    gen_tcp:close(S),
-			    case decode_answer(Answer, Id, Verbose) of
+			    case decode_answer(Answer, Msg, Verbose) of
 				{ok, _} = OK -> OK;
 				{error, badid} -> {error, servfail};
 				Error -> Error
@@ -1062,36 +1066,61 @@ query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
 	_:_ -> {error, einval}
     end.
 
-decode_answer(Answer, Id, Verbose) ->
+decode_answer(Answer, Q_Msg, Verbose) ->
     case inet_dns:decode(Answer) of
-	{ok, Msg} ->
+	{ok, #dns_rec{header = H, arlist = ARList} = Msg} ->
 	    ?verbose(Verbose, "Got reply: ~p~n", [dns_msg(Msg)]),
-	    E = case lists:keyfind(dns_rr_opt, 1, Msg#dns_rec.arlist) of
+	    E = case lists:keyfind(dns_rr_opt, 1, ARList) of
 		    false -> 0;
 		    #dns_rr_opt{ext_rcode=ExtRCode} -> ExtRCode
 		end,
-	    H = Msg#dns_rec.header,
 	    RCode = (E bsl 4) bor H#dns_header.rcode,
 	    case RCode of
-		?NOERROR ->
-		    if H#dns_header.id =/= Id ->
-			    {error,badid};
-		       length(Msg#dns_rec.qdlist) =/= 1 ->
-			    {error,{noquery,Msg}};
-		       true ->
-			    {ok, Msg}
-		    end;
+		?NOERROR  -> decode_answer_noerror(Q_Msg, Msg, H);
 		?FORMERR  -> {error,{qfmterror,Msg}};
 		?SERVFAIL -> {error,{servfail,Msg}};
 		?NXDOMAIN -> {error,{nxdomain,Msg}};
 		?NOTIMP   -> {error,{notimp,Msg}};
 		?REFUSED  -> {error,{refused,Msg}};
 		?BADVERS  -> {error,{badvers,Msg}};
-		_ ->         {error,{unknown,Msg}}
+		_         -> {error,{unknown,Msg}}
 	    end;
 	{error, formerr} = Error ->
 	    ?verbose(Verbose, "Got reply: decode format error~n", []),
 	    Error
+    end.
+
+decode_answer_noerror(
+  #dns_rec{header = Q_H, qdlist = [Q_RR]},
+  #dns_rec{qdlist = QDList} = Msg,
+  H) ->
+    %% Validate the reply
+    if
+        H#dns_header.id     =/= Q_H#dns_header.id ->
+            {error,badid};
+        H#dns_header.qr     =/= true;
+        H#dns_header.opcode =/= Q_H#dns_header.opcode;
+        H#dns_header.rd     =/= Q_H#dns_header.rd ->
+            {error,{unknown,Msg}};
+        true ->
+            case QDList of
+                [RR] ->
+                    case
+                        (RR#dns_query.class =:= Q_RR#dns_query.class)
+                        andalso
+                        (RR#dns_query.type =:= Q_RR#dns_query.type)
+                        andalso
+                        (inet_db:tolower(RR#dns_query.domain) =:=
+                             inet_db:tolower(Q_RR#dns_query.domain))
+                    of
+                        true ->
+                            {ok, Msg};
+                        false ->
+                            {error,{noquery,Msg}}
+                    end;
+                _ when is_list(QDList) ->
+                    {error,{noquery,Msg}}
+            end
     end.
 
 %%
