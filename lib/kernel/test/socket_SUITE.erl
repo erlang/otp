@@ -25808,11 +25808,31 @@ mon_simple_open_and_close(InitState) ->
                            {ok, Sock} = ?SEV_AWAIT_READY(Pid, owner, init),
                            {ok, State#{sock => Sock}}
                    end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock := Sock} = State) ->
                            MRef = socket:monitor(Sock),
 			   ?SEV_IPRINT("Monitor: ~p", [MRef]),
 			   {ok, State#{mon => MRef}}
+                   end},
+         #{desc => "verify total number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% The actual test
@@ -25836,6 +25856,16 @@ mon_simple_open_and_close(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% Cleanup
@@ -25956,11 +25986,31 @@ mon_simple_open_and_exit(InitState) ->
                            {ok, Sock} = ?SEV_AWAIT_READY(Pid, owner, init),
                            {ok, State#{sock => Sock}}
                    end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock := Sock} = State) ->
                            MRef = socket:monitor(Sock),
 			   ?SEV_IPRINT("Monitor: ~p", [MRef]),
 			   {ok, State#{mon => MRef}}
+                   end},
+         #{desc => "verify total number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% The actual test
@@ -25994,6 +26044,16 @@ mon_simple_open_and_exit(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% *** We are done ***
@@ -26201,6 +26261,16 @@ mon_open_and_close_multi_socks(InitState) ->
 				       sock4 => Sock4,
 				       sock5 => Sock5}}
                    end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock1 := Sock1,
 			 sock2 := Sock2,
@@ -26224,6 +26294,16 @@ mon_open_and_close_multi_socks(InitState) ->
 				       mon3 => MRef3,
 				       mon4 => MRef4,
 				       mon5 => MRef5}}
+                   end},
+         #{desc => "verify total number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% The actual test
@@ -26250,6 +26330,16 @@ mon_open_and_close_multi_socks(InitState) ->
 				   {error, timeout}
 			   end
                    end},
+         #{desc => "verify total number of monitors (=4)",
+           cmd  => fun(_State) ->
+			   4 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=4)",
+           cmd  => fun(_State) ->
+			   4 = socket:number_of_monitors(self()),
+			   ok
+                   end},
 
          #{desc => "order owner to close socket 2",
            cmd  => fun(#{owner := Pid} = _State) ->
@@ -26273,6 +26363,16 @@ mon_open_and_close_multi_socks(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify total number of monitors (=3)",
+           cmd  => fun(_State) ->
+			   3 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=3)",
+           cmd  => fun(_State) ->
+			   3 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          #{desc => "order owner to close socket 3",
@@ -26298,6 +26398,16 @@ mon_open_and_close_multi_socks(InitState) ->
 				   {error, timeout}
 			   end
                    end},
+         #{desc => "verify total number of monitors (=2)",
+           cmd  => fun(_State) ->
+			   2 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=2)",
+           cmd  => fun(_State) ->
+			   2 = socket:number_of_monitors(self()),
+			   ok
+                   end},
 
          #{desc => "order owner to close socket 4",
            cmd  => fun(#{owner := Pid} = _State) ->
@@ -26322,6 +26432,16 @@ mon_open_and_close_multi_socks(InitState) ->
 				   {error, timeout}
 			   end
                    end},
+         #{desc => "verify total number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(self()),
+			   ok
+                   end},
 
          #{desc => "order owner to close socket 5",
            cmd  => fun(#{owner := Pid} = _State) ->
@@ -26345,6 +26465,16 @@ mon_open_and_close_multi_socks(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% Cleanup
@@ -26521,6 +26651,16 @@ mon_open_and_exit_multi_socks(InitState) ->
 				       sock4 => Sock4,
 				       sock5 => Sock5}}
                    end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock1 := Sock1,
 			 sock2 := Sock2,
@@ -26544,6 +26684,16 @@ mon_open_and_exit_multi_socks(InitState) ->
 				       mon3 => MRef3,
 				       mon4 => MRef4,
 				       mon5 => MRef5}}
+                   end},
+         #{desc => "verify total number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% The actual test
@@ -26652,6 +26802,16 @@ mon_open_and_exit_multi_socks(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% *** We are done ***
@@ -26784,12 +26944,21 @@ mon_open_and_close_multi_mon(InitState) ->
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, monitor)
                    end},
-
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock := Sock} = State) ->
                            MRef = socket:monitor(Sock),
 			   ?SEV_IPRINT("Monitor: ~p", [MRef]),
 			   {ok, State#{mon => MRef}}
+                   end},
+         #{desc => "verify own number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          #{desc => "announce ready (monitor)",
@@ -26820,6 +26989,11 @@ mon_open_and_close_multi_mon(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          #{desc => "announce ready (down)",
@@ -26964,6 +27138,12 @@ mon_open_and_close_multi_mon(InitState) ->
 
 
          %% The actual test
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+
          #{desc => "order client 1 to monitor",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, monitor),
@@ -26972,6 +27152,11 @@ mon_open_and_close_multi_mon(InitState) ->
          #{desc => "await (client 1) ready",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client1, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 2 to monitor",
@@ -26983,6 +27168,11 @@ mon_open_and_close_multi_mon(InitState) ->
            cmd  => fun(#{client2 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client2, monitor)
                    end},
+         #{desc => "verify total number of monitors (=2)",
+           cmd  => fun(_State) ->
+			   2 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 3 to monitor",
            cmd  => fun(#{client3 := Pid} = _State) ->
@@ -26992,6 +27182,11 @@ mon_open_and_close_multi_mon(InitState) ->
          #{desc => "await (client 3) ready",
            cmd  => fun(#{client3 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client3, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=3)",
+           cmd  => fun(_State) ->
+			   3 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 4 to monitor",
@@ -27003,6 +27198,11 @@ mon_open_and_close_multi_mon(InitState) ->
            cmd  => fun(#{client4 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client4, monitor)
                    end},
+         #{desc => "verify total number of monitors (=4)",
+           cmd  => fun(_State) ->
+			   4 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 5 to monitor",
            cmd  => fun(#{client5 := Pid} = _State) ->
@@ -27012,6 +27212,11 @@ mon_open_and_close_multi_mon(InitState) ->
          #{desc => "await (client 5) ready",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 1 to await down",
@@ -27065,6 +27270,11 @@ mon_open_and_close_multi_mon(InitState) ->
          #{desc => "await (client 5) down received",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, down)
+                   end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
                    end},
 
          %% Cleanup
@@ -27296,12 +27506,21 @@ mon_open_and_exit_multi_mon(InitState) ->
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, monitor)
                    end},
-
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock := Sock} = State) ->
                            MRef = socket:monitor(Sock),
 			   ?SEV_IPRINT("Monitor: ~p", [MRef]),
 			   {ok, State#{mon => MRef}}
+                   end},
+         #{desc => "verify own number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          #{desc => "announce ready (monitor)",
@@ -27332,6 +27551,11 @@ mon_open_and_exit_multi_mon(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          #{desc => "announce ready (down)",
@@ -27476,6 +27700,12 @@ mon_open_and_exit_multi_mon(InitState) ->
 
 
          %% The actual test
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+
          #{desc => "order client 1 to monitor",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, monitor),
@@ -27484,6 +27714,11 @@ mon_open_and_exit_multi_mon(InitState) ->
          #{desc => "await (client 1) ready",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client1, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=1)",
+           cmd  => fun(_State) ->
+			   1 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 2 to monitor",
@@ -27495,6 +27730,11 @@ mon_open_and_exit_multi_mon(InitState) ->
            cmd  => fun(#{client2 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client2, monitor)
                    end},
+         #{desc => "verify total number of monitors (=2)",
+           cmd  => fun(_State) ->
+			   2 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 3 to monitor",
            cmd  => fun(#{client3 := Pid} = _State) ->
@@ -27504,6 +27744,11 @@ mon_open_and_exit_multi_mon(InitState) ->
          #{desc => "await (client 3) ready",
            cmd  => fun(#{client3 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client3, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=3)",
+           cmd  => fun(_State) ->
+			   3 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 4 to monitor",
@@ -27515,6 +27760,11 @@ mon_open_and_exit_multi_mon(InitState) ->
            cmd  => fun(#{client4 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client4, monitor)
                    end},
+         #{desc => "verify total number of monitors (=4)",
+           cmd  => fun(_State) ->
+			   4 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 5 to monitor",
            cmd  => fun(#{client5 := Pid} = _State) ->
@@ -27524,6 +27774,11 @@ mon_open_and_exit_multi_mon(InitState) ->
          #{desc => "await (client 5) ready",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 1 to await down",
@@ -27587,6 +27842,11 @@ mon_open_and_exit_multi_mon(InitState) ->
          #{desc => "await (client 5) down received",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, down)
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          %% Cleanup
@@ -27711,7 +27971,7 @@ monitor_open_and_close_multi_socks_and_mon(suite) ->
 monitor_open_and_close_multi_socks_and_mon(doc) ->
     [];
 monitor_open_and_close_multi_socks_and_mon(_Config) when is_list(_Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(30)),
     tc_try(monitor_open_and_close_multi_socks_and_mon,
            fun() ->
 		   InitState = #{domain   => inet,
@@ -27916,6 +28176,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, monitor)
                    end},
 
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock1 := Sock1,
 			 sock2 := Sock2,
@@ -27939,6 +28204,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
 				       mon3 => MRef3,
 				       mon4 => MRef4,
 				       mon5 => MRef5}}
+                   end},
+         #{desc => "verify own number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
          #{desc => "announce ready (monitor)",
@@ -28070,6 +28340,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, down),
                            ok
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
 
 
@@ -28243,6 +28518,12 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
 
 
          %% The actual test
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+
          #{desc => "order client 1 to monitor",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, monitor),
@@ -28251,6 +28532,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 1) ready",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client1, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=1*5)",
+           cmd  => fun(_State) ->
+			   1*5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 2 to monitor",
@@ -28262,6 +28548,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{client2 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client2, monitor)
                    end},
+         #{desc => "verify total number of monitors (=2*5)",
+           cmd  => fun(_State) ->
+			   2*5 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 3 to monitor",
            cmd  => fun(#{client3 := Pid} = _State) ->
@@ -28271,6 +28562,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 3) ready",
            cmd  => fun(#{client3 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client3, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=3*5)",
+           cmd  => fun(_State) ->
+			   3*5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 4 to monitor",
@@ -28282,6 +28578,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{client4 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client4, monitor)
                    end},
+         #{desc => "verify total number of monitors (=4*5)",
+           cmd  => fun(_State) ->
+			   4*5 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 5 to monitor",
            cmd  => fun(#{client5 := Pid} = _State) ->
@@ -28291,6 +28592,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 5) ready",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, monitor)
+                   end},
+         #{desc => "verify total number of monitors (=5*5)",
+           cmd  => fun(_State) ->
+			   5*5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 1 to await down",
@@ -28346,6 +28652,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, down)
                    end},
+         #{desc => "verify total number of monitors (=5*4)",
+           cmd  => fun(_State) ->
+			   5*4 = socket:number_of_monitors(),
+			   ok
+                   end},
 
 	 ?SEV_SLEEP(?SECS(1)),
 
@@ -28373,6 +28684,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 5) down received",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, down)
+                   end},
+         #{desc => "verify total number of monitors (=5*3)",
+           cmd  => fun(_State) ->
+			   5*3 = socket:number_of_monitors(),
+			   ok
                    end},
 
 	 ?SEV_SLEEP(?SECS(1)),
@@ -28402,6 +28718,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, down)
                    end},
+         #{desc => "verify total number of monitors (=5*2)",
+           cmd  => fun(_State) ->
+			   5*2 = socket:number_of_monitors(),
+			   ok
+                   end},
 
 	 ?SEV_SLEEP(?SECS(1)),
 
@@ -28430,6 +28751,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, down)
                    end},
+         #{desc => "verify total number of monitors (=5*1)",
+           cmd  => fun(_State) ->
+			   5*1 = socket:number_of_monitors(),
+			   ok
+                   end},
 
 	 ?SEV_SLEEP(?SECS(1)),
 
@@ -28457,6 +28783,11 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 5) down received",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, down)
+                   end},
+         #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
                    end},
 
 	 ?SEV_SLEEP(?SECS(1)),
@@ -28752,6 +29083,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, monitor)
                    end},
 
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "monitor socket",
            cmd  => fun(#{sock1 := Sock1,
 			 sock2 := Sock2,
@@ -28776,7 +29112,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
 				       mon4 => MRef4,
 				       mon5 => MRef5}}
                    end},
-
+         #{desc => "verify own number of monitors (=5)",
+           cmd  => fun(_State) ->
+			   5 = socket:number_of_monitors(self()),
+			   ok
+                   end},
          #{desc => "announce ready (monitor)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, monitor),
@@ -28806,11 +29146,6 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
 				   {error, timeout}
 			   end
                    end},
-         #{desc => "announce ready (down)",
-           cmd  => fun(#{tester := Tester}) ->
-                           ?SEV_ANNOUNCE_READY(Tester, down),
-                           ok
-                   end},
 
          #{desc => "await socket 2 down",
            cmd  => fun(#{sock2 := Sock,
@@ -28829,11 +29164,6 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
-                   end},
-         #{desc => "announce ready (down)",
-           cmd  => fun(#{tester := Tester}) ->
-                           ?SEV_ANNOUNCE_READY(Tester, down),
-                           ok
                    end},
 
          #{desc => "await socket 3 down",
@@ -28854,11 +29184,6 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
 				   {error, timeout}
 			   end
                    end},
-         #{desc => "announce ready (down)",
-           cmd  => fun(#{tester := Tester}) ->
-                           ?SEV_ANNOUNCE_READY(Tester, down),
-                           ok
-                   end},
 
          #{desc => "await socket 4 down",
            cmd  => fun(#{sock4 := Sock,
@@ -28878,11 +29203,6 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
 				   {error, timeout}
 			   end
                    end},
-         #{desc => "announce ready (down)",
-           cmd  => fun(#{tester := Tester}) ->
-                           ?SEV_ANNOUNCE_READY(Tester, down),
-                           ok
-                   end},
 
          #{desc => "await socket 5 down",
            cmd  => fun(#{sock5 := Sock,
@@ -28901,6 +29221,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
 			   end
+                   end},
+         #{desc => "verify own number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(self()),
+			   ok
                    end},
          #{desc => "announce ready (down)",
            cmd  => fun(#{tester := Tester}) ->
@@ -29079,6 +29404,12 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
 
 
          %% The actual test
+	 #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
+                   end},
+
          #{desc => "order client 1 to monitor",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, monitor),
@@ -29087,6 +29418,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 1) ready",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client1, monitor)
+                   end},
+	 #{desc => "verify total number of monitors (=1*5)",
+           cmd  => fun(_State) ->
+			   1*5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 2 to monitor",
@@ -29098,6 +29434,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{client2 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client2, monitor)
                    end},
+	 #{desc => "verify total number of monitors (=2*5)",
+           cmd  => fun(_State) ->
+			   2*5 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 3 to monitor",
            cmd  => fun(#{client3 := Pid} = _State) ->
@@ -29107,6 +29448,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 3) ready",
            cmd  => fun(#{client3 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client3, monitor)
+                   end},
+	 #{desc => "verify total number of monitors (=3*5)",
+           cmd  => fun(_State) ->
+			   3*5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 4 to monitor",
@@ -29118,6 +29464,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
            cmd  => fun(#{client4 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client4, monitor)
                    end},
+	 #{desc => "verify total number of monitors (=4*5)",
+           cmd  => fun(_State) ->
+			   4*5 = socket:number_of_monitors(),
+			   ok
+                   end},
 
          #{desc => "order client 5 to monitor",
            cmd  => fun(#{client5 := Pid} = _State) ->
@@ -29127,6 +29478,11 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
          #{desc => "await (client 5) ready",
            cmd  => fun(#{client5 := Pid} = _State) ->
                            ok = ?SEV_AWAIT_READY(Pid, client5, monitor)
+                   end},
+	 #{desc => "verify total number of monitors (=5*5)",
+           cmd  => fun(_State) ->
+			   5*5 = socket:number_of_monitors(),
+			   ok
                    end},
 
          #{desc => "order client 1 to await down",
@@ -29170,6 +29526,33 @@ mon_open_and_exit_multi_socks_and_mon(InitState) ->
                                {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+
+         #{desc => "await (client 1) ready",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client1, down)
+                   end},
+         #{desc => "await (client 2) ready",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client2, down)
+                   end},
+         #{desc => "await (client 3) ready",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client3, down)
+                   end},
+         #{desc => "await (client 4) ready",
+           cmd  => fun(#{client4 := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client4, down)
+                   end},
+         #{desc => "await (client 5) ready",
+           cmd  => fun(#{client5 := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client5, down)
+                   end},
+
+	 #{desc => "verify total number of monitors (=0)",
+           cmd  => fun(_State) ->
+			   0 = socket:number_of_monitors(),
+			   ok
                    end},
 
 	 ?SEV_SLEEP(?SECS(1)),
