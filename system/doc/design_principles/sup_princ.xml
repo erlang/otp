@@ -77,7 +77,7 @@ init(_Args) ->
     <p>The <c>ChildSpecs</c> variable in the return value
       from <c>init/1</c> is a list of <seeguide marker="#spec">child
       specifications</seeguide>.</p>
-    </section>
+  </section>
 
   <section>
     <marker id="flags"/>
@@ -108,7 +108,7 @@ sup_flags() = #{strategy => strategy(),           % optional
       </item>
       <item>
         <p><c>auto_shutdown</c> specifies if and when a supervisor should
-          <seeguide marker="#auto_shutdown">automatically shut itself
+          <seeguide marker="#automatic-shutdown">automatically shut itself
           down</seeguide>.</p>
       </item>
     </list>
@@ -250,19 +250,25 @@ SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
   </section>
 
   <section>
-    <marker id="auto_shutdown"></marker>
     <title>Automatic Shutdown</title>
     <p>A supervisor can be configured to automatically shut itself down when
       <seeguide marker="#significant_child">significant children</seeguide>
       terminate.</p>
-    <p>Auto-shutdown is specified by the <c>auto_shutdown</c> key in the
+    <p>This is useful when a supervisor represents a work unit
+      of cooperating children, as opposed to independent workers. When
+      the work unit has finished it's work, that is, when any or all
+      significant child processes have terminated, the supervisor
+      should then shut down by terminating all remaining child
+      processes in reverse start order according to the respective shutdown
+      specifications, and then itself.</p>
+    <p>Automatic shutdown is specified by the <c>auto_shutdown</c> key in the
       supervisor flags map returned by the callback function <c>init</c>:</p>
     <code type="none">
 SupFlags = #{auto_shutdown => AutoShutdown, ...}</code>
     <p>The <c>auto_shutdown</c> key is optional in this map. If it is not
       given, it defaults to <c>never</c>.</p>
     <note>
-      <p>The auto-shutdown facility only applies when significant children
+      <p>The automatic shutdown facility only applies when significant children
         terminate by themselves, that is, when their termination was not
         caused by means of the supervisor. Specifically, neither the
         termination of a child as a consequence of a sibling's  death in the
@@ -283,7 +289,7 @@ SupFlags = #{auto_shutdown => AutoShutdown, ...}</code>
 
     <section>
       <title>any_significant</title>
-      <p>The supervisor will automatically shut down itself when
+      <p>The supervisor will automatically shut itself down when
         <em>any</em> significant child terminates, that is, when a
         transient significant child terminates normally or when a
         temporary significant child terminates normally or
@@ -292,18 +298,18 @@ SupFlags = #{auto_shutdown => AutoShutdown, ...}</code>
 
     <section>
       <title>all_significant</title>
-      <p>The supervisor will automatically shut down itself when
+      <p>The supervisor will automatically shut itself down when
         <em>all</em> significant children have terminated, that is,
         when the <em>last active</em> significant child terminates.
         The same rules as for <c>any_significant</c> apply.</p>
     </section>
 
     <warning>
-      <p>The auto-shutdown feature appeared in OTP 24.0, but
+      <p>The automatic shutdown feature appeared in OTP 24.0, but
         applications using this feature will also compile and
         run with older OTP versions.</p>
       <p>However, such applications, when compiled with an OTP version
-        that predates the appearance of the auto-shutdown feature,
+        that predates the appearance of the automatic shutdown feature,
         will leak processes because the automatic shutdowns they rely
         on will not happen.</p>
       <p>It is up to implementors to take proper precautions if they
@@ -377,13 +383,13 @@ child_spec() = #{id => child_id(),             % mandatory
       <item>
         <marker id="significant_child"></marker>
         <p><c>significant</c> defines if a child is considered significant
-          for <seeguide marker="#auto_shutdown">automatic
+          for <seeguide marker="#automatic-shutdown">automatic
           self-shutdown</seeguide> of the supervisor.</p>
         <p>It is invalid to set this option to <c>true</c> for a child
           with <seeguide marker="#restart">restart type</seeguide>
           <c>permanent</c> or in a supervisor with
-          <seeguide marker="#auto_shutdown">auto-shutdown</seeguide>
-          <c>never</c>.</p>
+          <seeguide marker="#automatic-shutdown">auto_shutdown</seeguide>
+          set to <c>never</c>.</p>
       </item>
       <item>
         <marker id="shutdown"></marker>
@@ -544,6 +550,10 @@ supervisor:start_child(Sup, ChildSpec)</code>
       accordance with the shutdown specification:</p>
     <code type="none">
 supervisor:terminate_child(Sup, Id)</code>
+    <p>Stopping a <seeguide marker="#significant_child">significant
+      child</seeguide> of a supervisor configured for
+      <seeguide marker="#automatic-shutdown">automatic shutdown</seeguide>
+      will not trigger an automatic shutdown.</p>
     <p>The child specification for a stopped child process is deleted
       with the following call:</p>
     <code type="none">
@@ -618,5 +628,14 @@ supervisor:terminate_child(Sup, Pid)</code>
       shut down, it terminates all child processes in reversed start
       order according to the respective shutdown specifications, and
       then terminates itself.</p>
+    <p>If the supervisor is configured for
+      <seeguide marker="#automatic-shutdown">automatic
+      shutdown</seeguide> on termination of any or all
+      <seeguide marker="#significant_child">significant children</seeguide>,
+      it will shut down itself when any or the last active significant
+      child terminates, respectively. The shutdown itself follows
+      the same procedure as described above, that is, the supervisor
+      terminates all remaining child processes in reversed start
+      order, and then terminates itself.</p>
   </section>
 </chapter>

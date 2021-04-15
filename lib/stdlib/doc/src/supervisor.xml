@@ -148,7 +148,8 @@ sup_flags() = #{strategy => strategy(),           % optional
       <title>Automatic Shutdown</title>
     <marker id="auto_shutdown"/>
     <p>A supervisor can be configured to automatically shut itself down
-      when <seeerl marker="#significant_child">significant children</seeerl>
+      with exit reason <c>shutdown</c> when
+      <seeerl marker="#significant_child">significant children</seeerl>
       terminate with the <c>auto_shutdown</c> key in the above map:</p>
 
     <list type="bulleted">
@@ -174,12 +175,16 @@ sup_flags() = #{strategy => strategy(),           % optional
       </item>
     </list>
 
+    <p>For more information, see the paragraph
+      <seeguide marker="system/design_principles:sup_princ#automatic-shutdown">Automatic
+      Shutdown</seeguide> in Supervisor Behavior in OTP Design Principles.</p>
+
     <warning>
-      <p>The auto-shutdown feature appeared in OTP 24.0, but
+      <p>The automatic shutdown feature appeared in OTP 24.0, but
         applications using this feature will also compile and
         run with older OTP versions.</p>
       <p>However, such applications, when compiled with an OTP version
-        that predates the appearance of the auto-shutdown feature,
+        that predates the appearance of the automatic shutdown feature,
         will leak processes because the automatic shutdowns they rely
         on will not happen.</p>
       <p>It is up to implementors to take proper precautions if they
@@ -417,7 +422,7 @@ child_spec() = #{id => child_id(),             % mandatory
         <p>If the optional <c><anno>AutoShutdown</anno></c> argument
           is given and not <c>undefined</c>, also checks if the child
           specifications are allowed for the given
-          <seeerl marker="#auto_shutdown">auto-shutdown</seeerl> option.</p>
+          <seeerl marker="#auto_shutdown">auto_shutdown</seeerl> option.</p>
       </desc>
     </func>
 
