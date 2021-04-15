@@ -391,7 +391,7 @@ or by pressing `a` in the `perf report` ui. Then you get something like this:
 ![Linux Perf FlameGraph: dialyzer PLT build](figures/beamasm-perf-annotate.png)
 
 > *WARNING*: Calling `perf inject --jit` will create a lot of files in `/tmp/`
-> and in `~/.debug`. So make sure to cleanup in those directories from time to
+> and in `~/.debug/tmp/`. So make sure to cleanup in those directories from time to
 > time or you may run out of inodes.
 
 ### perf tips and tricks
