@@ -1906,6 +1906,7 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
+void erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id);
 struct db_fixation;
 void erts_schedule_ets_free_fixation(Eterm pid, struct db_fixation*);
 void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);

@@ -56,6 +56,13 @@
 #define ERTS_SIG_LNK_X_FLAG_NORMAL_KILLS        (((Uint32) 1) << 0)
 #define ERTS_SIG_LNK_X_FLAG_CONNECTION_LOST     (((Uint32) 1) << 1)
 
+#define ERTS_PROC_SIG_CLA_SCAN_FACTOR                           \
+    (ERTS_CLA_SCAN_WORDS_PER_RED / ERTS_SIG_REDS_CNT_FACTOR)
+#define ERTS_PROC_SIG_CLA_COPY_FACTOR  \
+    (ERTS_PROC_SIG_CLA_SCAN_FACTOR / 8)
+#define ERTS_PROC_SIG_CLA_MSGS_FACTOR \
+    25
+
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_high);
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler_max);
@@ -208,6 +215,11 @@ typedef struct {
     ErtsORefThing oref_thing;
 } ErtsProcSigRPC;
 
+typedef struct {
+    Eterm requester;
+    Eterm request_id;
+} ErtsCLAData;
+
 static int handle_msg_tracing(Process *c_p,
                               ErtsSigRecvTracing *tracing,
                               ErtsMessage ***next_nm_sig);
@@ -224,6 +236,14 @@ static void group_leader_reply(Process *c_p, Eterm to,
                                Eterm ref, int success);
 static int stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
                          int abs_lim, int *limp, int save_in_msgq);
+static int
+handle_cla(Process *c_p,
+           ErtsMessage *sig,
+           ErtsMessage ***next_nm_sig,
+           int exiting);
+static void
+send_cla_reply(Process *c_p, ErtsMessage *sig, Eterm to,
+               Eterm req_id, Eterm result);
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #define ERTS_PROC_SIG_HDBG_PRIV_CHKQ(P, T, NMN)                 \
@@ -340,6 +360,16 @@ get_dist_spawn_reply_data(ErtsMessage *sig)
            >= sizeof(ErtsDistSpawnReplySigData));
     return (ErtsDistSpawnReplySigData *) (char *) (&sig->hfrag.mem[0]
                                                    + sig->hfrag.used_size);
+}
+
+static ERTS_INLINE ErtsCLAData *
+get_cla_data(ErtsMessage *sig)
+{
+    ASSERT(ERTS_SIG_IS_NON_MSG(sig));
+    ASSERT(ERTS_PROC_SIG_OP(((ErtsSignal *) sig)->common.tag)
+           == ERTS_SIG_Q_OP_CLA);
+    return (ErtsCLAData *) (char *) (&sig->hfrag.mem[0]
+                                     + sig->hfrag.used_size);
 }
 
 static ERTS_INLINE void
@@ -2404,6 +2434,56 @@ erts_proc_sig_send_rpc_request(Process *c_p,
     }
 
     return res;
+}
+
+
+void
+erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id)
+{
+    ErtsMessage *sig;
+    ErlHeapFragment *hfrag;
+    ErlOffHeap *ohp;
+    Eterm req_id_cpy, *hp, *start_hp;
+    Uint hsz, req_id_sz;
+    ErtsCLAData *cla;
+
+    hsz = sizeof(ErtsCLAData)/sizeof(Uint);
+    if (hsz < 4) {
+        /*
+         * Need room to overwrite the ErtsCLAData part with a
+         * 3-tuple when reusing the signal for the reply...
+         */
+        hsz = 4;
+    }
+
+    req_id_sz = size_object(req_id);
+    hsz += req_id_sz;
+
+    sig = erts_alloc_message(hsz, &hp);
+    hfrag = &sig->hfrag;
+    sig->next = NULL;
+    ohp = &hfrag->off_heap;
+    start_hp = hp;
+
+    req_id_cpy = copy_struct(req_id, req_id_sz, &hp, ohp);
+
+    cla = (ErtsCLAData *) (char *) hp;
+    hfrag->used_size = hp - start_hp;
+
+    cla->requester = c_p->common.id;
+    cla->request_id = req_id_cpy;
+
+    ERL_MESSAGE_TERM(sig) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_CLA,
+                                                   ERTS_SIG_Q_TYPE_UNDEFINED,
+                                                   0);
+    ERL_MESSAGE_FROM(sig) = c_p->common.id;
+    ERL_MESSAGE_TOKEN(sig) = am_undefined;
+#ifdef USE_VM_PROBES
+    ERL_MESSAGE_DT_UTAG(sig) = NIL;
+#endif
+
+    if (!proc_queue_signal(c_p, to, (ErtsSignal *) sig, ERTS_SIG_Q_OP_CLA))
+        send_cla_reply(c_p, sig, c_p->common.id, req_id_cpy, am_ok);
 }
 
 static int
@@ -5280,6 +5360,12 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
             break;
 
+        case ERTS_SIG_Q_OP_CLA:
+            ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
+            cnt += handle_cla(c_p, sig, next_nm_sig, 0);
+            ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
+            break;
+
         case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE: {
             Uint16 type = ERTS_PROC_SIG_TYPE(tag);
 
@@ -5751,6 +5837,10 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             break;
         }
 
+        case ERTS_SIG_Q_OP_CLA:
+            handle_cla(c_p, sig, next_nm_sig, !0);
+            break;
+
         case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
             destroy_trace_info((ErtsSigTraceInfo *) sig);
             break;
@@ -5847,6 +5937,7 @@ clear_seq_trace_token(ErtsMessage *sig)
         case ERTS_SIG_Q_OP_SYNC_SUSPEND:
         case ERTS_SIG_Q_OP_RPC:
         case ERTS_SIG_Q_OP_RECV_MARK:
+        case ERTS_SIG_Q_OP_CLA:
             break;
 
         default:
@@ -5908,6 +5999,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
     case ERTS_SIG_Q_OP_SYNC_SUSPEND:
     case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
     case ERTS_SIG_Q_OP_IS_ALIVE:
+    case ERTS_SIG_Q_OP_CLA:
     case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY: {
         ErlHeapFragment *hf;
         size = sizeof(ErtsMessageRef);
@@ -6146,6 +6238,292 @@ erts_proc_sig_receive_helper(Process *c_p,
 
     ASSERT(consumed_reds >= (fcalls - neg_o_reds));
     return consumed_reds;
+}
+
+static Uint
+area_literal_size(Eterm* start, Eterm* end, char* lit_start, Uint lit_size)
+{
+    Eterm* p;
+    Eterm val;
+    Uint sz = 0;
+
+    for (p = start; p < end; p++) {
+        val = *p;
+        switch (primary_tag(val)) {
+        case TAG_PRIMARY_BOXED:
+        case TAG_PRIMARY_LIST:
+            if (ErtsInArea(val, lit_start, lit_size)) {
+                sz += size_object(val);
+            }
+            break;
+        case TAG_PRIMARY_HEADER:
+            if (!header_is_transparent(val)) {
+                Eterm* new_p;
+                if (header_is_bin_matchstate(val)) {
+                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
+                    ErlBinMatchBuffer *mb = &(ms->mb);
+                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
+                        sz += size_object(mb->orig);
+                    }
+                }
+                new_p = p + thing_arityval(val);
+                ASSERT(start <= new_p && new_p < end);
+                p = new_p;
+            }
+        }
+    }
+    return sz;
+}
+
+static ERTS_INLINE void
+area_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
+                  Eterm *start, Eterm *end,
+                  char *lit_start, Uint lit_size) {
+    Eterm* p;
+    Eterm val;
+    Uint sz;
+
+    for (p = start; p < end; p++) {
+        val = *p;
+        switch (primary_tag(val)) {
+        case TAG_PRIMARY_BOXED:
+        case TAG_PRIMARY_LIST:
+            if (ErtsInArea(val, lit_start, lit_size)) {
+                sz = size_object(val);
+                val = copy_struct(val, sz, hpp, ohp);
+                *p = val; 
+            }
+            break;
+        case TAG_PRIMARY_HEADER:
+            if (!header_is_transparent(val)) {
+                Eterm* new_p;
+                /* matchstate in message, not possible. */
+                if (header_is_bin_matchstate(val)) {
+                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
+                    ErlBinMatchBuffer *mb = &(ms->mb);
+                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
+                        sz = size_object(mb->orig);
+                        mb->orig = copy_struct(mb->orig, sz, hpp, ohp);
+                    }
+                }
+                new_p = p + thing_arityval(val);
+                ASSERT(start <= new_p && new_p < end);
+                p = new_p;
+            }
+        }
+    }
+}
+
+static void
+send_cla_reply(Process *c_p, ErtsMessage *sig, Eterm to,
+               Eterm req_id, Eterm result)
+{
+    Process *rp;
+
+    /*
+     * The incoming signal is reused as reply message to
+     * the requester. It has already been partially prepared.
+     * Request id is already in place in the combined message
+     * heap fragment and do not need to be copied.
+     */
+
+    ASSERT(is_value(result) && is_immed(result));
+    ASSERT(is_internal_pid(to));
+    ASSERT(((Sint) sig->hfrag.alloc_size)
+           - ((Sint) sig->hfrag.used_size)
+           >= 4); /* Room for 3-tuple... */
+
+    sig->next = NULL;
+    sig->data.attached = ERTS_MSG_COMBINED_HFRAG;
+
+    rp = erts_proc_lookup(to);
+    if (!rp)
+        erts_cleanup_messages(sig);
+    else {
+        Eterm rp_locks;
+        Eterm *hp, reply_msg;
+
+        hp = &sig->hfrag.mem[0] + sig->hfrag.used_size;
+        reply_msg = TUPLE3(hp, am_copy_literals, req_id, result);
+        sig->hfrag.used_size += 4;
+
+        if (c_p == rp)
+            rp_locks = ERTS_PROC_LOCK_MAIN;
+        else
+            rp_locks = 0;
+
+        erts_queue_proc_message(c_p, rp, rp_locks,
+                                sig, reply_msg);
+    }
+}
+
+static int
+handle_cla(Process *c_p,
+           ErtsMessage *sig,
+           ErtsMessage ***next_nm_sig,
+           int exiting)
+{
+    /*
+     * TODO: Implement yielding support!
+     */
+    ErtsCLAData *cla;
+    ErtsMessage *msg;
+    ErtsLiteralArea *la;
+    char *literals;
+    Uint lit_bsize;
+    int nmsgs, reds;
+    Eterm result = am_ok;
+    Uint64 cnt = 0;
+
+    cnt++;
+
+    cla = get_cla_data(sig);
+    if (exiting) {
+        /* signal already removed... */
+        goto done;
+    }
+
+    /*
+     * If we need to perform a literal GC, all signals *must* already
+     * have been handled before the GC. Note that only the message
+     * queue (signals before this signal) needs to be scanned since the
+     * request have been passed through the signal queue after we set up
+     * the literal area to copy. No literals in the area of interest
+     * can therefore occur behind this signal.
+     */
+
+    la = ERTS_COPY_LITERAL_AREA();
+    if (!la) {
+        ASSERT(0);
+        remove_nm_sig(c_p, sig, next_nm_sig);
+        goto done;
+    }
+
+    ASSERT(la);
+
+    literals = (char *) &la->start[0];
+    lit_bsize = (char *) la->end - literals;
+
+    msg = c_p->sig_qs.first;
+    if (!msg)
+        msg = c_p->sig_qs.cont;
+
+    nmsgs = 0;
+    while (msg != sig) {
+        ASSERT(!!msg);
+        nmsgs++;
+        if (nmsgs >= ERTS_PROC_SIG_CLA_MSGS_FACTOR) {
+            cnt++;
+            nmsgs = 0;
+        }
+        if (ERTS_SIG_IS_INTERNAL_MSG(msg)) {
+            ErlHeapFragment *first_hfrag, *hf, **last_hfrag;
+            int in_refs = 0, in_heap_frags = 0;
+            Uint scanned = 0, lit_sz = 0;
+
+            /*
+             * If a literal to copy is found in the message, we make
+             * an explicit copy of it in a heap fragment and attach
+             * that heap fragment to the messag. Each message needs
+             * to be self contained, we cannot save the literal at
+             * any other place than in the message itself.
+             */
+
+	    /*
+	     * Literals directly from message references should only
+	     * be able to appear in the first message reference, i.e.,
+	     * the message itself...
+	     */
+	    if (ErtsInArea(msg->m[0], literals, lit_bsize)) {
+		in_refs++;
+		lit_sz += size_object(msg->m[0]);
+	    }
+
+#ifdef DEBUG
+	    {
+		int i;
+		for (i = 1; i < ERL_MESSAGE_REF_ARRAY_SZ; i++) {
+		    ASSERT(!ErtsInArea(msg->m[i], literals, lit_bsize));
+		}
+	    }
+#endif
+
+            if (msg->data.attached == ERTS_MSG_COMBINED_HFRAG) {
+                first_hfrag = &msg->hfrag;
+                last_hfrag = &msg->hfrag.next;
+            }
+            else {
+                first_hfrag = msg->data.heap_frag;
+                last_hfrag = &msg->data.heap_frag;
+            }
+
+            for (hf = first_hfrag; hf; hf = hf->next) {
+                Uint sz = hf->used_size;
+                Uint lsz = area_literal_size(&hf->mem[0],
+                                             &hf->mem[sz],
+                                             literals, lit_bsize);
+                if (lsz)
+                    in_heap_frags++;
+                lit_sz += lsz;
+                scanned += sz;
+                last_hfrag = &hf->next;
+            }
+
+            cnt += scanned/ERTS_PROC_SIG_CLA_SCAN_FACTOR;
+
+            if (lit_sz > 0) {
+                ErlHeapFragment *new_hfrag = new_message_buffer(lit_sz);
+                ErlOffHeap *ohp = &new_hfrag->off_heap;
+                Eterm *hp = new_hfrag->mem;
+
+                if (in_refs) {
+		    if (ErtsInArea(msg->m[0], literals, lit_bsize)) {
+			Uint sz = size_object(msg->m[0]);
+			msg->m[0] = copy_struct(msg->m[0], sz, &hp, ohp);
+                    }
+                }
+
+                if (in_heap_frags) {
+                
+                    for (hf = first_hfrag; hf; hf = hf->next) {
+                        area_literal_copy(&hp, ohp, &hf->mem[0],
+                                          &hf->mem[hf->used_size],
+                                          literals, lit_bsize);
+                    }
+
+                }
+
+                /* link new hfrag last */
+                ASSERT(new_hfrag->used_size == hp - &new_hfrag->mem[0]);
+                new_hfrag->next = NULL;
+                ASSERT(!*last_hfrag);
+                *last_hfrag = new_hfrag;
+
+                cnt += scanned/ERTS_PROC_SIG_CLA_SCAN_FACTOR;
+                cnt += lit_sz/ERTS_PROC_SIG_CLA_COPY_FACTOR;
+            }
+        }
+
+        msg = msg->next;
+        if (!msg)
+            msg = c_p->sig_qs.cont;
+    }
+
+    remove_nm_sig(c_p, sig, next_nm_sig);
+
+    reds = 0;
+    if (erts_check_copy_literals_gc_need(c_p, &reds, literals, lit_bsize))
+        result = am_need_gc;
+
+    cnt += reds * ERTS_SIG_REDS_CNT_FACTOR;
+
+done:
+
+    send_cla_reply(c_p, sig, cla->requester, cla->request_id, result);
+
+    if (cnt > CONTEXT_REDS)
+        return CONTEXT_REDS;
+    return cnt;
 }
 
 static int
@@ -6663,6 +7041,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
 
                 case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
                 case ERTS_SIG_Q_OP_ALIAS_MSG:
+                case ERTS_SIG_Q_OP_CLA:
                     debug_foreach_sig_heap_frags(&sig->hfrag, oh_func, arg);
                     break;
 

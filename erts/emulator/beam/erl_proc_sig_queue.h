@@ -107,7 +107,7 @@ typedef struct {
  * Note that not all signal are handled using this functionality!
  */
 
-#define ERTS_SIG_Q_OP_MAX 17
+#define ERTS_SIG_Q_OP_MAX 18
 
 #define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
 #define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
@@ -126,7 +126,8 @@ typedef struct {
 #define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
 #define ERTS_SIG_Q_OP_ALIAS_MSG                 15
 #define ERTS_SIG_Q_OP_RECV_MARK                 16
-#define ERTS_SIG_Q_OP_UNLINK_ACK                ERTS_SIG_Q_OP_MAX
+#define ERTS_SIG_Q_OP_UNLINK_ACK                17
+#define ERTS_SIG_Q_OP_CLA                       ERTS_SIG_Q_OP_MAX
 
 #define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 9)
 
@@ -932,6 +933,29 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
                                     ErtsLink *lnk,
                                     Eterm result,
                                     Eterm token);
+
+/**
+ *
+ * @brief Send a 'copy literal area request' signal to
+ *        a process.
+ *
+ * The receiver will scan its message queue and then the rest
+ * of the process. After the operation has bee performed it will
+ * reply with a '{copy_literals, ReqID, Res}' message to the
+ * sender where 'Res' equals 'ok' if the receiver is clean or
+ * 'need_gc' if a literal GC is needed.
+ *
+ * Should only be called by the literal-area-collector process!
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     req_id        Request ID (RegID) term.
+ */
+void
+erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id);
 
 /*
  * End of send operations of currently supported process signals.
