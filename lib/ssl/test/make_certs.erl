@@ -184,16 +184,24 @@ revoke(Root, CA, User, C) ->
     gencrl(Root, CA, C).
 
 %% Remove the certificate's entry from the database. The OCSP responder
-%% will consider the certificate unknown.
+%% will consider the certificate to be unknown.
 remove_entry(Root, CA, User, C) ->
     Db = filename:join([Root, CA, "index.txt"]),
-    Cmd = ["grep", " -v"
-       " \"/CN=", User ,"/\" ", Db,
-       " > ", Db, "~new"],
-    cmd(Cmd, []),
-    Cmd2 = ["mv ", Db, "~new ", Db],
-    cmd(Cmd2, []),
+    remove_line_with_pattern(Db, "/CN=" ++ User ++ "/"),
     gencrl(Root, CA, C).
+
+remove_line_with_pattern(File, Pattern) ->
+    {ok, Bin} = file:read_file(File),
+    AllLines = string:lexemes(Bin, [$\n,"\r\n"]),
+    MaybeRemove = fun(Line, Acc) ->
+                          case string:find(Line, Pattern) of
+                              nomatch -> [Line|Acc];
+                              _ -> Acc
+                          end
+                  end,
+    RevLines = lists:foldl(MaybeRemove, [], AllLines),
+    Lines = lists:join("\n", lists:reverse(RevLines)),
+    ok = file:write_file(File, iolist_to_binary(Lines)).
 
 gencrl(Root, CA, C) ->
     %% By default, the CRL is valid for a week from now.
