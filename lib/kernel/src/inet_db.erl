@@ -592,8 +592,8 @@ add_rr(Domain, Class, Type, TTL, Data) ->
 del_rr(Domain, Class, Type, Data) ->
     call({del_rr, dns_rr_match(Domain, Class, Type, Data)}).
 
-res_cache_answer(Rec) ->
-    lists:foreach( fun(RR) -> add_rr(RR) end, Rec#dns_rec.anlist).
+res_cache_answer(RRs) ->
+    lists:foreach(fun add_rr/1, RRs).
 
     
 
@@ -688,22 +688,13 @@ hostent_by_domain(Domain, Aliases, LAliases, Type) ->
 	    {ok, make_hostent(Domain, Addrs, Aliases, Type)}
     end.
 
+%% lookup canonical name
+lookup_cname(Domain) ->
+    lookup_type(Domain, ?S_CNAME).
+
 %% lookup address record
 lookup_type(Domain, Type) ->
     [R#dns_rr.data || R <- lookup_rr(Domain, in, Type) ].
-
-%% lookup canonical name
-lookup_cname(Domain) ->
-    [R#dns_rr.data || R <- lookup_rr(Domain, in, ?S_CNAME) ].
-
-lookup_cname(Domain, Type) ->
-    case Type of
-     a -> [];
-     aaaa -> [];
-     cname -> lookup_cname(Domain);
-     _ -> []
-    end.
-
 
 %% lookup resource record
 lookup_rr(Domain, Class, Type) ->
@@ -714,26 +705,34 @@ lookup_rr(Domain, Class, Type) ->
 %% match data field directly and cache RRs.
 %%
 res_hostent_by_domain(Domain, Type, Rec) ->
-    RRs = lists:map(fun lower_rr/1, Rec#dns_rec.anlist),
-    res_cache_answer(Rec#dns_rec{anlist = RRs}),
+    RRs =
+        [RR#dns_rr{domain = tolower(N)} ||
+            #dns_rr{
+               domain = N,
+               class = in,
+               type = T} = RR <- Rec#dns_rec.anlist,
+            T =:= Type orelse T =:= ?S_CNAME],
+    res_cache_answer(RRs),
     ?dbg("res_hostent_by_domain: ~p - ~p~n", [Domain, RRs]),
-    res_hostent_by_domain(stripdot(Domain), [], [], Type, RRs).
+    Domain_1 = stripdot(Domain),
+    res_hostent_by_domain(Domain_1, tolower(Domain_1), [], [], Type, RRs).
 
-res_hostent_by_domain(Domain, Aliases, LAliases, Type, RRs) ->
-    LDomain = tolower(Domain),
+res_hostent_by_domain(Domain, LDomain, Aliases, LAliases, Type, RRs) ->
     case res_lookup_type(LDomain, Type, RRs) of
 	[] ->
 	    case res_lookup_type(LDomain, ?S_CNAME, RRs) of
 		[] ->  
 		    {error, nxdomain};
 		[CName | _] ->
-		    case lists:member(tolower(CName), [LDomain | LAliases]) of
+                    LCName = tolower(CName),
+		    case lists:member(LCName, [LDomain | LAliases]) of
 			true -> 
 			    {error, nxdomain};
 			false ->
-			    res_hostent_by_domain(CName, [Domain | Aliases],
-						  [LDomain | LAliases], Type,
-						  RRs)
+			    res_hostent_by_domain(
+                              CName, LCName,
+                              [Domain | Aliases], [LDomain | LAliases],
+                              Type, RRs)
 		    end
 	    end;
 	Addrs ->
@@ -753,9 +752,29 @@ res_lookup_type(Domain,Type,RRs) ->
 gethostbyaddr(IP) ->
     case dnip(IP) of
 	{ok, {IP1, HType, HLen, DnIP}} ->
-            RRs = match_rr(dns_rr_match(DnIP, in, ptr)),
-	    ent_gethostbyaddr(RRs,  IP1, HType, HLen);
+            gethostbyaddr(IP1, HType, HLen, DnIP, []);
 	Error -> Error
+    end.
+
+gethostbyaddr(IP, HType, HLen, DnIP, DnIPs) ->
+    MatchPtrRR = dns_rr_match(DnIP, in, ptr),
+    case match_rr(MatchPtrRR) of
+        [] ->
+            case lookup_cname(DnIP) of
+                [#dns_rr{data = DnIP_1} | _] ->
+                    DnIPs_1 = [DnIP | DnIPs],
+                    %% CName loop protection
+                    case lists:member(DnIP_1, DnIPs_1) of
+                        true ->
+                            {error, nxdomain};
+                        false ->
+                            gethostbyaddr(IP, HType, HLen, DnIP_1, DnIPs_1)
+                    end;
+                CNames when is_list(CNames) ->
+                    {error, nxdomain}
+            end;
+        RRs when is_list(RRs) ->
+            ent_gethostbyaddr(RRs, IP, HType, HLen)
     end.
 
 %%
@@ -764,28 +783,40 @@ gethostbyaddr(IP) ->
 %%
 res_gethostbyaddr(IP, Rec) ->
     {ok, {IP1, HType, HLen}} = dnt(IP),
-    RRs = lists:map(fun lower_rr/1, Rec#dns_rec.anlist),
-    res_cache_answer(Rec#dns_rec{anlist = RRs}),
-    ent_gethostbyaddr(Rec#dns_rec.anlist, IP1, HType, HLen).
-
-ent_gethostbyaddr(RRs, IP, AddrType, Length) ->
-    case RRs of
-	[] -> {error, nxdomain};
-	[RR|TR] ->
-	    %% debug
-	    if TR =/= [] ->
-		    ?dbg("gethostbyaddr found extra=~p~n", [TR]);
-	       true -> ok
-	    end,
-            Type = RR#dns_rr.type,
-	    Domain = RR#dns_rr.data,
-	    H = #hostent { h_name = Domain,
-			   h_aliases = lookup_cname(Domain, Type),
-			   h_addr_list = [IP],
-			   h_addrtype = AddrType,
-			   h_length = Length },
-	    {ok, H}
+    RRs =
+        [RR#dns_rr{domain = tolower(N)} ||
+            #dns_rr{
+               domain = N,
+               class = in,
+               type = T} = RR <- Rec#dns_rec.anlist,
+            T =:= ?S_PTR orelse T =:= ?S_CNAME],
+    res_cache_answer(RRs),
+    case [RR || #dns_rr{type = ?S_PTR} = RR <- RRs] of
+        [] ->
+            {error, nxdomain};
+        PtrRRs ->
+            ent_gethostbyaddr(PtrRRs, IP1, HType, HLen)
     end.
+
+ent_gethostbyaddr([RR|RRs], IP, AddrType, Length) ->
+    %% debug
+    if RRs =/= [] ->
+            ?dbg("gethostbyaddr found extra=~p~n", [RRs]);
+       true -> ok
+    end,
+    Domain = RR#dns_rr.data,
+    H =
+        #hostent{
+           h_name = Domain,
+           %% Since a PTR record should point to
+           %% the canonical name, this Domain should
+           %% have no canonical name, so it this really reasonable?
+           h_aliases = lookup_cname(Domain),
+           h_addr_list = [IP],
+           h_addrtype = AddrType,
+           h_length = Length },
+    {ok, H}.
+
 
 dnip(IP) ->
     case dnt(IP) of
@@ -1777,12 +1808,6 @@ match_rr_key(
   #dns_rr{domain = Domain, class = Class, type = Type, data = Data}) ->
     {Domain, Class, Type, Data}.
 
-
-%% Lowercase the domain name before storage.
-%%
-lower_rr(#dns_rr{domain=Domain}=RR) when is_list(Domain) ->
-    RR#dns_rr { domain = tolower(Domain) };
-lower_rr(RR) -> RR.
 
 %%
 %% Case fold upper-case to lower-case according to RFC 4343
