@@ -40,15 +40,16 @@
         ]).
 
 
-%% Information needed for each monitor
--record(esock_xref,
+%% Cross-ref information needed for each monitor
+-record(xref,
 	{
 	  mref :: reference(),      %% The monitor (ID)
 	  sock :: socket:socket(),  %% The socket being monitored
 	  pid  :: pid()             %% The process doing the monitoring
 	 }).
 
--record(esock_user,
+%% Each process that monitor a socket:
+-record(user,
 	{
 	  pid       :: pid(),        %% The process doing the monitoring
 	  mref      :: reference(),  %% Our monitor to this process
@@ -57,30 +58,31 @@
 	  mons = [] :: [reference()] %% All (socket-) monitors of this process
 	 }).
 
--record(esock_info,
+%% Info about each (known) socket
+-record(info,
         {
-         sock       :: socket:socket(),
-	 %% Add time - erlang:monotonic_time(milli_seconds)
-         atime      :: integer(),
-	 mons  = [] :: [reference()]
-        }).
+	  sock       :: socket:socket(),
+	  %% Add time - erlang:monotonic_time(milli_seconds)
+	  atime      :: integer(),
+	  mons  = [] :: [reference()]
+	 }).
 
 -record(state,
 	{
 	  %% The socket "database"
-	  db   = [] :: [esock_info()],
+	  db   = [] :: [info()],
 	  
 	  %% CrossRef: monitor -> socket
 	  %% [demonitor]
-	  xref = [] :: [esock_xref()],
+	  xref = [] :: [xref()],
 
 	  %% Processes that has monitors
-	  user = [] :: [esock_user()]
+	  user = [] :: [user()]
 	}).
 
--type esock_xref()    :: #esock_xref{}.
--type esock_user()    :: #esock_user{}.
--type esock_info()    :: #esock_info{}.
+-type xref()    :: #xref{}.
+-type user()    :: #user{}.
+-type info()    :: #info{}.
 
 -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
@@ -201,14 +203,14 @@ loop(State) ->
 %% =========================================================================
 
 handle_add_socket(#state{db = DB} = State, Sock) ->
-    DB2 = [#esock_info{sock = Sock, atime = timestamp()} | DB],
+    DB2 = [#info{sock = Sock, atime = timestamp()} | DB],
     State#state{db = DB2}.
 
 handle_delete_socket(#state{db   = DB,
 			    xref = XRef,
 			    user = Users} = State, Sock) ->
     case db_sock_lookup(DB, Sock) of
-	{value, #esock_info{mons = Mons}} ->
+	{value, #info{mons = Mons}} ->
 	    handle_send_down(Mons, XRef, Sock),
 	    Users2 = user_sock_delete_update(Mons, Users, XRef),
 	    XRef2  = xref_sock_delete(XRef, Sock),
@@ -223,19 +225,19 @@ user_sock_delete_update([], Users, _XRef) ->
 user_sock_delete_update([Mon|Mons], Users, XRef) ->
     %% ?DBG(['try find monitor', Mon]),
     case xref_mref_lookup(XRef, Mon) of
-	{value, #esock_xref{pid = Pid}} ->
+	{value, #xref{pid = Pid}} ->
 	    %% ?DBG(['found xref - with user', Pid]),
 	    case user_pid_lookup(Users, Pid) of
-		{value, #esock_user{mref = MRef, mons = [Mon]}} ->
+		{value, #user{mref = MRef, mons = [Mon]}} ->
 		    %% ?DBG(['only one monitor -> delete user', MRef]),
 		    erlang:demonitor(MRef, [flush]),
 		    Users2 = user_pid_delete(Users, Pid),
 		    user_sock_delete_update(Mons, Users2, XRef);
-		{value, #esock_user{mons = UMons} = User} ->
+		{value, #user{mons = UMons} = User} ->
 		    %% ?DBG(['several monitor(s)']),
 		    UMons2 = lists:delete(Mon, UMons),
-		    User2  = User#esock_user{mons = UMons2},
-		    Users2 = lists:keyreplace(Pid, #esock_user.pid,
+		    User2  = User#user{mons = UMons2},
+		    Users2 = lists:keyreplace(Pid, #user.pid,
 					      Users, User2),
 		    user_sock_delete_update(Mons, Users2, XRef);
 		false -> % race?
@@ -251,7 +253,7 @@ handle_send_down([], _XRef, _Sock) ->
     ok;
 handle_send_down([MRef|Mons], XRef, Sock) ->
     case xref_mref_lookup(XRef, MRef) of
-	{value, #esock_xref{pid = Pid}} ->
+	{value, #xref{pid = Pid}} ->
 	    send_down(Pid, MRef, Sock),
 	    handle_send_down(Mons, XRef, Sock);
 	false -> % race?
@@ -298,7 +300,7 @@ handle_user_down(#state{db = DB, xref = XRefs, user = Users} = State, Pid) ->
 	{value, _} ->
 	    %% Get info about all sockets monitored by this process
 	    SMRefs = [SMRef ||
-			#esock_xref{mref = SMRef,
+			#xref{mref = SMRef,
 				    pid  = MPid} <- XRefs, (MPid =:= Pid)],
 	    {DB2, XRefs2} = handle_user_down_cleanup(SMRefs, DB, XRefs),
 	    Users2 = user_pid_delete(Users, Pid),
@@ -311,11 +313,11 @@ handle_user_down_cleanup([], DB, XRefs) ->
     {DB, XRefs};
 handle_user_down_cleanup([SMRef|SMRefs], DB, XRefs) ->
     case xref_mref_lookup(XRefs, SMRef) of
-	{value, #esock_xref{sock = Sock}} ->
+	{value, #xref{sock = Sock}} ->
 	    case db_sock_lookup(DB, Sock) of
-		{value, #esock_info{mons = Mons} = SI} ->
+		{value, #info{mons = Mons} = SI} ->
 		    Mons2  = lists:delete(SMRef, Mons),
-		    SI2    = SI#esock_info{mons = Mons2},
+		    SI2    = SI#info{mons = Mons2},
 		    DB2    = db_sock_replace(DB, Sock, SI2),
 		    XRefs2 = xref_mref_delete(XRefs, SMRef),
 		    handle_user_down_cleanup(SMRefs, DB2, XRefs2);
@@ -387,7 +389,7 @@ db_size(DB) ->
 do_which_sockets(DB, Filter) ->
     try
         [Sock ||
-            #esock_info{sock = Sock} <- DB,
+            #info{sock = Sock} <- DB,
             if
                 is_boolean(Filter) ->
                     Filter;
@@ -414,13 +416,13 @@ do_monitor_socket(#state{db   = DB,
 			 xref = XRefs,
 			 user = Users} = State, Sock, From) ->
     case db_sock_lookup(DB, Sock) of
-	{value, #esock_info{mons = Mons} = SI} ->
+	{value, #info{mons = Mons} = SI} ->
 	    %% Check if this process has already monitored this socket
 	    %% Or shall we allow multiple monitors?
 	    %% That is, the same process can have multiple monitors
 	    %% to the same socket?
 	    case xref_pid_lookup(Mons, From) of
-		{value, #esock_xref{mref = MRef}} ->
+		{value, #xref{mref = MRef}} ->
 		    Result = {ok, MRef},
 		    {State, Result};
 		false ->
@@ -429,9 +431,9 @@ do_monitor_socket(#state{db   = DB,
 		    %% monitor the process...
 		    SMRef  = make_ref(),
 		    Mons2  = [SMRef|Mons],
-		    SI2    = SI#esock_info{mons = Mons2},
+		    SI2    = SI#info{mons = Mons2},
 		    DB2    = db_sock_replace(DB, Sock, SI2),
-		    XRef   = #esock_xref{mref = SMRef,
+		    XRef   = #xref{mref = SMRef,
 					 sock = Sock,
 					 pid  = From},
 		    XRefs2 = [XRef|XRefs],
@@ -449,16 +451,16 @@ do_monitor_socket(#state{db   = DB,
 do_demonitor_socket(#state{db = DB, xref = XRefs, user = Users} = State,
 		    MRef, From) ->
     case xref_mref_lookup(XRefs, MRef) of
-	{value, #esock_xref{sock = Sock, pid = From}} ->
+	{value, #xref{sock = Sock, pid = From}} ->
 	    %% ?DBG({xref, Sock, Pid}),
 	    %% So far so good
 	    case db_sock_lookup(DB, Sock) of
 		%% So faar so goood
-		{value, #esock_info{mons = Mons} = SI} ->
+		{value, #info{mons = Mons} = SI} ->
 		    %% ?DBG({mons, Mons}),
 		    Mons2  = lists:delete(MRef, Mons),
 		    Users2 = user_pid_delete_mon(Users, From, MRef),
-		    SI2    = SI#esock_info{mons = Mons2},
+		    SI2    = SI#info{mons = Mons2},
 		    DB2    = db_sock_replace(DB, Sock, SI2),
 		    XRefs2 = xref_mref_delete(XRefs, MRef),
 		    Result = ok,
@@ -470,7 +472,7 @@ do_demonitor_socket(#state{db = DB, xref = XRefs, user = Users} = State,
 		    XRefs2 = xref_mref_delete(XRefs, MRef),
 		    {State#state{xref = XRefs2}, Result}
 	    end;
-	{value, #esock_xref{sock = _Sock, pid = _Pid}} ->
+	{value, #xref{sock = _Sock, pid = _Pid}} ->
 	    %% Not the owner of this monitor
 	    Result = {error, not_owner},
 	    {State, Result};
@@ -487,10 +489,10 @@ do_demonitor_socket(#state{db = DB, xref = XRefs, user = Users} = State,
 %% --- XRef utility functions ---
 
 xref_sock_delete(XRefs, Sock) when is_list(XRefs) ->
-    xref_delete(XRefs, #esock_xref.sock, Sock).
+    xref_delete(XRefs, #xref.sock, Sock).
 
 xref_mref_delete(XRefs, MRef) when is_list(XRefs) andalso is_reference(MRef) ->
-    xref_delete(XRefs, #esock_xref.mref, MRef).
+    xref_delete(XRefs, #xref.mref, MRef).
 
 xref_delete([] = XRefs, _Pos, _Key) ->
     XRefs;
@@ -504,10 +506,10 @@ xref_delete(XRefs, Pos, Key) ->
 
 
 xref_mref_lookup(XRefs, MRef) when is_list(XRefs) andalso is_reference(MRef) ->
-    xref_lookup(XRefs, #esock_xref.mref, MRef).
+    xref_lookup(XRefs, #xref.mref, MRef).
 
 xref_pid_lookup(XRefs, Pid) when is_list(XRefs) andalso is_pid(Pid) ->
-    xref_lookup(XRefs, #esock_xref.pid, Pid).
+    xref_lookup(XRefs, #xref.pid, Pid).
 
 xref_lookup(XRefs, Pos, Key) ->
     lists:keysearch(Key, Pos, XRefs).
@@ -519,86 +521,74 @@ xref_size(XRefs) when is_list(XRefs) ->
 %% --- DB utility functions ---
 
 db_sock_lookup(DB, Sock) when is_list(DB) ->
-    db_lookup(DB, #esock_info.sock, Sock).
+    db_lookup(DB, #info.sock, Sock).
 
 db_lookup(DB, Pos, Key) ->
     lists:keysearch(Key, Pos, DB).
 
 
 db_sock_delete(DB, Sock) when is_list(DB) ->
-    db_delete(DB, #esock_info.sock, Sock).
+    db_delete(DB, #info.sock, Sock).
 
 db_delete(DB, Pos, Key) ->
     lists:keydelete(Key, Pos, DB).
 
 
 db_sock_replace(DB, Sock, Info) when is_list(DB) ->
-    db_replace(DB, #esock_info.sock, Sock, Info).
+    db_replace(DB, #info.sock, Sock, Info).
 
 db_replace(DB, Pos, Key, Info) ->
     lists:keyreplace(Key, Pos, DB, Info).
 
 
-%% --- Monitors utility functions ---
-
-%% mons_pid_delete(Mons, Pid) when is_list(Mons) ->
-%%     mons_delete(Mons, #esock_monitor.pid, Pid).
-
-%% mons_delete(Mons, Pos, Key) ->
-%%     lists:keydelete(Key, Pos, Mons).
-
-
-%% mons_pid_lookup(Mons, Pid) when is_list(Mons) andalso is_pid(Pid) ->
-%%     mons_lookup(Mons, #esock_monitor.pid, Pid).
-
-%% mons_lookup(Mons, Pos, Key) ->
-%%     lists:keysearch(Key, Pos, Mons).
-
-
 %% --- Users utility functions ---
 
-%% Side effect: We will monitor the process
+%% Side effect: We will monitor the process (if this was the first monitor)
 user_pid_add(Users, Pid, SMRef)
   when is_list(Users) andalso is_pid(Pid) andalso is_reference(SMRef) ->
-    Pos = #esock_user.pid,
+    Pos = #user.pid,
     case lists:keysearch(Pid, Pos, Users) of
-	{value, #esock_user{mons = Mons} = User} ->
+	{value, #user{mons = Mons} = User} ->
 	    Mons2 = [SMRef|Mons],
-	    User2 = User#esock_user{mons = Mons2},
+	    User2 = User#user{mons = Mons2},
 	    lists:keyreplace(Pid, Pos, Users, User2);
 	false ->
 	    MRef = erlang:monitor(process, Pid),
-	    User = #esock_user{pid = Pid, mref = MRef, mons = [SMRef]},
+	    User = #user{pid = Pid, mref = MRef, mons = [SMRef]},
 	    [User|Users]
     end.
 
+%% Side effect: We will demonitor the process (if this was the last monitors)
 user_pid_delete_mon(Users, Pid, SMRef)
   when is_list(Users) andalso is_reference(SMRef) ->
-    Pos = #esock_user.pid,
+    Pos = #user.pid,
     case lists:keysearch(Pid, Pos, Users) of
+
 	%% The last monitor of this process
-	{value, #esock_user{mref = MRef, mons = [SMRef]}} ->
+	{value, #user{mref = MRef, mons = [SMRef]}} ->
 	    erlang:demonitor(MRef, [flush]),
 	    lists:keydelete(Pid, Pos, Users);
+
 	%% At least one more
-	{value, #esock_user{mons = Mons} = User} ->
+	{value, #user{mons = Mons} = User} ->
 	    Mons2 = lists:delete(SMRef, Mons),
-	    User2 = User#esock_user{mons = Mons2},
+	    User2 = User#user{mons = Mons2},
 	    lists:keyreplace(Pid, Pos, Users, User2);
-	%% Unknown => RACE
+
+	% race?
 	false ->
 	    Users
     end.
 
 user_pid_delete(Users, Pid) when is_list(Users) ->
-    lists:keydelete(Pid, #esock_user.pid, Users).
+    lists:keydelete(Pid, #user.pid, Users).
 
 user_pid_lookup(Users, Pid) when is_list(Users) ->
-    lists:keysearch(Pid, #esock_user.pid, Users).
+    lists:keysearch(Pid, #user.pid, Users).
 
 user_which_monitors(Users, Pid) when is_list(Users) andalso is_pid(Pid) ->
     case user_pid_lookup(Users, Pid) of
-	{value, #esock_user{mons = Mons}} ->
+	{value, #user{mons = Mons}} ->
 	    Mons;
 	false ->
 	    []
