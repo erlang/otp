@@ -560,7 +560,7 @@
             <c>driver_alloc</c>, and <c>false</c> for the other allocator
             types.</p>
         </item>
-        <tag><marker id="M_cp"/><c><![CDATA[+M<S>cg B|D|E|F|H||L|R|S|@|:]]></c></tag>
+        <tag><marker id="M_cp"/><c><![CDATA[+M<S>cp B|D|E|F|H||L|R|S|@|:]]></c></tag>
         <item>
           <p>
 	    Set carrier pool to use for the allocator. Memory carriers will
