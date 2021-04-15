@@ -201,7 +201,7 @@ remove_line_with_pattern(File, Pattern) ->
                   end,
     RevLines = lists:foldl(MaybeRemove, [], AllLines),
     Lines = lists:join("\n", lists:reverse(RevLines)),
-    ok = file:write_file(File, iolist_to_binary(Lines)).
+    ok = file:write_file(File, Lines).
 
 gencrl(Root, CA, C) ->
     %% By default, the CRL is valid for a week from now.
