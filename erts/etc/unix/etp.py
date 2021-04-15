@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2013-2022. All Rights Reserved.
+# Copyright Ericsson AB 2013-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 #
-# This script was orinally written by Anthony Ramine (aka nox) in 2013
+# This script was orinally written by Anthony Ramine (aka nox) in 2013.
 # A lot of things have changed since then, but the same base remains.
 #
 
@@ -28,6 +28,7 @@ import lldb
 import shlex
 
 unquoted_atom_re = re.compile(u'^[a-zß-öø-ÿ][a-zA-Zß-öø-ÿ0-9@]*$')
+code_pointers = {}
 
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand('type format add -f hex Eterm')
@@ -44,11 +45,12 @@ def __lldb_init_module(debugger, internal_dict):
 ####################################
 def processes_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = erts_proc(target)
     proc_r_o = proc.GetChildMemberWithName('r').GetChildMemberWithName('o')
     proc_max_ix = proc_r_o.GetChildMemberWithName('max')
     proc_tab = proc_r_o.GetChildMemberWithName('tab').Cast(ProcessPtrPtr(target))
-    proc_cnt = proc.GetChildMemberWithName('vola').GetChildMemberWithName('tile').GetChildMemberWithName('count').GetChildMemberWithName('counter').unsigned
+    proc_cnt = atomic_value(proc.GetChildMemberWithName('vola').GetChildMemberWithName('tile').GetChildMemberWithName('count'))
     invalid_proc = global_var('erts_invalid_process', target).address_of
     for proc_ix in range(0, proc_max_ix.unsigned):
         proc = offset(proc_ix, proc_tab).deref
@@ -65,6 +67,7 @@ def processes_cmd(debugger, command, result, internal_dict):
 ############################################
 def process_info_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(command).Cast(ProcessPtr(target))
     process_info(proc)
 
@@ -72,8 +75,9 @@ def process_info(proc):
     print('  Pid: %s' % eterm(proc.GetChildMemberWithName('common').GetChildMemberWithName('id')))
     print('  State: %s' % process_state(proc))
     print('  Flags: %s' % process_flags(proc))
+    print_process_reg_name(proc)
     current = proc.GetChildMemberWithName('current')
-    if current.unsigned != 0 and proc.GetChildMemberWithName('state').GetChildMemberWithName('counter').unsigned & 0x800 == 0:
+    if current.unsigned != 0 and atomic_value(proc.GetChildMemberWithName('state')) & 0x800 == 0:
         print('  Current function: %s' % mfa(current))
     else:
         print('  Current function: %s' % 'unknown')
@@ -83,6 +87,14 @@ def process_info(proc):
     else:
         print('  I: %s' % 'unknown')
     print('  Pointer: %#x' % proc.unsigned)
+
+def print_process_reg_name(proc):
+    state = proc.GetChildMemberWithName('state').unsigned
+    if (state & 0x800) == 0:
+        # Not exiting.
+        reg = proc.GetChildMemberWithName('common').GetChildMemberWithName('u').GetChildMemberWithName('alive').GetChildMemberWithName('reg')
+        if reg.unsigned != 0:
+            print('  Registered name: %s' % eterm(reg.GetChildMemberWithName('name')))
 
 def process_state(proc):
     state = proc.GetChildMemberWithName('state').unsigned
@@ -226,6 +238,7 @@ def process_flags(proc):
 ############################################
 def stacktrace_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(command).Cast(ProcessPtr(target))
     stackdump(proc, False)
 
@@ -234,6 +247,7 @@ def stacktrace_cmd(debugger, command, result, internal_dict):
 ############################################
 def stackdump_cmd(debugger, command, result, internal_dict):
     target = debugger.GetSelectedTarget()
+    init(target)
     proc = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(command).Cast(ProcessPtr(target))
     stackdump(proc, True)
 
@@ -241,7 +255,7 @@ def stackdump(proc, dump):
     stop = proc.GetChildMemberWithName('stop')
     send = proc.GetChildMemberWithName('hend')
     cnt = 0
-    if proc.GetChildMemberWithName('state').GetChildMemberWithName('counter').unsigned & 0x8000:
+    if atomic_value(proc.GetChildMemberWithName('state')) & 0x8000:
         print('%%%%%% WARNING: The process is currently running, so c_p->stop will not be correct')
     print(F'%% Stacktrace ({send.unsigned - stop.unsigned})');
     i = proc.GetChildMemberWithName('i')
@@ -259,6 +273,7 @@ def stackdump(proc, dump):
 def eterm_cmd(debugger, command, result, internal_dict):
     args = shlex.split(command)
     target = debugger.GetSelectedTarget()
+    init(target)
     term = target.process.selected_thread.GetSelectedFrame().EvaluateExpression(args[0]).Cast(EtermPtr(target))
     if len(args) >= 2:
         print(eterm(term, int(args[1])))
@@ -275,6 +290,7 @@ def eterm_summary(valobj, internal_dict):
 
 def eterm(valobj, depth = float('inf')):
     val = valobj.unsigned
+    valobj = strip_literal_tag(valobj)
     tag = val & 0x3
     if tag == 0x1:
         return cons(valobj, depth)
@@ -291,12 +307,20 @@ def eterm(valobj, depth = float('inf')):
 
 def cons(valobj, depth = float('inf')):
     items = []
-    cdr = valobj
+    cdr = strip_literal_tag(valobj)
     improper = False
     truncated = False
     depth *= 20
-    
+
+    ptr = cdr.CreateValueFromData(
+        "unconsed",
+        lldb.SBData.CreateDataFromInt(cdr.unsigned - 1),
+        EtermPtr(cdr.target))
+    if ptr.deref.error.fail:
+        return "#ConsError<%x>" % cdr.unsigned;
+
     while True:
+        cdr = strip_literal_tag(cdr)
         ptr = cdr.CreateValueFromData(
             "unconsed",
             lldb.SBData.CreateDataFromInt(cdr.unsigned - 1),
@@ -355,7 +379,10 @@ def boxed(valobj, depth = float('inf')):
         "unboxed",
         lldb.SBData.CreateDataFromInt(valobj.unsigned - 2),
         EtermPtr(valobj.target))
-    boxed_hdr = ptr.deref.unsigned
+    boxed_hdr = ptr.deref
+    if boxed_hdr.error.fail:
+        return "#BoxedError<%x>" % valobj.unsigned;
+    boxed_hdr = boxed_hdr.unsigned
     if boxed_hdr & 0x3f == 0x00:
         arity = (boxed_hdr >> 6)
         terms = []
@@ -369,9 +396,9 @@ def boxed(valobj, depth = float('inf')):
         return F"{{{res}}}"
     if boxed_hdr & 0x3c == 0x3c:
         if boxed_hdr & 0xc0 == 0x0:
-            return "flat_map"
+            return "#FlatMap"
         else:
-            return "hash_map"
+            return "#HashMap"
     boxed_type = (boxed_hdr >> 2) & 0xF
     if boxed_type == 0xC:
         return '#ExternalPid'
@@ -422,7 +449,11 @@ def imm(valobj):
 def cp(valobj):
     mfaptr = erts_lookup_function_info(valobj)
     if mfaptr == None:
-        return '#Cp<%#x>' % valobj.unsigned
+        pointer = code_pointers.get(valobj.unsigned)
+        if pointer != None:
+            return '#Cp<%s>' % pointer
+        else:
+            return '#Cp<%#x>' % valobj.unsigned
     else:
         return '#Cp<%s>' % mfa(mfaptr)
 
@@ -609,9 +640,11 @@ def find_range(valobj):
     range_pointer_type = range_type.GetPointerType()
     mid = ranges.GetChildMemberWithName('mid').Cast(range_pointer_type)
     while low.unsigned < high.unsigned:
-        if pc < mid.GetChildMemberWithName('start').unsigned:
+        start = mid.GetChildMemberWithName('start').unsigned
+        end = atomic_value(mid.GetChildMemberWithName('end'))
+        if pc < start:
             high = mid
-        elif pc > mid.GetChildMemberWithName('end').GetChildMemberWithName('counter').unsigned:
+        elif pc > end:
             low = offset(1, mid).Cast(range_pointer_type)
         else:
             return mid
@@ -638,6 +671,28 @@ def pixdata2data(valobj):
     data |= (pixdata & pix_cli_mask) << pix_cli_shift
     return data
 
+def strip_literal_tag(valobj):
+    if valobj.size == 4:
+        # This is a 32-bit executable. There are no literal tags.
+        return valobj
+
+    # Strip literal tags from list and boxed terms.
+    primary_tag = valobj.unsigned & 0x03
+    if (primary_tag == 1 or primary_tag == 2) and valobj.unsigned & 0x04:
+        valobj = valobj.CreateValueFromData(
+            valobj.name,
+            lldb.SBData.CreateDataFromInt(valobj.unsigned - 0x04),
+            Eterm(valobj.target))
+    return valobj
+
+def init(target):
+    names = ['beam_apply', 'beam_normal_exit', 'beam_exit', 'beam_save_calls',
+             'beam_bif_export_trap', 'beam_export_trampoline', 'beam_continue_exit',
+             'beam_return_to_trace', 'beam_return_trace', 'beam_exception_trace',
+             'beam_return_time_trace']
+    for name in names:
+        code_pointers[global_var(name, target).unsigned] = name
+
 # LLDB utils
 
 def global_var(name, target):
@@ -650,3 +705,10 @@ def offset(i, valobj):
         return val.address_of.Cast(valobj.GetType())
     else:
         return val
+
+def atomic_value(valobj):
+    value = valobj.GetChildMemberWithName('counter')
+    if value.IsValid():
+        return value.unsigned
+    else:
+        return valobj.GetChildMemberWithName('value').unsigned
