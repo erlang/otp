@@ -175,7 +175,7 @@ sup_flags() = #{strategy => strategy(),           % optional
       </item>
     </list>
 
-    <p>For more information, see the paragraph
+    <p>For more information, see the section
       <seeguide marker="system/design_principles:sup_princ#automatic-shutdown">Automatic
       Shutdown</seeguide> in Supervisor Behavior in OTP Design Principles.</p>
 
@@ -817,4 +817,3 @@ child_spec() = #{id => child_id(),             % mandatory
       <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
   </section>
 </erlref>
-
