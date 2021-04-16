@@ -49,10 +49,10 @@
   {env, []},
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
-			  "crypto-4.6.4",
+			  "crypto-@OTP-16656@",
 			  "erts-9.0",
 			  "kernel-5.3",
 			  "public_key-1.6.1",
-                          "stdlib-3.4.1",
+                          "stdlib-@OTP-17334@",
                           "runtime_tools-1.15.1"
 			 ]}]}.
