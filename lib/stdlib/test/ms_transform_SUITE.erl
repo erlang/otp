@@ -45,6 +45,7 @@
 -export([eep37/1]).
 -export([otp_14454/1]).
 -export([otp_16824/1]).
+-export([unused_record/1]).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -61,7 +62,7 @@ all() ->
      record_index, multipass, bitsyntax, record_defaults,
      andalso_orelse, float_1_function, action_function,
      warnings, no_warnings, top_match, old_guards, autoimported,
-     semicolon, eep37, otp_14454, otp_16824].
+     semicolon, eep37, otp_14454, otp_16824, unused_record].
 
 groups() -> 
     [].
@@ -804,6 +805,14 @@ otp_16824(Config) when is_list(Config) ->
         compile:forms(Forms, [return]),
     ok.
 
+%% OTP-17186.
+unused_record(Config) when is_list(Config) ->
+    setup(Config),
+    Record = <<"-record(r, {f}).\n\n">>,
+    Expr = <<"ets:fun2ms(fun(#r{}) -> e end)">>,
+    [] = compile_ww(Record, Expr),
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Helpers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -864,8 +873,7 @@ compile_ww(Records,Expr, Opts) ->
     file:write_file(FN,Prog),
     {ok,Forms} = parse_file(FN),
     {ok,tmp,_Bin,Wlist} = compile:forms(Forms,[return_warnings,
-					       nowarn_unused_vars,
-					       nowarn_unused_record | Opts]),
+					       nowarn_unused_vars | Opts]),
     Wlist.
 
 compile_no_ww(Expr) ->
@@ -878,8 +886,7 @@ compile_no_ww(Expr) ->
     file:write_file(FN,Prog),
     {ok,Forms} = parse_file(FN),
     {ok,tmp,_Bin,Wlist} = compile:forms(Forms,[return_warnings,
-					       nowarn_unused_vars,
-					       nowarn_unused_record]),
+					       nowarn_unused_vars]),
     Wlist.
 
 parse_file(FN) ->

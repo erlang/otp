@@ -285,6 +285,7 @@ put_filename(Name) ->
 put_records(R) ->
     put(records,R),
     ok.
+
 get_records() ->
     case get(records) of
 	undefined ->
@@ -292,6 +293,17 @@ get_records() ->
 	Else ->
 	    Else
     end.
+
+get_record(RName) ->
+    case lists:keyfind(RName, 1, get_records()) of
+        {RName, FieldList} ->
+            put(records_replaced_by_tuples,
+                [RName|get(records_replaced_by_tuples)]),
+            FieldList;
+        false ->
+            not_found
+    end.
+
 cleanup_filename({Old,OldRec,OldWarnings}) ->
     Ret = case erase(filename) of
 	      undefined ->
@@ -333,11 +345,24 @@ record_field({record_field,_,{atom,_,FieldName},Def}, C) ->
 record_field({typed_record_field,Field,_Type}, C) ->
     record_field(Field, C).
 
-forms([F0|Fs0]) ->
-    F1 = form(F0),
-    Fs1 = forms(Fs0),
-    [F1|Fs1];
-forms([]) -> [].
+forms(Forms0) ->
+    put(records_replaced_by_tuples, []),
+    try
+        Forms = [form(F) || F <- Forms0],
+        %% Add `-compile({nowarn_unused_record, RecordNames}).', where
+        %% RecordNames is the names of all records replaced by tuples,
+        %% in order to silence the code linter's warnings about unused
+        %% records.
+        case get(records_replaced_by_tuples) of
+            [] ->
+                Forms;
+            RNames ->
+                NoWarn = {nowarn_unused_record,[lists:usort(RNames)]},
+                [{attribute,erl_anno:new(0),compile,NoWarn}] ++ Forms
+        end
+    after
+        erase(records_replaced_by_tuples)
+    end.
 
 form({attribute,_,file,{Filename,_}}=Form) ->
     put_filename(Filename),
@@ -350,9 +375,11 @@ form({function,Anno,Name0,Arity0,Clauses0}) ->
     {function,Anno,Name,Arity,Clauses};
 form(AnyOther) ->
     AnyOther.
+
 function(Name, Arity, Clauses0) ->
     Clauses1 = clauses(Clauses0),
     {Name,Arity,Clauses1}.
+
 clauses([C0|Cs]) ->
     C1 = clause(C0,gb_sets:new()),
     C2 = clauses(Cs),
@@ -529,12 +556,11 @@ tg({call, _Anno, {atom, Anno2, object},[]},_B) ->
     {atom, Anno2, '$_'};
 tg({call, Anno, {atom, _, is_record}=Call,[Object, {atom,Anno3,RName}=R]},B) ->
     MSObject = tg(Object,B),
-    RDefs = get_records(),
-    case lists:keysearch(RName,1,RDefs) of
-	{value, {RName, FieldList}} ->
+    case get_record(RName) of
+	FieldList when is_list(FieldList) ->
 	    RSize = length(FieldList)+1,
 	    {tuple, Anno, [Call, MSObject, R, {integer, Anno3, RSize}]};
-	_ ->
+	not_found ->
 	    throw({error,Anno3,{?ERR_GENBADREC+B#tgd.eb,RName}})
     end;
 tg({call, Anno, {atom, Anno2, FunName},ParaList},B) ->
@@ -593,9 +619,8 @@ tg({var,Anno,VarName},B) ->
 	    {atom, Anno, AtomName}
     end;
 tg({record_field,Anno,Object,RName,{atom,_Anno1,KeyName}},B) ->
-    RDefs = get_records(),
-    case lists:keysearch(RName,1,RDefs) of
-	{value, {RName, FieldList}} ->
+    case get_record(RName) of
+	FieldList when is_list(FieldList) ->
 	    case lists:keysearch(KeyName,1, FieldList) of
 		{value, {KeyName,Position,_}} ->
 		    NewObject = tg(Object,B),
@@ -605,12 +630,11 @@ tg({record_field,Anno,Object,RName,{atom,_Anno1,KeyName}},B) ->
 		    throw({error,Anno,{?ERR_GENBADFIELD+B#tgd.eb, RName,
 				       KeyName}})
 	    end;
-	_ ->
+	not_found ->
 	    throw({error,Anno,{?ERR_GENBADREC+B#tgd.eb,RName}})
     end;
 
 tg({record,Anno,RName,RFields},B) ->
-    RDefs = get_records(),
     KeyList0 = lists:foldl(fun({record_field,_,{atom,_,Key},Value},
 				     L) ->
 					 NV = tg(Value,B),
@@ -639,8 +663,8 @@ tg({record,Anno,RName,RFields},B) ->
 	_ ->
 	    ok
     end,
-    case lists:keysearch(RName,1,RDefs) of
-	{value, {RName, FieldList0}} ->
+    case get_record(RName) of
+	FieldList0 when is_list(FieldList0) ->
 	    FieldList1 = lists:foldl(
 			   fun({FN,_,Def},Acc) ->
 				   El = case lists:keysearch(FN,1,KeyList) of
@@ -663,14 +687,13 @@ tg({record,Anno,RName,RFields},B) ->
 	    check_undef_field(RName,Anno,KeyList,FieldList0,
 			      ?ERR_GENBADFIELD+B#tgd.eb),
 	    {tuple,Anno,[{tuple,Anno,[{atom,Anno,RName}|FieldList1]}]};
-	_ ->
+	not_found ->
 	    throw({error,Anno,{?ERR_GENBADREC+B#tgd.eb,RName}})
     end;
 
 tg({record_index,Anno,RName,{atom,Anno2,KeyName}},B) ->
-    RDefs = get_records(), 
-    case lists:keysearch(RName,1,RDefs) of
-	{value, {RName, FieldList}} ->
+    case get_record(RName) of
+	FieldList when is_list(FieldList) ->
 	    case lists:keysearch(KeyName,1, FieldList) of
 		{value, {KeyName,Position,_}} ->
 		    {integer, Anno2, Position};
@@ -678,12 +701,11 @@ tg({record_index,Anno,RName,{atom,Anno2,KeyName}},B) ->
 		    throw({error,Anno2,{?ERR_GENBADFIELD+B#tgd.eb, RName,
 				       KeyName}})
 	    end;
-	_ ->
+	not_found ->
 	    throw({error,Anno,{?ERR_GENBADREC+B#tgd.eb,RName}})
     end;
 
 tg({record,Anno,{var,Anno2,_VName}=AVName, RName,RFields},B) ->
-    RDefs = get_records(),
     MSVName = tg(AVName,B),
     KeyList = lists:foldl(fun({record_field,_,{atom,_,Key},Value},
 				     L) ->
@@ -694,8 +716,8 @@ tg({record,Anno,{var,Anno2,_VName}=AVName, RName,RFields},B) ->
 				 end,
 				 [],
 				 RFields),
-    case lists:keysearch(RName,1,RDefs) of
-	{value, {RName, FieldList0}} ->
+    case get_record(RName) of
+	FieldList0 when is_list(FieldList0) ->
 	    FieldList1 = lists:foldl(
 			   fun({FN,Pos,_},Acc) ->
 				   El = case lists:keysearch(FN,1,KeyList) of
@@ -716,7 +738,7 @@ tg({record,Anno,{var,Anno2,_VName}=AVName, RName,RFields},B) ->
 	    check_undef_field(RName,Anno,KeyList,FieldList0,
 			      ?ERR_GENBADFIELD+B#tgd.eb),
 	    {tuple,Anno,[{tuple,Anno,[{atom,Anno,RName}|FieldList1]}]};
-	_ ->
+	not_found ->
 	    throw({error,Anno,{?ERR_GENBADREC+B#tgd.eb,RName}})
     end;
 
@@ -761,7 +783,6 @@ toplevel_head_match(Other,B,_OB) ->
 
 th({record,Anno,RName,RFields},B,OB) ->
     % youch...
-    RDefs = get_records(),
     {KeyList0,NewB} = lists:foldl(fun({record_field,_,{atom,_,Key},Value},
 				     {L,B0}) ->
 					 {NV,B1} = th(Value,B0,OB),
@@ -789,8 +810,8 @@ th({record,Anno,RName,RFields},B,OB) ->
 	_ ->
 	    ok
     end,
-    case lists:keysearch(RName,1,RDefs) of
-	{value, {RName, FieldList0}} ->
+    case get_record(RName) of
+	FieldList0 when is_list(FieldList0) ->
 	    FieldList1 = lists:foldl(
 			   fun({FN,_,_},Acc) ->
 				   El = case lists:keysearch(FN,1,KeyList) of
@@ -808,7 +829,7 @@ th({record,Anno,RName,RFields},B,OB) ->
 	    check_undef_field(RName,Anno,KeyList,FieldList0,
 			      ?ERR_HEADBADFIELD),
 	    {{tuple,Anno,[{atom,Anno,RName}|FieldList1]},NewB};
-	_ ->
+	not_found ->
 	    throw({error,Anno,{?ERR_HEADBADREC,RName}})
     end;
 th({match,Anno,_,_},_,_) ->
