@@ -1599,6 +1599,10 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       that affect the security of connection. Meaningful atoms, not specified
       above, are the ssl option names.</p>
 
+      <p>In order to retrieve keylog and other secret information from a TLS 1.3
+      connection, <seetype marker="#keep_secrets">keep_secrets</seetype> must be
+      configured in advance and set to <c>true</c>.</p>
+
       <note><p>If only undefined options are requested the
       resulting list can be empty.</p></note>
       </desc>
