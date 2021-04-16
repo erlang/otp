@@ -725,7 +725,7 @@ number_of() ->
 -spec which_sockets() -> [socket()].
 
 which_sockets() ->
-    ?REGISTRY:which_sockets(fun(_) -> true end).
+    ?REGISTRY:which_sockets(true).
 
 -spec which_sockets(FilterRule) -> [socket()] when
       FilterRule :: 'inet' | 'inet6' |
@@ -735,23 +735,29 @@ which_sockets() ->
                     fun((socket_info()) -> boolean()).
 
 which_sockets(Domain)
-  when ((Domain =:= inet) orelse (Domain =:= inet6)) ->
-    ?REGISTRY:which_sockets(fun(#{domain := D}) when (D =:= Domain) -> true; 
-                               (_) -> false end);
+  when Domain =:= inet;
+       Domain =:= inet6 ->
+    ?REGISTRY:which_sockets({domain, Domain});
+
 which_sockets(Type)
-  when ((Type =:= stream) orelse (Type =:= dgram) orelse (Type =:= seqpacket)) ->
-    ?REGISTRY:which_sockets(fun(#{type := T}) when (T =:= Type) -> true;
-                               (_) -> false end);
+  when Type =:= stream;
+       Type =:= dgram;
+       Type =:= seqpacket ->
+    ?REGISTRY:which_sockets({type, Type});
+
 which_sockets(Proto)
-  when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
-    ?REGISTRY:which_sockets(fun(#{protocol := P}) when (P =:= Proto) -> true;
-                               (_) -> false end);
+  when Proto =:= sctp;
+       Proto =:= tcp;
+       Proto =:= udp ->
+    ?REGISTRY:which_sockets({protocol, Proto});
+
 which_sockets(CTRL)
   when is_pid(CTRL) ->
-    ?REGISTRY:which_sockets(fun(#{ctrl := C}) when (C =:= CTRL) -> true;
-                               (_) -> false end);
+    ?REGISTRY:which_sockets({ctrl, CTRL});
+
 which_sockets(Filter) when is_function(Filter, 1) ->
     ?REGISTRY:which_sockets(Filter);
+
 which_sockets(Other) ->
     erlang:error(badarg, [Other]).
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,10 +51,20 @@ start() ->
     loop([]).
 
 number_of() ->
-    await_reply( request(number_of) ).
+    request(number_of).
 
-which_sockets(Filter) when is_function(Filter, 1) ->
-    await_reply( request({which_sockets, Filter}) ).
+which_sockets(Filter)
+  when is_boolean(Filter);
+       tuple_size(Filter) =:= 2;
+       is_function(Filter, 1) ->
+    case request({which_sockets, Filter}) of
+        badarg ->
+            erlang:error(badarg, [Filter]);
+        Sockets ->
+            Sockets
+    end;
+which_sockets(Filter) ->
+    erlang:error(badarg, [Filter]).
 
 
 %% =========================================================================
@@ -104,13 +114,13 @@ handle_unexpected_msg(DB, {'EXIT', Pid, Reason}) ->
     F = "socket-registry received unexpected exit from ~p:"
         "~n   ~p",
     A = [Pid, Reason],
-    handle_unexpected_msg(warning, F, A),
+    log_msg(warning, F, A),
     DB;
 handle_unexpected_msg(DB, X) ->
     F = "socket-registry received unexpected:"
         "~n   ~p",
     A = [X],
-    handle_unexpected_msg(warning, F, A),
+    log_msg(warning, F, A),
     DB.
 
 %% This is "stolen" from the init process. But level is set to warning instead.
@@ -124,22 +134,20 @@ handle_unexpected_msg(DB, X) ->
 %% either.
 %%
 
-%% handle_unexpected_msg(info, F, A) ->
-%%     do_handle_unexpected_msg( mk_unexpected_info_msg(F, A) ).
-handle_unexpected_msg(warning, F, A) ->
-    do_handle_unexpected_msg( mk_unexpected_warning_msg(F, A) ).
+log_msg(Level, F, A) ->
+    log_msg( mk_log_msg(Level, F, A) ).
+%%
+log_msg(Msg) ->
+    _ = catch logger ! Msg,
+    ok.
 
-do_handle_unexpected_msg(Msg) ->
-    catch logger ! Msg.
 
+%% mk_log_msg(info, F, A) ->
+%%     mk_log_msg(info, info_msg, F, A);
+mk_log_msg(warning, F, A) ->
+    mk_log_msg(warning, warning_msg, F, A).
 
-%% mk_unexpected_info_msg(F, A) ->
-%%     mk_unexpected_msg(info, info_msg, F, A).
-
-mk_unexpected_warning_msg(F, A) ->
-    mk_unexpected_msg(warning, warning_msg, F, A).
-
-mk_unexpected_msg(Level, Tag, F, A) ->
+mk_log_msg(Level, Tag, F, A) ->
     Meta = #{pid          => self(),
              gl           => erlang:group_leader(),
              time         => os:system_time(microsecond),
@@ -154,37 +162,48 @@ db_size(DB) ->
 
 do_which_sockets(DB, Filter) ->
     try
-        begin
-            SocksInfo =
-                [{Sock, socket:info(Sock)} || #esock_info{sock = Sock} <- DB],
-            [Sock || {Sock, SockInfo} <- SocksInfo, Filter(SockInfo)]
-        end
-    catch
-        _:_:_ ->
-            [Sock || #esock_info{sock = Sock} <- DB]
+        [Sock ||
+            #esock_info{sock = Sock} <- DB,
+            if
+                is_boolean(Filter) ->
+                    Filter;
+                true ->
+                    SockInfo = socket:info(Sock),
+                    case Filter of
+                        {Field, Value} ->
+                            case SockInfo of
+                                #{Field := Value} ->
+                                    true;
+                                #{} ->
+                                    false
+                            end;
+                        _ when is_function(Filter, 1) ->
+                            Filter(SockInfo) =:= true
+                    end
+            end]
+    catch _ : _ ->
+            %% Filter/1 must have failed
+            badarg
     end.
-    
 
 
 %% =========================================================================
 
 request(Req) ->
     ReqId  = make_ref(),
-    ReqMsg = {?MODULE, request, self(), ReqId, Req},
+    From = self(),
+    ReqMsg = {?MODULE, request, From, ReqId, Req},
     Registry = whoami(),    
     erlang:send(Registry, ReqMsg),
-    ReqId.
-
-reply(ReqId, From, Reply) ->
-    RepMsg = {?MODULE, reply, self(), ReqId, Reply},
-    erlang:send(From, RepMsg).
-
-await_reply(ReqId) ->
-    Registry = whoami(),    
     receive
         {?MODULE, reply, Registry, ReqId, Reply} ->
             Reply
     end.
+
+reply(ReqId, From, Reply) ->
+    Registry = self(),
+    RepMsg = {?MODULE, reply, Registry, ReqId, Reply},
+    erlang:send(From, RepMsg).
 
 
 %% =========================================================================
