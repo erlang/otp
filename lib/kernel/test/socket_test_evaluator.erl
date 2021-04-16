@@ -281,16 +281,16 @@ await_evs_termination([], _Timeout) ->
 await_evs_termination(Evs, Timeout) ->
     T = t(),
     receive
-        {'DOWN', _MRef, process, Pid, _Reason} ->
-            %% ?SEV_IPRINT("await_evs_termination -> DOWN: "
-            %%             "~n   Pid:    ~p"
-            %%             "~n   Reason: ~p", [Pid, Reason]),
+        {'DOWN', _MRef, process, Pid, Reason} ->
+            ?SEV_IPRINT("await_evs_termination -> DOWN: "
+                        "~n   Pid:    ~p"
+                        "~n   Reason: ~p", [Pid, Reason]),
             Evs2 = lists:keydelete(Pid, #ev.pid, Evs),
             await_evs_termination(Evs2, tdiff(T, t()));
-        {'EXIT', Pid, _Reason} ->
-            %% ?SEV_IPRINT("await_evs_termination -> EXIT: "
-            %%             "~n   Pid:    ~p"
-            %%             "~n   Reason: ~p", [Pid, Reason]),
+        {'EXIT', Pid, Reason} ->
+            ?SEV_IPRINT("await_evs_termination -> EXIT: "
+                        "~n   Pid:    ~p"
+                        "~n   Reason: ~p", [Pid, Reason]),
             Evs2 = lists:keydelete(Pid, #ev.pid, Evs),
             await_evs_termination(Evs2, tdiff(T, t()))
 
