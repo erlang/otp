@@ -21,7 +21,8 @@
 -module(inet_db).
 
 %% Store info about ip addresses, names, aliases host files resolver
-%% options
+%% options.
+%% Also miscellaneous "stuff" related to sockets.
 
 %% If the macro DEBUG is defined during compilation, 
 %% debug printouts are done through erlang:display/1.
@@ -51,7 +52,8 @@
 -export([tcp_module/0, set_tcp_module/1]).
 -export([udp_module/0, set_udp_module/1]).
 -export([sctp_module/0,set_sctp_module/1]).
--export([register_socket/2, unregister_socket/1, lookup_socket/1]).
+-export([register_socket/2, unregister_socket/1, lookup_socket/1,
+	 put_socket_type/2, take_socket_type/1]).
 
 %% Host name & domain
 -export([set_hostname/1, set_domain/1]).
@@ -88,6 +90,7 @@
 	 hosts_byaddr,      %% hosts table
 	 hosts_file_byname, %% hosts table from system file
 	 hosts_file_byaddr, %% hosts table from system file
+	 sockets,           %% hosts table from system file
 	 cache_timer        %% timer reference for refresh
 	}).
 -type state() :: #state{}.
@@ -815,6 +818,14 @@ lookup_socket(Socket) when is_port(Socket) ->
 	error:badarg                -> {error,closed}
     end.
 
+
+put_socket_type(MRef, Type) ->
+    call({put_socket_type, MRef, Type}).
+
+take_socket_type(MRef) ->
+    call({take_socket_type, MRef}).
+
+
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_server
 %%%----------------------------------------------------------------------
@@ -872,6 +883,10 @@ lookup_socket(Socket) when is_port(Socket) ->
 %% node_auth      Ls              - Default authenication
 %% node_crypt     Ls              - Default encryption
 %%
+%% Socket type (used for socket monitors)
+%% --------------------------------------
+%% reference()  inet | {socket, Module}  - Type of socket being monitored
+%%
 
 -spec init([]) -> {'ok', state()}.
 
@@ -892,13 +907,16 @@ init([]) ->
     HostsByaddr = ets:new(inet_hosts_byaddr, [named_table]),
     HostsFileByname = ets:new(inet_hosts_file_byname, [named_table]),
     HostsFileByaddr = ets:new(inet_hosts_file_byaddr, [named_table]),
-    {ok, #state{db = Db,
-		cache = Cache,
-		hosts_byname = HostsByname,
-		hosts_byaddr = HostsByaddr,
+    %% Miscellaneous stuff related to sockets (monitoring, ...)
+    Sockets = ets:new(inet_sockets, [protected, set, named_table]),
+    {ok, #state{db                = Db,
+		cache             = Cache,
+		hosts_byname      = HostsByname,
+		hosts_byaddr      = HostsByaddr,
 		hosts_file_byname = HostsFileByname,
 		hosts_file_byaddr = HostsFileByaddr,
-		cache_timer = init_timer() }}.
+		sockets           = Sockets,
+		cache_timer       = init_timer() }}.
 
 reset_db(Db) ->
     ets:insert(
@@ -1164,6 +1182,18 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	{add_rc_list, List} ->
 	    handle_rc_list(List, From, State);
 
+	%% Store the type of socket this monitor (reference) refers to
+	{put_socket_type, MRef, Type} ->
+	    Reply = handle_put_socket_type(State#state.sockets, MRef, Type),
+	    {reply, Reply, State};
+
+	%% Take (in the 'maps' sence of the word) the socket type of
+	%% this socket monitor (reference).
+	{take_socket_type, MRef} ->
+	    Reply = handle_take_socket_type(State#state.sockets, MRef),
+	    {reply, Reply, State};
+
+
 	stop ->
 	    {stop, normal, ok, State};
 
@@ -1171,6 +1201,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    {reply, error, State}
     end.
 
+    
 %%----------------------------------------------------------------------
 %% Func: handle_cast/2
 %% Returns: {noreply, State}          |
@@ -1934,3 +1965,27 @@ lists_nth(_N, [], Default) ->
     Default;
 lists_nth(N, [_ | T], Default) ->
     lists_nth(N - 1, T, Default).
+
+
+%%----------------------------------------------------------------------
+%% Socket related functions
+%%----------------------------------------------------------------------
+
+handle_put_socket_type(Db, MRef, Type) ->
+    Key = {type, MRef},
+    case ets:lookup(Db, Key) of
+	[_] -> % "Should" be impossible...
+	    error;
+	[] ->
+	    ets:insert(Db, {Key, Type}),
+	    ok
+    end.
+
+handle_take_socket_type(Db, MRef) ->
+    Key = {type, MRef},
+    case ets:take(Db, Key) of
+	[Type] ->
+	    {ok, Type};
+	[] -> % Already demonitor'ed
+	    error
+    end.

@@ -29,13 +29,15 @@
 
 -module(socket_registry).
 
+-compile({no_auto_import, [monitor/2]}).
+
 -export([
          start/0,
          number_of/0,
          which_sockets/1,
 	 number_of_monitors/0, number_of_monitors/1,
          which_monitors/1,
-	 monitor/1,
+	 monitor/1, monitor/2,
 	 demonitor/1
         ]).
 
@@ -43,9 +45,17 @@
 %% Cross-ref information needed for each monitor
 -record(xref,
 	{
-	  mref :: reference(),      %% The monitor (ID)
-	  sock :: socket:socket(),  %% The socket being monitored
-	  pid  :: pid()             %% The process doing the monitoring
+	  %% The monitor (ID)
+	  mref  :: reference(),
+
+	  %% The actual socket being monitored
+	  sock  :: socket:socket(),
+
+	  %% The "socket" to be part of the DOWN message
+	  msock :: term(),
+
+	  %% The process doing the monitoring
+	  pid   :: pid()
 	 }).
 
 %% Each process that monitor a socket:
@@ -124,21 +134,28 @@ which_monitors(Pid) when is_pid(Pid) ->
 
 
 monitor(Socket) ->
-    case request({monitor, Socket}) of
+    monitor(Socket, #{}).
+
+monitor(Socket, Opts) when is_map(Opts) ->
+    case request({monitor, Socket, Opts}) of
 	{ok, MRef} ->
 	    MRef;
-	{error, Reason} ->
-	    erlang:error(badarg, [Socket, Reason])
-    end.
+	{error, _Reason} = ERROR ->
+	    ERROR
+    end;
+monitor(Socket, Opts) ->
+    erlang:error(badarg, [Socket, Opts]).
 
-demonitor(MRef) ->
+demonitor(MRef) when is_reference(MRef) ->
     %% ?DBG(MRef),
     case request({demonitor, MRef}) of
 	ok ->
 	    ok;
-	{error, Reason} ->
-	    erlang:error(badarg, [MRef, Reason])
-    end.
+	{error, _Reason} = ERROR ->
+	    ERROR
+    end;
+demonitor(MRef) ->
+    erlang:error(badarg, [MRef]).
 
 
 %% =========================================================================
@@ -211,7 +228,7 @@ handle_delete_socket(#state{db   = DB,
 			    user = Users} = State, Sock) ->
     case db_sock_lookup(DB, Sock) of
 	{value, #info{mons = Mons}} ->
-	    handle_send_down(Mons, XRef, Sock),
+	    handle_send_down(Mons, XRef),
 	    Users2 = user_sock_delete_update(Mons, Users, XRef),
 	    XRef2  = xref_sock_delete(XRef, Sock),
 	    DB2    = db_sock_delete(DB, Sock),
@@ -249,20 +266,20 @@ user_sock_delete_update([Mon|Mons], Users, XRef) ->
 	    user_sock_delete_update(Mons, Users, XRef)
     end.
 
-handle_send_down([], _XRef, _Sock) ->
+handle_send_down([], _XRef) ->
     ok;
-handle_send_down([MRef|Mons], XRef, Sock) ->
+handle_send_down([MRef|Mons], XRef) ->
     case xref_mref_lookup(XRef, MRef) of
-	{value, #xref{pid = Pid}} ->
-	    send_down(Pid, MRef, Sock),
-	    handle_send_down(Mons, XRef, Sock);
+	{value, #xref{pid = Pid, msock = MSock}} ->
+	    send_down(Pid, MRef, MSock),
+	    handle_send_down(Mons, XRef);
 	false -> % race?
-	    handle_send_down(Mons, XRef, Sock)
+	    handle_send_down(Mons, XRef)
     end.
 
-send_down(Pid, MRef, Sock) ->
+send_down(Pid, MRef, MSock) ->
     %% We do not yet have a 'reason', so use 'closed'...
-    Pid ! mk_down_msg(MRef, Sock, closed).
+    Pid ! mk_down_msg(MRef, MSock, closed).
 
 
 
@@ -282,8 +299,8 @@ handle_request(#state{db = DB} = State, {which_sockets, Filter}, _From) ->
 handle_request(#state{user = Users} = State, {which_monitors, Pid}, _From) ->
     {State, user_which_monitors(Users, Pid)};
 
-handle_request(State, {monitor, Socket}, From) ->
-    do_monitor_socket(State, Socket, From);
+handle_request(State, {monitor, Socket, Opts}, From) ->
+    do_monitor_socket(State, Socket, Opts, From);
 
 handle_request(State, {demonitor, MRef}, From) ->
     %% ?DBG({demonitor, MRef, From}),
@@ -377,8 +394,8 @@ mk_log_msg(Level, Tag, F, A) ->
              error_logger => #{tag => Tag}},
     {log, Level, F, A, Meta}.
 
-mk_down_msg(MRef, Sock, Info) ->
-    {'DOWN', MRef, socket, Sock, Info}.
+mk_down_msg(MRef, MSock, Info) ->
+    {'DOWN', MRef, socket, MSock, Info}.
 
 
 %% ---
@@ -414,7 +431,7 @@ do_which_sockets(DB, Filter) ->
     
 do_monitor_socket(#state{db   = DB,
 			 xref = XRefs,
-			 user = Users} = State, Sock, From) ->
+			 user = Users} = State, Sock, Opts, From) ->
     case db_sock_lookup(DB, Sock) of
 	{value, #info{mons = Mons} = SI} ->
 	    %% Check if this process has already monitored this socket
@@ -433,9 +450,11 @@ do_monitor_socket(#state{db   = DB,
 		    Mons2  = [SMRef|Mons],
 		    SI2    = SI#info{mons = Mons2},
 		    DB2    = db_sock_replace(DB, Sock, SI2),
-		    XRef   = #xref{mref = SMRef,
-					 sock = Sock,
-					 pid  = From},
+		    MSock  = maps:get(msocket, Opts, Sock),
+		    XRef   = #xref{mref  = SMRef,
+				   sock  = Sock,
+				   msock = MSock,
+				   pid   = From},
 		    XRefs2 = [XRef|XRefs],
 		    Users2 = user_pid_add(Users, From, SMRef),
 		    Result = {ok, SMRef},

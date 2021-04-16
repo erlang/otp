@@ -75,6 +75,9 @@
 %% timer interface
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
 
+%% Socket monitoring
+-export([monitor/1, demonitor/1]).
+
 -export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
 	      family_address/0, local_address/0,
@@ -208,27 +211,47 @@ close(Socket) ->
     end.
 
 
-%% -spec monitor(Socket) -> reference() when
-%%       Socket :: socket().
+-spec monitor(Socket) -> reference() when
+      Socket :: socket().
 
-%% monitor({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
-%%     MRef = GenSocketMod:?FUNCTION_NAME(Socket),
-%%     case inet_db:socket_monitor(MRef, inet) of
-%%         ok ->
-%%             MRef;
-%%         error ->
-%%             GenSocketMod:demonitor(MRef),
-%%             badarg()
-%%     end;
-%% monitor(Socket) when is_port(Socket) ->
-%%     MRef = erlang:monitor(port, Socket),
-%%     case inet_db:socket_monitor(MRef, inet) of
-%%         ok ->
-%%             MRef;
-%%         error ->
-%%             erlang:demonitor(MRef, [flush]),
-%%             badarg()
-%%     end.
+monitor({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    MRef = GenSocketMod:?FUNCTION_NAME(Socket),
+    case inet_db:put_socket_type(MRef, {socket, GenSocketMod}) of
+        ok ->
+            MRef;
+	error ->
+	    GenSocketMod:demonitor(MRef),
+	    erlang:error({invalid, Socket})
+    end;
+monitor(Socket) when is_port(Socket) ->
+    MRef = erlang:monitor(port, Socket),
+    case inet_db:put_socket_type(MRef, port) of
+	ok ->
+	    MRef;
+	error ->
+	    erlang:demonitor(MRef, [flush]),
+	    erlang:error({invalid, Socket})
+    end;
+monitor(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
+-spec demonitor(MRef) -> ok when
+      MRef :: reference().
+
+demonitor(MRef) when is_reference(MRef) ->
+    case inet_db:take_socket_type(MRef) of
+        {ok, port} ->
+	    erlang:demonitor(MRef, [flush]),
+	    ok;
+        {ok, {socket, GenSocketMod}} ->
+	    GenSocketMod:?FUNCTION_NAME(MRef),
+	    ok;
+	error -> % Assume it has already been demonitor'ed
+	    ok
+    end;
+demonitor(MRef) ->
+    erlang:error(badarg, [MRef]).
 
 
 -spec peername(Socket :: socket()) ->

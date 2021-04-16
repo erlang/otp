@@ -71,7 +71,6 @@
 -export_type([
               socket/0,
               socket_handle/0,
-              socket_monitor/0,
 
               select_tag/0,
               select_handle/0,
@@ -886,7 +885,7 @@ info(Socket) ->
 %%
 %% ===========================================================================
 
--spec monitor(Socket) -> socket_monitor() when
+-spec monitor(Socket) -> reference() when
       Socket :: socket().
 
 %% Should it be possible to specify a modification of the 'Socket' part
@@ -897,10 +896,17 @@ info(Socket) ->
 monitor(?socket(SockRef) = Socket) when is_reference(SockRef) ->
     case prim_socket:setopt(SockRef, {otp, use_registry}, true) of
         ok ->
-            socket_registry:monitor(Socket);
-        {error, _Reason} ->
-            erlang:error(badarg, [Socket])
-    end.
+            case socket_registry:monitor(Socket) of
+		{ok, MRef} ->
+		    MRef;
+		{error, MReason} ->
+		    erlang:error({invalid, MReason})
+	    end;
+        {error, SReason} ->
+	    erlang:error({invalid, SReason})
+    end;
+monitor(Socket) ->
+    erlang:error(badarg, [Socket]).
 
 
 %% ===========================================================================
@@ -914,16 +920,24 @@ monitor(?socket(SockRef) = Socket) when is_reference(SockRef) ->
 %% ===========================================================================
 
 -spec demonitor(MRef) -> ok when
-      MRef :: socket_monitor().
+      MRef :: reference().
 
-demonitor(MRef) ->
-    socket_registry:demonitor(MRef),
-    receive
-        {'DOWN', MRef, socket, _, _} ->
-            ok
-    after 0 ->
-            ok
-    end.
+demonitor(MRef) when is_reference(MRef) ->
+    case socket_registry:demonitor(MRef) of
+	ok ->
+	    ok;
+	{error, unknown_monitor} -> % Possible race
+	    receive
+		{'DOWN', MRef, socket, _, _} ->
+		    ok
+	    after 0 ->
+		    ok
+	    end;
+	{error, Reason} ->
+	    erlang:error({invalid, Reason})
+    end;
+demonitor(Socket) ->
+    erlang:error(badarg, [Socket]).
 
 
 %% ===========================================================================

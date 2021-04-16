@@ -28,7 +28,7 @@
          shutdown/2, close/1, controlling_process/2]).
 %% inet
 -export([
-         %% monitor/1,
+         monitor/1, demonitor/1,
          setopts/2, getopts/2,
          sockname/1, peername/1,
          getstat/2
@@ -498,9 +498,28 @@ controlling_process(S, NewOwner, Server, Msg) ->
 %% Module inet backends
 %% -------------------------------------------------------------------------
 
-%% monitor(?module_socket(Server, _Socket)) ->
-%%     %% Do we really need the pid? Its part of the call info
-%%     call(Server, {monitor, self()}).
+monitor(?module_socket(_Server, ESock) = Socket) ->
+    %% The socket that is part of the down message:
+    socket_registry:monitor(ESock, #{msocket => Socket});
+monitor(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+demonitor(MRef) when is_reference(MRef) ->
+    case socket_registry:demonitor(MRef) of
+	ok ->
+	    ok;
+	{error, unknown_monitor} -> % Possible race
+	    receive
+		{'DOWN', MRef, socket, _, _} ->
+		    ok
+	    after 0 ->
+		    ok
+	    end;
+	{error, Reason} ->
+	    erlang:error({invalid, Reason})
+    end;
+demonitor(Socket) ->
+    erlang:error(badarg, [Socket]).	
 
 
 %% -------------------------------------------------------------------------
@@ -1308,7 +1327,7 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
 
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
-    %% ?DBG([{opts, Opts}, {state, State}, {d, D}]),
+    %% ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
     {Result, D_1} = state_setopts(P, D, State, Opts),
     %% ?DBG([{result, Result}, {d1, D_1}]),
     case Result of
