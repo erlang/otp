@@ -1760,13 +1760,16 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
        yielding */
     list_len = ets_insert_2_list_check(keypos, list);
     if (list_len < 0) {
-        /* Check whether we have sufficient access rights for the
-         * table. That is necessary to ensure that the correct reason
+        Eterm ret;
+        /* 
+         * Check whether we have sufficient access rights for the
+         * table. This is necessary to ensure that the correct reason
          * for the failure will be available in stack backtrace.
          */
-        DB_GET_TABLE(tb, table_id, DB_WRITE, LCK_WRITE_REC, bif_ix, NULL, p);
-        db_unlock(tb, LCK_WRITE_REC);
-        return ets_cret_to_return_value(p, DB_ERROR_BADITEM);
+        ets_insert_2_list_lock_tbl(table_id, p, bif_ix, ETS_INSERT_2_LIST_PROCESS_LOCAL);
+        db_unlock(tb, LCK_WRITE);
+        ERTS_BIF_PREP_ERROR_TRAPPED2(ret, p, BADARG, BIF_TRAP_EXPORT(bif_ix), table_id, list);
+        return ret;
     }
     if (can_insert_without_yield(tb_type, list_len, YCF_NR_OF_REDS_LEFT())) {
         long reds_boost;
