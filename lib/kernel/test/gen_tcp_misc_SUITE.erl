@@ -4976,10 +4976,10 @@ send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
     {{error, timeout}, _} = timeout_sink_loop(Send, TslTimeout),
 
     %% Check that the socket is not busy/closed...
-    ?P("verify socket not busy/closed"),
+    ?P("[basic] verify socket not busy/closed"),
     case gen_tcp:send(A, BinData) of
 	{error, Reason} ->
-	    ?P("(expected) send failure"),
+	    ?P("[basic] (expected) send failure"),
 	    after_send_timeout(AutoClose, Reason),
 	    (catch gen_tcp:close(A)),
 	    exit(Pid, kill),
@@ -4987,6 +4987,7 @@ send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 	ok ->
             %% Note that there is no active reader on the other end,
             %% so a 'channel' has been filled, should remain filled.
+	    ?P("[basic] UNEXPECTED send success"),
 	    (catch gen_tcp:close(A)),
 	    exit(Pid, kill),
 	    ct:fail("Unexpected send success")
@@ -5027,7 +5028,7 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
                           end
                   end,
 
-    ?P("[para] await sender timeout when"
+    ?P("[para] await first sender timeout when"
        "~n   Sender 1: ~p"
        "~n   Sender 2: ~p", [Snd1, Snd2]),
     First =
@@ -5057,9 +5058,9 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
                 ct:sleep(?SECS(1)),
                 exit({timeout, AutoClose})
         end,
-    
+
     Second = if (First =:= 1) -> 2; true -> 1 end,
-    ?P("await sender ~w error", [Second]),
+    ?P("[para] await second sender ~w error", [Second]),
     receive
 	{Snd1, {{error, Error_1}, N_1}} ->
             ?P("[para] error (~p) received from sender 1 (~p, ~p)",
@@ -5073,7 +5074,7 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
             if (Second =:= 1) ->
                     SockInfo21 = SockInfo(),
                     SockTo21   = SockTimeout(),
-                    ?P("[para] UNEXPECTED timeout(2,~w):"
+                    ?P("[para] UNEXPECTED timeout(2, ~w):"
                        "~n   Sender 1 Info: ~p"
                        "~n   Socket Info:   ~p"
                        "~n   Send Timeout:  ~p"
@@ -5086,7 +5087,7 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
                true ->
                     SockInfo22 = SockInfo(),
                     SockTo22   = SockTimeout(),
-                    ?P("[para] UNEXPECTED timeout(2,~w):"
+                    ?P("[para] UNEXPECTED timeout(2, ~w):"
                        "~n   Sender 2 Info: ~p"
                        "~n   Socket Info:   ~p"
                        "~n   Send Timeout:  ~p"
@@ -5100,16 +5101,34 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
             ct:sleep(?SECS(1)),
 	    exit({timeout, AutoClose, Second})
     end,
+
+    ?P("[para] socket info: "
+       "~n   ~p", [SockInfo()]),
     {error, Error_2} = gen_tcp:send(A, BinData),
     after_send_timeout(AutoClose, Error_2),
-    ?P("cleanup - close socket"),
+    ?P("[para] cleanup - await sender terminations"),
+    st_await_sender_termination(Snd1, Snd2),
+    ?P("[para] cleanup - close socket"),
     (catch gen_tcp:close(A)),
-    ?P("cleanup - kill sink"),
+    ?P("[para] cleanup - kill sink"),
     exit(Pid, kill),
     ?P("[para] done"),
     ok.
 
-
+st_await_sender_termination(undefined, undefined) ->
+    ok;
+st_await_sender_termination(Sender1, Sender2) ->
+    receive
+        {'EXIT', Pid, Reason} when (Pid =:= Sender1) ->
+            ?P("sender 1 (~p) terminated: "
+               "~n   ~p", [Pid, Reason]),
+            st_await_sender_termination(undefined, Sender2);
+        {'EXIT', Pid, Reason} when (Pid =:= Sender2) ->
+            ?P("sender 2 (~p) terminated: "
+               "~n   ~p", [Pid, Reason]),
+            st_await_sender_termination(Sender1, undefined)
+    end.
+            
 get_max_diff() ->
     receive
 	ok ->
@@ -5365,14 +5384,15 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
 		     end),
     ?P("[sink] accept"),
     {ok, A} = gen_tcp:accept(L),
-    ?P("[sink] accepted - send 'check' message"),
+    ?P("[sink] accepted - send test message"),
     gen_tcp:send(A, "Hello"),
-    ?P("[sink] message sent - recv 'check' message on remote node (~p)",
-       [RNode]),
+    ?P("[sink] message sent - "
+       "recv 'check' message on remote node (~p)", [RNode]),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
-    ?P("[sink] cleanup"),
+    ?P("[sink] cleanup - close listen socket"),
     (catch gen_tcp:close(L)),
-    ?P("[sink] done"),
+    ?P("[sink] done with socket: "
+       "~n   ~p", [A]),
     {A, Pid}.
 
 setup_active_timeout_sink(Config, RNode, Timeout, AutoClose) ->
