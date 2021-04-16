@@ -33,6 +33,9 @@
 -define(TC_TRY(Case, TC),        ?TC_TRY(Case, fun() -> ok end, TC)).
 -define(TC_TRY(Case, Cond, TC),  ?LIB:tc_try(Case, Cond, TC)).
 
+-define(SOCKET_TYPE(C),          ?LIB:socket_type(C)).
+-define(LISTEN(C),               ?LIB:listen(C, 0, [])).
+-define(LISTEN(C, P),            ?LIB:listen(C, P, [])).
 -define(LISTEN(C, P, O),         ?LIB:listen(C, P, O)).
 -define(CONNECT(__C__, __H__, __P__, __O__),
         ?LIB:connect(__C__, __H__, __P__, __O__)).
