@@ -306,11 +306,11 @@ add_certs(Cert, Ref, CertsDb) ->
 decode_certs(Ref, DerOrBoth) ->
     try
         {Cert, ErlCert} = case DerOrBoth of
-                             {_, _} ->
-                                  DerOrBoth;
-                             Der ->
-                                 {Der, public_key:pkix_decode_cert(Der, otp)}
-                         end,
+                              #cert{der=Der, otp=Otp} ->
+                                  {Der, Otp};
+                              Der ->
+                                  {Der, public_key:pkix_decode_cert(Der, otp)}
+                          end,
         TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
         SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
         Issuer = public_key:pkix_normalize_name(
