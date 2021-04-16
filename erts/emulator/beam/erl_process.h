@@ -961,9 +961,9 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 #else
 /* We define this to a trapping lvalue when frame pointers are unsupported to
  * provoke crashes when used without checking `erts_frame_layout`. The checks
- * will not have a runtime cost in this case since said variable is hardcoded
- * to `ERTS_FRAME_LAYOUT_RA`. */
-#  define FRAME_POINTER(p)  (((volatile Eterm**)0xbadf00d)[0])
+ * will always be optimized out because the variable is hardcoded to
+ *  `ERTS_FRAME_LAYOUT_RA`. */
+#  define FRAME_POINTER(p)  (((Eterm ** volatile)0xbadf00d)[0])
 
 #  ifndef erts_frame_layout
 #    error "erts_frame_layout has not been hardcoded to ERTS_FRAME_LAYOUT_RA"
