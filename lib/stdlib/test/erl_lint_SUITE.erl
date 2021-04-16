@@ -73,7 +73,8 @@
          inline_nifs/1,
          warn_missing_spec/1,
          otp_16824/1,
-         underscore_match/1]).
+         underscore_match/1,
+         unused_record/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -97,7 +98,7 @@ all() ->
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, removed, otp_16516,
      inline_nifs, warn_missing_spec, otp_16824,
-     underscore_match].
+     underscore_match, unused_record].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4580,6 +4581,30 @@ underscore_match(Config) when is_list(Config) ->
         {nowarn_underscore_match, Test, [nowarn_underscore_match],
             []}
     ]).
+
+unused_record(Config) when is_list(Config) ->
+    Ts = [{unused_record_1,
+          <<"-export([t/0]).
+             -record(a, {x,y}).
+             -compile({nowarn_unused_record,a}).
+              t() ->
+                  a.
+            ">>,
+           {[]},
+           []},
+          {unused_record_2,
+          <<"-export([t/0]).
+             -record(a, {x,y}).
+             -compile(nowarn_unused_record).
+              t() ->
+                  a.
+            ">>,
+           {[]},
+           []}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).
