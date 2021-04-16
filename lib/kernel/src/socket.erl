@@ -668,7 +668,7 @@
 %% Interface term formats
 %%
 
--opaque select_tag() :: atom().
+-opaque select_tag() :: atom() | {atom(), ContData :: term()}.
 
 -type select_handle() :: reference().
 
