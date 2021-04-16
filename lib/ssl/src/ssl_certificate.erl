@@ -111,12 +111,12 @@ certificate_chain(undefined, _, _) ->
 certificate_chain(DerCert, CertDbHandle, CertsDbRef) when is_binary(DerCert) ->
     ErlCert = public_key:pkix_decode_cert(DerCert, otp),
     Cert = #cert{der=DerCert, otp=ErlCert},
-    Res = certificate_chain(ErlCert, DerCert, CertDbHandle, CertsDbRef, [Cert], []),
+    Res = certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert], []),
     to_der(certificate_chain, Res);
 certificate_chain(OtpCert, CertDbHandle, CertsDbRef) ->
     DerCert = public_key:pkix_encode('OTPCertificate', OtpCert, otp),
     Cert = #cert{der=DerCert, otp=OtpCert},
-    Res = certificate_chain(OtpCert, DerCert, CertDbHandle, CertsDbRef, [Cert], []),
+    Res = certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert], []),
     to_der(certificate_chain, Res).
 
 %%--------------------------------------------------------------------
@@ -128,12 +128,12 @@ certificate_chain(OtpCert, CertDbHandle, CertsDbRef) ->
 certificate_chain(DerCert, CertDbHandle, CertsDbRef, Candidates) when is_binary(DerCert) ->
     ErlCert = public_key:pkix_decode_cert(DerCert, otp),
     Cert = #cert{der=DerCert, otp=ErlCert},
-    Res = certificate_chain(ErlCert, DerCert, CertDbHandle, CertsDbRef, [Cert], Candidates),
+    Res = certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert], Candidates),
     to_der(certificate_chain, Res);
 certificate_chain(OtpCert, CertDbHandle, CertsDbRef, Candidates) ->
     DerCert = public_key:pkix_encode('OTPCertificate', OtpCert, otp),
     Cert = #cert{der=DerCert, otp=OtpCert},
-    Res = certificate_chain(Cert, DerCert, CertDbHandle, CertsDbRef, [Cert], Candidates),
+    Res = certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert], Candidates),
     to_der(certificate_chain, Res).
 %%--------------------------------------------------------------------
 -spec file_to_certificats(binary(), term()) -> [der_cert()].
@@ -253,7 +253,7 @@ foldl_db(IsIssuerFun, _, [_|_] = ListDb) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain, ListDb) ->
+certificate_chain(#cert{otp=OtpCert}=Cert, CertDbHandle, CertsDbRef, Chain, ListDb) ->
     IssuerAndSelfSigned = 
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
@@ -266,7 +266,7 @@ certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain, ListDb) ->
 	{_, true = SelfSigned} ->
 	    do_certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned, ListDb);
 	{{error, issuer_not_found}, SelfSigned} ->
-	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef, ListDb) of
+	    case find_issuer(Cert, CertDbHandle, CertsDbRef, ListDb) of
 		{ok, {SerialNr, Issuer}} ->
 		    do_certificate_chain(CertDbHandle, CertsDbRef, Chain,
 					 SerialNr, Issuer, SelfSigned, ListDb);
@@ -289,8 +289,7 @@ do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListD
 						SerialNr, Issuer) of
 	{ok, {IssuerCert, ErlCert}} ->
             Cert = #cert{der=IssuerCert, otp=ErlCert},
-	    certificate_chain(ErlCert, IssuerCert,
-			      CertDbHandle, CertsDbRef, [Cert | Chain], ListDb);
+	    certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert | Chain], ListDb);
 	_ ->
 	    %% The trusted cert may be obmitted from the chain as the
 	    %% counter part needs to have it anyway to be able to
@@ -299,12 +298,12 @@ do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListD
     end.
 
 
-find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef, ListDb) ->
+find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb) ->
     IsIssuerFun =
 	fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
 		    true ->
-			case verify_cert_signer(BinCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
+			case verify_cert_signer(DerCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
 			    true ->
 				throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
 			    false ->
@@ -373,12 +372,12 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 				      subjectPublicKey = Key}) ->
     {Key, Params}.
 
-other_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef) ->
+other_issuer(#cert{otp=OtpCert}=Cert, CertDbHandle, CertDbRef) ->
     case public_key:pkix_issuer_id(OtpCert, other) of
 	{ok, IssuerId} ->
 	    {other, IssuerId};
 	{error, issuer_not_found} ->
-	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef, []) of
+	    case find_issuer(Cert, CertDbHandle, CertDbRef, []) of
 		{ok, IssuerId} ->
 		    {other, IssuerId};
 		Other ->
@@ -487,10 +486,10 @@ unorded_or_extraneous([Peer | UnorderedChain], CertDbHandle) ->
               end,
               ChainCandidates).
 
-path_candidate(#cert{der=Der, otp=Otp} = Cert, ChainCandidateCAs, CertDbHandle) ->
+path_candidate(Cert, ChainCandidateCAs, CertDbHandle) ->
     {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der_otp, ChainCandidateCAs}),
     %% certificate_chain/4 will make sure the chain is ordered
-    case certificate_chain(Otp, Der, CertDbHandle, ExtractedCerts, [Cert], []) of
+    case certificate_chain(Cert, CertDbHandle, ExtractedCerts, [Cert], []) of
         {ok, undefined, Chain} ->
             lists:reverse(Chain);
         {ok, Root, Chain} ->
@@ -510,7 +509,7 @@ handle_partial_chain([#cert{der=IssuerCert, otp=OTPCert}=Cert| Rest] = Path, Par
                     maybe_shorten_path(Path, PartialChainHandler, {unknown_ca, Path})
             end;
         false ->
-            case other_issuer(OTPCert, IssuerCert, CertDbHandle, CertDbRef) of
+            case other_issuer(Cert, CertDbHandle, CertDbRef) of
                 {other, {SerialNr, IssuerId}} ->
                     case ssl_manager:lookup_trusted_cert(CertDbHandle, CertDbRef, SerialNr, IssuerId) of
                         {ok, {NewDer, NewOtp}} ->
@@ -555,10 +554,10 @@ new_trusteded_path(_, [], Default) ->
     %% in the cert chain so ignore
     Default.
 
-handle_incomplete_chain([#cert{der=DerPeer, otp=ErlPeer}=Peer| _] = Chain0, PartialChainHandler, Default, CertDbHandle, CertDbRef) ->
+handle_incomplete_chain([#cert{}=Peer| _] = Chain0, PartialChainHandler, Default, CertDbHandle, CertDbRef) ->
     %% We received an incomplete chain, that is not all certs expected to be present are present.
     %% See if we have the certificates to rebuild it.
-    case certificate_chain(ErlPeer, DerPeer, CertDbHandle, CertDbRef, [Peer], []) of
+    case certificate_chain(Peer, CertDbHandle, CertDbRef, [Peer], []) of
         {ok, _, [Peer | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found
             case lists:prefix(Chain0, Chain) of
                 true ->
