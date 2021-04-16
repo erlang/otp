@@ -1179,7 +1179,7 @@ stop_listener(Config) when is_list(Config) ->
     ConnectionRef0 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						       {user, "foo"},
 						       {password, "morot"},
-						       {user_interaction, true},
+						       {user_interaction, false},
 						       {user_dir, UserDir}]),
 
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef0, infinity),

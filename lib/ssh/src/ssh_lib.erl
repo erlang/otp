@@ -30,6 +30,8 @@
          format_time_ms/1
         ]).
 
+-include("ssh.hrl").
+
 %%%----------------------------------------------------------------
 format_address_port({IP,Port}) when is_integer(Port) ->
     format_address_port(IP, Port);
@@ -44,6 +46,8 @@ format_address_port(Address, Port) ->
     end.
 
 %%%----------------------------------------------------------------
+format_address(#address{address=A, port=P}) ->
+    format_address_port(A,P);
 format_address(A) ->
     try inet:ntoa(A)
     catch

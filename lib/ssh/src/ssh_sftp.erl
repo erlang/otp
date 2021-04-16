@@ -234,8 +234,8 @@ stop_channel(Pid) ->
             receive {'DOWN',MonRef,_,_,_} -> ok
             after
                 1000 ->
-                    exit(Pid, kill),
                     erlang:demonitor(MonRef, [flush]),
+                    exit(Pid, kill),
                     ok
             end;
 	false ->

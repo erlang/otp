@@ -70,7 +70,8 @@
 -export([cache_create/0, cache_lookup/2, cache_update/2, 
 	 cache_delete/1, cache_delete/2,  cache_foldl/3,
 	 cache_info/2,  cache_find/2,
-	 get_print_info/1]).
+	 get_print_info/1, get_print_info/2
+        ]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
@@ -211,6 +212,9 @@ handle_call(get_print_info, _From, State) ->
 	 io_lib:format('CB=~p',[State#state.channel_cb])
 	},
     {reply, Reply, State};
+
+handle_call({get_print_info,channel_cb}, _From, State) ->
+    {reply, State#state.channel_cb, State};
 
 handle_call(Request, From, #state{channel_cb = Module, 
 				  channel_state = ChannelState} = State) ->
@@ -364,6 +368,9 @@ cache_find(ChannelPid, Cache) ->
 
 get_print_info(Pid) ->
     call(Pid, get_print_info, 1000).
+
+get_print_info(Pid, Arg) ->
+    call(Pid, {get_print_info,Arg}, 1000).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
