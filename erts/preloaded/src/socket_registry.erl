@@ -77,6 +77,32 @@ loop(DB) ->
         {'$socket', del, Socket} ->
             loop( handle_delete_socket(DB, Socket) );
 
+        {'$socket', sendfile_deferred_close = Fname, Socket} ->
+            Closer =
+                fun () ->
+                        try prim_socket:Fname(Socket) of
+                            ok ->
+                                ok;
+                            Other ->
+                                log_msg(
+                                  warning,
+                                  "socket-registry "
+                                  "sendfile_deferred_close:"
+                                  "~n   [~p] ~p",
+                                  [Socket, Other])
+                        catch Class : Reason : Stacktrace->
+                                log_msg(
+                                  warning,
+                                  "socket-registry "
+                                  "sendfile_deferred_close:"
+                                  "~n   [~p] (~p:~p)"
+                                  "~n      ~p",
+                                  [Socket, Class, Reason, Stacktrace])
+                        end
+                end,
+            _ = spawn(Closer),
+            loop(DB);
+
         {?MODULE, request, From, ReqId, Req} = _REQ ->
             %% erlang:display(REQ),
             {NewDB, Reply} = handle_request(DB, Req),
