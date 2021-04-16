@@ -1,7 +1,7 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1325,8 +1325,23 @@ parse_content(?STRING_EMPTY, #xmerl_sax_parser_state{end_tags = ET} = State, Acc
         Other ->
             throw(Other)
     end;
-parse_content(?STRING("\r") = Bytes, State, Acc, IgnorableWS) ->
-    cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4);
+parse_content(?STRING("\r") = Bytes, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
+    case catch cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4) of
+        {fatal_error, {State1, "No more bytes"}} when ET == [] ->
+            Acc1 = [?lf |Acc],
+            State2 = send_character_event(length(Acc1), IgnorableWS, lists:reverse(Acc1), State1),
+            {?STRING_EMPTY, State2};
+        {fatal_error, {State1, "Continuation function undefined"}} when ET == [] ->
+            Acc1 = [?lf |Acc],
+            State2 = send_character_event(length(Acc1), IgnorableWS, lists:reverse(Acc1), State1),
+            {?STRING_EMPTY, State2};
+        {fatal_error, {State1, Msg}} ->
+            ?fatal_error(State1, Msg);
+        {Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
+            {Rest, State1};
+        Other ->
+            throw(Other)
+    end;
 parse_content(?STRING("<") = Bytes, State, Acc, IgnorableWS) ->	
     cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4);
 parse_content(?STRING_REST("</", Rest), #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
