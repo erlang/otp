@@ -1373,6 +1373,7 @@ static ERL_NIF_TERM esock_setopt_multicast_if(ErlNifEnv*       env,
                                               int              opt,
                                               ERL_NIF_TERM     eVal);
 #endif
+
 #if defined(IP_TOS)
 static ERL_NIF_TERM esock_setopt_tos(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
@@ -1592,6 +1593,12 @@ static ERL_NIF_TERM esock_getopt_ipv6_mtu_discover(ErlNifEnv*       env,
 
 #endif // defined(HAVE_IPV6)
 
+#if defined(IP_PKTOPTIONS) || defined(IPV6_PKTOPTIONS)
+static ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
+					    ESockDescriptor* descP,
+					    int              level,
+					    int              opt);
+#endif
 
 #if defined(TCP_CONGESTION)
 static ERL_NIF_TERM esock_getopt_tcp_congestion(ErlNifEnv*       env,
@@ -2174,6 +2181,15 @@ static struct ESockOpt optLevelIP[] =
             &esock_atom_pktinfo},
 
         {
+#ifdef IP_PKTOPTIONS
+            IP_PKTOPTIONS,
+            NULL, esock_getopt_pktoptions,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_pktoptions},
+
+        {
 #ifdef IP_RECVDSTADDR
             IP_RECVDSTADDR,
             esock_setopt_bool_opt, esock_getopt_bool_opt,
@@ -2436,7 +2452,15 @@ static struct ESockOpt optLevelIPV6[] =
             &esock_atom_multicast_loop},
 
         {0, NULL, NULL, &esock_atom_portrange},
-        {0, NULL, NULL, &esock_atom_pktoptions},
+
+        {
+#ifdef IPV6_PKTOPTIONS
+            IPV6_PKTOPTIONS,
+            NULL, esock_getopt_pktoptions,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_pktoptions},
 
         {
 #ifdef IPV6_RECVERR
@@ -10671,12 +10695,12 @@ ERL_NIF_TERM esock_getopt_sock_protocol(ErlNifEnv*       env,
 #if defined(IP_MTU_DISCOVER)
 static
 ERL_NIF_TERM esock_getopt_ip_mtu_discover(ErlNifEnv*       env,
-                                       ESockDescriptor* descP,
-                                       int              level,
-                                       int              opt)
+					  ESockDescriptor* descP,
+					  int              level,
+					  int              opt)
 {
-    ERL_NIF_TERM   result;
-    int            mtuDisc;
+    ERL_NIF_TERM result;
+    int          mtuDisc;
 
     if (! esock_getopt_int(descP->sock, level, opt, &mtuDisc)) {
         result = esock_make_error_errno(env, sock_errno());
@@ -11165,6 +11189,160 @@ ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
 }
 #endif
 #endif // #ifndef __WIN32__
+
+
+#ifndef __WIN32__
+#if defined(IP_PKTOPTIONS) || defined(IPV6_PKTOPTIONS)
+
+/* Calculate CMSG_NXTHDR without having a struct msghdr*.
+ * CMSG_LEN only caters for alignment for start of data.
+ * To get how much to advance we need to use CMSG_SPACE
+ * on the payload length.  To get the payload length we
+ * take the calculated cmsg->cmsg_len and subtract the
+ * header length.  To get the header length we use
+ * the pointer difference from the cmsg start pointer
+ * to the CMSG_DATA(cmsg) pointer.
+ *
+ * Some platforms (seen on ppc Linux 2.6.29-3.ydl61.3)
+ * may return 0 as the cmsg_len if the cmsg is to be ignored.
+ */
+#define LEN_CMSG_DATA(__CMSG__)                                             \
+    ((__CMSG__)->cmsg_len < sizeof (struct cmsghdr) ? 0 :                   \
+     (__CMSG__)->cmsg_len - ((char*)CMSG_DATA(__CMSG__) - (char*)(__CMSG__)))
+#define NEXT_CMSG_HDR(__CMSG__)                                              \
+    ((struct cmsghdr*)(((char*)(__CMSG__)) + CMSG_SPACE(LEN_CMSG_DATA(__CMSG__))))
+
+static
+ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
+				     ESockDescriptor* descP,
+				     int              level,
+				     int              opt)
+{
+  ERL_NIF_TERM result, ePktOpts;
+  int          res;
+  ErlNifBinary cmsgs;
+  SOCKOPTLEN_T sz       = (SOCKOPTLEN_T) descP->rCtrlSz;
+  SocketTArray cmsghdrs = TARRAY_CREATE(16);
+  ERL_NIF_TERM ctrlBuf;
+
+  ESOCK_ASSERT( ALLOC_BIN(sz, &cmsgs) );
+
+  sys_memzero(cmsgs.data, cmsgs.size);
+  sz  = cmsgs.size; // Make no assumption about the size
+  res = sock_getopt(descP->sock, level, opt, cmsgs.data, &sz);
+
+  if (res != 0) {
+    result = esock_make_error_errno(env, sock_errno());
+  } else {
+    struct cmsghdr* currentP;
+    struct cmsghdr* endOfBuf;
+
+    ctrlBuf = MKBIN(env, &cmsgs); // The *entire* binary
+
+    for (endOfBuf = (struct cmsghdr*)(cmsgs.data + cmsgs.size),
+	 currentP = (struct cmsghdr*)(cmsgs.data);
+	 (currentP != NULL) && (currentP < endOfBuf);
+	 currentP = NEXT_CMSG_HDR(currentP)) {
+      unsigned char* dataP   = UCHARP(CMSG_DATA(currentP));
+      size_t         dataPos = dataP - cmsgs.data;
+      size_t         dataLen = (UCHARP(currentP) + currentP->cmsg_len) - dataP;
+
+      SSDBG( descP,
+	     ("SOCKET", "esock_getopt_pktoptions {%d} -> cmsg header data: "
+	      "\r\n   currentP: 0x%lX"
+	      "\r\n         level: %d"
+	      "\r\n         data:  %d"
+	      "\r\n         len:   %d [0x%lX]"
+	      "\r\n   dataP:    0x%lX"
+	      "\r\n   dataPos:  %d"
+	      "\r\n   dataLen:  %d [0x%lX]"
+	      "\r\n", descP->sock,
+	      currentP,
+	      currentP->cmsg_level,
+	      currentP->cmsg_type,
+	      currentP->cmsg_len, currentP->cmsg_len,
+	      dataP,
+	      dataPos,
+	      dataLen, dataLen) );
+
+      /*
+       * Check that this is within the allocated buffer...
+       * The 'next control message header' is a bit adhoc,
+       * so this check is a bit...
+       */
+      if ((dataPos > cmsgs.size) ||
+	  (dataLen > cmsgs.size) ||
+	  ((dataPos + dataLen) > ((size_t)endOfBuf))) {
+	break;
+      } else {
+	ERL_NIF_TERM cmsgHdr;
+	ERL_NIF_TERM keys[] = {esock_atom_level,
+			       esock_atom_type,
+			       esock_atom_data,
+			       atom_value};
+	ERL_NIF_TERM vals[NUM(keys)];
+	size_t       numKeys = NUM(keys);
+	BOOLEAN_T    haveValue;
+    
+	vals[0] = esock_encode_level(env, currentP->cmsg_level);
+	vals[2] = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+
+	haveValue = encode_cmsg(env,
+				currentP->cmsg_level,
+				currentP->cmsg_type,
+				dataP, dataLen, &vals[1], &vals[3]);
+
+	SSDBG( descP,
+	       ("SOCKET", "esock_getopt_pktoptions {%d} -> "
+		"\r\n   %T: %T"
+		"\r\n   %T: %T"
+		"\r\n   %T: %T"
+		"\r\n", descP->sock,
+		keys[0], vals[0], keys[1], vals[1], keys[2], vals[2]) );
+
+	if (haveValue) {
+	  SSDBG( descP,
+		 ("SOCKET", "esock_getopt_pktoptions {%d} -> "
+		  "\r\n   %T: %T"
+		  "\r\n", descP->sock, keys[3], vals[3]) );
+	}
+
+	/* Guard agains cut-and-paste errors */
+	ESOCK_ASSERT( numKeys == NUM(vals) );
+
+	/* Make control message header map */
+	ESOCK_ASSERT( MKMA(env, keys, vals,
+			   numKeys - (haveValue ? 0 : 1), &cmsgHdr) );
+
+	SSDBG( descP,
+	       ("SOCKET", "esock_getopt_pktoptions {%d} -> header processed: "
+		"\r\n   %T"
+		"\r\n", descP->sock, cmsgHdr) );
+
+	/* And finally add it to the list... */
+	TARRAY_ADD(cmsghdrs, cmsgHdr);	    
+      }
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_pktoptions {%d} -> "
+	    "cmsg headers processed when"
+            "\r\n   TArray Size: %d"
+            "\r\n", descP->sock, TARRAY_SZ(cmsghdrs)) );
+
+    /* The tarray is populated - convert it to a list */
+    TARRAY_TOLIST(cmsghdrs, env, &ePktOpts);
+
+    result = esock_make_ok2(env, ePktOpts);
+  }
+
+  FREE_BIN(&cmsgs);
+
+  return result;
+}
+#endif
+#endif // #ifndef __WIN32__
+
 
 
 

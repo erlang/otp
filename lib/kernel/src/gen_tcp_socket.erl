@@ -671,13 +671,38 @@ socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
 socket_setopt(Socket, {Tag, Value}) ->
     %% ?DBG({Tag, Value}),
     case socket_opt() of
-        #{Tag := Opt} ->
+        #{Tag := {Domain, _} = Opt} when is_atom(Domain) ->
             %% ?DBG(Opt),
             %% socket:setopt(Socket, otp, debug, true),
             Res = socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value)),
             %% socket:setopt(Socket, otp, debug, false),
             Res;
-        #{} -> {error, einval}
+
+        #{Tag := DomainProps} when is_list(DomainProps) ->
+            %% We need to lookup the domain of the socket,
+            %% so we can select which one to use.                            
+            %% ?DBG(Opt0),
+            case socket:getopt(Socket, otp, domain) of
+                {ok, Domain} ->
+                    case lists:keysearch(Domain, 1, DomainProps) of
+                        {value, {Domain, Level, OptKey}} ->
+                            Opt = {Level, OptKey},
+                            %% _ = socket:setopt(Socket, otp, debug, true),
+                            Res = socket:setopt(Socket,
+                                                Opt,
+                                                socket_setopt_value(Tag,
+                                                                    Value)),
+                            %% _ = socket:setopt(Socket, otp, debug, false),
+                            Res;
+                        false ->
+                            {error, einval}
+                    end;
+                {error, _} ->
+                    {error, einval}
+            end;
+
+        #{} ->
+            {error, einval}
     end.
 
 socket_setopt_value(linger, {OnOff, Linger}) ->
@@ -690,13 +715,49 @@ socket_getopt(Socket, {raw, {Level, Key, ValueSpec}}) ->
     socket:getopt_native(Socket, {Level,Key}, ValueSpec);
 socket_getopt(Socket, Tag) when is_atom(Tag) ->
     case socket_opt() of
-        #{Tag := Opt} ->
-            socket_getopt_value(Tag, socket:getopt(Socket, Opt));
-        #{} -> {error, einval}
+        #{Tag := {Domain, _} = Opt} when is_atom(Domain) ->
+            %% ?DBG({'socket_getopt - match', Tag}),
+            %% _ = socket:setopt(Socket, otp, debug, true),
+            Res = socket:getopt(Socket, Opt),
+            %% ?DBG({'socket_getopt - result', Res}),
+            %% _ = socket:setopt(Socket, otp, debug, false),
+            socket_getopt_value(Tag, Res);
+
+        #{Tag := DomainProps} when is_list(DomainProps) ->
+            %% We need to lookup the domain of the socket,
+            %% so we can select which one to use.                            
+            %% ?DBG({'socket_getopt - match', Tag, DomainProps}),
+            case socket:getopt(Socket, otp, domain) of
+                {ok, Domain} ->
+                    %% ?DBG({'socket_getopt - domain', Tag, Domain}),
+                    case lists:keysearch(Domain, 1, DomainProps) of
+                        {value, {Domain, Level, OptKey}} ->
+                            %% ?DBG({'socket_getopt - ok domain', Tag, Level, OptKey}),
+                            Opt  = {Level, OptKey},
+                            %% _ = socket:setopt(Socket, otp, debug, true),
+                            Res = socket:getopt(Socket, Opt),
+                            %% _ = socket:setopt(Socket, otp, debug, false),
+                            %% ?DBG({'socket_getopt - result', Res}),
+                            socket_getopt_value(Tag, Res);
+                        false ->
+                            %% ?DBG({'socket_getopt - invalid domain', Tag, Domain, DomainProps}),
+                            {error, einval}
+                    end;
+                {error, _DReason} ->
+                    %% ?DBG({'socket_getopt - unknown domain', Tag, _DReason}),
+                    {error, einval}
+            end;
+
+        #{} = __X__ ->
+            %% ?DBG({'socket_getopt - no match - 2', Tag, __X__}),
+            {error, einval}
     end.
 
 socket_getopt_value(linger, {ok, #{onoff := OnOff, linger := Linger}}) ->
     {ok, {OnOff, Linger}};
+socket_getopt_value(pktoptions, {ok, PktOpts0}) when is_list(PktOpts0) ->
+    PktOpts = [{Type, Value} || #{type := Type, value := Value} <- PktOpts0],
+    {ok, PktOpts};
 socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 
@@ -826,7 +887,22 @@ socket_opt() ->
       %% Level: ipv6
       recvtclass  => {ipv6, recvtclass},
       ipv6_v6only => {ipv6, v6only},
-      tclass      => {ipv6, tclass}
+      tclass      => {ipv6, tclass},
+
+      %%
+      %% Special cases
+      %% These are options that cannot be mapped as above,
+      %% as they, for instance, "belong to" several domains.
+      %% So, we select which level to use based on the domain
+      %% of the socket.
+
+      %% This is a special case.
+      %% Only supported on Linux and then only actually for IPv6,
+      %% but unofficially also for ip...barf...
+      %% In both cases this is *no longer valid* as the RFC which 
+      %% introduced this, RFC 2292, is *obsoleted* by RFC 3542, where
+      %% this "feature" *does not exist*...
+      pktoptions  => [{inet, ip, pktoptions}, {inet6, ipv6, pktoptions}]
       }.
 
 -compile({inline, [socket_inherit_opts/0]}).
@@ -946,8 +1022,8 @@ callback_mode() -> handle_event_function.
 
 
 -record(params,
-        {socket :: undefined | socket:socket(),
-         owner :: pid(),
+        {socket    :: undefined | socket:socket(),
+         owner     :: pid(),
          owner_mon :: reference()}).
 
 init({open, Domain, ExtraOpts, Owner}) ->
@@ -966,12 +1042,9 @@ init({open, Domain, ExtraOpts, Owner}) ->
             D  = server_opts(),
             ok = socket:setopt(Socket, {otp,iow},    true),
             ok = socket:setopt(Socket, {otp,meta},   meta(D)),
-            %% ok = socket:setopt(Socket, {otp,rcvbuf}, {8, 8*1024}),
-            P =
-                #params{
-                   socket = Socket,
-                   owner = Owner,
-                   owner_mon = OwnerMon},
+            P  = #params{socket    = Socket,
+                         owner     = Owner,
+                         owner_mon = OwnerMon},
             {ok, connect, {P, D#{type => undefined, buffer => <<>>}}};
         {error, Reason} ->
 	    %% ?DBG({open_failed, Reason}),
@@ -983,10 +1056,8 @@ init({prepare, D, Owner}) ->
     %% ?DBG([{init, prepare}, {d, D}, {owner, Owner}]),
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
-    P =
-        #params{
-           owner = Owner,
-           owner_mon = OwnerMon},
+    P        = #params{owner     = Owner,
+                       owner_mon = OwnerMon},
     {ok, accept, {P, D#{type => undefined, buffer => <<>>}}};
 init(Arg) ->
     error_logger:error_report([{badarg, {?MODULE, init, [Arg]}}]),
@@ -1693,7 +1764,7 @@ handle_recv_length(P, #{buffer := Buffer} = D, ActionsR, Length) ->
 %% is the last argument binary and D#{buffer} is not updated
 %%
 handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
-    %5 ?DBG('try socket recv'),
+    %% ?DBG('try socket recv'),
     case socket_recv(P#params.socket, Length) of
         {ok, <<Data/binary>>} ->
             handle_recv_deliver(
@@ -2243,12 +2314,14 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
                 undefined ->
                     {error, closed};
                 Socket ->
-                    %% ?DBG('socket getopt'),
+                    %% ?DBG({'socket getopt', Tag}),
                     case socket_getopt(Socket, Tag) of
                         {ok, Value} ->
+                            %% ?DBG({'socket getopt', ok, Value}),
                             state_getopts(
                               P, D, State, Tags, [{Tag, Value} | Acc]);
-                        {error, _} ->
+                        {error, _Reason} ->
+                            %% ?DBG({'socket getopt', error, _Reason}),
                             state_getopts(P, D, State, Tags, Acc)
                     end
               end;

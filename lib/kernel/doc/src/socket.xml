@@ -448,7 +448,14 @@
 	  the <c>Opt</c> atom, in capitals, with prefix according to
 	  <seetype marker="#level"><c>level()</c></seetype>.
 	</p>
-	<note><p>See the OS documentation for every socket option.</p></note>
+	<note>
+	  <p>The <c>IPv6</c> option <c>pktoptions</c> is a special (barf) case.
+	  It is intended for backward compatibility usage only. </p>
+	  <p>Do <em>not</em> use this option.</p>
+	</note>
+	<note>
+	  <p>See the OS documentation for every socket option.</p>
+	</note>
 	<p>
 	  An option below that has the value type <c>boolean()</c>
 	  will translate the value <c>false</c>

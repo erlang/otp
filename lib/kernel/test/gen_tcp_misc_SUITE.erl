@@ -51,7 +51,9 @@
 	 accept_timeouts_in_order3/1,accept_timeouts_in_order4/1,
 	 accept_timeouts_in_order5/1,accept_timeouts_in_order6/1,
 	 accept_timeouts_in_order7/1,accept_timeouts_mixed/1,
-	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
+	 killing_acceptor/1,
+         killing_multi_acceptors/1,
+         killing_multi_acceptors2/1,
 	 several_accepts_in_one_go/1, accept_system_limit/1,
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
@@ -126,9 +128,21 @@ all() ->
 
 groups() -> 
     [
-     {inet_backend_default, [], inet_backend_default_cases()},
-     {inet_backend_inet,    [], inet_backend_inet_cases()},
-     {inet_backend_socket,  [], inet_backend_socket_cases()}
+     {inet_backend_default,   [], inet_backend_default_cases()},
+     {inet_backend_inet,      [], inet_backend_inet_cases()},
+     {inet_backend_socket,    [], inet_backend_socket_cases()},
+
+     {ctrl_proc,              [], ctrl_proc_cases()},
+     {close,                  [], close_cases()},
+     {active,                 [], active_cases()},
+     {shutdown,               [], shutdown_cases()},
+     {econnreset,             [], econnreset_cases()},
+     {linger_zero,            [], linger_zero_cases()},
+     {busy_disconnect,        [], busy_disconnect_cases()},
+     {partial_recv_and_close, [], partial_recv_and_close_cases()},
+     {pktoptions,             [], pktoptions_cases()},
+     {accept,                 [], accept_cases()},
+     {send_timeout,           [], send_timeout_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -142,33 +156,21 @@ inet_backend_socket_cases() ->
 
 all_cases() ->
     [
-     controlling_process, controlling_process_self, no_accept,
-     close_with_pending_output, data_before_close,
-     iter_max_socks, passive_sockets, active_n, active_n_closed,
-     accept_closed_by_other_process, otp_3924, closed_socket,
-     shutdown_active, shutdown_passive, shutdown_pending,
-     show_econnreset_active, show_econnreset_active_once,
-     show_econnreset_passive, econnreset_after_sync_send,
-     econnreset_after_async_send_active,
-     econnreset_after_async_send_active_once,
-     econnreset_after_async_send_passive,
-     linger_zero, linger_zero_sndbuf,
+     {group, ctrl_proc},
+     iter_max_socks,
+     {group, close},
+     {group, active},
+     {group, shutdown},
+     {group, econnreset},
+     {group, linger_zero},
      default_options, http_bad_packet, busy_send,
-     busy_disconnect_passive, busy_disconnect_active,
-     fill_sendq, partial_recv_and_close,
-     partial_recv_and_close_2, partial_recv_and_close_3,
-     so_priority, recvtos, recvttl, recvtosttl,
-     recvtclass, primitive_accept,
-     multi_accept_close_listen, accept_timeout,
-     accept_timeouts_in_order, accept_timeouts_in_order2,
-     accept_timeouts_in_order3, accept_timeouts_in_order4,
-     accept_timeouts_in_order5, accept_timeouts_in_order6,
-     accept_timeouts_in_order7, accept_timeouts_mixed,
-     killing_acceptor, killing_multi_acceptors,
-     killing_multi_acceptors2,
-     several_accepts_in_one_go, accept_system_limit,
-     active_once_closed,
-     send_timeout, send_timeout_active,
+     {group, busy_disconnect},
+     fill_sendq,
+     {group, partial_recv_and_close},
+     so_priority,
+     {group, pktoptions},
+     {group, accept},
+     {group, send_timeout},
      otp_7731,
      wrapping_oct,
      zombie_sockets,
@@ -178,6 +180,100 @@ all_cases() ->
      bidirectional_traffic
     ].
 
+close_cases() ->
+    [
+     no_accept,
+     close_with_pending_output,
+     data_before_close,
+     accept_closed_by_other_process,
+     otp_3924,
+     closed_socket
+    ].
+
+ctrl_proc_cases() ->
+    [
+     controlling_process,
+     controlling_process_self
+    ].
+
+active_cases() ->
+    [
+     passive_sockets,
+     active_n,
+     active_n_closed,
+     active_once_closed
+    ].
+
+shutdown_cases() ->
+    [
+     shutdown_active,
+     shutdown_passive,
+     shutdown_pending
+    ].
+
+econnreset_cases() ->
+    [
+     show_econnreset_active,
+     show_econnreset_active_once,
+     show_econnreset_passive,
+     econnreset_after_sync_send,
+     econnreset_after_async_send_active,
+     econnreset_after_async_send_active_once,
+     econnreset_after_async_send_passive
+    ].
+
+linger_zero_cases() ->
+    [
+     linger_zero,
+     linger_zero_sndbuf
+    ].
+
+busy_disconnect_cases() ->
+    [
+     busy_disconnect_passive,
+     busy_disconnect_active
+    ].
+
+partial_recv_and_close_cases() ->
+    [
+     partial_recv_and_close,
+     partial_recv_and_close_2,
+     partial_recv_and_close_3
+    ].
+
+pktoptions_cases() ->
+    [
+     recvtos,
+     recvttl,
+     recvtosttl,
+     recvtclass
+    ].
+
+accept_cases() ->
+    [
+     primitive_accept,
+     multi_accept_close_listen,
+     accept_timeout,
+     accept_timeouts_in_order,
+     accept_timeouts_in_order2,
+     accept_timeouts_in_order3,
+     accept_timeouts_in_order4,
+     accept_timeouts_in_order5,
+     accept_timeouts_in_order6,
+     accept_timeouts_in_order7,
+     accept_timeouts_mixed,
+     killing_acceptor,
+     killing_multi_acceptors,
+     killing_multi_acceptors2,
+     several_accepts_in_one_go,
+     accept_system_limit
+    ].
+
+send_timeout_cases() ->
+    [
+     send_timeout,
+     send_timeout_active
+    ].
 
 init_per_suite(Config0) ->
 
@@ -3214,10 +3310,14 @@ do_so_priority(Config) ->
     ?P("create listen socket"),
     L = case ?LISTEN(Config, 0, [{active,false}]) of
 	    {ok, LSock} when not is_port(LSock) ->
-		case socket:is_supported(options, socket, priority) of
+		try socket:is_supported(options, socket, priority) of
 		    true ->
 			LSock;
 		    false ->
+			(catch gen_tcp:close(LSock)),
+			?SKIPT("Option 'priority' not supported")
+                catch
+                    _:_:_ ->
 			(catch gen_tcp:close(LSock)),
 			?SKIPT("Option 'priority' not supported")
 		end;
@@ -3273,100 +3373,62 @@ do_so_priority(Config) ->
 %% It is only used for recvtclass that is an IPv6 option
 %% and there we get valid values from both socket ends.
 
-recvtos(Config) ->
-    test_pktoptions(
-      Config,
-      inet, [{recvtos,tos,96}],
-      fun recvtos_ok/2,
-      false).
+has_support_ip_pktoptions() ->
+    has_support_ip_option(pktoptions).
 
-recvtosttl(Config) ->
-    test_pktoptions(
-      Config,
-      inet, [{recvtos,tos,96},{recvttl,ttl,33}],
-      fun (OSType, OSVer) ->
-              recvtos_ok(OSType, OSVer) andalso recvttl_ok(OSType, OSVer)
-      end,
-      false).
+has_support_ip_recvtos() ->
+    has_support_ip_option(recvtos).
 
-recvttl(Config) ->
-    test_pktoptions(
-      Config,
-      inet, [{recvttl,ttl,33}],
-      fun recvttl_ok/2,
-      false).
+has_support_ip_recvttl() ->
+    has_support_ip_option(recvttl).
 
-recvtclass(Config) ->
-    {ok,IFs} = inet:getifaddrs(),
-    case
-        [Name ||
-            {Name,Opts} <- IFs,
-            lists:member({addr,{0,0,0,0,0,0,0,1}}, Opts)]
-    of
-        [_] ->
-            test_pktoptions(
-              Config,
-              inet6, [{recvtclass,tclass,224}],
-              fun recvtclass_ok/2,
-              true);
-        [] ->
-            {skip,{ipv6_not_supported,IFs}}
+has_support_ipv6_pktoptions() ->
+    has_support_ipv6_option(pktoptions).
+
+has_support_ipv6_tclass() ->
+    has_support_ipv6_option(tclass).
+
+has_support_ip_option(Opt) ->
+    has_support_option(ip, Opt).
+
+has_support_ipv6_option(Opt) ->
+    has_support_option(ipv6, Opt).
+
+has_support_option(Level, Option) ->
+    try socket:is_supported(options, Level, Option)
+    catch
+	_:_:_ -> false % Any platform that does not support socket!
     end.
 
-%% These version numbers are above the highest noted
-%% in daily tests where the test fails for a plausible reason,
-%% so skip on platforms of lower version, i.e they are future
-%% versions where it is possible that it might not fail.
-%%
-%% When machines with newer versions gets installed,
-%% if the test still fails for a plausible reason these
-%% version numbers simply should be increased.
-%% Or maybe we should change to only test on known good
-%% platforms - change {unix,_} to false?
+has_os_support_recvtos() ->
+    has_os_support_recvtos(os:type(), os:version()).
 
-%% pktoptions is not supported for IPv4
-recvtos_ok({unix,netbsd},  _OSVer) -> false;
-recvtos_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
-recvtos_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
-%% Using the option returns einval, so it is not implemented.
-recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
-recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
-%% Does not return any value - not implemented for pktoptions
-recvtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
-%%
-recvtos_ok({unix,_}, _) -> true;
-recvtos_ok(_, _) -> false.
+has_os_support_recvtos({unix, linux}, Version) ->
+    not semver_lt(Version, {3,1,0});
+has_os_support_recvtos(_, _) ->
+    true.
 
-%% pktoptions is not supported for IPv4
-recvttl_ok({unix,netbsd},  _OSVer) -> false;
-recvttl_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
-recvttl_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
-%% Using the option returns einval, so it is not implemented.
-recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
-recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
-%% Does not return any value - not implemented for pktoptions
-recvttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,7,0});
-%%
-recvttl_ok({unix,_}, _) -> true;
-recvttl_ok(_, _) -> false.
+has_os_support_recvttl() ->
+    has_os_support_recvttl(os:type(), os:version()).
 
-%% pktoptions is not supported for IPv6
-recvtclass_ok({unix,netbsd},  _OSVer) -> false;
-recvtclass_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer,{6,9,0});
-recvtclass_ok({unix,darwin},  _OSVer) -> false; % not semver_lt(OSVer,{19,6,0});
-recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
-%% Using the option returns einval, so it is not implemented.
-recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,2,0});
-%% Does not return any value - not implemented for pktoptions
-recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
-%%
-recvtclass_ok({unix,_}, _) -> true;
-recvtclass_ok(_, _) -> false.
+has_os_support_recvttl({unix, linux}, Version) ->
+    not semver_lt(Version, {2,7,0});
+has_os_support_recvttl(_, _) ->
+    %% We should not even get here, but just in case...
+    false.
+
+has_os_support_recvtclass() ->
+    has_os_support_recvtclass(os:type(), os:version()).
+
+has_os_support_recvtclass({unix, linux}, Version) ->
+    not semver_lt(Version, {3,1,0});
+has_os_support_recvtclass(_, _) ->
+    true.
 
 semver_lt({X1,Y1,Z1} = V1, {X2,Y2,Z2} = V2) ->
     ?P("semver_lt -> OS version check:"
-       "~n   Version 1: ~p"
-       "~n   Version 2: ~p", [V1, V2]),
+       "~n   (Actual)  Version 1: ~p"
+       "~n   (Request) Version 2: ~p", [V1, V2]),
     if
         X1 > X2 -> ?P("semver_lt -> X1 > X2: ~p > ~p", [X1, X2]), false;
         X1 < X2 -> ?P("semver_lt -> X1 < X2: ~p < ~p", [X1, X2]), true;
@@ -3382,26 +3444,99 @@ semver_lt(V1, {_,_,_} = V2) ->
        "~n   Version 2: ~p", [V1, V2]),
     false.
 
-test_pktoptions(Config, Family, Spec, OSFilter, CheckConnect) ->
-    OSType = os:type(),
-    OSVer  = os:version(),
-    case OSFilter(OSType, OSVer) of
-        true ->
-            ?P("OS: ~p, ~p", [OSType, OSVer]),
-            test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer);
-        false ->
-            {skip,{not_supported_for_os_version,{OSType,OSVer}}}
+recvtos(Config) ->
+    test_pktoptions(
+      Config,
+      inet, [{recvtos,tos,96}],
+      fun() ->
+              has_support_ip_recvtos() andalso
+                  has_os_support_recvtos() 
+     end,
+      "recvtos",
+      false).
+
+recvtosttl(Config) ->
+    test_pktoptions(
+      Config,
+      inet, [{recvtos,tos,96},{recvttl,ttl,33}],
+      fun() ->
+              has_support_ip_recvtos() andalso
+		  has_support_ip_recvttl() andalso
+                  has_os_support_recvtos() andalso
+                  has_os_support_recvttl()
+      end,
+      "recvtos and/or recvttl",
+      false).
+
+recvttl(Config) ->
+    test_pktoptions(
+      Config,
+      inet, [{recvttl,ttl,33}],
+      fun() ->
+              has_support_ip_recvttl() andalso
+                  has_os_support_recvttl()
+      end,
+      "recvttl",
+      false).
+
+recvtclass(Config) ->
+    {ok,IFs} = inet:getifaddrs(),
+    case
+        [Name ||
+            {Name,Opts} <- IFs,
+            lists:member({addr,{0,0,0,0,0,0,0,1}}, Opts)]
+    of
+        [_] ->
+            test_pktoptions(
+              Config,
+              inet6, [{recvtclass,tclass,224}],
+              fun() ->
+                      has_support_ipv6_tclass() andalso
+                          has_os_support_recvtclass()
+              end,
+              "tclass",
+              true);
+        [] ->
+            {skip,{ipv6_not_supported,IFs}}
     end.
-%%
-test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
+
+test_pktoptions(Config, Family, Spec, OptCond, OptStr, CheckConnect) ->
     ?P("test_pktoptions -> begin test with"
        "~n   Config:       ~p"
        "~n   Family:       ~p"
        "~n   Spec:         ~p"
-       "~n   CheckConnect: ~p"
-       "~n   OSType:       ~p"
-       "~n   OSVer:        ~p",
-       [Config, Family, Spec, CheckConnect, OSType, OSVer]),
+       "~n   CheckConnect: ~p",
+       [Config, Family, Spec, CheckConnect]),
+    PktOptsCond = fun(inet)  -> has_support_ip_pktoptions();
+		     (inet6) -> has_support_ipv6_pktoptions()
+		  end,
+    try PktOptsCond(Family) of
+	true ->
+	    ?P("pktoptions supported for family ~w", [Family]),
+	    case OptCond() of
+		true ->
+		    ?P("options supported: "
+		       "~n   ~p", [Spec]),
+		    test_pktoptions(Config, Family, Spec, CheckConnect);
+		false ->
+		    {skip, ?F("Option(s) ~s not supported", [OptStr])}
+	    end;
+        false ->
+            {skip,
+             ?F("Option 'pktoptions' not supported for family ~w", [Family])}
+    catch
+        _:_:_ ->
+            {skip,
+             ?F("Option 'pktoptions' not supported for family ~w", [Family])}
+    end.
+%%
+test_pktoptions(Config, Family, Spec, CheckConnect) ->
+    ?P("test_pktoptions -> begin test with"
+       "~n   Config:       ~p"
+       "~n   Family:       ~p"
+       "~n   Spec:         ~p"
+       "~n   CheckConnect: ~p",
+       [Config, Family, Spec, CheckConnect]),
     Timeout = 5000,
     RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
     TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
@@ -3417,26 +3552,25 @@ test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
         end,
     %%
     %% Set RecvOpts on listen socket
-    ?P("create listen socket with"
-       "~n   ~p", [TrueRecvOpts]),
-    {ok,L} =
+    ?P("try create listen socket with: ~p", [TrueRecvOpts]),
+    {ok, L} =
         ?LISTEN(Config, 
-          0,
-          [Family,binary,{active,false},{send_timeout,Timeout}
-           |TrueRecvOpts]),
-    {ok,P} = inet:port(L),
+                0,
+                [Family,binary,{active,false},{send_timeout,Timeout}
+                 |TrueRecvOpts]),
+    {ok, P} = inet:port(L),
     ?P("get (recv) options for listen socket: "
        "~n   ~p", [RecvOpts]),
-    {ok,TrueRecvOpts} = inet:getopts(L, RecvOpts),
+    {ok, TrueRecvOpts} = inet:getopts(L, RecvOpts),
     ?P("get options for listen socket: "
        "~n   ~p", [Opts]),
-    {ok,OptsValsDefault} = inet:getopts(L, Opts),
+    {ok, OptsValsDefault} = inet:getopts(L, Opts),
 
     %%
     %% Set RecvOpts and Option values on connect socket
     ?P("create connect socket with"
        "~n   ~p", [TrueRecvOpts ++ OptsVals]),
-    {ok,S2} =
+    {ok, S2} =
         ?CONNECT(Config,
                  Address, P,
                  [Family,binary,{active,false},{send_timeout,Timeout}
@@ -3444,33 +3578,42 @@ test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
                  Timeout),
     ?P("get (recv) options for connect socket: "
        "~n   ~p", [RecvOpts]),
-    {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
+    {ok, TrueRecvOpts} = inet:getopts(S2, RecvOpts),
     ?P("get options for connect socket: "
        "~n   ~p", [Opts]),
-    {ok,OptsVals} = inet:getopts(S2, Opts),
+    {ok, OptsVals} = inet:getopts(S2, Opts),
 
     %%
     %% Accept socket inherits the options from listen socket
-    ?P("create accept socket"),
-    {ok,S1} = gen_tcp:accept(L, Timeout),
+    ?P("try create accept socket"),
+    {ok, S1} = gen_tcp:accept(L, Timeout),
     ?P("get (recv) options for accept socket: "
        "~n   ~p", [RecvOpts]),
-    {ok,TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    {ok, TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+
     ?P("get options for accept socket: "
        "~n   ~p", [Opts]),
-    {ok,OptsValsDefault} = inet:getopts(S1, Opts),
+    {ok, OptsValsDefault} = inet:getopts(S1, Opts),
+    ?P("accept socket option values: "
+       "~n   ~p", [OptsValsDefault]),
+
 %%%    %%
 %%%    %% Handshake
 %%%    ok = gen_tcp:send(S1, <<"hello">>),
 %%%    {ok,<<"hello">>} = gen_tcp:recv(S2, 5, Timeout),
 %%%    ok = gen_tcp:send(S2, <<"hi">>),
 %%%    {ok,<<"hi">>} = gen_tcp:recv(S1, 2, Timeout),
+
     %%
     %% Verify returned remote options
     VerifyRemOpts =
         fun(S, Role) ->
                 case inet:getopts(S, [pktoptions]) of
+                    {ok, []} ->
+                        ?SKIPT("pktoptions not supported");
                     {ok, [{pktoptions, PktOpts1}]} ->
+                        ?P("PktOptions (~w): "
+                           "~n      ~p", [Role, PktOpts1]),
                         PktOpts1;
                     {ok, UnexpOK1} ->
                         ?P("Unexpected OK (~w): "
@@ -3560,14 +3703,17 @@ test_pktoptions(Config, Family, Spec, CheckConnect, OSType, OSVer) ->
     ok = gen_tcp:close(S3),
     ?P("close listen socket"),
     ok = gen_tcp:close(L),
-    ?P("verify final result"),
+    ?P("verify final result"
+       "~n   Result1:       ~p"
+       "~n   Check Connect: ~p"
+       "~n   Result2:       ~p"
+       "~n   Result3:       ~p",
+      [Result1, CheckConnect, Result2, Result3]),
     (Result1 and ((not CheckConnect) or (Result2 and Result3)))
         orelse
         exit({failed,
               [{OptsVals1,OptsVals4,OptsVals},
-               {OptsVals2,OptsValsDefault}],
-              {OSType,OSVer}}),
-%%    exit({{OSType,OSVer},success}), % In search for the truth
+               {OptsVals2,OptsValsDefault}]}),
     ?P("done"),
     ok.
 
