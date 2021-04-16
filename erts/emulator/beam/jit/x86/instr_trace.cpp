@@ -199,46 +199,17 @@ void BeamModuleAssembler::emit_i_return_time_trace() {
     emit_return();
 }
 
-static void i_return_to_trace(Process *c_p) {
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
-        ErtsCodePtr return_to_address;
-        Uint *cpp;
-
-        cpp = (Uint *)c_p->stop;
-        ASSERT(is_CP(cpp[0]));
-
-        for (;;) {
-            erts_inspect_frame(cpp, &return_to_address);
-
-            if (BeamIsReturnTrace(return_to_address)) {
-                cpp += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_to_address)) {
-                cpp += CP_SIZE + 1;
-            } else if (BeamIsReturnToTrace(return_to_address)) {
-                cpp += CP_SIZE;
-            } else {
-                break;
-            }
-        }
-
-        ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, return_to_address);
-        ERTS_REQ_PROC_MAIN_LOCK(c_p);
-    }
-}
-
 void BeamModuleAssembler::emit_i_return_to_trace() {
     emit_enter_runtime<Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(i_return_to_trace);
+    runtime_call<1>(beam_jit_return_to_trace);
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
 
     /* Remove the zero-sized stack frame. (Will actually do nothing if
      * the native stack is used.) */
     emit_deallocate(ArgVal(ArgVal::u, 0));
-
     emit_return();
 }
 

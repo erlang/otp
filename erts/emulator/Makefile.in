@@ -906,14 +906,19 @@ ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DA
 ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
 ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
 
-$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp $(ASMJIT_PCH_OBJ)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
-          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
+$(OBJDIR)/%.o: beam/jit/%.cpp $(ASMJIT_PCH_OBJ)
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
+          -include $(ASMJIT_PCH_SRC) -c $< -o $@
+
+$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
 $(OBJDIR)/asmjit/%.o: asmjit/%.cpp $(ASMJIT_PCH_OBJ) $(dir $@)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
-          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
 ## The dependency on erl_bif_info.c is in order to trigger a rebuild when
@@ -993,14 +998,15 @@ ASMJIT_OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(ASMJIT_CPP))
 
 JIT_OBJS = \
         $(OBJDIR)/asm_load.o \
-        $(OBJDIR)/beam_jit_common.o
+        $(OBJDIR)/beam_jit_common.o \
+        $(OBJDIR)/beam_jit_main.o \
+        $(OBJDIR)/beam_jit_perf.o
 
 ifeq ($(JIT_ARCH), x86)
 JIT_OBJS += \
-	$(OBJDIR)/beam_asm.o \
 	$(OBJDIR)/beam_asm_global.o \
 	$(OBJDIR)/beam_asm_module.o \
-	$(OBJDIR)/beam_asm_perf.o \
+	$(OBJDIR)/process_main.o \
 	$(OBJDIR)/instr_arith.o \
 	$(OBJDIR)/instr_bs.o \
 	$(OBJDIR)/instr_bif.o \
@@ -1389,11 +1395,11 @@ compdb:
 
 format-check:
 	clang-format --Werror --dry-run -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
-            beam/jit/*/*.cpp beam/jit/*/*.hpp
+            beam/jit/*.cpp beam/jit/*/*.cpp beam/jit/*/*.hpp
 
 format:
 	clang-format -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
-            beam/jit/*/*.cpp beam/jit/*/*.hpp
+            beam/jit/*.cpp beam/jit/*/*.cpp beam/jit/*/*.hpp
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)

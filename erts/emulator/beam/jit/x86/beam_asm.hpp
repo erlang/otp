@@ -166,102 +166,23 @@ protected:
 public:
     static bool hasCpuFeature(uint32_t featureId);
 
-    BeamAssembler() : code() {
-        /* Setup with default code info */
-        Error err = code.init(hostEnvironment());
-        ERTS_ASSERT(!err && "Failed to init codeHolder");
+    BeamAssembler();
+    BeamAssembler(const std::string &log);
 
-        err = code.newSection(&rodata,
-                              ".rodata",
-                              SIZE_MAX,
-                              Section::kFlagConst,
-                              8);
-        ERTS_ASSERT(!err && "Failed to create .rodata section");
+    ~BeamAssembler();
 
-        err = code.attach(&a);
-
-        ERTS_ASSERT(!err && "Failed to attach codeHolder");
-#ifdef DEBUG
-        a.addValidationOptions(BaseEmitter::kValidationOptionAssembler);
-#endif
-        a.addEncodingOptions(BaseEmitter::kEncodingOptionOptimizeForSize);
-        code.setErrorHandler(this);
-    }
-
-    BeamAssembler(const std::string &log) : BeamAssembler() {
-        if (erts_jit_asm_dump) {
-            setLogger(log + ".asm");
-        }
-    }
-
-    ~BeamAssembler() {
-        if (logger.file())
-            fclose(logger.file());
-    }
-
-    void *getBaseAddress() {
-        ASSERT(code.hasBaseAddress());
-        return (void *)code.baseAddress();
-    }
-
-    size_t getOffset() {
-        return a.offset();
-    }
+    void *getBaseAddress();
+    size_t getOffset();
 
 protected:
     void _codegen(JitAllocator *allocator,
                   const void **executable_ptr,
-                  void **writable_ptr) {
-        Error err = code.flatten();
-        ERTS_ASSERT(!err && "Could not flatten code");
-        err = code.resolveUnresolvedLinks();
-        ERTS_ASSERT(!err && "Could not resolve all links");
+                  void **writable_ptr);
 
-        /* Verify that all labels are bound */
-#ifdef DEBUG
-        for (auto e : code.labelEntries()) {
-            if (!e->isBound()) {
-                erts_exit(ERTS_ABORT_EXIT, "Label %s is not bound", e->name());
-            }
-        }
-#endif
+    void *getCode(Label label);
+    byte *getCode(char *labelName);
 
-        err = allocator->alloc(const_cast<void **>(executable_ptr),
-                               writable_ptr,
-                               code.codeSize() + 16);
-
-        if (err == ErrorCode::kErrorTooManyHandles) {
-            ERTS_ASSERT(!"Failed to allocate module code: "
-                         "out of file descriptors");
-        } else if (err) {
-            ERTS_ASSERT("Failed to allocate module code");
-        }
-
-        code.relocateToBase((uint64_t)*executable_ptr);
-        code.copyFlattenedData(*writable_ptr,
-                               code.codeSize(),
-                               CodeHolder::kCopyPadSectionBuffer);
-#ifdef DEBUG
-        if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
-            if (FILE *f = l->file())
-                fprintf(f, "; CODE_SIZE: %zd\n", code.codeSize());
-#endif
-    }
-
-    void *getCode(Label label) {
-        ASSERT(label.isValid());
-        return (char *)getBaseAddress() + code.labelOffsetFromBase(label);
-    }
-
-    byte *getCode(char *labelName) {
-        return (byte *)getCode(code.labelByName(labelName, strlen(labelName)));
-    }
-
-    void handleError(Error err, const char *message, BaseEmitter *origin) {
-        comment(message);
-        fflush(logger.file());
-        ASSERT(0 && "Fault instruction encode");
-    }
+    void handleError(Error err, const char *message, BaseEmitter *origin);
 
     constexpr x86::Mem getRuntimeStackRef() const {
         int base = offsetof(ErtsSchedulerRegisters, aux_regs.d.runtime_stack);
@@ -888,27 +809,10 @@ protected:
 public:
     void embed_rodata(const char *labelName, const char *buff, size_t size);
     void embed_bss(const char *labelName, size_t size);
-
     void embed_zeros(size_t size);
 
-    void setLogger(std::string log) {
-        FILE *f = fopen(log.data(), "w+");
-
-        /* FIXME: Don't crash when loading multiple modules with the same name.
-         *
-         * setLogger(nullptr) disables logging. */
-        if (f) {
-            setvbuf(f, NULL, _IONBF, 0);
-        }
-
-        setLogger(f);
-    }
-
-    void setLogger(FILE *log) {
-        logger.setFile(log);
-        logger.setIndentation(FormatOptions::kIndentationCode, 4);
-        code.setLogger(&logger);
-    }
+    void setLogger(std::string log);
+    void setLogger(FILE *log);
 
     template<typename... Ts>
     void comment(const char *format, Ts... args) {
@@ -931,10 +835,6 @@ public:
 
     void update_gdb_jit_info(std::string modulename,
                              std::vector<AsmRange> &functions);
-
-    void embed(void *data, uint32_t size) {
-        a.embed((char *)data, size);
-    }
 };
 
 class BeamGlobalAssembler : public BeamAssembler {

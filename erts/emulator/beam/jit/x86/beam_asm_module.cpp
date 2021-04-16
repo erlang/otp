@@ -67,6 +67,11 @@ extern "C" void beamasm_dump_sizes() {
 }
 #endif
 
+ErtsCodePtr BeamModuleAssembler::getCode(BeamLabel label) {
+    ASSERT(label < labels.size() + 1);
+    return (ErtsCodePtr)getCode(labels[label]);
+}
+
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          Eterm mod,
                                          unsigned num_labels)
@@ -146,46 +151,6 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
         ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 3);
         aligned_call(ga->get_generic_bp_local());
         abs_jmp(ga->get_call_nif_early());
-    }
-}
-
-ErtsCodePtr BeamModuleAssembler::getCode(unsigned label) {
-    ASSERT(label < labels.size() + 1);
-    return (ErtsCodePtr)getCode(labels[label]);
-}
-
-void BeamAssembler::embed_rodata(const char *labelName,
-                                 const char *buff,
-                                 size_t size) {
-    Label label = a.newNamedLabel(labelName);
-
-    a.section(rodata);
-    a.bind(label);
-    a.embed(buff, size);
-    a.section(code.textSection());
-}
-
-void BeamAssembler::embed_bss(const char *labelName, size_t size) {
-    Label label = a.newNamedLabel(labelName);
-
-    /* Reuse rodata section for now */
-    a.section(rodata);
-    a.bind(label);
-    embed_zeros(size);
-    a.section(code.textSection());
-}
-
-void BeamAssembler::embed_zeros(size_t size) {
-    static constexpr size_t buf_size = 16384;
-    static const char zeros[buf_size] = {};
-
-    while (size >= buf_size) {
-        a.embed(zeros, buf_size);
-        size -= buf_size;
-    }
-
-    if (size > 0) {
-        a.embed(zeros, size);
     }
 }
 
@@ -444,129 +409,6 @@ void BeamModuleAssembler::emit_trace_jump(const ArgVal &) {
 
 void BeamModuleAssembler::emit_call_error_handler() {
     emit_nyi("call_error_handler should never be called");
-}
-
-void BeamModuleAssembler::codegen(JitAllocator *allocator,
-                                  const void **executable_ptr,
-                                  void **writable_ptr,
-                                  const BeamCodeHeader *in_hdr,
-                                  const BeamCodeHeader **out_exec_hdr,
-                                  BeamCodeHeader **out_rw_hdr) {
-    const BeamCodeHeader *code_hdr_exec;
-    BeamCodeHeader *code_hdr_rw;
-
-    codegen(allocator, executable_ptr, writable_ptr);
-
-    {
-        auto offset = code.labelOffsetFromBase(codeHeader);
-
-        auto base_exec = (const char *)(*executable_ptr);
-        code_hdr_exec = (const BeamCodeHeader *)&base_exec[offset];
-
-        auto base_rw = (const char *)(*writable_ptr);
-        code_hdr_rw = (BeamCodeHeader *)&base_rw[offset];
-    }
-
-    sys_memcpy(code_hdr_rw, in_hdr, sizeof(BeamCodeHeader));
-    code_hdr_rw->on_load = getOnLoad();
-
-    for (unsigned i = 0; i < functions.size(); i++) {
-        ErtsCodeInfo *ci = (ErtsCodeInfo *)getCode(functions[i]);
-        code_hdr_rw->functions[i] = ci;
-    }
-
-    char *module_end = (char *)code.baseAddress() + a.offset();
-    code_hdr_rw->functions[functions.size()] = (ErtsCodeInfo *)module_end;
-
-    *out_exec_hdr = code_hdr_exec;
-    *out_rw_hdr = code_hdr_rw;
-}
-
-void BeamModuleAssembler::codegen(JitAllocator *allocator,
-                                  const void **executable_ptr,
-                                  void **writable_ptr) {
-    _codegen(allocator, executable_ptr, writable_ptr);
-
-#ifndef WIN32
-    if (functions.size()) {
-        char *buff = (char *)erts_alloc(ERTS_ALC_T_TMP, 1024);
-        std::vector<AsmRange> ranges;
-        std::string name = getAtom(mod);
-        ranges.reserve(functions.size() + 2);
-
-        /* Push info about the header */
-        ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
-                          .stop = getCode(functions[0]),
-                          .name = name + "::codeHeader"});
-
-        for (unsigned i = 0; i < functions.size(); i++) {
-            ErtsCodePtr start, stop;
-            const ErtsCodeInfo *ci;
-            int n;
-
-            start = getCode(functions[i]);
-            ci = (const ErtsCodeInfo *)start;
-
-            n = erts_snprintf(buff,
-                              1024,
-                              "%T:%T/%d",
-                              ci->mfa.module,
-                              ci->mfa.function,
-                              ci->mfa.arity);
-            stop = ((const char *)erts_codeinfo_to_code(ci)) +
-                   BEAM_ASM_FUNC_PROLOGUE_SIZE;
-
-            /* We use a different symbol for CodeInfo and the Prologue
-               in order for the perf disassembly to be better. */
-            std::string name(buff, n);
-            ranges.push_back({.start = start,
-                              .stop = stop,
-                              .name = name + "-CodeInfoPrologue"});
-
-            /* The actual code */
-            start = stop;
-            if (i + 1 < functions.size()) {
-                stop = getCode(functions[i + 1]);
-            } else {
-                stop = getCode(labels.size());
-            }
-
-            ranges.push_back({.start = start, .stop = stop, .name = name});
-        }
-
-        /* Push info about the footer */
-        ranges.push_back(
-                {.start = ranges.back().stop,
-                 .stop = (ErtsCodePtr)(code.baseAddress() + code.codeSize()),
-                 .name = name + "::codeFooter"});
-
-        update_gdb_jit_info(name, ranges);
-        beamasm_update_perf_info(name, ranges);
-        erts_free(ERTS_ALC_T_TMP, buff);
-    }
-#endif
-}
-
-void BeamModuleAssembler::codegen(char *buff, size_t len) {
-    code.flatten();
-    code.resolveUnresolvedLinks();
-    ERTS_ASSERT(code.codeSize() <= len);
-    code.relocateToBase((uint64_t)buff);
-    code.copyFlattenedData(buff,
-                           code.codeSize(),
-                           CodeHolder::kCopyPadSectionBuffer);
-}
-
-BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {
-    return (BeamCodeHeader *)getCode(codeHeader);
-}
-
-const ErtsCodeInfo *BeamModuleAssembler::getOnLoad() {
-    if (on_load.isValid()) {
-        return erts_code_to_codeinfo((ErtsCodePtr)getCode(on_load));
-    } else {
-        return 0;
-    }
 }
 
 unsigned BeamModuleAssembler::patchCatches(char *rw_base) {

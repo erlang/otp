@@ -250,5 +250,7 @@ void beamasm_init_perf() {
 
 void beamasm_update_perf_info(std::string modulename,
                               std::vector<BeamAssembler::AsmRange> &ranges) {
+    (void)modulename;
+    (void)ranges;
 }
 #endif
