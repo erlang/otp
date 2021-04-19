@@ -171,6 +171,8 @@ int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
 int H_MAX_SIZE;			/* The maximum heap size */
 int H_MAX_FLAGS;		/* The maximum heap flags */
 
+erts_atomic32_t erts_default_proc_flags;
+
 Uint32 erts_debug_flags;	/* Debug flags. */
 int erts_backtrace_depth;	/* How many functions to show in a backtrace
 				 * in error codes.
@@ -619,6 +621,7 @@ void erts_usage(void)
 	       erts_pd_initial_size);
     erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes,\n");
     erts_fprintf(stderr, "               valid values are: off_heap | on_heap\n");
+    erts_fprintf(stderr, "-hg val        set heap growth for processes, valid values are: normal | low\n");
     erts_fprintf(stderr, "-IOp number    set number of pollsets to be used to poll for I/O,\n");
     erts_fprintf(stderr, "               This value has to be equal or smaller than the\n");
     erts_fprintf(stderr, "               number of poll threads. If the current platform\n");
@@ -842,6 +845,7 @@ early_init(int *argc, char **argv) /*
     erts_atomic32_init_nob(&erts_writing_erl_crash_dump, 0L);
     erts_tsd_key_create(&erts_is_crash_dumping_key,"erts_is_crash_dumping_key");
 
+    erts_atomic32_init_nob(&erts_default_proc_flags, 0);
     erts_atomic32_init_nob(&erts_max_gen_gcs,
 			       (erts_aint32_t) ((Uint16) -1));
 
@@ -1503,6 +1507,7 @@ erl_start(int argc, char **argv)
              * h|max   - max_heap_size
              * h|maxk  - max_heap_kill
              * h|maxel - max_heap_error_logger
+             * h|g     - heap_growth
 	     *
 	     */
 	    if (has_prefix("mbs", sub_param)) {
@@ -1578,6 +1583,20 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 		VERBOSE(DEBUG_SYSTEM, ("using max heap size %d\n", H_MAX_SIZE));
+            } else if (has_prefix("g", sub_param)) {
+                arg = get_arg(sub_param+1, argv[i+1], &i);
+                if (sys_strcmp(arg, "low") == 0) {
+                    erts_atomic32_read_bor_nob(&erts_default_proc_flags,
+                                             F_HEAP_GROWTH_LOW);
+                }
+                else if (sys_strcmp(arg, "normal") == 0) {
+                    erts_atomic32_read_band_nob(&erts_default_proc_flags,
+                                              ~F_HEAP_GROWTH_LOW);
+                }
+                else {
+                    erts_fprintf(stderr, "Invalid heap_growth flag %s\n", arg);
+                    erts_usage();
+                }
 	    } else {
 	        /* backward compatibility */
 		arg = get_arg(argv[i]+2, argv[i+1], &i);
