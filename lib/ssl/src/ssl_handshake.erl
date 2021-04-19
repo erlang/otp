@@ -1971,10 +1971,18 @@ cert_status_check(_, #{ocsp_state := #{ocsp_stapling := true,
     valid; %% OCSP staple will now be checked by ssl_certifcate:verify_cert_extensions/2 in ssl_certifcate:validate
 cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := false}} = SslState, VerifyResult, CertPath, LogLevel) ->
     maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
-cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := best_effort, %%TODO should we support
+cert_status_check(_OtpCert, #{ocsp_state := #{ocsp_stapling := true,
+                                              ocsp_expect := undetermined}},
+                  _VerifyResult, _CertPath, _LogLevel) ->
+    {bad_cert, {revocation_status_undetermined, not_stapled}};
+cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := best_effort, %% TODO support this ?
                                              ocsp_expect := undetermined}} = SslState, 
                   VerifyResult, CertPath, LogLevel) ->
-    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel).
+    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
+cert_status_check(_OtpCert, #{ocsp_state := #{ocsp_stapling := true,
+                                              ocsp_expect := no_staple}},
+                  _VerifyResult, _CertPath, _LogLevel) ->
+    {bad_cert, {revocation_status_undetermined, not_stapled}}.
 
 maybe_check_crl(_, #{crl_check := false}, _, _, _) ->
     valid;

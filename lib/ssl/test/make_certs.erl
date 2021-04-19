@@ -88,7 +88,7 @@ all(DataDir, PrivDir, C = #config{}) ->
     create_rnd(DataDir, PrivDir),			% For all requests
     rootCA(PrivDir, "erlangCA", C),
     intermediateCA(PrivDir, "otpCA", "erlangCA", C),
-    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "a.server", "b.server"], C),
+    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "undetermined", "a.server", "b.server"], C),
     endusers(PrivDir, "erlangCA", ["localhost"], C),
     %% Create keycert files 
     SDir = filename:join([PrivDir, "server"]),
@@ -107,6 +107,12 @@ all(DataDir, PrivDir, C = #config{}) ->
     RKC = filename:join([RDir, "keycert.pem"]),
     revoke(PrivDir, "otpCA", "revoked", C),
     append_files([RK, RC], RKC),
+    MDir = filename:join([PrivDir, "undetermined"]),
+    MC = filename:join([MDir, "cert.pem"]),
+    MK = filename:join([MDir, "key.pem"]),
+    MKC = filename:join([MDir, "keycert.pem"]),
+    remove_entry(PrivDir, "otpCA", "undetermined", C),
+    append_files([MK, MC], MKC),
     remove_rnd(PrivDir),
     {ok, C}.
 
@@ -176,6 +182,26 @@ revoke(Root, CA, User, C) ->
     Env = [{"ROOTDIR", filename:absname(Root)}], 
     cmd(Cmd, Env),
     gencrl(Root, CA, C).
+
+%% Remove the certificate's entry from the database. The OCSP responder
+%% will consider the certificate to be unknown.
+remove_entry(Root, CA, User, C) ->
+    Db = filename:join([Root, CA, "index.txt"]),
+    remove_line_with_pattern(Db, "/CN=" ++ User ++ "/"),
+    gencrl(Root, CA, C).
+
+remove_line_with_pattern(File, Pattern) ->
+    {ok, Bin} = file:read_file(File),
+    AllLines = string:lexemes(Bin, [$\n,"\r\n"]),
+    MaybeRemove = fun(Line, Acc) ->
+                          case string:find(Line, Pattern) of
+                              nomatch -> [Line|Acc];
+                              _ -> Acc
+                          end
+                  end,
+    RevLines = lists:foldl(MaybeRemove, [], AllLines),
+    Lines = lists:join("\n", lists:reverse(RevLines)),
+    ok = file:write_file(File, Lines).
 
 gencrl(Root, CA, C) ->
     %% By default, the CRL is valid for a week from now.
