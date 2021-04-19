@@ -261,8 +261,7 @@ certificate_chain(#cert{otp=OtpCert}=Cert, CertDbHandle, CertsDbRef, Chain, List
 	    false  ->
 		{public_key:pkix_issuer_id(OtpCert, other), false}
 	end,
-    
-    case IssuerAndSelfSigned of 
+    case IssuerAndSelfSigned of
 	{_, true = SelfSigned} ->
 	    do_certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned, ListDb);
 	{{error, issuer_not_found}, SelfSigned} ->
@@ -270,7 +269,7 @@ certificate_chain(#cert{otp=OtpCert}=Cert, CertDbHandle, CertsDbRef, Chain, List
 		{ok, {SerialNr, Issuer}} ->
 		    do_certificate_chain(CertDbHandle, CertsDbRef, Chain,
 					 SerialNr, Issuer, SelfSigned, ListDb);
-		_ ->
+		_Err ->
 		    %% Guess the the issuer must be the root
 		    %% certificate. The verification of the
 		    %% cert chain will fail if guess is
@@ -287,8 +286,7 @@ do_certificate_chain(_, _, [RootCert | _] = Chain, _, _, true, _) ->
 do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListDb) ->
     case ssl_manager:lookup_trusted_cert(CertDbHandle, CertsDbRef,
 						SerialNr, Issuer) of
-	{ok, {IssuerCert, ErlCert}} ->
-            Cert = #cert{der=IssuerCert, otp=ErlCert},
+	{ok, Cert} ->
 	    certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert | Chain], ListDb);
 	_ ->
 	    %% The trusted cert may be obmitted from the chain as the
@@ -300,7 +298,7 @@ do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListD
 
 find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb) ->
     IsIssuerFun =
-	fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
+	fun({_Key, #cert{otp=ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
 		    true ->
 			case verify_cert_signer(DerCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
@@ -495,7 +493,7 @@ handle_partial_chain([#cert{der=IssuerCert, otp=OTPCert}=Cert| Rest] = Path, Par
         true -> %% IssuerCert = ROOT (That is ROOT was included in chain)
             {ok, {SerialNr, IssuerId}} = public_key:pkix_issuer_id(OTPCert, self),
             case ssl_manager:lookup_trusted_cert(CertDbHandle, CertDbRef, SerialNr, IssuerId) of
-                {ok, {IssuerCert, _}} -> %% Match sent ROOT to trusted ROOT 
+                {ok, #cert{der=IssuerCert}} -> %% Match sent ROOT to trusted ROOT 
                     maybe_shorten_path(Path, PartialChainHandler, {Cert, Rest});
                 {ok, _} -> %% Did not match trusted ROOT
                     maybe_shorten_path(Path, PartialChainHandler, {invalid_issuer, Path});
@@ -506,8 +504,7 @@ handle_partial_chain([#cert{der=IssuerCert, otp=OTPCert}=Cert| Rest] = Path, Par
             case other_issuer(Cert, CertDbHandle, CertDbRef) of
                 {other, {SerialNr, IssuerId}} ->
                     case ssl_manager:lookup_trusted_cert(CertDbHandle, CertDbRef, SerialNr, IssuerId) of
-                        {ok, {NewDer, NewOtp}} ->
-                            NewCert = #cert{der=NewDer, otp=NewOtp},
+                        {ok, #cert{otp=NewOtp}=NewCert} ->
                             case public_key:pkix_is_self_signed(NewOtp) of
                                 true -> %% NewIssuerCert is a trusted ROOT cert
                                     maybe_shorten_path([NewCert | Path], PartialChainHandler, {NewCert, Path});
