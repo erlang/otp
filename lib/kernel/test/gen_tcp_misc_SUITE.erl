@@ -59,8 +59,8 @@
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
          otp_12242/1, delay_send_error/1, bidirectional_traffic/1,
-	 socket_monitor1/1,
-	 socket_monitor2/1]).
+	 socket_monitor1/1, socket_monitor1_many/1,
+	 socket_monitor2/1, socket_monitor2_many/1]).
 
 %% Internal exports.
 -export([sender/4,
@@ -181,7 +181,9 @@ all_cases() ->
      otp_12242, delay_send_error,
      bidirectional_traffic,
      socket_monitor1,
-     socket_monitor2
+     socket_monitor1_many,
+     socket_monitor2,
+     socket_monitor2_many
     ].
 
 close_cases() ->
@@ -6646,15 +6648,20 @@ socket_monitor1(Config) when is_list(Config) ->
 
 do_socket_monitor1(Config) ->
     ?P("begin"),
+    Self         = self(),
     Type         = ?SOCKET_TYPE(Config),
     {ok, LSock1} = ?LISTEN(Config),
-    F  = fun(S, Fun) -> spawn_monitor(fun() -> Fun(S) end) end,
-    F1 = fun(Socket) -> 
+    F  = fun(S, Fun) -> spawn_monitor(fun() -> Fun(S, Self) end) end,
+    F1 = fun(Socket, Parent) -> 
+		 ?P("[client] create monitor"),
 		 MRef = inet:monitor(Socket),
+		 Parent ! {self(), ready},
 		 sm_await_socket_down(MRef, Socket, Type)
 	 end,
     ?P("spawn client"),
     {Pid1, Mon1} = F(LSock1, F1),
+    ?P("await client ready"),
+    sm_await_client_ready(Pid1),
     ?P("close socket"),
     gen_tcp:close(LSock1),
     ?P("await client termination"),
@@ -6663,21 +6670,33 @@ do_socket_monitor1(Config) ->
     ok.
 
 sm_await_socket_down(ExpMon, ExpSock, ExpType) ->
+    sm_await_socket_down(ExpMon, ExpSock, ExpType, "client").
+
+sm_await_socket_down(ExpMon, ExpSock, ExpType, Name) ->
     receive
 	{'DOWN', Mon, Type, Sock, Info} when (Type =:= ExpType) andalso 
 					     (Mon  =:= ExpMon)  andalso 
 					     (Sock =:= ExpSock) ->
-	    ?P("[client] received expected (socket) down message: "
+	    ?P("[~s] received expected (socket) down message: "
 	       "~n   Mon:  ~p"
 	       "~n   Type: ~p"
 	       "~n   Sock: ~p"
-	       "~n   Info: ~p", [Mon, Type, Sock, Info]),
+	       "~n   Info: ~p", [Name, Mon, Type, Sock, Info]),
 	    exit(ok);
 
 	Any ->
-	    ?P("[client] received unexpected message: "
-	       "~n   ~p", [Any]),
+	    ?P("[~s] received unexpected message: "
+	       "~n   ~p", [Name, Any]),
 	    exit({unexpected_message, Any})
+    end.
+
+sm_await_client_ready(Pid) ->
+    sm_await_client_ready(Pid, "client").
+
+sm_await_client_ready(Pid, Name) ->
+    receive
+	{Pid, ready} ->
+	    ?P("received ~s ready", [Name])
     end.
 
 sm_await_down(Pid, Mon, ExpRes) ->
@@ -6690,6 +6709,53 @@ sm_await_down(Pid, Mon, ExpRes) ->
 	       "~n   ~p", [Pid, UnexpRes]),
 	    ct:fail({unexpected_down, UnexpRes})
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+%% We create a listen socket, then spawn client process(es) that create
+%% monitors to it...
+socket_monitor1_many(Config) when is_list(Config) ->
+    ?TC_TRY(socket_monitor1_many,
+            fun() -> do_socket_monitor1_many(Config) end).
+
+do_socket_monitor1_many(Config) ->
+    ?P("begin"),
+    Self         = self(),
+    Type         = ?SOCKET_TYPE(Config),
+    {ok, LSock1} = ?LISTEN(Config),
+    F  = fun(S, Fun, Name) ->
+		 spawn_monitor(fun() -> Fun(S, Name, Self) end)
+	 end,
+    F1 = fun(Socket, Name, Parent) -> 
+		 ?P("[~s] monitor socket", [Name]),
+		 MRef = inet:monitor(Socket),
+		 Parent ! {self(), ready},
+		 sm_await_socket_down(MRef, Socket, Type)
+	 end,
+    ?P("spawn client(s)"),
+    {Pid1, Mon1} = F(LSock1, F1, "client1"),
+    {Pid2, Mon2} = F(LSock1, F1, "client2"),
+    {Pid3, Mon3} = F(LSock1, F1, "client3"),
+    {Pid4, Mon4} = F(LSock1, F1, "client4"),
+    {Pid5, Mon5} = F(LSock1, F1, "client5"),
+    ?P("await client(s) ready"),
+    sm_await_client_ready(Pid1, "client1"),
+    sm_await_client_ready(Pid2, "client2"),
+    sm_await_client_ready(Pid3, "client3"),
+    sm_await_client_ready(Pid4, "client4"),
+    sm_await_client_ready(Pid5, "client5"),
+    ?P("close socket"),
+    gen_tcp:close(LSock1),
+    ?P("await client(s) termination"),
+    sm_await_down(Pid1, Mon1, ok),
+    sm_await_down(Pid2, Mon2, ok),
+    sm_await_down(Pid3, Mon3, ok),
+    sm_await_down(Pid4, Mon4, ok),
+    sm_await_down(Pid5, Mon5, ok),
+    ?P("done"),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6723,19 +6789,89 @@ do_socket_monitor2(Config) ->
 			"~n   ~p", [OwnerReason]),
 		     ct:fail({unexpected_owner_termination, OwnerReason})
 	     end,
-    F  = fun(S, Fun) -> spawn_monitor(fun() -> Fun(S) end) end,
-    F1 = fun(Socket) -> 
+    F  = fun(S, Fun) -> spawn_monitor(fun() -> Fun(S, Self) end) end,
+    F1 = fun(Socket, Parent) -> 
+		 ?P("[client] create monitor"),
 		 MRef = inet:monitor(Socket),
+		 Parent ! {self(), ready},
 		 sm_await_socket_down(MRef, Socket, Type)
 	 end,
     ?P("spawn client"),
     {Pid1, Mon1} = F(LSock1, F1),
+    ?P("spawn client"),
+    sm_await_client_ready(Pid1),
     ?P("kill owner"),
     exit(OwnerPid, kill),
     ?P("await owner termination"),
     sm_await_down(OwnerPid, OwnerMon, killed),
     ?P("await client termination"),
     sm_await_down(Pid1, Mon1, ok),
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+%% Spawn a process that creates a (listen) socket, then spawns processes
+%% that create monitors to it...
+socket_monitor2_many(Config) when is_list(Config) ->
+    ?TC_TRY(socket_monitor2_many,
+            fun() -> do_socket_monitor2_many(Config) end).
+
+do_socket_monitor2_many(Config) ->
+    ?P("begin"),
+    Type         = ?SOCKET_TYPE(Config),
+    Self         = self(),
+    {OwnerPid, OwnerMon} =
+	spawn_monitor(fun() ->
+			      {ok, L} = ?LISTEN(Config),
+			      Self ! {socket, L},
+			      receive
+				  {Self, die} ->
+				      exit(normal)
+			      end
+		      end),
+    LSock1 = receive
+		 {socket, L} ->
+		     ?P("received socket from owner"),
+		     L;
+		 {'DOWN', OwnerMon, process, OwnerPid, OwnerReason} ->
+		     ?P("received unexpected owner termination: "
+			"~n   ~p", [OwnerReason]),
+		     ct:fail({unexpected_owner_termination, OwnerReason})
+	     end,
+    F  = fun(S, Fun, Name) ->
+		 spawn_monitor(fun() -> Fun(S, Name, Self) end)
+	 end,
+    F1 = fun(Socket, Name, Parent) ->
+		 ?P("[~s] create monitor", [Name]),
+		 MRef = inet:monitor(Socket),
+		 Parent ! {self(), ready},
+		 sm_await_socket_down(MRef, Socket, Type, Name)
+	 end,
+    ?P("spawn client(s)"),
+    {Pid1, Mon1} = F(LSock1, F1, "client1"),
+    {Pid2, Mon2} = F(LSock1, F1, "client2"),
+    {Pid3, Mon3} = F(LSock1, F1, "client3"),
+    {Pid4, Mon4} = F(LSock1, F1, "client4"),
+    {Pid5, Mon5} = F(LSock1, F1, "client5"),
+    ?P("await client(s) ready"),
+    sm_await_client_ready(Pid1, "client1"),
+    sm_await_client_ready(Pid2, "client2"),
+    sm_await_client_ready(Pid3, "client3"),
+    sm_await_client_ready(Pid4, "client4"),
+    sm_await_client_ready(Pid5, "client5"),
+    ?P("kill owner"),
+    exit(OwnerPid, kill),
+    ?P("await owner termination"),
+    sm_await_down(OwnerPid, OwnerMon, killed),
+    ?P("await client(s) termination"),
+    sm_await_down(Pid1, Mon1, ok),
+    sm_await_down(Pid2, Mon2, ok),
+    sm_await_down(Pid3, Mon3, ok),
+    sm_await_down(Pid4, Mon4, ok),
+    sm_await_down(Pid5, Mon5, ok),
     ?P("done"),
     ok.
 

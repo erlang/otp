@@ -500,7 +500,12 @@ controlling_process(S, NewOwner, Server, Msg) ->
 
 monitor(?module_socket(_Server, ESock) = Socket) ->
     %% The socket that is part of the down message:
-    socket_registry:monitor(ESock, #{msocket => Socket});
+    case socket_registry:monitor(ESock, #{msocket => Socket}) of
+	{error, Reason} ->
+	    erlang:error({invalid, Reason});
+	MRef when is_reference(MRef) ->
+	    MRef
+    end;
 monitor(Socket) ->
     erlang:error(badarg, [Socket]).
 
