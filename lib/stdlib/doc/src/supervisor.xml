@@ -82,7 +82,7 @@ sup_flags() = #{strategy => strategy(),           % optional
                 auto_shutdown => auto_shutdown()} % optional</pre>
 
     <section>
-      <title>Restart Stratagies</title>
+      <title>Restart Strategies</title>
     <p>A supervisor can have one of the following <em>restart strategies</em>
       specified with the <c>strategy</c> key in the above map:</p>
 
