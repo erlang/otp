@@ -54,6 +54,7 @@ typedef struct {
     int ramv;
     int atags;
     int cp;
+    int mmbc0;     /* create main mbc for instance 0 */
     UWord sbct;
     UWord asbcst;
     UWord rsbcst;
@@ -113,6 +114,7 @@ typedef struct {
     0,			/* (bool)   ramv:   realloc always moves         */\
     0,			/* (bool)   atags:  tagged allocations           */\
     -1,		        /* (ix)     cp:     carrier pool                 */\
+    1,                  /* (bool)   mmbc0:  main mbc in instance 0       */\
     512*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
@@ -152,6 +154,7 @@ typedef struct {
     0,			/* (bool)   ramv:   realloc always moves         */\
     0,			/* (bool)   atags:  tagged allocations           */\
     -1,		        /* (ix)     cp:     carrier pool                 */\
+    1,                  /* (bool)   mmbc0:  main mbc in instance 0       */\
     64*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
