@@ -673,7 +673,6 @@ struct Allctr_t_ {
     /* */
     Uint		mbc_header_size;
     Uint		min_mbc_size;
-    Uint		min_mbc_first_free_size;
     Uint		min_block_size;
     UWord               crr_set_flgs;
     UWord               crr_clr_flgs;

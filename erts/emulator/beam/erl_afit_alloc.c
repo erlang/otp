@@ -46,7 +46,6 @@ struct AFFreeBlock_t_ {
 #define AF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->block_head)
 
 #define MIN_MBC_SZ		(16*1024)
-#define MIN_MBC_FIRST_FREE_SZ	(4*1024)
 
 /* Prototypes of callback functions */
 static Block_t *	get_free_block		(Allctr_t *, Uint, Block_t *, Uint);
@@ -86,7 +85,6 @@ erts_afalc_start(AFAllctr_t *afallctr,
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
-    allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(AFFreeBlock_t);
     allctr->vsn_str			= ERTS_ALC_AF_ALLOC_VSN_STR;
 
