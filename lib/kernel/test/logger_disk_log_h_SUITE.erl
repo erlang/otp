@@ -1360,7 +1360,23 @@ start_handler(Name, FuncName, Config) ->
     
 stop_handler(Name) ->
     ct:pal("Stopping handler ~p!", [Name]),
-    logger:remove_handler(Name).
+    Res = logger:remove_handler(Name),
+    RegName = ?name_to_reg_name(logger_disk_log_h, Name),
+    erlang:monitor(process, RegName),
+    receive
+        {'DOWN',_,_,_,_} ->
+            Res
+    after 5000 ->
+            %% If the removal fails, we make sure that it is removed
+            %% so that the next testcase is not effected.
+            exit(whereis(RegName), kill),
+            receive
+                {'DOWN',_,_,_,_} ->
+                    %% We fail this testcase in order to catch any bugs
+                    %% in shutdown
+                    ct:fail("Failed to stop handler")
+            end
+    end.
 
 send_burst(NorT, Type, {chars,Sz}, Class) ->
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,Sz)],
