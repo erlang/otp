@@ -24,8 +24,12 @@
 #include "sys.h"
 #include "erl_printf.h"
 
-#define ERTS_MMAP_SUPERALIGNED_BITS (18)
+#if defined(ARCH_64)
+#  define ERTS_MMAP_SUPERALIGNED_BITS (14)
+#else
+#  define ERTS_MMAP_SUPERALIGNED_BITS (18)
 /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
+#endif
 
 #ifndef HAVE_MMAP
 #  define HAVE_MMAP 0

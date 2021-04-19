@@ -310,7 +310,7 @@ void erts_alcu_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 #  ifdef MSEG_ALIGN_BITS
 #    define ERTS_SUPER_ALIGN_BITS MSEG_ALIGN_BITS
 #  else
-#    define ERTS_SUPER_ALIGN_BITS 18
+#    define ERTS_SUPER_ALIGN_BITS ERTS_MMAP_SUPERALIGNED_BITS
 #  endif
 #  ifdef ARCH_64 
 #    define MBC_ABLK_OFFSET_BITS   23
