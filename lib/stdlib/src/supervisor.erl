@@ -1455,7 +1455,7 @@ validSignificant(Significant, _RestartType, _AutoShutdown) ->
     throw({invalid_significant, Significant}).
 
 validShutdown(Shutdown)
-  when is_integer(Shutdown), Shutdown > 0 -> true;
+  when is_integer(Shutdown), Shutdown >= 0 -> true;
 validShutdown(infinity)             -> true;
 validShutdown(brutal_kill)          -> true;
 validShutdown(Shutdown)             -> throw({invalid_shutdown, Shutdown}).
