@@ -51,6 +51,7 @@
 	 process_info_messages/1, process_flag_badarg/1,
          process_flag_fullsweep_after/1, process_flag_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
+	 heap_growth/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
@@ -112,6 +113,7 @@ all() ->
      process_flag_badarg,
      process_flag_fullsweep_after, process_flag_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
+     heap_growth,
      spawn_huge_arglist,
      spawn_request_bif,
      spawn_request_monitor_demonitor,
@@ -174,6 +176,8 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(heap_growth, Config) ->
+    [erlang:system_info(heap_growth) | Config];
 init_per_testcase(Func, Config)
   when Func =:= processes_default_tab;
        Func =:= processes_this_tab ->
@@ -186,6 +190,9 @@ init_per_testcase(Func, Config)
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
+end_per_testcase(heap_growth, Config) when is_list(Config) ->
+    HG = proplists:get_value(heap_growth, Config),
+    erlang:system_flag(heap_growth, HG);
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     %% Restore max_heap_size to default value.
     erlang:system_flag(max_heap_size,
@@ -2394,6 +2401,56 @@ flush() ->
     after 0 ->
             ok
     end.
+
+heap_growth(_Config) ->
+    {heap_growth,Default} = erlang:system_info(heap_growth),
+    heap_growth_process(Default),
+    Other = heap_growth_change(Default),
+    Default = erlang:system_flag(heap_growth, Other),
+    {heap_growth,Other} = erlang:system_info(heap_growth),
+    Other = erlang:system_flag(heap_growth, Other),
+    {heap_growth,Other} = erlang:system_info(heap_growth),
+    heap_growth_process(Other),
+    Other = erlang:system_flag(heap_growth, Default),
+    {heap_growth,Default} = erlang:system_info(heap_growth),
+    Default = erlang:system_flag(heap_growth, Default),
+    {heap_growth,Default} = erlang:system_info(heap_growth),
+    ok.
+
+heap_growth_change(normal) -> low;
+heap_growth_change(low) -> normal.
+
+heap_growth_process(Default) ->
+    Other = heap_growth_change(Default),
+    Papa = self(),
+    Pid = spawn_link(
+	    fun() ->
+		    {heap_growth, Default} =
+			erlang:process_info(self(), heap_growth),
+		    Papa ! sync,
+		    receive go -> ok end,
+		    Default = erlang:process_flag(heap_growth, Other),
+		    {heap_growth, Other} =
+			erlang:process_info(self(), heap_growth),
+		    Papa ! sync,
+		    receive go -> ok end,
+		    Other = erlang:process_flag(heap_growth, Other),
+		    Other = erlang:process_flag(heap_growth, Default),
+		    {heap_growth, Default} =
+			erlang:process_info(self(), heap_growth),
+		    Default = erlang:process_flag(heap_growth, Default),
+		    Papa ! done
+	    end),
+
+    receive sync -> ok end,
+    {heap_growth, Default} = erlang:process_info(Pid, heap_growth),
+    Pid ! go,
+    receive sync -> ok end,
+    {heap_growth, Other} = erlang:process_info(Pid, heap_growth),
+    Pid ! go,
+    receive done -> ok end,
+    ok.
+
 
 %% error_logger report handler proxy
 init(Pid) ->

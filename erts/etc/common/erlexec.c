@@ -155,6 +155,7 @@ static char *plush_val_switches[] = {
     "maxk",
     "maxel",
     "mqd",
+    "g",
     "",
     NULL
 };

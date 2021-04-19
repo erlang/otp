@@ -1404,7 +1404,13 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
 	stack_size = STACK_START(p) - STACK_TOP(p);
-	new_sz = stack_size + size_before;
+        new_sz = stack_size + size_before;
+        if (p->flags & F_HEAP_GROWTH_LOW) {
+            /* Don't include mature_size as it will go onto the old-heap,
+             * instead reserve a constant capacity for new terms */
+            new_sz -= mature_size;
+            new_sz += p->min_heap_size/2;
+        }
         new_sz = next_heap_size(p, new_sz, 0);
 
 	prev_old_htop = p->old_htop;

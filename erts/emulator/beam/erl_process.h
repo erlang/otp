@@ -1452,12 +1452,14 @@ typedef struct {
     Uint max_heap_size;         /* Maximum heap size in words */
     Uint max_heap_flags;        /* Maximum heap flags (kill | log) */
     int scheduler;
+    Uint32 proc_flags;          /* Process.flags */
 
 } ErlSpawnOpts;
 
 #define ERTS_SET_DEFAULT_SPAWN_OPTS(SOP)                                \
     do {                                                                \
         (SOP)->flags = erts_default_spo_flags;                          \
+        (SOP)->proc_flags = erts_atomic32_read_nob(&erts_default_proc_flags); \
         (SOP)->opts = NIL;                                              \
         (SOP)->tag = am_spawn_reply;                                    \
         (SOP)->monitor_tag = THE_NON_VALUE;                             \
@@ -1543,6 +1545,7 @@ extern int erts_system_profile_ts_type;
 #define F_HIBERNATED         (1 << 21) /* Hibernated */
 #define F_TRAP_EXIT          (1 << 22) /* Trapping exit */
 #define F_DBG_FORCED_TRAP    (1 << 23) /* DEBUG: Last BIF call was a forced trap */
+#define F_HEAP_GROWTH_LOW    (1 << 24) /* Keep new-heap small */
 
 /* Signal queue flags */
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */

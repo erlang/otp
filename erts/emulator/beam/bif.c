@@ -1923,6 +1923,20 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        MAX_HEAP_SIZE_FLAGS_SET(BIF_P, max_heap_flags);
        BIF_RET(old_value);
    }
+   else if (BIF_ARG_1 == am_heap_growth) {
+       old_value = (BIF_P->flags & F_HEAP_GROWTH_LOW) ? am_low : am_normal;
+       switch (BIF_ARG_2) {
+       case am_low:
+           BIF_P->flags |= F_HEAP_GROWTH_LOW;
+           break;
+       case am_normal:
+           BIF_P->flags &= ~F_HEAP_GROWTH_LOW;
+           break;
+       default:
+           goto error;
+       }
+       BIF_RET(old_value);
+   }
    else if (BIF_ARG_1 == am_message_queue_data) {
        old_value = erts_change_message_queue_management(BIF_P, BIF_ARG_2);
        if (is_non_value(old_value))
@@ -5000,6 +5014,21 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
         erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
         BIF_RET(old_value);
+    } else if (BIF_ARG_1 == am_heap_growth) {
+        erts_aint32_t old_val;
+        switch (BIF_ARG_2) {
+        case am_low:
+            old_val = erts_atomic32_read_bor_nob(&erts_default_proc_flags,
+                                                 F_HEAP_GROWTH_LOW);
+            break;
+        case am_normal:
+            old_val = erts_atomic32_read_band_nob(&erts_default_proc_flags,
+                                                  ~F_HEAP_GROWTH_LOW);
+            break;
+        default:
+            goto error;
+        }
+        BIF_RET((old_val & F_HEAP_GROWTH_LOW) ? am_low : am_normal);
     } else if (BIF_ARG_1 == am_debug_flags) {
 	BIF_RET(am_true);
     } else if (BIF_ARG_1 == am_backtrace_depth) {
