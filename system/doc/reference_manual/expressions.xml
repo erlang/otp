@@ -1347,14 +1347,6 @@ catch Expr</code>
 3
 2> <input>catch 1+a.</input>
 {'EXIT',{badarith,[...]}}</pre>
-    <p>Notice that <c>catch</c> has low precedence and catch
-      subexpressions often needs to be enclosed in a block
-      expression or in parentheses:</p>
-    <pre>
-3> <input>A = catch 1+2.</input>
-** 1: syntax error before: 'catch' **
-4> <input>A = (catch 1+2).</input>
-3</pre>
     <p>The BIF <c>throw(Any)</c> can be used for non-local return from
       a function. It must be evaluated within a <c>catch</c>, which
       returns the value <c>Any</c>.</p>
