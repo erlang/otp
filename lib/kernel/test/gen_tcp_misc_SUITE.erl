@@ -6647,6 +6647,7 @@ recv(Socket, Total, Control) ->
 %% We create a listen socket, then spawns processes that create
 %% monitors to it...
 socket_monitor1(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
     ?TC_TRY(socket_monitor1,
             fun() -> do_socket_monitor1(Config) end).
 
@@ -6718,9 +6719,10 @@ sm_await_down(Pid, Mon, ExpRes) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This is the most basic of tests.
-%% We create a listen socket, then spawns processes that create
-%% monitors to it...
+%% We create "many" listen socket(s), then spawns processes that create
+%% monitors to them...
 socket_monitor1_manys(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
     ?TC_TRY(socket_monitor1_manys,
             fun() -> do_socket_monitor1_manys(Config) end).
 
@@ -6766,17 +6768,6 @@ sm_await_socket_down2([], _ExpType, Name) ->
     exit(ok);
 sm_await_socket_down2(Mons, ExpType, Name) when is_list(Mons) ->
     ?P("[~s] await socket down", [Name]),
-    %% receive
-    %% 	{'DOWN', Mon, Type, Sock, Info} when (Type =:= ExpType) andalso 
-    %% 					     (Mon  =:= ExpMon)  andalso 
-    %% 					     (Sock =:= ExpSock) ->
-    %% 	    ?P("[~s] received expected (socket) down message: "
-    %% 	       "~n   Mon:  ~p"
-    %% 	       "~n   Type: ~p"
-    %% 	       "~n   Sock: ~p"
-    %% 	       "~n   Info: ~p", [Name, Mon, Type, Sock, Info]),
-    %% 	    sm_await_socket_down2(Mons, ExpType, Name)
-    %% end.
     receive
 	{'DOWN', Mon, Type, Sock, Info} when (Type =:= ExpType) ->
 	    ?P("[~s] received expected (socket) down message: "
@@ -6805,6 +6796,7 @@ sm_await_socket_down2(Mons, ExpType, Name) when is_list(Mons) ->
 %% We create a listen socket, then spawn client process(es) that create
 %% monitors to it...
 socket_monitor1_manyc(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
     ?TC_TRY(socket_monitor1_manyc,
             fun() -> do_socket_monitor1_manyc(Config) end).
 
@@ -6852,6 +6844,7 @@ do_socket_monitor1_manyc(Config) ->
 %% Spawn a process that creates a (listen) socket, then spawns processes
 %% that create monitors to it...
 socket_monitor2(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
     ?TC_TRY(socket_monitor2,
             fun() -> do_socket_monitor2(Config) end).
 
@@ -6904,8 +6897,8 @@ do_socket_monitor2(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This is the most basic of tests.
-%% Spawn a process that creates a (listen) socket, then spawns processes
-%% that create monitors to it...
+%% Spawn a process that creates "many" (listen) socket(s), then spawns
+%% a process that create monitors to them...
 
 socket_monitor2_manys(Config) when is_list(Config) ->
     ct:timetrap(?MINS(1)),
@@ -6969,9 +6962,10 @@ do_socket_monitor2_manys(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This is the most basic of tests.
-%% Spawn a process that creates a (listen) socket, then spawns processes
-%% that create monitors to it...
+%% Spawn a process that creates a (listen) socket, then spawns (client)
+%% processes that create monitors to it...
 socket_monitor2_manyc(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
     ?TC_TRY(socket_monitor2_manyc,
             fun() -> do_socket_monitor2_manyc(Config) end).
 
