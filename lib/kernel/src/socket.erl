@@ -897,10 +897,10 @@ monitor(?socket(SockRef) = Socket) when is_reference(SockRef) ->
     case prim_socket:setopt(SockRef, {otp, use_registry}, true) of
         ok ->
             case socket_registry:monitor(Socket) of
-		{ok, MRef} ->
-		    MRef;
 		{error, MReason} ->
-		    erlang:error({invalid, MReason})
+		    erlang:error({invalid, MReason});
+		MRef when is_reference(MRef) ->
+		    MRef
 	    end;
         {error, SReason} ->
 	    erlang:error({invalid, SReason})

@@ -41,13 +41,24 @@
 	 demonitor/1
         ]).
 
+%% Info about each (known) socket
+%% The socket database:
+%%   Key:   socket:socket()
+%%   Value: info()
+%%
+-record(info,
+        {
+	  %% Add time - erlang:monotonic_time(milli_seconds)
+	  atime      :: integer(),
+	  mons  = [] :: [reference()]
+	 }).
 
-%% Cross-ref information needed for each monitor
--record(xref,
+%% Information related to (socket) monitors
+%%   Key:   reference() (the socket monitor)
+%%   Value: mon()
+%%
+-record(mon,
 	{
-	  %% The monitor (ID)
-	  mref  :: reference(),
-
 	  %% The actual socket being monitored
 	  sock  :: socket:socket(),
 
@@ -59,41 +70,35 @@
 	 }).
 
 %% Each process that monitor a socket:
+%%   Key:   pid()
+%%   Value: user()
+%%
 -record(user,
 	{
-	  pid       :: pid(),        %% The process doing the monitoring
 	  mref      :: reference(),  %% Our monitor to this process
 	  %% We actually only need this to know when we
 	  %% no longer need to monitor the process!
 	  mons = [] :: [reference()] %% All (socket-) monitors of this process
 	 }).
 
-%% Info about each (known) socket
--record(info,
-        {
-	  sock       :: socket:socket(),
-	  %% Add time - erlang:monotonic_time(milli_seconds)
-	  atime      :: integer(),
-	  mons  = [] :: [reference()]
-	 }).
-
 -record(state,
 	{
 	  %% The socket "database"
-	  db   = [] :: [info()],
+	  socks = #{},
 	  
-	  %% CrossRef: monitor -> socket
-	  %% [demonitor]
-	  xref = [] :: [xref()],
+	  %% The socket monitor database
+	  mons  = #{},
 
-	  %% Processes that has monitors
-	  user = [] :: [user()]
+	  %% Each process that performs a socket monitor
+	  %% needs to be monitored in turn.
+	  users = #{}
 	}).
 
--type xref()    :: #xref{}.
--type user()    :: #user{}.
--type info()    :: #info{}.
+%% -type mon()     :: #mon{}.
+%% -type user()    :: #user{}.
+%% -type info()    :: #info{}.
 
+-define(NOT_FOUND, {?MODULE, not_found}).
 -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 
@@ -216,88 +221,83 @@ loop(State) ->
 
 %% =========================================================================
 
+handle_add_socket(#state{socks = SDB} = State, Sock) ->
+    SDB2 = sock_update(SDB, Sock, #info{atime = timestamp()}),
+    State#state{socks = SDB2}.
 
-%% =========================================================================
-
-handle_add_socket(#state{db = DB} = State, Sock) ->
-    DB2 = [#info{sock = Sock, atime = timestamp()} | DB],
-    State#state{db = DB2}.
-
-handle_delete_socket(#state{db   = DB,
-			    xref = XRef,
-			    user = Users} = State, Sock) ->
-    case db_sock_lookup(DB, Sock) of
-	{value, #info{mons = Mons}} ->
-	    handle_send_down(Mons, XRef),
-	    Users2 = user_sock_delete_update(Mons, Users, XRef),
-	    XRef2  = xref_sock_delete(XRef, Sock),
-	    DB2    = db_sock_delete(DB, Sock),
-	    State#state{db = DB2, xref = XRef2, user = Users2};
-	false ->
+handle_delete_socket(#state{socks = SDB,
+			    mons  = MDB,
+			    users = UDB} = State, Sock) ->
+    case sock_take(SDB, Sock) of
+	{#info{mons = Mons}, SDB2} ->
+	    handle_send_down(Mons, MDB),
+	    {UDB2, MDB2} = user_sock_delete_update(Mons, UDB, MDB),
+	    State#state{socks = SDB2, mons = MDB2, users = UDB2};
+	error ->
 	    State
     end.
 
-user_sock_delete_update([], Users, _XRef) ->
-    Users;
-user_sock_delete_update([Mon|Mons], Users, XRef) ->
+user_sock_delete_update([], UDB, MDB) ->
+    {UDB, MDB};
+user_sock_delete_update([Mon|Mons], UDB, MDB) ->
     %% ?DBG(['try find monitor', Mon]),
-    case xref_mref_lookup(XRef, Mon) of
-	{value, #xref{pid = Pid}} ->
+    case mon_take(MDB, Mon) of
+	{#mon{pid = Pid}, MDB2} ->
 	    %% ?DBG(['found xref - with user', Pid]),
-	    case user_pid_lookup(Users, Pid) of
+	    %% Delete this user *only* if this is its last monitor
+	    case user_lookup(UDB, Pid) of
 		{value, #user{mref = MRef, mons = [Mon]}} ->
 		    %% ?DBG(['only one monitor -> delete user', MRef]),
 		    erlang:demonitor(MRef, [flush]),
-		    Users2 = user_pid_delete(Users, Pid),
-		    user_sock_delete_update(Mons, Users2, XRef);
+		    UDB2 = user_delete(UDB, Pid),
+		    user_sock_delete_update(Mons, UDB2, MDB2);
 		{value, #user{mons = UMons} = User} ->
 		    %% ?DBG(['several monitor(s)']),
 		    UMons2 = lists:delete(Mon, UMons),
 		    User2  = User#user{mons = UMons2},
-		    Users2 = lists:keyreplace(Pid, #user.pid,
-					      Users, User2),
-		    user_sock_delete_update(Mons, Users2, XRef);
+		    UDB2   = user_update(UDB, Pid, User2),
+		    user_sock_delete_update(Mons, UDB2, MDB2);
 		false -> % race?
 		    %% ?DBG(['no user found']),
-		    user_sock_delete_update(Mons, Users, XRef)
+		    user_sock_delete_update(Mons, UDB, MDB2)
 	    end;
 	false -> % race?
 	    %% ?DBG(['no xref found']),
-	    user_sock_delete_update(Mons, Users, XRef)
+	    user_sock_delete_update(Mons, UDB, MDB)
     end.
 
-handle_send_down([], _XRef) ->
+handle_send_down([], _MDB) ->
     ok;
-handle_send_down([MRef|Mons], XRef) ->
-    case xref_mref_lookup(XRef, MRef) of
-	{value, #xref{pid = Pid, msock = MSock}} ->
-	    send_down(Pid, MRef, MSock),
-	    handle_send_down(Mons, XRef);
+handle_send_down([Mon|Mons], MDB) ->
+    case mon_lookup(MDB, Mon) of
+	{value, #mon{pid = Pid, msock = MSock}} ->
+	    send_down(Pid, Mon, MSock),
+	    handle_send_down(Mons, MDB);
 	false -> % race?
-	    handle_send_down(Mons, XRef)
+	    handle_send_down(Mons, MDB)
     end.
 
-send_down(Pid, MRef, MSock) ->
+send_down(Pid, Mon, MSock) ->
     %% We do not yet have a 'reason', so use 'closed'...
-    Pid ! mk_down_msg(MRef, MSock, closed).
+    Pid ! mk_down_msg(Mon, MSock, closed).
 
 
 
-handle_request(#state{db = DB} = State, number_of, _From) ->
-    {State, db_size(DB)};
+handle_request(#state{socks = SDB} = State, number_of, _From) ->
+    {State, sock_size(SDB)};
 
-handle_request(#state{xref = XRef} = State, number_of_monitors, _From) ->
-    {State, xref_size(XRef)};
+handle_request(#state{mons = MDB} = State, number_of_monitors, _From) ->
+    {State, mon_size(MDB)};
 
-handle_request(#state{user = Users} = State,
+handle_request(#state{users = UDB} = State,
 	       {number_of_monitors, Pid}, _From) ->
-    {State, user_size(Users, Pid)};
+    {State, user_size(UDB, Pid)};
 
-handle_request(#state{db = DB} = State, {which_sockets, Filter}, _From) ->
-    {State, do_which_sockets(DB, Filter)};
+handle_request(#state{socks = SDB} = State, {which_sockets, Filter}, _From) ->
+    {State, do_which_sockets(SDB, Filter)};
 
-handle_request(#state{user = Users} = State, {which_monitors, Pid}, _From) ->
-    {State, user_which_monitors(Users, Pid)};
+handle_request(#state{users = UDB} = State, {which_monitors, Pid}, _From) ->
+    {State, user_which_monitors(UDB, Pid)};
 
 handle_request(State, {monitor, Socket, Opts}, From) ->
     do_monitor_socket(State, Socket, Opts, From);
@@ -312,39 +312,32 @@ handle_request(State, BadRequest, _From) ->
 
 %% ---
 
-handle_user_down(#state{db = DB, xref = XRefs, user = Users} = State, Pid) ->
-    case user_pid_lookup(Users, Pid) of
-	{value, _} ->
+handle_user_down(#state{socks = SDB, mons = MDB, users = UDB} = State, Pid) ->
+    case user_take(UDB, Pid) of
+	{#user{mons = UMons}, UDB2} ->
 	    %% Get info about all sockets monitored by this process
-	    SMRefs = [SMRef ||
-			#xref{mref = SMRef,
-				    pid  = MPid} <- XRefs, (MPid =:= Pid)],
-	    {DB2, XRefs2} = handle_user_down_cleanup(SMRefs, DB, XRefs),
-	    Users2 = user_pid_delete(Users, Pid),
-	    State#state{db = DB2, xref = XRefs2, user = Users2};
+	    {SDB2, MDB2} = handle_user_down_cleanup(UMons, SDB, MDB),
+	    State#state{socks = SDB2, mons = MDB2, users = UDB2};
 	false -> % race
 	    State
     end.
 
-handle_user_down_cleanup([], DB, XRefs) ->
-    {DB, XRefs};
-handle_user_down_cleanup([SMRef|SMRefs], DB, XRefs) ->
-    case xref_mref_lookup(XRefs, SMRef) of
-	{value, #xref{sock = Sock}} ->
-	    case db_sock_lookup(DB, Sock) of
-		{value, #info{mons = Mons} = SI} ->
-		    Mons2  = lists:delete(SMRef, Mons),
-		    SI2    = SI#info{mons = Mons2},
-		    DB2    = db_sock_replace(DB, Sock, SI2),
-		    XRefs2 = xref_mref_delete(XRefs, SMRef),
-		    handle_user_down_cleanup(SMRefs, DB2, XRefs2);
+handle_user_down_cleanup([], SDB, MDB) ->
+    {SDB, MDB};
+handle_user_down_cleanup([Mon|Mons], SDB, MDB) ->
+    case mon_take(MDB, Mon) of
+	{#mon{sock = Sock}, MDB2} ->
+	    case sock_lookup(SDB, Sock) of
+		{value, #info{mons = SMons} = Info} ->
+		    SMons2 = lists:delete(Mon, SMons),
+		    Info2  = Info#info{mons = SMons2},
+		    SDB2   = sock_update(SDB, Sock, Info2),
+		    handle_user_down_cleanup(Mons, SDB2, MDB2);
 		false -> % race?
-		    %% This should be possible, but handle it anyway
-		    XRefs2 = xref_mref_delete(XRefs, SMRef),
-		    handle_user_down_cleanup(SMRefs, DB, XRefs2)
+		    handle_user_down_cleanup(Mons, SDB, MDB2)
 	    end;
-	false -> % race?
-	    handle_user_down_cleanup(SMRefs, DB, XRefs)
+	error -> % race?
+	    handle_user_down_cleanup(Mons, SDB, MDB)
     end.
 
 
@@ -384,8 +377,13 @@ log_msg(Msg) ->
 
 %% mk_log_msg(info, F, A) ->
 %%     mk_log_msg(info, info_msg, F, A);
+
 mk_log_msg(warning, F, A) ->
-    mk_log_msg(warning, warning_msg, F, A).
+    mk_log_msg(warning, warning_msg, F, A);
+
+mk_log_msg(error, F, A) ->
+    mk_log_msg(error, error_msg, F, A).
+
 
 mk_log_msg(Level, Tag, F, A) ->
     Meta = #{pid          => self(),
@@ -394,19 +392,21 @@ mk_log_msg(Level, Tag, F, A) ->
              error_logger => #{tag => Tag}},
     {log, Level, F, A, Meta}.
 
+
+%% ---
+
 mk_down_msg(MRef, MSock, Info) ->
     {'DOWN', MRef, socket, MSock, Info}.
 
 
 %% ---
 
-db_size(DB) ->
-    length(DB).
+sock_size(DB) ->
+    maps:size(DB).
 
-do_which_sockets(DB, Filter) ->
+do_which_sockets(SDB, Filter) ->
     try
-        [Sock ||
-            #info{sock = Sock} <- DB,
+        [Sock || Sock <- maps:keys(SDB),
             if
                 is_boolean(Filter) ->
                     Filter;
@@ -424,41 +424,64 @@ do_which_sockets(DB, Filter) ->
                             Filter(SockInfo) =:= true
                     end
             end]
-    catch _ : _ ->
+    catch
+	C:E:S ->
             %% Filter/1 must have failed
+	    F = "socket-registry error while processing socket: "
+		"~n   Class: ~p"
+		"~n   Error: ~p"
+		"~n   Stack: ~p",
+	    A = [C, E, S],
+	    log_msg(error, F, A),
             badarg
     end.
     
-do_monitor_socket(#state{db   = DB,
-			 xref = XRefs,
-			 user = Users} = State, Sock, Opts, From) ->
-    case db_sock_lookup(DB, Sock) of
-	{value, #info{mons = Mons} = SI} ->
-	    %% Check if this process has already monitored this socket
-	    %% Or shall we allow multiple monitors?
-	    %% That is, the same process can have multiple monitors
-	    %% to the same socket?
-	    case xref_pid_lookup(Mons, From) of
-		{value, #xref{mref = MRef}} ->
-		    Result = {ok, MRef},
-		    {State, Result};
-		false ->
-		    %% We need to keep track of the process
-		    %% We also need to know when we no longer need to
-		    %% monitor the process...
-		    SMRef  = make_ref(),
-		    Mons2  = [SMRef|Mons],
-		    SI2    = SI#info{mons = Mons2},
-		    DB2    = db_sock_replace(DB, Sock, SI2),
-		    MSock  = maps:get(msocket, Opts, Sock),
-		    XRef   = #xref{mref  = SMRef,
-				   sock  = Sock,
-				   msock = MSock,
-				   pid   = From},
-		    XRefs2 = [XRef|XRefs],
-		    Users2 = user_pid_add(Users, From, SMRef),
-		    Result = {ok, SMRef},
-		    {State#state{db = DB2, xref = XRefs2, user = Users2},
+do_monitor_socket(#state{socks = SDB,
+			 mons  = MDB,
+			 users = UDB} = State, Sock, Opts, Pid) ->
+    case sock_lookup(SDB, Sock) of
+	{value, #info{mons = SMons} = Info} ->
+	    %% Its allowed for one process to monitor the same socket
+	    %% multiple times. Each call will result in a new monitor.
+	    %%
+	    %% We need to monitor this process, so check if this is
+	    %% the first monitor created (by this process).
+	    %% *We* do not create more than one monitor for each process...
+	    %%
+	    SMon = make_ref(),
+	    %% Create monitor info and update monitor sb
+	    MSock  = maps:get(msocket, Opts, Sock),
+	    Mon    = #mon{sock  = Sock,
+			  msock = MSock,
+			  pid   = Pid},
+	    MDB2   = mon_update(MDB, SMon, Mon),
+
+	    %% Socket Info
+	    SMons2 = [SMon|SMons],
+	    Info2  = Info#info{mons = SMons2},
+	    SDB2   = sock_update(SDB, Sock, Info2),
+
+	    case user_lookup(UDB, Pid) of
+		{value, #user{mons = UMons} = User} ->
+		    %% User Info
+		    UMons2 = [SMon|UMons],
+		    User2  = User#user{mons = UMons2},
+		    UDB2   = user_update(UDB, Pid, User2),
+
+		    %% And we are done
+		    Result = {ok, SMon},
+		    {State#state{socks = SDB2, mons = MDB2, users = UDB2},
+		     Result};
+
+		false -> % First time for this process
+		    %% User Info
+		    MRef = erlang:monitor(process, Pid),
+		    User = #user{mref = MRef, mons = [SMon]},
+		    UDB2 = user_update(UDB, Pid, User),
+
+		    %% And we are done
+		    Result = {ok, SMon},
+		    {State#state{socks = SDB2, mons = MDB2, users = UDB2},
 		     Result}
 	    end;
 	false ->
@@ -467,32 +490,45 @@ do_monitor_socket(#state{db   = DB,
     end.
 
 
-do_demonitor_socket(#state{db = DB, xref = XRefs, user = Users} = State,
-		    MRef, From) ->
-    case xref_mref_lookup(XRefs, MRef) of
-	{value, #xref{sock = Sock, pid = From}} ->
-	    %% ?DBG({xref, Sock, Pid}),
+do_demonitor_socket(#state{socks = SDB, mons = MDB, users = UDB} = State,
+		    Mon, Pid) ->
+    case mon_lookup(MDB, Mon) of
+	{value, #mon{sock = Sock, pid = Pid}} ->
 	    %% So far so good
-	    case db_sock_lookup(DB, Sock) of
+	    %% 'Pid' is the rightfull owner
+	    %% ?DBG({mon, Sock, Pid}),
+	    case sock_lookup(SDB, Sock) of
 		%% So faar so goood
-		{value, #info{mons = Mons} = SI} ->
-		    %% ?DBG({mons, Mons}),
-		    Mons2  = lists:delete(MRef, Mons),
-		    Users2 = user_pid_delete_mon(Users, From, MRef),
-		    SI2    = SI#info{mons = Mons2},
-		    DB2    = db_sock_replace(DB, Sock, SI2),
-		    XRefs2 = xref_mref_delete(XRefs, MRef),
-		    Result = ok,
-		    {State#state{db = DB2, xref = XRefs2, user = Users2},
-		     Result};
+		{value, #info{mons = SMons} = Info} ->
+		    %% ?DBG({smons, SMons}),
+		    SMons2 = lists:delete(Mon, SMons),
+		    Info2  = Info#info{mons = SMons2},
+		    SDB2   = sock_update(SDB, Sock, Info2),
+		    MDB2   = mon_delete(MDB, Mon),
+		    case user_lookup(UDB, Pid) of
+			{value, #user{mons = UMons} = User} ->
+			    %% ?DBG({umons, UMons}),
+			    UMons2 = lists:delete(Mon, UMons),
+			    User2  = User#user{mons = UMons2},
+			    UDB2   = user_update(UDB, Pid, User2),
+			    Result = ok,
+			    {State#state{socks = SDB2,
+					 mons  = MDB2,
+					 users = UDB2},
+			     Result};
+			false -> % race?
+			    %% The socket has been deleted => race
+			    Result = ok,
+			    {State#state{socks = SDB2, mons = MDB2}, Result}
+		    end;
 		false ->
 		    %% The socket has been deleted => race
+		    MDB2   = mon_delete(MDB, Mon),
 		    Result = {error, unknown_socket},
-		    XRefs2 = xref_mref_delete(XRefs, MRef),
-		    {State#state{xref = XRefs2}, Result}
+		    {State#state{mons = MDB2}, Result}
 	    end;
-	{value, #xref{sock = _Sock, pid = _Pid}} ->
-	    %% Not the owner of this monitor
+	{value, #mon{sock = _Sock, pid = _Pid}} ->
+	    %% *Not* the owner of this monitor
 	    Result = {error, not_owner},
 	    {State, Result};
 	false ->
@@ -505,118 +541,76 @@ do_demonitor_socket(#state{db = DB, xref = XRefs, user = Users} = State,
 
 %% =========================================================================
 
-%% --- XRef utility functions ---
+%% --- Monitor database utility functions ---
 
-xref_sock_delete(XRefs, Sock) when is_list(XRefs) ->
-    xref_delete(XRefs, #xref.sock, Sock).
+mon_delete(DB, Mon) when is_map(DB) andalso is_reference(Mon) ->
+    maps:remove(Mon, DB).
 
-xref_mref_delete(XRefs, MRef) when is_list(XRefs) andalso is_reference(MRef) ->
-    xref_delete(XRefs, #xref.mref, MRef).
+mon_lookup(DB, Mon) when is_map(DB) andalso is_reference(Mon) ->
+    lookup(DB, Mon).
 
-xref_delete([] = XRefs, _Pos, _Key) ->
-    XRefs;
-xref_delete(XRefs, Pos, Key) ->
-    case lists:keydelete(Key, Pos, XRefs) of
-	XRefs ->
-	    XRefs;
-	XRefs2 ->
-	    xref_delete(XRefs2, Pos, Key)
-    end.
+mon_take(DB, Mon) when is_map(DB) andalso is_reference(Mon) ->
+    maps:take(Mon, DB).
 
+mon_update(DB, Mon, Value) when is_map(DB) andalso is_reference(Mon) ->
+    maps:put(Mon, Value, DB).
 
-xref_mref_lookup(XRefs, MRef) when is_list(XRefs) andalso is_reference(MRef) ->
-    xref_lookup(XRefs, #xref.mref, MRef).
-
-xref_pid_lookup(XRefs, Pid) when is_list(XRefs) andalso is_pid(Pid) ->
-    xref_lookup(XRefs, #xref.pid, Pid).
-
-xref_lookup(XRefs, Pos, Key) ->
-    lists:keysearch(Key, Pos, XRefs).
-
-xref_size(XRefs) when is_list(XRefs) ->
-    length(XRefs).
+mon_size(DB) when is_map(DB) ->
+    maps:size(DB).
 
 
 %% --- DB utility functions ---
 
-db_sock_lookup(DB, Sock) when is_list(DB) ->
-    db_lookup(DB, #info.sock, Sock).
+sock_lookup(DB, Sock) when is_map(DB) ->
+    lookup(DB, Sock).
 
-db_lookup(DB, Pos, Key) ->
-    lists:keysearch(Key, Pos, DB).
+sock_take(DB, Sock) when is_map(DB) ->
+    maps:take(Sock, DB).
 
+%% sock_delete(DB, Sock) when is_map(DB) ->
+%%     maps:remove(Sock, DB).
 
-db_sock_delete(DB, Sock) when is_list(DB) ->
-    db_delete(DB, #info.sock, Sock).
-
-db_delete(DB, Pos, Key) ->
-    lists:keydelete(Key, Pos, DB).
-
-
-db_sock_replace(DB, Sock, Info) when is_list(DB) ->
-    db_replace(DB, #info.sock, Sock, Info).
-
-db_replace(DB, Pos, Key, Info) ->
-    lists:keyreplace(Key, Pos, DB, Info).
+sock_update(DB, Sock, Info) when is_map(DB) ->
+    maps:put(Sock, Info, DB).
 
 
 %% --- Users utility functions ---
 
-%% Side effect: We will monitor the process (if this was the first monitor)
-user_pid_add(Users, Pid, SMRef)
-  when is_list(Users) andalso is_pid(Pid) andalso is_reference(SMRef) ->
-    Pos = #user.pid,
-    case lists:keysearch(Pid, Pos, Users) of
-	{value, #user{mons = Mons} = User} ->
-	    Mons2 = [SMRef|Mons],
-	    User2 = User#user{mons = Mons2},
-	    lists:keyreplace(Pid, Pos, Users, User2);
-	false ->
-	    MRef = erlang:monitor(process, Pid),
-	    User = #user{pid = Pid, mref = MRef, mons = [SMRef]},
-	    [User|Users]
-    end.
+user_delete(DB, Pid) when is_map(DB) ->
+    maps:remove(Pid, DB).
 
-%% Side effect: We will demonitor the process (if this was the last monitors)
-user_pid_delete_mon(Users, Pid, SMRef)
-  when is_list(Users) andalso is_reference(SMRef) ->
-    Pos = #user.pid,
-    case lists:keysearch(Pid, Pos, Users) of
+user_lookup(DB, Pid) when is_map(DB) ->
+    lookup(DB, Pid).
 
-	%% The last monitor of this process
-	{value, #user{mref = MRef, mons = [SMRef]}} ->
-	    erlang:demonitor(MRef, [flush]),
-	    lists:keydelete(Pid, Pos, Users);
+user_take(DB, Pid) when is_map(DB) ->
+    maps:take(Pid, DB).
 
-	%% At least one more
-	{value, #user{mons = Mons} = User} ->
-	    Mons2 = lists:delete(SMRef, Mons),
-	    User2 = User#user{mons = Mons2},
-	    lists:keyreplace(Pid, Pos, Users, User2);
+user_update(DB, Pid, Value) when is_map(DB) andalso is_pid(Pid) ->
+    maps:put(Pid, Value, DB).
 
-	% race?
-	false ->
-	    Users
-    end.
-
-user_pid_delete(Users, Pid) when is_list(Users) ->
-    lists:keydelete(Pid, #user.pid, Users).
-
-user_pid_lookup(Users, Pid) when is_list(Users) ->
-    lists:keysearch(Pid, #user.pid, Users).
-
-user_which_monitors(Users, Pid) when is_list(Users) andalso is_pid(Pid) ->
-    case user_pid_lookup(Users, Pid) of
+user_which_monitors(DB, Pid) when is_map(DB) andalso is_pid(Pid) ->
+    case user_lookup(DB, Pid) of
 	{value, #user{mons = Mons}} ->
 	    Mons;
 	false ->
 	    []
     end.
 
-user_size(Users, Pid) when is_list(Users) andalso is_pid(Pid) ->
-    length(user_which_monitors(Users, Pid)).
+user_size(DB, Pid) when is_map(DB) andalso is_pid(Pid) ->
+    length(user_which_monitors(DB, Pid)).
 
 
+%% =========================================================================
+
+lookup(DB, Key) ->
+    case maps:get(Key, DB, ?NOT_FOUND) of
+	?NOT_FOUND ->
+	    false;
+	Value ->
+	    {value, Value}
+    end.
+
+    
 %% =========================================================================
 
 request(Req) ->
