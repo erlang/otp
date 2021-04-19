@@ -266,6 +266,8 @@
 	  channel_id_seed,
 	  cli_spec,
 	  options,
+          suggest_window_size,
+          suggest_packet_size,
 	  exec,
 	  sub_system_supervisor
 	 }).

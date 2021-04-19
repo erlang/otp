@@ -171,8 +171,8 @@ disconnect(Code, DetailedText, Module, Line) ->
 -spec open_channel(connection_ref(), 
 		   string(),
 		   iodata(),
-		   pos_integer(),
-		   pos_integer(),
+		   pos_integer() | undefined,
+		   pos_integer() | undefined,
 		   timeout()
 		  ) -> {open, channel_id()} | {error, term()}.
 		   
@@ -409,7 +409,7 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
                           transport_cb = Callback,
                           transport_close_tag = CloseTag,
                           ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
-                          connection_state = init_connection_record(Role, Opts)
+                          connection_state = init_connection_record(Role, Socket, Opts)
                          },
                 process_flag(trap_exit, true),
                 {ok, {hello,Role}, D}
@@ -425,9 +425,12 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
 %%%----------------------------------------------------------------
 %%% Connection start and initalization helpers
 
-init_connection_record(Role, Opts) ->
+init_connection_record(Role, Socket, Opts) ->
+    {WinSz, PktSz} = init_inet_buffers_window(Socket),
     C = #connection{channel_cache = ssh_client_channel:cache_create(),
                     channel_id_seed = 0,
+                    suggest_window_size = WinSz,
+                    suggest_packet_size = PktSz,
                     requests = [],
                     options = Opts,
                     sub_system_supervisor = ?GET_INTERNAL_OPT(subsystem_sup, Opts)
@@ -441,8 +444,6 @@ init_connection_record(Role, Opts) ->
         client ->
             C
     end.
-                         
-
 
 init_ssh_record(Role, Socket, Opts) ->
     %% Export of this internal function is
@@ -1003,20 +1004,26 @@ handle_event({call,From}, get_misc, StateName,
 handle_event({call,From},
 	     {open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data, Timeout},
 	     StateName,
-	     D0) when ?CONNECTED(StateName) ->
+	     D0 = #data{connection_state = C}) when ?CONNECTED(StateName) ->
     erlang:monitor(process, ChannelPid),
     {ChannelId, D1} = new_channel_id(D0),
-    D2 = send_msg(ssh_connection:channel_open_msg(Type, ChannelId,
-						  InitialWindowSize,
-						  MaxPacketSize, Data),
+    WinSz = case InitialWindowSize of
+                undefined -> C#connection.suggest_window_size;
+                _ -> InitialWindowSize
+            end,
+    PktSz = case MaxPacketSize of
+                undefined -> C#connection.suggest_packet_size;
+                _ -> MaxPacketSize
+            end,
+    D2 = send_msg(ssh_connection:channel_open_msg(Type, ChannelId, WinSz, PktSz, Data),
 		  D1),
     ssh_client_channel:cache_update(cache(D2), 
 			     #channel{type = Type,
 				      sys = "none",
 				      user = ChannelPid,
 				      local_id = ChannelId,
-				      recv_window_size = InitialWindowSize,
-				      recv_packet_size = MaxPacketSize,
+				      recv_window_size = WinSz,
+				      recv_packet_size = PktSz,
 				      send_buf = queue:new()
 				     }),
     D = add_request(true, ChannelId, From, D2),
@@ -1967,6 +1974,18 @@ start_channel_request_timer(Channel, From, Time) ->
     erlang:send_after(Time, self(), {timeout, {Channel, From}}).
 
 %%%----------------------------------------------------------------
+
+init_inet_buffers_window(Socket) ->                         
+    %% Initialize the inet buffer handling. First try to increase the buffers:
+    update_inet_buffers(Socket),
+    %% then get good start values for the window handling:
+    {ok,SockOpts} = inet:getopts(Socket, [buffer,recbuf]),
+    WinSz = proplists:get_value(recbuf, SockOpts, ?DEFAULT_WINDOW_SIZE),
+    PktSz = min(proplists:get_value(buffer, SockOpts, ?DEFAULT_PACKET_SIZE),
+                ?DEFAULT_PACKET_SIZE),  % Too large packet size might cause deadlock
+                                        % between sending and receiving
+    {WinSz, PktSz}.
+    
 update_inet_buffers(Socket) ->
     try
         {ok, BufSzs0} = inet:getopts(Socket, [sndbuf,recbuf]),
@@ -1975,7 +1994,11 @@ update_inet_buffers(Socket) ->
                          Val < MinVal]
     of
 	[] -> ok;
-	NewOpts -> inet:setopts(Socket, NewOpts)
+	NewOpts ->
+            inet:setopts(Socket, NewOpts),
+            %% Note that buffers might be of different size than we just requested,
+            %% the OS has the last word.
+            ok
     catch
         _:_ -> ok
     end.

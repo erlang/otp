@@ -199,13 +199,13 @@ dummy(_) -> false.
       Result :: {ok, ssh:channel_id()} | {error, reason()} .
 
 session_channel(ConnectionHandler, Timeout) ->
-    session_channel(ConnectionHandler, ?DEFAULT_WINDOW_SIZE, ?DEFAULT_PACKET_SIZE, Timeout).
+    session_channel(ConnectionHandler, undefined, undefined, Timeout).
 
 
 -spec session_channel(ConnectionRef, InitialWindowSize, MaxPacketSize, Timeout) -> Result when
       ConnectionRef :: ssh:connection_ref(),
-      InitialWindowSize :: pos_integer(),
-      MaxPacketSize :: pos_integer(),
+      InitialWindowSize :: pos_integer() | undefined,
+      MaxPacketSize :: pos_integer() | undefined,
       Timeout :: timeout(),
       Result :: {ok, ssh:channel_id()} | {error, reason()} .
 
@@ -219,7 +219,7 @@ session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
 %% Description: Opens a channel for the given type.
 %% --------------------------------------------------------------------
 open_channel(ConnectionHandler, Type, ChanData, Timeout) ->
-    open_channel(ConnectionHandler, Type, ChanData, ?DEFAULT_WINDOW_SIZE, ?DEFAULT_PACKET_SIZE, Timeout).
+    open_channel(ConnectionHandler, Type, ChanData, undefined, undefined, Timeout).
 
 open_channel(ConnectionHandler, Type, ChanData, InitialWindowSize, MaxPacketSize, Timeout) ->
     case ssh_connection_handler:open_channel(ConnectionHandler, Type, ChanData,
@@ -603,6 +603,8 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
                                 },
            #connection{channel_cache = Cache,
                        channel_id_seed = ChId,
+                       suggest_window_size = WinSz,
+                       suggest_packet_size = PktSz,
                        options = Options,
                        sub_system_supervisor = SubSysSup
                       } = C,
@@ -621,17 +623,15 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
                                                                  local_id = ChId,
                                                                  remote_id = RemoteId,
                                                                  user = Pid,
-                                                                 recv_window_size = ?DEFAULT_WINDOW_SIZE,
-                                                                 recv_packet_size = ?DEFAULT_PACKET_SIZE,
+                                                                 recv_window_size = WinSz,
+                                                                 recv_packet_size = PktSz,
                                                                  send_window_size = WindowSize,
                                                                  send_packet_size = PacketSize,
                                                                  send_buf = queue:new()
                                                                 }),
                         gen_tcp:controlling_process(Sock, Pid),
                         inet:setopts(Sock, [{active,once}]),
-                        {channel_open_confirmation_msg(RemoteId, ChId,
-                                                       ?DEFAULT_WINDOW_SIZE, 
-                                                       ?DEFAULT_PACKET_SIZE),
+                        {channel_open_confirmation_msg(RemoteId, ChId, WinSz, PktSz),
                          ChId + 1};
 
                     {error,Error} ->
@@ -661,6 +661,8 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                                 }, 
 	   #connection{channel_cache = Cache,
                        channel_id_seed = ChId,
+                       suggest_window_size = WinSz,
+                       suggest_packet_size = PktSz,
                        options = Options,
                        sub_system_supervisor = SubSysSup
                       } = C,
@@ -687,8 +689,8 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                                                                  local_id = ChId,
                                                                  remote_id = RemoteId,
                                                                  user = Pid,
-                                                                 recv_window_size = ?DEFAULT_WINDOW_SIZE,
-                                                                 recv_packet_size = ?DEFAULT_PACKET_SIZE,
+                                                                 recv_window_size = WinSz,
+                                                                 recv_packet_size = PktSz,
                                                                  send_window_size = WindowSize,
                                                                  send_packet_size = PacketSize,
                                                                  send_buf = queue:new()
@@ -696,9 +698,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                         gen_tcp:controlling_process(Sock, Pid),
                         inet:setopts(Sock, [{active,once}]),
 
-                        {channel_open_confirmation_msg(RemoteId, ChId,
-                                                       ?DEFAULT_WINDOW_SIZE, 
-                                                       ?DEFAULT_PACKET_SIZE),
+                        {channel_open_confirmation_msg(RemoteId, ChId, WinSz, PktSz),
                          ChId + 1};
 
                     {error,Error} ->
@@ -1101,16 +1101,19 @@ encode_ip(Addr) when is_list(Addr) ->
 %%% of "session" typ is handled
 %%%
 setup_session(#connection{channel_cache = Cache,
-                          channel_id_seed = NewChannelID
+                          channel_id_seed = NewChannelID,
+                          suggest_window_size = WinSz,
+                          suggest_packet_size = PktSz
 			 } = C,
-	      RemoteId, Type, WindowSize, PacketSize) ->
+	      RemoteId, Type, WindowSize, PacketSize) when is_integer(WinSz),
+                                                           is_integer(PktSz) ->
     NextChannelID = NewChannelID + 1,
     Channel =
         #channel{type = Type,
                  sys = "ssh",
                  local_id = NewChannelID,
-                 recv_window_size = ?DEFAULT_WINDOW_SIZE,
-                 recv_packet_size = ?DEFAULT_PACKET_SIZE,
+                 recv_window_size = WinSz,
+                 recv_packet_size = PktSz,
                  send_window_size = WindowSize,
                  send_packet_size = PacketSize,
                  send_buf = queue:new(),
@@ -1118,9 +1121,9 @@ setup_session(#connection{channel_cache = Cache,
                 },
     ssh_client_channel:cache_update(Cache, Channel),
     OpenConfMsg = channel_open_confirmation_msg(RemoteId, NewChannelID,
-						?DEFAULT_WINDOW_SIZE, 
-						?DEFAULT_PACKET_SIZE),
-    Reply = {connection_reply, OpenConfMsg},
+						WinSz, 
+						PktSz),
+                Reply = {connection_reply, OpenConfMsg},
     {[Reply], C#connection{channel_id_seed = NextChannelID}}.
 
 
