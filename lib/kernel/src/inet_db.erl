@@ -1706,12 +1706,12 @@ match_rr(CacheDb, [RR | RRs], Time, ResultRRs, InsertRRs, DeleteRRs) ->
             Key = match_rr_key(RR),
             match_rr(
               CacheDb, RRs, Time,
-              ResultRRs#{Key => RR}, InsertRRs, [RRs | DeleteRRs]);
+              ResultRRs#{Key => RR}, InsertRRs, [RR | DeleteRRs]);
         TM + TTL < Time ->
             %% Expired, delete
             match_rr(
               CacheDb, RRs, Time,
-              ResultRRs, InsertRRs, [RRs | DeleteRRs]);
+              ResultRRs, InsertRRs, [RR | DeleteRRs]);
         Time =< Cnt ->
             %% Valid and just updated, return and do not update
             Key = match_rr_key(RR),
