@@ -1159,15 +1159,7 @@ static int count_leading_zeroes(UWord value) {
         return word_bits;
     }
 
-    UWord mask = UWORD_CONSTANT(1) << (word_bits - 1);
-    int count = 0;
-
-    while ((value & mask) == 0) {
-        mask >>= 1;
-        count++;
-    }
-
-    return count;
+    return Support::clz(value);
 }
 
 void BeamModuleAssembler::emit_i_bsl(const ArgVal &LHS,
