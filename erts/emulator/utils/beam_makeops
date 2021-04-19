@@ -178,6 +178,8 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero,
 		'h' => 1,	# character (not used)
 		'l' => 1,	# float reg
 		'q' => 1,	# literal term
+		'M' => 1,	# pointer to raw string
+		'H' => 1,	# exception handler
 	     );
 
 #
@@ -256,6 +258,8 @@ sub define_type_bit {
     define_type_bit('e', $type_bit{'u'});
     define_type_bit('Q', $type_bit{'u'});
     define_type_bit('P', $type_bit{'u'});
+    define_type_bit('M', $type_bit{'u'});
+    define_type_bit('H', $type_bit{'u'});
 }
 
 #

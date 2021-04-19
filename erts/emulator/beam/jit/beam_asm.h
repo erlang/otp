@@ -61,10 +61,6 @@ void beamasm_patch_literal(void *ba, char *rw_base, int index, Eterm lit);
 void beamasm_patch_lambda(void *ba, char *rw_base, int index, BeamInstr fe);
 void beamasm_patch_strings(void *ba, char *rw_base, const byte *strtab);
 
-void beamasm_emit_call_bif(const ErtsCodeInfo *info,
-                           Eterm (*bif)(BIF_ALIST),
-                           char *buff,
-                           unsigned buff_len);
 void beamasm_emit_call_nif(const ErtsCodeInfo *info,
                            void *normal_fptr,
                            void *lib,

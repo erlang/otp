@@ -133,7 +133,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
      * Don't store the result if the destination is the scratch X register.
      * (This instruction was originally a has_map_fields instruction.)
      */
-    if (!(Dst.getType() == ArgVal::x && Dst.getValue() == SCRATCH_X_REG)) {
+    if (!(Dst.getType() == ArgVal::XReg && Dst.getValue() == SCRATCH_X_REG)) {
         mov_arg(Dst, RET);
     }
 }
@@ -185,7 +185,7 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
      * Don't store the result if the destination is the scratch X register.
      * (This instruction was originally a has_map_fields instruction.)
      */
-    if (!(Dst.getType() == ArgVal::x && Dst.getValue() == SCRATCH_X_REG)) {
+    if (!(Dst.getType() == ArgVal::XReg && Dst.getValue() == SCRATCH_X_REG)) {
         mov_arg(Dst, RET);
     }
 }

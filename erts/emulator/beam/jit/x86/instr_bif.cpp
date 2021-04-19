@@ -107,7 +107,7 @@ void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
     /* If the guard BIF's arguments are in memory and continuous, for example
      * `map_get(x0, x1)`, then we can pass the address of the first argument
      * instead of filling in the argument vector. */
-    is_contiguous_mem = args.size() && args[0].isMem();
+    is_contiguous_mem = args.size() && args[0].isRegister();
     for (size_t i = 1; i < args.size() && is_contiguous_mem; i++) {
         const ArgVal &curr = args[i], &prev = args[i - 1];
 
@@ -866,7 +866,7 @@ void BeamModuleAssembler::emit_call_bif_mfa(const ArgVal &M,
     ASSERT(e != NULL && e->bif_number != -1);
 
     func = (BeamInstr)bif_table[e->bif_number].f;
-    emit_call_bif(ArgVal(ArgVal::i, func));
+    emit_call_bif(ArgVal(ArgVal::Immediate, func));
 }
 
 void BeamGlobalAssembler::emit_call_nif_early() {

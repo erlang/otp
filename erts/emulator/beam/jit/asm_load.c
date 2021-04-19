@@ -252,7 +252,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         switch (*sign) {
         case 'n': /* Nil */
             ASSERT(tag != TAG_r);
-            curr->type = TAG_i;
+            curr->type = 'I';
             curr->val = NIL;
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
             break;
@@ -262,19 +262,20 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'a': /* Tagged atom */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
-            curr->type = TAG_i;
+            curr->type = 'I';
             break;
         case 'c': /* Tagged constant */
             switch (tag) {
             case TAG_i:
                 curr->val = make_small((Uint)curr->val);
+                curr->type = 'I';
                 break;
             case TAG_a:
-                curr->type = TAG_i;
+                curr->type = 'I';
                 break;
             case TAG_n:
                 curr->val = NIL;
-                curr->type = TAG_i;
+                curr->type = 'I';
                 break;
             case TAG_q:
                 break;
@@ -294,12 +295,13 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                 break;
             case TAG_i:
                 curr->val = (BeamInstr)make_small(curr->val);
+                curr->type = 'I';
                 break;
             case TAG_a:
-                curr->type = TAG_i;
+                curr->type = 'I';
                 break;
             case TAG_n:
-                curr->type = TAG_i;
+                curr->type = 'I';
                 curr->val = NIL;
                 break;
             case TAG_q: {
@@ -400,7 +402,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             if (curr->val >= stp->beam.imports.count) {
                 BeamLoadError1(stp, "invalid import table index %d", curr->val);
             }
-            curr->type = TAG_r;
+            curr->type = 'E';
             break;
         case 'b': {
             int i = tmp_op->a[arg].val;
@@ -426,10 +428,26 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'F': /* Fun entry */
             BeamLoadVerifyTag(stp, tag, TAG_u);
+            curr->type = 'F';
+            break;
+        case 'H': /* Exception handler */
+            BeamLoadVerifyTag(stp, tag, TAG_f);
+            curr->type = 'H';
+            break;
+        case 'M':
+            curr->type = 'M';
+            break;
+        case 'i':
+            curr->type = 'I';
             break;
         default:
             BeamLoadError1(stp, "bad argument tag: %d", *sign);
         }
+
+        /* These types must have been translated to 'I' */
+        ASSERT(curr->type != TAG_i && curr->type != TAG_n &&
+               curr->type != TAG_a && curr->type != TAG_v);
+
         sign++;
         arg++;
     }
@@ -437,7 +455,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
     /*
      * Verify and massage any list arguments according to the primitive tags.
      *
-     * TAG_i will denote a tagged immediate value (NIL, small integer,
+     * 'I' will denote a tagged immediate value (NIL, small integer,
      * atom, or tuple arity). TAG_n, TAG_a, and TAG_v will no longer be used.
      */
     for (; arg < tmp_op->arity; arg++) {
@@ -446,14 +464,15 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         switch (tmp_op->a[arg].type) {
         case TAG_i:
             curr->val = make_small(tmp_op->a[arg].val);
+            curr->type = 'I';
             break;
         case TAG_n:
             curr->val = NIL;
-            curr->type = TAG_i;
+            curr->type = 'I';
             break;
         case TAG_a:
         case TAG_v:
-            curr->type = TAG_i;
+            curr->type = 'I';
             break;
         case TAG_u:
         case TAG_f:

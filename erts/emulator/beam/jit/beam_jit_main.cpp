@@ -256,16 +256,16 @@ void beamasm_init() {
         entry_label = label++;
 
         bma->emit(op_aligned_label_Lt,
-                  {ArgVal(ArgVal::i, func_label),
-                   ArgVal(ArgVal::u, sizeof(UWord))});
+                  {ArgVal(ArgVal::Immediate, func_label),
+                   ArgVal(ArgVal::Word, sizeof(UWord))});
         bma->emit(op_i_func_info_IaaI,
-                  {ArgVal(ArgVal::i, func_label),
-                   ArgVal(ArgVal::i, mod_name),
-                   ArgVal(ArgVal::i, op.name),
-                   ArgVal(ArgVal::i, op.arity)});
+                  {ArgVal(ArgVal::Immediate, func_label),
+                   ArgVal(ArgVal::Immediate, mod_name),
+                   ArgVal(ArgVal::Immediate, op.name),
+                   ArgVal(ArgVal::Immediate, op.arity)});
         bma->emit(op_aligned_label_Lt,
-                  {ArgVal(ArgVal::i, entry_label),
-                   ArgVal(ArgVal::u, sizeof(UWord))});
+                  {ArgVal(ArgVal::Immediate, entry_label),
+                   ArgVal(ArgVal::Word, sizeof(UWord))});
         bma->emit(op.operand, {});
 
         op.operand = entry_label;
@@ -466,40 +466,19 @@ extern "C"
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
 
         ba.emit(op_aligned_label_Lt,
-                {ArgVal(ArgVal::i, 1), ArgVal(ArgVal::u, sizeof(UWord))});
+                {ArgVal(ArgVal::Immediate, 1), ArgVal(ArgVal::Word, sizeof(UWord))});
         ba.emit(op_i_func_info_IaaI,
-                {ArgVal(ArgVal::i, 1),
-                 ArgVal(ArgVal::i, info->mfa.module),
-                 ArgVal(ArgVal::i, info->mfa.function),
-                 ArgVal(ArgVal::i, info->mfa.arity)});
+                {ArgVal(ArgVal::Immediate, 1),
+                 ArgVal(ArgVal::Immediate, info->mfa.module),
+                 ArgVal(ArgVal::Immediate, info->mfa.function),
+                 ArgVal(ArgVal::Immediate, info->mfa.arity)});
         ba.emit(op_aligned_label_Lt,
-                {ArgVal(ArgVal::i, 2), ArgVal(ArgVal::u, sizeof(UWord))});
+                {ArgVal(ArgVal::Immediate, 2), ArgVal(ArgVal::Word, sizeof(UWord))});
         ba.emit(op_i_breakpoint_trampoline, {});
         ba.emit(op_call_nif_WWW,
-                {ArgVal(ArgVal::i, (BeamInstr)normal_fptr),
-                 ArgVal(ArgVal::i, (BeamInstr)lib),
-                 ArgVal(ArgVal::i, (BeamInstr)dirty_fptr)});
-
-        ba.codegen(buff, buff_len);
-    }
-
-    void beamasm_emit_call_bif(const ErtsCodeInfo *info,
-                               Eterm (*bif)(BIF_ALIST),
-                               char *buff,
-                               unsigned buff_len) {
-        BeamModuleAssembler ba(bga, info->mfa.module, 3);
-
-        ba.emit(op_aligned_label_Lt,
-                {ArgVal(ArgVal::i, 1), ArgVal(ArgVal::u, sizeof(UWord))});
-        ba.emit(op_i_func_info_IaaI,
-                {ArgVal(ArgVal::i, 1),
-                 ArgVal(ArgVal::i, info->mfa.module),
-                 ArgVal(ArgVal::i, info->mfa.function),
-                 ArgVal(ArgVal::i, info->mfa.arity)});
-        ba.emit(op_aligned_label_Lt,
-                {ArgVal(ArgVal::i, 2), ArgVal(ArgVal::u, sizeof(UWord))});
-        ba.emit(op_i_breakpoint_trampoline, {});
-        ba.emit(op_call_bif_W, {ArgVal(ArgVal::i, (BeamInstr)bif)});
+                {ArgVal(ArgVal::Immediate, (BeamInstr)normal_fptr),
+                 ArgVal(ArgVal::Immediate, (BeamInstr)lib),
+                 ArgVal(ArgVal::Immediate, (BeamInstr)dirty_fptr)});
 
         ba.codegen(buff, buff_len);
     }

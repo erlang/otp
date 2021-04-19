@@ -39,104 +39,131 @@ extern "C"
 #include "beam_file.h"
 }
 
-class ArgVal {
-    BeamOpArg gen_op;
+struct ArgVal {
+    enum TYPE : int {
+        Word = TAG_u,
+        XReg = TAG_x,
+        YReg = TAG_y,
+        FReg = TAG_l,
+        Label = TAG_f,
+        Literal = TAG_q,
 
-public:
-    enum TYPE {
-        u = TAG_u,
-        i = TAG_i,
-        x = TAG_x,
-        y = TAG_y,
-        f = TAG_f,
-        q = TAG_q,
-        e = TAG_r,
-        l = TAG_l /* float register */
+        BytePtr = 'M',
+        Catch = 'H',
+        Export = 'E',
+        FunEntry = 'F',
+        Immediate = 'I'
     };
 
-    ArgVal(const BeamOpArg &arg) {
-        gen_op = arg;
+    ArgVal(const BeamOpArg &arg) : ArgVal(arg.type, arg.val) {
     }
 
-    ArgVal(enum TYPE t, BeamInstr val) {
-        gen_op.type = t;
-        gen_op.val = val;
-    }
-
-    ArgVal(unsigned t, BeamInstr val) {
+    ArgVal(int t, BeamInstr val) : type((enum TYPE)t), value(val) {
 #ifdef DEBUG
         switch (t) {
-        case TAG_u:
+        case TAG_f:
             break;
-        case TAG_i:
+        case TAG_l:
+            break;
+        case TAG_q:
+            break;
+        case TAG_u:
             break;
         case TAG_x:
             break;
         case TAG_y:
             break;
-        case TAG_f:
+        case 'I':
             break;
-        case TAG_q:
+        case 'E':
             break;
-        case TAG_r:
+        case 'F':
             break;
-        case TAG_l:
+        case 'M':
+            break;
+        case 'H':
             break;
         default:
             ASSERT(0);
         }
 #endif
-
-        gen_op.type = t;
-        gen_op.val = val;
     }
 
     constexpr enum TYPE getType() const {
-        return (enum TYPE)gen_op.type;
+        return type;
     }
 
     constexpr uint64_t getValue() const {
-        return gen_op.val;
+        return value;
     }
 
-    constexpr bool isMem() const {
-        return gen_op.type == x || gen_op.type == y;
+    constexpr bool isRegister() const {
+        return type == TYPE::XReg || type == TYPE::YReg || type == TYPE::FReg;
     }
 
     constexpr bool isLiteral() const {
-        return gen_op.type == q;
+        return type == TYPE::Literal;
     }
 
     constexpr bool isImmed() const {
-        return gen_op.type == i;
+        return type == TYPE::Immediate;
+    }
+
+    constexpr bool isWord() const {
+        return type == TYPE::Word;
+    }
+
+    constexpr bool isLabel() const {
+        return type == TYPE::Label;
+    }
+
+    constexpr bool isConstant() const {
+        switch (getType()) {
+        case TYPE::BytePtr:
+        case TYPE::Catch:
+        case TYPE::Export:
+        case TYPE::FunEntry:
+        case TYPE::Immediate:
+        case TYPE::Label:
+        case TYPE::Literal:
+        case TYPE::Word:
+            return true;
+        default:
+            return false;
+        }
     }
 
     template<typename T>
     ArgVal operator+(T val) const {
-        return ArgVal(gen_op.type, val + gen_op.val);
+        return ArgVal(type, val + val);
     }
 
     template<typename T>
     ArgVal operator*(T val) const {
-        return ArgVal(gen_op.type, val * gen_op.val);
+        return ArgVal(type, val * val);
     }
 
     enum Relation { none, consecutive, reverse_consecutive };
 
-    static Relation register_relation(const ArgVal &arg1, const ArgVal &arg2) {
-        TYPE type = arg1.getType();
-        bool same_reg_types =
-                type == arg2.getType() && (type == TYPE::x || type == TYPE::y);
+    static Relation register_relation(const ArgVal &lhs, const ArgVal &rhs) {
+        bool same_reg_types = lhs.getType() == rhs.getType();
+
         if (!same_reg_types) {
             return none;
-        } else if (arg1.getValue() + 1 == arg2.getValue()) {
+        } else if (!lhs.isRegister()) {
+            return none;
+        } else if (lhs.getValue() + 1 == rhs.getValue()) {
             return consecutive;
-        } else if (arg1.getValue() == arg2.getValue() + 1) {
+        } else if (lhs.getValue() == rhs.getValue() + 1) {
             return reverse_consecutive;
         } else {
             return none;
         }
     };
+
+protected:
+    enum TYPE type;
+    uint64_t value;
 };
 
 /* ** */

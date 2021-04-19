@@ -41,7 +41,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 void BeamModuleAssembler::emit_return() {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
-    emit_validate(ArgVal(ArgVal::u, 1));
+    emit_validate(ArgVal(ArgVal::Word, 1));
 #endif
 
     emit_leave_frame();

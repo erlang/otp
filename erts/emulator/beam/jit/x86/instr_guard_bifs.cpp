@@ -158,7 +158,8 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
                                            const ArgVal &Dst) {
     bool const_position;
 
-    const_position = Pos.getType() == ArgVal::i && is_small(Pos.getValue()) &&
+    const_position = Pos.getType() == ArgVal::Immediate &&
+                     is_small(Pos.getValue()) &&
                      signed_val(Pos.getValue()) > 0 &&
                      signed_val(Pos.getValue()) <= (Sint)MAX_ARITYVAL;
 

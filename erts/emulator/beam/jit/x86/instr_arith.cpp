@@ -34,7 +34,7 @@ void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args,
                                              const ErtsCodeMFA *mfa) {
     comment("handle_error");
     for (unsigned i = 0; i < args.size(); i++)
-        mov_arg(ArgVal(ArgVal::x, i), args[i]);
+        mov_arg(ArgVal(ArgVal::XReg, i), args[i]);
     emit_raise_exception(mfa);
 }
 
@@ -1194,7 +1194,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgVal &LHS,
 
         ASSERT(!(LHS.isImmed() && RHS.isImmed()));
 
-        if (LHS.isMem()) {
+        if (LHS.isRegister()) {
             a.mov(ARG1, ARG2);
             a.mov(ARG3, ARG2);
 
@@ -1223,7 +1223,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgVal &LHS,
             shiftLimit = imm(count_leading_zeroes(value));
         }
 
-        if (RHS.isMem()) {
+        if (RHS.isRegister()) {
             /* Move RHS to the counter register, as it's the only one that can
              * be used for variable shifts. */
             a.mov(x86::rcx, RET);

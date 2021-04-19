@@ -175,7 +175,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgVal &Size,
 void BeamModuleAssembler::emit_i_bs_init(const ArgVal &Size,
                                          const ArgVal &Live,
                                          const ArgVal &Dst) {
-    const ArgVal Heap(ArgVal::TYPE::u, 0);
+    const ArgVal Heap(ArgVal::Word, 0);
 
     emit_i_bs_init_heap(Size, Heap, Live, Dst);
 }
@@ -184,7 +184,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail(const ArgVal &Size,
                                               const ArgVal &Fail,
                                               const ArgVal &Live,
                                               const ArgVal &Dst) {
-    const ArgVal Heap(ArgVal::TYPE::u, 0);
+    const ArgVal Heap(ArgVal::Word, 0);
 
     emit_i_bs_init_fail_heap(Size, Heap, Fail, Live, Dst);
 }
@@ -192,7 +192,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail(const ArgVal &Size,
 void BeamModuleAssembler::emit_i_bs_init_bits(const ArgVal &NumBits,
                                               const ArgVal &Live,
                                               const ArgVal &Dst) {
-    const ArgVal heap(ArgVal::TYPE::u, 0);
+    const ArgVal heap(ArgVal::Word, 0);
     emit_i_bs_init_bits_heap(NumBits, heap, Live, Dst);
 }
 
@@ -221,7 +221,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail(const ArgVal &NumBits,
                                                    const ArgVal &Fail,
                                                    const ArgVal &Live,
                                                    const ArgVal &Dst) {
-    const ArgVal Heap(ArgVal::TYPE::u, 0);
+    const ArgVal Heap(ArgVal::Word, 0);
 
     emit_i_bs_init_bits_fail_heap(NumBits, Heap, Fail, Live, Dst);
 }
@@ -577,9 +577,10 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgVal &Src,
     {
         /* Src is not guaranteed to be inside the live range, so we need to
          * stash it during GC. */
-        emit_gc_test_preserve(ArgVal(ArgVal::i, ERL_BIN_MATCHSTATE_SIZE(0)),
-                              Live,
-                              ARG2);
+        emit_gc_test_preserve(
+                ArgVal(ArgVal::Immediate, ERL_BIN_MATCHSTATE_SIZE(0)),
+                Live,
+                ARG2);
 
         emit_enter_runtime<Update::eStack | Update::eHeap>();
 
@@ -837,7 +838,9 @@ void BeamModuleAssembler::emit_i_bs_get_integer_64(const ArgVal &Ctx,
 
     /* Ctx is not guaranteed to be inside the live range, so we need to stash
      * it during GC. */
-    emit_gc_test_preserve(ArgVal(ArgVal::i, BIG_UINT_HEAP_SIZE), Live, ARG4);
+    emit_gc_test_preserve(ArgVal(ArgVal::Immediate, BIG_UINT_HEAP_SIZE),
+                          Live,
+                          ARG4);
 
     address = emit_bs_get_integer_prologue(next,
                                            labels[Fail.getValue()],
@@ -928,7 +931,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer(const ArgVal &Ctx,
 void BeamModuleAssembler::emit_bs_test_tail2(const ArgVal &Fail,
                                              const ArgVal &Ctx,
                                              const ArgVal &Offset) {
-    ASSERT(Offset.getType() == ArgVal::TYPE::u);
+    ASSERT(Offset.isWord());
 
     mov_arg(ARG1, Ctx);
 
@@ -962,7 +965,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgVal &Ctx,
 
     /* Ctx is not guaranteed to be inside the live range, so we need to stash
      * it during GC. */
-    emit_gc_test_preserve(ArgVal(ArgVal::i, EXTRACT_SUB_BIN_HEAP_NEED),
+    emit_gc_test_preserve(ArgVal(ArgVal::Immediate, EXTRACT_SUB_BIN_HEAP_NEED),
                           Live,
                           ARG1);
 
@@ -1018,7 +1021,7 @@ void BeamModuleAssembler::emit_bs_get_tail(const ArgVal &Ctx,
 
     /* Ctx is not guaranteed to be inside the live range, so we need to stash
      * it during GC. */
-    emit_gc_test_preserve(ArgVal(ArgVal::i, EXTRACT_SUB_BIN_HEAP_NEED),
+    emit_gc_test_preserve(ArgVal(ArgVal::Immediate, EXTRACT_SUB_BIN_HEAP_NEED),
                           Live,
                           ARG1);
 
@@ -1080,9 +1083,10 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgVal &Ctx,
 
         /* Ctx is not guaranteed to be inside the live range, so we need to
          * stash it during GC. */
-        emit_gc_test_preserve(ArgVal(ArgVal::i, EXTRACT_SUB_BIN_HEAP_NEED),
-                              Live,
-                              ARG4);
+        emit_gc_test_preserve(
+                ArgVal(ArgVal::Immediate, EXTRACT_SUB_BIN_HEAP_NEED),
+                Live,
+                ARG4);
 
         emit_enter_runtime<Update::eHeap>();
 
@@ -1117,7 +1121,9 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgVal &Ctx,
 
     /* Ctx is not guaranteed to be inside the live range, so we need to stash
      * it during GC. */
-    emit_gc_test_preserve(ArgVal(ArgVal::i, FLOAT_SIZE_OBJECT), Live, ARG4);
+    emit_gc_test_preserve(ArgVal(ArgVal::Immediate, FLOAT_SIZE_OBJECT),
+                          Live,
+                          ARG4);
 
     if (emit_bs_get_field_size(Sz, unit, fail, ARG2, 64) >= 0) {
         emit_enter_runtime<Update::eHeap>();
@@ -1398,12 +1404,12 @@ void BeamModuleAssembler::emit_bs_add(const ArgVal &Fail,
 
     /* Both arguments must be immediates on x64. */
     mov_arg(ARG1, Src1);
-    if (Src2.getType() == ArgVal::i) {
+    if (Src2.getType() == ArgVal::Immediate) {
         a.mov(RETd, ARG1d);
     } else {
         mov_arg(ARG2, Src2);
         a.mov(RETd, ARG2d);
-        if (Src1.getType() != ArgVal::i) {
+        if (Src1.getType() != ArgVal::Immediate) {
             a.and_(RETd, ARG1d);
         }
     }
@@ -1413,7 +1419,7 @@ void BeamModuleAssembler::emit_bs_add(const ArgVal &Fail,
 
     /* Verify that ARG2 >= 0 and multiply ARG2 by the unit. The
      * result will be untagged but not shifted and stored in RET. */
-    if (Src2.getType() == ArgVal::i) {
+    if (Src2.getType() == ArgVal::Immediate) {
         Uint val = unsigned_val(Src2.getValue());
         if ((val >> (sizeof(Eterm) - 1) * 8) != 0) {
             /* Protect against negative or huge literal size. */
@@ -1483,7 +1489,7 @@ void BeamModuleAssembler::emit_i_bs_append(const ArgVal &Fail,
     mov_arg(ARG5, ExtraHeap);
     mov_arg(ARG6, Unit);
 
-    mov_arg(ArgVal(ArgVal::TYPE::x, Live.getValue()), Bin);
+    mov_arg(ArgVal(ArgVal::XReg, Live.getValue()), Bin);
 
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 

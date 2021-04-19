@@ -167,27 +167,27 @@ Label BeamModuleAssembler::embed_vararg_rodata(const std::vector<ArgVal> &args,
 
         a.align(kAlignData, 8);
         switch (arg.getType()) {
-        case TAG_x:
+        case ArgVal::XReg:
             data.as_beam = make_loader_x_reg(arg.getValue());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case TAG_y:
+        case ArgVal::YReg:
             data.as_beam = make_loader_y_reg(arg.getValue() + y_offset);
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case TAG_q:
+        case ArgVal::Literal:
             make_word_patch(literals[arg.getValue()].patches);
             break;
-        case TAG_f:
+        case ArgVal::Label:
             a.embedLabel(labels[arg.getValue()]);
             break;
-        case TAG_i:
-        case TAG_u:
-            /* Tagged immediate or untagged word. */
+        case ArgVal::Immediate:
+        case ArgVal::Word:
             data.as_beam = arg.getValue();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         default:
+            erts_fprintf(stderr, "tag: %li\n", arg.getType());
             ERTS_ASSERT(!"error");
         }
     }
@@ -353,7 +353,7 @@ void BeamModuleAssembler::emit_label(const ArgVal &Label) {
 
 void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
                                              const ArgVal &Alignment) {
-    ASSERT(Alignment.getType() == ArgVal::u);
+    ASSERT(Alignment.isWord());
     a.align(kAlignCode, Alignment.getValue());
     emit_label(Label);
 }

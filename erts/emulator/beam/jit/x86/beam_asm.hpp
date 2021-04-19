@@ -486,11 +486,11 @@ protected:
     constexpr x86::Mem getArgRef(const ArgVal &val,
                                  size_t size = sizeof(UWord)) const {
         switch (val.getType()) {
-        case ArgVal::TYPE::l:
+        case ArgVal::FReg:
             return getFRef(val.getValue(), size);
-        case ArgVal::TYPE::x:
+        case ArgVal::XReg:
             return getXRef(val.getValue(), size);
-        case ArgVal::TYPE::y:
+        case ArgVal::YReg:
             return getYRef(val.getValue(), size);
         default:
             ERTS_ASSERT(!"NYI");
@@ -1232,7 +1232,7 @@ protected:
 
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
-        if (from.isMem()) {
+        if (from.isRegister()) {
             a.mov(to, getArgRef(from));
         } else if (from.isLiteral()) {
             make_move_patch(to, literals[from.getValue()].patches);
@@ -1271,7 +1271,7 @@ protected:
     }
 
     void mov_arg(const ArgVal &to, const ArgVal &from, const x86::Gp &spill) {
-        if (from.isMem()) {
+        if (from.isRegister()) {
             mov_arg(spill, from);
             mov_arg(to, spill);
         } else {

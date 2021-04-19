@@ -178,8 +178,7 @@ void BeamModuleAssembler::emit_i_validate(const ArgVal &Arity) {
 void BeamModuleAssembler::emit_allocate_heap(const ArgVal &NeedStack,
                                              const ArgVal &NeedHeap,
                                              const ArgVal &Live) {
-    ASSERT(NeedStack.getType() == ArgVal::TYPE::u);
-    ASSERT(NeedStack.getValue() <= MAX_REG);
+    ASSERT(NeedStack.isWord() && NeedStack.getValue() <= MAX_REG);
     ArgVal needed = NeedStack;
 
 #if !defined(NATIVE_ERLANG_STACK)
@@ -198,12 +197,11 @@ void BeamModuleAssembler::emit_allocate_heap(const ArgVal &NeedStack,
 
 void BeamModuleAssembler::emit_allocate(const ArgVal &NeedStack,
                                         const ArgVal &Live) {
-    emit_allocate_heap(NeedStack, ArgVal(ArgVal::TYPE::u, 0), Live);
+    emit_allocate_heap(NeedStack, ArgVal(ArgVal::Word, 0), Live);
 }
 
 void BeamModuleAssembler::emit_deallocate(const ArgVal &Deallocate) {
-    ASSERT(Deallocate.getType() == ArgVal::TYPE::u);
-    ASSERT(Deallocate.getValue() <= 1023);
+    ASSERT(Deallocate.isWord() && Deallocate.getValue() <= 1023);
 
     if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
         ArgVal dealloc = Deallocate;
@@ -221,7 +219,7 @@ void BeamModuleAssembler::emit_deallocate(const ArgVal &Deallocate) {
 }
 
 void BeamModuleAssembler::emit_test_heap(const ArgVal &Nh, const ArgVal &Live) {
-    emit_gc_test(ArgVal(ArgVal::u, 0), Nh, Live);
+    emit_gc_test(ArgVal(ArgVal::Word, 0), Nh, Live);
 }
 
 void BeamModuleAssembler::emit_normal_exit() {
@@ -585,8 +583,7 @@ void BeamModuleAssembler::emit_init_yregs(const ArgVal &Size,
 }
 
 void BeamModuleAssembler::emit_i_trim(const ArgVal &Words) {
-    ASSERT(Words.getType() == ArgVal::TYPE::u);
-    ASSERT(Words.getValue() <= 1023);
+    ASSERT(Words.isWord() && Words.getValue() <= 1023);
 
     if (Words.getValue() > 0) {
         a.add(E, imm(Words.getValue() * sizeof(Eterm)));
@@ -905,7 +902,7 @@ void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
 void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
                                             const ArgVal &Src,
                                             const ArgVal &Arity) {
-    if (Arity.getType() != ArgVal::i) {
+    if (Arity.getType() != ArgVal::Immediate) {
         /*
          * Non-literal arity - extremely uncommon. Generate simple code.
          */
@@ -1880,9 +1877,9 @@ void BeamModuleAssembler::emit_i_perf_counter() {
     {
         a.mov(TMP_MEM1q, RET);
 
-        emit_gc_test(ArgVal(ArgVal::i, 0),
-                     ArgVal(ArgVal::i, ERTS_MAX_UINT64_HEAP_SIZE),
-                     ArgVal(ArgVal::i, 0));
+        emit_gc_test(ArgVal(ArgVal::Word, 0),
+                     ArgVal(ArgVal::Word, ERTS_MAX_UINT64_HEAP_SIZE),
+                     ArgVal(ArgVal::Word, 0));
 
         a.mov(ARG1, TMP_MEM1q);
 
