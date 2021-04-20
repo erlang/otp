@@ -95,7 +95,7 @@
 			       | 'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter'
                                | 'SubjectPublicKeyInfo' | 'PrivateKeyInfo' | 
 				 'CertificationRequest' | 'CertificateList' |
-				 'ECPrivateKey' | 'EcpkParameters'.
+				 'ECPrivateKey' | 'EcpkParameters' | {no_asn1, new_openssh}.
 -type pem_entry()            :: {pki_asn1_type(), 
 				 der_or_encrypted_der(),
 				 not_encrypted | cipher_info()
@@ -213,7 +213,8 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
 %%--------------------------------------------------------------------
 -spec pem_entry_encode(Asn1Type, Entity) -> pem_entry() when Asn1Type :: pki_asn1_type(),
                                                              Entity :: term() .
-
+pem_entry_encode({no_asn1, new_openssh}, Entity) ->
+  ssh_encode(Entity, new_openssh);
 pem_entry_encode('SubjectPublicKeyInfo', Entity=#'RSAPublicKey'{}) ->
     Der = der_encode('RSAPublicKey', Entity),
     Spki = {'SubjectPublicKeyInfo',
