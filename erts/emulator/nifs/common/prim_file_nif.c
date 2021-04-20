@@ -130,16 +130,16 @@ static ERL_NIF_TERM create_ref_or_error_tuple(ErlNifEnv *env, efile_data_t *d);
  * The states may transition as follows:
  *
  * IDLE ->
- *      BUSY (file_handle_wrapper) |
+ *      BUSY (file_handle_wrapper | dyncall_dup) |
  *      CLOSED (owner_death_callback)
  *
  * BUSY ->
- *      IDLE (file_handle_wrapper)
+ *      IDLE (file_handle_wrapper | dyncall_dup)
  *      CLOSED (close_nif_impl)
  *      CLOSE_PENDING (owner_death_callback)
  *
  * CLOSE_PENDING ->
- *      CLOSED (file_handle_wrapper)
+ *      CLOSED (file_handle_wrapper | dyncall_dup)
  *
  * Should the owner of a file die, we can't close it immediately as that could
  * potentially block a normal scheduler. When entering the CLOSED state from
@@ -333,8 +333,9 @@ static ERL_NIF_TERM file_handle_wrapper(file_op_impl_t operation, ErlNifEnv *env
         ASSERT(previous_state != EFILE_STATE_IDLE);
 
         if(previous_state == EFILE_STATE_CLOSE_PENDING) {
-            /* This is the only point where a change from CLOSE_PENDING is
-             * possible, and we're running synchronously, so we can't race with
+            /* Here and in dyncall_dup are the only points
+             * where a change from CLOSE_PENDING is possible,
+             * and we're running synchronously, so we can't race with
              * anything else here. */
             posix_errno_t ignored;
 
@@ -426,7 +427,7 @@ static void dyncall_dup(ErlNifEnv* env, efile_data_t* d, struct prim_file_nif_dy
     previous_state = erts_atomic32_cmpxchg_acqb(&d->state,
         EFILE_STATE_BUSY, EFILE_STATE_IDLE);
 
-    if (previous_state == EFILE_STATE_IDLE) {
+    if(previous_state == EFILE_STATE_IDLE) {
         int do_dup = !0;
 
         dc_dup->error = efile_get_handle(env, d, do_dup, &dc_dup->handle);
@@ -437,8 +438,9 @@ static void dyncall_dup(ErlNifEnv* env, efile_data_t* d, struct prim_file_nif_dy
         ASSERT(previous_state != EFILE_STATE_IDLE);
 
         if(previous_state == EFILE_STATE_CLOSE_PENDING) {
-            /* This is the only point where a change from CLOSE_PENDING is
-             * possible, and we're running synchronously, so we can't race with
+            /* Here and in file_handle_wrapper are the only points
+             * where a change from CLOSE_PENDING is possible,
+             * and we're running synchronously, so we can't race with
              * anything else here. */
             posix_errno_t ignored;
 
