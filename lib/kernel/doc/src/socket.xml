@@ -3524,6 +3524,10 @@
 	      <item>
 		Network Namespaces support (Linux, <c>setns(2)</c>)
 	      </item>
+	      <tag><c>sendfile</c></tag>
+	      <item>
+		Sendfile support (<c>sendfile(2)</c>)
+	      </item>
 	    </taglist>
 	    <p></p>
 	  </item>

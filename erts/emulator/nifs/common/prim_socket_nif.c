@@ -4639,17 +4639,16 @@ ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
  *
  * Key
  * ---
- * options         [{socket, [{Opt, boolean()}]},
- *                  {ip,     [{Opt, boolean()}]},
- *                  {ipv6,   [{Opt, boolean()}]},
- *                  {tcp,    [{Opt, boolean()}]},
- *                  {udp,    [{Opt, boolean()}]},
- *                  {sctp,   [{Opt, boolean()}]}]
- * sctp            boolean()
- * ipv6            boolean()
- * local           boolean()
- * netns           boolean()
- * msg_flags       [{MsgFlag, boolean()}]
+ * (arity 0)       [{sctp,      boolean()},
+ *                  {ipv6,     boolean()},
+ *                  {local,    boolean()},
+ *                  {netns,    boolean()},
+ *                  {sendfile, boolean()}]
+ *
+ * msg_flags       [{MsgFlag,              boolean()}]
+ * protocols       [{[Protocol | Aliases], integer()}],
+ * options         [{socket,               [{Opt, boolean()} | Opt]} |
+ *                  {ProtoNum::integer(),  [{Opt, boolean()} | Opt]}]
  */
 
 static
@@ -4716,6 +4715,13 @@ ERL_NIF_TERM esock_supports_0(ErlNifEnv* env)
     is_supported = esock_atom_false;
 #endif
     TARRAY_ADD(opts, MKT2(env, atom_netns, is_supported));
+
+#if defined(HAVE_SENDFILE)
+    is_supported = esock_atom_true;
+#else
+    is_supported = esock_atom_false;
+#endif
+    TARRAY_ADD(opts, MKT2(env, atom_sendfile, is_supported));
 
     TARRAY_TOLIST(opts, env, &opts_list);
     return opts_list;
