@@ -78,6 +78,8 @@ decode(Bin, Type) ->
 %%--------------------------------------------------------------------
 encode(Bin, ssh2_pubkey) ->
     ssh2_pubkey_encode(Bin);
+encode(Bin, new_openssh) ->
+    new_openssh_encode(Bin);
 encode(Entries, Type) ->
     iolist_to_binary(lists:map(fun({Key, Attributes}) ->
 					      do_encode(Type, Key, Attributes)

@@ -1159,7 +1159,8 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
 %%--------------------------------------------------------------------
 -spec ssh_encode(InData, Type) ->
                         binary()
-                            when Type :: ssh2_pubkey | OtherType,
+                            when Type :: ssh2_pubkey | OtherType | InternalType,
+                                 OtherType :: public_key | ssh_file(),
                                  OtherType :: public_key | ssh_file(),
                                  InData :: InData_ssh2_pubkey | OtherInData,
                                  InData_ssh2_pubkey :: public_key(),
@@ -1176,7 +1177,8 @@ ssh_encode(Entries, Type) when is_list(Entries),
 			       Type == openssh_public_key;
 			       Type == auth_keys;
 			       Type == known_hosts;
-			       Type == ssh2_pubkey ->
+			       Type == ssh2_pubkey;
+                               Type == new_openssh ->
     pubkey_ssh:encode(Entries, Type).
 
 %%--------------------------------------------------------------------
