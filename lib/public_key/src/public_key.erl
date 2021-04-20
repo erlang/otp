@@ -1162,7 +1162,7 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
                         binary()
                             when Type :: ssh2_pubkey | OtherType | InternalType,
                                  OtherType :: public_key | ssh_file(),
-                                 OtherType :: public_key | ssh_file(),
+                                 InternalType :: new_openssh,
                                  InData :: InData_ssh2_pubkey | OtherInData,
                                  InData_ssh2_pubkey :: public_key(),
                                  OtherInData :: [{Key,Attributes}],
