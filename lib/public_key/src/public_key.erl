@@ -128,7 +128,7 @@
 -type chain_type()           :: server_chain | client_chain.
 
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
--type issuer_name()          :: {rdnSequence,[#'AttributeTypeAndValue'{}]} .
+-type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
 
 
 
