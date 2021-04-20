@@ -110,7 +110,9 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/pkey$(TYPEMARKER).o \
 	$(OBJDIR)/rand$(TYPEMARKER).o \
 	$(OBJDIR)/rsa$(TYPEMARKER).o \
-	$(OBJDIR)/srp$(TYPEMARKER).o
+	$(OBJDIR)/srp$(TYPEMARKER).o \
+	$(OBJDIR)/hash_equals$(TYPEMARKER).o
+
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
 CRYPTO_STATIC_OBJS = $(patsubst $(OBJDIR)/%$(TYPEMARKER).o,$(OBJDIR)/%_static$(TYPEMARKER).o,$(CRYPTO_OBJS) $(CALLBACK_OBJS))
 
@@ -141,7 +143,7 @@ CRYPTO_LINK_LIB=$(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -l$(SSL_CRYPT
 EXTRA_FLAGS = -DHAVE_DYNAMIC_CRYPTO_LIB
 else
 SSL_DED_LD_RUNTIME_LIBRARY_PATH=
-CRYPTO_LINK_LIB=$(SSL_LIBDIR)/lib$(SSL_CRYPTO_LIBNAME).a 
+CRYPTO_LINK_LIB=$(SSL_LIBDIR)/lib$(SSL_CRYPTO_LIBNAME).a
 EXTRA_FLAGS =
 CRYPTO_OBJS := $(CRYPTO_OBJS) $(CALLBACK_OBJS)
 CALLBACK_OBJS =
@@ -243,7 +245,7 @@ docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt

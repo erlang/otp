@@ -791,6 +791,48 @@ else
    SSL_FLAGS=
 fi
 
+saveCFLAGS="$CFLAGS"
+saveLDFLAGS="$LDFLAGS"
+saveLIBS="$LIBS"
+CFLAGS="$DED_BASIC_CFLAGS $SSL_INCLUDE"
+if test $SSL_DYNAMIC_ONLY = yes; then
+   LDFLAGS="$DED_LDFLAGS_CONFTEST $ded_ld_rpath -L$SSL_LIBDIR"
+   LIBS="$LIBS -l$SSL_CRYPTO_LIBNAME $SSL_EXTRA_LIBS"
+else
+   LDFLAGS="$DED_LDFLAGS_CONFTEST"
+   if test "$host_os" = "win32" ; then
+      LIBS="$LIBS $SSL_LIBDIR/$SSL_CRYPTO_LIBNAME.lib $SSL_EXTRA_LIBS"
+   else
+      LIBS="$LIBS $SSL_LIBDIR/lib$SSL_CRYPTO_LIBNAME.a $SSL_EXTRA_LIBS"
+   fi
+fi
+AC_CHECK_DECL(CRYPTO_memcmp,
+	      [have_crypto_memcmp_decl=yes],
+	      [have_crypto_memcmp_decl=no],
+	      [#include <openssl/crypto.h>])
+if test $have_crypto_memcmp_decl = yes; then
+   AC_MSG_CHECKING([whether CRYPTO_memcmp can be linked])
+   AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM(
+	    [[
+		#include <openssl/crypto.h>
+	    ]],
+	    [[ 
+		CRYPTO_memcmp("a", "b", 1);
+	    ]])],
+	[
+	    SSL_FLAGS="-DHAVE_OPENSSL_CRYPTO_MEMCMP $SSL_FLAGS"
+   	    AC_MSG_RESULT([yes])
+	],
+	[
+   	    AC_MSG_RESULT([no])
+	])
+fi
+
+CFLAGS="$saveCFLAGS"
+LDFLAGS="$saveLDFLAGS"
+LIBS="$saveLIBS"
+
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_INCDIR)
 AC_SUBST(SSL_LIBDIR)

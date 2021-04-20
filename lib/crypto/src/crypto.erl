@@ -96,6 +96,8 @@
          crypto_final/1,
          crypto_get_data/1,
 
+         hash_equals/2,
+
          supports/1,
          mac/3, mac/4, macN/4, macN/5,
          mac_init/2, mac_init/3, mac_update/2, mac_final/1, mac_finalN/2
@@ -598,7 +600,6 @@ mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 mac(Type, SubType, Key0, Data) ->
     Key = iolist_to_binary(Key0),
     mac_nif(Type, alias(SubType,Key), Key, Data).
-
 
 
 -spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error()
@@ -2272,6 +2273,15 @@ exor(Data1, Data2, _Size, MaxByts, Acc) ->
     exor(Rest1, Rest2, erlang:byte_size(Rest1), MaxByts, [Result | Acc]).
 
 do_exor(_A, _B) -> ?nif_stub.
+
+-spec hash_equals(BinA, BinB) -> Result
+          when BinA :: binary(),
+               BinB :: binary(),
+               Result :: boolean().
+hash_equals(A, B) ->
+  hash_equals_nif(A, B).
+
+hash_equals_nif(_A, _B) -> ?nif_stub.
 
 hash_algorithms() -> ?nif_stub.
 pubkey_algorithms() -> ?nif_stub.

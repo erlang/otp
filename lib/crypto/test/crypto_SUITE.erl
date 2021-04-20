@@ -103,6 +103,8 @@
          rand_threads/1,
          rand_uniform/0,
          rand_uniform/1,
+         hash_equals/0,
+         hash_equals/1,
          sign_verify/0,
          sign_verify/1,
          ec_key_padding/1,
@@ -189,7 +191,8 @@ all() ->
      rand_plugin,
      rand_plugin_s,
      cipher_info,
-     hash_info
+     hash_info,
+     hash_equals
     ].
 
 -define(NEW_CIPHER_TYPE_SCHEMA,
@@ -1235,6 +1238,18 @@ exor() ->
 exor(Config) when is_list(Config) ->
     do_exor(<<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>),
     do_exor(term_to_binary(lists:seq(1, 1000000))).
+%%--------------------------------------------------------------------
+hash_equals() ->
+    [{doc, "Test the hash_equals function"}].
+hash_equals(Config) when is_list(Config) ->
+    try
+        true = crypto:hash_equals(<<>>, <<>>),
+        true = crypto:hash_equals(<<"abc">>, <<"abc">>),
+        false = crypto:hash_equals(<<"abc">>, <<"abe">>)
+    catch
+        error:{notsup,{"hash_equals.c",_Line},"Unsupported CRYPTO_memcmp"} ->
+            {skip, "No CRYPTO_memcmp"}
+    end.
 %%--------------------------------------------------------------------
 rand_uniform() ->
     [{doc, "rand_uniform and random_bytes testing"}].
