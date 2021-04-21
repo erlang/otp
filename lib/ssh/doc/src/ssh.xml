@@ -563,6 +563,13 @@
 	    to connect to the server and public key user-authentication fails. The option provides
 	    a list of valid usernames and the corresponding passwords.
 	    </p>
+	    <warning>
+	      <p>Note that this is very insecure due to the plain-text passwords;
+	      it is intended for test purposes.
+	      Use the <seeerl marker="#option-pwdfun"><c>pwdfun</c></seeerl> option
+	      to handle the password checking instead.
+	      </p>
+	    </warning>
           </item>
 
 	  <tag><marker id="option-pk_check_user"/><c>pk_check_user</c></tag>
