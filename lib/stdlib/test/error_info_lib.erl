@@ -32,7 +32,13 @@ test_error_info(Module, L0, Options) ->
                                   [{F,A} || {F,A} <- L0, is_integer(A)]),
     Bifs0 = get_bifs(Module, Options),
     Bifs = ordsets:from_list(Bifs0),
-    NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
+    NYI =
+        case lists:member(allow_nyi, Options) of
+            false ->
+                [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests];
+            true ->
+                []
+        end,
     L = lists:sort(NYI ++ L1),
     do_error_info(L, Module, []).
 
@@ -67,8 +73,11 @@ do_error_info([], _Module, Errors0) ->
     end.
 
 eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
+    OldGl = group_leader(),
+    group_leader(proplists:get_value(gl, Opts, OldGl), self()),
     try apply(Module, F, Args) of
         Result ->
+            group_leader(OldGl, self()),
             case lists:member(no_fail, Opts) of
                 true ->
                     do_error_info(T, Module, Errors0);
@@ -77,6 +86,7 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
             end
     catch
         error:Reason:Stk ->
+            group_leader(OldGl, self()),
             AllowRename = lists:member(allow_rename, Opts),
             SF = fun(Mod, _, _) -> Mod =:= test_server end,
             Str = erl_error:format_exception(error, Reason, Stk, #{stack_trim_fun => SF}),
@@ -135,5 +145,8 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
                     do_error_info(T, Module, Errors);
                 _ ->
                     do_error_info(T, Module, Errors0)
-            end
+            end;
+        E:R:ST ->
+            group_leader(OldGl, self()),
+            erlang:raise(E,R,ST)
     end.

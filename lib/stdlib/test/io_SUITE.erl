@@ -33,7 +33,7 @@
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
-				 github_4801/1]).
+         error_info/1,github_4801/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -66,7 +66,7 @@ all() ->
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
-     otp_15639, otp_15705, otp_15847, otp_15875, github_4801].
+     otp_15639, otp_15705, otp_15847, otp_15875, github_4801, error_info].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2949,5 +2949,111 @@ otp_15875(_Config) ->
     S = io_lib:format("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
     "[{0,[<<48,...>>]}]" = lists:flatten(S).
 
+
 github_4801(_Config) ->
 	  <<"{[81.6]}">> = iolist_to_binary(io_lib:format("~p", [{[81.6]}], [{chars_limit,40}])).
+
+error_info(_Config) ->
+
+    FullDev =
+        fun() ->
+                {ok, Dev} = file:open("/dev/full",[read, write]),
+                Dev
+        end,
+
+    Latin1Dev = fun() ->
+                        {ok, Dev} = file:open("/dev/full",[read, write,
+                                                           {encoding, latin1}]),
+                        Dev
+                end,
+
+    DeadDev = spawn(fun() -> ok end),
+
+    UserDev = fun() -> whereis(user) end,
+    FileDev = FullDev,
+    TestServerDev = fun() -> group_leader() end,
+    ApplicationMasterDev =
+        fun() ->
+                {_,GL} = process_info(whereis(kernel_sup),group_leader),
+                GL
+        end,
+    GroupDev = TestServerDev,
+    StandardError = fun() -> whereis(standard_error) end,
+
+    L = [
+         {put_chars,[DeadDev,"test"],[{1,"terminated"}]},
+         {put_chars,["test"],[{gl,DeadDev},{general,"terminated"}]},
+         {put_chars,[?MODULE,"test"],[{1,"does not exist"}]},
+         {put_chars,[FullDev(),"test"], [{1,"no space left on device"}]},
+         {put_chars,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+         {put_chars,[Latin1Dev(),"Спутник-1"], [{1,"transcode"}]},
+         {put_chars,[a], [{1,"not valid character data"}]},
+
+         {write,[DeadDev,"test"],[{1,"terminated"}]},
+         {write,["test"],[{gl,DeadDev},{general,"terminated"}]},
+         {write,[?MODULE,"test"],[{1,"does not exist"}]},
+         {write,[FullDev(),"test"], [{1,"no space left on device"}]},
+         {write,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+
+         {nl,[DeadDev],[{1,"terminated"}]},
+         {nl,[?MODULE],[{1,"does not exist"}]},
+         {nl,[],[{gl,DeadDev},{general,"terminated"}]},
+         {nl,[FullDev()], [{1,"no space left on device"}]},
+         {nl,[], [{gl,FullDev()},{general,"no space left on device"}]},
+
+         [[{Format,[DeadDev,"test",[]],   [{1,"terminated"}]},
+           {Format,["test",[{gl,DeadDev},  {general,"terminated"}]]},
+           {Format,[?MODULE,"test",[]],   [{1,"does not exist"}]},
+           {Format,[FullDev(),"test",[]], [{1,"no space left on device"}]},
+           {Format,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+           {Format,[standard_io,"test"],  [{1,"wrong number of arguments"},
+                                           {general,"possibly missing argument list"}]},
+
+           %% Test a latin1 device
+           {Format,[Latin1Dev(), "~ts", [<<"Спутник-1"/utf8>>]],[{1,"transcode"}]},
+           {Format,["~ts", [<<"Спутник-1"/utf8>>]],[{gl,Latin1Dev()},{general,"transcode"}]},
+
+           %% The format error is reported differently
+           %% depending on the current group_leader.
+           %% The different group leaders we test are:
+           %%  * file_io_server
+           %%  * standard_error
+           %%  * test_server_gl
+           %%  * user
+           %%  * application_master
+           %%  * ssh_cli (TODO)
+           %%  * eunit (TODO)
+           %%  * group (TODO)
+           [ [{Format,[Device(),make_ref(),[]],    [{2,"format string"}]},
+              {Format,[Device(),"~p",make_ref()],  [{3, "not a list"}]},
+              {Format,[make_ref(),[]],[{gl,Device()},{1,"format string"}]},
+              {Format,["~p",make_ref()],[{gl,Device()},{2, "not a list"}]}]
+             || Device <- [UserDev, FileDev, TestServerDev, StandardError,
+                           GroupDev, ApplicationMasterDev]],
+
+           %% Test number of arguments
+           {Format,["~p",["Sputnik-1","Laika"]],[{1,"wrong number of arguments"}]},
+           {Format,[standard_io, "~p",["Sputnik-1","Laika"]],[{2,"wrong number of arguments"}]},
+
+           %% Test different formatting strings
+           {Format,["~B",["Sputnik-1"]],[{2,"1 must be of type integer"}]},
+           {Format,[standard_io, "~B",["Sputnik-1"]],[{3,"1 must be of type integer"}]},
+           {Format,["~b",["Sputnik-1"]],[{2,"1 must be of type integer"}]},
+           {Format,["~*b",["Sputnik-1",16]],[{2,"1 must be of type integer"}]},
+           {Format,["~*f",[1.0,1]],[{2,"1 must be of type integer\\n.*2 must be of type float"}]},
+           {Format,["~1.*f",[1.0,1]],[{2,"1 must be of type integer\\n.*2 must be of type float"}]},
+           {Format,["~*.*f",[a,b,c]],[{2,"1 must be of type integer\\n.*"
+                                       "2 must be of type integer\\n.*"
+                                       "3 must be of type float"}]},
+           {Format,["~s",["Спутник-1"]],[{1,"failed to format string"}]},
+           {Format,["~s",[1]],[{2,"1 must be of type string"}]},
+           {Format,["~s~s",[a,1]],[{2,"2 must be of type string"}]},
+           {Format,["~s",[[a]]],[{2,"1 must be of type string"}]}] || Format <- [format,fwrite]]
+
+        ],
+
+    try
+        error_info_lib:test_error_info(io, lists:flatten(L), [allow_nyi])
+    after
+        dbg:stop_clear()
+    end.
