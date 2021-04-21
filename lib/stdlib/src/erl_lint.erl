@@ -28,6 +28,8 @@
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
+-export([check_format_string/1]).
+
 -export_type([error_info/0, error_description/0]).
 
 -import(lists, [all/2,any/2,
