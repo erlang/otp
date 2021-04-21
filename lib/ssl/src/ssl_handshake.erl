@@ -135,22 +135,9 @@ certificate(undefined, _, _, client) ->
     %% SHOULD send a certificate message containing no
     %% certificates. (chapter 7.4.6. RFC 4346)
     #certificate{asn1_certificates = []};
-certificate([OwnCert], CertDbHandle, CertDbRef, client) ->
-    Chain =
-	case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	    {ok, _,  CertChain} ->
-		CertChain;
-	    {error, _} ->
-                certificate(undefined, CertDbHandle, CertDbRef, client)
-        end,
-    #certificate{asn1_certificates = Chain};
-certificate([OwnCert], CertDbHandle, CertDbRef, server) ->
-    case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	{ok, _, Chain} ->
-	    #certificate{asn1_certificates = Chain};
-	{error, Error} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
-    end;
+certificate([OwnCert], CertDbHandle, CertDbRef, _) ->
+    {ok, _,  CertChain} = ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef),
+    #certificate{asn1_certificates = CertChain};
 certificate([_, _ |_] = Chain, _, _, _) ->
     #certificate{asn1_certificates = Chain}.
 
