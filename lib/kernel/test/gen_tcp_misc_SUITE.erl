@@ -60,8 +60,13 @@
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
          otp_12242/1, delay_send_error/1, bidirectional_traffic/1,
-	 socket_monitor1/1, socket_monitor1_manys/1, socket_monitor1_manyc/1,
-	 socket_monitor2/1, socket_monitor2_manys/1, socket_monitor2_manyc/1
+	 socket_monitor1/1,
+	 socket_monitor1_manys/1,
+	 socket_monitor1_manyc/1,
+	 socket_monitor1_demon_after/1,
+	 socket_monitor2/1,
+	 socket_monitor2_manys/1,
+	 socket_monitor2_manyc/1
 	]).
 
 %% Internal exports.
@@ -185,6 +190,7 @@ all_cases() ->
      socket_monitor1,
      socket_monitor1_manys,
      socket_monitor1_manyc,
+     socket_monitor1_demon_after,
      socket_monitor2,
      socket_monitor2_manys,
      socket_monitor2_manyc
@@ -6836,6 +6842,71 @@ do_socket_monitor1_manyc(Config) ->
     sm_await_down(Pid5, Mon5, ok),
     ?P("done"),
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+%% We create a listen socket, then spawns processes that create
+%% monitors to it...
+socket_monitor1_demon_after(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    ?TC_TRY(socket_monitor1_demon_after,
+            fun() -> do_socket_monitor1_demon_after(Config) end).
+
+do_socket_monitor1_demon_after(Config) ->
+    ?P("begin"),
+    Self         = self(),
+    Type         = ?SOCKET_TYPE(Config),
+    {ok, LSock1} = ?LISTEN(Config),
+    F  = fun(S, Fun) -> spawn_monitor(fun() -> Fun(S, Self) end) end,
+    F1 = fun(Socket, Parent) when is_pid(Parent) ->
+		 ?P("[client] create monitor"),
+		 MRef = inet:monitor(Socket),
+		 ?P("[client] sleep some"),
+		 ?SLEEP(?SECS(1)),
+		 ?P("[client] demonitor"),
+		 inet:demonitor(MRef),
+		 ?P("[client] announce ready"),
+		 Parent ! {self(), ready},
+		 sm_await_no_socket_down(MRef, Socket, Type)
+	 end,
+    ?P("spawn client"),
+    {Pid1, Mon1} = F(LSock1, F1),
+    ?P("await client ready"),
+    sm_await_client_ready(Pid1),
+    ?P("close socket"),
+    gen_tcp:close(LSock1),
+    ?P("await client termination"),
+    sm_await_down(Pid1, Mon1, ok),
+    ?P("done"),
+    ok.
+
+
+sm_await_no_socket_down(ExpMon, ExpSock, ExpType) ->
+    sm_await_no_socket_down(ExpMon, ExpSock, ExpType, "client").
+
+sm_await_no_socket_down(ExpMon, ExpSock, ExpType, Name) ->
+    receive
+	{'DOWN', Mon, Type, Sock, Info} when (Type =:= ExpType) andalso 
+					     (Mon  =:= ExpMon)  andalso 
+					     (Sock =:= ExpSock) ->
+	    ?P("[~s] received unexpected (socket) down message: "
+	       "~n   Mon:  ~p"
+	       "~n   Type: ~p"
+	       "~n   Sock: ~p"
+	       "~n   Info: ~p", [Name, Mon, Type, Sock, Info]),
+	    exit({unexpected_down, Mon, Type, Sock, Info});
+
+	Any ->
+	    ?P("[~s] received unexpected message: "
+	       "~n   ~p", [Name, Any]),
+	    exit({unexpected_message, Any})
+
+    after 1000 ->
+	    ?P("[~s] expected message timeout", [Name]),
+	    exit(ok)
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

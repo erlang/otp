@@ -21,6 +21,8 @@
 -module(gen_tcp_socket).
 -behaviour(gen_statem).
 
+-compile({no_auto_import, [monitor/1, demonitor/1, demonitor/2]}).
+
 %% gen_tcp
 -export([connect/4, listen/2, accept/2,
          send/2, recv/3,
@@ -28,7 +30,7 @@
          shutdown/2, close/1, controlling_process/2]).
 %% inet
 -export([
-         monitor/1, demonitor/1,
+         monitor/1, demonitor/1, demonitor/2,
          setopts/2, getopts/2,
          sockname/1, peername/1,
          getstat/2
@@ -509,22 +511,11 @@ monitor(?module_socket(_Server, ESock) = Socket) ->
 monitor(Socket) ->
     erlang:error(badarg, [Socket]).
 
-demonitor(MRef) when is_reference(MRef) ->
-    case socket_registry:demonitor(MRef) of
-	ok ->
-	    ok;
-	{error, unknown_monitor} -> % Possible race
-	    receive
-		{'DOWN', MRef, socket, _, _} ->
-		    ok
-	    after 0 ->
-		    ok
-	    end;
-	{error, Reason} ->
-	    erlang:error({invalid, Reason})
-    end;
-demonitor(Socket) ->
-    erlang:error(badarg, [Socket]).	
+demonitor(MRef) ->
+    socket:demonitor(MRef).
+
+demonitor(MRef, Opts) ->
+    socket:demonitor(MRef, Opts).
 
 
 %% -------------------------------------------------------------------------
@@ -1286,8 +1277,8 @@ handle_event(
   #controlling_process{owner = NewOwner, state = State},
   {#params{owner = Owner, owner_mon = OwnerMon} = P, D}) ->
     %%
-    NewOwnerMon = monitor(process, NewOwner),
-    true = demonitor(OwnerMon, [flush]),
+    NewOwnerMon = erlang:monitor(process, NewOwner),
+    true = erlang:demonitor(OwnerMon, [flush]),
     {next_state, State,
      {P#params{owner = NewOwner, owner_mon = NewOwnerMon}, D},
      [{reply, From, ok}]};

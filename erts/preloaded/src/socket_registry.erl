@@ -439,6 +439,8 @@ do_which_sockets(SDB, Filter) ->
 do_monitor_socket(#state{socks = SDB,
 			 mons  = MDB,
 			 users = UDB} = State, Sock, Opts, Pid) ->
+    SMon  = make_ref(),
+    MSock = maps:get(msocket, Opts, Sock),
     case sock_lookup(SDB, Sock) of
 	{value, #info{mons = SMons} = Info} ->
 	    %% Its allowed for one process to monitor the same socket
@@ -448,13 +450,11 @@ do_monitor_socket(#state{socks = SDB,
 	    %% the first monitor created (by this process).
 	    %% *We* do not create more than one monitor for each process...
 	    %%
-	    SMon = make_ref(),
 	    %% Create monitor info and update monitor sb
-	    MSock  = maps:get(msocket, Opts, Sock),
-	    Mon    = #mon{sock  = Sock,
-			  msock = MSock,
-			  pid   = Pid},
-	    MDB2   = mon_update(MDB, SMon, Mon),
+	    Mon  = #mon{sock  = Sock,
+			msock = MSock,
+			pid   = Pid},
+	    MDB2 = mon_update(MDB, SMon, Mon),
 
 	    %% Socket Info
 	    SMons2 = [SMon|SMons],
@@ -485,7 +485,12 @@ do_monitor_socket(#state{socks = SDB,
 		     Result}
 	    end;
 	false ->
-	    Result = {error, unknown_socket},
+	    %% We assume that this socket was "just" deleted,
+	    %% and the caller has just not noticed it yet.
+	    %% "Create" a monitor and trigger it (send dowm message)
+	    %% directly!
+	    send_down(Pid, SMon, MSock),
+	    Result = {ok, SMon},
 	    {State, Result}
     end.
 

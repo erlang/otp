@@ -1984,7 +1984,7 @@ handle_put_socket_type(Db, MRef, Type) ->
 handle_take_socket_type(Db, MRef) ->
     Key = {type, MRef},
     case ets:take(Db, Key) of
-	[Type] ->
+	[{Key, Type}] ->
 	    {ok, Type};
 	[] -> % Already demonitor'ed
 	    error

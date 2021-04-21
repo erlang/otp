@@ -20,7 +20,7 @@
 
 -module(socket).
 
--compile({no_auto_import,[error/1]}).
+-compile({no_auto_import, [error/1, monitor/1, demonitor/1, demonitor/2]}).
 
 %% Administrative and "global" utility functions
 -export([
@@ -34,7 +34,7 @@
 
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
-         monitor/1, demonitor/1,
+         monitor/1, demonitor/1, demonitor/2,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3
         ]).
@@ -523,7 +523,6 @@
 -type socket()          :: ?socket(socket_handle()).
 -opaque socket_handle() :: reference().
 
--opaque socket()         :: ?socket(reference()).
 
 %% Some flags are used for send, others for recv, and yet again
 %% others are found in a cmsg().  They may occur in multiple locations..
@@ -919,26 +918,66 @@ monitor(Socket) ->
 %%
 %% ===========================================================================
 
--spec demonitor(MRef) -> ok when
+-spec demonitor(MRef) -> true when
       MRef :: reference().
 
 demonitor(MRef) when is_reference(MRef) ->
+    BadArg = fun() -> erlang:error(badarg, [MRef]) end,
+    do_demonitor(MRef, false, BadArg),
+    true;
+demonitor(MRef) ->
+    erlang:error(badarg, [MRef]).
+
+
+-spec demonitor(MRef, Opts) -> boolean() when
+      MRef   :: reference(),
+      Opts   :: [Option],
+      Option :: flush | info.
+
+demonitor(MRef, Opts) when is_reference(MRef) andalso is_list(Opts) ->
+    BadArg = fun() -> erlang:error(badarg, [MRef, Opts]) end,
+    case Opts of
+	[] ->
+	    do_demonitor(MRef, false, BadArg),
+	    true;
+	[flush] ->
+	    do_demonitor(MRef, true, BadArg),
+	    true;
+	[info] ->
+	    do_demonitor(MRef, false, BadArg);
+	[flush, info] ->
+	    do_demonitor(MRef, true, BadArg);
+	[info, flush] ->
+	    do_demonitor(MRef, true, BadArg);
+	_ ->
+	    erlang:error(badarg, [MRef, Opts])
+    end;
+demonitor(MRef, Opts) ->
+    erlang:error(badarg, [MRef, Opts]).
+
+do_demonitor(MRef, Flush, BadArg) ->
     case socket_registry:demonitor(MRef) of
 	ok ->
-	    ok;
-	{error, unknown_monitor} -> % Possible race
-	    receive
-		{'DOWN', MRef, socket, _, _} ->
-		    ok
-	    after 0 ->
-		    ok
-	    end;
+	    do_demonitor_flush(MRef, Flush),
+	    true;
+	{error, unknown_monitor} ->
+	    false;
+	{error, not_owner} ->
+	    BadArg();
 	{error, Reason} ->
 	    erlang:error({invalid, Reason})
-    end;
-demonitor(Socket) ->
-    erlang:error(badarg, [Socket]).
+    end.
 
+do_demonitor_flush(MRef, true) ->
+    receive
+	{'DOWN', MRef, socket, _, _} ->
+	    true
+    after 0 ->
+	    true
+    end;
+do_demonitor_flush(_, _) ->
+    true.
+    
 
 %% ===========================================================================
 %%
