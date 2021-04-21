@@ -1161,7 +1161,8 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
 -spec ssh_encode(InData, Type) ->
                         binary()
                             when Type :: ssh2_pubkey | OtherType | InternalType,
-                                 OtherType :: public_key | ssh_file(),
+                                 OtherType :: PublicKey | ssh_file(),
+                                 PublicKey :: rfc4716_public_key | openssh_public_key,
                                  InternalType :: new_openssh,
                                  InData :: InData_ssh2_pubkey | OtherInData,
                                  InData_ssh2_pubkey :: public_key(),
