@@ -125,11 +125,18 @@ SupFlags = #{strategy => Strategy, ...}</code>
     <p>The <c>strategy</c> key is optional in this map. If it is not
       given, it defaults to <c>one_for_one</c>.</p>
 
+    <note>
+      <p>For simplicity, the diagrams shown in this section display a
+        setup where all the depicted children are assumed to have
+        a <seeguide marker="#restart">restart type</seeguide> of
+        <c>permanent</c>.</p>
+    </note>
+
     <section>
       <title>one_for_one</title>
       <p>If a child process terminates, only that process is restarted.</p>
       <marker id="sup4"></marker>
-      <image file="../design_principles/sup4.gif">
+      <image file="../design_principles/sup-one_for_one.svg" width="80%">
         <icaption>One_For_One Supervision</icaption>
       </image>
     </section>
@@ -140,7 +147,7 @@ SupFlags = #{strategy => Strategy, ...}</code>
         terminated, and then all child processes, including
         the terminated one, are restarted.</p>
       <marker id="sup5"></marker>
-      <image file="../design_principles/sup5.gif">
+      <image file="../design_principles/sup-one_for_all.svg" width="80%">
         <icaption>One_For_All Supervision</icaption>
       </image>
     </section>
@@ -151,6 +158,10 @@ SupFlags = #{strategy => Strategy, ...}</code>
         processes (that is, the child processes after the terminated
         process in start order) are terminated. Then the terminated
         child process and the rest of the child processes are restarted.</p>
+      <marker id="sup6"></marker>
+      <image file="../design_principles/sup-rest_for_one.svg" width="80%">
+        <icaption>Rest_For_One Supervision</icaption>
+      </image>
     </section>
 
      <section>
@@ -721,3 +732,4 @@ supervisor:terminate_child(Sup, Pid)</code>
     </section>
   </section>
 </chapter>
+
