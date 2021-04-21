@@ -430,7 +430,8 @@ static void dyncall_dup(ErlNifEnv* env, efile_data_t* d, struct prim_file_nif_dy
     if(previous_state == EFILE_STATE_IDLE) {
         int do_dup = !0;
 
-        dc_dup->error = efile_get_handle(env, d, do_dup, &dc_dup->handle);
+        dc_dup->result = (int)
+            efile_get_handle(env, d, do_dup, &dc_dup->handle);
 
         previous_state = erts_atomic32_cmpxchg_relb(&d->state,
             EFILE_STATE_IDLE, EFILE_STATE_BUSY);
@@ -452,32 +453,21 @@ static void dyncall_dup(ErlNifEnv* env, efile_data_t* d, struct prim_file_nif_dy
          * a transition from BUSY; the only valid state here is CLOSED. */
         ASSERT(previous_state == EFILE_STATE_CLOSED);
 
-        dc_dup->error = EINVAL;
+        dc_dup->result = EINVAL;
     }
 }
 
 static void dyncall(ErlNifEnv* env, void* obj, void* data) {
     efile_data_t *d = (efile_data_t*)obj;
-    struct prim_file_nif_dyncall *dc;
+    struct prim_file_nif_dyncall *dc = (struct prim_file_nif_dyncall *)data;
 
-    for (dc = (struct prim_file_nif_dyncall *)data;
-         dc->size > 0;
-         dc = (struct prim_file_nif_dyncall *)
-             ((char *)dc + dc->size)) {
-
-        switch (dc->op) {
-
-        case prim_file_nif_dyncall_dup: {
-            struct prim_file_nif_dyncall_dup *dc_dup =
-                (struct prim_file_nif_dyncall_dup *)dc;
-            ASSERT(dc->size >= sizeof(*dc_dup));
-
-            dyncall_dup(env, d, dc_dup);
-            dc->completed = !0;
-
-            return;
-        }
-        } // switch (dc->op)
+    switch (dc->op) {
+    case prim_file_nif_dyncall_dup:
+        dyncall_dup(env, d, (struct prim_file_nif_dyncall_dup *)dc);
+        return;
+    default:
+        dc->result = EINVAL;
+        return;
     }
 }
 

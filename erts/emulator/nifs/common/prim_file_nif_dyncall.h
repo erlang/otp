@@ -22,15 +22,17 @@ enum prim_file_nif_dyncall_op {
     prim_file_nif_dyncall_dup,
 };
 
+/* Common operation header */
 struct prim_file_nif_dyncall {
-    size_t size;
     enum prim_file_nif_dyncall_op op;
-    int completed;
+    int result; /* 0 for success */
 };
 
+/* Return a dup:ed file descriptor as binary data in 'handle' */
 struct prim_file_nif_dyncall_dup {
-    struct prim_file_nif_dyncall common;
+    /* struct prim_file_nif_dyncall */
+    enum prim_file_nif_dyncall_op op;
+    int result; /* 0 for success, errno for failure */
 
-    int error;
     ERL_NIF_TERM handle;
 };

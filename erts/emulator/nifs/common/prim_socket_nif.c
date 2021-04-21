@@ -7388,41 +7388,33 @@ esock_sendfile_start(ErlNifEnv       *env,
      * through a NIF dyncall
      */
     {
-        struct {
-            struct prim_file_nif_dyncall_dup dup;
-            struct prim_file_nif_dyncall     end;
-        } dc;
-        ErlNifBinary dc_bin[1];
+        struct prim_file_nif_dyncall_dup dc_dup;
+        ErlNifBinary dc_bin;
 
-        dc.dup.common.size =
-            CHARP(&dc.end) - CHARP(&dc.dup);
-        dc.dup.common.op = prim_file_nif_dyncall_dup;
-        dc.dup.common.completed = 0;
-        dc.end.size = 0;
+        dc_dup.op = prim_file_nif_dyncall_dup;
+        dc_dup.result = EINVAL; // should not be needed
 
         /* Request the handle */
-        if ((enif_dynamic_resource_call(env,
-                                        atom_prim_file, atom_efile, fRef,
-                                        &dc)
-             != 0) ||
-            (! dc.dup.common.completed)) {
-            //
+        if (enif_dynamic_resource_call(env,
+                                       atom_prim_file, atom_efile, fRef,
+                                       &dc_dup)
+            != 0) {
             goto error_invalid_efile;
         }
-        if (dc.dup.error != 0) {
+        if (dc_dup.result != 0) {
             return
                 esock_sendfile_errno(env, descP, sockRef,
-                                     dc.dup.error);
+                                     dc_dup.result);
         }
-        if (! enif_inspect_binary(env, dc.dup.handle, dc_bin))
+        if (! enif_inspect_binary(env, dc_dup.handle, &dc_bin))
             goto error_invalid_efile;
-        if (dc_bin->size != sizeof(descP->sendfileSock)) {
-            enif_release_binary(dc_bin);
+        if (dc_bin.size != sizeof(descP->sendfileSock)) {
+            enif_release_binary(&dc_bin);
             goto error_invalid_efile;
         }
-        sys_memcpy(&descP->sendfileSock, dc_bin->data,
+        sys_memcpy(&descP->sendfileSock, dc_bin.data,
                    sizeof(descP->sendfileSock));
-        enif_release_binary(dc_bin);
+        enif_release_binary(&dc_bin);
         goto sendfile;
 
     error_invalid_efile:
