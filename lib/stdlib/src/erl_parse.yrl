@@ -1617,7 +1617,7 @@ inop_prec('.') -> {900,900,1000}.
 
 -spec preop_prec(pre_op()) -> {0 | 600 | 700, 100 | 700 | 800}.
 
-preop_prec('catch') -> {950,100};
+preop_prec('catch') -> {700,100};
 preop_prec('+') -> {600,700};
 preop_prec('-') -> {600,700};
 preop_prec('bnot') -> {600,700};
@@ -1628,9 +1628,9 @@ preop_prec('#') -> {700,800}.
 
 func_prec() -> {800,700}.
 
--spec max_prec() -> 1000.
+-spec max_prec() -> 900.
 
-max_prec() -> 1000.
+max_prec() -> 900.
 
 -type prec() :: non_neg_integer().
 
