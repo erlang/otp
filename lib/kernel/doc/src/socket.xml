@@ -1597,7 +1597,7 @@
     </func>
 
     <func>
-      <name name="getopt" arity="2" clause_i="1" since="OTP 22.0"/>
+      <name name="getopt" arity="2" clause_i="1" since="OTP @OTP-17154@"/>
       <fsummary>
 	Get a socket option from the protocol level <c>otp</c>.
       </fsummary>
@@ -1618,7 +1618,7 @@
     </func>
 
     <func>
-      <name name="getopt" arity="2" clause_i="2" since="OTP 22.0"/>
+      <name name="getopt" arity="2" clause_i="2" since="OTP @OTP-17154@"/>
       <fsummary>
 	Get a socket option from one of the OS's protocol levels.
       </fsummary>
@@ -1688,10 +1688,14 @@
     </func>
 
     <func>
-      <name name="getopt_native" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="getopt_native" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="getopt_native" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="getopt_native" arity="3" clause_i="4" since="OTP 24.0"/>
+      <name name="getopt_native" arity="3" clause_i="1"
+            since="OTP @OTP-17154@"/>
+      <name name="getopt_native" arity="3" clause_i="2"
+            since="OTP @OTP-17154@"/>
+      <name name="getopt_native" arity="3" clause_i="3"
+            since="OTP @OTP-17154@"/>
+      <name name="getopt_native" arity="3" clause_i="4"
+            since="OTP @OTP-17154@"/>
       <fsummary>Get a "native" socket option.</fsummary>
       <desc>
         <p>
@@ -3327,7 +3331,7 @@
     </func>
 
     <func>
-      <name name="setopt" arity="3" clause_i="1" since="OTP 22.0"/>
+      <name name="setopt" arity="3" clause_i="1" since="OTP @OTP-17154@"/>
       <fsummary>
 	Set a socket option in the protocol level <c>otp</c>.
       </fsummary>
@@ -3348,7 +3352,7 @@
     </func>
 
     <func>
-      <name name="setopt" arity="3" clause_i="2" since="OTP 22.0"/>
+      <name name="setopt" arity="3" clause_i="2" since="OTP @OTP-17154@"/>
       <fsummary>
 	Set a socket option in one of the OS's protocol levels.
       </fsummary>
@@ -3421,7 +3425,7 @@
     </func>
 
     <func>
-      <name name="setopt_native" arity="3" since="OTP 22.0"/>
+      <name name="setopt_native" arity="3" since="OTP @OTP-17154@"/>
       <fsummary>Set a "native" socket option.</fsummary>
       <desc>
         <p>
