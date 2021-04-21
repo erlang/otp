@@ -211,6 +211,8 @@ close(Socket) ->
     end.
 
 
+%% -- Socket monitor
+
 -spec monitor(Socket) -> reference() when
       Socket :: socket().
 
@@ -236,6 +238,8 @@ monitor(Socket) ->
     erlang:error(badarg, [Socket]).
 
 
+%% -- Socket demonitor
+
 -spec demonitor(MRef) -> true when
       MRef :: reference().
 
@@ -248,8 +252,6 @@ demonitor(MRef) when is_reference(MRef) ->
 	error -> % Assume it has already been demonitor'ed
 	    true
     end;
-    %% do_demonitor(MRef, false, false),
-    %% true;
 demonitor(MRef) ->
     erlang:error(badarg, [MRef]).
 
@@ -271,6 +273,8 @@ demonitor(MRef, Opts) when is_reference(MRef) andalso is_list(Opts) ->
 demonitor(MRef, Opts) ->
     erlang:error(badarg, [MRef, Opts]).
 
+
+%% -- Socket peername
 
 -spec peername(Socket :: socket()) ->
 		      {ok,
