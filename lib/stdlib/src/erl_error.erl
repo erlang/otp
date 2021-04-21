@@ -347,8 +347,13 @@ format_arg_errors(ArgNum, [_|As], ErrorMap) ->
         #{} ->
             format_arg_errors(ArgNum + 1, As, ErrorMap)
     end;
-format_arg_errors(_, _, _) ->
-    [].
+format_arg_errors(_, _, ErrorMap) ->
+    case ErrorMap of
+        #{ general := Err } ->
+            [io_lib:format(<<"*** ~ts">>, [Err])];
+        #{} ->
+            []
+    end.
 
 location(L) ->
     File = proplists:get_value(file, L),
