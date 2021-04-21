@@ -354,8 +354,15 @@ format_arg_errors(ArgNum, A, ErrorMap) when is_integer(A) ->
 format_arg_errors(ArgNum, [_|As], ErrorMap) ->
     case ErrorMap of
         #{ArgNum := Err} ->
-            [io_lib:format(<<"*** argument ~w: ~ts">>, [ArgNum, Err]) |
-             format_arg_errors(ArgNum + 1, As, ErrorMap)];
+            %% Split the error on newlines and then recombine it
+            %% so that each line is correctly indented by the
+            %% printer of this error
+            [FirstLine | Lines] = string:lexemes(Err, "\r\n"),
+            ArgStr = io_lib:format(<<"*** argument ~w: ">>, [ArgNum]),
+            [io_lib:format(<<"~ts~ts">>, [ArgStr, FirstLine])] ++
+                [io_lib:format(<<"~*ts~ts">>,[string:length(ArgStr), "", Line]) ||
+                    Line <- Lines] ++
+             format_arg_errors(ArgNum + 1, As, ErrorMap);
         #{} ->
             format_arg_errors(ArgNum + 1, As, ErrorMap)
     end;
