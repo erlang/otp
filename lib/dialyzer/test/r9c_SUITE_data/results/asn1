@@ -75,7 +75,7 @@ asn1rt_per.erl:1237:30: The call erlang:'not'('implemented') will never return s
 asn1rt_per.erl:989:1: The pattern <_C, 'true', _Val> can never match the type <_,'false',_>
 asn1rt_per_bin.erl:1361:1: The pattern <_, 'true', _> can never match the type <_,'false',_>
 asn1rt_per_bin.erl:1436:3: The pattern {'BMPString', {'octets', Ol}} can never match the type {'BMPString' | 'IA5String' | 'NumericString' | 'PrintableString' | 'UniversalString' | 'VisibleString',[{'bits',1 | 2 | 4 | 8 | 16 | 32,_}]}
-asn1rt_per_bin.erl:161:12: The call asn1rt_per_bin:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>> | {non_neg_integer(),<<_:1,_:_*1>>})
+asn1rt_per_bin.erl:161:12: The call asn1rt_per_bin:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (nonempty_binary() | {non_neg_integer(),nonempty_bitstring()})
 asn1rt_per_bin.erl:1812:1: The pattern {Name, Val} can never match since previous clauses completely covered the type any()
 asn1rt_per_bin.erl:2106:17: Cons will produce an improper list since its 2nd argument is binary()
 asn1rt_per_bin.erl:2111:17: Cons will produce an improper list since its 2nd argument is binary()
@@ -90,7 +90,7 @@ asn1rt_per_bin.erl:467:2: The variable _ can never match since previous clauses 
 asn1rt_per_bin.erl:474:1: The pattern <{_N, <<_,Bs/binary>>}, C> can never match since previous clauses completely covered the type <{0,_},integer()>
 asn1rt_per_bin.erl:487:2: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin.erl:498:2: The variable _ can never match since previous clauses completely covered the type integer()
-asn1rt_per_bin_rt2ct.erl:152:12: The call asn1rt_per_bin_rt2ct:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>> | {non_neg_integer(),<<_:1,_:_*1>>})
+asn1rt_per_bin_rt2ct.erl:152:12: The call asn1rt_per_bin_rt2ct:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (nonempty_binary() | {non_neg_integer(),nonempty_bitstring()})
 asn1rt_per_bin_rt2ct.erl:1533:3: The pattern {'BMPString', {'octets', Ol}} can never match the type {_,[[any(),...]]}
 asn1rt_per_bin_rt2ct.erl:1875:1: The pattern {Name, Val} can never match since previous clauses completely covered the type any()
 asn1rt_per_bin_rt2ct.erl:443:2: The variable _ can never match since previous clauses completely covered the type integer()
