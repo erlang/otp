@@ -27,59 +27,6 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
-<section><title>SSL 10.4</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-	    <p>Missing runtime dependencies has been added to this
-	    application.</p>
-          <p>
-	    Own Id: OTP-17243 Aux Id: PR-4557 </p>
-        </item>
-        <item>
-          <p>
-	    TLS handshake should fail if OCSP staple is requested but
-	    missing. Note that OCSP support is still considered
-	    experimental and only partially implemented.</p>
-          <p>
-	    Own Id: OTP-17343</p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Removed ssl:ssl_accept/1,2,3 and ssl:cipher:suites/0,1
-	    use ssl:handshake/1,2,3 and ssl:cipher_suites/2,3
-	    instead.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-16974</p>
-        </item>
-        <item>
-          <p>
-	    Make TLS handshakes in Erlang distribution concurrent.</p>
-          <p>
-	    Own Id: OTP-17044 Aux Id: PR-2654 </p>
-        </item>
-        <item>
-          <p>
-	    Randomize internal <c>{active,n}</c> optimization when
-	    running Erlang distribution over TLS to spread RAM/CPU
-	    spike that may occur when starting up a big cluster.</p>
-          <p>
-	    Own Id: OTP-17117 Aux Id: PR-2933 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>SSL 10.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

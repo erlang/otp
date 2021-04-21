@@ -1844,8 +1844,8 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="receive_response" arity="1" since="OTP 24.0"/>
-      <name name="receive_response" arity="2" since="OTP 24.0"/>
+      <name name="receive_response" arity="1" since="OTP @OTP-16718@"/>
+      <name name="receive_response" arity="2" since="OTP @OTP-16718@"/>
       <fsummary>Receive for a reply from a server.</fsummary>
       <desc>
 	<p>

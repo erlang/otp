@@ -32,53 +32,6 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
-<section><title>Syntax_Tools 2.6</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    The type spec of <c>erl_syntax:function_type/2</c> has
-	    been fixed.</p>
-          <p>
-	    Own Id: OTP-17302 Aux Id: PR-4705 </p>
-        </item>
-        <item>
-          <p>
-	    Output parentheses around <c>BitStringExpr</c> when
-	    pretty-printing binary comprehensions.</p>
-          <p>
-	    Own Id: OTP-17321</p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Support for handling abstract code created before OTP R15
-	    has been dropped.</p>
-          <p>
-	    Own Id: OTP-16678 Aux Id: PR-2627 </p>
-        </item>
-        <item>
-	    <p>The <c>igor</c> and <c>erl_tidy</c> modules have been
-	    the removed and are now maintained by their original
-	    author Richard Carlsson. They can be found at <url
-	    href="https://github.com/richcarl/igor">github.com/richcarl/igor</url>
-	    and <url
-	    href="https://github.com/richcarl/erl_tidy">github.com/richcarl/erl_tidy</url>,
-	    respectively.</p>
-          <p>
-	    Own Id: OTP-17180</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Syntax_Tools 2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

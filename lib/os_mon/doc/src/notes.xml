@@ -31,32 +31,6 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
-<section><title>Os_Mon 2.7</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    The temporarily introduced configuration parameter
-	    <c>memsup_improved_system_memory_data</c> has been
-	    removed.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-16943 Aux Id: OTP-16906 </p>
-        </item>
-        <item>
-          <p>
-	    Fix <c>disk_sup</c> to also search the system PATH on
-	    linux when looking for the <c>df</c> program.</p>
-          <p>
-	    Own Id: OTP-16944 Aux Id: PR-2787 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Os_Mon 2.6.1</title>
 
     <section><title>Improvements and New Features</title>

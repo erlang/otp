@@ -31,55 +31,6 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
-<section><title>Tools 3.5</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-	    <p>For cover-compiled code, the error behaviour of list
-	    and binary comprehensions that used
-	    <c>andalso</c>/<c>orelse</c> in guards could be changed
-	    so that a filter that was supposed be evaluated in guard
-	    context was evaluated in body context. That is, there was
-	    a possibility that comprehensions that did not raise
-	    exceptions could raise exceptions when being run using
-	    <c>cover</c>.</p>
-          <p>
-	    Own Id: OTP-17221 Aux Id: PR-4547 </p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Support for handling abstract code created before OTP R15
-	    has been dropped.</p>
-          <p>
-	    Own Id: OTP-16678 Aux Id: PR-2627 </p>
-        </item>
-        <item>
-          <p>
-	    Add types and specifications for documentation.</p>
-          <p>
-	    Own Id: OTP-16957</p>
-        </item>
-        <item>
-	    <p>The experimental HiPE application has been removed,
-	    together with all related functionality in other
-	    applications.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-16963</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Tools 3.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -33,39 +33,6 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
-<section><title>Debugger 5.1</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Extended error information for failing BIF calls as
-	    proposed in <url
-	    href="https://github.com/erlang/eep/blob/master/eeps/eep-0054.md">EEP
-	    54</url> has been implemented.</p>
-          <p>
-	    When a BIF call from the Erlang shell fails, more
-	    information about which argument or arguments that were
-	    in error will be printed. The same extended error
-	    information will by <c>proc_lib</c>, <c>common_test</c>,
-	    and <c>qlc</c> when BIF calls fail.</p>
-          <p>
-	    For applications that wish to provide the same extended
-	    error information, there are new functions
-	    <c>erl_error:format_exception/3</c> and
-	    <c>erl_error:format_exception/4</c>.</p>
-          <p>
-	    There is a new <c>error/3</c> BIF that allows
-	    applications or libraries to provide extended error
-	    information in the same way for their own exceptions.</p>
-          <p>
-	    Own Id: OTP-16686</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Debugger 5.0</title>
 
     <section><title>Improvements and New Features</title>

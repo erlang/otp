@@ -33,37 +33,6 @@
     <file>notes.xml</file>
     </header>
 
-<section><title>Common_Test 1.20.1</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    The option <c>release_shell</c> could crash when used
-	    together with the <c>spec</c> option.</p>
-          <p>
-	    Own Id: OTP-16940 Aux Id: ERL-1335 </p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p>The experimental HiPE application has been removed,
-	    together with all related functionality in other
-	    applications.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-16963</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Common_Test 1.20</title>
 
     <section><title>Improvements and New Features</title>
