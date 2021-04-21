@@ -1721,6 +1721,53 @@ upper(C) when C >= $a, C =< $z -> (C-$a) + $A;
 upper(C) -> C.
 
     
+info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
+    case F of
+	owner ->
+	    case GenSocketMod:info(S) of
+		#{owner := Owner} when is_pid(Owner) -> pid_to_list(Owner);
+		_ -> " "
+	    end;
+	port ->
+	    "esock"; %% We should really skip this
+	sent ->
+	    case GenSocketMod:getstat(S, [send_oct]) of
+		{ok, [{send_oct, N}]} -> integer_to_list(N);
+		_ -> " "
+	    end;
+	recv ->
+	    case GenSocketMod:getstat(S, [recv_oct]) of
+		{ok, [{recv_oct, N}]} -> integer_to_list(N);
+		_ -> " "
+	    end;
+	local_address ->
+	    fmt_addr(GenSocketMod:sockname(S), Proto);
+	foreign_address ->
+	    fmt_addr(GenSocketMod:peername(S), Proto);
+	state ->
+	    case GenSocketMod:info(S) of
+		#{rstates := RStates,
+		  wstates := WStates} -> fmt_compat_status(RStates, WStates);
+		_ -> " "
+	    end;
+	packet ->
+	    case GenSocketMod:which_packet_type(S) of
+		{ok, Type} -> atom_to_list(Type);
+		_ -> " "
+	    end;
+	type ->
+	    case GenSocketMod:info(S) of
+		#{type := stream} -> "STREAM";
+		_ -> " "
+	    end;
+	fd ->
+	    case GenSocketMod:getopts(S, [fd]) of
+		{ok, [{fd, Fd}]} -> integer_to_list(Fd);
+		_ -> " "
+	    end;
+	module ->
+	    atom_to_list(GenSocketMod)
+    end;
 info(S, F, Proto) ->
     case F of
 	owner ->
@@ -1776,6 +1823,7 @@ info(S, F, Proto) ->
 		_ -> "prim_inet"
 	    end
     end.
+
 %% Possible flags: (sorted)
 %% [accepting,bound,busy,connected,connecting,listen,listening,open]
 %% Actually, we no longer gets listening...
@@ -1793,6 +1841,19 @@ fmt_status(Flags) ->
 	[]                            -> "CLOSED";
 	Sorted                        -> fmt_status2(Sorted)
     end.
+
+fmt_compat_status(RFlags, WFlags) ->
+    fmt_status(fmt_compat_status_merge(RFlags, WFlags)).
+
+fmt_compat_status_merge(RFlags, WFlags) ->
+    fmt_compat_status_merge(RFlags, WFlags, []).
+    
+fmt_compat_status_merge([], WFlags, Merged) ->
+    Merged ++ WFlags;
+fmt_compat_status_merge([RFlag|RFlags], WFlags, Merged) ->
+    fmt_compat_status_merge(RFlags,
+			    lists:delete(RFlag, WFlags),
+			    [RFlag|Merged]).
 
 fmt_status2([H]) ->
     fmt_status3(H);
@@ -1815,6 +1876,8 @@ fmt_status3(listening) ->
     "LG";
 fmt_status3(open) ->
     "O";
+fmt_status3(selected) ->
+    "SD";
 fmt_status3(X) when is_atom(X) ->
     string:uppercase(atom_to_list(X)).
 
@@ -1839,7 +1902,7 @@ fmt_port(N, Proto) ->
     end.
 
 %% Return a list of all tcp sockets
-tcp_sockets() -> port_list("tcp_inet").
+tcp_sockets() -> port_list("tcp_inet") ++ gen_tcp_socket:which_sockets().
 udp_sockets() -> port_list("udp_inet").
 sctp_sockets() -> port_list("sctp_inet").
 

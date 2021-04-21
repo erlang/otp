@@ -37,7 +37,7 @@
         ]).
 
 %% Utility
--export([info/1, socket_to_list/1]).
+-export([info/1, which_sockets/0, which_packet_type/1, socket_to_list/1]).
 
 -ifdef(undefined).
 -export([unrecv/2]).
@@ -565,6 +565,46 @@ socket_to_list(Socket) ->
     erlang:error(badarg, [Socket]).
 
 
+which_sockets() ->
+    which_sockets(socket:which_sockets(tcp)).
+
+which_sockets(Socks) ->
+    which_sockets(Socks, []).
+
+which_sockets([], Acc) ->
+    Acc;
+which_sockets([Sock|Socks], Acc) ->
+    case socket:getopt(Sock, {otp, meta}) of
+	{ok, undefined} ->
+	    which_sockets(Socks, Acc);
+	{ok, _Meta} ->
+	    %% One of ours - try to recreate the compat socket
+	    %% Currently we don't have the 'owner' in meta, so we need to look
+	    %% it up...
+	    case socket:info(Sock) of
+		#{owner := Owner} ->
+		    MSock = ?MODULE_socket(Owner, Sock),
+		    which_sockets(Socks, [MSock|Acc]);
+		_ ->
+		    which_sockets(Socks, Acc)
+	    end;
+	_ ->
+	    which_sockets(Socks, Acc)
+    end.
+
+
+%% -------------------------------------------------------------------------
+
+which_packet_type(?MODULE_socket(_Server, Socket)) ->
+    %% quick and dirty...
+    case socket:getopt(Socket, {otp, meta}) of
+	{ok, #{packet := Type}} ->
+	    {ok, Type};
+	_ ->
+	    error
+    end.
+
+			 
 %%% ========================================================================
 %%% Socket glue code
 %%%
@@ -1376,7 +1416,7 @@ handle_event({call, From}, info, State, {P, D}) ->
             {keep_state_and_data,
              [{reply, From, #{}}]};
         _ ->
-            {D_1, Result} = handle_info(P#params.socket, D),
+            {D_1, Result} = handle_info(P#params.socket, P#params.owner, D),
             {keep_state, {P, D_1},
              [{reply, From, Result}]}
     end;
@@ -2420,7 +2460,7 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
             {error, einval}
     end.
 
-handle_info(Socket, D) -> 
+handle_info(Socket, Owner, D) -> 
     %% Read counters
     Counters_1 = socket_info_counters(Socket),
     %% Check for recent wraps
@@ -2434,7 +2474,7 @@ handle_info(Socket, D) ->
     Counters_3 = maps:merge(Counters_1, maps:with(Wrapped, Counters_2)),
     %% Go ahead with wrap updated counters
     Counters_4 = maps:from_list(getstat_what(D_1, Counters_3)),
-    {D_1, Info#{counters => Counters_4}}.
+    {D_1, Info#{counters => Counters_4, owner => Owner}}.
     
 getstat(Socket, D, What) ->
     %% Read counters
