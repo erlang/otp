@@ -4198,6 +4198,10 @@ args_list(_Other) -> maybe.
 args_length({cons,_A,_H,T}) -> 1 + args_length(T);
 args_length({nil,_A}) -> 0.
 
+check_format_string(Fmt) when is_atom(Fmt) ->
+    check_format_string(atom_to_list(Fmt));
+check_format_string(Fmt) when is_binary(Fmt) ->
+    check_format_string(binary_to_list(Fmt));
 check_format_string(Fmt) ->
     extract_sequences(Fmt, []).
 
