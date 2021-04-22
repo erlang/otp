@@ -74,7 +74,7 @@ jobs:
         run: |
           c:
           cd c:\\opt\\local64\\pgm\\wxWidgets-3.1.4\\3rdparty
-          nuget install Microsoft.Web.WebView2 -Version 1.0.705.50
+          nuget install Microsoft.Web.WebView2 -Version 1.0.705.50 -Source https://api.nuget.org/v3/index.json
           rename Microsoft.Web.WebView2.1.0.705.50 webview2
 
       - name: Build wxWidgets
