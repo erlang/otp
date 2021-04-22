@@ -112,7 +112,7 @@
 #include <winsock2.h>
 #endif
 #include <windows.h>
-#include <Ws2tcpip.h>   /* NEED VC 6.0 or higher */
+#include <Ws2tcpip.h>
 
 /* Visual studio 2008+: NTDDI_VERSION needs to be set for iphlpapi.h
  * to define the right structures. It needs to be set to WINXP (or LONGHORN)
@@ -393,19 +393,21 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 #ifdef __WIN32__
 
+//#define INVALID_HANDLE        from Windows header file
+//typedef void   *HANDLE        from Windows header file
 //#define INVALID_SOCKET        from Windows header file
-//#define SOCKET                from Windows header file
+//typedef void   *SOCKET        from Windows header file
 #define INVALID_EVENT NULL
 
 #else
 
+#define INVALID_HANDLE (-1)
+typedef int HANDLE;
 #define INVALID_SOCKET (-1)
-typedef int SOCKET;
-#define INVALID_EVENT INVALID_SOCKET
+typedef int SOCKET; /* A subset of HANDLE */
+#define INVALID_EVENT INVALID_HANDLE
 
 #endif
-
-typedef ErlNifEvent HANDLE;
 
 
 /* ==============================================================================
@@ -932,7 +934,7 @@ typedef struct {
     ESockCounter       writeWaits;
     ESockCounter       writeFails;
 #ifdef HAVE_SENDFILE
-    SOCKET                 sendfileSock;
+    HANDLE                 sendfileHandle;
     ESockSendfileCounters* sendfileCountersP;
 #endif
     /* +++ Connector +++ */
@@ -994,7 +996,7 @@ typedef struct {
     ESockMonitor       ctrlMon;
     /* +++ The actual socket +++ */
     SOCKET             sock;
-    HANDLE             event;
+    ErlNifEvent        event;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
     /* +++ The dbg flag for SSDBG +++ */
@@ -3180,7 +3182,7 @@ static int socket_setopt(int             sock,
 
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
-static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
+static ESockDescriptor* alloc_descriptor(SOCKET sock, ErlNifEvent event);
 
 
 static BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how);
@@ -5066,7 +5068,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     int              save_errno = 0;
     BOOLEAN_T        closeOnClose;
     SOCKET           sock;
-    HANDLE           event;
+    ErlNifEvent      event;
     ErlNifPid        self;
 
     /* Keep track of the creator
@@ -5286,7 +5288,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
     ERL_NIF_TERM     sockRef;
     int              proto = protocol, save_errno;
     SOCKET           sock;
-    HANDLE           event;
+    ErlNifEvent      event;
     char*            netns;
 #ifdef HAVE_SETNS
     int              current_ns = 0;
@@ -6464,7 +6466,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                 ERL_NIF_TERM*    result)
 {
     ESockDescriptor* accDescP;
-    HANDLE           accEvent;
+    ErlNifEvent      accEvent;
     ERL_NIF_TERM     accRef;
     int              save_errno;
 
@@ -7381,7 +7383,7 @@ esock_sendfile_start(ErlNifEnv       *env,
         return writerCheck;
     }
 
-    if (descP->sendfileSock != INVALID_SOCKET)
+    if (descP->sendfileHandle != INVALID_HANDLE)
         return esock_make_error_invalid(env, atom_state);
 
     /* Get a dup:ed file handle from prim_file_nif
@@ -7389,7 +7391,6 @@ esock_sendfile_start(ErlNifEnv       *env,
      */
     {
         struct prim_file_nif_dyncall_dup dc_dup;
-        ErlNifBinary dc_bin;
 
         dc_dup.op = prim_file_nif_dyncall_dup;
         dc_dup.result = EINVAL; // should not be needed
@@ -7399,36 +7400,23 @@ esock_sendfile_start(ErlNifEnv       *env,
                                        atom_prim_file, atom_efile, fRef,
                                        &dc_dup)
             != 0) {
-            goto error_invalid_efile;
+            return
+                esock_sendfile_error(env, descP, sockRef,
+                                     MKT2(env, esock_atom_invalid,
+                                          atom_efile));
         }
         if (dc_dup.result != 0) {
             return
-                esock_sendfile_errno(env, descP, sockRef,
-                                     dc_dup.result);
+                esock_sendfile_errno(env, descP, sockRef, dc_dup.result);
         }
-        if (! enif_inspect_binary(env, dc_dup.handle, &dc_bin))
-            goto error_invalid_efile;
-        if (dc_bin.size != sizeof(descP->sendfileSock)) {
-            enif_release_binary(&dc_bin);
-            goto error_invalid_efile;
-        }
-        sys_memcpy(&descP->sendfileSock, dc_bin.data,
-                   sizeof(descP->sendfileSock));
-        enif_release_binary(&dc_bin);
-        goto sendfile;
-
-    error_invalid_efile:
-        return esock_sendfile_error(env, descP, sockRef,
-                                    MKT2(env, esock_atom_invalid,
-                                         atom_efile));
+        descP->sendfileHandle = dc_dup.handle;
     }
 
- sendfile:
     SSDBG( descP, ("SOCKET",
                    "esock_sendfile_start(%T) {%d} -> sendRef: %T\r\n"
-                   "   sendfileSock: %d\r\n",
+                   "   sendfileHandle: %d\r\n",
                    sockRef, descP->sock, sendRef,
-                   descP->sendfileSock) );
+                   descP->sendfileHandle) );
 
     if (descP->sendfileCountersP == NULL) {
         descP->sendfileCountersP = MALLOC(sizeof(ESockSendfileCounters));
@@ -7443,8 +7431,8 @@ esock_sendfile_start(ErlNifEnv       *env,
 
     if (res < 0) { // Terminal error
 
-        (void) close(descP->sendfileSock);
-        descP->sendfileSock = INVALID_SOCKET;
+        (void) close(descP->sendfileHandle);
+        descP->sendfileHandle = INVALID_HANDLE;
 
         return esock_sendfile_errno(env, descP, sockRef, err);
 
@@ -7465,8 +7453,8 @@ esock_sendfile_start(ErlNifEnv       *env,
             if (mon_res > 0) {
                 /* Caller died already, can happen for dirty NIFs */
 
-                (void) close(descP->sendfileSock);
-                descP->sendfileSock = INVALID_SOCKET;
+                (void) close(descP->sendfileHandle);
+                descP->sendfileHandle = INVALID_HANDLE;
 
                 return
                     esock_sendfile_error(env, descP, sockRef,
@@ -7518,7 +7506,7 @@ esock_sendfile_cont(ErlNifEnv       *env,
     /* Verify that this process has a sendfile operation in progress */
     ESOCK_ASSERT( enif_self(env, &caller) != NULL );
     if ((descP->currentWriterP == NULL) ||
-        (descP->sendfileSock == INVALID_SOCKET) ||
+        (descP->sendfileHandle == INVALID_HANDLE) ||
         (COMPARE_PIDS(&descP->currentWriter.pid, &caller) != 0)) {
         //
         return esock_raise_invalid(env, atom_state);
@@ -7528,8 +7516,8 @@ esock_sendfile_cont(ErlNifEnv       *env,
 
     if (res < 0) { // Terminal error
 
-        (void) close(descP->sendfileSock);
-        descP->sendfileSock = INVALID_SOCKET;
+        (void) close(descP->sendfileHandle);
+        descP->sendfileHandle = INVALID_HANDLE;
 
         return esock_sendfile_errno(env, descP, sockRef, err);
 
@@ -7552,11 +7540,11 @@ esock_sendfile_cont(ErlNifEnv       *env,
 static ERL_NIF_TERM
 esock_sendfile_deferred_close(ErlNifEnv       *env,
                               ESockDescriptor *descP) {
-    if (descP->sendfileSock == INVALID_SOCKET)
+    if (descP->sendfileHandle == INVALID_HANDLE)
         return esock_make_error_invalid(env, atom_state);
 
-    (void) close(descP->sendfileSock);
-    descP->sendfileSock = INVALID_SOCKET;
+    (void) close(descP->sendfileHandle);
+    descP->sendfileHandle = INVALID_HANDLE;
 
     return esock_atom_ok;
 }
@@ -7603,7 +7591,7 @@ esock_sendfile(ErlNifEnv       *env,
 
             prev_offset = offset;
             res =
-                sendfile(descP->sock, descP->sendfileSock,
+                sendfile(descP->sock, descP->sendfileHandle,
                          &offset, chunk_size);
             if (res < 0)
                 error = sock_errno();
@@ -7618,11 +7606,11 @@ esock_sendfile(ErlNifEnv       *env,
 #if defined(__DARWIN__)
             sbytes = (off_t) chunk_size;
             res = (ssize_t)
-                sendfile(descP->sendfileSock, descP->sock, offset,
+                sendfile(descP->sendfileHandle, descP->sock, offset,
                          &sbytes, NULL, 0);
 #else
             res = (ssize_t)
-                sendfile(descP->sendfileSock, descP->sock, offset,
+                sendfile(descP->sendfileHandle, descP->sock, offset,
                          chunk_size, NULL, &sbytes, 0);
 #endif
             if (res < 0)
@@ -7635,7 +7623,7 @@ esock_sendfile(ErlNifEnv       *env,
 
             sendfilevec_t sfvec[1];
 
-            sfvec[0].sfv_fd = descP->sendfileSock;
+            sfvec[0].sfv_fd = descP->sendfileHandle;
             sfvec[0].sfv_flag = 0;
             sfvec[0].sfv_off = offset;
             sfvec[0].sfv_len = chunk_size;
@@ -7784,8 +7772,8 @@ esock_sendfile_select(ErlNifEnv       *env,
         send_error_waiting_writers(env, descP, sockRef, reason);
         descP->currentWriterP = NULL;
 
-        (void) close(descP->sendfileSock);
-        descP->sendfileSock = INVALID_SOCKET;
+        (void) close(descP->sendfileHandle);
+        descP->sendfileHandle = INVALID_HANDLE;
 
         return enif_raise_exception(env, reason);
 
@@ -7843,8 +7831,8 @@ esock_sendfile_ok(ErlNifEnv       *env,
     descP->writePkgMaxCnt = 0;
     bytes_sent64u = (ErlNifUInt64) count;
 
-    (void) close(descP->sendfileSock);
-    descP->sendfileSock = INVALID_SOCKET;
+    (void) close(descP->sendfileHandle);
+    descP->sendfileHandle = INVALID_HANDLE;
 
     return esock_make_ok2(env, MKUI64(env, bytes_sent64u));
 }
@@ -8814,9 +8802,9 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
     err = esock_close_socket(env, descP, TRUE);
 
 #ifdef HAVE_SENDFILE
-    if (descP->sendfileSock != INVALID_SOCKET) {
-        (void) close(descP->sendfileSock);
-        descP->sendfileSock = INVALID_SOCKET;
+    if (descP->sendfileHandle != INVALID_HANDLE) {
+        (void) close(descP->sendfileHandle);
+        descP->sendfileHandle = INVALID_HANDLE;
     }
 #endif
 
@@ -16064,7 +16052,7 @@ ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env, sctp_assoc_t val)
  */
 #ifndef __WIN32__
 static
-ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
+ESockDescriptor* alloc_descriptor(SOCKET sock, ErlNifEvent event)
 {
     ESockDescriptor* descP;
     char buf[64]; /* Buffer used for building the mutex name */
@@ -16095,7 +16083,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
     descP->writeFails      = 0;
 
 #ifdef HAVE_SENDFILE
-    descP->sendfileSock      = INVALID_SOCKET;
+    descP->sendfileHandle      = INVALID_HANDLE;
     descP->sendfileCountersP = NULL;
 #endif
 
@@ -17487,7 +17475,7 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   free_request_queue(&descP->acceptorsQ);
 
 #ifdef HAVE_SENDFILE
-  ESOCK_ASSERT( descP->sendfileSock == INVALID_SOCKET );
+  ESOCK_ASSERT( descP->sendfileHandle == INVALID_HANDLE );
   if (descP->sendfileCountersP != NULL)
       FREE(descP->sendfileCountersP);
   descP->sendfileCountersP = NULL;
@@ -17641,7 +17629,7 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
          * - have to do an unclean (non blocking) close */
 
 #ifdef HAVE_SENDFILE
-        if (descP->sendfileSock != INVALID_SOCKET)
+        if (descP->sendfileHandle != INVALID_HANDLE)
             esock_send_sendfile_deferred_close_msg(env, descP);
 #endif
 
@@ -17823,7 +17811,7 @@ void esock_down(ErlNifEnv*           env,
              */
 
 #ifdef HAVE_SENDFILE
-            if (descP->sendfileSock != INVALID_SOCKET)
+            if (descP->sendfileHandle != INVALID_HANDLE)
                 esock_send_sendfile_deferred_close_msg(env, descP);
 #endif
 
@@ -17966,7 +17954,7 @@ void esock_down_ctrl(ErlNifEnv*           env,
          */
 
 #ifdef HAVE_SENDFILE
-        if (descP->sendfileSock != INVALID_SOCKET)
+        if (descP->sendfileHandle != INVALID_HANDLE)
             esock_send_sendfile_deferred_close_msg(env, descP);
 #endif
 

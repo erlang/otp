@@ -95,21 +95,26 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
     return 0;
 }
 
-posix_errno_t efile_get_handle(ErlNifEnv *env, efile_data_t *d, int do_dup, ERL_NIF_TERM *handle) {
+ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d) {
     efile_unix_t *u = (efile_unix_t*)d;
-
+    int fd = u->fd;
+    ERL_NIF_TERM handle;
     unsigned char *bits;
-    int fd;
 
-    if (do_dup) {
-        if ((fd = dup(u->fd)) < 0)
-            return errno;
-    } else {
-        fd = u->fd;
-    }
-    bits = enif_make_new_binary(env, sizeof(fd), handle);
+    bits = enif_make_new_binary(env, sizeof(fd), &handle);
     memcpy(bits, &fd, sizeof(fd));
 
+    return handle;
+}
+
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle) {
+    efile_unix_t *u = (efile_unix_t*)d;
+    int fd;
+
+    if ((fd = dup(u->fd)) < 0)
+        return errno;
+
+    *handle = fd;
     return 0;
 }
 

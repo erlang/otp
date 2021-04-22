@@ -428,10 +428,9 @@ static void dyncall_dup(ErlNifEnv* env, efile_data_t* d, struct prim_file_nif_dy
         EFILE_STATE_BUSY, EFILE_STATE_IDLE);
 
     if(previous_state == EFILE_STATE_IDLE) {
-        int do_dup = !0;
 
         dc_dup->result = (int)
-            efile_get_handle(env, d, do_dup, &dc_dup->handle);
+            efile_dup_handle(env, d, &dc_dup->handle);
 
         previous_state = erts_atomic32_cmpxchg_relb(&d->state,
             EFILE_STATE_IDLE, EFILE_STATE_BUSY);
@@ -466,7 +465,7 @@ static void dyncall(ErlNifEnv* env, void* obj, void* data) {
         dyncall_dup(env, d, (struct prim_file_nif_dyncall_dup *)dc);
         return;
     default:
-        dc->result = EINVAL;
+        dc->result = ENOTSUP;
         return;
     }
 }
@@ -985,14 +984,10 @@ static ERL_NIF_TERM ipread_s32bu_p32bu_nif_impl(efile_data_t *d, ErlNifEnv *env,
 }
 
 static ERL_NIF_TERM get_handle_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    ERL_NIF_TERM  result;
-    posix_errno_t error;
+
     ASSERT(argc == 0);
 
-    error = efile_get_handle(env, d, 0, &result);
-    ASSERT(error == 0); (void)error;
-
-    return result;
+    return efile_get_handle(env, d);
 }
 
 static ERL_NIF_TERM build_file_info(ErlNifEnv *env, efile_fileinfo_t *info) {

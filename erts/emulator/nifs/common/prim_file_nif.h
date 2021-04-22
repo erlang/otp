@@ -129,7 +129,13 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
  *
  * This is an internal function intended to support tests and tricky
  * operations like sendfile(2). */
-posix_errno_t efile_get_handle(ErlNifEnv *env, efile_data_t *d, int do_dup, ERL_NIF_TERM *handle);
+ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d);
+
+/** @brief Returns the underlying handle as an implementation-defined term.
+ *
+ * This is an internal function intended to support tests and tricky
+ * operations like sendfile(2). */
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle);
 
 /** @brief Read until EOF or the given iovec has been filled.
  *

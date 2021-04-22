@@ -216,19 +216,23 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
     return get_full_path(env, (WCHAR*)raw_path.data, result);
 }
 
-posix_errno_t efile_get_handle(ErlNifEnv *env, efile_data_t *d, int do_dup, ERL_NIF_TERM *handle) {
+ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d) {
     efile_win_t *w = (efile_win_t*)d;
-
+    ERL_NIF_TERM handle;
     unsigned char *bits;
 
-    if (do_dup) {
-        /* XXX not implemented yet */
-        return ENOTSUP;
-    }
-    bits = enif_make_new_binary(env, sizeof(w->handle), handle);
+    bits = enif_make_new_binary(env, sizeof(w->handle), &handle);
     memcpy(bits, &w->handle, sizeof(w->handle));
 
-    return 0;
+    return handle;
+}
+
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle) {
+    (void) env;
+    (void) d;
+    (void) handle;
+    /* XXX not implemented yet */
+    return ENOTSUP;
 }
 
 /** @brief Converts a native path to the preferred form in "erlang space,"

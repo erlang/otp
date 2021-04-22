@@ -18,6 +18,11 @@
  * %CopyrightEnd%
  */
 
+#ifndef PRIM_FILE_NIF_DYNCALL_H
+#define PRIM_FILE_NIF_DYNCALL_H
+
+#include "erl_nif.h"
+
 enum prim_file_nif_dyncall_op {
     prim_file_nif_dyncall_dup,
 };
@@ -33,6 +38,8 @@ struct prim_file_nif_dyncall_dup {
     /* struct prim_file_nif_dyncall */
     enum prim_file_nif_dyncall_op op;
     int result; /* 0 for success, errno for failure */
-
-    ERL_NIF_TERM handle;
+    ErlNifEvent handle;
 };
+
+
+#endif /* #ifdef PRIM_FILE_NIF_DYNCALL_H */
