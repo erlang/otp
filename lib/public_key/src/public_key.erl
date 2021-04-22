@@ -85,9 +85,10 @@
 -type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::crypto:ec_named_curve()}.
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
--type ed_public_key()        :: {ed_pub, ed25519|ed448, Key::binary()}.
--type ed_private_key()       :: {ed_pri, ed25519|ed448, Pub::binary(), Priv::binary()}.
-
+-type ed_public_key()        :: {#'ECPoint'{}, ed_params()} | {ed_pub, ed25519|ed448, Key::binary()}.
+-type ed_private_key()       :: #'ECPrivateKey'{parameters :: ed_params()} |
+                                {ed_pri, ed25519|ed448, Pub::binary(), Priv::binary()}.
+-type ed_params()            ::  {namedCurve, ?'id-Ed25519' | ?'id-Ed448'}.
 -type key_params()           :: #'DHParameter'{} | {namedCurve, oid()} | #'ECParameters'{} | 
                                 {rsa, Size::integer(), PubExp::integer()}. 
 -type der_encoded()          :: binary().
