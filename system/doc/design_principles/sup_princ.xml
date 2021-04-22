@@ -669,8 +669,9 @@ supervisor:terminate_child(Sup, Pid)</code>
     <section>
       <title>Manual stopping versus Automatic Shutdown</title>
       <p>For several reasons, a supervisor should not be stopped
-        manually via <c>supervisor:terminate_child/2</c> from
-        a child located in its own tree.</p>
+        manually via <seemfa marker="stdlib:supervisor#terminate_child/2">
+        <c>supervisor:terminate_child/2</c></seemfa> from a child located
+        in its own tree.</p>
       <list type="ordered">
         <item>
           <p>The child process will have to know the pids or registered
@@ -680,9 +681,10 @@ supervisor:terminate_child(Sup, Pid)</code>
             This can make restructuring a supervision tree difficult.</p>
         </item>
         <item>
-          <p><c>supervisor:terminate_child/2</c> is a blocking call that
-            will only return after the parent supervisor has finished
-            the shutdown of the supervisor that should be stopped.
+          <p><seemfa marker="stdlib:supervisor#terminate_child/2">
+            <c>supervisor:terminate_child/2</c></seemfa> is a blocking
+            call that will only return after the parent supervisor has
+            finished the shutdown of the supervisor that should be stopped.
             Unless the call is made from a spawned process, this will
             result in a deadlock, as the supervisor waits for the child
             to exit as part of its shutdown procedure, whereas the
