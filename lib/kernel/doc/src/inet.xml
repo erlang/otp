@@ -371,6 +371,46 @@ fe80::204:acff:fe17:bf38
         <p><c>demonitor(<anno>MRef</anno>, [])</c> is equivalent to
 	<seemfa marker="#demonitor/1">
 	<c>demonitor(<anno>MRef</anno>)</c></seemfa>.</p>
+        <p><c><anno>Option</anno></c>s:</p>
+        <taglist>
+          <tag><c>flush</c></tag>
+          <item>
+            <p>Removes (one) <c>{_,
+              <anno>MRef</anno>, socket, _, _}</c> message,
+              if there is one, from the caller message queue after
+              monitoring has been stopped.</p>
+            <p>Calling <c>inet:demonitor(<anno>MRef</anno>, [flush])</c>
+              is equivalent to the following:</p>
+            <code type="none">
+inet:demonitor(MRef),
+receive
+    {_, MRef, socket, _, _} ->
+        true
+after 0 ->
+        true
+end</code>
+          </item>
+          <tag><c>info</c></tag>
+          <item>
+            <p>The returned value is one of the following:</p>
+            <taglist>
+              <tag><c>true</c></tag>
+              <item><p>The monitor was found and removed. In this case,
+                no <c>'DOWN'</c> message corresponding to this
+                monitor has been delivered and will not be delivered.</p>
+              </item>
+              <tag><c>false</c></tag>
+              <item><p>The monitor was not found and could not be removed.
+                This probably because someone already has placed a
+                <c>'DOWN'</c> message corresponding to this monitor
+                in the caller message queue.</p>
+              </item>
+            </taglist>
+            <p>If option <c>info</c> is combined with option <c>flush</c>,
+              <c>false</c> is returned if a flush was needed,
+              otherwise <c>true</c>.</p>
+          </item>
+        </taglist>
 	<p>Failure: It is an error if <c><anno>MRef</anno></c> refers to a
 	monitoring started by another process. </p>
       </desc>
@@ -741,12 +781,12 @@ get_tcpi_sacked(Sock) ->
           </item>
           <tag><c>Info</c></tag>
           <item>
-	    <p>Either the termination reason of the socket or <c>nosock</c>.
-	    </p>
+	    <p>Either the termination reason of the socket or <c>nosock</c>
+	    (no socket <c><anno>Socket</anno></c> was found; a race). </p>
 	  </item>
         </taglist>
 
-        <p>Making several calls to <c>monitor/1</c> for the same
+        <p>Making several calls to <c>inet:monitor/1</c> for the same
 	<c><anno>Socket</anno></c> is not an error; it results in
 	as many independent monitoring instances. </p>
 
