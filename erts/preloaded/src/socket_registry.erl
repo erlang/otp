@@ -271,15 +271,15 @@ handle_send_down([], _MDB) ->
 handle_send_down([Mon|Mons], MDB) ->
     case mon_lookup(MDB, Mon) of
 	{value, #mon{pid = Pid, msock = MSock}} ->
-	    send_down(Pid, Mon, MSock),
+	    send_down(Pid, Mon, MSock, closed),
 	    handle_send_down(Mons, MDB);
 	false -> % race?
 	    handle_send_down(Mons, MDB)
     end.
 
-send_down(Pid, Mon, MSock) ->
+send_down(Pid, Mon, MSock, Reason) ->
     %% We do not yet have a 'reason', so use 'closed'...
-    Pid ! mk_down_msg(Mon, MSock, closed).
+    Pid ! mk_down_msg(Mon, MSock, Reason).
 
 
 
@@ -489,7 +489,7 @@ do_monitor_socket(#state{socks = SDB,
 	    %% and the caller has just not noticed it yet.
 	    %% "Create" a monitor and trigger it (send dowm message)
 	    %% directly!
-	    send_down(Pid, SMon, MSock),
+	    send_down(Pid, SMon, MSock, nosock),
 	    Result = {ok, SMon},
 	    {State, Result}
     end.
