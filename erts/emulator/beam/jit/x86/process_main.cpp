@@ -179,10 +179,7 @@ void BeamGlobalAssembler::emit_process_main() {
         {
             comment("Process exiting");
 
-            /* We load the beam_exit from memory because it has not yet been set
-             * when the global assembler is created. */
-            a.mov(ARG1, imm(&beam_exit));
-            a.mov(ARG1, x86::qword_ptr(ARG1));
+            a.lea(ARG1, x86::qword_ptr(labels[process_exit]));
             a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
             a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
             a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
