@@ -104,7 +104,7 @@ pgen_typeorval(Erules, N2nConvEnums, Code) ->
     pgen_objects(Rtmod,Erules,Module,Objects),
     pgen_objectsets(Rtmod,Erules,Module,ObjectSets),
     pgen_partial_decode(Rtmod,Erules,Module),
-        %% If the encoding rule is ber, per or uper and jer is also given as option
+    %% If the encoding rule is ber, per or uper and jer is also given as option
     %% then we generate "extra" support for jer in the same file
     case Erules#gen.jer of 
         true ->
@@ -1138,17 +1138,17 @@ pgen_hrl(#gen{pack=record}=Gen, Code) ->
 		X
 	end,
     case Ret of
-	0 ->
-	    0;
-	Y ->
-	    Protector = hrl_protector(get(outfile)),
-	    emit(["-endif. %% ",Protector,"\n"]),
-	    close_output_file(),
-	    asn1ct:verbose("--~p--~n",
-			   [{generated,lists:concat([get(outfile),".hrl"])}],
-			   Gen),
-	    Y
-    end;
+        0 ->
+            0;
+        Y ->
+            Protector = hrl_protector(get(outfile)),
+            emit(["-endif. %% ",Protector,"\n"]),
+            close_output_file(),
+            asn1ct:verbose("--~p--~n",
+                           [{generated,lists:concat([get(outfile),".hrl"])}],
+                           Gen),
+            Y
+    end;    
 pgen_hrl(#gen{pack=map}, _) ->
     0.
 

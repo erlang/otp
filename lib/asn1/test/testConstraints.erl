@@ -26,6 +26,13 @@
 -include_lib("common_test/include/ct.hrl").
 
 int_constraints(Rules) ->
+    case Rules of
+        jer ->
+            {error,_} = 'Constraints':decode('SingleValue', <<"0">>),
+            {error,_} = 'Constraints':decode('SingleValue2', <<"21">>);
+        _ ->
+            ok
+    end,
 
     %%==========================================================
     %% SingleValue ::=  INTEGER (1) 
