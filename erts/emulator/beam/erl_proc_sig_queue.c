@@ -2109,7 +2109,7 @@ erts_proc_sig_send_group_leader(Process *c_p, Eterm to, Eterm gl, Eterm ref)
         group_leader_reply(c_p, c_p->common.id, ref, 0);
 }
 
-void
+int
 erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to, Eterm ref)
 {
     ErlHeapFragment *hfrag;
@@ -2143,13 +2143,16 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to, Eterm ref)
                                                   ERTS_SIG_Q_TYPE_UNDEFINED,
                                                   0);
 
-    if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_IS_ALIVE))
+    if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_IS_ALIVE)) {
         (void) maybe_elevate_sig_handling_prio(c_p, to);
+        return !0;
+    }
     else {
         /* It wasn't alive; reply to ourselves... */
         mp->next = NULL;
         mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
         erts_queue_message(c_p, ERTS_PROC_LOCK_MAIN, mp, msg, am_system);
+        return 0;
     }
 }
 
