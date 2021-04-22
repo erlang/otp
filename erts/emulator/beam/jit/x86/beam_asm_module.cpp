@@ -114,10 +114,16 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     abs_jmp(ga->get_i_func_info_shared());
 
     /* Shared trampoline for yielding on function ingress. */
-    funcYield = a.newLabel();
+    yieldEnter = a.newLabel();
     a.align(kAlignCode, 8);
-    a.bind(funcYield);
+    a.bind(yieldEnter);
     abs_jmp(ga->get_i_test_yield_shared());
+
+    /* Shared trampoline for yielding on function return. */
+    yieldReturn = a.newLabel();
+    a.align(kAlignCode, 8);
+    a.bind(yieldReturn);
+    abs_jmp(ga->get_dispatch_return());
 
     /* Setup the early_nif/breakpoint trampoline. */
     genericBPTramp = a.newLabel();

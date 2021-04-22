@@ -1828,7 +1828,7 @@ void BeamModuleAssembler::emit_i_test_yield() {
     a.dec(FCALLS);
     a.short_().jg(next);
     a.lea(ARG3, x86::qword_ptr(entry));
-    a.call(funcYield);
+    a.call(yieldEnter);
     a.bind(next);
 
 #if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)
@@ -1845,12 +1845,12 @@ void BeamModuleAssembler::emit_i_test_yield() {
 void BeamModuleAssembler::emit_i_yield() {
     a.mov(getXRef(0), imm(am_true));
 #ifdef NATIVE_ERLANG_STACK
-    fragment_call(ga->get_dispatch_return());
+    fragment_call(yieldReturn);
 #else
     Label next = a.newLabel();
 
     a.lea(ARG3, x86::qword_ptr(next));
-    abs_jmp(ga->get_dispatch_return());
+    a.jmp(yieldReturn);
 
     a.align(kAlignCode, 8);
     a.bind(next);

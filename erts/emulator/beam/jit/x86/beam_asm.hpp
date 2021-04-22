@@ -1011,13 +1011,18 @@ class BeamModuleAssembler : public BeamAssembler {
 
     BeamGlobalAssembler *ga;
 
+    Label codeHeader;
+
     /* Used by emit to populate the labelToMFA map */
     Label currLabel;
-    unsigned prev_op = 0;
-    Label codeHeader;
+
+    /* Special shared fragments that must reside in each module. */
     Label funcInfo;
-    Label funcYield;
     Label genericBPTramp;
+    Label yieldReturn;
+    Label yieldEnter;
+
+    /* The module's on_load function, if any. */
     Label on_load;
 
     Eterm mod;

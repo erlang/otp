@@ -39,8 +39,6 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 }
 
 void BeamModuleAssembler::emit_return() {
-    Label dispatch_return = a.newLabel();
-
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgVal(ArgVal::u, 1));
@@ -56,16 +54,24 @@ void BeamModuleAssembler::emit_return() {
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
     a.dec(FCALLS);
-    a.short_().jl(dispatch_return);
+
+    if (yieldReturn.isValid()) {
+        /* We're in an ordinary module. Reduce the code size by branching to
+         * the yield trampoline in the module header. */
+        a.jl(yieldReturn);
+    } else {
+        Label next = a.newLabel();
+
+        a.short_().jge(next);
+        abs_jmp(ga->get_dispatch_return());
+        a.bind(next);
+    }
 
 #ifdef NATIVE_ERLANG_STACK
     a.ret();
 #else
     a.jmp(ARG3);
 #endif
-
-    a.bind(dispatch_return);
-    abs_jmp(ga->get_dispatch_return());
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgVal &CallDest) {
