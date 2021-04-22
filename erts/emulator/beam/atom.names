@@ -119,6 +119,7 @@ atom badarg badarith badarity badfile badfun badkey badmap badmatch badsig
 atom bag
 atom band
 atom big
+atom bif_handle_signals_return
 atom bif_return_trap
 atom binary
 atom binary_copy_trap
@@ -282,6 +283,7 @@ atom free
 atom fullsweep_after
 atom functions
 atom function_clause
+atom garbage_collect
 atom garbage_collecting
 atom garbage_collection
 atom garbage_collection_info
@@ -334,6 +336,7 @@ atom infinity
 atom info
 atom info_msg
 atom info_trap
+atom inherit
 atom init
 atom initial_call
 atom input
