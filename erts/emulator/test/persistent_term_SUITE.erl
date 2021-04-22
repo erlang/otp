@@ -32,7 +32,8 @@
          killed_while_trapping_put/1,
          killed_while_trapping_erase/1,
          error_info/1,
-	 whole_message/1]).
+	 whole_message/1,
+	 non_message_signal/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -53,7 +54,8 @@ all() ->
      init_restart, put_erase_trapping, killed_while_trapping_put,
      killed_while_trapping_erase,
      error_info,
-     whole_message].
+     whole_message,
+     non_message_signal].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1034,3 +1036,85 @@ gar_setter(Key) ->
     persistent_term:erase(Key),
     persistent_term:put(Key, {complex, term}),
     gar_setter(Key).
+
+%% Test that literals in non-message signals are copied
+%% when removed...
+%%
+%% Currently the only non-message signal that may carry
+%% literals are alias-message signals. Exit signals have
+%% been added to the test since they should be added
+%% next...
+
+non_message_signal(Config) when is_list(Config) ->
+    non_message_signal_test(on_heap),
+    non_message_signal_test(off_heap),
+    ok.
+
+non_message_signal_test(MQD) ->
+    io:format("Testing on ~p~n", [MQD]),
+    process_flag(scheduler, 1),
+    process_flag(priority, max),
+    MultiSched = erlang:system_info(schedulers) > 1,
+    {TokOpts, RecvOpts}
+        = case MultiSched of
+              true ->
+                  {[link, {scheduler, 2}, {priority, high}],
+                   [link, {scheduler, 2}, {priority, low},
+		    {message_queue_data, MQD}]};
+              false ->
+                  {[link], [link, {message_queue_data, MQD}]}
+          end,
+    RecvPrepared = make_ref(),
+    TokPrepared = make_ref(),
+    Go = make_ref(),
+    Done = make_ref(),
+    TestRef = make_ref(),
+    Tester = self(),
+    persistent_term:put(test_ref, TestRef),
+    Pid = spawn_opt(fun () ->
+			    process_flag(trap_exit, true),
+                            Tester ! {RecvPrepared, alias()},
+                            receive Go -> ok end,
+			    recv_msg(TestRef, 50),
+			    recv_msg([TestRef], 50),
+                            recv_msg({'EXIT', Tester, TestRef}, 50),
+                            recv_msg({'EXIT', Tester, [TestRef]}, 50),
+                            Tester ! Done
+                    end, RecvOpts),
+    Alias = receive {RecvPrepared, A} -> A end,
+    Tok = spawn_opt(fun () ->
+                            Tester ! TokPrepared,
+                            tok_loop()
+                    end, TokOpts),
+    receive TokPrepared -> ok end,
+    lists:foreach(fun (_) -> Alias ! persistent_term:get(test_ref) end,
+		  lists:seq(1, 50)),
+    lists:foreach(fun (_) -> Alias ! [persistent_term:get(test_ref)] end,
+		  lists:seq(1, 50)),
+    lists:foreach(fun (_) -> exit(Pid, persistent_term:get(test_ref)) end,
+		  lists:seq(1, 50)),
+    lists:foreach(fun (_) -> exit(Pid, [persistent_term:get(test_ref)]) end,
+		  lists:seq(1, 50)),
+    persistent_term:erase(test_ref),
+    receive after 1000 -> ok end,
+    unlink(Tok),
+    exit(Tok, kill),
+    receive after 1000 -> ok end,
+    Pid ! Go,
+    receive Done -> ok end,
+    unlink(Pid),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    false = is_process_alive(Tok),
+    ok.
+
+recv_msg(_Msg, 0) ->
+    ok;
+recv_msg(Msg, N) ->
+    receive
+        Msg ->
+            recv_msg(Msg, N-1)
+    end.
+
+tok_loop() ->
+    tok_loop().

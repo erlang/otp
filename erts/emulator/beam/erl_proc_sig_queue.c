@@ -1358,6 +1358,11 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     Uint hsz, to_sz, token_sz, msg_sz;
     Eterm *hp, pid, to_copy, token_copy, msg_copy;
     int type;
+#ifdef SHCOPY_SEND
+    erts_shcopy_t info;
+#else
+    erts_literal_area_t litarea;
+#endif
 #ifdef USE_VM_PROBES
     Eterm utag_copy, utag;
     Uint utag_sz;
@@ -1398,14 +1403,30 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     hsz += utag_sz;
 #endif
 
-    msg_sz = size_object(msg);
-    hsz += msg_sz;
-
     to_sz = size_object(to);
     hsz += to_sz;
 
     token_sz = size_object(token);
     hsz += token_sz;
+
+    /*
+     * SHCOPY corrupts the heap between copy_shared_calculate(), and
+     * copy_shared_perform() by inserting move-markers (like the gc).
+     * Make sure we don't use the heap between those instances.
+     */
+
+    if (is_immed(msg))
+	msg_sz = 0;
+    else {
+#ifdef SHCOPY_SEND
+	INITIALIZE_SHCOPY(info);
+	msg_sz = copy_shared_calculate(msg, &info);
+#else
+	INITIALIZE_LITERAL_PURGE_AREA(litarea);
+	msg_sz = size_object_litopt(msg, &litarea);
+#endif
+	hsz += msg_sz;
+    }
 
     rp_state = erts_atomic32_read_nob(&rp->state);
     if (rp_state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
@@ -1444,7 +1465,16 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
 
     mp->next = NULL;
 
-    msg_copy = copy_struct(msg, msg_sz, &hp, ohp);
+    if (is_immed(msg))
+	msg_copy = msg;
+    else {
+#ifdef SHCOPY_SEND
+	msg_copy = copy_shared_perform(msg, msg_sz, &info, &hp, ohp);
+	DESTROY_SHCOPY(info);
+#else
+	msg_copy = copy_struct_litopt(msg, msg_sz, &hp, ohp, &litarea);
+#endif
+    }
     to_copy = copy_struct(to, to_sz, &hp, ohp);
     token_copy = copy_struct(token, token_sz, &hp, ohp);
 #ifdef USE_VM_PROBES
