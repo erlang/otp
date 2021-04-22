@@ -858,6 +858,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(call_nif_shared)                                                         \
     _(call_nif_yield_helper)                                                   \
     _(catch_end_shared)                                                        \
+    _(check_float_error)                                                       \
     _(dispatch_bif)                                                            \
     _(dispatch_nif)                                                            \
     _(dispatch_return)                                                         \
@@ -867,6 +868,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(generic_bp_global)                                                       \
     _(generic_bp_local)                                                        \
     _(debug_bp)                                                                \
+    _(fconv_shared)                                                            \
     _(handle_element_error)                                                    \
     _(handle_hd_error)                                                         \
     _(i_band_body_shared)                                                      \
@@ -1018,9 +1020,6 @@ class BeamModuleAssembler : public BeamAssembler {
     Label genericBPTramp;
     Label on_load;
 
-    Label floatMax;
-    Label floatSignMask;
-
     Eterm mod;
 
     /* Save the last PC for an error. */
@@ -1133,7 +1132,10 @@ protected:
                             const ArgVal &Fail,
                             const std::vector<ArgVal> &args);
 
-    void emit_check_float(Label next, x86::Xmm value);
+    void emit_float_instr(uint32_t instId,
+                          const ArgVal &LHS,
+                          const ArgVal &RHS,
+                          const ArgVal &Dst);
 
     void emit_is_small(Label fail, x86::Gp Reg);
     void emit_is_both_small(Label fail, x86::Gp A, x86::Gp B);

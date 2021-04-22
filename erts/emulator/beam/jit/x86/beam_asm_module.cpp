@@ -106,18 +106,6 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     embed_zeros(sizeof(BeamCodeHeader) +
                 sizeof(ErtsCodeInfo *) * num_functions);
 
-    floatMax = a.newLabel();
-    a.align(kAlignCode, 8);
-    a.bind(floatMax);
-    a.embedDouble(DBL_MAX);
-
-    floatSignMask = a.newLabel();
-    /* This is 128-bit aligned to allow its direct use in SSE instructions,
-     * saving us from needing a separate `movupd` instruction. */
-    a.align(kAlignCode, 16);
-    a.bind(floatSignMask);
-    a.embedUInt64(0x7FFFFFFFFFFFFFFFul);
-
     /* Shared trampoline for function_clause errors, which can't jump straight
      * to `i_func_info_shared` due to size restrictions. */
     funcInfo = a.newLabel();
