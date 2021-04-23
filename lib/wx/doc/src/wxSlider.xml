@@ -34,7 +34,7 @@
       </p><p>Styles</p><p>This class supports the following styles:
       </p><p>The difference between EVT_SCROLL_THUMBRELEASE and EVT_SCROLL_CHANGED</p> <p>The EVT_SCROLL_THUMBRELEASE event is only emitted when actually dragging the thumb using the mouse and releasing it (This EVT_SCROLL_THUMBRELEASE event is also followed by an EVT_SCROLL_CHANGED event).
       </p> <p>The EVT_SCROLL_CHANGED event also occurs when using the keyboard to change the thumb position, and when clicking next to the thumb (In all these cases the EVT_SCROLL_THUMBRELEASE event does not happen). In short, the EVT_SCROLL_CHANGED event is triggered when scrolling/ moving has finished independently of the way it had started. Please see the page_samples_widgets ("Slider" page) to see the difference between EVT_SCROLL_THUMBRELEASE and EVT_SCROLL_CHANGED in action.
-      </p> <p>See: <url href="https://docs.wxwidgets.org/3.1/overview_events.html#overview_events">Overview events</url>, <seeerl marker="wxScrollBar"><c>wxScrollBar</c></seeerl>
+      </p>  <p>See: <url href="https://docs.wxwidgets.org/3.1/overview_events.html#overview_events">Overview events</url>, <seeerl marker="wxScrollBar"><c>wxScrollBar</c></seeerl>
       </p>
   <p>This class is derived (and can use functions) from: 
     <seeerl marker="wxControl"><c>wxControl</c></seeerl> <seeerl marker="wxWindow"><c>wxWindow</c></seeerl> <seeerl marker="wxEvtHandler"><c>wxEvtHandler</c></seeerl></p>

@@ -29,7 +29,7 @@
 <modulesummary>Functions for wxDisplayChangedEvent class</modulesummary>
 <description><p>A display changed event is sent to top-level windows when the display resolution has changed.
       </p><p>This event is currently emitted under Windows only.
-      </p><p>See: <seeerl marker="wxDisplay"><c>wxDisplay</c></seeerl>
+      </p><p>Only for:wxmsw</p><p>See: <seeerl marker="wxDisplay"><c>wxDisplay</c></seeerl>
       </p>
   <p>This class is derived (and can use functions) from: 
     <seeerl marker="wxEvent"><c>wxEvent</c></seeerl></p>

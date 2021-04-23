@@ -35,7 +35,7 @@
       </p> <p>To disable themed pages globally: 
       </p> <p>Set the value to 1 to enable it again. To give a single page a solid background that more or less fits in with the overall theme, use: 
       </p> <p>On platforms other than Windows, or if the application is not using Windows themes, <seemfa marker="#getThemeBackgroundColour/1"><c>getThemeBackgroundColour/1</c></seemfa> will return an uninitialised colour object, and the above code will therefore work on all platforms.
-      </p> <p>See: ?wxBookCtrl, <seeerl marker="wxBookCtrlEvent"><c>wxBookCtrlEvent</c></seeerl>, <seeerl marker="wxImageList"><c>wxImageList</c></seeerl>, <url href="https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_notebook">Examples</url>
+      </p>  <p>See: ?wxBookCtrl, <seeerl marker="wxBookCtrlEvent"><c>wxBookCtrlEvent</c></seeerl>, <seeerl marker="wxImageList"><c>wxImageList</c></seeerl>, <url href="https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_notebook">Examples</url>
       </p>
   <p>This class is derived (and can use functions) from: 
     <seeerl marker="wxBookCtrlBase"><c>wxBookCtrlBase</c></seeerl> <seeerl marker="wxControl"><c>wxControl</c></seeerl> <seeerl marker="wxWindow"><c>wxWindow</c></seeerl> <seeerl marker="wxEvtHandler"><c>wxEvtHandler</c></seeerl></p>

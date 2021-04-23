@@ -525,18 +525,8 @@ translate([Doc|Docs], Acc) ->
 translate([], Acc) ->
     lists:reverse(Acc).
 
-
 t(#xmlText{}=Txt) ->
     Txt;
-t(#xmlElement{name=para,
-              content=[#xmlText{value=Avail},
-                       #xmlElement{name=nonbreakablespace},
-                       #xmlElement{name=nonbreakablespace}|Cs]})
-  when Avail =:= "Availability:"; Avail =:= " Availability:" ->
-    case [E || #xmlElement{name=onlyfor}=E <- Cs] of
-        [] -> ignore;
-        [E] -> t(E)
-    end;
 t(#xmlElement{name=para, content=Cs}) ->
     Docs = translate(Cs),
     case is_empty(Docs) orelse is_include(Cs) of
@@ -627,6 +617,10 @@ t(#xmlElement{name=nonbreakablespace}) ->
 t(#xmlElement{name=programlisting}) ->
     ignore;
 t(#xmlElement{name=image}) ->
+    ignore;
+t(#xmlElement{name=native}) ->
+    ignore;
+t(#xmlElement{name=anchor, content=[]}) ->
     ignore;
 t(#xmlElement{name=What, content=Cs}) ->
     ?LOG("xml unhand: ~p~n  ~P~n", [What,p(Cs),15]),
@@ -958,6 +952,8 @@ f(#xmlElement{name=row=T, content=Cs}) ->
     {T,Cs};
 f(#xmlElement{name=table=T, content=Cs}) ->
     {T,Cs};
+f(#xmlElement{name=onlyfor=T, content=Cs}) ->
+    {T,Cs};
 
 f(#xmlText{}=T) ->
     T;
@@ -1003,7 +999,7 @@ is_include(_) -> false.
 %% Dbg help
 p(List) when is_list(List) ->
     [p(E) || E <- List];
-p(#xmlElement{name=itemizedlist=What} = DBG) ->
+p(#xmlElement{name=itemizedlist=What} = _DBG) ->
     {What, [long_list]};
 p(#xmlElement{name=programlisting=What}) ->
     {What, [code_example]};
@@ -1016,6 +1012,8 @@ p(#xmlText{value=Txt}) ->
 p({break, Done, Cont}) ->
     {break, p(Done), p(Cont)};
 p({C, List}) ->
-    {C, p(List)}.
+    {C, p(List)};
+p(Char) ->
+    Char.
 
 

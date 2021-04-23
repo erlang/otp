@@ -28,7 +28,7 @@
 <module>wxIconBundle</module>
 <modulesummary>Functions for wxIconBundle class</modulesummary>
 <description><p>This class contains multiple copies of an icon in different sizes. It is typically used in <c>wxDialog::SetIcons</c> (not implemented in wx) and <seemfa marker="wxTopLevelWindow#setIcons/2"><c>wxTopLevelWindow:setIcons/2</c></seemfa>.
-      </p><p>Predefined objects/pointers: ?wxNullIconBundle
+      </p><p>Predefined objects (include wx.hrl): ?wxNullIconBundle
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_icon_bundle.html">wxIconBundle</url></p>
   </description>

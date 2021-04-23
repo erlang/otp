@@ -30,7 +30,7 @@
 <description><p>A cursor is a small bitmap usually used for denoting where the mouse pointer is, with a picture that might indicate the interpretation of a mouse click. As with icons, cursors in X and MS Windows are created in a different manner. Therefore, separate cursors will be created for the different environments. Platform-specific methods for creating a <seeerl marker="wxCursor"><c>wxCursor</c></seeerl> object are catered for, and this is an occasion where conditional compilation will probably be required (see <seeerl marker="wxIcon"><c>wxIcon</c></seeerl> for an example).
       </p><p>A single cursor object may be used in many windows (any subwindow type). The wxWidgets convention is to set the cursor for a window, as in X, rather than to set it globally as in MS Windows, although a global <seemfa marker="wx_misc#setCursor/1"><c>wx_misc:setCursor/1</c></seemfa> function is also available for MS Windows use.
       </p><p>Creating a Custom Cursor</p> <p>The following is an example of creating a cursor from 32x32 bitmap data (down_bits) and a mask (down_mask) where 1 is black and 0 is white for the bits, and 1 is opaque and 0 is transparent for the mask. It works on Windows and GTK+.
-      </p>  <p>Predefined objects/pointers:
+      </p>   <p>Predefined objects (include wx.hrl):
       </p><p>See: <seeerl marker="wxBitmap"><c>wxBitmap</c></seeerl>, <seeerl marker="wxIcon"><c>wxIcon</c></seeerl>, <seemfa marker="wxWindow#setCursor/2"><c>wxWindow:setCursor/2</c></seemfa>, <seemfa marker="wx_misc#setCursor/1"><c>wx_misc:setCursor/1</c></seemfa>, ?wxStockCursor
       </p>
   <p>This class is derived (and can use functions) from: 

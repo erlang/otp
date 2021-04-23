@@ -32,7 +32,7 @@
       </p><p> Do not initialize objects on the stack before the program commences, since other required structures may not have been set up yet. Instead, define global pointers to objects and create them in <c>wxApp::OnInit()</c> (not implemented in wx) or when required.
       </p><p>An application may wish to dynamically create pens with different characteristics, and there is the consequent danger that a large number of duplicate pens will be created. Therefore an application may wish to get a pointer to a pen by using the global list of pens ?wxThePenList, and calling the member function <c>wxPenList::FindOrCreatePen()</c> (not implemented in wx). See <c>wxPenList</c> (not implemented in wx) for more info.
       </p><p>This class uses reference counting and copy-on-write internally so that assignments between two instances of this class are very cheap. You can therefore use actual objects instead of pointers without efficiency problems. If an instance of this class is changed it will create its own data internally so that other instances, which previously shared the data using the reference counting, are not affected.
-      </p><p>Predefined objects/pointers: 
+      </p><p>Predefined objects (include wx.hrl): 
       </p><p>See: <c>wxPenList</c> (not implemented in wx), <seeerl marker="wxDC"><c>wxDC</c></seeerl>, <seemfa marker="wxDC#setPen/2"><c>wxDC:setPen/2</c></seemfa>
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_pen.html">wxPen</url></p>

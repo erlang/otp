@@ -39,7 +39,7 @@
       </p> <p>When saving in PCX format, <c>wxPCXHandler</c> (not implemented in wx) will count the number of different colours in the image; if there are 256 or less colours, it will save as 8 bit, else it will save as 24 bit.
       </p><p>Loading PNMs only works for ASCII or raw RGB images. When saving in PNM format, <c>wxPNMHandler</c> (not implemented in wx) will always save as raw RGB.
       </p><p>Saving GIFs requires images of maximum 8 bpp (see <c>wxQuantize</c> (not implemented in wx)), and the alpha channel converted to a mask (see <seemfa marker="#convertAlphaToMask/5"><c>convertAlphaToMask/5</c></seemfa>). Saving an animated GIF requires images of the same size (see <c>wxGIFHandler::SaveAnimation</c> (not implemented in wx))
-      </p><p>Predefined objects/pointers: ?wxNullImage
+      </p><p>Predefined objects (include wx.hrl): ?wxNullImage
       </p><p>See: <seeerl marker="wxBitmap"><c>wxBitmap</c></seeerl>, ?wxInitAllImageHandlers(), <c>wxPixelData</c> (not implemented in wx)
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_image.html">wxImage</url></p>

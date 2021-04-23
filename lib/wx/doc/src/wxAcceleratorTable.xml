@@ -31,7 +31,7 @@
       </p><p>The object ?wxNullAcceleratorTable is defined to be a table with no data, and is the initial accelerator table for a window.
       </p><p>Example:
       </p><p>Remark: An accelerator takes precedence over normal processing and can be a convenient way to program some event handling. For example, you can use an accelerator table to enable a dialog with a multi-line text control to accept CTRL-Enter as meaning 'OK'.
-      </p><p>Predefined objects/pointers: ?wxNullAcceleratorTable
+      </p><p>Predefined objects (include wx.hrl): ?wxNullAcceleratorTable
       </p><p>See: <seeerl marker="wxAcceleratorEntry"><c>wxAcceleratorEntry</c></seeerl>, <seemfa marker="wxWindow#setAcceleratorTable/2"><c>wxWindow:setAcceleratorTable/2</c></seemfa>
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_accelerator_table.html">wxAcceleratorTable</url></p>

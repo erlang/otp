@@ -29,7 +29,7 @@
 <modulesummary>Functions for wxRegion class</modulesummary>
 <description><p>A <seeerl marker="wxRegion"><c>wxRegion</c></seeerl> represents a simple or complex region on a device context or window.
       </p><p>This class uses reference counting and copy-on-write internally so that assignments between two instances of this class are very cheap. You can therefore use actual objects instead of pointers without efficiency problems. If an instance of this class is changed it will create its own data internally so that other instances, which previously shared the data using the reference counting, are not affected.
-      </p><p>Predefined objects/pointers:
+      </p><p>Predefined objects (include wx.hrl):
       </p><p>See: <c>wxRegionIterator</c> (not implemented in wx)
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_region.html">wxRegion</url></p>

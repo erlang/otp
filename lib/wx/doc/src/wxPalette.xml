@@ -29,7 +29,7 @@
 <modulesummary>Functions for wxPalette class</modulesummary>
 <description><p>A palette is a table that maps pixel values to RGB colours. It allows the colours of a low-depth bitmap, for example, to be mapped to the available colours in a display. The notion of palettes is becoming more and more obsolete nowadays and only the MSW port is still using a native palette. All other ports use generic code which is basically just an array of colours.
       </p><p>It is likely that in the future the only use for palettes within wxWidgets will be for representing colour indices from images (such as GIF or PNG). The image handlers for these formats have been modified to create a palette if there is such information in the original image file (usually 256 or less colour images). See <seeerl marker="wxImage"><c>wxImage</c></seeerl> for more information.
-      </p><p>Predefined objects/pointers: ?wxNullPalette
+      </p><p>Predefined objects (include wx.hrl): ?wxNullPalette
       </p><p>See: <seemfa marker="wxDC#setPalette/2"><c>wxDC:setPalette/2</c></seemfa>, <seeerl marker="wxBitmap"><c>wxBitmap</c></seeerl>
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_palette.html">wxPalette</url></p>
