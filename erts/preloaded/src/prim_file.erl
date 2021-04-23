@@ -30,8 +30,8 @@
 
 -export([file_desc_to_ref/2]).
 
--export([ipread_s32bu_p32bu/3, sendfile/8, altname/1,
-         get_handle/1, get_fd_data/1]).
+-export([ipread_s32bu_p32bu/3, sendfile/8, internal_get_nif_resource/1,
+         altname/1, get_handle/1]).
 
 -export([read_file/1, write_file/2]).
 
@@ -406,6 +406,10 @@ sendfile(Fd, Socket, Offset, Bytes, _ChunkSize, [], [], _Flags) ->
     end;
 sendfile(_Fd, _Socket, _Offset, _Bytes, _ChunkSize, _Headers, _Trailers, _Flags) ->
     {error, enotsup}.
+
+internal_get_nif_resource(Fd) ->
+    #{ handle := FRef } = get_fd_data(Fd),
+    FRef.
 
 %% Undocumented internal function that reads a data block with indirection.
 %%

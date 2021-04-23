@@ -2369,20 +2369,23 @@ sendfile(
     %%
     case FileHandle_Cont of
         #file_descriptor{module = Module} = FileHandle ->
-            GetFdData = get_fd_data,
-            try Module:GetFdData(FileHandle) of
-                #{handle := FRef} ->
+            GetFRef = internal_get_nif_resource,
+            try Module:GetFRef(FileHandle) of
+                FRef ->
                     State = {FRef, Offset, Count},
-                    sendfile_int(SockRef, State, Timeout);
-                #{} ->
-                    erlang:error(
-                      badarg,
-                      [Socket, FileHandle_Cont, Offset, Count, Timeout])
+                    sendfile_int(SockRef, State, Timeout)
             catch
+                %% We could just crash here, since the caller
+                %% maybe broke the API and did not provide
+                %% a raw file as FileHandle, i.e GetFRef
+                %% is not implemented in Module;
+                %% but instead handle that nicely
                 Class : Reason : Stacktrace
                   when Class =:= error, Reason =:= undef ->
                     case Stacktrace of
-                        [{Module, GetFdData, _, _} | _] ->
+                        [{Module, GetFRef, Args, _} | _]
+                          when Args =:= 1;        % Arity 1
+                               tl(Args) =:= [] -> % Arity 1
                             erlang:error(
                               badarg,
                               [Socket, FileHandle_Cont,

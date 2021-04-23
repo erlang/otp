@@ -51,7 +51,7 @@
 %% -------------------------------------------------------------------------
 
 %% Construct a "socket" as in this module's API
--define(module_socket(Server, Socket),
+-define(MODULE_socket(Server, Socket),
         {'$inet', ?MODULE, {Server, Socket}}).
 
 %% Standard length before data header for packet,1|2|4
@@ -164,7 +164,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
                 Socket =  
                     val(ErrRef,
                         connect_loop(Addrs, Server, DefaultError, Timer)),
-                {ok, ?module_socket(Server, Socket)}
+                {ok, ?MODULE_socket(Server, Socket)}
             catch
                 throw : {ErrRef, Reason} ->
                     close_server(Server),
@@ -291,7 +291,7 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
                       [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
                 ok(ErrRef, call_bind(Server, BindAddr)),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
-                {ok, ?module_socket(Server, Socket)}
+                {ok, ?MODULE_socket(Server, Socket)}
             catch
                 throw : {ErrRef, Reason} ->
                     close_server(Server),
@@ -305,7 +305,7 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
 
 %% -------------------------------------------------------------------------
 
-accept(?module_socket(ListenServer, ListenSocket), Timeout) ->
+accept(?MODULE_socket(ListenServer, ListenSocket), Timeout) ->
     %%
     Timer = inet:start_timer(Timeout),
     ErrRef = make_ref(),
@@ -320,7 +320,7 @@ accept(?module_socket(ListenServer, ListenSocket), Timeout) ->
         Socket =
             val({ErrRef, Server},
                 call(Server, {accept, ListenSocket, inet:timeout(Timer)})),
-        {ok, ?module_socket(Server, Socket)}
+        {ok, ?MODULE_socket(Server, Socket)}
     catch
         throw : {{ErrRef, Srv}, Reason} ->
             stop_server(Srv),
@@ -333,7 +333,7 @@ accept(?module_socket(ListenServer, ListenSocket), Timeout) ->
 
 %% -------------------------------------------------------------------------
 
-send(?module_socket(Server, Socket), Data) ->
+send(?MODULE_socket(Server, Socket), Data) ->
     case socket:getopt(Socket, {otp,meta}) of
         {ok,
          #{packet := Packet,
@@ -401,11 +401,11 @@ send_result(Server, Meta, Result) ->
     end.
 
 %% -------------------------------------------------------------------------
-%% Handler called by file:sendfile/5 to handle ?module_socket()s
+%% Handler called by file:sendfile/5 to handle ?MODULE_socket()s
 %% as a sibling of prim_file:sendfile/8
 
 sendfile(
-  ?module_socket(_Server, Socket),
+  ?MODULE_socket(_Server, Socket),
   FileHandle, Offset, Count) ->
     %%
     case socket:getopt(Socket, {otp,meta}) of
@@ -420,7 +420,9 @@ sendfile(
                     %% Convert badarg exception into return value
                     %% to look like file:sendfile
                     case Stacktrace of
-                        [{socket, sendfile, _, _} | _] ->
+                        [{socket, sendfile, Args, _} | _]
+                          when Args =:= 5;                        % Arity 5
+                               tl(tl(tl(tl(tl(Args))))) =:= [] -> % Arity 5
                             {Class, Reason};
                         _ ->
                             erlang:raise(Class, Reason, Stacktrace)
@@ -436,12 +438,12 @@ sendfile(
 
 %% -------------------------------------------------------------------------
 
-recv(?module_socket(Server, _Socket), Length, Timeout) ->
+recv(?MODULE_socket(Server, _Socket), Length, Timeout) ->
     ?badarg_exit(call(Server, {recv, Length, Timeout})).
 
 %% -------------------------------------------------------------------------
 
-shutdown(?module_socket(Server, _Socket), How) ->
+shutdown(?MODULE_socket(Server, _Socket), How) ->
     %% ?DBG({shutdown, How}),
     Result = call(Server, {shutdown, How}),
     %% ?DBG({shutdown_result, Result}),
@@ -449,7 +451,7 @@ shutdown(?module_socket(Server, _Socket), How) ->
 
 %% -------------------------------------------------------------------------
 
-close(?module_socket(Server, _Socket)) ->
+close(?MODULE_socket(Server, _Socket)) ->
     ?badarg_exit(close_server(Server)).
 
 %% Helpers -------
@@ -461,7 +463,7 @@ close_server(Server) ->
 
 %% -------------------------------------------------------------------------
 
-controlling_process(?module_socket(Server, _Socket) = S, NewOwner)
+controlling_process(?MODULE_socket(Server, _Socket) = S, NewOwner)
   when is_pid(NewOwner) ->
     case call(Server, {controlling_process, NewOwner}) of
         ok -> ok;
@@ -492,17 +494,17 @@ controlling_process(S, NewOwner, Server, Msg) ->
 %% Module inet backends
 %% -------------------------------------------------------------------------
 
-setopts(?module_socket(Server, _Socket), Opts) when is_list(Opts) ->
+setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
     call(Server, {setopts, Opts}).
 
 %% -------------------------------------------------------------------------
 
-getopts(?module_socket(Server, _Socket), Opts) when is_list(Opts) ->
+getopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
     call(Server, {getopts, Opts}).
 
 %% -------------------------------------------------------------------------
 
-sockname(?module_socket(_Server, Socket)) ->
+sockname(?MODULE_socket(_Server, Socket)) ->
     case socket:sockname(Socket) of
         {ok, SockAddr} -> {ok, address(SockAddr)};
         {error, _} = Error -> Error
@@ -510,7 +512,7 @@ sockname(?module_socket(_Server, Socket)) ->
 
 %% -------------------------------------------------------------------------
 
-peername(?module_socket(_Server, Socket)) ->
+peername(?MODULE_socket(_Server, Socket)) ->
     case socket:peername(Socket) of
         {ok, SockAddr} -> {ok, address(SockAddr)};
         {error, _} = Error -> Error
@@ -518,13 +520,13 @@ peername(?module_socket(_Server, Socket)) ->
 
 %% -------------------------------------------------------------------------
 
-getstat(?module_socket(Server, _Socket), What) when is_list(What) ->
+getstat(?MODULE_socket(Server, _Socket), What) when is_list(What) ->
     call(Server, {getstat, What}).
 
 
 %% -------------------------------------------------------------------------
 
-info(?module_socket(Server, _Socket)) ->
+info(?MODULE_socket(Server, _Socket)) ->
     call(Server, info).
 
 
@@ -1162,7 +1164,7 @@ terminate(State, {#params{socket = Socket} = P, D}) ->
 
 %% Construct a "socket" as in this module's API
 module_socket(#params{socket = Socket}) ->
-    ?module_socket(self(), Socket).
+    ?MODULE_socket(self(), Socket).
 
 %% -------------------------------------------------------------------------
 %% Event Handler (callback)
