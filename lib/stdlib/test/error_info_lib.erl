@@ -108,9 +108,12 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
                             false ->
                                 lists:foldl(
                                   fun(Match, Errors) ->
-                                          case re:run(BinStr, Match, [{capture, none}]) of
-                                              match ->
+                                          case re:run(BinStr, Match, [global]) of
+                                              {match,[_]} ->
                                                   Errors;
+                                              {match,_} ->
+                                                  [{too_many_explanations,{F,Args},
+                                                    Info,BinStr,lists:flatten(Match)}|Errors];
                                               nomatch ->
                                                   [{no_explanation,{F,Args},
                                                     Info,BinStr,lists:flatten(Match)}|Errors]
