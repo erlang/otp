@@ -40,7 +40,7 @@
 -spec format_exception(Class, Reason, StackTrace) -> unicode:chardata() when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
-      StackTrace :: [tuple()].
+      StackTrace :: erlang:stacktrace().
 
 format_exception(Class, Reason, StackTrace) ->
     format_exception(Class, Reason, StackTrace, #{}).
@@ -48,7 +48,7 @@ format_exception(Class, Reason, StackTrace) ->
 -spec format_exception(Class, Reason, StackTrace, Options) -> unicode:chardata() when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
-      StackTrace :: [tuple()],
+      StackTrace :: erlang:stacktrace(),
       Options :: format_options().
 
 format_exception(Class, Reason, StackTrace, Options) ->

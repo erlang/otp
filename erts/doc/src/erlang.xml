@@ -249,6 +249,14 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="stacktrace"/>
+      <name name="stacktrace_extrainfo"/>
+      <desc><p>An Erlang stacktrace as described by
+      <seeguide marker="system/reference_manual:errors#stacktrace">Errors and Error Handling</seeguide>
+      section in the Erlang Reference Manual.
+      </p></desc>
+    </datatype>
 
   </datatypes>
 

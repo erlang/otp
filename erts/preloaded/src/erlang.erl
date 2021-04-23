@@ -83,6 +83,16 @@
 -export_type([max_heap_size/0]).
 -export_type([message_queue_data/0]).
 -export_type([monitor_option/0]).
+-export_type([stacktrace/0]).
+
+-type stacktrace_extrainfo() ::
+        {line, pos_integer()} |
+        {file, unicode:chardata()} |
+        {error_info, #{ module => module(), function => atom(), cause => term() }} |
+        {atom(), term()}.
+-type stacktrace() :: [{module(), atom(), arity() | [term()],
+                        [stacktrace_extrainfo()]} |
+                       {function(), arity() | [term()], [stacktrace_extrainfo()]}].
 
 -type ext_binary() :: binary().
 -type ext_iovec() :: iovec().
@@ -278,12 +288,9 @@
       {'long_schedule', non_neg_integer()} |
       {'large_heap', non_neg_integer()}.
 
-
 -type raise_stacktrace() ::
       [{module(), atom(), arity() | [term()]} |
-       {function(), [term()]}] |
-      [{module(), atom(), arity() | [term()], [{atom(),term()}]} |
-       {function(), [term()], [{atom(),term()}]}].
+       {function(), arity() | [term()]}].
 
 -type bitstring_list() ::
       maybe_improper_list(byte() | bitstring() | bitstring_list(), bitstring() | []).
@@ -1732,7 +1739,7 @@ put(_Key, _Val) ->
 -spec erlang:raise(Class, Reason, Stacktrace) -> 'badarg' when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
-      Stacktrace :: raise_stacktrace().
+      Stacktrace :: raise_stacktrace() | stacktrace().
 raise(_Class, _Reason, _Stacktrace) ->
     erlang:nif_error(undefined).
 
