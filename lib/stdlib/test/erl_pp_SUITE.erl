@@ -1309,6 +1309,7 @@ otp_16435(_Config) ->
     CheckF("f() ->\n    catch 1 = catch 1.\n"),
     CheckF("f() ->\n    A = catch 1 / 0.\n"),
     CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
+    CheckF("f() ->\n    (catch 16)#{}.\n"),
 
     Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
     Check("5 #r4.f1"),
