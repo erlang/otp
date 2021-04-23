@@ -2990,8 +2990,12 @@ merge([],ModuleList) ->
 
 write_module_data([{Module,File}|ModList],Fd) ->
     write({file,Module,File},Fd),
-    [Clauses] = ets:lookup(?COLLECTION_CLAUSE_TABLE,Module),
-    write(Clauses,Fd),
+    case ets:lookup(?COLLECTION_CLAUSE_TABLE,Module) of
+        [] ->
+	    ok;
+        [Clauses] ->
+            write(Clauses,Fd)
+    end,
     ModuleData = ets:match_object(?COLLECTION_TABLE,{#bump{module=Module},'_'}),
     do_write_module_data(ModuleData,Fd),
     write_module_data(ModList,Fd);
