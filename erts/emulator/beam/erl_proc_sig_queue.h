@@ -127,9 +127,9 @@ typedef struct {
 #define ERTS_SIG_Q_OP_ALIAS_MSG                 15
 #define ERTS_SIG_Q_OP_RECV_MARK                 16
 #define ERTS_SIG_Q_OP_UNLINK_ACK                17
-#define ERTS_SIG_Q_OP_CLA                       ERTS_SIG_Q_OP_MAX
+#define ERTS_SIG_Q_OP_ADJ_MSGQ                  ERTS_SIG_Q_OP_MAX
 
-#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 9)
+#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 10)
 
 #define ERTS_SIG_Q_TYPE_UNDEFINED \
     (ERTS_MON_LNK_TYPE_MAX + 1)
@@ -148,6 +148,8 @@ typedef struct {
 #define ERTS_SIG_Q_TYPE_OFF_HEAP \
     (ERTS_MON_LNK_TYPE_MAX + 8)
 #define ERTS_SIG_Q_TYPE_HEAP_FRAG \
+    (ERTS_MON_LNK_TYPE_MAX + 9)
+#define ERTS_SIG_Q_TYPE_CLA \
     ERTS_SIG_Q_TYPE_MAX
 
 #define ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(Tag)                          \
@@ -956,6 +958,23 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
  */
 void
 erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id);
+
+
+/**
+ *
+ * @brief Send a 'move message queue off heap' signal to
+ *        a the sending process itself.
+ *
+ * When received, all on heap messages will be moved off heap.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ */
+void
+erts_proc_sig_send_move_msgq_off_heap(Process *c_p, Eterm to);
 
 /*
  * End of send operations of currently supported process signals.

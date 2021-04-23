@@ -2547,13 +2547,8 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 
     ASSERT(n <= rootset->size);
 
-    switch (p->sig_qs.flags & (FS_OFF_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
-    case FS_OFF_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG:
-	(void) erts_move_messages_off_heap(p);
-    case FS_OFF_HEAP_MSGQ:
-	break;
-    case FS_OFF_HEAP_MSGQ_CHNG:
-    case 0: {
+    if ((p->sig_qs.flags & (FS_OFF_HEAP_MSGQ
+			    | FS_OFF_HEAP_MSGQ_CHNG)) != FS_OFF_HEAP_MSGQ) {
         Sint len;
 	/*
 	 * We do not have off heap message queue enabled, i.e. we
@@ -2611,8 +2606,6 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
                     n++;
                 }
             });
-	break;
-    }
     }
 
     ASSERT(rootset->size >= n);

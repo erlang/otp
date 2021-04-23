@@ -438,7 +438,6 @@ typedef enum {
     ERTS_PSTT_GC_MINOR,	/* Garbage Collect: Generational */
     ERTS_PSTT_CPC,	/* Check Process Code */
     ERTS_PSTT_CLA,	/* Copy Literal Area */
-    ERTS_PSTT_COHMQ,    /* Change off heap message queue */
     ERTS_PSTT_FTMQ,     /* Flush trace msg queue */
     ERTS_PSTT_ETS_FREE_FIXATION,
     ERTS_PSTT_PRIO_SIG,  /* Elevate prio on signal management */
@@ -10418,10 +10417,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
             minor_gc = major_gc = 1;
 	    break;
         }
-	case ERTS_PSTT_COHMQ:
-	    reds -= erts_complete_off_heap_message_queue_change(c_p);
-	    st_res = am_true;
-	    break;
         case ERTS_PSTT_FTMQ:
 	    reds -= erts_flush_trace_messages(c_p, ERTS_PROC_LOCK_MAIN);
 	    st_res = am_true;
@@ -10526,7 +10521,6 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
 	case ERTS_PSTT_CPC:
-        case ERTS_PSTT_COHMQ:
         case ERTS_PSTT_ETS_FREE_FIXATION:
         case ERTS_PSTT_TEST:
 	    st_res = am_false;
@@ -11120,13 +11114,6 @@ schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type,
 	    erts_free(ERTS_ALC_T_PROC_SYS_TSK, st);
     }
     return res;
-}
-
-void
-erts_schedule_complete_off_heap_message_queue_change(Eterm pid)
-{
-    schedule_generic_sys_task(pid, ERTS_PSTT_COHMQ,
-                              -1, NIL, NIL);
 }
 
 void

@@ -56,11 +56,11 @@
 #define ERTS_SIG_LNK_X_FLAG_NORMAL_KILLS        (((Uint32) 1) << 0)
 #define ERTS_SIG_LNK_X_FLAG_CONNECTION_LOST     (((Uint32) 1) << 1)
 
-#define ERTS_PROC_SIG_CLA_SCAN_FACTOR                           \
+#define ERTS_PROC_SIG_ADJ_MSGQ_SCAN_FACTOR \
     (ERTS_CLA_SCAN_WORDS_PER_RED / ERTS_SIG_REDS_CNT_FACTOR)
-#define ERTS_PROC_SIG_CLA_COPY_FACTOR  \
-    (ERTS_PROC_SIG_CLA_SCAN_FACTOR / 8)
-#define ERTS_PROC_SIG_CLA_MSGS_FACTOR \
+#define ERTS_PROC_SIG_ADJ_MSGQ_COPY_FACTOR  \
+    (ERTS_PROC_SIG_ADJ_MSGQ_SCAN_FACTOR / 8)
+#define ERTS_PROC_SIG_ADJ_MSGQ_MSGS_FACTOR \
     25
 
 Process *ERTS_WRITE_UNLIKELY(erts_dirty_process_signal_handler);
@@ -241,6 +241,11 @@ handle_cla(Process *c_p,
            ErtsMessage *sig,
            ErtsMessage ***next_nm_sig,
            int exiting);
+static int
+handle_move_msgq_off_heap(Process *c_p,
+			  ErtsMessage *sig,
+			  ErtsMessage ***next_nm_sig,
+			  int exiting);
 static void
 send_cla_reply(Process *c_p, ErtsMessage *sig, Eterm to,
                Eterm req_id, Eterm result);
@@ -367,7 +372,9 @@ get_cla_data(ErtsMessage *sig)
 {
     ASSERT(ERTS_SIG_IS_NON_MSG(sig));
     ASSERT(ERTS_PROC_SIG_OP(((ErtsSignal *) sig)->common.tag)
-           == ERTS_SIG_Q_OP_CLA);
+           == ERTS_SIG_Q_OP_ADJ_MSGQ);
+    ASSERT(ERTS_PROC_SIG_TYPE(((ErtsSignal *) sig)->common.tag)
+           == ERTS_SIG_Q_TYPE_CLA);
     return (ErtsCLAData *) (char *) (&sig->hfrag.mem[0]
                                      + sig->hfrag.used_size);
 }
@@ -1312,15 +1319,20 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig)
     Eterm tag = ((ErtsSignal *) sig)->common.tag;
     
     /*
-     * Heap alias message and heap frag alias message
-     * signals are the only non-message signals, which are
-     * allocated as messages, which do not use a combined
-     * message / heap fragment.
+     * Heap alias message, heap frag alias message and
+     * adjust message queue signals are the only non-message
+     * signals, which are allocated as messages, which do not
+     * use a combined message / heap fragment.
      */
-    if (ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(tag)) {
+    if (ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(tag)
+	|| tag == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ADJ_MSGQ,
+					 ERTS_SIG_Q_TYPE_OFF_HEAP,
+					 0)) {
         sig->data.heap_frag = NULL;
         return;
     }
+
+    
 
     if(ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(tag)) {
         /* Retreive pointer to heap fragment (may not be NULL). */
@@ -2503,8 +2515,8 @@ erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id)
     cla->requester = c_p->common.id;
     cla->request_id = req_id_cpy;
 
-    ERL_MESSAGE_TERM(sig) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_CLA,
-                                                   ERTS_SIG_Q_TYPE_UNDEFINED,
+    ERL_MESSAGE_TERM(sig) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ADJ_MSGQ,
+                                                   ERTS_SIG_Q_TYPE_CLA,
                                                    0);
     ERL_MESSAGE_FROM(sig) = c_p->common.id;
     ERL_MESSAGE_TOKEN(sig) = am_undefined;
@@ -2512,8 +2524,27 @@ erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id)
     ERL_MESSAGE_DT_UTAG(sig) = NIL;
 #endif
 
-    if (!proc_queue_signal(c_p, to, (ErtsSignal *) sig, ERTS_SIG_Q_OP_CLA))
+    if (!proc_queue_signal(c_p, to, (ErtsSignal *) sig, ERTS_SIG_Q_OP_ADJ_MSGQ))
         send_cla_reply(c_p, sig, c_p->common.id, req_id_cpy, am_ok);
+}
+
+void
+erts_proc_sig_send_move_msgq_off_heap(Process *c_p, Eterm to)
+{
+    ErtsMessage *sig = erts_alloc_message(0, NULL);
+    ASSERT(is_internal_pid(to));
+    ERL_MESSAGE_TERM(sig) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ADJ_MSGQ,
+                                                   ERTS_SIG_Q_TYPE_OFF_HEAP,
+                                                   0);
+    ERL_MESSAGE_FROM(sig) = to;
+    ERL_MESSAGE_TOKEN(sig) = am_undefined;
+#ifdef USE_VM_PROBES
+    ERL_MESSAGE_DT_UTAG(sig) = NIL;
+#endif
+    if (!proc_queue_signal(c_p, to, (ErtsSignal *) sig, ERTS_SIG_Q_OP_ADJ_MSGQ)) {
+	sig->next = NULL;
+	erts_cleanup_messages(sig);
+    }
 }
 
 static int
@@ -5390,9 +5421,19 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
             break;
 
-        case ERTS_SIG_Q_OP_CLA:
+        case ERTS_SIG_Q_OP_ADJ_MSGQ:
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
-            cnt += handle_cla(c_p, sig, next_nm_sig, 0);
+	    switch (ERTS_PROC_SIG_TYPE(tag)) {
+	    case ERTS_SIG_Q_TYPE_CLA:
+		cnt += handle_cla(c_p, sig, next_nm_sig, 0);
+		break;
+	    case ERTS_SIG_Q_TYPE_OFF_HEAP:
+		cnt += handle_move_msgq_off_heap(c_p, sig, next_nm_sig, 0);
+		break;
+	    default:
+		ERTS_INTERNAL_ERROR("Invalid 'adjust-message-queue' signal type");
+		break;
+	    }
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
             break;
 
@@ -5867,8 +5908,18 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             break;
         }
 
-        case ERTS_SIG_Q_OP_CLA:
-            handle_cla(c_p, sig, next_nm_sig, !0);
+        case ERTS_SIG_Q_OP_ADJ_MSGQ:
+	    switch (ERTS_PROC_SIG_TYPE(tag)) {
+	    case ERTS_SIG_Q_TYPE_CLA:
+		handle_cla(c_p, sig, next_nm_sig, !0);
+		break;
+	    case ERTS_SIG_Q_TYPE_OFF_HEAP:
+		handle_move_msgq_off_heap(c_p, sig, next_nm_sig, !0);
+		break;
+	    default:
+		ERTS_INTERNAL_ERROR("Invalid 'adjust-message-queue' signal type");
+		break;
+	    }
             break;
 
         case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
@@ -5967,7 +6018,7 @@ clear_seq_trace_token(ErtsMessage *sig)
         case ERTS_SIG_Q_OP_SYNC_SUSPEND:
         case ERTS_SIG_Q_OP_RPC:
         case ERTS_SIG_Q_OP_RECV_MARK:
-        case ERTS_SIG_Q_OP_CLA:
+        case ERTS_SIG_Q_OP_ADJ_MSGQ:
             break;
 
         default:
@@ -6026,10 +6077,15 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         }
         break;
 
+    case ERTS_SIG_Q_OP_ADJ_MSGQ:
+	if (type == ERTS_SIG_Q_TYPE_OFF_HEAP) {
+	    size = sizeof(ErtsMessageRef);
+	    break;
+	}
+	/* Fall through... */
     case ERTS_SIG_Q_OP_SYNC_SUSPEND:
     case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
     case ERTS_SIG_Q_OP_IS_ALIVE:
-    case ERTS_SIG_Q_OP_CLA:
     case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY: {
         ErlHeapFragment *hf;
         size = sizeof(ErtsMessageRef);
@@ -6442,7 +6498,7 @@ handle_cla(Process *c_p,
     while (msg != sig) {
         ASSERT(!!msg);
         nmsgs++;
-        if (nmsgs >= ERTS_PROC_SIG_CLA_MSGS_FACTOR) {
+        if (nmsgs >= ERTS_PROC_SIG_ADJ_MSGQ_MSGS_FACTOR) {
             cnt++;
             nmsgs = 0;
         }
@@ -6499,7 +6555,7 @@ handle_cla(Process *c_p,
                 last_hfrag = &hf->next;
             }
 
-            cnt += scanned/ERTS_PROC_SIG_CLA_SCAN_FACTOR;
+            cnt += scanned/ERTS_PROC_SIG_ADJ_MSGQ_SCAN_FACTOR;
 
             if (lit_sz > 0) {
                 ErlHeapFragment *new_hfrag = new_message_buffer(lit_sz);
@@ -6529,8 +6585,8 @@ handle_cla(Process *c_p,
                 ASSERT(!*last_hfrag);
                 *last_hfrag = new_hfrag;
 
-                cnt += scanned/ERTS_PROC_SIG_CLA_SCAN_FACTOR;
-                cnt += lit_sz/ERTS_PROC_SIG_CLA_COPY_FACTOR;
+                cnt += scanned/ERTS_PROC_SIG_ADJ_MSGQ_SCAN_FACTOR;
+                cnt += lit_sz/ERTS_PROC_SIG_ADJ_MSGQ_COPY_FACTOR;
             }
         }
 
@@ -6555,6 +6611,155 @@ done:
         return CONTEXT_REDS;
     return cnt;
 }
+
+static int
+handle_move_msgq_off_heap(Process *c_p,
+			  ErtsMessage *sig,
+			  ErtsMessage ***next_nm_sig,
+			  int exiting)
+{
+    /*
+     * TODO: Implement yielding support!
+     */
+    ErtsMessage *msg;
+    int nmsgs;
+    Uint64 cnt = 0;
+
+    /*
+     * This job was first initiated when the process changed to off heap
+     * message queue management. ERTS_PSFLG_OFF_HEAP_MSGQ was set at
+     * initiation and thread progress was made before this signal was
+     * sent. That is, all signals after this signal already are off heap
+     * and do not have to be inspected.
+     *
+     * The management state might, however, have been changed again
+     * (multiple times) since initiation. The ERTS_PSFLG_OFF_HEAP_MSGQ has
+     * however been set since the operation was first initiated. Check
+     * users last requested state (the flags F_OFF_HEAP_MSGQ, and
+     * F_ON_HEAP_MSGQ), and make the state consistent with that.
+     */
+
+    cnt++;
+
+    if (exiting) {
+	/* signal already removed from queue... */
+	goto cleanup;
+    }
+
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+    ASSERT(c_p->sig_qs.flags & FS_OFF_HEAP_MSGQ_CHNG);
+    ASSERT(erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_OFF_HEAP_MSGQ);
+
+    if (!(c_p->sig_qs.flags & FS_OFF_HEAP_MSGQ)) {
+	/* Someone changed its mind... */
+	erts_atomic32_read_band_nob(&c_p->state,
+				    ~ERTS_PSFLG_OFF_HEAP_MSGQ);
+	goto done;
+    }
+
+    msg = c_p->sig_qs.first;
+    if (!msg)
+        msg = c_p->sig_qs.cont;
+
+    nmsgs = 0;
+    while (msg != sig) {
+        ASSERT(!!msg);
+        nmsgs++;
+        if (nmsgs >= ERTS_PROC_SIG_ADJ_MSGQ_MSGS_FACTOR) {
+            cnt++;
+            nmsgs = 0;
+        }
+	if (ERTS_SIG_IS_INTERNAL_MSG(msg)
+	    && !msg->data.attached
+	    && ((is_not_immed(ERL_MESSAGE_TERM(msg))
+		 && !erts_is_literal(ERL_MESSAGE_TERM(msg),
+				     ptr_val(ERL_MESSAGE_TERM(msg))))
+#ifdef USE_VM_PROBES
+                || is_not_immed(ERL_MESSAGE_DT_UTAG(msg))
+#endif
+                || is_not_immed(ERL_MESSAGE_TOKEN(msg)))) {
+            ErlHeapFragment *hfrag;
+	    Eterm *hp;
+	    ErlOffHeap *ohp;
+#ifdef SHCOPY_SEND
+	    erts_shcopy_t info;
+#else
+	    erts_literal_area_t litarea;
+#endif
+#ifdef USE_VM_PROBES
+            Uint ut_sz = size_object(ERL_MESSAGE_DT_UTAG(msg));
+#endif
+            Uint t_sz = size_object(ERL_MESSAGE_TOKEN(msg));
+	    Uint m_sz;
+	    Uint h_sz;
+
+	    ASSERT(is_immed(ERL_MESSAGE_FROM(msg)));
+	    if (is_immed(ERL_MESSAGE_TERM(msg)))
+		m_sz = 0;
+	    else {
+#ifdef SHCOPY_SEND
+		INITIALIZE_SHCOPY(info);
+		m_sz = copy_shared_calculate(ERL_MESSAGE_TERM(msg), &info);
+#else
+		INITIALIZE_LITERAL_PURGE_AREA(litarea);
+		m_sz = size_object_litopt(ERL_MESSAGE_TERM(msg), &litarea);
+#endif
+	    }
+
+	    h_sz = m_sz + t_sz;
+#ifdef USE_VM_PROBES
+	    h_sz += ut_sz;
+#endif
+	    ASSERT(h_sz);
+
+	    hfrag = new_message_buffer(h_sz);
+	    hp = hfrag->mem;
+	    ohp = &hfrag->off_heap;
+
+	    if (is_not_immed(ERL_MESSAGE_TERM(msg))) {
+		Eterm m = ERL_MESSAGE_TERM(msg);
+		Eterm m_cpy;
+#ifdef SHCOPY_SEND
+		m_cpy = copy_shared_perform(m, m_sz, &info, &hp, ohp);
+		DESTROY_SHCOPY(info);
+#else
+		m_cpy = copy_struct_litopt(m, m_sz, &hp, ohp, &litarea);
+#endif
+		ERL_MESSAGE_TERM(msg) = m_cpy;
+	    }
+	    if (is_not_immed(ERL_MESSAGE_TOKEN(msg)))
+		ERL_MESSAGE_TOKEN(msg) = copy_struct(ERL_MESSAGE_TOKEN(msg),
+						     t_sz, &hp, ohp);
+#ifdef USE_VM_PROBES
+	    if (is_not_immed(ERL_MESSAGE_DT_UTAG(mp)))
+		ERL_MESSAGE_DT_UTAG(msg) = copy_struct(ERL_MESSAGE_DT_UTAG(msg),
+						       ut_sz, &hp, ohp);
+#endif
+	    msg->data.heap_frag = hfrag;
+	    cnt += h_sz/ERTS_PROC_SIG_ADJ_MSGQ_COPY_FACTOR;
+	}
+
+        msg = msg->next;
+        if (!msg)
+            msg = c_p->sig_qs.cont;
+    }
+
+done:
+
+    remove_nm_sig(c_p, sig, next_nm_sig);
+
+cleanup:
+
+    sig->next = NULL;
+    erts_cleanup_messages(sig);
+
+    c_p->sig_qs.flags &= ~FS_OFF_HEAP_MSGQ_CHNG;
+
+    if (cnt > CONTEXT_REDS)
+        return CONTEXT_REDS;
+    return cnt;
+}
+
 
 static int
 handle_trace_change_state(Process *c_p,
@@ -7069,9 +7274,12 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     }
                     break;
 
+                case ERTS_SIG_Q_OP_ADJ_MSGQ:
+		    if (type == ERTS_SIG_Q_TYPE_OFF_HEAP)
+			break;
+		    /* Fall through... */
                 case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
                 case ERTS_SIG_Q_OP_ALIAS_MSG:
-                case ERTS_SIG_Q_OP_CLA:
                     debug_foreach_sig_heap_frags(&sig->hfrag, oh_func, arg);
                     break;
 
