@@ -84,23 +84,39 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
             ArgStr = lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]),
             io:format("\n~p:~p(~s)\n~ts", [Module,F,ArgStr,BinStr]),
 
+            ArgumentTests =
+                case lists:filtermap(
+                       fun({general,Match}) ->
+                               {true,"[*][*][*].*" ++ Match};
+                          ({ArgSlot, Match}) when is_integer(ArgSlot) ->
+                               {true,io_lib:format("[*][*][*] argument ~B:.*~ts",[ArgSlot,Match])};
+                          (_) ->
+                               false
+                       end, Opts) of
+                    [] ->
+                        ["[*][*][*] argument \\d+:"];
+                    Tests ->
+                        Tests
+                end,
 
             case Stk of
                 [{Module,ActualF,ActualArgs,Info}|_] ->
-                    RE = <<"[*][*][*] argument \\d+:">>,
-                    Errors1 = case re:run(BinStr, RE, [{capture, none}]) of
-                                  match ->
-                                      Errors0;
-                                  nomatch when Reason =:= system_limit ->
-                                      Errors0;
-                                  nomatch ->
-                                      case lists:member(unexplained, Opts) of
-                                          true ->
-                                              Errors0;
-                                          false ->
-                                              [{no_explanation,{F,Args},Info}|Errors0]
-                                      end
-                              end,
+                    Errors1 =
+                        case lists:member(unexplained, Opts) of
+                            true ->
+                                Errors0;
+                            false ->
+                                lists:foldl(
+                                  fun(Match, Errors) ->
+                                          case re:run(BinStr, Match, [{capture, none}]) of
+                                              match ->
+                                                  Errors;
+                                              nomatch ->
+                                                  [{no_explanation,{F,Args},
+                                                    Info,BinStr,lists:flatten(Match)}|Errors]
+                                          end
+                                  end, Errors0, ArgumentTests)
+                        end,
                     Errors = case {ActualF,ActualArgs} of
                                  {F,Args} ->
                                      Errors1;
