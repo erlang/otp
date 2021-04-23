@@ -1110,8 +1110,8 @@ decode_answer_noerror(
                         andalso
                         (RR#dns_query.type =:= Q_RR#dns_query.type)
                         andalso
-                        (inet_db:tolower(RR#dns_query.domain) =:=
-                             inet_db:tolower(Q_RR#dns_query.domain))
+                        inet_db:eq_domains(
+                          RR#dns_query.domain, Q_RR#dns_query.domain)
                     of
                         true ->
                             {ok, Msg};

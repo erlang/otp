@@ -71,7 +71,7 @@
 -export([res_gethostbyaddr/2,res_hostent_by_domain/3]).
 -export([res_update_conf/0, res_update_hosts/0]).
 %% inet help functions
--export([tolower/1]).
+-export([tolower/1, eq_domains/2]).
 -ifdef(DEBUG).
 -define(dbg(Fmt, Args), io:format(Fmt, Args)).
 -else.
@@ -1818,12 +1818,47 @@ match_rr_key(
 %% does not follow RFC 4343.
 %%
 tolower([]) -> [];
-tolower([C|Cs]) when is_integer(C) ->
+tolower([C|Cs]) when is_integer(C), 0 =< C, C =< 16#10FFFF ->
     if  C >= $A, C =< $Z ->
 	    [(C-$A)+$a|tolower(Cs)];
 	true ->
 	    [C|tolower(Cs)]
     end.
+
+%% Case insensitive domain name comparison according to RFC 4343
+%% "Domain Name System (DNS) Case Insensitivity Clarification",
+%% i.e regard $a through $z as equal to $A through $Z.
+%%
+eq_domains([A | As], [B | Bs]) ->
+    if
+        is_integer(A), 0 =< A, A =< 16#10FFFF,
+        is_integer(B), 0 =< B, B =< 16#10FFFF ->
+            %% An upper bound of 255 would be right right now,
+            %% but this algorithm works for any integer.  That
+            %% guard just gives the compiler the opportuinity
+            %% to optimize bit operations for machine word size,
+            %% so we might as well use the Unicode upper bound instead.
+            Xor = (A bxor B),
+            if
+                Xor =:= 0 ->
+                    eq_domains(As, Bs);
+                Xor =:= ($A bxor $a) ->
+                    And = (A band B),
+                    if
+                        ($A band $a) =< And, And =< ($Z band $z) ->
+                            eq_domains(As, Bs);
+                        true ->
+                            false
+                    end;
+                true ->
+                    false
+            end
+    end;
+eq_domains([], []) ->
+    true;
+eq_domains(As, Bs) when is_list(As), is_list(Bs) ->
+    false.
+
 
 dn_ip6_int(A,B,C,D,E,F,G,H) ->
     dnib(H) ++ dnib(G) ++ dnib(F) ++ dnib(E) ++ 
