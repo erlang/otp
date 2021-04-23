@@ -76,7 +76,7 @@
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
 
 %% Socket monitoring
--export([monitor/1, demonitor/1, demonitor/2]).
+-export([monitor/1, cancel_monitor/1]).
 
 -export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
@@ -222,7 +222,7 @@ monitor({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
         ok ->
             MRef;
 	error ->
-	    GenSocketMod:demonitor(MRef),
+	    GenSocketMod:cancel_monitor(MRef),
 	    erlang:error({invalid, Socket})
     end;
 monitor(Socket) when is_port(Socket) ->
@@ -238,40 +238,22 @@ monitor(Socket) ->
     erlang:error(badarg, [Socket]).
 
 
-%% -- Socket demonitor
+%% -- Cancel socket monitor
 
--spec demonitor(MRef) -> true when
+-spec cancel_monitor(MRef) -> boolean() when
       MRef :: reference().
 
-demonitor(MRef) when is_reference(MRef) ->
+cancel_monitor(MRef) when is_reference(MRef) ->
     case inet_db:take_socket_type(MRef) of
 	{ok, port} ->
-	    erlang:demonitor(MRef);
+	    erlang:demonitor(MRef, [info]);
 	{ok, {socket, GenSocketMod}} ->
 	    GenSocketMod:?FUNCTION_NAME(MRef);
-	error -> % Assume it has already been demonitor'ed
-	    true
-    end;
-demonitor(MRef) ->
-    erlang:error(badarg, [MRef]).
-
-
--spec demonitor(MRef, Opts) -> boolean() when
-     MRef   :: reference(),
-     Opts   :: [Option],
-     Option :: flush | info.
-
-demonitor(MRef, Opts) when is_reference(MRef) andalso is_list(Opts) ->
-    case inet_db:take_socket_type(MRef) of
-	{ok, port} ->
-	    erlang:demonitor(MRef, Opts);
-	{ok, {socket, GenSocketMod}} ->
-	    GenSocketMod:?FUNCTION_NAME(MRef, Opts);
-	error -> % Assume it has already been demonitor'ed
+	error -> % Assume it has the monitor has already been cancel'ed
 	    false
     end;
-demonitor(MRef, Opts) ->
-    erlang:error(badarg, [MRef, Opts]).
+cancel_monitor(MRef) ->
+    erlang:error(badarg, [MRef]).
 
 
 %% -- Socket peername

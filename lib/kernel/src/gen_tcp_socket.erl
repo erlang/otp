@@ -21,7 +21,7 @@
 -module(gen_tcp_socket).
 -behaviour(gen_statem).
 
--compile({no_auto_import, [monitor/1, demonitor/1, demonitor/2]}).
+-compile({no_auto_import, [monitor/1]}).
 
 %% gen_tcp
 -export([connect/4, listen/2, accept/2,
@@ -30,7 +30,7 @@
          shutdown/2, close/1, controlling_process/2]).
 %% inet
 -export([
-         monitor/1, demonitor/1, demonitor/2,
+         monitor/1, cancel_monitor/1,
          setopts/2, getopts/2,
          sockname/1, peername/1,
          getstat/2
@@ -511,11 +511,8 @@ monitor(?module_socket(_Server, ESock) = Socket) ->
 monitor(Socket) ->
     erlang:error(badarg, [Socket]).
 
-demonitor(MRef) ->
-    socket:demonitor(MRef).
-
-demonitor(MRef, Opts) ->
-    socket:demonitor(MRef, Opts).
+cancel_monitor(MRef) ->
+    socket:cancel_monitor(MRef).
 
 
 %% -------------------------------------------------------------------------

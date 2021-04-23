@@ -26076,8 +26076,8 @@ mon_simple_open_and_exit(InitState) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Create one socket, monitor from a different process, demonitor and
-%%  then close socket.
+%% Create one socket, monitor from a different process, cancel_montor
+%% (demonitor) and then close socket.
 %% The process that did the monitor shall *not* receive a socket DOWN.
 
 monitor_simple_open_and_demon_and_close(suite) ->
@@ -26202,7 +26202,7 @@ mon_simple_open_and_demon_and_close(InitState) ->
          %% The actual test
          #{desc => "demonitor socket",
            cmd  => fun(#{mon := MRef} = State) ->
-                           true = socket:demonitor(MRef),
+                           true = socket:cancel_monitor(MRef),
 			   {ok, maps:remove(mon, State)}
                    end},
 
@@ -27250,9 +27250,9 @@ mon_open_and_demon_and_close_multi_socks(InitState) ->
          #{desc => "demonitor socket(s)",
            cmd  => fun(#{mon2 := MRef2,
 			 mon4 := MRef4} = State) ->
-                           true = socket:demonitor(MRef2),
-                           true = socket:demonitor(MRef4),
-			   ?SEV_IPRINT("demonitored socket 2 and 4"),
+                           true = socket:cancel_monitor(MRef2),
+                           true = socket:cancel_monitor(MRef4),
+			   ?SEV_IPRINT("cancel socket monitor 2 and 4"),
 			   State2 = maps:remove(mon2,  State),
 			   State3 = maps:remove(sock2, State2),
 			   State4 = maps:remove(mon4,  State3),

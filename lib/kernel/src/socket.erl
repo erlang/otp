@@ -20,7 +20,7 @@
 
 -module(socket).
 
--compile({no_auto_import, [error/1, monitor/1, demonitor/1, demonitor/2]}).
+-compile({no_auto_import, [error/1, monitor/1]}).
 
 %% Administrative and "global" utility functions
 -export([
@@ -34,7 +34,7 @@
 
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
-         monitor/1, demonitor/1, demonitor/2,
+         monitor/1, cancel_monitor/1,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3
         ]).
@@ -910,74 +910,31 @@ monitor(Socket) ->
 
 %% ===========================================================================
 %%
-%% demonitor - Demonitor a socket
+%% cancel_monitor - Cancel a socket monitor
 %%
-%% If MonitorRef is a reference that the socket obtained
+%% If MRef is a reference that the socket obtained
 %% by calling monitor/1, this monitoring is turned off.
 %% If the monitoring is already turned off, nothing happens.
 %%
 %% ===========================================================================
 
--spec demonitor(MRef) -> true when
+-spec cancel_monitor(MRef) -> boolean() when
       MRef :: reference().
 
-demonitor(MRef) when is_reference(MRef) ->
-    BadArg = fun() -> erlang:error(badarg, [MRef]) end,
-    do_demonitor(MRef, false, BadArg),
-    true;
-demonitor(MRef) ->
-    erlang:error(badarg, [MRef]).
-
-
--spec demonitor(MRef, Opts) -> boolean() when
-      MRef   :: reference(),
-      Opts   :: [Option],
-      Option :: flush | info.
-
-demonitor(MRef, Opts) when is_reference(MRef) andalso is_list(Opts) ->
-    BadArg = fun() -> erlang:error(badarg, [MRef, Opts]) end,
-    case Opts of
-	[] ->
-	    do_demonitor(MRef, false, BadArg),
-	    true;
-	[flush] ->
-	    do_demonitor(MRef, true, BadArg),
-	    true;
-	[info] ->
-	    do_demonitor(MRef, false, BadArg);
-	[flush, info] ->
-	    do_demonitor(MRef, true, BadArg);
-	[info, flush] ->
-	    do_demonitor(MRef, true, BadArg);
-	_ ->
-	    erlang:error(badarg, [MRef, Opts])
-    end;
-demonitor(MRef, Opts) ->
-    erlang:error(badarg, [MRef, Opts]).
-
-do_demonitor(MRef, Flush, BadArg) ->
-    case socket_registry:demonitor(MRef) of
+cancel_monitor(MRef) when is_reference(MRef) ->
+    case socket_registry:cancel_monitor(MRef) of
 	ok ->
-	    do_demonitor_flush(MRef, Flush),
 	    true;
 	{error, unknown_monitor} ->
 	    false;
 	{error, not_owner} ->
-	    BadArg();
+	    erlang:error(badarg, [MRef]);
 	{error, Reason} ->
 	    erlang:error({invalid, Reason})
-    end.
-
-do_demonitor_flush(MRef, true) ->
-    receive
-	{'DOWN', MRef, socket, _, _} ->
-	    true
-    after 0 ->
-	    true
     end;
-do_demonitor_flush(_, _) ->
-    true.
-    
+cancel_monitor(MRef) ->
+    erlang:error(badarg, [MRef]).
+
 
 %% ===========================================================================
 %%

@@ -1597,7 +1597,7 @@
     </func>
 
     <func>
-      <name name="demonitor" arity="1" since="OTP @OTP-17155@"/>
+      <name name="cancel_monitor" arity="1" since="OTP @OTP-17155@"/>
       <fsummary>Stop socket monitoring</fsummary>
       <desc>
 	<p>If <c><anno>MRef</anno></c> is a reference that the
@@ -1605,60 +1605,24 @@
 	<seemfa marker="#monitor/1"><c>monitor/1</c></seemfa>, 
 	this monitor is turned off.
 	If the monitoring is already turned off, nothing happens.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="demonitor" arity="2" since="OTP @OTP-17155@"/>
-      <fsummary>Stop socket monitoring</fsummary>
-      <desc>
-        <p>The returned value is <c>true</c> unless <c>info</c> is part
-	of <c><anno>Opts</anno></c>.</p>
-        <p><c>demonitor(<anno>MRef</anno>, [])</c> is equivalent to
-	<seemfa marker="#demonitor/1">
-	<c>demonitor(<anno>MRef</anno>)</c></seemfa>.</p>
-        <p><c><anno>Option</anno></c>s:</p>
-        <taglist>
-          <tag><c>flush</c></tag>
-          <item>
-            <p>Removes (one) <c>{_,
-              <anno>MRef</anno>, socket, _, _}</c> message,
-              if there is one, from the caller message queue after
-              monitoring has been stopped.</p>
-            <p>Calling <c>socket:demonitor(<anno>MRef</anno>, [flush])</c>
-              is equivalent to the following:</p>
-            <code type="none">
-socket:demonitor(MRef),
-receive
-    {_, MRef, _, _, _} ->
-        true
-after 0 ->
-        true
-end</code>
-          </item>
-          <tag><c>info</c></tag>
-          <item>
-            <p>The returned value is one of the following:</p>
-            <taglist>
-              <tag><c>true</c></tag>
-              <item><p>The monitor was found and removed. In this case,
-                no <c>'DOWN'</c> message corresponding to this
-                monitor has been delivered and will not be delivered.</p>
-              </item>
-              <tag><c>false</c></tag>
-              <item><p>The monitor was not found and could not be removed.
-                This probably because someone already has placed a
-                <c>'DOWN'</c> message corresponding to this monitor
-                in the caller message queue.</p>
-              </item>
-            </taglist>
-            <p>If option <c>info</c> is combined with option <c>flush</c>,
-              <c>false</c> is returned if a flush was needed,
-              otherwise <c>true</c>.</p>
-          </item>
-        </taglist>
+	<p>The returned value is one of the following:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+	  <item>
+	    <p>The monitor was found and removed. In this case,
+	    no <c>'DOWN'</c> message corresponding to this
+	    monitor has been delivered and will not be delivered. </p>
+	  </item>
+	  <tag><c>false</c></tag>
+	  <item>
+	    <p>The monitor was not found and could not be removed.
+	    This probably because a <c>'DOWN'</c> message corresponding
+	    to this monitor has already been placed in the caller
+	    message queue.</p>
+	  </item>
+	</taglist>
 	<p>Failure: It is an error if <c><anno>MRef</anno></c> refers to a
-	monitoring started by another process. </p>
+	monitor started by another process. </p>
       </desc>
     </func>
 
@@ -1903,7 +1867,8 @@ end</code>
           <tag><c>Info</c></tag>
           <item>
 	    <p>Either the termination reason of the socket or <c>nosock</c>
-	    (no socket <c><anno>Socket</anno></c> was found; a race). </p>
+	    (socket <c><anno>Socket</anno></c> did not exist at the time
+	    of monitor creation). </p>
 	  </item>
         </taglist>
 

@@ -6865,8 +6865,8 @@ do_socket_monitor1_demon_after(Config) ->
 		 MRef = inet:monitor(Socket),
 		 ?P("[client] sleep some"),
 		 ?SLEEP(?SECS(1)),
-		 ?P("[client] demonitor"),
-		 inet:demonitor(MRef),
+		 ?P("[client] cancel (socket) monitor"),
+		 inet:cancel_monitor(MRef),
 		 ?P("[client] announce ready"),
 		 Parent ! {self(), ready},
 		 sm_await_no_socket_down(MRef, Socket, Type)

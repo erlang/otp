@@ -23,7 +23,7 @@
 %% This is a registry process for the socket module.
 %% The nif sends info here about all created and deleted socket(s).
 %% It is also used for misc work related to sockets, such as
-%% monitor/demonitor of sockets.
+%% monitor/cancel_monitor of sockets.
 %%
 %% =========================================================================
 
@@ -38,7 +38,7 @@
 	 number_of_monitors/0, number_of_monitors/1,
          which_monitors/1,
 	 monitor/1, monitor/2,
-	 demonitor/1
+	 cancel_monitor/1
         ]).
 
 %% Info about each (known) socket
@@ -151,15 +151,15 @@ monitor(Socket, Opts) when is_map(Opts) ->
 monitor(Socket, Opts) ->
     erlang:error(badarg, [Socket, Opts]).
 
-demonitor(MRef) when is_reference(MRef) ->
+cancel_monitor(MRef) when is_reference(MRef) ->
     %% ?DBG(MRef),
-    case request({demonitor, MRef}) of
+    case request({cancel_monitor, MRef}) of
 	ok ->
 	    ok;
 	{error, _Reason} = ERROR ->
 	    ERROR
     end;
-demonitor(MRef) ->
+cancel_monitor(MRef) ->
     erlang:error(badarg, [MRef]).
 
 
@@ -302,9 +302,9 @@ handle_request(#state{users = UDB} = State, {which_monitors, Pid}, _From) ->
 handle_request(State, {monitor, Socket, Opts}, From) ->
     do_monitor_socket(State, Socket, Opts, From);
 
-handle_request(State, {demonitor, MRef}, From) ->
-    %% ?DBG({demonitor, MRef, From}),
-    do_demonitor_socket(State, MRef, From);
+handle_request(State, {cancel_monitor, MRef}, From) ->
+    %% ?DBG({cancel_monitor, MRef, From}),
+    do_cancel_monitor_socket(State, MRef, From);
 
 handle_request(State, BadRequest, _From) ->
     {State, {error, {bad_request, BadRequest}}}.
@@ -495,8 +495,8 @@ do_monitor_socket(#state{socks = SDB,
     end.
 
 
-do_demonitor_socket(#state{socks = SDB, mons = MDB, users = UDB} = State,
-		    Mon, Pid) ->
+do_cancel_monitor_socket(#state{socks = SDB, mons = MDB, users = UDB} = State,
+			 Mon, Pid) ->
     case mon_lookup(MDB, Mon) of
 	{value, #mon{sock = Sock, pid = Pid}} ->
 	    %% So far so good
