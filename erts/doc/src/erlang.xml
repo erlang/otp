@@ -1783,7 +1783,7 @@ example_fun(A1, A2) ->
     </func>
 
     <func>
-      <name name="error" arity="3" since="24.0"/>
+      <name name="error" arity="3" since="OTP 24.0"/>
       <fsummary>Raise an exception of class <c>error</c></fsummary>
       <desc>
         <p>Raises an exception of class <c>error</c> with the reason
