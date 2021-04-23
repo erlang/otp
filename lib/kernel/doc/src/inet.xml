@@ -686,7 +686,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="info" arity="1"  since="@OTP-17203@"/>
+      <name name="info" arity="1"  since="OTP @OTP-17203@"/>
       <fsummary>Retreive miscellaneous information about a socket</fsummary>
       <desc>
         <p>
