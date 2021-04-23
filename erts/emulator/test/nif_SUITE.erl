@@ -50,6 +50,7 @@
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
 	 resource_takeover/1,
+	 t_dynamic_resource_call/1,
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1,
          send_trace/1, send_seq_trace/1,
          neg/1, is_checks/1,
@@ -95,6 +96,7 @@ all() ->
      {group, select},
      {group, monitor},
      monitor_frenzy,
+     t_dynamic_resource_call,
      t_load_race,
      t_call_nif_early,
      load_traced_nif,
@@ -1238,6 +1240,67 @@ frenzy_do_op(SelfPix, Op, Rnd, {Pid0,RBins}=State0) ->
 gc_and_return(RetVal) ->
     erlang:garbage_collect(),
     RetVal.
+
+t_dynamic_resource_call(Config) ->
+    ensure_lib_loaded(Config),
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,NifModBin} = compile:file(File, [binary,return_errors]),
+
+    dynamic_resource_call_do(Config, NifModBin),
+    erlang:garbage_collect(),
+
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+
+    receive after 10 -> ok end,
+    [{{resource_dtor_A_v1,_},1,2,102},
+     {unload,1,3,103}] = nif_mod_call_history(),
+
+    ok.
+
+
+dynamic_resource_call_do(Config, NifModBin) ->
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+
+    ok = nif_mod:load_nif_lib(Config, 1,
+			      [{resource_type, 0, ?RT_CREATE, "with_dyncall",
+				resource_dtor_A, ?RT_CREATE, resource_dyncall}]),
+
+    hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    [{load,1,1,101},
+     {get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    R = nif_mod:make_new_resource(0, <<>>),
+
+    {0, 1001} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
+    {1, 1000} = dynamic_resource_call(wrong, with_dyncall, R, 1000),
+    {1, 1000} = dynamic_resource_call(nif_mod, wrong, R, 1000),
+
+    %% Upgrade resource type with new dyncall implementation.
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+    ok = nif_mod:load_nif_lib(Config, 2,
+                              [{resource_type, 0, ?RT_TAKEOVER, "with_dyncall",
+				resource_dtor_A, ?RT_TAKEOVER, resource_dyncall}]),
+    [{upgrade,2,1,201}] = nif_mod_call_history(),
+
+    {0, 1002} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
+    true = erlang:purge_module(nif_mod),
+    [{unload,1,3,103}] = nif_mod_call_history(),
+
+    %% Upgrade resource type with missing dyncall implementation.
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+    ok = nif_mod:load_nif_lib(Config, 1,
+                              [{resource_type, 0, ?RT_TAKEOVER, "with_dyncall",
+				resource_dtor_A, ?RT_TAKEOVER, null}]),
+    [{upgrade,1,1,101}] = nif_mod_call_history(),
+
+    {1, 1000} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
+    true = erlang:purge_module(nif_mod),
+    [{unload,2,2,202}] = nif_mod_call_history(),
+    ok.
+
+
 
 %% Test NIF building heap fragments
 heap_frag(Config) when is_list(Config) ->    
@@ -3856,6 +3919,8 @@ is_pid_undefined_nif(_) -> ?nif_stub.
 compare_pids_nif(_, _) -> ?nif_stub.
 
 term_type_nif(_) -> ?nif_stub.
+
+dynamic_resource_call(_,_,_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

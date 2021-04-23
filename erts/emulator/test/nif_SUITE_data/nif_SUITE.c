@@ -3343,6 +3343,23 @@ static void frenzy_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
     abort();
 }
 
+static ERL_NIF_TERM dynamic_resource_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    const ERL_NIF_TERM rt_module = argv[0];
+    const ERL_NIF_TERM rt_name = argv[1];
+    const ERL_NIF_TERM rsrc = argv[2];
+    int call_data;
+    int ret;
+
+    if (!enif_get_int(env, argv[3], &call_data)) {
+	return enif_make_badarg(env);
+    }
+    ret = enif_dynamic_resource_call(env, rt_module, rt_name, rsrc, &call_data);
+    return enif_make_tuple2(env,
+			    enif_make_int(env, ret),
+			    enif_make_int(env, call_data));
+}
+
 /*********** testing ioq ************/
 
 static void ioq_resource_dtor(ErlNifEnv* env, void* obj) {
@@ -3412,7 +3429,7 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         ERL_NIF_TERM *elems, tail, list;
         ErlNifEnv *myenv = NULL;
 
-        if (argv >= 3 && enif_is_identical(argv[2], enif_make_atom(env, "use_stack")))
+        if (argc >= 3 && enif_is_identical(argv[2], enif_make_atom(env, "use_stack")))
             iovec = &vec;
         if (argc >= 4 && enif_is_identical(argv[3], enif_make_atom(env, "use_env")))
             myenv = env;
@@ -3763,6 +3780,7 @@ static ErlNifFunc nif_funcs[] =
     {"compare_monitors_nif", 2, compare_monitors_nif},
     {"make_monitor_term_nif", 1, make_monitor_term_nif},
     {"monitor_frenzy_nif", 4, monitor_frenzy_nif},
+    {"dynamic_resource_call", 4, dynamic_resource_call},
     {"whereis_send", 3, whereis_send},
     {"whereis_term", 2, whereis_term},
     {"whereis_thd_lookup", 3, whereis_thd_lookup},
@@ -3777,6 +3795,7 @@ static ErlNifFunc nif_funcs[] =
     {"is_pid_undefined_nif", 1, is_pid_undefined_nif},
     {"compare_pids_nif", 2, compare_pids_nif},
     {"term_type_nif", 1, term_type_nif}
+
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)
