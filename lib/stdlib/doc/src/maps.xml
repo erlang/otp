@@ -157,7 +157,7 @@
     </func>
 
     <func>
-      <name name="from_keys" arity="2" since="OTP 14.0"/>
+      <name name="from_keys" arity="2" since="OTP 24.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Takes a list of keys and a value and builds a map where all keys
