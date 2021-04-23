@@ -31,12 +31,15 @@
 	 %% (registry) Socket monitor functions
          number_of_monitors/0, number_of_monitors/1,
          which_monitors/1,
+	 monitored_by/1,
 
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
          monitor/1, cancel_monitor/1,
          supports/0, supports/1, supports/2,
-         is_supported/1, is_supported/2, is_supported/3
+         is_supported/1, is_supported/2, is_supported/3,
+
+	 to_list/1
         ]).
 
 -export([
@@ -807,14 +810,50 @@ number_of_monitors(Pid) when is_pid(Pid) ->
 %% *** which_monitors/1 ***
 %%
 %% Interface function to the socket registry
-%% Returns a list of all the monitors of the process.
+%% Returns a list of all the monitors of the process or socket.
 %%
 
 -spec which_monitors(Pid) -> [reference()] when
-	 Pid :: pid().
+      Pid :: pid();
+                    (Socket) -> [reference()] when
+      Socket :: socket().
 
 which_monitors(Pid) when is_pid(Pid) ->
-    ?REGISTRY:which_monitors(Pid).
+    ?REGISTRY:which_monitors(Pid);
+which_monitors(?socket(SockRef) = Socket) when is_reference(SockRef) ->
+    ?REGISTRY:which_monitors(Socket);
+which_monitors(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
+%% *** monitor_by/1 ***
+%%
+%% Interface function to the socket registry
+%% Returns a list of all the process'es monitoring the socket.
+%%
+
+-spec monitored_by(Socket) -> [reference()] when
+						Socket :: socket().
+
+monitored_by(?socket(SockRef) = Socket) when is_reference(SockRef) ->
+    ?REGISTRY:monitored_by(Socket);
+monitored_by(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
+%% *** to_list/1 ***
+%%
+%% This is intended to convert a socket() to a printable string.
+%%
+
+-spec to_list(Socket) -> list() when
+      Socket :: socket().
+
+to_list(?socket(SockRef)) when is_reference(SockRef) ->
+    "#Ref" ++ Id = erlang:ref_to_list(SockRef),
+    "#Socket" ++ Id;
+to_list(Socket) ->
+    erlang:error(badarg, [Socket]).
 
 
 %% ===========================================================================

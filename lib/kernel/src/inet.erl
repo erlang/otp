@@ -31,7 +31,7 @@
 	 getif/1, getif/0, getiflist/0, getiflist/1,
 	 ifget/3, ifget/2, ifset/3, ifset/2,
 	 getstat/1, getstat/2,
-         info/1,
+         info/1, socket_to_list/1,
 	 ip/1, stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
@@ -653,6 +653,17 @@ gethostbyaddr(Address,Timeout) ->
 
 gethostbyaddr_tm(Address,Timer) ->
     gethostbyaddr_tm(Address, Timer, inet_db:res_option(lookup)).
+
+
+-spec socket_to_list(Socket) -> list() when
+      Socket :: socket().
+
+socket_to_list({'$inet', GenSocketMod, _} = Socket)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:to_list(Socket);
+socket_to_list(Socket) when is_port(Socket) ->
+    erlang:port_to_list(Socket).
+
 
 
 -spec info(Socket) -> Info when

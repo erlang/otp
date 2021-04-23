@@ -25822,20 +25822,60 @@ mon_simple_open_and_close(InitState) ->
 			   0 = socket:number_of_monitors(self()),
 			   ok
                    end},
-         #{desc => "monitor socket",
+         #{desc => "monitor socket - create two",
            cmd  => fun(#{sock := Sock} = State) ->
-                           MRef = socket:monitor(Sock),
-			   ?SEV_IPRINT("Monitor: ~p", [MRef]),
-			   {ok, State#{mon => MRef}}
+                           MRef1 = socket:monitor(Sock),
+                           MRef2 = socket:monitor(Sock),
+			   ?SEV_IPRINT("Monitor(s): "
+				       "~n   1: ~p"
+				       "~n   2: ~p", [MRef1, MRef2]),
+			   {ok, State#{mon1 => MRef1, mon2 => MRef2}}
                    end},
-         #{desc => "verify total number of monitors (=1)",
+         #{desc => "verify total number of monitors (=2)",
            cmd  => fun(_State) ->
-			   1 = socket:number_of_monitors(),
+			   2 = socket:number_of_monitors(),
 			   ok
                    end},
-         #{desc => "verify own number of monitors (=1)",
+         #{desc => "verify own number of monitors (=2)",
            cmd  => fun(_State) ->
-			   1 = socket:number_of_monitors(self()),
+			   2 = socket:number_of_monitors(self()),
+			   ok
+                   end},
+         #{desc => "verify which monitors - (self) two",
+           cmd  => fun(#{mon1 := MRef1,
+			 mon2 := MRef2} = _State) ->
+			   Mons = lists:sort([MRef1, MRef2]),
+			   case lists:sort(socket:which_monitors(self())) of
+			       Mons ->
+				   ok;
+			       SMons ->
+				   ?SEV_EPRINT("Unexpected (self) monitors: "
+					       "~n   Expected: ~p"
+					       "~n   Actual:   ~p",
+					       [Mons, SMons]),
+				   {error, unexpected_monitors}
+			   end
+                   end},
+         #{desc => "verify which monitors - (sock) two",
+           cmd  => fun(#{sock := Sock,
+			 mon1 := MRef1,
+			 mon2 := MRef2} = _State) ->
+			   Mons = lists:sort([MRef1, MRef2]),
+			   case lists:sort(socket:which_monitors(Sock)) of
+			       Mons ->
+				   ok;
+			       SMons ->
+				   ?SEV_EPRINT("Unexpected (sock) monitors: "
+					       "~n   Expected: ~p"
+					       "~n   Actual:   ~p",
+					       [Mons, SMons]),
+				   {error, unexpected_monitors}
+			   end
+                   end},
+         #{desc => "verify monitored by - only us",
+           cmd  => fun(#{sock := Sock} = _State) ->
+			   Self   = self(),
+			   [Self] = socket:monitored_by(Sock),
 			   ok
                    end},
 
@@ -25845,17 +25885,37 @@ mon_simple_open_and_close(InitState) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, close),
                            ok
                    end},
-         #{desc => "await socket down",
+         #{desc => "await socket down 1",
            cmd  => fun(#{sock := Sock,
-			 mon  := MRef} = _State) ->
+			 mon1  := MRef} = _State) ->
 			   receive
 			       {'DOWN', MRef, socket, Sock, Info} ->
 				   ?SEV_IPRINT("received expected down: "
 					       "~n      MRef:   ~p"
-					       "~n      Socket: ~p"
+					       "~n      Socket: ~s"
 					       "~n      Info:   ~p",
-					       [MRef, Sock, Info]),
-				   ok
+					       [MRef,
+						socket:to_list(Sock),
+						Info]),
+				   {ok, maps:remove(mon1, State)}
+			   after 5000 ->
+				   ?SEV_EPRINT("socket down timeout"),
+				   {error, timeout}
+			   end
+                   end},
+         #{desc => "await socket down 2",
+           cmd  => fun(#{sock := Sock,
+			 mon2  := MRef} = State) ->
+			   receive
+			       {'DOWN', MRef, socket, Sock, Info} ->
+				   ?SEV_IPRINT("received expected down: "
+					       "~n      MRef:   ~p"
+					       "~n      Socket: ~s"
+					       "~n      Info:   ~p",
+					       [MRef,
+						socket:to_list(Sock),
+						Info]),
+				   {ok, maps:remove(mon2, State)}
 			   after 5000 ->
 				   ?SEV_EPRINT("socket down timeout"),
 				   {error, timeout}
@@ -25869,6 +25929,17 @@ mon_simple_open_and_close(InitState) ->
          #{desc => "verify own number of monitors (=0)",
            cmd  => fun(_State) ->
 			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
+         #{desc => "verify which monitors - only one",
+           cmd  => fun(#{sock := Sock} = _State) ->
+			   [] = socket:which_monitors(self()),
+			   [] = socket:which_monitors(Sock),
+			   ok
+                   end},
+         #{desc => "verify monitored by - none",
+           cmd  => fun(#{sock := Sock} = _State) ->
+			   [] = socket:monitored_by(Sock),
 			   ok
                    end},
 
@@ -26016,6 +26087,19 @@ mon_simple_open_and_exit(InitState) ->
 			   1 = socket:number_of_monitors(self()),
 			   ok
                    end},
+         #{desc => "verify which monitors - only one",
+           cmd  => fun(#{sock := Sock,
+			 mon  := MRef} = _State) ->
+			   [MRef] = socket:which_monitors(self()),
+			   [MRef] = socket:which_monitors(Sock),
+			   ok
+                   end},
+         #{desc => "verify monitored by - only us",
+           cmd  => fun(#{sock := Sock} = _State) ->
+			   Self   = self(),
+			   [Self] = socket:monitored_by(Sock),
+			   ok
+                   end},
 
          %% The actual test
          #{desc => "order (owner) terminate",
@@ -26057,6 +26141,17 @@ mon_simple_open_and_exit(InitState) ->
          #{desc => "verify own number of monitors (=0)",
            cmd  => fun(_State) ->
 			   0 = socket:number_of_monitors(self()),
+			   ok
+                   end},
+         #{desc => "verify which monitors - only one",
+           cmd  => fun(#{sock := Sock} = _State) ->
+			   [] = socket:which_monitors(self()),
+			   [] = socket:which_monitors(Sock),
+			   ok
+                   end},
+         #{desc => "verify monitored by - none",
+           cmd  => fun(#{sock := Sock} = _State) ->
+			   [] = socket:monitored_by(Sock),
 			   ok
                    end},
 
@@ -26519,9 +26614,11 @@ mon_open_and_close_multi_socks(InitState) ->
 			       {'DOWN', MRef, socket, Sock, Info} ->
 				   ?SEV_IPRINT("received expected down: "
 					       "~n      MRef:   ~p"
-					       "~n      Socket: ~p"
+					       "~n      Socket: ~s"
 					       "~n      Info:   ~p",
-					       [MRef, Sock, Info]),
+					       [MRef,
+						socket:to_list(Sock),
+						Info]),
 				   State2 = maps:remove(sock1, State),
 				   State3 = maps:remove(mon1,  State2),
 				   {ok, State3}
@@ -26553,9 +26650,11 @@ mon_open_and_close_multi_socks(InitState) ->
 			       {'DOWN', MRef, socket, Sock, Info} ->
 				   ?SEV_IPRINT("received expected down: "
 					       "~n      MRef:   ~p"
-					       "~n      Socket: ~p"
+					       "~n      Socket: ~s"
 					       "~n      Info:   ~p",
-					       [MRef, Sock, Info]),
+					       [MRef,
+						socket:to_list(Sock),
+						Info]),
 				   State2 = maps:remove(sock2, State),
 				   State3 = maps:remove(mon2,  State2),
 				   {ok, State3}
@@ -26587,9 +26686,11 @@ mon_open_and_close_multi_socks(InitState) ->
 			       {'DOWN', MRef, socket, Sock, Info} ->
 				   ?SEV_IPRINT("received expected down: "
 					       "~n      MRef:   ~p"
-					       "~n      Socket: ~p"
+					       "~n      Socket: ~s"
 					       "~n      Info:   ~p",
-					       [MRef, Sock, Info]),
+					       [MRef,
+						socket:to_list(Sock),
+						Info]),
 				   State2 = maps:remove(sock3, State),
 				   State3 = maps:remove(mon3,  State2),
 				   {ok, State3}
@@ -27791,6 +27892,25 @@ mon_open_and_close_multi_mon(InitState) ->
            cmd  => fun(_State) ->
 			   5 = socket:number_of_monitors(),
 			   ok
+                   end},
+         #{desc => "verify monitored by - none",
+           cmd  => fun(#{sock    := Sock,
+			 client1 := Pid1,
+			 client2 := Pid2,
+			 client3 := Pid3,
+			 client4 := Pid4,
+			 client5 := Pid5} = _State) ->
+			   Clients = lists:sort([Pid1, Pid2, Pid3, Pid4, Pid5]),
+			   case lists:sort(socket:monitored_by(Sock)) of
+			       Clients ->
+				   ok;
+			       SClients ->
+				   ?SEV_EPRINT("Unexpected clients: "
+					       "~n   Expected: ~p"
+					       "~n   Actual:   ~p",
+					       [Clients, SClients]),
+				   {error, unexpected_clients}
+			   end
                    end},
 
          #{desc => "order client 1 to await down",

@@ -37,7 +37,7 @@
         ]).
 
 %% Utility
--export([info/1]).
+-export([info/1, socket_to_list/1]).
 
 -ifdef(undefined).
 -export([unrecv/2]).
@@ -511,8 +511,10 @@ monitor(?module_socket(_Server, ESock) = Socket) ->
 monitor(Socket) ->
     erlang:error(badarg, [Socket]).
 
+cancel_monitor(MRef) when is_reference(MRef) ->
+    socket:cancel_monitor(MRef);
 cancel_monitor(MRef) ->
-    socket:cancel_monitor(MRef).
+    erlang:error(badarg, [MRef]).
 
 
 %% -------------------------------------------------------------------------
@@ -552,6 +554,15 @@ getstat(?MODULE_socket(Server, _Socket), What) when is_list(What) ->
 
 info(?MODULE_socket(Server, _Socket)) ->
     call(Server, info).
+
+
+%% -------------------------------------------------------------------------
+
+socket_to_list(?module_socket(_Server, Socket)) ->
+    "#Socket" ++ Id = socket:to_list(Socket),
+    "#InetSocket" ++ Id;
+socket_to_list(Socket) ->
+    erlang:error(badarg, [Socket]).
 
 
 %%% ========================================================================

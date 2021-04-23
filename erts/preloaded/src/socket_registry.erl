@@ -35,10 +35,12 @@
          start/0,
          number_of/0,
          which_sockets/1,
+
+	 monitor/1, monitor/2,
+	 cancel_monitor/1,
 	 number_of_monitors/0, number_of_monitors/1,
          which_monitors/1,
-	 monitor/1, monitor/2,
-	 cancel_monitor/1
+	 monitored_by/1
         ]).
 
 %% Info about each (known) socket
@@ -128,15 +130,6 @@ which_sockets(Filter) ->
     erlang:error(badarg, [Filter]).
 
 
-number_of_monitors() ->
-    request(number_of_monitors).
-
-number_of_monitors(Pid) when is_pid(Pid) ->
-    request({number_of_monitors, Pid}).
-
-which_monitors(Pid) when is_pid(Pid) ->
-    request({which_monitors, Pid}).
-
 
 monitor(Socket) ->
     monitor(Socket, #{}).
@@ -161,6 +154,23 @@ cancel_monitor(MRef) when is_reference(MRef) ->
     end;
 cancel_monitor(MRef) ->
     erlang:error(badarg, [MRef]).
+
+
+number_of_monitors() ->
+    request(number_of_monitors).
+
+number_of_monitors(Pid) when is_pid(Pid) ->
+    request({number_of_monitors, Pid});
+number_of_monitors(Socket) ->
+    request({number_of_monitors, Socket}).
+
+which_monitors(Pid) when is_pid(Pid) ->
+    request({which_monitors, Pid});
+which_monitors(Socket) ->
+    request({which_monitors, Socket}).
+
+monitored_by(Socket) ->
+    request({monitored_by, Socket}).
 
 
 %% =========================================================================
@@ -290,14 +300,26 @@ handle_request(#state{mons = MDB} = State, number_of_monitors, _From) ->
     {State, mon_size(MDB)};
 
 handle_request(#state{users = UDB} = State,
-	       {number_of_monitors, Pid}, _From) ->
+	       {number_of_monitors, Pid}, _From) when is_pid(Pid) ->
     {State, user_size(UDB, Pid)};
+handle_request(#state{socks = SDB} = State,
+	       {number_of_monitors, Socket}, _From) ->
+    {State, sock_size(SDB, Socket)};
 
 handle_request(#state{socks = SDB} = State, {which_sockets, Filter}, _From) ->
     {State, do_which_sockets(SDB, Filter)};
 
-handle_request(#state{users = UDB} = State, {which_monitors, Pid}, _From) ->
+handle_request(#state{users = UDB} = State,
+	       {which_monitors, Pid}, _From) when is_pid(Pid) ->
     {State, user_which_monitors(UDB, Pid)};
+handle_request(#state{socks = SDB} = State,
+	       {which_monitors, Socket}, _From) ->
+    %% ?DBG({which_request, Socket}),
+    {State, sock_which_monitors(SDB, Socket)};
+
+handle_request(#state{socks = SDB, mons = MDB} = State,
+	       {monitored_by, Socket}, _From) ->
+    {State, handle_monitored_by(SDB, MDB, Socket)};
 
 handle_request(State, {monitor, Socket, Opts}, From) ->
     do_monitor_socket(State, Socket, Opts, From);
@@ -338,6 +360,31 @@ handle_user_down_cleanup([Mon|Mons], SDB, MDB) ->
 	    end;
 	error -> % race?
 	    handle_user_down_cleanup(Mons, SDB, MDB)
+    end.
+
+%% ---
+
+handle_monitored_by(SDB, MDB, Sock) ->
+    case sock_lookup(SDB, Sock) of
+	{value, #info{mons = Mons}} ->
+	    handle_monitored_by2(Mons, MDB, []);
+	false ->
+	    []
+    end.
+
+handle_monitored_by2([], _MDB, Acc) ->
+    lists:sort(Acc);
+handle_monitored_by2([Mon|Mons], MDB, Acc) ->
+    case mon_lookup(MDB, Mon) of
+	{value, #mon{pid = Pid}} ->
+	    case lists:member(Pid, Acc) of
+		true ->
+		    handle_monitored_by2(Mons, MDB, Acc);
+		false ->
+		    handle_monitored_by2(Mons, MDB, [Pid|Acc])
+	    end;
+	false ->
+	    []
     end.
 
 
@@ -578,6 +625,17 @@ sock_take(DB, Sock) when is_map(DB) ->
 sock_update(DB, Sock, Info) when is_map(DB) ->
     maps:put(Sock, Info, DB).
 
+sock_which_monitors(DB, Sock) ->
+    case sock_lookup(DB, Sock) of
+	{value, #info{mons = Mons}} ->
+	    Mons;
+	false ->
+	    []
+    end.
+
+sock_size(DB, Sock) ->
+    length(sock_which_monitors(DB, Sock)).
+    
 
 %% --- Users utility functions ---
 
