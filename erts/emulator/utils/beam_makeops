@@ -696,11 +696,11 @@ sub emulator_output {
                 }
 
 		if ($varargs) {
-		    # We pass variable argument lists as a vector of ArgVal,
+		    # We pass variable argument lists as a Span of ArgVal,
 		    # slicing our argument vector after the argument count.
 		    $body .= $sep .
-			"std::vector<ArgVal>(" .
-			"args.cbegin() + " . scalar(@args) . ", args.cend())";
+			"args.subspan(" . scalar(@args) . "," .
+				      "args.size() - " . scalar(@args) . ")";
 		}
 
                 $body .= ");";
@@ -723,7 +723,7 @@ sub emulator_output {
 
 		@args = ("const ArgVal&") x @args;
 		if ($varargs) {
-		    push @args, "const std::vector<ArgVal>&";
+		    push @args, "const Span<ArgVal>&";
 		}
 
                 print "void emit_$name(", join(", ", @args), ");\n";

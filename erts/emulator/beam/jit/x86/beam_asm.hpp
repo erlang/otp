@@ -1039,7 +1039,7 @@ public:
                         unsigned num_labels,
                         unsigned num_functions);
 
-    bool emit(unsigned op, const std::vector<ArgVal> &args);
+    bool emit(unsigned op, const Span<ArgVal> &args);
 
     void codegen(JitAllocator *allocator,
                  const void **executable_ptr,
@@ -1062,7 +1062,7 @@ public:
         return BeamAssembler::getCode(labelName);
     }
 
-    Label embed_vararg_rodata(const std::vector<ArgVal> &args, int y_offset);
+    Label embed_vararg_rodata(const Span<ArgVal> &args, int y_offset);
 
     unsigned getCodeSize() {
         ASSERT(code.hasBaseAddress());
@@ -1108,7 +1108,6 @@ protected:
     void emit_setup_guard_bif(const std::vector<ArgVal> &args,
                               const ArgVal &bif);
 
-    void emit_bif_arg_error(std::vector<ArgVal> args, const ErtsCodeMFA *mfa);
     void emit_error(int code);
 
     x86::Mem emit_bs_get_integer_prologue(Label next,
@@ -1135,7 +1134,7 @@ protected:
 
     void emit_linear_search(x86::Gp val,
                             const ArgVal &Fail,
-                            const std::vector<ArgVal> &args);
+                            const Span<ArgVal> &args);
 
     void emit_float_instr(uint32_t instId,
                           const ArgVal &LHS,
@@ -1162,10 +1161,10 @@ protected:
     void emit_binsearch_nodes(size_t Left,
                               size_t Right,
                               const ArgVal &Fail,
-                              const std::vector<ArgVal> &args);
+                              const Span<ArgVal> &args);
 
     bool emit_optimized_three_way_select(const ArgVal &Fail,
-                                         const std::vector<ArgVal> &args);
+                                         const Span<ArgVal> &args);
 
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgVal &Src, x86::Gp tuple_reg);

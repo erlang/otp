@@ -148,7 +148,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     }
 }
 
-Label BeamModuleAssembler::embed_vararg_rodata(const std::vector<ArgVal> &args,
+Label BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
                                                int y_offset) {
     Label label = a.newLabel();
 
@@ -253,8 +253,7 @@ void BeamModuleAssembler::emit_nyi() {
     emit_nyi("<unspecified>");
 }
 
-bool BeamModuleAssembler::emit(unsigned specific_op,
-                               const std::vector<ArgVal> &args) {
+bool BeamModuleAssembler::emit(unsigned specific_op, const Span<ArgVal> &args) {
     comment(opc[specific_op].name);
 
 #ifdef BEAMASM_DUMP_SIZES

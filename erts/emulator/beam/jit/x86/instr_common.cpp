@@ -265,7 +265,7 @@ void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
 void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
                                            const ArgVal &Dst,
                                            const ArgVal &NumFree,
-                                           const std::vector<ArgVal> &env) {
+                                           const Span<ArgVal> &env) {
     size_t num_free = env.size();
     ASSERT(NumFree.getValue() == num_free);
 
@@ -504,7 +504,7 @@ void BeamModuleAssembler::emit_init(const ArgVal &Y) {
 }
 
 void BeamModuleAssembler::emit_init_yregs(const ArgVal &Size,
-                                          const std::vector<ArgVal> &args) {
+                                          const Span<ArgVal> &args) {
     unsigned count = Size.getValue();
     ASSERT(count == args.size());
 
@@ -521,10 +521,10 @@ void BeamModuleAssembler::emit_init_yregs(const ArgVal &Size,
 
     while (i < count) {
         unsigned slots = 1;
-        unsigned first_y = args.at(i).getValue();
+        unsigned first_y = args[i].getValue();
 
         while (i + slots < count) {
-            ArgVal current_y = args.at(i + slots);
+            ArgVal current_y = args[i + slots];
             if (first_y + slots != current_y.getValue()) {
                 break;
             }
@@ -716,7 +716,7 @@ void BeamModuleAssembler::emit_store_cons(const ArgVal &len,
 
 void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
                                           const ArgVal &Arity,
-                                          const std::vector<ArgVal> &args) {
+                                          const Span<ArgVal> &args) {
     size_t size = args.size();
     ASSERT(arityval(Arity.getValue()) == size);
 

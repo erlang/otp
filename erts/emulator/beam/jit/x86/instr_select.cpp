@@ -24,7 +24,7 @@ using namespace asmjit;
 
 void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
                                              const ArgVal &Fail,
-                                             const std::vector<ArgVal> &args) {
+                                             const Span<ArgVal> &args) {
     int count = args.size() / 2;
 
     for (int i = 0; i < count; i++) {
@@ -43,11 +43,10 @@ void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
     }
 }
 
-void BeamModuleAssembler::emit_i_select_tuple_arity(
-        const ArgVal &Src,
-        const ArgVal &Fail,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgVal &Src,
+                                                    const ArgVal &Fail,
+                                                    const ArgVal &Size,
+                                                    const Span<ArgVal> &args) {
     mov_arg(ARG2, Src);
     emit_is_boxed(labels[Fail.getValue()], ARG2);
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
@@ -71,11 +70,10 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(
     a.jne(labels[Fail.getValue()]);
 }
 
-void BeamModuleAssembler::emit_i_select_val_lins(
-        const ArgVal &Src,
-        const ArgVal &Fail,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_val_lins(const ArgVal &Src,
+                                                 const ArgVal &Fail,
+                                                 const ArgVal &Size,
+                                                 const Span<ArgVal> &args) {
     ASSERT(Size.getValue() == args.size());
     mov_arg(ARG2, Src);
     if (emit_optimized_three_way_select(Fail, args))
@@ -83,11 +81,10 @@ void BeamModuleAssembler::emit_i_select_val_lins(
     emit_linear_search(ARG2, Fail, args);
 }
 
-void BeamModuleAssembler::emit_i_select_val_bins(
-        const ArgVal &Src,
-        const ArgVal &Fail,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_val_bins(const ArgVal &Src,
+                                                 const ArgVal &Fail,
+                                                 const ArgVal &Size,
+                                                 const Span<ArgVal> &args) {
     ASSERT(Size.getValue() == args.size());
     int count = args.size() / 2;
     Label fail;
@@ -115,11 +112,10 @@ void BeamModuleAssembler::emit_i_select_val_bins(
  *
  * ARG2 is the value being looked up.
  */
-void BeamModuleAssembler::emit_binsearch_nodes(
-        size_t Left,
-        size_t Right,
-        const ArgVal &Fail,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_binsearch_nodes(size_t Left,
+                                               size_t Right,
+                                               const ArgVal &Fail,
+                                               const Span<ArgVal> &args) {
     ASSERT(Left <= Right);
     ASSERT(Right < args.size() / 2);
     size_t mid = (Left + Right) >> 1;
@@ -179,7 +175,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
                                              const ArgVal &Fail,
                                              const ArgVal &Base,
                                              const ArgVal &Size,
-                                             const std::vector<ArgVal> &args) {
+                                             const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, 0);
     Label fail;
 
@@ -241,7 +237,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
  */
 bool BeamModuleAssembler::emit_optimized_three_way_select(
         const ArgVal &Fail,
-        const std::vector<ArgVal> &args) {
+        const Span<ArgVal> &args) {
     if (args.size() != 4 || (args[2].getValue() != args[3].getValue()))
         return false;
 

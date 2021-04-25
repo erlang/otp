@@ -30,14 +30,6 @@ extern "C"
 #include "erl_bif_table.h"
 }
 
-void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args,
-                                             const ErtsCodeMFA *mfa) {
-    comment("handle_error");
-    for (unsigned i = 0; i < args.size(); i++)
-        mov_arg(ArgVal(ArgVal::XReg, i), args[i]);
-    emit_raise_exception(mfa);
-}
-
 void BeamModuleAssembler::emit_is_small(Label fail, x86::Gp Reg) {
     ASSERT(ARG1 != Reg);
 
@@ -648,7 +640,13 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
         a.je(labels[Fail.getValue()]);
     } else {
         a.short_().jne(next);
-        emit_bif_arg_error({LHS, RHS}, &bif_mfa);
+
+        mov_arg(ARG2, LHS);
+        mov_arg(ARG3, RHS);
+        mov_arg(ArgVal(ArgVal::XReg, 0), ARG2);
+        mov_arg(ArgVal(ArgVal::XReg, 1), ARG3);
+
+        emit_raise_exception(&bif_mfa);
     }
 
     a.bind(next);

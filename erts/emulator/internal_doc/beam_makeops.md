@@ -2047,13 +2047,13 @@ like this:
     select_val s f I *
 
 The `*` as the last operand will make sure that the variable operands
-are passed in as a C++ vector of `ArgVal`.  Here is the emitter
-function:
+are passed in as a `Span` of `ArgVal` (will be `std::span` in C++20 onwards).
+Here is the emitter function:
 
     void BeamModuleAssembler::emit_select_val(const ArgVal &Src,
                                               const ArgVal &Fail,
                                               const ArgVal &Size,
-                                              const std::vector<ArgVal> &args) {
+                                              const Span<ArgVal> &args) {
         ASSERT(Size.getValue() == args.size());
            .
            .

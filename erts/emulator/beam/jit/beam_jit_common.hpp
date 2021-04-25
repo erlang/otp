@@ -39,7 +39,7 @@ extern "C"
 #include "beam_file.h"
 }
 
-struct ArgVal {
+struct ArgVal : public BeamOpArg {
     enum TYPE : int {
         Word = TAG_u,
         XReg = TAG_x,
@@ -55,10 +55,7 @@ struct ArgVal {
         Immediate = 'I'
     };
 
-    ArgVal(const BeamOpArg &arg) : ArgVal(arg.type, arg.val) {
-    }
-
-    ArgVal(int t, BeamInstr val) : type((enum TYPE)t), value(val) {
+    ArgVal(int t, UWord value) {
 #ifdef DEBUG
         switch (t) {
         case TAG_f:
@@ -87,34 +84,43 @@ struct ArgVal {
             ASSERT(0);
         }
 #endif
+        type = (enum TYPE)t;
+        val = value;
     }
 
     constexpr enum TYPE getType() const {
-        return type;
+        return (enum TYPE)type;
     }
 
     constexpr uint64_t getValue() const {
-        return value;
+        return val;
     }
 
     constexpr bool isRegister() const {
-        return type == TYPE::XReg || type == TYPE::YReg || type == TYPE::FReg;
+        switch (getType()) {
+        case TYPE::FReg:
+        case TYPE::XReg:
+        case TYPE::YReg:
+            return true;
+        default:
+            return false;
+        }
     }
 
     constexpr bool isLiteral() const {
-        return type == TYPE::Literal;
+        return getType() == TYPE::Literal;
     }
 
     constexpr bool isImmed() const {
-        return type == TYPE::Immediate;
+        return getType() == TYPE::Immediate;
     }
 
     constexpr bool isWord() const {
-        return type == TYPE::Word;
+        return getType() == TYPE::Word;
     }
 
     constexpr bool isLabel() const {
-        return type == TYPE::Label;
+        return getType() == TYPE::Label;
     }
 
     constexpr bool isConstant() const {
@@ -135,12 +141,7 @@ struct ArgVal {
 
     template<typename T>
     ArgVal operator+(T val) const {
-        return ArgVal(type, val + val);
-    }
-
-    template<typename T>
-    ArgVal operator*(T val) const {
-        return ArgVal(type, val * val);
+        return ArgVal(getType(), getValue() + val);
     }
 
     enum Relation { none, consecutive, reverse_consecutive };
@@ -160,10 +161,68 @@ struct ArgVal {
             return none;
         }
     };
+};
 
-protected:
-    enum TYPE type;
-    uint64_t value;
+/* This is a view into a contiguous container (like an array or `std::vector`),
+ * letting us reuse the existing argument array in `beamasm_emit` while keeping
+ * our interfaces convenient.
+ *
+ * Needless to say, spans must not live longer than the container they wrap, so
+ * you must be careful not to return a span of an rvalue or stack-allocated
+ * container.
+ *
+ * We can replace this with std::span once we require C++20. */
+template<typename T>
+class Span {
+    const T *_data;
+    size_t _size;
+
+public:
+    template<typename Container>
+    Span(const Container &other) : Span(other.data(), other.size()) {
+    }
+
+    template<typename Container>
+    Span(Container &other) : Span(other.data(), other.size()) {
+    }
+
+    Span(const T *begin, const T *end) : Span(begin, end - begin) {
+    }
+
+    Span(const T *data, size_t size) : _data(data), _size(size) {
+    }
+
+    Span<T> subspan(size_t index, size_t count) const {
+        ASSERT(index <= size() && count <= (size() - index));
+        return Span<T>(begin() + index, count);
+    }
+
+    const auto size() const {
+        return _size;
+    }
+
+    const auto begin() const {
+        return &_data[0];
+    }
+
+    const auto end() const {
+        return &_data[size()];
+    }
+
+    const T &operator[](size_t index) const {
+#ifdef DEBUG
+        ASSERT(index < _size);
+#endif
+        return _data[index];
+    }
+
+    const T &front() const {
+        return operator[](0);
+    }
+
+    const T &back() const {
+        return operator[](size() - 1);
+    }
 };
 
 /* ** */

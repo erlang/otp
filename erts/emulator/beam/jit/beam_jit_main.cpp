@@ -249,29 +249,36 @@ void beamasm_init() {
 
     bma = new BeamModuleAssembler(bga, mod_name, 1 + operands.size() * 2);
 
+    std::vector<ArgVal> args;
+
     for (auto &op : operands) {
         unsigned func_label, entry_label;
 
         func_label = label++;
         entry_label = label++;
 
-        bma->emit(op_aligned_label_Lt,
-                  {ArgVal(ArgVal::Immediate, func_label),
-                   ArgVal(ArgVal::Word, sizeof(UWord))});
-        bma->emit(op_i_func_info_IaaI,
-                  {ArgVal(ArgVal::Immediate, func_label),
-                   ArgVal(ArgVal::Immediate, mod_name),
-                   ArgVal(ArgVal::Immediate, op.name),
-                   ArgVal(ArgVal::Immediate, op.arity)});
-        bma->emit(op_aligned_label_Lt,
-                  {ArgVal(ArgVal::Immediate, entry_label),
-                   ArgVal(ArgVal::Word, sizeof(UWord))});
-        bma->emit(op.operand, {});
+        args = {ArgVal(ArgVal::Immediate, func_label),
+                ArgVal(ArgVal::Word, sizeof(UWord))};
+        bma->emit(op_aligned_label_Lt, args);
+
+        args = {ArgVal(ArgVal::Immediate, func_label),
+                ArgVal(ArgVal::Immediate, mod_name),
+                ArgVal(ArgVal::Immediate, op.name),
+                ArgVal(ArgVal::Immediate, op.arity)};
+        bma->emit(op_i_func_info_IaaI, args);
+
+        args = {ArgVal(ArgVal::Immediate, entry_label),
+                ArgVal(ArgVal::Word, sizeof(UWord))};
+        bma->emit(op_aligned_label_Lt, args);
+
+        args = {};
+        bma->emit(op.operand, args);
 
         op.operand = entry_label;
     }
 
-    bma->emit(op_int_code_end, {});
+    args = {};
+    bma->emit(op_int_code_end, args);
 
     {
         /* We have no need of the module pointers as we use `getCode(...)`
@@ -451,9 +458,17 @@ extern "C"
     }
 
     int beamasm_emit(void *instance, unsigned specific_op, BeamOp *op) {
-        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        const std::vector<ArgVal> args(&op->a[0], &op->a[op->arity]);
+        /* The argument array must be safely convertible from `BeamOpArg*` to
+         * `ArgVal*` for us to reuse it directly.
+         *
+         * The exact traits we need weren't introduced until C++20, but the
+         * assertions below will catch just about everything that would break
+         * this conversion. */
+        static_assert(std::is_base_of<BeamOpArg, ArgVal>::value);
+        static_assert(std::is_standard_layout<ArgVal>::value);
 
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        const Span<ArgVal> args(static_cast<ArgVal *>(op->a), op->arity);
         return ba->emit(specific_op, args);
     }
 
@@ -464,21 +479,29 @@ extern "C"
                                char *buff,
                                unsigned buff_len) {
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
+        std::vector<ArgVal> args;
 
-        ba.emit(op_aligned_label_Lt,
-                {ArgVal(ArgVal::Immediate, 1), ArgVal(ArgVal::Word, sizeof(UWord))});
-        ba.emit(op_i_func_info_IaaI,
-                {ArgVal(ArgVal::Immediate, 1),
-                 ArgVal(ArgVal::Immediate, info->mfa.module),
-                 ArgVal(ArgVal::Immediate, info->mfa.function),
-                 ArgVal(ArgVal::Immediate, info->mfa.arity)});
-        ba.emit(op_aligned_label_Lt,
-                {ArgVal(ArgVal::Immediate, 2), ArgVal(ArgVal::Word, sizeof(UWord))});
-        ba.emit(op_i_breakpoint_trampoline, {});
-        ba.emit(op_call_nif_WWW,
-                {ArgVal(ArgVal::Immediate, (BeamInstr)normal_fptr),
-                 ArgVal(ArgVal::Immediate, (BeamInstr)lib),
-                 ArgVal(ArgVal::Immediate, (BeamInstr)dirty_fptr)});
+        args = {ArgVal(ArgVal::Immediate, 1),
+                ArgVal(ArgVal::Word, sizeof(UWord))};
+        ba.emit(op_aligned_label_Lt, args);
+
+        args = {ArgVal(ArgVal::Immediate, 1),
+                ArgVal(ArgVal::Immediate, info->mfa.module),
+                ArgVal(ArgVal::Immediate, info->mfa.function),
+                ArgVal(ArgVal::Immediate, info->mfa.arity)};
+        ba.emit(op_i_func_info_IaaI, args);
+
+        args = {ArgVal(ArgVal::Immediate, 2),
+                ArgVal(ArgVal::Word, sizeof(UWord))};
+        ba.emit(op_aligned_label_Lt, args);
+
+        args = {};
+        ba.emit(op_i_breakpoint_trampoline, args);
+
+        args = {ArgVal(ArgVal::Immediate, (BeamInstr)normal_fptr),
+                ArgVal(ArgVal::Immediate, (BeamInstr)lib),
+                ArgVal(ArgVal::Immediate, (BeamInstr)dirty_fptr)};
+        ba.emit(op_call_nif_WWW, args);
 
         ba.codegen(buff, buff_len);
     }

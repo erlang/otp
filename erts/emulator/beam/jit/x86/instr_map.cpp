@@ -66,7 +66,7 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 void BeamModuleAssembler::emit_new_map(const ArgVal &Dst,
                                        const ArgVal &Live,
                                        const ArgVal &Size,
-                                       const std::vector<ArgVal> &args) {
+                                       const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
     ASSERT(Size.getValue() == args.size());
@@ -93,12 +93,11 @@ void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
     a.ret();
 }
 
-void BeamModuleAssembler::emit_i_new_small_map_lit(
-        const ArgVal &Dst,
-        const ArgVal &Live,
-        const ArgVal &Keys,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgVal &Dst,
+                                                   const ArgVal &Live,
+                                                   const ArgVal &Keys,
+                                                   const ArgVal &Size,
+                                                   const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
     ASSERT(Size.getValue() == args.size());
@@ -138,11 +137,10 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
     }
 }
 
-void BeamModuleAssembler::emit_i_get_map_elements(
-        const ArgVal &Fail,
-        const ArgVal &Src,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_get_map_elements(const ArgVal &Fail,
+                                                  const ArgVal &Src,
+                                                  const ArgVal &Size,
+                                                  const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, 0);
 
     ASSERT(Size.getValue() == args.size());
@@ -205,12 +203,11 @@ void BeamGlobalAssembler::emit_update_map_assoc_shared() {
     a.ret();
 }
 
-void BeamModuleAssembler::emit_update_map_assoc(
-        const ArgVal &Src,
-        const ArgVal &Dst,
-        const ArgVal &Live,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_update_map_assoc(const ArgVal &Src,
+                                                const ArgVal &Dst,
+                                                const ArgVal &Live,
+                                                const ArgVal &Size,
+                                                const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
     ASSERT(Size.getValue() == args.size());
@@ -271,13 +268,12 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_update_map_exact(
-        const ArgVal &Src,
-        const ArgVal &Fail,
-        const ArgVal &Dst,
-        const ArgVal &Live,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_update_map_exact(const ArgVal &Src,
+                                                const ArgVal &Fail,
+                                                const ArgVal &Dst,
+                                                const ArgVal &Live,
+                                                const ArgVal &Size,
+                                                const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
     ASSERT(Size.getValue() == args.size());
