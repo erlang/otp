@@ -63,7 +63,7 @@
 -module(wx).
 
 -export([parent_class/1, new/0, new/1, destroy/0,
-	 get_env/0,set_env/1, debug/1,
+	 get_env/0, set_env/1, subscribe_events/0, debug/1,
 	 batch/1,foreach/2,map/2,foldl/3,foldr/3,
 	 getObjectType/1, typeCast/2,
 	 null/0, is_null/1, equal/2]).
@@ -143,6 +143,23 @@ set_env(#wx_env{sv=Pid} = Env) ->
     %%    wxe_util:cast(?REGISTER_PID, <<>>),
     wxe_server:register_me(Pid),
     ok.
+
+%% @doc Adds the calling process to the list of of processes that are
+%% listening to wx application events. At the moment these are
+%% all MacOSX specific events corresponding to MacNewFile() and friends
+%% from wxWidgets wxApp https://docs.wxwidgets.org/trunk/classwx_app.html
+%%
+%% * `{file_new, ""}` 
+%% * `{file_open, Filename}`
+%% * `{file_print, Filename}`
+%% * `{url_open, Url}`
+%% * `{reopen_app, ""}`
+%%
+%% The call always returns ok but will have sent any already received
+%% events to the calling process. 
+-spec subscribe_events() -> 'ok'.
+subscribe_events() ->
+    gen_server:call(wxe_master, subscribe_msgs, infinity).
 
 %% @doc Returns the null object
 -spec null() -> wx_object().

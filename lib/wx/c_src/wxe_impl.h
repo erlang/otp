@@ -59,7 +59,11 @@ public:
 				const wxChar *cond, const wxChar *msg);
 
 #ifdef  _MACOSX
+  virtual void MacPrintFile(const wxString &filename);
   virtual void MacOpenFile(const wxString &filename);
+  virtual void MacOpenURL(const wxString &url);
+  virtual void MacNewFile();
+  virtual void MacReopenApp();
 #endif
 
   void init_consts(wxeMetaCommand& event);
