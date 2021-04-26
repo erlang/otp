@@ -1444,10 +1444,10 @@ validRestartType(temporary)   -> true;
 validRestartType(transient)   -> true;
 validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
 
-validSignificant(true, permanent, _AutoShutdown) ->
-    throw({invalid_significant, true});
 validSignificant(true, _RestartType, never) ->
-    throw({invalid_significant, true});
+    throw({bad_combination, [{auto_shutdown, never}, {significant, true}]});
+validSignificant(true, permanent, _AutoShutdown) ->
+    throw({bad_combination, [{restart, permanent}, {significant, true}]});
 validSignificant(Significant, _RestartType, _AutoShutdown)
   when is_boolean(Significant) ->
     true;
