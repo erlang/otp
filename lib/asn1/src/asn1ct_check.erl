@@ -2490,22 +2490,22 @@ check_ptype(S,Type,Ts) when is_record(Ts,type) ->
     NewDef= 
 	case Def of 
 	    Seq when is_record(Seq,'SEQUENCE') ->
-		Components = expand_components(S,Seq#'SEQUENCE'.components),
-		#newt{type=Seq#'SEQUENCE'{pname=get_datastr_name(Type),
-					  components = Components}};
+			Components = prepare_components(S,Seq#'SEQUENCE'.components),			
+			#newt{type=Seq#'SEQUENCE'{pname=get_datastr_name(Type),
+									components = Components}};
 	    Set when is_record(Set,'SET') ->
-		Components = expand_components(S,Set#'SET'.components),
-		#newt{type=Set#'SET'{pname=get_datastr_name(Type),
+			Components = prepare_components(S,Set#'SET'.components),
+			#newt{type=Set#'SET'{pname=get_datastr_name(Type),
 				     components = Components}};
 	    _Other ->
-		#newt{}
+			#newt{}
 	end,
     Ts2 = case NewDef of
 	      #newt{type=unchanged} ->
-		  Ts;
+		  	Ts;
 	      #newt{type=TDef}->
-		  Ts#type{def=TDef}
-	  end,
+		  	Ts#type{def=TDef}
+	end,
     Ts2;
 %% parameterized class
 check_ptype(_S,_PTDef,Ts) when is_record(Ts,objectclass) ->
@@ -4421,13 +4421,24 @@ complist_as_tuple([], Acc, Ext, _Acc2, ext) ->
 complist_as_tuple([], Acc, Ext, Acc2, root2) ->
     {lists:reverse(Acc),lists:reverse(Ext),lists:reverse(Acc2)}.
 
+prepare_components(_S, Components) when is_tuple(Components) ->
+	Components;
+prepare_components(S, Components) ->
+	Cl = expand_components(S, Components),
+	complist_as_tuple(Cl).
+
 expand_components(S, [{'COMPONENTS OF',Type}|T]) ->
     CompList = expand_components2(S,get_referenced_type(S,Type#type.def)),
     expand_components(S,CompList) ++ expand_components(S,T);
 expand_components(S,[H|T]) ->
     [H|expand_components(S,T)];
 expand_components(_,[]) ->
-    [].
+    [];
+expand_components(S, {Acc,Ext,Acc2}) ->
+    expand_components(S,Acc ++ Ext ++ Acc2);
+expand_components(S, {Acc,Ext}) ->
+    expand_components(S, Acc ++ Ext).
+
 expand_components2(_S,{_,#typedef{typespec=#type{def=Seq}}}) 
   when is_record(Seq,'SEQUENCE') ->
     case Seq#'SEQUENCE'.components of
