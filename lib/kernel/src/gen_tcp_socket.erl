@@ -500,7 +500,7 @@ controlling_process(S, NewOwner, Server, Msg) ->
 %% Module inet backends
 %% -------------------------------------------------------------------------
 
-monitor(?module_socket(_Server, ESock) = Socket) ->
+monitor(?MODULE_socket(_Server, ESock) = Socket) ->
     %% The socket that is part of the down message:
     case socket_registry:monitor(ESock, #{msocket => Socket}) of
 	{error, Reason} ->
@@ -519,7 +519,7 @@ cancel_monitor(MRef) ->
 
 %% -------------------------------------------------------------------------
 
-setopts(?module_socket(Server, _Socket), Opts) when is_list(Opts) ->
+setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
     call(Server, {setopts, Opts}).
 
 
@@ -558,7 +558,7 @@ info(?MODULE_socket(Server, _Socket)) ->
 
 %% -------------------------------------------------------------------------
 
-socket_to_list(?module_socket(_Server, Socket)) ->
+socket_to_list(?MODULE_socket(_Server, Socket)) ->
     "#Socket" ++ Id = socket:to_list(Socket),
     "#InetSocket" ++ Id;
 socket_to_list(Socket) ->
