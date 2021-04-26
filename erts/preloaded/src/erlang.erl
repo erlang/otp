@@ -860,7 +860,7 @@ error(_Reason) ->
 %% Shadowed by erl_bif_types: erlang:error/2
 -spec error(Reason, Args) -> no_return() when
       Reason :: term(),
-      Args :: [term()].
+      Args :: [term()] | none.
 error(_Reason, _Args) ->
     erlang:nif_error(undefined).
 
@@ -868,7 +868,7 @@ error(_Reason, _Args) ->
 %% Shadowed by erl_bif_types: erlang:error/3
 -spec error(Reason, Args, Options) -> no_return() when
       Reason :: term(),
-      Args :: [term()],
+      Args :: [term()] | none,
       Options :: [Option],
       Option :: {'error_info', ErrorInfoMap},
       ErrorInfoMap :: #{'cause' => term(),

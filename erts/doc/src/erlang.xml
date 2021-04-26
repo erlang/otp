@@ -1790,10 +1790,11 @@ b</pre>
       <desc>
         <p>Raises an exception of class <c>error</c> with the reason
           <c><anno>Reason</anno></c>. <c><anno>Args</anno></c> is expected to be the
-          list of arguments for the current function; it is used
-          to provide the arguments for the current function in
-          the term <c>Where</c>. As evaluating this function causes
-          an exception to be raised, it has no return value.</p>
+          list of arguments for the current function or the atom <c>none</c>.
+          If it is a list, it is used to provide the arguments for the current
+          function in the stack back-trace. If it is <c>none</c>, the arity of
+          the calling function is used in the stacktrace. As evaluating this
+          function causes an exception to be raised, it has no return value.</p>
         <p>The intent of the exception class <c>error</c> is to
           signal that an unexpected error has happened (for example, a
           function is called with a parameter that has an incorrect
@@ -1826,10 +1827,11 @@ example_fun(A1, A2) ->
       <desc>
         <p>Raises an exception of class <c>error</c> with the reason
           <c><anno>Reason</anno></c>. <c><anno>Args</anno></c> is expected to be the
-          list of arguments for the current function; it is used to
-          provide the arguments for the current function in the stack
-          back-trace. As evaluating this function causes an exception to be
-	  raised, it has no return value.</p>
+          list of arguments for the current function or the atom <c>none</c>.
+          If it is a list, it is used to provide the arguments for the current
+          function in the stack back-trace. If it is <c>none</c>, the arity of
+          the calling function is used in the stacktrace. As evaluating this
+          function causes an exception to be raised, it has no return value.</p>
         <p>If the <c>error_info</c> option is given, the <c><anno>ErrorInfoMap</anno></c>
           will be inserted into the stacktrace. The information given in the
           <c><anno>ErrorInfoMap</anno></c> is to be used by error formatters such as
