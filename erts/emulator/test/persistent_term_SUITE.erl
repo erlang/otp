@@ -22,8 +22,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0,suite/0,init_per_suite/1,end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2,
 	 basic/1,purging/1,sharing/1,get_trapping/1,
          destruction/1,
+         get_all_race/1,
          info/1,info_trapping/1,killed_while_trapping/1,
          off_heap_values/1,keys/1,collisions/1,
          init_restart/1, put_erase_trapping/1,
@@ -40,6 +42,7 @@ suite() ->
 all() ->
     [basic,purging,sharing,get_trapping,info,info_trapping,
      destruction,
+     get_all_race,
      killed_while_trapping,off_heap_values,keys,collisions,
      init_restart, put_erase_trapping, killed_while_trapping_put,
      killed_while_trapping_erase].
@@ -55,6 +58,15 @@ end_per_suite(Config) ->
     persistent_term:erase(init_per_suite),
     erts_debug:set_internal_state(available_internal_state, false),
     Config.
+
+init_per_testcase(_, Config) ->
+    Config.
+
+end_per_testcase(_, _Config) ->
+    ok;
+end_per_testcase(get_all_race, _Config) ->
+    get_all_race_cleanup(),
+    ok.
 
 basic(_Config) ->
     Chk = chk(),
@@ -781,3 +793,31 @@ repeat(_Fun, 0) ->
 repeat(Fun, N) ->
     Fun(),
     repeat(Fun, N-1).
+
+
+%% OTP-17298
+get_all_race(_Config) ->
+    N = 20 * erlang:system_info(schedulers_online),
+    persistent_term:put(get_all_race, N),
+    SPs = [spawn_link(fun() -> gar_setter(Seq) end) || Seq <- lists:seq(1, N)],
+    GPs = [spawn_link(fun gar_getter/0) || _ <- lists:seq(1, N)],
+    receive after 2000 -> ok end,
+    [begin unlink(Pid), exit(Pid,kill) end || Pid <- (SPs ++ GPs)],
+    ok.
+
+get_all_race_cleanup() ->
+    N = persistent_term:get(get_all_race, 0),
+    _ = persistent_term:erase(get_all_race),
+    [_ = persistent_term:erase(Seq) || Seq <- lists:seq(1, N)],
+    ok.
+
+gar_getter() ->
+    erts_debug:set_internal_state(reds_left, 1),
+    _ = persistent_term:get(),
+    gar_getter().
+
+gar_setter(Key) ->
+    erts_debug:set_internal_state(reds_left, 1),
+    persistent_term:erase(Key),
+    persistent_term:put(Key, {complex, term}),
+    gar_setter(Key).
