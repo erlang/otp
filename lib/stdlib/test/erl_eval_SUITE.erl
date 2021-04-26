@@ -1801,7 +1801,7 @@ check(F, String, Result, BoundVars, LFH, EFH) ->
     case catch erl_eval:exprs(Exprs, #{}, LFH, EFH) of
         {value, Result, MapBs} ->
             MapKeys = maps:keys(MapBs),
-            case sort(BoundVars) == MapKeys of
+            case sort(BoundVars) == sort(MapKeys) of
                 true ->
                     ok;
                 false ->
