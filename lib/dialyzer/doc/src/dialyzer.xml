@@ -569,7 +569,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     </func>
 
     <func>
-      <name name="format_warning" arity="2" since=""></name>
+      <name name="format_warning" arity="2" since="R14B02"></name>
       <fsummary>Get the string version of a warning message.</fsummary>
       <type name="format_option"/>
       <type name="filename_opt"/>
