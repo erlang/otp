@@ -970,13 +970,13 @@ do_hostkey_fingerprint_check(Config, HashAlg) ->
 	true ->
 	    really_do_hostkey_fingerprint_check(Config, HashAlg);
 	false when HashAlg == old ->
-	    {skip,{unsupported_hash,md5}};% Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
+	    {skip,{unsupported_hash,md5}};% Happen to know that ssh:hostkey_fingerprint/1 uses md5...
 	false ->
 	    {skip,{unsupported_hash,HashAlg}}
     end.
 
 supported_hash(old) ->
-    supported_hash(md5); % Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
+    supported_hash(md5); % Happen to know that ssh:hostkey_fingerprint/1 uses md5...
 supported_hash(HashAlg) ->
     Hs = if is_atom(HashAlg) -> [HashAlg];
             is_list(HashAlg) -> HashAlg
@@ -988,11 +988,11 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
     UserDir = proplists:get_value(user_dir, Config),
     SysDir = proplists:get_value(data_dir, Config),
 
-    %% All host key fingerprints.  Trust that public_key has checked the ssh_hostkey_fingerprint
+    %% All host key fingerprints.  Trust that public_key has checked the hostkey_fingerprint
     %% function since that function is used by the ssh client...
     FPs0 = [case HashAlg of
-	       old -> public_key:ssh_hostkey_fingerprint(Key);
-	       _ -> public_key:ssh_hostkey_fingerprint(HashAlg, Key)
+	       old -> ssh:hostkey_fingerprint(Key);
+	       _ -> ssh:hostkey_fingerprint(HashAlg, Key)
 	   end
 	   || FileCandidate <- begin
 				   {ok,KeyFileCands} = file:list_dir(SysDir),
@@ -1001,7 +1001,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
 	      nomatch =/= re:run(FileCandidate, ".*\\.pub", []),
 	      {Key,_Cmnts} <- begin
 				  {ok,Bin} = file:read_file(filename:join(SysDir, FileCandidate)),
-				  try public_key:ssh_decode(Bin, public_key)
+				  try ssh_file:decode(Bin, public_key)
 				  catch
 				      _:_ -> []
 				  end
