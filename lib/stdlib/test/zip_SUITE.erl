@@ -27,7 +27,7 @@
          openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
          compress_control/1,
-	 foldl/1,fd_leak/1,unicode/1]).
+	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -40,7 +40,7 @@ all() ->
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
-     unzip_traversal_exploit,fd_leak,unicode].
+     unzip_traversal_exploit,fd_leak,unicode,test_zip_dir].
 
 groups() -> 
     [].
@@ -1026,3 +1026,29 @@ test_latin1_archive(DataDir) ->
     FileName = [246] ++ ".txt",
     ArchiveComment = [246],
     zip_check(Archive, ArchiveComment, FileName, "").
+
+test_zip_dir(Config) when is_list(Config) ->
+    case {os:find_executable("unzip"), os:type()} of
+        {UnzipPath, {unix,_}} when is_list(UnzipPath)->
+            DataDir = proplists:get_value(data_dir, Config),
+            Dir = filename:join([DataDir, "test-zip", "dir-1"]),
+            TestZipOutputDir = filename:join(DataDir, "test-zip-output"),
+            TestZipOutput = filename:join(TestZipOutputDir, "test.zip"),
+            zip:create(TestZipOutput, [Dir]),
+            run_command(UnzipPath, ["-o", TestZipOutput,  "-d", TestZipOutputDir]),
+            {ok, FileContent} = file:read_file(filename:join([TestZipOutputDir, Dir, "file.txt"])),
+            <<"OKOK\n">> = FileContent,
+            ok;
+        _ -> {skip, "Not Unix or unzip program not found"}
+    end.
+
+run_command(Command, Args) ->
+    Port = erlang:open_port({spawn_executable, Command}, [{args, Args}, exit_status]),
+    (fun Reciver() ->
+             receive
+                 {Port,{exit_status,_}} -> ok;
+                 {Port, S} -> io:format("UNZIP: ~p~n", [S]),
+                              Reciver()
+             end
+     end)().
+    
