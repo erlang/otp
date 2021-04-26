@@ -39,7 +39,13 @@
   </modulesummary>
 
   <description>
-    <p>This module provides functions for pretty-printing errors and exceptions.</p>
+    <p>This module provides functions for pretty-printing errors and exceptions. It is used
+      by both the <seeerl marker="stdlib:shell"><c>shell</c></seeerl> and by
+      <seeerl marker="proc_lib"><c>proc_lib</c></seeerl> to print exceptions.</p>
+    <p>It is possible for the module raising an error to provide additional
+      information by calling <seemfa marker="erts:erlang#error/3"><c>error/3</c></seemfa>
+      with extra error information. More details about this mechanism is described
+      in <url href="https://www.erlang.org/erlang-enhancement-proposals/eep-0054.html">EEP-54</url>.</p>
   </description>
 
   <datatypes>
