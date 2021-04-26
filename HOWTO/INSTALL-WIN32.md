@@ -103,7 +103,7 @@ the different tools:
     <https://docs.microsoft.com/en-us/windows/wsl/install-win10>
 
     We have used and tested with WSL-1, WSL-2 was not available and may
-    not be prefered when building Erlang/OTP since access to the windows
+    not be preferred when building Erlang/OTP since access to the windows
     disk is (currently) slower WSL-2.
 
 *   Visual Studio 2019

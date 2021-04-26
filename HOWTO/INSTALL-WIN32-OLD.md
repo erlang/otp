@@ -37,7 +37,7 @@ documentation about this online.
 
 These instructions apply for both 32-bit and 64-bit Windows. Note that even 
 if you build a 64-bit version of Erlang, most of the directories and files 
-involved are still named win32. Some occurances of the name win64 are 
+involved are still named win32. Some occurrences of the name win64 are 
 however present. The installation file for a 64-bit Windows version of 
 Erlang, for example, is `otp_win64_%OTP-REL%.exe`.
 
