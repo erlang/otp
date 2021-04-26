@@ -167,7 +167,7 @@ handle_cast({register_session, #session{session_id = SessionId, time_stamp = Tim
                     %% Insert new session
                     Order = gb_trees:insert(InternalId, SessionId, Order1),
                     Store = update(Cb, Store1, SessionId, Session),
-                    Store#state{db = Store, session_order = Order};
+                    State0#state{db = Store, session_order = Order};
                 Size when Size > 0 ->
                     {_, OldSessId, Order1} = gb_trees:take_smallest(Order0),
                     OldestSession = lookup(Cb, Store0, OldSessId),
