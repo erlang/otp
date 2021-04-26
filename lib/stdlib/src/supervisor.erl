@@ -1181,7 +1181,7 @@ find_dynamic_child(Pid, State) ->
             error
     end.
 
-%% Given the pid, find the child record for a non-dyanamic child.
+%% Given the pid, find the child record for a non-dynamic child.
 -spec find_child_by_pid(IdOrPid, state()) -> {ok,child_rec()} | error when
       IdOrPid :: pid() | {restarting,pid()}.
 find_child_by_pid(Pid,#state{children={_Ids,Db}}) ->
