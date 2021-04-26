@@ -27,6 +27,29 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Retain backwards compatible behavior of verify_fun when
+	    handling incomplete chains that are not verifiable.</p>
+          <p>
+	    Own Id: OTP-17296 Aux Id: GH-4682 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid server session handler crash, this will increase
+	    session ruse opportunities.</p>
+          <p>
+	    Own Id: OTP-17348 Aux Id: ERIERL-641 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
