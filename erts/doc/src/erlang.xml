@@ -1838,7 +1838,7 @@ example_fun(A1, A2) ->
           <seemfa marker="stdlib:erl_error#format_exception/4"><c>erl_error</c></seemfa>
           to provide more context around an error.</p>
         <p>The default <c>module</c> of the <c><anno>ErrorInfoMap</anno></c> is the
-          module that the call to <seemfa marker="#error/3"><c>erlang:error/3</c></seemfa>
+          module that the call to <seemfa marker="#error/3"><c>error/3</c></seemfa>
           is made. The default <c>function</c> is <c>format_error</c>. See
           <seeerl marker="stdlib:erl_error#format_error"><c>format_error/2</c></seeerl>
           for more details on how this Module:Function/2 is to be used</p>

@@ -135,7 +135,7 @@
           <item>The second element of the tuple is a map
 	  providing additional information about what caused the
 	  exception. This information can be created by calling
-          <seemfa marker="erts:erlang#error/3"><c>erlang:error/3</c></seemfa>
+          <seemfa marker="erts:erlang#error/3"><c>error/3</c></seemfa>
           and is used by
           <seemfa marker="stdlib:erl_error#format_exception/4">
             <c>erl_error:format_exception/4</c></seemfa>.
