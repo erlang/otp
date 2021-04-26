@@ -25887,7 +25887,7 @@ mon_simple_open_and_close(InitState) ->
                    end},
          #{desc => "await socket down 1",
            cmd  => fun(#{sock := Sock,
-			 mon1  := MRef} = _State) ->
+			 mon1 := MRef} = State) ->
 			   receive
 			       {'DOWN', MRef, socket, Sock, Info} ->
 				   ?SEV_IPRINT("received expected down: "

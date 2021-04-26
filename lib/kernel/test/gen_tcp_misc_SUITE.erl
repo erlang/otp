@@ -151,7 +151,8 @@ groups() ->
      {partial_recv_and_close, [], partial_recv_and_close_cases()},
      {pktoptions,             [], pktoptions_cases()},
      {accept,                 [], accept_cases()},
-     {send_timeout,           [], send_timeout_cases()}
+     {send_timeout,           [], send_timeout_cases()},
+     {socket_monitor,         [], socket_monitor_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -187,13 +188,7 @@ all_cases() ->
      otp_8102, otp_9389,
      otp_12242, delay_send_error,
      bidirectional_traffic,
-     socket_monitor1,
-     socket_monitor1_manys,
-     socket_monitor1_manyc,
-     socket_monitor1_demon_after,
-     socket_monitor2,
-     socket_monitor2_manys,
-     socket_monitor2_manyc
+     {group, socket_monitor}
     ].
 
 close_cases() ->
@@ -289,6 +284,17 @@ send_timeout_cases() ->
     [
      send_timeout,
      send_timeout_active
+    ].
+
+socket_monitor_cases() ->
+    [
+     socket_monitor1,
+     socket_monitor1_manys,
+     socket_monitor1_manyc,
+     socket_monitor1_demon_after,
+     socket_monitor2,
+     socket_monitor2_manys,
+     socket_monitor2_manyc
     ].
 
 init_per_suite(Config0) ->
