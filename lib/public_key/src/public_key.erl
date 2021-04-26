@@ -52,8 +52,6 @@
 	 pkix_path_validation/3,
 	 pkix_verify_hostname/2, pkix_verify_hostname/3,
          pkix_verify_hostname_match_fun/1,
-	 ssh_decode/2, ssh_encode/2,
-	 ssh_hostkey_fingerprint/1, ssh_hostkey_fingerprint/2,
 	 ssh_curvename2oid/1, oid2ssh_curvename/1,
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
@@ -69,6 +67,28 @@
          ocsp_extensions/1
 	]).
 
+%%----------------
+%% To be moved to ssh and deprecated:
+-export([ssh_decode/2, ssh_encode/2,
+         ssh_hostkey_fingerprint/1, ssh_hostkey_fingerprint/2
+        ]).
+
+-deprecated([{ssh_decode,2, "use ssh_file:decode/2 instead"},
+             {ssh_encode,2, "use ssh_file:encode/2 instead"},
+             {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
+             {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
+            ]).
+
+%% When removing for OTP-25.0, remember to also remove
+%%   - most of pubkey_ssh.erl except
+%%       + dh_gex_group/4
+%%       + dh_gex_group_sizes/0
+%%   - pubkey_pem:pem_start({no_asn1, new_openssh})
+%%   - pubkey_pem:pem_end(<<"-----BEGIN OPENSSH PRIVATE KEY-----">>)
+%%   - pubkey_pem:asn1_type(<<"-----BEGIN OPENSSH PRIVATE KEY-----">>) -> {no_asn1, new_openssh}
+
+%%----------------------------------------------------------------
+%% Types
 -export_type([public_key/0, private_key/0, pem_entry/0,
 	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
               key_params/0, digest_type/0, issuer_name/0, cert_id/0, oid/0]).
@@ -110,11 +130,6 @@
                               | #'PBES2-params'{} .
 
 -type salt()                 :: binary(). % crypto:strong_rand_bytes(8)
-%% -type cipher_info()          :: {Cipher :: string(), Salt :: binary()} |
-%%                                 {Cipher :: string(), #'PBES2-params'{}} | 
-%%                                 {Cipher :: string(), {#'PBEParameter'{}, atom()}} %% hash type
-%%                                 .
-
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
 -type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
 				auth_keys.
