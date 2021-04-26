@@ -662,6 +662,8 @@
 -define(TT(T),      ct:timetrap(T)).
 
 -define(F(F, A),    ?LIB:f(F, A)).
+-define(P(F),       ?LIB:print(F)).
+-define(P(F, A),    ?LIB:print(F, A)).
 
 
 -define(TPP_SMALL,  lists:seq(1, 8)).
@@ -25320,10 +25322,24 @@ reg_s_single_open_and_close_and_count() ->
         ] ++
         case SupportsSCTP of
             true ->
-                [
-                 {inet, seqpacket, sctp},
-                 {inet, seqpacket, sctp}
-                ];
+                %% On some platforms this is not enough,
+                %% we need to actually check this "by doing it"...
+                ?P("test open sctp socket"),
+                case socket:open(inet,
+                                 seqpacket,
+                                 sctp,
+                                 #{use_registry => false}) of
+                    {ok, S} ->
+                        ?P("test open sctp socket: success"),
+                        (catch socket:close(S)),
+                        [
+                         {inet, seqpacket, sctp},
+                         {inet, seqpacket, sctp}
+                        ];
+                    {error, _} ->
+                        ?P("test open sctp socket: failed"),
+                        []
+                end;
             false ->
                 []
         end ++
@@ -25333,10 +25349,24 @@ reg_s_single_open_and_close_and_count() ->
         ] ++
         case SupportsSCTP andalso SupportsIPV6 of
             true ->
-                [
-                 {inet6, seqpacket, sctp},
-                 {inet6, seqpacket, sctp}
-                ];
+                %% On some platforms this is not enough,
+                %% we need to actually check this "by doing it"...
+                ?P("test open sctp socket"),
+                case socket:open(inet6,
+                                 seqpacket,
+                                 sctp,
+                                 #{use_registry => false}) of
+                    {ok, S6} ->
+                        ?P("test open sctp socket: success"),
+                        (catch socket:close(S6)),
+                        [
+                         {inet6, seqpacket, sctp},
+                         {inet6, seqpacket, sctp}
+                        ];
+                    {error, _} ->
+                        ?P("test open sctp socket: failed"),
+                        []
+                end;
             false ->
                 []
         end,

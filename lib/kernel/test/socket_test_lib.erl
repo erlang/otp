@@ -35,6 +35,7 @@
 
          %% String and format
          f/2,
+         print/1, print/2,
 
          %% Generic 'has support' test function(s)
          has_support_ipv6/0,
@@ -101,11 +102,7 @@ formated_timestamp() ->
 
 format_timestamp({_N1, _N2, _N3} = TS) ->
     {_Date, Time}   = calendar:now_to_local_time(TS),
-    %% {YYYY,MM,DD}   = Date,
     {Hour,Min,Sec} = Time,
-    %% FormatTS = 
-    %%     io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~w",
-    %%                   [YYYY, MM, DD, Hour, Min, Sec, N3]),  
     FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
     lists:flatten(FormatTS).
 
@@ -114,6 +111,13 @@ format_timestamp({_N1, _N2, _N3} = TS) ->
 
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
+
+
+print(F) ->
+    print(F, []).
+
+print(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
