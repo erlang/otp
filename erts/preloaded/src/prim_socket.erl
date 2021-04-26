@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
     listen/2,
     accept/2,
     send/4, sendto/4, sendto/5, sendmsg/4, sendmsg/5,
+    sendfile/4, sendfile/5, sendfile_deferred_close/1,
     recv/4, recvfrom/4, recvmsg/5,
     close/1, finalize_close/1,
     shutdown/2,
@@ -631,6 +632,15 @@ invalid_iov([H|IOV], N) ->
 invalid_iov(_, N) ->
     {improper_list, N}.
 
+sendfile(SockRef, Offset, Count, SendRef) ->
+    nif_sendfile(SockRef, SendRef, Offset, Count).
+
+sendfile(SockRef, FileRef, Offset, Count, SendRef) ->
+    nif_sendfile(SockRef, SendRef, Offset, Count, FileRef).
+
+sendfile_deferred_close(SockRef) ->
+    nif_sendfile(SockRef).
+
 %% ----------------------------------
 
 recv(SockRef, Length, Flags, RecvRef) ->
@@ -971,7 +981,7 @@ p_get(Name) ->
 %%
 
 nif_info() -> erlang:nif_error(undef).
-nif_info(_SRef) -> erlang:nif_error(undef).
+nif_info(_SockRef) -> erlang:nif_error(undef).
 
 nif_command(_Command) -> erlang:nif_error(undef).
 
@@ -981,35 +991,42 @@ nif_supports(_Key) -> erlang:nif_error(undef).
 nif_open(_FD, _Opts) -> erlang:nif_error(undef).
 nif_open(_Domain, _Type, _Protocol, _Opts) -> erlang:nif_error(undef).
 
-nif_bind(_SRef, _SockAddr) -> erlang:nif_error(undef).
-nif_bind(_SRef, _SockAddrs, _Action) -> erlang:nif_error(undef).
+nif_bind(_SockRef, _SockAddr) -> erlang:nif_error(undef).
+nif_bind(_SockRef, _SockAddrs, _Action) -> erlang:nif_error(undef).
 
-nif_connect(_SRef) -> erlang:nif_error(undef).
-nif_connect(_SRef, _ConnectRef, _SockAddr) -> erlang:nif_error(undef).
+nif_connect(_SockRef) -> erlang:nif_error(undef).
+nif_connect(_SockRef, _ConnectRef, _SockAddr) -> erlang:nif_error(undef).
 
-nif_listen(_SRef, _Backlog) -> erlang:nif_error(undef).
+nif_listen(_SockRef, _Backlog) -> erlang:nif_error(undef).
 
-nif_accept(_SRef, _Ref) -> erlang:nif_error(undef).
+nif_accept(_SockRef, _Ref) -> erlang:nif_error(undef).
 
 nif_send(_SockRef, _Bin, _Flags, _SendRef) -> erlang:nif_error(undef).
-nif_sendto(_SRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(undef).
-nif_sendmsg(_SRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(undef).
+nif_sendto(_SockRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(undef).
+nif_sendmsg(_SockRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(undef).
 
-nif_recv(_SRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
-nif_recvfrom(_SRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
-nif_recvmsg(_SRef, _BufSz, _CtrlSz, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_sendfile(_SockRef, _SendRef, _Offset, _Count, _InFileRef) ->
+    erlang:nif_error(undef).
+nif_sendfile(_SockRef, _SendRef, _Offset, _Count) ->
+    erlang:nif_error(undef).
+nif_sendfile(_SockRef) -> erlang:nif_error(undef).
 
-nif_close(_SRef) -> erlang:nif_error(undef).
-nif_finalize_close(_SRef) -> erlang:nif_error(undef).
-nif_shutdown(_SRef, _How) -> erlang:nif_error(undef).
+nif_recv(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_recvfrom(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_recvmsg(_SockRef, _BufSz, _CtrlSz, _Flags, _RecvRef) ->
+    erlang:nif_error(undef).
 
-nif_setopt(_Ref, _Lev, _Opt, _Val, _NativeVal) -> erlang:nif_error(undef).
-nif_getopt(_Ref, _Lev, _Opt) -> erlang:nif_error(undef).
-nif_getopt(_Ref, _Lev, _Opt, _ValSpec) -> erlang:nif_error(undef).
+nif_close(_SockRef) -> erlang:nif_error(undef).
+nif_finalize_close(_SockRef) -> erlang:nif_error(undef).
+nif_shutdown(_SockRef, _How) -> erlang:nif_error(undef).
 
-nif_sockname(_Ref) -> erlang:nif_error(undef).
-nif_peername(_Ref) -> erlang:nif_error(undef).
+nif_setopt(_SockRef, _Lev, _Opt, _Val, _NativeVal) -> erlang:nif_error(undef).
+nif_getopt(_SockRef, _Lev, _Opt) -> erlang:nif_error(undef).
+nif_getopt(_SockRef, _Lev, _Opt, _ValSpec) -> erlang:nif_error(undef).
 
-nif_cancel(_SRef, _Op, _Ref) -> erlang:nif_error(undef).
+nif_sockname(_SockRef) -> erlang:nif_error(undef).
+nif_peername(_SockRef) -> erlang:nif_error(undef).
+
+nif_cancel(_SockRef, _Op, _SelectRef) -> erlang:nif_error(undef).
 
 %% ===========================================================================

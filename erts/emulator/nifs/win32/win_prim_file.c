@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2020. All Rights Reserved.
+ * Copyright Ericsson 2017-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -218,14 +218,21 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
 
 ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d) {
     efile_win_t *w = (efile_win_t*)d;
-
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM handle;
     unsigned char *bits;
 
-    bits = enif_make_new_binary(env, sizeof(w->handle), &result);
+    bits = enif_make_new_binary(env, sizeof(w->handle), &handle);
     memcpy(bits, &w->handle, sizeof(w->handle));
 
-    return result;
+    return handle;
+}
+
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle) {
+    (void) env;
+    (void) d;
+    (void) handle;
+    /* XXX not implemented yet */
+    return ENOTSUP;
 }
 
 /** @brief Converts a native path to the preferred form in "erlang space,"

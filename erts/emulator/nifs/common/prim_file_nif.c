@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2020. All Rights Reserved.
+ * Copyright Ericsson 2017-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
 
 #include "erl_driver.h"
 #include "prim_file_nif.h"
+#include "prim_file_nif_dyncall.h"
 
 /* NIF interface declarations */
 static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM load_info);
@@ -129,16 +130,16 @@ static ERL_NIF_TERM create_ref_or_error_tuple(ErlNifEnv *env, efile_data_t *d);
  * The states may transition as follows:
  *
  * IDLE ->
- *      BUSY (file_handle_wrapper) |
+ *      BUSY (file_handle_wrapper | dyncall_dup) |
  *      CLOSED (owner_death_callback)
  *
  * BUSY ->
- *      IDLE (file_handle_wrapper)
+ *      IDLE (file_handle_wrapper | dyncall_dup)
  *      CLOSED (close_nif_impl)
  *      CLOSE_PENDING (owner_death_callback)
  *
  * CLOSE_PENDING ->
- *      CLOSED (file_handle_wrapper)
+ *      CLOSED (file_handle_wrapper | dyncall_dup)
  *
  * Should the owner of a file die, we can't close it immediately as that could
  * potentially block a normal scheduler. When entering the CLOSED state from
@@ -220,6 +221,8 @@ static ErlNifPid erts_prim_file_pid;
 
 static void owner_death_callback(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);
 
+static ErlNifResourceDynCall dyncall;
+
 static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM prim_file_pid)
 {
     ErlNifResourceTypeInit callbacks;
@@ -264,11 +267,13 @@ static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM prim_file_pid)
     am_cur = enif_make_atom(env, "cur");
     am_eof = enif_make_atom(env, "eof");
 
-    callbacks.down = owner_death_callback;
-    callbacks.dtor = NULL;
-    callbacks.stop = NULL;
+    callbacks.down      = owner_death_callback;
+    callbacks.dtor      = NULL;
+    callbacks.stop      = NULL;
+    callbacks.dyncall   = dyncall;
+    callbacks.members   = 4;
 
-    efile_resource_type = enif_open_resource_type_x(env, "efile", &callbacks,
+    efile_resource_type = enif_init_resource_type(env, "efile", &callbacks,
         ERL_NIF_RT_CREATE, NULL);
 
     *priv_data = NULL;
@@ -328,8 +333,9 @@ static ERL_NIF_TERM file_handle_wrapper(file_op_impl_t operation, ErlNifEnv *env
         ASSERT(previous_state != EFILE_STATE_IDLE);
 
         if(previous_state == EFILE_STATE_CLOSE_PENDING) {
-            /* This is the only point where a change from CLOSE_PENDING is
-             * possible, and we're running synchronously, so we can't race with
+            /* Here and in dyncall_dup are the only points
+             * where a change from CLOSE_PENDING is possible,
+             * and we're running synchronously, so we can't race with
              * anything else here. */
             posix_errno_t ignored;
 
@@ -411,6 +417,56 @@ static void owner_death_callback(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlN
                 EFILE_STATE_CLOSE_PENDING, EFILE_STATE_BUSY);
             break;
         }
+    }
+}
+
+static void dyncall_dup(ErlNifEnv* env, efile_data_t* d, struct prim_file_nif_dyncall_dup *dc_dup) {
+
+    enum efile_state_t previous_state;
+
+    previous_state = erts_atomic32_cmpxchg_acqb(&d->state,
+        EFILE_STATE_BUSY, EFILE_STATE_IDLE);
+
+    if(previous_state == EFILE_STATE_IDLE) {
+
+        dc_dup->result = (int)
+            efile_dup_handle(env, d, &dc_dup->handle);
+
+        previous_state = erts_atomic32_cmpxchg_relb(&d->state,
+            EFILE_STATE_IDLE, EFILE_STATE_BUSY);
+
+        ASSERT(previous_state != EFILE_STATE_IDLE);
+
+        if(previous_state == EFILE_STATE_CLOSE_PENDING) {
+            /* Here and in file_handle_wrapper are the only points
+             * where a change from CLOSE_PENDING is possible,
+             * and we're running synchronously, so we can't race with
+             * anything else here. */
+            posix_errno_t ignored;
+
+            erts_atomic32_set_acqb(&d->state, EFILE_STATE_CLOSED);
+            efile_close(d, &ignored);
+        }
+    } else {
+        /* CLOSE_PENDING should be impossible at this point since it requires
+         * a transition from BUSY; the only valid state here is CLOSED. */
+        ASSERT(previous_state == EFILE_STATE_CLOSED);
+
+        dc_dup->result = EINVAL;
+    }
+}
+
+static void dyncall(ErlNifEnv* env, void* obj, void* data) {
+    efile_data_t *d = (efile_data_t*)obj;
+    struct prim_file_nif_dyncall *dc = (struct prim_file_nif_dyncall *)data;
+
+    switch (dc->op) {
+    case prim_file_nif_dyncall_dup:
+        dyncall_dup(env, d, (struct prim_file_nif_dyncall_dup *)dc);
+        return;
+    default:
+        dc->result = ENOTSUP;
+        return;
     }
 }
 
@@ -928,6 +984,7 @@ static ERL_NIF_TERM ipread_s32bu_p32bu_nif_impl(efile_data_t *d, ErlNifEnv *env,
 }
 
 static ERL_NIF_TERM get_handle_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+
     ASSERT(argc == 0);
 
     return efile_get_handle(env, d);

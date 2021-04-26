@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2018. All Rights Reserved.
+ * Copyright Ericsson 2017-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,6 +130,12 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
  * This is an internal function intended to support tests and tricky
  * operations like sendfile(2). */
 ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d);
+
+/** @brief Returns the underlying handle as an implementation-defined term.
+ *
+ * This is an internal function intended to support tests and tricky
+ * operations like sendfile(2). */
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle);
 
 /** @brief Read until EOF or the given iovec has been filled.
  *

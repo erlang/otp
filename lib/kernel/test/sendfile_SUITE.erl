@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -90,21 +90,45 @@ init_per_testcase(TC,Config) when TC == t_sendfile_recvduring;
     Send = fun(Sock) ->
 		   {_Size, Data} = sendfile_file_info(Filename),
 		   {ok,Fd} = file:open(Filename, [raw,binary,read]),
-                   %% Determine whether the driver has native support by
-                   %% hitting the raw module directly; file:sendfile/5 will
-                   %% land in the fallback if it doesn't.
-                   RawModule = Fd#file_descriptor.module,
-                   {ok, _Ignored} = RawModule:sendfile(Fd,Sock,0,0,0,[],[],[]),
-		   Data
+                   case Sock of
+                       {'$inet', Handler, _} ->
+                           case
+                               Handler:sendfile(Sock, Fd, 0, 0)
+                           of
+                               {ok, _BytesSent} ->
+                                   Data;
+                               {error, enotsup} ->
+                                   error(notsup)
+                           end;
+                       _ when is_port(Sock) ->
+                           %% Determine whether the driver
+                           %% has native support by calling
+                           %% the raw module directly; file:sendfile/5
+                           %% would just use the fallback
+                           %% and we would not be any wiser
+                           RawModule = Fd#file_descriptor.module,
+                           case
+                               RawModule:sendfile(Fd,Sock,0,0,0,[],[],[])
+                           of
+                               {ok, _Ignored} ->
+                                   Data;
+                               {error, enotsup} ->
+                                   error(notsup)
+                           end
+                   end
 	   end,
 
     %% Check if sendfile is supported on this platform
-    case catch sendfile_send(Send) of
-	ok ->
+    try sendfile_send(Send) of
+        ok ->
 	    init_per_testcase(t_sendfile, Config);
-	Error ->
-	    ct:log("Error: ~p",[Error]),
-	    {skip,"Not supported"}
+        Other ->
+            {fail,{not_ok,Other}}
+    catch
+        error : notsup ->
+            {skip,"Not supported"};
+        Class : Reason : Stacktrace ->
+            {fail,{Class, Reason, Stacktrace}}
     end;
 init_per_testcase(_TC,Config) ->
     case read_fd_info() of
@@ -121,8 +145,9 @@ end_per_testcase(_TC,Config) ->
         NumOldFDs ->
             case read_fd_info() of
                 {ok, NumFDs, FDDetails} when NumFDs =/= NumOldFDs ->
-                    ct:log("FDs: ~n~ts~nOldFDs: ~n~ts~n",
-                           [FDDetails,proplists:get_value(details,Config)]),
+                    ct:log("FDs: ~p~n~ts~nOldFDs: ~p~n~ts~n",
+                           [NumFDs, FDDetails,
+                            NumOldFDs, proplists:get_value(details,Config)]),
                     {fail,"Too many (or too few) fds open"};
                 _ ->
                     ok
@@ -306,7 +331,7 @@ t_sendfile_sendduring(Config) ->
 		   {ok, #file_info{size = Size}} =
 		       file:read_file_info(Filename),
 		   spawn_link(fun() ->
-				      timer:sleep(50),
+                                      erlang:yield(),
 				      ok = gen_tcp:send(Sock, <<2>>)
 			      end),
 		   {ok, Size} = sendfile(Filename, Sock, SendfileOpts),
@@ -323,7 +348,7 @@ t_sendfile_recvduring(Config) ->
 		   {ok, #file_info{size = Size}} =
 		       file:read_file_info(Filename),
 		   spawn_link(fun() ->
-				      timer:sleep(50),
+                                      timer:sleep(1),
 				      ok = gen_tcp:send(Sock, <<1>>),
 				      {ok,<<1>>} = gen_tcp:recv(Sock, 1)
 			      end),
@@ -340,7 +365,7 @@ t_sendfile_closeduring(Config) ->
 
     Send = fun(Sock,SFServPid) ->
 		   spawn_link(fun() ->
-				      timer:sleep(50),
+                                      timer:sleep(1),
 				      SFServPid ! stop
 			      end),
 		   case erlang:system_info(thread_pool_size) of
@@ -355,6 +380,12 @@ t_sendfile_closeduring(Config) ->
 			   case sendfile(Filename, Sock, SendfileOpts) of
 			       {error, closed} ->
 				   ok;
+                               {error, {closed, Size}}
+                                 when is_integer(Size) ->
+                                   ok;
+                               {error, {epipe, Size}}
+                                 when is_integer(Size) ->
+                                   ok;
 			       {ok, Size}  when is_integer(Size) ->
 				   ok
 			   end
@@ -386,7 +417,7 @@ t_sendfile_crashduring(Config) ->
 
     Send = fun(Sock) ->
 		   spawn_link(fun() ->
-				      timer:sleep(50),
+                                      timer:sleep(1),
 				      exit(die)
 			      end),
 		   {error, closed} = sendfile(Filename, Sock, SendfileOpts),
@@ -416,23 +447,24 @@ t_sendfile_arguments(Config) ->
     {ok, Port} = inet:port(Listener),
 
     ErrorCheck =
-        fun(Reason, Offset, Length, Opts) ->
+        fun(Reasons, Offset, Length, Opts) ->
             {ok, Sender} = gen_tcp:connect({127, 0, 0, 1}, Port,
                 [{packet, 0}, {active, false}]),
             {ok, Receiver} = gen_tcp:accept(Listener),
             {ok, Fd} = file:open(Filename, [read, raw]),
             {error, Reason} = file:sendfile(Fd, Sender, Offset, Length, Opts),
+            true = lists:member(Reason, Reasons),
             gen_tcp:close(Receiver),
             gen_tcp:close(Sender),
             file:close(Fd)
         end,
 
-    ErrorCheck(einval, -1, 0, []),
-    ErrorCheck(einval, 0, -1, []),
-    ErrorCheck(badarg, gurka, 0, []),
-    ErrorCheck(badarg, 0, gurka, []),
-    ErrorCheck(badarg, 0, 0, gurka),
-    ErrorCheck(badarg, 0, 0, [{chunk_size, gurka}]),
+    ErrorCheck([einval,badarg], -1, 0, []),
+    ErrorCheck([einval,badarg], 0, -1, []),
+    ErrorCheck([badarg], gurka, 0, []),
+    ErrorCheck([badarg], 0, gurka, []),
+    ErrorCheck([badarg], 0, 0, gurka),
+    ErrorCheck([badarg], 0, 0, [{chunk_size, gurka}]),
 
     gen_tcp:close(Listener),
 
@@ -523,9 +555,10 @@ sendfile(Filename,Sock,Opts) ->
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, Fd} ->
-	    Res = file:sendfile(Fd, Sock, 0, 0, Opts),
-	    _ = file:close(Fd),
-	    Res
+            try file:sendfile(Fd, Sock, 0, 0, Opts)
+            after
+                _ = file:close(Fd)
+            end
     end.
 
 %% This function returns the number of open fds on a system
@@ -533,10 +566,13 @@ sendfile(Filename,Sock,Opts) ->
 %% for debugging.
 %% It only supports linux for now.
 read_fd_info() ->
+    receive after 1000 -> ok end,
     ProcFd = "/proc/" ++ os:getpid() ++ "/fd",
     case file:list_dir(ProcFd) of
         {ok, FDs} ->
-            {ok, length(FDs), os:cmd("ls -l " ++ ProcFd)};
+            {ok, length(FDs),
+             lists:flatten(lists:join(" ", FDs)) ++
+                 ("\r\n"++os:cmd("ls -l " ++ ProcFd))};
         Error ->
             Error
     end.
