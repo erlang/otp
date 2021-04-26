@@ -792,7 +792,7 @@ restart(Child, State) ->
 	    case restart(NState#state.strategy, Child, NState) of
 		{{try_again, TryAgainId}, NState2} ->
 		    %% Leaving control back to gen_server before
-		    %% trying again. This way other incoming requsts
+		    %% trying again. This way other incoming requests
 		    %% for the supervisor can be handled - e.g. a
 		    %% shutdown request for the supervisor or the
 		    %% child.
