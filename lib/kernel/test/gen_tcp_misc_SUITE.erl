@@ -4637,10 +4637,15 @@ do_accept_system_limit(Config) ->
              {error, eaddrnotavail = Reason} ->
                  ?SKIPT(listen_failed_str(Reason))
         end,             
-    {ok, TcpPort} = inet:port(LS),
+    {ok, {Addr, Port}} = inet:sockname(LS),
+    ?P("listen socket \"bound\" to:"
+       "~n      Address: ~p"
+       "~n      Port:    ~p", [Addr, Port]),
     Me = self(),
     ?P("create connector"),
-    Connector = spawn_link(fun () -> connector(Config, TcpPort, Me) end),
+    Connector = spawn_link(fun() ->
+                                   connector(Config, Port, Me)
+                           end),
     ?P("sync with connector (~p)", [Connector]),
     receive {Connector, sync} -> Connector ! {self(), continue} end,
     ?P("begin accepting"),
@@ -4657,33 +4662,43 @@ acceptor(Connector, LS, GotSL, A) ->
         {error, eaddrnotavail = Reason} ->
             ?SKIPE(accept_failed_str(Reason));
         {error, system_limit} ->
-            ?P("acceptor: system limit => *almost* done (~w)", [length(A)]),
+            ?P("acceptor: "
+               "system limit => *almost* done (~w)", [length(A)]),
             acceptor(Connector, LS, true, A);
         {error, timeout} when GotSL ->
             ?P("acceptor: timeout (with system limit) => done (~w)",
-              [length(A)]),
+               [length(A)]),
             ok;
         {error, timeout} ->
+            ?P("acceptor: timeout *without* system limit => failure"
+               "~n     Number of Accepted: ~w",
+               [length(A)]),
             error
     end.
 
-connector(Config, TcpPort, Tester) ->
+connector(Config, AccPort, Tester) ->
     ?P("[connector] start"),
     ManyPorts = open_ports([]),
+    ?P("[connector] length(ManyPorts): ~p", [length(ManyPorts)]),
     Tester ! {self(), sync},
-    ?P("[connector] sync with tester (~p)", [Tester]),
+    ?P("[connector] await continute from tester (~p)", [Tester]),
     receive {Tester, continue} -> timer:sleep(100) end,
     ?P("[connector] begin connecting"),
-    ConnF = fun (Port) ->
-                    case (catch ?CONNECT(Config, {127,0,0,1}, TcpPort, [])) of
-                        {ok, Sock} ->
-                            Sock;
-                        {error, eaddrnotavail = Reason} ->
-                            ?SKIPE(connect_failed_str(Reason));
-                        _Error ->
-                            port_close(Port)
-                    end
-            end,
+    ConnF =
+        fun(Port) ->
+                case (catch ?CONNECT(Config, {127,0,0,1}, AccPort)) of
+                    {ok, Sock} ->
+                        ?P("[connector] success: "
+                           "~n      ~p", [Sock]),
+                        Sock;
+                    {error, eaddrnotavail = Reason} ->
+                        ?SKIPE(connect_failed_str(Reason));
+                    _Error ->
+                        ?P("[connector] failure: "
+                           "~n      ~p", [_Error]),
+                        port_close(Port)
+                end
+        end,
     R = [ConnF(Port) || Port <- lists:sublist(ManyPorts, 10)],
     ?P("[connector] await stop"),
     receive stop -> ?P("[connector] stop (~w)", [length(R)]), R end.
