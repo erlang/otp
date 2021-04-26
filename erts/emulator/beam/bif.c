@@ -5089,7 +5089,50 @@ static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
     BIF_RET(res);
 }
 
+static BIF_RETTYPE
+bif_handle_signals_return(BIF_ALIST_1)
+{
+    int local_only = BIF_P->sig_qs.flags & FS_LOCAL_SIGS_ONLY;
+    int sres, sreds, reds_left;
+    erts_aint32_t state;
+
+    reds_left = ERTS_BIF_REDS_LEFT(BIF_P);
+    sreds = reds_left;
+
+    if (!local_only) {
+        erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_fetch(BIF_P);
+        erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MSGQ);
+    }
+
+    state = erts_atomic32_read_nob(&BIF_P->state);
+    sres = erts_proc_sig_handle_incoming(BIF_P, &state, &sreds,
+                                         sreds, !0);
+
+    BUMP_REDS(BIF_P, (int) sreds);
+    reds_left -= sreds;
+
+    if (state & ERTS_PSFLG_EXITING) {
+        BIF_P->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
+        ERTS_BIF_EXITED(BIF_P);
+    }
+    if (!sres | (reds_left <= 0)) {
+        /*
+         * More signals to handle or out of reds; need
+         * to yield and continue. Prevent fetching of
+         * more signals by setting local-sigs-only flag.
+         */
+        BIF_P->sig_qs.flags |= FS_LOCAL_SIGS_ONLY;
+        ERTS_BIF_YIELD1(&erts_bif_handle_signals_return_export,
+                        BIF_P, BIF_ARG_1);
+    }
+
+    BIF_P->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
+    BIF_RET(BIF_ARG_1);
+}
+
 Export bif_return_trap_export;
+Export erts_bif_handle_signals_return_export;
 
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(BIF_ALIST))
@@ -5132,6 +5175,10 @@ void erts_init_bif(void)
     erts_init_trap_export(&bif_return_trap_export,
 			  am_erlang, am_bif_return_trap, 2,
 			  &bif_return_trap);
+
+    erts_init_trap_export(&erts_bif_handle_signals_return_export,
+			  am_erlang, am_bif_handle_signals_return, 1,
+			  &bif_handle_signals_return);
 
     erts_await_result = erts_export_put(am_erts_internal,
 					am_await_result,

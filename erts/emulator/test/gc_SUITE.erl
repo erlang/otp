@@ -33,7 +33,9 @@
     grow_stack_heap/1,
     max_heap_size/1,
     minor_major_gc_option_async/1,
-    minor_major_gc_option_self/1
+    minor_major_gc_option_self/1,
+    gc_signal_order/1,
+    gc_dirty_exec_proc/1
 ]).
 
 suite() ->
@@ -42,7 +44,7 @@ suite() ->
 all() -> 
     [grow_heap, grow_stack, grow_stack_heap, max_heap_size,
     minor_major_gc_option_self,
-    minor_major_gc_option_async].
+    minor_major_gc_option_async, gc_signal_order, gc_dirty_exec_proc].
 
 
 %% Produce a growing list of elements,
@@ -248,6 +250,43 @@ minor_major_gc_option_async(_Config) ->
             end
         end, [gc_minor_start, gc_minor_end]).
 
+gc_signal_order(Config) when is_list(Config) ->
+    process_flag(scheduler, 1),
+    process_flag(priority, high),
+    Ref = make_ref(),
+    Pid = spawn_opt(fun () -> receive after infinity -> ok end end,[{scheduler, 1}]),
+    spam_signals(Pid, 10000),
+    %% EXIT signal *should* arrive...
+    exit(Pid, kill),
+    %% ... before GC signal...
+    async = garbage_collect(Pid, [{async, Ref}]),
+    %% ... which means that the result of the gc *should* be 'false'...
+    false = busy_wait_gc_res(Ref),
+    ok.
+
+busy_wait_gc_res(Ref) ->
+    receive
+	{garbage_collect, Ref, Res} ->
+	    Res
+    after 0 ->
+	    busy_wait_gc_res(Ref)
+    end.
+
+spam_signals(P, N) when N =< 0 ->
+    ok;
+spam_signals(P, N) ->
+    link(P),
+    unlink(P),
+    spam_signals(P, N-2).
+
+gc_dirty_exec_proc(Config) when is_list(Config) ->
+    check_gc_tracing_around(
+      fun(Pid, _Ref) ->
+	      Pid ! {dirty_exec, 1000},
+	      receive after 100 -> ok end,
+	      true = erlang:garbage_collect(Pid, [{type, major}])
+      end, [gc_major_start, gc_major_end]).
+
 %% Traces garbage collection around the given operation, and fails the test if
 %% it results in any unexpected messages or if the expected trace tags are not
 %% received.
@@ -257,7 +296,9 @@ check_gc_tracing_around(Fun, ExpectedTraceTags) ->
         fun Endless() ->
             receive
                 {gc, Ref, Type} ->
-                    erlang:garbage_collect(self(), [{type, Type}])
+                    erlang:garbage_collect(self(), [{type, Type}]);
+		{dirty_exec, Time} ->
+		    erts_debug:dirty_io(wait, 1000)
             after 100 ->
                 ok
             end,
