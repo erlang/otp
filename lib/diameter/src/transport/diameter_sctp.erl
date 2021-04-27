@@ -283,7 +283,7 @@ i({connect, Pid, Opts, Addrs, Ref}) ->
                mode = {connect, connect(Sock, RAs, RP, [])},
                socket = Sock,
                message_cb = CB,
-               unordered = proplists:get_value(ordered, OwnOpts, false),
+               unordered = proplists:get_value(unordered, OwnOpts, false),
                packet = proplists:get_value(packet, OwnOpts, true),
                send = proplists:get_value(sender, OwnOpts, false)};
 
