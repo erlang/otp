@@ -30,7 +30,7 @@
          off_heap_values/1,keys/1,collisions/1,
          init_restart/1, put_erase_trapping/1,
          killed_while_trapping_put/1,
-         killed_while_trapping_erase/1]).
+         killed_while_trapping_erase/1,whole_message/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -45,7 +45,7 @@ all() ->
      get_all_race,
      killed_while_trapping,off_heap_values,keys,collisions,
      init_restart, put_erase_trapping, killed_while_trapping_put,
-     killed_while_trapping_erase].
+     killed_while_trapping_erase,whole_message].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -692,6 +692,48 @@ do_test_init_restart_cmd(File) ->
             io:put_chars("ok"),
             init:stop()
     end.
+
+%% Test that the literal is copied when removed also when
+%% the whole message is a literal...
+
+whole_message(Config) when is_list(Config) ->
+    whole_message_test(on_heap),
+    whole_message_test(off_heap),
+    ok.
+    
+whole_message_test(MQD) ->
+    io:format("Testing on ~p~n", [MQD]),
+    Go = make_ref(),
+    Done = make_ref(),
+    TestRef = make_ref(),
+    Tester = self(),
+    persistent_term:put(test_ref, TestRef),
+    Pid = spawn_opt(fun () ->
+                             receive Go -> ok end,
+                             receive TestRef -> ok end,
+                             receive TestRef -> ok end,
+                             receive TestRef -> ok end,
+                             receive [TestRef] -> ok end,
+                             receive [TestRef] -> ok end,
+                             receive [TestRef] -> ok end,
+                             Tester ! Done
+                     end, [link, {message_queue_data, MQD}]),
+    Pid ! persistent_term:get(test_ref),
+    Pid ! persistent_term:get(test_ref),
+    Pid ! persistent_term:get(test_ref),
+    %% Throw in some messages with a reference from the heap
+    %% while we're at it...
+    Pid ! [persistent_term:get(test_ref)],
+    Pid ! [persistent_term:get(test_ref)],
+    Pid ! [persistent_term:get(test_ref)],
+    persistent_term:erase(test_ref),
+    receive after 1000 -> ok end,
+    Pid ! Go,
+    receive Done -> ok end,
+    unlink(Pid),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ok.
 
 %% Check that there is the same number of persistents terms before
 %% and after each test case.
