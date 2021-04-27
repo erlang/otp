@@ -1073,7 +1073,7 @@ self->num = fd;
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len, unsigned timeout_ms)</nametext></name>
       <fsummary>Obsolete function to send a message to a registered name with
         time-out.</fsummary>
       <desc>
