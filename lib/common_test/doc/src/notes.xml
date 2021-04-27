@@ -33,6 +33,36 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.20.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race condition could cause ct_netconfc:open/* to return
+	    a disfunctional handle, resulting in errors when invoking
+	    other api functions on it, and making it impossible to
+	    establish a new connection to the server in question.
+	    Similar symptoms were possible with open/* in modules
+	    ct_ssh and ct_telnet.</p>
+          <p>
+	    Internal messages from common_test processes could be
+	    left in the caller's message queue after a timeout when
+	    invoking call/* in modules ct_netconfc and ct_ssh. An
+	    internal process used by module ct_telnet could leak
+	    memory due to stray messages.</p>
+          <p>
+	    Calls to ct_telnet:open/* and ct_telnet:get_data/1 could
+	    hang indefinitely if the TCP connection to the server was
+	    lost.</p>
+          <p>
+	    Own Id: OTP-17328 Aux Id: ERIERL-631 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.20</title>
 
     <section><title>Improvements and New Features</title>
