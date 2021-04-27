@@ -404,12 +404,8 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     do_unlink(Parent, MSL),
     exit(Reason).
 
-reply({To, [alias|Alias] = Tag}, Reply) when is_pid(To), is_reference(Alias) ->
-    Alias ! {Tag, Reply},
-    ok;
-reply({From, Ref}, Msg) ->
-    From ! {Ref, Msg},
-    ok.
+reply(From, Reply) ->
+    gen:reply(From, Reply).
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
