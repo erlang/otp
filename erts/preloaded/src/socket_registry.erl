@@ -271,7 +271,7 @@ user_sock_delete_update([Mon|Mons], UDB, MDB) ->
 		    %% ?DBG(['no user found']),
 		    user_sock_delete_update(Mons, UDB, MDB2)
 	    end;
-	false -> % race?
+	error -> % race?
 	    %% ?DBG(['no xref found']),
 	    user_sock_delete_update(Mons, UDB, MDB)
     end.
@@ -340,7 +340,7 @@ handle_user_down(#state{socks = SDB, mons = MDB, users = UDB} = State, Pid) ->
 	    %% Get info about all sockets monitored by this process
 	    {SDB2, MDB2} = handle_user_down_cleanup(UMons, SDB, MDB),
 	    State#state{socks = SDB2, mons = MDB2, users = UDB2};
-	false -> % race
+	error -> % race
 	    State
     end.
 
