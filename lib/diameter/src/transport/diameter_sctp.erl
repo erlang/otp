@@ -826,8 +826,9 @@ recv(#transport{rotate = N} = S) ->
 unordered(Sock, OS, B)
   when B;
        is_integer(B), OS =< B ->
+    %% assoc_id == SCTP_CURRENT_ASSOC (1)
     inet:setopts(Sock, [{sctp_default_send_param,
-                         #sctp_sndrcvinfo{flags = [unordered]}}]);
+                         #sctp_sndrcvinfo{flags = [unordered], assoc_id = 1}}]);
 
 unordered(_, OS, B)
   when not B;
