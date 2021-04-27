@@ -289,7 +289,8 @@ handle_send_down([Mon|Mons], MDB) ->
 
 send_down(Pid, Mon, MSock, Reason) ->
     %% We do not yet have a 'reason', so use 'closed'...
-    Pid ! mk_down_msg(Mon, MSock, Reason).
+    Pid ! mk_down_msg(Mon, MSock, Reason),
+    ok.
 
 
 
