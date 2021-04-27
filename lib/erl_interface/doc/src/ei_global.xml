@@ -48,7 +48,7 @@
 
   <funcs>
     <func>
-      <name since=""><ret>char **</ret><nametext>ei_global_names(ec,fd,count)</nametext></name>
+      <name since="OTP 23.0"><ret>char **</ret><nametext>ei_global_names(ec,fd,count)</nametext></name>
       <fsummary>Obtain list of global names.</fsummary>
       <type>
         <v><seecref marker="ei_connect#ei_cnode"><c>ei_cnode</c></seecref> *ec;</v>
@@ -81,7 +81,7 @@
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>ei_global_register(fd,name,pid)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_global_register(fd,name,pid)</nametext></name>
       <fsummary>Register a name in global.</fsummary>
       <type>
         <v>int fd;</v>
@@ -105,7 +105,7 @@
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>ei_global_unregister(ec,fd,name)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_global_unregister(ec,fd,name)</nametext></name>
       <fsummary>Unregister a name from global.</fsummary>
       <type>
         <v><seecref marker="ei_connect#ei_cnode"><c>ei_cnode</c></seecref> *ec;</v>
@@ -126,7 +126,7 @@
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>ei_global_whereis(ec,fd,name,pid,node)</nametext></name>
+      <name since="OTP 23.0"><ret>int</ret><nametext>ei_global_whereis(ec,fd,name,pid,node)</nametext></name>
       <fsummary>Look up a name in global.</fsummary>
       <type>
         <v><seecref marker="ei_connect#ei_cnode"><c>ei_cnode</c></seecref> *ec;</v>

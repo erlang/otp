@@ -508,7 +508,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">which_transports() -> Result</name>
+      <name since="OTP 23.3">which_transports() -> Result</name>
       <fsummary>Get all configured transports</fsummary>
       <type>
         <v>Result = [{TDomain, TAddress} | {TDomain, TAddress, Kind}]</v>

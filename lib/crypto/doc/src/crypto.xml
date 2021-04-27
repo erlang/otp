@@ -714,7 +714,7 @@
     </func>
 
     <func>
-      <name name="crypto_final" arity="1" since=""/>
+      <name name="crypto_final" arity="1" since="OTP 23.0"/>
       <fsummary>Ends a series of encryptions or decryptions</fsummary>
       <desc>
 	<p>
@@ -727,7 +727,7 @@
     </func>
 
     <func>
-      <name name="crypto_get_data" arity="1" since=""/>
+      <name name="crypto_get_data" arity="1" since="OTP 23.0"/>
       <fsummary>Get information about crypto states</fsummary>
       <desc>
 	<p>

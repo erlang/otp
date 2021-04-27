@@ -1047,7 +1047,7 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
     <func>
       <name since=""><ret>int</ret><nametext>ei_rpc(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, ei_x_buff *x)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen)</nametext></name>
-      <name since="OTP-17048"><ret>int</ret><nametext>ei_xrpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, int flags)</nametext></name>
+      <name since="OTP 24.0"><ret>int</ret><nametext>ei_xrpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, int flags)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg, ei_x_buff *x)</nametext></name>
       <fsummary>Remote Procedure Call from C to Erlang.</fsummary>
       <type>
