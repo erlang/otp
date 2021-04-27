@@ -173,7 +173,7 @@
 -type socket_info() :: #{domain        := domain() | integer(),
                          type          := type() | integer(),
                          protocol      := protocol() | integer(),
-                         ctrl          := pid(),
+                         owner         := pid(),
                          ctype         := normal | fromfd | {fromfd, integer()},
                          counters      := socket_counters(),
                          num_readers   := non_neg_integer(),
