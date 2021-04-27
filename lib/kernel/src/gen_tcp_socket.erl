@@ -1755,12 +1755,12 @@ handle_recv_peek(P, D, ActionsR, Packet) ->
                     handle_recv_peek(
                       P, D, ActionsR, Packet,
                       <<ShortData/binary, FinalData/binary>>);
-                {ok, {_, SelectInfo}} ->
+                {select, SelectInfo} ->
                     {next_state,
                      #recv{info = SelectInfo},
                      {P, D},
                      reverse(ActionsR)};
-                {select, SelectInfo} ->
+                {select, {SelectInfo, _}} ->
                     {next_state,
                      #recv{info = SelectInfo},
                      {P, D},
@@ -1807,16 +1807,16 @@ handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
             handle_recv_deliver(
               P, D#{buffer := <<>>}, ActionsR,
               condense_buffer([Data | Buffer]));
-        {ok, {Data, SelectInfo}} ->
-            N = Length - byte_size(Data),
-            {next_state,
-             #recv{info = SelectInfo},
-             {P, D#{buffer := [Data | Buffer], recv_length := N}},
-             reverse(ActionsR)};
         {select, SelectInfo} ->
             {next_state,
              #recv{info = SelectInfo},
              {P, D#{buffer := Buffer}},
+             reverse(ActionsR)};
+        {select, {SelectInfo, Data}} ->
+            N = Length - byte_size(Data),
+            {next_state,
+             #recv{info = SelectInfo},
+             {P, D#{buffer := [Data | Buffer], recv_length := N}},
              reverse(ActionsR)};
         {error, {Reason, <<Data/binary>>}} ->
             %% Error before all data
@@ -1840,7 +1840,13 @@ handle_recv_length(P, D, ActionsR, _0, Buffer) ->
                 {ok, <<Data/binary>>} ->
 		    %% ?DBG({'got some', byte_size(Data)}),
                     handle_recv_deliver(P, D, ActionsR, Data);
-                {ok, {Data, SelectInfo}} ->
+                {select, SelectInfo} ->
+		    %% ?DBG({'got another select', SelectInfo}),
+                    {next_state,
+                     #recv{info = SelectInfo},
+                     {P, D},
+                     reverse(ActionsR)};
+                {select, {SelectInfo, Data}} ->
 		    %% ?DBG({'got another select with data', byte_size(Data)}),
                     case socket:cancel(Socket, SelectInfo) of
                         ok ->
@@ -1848,12 +1854,6 @@ handle_recv_length(P, D, ActionsR, _0, Buffer) ->
                         {error, Reason} ->
                             handle_recv_error(P, D, ActionsR, Reason, Data)
                     end;
-                {select, SelectInfo} ->
-		    %% ?DBG({'got another select', SelectInfo}),
-                    {next_state,
-                     #recv{info = SelectInfo},
-                     {P, D},
-                     reverse(ActionsR)};
                 {error, {Reason, <<Data/binary>>}} ->
 		    %% ?DBG({'error with data', Reason, byte_size(Data)}),
                     handle_recv_error(P, D, ActionsR, Reason, Data);

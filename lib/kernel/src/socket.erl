@@ -1339,7 +1339,7 @@ send(Socket, Data) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket     :: socket(),
@@ -1352,7 +1352,7 @@ send(Socket, Data) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket       :: socket(),
@@ -1395,7 +1395,7 @@ send(Socket, Data, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket     :: socket(),
@@ -1409,7 +1409,7 @@ send(Socket, Data, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket       :: socket(),
@@ -1447,7 +1447,7 @@ send(Socket, Data, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket     :: socket(),
@@ -1461,7 +1461,7 @@ send(Socket, Data, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket       :: socket(),
@@ -1578,7 +1578,7 @@ send_common_nowait_result(SelectHandle, Op, Result) ->
         {select, ContData} ->
             {select, ?SELECT_INFO({Op, ContData}, SelectHandle)};
         {select, Data, ContData} ->
-            {ok, {Data, ?SELECT_INFO({Op, ContData}, SelectHandle)}};
+            {select, {?SELECT_INFO({Op, ContData}, SelectHandle), Data}};
         %%
         Result ->
             Result
@@ -1690,7 +1690,7 @@ sendto(Socket, Data, Dest_Cont) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket     :: socket(),
@@ -1704,7 +1704,7 @@ sendto(Socket, Data, Dest_Cont) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket       :: socket(),
@@ -1742,7 +1742,7 @@ sendto(Socket, Data, Dest_Cont) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket     :: socket(),
@@ -1756,7 +1756,7 @@ sendto(Socket, Data, Dest_Cont) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket       :: socket(),
@@ -1826,7 +1826,7 @@ sendto(Socket, Data, Dest, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket     :: socket(),
@@ -1841,7 +1841,7 @@ sendto(Socket, Data, Dest, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason}
                       when
       Socket       :: socket(),
@@ -2000,7 +2000,7 @@ sendmsg(Socket, Msg) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason} |
                   {'error', {Reason, RestData}}
                       when
@@ -2014,7 +2014,7 @@ sendmsg(Socket, Msg) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason} |
                   {'error', {Reason, RestData}}
                       when
@@ -2058,7 +2058,7 @@ sendmsg(Socket, Msg, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason} |
                   {'error', {Reason, RestData}}
                       when
@@ -2073,7 +2073,7 @@ sendmsg(Socket, Msg, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason} |
                   {'error', {Reason, RestData}}
                       when
@@ -2112,7 +2112,7 @@ sendmsg(Socket, Msg, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason} |
                   {'error', {Reason, RestData}}
                       when
@@ -2127,7 +2127,7 @@ sendmsg(Socket, Msg, Timeout) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
-                  {'ok', {RestData, SelectInfo}} |
+                  {'select', {SelectInfo, RestData}} |
                   {'error', Reason} |
                   {'error', {Reason, RestData}}
                       when
@@ -2256,7 +2256,7 @@ sendfile(Socket, FileHandle_Cont, Offset, Count) ->
                SelectHandle :: 'nowait') ->
                       {'ok', BytesSent} |
                       {'select', SelectInfo} |
-                      {'ok', {BytesSent, SelectInfo}} |
+                      {'select', {SelectInfo, BytesSent}} |
                       {'error', Reason}
                           when
       Socket     :: socket(),
@@ -2271,7 +2271,7 @@ sendfile(Socket, FileHandle_Cont, Offset, Count) ->
                SelectHandle :: select_handle()) ->
                       {'ok', BytesSent} |
                       {'select', SelectInfo} |
-                      {'ok', {BytesSent, SelectInfo}} |
+                      {'select', {SelectInfo, BytesSent}} |
                       {'error', Reason}
                           when
       Socket     :: socket(),
@@ -2313,7 +2313,7 @@ sendfile(Socket, FileHandle_Cont, Offset, Count) ->
                SelectHandle :: 'nowait') ->
                       {'ok', BytesSent} |
                       {'select', SelectInfo} |
-                      {'ok', {BytesSent, SelectInfo}} |
+                      {'select', {SelectInfo, BytesSent}} |
                       {'error', Reason}
                           when
       Socket     :: socket(),
@@ -2328,7 +2328,7 @@ sendfile(Socket, FileHandle_Cont, Offset, Count) ->
                SelectHandle :: select_handle()) ->
                       {'ok', BytesSent} |
                       {'select', SelectInfo} |
-                      {'ok', {BytesSent, SelectInfo}} |
+                      {'select', {SelectInfo, BytesSent}} |
                       {'error', Reason}
                           when
       Socket     :: socket(),
@@ -2448,8 +2448,7 @@ sendfile_nowait(SockRef, State, SelectHandle) ->
             {FRef, _Offset, _Count} = State,
             {select, ?SELECT_INFO({sendfile, FRef}, SelectHandle)};
         {select, BytesSent} ->
-            {ok,
-             {BytesSent, ?SELECT_INFO(sendfile, SelectHandle)}};
+            {select, {?SELECT_INFO(sendfile, SelectHandle), BytesSent}};
         %%
         Result ->
             Result
@@ -2572,8 +2571,8 @@ recv(Socket, Length) ->
 
 -spec recv(Socket, Flags, SelectHandle :: 'nowait') ->
                   {'ok', Data} |
-                  {'ok', {Data, SelectInfo}} |
                   {'select', SelectInfo} |
+                  {'select', {SelectInfo, Data}} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
       Socket     :: socket(),
@@ -2584,8 +2583,8 @@ recv(Socket, Length) ->
 
           (Socket, Flags, SelectHandle :: select_handle()) ->
                   {'ok', Data} |
-                  {'ok', {Data, SelectInfo}} |
                   {'select', SelectInfo} |
+                  {'select', {SelectInfo, Data}} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
       Socket       :: socket(),
@@ -2624,8 +2623,8 @@ recv(Socket, Length) ->
 
           (Socket, Length, SelectHandle :: 'nowait') ->
                   {'ok', Data} |
-                  {'ok', {Data, SelectInfo}} |
                   {'select', SelectInfo} |
+                  {'select', {SelectInfo, Data}} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
       Socket     :: socket(),
@@ -2636,8 +2635,8 @@ recv(Socket, Length) ->
 
           (Socket, Length, SelectHandle :: select_handle()) ->
                   {'ok', Data} |
-                  {'ok', {Data, SelectInfo}} |
                   {'select', SelectInfo} |
+                  {'select', {SelectInfo, Data}} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
       Socket       :: socket(),
@@ -2673,8 +2672,8 @@ recv(Socket, Length, Timeout) ->
 
 -spec recv(Socket, Length, Flags, SelectHandle :: 'nowait') ->
                   {'ok', Data} |
-                  {'ok', {Data, SelectInfo}} |
                   {'select', SelectInfo} |
+                  {'select', {SelectInfo, Data}} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
       Socket     :: socket(),
@@ -2686,8 +2685,8 @@ recv(Socket, Length, Timeout) ->
 
           (Socket, Length, Flags, SelectHandle :: select_handle()) ->
                   {'ok', Data} |
-                  {'ok', {Data, SelectInfo}} |
                   {'select', SelectInfo} |
+                  {'select', {SelectInfo, Data}} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
       Socket       :: socket(),
@@ -2755,7 +2754,7 @@ recv_nowait(SockRef, Length, Flags, SelectHandle, Acc) ->
         {select, Bin} ->
             %% We got less than requested so the caller will
             %% get a select message when there might be more to read
-            {ok, {bincat(Acc, Bin), ?SELECT_INFO(recv, SelectHandle)}};
+            {select, {?SELECT_INFO(recv, SelectHandle), bincat(Acc, Bin)}};
         select ->
             %% The caller will get a select message when there
             %% might be data to read
@@ -2763,7 +2762,7 @@ recv_nowait(SockRef, Length, Flags, SelectHandle, Acc) ->
                 byte_size(Acc) =:= 0 ->
                     {select, ?SELECT_INFO(recv, SelectHandle)};
                 true ->
-                    {ok, {Acc, ?SELECT_INFO(recv, SelectHandle)}}
+                    {select, {?SELECT_INFO(recv, SelectHandle), Acc}}
             end;
         Result ->
             recv_result(Acc, Result)
