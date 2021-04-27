@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_port_list/0, procs_info/1,
+-export([socket_info/0,
+	 sys_info/0, get_port_list/0, get_socket_list/0, procs_info/1,
 	 get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
@@ -51,6 +52,16 @@ vsn() ->
 %%
 %% observer backend
 %%
+
+socket_info() ->
+    Info0             = socket:info(),
+    {Counters, Info1} = maps:take(counters, Info0),
+    IovMax            = maps:get(iov_max , Info1),
+    NumMons           = socket:number_of_monitors(),
+    [{iov_max, IovMax}, {num_monitors, NumMons} | maps:to_list(Counters)].
+    
+
+
 sys_info() ->
     MemInfo = try erlang:memory() of
 		  Mem -> Mem
@@ -202,6 +213,77 @@ inet_port_extra({_,Type},Port) when Type =:= "udp_inet";
     [{inet,Data}];
 inet_port_extra(_,_) ->
     [].
+
+
+get_socket_list() ->
+    [begin
+	 Kind  = socket:which_socket_kind(S),
+	 FD    = case socket:getopt(S, otp, fd) of
+		     {ok, FD0} ->
+			 FD0;
+		     _ ->
+			 -1
+		 end,
+	 Info0  = socket:info(S),
+	 d("get_socket_list -> info: "
+	   "~n   ~p", [Info0]),
+	 IdStr0 = socket:to_list(S),
+	 IdStr  = case Info0 of
+		      #{type     := stream,
+			protocol := tcp} when (Kind =:= compat) ->
+			  %% Faketi fake
+			  "#Socket" ++ Id = IdStr0,
+			  "#InetSocket" ++ Id;
+		      _ ->
+			  IdStr0
+		  end,
+	 {Counters0, Info1} = maps:take(counters, Info0),
+	 Counters = maps:to_list(Counters0),
+	 d("get_socket_list -> Counters: "
+	   "~n   ~p", [Counters]),
+	 Info2 = maps:remove(ctype,         Info1),
+	 Info3 = maps:remove(num_acceptors, Info2),
+	 Info4 = maps:remove(num_readers,   Info3),
+	 Info5 = maps:remove(num_writers,   Info4),
+	 Info6 =
+	     case socket:peername(S) of
+		 {ok, RAddr} ->
+		     RAddrStr = sockaddr_to_list(RAddr),
+		     maps:put(raddress, RAddrStr, Info5);
+		 _ ->
+		     Info5
+	     end,
+	 Info7 =
+	     case socket:sockname(S) of
+		 {ok, LAddr} ->
+		     LAddrStr = sockaddr_to_list(LAddr),
+		     maps:put(laddress, LAddrStr, Info6);
+		 _ ->
+		     Info6
+	     end,
+	 Info7#{id           => S,
+		id_str       => IdStr,
+		fd           => FD,
+		kind         => Kind,
+		monitored_by => socket:monitored_by(S),
+		statistics   => Counters}
+     end || S <- socket:which_sockets()].
+
+sockaddr_to_list(#{family := local, path := PathBin}) when is_binary(PathBin) ->
+    erlang:binary_to_list(PathBin);
+sockaddr_to_list(#{family := local, path := Path}) when is_list(Path) ->
+    Path;
+sockaddr_to_list(#{family := inet, addr := Addr, port := Port}) ->
+    inet_parse:ntoa(Addr) ++ " : " ++ erlang:integer_to_list(Port);
+sockaddr_to_list(#{family := inet6, addr := Addr, port := Port,
+		   flowinfo := FI, scope_id := SID}) ->
+    inet_parse:ntoa(Addr) ++ " : " ++
+	erlang:integer_to_list(Port) ++ 
+	" , " ++ erlang:integer_to_list(FI) ++
+	" , " ++ erlang:integer_to_list(SID);
+sockaddr_to_list(Addr) ->
+    f("~p", [Addr]).
+    
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
@@ -793,3 +875,19 @@ mnesia_tables() ->
 
 ignore(true, Reason) -> throw(Reason);
 ignore(_,_ ) -> ok.
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+%% d(F) ->
+%%     d(F, []).
+
+d(F, A) ->
+    d(get(debug), F, A).
+
+d(true, F, A) ->
+    io:format("[ob] " ++ F ++ "~n", A);
+d(_, _, _) ->
+    ok.
+
+

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,6 +103,7 @@ get_scale() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(_Args) ->
+    %% put(debug, true),
     register(observer, self()),
     wx:new(),
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
@@ -122,23 +123,30 @@ init(_Args) ->
 
 setup(#state{frame = Frame} = State) ->
     %% Setup Menubar & Menus
+    d("setup -> load-config"),
     Config = load_config(),
     Cnf = fun(Who) ->
                   proplists:get_value(Who, Config, #{})
           end,
+    d("setup -> create menu-bar"),
     MenuBar = wxMenuBar:new(),
 
+    d("setup -> get nodes"),
     {Nodes, NodeMenus} = get_nodes(),
     DefMenus = default_menus(NodeMenus),
+    d("setup -> create menus"),
     observer_lib:create_menus(DefMenus, MenuBar, default),
 
+    d("setup -> set menu-bar"),
     wxFrame:setMenuBar(Frame, MenuBar),
 
     %% Setup panels
+    d("setup -> panel setup"),
     Panel = wxPanel:new(Frame, []),
     Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
 
     %% System Panel
+    d("setup -> create system panel"),
     SysPanel = observer_sys_wx:start_link(Notebook, self(), Cnf(sys_panel)),
     wxNotebook:addPage(Notebook, SysPanel, "System", []),
 
@@ -167,59 +175,75 @@ setup(#state{frame = Frame} = State) ->
     %% the window size
 
     %% Perf Viewer Panel
+    d("setup -> create perf panel"),
     PerfPanel = observer_perf_wx:start_link(Notebook, self(), Cnf(perf_panel)),
     wxNotebook:addPage(Notebook, PerfPanel, "Load Charts", []),
 
     %% Memory Allocator Viewer Panel
+    d("setup -> create memory panel"),
     AllcPanel = observer_alloc_wx:start_link(Notebook, self(), Cnf(allc_panel)),
     wxNotebook:addPage(Notebook, AllcPanel, ?ALLOC_STR, []),
 
     %% App Viewer Panel
+    d("setup -> create app panel"),
     AppPanel = observer_app_wx:start_link(Notebook, self(), Cnf(app_panel)),
     wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
 
     %% Process Panel
+    d("setup -> create process panel"),
     ProPanel = observer_pro_wx:start_link(Notebook, self(), Cnf(pro_panel)),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
 
     %% Port Panel
+    d("setup -> create port panel"),
     PortPanel = observer_port_wx:start_link(Notebook, self(), Cnf(port_panel)),
     wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
 
+    %% Socket Panel
+    d("setup -> create socket panel"),
+    SockPanel = observer_sock_wx:start_link(Notebook, self(), Cnf(sock_panel)),
+    wxNotebook:addPage(Notebook, SockPanel, "Sockets", []),
+
     %% Table Viewer Panel
+    d("setup -> create table panel"),
     TVPanel = observer_tv_wx:start_link(Notebook, self(), Cnf(tv_panel)),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
 
     %% Trace Viewer Panel
+    d("setup -> create trace panel"),
     TracePanel = observer_trace_wx:start_link(Notebook, self(), Cnf(trace_panel)),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
     %% Force redraw (windows needs it)
+    d("setup -> refresh"),
     wxWindow:refresh(Panel),
     DoFreeze andalso wxWindow:thaw(Panel),
 
+    d("setup -> frame: raise"),
     wxFrame:raise(Frame),
+    d("setup -> frame: set focus"),
     wxFrame:setFocus(Frame),
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
-    Panels = [{sys_panel, SysPanel, "System"},   %% In order
-              {perf_panel, PerfPanel, "Load Charts"},
-              {allc_panel, AllcPanel, ?ALLOC_STR},
-              {app_panel,  AppPanel, "Applications"},
-              {pro_panel, ProPanel, "Processes"},
-              {port_panel, PortPanel, "Ports"},
-              {tv_panel, TVPanel, "Table Viewer"},
+    Panels = [{sys_panel,   SysPanel,   "System"},   %% In order
+              {perf_panel,  PerfPanel,  "Load Charts"},
+              {allc_panel,  AllcPanel,  ?ALLOC_STR},
+              {app_panel,   AppPanel,   "Applications"},
+              {pro_panel,   ProPanel,   "Processes"},
+              {port_panel,  PortPanel,  "Ports"},
+              {sock_panel,  SockPanel,  "Sockets"},
+              {tv_panel,    TVPanel,    "Table Viewer"},
               {trace_panel, TracePanel, ?TRACE_STR}],
 
     UpdState = State#state{main_panel = Panel,
-			   notebook = Notebook,
-			   menubar = MenuBar,
+			   notebook   = Notebook,
+			   menubar    = MenuBar,
 			   status_bar = StatusBar,
 			   active_tab = SysPid,
-                           panels = Panels,
-			   node  = node(),
-			   nodes = Nodes
+                           panels     = Panels,
+			   node       = node(),
+			   nodes      = Nodes
 			  },
     %% Create resources which we don't want to duplicate
     SysFont = wxSystemSettings:getFont(?wxSYS_OEM_FIXED_FONT),
@@ -234,6 +258,7 @@ setup(#state{frame = Frame} = State) ->
 		    wxFont:new(SysFontSize, ?wxFONTFAMILY_MODERN, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL)
 	    end,
     put({font, fixed}, Fixed),
+    d("setup -> done"),
     UpdState.
 
 
@@ -829,3 +854,17 @@ is_rb_server_running(Node, LogState) ->
        undefined ->
 	   ok
    end.
+
+
+d(F) ->
+    d(F, []).
+
+d(F, A) ->
+    d(get(debug), F, A).
+
+d(true, F, A) ->
+    io:format("[owx] " ++ F ++ "~n", A);
+d(_, _, _) ->
+    ok.
+
+

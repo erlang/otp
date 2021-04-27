@@ -146,15 +146,26 @@ display_info(Frame, Info) ->
     {Panel, Sizer, InfoFs}.
 
 display_info(Panel, Sizer, Info) ->
+    d("display_info -> entry with"
+      "~n   Panel: ~p"
+      "~n   Sizer: ~p"
+      "~n   Info:  ~p", [Panel, Sizer, Info]),
     wxSizer:addSpacer(Sizer, 5),
     Add = fun(BoxInfo) ->
+		  d("display_info:add -> entry with"
+		    "~n   BoxInfo:  ~p", [BoxInfo]),
 		  case create_box(Panel, BoxInfo) of
 		      {Box, InfoFs} ->
+			  d("display_info:add -> box created"
+			    "~n   Box:    ~p"
+			    "~n   InfoFs: ~p", [Box, InfoFs]),
 			  wxSizer:add(Sizer, Box,
-				      [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
+				      [{flag, ?wxEXPAND bor ?wxALL},
+				       {border, 5}]),
 			  wxSizer:addSpacer(Sizer, 5),
 			  InfoFs;
 		      undefined ->
+			  d("display_info:add -> box *not* created"),
 			  []
 		  end
 	  end,
@@ -889,3 +900,17 @@ make_obsbin(Bin,Tab) ->
     Key = {Preview, Size, Hash},
     ets:insert(Tab, {Key,Bin}),
     ['#OBSBin',Preview,PreviewBitSize,Size,Hash].
+
+
+d(F) ->
+    d(F, []).
+
+d(F, A) ->
+    d(get(debug), F, A).
+
+d(true, F, A) ->
+    io:format("[ol] " ++ F ++ "~n", A);
+d(_, _, _) ->
+    ok.
+
+

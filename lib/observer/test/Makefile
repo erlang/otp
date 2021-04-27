@@ -19,6 +19,9 @@
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
+SOCKET_MODULES = \
+	observer_socket_test
+
 MODULES =  \
 	observer_SUITE \
 	crashdump_viewer_SUITE \
@@ -28,7 +31,8 @@ MODULES =  \
 	client \
 	server \
 	crashdump_helper \
-	crashdump_helper_unicode
+	crashdump_helper_unicode \
+	$(SOCKET_MODULES)
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -51,6 +55,10 @@ ERL_COMPILE_FLAGS += +warnings_as_errors +nowarn_export_all
 
 EBIN = .
 
+TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -69,6 +77,10 @@ clean:
 	rm -f core
 
 docs:
+
+targets: $(TARGETS)
+socket_targets: $(SOCKET_TARGETS)
+
 
 # ----------------------------------------------------
 # Special targets
