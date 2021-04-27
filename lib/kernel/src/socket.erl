@@ -2255,6 +2255,7 @@ sendfile(Socket, FileHandle_Cont, Offset, Count) ->
 -spec sendfile(Socket, Cont, Offset, Count,
                SelectHandle :: 'nowait') ->
                       {'ok', BytesSent} |
+                      {'select', SelectInfo} |
                       {'ok', {BytesSent, SelectInfo}} |
                       {'error', Reason}
                           when
@@ -2269,8 +2270,9 @@ sendfile(Socket, FileHandle_Cont, Offset, Count) ->
               (Socket, Cont, Offset, Count,
                SelectHandle :: select_handle()) ->
                       {'ok', BytesSent} |
+                      {'select', SelectInfo} |
                       {'ok', {BytesSent, SelectInfo}} |
-                      {'error', {Reason, BytesSent}}
+                      {'error', Reason}
                           when
       Socket     :: socket(),
       Cont       :: select_info(),
