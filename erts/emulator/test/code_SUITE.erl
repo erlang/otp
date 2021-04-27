@@ -28,7 +28,9 @@
          fake_literals/1,
          false_dependency/1,coverage/1,fun_confusion/1,
          t_copy_literals/1, t_copy_literals_frags/1,
-         erl_544/1, max_heap_size/1]).
+         erl_544/1, max_heap_size/1,
+	 check_process_code_signal_order/1,
+	 check_process_code_dirty_exec_proc/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
@@ -43,7 +45,8 @@ all() ->
      constant_pools, constant_refc_binaries, fake_literals,
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
-     erl_544, max_heap_size].
+     erl_544, max_heap_size, check_process_code_signal_order,
+     check_process_code_dirty_exec_proc].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1049,6 +1052,49 @@ max_heap_size_proc(Mod) ->
     receive
         _ -> Value
     end.
+
+check_process_code_signal_order(Config) when is_list(Config) ->
+    process_flag(scheduler, 1),
+    process_flag(priority, high),
+    {module,versions} = erlang:load_module(versions, compile_version(1, Config)),
+    Pid = spawn_opt(versions, loop, [], [{scheduler, 1}]),
+    true = erlang:delete_module(versions),
+    true = erlang:check_process_code(Pid, versions),
+    Ref = make_ref(),
+    spam_signals(Pid, 10000),
+    %% EXIT signal *should* arrive...
+    exit(Pid, kill),
+    %% ... before CPC signal...
+    async = erlang:check_process_code(Pid, versions, [{async, Ref}]),
+    %% ... which means that the result of the check_process_code *should* be 'false'...
+    false = busy_wait_cpc_res(Ref),
+    ok.
+
+busy_wait_cpc_res(Ref) ->
+    receive
+	{check_process_code, Ref, Res} ->
+	    Res
+    after 0 ->
+	    busy_wait_cpc_res(Ref)
+    end.
+
+spam_signals(P, N) when N =< 0 ->
+    ok;
+spam_signals(P, N) ->
+    link(P),
+    unlink(P),
+    spam_signals(P, N-2).
+
+check_process_code_dirty_exec_proc(Config) when is_list(Config) ->
+    Pid = spawn(fun () ->
+			erts_debug:dirty_io(wait, 10000)
+		end),
+    receive after 100 -> ok end,
+    false = erlang:check_process_code(Pid, non_existing_module),
+    {status, running} = process_info(Pid, status),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ok.
 
 %% Utilities.
 

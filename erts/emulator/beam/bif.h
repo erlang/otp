@@ -462,6 +462,15 @@ do {									\
     BIF_TRAP4((TRP), (P), (A0), (A1), (A2), (A3));                      \
 } while (0)
 
+extern Export erts_bif_handle_signals_return_export;
+
+#define ERTS_BIF_HANDLE_SIGNALS_RETURN(P, VAL)                          \
+    BIF_TRAP1(&erts_bif_handle_signals_return_export, (P), (VAL))
+
+#define ERTS_BIF_PREP_HANDLE_SIGNALS_RETURN(Ret, P, Val)                \
+    ERTS_BIF_PREP_TRAP1((Ret), &erts_bif_handle_signals_return_export,  \
+                        (P), (Val))
+
 #define ERTS_BIF_PREP_EXITED(RET, PROC)	                                \
 do {                                                                    \
     KILL_CATCHES((PROC));                                               \
