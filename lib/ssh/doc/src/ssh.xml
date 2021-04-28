@@ -563,6 +563,13 @@
 	    to connect to the server and public key user-authentication fails. The option provides
 	    a list of valid usernames and the corresponding passwords.
 	    </p>
+	    <warning>
+	      <p>Note that this is very insecure due to the plain-text passwords;
+	      it is intended for test purposes.
+	      Use the <seeerl marker="#option-pwdfun"><c>pwdfun</c></seeerl> option
+	      to handle the password checking instead.
+	      </p>
+	    </warning>
           </item>
 
 	  <tag><marker id="option-pk_check_user"/><c>pk_check_user</c></tag>
@@ -1276,7 +1283,7 @@
 
 <!-- CONNECTION_INFO/1, CONNECTION_INFO/2 -->
    <func>
-     <name name="connection_info" arity="1" since=""/>
+     <name name="connection_info" arity="1" since="OTP 22.1"/>
      <name name="connection_info" arity="2" since=""/>
      <fsummary>Retrieves information about a connection.</fsummary>
      <desc>
@@ -1289,7 +1296,7 @@
 
 <!-- SET_SOCK_OPTS/2 -->
    <func>
-     <name name="set_sock_opts" arity="2" since=""/>
+     <name name="set_sock_opts" arity="2" since="OTP 22.3"/>
      <fsummary>Set tcp socket options on connections</fsummary>
      <desc>
        <p>Sets tcp socket options on the tcp-socket below an ssh connection.</p>
@@ -1321,7 +1328,7 @@
 
 <!-- GET_SOCK_OPTS/2 -->
    <func>
-     <name name="get_sock_opts" arity="2" since=""/>
+     <name name="get_sock_opts" arity="2" since="OTP 22.3"/>
      <fsummary>Get tcp socket options on connections</fsummary>
      <desc>
        <p>Get tcp socket option values of the tcp-socket below an ssh connection.</p>
@@ -1380,7 +1387,7 @@
 <!-- DAEMON_INFO/1 -->   
    <func>
      <name name="daemon_info" arity="1" since="OTP 19.0"/>
-     <name name="daemon_info" arity="2" since=""/>
+     <name name="daemon_info" arity="2" since="OTP 22.1"/>
      <fsummary>Get info about a daemon</fsummary>
      <desc>
        <p>Returns information about a daemon intended for e.g debugging or logging.
@@ -1477,8 +1484,8 @@
     </func>
 
     <func>
-      <name name="tcpip_tunnel_from_server" arity="5" since=""/>
-      <name name="tcpip_tunnel_from_server" arity="6" since=""/>
+      <name name="tcpip_tunnel_from_server" arity="5" since="OTP 23.0"/>
+      <name name="tcpip_tunnel_from_server" arity="6" since="OTP 23.0"/>
       <fsummary>TCP/IP tunneling from a server to a client ("tcpip-forward")</fsummary>
       <desc>
 	<p>Asks the remote server of <c>ConnectionRef</c> to listen to <c>ListenHost:ListenPort</c>.
@@ -1499,8 +1506,8 @@
     </func>
     
     <func>
-      <name name="tcpip_tunnel_to_server" arity="5" since=""/>
-      <name name="tcpip_tunnel_to_server" arity="6" since=""/>
+      <name name="tcpip_tunnel_to_server" arity="5" since="OTP 23.0"/>
+      <name name="tcpip_tunnel_to_server" arity="6" since="OTP 23.0"/>
       <fsummary>TCP/IP tunneling from a client to a server ("direct-tcpip")</fsummary>
       <desc>
 	<p>Tells the local client to listen to <c>ListenHost:ListenPort</c>.  When someone

@@ -792,7 +792,7 @@ restart(Child, State) ->
 	    case restart(NState#state.strategy, Child, NState) of
 		{{try_again, TryAgainId}, NState2} ->
 		    %% Leaving control back to gen_server before
-		    %% trying again. This way other incoming requsts
+		    %% trying again. This way other incoming requests
 		    %% for the supervisor can be handled - e.g. a
 		    %% shutdown request for the supervisor or the
 		    %% child.
@@ -1181,7 +1181,7 @@ find_dynamic_child(Pid, State) ->
             error
     end.
 
-%% Given the pid, find the child record for a non-dyanamic child.
+%% Given the pid, find the child record for a non-dynamic child.
 -spec find_child_by_pid(IdOrPid, state()) -> {ok,child_rec()} | error when
       IdOrPid :: pid() | {restarting,pid()}.
 find_child_by_pid(Pid,#state{children={_Ids,Db}}) ->
@@ -1444,10 +1444,10 @@ validRestartType(temporary)   -> true;
 validRestartType(transient)   -> true;
 validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
 
-validSignificant(true, permanent, _AutoShutdown) ->
-    throw({invalid_significant, true});
 validSignificant(true, _RestartType, never) ->
-    throw({invalid_significant, true});
+    throw({bad_combination, [{auto_shutdown, never}, {significant, true}]});
+validSignificant(true, permanent, _AutoShutdown) ->
+    throw({bad_combination, [{restart, permanent}, {significant, true}]});
 validSignificant(Significant, _RestartType, _AutoShutdown)
   when is_boolean(Significant) ->
     true;

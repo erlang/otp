@@ -177,7 +177,7 @@ i_select_val_lins s fn I *
 
 i_select_tuple_arity S f? I *
 
-i_jump_on_val s fn I I *
+i_jump_on_val s fn W I *
 
 is_number f? s
 

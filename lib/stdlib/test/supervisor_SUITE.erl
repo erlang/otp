@@ -811,16 +811,19 @@ child_specs_map(Config) when is_list(Config) ->
 	fun
 	    ({never, ChildSpec = #{significant := true}}) ->
 		ChildSpec1 = CSFilter(ChildSpec),
-		{error, {invalid_significant, true}} =
-		    supervisor:check_childspecs([ChildSpec1], never);
+		{error, {bad_combination, BadOpts}} =
+		    supervisor:check_childspecs([ChildSpec1], never),
+		[{auto_shutdown, never}, {significant, true}] = lists:sort(BadOpts);
 	    ({AutoShutdown, ChildSpec = #{restart := undefined, significant := true}}) ->
 		ChildSpec1 = CSFilter(ChildSpec),
-		{error, {invalid_significant, true}} =
-		    supervisor:check_childspecs([ChildSpec1], AutoShutdown);
+		{error, {bad_combination, BadOpts}} =
+		    supervisor:check_childspecs([ChildSpec1], AutoShutdown),
+		[{restart, permanent}, {significant, true}] = lists:sort(BadOpts);
 	    ({AutoShutdown, ChildSpec = #{restart := permanent, significant := true}}) ->
 		ChildSpec1 = CSFilter(ChildSpec),
-		{error, {invalid_significant, true}} =
-		    supervisor:check_childspecs([ChildSpec1], AutoShutdown);
+		{error, {bad_combination, BadOpts}} =
+		    supervisor:check_childspecs([ChildSpec1], AutoShutdown),
+		[{restart, permanent}, {significant, true}] = lists:sort(BadOpts);
 	    ({AutoShutdown, ChildSpec}) ->
 		ChildSpec1 = CSFilter(ChildSpec),
 		ok = supervisor:check_childspecs([ChildSpec1], AutoShutdown)
@@ -861,7 +864,7 @@ child_specs_map(Config) when is_list(Config) ->
 	start_link({ok, {{simple_one_for_one, 2, 3600}, [CS0,CS0]}}),
 
     %% auto_shutdown => never should not accept significant children
-    {error, {start_spec, {invalid_significant, true}}} =
+    {error, {start_spec, {bad_combination, _}}} =
 	start_link({ok, {#{auto_shutdown => never}, [CS0#{significant => true}]}}),
 
     ok.
@@ -3310,7 +3313,7 @@ significant_upgrade_never_any(_Config) ->
 	       restart => transient,
 	       significant => true},
     {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, []}}),
-    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child1),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child1),
     S1 = sys:get_state(Sup1),
     ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => any_significant}, []}}),
     S2 = sys:get_state(Sup1),
@@ -3343,7 +3346,7 @@ significant_upgrade_any_never(_Config) ->
     true = (S1 /= S2),
     error = check_exit([ChildPid1], 1000),
     error = check_exit([Sup1], 1000),
-    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child2),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child2),
     terminate(ChildPid1, normal),
     ok = check_exit([ChildPid1]),
     error = check_exit([Sup1], 1000),
@@ -3365,7 +3368,7 @@ significant_upgrade_never_all(_Config) ->
 	       restart => transient,
 	       significant => true},
     {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, []}}),
-    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child1),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child1),
     S1 = sys:get_state(Sup1),
     ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => all_significant}, []}}),
     S2 = sys:get_state(Sup1),
@@ -3402,7 +3405,7 @@ significant_upgrade_all_never(_Config) ->
     true = (S1 /= S2),
     error = check_exit([ChildPid1], 1000),
     error = check_exit([Sup1], 1000),
-    {error, {invalid_significant, true}} = supervisor:start_child(Sup1, Child2),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child2),
     terminate(ChildPid1, normal),
     ok = check_exit([ChildPid1]),
     error = check_exit([Sup1], 1000),

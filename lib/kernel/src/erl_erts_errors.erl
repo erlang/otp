@@ -283,7 +283,7 @@ format_erlang_error(ceil, [_], _) ->
 format_erlang_error(check_old_code, [_], _) ->
     [not_atom];
 format_erlang_error(check_process_code, [Pid,Module], _) ->
-    [must_be_pid(Pid),must_be_atom(Module)];
+    [must_be_local_pid(Pid),must_be_atom(Module)];
 format_erlang_error(check_process_code, [Pid,Module,_Options], Cause) ->
     format_erlang_error(check_process_code, [Pid,Module], Cause) ++
         [case Cause of
@@ -367,10 +367,10 @@ format_erlang_error(fun_info_mfa, [_], _) ->
     [not_fun];
 format_erlang_error(fun_to_list, [_], _) ->
     [not_fun];
-format_erlang_error(garbage_collect, [_], _) ->
-    [not_pid];
+format_erlang_error(garbage_collect, [Pid], _) ->
+    [must_be_local_pid(Pid)];
 format_erlang_error(garbage_collect, [Pid,_], Cause) ->
-    [must_be_pid(Pid),
+    [must_be_local_pid(Pid),
      case Cause of
          bad_option -> bad_option;
          _ -> []
@@ -523,21 +523,34 @@ format_erlang_error(memory, [Options], _) ->
     end;
 format_erlang_error(module_loaded, [_], _) ->
     [not_atom];
-format_erlang_error(monitor, [_Type,_Item], Cause) ->
+format_erlang_error(monitor, [Type,Item], Cause) ->
     case Cause of
         badtype ->
             [<<"invalid monitor type">>];
         none ->
-            [[],<<"invalid item">>]
+            case Type of
+                port ->
+                    [[],must_be_local_port(Item)];
+                process ->
+                    [[],must_be_pid(Item)]
+            end
     end;
-format_erlang_error(monitor, [_Type,_Item,Options], Cause) ->
+format_erlang_error(monitor, [Type,Item,Options], Cause) ->
+    ItemError = case Type of
+                    port ->
+                        must_be_local_port(Item);
+                    process ->
+                        must_be_pid(Item);
+                    _ ->
+                        []
+                end,
     case Cause of
         badopt ->
-            [[],[],must_be_list(Options, bad_option)];
+            [[],ItemError,must_be_list(Options, bad_option)];
         badtype ->
             [<<"invalid monitor type">>];
         none ->
-            [[],<<"invalid item">>]
+            [[],ItemError]
     end;
 format_erlang_error(monitor_node, [Node,Flag], _) ->
     [must_be_atom(Node),must_be_boolean(Flag)];
@@ -574,35 +587,35 @@ format_erlang_error(posixtime_to_universaltime, [_], _) ->
 format_erlang_error(pid_to_list, [_], _) ->
     [not_pid];
 format_erlang_error(port_call, [Port,Operation,_Data], _) ->
-    [must_be_port(Port),
+    [must_be_local_port(Port),
      must_be_operation(Operation)];
-format_erlang_error(port_close, [_], _) ->
-    [not_port];
+format_erlang_error(port_close, [Port], _) ->
+    [must_be_local_port(Port)];
 format_erlang_error(port_command, [Port,Command], _) ->
-    [must_be_port(Port),must_be_iodata(Command)];
+    [must_be_local_port(Port),must_be_iodata(Command)];
 format_erlang_error(port_command, [Port,Command,Options], Cause) ->
     case Cause of
         badopt ->
-            [must_be_port(Port),
+            [must_be_local_port(Port),
              must_be_iodata(Command),
              must_be_list(Options, bad_option)];
         _ ->
-            [must_be_port(Port),must_be_iodata(Command)]
+            [must_be_local_port(Port),must_be_iodata(Command)]
     end;
 format_erlang_error(port_connect, [Port,Pid], _) ->
-    [must_be_port(Port),must_be_pid(Pid)];
+    [must_be_local_port(Port),must_be_local_pid(Pid)];
 format_erlang_error(port_control, [Port,Operation,Data], _) ->
-    [must_be_port(Port),
+    [must_be_local_port(Port),
      must_be_operation(Operation),
      must_be_iodata(Data)];
-format_erlang_error(port_info, [_], _) ->
-    [not_port];
-format_erlang_error(port_info, [_,_], Cause) ->
+format_erlang_error(port_info, [Port], _) ->
+    [must_be_local_port(Port)];
+format_erlang_error(port_info, [Port,_], Cause) ->
     case Cause of
         badtype ->
-            [not_port];
+            [must_be_local_port(Port)];
         _ ->
-            [[],bad_option]
+            [must_be_local_port(Port),bad_option]
     end;
 format_erlang_error(port_to_list, [_], _) ->
     [not_port];
@@ -610,10 +623,10 @@ format_erlang_error(prepare_loading, [Module,Code], _) ->
     [must_be_atom(Module),must_be_binary(Code)];
 format_erlang_error(process_display, [Pid,_], Cause) ->
     case Cause of
-        badtype ->
-            [must_be_pid(Pid, dead_process)];
+        badopt ->
+            [must_be_local_pid(Pid),<<"invalid value">>];
         _ ->
-            [[],<<"invalid value">>]
+            [must_be_local_pid(Pid, dead_process)]
     end;
 format_erlang_error(process_flag, [_,_], Cause) ->
     case Cause of
@@ -622,17 +635,26 @@ format_erlang_error(process_flag, [_,_], Cause) ->
         _ ->
             [[],<<"invalid value for this process flag">>]
     end;
-format_erlang_error(process_flag, [Pid,_,_], Cause) ->
+format_erlang_error(process_flag, [Pid,Option,_], Cause) ->
+    OptionError = case Option of
+                      save_calls -> [];
+                      _ -> <<"invalid process flag">>
+                  end,
     case Cause of
         badtype ->
-            [must_be_pid(Pid, dead_process)];
+            [must_be_local_pid(Pid, dead_process),OptionError];
         _ ->
-            [[],[],<<"invalid value for this process flag">>]
+            case {must_be_local_pid(Pid),OptionError} of
+                {[],[]} ->
+                    [[],[],<<"invalid value for process flag 'save_calls'">>];
+                {PidError,_} ->
+                    [PidError,OptionError]
+            end
     end;
-format_erlang_error(process_info, [_], _) ->
-    [not_pid];
+format_erlang_error(process_info, [Pid], _) ->
+    [must_be_local_pid(Pid)];
 format_erlang_error(process_info, [Pid,_What], _) ->
-    Arg1 = must_be_pid(Pid),
+    Arg1 = must_be_local_pid(Pid),
     case Arg1 of
         [] ->
             [[],<<"invalid item or item list">>];
@@ -662,9 +684,13 @@ format_erlang_error(register, [Name,PidOrPort], Cause) ->
                      true -> not_atom
                  end,
                  if
+                     is_pid(PidOrPort), node(PidOrPort) =/= node() ->
+                         not_local_pid;
+                     is_port(PidOrPort), node(PidOrPort) =/= node() ->
+                         not_local_port;
                      is_pid(PidOrPort) -> [];
                      is_port(PidOrPort) -> [];
-                     true -> <<"not a pid or a port">>
+                     true -> <<"not a pid or port">>
                  end],
             case Errors of
                 [[],[]] ->
@@ -674,7 +700,7 @@ format_erlang_error(register, [Name,PidOrPort], Cause) ->
             end
     end;
 format_erlang_error(resume_process, [Pid], _) ->
-    [must_be_pid(Pid, <<"process is not suspended or is not alive">>)];
+    [must_be_local_pid(Pid, <<"process is not suspended or is not alive">>)];
 format_erlang_error(round, [_], _) ->
     [not_number];
 format_erlang_error(send, [_,_], _) ->
@@ -832,13 +858,14 @@ format_erlang_error(split_binary, [Bin,Pos], _) ->
 format_erlang_error(start_timer, [Time,Process,_], _) ->
     [must_be_non_neg_int(Time),
      if
-         is_pid(Process); is_atom(Process) -> [];
-         true -> <<"not pid or atom">>
+         is_pid(Process), node(Process) =/= node() -> not_local_pid;
+         is_pid(Process), node(Process) =:= node(); is_atom(Process) -> [];
+         true -> <<"not a pid or an atom">>
      end];
 format_erlang_error(start_timer, [A1,A2,A3,Options], Cause) ->
     case format_erlang_error(start_timer, [A1,A2,A3], Cause) of
         [[],[]] ->
-            [[],[],must_be_list(Options, <<"invalid option list">>)];
+            [[],[],[],must_be_list(Options, bad_option)];
         Errors ->
             Errors ++ [must_be_list(Options, [])]
     end;
@@ -849,18 +876,18 @@ format_erlang_error(suspend_process, [Pid], _) ->
          Pid =:= self() ->
              self_not_allowed;
          true ->
-             must_be_pid(Pid, dead_process)
+             must_be_local_pid(Pid, dead_process)
      end];
 format_erlang_error(suspend_process, [Pid,Options], Cause) ->
     case Cause of
         badopt ->
-            [must_be_pid(Pid, []),must_be_list(Options, bad_option)];
+            [must_be_local_pid(Pid, []),must_be_list(Options, bad_option)];
         _ ->
             [if
                  Pid =:= self() ->
                      self_not_allowed;
                  true ->
-                     must_be_pid(Pid, dead_process)
+                     must_be_local_pid(Pid, dead_process)
              end]
     end;
 format_erlang_error(system_flag, [_,_], Cause) ->
@@ -876,8 +903,10 @@ format_erlang_error(system_monitor, [_], _) ->
     [<<"invalid system monitor item">>];
 format_erlang_error(system_monitor, [Pid,Options], _) ->
     if
-        is_pid(Pid) ->
+        is_pid(Pid), node(Pid) =:= node() ->
             [[],must_be_list(Options, <<"invalid system monitor option">>)];
+        is_pid(Pid) ->
+            [not_local_pid,must_be_list(Options)];
         true ->
             [not_pid,must_be_list(Options)]
     end;
@@ -893,17 +922,26 @@ format_erlang_error(term_to_iovec, [_,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(time_offset, [_], _) ->
     [bad_time_unit];
-format_erlang_error(trace, [_,How,Options], Cause) ->
+format_erlang_error(trace, [PidOrPort,How,Options], Cause) ->
+    PidOrPortError =
+        if
+            is_pid(PidOrPort), node(PidOrPort) =/= node() ->
+                not_local_pid;
+            is_port(PidOrPort), node(PidOrPort) =/= node() ->
+                not_local_port;
+            true ->
+                []
+        end,
     HowError = must_be_boolean(How),
     case Cause of
         badopt ->
-            [[], HowError, must_be_option_list(Options)];
+            [PidOrPortError, HowError, must_be_option_list(Options)];
         _ ->
-            case HowError of
-                [] ->
+            case {HowError, PidOrPortError} of
+                {[], []} ->
                     [<<"invalid spec for pid or port">>];
                 _ ->
-                    [[], HowError, []]
+                    [PidOrPortError, HowError, []]
             end
     end;
 format_erlang_error(trace_pattern=F, [_,_]=Args, Cause) ->
@@ -920,16 +958,28 @@ format_erlang_error(trace_pattern, [_,_,Options], Cause) ->
         _ ->
             [<<"invalid MFA specification">>, [], []]
     end;
-format_erlang_error(trace_delivered, [_], _) ->
-    [<<"not a pid or 'all'">>];
+format_erlang_error(trace_delivered, [Pid], _) ->
+    if
+        is_pid(Pid), node(Pid) =/= node ->
+            [not_local_pid];
+        true ->
+            [<<"not a pid or 'all'">>]
+    end;
 format_erlang_error(tuple_size, [_], _) ->
     [not_tuple];
 format_erlang_error(tl, [_], _) ->
     [not_cons];
-format_erlang_error(trace_info, [_,_], Cause) ->
+format_erlang_error(trace_info, [Tracee,_], Cause) ->
     case Cause of
         badopt ->
-            [bad_option];
+            if
+                is_pid(Tracee), node(Tracee) =/= node() ->
+                    [not_local_pid];
+                is_port(Tracee), node(Tracee) =/= node() ->
+                    [not_local_port];
+                true ->
+                    [<<"not a valid tracee specification">>]
+            end;
         none ->
             [[],<<"invalid trace item">>]
     end;
@@ -1105,11 +1155,25 @@ must_be_pid(Pid) ->
 must_be_pid(Pid, Error) when is_pid(Pid) -> Error;
 must_be_pid(_, _) -> not_pid.
 
-must_be_port(Term) ->
-    must_be_port(Term, []).
+must_be_local_pid(Pid) ->
+    must_be_local_pid(Pid, []).
 
-must_be_port(Port, Error) when is_port(Port); is_atom(Port) -> Error;
-must_be_port(_, _) -> not_port.
+must_be_local_pid(Pid, _Error) when is_pid(Pid), node(Pid) =/= node() ->
+    not_local_pid;
+must_be_local_pid(Pid, Error) when is_pid(Pid) ->
+    Error;
+must_be_local_pid(_Pid, _Error) ->
+    not_pid.
+
+must_be_local_port(Term) ->
+    must_be_local_port(Term, []).
+
+must_be_local_port(Port, _Error) when is_port(Port), node(Port) =/= node() ->
+    not_local_port;
+must_be_local_port(Port, Error) when is_port(Port); is_atom(Port) ->
+    Error;
+must_be_local_port(_, _) ->
+    not_port.
 
 must_be_ref(Ref) when is_reference(Ref) -> [];
 must_be_ref(_) -> not_ref.
@@ -1242,6 +1306,10 @@ expand_error(not_iolist) ->
     <<"not an iolist term">>;
 expand_error(not_list) ->
     <<"not a list">>;
+expand_error(not_local_pid) ->
+    <<"not a local pid">>;
+expand_error(not_local_port) ->
+    <<"not a local port">>;
 expand_error(not_proper_list) ->
     <<"not a proper list">>;
 expand_error(not_map) ->

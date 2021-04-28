@@ -284,7 +284,7 @@ is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
 is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
-    crypto:equal_const_time(Mac, mac(Algorithm, Key, SeqNum, Data)).
+    ssh_lib:comp(Mac, mac(Algorithm, Key, SeqNum, Data)).
 
 handle_hello_version(Version) ->
     try
@@ -1734,7 +1734,7 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
             %% The length is already decrypted and used to divide the input
             %% Check the mac (important that it is timing-safe):
             PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
-            case crypto:equal_const_time(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
+            case ssh_lib:comp(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
                 true ->
                     %% MAC is ok, decode
                     IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,

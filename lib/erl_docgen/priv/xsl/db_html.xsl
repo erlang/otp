@@ -1141,6 +1141,15 @@
 
 
   <!-- Lists -->
+  <xsl:template match="list[@type='ordered']">
+    <xsl:param name="chapnum"/>
+    <ol>
+      <xsl:apply-templates>
+        <xsl:with-param name="chapnum" select="$chapnum"/>
+      </xsl:apply-templates>
+    </ol>
+  </xsl:template>
+
   <xsl:template match="list">
     <xsl:param name="chapnum"/>
     <ul>

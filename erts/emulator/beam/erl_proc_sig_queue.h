@@ -288,6 +288,10 @@ void erl_proc_sig_hdbg_chk_recv_marker_block(struct process *c_p);
 
 struct dist_entry_;
 
+#define ERTS_PROC_HAS_INCOMING_SIGNALS(P)                               \
+    (!!(erts_atomic32_read_nob(&(P)->state)                             \
+        & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)))
+
 /*
  * Send operations of currently supported process signals follow...
  */
@@ -764,8 +768,12 @@ erts_proc_sig_send_group_leader(Process *c_p, Eterm to, Eterm gl,
  *                              message to the sending
  *                              process (i.e., c_p).
  *
+ * @returns                     A value != 0 if the request
+ *                              was sent; otherwise, 0. If
+ *                              the request was not sent the
+ *                              process was non-existing.
  */
-void
+int
 erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
                                     Eterm ref);
 

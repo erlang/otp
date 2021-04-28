@@ -159,7 +159,8 @@
 			    comp_size,
 			    uncomp_size,
 			    file_name_length,
-			    extra_field_length}).
+			    extra_field_length,
+                            type}).
 
 -define(CENTRAL_FILE_HEADER_SZ,(4+2+2+2+2+2+2+4+4+4+2+2+2+2+2+4+4)).
 
@@ -167,8 +168,8 @@
 -define(CENTRAL_DIR_SZ, (4+2+2+2+2+4+4+2)).
 -define(CENTRAL_DIR_DIGITAL_SIG_MAGIC, 16#05054b50).
 -define(CENTRAL_DIR_DIGITAL_SIG_SZ, (4+2)).
-
--define(CENTRAL_FILE_EXT_ATTRIBUTES, 8#644 bsl 16).
+-define(CENTRAL_REGULAR_FILE_EXT_ATTRIBUTES, 8#644 bsl 16).
+-define(CENTRAL_DIRECTORY_FILE_EXT_ATTRIBUTES, 8#744 bsl 16).
 -define(CENTRAL_FILE_MAGIC, 16#02014b50).
 
 -record(cd_file_header, {version_made_by,
@@ -1029,7 +1030,8 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		       comp_size = CompSize,
 		       uncomp_size = UncompSize,
 		       file_name_length = FileNameLength,
-		       extra_field_length = ExtraFieldLength} = LH,
+		       extra_field_length = ExtraFieldLength,
+                       type = Type} = LH,
     #cd_file_header{version_made_by = ?VERSION_MADE_BY,
 		    version_needed = VersionNeeded,
 		    gp_flag = GPFlag,
@@ -1044,7 +1046,11 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		    file_comment_length = 0, % FileCommentLength,
 		    disk_num_start = 0, % DiskNumStart,
 		    internal_attr = 0, % InternalAttr,
-		    external_attr = ?CENTRAL_FILE_EXT_ATTRIBUTES, % ExternalAttr,
+		    external_attr = % ExternalAttr
+                        case Type of
+                            regular -> ?CENTRAL_REGULAR_FILE_EXT_ATTRIBUTES;
+                            directory -> ?CENTRAL_DIRECTORY_FILE_EXT_ATTRIBUTES
+                        end,
 		    local_header_offset = Pos}.
 
 cd_file_header_to_bin(
@@ -1119,7 +1125,7 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
      ZipCommentLength:16/little>>.
 
 %% put together a local file header
-local_file_header_from_info_method_name(#file_info{mtime = MTime},
+local_file_header_from_info_method_name(#file_info{mtime = MTime, type = Type},
 					UncompSize,
 					CompMethod, Name, GPFlag) ->
     {ModDate, ModTime} = dos_date_time_from_datetime(MTime),
@@ -1132,7 +1138,8 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime},
 		       comp_size = -1,
 		       uncomp_size = UncompSize,
 		       file_name_length = length(Name),
-		       extra_field_length = 0}.
+		       extra_field_length = 0,
+                       type = Type}.
 
 server_init(Parent) ->
     %% we want to know if our parent dies

@@ -504,7 +504,7 @@ check_password(User, Password, #ssh{opts=Opts} = Ssh) ->
 
 	undefined ->
 	    Static = get_password_option(Opts, User),
-	    {crypto:equal_const_time(Password,Static), Ssh};
+	    {ssh_lib:comp(Password,Static), Ssh};
 
 	Checker when is_function(Checker,2) ->
 	    {Checker(User, Password), Ssh};

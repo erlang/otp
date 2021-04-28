@@ -425,7 +425,7 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name name="delete" arity="1" since=""/>
-      <name name="delete" arity="2" since=""/>
+      <name name="delete" arity="2" since="OTP 24.0"/>
       <fsummary>Delete a file.</fsummary>
       <type name="delete_option"/>
       <desc>

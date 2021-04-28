@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.27</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed the bug that Xmerl SAX parser couldn't handle files
+	    ending with a ^M.</p>
+          <p>
+	    Own Id: OTP-17308</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.26</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

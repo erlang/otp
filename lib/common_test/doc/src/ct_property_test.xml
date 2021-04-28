@@ -162,7 +162,7 @@ prop_ftp() -&gt;
     </func>
 
     <func>
-      <name since="">present_result(Module, Cmds, Triple, Config) -> Result</name>
+      <name since="OTP 22.3">present_result(Module, Cmds, Triple, Config) -> Result</name>
       <fsummary>Presents the result of statem property testing</fsummary>
       <desc>
       <p>Same as <seemfa marker="#present_result/5"><c>present_result(Module, Cmds, Triple, Config, [])</c></seemfa>
@@ -171,7 +171,7 @@ prop_ftp() -&gt;
     </func>
 
     <func>
-      <name since="">present_result(Module, Cmds, Triple, Config, Options) -> Result</name>
+      <name since="OTP 22.3">present_result(Module, Cmds, Triple, Config, Options) -> Result</name>
       <fsummary>Presents the result of statem property testing</fsummary>
       <type>
 	<v>Module = module()</v>

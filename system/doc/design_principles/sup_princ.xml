@@ -125,11 +125,18 @@ SupFlags = #{strategy => Strategy, ...}</code>
     <p>The <c>strategy</c> key is optional in this map. If it is not
       given, it defaults to <c>one_for_one</c>.</p>
 
+    <note>
+      <p>For simplicity, the diagrams shown in this section display a
+        setup where all the depicted children are assumed to have
+        a <seeguide marker="#restart">restart type</seeguide> of
+        <c>permanent</c>.</p>
+    </note>
+
     <section>
       <title>one_for_one</title>
       <p>If a child process terminates, only that process is restarted.</p>
       <marker id="sup4"></marker>
-      <image file="../design_principles/sup4.gif">
+      <image file="../design_principles/sup-one_for_one.svg" width="80%">
         <icaption>One_For_One Supervision</icaption>
       </image>
     </section>
@@ -140,7 +147,7 @@ SupFlags = #{strategy => Strategy, ...}</code>
         terminated, and then all child processes, including
         the terminated one, are restarted.</p>
       <marker id="sup5"></marker>
-      <image file="../design_principles/sup5.gif">
+      <image file="../design_principles/sup-one_for_all.svg" width="80%">
         <icaption>One_For_All Supervision</icaption>
       </image>
     </section>
@@ -151,6 +158,10 @@ SupFlags = #{strategy => Strategy, ...}</code>
         processes (that is, the child processes after the terminated
         process in start order) are terminated. Then the terminated
         child process and the rest of the child processes are restarted.</p>
+      <marker id="sup6"></marker>
+      <image file="../design_principles/sup-rest_for_one.svg" width="80%">
+        <icaption>Rest_For_One Supervision</icaption>
+      </image>
     </section>
 
      <section>
@@ -256,7 +267,7 @@ SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
       terminate.</p>
     <p>This is useful when a supervisor represents a work unit
       of cooperating children, as opposed to independent workers. When
-      the work unit has finished it's work, that is, when any or all
+      the work unit has finished its work, that is, when any or all
       significant child processes have terminated, the supervisor
       should then shut down by terminating all remaining child
       processes in reverse start order according to the respective shutdown
@@ -271,7 +282,7 @@ SupFlags = #{auto_shutdown => AutoShutdown, ...}</code>
       <p>The automatic shutdown facility only applies when significant children
         terminate by themselves, that is, when their termination was not
         caused by means of the supervisor. Specifically, neither the
-        termination of a child as a consequence of a sibling's  death in the
+        termination of a child as a consequence of a sibling's death in the
         <c>one_for_all</c> or <c>rest_for_one</c> strategies nor the manual
         termination of a child by means of <c>supervisor:terminate_child/2</c>
         will trigger an automatic shutdown.</p>
@@ -315,6 +326,24 @@ SupFlags = #{auto_shutdown => AutoShutdown, ...}</code>
       <p>It is up to implementors to take proper precautions if they
         expect that their applications may be compiled with older OTP
         versions.</p>
+    </warning>
+
+    <warning>
+      <p>Top supervisors of <seeguide marker="applications">Applications</seeguide>
+        should not be configured for automatic shutdown, because when the top
+        supervisor exits, the application terminates. If the application is
+        <c>permanent</c>, all other applications and the runtime system
+        are terminated, also.</p>
+    </warning>
+
+    <warning>
+      <p>Supervisors configured for automatic shutdown should not be
+        made <seeguide marker="#restart">permanent</seeguide> children
+        of their respective parent supervisors, as they would be restarted
+        immediately after having automatically shut down, only to shut down
+        automatically again after a while, and may thus exhaust the
+        <seeguide marker="#max_intensity">Maximum Restart Intensity</seeguide>
+        of the parent supervisor.</p>
     </warning>
   </section>
 
@@ -637,5 +666,72 @@ supervisor:terminate_child(Sup, Pid)</code>
       the same procedure as described above, that is, the supervisor
       terminates all remaining child processes in reversed start
       order, and then terminates itself.</p>
+    <section>
+      <title>Manual stopping versus Automatic Shutdown</title>
+      <p>For several reasons, a supervisor should not be stopped
+        manually via <seemfa marker="stdlib:supervisor#terminate_child/2">
+        <c>supervisor:terminate_child/2</c></seemfa> from a child located
+        in its own tree.</p>
+      <list type="ordered">
+        <item>
+          <p>The child process will have to know the pids or registered
+            names not only of the supervisor it wants to stop, but also
+            that of the supervisor's parent supervisor, in order to tell
+            the parent supervisor to stop the supervisor it wants to stop.
+            This can make restructuring a supervision tree difficult.</p>
+        </item>
+        <item>
+          <p><seemfa marker="stdlib:supervisor#terminate_child/2">
+            <c>supervisor:terminate_child/2</c></seemfa> is a blocking
+            call that will only return after the parent supervisor has
+            finished the shutdown of the supervisor that should be stopped.
+            Unless the call is made from a spawned process, this will
+            result in a deadlock, as the supervisor waits for the child
+            to exit as part of its shutdown procedure, whereas the
+            child waits for the supervisor to shut down. If the child is
+            trapping exits, this deadlock will last until the
+            <seeguide marker="#shutdown">shutdown</seeguide>
+            timeout for the child expires.</p>
+        </item>
+        <item>
+          <p>When a supervisor is stopping a child, it will wait for the
+            shutdown to complete before accepting other calls, that is,
+            the supervisor will be unresponsive until then. If the
+            termination takes some time to complete, especially when
+            the considerations outlined in the previous point were not
+            taken into account carefully, said supervisor might become
+            unresponsive for a long time.</p>
+        </item>
+      </list>
+      <p>Instead, it is generally a better approach to rely on 
+        <seeguide marker="#automatic-shutdown">Automatic
+        Shutdown</seeguide>.</p>
+      <list type="ordered">
+        <item>
+          <p>A child process does not need to know anything about its
+            supervisor and its respective parent, not even that it is
+            part of a supervision tree in the first place. It is instead
+            only the supervisor which hosts the child who must know
+            which of its children are
+            <seeguide marker="#significant_child">significant</seeguide>
+            ones, and when to shut itself down.</p>
+        </item>
+        <item>
+          <p>A child process does not need to do anything special to
+            shut down the work unit it is part of. All it needs to do
+            is terminate normally when it has finished the task it was
+            started for.</p>
+        </item>
+        <item>
+          <p>A supervisor that is automatically shutting itself down
+            will perform the required shutdown steps fully independent
+            of its parent supervisor. The parent supervisor will only
+            notice that its child supervisor has terminated in the end.
+            As the parent supervisor is not involved in the shutdown
+            process, it will not be blocked.</p>
+        </item>
+      </list>
+    </section>
   </section>
 </chapter>
+
