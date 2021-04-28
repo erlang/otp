@@ -4315,15 +4315,13 @@ sendfile_loop(Sa, F) ->
 sendfile_loop(Sa, Cont, Offset) ->
     SelectHandle = make_ref(),
     case socket:sendfile(Sa, Cont, Offset, 0, SelectHandle) of
-        Result when
-              element(1, Result) =:= ok, tuple_size(element(2, Result)) =:= 2;
-              element(1, Result) =:= select ->
+        {select, Select} ->
             receive
                 {'$socket', Sa, select, SelectHandle} ->
-                    case Result of
-                        {ok, {BytesSent, Cont_1}} ->
+                    case Select of
+                        {{select_info, _, _} = Cont_1, BytesSent} ->
                             sendfile_loop(Sa, Cont_1, Offset + BytesSent);
-                        {select, Cont_1} ->
+                        {select_info, _, _} = Cont_1 ->
                             sendfile_loop(Sa, Cont_1, Offset)
                     end;
                 {'$socket', Sa, abort, {SelectHandle, Reason}} ->
