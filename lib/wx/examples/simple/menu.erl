@@ -92,8 +92,8 @@ start() ->
     Frame = wx:batch(fun() -> create_frame(Wx) end),
     Taskbar = wxTaskBarIcon:new([{createPopupMenu, fun() -> create_dummy_menu() end}]),
     wxWindow:show(Frame),
-    Path = filename:dirname(code:which(?MODULE)),
-    wxTaskBarIcon:setIcon(Taskbar, wxIcon:new(filename:join(Path,"sample.xpm"), [{type, ?wxBITMAP_TYPE_XPM}])),
+    Path = code:priv_dir(wx),
+    wxTaskBarIcon:setIcon(Taskbar, wxIcon:new(filename:join(Path,"erlang-logo32.png"), [{type, ?wxBITMAP_TYPE_PNG}])),
     
     State = #state{},
     
@@ -107,8 +107,8 @@ start() ->
 create_frame(Wx) ->
     Frame = wxFrame:new(Wx, -1, "wxErlang menu sample", [{size, {600,400}}]),
 
-    Path = filename:dirname(code:which(?MODULE)),    
-    wxFrame:setIcon(Frame,  wxIcon:new(filename:join(Path,"sample.xpm"), [{type, ?wxBITMAP_TYPE_XPM}])),
+    Path = code:priv_dir(wx),
+    wxFrame:setIcon(Frame,  wxIcon:new(filename:join(Path,"erlang-logo128.png"), [{type, ?wxBITMAP_TYPE_PNG}])),
 
     wxFrame:createStatusBar(Frame,[]),
     wxFrame:connect(Frame, close_window),
@@ -163,13 +163,6 @@ create_file_menu() ->
             {id,    ?menuID_FILE_CLEAR_LOG},
             {text,  "Clear &log\tCtrl-L"}   %% note mnemonic and accelerator
             ]),
-    ClearLogBitmap = wxBitmap:new("copy.xpm", [{type, ?wxBITMAP_TYPE_XPM}]),
-    case wxBitmap:isOk(ClearLogBitmap) of
-        true ->
-            wxMenuItem:setBitmap(ClearLogItem, ClearLogBitmap);
-        false ->
-            io:format("Could not load bitmap: ~p~n", ["copy.xpm"])
-    end,
 
     wxMenu:append(FileMenu, ClearLogItem ),
     wxMenu:appendSeparator(FileMenu),
