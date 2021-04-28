@@ -170,6 +170,11 @@ the buffer size.</p>
 An small send buffer may result in outgoing messages
 being discarded: set the &inet; option <c>sndbuf</c> to increase
 the buffer size.</p>
+
+<p>
+Having the Nagle algorithm enabled (the default) can cause unexpected delays
+for message oriented protocols like DIAMETER.
+Set the &inet; option <c>sctp_nodelay</c> to <c>false</c> to disable it.</p>
 </warning>
 
 </desc>

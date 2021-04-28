@@ -448,7 +448,8 @@ open(Opts) ->
     gen_sctp:open([{ip, ?ADDR}, {port, 0}, {active, false}, binary,
                    {sctp_initmsg, #sctp_initmsg{num_ostreams = ?STREAMS,
                                                 max_instreams = ?STREAMS}},
-                   {recbuf, 1 bsl 16}, {sndbuf, 1 bsl 16}
+                   {recbuf, 1 bsl 16}, {sndbuf, 1 bsl 16},
+                   {sctp_nodelay, true}
                    | Opts]).
 
 %% report/2
