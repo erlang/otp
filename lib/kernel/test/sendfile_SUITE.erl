@@ -88,8 +88,10 @@ init_per_testcase(TC,Config) when TC == t_sendfile_recvduring;
     Filename = proplists:get_value(small_file, Config),
 
     Send = fun(Sock) ->
-		   {_Size, Data} = sendfile_file_info(Filename),
+		   {Size, Data} = sendfile_file_info(Filename),
 		   {ok,Fd} = file:open(Filename, [raw,binary,read]),
+                   ct:log("Send(~p): Size = ~p, Fd = ~p~n",
+                          [Sock, Size, Fd]),
                    case Sock of
                        {'$inet', Handler, _} ->
                            case
