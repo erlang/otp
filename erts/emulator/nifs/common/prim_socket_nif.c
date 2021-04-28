@@ -6564,7 +6564,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     sendRef = argv[3];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
-        SSDBG( descP, ("SOCKET", "nif_send -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_send -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -6572,11 +6572,11 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
 
     if ((! enif_is_ref(env, sendRef)) ||
         (! GET_BIN(env, argv[1], &sndData))) {
-        SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_send -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[2], &flags)) {
-        SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_send -> argv decode failed\r\n") );
         if (IS_INTEGER(env, argv[2]))
             return esock_make_error_integer_range(env, argv[2]);
         else
@@ -6712,7 +6712,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     sendRef   = argv[4];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendto -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -6720,11 +6720,11 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
 
     if ((! enif_is_ref(env, sendRef)) ||
         (! GET_BIN(env, argv[1], &sndData))) {
-        SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[3], &flags)) {
-        SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         if (IS_INTEGER(env, argv[3]))
             return esock_make_error_integer_range(env, argv[3]);
         else
@@ -6860,7 +6860,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     eIOV    = argv[4];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendmsg -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendmsg -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -6868,7 +6868,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 
     if ((! enif_is_ref(env, sendRef)) ||
         (! IS_MAP(env, eMsg))) {
-        SGDBG( ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[2], &flags)) {
@@ -7230,7 +7230,7 @@ nif_sendfile(ErlNifEnv*         env,
     }
     sockRef = argv[0];
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) (&descP))) {
-        SSDBG( descP, ("SOCKET", "nif_sendfile -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendfile -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -7257,7 +7257,8 @@ nif_sendfile(ErlNifEnv*         env,
 
         sendRef = argv[1];
         if ((! enif_is_ref(env, sendRef))) {
-            SGDBG( ("SOCKET", "nif_sendfile -> argv[1] decode failed\r\n") );
+            SSDBG( descP,
+                   ("SOCKET", "nif_sendfile -> argv[1] decode failed\r\n") );
             return enif_make_badarg(env);
         }
 
@@ -8988,7 +8989,8 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[2], &opt)) {
-        SGDBG( ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
+        SSDBG( descP,
+               ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
         if (! IS_INTEGER(env, argv[2]))
             return enif_make_badarg(env);
         else
@@ -9007,12 +9009,13 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
         if (nativeValue == 0) {
             return esock_setopt_otp(env, descP, opt, eVal);
         } else {
-            SGDBG( ("SOCKET", "nif_setopt -> failed arg check\r\n") );
+            SSDBG( descP, ("SOCKET", "nif_setopt -> failed arg check\r\n") );
             return enif_make_badarg(env);
         }
     }
 
     SGDBG( ("SOCKET", "nif_setopt -> failed arg check\r\n") );
+
     if (IS_INTEGER(env, argv[1]))
         return esock_make_error_integer_range(env, argv[1]);
     else
@@ -10672,7 +10675,8 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     }
 
     if (! GET_INT(env, argv[2], &opt)) {
-        SGDBG( ("SOCKET", "nif_getopt -> failed initial args check\r\n") );
+        SSDBG( descP,
+               ("SOCKET", "nif_getopt -> failed initial args check\r\n") );
         if (! IS_INTEGER(env, argv[2]))
             return enif_make_badarg(env);
         else
