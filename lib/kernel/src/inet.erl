@@ -1729,7 +1729,12 @@ info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
 		_ -> " "
 	    end;
 	port ->
-	    "esock"; %% We should really skip this
+	    case GenSocketMod:getopts(S, [fd]) of
+		{ok, [{fd, FD}]} ->
+		    "esock[" ++ integer_to_list(FD) ++ "]";
+		_ ->
+		    "esock"
+	    end;
 	sent ->
 	    case GenSocketMod:getstat(S, [send_oct]) of
 		{ok, [{send_oct, N}]} -> integer_to_list(N);
@@ -1760,6 +1765,7 @@ info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
 		#{type := stream} -> "STREAM";
 		_ -> " "
 	    end;
+	%% Why do we have this here? Its never called (see i/2 calling i/2).
 	fd ->
 	    case GenSocketMod:getopts(S, [fd]) of
 		{ok, [{fd, Fd}]} -> integer_to_list(Fd);
@@ -1812,6 +1818,7 @@ info(S, F, Proto) ->
 		{ok,{_,seqpacket}} -> "SEQPACKET";
 		_ -> " "
 	    end;
+	%% Why do we have this here? Its never called (see i/2 calling i/2).
 	fd ->
 	    case prim_inet:getfd(S) of
 		{ok, Fd} -> integer_to_list(Fd);
