@@ -163,12 +163,7 @@ set_config_flags ()
 	if target_contains free_source; then
 		CONFIG_FLAGS="$CONFIG_FLAGS --host=$TARGET"
 	fi
-	# Link SSL static for win32 binary distributions if not overridden
 	if target_contains win32; then
-	    XX=`echo $* | grep -v dynamic-ssl-lib`
-	    if [ "$*" = "$XX" ]; then 
-		CONFIG_FLAGS="--disable-dynamic-ssl-lib $CONFIG_FLAGS"
-	    fi
 	    CONFIG_FLAGS="--build=$BUILDSYS build_alias=win32 --host=win32 --target=win32 $CONFIG_FLAGS" 
 	fi
 	    

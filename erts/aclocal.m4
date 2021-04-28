@@ -3048,6 +3048,8 @@ if test "$CFLAG_RUNTIME_LIBRARY_PATH" = ""; then
 
 fi
 
+DED_LDFLAGS_CONFTEST=
+
 # If DED_LD is set in environment, we expect all DED_LD* variables
 # to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
@@ -3076,6 +3078,10 @@ case $host_os in
 		# Mach-O linker: a shared lib and a loadable
 		# object file is not the same thing.
 		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+		# DED_LDFLAGS_CONFTEST is for use in configure tests only. We
+		# cannot use DED_LDFLAGS in configure tests since beam.smp has not
+		# been built yet...
+		DED_LDFLAGS_CONFTEST="-bundle"
 		if test X${enable_m64_build} = Xyes; then
 		  DED_LDFLAGS="-m64 $DED_LDFLAGS"
 		else
@@ -3141,6 +3147,8 @@ fi
 DED_LIBS=$LIBS
 
 fi # "x$DED_LD" = "x"
+
+test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
 
 AC_CHECK_TOOL(DED_LD, ld, false)
 test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])

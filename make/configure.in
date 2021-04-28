@@ -263,24 +263,36 @@ AS_HELP_STRING([--disable-megaco-reentrant-flex-scanner],
                [disable reentrant megaco flex scanner]))
 
 AC_ARG_WITH(ssl,
-AS_HELP_STRING([--with-ssl=PATH], [specify location of OpenSSL include and lib])
+AS_HELP_STRING([--with-ssl=PATH], [base location of OpenSSL include and lib directories])
 AS_HELP_STRING([--with-ssl], [use SSL (default)])
 AS_HELP_STRING([--without-ssl], [don't use SSL]))
 
 AC_ARG_WITH(ssl-incl,
 AS_HELP_STRING([--with-ssl-incl=PATH],
-               [location of OpenSSL include dir, if different than specified by --with-ssl=PATH]))
+	       [base location of OpenSSL include directory (if different than base location specified by --with-ssl=PATH)]))
+
+AC_ARG_WITH(ssl-zlib,
+AS_HELP_STRING([--with-ssl-zlib=PATH], [Path to static zlib library to link the
+    				       crypto NIF with. This zlib library is most
+				       often not necessary but might be needed in
+				       order to link the NIF in some cases.]))
+
+AC_ARG_WITH(ssl-lib-subdir,
+AS_HELP_STRING([--with-ssl-lib-subdir=RELATIVE_PATH],
+	       [specify extra OpenSSL lib sub-directory to search in (relative to base directory)]))
 
 AC_ARG_WITH(ssl-rpath,
 AS_HELP_STRING([--with-ssl-rpath=yes|no|PATHS],
                [runtime library path for OpenSSL. Default is 'yes', which equates to a
 	       number of standard locations. If 'no', then no runtime
 	       library paths will be used. Anything else should be a
-	       comma separated list of paths.]))
+	       comma or colon separated list of paths.]))
 
 AC_ARG_ENABLE(dynamic-ssl-lib,
+AS_HELP_STRING([--enable-dynamic-ssl-lib],
+               [enable using dynamic openssl libraries when linking the crypto NIF])
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
-               [disable using dynamic openssl libraries]))
+               [disable using dynamic openssl libraries when linking the crypto NIF]))
 
 AC_ARG_ENABLE(fips,
 AS_HELP_STRING([--enable-fips], [enable OpenSSL FIPS mode support])

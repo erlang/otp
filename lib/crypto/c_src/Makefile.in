@@ -123,8 +123,19 @@ CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).@DED_EXT@
 TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).@DED_EXT@
 
 DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
-
+# Wierd that we compile as if dynamically linking when statically
+# linking on windows...
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
+DYNAMIC_OR_WIN_CRYPTO_LIB=yes
+else
+ifeq ($(TARGET),win32)
+DYNAMIC_OR_WIN_CRYPTO_LIB=yes
+else
+DYNAMIC_OR_WIN_CRYPTO_LIB=no
+endif
+endif
+
+ifeq ($(DYNAMIC_OR_WIN_CRYPTO_LIB),yes)
 SSL_DED_LD_RUNTIME_LIBRARY_PATH = @SSL_DED_LD_RUNTIME_LIBRARY_PATH@
 CRYPTO_LINK_LIB=$(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -l$(SSL_CRYPTO_LIBNAME)
 EXTRA_FLAGS = -DHAVE_DYNAMIC_CRYPTO_LIB
@@ -174,7 +185,7 @@ $(OBJDIR)/otp_test_engine$(TYPEMARKER).o: otp_test_engine.c
 
 $(LIBDIR)/otp_test_engine$(TYPEMARKER).so: $(TEST_ENGINE_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
-	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB) $(SSL_EXTRA_LIBS)
 
 $(LIBDIR)/otp_test_engine$(TYPEMARKER).dll: $(TEST_ENGINE_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
@@ -186,7 +197,7 @@ $(OBJDIR)/%$(TYPEMARKER).o: %.c
 
 $(LIBDIR)/crypto$(TYPEMARKER).so: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
-	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB) $(SSL_EXTRA_LIBS)
 
 $(OBJDIR)/%_static$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
@@ -200,7 +211,7 @@ $(LIBDIR)/crypto$(TYPEMARKER).dll: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
 	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(CRYPTO_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME) $(SSL_EXTRA_LIBS)
 
-ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
+ifeq ($(DYNAMIC_OR_WIN_CRYPTO_LIB),yes)
 $(LIBDIR)/crypto_callback$(TYPEMARKER).so: $(CALLBACK_OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -238,7 +249,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
 	$(INSTALL_PROGRAM) $(NIF_LIB) "$(RELSYSDIR)/priv/lib"
-ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
+ifeq ($(DYNAMIC_OR_WIN_CRYPTO_LIB),yes)
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
 endif
 	$(INSTALL_PROGRAM) $(TEST_ENGINE_LIB) "$(RELSYSDIR)/priv/lib"

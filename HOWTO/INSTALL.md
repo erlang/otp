@@ -367,17 +367,25 @@ Some of the available `configure` options are:
 *   `--with-javac=JAVAC` - Specify Java compiler to use
 *   `--{with,without}-javac` - Java compiler (without implies that the
     `jinterface` application won't be built)
-*   `--{enable,disable}-dynamic-ssl-lib` - Dynamic OpenSSL libraries
 *   `--{enable,disable}-builtin-zlib` - Use the built-in source for zlib.
+*   `--{enable,disable}-dynamic-ssl-lib` - Enable or disable dynamic OpenSSL
+    libraries when linking the crypto NIF. By default dynamic linking is
+    done unless it does not work or is if it is a Windows system.
 *   `--{with,without}-ssl` - OpenSSL (without implies that the `crypto`,
     `ssh`, and `ssl` won't be built)
-*   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
-*   `--with-ssl-incl=PATH` - Location of OpenSSL `include` directory,
-    if different than specified by `--with-ssl=PATH`
+*   `--with-ssl=PATH` - Specify base location of OpenSSL include and lib
+    directories.
+*   `--with-ssl-incl=PATH` - Specify base location of OpenSSL `include`
+    directory (if different than base location specified by --with-ssl=PATH).
+*   `--with-ssl-zlib=PATH` - Path to static zlib library to link the
+    crypto NIF with. This zlib library is most often not necessary but
+    might be needed in order to link the NIF in some cases.
+*   `--with-ssl-lib-subdir=RELATIVE_PATH` - Specify extra OpenSSL lib
+    sub-directory to search in (relative to base directory).
 *   `--with-ssl-rpath=yes|no|PATHS` - Runtime library path for OpenSSL.
     Default is `yes`, which equates to a number of standard locations. If
     `no`, then no runtime library paths will be used. Anything else should be
-    a comma separated list of paths.
+    a comma or colon separated list of paths.
 *   `--with-libatomic_ops=PATH` - Use the `libatomic_ops` library for atomic
     memory accesses. If `configure` should inform you about no native atomic
     implementation available, you typically want to try using the
