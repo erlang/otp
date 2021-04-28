@@ -1636,7 +1636,7 @@ handle_connect(
               P, D#{type => connect},
               [{{timeout, connect}, cancel},
                {reply, From, {ok, Socket}}]);
-        {select, SelectInfo} ->
+        {select, ?select_info(_) = SelectInfo} ->
             {next_state,
              #connect{info = SelectInfo, from = From, addr = Addr},
              {P, D#{type => connect}},
@@ -1661,7 +1661,7 @@ handle_accept(P, D, From, ListenSocket, Timeout) ->
               P#params{socket = Socket}, D#{type => accept},
               [{{timeout, accept}, cancel},
                {reply, From, {ok, Socket}}]);
-        {select, SelectInfo} ->
+        {select, ?select_info(_) = SelectInfo} ->
             %% ?DBG({accept_select, SelectInfo}),
             {next_state,
              #accept{
@@ -1755,12 +1755,12 @@ handle_recv_peek(P, D, ActionsR, Packet) ->
                     handle_recv_peek(
                       P, D, ActionsR, Packet,
                       <<ShortData/binary, FinalData/binary>>);
-                {ok, {_, SelectInfo}} ->
+                {select, {?select_info(_) = SelectInfo, _}} ->
                     {next_state,
                      #recv{info = SelectInfo},
                      {P, D},
                      reverse(ActionsR)};
-                {select, SelectInfo} ->
+                {select, ?select_info(_) = SelectInfo} ->
                     {next_state,
                      #recv{info = SelectInfo},
                      {P, D},
@@ -1807,13 +1807,13 @@ handle_recv_length(P, D, ActionsR, Length, Buffer) when 0 < Length ->
             handle_recv_deliver(
               P, D#{buffer := <<>>}, ActionsR,
               condense_buffer([Data | Buffer]));
-        {ok, {Data, SelectInfo}} ->
+        {select, {?select_info(_) = SelectInfo, Data}} ->
             N = Length - byte_size(Data),
             {next_state,
              #recv{info = SelectInfo},
              {P, D#{buffer := [Data | Buffer], recv_length := N}},
              reverse(ActionsR)};
-        {select, SelectInfo} ->
+        {select, ?select_info(_) = SelectInfo} ->
             {next_state,
              #recv{info = SelectInfo},
              {P, D#{buffer := Buffer}},
@@ -1840,7 +1840,7 @@ handle_recv_length(P, D, ActionsR, _0, Buffer) ->
                 {ok, <<Data/binary>>} ->
 		    %% ?DBG({'got some', byte_size(Data)}),
                     handle_recv_deliver(P, D, ActionsR, Data);
-                {ok, {Data, SelectInfo}} ->
+                {select, {?select_info(_) = SelectInfo, Data}} ->
 		    %% ?DBG({'got another select with data', byte_size(Data)}),
                     case socket:cancel(Socket, SelectInfo) of
                         ok ->
@@ -1848,7 +1848,7 @@ handle_recv_length(P, D, ActionsR, _0, Buffer) ->
                         {error, Reason} ->
                             handle_recv_error(P, D, ActionsR, Reason, Data)
                     end;
-                {select, SelectInfo} ->
+                {select, ?select_info(_) = SelectInfo} ->
 		    %% ?DBG({'got another select', SelectInfo}),
                     {next_state,
                      #recv{info = SelectInfo},
@@ -1944,7 +1944,7 @@ handle_recv_more(P, D, ActionsR, BufferedData) ->
 	    %% ?DBG([{more_data_sz, byte_size(MoreData)}]), 
 	    Data = catbin(BufferedData, MoreData),
             handle_recv_decode(P, D, ActionsR, Data);
-        {select, SelectInfo} ->
+        {select, ?select_info(_) = SelectInfo} ->
 	    %% ?DBG([{select_info, SelectInfo}]), 
             {next_state,
              #recv{info = SelectInfo},
