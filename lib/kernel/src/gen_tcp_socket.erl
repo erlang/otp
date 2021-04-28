@@ -581,13 +581,9 @@ which_sockets([Sock|Socks], Acc) ->
 	    %% One of ours - try to recreate the compat socket
 	    %% Currently we don't have the 'owner' in meta, so we need to look
 	    %% it up...
-	    case socket:info(Sock) of
-		#{owner := Owner} ->
-		    MSock = ?MODULE_socket(Owner, Sock),
-		    which_sockets(Socks, [MSock|Acc]);
-		_ ->
-		    which_sockets(Socks, Acc)
-	    end;
+	    #{owner := Owner} = socket:info(Sock),
+	    MSock = ?MODULE_socket(Owner, Sock),
+	    which_sockets(Socks, [MSock|Acc]);
 	_ ->
 	    which_sockets(Socks, Acc)
     end.
