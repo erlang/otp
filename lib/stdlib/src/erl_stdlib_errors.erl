@@ -472,9 +472,9 @@ maybe_posix_message(Cause, HasDevice) ->
         "unknown POSIX error" ->
             unknown;
         PosixStr when HasDevice ->
-            [io_lib:format("~ts (~p)",[PosixStr, Cause])];
+            [io_lib:format("~ts (~tp)",[PosixStr, Cause])];
         PosixStr when not HasDevice ->
-            [{general,io_lib:format("~ts (~p)",[PosixStr, Cause])}]
+            [{general,io_lib:format("~ts (~tp)",[PosixStr, Cause])}]
     end.
 
 check_io_format([Fmt], Cause) ->
@@ -507,7 +507,7 @@ check_io_format([Fmt, Args], Cause) ->
                         [] ->
                             try io_lib:format(Fmt, Args) of
                                 _ ->
-                                    [io_lib:format("unknown error: ~p",[Cause])]
+                                    [{general,{unknown_error,Cause}}]
                             catch _:_ ->
                                     [format_failed]
                             end;
@@ -1055,7 +1055,7 @@ expand_error(same_as_keypos) ->
     <<"the position is the same as the key position">>;
 expand_error({unknown_error,Cause}) ->
     unicode:characters_to_binary(
-      io_lib:format("unknown error: ~p", [Cause]));
+      io_lib:format("unknown error: ~tp", [Cause]));
 expand_error(update_op_range) ->
     <<"the position in the update operation is out of range">>;
 expand_error(Other) ->

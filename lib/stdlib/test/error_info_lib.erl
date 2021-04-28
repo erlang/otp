@@ -90,7 +90,7 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
             AllowRename = lists:member(allow_rename, Opts),
             SF = fun(Mod, _, _) -> Mod =:= test_server end,
             Str = erl_error:format_exception(error, Reason, Stk, #{stack_trim_fun => SF}),
-            BinStr = iolist_to_binary(Str),
+            BinStr = unicode:characters_to_binary(Str),
             ArgStr = lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]),
             io:format("\n~p:~p(~s)\n~ts", [Module,F,ArgStr,BinStr]),
 
@@ -118,7 +118,7 @@ eval_bif_error(F, Args, Opts, T, Module, Errors0) ->
                             false ->
                                 lists:foldl(
                                   fun(Match, Errors) ->
-                                          case re:run(BinStr, Match, [global]) of
+                                          case re:run(BinStr, Match, [global, unicode]) of
                                               {match,[_]} ->
                                                   Errors;
                                               {match,_} ->

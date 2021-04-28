@@ -2953,17 +2953,26 @@ otp_15875(_Config) ->
 github_4801(_Config) ->
 	  <<"{[81.6]}">> = iolist_to_binary(io_lib:format("~p", [{[81.6]}], [{chars_limit,40}])).
 
-error_info(_Config) ->
+error_info(Config) ->
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TmpFile = filename:join(PrivDir,?FUNCTION_NAME),
 
     FullDev =
         fun() ->
-                {ok, Dev} = file:open("/dev/full",[read, write]),
-                Dev
+                case file:read_file_info("/dev/full") of
+                    {ok, _} ->
+                        {ok, Dev} = file:open("/dev/full", [read, write]),
+                        Dev;
+                    _ ->
+                        dummy_full_device()
+                end
         end,
 
+    UnknownDev = fun dummy_unknown_error_device/0,
+
     Latin1Dev = fun() ->
-                        {ok, Dev} = file:open("/dev/full",[read, write,
-                                                           {encoding, latin1}]),
+                        {ok, Dev} = file:open(TmpFile, [read, write, {encoding, latin1}]),
                         Dev
                 end,
 
@@ -2988,18 +2997,24 @@ error_info(_Config) ->
          {put_chars,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
          {put_chars,[Latin1Dev(),"Спутник-1"], [{1,"transcode"}]},
          {put_chars,[a], [{1,"not valid character data"}]},
+         {put_chars,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
+         {put_chars,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
 
          {write,[DeadDev,"test"],[{1,"terminated"}]},
          {write,["test"],[{gl,DeadDev},{general,"terminated"}]},
          {write,[?MODULE,"test"],[{1,"does not exist"}]},
          {write,[FullDev(),"test"], [{1,"no space left on device"}]},
          {write,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+         {write,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
+         {write,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
 
          {nl,[DeadDev],[{1,"terminated"}]},
          {nl,[?MODULE],[{1,"does not exist"}]},
          {nl,[],[{gl,DeadDev},{general,"terminated"}]},
          {nl,[FullDev()], [{1,"no space left on device"}]},
          {nl,[], [{gl,FullDev()},{general,"no space left on device"}]},
+         {nl,[UnknownDev()], [{general,"unknown error: 'Спутник-1'"}]},
+         {nl,[], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
 
          [[{Format,[DeadDev,"test",[]],   [{1,"terminated"}]},
            {Format,["test",[{gl,DeadDev},  {general,"terminated"}]]},
@@ -3008,6 +3023,7 @@ error_info(_Config) ->
            {Format,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
            {Format,[standard_io,"test"],  [{1,"wrong number of arguments"},
                                            {general,"possibly missing argument list"}]},
+           {Format,[UnknownDev(),"test",[]], [{general,"unknown error: 'Спутник-1'"}]},
 
            %% Test a latin1 device
            {Format,[Latin1Dev(), "~ts", [<<"Спутник-1"/utf8>>]],[{1,"transcode"}]},
@@ -3052,8 +3068,25 @@ error_info(_Config) ->
 
         ],
 
-    try
-        error_info_lib:test_error_info(io, lists:flatten(L), [allow_nyi])
-    after
-        dbg:stop_clear()
-    end.
+    error_info_lib:test_error_info(io, lists:flatten(L), [allow_nyi]).
+
+dummy_full_device() ->
+    dummy_device(enospc).
+dummy_unknown_error_device() ->
+    dummy_device('Спутник-1').
+
+dummy_device(Error) ->
+    spawn_link(
+      fun() ->
+              receive
+                  {io_request, From, ReplyAs, {put_chars, _Encoding, _Chars}} ->
+                      From ! {io_reply, ReplyAs, {error, Error}};
+                  {io_request, From, ReplyAs, {put_chars, _Encoding, M, F, As}} ->
+                      try apply(M, F, As) of
+                          _ ->
+                              From ! {io_reply, ReplyAs, {error, Error}}
+                      catch _:_ ->
+                              From ! {io_reply, ReplyAs, {error, format}}
+                      end
+              end
+      end).
