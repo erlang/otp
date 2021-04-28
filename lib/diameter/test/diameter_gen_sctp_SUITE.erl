@@ -62,7 +62,7 @@
 
 %% Success for send_multiple. Match in each testcase rather than in
 %% send_multiple itself for a better failure in common_test.
--define(OK, {_, true, _, [true, true], [], _}).
+-define(OK, {_, true, _, [true, true], [], _, _}).
 
 %% ===========================================================================
 
@@ -147,14 +147,15 @@ send_multiple(Clients, Msgs, Sz)
     {S, Res} = timer:tc(fun listen/3, [Clients, Msgs, Sz]),
     report(T0, Res),
     Ts = lists:append(Res),
-    Outgoing = [DT || {_,{_,_,DT},{_,_,_},_} <- Ts],
-    Incoming = [DT || {_,{_,_,_},{_,_,DT},_} <- Ts],
+    Outgoing = [DT || {_,{_,_,DT},{_,_,_},_,_} <- Ts],
+    Incoming = [DT || {_,{_,_,_},{_,_,DT},_,_} <- Ts],
     Diffs = [lists:max(L) - lists:min(L) || L <- [Outgoing, Incoming]],
     {S,
      S < ?FOREVER*1000,
      Diffs,
      [D < V || V <- [?VARIANCE*1000], D <- Diffs],
-     [T || T <- Ts, [] == [T || {_,{_,_,_},{_,_,_},_} <- [T]]],
+     [T || T <- Ts, [] == [T || {_,{_,_,_},{_,_,_},_,_} <- [T]]],
+     {length([T || {_,_,_,_,true} = T <- Ts]), length([T || {_,_,_,_,false} = T <- Ts])},
      Res}.
 
 %% listen/3
@@ -294,12 +295,22 @@ send_loop(Sock, Id, OS, N, MRef) ->
         {send, L, Body} ->
             Stream = N rem OS,
             ok = send(Sock, Id, Stream, mark(Body, [N, Stream | L])),
+            ok = unordered(Sock, N),
             send_loop(Sock, Id, OS, N+1, MRef);
         {'DOWN', MRef, process, _, _} = T ->
             T;
         T ->
             error(T)
     end.
+
+%% unordered/2
+unordered(Sock, 1) ->
+    %% assoc_id == SCTP_CURRENT_ASSOC (1)
+    inet:setopts(Sock, [{sctp_default_send_param,
+                         #sctp_sndrcvinfo{flags = [unordered], assoc_id = 1}}]);
+unordered(_, _) ->
+    ok.
+
 
 %% peeloff/3
 
@@ -338,10 +349,10 @@ recv(Sock, Msgs, Sz, ?SCTP(Sock, {_, #sctp_assoc_change{} = A})) ->
     send_n(Msgs, sender(Sock, Id, OS), Sz),
     {0, [Id, OS]};
 
-recv(Sock, _, T, ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], Bin})) ->
+recv(Sock, _, T, ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id, flags = Flags}], Bin})) ->
     T4 = diameter_lib:now(),
     [Id, OS | Acc] = T,
-    {1, [Id, OS, stat(T4, Bin) | Acc]};
+    {1, [Id, OS, stat(T4, Bin, Flags) | Acc]};
 
 recv(Sock, _, T, ?SCTP(Sock, _)) ->
     {0, [_,_|_] = T};
@@ -373,7 +384,7 @@ send(Sock, Id, Stream, Bin) ->
 
 %% stat/2
 
-stat(T4, <<?MAGIC, Bin/binary>>) ->
+stat(T4, <<?MAGIC, Bin/binary>>, Flags) ->
     %% T1 = time at send
     %% T2 = time at reception by server
     %% T3 = time at reception by server's sender
@@ -386,7 +397,8 @@ stat(T4, <<?MAGIC, Bin/binary>>) ->
     {T1,
      {NO, SO, diameter_lib:micro_diff(T2, T1)},  %% Outbound
      {NI, SI, diameter_lib:micro_diff(T4, T3)},  %% Inbound
-     T4}.
+     T4,
+    Flags == [unordered]}.
 
 %% mark/2
 
@@ -410,7 +422,9 @@ send_many_from_one() ->
     [{timetrap, {seconds, 30}}].
 
 send_many_from_one(_) ->
-    ?OK = send_multiple(1, 128, 1024).
+    Res = send_multiple(1, 128, 1024),
+    {_, _, _, _, _, {127, 1}, _} = Res,
+    ?OK = Res.
 
 %% ===========================================================================
 
