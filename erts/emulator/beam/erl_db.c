@@ -1699,7 +1699,6 @@ static void ets_insert_2_list_lock_tbl(Eterm table_id,
 {
     BIF_RETTYPE fail_ret;
     DbTable* tb;
-    ets_insert_2_list_info *ctx;
     do {
         fail_ret = db_get_table_or_fail_return(&tb,
                                                table_id,
@@ -1707,16 +1706,29 @@ static void ets_insert_2_list_lock_tbl(Eterm table_id,
                                                LCK_WRITE,
                                                bif_ix,
                                                p);
-        ctx = YCF_GET_EXTRA_CONTEXT();
         if (tb == NULL) {
+            ets_insert_2_list_info *ctx = YCF_GET_EXTRA_CONTEXT();
             if (p->freason == TRAP) {
                 ctx->status = ETS_INSERT_2_LIST_FAILED_TO_GET_LOCK;
             } else {
                 ctx->status = ETS_INSERT_2_LIST_FAILED_TO_GET_LOCK_DESTROY;
                 ctx->destroy_return_value = fail_ret;
             }
+#ifdef DEBUG
+            /*
+             *  Setting ctx to NULL to avoid that YCF crashes with a
+             *  pointer to stack error when running a debug
+             *  build. YCF_GET_EXTRA_CONTEXT() may change between
+             *  yields as we use stack allocated data for the context
+             *  before the first yield so it is important that the
+             *  context is obtained again with YCF_GET_EXTRA_CONTEXT()
+             *  if a yield might have happened.
+             */
+            ctx = NULL;
+#endif
             YCF_YIELD();
         } else {
+            ets_insert_2_list_info *ctx = YCF_GET_EXTRA_CONTEXT();
             ctx->status = on_success_status;
             ASSERT(DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
             ASSERT(!(tb->common.status & DB_DELETE));
