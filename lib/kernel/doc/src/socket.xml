@@ -1660,9 +1660,7 @@
 	  Backwards compatibility function - remove documentation?
 	  Document the Native clause?
       -->
-      <name since="OTP 22.0">
-	getopt(Socket, Level, Opt) -> ok | {error, Reason}
-      </name>
+      <name since="OTP 22.0">getopt(Socket, Level, Opt) -> ok | {error, Reason}</name>
       <fsummary>
 	Get a socket protocol option.
       </fsummary>
@@ -3394,9 +3392,7 @@
 	  Backwards compatibility function - remove documentation?
 	  Document the Native clause?
       -->
-      <name since="OTP 22.0">
-	setopt(Socket, Level, Opt, Value) -> ok | {error, Reason}
-      </name>
+      <name since="OTP 22.0">setopt(Socket, Level, Opt, Value) -> ok | {error, Reason}</name>
       <fsummary>
 	Set a socket protocol option.
       </fsummary>
