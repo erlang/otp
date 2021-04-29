@@ -676,7 +676,7 @@
         <item>
           <p>Relative multiblock carrier move threshold (in percent). When
             a block located in a multiblock carrier is shrunk,
-            the block is moved if the ratio of the size of the returned
+            the block is moved if the ratio of the size of the freed
             memory compared to the previous size is more than this threshold,
             otherwise the block is shrunk at the current location.</p>
         </item>
