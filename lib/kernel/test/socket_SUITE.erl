@@ -1984,10 +1984,11 @@ init_per_group(api_sendfile = GroupName, Config) ->
     case socket:is_supported(sendfile) of
         true ->
             Dir = proplists:get_value(priv_dir, Config),
-            DataSize = 1024,  Pow2 = 16, % Header + 64 MB + Trailer
-            Header = rand:bytes(DataSize),
+            HeaderSize = 1021, % I like prime numbers
+            DataSize = 1031,  Pow2 = 16, % About 64 MB
+            Header = rand:bytes(HeaderSize),
             Filler = rand:bytes(DataSize),
-            Trailer = rand:bytes(DataSize),
+            Trailer = rand:bytes(HeaderSize),
             FileName = filename:join(Dir, "sendfile.bin"),
             file:write_file(
               FileName,
@@ -1995,7 +1996,7 @@ init_per_group(api_sendfile = GroupName, Config) ->
             N = 1 bsl Pow2,
             [{sendfile_file,
               {FileName,
-               (1 + N + 1) * DataSize,
+               HeaderSize + (N * DataSize) + HeaderSize,
                [Header, {N, Filler}, Trailer]}}
              | Config];
         false ->
@@ -4384,16 +4385,20 @@ api_sendfile(Domain, File, Size, Data, Sendfile) ->
           fun () ->
                   TC ! {self(), api_sendfile_verify(Sb, Data, 0)}
           end),
-    case Sendfile(Sa, F) of
-        {ok, Size} ->
-            receive
-                {Verifyer, {ok, Size}} ->
+    io:format("Verifyer = ~p~n", [Verifyer]),
+    %%
+    SendfileResult = Sendfile(Sa, F),
+    io:format("SendfileResult = ~p~n", [SendfileResult]),
+    %%
+    receive
+        {Verifyer, VerifyerResult} ->
+            io:format("VerifyerResult = ~p~n", [VerifyerResult]),
+            case {SendfileResult, VerifyerResult} of
+                {{ok, Size}, {ok, Size}} ->
                     ok;
-                {Verifyer, NotOk} ->
-                    ?FAIL(NotOk)
-            end;
-        Other ->
-            ?FAIL(Other)
+                Other ->
+                    ?FAIL({bad_result, Other})
+            end
     end.
 
 api_sendfile_verify(_S, [], M) ->
@@ -4407,7 +4412,7 @@ api_sendfile_verify_block(S, Data, M, Block, N) ->
     if
         0 < N ->
             ByteSize = byte_size(Block),
-            case socket:recv(S, ByteSize) of
+            case socket:recv(S, ByteSize, 2000) of
                 {ok, Block} ->
                     api_sendfile_verify_block(
                       S, Data, M + ByteSize, Block, N - 1);

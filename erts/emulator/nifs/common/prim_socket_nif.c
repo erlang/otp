@@ -7582,9 +7582,9 @@ esock_sendfile(ErlNifEnv       *env,
 
         {
             /* Platform dependent code:
-             *   set and check bytes_sent, or
-             *   set res to >= 0, or
-             *   set res to < 0 and error to sock_errno()
+             *   set and check bytes_sent, and
+             *       set res to >= 0 and error to 0, or
+             *       set res to < 0 and error to sock_errno()
              */
 #if defined (__linux__)
 
@@ -7594,11 +7594,21 @@ esock_sendfile(ErlNifEnv       *env,
             res =
                 sendfile(descP->sock, descP->sendfileHandle,
                          &offset, chunk_size);
-            if (res < 0)
-                error = sock_errno();
+            error = (res < 0) ? sock_errno() : 0;
+
             ESOCK_ASSERT( offset >= prev_offset );
             ESOCK_ASSERT( (off_t) chunk_size >= (offset - prev_offset) );
             bytes_sent = (size_t) (offset - prev_offset);
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
 
 #elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__DARWIN__)
 
@@ -7610,15 +7620,44 @@ esock_sendfile(ErlNifEnv       *env,
                 sendfile(descP->sendfileHandle, descP->sock, offset,
                          &sbytes, NULL, 0);
 #else
+            sbytes = 0;
             res = (ssize_t)
                 sendfile(descP->sendfileHandle, descP->sock, offset,
                          chunk_size, NULL, &sbytes, 0);
 #endif
-            if (res < 0)
-                error = sock_errno();
+            error = (res < 0) ? sock_errno() : 0;
+
             ESOCK_ASSERT( sbytes >= 0 );
             ESOCK_ASSERT( (off_t) chunk_size >= sbytes );
-            bytes_sent = (size_t) sbytes;
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
+
+            /* For an error return, we are only promised that sbytes
+             * is set, for ERRNO_BLOCK and EINTR,
+             * i.e set bytes_sent to 0 for all other errors
+             */
+            if ((res < 0) && (error != ERRNO_BLOCK) && (error != EINTR))
+                bytes_sent = 0;
+            else
+                bytes_sent = (size_t) sbytes;
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
 
 #elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
 
@@ -7630,15 +7669,25 @@ esock_sendfile(ErlNifEnv       *env,
             sfvec[0].sfv_len = chunk_size;
 
             res = sendfilev(descP->sock, sfvec, NUM(sfvec), &bytes_sent);
-            if (res < 0) {
-                if ((error = sock_errno()) == EINVAL) {
-                    /* On e.b SunOS 5.10 using sfv_len > file size
-                     * lands here - we regard this as a succesful send
-                     * by pretending it is an EINTR causing the loop
-                     * to continue with more data up to end of file
-                     */
-                    error = EINTR;
-                }
+            error = (res < 0) ? sock_errno() : 0;
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
+
+            if ((res < 0) && (error == EINVAL)) {
+                /* On e.b SunOS 5.10 using sfv_len > file size
+                 * lands here - we regard this as a succesful send
+                 * by pretending it is an EINTR causing the loop
+                 * to continue with more data up to end of file
+                 */
+                error = EINTR;
             }
             ESOCK_ASSERT( chunk_size >= bytes_sent );
 
@@ -7671,10 +7720,14 @@ esock_sendfile(ErlNifEnv       *env,
             }
 
             /* *countP == 0 means send whole file */
-            if ((*countP > 0) &&
-                ((*countP -= bytes_sent) == 0)) { // All sent
-                *countP = pkgSize;
-                return 0;
+            if (*countP > 0) {
+
+                *countP -= bytes_sent;
+
+                if (*countP == 0) { // All sent
+                    *countP = pkgSize;
+                    return 0;
+                }
             }
 
             if (res < 0) {
@@ -7685,7 +7738,7 @@ esock_sendfile(ErlNifEnv       *env,
                 if (error == EINTR)
                     continue;
                 *errP = error;
-                return INVALID_SOCKET;
+                return -1;
             }
 
             if (bytes_sent == 0) { // End of input file
@@ -7693,8 +7746,7 @@ esock_sendfile(ErlNifEnv       *env,
                 return 0;
             }
         }
-    }
-    return 0;
+    } // for (;;)
 }
 
 static ERL_NIF_TERM
