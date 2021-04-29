@@ -219,7 +219,13 @@
       <cell><c>binary()</c></cell><cell><c>&lt;&lt;_:_*8&gt;&gt;</c></cell>
     </row>
     <row>
+      <cell><c>nonempty_binary()</c></cell><cell><c>&lt;&lt;_:8, _:_*8&gt;&gt;</c></cell>
+    </row>
+    <row>
       <cell><c>bitstring()</c></cell><cell><c>&lt;&lt;_:_*1&gt;&gt;</c></cell>
+    </row>
+    <row>
+      <cell><c>nonempty_bitstring()</c></cell><cell><c>&lt;&lt;_:1, _:_*1&gt;&gt;</c></cell>
     </row>
     <row>
       <cell><c>boolean()</c></cell><cell><c>'false' | 'true'</c></cell>

@@ -167,6 +167,8 @@
 	 t_nil/0,
 	 t_node/0,
 	 t_none/0,
+	 t_nonempty_binary/0,
+	 t_nonempty_bitstring/0,
 	 t_nonempty_list/0,
 	 t_nonempty_list/1,
 	 t_nonempty_string/0,
@@ -928,6 +930,11 @@ is_boolean(_) -> false.
 t_binary() ->
   ?bitstr(8, 0).
 
+-spec t_nonempty_binary() -> erl_type().
+
+t_nonempty_binary() ->
+  ?bitstr(8, 8).
+
 -spec t_is_binary(erl_type()) -> boolean().
 
 t_is_binary(Type) ->
@@ -950,6 +957,11 @@ is_binary(_) -> false.
 
 t_bitstr() ->
   ?bitstr(1, 0).
+
+-spec t_nonempty_bitstring() -> erl_type().
+
+t_nonempty_bitstring() ->
+  ?bitstr(1, 1).
 
 -spec t_bitstr(non_neg_integer(), non_neg_integer()) -> erl_type().
 
@@ -4266,8 +4278,12 @@ t_to_string(?bitstr(0, 0), _RecDict) ->
   "<<>>";
 t_to_string(?bitstr(8, 0), _RecDict) ->
   "binary()";
+t_to_string(?bitstr(8, 8), _RecDict) ->
+  "nonempty_binary()";
 t_to_string(?bitstr(1, 0), _RecDict) ->
   "bitstring()";
+t_to_string(?bitstr(1, 1), _RecDict) ->
+  "nonempty_bitstring()";
 t_to_string(?bitstr(0, B), _RecDict) ->
   flat_format("<<_:~w>>", [B]);
 t_to_string(?bitstr(U, 0), _RecDict) ->
@@ -4737,6 +4753,14 @@ from_form({type, _Anno, node, []}, _S, _D, L, C) ->
   {t_node(), L, C};
 from_form({type, _Anno, none, []}, _S, _D, L, C) ->
   {t_none(), L, C};
+from_form({type, _Anno, nonempty_binary, []}, S, D, L, C) ->
+  try type_from_form(nonempty_binary, [], S, D, L, C)
+  catch _:_ -> {t_nonempty_binary(), L, C}
+  end;
+from_form({type, _Anno, nonempty_bitstring, []}, S, D, L, C) ->
+  try type_from_form(nonempty_binary, [], S, D, L, C)
+  catch _:_ -> {t_nonempty_bitstring(), L, C}
+  end;
 from_form({type, _Anno, nonempty_list, []}, _S, _D, L, C) ->
   {t_nonempty_list(), L, C};
 from_form({type, _Anno, nonempty_list, [Type]}, S, D, L, C) ->
@@ -5351,6 +5375,10 @@ t_form_to_string({type, _Anno, map_field_exact, [Key, Val]}) ->
 t_form_to_string({type, _Anno, mfa, []}) -> "mfa()";
 t_form_to_string({type, _Anno, module, []}) -> "module()";
 t_form_to_string({type, _Anno, node, []}) -> "node()";
+t_form_to_string({type, _Anno, nonempty_binary, []}) ->
+  "nonempty_binary()";
+t_form_to_string({type, _Anno, nonempty_bitstring, []}) ->
+  "nonempty_bitstring()";
 t_form_to_string({type, _Anno, nonempty_list, [Type]}) ->
   "[" ++ t_form_to_string(Type) ++ ",...]";
 t_form_to_string({type, _Anno, nonempty_string, []}) -> "nonempty_string()";

@@ -69,7 +69,7 @@
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
-         unused_type/1,removed/1, otp_16516/1,
+         unused_type/1,binary_types/1,removed/1, otp_16516/1,
          inline_nifs/1,
          warn_missing_spec/1,
          otp_16824/1,
@@ -96,7 +96,7 @@ all() ->
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456, otp_15563, unused_type, removed, otp_16516,
+     otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
      inline_nifs, warn_missing_spec, otp_16824,
      underscore_match, unused_record].
 
@@ -950,6 +950,22 @@ unused_type(Config) when is_list(Config) ->
            {[]},                                %Tuple indicates no export_all
            []}],
 
+    [] = run(Config, Ts),
+    ok.
+
+%% OTP-17301. Types nonempty_binary(), nonempty_bitstring().
+binary_types(Config) when is_list(Config) ->
+    Ts = [{binary1,
+           <<"-type nonempty_binary() :: term().">>,
+           [nowarn_unused_type],
+           {warnings,[{{1,22},erl_lint,
+                       {new_builtin_type,{nonempty_binary,0}}}]}},
+
+          {binary2,
+           <<"-type nonempty_bitstring() :: term().">>,
+           [nowarn_unused_type],
+           {warnings,[{{1,22},erl_lint,
+                       {new_builtin_type,{nonempty_bitstring,0}}}]}}],
     [] = run(Config, Ts),
     ok.
 

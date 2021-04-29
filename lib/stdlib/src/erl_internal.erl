@@ -582,6 +582,8 @@ is_type(no_return, 0) -> true;
 is_type(node, 0) -> true;
 is_type(non_neg_integer, 0) -> true;
 is_type(none, 0) -> true;
+is_type(nonempty_binary, 0) -> true;
+is_type(nonempty_bitstring, 0) -> true;
 is_type(nonempty_improper_list, 2) -> true;
 is_type(nonempty_list, 0) -> true;
 is_type(nonempty_list, 1) -> true;
