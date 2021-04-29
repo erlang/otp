@@ -25,6 +25,9 @@
 -export([start/0, purge/1, soft_purge/1, pending_purge_lambda/3,
 	 finish_after_on_load/2]).
 
+%% Internal export
+-export([wait_for_request/0]).
+
 -spec start() -> no_return().
 start() ->
     register(erts_code_purger, self()),
@@ -32,7 +35,11 @@ start() ->
     wait_for_request().
 
 wait_for_request() ->
-    handle_request(receive Msg -> Msg end, []).
+    handle_request(
+      receive Msg -> Msg
+      after 60_000 ->
+              erlang:hibernate(?MODULE,wait_for_request,[])
+      end, []).
 
 handle_request({purge, Mod, From, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
     {Res, NewReqs} = do_purge(Mod, Reqs),
