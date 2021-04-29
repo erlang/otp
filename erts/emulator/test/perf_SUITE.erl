@@ -35,30 +35,34 @@ init_per_suite(Config) ->
             {skip, "perf not found"};
         _Perf ->
             PerfVsn = os:cmd("perf version"),
-            {match,[Vsn]} = re:run(PerfVsn, "perf version ([^.])",
-                                   [{capture,all_but_first,list}]),
-            case list_to_integer(Vsn) >= 5 of
-                true ->
-                    BuildIdDir = "--buildid-dir " ++
-                        filename:join(
-                          proplists:get_value(priv_dir, Config),
-                          ".debug"),
-                    DataFile = filename:join(
-                                 proplists:get_value(priv_dir, Config),
-                                 "init_test.data"),
-                    Cmd = "perf " ++ BuildIdDir ++ " record -q -o " ++ DataFile ++ " ls",
-                    os:cmd(Cmd),
-                    Script = os:cmd("perf " ++ BuildIdDir ++ " script -i " ++ DataFile),
-                    ct:log("~ts",[Script]),
-                    case re:run(Script, "^\\W+ls",[multiline]) of
-                        {match, _} ->
-                            [{sobefore,get_tmp_so_files()},
-                             {buildiddir,BuildIdDir}|Config];
-                        nomatch ->
-                            {skip, "could not run `"++ Cmd ++"`"}
+            case re:run(PerfVsn, "perf version ([^.])",
+                        [{capture,all_but_first,list}]) of
+                {match,[Vsn]} ->
+                    case list_to_integer(Vsn) >= 5 of
+                        true ->
+                            BuildIdDir = "--buildid-dir " ++
+                                filename:join(
+                                  proplists:get_value(priv_dir, Config),
+                                  ".debug"),
+                            DataFile = filename:join(
+                                         proplists:get_value(priv_dir, Config),
+                                         "init_test.data"),
+                            Cmd = "perf " ++ BuildIdDir ++ " record -q -o " ++ DataFile ++ " ls",
+                            os:cmd(Cmd),
+                            Script = os:cmd("perf " ++ BuildIdDir ++ " script -i " ++ DataFile),
+                            ct:log("~ts",[Script]),
+                            case re:run(Script, "^\\W+ls",[multiline]) of
+                                {match, _} ->
+                                    [{sobefore,get_tmp_so_files()},
+                                     {buildiddir,BuildIdDir}|Config];
+                                nomatch ->
+                                    {skip, "could not run `"++ Cmd ++"`"}
+                            end;
+                        false ->
+                            {skip,"too old perf version: " ++ PerfVsn}
                     end;
-                false ->
-                    {skip,"too old perf version: " ++ PerfVsn}
+                _ ->
+                    {skip,"unknown old perf version: " ++ PerfVsn}
             end
     end.
 
