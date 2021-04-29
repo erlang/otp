@@ -975,7 +975,11 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* beam_bif_load.c */
 Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
-Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
+#define ERTS_CLA_SCAN_WORDS_PER_RED 512
+
+int erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
+                                     char *literals, Uint lit_bsize);
+Eterm erts_copy_literals_gc(Process *c_p, int *redsp, int fcalls);
 
 Uint32 erts_block_release_literal_area(void);
 void erts_unblock_release_literal_area(Uint32);

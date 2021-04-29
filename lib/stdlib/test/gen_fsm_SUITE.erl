@@ -48,6 +48,8 @@
 
 -export([format_log_1/1, format_log_2/1]).
 
+-export([reply_by_alias_with_payload/1]).
+
 -export([enter_loop/1]).
 
 %% Exports for apply
@@ -71,7 +73,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [{group, start}, {group, abnormal}, shutdown,
      {group, sys}, hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
-     undef_in_handle_info, undef_in_terminate,{group,format_log}].
+     undef_in_handle_info, undef_in_terminate,{group,format_log},
+     reply_by_alias_with_payload].
 
 groups() ->
     [{start, [],
@@ -1245,6 +1248,23 @@ format_log_2(_Config) ->
 
 flatten_format_log(Report, Format) ->
     lists:flatten(gen_fsm:format_log(Report, Format)).
+
+reply_by_alias_with_payload(Config) when is_list(Config) ->
+    %% "Payload" version of tag not used yet, but make sure
+    %% gen_server:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [[alias|Alias], "payload"],
+    spawn_link(fun () ->
+                       gen_fsm:reply({undefined, Tag},
+                                     Reply)
+               end),
+    receive
+        {[[alias|Alias]|_] = Tag, Reply} ->
+            ok
+    end.
 
 %%
 %% Functionality check

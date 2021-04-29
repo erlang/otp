@@ -938,120 +938,6 @@ void erts_save_message_in_proc(Process *p, ErtsMessage *msgp)
     p->msg_frag = msgp;
 }
 
-Sint
-erts_move_messages_off_heap(Process *c_p)
-{
-    int reds = 1;
-    int i;
-    ErtsMessage *msgq[] = {c_p->sig_qs.first, c_p->sig_qs.cont};
-    /*
-     * Move all messages off heap. This *only* occurs when the
-     * process had off heap message disabled and just enabled
-     * it...
-     */
-
-    reds += erts_proc_sig_privqs_len(c_p) / 10;
-
-    ASSERT(erts_atomic32_read_nob(&c_p->state)
-	   & ERTS_PSFLG_OFF_HEAP_MSGQ);
-    ASSERT(c_p->sig_qs.flags & FS_OFF_HEAP_MSGQ_CHNG);
-
-    for (i = 0; i < sizeof(msgq)/sizeof(msgq[0]); i++) {
-        ErtsMessage *mp;
-        for (mp = msgq[i]; mp; mp = mp->next) {
-            Uint msg_sz, token_sz;
-#ifdef USE_VM_PROBES
-            Uint utag_sz;
-#endif
-            Eterm *hp;
-            ErlHeapFragment *hfrag;
-
-            if (!ERTS_SIG_IS_INTERNAL_MSG(mp))
-                continue;
-
-            if (mp->data.attached)
-                continue;
-
-            ASSERT(is_immed(ERL_MESSAGE_FROM(mp)));
-
-            if (is_immed(ERL_MESSAGE_TERM(mp))
-#ifdef USE_VM_PROBES
-                && is_immed(ERL_MESSAGE_DT_UTAG(mp))
-#endif
-                && is_immed(ERL_MESSAGE_TOKEN(mp)))
-                continue;
-
-            /*
-             * The message refers into the heap. Copy the message
-             * from the heap into a heap fragment and attach
-             * it to the message...
-             */
-            msg_sz = size_object(ERL_MESSAGE_TERM(mp));
-#ifdef USE_VM_PROBES
-            utag_sz = size_object(ERL_MESSAGE_DT_UTAG(mp));
-#endif
-            token_sz = size_object(ERL_MESSAGE_TOKEN(mp));
-
-            hfrag = new_message_buffer(msg_sz
-#ifdef USE_VM_PROBES
-                                       + utag_sz
-#endif
-                                       + token_sz);
-            hp = hfrag->mem;
-            if (is_not_immed(ERL_MESSAGE_TERM(mp)))
-                ERL_MESSAGE_TERM(mp) = copy_struct(ERL_MESSAGE_TERM(mp),
-                                                   msg_sz, &hp,
-                                                   &hfrag->off_heap);
-            if (is_not_immed(ERL_MESSAGE_TOKEN(mp)))
-                ERL_MESSAGE_TOKEN(mp) = copy_struct(ERL_MESSAGE_TOKEN(mp),
-                                                    token_sz, &hp,
-                                                    &hfrag->off_heap);
-#ifdef USE_VM_PROBES
-            if (is_not_immed(ERL_MESSAGE_DT_UTAG(mp)))
-                ERL_MESSAGE_DT_UTAG(mp) = copy_struct(ERL_MESSAGE_DT_UTAG(mp),
-                                                      utag_sz, &hp,
-                                                      &hfrag->off_heap);
-#endif
-            mp->data.heap_frag = hfrag;
-            reds += 1;
-        }
-    }
-
-    return reds;
-}
-
-Sint
-erts_complete_off_heap_message_queue_change(Process *c_p)
-{
-    int reds = 1;
-
-    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
-    ASSERT(c_p->sig_qs.flags & FS_OFF_HEAP_MSGQ_CHNG);
-    ASSERT(erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_OFF_HEAP_MSGQ);
-
-    /*
-     * This job was first initiated when the process changed to off heap
-     * message queue management. Since then ERTS_PSFLG_OFF_HEAP_MSGQ
-     * has been set. However, the management state might have been changed
-     * again (multiple times) since then. Check users last requested state
-     * (the flags F_OFF_HEAP_MSGQ, and F_ON_HEAP_MSGQ), and make the state
-     * consistent with that.
-     */
-
-    if (!(c_p->sig_qs.flags & FS_OFF_HEAP_MSGQ))
-	erts_atomic32_read_band_nob(&c_p->state,
-					~ERTS_PSFLG_OFF_HEAP_MSGQ);
-    else {
-	reds += 2;
-	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-        erts_proc_sig_fetch(c_p);
-	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-	reds += erts_move_messages_off_heap(c_p);
-    }
-    c_p->sig_qs.flags &= ~FS_OFF_HEAP_MSGQ_CHNG;
-    return reds;
-}
-
 typedef struct {
     Eterm pid;
     ErtsThrPrgrLaterOp lop;
@@ -1063,15 +949,11 @@ change_off_heap_msgq(void *vcohmq)
     ErtsChangeOffHeapMessageQueue *cohmq;
     /*
      * Now we've waited thread progress which ensures that all
-     * messages to the process are enqueued off heap. Schedule
-     * completion of this change as a system task on the process
-     * itself. This in order to avoid lock contention on its
-     * main lock. We will be called in
-     * erts_complete_off_heap_message_queue_change() (above) when
-     * the system task has been selected for execution.
+     * messages to the process are enqueued off heap. Signal the
+     * process to complete this change itself.
      */
     cohmq = (ErtsChangeOffHeapMessageQueue *) vcohmq;
-    erts_schedule_complete_off_heap_message_queue_change(cohmq->pid);
+    erts_proc_sig_send_move_msgq_off_heap(NULL, cohmq->pid);
     erts_free(ERTS_ALC_T_MSGQ_CHNG, vcohmq);
 }
 
@@ -1116,7 +998,7 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	    if (!(c_p->sig_qs.flags & FS_OFF_HEAP_MSGQ_CHNG)) {
 		/* Safe to clear ERTS_PSFLG_OFF_HEAP_MSGQ... */
 		erts_atomic32_read_band_nob(&c_p->state,
-						~ERTS_PSFLG_OFF_HEAP_MSGQ);
+					    ~ERTS_PSFLG_OFF_HEAP_MSGQ);
 	    }
 	    break;
 	default:
@@ -1167,7 +1049,7 @@ change_to_off_heap:
 	 * the message queue at all.
 	 */
 	erts_atomic32_read_bor_nob(&c_p->state,
-				       ERTS_PSFLG_OFF_HEAP_MSGQ);
+				   ERTS_PSFLG_OFF_HEAP_MSGQ);
 	c_p->sig_qs.flags |= FS_OFF_HEAP_MSGQ_CHNG;
 	cohmq = erts_alloc(ERTS_ALC_T_MSGQ_CHNG,
 			   sizeof(ErtsChangeOffHeapMessageQueue));

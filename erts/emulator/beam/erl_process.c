@@ -438,7 +438,6 @@ typedef enum {
     ERTS_PSTT_GC_MINOR,	/* Garbage Collect: Generational */
     ERTS_PSTT_CPC,	/* Check Process Code */
     ERTS_PSTT_CLA,	/* Copy Literal Area */
-    ERTS_PSTT_COHMQ,    /* Change off heap message queue */
     ERTS_PSTT_FTMQ,     /* Flush trace msg queue */
     ERTS_PSTT_ETS_FREE_FIXATION,
     ERTS_PSTT_PRIO_SIG,  /* Elevate prio on signal management */
@@ -10097,6 +10096,7 @@ notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st,
 			 Eterm st_result, int normal_sched)
 {
     Process *rp;
+
     if (!normal_sched)
 	rp = erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
 			       st->requester, 0,
@@ -10395,15 +10395,12 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	case ERTS_PSTT_CLA: {
 	    int fcalls;
             int cla_reds = 0;
-	    int do_gc;
 
 	    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
 		fcalls = reds;
 	    else
 		fcalls = reds - CONTEXT_REDS;
-	    do_gc = st->arg[0] == am_true;
-	    st_res = erts_proc_copy_literal_area(c_p, &cla_reds,
-						 fcalls, do_gc);
+	    st_res = erts_copy_literals_gc(c_p, &cla_reds, fcalls);
             reds -= cla_reds;
 	    if (is_non_value(st_res)) {
 		if (c_p->flags & F_DIRTY_CLA) {
@@ -10416,14 +10413,10 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 		st = NULL;
 		break;
 	    }
-	    if (do_gc) /* We did a major gc */
-		minor_gc = major_gc = 1;
+            /* We did a major gc */
+            minor_gc = major_gc = 1;
 	    break;
         }
-	case ERTS_PSTT_COHMQ:
-	    reds -= erts_complete_off_heap_message_queue_change(c_p);
-	    st_res = am_true;
-	    break;
         case ERTS_PSTT_FTMQ:
 	    reds -= erts_flush_trace_messages(c_p, ERTS_PROC_LOCK_MAIN);
 	    st_res = am_true;
@@ -10528,7 +10521,6 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
 	case ERTS_PSTT_CPC:
-        case ERTS_PSTT_COHMQ:
         case ERTS_PSTT_ETS_FREE_FIXATION:
         case ERTS_PSTT_TEST:
 	    st_res = am_false;
@@ -10634,7 +10626,7 @@ erts_execute_dirty_system_task(Process *c_p)
 
     if (c_p->flags & F_DIRTY_CLA) {
 	int cla_reds = 0;
-	cla_res = erts_proc_copy_literal_area(c_p, &cla_reds, c_p->fcalls, 1);
+        cla_res = erts_copy_literals_gc(c_p, &cla_reds, c_p->fcalls);
 	ASSERT(is_value(cla_res));
     }
 
@@ -10902,16 +10894,6 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	fail_state |= ERTS_PSFLG_DIRTY_RUNNING;
 	break;
 
-    case am_copy_literals:
-	if (st->arg[0] != am_true && st->arg[0] != am_false)
-	    goto badarg;
-	st->type = ERTS_PSTT_CLA;
-	noproc_res = am_ok;
-        fail_state = ERTS_PSFLG_FREE;
-	if (!rp)
-	    goto noproc;
-	break;
-
     default:
         if (ERTS_IS_ATOM_STR("system_task_test", req_type)) {
             st->type = ERTS_PSTT_TEST;
@@ -11054,6 +11036,49 @@ erts_internal_request_system_task_4(BIF_ALIST_4)
 			       BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
 }
 
+void
+erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id)
+{
+    Process *rp;
+    ErtsProcSysTask *st;
+    Uint req_id_sz;
+    Eterm *hp;
+    int i;
+    erts_aint32_t state, st_prio, fail_state = ERTS_PSFLG_FREE;
+
+    ASSERT(erts_get_scheduler_data());
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
+
+    req_id_sz = is_immed(req_id) ? 0 : size_object(req_id);
+    st = erts_alloc(ERTS_ALC_T_PROC_SYS_TSK,
+                    ERTS_PROC_SYS_TASK_SIZE(req_id_sz));
+    ERTS_INIT_OFF_HEAP(&st->off_heap);
+    hp = &st->heap[0];
+
+    st->type = ERTS_PSTT_CLA;
+    st->requester = c_p->common.id;
+    st->reply_tag = am_copy_literals;
+    st->req_id_sz = req_id_sz;
+    st->req_id = req_id_sz == 0 ? req_id : copy_struct(req_id,
+                                                       req_id_sz,
+                                                       &hp,
+                                                       &st->off_heap);
+    for (i = 0; i < ERTS_MAX_PROC_SYS_TASK_ARGS; i++)
+        st->arg[i] = THE_NON_VALUE;
+
+    rp = erts_proc_lookup_raw(to);
+    if (!rp)
+        goto noproc;
+
+    state = erts_atomic32_read_nob(&rp->state);
+    st_prio = ERTS_PSFLGS_GET_USR_PRIO(state);
+
+    if (!schedule_process_sys_task(rp, st_prio, st, &fail_state)) {
+    noproc:
+        (void) notify_sys_task_executed(c_p, st, am_ok, 1);
+    }
+}
+
 static int
 schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type,
                           int prio, Eterm arg0, Eterm arg1)
@@ -11089,13 +11114,6 @@ schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type,
 	    erts_free(ERTS_ALC_T_PROC_SYS_TSK, st);
     }
     return res;
-}
-
-void
-erts_schedule_complete_off_heap_message_queue_change(Eterm pid)
-{
-    schedule_generic_sys_task(pid, ERTS_PSTT_COHMQ,
-                              -1, NIL, NIL);
 }
 
 void

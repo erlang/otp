@@ -19,7 +19,7 @@
 %%
 -module(erts_literal_area_collector).
 
--export([start/0]).
+-export([start/0, send_copy_request/3, release_area_switch/0]).
 
 %% Currently we only allow two outstanding literal
 %% copying jobs that garbage collect in order to
@@ -42,8 +42,7 @@ start() ->
 %% The VM will send us a 'copy_literals' message
 %% when it has a new literal area that needs to
 %% be handled is added. We will also be informed
-%% about more areas when we call
-%% erts_internal:release_literal_area_switch().
+%% about more areas when we call release_area_switch().
 %%
 msg_loop(Area, Outstnd, GcOutstnd, NeedGC) ->
     receive
@@ -60,14 +59,14 @@ msg_loop(Area, Outstnd, GcOutstnd, NeedGC) ->
 	{copy_literals, {Area, true, _Pid}, ok} when NeedGC == [] ->
 	    msg_loop(Area, Outstnd-1, GcOutstnd-1, []);
 	{copy_literals, {Area, true, _Pid}, ok} ->
-	    send_copy_req(hd(NeedGC), Area, true),
+	    erts_literal_area_collector:send_copy_request(hd(NeedGC), Area, true),
 	    msg_loop(Area, Outstnd-1, GcOutstnd, tl(NeedGC));
 
 	%% Process (Pid) failed to complete the request
 	%% since it needs to garbage collect in order to
 	%% complete the request...
 	{copy_literals, {Area, false, Pid}, need_gc} when GcOutstnd < ?MAX_GC_OUTSTND ->
-	    send_copy_req(Pid, Area, true),
+	    erts_literal_area_collector:send_copy_request(Pid, Area, true),
 	    msg_loop(Area, Outstnd, GcOutstnd+1, NeedGC);
 	{copy_literals, {Area, false, Pid}, need_gc} ->
 	    msg_loop(Area, Outstnd, GcOutstnd, [Pid|NeedGC]);
@@ -85,7 +84,7 @@ msg_loop(Area, Outstnd, GcOutstnd, NeedGC) ->
     end.
 
 switch_area() ->
-    Res = erts_internal:release_literal_area_switch(),
+    Res = erts_literal_area_collector:release_area_switch(),
     erlang:garbage_collect(), %% Almost no live data now...
     case Res of
 	false ->
@@ -106,8 +105,18 @@ send_copy_reqs(Ps, Area, GC) ->
 send_copy_reqs([], _Area, _GC, N) ->
     N;
 send_copy_reqs([P|Ps], Area, GC, N) ->
-    send_copy_req(P, Area, GC),
+    erts_literal_area_collector:send_copy_request(P, Area, GC),
     send_copy_reqs(Ps, Area, GC, N+1).
 
-send_copy_req(P, Area, GC) ->
-    erts_internal:request_system_task(P, normal, {copy_literals, {Area, GC, P}, GC}).
+-spec release_area_switch() -> boolean().
+
+release_area_switch() ->
+    erlang:nif_error(undef). %% Implemented in beam_bif_load.c
+
+-spec send_copy_request(To, AreaId, GcAllowed) -> 'ok' when
+      To :: pid(),
+      AreaId :: term(),
+      GcAllowed :: boolean().
+
+send_copy_request(_To, _AreaId, _GcAllowed) ->
+    erlang:nif_error(undef). %% Implemented in beam_bif_load.c

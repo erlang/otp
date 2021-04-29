@@ -629,17 +629,8 @@ reply(Replies) when is_list(Replies) ->
 %%
 -compile({inline, [reply/2]}).
 -spec reply(From :: from(), Reply :: term()) -> ok.
-reply({To, [alias|Alias] = Tag}, Reply) when is_pid(To), is_reference(Alias) ->
-    Alias ! {Tag, Reply},
-    ok;
-reply({To,Tag}, Reply) when is_pid(To) ->
-    Msg = {Tag,Reply},
-    try To ! Msg of
-	_ ->
-	    ok
-    catch
-	_:_ -> ok
-    end.
+reply(From, Reply) ->
+    gen:reply(From, Reply).
 
 %% Instead of starting the state machine through start/3,4
 %% or start_link/3,4 turn the current process presumably

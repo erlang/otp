@@ -296,12 +296,8 @@ cast_msg(Request) -> {'$gen_cast',Request}.
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
-reply({To, [alias|Alias] = Tag}, Reply) when is_pid(To), is_reference(Alias) ->
-    Alias ! {Tag, Reply},
-    ok;
-reply({To, Tag}, Reply) ->
-    catch To ! {Tag, Reply},
-    ok.
+reply(From, Reply) ->
+    gen:reply(From, Reply).
 
 %% ----------------------------------------------------------------- 
 %% Asynchronous broadcast, returns nothing, it's just send 'n' pray

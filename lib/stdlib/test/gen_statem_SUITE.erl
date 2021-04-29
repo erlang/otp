@@ -42,7 +42,8 @@ all() ->
      event_types, generic_timers, code_change,
      {group, sys},
      hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
-     undef_in_terminate, {group, format_log}].
+     undef_in_terminate, {group, format_log},
+     reply_by_alias_with_payload].
 
 groups() ->
     [{start, [], tcs(start)},
@@ -2210,6 +2211,23 @@ stacktrace() ->
 
 flatten_format_log(Report, Format) ->
     lists:flatten(gen_statem:format_log(Report, Format)).
+
+reply_by_alias_with_payload(Config) when is_list(Config) ->
+    %% "Payload" version of tag not used yet, but make sure
+    %% gen_statem:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [[alias|Alias], "payload"],
+    spawn_link(fun () ->
+                       gen_statem:reply({undefined, Tag},
+                                        Reply)
+               end),
+    receive
+        {[[alias|Alias]|_] = Tag, Reply} ->
+            ok
+    end.
 
 %%
 %% Functionality check

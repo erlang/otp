@@ -47,7 +47,7 @@
 -export([is_process_executing_dirty/1]).
 -export([dirty_process_handle_signals/1]).
 
--export([release_literal_area_switch/0, wait_release_literal_area_switch/1]).
+-export([wait_release_literal_area_switch/1]).
 
 -export([purge_module/2]).
 
@@ -350,11 +350,6 @@ is_process_executing_dirty(_Pid) ->
 dirty_process_handle_signals(_Pid) ->
     erlang:nif_error(undefined).
 
--spec release_literal_area_switch() -> 'true' | 'false'.
-
-release_literal_area_switch() ->
-    erlang:nif_error(undefined).
-
 -spec wait_release_literal_area_switch(WaitMsg) -> 'true' | 'false' when
       WaitMsg :: term().
 
@@ -362,7 +357,7 @@ wait_release_literal_area_switch(WaitMsg) ->
     %% release_literal_area_switch() traps to here
     %% when it needs to wait
     receive WaitMsg -> ok end,
-    erts_internal:release_literal_area_switch().
+    erts_literal_area_collector:release_area_switch().
 
 -spec purge_module(Module, Op) -> boolean() when
       Module :: module(),

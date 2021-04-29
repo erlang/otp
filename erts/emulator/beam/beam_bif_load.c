@@ -939,184 +939,72 @@ set_default_trace_pattern(Eterm module)
     }
 }
 
-static Uint hfrag_literal_size(Eterm* start, Eterm* end,
-                               char* lit_start, Uint lit_size);
-static void hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
-                               Eterm *start, Eterm *end,
-                               char *lit_start, Uint lit_size);
-
-static ERTS_INLINE void
-msg_copy_literal_area(ErtsMessage *msgp, int *redsp,
-                      char *literals, Uint lit_bsize)
+int
+erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
+                                 char *literals, Uint lit_bsize)
 {
-    ErlHeapFragment *hfrag, *hf;
-    Uint lit_sz = 0;
-
-    *redsp += 1;
-
-    if (!ERTS_SIG_IS_INTERNAL_MSG(msgp))
-        return;
-
-    if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-        hfrag = &msgp->hfrag;
-    else
-        hfrag = msgp->data.heap_frag;
-
     /*
-     * Literals should only be able to appear in the
-     * first message reference, i.e., the message
-     * itself...
+     * TODO: Implement yielding support!
      */
-    if (ErtsInArea(msgp->m[0], literals, lit_bsize))
-        lit_sz += size_object(msgp->m[0]);
-
-#ifdef DEBUG
-    {
-        int i;
-        for (i = 1; i < ERL_MESSAGE_REF_ARRAY_SZ; i++) {
-            ASSERT(!ErtsInArea(msgp->m[i], literals, lit_bsize));
-        }
-    }
-#endif
-
-    for (hf = hfrag; hf; hf = hf->next) {
-        lit_sz += hfrag_literal_size(&hf->mem[0],
-                                     &hf->mem[hf->used_size],
-                                     literals, lit_bsize);
-        *redsp += 1;
-    }
-
-    *redsp += lit_sz / 16; /* Better value needed... */
-    if (lit_sz > 0) {
-        ErlHeapFragment *bp = new_message_buffer(lit_sz);
-        Eterm *hp = bp->mem;
-
-        if (ErtsInArea(msgp->m[0], literals, lit_bsize)) {
-            Uint sz = size_object(msgp->m[0]);
-            msgp->m[0] = copy_struct(msgp->m[0], sz, &hp, &bp->off_heap);
-        }
-
-        for (hf = hfrag; hf; hf = hf->next) {
-            hfrag_literal_copy(&hp, &bp->off_heap,
-                               &hf->mem[0],
-                               &hf->mem[hf->used_size],
-                               literals, lit_bsize);
-            hfrag = hf;
-        }
-
-        bp->next = NULL;
-        /* link new hfrag last */
-        if (!hfrag)
-            msgp->data.heap_frag = bp;
-        else {
-            ASSERT(hfrag->next == NULL);
-            hfrag->next = bp;
-        }
-    }
-}
-
-Eterm
-erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed)
-{
-    ErtsLiteralArea *la;
-    struct erl_off_heap_header* oh;
-    char *literals;
-    Uint lit_bsize;
     ErlHeapFragment *hfrag;
     ErtsMessage *mfp;
-
-    la = ERTS_COPY_LITERAL_AREA();
-    if (!la)
-        goto return_ok;
+    Uint64 scanned = 0;
+    int res = !0; /* need gc */
 
     /* The heap may be in an inconsistent state when the GC is disabled, for
      * example when we're in the middle of building a record in
      * binary_to_term/1, so we have to delay scanning until the GC is enabled
      * again. */
-    if (c_p->flags & F_DISABLE_GC) {
-        return THE_NON_VALUE;
-    }
-
-    oh = la->off_heap;
-    literals = (char *) &la->start[0];
-    lit_bsize = (char *) la->end - literals;
+    if (c_p->flags & F_DISABLE_GC)
+        goto done;
 
     /*
-     * If a literal is in the message queue we make an explicit copy of
-     * it and attach it to the heap fragment. Each message needs to be
-     * self contained, we cannot save the literal in the old_heap or
-     * any other heap than the message it self.
+     * Signal queue has already been handled see
+     * handle_cla() in erl_proc_sig_queue.c
      */
 
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-    erts_proc_sig_fetch(c_p);
-    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-
-    ERTS_FOREACH_SIG_PRIVQS(c_p, msgp, msg_copy_literal_area(msgp,
-                                                             redsp,
-                                                             literals,
-                                                             lit_bsize));
-
-    if (gc_allowed) {
-	/*
-	 * Current implementation first tests without
-	 * allowing GC, and then restarts the operation
-	 * allowing GC if it is needed. It is therfore
-	 * very likely that we will need the GC (although
-	 * this is not completely certain). We go for
-	 * the GC directly instead of scanning everything
-	 * one more time...
-	 *
-	 * Also note that calling functions expect a
-	 * major GC to be performed if gc_allowed is set
-	 * to true. If you change this, you need to fix
-	 * callers...
-	 */
-	goto literal_gc;
-    }
-
-    *redsp += 2;
+    scanned++;
     if (any_heap_ref_ptrs(&c_p->fvalue, &c_p->fvalue+1, literals, lit_bsize)) {
 	c_p->freason = EXC_NULL;
 	c_p->fvalue = NIL;
 	c_p->ftrace = NIL;
     }
 
+    scanned += c_p->hend - c_p->stop;
     if (any_heap_ref_ptrs(c_p->stop, c_p->hend, literals, lit_bsize))
-	goto literal_gc;   
-    *redsp += 1;
+	goto done;
+    scanned += c_p->htop - c_p->heap;
     if (any_heap_refs(c_p->heap, c_p->htop, literals, lit_bsize))
-	goto literal_gc;
-    *redsp += 1;
+	goto done;
     if (c_p->abandoned_heap) {
+        scanned += c_p->heap_sz;
 	if (any_heap_refs(c_p->abandoned_heap, c_p->abandoned_heap + c_p->heap_sz,
 			  literals, lit_bsize))
-	    goto literal_gc;
-	*redsp += 1;
+	    goto done;
     }
+    scanned += c_p->old_htop - c_p->old_heap;
     if (any_heap_refs(c_p->old_heap, c_p->old_htop, literals, lit_bsize))
-	goto literal_gc;
+	goto done;
 
     /* Check dictionary */
-    *redsp += 1;
     if (c_p->dictionary) {
 	Eterm* start = ERTS_PD_START(c_p->dictionary);
 	Eterm* end = start + ERTS_PD_SIZE(c_p->dictionary);
 
+        scanned += end - start;
 	if (any_heap_ref_ptrs(start, end, literals, lit_bsize))
-	    goto literal_gc;
+	    goto done;
     }
 
     /* Check heap fragments */
     for (hfrag = c_p->mbuf; hfrag; hfrag = hfrag->next) {
 	Eterm *hp, *hp_end;
 
-	*redsp += 1;
-
+        scanned += hfrag->used_size;
 	hp = &hfrag->mem[0];
 	hp_end = &hfrag->mem[hfrag->used_size];
 	if (any_heap_refs(hp, hp_end, literals, lit_bsize))
-	    goto literal_gc;
+	    goto done;
     }
 
     /*
@@ -1130,27 +1018,46 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
 	for (; hfrag; hfrag = hfrag->next) {
 	    Eterm *hp, *hp_end;
 
-	    *redsp += 1;
-
+            scanned += hfrag->used_size;
 	    hp = &hfrag->mem[0];
 	    hp_end = &hfrag->mem[hfrag->used_size];
 
 	    if (any_heap_refs(hp, hp_end, literals, lit_bsize))
-		goto literal_gc;
+		goto done;
 	}
     }
+    
+    res = 0; /* no need for gc */
 
-return_ok:
+done: {
+        Uint64 reds = ((scanned - 1)/ERTS_CLA_SCAN_WORDS_PER_RED) + 1;
+        if (reds > CONTEXT_REDS)
+            reds = CONTEXT_REDS;
+        *redsp += (int) reds;
+        return res;
+    }
+}
 
-    if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p)))
-	c_p->flags &= ~F_DIRTY_CLA;
+Eterm
+erts_copy_literals_gc(Process *c_p, int *redsp, int fcalls)
+{
+    ErtsLiteralArea *la;
+    struct erl_off_heap_header* oh;
+    char *literals;
+    Uint lit_bsize;
 
-    return am_ok;
+    la = ERTS_COPY_LITERAL_AREA();
+    if (!la) {
+        ASSERT(0);
+        return am_ok;
+    }
 
-literal_gc:
-
-    if (!gc_allowed)
-        return am_need_gc;
+    oh = la->off_heap;
+    literals = (char *) &la->start[0];
+    lit_bsize = (char *) la->end - literals;
+    
+    if (c_p->flags & F_DISABLE_GC)
+        return THE_NON_VALUE;
 
     *redsp += erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize,
 					    oh, fcalls);
@@ -1284,80 +1191,6 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	}
     }
     return 0;
-}
-
-static Uint
-hfrag_literal_size(Eterm* start, Eterm* end, char* lit_start, Uint lit_size)
-{
-    Eterm* p;
-    Eterm val;
-    Uint sz = 0;
-
-    for (p = start; p < end; p++) {
-        val = *p;
-        switch (primary_tag(val)) {
-        case TAG_PRIMARY_BOXED:
-        case TAG_PRIMARY_LIST:
-            if (ErtsInArea(val, lit_start, lit_size)) {
-                sz += size_object(val);
-            }
-            break;
-        case TAG_PRIMARY_HEADER:
-            if (!header_is_transparent(val)) {
-                Eterm* new_p;
-                if (header_is_bin_matchstate(val)) {
-                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
-                    ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
-                        sz += size_object(mb->orig);
-                    }
-                }
-                new_p = p + thing_arityval(val);
-                ASSERT(start <= new_p && new_p < end);
-                p = new_p;
-            }
-        }
-    }
-    return sz;
-}
-
-static void
-hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
-                   Eterm *start, Eterm *end,
-                   char *lit_start, Uint lit_size) {
-    Eterm* p;
-    Eterm val;
-    Uint sz;
-
-    for (p = start; p < end; p++) {
-        val = *p;
-        switch (primary_tag(val)) {
-        case TAG_PRIMARY_BOXED:
-        case TAG_PRIMARY_LIST:
-            if (ErtsInArea(val, lit_start, lit_size)) {
-                sz = size_object(val);
-                val = copy_struct(val, sz, hpp, ohp);
-                *p = val; 
-            }
-            break;
-        case TAG_PRIMARY_HEADER:
-            if (!header_is_transparent(val)) {
-                Eterm* new_p;
-                /* matchstate in message, not possible. */
-                if (header_is_bin_matchstate(val)) {
-                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
-                    ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
-                        sz = size_object(mb->orig);
-                        mb->orig = copy_struct(mb->orig, sz, hpp, ohp);
-                    }
-                }
-                new_p = p + thing_arityval(val);
-                ASSERT(start <= new_p && new_p < end);
-                p = new_p;
-            }
-        }
-    }
 }
 
 /*
@@ -1644,14 +1477,55 @@ rla_switch_area(void)
     }
 }
 
-BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
+BIF_RETTYPE
+erts_literal_area_collector_send_copy_request_3(BIF_ALIST_3)
+{
+    Eterm req_id, tmp_heap[4];
+
+    /*
+     * The literal-area-collector process orchestrates this and
+     * is the only process allowed here...
+     */
+    if (BIF_P != erts_literal_area_collector)
+        BIF_ERROR(BIF_P, EXC_NOTSUP);
+
+    if (is_not_internal_pid(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+
+    req_id = TUPLE3(&tmp_heap[0], BIF_ARG_2, BIF_ARG_3, BIF_ARG_1);
+
+    if (BIF_ARG_3 == am_false) {
+        /*
+         * Will handle signal queue and check if GC if needed. If
+         * GC is needed operation will be continued by a GC (below).
+         */
+        erts_proc_sig_send_cla_request(BIF_P, BIF_ARG_1, req_id);
+    }
+    else if (BIF_ARG_3 == am_true) {
+        /*
+         * Will perform a literal GC. Note that this assumes that
+         * signal queue already has been handled...
+         */
+        erts_schedule_cla_gc(BIF_P, BIF_ARG_1, req_id);
+    }
+    else
+        BIF_ERROR(BIF_P, BADARG);
+
+    BIF_RET(am_ok);
+}
+
+BIF_RETTYPE erts_literal_area_collector_release_area_switch_0(BIF_ALIST_0)
 {
     ErtsLiteralArea *new_area, *old_area;
     int wait_ix = 0;
     int sched_ix = 0;
 
+    /*
+     * The literal-area-collector process orchestrates this and
+     * is the only process allowed here...
+     */
     if (BIF_P != erts_literal_area_collector)
-       	BIF_ERROR(BIF_P, EXC_NOTSUP);
+	BIF_ERROR(BIF_P, EXC_NOTSUP);
    
     while (1) {
         int six;
@@ -1705,7 +1579,7 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 
             ASSERT(old_area);
             ERTS_VBUMP_ALL_REDS(BIF_P);
-            BIF_TRAP0(BIF_TRAP_EXPORT(BIF_erts_internal_release_literal_area_switch_0),
+            BIF_TRAP0(BIF_TRAP_EXPORT(BIF_erts_literal_area_collector_release_area_switch_0),
                       BIF_P);
         }
 

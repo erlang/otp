@@ -40,7 +40,8 @@
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
 	 undef_handle_continue/1,
 
-         format_log_1/1, format_log_2/1
+         format_log_1/1, format_log_2/1,
+         reply_by_alias_with_payload/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -74,7 +75,7 @@ all() ->
      get_state, replace_state,
      call_with_huge_message_queue, {group, undef_callbacks},
      undef_in_terminate, undef_in_handle_info,
-     format_log_1, format_log_2].
+     format_log_1, format_log_2, reply_by_alias_with_payload].
 
 groups() -> 
     [{stop, [],
@@ -1853,6 +1854,35 @@ format_log_2(_Config) ->
 
 flatten_format_log(Report, Format) ->
     lists:flatten(gen_server:format_log(Report, Format)).
+
+reply_by_alias_with_payload(Config) when is_list(Config) ->
+    %% "Payload" version of tag not used yet, but make sure
+    %% gen_server:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [[alias|Alias], "payload"],
+    spawn_link(fun () ->
+                       gen_server:reply({undefined, Tag},
+                                        Reply)
+               end),
+    receive
+        {[[alias|Alias]|_] = Tag, Reply} ->
+            ok
+    end,
+    %% Check gen:reply/2 as well...
+    Reply2 = make_ref(),
+    Alias2 = alias(),
+    Tag2 = [[alias|Alias2], "payload"],
+    spawn_link(fun () ->
+                       gen:reply({undefined, Tag2},
+                                 Reply2)
+               end),
+    receive
+        {[[alias|Alias2]|_] = Tag2, Reply2} ->
+            ok
+    end.
 
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*

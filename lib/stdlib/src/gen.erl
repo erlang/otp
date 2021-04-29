@@ -335,9 +335,12 @@ check_response(Msg, Mref) when is_reference(Mref) ->
 %%
 %% Send a reply to the client.
 %%
+reply({_To, [alias|Alias] = Tag}, Reply) when is_reference(Alias) ->
+    Alias ! {Tag, Reply}, ok;
+reply({_To, [[alias|Alias] | _] = Tag}, Reply) when is_reference(Alias) ->
+    Alias ! {Tag, Reply}, ok;
 reply({To, Tag}, Reply) ->
-    Msg = {Tag, Reply},
-    try To ! Msg catch _:_ -> Msg end.
+    try To ! {Tag, Reply}, ok catch _:_ -> ok end.
 
 %%-----------------------------------------------------------------
 %% Syncronously stop a generic process
