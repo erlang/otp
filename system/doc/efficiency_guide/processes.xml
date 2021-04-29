@@ -36,13 +36,11 @@
     <p>An Erlang process is lightweight compared to threads and
     processes in operating systems.</p>
 
-    <p>A newly spawned Erlang process uses 309 words of memory
-    in the non-SMP emulator without HiPE support. (SMP support
-    and HiPE support both add to this size.) The size can
+    <p>A newly spawned Erlang process uses 326 words of memory. The size can
     be found as follows:</p>
 
     <pre>
-Erlang (BEAM) emulator version 5.6 [async-threads:0] [kernel-poll:false]
+Erlang/OTP 24 [erts-12.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
 Eshell V5.6  (abort with ^G)
 1> <input>Fun = fun() -> receive after infinity -> ok end end.</input>
@@ -372,18 +370,14 @@ true
   <section>
     <title>SMP Emulator</title>
 
-    <p>The SMP emulator (introduced in R11B) takes advantage of a
-    multi-core or multi-CPU computer by running several Erlang scheduler
-    threads (typically, the same as the number of cores). Each scheduler
-    thread schedules Erlang processes in the same way as the Erlang scheduler
-    in the non-SMP emulator.</p>
+    <p>The emulator takes advantage of a multi-core or multi-CPU
+    computer by running several Erlang scheduler
+    threads (typically, the same as the number of cores).</p>
 
-    <p>To gain performance by using the SMP emulator, your application
+    <p>To gain performance from a multi-core computer, your application
     <em>must have more than one runnable Erlang process</em> most of the time.
     Otherwise, the Erlang emulator can still only run one Erlang process
-    at the time, but you must still pay the overhead for locking. Although
-    Erlang/OTP tries to reduce the locking overhead as much as possible,
-    it will never become exactly zero.</p>
+    at the time.</p>
 
     <p>Benchmarks that appear to be concurrent are often sequential.
     The estone benchmark, for example, is entirely sequential. So is

@@ -1308,8 +1308,8 @@ ets:select(Table, MatchSpec),</code>
           <item>
             <p>Performance tuning. Defaults to <c>false</c>. When set to
               <c>true</c>, the table is optimized for concurrent read
-              operations. When this option is enabled on a runtime system with
-              SMP support, read operations become much cheaper; especially on
+              operations. When this option is enabled read operations
+	      become much cheaper; especially on
               systems with multiple physical processors. However, switching
               between read and write operations becomes more expensive.</p>
             <p>You typically want to enable this option when concurrent read
