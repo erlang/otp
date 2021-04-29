@@ -406,7 +406,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM m
 #  define enif_set_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_set_pid_undefined)
 #  define enif_is_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_is_pid_undefined)
 #  define enif_term_type ERL_NIF_API_FUNC_MACRO(enif_term_type)
-#  define enif_resource_handshake ERL_NIF_API_FUNC_MACRO(enif_resource_handshake)
+#  define enif_init_resource_type ERL_NIF_API_FUNC_MACRO(enif_init_resource_type)
+#  define enif_dynamic_resource_call ERL_NIF_API_FUNC_MACRO(enif_dynamic_resource_call)
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
 */
