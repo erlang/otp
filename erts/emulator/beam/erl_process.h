@@ -2414,7 +2414,13 @@ ErtsSchedulerData *erts_proc_sched_data(Process *c_p)
     else {
 	esdp = erts_get_scheduler_data();
 	ASSERT(esdp);
-	ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
+	/*
+	 * Not always true that we are on a dirty
+	 * scheduler; we may be executing on
+	 * behalf of another process...
+	 *
+	 * ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
+	 */
     }
     ASSERT(esdp);
     return esdp;
