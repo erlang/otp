@@ -164,7 +164,10 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
             ErrRef = make_ref(),
             try
                 ok(ErrRef, call(Server, {setopts, SocketOpts ++ Setopts})),
-                ok(ErrRef, call_bind(Server, BindAddr)),
+                if
+                    not is_integer(Fd) -> ok(ErrRef, call_bind(Server, BindAddr));
+                    true -> ok
+                end,
                 DefaultError = {error, einval},
                 Socket =  
                     val(ErrRef,
@@ -294,7 +297,10 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
                      Server,
                      {setopts,
                       [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
-                ok(ErrRef, call_bind(Server, BindAddr)),
+                if
+                    not is_integer(Fd) -> ok(ErrRef, call_bind(Server, BindAddr));
+                    true -> ok
+                end,
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?MODULE_socket(Server, Socket)}
             catch
