@@ -7582,7 +7582,7 @@ esock_sendfile(ErlNifEnv       *env,
 
         {
             /* Platform dependent code:
-             *   set and check bytes_sent, and
+             *   update and check offset, set and check bytes_sent, and
              *       set res to >= 0 and error to 0, or
              *       set res to < 0 and error to sock_errno()
              */
@@ -7627,27 +7627,19 @@ esock_sendfile(ErlNifEnv       *env,
 #endif
             error = (res < 0) ? sock_errno() : 0;
 
-            ESOCK_ASSERT( sbytes >= 0 );
-            ESOCK_ASSERT( (off_t) chunk_size >= sbytes );
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "esock_sendfile(%T) {%d,%d}"
-                    "\r\n   res:         %d"
-                    "\r\n   bytes_sent:  %lu"
-                    "\r\n   error:       %d"
-                    "\r\n",
-                    sockRef, descP->sock, descP->sendfileHandle,
-                    res, (unsigned long) bytes_sent, error) );
-
-            /* For an error return, we are only promised that sbytes
-             * is set, for ERRNO_BLOCK and EINTR,
-             * i.e set bytes_sent to 0 for all other errors
+            /* For an error return, we do not dare trust that sbytes is set
+             * unless the error is ERRNO_BLOCK or EINTR
+             * - the man page is to vague
              */
-            if ((res < 0) && (error != ERRNO_BLOCK) && (error != EINTR))
-                bytes_sent = 0;
-            else
-                bytes_sent = (size_t) sbytes;
+            if ((res < 0) && (error != ERRNO_BLOCK) && (error != EINTR)) {
+                sbytes = 0;
+            } else {
+                ESOCK_ASSERT( sbytes >= 0 );
+                ESOCK_ASSERT( (off_t) chunk_size >= sbytes );
+                ESOCK_ASSERT( offset + sbytes >= offset );
+                offset += sbytes;
+            }
+            bytes_sent = (size_t) sbytes;
 
             SSDBG( descP,
                    ("SOCKET",
@@ -7683,13 +7675,17 @@ esock_sendfile(ErlNifEnv       *env,
 
             if ((res < 0) && (error == EINVAL)) {
                 /* On e.b SunOS 5.10 using sfv_len > file size
-                 * lands here - we regard this as a succesful send
-                 * by pretending it is an EINTR causing the loop
-                 * to continue with more data up to end of file
+                 * lands here - we regard this as a succesful send.
+                 * All other causes for EINVAL are avoided,
+                 * except for .sfv_fd not seekable, which would
+                 * give bytes_sent == 0 that we would interpret
+                 * as end of file, which is kind of true.
                  */
-                error = EINTR;
+                res = 0;
             }
             ESOCK_ASSERT( chunk_size >= bytes_sent );
+            ESOCK_ASSERT( offset + bytes_sent >= offset );
+            offset += bytes_sent;
 
 #else
 #error "Unsupported sendfile syscall; update configure test."
