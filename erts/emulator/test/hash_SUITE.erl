@@ -557,6 +557,9 @@ last_byte(Bin) ->
     <<_:NotLastByteSize/bitstring, LastByte:8>> = Bin,
     LastByte.
 
+
+%% This testcase needs 8-10 GB of free memory. If not enough is available
+%% the testcase will fail with {erpc,noconnection}
 test_phash2_4GB_plus_bin(Config) when is_list(Config) ->
     run_when_enough_resources(
       fun() ->
@@ -618,7 +621,10 @@ duplicate_iolist(IOList, NrOfTimes) ->
 %% then the memory consumption going through the roof and systems will need
 %% lots of memory.
 test_phash2_plus_bin_helper(Bin4GB, ExtraBytes, ExtraBits, ExpectedHash) ->
+    ct:log("Test with ~p extra bytes and ~p extra bits",
+          [ExtraBytes, ExtraBits]),
     test_phash2_plus_bin_helper(Bin4GB, fun id/1, ExtraBytes, ExtraBits, ExpectedHash),
+    ct:log("Test as unaligned sub bitstring"),
     test_phash2_plus_bin_helper(Bin4GB, fun make_unaligned_sub_bitstring/1,
                                 ExtraBytes, ExtraBits, ExpectedHash).
 test_phash2_plus_bin_helper(Bin, TransformerFun, ExtraBytes, ExtraBits, ExpectedHash) ->
@@ -659,7 +665,9 @@ wait_for_mseg_cache(0) ->
     io:format("Cached segments never became zero, continue anyways.");
 wait_for_mseg_cache(N) ->
     case get_cached_segments() of
-        0 -> ok;
+        0 ->
+            %% We sleep an extra second in order for the OS to catch up
+            timer:sleep(1000);
         NotZero ->
             io:format("Cached segments = ~p, sleeping for 1 second~n",
                       [NotZero]),
@@ -686,7 +694,7 @@ run_when_enough_resources(Fun) ->
     Mem = total_memory(),
     Build = erlang:system_info(build_type),
 
-    if Bits =:= 64, is_integer(Mem), Mem >= 31,
+    if Bits =:= 64, is_integer(Mem), Mem >= 16,
        Build =/= valgrind, Build =/= asan ->
             Fun();
 
