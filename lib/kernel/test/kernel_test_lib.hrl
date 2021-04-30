@@ -37,6 +37,8 @@
 -define(LISTEN(C),               ?LIB:listen(C, 0, [])).
 -define(LISTEN(C, P),            ?LIB:listen(C, P, [])).
 -define(LISTEN(C, P, O),         ?LIB:listen(C, P, O)).
+-define(CONNECT(__C__, __H__, __P__),
+        ?LIB:connect(__C__, __H__, __P__, [])).
 -define(CONNECT(__C__, __H__, __P__, __O__),
         ?LIB:connect(__C__, __H__, __P__, __O__)).
 -define(CONNECT(__C__, __H__, __P__, __O__, __T__),
