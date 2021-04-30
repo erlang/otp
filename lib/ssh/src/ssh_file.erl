@@ -174,13 +174,21 @@ add_host_key(Hosts0, Port, Key, Opts) ->
 decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
+decode(KeyBin, public_key) when is_binary(KeyBin) ->
+    Type = case KeyBin of
+               <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
+               <<"----",_/binary>> -> rfc4716_key;
+               _ -> openssh_key
+           end,
+    decode(KeyBin, Type);
+
 decode(KeyBin, Type) when is_binary(KeyBin) andalso 
                           (Type==rfc4716_key orelse
                            Type==openssh_key_v1 % Experimental
                           ) ->
     %% Ex: <<"---- BEGIN SSH2 PUBLIC KEY ----\n....">>     (rfc4716_key)
     %%     <<"-----BEGIN OPENSSH PRIVATE KEY-----\n....">> (openssh_key_v1)
-    case ssh_file:decode_ssh_file(public, any, KeyBin, ignore) of
+    case decode_ssh_file(public, any, KeyBin, ignore) of
         {ok,Keys} ->
             [{Key,
               if
@@ -199,8 +207,6 @@ decode(KeyBin, Type) when is_binary(KeyBin) andalso
 decode(KeyBin0, openssh_key) when is_binary(KeyBin0) ->
     %% Ex: <<"ssh-rsa AAAAB12....3BC someone@example.com">>
     try
-        Lines = [L || L <- binary:split(KeyBin0, <<"\n">>, [global,trim_all]),
-                      re:run(L, "^\s+$") == nomatch],
         [begin
              [_,K|Rest] = binary:split(Line, <<" ">>, [global,trim_all]),
              Key = ssh_message:ssh2_pubkey_decode(base64:decode(K)),
@@ -208,30 +214,66 @@ decode(KeyBin0, openssh_key) when is_binary(KeyBin0) ->
                  [Comment] -> {Key, [{comment,binary_to_list(Comment)}]};
                  [] -> {Key,[]}
              end
-         end || Line <- Lines,
-                case Line of
-                    <<"#",_/binary>> -> % skip comments
-                        false;
-                    _ ->
-                        true
-                end
+         end || Line <- split_in_nonempty_lines(KeyBin0)
         ]
     catch
         _:_ -> {error, key_decode_failed}
     end;
 
-decode(KeyBin, public_key) when is_binary(KeyBin) ->
-    Type = case KeyBin of
-               <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
-               <<"----",_/binary>> -> rfc4716_key;
-               _ -> openssh_key
-           end,
-    decode(KeyBin, Type);
+decode(Bin, known_hosts) when is_binary(Bin) ->
+    [begin
+         Attrs = 
+             [
+              {comment, binary_to_list(erlang:iolist_to_binary(lists:join(" ", Comment)))}
+              || Comment =/= []
+             ] ++
+             [
+              {hostnames,
+               [binary_to_list(HP)
+                || HP <- binary:split(HostPort,<<",">>,[global,trim_all])
+               ]}
+             ],
+         {ssh_message:ssh2_pubkey_decode(base64:decode(KeyBin)),
+          Attrs
+         }
+     end
+     || L <- split_in_nonempty_lines(Bin),
+        [HostPort,_KeyType,KeyBin|Comment] <- [binary:split(L,<<" ">>,[global,trim_all])]
+    ];
 
-decode(_KeyBin, Type) when Type == known_hosts;
-                           Type == auth_keys
-                           ->
-    {error, not_yet_implemented};
+decode(Bin, auth_keys) when is_binary(Bin) ->
+    [begin
+         Attrs = 
+             [
+              {comment, binary_to_list(erlang:iolist_to_binary(lists:join(" ", Comment)))}
+              || Comment =/= []
+             ] ++
+             [
+              {options, lists:map(fun erlang:binary_to_list/1, Options)}
+              || Options =/= []
+             ],
+         {ssh_message:ssh2_pubkey_decode(base64:decode(KeyBin)),
+          Attrs
+         }
+     end
+     || L <- split_in_nonempty_lines(Bin),
+        [Options,_KeyType,KeyBin|Comment] <-
+            case binary:match(L, [<<"ssh-rsa">>,
+                                  <<"rsa-sha2-">>,
+                                  <<"ssh-dss">>,
+                                  <<"ecdsa-sha2-nistp">>,
+                                  <<"ssh-ed">>
+                                 ]) of
+                nomatch ->
+                    [];
+                {0, Len} when is_integer(Len) ->
+                    [ [[] | binary:split(L,<<" ">>,[global,trim_all])] ];
+                {Pos,Len} when is_integer(Pos), is_integer(Len) ->
+                    [ [binary:split(binary:part(L,0,Pos-1), <<",">>,[global,trim_all]) |
+                       binary:split(binary:part(L,Pos,size(L)-Pos), <<" ">>, [global,trim_all])]
+                    ]
+            end
+    ];
 
 decode(_KeyBin, _Type) ->
     error(badarg).
@@ -271,7 +313,7 @@ encode(KeyAttrs, Type) when Type==rfc4716_key ;
       [
        [Begin,
         [rfc4716_encode_header(H) || H <- proplists:get_value(headers, Attrs, [])],
-        split_lines( base64:encode( F(Key) ) ),
+        split_long_lines( base64:encode( F(Key) ) ),
         "\n",
         End
        ] ||
@@ -279,19 +321,36 @@ encode(KeyAttrs, Type) when Type==rfc4716_key ;
       ]
      );
 
-encode(KeyAttrs, openssh_key) ->
+encode(KeyAttrs, Type) when Type == known_hosts;
+                            Type == auth_keys ;
+                            Type == openssh_key ->
+    FirstArgTag =
+        case Type of
+            known_hosts -> hostnames;
+            auth_keys -> options;
+            openssh_key -> '*no tag*'
+        end,
     iolist_to_binary(
-      [begin
-           <<?DEC_BIN(KeyType,__0),_/binary>> = Enc0 = ssh_message:ssh2_pubkey_encode(Key),
-           [KeyType, " ",  base64:encode(Enc0),  " ", proplists:get_value(comment,Attrs,""), "\n"]
-       end ||
-          {Key,Attrs} <- KeyAttrs
-      ]);
+      [
+       begin
+           <<?DEC_BIN(KeyType,__0),_/binary>> = Enc = ssh_message:ssh2_pubkey_encode(Key),
+           [case lists:join(",", proplists:get_value(FirstArgTag, Attributes, [])) of
+                [] -> "";
+                C -> [C," "]
+            end,
+            KeyType, " ",
+            base64:encode(Enc), " ",
+            case proplists:get_value(comment, Attributes, []) of
+                [] -> "";
+                C -> C
+            end,
+            "\n"
+           ]
+       end
+       || {Key,Attributes} <- KeyAttrs
+      ]
+     );
 
-encode(_KeyBin, Type) when Type == known_hosts;
-                           Type == auth_keys
-                           ->
-    {error, not_yet_implemented};
 encode(_KeyBin, _Type) ->
     error(badarg).
 
@@ -307,7 +366,7 @@ lookup_auth_keys(KeyType, Key, File, Opts) ->
         time ->
             case file:read_file(File) of
                 {ok,Bin} ->
-                    Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
+                    Lines = split_in_lines(Bin),
                     find_key(KeyType, Key, Lines);
                 _ ->
                     false
@@ -323,7 +382,7 @@ lookup_auth_keys(KeyType, Key, File, Opts) ->
                     file:close(Fd),
                     Result;
                 {error,_Error} ->
-                    false
+                   false
             end;
         Other ->
             {error,{is_auth_key,{opt,Other}}}
@@ -419,7 +478,7 @@ read_test_loop(Fd, Test) ->
 	    %% Rare... For example NFS errors
 	    {error,Error};
 	Line0 ->
-            case binary:split(Line0, <<"\n">>, [global,trim_all]) of % remove trailing \n
+            case split_in_lines(Line0) of % remove trailing EOL
                 [Line] ->
                     case Test(Line) of
                         false ->
@@ -439,7 +498,7 @@ lookup_host_keys(Hosts, KeyType, Key, File, Opts) ->
         time ->
             case file:read_file(File) of
                 {ok,Bin} ->
-                    Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
+                    Lines = split_in_lines(Bin),
                     case find_host_key(Hosts, KeyType, Key, Lines) of
                         {true,RestLines} ->
                             case revoked_key(Hosts, KeyType, Key, RestLines) of
@@ -641,11 +700,9 @@ rfc4716_encode_value(Value) ->
 	    Value
     end.
 
-split_lines(<<Text:?ENCODED_LINE_LENGTH/binary>>) ->
-    [Text];
-split_lines(<<Text:?ENCODED_LINE_LENGTH/binary, Rest/binary>>) ->
-    [Text, $\n | split_lines(Rest)];
-split_lines(Bin) ->
+split_long_lines(<<Text:?ENCODED_LINE_LENGTH/binary, Rest/binary>>) when Rest =/= <<"">> ->
+    [Text, $\n | split_long_lines(Rest)];
+split_long_lines(Bin) ->
     [Bin].
 
 %%%---------------- COMMON FUNCTIONS ------------------------------
@@ -744,9 +801,9 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
 
 
 decode_pem_keys(RawBin, Password) ->
-    PemLines = binary:split(
-                 binary:replace(RawBin, <<"\\\n">>, <<"">>, [global]),
-                 <<"\n">>, [global,trim_all]),
+    PemLines = split_in_lines(
+                 binary:replace(RawBin, <<"\\\n">>, <<"">>, [global])
+                ),
     decode_pem_keys(PemLines, Password, []).
 decode_pem_keys([], _, Acc) ->
     {ok,lists:reverse(Acc)};
@@ -762,15 +819,6 @@ decode_pem_keys(PemLines, Password, Acc) ->
             Keys = [{Key,Attrs} || {Pub,Priv} <- KeyPairs,
                                    Key <- [Pub,Priv]],
             decode_pem_keys(RestLines, Password, Keys ++ Acc);
-
-        %% {'openssh-key-v1', Bin, Attrs, RestLines} ->
-        %%     %% -----BEGIN OPENSSH PRIVATE KEY-----
-        %%     %% Holds both public and private keys
-        %%     KeyPairsCmnts = openssh_key_v1_decode(Bin, Password),
-        %%     %% Keys = [{Key,{Attrs,Cmnt}} || {Pub,Priv,Cmnt} <- KeyPairsCmnts,
-        %%     %%                             Key <- [Pub,Priv]],
-        %%     decode_pem_keys(RestLines, Password, [{KeyPairsCmnts,Attrs}| Acc]);
-
 
         {rfc4716, Bin, Attrs, RestLines} ->
             %% ---- BEGIN SSH2 PUBLIC KEY ----
@@ -1084,3 +1132,17 @@ pad(N, BlockSize) -> list_to_binary(lists:seq(1,BlockSize-N)).
 
 %%%================================================================
 %%%
+split_in_nonempty_lines(Bin) ->
+    skip_blank_lines_and_comments( split_in_lines(Bin) ).
+
+split_in_lines(Bin) ->
+    binary:split(Bin, <<"\n">>, [global,trim_all]).
+
+skip_blank_lines_and_comments(Lines) ->
+    lists:filter(fun(<<"#",_/binary>>) ->
+                         %% skip comments
+                         false;
+                    (L) ->
+                         %% skip blank lines
+                         re:run(L, "^(\t|\s)+$") == nomatch
+                 end, Lines).
