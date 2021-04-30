@@ -702,15 +702,6 @@ child_specs(Config) when is_list(Config) ->
     B5 = {child, {m,f,[a]}, permanent, 1000, worker, dy},
     B6 = {child, {m,f,[a]}, permanent, 1000, worker, [1,2,3]},
 
-    %% Correct child specs!
-    %% <Modules> (last parameter in a child spec) can be [] as we do 
-    %% not test code upgrade here.  
-    C1 = {child, {m,f,[a]}, permanent, infinity, supervisor, []},
-    C2 = {child, {m,f,[a]}, permanent, 1000, supervisor, []},
-    C3 = {child, {m,f,[a]}, temporary, 1000, worker, dynamic},
-    C4 = {child, {m,f,[a]}, transient, 1000, worker, [m]},
-    C5 = {child, {m,f,[a]}, permanent, infinity, worker, [m]},
-
     {error, {invalid_mfa,mfa}} = supervisor:start_child(sup_test, B1),
     {error, {invalid_restart_type, prmanent}} =
 	supervisor:start_child(sup_test, B2),
@@ -732,11 +723,22 @@ child_specs(Config) when is_list(Config) ->
     {error, {invalid_module, 1}} =
 	supervisor:check_childspecs([B6]),
 
-    ok = supervisor:check_childspecs([C1]),
-    ok = supervisor:check_childspecs([C2]),
-    ok = supervisor:check_childspecs([C3]),
-    ok = supervisor:check_childspecs([C4]),
-    ok = supervisor:check_childspecs([C5]),
+    lists:foreach(
+	fun (ChildSpec) ->
+	    ok = supervisor:check_childspecs([ChildSpec])
+	end,
+	[
+	    {child, {m, f, [a]}, Restart, Shutdown, Type, Modules}
+	    ||
+		Restart <- [permanent, transient, temporary],
+		Shutdown <- [0, 1000, infinity, brutal_kill],
+		Type <- [supervisor, worker],
+		Modules <- [dynamic, [], [m], [m1, m2]]
+	]
+    ),
+
+    C1 = {child, {m,f,[a]}, permanent, infinity, supervisor, []},
+    C2 = {child, {m,f,[a]}, permanent, 1000, supervisor, []},
 
     {error,{duplicate_child_name,child}} = supervisor:check_childspecs([C1,C2]),
 
@@ -839,7 +841,7 @@ child_specs_map(Config) when is_list(Config) ->
 	    ||
 		AutoShutdown <- [undefined, never, any_significant, all_significant],
 		Restart <- [undefined, permanent, transient, temporary],
-		Shutdown <- [undefined, 1000, infinity, brutal_kill],
+		Shutdown <- [undefined, 0, 1000, infinity, brutal_kill],
 		Type <- [undefined, supervisor, worker],
 		Modules <- [undefined, dynamic, [], [m], [m1, m2]],
 		Significant <- [undefined, true, false],
