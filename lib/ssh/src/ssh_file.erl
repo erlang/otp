@@ -160,8 +160,8 @@ add_host_key(Hosts0, Port, Key, Opts) ->
                                   when SshBin :: binary(),
                                        Type :: ssh2_pubkey
                                              | public_key
-                                             | openssh_public_key
-                                             | rfc4716_public_key
+                                             | openssh_key
+                                             | rfc4716_key
                                              | openssh_key_v1  % Experimental
                                              | known_hosts
                                              | auth_keys,
@@ -175,10 +175,10 @@ decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
 decode(KeyBin, Type) when is_binary(KeyBin) andalso 
-                          (Type==rfc4716_public_key orelse
+                          (Type==rfc4716_key orelse
                            Type==openssh_key_v1 % Experimental
                           ) ->
-    %% Ex: <<"---- BEGIN SSH2 PUBLIC KEY ----\n....">>     (rfc4716_public_key)
+    %% Ex: <<"---- BEGIN SSH2 PUBLIC KEY ----\n....">>     (rfc4716_key)
     %%     <<"-----BEGIN OPENSSH PRIVATE KEY-----\n....">> (openssh_key_v1)
     case ssh_file:decode_ssh_file(public, any, KeyBin, ignore) of
         {ok,Keys} ->
@@ -196,7 +196,7 @@ decode(KeyBin, Type) when is_binary(KeyBin) andalso
             {error,Error}
     end;
 
-decode(KeyBin0, openssh_public_key) when is_binary(KeyBin0) ->
+decode(KeyBin0, openssh_key) when is_binary(KeyBin0) ->
     %% Ex: <<"ssh-rsa AAAAB12....3BC someone@example.com">>
     try
         Lines = [L || L <- binary:split(KeyBin0, <<"\n">>, [global,trim_all]),
@@ -223,8 +223,8 @@ decode(KeyBin0, openssh_public_key) when is_binary(KeyBin0) ->
 decode(KeyBin, public_key) when is_binary(KeyBin) ->
     Type = case KeyBin of
                <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
-               <<"----",_/binary>> -> rfc4716_public_key;
-               _ -> openssh_public_key
+               <<"----",_/binary>> -> rfc4716_key;
+               _ -> openssh_key
            end,
     decode(KeyBin, Type);
 
@@ -239,8 +239,8 @@ decode(_KeyBin, _Type) ->
 %%%----------------------------------------------------------------
 -spec encode(InData, Type) -> binary() | {error,term()}
                                   when Type :: ssh2_pubkey
-                                             | openssh_public_key
-                                             | rfc4716_public_key
+                                             | openssh_key
+                                             | rfc4716_key
                                              | openssh_key_v1  % Experimental
                                              | known_hosts
                                              | auth_keys,
@@ -253,12 +253,12 @@ decode(_KeyBin, _Type) ->
 encode(Key, ssh2_pubkey) ->
     ssh_message:ssh2_pubkey_encode(Key);
 
-encode(KeyAttrs, Type) when Type==rfc4716_public_key ;
+encode(KeyAttrs, Type) when Type==rfc4716_key ;
                             Type==openssh_key_v1 % Experimental
                             ->
     {Begin, End, F} =
         case Type of
-            rfc4716_public_key ->
+            rfc4716_key ->
                 {"---- BEGIN SSH2 PUBLIC KEY ----\n",
                  "---- END SSH2 PUBLIC KEY ----\n",
                  fun ssh_message:ssh2_pubkey_encode/1};
@@ -279,7 +279,7 @@ encode(KeyAttrs, Type) when Type==rfc4716_public_key ;
       ]
      );
 
-encode(KeyAttrs, openssh_public_key) ->
+encode(KeyAttrs, openssh_key) ->
     iolist_to_binary(
       [begin
            <<?DEC_BIN(KeyType,__0),_/binary>> = Enc0 = ssh_message:ssh2_pubkey_encode(Key),

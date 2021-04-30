@@ -74,8 +74,8 @@
          ssh1_known_hosts/1,
          ssh_auth_keys/1,
          ssh1_auth_keys/1,
-         ssh_openssh_public_key_with_comment/1,
-         ssh_openssh_public_key_long_header/1,
+         ssh_openssh_key_with_comment/1,
+         ssh_openssh_key_long_header/1,
 
          ssh_hostkey_fingerprint_md5_implicit/1,
          ssh_hostkey_fingerprint_md5/1,
@@ -159,8 +159,8 @@ groups() ->
        ssh_rfc4716_rsa_subject,
        ssh_list_public_key,
 %%       ssh_known_hosts, ssh_auth_keys, ssh1_known_hosts, ssh1_auth_keys,
-       ssh_openssh_public_key_with_comment,
-       ssh_openssh_public_key_long_header]}
+       ssh_openssh_key_with_comment,
+       ssh_openssh_key_long_header]}
     ].
 
 
@@ -476,17 +476,17 @@ ssh_rsa_public_key(Config) when is_list(Config) ->
     Datadir = proplists:get_value(pk_data_dir, Config),
     {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_rsa_pub")),
     [{PubKey, Attributes1}] = ssh_file:decode(RSARawSsh2, public_key),
-    [{PubKey, Attributes1}] = ssh_file:decode(RSARawSsh2, rfc4716_public_key),
+    [{PubKey, Attributes1}] = ssh_file:decode(RSARawSsh2, rfc4716_key),
 
     {ok, RSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_rsa_pub")),
     [{PubKey, Attributes2}] = ssh_file:decode(RSARawOpenSsh, public_key),
-    [{PubKey, Attributes2}] = ssh_file:decode(RSARawOpenSsh, openssh_public_key),
+    [{PubKey, Attributes2}] = ssh_file:decode(RSARawOpenSsh, openssh_key),
 
     %% Can not check EncodedSSh == RSARawSsh2 and EncodedOpenSsh
     %% = RSARawOpenSsh as line breakpoints may differ
 
-    EncodedSSh = ssh_file:encode([{PubKey, Attributes1}], rfc4716_public_key),
-    EncodedOpenSsh = ssh_file:encode([{PubKey, Attributes2}], openssh_public_key),
+    EncodedSSh = ssh_file:encode([{PubKey, Attributes1}], rfc4716_key),
+    EncodedOpenSsh = ssh_file:encode([{PubKey, Attributes2}], openssh_key),
 
     [{PubKey, Attributes1}] =
 	ssh_file:decode(EncodedSSh, public_key),
@@ -499,17 +499,17 @@ ssh_dsa_public_key(Config) when is_list(Config) ->
 
     {ok, DSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_dsa_pub")),
     [{PubKey, Attributes1}] = ssh_file:decode(DSARawSsh2, public_key),
-    [{PubKey, Attributes1}] = ssh_file:decode(DSARawSsh2, rfc4716_public_key),
+    [{PubKey, Attributes1}] = ssh_file:decode(DSARawSsh2, rfc4716_key),
 
     {ok, DSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_dsa_pub")),
     [{PubKey, Attributes2}] = ssh_file:decode(DSARawOpenSsh, public_key),
-    [{PubKey, Attributes2}] = ssh_file:decode(DSARawOpenSsh, openssh_public_key),
+    [{PubKey, Attributes2}] = ssh_file:decode(DSARawOpenSsh, openssh_key),
 
     %% Can not check EncodedSSh == DSARawSsh2 and EncodedOpenSsh
     %% = DSARawOpenSsh as line breakpoints may differ
 
-    EncodedSSh = ssh_file:encode([{PubKey, Attributes1}], rfc4716_public_key),
-    EncodedOpenSsh = ssh_file:encode([{PubKey, Attributes2}], openssh_public_key),
+    EncodedSSh = ssh_file:encode([{PubKey, Attributes1}], rfc4716_key),
+    EncodedOpenSsh = ssh_file:encode([{PubKey, Attributes2}], openssh_key),
 
     [{PubKey, Attributes1}] =
 	ssh_file:decode(EncodedSSh, public_key),
@@ -522,17 +522,17 @@ ssh_ecdsa_public_key(Config) when is_list(Config) ->
 
     {ok, ECDSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_ecdsa_pub")),
     [{PubKey, Attributes1}] = ssh_file:decode(ECDSARawSsh2, public_key),
-    [{PubKey, Attributes1}] = ssh_file:decode(ECDSARawSsh2, rfc4716_public_key),
+    [{PubKey, Attributes1}] = ssh_file:decode(ECDSARawSsh2, rfc4716_key),
 
     {ok, ECDSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_ecdsa_pub")),
     [{PubKey, Attributes2}] = ssh_file:decode(ECDSARawOpenSsh, public_key),
-    [{PubKey, Attributes2}] =ssh_file:decode(ECDSARawOpenSsh, openssh_public_key),
+    [{PubKey, Attributes2}] =ssh_file:decode(ECDSARawOpenSsh, openssh_key),
 
     %% Can not check EncodedSSh == ECDSARawSsh2 and EncodedOpenSsh
     %% = ECDSARawOpenSsh as line breakpoints may differ
 
-    EncodedSSh = ssh_file:encode([{PubKey, Attributes1}], rfc4716_public_key),
-    EncodedOpenSsh = ssh_file:encode([{PubKey, Attributes2}], openssh_public_key),
+    EncodedSSh = ssh_file:encode([{PubKey, Attributes1}], rfc4716_key),
+    EncodedOpenSsh = ssh_file:encode([{PubKey, Attributes2}], openssh_key),
 
     [{PubKey, Attributes1}] =
 	ssh_file:decode(EncodedSSh, public_key),
@@ -543,22 +543,22 @@ ssh_ecdsa_public_key(Config) when is_list(Config) ->
 ssh_list_public_key(Config) when is_list(Config) ->
     DataDir = proplists:get_value(pk_data_dir, Config),
     {Data_ssh2, Expect_ssh2} =
-        collect_binaries_expected(DataDir, rfc4716_public_key,
+        collect_binaries_expected(DataDir, rfc4716_key,
                                   ["ssh2_rsa_pub", "ssh2_rsa_comment_pub",
                                    "ssh2_dsa_pub", "ssh2_dsa_comment_pub",
                                    "ssh2_ecdsa_pub", 
                                    "ssh2_subject_pub"]),
     {Data_openssh, Expect_openssh} =
-        collect_binaries_expected(DataDir, openssh_public_key,
+        collect_binaries_expected(DataDir, openssh_key,
                                   ["openssh_rsa_pub", "openssh_dsa_pub", "openssh_ecdsa_pub"]),
 
     true =
-        (chk_decode(Data_openssh,   Expect_openssh, openssh_public_key) and
-         chk_decode(Data_ssh2,      Expect_ssh2,    rfc4716_public_key) and
+        (chk_decode(Data_openssh,   Expect_openssh, openssh_key) and
+         chk_decode(Data_ssh2,      Expect_ssh2,    rfc4716_key) and
          chk_decode(Data_openssh,   Expect_openssh, public_key)         and
          chk_decode(Data_ssh2,      Expect_ssh2,    public_key)         and
-         chk_encode(Expect_openssh, openssh_public_key) and
-         chk_encode(Expect_ssh2,    rfc4716_public_key)
+         chk_encode(Expect_openssh, openssh_key) and
+         chk_encode(Expect_ssh2,    rfc4716_key)
         ).
 
 chk_encode(Data, Type) ->
@@ -623,7 +623,7 @@ ssh_rfc4716_rsa_comment(Config) when is_list(Config) ->
 
     Value = proplists:get_value("Comment", Headers, undefined),
     true = Value =/= undefined,
-    RSARawSsh2 = ssh_file:encode([{PubKey, Attributes}], rfc4716_public_key).
+    RSARawSsh2 = ssh_file:encode([{PubKey, Attributes}], rfc4716_key).
 
 %%--------------------------------------------------------------------
 ssh_rfc4716_dsa_comment(Config) when is_list(Config) ->
@@ -639,7 +639,7 @@ ssh_rfc4716_dsa_comment(Config) when is_list(Config) ->
     true = Value =/= undefined,
 
     %% Can not check Encoded == DSARawSsh2 as line continuation breakpoints may differ
-    Encoded  = ssh_file:encode([{PubKey, Attributes}], rfc4716_public_key),
+    Encoded  = ssh_file:encode([{PubKey, Attributes}], rfc4716_key),
     [{PubKey, Attributes}] =
         ssh_file:decode(Encoded, public_key).
 
@@ -657,7 +657,7 @@ ssh_rfc4716_rsa_subject(Config) when is_list(Config) ->
     true = Value =/= undefined,
 
     %% Can not check Encoded == RSARawSsh2 as line continuation breakpoints may differ
-    Encoded  = ssh_file:encode([{PubKey, Attributes}], rfc4716_public_key),
+    Encoded  = ssh_file:encode([{PubKey, Attributes}], rfc4716_key),
     [{PubKey, Attributes}] =
         ssh_file:decode(Encoded, public_key).
 
@@ -756,21 +756,21 @@ ssh1_auth_keys(Config) when is_list(Config) ->
     Decoded = ssh_file:decode(Encoded, auth_keys).
 
 %%--------------------------------------------------------------------
-ssh_openssh_public_key_with_comment(Config) when is_list(Config) ->
+ssh_openssh_key_with_comment(Config) when is_list(Config) ->
     Datadir = proplists:get_value(pk_data_dir, Config),
 
     {ok, DSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_dsa_with_comment_pub")),
-    [{{_, #'Dss-Parms'{}}, _}] = ssh_file:decode(DSARawOpenSsh, openssh_public_key).
+    [{{_, #'Dss-Parms'{}}, _}] = ssh_file:decode(DSARawOpenSsh, openssh_key).
 
 %%--------------------------------------------------------------------
-ssh_openssh_public_key_long_header(Config) when is_list(Config) ->
+ssh_openssh_key_long_header(Config) when is_list(Config) ->
     Datadir = proplists:get_value(pk_data_dir, Config),
 
     {ok,RSARawOpenSsh} = file:read_file(filename:join(Datadir, "ssh_rsa_long_header_pub")),
     [{#'RSAPublicKey'{}, _}] = Decoded = ssh_file:decode(RSARawOpenSsh, public_key),
 
-    Encoded = ssh_file:encode(Decoded, rfc4716_public_key),
-    Decoded = ssh_file:decode(Encoded, rfc4716_public_key).
+    Encoded = ssh_file:encode(Decoded, rfc4716_key),
+    Decoded = ssh_file:decode(Encoded, rfc4716_key).
 
 %%%----------------------------------------------------------------
 %%% Test case helpers
