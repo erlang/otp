@@ -21,18 +21,23 @@
 -module(gen_tcp_socket).
 -behaviour(gen_statem).
 
+-compile({no_auto_import, [monitor/1]}).
+
 %% gen_tcp
 -export([connect/4, listen/2, accept/2,
          send/2, recv/3,
          sendfile/4,
          shutdown/2, close/1, controlling_process/2]).
 %% inet
--export([setopts/2, getopts/2,
+-export([
+         monitor/1, cancel_monitor/1,
+         setopts/2, getopts/2,
          sockname/1, peername/1,
-         getstat/2]).
+         getstat/2
+        ]).
 
 %% Utility
--export([info/1]).
+-export([info/1, socket_to_list/1]).
 
 -ifdef(undefined).
 -export([unrecv/2]).
@@ -490,12 +495,33 @@ controlling_process(S, NewOwner, Server, Msg) ->
     NewOwner ! Msg,
     controlling_process(S, NewOwner, Server).
 
+
 %% -------------------------------------------------------------------------
 %% Module inet backends
 %% -------------------------------------------------------------------------
 
+monitor(?MODULE_socket(_Server, ESock) = Socket) ->
+    %% The socket that is part of the down message:
+    case socket_registry:monitor(ESock, #{msocket => Socket}) of
+	{error, Reason} ->
+	    erlang:error({invalid, Reason});
+	MRef when is_reference(MRef) ->
+	    MRef
+    end;
+monitor(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+cancel_monitor(MRef) when is_reference(MRef) ->
+    socket:cancel_monitor(MRef);
+cancel_monitor(MRef) ->
+    erlang:error(badarg, [MRef]).
+
+
+%% -------------------------------------------------------------------------
+
 setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
     call(Server, {setopts, Opts}).
+
 
 %% -------------------------------------------------------------------------
 
@@ -528,6 +554,15 @@ getstat(?MODULE_socket(Server, _Socket), What) when is_list(What) ->
 
 info(?MODULE_socket(Server, _Socket)) ->
     call(Server, info).
+
+
+%% -------------------------------------------------------------------------
+
+socket_to_list(?MODULE_socket(_Server, Socket)) ->
+    "#Socket" ++ Id = socket:to_list(Socket),
+    "#InetSocket" ++ Id;
+socket_to_list(Socket) ->
+    erlang:error(badarg, [Socket]).
 
 
 %%% ========================================================================
@@ -1250,8 +1285,8 @@ handle_event(
   #controlling_process{owner = NewOwner, state = State},
   {#params{owner = Owner, owner_mon = OwnerMon} = P, D}) ->
     %%
-    NewOwnerMon = monitor(process, NewOwner),
-    true = demonitor(OwnerMon, [flush]),
+    NewOwnerMon = erlang:monitor(process, NewOwner),
+    true = erlang:demonitor(OwnerMon, [flush]),
     {next_state, State,
      {P#params{owner = NewOwner, owner_mon = NewOwnerMon}, D},
      [{reply, From, ok}]};
@@ -1296,7 +1331,7 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
 
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
-    %% ?DBG([{opts, Opts}, {state, State}, {d, D}]),
+    %% ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
     {Result, D_1} = state_setopts(P, D, State, Opts),
     %% ?DBG([{result, Result}, {d1, D_1}]),
     case Result of

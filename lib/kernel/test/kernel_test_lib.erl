@@ -23,7 +23,8 @@
 -export([init_per_suite/1,
          end_per_suite/1]).
 -export([tc_try/3]).
--export([listen/3,
+-export([socket_type/1,
+	 listen/3,
          connect/4, connect/5,
          is_socket_backend/1,
          inet_backend_opts/1,
@@ -1725,6 +1726,14 @@ proxy_call(F, Timeout, Default)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+socket_type(Config) ->
+    case is_socket_backend(Config) of
+	true ->
+	    socket;
+	false ->
+	    port
+    end.
 
 listen(Config, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),

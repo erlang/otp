@@ -31,7 +31,7 @@
 	 getif/1, getif/0, getiflist/0, getiflist/1,
 	 ifget/3, ifget/2, ifset/3, ifset/2,
 	 getstat/1, getstat/2,
-         info/1,
+         info/1, socket_to_list/1,
 	 ip/1, stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
@@ -74,6 +74,9 @@
 
 %% timer interface
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
+
+%% Socket monitoring
+-export([monitor/1, cancel_monitor/1]).
 
 -export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
@@ -207,6 +210,53 @@ close(Socket) ->
 	    ok
     end.
 
+
+%% -- Socket monitor
+
+-spec monitor(Socket) -> reference() when
+      Socket :: socket().
+
+monitor({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    MRef = GenSocketMod:?FUNCTION_NAME(Socket),
+    case inet_db:put_socket_type(MRef, {socket, GenSocketMod}) of
+        ok ->
+            MRef;
+	error ->
+	    GenSocketMod:cancel_monitor(MRef),
+	    erlang:error({invalid, Socket})
+    end;
+monitor(Socket) when is_port(Socket) ->
+    MRef = erlang:monitor(port, Socket),
+    case inet_db:put_socket_type(MRef, port) of
+	ok ->
+	    MRef;
+	error ->
+	    erlang:demonitor(MRef, [flush]),
+	    erlang:error({invalid, Socket})
+    end;
+monitor(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
+%% -- Cancel socket monitor
+
+-spec cancel_monitor(MRef) -> boolean() when
+      MRef :: reference().
+
+cancel_monitor(MRef) when is_reference(MRef) ->
+    case inet_db:take_socket_type(MRef) of
+	{ok, port} ->
+	    erlang:demonitor(MRef, [info]);
+	{ok, {socket, GenSocketMod}} ->
+	    GenSocketMod:?FUNCTION_NAME(MRef);
+	error -> % Assume it has the monitor has already been cancel'ed
+	    false
+    end;
+cancel_monitor(MRef) ->
+    erlang:error(badarg, [MRef]).
+
+
+%% -- Socket peername
 
 -spec peername(Socket :: socket()) ->
 		      {ok,
@@ -603,6 +653,17 @@ gethostbyaddr(Address,Timeout) ->
 
 gethostbyaddr_tm(Address,Timer) ->
     gethostbyaddr_tm(Address, Timer, inet_db:res_option(lookup)).
+
+
+-spec socket_to_list(Socket) -> list() when
+      Socket :: socket().
+
+socket_to_list({'$inet', GenSocketMod, _} = Socket)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:to_list(Socket);
+socket_to_list(Socket) when is_port(Socket) ->
+    erlang:port_to_list(Socket).
+
 
 
 -spec info(Socket) -> Info when

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,17 +20,26 @@
 
 -module(socket).
 
--compile({no_auto_import,[error/1]}).
+-compile({no_auto_import, [error/1, monitor/1]}).
 
 %% Administrative and "global" utility functions
 -export([
+	 %% (registry) Socket functions
          number_of/0,
          which_sockets/0, which_sockets/1,
 
+	 %% (registry) Socket monitor functions
+         number_of_monitors/0, number_of_monitors/1,
+         which_monitors/1,
+	 monitored_by/1,
+
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
+         monitor/1, cancel_monitor/1,
          supports/0, supports/1, supports/2,
-         is_supported/1, is_supported/2, is_supported/3
+         is_supported/1, is_supported/2, is_supported/3,
+
+	 to_list/1
         ]).
 
 -export([
@@ -164,7 +173,7 @@
 -type socket_info() :: #{domain        := domain() | integer(),
                          type          := type() | integer(),
                          protocol      := protocol() | integer(),
-                         ctrl          := pid(),
+                         owner         := pid(),
                          ctype         := normal | fromfd | {fromfd, integer()},
                          counters      := socket_counters(),
                          num_readers   := non_neg_integer(),
@@ -514,8 +523,9 @@
 %% Messages sent from the nif-code to erlang processes:
 -define(socket_msg(Socket, Tag, Info), {?socket_tag, (Socket), (Tag), (Info)}).
 
--type socket() :: ?socket(socket_handle()).
+-type socket()          :: ?socket(socket_handle()).
 -opaque socket_handle() :: reference().
+
 
 %% Some flags are used for send, others for recv, and yet again
 %% others are found in a cmsg().  They may occur in multiple locations..
@@ -737,17 +747,18 @@ number_of() ->
 %% Interface function to the socket registry
 %% Returns a list of all the sockets, accoring to the filter rule.
 %%
+
 -spec which_sockets() -> [socket()].
 
 which_sockets() ->
     ?REGISTRY:which_sockets(true).
 
 -spec which_sockets(FilterRule) -> [socket()] when
-      FilterRule :: 'inet' | 'inet6' |
-                    'stream' | 'dgram' | 'seqpacket' |
-                    'sctp' | 'tcp' | 'udp' |
-                    pid() |
-                    fun((socket_info()) -> boolean()).
+	FilterRule :: 'inet' | 'inet6' |
+	'stream' | 'dgram' | 'seqpacket' |
+	'sctp' | 'tcp' | 'udp' |
+	pid() |
+	fun((socket_info()) -> boolean()).
 
 which_sockets(Domain)
   when Domain =:= inet;
@@ -776,6 +787,73 @@ which_sockets(Filter) when is_function(Filter, 1) ->
 which_sockets(Other) ->
     erlang:error(badarg, [Other]).
 
+
+
+
+%% *** number_of_monitors ***
+%%
+%% Interface function to the socket registry
+%% returns the number of existing socket monitors.
+%%
+
+-spec number_of_monitors() -> non_neg_integer().
+
+number_of_monitors() ->
+    ?REGISTRY:number_of_monitors().
+
+-spec number_of_monitors(pid()) -> non_neg_integer().
+
+number_of_monitors(Pid) when is_pid(Pid) ->
+    ?REGISTRY:number_of_monitors(Pid).
+
+
+%% *** which_monitors/1 ***
+%%
+%% Interface function to the socket registry
+%% Returns a list of all the monitors of the process or socket.
+%%
+
+-spec which_monitors(Pid) -> [reference()] when
+      Pid :: pid();
+                    (Socket) -> [reference()] when
+      Socket :: socket().
+
+which_monitors(Pid) when is_pid(Pid) ->
+    ?REGISTRY:which_monitors(Pid);
+which_monitors(?socket(SockRef) = Socket) when is_reference(SockRef) ->
+    ?REGISTRY:which_monitors(Socket);
+which_monitors(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
+%% *** monitor_by/1 ***
+%%
+%% Interface function to the socket registry
+%% Returns a list of all the process'es monitoring the socket.
+%%
+
+-spec monitored_by(Socket) -> [reference()] when
+						Socket :: socket().
+
+monitored_by(?socket(SockRef) = Socket) when is_reference(SockRef) ->
+    ?REGISTRY:monitored_by(Socket);
+monitored_by(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
+%% *** to_list/1 ***
+%%
+%% This is intended to convert a socket() to a printable string.
+%%
+
+-spec to_list(Socket) -> list() when
+      Socket :: socket().
+
+to_list(?socket(SockRef)) when is_reference(SockRef) ->
+    "#Ref" ++ Id = erlang:ref_to_list(SockRef),
+    "#Socket" ++ Id;
+to_list(Socket) ->
+    erlang:error(badarg, [Socket]).
 
 
 %% ===========================================================================
@@ -832,6 +910,69 @@ info(?socket(SockRef)) when is_reference(SockRef) ->
     prim_socket:info(SockRef);
 info(Socket) ->
     erlang:error(badarg, [Socket]).
+
+
+%% ===========================================================================
+%%
+%% monitor - Monitor a socket
+%%
+%% If a socket "dies", a down message, similar to erlang:monitor, will be
+%% sent to the requesting process:
+%%
+%%       {'DOWN', MonitorRef, socket, Socket, Info}
+%%
+%% ===========================================================================
+
+-spec monitor(Socket) -> reference() when
+      Socket :: socket().
+
+%% Should it be possible to specify a modification of the 'Socket' part
+%% of the DOWN-message? The point would be to make it possible for
+%% a gen_tcp_socket-socket to use this and get the proper 'socket'
+%% as part of the message.
+
+monitor(?socket(SockRef) = Socket) when is_reference(SockRef) ->
+    case prim_socket:setopt(SockRef, {otp, use_registry}, true) of
+        ok ->
+            case socket_registry:monitor(Socket) of
+		{error, MReason} ->
+		    erlang:error({invalid, MReason});
+		MRef when is_reference(MRef) ->
+		    MRef
+	    end;
+        {error, SReason} ->
+	    erlang:error({invalid, SReason})
+    end;
+monitor(Socket) ->
+    erlang:error(badarg, [Socket]).
+
+
+%% ===========================================================================
+%%
+%% cancel_monitor - Cancel a socket monitor
+%%
+%% If MRef is a reference that the socket obtained
+%% by calling monitor/1, this monitoring is turned off.
+%% If the monitoring is already turned off, nothing happens.
+%%
+%% ===========================================================================
+
+-spec cancel_monitor(MRef) -> boolean() when
+      MRef :: reference().
+
+cancel_monitor(MRef) when is_reference(MRef) ->
+    case socket_registry:cancel_monitor(MRef) of
+	ok ->
+	    true;
+	{error, unknown_monitor} ->
+	    false;
+	{error, not_owner} ->
+	    erlang:error(badarg, [MRef]);
+	{error, Reason} ->
+	    erlang:error({invalid, Reason})
+    end;
+cancel_monitor(MRef) ->
+    erlang:error(badarg, [MRef]).
 
 
 %% ===========================================================================

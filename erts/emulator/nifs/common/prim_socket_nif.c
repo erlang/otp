@@ -1388,6 +1388,7 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
  * *** esock_setopt_otp_rcvctrlbuf   ***
  * *** esock_setopt_otp_sndctrlbuf   ***
  * *** esock_setopt_otp_meta         ***
+ * *** esock_setopt_otp_use_registry ***
  */
 #define ESOCK_SETOPT_OTP_FUNCS               \
     ESOCK_SETOPT_OTP_FUNC_DEF(debug);        \
@@ -1396,7 +1397,8 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);       \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf);   \
     ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);   \
-    ESOCK_SETOPT_OTP_FUNC_DEF(meta);
+    ESOCK_SETOPT_OTP_FUNC_DEF(meta);	     \
+    ESOCK_SETOPT_OTP_FUNC_DEF(use_registry);
 #define ESOCK_SETOPT_OTP_FUNC_DEF(F)                                 \
     static ERL_NIF_TERM esock_setopt_otp_##F(ErlNifEnv*       env,   \
                                              ESockDescriptor* descP, \
@@ -9081,6 +9083,12 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->writeMtx);
         break;
 
+    case ESOCK_OPT_OTP_USE_REGISTRY:
+        MLOCK(descP->writeMtx);
+        result = esock_setopt_otp_use_registry(env, descP, eVal);
+        MUNLOCK(descP->writeMtx);
+        break;
+
     default:
         MLOCK(descP->writeMtx);
         SSDBG( descP,
@@ -9149,7 +9157,7 @@ ERL_NIF_TERM esock_setopt_otp_iow(ErlNifEnv*       env,
     }
 
     if (! esock_decode_bool(eVal, &descP->iow))
-        return esock_make_invalid(env, atom_value);
+      return esock_make_invalid(env, atom_value);
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_iow {%d} -> ok"
@@ -9443,6 +9451,47 @@ ERL_NIF_TERM esock_setopt_otp_meta(ErlNifEnv*       env,
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_meta {%d} -> ok"
             "\r\n", descP->sock) );
+
+    return esock_atom_ok;
+}
+#endif // #ifndef __WIN32__
+
+
+/* esock_setopt_otp_use_registry - Handle the OTP (level) use_registry option
+ */
+#ifndef __WIN32__
+static
+ERL_NIF_TERM esock_setopt_otp_use_registry(ErlNifEnv*       env,
+					   ESockDescriptor* descP,
+					   ERL_NIF_TERM     eVal)
+{
+    BOOLEAN_T useReg = FALSE;
+
+    if (! IS_OPEN(descP->writeState)) {
+        SSDBG( descP,
+               ("SOCKET", "esock_setopt_otp_use_registry {%d} -> closed\r\n",
+                descP->sock) );
+        return esock_make_error(env, atom_closed);
+    }
+
+    if (! esock_decode_bool(eVal, &useReg))
+      return esock_make_invalid(env, atom_value);
+
+    /* We only allow turning this on! */
+    if (! useReg)
+        return esock_make_invalid(env, atom_value);
+
+    if (!descP->useReg) {
+      ERL_NIF_TERM sockRef = enif_make_resource(env, descP);
+
+      descP->useReg = useReg;
+      esock_send_reg_add_msg(env, descP, sockRef);
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_otp_use_registry {%d} -> ok"
+            "\r\n   eVal: %T"
+            "\r\n", descP->sock, eVal) );
 
     return esock_atom_ok;
 }

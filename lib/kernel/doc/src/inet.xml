@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2020</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -351,6 +351,36 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
+      <name name="cancel_monitor" arity="1" since="OTP @OTP-17155@"/>
+      <fsummary>Stop socket monitoring</fsummary>
+      <desc>
+	<p>If <c><anno>MRef</anno></c> is a reference that the
+	calling process obtained by calling
+	<seemfa marker="#monitor/1"><c>monitor/1</c></seemfa>, 
+	this monitor is turned off.
+	If the monitoring is already turned off, nothing happens.</p>
+	<p>The returned value is one of the following:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+	  <item>
+	    <p>The monitor was found and removed. In this case,
+	    no <c>'DOWN'</c> message corresponding to this
+	    monitor has been delivered and will not be delivered. </p>
+	  </item>
+	  <tag><c>false</c></tag>
+	  <item>
+	    <p>The monitor was not found and could not be removed.
+	    This probably because a <c>'DOWN'</c> message corresponding
+	    to this monitor has already been placed in the caller
+	    message queue.</p>
+	  </item>
+	</taglist>
+	<p>Failure: It is an error if <c><anno>MRef</anno></c> refers to a
+	monitor started by another process. </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="format_error" arity="1" since=""/>
       <fsummary>Return a descriptive string for an error reason.</fsummary>
       <desc>
@@ -692,6 +722,39 @@ get_tcpi_sacked(Sock) ->
         <p>
           Produces a term containg miscellaneous information about a socket.
         </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor" arity="1" since="OTP @OTP-17155@"/>
+      <fsummary>Start socket monitoring</fsummary>
+      <desc>
+	<p>Start monitor the socket <c><anno>Socket</anno></c>. </p>
+	<p>If the monitored socket does not exist or when the
+	monitor is triggered, a <c>'DOWN'</c> message is sent
+	that has the following pattern:</p>
+	<code type="none">
+	    {'DOWN', MonitorRef, socket, Object, Info}
+	  </code>
+        <p>In the monitor message <c>MonitorRef</c> and <c>Type</c> are the
+          same as described earlier, and:</p>
+        <taglist>
+          <tag><c>Object</c></tag>
+          <item>
+	    <p>The monitored entity, socket, which triggered the event. </p>
+          </item>
+          <tag><c>Info</c></tag>
+          <item>
+	    <p>Either the termination reason of the socket or <c>nosock</c>
+	    (socket <c><anno>Socket</anno></c> did not exist at the time
+	    of monitor creation). </p>
+	  </item>
+        </taglist>
+
+        <p>Making several calls to <c>inet:monitor/1</c> for the same
+	<c><anno>Socket</anno></c> is not an error; it results in
+	as many independent monitoring instances. </p>
+
       </desc>
     </func>
 
