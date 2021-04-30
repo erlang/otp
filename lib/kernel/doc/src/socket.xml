@@ -1442,6 +1442,12 @@
           when the current operation and all enqueued before it
           has been completed.
         </p>
+        <p>
+          If <c><anno>SelectInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;SelectInfo}}</c>.
+        </p>
       </desc>
     </func>
 
