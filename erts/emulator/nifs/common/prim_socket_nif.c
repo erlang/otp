@@ -3260,10 +3260,10 @@ static BOOLEAN_T requestor_pop(ESockRequestQueue* q,
                                ESockRequestor*    reqP);
 
 static void requestor_init(ESockRequestor* reqP);
-static int requestor_release(const char*      slogan,
-                             ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ESockRequestor*  reqP);
+static void requestor_release(const char*      slogan,
+                              ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ESockRequestor*  reqP);
 
 static BOOLEAN_T qsearch4pid(ErlNifEnv*         env,
                              ESockRequestQueue* q,
@@ -12521,13 +12521,29 @@ ERL_NIF_TERM esock_cancel_connect(ErlNifEnv*       env,
                                   ERL_NIF_TERM     opRef)
 {
     ERL_NIF_TERM res;
+    ErlNifPid self;
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
     MLOCK(descP->writeMtx);
 
-    if (! IS_OPEN(descP->writeState))
+    if (! IS_OPEN(descP->writeState)) {
         res = esock_make_error(env, atom_closed);
-    else
-        res = esock_cancel_write_select(env, descP, opRef);
+    } else {
+
+        if ((descP->connectorP != NULL) &&
+            (COMPARE(opRef, descP->connector.ref) == 0)) {
+
+            res = esock_cancel_write_select(env, descP, opRef);
+            requestor_release("esock_cancel_connect",
+                              env, descP, &descP->connector);
+            descP->connectorP = NULL;
+            descP->writeState &= ~ESOCK_STATE_CONNECTING;
+
+        } else {
+            res = esock_atom_not_found;
+        }
+    }
 
     SSDBG( descP,
            ("SOCKET",
@@ -17190,19 +17206,16 @@ static void requestor_init(ESockRequestor* reqP) {
     reqP->ref = esock_atom_undefined;
 }
 
-static int requestor_release(const char*      slogan,
-                             ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ESockRequestor*  reqP) {
-    int res;
+static void requestor_release(const char*      slogan,
+                              ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ESockRequestor*  reqP) {
 
     enif_set_pid_undefined(&reqP->pid);
-    res = DEMONP(slogan, env, descP, &reqP->mon);
+    (void) DEMONP(slogan, env, descP, &reqP->mon);
     esock_free_env(slogan, reqP->env);
     reqP->env = NULL;
     reqP->ref = esock_atom_undefined;
-
-    return res;
 }
 #endif // #ifndef __WIN32__
 
