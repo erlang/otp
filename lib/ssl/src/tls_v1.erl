@@ -657,10 +657,14 @@ signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
                              H -> H
                          end,
                   case proplists:get_bool(Sign, PubKeys)
-                      andalso proplists:get_bool(Hash, Hashes)
-                      andalso (Curve =:= undefined orelse
-                               proplists:get_bool(Curve, Curves))
-                      andalso is_pair(Hash, Sign, Hashes)
+                      andalso
+                      (proplists:get_bool(Hash, Hashes)
+                       andalso (Curve =:= undefined orelse
+                                proplists:get_bool(Curve, Curves))
+                       andalso is_pair(Hash, Sign, Hashes)) orelse
+                      ((Sign == eddsa) andalso ((Curve == ed448)
+                                                orelse
+                                                (Curve == ed25519)))
                   of
                       true ->
                           [Scheme | Acc];
@@ -705,8 +709,8 @@ default_signature_schemes(Version) ->
                rsa_pss_rsae_sha512,
                rsa_pss_rsae_sha384,
                rsa_pss_rsae_sha256,
-               %% ed25519,
-               %% ed448,
+               eddsa_ed25519,
+               eddsa_ed448,
 
                %% These values refer solely to signatures
                %% which appear in certificates (see Section 4.4.2.2) and are not
@@ -825,7 +829,9 @@ is_pair(Hash, ecdsa, Hashs) ->
     lists:member(Hash, AtLeastSha);
 is_pair(Hash, rsa, Hashs) ->
     AtLeastMd5 = Hashs -- [md2,md4],
-    lists:member(Hash, AtLeastMd5).
+    lists:member(Hash, AtLeastMd5);
+is_pair(_,_,_) ->
+    false.
 
 %% list ECC curves in preferred order
 -spec ecc_curves(1..3 | all) -> [named_curve()].

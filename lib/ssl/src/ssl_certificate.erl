@@ -334,6 +334,12 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 									parameters = Params},
 				      subjectPublicKey = Point}) ->
     {Point, Params};
+public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-Ed25519'},
+				      subjectPublicKey = Point}) ->
+    {Point, {namedCurve, ?'id-Ed25519'}};
+public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-Ed448'},
+				      subjectPublicKey = Point}) ->
+    {Point, {namedCurve, ?'id-Ed448'}};
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'rsaEncryption'}, 
 				      subjectPublicKey = Key}) ->
     Key;

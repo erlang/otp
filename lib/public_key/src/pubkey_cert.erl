@@ -74,7 +74,7 @@
 %%--------------------------------------------------------------------
 -spec verify_data(DER::binary()) ->
            {DigestType, PlainText, Signature}
-               when DigestType :: md5 | crypto:sha1() | crypto:sha2(),
+               when DigestType :: md5 | crypto:sha1() | crypto:sha2() | none,
                     PlainText  :: binary(),
                     Signature  :: binary().
 %%
@@ -639,9 +639,12 @@ public_key_info(PublicKeyInfo,
 	case PublicKeyParams of
 	    {null, 'NULL'} when WorkingAlgorithm == Algorithm ->
 		WorkingParams;
-	    {params, Params} ->
+            asn1_NOVALUE when Algorithm == ?'id-Ed25519';
+                              Algorithm == ?'id-Ed448' ->
+                {namedCurve, Algorithm};
+            {params, Params} ->
 		Params;
-	    Params ->
+            Params ->
 		Params
 	end,
     {Algorithm, PublicKey, NewPublicKeyParams}.
@@ -1256,6 +1259,10 @@ sign_algorithm({#'RSAPrivateKey'{} = Key,#'RSASSA-PSS-params'{} = Params}, _Opts
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     #'SignatureAlgorithm'{algorithm  = ?'id-dsa-with-sha1',
                           parameters = {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
+sign_algorithm(#'ECPrivateKey'{parameters = {namedCurve, EDCurve}}, _Opts) when EDCurve == ?'id-Ed25519';
+                                                                                EDCurve == ?'id-Ed448' ->
+    #'SignatureAlgorithm'{algorithm  = EDCurve,
+                          parameters = asn1_NOVALUE};
 sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = ecdsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
     #'SignatureAlgorithm'{algorithm  = Type,
@@ -1363,9 +1370,23 @@ public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}, _) ->
 				 parameters={params, #'Dss-Parms'{p=P, q=Q, g=G}}},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y};
 public_key(#'ECPrivateKey'{version = _Version,
-			  privateKey = _PrivKey,
-			  parameters = Params,
-			  publicKey = PubKey}, _) ->
+                           privateKey = _PrivKey,
+                           parameters = {namedCurve, ?'id-Ed25519' = ID},
+                           publicKey = PubKey}, _) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm= ID, parameters=asn1_NOVALUE},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = #'ECPoint'{point = PubKey}};
+public_key(#'ECPrivateKey'{version = _Version,
+                           privateKey = _PrivKey,
+                           parameters = {namedCurve, ?'id-Ed448' = ID},
+                           publicKey = PubKey}, _) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm= ID, parameters=asn1_NOVALUE},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = #'ECPoint'{point = PubKey}};
+public_key(#'ECPrivateKey'{version = _Version,
+                           privateKey = _PrivKey,
+                           parameters = Params,
+                           publicKey = PubKey}, _) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters=Params},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = #'ECPoint'{point = PubKey}}.

@@ -188,11 +188,10 @@
 
 -type legacy_hash()             :: md5.
 
--type sign_algo()               :: rsa | dsa | ecdsa. % exported
+-type sign_algo()               :: rsa | dsa | ecdsa | eddsa. % exported
 
--type sign_scheme()             :: rsa_pkcs1_sha256 
-                                 | rsa_pkcs1_sha384
-                                 | rsa_pkcs1_sha512
+-type sign_scheme()             :: eddsa_ed25519
+                                 | eddsa_ed448
                                  | ecdsa_secp256r1_sha256
                                  | ecdsa_secp384r1_sha384
                                  | ecdsa_secp521r1_sha512
@@ -202,6 +201,9 @@
                                  | rsa_pss_pss_sha256
                                  | rsa_pss_pss_sha384
                                  | rsa_pss_pss_sha512
+                                 | rsa_pkcs1_sha256
+                                 | rsa_pkcs1_sha384
+                                 | rsa_pkcs1_sha512
                                  | rsa_pkcs1_sha1
                                  | ecdsa_sha1. % exported
 

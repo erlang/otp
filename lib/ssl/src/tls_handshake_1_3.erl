@@ -2337,7 +2337,9 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignA
     %% it MUST use the RSASSA-PSS OID.
     case ((PublicKeyAlgo =:= rsa andalso S =:= rsa_pss_rsae)
           orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
-          orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa))
+          orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa)
+          orelse (PublicKeyAlgo =:= eddsa andalso S =:= eddsa)
+         )
         andalso
         lists:member(PeerSignAlg, OwnSignAlgs) of
         true ->
@@ -2431,6 +2433,10 @@ public_key_algo(?rsaEncryption) ->
     rsa;
 public_key_algo(?'id-ecPublicKey') ->
     ecdsa;
+public_key_algo(?'id-Ed25519') ->
+    eddsa;
+public_key_algo(?'id-Ed448') ->
+    eddsa;
 public_key_algo(?'id-dsa') ->
     dsa.
 
