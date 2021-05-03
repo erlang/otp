@@ -1774,6 +1774,15 @@ if test "x$enable_sctp" != "xno" ; then
 	])
 fi
 
+case "x$enable_sctp" in
+     xno|x)
+	;;
+     *)
+	if test "x$LIBSCTP" = "x" ; then
+	   AC_MSG_ERROR([sctp support requested, but cannot be enabled since 'netinet/sctp.h' is missing])
+	fi;;
+esac
+
 if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
