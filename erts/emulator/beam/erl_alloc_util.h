@@ -54,6 +54,7 @@ typedef struct {
     int ramv;
     int atags;
     int cp;
+    int mmbc0;     /* create main mbc for instance 0 */
     UWord sbct;
     UWord asbcst;
     UWord rsbcst;
@@ -113,6 +114,7 @@ typedef struct {
     0,			/* (bool)   ramv:   realloc always moves         */\
     0,			/* (bool)   atags:  tagged allocations           */\
     -1,		        /* (ix)     cp:     carrier pool                 */\
+    1,                  /* (bool)   mmbc0:  main mbc in instance 0       */\
     512*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
@@ -152,6 +154,7 @@ typedef struct {
     0,			/* (bool)   ramv:   realloc always moves         */\
     0,			/* (bool)   atags:  tagged allocations           */\
     -1,		        /* (ix)     cp:     carrier pool                 */\
+    1,                  /* (bool)   mmbc0:  main mbc in instance 0       */\
     64*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
@@ -307,7 +310,7 @@ void erts_alcu_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 #  ifdef MSEG_ALIGN_BITS
 #    define ERTS_SUPER_ALIGN_BITS MSEG_ALIGN_BITS
 #  else
-#    define ERTS_SUPER_ALIGN_BITS 18
+#    define ERTS_SUPER_ALIGN_BITS ERTS_MMAP_SUPERALIGNED_BITS
 #  endif
 #  ifdef ARCH_64 
 #    define MBC_ABLK_OFFSET_BITS   23
@@ -673,7 +676,6 @@ struct Allctr_t_ {
     /* */
     Uint		mbc_header_size;
     Uint		min_mbc_size;
-    Uint		min_mbc_first_free_size;
     Uint		min_block_size;
     UWord               crr_set_flgs;
     UWord               crr_clr_flgs;

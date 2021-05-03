@@ -6915,7 +6915,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     }
 #endif
 
-    if (allctr->main_carrier_size) {
+    if (allctr->main_carrier_size && (allctr->ix != 0 || init->mmbc0)) {
 	Block_t *blk;
 
 	blk = create_carrier(allctr,

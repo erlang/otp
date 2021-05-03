@@ -404,6 +404,7 @@ set_default_ets_alloc_opts(struct au_init *ip)
     ip->init.util.name_prefix	= "ets_";
     ip->init.util.alloc_no	= ERTS_ALC_A_ETS;
     ip->init.util.cp            = ERTS_ALC_A_ETS;
+    ip->init.util.mmbc0         = 0;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else

@@ -968,7 +968,6 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 #  define MAX_GEN_GCS(p)    (p)->max_gen_gcs
 #  define FLAGS(p)          (p)->flags
 #  define MBUF(p)           (p)->mbuf
-#  define HALLOC_MBUF(p)    (p)->halloc_mbuf
 #  define MBUF_SIZE(p)      (p)->mbuf_sz
 #  define MSO(p)            (p)->off_heap
 #  define MIN_HEAP_SIZE(p)  (p)->min_heap_size

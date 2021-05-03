@@ -52,7 +52,6 @@
 #endif
 
 #define MIN_MBC_SZ		(16*1024)
-#define MIN_MBC_FIRST_FREE_SZ	(4*1024)
 
 #define TREE_NODE_FLG		(((Uint) 1) << 0)
 #define RED_FLG			(((Uint) 1) << 1)
@@ -179,7 +178,6 @@ erts_bfalc_start(BFAllctr_t *bfallctr,
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
-    allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= (bfinit->ao
 					   ? sizeof(RBTree_t)
 					   : sizeof(RBTreeList_t));

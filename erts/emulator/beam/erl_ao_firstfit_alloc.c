@@ -67,7 +67,6 @@
 #endif
 
 #define MIN_MBC_SZ		(16*1024)
-#define MIN_MBC_FIRST_FREE_SZ	(4*1024)
 
 #define TREE_NODE_FLG		(((Uint) 1) << 0)
 #define RED_FLG			(((Uint) 1) << 1)
@@ -306,7 +305,6 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
     alc->crr_order                      = aoffinit->crr_order;
     allctr->mbc_header_size		= sizeof(AOFF_Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
-    allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size              = sizeof(AOFF_RBTree_t);
 
     allctr->vsn_str			= ERTS_ALC_AOFF_ALLOC_VSN_STR;
