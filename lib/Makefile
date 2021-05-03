@@ -67,7 +67,7 @@ else
       endif
     else
       ifdef TERTIARY_BOOTSTRAP
-        SUB_DIRECTORIES = snmp sasl erl_interface jinterface syntax_tools wx
+        SUB_DIRECTORIES = snmp sasl erl_interface jinterface syntax_tools wx public_key
       else
         ifdef DOC_BOOTSTRAP
           SUB_DIRECTORIES = xmerl edoc erl_docgen public_key

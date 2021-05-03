@@ -137,6 +137,7 @@ JAVADOC-GENERATED
 /bootstrap/lib/hipe
 /bootstrap/lib/jinterface
 /bootstrap/lib/parsetools
+/bootstrap/lib/public_key
 /bootstrap/lib/runtime_tools
 /bootstrap/lib/sasl
 /bootstrap/lib/snmp
