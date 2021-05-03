@@ -79,6 +79,12 @@
              {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
             ]).
 
+-compile([{nowarn_deprecated_function,
+           [{public_key,ssh_decode,2},
+            {public_key,ssh_encode,2}
+           ]}
+         ]).
+
 %% When removing for OTP-25.0, remember to also remove
 %%   - most of pubkey_ssh.erl except
 %%       + dh_gex_group/4
