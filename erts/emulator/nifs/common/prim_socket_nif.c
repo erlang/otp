@@ -6501,6 +6501,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     accDescP->iow      = descP->iow;     // Inherit iow
     accDescP->dbg      = descP->dbg;     // Inherit debug flag
     accDescP->useReg   = descP->useReg;  // Inherit useReg flag
+    inc_socket(accDescP->domain, accDescP->type, accDescP->protocol),
 
     accRef = enif_make_resource(env, accDescP);
     enif_release_resource(accDescP);
