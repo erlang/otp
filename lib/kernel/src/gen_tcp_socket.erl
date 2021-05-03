@@ -165,8 +165,8 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
             try
                 ok(ErrRef, call(Server, {setopts, SocketOpts ++ Setopts})),
                 if
-                    not is_integer(Fd) -> ok(ErrRef, call_bind(Server, BindAddr));
-                    true -> ok
+                    is_map_key(fd, ExtraOpts) -> ok;
+                    true -> ok(ErrRef, call_bind(Server, BindAddr))
                 end,
                 DefaultError = {error, einval},
                 Socket =  
@@ -298,8 +298,8 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
                      {setopts,
                       [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
                 if
-                    not is_integer(Fd) -> ok(ErrRef, call_bind(Server, BindAddr));
-                    true -> ok
+                    is_map_key(fd, ExtraOpts) -> ok;
+                    true -> ok(ErrRef, call_bind(Server, BindAddr))
                 end,
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?MODULE_socket(Server, Socket)}
