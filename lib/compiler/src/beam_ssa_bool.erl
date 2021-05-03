@@ -110,7 +110,9 @@
 %% the same control flow graph analysis and simplification as
 %% bool_opt/3 already does.
 %%
-
+%% This optimization pass must be first to be run after conversion
+%% to SSA code, both for correctness and effectiveness reasons.
+%%
 
 -module(beam_ssa_bool).
 -export([module/2]).
