@@ -1,4 +1,4 @@
-/*
+–/*
  * %CopyrightBegin%
  *
  * Copyright Ericsson AB 2018-2020. All Rights Reserved.
