@@ -26,7 +26,7 @@
 
 -export([signal_abort/1, exiting_dump/1, free_dump/1]).
 
--export([load/0]).
+-export([load/1]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -70,13 +70,13 @@ signal_abort(Config) ->
 
     SO = rpc:call(Node, erlang, system_info, [schedulers_online]),
 
-    _P1 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (0 rem SO) + 1}]),
-    _P2 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (1 rem SO) + 1}]),
-    _P3 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (2 rem SO) + 1}]),
-    _P4 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (3 rem SO) + 1}]),
-    _P5 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (4 rem SO) + 1}]),
-    _P6 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (5 rem SO) + 1}]),
+    Iter = lists:seq(0, 5),
 
+    [spawn_opt(Node, ?MODULE, load, [self()], [{scheduler, (I rem SO) + 1}])
+     || I <- Iter],
+
+    %% Make sure that each process is started
+    [receive ok -> ok end || _ <- Iter],
     timer:sleep(500),
 
     true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
@@ -94,6 +94,9 @@ signal_abort(Config) ->
 
     ok.
 
+load(Parent) ->
+    Parent ! ok,
+    load().
 load() ->
     lists:seq(1,10000),
     load().
