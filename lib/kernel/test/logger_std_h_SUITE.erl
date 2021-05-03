@@ -834,7 +834,7 @@ sync(Config) ->
     check_tracer(100),
     ok.
 sync(cleanup, _Config) ->
-    dbg:stop_clear(),
+    stop_clear(),
     logger:remove_handler(?MODULE).
 
 write_failure(Config) ->
@@ -1550,7 +1550,7 @@ rotate_on_start_compressed(Config) ->
 
             %% Write a 1 GB file to disk
             {ok, D} = file:open(Log,[write]),
-            [file:write(D,<<0:(1024*1024*8)>>) || I <- lists:seq(1,1024)],
+            [file:write(D,<<0:(1024*1024*8)>>) || _I <- lists:seq(1,1024)],
             file:close(D),
 
             NumOfReqs = 500,
@@ -2086,7 +2086,7 @@ start_op_trace() ->
     TRecvPid.
     
 stop_op_trace(TRecvPid) ->
-    dbg:stop_clear(),
+    stop_clear(),
     unlink(TRecvPid),
     exit(TRecvPid, kill),
     ok.
@@ -2153,7 +2153,7 @@ start_tracer(Trace,Expected) ->
                            maps:get(handler_state,
                                     maps:get(cb_state,
                                              logger_olp:info(h_proc_name())))),
-    dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
+    {ok,_} = dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
     dbg:p(whereis(h_proc_name()),[c]),
     dbg:p(FileCtrlPid,[c]),
     tpl(Trace),
@@ -2167,13 +2167,19 @@ tpl([{{M,F,A},MS}|Trace]) ->
         {_,_,1} ->
             ok;
         _ ->
-            dbg:stop_clear(),
+            stop_clear(),
             throw({skip,"Can't trace "++atom_to_list(M)++":"++
                        atom_to_list(F)++"/"++integer_to_list(A)})
     end,
     tpl(Trace);
 tpl([]) ->
     ok.
+
+stop_clear() ->
+    dbg:stop_clear(),
+    %% Remove tracer from all processes in order to eliminate
+    %% race conditions.
+    erlang:trace(all,false,[all]).
 
 tracer({trace,_,call,{logger_h_common,handle_cast,[Op|_]}},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
@@ -2209,10 +2215,10 @@ check_tracer(T,TimeoutFun) ->
             %% traces are received
             check_tracer(Delay,fun() -> ok end);
         {tracer_got_unexpected,Got,Expected} ->
-            dbg:stop_clear(),
+            stop_clear(),
             ct:fail({tracer_got_unexpected,Got,Expected})
     after T ->
-            dbg:stop_clear(),
+            stop_clear(),
             TimeoutFun()
     end.
 
