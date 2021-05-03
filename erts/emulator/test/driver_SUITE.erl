@@ -78,6 +78,7 @@
          otp_9302/1,
          thr_free_drv/1,
          async_blast/1,
+         thr_msg_blast/0,
          thr_msg_blast/1,
          consume_timeslice/1,
          env/1,
@@ -2156,6 +2157,9 @@ thr_msg_blast_receiver_proc(Port, Max, Parent, Done) ->
         "done" ->
             Parent ! Done
     end.
+
+thr_msg_blast() ->
+    [{timetrap, {minutes, 10}}].
 
 thr_msg_blast(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
