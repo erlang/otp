@@ -1,8 +1,8 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 2018-2020. All Rights Reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +14,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -321,7 +321,7 @@ make_sig_dist_unlink_op(int op, Eterm nodename, Uint32 conn_id,
     sdulnk->local = local;
     sdulnk->remote = STORE_NC(&hp, &oh, remote);
     sdulnk->id = id;
- 
+
     ASSERT(&sdulnk->heap[0] < hp);
     ASSERT(hp <= &sdulnk->heap[0] + sizeof(sdulnk->heap)/sizeof(sdulnk->heap[0]));
     ASSERT(boxed_val(sdulnk->remote) == &sdulnk->heap[0]);
@@ -700,7 +700,7 @@ proc_queue_signal(Process *c_p, Eterm pid, ErtsSignal *sig, int op)
             first = (ErtsMessage*) pend_sig;
             last = (ErtsMessage*) sig;
             sigp = last_next = &pend_sig->common.next;
-            goto first_last_done; 
+            goto first_last_done;
         }
         else {
             pend_sig = NULL;
@@ -999,7 +999,7 @@ erts_proc_sig_destroy_unlink_op(ErtsSigUnlinkOp *sulnk)
     erts_free(ERTS_ALC_T_SIG_DATA, sulnk);
 }
 
-static ERTS_INLINE ErtsDistExternal * 
+static ERTS_INLINE ErtsDistExternal *
 get_external_non_msg_signal(ErtsMessage *sig)
 {
     ASSERT(ERTS_SIG_IS_NON_MSG(sig));
@@ -1253,7 +1253,7 @@ get_alias_msg_data(ErtsMessage *sig, Eterm *fromp, Eterm *aliasp,
 {
     int type = ERTS_PROC_SIG_TYPE(((ErtsSignal *) sig)->common.tag);
     Eterm *tp;
-    
+
     if (type == ERTS_SIG_Q_TYPE_DIST) {
         if (fromp)
             *fromp = ERL_MESSAGE_FROM(sig);
@@ -1317,7 +1317,7 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig)
 {
     ErlHeapFragment *hfrag;
     Eterm tag = ((ErtsSignal *) sig)->common.tag;
-    
+
     /*
      * Heap alias message, heap frag alias message and
      * adjust message queue signals are the only non-message
@@ -1332,7 +1332,7 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig)
         return;
     }
 
-    
+
 
     if(ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(tag)) {
         /* Retreive pointer to heap fragment (may not be NULL). */
@@ -1348,7 +1348,7 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig)
         ErtsDistExternal *edep = get_external_non_msg_signal(sig);
         if (edep)
             erts_free_dist_ext_copy(edep);
-    
+
         sig->data.attached = ERTS_MSG_COMBINED_HFRAG;
         hfrag = sig->hfrag.next;
         erts_cleanup_offheap(&sig->hfrag.off_heap);
@@ -1382,7 +1382,7 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
 
     ASSERT(is_ref(to));
     ASSERT(is_internal_pid(from) || is_atom(from));
-    
+
     if (IS_TRACED_FL(c_p, F_TRACE_SEND))
         trace_send(c_p, to, msg);
     if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
@@ -1534,7 +1534,7 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     ERTS_LC_ASSERT(!(rp_locks & ERTS_PROC_LOCKS_ALL_MINOR));
     if (c_p != rp && rp_locks)
         erts_proc_unlock(rp, rp_locks);
-    
+
     if (c_p && hsz > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
         Uint reds = hsz / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
         if (reds > CONTEXT_REDS)
@@ -1561,7 +1561,7 @@ erts_proc_sig_send_dist_to_alias(Eterm alias, ErtsDistExternal *edep,
      * The receiver can distinguish between these two scenarios by
      * size of combined heap fragment (1 and > 1).
      */
-    
+
     if (hfrag) {
         /*
          * Fragmented message. Data already allocated in heap fragment
@@ -1612,7 +1612,7 @@ erts_proc_sig_send_dist_to_alias(Eterm alias, ErtsDistExternal *edep,
         mp->next = NULL;
         erts_cleanup_messages(mp);
     }
-    
+
 }
 
 
@@ -1793,7 +1793,7 @@ erts_proc_sig_make_unlink_op(Process *c_p, Eterm from)
         if (id == 0)
             id = (Uint64) erts_raw_get_unique_monotonic_integer();
     }
-    
+
     ASSERT(id != 0);
 
     sulnk = erts_alloc(ERTS_ALC_T_SIG_DATA, sizeof(ErtsSigUnlinkOp));
@@ -1847,7 +1847,7 @@ erts_proc_sig_send_unlink_ack(Process *c_p, Eterm from, ErtsSigUnlinkOp *sulnk)
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_UNLINK_ACK,
                                              type, 0);
     if (!proc_queue_signal(c_p, to, sig, ERTS_SIG_Q_OP_UNLINK_ACK))
-        erts_proc_sig_destroy_unlink_op(sulnk);    
+        erts_proc_sig_destroy_unlink_op(sulnk);
 }
 
 void
@@ -2081,7 +2081,7 @@ erts_proc_sig_send_demonitor(ErtsMonitor *mon)
 
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_DEMONITOR,
                                              type, 0);
-    
+
     if (!proc_queue_signal(NULL, to, sig, ERTS_SIG_Q_OP_DEMONITOR))
         erts_monitor_release(mon);
 }
@@ -2097,7 +2097,7 @@ erts_proc_sig_send_monitor(ErtsMonitor *mon, Eterm to)
 
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_MONITOR,
                                              type, 0);
-    
+
     return proc_queue_signal(NULL, to, sig, ERTS_SIG_Q_OP_MONITOR);
 }
 
@@ -2139,7 +2139,7 @@ erts_proc_sig_send_group_leader(Process *c_p, Eterm to, Eterm gl, Eterm ref)
 
     gl_sz = is_immed(gl) ? 0 : size_object(gl);
     ref_sz = is_immed(ref) ? 0 : size_object(ref);
-    
+
     size = sizeof(ErtsSigGroupLeader);
 
     size += (gl_sz + ref_sz - 1) * sizeof(Eterm);
@@ -2363,7 +2363,7 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
      * when creating the resulting message on
      * reception of this signal.
      */
-    
+
     hsz = ref_sz = size_object(ref);
     hsz += 5 /* 4-tuple */;
     if (is_atom(result)) {
@@ -2379,9 +2379,9 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
 
     token_sz = is_immed(token) ? 0 : size_object(token);
     hsz += token_sz;
-    
+
     hsz += sizeof(ErtsDistSpawnReplySigData)/sizeof(Eterm);
-    
+
     mp = erts_alloc_message(hsz, &hp);
     hp_start = hp;
     hfrag = &mp->hfrag;
@@ -2400,13 +2400,13 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
 
     patch_point = &hp[1];
     ASSERT(*patch_point == am_undefined);
-    
+
     hp += 5;
 
     token_copy = (!token_sz
                   ? token
                   : copy_struct(token, token_sz, &hp, ohp));
-    
+
     hfrag->used_size = hp - hp_start;
 
     datap = (ErtsDistSpawnReplySigData *) (char *) hp;
@@ -2590,7 +2590,7 @@ handle_rpc(Process *c_p, ErtsProcSigRPC *rpc, int cnt, int limit, int *yieldp)
     else {
         Eterm *hp, msg, ref;
         ErtsMessage *mp = erts_alloc_message(hsz, &hp);
-        
+
         sys_memcpy((void *) hp, (void *) &rpc->oref_thing,
                    sizeof(rpc->oref_thing));
 
@@ -2897,9 +2897,9 @@ copy_heap_frag_eterm(Process *c_p, ErtsMessage *mp, Eterm value)
     ASSERT(hfrag->used_size > 1);
 
     tag = hfrag->mem[0];
-    tag_sz = hfrag->used_size - 1;    
+    tag_sz = hfrag->used_size - 1;
     ASSERT(size_object(tag) == tag_sz);
-    
+
     if (!mp->data.attached) {
         hp = HAlloc(c_p, tag_sz);
         tag_cpy = copy_struct(tag, tag_sz, &hp, &c_p->off_heap);
@@ -3006,7 +3006,7 @@ recv_marker_dequeue(Process *c_p, ErtsRecvMarker *markp)
         /* Not in signal queue or marked for removal... */
         return;
     }
-    
+
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
 
     sigp = (ErtsMessage *) markp;
@@ -3062,7 +3062,7 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 					      sizeof(ErtsRecvMarkerBlock));
     *blkpp = blkp;
 
-    /* Allocate marker for 'uniqp' in index zero... */    
+    /* Allocate marker for 'uniqp' in index zero... */
     *ixp = 0;
     blkp->ref[0] = recv_marker_uniq(c_p, uniqp);
     markp = &blkp->marker[0];
@@ -3088,12 +3088,12 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 
     blkp->unused = 0;
     blkp->pending_set_save_ix = -1;
-    
+
 #ifdef DEBUG
     for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
 	blkp->marker[ix].used = ix == 0 ? !0 : 0;
 	blkp->marker[ix].proc = c_p;
-    }	
+    }
 #endif
 
     ERTS_HDBG_CHK_RECV_MRKS(c_p);
@@ -3177,7 +3177,7 @@ recv_marker_reuse(Process *c_p, int *ixp)
 
     ASSERT(markp->in_sigq);
     ASSERT(markp->in_msgq);
-    ASSERT(!markp->set_save);	
+    ASSERT(!markp->set_save);
 
     sigp = (ErtsMessage *) markp;
 
@@ -3224,7 +3224,7 @@ recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 	markp = &blkp->marker[ix];
 	blkp->free_ix = markp->next_ix;
 	ASSERT(-1 <= blkp->free_ix
-	       && blkp->free_ix < ERTS_RECV_MARKER_BLOCK_SIZE); 
+	       && blkp->free_ix < ERTS_RECV_MARKER_BLOCK_SIZE);
 	markp->prev_ix = blkp->marker[used_ix].prev_ix;
 	markp->next_ix = used_ix;
 #ifdef DEBUG
@@ -3244,7 +3244,7 @@ recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 	blkp->old_recv_marker_ix = ix;
     }
 #endif
-	
+
     ERTS_HDBG_CHK_RECV_MRKS(c_p);
 
     return markp;
@@ -3326,7 +3326,7 @@ erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id)
 	ASSERT(markp->set_save);
 	ASSERT(ix >= 0);
 	ASSERT((*blkpp)->pending_set_save_ix == ix);
-	
+
 	/*
 	 * The save pointer will be set when the marker
 	 * enters the message queue, and then the marker
@@ -3399,7 +3399,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     Eterm from;
 
     ASSERT(ERTS_PROC_SIG_TYPE(tag) == ERTS_SIG_Q_TYPE_GEN_EXIT);
-    
+
     xsigd = get_exit_signal_data(sig);
     from = xsigd->from;
 
@@ -3553,7 +3553,7 @@ convert_to_down_message(Process *c_p,
     reason = mdp->u.target.other.item;
     ASSERT(is_immed(reason));
     ASSERT(&mdp->origin == *omon);
-           
+
     if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_PENDING) {
         /*
          * Create a spawn_request() error message and replace
@@ -3594,13 +3594,13 @@ convert_to_down_message(Process *c_p,
          */
 
         tag = save_heap_frag_eterm(c_p, mp, &mdep->u.name);
-        
+
         /* Restore to normal monitor */
         ASSERT(mdep->u.name == NIL);
         mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
         ref = STORE_NC(&hp, ohp, mdp->ref);
-        
+
         ERL_MESSAGE_FROM(mp) = am_undefined;
         ERL_MESSAGE_TERM(mp) = TUPLE4(hp, tag, ref, am_error, reason);
 
@@ -3776,7 +3776,7 @@ convert_to_nodedown_messages(Process *c_p,
     return cnt;
 }
 
-static int 
+static int
 handle_nodedown(Process *c_p,
                 ErtsMessage *sig,
                 ErtsMonitorData *mdp,
@@ -4434,7 +4434,7 @@ erts_proc_sig_handle_pending_suspend(Process *c_p)
     psusp = (ErtsProcSigPendingSuspend *) ERTS_PROC_GET_PENDING_SUSPEND(c_p);
 
     msp = psusp->mon;
-    
+
     while (msp) {
         ErtsMonitorSuspend *next_msp = msp->next;
         msp->next = NULL;
@@ -4553,7 +4553,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         *datap->patch_point = tag_hfrag->mem[0];
     }
     mdep->u.name = NIL; /* Restore to normal monitor */
-    
+
     if (is_atom(result)) { /* Spawn error; cleanup... */
         /* Dist code should not have created a link on failure... */
 
@@ -4574,12 +4574,12 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         ErtsMonLnkDist *dist;
         ErtsMonitorDataExtended *mdep;
         ErtsLink *lnk;
-        
+
         mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
         dist = mdep->dist;
 
         ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_LINK);
-        
+
         lnk = datap->link;
         if (lnk) {
             ErtsELink *elnk;
@@ -4590,7 +4590,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             else
                 erts_link_release(lnk);
         }
-        
+
         ASSERT(is_external_pid(result));
         dep = external_pid_dist_entry(result);
 
@@ -4632,7 +4632,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             if (tracing->procs)
                 linking(c_p, result);
         }
-        
+
         adjust_monitor = !!(omon->flags & ERTS_ML_FLG_SPAWN_MONITOR);
         if (adjust_monitor) {
             /*
@@ -4790,7 +4790,7 @@ handle_alias_message(Process *c_p, ErtsMessage *sig, ErtsMessage ***next_nm_sig)
     ASSERT(is_internal_pid_ref(alias));
 
     ERL_MESSAGE_FROM(sig) = from;
-    
+
     mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), alias);
     flags = mon ? mon->flags : (Uint16) 0;
     if (!(flags & ERTS_ML_STATE_ALIAS_MASK)
@@ -4815,7 +4815,7 @@ handle_alias_message(Process *c_p, ErtsMessage *sig, ErtsMessage ***next_nm_sig)
         mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
 
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
-        
+
         erts_pid_ref_delete(alias);
 
         switch (mon->type) {
@@ -4895,7 +4895,7 @@ handle_alias_message(Process *c_p, ErtsMessage *sig, ErtsMessage ***next_nm_sig)
             ERL_MESSAGE_TERM(mp) = THE_NON_VALUE;
             ASSERT(sig->hfrag.next);
             mp->data.heap_frag = sig->hfrag.next;
-            
+
             /* Replace original signal with the external message... */
             convert_to_msg(c_p, sig, mp, next_nm_sig);
 
@@ -4905,7 +4905,7 @@ handle_alias_message(Process *c_p, ErtsMessage *sig, ErtsMessage ***next_nm_sig)
             sig->next = NULL;;
             erts_cleanup_messages(sig);
             cnt += 8;
-        }        
+        }
     }
     erts_proc_notify_new_message(c_p, ERTS_PROC_LOCK_MAIN);
     return cnt;
@@ -5341,7 +5341,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
         case ERTS_SIG_Q_OP_UNLINK_ACK: {
             Uint16 type = ERTS_PROC_SIG_TYPE(tag);
-            
+
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
 
             remove_nm_sig(c_p, sig, next_nm_sig);
@@ -5379,7 +5379,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 }
                 erts_proc_sig_destroy_unlink_op(sulnk);
             }
-            
+
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
             break;
         }
@@ -5445,10 +5445,10 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                                                     type, sig,
                                                     next_nm_sig);
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
-            
+
             break;
         }
-            
+
         case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY: {
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
             cnt += handle_dist_spawn_reply(c_p, &tracing, sig, next_nm_sig);
@@ -5547,7 +5547,7 @@ stop: {
                          && ERTS_SIG_IS_RECV_MARKER(*tracing.messages.next)
                          && ((ErtsRecvMarker *) *tracing.messages.next)->in_msgq));
             }
-            
+
             if (*next_nm_sig) {
                 if (*next_nm_sig == tracing.messages.next)
                     *next_nm_sig = &c_p->sig_qs.cont;
@@ -5792,7 +5792,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
         op = ERTS_PROC_SIG_OP(tag);
 
         remove_nm_sig(c_p, sig, next_nm_sig);
- 
+
         ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, NULL, next_nm_sig);
 
         cnt++;
@@ -6175,7 +6175,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
     case ERTS_SIG_Q_OP_RECV_MARK:
         size = sizeof(ErtsRecvMarker);
         break;
-        
+
     default:
         ERTS_INTERNAL_ERROR("Unknown signal");
         break;
@@ -6316,7 +6316,7 @@ erts_proc_sig_receive_helper(Process *c_p,
         ASSERT(!c_p->sig_qs.cont);
         /* Go fetch again... */
     }
-    
+
     /* Yield... */
 
     *get_outp = -1;
@@ -6377,7 +6377,7 @@ area_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
             if (ErtsInArea(val, lit_start, lit_size)) {
                 sz = size_object(val);
                 val = copy_struct(val, sz, hpp, ohp);
-                *p = val; 
+                *p = val;
             }
             break;
         case TAG_PRIMARY_HEADER:
@@ -6570,7 +6570,7 @@ handle_cla(Process *c_p,
                 }
 
                 if (in_heap_frags) {
-                
+
                     for (hf = first_hfrag; hf; hf = hf->next) {
                         area_literal_copy(&hp, ohp, &hf->mem[0],
                                           &hf->mem[hf->used_size],
@@ -6731,7 +6731,7 @@ handle_move_msgq_off_heap(Process *c_p,
 		ERL_MESSAGE_TOKEN(msg) = copy_struct(ERL_MESSAGE_TOKEN(msg),
 						     t_sz, &hp, ohp);
 #ifdef USE_VM_PROBES
-	    if (is_not_immed(ERL_MESSAGE_DT_UTAG(mp)))
+	    if (is_not_immed(ERL_MESSAGE_DT_UTAG(msg)))
 		ERL_MESSAGE_DT_UTAG(msg) = copy_struct(ERL_MESSAGE_DT_UTAG(msg),
 						       ut_sz, &hp, ohp);
 #endif
@@ -6882,7 +6882,7 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
         ASSERT(!*next_nm_sig);
         return 1; /* end... */
     }
-    
+
     if (ERTS_SIG_IS_RECV_MARKER(sig) && ((ErtsRecvMarker *) sig)->in_msgq) {
 	/*
 	 * Skip already handled receive marker that just entered
@@ -6893,7 +6893,7 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
 	ASSERT(!sig || !ERTS_SIG_IS_RECV_MARKER(sig)
 	       || !((ErtsRecvMarker *) sig)->in_msgq);
     }
-    
+
     /*
      * Receive tracing active. Handle all messages
      * until next non-message signal...
@@ -7042,7 +7042,7 @@ move_msg_to_heap(Process *c_p, ErtsMessage *mp)
         && mp->data.attached
         && mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
         ErlHeapFragment *bp;
-        
+
         bp = erts_message_to_heap_frag(mp);
 
         if (bp->next)
@@ -7301,10 +7301,10 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                                                   oh_func, arg);
                     }
                     break;
-                    
+
                 case ERTS_SIG_Q_OP_UNLINK_ACK:
                     break;
-                    
+
                 case ERTS_SIG_Q_OP_LINK:
                     lnk_func((ErtsLink *) sig, arg, -1);
                     break;
@@ -7340,7 +7340,7 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
 #ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
     int old_recv_marker = 0;
-#endif    
+#endif
     if (!blkp)
 	return;
 
@@ -7352,7 +7352,7 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 	int pix, nix;
 	ErtsRecvMarker *markp = &blkp->marker[ix];
 	Eterm ref = blkp->ref[ix];
-	
+
 	ERTS_ASSERT(is_internal_ref(ref)
 		    || is_small(ref)
 		    || is_big(ref)
@@ -7384,7 +7384,7 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
 
 	ix = nix;
     } while (ix != blkp->used_ix);
-    
+
     ERTS_ASSERT(unused == blkp->unused);
 
     free = 0;
@@ -7392,7 +7392,7 @@ erl_proc_sig_hdbg_chk_recv_marker_block(Process *c_p)
     ix = blkp->free_ix;
     if (ix >= 0) {
 	ERTS_ASSERT(ix < ERTS_RECV_MARKER_BLOCK_SIZE);
-	
+
 	do {
 	    Eterm ref = blkp->ref[ix];
 	    ERTS_ASSERT(ref == am_free);
@@ -7554,7 +7554,7 @@ proc_sig_hdbg_check_queue(Process *proc,
             if (privq < 0)
                 ERTS_ASSERT(next == markp->prev_next);
         }
-        
+
         nm_sig = (ErtsSignal *) sig;
 
         if (nm_sig->common.tag == ERTS_PROC_SIG_MSGQ_LEN_OFFS_MARK) {
