@@ -15,7 +15,7 @@ WORKDIR /buildroot/otp/
 ENV CFLAGS="-O2 -g -Werror"
 
 ## Configure, check that no application are disabled, then make and then build doc chunks
-RUN ./configure --prefix=/otp && \
+RUN ./configure --with-ssl --prefix=/otp && \
         if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
 
 RUN make && make install && \
