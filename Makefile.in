@@ -832,7 +832,8 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 #	copy jinterface priv directory
-	$(V_at)for x in lib/jinterface/priv/OtpErlang.jar; do \
+	$(V_at)if test -d lib/jinterface/priv; then \
+	    for x in lib/jinterface/priv/OtpErlang.jar; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/$$BN; \
 		test -f  $$TF && \
@@ -841,8 +842,8 @@ tertiary_bootstrap_copy:
 		test '!' -f $$TF && \
 			${INSTALL_DATA} -p $$x $$TF; \
 		true; \
-	done
-	$(V_at)for x in lib/jinterface/priv/com/ericsson/otp/erlang/*; do \
+	    done; \
+	    for x in lib/jinterface/priv/com/ericsson/otp/erlang/*; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/jinterface/priv/com/ericsson/otp/erlang/$$BN; \
 		test -f  $$TF && \
@@ -851,7 +852,8 @@ tertiary_bootstrap_copy:
 		test '!' -f $$TF && \
 			${INSTALL_DATA} -p $$x $$TF; \
 		true; \
-	done
+	    done; \
+        fi
 #	$(V_at)${INSTALL_DATA} -p lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
 
 doc_bootstrap_build:
