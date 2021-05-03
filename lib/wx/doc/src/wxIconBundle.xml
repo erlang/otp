@@ -8,27 +8,15 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxIconBundle</title>
 </header>
 <module>wxIconBundle</module>
 <modulesummary>Functions for wxIconBundle class</modulesummary>
 <description><p>This class contains multiple copies of an icon in different sizes. It is typically used in <c>wxDialog::SetIcons</c> (not implemented in wx) and <seemfa marker="wxTopLevelWindow#setIcons/2"><c>wxTopLevelWindow:setIcons/2</c></seemfa>.
-      </p><p>Predefined objects/pointers: ?wxNullIconBundle
+      </p><p>Predefined objects (include wx.hrl): ?wxNullIconBundle
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_icon_bundle.html">wxIconBundle</url></p>
   </description>

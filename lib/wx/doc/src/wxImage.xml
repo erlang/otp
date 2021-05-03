@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxImage</title>
 </header>
@@ -39,7 +27,7 @@
       </p> <p>When saving in PCX format, <c>wxPCXHandler</c> (not implemented in wx) will count the number of different colours in the image; if there are 256 or less colours, it will save as 8 bit, else it will save as 24 bit.
       </p><p>Loading PNMs only works for ASCII or raw RGB images. When saving in PNM format, <c>wxPNMHandler</c> (not implemented in wx) will always save as raw RGB.
       </p><p>Saving GIFs requires images of maximum 8 bpp (see <c>wxQuantize</c> (not implemented in wx)), and the alpha channel converted to a mask (see <seemfa marker="#convertAlphaToMask/5"><c>convertAlphaToMask/5</c></seemfa>). Saving an animated GIF requires images of the same size (see <c>wxGIFHandler::SaveAnimation</c> (not implemented in wx))
-      </p><p>Predefined objects/pointers: ?wxNullImage
+      </p><p>Predefined objects (include wx.hrl): ?wxNullImage
       </p><p>See: <seeerl marker="wxBitmap"><c>wxBitmap</c></seeerl>, ?wxInitAllImageHandlers(), <c>wxPixelData</c> (not implemented in wx)
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_image.html">wxImage</url></p>

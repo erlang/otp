@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxCalendarCtrl</title>
 </header>
@@ -35,7 +23,6 @@
       </p><p>If neither the <c>wxCAL_SUNDAY_FIRST</c> or <c>wxCAL_MONDAY_FIRST</c> style is given, the first day of the week is determined from operating system's settings, if possible. The native wxGTK calendar chooses the first weekday based on locale, and these styles have no effect on it.
       </p><p>Styles</p><p>This class supports the following styles:
       </p><p>Note: Changing the selected date will trigger an EVT_CALENDAR_DAY, MONTH or YEAR event as well as an EVT_CALENDAR_SEL_CHANGED event.
-      </p><p>Implementations:native under page_port_wxgtk, page_port_wxmsw ports; a generic implementation is used elsewhere.
       </p><p>See: <url href="https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_calendar">Examples</url>, <seeerl marker="wxCalendarDateAttr"><c>wxCalendarDateAttr</c></seeerl>, <seeerl marker="wxCalendarEvent"><c>wxCalendarEvent</c></seeerl>, <seeerl marker="wxDatePickerCtrl"><c>wxDatePickerCtrl</c></seeerl>
       </p>
   <p>This class is derived (and can use functions) from: 

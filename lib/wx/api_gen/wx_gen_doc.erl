@@ -136,23 +136,11 @@ gen_misc(Files) ->
     ok.
 
 gen_header(Name) ->
-    Legal ="
-      Licensed under the Apache License, Version 2.0 (the \"License\");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an \"AS IS\" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-",
+    Legal = "Licensed under the wxWindows Free Documentation Licence, Version 3",
 
     [nl(2), {copyright,
              [nl(4), {year, ["2020"]},
-              nl(4), {holder, ["Ericsson AB. All Rights Reserved."]}]},
+              nl(4), {holder, ["wxWidgets team."]}]},
      nl(2), {legalnotice, [Legal, nl(2)]},
      nl(2), {title, [Name]},
      nl(0)].
@@ -525,18 +513,8 @@ translate([Doc|Docs], Acc) ->
 translate([], Acc) ->
     lists:reverse(Acc).
 
-
 t(#xmlText{}=Txt) ->
     Txt;
-t(#xmlElement{name=para,
-              content=[#xmlText{value=Avail},
-                       #xmlElement{name=nonbreakablespace},
-                       #xmlElement{name=nonbreakablespace}|Cs]})
-  when Avail =:= "Availability:"; Avail =:= " Availability:" ->
-    case [E || #xmlElement{name=onlyfor}=E <- Cs] of
-        [] -> ignore;
-        [E] -> t(E)
-    end;
 t(#xmlElement{name=para, content=Cs}) ->
     Docs = translate(Cs),
     case is_empty(Docs) orelse is_include(Cs) of
@@ -627,6 +605,10 @@ t(#xmlElement{name=nonbreakablespace}) ->
 t(#xmlElement{name=programlisting}) ->
     ignore;
 t(#xmlElement{name=image}) ->
+    ignore;
+t(#xmlElement{name=native}) ->
+    ignore;
+t(#xmlElement{name=anchor, content=[]}) ->
     ignore;
 t(#xmlElement{name=What, content=Cs}) ->
     ?LOG("xml unhand: ~p~n  ~P~n", [What,p(Cs),15]),
@@ -958,6 +940,8 @@ f(#xmlElement{name=row=T, content=Cs}) ->
     {T,Cs};
 f(#xmlElement{name=table=T, content=Cs}) ->
     {T,Cs};
+f(#xmlElement{name=onlyfor=T, content=Cs}) ->
+    {T,Cs};
 
 f(#xmlText{}=T) ->
     T;
@@ -1003,7 +987,7 @@ is_include(_) -> false.
 %% Dbg help
 p(List) when is_list(List) ->
     [p(E) || E <- List];
-p(#xmlElement{name=itemizedlist=What} = DBG) ->
+p(#xmlElement{name=itemizedlist=What} = _DBG) ->
     {What, [long_list]};
 p(#xmlElement{name=programlisting=What}) ->
     {What, [code_example]};
@@ -1016,6 +1000,8 @@ p(#xmlText{value=Txt}) ->
 p({break, Done, Cont}) ->
     {break, p(Done), p(Cont)};
 p({C, List}) ->
-    {C, p(List)}.
+    {C, p(List)};
+p(Char) ->
+    Char.
 
 

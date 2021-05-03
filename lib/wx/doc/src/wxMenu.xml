@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxMenu</title>
 </header>
@@ -38,7 +26,7 @@
       </p> <p>If the menu is part of a menu bar, then events can also be handled in <seeerl marker="wxMenuBar"><c>wxMenuBar</c></seeerl> object.
       </p> <p>Finally, menu events can also be handled in the associated window, which is either the <seeerl marker="wxFrame"><c>wxFrame</c></seeerl> associated with the menu bar this menu belongs to or the window for which <seemfa marker="wxWindow#popupMenu/4"><c>wxWindow:popupMenu/4</c></seemfa> was called for the popup menus.
       </p> <p>See overview_events_bind for how to bind event handlers to the various objects.
-      </p> <p>See: <seeerl marker="wxMenuBar"><c>wxMenuBar</c></seeerl>, <seemfa marker="wxWindow#popupMenu/4"><c>wxWindow:popupMenu/4</c></seemfa>, <url href="https://docs.wxwidgets.org/3.1/overview_events.html#overview_events">Overview events</url>, <c>wxFileHistory</c> (not implemented in wx)
+      </p>  <p>See: <seeerl marker="wxMenuBar"><c>wxMenuBar</c></seeerl>, <seemfa marker="wxWindow#popupMenu/4"><c>wxWindow:popupMenu/4</c></seemfa>, <url href="https://docs.wxwidgets.org/3.1/overview_events.html#overview_events">Overview events</url>, <c>wxFileHistory</c> (not implemented in wx)
       </p>
   <p>This class is derived (and can use functions) from: 
     <seeerl marker="wxEvtHandler"><c>wxEvtHandler</c></seeerl></p>

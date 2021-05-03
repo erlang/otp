@@ -49,7 +49,6 @@ docs:
 release_spec: opt
 	$(INSTALL_DIR) $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTSRC) $(EXRELSYSDIR)
-	$(INSTALL_DATA) copy.xpm sample.xpm $(TESTTARGETS) $(EXRELSYSDIR)
 
 release_tests_spec:
 

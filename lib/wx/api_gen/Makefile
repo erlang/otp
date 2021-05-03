@@ -21,8 +21,9 @@ ERLC = erlc
 ERL  = erl
 EBIN = .
 
-# make GL_DIR=/usr/include/GL
+# make GL_DIR=/usr/include/GL WX_DIR=/src/wxWidgets
 GL_DIR = /usr/include/GL
+WX_DIR = $(ERL_TOP)/../wxWidgets
 
 ERL_COMPILE_FLAGS=+debug_info +warn_unused_vars
 
@@ -47,8 +48,8 @@ opt:  $(WX) $(GL)
 $(WX): wxxml_generated $(COMPILER_T) wxapi.conf $(wildcard wx_extra/wx*.c_src) $(wildcard wx_extra/wx*.erl)
 	erl -noshell -run wx_gen code && touch wx_code_generated
 
-wxxml_generated:  wx_doxygen.conf interface/wx/*.h wx_extra/wxe_evth.h wx_extra/added_func.h
-	doxygen wx_doxygen.conf > wx_doxygen.log && touch wxxml_generated
+wxxml_generated:  wx_doxygen.conf wx_extra/wxe_evth.h wx_extra/added_func.h
+	WX_DIR=$(WX_DIR) doxygen wx_doxygen.conf > wx_doxygen.log && touch wxxml_generated
 
 glxml_generated: gl_doxygen.conf
 	sed -e 's|@GL_DIR@|$(GL_DIR)|g' gl_doxygen.conf > gl_doxygen

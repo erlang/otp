@@ -18,7 +18,10 @@ CONFIGURATION:
     I havn't thought of everything yet.
 
 RUNNING:
-    I use the following alias wxgen='make GL_DIR=/home/dgud/opengl'
+    I use the following alias wxgen='make GL_DIR=/home/dgud/opengl WX_DIR=/home/dgud/src/wxWidgets'
+
+    We have some patches in the wxWidgets interface files to be able to use it to generate the interface,
+    so use our clone of wxWidgets, and checkout 'wx_api_gen' branch.
 
     I keep the opengl headers separate so I don't go backwards in version when generating the code
     from another machine.

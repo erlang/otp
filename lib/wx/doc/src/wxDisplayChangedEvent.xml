@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxDisplayChangedEvent</title>
 </header>
@@ -29,7 +17,7 @@
 <modulesummary>Functions for wxDisplayChangedEvent class</modulesummary>
 <description><p>A display changed event is sent to top-level windows when the display resolution has changed.
       </p><p>This event is currently emitted under Windows only.
-      </p><p>See: <seeerl marker="wxDisplay"><c>wxDisplay</c></seeerl>
+      </p><p>Only for:wxmsw</p><p>See: <seeerl marker="wxDisplay"><c>wxDisplay</c></seeerl>
       </p>
   <p>This class is derived (and can use functions) from: 
     <seeerl marker="wxEvent"><c>wxEvent</c></seeerl></p>

@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxFont</title>
 </header>
@@ -32,7 +20,7 @@
       </p><p>The easiest way to create a custom font is to use <c>wxFontInfo</c> (not implemented in wx) object to specify the font attributes and then use <seemfa marker="#new/5"><c>new/5</c></seemfa> constructor. Alternatively, you could start with one of the pre-defined fonts or use <seemfa marker="wxWindow#getFont/1"><c>wxWindow:getFont/1</c></seemfa> and modify the font, e.g. by increasing its size using <c>MakeLarger()</c> (not implemented in wx) or changing its weight using <c>MakeBold()</c> (not implemented in wx).
       </p><p>This class uses reference counting and copy-on-write internally so that assignments between two instances of this class are very cheap. You can therefore use actual objects instead of pointers without efficiency problems. If an instance of this class is changed it will create its own data internally so that other instances, which previously shared the data using the reference counting, are not affected.
       </p><p>You can retrieve the current system font settings with <seeerl marker="wxSystemSettings"><c>wxSystemSettings</c></seeerl>.
-      </p><p>Predefined objects/pointers: ?wxNullFont, ?wxNORMAL_FONT, ?wxSMALL_FONT, ?wxITALIC_FONT, ?wxSWISS_FONT
+      </p><p>Predefined objects (include wx.hrl): ?wxNullFont, ?wxNORMAL_FONT, ?wxSMALL_FONT, ?wxITALIC_FONT, ?wxSWISS_FONT
       </p><p>See: <url href="https://docs.wxwidgets.org/3.1/overview_font.html#overview_font">Overview font</url>, <seemfa marker="wxDC#setFont/2"><c>wxDC:setFont/2</c></seemfa>, <seemfa marker="wxDC#drawText/3"><c>wxDC:drawText/3</c></seemfa>, <seemfa marker="wxDC#getTextExtent/3"><c>wxDC:getTextExtent/3</c></seemfa>, <seeerl marker="wxFontDialog"><c>wxFontDialog</c></seeerl>, <seeerl marker="wxSystemSettings"><c>wxSystemSettings</c></seeerl>
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_font.html">wxFont</url></p>

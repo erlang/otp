@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxAcceleratorTable</title>
 </header>
@@ -31,7 +19,7 @@
       </p><p>The object ?wxNullAcceleratorTable is defined to be a table with no data, and is the initial accelerator table for a window.
       </p><p>Example:
       </p><p>Remark: An accelerator takes precedence over normal processing and can be a convenient way to program some event handling. For example, you can use an accelerator table to enable a dialog with a multi-line text control to accept CTRL-Enter as meaning 'OK'.
-      </p><p>Predefined objects/pointers: ?wxNullAcceleratorTable
+      </p><p>Predefined objects (include wx.hrl): ?wxNullAcceleratorTable
       </p><p>See: <seeerl marker="wxAcceleratorEntry"><c>wxAcceleratorEntry</c></seeerl>, <seemfa marker="wxWindow#setAcceleratorTable/2"><c>wxWindow:setAcceleratorTable/2</c></seemfa>
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_accelerator_table.html">wxAcceleratorTable</url></p>

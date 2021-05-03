@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxNotebook</title>
 </header>
@@ -35,7 +23,7 @@
       </p> <p>To disable themed pages globally: 
       </p> <p>Set the value to 1 to enable it again. To give a single page a solid background that more or less fits in with the overall theme, use: 
       </p> <p>On platforms other than Windows, or if the application is not using Windows themes, <seemfa marker="#getThemeBackgroundColour/1"><c>getThemeBackgroundColour/1</c></seemfa> will return an uninitialised colour object, and the above code will therefore work on all platforms.
-      </p> <p>See: ?wxBookCtrl, <seeerl marker="wxBookCtrlEvent"><c>wxBookCtrlEvent</c></seeerl>, <seeerl marker="wxImageList"><c>wxImageList</c></seeerl>, <url href="https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_notebook">Examples</url>
+      </p>  <p>See: ?wxBookCtrl, <seeerl marker="wxBookCtrlEvent"><c>wxBookCtrlEvent</c></seeerl>, <seeerl marker="wxImageList"><c>wxImageList</c></seeerl>, <url href="https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_notebook">Examples</url>
       </p>
   <p>This class is derived (and can use functions) from: 
     <seeerl marker="wxBookCtrlBase"><c>wxBookCtrlBase</c></seeerl> <seeerl marker="wxControl"><c>wxControl</c></seeerl> <seeerl marker="wxWindow"><c>wxWindow</c></seeerl> <seeerl marker="wxEvtHandler"><c>wxEvtHandler</c></seeerl></p>

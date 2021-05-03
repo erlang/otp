@@ -8,20 +8,8 @@
 <header>
   <copyright>
     <year>2020</year>
-    <holder>Ericsson AB. All Rights Reserved.</holder></copyright>
-  <legalnotice>
-      Licensed under the Apache License, Version 2.0 (the "License");
-      you may not use this file except in compliance with the License.
-      You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-      Unless required by applicable law or agreed to in writing, software
-      distributed under the License is distributed on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-      See the License for the specific language governing permissions and
-      limitations under the License.
-
+    <holder>wxWidgets team.</holder></copyright>
+  <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
   <title>wxBrush</title>
 </header>
@@ -32,7 +20,7 @@
       </p><p>Do not initialize objects on the stack before the program commences, since other required structures may not have been set up yet. Instead, define global pointers to objects and create them in <c>wxApp::OnInit</c> (not implemented in wx) or when required.
       </p><p>An application may wish to create brushes with different characteristics dynamically, and there is the consequent danger that a large number of duplicate brushes will be created. Therefore an application may wish to get a pointer to a brush by using the global list of brushes ?wxTheBrushList, and calling the member function <c>wxBrushList::FindOrCreateBrush()</c> (not implemented in wx).
       </p><p>This class uses reference counting and copy-on-write internally so that assignments between two instances of this class are very cheap. You can therefore use actual objects instead of pointers without efficiency problems. If an instance of this class is changed it will create its own data internally so that other instances, which previously shared the data using the reference counting, are not affected.
-      </p><p>Predefined objects/pointers: 
+      </p><p>Predefined objects (include wx.hrl): 
       </p><p>See: <c>wxBrushList</c> (not implemented in wx), <seeerl marker="wxDC"><c>wxDC</c></seeerl>, <seemfa marker="wxDC#setBrush/2"><c>wxDC:setBrush/2</c></seemfa>
       </p>
   <p>wxWidgets docs: <url href="https://docs.wxwidgets.org/3.1/classwx_brush.html">wxBrush</url></p>
