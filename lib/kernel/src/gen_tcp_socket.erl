@@ -121,32 +121,25 @@ connect_lookup(Address, Port, Opts, Timer) ->
             opts = ConnectOpts}} ->
             %%
             %% ?DBG({Domain, BindIP}),
-            BindAddr = bind_addr(Domain, BindIP, BindPort),
+            BindAddr = bind_addr(Domain, BindIP, BindPort, Fd),
+            ExtraOpts = extra_opts(Fd),
             connect_open(
-              Addrs, Domain, ConnectOpts, StartOpts, Fd, Timer, BindAddr)
+              Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts,
+              Timer, BindAddr)
     catch
         throw : {ErrRef, Reason} ->
             ?badarg_exit({error, Reason})
     end.
 
-connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
-    %% ?DBG({Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr}),
+connect_open(Addrs, Domain, ConnectOpts, Opts, ExtraOpts, Timer, BindAddr) ->
+    %% ?DBG({Addrs, Domain, ConnectOpts, Opts, ExtraOpts, Timer, BindAddr}),
 
     %%
-    %% The {netns, File} option is passed in Fd by inet:connect_options/2.
+    %% The {netns, File} option is passed in Fd by inet:connect_options/2,
+    %% and then over to ExtraOpts.
     %% The {debug, Bool} option is passed in Opts since it is
     %% subversively classified as both start and socket option.
     %%
-
-    ExtraOpts =
-        if
-            Fd =:= -1      -> #{};
-            is_integer(Fd) -> #{fd => Fd};
-            %% This is an **ugly** hack.
-            %% inet:connect_options/2 has the bad taste to use this
-            %% for [{netns,NS}] if that option is used...
-            is_list(Fd)    -> #{netns => Fd}
-        end,
 
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
     %% ?DBG([{socket, SocketOpts}, {start, StartOpts}]),
@@ -164,10 +157,7 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
             ErrRef = make_ref(),
             try
                 ok(ErrRef, call(Server, {setopts, SocketOpts ++ Setopts})),
-                if
-                    is_map_key(fd, ExtraOpts) -> ok;
-                    true -> ok(ErrRef, call_bind(Server, BindAddr))
-                end,
+                ok(ErrRef, call_bind(Server, BindAddr)),
                 DefaultError = {error, einval},
                 Socket =  
                     val(ErrRef,
@@ -196,10 +186,26 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
     end.
 
 
-bind_addr(_Domain, undefined = _BindIP, _BindPort) ->
+extra_opts(Fd) when is_integer(Fd) ->
+    if
+        Fd < 0 ->
+            #{};
+        true ->
+            #{fd => Fd}
+    end;
+extra_opts(OpenOpts) when is_list(OpenOpts) ->
+    %% This is an **ugly** hack.
+    %% inet:{connect,listen,udp,sctp}_options/2 has the bad taste
+    %% to use this for [{netns,BinNS}] if that option is used...
+   maps:from_list(OpenOpts).
+
+
+bind_addr(_Domain, BindIP, _BindPort, Fd)
+  when BindIP =:= undefined;
+       is_integer(Fd), 0 =< Fd ->
     %% Do not bind!
     undefined;
-bind_addr(Domain, BindIP, BindPort) ->
+bind_addr(Domain, BindIP, BindPort, _Fd) ->
     case Domain of
         local ->
             case BindIP of
@@ -247,10 +253,12 @@ listen(Port, Opts) ->
                     %%
                     Domain = domain(Mod),
                     %% ?DBG({Domain, BindIP}),
-                    BindAddr = bind_addr(Domain, BindIP, BindPort),
+                    BindAddr = bind_addr(Domain, BindIP, BindPort, Fd),
+                    ExtraOpts = extra_opts(Fd),
 		    %% ?DBG([{listen_opts, ListenOpts}, {backlog, Backlog}]),
                     listen_open(
-                      Domain, ListenOpts, StartOpts, Fd, Backlog, BindAddr)
+                      Domain, ListenOpts, StartOpts, ExtraOpts,
+                      Backlog, BindAddr)
             end;
         {error, _} = Error ->
             ?badarg_exit(Error)
@@ -258,25 +266,13 @@ listen(Port, Opts) ->
 
 %% Helpers -------
 
-listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
+listen_open(Domain, ListenOpts, Opts, ExtraOpts, Backlog, BindAddr) ->
     %% ?DBG([{domain,      Domain},
     %%  	  {listen_opts, ListenOpts},
     %%  	  {opts,        Opts},
-    %%  	  {fd,          Fd},
+    %%  	  {extra_opts,  ExtraOpts},
     %%  	  {backlog,     Backlog},
     %%  	  {bind_addr,   BindAddr}]),
-
-    ExtraOpts =
-        if
-            Fd =:= -1      -> #{};
-            is_integer(Fd) -> #{fd => Fd};
-            %% This is an **ugly** hack.
-            %% inet:connect_options/2 has the bad taste to use this
-            %% for [{netns, NS}] if that option is used...
-            %% Which is never called here, but just to keep it the same
-            %% we use the same for listen!
-            is_list(Fd)    -> #{netns => Fd}
-        end,
 
     {SocketOpts, StartOpts0} = setopts_split(socket, Opts),
     %% ?DBG([{socket_opts, SocketOpts}, {start_opts0, StartOpts0}]),
@@ -297,10 +293,7 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
                      Server,
                      {setopts,
                       [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
-                if
-                    is_map_key(fd, ExtraOpts) -> ok;
-                    true -> ok(ErrRef, call_bind(Server, BindAddr))
-                end,
+                ok(ErrRef, call_bind(Server, BindAddr)),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?MODULE_socket(Server, Socket)}
             catch
@@ -1178,22 +1171,19 @@ init(Arg) ->
     error(badarg, [Arg]).
 
 
-socket_open(Domain, Proto, #{fd := FD} = _ExtraOpts, Extra)
-  when is_integer(FD) andalso (FD > 0) ->
-    Opts = Extra#{dup      => false,
-                  domain   => Domain,
-                  type     => stream,
-                  protocol => Proto},
+socket_open(Domain, Proto, #{fd := FD} = ExtraOpts, Extra) ->
+    Opts =
+        (maps:merge(Extra, maps:remove(fd, ExtraOpts)))
+        #{dup      => false,
+          domain   => Domain,
+          type     => stream,
+          protocol => Proto},
     %% ?DBG([{fd, FD}, {opts, Opts}]),
     socket:open(FD, Opts);
-socket_open(Domain, Proto, #{netns := NS} = ExtraOpts, Extra)
-  when is_list(NS) ->
+socket_open(Domain, Proto, ExtraOpts, Extra) ->
     Opts = maps:merge(Extra, ExtraOpts),
     %% ?DBG([{netns, NS}, {opts, Opts}]),
-    socket:open(Domain, stream, Proto, Opts);
-socket_open(Domain, Proto, _ExtraOpts, Extra) ->
-    %% ?DBG([{opts, Extra}]),
-    socket:open(Domain, stream, Proto, Extra).
+    socket:open(Domain, stream, Proto, Opts).
 
 
 terminate(_Reason, State, {_P, _} = P_D) ->
