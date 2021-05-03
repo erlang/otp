@@ -813,23 +813,25 @@ recv(#transport{rotate = B} = S)
 recv(#transport{rotate = 0,
                 streams = {_,OS},
                 socket = Sock,
+                assoc_id = Id,
                 unordered = B}
      = S) ->
-    ok = unordered(Sock, OS, B),
+    ok = unordered(Sock, Id, OS, B),
     S#transport{rotate = 1 < OS};
 
 recv(#transport{rotate = N} = S) ->
     S#transport{rotate = N-1}.
 
-%% unordered/3
+%% unordered/4
 
-unordered(Sock, OS, B)
+unordered(Sock, Id, OS, B)
   when B;
        is_integer(B), OS =< B ->
     inet:setopts(Sock, [{sctp_default_send_param,
-                         #sctp_sndrcvinfo{flags = [unordered]}}]);
+                         #sctp_sndrcvinfo{flags = [unordered],
+                                          assoc_id = Id}}]);
 
-unordered(_, OS, B)
+unordered(_, _, OS, B)
   when not B;
        is_integer(B), B < OS ->
     ok.
