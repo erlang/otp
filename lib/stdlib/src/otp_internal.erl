@@ -87,6 +87,14 @@ obsolete(net, relay, 1) ->
     {deprecated, "use slave:relay/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
+obsolete(public_key, ssh_decode, 2) ->
+    {deprecated, "use ssh_file:decode/2 instead", "OTP 26"};
+obsolete(public_key, ssh_encode, 2) ->
+    {deprecated, "use ssh_file:encode/2 instead", "OTP 26"};
+obsolete(public_key, ssh_hostkey_fingerprint, 1) ->
+    {deprecated, "use ssh:hostkey_fingerprint/1 instead", "OTP 26"};
+obsolete(public_key, ssh_hostkey_fingerprint, 2) ->
+    {deprecated, "use ssh:hostkey_fingerprint/2 instead", "OTP 26"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
 obsolete(snmpm, async_get, 3) ->

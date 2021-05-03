@@ -45,6 +45,11 @@
          tcpip_tunnel_to_server/5, tcpip_tunnel_to_server/6
 	]).
 
+%% In move from public_key
+-export([hostkey_fingerprint/1, hostkey_fingerprint/2
+        ]).
+         
+
 %%% Internal export
 -export([is_host/2]).
 
@@ -734,6 +739,56 @@ tcpip_tunnel_from_server(ConnectionRef, ListenHost0, ListenPort, ConnectToHost0,
         Other ->
             Other
     end.
+
+%%--------------------------------------------------------------------
+%% In move from public_key
+%%--------------------------------------------------------------------
+-spec hostkey_fingerprint(public_key:public_key()) -> string().
+
+hostkey_fingerprint(Key) ->
+    sshfp_string(md5, ssh_message:ssh2_pubkey_encode(Key) ).
+
+-spec hostkey_fingerprint(TypeOrTypes, Key) -> StringOrString
+                                                   when
+      TypeOrTypes :: public_key:digest_type() | [public_key:digest_type()],
+      Key :: public_key:public_key(),
+      StringOrString :: string() | [string()] .
+
+hostkey_fingerprint(HashAlgs, Key) when is_list(HashAlgs) ->
+    EncKey = ssh_message:ssh2_pubkey_encode(Key),
+    [sshfp_full_string(HashAlg,EncKey) || HashAlg <- HashAlgs];
+hostkey_fingerprint(HashAlg, Key) when is_atom(HashAlg) ->
+    EncKey = ssh_message:ssh2_pubkey_encode(Key),
+    sshfp_full_string(HashAlg, EncKey).
+
+
+sshfp_string(HashAlg, EncodedKey) ->
+    %% Other HashAlgs than md5 will be printed with
+    %% other formats than hextstr by
+    %%    ssh-keygen -E <alg> -lf <file>
+    fp_fmt(sshfp_fmt(HashAlg), crypto:hash(HashAlg, EncodedKey)).
+
+sshfp_full_string(HashAlg, EncKey) ->
+    lists:concat([sshfp_alg_name(HashAlg),
+		  [$: | sshfp_string(HashAlg, EncKey)]
+		 ]).
+
+sshfp_alg_name(sha) -> "SHA1";
+sshfp_alg_name(Alg) -> string:to_upper(atom_to_list(Alg)).
+
+sshfp_fmt(md5) -> hexstr;
+sshfp_fmt(_) -> b64.
+
+fp_fmt(hexstr, Bin) ->
+    lists:flatten(string:join([io_lib:format("~2.16.0b",[C1]) || <<C1>> <= Bin], ":"));
+fp_fmt(b64, Bin) ->
+    %% This function clause *seems* to be
+    %%    [C || C<-base64:encode_to_string(Bin), C =/= $=]
+    %% but I am not sure. Must be checked.
+    B64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+    BitsInLast = 8*size(Bin) rem 6,
+    Padding = (6-BitsInLast) rem 6, % Want BitsInLast = [1:5] to map to padding [5:1] and 0 -> 0
+    [lists:nth(C+1,B64Chars) || <<C:6>> <= <<Bin/binary,0:Padding>> ].
 
 %%--------------------------------------------------------------------
 %%% Internal functions

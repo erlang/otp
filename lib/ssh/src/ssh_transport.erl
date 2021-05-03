@@ -914,31 +914,31 @@ accepted_host(Ssh, PeerName, Port, Public, Opts) ->
                                    "~s host key fingerprint is ~s.~n"
                                    "New host ~p~p accept",
                                    [fmt_hostkey(HostKeyAlg),
-                                    public_key:ssh_hostkey_fingerprint(Alg,Public),
+                                    ssh:hostkey_fingerprint(Alg,Public),
                                     PeerName, PortStr]),
             yes == yes_no(Ssh, Prompt);
 
         %% Call-back alternatives: A user provided fun is called for the decision:
         F when is_function(F,2) ->
-            case catch F(PeerName, public_key:ssh_hostkey_fingerprint(Public)) of
+            case catch F(PeerName, ssh:hostkey_fingerprint(Public)) of
                 true -> true;
                 _ -> {error, fingerprint_check_failed}
             end;
 
         F when is_function(F,3) ->
-            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(Public)) of
+            case catch F(PeerName, Port, ssh:hostkey_fingerprint(Public)) of
                 true -> true;
                 _ -> {error, fingerprint_check_failed}
             end;
 
 	{DigestAlg,F} when is_function(F,2) ->
-            case catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
+            case catch F(PeerName, ssh:hostkey_fingerprint(DigestAlg,Public)) of
                 true -> true;
                 _ -> {error, {fingerprint_check_failed,DigestAlg}}
             end;
 
 	{DigestAlg,F} when is_function(F,3) ->
-            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
+            case catch F(PeerName, Port, ssh:hostkey_fingerprint(DigestAlg,Public)) of
                 true -> true;
                 _ -> {error, {fingerprint_check_failed,DigestAlg}}
             end

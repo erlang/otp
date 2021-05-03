@@ -30,7 +30,8 @@
 -include("ssh.hrl").
 
 %% experimental:
--export([decode_ssh_file/4]).
+-export([decode_ssh_file/4
+        ]).
 
 %%%--------------------- server exports ---------------------------
 -behaviour(ssh_server_key_api).
@@ -44,9 +45,14 @@
 -export_type([pubkey_passphrase_client_options/0]).
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
-%% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
-%% Not yet implemented:                     | {ed448_pass_phrase,    string()}
+                                              %% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
+                                              %% Not yet implemented:                     | {ed448_pass_phrase,    string()}
                                             | {ecdsa_pass_phrase,    string()} .
+
+%%%--------------------- utility exports ---------------------------
+-export([decode/2, encode/2]).
+
+-define(ENCODED_LINE_LENGTH, 68).
 
 %%%--------------------- common exports ---------------------------
 -export_type([user_dir_common_option/0,
@@ -87,7 +93,7 @@ is_auth_key(Key0, User, Opts) ->
     Key = encode_key(Key0),
     lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys"), Opts)
         orelse
-    lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys2"), Opts).
+        lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys2"), Opts).
 
 %%%---------------- CLIENT API ------------------------------------
 -spec user_key(Algorithm, Options) -> Result when
@@ -146,6 +152,148 @@ add_host_key(Hosts0, Port, Key, Opts) ->
 	{error,Error} ->
 	    {error,{add_host_key,Error}}
     end.
+
+%%%---------------- UTILITY API -----------------------------------
+%%% In public key before OTP-24.0 as ssh_decode/2 and ssh_encode/2
+
+-spec decode(SshBin, Type) -> Decoded
+                                  when SshBin :: binary(),
+                                       Type :: ssh2_pubkey
+                                             | public_key
+                                             | openssh_key
+                                             | rfc4716_key
+                                             | openssh_key_v1  % Experimental
+                                             | known_hosts
+                                             | auth_keys,
+                                       Decoded :: public_key:public_key()
+                                                | [{public_key:public_key(), [{headers,Attrs}]}]
+                                                | [{public_key:public_key(), [{comment,string()}]}]
+                                                | {error, term()},
+                                       Attrs :: {Key::string()|atom(), Value::string()}
+                                                .
+decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
+    ssh_message:ssh2_pubkey_decode(KeyBin);
+
+decode(KeyBin, Type) when is_binary(KeyBin) andalso 
+                          (Type==rfc4716_key orelse
+                           Type==openssh_key_v1 % Experimental
+                          ) ->
+    %% Ex: <<"---- BEGIN SSH2 PUBLIC KEY ----\n....">>     (rfc4716_key)
+    %%     <<"-----BEGIN OPENSSH PRIVATE KEY-----\n....">> (openssh_key_v1)
+    case ssh_file:decode_ssh_file(public, any, KeyBin, ignore) of
+        {ok,Keys} ->
+            [{Key,
+              if
+                  Attrs =/= [] ->
+                      [{headers, [{binary_to_list(K),binary_to_list(V)} || {K,V} <- Attrs]}];
+                  Attrs == [] ->
+                      []
+              end
+             }
+             || {Key,Attrs} <- Keys];
+
+        {error,Error} ->
+            {error,Error}
+    end;
+
+decode(KeyBin0, openssh_key) when is_binary(KeyBin0) ->
+    %% Ex: <<"ssh-rsa AAAAB12....3BC someone@example.com">>
+    try
+        Lines = [L || L <- binary:split(KeyBin0, <<"\n">>, [global,trim_all]),
+                      re:run(L, "^\s+$") == nomatch],
+        [begin
+             [_,K|Rest] = binary:split(Line, <<" ">>, [global,trim_all]),
+             Key = ssh_message:ssh2_pubkey_decode(base64:decode(K)),
+             case Rest of
+                 [Comment] -> {Key, [{comment,binary_to_list(Comment)}]};
+                 [] -> {Key,[]}
+             end
+         end || Line <- Lines,
+                case Line of
+                    <<"#",_/binary>> -> % skip comments
+                        false;
+                    _ ->
+                        true
+                end
+        ]
+    catch
+        _:_ -> {error, key_decode_failed}
+    end;
+
+decode(KeyBin, public_key) when is_binary(KeyBin) ->
+    Type = case KeyBin of
+               <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
+               <<"----",_/binary>> -> rfc4716_key;
+               _ -> openssh_key
+           end,
+    decode(KeyBin, Type);
+
+decode(_KeyBin, Type) when Type == known_hosts;
+                           Type == auth_keys
+                           ->
+    {error, not_yet_implemented};
+
+decode(_KeyBin, _Type) ->
+    error(badarg).
+
+%%%----------------------------------------------------------------
+-spec encode(InData, Type) -> binary() | {error,term()}
+                                  when Type :: ssh2_pubkey
+                                             | openssh_key
+                                             | rfc4716_key
+                                             | openssh_key_v1  % Experimental
+                                             | known_hosts
+                                             | auth_keys,
+                                       InData :: public_key:public_key()
+                                               | [{public_key:public_key(), [{headers,Attrs}]}]
+                                               | [{public_key:public_key(), [{comment,string()}]}]
+                                               | {error, term()},
+                                       Attrs :: {Key::string()|atom(), Value::string()}
+                                                .
+encode(Key, ssh2_pubkey) ->
+    ssh_message:ssh2_pubkey_encode(Key);
+
+encode(KeyAttrs, Type) when Type==rfc4716_key ;
+                            Type==openssh_key_v1 % Experimental
+                            ->
+    {Begin, End, F} =
+        case Type of
+            rfc4716_key ->
+                {"---- BEGIN SSH2 PUBLIC KEY ----\n",
+                 "---- END SSH2 PUBLIC KEY ----\n",
+                 fun ssh_message:ssh2_pubkey_encode/1};
+            openssh_key_v1 ->
+                {"-----BEGIN OPENSSH PRIVATE KEY-----\n",
+                 "-----END OPENSSH PRIVATE KEY-----\n",
+                 fun openssh_key_v1_encode/1}
+        end,
+    iolist_to_binary(
+      [
+       [Begin,
+        [rfc4716_encode_header(H) || H <- proplists:get_value(headers, Attrs, [])],
+        split_lines( base64:encode( F(Key) ) ),
+        "\n",
+        End
+       ] ||
+          {Key,Attrs} <- KeyAttrs
+      ]
+     );
+
+encode(KeyAttrs, openssh_key) ->
+    iolist_to_binary(
+      [begin
+           <<?DEC_BIN(KeyType,__0),_/binary>> = Enc0 = ssh_message:ssh2_pubkey_encode(Key),
+           [KeyType, " ",  base64:encode(Enc0),  " ", proplists:get_value(comment,Attrs,""), "\n"]
+       end ||
+          {Key,Attrs} <- KeyAttrs
+      ]);
+
+encode(_KeyBin, Type) when Type == known_hosts;
+                           Type == auth_keys
+                           ->
+    {error, not_yet_implemented};
+encode(_KeyBin, _Type) ->
+    error(badarg).
 
 %%%================================================================
 %%%
@@ -216,7 +364,7 @@ normalize_hosts_list(Hosts, Port) when is_list(hd(Hosts)) ->
                           Hs = case Port of
                                    22 -> H1s;
                                    _ -> [lists:concat(["[",Hx,"]:",Port]) || Hx <- H1s]
-                              end,
+                               end,
                           lists:foldl(
                             fun(Hy, Acc2) ->
                                     case lists:member(Hy, Acc2) of
@@ -283,7 +431,7 @@ read_test_loop(Fd, Test) ->
                     read_test_loop(Fd, Test)
             end
     end.
-                    
+
 %%%--------------------------------
 
 lookup_host_keys(Hosts, KeyType, Key, File, Opts) ->
@@ -412,7 +560,7 @@ line_match(_, _, _, _) ->
 host_match(Hosts, Patterns) ->
     PatternList = binary:split(Patterns, <<",">>, [global]),
     host_matchL(Hosts, PatternList).
-    
+
 host_matchL([H|Hosts], Patterns) ->
     case one_host_match(H, Patterns) of
         true ->
@@ -471,6 +619,35 @@ pos_match(H, P) ->
             false
     end.
 
+%%%---------------- UTILITY ---------------------------------------
+rfc4716_encode_header({Tag, Value}) ->
+    TagLen = length(Tag),
+    ValueLen = length(Value),
+    case TagLen + 1 + ValueLen of
+	N when N > ?ENCODED_LINE_LENGTH ->
+	    NumOfChars =  ?ENCODED_LINE_LENGTH - (TagLen + 1),
+	    {First, Rest} = lists:split(NumOfChars, Value),
+	    [Tag,": " , First, [$\\], "\n", rfc4716_encode_value(Rest) , "\n"];
+	_ ->
+	    [Tag, ": ", Value, "\n"]
+    end.
+
+rfc4716_encode_value(Value) ->
+    case length(Value) of
+	N when N > ?ENCODED_LINE_LENGTH ->
+	    {First, Rest} = lists:split(?ENCODED_LINE_LENGTH, Value),
+	    [First, [$\\], "\n", rfc4716_encode_value(Rest)];
+	_ ->
+	    Value
+    end.
+
+split_lines(<<Text:?ENCODED_LINE_LENGTH/binary>>) ->
+    [Text];
+split_lines(<<Text:?ENCODED_LINE_LENGTH/binary, Rest/binary>>) ->
+    [Text, $\n | split_lines(Rest)];
+split_lines(Bin) ->
+    [Bin].
+
 %%%---------------- COMMON FUNCTIONS ------------------------------
 
 assure_file_mode(File, user_write) -> assure_file_mode(File, 8#200);
@@ -516,7 +693,7 @@ read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
             try
                 decode_ssh_file(PrivPub, Algorithm, Pem, Password)
             of
-                {ok, [Key|_Keys]} ->
+                {ok, [{Key,_Attrs}|_Keys]} ->
                     {ok,Key};
                 {error, Reason} ->
                     {error, Reason}
@@ -534,19 +711,23 @@ read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
 
 -spec decode_ssh_file(PrivPub, Algorithm, Pem, Password) -> Result when
       PrivPub :: private | public,
-      Algorithm :: ssh:pubkey_alg(),
+      Algorithm :: ssh:pubkey_alg() | any,
       Pem :: binary(),
-      Password :: string(),
+      Password :: string() | ignore,
       Result :: {ok, Keys} | {error, any()},
-      Keys :: [Key],
+      Keys :: [{Key,Attrs}],
+      Attrs :: [{any(),any()}],
       Key :: public_key:private_key() | public_key:public_key() .
-                             
+
 decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
     try decode_pem_keys(Pem, Password)
     of
+        {ok, Keys} when Algorithm == any ->
+            {ok, Keys};
+
         {ok, Keys0} ->
-            case [Key || Key <- Keys0,
-                         ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm)] of
+            case [{Key,Attrs} || {Key,Attrs} <- Keys0,
+                                 ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm)] of
                 [] ->
                     {error,no_key_found};
                 Keys ->
@@ -561,26 +742,49 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
             {error, key_decode_failed}
     end.
 
-decode_pem_keys(Pem, Password) ->
-    %% Private Key
-    try get_key_part(Pem) of
-        {'openssh-key-v1', Bin, _KeyValues} ->
-            %% Holds both public and private keys
-            KeyPairs = new_openssh_decode(Bin, Password),
-            Keys = [Key || {Pub,Priv} <- KeyPairs,
-                           Key <- [Pub,Priv]],
-            {ok,Keys};
 
-        {rfc4716, Bin, _KeyValues} ->
+decode_pem_keys(RawBin, Password) ->
+    PemLines = binary:split(
+                 binary:replace(RawBin, <<"\\\n">>, <<"">>, [global]),
+                 <<"\n">>, [global,trim_all]),
+    decode_pem_keys(PemLines, Password, []).
+decode_pem_keys([], _, Acc) ->
+    {ok,lists:reverse(Acc)};
+
+
+decode_pem_keys(PemLines, Password, Acc) ->
+    %% Private Key
+    try get_key_part(PemLines) of
+        {'openssh-key-v1', Bin, Attrs, RestLines} ->
+            %% -----BEGIN OPENSSH PRIVATE KEY-----
+            %% Holds both public and private keys
+            KeyPairs = openssh_key_v1_decode(Bin, Password),
+            Keys = [{Key,Attrs} || {Pub,Priv} <- KeyPairs,
+                                   Key <- [Pub,Priv]],
+            decode_pem_keys(RestLines, Password, Keys ++ Acc);
+
+        %% {'openssh-key-v1', Bin, Attrs, RestLines} ->
+        %%     %% -----BEGIN OPENSSH PRIVATE KEY-----
+        %%     %% Holds both public and private keys
+        %%     KeyPairsCmnts = openssh_key_v1_decode(Bin, Password),
+        %%     %% Keys = [{Key,{Attrs,Cmnt}} || {Pub,Priv,Cmnt} <- KeyPairsCmnts,
+        %%     %%                             Key <- [Pub,Priv]],
+        %%     decode_pem_keys(RestLines, Password, [{KeyPairsCmnts,Attrs}| Acc]);
+
+
+        {rfc4716, Bin, Attrs, RestLines} ->
+            %% ---- BEGIN SSH2 PUBLIC KEY ----
             %% rfc4716 only defines public keys
             Key = ssh_message:ssh2_pubkey_decode(Bin),
-            {ok,[Key]};
+            decode_pem_keys(RestLines, Password, [{Key,Attrs}|Acc]);
 
-        {Type, Bin, KeyValues} ->
-            case get_encrypt_hdrs(KeyValues) of
+        {Type, Bin, Attrs, RestLines} ->
+            %% -----BEGIN (RSA|DSA|EC) PRIVATE KEY-----
+            %% and possibly others
+            case get_encrypt_hdrs(Attrs) of
                 not_encrypted ->
                     Key = public_key:pem_entry_decode({Type,Bin,not_encrypted}),
-                    {ok, [Key]};
+                    decode_pem_keys(RestLines, Password, [{Key,Attrs}|Acc]);
 
                 [Cipher,Salt] when is_binary(Cipher),
                                    is_binary(Salt),
@@ -588,7 +792,7 @@ decode_pem_keys(Pem, Password) ->
                     CryptInfo =
                         {binary_to_list(Cipher), unhex(binary_to_list(Salt))},
                     Key = public_key:pem_entry_decode({Type,Bin,CryptInfo}, Password),
-                    {ok, [Key]};
+                    decode_pem_keys(RestLines, Password, [{Key,Attrs}|Acc]);
 
                 _X ->
                     {error, no_pass_phrase}
@@ -697,25 +901,21 @@ default_user_dir(Home) when is_list(Home) ->
     UserDir.
 
 %%%################################################################
-get_key_part(RawBin) when is_binary(RawBin) ->
-    case binary:split(
-           binary:replace(RawBin, <<"\\\n">>, <<"">>, [global]),
-           <<"\n">>, [global,trim_all])
-    of
-        [<<"---- BEGIN SSH2 PUBLIC KEY ----">> | Lines0] ->
-            %% RFC 4716 format
-            {KeyValues,Lines} = get_hdr_lines(Lines0, []),
-            ExpectedEndLine = <<"---- END SSH2 PUBLIC KEY ----">>,
-            {rfc4716, get_body(Lines,ExpectedEndLine), KeyValues};
+get_key_part([<<"---- BEGIN SSH2 PUBLIC KEY ----">> | Lines0]) ->
+    %% RFC 4716 format
+    {KeyValues,Lines} = get_hdr_lines(Lines0, []),
+    ExpectedEndLine = <<"---- END SSH2 PUBLIC KEY ----">>,
+    {Key,RestLines} = get_body(Lines,ExpectedEndLine),
+    {rfc4716, Key, KeyValues, RestLines};
 
-        [<<"-----BEGIN ", Rest/binary>> | Lines0] ->
-            %% PEM format
-            ExpectedEndLine = <<"-----END ",Rest/binary>>,
-            [MiddlePart, <<>>] = binary:split(Rest,  <<" KEY-----">>),
-            {KeyValues,Lines} = get_hdr_lines(Lines0, []),
-            {asn1_type(MiddlePart), get_body(Lines,ExpectedEndLine), KeyValues}
-    end.
-            
+get_key_part([<<"-----BEGIN ", Rest/binary>> | Lines0]) ->
+    %% PEM format
+    ExpectedEndLine = <<"-----END ",Rest/binary>>,
+    [MiddlePart, <<>>] = binary:split(Rest,  <<" KEY-----">>),
+    {KeyValues,Lines} = get_hdr_lines(Lines0, []),
+    {Key,RestLines} = get_body(Lines,ExpectedEndLine),
+    {asn1_type(MiddlePart), Key, KeyValues, RestLines}.
+
 
 get_hdr_lines(Lines, Acc) ->
     Line1 = hd(Lines),
@@ -728,8 +928,9 @@ get_hdr_lines(Lines, Acc) ->
 
 
 get_body(Lines, ExpectedEndLine) ->
-    {KeyPart, [ExpectedEndLine]} = lists:split(length(Lines)-1, Lines),
-    base64:mime_decode(iolist_to_binary(KeyPart)).
+    {KeyPart, [ExpectedEndLine|RestLines]} = 
+        lists:splitwith(fun(L) -> L=/=ExpectedEndLine end, Lines),
+    {base64:mime_decode(iolist_to_binary(KeyPart)), RestLines}.
 
 trim(<<" ",B/binary>>) -> trim(B);
 trim(B) -> B.
@@ -747,26 +948,27 @@ asn1_type(_) -> undefined.
 
 -define(NON_CRYPT_BLOCKSIZE, 8).
 
-new_openssh_decode(<<"openssh-key-v1",0,
-                     ?DEC_BIN(CipherName, _L1),
-                     ?DEC_BIN(KdfName, _L2),
-                     ?DEC_BIN(KdfOptions, _L3),
-                     ?UINT32(N),      % number of keys
-                     Rest/binary
-                   >>, Pwd) ->
-    new_openssh_decode(Rest, N, Pwd, CipherName, KdfName, KdfOptions, N, []).
+openssh_key_v1_decode(<<"openssh-key-v1",0,
+                        ?DEC_BIN(CipherName, _L1),
+                        ?DEC_BIN(KdfName, _L2),
+                        ?DEC_BIN(KdfOptions, _L3),
+                        ?UINT32(N),      % number of keys
+                        Rest/binary
+                      >>, Pwd) ->
+    openssh_key_v1_decode(Rest, N, Pwd, CipherName, KdfName, KdfOptions, N, []).
 
 
-new_openssh_decode(<<?DEC_BIN(BinKey,_L1), Rest/binary>>, I, Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAcc) when I>0 ->
+openssh_key_v1_decode(<<?DEC_BIN(BinKey,_L1), Rest/binary>>, I,
+                      Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAcc) when I>0 ->
     PublicKey = ssh_message:ssh2_pubkey_decode(BinKey),
-    new_openssh_decode(Rest, I-1, Pwd, CipherName, KdfName, KdfOptions, N, [PublicKey|PubKeyAcc]);
+    openssh_key_v1_decode(Rest, I-1, Pwd, CipherName, KdfName, KdfOptions, N, [PublicKey|PubKeyAcc]);
 
-new_openssh_decode(<<?DEC_BIN(Encrypted,_L)>>,
-                   0, Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAccRev) ->
+openssh_key_v1_decode(<<?DEC_BIN(Encrypted,_L)>>,
+                      0, Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAccRev) ->
     PubKeys = lists:reverse(PubKeyAccRev),
     try
-        Plain = decrypt_new_openssh(Encrypted, KdfName, KdfOptions, CipherName, Pwd),
-        new_openssh_decode_priv_keys(Plain, N, N, [], [])
+        Plain = decrypt_openssh_key_v1(Encrypted, KdfName, KdfOptions, CipherName, Pwd),
+        openssh_key_v1_decode_priv_keys(Plain, N, N, [], [])
     of
         {PrivKeys, _Comments} ->
             lists:map(fun({ {ed_pub,A,Pub}, {ed_pri,A,Pub,Pri0} }) ->
@@ -775,27 +977,28 @@ new_openssh_decode(<<?DEC_BIN(Encrypted,_L)>>,
                          (Pair) ->
                               Pair
                       end, lists:zip(PubKeys, PrivKeys))
+            %%                      end, lists:zip3(PubKeys, PrivKeys,_ Comments))
     catch
         error:{decryption, DecryptError} ->
             error({decryption, DecryptError})
     end.
 
 
-new_openssh_decode_priv_keys(Bin, I, N, KeyAcc, CmntAcc) when I>0 ->
+openssh_key_v1_decode_priv_keys(Bin, I, N, KeyAcc, CmntAcc) when I>0 ->
     {PrivKey, <<?DEC_BIN(Comment,_Lc),Rest/binary>>} = ssh_message:ssh2_privkey_decode2(Bin),
-    new_openssh_decode_priv_keys(Rest, I-1, N, [PrivKey|KeyAcc], [Comment|CmntAcc]);
-new_openssh_decode_priv_keys(_Padding, 0, _N, PrivKeyAccRev, CommentAccRev) ->
+    openssh_key_v1_decode_priv_keys(Rest, I-1, N, [PrivKey|KeyAcc], [Comment|CmntAcc]);
+openssh_key_v1_decode_priv_keys(_Padding, 0, _N, PrivKeyAccRev, CommentAccRev) ->
     {lists:reverse(PrivKeyAccRev),
      lists:reverse(CommentAccRev)}.
 
 
-decrypt_new_openssh(Encrypted, <<"none">>, <<>>, _CipherName, _Pwd) ->
+decrypt_openssh_key_v1(Encrypted, <<"none">>, <<>>, _CipherName, _Pwd) ->
     check_valid_decryption(Encrypted, ?NON_CRYPT_BLOCKSIZE);
-decrypt_new_openssh(Encrypted, <<>>, <<>>, _CipherName, _Pwd) ->
+decrypt_openssh_key_v1(Encrypted, <<>>, <<>>, _CipherName, _Pwd) ->
     check_valid_decryption(Encrypted, ?NON_CRYPT_BLOCKSIZE);
-decrypt_new_openssh(_Encrypted, <<"bcrypt">>, <<?DEC_BIN(_Salt,_L),?UINT32(_Rounds)>>, _CipherName, _Pwd) ->
+decrypt_openssh_key_v1(_Encrypted, <<"bcrypt">>, <<?DEC_BIN(_Salt,_L),?UINT32(_Rounds)>>, _CipherName, _Pwd) ->
     error({decryption, {not_supported,bcrypt}});
-decrypt_new_openssh(_Encrypted, KdfName, _KdfOpts, _CipherName, _Pwd) ->
+decrypt_openssh_key_v1(_Encrypted, KdfName, _KdfOpts, _CipherName, _Pwd) ->
     error({decryption, {not_supported,KdfName}}).
 
 
@@ -821,6 +1024,63 @@ check_padding(Bin, BlockSize) ->
         true ->
             true
     end.
+
+%%%----------------------------------------------------------------
+%% KeyPairs :: [ {Pub,Priv,Comment} | {ed_pri{_,_,_},Comment} ]
+openssh_key_v1_encode(KeyPairs) ->
+    CipherName = <<"none">>,
+    BlockSize = ?NON_CRYPT_BLOCKSIZE, % Cipher dependent
+    KdfName = <<"none">>,
+    KdfOptions = <<>>,
+    NumKeys = length(KeyPairs),
+    CheckInt = crypto:strong_rand_bytes(4),
+    UnEncrypted0 = <<CheckInt/binary,
+                     CheckInt/binary,
+                     (openssh_key_v1_encode_priv_keys_cmnts(KeyPairs))/binary>>,
+    UnEncrypted = <<UnEncrypted0/binary,
+                    (pad(size(UnEncrypted0), BlockSize))/binary>>,
+    Encrypted = encrypt_openssh_key_v1(UnEncrypted,  KdfName, KdfOptions, CipherName, ignore),
+    <<"openssh-key-v1",0,
+      ?STRING(CipherName),
+      ?STRING(KdfName),
+      ?STRING(KdfOptions),
+      ?UINT32(NumKeys),
+      (openssh_key_v1_encode_pub_keys(KeyPairs))/binary,
+      ?STRING(Encrypted)>>.
+
+%%%----
+openssh_key_v1_encode_pub_keys(KeyPairs) ->
+    openssh_key_v1_encode_pub_keys(KeyPairs, []).
+
+openssh_key_v1_encode_pub_keys([{{ed_pri,Alg,PubKey,_},_C}|Ks], Acc) ->
+    Bk = ssh_message:ssh2_pubkey_encode({ed_pub,Alg,PubKey}),
+    openssh_key_v1_encode_pub_keys(Ks, [<<?STRING(Bk)>>|Acc]);
+openssh_key_v1_encode_pub_keys([{K,_,_C}|Ks], Acc) ->
+    Bk = ssh_message:ssh2_pubkey_encode(K),
+    openssh_key_v1_encode_pub_keys(Ks, [<<?STRING(Bk)>>|Acc]);
+openssh_key_v1_encode_pub_keys([], Acc) ->
+    list_to_binary(lists:reverse(Acc)).
+
+%%%----
+openssh_key_v1_encode_priv_keys_cmnts(KeyPairs) ->
+    openssh_key_v1_encode_priv_keys_cmnts(KeyPairs, []).
+
+openssh_key_v1_encode_priv_keys_cmnts([{K={ed_pri,_,_,_},C} | Ks], Acc) ->
+    Bk = ssh_message:ssh2_privkey_encode(K),
+    openssh_key_v1_encode_priv_keys_cmnts(Ks, [<<Bk/binary,?STRING(C)>>|Acc]);
+openssh_key_v1_encode_priv_keys_cmnts([{_,K,C}|Ks], Acc) ->
+    Bk = ssh_message:ssh2_privkey_encode(K),
+    openssh_key_v1_encode_priv_keys_cmnts(Ks, [<<Bk/binary,?STRING(C)>>|Acc]);
+openssh_key_v1_encode_priv_keys_cmnts([], Acc) ->
+    list_to_binary(lists:reverse(Acc)).
+
+encrypt_openssh_key_v1(UnEncrypted, <<"none">>, <<>>, _CipherName, _Pwd) ->
+    UnEncrypted;
+encrypt_openssh_key_v1(_UnEncrypted,  KdfName, _KdfOptions, _CipherName, _Pwd) ->
+    error({decryption, {not_supported,KdfName}}).
+
+pad(N, BlockSize) when N>BlockSize -> pad(N rem BlockSize, BlockSize);
+pad(N, BlockSize) -> list_to_binary(lists:seq(1,BlockSize-N)).
 
 %%%================================================================
 %%%

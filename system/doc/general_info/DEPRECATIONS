@@ -21,6 +21,10 @@
 # Added in OTP 24.
 #
 
+public_key:ssh_hostkey_fingerprint/1 since=24 remove=26
+public_key:ssh_hostkey_fingerprint/2 since=24 remove=26
+public_key:ssh_decode/2 since=24 remove=26
+public_key:ssh_encode/2 since=24 remove=26
 ftp:start_service/1 since=24 remove=26
 ftp:stop_service/1 since=24 remove=26
 httpd_util:flatlength/1 since=24 remove=26

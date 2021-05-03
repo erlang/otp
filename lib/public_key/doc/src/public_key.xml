@@ -935,6 +935,12 @@ end
     <name name="ssh_decode" arity="2" since="OTP R14B03"/>
     <fsummary>Decodes an SSH file-binary.</fsummary>
     <desc>
+    <note>
+      <p>This function is deprecated and should not be used in new programs. Use
+      <seemfa marker="ssh:ssh_file#decode/2">ssh_file:decode/2</seemfa>
+      instead.
+      </p>
+    </note>
       <p>Decodes an SSH file-binary. In the case of <c>known_hosts</c> or
       <c>auth_keys</c>, the binary can include one or more lines of the
       file. Returns a list of public keys and their attributes, possible
@@ -967,6 +973,12 @@ end
     <name name="ssh_encode" arity="2" since="OTP R14B03"/>
     <fsummary>Encodes a list of SSH file entries to a binary.</fsummary>
     <desc>
+    <note>
+      <p>This function is deprecated and should not be used in new programs. Use
+      <seemfa marker="ssh:ssh_file#encode/2">ssh_file:encode/2</seemfa>
+      instead.
+      </p>
+    </note>
       <p>Encodes a list of SSH file entries (public keys and attributes) to a binary. Possible
       attributes depend on the file type, see
       <seemfa marker="#ssh_decode/2"> ssh_decode/2 </seemfa>.
@@ -988,6 +1000,13 @@ end
     </type>
   <desc>
     <p>Calculates a ssh fingerprint from a public host key as openssh does.</p>
+    <note>
+      <p>This function is deprecated and should not be used in new programs. Use
+      <seemfa marker="ssh:ssh#hostkey_fingerprint/1">ssh:hostkey_fingerprint/1</seemfa> or
+      <seemfa marker="ssh:ssh#hostkey_fingerprint/2">ssh:hostkey_fingerprint/2</seemfa>
+      instead.
+      </p>
+    </note>
     <p>The algorithm in <c>ssh_hostkey_fingerprint/1</c> is md5 to be compatible with older
     ssh-keygen commands. The string from the second variant is prepended by the algorithm name
     in uppercase as in newer ssh-keygen commands.</p>
