@@ -335,6 +335,7 @@ filter_options(Options) ->
                              {d, _Macro} -> true;
                              {d, _Macro, _Value} -> true;
                              export_all -> true;
+                             tuple_calls -> true;
                              _ -> false
                          end
                  end,
