@@ -180,7 +180,9 @@
                          num_writers   := non_neg_integer(),
                          num_acceptors := non_neg_integer(),
                          writable      := boolean(),
-                         readable      := boolean()}.
+                         readable      := boolean(),
+			 rstates       := [atom()],
+			 wstates       := [atom()]}.
 
 
 %% We support only a subset of all domains.
