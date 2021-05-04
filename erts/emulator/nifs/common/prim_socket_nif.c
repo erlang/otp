@@ -8808,6 +8808,9 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
 {
     int err;
     ErlNifPid self;
+#ifdef HAVE_SENDFILE
+    HANDLE sendfileHandle;
+#endif
 
     ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
@@ -8849,6 +8852,11 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
      * just triggered owner monitor down
      */
 
+#ifdef HAVE_SENDFILE
+    sendfileHandle = descP->sendfileHandle;
+    descP->sendfileHandle = INVALID_HANDLE;
+#endif
+
     /* This nif is executed in a dirty scheduler just so that
      * it can "hang" (whith minumum effect on the VM) while the
      * kernel writes our buffers. IF we have set the linger option
@@ -8856,13 +8864,11 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
      * be blocking...
      */
     SET_BLOCKING(descP->sock);
-
     err = esock_close_socket(env, descP, TRUE);
 
 #ifdef HAVE_SENDFILE
-    if (descP->sendfileHandle != INVALID_HANDLE) {
+    if (sendfileHandle != INVALID_HANDLE) {
         (void) close(descP->sendfileHandle);
-        descP->sendfileHandle = INVALID_HANDLE;
     }
 #endif
 
@@ -8890,6 +8896,28 @@ static int esock_close_socket(ErlNifEnv*       env,
     SOCKET       sock     = descP->sock;
     ERL_NIF_TERM sockRef;
 
+    /* This code follows Linux's advice to assume that after calling
+     * close(2), the file descriptor may be reused, so assuming
+     * that it can be used for anything such as retrying
+     * to close is bad behaviour, although odd platforms
+     * such as HP-UX requires a retry after EINTR
+     */
+
+    /* First update the state so no other thread will try
+     * to close the socket, then we will close it,
+     * possibly when being scheduled in during
+     * finalize_close
+     */
+    descP->sock        = INVALID_SOCKET;
+    descP->event       = INVALID_EVENT;
+    descP->readState  |= ESOCK_STATE_CLOSED;
+    descP->writeState |= ESOCK_STATE_CLOSED;
+    dec_socket(descP->domain, descP->type, descP->protocol);
+
+    /* +++++++ Clear the meta option +++++++ */
+    enif_clear_env(descP->meta.env);
+    descP->meta.ref = esock_atom_undefined;
+
     sock_close_event(descP->event);
     if (descP->closeOnClose) {
         if (unlock) {
@@ -8904,16 +8932,11 @@ static int esock_close_socket(ErlNifEnv*       env,
         }
     }
 
-    if (err == 0)
-        descP->sock    = INVALID_SOCKET;
-    descP->event       = INVALID_EVENT;
-    descP->readState  |= ESOCK_STATE_CLOSED;
-    descP->writeState |= ESOCK_STATE_CLOSED;
-    dec_socket(descP->domain, descP->type, descP->protocol);
-
-    /* +++++++ Clear the meta option +++++++ */
-    enif_clear_env(descP->meta.env);
-    descP->meta.ref = esock_atom_undefined;
+    if (err != 0) {
+        SSDBG( descP,
+               ("SOCKET", "esock_close_socket {%d} -> %d\r\n",
+                sock, err) );
+    }
 
     /* (maybe) Update the registry */
     if (descP->useReg) {
@@ -17576,30 +17599,26 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   MLOCK(descP->readMtx);
   MLOCK(descP->writeMtx);
 
-  if (! IS_CLOSED(descP->readState)) {
-      int err;
+  SGDBG( ("SOCKET", "dtor {%d,0x%X}\r\n",
+          descP->sock, descP->readState | descP->writeState) );
 
-      descP->useReg = FALSE;
-      /* We are not allowed to enif_make_resource from
-       * the destructor - it would create kind of a zombie
-       * resource and maybe lead to calling the destructor
-       * again and whatnot..., so disable sending a resource
-       * ref to the socket registry
+  if (IS_SELECTED(descP)) {
+      /* We have used the socket in the select machinery,
+       * so we must have closed it properly afterwards
        */
-
-      if ((err = esock_close_socket(env, descP, FALSE)) != 0)
-          esock_warning_msg("Failed closing socket in destructor:"
-                            "\r\n   Descriptor:     %d"
-                            "\r\n   Errno:          %d (%T)"
-                            "\r\n",
-                            descP->sock,
-                            err, MKA(env, erl_errno_id(err)));
+      ESOCK_ASSERT( IS_CLOSED(descP->readState) );
+      ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
+      ESOCK_ASSERT( descP->sock == INVALID_SOCKET );
+  } else {
+      /* The socket is only opened, should be safe to close nonblocking */
+      (void) sock_close(descP->sock);
+      descP->sock = INVALID_SOCKET;
   }
 
   SGDBG( ("SOCKET", "dtor -> set state and pattern\r\n") );
-  descP->readState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+  descP->readState  |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
   descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
-  descP->pattern = ESOCK_DESC_PATTERN_DTOR;
+  descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
 
   esock_free_env("dtor reader", descP->currentReader.env);
   descP->currentReader.env = NULL;
@@ -17621,9 +17640,10 @@ void esock_dtor(ErlNifEnv* env, void* obj)
 
 #ifdef HAVE_SENDFILE
   ESOCK_ASSERT( descP->sendfileHandle == INVALID_HANDLE );
-  if (descP->sendfileCountersP != NULL)
+  if (descP->sendfileCountersP != NULL) {
       FREE(descP->sendfileCountersP);
-  descP->sendfileCountersP = NULL;
+      descP->sendfileCountersP = NULL;
+  }
 #endif
 
   esock_free_env("dtor close env", descP->closeEnv);
@@ -17667,10 +17687,13 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
 #ifndef __WIN32__
     ESockDescriptor* descP = (ESockDescriptor*) obj;
 
-    if (! is_direct_call) {
-        MLOCK(descP->readMtx);
-        MLOCK(descP->writeMtx);
+    if (is_direct_call) {
+        return; // Nothing to do, caller gets ERL_NIF_SELECT_STOP_CALLED
     }
+
+    // This is a scheduled call, caller gets ERL_NIF_SELECT_STOP_SCHEDULED
+    MLOCK(descP->readMtx);
+    MLOCK(descP->writeMtx);
     
     SSDBG( descP, ("SOCKET", "esock_stop {%d/%d} -> when %s"
                    "\r\n   ctrlPid:      %T"
@@ -17740,11 +17763,6 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
                        (unsigned long) cP->waits) );
     }
 #endif
-
-    if (is_direct_call)
-        return; // Nothing to do, caller gets ERL_NIF_SELECT_STOP_SCHEDULED
-
-    // This is a scheduled call
 
     /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
      *
