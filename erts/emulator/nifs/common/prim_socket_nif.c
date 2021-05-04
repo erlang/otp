@@ -1270,7 +1270,7 @@ static ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     accRef,
-                                            ErlNifPid*       pid);
+                                            ErlNifPid*       pidP);
 static BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
                                        ERL_NIF_TERM     sockRef,
@@ -3379,13 +3379,13 @@ static ERL_NIF_TERM mk_socket(ErlNifEnv*   env,
 static int esock_select_read(ErlNifEnv*       env,
                              ErlNifEvent      event,
                              void*            obj,
-                             const ErlNifPid* pid,
+                             const ErlNifPid* pidP,
                              ERL_NIF_TERM     sockRef,
                              ERL_NIF_TERM     selectRef);
 static int esock_select_write(ErlNifEnv*       env,
                               ErlNifEvent      event,
                               void*            obj,
-                              const ErlNifPid* pid,
+                              const ErlNifPid* pidP,
                               ERL_NIF_TERM     sockRef,
                               ERL_NIF_TERM     selectRef);
 static int esock_select_stop(ErlNifEnv*  env,
@@ -6101,7 +6101,7 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
     if (descP->currentAcceptorP == NULL) {
         SOCKET        accSock;
 
-        /* We have no active acceptor (and therefor no acceptors in queue)
+        /* We have no active acceptor (and therefore no acceptors in queue)
          */
 
         SSDBG( descP, ("SOCKET", "esock_accept {%d} -> try accept\r\n",
@@ -6376,8 +6376,9 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
 
             esock_send_abort_msg(env, descP, sockRef, &req, reason);
 
-            DEMONP("esock_accept_accepting_current_error -> pop'ed writer",
-                   env, descP, &req.mon);
+            (void) DEMONP("esock_accept_accepting_current_error -> "
+                          "pop'ed writer",
+                          env, descP, &req.mon);
         }
         descP->currentAcceptorP = NULL;
     }
@@ -6420,16 +6421,16 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      ERL_NIF_TERM     sockRef,
                                      ERL_NIF_TERM     accRef,
-                                     ErlNifPid*       pid)
+                                     ErlNifPid*       pidP)
 {
     int          sres;
     ERL_NIF_TERM res;
 
-    if ((sres = esock_select_read(env, descP->sock, descP, pid,
+    if ((sres = esock_select_read(env, descP->sock, descP, pidP,
                                   sockRef, accRef)) < 0) {
 
-        DEMONP("esock_accept_busy_retry - select failed",
-               env, descP, &descP->currentAcceptor.mon);
+        ESOCK_ASSERT( DEMONP("esock_accept_busy_retry - select failed",
+                             env, descP, &descP->currentAcceptor.mon) == 0);
         /* It is very unlikely that a next acceptor will be able
          * to do anything succesful, but we will clean the queue
          */
@@ -7790,8 +7791,8 @@ esock_sendfile_error(ErlNifEnv             *env,
 
     if (descP->currentWriterP != NULL) {
 
-        DEMONP("esock_sendfile_error",
-               env, descP, &descP->currentWriter.mon);
+        (void) DEMONP("esock_sendfile_error",
+                      env, descP, &descP->currentWriter.mon);
 
         /* Fail all queued writers */
         requestor_release("esock_sendfile_error",
@@ -7819,8 +7820,8 @@ esock_sendfile_select(ErlNifEnv       *env,
         ERL_NIF_TERM reason;
 
         /* Internal select error */
-        DEMONP("esock_sendfile_select - failed",
-               env, descP, &descP->currentWriter.mon);
+        (void) DEMONP("esock_sendfile_select - failed",
+                      env, descP, &descP->currentWriter.mon);
 
         /* Fail all queued writers */
         reason = MKT2(env, atom_select_write, MKI(env, sres));
@@ -7868,8 +7869,8 @@ esock_sendfile_ok(ErlNifEnv       *env,
 
     if (descP->currentWriterP != NULL) {
 
-        DEMONP("esock_sendfile_ok -> current writer",
-               env, descP, &descP->currentWriter.mon);
+        (void) DEMONP("esock_sendfile_ok -> current writer",
+                      env, descP, &descP->currentWriter.mon);
 
         /*
          * Ok, this write is done maybe activate the next (if any)
@@ -12696,8 +12697,8 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    DEMONP("esock_cancel_accept_current -> current acceptor",
-           env, descP, &descP->currentAcceptor.mon);
+    ESOCK_ASSERT( DEMONP("esock_cancel_accept_current -> current acceptor",
+                         env, descP, &descP->currentAcceptor.mon) == 0);
     res = esock_cancel_read_select(env, descP, descP->currentAcceptor.ref);
 
     SSDBG( descP,
@@ -12820,8 +12821,8 @@ ERL_NIF_TERM esock_cancel_send_current(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    DEMONP("esock_cancel_send_current -> current writer",
-           env, descP, &descP->currentWriter.mon);
+    ESOCK_ASSERT( DEMONP("esock_cancel_send_current -> current writer",
+                         env, descP, &descP->currentWriter.mon) == 0);
     res = esock_cancel_write_select(env, descP, descP->currentWriter.ref);
 
     SSDBG( descP,
@@ -12938,8 +12939,8 @@ ERL_NIF_TERM esock_cancel_recv_current(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    DEMONP("esock_cancel_recv_current -> current reader",
-           env, descP, &descP->currentReader.mon);
+    ESOCK_ASSERT( DEMONP("esock_cancel_recv_current -> current reader",
+                         env, descP, &descP->currentReader.mon) == 0);
     res = esock_cancel_read_select(env, descP, descP->currentReader.ref);
 
     SSDBG( descP,
@@ -13224,8 +13225,8 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
             sockRef, descP->sock, written) );
 
     if (descP->currentWriterP != NULL) {
-        DEMONP("send_check_ok -> current writer",
-               env, descP, &descP->currentWriter.mon);
+        ESOCK_ASSERT( DEMONP("send_check_ok -> current writer",
+                             env, descP, &descP->currentWriter.mon) == 0);
     }
     /*
      * Ok, this write is done maybe activate the next (if any)
@@ -13314,8 +13315,8 @@ void send_error_waiting_writers(ErlNifEnv*       env,
 
         esock_send_abort_msg(env, descP, sockRef, &req, reason);
 
-        DEMONP("send_error_waiting_writers -> pop'ed writer",
-               env, descP, &req.mon);
+        (void) DEMONP("send_error_waiting_writers -> pop'ed writer",
+                      env, descP, &req.mon);
     }
 }
 #endif // #ifndef __WIN32__
@@ -13362,8 +13363,9 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
                           atom_write_byte, &descP->writeByteCnt, written);
 
             if (descP->currentWriterP != NULL) {
-                DEMONP("send_check_retry -> current writer",
-                       env, descP, &descP->currentWriter.mon);
+                ESOCK_ASSERT( DEMONP("send_check_retry -> current writer",
+                                     env, descP,
+                                     &descP->currentWriter.mon) == 0);
             }
             /*
              * Ok, this write is done maybe activate the next (if any)
@@ -13418,8 +13420,8 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
         ERL_NIF_TERM reason;
 
         /* Internal select error */
-        DEMONP("send_check_retry - select error",
-               env, descP, &descP->currentWriter.mon);
+        ESOCK_ASSERT( DEMONP("send_check_retry - select error",
+                             env, descP, &descP->currentWriter.mon) == 0);
 
         /* Fail all queued writers */
         reason = MKT2(env, atom_select_write, MKI(env, sres));
@@ -13566,8 +13568,8 @@ recv_update_current_reader(ErlNifEnv*       env,
 {
     if (descP->currentReaderP != NULL) {
         
-        DEMONP("recv_update_current_reader",
-               env, descP, &descP->currentReader.mon);
+        ESOCK_ASSERT( DEMONP("recv_update_current_reader",
+                             env, descP, &descP->currentReader.mon) == 0);
 
         if (! activate_next_reader(env, descP, sockRef)) {
 
@@ -13615,8 +13617,8 @@ void recv_error_current_reader(ErlNifEnv*       env,
 
             esock_send_abort_msg(env, descP, sockRef, &req, reason);
 
-            DEMONP("recv_error_current_reader -> pop'ed reader",
-                   env, descP, &req.mon);
+            ESOCK_ASSERT( DEMONP("recv_error_current_reader -> pop'ed reader",
+                                 env, descP, &req.mon) == 0);
         }
 
         descP->currentReaderP = NULL;
@@ -16920,13 +16922,13 @@ static
 int esock_select_read(ErlNifEnv*       env,
                       ErlNifEvent      event,     // The file descriptor
                       void*            obj,       // The socket descriptor object
-                      const ErlNifPid* pid,       // Destination
+                      const ErlNifPid* pidP,      // Destination
                       ERL_NIF_TERM     sockRef,   // Socket
                       ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
     ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
 
-    return enif_select_read(env, event, obj, pid, selectMsg, NULL);
+    return enif_select_read(env, event, obj, pidP, selectMsg, NULL);
 
 }
 #endif // #ifndef __WIN32__
@@ -16944,13 +16946,13 @@ static
 int esock_select_write(ErlNifEnv*       env,
                        ErlNifEvent      event,     // The file descriptor
                        void*            obj,       // The socket descriptor
-                       const ErlNifPid* pid,       // Destination
+                       const ErlNifPid* pidP,       // Destination
                        ERL_NIF_TERM     sockRef,   // Socket
                        ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
     ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
 
-    return enif_select_write(env, event, obj, pid, selectMsg, NULL);
+    return enif_select_write(env, event, obj, pidP, selectMsg, NULL);
 }
 #endif // #ifndef __WIN32__
 
@@ -17364,7 +17366,7 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
 
             /* We have a match */
 
-            DEMONP(slogan, env, descP, &e->data.mon);
+            (void) DEMONP(slogan, env, descP, &e->data.mon);
             
             if (p != NULL) {
                 /* Not the first, but could be the last */
@@ -17814,7 +17816,7 @@ void esock_stop_handle_current(ErlNifEnv*       env,
                                ERL_NIF_TERM     sockRef,
                                ESockRequestor*  reqP)
 {
-    DEMONP("esock_stop_handle_current", env, descP, &reqP->mon);
+    (void) DEMONP("esock_stop_handle_current", env, descP, &reqP->mon);
 
     SSDBG( descP, ("SOCKET",
                    "esock_stop_handle_current {%d} ->"
@@ -17870,8 +17872,8 @@ void inform_waiting_procs(ErlNifEnv*         env,
 
         esock_send_abort_msg(env, descP, sockRef, &currentP->data, reason);
 
-        DEMONP("inform_waiting_procs -> current 'request'",
-               env, descP, &currentP->data.mon);
+        (void) DEMONP("inform_waiting_procs -> current 'request'",
+                      env, descP, &currentP->data.mon);
 
         nextP = currentP->nextP;
         FREE(currentP);
