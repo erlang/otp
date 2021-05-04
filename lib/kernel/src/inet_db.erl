@@ -696,6 +696,15 @@ lookup_type(Domain, Type) ->
 lookup_cname(Domain) ->
     [R#dns_rr.data || R <- lookup_rr(Domain, in, ?S_CNAME) ].
 
+lookup_cname(Domain, Type) ->
+    case Type of
+     a -> [];
+     aaaa -> [];
+     cname -> lookup_cname(Domain);
+     _ -> []
+    end.
+
+
 %% lookup resource record
 lookup_rr(Domain, Class, Type) ->
     match_rr(dns_rr_match(tolower(Domain), Class, Type)).
@@ -768,9 +777,10 @@ ent_gethostbyaddr(RRs, IP, AddrType, Length) ->
 		    ?dbg("gethostbyaddr found extra=~p~n", [TR]);
 	       true -> ok
 	    end,
+            Type = RR#dns_rr.type,
 	    Domain = RR#dns_rr.data,
 	    H = #hostent { h_name = Domain,
-			   h_aliases = lookup_cname(Domain),
+			   h_aliases = lookup_cname(Domain, Type),
 			   h_addr_list = [IP],
 			   h_addrtype = AddrType,
 			   h_length = Length },
