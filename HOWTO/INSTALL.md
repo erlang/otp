@@ -730,3 +730,30 @@ be satisfied.
    [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_OS-X-Darwin
    [Building with wxErlang]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Building-with-wxErlang
    [libatomic_ops]: https://github.com/ivmai/libatomic_ops/
+
+
+### Erlang/OTP test architectures ###
+
+
+Erlang/OTP are currently tested on the following hardware and Opererating systems.
+This is not an exhaustive list, but we try to keep it as up to date as possible.
+
+Architecture
+
+* x86, x86-64
+* Aarch32, Aarch64
+* powerpc, powerpc64le
+
+Operating System
+
+* Fedora 31
+* FreeBSD
+* macOS 10.4 - 11.2
+* MontaVista 4
+* NetBSD
+* OpenBSD
+* SLES 10, 11, 12
+* SunOS 5.11
+* Ubuntu 10.04 - 20.04
+* Windows 10, Windows Server 2019
+
