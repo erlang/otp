@@ -2345,6 +2345,7 @@ beam_bool_SUITE(_Config) ->
     erl1246(),
     erl1253(),
     erl1384(),
+    gh4788(),
     beam_ssa_bool_coverage(),
     ok.
 
@@ -2822,6 +2823,23 @@ erl1384_1(V) ->
         {_, false} -> gurka;
         _ -> gaffel
     end.
+
+gh4788() ->
+    ok = do_gh4788(id(0)),
+    ok = do_gh4788(id(1)),
+    ok = do_gh4788(id(undefined)),
+    lt_0_or_undefined = catch do_gh4788(id(-1)),
+    ok.
+
+do_gh4788(N) ->
+    %% beam_ssa_bool would do an unsafe optimization when run after
+    %% the beam_ssa_share pass.
+    case {N >= 0, N == undefined} of
+        {true, _} -> ok;
+        {_, true} -> ok;
+        _ -> throw(lt_0_or_undefined)
+    end,
+    ok.
 
 beam_ssa_bool_coverage() ->
     {"*","abc"} = collect_modifiers("abc*", []),
