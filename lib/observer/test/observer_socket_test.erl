@@ -515,7 +515,7 @@ handler_try_read(#{sock := Sock} = State) ->
     case socket:recv(Sock) of
 	{ok, Data} ->
 	    handler_process_data(State, Data);
-	{select, SelectInfo} ->
+	{select, SelectInfo} -> %% Will never happen with this, recv/1, call...
 	    State#{select => SelectInfo};
 	{error, closed} ->
 	    i("recv got closed => client done"),
@@ -540,7 +540,7 @@ handler_try_select(
 	{'$socket', Sock, select, Info} ->
 	    case socket:recv(Sock) of
 		{ok, Data} ->
-		    handler_process_data(State, Data);
+		    handler_process_data(State#{select => undefined}, Data);
 		{error, Reason} ->
 		    i("recv failed: "
 		      "~n   ~p", [Reason]),
@@ -551,6 +551,7 @@ handler_try_select(
 	    e("parent down received: "
 	      "~n   ~p", [Reason]),
 	    (catch socket:cancel(Sock, SelectInfo)),
+	    (catch socket:close(Sock)),
 	    handler_exit(State, parent, Reason)
     end.
 
@@ -636,11 +637,13 @@ client_ctrl_start(Parent,
 	       server   => ServerSockAddr,
 	       cid      => 1,
 	       clients  => #{}},
-    State1 = start_client(State0, socket),
-    State2 = start_client(State1, inet),
+    State1 = start_gen_client(State0, socket),
+    State2 = start_gen_client(State1, inet),
+    State3 = start_esock_client(State2),
+    State4 = start_esock_client(State3),
     Parent ! {self(), ready},
     i("started"),
-    client_ctrl_loop(State2).
+    client_ctrl_loop(State4).
 
 
 client_ctrl_loop(State) ->
@@ -653,9 +656,13 @@ client_ctrl_handle_down(#{clients := Clients0} = State,
 			MRef, Pid, Reason) ->
     case maps:take(Pid, Clients0) of
 	{{ID, MRef, Backend}, Clients1} ->
-	    i("received down from ~w-client ~w (~p): "
+	    i("received down from (gen) ~w-client ~w (~p): "
 	      "~n   ~p", [Backend, ID, Pid, Reason]),
-	    start_client(State#{clients => Clients1}, Backend);
+	    start_gen_client(State#{clients => Clients1}, Backend);
+	{{ID, MRef}, Clients1} ->
+	    i("received down from (esock) ~w-client ~w (~p): "
+	      "~n   ~p", [ID, Pid, Reason]),
+	    start_esock_client(State#{clients => Clients1});
 	error ->
 	    i("received down from unknown process ~p: "
 	      "~n   ~p", [Pid, Reason]),
@@ -666,22 +673,22 @@ client_ctrl_exit(Tag, Reason) ->
     exit({'client-ctrl', Tag, Reason}).
 
 
-start_client(#{domain   := Domain,
-	       type     := Type,
-	       protocol := Proto,
-	       server   := #{addr := Addr, port := Port},
-	       cid      := ID,
-	       clients  := Clients0} = State, Backend) ->
+start_gen_client(#{domain   := Domain,
+		   type     := Type,
+		   protocol := Proto,
+		   server   := #{addr := Addr, port := Port},
+		   cid      := ID,
+		   clients  := Clients0} = State, Backend) ->
     Self = self(),
-    i("try start client ~w", [ID]),
+    i("try start (gen) client ~w", [ID]),
     LifeTime = rand:uniform(timer:minutes(3)) + timer:minutes(2),
     {Pid, MRef} =
 	spawn_monitor(fun() ->
-			      client_start(Self,
-					   Backend, ID,
-					   LifeTime,
-					   Domain, Type, Proto,
-					   Addr, Port)
+			      gen_client_start(Self,
+					       Backend, ID,
+					       LifeTime,
+					       Domain, Type, Proto,
+					       Addr, Port)
 		      end),
     receive
 	{'DOWN', MRef, process, Pid, Reason} ->
@@ -696,41 +703,74 @@ start_client(#{domain   := Domain,
     end.
 
 
-client_start(Parent, Backend, ID,
-	     LifeTime,
-	     Domain, Type, Proto,
-	     ServerAddr, ServerPort)
+start_esock_client(#{domain   := Domain,
+		     type     := Type,
+		     protocol := Proto,
+		     server   := #{addr := Addr, port := Port},
+		     cid      := ID,
+		     clients  := Clients0} = State) ->
+    Self = self(),
+    i("try start (esock) client ~w", [ID]),
+    LifeTime = rand:uniform(timer:minutes(3)) + timer:minutes(2),
+    {Pid, MRef} =
+	spawn_monitor(fun() ->
+			      esock_client_start(Self,
+						 ID,
+						 LifeTime,
+						 Domain, Type, Proto,
+						 Addr, Port)
+		      end),
+    receive
+	{'DOWN', MRef, process, Pid, Reason} ->
+	    e("received unexpected down message from client ~w (~p):"
+	      "~n   ~p", [ID, Pid, Reason]),
+	    client_ctrl_exit({client, ID}, Reason);
+
+	{Pid, ready} ->
+	    i("received expected ready from client ~w (~p)", [ID, Pid]),
+	    Clients1 = Clients0#{Pid => {ID, MRef}},
+	    State#{cid => ID + 1, clients => Clients1}
+    end.
+
+
+gen_client_start(Parent, Backend, ID,
+		 LifeTime,
+		 Domain, Type, Proto,
+		 ServerAddr, ServerPort)
   when (Type =:= stream) andalso (Proto =:= tcp) ->
-    put(sname, f("client[~w]", [ID])),
+    put(sname, f("gen-client[~w,~w]", [Backend, ID])),
     %% put(debug, true),
     i("starting"),
+    State = gen_client_connect(#{id          => ID,
+				 backend     => Backend,
+				 domain      => Domain,
+				 type        => Type,
+				 protocol    => Proto,
+				 server_addr => ServerAddr,
+				 server_port => ServerPort}),
     erlang:send_after(LifeTime, self(), terminate),
-    State = client_connect(#{id          => ID,
-			     backend     => Backend,
-			     domain      => Domain,
-			     type        => Type,
-			     protocol    => Proto,
-			     server_addr => ServerAddr,
-			     server_port => ServerPort}),
     MRef = erlang:monitor(process, Parent),
     Parent ! {self(), ready},
     i("started"),
-    client_loop(State#{condition => send_request,
-		       mid       => 1,
-		       parent    => Parent,
-		       mref      => MRef,
-		       buf       => <<>>}).
+    gen_client_loop(State#{condition => send_request,
+			   mid       => 1,
+			   parent    => Parent,
+			   mref      => MRef,
+			   buf       => <<>>}).
 
 
-client_connect(#{backend     := Backend,
-		 server_addr := ServerAddr,
-		 server_port := ServerPort} = State) ->
+gen_client_connect(#{backend     := Backend,
+		     type        := Type,
+		     protocol    := Proto,
+		     server_addr := ServerAddr,
+		     server_port := ServerPort} = State)
+  when (Type =:= stream) andalso (Proto =:= tcp) ->
     COpts = [{inet_backend, Backend}, {active, true}, binary],
-    i("[~w] try connect to ~s:~w",
-      [Backend, inet_parse:ntoa(ServerAddr), ServerPort]),
+    i("try connect to ~s:~w",
+      [inet_parse:ntoa(ServerAddr), ServerPort]),
     case gen_tcp:connect(ServerAddr, ServerPort, COpts) of
 	{ok, Sock} ->
-	    %% i("[~w] connected", [Backend]),
+	    %% i("connected"),
 	    ?SOCKET_MONITOR !
 		{monitor, Sock,
 		 string_of(inet, Sock),
@@ -743,41 +783,208 @@ client_connect(#{backend     := Backend,
     end.
 
 
-client_loop(#{condition := terminate,
-	      sock      := Sock}) ->
-    (catch gen_trcp:close(Sock)),
+esock_client_start(Parent, ID,
+		   LifeTime,
+		   Domain, Type, Proto,
+		   ServerAddr, ServerPort)
+  when (Type =:= stream) andalso (Proto =:= tcp) ->
+    put(sname, f("esock-client[~w]", [ID])),
+    %% put(debug, true),
+    i("starting"),
+    State = esock_client_connect(#{id          => ID,
+				   domain      => Domain,
+				   type        => Type,
+				   protocol    => Proto,
+				   server_addr => ServerAddr,
+				   server_port => ServerPort}),
+    erlang:send_after(LifeTime, self(), terminate),
+    MRef = erlang:monitor(process, Parent),
+    Parent ! {self(), ready},
+    i("started"),
+    esock_client_loop(State#{condition => send_request,
+			     select    => undefined,
+			     mid       => 1,
+			     parent    => Parent,
+			     mref      => MRef,
+			     buf       => <<>>}).
+
+
+esock_client_connect(#{domain      := Domain,
+		       type        := Type,
+		       protocol    := Proto,
+		       server_addr := ServerAddr,
+		       server_port := ServerPort} = State)
+  when (Type =:= stream) andalso (Proto =:= tcp) ->
+    i("try open socket"),
+    Sock =
+	case socket:open(Domain, Type, Proto) of
+	    {ok, S} ->
+		i("opened"),
+		S;
+	    {error, Reason1} ->
+		e("failed open: "
+		  "~n   ~p", [Reason1]),
+		client_exit(State, open, Reason1)
+	end,
+    %% We are on the same machine (as the server), so just reuse that address
+    i("try bind to ~s", [inet_parse:ntoa(ServerAddr)]),
+    case socket:bind(Sock, #{family => Domain, addr => ServerAddr}) of
+	ok ->
+	    i("bound"),
+	    ok;
+	{error, Reason2} ->
+	    e("failed bind: "
+	      "~n   ~p", [Reason2]),
+	    (catch socket:close(Sock)),
+	    client_exit(State, bind, Reason2)
+    end,
+    i("try connect to ~s:~w", [inet_parse:ntoa(ServerAddr), ServerPort]),
+    case socket:connect(Sock, #{family => Domain,
+				addr   => ServerAddr,
+				port   => ServerPort}) of
+	ok ->
+	    i("connected"),
+	    ?SOCKET_MONITOR !
+		{monitor, Sock,
+		 string_of(socket, Sock),
+		 sockmon_fun(socket), self()},
+	    State#{sock => Sock};
+	{error, Reason3} ->
+	    e("failed connecting: "
+	      "~n   ~p", [Reason3]),
+	    (catch socket:close(Sock)),
+	    client_exit(State, connect, Reason3)
+    end.
+
+
+gen_client_loop(#{condition := terminate,
+		  sock      := Sock}) ->
+    (catch gen_tcp:close(Sock)),
     exit(normal);
-client_loop(#{condition := {await_reply, _MID},
-	      parent    := Parent,
-	      sock      := Sock} = State) ->
+gen_client_loop(#{condition := {await_reply, _MID},
+		  parent    := Parent,
+		  sock      := Sock} = State) ->
     receive
 	{'DOWN', _MRef, process, Parent, Reason} ->
 	    e("unexpected down from parent received: "
 	      "~n   ~p", [Reason]),
 	    client_exit(State, parent_down, Reason);
-	
+
 	{tcp, Sock, Data} ->
 	    %% i("received (~w bytes of) data", [size(Data)]),
-	    client_loop(client_process_data(State, Data));
+	    gen_client_loop(client_process_data(State, Data));
 
 	terminate ->
-	    client_loop(State#{condition => terminate})
+	    gen_client_loop(State#{condition => terminate})
 
     end;
-client_loop(#{condition := send_request, sock := Sock, mid := MID} = State) ->
+gen_client_loop(#{condition := send_request,
+		  sock      := Sock,
+		  mid       := MID} = State) ->
     %% i("try send request ~w", [MID]),
     Data = ?DATA,
     SZ   = size(Data),
     Req  = <<?MTAG:32, MID:32, ?REQUEST:32, SZ:32, Data/binary>>,
     case gen_tcp:send(Sock, Req) of
 	ok ->
-	    client_loop(State#{condition => {await_reply, MID},
-			       mid => MID + 1});
+	    gen_client_loop(State#{condition => {await_reply, MID},
+				   mid => MID + 1});
 	{error, Reason} ->
 	    e("failed sending request ~w: "
 	      "~n   ~p", [MID, Reason]),
 	    client_exit(State, send, Reason)
     end.
+
+
+
+esock_client_loop(#{condition := terminate,
+		    sock      := Sock}) ->
+    (catch socket:close(Sock)),
+    exit(normal);
+esock_client_loop(#{condition := {await_reply, _MID},
+		    select    := undefined,
+		    sock      := Sock} = State) ->
+    %% i("try (nowait) recv"),
+    case socket:recv(Sock, 0, nowait) of
+	{ok, Data} when is_binary(Data) ->
+	    %% i("received (~w bytes of) data", [size(Data)]),
+	    esock_client_loop(client_process_data(State, Data));
+	%% This is the "old" style
+	{ok, {Data, SelectInfo}} when is_binary(Data) ->
+	    %% i("partial recv - select"),
+	    Buf0 = maps:take(buf, State),
+	    Buf2 = <<Buf0/binary, Data/binary>>,
+	    esock_client_loop(State#{buf    => Buf2,
+				     select => SelectInfo});
+	%% This is the "new" style
+	{select, {Data, SelectInfo}} when is_binary(Data) ->
+	    %% i("partial recv - select"),
+	    Buf0 = maps:take(buf, State),
+	    Buf2 = <<Buf0/binary, Data/binary>>,
+	    esock_client_loop(State#{buf    => Buf2,
+				     select => SelectInfo});
+	{select, SelectInfo} ->
+	    %% i("select"),
+	    esock_client_loop(State#{select => SelectInfo});
+	{error, Reason} ->
+	    e("recv failed: "
+	      "~n   ~p", [Reason]),
+	    (catch socket:close(Sock)),
+	    client_exit(State, recv, Reason)
+    end;
+esock_client_loop(#{condition := {await_reply, _MID},
+		    select    := {select_info, _, Info} = SelectInfo,
+		    parent    := Parent,
+		    sock      := Sock} = State) ->
+    receive
+	{'DOWN', _MRef, process, Parent, Reason} ->
+	    e("unexpected down from parent received: "
+	      "~n   ~p", [Reason]),
+	    (catch socket:cancel(Sock, SelectInfo)),
+	    (catch socket:close(Sock)),
+	    client_exit(State, parent_down, Reason);
+
+	{'$socket', Sock, abort, Info} ->
+	    e("received unexpected select abort: "
+	      "~n   ~p", [Info]),
+	    (catch socket:close(Sock)),
+	    client_exit(State, abort, Info);
+
+	{'$socket', Sock, select, Info} ->
+	    %% i("select message received - try recv"),
+	    case socket:recv(Sock) of
+		{ok, Data} ->
+		    %% i("recv succeed (~w bytes of data received)", [size(Data)]),
+		    esock_client_loop(
+		      client_process_data(State#{select => undefined}, Data));
+		{error, Reason} ->
+		    e("recv failed: "
+		      "~n   ~p", [Reason]),
+		    (catch socket:close(Sock)),
+		    client_exit(State, recv, Reason)
+	    end;
+
+	terminate ->
+	    esock_client_loop(State#{condition => terminate})
+
+    end;
+esock_client_loop(#{condition := send_request,
+		    sock      := Sock,
+		    mid       := MID} = State) ->
+    %% i("try send request ~w", [MID]),
+    Data = ?DATA,
+    SZ   = size(Data),
+    Req  = <<?MTAG:32, MID:32, ?REQUEST:32, SZ:32, Data/binary>>,
+    case socket:send(Sock, Req) of
+	ok ->
+	    esock_client_loop(State#{condition => {await_reply, MID},
+				     mid => MID + 1});
+	{error, Reason} ->
+	    e("failed sending request ~w: "
+	      "~n   ~p", [MID, Reason]),
+	    client_exit(State, send, Reason)
+    end.
+
 
 
 client_process_data(#{condition := {await_reply, MID},
@@ -901,16 +1108,14 @@ which_local_host_info3(Key, [_|IFO], Check) ->
 
 %% ---
 
-string_of(socket = _Backend, Socket) ->
+string_of(socket = _Module, Socket) ->
     socket:to_list(Socket);
-string_of(inet = _Backend, Socket) ->
+string_of(inet = _Module, Socket) ->
     inet:socket_to_list(Socket).
 
 
-sockmon_fun(socket = _Backend) ->
-    fun(Sock) -> socket:monitor(Sock) end;
-sockmon_fun(inet = _Backend) ->
-    fun(Sock) -> inet:monitor(Sock) end.
+sockmon_fun(Module) ->
+    fun(Sock) -> Module:monitor(Sock) end.
 	    
 
 %% ---
