@@ -1039,8 +1039,8 @@ primary_bootstrap_mkdirs:
 
 primary_bootstrap_copy:
 	$(make_verbose)
-	$(V_at)${INSTALL_DATA} -p -f lib/kernel/include/*.hrl $(BOOTSTRAP_TOP)/lib/kernel/include
-	$(V_at)${INSTALL_DATA} -p -f lib/stdlib/include/*.hrl $(BOOTSTRAP_TOP)/lib/stdlib/include
+	$(V_at)${INSTALL_DATA} -p lib/kernel/include/*.hrl $(BOOTSTRAP_TOP)/lib/kernel/include
+	$(V_at)${INSTALL_DATA} -p lib/stdlib/include/*.hrl $(BOOTSTRAP_TOP)/lib/stdlib/include
 
 # To remove modules left by the bootstrap building, but leave (restore)
 # the modules in kernel which are needed for an emulator build
