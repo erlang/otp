@@ -660,7 +660,7 @@ gethostbyaddr_tm(Address,Timer) ->
 
 socket_to_list({'$inet', GenSocketMod, _} = Socket)
   when is_atom(GenSocketMod) ->
-    GenSocketMod:to_list(Socket);
+    GenSocketMod:?FUNCTION_NAME(Socket);
 socket_to_list(Socket) when is_port(Socket) ->
     erlang:port_to_list(Socket).
 
