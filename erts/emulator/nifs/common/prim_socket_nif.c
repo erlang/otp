@@ -17527,6 +17527,14 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   if (! IS_CLOSED(descP->readState)) {
       int err;
 
+      descP->useReg = FALSE;
+      /* We are not allowed to enif_make_resource from
+       * the destructor - it would create kind of a zombie
+       * resource and maybe lead to calling the destructor
+       * again and whatnot..., so disable sending a resource
+       * ref to the socket registry
+       */
+
       if ((err = esock_close_socket(env, descP, FALSE)) != 0)
           esock_warning_msg("Failed closing socket in destructor:"
                             "\r\n   Descriptor:     %d"
