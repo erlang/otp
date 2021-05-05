@@ -200,8 +200,26 @@ setup(#state{frame = Frame} = State) ->
     wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
 
     %% Socket Panel
+    %% Note that this panel should *only* be added if we have support for socket
+    %% Also, if we run on/with an "old" node (without this support),
+    %% we should also not include this!
+    %% SockPanel =
+    %% 	try socket:supports() of
+    %% 	    _ ->
+    %% 		d("setup -> create socket panel"),
+    %% 		SP = observer_sock_wx:start_link(Notebook,
+    %% 						 self(),
+    %% 						 Cnf(sock_panel)),
+    %% 		wxNotebook:addPage(Notebook, SP, "Sockets", []),
+    %% 		SP
+    %% 	catch
+    %% 	    _:_:_ ->
+    %% 		undefined
+    %% 	end,
     d("setup -> create socket panel"),
-    SockPanel = observer_sock_wx:start_link(Notebook, self(), Cnf(sock_panel)),
+    SockPanel = observer_sock_wx:start_link(Notebook,
+					    self(),
+					    Cnf(sock_panel)),
     wxNotebook:addPage(Notebook, SockPanel, "Sockets", []),
 
     %% Table Viewer Panel
@@ -226,15 +244,19 @@ setup(#state{frame = Frame} = State) ->
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
-    Panels = [{sys_panel,   SysPanel,   "System"},   %% In order
-              {perf_panel,  PerfPanel,  "Load Charts"},
-              {allc_panel,  AllcPanel,  ?ALLOC_STR},
-              {app_panel,   AppPanel,   "Applications"},
-              {pro_panel,   ProPanel,   "Processes"},
-              {port_panel,  PortPanel,  "Ports"},
-              {sock_panel,  SockPanel,  "Sockets"},
-              {tv_panel,    TVPanel,    "Table Viewer"},
-              {trace_panel, TracePanel, ?TRACE_STR}],
+    Panels =
+	[{sys_panel,   SysPanel,   "System"},   %% In order
+	 {perf_panel,  PerfPanel,  "Load Charts"},
+	 {allc_panel,  AllcPanel,  ?ALLOC_STR},
+	 {app_panel,   AppPanel,   "Applications"},
+	 {pro_panel,   ProPanel,   "Processes"},
+	 {port_panel,  PortPanel,  "Ports"}] ++
+	if (SockPanel =:= undefined) -> [];
+	   true -> 
+		[{sock_panel,  SockPanel,  "Sockets"}]
+	end ++ 
+	[{tv_panel,    TVPanel,    "Table Viewer"},
+	 {trace_panel, TracePanel, ?TRACE_STR}],
 
     UpdState = State#state{main_panel = Panel,
 			   notebook   = Notebook,

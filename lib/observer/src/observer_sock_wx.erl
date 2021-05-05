@@ -75,7 +75,7 @@
 	  panel,
 	  sizer,
 	  fields,
-	  node = {node(),true},
+	  node = {node(), true},
 	  opt  = #opt{},
 	  right_clicked_socket,
 	  sockets,
@@ -111,7 +111,9 @@ update_gen_socket_info(#state{node   = {Node, true},
     case rpc:call(Node, observer_backend, socket_info, []) of
 	Info when is_list(Info) ->
 	    Gen = info_fields(),
-	    observer_lib:update_info(Fields, observer_lib:fill_info(Gen, Info)),
+	    observer_lib:update_info(Fields,
+	    			     observer_lib:fill_info(Gen, Info,
+	    						    "Not Supported")),
 	    wxSizer:layout(Sizer);
 	_ ->
 	    ignore
@@ -129,17 +131,35 @@ init([Notebook, Parent, Config]) ->
       "~n      Notebook: ~p"
       "~n      Parent:   ~p"
       "~n      Config:   ~p", [Notebook, Parent, Config]),
-    Info   = observer_backend:socket_info(),
+    try
+	begin
+	    do_init(Notebook, Parent, Config, observer_backend:socket_info())
+	end
+    catch
+	C:E:S ->
+	    %% Current node does not support socket (windows?)
+	    d("init -> catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [C, E, S]),
+	    do_init(Notebook, Parent, Config, [])
+    end.
+
+do_init(Notebook, Parent, Config, Info) ->
     Gen    = info_fields(),
     Panel  = wxPanel:new(Notebook),
     Sizer  = wxBoxSizer:new(?wxVERTICAL),
     GenSizer = wxBoxSizer:new(?wxHORIZONTAL),
     {GenPanel, _GenSizer, GenFields} =
-	observer_lib:display_info(Panel, observer_lib:fill_info(Gen, Info)),
-    wxSizer:add(GenSizer, GenPanel, [{flag, ?wxEXPAND}, {proportion, 1}]),
+	observer_lib:display_info(Panel, 
+				  observer_lib:fill_info(Gen, Info,
+							 "Not Supported")),
+    wxSizer:add(GenSizer, GenPanel,
+		[{flag, ?wxEXPAND}, {proportion, 1}]),
     BorderFlags = ?wxLEFT bor ?wxRIGHT,
-    wxSizer:add(Sizer, GenSizer, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
-				  {proportion, 0}, {border, 5}]),
+    wxSizer:add(Sizer, GenSizer,
+		[{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
+		 {proportion, 0}, {border, 5}]),
     Style  = ?wxLC_REPORT bor ?wxLC_HRULES,
     Grid   = wxListCtrl:new(Panel, [{winid, ?GRID}, {style, Style}]),
     wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxALL},
@@ -371,43 +391,6 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 
-%% handle_info({socketinfo_open, IdStr},
-%% 	    State = #state{node      = {ActiveNodeName, ActiveAvailable},
-%% 			   grid      = Grid,
-%%                            opt       = Opt,
-%% 			   open_wins = Opened}) ->
-%%     NodeName = node(list_to_port(PortIdStr)), % How do we do this for sockets?
-%%     Available =
-%%         case NodeName of
-%%             ActiveNodeName ->
-%%                 ActiveAvailable;
-%%             _ ->
-%%                 portinfo_available(NodeName)
-%%         end,
-%%     if Available ->
-%%             Sockets0 = get_sockets(NodeName, Available),
-%%             Sockets  = lists:keyfind(SockIdStr, #socket.id_str, Sockets),
-%%             NewOpened =
-%%                 case Port of
-%%                     false ->
-%%                         self() ! {error,"No such socket: " ++ SockIdStr},
-%%                         Opened;
-%%                     _ ->
-%%                         display_socket_info(Grid, Port, Opened)
-%%                 end,
-%%             Ports =
-%%                 case NodeName of
-%%                     ActiveNodeName ->
-%%                         update_grid(Grid, sel(State), Opt, Ports0);
-%%                     _ ->
-%%                         State#state.ports
-%%                 end,
-%%             {noreply, State#state{ports=Ports, open_wins=NewOpened}};
-%%        true ->
-%%             popup_unavailable_info(NodeName),
-%%             {noreply, State}
-%%     end;
-
 handle_info(refresh_interval, State = #state{node    = Node,
 					     grid    = Grid,
 					     opt     = Opt,
@@ -425,12 +408,13 @@ handle_info(refresh_interval, State = #state{node    = Node,
             {noreply, State#state{sockets = Sockets}}
     end;
 
-handle_info({active, NodeName}, 
+handle_info({active, NodeName},
 	    #state{parent = Parent,
 		   grid   = Grid,
 		   opt    = Opt,
 		   timer  = Timer0} = State0) ->
-    Available = portinfo_available(NodeName),
+    d("handle_info({active, ~p}) -> entry", [NodeName]),
+    Available = socketinfo_available(NodeName),
     Available orelse popup_unavailable_info(NodeName),
     State1   = State0#state{node = {NodeName, Available}},
     _ = update_gen_socket_info(State1),
@@ -446,15 +430,18 @@ handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({info, {port_info_not_available,NodeName}},
+handle_info({info, {socket_info_not_available, NodeName}},
             State = #state{panel=Panel}) ->
-    Str = io_lib:format("Can not fetch port info from ~p.~n"
-                        "Too old OTP version.",[NodeName]),
+    Str = io_lib:format("Can not fetch socket info from ~p.~n"
+                        "Too old OTP version.", [NodeName]),
     observer_lib:display_info_dialog(Panel, Str),
     {noreply, State};
 
 handle_info({error, Error}, #state{panel=Panel} = State) ->
-    Str = io_lib:format("ERROR: ~ts~n",[Error]),
+    ErrorStr = if is_list(Error) -> Error;
+		  true -> f("~p", [Error])
+	       end,
+    Str = io_lib:format("ERROR: ~ts~n", [ErrorStr]),
     observer_lib:display_info_dialog(Panel, Str),
     {noreply, State};
 
@@ -492,9 +479,17 @@ get_sockets(NodeName) when is_atom(NodeName) ->
     case rpc:call(NodeName, observer_backend, get_socket_list, []) of
 	SocketInfoMaps when is_list(SocketInfoMaps) ->
 	    [infomap_to_rec(SockInfo) || SockInfo <- SocketInfoMaps];
+	{badrpc,
+	 {'EXIT', {undef, [{observer_backend, get_socket_list, [], []}]}}} ->
+	    d("get_sockets -> No Backend"),
+	    {error, "No socket backend support"};
 	{badrpc, Error} ->
+	    d("get_sockets -> badrpc: "
+	      "~n   ~p", [Error]),
 	    {error, Error};
 	{error, _} = ERROR ->
+	    d("get_sockets -> error:"
+	      "~n   ~p", [ERROR]),
 	    ERROR
     end.
 
@@ -792,16 +787,16 @@ get_indecies(Rest = [_|_], I, [_|T]) ->
 get_indecies(_, _, _) ->
     [].
 
-portinfo_available(NodeName) ->
+socketinfo_available(NodeName) ->
     _ = rpc:call(NodeName, code, ensure_loaded, [observer_backend]),
     case rpc:call(NodeName, erlang, function_exported,
-                  [observer_backend, get_port_list, 0]) of
+                  [observer_backend, get_socket_list, 0]) of
         true  -> true;
         false -> false
     end.
 
 popup_unavailable_info(NodeName) ->
-    self() ! {info, {port_info_not_available, NodeName}},
+    self() ! {info, {socket_info_not_available, NodeName}},
     ok.
 
 f(F, A) ->
