@@ -31,6 +31,62 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The following signals could pass before other signals
+	    from the same sender to the same receiver. That is, these
+	    signals could arrive too early.</p> <list>
+	    <item><c>garbage-collect</c> request. Sent from one
+	    process to another using one of the
+	    <c>garbage_collect()</c> BIFs.</item>
+	    <item><c>check-process-code</c> request. Sent from one
+	    process to another using one of the
+	    <c>check_process_code()</c> BIFs.</item>
+	    <item><c>is-process-alive</c> reply. Sent as a response
+	    to a process calling the <c>is_process_alive()</c>
+	    BIF.</item> <item><c>process-info</c> reply. Sent as a
+	    response to a process calling one of the
+	    <c>process_info()</c> BIFs.</item>
+	    <item><c>port-command</c> reply. Sent as a response to a
+	    process calling one of the <c>port_command()</c>
+	    BIFs.</item> <item><c>port-connect</c> reply. Sent as a
+	    response to a process calling the <c>port_connect()</c>
+	    BIF.</item> <item><c>port-close</c> reply. Sent as a
+	    response to a process calling the <c>port_close()</c>
+	    BIF.</item> <item><c>port-control</c> reply. Sent as a
+	    response to a process calling the <c>port_control()</c>
+	    BIF.</item> <item><c>port-call</c> reply. Sent as a
+	    response to a process calling the <c>port_call()</c>
+	    BIF.</item> <item><c>port-info</c> reply. Sent as a
+	    response to a process calling one of the
+	    <c>port_info()</c> BIFs.</item> </list>
+          <p>
+	    Own Id: OTP-17291</p>
+        </item>
+        <item>
+          <p>
+	    A garbage collection of a literal area missed messages
+	    that entirely consisted of a term in a literal area. This
+	    could in turn lead to a crash of the runtime system.</p>
+          <p>
+	    Own Id: OTP-17307</p>
+        </item>
+        <item>
+          <p>
+	    A call to <c>process_flag(message_queue_data,
+	    off_heap)</c> could cause a crash of the runtime system
+	    when sequential tracing was enabled.</p>
+          <p>
+	    Own Id: OTP-17349</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
