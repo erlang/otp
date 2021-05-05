@@ -895,11 +895,13 @@ erts_move_messages_off_heap(Process *c_p)
             if (mp->data.attached)
                 continue;
 
+            ASSERT(is_immed(ERL_MESSAGE_FROM(mp)));
+
             if (is_immed(ERL_MESSAGE_TERM(mp))
 #ifdef USE_VM_PROBES
                 && is_immed(ERL_MESSAGE_DT_UTAG(mp))
 #endif
-                && is_not_immed(ERL_MESSAGE_TOKEN(mp)))
+                && is_immed(ERL_MESSAGE_TOKEN(mp)))
                 continue;
 
             /*
