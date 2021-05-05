@@ -61,7 +61,7 @@ open(Port, Opts) ->
 	    opts = SockOpts}}
           when ?ip6(BAddr), ?port(BPort);
                BAddr =:= undefined ->
-	    inet:open(
+	    inet:open_bind(
 	      Fd, BAddr, BPort, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)
     end.

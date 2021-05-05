@@ -428,7 +428,6 @@
 	 }).
 
 -define(SCTP_DEF_BUFSZ, 65536).
--define(SCTP_DEF_IFADDR, any).
 -record(sctp_opts,
 	{
 	  ifaddr,

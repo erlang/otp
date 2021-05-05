@@ -201,12 +201,10 @@ extra_opts(OpenOpts) when is_list(OpenOpts) ->
 
 
 bind_addr(_Domain, BindIP, BindPort) when BindIP =:= undefined ->
-    erlang:display({?MODULE,?FUNCTION_NAME,[_Domain, BindIP, BindPort]}),
-    0 = BindPort,
+    0 = BindPort, % Assert
     %% Do not bind!
     undefined;
 bind_addr(Domain, BindIP, BindPort) ->
-    erlang:display({?MODULE,?FUNCTION_NAME,[Domain, BindIP, BindPort]}),
     case BindIP of
         {Domain, Path} when Domain =:= local ->
             #{family => Domain,

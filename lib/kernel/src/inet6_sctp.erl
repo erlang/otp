@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,8 @@ translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
 open(Opts) ->
     case inet:sctp_options(Opts, ?MODULE) of
 	{ok,#sctp_opts{fd=Fd,ifaddr=Addr,port=Port,type=Type,opts=SOs}} ->
-	    inet:open(Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
+	    inet:open_bind(
+              Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
 	Error -> Error
     end.
 

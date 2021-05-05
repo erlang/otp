@@ -123,10 +123,13 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
 	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts}}
-	when ?port(BPort) ->
-	    case inet:open(
-		   Fd, check_ip_format(BAddr), BPort, SockOpts,
-		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+          when ?ip6(BAddr), ?port(BPort);
+               BAddr =:= undefined ->
+	    case
+                inet:open(
+                  Fd, BAddr, BPort, SockOpts,
+                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+            of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, Port, Time) of
 			ok -> {ok,S};
@@ -136,13 +139,6 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
 	    end;
 	{ok, _} -> exit(badarg)
     end.
-
-check_ip_format(undefined) ->
-	undefined;
-check_ip_format(Ip = {Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb}) when ?ip6(Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb) ->
-	Ip;
-check_ip_format(_) ->
-	exit(badarg).
 
 %% 
 %% Listen
@@ -158,17 +154,11 @@ listen(Port, Opts) ->
 	    opts = SockOpts} = R}
           when ?ip6(BAddr), ?port(BPort);
                BAddr =:= undefined ->
-	    case inet:open(
-		   Fd,
-                   if
-                       BAddr =:= undefined andalso
-                       (not (is_integer(Fd) andalso 0 =< Fd)) ->
-                           inet:translate_ip(any, ?FAMILY);
-                       true ->
-                           BAddr
-                   end,
-                   BPort, SockOpts,
-		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+	    case
+                inet:open_bind(
+                  Fd, BAddr, BPort, SockOpts,
+                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+            of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
 			ok -> {ok, S};
