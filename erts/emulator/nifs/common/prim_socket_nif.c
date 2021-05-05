@@ -5361,7 +5361,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
 
     if ((event = sock_create_event(sock)) == INVALID_EVENT) {
         save_errno = sock_errno();
-        while ((sock_close(sock) < 0) && (sock_errno() == EINTR));
+        (void) sock_close(sock);
         return esock_make_error_errno(env, save_errno);
     }
 
@@ -5489,24 +5489,20 @@ BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
         new_ns = open(netns, O_RDONLY);
         if (ESOCK_IS_ERROR(new_ns)) {
             save_errno = sock_errno();
-            while ((close(current_ns) < 0) &&
-                   sock_errno() == EINTR);
+            (void) close(current_ns);
             *cns = -1;
             *err = save_errno;
             return FALSE;
         }
         if (setns(new_ns, CLONE_NEWNET) != 0) {
             save_errno = sock_errno();
-            while ((close(new_ns) < 0) &&
-                   (sock_errno() == EINTR));
-            while ((close(current_ns) < 0) &&
-                   (sock_errno() == EINTR));
+            (void) close(new_ns);
+            (void) close(current_ns);
             *cns = -1;
             *err = save_errno;
             return FALSE;
         } else {
-            while ((close(new_ns) < 0) &&
-                   (sock_errno() == EINTR));
+            (void) close(new_ns);
             *cns = current_ns;
             *err = 0;
             return TRUE;
@@ -5542,16 +5538,13 @@ BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err)
              */
             if (sock != INVALID_SOCKET)
                 save_errno = sock_errno();
-            while ((close(sock) < 0) &&
-                   sock_errno() == EINTR);
+            (void) close(sock);
             sock = INVALID_SOCKET;
-            while ((close(ns) < 0) &&
-                   sock_errno() == EINTR);
+            (void) close(ns);
             *err = save_errno;
             return FALSE;
         } else {
-            while ((close(ns) < 0) &&
-                   sock_errno() == EINTR);
+            (void) close(ns);
             *err = 0;
             return TRUE;
         }
@@ -6486,8 +6479,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
 
     if ((accEvent = sock_create_event(accSock)) == INVALID_EVENT) {
         save_errno = sock_errno();
-        while ((sock_close(accSock) < 0) &&
-               (sock_errno() == EINTR));
+        (void) sock_close(accSock);
         *result = esock_make_error_errno(env, save_errno);
         return FALSE;
     }
@@ -17604,7 +17596,7 @@ void esock_dtor(ErlNifEnv* env, void* obj)
 
   if (IS_SELECTED(descP)) {
       /* We have used the socket in the select machinery,
-       * so we must have closed it properly afterwards
+       * so we must have closed it properly to get here
        */
       ESOCK_ASSERT( IS_CLOSED(descP->readState) );
       ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
