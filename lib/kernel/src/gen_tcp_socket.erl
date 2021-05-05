@@ -121,7 +121,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
             opts = ConnectOpts}} ->
             %%
             %% ?DBG({Domain, BindIP}),
-            BindAddr = bind_addr(Domain, BindIP, BindPort, Fd),
+            BindAddr = bind_addr(Domain, BindIP, BindPort),
             ExtraOpts = extra_opts(Fd),
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts,
@@ -200,21 +200,17 @@ extra_opts(OpenOpts) when is_list(OpenOpts) ->
    maps:from_list(OpenOpts).
 
 
-bind_addr(_Domain, BindIP, _BindPort, Fd)
-  when BindIP =:= undefined;
-       is_integer(Fd), 0 =< Fd ->
+bind_addr(_Domain, BindIP, BindPort) when BindIP =:= undefined ->
+    erlang:display({?MODULE,?FUNCTION_NAME,[_Domain, BindIP, BindPort]}),
+    0 = BindPort,
     %% Do not bind!
     undefined;
-bind_addr(Domain, BindIP, BindPort, _Fd) ->
-    case Domain of
-        local ->
-            case BindIP of
-                any ->
-                    undefined;
-                {local, Path} ->
-                    #{family => Domain,
-                      path   => Path}
-            end;
+bind_addr(Domain, BindIP, BindPort) ->
+    erlang:display({?MODULE,?FUNCTION_NAME,[Domain, BindIP, BindPort]}),
+    case BindIP of
+        {Domain, Path} when Domain =:= local ->
+            #{family => Domain,
+              path   => Path};
         _ when Domain =:= inet;
                Domain =:= inet6 ->
             #{family => Domain,
@@ -253,7 +249,7 @@ listen(Port, Opts) ->
                     %%
                     Domain = domain(Mod),
                     %% ?DBG({Domain, BindIP}),
-                    BindAddr = bind_addr(Domain, BindIP, BindPort, Fd),
+                    BindAddr = bind_addr(Domain, BindIP, BindPort),
                     ExtraOpts = extra_opts(Fd),
 		    %% ?DBG([{listen_opts, ListenOpts}, {backlog, Backlog}]),
                     listen_open(

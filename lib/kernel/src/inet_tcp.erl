@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -150,12 +150,21 @@ listen(Port, Opts) ->
 	{ok,
 	 #listen_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {A,B,C,D},
+	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts} = R}
-	when ?ip(A,B,C,D), ?port(BPort) ->
+          when ?ip(BAddr), ?port(BPort);
+               BAddr =:= undefined ->
 	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
+		   Fd,
+                   if
+                       BAddr =:= undefined andalso
+                       (not (is_integer(Fd) andalso 0 =< Fd)) ->
+                           inet:translate_ip(any, ?FAMILY);
+                       true ->
+                           BAddr
+                   end,
+                   BPort, SockOpts,
 		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of

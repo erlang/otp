@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,10 +57,11 @@ open(Port, Opts) ->
 	{ok,
 	 #udp_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {A,B,C,D},
+	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts}}
-	  when ?ip(A,B,C,D), ?port(BPort) ->
+	  when ?ip(BAddr), ?port(BPort);
+               BAddr =:= undefined ->
 	    inet:open(
 	      Fd, BAddr, BPort, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)

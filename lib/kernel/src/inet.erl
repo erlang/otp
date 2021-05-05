@@ -1282,11 +1282,14 @@ binary2filename(Bin) ->
 	    Bin
     end.
 
-translate_ip(any,      inet) -> {0,0,0,0};
-translate_ip(loopback, inet) -> {127,0,0,1};
+%% Protocol independent, i.e common code for all
+%% inet_* and inet6_* modules
+%%
+translate_ip(any,      inet)  -> {0,0,0,0};
+translate_ip(loopback, inet)  -> {127,0,0,1};
 translate_ip(any,      inet6) -> {0,0,0,0,0,0,0,0};
 translate_ip(loopback, inet6) -> {0,0,0,0,0,0,0,1};
-translate_ip(IP, _) -> IP.
+translate_ip(IP, _)           -> IP.  % undefined goes here
 
 mod(Opts, Tag, Address, Map) ->
     mod(Opts, Tag, Address, Map, undefined, []).
@@ -1633,25 +1636,24 @@ change_bindx_0_port({_IP, _Port}=Addr, _AssignedPort) ->
 	{'ok', socket()} | {'error', posix()}.
 
 fdopen(Fd, Opts, Protocol, Family, Type, Module) ->
-    fdopen(Fd, any, 0, Opts, Protocol, Family, Type, Module).
+    fdopen(Fd, undefined, 0, Opts, Protocol, Family, Type, Module).
 
 fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
-    Bound =
-	%% We do not do any binding if default port+addr options
+    DoNotBind =
+	%% We do not do any binding if no port+addr options
 	%% were given, in order to keep backwards compatability
 	%% with pre Erlang/OTP 17
-	case Addr of
-	    {0,0,0,0} when Port =:= 0 -> true;
-	    {0,0,0,0,0,0,0,0} when Port =:= 0 -> true;
-	    any when Port =:= 0 -> true;
-	    _ -> false
-	end,
-    case prim_inet:fdopen(Protocol, Family, Type, Fd, Bound) of
+        Addr =:= undefined, % Presumably already bound
+    if
+        DoNotBind ->
+            0 = Port, ok; % Assertion
+        true ->
+            ok
+    end,
+    case prim_inet:fdopen(Protocol, Family, Type, Fd, DoNotBind) of
 	{ok, S} ->
 	    case prim_inet:setopts(S, Opts) of
-		ok
-		  when Addr =:= undefined;
-		       Bound ->
+		ok when DoNotBind ->
 		    inet_db:register_socket(S, Module),
 		    {ok, S};
 		ok ->
