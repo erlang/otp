@@ -2672,15 +2672,18 @@ prf_create_plan(TlsVer, PRFs, Results) when TlsVer == 'tlsv1.2' orelse TlsVer ==
       end, [], PRFs).
 
 prf_get_ciphers(TlsVer, PRF) ->
-    PrfFilter = fun(Value) ->
-                        case Value of
-                            PRF ->
-                                true;
-                            _ ->
-                                false
-                        end
-                end,
-    ssl:filter_cipher_suites(ssl:cipher_suites(all, TlsVer), [{prf, PrfFilter}]).
+    PrfFilter = fun(Value) -> Value =:= PRF end,
+    RSACertNoSpecialConf = fun(rsa) ->
+                                   true;
+                              (ecdhe_rsa) ->
+                                   lists:member(ecdh, crypto:supports(public_keys));
+                              (dhe_rsa) ->
+                                   true;
+                              (_) ->
+                                   false
+                           end,
+    ssl:filter_cipher_suites(ssl:cipher_suites(default, TlsVer), [{key_exchange, RSACertNoSpecialConf},
+                                                                  {prf, PrfFilter}]).
 
 prf_run_test(_, TlsVer, [], _, Prf) ->
     ct:comment(lists:flatten(io_lib:format("cipher_list_empty Ver: ~p  PRF: ~p", [TlsVer, Prf])));
