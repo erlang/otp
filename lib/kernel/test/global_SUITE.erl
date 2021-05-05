@@ -19,6 +19,8 @@
 %%
 -module(global_SUITE).
 
+-compile(r23). % many_nodes()
+
 -export([all/0, suite/0, groups/0, 
 	 init_per_suite/1, end_per_suite/1,
          init_per_group/2,end_per_group/2,
@@ -42,7 +44,6 @@
          lost_unregister/1,
 	 mass_death/1,
 	 garbage_messages/1,
-
          ring_line/1
         ]).
 
@@ -485,6 +486,7 @@ write_high_level_trace(Nodes, Config) ->
                Node <- Nodes],
     Dir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join([Dir, lists:concat(["global_", ?testcase])]),
+    io:format("High-level trace on ~p\n", [DataFile]),
     file:write_file(DataFile, term_to_binary({high_level_trace, When, Data})).
 
 lock_global2(Id, Parent) ->
@@ -2898,11 +2900,11 @@ many_nodes(Config) when is_list(Config) ->
                                 Osname =:= openbsd; 
                                 Osname =:= darwin ->
                 N_nodes = quite_a_few_nodes(32),
-                {node_rel(1, N_nodes, this), N_nodes};
+                {node_rel(1, N_nodes), N_nodes};
             {unix, _} ->
-                {node_rel(1, 32, this), 32};
+                {node_rel(1, 32), 32};
             _ -> 
-                {node_rel(1, 32, this), 32}
+                {node_rel(1, 32), 32}
         end,
     Cps = [begin {ok, Cp} = start_node_rel(Name, Rel, Config), Cp end ||
 	      {Name,Rel} <- Rels],
@@ -2950,8 +2952,19 @@ many_nodes(Config) when is_list(Config) ->
     io:format("~s~n", [Return]),
     {comment, Return}.
 
-node_rel(From, To, Rel) ->
-    [{lists:concat([cp, N]), Rel} || N <- lists:seq(From, To)].
+node_rel(From, To) ->
+    NodeNumbers = lists:seq(From, To),
+    Release = erlang:system_info(otp_release),
+    LastRelease = integer_to_list(list_to_integer(Release) - 1) ++ "_latest",
+    Last = case test_server:is_release_available(LastRelease) of
+               true -> list_to_atom(LastRelease);
+               false -> this
+           end,
+    [{lists:concat([cp, N]),
+      case N rem 2 of
+          0 -> this;
+          1 -> Last
+      end} || N <- NodeNumbers].
 
 isolated_node(File, GoFile, Nodes, Config) ->
     Ns = lists:sort(Nodes),
@@ -4213,7 +4226,7 @@ init_condition(Config) ->
     io:format("globally registered names: ~p~n", [global:registered_names()]),
     io:format("nodes: ~p~n", [nodes()]),
     io:format("known: ~p~n", [get_known(node()) -- [node()]]),
-    io:format("Info ~p~n", [setelement(11, global:info(), trace)]),
+    io:format("Info ~p~n", [setelement(10, global:info(), trace)]),
     _ = [io:format("~s: ~p~n", [TN, ets:tab2list(T)]) ||
             {TN, T} <- [{"Global Names     (ETS)", global_names},
                         {"Global Names Ext (ETS)", global_names_ext},
