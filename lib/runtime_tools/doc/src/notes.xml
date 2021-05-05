@@ -32,6 +32,27 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.13.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>dbg:n/1</c> used a local fun to set up a
+	    tracer on a remote node. This works fine as long as the
+	    remote node is running exactly the same version of
+	    Erlang/OTP but does not work at all otherwise. This is
+	    fixed by exporting the relevant function and by calling
+	    this function on the remote node to set up remote
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-16930 Aux Id: ERL-1371, GH-4396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.13.2</title>
 
     <section><title>Improvements and New Features</title>
