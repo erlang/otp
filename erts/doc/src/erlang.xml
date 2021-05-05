@@ -344,6 +344,44 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 	    deactivated via a call to <c>unalias/1</c>.
 	  </p></item>
 	</taglist>
+	<p>Example:</p>
+        <code>
+server() ->
+    receive
+        {request, AliasReqId, Request} ->
+            Result = perform_request(Request),
+            AliasReqId ! {reply, AliasReqId, Result}
+    end,
+    server().
+
+client(ServerPid, Request) ->
+    AliasReqId = alias([reply]),
+    ServerPid ! {request, AliasReqId, Request},
+    %% Alias will be automatically deactivated if we receive a reply
+    %% since we used the 'reply' option...
+    receive
+        {reply, AliasReqId, Result} -> Result
+    after 5000 ->
+            unalias(AliasReqId),
+            %% Flush message queue in case the reply arrived
+            %% just before the alias was deactivated...
+            receive
+                {reply, AliasReqId, Result} -> Result
+            after 0 -> exit(timeout)
+            end
+    end.
+	</code>
+	<p>
+	  Note that both the server and the client in this example
+	  must be executing on at least OTP 24 systems in order
+	  for this to work.
+	</p>
+	<p>
+	  For more information on process aliases see the
+	  <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	  Aliases</i></seeguide> section of the <i>Erlang
+	  Reference Manual</i>.
+	</p>
       </desc>
     </func>
 
@@ -2998,8 +3036,8 @@ exit(P2Pid, kill),
 is_process_alive(P2Pid),
 % P2 is not alive (the call above always return false)
 </pre>
-       <p>See the documentation about <seeguide
-       marker="erts:communication">communication in Erlang</seeguide>
+       <p>See the documentation about
+        <seeguide marker="system/reference_manual:processes#signals">signals</seeguide>
        and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
        information about signals and exit singnals.</p>
       </desc>
@@ -4209,6 +4247,40 @@ RealSystem = system + MissedSystem</code>
 		still be left active.
 	      </p></item>
 	    </taglist>
+	    <p>Example:</p>
+            <code>
+server() ->
+    receive
+        {request, AliasReqId, Request} ->
+            Result = perform_request(Request),
+            AliasReqId ! {reply, AliasReqId, Result}
+    end,
+    server().
+
+client(ServerPid, Request) ->
+    AliasMonReqId = monitor(process, ServerPid, [{alias, reply_demonitor}]),
+    ServerPid ! {request, AliasMonReqId, Request},
+    %% Alias as well as monitor will be automatically deactivated if we
+    %% receive a reply or a 'DOWN' message since we used 'reply_demonitor'
+    %% as unalias option...
+    receive
+        {reply, AliasMonReqId, Result} ->
+            Result;
+        {'DOWN', AliasMonReqId, process, ServerPid, ExitReason} ->
+            error(ExitReason)
+    end.
+	    </code>
+	    <p>
+	      Note that both the server and the client in this example
+	      must be executing on at least OTP 24 systems in order
+	      for this to work.
+	    </p>
+	    <p>
+	      For more information on process aliases see the
+	      <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	      Aliases</i></seeguide> section of the <i>Erlang Reference
+	      Manual</i>.
+	    </p>
 	  </item>
 	  <tag><c>{tag, UserDefinedTag}</c></tag>
 	  <item>
@@ -4218,6 +4290,53 @@ RealSystem = system + MissedSystem</code>
 	      delivered when the monitor is triggered. For example, when
 	      monitoring a process, the <c>'DOWN'</c> tag in the down message
 	      will be replaced by <c>UserDefinedTag</c>.
+	    </p>
+	    <p>
+	      An example of how the <c>{tag, UserDefinedTag}</c> option can
+	      be used in order to enable the new selective receive optimization,
+	      introduced in OTP 24, when making multiple requests to different
+	      servers:
+	    </p>
+            <code>
+server() ->
+    receive
+        {request, From, ReqId, Request} ->
+            Result = perform_request(Request),
+            From ! {reply, self(), ReqId, Result}
+    end,
+    server().
+
+client(ServerPids, Request) when is_list(ServerPids) ->
+    ReqId = make_ref(),
+    lists:foreach(fun (ServerPid) ->
+                          _ = monitor(process, ServerPid,
+                                      [{tag, {'DOWN', ReqId}}]),
+                          ServerPid ! {request, self(), ReqId, Request}
+                  end,
+                  ServerPids),
+    receive_replies(ReqId, length(ServerPids), []).
+
+receive_replies(_ReqId, 0, Acc) ->
+    Acc;
+receive_replies(ReqId, N, Acc) ->
+    %% The compiler will detect that we match on the 'ReqId'
+    %% reference in all clauses, and will enable the selective
+    %% receive optimization which makes the receive able to
+    %% skip past all messages present in the message queue at
+    %% the time when the 'ReqId' reference was created...
+    Res = receive
+              {reply, ServerPid, ReqId, Result} ->
+                  {ok, ServerPid, Result};
+              {{'DOWN', ReqId}, _Mon, process, ServerPid, ExitReason} ->
+                  {error, ServerPid, ExitReason}
+          end,
+    receive_replies(ReqId, N-1, [Res | Acc]).
+	    </code>
+	    <p>
+	      Note that this example will work as intended even if
+	      one or more servers are executing on old systems without
+	      support for the <c>{tag, UserDefinedTag}</c> option and
+	      without support for the new selective receive optimization.
 	    </p>
 	  </item>
 	</taglist>
@@ -12461,6 +12580,12 @@ improper_end</pre>
 	<p>
 	  Returns true if <c><anno>Alias</anno></c> was a currently
 	  active alias for current processes; otherwise, false.
+	</p>
+	<p>
+	  For more information on process aliases see the
+	  <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	  Aliases</i></seeguide> section of the <i>Erlang Reference
+	  Manual</i>.
 	</p>
       </desc>
     </func>

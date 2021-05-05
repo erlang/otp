@@ -430,14 +430,17 @@ receive
     PatternN [when GuardSeqN] ->
         BodyN
 end</pre>
-    <p>Receives messages sent to the process using the send operator
-      (!). The patterns <c>Pattern</c> are sequentially matched
-      against the first message in time order in the mailbox, then
-      the second, and so on. If a match succeeds and the optional
-      guard sequence <c>GuardSeq</c> is true, the corresponding
+    <p>
+      Fetches a received message present in the message queue of
+      the process. The patterns <c>Pattern</c> are sequentially matched
+      against the first message in the message queue, then the second,
+      and so on. Messages in the message queue are
+      <seeguide marker="processes#message-queue-order">ordered in the
+      order they were received</seeguide>. If a match succeeds and the
+      optional guard sequence <c>GuardSeq</c> is true, the corresponding
       <c>Body</c> is evaluated. The matching message is consumed, that
-      is, removed from the mailbox, while any other messages in
-      the mailbox remain unchanged.</p>
+      is, removed from the mail queue, while any other messages in
+      the mail queue remain unchanged.</p>
     <p>The return value of <c>Body</c> is the return value of
       the <c>receive</c> expression.</p>
     <p><c>receive</c> never fails. The execution is suspended, possibly
