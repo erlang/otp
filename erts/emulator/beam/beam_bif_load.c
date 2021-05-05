@@ -902,13 +902,30 @@ msg_copy_literal_area(ErtsMessage *msgp, int *redsp,
 
     *redsp += 1;
 
-    if (!ERTS_SIG_IS_INTERNAL_MSG(msgp) || !msgp->data.attached)
+    if (!ERTS_SIG_IS_INTERNAL_MSG(msgp))
         return;
 
     if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
         hfrag = &msgp->hfrag;
     else
         hfrag = msgp->data.heap_frag;
+
+    /*
+     * Literals should only be able to appear in the
+     * first message reference, i.e., the message
+     * itself...
+     */
+    if (ErtsInArea(msgp->m[0], literals, lit_bsize))
+        lit_sz += size_object(msgp->m[0]);
+
+#ifdef DEBUG
+    {
+        int i;
+        for (i = 1; i < ERL_MESSAGE_REF_ARRAY_SZ; i++) {
+            ASSERT(!ErtsInArea(msgp->m[i], literals, lit_bsize));
+        }
+    }
+#endif
 
     for (hf = hfrag; hf; hf = hf->next) {
         lit_sz += hfrag_literal_size(&hf->mem[0],
@@ -922,6 +939,11 @@ msg_copy_literal_area(ErtsMessage *msgp, int *redsp,
         ErlHeapFragment *bp = new_message_buffer(lit_sz);
         Eterm *hp = bp->mem;
 
+        if (ErtsInArea(msgp->m[0], literals, lit_bsize)) {
+            Uint sz = size_object(msgp->m[0]);
+            msgp->m[0] = copy_struct(msgp->m[0], sz, &hp, &bp->off_heap);
+        }
+
         for (hf = hfrag; hf; hf = hf->next) {
             hfrag_literal_copy(&hp, &bp->off_heap,
                                &hf->mem[0],
@@ -930,10 +952,14 @@ msg_copy_literal_area(ErtsMessage *msgp, int *redsp,
             hfrag = hf;
         }
 
-        /* link new hfrag last */
-        ASSERT(hfrag->next == NULL);
-        hfrag->next = bp;
         bp->next = NULL;
+        /* link new hfrag last */
+        if (!hfrag)
+            msgp->data.heap_frag = bp;
+        else {
+            ASSERT(hfrag->next == NULL);
+            hfrag->next = bp;
+        }
     }
 }
 
