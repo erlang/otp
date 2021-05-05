@@ -3765,6 +3765,7 @@ dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
 {
     int all_constant = 1;
     int textpos = DMC_STACK_NUM(*text);
+    int preventive_bumps = 0;
     Uint i;
 
     /*
@@ -3784,12 +3785,34 @@ dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         if (!c && all_constant) {
             all_constant = 0;
             if (i < nelems - 1) {
+                /* Revert preventive stack bumps as they will now be done again
+                 * for real by do_emit_constant() */
+                context->stack_used -= preventive_bumps;
+
                 dmc_rearrange_constants(context, text, textpos,
                                         p + i + 1, nelems - i - 1);
             }
-        } else if (c && !all_constant) {
-            do_emit_constant(context, text, p[i]);
+        } else if (c) {
+            if (all_constant) {
+                /*
+                 * OTP-17379:
+                 * All constants so far, but do preventive stack bumps
+                 * as the constants may later be converted to matchPushC
+                 * by dmc_rearrange_constants above.
+                 * Otherwise dmc_expr() may do incorrect stack depth estimation
+                 * when it emits instructions for the first non-constant.
+                 */
+                ++context->stack_used;
+                ++preventive_bumps;
+            }
+            else {
+                do_emit_constant(context, text, p[i]);
+            }
         }
+    }
+    if (all_constant) {
+        /* Preventive stack bumps not needed */
+        context->stack_used -= preventive_bumps;
     }
     *constant = all_constant;
     return retOk;
