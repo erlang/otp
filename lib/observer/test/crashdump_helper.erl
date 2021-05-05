@@ -37,7 +37,7 @@ n1_proc(Creator,N2,Pid2,Port2,L) when Pid2==x;length(L)<2->
 	P ->
 	    n1_proc(Creator,N2,Pid2,Port2,[P|L])
     end;
-n1_proc(Creator,_N2,Pid2,Port2,_L) ->
+n1_proc(Creator,N2,Pid2,Port2,_L) ->
     register(aaaaaaaa,self()),
     process_flag(save_calls,3),
     ets:new(cdv_test_ordset_table,[ordered_set]),
@@ -89,6 +89,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     erlang:monitor(process,OtherPid),
     erlang:monitor(process,init), % named process
     erlang:monitor(process,Pid2),
+    monitor_node(N2, true),
 
     code:load_file(?MODULE),
 
