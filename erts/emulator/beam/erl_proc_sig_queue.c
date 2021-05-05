@@ -6731,7 +6731,7 @@ handle_move_msgq_off_heap(Process *c_p,
 		ERL_MESSAGE_TOKEN(msg) = copy_struct(ERL_MESSAGE_TOKEN(msg),
 						     t_sz, &hp, ohp);
 #ifdef USE_VM_PROBES
-	    if (is_not_immed(ERL_MESSAGE_DT_UTAG(mp)))
+	    if (is_not_immed(ERL_MESSAGE_DT_UTAG(msg)))
 		ERL_MESSAGE_DT_UTAG(msg) = copy_struct(ERL_MESSAGE_DT_UTAG(msg),
 						       ut_sz, &hp, ohp);
 #endif
