@@ -1212,7 +1212,10 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         goto send_signal;
     }
 
-    ERTS_BIF_PREP_RET(ret, res);
+    if (c_p == rp || !ERTS_PROC_HAS_INCOMING_SIGNALS(c_p))
+        ERTS_BIF_PREP_RET(ret, res);
+    else
+        ERTS_BIF_PREP_HANDLE_SIGNALS_RETURN(ret, c_p, res);
 
 done:
 
@@ -3592,7 +3595,10 @@ BIF_RETTYPE erts_internal_is_process_alive_2(BIF_ALIST_2)
 {
     if (!is_internal_pid(BIF_ARG_1) || !is_internal_ordinary_ref(BIF_ARG_2))
         BIF_ERROR(BIF_P, BADARG);
-    erts_proc_sig_send_is_alive_request(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    if (!erts_proc_sig_send_is_alive_request(BIF_P, BIF_ARG_1, BIF_ARG_2)) {
+        if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
+            ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, am_ok);
+    }
     BIF_RET(am_ok);
 }
 

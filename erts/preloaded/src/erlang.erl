@@ -931,21 +931,17 @@ garbage_collect(Pid, OptionList)  ->
 	GcOpts = get_gc_opts(OptionList, #gcopt{}),
 	case GcOpts#gcopt.async of
 	    {async, ReqId} ->
-		{priority, Prio} = erlang:process_info(erlang:self(),
-						       priority),
 		erts_internal:request_system_task(
-                    Pid, Prio, {garbage_collect, ReqId, GcOpts#gcopt.type}),
+                    Pid, inherit, {garbage_collect, ReqId, GcOpts#gcopt.type}),
 		async;
 	    sync ->
 		case Pid == erlang:self() of
 		    true ->
 			erts_internal:garbage_collect(GcOpts#gcopt.type);
 		    false ->
-			{priority, Prio} = erlang:process_info(erlang:self(),
-							       priority),
 			ReqId = erlang:make_ref(),
 			erts_internal:request_system_task(
-                            Pid, Prio,
+                            Pid, inherit,
                             {garbage_collect, ReqId, GcOpts#gcopt.type}),
 			receive
 			    {garbage_collect, ReqId, GCResult} ->
