@@ -197,5 +197,8 @@ remove_untoggleable_locks([{nif_load, _, _, _} | T]) ->
 remove_untoggleable_locks([{'esock.gcnt', _, _, _} | T]) ->
     %% Global lock used by socket NIF
     remove_untoggleable_locks(T);
+remove_untoggleable_locks([{'esock.protocols', _, _, _} | T]) ->
+    %% Global lock used by socket NIF
+    remove_untoggleable_locks(T);
 remove_untoggleable_locks([H | T]) ->
     [H | remove_untoggleable_locks(T)].

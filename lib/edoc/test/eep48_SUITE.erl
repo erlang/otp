@@ -123,9 +123,15 @@ init_per_group(_GroupName, Config) -> Config.
 end_per_group(_GroupName, _Config) -> ok.
 
 init_per_testcase(edoc_app_should_pass_shell_docs_validation = _CaseName, Config) ->
-    {ok, #{ebin := EbinDir} = CopyInfo} = copy_application(edoc, ?config(priv_dir, Config)),
-    true = code:add_patha(EbinDir),
-    [{edoc_copy, CopyInfo} | Config];
+    case test_server:is_cover() of
+        true ->
+            {skip,"Test fails when cover compiled"};
+        false ->
+            {ok, #{ebin := EbinDir} = CopyInfo} =
+                copy_application(edoc, ?config(priv_dir, Config)),
+            true = code:add_patha(EbinDir),
+            [{edoc_copy, CopyInfo} | Config]
+    end;
 init_per_testcase(CaseName, Config) ->
     case lists:member(CaseName, not_supported()) of
 	true ->
