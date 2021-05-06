@@ -365,8 +365,7 @@ client(ServerPid, Request) ->
             unalias(AliasReqId),
             %% Flush message queue in case the reply arrived
             %% just before the alias was deactivated...
-            receive
-                {reply, AliasReqId, Result} -> Result
+            receive {reply, AliasReqId, Result} -> Result
             after 0 -> exit(timeout)
             end
     end.
@@ -4293,9 +4292,10 @@ client(ServerPid, Request) ->
 	    </p>
 	    <p>
 	      An example of how the <c>{tag, UserDefinedTag}</c> option can
-	      be used in order to enable the new selective receive optimization,
-	      introduced in OTP 24, when making multiple requests to different
-	      servers:
+	      be used in order to enable the new
+	      <seeguide marker="system/efficiency_guide:processes#receiving-messages">selective
+	      receive optimization</seeguide>, introduced in OTP 24, when making
+	      multiple requests to different servers:
 	    </p>
             <code>
 server() ->
@@ -4326,6 +4326,9 @@ receive_replies(ReqId, N, Acc) ->
     %% the time when the 'ReqId' reference was created...
     Res = receive
               {reply, ServerPid, ReqId, Result} ->
+                  %% Here we typically would have deactivated the
+                  %% monitor by a call to demonitor(Mon, [flush]) but
+                  %% we ignore this in this example for simplicity...
                   {ok, ServerPid, Result};
               {{'DOWN', ReqId}, _Mon, process, ServerPid, ExitReason} ->
                   {error, ServerPid, ExitReason}
@@ -4333,10 +4336,9 @@ receive_replies(ReqId, N, Acc) ->
     receive_replies(ReqId, N-1, [Res | Acc]).
 	    </code>
 	    <p>
-	      Note that this example will work as intended even if
-	      one or more servers are executing on old systems without
-	      support for the <c>{tag, UserDefinedTag}</c> option and
-	      without support for the new selective receive optimization.
+	      In order for this example to work as intended, the client
+	      must be executing on at least an OTP 24 system, but the
+	      servers may execute on older systems.
 	    </p>
 	  </item>
 	</taglist>
