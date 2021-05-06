@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 4.0.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where sending of large data with ei_send_*/ei_rpc
+	    with infinite timeout could fail when the tcp buffer
+	    becomes full.</p>
+          <p>
+	    Fault has existed since OTP-21.</p>
+          <p>
+	    Own Id: OTP-17358 Aux Id: ERLERL-610 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 4.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
