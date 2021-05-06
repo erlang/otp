@@ -98,13 +98,12 @@ format(#{alert := Alert, alerter := ignored} = Report) ->
     %% Happens in DTLS
     {Fmt, Args} = ssl_alert:own_alert_format(ProtocolName, Role, StateName, Alert),
     {"~s " ++ Fmt, ["Ignored alert to mitigate DoS attacks", Args]};
-format(#{description := Desc} = Report) ->
-    #{reason := Reason}  = Report,
-    {"~s11:~p"
-    "~n"
-     "~s11:~p"
-    "~n",
-     ["Description", Desc, "Reason", Reason]
+format(#{description := Desc, reason := Reason}) ->
+    {"~12s ~p"
+     "~n"
+     "~12s ~p"
+     "~n",
+     ["Description:", Desc, "Reason:", Reason]
     }.
 
 %%-------------------------------------------------------------------------
