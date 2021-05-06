@@ -104,6 +104,14 @@
          api_b_sendmsg_iov_stream_inet6/1,
          api_b_sendmsg_iov_stream_local/1,
 
+         %% *** API sendfile ***
+         api_sendfile_inet/1,
+         api_sendfile_inet6/1,
+         api_sendfile_local/1,
+         api_sendfile_loop_inet/1,
+         api_sendfile_loop_inet6/1,
+         api_sendfile_loop_local/1,
+
          %% *** API socket from FD ***
          api_ffd_open_wod_and_info_udp4/1,
          api_ffd_open_wod_and_info_udp6/1,
@@ -732,6 +740,7 @@ groups() ->
     [{api,                         [], api_cases()},
      {api_misc,                    [], api_misc_cases()},
      {api_basic,                   [], api_basic_cases()},
+     {api_sendfile,                [], api_sendfile_cases()},
      {api_from_fd,                 [], api_from_fd_cases()},
      {api_async,                   [], api_async_cases()},
      {api_async_ref,               [], api_async_cases()},
@@ -830,6 +839,7 @@ api_cases() ->
     [
      {group, api_misc},
      {group, api_basic},
+     {group, api_sendfile},
      {group, api_async},
      {group, api_async_ref},
      {group, api_options},
@@ -874,6 +884,16 @@ api_basic_cases() ->
      api_b_sendmsg_iov_stream_inet,
      api_b_sendmsg_iov_stream_inet6,
      api_b_sendmsg_iov_stream_local
+    ].
+
+api_sendfile_cases() ->
+    [
+     api_sendfile_inet,
+     api_sendfile_inet6,
+     api_sendfile_local,
+     api_sendfile_loop_inet,
+     api_sendfile_loop_inet6,
+     api_sendfile_loop_local
     ].
 
 api_from_fd_cases() ->
@@ -1989,6 +2009,31 @@ end_per_suite(_) ->
     ok.
 
 
+init_per_group(api_sendfile = GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [GroupName, Config]),
+    case socket:is_supported(sendfile) of
+        true ->
+            Dir = proplists:get_value(priv_dir, Config),
+            HeaderSize = 1021, % I like prime numbers
+            DataSize = 1031,  Pow2 = 16, % About 64 MB
+            Header = rand:bytes(HeaderSize),
+            Filler = rand:bytes(DataSize),
+            Trailer = rand:bytes(HeaderSize),
+            FileName = filename:join(Dir, "sendfile.bin"),
+            file:write_file(
+              FileName,
+              [Header, double_data(Pow2, Filler), Trailer]),
+            N = 1 bsl Pow2,
+            [{sendfile_file,
+              {FileName,
+               HeaderSize + (N * DataSize) + HeaderSize,
+               [Header, {N, Filler}, Trailer]}}
+             | Config];
+        false ->
+            Config
+    end;
 init_per_group(GroupName, Config)
   when (GroupName =:= sc_remote_close) orelse
        (GroupName =:= sc_remote_shutdown) orelse
@@ -2065,8 +2110,12 @@ quiet_mode(Config) ->
             end
     end.
 
+double_data(0, Data) ->
+    Data;
+double_data(N, Data) ->
+    double_data(N - 1, [Data, Data]).
 
-                
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                     %%
@@ -4253,6 +4302,159 @@ api_b_sendmsg_iov_stream(Domain) ->
     after
         socket:close(Sa)
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           API SENDFILE                              %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_sendfile_inet(Config) when is_list(Config) ->
+    has_support_sendfile(),
+    api_sendfile(inet, Config, fun socket:sendfile/2).
+
+api_sendfile_inet6(Config) when is_list(Config) ->
+    has_support_sendfile(),
+    has_support_ipv6(),
+    api_sendfile(inet6, Config, fun socket:sendfile/2).
+
+api_sendfile_local(Config) when is_list(Config) ->
+    has_support_sendfile(),
+    has_support_unix_domain_socket(),
+    api_sendfile(local, Config, fun socket:sendfile/2).
+
+
+
+api_sendfile_loop_inet(Config) when is_list(Config) ->
+    has_support_sendfile(),
+    api_sendfile(inet, Config, fun sendfile_loop/2).
+
+api_sendfile_loop_inet6(Config) when is_list(Config) ->
+    has_support_sendfile(),
+    has_support_ipv6(),
+    api_sendfile(inet6, Config, fun sendfile_loop/2).
+
+api_sendfile_loop_local(Config) when is_list(Config) ->
+    has_support_sendfile(),
+    has_support_unix_domain_socket(),
+    api_sendfile(local, Config, fun sendfile_loop/2).
+
+
+sendfile_loop(Sa, F) ->
+    sendfile_loop(Sa, F, 0).
+
+sendfile_loop(Sa, Cont, Offset) ->
+    SelectHandle = make_ref(),
+    case socket:sendfile(Sa, Cont, Offset, 0, SelectHandle) of
+        {select, Select} ->
+            receive
+                {'$socket', Sa, select, SelectHandle} ->
+                    case Select of
+                        {{select_info, _, _} = Cont_1, BytesSent} ->
+                            sendfile_loop(Sa, Cont_1, Offset + BytesSent);
+                        {select_info, _, _} = Cont_1 ->
+                            sendfile_loop(Sa, Cont_1, Offset)
+                    end;
+                {'$socket', Sa, abort, {SelectHandle, Reason}} ->
+                    {error, {Reason, Offset}}
+            end;
+        {ok, BytesSent} ->
+            {ok, Offset + BytesSent};
+        {error, Reason} = Error ->
+            io:format(
+              "sendfile_loop(~p, ~p, ~p) -> ~p.~n",
+              [Sa, Cont, Offset, Error]),
+            {error, {Reason, Offset}}
+    end.
+
+
+
+api_sendfile(Domain, Config, Sendfile) ->
+    case proplists:get_value(sendfile_file, Config) of
+        undefined ->
+            {skip, sendfile_not_supported};
+        {File, Size, Data} ->
+            api_sendfile(Domain, File, Size, Data, Sendfile)
+    end.
+
+api_sendfile(Domain, File, Size, Data, Sendfile) ->
+    ?TT(?SECS(10)),
+    TC = self(),
+    BindAddr = which_local_socket_addr(Domain),
+    case BindAddr of
+        #{family := local, path := Path} ->
+            _ =
+                spawn(
+                  fun () ->
+                          Mref = monitor(process, TC),
+                          receive
+                              {'DOWN', Mref, _, _, _} ->
+                                  unlink_path(Path)
+                          end
+                  end),
+            ok;
+        #{family := _} ->
+            ok
+    end,
+    io:format("BindAddr = ~p~n", [BindAddr]),
+    {ok, F} = file:open(File, [raw, read, binary]),
+    io:format("F = ~p~n", [F]),
+    {ok, L} = socket:open(Domain, stream),
+    io:format("L = ~p~n", [L]),
+    ok = socket:bind(L, BindAddr),
+    ok = socket:listen(L),
+    {ok, Addr} = socket:sockname(L),
+    io:format("Addr = ~p~n", [Addr]),
+    {ok, Sa} = socket:open(Domain, stream),
+    io:format("Sa = ~p~n", [Sa]),
+    ok = socket:connect(Sa, Addr),
+    {ok, Sb} = socket:accept(L),
+    io:format("Sb = ~p~n", [Sb]),
+    Verifyer =
+        spawn_link(
+          fun () ->
+                  TC ! {self(), api_sendfile_verify(Sb, Data, 0)}
+          end),
+    io:format("Verifyer = ~p~n", [Verifyer]),
+    %%
+    SendfileResult = Sendfile(Sa, F),
+    io:format("SendfileResult = ~p~n", [SendfileResult]),
+    %%
+    receive
+        {Verifyer, VerifyerResult} ->
+            io:format("VerifyerResult = ~p~n", [VerifyerResult]),
+            case {SendfileResult, VerifyerResult} of
+                {{ok, Size}, {ok, Size}} ->
+                    ok;
+                Other ->
+                    ?FAIL({bad_result, Other})
+            end
+    end.
+
+api_sendfile_verify(_S, [], M) ->
+    {ok, M};
+api_sendfile_verify(S, [Block | Data], M) when is_binary(Block) ->
+    api_sendfile_verify_block(S, Data, M, Block, 1);
+api_sendfile_verify(S, [{N, Block} | Data], M) ->
+    api_sendfile_verify_block(S, Data, M, Block, N).
+
+api_sendfile_verify_block(S, Data, M, Block, N) ->
+    if
+        0 < N ->
+            ByteSize = byte_size(Block),
+            case socket:recv(S, ByteSize, 2000) of
+                {ok, Block} ->
+                    api_sendfile_verify_block(
+                      S, Data, M + ByteSize, Block, N - 1);
+                Other ->
+                    {error_at, M, Other}
+            end;
+        true ->
+            api_sendfile_verify(S, Data, M)
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48351,7 +48553,16 @@ has_support_sctp() ->
 has_support_ipv6() ->
     ?LIB:has_support_ipv6().
 
-
+has_support_sendfile() ->
+    try socket:is_supported(sendfile) of
+        true ->
+            ok;
+        false ->
+            skip("Not supported: sendfile")
+    catch
+        error : notsup ->
+            skip("Not supported: socket")
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

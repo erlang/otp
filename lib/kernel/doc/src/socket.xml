@@ -1442,6 +1442,12 @@
           when the current operation and all enqueued before it
           has been completed.
         </p>
+        <p>
+          If <c><anno>SelectInfo</anno></c> does not match an
+          operation in progress for the calling process,
+          this function returns
+          <c>{error,&nbsp;{invalid,&nbsp;SelectInfo}}</c>.
+        </p>
       </desc>
     </func>
 
@@ -1690,9 +1696,7 @@
 	  Backwards compatibility function - remove documentation?
 	  Document the Native clause?
       -->
-      <name since="OTP 22.0">
-	getopt(Socket, Level, Opt) -> ok | {error, Reason}
-      </name>
+      <name since="OTP 22.0">getopt(Socket, Level, Opt) -> ok | {error, Reason}</name>
       <fsummary>
 	Get a socket protocol option.
       </fsummary>
@@ -3457,9 +3461,7 @@
 	  Backwards compatibility function - remove documentation?
 	  Document the Native clause?
       -->
-      <name since="OTP 22.0">
-	setopt(Socket, Level, Opt, Value) -> ok | {error, Reason}
-      </name>
+      <name since="OTP 22.0">setopt(Socket, Level, Opt, Value) -> ok | {error, Reason}</name>
       <fsummary>
 	Set a socket protocol option.
       </fsummary>

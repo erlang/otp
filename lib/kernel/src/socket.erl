@@ -1210,7 +1210,9 @@ bind(Socket, Addrs, Action) ->
 %% connect - initiate a connection on a socket
 %%
 
--spec connect(Socket, SockAddr) -> 'ok' | {'error', Reason} when
+-spec connect(Socket, SockAddr) ->
+                     'ok' |
+                     {'error', Reason} when
       Socket   :: socket(),
       SockAddr :: sockaddr(),
       Reason   :: posix() | 'closed' | invalid() | 'already'.
@@ -1220,30 +1222,35 @@ connect(Socket, SockAddr) ->
 
 
 -spec connect(Socket, SockAddr, Timeout :: 'nowait') ->
-           'ok' | {'select', SelectInfo} | {'error', Reason} when
+                     'ok' |
+                     {'select', SelectInfo} |
+                     {'error', Reason} when
       Socket     :: socket(),
       SockAddr   :: sockaddr(),
       SelectInfo :: select_info(),
       Reason     :: posix() | 'closed' | invalid() | 'already';
 
-             (Socket, SockAddr, SelectHandle) ->
-           'ok' | {'select', SelectInfo} | {'error', Reason} when
+             (Socket, SockAddr, SelectHandle :: select_handle()) ->
+                     'ok' |
+                     {'select', SelectInfo} |
+                     {'error', Reason} when
       Socket       :: socket(),
       SockAddr     :: sockaddr(),
       SelectInfo   :: select_info(),
-      SelectHandle :: select_handle(),
       Reason       :: posix() | 'closed' | invalid() | 'already';
 
-             (Socket, SockAddr, Timeout) -> 'ok' | {'error', Reason} when
+             (Socket, SockAddr, Timeout :: 'infinity') ->
+                     'ok' |
+                     {'error', Reason} when
       Socket   :: socket(),
       SockAddr :: sockaddr(),
-      Timeout  :: 'infinity',
       Reason   :: posix() | 'closed' | invalid() | 'already';
 
-             (Socket, SockAddr, Timeout) -> 'ok' | {'error', Reason} when
+             (Socket, SockAddr, Timeout :: non_neg_integer()) ->
+                     'ok' |
+                     {'error', Reason} when
       Socket   :: socket(),
       SockAddr :: sockaddr(),
-      Timeout  :: non_neg_integer(),
       Reason   :: posix() | 'closed' | invalid() | 'already' | 'timeout'.
 
 %% <KOLLA>
@@ -1354,25 +1361,26 @@ accept(ListenSocket) ->
       SelectInfo      :: select_info(),
       Reason          :: posix() | closed | invalid();
 
-            (ListenSocket, SelectHandle) ->
+            (ListenSocket, SelectHandle :: select_handle()) ->
                     {'ok', Socket} |
                     {'select', SelectInfo} |
                     {'error', Reason} when
       ListenSocket      :: socket(),
       Socket            :: socket(),
       SelectInfo        :: select_info(),
-      SelectHandle      :: select_handle(),
       Reason            :: posix() | 'closed' | invalid();
 
-            (ListenSocket, Timeout) -> {'ok', Socket} | {'error', Reason} when
+            (ListenSocket, Timeout :: 'infinity') ->
+                    {'ok', Socket} |
+                    {'error', Reason} when
       ListenSocket :: socket(),
       Socket       :: socket(),
-      Timeout      :: 'infinity',
       Reason       :: posix() | 'closed' | invalid();
 
-            (ListenSocket, Timeout) -> {'ok', Socket} | {'error', Reason} when
+            (ListenSocket, Timeout :: non_neg_integer()) ->
+                    {'ok', Socket} |
+                    {'error', Reason} when
       ListenSocket :: socket(),
-      Timeout      :: non_neg_integer(),
       Socket       :: socket(),
       Reason       :: posix() | 'closed' | invalid() | 'timeout'.
 

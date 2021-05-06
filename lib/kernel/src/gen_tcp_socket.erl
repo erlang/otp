@@ -1822,14 +1822,16 @@ handle_recv_peek(P, D, ActionsR, Packet) ->
                     handle_recv_peek(
                       P, D, ActionsR, Packet,
                       <<ShortData/binary, FinalData/binary>>);
-                {select, {?select_info(_) = SelectInfo, _}} ->
+                {select, Select} ->
                     {next_state,
-                     #recv{info = SelectInfo},
-                     {P, D},
-                     reverse(ActionsR)};
-                {select, ?select_info(_) = SelectInfo} ->
-                    {next_state,
-                     #recv{info = SelectInfo},
+                     #recv{
+                        info =
+                            case Select of
+                                {?select_info(_) = SelectInfo, _Data} ->
+                                    SelectInfo;
+                                ?select_info(_) = SelectInfo ->
+                                    SelectInfo
+                            end},
                      {P, D},
                      reverse(ActionsR)};
                 {error, {Reason, <<_Data/binary>>}} ->

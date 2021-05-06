@@ -1746,7 +1746,8 @@ static ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
                                                 ERL_NIF_TERM     sockRef);
 static ERL_NIF_TERM esock_cancel_accept_waiting(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
-                                                ERL_NIF_TERM     opRef);
+                                                ERL_NIF_TERM     opRef,
+                                                const ErlNifPid* selfP);
 static ERL_NIF_TERM esock_cancel_send(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
@@ -1756,7 +1757,8 @@ static ERL_NIF_TERM esock_cancel_send_current(ErlNifEnv*       env,
                                               ERL_NIF_TERM     sockRef);
 static ERL_NIF_TERM esock_cancel_send_waiting(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
-                                              ERL_NIF_TERM     opRef);
+                                              ERL_NIF_TERM     opRef,
+                                              const ErlNifPid* selfP);
 static ERL_NIF_TERM esock_cancel_recv(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
@@ -1766,7 +1768,8 @@ static ERL_NIF_TERM esock_cancel_recv_current(ErlNifEnv*       env,
                                               ERL_NIF_TERM     sockRef);
 static ERL_NIF_TERM esock_cancel_recv_waiting(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
-                                              ERL_NIF_TERM     opRef);
+                                              ERL_NIF_TERM     opRef,
+                                              const ErlNifPid* selfP);
 static ERL_NIF_TERM esock_cancel_read_select(ErlNifEnv*       env,
                                              ESockDescriptor* descP,
                                              ERL_NIF_TERM     opRef);
@@ -3254,7 +3257,8 @@ ACTIVATE_NEXT_FUNCS_DEFS
                              ESockRequestor*  reqP);           \
     static BOOLEAN_T O##_unqueue(ErlNifEnv*       env,         \
                                  ESockDescriptor* descP,       \
-                                 const ErlNifPid* pid);
+                                 ERL_NIF_TERM*    refP,        \
+                                 const ErlNifPid* pidP);
 ESOCK_OPERATOR_FUNCS_DEFS
 #undef ESOCK_OPERATOR_FUNCS_DEF
 
@@ -3262,10 +3266,10 @@ static BOOLEAN_T requestor_pop(ESockRequestQueue* q,
                                ESockRequestor*    reqP);
 
 static void requestor_init(ESockRequestor* reqP);
-static int requestor_release(const char*      slogan,
-                             ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ESockRequestor*  reqP);
+static void requestor_release(const char*      slogan,
+                              ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ESockRequestor*  reqP);
 
 static BOOLEAN_T qsearch4pid(ErlNifEnv*         env,
                              ESockRequestQueue* q,
@@ -3277,7 +3281,8 @@ static BOOLEAN_T qunqueue(ErlNifEnv*         env,
                           ESockDescriptor*   descP,
                           const char*        slogan,
                           ESockRequestQueue* q,
-                          const ErlNifPid*   pid);
+                          ERL_NIF_TERM*      refP,
+                          const ErlNifPid*   pidP);
 
 static int esock_monitor(const char*      slogan,
                          ErlNifEnv*       env,
@@ -3298,22 +3303,22 @@ static BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
 
 static void esock_down_ctrl(ErlNifEnv*       env,
                             ESockDescriptor* descP,
-                            const ErlNifPid* pid);
+                            const ErlNifPid* pidP);
 static void esock_down_acceptor(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
                                 ERL_NIF_TERM     sockRef,
-                                const ErlNifPid* pid,
-                                const ErlNifMonitor* mon);
+                                const ErlNifPid* pidP,
+                                const ErlNifMonitor* monP);
 static void esock_down_writer(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               ERL_NIF_TERM     sockRef,
-                              const ErlNifPid* pid,
-                              const ErlNifMonitor* mon);
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
 static void esock_down_reader(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               ERL_NIF_TERM     sockRef,
-                              const ErlNifPid* pid,
-                              const ErlNifMonitor* mon);
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
 
 static void esock_send_reg_add_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
@@ -3418,8 +3423,8 @@ static void esock_stop(ErlNifEnv* env,
                        int        is_direct_call);
 static void esock_down(ErlNifEnv*           env,
                        void*                obj,
-                       const ErlNifPid*     pid,
-                       const ErlNifMonitor* mon);
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP);
 
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
@@ -6567,7 +6572,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     sendRef = argv[3];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
-        SSDBG( descP, ("SOCKET", "nif_send -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_send -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -6575,11 +6580,11 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
 
     if ((! enif_is_ref(env, sendRef)) ||
         (! GET_BIN(env, argv[1], &sndData))) {
-        SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_send -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[2], &flags)) {
-        SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_send -> argv decode failed\r\n") );
         if (IS_INTEGER(env, argv[2]))
             return esock_make_error_integer_range(env, argv[2]);
         else
@@ -6715,7 +6720,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     sendRef   = argv[4];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendto -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -6723,11 +6728,11 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
 
     if ((! enif_is_ref(env, sendRef)) ||
         (! GET_BIN(env, argv[1], &sndData))) {
-        SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[3], &flags)) {
-        SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         if (IS_INTEGER(env, argv[3]))
             return esock_make_error_integer_range(env, argv[3]);
         else
@@ -6863,7 +6868,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     eIOV    = argv[4];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendmsg -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendmsg -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -6871,7 +6876,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 
     if ((! enif_is_ref(env, sendRef)) ||
         (! IS_MAP(env, eMsg))) {
-        SGDBG( ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[2], &flags)) {
@@ -7233,7 +7238,7 @@ nif_sendfile(ErlNifEnv*         env,
     }
     sockRef = argv[0];
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) (&descP))) {
-        SSDBG( descP, ("SOCKET", "nif_sendfile -> get resource failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendfile -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -7260,7 +7265,8 @@ nif_sendfile(ErlNifEnv*         env,
 
         sendRef = argv[1];
         if ((! enif_is_ref(env, sendRef))) {
-            SGDBG( ("SOCKET", "nif_sendfile -> argv[1] decode failed\r\n") );
+            SSDBG( descP,
+                   ("SOCKET", "nif_sendfile -> argv[1] decode failed\r\n") );
             return enif_make_badarg(env);
         }
 
@@ -7584,9 +7590,9 @@ esock_sendfile(ErlNifEnv       *env,
 
         {
             /* Platform dependent code:
-             *   set and check bytes_sent, or
-             *   set res to >= 0, or
-             *   set res to < 0 and error to sock_errno()
+             *   update and check offset, set and check bytes_sent, and
+             *       set res to >= 0 and error to 0, or
+             *       set res to < 0 and error to sock_errno()
              */
 #if defined (__linux__)
 
@@ -7596,11 +7602,21 @@ esock_sendfile(ErlNifEnv       *env,
             res =
                 sendfile(descP->sock, descP->sendfileHandle,
                          &offset, chunk_size);
-            if (res < 0)
-                error = sock_errno();
+            error = (res < 0) ? sock_errno() : 0;
+
             ESOCK_ASSERT( offset >= prev_offset );
             ESOCK_ASSERT( (off_t) chunk_size >= (offset - prev_offset) );
             bytes_sent = (size_t) (offset - prev_offset);
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
 
 #elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__DARWIN__)
 
@@ -7612,15 +7628,36 @@ esock_sendfile(ErlNifEnv       *env,
                 sendfile(descP->sendfileHandle, descP->sock, offset,
                          &sbytes, NULL, 0);
 #else
+            sbytes = 0;
             res = (ssize_t)
                 sendfile(descP->sendfileHandle, descP->sock, offset,
                          chunk_size, NULL, &sbytes, 0);
 #endif
-            if (res < 0)
-                error = sock_errno();
-            ESOCK_ASSERT( sbytes >= 0 );
-            ESOCK_ASSERT( (off_t) chunk_size >= sbytes );
+            error = (res < 0) ? sock_errno() : 0;
+
+            /* For an error return, we do not dare trust that sbytes is set
+             * unless the error is ERRNO_BLOCK or EINTR
+             * - the man page is to vague
+             */
+            if ((res < 0) && (error != ERRNO_BLOCK) && (error != EINTR)) {
+                sbytes = 0;
+            } else {
+                ESOCK_ASSERT( sbytes >= 0 );
+                ESOCK_ASSERT( (off_t) chunk_size >= sbytes );
+                ESOCK_ASSERT( offset + sbytes >= offset );
+                offset += sbytes;
+            }
             bytes_sent = (size_t) sbytes;
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
 
 #elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
 
@@ -7632,17 +7669,31 @@ esock_sendfile(ErlNifEnv       *env,
             sfvec[0].sfv_len = chunk_size;
 
             res = sendfilev(descP->sock, sfvec, NUM(sfvec), &bytes_sent);
-            if (res < 0) {
-                if ((error = sock_errno()) == EINVAL) {
-                    /* On e.b SunOS 5.10 using sfv_len > file size
-                     * lands here - we regard this as a succesful send
-                     * by pretending it is an EINTR causing the loop
-                     * to continue with more data up to end of file
-                     */
-                    error = EINTR;
-                }
+            error = (res < 0) ? sock_errno() : 0;
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
+
+            if ((res < 0) && (error == EINVAL)) {
+                /* On e.b SunOS 5.10 using sfv_len > file size
+                 * lands here - we regard this as a succesful send.
+                 * All other causes for EINVAL are avoided,
+                 * except for .sfv_fd not seekable, which would
+                 * give bytes_sent == 0 that we would interpret
+                 * as end of file, which is kind of true.
+                 */
+                res = 0;
             }
             ESOCK_ASSERT( chunk_size >= bytes_sent );
+            ESOCK_ASSERT( offset + bytes_sent >= offset );
+            offset += bytes_sent;
 
 #else
 #error "Unsupported sendfile syscall; update configure test."
@@ -7673,10 +7724,14 @@ esock_sendfile(ErlNifEnv       *env,
             }
 
             /* *countP == 0 means send whole file */
-            if ((*countP > 0) &&
-                ((*countP -= bytes_sent) == 0)) { // All sent
-                *countP = pkgSize;
-                return 0;
+            if (*countP > 0) {
+
+                *countP -= bytes_sent;
+
+                if (*countP == 0) { // All sent
+                    *countP = pkgSize;
+                    return 0;
+                }
             }
 
             if (res < 0) {
@@ -7687,7 +7742,7 @@ esock_sendfile(ErlNifEnv       *env,
                 if (error == EINTR)
                     continue;
                 *errP = error;
-                return INVALID_SOCKET;
+                return -1;
             }
 
             if (bytes_sent == 0) { // End of input file
@@ -7695,8 +7750,7 @@ esock_sendfile(ErlNifEnv       *env,
                 return 0;
             }
         }
-    }
-    return 0;
+    } // for (;;)
 }
 
 static ERL_NIF_TERM
@@ -8991,7 +9045,8 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     if (! GET_INT(env, argv[2], &opt)) {
-        SGDBG( ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
+        SSDBG( descP,
+               ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
         if (! IS_INTEGER(env, argv[2]))
             return enif_make_badarg(env);
         else
@@ -9010,12 +9065,13 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
         if (nativeValue == 0) {
             return esock_setopt_otp(env, descP, opt, eVal);
         } else {
-            SGDBG( ("SOCKET", "nif_setopt -> failed arg check\r\n") );
+            SSDBG( descP, ("SOCKET", "nif_setopt -> failed arg check\r\n") );
             return enif_make_badarg(env);
         }
     }
 
     SGDBG( ("SOCKET", "nif_setopt -> failed arg check\r\n") );
+
     if (IS_INTEGER(env, argv[1]))
         return esock_make_error_integer_range(env, argv[1]);
     else
@@ -10722,7 +10778,8 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     }
 
     if (! GET_INT(env, argv[2], &opt)) {
-        SGDBG( ("SOCKET", "nif_getopt -> failed initial args check\r\n") );
+        SSDBG( descP,
+               ("SOCKET", "nif_getopt -> failed initial args check\r\n") );
         if (! IS_INTEGER(env, argv[2]))
             return enif_make_badarg(env);
         else
@@ -12519,13 +12576,30 @@ ERL_NIF_TERM esock_cancel_connect(ErlNifEnv*       env,
                                   ERL_NIF_TERM     opRef)
 {
     ERL_NIF_TERM res;
+    ErlNifPid self;
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
     MLOCK(descP->writeMtx);
 
-    if (! IS_OPEN(descP->writeState))
+    if (! IS_OPEN(descP->writeState)) {
+
         res = esock_make_error(env, atom_closed);
-    else
+
+    } else if ((descP->connectorP == NULL) ||
+               (COMPARE_PIDS(&self, &descP->connector.pid) != 0) ||
+               (COMPARE(opRef, descP->connector.ref) != 0)) {
+
+        res = esock_atom_not_found;
+
+    } else {
+
         res = esock_cancel_write_select(env, descP, opRef);
+        requestor_release("esock_cancel_connect",
+                          env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+    }
 
     SSDBG( descP,
            ("SOCKET",
@@ -12579,16 +12653,22 @@ ERL_NIF_TERM esock_cancel_accept(ErlNifEnv*       env,
 
         res = esock_make_error(env, atom_closed);
 
-    } else {
+    } else if (descP->currentAcceptorP == NULL) {
 
-        if (descP->currentAcceptorP != NULL) {
-            if (COMPARE(opRef, descP->currentAcceptor.ref) == 0) {
+        res = esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentAcceptor.pid) == 0) {
+            if (COMPARE(opRef, descP->currentAcceptor.ref) == 0)
                 res = esock_cancel_accept_current(env, descP, sockRef);
-            } else {
-                res = esock_cancel_accept_waiting(env, descP, opRef);
-            }
+            else
+                res = esock_atom_not_found;
         } else {
-            res = esock_atom_not_found;
+            res = esock_cancel_accept_waiting(env, descP, opRef, &self);
         }
     }
 
@@ -12629,7 +12709,8 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET",
-                "esock_cancel_accept_current(%T) {%d} -> no more acceptors\r\n",
+                "esock_cancel_accept_current(%T) {%d} -> "
+                "no more acceptors\r\n",
                 sockRef, descP->sock) );
 
         descP->readState &= ~ESOCK_STATE_ACCEPTING;
@@ -12649,15 +12730,12 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esock_cancel_accept_waiting(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
-                                         ERL_NIF_TERM     opRef)
+                                         ERL_NIF_TERM     opRef,
+                                         const ErlNifPid* selfP)
 {
-    ErlNifPid caller;
-
-    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
-
     /* unqueue request from (acceptor) queue */
 
-    if (acceptor_unqueue(env, descP, &caller)) {
+    if (acceptor_unqueue(env, descP, &opRef, selfP)) {
         return esock_atom_ok;
     } else {
         return esock_atom_not_found;
@@ -12698,16 +12776,22 @@ ERL_NIF_TERM esock_cancel_send(ErlNifEnv*       env,
 
         res = esock_make_error(env, atom_closed);
 
-    } else {
+    } else if (descP->currentWriterP == NULL) {
 
-        if (descP->currentWriterP != NULL) {
-            if (COMPARE(opRef, descP->currentWriter.ref) == 0) {
+        res = esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentWriter.pid) == 0) {
+            if (COMPARE(opRef, descP->currentWriter.ref) == 0)
                 res = esock_cancel_send_current(env, descP, sockRef);
-            } else {
-                res = esock_cancel_send_waiting(env, descP, opRef);
-            }
+            else
+                res = esock_atom_not_found;
         } else {
-            res = esock_atom_not_found;
+            res = esock_cancel_send_waiting(env, descP, opRef, &self);
         }
     }
 
@@ -12765,15 +12849,12 @@ ERL_NIF_TERM esock_cancel_send_current(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esock_cancel_send_waiting(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
-                                       ERL_NIF_TERM     opRef)
+                                       ERL_NIF_TERM     opRef,
+                                       const ErlNifPid* selfP)
 {
-    ErlNifPid caller;
-
-    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
-
     /* unqueue request from (writer) queue */
 
-    if (writer_unqueue(env, descP, &caller)) {
+    if (writer_unqueue(env, descP, &opRef, selfP)) {
         return esock_atom_ok;
     } else {
         return esock_atom_not_found;
@@ -12814,16 +12895,22 @@ ERL_NIF_TERM esock_cancel_recv(ErlNifEnv*       env,
 
         res = esock_make_error(env, atom_closed);
 
-    } else {
+    } else if (descP->currentReaderP == NULL) {
 
-        if (descP->currentReaderP != NULL) {
-            if (COMPARE(opRef, descP->currentReader.ref) == 0) {
+        res =  esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentReader.pid) == 0) {
+            if (COMPARE(opRef, descP->currentReader.ref) == 0)
                 res = esock_cancel_recv_current(env, descP, sockRef);
-            } else {
-                res = esock_cancel_recv_waiting(env, descP, opRef);
-            }
+            else
+                res =  esock_atom_not_found;
         } else {
-            res =  esock_atom_not_found;
+            res = esock_cancel_recv_waiting(env, descP, opRef, &self);
         }
     }
 
@@ -12880,15 +12967,12 @@ ERL_NIF_TERM esock_cancel_recv_current(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esock_cancel_recv_waiting(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
-                                       ERL_NIF_TERM     opRef)
+                                       ERL_NIF_TERM     opRef,
+                                       const ErlNifPid* selfP)
 {
-    ErlNifPid caller;
-
-    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
-
     /* unqueue request from (reader) queue */
 
-    if (reader_unqueue(env, descP, &caller)) {
+    if (reader_unqueue(env, descP, &opRef, selfP)) {
         return esock_atom_ok;
     } else {
         return esock_atom_not_found;
@@ -17135,14 +17219,15 @@ REQ_POP_FUNCS
     REQ_UNQUEUE_FUNC_DECL(writer,   writersQ)   \
     REQ_UNQUEUE_FUNC_DECL(reader,   readersQ)
 
-#define REQ_UNQUEUE_FUNC_DECL(F, Q)                            \
-    static                                                     \
-    BOOLEAN_T F##_unqueue(ErlNifEnv*       env,                \
-                          ESockDescriptor* descP,              \
-                          const ErlNifPid* pid)                \
-    {                                                          \
-        return qunqueue(env, descP, "qunqueue -> waiting " #F, \
-                        &descP->Q, pid);                       \
+#define REQ_UNQUEUE_FUNC_DECL(F, Q)                             \
+    static                                                      \
+    BOOLEAN_T F##_unqueue(ErlNifEnv*       env,                 \
+                          ESockDescriptor* descP,               \
+                          ERL_NIF_TERM*    refP,                \
+                          const ErlNifPid* pidP)                \
+    {                                                           \
+        return qunqueue(env, descP, "qunqueue -> waiting " #F,  \
+                        &descP->Q, refP, pidP);                 \
     }
 REQ_UNQUEUE_FUNCS
 #undef REQ_UNQUEUE_FUNC_DECL
@@ -17188,19 +17273,16 @@ static void requestor_init(ESockRequestor* reqP) {
     reqP->ref = esock_atom_undefined;
 }
 
-static int requestor_release(const char*      slogan,
-                             ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ESockRequestor*  reqP) {
-    int res;
+static void requestor_release(const char*      slogan,
+                              ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ESockRequestor*  reqP) {
 
     enif_set_pid_undefined(&reqP->pid);
-    res = DEMONP(slogan, env, descP, &reqP->mon);
+    (void) DEMONP(slogan, env, descP, &reqP->mon);
     esock_free_env(slogan, reqP->env);
     reqP->env = NULL;
     reqP->ref = esock_atom_undefined;
-
-    return res;
 }
 #endif // #ifndef __WIN32__
 
@@ -17268,14 +17350,17 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
                    ESockDescriptor*   descP,
                    const char*        slogan,
                    ESockRequestQueue* q,
-                   const ErlNifPid*   pid)
+                   ERL_NIF_TERM*      refP,
+                   const ErlNifPid*   pidP)
 {
     ESockRequestQueueElement* e = q->first;
     ESockRequestQueueElement* p = NULL;
 
     /* Check if it was one of the waiting acceptor processes */
     while (e != NULL) {
-        if (COMPARE_PIDS(&e->data.pid, pid) == 0) {
+        if (COMPARE_PIDS(&e->data.pid, pidP) == 0) {
+            if ((refP != NULL) && (COMPARE(e->data.ref, *refP) != 0))
+                return FALSE;
 
             /* We have a match */
 
@@ -17491,6 +17576,14 @@ void esock_dtor(ErlNifEnv* env, void* obj)
 
   if (! IS_CLOSED(descP->readState)) {
       int err;
+
+      descP->useReg = FALSE;
+      /* We are not allowed to enif_make_resource from
+       * the destructor - it would create kind of a zombie
+       * resource and maybe lead to calling the destructor
+       * again and whatnot..., so disable sending a resource
+       * ref to the socket registry
+       */
 
       if ((err = esock_close_socket(env, descP, FALSE)) != 0)
           esock_warning_msg("Failed closing socket in destructor:"
@@ -17798,8 +17891,8 @@ void inform_waiting_procs(ErlNifEnv*         env,
 static
 void esock_down(ErlNifEnv*           env,
                 void*                obj,
-                const ErlNifPid*     pid,
-                const ErlNifMonitor* mon)
+                const ErlNifPid*     pidP,
+                const ErlNifMonitor* monP)
 {
 #ifndef __WIN32__
     ESockDescriptor* descP = (ESockDescriptor*) obj;
@@ -17811,11 +17904,11 @@ void esock_down(ErlNifEnv*           env,
                    "\r\n   pid:   %T"
                    "\r\n   Close: %s (%s)"
                    "\r\n",
-                   descP->sock, *pid,
+                   descP->sock, MKPID(env, pidP),
                    B2S(IS_CLOSED(descP->readState)),
                    B2S(IS_CLOSING(descP->readState))) );
 
-    if (COMPARE_PIDS(&descP->closerPid, pid) == 0) {
+    if (COMPARE_PIDS(&descP->closerPid, pidP) == 0) {
 
         /* The closer process went down
          * - it will not call nif_finalize_close
@@ -17823,7 +17916,7 @@ void esock_down(ErlNifEnv*           env,
 
         enif_set_pid_undefined(&descP->closerPid);
 
-        if (MON_EQ(&descP->closerMon, mon)) {
+        if (MON_EQ(&descP->closerMon, monP)) {
             MON_INIT(&descP->closerMon);
 
             SSDBG( descP,
@@ -17834,7 +17927,7 @@ void esock_down(ErlNifEnv*           env,
         } else {
             // The owner is the closer so we used its monitor
 
-            ESOCK_ASSERT( MON_EQ(&descP->ctrlMon, mon) );
+            ESOCK_ASSERT( MON_EQ(&descP->ctrlMon, monP) );
             MON_INIT(&descP->ctrlMon);
             enif_set_pid_undefined(&descP->ctrlPid);
 
@@ -17873,9 +17966,8 @@ void esock_down(ErlNifEnv*           env,
                                   "\r\n   Descriptor:     %d"
                                   "\r\n   Errno:          %d (%T)"
                                   "\r\n",
-                                  pid, descP->sock,
-                                  err,
-                                  MKA(env, erl_errno_id(err)));
+                                  MKPID(env, pidP), descP->sock,
+                                  err, MKA(env, erl_errno_id(err)));
         } else {
             /* Since there is a closeEnv esock_stop() has not run yet
              * - when it finds that there is no closer process
@@ -17886,7 +17978,7 @@ void esock_down(ErlNifEnv*           env,
             descP->closeRef = esock_atom_undefined;
         }
 
-    } else if (MON_EQ(&descP->ctrlMon, mon)) {
+    } else if (MON_EQ(&descP->ctrlMon, monP)) {
         MON_INIT(&descP->ctrlMon);
         /* The owner went down */
         enif_set_pid_undefined(&descP->ctrlPid);
@@ -17898,7 +17990,7 @@ void esock_down(ErlNifEnv*           env,
                     "\r\n   initiate close\r\n",
                     descP->sock) );
 
-            esock_down_ctrl(env, descP, pid);
+            esock_down_ctrl(env, descP, pidP);
 
             descP->readState  |= ESOCK_STATE_CLOSING;
             descP->writeState |= ESOCK_STATE_CLOSING;
@@ -17911,7 +18003,7 @@ void esock_down(ErlNifEnv*           env,
         }
 
     } else if (descP->connectorP != NULL &&
-               MON_EQ(&descP->connector.mon, mon)) {
+               MON_EQ(&descP->connector.mon, monP)) {
         MON_INIT(&descP->connector.mon);
 
         SSDBG( descP,
@@ -17945,7 +18037,7 @@ void esock_down(ErlNifEnv*           env,
             SSDBG( descP,
                    ("SOCKET",
                     "esock_down(%T) {%d} -> stray down: %T\r\n",
-                    sockRef, descP->sock, pid) );
+                    sockRef, descP->sock, pidP) );
         } else {
 
             SSDBG( descP,
@@ -17954,11 +18046,11 @@ void esock_down(ErlNifEnv*           env,
                     sockRef, descP->sock) );
 
             if (descP->currentReaderP != NULL)
-                esock_down_reader(env, descP, sockRef, pid, mon);
+                esock_down_reader(env, descP, sockRef, pidP, monP);
             if (descP->currentAcceptorP != NULL)
-                esock_down_acceptor(env, descP, sockRef, pid, mon);
+                esock_down_acceptor(env, descP, sockRef, pidP, monP);
             if (descP->currentWriterP != NULL)
-                esock_down_writer(env, descP, sockRef, pid, mon);
+                esock_down_writer(env, descP, sockRef, pidP, monP);
         }
     }
 
@@ -17981,12 +18073,12 @@ void esock_down(ErlNifEnv*           env,
 static
 void esock_down_ctrl(ErlNifEnv*           env,
                      ESockDescriptor*     descP,
-                     const ErlNifPid*     pid)
+                     const ErlNifPid*     pidP)
 {
     SSDBG( descP,
            ("SOCKET", "esock_down_ctrl {%d} ->"
             "\r\n   Pid: %T"
-            "\r\n", descP->sock, MKPID(env, pid)) );
+            "\r\n", descP->sock, MKPID(env, pidP)) );
 
     if (esock_do_stop(env, descP)) {
         /* esock_stop() is scheduled
@@ -18016,7 +18108,7 @@ void esock_down_ctrl(ErlNifEnv*           env,
                               "\r\n   Descriptor:     %d"
                               "\r\n   Errno:          %d (%T)"
                               "\r\n",
-                              MKPID(env, pid), descP->sock,
+                              MKPID(env, pidP), descP->sock,
                               err, MKA(env, erl_errno_id(err)));
     }
 }
@@ -18034,10 +18126,10 @@ static
 void esock_down_acceptor(ErlNifEnv*           env,
                          ESockDescriptor*     descP,
                          ERL_NIF_TERM         sockRef,
-                         const ErlNifPid*     pid,
-                         const ErlNifMonitor* mon)
+                         const ErlNifPid*     pidP,
+                         const ErlNifMonitor* monP)
 {
-    if (MON_EQ(&descP->currentAcceptor.mon, mon)) {
+    if (MON_EQ(&descP->currentAcceptor.mon, monP)) {
         MON_INIT(&descP->currentAcceptor.mon);
         
         SSDBG( descP,
@@ -18068,7 +18160,7 @@ void esock_down_acceptor(ErlNifEnv*           env,
                 "not current acceptor - maybe a waiting acceptor\r\n",
                 sockRef, descP->sock) );
         
-        acceptor_unqueue(env, descP, pid);
+        acceptor_unqueue(env, descP, NULL, pidP);
     }
 }
 #endif // #ifndef __WIN32__
@@ -18084,10 +18176,10 @@ static
 void esock_down_writer(ErlNifEnv*           env,
                        ESockDescriptor*     descP,
                        ERL_NIF_TERM         sockRef,
-                       const ErlNifPid*     pid,
-                       const ErlNifMonitor* mon)
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
 {
-    if (MON_EQ(&descP->currentWriter.mon, mon)) {
+    if (MON_EQ(&descP->currentWriter.mon, monP)) {
         MON_INIT(&descP->currentWriter.mon);
         
         SSDBG( descP,
@@ -18116,7 +18208,7 @@ void esock_down_writer(ErlNifEnv*           env,
                 "not current writer - maybe a waiting writer\r\n",
                 sockRef, descP->sock) );
         
-        writer_unqueue(env, descP, pid);
+        writer_unqueue(env, descP, NULL, pidP);
     }
 }
 #endif // #ifndef __WIN32__
@@ -18134,10 +18226,10 @@ static
 void esock_down_reader(ErlNifEnv*           env,
                        ESockDescriptor*     descP,
                        ERL_NIF_TERM         sockRef,
-                       const ErlNifPid*     pid,
-                       const ErlNifMonitor* mon)
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
 {
-    if (MON_EQ(&descP->currentReader.mon, mon)) {
+    if (MON_EQ(&descP->currentReader.mon, monP)) {
         MON_INIT(&descP->currentReader.mon);
         
         SSDBG( descP,
@@ -18166,7 +18258,7 @@ void esock_down_reader(ErlNifEnv*           env,
                 "not current reader - maybe a waiting reader\r\n",
                 sockRef, descP->sock) );
         
-        reader_unqueue(env, descP, pid);
+        reader_unqueue(env, descP, NULL, pidP);
     }
 }
 #endif // #ifndef __WIN32__
