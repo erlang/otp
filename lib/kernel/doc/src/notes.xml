@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in the Erlang DNS resolver has been fixed, where it
+	    could be made to bring down the kernel supervisor and
+	    thereby the whole node, when getting an incorrect (IN A
+	    reply to an IN CNAME query) reply from the DNS server and
+	    used the reply record's value without verifying its type.</p>
+          <p>
+	    Own Id: OTP-17361</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

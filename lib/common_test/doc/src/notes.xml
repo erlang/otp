@@ -33,6 +33,22 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.20.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Before this change Config leaked between test groups in
+	    case of a subgroup was skipped (GH-3480).</p>
+          <p>
+	    Own Id: OTP-17347 Aux Id: GH-3480,ERL-1439 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.20.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
