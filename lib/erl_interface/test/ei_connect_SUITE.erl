@@ -28,6 +28,7 @@
          init_per_testcase/2,
          ei_send/1,
          ei_reg_send/1,
+         ei_reg_send_large/1,
          ei_format_pid/1,
          ei_rpc/1,
          rpc_test/1,
@@ -42,7 +43,7 @@ suite() ->
      {timetrap, {seconds, 30}}].
 
 all() -> 
-    [ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,
+    [ei_send, ei_reg_send, ei_reg_send_large, ei_rpc, ei_format_pid, ei_send_funs,
      ei_threaded_send, ei_set_get_tracelevel].
 
 init_per_testcase(Case, Config) ->
@@ -100,6 +101,21 @@ ei_reg_send(Config) when is_list(Config) ->
     ARegName = a_strange_registred_name,
     register(ARegName, self()),
     ok = ei_reg_send(P, Fd, ARegName, AMsg={another,[strange],message}),
+    receive AMsg -> ok end,
+
+    runner:send_eot(P),
+    runner:recv_eot(P),
+    ok.
+
+ei_reg_send_large(Config) when is_list(Config) ->
+    P = runner:start(Config, ?interpret),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    {ok,Fd} = ei_connect(P, node()),
+
+    ARegName = a_strange_registred_name,
+    register(ARegName, self()),
+    ok = ei_reg_send(P, Fd, ARegName, AMsg={another,[strange],message,
+                                            <<0:(32*1024*1024*8)>>}),
     receive AMsg -> ok end,
 
     runner:send_eot(P),
