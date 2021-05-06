@@ -251,6 +251,66 @@
   </section>
 
   <section>
+    <title>Sockets Tab</title>
+    <p>Tab <em>Sockets</em> is devided into two parts.
+    The first part contains general
+    <seemfa marker="kernel:socket#"><c>socket</c></seemfa>
+    information and the second part
+    lists socket information in columns. </p>
+    <p>For each socket the following information is displayed: </p>
+    <taglist>
+      <tag>Id</tag>
+      <item>
+	<p>The socket identifier.</p>
+      </item>
+
+      <tag>Owner</tag>
+      <item>
+	<p>The process identifier for the process that owns the socket.</p>
+      </item>
+
+      <tag>Fd</tag>
+      <item>
+	<p>The underlying file descriptor of the socket.</p>
+      </item>
+
+      <tag>Domain</tag>
+      <item>
+	<p>The communication domain (e.g. inet or inet6) of this socket.</p>
+      </item>
+
+      <tag>Type</tag>
+      <item>
+	<p>The type (e.g. stream or dgram) of this socket.</p>
+      </item>
+
+      <tag>Protocol</tag>
+      <item>
+	<p>The protocol (e.g. tcp or udp) of this socket.</p>
+      </item>
+
+      <tag>Read State</tag>
+      <item>
+	<p>The read state of the socket.</p>
+      </item>
+
+      <tag>Write State</tag>
+      <item>
+	<p>The write state of the socket.</p>
+      </item>
+    </taglist>
+
+    <p>Option <em>Socket info</em> opens a detailed information window
+      for the socket under the mouse pointer. In addition to the
+      information above, it also shows monitors.</p>
+
+    <p>Option <em>Close</em>
+      executes <seemfa marker="kernel:socket#close/1"><c>socket:close/1</c></seemfa>
+      on the socket under the mouse pointer.</p>
+
+  </section>
+
+  <section>
     <title>Table Viewer Tab</title>
     <p>Tab <em>Table Viewer</em> lists tables. By default, ETS tables
     are displayed whereas unreadable private ETS tables and tables created by OTP
