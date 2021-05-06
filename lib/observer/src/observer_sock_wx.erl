@@ -127,21 +127,13 @@ update_gen_socket_info(#state{node = _}) ->
 %% 2) Second part is a list (grid) och each socket and info about it
 init([Notebook, Parent, Config]) ->
     %% put(debug, true),
-    d("init -> entry with"
-      "~n      Notebook: ~p"
-      "~n      Parent:   ~p"
-      "~n      Config:   ~p", [Notebook, Parent, Config]),
     try
 	begin
 	    do_init(Notebook, Parent, Config, observer_backend:socket_info())
 	end
     catch
-	C:E:S ->
+	_C:_E:_S ->
 	    %% Current node does not support socket (windows?)
-	    d("init -> catched: "
-	      "~n   C: ~p"
-	      "~n   E: ~p"
-	      "~n   S: ~p", [C, E, S]),
 	    do_init(Notebook, Parent, Config, [])
     end.
 
@@ -208,14 +200,12 @@ handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node = Node,
 			    grid = Grid,
 			    opt  = Opt} = State) ->
-    d("handle_event(wx refresh) -> entry"),
     _ = update_gen_socket_info(State),
     Sockets0 = get_sockets(Node),
     Sockets  = update_grid(Grid, sel(State), Opt, Sockets0),
     {noreply, State#state{sockets = Sockets}};
 
 handle_event(#wx{obj=Obj, event=#wxClose{}}, #state{open_wins=Opened} = State) ->
-    d("handle_event(wx close) -> entry"),
     NewOpened =
 	case lists:keytake(Obj,2,Opened) of
 	    false -> Opened;
@@ -226,7 +216,6 @@ handle_event(#wx{obj=Obj, event=#wxClose{}}, #state{open_wins=Opened} = State) -
 handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 	     State = #state{node=Node, grid=Grid,
 			    opt=Opt0=#opt{sort_key=Key, sort_incr=Bool}}) ->
-    d("handle_event(wx list cmd-list-col-click) -> entry"),
     Opt = case Col+2 of
 	      Key -> Opt0#opt{sort_incr=not Bool};
 	      NewKey -> Opt0#opt{sort_key=NewKey}
@@ -237,7 +226,6 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
     {noreply, State#state{opt = Opt, sockets = Sockets}};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
-    d("handle_event(wx size) -> entry"),
     observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
@@ -246,7 +234,6 @@ handle_event(#wx{event = #wxList{type      = command_list_item_activated,
 	     State = #state{grid      = Grid,
 			    sockets   = Sockets,
 			    open_wins = Opened}) ->
-    d("handle_event(wx list cmd-list-item-activated) -> entry"),
     Socket    = lists:nth(Index+1, Sockets),
     NewOpened = display_socket_info(Grid, Socket, Opened),
     {noreply, State#state{open_wins = NewOpened}};
@@ -254,7 +241,6 @@ handle_event(#wx{event = #wxList{type      = command_list_item_activated,
 handle_event(#wx{event = #wxList{type      = command_list_item_right_click,
 				 itemIndex = Index}},
 	     State = #state{panel = Panel, sockets=Sockets}) ->
-    d("handle_event(wx list cmd-list-item-right-clock) -> entry"),
     case Index of
 	-1 ->
 	    {noreply, State};
@@ -277,7 +263,6 @@ handle_event(#wx{id = ?ID_SOCKET_INFO},
 	     State = #state{grid                 = Grid,
 			    right_clicked_socket = Socket,
 			    open_wins            = Opened}) ->
-    d("handle_event(wx socket info) -> entry"),
     case Socket of
 	undefined ->
 	    {noreply, State};
@@ -291,7 +276,6 @@ handle_event(#wx{id = ?ID_SOCKET_INFO_SELECTED},
 	     State = #state{grid      = Grid,
 			    sockets   = Sockets,
 			    open_wins = Opened}) ->
-    d("handle_event(wx socket info selected) -> entry"),
     case get_selected_items(Grid, Sockets) of
 	[] ->
 	    observer_wx:create_txt_dialog(State#state.panel,
@@ -308,7 +292,6 @@ handle_event(#wx{id = ?ID_SOCKET_INFO_SELECTED},
 
 handle_event(#wx{id = ?ID_CLOSE_SOCKET},
 	     State = #state{right_clicked_socket = Socket}) ->
-    d("handle_event(wx close socket) -> entry"),
     case Socket of
 	undefined ->
 	    {noreply, State};
@@ -317,66 +300,32 @@ handle_event(#wx{id = ?ID_CLOSE_SOCKET},
 	    {noreply, State#state{right_clicked_socket = undefined}}
 	end;
 
-%% handle_event(#wx{id=?ID_TRACE_PORTS}, #state{grid=Grid, ports=Ports}=State)  ->
-%%     case get_selected_items(Grid, Ports) of
-%% 	[] ->
-%% 	    observer_wx:create_txt_dialog(State#state.panel, "No selected ports",
-%% 					  "Tracer", ?wxICON_EXCLAMATION);
-%% 	Selected ->
-%% 	    SelectedIds = [Port#port.id || Port <- Selected],
-%% 	    observer_trace_wx:add_ports(SelectedIds)
-%%     end,
-%%     {noreply,  State};
-
-%% handle_event(#wx{id=?ID_TRACE_NAMES}, #state{grid=Grid, ports=Ports}=State)  ->
-%%     case get_selected_items(Grid, Ports) of
-%% 	[] ->
-%% 	    observer_wx:create_txt_dialog(State#state.panel, "No selected ports",
-%% 					  "Tracer", ?wxICON_EXCLAMATION);
-%% 	Selected ->
-%% 	    IdsOrRegs =
-%% 		[case Port#port.name of
-%% 		     [] -> Port#port.id;
-%% 		     Name -> Name
-%% 		 end || Port <- Selected],
-%% 	    observer_trace_wx:add_ports(IdsOrRegs)
-%%     end,
-%%     {noreply,  State};
-
 handle_event(#wx{id=?ID_DEBUG_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
-    d("handle_event(wx debug new, cmd-menu-selected) -> entry"),
     observer_trace_wx:add_aockets([new_sockets]),
     {noreply,  State};
 
 handle_event(#wx{id=?ID_REFRESH_INTERVAL},
 	     State = #state{grid=Grid, timer=Timer0}) ->
-    d("handle_event(wx refresh interval) -> entry"),
     Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
     {noreply, State#state{timer=Timer}};
 
 handle_event(#wx{obj=MoreEntry,event=#wxMouse{type=left_down},userData={more,More}}, State) ->
-    d("handle_event(wx mouse left-down, more) -> entry"),
     observer_lib:add_scroll_entries(MoreEntry,More),
     {noreply, State};
 
 handle_event(#wx{event=#wxMouse{type=left_down}, userData=TargetPid}, State) ->
-    d("handle_event(wx mouse left-down) -> entry"),
     observer ! {open_link, TargetPid},
     {noreply, State};
 
 handle_event(#wx{obj=Obj, event=#wxMouse{type=enter_window}}, State) ->
-    d("handle_event(wx mouse enter-win) -> entry"),
     wxTextCtrl:setForegroundColour(Obj,{0,0,100,255}),
     {noreply, State};
 
 handle_event(#wx{obj=Obj, event=#wxMouse{type=leave_window}}, State) ->
-    d("handle_event(wx mouse leave-win) -> entry"),
     wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
     {noreply, State};
 
 handle_event(Event, _State) ->
-    d("handle_event(unknown event) -> entry with"
-      "~n   Event: ~p", [Event]),
     error({unhandled_event, Event}).
 
 handle_sync_event(_Event, _Obj, _State) ->
@@ -395,14 +344,11 @@ handle_info(refresh_interval, State = #state{node    = Node,
 					     grid    = Grid,
 					     opt     = Opt,
                                              sockets = OldSockets} = State) ->
-    d("handle_info(refresh_interval) -> entry"),
     case get_sockets(Node) of
         OldSockets ->
             %% no change
             {noreply, State};
         Sockets0 ->
-	    d("handle_info(refresh_interval) -> ~w sockets",
-	      [length(Sockets0)]),
 	    _ = update_gen_socket_info(State),
             Sockets = update_grid(Grid, sel(State), Opt, Sockets0),
             {noreply, State#state{sockets = Sockets}}
@@ -413,7 +359,6 @@ handle_info({active, NodeName},
 		   grid   = Grid,
 		   opt    = Opt,
 		   timer  = Timer0} = State0) ->
-    d("handle_info({active, ~p}) -> entry", [NodeName]),
     Available = socketinfo_available(NodeName),
     Available orelse popup_unavailable_info(NodeName),
     State1   = State0#state{node = {NodeName, Available}},
@@ -481,15 +426,10 @@ get_sockets(NodeName) when is_atom(NodeName) ->
 	    [infomap_to_rec(SockInfo) || SockInfo <- SocketInfoMaps];
 	{badrpc,
 	 {'EXIT', {undef, [{observer_backend, get_socket_list, [], []}]}}} ->
-	    d("get_sockets -> No Backend"),
 	    {error, "No socket backend support"};
 	{badrpc, Error} ->
-	    d("get_sockets -> badrpc: "
-	      "~n   ~p", [Error]),
 	    {error, Error};
 	{error, _} = ERROR ->
-	    d("get_sockets -> error:"
-	      "~n   ~p", [ERROR]),
 	    ERROR
     end.
 
@@ -517,21 +457,6 @@ infomap_to_rec(#{id           := Id,
 		 wstates      := WState,
 		 monitored_by := MonitoredBy,
 		 statistics   := Statistics} = Info) ->
-    d("infomap_to_rec -> entry with"
-      "~n   Id:          ~p"
-      "~n   IsStr:       ~p"
-      "~n   Kind:        ~p"
-      "~n   FD:          ~p"
-      "~n   Owner:       ~p"
-      "~n   Domain:      ~p"
-      "~n   Type:        ~p"
-      "~n   Protocol:    ~p"
-      "~n   RState:      ~p"
-      "~n   WState:      ~p"
-      "~n   MonitoredBy: ~p"
-      "~n   Statistics:  ~p",
-      [Id, IdStr, Kind, FD, Owner, Domain, Type, Protocol, RState, WState,
-       MonitoredBy, Statistics]),
       #socket{id           = Id,
 	    id_str       = IdStr,
 	    kind         = Kind,
@@ -561,24 +486,6 @@ socketrec_to_list(#socket{id           = Id,
 			  wstate       = WState,
 			  monitored_by = MonitoredBy,
 			  statistics   = Statistics}) ->
-    d("socketrec_to_list -> entry with"
-      "~n   Id:          ~p"
-      "~n   IsStr:       ~p"
-      "~n   Kind:        ~p"
-      "~n   FD:          ~p"
-      "~n   Owner:       ~p"
-      "~n   Domain:      ~p"
-      "~n   Type:        ~p"
-      "~n   Protocol:    ~p"
-      "~n   RAddr:       ~p"
-      "~n   LAddr:       ~p"
-      "~n   RState:      ~p"
-      "~n   WState:      ~p"
-      "~n   MonitoredBy: ~p"
-      "~n   Statistics:  ~p",
-      [Id, IdStr, Kind, FD, Owner, Domain, Type, Protocol,
-       RAddr, LAddr, RState, WState,
-       MonitoredBy, Statistics]),
     [{id,           Id},
      {id_str,       IdStr},
      {kind,         Kind},
@@ -595,8 +502,6 @@ socketrec_to_list(#socket{id           = Id,
      {statistics,   Statistics}].
 
 display_socket_info(Parent, #socket{id_str = IdStr} = Sock, Opened) ->
-    d("display_socket_info -> entry with"
-      "~n   IdStr: ~p", [IdStr]),
     case lists:keyfind(IdStr, 1, Opened) of
 	false ->
 	    Frame = do_display_socket_info(Parent, Sock),
@@ -607,8 +512,6 @@ display_socket_info(Parent, #socket{id_str = IdStr} = Sock, Opened) ->
     end.
 
 do_display_socket_info(Parent0, #socket{id_str = IdStr} = SocketRec) ->
-    d("do_display_socket_info -> entry with"
-      "~n   IdStr: ~p", [IdStr]),
     Parent = observer_lib:get_wx_parent(Parent0),
     Title = "Socket Info: " ++ IdStr,
     Scale = observer_wx:get_scale(),
@@ -802,15 +705,15 @@ popup_unavailable_info(NodeName) ->
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
-d(F) ->
-    d(F, []).
+%% d(F) ->
+%%     d(F, []).
 
-d(F, A) ->
-    d(get(debug), F, A).
+%% d(F, A) ->
+%%     d(get(debug), F, A).
 
-d(true, F, A) ->
-    io:format("[oswx] " ++ F ++ "~n", A);
-d(_, _, _) ->
-    ok.
+%% d(true, F, A) ->
+%%     io:format("[oswx] " ++ F ++ "~n", A);
+%% d(_, _, _) ->
+%%     ok.
 
 

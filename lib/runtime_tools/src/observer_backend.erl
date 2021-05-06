@@ -225,8 +225,6 @@ get_socket_list() ->
 			 -1
 		 end,
 	 Info0  = socket:info(S),
-	 d("get_socket_list -> info: "
-	   "~n   ~p", [Info0]),
 	 IdStr0 = socket:to_list(S),
 	 IdStr  = case Info0 of
 		      #{type     := stream,
@@ -239,8 +237,6 @@ get_socket_list() ->
 		  end,
 	 {Counters0, Info1} = maps:take(counters, Info0),
 	 Counters = maps:to_list(Counters0),
-	 d("get_socket_list -> Counters: "
-	   "~n   ~p", [Counters]),
 	 Info2 = maps:remove(ctype,         Info1),
 	 Info3 = maps:remove(num_acceptors, Info2),
 	 Info4 = maps:remove(num_readers,   Info3),
@@ -882,12 +878,12 @@ f(F, A) ->
 %% d(F) ->
 %%     d(F, []).
 
-d(F, A) ->
-    d(get(debug), F, A).
+%% d(F, A) ->
+%%     d(get(debug), F, A).
 
-d(true, F, A) ->
-    io:format("[ob] " ++ F ++ "~n", A);
-d(_, _, _) ->
-    ok.
+%% d(true, F, A) ->
+%%     io:format("[ob] " ++ F ++ "~n", A);
+%% d(_, _, _) ->
+%%     ok.
 
 

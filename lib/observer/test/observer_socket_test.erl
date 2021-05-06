@@ -19,9 +19,9 @@
 %%
 
 %% =======================================================================
-%% This is just a simple utility that sets of several socket connections
+%% This is just a simple utility that sets op several socket connections
 %% and monitors. Data is exchanged.
-%% This done to make it possible to see that the socket sections of
+%% This is done to make it possible to see that the socket sections of
 %% observer works.
 %% =======================================================================
 
