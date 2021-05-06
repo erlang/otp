@@ -718,9 +718,7 @@
         <tag><marker id="M_t"/><c><![CDATA[+M<S>t true|false]]></c></tag>
         <item>
           <p>Multiple, thread-specific instances of the allocator.
-            This option has only effect on the runtime system
-            with SMP support. Default behavior on the runtime system with
-            SMP support is <c>NoSchedulers+1</c> instances. Each scheduler
+            Default behavior is <c>NoSchedulers+1</c> instances. Each scheduler
             uses a lock-free instance of its own and other threads use
             a common instance.</p>
           <p>Before ERTS 5.9 it was possible to configure

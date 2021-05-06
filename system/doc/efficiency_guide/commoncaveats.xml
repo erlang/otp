@@ -43,8 +43,7 @@
      <seeerl marker="stdlib:timer">timer</seeerl> module in STDLIB.
      The <c>timer</c> module uses a separate process to manage the timers.
      That process can easily become overloaded if many processes
-     create and cancel timers frequently (especially when using the
-     SMP emulator).</p>
+     create and cancel timers frequently.</p>
 
      <p>The functions in the <c>timer</c> module that do not manage timers
      (such as <c>timer:tc/3</c> or <c>timer:sleep/1</c>), do not call the

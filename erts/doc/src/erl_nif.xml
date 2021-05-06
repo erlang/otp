@@ -496,17 +496,6 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           </item>
           <tag><marker id="dirty_nifs"/>Dirty NIF</tag>
           <item>
-            <note>
-              <p>Dirty NIF support is available only when the emulator is
-	        configured with dirty scheduler support. As of ERTS version
-		9.0, dirty scheduler support is enabled by default on the
-		runtime system with SMP support. The Erlang runtime without
-		SMP support does <em>not</em> support dirty schedulers even
-		when the dirty scheduler support is explicitly enabled. To
-		check at runtime for the presence of dirty scheduler threads,
-		code can use the <seecref marker="#enif_system_info">
-                <c>enif_system_info()</c></seecref> API function.</p>
-            </note>
             <p>A NIF that cannot be split and cannot execute in a millisecond
               or less is called a "dirty NIF", as it performs work that the
               ordinary schedulers of the Erlang runtime system cannot handle cleanly.
@@ -1301,9 +1290,7 @@ typedef struct {
           <item>already triggered</item>
           <item>just about to be triggered by a concurrent thread</item>
         </list>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1991,9 +1978,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       <fsummary>Determine if a local port is alive.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c>port_id</c> is alive.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -2003,9 +1988,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       <fsummary>Determine if a local process is alive.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c>pid</c> is alive.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -2738,9 +2721,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           provided, and &gt; 0 if the process is no longer alive or if
 	  <c>target_pid</c> is <seecref marker="#enif_set_pid_undefined">
 	  undefined</seecref>.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -3424,9 +3405,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>If <c>msg_env</c> is set to <c>NULL</c>, the <c>msg</c> term is
           copied and the original term and its environment is still valid after
           the call.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
         <note>
           <p>Passing <c>msg_env</c> as <c>NULL</c> is only supported as from
             ERTS 8.0 (Erlang/OTP 19).</p>

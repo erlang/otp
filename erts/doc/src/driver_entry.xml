@@ -465,8 +465,7 @@ typedef struct erl_drv_entry {
           <item>
             <p>The runtime system uses port-level locking on
               all ports executing this driver instead of driver-level
-              locking when the driver is run in a runtime
-              system with SMP support. For more information, see
+              locking. For more information, see
               <seecref marker="erl_driver#smp_support">
               <c>erl_driver</c></seecref>.</p>
           </item>
