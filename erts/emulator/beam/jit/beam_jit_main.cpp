@@ -248,7 +248,10 @@ void beamasm_init() {
 
     bga = new BeamGlobalAssembler(jit_allocator);
 
-    bma = new BeamModuleAssembler(bga, mod_name, 1 + operands.size() * 2);
+    bma = new BeamModuleAssembler(bga,
+                                  mod_name,
+                                  1 + operands.size() * 2,
+                                  operands.size());
 
     std::vector<ArgVal> args;
 
