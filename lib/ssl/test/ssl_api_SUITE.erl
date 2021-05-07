@@ -650,15 +650,12 @@ prf() ->
 prf(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     TestPlan = proplists:get_value(prf_test_plan, Config),
-    case TestPlan of
-        [] -> ct:fail({error, empty_prf_test_plan});
-        _ -> lists:foreach(fun(Test) ->
-                                   C = proplists:get_value(ciphers, Test),
-                                   E = proplists:get_value(expected, Test),
-                                   P = proplists:get_value(prf, Test),
-                                   prf_run_test(Config, Version, C, E, P)
-                           end, TestPlan)
-    end.
+    lists:foreach(fun(Test) ->
+                          C = proplists:get_value(ciphers, Test),
+                          E = proplists:get_value(expected, Test),
+                          P = proplists:get_value(prf, Test),
+                          prf_run_test(Config, Version, C, E, P)
+                  end, TestPlan).
 
 %%--------------------------------------------------------------------
 dh_params() ->
