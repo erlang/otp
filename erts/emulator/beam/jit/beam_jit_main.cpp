@@ -48,6 +48,7 @@ ErtsCodePtr beam_export_trampoline;
 ErtsCodePtr beam_bif_export_trap;
 ErtsCodePtr beam_continue_exit;
 ErtsCodePtr beam_save_calls;
+ErtsCodePtr beam_unloaded_fun;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
@@ -307,6 +308,8 @@ void beamasm_init() {
     beam_bif_export_trap = (ErtsCodePtr)bga->get_bif_export_trap();
 
     beam_exit = (ErtsCodePtr)bga->get_process_exit();
+
+    beam_unloaded_fun = (ErtsCodePtr)bga->get_unloaded_fun();
 }
 
 bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
@@ -519,6 +522,11 @@ extern "C"
     ErtsCodePtr beamasm_get_code(void *instance, int label) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         return reinterpret_cast<ErtsCodePtr>(ba->getCode(label));
+    }
+
+    ErtsCodePtr beamasm_get_lambda(void *instance, int index) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        return reinterpret_cast<ErtsCodePtr>(ba->getLambda(index));
     }
 
     const byte *beamasm_get_rodata(void *instance, char *label) {

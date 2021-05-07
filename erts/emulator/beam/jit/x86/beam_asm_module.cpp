@@ -72,6 +72,11 @@ ErtsCodePtr BeamModuleAssembler::getCode(BeamLabel label) {
     return (ErtsCodePtr)getCode(labels[label]);
 }
 
+ErtsCodePtr BeamModuleAssembler::getLambda(unsigned index) {
+    const auto &lambda = lambdas[index];
+    return (ErtsCodePtr)getCode(lambda.trampoline);
+}
+
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          Eterm mod,
                                          unsigned num_labels)
@@ -197,10 +202,6 @@ Label BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
     return label;
 }
 
-static void i_emit_nyi(char *msg) {
-    erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
-}
-
 void BeamModuleAssembler::emit_i_nif_padding() {
     const size_t minimum_size = sizeof(UWord[BEAM_NATIVE_MIN_FUNC_SZ]);
     size_t prev_func_start, diff;
@@ -238,6 +239,10 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     a.bind(next);
     ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
+}
+
+static void i_emit_nyi(char *msg) {
+    erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
 }
 
 void BeamModuleAssembler::emit_nyi(const char *msg) {

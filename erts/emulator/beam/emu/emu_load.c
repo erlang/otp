@@ -57,7 +57,7 @@ extern void check_allocated_block(Uint type, void *blk);
 
 static void init_label(Label* lp);
 
-void beam_load_prepare_emit(LoaderState *stp) {
+int beam_load_prepare_emit(LoaderState *stp) {
     BeamCodeHeader *hdr;
     int i;
 
@@ -136,6 +136,8 @@ void beam_load_prepare_emit(LoaderState *stp) {
                                     stp->beam.code.function_count *
                                         sizeof(unsigned int));
     }
+
+    return 1;
 }
 
 void beam_load_prepared_free(Binary* magic)
@@ -714,18 +716,6 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
     /* Prevent code from being freed. */
     stp->code_hdr = NULL;
-}
-
-static int
-is_bif(Eterm mod, Eterm func, unsigned arity)
-{
-    Export *e = erts_active_export_entry(mod, func, arity);
-
-    if (e != NULL) {
-        return e->bif_number != -1;
-    }
-
-    return 0;
 }
 
 static void init_label(Label* lp)
@@ -1356,38 +1346,30 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 #endif
         }
         break;
-    case op_int_func_end:
-	{
-	    /*
-	     * Native function calls may be larger than their stubs, so
-	     * we'll need to make sure any potentially-native function stub
-	     * is padded with enough room.
-	     */
-	    int padding_required;
+    case op_i_nif_padding:
+        {
+            /* Native function calls may be larger than their stubs, so we'll
+             * need to make sure any potentially-native function stub is padded
+             * with enough room. */
+            Sint pad;
 
-	    ci--;		/* Get rid of the instruction */
+            ci -= 1;         /* Get rid of the instruction */
 
-	    padding_required = stp->may_load_nif ||
-		is_bif(stp->module, stp->function, stp->arity);
+            ASSERT(stp->last_func_start);
+            pad = BEAM_NATIVE_MIN_FUNC_SZ - (ci - stp->last_func_start);
 
-	    ASSERT(stp->last_func_start);
-	    if (padding_required) {
-		Sint pad = BEAM_NATIVE_MIN_FUNC_SZ - (ci - stp->last_func_start);
-		if (pad > 0) {
-		    ASSERT(pad < BEAM_NATIVE_MIN_FUNC_SZ);
-		    CodeNeed(pad);
-		    while (pad-- > 0) {
-			/*
-			 * Filling with actual instructions (instead
-			 * of zeroes) will look nicer in a disassembly
-			 * listing.
-			 */
-			code[ci++] = BeamOpCodeAddr(op_padding);
-		    }
-		}
-	    }
-	}
-	break;
+            if (pad > 0) {
+                ASSERT(pad < BEAM_NATIVE_MIN_FUNC_SZ);
+                CodeNeed(pad);
+
+                while (pad-- > 0) {
+                /* Filling with actual instructions (instead of zeroes) will
+                 * look nicer in a disassembly listing. */
+                    code[ci++] = BeamOpCodeAddr(op_padding);
+                }
+            }
+        }
+        break;
     case op_on_load:
         ci--;                /* Get rid of the instruction */
 

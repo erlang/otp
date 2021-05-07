@@ -32,12 +32,6 @@ pred.is_mfa_bif(M, F, A) {
     return 0;
 }
 
-pred.needs_nif_padding() {
-    /* If the module may load a NIF all functions must be able to hold a NIF
-     * stub, so we'll pad to that size at the end of every function. */
-    return S->may_load_nif;
-}
-
 pred.never_fails(Bif) {
     static Eterm nofail_bifs[] =
 	{am_Neqeq,

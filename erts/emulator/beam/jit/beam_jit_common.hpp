@@ -303,4 +303,11 @@ void beam_jit_timeout_locked(Process *c_p);
 
 void beam_jit_return_to_trace(Process *c_p);
 
+Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity);
+
+Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                     Eterm *reg,
+                                     int arity,
+                                     Eterm fun_thing);
+
 #endif

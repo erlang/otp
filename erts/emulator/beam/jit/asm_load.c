@@ -36,9 +36,11 @@
 #    include <sanitizer/lsan_interface.h>
 #endif
 
+#define INVALID_LAMBDA_INDEX -1
+
 static void init_label(Label *lp);
 
-void beam_load_prepare_emit(LoaderState *stp) {
+int beam_load_prepare_emit(LoaderState *stp) {
     BeamCodeHeader *hdr;
     int i;
 
@@ -71,6 +73,23 @@ void beam_load_prepare_emit(LoaderState *stp) {
                              stp->beam.code.label_count * sizeof(Label));
     for (i = 0; i < stp->beam.code.label_count; i++) {
         init_label(&stp->labels[i]);
+    }
+
+    for (i = 0; i < stp->beam.lambdas.count; i++) {
+        BeamFile_LambdaEntry *lambda = &stp->beam.lambdas.entries[i];
+
+        if (stp->labels[lambda->label].lambda_index == INVALID_LAMBDA_INDEX) {
+            stp->labels[lambda->label].lambda_index = i;
+        } else {
+            beam_load_report_error(__LINE__,
+                                   stp,
+                                   "lambda already defined for label %i. To "
+                                   "fix this, please recompile this module "
+                                   "with an OTP " ERLANG_OTP_RELEASE
+                                   " compiler.",
+                                   lambda->label);
+            return 0;
+        }
     }
 
     stp->bif_imports =
@@ -111,10 +130,13 @@ void beam_load_prepare_emit(LoaderState *stp) {
                                     stp->beam.code.function_count *
                                             sizeof(unsigned int));
     }
+
+    return 1;
 }
 
 static void init_label(Label *lp) {
     sys_memset(lp, 0, sizeof(*lp));
+    lp->lambda_index = INVALID_LAMBDA_INDEX;
 }
 
 void beam_load_prepared_free(Binary *magic) {
@@ -924,7 +946,7 @@ void beam_load_finalize_code(LoaderState *stp,
                 erts_refc_dectest(&fun_entry->refc, 1);
             }
 
-            fun_entry->address = beamasm_get_code(stp->ba, lambda->label);
+            fun_entry->address = beamasm_get_lambda(stp->ba, i);
 
             beamasm_patch_lambda(stp->ba,
                                  stp->native_module_rw,

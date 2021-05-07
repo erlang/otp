@@ -121,8 +121,6 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
                            code.codeSize(),
                            CodeHolder::kCopyPadSectionBuffer);
 
-    beamasm_flush_icache(*executable_ptr, code.codeSize());
-
 #ifdef DEBUG
     if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
         if (FILE *f = l->file())
@@ -1070,4 +1068,77 @@ void beam_jit_return_to_trace(Process *c_p) {
         erts_trace_return_to(c_p, return_to_address);
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
     }
+}
+
+Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity) {
+    Eterm *hp;
+    Eterm res;
+
+    hp = HAlloc(c_p, arity * 2);
+    res = NIL;
+
+    for (int i = arity - 1; i >= 0; i--) {
+        res = CONS(hp, regs[i], res);
+        hp += 2;
+    }
+
+    return res;
+}
+
+Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                     Eterm *reg,
+                                     int arity,
+                                     Eterm fun_thing) {
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    Eterm module, args;
+    ErlFunThing *funp;
+    ErlFunEntry *fe;
+    Module *modp;
+    Export *ep;
+
+    funp = (ErlFunThing *)fun_val(fun_thing);
+    fe = funp->fe;
+    module = fe->module;
+
+    ERTS_THR_READ_MEMORY_BARRIER;
+
+    if (fe->pend_purge_address) {
+        /* The system is currently trying to purge the module containing this
+         * fun. Suspend the process and let it try again when the purge
+         * operation is done (may succeed or not). */
+        ep = erts_suspend_process_on_pending_purge_lambda(c_p, fe);
+    } else {
+        if ((modp = erts_get_module(module, code_ix)) != NULL &&
+            modp->curr.code_hdr != NULL) {
+            /* There is a module loaded, but obviously the fun is not defined
+             * in it. We must not call the error_handler (or we will get into
+             * an infinite loop). */
+            c_p->current = NULL;
+            c_p->freason = EXC_BADFUN;
+            c_p->fvalue = fun_thing;
+            return NULL;
+        }
+
+        /* No current code for this module. Call the error_handler module to
+         * attempt loading the module. */
+        ep = erts_find_function(erts_proc_get_error_handler(c_p),
+                                am_undefined_lambda,
+                                3,
+                                code_ix);
+        if (ERTS_UNLIKELY(ep == NULL)) {
+            /* No error handler, crash out. */
+            c_p->current = NULL;
+            c_p->freason = EXC_UNDEF;
+            return NULL;
+        }
+    }
+
+    args = beam_jit_build_argument_list(c_p, reg, arity);
+
+    reg[0] = module;
+    reg[1] = fun_thing;
+    reg[2] = args;
+    reg[3] = NIL;
+
+    return ep;
 }

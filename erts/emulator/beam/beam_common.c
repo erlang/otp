@@ -530,7 +530,7 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 	reg[3] = c_p->ftrace;
         if ((new_pc = next_catch(c_p, reg))) {
 
-#if defined(BEAMASM) && defined(NATIVE_ERLANG_STACK)
+#if defined(BEAMASM) && (defined(NATIVE_ERLANG_STACK) || defined(__aarch64__))
             /* In order to make use of native call and return
              * instructions, when beamasm uses the native stack it
              * doesn't include the CP in the current stack frame,
@@ -1692,8 +1692,7 @@ ErtsCodePtr
 call_fun(Process* p,    /* Current process. */
          int arity,     /* Number of arguments for Fun. */
          Eterm* reg,    /* Contents of registers. */
-         Eterm args,    /* THE_NON_VALUE or pre-built list of arguments. */
-         Export **epp)  /* Export entry, if any. */
+         Eterm args)    /* THE_NON_VALUE or pre-built list of arguments. */
 {
     Eterm fun = reg[arity];
     Eterm hdr;
@@ -1812,7 +1811,6 @@ call_fun(Process* p,    /* Current process. */
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-                *epp = ep;
                 return ep->addresses[code_ix];
 	    }
 	}
@@ -1825,7 +1823,6 @@ call_fun(Process* p,    /* Current process. */
 
 	if (arity == actual_arity) {
             DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
-            *epp = ep;
             return ep->addresses[erts_active_code_ix()];
 	} else {
 	    /*
@@ -1856,7 +1853,7 @@ call_fun(Process* p,    /* Current process. */
 }
 
 ErtsCodePtr
-apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg, Export **epp)
+apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 {
     int arity;
     Eterm tmp;
@@ -1883,16 +1880,14 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg, Export **epp)
 	return NULL;
     }
     reg[arity] = fun;
-    return call_fun(p, arity, reg, args, epp);
+    return call_fun(p, arity, reg, args);
 }
 
 ErlFunThing*
-new_fun_thing(Process* p, ErlFunEntry* fe, int num_free)
+new_fun_thing(Process* p, ErlFunEntry* fe, int arity, int num_free)
 {
-    const ErtsCodeMFA *mfa;
     ErlFunThing* funp;
 
-    mfa = erts_code_to_codemfa(fe->address);
     funp = (ErlFunThing*) p->htop;
     p->htop += ERL_FUN_SIZE + num_free;
     erts_refc_inc(&fe->refc, 2);
@@ -1903,7 +1898,15 @@ new_fun_thing(Process* p, ErlFunEntry* fe, int num_free)
     funp->fe = fe;
     funp->num_free = num_free;
     funp->creator = p->common.id;
-    funp->arity = mfa->arity - num_free;
+    funp->arity = arity;
+
+#ifdef DEBUG
+    {
+        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
+        ASSERT(funp->arity == mfa->arity - num_free);
+        ASSERT(arity == fe->arity);
+    }
+#endif
 
     return funp;
 }

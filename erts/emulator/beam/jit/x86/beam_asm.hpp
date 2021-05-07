@@ -476,7 +476,7 @@ protected:
     }
 
     /* Explicitly position-independent absolute jump, for use in fragments that
-     * need to be memcpy'd for performance reasons (e.g. export entries) */
+     * need to be memcpy'd for performance reasons (e.g. NIF stubs) */
     template<typename T>
     void pic_jmp(T(*addr)) {
         a.mov(ARG6, imm(addr));
@@ -787,8 +787,12 @@ protected:
      * Generate the shortest instruction for setting a register to an immediate
      * value. May clear flags.
      */
-    void mov_imm(x86::Gp to, Uint value) {
-        if (value == 0) {
+    template<typename T>
+    void mov_imm(x86::Gp to, T value) {
+        static_assert(std::is_integral<T>::value || std::is_pointer<T>::value);
+        if (value) {
+            a.mov(to, imm(value));
+        } else {
             /*
              * Generate the shortest instruction to set the register to zero.
              *
@@ -801,9 +805,12 @@ protected:
              * Note: xor clears ZF and CF; mov does not change any flags.
              */
             a.xor_(to.r32(), to.r32());
-        } else {
-            a.mov(to, imm(value));
         }
+    }
+
+    void mov_imm(x86::Gp to, std::nullptr_t value) {
+        (void)value;
+        mov_imm(to, 0);
     }
 
 public:
@@ -843,6 +850,7 @@ class BeamGlobalAssembler : public BeamAssembler {
 
     /* Please keep this in alphabetical order. */
 #define BEAM_GLOBAL_FUNCS(_)                                                   \
+    _(apply_fun_shared)                                                        \
     _(arith_compare_shared)                                                    \
     _(arith_eq_shared)                                                         \
     _(bif_nif_epilogue)                                                        \
@@ -869,6 +877,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(generic_bp_local)                                                        \
     _(debug_bp)                                                                \
     _(fconv_shared)                                                            \
+    _(handle_call_fun_error)                                                   \
     _(handle_element_error)                                                    \
     _(handle_hd_error)                                                         \
     _(i_band_body_shared)                                                      \
@@ -908,6 +917,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(times_guard_shared)                                                      \
     _(unary_minus_body_shared)                                                 \
     _(unary_minus_guard_shared)                                                \
+    _(unloaded_fun)                                                            \
     _(update_map_assoc_shared)                                                 \
     _(update_map_exact_guard_shared)                                           \
     _(update_map_exact_body_shared)
@@ -988,10 +998,10 @@ class BeamModuleAssembler : public BeamAssembler {
     typedef std::unordered_map<unsigned, struct patch_import> ImportMap;
     ImportMap imports;
 
-    /* Map of fun entry to patch labels */
+    /* Map of fun entry to trampoline labels and patches */
     struct patch_lambda {
         std::vector<struct patch> patches;
-        ErlFunEntry fe;
+        Label trampoline;
     };
     typedef std::unordered_map<unsigned, struct patch_lambda> LambdaMap;
     LambdaMap lambdas;
@@ -1055,6 +1065,8 @@ public:
     void codegen(char *buff, size_t len);
 
     ErtsCodePtr getCode(unsigned label);
+    ErtsCodePtr getLambda(unsigned index);
+
     void *getCode(Label label) {
         return BeamAssembler::getCode(label);
     }
@@ -1091,8 +1103,7 @@ protected:
     x86::Mem emit_variable_apply(bool includeI);
     x86::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
 
-    x86::Gp emit_call_fun(const ArgVal &Fun);
-    x86::Gp emit_apply_fun(void);
+    x86::Gp emit_call_fun(void);
 
     void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
 
@@ -1129,6 +1140,8 @@ protected:
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
     void emit_raise_exception(Label I, const ErtsCodeMFA *exp);
+    void emit_raise_exception(x86::Gp I, const ErtsCodeMFA *exp);
+
     void emit_validate(const ArgVal &arity);
     void emit_bs_skip_bits(const ArgVal &Fail, const ArgVal &Ctx);
 

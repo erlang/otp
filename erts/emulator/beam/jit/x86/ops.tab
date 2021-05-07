@@ -719,7 +719,7 @@ make_fun3 OldIndex=u Dst=d NumFree=u Env=* => make_fun3(OldIndex, Dst, NumFree, 
 
 %cold
 
-i_make_fun3 F S t *
+i_make_fun3 F S t t *
 
 # Psuedo-instruction for signalling lambda load errors. Never actually runs.
 i_lambda_error t
@@ -731,7 +731,7 @@ is_function Fail=f c => jump Fail
 
 # The start and end of a function.
 int_func_start/5
-int_func_end/0
+int_func_end/2
 
 func_prologue/2
 
@@ -766,15 +766,17 @@ int_func_start Func_Label Func_Line M F A | \
       i_breakpoint_trampoline | \
       i_test_yield
 
-
-int_func_end | needs_nif_padding() => i_nif_padding
-int_func_end =>
+int_func_end Func_Label Entry_Label => \
+    func_end(Func_Label, Entry_Label)
 
 # Handles yielding on function ingress (rather than on each call).
 i_test_yield
 
 # Ensures that the prior function is large enough to allow NIF patching.
 i_nif_padding
+
+# Landing pad for fun calls/apply where we set up arguments and check errors
+i_lambda_trampoline W f W W
 
 # Handles tracing, early NIF calls, and so on.
 i_breakpoint_trampoline

@@ -671,7 +671,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'F':		/* Function definition */
 	    {
 		ErlFunEntry* fe = (ErlFunEntry *) *ap;
-		const ErtsCodeMFA *cmfa = erts_find_function_from_pc(fe->address);
+		const ErtsCodeMFA *cmfa = erts_get_fun_mfa(fe);
 		erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
 			   cmfa->function, cmfa->arity);
 		ap++;
@@ -878,7 +878,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_make_fun3_Fdt:
+    case op_i_make_fun3_Fdtt:
 	{
 	    int n = unpacked[-1];
 

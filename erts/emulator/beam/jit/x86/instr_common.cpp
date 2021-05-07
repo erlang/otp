@@ -257,40 +257,6 @@ void BeamModuleAssembler::emit_continue_exit() {
     abs_jmp(ga->get_do_schedule());
 }
 
-/* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
-void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
-    a.hlt();
-}
-
-void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
-                                           const ArgVal &Dst,
-                                           const ArgVal &NumFree,
-                                           const Span<ArgVal> &env) {
-    size_t num_free = env.size();
-    ASSERT(NumFree.getValue() == num_free);
-
-    mov_arg(ARG3, NumFree);
-
-    emit_enter_runtime<Update::eHeap>();
-
-    a.mov(ARG1, c_p);
-    make_move_patch(ARG2, lambdas[Fun.getValue()].patches);
-    runtime_call<3>(new_fun_thing);
-
-    emit_leave_runtime<Update::eHeap>();
-
-    comment("Move fun environment");
-    for (unsigned i = 0; i < num_free; i++) {
-        mov_arg(x86::qword_ptr(RET,
-                               offsetof(ErlFunThing, env) + i * sizeof(Eterm)),
-                env[i]);
-    }
-
-    comment("Create boxed ptr");
-    a.or_(RETb, TAG_PRIMARY_BOXED);
-    mov_arg(Dst, RET);
-}
-
 void BeamModuleAssembler::emit_get_list(const x86::Gp src,
                                         const ArgVal &Hd,
                                         const ArgVal &Tl) {

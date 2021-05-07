@@ -230,7 +230,7 @@ void BeamModuleAssembler::emit_raise_exception() {
 }
 
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
-    mov_imm(ARG4, (Uint)exp);
+    mov_imm(ARG4, exp);
     safe_fragment_call(ga->get_raise_exception());
 
     /*
@@ -245,7 +245,16 @@ void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
 void BeamModuleAssembler::emit_raise_exception(Label I,
                                                const ErtsCodeMFA *exp) {
     a.lea(ARG2, x86::qword_ptr(I));
-    mov_imm(ARG4, (Uint)exp);
+    emit_raise_exception(ARG2, exp);
+}
+
+void BeamModuleAssembler::emit_raise_exception(x86::Gp I,
+                                               const ErtsCodeMFA *exp) {
+    if (I != ARG2) {
+        a.mov(ARG2, I);
+    }
+
+    mov_imm(ARG4, exp);
 
 #ifdef NATIVE_ERLANG_STACK
     /* The CP must be reserved for try/catch to work, so we'll fake a call with

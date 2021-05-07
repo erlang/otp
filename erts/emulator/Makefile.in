@@ -1004,22 +1004,23 @@ COMMON_OBJS = \
 ASMJIT_OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(ASMJIT_CPP))
 
 JIT_OBJS = \
-        $(OBJDIR)/asm_load.o \
-        $(OBJDIR)/beam_jit_common.o \
-        $(OBJDIR)/beam_jit_main.o \
-        $(OBJDIR)/beam_jit_perf.o
+    $(OBJDIR)/asm_load.o \
+    $(OBJDIR)/beam_asm_global.o \
+    $(OBJDIR)/beam_asm_module.o \
+    $(OBJDIR)/beam_jit_common.o \
+    $(OBJDIR)/beam_jit_main.o \
+    $(OBJDIR)/beam_jit_perf.o \
+    $(OBJDIR)/process_main.o
 
 ifeq ($(JIT_ARCH), x86)
 JIT_OBJS += \
-	$(OBJDIR)/beam_asm_global.o \
-	$(OBJDIR)/beam_asm_module.o \
-	$(OBJDIR)/process_main.o \
 	$(OBJDIR)/instr_arith.o \
 	$(OBJDIR)/instr_bs.o \
 	$(OBJDIR)/instr_bif.o \
 	$(OBJDIR)/instr_call.o \
 	$(OBJDIR)/instr_common.o \
 	$(OBJDIR)/instr_float.o \
+	$(OBJDIR)/instr_fun.o \
 	$(OBJDIR)/instr_guard_bifs.o \
 	$(OBJDIR)/instr_map.o \
 	$(OBJDIR)/instr_msg.o \

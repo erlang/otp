@@ -142,6 +142,12 @@ ErtsCodePtr beam_exception_trace;
 static BeamInstr beam_return_time_trace_[1];
 ErtsCodePtr beam_return_time_trace;
 
+/* The address field of every fun that has no loaded code will point to
+ * beam_unloaded_fun[]. The -1 in beam_unloaded_fun[0] will be interpreted
+ * as an illegal arity when attempting to call a fun. */
+static BeamInstr unloaded_fun_code[4] = {NIL, NIL, -1, 0};
+ErtsCodePtr beam_unloaded_fun = &unloaded_fun_code[3];
+
 /*
  * All Beam instructions in numerical order.
  */
@@ -577,7 +583,7 @@ void process_main(ErtsSchedulerData *esdp)
  OpCase(label_L):
  OpCase(on_load):
  OpCase(line_I):
- OpCase(int_func_end):
+ OpCase(i_nif_padding):
     erts_exit(ERTS_ERROR_EXIT, "meta op\n");
 
     /*

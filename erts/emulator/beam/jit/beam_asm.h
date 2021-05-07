@@ -48,6 +48,7 @@ void beamasm_purge_module(const void *native_module_exec,
 void beamasm_delete_assembler(void *ba);
 int beamasm_emit(void *ba, unsigned specific_op, BeamOp *op);
 ErtsCodePtr beamasm_get_code(void *ba, int label);
+ErtsCodePtr beamasm_get_lambda(void *ba, int index);
 const byte *beamasm_get_rodata(void *ba, char *label);
 void beamasm_embed_rodata(void *ba,
                           const char *labelName,

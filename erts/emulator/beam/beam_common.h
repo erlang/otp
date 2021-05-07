@@ -255,13 +255,14 @@ Export* call_error_handler(Process* p, const ErtsCodeMFA* mfa,
 Export* fixed_apply(Process* p, Eterm* reg, Uint arity,
                     ErtsCodePtr I, Uint offs);
 Export* apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint offs);
-ErtsCodePtr call_fun(Process* p, int arity, Eterm* reg,
-                     Eterm args, Export **epp);
-ErtsCodePtr apply_fun(Process* p, Eterm fun, Eterm args,
-                      Eterm* reg, Export **epp);
+ErtsCodePtr call_fun(Process* p, int arity, Eterm* reg, Eterm args);
+ErtsCodePtr apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg);
 Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free);
-ErlFunThing* new_fun_thing(Process* p, ErlFunEntry* fe, int num_free);
+ErlFunThing* new_fun_thing(Process* p,
+                           ErlFunEntry* fe,
+                           int arity,
+                           int num_free);
 int is_function2(Eterm Term, Uint arity);
 Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
                       Uint n, const Eterm* data);
@@ -281,7 +282,6 @@ void copy_in_registers(Process *c_p, Eterm *reg);
 void check_monitor_long_schedule(Process *c_p, Uint64 start_time,
                                  ErtsCodePtr start_time_i);
 
-
 extern ErtsCodePtr beam_run_process;
 extern ErtsCodePtr beam_normal_exit;
 extern ErtsCodePtr beam_exit;
@@ -289,6 +289,8 @@ extern ErtsCodePtr beam_save_calls;
 extern ErtsCodePtr beam_bif_export_trap;
 extern ErtsCodePtr beam_export_trampoline;
 extern ErtsCodePtr beam_continue_exit;
+extern ErtsCodePtr beam_unloaded_fun;
+
 extern ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 extern ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
 extern ErtsCodePtr beam_exception_trace;   /* OpCode(i_exception_trace) */
