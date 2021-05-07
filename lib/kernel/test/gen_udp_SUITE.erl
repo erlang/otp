@@ -531,6 +531,10 @@ read_packets_verify(R, SP,
     read_packets_verify(R, SP, Trace, M+1);
 read_packets_verify(_R, _SP, [], M) ->
     push(M, []);
+read_packets_verify(R, SP, [T | Trace], M) ->
+    ct:fail(
+      {read_packets_verify, mismatch, self(),
+       {R, SP, [T, length(Trace)], M}});
 read_packets_verify(_R, _SP, Trace, M) ->
     ct:fail({read_packets_verify,mismatch,Trace,M}).
 
