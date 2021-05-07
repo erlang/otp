@@ -125,9 +125,16 @@ t_element(Config) when is_list(Config) ->
     a = element(1, {a}),
     a = element(1, {a, b}),
 
-    List = lists:seq(1, 4096),
-    Tuple = list_to_tuple(lists:seq(1, 4096)),
+    List = lists:seq(1, 16384),
+    Tuple = list_to_tuple(List),
     get_elements(List, Tuple, 1),
+
+    get_literal_elements(Tuple),
+    get_literal_tuple_elements(Tuple),
+
+    {31,32, 63,64, 127,128, 255,256, 511,512, 1023,1024,
+     2047,2048, 4095,4096, 8191,8192, 16383, 16384} =
+        get_literal_tuple_element_pairs(Tuple),
 
     {'EXIT', {badarg, _}} = (catch element(0, id({a,b}))),
     {'EXIT', {badarg, _}} = (catch element(3, id({a,b}))),
@@ -150,7 +157,110 @@ get_elements([Element|Rest], Tuple, Pos) ->
     get_elements(Rest, Tuple, Pos+1);
 get_elements([], _Tuple, _Pos) ->
     ok.
-    
+
+get_literal_elements(Tuple) ->
+    31 = element(31, Tuple),
+    32 = element(32, Tuple),
+
+    63 = element(63, Tuple),
+    64 = element(64, Tuple),
+
+    127 = element(127, Tuple),
+    128 = element(128, Tuple),
+
+    255 = element(255, Tuple),
+    256 = element(256, Tuple),
+
+    511 = element(511, Tuple),
+    512 = element(512, Tuple),
+
+    1023 = element(1023, Tuple),
+    1024 = element(1024, Tuple),
+
+    2047 = element(2047, Tuple),
+    2048 = element(2048, Tuple),
+
+    4095 = element(4095, Tuple),
+    4096 = element(4096, Tuple),
+
+    8191 = element(8191, Tuple),
+    8192 = element(8192, Tuple),
+
+    16383 = element(16383, Tuple),
+    16384 = element(16384, Tuple),
+
+    ok.
+
+get_literal_tuple_elements(Tuple) when tuple_size(Tuple) =:= 16384 ->
+    %% Since the tuple size is known, the element/2 calls will be
+    %% rewritten to get_tuple_element instructions.
+
+    31 = element(31, Tuple),
+    32 = element(32, Tuple),
+
+    63 = element(63, Tuple),
+    64 = element(64, Tuple),
+
+    127 = element(127, Tuple),
+    128 = element(128, Tuple),
+
+    255 = element(255, Tuple),
+    256 = element(256, Tuple),
+
+    511 = element(511, Tuple),
+    512 = element(512, Tuple),
+
+    1023 = element(1023, Tuple),
+    1024 = element(1024, Tuple),
+
+    2047 = element(2047, Tuple),
+    2048 = element(2048, Tuple),
+
+    4095 = element(4095, Tuple),
+    4096 = element(4096, Tuple),
+
+    8191 = element(8191, Tuple),
+    8192 = element(8192, Tuple),
+
+    16383 = element(16383, Tuple),
+    16384 = element(16384, Tuple),
+
+    ok.
+
+get_literal_tuple_element_pairs(Tuple) when tuple_size(Tuple) =:= 16384 ->
+    %% Since the tuple size is known, the element/2 calls will be
+    %% rewritten to get_tuple_element instructions.
+
+    {element(31, Tuple),
+     element(32, Tuple),
+
+     element(63, Tuple),
+     element(64, Tuple),
+
+     element(127, Tuple),
+     element(128, Tuple),
+
+     element(255, Tuple),
+     element(256, Tuple),
+
+     element(511, Tuple),
+     element(512, Tuple),
+
+     element(1023, Tuple),
+     element(1024, Tuple),
+
+     element(2047, Tuple),
+     element(2048, Tuple),
+
+     element(4095, Tuple),
+     element(4096, Tuple),
+
+     element(8191, Tuple),
+     element(8192, Tuple),
+
+     element(16383, Tuple),
+     element(16384, Tuple)}.
+
 %% Tests set_element/3.
 
 t_setelement(Config) when is_list(Config) ->
@@ -158,9 +268,9 @@ t_setelement(Config) when is_list(Config) ->
     {x,2} = setelement(1, id({1,2}), x),
     {1,x} = setelement(2, id({1,2}), x),
 
-    Tuple = list_to_tuple(lists:duplicate(2048, x)),
+    Tuple = list_to_tuple(lists:duplicate(16385, x)),
     NewTuple = set_all_elements(Tuple, 1),
-    NewTuple = list_to_tuple(lists:seq(1+7, 2048+7)),
+    NewTuple = list_to_tuple(lists:seq(1+7, 16385+7)),
 
     {'EXIT', {badarg, _}} = (catch setelement(0, {a, b}, x)),
     {'EXIT', {badarg, _}} = (catch setelement(3, {a, b}, x)),
@@ -174,12 +284,80 @@ t_setelement(Config) when is_list(Config) ->
 	setelement(1, setelement(2, setelement(3, AnotherTuple, gurka),
 				 3.0), 93748793749387837476555412),
 
+    NewNewTuple = set_literal_tuple_elements(NewTuple),
+    verify_set_elements(1, NewNewTuple),
+
     ok.
 
 set_all_elements(Tuple, Pos) when Pos =< size(Tuple) ->
     set_all_elements(setelement(Pos, Tuple, Pos+7), Pos+1);
 set_all_elements(Tuple, Pos) when Pos > size(Tuple) ->
     Tuple.
+
+set_literal_tuple_elements(Tuple0) when tuple_size(Tuple0) =:= 16385 ->
+    %% Since the tuple size is known, the setelement/3 calls will be
+    %% rewritten to set_tuple_element instructions.
+    Tuple1 = setelement(16385, Tuple0, -16385),
+    Tuple2 = setelement(16384, Tuple1, -16384),
+
+    Tuple3 = setelement(8192, Tuple2, -8192),
+    Tuple4 = setelement(8191, Tuple3, -8191),
+
+    Tuple5 = setelement(4096, Tuple4, -4096),
+    Tuple6 = setelement(4095, Tuple5, -4095),
+
+    Tuple7 = setelement(2048, Tuple6, -2048),
+    Tuple8 = setelement(2047, Tuple7, -2047),
+
+    Tuple9 = setelement(1024, Tuple8, -1024),
+    Tuple10 = setelement(1023, Tuple9, -1023),
+
+    Tuple11 = setelement(512, Tuple10, -512),
+    Tuple12 = setelement(511, Tuple11, -511),
+
+    Tuple13 = setelement(256, Tuple12, -256),
+    Tuple14 = setelement(255, Tuple13, -255),
+
+    Tuple15 = setelement(128, Tuple14, -128),
+    Tuple16 = setelement(127, Tuple15, -127),
+
+    Tuple17 = setelement(64, Tuple16, -64),
+    Tuple18 = setelement(63, Tuple17, -63),
+
+    Tuple19 = setelement(32, Tuple18, -32),
+    Tuple20 = setelement(31, Tuple19, -31),
+
+    Tuple21 = setelement(16, Tuple20, -16),
+    Tuple22 = setelement(15, Tuple21, -15),
+
+    Tuple23 = setelement(8, Tuple22, -8),
+    Tuple24 = setelement(7, Tuple23, -7),
+
+    Tuple25 = setelement(4, Tuple24, -4),
+    Tuple26 = setelement(3, Tuple25, -3),
+
+    Tuple27 = setelement(2, Tuple26, -2),
+    setelement(1, Tuple27, -1).
+
+verify_set_elements(16385, Tuple) ->
+    -16385 = element(16385, Tuple),
+    ok;
+verify_set_elements(N, Tuple) ->
+    El = element(N, Tuple),
+    if
+        El =:= N + 7 ->
+            true = not (is_power_of_two(N + 1) andalso is_power_of_two(N)),
+            verify_set_elements(N + 1, Tuple);
+        El =:= -N ->
+            true = is_power_of_two(N + 1) orelse is_power_of_two(N),
+            verify_set_elements(N + 1, Tuple);
+        true ->
+            io:format("element(~p) =:= ~p\n", [N,El]),
+            ct:fail(bad_element)
+    end.
+
+is_power_of_two(N) ->
+    N band (N - 1) =:= 0.
 
 %% Tests list_to_tuple/1.
 
