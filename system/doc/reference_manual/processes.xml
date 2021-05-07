@@ -417,6 +417,14 @@ spawn(Module, Name, Args) -> pid()
     <section>
       <title>Receiving Signals</title>
       <p>
+	Signals are received asynchronously and automatically. There is nothing
+	a process must do to handle the reception of signals, or can do to
+	prevent it. In particular, signal reception is <em>not</em> tied to the
+	execution of a
+	<seeguide marker="expressions#receive"><c>receive</c></seeguide>
+	expression, but can happen anywhere in the execution flow of a process.
+      </p>
+      <p>
 	When a signal is received by a process, some kind of action is
 	taken. The specific action taken depends on the signal type,
 	contents of the signal, and the state of the receiving process.
