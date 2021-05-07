@@ -38,7 +38,7 @@
   {mod, {diameter_app, []}},
   {runtime_dependencies, [
       "erts-10.0",
-      "stdlib-2.4",
+      "stdlib-3.0",
       "kernel-3.2",
       "ssl-9.0"
       %, "syntax-tools-1.6.18"
