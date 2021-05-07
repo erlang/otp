@@ -132,7 +132,7 @@ big_loop(C, N, Pids) ->
 	    %%Pids2=Pids1,
 
 	    %% wait a little while
-	    timer:sleep(rand:uniform(200)*3),
+	    ok = timer:sleep(rand:uniform(200)*3),
 
 	    %% spawn zero, one or two nrev to get some load ;-/
 	    Pids3 = start_nrev(Pids2, rand:uniform(100)),
@@ -168,7 +168,7 @@ s_a_t(C, TimeOut) ->
 a_t(C, TimeOut) ->
     start_watchdog(self(), TimeOut),
     Start = system_time(),
-    timer:send_after(TimeOut, self(), now),
+    {ok, _} = timer:send_after(TimeOut, self(), now),
     receive
 	now ->
 	    Stop = system_time(),
@@ -202,12 +202,12 @@ i_wait(Start, Prev, Times, TimeOut, Times, Ref, C) ->
 	interval ->
 	    Now = system_time(),
 	    report_interval(C, {final,Times}, Start, Prev, Now, TimeOut),
-	    timer:cancel(Ref),
+	    {ok, cancel} = timer:cancel(Ref),
 	    exit(done);
 	watchdog ->
 	    Now = system_time(),
 	    report_interval(C, {final,Times}, Start, Prev, Now, TimeOut),
-	    timer:cancel(Ref),
+	    {ok, cancel} = timer:cancel(Ref),
 	    ok = io:format("Internal watchdog timeout (i), not good!!~n",
 			   []),
 	    exit(done)
@@ -358,7 +358,7 @@ system_time() ->
 %% ------------------------------------------------------- %%
 
 do_nrev(Sleep) ->
-    timer:sleep(Sleep),
+    ok = timer:sleep(Sleep),
     test(1000,"abcdefghijklmnopqrstuvxyz1234"),
     exit(done).
 
