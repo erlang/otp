@@ -2093,11 +2093,11 @@ restart:
 
     #ifdef DMC_DEBUG
 	if (*heap_fence != FENCE_PATTERN) {
-	    erts_exit(ERTS_ERROR_EXIT, "Heap fence overwritten in db_prog_match after op "
+	    erts_exit(ERTS_ABORT_EXIT, "Heap fence overwritten in db_prog_match after op "
 		     "0x%08x, overwritten with 0x%08x.", save_op, *heap_fence);
 	}
 	if (*stack_fence != FENCE_PATTERN) {
-	    erts_exit(ERTS_ERROR_EXIT, "Stack fence overwritten in db_prog_match after op "
+	    erts_exit(ERTS_ABORT_EXIT, "Stack fence overwritten in db_prog_match after op "
 		     "0x%08x, overwritten with 0x%08x.", save_op, 
 		     *stack_fence);
 	}
@@ -2770,11 +2770,11 @@ success:
 
 #ifdef DMC_DEBUG
     if (*heap_fence != FENCE_PATTERN) {
-	erts_exit(ERTS_ERROR_EXIT, "Heap fence overwritten in db_prog_match after op "
+	erts_exit(ERTS_ABORT_EXIT, "Heap fence overwritten in db_prog_match after op "
 		 "0x%08x, overwritten with 0x%08x.", save_op, *heap_fence);
     }
     if (*stack_fence != FENCE_PATTERN) {
-	erts_exit(ERTS_ERROR_EXIT, "Stack fence overwritten in db_prog_match after op "
+	erts_exit(ERTS_ABORT_EXIT, "Stack fence overwritten in db_prog_match after op "
 		 "0x%08x, overwritten with 0x%08x.", save_op, 
 		 *stack_fence);
     }
@@ -3710,13 +3710,17 @@ static DMCRet dmc_one_term(DMCContext *context,
 static Eterm
 dmc_private_copy(DMCContext *context, Eterm c)
 {
-    Uint n = size_object(c);
-    ErlHeapFragment *tmp_mb = new_message_buffer(n);
-    Eterm *hp = tmp_mb->mem;
-    Eterm copy = copy_struct(c, n, &hp, &(tmp_mb->off_heap));
-    tmp_mb->next = context->save;
-    context->save = tmp_mb;
-    return copy;
+    if (is_immed(c)) {
+        return c;
+    } else {
+        Uint n = size_object(c);
+        ErlHeapFragment *tmp_mb = new_message_buffer(n);
+        Eterm *hp = tmp_mb->mem;
+        Eterm copy = copy_struct(c, n, &hp, &(tmp_mb->off_heap));
+        tmp_mb->next = context->save;
+        context->save = tmp_mb;
+        return copy;
+    }
 }
 
 /*
@@ -3731,15 +3735,23 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 	Eterm *hp;
 	Eterm tmp;
 
-	if (IS_CONST(t)) {
+        if (is_immed(t)) {
 	    tmp = t;
 	} else {
 	    sz = my_size_object(t);
-	    emb = new_message_buffer(sz);
-	    hp = emb->mem;
-	    tmp = my_copy_struct(t,&hp,&(emb->off_heap));
-	    emb->next = context->save;
-	    context->save = emb;
+            if (sz) {
+                emb = new_message_buffer(sz);
+                hp = emb->mem;
+                tmp = my_copy_struct(t,&hp,&(emb->off_heap));
+                emb->next = context->save;
+                context->save = emb;
+            }
+            else {
+                /* must be {const, Immed} */
+                ASSERT(is_tuple_arity(t,2) && tuple_val(t)[1] == am_const);
+                ASSERT(is_immed(tuple_val(t)[2]));
+                tmp = tuple_val(t)[2];
+            }
 	}
 	DMC_PUSH2(*text, matchPushC, (Uint)tmp);
 	if (++context->stack_used > context->stack_need)
