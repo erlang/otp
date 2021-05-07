@@ -122,7 +122,7 @@ groups() ->
 		   reload_config_file
 		  ]},
      {post, [], [chunked_post, chunked_chunked_encoded_post, post_204]},
-     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0]},
+     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, verify_href_1_1]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0]},
      {auth_api_dets, [], [auth_api_1_1, auth_api_1_0]},
      {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0]},
@@ -552,6 +552,24 @@ basic_auth(Config) ->
 		     Config, [{statuscode, 200}]),
     %% Authentication still required!
     basic_auth_requiered(Config).
+
+verify_href_1_1(Config) when is_list(Config) ->
+    verify_href([{http_version, "HTTP/1.1"} | Config]).
+
+verify_href() ->
+    [{doc, "Test generated hrefs (related to GH-4677), check that hrefs for dir listing work"}].
+
+verify_href(Config) when is_list(Config) ->
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    Go = fun(Path, User, Password, Opts) ->
+                 ct:pal("Navigating to ~p", [Path]),
+                 auth_status(auth_request(Path, User, Password, Version, Host),
+                             Config, Opts)
+         end,
+    {ok, Hrefs} = Go("/open/", "Aladdin", "AladdinPassword", [{statuscode, 200}, {fetch_hrefs, true}]),
+    [ok = Go(H, "one", "onePassword", [{statuscode, 200}]) || H <- Hrefs],
+    ok.
 
 auth_api_1_1(Config) when is_list(Config) -> 
     auth_api([{http_version, "HTTP/1.1"} | Config]).
