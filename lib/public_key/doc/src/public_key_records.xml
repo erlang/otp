@@ -179,8 +179,10 @@
   </section>
 
   <section>
-       <title>ECDSA </title>
-       <p>Erlang representation of  <url href="http://www.ietf.org/rfc/rfc6979.txt">Elliptic Curve Digital Signature Algorithm (ECDSA)</url> keys follows:</p> 
+    <title>ECDSA and EDDSA</title>
+    
+    <p>Erlang representation of  <url href="http://www.ietf.org/rfc/rfc6979.txt">Elliptic Curve Digital Signature Algorithm (ECDSA)</url> and <url href="https://tools.ietf.org/html/rfc8032">Edwards-Curve Digital Signature Algorithm (EDDSA)</url> where
+    parameters in the private key will be <c>{namedCurve, ?'id-Ed25519' | ?'id-Ed448'}</c>.</p> 
     
     <code>	 
 #'ECPrivateKey'{
