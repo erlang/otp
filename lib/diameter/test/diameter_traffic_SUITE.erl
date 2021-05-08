@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -279,19 +279,19 @@ all() ->
 
 %% Redefine this to run one or more groups for debugging purposes.
 -define(GROUPS, []).
-%-define(GROUPS, [[tcp,rfc6733,record,map,false,false,false,false]]).
+%-define(GROUPS, [[sctp,rfc6733,record,map,false,false,true,false]]).
 
 %% Issues with gen_sctp sporadically cause huge numbers of failed
 %% testcases when running testcases in parallel.
 groups() ->
-    Names = names(),
+    Names = names([] == ?GROUPS orelse ?GROUPS),
     [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
         ++
         [{?util:name(N), [], [{group, if T == sctp; S -> shuffle;
                                          true         -> parallel end}]}
          || [T,_,_,_,S|_] = N <- Names]
         ++
-        [{T, [], [{group, ?util:name(N)} || N <- names(Names, ?GROUPS),
+        [{T, [], [{group, ?util:name(N)} || N <- Names,
                                             T == hd(N)]}
          || T <- ?TRANSPORTS]
         ++
@@ -308,13 +308,13 @@ names() ->
                              CS <- ?SENDERS,
                              ?SKIP =< rand:uniform()].
 
-names(Names, []) ->
+names(true) ->
+    names(names());
+
+names(Names) ->
     [N || N <- Names,
           [CS,SS|_] <- [lists:reverse(N)],
-          SS orelse CS];  %% avoid deadlock
-
-names(_, Names) ->
-    Names.
+          SS orelse CS].  %% avoid deadlock
 
 %% --------------------
 
