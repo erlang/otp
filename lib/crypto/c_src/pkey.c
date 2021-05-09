@@ -1440,8 +1440,8 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
         ret = enif_make_list_from_array(env, result, 4);
 #endif
-    } else if (argv[0] == atom_ecdsa) {
 #if defined(HAVE_EC)
+    } else if (argv[0] == atom_ecdsa) {
         /* not yet implemented
           EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
           if (ec) {
@@ -1474,8 +1474,8 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             EVP_PKEY_free(pkey);
             return enif_make_list_from_array(env, ..., ...);
         */
-#endif
         goto bad_arg;
+#endif
     } else {
         goto bad_arg;
     }
