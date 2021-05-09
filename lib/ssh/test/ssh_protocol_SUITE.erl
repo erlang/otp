@@ -78,9 +78,6 @@
          service_name_length_too_short/1
         ]).
 
--define(NEWLINE, <<"\r\n">>).
--define(REKEY_DATA_TMO, 65000).
-
 -define(DEFAULT_KEX, 'diffie-hellman-group14-sha256').
 -define(EXTRA_KEX, 'diffie-hellman-group1-sha1').
 

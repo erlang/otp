@@ -64,7 +64,6 @@
          renegotiate2/1
         ]).
 
--define(NEWLINE, <<"\r\n">>).
 -define(REKEY_DATA_TMO, 1 * 60000). % Should be multiples of 60000
 
 %%--------------------------------------------------------------------
