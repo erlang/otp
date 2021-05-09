@@ -746,7 +746,7 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
 decode_pem_keys(RawBin, Password) ->
     PemLines = binary:split(
                  binary:replace(RawBin, <<"\\\n">>, <<"">>, [global]),
-                 <<"\n">>, [global,trim_all]),
+                 [<<"\r\n">>, <<"\n">>], [global,trim_all]),
     decode_pem_keys(PemLines, Password, []).
 decode_pem_keys([], _, Acc) ->
     {ok,lists:reverse(Acc)};
