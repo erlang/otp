@@ -31,7 +31,6 @@
          is_auth_key/3
         ]).
 
-
 host_key(SshAlg, Options) ->
     KBopts = proplists:get_value(key_cb_private, Options, []),
     Engine = proplists:get_value(engine, KBopts),
@@ -46,9 +45,9 @@ host_key(SshAlg, Options) ->
                     PrivKey = #{engine => Engine,
                                 key_id => KeyId,
                                 algorithm => CryptoAlg},
-                    %% Is there a key with this reference ?
+                    %% Is there a key with this reference?
                     case crypto:privkey_to_pubkey(CryptoAlg, PrivKey) of
-                        [_|_] -> 
+                        [_|_] ->
                             {ok, PrivKey};
                         _ ->
                             {error, {no_hostkey,SshAlg}}
@@ -59,9 +58,6 @@ host_key(SshAlg, Options) ->
 is_auth_key(_PublicUserKey, _User, _Options) ->
     false.
 
-
-
 crypto_alg('ssh-rsa') -> rsa;
 crypto_alg('ssh-dss') -> dss;
 crypto_alg(_) -> undefined.
-    
