@@ -20,6 +20,8 @@
 
 -module(diameter_tcp).
 
+-dialyzer(no_improper_lists).
+
 -behaviour(gen_server).
 
 %% interface
