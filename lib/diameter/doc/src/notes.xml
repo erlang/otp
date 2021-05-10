@@ -43,6 +43,29 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The unordered option was ignored on a client
+	    diameter_sctp transport, causing all delivery to be
+	    ordered.</p>
+          <p>
+	    The association id was not specified to gen_sctp when
+	    requesting unordered delivery, causing the setting to be
+	    applied to the whole endpoint.</p>
+          <p>
+	    Thanks to Bengt Kleberg and Andreas Schultz.</p>
+          <p>
+	    Own Id: OTP-17366 Aux Id: GH-4775 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
