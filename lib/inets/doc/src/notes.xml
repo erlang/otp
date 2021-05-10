@@ -33,7 +33,51 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.3.2</title>
+  <section><title>Inets 7.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Drop all support for ftp and tftp in inets code.</p>
+          <p>
+	    Own Id: OTP-16722</p>
+        </item>
+        <item>
+          <p>
+	    Deprecate following functions in <c>httpd_util</c>
+	    module: <c>flatlength/1</c>,
+	    <c>lhexlist_to_integer/1</c>,
+	    <c>integer_to_hexlist/1</c>, <c>strip/1</c>, and
+	    <c>suffix/1</c>.</p>
+          <p>
+	    Own Id: OTP-16723</p>
+        </item>
+        <item>
+          <p>
+	    Remove support of HTTP 0.9 in httpd.</p>
+          <p>
+	    Own Id: OTP-16724</p>
+        </item>
+        <item>
+          <p>
+	    Remove support of HTTP 0.9 in httpc.</p>
+          <p>
+	    Own Id: OTP-16725</p>
+        </item>
+        <item>
+          <p>
+	    Fixed warnings in code matching on underscore prefixed
+	    variables.</p>
+          <p>
+	    Own Id: OTP-17385 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

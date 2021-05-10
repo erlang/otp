@@ -32,6 +32,76 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix so that the edoc_doclet option <c>file_suffix</c>
+	    also effects the links emitted into the module index.</p>
+          <p>
+	    Own Id: OTP-17092</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    EDoc, the Erlang documentation engine, hits version 1.0
+	    with this release, which means a few changes.</p>
+          <p>
+	    EDoc is now capable of emitting EEP-48 doc chunks. This
+	    means that, with some configuration, community projects
+	    can now provide documentation for <seeerl
+	    marker="stdlib:shell_docs"><c>shell_docs</c></seeerl> the
+	    same way that OTP libraries did since OTP 23.0.</p>
+          <p>
+	    The <c>@spec</c> and <c>@type</c> EDoc tags have been
+	    deprecated. These are not supported with the new
+	    chunk-generating doclet and layout. Moreover, previously
+	    when there was a redundant <c>@spec</c> tag and
+	    <c>-spec</c> attribute defined for the same function, the
+	    <c>@spec</c> tag would take precedence. Now, the
+	    <c>-spec</c> attribute takes precedence and is more
+	    important. The same is true for redundant <c>@type</c>
+	    tags and <c>-type</c> attributes. Warnings are now
+	    emitted when such redundant entries are found.</p>
+          <p>
+	    The <c>?NO_APP</c> macro in <c>edoc_doclet.hrl</c> has
+	    been deprecated. Use the atom <c>no_app</c> instead.</p>
+          <p>
+	    See the <seeguide marker="chapter">Doc chunks chapter in
+	    the Edoc User's Guide</seeguide> for more details.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16949 Aux Id: PR-2803 OTP-17192 </p>
+        </item>
+        <item>
+          <p>
+	    Edoc has been updated to use <c>-spec</c> to document its
+	    own interface instead of <c>@doc@</c> tags.</p>
+          <p>
+	    Together with this change the inter-application linking
+	    for <c>-spec</c> style documentation has been improved.</p>
+          <p>
+	    Own Id: OTP-17095 Aux Id: PR-2914 </p>
+        </item>
+        <item>
+          <p>
+	    Allow user defined edoc macros to be functions.</p>
+          <p>
+	    Own Id: OTP-17153 Aux Id: PR-2674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.12</title>
 
     <section><title>Improvements and New Features</title>

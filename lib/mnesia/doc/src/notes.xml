@@ -39,7 +39,29 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.19</title>
+  <section><title>Mnesia 4.19.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Suppression of deprecation warnings has been added to
+	    the source files of the Mnesia application.</p>
+          <p>
+	    Own Id: OTP-17217</p>
+        </item>
+        <item>
+          <p>
+	    Fixed that the backend plugin initialization is done only
+	    once.</p>
+          <p>
+	    Own Id: OTP-17294 Aux Id: GH-4525 PR-4674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

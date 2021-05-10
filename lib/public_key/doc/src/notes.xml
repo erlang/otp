@@ -35,6 +35,42 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS connections now support EdDSA certificates.</p>
+          <p>
+	    Own Id: OTP-17142 Aux Id: PR-4756, GH-4637, GH-4650 </p>
+        </item>
+        <item>
+          <p>
+	    The functions public_key:ssh_encode/2,
+	    public_key:ssh_decode/2,
+	    public_key:ssh_hostkey_fingerprint/1 and
+	    public_key:ssh_hostkey_fingerprint/2 are deprecated.</p>
+          <p>
+	    Replacement functions are available in SSH, see the
+	    <seeguide
+	    marker="system/general_info:deprecations#otp-24">Deprecations</seeguide>
+	    chapter in the Erlang/OTP documentation.</p>
+          <p>
+	    Own Id: OTP-17352</p>
+        </item>
+        <item>
+          <p>
+	    Enhance documentation and logging of certificate
+	    handling.</p>
+          <p>
+	    Own Id: OTP-17384 Aux Id: GH-4800 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

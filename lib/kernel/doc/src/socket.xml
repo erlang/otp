@@ -1342,7 +1342,7 @@
     <func>
       <name name="accept" arity="2" clause_i="1" since="OTP 22.1"
             anchor="accept-nowait"/>
-      <name name="accept" arity="2" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="accept" arity="2" clause_i="2" since="OTP 24.0"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
 	<p>
@@ -1528,7 +1528,7 @@
     <func>
       <name name="connect" arity="3" clause_i="1" since="OTP 22.1"
             anchor="connect-nowait"/>
-      <name name="connect" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="connect" arity="3" clause_i="2" since="OTP 24.0"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
         <p>
@@ -1577,7 +1577,7 @@
     </func>
 
     <func>
-      <name name="connect" arity="1" since="OTP @OTP-16749@"/>
+      <name name="connect" arity="1" since="OTP 24.0"/>
       <fsummary>Finalize a connection initiation on a socket.</fsummary>
       <desc>
         <p>
@@ -1603,7 +1603,7 @@
     </func>
 
     <func>
-      <name name="cancel_monitor" arity="1" since="OTP @OTP-17155@"/>
+      <name name="cancel_monitor" arity="1" since="OTP 24.0"/>
       <fsummary>Stop socket monitoring</fsummary>
       <desc>
 	<p>If <c><anno>MRef</anno></c> is a reference that the
@@ -1633,7 +1633,7 @@
     </func>
 
     <func>
-      <name name="getopt" arity="2" clause_i="1" since="OTP @OTP-17154@"/>
+      <name name="getopt" arity="2" clause_i="1" since="OTP 24.0"/>
       <fsummary>
 	Get a socket option from the protocol level <c>otp</c>.
       </fsummary>
@@ -1654,7 +1654,7 @@
     </func>
 
     <func>
-      <name name="getopt" arity="2" clause_i="2" since="OTP @OTP-17154@"/>
+      <name name="getopt" arity="2" clause_i="2" since="OTP 24.0"/>
       <fsummary>
 	Get a socket option from one of the OS's protocol levels.
       </fsummary>
@@ -1723,13 +1723,13 @@
 
     <func>
       <name name="getopt_native" arity="3" clause_i="1"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <name name="getopt_native" arity="3" clause_i="2"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <name name="getopt_native" arity="3" clause_i="3"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <name name="getopt_native" arity="3" clause_i="4"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <fsummary>Get a "native" socket option.</fsummary>
       <desc>
         <p>
@@ -1786,7 +1786,7 @@
     </func>
 
     <func>
-      <name name="info" arity="0" since="OTP @OTP-16749@"/>
+      <name name="info" arity="0" since="OTP 24.0"/>
       <fsummary>Get miscellaneous socket library info.</fsummary>
       <desc>
         <p>Get miscellaneous info about the socket library.</p>
@@ -1851,7 +1851,7 @@
     </func>
 
     <func>
-      <name name="monitor" arity="1" since="OTP @OTP-17155@"/>
+      <name name="monitor" arity="1" since="OTP 24.0"/>
       <fsummary>Start socket monitoring</fsummary>
       <desc>
 	<p>Start monitor the socket <c><anno>Socket</anno></c>. </p>
@@ -2086,9 +2086,9 @@
     <func>
       <name name="recv" arity="1" since="OTP 22.0"
 	    anchor="recv-infinity"/>
-      <name name="recv" arity="2" clause_i="1" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="2" clause_i="1" since="OTP 24.0"/>
       <name name="recv" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="3" clause_i="3" since="OTP 24.0"/>
       <name name="recv" arity="3" clause_i="5" since="OTP 22.0"/>
       <name name="recv" arity="3" clause_i="8" since="OTP 22.0"/>
       <name name="recv" arity="4" clause_i="3" since="OTP 22.0"/>
@@ -2127,7 +2127,7 @@
     </func>
 
     <func>
-      <name name="recv" arity="3" clause_i="4" since="OTP @OTP-16749@"
+      <name name="recv" arity="3" clause_i="4" since="OTP 24.0"
 	    anchor="recv-timeout"/>
       <name name="recv" arity="3" clause_i="9" since="OTP 22.0"/>
       <name name="recv" arity="4" clause_i="4" since="OTP 22.0"/>
@@ -2151,13 +2151,13 @@
     </func>
 
     <func>
-      <name name="recv" arity="3" clause_i="1" since="OTP @OTP-16749@"
+      <name name="recv" arity="3" clause_i="1" since="OTP 24.0"
 	    anchor="recv-nowait"/>
-      <name name="recv" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="3" clause_i="2" since="OTP 24.0"/>
       <name name="recv" arity="3" clause_i="6" since="OTP 22.1"/>
-      <name name="recv" arity="3" clause_i="7" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="3" clause_i="7" since="OTP 24.0"/>
       <name name="recv" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="recv" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recv" arity="4" clause_i="2" since="OTP 24.0"/>
       <fsummary>Receive data from a socket, but do not wait.</fsummary>
       <desc>
         <p>
@@ -2220,7 +2220,7 @@
     <func>
       <name name="recvfrom" arity="1" since="OTP 22.0"
 	    anchor="recvfrom-infinity"/>
-      <name name="recvfrom" arity="2" clause_i="1" since="OTP @OTP-16749@"/>
+      <name name="recvfrom" arity="2" clause_i="1" since="OTP 24.0"/>
       <name name="recvfrom" arity="2" clause_i="2" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="3" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="5" since="OTP 22.0"/>
@@ -2292,11 +2292,11 @@
     <func>
       <name name="recvfrom" arity="3" clause_i="1" since="OTP 22.1"
 	    anchor="recvfrom-nowait"/>
-      <name name="recvfrom" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recvfrom" arity="3" clause_i="2" since="OTP 24.0"/>
       <name name="recvfrom" arity="3" clause_i="6" since="OTP 22.1"/>
-      <name name="recvfrom" arity="3" clause_i="7" since="OTP @OTP-16749@"/>
+      <name name="recvfrom" arity="3" clause_i="7" since="OTP 24.0"/>
       <name name="recvfrom" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="recvfrom" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recvfrom" arity="4" clause_i="2" since="OTP 24.0"/>
       <fsummary>Receive a message from a socket, but do not wait.</fsummary>
       <desc>
         <p>
@@ -2356,7 +2356,7 @@
       <name name="recvmsg" arity="2" clause_i="4" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="3" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="5" since="OTP 22.0"/>
-      <name name="recvmsg" arity="4" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="recvmsg" arity="4" clause_i="3" since="OTP 24.0"/>
       <name name="recvmsg" arity="5" clause_i="3" since="OTP 22.0"/>
       <fsummary>
         Receive a message from a socket, with "infinite" time-out.
@@ -2409,7 +2409,7 @@
       <name name="recvmsg" arity="2" clause_i="5" since="OTP 22.0"
             anchor="recvmsg-timeout"/>
       <name name="recvmsg" arity="3" clause_i="4" since="OTP 22.0"/>
-      <name name="recvmsg" arity="4" clause_i="4" since="OTP @OTP-16749@"/>
+      <name name="recvmsg" arity="4" clause_i="4" since="OTP 24.0"/>
       <name name="recvmsg" arity="5" clause_i="4" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket, with time-out.</fsummary>
       <desc>
@@ -2430,13 +2430,13 @@
     <func>
       <name name="recvmsg" arity="2" clause_i="2" since="OTP 22.1"
             anchor="recvmsg-nowait"/>
-      <name name="recvmsg" arity="2" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="recvmsg" arity="2" clause_i="3" since="OTP 24.0"/>
       <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.1"/>
-      <name name="recvmsg" arity="3" clause_i="2" since="OTP @OTP-16749@"/>
-      <name name="recvmsg" arity="4" clause_i="1" since="OTP @OTP-16749@"/>
-      <name name="recvmsg" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recvmsg" arity="3" clause_i="2" since="OTP 24.0"/>
+      <name name="recvmsg" arity="4" clause_i="1" since="OTP 24.0"/>
+      <name name="recvmsg" arity="4" clause_i="2" since="OTP 24.0"/>
       <name name="recvmsg" arity="5" clause_i="1" since="OTP 22.1"/>
-      <name name="recvmsg" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="recvmsg" arity="5" clause_i="2" since="OTP 24.0"/>
       <fsummary>Receive a message from a socket, but do not wait.</fsummary>
       <desc>
         <p>
@@ -2621,9 +2621,9 @@
     <func>
       <name name="send" arity="3" clause_i="3" since="OTP 22.1"
 	    anchor="send-nowait"/>
-      <name name="send" arity="3" clause_i="4" since="OTP @OTP-16749@"/>
+      <name name="send" arity="3" clause_i="4" since="OTP 24.0"/>
       <name name="send" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="send" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="send" arity="4" clause_i="2" since="OTP 24.0"/>
       <fsummary>Send data on a connected socket, but do not wait.</fsummary>
       <desc>
         <p>
@@ -2684,12 +2684,12 @@
     </func>
 
     <func>
-      <name name="send" arity="3" clause_i="2" since="OTP @OTP-16749@"
+      <name name="send" arity="3" clause_i="2" since="OTP 24.0"
 	    anchor="send-cont"/>
-      <name name="send" arity="4" clause_i="7" since="OTP @OTP-16749@"/>
-      <name name="send" arity="4" clause_i="8" since="OTP @OTP-16749@"/>
-      <name name="send" arity="4" clause_i="5" since="OTP @OTP-16749@"/>
-      <name name="send" arity="4" clause_i="6" since="OTP @OTP-16749@"/>
+      <name name="send" arity="4" clause_i="7" since="OTP 24.0"/>
+      <name name="send" arity="4" clause_i="8" since="OTP 24.0"/>
+      <name name="send" arity="4" clause_i="5" since="OTP 24.0"/>
+      <name name="send" arity="4" clause_i="6" since="OTP 24.0"/>
       <fsummary>Send data on a connected socket, continuation.</fsummary>
       <desc>
         <p>
@@ -2818,9 +2818,9 @@
     <func>
       <name name="sendmsg" arity="3" clause_i="3" since="OTP 22.1"
 	    anchor="sendmsg-nowait"/>
-      <name name="sendmsg" arity="3" clause_i="4" since="OTP @OTP-16749@"/>
+      <name name="sendmsg" arity="3" clause_i="4" since="OTP 24.0"/>
       <name name="sendmsg" arity="4" clause_i="1" since="OTP 22.1"/>
-      <name name="sendmsg" arity="4" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="sendmsg" arity="4" clause_i="2" since="OTP 24.0"/>
       <fsummary>Send a message on a socket, but do not wait.</fsummary>
       <desc>
         <p>
@@ -2881,12 +2881,12 @@
     </func>
 
     <func>
-      <name name="sendmsg" arity="3" clause_i="2" since="OTP @OTP-16749@"
+      <name name="sendmsg" arity="3" clause_i="2" since="OTP 24.0"
 	    anchor="sendmsg-cont"/>
-      <name name="sendmsg" arity="4" clause_i="7" since="OTP @OTP-16749@"/>
-      <name name="sendmsg" arity="4" clause_i="8" since="OTP @OTP-16749@"/>
-      <name name="sendmsg" arity="4" clause_i="5" since="OTP @OTP-16749@"/>
-      <name name="sendmsg" arity="4" clause_i="6" since="OTP @OTP-16749@"/>
+      <name name="sendmsg" arity="4" clause_i="7" since="OTP 24.0"/>
+      <name name="sendmsg" arity="4" clause_i="8" since="OTP 24.0"/>
+      <name name="sendmsg" arity="4" clause_i="5" since="OTP 24.0"/>
+      <name name="sendmsg" arity="4" clause_i="6" since="OTP 24.0"/>
       <fsummary>Send a message on a socket, continuation.</fsummary>
       <desc>
         <p>
@@ -2985,9 +2985,9 @@
     <func>
       <name name="sendto" arity="4" clause_i="2" since="OTP 22.1"
 	    anchor="sendto-nowait"/>
-      <name name="sendto" arity="4" clause_i="3" since="OTP @OTP-16749@"/>
+      <name name="sendto" arity="4" clause_i="3" since="OTP 24.0"/>
       <name name="sendto" arity="5" clause_i="1" since="OTP 22.1"/>
-      <name name="sendto" arity="5" clause_i="2" since="OTP @OTP-16749@"/>
+      <name name="sendto" arity="5" clause_i="2" since="OTP 24.0"/>
       <fsummary>Send data on a socket, but do not wait.</fsummary>
       <desc>
         <p>
@@ -3049,12 +3049,12 @@
     </func>
 
     <func>
-      <name name="sendto" arity="3" clause_i="2" since="OTP @OTP-16749@"
+      <name name="sendto" arity="3" clause_i="2" since="OTP 24.0"
 	    anchor="sendto-cont"/>
-      <name name="sendto" arity="4" clause_i="8" since="OTP @OTP-16749@"/>
-      <name name="sendto" arity="4" clause_i="9" since="OTP @OTP-16749@"/>
-      <name name="sendto" arity="4" clause_i="6" since="OTP @OTP-16749@"/>
-      <name name="sendto" arity="4" clause_i="7" since="OTP @OTP-16749@"/>
+      <name name="sendto" arity="4" clause_i="8" since="OTP 24.0"/>
+      <name name="sendto" arity="4" clause_i="9" since="OTP 24.0"/>
+      <name name="sendto" arity="4" clause_i="6" since="OTP 24.0"/>
+      <name name="sendto" arity="4" clause_i="7" since="OTP 24.0"/>
       <fsummary>Send data on a socket, continuation.</fsummary>
       <desc>
         <p>
@@ -3097,7 +3097,7 @@
 
     <func>
       <name name="sendfile" arity="5" clause_i="7"
-            since="OTP @OTP-17154@"
+            since="OTP 24.0"
             anchor="sendfile-infinity"/>
       <fsummary>
         Send file data on a socket, with "infinite" time-out.
@@ -3171,7 +3171,7 @@
 
     <func>
       <name name="sendfile" arity="5" clause_i="8"
-            since="OTP @OTP-17154@"
+            since="OTP 24.0"
             anchor="sendfile-timeout"/>
       <fsummary>Send file data on a socket, with time-out.</fsummary>
       <desc>
@@ -3196,10 +3196,10 @@
 
     <func>
       <name name="sendfile" arity="5" clause_i="5"
-            since="OTP @OTP-17154@"
+            since="OTP 24.0"
             anchor="sendfile-nowait"/>
       <name name="sendfile" arity="5" clause_i="6"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <fsummary>Send file data on a socket, but do not wait.</fsummary>
       <desc>
         <p>
@@ -3263,14 +3263,14 @@
 
     <func>
       <name name="sendfile" arity="5" clause_i="3"
-            since="OTP @OTP-17154@"
+            since="OTP 24.0"
             anchor="sendfile-cont"/>
       <name name="sendfile" arity="5" clause_i="4"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <name name="sendfile" arity="5" clause_i="1"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <name name="sendfile" arity="5" clause_i="2"
-            since="OTP @OTP-17154@"/>
+            since="OTP 24.0"/>
       <fsummary>Send file data on a socket, continuation.</fsummary>
       <desc>
         <p>
@@ -3308,7 +3308,7 @@
     </func>
 
     <func>
-      <name since="OTP @OTP-17154@">sendfile(Socket, FileHandle, Offset, Count)
+      <name since="OTP 24.0">sendfile(Socket, FileHandle, Offset, Count)
       -> Result</name>
       <fsummary>
         Send file data on a socket, with "infinite" time-out.
@@ -3335,7 +3335,7 @@
     </func>
 
     <func>
-      <name since="OTP @OTP-17154@">sendfile(Socket, FileHandle, Timeout)
+      <name since="OTP 24.0">sendfile(Socket, FileHandle, Timeout)
       -> Result</name>
       <fsummary>
         Send a file's data on a socket.
@@ -3374,7 +3374,7 @@
     </func>
 
     <func>
-      <name since="OTP @OTP-17154@">sendfile(Socket, FileHandle)
+      <name since="OTP 24.0">sendfile(Socket, FileHandle)
       -> Result</name>
       <fsummary>
         Send a file's data on a socket, with "infinite" time-out.
@@ -3398,7 +3398,7 @@
     </func>
 
     <func>
-      <name name="setopt" arity="3" clause_i="1" since="OTP @OTP-17154@"/>
+      <name name="setopt" arity="3" clause_i="1" since="OTP 24.0"/>
       <fsummary>
 	Set a socket option in the protocol level <c>otp</c>.
       </fsummary>
@@ -3419,7 +3419,7 @@
     </func>
 
     <func>
-      <name name="setopt" arity="3" clause_i="2" since="OTP @OTP-17154@"/>
+      <name name="setopt" arity="3" clause_i="2" since="OTP 24.0"/>
       <fsummary>
 	Set a socket option in one of the OS's protocol levels.
       </fsummary>
@@ -3490,7 +3490,7 @@
     </func>
 
     <func>
-      <name name="setopt_native" arity="3" since="OTP @OTP-17154@"/>
+      <name name="setopt_native" arity="3" since="OTP 24.0"/>
       <fsummary>Set a "native" socket option.</fsummary>
       <desc>
         <p>

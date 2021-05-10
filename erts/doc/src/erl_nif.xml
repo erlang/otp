@@ -1295,7 +1295,7 @@ typedef struct {
     </func>
 
     <func>
-      <name since="OTP @OTP-14753@"><ret>int</ret>
+      <name since="OTP 24.0"><ret>int</ret>
         <nametext>enif_dynamic_resource_call(ErlNifEnv* caller_env,
 	ERL_NIF_MODULE rt_module, ERL_NIF_MODULE rt_name, ERL_NIF_TERM resource,
 	void* call_data)</nametext>
@@ -2886,7 +2886,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name since="OTP @OTP-14753@"><ret>ErlNifResourceType *</ret>
+      <name since="OTP 24.0"><ret>ErlNifResourceType *</ret>
         <nametext>enif_init_resource_type(ErlNifEnv* env, const char* name,
 	const ErlNifResourceTypeInit* init,
         ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>

@@ -351,7 +351,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="cancel_monitor" arity="1" since="OTP @OTP-17155@"/>
+      <name name="cancel_monitor" arity="1" since="OTP 24.0"/>
       <fsummary>Stop socket monitoring</fsummary>
       <desc>
 	<p>If <c><anno>MRef</anno></c> is a reference that the
@@ -716,7 +716,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="info" arity="1"  since="OTP @OTP-17203@"/>
+      <name name="info" arity="1"  since="OTP 24.0"/>
       <fsummary>Retreive miscellaneous information about a socket</fsummary>
       <desc>
         <p>
@@ -726,7 +726,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="monitor" arity="1" since="OTP @OTP-17155@"/>
+      <name name="monitor" arity="1" since="OTP 24.0"/>
       <fsummary>Start socket monitoring</fsummary>
       <desc>
 	<p>Start monitor the socket <c><anno>Socket</anno></c>. </p>
