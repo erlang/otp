@@ -103,7 +103,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,40}}].
 
-all() -> 
+all() ->
     [{group,tool_tests},
      client_info_line,
      {group,kex},
@@ -123,10 +123,10 @@ groups() ->
 		      ]},
      {packet_size_error, [], [packet_length_too_large,
 			      packet_length_too_short]},
-      
+
      {field_size_error, [], [service_name_length_too_large,
 			     service_name_length_too_short]},
-      
+
      {kex, [], [no_common_alg_server_disconnects,
 		no_common_alg_client_disconnects,
 		gex_client_init_option_groups,
@@ -160,7 +160,7 @@ groups() ->
 
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(start_std_daemon( setup_dirs( start_apps(Config)))).
-    
+
 end_per_suite(Config) ->
     stop_apps(Config).
 
@@ -179,8 +179,8 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_old_request_noexact ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
-		   [{dh_gex_groups, 
-                     [{1023, 5, 
+		   [{dh_gex_groups,
+                     [{1023, 5,
                        16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A770E2EC9F
                       }]}];
 	       gex_client_init_option_groups_file ->
@@ -194,7 +194,7 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 	       _ when TC == gex_server_gex_limit ;
 		      TC == gex_client_old_request_exact ;
 		      TC == gex_client_old_request_noexact ->
-		    [{dh_gex_groups, 
+		    [{dh_gex_groups,
                       [{1023, 2, 16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A771225323},
                        {1535, 5, 16#D1391174233D315398FE2830AC6B2B66BCCD01B0A634899F339B7879F1DB85712E9DC4E4B1C6C8355570C1D2DCB53493DF18175A9C53D1128B592B4C72D97136F5542FEB981CBFE8012FDD30361F288A42BD5EBB08BAB0A5640E1AC48763B2ABD1945FEE36B2D55E1D50A1C86CED9DD141C4E7BE2D32D9B562A0F8E2E927020E91F58B57EB9ACDDA106A59302D7E92AD5F6E851A45FA1CFE86029A0F727F65A8F475F33572E2FDAB6073F0C21B8B54C3823DB2EF068927E5D747498F96E1E827},
                        {3071, 2, 16#DFAA35D35531E0F524F0099877A482D2AC8D589F374394A262A8E81A8A4FB2F65FADBAB395E05D147B29D486DFAA41F41597A256DA82A8B6F76401AED53D0253F956CEC610D417E42E3B287F7938FC24D8821B40BFA218A956EB7401BED6C96C68C7FD64F8170A8A76B953DD2F05420118F6B144D8FE48060A2BCB85056B478EDEF96DBC70427053ECD2958C074169E9550DD877779A3CF17C5AC850598C7586BEEA9DCFE9DD2A5FB62DF5F33EA7BC00CDA31B9D2DD721F979EA85B6E63F0C4E30BDDCD3A335522F9004C4ED50B15DC537F55324DD4FA119FB3F101467C6D7E1699DE4B3E3C478A8679B8EB3FA5C9B826B44530FD3BE9AD3063B240B0C853EBDDBD68DD940332D98F148D5D9E1DC977D60A0D23D0CA1198637FEAE4E7FAAC173AF2B84313A666CFB4EE6972811921D0AD867CE57F3BBC8D6CB057E3B66757BB46C9F72662624D44E14528327E3A7100E81A12C43C4E236118318CD90C8AA185BBB0C764826DAEAEE8DD245C5B451B4944E6122CC522D1C335C2EEF9429825A2B}
@@ -314,7 +314,7 @@ lib_works_as_server(Config) ->
       end),
 
     %% and finally connect to it with a regular Erlang SSH client:
-    {ok,_} = std_connect(HostPort, Config, 
+    {ok,_} = std_connect(HostPort, Config,
 			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                                  {cipher,?DEFAULT_CIPHERS}
                                                 ]}
@@ -421,16 +421,16 @@ no_common_alg_client_disconnects(Config) ->
     ct:log("Result of connect is ~p",[Result]),
 
     receive
-	{result,Pid,{ok,_}} -> 
+	{result,Pid,{ok,_}} ->
 	    ok;
 	{result,Pid,{error,{Op,ExecResult,S}}} ->
 	    ct:log("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
 		   [Op,ExecResult,ssh_trpt_test_lib:format_msg(S)]),
 	    {fail, ExecResult};
-	X -> 
+	X ->
 	    ct:log("¤¤¤¤¤"),
 	    ct:fail(X)
-    after 
+    after
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
@@ -474,7 +474,7 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	   {send, hello},
 	   {send, ssh_msg_kexinit},
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-	   {send, #ssh_msg_kex_dh_gex_request{min = Min, 
+	   {send, #ssh_msg_kex_dh_gex_request{min = Min,
 					      n = N,
 					      max = Max}},
 	   {match, #ssh_msg_kex_dh_gex_group{p=P, g=G, _='_'},  receive_msg}
@@ -491,7 +491,7 @@ gex_client_old_request_noexact(Config) ->
     do_gex_client_init_old(Config, 1400,
                            {5, 16#D1391174233D315398FE2830AC6B2B66BCCD01B0A634899F339B7879F1DB85712E9DC4E4B1C6C8355570C1D2DCB53493DF18175A9C53D1128B592B4C72D97136F5542FEB981CBFE8012FDD30361F288A42BD5EBB08BAB0A5640E1AC48763B2ABD1945FEE36B2D55E1D50A1C86CED9DD141C4E7BE2D32D9B562A0F8E2E927020E91F58B57EB9ACDDA106A59302D7E92AD5F6E851A45FA1CFE86029A0F727F65A8F475F33572E2FDAB6073F0C21B8B54C3823DB2EF068927E5D747498F96E1E827}
                            ).
-    
+
 do_gex_client_init_old(Config, N, {G,P}) ->
     {ok,_} =
 	ssh_trpt_test_lib:exec(
@@ -515,20 +515,20 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	 ).
 
 %%%--------------------------------------------------------------------
-bad_service_name(Config) -> 
+bad_service_name(Config) ->
     bad_service_name(Config, "kfglkjf").
-    
-bad_long_service_name(Config) -> 
-    bad_service_name(Config, 
+
+bad_long_service_name(Config) ->
+    bad_service_name(Config,
 		     lists:duplicate(?SSH_MAX_PACKET_SIZE div 2, $a)).
 
-bad_very_long_service_name(Config) -> 
+bad_very_long_service_name(Config) ->
     bad_service_name(Config,
 		     lists:duplicate(?SSH_MAX_PACKET_SIZE+5, $a)).
 
 empty_service_name(Config) ->
     bad_service_name(Config, "").
-    
+
 bad_service_name_then_correct(Config) ->
     {ok,InitialState} = connect_and_kex(Config),
     {ok,_} =
@@ -553,9 +553,9 @@ bad_service_name(Config, Name) ->
 packet_length_too_large(Config) -> bad_packet_length(Config, +4).
 
 packet_length_too_short(Config) -> bad_packet_length(Config, -4).
-    
+
 bad_packet_length(Config, LengthExcess) ->
-    PacketFun = 
+    PacketFun =
 	fun(Msg, Ssh) ->
 		BinMsg = ssh_message:encode(Msg),
 		ssh_transport:pack(BinMsg, Ssh, LengthExcess)
@@ -567,7 +567,7 @@ bad_packet_length(Config, LengthExcess) ->
 	   {send, {special,
 		   #ssh_msg_service_request{name="ssh-userauth"},
 		   PacketFun}},
-	   %% Prohibit remote decoder starvation:	   
+	   %% Prohibit remote decoder starvation:
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
 	   {match, disconnect(), receive_msg}
 	  ], InitialState).
@@ -579,10 +579,10 @@ service_name_length_too_short(Config) -> bad_service_name_length(Config, -4).
 
 
 bad_service_name_length(Config, LengthExcess) ->
-    PacketFun = 
+    PacketFun =
 	fun(#ssh_msg_service_request{name=Service}, Ssh) ->
 		BinName = list_to_binary(Service),
-		BinMsg = 
+		BinMsg =
 		    <<?BYTE(?SSH_MSG_SERVICE_REQUEST),
 		      %% A bad string encoding of Service:
 		      ?UINT32(size(BinName)+LengthExcess), BinName/binary
@@ -594,13 +594,13 @@ bad_service_name_length(Config, LengthExcess) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {send, {special,
-		   #ssh_msg_service_request{name="ssh-userauth"}, 
+		   #ssh_msg_service_request{name="ssh-userauth"},
 		   PacketFun} },
-	   %% Prohibit remote decoder starvation:	   
+	   %% Prohibit remote decoder starvation:
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
 	   {match, disconnect(), receive_msg}
 	  ], InitialState).
-    
+
 %%%--------------------------------------------------------------------
 %%% This is due to a fault report (OTP-13255) with OpenSSH-6.6.1
 client_handles_keyboard_interactive_0_pwds(Config) ->
@@ -639,7 +639,7 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
 						       _='_'}, receive_msg},
 		     {send, #ssh_msg_userauth_failure{authentications = "keyboard-interactive",
 						      partial_success = false}},
-		     
+
 		     {match, #ssh_msg_userauth_request{service="ssh-connection",
 						       method="keyboard-interactive",
 						       user=User,
@@ -652,7 +652,7 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
 							  }},
 		     {match, #ssh_msg_userauth_info_response{num_responses = 1,
 							     _='_'}, receive_msg},
-		      
+
 		     %% the next is strange, but openssh 6.6.1 does this and this is what this testcase is about
 		     {send, #ssh_msg_userauth_info_request{name = "",
 							   instruction = "",
@@ -672,7 +672,7 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
       end),
 
     %% and finally connect to it with a regular Erlang SSH client:
-    {ok,_} = std_connect(HostPort, Config, 
+    {ok,_} = std_connect(HostPort, Config,
 			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                                  {cipher,?DEFAULT_CIPHERS}
                                                 ]}]
@@ -698,7 +698,7 @@ client_info_line(Config) ->
 
     %% check if a badmatch was received:
     {ok, Reports} = ssh_eqc_event_handler:get_reports(Pid),
-    case lists:any(fun({error_report,_,{_,supervisor_report,L}}) when is_list(L) -> 
+    case lists:any(fun({error_report,_,{_,supervisor_report,L}}) when is_list(L) ->
 			   lists:member({reason,{badmatch,{error,closed}}}, L);
 		      (_) ->
 			   false
@@ -708,7 +708,7 @@ client_info_line(Config) ->
 	false ->
 	    ok
     end.
-	
+
 %%%--------------------------------------------------------------------
 %%% The server does not send the extension because
 %%% the client does not tell the server to send it
@@ -717,7 +717,7 @@ no_ext_info_s1(Config) ->
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
                                               {system_dir, system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{server,Server}|Config]),
-    {ok,_} = 
+    {ok,_} =
         ssh_trpt_test_lib:exec(
           [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
 	   {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
@@ -727,7 +727,7 @@ no_ext_info_s1(Config) ->
 %%%--------------------------------------------------------------------
 %%% The server does not send the extension because
 %%% the server is not configured to send it
-no_ext_info_s2(Config) ->    
+no_ext_info_s2(Config) ->
     %% Start the dameon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,false},
                                               {system_dir, system_dir(Config)}]),
@@ -743,7 +743,7 @@ no_ext_info_s2(Config) ->
 
 %%%--------------------------------------------------------------------
 %%% The server sends the extension
-ext_info_s(Config) ->    
+ext_info_s(Config) ->
     %% Start the dameon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
                                               {system_dir, system_dir(Config)}]),
@@ -759,7 +759,7 @@ ext_info_s(Config) ->
 
 %%%--------------------------------------------------------------------
 %%% The client sends the extension
-ext_info_c(Config) ->    
+ext_info_c(Config) ->
     %% Create a listening socket as server socket:
     {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
     HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
@@ -778,10 +778,10 @@ ext_info_c(Config) ->
                                   ]},
                          receive_hello,
                          {send, hello},
-                         
+
                          {send, ssh_msg_kexinit},
                          {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-                         
+
                          {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
                          {send, ssh_msg_kexdh_reply},
 
@@ -799,7 +799,7 @@ ext_info_c(Config) ->
 
     %% connect to it with a regular Erlang SSH client
     %% (expect error due to the close_socket in daemon):
-    {error,_} = std_connect(HostPort, Config, 
+    {error,_} = std_connect(HostPort, Config,
                             [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                                     {cipher,?DEFAULT_CIPHERS}
                                                    ]},
@@ -807,7 +807,7 @@ ext_info_c(Config) ->
                              {send_ext_info, true}
                             ]
                            ),
-    
+
     %% Check that the daemon got expected result:
     receive
         {result, Pid, {ok,_}} -> ok;
@@ -941,9 +941,9 @@ supported(_K) -> proplists:get_value(
                    ssh_transport:supported_algorithms(cipher)).
 
 to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
-    
 
-%%%---- init_suite and end_suite ---------------------------------------	
+
+%%%---- init_suite and end_suite ---------------------------------------
 start_apps(Config) ->
     catch ssh:stop(),
     ok = ssh:start(),
@@ -963,11 +963,11 @@ system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), syste
 user_dir(Config) -> proplists:get_value(priv_dir, Config).
 
 %%%----------------------------------------------------------------
-start_std_daemon(Config) ->	
+start_std_daemon(Config) ->
     start_std_daemon(Config, []).
 
 start_std_daemon(Config, ExtraOpts) ->
-    PrivDir = proplists:get_value(priv_dir, Config), 
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     UserPasswords = [{"user1","pwd1"}],
@@ -992,13 +992,13 @@ check_std_daemon_works(Config, Line) ->
     case std_connect(Config) of
 	{ok,C} ->
 	    ct:log("Server ~p:~p ~p is ok at line ~p",
-		   [server_host(Config), server_port(Config), 
+		   [server_host(Config), server_port(Config),
 		    server_pid(Config), Line]),
 	    ok = ssh:close(C),
 	    Config;
 	Error = {error,_} ->
 	    ct:fail("Standard server ~p:~p ~p is ill at line ~p: ~p",
-		    [server_host(Config), server_port(Config), 
+		    [server_host(Config), server_port(Config),
 		     server_pid(Config), Line, Error])
     end.
 
@@ -1009,11 +1009,11 @@ server_port(Config) -> element(3,?v(server,Config)).
 server_user_password(Config) -> server_user_password(1, Config).
 
 server_user_password(N, Config) -> lists:nth(N, ?v(user_passwords,Config)).
-    
 
-std_connect(Config) -> 
+
+std_connect(Config) ->
     std_connect({server_host(Config), server_port(Config)}, Config).
-    
+
 std_connect({Host,Port}, Config) ->
     std_connect({Host,Port}, Config, []).
 
@@ -1022,7 +1022,7 @@ std_connect({Host,Port}, Config, Opts) ->
 
 std_connect(Host, Port, Config, Opts) ->
     {User,Pwd} = server_user_password(Config),
-    ssh:connect(Host, Port, 
+    ssh:connect(Host, Port,
 		%% Prefere User's Opts to the default opts
 		[O || O = {Tag,_} <- [{user,User},{password,Pwd},
 				      {silently_accept_hosts, true},
@@ -1031,8 +1031,8 @@ std_connect(Host, Port, Config, Opts) ->
 		      not lists:keymember(Tag, 1, Opts)
 		] ++ Opts,
 		30000).
-    
-%%%----------------------------------------------------------------	
+
+%%%----------------------------------------------------------------
 connect_and_kex(Config) ->
     connect_and_kex(Config, ssh_trpt_test_lib:exec([]) ).
 

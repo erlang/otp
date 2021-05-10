@@ -65,7 +65,6 @@
         ]).
 
 -define(NEWLINE, <<"\r\n">>).
-
 -define(REKEY_DATA_TMO, 1 * 60000). % Should be multiples of 60000
 
 %%--------------------------------------------------------------------
@@ -76,7 +75,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,90}}].
 
-all() -> 
+all() ->
     [{group, renegotiate}
     ].
 
@@ -120,7 +119,7 @@ rekey1() -> [{timetrap,{seconds,120}}].
 rekey2() -> [{timetrap,{seconds,120}}].
 rekey3() -> [{timetrap,{seconds,120}}].
 rekey4() -> [{timetrap,{seconds,120}}].
-    
+
 rekey0(Config) -> ssh_dbg:start(), ssh_dbg:on(renegotiation),
                   R = rekey_chk(Config, 0,                   0),
                   ssh_dbg:stop(),
@@ -265,11 +264,11 @@ norekey_limit_client(Config) ->
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
     timer:sleep(?REKEY_DATA_TMO),
     true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
+
     {ok,_} = ssh_sftp:read_file(SftpPid, DataFile),
     timer:sleep(?REKEY_DATA_TMO),
     true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
+
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -292,11 +291,11 @@ norekey_limit_daemon(Config) ->
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
     timer:sleep(?REKEY_DATA_TMO),
     true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
+
     ok = ssh_sftp:write_file(SftpPid, DataFile, lists:duplicate(Limit+10,1)),
     timer:sleep(?REKEY_DATA_TMO),
     true = (Kex1 == ssh_test_lib:get_kex_init(ConnectionRef)),
-    
+
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -378,7 +377,7 @@ renegotiate1(Config) ->
     Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     false = (Kex2 == Kex1),
-    
+
     ssh_relay:stop(RelayPid),
     ssh_sftp:stop_channel(SftpPid),
     ssh:close(ConnectionRef),
