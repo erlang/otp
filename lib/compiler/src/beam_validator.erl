@@ -2093,7 +2093,7 @@ update_type(Merge, With, #value_ref{}=Ref, Vst0) ->
         none ->
             throw({type_conflict, Current, With});
         Type ->
-            Vst = update_container_type(Merge, With, Ref, Vst0),
+            Vst = update_container_type(Type, Ref, Vst0),
             set_type(Type, Ref, Vst)
     end;
 update_type(Merge, With, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
@@ -2108,19 +2108,13 @@ update_type(Merge, With, Literal, Vst) ->
     end.
 
 %% Updates the container the given value was extracted from, if any.
-update_container_type(Merge, With, Ref, #vst{current=#st{vs=Vs}}=Vst) ->
+update_container_type(Type, Ref, #vst{current=#st{vs=Vs}}=Vst) ->
     case Vs of
         #{ Ref := #value{op={bif,element},
                          args=[{integer,Index},Tuple]} } when Index >= 1 ->
-            case beam_types:set_tuple_element(Index, With, #{}) of
-                #{ Index := _ }=Es ->
-                    TupleType = #t_tuple{size=Index,elements=Es},
-                    update_type(Merge, TupleType, Tuple, Vst);
-                #{} ->
-                    %% Index was above the element limit; subtract/2 won't be
-                    %% safe and meet/2 won't do anything.
-                    Vst
-            end;
+            Es = beam_types:set_tuple_element(Index, Type, #{}),
+            TupleType = #t_tuple{size=Index,elements=Es},
+            update_type(fun meet/2, TupleType, Tuple, Vst);
         #{} ->
             Vst
     end.
