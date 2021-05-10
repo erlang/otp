@@ -357,7 +357,7 @@ static uint32_t encodeMovSequence64(uint32_t out[4], uint64_t imm, uint32_t rd) 
 
     for (uint32_t hwIndex = 0; hwIndex < 4; hwIndex++, imm >>= 16) {
       uint32_t hwImm = uint32_t(imm & 0xFFFFu);
-      if (hwImm == 0)
+      if (hwImm == 0 && hwIndex != 0)
         continue;
 
       out[count++] = op | (hwIndex << 21) | (hwImm << 5) | rd;
@@ -373,7 +373,7 @@ static uint32_t encodeMovSequence64(uint32_t out[4], uint64_t imm, uint32_t rd) 
 
     for (uint32_t hwIndex = 0; hwIndex < 4; hwIndex++, imm >>= 16) {
       uint32_t hwImm = uint32_t(imm & 0xFFFFu);
-      if (hwImm == 0xFFFFu)
+      if (hwImm == 0xFFFFu && hwIndex != 0)
         continue;
 
       out[count++] = op | (hwIndex << 21) | ((hwImm ^ negMask) << 5) | rd;
