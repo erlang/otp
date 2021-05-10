@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Reverted the fix for <c>OTP-17357</c> as it turned out
+	    to be incomplete and made the validator reject much more
+	    legal code than before.</p> <p>It will be fixed more
+	    thoroughly in a later patch.</p>
+          <p>
+	    Own Id: OTP-17386 Aux Id: ERIERL-650, OTP-17357 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
