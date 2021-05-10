@@ -30,8 +30,7 @@
 -include("ssh.hrl").
 
 %% experimental:
--export([decode_ssh_file/4
-        ]).
+-export([decode_ssh_file/4]).
 
 %%%--------------------- server exports ---------------------------
 -behaviour(ssh_server_key_api).
@@ -43,11 +42,11 @@
 -behaviour(ssh_client_key_api).
 -export([is_host_key/5, user_key/2, add_host_key/4]).
 -export_type([pubkey_passphrase_client_options/0]).
--type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
-                                            | {rsa_pass_phrase,      string()}
-                                              %% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
-                                              %% Not yet implemented:                     | {ed448_pass_phrase,    string()}
-                                            | {ecdsa_pass_phrase,    string()} .
+-type pubkey_passphrase_client_options() ::   {dsa_pass_phrase, string()}
+                                            | {rsa_pass_phrase, string()}
+%% Not yet implemented:                     | {ed25519_pass_phrase, string()}
+%% Not yet implemented:                     | {ed448_pass_phrase, string()}
+                                            | {ecdsa_pass_phrase, string()} .
 
 %%%--------------------- utility exports ---------------------------
 -export([decode/2, encode/2]).
@@ -55,11 +54,12 @@
 -define(ENCODED_LINE_LENGTH, 68).
 
 %%%--------------------- common exports ---------------------------
--export_type([user_dir_common_option/0,
+-export_type([
+              user_dir_common_option/0,
               user_dir_fun_common_option/0
              ]).
 
--type user_dir_common_option()     :: {user_dir,  string()}.
+-type user_dir_common_option()     :: {user_dir, string()}.
 -type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
 -type user2dir() :: fun((RemoteUserName::string()) -> UserDir :: string()) .
 
@@ -125,7 +125,7 @@ is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
     lookup_host_keys(Hosts, KeyType, Key, File, Opts).
 
 %%%----------------------------------------------------------------
--spec add_host_key(Host, Port, Key, Options) -> Result when 
+-spec add_host_key(Host, Port, Key, Options) -> Result when
       Host :: inet:ip_address() | inet:hostname()
             | [inet:ip_address() | inet:hostname()],
       Port :: inet:port_number(),
@@ -174,7 +174,7 @@ add_host_key(Hosts0, Port, Key, Opts) ->
 decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
-decode(KeyBin, Type) when is_binary(KeyBin) andalso 
+decode(KeyBin, Type) when is_binary(KeyBin) andalso
                           (Type==rfc4716_key orelse
                            Type==openssh_key_v1 % Experimental
                           ) ->
@@ -656,7 +656,7 @@ assure_file_mode(File, Mode) ->
     case file:read_file_info(File) of
         {ok,#file_info{mode=FileMode}} ->
             case (FileMode band Mode) of % is the wanted Mode set?
-                Mode -> 
+                Mode ->
                     %% yes
                     ok;
                 _ ->
@@ -673,7 +673,7 @@ assure_file_mode(File, Mode) ->
 
 get_kb_option(Key, Opts, Default) ->
     try
-        proplists:get_value(Key, 
+        proplists:get_value(Key,
                             proplists:get_value(key_cb_private, Opts, []),
                             Default)
     catch
@@ -928,7 +928,7 @@ get_hdr_lines(Lines, Acc) ->
 
 
 get_body(Lines, ExpectedEndLine) ->
-    {KeyPart, [ExpectedEndLine|RestLines]} = 
+    {KeyPart, [ExpectedEndLine|RestLines]} =
         lists:splitwith(fun(L) -> L=/=ExpectedEndLine end, Lines),
     {base64:mime_decode(iolist_to_binary(KeyPart)), RestLines}.
 
