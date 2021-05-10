@@ -64,7 +64,6 @@
   {"2.1.6",   [{restart_application, diameter}]},  %% 21.1
   {"2.2",     [{restart_application, diameter}]},  %% 21.3
   {"2.2.1",   [{load_module, diameter},            %% 21.3.5
-               {load_module, diameter_codegen},
                {load_module, diameter_codec},
                {update, diameter_config},
                {update, diameter_dist},
@@ -74,10 +73,8 @@
                {update, diameter_tcp},
                {update, diameter_sctp}]},
  {"2.2.2",    [{load_module, diameter},            %% 22.2.8
-               {load_module, diameter_codegen},
                {update, diameter_sctp}]},
- {"2.2.3",    [{load_module, diameter_codegen},    %% 22.3
-               {update, diameter_sctp}]}
+ {"2.2.3",    [{update, diameter_sctp}]}           %% 22.3
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -123,7 +120,6 @@
   {"2.1.6",   [{restart_application, diameter}]},
   {"2.2",     [{restart_application, diameter}]},
   {"2.2.1",   [{load_module, diameter},
-               {load_module, diameter_codegen},
                {load_module, diameter_codec},
                {update, diameter_config},
                {update, diameter_dist},
@@ -133,9 +129,7 @@
                {update, diameter_tcp},
                {update, diameter_sctp}]},
   {"2.2.2",   [{load_module, diameter},
-               {load_module, diameter_codegen},
                {update, diameter_sctp}]},
-  {"2.2.3",   [{load_module, diameter_codegen},
-               {update, diameter_sctp}]}
+  {"2.2.3",   [{update, diameter_sctp}]}
  ]
 }.
