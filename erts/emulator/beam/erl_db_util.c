@@ -1125,7 +1125,7 @@ Binary *db_match_set_compile(Process *p, Eterm matchexpr,
     i = 0;
     for (l = matchexpr; is_list(l); l = CDR(list_val(l))) {
 	t = CAR(list_val(l));
-	if (!is_tuple(t) || arityval((tp = tuple_val(t))[0]) != 3) {
+	if (!is_tuple(t) || (tp = tuple_val(t))[0] != make_arityval(3)) {
 	    goto error;
 	}
 	if (!(flags & DCOMP_TRACE) || (!is_list(tp[1]) && 
@@ -1407,7 +1407,7 @@ static Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags)
     i = 0;
     for (l = matchexpr; is_list(l); l = CDR(list_val(l))) {
 	t = CAR(list_val(l));
-	if (!is_tuple(t) || arityval((tp = tuple_val(t))[0]) != 3) {
+	if (!is_tuple(t) || (tp = tuple_val(t))[0] != make_arityval(3)) {
 	    add_dmc_err(err_info, 
 			"Match program part is not a tuple of "
 			"arity 3.", 
@@ -4088,10 +4088,7 @@ static DMCRet dmc_const(DMCContext *context,
 		       Eterm t,
 		       int *constant)
 {
-    Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
-
-    if (a != 2) {
+    if (tuple_val(t)[0] != make_arityval(2)) {
 	RETURN_TERM_ERROR("Special form 'const' called with more than one "
 			  "argument in %T.", t, context, *constant);
     }
@@ -4262,7 +4259,6 @@ static DMCRet dmc_message(DMCContext *context,
 			  int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
     int c;
     
@@ -4278,7 +4274,7 @@ static DMCRet dmc_message(DMCContext *context,
 		     *constant);
     }
 
-    if (a != 2) {
+    if (p[0] != make_arityval(2)) {
 	RETURN_TERM_ERROR("Special form 'message' called with wrong "
 			  "number of arguments in %T.", t, context, 
 			  *constant);
@@ -4304,9 +4300,8 @@ static DMCRet dmc_self(DMCContext *context,
 		     int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     
-    if (a != 1) {
+    if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'self' called with arguments "
 			  "in %T.", t, context, *constant);
     }
@@ -4324,7 +4319,6 @@ static DMCRet dmc_return_trace(DMCContext *context,
 			       int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     
     if (!(context->cflags & DCOMP_TRACE)) {
 	RETURN_ERROR("Special form 'return_trace' used in wrong dialect.",
@@ -4336,7 +4330,7 @@ static DMCRet dmc_return_trace(DMCContext *context,
 		     "guard context.", context, *constant);
     }
 
-    if (a != 1) {
+    if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'return_trace' called with "
 			  "arguments in %T.", t, context, *constant);
     }
@@ -4354,7 +4348,6 @@ static DMCRet dmc_exception_trace(DMCContext *context,
 			       int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     
     if (!(context->cflags & DCOMP_TRACE)) {
 	RETURN_ERROR("Special form 'exception_trace' used in wrong dialect.",
@@ -4366,7 +4359,7 @@ static DMCRet dmc_exception_trace(DMCContext *context,
 		     "guard context.", context, *constant);
     }
 
-    if (a != 1) {
+    if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'exception_trace' called with "
 			  "arguments in %T.", t, context, *constant);
     }
@@ -4409,13 +4402,12 @@ static DMCRet dmc_is_seq_trace(DMCContext *context,
 			       int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
     
     if (!check_trace("is_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 1, &ret))
         return ret;
 
-    if (a != 1) {
+    if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'is_seq_trace' called with "
 			  "arguments in %T.", t, context, *constant);
     }
@@ -4434,14 +4426,13 @@ static DMCRet dmc_set_seq_token(DMCContext *context,
 				int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
     int c;
     
     if (!check_trace("set_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
         return ret;
 
-    if (a != 3) {
+    if (p[0] != make_arityval(3)) {
 	RETURN_TERM_ERROR("Special form 'set_seq_token' called with wrong "
 			  "number of arguments in %T.", t, context, 
 			  *constant);
@@ -4475,13 +4466,12 @@ static DMCRet dmc_get_seq_token(DMCContext *context,
 				int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
 
     if (!check_trace("get_seq_token", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
         return ret;
 
-    if (a != 1) {
+    if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'get_seq_token' called with "
 			  "arguments in %T.", t, context, 
 			  *constant);
@@ -4503,7 +4493,6 @@ static DMCRet dmc_display(DMCContext *context,
 			  int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
     int c;
     
@@ -4519,7 +4508,7 @@ static DMCRet dmc_display(DMCContext *context,
 		     *constant);
     }
 
-    if (a != 2) {
+    if (p[0] != make_arityval(2)) {
 	RETURN_TERM_ERROR("Special form 'display' called with wrong "
 			  "number of arguments in %T.", t, context, 
 			  *constant);
@@ -4543,13 +4532,12 @@ static DMCRet dmc_process_dump(DMCContext *context,
 			       int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
 
     if (!check_trace("process_dump", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
         return ret;
 
-    if (a != 1) {
+    if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'process_dump' called with "
 			  "arguments in %T.", t, context, *constant);
     }
@@ -4734,14 +4722,13 @@ static DMCRet dmc_caller(DMCContext *context,
  			 int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
      
     if (!check_trace("caller", context, constant,
                      (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
         return ret;
   
-    if (a != 1) {
+    if (p[0] != make_arityval(1)) {
  	RETURN_TERM_ERROR("Special form 'caller' called with "
  			  "arguments in %T.", t, context, *constant);
     }
@@ -4761,14 +4748,13 @@ static DMCRet dmc_silent(DMCContext *context,
  			 int *constant)
 {
     Eterm *p = tuple_val(t);
-    Uint a = arityval(*p);
     DMCRet ret;
     int c;
      
     if (!check_trace("silent", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
         return ret;
   
-    if (a != 2) {
+    if (p[0] != make_arityval(2)) {
 	RETURN_TERM_ERROR("Special form 'silent' called with wrong "
 			  "number of arguments in %T.", t, context, 
 			  *constant);
@@ -4950,7 +4936,7 @@ static DMCRet dmc_expr(DMCContext *context,
 	erts_fprintf(stderr,"%d %d %d %d\n",arityval(*p),is_tuple(tmp = p[1]),
 		     is_atom(p[1]),db_is_variable(p[1]));
 #endif
-	if (arityval(*p) == 1 && is_tuple(tmp = p[1])) {
+	if (p[0] == make_arityval(1) && is_tuple(tmp = p[1])) {
 	    if ((ret = dmc_tuple(context, heap, text, tmp, constant)) != retOk)
 		return ret;
 	} else if (arityval(*p) >= 1 && is_atom(p[1]) && 
@@ -5180,14 +5166,14 @@ static Uint my_size_object(Eterm t)
 	    goto simple_term;
 	}
 
-	if (arityval(*tuple_val(t)) == 1 && is_tuple(tmp = tuple_val(t)[1])) {
+	if (tuple_val(t)[0] == make_arityval(1) && is_tuple(tmp = tuple_val(t)[1])) {
 	    Uint i,n;
 	    p = tuple_val(tmp);
 	    n = arityval(p[0]);
 	    sum += 1 + n;
 	    for (i = 1; i <= n; ++i)
 		sum += my_size_object(p[i]);
-	} else if (arityval(*tuple_val(t)) == 2 &&
+	} else if (tuple_val(t)[0] == make_arityval(2) &&
 		   is_atom(tmp = tuple_val(t)[1]) &&
 		   tmp == am_const) {
 	    sum += size_object(tuple_val(t)[2]);
@@ -5218,7 +5204,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
 	break;
     case TAG_PRIMARY_BOXED:
 	if (is_tuple(t)) {
-	    if (arityval(*tuple_val(t)) == 1 && 
+	    if (tuple_val(t)[0] == make_arityval(1) &&
 		is_tuple(a = tuple_val(t)[1])) {
 		Uint i,n;
 		Eterm *savep = *hp;
@@ -5229,9 +5215,9 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
 		*savep++ = make_arityval(n);
 		for(i = 1; i <= n; ++i) 
 		    *savep++ = my_copy_struct(p[i], hp, off_heap);
-	    } else if (arityval(*tuple_val(t)) == 2 && 
-		       is_atom(a = tuple_val(t)[1]) &&
-		       a == am_const) {
+	    }
+            else if (tuple_val(t)[0] == make_arityval(2) &&
+                     tuple_val(t)[1] == am_const) {
 		/* A {const, XXX} expression */
 		b = tuple_val(t)[2];
 		sz = size_object(b);
