@@ -413,6 +413,15 @@ do {                                                    \
 #  define PRINTF_ERR2(FMT,A1,A2)
 #endif
 
+#if defined(FIPS_SUPPORT) \
+    && OPENSSL_VERSION_NUMBER  < PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
+/* FIPS is not supported for versions < 1.0.1.  If FIPS_SUPPORT is enabled
+   there are some warnings/errors for thoose
+*/
+# undef FIPS_SUPPORT
+#endif
+
+
 #ifdef FIPS_SUPPORT
 /* In FIPS mode non-FIPS algorithms are disabled and return badarg. */
 #define CHECK_NO_FIPS_MODE() { if (FIPS_mode()) return atom_notsup; }
