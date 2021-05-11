@@ -257,12 +257,83 @@ get_socket_list() ->
 		 _ ->
 		     Info6
 	     end,
+	 SockOpts =
+	     [{socket, Opt} || {Opt, true} <-
+				   socket:supports(options, socket)],
+	 DomainOpts =
+	     case Info7 of
+		 #{domain := inet6} ->
+		     [{ipv6, Opt} || {Opt, true} <-
+					 socket:supports(options, ipv6)];
+		 _ ->
+		     [{ip, Opt} || {Opt, true} <-
+				       socket:supports(options, ip)]
+	     end,
+	 ProtoOpts =
+	     case Info7 of
+		 #{domain   := Domain,
+		   type     := stream,
+		   protocol := tcp} when (Domain =:= inet) orelse
+					 (Domain =:= inet6) ->
+		     [{tcp, Opt} || {Opt, true} <-
+					socket:supports(options, tcp)];
+		 #{domain   := Domain,
+		   type     := dgram,
+		   protocol := udp} when (Domain =:= inet) orelse
+					 (Domain =:= inet6) ->
+		     [{udp, Opt} || {Opt, true} <-
+					socket:supports(options, udp)];
+		 #{domain   := Domain,
+		   type     := seqpacket,
+		   protocol := sctp} when (Domain =:= inet) orelse
+					  (Domain =:= inet6) ->
+		     [{sctp, Opt} || {Opt, true} <-
+					 socket:supports(options, sctp)];
+		 _ ->
+		     []
+	     end,
+	 %% d("get_socket_list -> "
+	 %%   "~n   Socket Opts: ~p"
+	 %%   "~n   Domain Opts: ~p"
+	 %%   "~n   Proto Opts:  ~p", [SockOpts, DomainOpts, ProtoOpts]),
+	 Opts = SockOpts ++ DomainOpts ++ ProtoOpts,
+	 Options =
+	     [case socket:getopt(S, Opt) of
+		  %% Convert to string?
+		  {ok, Value} ->
+		      %% d("get_socket_list -> ok: "
+		      %% 	"~n   Option: ~p"
+		      %% 	"~n   Value:  ~p", [Opt, Value]),
+		      {Opt, if (Value =:= []) -> "-"; true -> Value end};
+		  %% We need to handle error cases and convert them
+		  %% to something useful ("Not Supported")
+		  {error, enotsup} = _ERROR ->
+		      %% d("get_socket_list -> error: enotsup"),
+		      {Opt, "Not Supported"};
+		  {error, enoprotoopt} = _ERROR ->
+		      %% d("get_socket_list -> error: enoprotoopt"),
+		      {Opt, "Not Supported"};
+		  {error, enotconn} = _ERROR ->
+		      %% d("get_socket_list -> error: enotconn"),
+		      {Opt, "Not Connected"};
+		  {error, {invalid, _}} = _ERROR ->
+		      %% d("get_socket_list -> error: invalid"),
+		      {Opt, "Not Implemented"};
+		  {error, Reason} ->
+		      %% d("get_socket_list -> error: "
+		      %% 	"~n   Option: ~p"
+		      %% 	"~n   Reason: ~p", [Opt, _Reason]),
+		      {Opt, f("error:~p", [Reason])}
+	      end || Opt <- Opts],
+	 %% d("get_socket_list -> "
+	 %%   "~n   Options:  ~p", [Options]),
 	 Info7#{id           => S,
 		id_str       => IdStr,
 		fd           => FD,
 		kind         => Kind,
 		monitored_by => socket:monitored_by(S),
-		statistics   => Counters}
+		statistics   => Counters,
+		options      => lists:sort(Options)}
      end || S <- socket:which_sockets()].
 
 sockaddr_to_list(#{family := local, path := PathBin}) when is_binary(PathBin) ->
@@ -878,7 +949,9 @@ f(F, A) ->
 %% d(F) ->
 %%     d(F, []).
 
-%% d(F, A) ->
+%% d(Debug, F) when is_boolean(Debug) andalso is_list(F) ->
+%%     d(Debug, F, []);
+%% d(F, A) when is_list(F) andalso is_list(A) ->
 %%     d(get(debug), F, A).
 
 %% d(true, F, A) ->

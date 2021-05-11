@@ -18,11 +18,17 @@
 %% %CopyrightEnd%
 -module(observer_sock_wx).
 
-%% {ok, S1} = socket:open(inet, stream, tcp).
-%% {ok, S2} = socket:open(inet6, stream, tcp).
-%% {ok, S3} = gen_tcp:listen(0, [{inet_backend, socket}]).
-%% {ok, S4} = socket:open(local, stream, default).
-%% ok = socket:bind(S4, #{family => local, path => "/tmp/foobar"}).
+%% {ok, S1} = socket:open(inet,  stream,    tcp).
+%% {ok, S2} = socket:open(inet6, stream,    tcp).
+%% {ok, S3} = socket:open(inet,  dgram,     udp).
+%% {ok, S4} = socket:open(inet6, dgram,     udp).
+%% {ok, S5} = socket:open(inet,  seqpacket, sctp).
+%% {ok, S6} = socket:open(inet6, seqpacket, sctp).
+%% {ok, S7} = socket:open(local, stream,    default).
+%% {ok, S8} = socket:open(local, dgram,     default).
+%% {ok, S9} = gen_tcp:listen(0, [{inet_backend, socket}]).
+%% ok = socket:bind(S7, #{family => local, path => "/tmp/foobarA"}).
+%% ok = socket:bind(S8, #{family => local, path => "/tmp/foobarB"}).
 
 -export([start_link/3]).
 
@@ -61,7 +67,8 @@
 	 rstate,
          wstate,
 	 monitored_by,
-	 statistics}).
+	 statistics,
+	 options}).
 
 -record(opt, {sort_key  = 2,
 	      sort_incr = true,
@@ -456,21 +463,23 @@ infomap_to_rec(#{id           := Id,
 		 rstates      := RState,
 		 wstates      := WState,
 		 monitored_by := MonitoredBy,
-		 statistics   := Statistics} = Info) ->
+		 statistics   := Statistics,
+		 options      := Options} = Info) ->
       #socket{id           = Id,
-	    id_str       = IdStr,
-	    kind         = Kind,
-	    fd           = FD,
-	    owner        = Owner,
-	    domain       = Domain,
-	    type         = Type,
-	    protocol     = Protocol,
-	    raddress     = maps:get(raddress, Info, undefined),
-	    laddress     = maps:get(laddress, Info, undefined),
-	    rstate       = RState,
-	    wstate       = WState,
-	    monitored_by = MonitoredBy,
-	    statistics   = Statistics}.
+	      id_str       = IdStr,
+	      kind         = Kind,
+	      fd           = FD,
+	      owner        = Owner,
+	      domain       = Domain,
+	      type         = Type,
+	      protocol     = Protocol,
+	      raddress     = maps:get(raddress, Info, undefined),
+	      laddress     = maps:get(laddress, Info, undefined),
+	      rstate       = RState,
+	      wstate       = WState,
+	      monitored_by = MonitoredBy,
+	      statistics   = Statistics,
+	      options      = Options}.
 
 socketrec_to_list(#socket{id           = Id,
 			  id_str       = IdStr,
@@ -485,7 +494,8 @@ socketrec_to_list(#socket{id           = Id,
 			  rstate       = RState,
 			  wstate       = WState,
 			  monitored_by = MonitoredBy,
-			  statistics   = Statistics}) ->
+			  statistics   = Statistics,
+			  options      = Options}) ->
     [{id,           Id},
      {id_str,       IdStr},
      {kind,         Kind},
@@ -499,7 +509,8 @@ socketrec_to_list(#socket{id           = Id,
      {rstate,       RState},
      {wstate,       WState},
      {monitored_by, MonitoredBy},
-     {statistics,   Statistics}].
+     {statistics,   Statistics},
+     {options,      Options}].
 
 display_socket_info(Parent, #socket{id_str = IdStr} = Sock, Opened) ->
     case lists:keyfind(IdStr, 1, Opened) of
@@ -547,24 +558,25 @@ socket_info_fields(Socket0) ->
            {"Write State",      wstate}]},
 	 {scroll_boxes,
 	  [{"Monitored by",1,{click,monitored_by}}]} | Struct0],
+    %% d("socket_info_fields -> "
+    %%   "~n   Struct: ~p"
+    %%   "~n   Socket: ~p", [Struct, Socket]),
     observer_lib:fill_info(Struct, Socket).
 
 extra_fields(Socket) ->
     Statistics = proplists:get_value(statistics, Socket, []),
-    %% Struct = [{"Net",
-    %% 	       [{"Local Address",      local_address},
-    %% 		{"Local Port Number",  local_port},
-    %% 		{"Remote Address",     remote_address},
-    %% 		{"Remote Port Number", remote_port}]},
-    %% 	      {"Statistics",
-    %% 	       [stat_name_and_unit(Key) || {Key,_} <- Statistics]}],
-    Struct = [{"Net",
-	       [{"Local Address",  laddress},
-		{"Remote Address", raddress}]},
-	      {"Statistics",
-	       [stat_name_and_unit(Key) || {Key,_} <- Statistics]}],
-    Socket1 = lists:keydelete(statistics, 1, Socket),
-    {Struct, Socket1 ++ Statistics}.
+    Options    = proplists:get_value(options, Socket, []),
+    Struct     = [{"Net",
+		   [{"Local Address",  laddress},
+		    {"Remote Address", raddress}]},
+		  {"Statistics",
+		   [stat_name_and_unit(Key) || {Key,_} <- Statistics]},
+		  {"Options",
+		   [{socket, sockopt_to_list(Key), Key} ||
+		       {Key, _} <- Options]}],
+    Socket1    = lists:keydelete(statistics, 1, Socket),
+    Socket2    = lists:keydelete(options, 1, Socket1),
+    {Struct, Socket2 ++ Statistics ++ Options}.
 
 stat_name_and_unit(acc_fails = Key) ->
     {"Number of accept fails", Key};
@@ -603,11 +615,9 @@ stat_name_and_unit(write_pkg_max = Key) ->
 stat_name_and_unit(Key) ->
     {atom_to_list(Key), Key}.
 
-%% filter_monitor_info() ->
-%%     fun(Data) ->
-%% 	    Ms = proplists:get_value(monitors, Data),
-%% 	    [Pid || {process, Pid} <- Ms]
-%%     end.
+sockopt_to_list({LevelOrProto, Opt}) ->
+    f("~w:~w", [LevelOrProto, Opt]).
+
 
 update_grid(Grid, Sel, Opt, Ports) ->
     wx:batch(fun() -> update_grid2(Grid, Sel, Opt, Ports) end).
@@ -708,7 +718,9 @@ f(F, A) ->
 %% d(F) ->
 %%     d(F, []).
 
-%% d(F, A) ->
+%% d(Debug, F) when is_boolean(Debug) andalso is_list(F) ->
+%%     d(Debug, F, []);
+%% d(F, A) when is_list(F) andalso is_list(A) ->
 %%     d(get(debug), F, A).
 
 %% d(true, F, A) ->

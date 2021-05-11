@@ -174,8 +174,25 @@ fill_info([{dynamic, Key}|Rest], Data, Default)
 	undefined   -> [undefined | fill_info(Rest, Data, Default)];
 	{Str,Value} -> [{Str, Value} | fill_info(Rest, Data, Default)]
     end;
+%% This crap is simply to make it unique, see above.
+fill_info([{socket, Str, {Level, Opt} = Key}|Rest], Data, Default)
+  when is_list(Str) andalso is_atom(Level) andalso is_atom(Opt) ->
+    %% d("fill_info(2) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    Key = {Level, Opt},
+    case get_value(Key, Data, Default) of
+	undefined ->
+	    %% d("fill_info -> not found"),
+	    [undefined | fill_info(Rest, Data, Default)];
+	Value ->
+	    %% d("fill_info -> found: "
+	    %%   "~n   Value: ~p", [Value]),
+	    [{Str, Value} | fill_info(Rest, Data, Default)]
+    end;
 fill_info([{Str, Key}|Rest], Data, Default)
   when is_atom(Key); is_function(Key) ->
+    %% d("fill_info(3) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
     case get_value(Key, Data, Default) of
 	undefined ->
 	    [undefined | fill_info(Rest, Data, Default)];
@@ -184,6 +201,8 @@ fill_info([{Str, Key}|Rest], Data, Default)
     end;
 fill_info([{Str, Attrib, Key}|Rest], Data, Default)
   when is_atom(Key); is_function(Key) ->
+    %% d("fill_info(4) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
     case get_value(Key, Data, Default) of
 	undefined ->
 	    [undefined | fill_info(Rest, Data, Default)];
@@ -192,31 +211,45 @@ fill_info([{Str, Attrib, Key}|Rest], Data, Default)
     end;
 fill_info([{Str, {Format, Key}}|Rest], Data, Default)
   when is_atom(Key); is_function(Key) ->
+    %% d("fill_info(5) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
     case get_value(Key, Data, Default) of
 	undefined -> [undefined | fill_info(Rest, Data, Default)];
 	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data, Default)]
     end;
 fill_info([{Str, Attrib, {Format, Key}}|Rest], Data, Default)
   when is_atom(Key); is_function(Key) ->
+    %% d("fill_info(6) -> entry with"
+    %%   "~n   Str:    ~s"
+    %%   "~n   Attrib: ~p"
+    %%   "~n   Format: ~p"
+    %%   "~n   Key:    ~p", [Str, Attrib, Format, Key]),
     case get_value(Key, Data, Default) of
 	undefined -> [undefined | fill_info(Rest, Data, Default)];
 	Value -> [{Str, Attrib, {Format, Value}} |
 		  fill_info(Rest, Data, Default)]
     end;
-fill_info([{Str,SubStructure}|Rest], Data, Default)
+fill_info([{Str, SubStructure}|Rest], Data, Default)
   when is_list(SubStructure) ->
+    %% d("fill_info(7) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
     [{Str, fill_info(SubStructure, Data, Default)}|
      fill_info(Rest, Data, Default)];
-fill_info([{Str,Attrib,SubStructure}|Rest], Data, Default) ->
+fill_info([{Str, Attrib, SubStructure}|Rest], Data, Default) ->
+    %% d("fill_info(8) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
     [{Str, Attrib, fill_info(SubStructure, Data, Default)}|
      fill_info(Rest, Data, Default)];
 fill_info([{Str, Key = {K,N}}|Rest], Data, Default)
   when is_atom(K), is_integer(N) ->
+    %% d("fill_info(9) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
     case get_value(Key, Data, Default) of
 	undefined -> [undefined | fill_info(Rest, Data, Default)];
 	Value -> [{Str, Value} | fill_info(Rest, Data, Default)]
     end;
-fill_info([], _, _Default) -> [].
+fill_info([], _, _Default) ->
+    [].
 
 get_value(Fun, Data, _Default) when is_function(Fun) ->
     Fun(Data);
@@ -911,12 +944,14 @@ make_obsbin(Bin,Tab) ->
 %% d(F) ->
 %%     d(F, []).
 
-%% d(F, A) ->
+%% d(Debug, F) when is_boolean(Debug) andalso is_list(F) ->
+%%     d(Debug, F, []);
+%% d(F, A) when is_list(F) andalso is_list(A) ->
 %%     d(get(debug), F, A).
 
 %% d(true, F, A) ->
-%%     io:format("[ol] " ++ F ++ "~n", A);
+%%    io:format("[ol] " ++ F ++ "~n", A);
 %% d(_, _, _) ->
-%%     ok.
+%%    ok.
 
 
