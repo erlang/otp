@@ -658,9 +658,8 @@ void BeamModuleAssembler::emit_send() {
     Label entry = a.newLabel();
 
     /* This is essentially a mirror of call_light_bif, there's no point to
-     * specializing send/2 anymore.
-     *
-     * FIXME: Rewrite this to an ordinary BIF in the loader instead. */
+     * specializing send/2 anymore. We do it here because it's far more work to
+     * do it in the loader. */
     align_erlang_cp();
     a.bind(entry);
 
