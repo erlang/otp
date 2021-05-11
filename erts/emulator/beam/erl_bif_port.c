@@ -238,8 +238,17 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
     }
     else {
         /* Ensure signal order is preserved... */
-        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
-            ERTS_BIF_PREP_HANDLE_SIGNALS_RETURN(res, BIF_P, res);
+        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
+            Eterm from;
+            if (is_internal_port(BIF_ARG_1))
+                from = BIF_ARG_1;
+            else if (prt)
+                from = prt->common.id;
+            else
+                from = NIL;
+            ERTS_BIF_PREP_HANDLE_SIGNALS_FROM_RETURN(res, BIF_P,
+                                                     from, res);
+        }
     }
 
     return res;
@@ -287,8 +296,16 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
 	ERTS_BIF_EXITED(BIF_P);
     else {
         /* Ensure signal order is preserved... */
-        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
-            ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
+            Eterm from;
+            if (is_internal_port(BIF_ARG_1))
+                from = BIF_ARG_1;
+            else if (prt)
+                from = prt->common.id;
+            else
+                from = NIL;
+            ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, from, retval);
+        }
     }
 
     BIF_RET(retval);
@@ -335,8 +352,16 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
 	ERTS_BIF_EXITED(BIF_P);
     else {
         /* Ensure signal order is preserved... */
-        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
-            ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
+            Eterm from;
+            if (is_internal_port(BIF_ARG_1))
+                from = BIF_ARG_1;
+            else if (prt)
+                from = prt->common.id;
+            else
+                from = NIL;
+            ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, from, retval);
+        }
     }
 
     BIF_RET(retval);
@@ -382,8 +407,16 @@ BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
     }
 
     /* Ensure signal order is preserved... */
-    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
-        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P)) {
+        Eterm from;
+        if (is_internal_port(BIF_ARG_1))
+            from = BIF_ARG_1;
+        else if (prt)
+            from = prt->common.id;
+        else
+            from = NIL;
+        ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, from, retval);
+    }
     
     BIF_RET(retval);
 }
@@ -426,8 +459,16 @@ BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
     }
 
     /* Ensure signal order is preserved... */
-    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
-        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P)) {
+        Eterm from;
+        if (is_internal_port(BIF_ARG_1))
+            from = BIF_ARG_1;
+        else if (prt)
+            from = prt->common.id;
+        else
+            from = NIL;
+        ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, from, retval);
+    }
     
     BIF_RET(retval);
 }
@@ -435,7 +476,7 @@ BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
 BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
 {
     Eterm retval;
-    Port* prt;
+    Port* prt = NULL;
 
     if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
 	prt = sig_lookup_port(BIF_P, BIF_ARG_1);
@@ -474,8 +515,16 @@ BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
     }
 
     /* Ensure signal order is preserved... */
-    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
-        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P)) {
+        Eterm from;
+        if (is_internal_port(BIF_ARG_1))
+            from = BIF_ARG_1;
+        else if (prt)
+            from = prt->common.id;
+        else
+            from = NIL;
+        ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, from, retval);
+    }
     
     BIF_RET(retval);
 }
@@ -484,7 +533,7 @@ BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
 BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
 {
     Eterm retval;
-    Port* prt;
+    Port* prt = NULL;
 
     if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
 	prt = sig_lookup_port(BIF_P, BIF_ARG_1);
@@ -523,8 +572,16 @@ BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
     }
 
     /* Ensure signal order is preserved... */
-    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
-        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P)) {
+        Eterm from;
+        if (is_internal_port(BIF_ARG_1))
+            from = BIF_ARG_1;
+        else if (prt)
+            from = prt->common.id;
+        else
+            from = NIL;
+        ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, from, retval);
+    }
 
     BIF_RET(retval);
 }

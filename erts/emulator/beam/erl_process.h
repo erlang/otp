@@ -1246,8 +1246,9 @@ void erts_check_for_holes(Process* p);
    process table. Always ACTIVE while EXITING. Never
    SUSPENDED unless also FREE. */
 #define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(5)
-/* UNUSED */
-#define ERTS_PSFLG_UNUSED		ERTS_PSFLG_BIT(6)
+/* MAYBE_SELF_SIGS - We might have outstanding signals
+   from ourselves to ourselvs. */
+#define ERTS_PSFLG_MAYBE_SELF_SIGS	ERTS_PSFLG_BIT(6)
 /* ACTIVE - Process "wants" to execute */
 #define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(7)
 /* IN_RUNQ - Real process (not proxy) struct used in a
@@ -1572,10 +1573,12 @@ extern int erts_system_profile_ts_type;
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */
 #define FS_ON_HEAP_MSGQ        (1 << 1) /* On heap msg queue */
 #define FS_OFF_HEAP_MSGQ_CHNG  (1 << 2) /* Off heap msg queue changing */
-#define FS_LOCAL_SIGS_ONLY     (1 << 3) /* Handle privq sigs only */
+#define FS_UNUSED              (1 << 3) /* Unused */
 #define FS_HANDLING_SIGS       (1 << 4) /* Process is handling signals */
 #define FS_WAIT_HANDLE_SIGS    (1 << 5) /* Process is waiting to handle signals */
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
+#define FS_FLUSHING_SIGS       (1 << 7) /* Currently flushing signals */
+#define FS_FLUSHED_SIGS        (1 << 8) /* Flushing of signals completed */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent

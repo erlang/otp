@@ -37,6 +37,7 @@
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
          is_process_alive/1,
+         is_process_alive_signal_from/1,
          process_info_blast/1,
          os_env_case_sensitivity/1,
          verify_middle_queue_save/1,
@@ -57,7 +58,8 @@ all() ->
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
-     is_process_alive, process_info_blast, os_env_case_sensitivity,
+     is_process_alive, is_process_alive_signal_from,
+     process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
      external_fun_apply3].
 
@@ -1205,6 +1207,51 @@ is_process_alive(Config) when is_list(Config) ->
                   Ps),
     ok.
 
+is_process_alive_signal_from(Config) when is_list(Config) ->
+    process_flag(priority, high),
+    process_flag(scheduler, 1),
+    Schdlr = case erlang:system_info(schedulers_online) of
+                 1 -> 1;
+                 _ -> 2
+             end,
+    X = is_process_alive_signal_from_test(100000, 0, Schdlr),
+    erlang:display({exits_detected, X}),
+    {comment, integer_to_list(X) ++ " exited processes detected"}.
+
+is_process_alive_signal_from_test(0, X, _Schdlr) ->
+    X;
+is_process_alive_signal_from_test(N, X, Schdlr) ->
+    Tester = self(),
+    {Testee, TMon} = spawn_opt(fun () ->
+                                       Mon = erlang:monitor(process, Tester),
+                                       Tester ! {self(), ready},
+                                       busy_wait_go(),
+                                       _ = erlang:demonitor(Mon),
+                                       exit(normal)
+                               end,
+                               [link,
+                                monitor,
+                                {priority, high},
+                                {scheduler, Schdlr}]),
+    receive {Testee, ready} -> ok end,
+    {monitored_by, MBList1} = process_info(self(), monitored_by),
+    true = lists:member(Testee, MBList1),
+    erlang:yield(),
+    Testee ! {go, ok},
+    erlang:yield(),
+    NewX = case erlang:is_process_alive(Testee) of
+               true ->
+                   X;
+               false ->
+                   %% Demonitor signal should have reached us before the
+                   %% is-process-alive reply...
+                   {monitored_by, MBList2} = process_info(self(), monitored_by),
+                   false = lists:member(Testee, MBList2),
+                   X+1
+           end,
+    receive {'DOWN', TMon, process, Testee, normal} -> ok end,
+    is_process_alive_signal_from_test(N-1, NewX, Schdlr).
+
 process_info_blast(Config) when is_list(Config) ->
     Tester = self(),
     NoAttackers = 1000,
@@ -1396,7 +1443,16 @@ external_fun_apply3(_Config) ->
     ok.
 
 %% helpers
-    
+
+busy_wait_go() ->
+    receive
+        {go, Info} ->
+            Info
+    after
+        0 ->
+            busy_wait_go()
+    end.
+
 id(I) -> I.
 
 %% Get code path, including the path for the erts application.

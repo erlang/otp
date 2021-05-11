@@ -1007,6 +1007,7 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+                 Sint *msgq_len_p,
 		 int flags,
                  Uint *reserve_sizep,
                  Uint *reds);
@@ -1025,11 +1026,12 @@ erts_process_info(Process *c_p,
     Eterm res;
     Eterm part_res[ERTS_PI_ARGS];
     int item_ix_ix, ix;
+    Sint msgq_len = -1;
 
     if (ERTS_PI_FLAG_SINGELTON & flags) {
         ASSERT(item_ix_len == 1);
 	res = process_info_aux(c_p, hfact, rp, rp_locks, item_ix[0],
-                               flags, &reserve_size, reds);
+                               &msgq_len, flags, &reserve_size, reds);
         return res;
     }
 
@@ -1047,7 +1049,7 @@ erts_process_info(Process *c_p,
 	ix = pi_arg2ix(am_messages);
 	ASSERT(part_res[ix] == THE_NON_VALUE);
 	res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
-                               flags, &reserve_size, reds);
+                               &msgq_len, flags, &reserve_size, reds);
 	ASSERT(res != am_undefined);
 	ASSERT(res != THE_NON_VALUE);
         part_res[ix] = res;
@@ -1057,7 +1059,7 @@ erts_process_info(Process *c_p,
 	ix = item_ix[item_ix_ix];
 	if (part_res[ix] == THE_NON_VALUE) {
 	    res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
-                                   flags, &reserve_size, reds);
+                                   &msgq_len, flags, &reserve_size, reds);
             ASSERT(res != am_undefined);
 	    ASSERT(res != THE_NON_VALUE);
             part_res[ix] = res;
@@ -1092,6 +1094,92 @@ erts_process_info(Process *c_p,
 static void
 pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix);
 
+static ERTS_INLINE int
+pi_maybe_flush_signals(Process *c_p, int pi_flags)
+{
+    int reds_left;
+    erts_aint32_t state;
+
+    /*
+     * pi_maybe_flush_signals() flush signals in callers
+     * signal queue for two different reasons:
+     *
+     * 1. If we need 'message_queue_len', but not 'messages', we need
+     *    to handle all signals in the middle queue in order for
+     *    'c_p->sig_qs.len' to reflect the amount of messages in the
+     *    message queue. We could count traverse the queues, but it
+     *    is better to handle all signals in the queue instead since
+     *    this is work we anyway need to do at some point.
+     *
+     * 2. Ensures that all signals that the caller might have sent to
+     *    itself are handled before we gather information.
+     *
+     *    This is, however, not strictly necessary. process_info() is
+     *    not documented to send itself a signal when gathering
+     *    information about itself. That is, the operation is not
+     *    bound by the signal order guarantee when gathering
+     *    information about itself. If we do not handle outstanding
+     *    signals before gathering the information, outstanding signals
+     *    from the caller to itself will not be part of the result.
+     *    This would not be wrong, but perhaps surprising for the user.
+     *    We continue doing it this way for now, since this is how it
+     *    has been done for a very long time. We should, however,
+     *    consider changing this in a future release, since this signal
+     *    handling is not for free, although quite cheap since these
+     *    signals anyway must be handled at some point.
+     */
+
+    if (c_p->sig_qs.flags & FS_FLUSHED_SIGS) {
+    flushed:
+
+        ASSERT(((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
+                             | ERTS_PI_FLAG_NEED_MSGQ_LEN))
+                != ERTS_PI_FLAG_NEED_MSGQ_LEN)
+               || !c_p->sig_qs.cont);
+	ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
+
+	c_p->sig_qs.flags &= ~(FS_FLUSHED_SIGS|FS_FLUSHING_SIGS);
+        erts_set_gc_state(c_p, !0); /* Allow GC again... */
+	return 0; /* done, all signals handled... */
+    }
+    
+    state = erts_atomic32_read_nob(&c_p->state);
+
+    if (!(c_p->sig_qs.flags & FS_FLUSHING_SIGS)) {
+        int flush_flags = 0;
+        if (((pi_flags & (ERTS_PI_FLAG_WANT_MSGS
+                          | ERTS_PI_FLAG_NEED_MSGQ_LEN))
+             == ERTS_PI_FLAG_NEED_MSGQ_LEN)
+            && c_p->sig_qs.cont) {
+            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ;
+        }
+        if (state & ERTS_PSFLG_MAYBE_SELF_SIGS)
+            flush_flags |= ERTS_PROC_SIG_FLUSH_FLG_FROM_ID;
+	if (!flush_flags)
+	    return 0; /* done; no need to flush... */
+	erts_proc_sig_init_flush_signals(c_p, flush_flags, c_p->common.id);
+        if (c_p->sig_qs.flags & FS_FLUSHED_SIGS)
+            goto flushed;
+    }
+
+    ASSERT(c_p->sig_qs.flags & FS_FLUSHING_SIGS);
+    reds_left = ERTS_BIF_REDS_LEFT(c_p);
+
+    do {
+	int sreds = reds_left;
+	(void) erts_proc_sig_handle_incoming(c_p, &state, &sreds,
+					     sreds, !0);
+	BUMP_REDS(c_p, (int) sreds);
+	if (state & ERTS_PSFLG_EXITING)
+	    return -1; /* process exiting... */
+	if (c_p->sig_qs.flags & FS_FLUSHED_SIGS)
+            goto flushed;
+	reds_left -= sreds;
+    } while (reds_left > 0);
+
+    return 1; /* yield and continue here later... */
+}
+
 static BIF_RETTYPE
 process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 {
@@ -1109,41 +1197,6 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
     Eterm res;
 
     ERTS_CT_ASSERT(ERTS_PI_DEF_ARR_SZ > 0);
-
-    if (c_p->common.id == pid) {
-        int local_only = c_p->sig_qs.flags & FS_LOCAL_SIGS_ONLY;
-        int sres, sreds, reds_left;
-
-        reds_left = ERTS_BIF_REDS_LEFT(c_p);
-        sreds = reds_left;
-
-        if (!local_only) {
-            erts_proc_sig_queue_lock(c_p);
-            erts_proc_sig_fetch(c_p);
-            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-        }
-
-        sres = erts_proc_sig_handle_incoming(c_p, &state, &sreds, sreds, !0);
-
-        BUMP_REDS(c_p, (int) sreds);
-        reds_left -= sreds;
-
-        if (state & ERTS_PSFLG_EXITING) {
-            c_p->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
-            goto exited;
-        }
-        if (!sres | (reds_left <= 0)) {
-            /*
-             * More signals to handle or out of reds; need
-             * to yield and continue. Prevent fetching of
-             * more signals by setting local-sigs-only flag.
-             */
-            c_p->sig_qs.flags |= FS_LOCAL_SIGS_ONLY;
-            goto yield;
-        }
-
-        c_p->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
-    }
 
     if (is_atom(opt)) {
 	int ix = pi_arg2ix(opt);
@@ -1190,7 +1243,16 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
             goto badarg;
     }
 
-    if (is_not_internal_pid(pid)) {
+    if (c_p->common.id == pid) {
+        int res = pi_maybe_flush_signals(c_p, flags);
+	if (res != 0) {
+	    if (res > 0)
+		goto yield;
+	    else
+		goto exited;
+	}
+    }
+    else if (is_not_internal_pid(pid)) {
         if (is_external_pid(pid)
             && external_pid_dist_entry(pid) == erts_this_dist_entry)
             goto undefined;
@@ -1226,6 +1288,10 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         }
         if (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN) {
             ASSERT(locks & ERTS_PROC_LOCK_MAIN);
+            if (rp->sig_qs.flags & FS_FLUSHING_SIGS) {
+                erts_proc_unlock(rp, locks);
+                goto send_signal;
+            }
             erts_proc_sig_queue_lock(rp);
             erts_proc_sig_fetch(rp);
             if (rp->sig_qs.cont) {
@@ -1264,7 +1330,8 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
     if (c_p == rp || !ERTS_PROC_HAS_INCOMING_SIGNALS(c_p))
         ERTS_BIF_PREP_RET(ret, res);
     else
-        ERTS_BIF_PREP_HANDLE_SIGNALS_RETURN(ret, c_p, res);
+        ERTS_BIF_PREP_HANDLE_SIGNALS_FROM_RETURN(ret, c_p,
+                                                 pid, res);
 
 done:
 
@@ -1355,6 +1422,7 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+                 Sint *msgq_len_p,
 		 int flags,
                  Uint *reserve_sizep,
                  Uint *reds)
@@ -1468,8 +1536,10 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_MESSAGES: {
         ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
-	if (rp->sig_qs.len == 0 || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE))
+	if (rp->sig_qs.len == 0 || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)) {
+            *msgq_len_p = 0;
             res = NIL;
+        }
         else {
             int info_on_self = !(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER);
 	    ErtsMessageInfo *mip;
@@ -1487,8 +1557,8 @@ process_info_aux(Process *c_p,
 	    heap_need = erts_proc_sig_prep_msgq_for_inspection(c_p, rp,
                                                                rp_locks,
                                                                info_on_self,
-                                                               mip);
-            len = rp->sig_qs.len;
+                                                               mip, msgq_len_p);
+            len = *msgq_len_p;
 
 	    heap_need += len*2; /* Cons cells */
 
@@ -1517,9 +1587,13 @@ process_info_aux(Process *c_p,
     }
 
     case ERTS_PI_IX_MESSAGE_QUEUE_LEN: {
-        Sint len = rp->sig_qs.len;
+        Sint len = *msgq_len_p;
+        if (len < 0) {
+            ASSERT((flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)
+                   || !rp->sig_qs.cont);
+            len = rp->sig_qs.len;
+        }
         ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
-        ASSERT((flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER) || !rp->sig_qs.cont);
         ASSERT(len >= 0);
         if (len <= MAX_SMALL)
             res = make_small(len);
@@ -3690,42 +3764,54 @@ BIF_RETTYPE erts_internal_is_process_alive_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, BADARG);
     if (!erts_proc_sig_send_is_alive_request(BIF_P, BIF_ARG_1, BIF_ARG_2)) {
         if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
-            ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, am_ok);
+            ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, BIF_ARG_1, am_ok);
     }
     BIF_RET(am_ok);
 }
 
 BIF_RETTYPE is_process_alive_1(BIF_ALIST_1) 
 {
+
     if (is_internal_pid(BIF_ARG_1)) {
-        erts_aint32_t state;
+        BIF_RETTYPE result;
         Process *rp;
 
         if (BIF_ARG_1 == BIF_P->common.id)
             BIF_RET(am_true);
 
         rp = erts_proc_lookup_raw(BIF_ARG_1);
-        if (!rp)
-            BIF_RET(am_false);
+        if (!rp) {
+            result = am_false;
+        }
+        else {
+            erts_aint32_t state = erts_atomic32_read_acqb(&rp->state);
+            if (state & (ERTS_PSFLG_EXITING
+                         | ERTS_PSFLG_SIG_Q
+                         | ERTS_PSFLG_SIG_IN_Q)) {
+                /*
+                 * If in exiting state, trap out and send 'is alive'
+                 * request and wait for it to complete termination.
+                 *
+                 * If process has signals enqueued, we need to
+                 * send it an 'is alive' request via its signal
+                 * queue in order to ensure that signal order is
+                 * preserved (we may earlier have sent it an
+                 * exit signal that has not been processed yet).
+                 */
+                BIF_TRAP1(is_process_alive_trap, BIF_P, BIF_ARG_1);
+            }
 
-        state = erts_atomic32_read_acqb(&rp->state);
-        if (state & (ERTS_PSFLG_EXITING
-                     | ERTS_PSFLG_SIG_Q
-                     | ERTS_PSFLG_SIG_IN_Q)) {
-            /*
-             * If in exiting state, trap out and send 'is alive'
-             * request and wait for it to complete termination.
-             *
-             * If process has signals enqueued, we need to
-             * send it an 'is alive' request via its signal
-             * queue in order to ensure that signal order is
-             * preserved (we may earlier have sent it an
-             * exit signal that has not been processed yet).
-             */
-            BIF_TRAP1(is_process_alive_trap, BIF_P, BIF_ARG_1);
+            result = am_true;
         }
 
-        BIF_RET(am_true);
+        if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P)) {
+            /*
+             * Ensure that signal order of signals from inspected
+             * process to us is preserved...
+             */
+            ERTS_BIF_HANDLE_SIGNALS_FROM_RETURN(BIF_P, BIF_ARG_1, result);
+        }
+        BIF_RET(result);
     }
 
    if (is_external_pid(BIF_ARG_1)) {
@@ -3734,6 +3820,8 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
    }
 
    BIF_ERROR(BIF_P, BADARG);
+
+   
 }
 
 static Eterm
@@ -4218,10 +4306,10 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			ERTS_ASSERT_IS_NOT_EXITING(BIF_P);
 			BIF_RET(am_undefined);
 		    }
-                    
                     erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
                     erts_proc_sig_fetch(p);
                     erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+                    state = erts_atomic32_read_nob(&BIF_P->state);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,
@@ -4284,10 +4372,11 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			ERTS_ASSERT_IS_NOT_EXITING(BIF_P);
 			BIF_RET(am_undefined);
 		    }
-                    
+
                     erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
                     erts_proc_sig_fetch(p);
                     erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+		    state = erts_atomic32_read_nob(&BIF_P->state);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,

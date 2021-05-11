@@ -10063,27 +10063,30 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             /* On normal scheduler */
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
-                    int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)
-                                      & !(state & (ERTS_PSFLG_SUSPENDED|ERTS_PSFLGS_DIRTY_WORK)));
-                    if (!local_only | !!(state & ERTS_PSFLG_SIG_Q)) {
-                        int sig_reds;
-                        /*
-                         * If we have dirty work scheduled we allow
-                         * usage of all reductions since we need to
-                         * handle all signals before doing dirty
-                         * work...
-                         */
-                        if (state & ERTS_PSFLGS_DIRTY_WORK)
-                            sig_reds = reds;
-                        else
-                            sig_reds = ERTS_SIG_HANDLE_REDS_MAX_PREFERED;
-                        (void) erts_proc_sig_handle_incoming(p,
-                                                             &state,
-                                                             &sig_reds,
-                                                             sig_reds,
-                                                             local_only);
-                        reds -= sig_reds;
-                    }
+		    int sig_reds;
+		    /*
+		     * If we have dirty work scheduled we allow
+		     * usage of all reductions since we need to
+		     * handle all signals before doing dirty
+		     * work...
+                     *
+                     * If a BIF is flushing signals, we also allow
+                     * usage of all reductions since the BIF cannot
+                     * continue exectution until the flush
+                     * completes...
+		     */
+		    if (state & ERTS_PSFLGS_DIRTY_WORK)
+			sig_reds = reds;
+		    else if (p->sig_qs.flags & FS_FLUSHING_SIGS)
+                        sig_reds = reds;
+                    else
+			sig_reds = ERTS_SIG_HANDLE_REDS_MAX_PREFERED;
+		    (void) erts_proc_sig_handle_incoming(p,
+							 &state,
+							 &sig_reds,
+							 sig_reds,
+							 0);
+		    reds -= sig_reds;
                 }
                 if ((state & (ERTS_PSFLG_SYS_TASKS
                               | ERTS_PSFLG_EXITING)) == ERTS_PSFLG_SYS_TASKS) {
@@ -10093,8 +10096,14 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                      * hand written beam assembly in
                      * prim_eval:'receive'. If GC is delayed we are
                      * not allowed to execute system tasks.
+                     *
+                     * We also don't allow execution of system tasks
+                     * if a BIF is flushing signals, since there are
+                     * system tasks that might need to fetch from the
+                     * outer signal queue...
                      */
-                    if (!(p->flags & F_DELAY_GC)) {
+                    if (!(p->flags & F_DELAY_GC)
+                        && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                         int cost = execute_sys_tasks(p, &state, reds);
                         calls += cost;
                         reds -= cost;
@@ -10622,15 +10631,19 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    break;
         case ERTS_PSTT_PRIO_SIG: {
             erts_aint32_t fail_state, state;
-            int sig_res, sig_reds = reds;
+            int sig_res, sig_reds;
 	    st_res = am_false;
+
+            ASSERT(!(c_p->sig_qs.flags & FS_FLUSHING_SIGS));
 
             if (st->arg[0] == am_false) {
                 erts_proc_sig_queue_lock(c_p);
                 erts_proc_sig_fetch(c_p);
                 erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+                st->arg[0] = am_true;
             }
 
+	    state = erts_atomic32_read_nob(&c_p->state);
             sig_reds = reds;
             sig_res = erts_proc_sig_handle_incoming(c_p, &state, &sig_reds,
                                                     reds, !0);
@@ -10644,8 +10657,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
             if (sig_res)
                 break;
 
-            st->arg[0] = am_true;
-
             fail_state = ERTS_PSFLG_EXITING;
 
             if (schedule_process_sys_task(c_p, st_prio, st, &fail_state)) {
@@ -10656,6 +10667,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
                 state = erts_atomic32_read_nob(&c_p->state);
                 exit_permanent_prio_elevation(c_p, state, st_prio);
             }
+
             break;
         }
         case ERTS_PSTT_TEST:
