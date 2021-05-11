@@ -37,6 +37,8 @@
 %% Supervisor callback
 -export([init/1]).
 
+-include("ssh.hrl").
+
 -define(SSHC_SUP, ?MODULE).
 
 %%%=========================================================================
@@ -56,7 +58,8 @@ start_child(Address, Port, Profile, Options) ->
     end.
 
 
-start_system_subsystem(Host, Port, Profile, Options) ->
+start_system_subsystem(Host, Port, Profile, Options0) ->
+    Options = ?DELETE_OPT(password, Options0),
     ssh_controller:start_system_subsystem(client_controller, ?MODULE, Host, Port, Profile, Options,
                                           child_spec(Host, Port, Profile, Options)
                                          ).
