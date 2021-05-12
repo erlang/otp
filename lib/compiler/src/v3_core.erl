@@ -598,6 +598,8 @@ expr({cons,L,H0,T0}, St0) ->
 expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
     lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
+expr({mc,L,E,Qs}, St) ->
+    mc_tq(L, E, Qs, St);
 expr({bc,L,E,Qs}, St) ->
     bc_tq(L, E, Qs, St);
 expr({tuple,L,Es0}, St0) ->
@@ -1513,6 +1515,17 @@ bc_tq_build(Line, Pre0, #c_var{name=AccVar}, Elements0, St0) ->
     Anno = Anno0#a{anno=[compiler_generated,single_use|A]},
     {set_anno(E, Anno),Pre0++Pre,St}.
 
+mc_tq(Line, E0, Qs0, St0) ->
+    E1 = mc_to_lc(Line, E0, Qs0),
+    expr(E1, St0).
+
+mc_to_lc(McL, {map_field_assoc, ExprL, Key, Value}, Qs) ->
+    Expression = {tuple,ExprL,[Key, Value]},
+    ListComp = {lc,McL,Expression,Qs},
+    Remote = {remote,McL,
+              {atom,McL,maps},
+              {atom,McL,from_list}},
+    {call,McL,Remote,[ListComp]}.
 
 %% filter_tq(Line, Expr, Filter, Mc, State, [Qualifier], TqFun) ->
 %%     {Case,[PreExpr],State}.
@@ -1588,6 +1601,7 @@ preprocess_quals(_, [], St, Acc) ->
     {reverse(Acc),St}.
 
 is_generator({generate,_,_,_}) -> true;
+is_generator({m_generate,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
 is_generator(_) -> false.
 
@@ -1642,6 +1656,18 @@ generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
 		acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
                 tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Pre,Ce}},
     {Gen,St4};
+generator(Line, {m_generate,Loc,{map_field_exact, FL, Key, Value},L}, Gs, St0) ->
+    P1 = {tuple, FL, [Key, Value]},
+    MapExprLoc = element(2, L),
+    L1 = {call,
+          MapExprLoc,
+          {remote,
+           MapExprLoc,
+           {atom,MapExprLoc,maps},
+           {atom,MapExprLoc,to_list}},
+          [L]},
+    ListGen = {generate, Loc, P1, L1},
+    generator(Line, ListGen, Gs, St0);
 generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
     LA = lineno_anno(Line, St0),
     GA = lineno_anno(Lg, St0),

@@ -503,7 +503,7 @@ lc_tq(Anno, [{m_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
-    {[{generate,AnnoG,P1,G1} | Qs1],St3};
+    {[{m_generate,AnnoG,P1,G1} | Qs1],St3};
 lc_tq(Anno, [{b_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {P1,St2} = pattern(P0, St1),
