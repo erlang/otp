@@ -2383,9 +2383,11 @@ expr({cons,_Anno,H,T}, Vt, St) ->
     expr_list([H,T], Vt, St);
 expr({lc,_Anno,E,Qs}, Vt, St) ->
     handle_comprehension(E, Qs, Vt, St);
-expr({mc,_Anno,_E,_Qs}, Vt, St) -> %% TODO: Sergey pls
-    %handle_comprehension(E, Qs, Vt, St);
-    {Vt, St};
+expr({mc,_Anno,E,Qs}, Vt, St) ->
+    handle_comprehension(E, Qs, Vt, St);
+expr({map_field_assoc, _Anno, K, V}, Vt, St) ->
+    %% `K => V' part of map comprehension `#{K => V || ...}'
+    expr_list([K, V], Vt, St);
 expr({bc,_Anno,E,Qs}, Vt, St) ->
     handle_comprehension(E, Qs, Vt, St);
 expr({tuple,_Anno,Es}, Vt, St) ->
