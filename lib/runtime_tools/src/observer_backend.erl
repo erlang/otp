@@ -40,7 +40,14 @@
 	 ttb_fetch/3,
          ttb_resume_trace/0,
 	 ttb_get_filenames/1]).
+
 -define(CHUNKSIZE,8191). % 8 kbytes - 1 byte
+
+-ifndef(ESOCK_DONT_SHOW_UNSUPPORTED_OPTS).
+-define(ESOCK_KEEP_UNSUPPORTED_OPT(_),             true).
+-else.
+-define(ESOCK_KEEP_UNSUPPORTED_OPT(__SUPPORTED__), __SUPPORTED__).
+-endif.
 
 vsn() ->
     case application:load(runtime_tools) of
@@ -294,16 +301,22 @@ get_socket_list() ->
 		     Info6
 	     end,
 	 SockOpts =
-	     [{{socket, Opt}, Supported} || {Opt, Supported} <-
-				   socket:supports(options, socket)],
+	     [{{socket, Opt}, Supported} ||
+		 {Opt, Supported} <-
+		     socket:supports(options, socket),
+		 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)],
 	 DomainOpts =
 	     case Info7 of
 		 #{domain := inet6} ->
-		     [{{ipv6, Opt}, Supported} || {Opt, Supported} <-
-					 socket:supports(options, ipv6)];
+		     [{{ipv6, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, ipv6),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
 		 _ ->
-		     [{{ip, Opt}, Supported} || {Opt, Supported} <-
-				       socket:supports(options, ip)]
+		     [{{ip, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, ip),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)]
 	     end,
 	 ProtoOpts =
 	     case Info7 of
@@ -311,20 +324,26 @@ get_socket_list() ->
 		   type     := stream,
 		   protocol := tcp} when (Domain =:= inet) orelse
 					 (Domain =:= inet6) ->
-		     [{{tcp, Opt}, Supported} || {Opt, Supported} <-
-					socket:supports(options, tcp)];
+		     [{{tcp, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, tcp),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
 		 #{domain   := Domain,
 		   type     := dgram,
 		   protocol := udp} when (Domain =:= inet) orelse
 					 (Domain =:= inet6) ->
-		     [{{udp, Opt}, Supported} || {Opt, Supported} <-
-					socket:supports(options, udp)];
+		     [{{udp, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, udp),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
 		 #{domain   := Domain,
 		   type     := seqpacket,
 		   protocol := sctp} when (Domain =:= inet) orelse
 					  (Domain =:= inet6) ->
-		     [{{sctp, Opt}, Supported} || {Opt, Supported} <-
-					 socket:supports(options, sctp)];
+		     [{{sctp, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, sctp),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
 		 _ ->
 		     []
 	     end,
