@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -153,7 +153,7 @@
         <v>Options = [] | [option()]</v>
         <d>All options has default values. </d>
         <v>option() = {auto_commit, on | off} | {timeout, milliseconds()}
-	| {binary_strings, on | off} | {tuple_row, on | off} | {scrollable_cursors, on | off} |
+	| {binary_strings, on | off} | {tuple_row, on | off} | {integer_bigints, on | off} | {scrollable_cursors, on | off} |
 	{trace_driver, on | off} | {extended_errors, on | off} </v>
         <v>Ref = connection_reference() - should be used to access the connection. </v>
         <v>Reason = port_program_executable_not_found | common_reason()</v>
@@ -165,7 +165,7 @@
           to handle the connection. These processes will terminate if
           the process that created the connection dies or if you call
           disconnect/1.</p>
-	    
+
 	  <p>If automatic commit mode is turned on, each query will be
           considered as an individual transaction and will be
           automatically committed after it has been executed. If you want
@@ -174,19 +174,23 @@
           commit/3 explicitly to end a transaction. </p>
 
 	  <p>The default timeout is infinity </p>
-	  
+
 	  <p> >If the option binary_strings is turned on all strings
 	  will be returned as binaries and strings inputed to
 	  param_query will be expected to be binaries. The user needs
 	  to ensure that the binary is in an encoding that the
 	  database expects. By default this option is turned off.</p>
-	  
+
         <p>As default result sets are returned as a lists of
           tuples. The <c>TupleMode</c> option still exists to keep some
           degree of backwards compatibility. If the option is set to
           off, result sets will be returned as a lists of lists
           instead of a lists of tuples.</p>
-	  
+
+	<p> >If the option integer_bigints is turned on, bigints will be
+	  returned as integers instead of strings. By default this option is
+	  turned off.</p>
+
         <p>Scrollable cursors are nice but causes some overhead. For
           some connections speed might be more important than flexible
           data access and then you can disable scrollable cursor for a
@@ -194,7 +198,7 @@
 
 	  <note><p>Turning the scrollable_cursors option off is noted
 	  to make old odbc-drivers able to connect that will otherwhise fail.</p></note>
-	  
+
         <p>If trace mode is turned on this tells the ODBC driver to
           write a trace log to the file SQL.LOG that is placed in the
           current directory of the erlang emulator. This information
@@ -202,7 +206,7 @@
           erlang ODBC application, and it might be relevant for you to
           send this file to our support. Otherwise you will probably
           not have much use of this.</p>
-	  
+
         <note>
           <p>For more information about the <c>ConnectStr</c> see
             description of the function SQLDriverConnect in [1].</p>
@@ -244,7 +248,7 @@
       </type>
       <desc>
         <p>Closes a connection to a database. This will also
-          terminate all processes that may have been spawned 
+          terminate all processes that may have been spawned
           when the connection was opened. This call will always succeed.
           If the connection cannot be disconnected gracefully it will
           be brutally killed. However you may receive an error message
@@ -339,7 +343,7 @@
       </type>
       <desc>
         <p>Executes a parameterized SQL query. For an
-          example see the <seeguide marker="getting_started#param_query">"Using the Erlang API"</seeguide> in the Erlang ODBC 
+          example see the <seeguide marker="getting_started#param_query">"Using the Erlang API"</seeguide> in the Erlang ODBC
           User's Guide.</p>
         <note>
           <p>Use the function describe_table/[2,3] to find out which
@@ -374,12 +378,12 @@
       <name since="">start() -> </name>
       <name since="">start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the odb application. </fsummary>
-      
+
       <type>
 	<v>Type =  permanent | transient | temporary
 	</v>
       </type>
-      
+
       <desc>
 	<p> Starts the odbc application. Default type
 	  is temporary.
@@ -391,14 +395,14 @@
     <func>
       <name since="">stop() -> ok </name>
       <fsummary> Stops the odbc application.</fsummary>
-      
+
       <desc>
 	<p> Stops the odbc application.
 	  <seeerl marker="kernel:application">See application(3)</seeerl>
 	</p>
       </desc>
     </func>
-    
+
     <func>
       <name since="">sql_query(Ref, SQLQuery) -> </name>
       <name since="">sql_query(Ref, SQLQuery, TimeOut) -> ResultTuple | [ResultTuple] |{error, Reason}</name>
@@ -492,7 +496,7 @@
 
       See also http://msdn.microsoft.com/</p>
   </section>
-  
+
 </erlref>
 
 

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
- 
+
 % Default timetrap timeout (set in init_per_testcase).
 % This should be set relatively high (10-15 times the expected
 % max testcasetime).
@@ -30,9 +30,9 @@
 		   {unix,linux} ->
 		       case  erlang:system_info({wordsize, external}) of
 			   4 ->
-			       mysql;
+			       sqlserver;
 			   _ ->
-			       postgres
+			       sqlserver
 		       end;
 		   {unix, darwin} ->
 		       mysql;

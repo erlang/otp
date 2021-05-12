@@ -39,11 +39,11 @@
 /* 0 in this case (SQL_ATTR_CONNECTION_TIMEOUT) corresponds to erlang
    infinity. Erlang will handle all timeouts so we do not want any in the
    portprogram. */
-#define TIME_OUT 0  
+#define TIME_OUT 0
 
 /* Constats defining the command protocol between the Erlang control process
    and the port program. These constants must also be defined in the same
-   way in Erlang. */ 
+   way in Erlang. */
 #define OPEN_CONNECTION		1
 #define CLOSE_CONNECTION	2
 #define COMMIT_TRANSACTION	3
@@ -74,13 +74,13 @@
 #define EXIT_ENV		 3
 #define EXIT_CONNECTION		 4
 #define EXIT_FREE		 5
-#define EXIT_STDIN_HEADER        6 
+#define EXIT_STDIN_HEADER        6
 #define EXIT_STDIN_BODY		 7
 #define EXIT_BIN		 8
 #define EXIT_THREAD		 9
 #define EXIT_PARAM_ARRAY         10
 #define EXIT_OLD_WINSOCK	 11
-#define EXIT_SOCKET_CONNECT      12  
+#define EXIT_SOCKET_CONNECT      12
 #define EXIT_SOCKET_SEND_HEADER	 13
 #define EXIT_SOCKET_SEND_BODY	 14
 #define EXIT_SOCKET_RECV_MSGSIZE 15
@@ -91,7 +91,8 @@
 #define EXIT_ROWS		 20
 #define EXIT_DESC		 21
 #define EXIT_BIND		 22
-#define EXIT_DRIVER_INFO         23
+#define EXIT_DRIVER_INFO	 23
+#define EXIT_LONG_DATA		 40
 
 /* COL_SIZE */
 #define COL_SQL_SMALLINT 5
@@ -117,6 +118,7 @@
 #define USER_WVARCHAR 13
 #define USER_TIMESTAMP 14
 #define USER_WLONGVARCHAR 15
+#define USER_LONGVARBINARY 16
 
 /*------------------------   TYPDEFS  ----------------------------------*/
 
@@ -130,7 +132,7 @@ typedef struct {
     SQLSMALLINT decimal_digits;
     SQLLEN len;
     SQLLEN  strlen_or_indptr;
-    SQLLEN *strlen_or_indptr_array; 
+    SQLLEN *strlen_or_indptr_array;
 } col_type;
 
 typedef struct {
@@ -141,7 +143,7 @@ typedef struct {
 typedef struct {
     int length;
     byte *buffer;
-    Boolean dyn_alloc; 
+    Boolean dyn_alloc;
 } db_result_msg;
 
 typedef struct {
@@ -164,12 +166,12 @@ typedef struct {
 
 typedef struct {
     SQLUSMALLINT params_processed;
-    SQLUSMALLINT *param_status_array;  
-} param_status; 
+    SQLUSMALLINT *param_status_array;
+} param_status;
 
 typedef struct {
-    SQLHDBC connection_handle;     
-    SQLHENV environment_handle;    
+    SQLHDBC connection_handle;
+    SQLHENV environment_handle;
     SQLHSTMT statement_handle;
     db_column *columns;
     int number_of_columns;
@@ -182,6 +184,8 @@ typedef struct {
     Boolean param_query;
     Boolean out_params;
     Boolean extended_errors;
+    Boolean return_types;
+    Boolean integer_bigints;
 } db_state;
 
 typedef enum {
@@ -198,6 +202,8 @@ typedef enum {
 #define use_srollable_cursors(db_state) (db_state -> use_srollable_cursors)
 #define tuple_row(db_state) (db_state -> tuple_row)
 #define binary_strings(db_state) (db_state -> binary_strings)
+#define return_types(db_state) (db_state -> return_types)
+#define integer_bigints(db_state) (db_state -> integer_bigints)
 #define exists_more_result_sets(db_state) (db_state -> exists_more_result_sets)
 #define param_query(db_state) (db_state -> param_query)
 #define out_params(db_state) (db_state -> out_params)
