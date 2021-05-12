@@ -28,7 +28,7 @@
 	 string_plusplus/1,
 	 pattern_expr/1,
          guard_3/1, guard_4/1, guard_5/1,
-         lc/1,
+         lc/1, mc/1,
          simple_cases/1,
          unary_plus/1,
          apply_atom/1,
@@ -87,7 +87,7 @@ suite() ->
 
 all() -> 
     [guard_1, guard_2, match_pattern, string_plusplus,
-     pattern_expr, match_bin, guard_3, guard_4, guard_5, lc,
+     pattern_expr, match_bin, guard_3, guard_4, guard_5, lc, mc,
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
@@ -272,6 +272,31 @@ lc(Config) when is_list(Config) ->
     check(fun() -> [X || X <- [true,false], X] end,
 	  "[X || X <- [true,false], X].", [true]),
     ok.
+
+mc(Config) when is_list(Config) ->
+    %% map comprehension with map generator
+    check(fun() -> #{K => V || K := V <- #{1 => 2, 3 => 4}} end,
+          "begin #{K => V || K := V <- #{1 => 2, 3 => 4}} end.",
+          #{1 => 2, 3 => 4}),
+    %% map comprehension with map generator and filter
+    check(fun() -> #{K => V || K := V <- #{1 => 2, 3 => 4}, K > 1} end,
+          "begin #{K => V || K := V <- #{1 => 2, 3 => 4}, K > 1} end.",
+          #{3 => 4}),
+    %% map comprehension with list generator
+    check(fun() -> #{K => K + 1 || K <- [1, 2, 3, 4]} end,
+          "begin #{K => K + 1 || K <- [1, 2, 3, 4]} end.",
+          #{1 => 2, 2 => 3, 3 => 4, 4 => 5}),
+    %% map comprehension with binary generator
+    check(fun() -> #{K => V || <<K, V>> <= <<1, 2, 3, 4>>} end,
+          "begin #{K => V || <<K, V>> <= <<1, 2, 3, 4>>} end.",
+          #{1 => 2, 3 => 4}),
+    %% list comprehension with map generator
+    check(fun() -> lists:sort([{K, V} || K := V <- #{1 => 2, 3 => 4}]) end,
+          "begin lists:sort([{K, V} || K := V <- #{1 => 2, 3 => 4}]) end.",
+          [{1, 2}, {3, 4}]),
+    check(fun() -> #{K => V || K := 2 = V <- #{a => 1, b => 2, c => 1, d => 2}} end,
+          "begin #{K => V || K := 2 = V <- #{a => 1, b => 2, c => 1, d => 2}} end.",
+          #{b => 2, d => 2}).
 
 %% Simple cases, just to cover some code.
 simple_cases(Config) when is_list(Config) ->
