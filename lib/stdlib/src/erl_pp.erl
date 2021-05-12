@@ -552,11 +552,10 @@ lexpr({lc,_,E,Qs}, _Prec, Opts) ->
     Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,$[,[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$]]};
     %% {list,[{step,$[,Lcl},$]]};
-lexpr({mc,_,E,Qs}, _Prec, Opts) ->
-    %% TODO: map_comprehensions do not work with this
-    Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
+lexpr({mc,_,{map_field_assoc,_,_,_}=MF,Qs}, _Prec, Opts) ->
+    Lcl = {list,[{step,[map_field(MF, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,'#{',[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$}]};
-    %% {list,[{step,$[,Lcl},$]]};
+    %% {list,[{step,'#{',Lcl},$}]};
 lexpr({bc,_,E,Qs}, _Prec, Opts) ->
     P = max_prec(),
     Lcl = {list,[{step,[lexpr(E, P, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
@@ -921,6 +920,8 @@ lc_quals(Qs, Opts) ->
 lc_qual({b_generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <=")],lexpr(E, 0, Opts)}]};
+lc_qual({m_generate,_,{map_field_exact,_,_,_} = MF,E}, Opts) ->
+    {list,[{step,[map_field(MF, Opts),leaf(" <-")],lexpr(E, 0, Opts)}]};
 lc_qual({generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
