@@ -704,7 +704,7 @@ Erlang code.
         {'lc', anno(), af_template(), af_qualifier_seq()}.
 
 -type af_map_comprehension() ::
-        {'mc', anno(), af_template(), af_qualifier_seq()}.
+        {'mc', anno(), af_assoc(abstract_expr()), af_qualifier_seq()}.
 
 -type af_binary_comprehension() ::
         {'bc', anno(), af_template(), af_qualifier_seq()}.
@@ -716,6 +716,7 @@ Erlang code.
 -type af_qualifier() :: af_generator() | af_filter().
 
 -type af_generator() :: {'generate', anno(), af_pattern(), abstract_expr()}
+                      | {'m_generate', anno(), af_assoc_exact(af_pattern()), abstract_expr()}
                       | {'b_generate', anno(), af_pattern(), abstract_expr()}.
 
 -type af_filter() :: abstract_expr().
