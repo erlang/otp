@@ -552,6 +552,11 @@ lexpr({lc,_,E,Qs}, _Prec, Opts) ->
     Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,$[,[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$]]};
     %% {list,[{step,$[,Lcl},$]]};
+lexpr({mc,_,E,Qs}, _Prec, Opts) ->
+    %% TODO: map_comprehensions do not work with this
+    Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
+    {list,[{seq,'#{',[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$}]};
+    %% {list,[{step,$[,Lcl},$]]};
 lexpr({bc,_,E,Qs}, _Prec, Opts) ->
     P = max_prec(),
     Lcl = {list,[{step,[lexpr(E, P, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
@@ -1324,7 +1329,7 @@ wordtable() ->
     L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end ||
             W <- [" ->"," =","<<",">>","[]","after","begin","case","catch",
                   "end","fun","if","of","receive","try","when"," ::","..",
-                  " |"]],
+                  " |", "#{"]],
     list_to_tuple(L).
 
 word(' ->', WT) -> element(1, WT);
@@ -1345,4 +1350,5 @@ word('try', WT) -> element(15, WT);
 word('when', WT) -> element(16, WT);
 word(' ::', WT) -> element(17, WT);
 word('..', WT) -> element(18, WT);
-word(' |', WT) -> element(19, WT).
+word(' |', WT) -> element(19, WT);
+word('#{', WT) -> element(20, WT).
