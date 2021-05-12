@@ -283,6 +283,10 @@ expr({lc,Anno,E0,Qs0}, St0) ->
     {Qs1,St1} = lc_tq(Anno, Qs0, St0),
     {E1,St2} = expr(E0, St1),
     {{lc,Anno,E1,Qs1},St2};
+expr({mc,Anno,E0,Qs0}, St0) ->
+    {Qs1,St1} = lc_tq(Anno, Qs0, St0),
+    {E1,St2} = expr(E0, St1),
+    {{mc,Anno,E1,Qs1},St2};
 expr({bc,Anno,E0,Qs0}, St0) ->
     {Qs1,St1} = lc_tq(Anno, Qs0, St0),
     {E1,St2} = expr(E0, St1),
@@ -491,6 +495,11 @@ conj([{{Name,_Rp},Anno,R,Sz} | AL], E) ->
 %%      {[TransQual],State'}
 
 lc_tq(Anno, [{generate,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {P1,St2} = pattern(P0, St1),
+    {Qs1,St3} = lc_tq(Anno, Qs0, St2),
+    {[{generate,AnnoG,P1,G1} | Qs1],St3};
+lc_tq(Anno, [{m_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
