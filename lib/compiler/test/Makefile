@@ -36,6 +36,7 @@ MODULES= \
 	guard_SUITE \
 	inline_SUITE \
 	lc_SUITE \
+	mc_SUITE \
 	map_SUITE \
 	match_SUITE \
 	misc_SUITE \
@@ -70,6 +71,7 @@ NO_OPT= \
 	fun \
 	guard \
 	lc \
+	mc \
 	map \
 	match \
 	misc \
@@ -96,6 +98,7 @@ INLINE= \
 	fun \
 	guard \
 	lc \
+	mc \
 	map \
 	match \
 	misc \
