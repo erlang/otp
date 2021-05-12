@@ -1565,6 +1565,9 @@ end</pre>
        &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
 <c>ListExpr</c> must be an expression, which evaluates to a
        list of terms.</item>
+       <item>A <em>map generator</em> is written as:<br></br>
+       &nbsp;&nbsp;<c><![CDATA[KeyPattern := ValuePattern <- MapExpr]]></c> <br></br>
+       <c>MapExpr</c> must be an expression, which evaluates to a map.</item>
 <item>A <em>bit string generator</em> is written as:      <br></br>
 
        &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
@@ -1596,6 +1599,51 @@ end</pre>
     Programming Examples.</seeguide></p>
 
   </section>
+  <section>
+    <title>Map Comprehensions</title>
+
+    <p>Map comprehensions are analogous to List Comprehensions.
+    They are used to generate, filter and transform maps.</p>
+    <p>Map comprehensions are written with the following syntax:</p>
+    <pre>
+#{ KeyExpr => ValueExpr || Qualifier1,...,QualifierN }</pre>
+    <p><c>KeyExpr</c> and <c>ValueExpr</c> are arbitrary expressions, <c>KeyExpr</c>
+    will be used to generate he key of the element in the map and <c>ValExpr</c> to generate
+    its corresponding value. When multiple <c>KeyExpr</c> are evaluated to the same value,
+    the key is guaranteed to be present in the resulting map, but it's not defined which
+    of the values will be assigned to the key.
+    Each <c>Qualifier</c> is either a generator, a map generator, a bit string generator
+    or a filter.</p>
+    <list type="bulleted">
+     <item>A <em>generator</em> is written as:      <br></br>
+      &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
+       <c>ListExpr</c> must be an expression that evaluates to a
+       list of terms.</item>
+     <item>A <em>map generator</em> is written as:<br></br>
+       &nbsp;&nbsp;<c><![CDATA[KeyPattern := ValuePattern <- MapExpr]]></c> <br></br>
+       <c>MapExpr</c> must be an expression, which evaluates to a map.
+       <c>KeyPattern</c> and <c>ValuePattern</c> are pattern-matching expressions to
+       match over each key =&gt; value pair in the MapExpr.</item>
+     <item>A <em>bit string generator</em> is written as:      <br></br>
+
+       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
+       <c>BitStringExpr</c> must be an expression that evaluates to a
+       bitstring.</item>
+     <item>A <em>filter</em> is an expression that evaluates to
+      <c>true</c> or <c>false</c>.</item>
+    </list>
+    <p>The variables in the generator patterns, shadow variables in
+      the function clause, surrounding the bit string comprehensions.</p>
+    <p>A map comprehension returns a map, which is
+      created by inserting the result of evaluation of <c>ValueExpr</c>
+      by key, calculated as result of evaluation of <c>KeyExpr</c>, for each
+      combination of generator elements, for which all filters are true.</p>
+    <p><em>Example:</em></p>
+    <pre>
+1> <input>#{ Key + 2 => Value * 2 ||
+Key := Value &lt;- #{1 => 2, 3 => 4, 5 => 6}, Key > 2 }.</input>
+#{5 => 8, 7 => 12}</pre>
+  </section>
 
 <section>
     <title>Bit String Comprehensions</title> 
@@ -1610,12 +1658,15 @@ end</pre>
     <p><c>BitStringExpr</c> is an expression that evalutes to a bit
     string. If <c>BitStringExpr</c> is a function call, it must be
     enclosed in parentheses.  Each <c>Qualifier</c> is either a
-    generator, a bit string generator or a filter.</p>
+    generator, a map generator, a bit string generator or a filter.</p>
     <list type="bulleted">
  <item>A <em>generator</em> is written as:      <br></br>
       &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
        <c>ListExpr</c> must be an expression that evaluates to a
        list of terms.</item>
+       <item>A <em>map generator</em> is written as:<br></br>
+       &nbsp;&nbsp;<c><![CDATA[KeyPattern := ValuePattern <- MapExpr]]></c> <br></br>
+       <c>MapExpr</c> must be an expression, which evaluates to a map.</item>
       <item>A <em>bit string generator</em> is written as:      <br></br>
 
        &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
