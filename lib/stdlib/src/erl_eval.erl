@@ -231,6 +231,8 @@ expr({cons,_,H0,T0}, Bs0, Lf, Ef, RBs) ->
     ret_expr([H|T], merge_bindings(Bs1, Bs2), RBs);
 expr({lc,_,E,Qs}, Bs, Lf, Ef, RBs) ->
     eval_lc(E, Qs, Bs, Lf, Ef, RBs);
+expr({mc,_,E,Qs}, Bs, Lf, Ef, RBs) ->
+    eval_mc(E, Qs, Bs, Lf, Ef, RBs);
 expr({bc,_,E,Qs}, Bs, Lf, Ef, RBs) ->
     eval_bc(E, Qs, Bs, Lf, Ef, RBs);
 expr({tuple,_,Es}, Bs0, Lf, Ef, RBs) ->
@@ -704,12 +706,39 @@ eval_lc1(E, [{b_generate,_,P,L0}|Qs], Bs0, Lf, Ef, Acc0) ->
     {value,Bin,_Bs1} = expr(L0, Bs0, Lf, Ef, none),
     CompFun = fun(Bs, Acc) -> eval_lc1(E, Qs, Bs, Lf, Ef, Acc) end,
     eval_b_generate(Bin, P, Bs0, Lf, Ef, CompFun, Acc0);
+eval_lc1(E, [{m_generate,_,_,_} = MapGenerator |Qs], Bs0, Lf, Ef, Acc0) ->
+    ListGenerator = m_generate_to_generate(MapGenerator),
+    eval_lc1(E, [ListGenerator |Qs], Bs0, Lf, Ef, Acc0);
 eval_lc1(E, [F|Qs], Bs0, Lf, Ef, Acc) ->
     CompFun = fun(Bs) -> eval_lc1(E, Qs, Bs, Lf, Ef, Acc) end,
     eval_filter(F, Bs0, Lf, Ef, CompFun, Acc);
 eval_lc1(E, [], Bs, Lf, Ef, Acc) ->
     {value,V,_} = expr(E, Bs, Lf, Ef, none),
     [V|Acc].
+
+eval_mc(E, Qs, Bs, Lf, Ef, RBs) ->
+    E1 = mc_to_lc(E),
+    case eval_lc(E1, Qs, Bs, Lf, Ef, RBs) of
+        {value, Value, Bindings} ->
+            {value, maps:from_list(Value), Bindings};
+        Value ->
+            maps:from_list(Value)
+    end.
+
+mc_to_lc({map_field_assoc, Loc, Key, Value}) ->
+    {tuple,Loc,[Key, Value]}.
+
+m_generate_to_generate({m_generate, Loc, {map_field_exact, FL, Key, Value}, L}) ->
+    P1 = {tuple, FL, [Key, Value]},
+    MapExprLoc = element(2, L),
+    L1 = {call,
+          MapExprLoc,
+          {remote,
+           MapExprLoc,
+           {atom,MapExprLoc,maps},
+           {atom,MapExprLoc,to_list}},
+          [L]},
+    {generate, Loc, P1, L1}.
 
 %% eval_bc(Expr, [Qualifier], Bindings, LocalFunctionHandler, 
 %%         ExternalFuncHandler, RetBindings) ->
@@ -726,6 +755,9 @@ eval_bc1(E, [{generate,_,P,L0}|Qs], Bs0, Lf, Ef, Acc0) ->
     {value,List,_Bs1} = expr(L0, Bs0, Lf, Ef, none),
     CompFun = fun(Bs, Acc) -> eval_bc1(E, Qs, Bs, Lf, Ef, Acc) end,
     eval_generate(List, P, Bs0, Lf, Ef, CompFun, Acc0);
+eval_bc1(E, [{m_generate,_,_,_} = MapGenerator |Qs], Bs0, Lf, Ef, Acc0) ->
+    ListGenerator = m_generate_to_generate(MapGenerator),
+    eval_bc1(E, [ListGenerator |Qs], Bs0, Lf, Ef, Acc0);
 eval_bc1(E, [F|Qs], Bs0, Lf, Ef, Acc) ->
     CompFun = fun(Bs) -> eval_bc1(E, Qs, Bs, Lf, Ef, Acc) end,
     eval_filter(F, Bs0, Lf, Ef, CompFun, Acc);

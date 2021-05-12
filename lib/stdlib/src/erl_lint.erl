@@ -1675,6 +1675,9 @@ pattern({tuple,_Anno,Ps}, Vt, Old, St) ->
     pattern_list(Ps, Vt, Old, St);
 pattern({map,_Anno,Ps}, Vt, Old, St) ->
     pattern_map(Ps, Vt, Old, St);
+pattern({map_field_exact,_Anno,K,V}, Vt0, Old, St0) ->
+    %% Map generator
+    pattern_list([K, V], Vt0, Old, St0);
 pattern({record_index,Anno,Name,Field}, _Vt, _Old, St) ->
     {Vt1,St1} =
         check_record(Anno, Name, St,
@@ -3532,6 +3535,9 @@ lc_quals([{generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
 lc_quals([{b_generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
     St1 = handle_bitstring_gen_pat(P,St0),
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St1),
+    lc_quals(Qs, Vt, Uvt, St);
+lc_quals([{m_generate,_Anno, P, E} | Qs], Vt0, Uvt0, St0) ->
+    {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
     lc_quals(Qs, Vt, Uvt, St);
 lc_quals([F|Qs], Vt, Uvt, St0) ->
     Info = is_guard_test2_info(St0),
