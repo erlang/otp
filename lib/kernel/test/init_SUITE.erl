@@ -396,6 +396,7 @@ restart(Config) when is_list(Config) ->
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     Procs = rpc:call(Node, erlang, processes, []),
+    Protocols = lists:sort(rpc:call(Node, socket, supports, [])),
     MaxPid = lists:last(Procs),
     ok = rpc:call(Node, init, restart, []),
     receive
@@ -455,6 +456,9 @@ restart(Config) when is_list(Config) ->
 	    loose_node:stop(Node),
 	    ct:fail(processes_not_greater)
     end,
+
+    %% After restart user can check supported socket options
+    Protocols = lists:sort(rpc:call(Node, socket, supports, [])),
 
     %% Test that, for instance, the same argument still exists.
     case rpc:call(Node, init, get_argument, [c]) of

@@ -30,6 +30,10 @@
 %%% Callback functions for the kernel application.
 %%%-----------------------------------------------------------------
 start(_, []) ->
+    %% prim_inet is internally relying on the persistent_term which
+    %% is cleaned between restarts. This ensures that the support
+    %% tables will be properly populated.
+    ok = prim_socket:init(),
     %% Setup the logger and configure the kernel logger environment
     ok = logger:internal_init_logger(),
     case supervisor:start_link({local, kernel_sup}, kernel, []) of

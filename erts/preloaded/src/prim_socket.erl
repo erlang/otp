@@ -26,6 +26,7 @@
 
 -export(
    [
+    init/0,
     info/0, info/1,
     debug/1, socket_debug/1, use_registry/1,
     supports/0, supports/1, supports/2,
@@ -140,12 +141,6 @@ on_load(Extra) when is_map(Extra) ->
           end,
     ok = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
     %%
-    PT =
-        put_supports_table(
-          protocols, fun (Protocols) -> protocols_table(Protocols) end),
-    _ = put_supports_table(
-          options, fun (Options) -> options_table(Options, PT) end),
-    _ = put_supports_table(msg_flags, fun (Flags) -> Flags end),
     ok.
 
 put_supports_table(Tag, MkTable) ->
@@ -159,6 +154,15 @@ put_supports_table(Tag, MkTable) ->
         end,
     p_put(Tag, Table),
     Table.
+
+init() ->
+    PT =
+        put_supports_table(
+          protocols, fun (Protocols) -> protocols_table(Protocols) end),
+    _ = put_supports_table(
+          options, fun (Options) -> options_table(Options, PT) end),
+    _ = put_supports_table(msg_flags, fun (Flags) -> Flags end),
+    ok.
 
 %% ->
 %% [{Num, [Name, ...]}
