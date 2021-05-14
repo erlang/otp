@@ -47,6 +47,7 @@
 	 ukeymerge/1, rukeymerge/1,
 	 ukeysort_1/1, ukeysort_i/1, ukeysort_stable/1,
 	 ukeysort_rand/1, ukeysort_error/1,
+	 mapkeyfind/1,
 	 funmerge/1, rfunmerge/1,
 	 funsort_1/1, funsort_stable/1, funsort_rand/1,
 	 funsort_error/1,
@@ -102,7 +103,7 @@ groups() ->
       [keymerge, rkeymerge, keysort_1, keysort_rand,
        keysort_i, keysort_stable, keysort_error]},
      {key, [parallel], [keymember, keysearch_keyfind, keystore,
-			keytake, keyreplace]},
+                        keytake, keyreplace, mapkeyfind]},
      {sort,[parallel],[merge, rmerge, sort_1, sort_rand]},
      {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
@@ -426,6 +427,31 @@ keyreplace(Config) when is_list(Config) ->
     %% Error cases.
     {'EXIT',_} = (catch lists:keyreplace(k, 1, [], not_tuple)),
     {'EXIT',_} = (catch lists:keyreplace(k, 0, [], {a,b})),
+    ok.
+
+%% Test lists:mapkeyfind/3.
+mapkeyfind(Config) when is_list(Config) ->
+    Q1 = #{id => 1,
+           question => "Question of Life, The Universe, and Everything",
+           answer => 42,
+           a_specific_field => test},
+    Q2 = #{id => 2,
+           question => "Six by nine.",
+           answer => 42,
+           {x,'*',y} => 13#42},
+    Q3 = #{id => 3,
+           question => "(bb|[^b]{2})",
+           answer => "That is the question",
+           recursive => true},
+    List = [Q1, Q2, Q3],
+    Q1 = lists:mapkeyfind(1, id, List),
+    Q2 = lists:mapkeyfind(2, id, List),
+    Q3 = lists:mapkeyfind(true, recursive, List),
+
+    %% Error cases.
+    false = lists:mapkeyfind(1, id, []),
+    false = lists:mapkeyfind(42, id, List),
+    {'EXIT',_} = (catch lists:mapkeyfind(1, id, not_list)),
     ok.
 
 merge(Config) when is_list(Config) ->

@@ -467,6 +467,21 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
+      <name name="mapkeyfind" arity="3" since=""/>
+      <fsummary>Search for an element in a list of maps.</fsummary>
+      <desc>
+        <p>Searches the list of maps <c><anno>MapList</anno></c> for a map whose
+           value associated with key <c><anno>Key</anno></c> compares equal to
+           <c><anno>Value</anno></c>. Returns <c><anno>Map</anno></c> if such a
+           map is found, otherwise <c>false</c>.</p>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>lists:mapkeyfind(42, id, [#{id => 1, person => jane},#{id => 42, answer => 42}]).</input>
+#{id => 42, answer => 42}</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="last" arity="1" since=""/>
       <fsummary>Return last element in a list.</fsummary>
       <desc>
