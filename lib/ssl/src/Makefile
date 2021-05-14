@@ -172,12 +172,16 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 # Targets
 # ----------------------------------------------------
 
+opt debug: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
+
+deps: $(DEP_FILE)
+
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
 $(DEP_FILE): $(ERL_FILES)
 	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
 	$(gen_verbose)erlc -M $(ERL_FILES) \
-	| sed "s@[a-zA-Z]\?$(ERL_TOP_NATIVE)@../../..@g" \
+	| sed "s@[a-zA-Z]\?$(ERL_TOP_NATIVE)/\(bootstrap/\)\?lib/\([^/]\+/\)@../../\2@g" \
 	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
 	| sed 's@^dtls_@$$(EBIN)/dtls_@' \
 	| sed 's@^inet_@$$(EBIN)/inet_@' \
@@ -185,7 +189,6 @@ $(DEP_FILE): $(ERL_FILES)
 	| sed 's@^tls_@$$(EBIN)/tls_@' \
 	> $(DEP_FILE)
 
-debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(BEHAVIOUR_TARGET_FILES) 
