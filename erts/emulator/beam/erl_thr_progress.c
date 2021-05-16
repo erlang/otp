@@ -554,6 +554,22 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
     intrnl->unmanaged.callbacks[tpd->id] = *callbacks;
 }
 
+void
+erts_thr_progress_unregister_unmanaged_thread(void)
+{
+    /*
+     * If used, the previously registered wakeup callback
+     * must be prepared for NULL passed as argument. This since
+     * the callback might be called after this unregistration
+     * in case of an outstanding wakeup request when unregistration
+     * is made.
+     */
+    ErtsThrPrgrData* tpd = erts_thr_progress_data();
+    ASSERT(tpd->id >= 0);
+    intrnl->unmanaged.callbacks[tpd->id].arg = NULL;
+    erts_free(ERTS_ALC_T_THR_PRGR_DATA, tpd);
+}
+
 
 ErtsThrPrgrData *
 erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
