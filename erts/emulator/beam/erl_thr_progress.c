@@ -554,6 +554,16 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
     intrnl->unmanaged.callbacks[tpd->id] = *callbacks;
 }
 
+void
+erts_thr_progress_unregister_unmanaged_thread(void)
+{
+    ErtsThrPrgrData* tpd = erts_thr_progress_data();
+    ASSERT(tpd->id >= 0);
+    intrnl->unmanaged.callbacks[tpd->id].arg = NULL;
+    intrnl->unmanaged.callbacks[tpd->id].wakeup = NULL;
+    erts_free(ERTS_ALC_T_THR_PRGR_DATA, tpd);
+}
+
 
 ErtsThrPrgrData *
 erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,

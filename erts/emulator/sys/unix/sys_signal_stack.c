@@ -274,8 +274,7 @@ static void sys_sigaltstack(void *ss_sp) {
  * Set up alternate signal stack for an Erlang process scheduler thread.
  */
 void sys_thread_init_signal_stack(void) {
-    /* This will never be freed. */
-    char *stack = malloc(SIGSTKSZ);
+    char *stack = alloca(SIGSTKSZ);
     sys_sigaltstack(stack);
 }
 

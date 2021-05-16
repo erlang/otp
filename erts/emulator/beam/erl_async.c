@@ -448,6 +448,7 @@ static void *async_main(void* arg)
 	async_reply(a, prep_enq);
     }
 
+    erts_thr_progress_unregister_unmanaged_thread();
     return NULL;
 }
 
