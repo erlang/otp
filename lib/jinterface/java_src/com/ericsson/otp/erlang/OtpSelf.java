@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -196,12 +196,20 @@ public class OtpSelf extends OtpLocalNode {
             final OtpTransportFactory transportFactory) throws IOException {
         super(node, cookie, transportFactory);
 
-        sock = createServerTransport(port);
+        if (transportFactory instanceof OtpNamedTransportFactory) {
+            // For alternative distribution protocols using a transport factory
+            // extending the OtpNamedTransportFactory abstract class, pass the
+            // node name as the identifier to use for incoming connections.
+            sock = createServerTransport(node);
 
-        if (port != 0) {
-            this.port = port;
         } else {
-            this.port = sock.getLocalPort();
+            sock = createServerTransport(port);
+
+            if (port != 0) {
+                this.port = port;
+            } else {
+                this.port = sock.getLocalPort();
+            }
         }
 
         pid = createPid();
