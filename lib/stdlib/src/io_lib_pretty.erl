@@ -612,11 +612,15 @@ print_length_map_pairs(Term, D, D0, T, RF, Enc, Str) when D =:= 1; T =:= 0->
            end,
     {dots, 3, 3, More};
 print_length_map_pairs({K, V, Iter}, D, D0, T, RF, Enc, Str) ->
-    Pair1 = print_length_map_pair(K, V, D0, tsub(T, 1), RF, Enc, Str),
-    {_, Len1, _, _} = Pair1,
     Next = maps:next(Iter),
+    T1 = case Next =:= none of
+             false -> tsub(T,1);
+             true -> T
+         end,
+    Pair1 = print_length_map_pair(K, V, D0, T1, RF, Enc, Str),
+    {_, Len1, _, _} = Pair1,
     [Pair1 |
-     print_length_map_pairs(Next, D - 1, D0, tsub(T, Len1+1), RF, Enc, Str)].
+     print_length_map_pairs(Next, D - 1, D0, tsub(T1, Len1), RF, Enc, Str)].
 
 print_length_map_pair(K, V, D, T, RF, Enc, Str) ->
     {_, KL, KD, _} = P1 = print_length(K, D, T, RF, Enc, Str),
@@ -641,7 +645,10 @@ print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
     {dots, 3, 3, More};
 print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) ->
     E = element(I, Tuple),
-    T1 = tsub(T, 1),
+    T1 = case I =:= tuple_size(Tuple) of
+             false -> tsub(T,1);
+             true -> T
+         end,
     {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str),
     T2 = tsub(T1, Len1),
     [Elem1 | print_length_tuple1(Tuple, I + 1, D - 1, T2, RF, Enc, Str)].
@@ -670,7 +677,10 @@ print_length_fields(Term, D, T, Tuple, I, RF, Enc, Str)
     {dots, 3, 3, More};
 print_length_fields([Def | Defs], D, T, Tuple, I, RF, Enc, Str) ->
     E = element(I, Tuple),
-    T1 = tsub(T, 1),
+    T1 = case I =:= tuple_size(Tuple) of
+             false -> tsub(T,1);
+             true -> T
+         end,
     Field1 = print_length_field(Def, D - 1, T1, E, RF, Enc, Str),
     {_, Len1, _, _} = Field1,
     T2 = tsub(T1, Len1),
@@ -695,8 +705,13 @@ print_length_list1(Term, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
     More = fun(T1, Dd) -> ?FUNCTION_NAME(Term, D+Dd, T1, RF, Enc, Str) end,
     {dots, 3, 3, More};
 print_length_list1([E | Es], D, T, RF, Enc, Str) ->
-    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, tsub(T, 1), RF, Enc, Str),
-    [Elem1 | print_length_list1(Es, D - 1, tsub(T, Len1 + 1), RF, Enc, Str)];
+    %% If E is the last element in list, don't account length for a comma.
+    T1 = case Es =:= [] of
+             false -> tsub(T,1);
+             true -> T
+         end,
+    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str),
+    [Elem1 | print_length_list1(Es, D - 1, tsub(T1, Len1), RF, Enc, Str)];
 print_length_list1(E, D, T, RF, Enc, Str) ->
     print_length(E, D - 1, T, RF, Enc, Str).
 
@@ -923,8 +938,12 @@ expand_list(Ifs, T, Dd, L0) ->
 expand_list([], _T, _Dd) ->
     [];
 expand_list([If | Ifs], T, Dd) ->
-    {_, Len1, _, _} = Elem1 = expand(If, tsub(T, 1), Dd),
-    [Elem1 | expand_list(Ifs, tsub(T, Len1 + 1), Dd)];
+    T1 = case Ifs =:= [] of
+             false -> tsub(T,1);
+             true -> T
+         end,
+    {_, Len1, _, _} = Elem1 = expand(If, T1, Dd),
+    [Elem1 | expand_list(Ifs, tsub(T1, Len1), Dd)];
 expand_list({_, _, _, More}, T, Dd) ->
     More(T, Dd).
 
