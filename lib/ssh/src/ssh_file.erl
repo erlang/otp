@@ -802,7 +802,7 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
 
 decode_pem_keys(RawBin, Password) ->
     PemLines = split_in_lines(
-                 binary:replace(RawBin, <<"\\\n">>, <<"">>, [global])
+                 binary:replace(RawBin, [<<"\\\n">>,<<"\\\r\\\n">>],  <<"">>, [global])
                 ),
     decode_pem_keys(PemLines, Password, []).
 decode_pem_keys([], _, Acc) ->
@@ -1136,7 +1136,7 @@ split_in_nonempty_lines(Bin) ->
     skip_blank_lines_and_comments( split_in_lines(Bin) ).
 
 split_in_lines(Bin) ->
-    binary:split(Bin, <<"\n">>, [global,trim_all]).
+    binary:split(Bin, [<<"\n">>,<<"\r\n">>], [global,trim_all]).
 
 skip_blank_lines_and_comments(Lines) ->
     lists:filter(fun(<<"#",_/binary>>) ->
