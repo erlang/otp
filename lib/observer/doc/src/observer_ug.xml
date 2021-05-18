@@ -254,7 +254,7 @@
     <title>Sockets Tab</title>
     <p>Tab <em>Sockets</em> is devided into two parts.
     The first part contains general
-    <seemfa marker="kernel:socket#"><c>socket</c></seemfa>
+    <seeerl marker="kernel:socket"><c>socket</c></seeerl>
     information and the second part
     lists socket information in columns. </p>
     <p>For each socket the following information is displayed: </p>
