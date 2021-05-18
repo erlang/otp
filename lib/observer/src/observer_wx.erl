@@ -216,12 +216,13 @@ setup(#state{frame = Frame} = State) ->
 	 {allc_panel,  AllcPanel,  ?ALLOC_STR},
 	 {app_panel,   AppPanel,   "Applications"},
 	 {pro_panel,   ProPanel,   "Processes"},
-	 {port_panel,  PortPanel,  "Ports"}] ++
-	if (SockPanel =:= undefined) -> [];
-	   true -> 
-		[{sock_panel,  SockPanel,  "Sockets"}]
-	end ++ 
-	[{tv_panel,    TVPanel,    "Table Viewer"},
+	 {port_panel,  PortPanel,  "Ports"},
+	%% if (SockPanel =:= undefined) -> [];
+	%%    true -> 
+	%% 	[{sock_panel,  SockPanel,  "Sockets"}]
+	%% end ++ 
+	 {sock_panel,  SockPanel,  "Sockets"},
+	 {tv_panel,    TVPanel,    "Table Viewer"},
 	 {trace_panel, TracePanel, ?TRACE_STR}],
 
     UpdState = State#state{main_panel = Panel,
