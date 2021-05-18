@@ -47,7 +47,7 @@
 -define(ID_SOCKET_INFO_SELECTED, 304).
 %% -define(ID_DEBUG_SOCKETS, 305).
 %% -define(ID_DEBUG_NAMES, 306).
--define(ID_DEBUG_NEW, 307).
+%% -define(ID_DEBUG_NEW, 307).
 %% -define(ID_DEBUG_ALL, 308).
 -define(ID_CLOSE_SOCKET, 309).
 
@@ -307,9 +307,9 @@ handle_event(#wx{id = ?ID_CLOSE_SOCKET},
 	    {noreply, State#state{right_clicked_socket = undefined}}
 	end;
 
-handle_event(#wx{id=?ID_DEBUG_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
-    observer_trace_wx:add_aockets([new_sockets]),
-    {noreply,  State};
+%% handle_event(#wx{id=?ID_DEBUG_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
+%%     observer_trace_wx:add_aockets([new_sockets]),
+%%     {noreply,  State};
 
 handle_event(#wx{id=?ID_REFRESH_INTERVAL},
 	     State = #state{grid=Grid, timer=Timer0}) ->
