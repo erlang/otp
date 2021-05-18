@@ -2556,6 +2556,10 @@ uncompiled code with the same arity are mapped to the same list by
           applications with a supervision tree, because OTP
           assumes the group leader of their processes is
           their application master.</p>
+        <p>Setting the group leader follows the signal ordering guarentees
+          described in the
+          <seeguide marker="system/reference_manual:processes#signals">
+          Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <p>See also
           <seemfa marker="#group_leader/0"><c>group_leader/0</c></seemfa>
           and <seeguide marker="system/design_principles:applications#stopping">OTP
