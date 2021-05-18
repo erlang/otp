@@ -6623,14 +6623,21 @@ end</pre>
       <name name="register" arity="2" since=""/>
       <fsummary>Register a name for a pid (or port).</fsummary>
       <desc>
-        <p>Associates the name <c><anno>RegName</anno></c> with a process
-          identifier (pid) or a port identifier.
+        <p>Registers the name <c><anno>RegName</anno></c> with a process
+          identifier (pid) or a port identifier in the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>.
           <c><anno>RegName</anno></c>, which must be an atom, can be used
           instead of the pid or port identifier in send operator
-          (<c><anno>RegName</anno> ! Message</c>). Example:</p>
+          (<c><anno>RegName</anno> ! Message</c>) and most other BIFs that
+          take a pid or port identifies as an argument. Example:</p>
         <pre>
 > <input>register(db, Pid).</input>
 true</pre>
+        <p>The registered name is considered a
+          <seeguide marker="system/reference_manual:processes#visible-resources">
+            Directly Visible Erlang Resource</seeguide> and is automatically
+            unregistered when the process terminates.</p>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -12815,12 +12822,17 @@ end</code>
       <name name="unregister" arity="1" since=""/>
       <fsummary>Remove the registered name for a process (or port).</fsummary>
       <desc>
-        <p>Removes the registered name <c><anno>RegName</anno></c>
-          associated with a
-          process identifier or a port identifier, for example:</p>
+        <p>Removes the <seemfa marker="#register/2"><c>registered name</c></seemfa>
+          <c><anno>RegName</anno></c> associated with a
+          process identifier or a port identifier from the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>. For example:</p>
         <pre>
 > <input>unregister(db).</input>
 true</pre>
+        <p>Keep in mind that you can still receive signals associated with the
+          registered name after it has been unregistered as the sender may
+          have looked up the name before sending to it.</p>
         <p>Users are advised not to unregister system processes.</p>
         <p>Failure: <c>badarg</c> if <c>RegName</c> is not a registered
           name.</p>
@@ -12833,8 +12845,11 @@ true</pre>
       </fsummary>
       <desc>
         <p>Returns the process identifier or port identifier with
-          the registered name <c>RegName</c>. Returns <c>undefined</c>
-          if the name is not registered. Example:</p>
+          the <seemfa marker="#register/2"><c>registered name</c></seemfa>
+          <c>RegName</c> from the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>.
+          Returns <c>undefined</c> if the name is not registered. Example:</p>
         <pre>
 > <input>whereis(db).</input>
 &lt;0.43.0></pre>
