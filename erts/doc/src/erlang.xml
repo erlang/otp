@@ -4367,6 +4367,12 @@ receive_replies(ReqId, N, Acc) ->
           are delivered to the process. If there is no connection to
           <c><anno>Node</anno></c>, an attempt is made to create one.
           If this fails, a <c>nodedown</c> message is delivered.</p>
+        <p>The delivery of the <c>nodedown</c> signal is not ordered towards other
+          link or monitor signals from the node that goes down. If you need a
+          guarantee that all signals from the remote node has been delivered before
+          the <c>nodedown</c> signal is sent, you should use
+          <seemfa marker="kernel:net_kernel#monitor_nodes/1">
+            <c>net_kernel:monitor_nodes/1</c></seemfa>.</p>
         <p>Nodes connected through hidden connections can be monitored
           as any other nodes.</p>
         <p>Failure: <c>notalive</c> if the local node is not alive.</p>
