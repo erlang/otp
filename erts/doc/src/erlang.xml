@@ -6102,6 +6102,10 @@ receive_replies(ReqId, N, Acc) ->
           <c><anno>Item</anno></c>s were included
           in <c><anno>ItemList</anno></c>. Valid <c><anno>Item</anno></c>s can
           be included multiple times in <c><anno>ItemList</anno></c>.</p>
+        <p>Getting process informations follows the signal ordering guarentees
+          described in the
+          <seeguide marker="system/reference_manual:processes#signals">
+          Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <note>
           <p>If <c>registered_name</c> is part of <c><anno>ItemList</anno></c>
             and the process has no name registered, a
