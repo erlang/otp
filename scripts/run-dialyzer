@@ -16,7 +16,7 @@ if [ "X$ERL_TOP" != "X" ] && [ -d $ERL_TOP/lib ]; then
 else
     LIB_DIR=$(erl -noshell -eval 'io:format("~ts~n",[code:lib_dir()])' -s init stop)
 fi
-ALL_APPLICATIONS=$(ls -d -1 $LIB_DIR/*/ | sed "s:^$LIB_DIR/\\([^/\-]\+\\).*$:\1:g")
+ALL_APPLICATIONS=$(ls -d -1 $LIB_DIR/*/ | sed "s:^$LIB_DIR/::g" | sed "s:/$::g")
 ALL_APPLICATIONS="erts $ALL_APPLICATIONS"
 echo "All applications: $ALL_APPLICATIONS" |tr '\n' ' ' && echo ""
 
@@ -44,7 +44,7 @@ if [ -f $ERL_TOP/bin/dialyzer ]; then
     DIALYZER=$ERL_TOP/bin/dialyzer
 fi
 
-PLT=$(mktemp --suffix=.plt)
+PLT="$(mktemp).plt"
 
 set -x
 
