@@ -379,7 +379,7 @@ spawn(Module, Name, Args) -> pid()
 	  or
           <seemfa marker="erts:erlang#whereis/1"><c>whereis/1</c></seemfa>
 	  BIFs. The request signal is sent to the
-	  <seeguide marker="#runtime-service">name service</seeguide> which
+	  <seeguide marker="#runtime-service">name service</seeguide>, which
 	  responds with the reply signal.
 	</item>
 
@@ -402,7 +402,7 @@ spawn(Module, Name, Args) -> pid()
 
       <p><marker id="runtime-service"/>
         The clock service, the name service, the timer service, and the spawn
-        service mentioned above are services provided by the runtime system.
+        service mentioned previously are services provided by the runtime system.
         Each of these services consists of multiple independently executing
         entities. Such a service can be viewed as a group of processes, and
         could actually be implemented like that. Since each service consists of

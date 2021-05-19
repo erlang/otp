@@ -1234,9 +1234,9 @@ enter><input>bar.</input>
 
     <p><c>standard_io</c> is an alias for <seemfa marker="erts:erlang#group_leader/0"><c>
       group_leader/0</c></seemfa>, so in order to change where the default input/output
-      requests are sent you can change the group leader using
+      requests are sent you can change the group leader for the current process using
       <seemfa marker="erts:erlang#group_leader/2"><c>
-      group_leader(self(), NewGroupLeader).</c></seemfa></p>
+      group_leader(NewGroupLeader, self()).</c></seemfa></p>
 
     <p>There is always a process registered under the name of
       <c>user</c>. This can be used for sending output to the user.</p>
@@ -1272,4 +1272,3 @@ Error: error 11</pre>
 Module:format_error(ErrorDescriptor)</code>
   </section>
 </erlref>
-
