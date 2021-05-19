@@ -43,7 +43,7 @@ jobs:
           find . -name install-sh | xargs git add -f
           git config --global user.email "you@example.com"
           git config --global user.name "Your Name"
-          git commit --no-verify -m 'Add generated configure files'
+          git diff --cached --quiet || git commit --no-verify -m 'Add generated configure files'
       - name: Archive git repository
         run: git archive --prefix otp/ -o otp_src.tar.gz HEAD
       - name: Upload source tar archive
