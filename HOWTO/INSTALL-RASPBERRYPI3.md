@@ -322,7 +322,6 @@ Uncheck option:
 
   (25)
 
-    $ LC_CTYPE=C && LANG=C && ./otp_build autoconf
     $ ./otp_build configure --xcomp-conf=./xcomp/erl-xcomp-armv8-rpi3-linux-gnueabihf.conf
     $ ./otp_build boot -a
     $ ./otp_build release -a /Volumes/xtools-build-env/otp_22.0
