@@ -117,7 +117,7 @@
   [-include InclDir1 InclDir2 .. InclDirN]
   [-no_auto_compile]
   [-abort_if_missing_suites]
-  [-muliply_timetraps Multiplier]
+  [-multiply_timetraps Multiplier]
   [-scale_timetraps]
   [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
   [-repeat N] |
@@ -157,7 +157,7 @@
   [-include InclDir1 InclDir2 .. InclDirN]
   [-no_auto_compile]
   [-abort_if_missing_suites]
-  [-muliply_timetraps Multiplier]
+  [-multiply_timetraps Multiplier]
   [-scale_timetraps]
   [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
   [-repeat N] |
@@ -187,7 +187,7 @@
   [-include InclDir1 InclDir2 .. InclDirN]
   [-no_auto_compile]
   [-abort_if_missing_suites]
-  [-muliply_timetraps Multiplier]
+  [-multiply_timetraps Multiplier]
   [-scale_timetraps]
   [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
   [-basic_html]
