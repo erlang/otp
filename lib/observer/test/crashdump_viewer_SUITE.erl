@@ -152,29 +152,41 @@ start_stop(Config) when is_list(Config) ->
     ct:log("CDV procs: ~n~p~n",[Regs]),
     [true=is_pid(P) || {P,_,_} <- Regs],
     timer:sleep(5000), % give some time to live
+    ct:log("try stop crashdump viewer (async)~n"),
     ok = crashdump_viewer:stop(),
+    ct:log("await crashdump viewer processes termination~n"),
     recv_downs(Regs),
+    ct:log("sleep some~n"),
     timer:sleep(2000),
+    ct:log("try get all processes~n"),
     ProcsAfter = processes(),
     NumProcsAfter = length(ProcsAfter),
-    if NumProcsAfter=/=NumProcsBefore ->
-	    ct:log("Before but not after:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter]]),
-	    ct:log("After but not before:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
-	    ct:fail("leaking processes");
+    ct:log("try verify crashdump viewer stopped~n"),
+    if (NumProcsAfter =/= NumProcsBefore) ->
+	    ct:log("Leaking processes: "
+                   "~n   Before but not after:"
+                   "~n      ~p"
+                   "~n   After but not before:"
+                   "~n      ~p",
+		   [
+                    [{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter],
+                    [{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]
+                   ]);
        true ->
 	    ok
     end,
     ok.
 
 recv_downs([]) ->
+    ct:log("'DOWN' received from all registered proceses~n", []),
     ok;
 recv_downs(Regs) ->
     receive
-	{'DOWN',Ref,process,_Pid,_} ->
-	    ct:log("Got 'DOWN' for process ~n~p~n",[_Pid]),
-	    recv_downs(lists:keydelete(Ref,3,Regs))
+	{'DOWN', Ref, process, _Pid, _} ->
+            Regs2 = lists:keydelete(Ref, 3, Regs),
+	    ct:log("Got 'DOWN' for process ~p (~w procs remaining)~n",
+                   [_Pid, length(Regs2)]),
+	    recv_downs(Regs2)
     after 30000 ->
 	    ct:log("Timeout waiting for down:~n~p~n",
 		   [[{Reg,process_info(P)} || {P,_,_}=Reg <- Regs]]),
