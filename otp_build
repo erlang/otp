@@ -19,6 +19,16 @@
 # %CopyrightEnd%
 #
 
+USE_AUTOCONF_VERSION=2.69
+
+aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
+autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
+
+aclocal_master="./erts/aclocal.m4"
+install_sh_master="./erts/autoconf/install-sh"
+config_guess_master="./erts/autoconf/config.guess"
+config_sub_master="./erts/autoconf/config.sub"
+
 # Global configuration variables
 #
 if [ -z "$ONLY_ERTS" ]; then
@@ -84,6 +94,7 @@ usage ()
 	git)
 	    echo "update_primary [--no-commit] - build and maybe commit a new primary bootstrap"
 	    echo "update_preloaded [--no-commit] - build and maybe commit the preloaded modules"
+	    echo "update_configure [--no-commit] - build and maybe commit configure scripts"
 	    ;;
     esac
 }
@@ -206,80 +217,102 @@ set_config_flags ()
 NL="\
 "
 
-distribute_config_helpers ()
+do_update_configure ()		
 {
-    aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
-    autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
-
-    aclocal_master="./erts/aclocal.m4"
-    install_sh_master="./erts/autoconf/install-sh"
-    config_guess_master="./erts/autoconf/config.guess"
-    config_sub_master="./erts/autoconf/config.sub"
+    get_do_commit $1
+   
+    ac_ver_blob=`autoconf --version`
+    if [ $? -ne 0 ]; then
+	echo "ERROR: Failed to check autoconf version! You need to have autoconf of version $USE_AUTOCONF_VERSION in path." 1>&2
+	exit 1
+    fi
+    ac_ver=`echo $ac_ver_blob | sed "s|[^0-9]*\([0-9][^ \t\n]*\).*|\1|"`
+    case $ac_ver in
+	$USE_AUTOCONF_VERSION)
+	    ;;
+	*)
+	    echo "ERROR: autoconf of version $ac_ver found in path! You need to have autoconf of version $USE_AUTOCONF_VERSION in path." 1>&2
+	    exit 1;;
+    esac
+    
+    out_files=
 
     for dir in $aclocal_dirs; do
 	$install_sh_master -m 644 -t "$dir" "$aclocal_master"
     done
 
+    install_sh=`basename $install_sh_master`
+    config_guess=`basename $config_guess_master`
+    config_sub=`basename $config_sub_master`
+
     for dir in $autoconf_aux_dirs; do
 	$install_sh_master -d "$dir"
 	$install_sh_master -t "$dir" "$install_sh_master"
+	out_files="$out_files $dir/$install_sh"
 	$install_sh_master -t "$dir" "$config_guess_master"
+	out_files="$out_files $dir/$config_guess"
 	$install_sh_master -t "$dir" "$config_sub_master"
+	out_files="$out_files $dir/$config_sub"
     done
-}
-
-do_autoconf ()		
-{
-	distribute_config_helpers
-
-	if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
-	    echo "Autoconf disabled on target $TARGET, but is performed on host" >&2
-	    # We still use erts configure for erl_interface and VxWorks
-	    case "$TARGET" in
-		*vxworks*)
-		    AUTOCONF_SUBDIRS=`echo $AUTOCONF_SUBDIRS | \
-					sed -e 's,lib/erl_interface,,' \
-					    -e 's,lib/gs,,' \
-					    -e 's,lib/megaco,,'`
-		    ;;
-	    esac
-	fi
 	
-	hide_vars OVERRIDE_TARGET TARGET
-	TARGET=$BUILDSYS
-	export TARGET
+    hide_vars OVERRIDE_TARGET TARGET
+    TARGET=$BUILDSYS
+    export TARGET
 
-	for d in $AUTOCONF_SUBDIRS; do
-	    file="$d/configure.in"
-	    [ -f "$file" ] || continue
-	    echo ""
-	    [ ! -d "$d/autom4te.cache" ] || {
-		echo "=== cleaning $d/autom4te.cache"
-		rm -f "$d"/autom4te.cache/*
-	    }
-	    [ ! -f "$d/configure" ] || {
-		echo "=== cleaning $d/configure"
-		rm -f "$d"/configure
-	    }
-
-	    echo "=== running autoconf in $d"
-	    ( cd "$d" && autoconf ) || exit 1
-	    chdr=`cat "$file" | sed -n "s|.*\(AC_CONFIG_HEADER\).*|\1|p"`
-	    [ "$chdr" = "AC_CONFIG_HEADER" ] || continue
-	    echo "=== running autoheader in $d"
-	    ( cd "$d" && autoheader ) || exit 1
-	done
-
+    for d in $AUTOCONF_SUBDIRS; do
+	file="$d/configure.in"
+	[ -f "$file" ] || continue
 	echo ""
-	echo "=== creating ./configure"
-	otp_version=`cat "$ERL_TOP/OTP_VERSION"`
-	bootstrap_lib_apps=`echo $bootstrap_apps | sed "s|erts||g"`
-	cat "$ERL_TOP/configure.src" \
-	    | sed "s|@OTP_VERSION@|$otp_version|g;s|@BOOTSTRAP_LIB_APP_DIRS@|$bootstrap_lib_apps|" \
-		  > "$ERL_TOP/configure"
-	chmod +x "$ERL_TOP/configure"
-	
-	restore_vars OVERRIDE_TARGET TARGET
+	[ ! -d "$d/autom4te.cache" ] || {
+	    echo "=== cleaning $d/autom4te.cache"
+	    rm -f "$d"/autom4te.cache/*
+	}
+	[ ! -f "$d/configure" ] || {
+	    echo "=== cleaning $d/configure"
+	    rm -f "$d"/configure
+	}
+
+	echo "=== running autoconf in $d"
+	( cd "$d" && autoconf ) || exit 1
+	out_files="$out_files $d/configure"
+	chdr=`cat "$file" | sed -n "s|.*\(AC_CONFIG_HEADER\).*|\1|p"`
+	[ "$chdr" = "AC_CONFIG_HEADER" ] || continue
+	echo "=== running autoheader in $d"
+	( cd "$d" && autoheader ) || exit 1
+	out_files="$out_files $d/config.h.in"
+    done
+
+    echo ""
+    echo "=== creating ./configure"
+    bootstrap_lib_apps=`echo $bootstrap_apps | sed "s|erts||g"`
+    cat "$ERL_TOP/configure.src" \
+	| sed "s|@BOOTSTRAP_LIB_APP_DIRS@|$bootstrap_lib_apps|g" \
+	      > "$ERL_TOP/configure"
+    chmod +x "$ERL_TOP/configure"
+    out_files="./configure $out_files"
+
+    restore_vars OVERRIDE_TARGET TARGET
+
+    if [ $do_commit != true ]; then
+	echo "Updated: $out_files"
+    else
+	git add $out_files
+	if [ $? -ne 0 ]; then
+	    echo "Failed to stage files for commit" 1>&2
+	    exit 1
+	fi
+	git diff --cached --quiet
+	if [ $? -eq 0 ]; then
+	    echo "No files changed, so nothing to commit."
+	else
+            git commit --no-verify -m 'Update configure scripts'
+	    if [ $? -ne 0 ]; then
+		echo "Failed to commit files" 1>&2
+		exit 1
+	    fi
+	    echo "Updated configure scripts!"
+	fi
+    fi
 }
 
 run_configure ()
@@ -1183,7 +1216,6 @@ export OTP_SMALL_BUILD OTP_TINY_BUILD
 TYPE=
 case "$1" in
  	all)
- 		do_autoconf; 
  		do_configure; 
  		do_boot;
 		if [ $minus_x_flag = true ]; then
@@ -1195,11 +1227,22 @@ case "$1" in
 		if [ $minus_x_flag = true ]; then
 		    shift
 		fi;
-		do_autoconf; 
 		do_configure "$@";
 		do_boot;;
 	autoconf)
-		do_autoconf;;
+	    echo ""
+	    echo "*** It is not necessary to execute './otp_build autoconf' anymore! ***"
+	    echo ""
+	    echo "All configure scripts have been committed in the repository and are"
+	    echo "therefore always available. If you need to update them, execute"
+	    echo "'./otp_build update_configure [--no-commit]'. Ensure that you have"
+	    echo "autoconf version $USE_AUTOCONF_VERSION in your PATH before updating the configure"
+	    echo "scritps."
+	    echo ""
+	    echo "The only effect of executing './otp_build autoconf' is printing of this"
+	    echo "message."
+	    echo ""
+	    exit 0;;
 	configure)
 		shift;
 		do_configure "$@";;
@@ -1211,6 +1254,8 @@ case "$1" in
 		fi;
 		FLAVOR=$1
 		do_boot;;
+	update_configure)
+	    do_update_configure "$2";;
 	update_primary)
 		case $version_controller in
 		    git) do_primary_git "$2";;

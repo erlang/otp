@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2018. All Rights Reserved.
+# Copyright Ericsson AB 2018-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,12 @@
 #
 # %CopyrightEnd%
 #
+# * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+# WARNING!
+#    DO NOT EDIT the 'configure' file which is automatically generated from
+#    'configure.src'! In order to update 'configure' edit 'configure.src' and
+#    execute './otp_build update_configure [--no-commit]'.
+# * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 #
 # This is a handcrafted wrapper script which runs the actual (autoconf)
 # 'configure' scripts in different parts of OTP.
@@ -30,8 +36,6 @@
 # On windows a static cache for each configure is used since it
 # otherwise takes forever to run configure...
 #
-
-OTP_VERSION=@OTP_VERSION@
 
 unset CDPATH
 
@@ -170,7 +174,7 @@ fi
 #
 
 root_dir=
-dir_chk_data="$OTP_VERSION"
+dir_chk_data=`date`
 
 if root_dir=`dirname "$0" 2>/dev/null` \
 	&& test "$root_dir" != "" \
@@ -181,7 +185,7 @@ if root_dir=`dirname "$0" 2>/dev/null` \
     else
 	case "$root_dir" in
 	    /*)
-		echo $dir_chk_data > "$root_dir"/config.dir.check.$$ 2>/dev/null
+		echo "$dir_chk_data" > "$root_dir"/config.dir.check.$$ 2>/dev/null
 		;;
 	    *)
 		root_dir=
