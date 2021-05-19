@@ -214,10 +214,12 @@ basic(Config) when is_list(Config) ->
     ok.
 
 test_page("Load Charts" ++ _, _Window) ->
+    ?P("test_page(load charts) -> entry"),
     %% Just let it display some info and hopefully it doesn't crash
     timer:sleep(2000),
     ok;
 test_page("Applications" ++ _, _Window) ->
+    ?P("test_page(applications) -> entry"),
     ok = application:start(mnesia),
     timer:sleep(1000),  %% Give it time to refresh
     Active = get_active(),
@@ -229,6 +231,7 @@ test_page("Applications" ++ _, _Window) ->
     ok;
 
 test_page("Processes" ++ _, _Window) ->
+    ?P("test_page(processes) -> entry"),
     timer:sleep(500),  %% Give it time to refresh
     Active = get_active(),
     Active ! refresh_interval,
@@ -246,6 +249,7 @@ test_page("Processes" ++ _, _Window) ->
     ok;
 
 test_page("Ports" ++ _, _Window) ->
+    ?P("test_page(ports) -> entry"),
     timer:sleep(500),  %% Give it time to refresh
     Active = get_active(),
     Active ! refresh_interval,
@@ -261,7 +265,48 @@ test_page("Ports" ++ _, _Window) ->
     timer:sleep(1000),  %% Give it time to refresh
     ok;
 
+test_page("Sockets" ++ _, _Window) ->
+    ?P("test_page(sockets) -> entry"),
+    %% (maybe) We cannot count on having any 'sockets', so create some.
+    %% We don't actually need more then a 4 open *existing* sockets.
+    Sockets = sock_create([{[any],         {inet,  stream,    tcp}},
+                           {[any],         {inet,  stream,    tcp}},
+                           {[any],         {inet,  dgram,     udp}},
+                           {[any],         {inet,  dgram,     udp}},
+                           {[ipv6],        {inet6, stream,    tcp}},
+                           {[ipv6],        {inet6, dgram,     udp}},
+                           {[sctp],        {inet,  seqpacket, sctp}},
+                           {[ipv6, sctp],  {inet6, seqpacket, sctp}}]),
+    timer:sleep(500),  %% Give it time to refresh
+    Active = get_active(),
+    Active ! refresh_interval,
+    %% And this stuff only works if we actually have some (>= 4) sockets
+    %% so check that we do
+    try socket:number_of() of
+        NumSocks when NumSocks >= 4 ->
+            ChangeSort =
+                fun(N) ->
+                        FakeEv = #wx{event=#wxList{type=command_list_col_click, col=N}},
+                        Active ! FakeEv,
+                        timer:sleep(200)
+                end,
+            [ChangeSort(N) || N <- lists:seq(1,4) ++ [0]],
+            Activate = #wx{event=#wxList{type=command_list_item_activated,
+                                         itemIndex=2}},
+            Active ! Activate,
+            timer:sleep(1000);  %% Give it time to refresh
+        _ ->
+            ?P("not enough sockets - skip list-col-click test")
+    catch
+        _:_:_ ->
+            ?P("'socket' not supported")
+    end,
+    %% (maybe) Cleanup
+    sock_close(Sockets),
+    ok;
+
 test_page("Table" ++ _, _Window) ->
+    ?P("test_page(table) -> entry"),
     Tables = [ets:new(list_to_atom("Test-" ++ [C]), [public]) || C <- lists:seq($A, $Z)],
     Table = lists:nth(3, Tables),
     ets:insert(Table, [{N,100-N} || N <- lists:seq(1,100)]),
@@ -286,6 +331,7 @@ test_page("Table" ++ _, _Window) ->
     ok;
 
 test_page("Trace Overview" ++ _, _Window) ->
+    ?P("test_page(trace overview) -> entry"),
     timer:sleep(500),  %% Give it time to refresh
     Active = get_active(),
     Active ! refresh_interval,
@@ -293,7 +339,9 @@ test_page("Trace Overview" ++ _, _Window) ->
     ok;
 
 test_page(Title, Window) ->
-    io:format("Page ~p: ~p~n", [Title, Window]),
+    ?P("test_page -> entry with"
+       "~n   Title:  ~p"
+       "~n   Window: ~p", [Title, Window]),
     %% Just let it display some info and hopefully it doesn't crash
     timer:sleep(1000),
     ok.
@@ -398,6 +446,74 @@ get_observer_debug() ->
 	{observer_debug, Env, Notebook, Active} ->
 	    {Env, Notebook, Active}
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+sock_create(Conds) when is_list(Conds) ->
+    sock_create(Conds, []).
+
+sock_create([], Acc) ->
+    Acc;
+sock_create([{Features, Args}|Conds], Acc) ->
+    case sock_cond_action(Features, fun() -> sock_open(Args) end) of
+        undefined ->
+            sock_create(Conds, Acc);
+        Socket ->
+            sock_create(Conds, [Socket|Acc])
+    end.
+
+sock_cond_action(Features, Action) ->
+    sock_cond_action(Features, Action, undefined).
+
+sock_cond_action(Features, Action, Default) ->
+    case sock_is_supported(Features) of
+        true ->
+            Action();
+        false ->
+            Default
+    end.
+
+
+sock_is_supported([]) ->
+    true;
+sock_is_supported([Feature|Features]) ->
+    sock_is_supported(Feature) andalso sock_is_supported(Features);
+sock_is_supported(any) ->
+    try socket:supports() of
+        Features when is_list(Features) ->
+            true
+    catch
+        _:_:_ ->
+            false
+    end;
+sock_is_supported(Feature) ->
+    try socket:is_supported(Feature)
+    catch
+        _:_:_ ->
+            false
+    end.
+
+
+sock_open({Domain, Type, Proto}) ->
+    case socket:open(Domain, Type, Proto) of
+        {ok, Socket} ->
+            ?P("created socket: ~w, ~w, ~w", [Domain, Type, Proto]),
+            Socket;
+        {error, _} ->
+            undefined
+    end.
+
+
+sock_close([]) ->
+    ok;
+sock_close([Socket|Sockets]) ->
+    sock_close(Socket),
+    sock_close(Sockets);
+sock_close(undefined) ->
+    ok;
+sock_close(Socket) ->
+    (catch socket:close(Socket)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
