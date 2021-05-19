@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,6 +41,10 @@
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(2)).
 
+-define(P(F),    print(F)).
+-define(P(F, A), print(F, A)).
+
+
 suite() -> [{timetrap, {minutes, 5}},
             {ct_hooks,[ts_install_cth]}].
 
@@ -56,28 +60,43 @@ groups() ->
       ]
      }].
 
+
 init_per_suite(Config) ->
+    ?P("init_per_suite -> entry with"
+       "~n   Config: ~p", [Config]),
     Config.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    ?P("end_per_suite -> entry with"
+       "~n   Config: ~p", [Config]),
     ok.
 
-init_per_testcase(_Case, Config) ->
+
+init_per_testcase(Case, Config) ->
+    ?P("init_per_testcase(~w) -> entry with"
+       "~n   Config: ~p", [Case, Config]),
     Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(Case, Config) ->
+    ?P("end_per_testcase(~w) -> entry with"
+       "~n   Config: ~p", [Case, Config]),
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-init_per_group(gui, Config) ->
+
+init_per_group(gui = Group, Config) ->
+    ?P("init_per_group(~w) -> entry with"
+       "~n   Config: ~p", [Group, Config]),
     try
 	case os:type() of
 	    {unix,darwin} ->
+		?P("init_per_group(~w) -> skip", [Group]),
 		exit("Can not test on MacOSX");
 	    {unix, _} ->
-		io:format("DISPLAY ~s~n", [os:getenv("DISPLAY")]),
+		?P("init_per_group(~w) -> DISPLAY ~s",
+                   [Group, os:getenv("DISPLAY")]),
 		case ct:get_config(xserver, none) of
 		    none -> ignore;
 		    Server -> os:putenv("DISPLAY", Server)
@@ -89,13 +108,22 @@ init_per_group(gui, Config) ->
 	Config
     catch
 	_:undef ->
+            ?P("init_per_group(~w) -> undef", [Group]),
 	    {skipped, "No wx compiled for this platform"};
-	_:Reason ->
+	C:Reason:S ->
+            ?P("init_per_group(~w) -> "
+               "~n   Class:  ~p"
+               "~n   Reason: ~p"
+               "~n   Stack:  ~p", [Group, C, Reason, S]),
 	    SkipReason = io_lib:format("Start wx failed: ~p", [Reason]),
 	    {skipped, lists:flatten(SkipReason)}
     end.
-end_per_group(_, _) ->
+
+end_per_group(_Group, _Config) ->
+    ?P("end_per_group(~w) -> entry with"
+       "~n   Config: ~p", [_Group, _Config]),
     ok.
+
 
 app_file(suite) ->
     [];
@@ -114,23 +142,34 @@ appup_file(Config) when is_list(Config) ->
 basic(suite) -> [];
 basic(doc) -> [""];
 basic(Config) when is_list(Config) ->
+    ?P("basic -> entry with"
+       "~n   Config: ~p", [Config]),
+
     %% Start these before
+    ?P("basic -> try wx new"),
     wx:new(),
+    ?P("basic -> try wx destroy"),
     wx:destroy(),
     timer:send_after(100, "foobar"),
+    ?P("basic -> try start distribution"),
     {foo, node@machine} ! dummy_msg,  %% start distribution stuff
     %% Otherwise ever lasting servers gets added to procs
+    ?P("basic -> procs before"),
     ProcsBefore = processes(),
     ProcInfoBefore = [{P,process_info(P)} || P <- ProcsBefore],
     NumProcsBefore = length(ProcsBefore),
 
+    ?P("basic -> try start observer"),
     ok = observer:start(),
     Notebook = setup_whitebox_testing(),
+    ?P("basic -> Notebook ~p", [Notebook]),
 
-    io:format("Notebook ~p~n",[Notebook]),
     Count = wxNotebook:getPageCount(Notebook),
-    true = Count >= 6,
+    ?P("basic -> page count ~p", [Count]),
+    true = Count >= 7,
+    ?P("basic -> check selection (=0)"),
     0 = wxNotebook:getSelection(Notebook),
+    ?P("basic -> wait some time..."),
     timer:sleep(500),
     Check = fun(N, TestMore) ->
 		    TestMore andalso
@@ -140,19 +179,28 @@ basic(Config) when is_list(Config) ->
 		    ok = wxNotebook:advanceSelection(Notebook)
 	    end,
     %% Just verify that we can toggle through all pages
+    ?P("basic -> try verify that we can toggle through all pages"),
     [_|_] = [Check(N, false) || N <- lists:seq(1, Count)],
     %% Cause it to resize
+    ?P("basic -> try resize"),
     Frame = get_top_level_parent(Notebook),
     {W,H} = wxWindow:getSize(Frame),
     wxWindow:setSize(Frame, W+10, H+10),
+    ?P("basic -> try verify that we resized"),
     [_|_] = [Check(N, true) || N <- lists:seq(0, Count-1)],
 
+    ?P("basic -> try stop observer (async)"),
     ok = observer:stop(),
     timer:sleep(2000), %% stop is async
+    ?P("basic -> try verify observer stopped"),
     ProcsAfter = processes(),
     NumProcsAfter = length(ProcsAfter),
-    if NumProcsAfter=/=NumProcsBefore ->
+    if NumProcsAfter =/= NumProcsBefore ->
             BeforeNotAfter = ProcsBefore -- ProcsAfter,
+            ?P("basic -> *not* fully stopped:"
+               "~n   Number of Procs before: ~p"
+               "~n   Number of Procs after:  ~p",
+               [NumProcsAfter, NumProcsBefore]),
 	    ct:log("Before but not after:~n~p~n",
 		   [[{P,I} || {P,I} <- ProcInfoBefore,
                               lists:member(P,BeforeNotAfter)]]),
@@ -162,6 +210,7 @@ basic(Config) when is_list(Config) ->
        true ->
 	    ok
     end,
+    ?P("basic -> done"),
     ok.
 
 test_page("Load Charts" ++ _, _Window) ->
@@ -322,6 +371,7 @@ port_win_when_tab_not_initiated(_Config) ->
     observer:stop(),
     ok.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 get_top_level_parent(Window) ->
@@ -348,3 +398,26 @@ get_observer_debug() ->
 	{observer_debug, Env, Notebook, Active} ->
 	    {Env, Notebook, Active}
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% f(F, A) ->
+%%     lists:flatten(io_lib:format(F, A)).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+print(F) ->
+    print(F, []).
+
+print(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+
