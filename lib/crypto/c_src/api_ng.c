@@ -580,12 +580,10 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
         if (get_init_args(env, ctx_res, argv[0], argv[1], argv[2], argv[3], argv[4],
                            &cipherp, &ret))
-            {
-                ret = enif_make_resource(env, ctx_res);
-                if(ctx_res) enif_release_resource(ctx_res); // after the if-statement => coredump
-            }
+            ret = enif_make_resource(env, ctx_res);
         /* else error msg in ret */
 
+        if(ctx_res) enif_release_resource(ctx_res);
 
     } else if (enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res)) {
         /* Fetch the flag telling if we are going to encrypt (=true) or decrypt (=false) */
