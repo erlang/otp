@@ -158,7 +158,8 @@ groups() ->
        ssh_rfc4716_rsa_comment, ssh_rfc4716_dsa_comment,
        ssh_rfc4716_rsa_subject,
        ssh_list_public_key,
-%%       ssh_known_hosts, ssh_auth_keys, ssh1_known_hosts, ssh1_auth_keys,
+       ssh_known_hosts, %% ssh1_known_hosts,
+       ssh_auth_keys, %% ssh1_auth_keys,
        ssh_openssh_key_with_comment,
        ssh_openssh_key_long_header]}
     ].
