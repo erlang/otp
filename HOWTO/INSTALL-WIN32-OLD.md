@@ -25,7 +25,7 @@ OpenSSL, in which case you will need to go back to earlier compilers etc.
 
 The procedure described uses either Cygwin, MSYS or MSYS2 as a build 
 environment. You run the bash shell in Cygwin/MSYS/MSYS2 and use the gnu 
-make/configure/autoconf etc to do the build. The emulator C-source code 
+configure/make etc to do the build. The emulator C-source code 
 is, however, mostly compiled with Microsoft Visual C++™, producing a 
 native Windows binary. This is the same procedure as we use to build the 
 pre-built binaries. Why we use VC++ and not gcc is explained further in 
@@ -107,7 +107,6 @@ This is the short story though, for the experienced and impatient:
         the last row):
 
             $ eval `./otp_build env_win32 x64`
-            $ ./otp_build autoconf
             $ ./otp_build configure
             $ ./otp_build boot -a
             $ ./otp_build release -a
@@ -312,8 +311,7 @@ tools:
 
     URL: <http://sourceforge.net/projects/mingw/files/Installer/mingw-get-inst/>
 
-    Make sure to install the basic dev tools, but avoid the MinGW autoconf and
-    install the msys one instead.  
+    Make sure to install the basic dev tools.  
 
     To be able to build the 64bit VM, you will also need the 64bit
     MinGW compiler from:
@@ -330,10 +328,10 @@ tools:
     URL: <https://msys2.github.io/>
 
     When you've followed the instructions there, you also need to install 
-    these packages: autoconf, make, perl, and tar. You do so by running 
+    these packages: make, perl, and tar. You do so by running 
     the following in the msys console:
 
-        pacman -S msys/autoconf msys/make msys/perl msys/tar 
+        pacman -S msys/make msys/perl msys/tar 
 
     You also need a gcc. If you installed the 64 bit MSYS2 you run:
 
@@ -708,7 +706,6 @@ Building and Installing
 
 Building is easiest using the `otp_build` script: 
 
-    $ ./otp_build autoconf # Ignore the warning blob about versions of autoconf
     $ ./otp_build configure <optional configure options>
     $ ./otp_build boot -a
     $ ./otp_build release -a <installation directory>
@@ -719,16 +716,7 @@ in the `<installation directory>`, i.e. `$ERL_TOP/release/win32`.
 
 Lets get into more detail:
 
-1.  `$ ./otp_build autoconf` - This step rebuilds the configure scripts
-    to work correctly in your environment. In an ideal world, this
-    would not be needed, but alas, we have encountered several
-    incompatibilities between our distributed configure scripts (generated
-    on a Linux platform) and the Cygwin/MSYS/MSYS2 environment over the
-    years. Running autoconf in Cygwin/MSYS/MSYS2 ensures that the configure 
-    scripts are generated in a compatible way and that they will work well
-    in the next step.
-
-2.  `$ ./otp_build configure` - This runs the newly generated configure
+1.  `$ ./otp_build configure` - This runs the newly generated configure
     scripts with options making configure behave nicely. The target machine
     type is plainly `win32`, so a lot of the configure-scripts recognize
     this awkward target name and behave accordingly. The CC variable also
@@ -737,17 +725,17 @@ Lets get into more detail:
     the tests are not needed on Windows, but we thought it best to run the
     whole configure anyway.
 
-3.  `$ ./otp_build boot -a` - This uses the bootstrap directory (shipped
+2.  `$ ./otp_build boot -a` - This uses the bootstrap directory (shipped
     with the source, `$ERL_TOP/bootstrap`) to build a complete OTP
     system. When this is done you can run erl from within the source tree; 
     just type `$ERL_TOP/bin/erl` and you whould have the prompt. 
 
-4.  `$ ./otp_build release -a` - Builds a commercial release tree from the
+3.  `$ ./otp_build release -a` - Builds a commercial release tree from the
     source tree. The default is to put it in `$ERL_TOP/release/win32`. You can
     give any directory as parameter (Cygwin style), but it doesn't really
     matter if you're going to build a self extracting installer too. 
 
-5.  `$ ./otp_build installer_win32` - Creates the self extracting installer executable. 
+4.  `$ ./otp_build installer_win32` - Creates the self extracting installer executable. 
     The executable `otp_win32_%OTP-REL%.exe` or `otp_win64_%OTP-REL%.exe` will be placed
     in the top directory of the release created in the previous step. If
     no release directory is specified, the release is expected to have

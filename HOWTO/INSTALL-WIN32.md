@@ -13,7 +13,7 @@ The instructions apply to Windows 10 (v.1809 and later) supporting the
 WSL.1 (Windows Subsystem for Linux v.1) and using Ubuntu 18.04 release.
 
 The procedure described uses WSL as a build environment.  You run the
-bash shell in WSL and use the gnu make/configure/autoconf etc to do
+bash shell in WSL and use the gnu configure/make etc to do
 the build. The emulator C-source code is, however, mostly compiled
 with Microsoft Visual C++™, producing a native Windows binary. This is
 the same procedure as we use to build the pre-built binaries. Why we
@@ -68,7 +68,7 @@ This is the short story though, for the experienced and impatient:
         <http://www.erlang.org/download.html>) and unpack with `tar`
         to the windows disk for example to: /mnt/c/src/
 
-    *   Install mingw-gcc, make and autoconf: `sudo apt install gcc-mingw-w64 make autoconf`
+    *   Install mingw-gcc, and make: `sudo apt install g++-mingw-w64 gcc-mingw-w64 make`
 
     *   `$ cd UNPACK_DIR`
 
@@ -79,7 +79,6 @@ This is the short story though, for the experienced and impatient:
         the last row):
 
             $ eval `./otp_build env_win32 x64`
-            $ ./otp_build autoconf
             $ ./otp_build configure
             $ ./otp_build boot -a
             $ ./otp_build release -a
@@ -220,7 +219,6 @@ Building and Installing
 
 Building is easiest using the `otp_build` script:
 
-    $ ./otp_build autoconf # Ignore the warning blob about versions of autoconf
     $ ./otp_build configure <optional configure options>
     $ ./otp_build boot -a
     $ ./otp_build release -a <installation directory>
@@ -231,16 +229,7 @@ in the `<installation directory>`, i.e. `$ERL_TOP/release/win32`.
 
 Lets get into more detail:
 
-1.  `$ ./otp_build autoconf` - This step rebuilds the configure scripts
-    to work correctly in your environment. In an ideal world, this
-    would not be needed, but alas, we have encountered several
-    incompatibilities between our distributed configure scripts (generated
-    on a Linux platform) and the Cygwin/MSYS/MSYS2/WSL environment over the
-    years. Running autoconf in WSL ensures that the configure
-    scripts are generated in a compatible way and that they will work well
-    in the next step.
-
-2.  `$ ./otp_build configure` - This runs the newly generated configure
+1.  `$ ./otp_build configure` - This runs the newly generated configure
     scripts with options making configure behave nicely. The target machine
     type is plainly `win32`, so a lot of the configure-scripts recognize
     this awkward target name and behave accordingly. The CC variable also
@@ -249,17 +238,17 @@ Lets get into more detail:
     the tests are not needed on Windows, but we thought it best to run the
     whole configure anyway.
 
-3.  `$ ./otp_build boot -a` - This uses the bootstrap directory (shipped
+2.  `$ ./otp_build boot -a` - This uses the bootstrap directory (shipped
     with the source, `$ERL_TOP/bootstrap`) to build a complete OTP
     system. When this is done you can run erl from within the source tree;
     just type `$ERL_TOP/bin/erl` and you should have the prompt.
 
-4.  `$ ./otp_build release -a` - Builds a commercial release tree from the
+3.  `$ ./otp_build release -a` - Builds a commercial release tree from the
     source tree. The default is to put it in `$ERL_TOP/release/win32`. You can
     give any directory as parameter, but it doesn't really
     matter if you're going to build a self extracting installer too.
 
-5.  `$ ./otp_build installer_win32` - Creates the self extracting installer executable.
+4.  `$ ./otp_build installer_win32` - Creates the self extracting installer executable.
     The executable `otp_win32_%OTP-REL%.exe` or `otp_win64_%OTP-REL%.exe` will be placed
     in the top directory of the release created in the previous step. If
     no release directory is specified, the release is expected to have
