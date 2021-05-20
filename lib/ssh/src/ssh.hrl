@@ -117,6 +117,7 @@
 
 -define(do_del_opt(C,K,O),  ssh_options:delete_key(C,K,O, ?MODULE,?LINE)).
 -define(DELETE_INTERNAL_OPT(Key,Opts),  ?do_del_opt(internal_options,Key,Opts) ).
+-define(DELETE_OPT(KeyOrKeys,Opts),     ?do_del_opt(user_options,KeyOrKeys,Opts)     ).
 
 
 %% Types

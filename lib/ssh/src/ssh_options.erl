@@ -146,10 +146,26 @@ put_socket_value(A, SockOpts) when is_atom(A) ->
 -spec delete_key(option_class(), option_key(), private_options(),
                  atom(), non_neg_integer()) -> private_options().
 
-delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opts) ->
-    InternalOpts = maps:get(internal_options,Opts),
-    Opts#{internal_options := maps:remove(Key, InternalOpts)}.
-        
+delete_key(user_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opts) ->
+   if
+       is_list(Key) ->
+           lists:foldl(fun maps:remove/2, Opts, Key);
+       true ->
+           maps:remove(Key, Opts)
+   end;
+
+delete_key(Class, Key, Opts, _CallerMod, _CallerLine) when is_map(Opts) andalso
+                                                           (Class == socket_options orelse
+                                                            Class == internal_options) ->
+    Opts#{Class := 
+              if
+                  is_list(Key) ->
+                      lists:foldl(fun maps:remove/2, maps:get(Class,Opts), Key);
+                  true ->
+                      maps:remove(Key, maps:get(Class,Opts))
+              end
+         }.
+
 
 %%%================================================================
 %%%
