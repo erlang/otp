@@ -30,6 +30,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.12.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add missing <c>known_hosts</c> and <c>authorized_keys</c>
+	    file types to <c>ssh_file:decode/2</c> and
+	    <c>ssh_file:encode/2</c>.</p>
+          <p>
+	    Own Id: OTP-17397</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
