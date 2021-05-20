@@ -45,6 +45,14 @@ start() ->
 %% about more areas when we call release_area_switch().
 %%
 msg_loop(Area, Outstnd, GcOutstnd, NeedGC) ->
+
+    HibernateTmo =
+        if Area =:= undefined ->
+                60_000;
+           true ->
+                infinity
+        end,
+
     receive
 
 	%% A new area to handle has arrived...
@@ -80,12 +88,13 @@ msg_loop(Area, Outstnd, GcOutstnd, NeedGC) ->
 	%% Unexpected garbage message. Get rid of it...
 	_Ignore ->
 	    msg_loop(Area, Outstnd, GcOutstnd, NeedGC)
-
+    after HibernateTmo ->
+            %% We hibernate in order to clear the heap completely.
+            erlang:hibernate(?MODULE, start, [])
     end.
 
 switch_area() ->
     Res = erts_literal_area_collector:release_area_switch(),
-    erlang:garbage_collect(), %% Almost no live data now...
     case Res of
 	false ->
 	    %% No more areas to handle...
