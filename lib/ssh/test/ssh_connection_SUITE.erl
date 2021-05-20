@@ -91,7 +91,6 @@
          ssh_exec_echo/2 % called as an MFA
         ]).
 
--define(SSH_DEFAULT_PORT, 22).
 -define(EXEC_TIMEOUT, 10000).
 
 %%--------------------------------------------------------------------
@@ -174,7 +173,7 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(openssh, Config) ->
-    case ssh_test_lib:gen_tcp_connect("localhost", 22, []) of
+    case ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon (econnrefused)"};
 	{ok, Socket} ->

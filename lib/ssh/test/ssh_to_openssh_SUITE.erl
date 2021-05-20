@@ -50,7 +50,6 @@
 
         ]).
 
--define(SSH_DEFAULT_PORT, 22).
 -define(REKEY_DATA_TMO, 65000).
 
 %%--------------------------------------------------------------------
@@ -89,7 +88,7 @@ groups() ->
 
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
-       case gen_tcp:connect("localhost", 22, []) of
+       case gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []) of
 	   {error,econnrefused} ->
 	       {skip,"No openssh deamon (econnrefused)"};
 	   _ ->
@@ -370,8 +369,9 @@ tunnel_in_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_in_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(loopback, 22, [{silently_accept_hosts, true},
-                                            {user_interaction, false}]),
+    C = ssh_test_lib:connect(loopback, ?SSH_DEFAULT_PORT,
+                             [{silently_accept_hosts, true},
+                              {user_interaction, false}]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -401,7 +401,7 @@ tunnel_out_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_out_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(loopback, 22, [{silently_accept_hosts, true},
+    C = ssh_test_lib:connect(loopback, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
                                             {user_interaction, false}]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     

@@ -393,7 +393,8 @@ sshd_simple_exec(Config) ->
             {public_key,Alg} -> [{pref_public_key_algs,Alg}];
             _ -> []
         end,
-    ConnectionRef = ssh_test_lib:connect(22, [{silently_accept_hosts, true},
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+                                             [{silently_accept_hosts, true},
                                               proplists:get_value(pref_algs,Config),
 					      {user_interaction, false}
                                               | ClientPubKeyOpts]),

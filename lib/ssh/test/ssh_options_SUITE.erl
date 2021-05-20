@@ -1634,9 +1634,10 @@ config_file(Config) ->
                       {_,[Ch1]}]} | _] = R1,
 
             %% First connection. The client_options should be applied:
-            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, 22, [{silently_accept_hosts, true},
-                                                                   {user_interaction, false}
-                                                                  ]]),
+            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, ?SSH_DEFAULT_PORT,
+                                                    [{silently_accept_hosts, true},
+                                                     {user_interaction, false}
+                                                    ]]),
             ct:log("C1 = ~n~p", [C1]),
             {algorithms,As1} = rpc:call(Node, ssh, connection_info, [C1, algorithms]),
             K1b = proplists:get_value(kex, As1),
@@ -1651,7 +1652,7 @@ config_file(Config) ->
                        {silently_accept_hosts, true},
                        {user_interaction, false}
                       ],
-            {ok,C2} = rpc:call(Node, ssh, connect, [loopback, 22, C2_Opts]),
+            {ok,C2} = rpc:call(Node, ssh, connect, [loopback, ?SSH_DEFAULT_PORT, C2_Opts]),
             {algorithms,As2} = rpc:call(Node, ssh, connection_info, [C2, algorithms]),
             K2a = proplists:get_value(kex, As2),
             Ch1 = proplists:get_value(encrypt, As2),
