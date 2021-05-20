@@ -136,8 +136,7 @@ add_host_key(Hosts0, Port, Key, Opts) ->
             EncKey = ssh_message:ssh2_pubkey_encode(Key),
             Hosts1 = normalize_hosts_list(Hosts0, Port),
             SshBin =
-                iolist_to_binary(["\n", % Just in case the last line is not terminated by \n
-                                  lists:join(",", Hosts1), " ",
+                iolist_to_binary([lists:join(",", Hosts1), " ",
                                   KeyType," ",base64:encode(iolist_to_binary(EncKey)),
                                   "\n"]),
             Res = file:write(Fd, SshBin),
