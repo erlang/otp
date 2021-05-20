@@ -32,14 +32,14 @@ connection_string() ->
 	    "DSN=Postgres;UID=odbctest";
 	{unix, linux} ->
 	    Size = erlang:system_info({wordsize, external}),
-	    linux_dist_connection_string(Size)  
+	    linux_dist_connection_string(Size)
     end.
 
 linux_dist_connection_string(4) ->
     case linux_dist() of
 	"ubuntu" ->
-	    "DSN=PostgresLinuxUbuntu;UID=odbctest";  
-	_ ->  
+	    "DSN=PostgresLinuxUbuntu;UID=odbctest";
+	_ ->
 	    "DSN=PostgresLinux;UID=odbctest"
     end;
 
@@ -50,7 +50,7 @@ linux_dist_connection_string(_) ->
 	_ ->
 	    "DSN=PostgresLinux64;UID=odbctest"
     end.
-			
+
 linux_dist() ->
     case file:read_file("/etc/issue") of
 	{ok, Binary} ->
@@ -59,8 +59,8 @@ linux_dist() ->
 	{error, _} ->
 	    other
     end.
-	
-	  
+
+
 %-------------------------------------------------------------------------
 insert_result() ->
     {selected,["id","data"],[{1,"bar"}]}.
@@ -93,7 +93,7 @@ selected_absolute_N(_)->
 
 selected_list_rows() ->
     {selected,["id", "data"],[[1, "bar"],[2,"foo"]]}.
-    
+
 first_list_rows() ->
     {error, driver_does_not_support_function}.
 last_list_rows() ->
@@ -117,7 +117,7 @@ multiple_mix()->
 fixed_char_min() ->
     1.
 fixed_char_max() ->
-    2000. 
+    2000.
 
 create_fixed_char_table(Size) ->
     " (FIELD char(" ++ integer_to_list(Size) ++ "))".
@@ -126,7 +126,7 @@ create_fixed_char_table(Size) ->
 var_char_min() ->
     1.
 var_char_max() ->
-    2000. 
+    2000.
 
 create_var_char_table(Size) ->
     " (FIELD varchar(" ++ integer_to_list(Size) ++ "))".
@@ -135,14 +135,14 @@ create_var_char_table(Size) ->
 text_min() ->
     1.
 text_max() ->
-   2147483646. % 2147483647. %% 2^31 - 1 
+   2147483646. % 2147483647. %% 2^31 - 1
 
 create_text_table() ->
-    " (FIELD text)". 
+    " (FIELD text)".
 
 %-------------------------------------------------------------------------
 create_timestamp_table() ->
-    " (FIELD TIMESTAMP)". 
+    " (FIELD TIMESTAMP)".
 
 %-------------------------------------------------------------------------
 small_int_min() ->
@@ -177,7 +177,7 @@ int_max_selected() ->
 %-------------------------------------------------------------------------
 big_int_min() ->
     -9223372036854775808.
-   
+
 big_int_max() ->
     9223372036854775807.
 
@@ -204,6 +204,9 @@ bit_false_selected() ->
 
 bit_true_selected() ->
     {selected,["field"], [{"1"}]}.
+
+non_bit_promotes_to() ->
+    error.
 
 %-------------------------------------------------------------------------
 float_min() ->
@@ -241,6 +244,17 @@ real_zero_selected() ->
     {selected,["field"],[{0.00000e+0}]}.
 
 %-------------------------------------------------------------------------
+
+% Only really works with a subset of the possible precision and scale combinations
+% It should ideally mirror the function map_dec_num_2_c_column
+expected_value(Precision, _Scale, In) when Precision > 15 ->
+    erlang:float_to_list(In);
+
+expected_value(_Precision, _Scale, In) ->
+    In.
+
+%-------------------------------------------------------------------------
+
 param_select_small_int() ->
     {selected,["field"],[{1}, {2}]}.
 
@@ -282,7 +296,7 @@ describe_integer() ->
 	 {"myint3",sql_integer}]}.
 
 describe_string() ->
-    {ok,[{"str1",{sql_char,10}},                           
+    {ok,[{"str1",{sql_char,10}},
 	 {"str2",{sql_char,10}},
 	 {"str3",{sql_varchar,10}},
 	 {"str4",{sql_varchar,10}}]}.

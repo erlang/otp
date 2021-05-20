@@ -19,13 +19,13 @@
 %%
 
 %
-%% 
+%%
 
 %% Path to the c-program.
 -define(SERVERDIR, filename:nativename(
 		     filename:join(code:priv_dir(odbc), "bin"))).
 
-%% Name of the C program 
+%% Name of the C program
 -define(SERVERPROG, "odbcserver").
 
 %% Constats defining the command protocol between the erlang control
@@ -74,8 +74,9 @@
 -define(USER_WVARCHAR, 13).
 -define(USER_TIMESTAMP, 14).
 -define(USER_WLONGVARCHAR, 15).
+-define(USER_LONGVARBINARY, 16).
 
-%% INPUT & OUTPUT TYPE 
+%% INPUT & OUTPUT TYPE
 -define(IN, 0).
 -define(OUT, 1).
 -define(INOUT, 2).
@@ -93,7 +94,7 @@
 -define(EXIT_THREAD,		 9).
 -define(EXIT_PARAM_ARRAY,        10).
 -define(EXIT_OLD_WINSOCK,	 11).
--define(EXIT_SOCKET_CONNECT,     12).  
+-define(EXIT_SOCKET_CONNECT,     12).
 -define(EXIT_SOCKET_SEND_HEADER, 13).
 -define(EXIT_SOCKET_SEND_BODY,	 14).
 -define(EXIT_SOCKET_RECV_MSGSIZE,15).
@@ -105,6 +106,7 @@
 -define(EXIT_DESC,		 21).
 -define(EXIT_BIND,		 22).
 -define(EXIT_DRIVER_INFO,        23).
+-define(EXIT_LONG_DATA,        40).
 
 %% Misc constants
 -define(DEFAULT_TIMEOUT, infinity).
@@ -112,7 +114,7 @@
 -define(MAX_SEQ_TIMEOUTS, 10).
 
 %% Handling of C exit codes
--define(ENCODE_EXIT_FUN, 
+-define(ENCODE_EXIT_FUN,
 	(fun(?EXIT_SUCCESS) ->
 		 normal_exit;
 	    (?EXIT_FAILURE) ->
@@ -161,9 +163,11 @@
 		 could_not_bind_data_buffers;
 	    (?EXIT_DRIVER_INFO) ->
 		 collecting_of_driver_information_faild;
+	    (?EXIT_LONG_DATA) ->
+		 extracting_long_data_failed;
 	    (_) ->
 		 killed
 	 end)).
 
--define(PORT_EXIT_REASON(EXIT_STATUS), 
+-define(PORT_EXIT_REASON(EXIT_STATUS),
 	?ENCODE_EXIT_FUN(EXIT_STATUS)).

@@ -27,7 +27,7 @@
 
 %-------------------------------------------------------------------------
 connection_string() ->
-  "DSN=sql-server;UID=odbctest;PWD=gurka".
+  "DSN=hernan-mssql;UID=hernan;PWD=hernan".
 
 %-------------------------------------------------------------------------
 insert_result() ->
@@ -110,7 +110,7 @@ create_fixed_char_table(Size) ->
 var_char_min() ->
     1.
 var_char_max() ->
-    8000. 
+    8000.
 
 create_var_char_table(Size) ->
     " (FIELD varchar(" ++ integer_to_list(Size) ++ "))".
@@ -118,14 +118,14 @@ create_var_char_table(Size) ->
 text_min() ->
     1.
 text_max() ->
-    2147483647. %% 2^31 - 1 
+    2147483647. %% 2^31 - 1
 
 create_text_table() ->
     " (FIELD text)".
 
 %-------------------------------------------------------------------------
 create_timestamp_table() ->
-    " (FIELD DATETIME)". 
+    " (FIELD DATETIME)".
 
 %-------------------------------------------------------------------------
 tiny_int_min() ->
@@ -179,7 +179,7 @@ big_int_max() ->
     9223372036854775807. % 2^63-1
 
 create_big_int_table() ->
-     " (FIELD bigint)". 
+     " (FIELD bigint)".
 
 big_int_min_selected() ->
     {selected,["FIELD"],[{integer_to_list(big_int_min())}]}.
@@ -194,13 +194,17 @@ bit_true() ->
     1.
 
 create_bit_table() ->
-     " (FIELD bit)".
+    " (FIELD bit)".
 
 bit_false_selected() ->
     {selected,["FIELD"],[{false}]}.
 
 bit_true_selected() ->
     {selected,["FIELD"], [{true}]}.
+
+non_bit_promotes_to() ->
+    bit_true().
+
 %-------------------------------------------------------------------------
 float_min() ->
     -1.79e+308.
@@ -235,6 +239,14 @@ create_real_table() ->
 
 real_zero_selected() ->
     {selected,["FIELD"],[{0.00000e+0}]}.
+%-------------------------------------------------------------------------
+% Only really works with a subset of the possible precision and scale combinations
+% It should ideally mirror the function map_dec_num_2_c_column
+expected_value(_Precision, _Scale = 0, In) ->
+    round(In);
+
+expected_value(_Precision, _Scale, In) ->
+    In.
 %-------------------------------------------------------------------------
 param_select_tiny_int() ->
     {selected,["FIELD"],[{1}, {2}]}.
@@ -280,7 +292,7 @@ describe_integer() ->
 	 {"myint3", sql_integer}]}.
 
 describe_string() ->
-    {ok,[{"str1",{sql_char,10}},                           
+    {ok,[{"str1",{sql_char,10}},
 	 {"str2",{sql_char,10}},
 	 {"str3",{sql_varchar,10}},
 	 {"str4",{sql_varchar,10}}]}.

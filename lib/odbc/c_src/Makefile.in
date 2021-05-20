@@ -54,7 +54,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/odbc-$(VSN)
 EI_ROOT = $(ERL_TOP)/lib/erl_interface
 EI_INCLUDE = -I$(EI_ROOT)/include -I$(EI_ROOT)/include/$(TARGET)
 ifeq ($(findstring win32,$(TARGET)),win32)
-EI_LIB = -lei_md 
+EI_LIB = -lei_md
 ENTRY_OBJ=$(ERL_TOP)/erts/obj/$(TARGET)/port_entry.o
 PORT_ENTRY_POINT=erl_port_entry
 ENTRY_LDFLAGS=-entry:$(PORT_ENTRY_POINT)
@@ -66,7 +66,7 @@ UNIX_TARGET = $(BIN_DIR)/odbcserver
 EXE_TARGET = $(UNIX_TARGET)
 endif
 
-C_FILES = odbcserver.c 
+C_FILES = odbcserver.c
 H_FILES = odbcserver.h
 
 # ----------------------------------------------------
@@ -93,13 +93,13 @@ TARGET_FLAGS =  @TARGET_FLAGS@
 _create_dirs := $(shell mkdir -p $(OBJ_DIR) $(BIN_DIR))
 
 ifdef EXE_TARGET
-opt debug: $(EXE_TARGET) 
+opt debug: $(EXE_TARGET)
 else
 opt debug:
 endif
 
-clean:	
-	rm -f core *~ 
+clean:
+	rm -f core *~
 	rm -f $(OBJ_DIR)/*
 docs:
 
@@ -123,7 +123,7 @@ $(OBJ_DIR)/odbcserver.o: odbcserver.c
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
