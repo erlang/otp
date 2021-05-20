@@ -49,6 +49,8 @@
          app/1,
          appup/0,
          appup/1,
+         bad_combo/1,
+         bad_key_length/1,
          bad_cipher_name/1,
          bad_generate_key_name/1,
          bad_hash_name/1,
@@ -401,6 +403,8 @@ groups() ->
      {no_rc2_cbc,           [], [no_support]},
      {no_rc4,               [], [no_support]},
      {api_errors,           [], [api_errors_ecdh,
+                                 bad_combo,
+                                 bad_key_length,
                                  bad_cipher_name,
                                  bad_generate_key_name,
                                  bad_hash_name,
@@ -4216,6 +4220,14 @@ api_errors_ecdh(Config) when is_list(Config) ->
                  end
          end)()
        ).
+
+bad_combo(_Config) ->
+    ?chk_api_name(crypto:crypto_dyn_iv_init(des_ede3_cbc, <<>>, []),
+                  error:_).
+
+bad_key_length(_Config) ->
+    ?chk_api_name(crypto:crypto_dyn_iv_init(des_ede3_cbc, <<1>>, true),
+                  error:{error,{"api_ng.c",_},"Can't initialize context, key_length"}).
 
 bad_cipher_name(_Config) ->
     ?chk_api_name(crypto:crypto_init(foobar, <<1:128>>, true),
