@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in match spec compilator seen to cause a stack
+	    overflow crash on debug VM for certain match specs. Could
+	    potentially cause problems for standard VM, but has not
+	    been verified. Match specs are used by
+	    <c>ets:match/select</c> functions and
+	    <c>erlang:trace_pattern</c>.</p>
+          <p>
+	    Own Id: OTP-17379 Aux Id: PR-4804 </p>
+        </item>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
