@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix build problems when wxWidgets are built with
+	    -enable-std.</p>
+          <p>
+	    Own Id: OTP-17407 Aux Id: GH-4834 </p>
+        </item>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
