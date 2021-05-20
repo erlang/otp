@@ -1,8 +1,6 @@
 /Makefile
-/configure
 /config.log
 /config.status
-/config.h.in
 
 /start_scripts/RELEASES.src
 /start_scripts/*.rel
