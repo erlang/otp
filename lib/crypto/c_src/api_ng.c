@@ -303,7 +303,6 @@ static int get_init_args(ErlNifEnv* env,
     return 1;
 
  err:
-    if (ctx_res->ctx) EVP_CIPHER_CTX_free(ctx_res->ctx);
     return 0;
 }
 
