@@ -367,6 +367,22 @@ spawn(Module, Name, Args) -> pid()
 	  responds with the reply signal.
 	</item>
 
+        <tag>
+          <c>register_name_request</c>/<c>register_name_reply</c>,
+	  <c>unregister_name_request</c>/<c>unregister_name_reply</c>,
+	  <c>whereis_name_request</c>/<c>whereis_name_reply</c>
+	</tag>
+	<item>
+	  Sent due to a call to one of the
+          <seemfa marker="erts:erlang#register/2"><c>register/2</c></seemfa>,
+          <seemfa marker="erts:erlang#unregister/1"><c>unregister/1</c></seemfa>,
+	  or
+          <seemfa marker="erts:erlang#whereis/1"><c>whereis/1</c></seemfa>
+	  BIFs. The request signal is sent to the
+	  <seeguide marker="#runtime-service">name service</seeguide>, which
+	  responds with the reply signal.
+	</item>
+
 	<tag>
 	  <c>timer_start_request</c>/<c>timer_start_reply</c>,
 	  <c>timer_cancel_request</c>/<c>timer_cancel_reply</c>
@@ -381,17 +397,17 @@ spawn(Module, Name, Args) -> pid()
 	  <seeguide marker="#runtime-service">timer service</seeguide> which
 	  responds with the reply signal.
 	</item>
-	
+
       </taglist>
 
       <p><marker id="runtime-service"/>
-	The clock service, the timer service, and the spawn service mentioned
-	above are services provided by the runtime system. Each of these
-	services consists of multiple independently executing entities. Such a
-	service can be viewed as a group of processes, and could actually be
-	implemented like that. Since each service consists of multiple
-	independently executing entities, the order between multiple signals
-	sent from one service to one process is <em>not</em> preserved. Note
+        The clock service, the name service, the timer service, and the spawn
+        service mentioned previously are services provided by the runtime system.
+        Each of these services consists of multiple independently executing
+        entities. Such a service can be viewed as a group of processes, and
+        could actually be implemented like that. Since each service consists of
+        multiple independently executing entities, the order between multiple
+        signals sent from one service to one process is <em>not</em> preserved. Note
 	that this does <em>not</em> violate the
 	<seeguide marker="#signal-delivery">signal ordering
 	guarantee</seeguide> of the language.

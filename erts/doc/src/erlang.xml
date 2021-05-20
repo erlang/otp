@@ -2556,6 +2556,10 @@ uncompiled code with the same arity are mapped to the same list by
           applications with a supervision tree, because OTP
           assumes the group leader of their processes is
           their application master.</p>
+        <p>Setting the group leader follows the signal ordering guarentees
+          described in the
+          <seeguide marker="system/reference_manual:processes#signals">
+          Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <p>See also
           <seemfa marker="#group_leader/0"><c>group_leader/0</c></seemfa>
           and <seeguide marker="system/design_principles:applications#stopping">OTP
@@ -4363,6 +4367,12 @@ receive_replies(ReqId, N, Acc) ->
           are delivered to the process. If there is no connection to
           <c><anno>Node</anno></c>, an attempt is made to create one.
           If this fails, a <c>nodedown</c> message is delivered.</p>
+        <p>The delivery of the <c>nodedown</c> signal is not ordered with respect to other
+          link or monitor signals from the node that goes down. If you need a
+          guarantee that all signals from the remote node has been delivered before
+          the <c>nodedown</c> signal is sent, you should use
+          <seemfa marker="kernel:net_kernel#monitor_nodes/1">
+            <c>net_kernel:monitor_nodes/1</c></seemfa>.</p>
         <p>Nodes connected through hidden connections can be monitored
           as any other nodes.</p>
         <p>Failure: <c>notalive</c> if the local node is not alive.</p>
@@ -6098,6 +6108,10 @@ receive_replies(ReqId, N, Acc) ->
           <c><anno>Item</anno></c>s were included
           in <c><anno>ItemList</anno></c>. Valid <c><anno>Item</anno></c>s can
           be included multiple times in <c><anno>ItemList</anno></c>.</p>
+        <p>Getting process informations follows the signal ordering guarantees
+          described in the
+          <seeguide marker="system/reference_manual:processes#signals">
+          Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <note>
           <p>If <c>registered_name</c> is part of <c><anno>ItemList</anno></c>
             and the process has no name registered, a
@@ -6609,14 +6623,21 @@ end</pre>
       <name name="register" arity="2" since=""/>
       <fsummary>Register a name for a pid (or port).</fsummary>
       <desc>
-        <p>Associates the name <c><anno>RegName</anno></c> with a process
-          identifier (pid) or a port identifier.
+        <p>Registers the name <c><anno>RegName</anno></c> with a process
+          identifier (pid) or a port identifier in the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>.
           <c><anno>RegName</anno></c>, which must be an atom, can be used
           instead of the pid or port identifier in send operator
-          (<c><anno>RegName</anno> ! Message</c>). Example:</p>
+          (<c><anno>RegName</anno> ! Message</c>) and most other BIFs that
+          take a pid or port identifies as an argument. Example:</p>
         <pre>
 > <input>register(db, Pid).</input>
 true</pre>
+        <p>The registered name is considered a
+          <seeguide marker="system/reference_manual:processes#visible-resources">
+            Directly Visible Erlang Resource</seeguide> and is automatically
+            unregistered when the process terminates.</p>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -12801,12 +12822,17 @@ end</code>
       <name name="unregister" arity="1" since=""/>
       <fsummary>Remove the registered name for a process (or port).</fsummary>
       <desc>
-        <p>Removes the registered name <c><anno>RegName</anno></c>
-          associated with a
-          process identifier or a port identifier, for example:</p>
+        <p>Removes the <seemfa marker="#register/2"><c>registered name</c></seemfa>
+          <c><anno>RegName</anno></c> associated with a
+          process identifier or a port identifier from the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>. For example:</p>
         <pre>
 > <input>unregister(db).</input>
 true</pre>
+        <p>Keep in mind that you can still receive signals associated with the
+          registered name after it has been unregistered as the sender may
+          have looked up the name before sending to it.</p>
         <p>Users are advised not to unregister system processes.</p>
         <p>Failure: <c>badarg</c> if <c>RegName</c> is not a registered
           name.</p>
@@ -12819,8 +12845,11 @@ true</pre>
       </fsummary>
       <desc>
         <p>Returns the process identifier or port identifier with
-          the registered name <c>RegName</c>. Returns <c>undefined</c>
-          if the name is not registered. Example:</p>
+          the <seemfa marker="#register/2"><c>registered name</c></seemfa>
+          <c>RegName</c> from the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>.
+          Returns <c>undefined</c> if the name is not registered. Example:</p>
         <pre>
 > <input>whereis(db).</input>
 &lt;0.43.0></pre>
