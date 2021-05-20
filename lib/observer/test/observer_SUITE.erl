@@ -41,6 +41,8 @@
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(2)).
 
+-define(SECS(__S__), timer:seconds(__S__)).
+
 -define(P(F),    print(F)).
 -define(P(F, A), print(F, A)).
 
@@ -206,10 +208,13 @@ basic(Config) when is_list(Config) ->
                               lists:member(P,BeforeNotAfter)]]),
 	    ct:log("After but not before:~n~p~n",
 		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
+	    ensure_observer_stopped(),
 	    ct:fail("leaking processes");
        true ->
 	    ok
     end,
+    ?P("ensure observer stopped"),
+    ensure_observer_stopped(?SECS(2)),
     ?P("basic -> done"),
     ok.
 
@@ -350,6 +355,7 @@ test_page(Title, Window) ->
 process_win(suite) -> [];
 process_win(doc) -> [""];
 process_win(Config) when is_list(Config) ->
+    ?P("process_win -> entry"),
     % Stop SASL if already started
     SaslStart = case whereis(sasl_sup) of
                   undefined -> false;
@@ -387,11 +393,15 @@ process_win(Config) when is_list(Config) ->
          true  -> application:start(sasl);
          false -> ok
     end,
+    ?P("ensure observer stopped"),
+    ensure_observer_stopped(?SECS(2)),
+    ?P("process_win -> done"),
     ok.
 
 table_win(suite) -> [];
 table_win(doc) -> [""];
 table_win(Config) when is_list(Config) ->
+    ?P("table_win -> entry"),
     Tables = [ets:new(list_to_atom("Test-" ++ [C]), [public]) || C <- lists:seq($A, $Z)],
     Table = lists:nth(3, Tables),
     ets:insert(Table, [{N,100-N} || N <- lists:seq(1,100)]),
@@ -405,18 +415,25 @@ table_win(Config) when is_list(Config) ->
     timer:sleep(3000),
     wx_object:get_pid(TObj) ! #wx{event=#wxClose{type=close_window}},
     observer:stop(),
+    ?P("ensure observer stopped"),
+    ensure_observer_stopped(?SECS(3)),
+    ?P("table_win -> done"),
     ok.
 
 %% Test PR-1296/OTP-14151
 %% Clicking a link to a port before the port tab has been activated the
 %% first time crashes observer.
 port_win_when_tab_not_initiated(_Config) ->
+    ?P("port_win_when_tab_not_initiated -> entry"),
     {ok,Port} = gen_tcp:listen(0,[]),
     ok = observer:start(),
     _Notebook = setup_whitebox_testing(),
     observer ! {open_link,erlang:port_to_list(Port)},
     timer:sleep(1000),
     observer:stop(),
+    ?P("ensure observer stopped"),
+    ensure_observer_stopped(?SECS(3)),
+    ?P("port_win_when_tab_not_initiated -> done"),
     ok.
 
 
@@ -445,6 +462,36 @@ get_observer_debug() ->
     receive
 	{observer_debug, Env, Notebook, Active} ->
 	    {Env, Notebook, Active}
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ensure_observer_stopped() ->
+    ensure_observer_stopped(0).
+
+ensure_observer_stopped(T) when is_integer(T) andalso (T > 0) ->
+    case erlang:whereis(observer) of
+	undefined ->
+	    ?P("observer *not* running"),
+	    ok;
+	Pid when is_pid(Pid) ->
+	    ?P("observer process still running: "
+	       "~n   ~p", [erlang:process_info(Pid)]),
+	    ct:sleep(?SECS(1)),
+	    ensure_observer_stopped(T - 1000),
+	    ok
+    end;
+ensure_observer_stopped(_) ->
+    case erlang:whereis(observer) of
+	undefined ->
+	    ?P("observer *not* running"),
+	    ok;
+	Pid when is_pid(Pid) ->
+	    ?P("observer process still running: kill"
+	       "~n   ~p", [erlang:process_info(Pid)]),
+	    exit(kill, Pid),
+	    ok
     end.
 
 
