@@ -42,7 +42,9 @@
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
          select_bound_chunk/1,
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
-	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
+	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,
+         t_select_pam_stack_overflow_bug/1,
+         t_ets_dets/1]).
 -export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
          test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/0]).
 
@@ -141,6 +143,7 @@ all() ->
      t_init_table, t_whitebox, t_delete_all_objects,
      t_insert_list, t_test_ms, t_select_delete, t_select_replace,
      t_select_replace_next_bug,
+     t_select_pam_stack_overflow_bug,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
      t_named_select, select_fixtab_owner_change,
      select_fail, t_insert_new, t_repair_continuation,
@@ -1632,6 +1635,15 @@ t_select_replace_next_bug(Config) when is_list(Config) ->
     2 = ets:next(T, 1),
 
     ets:delete(T).
+
+
+%% OTP-17379
+t_select_pam_stack_overflow_bug(Config) ->
+    T = ets:new(k, []),
+    ets:insert(T,[{x,17}]),
+    [{x,18}] = ets:select(T,[{{x,17}, [], [{{{element,1,'$_'},{const,18}}}]}]),
+    ets:delete(T),
+    ok.
 
 
 %% Test that partly bound keys gives faster matches.
