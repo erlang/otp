@@ -1333,8 +1333,17 @@ sub_new(#sub{}=Sub) ->
 
 sub_get_var(#c_var{name=V}=Var, #sub{v=S}) ->
     case orddict:find(V, S) of
-	{ok,Val} -> Val;
-	error -> Var
+        {ok,Val} -> case is_compiler_generated(Var) andalso
+                         not is_compiler_generated(Val) of
+                        true ->
+                            %% Propagate the 'compiler_generated' annotation
+                            %% along with the value.
+                            Ann = [compiler_generated|cerl:get_ann(Val)],
+                            cerl:set_ann(Val, Ann);
+                        false ->
+                            Val
+                    end;
+        error -> Var
     end.
 
 sub_set_var(#c_var{name=V}, Val, Sub) ->

@@ -1,0 +1,49 @@
+module 'compiler_generated_in_sub_get_var' ['foo'/1]
+    attributes []
+
+'foo'/1 =
+    ( fun (_0) ->
+      ( case ( _0
+           -| [] ) of
+          <X> when 'true' ->
+          let <Y> =
+              [46]
+          in  let <_3> =
+              fun () ->
+                  case <> of
+                <> when 'true' ->
+                    let <_5> =
+                    call 'erlang':'++'
+                        (Y,
+                        [46])
+                    in
+                    case _5 of
+                      <_6>
+                          when call 'erlang':'=:='
+                            (_6,
+                             X) ->
+                          ( _5
+                        -| ['compiler_generated'] )
+                           %% Keep this annotation after sub_get_var
+                      ( <_2> when 'true' ->
+                        primop 'match_fail'
+                            ({'badmatch',_2})
+                        -| ['compiler_generated'] )
+                    end
+                ( <> when 'true' ->
+                      primop 'match_fail'
+                      ({'function_clause'})
+                  -| ['compiler_generated'] )
+                  end
+              in  do
+                  apply _3
+                  ()
+                  'ok'
+          ( <_4> when 'true' ->
+            primop 'match_fail'
+            ({'function_clause',_4})
+        -| ['compiler_generated'] )
+        end
+        -| [] )
+      -| [] )
+end

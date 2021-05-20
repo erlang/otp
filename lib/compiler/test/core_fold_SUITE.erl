@@ -29,7 +29,7 @@
 	 no_no_file/1,configuration/1,supplies/1,
          redundant_stack_frame/1,export_from_case/1,
          empty_values/1,cover_letrec_effect/1,
-         receive_effect/1]).
+         receive_effect/1,compiler_generated_in_sub_get_var/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -50,7 +50,7 @@ groups() ->
        no_no_file,configuration,supplies,
        redundant_stack_frame,export_from_case,
        empty_values,cover_letrec_effect,
-       receive_effect]}].
+       receive_effect,compiler_generated_in_sub_get_var]}].
 
 
 init_per_suite(Config) ->
@@ -682,5 +682,16 @@ receive_effect(_Config) ->
 
 do_receive_effect() ->
     {} = receive _ -> {} = {} end.
+
+%% This test verifies that a variable substitution maintains the
+%% 'compiler_generated' annotation that supresses the warnings.
+compiler_generated_in_sub_get_var(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = test_lib:get_data_dir(Config),
+    Core = filename:join(Dir, "compiler_generated_in_sub_get_var"),
+    Opts = [warnings_as_errors,return,from_core,{outdir,PrivDir}
+           |test_lib:opt_opts(?MODULE)],
+    {error, [], []} = c:c(Core, Opts),
+    ok.
 
 id(I) -> I.
