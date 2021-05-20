@@ -21,12 +21,6 @@ https://developer.android.com/ndk
 
 ### Configure Erlang/OTP ###
 
-If you are building Erlang/OTP from git, you will need to run this
-to generate the configure scripts.
-
-    $ ./otp_build autoconf
-
-
 Use the following commands when compiling a 64-bit version.
 
     $ export NDK_ABI_PLAT=android21      # When targeting Android 5.0 Lollipop
