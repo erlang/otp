@@ -426,7 +426,56 @@ Some of the available `configure` options are:
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
 
-#### Updating configure scripts ####
+#### Important Variables Inspected by configure ####
+
+##### Compiler and Linker #####
+
+*   `CC` - C compiler.
+*   `CFLAGS` - C compiler flags. Defaults to "-g -O2". If you set it,
+    these will be removed.
+*   `STATIC_CFLAGS` - Static C compiler flags.
+*   `CFLAG_RUNTIME_LIBRARY_PATH` - This flag should set runtime library
+    search path for the shared libraries. Note that this actually is a
+    linker flag, but it needs to be passed via the compiler.
+*   `CPP` - C pre-processor.
+*   `CPPFLAGS` - C pre-processor flags.
+*   `CXX` - C++ compiler.
+*   `CXXFLAGS` - C++ compiler flags.
+*   `LD` - Linker.
+*   `LDFLAGS` - Linker flags.
+*   `LIBS` - Libraries.
+
+##### Dynamic Erlang Driver Linking #####
+
+> *NOTE*: Either set all or none of the `DED_LD*` variables (with the exception
+> of `DED_LDFLAGS_CONFTEST`).
+
+*   `DED_LD` - Linker for Dynamically loaded Erlang Drivers.
+*   `DED_LDFLAGS` - Linker flags to use with `DED_LD`.
+*   `DED_LDFLAGS_CONFTEST` - Linker flags to use with `DED_LD` in configure
+    link tests if `DED_LDFLAGS` cannot be used in such tests. If not set,
+    `DED_LDFLAGS` will be used in configure tests.
+*   `DED_LD_FLAG_RUNTIME_LIBRARY_PATH` - This flag should set runtime library
+    search path for shared libraries when linking with `DED_LD`.
+
+##### Large File Support #####
+
+> *NOTE*: Either set all or none of the `LFS_*` variables.
+
+*   `LFS_CFLAGS` - Large file support C compiler flags.
+*   `LFS_LDFLAGS` - Large file support linker flags.
+*   `LFS_LIBS` - Large file support libraries.
+
+##### Other Tools #####
+
+*   `RANLIB` - `ranlib` archive index tool.
+*   `AR` - `ar` archiving tool.
+*   `GETCONF` - `getconf` system configuration inspection tool. `getconf` is
+    currently used for finding out large file support flags to use, and
+    on Linux systems for finding out if we have an NPTL thread library or
+    not.
+
+#### Updating configure Scripts ####
 
 Generated `configure` scripts are nowadays included in the git repository.
 

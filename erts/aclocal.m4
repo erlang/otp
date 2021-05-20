@@ -3048,11 +3048,11 @@ if test "$CFLAG_RUNTIME_LIBRARY_PATH" = ""; then
 
 fi
 
-DED_LDFLAGS_CONFTEST=
-
 # If DED_LD is set in environment, we expect all DED_LD* variables
 # to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
+
+DED_LDFLAGS_CONFTEST=
 
 DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
 case $host_os in
