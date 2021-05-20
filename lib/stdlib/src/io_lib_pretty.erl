@@ -835,9 +835,9 @@ printable_bin1(Bin, Start, Len) ->
 
 %% -> all | integer() >=0. Adopted from io_lib.erl.
 printable_latin1_list([_ | _], 0) -> 0;
-printable_latin1_list([C | Cs], N) when C >= $\s, C =< $~ ->
+printable_latin1_list([C | Cs], N) when is_integer(C), C >= $\s, C =< $~ ->
     printable_latin1_list(Cs, N - 1);
-printable_latin1_list([C | Cs], N) when C >= $\240, C =< $\377 ->
+printable_latin1_list([C | Cs], N) when is_integer(C), C >= $\240, C =< $\377 ->
     printable_latin1_list(Cs, N - 1);
 printable_latin1_list([$\n | Cs], N) -> printable_latin1_list(Cs, N - 1);
 printable_latin1_list([$\r | Cs], N) -> printable_latin1_list(Cs, N - 1);
