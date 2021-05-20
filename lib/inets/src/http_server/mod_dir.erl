@@ -135,7 +135,7 @@ format(Path,RequestURI) ->
     io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
 		  " <A HREF=\"~s\">Parent directory</A>      "
 		  " ~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
-		  [icon(back),"DIR",get_href(RequestURI),Day,
+		  [icon(back),"DIR",percent_encode(RequestURI),Day,
 		   httpd_util:month(Month),Year,Hour,Minute]).
 
 %% body
@@ -159,7 +159,7 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 				  "<A HREF=\"~s\">~-21.s..</A>"
 				  "~*.*c~2.2.0w-~s-~w ~2.2.0w:~2.2.0w"
 				  "        -\n", [icon(folder),"DIR",
-						  get_href(RequestURI++"/"++InitEntry++"/"),
+						  RequestURI ++ "/" ++ percent_encode(InitEntry) ++ "/",
 						  Entry, 23-21, 23-21, $ ,
 						  Day, httpd_util:month(Month),
 						  Year,Hour,Minute]);
@@ -167,8 +167,8 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
 				  " <A HREF=\"~s\">~s</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w        -\n",
-				  [icon(folder),"DIR",get_href(RequestURI ++ "/" ++
-				   InitEntry ++ "/"),Entry,
+				  [icon(folder),"DIR",
+                                   RequestURI ++ "/" ++ percent_encode(InitEntry) ++ "/",Entry,
 				   23-EntryLength,23-EntryLength,$ ,Day,
 				   httpd_util:month(Month),Year,Hour,Minute])
 	    end;
@@ -183,8 +183,8 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
 				  " <A HREF=\"~s\">~-21.s..</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
-				  [icon(Suffix, MimeType), Suffix, get_href(RequestURI 
-				   ++"/"++InitEntry), Entry, 23-21, 23-21, $ , Day,
+				  [icon(Suffix, MimeType), Suffix,
+                                   RequestURI ++ "/" ++ percent_encode(InitEntry), Entry, 23-21, 23-21, $ , Day,
 				   httpd_util:month(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
 				   MimeType]);
@@ -192,8 +192,8 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> "
 				  "<A HREF=\"~s\">~s</A>~*.*c~2.2.0w-~s-~w"
 				  " ~2.2.0w:~2.2.0w~8wk  ~s\n",
-				  [icon(Suffix, MimeType), Suffix, get_href(RequestURI
-				   ++ "/" ++ InitEntry), Entry, 23-EntryLength,
+				  [icon(Suffix, MimeType), Suffix,
+                                   RequestURI ++ "/" ++ percent_encode(InitEntry), Entry, 23-EntryLength,
 				   23-EntryLength, $ ,Day,
 				   httpd_util:month(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
@@ -203,11 +203,8 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 	    ""
     end.
 
-get_href(URI) ->
-	percent_encode(URI).
-
 percent_encode(URI) when is_list(URI) ->
-    Reserved = reserved(), 
+    Reserved = reserved(),
     lists:append([uri_encode(Char, Reserved) || Char <- URI]);
 percent_encode(URI) when is_binary(URI) ->
     Reserved = reserved(),
