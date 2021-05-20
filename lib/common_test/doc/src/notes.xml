@@ -33,6 +33,21 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.20.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.20.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

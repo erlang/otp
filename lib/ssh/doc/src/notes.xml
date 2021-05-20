@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.11.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that a slow start (>30s) of a client subsystem
+	    could cause a log entry with the password.</p>
+          <p>
+	    Own Id: OTP-17390 Aux Id: ERIERL-648 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
