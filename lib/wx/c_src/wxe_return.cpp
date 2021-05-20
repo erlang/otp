@@ -183,12 +183,38 @@ ERL_NIF_TERM  wxeReturn::make(wxArrayString val) {
     return tail;
 }
 
-ERL_NIF_TERM wxeReturn::make_list_objs(const wxObjectList& list, WxeApp *app, const char *cname)
+ERL_NIF_TERM wxeReturn::make_list_objs(const wxSizerItemList& list, WxeApp *app, const char *cname)
 {
   ERL_NIF_TERM head, tail;
   ERL_NIF_TERM class_name = enif_make_atom(env, cname);
   tail = enif_make_list(env, 0);
-  for(wxObjectList::const_reverse_iterator it = list.rbegin(); it != list.rend(); ++it) {
+  for(wxSizerItemList::const_reverse_iterator it = list.rbegin(); it != list.rend(); ++it) {
+    void * ResultTmp = *it;
+    head = make_ref(app->getRef(ResultTmp,memenv), class_name);
+    tail = enif_make_list_cell(env, head, tail);
+  }
+  return tail;
+}
+
+ERL_NIF_TERM wxeReturn::make_list_objs(const wxMenuItemList& list, WxeApp *app, const char *cname)
+{
+  ERL_NIF_TERM head, tail;
+  ERL_NIF_TERM class_name = enif_make_atom(env, cname);
+  tail = enif_make_list(env, 0);
+  for(wxMenuItemList::const_reverse_iterator it = list.rbegin(); it != list.rend(); ++it) {
+    void * ResultTmp = *it;
+    head = make_ref(app->getRef(ResultTmp,memenv), class_name);
+    tail = enif_make_list_cell(env, head, tail);
+  }
+  return tail;
+}
+
+ERL_NIF_TERM wxeReturn::make_list_objs(const wxWindowList& list, WxeApp *app, const char *cname)
+{
+  ERL_NIF_TERM head, tail;
+  ERL_NIF_TERM class_name = enif_make_atom(env, cname);
+  tail = enif_make_list(env, 0);
+  for(wxWindowList::const_reverse_iterator it = list.rbegin(); it != list.rend(); ++it) {
     void * ResultTmp = *it;
     head = make_ref(app->getRef(ResultTmp,memenv), class_name);
     tail = enif_make_list_cell(env, head, tail);
