@@ -49,7 +49,7 @@
 
 init_nif(Silent) ->
     {PrivDir, NifDir} = priv_dir("wxe_driver", Silent),
-    os:putenv("WX_PRIV_DIR", PrivDir),
+    os:putenv("WX_PRIV_DIR", unicode:characters_to_list(PrivDir)),
     erlang:load_nif(filename:join(NifDir, "wxe_driver"), 0).
 
 

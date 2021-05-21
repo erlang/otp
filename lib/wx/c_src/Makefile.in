@@ -66,18 +66,24 @@ else
 	GL_OBJECTS = 
 endif
 
+TARGET_DIR = ../priv/$(SYS_TYPE)
+
 RC_FILE_EXT = @RC_FILE_TYPE@
 ifeq ($(SYS_TYPE),win32)
-RC_FILE     = $(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT)
-else 
-RC_FILE     = 
+	RC_FILE     = $(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT)
+	WEBVIEW_LOADER_DLL_ORIG = @WX_WEBVIEW_DLL@
+else
+	RC_FILE     =
+	WEBVIEW_LOADER_DLL_ORIG =
+endif
+
+ifneq ($(WEBVIEW_LOADER_DLL_ORIG),)
+	WEBVIEW_LOADER_DLL_DEST = ../priv/WebView2Loader.dll
 endif
 
 WX_OBJECTS  =  $(GENERATED_O) $(GENERAL_O) $(RC_FILE)
 
 OBJECTS = $(WX_OBJECTS) $(GL_OBJECTS)
-
-TARGET_DIR = ../priv/$(SYS_TYPE)
 
 # -O2 -funroll-loops  -ffast-math -fomit-frame-pointer 
 
@@ -122,7 +128,7 @@ CXX_O_NO_OPT    = $(V_CXX) -c $(CXX_NO_OPT_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLA
 
 # Targets
 
-opt:     $(TARGET_DIR)/wxe_driver$(SO_EXT) $(TARGET_DIR)/erl_gl$(SO_EXT)
+opt:     $(TARGET_DIR)/wxe_driver$(SO_EXT) $(TARGET_DIR)/erl_gl$(SO_EXT) $(WEBVIEW_LOADER_DLL_DEST)
 
 debug:   
 	@${MAKE} TYPE=debug
@@ -178,6 +184,8 @@ $(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
 	$(V_at)mkdir -p $(TARGET_DIR)
 	$(V_CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
 
+$(WEBVIEW_LOADER_DLL_DEST): $(WEBVIEW_LOADER_DLL_ORIG)
+	$(INSTALL_PROGRAM) $< $@
 
 # ----------------------------------------------------
 # Release Target
@@ -190,5 +198,8 @@ release_spec: opt
 	$(INSTALL_DATA) ../priv/erlang-logo128.png "$(RELSYSDIR)/priv/"
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/wxe_driver$(SO_EXT) "$(RELSYSDIR)/priv/"
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl$(SO_EXT) "$(RELSYSDIR)/priv/"
+ifneq ($(WEBVIEW_LOADER_DLL_ORIG),)
+		$(INSTALL_PROGRAM) $(WEBVIEW_LOADER_DLL_DEST) "$(RELSYSDIR)/priv/"
+endif
 
 release_docs_spec:
