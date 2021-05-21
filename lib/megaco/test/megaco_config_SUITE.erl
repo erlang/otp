@@ -657,13 +657,15 @@ start_counter_working_procs([Pid | Pids]) ->
     start_counter_working_procs(Pids).
 
 await_completion_counter_working_procs(Pids) ->
-    await_completion_counter_working_procs(ts(), Pids, [], []).
+    await_completion_counter_working_procs(0, ts(), Pids, [], []).
 
-await_completion_counter_working_procs(_TS, [], _OKs, [] = _ERRs) ->
+await_completion_counter_working_procs(MaxTSD, _TS, [], _OKs, [] = _ERRs) ->
+    i("done when ok with max TS-diff: ~p", [MaxTSD]),
     ok;
-await_completion_counter_working_procs(_TS, [], _OKs, ERRs) ->
+await_completion_counter_working_procs(MaxTSD, _TS, [], _OKs, ERRs) ->
+    i("done when error (~w) with max TS-diff: ~p", [length(ERRs), MaxTSD]),
     {error, ERRs};
-await_completion_counter_working_procs(TS, Pids, OKs, ERRs) ->
+await_completion_counter_working_procs(MaxTSD, TS, Pids, OKs, ERRs) ->
     receive
 	{'EXIT', Pid, normal} ->
             %% i("counter working process completion[~w, ~w, ~w] -> "
@@ -671,22 +673,53 @@ await_completion_counter_working_procs(TS, Pids, OKs, ERRs) ->
             %%   "~n      Time since last event: ~s"
             %%   "~n      Pid: ~p",
             %%   [length(Pids), length(OKs), length(ERRs), tsd(TS), Pid]),
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        i("counter working process completion[~w, ~w, ~w] -> "
+                          "Expected exit from counter process: "
+                          "~n      New max time since last event: ~s"
+                          "~n      Pid: ~p",
+                          [length(Pids),
+                           length(OKs),
+                           length(ERRs),
+                           tsd(TSD),
+                           Pid]),
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
 	    Pids2 = lists:delete(Pid, Pids),
-	    await_completion_counter_working_procs(ts(),
+	    await_completion_counter_working_procs(MaxTSD2, ts(),
                                                    Pids2, [Pid | OKs], ERRs);
 
 	{'EXIT', Pid, {timetrap_timeout, _Timeout, Stack} = _Reason} ->
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
             e("counter working process completion[~w, ~w, ~w] -> "
-              "Unexpected exit from counter process: test case timeout"
-              "~n      Time since last event: ~s"
-              "~n      Pid:                   ~p"
+              "Test case timeout timetrap"
+              "~n      Time since last event: ~s (max ~s)"
+              "~n      Pid:                   ~p (~p)"
               "~n      Stack:                 ~p",
-              [length(Pids), length(OKs), length(ERRs), tsd(TS), Pid, Stack]),
+              [length(Pids), length(OKs), length(ERRs),
+               tsd(TSD), tsd(MaxTSD2),
+               Pid, lists:member(Pid, Pids),
+               Stack]),
             %% The test case (timetrap) has timed out, which either means
             %% we are running on very slow hw or some system functions
             %% are slowing us down (this test case should never normally
             %% time out).
-            case megaco_test_global_sys_monitor:events() of
+            case megaco_test_global_sys_monitor:events(?SECS(5)) of
+                {error, timeout} ->
+                    i("counter working process completion[~w, ~w, ~w] -> "
+                      "idle:sys-mon timeout",
+                      [length(Pids), length(OKs), length(ERRs)]),
+                    ?SKIP("TC idle; sys-monitor evs timeout");
                 [] ->
                     i("counter working process completion[~w, ~w, ~w] -> idle",
                       [length(Pids), length(OKs), length(ERRs)]),
@@ -700,43 +733,68 @@ await_completion_counter_working_procs(TS, Pids, OKs, ERRs) ->
             end;
 
 	{'EXIT', Pid, Reason} ->
-            TSD = tsd(TS),
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
             e("counter working process completion[~w, ~w, ~w] -> "
               "Unexpected exit from counter process: "
-              "~n      Time since last event: ~s"
+              "~n      Time since last event: ~s (max ~s)"
               "~n      Pid:                   ~p"
               "~n      Reason:                ~p",
-              [length(Pids), length(OKs), length(ERRs), TSD, Pid, Reason]),
+              [length(Pids), length(OKs), length(ERRs),
+               tsd(TSD), tsd(MaxTSD2),
+               Pid, Reason]),
 	    Pids2 = lists:delete(Pid, Pids),
-	    await_completion_counter_working_procs(ts(),
+	    await_completion_counter_working_procs(MaxTSD2, ts(),
                                                    Pids2, OKs, [Pid | ERRs]);
 
 	Any ->
-            TSD = tsd(TS),
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
             e("counter working process completion[~w, ~w, ~w] -> "
               "Unexpected message: "
-              "~n      Time since last event: ~s"
+              "~n      Time since last event: ~s (max ~s)"
               "~n      ~p",
-              [length(Pids), length(OKs), length(ERRs), TSD, Any]),
-	    await_completion_counter_working_procs(TS, Pids, OKs, ERRs)
+              [length(Pids), length(OKs), length(ERRs),
+               tsd(TSD), tsd(MaxTSD2),
+               Any]),
+	    await_completion_counter_working_procs(MaxTSD2, TS,
+                                                   Pids, OKs, ERRs)
 
-    after 10000 ->
+    after 1000 ->
             %% If nothing has happened for this long, something is wrong:
             %% Check system events
-            TSD = tsd(TS),
+            TS2 = ts(),
+            TSD = TS2 - TS,
             case megaco_test_global_sys_monitor:events() of
                 [] ->
+                    TS3 = ts(),
                     i("counter working process completion[~w, ~w, ~w] -> idle"
-                      "~n      Time since last event: ~s",
-                      [length(Pids), length(OKs), length(ERRs), TSD]),
-                    await_completion_counter_working_procs(TS,
+                      "~n      Time since last event:       ~s"
+                      "~n      (global) sys monitor events: ~s",
+                      [length(Pids), length(OKs), length(ERRs),
+                       tsd(TSD), tsd(TS3 - TS2)]),
+                    await_completion_counter_working_procs(MaxTSD, TS,
                                                            Pids, OKs, ERRs);
                 SysEvs ->
+                    TS3 = ts(),
                     e("counter working process completion[~w, ~w, ~w] -> "
                       "system event(s): "
-                      "~n      Time since last event: ~s"
+                      "~n      Time since last event:       ~s"
+                      "~n      (global) sys monitor events: ~s"
                       "~n      ~p",
-                      [length(Pids), length(OKs), length(ERRs), TSD, SysEvs]),
+                      [length(Pids), length(OKs), length(ERRs),
+                       tsd(TSD), tsd(TS3 - TS2),
+                       SysEvs]),
                     ?SKIP("TC idle with system events")
             end
     end.
@@ -1319,8 +1377,7 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
 ts() ->
     erlang:monotonic_time(milli_seconds).
 
-tsd(TS) ->
-    TSD = ts() - TS,
+tsd(TSD) ->
     if (TSD < 1000) ->
             ?F("~w ms", [TSD]);
        (TSD < 60000) ->
@@ -1328,6 +1385,8 @@ tsd(TS) ->
        true ->
             ?F("~w mins", [TSD div 60000])
     end.
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

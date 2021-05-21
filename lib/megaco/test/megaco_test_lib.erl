@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -520,6 +520,16 @@ maybe_skip(_HostInfo) ->
            (V) when (V =:= {2,6,32}) ->
                 case string:trim(os:cmd("cat /etc/issue")) of
                     "Debian GNU/Linux 6.0 " ++ _ -> % Stone age Debian => Skip
+                        true;
+                    _ ->
+                        false
+                end;
+           (V) when (V =:= {2,6,16}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    %% Stone age SLES => Skip
+                    %% We have atleast one VM that has this version,
+                    %% and it causes randome timeout glitches...
+                    "Welcome to SUSE Linux Enterprise Server 10 SP1 " ++ _ ->
                         true;
                     _ ->
                         false
