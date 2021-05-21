@@ -24,14 +24,21 @@
 -export([encode/1, decode/1, mime_decode/1,
 	 encode_to_string/1, decode_to_string/1, mime_decode_to_string/1]).
 
+
+%% RFC 4648: Base 64 Encoding alphabet
+-type base64_alphabet() :: $A..$Z | $a..$z | $0..$9 | $+ | $/ | $=.
+
 %% The following type is a subtype of string() for return values
-%% of (some) functions of this module.
--type ascii_string() :: [1..255].
--type ascii_binary() :: binary().
+%% of encoding functions.
+-type base64_string() :: [base64_alphabet()].
+-type base64_binary() :: binary().
+
+%% Decoded sequence of octets
+-type byte_string() :: [byte()].
 
 -spec encode_to_string(Data) -> Base64String when
-      Data :: ascii_string() | ascii_binary(),
-      Base64String :: ascii_string().
+      Data :: byte_string() | binary(),
+      Base64String :: base64_string().
 
 encode_to_string(Bin) when is_binary(Bin) ->
     encode_to_string(binary_to_list(Bin));
@@ -39,8 +46,8 @@ encode_to_string(List) when is_list(List) ->
     encode_list_to_string(List).
 
 -spec encode(Data) -> Base64 when
-      Data :: ascii_string() | ascii_binary(),
-      Base64 :: ascii_binary().
+      Data :: byte_string() | binary(),
+      Base64 :: base64_binary().
 
 encode(Bin) when is_binary(Bin) ->
     encode_binary(Bin, <<>>);
@@ -99,8 +106,8 @@ encode_list([B1,B2,B3|Ls], A) ->
 %% converting, whereas decode crashes if an illegal character is found
 
 -spec decode(Base64) -> Data when
-      Base64 :: ascii_string() | ascii_binary(),
-      Data :: ascii_binary().
+      Base64 :: base64_string() | base64_binary(),
+      Data :: binary().
 
 decode(Bin) when is_binary(Bin) ->
     decode_binary(Bin, <<>>);
@@ -108,8 +115,8 @@ decode(List) when is_list(List) ->
     decode_list(List, <<>>).
 
 -spec mime_decode(Base64) -> Data when
-      Base64 :: ascii_string() | ascii_binary(),
-      Data :: ascii_binary().
+      Base64 :: base64_string() | base64_binary(),
+      Data :: binary().
 
 mime_decode(Bin) when is_binary(Bin) ->
     mime_decode_binary(Bin, <<>>);
@@ -121,8 +128,8 @@ mime_decode(List) when is_list(List) ->
 %% character is found
 
 -spec decode_to_string(Base64) -> DataString when
-      Base64 :: ascii_string() | ascii_binary(),
-      DataString :: ascii_string().
+      Base64 :: base64_string() | base64_binary(),
+      DataString :: byte_string().
 
 decode_to_string(Bin) when is_binary(Bin) ->
     decode_to_string(binary_to_list(Bin));
@@ -130,8 +137,8 @@ decode_to_string(List) when is_list(List) ->
     decode_list_to_string(List).
 
 -spec mime_decode_to_string(Base64) -> DataString when
-      Base64 :: ascii_string() | ascii_binary(),
-      DataString :: ascii_string().
+      Base64 :: base64_string() | base64_binary(),
+      DataString :: byte_string().
 
 mime_decode_to_string(Bin) when is_binary(Bin) ->
     mime_decode_to_string(binary_to_list(Bin));
