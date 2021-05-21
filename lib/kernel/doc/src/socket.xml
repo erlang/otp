@@ -218,24 +218,44 @@
     </datatype>
     <datatype>
       <name name="socket_counters"/>
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="info_keys"/>
+      <desc>
+	<p>
+	  Defines the information elements of the table(s) printed
+	  by the 
+	  <seemfa marker="#i/0">i/0</seemfa>, 
+	  <seemfa marker="#i/1">i/1</seemfa> and
+	  <seemfa marker="#i/2">i/2</seemfa>
+	  functions.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="socket_info"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="in_addr"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="in6_addr"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="sockaddr"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="sockaddr_in"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="sockaddr_in6"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="sockaddr_un"/>
@@ -265,21 +285,27 @@
     </datatype>
     <datatype>
       <name name="sockaddr_ll"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="sockaddr_recv"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="packet_type"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="port_number"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="in6_flow_info"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="in6_scope_id"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="msg_flag"/>
@@ -1251,6 +1277,7 @@
     </datatype>
     <datatype>
       <name name="native_value"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="cmsg_send"/>
@@ -1285,15 +1312,19 @@
     </datatype>
     <datatype>
       <name name="icmp_dest_unreach"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="icmpv6_dest_unreach"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="ee_origin"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="extended_err"/>
+      <desc></desc>
     </datatype>
     <datatype>
       <name name="posix"/>
@@ -1781,6 +1812,103 @@
 	  as well as the <c><anno>Value</anno></c> encoding
 	  has to be deduced from the header files for
 	  the running system.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="0" since="OTP @OTP-17376@"/>
+      <fsummary>List all sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print all sockets in table format in the erlang shell.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="1" clause_i="1"
+            since="OTP @OTP-17376@"/>
+      <fsummary>List sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print all sockets in table format in the erlang shell.
+	  What information is included is defined by <c>InfoKeys</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="1" clause_i="2"
+            since="OTP @OTP-17376@"/>
+      <fsummary>List sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print a selection, based on domain, of the sockets in table format
+	  in the erlang shell.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="1" clause_i="3"
+            since="OTP @OTP-17376@"/>
+      <fsummary>List sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print a selection, based on protocol, of the sockets
+	  in table format in the erlang shell.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="1" clause_i="4"
+            since="OTP @OTP-17376@"/>
+      <fsummary>List sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print a selection, based on type, of the sockets
+	  in table format in the erlang shell.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="2" clause_i="1"
+            since="OTP @OTP-17376@"/>
+      <fsummary>List sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print a selection, based on domain, of the sockets
+	  in table format in the erlang shell.
+	  What information is included is defined by <c>InfoKeys</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="2" clause_i="2"
+            since="OTP @OTP-17376@"/>
+      <fsummary>List sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print a selection, based on domain, of the sockets
+	  in table format in the erlang shell.
+	  What information is included is defined by <c>InfoKeys</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="2" clause_i="3"
+            since="OTP @OTP-17376@"/>
+      <fsummary>List sockets in a table.</fsummary>
+      <desc>
+        <p>
+	  Print a selection, based on type, of the sockets
+	  in table format in the erlang shell.
+	  What information is included is defined by <c>InfoKeys</c>.
 	</p>
       </desc>
     </func>
