@@ -173,7 +173,7 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(openssh, Config) ->
-    case ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []) of
+    case ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon (econnrefused)"};
 	{ok, Socket} ->
@@ -207,7 +207,7 @@ simple_exec(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 simple_exec_sock(_Config) ->
-    {ok, Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
+    {ok, Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, [{active,false}]),
     {ok, ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
 					     {user_interaction, false}]),
     do_simple_exec(ConnectionRef).
@@ -218,7 +218,7 @@ simple_exec_two_socks(_Config) ->
     F = fun() ->
                 spawn_link(
                   fun() ->
-                          {ok, Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
+                          {ok, Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, [{active,false}]),
                           {ok, ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
                                                                    {user_interaction, false}]),
                           Parent ! {self(),do_simple_exec(ConnectionRef)}
@@ -247,13 +247,13 @@ daemon_sock_not_tcp(_Config) ->
 
 %%--------------------------------------------------------------------
 connect_sock_not_passive(_Config) ->
-    {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
+    {ok,Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, []), 
     {error, not_passive_mode} = ssh:connect(Sock, []),
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
 daemon_sock_not_passive(_Config) ->
-    {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
+    {ok,Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, []), 
     {error, not_passive_mode} = ssh:daemon(Sock),
     gen_tcp:close(Sock).
 
@@ -973,7 +973,7 @@ start_shell_sock_daemon_exec(Config) ->
 
     %% A server tcp-contects to the listening socket and starts an ssh daemon
     spawn_link(fun() ->
-		       {ok,Ss} = ssh_test_lib:gen_tcp_connect("localhost", Port, [{active,false}]),
+		       {ok,Ss} = ssh_test_lib:gen_tcp_connect(Port, [{active,false}]),
 		       {ok, _Pid} = ssh:daemon(Ss, [{system_dir, SysDir},
 						    {user_dir, UserDir},
 						    {password, "morot"},
@@ -1024,7 +1024,7 @@ start_shell_sock_daemon_exec_multi(Config) ->
     %% Servers tcp-contects to the listening socket and starts an ssh daemon
     Pids =
         [spawn_link(fun() ->
-                            {ok,Ss} = ssh_test_lib:gen_tcp_connect("localhost", Port, [{active,false}]),
+                            {ok,Ss} = ssh_test_lib:gen_tcp_connect(Port, [{active,false}]),
                             {ok, _Pid} = ssh:daemon(Ss, DaemonOpts)
                     end)
          || _ <- lists:seq(1,NumConcurent)],

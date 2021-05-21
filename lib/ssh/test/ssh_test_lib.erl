@@ -30,6 +30,7 @@ daemon/2,
 daemon/3,
 daemon_port/1,
 daemon_port/2,
+gen_tcp_connect/2,
 gen_tcp_connect/3,
 open_sshc/3,
 open_sshc/4,
@@ -174,6 +175,9 @@ daemon_port(0, Pid) -> {ok,Dinf} = ssh:daemon_info(Pid),
 daemon_port(Port, _) -> Port.
 
 %%%----------------------------------------------------------------
+gen_tcp_connect(Port, Options) ->
+    gen_tcp_connect("localhost", Port, Options).
+
 gen_tcp_connect(Host0, Port, Options) ->
     Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
     ct:log("~p:~p gen_tcp:connect(~p, ~p, ~p)~nHost0 = ~p",
