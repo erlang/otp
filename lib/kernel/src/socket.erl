@@ -35,6 +35,7 @@
 
          debug/1, socket_debug/1, use_registry/1,
 	 info/0, info/1,
+	 i/0, i/1, i/2,
          monitor/1, cancel_monitor/1,
          supports/0, supports/1, supports/2,
          is_supported/1, is_supported/2, is_supported/3,
@@ -129,7 +130,9 @@
               ee_origin/0,
               icmp_dest_unreach/0,
               icmpv6_dest_unreach/0,
-              extended_err/0
+              extended_err/0,
+
+	      info_keys/0
              ]).
 
 %% We need #file_descriptor{} for sendfile/2,3,4,5
@@ -690,6 +693,15 @@
 
 -type posix() :: inet:posix().
 
+-type info_keys() :: [
+		      'domain' | 'type' | 'protocol' |
+		      'fd' | 'owner' |
+		      'local_address' | 'remote_address' |
+		      'recv' | 'sent' |
+		      'state'
+		     ].
+
+
 %% ===========================================================================
 %%
 %% Interface term formats
@@ -706,6 +718,7 @@
 
 -define(SELECT_INFO(Tag, SelectHandle),
         {select_info, Tag, SelectHandle}).
+
 
 %% ===========================================================================
 %%
@@ -756,7 +769,7 @@ which_sockets() ->
     ?REGISTRY:which_sockets(true).
 
 -spec which_sockets(FilterRule) -> [socket()] when
-	FilterRule :: 'inet' | 'inet6' |
+	FilterRule :: 'inet' | 'inet6' | 'local' |
 	'stream' | 'dgram' | 'seqpacket' |
 	'sctp' | 'tcp' | 'udp' |
 	pid() |
@@ -764,7 +777,8 @@ which_sockets() ->
 
 which_sockets(Domain)
   when Domain =:= inet;
-       Domain =:= inet6 ->
+       Domain =:= inet6;
+       Domain =:= local ->
     ?REGISTRY:which_sockets({domain, Domain});
 
 which_sockets(Type)
@@ -890,6 +904,228 @@ use_registry(D) when is_boolean(D) ->
 
 %% ===========================================================================
 %%
+%% i/0,1,2 - List sockets
+%%
+%% This produces a list of "all" the sockets, and some info about each one.
+%% This function is intended as a utility and debug function.
+%% The sockets can be selected from domain, type or porotocol.
+%% The sockets are not sorted.
+%% 
+%% ===========================================================================
+
+-spec default_info_keys() -> info_keys().
+
+default_info_keys() ->
+    [
+     domain, type, protocol, fd, owner,
+     local_address, remote_address,
+     recv, sent,
+     state
+    ].
+
+-spec i() -> ok.
+     
+i() ->
+    do_i(which_sockets(), default_info_keys()).
+
+-spec i(InfoKeys) -> ok when
+        InfoKeys :: info_keys();
+       (Domain) -> ok when
+        Domain :: inet | inet6 | local;
+       (Proto) -> ok when
+        Proto :: sctp | tcp | udp;
+       (Type) -> ok when
+        Type :: dgram | seqpacket | stream.
+
+i(InfoKeys) when is_list(InfoKeys) ->
+    do_i(which_sockets(), InfoKeys);
+i(Domain) when (Domain =:= inet) orelse
+	       (Domain =:= inet6) orelse
+	       (Domain =:= local) ->
+    do_i(which_sockets(Domain), default_info_keys());
+i(Proto) when (Proto =:= tcp) orelse
+	      (Proto =:= udp) orelse
+	      (Proto =:= sctp) ->
+    do_i(which_sockets(Proto), default_info_keys());
+i(Type) when (Type =:= dgram) orelse
+	     (Type =:= seqpacket) orelse
+	     (Type =:= stream) ->
+    do_i(which_sockets(Type), default_info_keys()).
+
+-spec i(Domain, InfoKeys) -> ok when
+        Domain :: inet | inet6 | local,
+	InfoKeys :: info_keys();
+       (Proto, InfoKeys) -> ok when
+	Proto :: sctp | tcp | udp,
+	InfoKeys :: info_keys();
+       (Type, InfoKeys) -> ok when
+	Type :: dgram | seqpacket | stream,
+	InfoKeys :: info_keys().
+
+i(Domain, InfoKeys)
+  when ((Domain =:= inet) orelse
+	(Domain =:= inet6) orelse
+	(Domain =:= local)) andalso
+       is_list(InfoKeys) ->
+    do_i(which_sockets(Domain), InfoKeys);
+i(Proto, InfoKeys)
+  when ((Proto =:= tcp) orelse
+	(Proto =:= udp) orelse
+	(Proto =:= sctp)) andalso
+       is_list(InfoKeys) ->
+    do_i(which_sockets(Proto), InfoKeys);
+i(Type, InfoKeys)
+  when ((Type =:= dgram) orelse
+	(Type =:= seqpacket) orelse
+	(Type =:= stream)) andalso
+       is_list(InfoKeys) ->
+    do_i(which_sockets(Type), InfoKeys).
+
+do_i(Sockets, InfoKeys) ->
+    Lines = case i_sockets(Sockets, InfoKeys) of
+		[] -> [];
+		InfoLines -> [header_line(InfoKeys) | InfoLines]
+	    end,
+    Maxs = lists:foldl(fun(Line, Max0) -> smax(Max0, Line) end,
+		       lists:duplicate(length(InfoKeys), 0), Lines),
+    Fmt = lists:append(["~-" ++ integer_to_list(N) ++ "s " ||
+			   N <- Maxs]) ++ "~n",
+    lists:foreach(fun(Line) -> io:format(Fmt, Line) end, Lines).
+
+header_line(Fields) ->
+    [header_field(atom_to_list(F)) || F <- Fields].
+header_field([C | Cs]) ->
+    [string:to_upper(C) | header_field_rest(Cs)].
+header_field_rest([$_, C | Cs]) ->
+    [$\s, string:to_upper(C) | header_field_rest(Cs)];
+header_field_rest([C|Cs]) ->
+    [C | header_field_rest(Cs)];
+header_field_rest([]) ->
+    [].
+
+smax([Max|Ms], [Str|Strs]) ->
+    N = length(Str),
+    [if N > Max -> N; true -> Max end | smax(Ms, Strs)];
+smax([], []) ->
+    [].
+
+i_sockets(Sockets, InfoKeys) ->
+    [i_socket(Socket, InfoKeys) || Socket <- Sockets].
+
+i_socket(Socket, InfoKeys) ->
+    %% Most of the stuff we need, is in 'socket info'
+    %% so we can just as well get it now.
+    Info = #{protocol := Proto} = info(Socket),
+    i_socket(Proto, Socket, Info, InfoKeys).
+
+i_socket(Proto, Socket, Info, InfoKeys) ->
+    [i_socket_info(Proto, Socket, Info, InfoKey) || InfoKey <- InfoKeys].
+
+i_socket_info(_Proto, _Socket, #{domain := Domain} = _Info, domain) ->
+    atom_to_list(Domain);
+i_socket_info(_Proto, _Socket, #{type := Type} = _Info, type) ->
+    string:to_upper(atom_to_list(Type));
+i_socket_info(Proto, _Socket, _Info, protocol) ->
+    string:to_upper(atom_to_list(Proto));
+i_socket_info(_Proto, Socket, _Info, fd) ->
+    case socket:getopt(Socket, otp, fd) of
+	{ok,   FD} -> integer_to_list(FD);
+	{error, _} -> " "
+    end;
+i_socket_info(_Proto, _Socket, #{owner := Pid} = _Info, owner) ->
+    pid_to_list(Pid);
+i_socket_info(Proto, Socket, _Info, local_address) ->
+    case sockname(Socket) of
+	{ok,  Addr} ->
+	    fmt_sockaddr(Addr, Proto);
+	{error, _} ->
+	    " "
+    end;
+i_socket_info(Proto, Socket, _Info, remote_address) ->
+    case peername(Socket) of
+	{ok,  Addr} ->
+	    fmt_sockaddr(Addr, Proto);
+	{error, _} ->
+	    " "
+    end;
+i_socket_info(_Proto, _Socket,
+	      #{counters := #{read_byte := N}} = _Info, recv) ->
+    integer_to_list(N);
+i_socket_info(_Proto, _Socket,
+	      #{counters := #{write_byte := N}} = _Info, sent) ->
+    integer_to_list(N);
+i_socket_info(_Proto, _Socket, #{rstates := RStates,
+				 wstates := WStates} = _Info, state) ->
+    fmt_states(RStates, WStates);
+i_socket_info(_Proto, _Socket, _Info, _Key) ->
+    " ".
+
+fmt_states([], []) ->
+    " ";
+fmt_states(RStates, []) ->
+    fmt_states(RStates) ++ ", -";
+fmt_states([], WStates) ->
+    " - , " ++ fmt_states(WStates);
+fmt_states(RStates, WStates) ->
+    fmt_states(RStates) ++ " , " ++ fmt_states(WStates).
+
+fmt_states([H]) ->
+    fmt_state(H);
+fmt_states([H|T]) ->
+    fmt_state(H) ++ ":"  ++ fmt_states(T).
+
+fmt_state(accepting) ->
+    "A";
+fmt_state(bound) ->
+    "BD";
+fmt_state(busy) ->
+    "BY";
+fmt_state(connected) ->
+    "CD";
+fmt_state(connecting) ->
+    "CG";
+fmt_state(listen) ->
+    "LN";
+fmt_state(listening) ->
+    "LG";
+fmt_state(open) ->
+    "O";
+fmt_state(selected) ->
+    "SD";
+fmt_state(X) when is_atom(X) ->
+    string:uppercase(atom_to_list(X)).
+
+
+fmt_sockaddr(#{family := Fam,
+	       addr   := Addr,
+	       port   := Port}, Proto)
+  when (Fam =:= inet) orelse (Fam =:= inet6) ->
+    case Addr of
+	{0,0,0,0}         -> "*:" ++ fmt_port(Port, Proto);
+	{0,0,0,0,0,0,0,0} -> "*:" ++ fmt_port(Port, Proto);
+	{127,0,0,1}       -> "localhost:" ++ fmt_port(Port, Proto);
+	{0,0,0,0,0,0,0,1} -> "localhost:" ++ fmt_port(Port, Proto);
+	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
+    end;
+fmt_sockaddr(#{family := local,
+	       path   := Path}, _Proto) ->
+    "local:" ++ 
+	if is_list(Path) ->
+		Path;
+	   is_binary(Path) ->
+		binary_to_list(Path)
+	end.
+
+
+fmt_port(N, Proto) ->
+    case inet:getservbyport(N, Proto) of
+	{ok, Name} -> f("~s (~w)", [Name, N]);
+	_ -> integer_to_list(N)
+    end.
+
+
+%% ===========================================================================
+%%
 %% info - Get miscellaneous information about a socket
 %% or about the socket library.
 %%
@@ -906,7 +1142,7 @@ info() ->
 
 
 -spec info(Socket) -> socket_info() when
-      Socket :: socket().
+					Socket :: socket().
 %%
 info(?socket(SockRef)) when is_reference(SockRef) ->
     prim_socket:info(SockRef);
@@ -3892,6 +4128,9 @@ bincat(<<_/binary>> = A, <<>>) -> A;
 bincat(<<_/binary>> = A, <<_/binary>> = B) ->
     <<A/binary, B/binary>>.
 
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
 %% p(F) ->
 %%     p(F, []).
