@@ -129,7 +129,8 @@ sshc_subtree(Config) when is_list(Config) ->
 
     ?wait_match([], supervisor:which_children(sshc_sup)),
 
-    {ok, Pid1} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+    Pid1 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                             {save_accepted_host, false},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
 
@@ -139,7 +140,8 @@ sshc_subtree(Config) when is_list(Config) ->
                 [SysSup, LocalIP, LocalPort]),
     check_sshc_system_tree(SysSup, Pid1, LocalIP, LocalPort, Config),
 
-    {ok, Pid2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+    Pid2 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                             {save_accepted_host, false},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD}, {user_dir, UserDir}]),
     ?wait_match([?SYSTEM_SUP(_,_),
@@ -219,7 +221,8 @@ killed_acceptor_restarts(Config) ->
     true = (AccPid /= AccPid2),
 
     %% Connect first client and check it is alive:
-    {ok,C1} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+    C1 = ssh_test_lib:connect("localhost", Port, [{silently_accept_hosts, true},
+                                                   {save_accepted_host, false},
                                               {user_interaction, false},
                                               {user, ?USER},
                                               {password, ?PASSWD},
@@ -246,6 +249,7 @@ killed_acceptor_restarts(Config) ->
     %% Connect second client and check it is alive:
     C2 =
         case ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+                                             {save_accepted_host, false},
                                              {user_interaction, false},
                                              {user, ?USER},
                                              {password, ?PASSWD},
@@ -383,7 +387,7 @@ chk_empty_con_daemon(Daemon) ->
 %%-------------------------------------------------------------------------
 check_sshd_system_tree(Daemon, Host, Port, Config) -> 
     UserDir = proplists:get_value(userdir, Config),
-    {ok, ClientConn} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+    ClientConn = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                                 {user_interaction, false},
                                                 {user, ?USER},
                                                 {password, ?PASSWD},

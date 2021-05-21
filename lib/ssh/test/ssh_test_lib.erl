@@ -135,11 +135,42 @@ connect(Port, Options) when is_integer(Port) ->
 
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
-connect(Host, Port, Options) ->
+
+connect(Host, ?SSH_DEFAULT_PORT, Options0) ->
+    Options =
+        set_opts_if_not_set([{silently_accept_hosts, true},
+                             {save_accepted_host, false},
+                             {user_interaction, false}
+                            ], Options0),
+    do_connect(Host, ?SSH_DEFAULT_PORT, Options);
+
+connect(Host, Port, Options0) ->
+    Options =
+        case proplists:get_value(user_dir,Options0) of
+            undefined ->
+                %% Avoid uppdating the known_hosts if it is the default one
+                set_opts_if_not_set([{save_accepted_host, false}], Options0);
+            _ ->
+                Options0
+        end,
+    do_connect(Host, Port, Options).
+
+
+do_connect(Host, Port, Options) ->
     R = ssh:connect(Host, Port, Options),
     ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
+
+set_opts_if_not_set(OptsToSet, Options0) ->
+    lists:foldl(fun({K,V}, Opts) ->
+                        case proplists:get_value(K, Opts) of
+                            undefined ->
+                                [{K,V} | Opts];
+                            _ ->
+                                Opts
+                        end
+                end, Options0, OptsToSet).
 
 %%%----------------------------------------------------------------
 daemon(Options) ->
@@ -287,7 +318,9 @@ start_shell(Port, IOServer, ExtraOptions) ->
               ct:log("~p:~p:~p ssh_test_lib:start_shell(~p, ~p, ~p)",
                      [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
-			 {silently_accept_hosts,true} | ExtraOptions],
+			 {silently_accept_hosts,true},
+                         {save_accepted_host,false}
+                         | ExtraOptions],
               try
                   group_leader(IOServer, self()),
                   case Port of
@@ -535,6 +568,7 @@ openssh_sanity_check(Config) ->
     case ssh:connect("localhost", ?SSH_DEFAULT_PORT,
                      [{password,""},
                       {silently_accept_hosts, true},
+                      {save_accepted_host, false},
                       {user_interaction, false}
                      ]) of
 	{ok, Pid} ->
@@ -560,6 +594,7 @@ default_algorithms(sshd, Host, Port) ->
     try run_fake_ssh(
 	  ssh_trpt_test_lib:exec(
 	    [{connect,Host,Port, [{silently_accept_hosts, true},
+                                  {save_accepted_host, false},
 				  {user_interaction, false}]}]))
     catch
 	_C:_E ->
