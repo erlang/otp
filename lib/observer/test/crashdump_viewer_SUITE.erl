@@ -35,6 +35,8 @@
 -define(failed_file,"failed-cases.txt").
 -define(helper_mod,crashdump_helper).
 
+%% -define(P(F),    print(F)).
+-define(P(F, A), print(F, A)).
 
 
 init_per_testcase(start_stop, Config) ->
@@ -336,7 +338,8 @@ wait_for_progress_done() ->
 %%%-----------------------------------------------------------------
 %%% General check of what is displayed for a dump
 browse_file(File) ->
-    io:format("~nBrowsing file: ~s",[File]),
+    io:format("~n[~s] Browsing file: ~s", [formated_timestamp(), File]),
+    %% io:format("~nBrowsing file: ~s",[File]),
 
     ok = start_backend(File),
 
@@ -671,12 +674,17 @@ lookat_all_pids([#proc{pid=Pid0}|Procs],TruncAllowed,IncompAllowed) ->
         {[],[],[]} ->
             ok;
         {["WARNING: This process has an incomplete heap."++_],[],[]}
-          when IncompAllowed ->
+	when IncompAllowed ->
             ok;  % native libs, literals might not be included in dump
         _ when TruncAllowed ->
             ok; % truncated dump
         TWs ->
-            ct:fail({unexpected_warning,Pid,TWs})
+	    ?P("lookat_all_pids -> unexpected warning"
+	       "~n   Pid:           ~s"
+	       "~n   IncompAllowed: ~p"
+	       "~n   TruncAllowed:  ~p"
+	       "~n   ~p", [Pid, IncompAllowed, TruncAllowed, TWs]),
+            ct:fail({unexpected_warning, Pid, TWs, IncompAllowed, TruncAllowed})
     end,
     lookat_all_pids(Procs,TruncAllowed,IncompAllowed).
 
@@ -984,3 +992,26 @@ compat_rel(current) ->
     "";
 compat_rel(Rel) ->
     lists:concat(["+R",Rel," "]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% f(F, A) ->
+%%     lists:flatten(io_lib:format(F, A)).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+%% print(F) ->
+%%     print(F, []).
+
+print(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+
