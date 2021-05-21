@@ -3764,6 +3764,7 @@ collect_accepts(N,Tmo) ->
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
 
     after Tmo ->
+            ?P("accept timeout (~w)", [Tmo]),
 	    []
     end.
    
@@ -4366,7 +4367,29 @@ do_killing_multi_acceptors_inet(LS) ->
     validate_acceptor_state(LS, [accepting], []),
 
     ?P("await second acceptor exit - timeout"),
-    ok = ?EXPECT_ACCEPTS([{Pid2, {error,timeout}}], 1, 1000),
+    case ?EXPECT_ACCEPTS([{Pid2, {error,timeout}}], 1, 1000) of
+	ok ->
+	    ?P("second acceptor - expected result"),
+	    ok;
+	Any ->
+	    ?P("second acceptor - failed:"
+	       "~n      ~p", [Any]),
+	    %% Check what Pid2 is doing
+	    Pid2Info1 = process_info(Pid2),
+	    Pid2Msgs1 = process_info(Pid2, messages),
+	    %% Check if this is just a race...
+	    ?SLEEP(?SECS(1)),
+	    Pid2Info2 = process_info(Pid2),
+	    Pid2Msgs2 = process_info(Pid2, messages),
+	    ?P("second acceptor failed - check ~p"
+	       "~n      Info 1: ~p"
+	       "~n      Msgs 1: ~p"
+	       "~n   After 1 sec sleep:"
+	       "~n      Info 2: ~p"
+	       "~n      Msgs 2: ~p",
+	       [Pid2, Pid2Info1, Pid2Msgs1, Pid2Info2, Pid2Msgs2]),
+	    ct:fail({unexpected_accepts, Any})
+    end,
 
     ?P("validate state - *not* accepting"),
     validate_acceptor_state(LS, [listen], [accepting]),
