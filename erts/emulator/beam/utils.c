@@ -2343,23 +2343,15 @@ make_internal_hash(Eterm term, Uint32 salt)
             case EXTERNAL_PID_SUBTAG: {
                 ExternalThing* thing = external_thing_ptr(term);
                 /* See limitation #2 */
-            #ifdef ARCH_64
                 POINTER_HASH(thing->node, HCONST_5);
-                UINT32_HASH(thing->data.ui[0], HCONST_5);
-            #else
-                UINT32_HASH_2(thing->node, thing->data.ui[0], HCONST_5);
-            #endif
+                UINT32_HASH_2(thing->data.pid.num, thing->data.pid.ser, HCONST_5);
 		goto pop_next;
             }
 	    case EXTERNAL_PORT_SUBTAG: {
                 ExternalThing* thing = external_thing_ptr(term);
                 /* See limitation #2 */
-            #ifdef ARCH_64
                 POINTER_HASH(thing->node, HCONST_6);
-                UINT32_HASH(thing->data.ui[0], HCONST_6);
-            #else
-                UINT32_HASH_2(thing->node, thing->data.ui[0], HCONST_6);
-            #endif
+                UINT32_HASH_2(thing->data.ui32[0], thing->data.ui32[1], HCONST_6);
 		goto pop_next;
             }
 	    case FLOAT_SUBTAG:
