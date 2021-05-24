@@ -809,8 +809,6 @@ extern "C"
 
     void beamasm_purge_module(const void *native_module_exec,
                               void *native_module_rw) {
-        ASSERT(native_module_exec != native_module_rw);
-
         jit_allocator->release(const_cast<void *>(native_module_exec));
     }
 
