@@ -83,7 +83,9 @@
          ssh_hostkey_fingerprint_sha256/1,
          ssh_hostkey_fingerprint_sha384/1,
          ssh_hostkey_fingerprint_sha512/1,
-         ssh_hostkey_fingerprint_list/1
+         ssh_hostkey_fingerprint_list/1,
+
+         chk_known_hosts/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -103,7 +105,8 @@ all() ->
      {group, new_format},
      {group, option_space},
      {group, ssh_hostkey_fingerprint},
-     {group, ssh_public_key_decode_encode}
+     {group, ssh_public_key_decode_encode},
+     chk_known_hosts
     ].
 
 
@@ -783,6 +786,54 @@ ssh_hostkey(rsa) ->
 	  <<"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDYXcYmsyJBstl4EfFYzfQJmSiUE162zvSGSoMYybShYOI6rnnyvvihfw8Aml+2gZ716F2tqG48FQ/yPZEGWNPMrCejPpJctaPWhpNdNMJ8KFXSEgr5bY2mEpa19DHmuDeXKzeJJ+X7s3fVdYc4FMk5731KIW6Huf019ZnTxbx0VKG6b1KAJBg3vpNsDxEMwQ4LFMB0JHVklOTzbxmpaeULuIxvl65A+eGeFVeo2Q+YI9UnwY1vSgmc9Azwy8Ie9Z0HpQBN5I7Uc5xnknT8V6xDhgNfXEfzsgsRdDfZLECt1WO/1gP9wkosvAGZWt5oG8pbNQWiQdFq536ck8WQD9WD none@example.org">>,
 	  public_key),
     PKdecoded.
+
+%%%----------------------------------------------------------------
+chk_known_hosts(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    DataDir = filename:join(proplists:get_value(data_dir,Config), "new_format"),
+    SysDir = filename:join(PrivDir, "chk_known_hosts_sys_dir"),
+    ssh_test_lib:setup_all_host_keys(DataDir, SysDir),
+
+    UsrDir = filename:join(PrivDir, "chk_known_hosts_usr_dir"),
+    file:make_dir(UsrDir),
+    KnownHostsFile = filename:join(UsrDir, "known_hosts"),
+
+    DaemonOpts = [{system_dir, SysDir},
+                  {user_dir, UsrDir},
+                  {password, "bar"}],
+
+    UserOpts = [{user_dir, UsrDir},
+                {user, "foo"},
+                {password, "bar"},
+                {silently_accept_hosts, true},
+                {user_interaction, false}
+               ],
+
+    {_Pid1, Host1, Port1} = ssh_test_lib:daemon(DaemonOpts),
+    {_Pid2, Host2, Port2} = ssh_test_lib:daemon(DaemonOpts),
+
+    _C1 = ssh_test_lib:connect(Host1, Port1, UserOpts),
+    {ok,KnownHosts1} = file:read_file(KnownHostsFile),
+    Sz1 = byte_size(KnownHosts1),
+    ct:log("~p bytes KnownHosts1 = ~p", [Sz1, KnownHosts1]),
+
+    _C2 = ssh_test_lib:connect(Host2, Port2, UserOpts),
+    {ok,KnownHosts2} = file:read_file(KnownHostsFile),
+    Sz2 = byte_size(KnownHosts2),
+    ct:log("~p bytes KnownHosts2 = ~p", [Sz2, KnownHosts2]),
+
+    %% Check that 2nd is appended after the 1st:
+    <<KnownHosts1:Sz1/binary, _/binary>> = KnownHosts2,
+
+    %% Check that there are exactly two NLs:
+    2 = lists:foldl(fun($\n, Sum) -> Sum + 1;
+                       (_,   Sum) -> Sum
+                    end, 0, binary_to_list(KnownHosts2)),
+
+    %% Check that at least one NL terminates both two lines:
+    <<_:(Sz1-1)/binary, $\n, _:(Sz2-Sz1-1)/binary, $\n>> = KnownHosts2.
+
 
 %%%----------------------------------------------------------------
 try_connect({skip,Reson}) ->
