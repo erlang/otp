@@ -40,7 +40,11 @@ actions(Source, Forms, Options) ->
         error ->
             {error, Es, Ws};
         undefined_error ->
-            {error, [{Source, [{{1,1}, ?MODULE, unknown_error}]}], []}
+            {error, [{Source, [{{1,1}, ?MODULE, unknown_error}]}], []};
+        throw ->
+            throw(thrown);
+        exit ->
+            exit(exited)
     end.
 
 format_error(bad_moon_phase) ->

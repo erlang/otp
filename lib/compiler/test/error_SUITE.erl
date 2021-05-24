@@ -230,24 +230,37 @@ transforms(Config) ->
 	    [return],
 	    {error,[{none,compile,{undef_parse_transform,non_existing}}],[]}}],
     [] = run(Config, Ts1),
+
     Ts2 = <<"
               -compile({parse_transform,",?MODULE_STRING,"}).
              ">>,
-    {error,[{none,compile,{parse_transform,?MODULE,{too_bad,_}}}],[]} =
-	run_test(Ts2, test_filename(Config), [], dont_write_beam),
-    Ts3 = <<"
-              -compile({parse_transform,",?MODULE_STRING,"}).
-             ">>,
-    {error,[{none,compile,{parse_transform,?MODULE,{undef,_}}}],[]} =
-        run_test(Ts3, test_filename(Config), [call_undef], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{error,too_bad,_}}}],[]} =
+	run_test(Ts2, test_filename(Config), [{pt_error,error}], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{error,undef,_}}}],[]} =
+        run_test(Ts2, test_filename(Config), [{pt_error,call_undef}], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{exit,exited,_}}}],[]} =
+        run_test(Ts2, test_filename(Config), [{pt_error,exit}], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{throw,thrown,[_|_]}}}],[]} =
+        run_test(Ts2, test_filename(Config), [{pt_error,throw}], dont_write_beam),
+
     ok.
 
 parse_transform(_, Opts) ->
-    case lists:member(call_undef, Opts) of
-        false -> error(too_bad);
-        true -> camembert:délicieux()
+    {_,Error} = lists:keyfind(pt_error, 1, Opts),
+    case Error of
+        call_undef ->
+            camembert:délicieux();
+        throw ->
+            throw(thrown);
+        exit ->
+            exit(exited);
+        error ->
+            error(too_bad)
     end.
-
 
 maps_warnings(Config) when is_list(Config) ->
     Ts1 = [{map_ok_use_of_pattern,

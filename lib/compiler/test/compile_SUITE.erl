@@ -1768,14 +1768,26 @@ do_transforms(Config) ->
                                     {core_transform,generic_pt},
                                     {parse_transform,generic_pt}]),
 
-    %% Test crashing in a core transform.
+    %% Test exceptions from a core transform.
     Simple = filename:join(DataDir, simple),
     error = compile:file(Simple, [report, {core_transform,generic_pt}, {action, crash}]),
-    {error,_,_} = compile:file(Simple, [return, {core_transform,generic_pt}, {action, crash}]),
+    {error,_,[]} = compile:file(Simple, [return, {core_transform,generic_pt}, {action, crash}]),
 
-    %% Test crashing in a parse transform.
+    error = compile:file(Simple, [report, {core_transform,generic_pt}, {action, throw}]),
+    {error,_,[]} = compile:file(Simple, [return, {core_transform,generic_pt}, {action, throw}]),
+
+    error = compile:file(Simple, [report, {core_transform,generic_pt}, {action, exit}]),
+    {error,_,[]} = compile:file(Simple, [return, {core_transform,generic_pt}, {action, exit}]),
+
+    %% Test exceptions from a parse transform.
     error = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, crash}]),
-    {error,_,_} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, crash}]),
+    {error,_,[]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, crash}]),
+
+    error = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, throw}]),
+    {error,_,[]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, throw}]),
+
+    error = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, exit}]),
+    {error,_,[]} = compile:file(Simple, [return, {parse_transform,generic_pt}, {action, exit}]),
 
     %% Test generating errors and warnings in a parse_transform.
     {ok,simple} = compile:file(Simple, [report, {parse_transform,generic_pt}, {action, warning}]),
