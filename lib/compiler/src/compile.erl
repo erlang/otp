@@ -324,12 +324,14 @@ format_error({write_error, Error}) ->
 format_error({rename,From,To,Error}) ->
     io_lib:format("failed to rename ~ts to ~ts: ~ts",
 		  [From,To,file:format_error(Error)]);
-format_error({parse_transform,M,R}) ->
-    io_lib:format("error in parse transform '~ts': ~tp", [M, R]);
+format_error({parse_transform,M,{C,R,Stk}}) ->
+    E = format_error_reason(C, R, Stk),
+    io_lib:format("error in parse transform '~ts':\n~ts", [M, E]);
 format_error({undef_parse_transform,M}) ->
     io_lib:format("undefined parse transform '~ts'", [M]);
-format_error({core_transform,M,R}) ->
-    io_lib:format("error in core transform '~s': ~tp", [M, R]);
+format_error({core_transform,M,{C,R,Stk}}) ->
+    E = format_error_reason(C, R, Stk),
+    io_lib:format("error in core transform '~s':\n~ts", [M, E]);
 format_error({crash,Pass,Reason,Stk}) ->
     io_lib:format("internal error in pass ~p:\n~ts", [Pass,format_error_reason({Reason, Stk})]);
 format_error({bad_return,Pass,Reason}) ->
@@ -1152,9 +1154,9 @@ foldl_transform([T|Ts], Code0, St) ->
                 Forms ->
                     foldl_transform(Ts, Forms, St)
             catch
-                error:Reason:Stk ->
+                Class:Reason:Stk ->
                     Es = [{St#compile.ifile,[{none,compile,
-                                              {parse_transform,T,{Reason,Stk}}}]}],
+                                              {parse_transform,T,{Class,Reason,Stk}}}]}],
                     {error,St#compile{errors=St#compile.errors ++ Es}}
             end;
         false ->
@@ -1215,9 +1217,9 @@ foldl_core_transforms([T|Ts], Code0, St) ->
 	Forms ->
 	    foldl_core_transforms(Ts, Forms, St)
     catch
-        error:Reason:Stk ->
+        Class:Reason:Stk ->
             Es = [{St#compile.ifile,[{none,compile,
-                                      {core_transform,T,{Reason,Stk}}}]}],
+                                      {core_transform,T,{Class,Reason,Stk}}}]}],
             {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
 foldl_core_transforms([], Code, St) -> {ok,Code,St}.

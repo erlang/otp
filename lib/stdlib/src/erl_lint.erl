@@ -4115,7 +4115,7 @@ is_format_function(M, F) when is_atom(M), is_atom(F) -> false.
 %% check_format_1([Arg]) -> ok | {warn,Level,Format,[Arg]}.
 
 check_format_1([Fmt]) ->
-    check_format_1([Fmt,{nil,0}]);
+    check_format_1([Fmt,no_argument_list]);
 check_format_1([Fmt,As]) ->
     check_format_2(Fmt, canonicalize_string(As));
 check_format_1([_Dev,Fmt,As]) ->
@@ -4128,8 +4128,6 @@ canonicalize_string({string,Anno,Cs}) ->
 canonicalize_string(Term) ->
     Term.
 
-%% check_format_2([Arg]) -> ok | {warn,Level,Format,[Arg]}.
-
 check_format_2(Fmt, As) ->
     case Fmt of
         {string,A,S} ->
@@ -4141,6 +4139,8 @@ check_format_2(Fmt, As) ->
             {warn,2,Anno,"format string not a textual constant",[]}
     end.
 
+check_format_2a(Fmt, FmtAnno, no_argument_list=As) ->
+    check_format_3(Fmt, FmtAnno, As);
 check_format_2a(Fmt, FmtAnno, As) ->
     case args_list(As) of
         true ->
@@ -4153,18 +4153,43 @@ check_format_2a(Fmt, FmtAnno, As) ->
             {warn,2,Anno,"format arguments perhaps not a list",[]}
     end.
 
-%% check_format_3(FormatString, [Arg]) -> ok | {warn,Level,Format,[Arg]}.
-
 check_format_3(Fmt, FmtAnno, As) ->
     case check_format_string(Fmt) of
         {ok,Need} ->
-            case args_length(As) of
-                Len when length(Need) =:= Len -> ok;
-                _Len -> {warn,1,element(2, As),"wrong number of arguments in format call",[]}
-            end;
+            check_format_4(Need, FmtAnno, As);
         {error,S} ->
             {warn,1,FmtAnno,"format string invalid (~ts)",[S]}
     end.
+
+check_format_4([], _FmtAnno, no_argument_list) ->
+    ok;
+check_format_4(Need, FmtAnno, no_argument_list) ->
+    Msg = "the format string requires an argument list with ~s, but no argument list is given",
+    {warn,1,FmtAnno,Msg,[arguments(length(Need))]};
+check_format_4(Need, _FmtAnno, As) ->
+    Anno = element(2, As),
+    Prefix = "the format string requires an argument list with ~s, but the argument list ",
+    case {args_length(As),length(Need)} of
+        {Same,Same} ->
+            ok;
+        {Actual,0} ->
+            Msg = "the format string requires an empty argument list, but the argument list contains ~s",
+            {warn,1,Anno,Msg,[arguments(Actual)]};
+        {0,Needed} ->
+            Msg = Prefix ++ "is empty",
+            {warn,1,Anno,Msg,[arguments(Needed)]};
+        {Actual,Needed} when Actual < Needed ->
+            Msg = Prefix ++ "contains only ~s",
+            {warn,1,Anno,Msg,[arguments(Needed),arguments(Actual)]};
+        {Actual,Needed} when Actual > Needed ->
+            Msg = Prefix ++ "contains ~s",
+            {warn,1,Anno,Msg,[arguments(Needed),arguments(Actual)]}
+    end.
+
+arguments(1) ->
+    "1 argument";
+arguments(N) ->
+    [integer_to_list(N), " arguments"].
 
 args_list({cons,_A,_H,T}) -> args_list(T);
 %% Strange case: user has written something like [a | "bcd"]; pretend
