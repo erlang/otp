@@ -18,9 +18,9 @@ dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
-AC_PREREQ(2.8)dnl
+AC_PREREQ([2.71])dnl
 
-AC_INIT()
+AC_INIT
 
 LM_PRECIOUS_VARS
 
@@ -91,10 +91,10 @@ dnl like to get cross compiling working, since we actually have
 dnl systems we cross compile for!
 dnl
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=$host
+if test "$host" = "free_source" -o "$host" = "win32"; then
+   host_os="$host"
+else   
+   AC_CANONICAL_HOST
 fi
 
 TARGET=$host

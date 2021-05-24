@@ -23,14 +23,16 @@ dnl define([AC_CACHE_SAVE], )dnl
 
 
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(c_src/odbcserver.c)
+AC_INIT
+AC_CONFIG_SRCDIR([c_src/odbcserver.c])
+AC_PREREQ([2.71])
 
 AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=win32
+if test "$host" = "free_source" -o "$host" = "win32"; then
+   host_os="$host"
+else   
+   AC_CANONICAL_HOST
 fi
 
 AC_ARG_WITH(odbc,
@@ -107,7 +109,9 @@ case "$host_os" in
 esac
 
 dnl Checks for header files.
-AC_HEADER_STDC
+AC_CHECK_INCLUDES_DEFAULT
+AC_PROG_EGREP
+
 AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h winsock2.h])
 AC_CHECK_HEADERS([windows.h])
 AC_CHECK_HEADERS([sql.h sqlext.h], [odbc_required_headers=yes], [odbc_required_headers=no],
@@ -259,4 +263,5 @@ CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
 
-AC_OUTPUT(c_src/$host/Makefile:c_src/Makefile.in)
+AC_CONFIG_FILES([c_src/$host/Makefile:c_src/Makefile.in])
+AC_OUTPUT

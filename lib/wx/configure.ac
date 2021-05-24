@@ -18,11 +18,11 @@ dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
-AC_INIT()
+AC_INIT
 
 AC_CONFIG_AUX_DIRS($srcdir/autoconf)
 
-AC_PREREQ(2.59)
+AC_PREREQ([2.71])
 
 ## Delete previous failed configure results
 if test -f ./CONF_INFO; then
@@ -53,10 +53,10 @@ AC_ARG_WITH(wx,
   --with-wx             use wxWidgets (default)
   --without-wx          don't use wxWidgets])
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=win32
+if test "$host" = "free_source" -o "$host" = "win32"; then
+   host_os="$host"
+else   
+   AC_CANONICAL_HOST
 fi
 
 case $host_os in
@@ -117,7 +117,7 @@ case $host_os in
 
 	AC_MSG_CHECKING([if compiler accepts -ObjC])
   	CFLAGS="$CFLAGS -ObjC"
-  	AC_TRY_COMPILE([],[;], accept_objc_flag=true, accept_objc_flag=false)
+  	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[;]])],[accept_objc_flag=true],[accept_objc_flag=false])
   	if test "X$accept_objc_flag" = "Xtrue"; then
 	   AC_MSG_RESULT([yes])
            C_ONLY_FLAGS="-ObjC"
@@ -613,7 +613,7 @@ AC_LANG_PUSH(C++)
 saved_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
 
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
                 #ifdef WIN32
 		# include <windows.h>
 	        # include <gl/glu.h>
@@ -626,14 +626,11 @@ AC_TRY_COMPILE([
 		# define CALLBACK
 		#endif
 		void CALLBACK foo() {};
-	       ],
-		[
+	       ]], [[
 		   GLUtesselator* tess;
 		   gluTessCallback(tess,GLU_TESS_VERTEX,(GLvoid (*)(...)) foo);
-		],
-		[TESS_CB_TIGER_STYLE=yes
-		 AC_DEFINE(TESS_CB_TIGER_STYLE, [1], [GLU Callbacks are Tiger style])],
-		TESS_CB_TIGER_STYLE=no)
+		]])],[TESS_CB_TIGER_STYLE=yes
+		 AC_DEFINE(TESS_CB_TIGER_STYLE, [1], [GLU Callbacks are Tiger style])],[TESS_CB_TIGER_STYLE=no])
 AC_MSG_RESULT($TESS_CB_TIGER_STYLE)
 AC_SUBST(TESS_CB_TIGER_STYLE)
 

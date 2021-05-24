@@ -235,7 +235,7 @@ AC_DEFUN(LM_FIND_EMU_CC,
 	[AC_CACHE_CHECK(for a compiler that handles jumptables,
 			ac_cv_prog_emu_cc,
 			[
-AC_TRY_COMPILE([],[
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 #if defined(__clang_major__) && __clang_major__ >= 3
     /* clang 3.x or later is fine */
 #elif defined(__llvm__)
@@ -254,7 +254,7 @@ lbl1:
     return 1;
 lbl2:
     return 2;
-],ac_cv_prog_emu_cc="$CC",ac_cv_prog_emu_cc=no)
+]])],[ac_cv_prog_emu_cc="$CC"],[ac_cv_prog_emu_cc=no])
 
 if test "$ac_cv_prog_emu_cc" = no; then
 	for ac_progname in emu_cc.sh gcc-4.2 gcc; do
@@ -281,7 +281,7 @@ if test "$ac_cv_prog_emu_cc" != no; then
 	CC="$ac_cv_prog_emu_cc"
 	CFLAGS=""
 	CPPFLAGS=""
-	AC_TRY_COMPILE([],[
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 #if defined(__clang_major__) && __clang_major__ >= 3
     /* clang 3.x or later is fine */
 #elif defined(__llvm__)
@@ -300,7 +300,7 @@ if test "$ac_cv_prog_emu_cc" != no; then
     	return 1;
 	lbl2:
     	return 2;
-	],ac_cv_prog_emu_cc="$CC",ac_cv_prog_emu_cc=no)
+	]])],[ac_cv_prog_emu_cc="$CC"],[ac_cv_prog_emu_cc=no])
 	CC=$save_CC
 	CFLAGS=$save_CFLAGS
 	CPPFLAGS=$save_CPPFLAGS
@@ -383,9 +383,7 @@ dnl Check if the system has the SO_BSDCOMPAT flag on sockets (linux)
 dnl
 AC_DEFUN(LM_DECL_SO_BSDCOMPAT,
 [AC_CACHE_CHECK([for SO_BSDCOMPAT declaration], ac_cv_decl_so_bsdcompat,
-AC_TRY_COMPILE([#include <sys/socket.h>], [int i = SO_BSDCOMPAT;],
-               ac_cv_decl_so_bsdcompat=yes,
-               ac_cv_decl_so_bsdcompat=no))
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[int i = SO_BSDCOMPAT;]])],[ac_cv_decl_so_bsdcompat=yes],[ac_cv_decl_so_bsdcompat=no]))
 
 case "${ac_cv_decl_so_bsdcompat}" in
   "yes" ) AC_DEFINE(HAVE_SO_BSDCOMPAT,[],
@@ -405,18 +403,14 @@ dnl
 AC_DEFUN(LM_DECL_INADDR_LOOPBACK,
 [AC_CACHE_CHECK([for INADDR_LOOPBACK in netinet/in.h],
  ac_cv_decl_inaddr_loopback,
-[AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>], [int i = INADDR_LOOPBACK;],
-ac_cv_decl_inaddr_loopback=yes, ac_cv_decl_inaddr_loopback=no)
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <netinet/in.h>]], [[int i = INADDR_LOOPBACK;]])],[ac_cv_decl_inaddr_loopback=yes],[ac_cv_decl_inaddr_loopback=no])
 ])
 
 if test ${ac_cv_decl_inaddr_loopback} = no; then
   AC_CACHE_CHECK([for INADDR_LOOPBACK in rpc/types.h],
                    ac_cv_decl_inaddr_loopback_rpc,
-                   AC_TRY_COMPILE([#include <rpc/types.h>],
-                                   [int i = INADDR_LOOPBACK;],
-                                   ac_cv_decl_inaddr_loopback_rpc=yes,
-                                   ac_cv_decl_inaddr_loopback_rpc=no))
+                   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <rpc/types.h>]], [[int i = INADDR_LOOPBACK;]])],[ac_cv_decl_inaddr_loopback_rpc=yes],[ac_cv_decl_inaddr_loopback_rpc=no]))
 
    case "${ac_cv_decl_inaddr_loopback_rpc}" in
      "yes" )
@@ -425,11 +419,8 @@ if test ${ac_cv_decl_inaddr_loopback} = no; then
       * )
   	AC_CACHE_CHECK([for INADDR_LOOPBACK in winsock2.h],
                    ac_cv_decl_inaddr_loopback_winsock2,
-                   AC_TRY_COMPILE([#define WIN32_LEAN_AND_MEAN
-				   #include <winsock2.h>],
-                                   [int i = INADDR_LOOPBACK;],
-                                   ac_cv_decl_inaddr_loopback_winsock2=yes,
-                                   ac_cv_decl_inaddr_loopback_winsock2=no))
+                   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#define WIN32_LEAN_AND_MEAN
+				   #include <winsock2.h>]], [[int i = INADDR_LOOPBACK;]])],[ac_cv_decl_inaddr_loopback_winsock2=yes],[ac_cv_decl_inaddr_loopback_winsock2=no]))
 	case "${ac_cv_decl_inaddr_loopback_winsock2}" in
      		"yes" )
 			AC_DEFINE(DEF_INADDR_LOOPBACK_IN_WINSOCK2_H,[],
@@ -454,9 +445,8 @@ dnl
 AC_DEFUN(LM_STRUCT_SOCKADDR_SA_LEN,
 [AC_CACHE_CHECK([whether struct sockaddr has sa_len field],
                 ac_cv_struct_sockaddr_sa_len,
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>], [struct sockaddr s; s.sa_len = 10;],
-  ac_cv_struct_sockaddr_sa_len=yes, ac_cv_struct_sockaddr_sa_len=no))
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <sys/socket.h>]], [[struct sockaddr s; s.sa_len = 10;]])],[ac_cv_struct_sockaddr_sa_len=yes],[ac_cv_struct_sockaddr_sa_len=no]))
 
 dnl FIXME convbreak
 case ${ac_cv_struct_sockaddr_sa_len} in
@@ -477,27 +467,24 @@ AC_DEFUN(LM_SYS_IPV6,
 [AC_MSG_CHECKING(for IP version 6 support)
 AC_CACHE_VAL(ac_cv_sys_ipv6_support,
 [ok_so_far=yes
- AC_TRY_COMPILE([#include <sys/types.h>
+ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
-#endif],
-   [struct in6_addr a6; struct sockaddr_in6 s6;], ok_so_far=yes, ok_so_far=no)
+#endif]], [[struct in6_addr a6; struct sockaddr_in6 s6;]])],[ok_so_far=yes],[ok_so_far=no])
 
 if test $ok_so_far = yes; then
   ac_cv_sys_ipv6_support=yes
 else
-  AC_TRY_COMPILE([#include <sys/types.h>
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
-#endif],
-    [struct in_addr6 a6; struct sockaddr_in6 s6;],
-    ac_cv_sys_ipv6_support=in_addr6, ac_cv_sys_ipv6_support=no)
+#endif]], [[struct in_addr6 a6; struct sockaddr_in6 s6;]])],[ac_cv_sys_ipv6_support=in_addr6],[ac_cv_sys_ipv6_support=no])
 fi
 ])dnl
 
@@ -533,7 +520,9 @@ dnl
 
 AC_DEFUN(LM_SYS_MULTICAST,
 [AC_CACHE_CHECK([for multicast support], ac_cv_sys_multicast_support,
-[AC_EGREP_CPP(^yes$,
+[AC_REQUIRE([AC_PROG_CPP])
+AC_REQUIRE([AC_PROG_EGREP])
+AC_EGREP_CPP(^yes$,
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -559,9 +548,8 @@ dnl
 AC_DEFUN(LM_DECL_SYS_ERRLIST,
 [AC_CACHE_CHECK([for sys_errlist declaration in stdio.h or errno.h],
   ac_cv_decl_sys_errlist,
-[AC_TRY_COMPILE([#include <stdio.h>
-#include <errno.h>], [char *msg = *(sys_errlist + 1);],
-  ac_cv_decl_sys_errlist=yes, ac_cv_decl_sys_errlist=no)])
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>
+#include <errno.h>]], [[char *msg = *(sys_errlist + 1);]])],[ac_cv_decl_sys_errlist=yes],[ac_cv_decl_sys_errlist=no])])
 if test $ac_cv_decl_sys_errlist = yes; then
   AC_DEFINE(SYS_ERRLIST_DECLARED,[],
 	[define if the variable sys_errlist is declared in a system header file])
@@ -586,10 +574,10 @@ dnl
 AC_DEFUN(LM_CHECK_FUNC_DECL,
 [AC_MSG_CHECKING([for conflicting declaration of $1])
 AC_CACHE_VAL(ac_cv_func_decl_$1,
-[AC_TRY_COMPILE([#include <stdio.h>
-$3],[$2
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>
+$3]], [[$2
 char *c = (char *)$1;
-], eval "ac_cv_func_decl_$1=no", eval "ac_cv_func_decl_$1=yes")])
+]])],[eval "ac_cv_func_decl_$1=no"],[eval "ac_cv_func_decl_$1=yes"])])
 if eval "test \"`echo '$ac_cv_func_decl_'$1`\" = yes"; then
   AC_MSG_RESULT(yes)
   ifelse([$4], , :, [$4])
@@ -743,37 +731,31 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
 
   AC_CACHE_CHECK([for clock_gettime(CLOCK_MONOTONIC_RAW, _)], erl_cv_clock_gettime_monotonic_raw,
   [
-       AC_TRY_LINK([
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <time.h>
 $trust_test
-		      ],
-		      [
+		      ]], [[
     struct timespec ts;
     long long result;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
-		      ],
-		      erl_cv_clock_gettime_monotonic_raw=yes,
-		      erl_cv_clock_gettime_monotonic_raw=no)
+		      ]])],[erl_cv_clock_gettime_monotonic_raw=yes],[erl_cv_clock_gettime_monotonic_raw=no])
   ])
 
   AC_CACHE_CHECK([for clock_gettime() with ${check_msg}monotonic clock type], erl_cv_clock_gettime_monotonic_$1,
   [
      for clock_type in $prefer_resolution_clock_gettime_monotonic $default_resolution_clock_gettime_monotonic $high_resolution_clock_gettime_monotonic $low_resolution_clock_gettime_monotonic; do
-       AC_TRY_LINK([
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <time.h>
 $trust_test
-		      ],
-		      [
+		      ]], [[
     struct timespec ts;
     long long result;
     clock_gettime($clock_type,&ts);
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
-		      ],
-		      erl_cv_clock_gettime_monotonic_$1=$clock_type,
-		      erl_cv_clock_gettime_monotonic_$1=no)
+		      ]])],[erl_cv_clock_gettime_monotonic_$1=$clock_type],[erl_cv_clock_gettime_monotonic_$1=no])
        test $erl_cv_clock_gettime_monotonic_$1 = no || break
      done
   ])
@@ -789,11 +771,10 @@ $trust_test
   
   AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
   [
-     AC_TRY_COMPILE([
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <mach/clock.h>
 #include <mach/mach.h>
-			],
-	 		[
+			]], [[
     kern_return_t res;
     clock_serv_t clk_srv;
     mach_timespec_t time_spec;
@@ -801,9 +782,7 @@ $trust_test
     host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &clk_srv);
     res = clock_get_time(clk_srv, &time_spec);
     mach_port_deallocate(mach_task_self(), clk_srv);
-    			],
-    			erl_cv_mach_clock_get_time_monotonic=yes,
-			erl_cv_mach_clock_get_time_monotonic=no)
+    			]])],[erl_cv_mach_clock_get_time_monotonic=yes],[erl_cv_mach_clock_get_time_monotonic=no])
   ])
   
   erl_corrected_monotonic_clock=no
@@ -908,40 +887,34 @@ AC_DEFUN(ERL_WALL_CLOCK,
   AC_CACHE_CHECK([for clock_gettime() with ${check_msg}wall clock type], erl_cv_clock_gettime_wall_$1,
   [
      for clock_type in $prefer_resolution_clock_gettime_wall $default_resolution_clock_gettime_wall $high_resolution_clock_gettime_wall $low_resolution_clock_gettime_wall; do
-       AC_TRY_LINK([
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <time.h>
 $trust_test
-		      ],
-		      [
+		      ]], [[
     struct timespec ts;
     long long result;
     clock_gettime($clock_type,&ts);
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
-		      ],
-		      erl_cv_clock_gettime_wall_$1=$clock_type,
-		      erl_cv_clock_gettime_wall_$1=no)
+		      ]])],[erl_cv_clock_gettime_wall_$1=$clock_type],[erl_cv_clock_gettime_wall_$1=no])
        test $erl_cv_clock_gettime_wall_$1 = no || break
      done
   ])
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
-     check_for_clock_getres=
-  else
-     check_for_clock_getres=clock_getres
+  if test "$LD_MAY_BE_WEAK" = "no"; then
+     AC_CHECK_FUNCS([clock_getres])
   fi
 
-  AC_CHECK_FUNCS([$check_for_clock_getres clock_get_attributes gettimeofday])
+  AC_CHECK_FUNCS([clock_get_attributes gettimeofday])
   
   AC_CACHE_CHECK([for mach clock_get_time() with wall clock type], erl_cv_mach_clock_get_time_wall,
   [
-     AC_TRY_COMPILE([
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <mach/clock.h>
 #include <mach/mach.h>
-			],
-	 		[
+			]], [[
     kern_return_t res;
     clock_serv_t clk_srv;
     mach_timespec_t time_spec;
@@ -949,9 +922,7 @@ $trust_test
     host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &clk_srv);
     res = clock_get_time(clk_srv, &time_spec);
     mach_port_deallocate(mach_task_self(), clk_srv);
-    			],
-    			erl_cv_mach_clock_get_time_wall=yes,
-			erl_cv_mach_clock_get_time_wall=no)
+    			]])],[erl_cv_mach_clock_get_time_wall=yes],[erl_cv_mach_clock_get_time_wall=no])
   ])
 
   erl_wall_clock_lib=
@@ -1036,10 +1007,8 @@ dnl On ofs1 the '-pthread' switch should be used
 	AC_MSG_CHECKING([if the '-pthread' switch can be used])
 	saved_cflags=$CFLAGS
 	CFLAGS="$CFLAGS -pthread"
-	AC_TRY_LINK([#include <pthread.h>],
-		    pthread_create((void*)0,(void*)0,(void*)0,(void*)0);,
-		    [THR_DEFS="-pthread"
-		     THR_LIBS="-pthread"])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <pthread.h>]], [[pthread_create((void*)0,(void*)0,(void*)0,(void*)0);]])],[THR_DEFS="-pthread"
+		     THR_LIBS="-pthread"],[])
 	CFLAGS=$saved_cflags
 	if test "x$THR_LIBS" != "x"; then
 	    AC_MSG_RESULT(yes)
@@ -1204,17 +1173,17 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OP__,
     AC_CACHE_CHECK([for 32-bit $1()], ethr_cv_32bit_$1,
 		   [
 		       ethr_cv_32bit_$1=no
-		       AC_TRY_LINK([], [$atomic32_call], [ethr_cv_32bit_$1=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[$atomic32_call]])],[ethr_cv_32bit_$1=yes],[])
 		   ])
     AC_CACHE_CHECK([for 64-bit $1()], ethr_cv_64bit_$1,
 		   [
 		       ethr_cv_64bit_$1=no
-		       AC_TRY_LINK([], [$atomic64_call], [ethr_cv_64bit_$1=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[$atomic64_call]])],[ethr_cv_64bit_$1=yes],[])
 		   ])
     AC_CACHE_CHECK([for 128-bit $1()], ethr_cv_128bit_$1,
 		   [
 		       ethr_cv_128bit_$1=no
-		       AC_TRY_LINK([], [$atomic128_call], [ethr_cv_128bit_$1=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[$atomic128_call]])],[ethr_cv_128bit_$1=yes],[])
 		   ])
 
 	case $ethr_cv_128bit_$1-$ethr_cv_64bit_$1-$ethr_cv_32bit_$1 in
@@ -1303,9 +1272,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     AC_CACHE_CHECK([for a working __sync_synchronize()], ethr_cv___sync_synchronize,
 		   [
 		       ethr_cv___sync_synchronize=no
-		       AC_TRY_LINK([],
-				   [ __sync_synchronize(); ],
-				   [ethr_cv___sync_synchronize=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ __sync_synchronize(); ]])],[ethr_cv___sync_synchronize=yes],[])
 		       if test $ethr_cv___sync_synchronize = yes; then
 			   #
 			   # Old gcc versions on at least x86 have a buggy
@@ -1351,11 +1318,9 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	    AC_CACHE_CHECK([for ARM 'dmb sy' instruction], ethr_cv_arm_dbm_sy_instr,
 			   [
 				ethr_cv_arm_dbm_sy_instr=no
-				AC_TRY_LINK([],
-					    [
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
 						__asm__ __volatile__("dmb sy" : : : "memory");
-					    ],
-					    [ethr_cv_arm_dbm_sy_instr=yes])
+					    ]])],[ethr_cv_arm_dbm_sy_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_dbm_sy_instr = yes; then
 		ethr_arm_dbm_sy_instr_val=1
@@ -1365,11 +1330,9 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	    AC_CACHE_CHECK([for ARM 'dmb st' instruction], ethr_cv_arm_dbm_st_instr,
 			   [
 				ethr_cv_arm_dbm_st_instr=no
-				AC_TRY_LINK([],
-					    [
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
 						__asm__ __volatile__("dmb st" : : : "memory");
-					    ],
-					    [ethr_cv_arm_dbm_st_instr=yes])
+					    ]])],[ethr_cv_arm_dbm_st_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_dbm_st_instr = yes; then
 		ethr_arm_dbm_st_instr_val=1
@@ -1377,11 +1340,9 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	    AC_CACHE_CHECK([for ARM 'dmb ld' instruction], ethr_cv_arm_dbm_ld_instr,
 			   [
 				ethr_cv_arm_dbm_ld_instr=no
-				AC_TRY_LINK([],
-					    [
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
 						__asm__ __volatile__("dmb ld" : : : "memory");
-					    ],
-					    [ethr_cv_arm_dbm_ld_instr=yes])
+					    ]])],[ethr_cv_arm_dbm_ld_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_dbm_ld_instr = yes; then
 		ethr_arm_dbm_ld_instr_val=1
@@ -1424,20 +1385,17 @@ AC_DEFUN(ETHR_CHK_INTERLOCKED,
 	"4") ilckd_call="${ilckd}(var, ($3) 0, ($3) 0, arr);";;
     esac
     have_interlocked_op=no
-    AC_TRY_LINK(
-	[
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 	#define WIN32_LEAN_AND_MEAN
 	#include <windows.h>
 	#include <intrin.h>
-	],
-	[
+	]], [[
 	    volatile $3 *var;
 	    volatile $3 arr[2];
 
 	    $ilckd_call
 	    return 0;
-	],
-	[have_interlocked_op=yes])
+	]])],[have_interlocked_op=yes],[])
     test $have_interlocked_op = yes && $4
     AC_MSG_RESULT([$have_interlocked_op])
 ])
@@ -1751,15 +1709,9 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_HAVE_SYS_TIME_H, 1, \
 [Define if you have the <sys/time.h> header file.]))
 
-	AC_TRY_COMPILE([#include <time.h>
-			#include <sys/time.h>], 
-			[struct timeval *tv; return 0;],
-			AC_DEFINE(ETHR_TIME_WITH_SYS_TIME, 1, \
-[Define if you can safely include both <sys/time.h> and <time.h>.]))
-
 	AC_MSG_CHECKING([for usable PTHREAD_STACK_MIN])
 	pthread_stack_min=no
-	AC_TRY_COMPILE([
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <limits.h>
 #if defined(ETHR_NEED_NPTL_PTHREAD_H)
 #include <nptl/pthread.h>
@@ -1768,9 +1720,7 @@ case "$THR_LIB_NAME" in
 #elif defined(ETHR_HAVE_PTHREAD_H)
 #include <pthread.h>
 #endif
-			], 
-			[return PTHREAD_STACK_MIN;],
-			[pthread_stack_min=yes])
+			]], [[return PTHREAD_STACK_MIN;]])],[pthread_stack_min=yes],[])
 
 	AC_MSG_RESULT([$pthread_stack_min])
 	test $pthread_stack_min != yes || {
@@ -1797,13 +1747,11 @@ case "$THR_LIB_NAME" in
 	    AC_DEFINE(ETHR_HAVE_SCHED_YIELD, 1, [Define if you have the sched_yield() function.])
 	    AC_MSG_CHECKING([whether sched_yield() returns an int])
 	    sched_yield_ret_int=no
-	    AC_TRY_LINK([
+	    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 				#ifdef ETHR_HAVE_SCHED_H
 				#include <sched.h>
 				#endif
-			   ],
-			   [int sched_yield();],
-			   [sched_yield_ret_int=yes])
+			   ]], [[int sched_yield();]])],[sched_yield_ret_int=yes],[])
 	    AC_MSG_RESULT([$sched_yield_ret_int])
 	    if test $sched_yield_ret_int = yes; then
 		AC_DEFINE(ETHR_SCHED_YIELD_RET_INT, 1, [Define if sched_yield() returns an int.])
@@ -1816,7 +1764,7 @@ case "$THR_LIB_NAME" in
 	    AC_DEFINE(ETHR_HAVE_PTHREAD_YIELD, 1, [Define if you have the pthread_yield() function.])
 	    AC_MSG_CHECKING([whether pthread_yield() returns an int])
 	    pthread_yield_ret_int=no
-	    AC_TRY_LINK([
+	    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 				#if defined(ETHR_NEED_NPTL_PTHREAD_H)
 				#include <nptl/pthread.h>
 				#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
@@ -1824,9 +1772,7 @@ case "$THR_LIB_NAME" in
 				#elif defined(ETHR_HAVE_PTHREAD_H)
 				#include <pthread.h>
 				#endif
-			   ],
-			   [int pthread_yield();],
-			   [pthread_yield_ret_int=yes])
+			   ]], [[int pthread_yield();]])],[pthread_yield_ret_int=yes],[])
 	    AC_MSG_RESULT([$pthread_yield_ret_int])
 	    if test $pthread_yield_ret_int = yes; then
 		AC_DEFINE(ETHR_PTHREAD_YIELD_RET_INT, 1, [Define if pthread_yield() returns an int.])
@@ -1847,7 +1793,7 @@ case "$THR_LIB_NAME" in
 
 		AC_MSG_CHECKING([for PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP])
 		ethr_pthread_rwlock_writer_nonrecursive_initializer_np=no
-		AC_TRY_LINK([
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 				#if defined(ETHR_NEED_NPTL_PTHREAD_H)
 				#include <nptl/pthread.h>
 				#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
@@ -1855,13 +1801,11 @@ case "$THR_LIB_NAME" in
 				#elif defined(ETHR_HAVE_PTHREAD_H)
 				#include <pthread.h>
 				#endif
-			    ],
-			    [
+			    ]], [[
 				pthread_rwlockattr_t *attr;
 				return pthread_rwlockattr_setkind_np(attr,
 				    PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
-			    ],
-			    [ethr_pthread_rwlock_writer_nonrecursive_initializer_np=yes])
+			    ]])],[ethr_pthread_rwlock_writer_nonrecursive_initializer_np=yes],[])
 		AC_MSG_RESULT([$ethr_pthread_rwlock_writer_nonrecursive_initializer_np])
 		if test $ethr_pthread_rwlock_writer_nonrecursive_initializer_np = yes; then
 		    AC_DEFINE(ETHR_HAVE_PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP, 1, \
@@ -1889,7 +1833,7 @@ case "$THR_LIB_NAME" in
 	if test "x$erl_monotonic_clock_id" != "x"; then
 	  AC_MSG_CHECKING(whether pthread_cond_timedwait() can use the monotonic clock $erl_monotonic_clock_id for timeout)
 	  pthread_cond_timedwait_monotonic=no
-	  AC_TRY_LINK([
+	  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 			#if defined(ETHR_NEED_NPTL_PTHREAD_H)
 			#  include <nptl/pthread.h>
 			#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
@@ -1897,22 +1841,15 @@ case "$THR_LIB_NAME" in
 			#elif defined(ETHR_HAVE_PTHREAD_H)
 			#  include <pthread.h>
 			#endif
-			#ifdef ETHR_TIME_WITH_SYS_TIME
-			#  include <time.h>
+			#include <time.h>
+			#ifdef ETHR_HAVE_SYS_TIME_H
 			#  include <sys/time.h>
-			#else
-			#  ifdef ETHR_HAVE_SYS_TIME_H
-			#    include <sys/time.h>
-			#  else
-			#    include <time.h>
-			#  endif
 			#endif
 			#if defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)
 			#  include <mach/clock.h>
 			#  include <mach/mach.h>
 			#endif
-			], 
-			[
+			]], [[
 			int res;
 			pthread_condattr_t attr;
 			pthread_cond_t cond;
@@ -1922,8 +1859,7 @@ case "$THR_LIB_NAME" in
 			res = pthread_condattr_setclock(&attr, ETHR_MONOTONIC_CLOCK_ID);
 			res = pthread_cond_init(&cond, &attr);
 			res = pthread_cond_timedwait(&cond, &mutex, &cond_timeout);
-			],
-			[pthread_cond_timedwait_monotonic=yes])
+			]])],[pthread_cond_timedwait_monotonic=yes],[])
 	  AC_MSG_RESULT([$pthread_cond_timedwait_monotonic])
 	  if test $pthread_cond_timedwait_monotonic = yes; then
 	    AC_DEFINE(ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC, [1], [Define if pthread_cond_timedwait() can be used with a monotonic clock])
@@ -1932,21 +1868,19 @@ case "$THR_LIB_NAME" in
 
 	linux_futex=no
 	AC_MSG_CHECKING([for Linux futexes])
-	AC_TRY_LINK([
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 			#include <sys/syscall.h>
 			#include <unistd.h>
 			#include <linux/futex.h>
 			#include <sys/time.h>
-		    ],
-		    [
+		    ]], [[
 			int i = 1;
 			syscall(__NR_futex, (void *) &i, FUTEX_WAKE, 1,
 				(void*)0,(void*)0, 0);
 			syscall(__NR_futex, (void *) &i, FUTEX_WAIT, 0,
 				(void*)0,(void*)0, 0);
 			return 0;
-		    ],
-		    linux_futex=yes)
+		    ]])],[linux_futex=yes],[])
 	AC_MSG_RESULT([$linux_futex])
 	test $linux_futex = yes && AC_DEFINE(ETHR_HAVE_LINUX_FUTEX, 1, [Define if you have a linux futex implementation.])
 
@@ -1954,18 +1888,12 @@ case "$THR_LIB_NAME" in
 	AC_MSG_CHECKING([for pthread_setname_np])
 	old_CFLAGS=$CFLAGS
 	CFLAGS="$CFLAGS -Werror"
-	AC_TRY_LINK([#define __USE_GNU
-                     #include <pthread.h>],
-                    [pthread_setname_np(pthread_self(), "name");],
-                    pthread_setname=linux)
-	AC_TRY_LINK([#define __USE_GNU
-                     #include <pthread.h>],
-                    [pthread_set_name_np(pthread_self(), "name");],
-                    pthread_setname=bsd)
-	AC_TRY_LINK([#define _DARWIN_C_SOURCE
-                     #include <pthread.h>],
-                    [pthread_setname_np("name");],
-                    pthread_setname=darwin)
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
+                     #include <pthread.h>]], [[pthread_setname_np(pthread_self(), "name");]])],[pthread_setname=linux],[])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
+                     #include <pthread.h>]], [[pthread_set_name_np(pthread_self(), "name");]])],[pthread_setname=bsd],[])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define _DARWIN_C_SOURCE
+                     #include <pthread.h>]], [[pthread_setname_np("name");]])],[pthread_setname=darwin],[])
         AC_MSG_RESULT([$pthread_setname])
         case $with_threadnames-$pthread_setname in
              yes-linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
@@ -1979,16 +1907,12 @@ case "$THR_LIB_NAME" in
 
 	pthread_getname=no
 	AC_MSG_CHECKING([for pthread_getname_np])
-	AC_TRY_LINK([#define __USE_GNU
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
                      #define _DARWIN_C_SOURCE
-                     #include <pthread.h>],
-                    [char buff[256]; pthread_getname_np(pthread_self(), buff, 256);],
-                    pthread_getname=linux)
-	AC_TRY_LINK([#define __USE_GNU
+                     #include <pthread.h>]], [[char buff[256]; pthread_getname_np(pthread_self(), buff, 256);]])],[pthread_getname=linux],[])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
                      #define _DARWIN_C_SOURCE
-                     #include <pthread.h>],
-                    [char buff[256]; pthread_getname_np(pthread_self(), buff);],
-                    pthread_getname=ibm)
+                     #include <pthread.h>]], [[char buff[256]; pthread_getname_np(pthread_self(), buff);]])],[pthread_getname=ibm],[])
         AC_MSG_RESULT([$pthread_getname])
         case $pthread_getname in
              linux) AC_DEFINE(ETHR_HAVE_PTHREAD_GETNAME_NP_3, 1,
@@ -2019,8 +1943,7 @@ case "$THR_LIB_NAME" in
 	    	    fi;;
 	    esac
 	    ethr_have_libatomic_ops=no
-	    AC_TRY_LINK([#include "atomic_ops.h"],
-	    	        [
+	    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "atomic_ops.h"]], [[
 	    	    	    volatile AO_t x;
 	    	    	    AO_t y;
 	    	    	    int z;
@@ -2051,10 +1974,9 @@ case "$THR_LIB_NAME" in
 #else
 #error No compare_and_swap
 #endif
-	    	        ],
-	    	        [ethr_have_native_atomics=yes
+	    	        ]])],[ethr_have_native_atomics=yes
 			 ethr_native_atomic_implementation=libatomic_ops
-	    	         ethr_have_libatomic_ops=yes])
+	    	         ethr_have_libatomic_ops=yes],[])
 	    AC_MSG_RESULT([$ethr_have_libatomic_ops])
 	    if test $ethr_have_libatomic_ops = yes; then
 	        AC_CHECK_SIZEOF(AO_t, ,
@@ -2173,12 +2095,10 @@ case "$GCC-$ac_cv_sizeof_void_p-$host_cpu" in
     save_CFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS -msse2"
     gcc_sse2_asm=no
-    AC_TRY_COMPILE([],
-	[
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 		long long x, *y;
 		__asm__ __volatile__("movq %1, %0\n\t" : "=x"(x) : "m"(*y) : "memory");
-	],
-	[gcc_sse2_asm=yes])
+	]])],[gcc_sse2_asm=yes],[])
     CFLAGS="$save_CFLAGS"
     AC_MSG_RESULT([$gcc_sse2_asm])
     if test "$gcc_sse2_asm" = "yes"; then
@@ -2221,8 +2141,7 @@ case "$GCC-$host_cpu" in
 	AC_MSG_CHECKING([for gcc $pic_text$dw_cmpxchg plain asm support])    
 
 	plain_cmpxchg=no
-    	AC_TRY_COMPILE([],
-	[
+    	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     char xchgd;
     long new[2], xchg[2], *p;		  
     __asm__ __volatile__(
@@ -2235,8 +2154,7 @@ case "$GCC-$host_cpu" in
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
 	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "b"(new[0])
 	: "cc", "memory");
-	],
-	[plain_cmpxchg=yes])
+	]])],[plain_cmpxchg=yes],[])
 
 	AC_MSG_RESULT([$plain_cmpxchg])
 
@@ -2255,15 +2173,12 @@ case "$GCC-$host_cpu" in
 	# as input to the asm on 32-bit x86 and old gcc
 	# compilers (gcc vsn < 5).
 
-    	AC_TRY_COMPILE([],
-	[
+    	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 #if !defined(__PIC__) || !__PIC__
 #  error no pic
 #endif
-	],
-	[pic_cmpxchg=yes
-	 gcc_cflags_pic=yes],
-	[pic_cmpxchg=no])
+	]])],[pic_cmpxchg=yes
+	 gcc_cflags_pic=yes],[pic_cmpxchg=no])
 
 	if test $pic_cmpxchg = yes; then
 	   gcc_pic_dw_cmpxchg_asm=$gcc_dw_cmpxchg_asm
@@ -2282,8 +2197,7 @@ case "$GCC-$host_cpu" in
       # Check if we can work around it by managing the ebx
       # register explicitly in the asm...
 
-      AC_TRY_COMPILE([],
-	[
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     char xchgd;
     long new[2], xchg[2], *p;		  
     __asm__ __volatile__(
@@ -2295,9 +2209,8 @@ case "$GCC-$host_cpu" in
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
 	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "r"(new[0])
 	: "cc", "memory");
-	],
-	[gcc_pic_dw_cmpxchg_asm=yes
-	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes])     
+	]])],[gcc_pic_dw_cmpxchg_asm=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes],[])     
 
       AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
 
@@ -2308,8 +2221,7 @@ case "$GCC-$host_cpu" in
 	# register shortage. Check if we can work around
 	# this...
 
-      	AC_TRY_COMPILE([],
-	  [
+      	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
       char xchgd;
       long new[2], xchg[2], *p;
       __asm__ __volatile__(
@@ -2323,10 +2235,9 @@ case "$GCC-$host_cpu" in
 	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new)
 	: "cc", "memory");
 
-	],
-	[gcc_pic_dw_cmpxchg_asm=yes
+	]])],[gcc_pic_dw_cmpxchg_asm=yes
 	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes
-	 gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=yes])
+	 gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=yes],[])
 
         AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
       fi
@@ -2605,7 +2516,7 @@ dnl or (yet to be written) write to the procfs ctl file.
 dnl
 
 AC_MSG_CHECKING([if gethrvtime works and how to use it])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 /* gethrvtime procfs ioctl test */
 /* These need to be undef:ed to not break activation of
  * micro level process accounting on /proc/self 
@@ -2653,10 +2564,7 @@ int main() {
 	exit(5);
     exit(0); return 0;
 }
-],
-erl_gethrvtime=procfs_ioctl,
-erl_gethrvtime=false,
-[
+]])],[erl_gethrvtime=procfs_ioctl],[erl_gethrvtime=false],[
 case X$erl_xcomp_gethrvtime_procfs_ioctl in
     X)
 	erl_gethrvtime=cross;;
@@ -2694,7 +2602,7 @@ case $erl_gethrvtime in
 	AC_MSG_CHECKING([if clock_gettime can be used to get thread CPU time])
 	save_libs=$LIBS
 	LIBS="-lrt"
-	AC_TRY_RUN([
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdlib.h>
 	#include <unistd.h>
 	#include <string.h>
@@ -2717,10 +2625,7 @@ case $erl_gethrvtime in
 	      exit(5);
 	    exit(0); return 0;
 	  }
-	],
-	erl_clock_gettime_cpu_time=yes,
-	erl_clock_gettime_cpu_time=no,
-	[
+	]])],[erl_clock_gettime_cpu_time=yes],[erl_clock_gettime_cpu_time=no],[
 	case X$erl_xcomp_clock_gettime_cpu_time in
 	    X) erl_clock_gettime_cpu_time=cross;;
 	    Xyes|Xno) erl_clock_gettime_cpu_time=$erl_xcomp_clock_gettime_cpu_time;;
@@ -2762,7 +2667,7 @@ AC_DEFUN([LM_TRY_ENABLE_CFLAG], [
     AC_MSG_CHECKING([if we can add $1 to $2 (via CFLAGS)])
     saved_CFLAGS=$CFLAGS;
     CFLAGS="$1 $$2";
-    AC_TRY_COMPILE([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
     if test "X$can_enable_flag" = "Xtrue"; then
         AC_MSG_RESULT([yes])
@@ -2776,7 +2681,7 @@ AC_DEFUN([LM_CHECK_ENABLE_CFLAG], [
     AC_MSG_CHECKING([whether $CC accepts $1...])
     saved_CFLAGS=$CFLAGS;
     CFLAGS="$1 $CFLAGS";
-    AC_TRY_COMPILE([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
     if test "X$can_enable_flag" = "Xtrue"; then
         AS_VAR_SET($2, true)
@@ -2798,7 +2703,7 @@ AC_DEFUN([LM_CHECK_RUN_CFLAG], [
     AC_MSG_CHECKING([whether $CC accepts $1...])
     saved_CFLAGS=$CFLAGS;
     CFLAGS="$1 $CFLAGS";
-    AC_TRY_RUN([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    AC_RUN_IFELSE([AC_LANG_SOURCE([[]])],[return 0;],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
     if test "X$can_enable_flag" = "Xtrue"; then
         AS_VAR_SET($2, true)
@@ -2811,10 +2716,10 @@ AC_DEFUN([LM_CHECK_RUN_CFLAG], [
 
 dnl ERL_TRY_LINK_JAVA(CLASSES, FUNCTION-BODY
 dnl                   [ACTION_IF_FOUND [, ACTION-IF-NOT-FOUND]])
-dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a 
+dnl Freely inspired by AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[],[]). (Maybe better to create a 
 dnl AC_LANG_JAVA instead...)
 AC_DEFUN(ERL_TRY_LINK_JAVA,
-[java_link='$JAVAC conftest.java 1>&AC_FD_CC'
+[java_link='$JAVAC conftest.java 1>&AS_MESSAGE_LOG_FD'
 changequote(, )dnl
 cat > conftest.java <<EOF
 $1
@@ -2827,9 +2732,9 @@ if AC_TRY_EVAL(java_link) && test -s conftest.class; then
    ifelse([$3], , :, [rm -rf conftest*
    $3])
 else
-   echo "configure: failed program was:" 1>&AC_FD_CC
-   cat conftest.java 1>&AC_FD_CC
-   echo "configure: PATH was $PATH" 1>&AC_FD_CC
+   echo "configure: failed program was:" 1>&AS_MESSAGE_LOG_FD
+   cat conftest.java 1>&AS_MESSAGE_LOG_FD
+   echo "configure: PATH was $PATH" 1>&AS_MESSAGE_LOG_FD
 ifelse([$4], , , [  rm -rf conftest*
   $4
 ])dnl

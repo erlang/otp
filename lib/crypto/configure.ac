@@ -23,14 +23,16 @@ dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
 
-AC_INIT(vsn.mk)
+AC_INIT
+AC_CONFIG_SRCDIR([vsn.mk])
+AC_PREREQ([2.71])
 
 AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=win32
+if test "$host" = "free_source" -o "$host" = "win32"; then
+   host_os="$host"
+else   
+   AC_CANONICAL_HOST
 fi
 
 AC_LANG(C)
@@ -47,6 +49,8 @@ AC_SUBST(CROSS_COMPILING)
 ERL_XCOMP_SYSROOT_INIT
 
 AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_EGREP
 LM_WINDOWS_ENVIRONMENT
 
 ERL_DED
@@ -803,5 +807,6 @@ AC_SUBST(SSL_DYNAMIC_ONLY)
 AC_SUBST(DISABLE_EVP_DH)
 AC_SUBST(DISABLE_EVP_HMAC)
 
-AC_OUTPUT(c_src/$host/Makefile:c_src/Makefile.in)
+AC_CONFIG_FILES([c_src/$host/Makefile:c_src/Makefile.in])
+AC_OUTPUT
 

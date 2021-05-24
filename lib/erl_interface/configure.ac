@@ -27,7 +27,9 @@
 dnl m4_define(EI_VERSION,`grep EI_VSN ../vsn.mk | sed 's/^.*=[ ]*//'`)
 dnl m4_define(EI_VERSION,regexp(m4_include(VERSION),[version \([-.0-9A-Za-z]+\)],[\1]))
 
-AC_INIT()
+AC_INIT
+AC_CONFIG_SRCDIR([include/ei.h])
+AC_PREREQ([2.71])
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -52,16 +54,16 @@ esac
 
 AC_CONFIG_AUX_DIR([$srcdir/src/auxdir])
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=win32
+if test "$host" = "free_source" -o "$host" = "win32"; then
+   host_os="$host"
+else   
+   AC_CANONICAL_HOST
 fi
 
 TARGET=$host
 AC_SUBST(TARGET)
 
-AC_CONFIG_HEADER([src/$host/config.h:config.h.in])
+AC_CONFIG_HEADERS([src/$host/config.h:config.h.in])
 
 dnl ----------------------------------------------------------------------
 dnl Optional features
@@ -92,6 +94,7 @@ dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_EGREP
 dnl AC_PROG_LIBTOOL
 AC_PROG_RANLIB
 AC_CHECK_PROGS(LD, ld.sh)
@@ -164,7 +167,8 @@ AC_CHECK_LIB([nsl], [gethostbyname])
 AC_CHECK_LIB([socket], [getpeername])
 
 # Checks for header files.
-AC_HEADER_STDC
+AC_CHECK_INCLUDES_DEFAULT
+
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/param.h sys/socket.h sys/select.h sys/time.h unistd.h sys/types.h sys/uio.h])
 
@@ -175,14 +179,12 @@ dnl AC_C_VOLATILE
 AC_TYPE_UID_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
+AC_CHECK_HEADERS_ONCE([sys/time.h])
+
 AC_MSG_CHECKING([for socklen_t usability])
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>], 
-[socklen_t mylen;],
-[AC_MSG_RESULT(yes) 
- AC_DEFINE(HAVE_SOCKLEN_T, [], [Define if you have the `socklen_t' type])],
-[AC_MSG_RESULT(no)])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <sys/socket.h>]], [[socklen_t mylen;]])],[AC_MSG_RESULT(yes) 
+ AC_DEFINE(HAVE_SOCKLEN_T, [], [Define if you have the `socklen_t' type])],[AC_MSG_RESULT(no)])
 
 # Checks for library functions.
 AC_FUNC_ALLOCA
@@ -194,7 +196,7 @@ dnl AC_FUNC_MALLOC
 dnl AC_FUNC_REALLOC
 AC_FUNC_MEMCMP
 dnl AC_FUNC_SELECT_ARGTYPES
-dnl AC_TYPE_SIGNAL
+
 dnl AC_FUNC_STRERROR_R
 dnl AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([dup2 gethostbyaddr gethostbyname \
@@ -371,7 +373,7 @@ LDFLAGS="$LDFLAGS $sanitizers"
 # ---------------------------------------------------------------------------
 
 
-AC_OUTPUT(
-	src/$host/Makefile:src/Makefile.in
+AC_CONFIG_FILES([src/$host/Makefile:src/Makefile.in
 	src/$host/eidefs.mk:src/eidefs.mk.in
-	)
+	])
+AC_OUTPUT

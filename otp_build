@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 
-USE_AUTOCONF_VERSION=2.69
+USE_AUTOCONF_VERSION=2.71
 
 aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
 autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
@@ -196,7 +196,8 @@ NL="\
 do_update_configure ()		
 {
     get_do_commit $1
-   
+
+    export AUTOCONF_VERSION="$USE_AUTOCONF_VERSION"
     ac_ver_blob=`autoconf --version`
     if [ $? -ne 0 ]; then
 	echo "ERROR: Failed to check autoconf version! You need to have autoconf of version $USE_AUTOCONF_VERSION in path." 1>&2
@@ -236,7 +237,7 @@ do_update_configure ()
     export TARGET
 
     for d in $AUTOCONF_SUBDIRS; do
-	file="$d/configure.in"
+	file="$d/configure.ac"
 	[ -f "$file" ] || continue
 	echo ""
 	[ ! -d "$d/autom4te.cache" ] || {

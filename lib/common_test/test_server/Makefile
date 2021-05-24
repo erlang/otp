@@ -47,7 +47,7 @@ TS_TARGET_MODULES= $(TS_MODULES:%=$(EBIN)/%)
 
 TS_ERL_FILES = $(TS_MODULES:=.erl)
 TS_HRL_FILES = ts.hrl
-AUTOCONF_FILES = configure.in conf_vars.in
+AUTOCONF_FILES = conf_vars.in
 PROGRAMS = configure config.sub config.guess install-sh 
 CONFIG = ts.config ts.unix.config ts.win32.config
 
@@ -71,9 +71,6 @@ clean:
 	rm -f core
 
 docs:
-
-configure: configure.in
-	autoconf configure.in > configure
 
 # ----------------------------------------------------
 # Special Build Targets

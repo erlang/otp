@@ -56,28 +56,22 @@ ethr_ts_event *ethr_get_tse__(void);
 ETHR_PROTO_NORETURN__ ethr_abort__(void);
 
 #ifdef ETHR_INCLUDE_MONOTONIC_CLOCK__
-#undef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
-#if defined(ETHR_HAVE_CLOCK_GETTIME_MONOTONIC)		\
-    || defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)		\
-    || defined(ETHR_HAVE_GETHRTIME)
-#ifdef ETHR_TIME_WITH_SYS_TIME
-#  include <time.h>
-#  include <sys/time.h>
-#else
-#  ifdef ETHR_HAVE_SYS_TIME_H
-#    include <sys/time.h>
-#  else
+#  undef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+#  if defined(ETHR_HAVE_CLOCK_GETTIME_MONOTONIC)	\
+      || defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)		\
+      || defined(ETHR_HAVE_GETHRTIME)
 #    include <time.h>
+#    ifdef ETHR_HAVE_SYS_TIME_H
+#      include <sys/time.h>
+#    endif
 #  endif
-#endif
-#ifdef ETHR_HAVE_MACH_CLOCK_GET_TIME
-#include <mach/clock.h>
-#include <mach/mach.h>
-#endif
-#define ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+#  ifdef ETHR_HAVE_MACH_CLOCK_GET_TIME
+#    include <mach/clock.h>
+#    include <mach/mach.h>
+#  endif
+#  define ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
 ethr_sint64_t ethr_get_monotonic_time(void);
 int ethr_get_monotonic_time_is_broken(void);
-#endif
 #endif /* ETHR_INCLUDE_MONOTONIC_CLOCK__ */
 
 void ethr_init_event__(void);

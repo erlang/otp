@@ -19,9 +19,15 @@ dnl
 dnl %CopyrightEnd%
 dnl 
 
-AC_INIT(conf_vars.in)
+AC_INIT
+AC_CONFIG_SRCDIR([conf_vars.in])
+AC_PREREQ([2.71])
 
-AC_CANONICAL_HOST
+if test "$host" = "free_source" -o "$host" = "win32"; then
+   host_os="$host"
+else   
+   AC_CANONICAL_HOST
+fi
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -84,7 +90,7 @@ AC_CHECK_HEADER(net/errno.h, AC_DEFINE(HAVE_NET_ERRNO_H))
 
 AC_CHECK_HEADER(linux/tcp.h, AC_DEFINE(HAVE_LINUX_TCP_H))
 AC_MSG_CHECKING(for sane linux/tcp.h)
-AC_TRY_COMPILE([#include <stdio.h>
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>
 		#include <stdlib.h>
 		#include <string.h>
 		#include <unistd.h>
@@ -94,10 +100,7 @@ AC_TRY_COMPILE([#include <stdio.h>
 		#include <sys/wait.h>
 		#include <linux/tcp.h>
 		#include <netinet/in.h>
-		#include <netdb.h>],
-		[return 0;],	
-		have_sane_linux_tcp_h=yes,
-		have_sane_linux_tcp_h=no)
+		#include <netdb.h>]], [[return 0;]])],[have_sane_linux_tcp_h=yes],[have_sane_linux_tcp_h=no])
 
 if test $have_sane_linux_tcp_h = yes; then
 	AC_DEFINE(HAVE_SANE_LINUX_TCP_H,[1],
@@ -334,7 +337,8 @@ AC_CHECK_FUNCS(usleep)
 
 # First check if the library is available, then if we can choose between
 # two versions of gethostbyname
-AC_HAVE_LIBRARY(resolv)
+AC_CHECK_LIB([resolv],[main],[],[],[])ac_cv_lib_resolv=ac_cv_lib_resolv_main
+
 AC_CHECK_LIB(resolv, res_gethostbyname,[AC_DEFINE(HAVE_RES_GETHOSTBYNAME,1)])
 
 #--------------------------------------------------------------------
@@ -342,8 +346,7 @@ AC_CHECK_LIB(resolv, res_gethostbyname,[AC_DEFINE(HAVE_RES_GETHOSTBYNAME,1)])
 #--------------------------------------------------------------------
 
 AC_MSG_CHECKING([for isfinite])
-AC_TRY_LINK([#include <math.h>],
-            [isfinite(0);], have_isfinite=yes, have_isfinite=no)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <math.h>]], [[isfinite(0);]])],[have_isfinite=yes],[have_isfinite=no])
 
 if test $have_isfinite = yes; then
     AC_DEFINE(HAVE_ISFINITE,1)
@@ -438,10 +441,10 @@ SSLEAY_ROOT=$TARGET
 #
 dnl ERL_TRY_LINK_JAVA(CLASSES, FUNCTION-BODY
 dnl                   [ACTION_IF_FOUND [, ACTION-IF-NOT-FOUND]])
-dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a 
+dnl Freely inspired by AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[],[]). (Maybe better to create a 
 dnl AC_LANG_JAVA instead...)
 AC_DEFUN(ERL_TRY_LINK_JAVA,
-[java_link='$JAVAC conftest.java 1>&AC_FD_CC'
+[java_link='$JAVAC conftest.java 1>&AS_MESSAGE_LOG_FD'
 changequote(, )dnl
 cat > conftest.java <<EOF
 $1
@@ -454,9 +457,9 @@ if AC_TRY_EVAL(java_link) && test -s conftest.class; then
    ifelse([$3], , :, [rm -rf conftest*
    $3])
 else
-   echo "configure: failed program was:" 1>&AC_FD_CC
-   cat conftest.java 1>&AC_FD_CC
-   echo "configure: PATH was $PATH" 1>&AC_FD_CC
+   echo "configure: failed program was:" 1>&AS_MESSAGE_LOG_FD
+   cat conftest.java 1>&AS_MESSAGE_LOG_FD
+   echo "configure: PATH was $PATH" 1>&AS_MESSAGE_LOG_FD
 ifelse([$4], , , [  rm -rf conftest*
   $4
 ])dnl
@@ -489,4 +492,5 @@ else
 fi
 AC_SUBST(test_c_compiler)
 
-AC_OUTPUT(conf_vars)
+AC_CONFIG_FILES([conf_vars])
+AC_OUTPUT
