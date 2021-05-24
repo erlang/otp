@@ -25,6 +25,8 @@ AC_INIT
 AC_CONFIG_SRCDIR([emulator/beam/erl_process.c])
 AC_PREREQ([2.71])
 
+m4_include([otp.m4])
+
 LM_PRECIOUS_VARS
 
 dnl We check if -Werror was given on command line and if so
@@ -74,7 +76,7 @@ erl_top=${ERL_TOP}
 # echo X
 # echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-AC_CONFIG_AUX_DIRS($srcdir/autoconf)
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 dnl ----------------------------------------------------------------------
 dnl Figure out what system we are running on.

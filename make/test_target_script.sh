@@ -160,7 +160,7 @@ fi
 DIR=`pwd`
 if [ "$DIR" -ef "$ERL_TOP" ]
 then
-    TARGET_SYS=`$ERL_TOP/erts/autoconf/config.guess`
+    TARGET_SYS=`$ERL_TOP/make/autoconf/config.guess`
     REL_DIR="$ERL_TOP/release/$TARGET_SYS"
     cd "$REL_DIR"
     ./Install -minimal "`pwd`"

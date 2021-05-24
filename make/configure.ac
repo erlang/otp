@@ -22,6 +22,8 @@ AC_PREREQ([2.71])dnl
 
 AC_INIT
 
+m4_include([otp.m4])
+
 LM_PRECIOUS_VARS
 
 default_cache_file=./config.cache
@@ -82,7 +84,7 @@ AC_SUBST(ERL_TOP)
 dnl
 dnl Aux programs are found in erts/autoconf
 dnl
-AC_CONFIG_AUX_DIR(${ERL_TOP}/erts/autoconf)
+AC_CONFIG_AUX_DIRS([${ERL_TOP}/make/autoconf])
 
 ERL_CANONICAL_SYSTEM_TYPE
 

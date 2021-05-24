@@ -42,7 +42,7 @@ ENV HOST=$HOST_TRIP \
 WORKDIR /buildroot/otp
 
 ## Build the cross system
-RUN ./configure --prefix=/otp/ --host=$HOST --build=`erts/autoconf/config.guess`
+RUN ./configure --prefix=/otp/ --host=$HOST --build=`make/autoconf/config.guess`
 RUN OTP_SMALL_BUILD=true V=1 make
 
 RUN make odbc && make install

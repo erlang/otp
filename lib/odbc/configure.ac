@@ -27,7 +27,9 @@ AC_INIT
 AC_CONFIG_SRCDIR([c_src/odbcserver.c])
 AC_PREREQ([2.71])
 
-AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
+m4_include([otp.m4])
+
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 ERL_CANONICAL_SYSTEM_TYPE
 

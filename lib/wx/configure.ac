@@ -20,7 +20,9 @@ dnl %CopyrightEnd%
 
 AC_INIT
 
-AC_CONFIG_AUX_DIRS($srcdir/autoconf)
+m4_include([otp.m4])
+
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 AC_PREREQ([2.71])
 
@@ -47,7 +49,6 @@ AS_IF(
  ],
  [
   erl_top=${ERL_TOP}
-  AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
   WX_BUILDING_INSIDE_ERLSRC=true
  ])
 

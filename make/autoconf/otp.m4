@@ -19,11 +19,15 @@ dnl %CopyrightEnd%
 dnl
 
 dnl
-dnl aclocal.m4
+dnl otp.m4
 dnl
-dnl Local macros used in configure.in. The Local Macros which
-dnl could/should be part of autoconf are prefixed LM_, macros specific
-dnl to the Erlang system are prefixed ERL_.
+dnl Local macros that can be used in `configure.ac` files in OTP. To use
+dnl any of the macros your `configure.ac` file should include this file
+dnl using `m4_include([otp.m4])` after AC_INIT.
+dnl
+dnl The Local Macros which could be part of autoconf are prefixed LM_,
+dnl macros specific dnl to the Erlang system are prefixed ERL_ (this is
+dnl not always consistently made...).
 dnl
 
 AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
@@ -731,7 +735,7 @@ case $ac_cv_c_double_middle_endian in
       [AC_MSG_WARN([unknown double endianness
 presetting ac_cv_c_double_middle_endian=no (or yes) will help])]) ;;
 esac
-])# AC_C_DOUBLE_MIDDLE_ENDIAN
+])dnl # AC_C_DOUBLE_MIDDLE_ENDIAN
 
 
 AC_DEFUN(ERL_MONOTONIC_CLOCK,
@@ -2851,8 +2855,7 @@ ifelse([$4], , , [  rm -rf conftest*
 
   ])
 rm -f conftest*])
-#define UNSAFE_MASK  0xc0000000 /* Mask for bits that must be constant */
-
+dnl #define UNSAFE_MASK  0xc0000000 /* Mask for bits that must be constant */
 
 dnl ----------------------------------------------------------------------
 dnl

@@ -21,13 +21,11 @@
 
 USE_AUTOCONF_VERSION=2.71
 
-aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco ./lib/snmp ./common_test"
-autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
+autoconf_aux_dirs="./erts/autoconf ./lib/common_test/test_server"
 
-aclocal_master="./erts/aclocal.m4"
-install_sh_master="./erts/autoconf/install-sh"
-config_guess_master="./erts/autoconf/config.guess"
-config_sub_master="./erts/autoconf/config.sub"
+install_sh_master="./make/autoconf/install-sh"
+config_guess_master="./make/autoconf/config.guess"
+config_sub_master="./make/autoconf/config.sub"
 
 # Global configuration variables
 #
@@ -119,7 +117,7 @@ check_erltop ()
 {
         ERLTOP_FORCED=false
 	if [ "X$ERL_TOP" = "X" ]; then
-		if [ -f ./otp_build -a -f ./erts/autoconf/config.guess ]; then
+		if [ -f ./otp_build -a -f ./make/autoconf/config.guess ]; then
 		    ERLTOP_FORCED=true
 		    ERL_TOP=`pwd`
 		    export ERL_TOP
@@ -216,10 +214,6 @@ do_update_configure ()
     
     out_files=
 
-    for dir in $aclocal_dirs; do
-	$install_sh_master -m 644 -t "$dir" "$aclocal_master"
-    done
-
     install_sh=`basename $install_sh_master`
     config_guess=`basename $config_guess_master`
     config_sub=`basename $config_sub_master`
@@ -252,12 +246,12 @@ do_update_configure ()
 	}
 
 	echo "=== running autoconf in $d"
-	( cd "$d" && autoconf ) || exit 1
+	( cd "$d" && autoconf -B "$ERL_TOP/make/autoconf") || exit 1
 	out_files="$out_files $d/configure"
 	chdr=`cat "$file" | sed -n "s|.*\(AC_CONFIG_HEADER\).*|\1|p"`
 	[ "$chdr" = "AC_CONFIG_HEADER" ] || continue
 	echo "=== running autoheader in $d"
-	( cd "$d" && autoheader ) || exit 1
+	( cd "$d" && autoheader -B "$ERL_TOP/make/autoconf") || exit 1
 	out_files="$out_files $d/config.h.in"
     done
 
@@ -353,8 +347,8 @@ try_cross_configure ()
 
 	    test "X$build_value" != "X" || build_value="$BUILDSYS"
 
-	    build_sys=`"$ERL_TOP/erts/autoconf/config.sub" "$build_value"` || exit 1
-	    host_sys=`"$ERL_TOP/erts/autoconf/config.sub" "$host_value"` || exit 1
+	    build_sys=`"$ERL_TOP/make/autoconf/config.sub" "$build_value"` || exit 1
+	    host_sys=`"$ERL_TOP/make/autoconf/config.sub" "$host_value"` || exit 1
 
 	    
 	    test "$host_sys" = "$build_sys" || cross_configure=yes
@@ -658,15 +652,15 @@ echo_env_cygwin ()
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
     if [ X"$X64" = X"true" ]; then
-        if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
-	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+        if [ -f "$ERL_TOP/make/autoconf/win64.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win64.config.cache.static" ';'
         fi
-        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win64.config.cache" ';'
     else
-        if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
-	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+        if [ -f "$ERL_TOP/make/autoconf/win32.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win32.config.cache.static" ';'
         fi
-        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win32.config.cache" ';'
     fi
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
     echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
@@ -723,15 +717,15 @@ echo_env_msys ()
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
     if [ X"$X64" = X"true" ]; then
-        if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
-	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+        if [ -f "$ERL_TOP/make/autoconf/win64.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win64.config.cache.static" ';'
         fi
-        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win64.config.cache" ';'
     else
-        if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
-	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+        if [ -f "$ERL_TOP/make/autoconf/win32.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win32.config.cache.static" ';'
         fi
-        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win32.config.cache" ';'
     fi
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
     echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
@@ -772,15 +766,15 @@ echo_env_wsl ()
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
     if [ X"$X64" = X"true" ]; then
-        if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
-	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+        if [ -f "$ERL_TOP/make/autoconf/win64.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win64.config.cache.static" ';'
         fi
-        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win64.config.cache" ';'
     else
-        if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
-	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+        if [ -f "$ERL_TOP/make/autoconf/win32.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/make/autoconf/win32.config.cache.static" ';'
         fi
-        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/make/autoconf/win32.config.cache" ';'
     fi
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
     echo_setenv PATH "$WIN32_WRAPPER_PATH:$PATH" ';'
@@ -1118,7 +1112,7 @@ unset ${erl_otp_flags}
 # Target first guess, won't necessarily hold, may be changed for 
 # certain parameters.
 if [ X"$TARGET" = X"" ]; then
-	TARGET=`"$ERL_TOP/erts/autoconf/config.guess"`
+	TARGET=`"$ERL_TOP/make/autoconf/config.guess"`
 fi
 BUILDSYS=$TARGET
 

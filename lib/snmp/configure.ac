@@ -6,7 +6,9 @@ AC_INIT
 AC_CONFIG_SRCDIR([src/app/snmp.app.src])
 AC_PREREQ([2.71])
 
-AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
+m4_include([otp.m4])
+
+AC_CONFIG_AUX_DIRS([${ERL_TOP}/make/autoconf])
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.

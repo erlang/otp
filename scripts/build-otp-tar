@@ -551,7 +551,7 @@ if [ ! -d $src_dir -o ! -f $src_dir/otp_build ]; then
 fi
 
 progress "Checking target directory name"
-target_dirname=`$prebld_dir/erts/autoconf/config.guess`
+target_dirname=`$prebld_dir/make/autoconf/config.guess`
 if [  $? -ne 0 ]; then
     error "Failed to check target directory name"
 fi

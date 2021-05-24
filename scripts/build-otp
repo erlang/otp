@@ -54,7 +54,7 @@ if [ "$1" = "release" ]; then
 fi
 
 if [ "$1" = "docs" ]; then
-    DOC_TARGET=${TRAVIS_BRANCH:-release/`erts/autoconf/config.guess`}
+    DOC_TARGET=${TRAVIS_BRANCH:-release/`make/autoconf/config.guess`}
     DOC_TARGET=${TRAVIS_TAG:-$DOC_TARGET}
     TESTROOT=$PWD/$DOC_TARGET do_and_log "Building documentation" make release_docs
     do_and_log "Linting documentation" make xmllint

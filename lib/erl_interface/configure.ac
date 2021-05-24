@@ -31,6 +31,8 @@ AC_INIT
 AC_CONFIG_SRCDIR([include/ei.h])
 AC_PREREQ([2.71])
 
+m4_include([otp.m4])
+
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
 #### avoid running the path through pwd unnecessary, since pwd can
@@ -52,7 +54,7 @@ case "${srcdir}" in
   *  ) srcdir="`(cd ${srcdir}; pwd)`" ;;
 esac
 
-AC_CONFIG_AUX_DIR([$srcdir/src/auxdir])
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 ERL_CANONICAL_SYSTEM_TYPE
 

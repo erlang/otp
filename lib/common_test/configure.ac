@@ -1,7 +1,9 @@
 AC_INIT
 AC_PREREQ([2.71])
 
-AC_CONFIG_AUX_DIR(priv/auxdir)
+m4_include([otp.m4])
+
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 ERL_CANONICAL_SYSTEM_TYPE
 
