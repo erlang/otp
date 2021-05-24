@@ -184,6 +184,23 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
+      <name name="inet_backend"/>
+      <desc>
+        <p>
+          Select the implementation backend for sockets.
+          The current default is <c>inet</c> which at the bottom uses
+          <c>inet_drv.c</c> to call the platform's socket API.
+          The value <c>socket</c> instead at the bottom uses the
+          <seeerl marker="socket"><c>socket</c></seeerl>
+          module and its NIF implementation.
+        </p>
+        <p>
+          This is a <em>temporary</em> option
+          that will be ignored in a future release.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="socket_address"/>
     </datatype>
     <datatype>
