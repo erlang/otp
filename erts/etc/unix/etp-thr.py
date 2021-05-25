@@ -33,6 +33,12 @@ def get_thread_name(t):
             return "child_waiter";
         elif f.name() == "sched_thread_func":
             return "scheduler";
+        elif f.name() == "sched_dirty_cpu_thread_func":
+            return "dirty_cpu_scheduler";
+        elif f.name() == "sched_dirty_io_thread_func":
+            return "dirty_io_scheduler";
+        elif f.name() == "poll_thread":
+            return "poll_thread";
         elif f.name() == "aux_thread":
             return "aux";
         f = f.older();
