@@ -5869,7 +5869,7 @@ $as_echo "$as_me: WARNING: Cannot find core lib version for wxWidgets" >&2;}
 
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for edge webview loader" >&5
 $as_echo_n "checking for edge webview loader... " >&6; }
-    WEBVIEW_DLL=$WXDIR/3rdparty/webview2/build/$WX_ARCH/WebView2Loader.dll
+    WEBVIEW_DLL=$WXDIR/3rdparty/webview2/build/native/$WX_ARCH/WebView2Loader.dll
     if test -f "$WEBVIEW_DLL"; then
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $WEBVIEW_DLL" >&5
 $as_echo "$WEBVIEW_DLL" >&6; }

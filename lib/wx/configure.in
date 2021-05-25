@@ -518,7 +518,7 @@ else
     fi
 
     AC_MSG_CHECKING(for edge webview loader)
-    WEBVIEW_DLL=$WXDIR/3rdparty/webview2/build/$WX_ARCH/WebView2Loader.dll
+    WEBVIEW_DLL=$WXDIR/3rdparty/webview2/build/native/$WX_ARCH/WebView2Loader.dll
     if test -f "$WEBVIEW_DLL"; then
 	AC_MSG_RESULT([$WEBVIEW_DLL])
         WX_WEBVIEW_DLL=$WEBVIEW_DLL
