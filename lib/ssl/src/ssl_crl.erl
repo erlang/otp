@@ -35,7 +35,7 @@ trusted_cert_and_path(CRL, {SerialNumber, Issuer}, CertPath, {Db, DbRef}) ->
 	undefined ->
             %% But not found in our database
 	    search_certpath(CRL, CertPath, Db, DbRef);
-	{ok, {_, OtpCert}}  ->
+	{ok, #cert{otp=OtpCert}}  ->
 	    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
 	    {ok, Root,  lists:reverse(Chain)}
     end;
@@ -44,7 +44,7 @@ trusted_cert_and_path(CRL, issuer_not_found, CertPath, {Db, DbRef}) ->
 	{error, unknown_ca} ->
             Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
             IsIssuerFun =
-                fun({_Key, {_Der,ErlCertCandidate}}, Acc) ->
+                fun({_Key, #cert{otp=ErlCertCandidate}}, Acc) ->
                         verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc);
                    (_, Acc) ->
                         Acc
@@ -63,13 +63,13 @@ trusted_cert_and_path(CRL, issuer_not_found, CertPath, {Db, DbRef}) ->
 search_certpath(CRL, CertPath, Db, DbRef) ->
     Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
     IsIssuerFun =
-	fun({_Der,ErlCertCandidate}, Acc) ->
+	fun(#cert{otp=ErlCertCandidate}, Acc) ->
 		verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc);
 	   (_, Acc) ->
 		Acc
 	end,
-    case find_issuer(IsIssuerFun, certpath,
-                     [{Der, public_key:pkix_decode_cert(Der,otp)} || Der <- CertPath]) of
+    Certs = [#cert{der=Der, otp=public_key:pkix_decode_cert(Der,otp)} || Der <- CertPath],
+    case find_issuer(IsIssuerFun, certpath, Certs) of
 	{ok, OtpCert} ->
 	    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
 	    {ok, Root, lists:reverse(Chain)};
