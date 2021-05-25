@@ -35,10 +35,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--record(state, {cb_port,  %% Callback port and to erlang messages goes via it.
-		users,    %% List of wx servers, needed ??
-		driver,   %% Driver name so wx_server can create it's own port
-		msgs=[]   %% Early messages (such as openfiles on OSX)
+-record(state, {subscribers=[],  %% WxApp messages listeners
+		msgs=[]   %% WxApp messages (open_file and new_file on MacOSX)
 	       }).
 
 -include("wxe.hrl").
@@ -141,7 +139,12 @@ init([SilentStart]) ->
 handle_call(init_env, _From, State) ->
     {reply, ok, State};
 handle_call(fetch_msgs, _From, State=#state{msgs=Msgs}) ->
-    {reply, lists:reverse(Msgs), State#state{msgs=[]}};
+    NewFiles = [Data || {Type, Data} <- lists:reverse(Msgs), Type == new_file],
+    {reply, NewFiles, State#state{msgs=[]}};
+handle_call(subscribe_msgs, {Pid, _Tag}, State=#state{subscribers=Subs}) ->
+    monitor(process, Pid),
+    lists:foreach(fun(Msg) -> Pid ! Msg end, lists:reverse(State#state.msgs)),
+    {reply, ok, State#state{subscribers=[Pid|Subs], msgs=[]}};
 handle_call(_Request, _From, State) ->
     %%io:format("Unknown request ~p sent to ~p from ~p ~n",[_Request, ?MODULE, _From]),
     Reply = ok,
@@ -172,8 +175,14 @@ handle_info({wxe_driver, internal_error, Msg}, State) ->
 handle_info({wxe_driver, debug, Msg}, State) ->
     io:format("WX DBG: ~s~n", [Msg]),
     {noreply, State};
-handle_info({wxe_driver, open_file, File}, State=#state{msgs=Msgs}) ->
-    {noreply, State#state{msgs=[File|Msgs]}};
+handle_info({wxe_driver, Cmd, File}, State = #state{subscribers=Subs, msgs=Msgs}) 
+  when Cmd =:= open_file; Cmd =:= new_file; Cmd =:= print_file; 
+       Cmd =:= open_url; Cmd =:= reopen_app ->
+    lists:foreach(fun(Pid) -> Pid ! {Cmd, File} end, Subs),
+    {noreply, State#state{msgs=[{Cmd, File}|Msgs]}};
+handle_info({'DOWN', _Ref, process, Pid, _Info}, State) ->
+    Subs = State#state.subscribers -- [Pid],
+    {noreply, State#state{subscribers=Subs}};
 handle_info(_Info, State) ->
     io:format("Unknown message ~p sent to ~p~n",[_Info, ?MODULE]),
     {noreply, State}.

@@ -178,8 +178,26 @@ bool WxeApp::OnInit()
 
 
 #ifdef  _MACOSX
+void WxeApp::MacPrintFile(const wxString &filename) {
+  send_msg("print_file", &filename);
+}
+
 void WxeApp::MacOpenFile(const wxString &filename) {
   send_msg("open_file", &filename);
+}
+
+void WxeApp::MacOpenURL(const wxString &url) {
+  send_msg("open_url", &url);
+}
+
+void WxeApp::MacNewFile() {
+  wxString empty;
+  send_msg("new_file", &empty);
+}
+
+void WxeApp::MacReopenApp() {
+  wxString empty;
+  send_msg("reopen_app", &empty);
 }
 #endif
 
