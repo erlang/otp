@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -111,17 +111,10 @@
 -type name_info_flag_ext()      :: idn.
 -type name_info()               :: #{host    := string(),
                                      service := string()}.
--ifdef(USE_ESOCK).
 -type address_info()            :: #{family   := socket:domain(),
                                      socktype := socket:type(),
                                      protocol := socket:protocol(),
                                      address  := socket:sockaddr()}.
--else.
--type address_info()            :: #{family   := term(),
-                                     socktype := term(),
-                                     protocol := term(),
-                                     address  := term()}.
--endif.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
 
@@ -210,21 +203,15 @@ gethostname() ->
 getnameinfo(SockAddr) ->
     getnameinfo(SockAddr, undefined).
 
--ifdef(USE_ESOCK).
 -spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
       SockAddr :: socket:sockaddr(),
       Flags    :: name_info_flags() | undefined,
       Info     :: name_info(),
       Reason   :: term().
--else.
--spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
-      SockAddr :: term(),
-      Flags    :: name_info_flags() | undefined,
-      Info     :: name_info(),
-      Reason   :: term().
--endif.
+
 
 -ifdef(USE_ESOCK).
+
 getnameinfo(SockAddr, Flags)
   when is_map(SockAddr), is_list(Flags);
        is_map(SockAddr), Flags =:= undefined ->
