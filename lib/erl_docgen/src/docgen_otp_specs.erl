@@ -318,6 +318,14 @@ app_fix(L, I) -> % a bit slow
         _ -> app_fix(L, I+1)
     end.
 
+%% Translate edoc absolute links to local links
+fix_mod_ref([{marker, "specs://" ++ HRef}], Opts) ->
+    case string:split(HRef,"/",all) of
+        %% We don't need to prefix with "app:" on the link
+        %% it will be added later anyway
+        [_App, "doc", ModRef] ->
+            fix_mod_ref([{marker,ModRef}], Opts)
+    end;
 %% Remove the file suffix from module references.
 fix_mod_ref(HRef, #opts{file_suffix = ""}) ->
     HRef;

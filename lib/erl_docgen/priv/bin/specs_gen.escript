@@ -99,7 +99,7 @@ read_file(File, Opts) ->
     edoc:read_source(File, Opts).
 
 extract(File, Forms, Opts) ->
-    Env = edoc_lib:get_doc_env([], [], _Opts=[]),
+    Env = edoc_lib:get_doc_env([], [], [{app_default,"specs:/"}]),
     {_Module, Doc} = edoc_extract:source(Forms, File, Env, Opts),
     Doc.
 
