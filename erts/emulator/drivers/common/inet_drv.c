@@ -6632,15 +6632,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->delimiter = (char)ival;
 	    continue;
 
-	case INET_OPT_REUSEADDR: 
-#ifdef __WIN32__
-	    continue;  /* Bjorn says */
-#else
-	    type = SO_REUSEADDR;
+	    /* This is problematic on Windows, but... */
+	case INET_OPT_REUSEADDR: type = SO_REUSEADDR;
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_REUSEADDR=%d\r\n",
 		    desc->port, desc->s,ival));
 	    break;
-#endif
+
 	case INET_OPT_KEEPALIVE: type = SO_KEEPALIVE;
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_KEEPALIVE=%d\r\n",
 		    desc->port, desc->s, ival));
@@ -7937,6 +7934,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    TRUNCATE_TO(0,ptr);
 	    continue;
 #endif
+
 	case INET_OPT_REUSEADDR: 
 	    type = SO_REUSEADDR; 
 	    break;
