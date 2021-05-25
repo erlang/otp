@@ -1017,12 +1017,9 @@ certify_server(#state{handshake_env = #handshake_env{kex_algorithm = KexAlg}} =
 certify_server(#state{static_env = #static_env{cert_db = CertDbHandle,
                                                cert_db_ref = CertDbRef},
 		      session = #session{own_certificates = OwnCerts}} = State, Connection) ->
-    case ssl_handshake:certificate(OwnCerts, CertDbHandle, CertDbRef, server) of
-	Cert = #certificate{} ->
-	    Connection:queue_handshake(Cert, State);
-	Alert = #alert{} ->
-	    throw(Alert)
-    end.
+    Cert = ssl_handshake:certificate(OwnCerts, CertDbHandle, CertDbRef, server),
+    #certificate{} = Cert,  %% Assert
+    Connection:queue_handshake(Cert, State).
 
 key_exchange(#state{static_env = #static_env{role = server}, 
                     handshake_env = #handshake_env{kex_algorithm = rsa}} = State,_) ->
