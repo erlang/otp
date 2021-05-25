@@ -866,8 +866,8 @@ define etp-extpid-1
       printf "#NotExternalPid<%p>", $etp_extpid_1_p->header
     else
       ## External pid
-      set $etp_extpid_1_number = $etp_extpid_1_p->data.ui[0]&0x7fff
-      set $etp_extpid_1_serial = ($etp_extpid_1_p->data.ui[0]>>15)&0x1fff
+      set $etp_extpid_1_number = $etp_extpid_1_p->data.ui32[0]
+      set $etp_extpid_1_serial = $etp_extpid_1_p->data.ui32[1]
       set $etp_extpid_1_np = $etp_extpid_1_p->node
       set $etp_extpid_1_creation = $etp_extpid_1_np->creation
       set $etp_extpid_1_dep = $etp_extpid_1_np->dist_entry
@@ -926,7 +926,11 @@ define etp-extport-1
       printf "#NotExternalPort<%p>", $etp_extport_1->header
     else
       ## External port
-      set $etp_extport_1_number = $etp_extport_1_p->data.ui[0]&0x3ffff
+      if $etp_arch64
+	set $etp_extport_1_number = $etp_extport_1_p->data.port.id
+      else
+	set $etp_extport_1_number = $etp_extport_1_p->data.port.low | (((Uint64)$etp_extport_1_p->data.port.high) << 32)
+      end
       set $etp_extport_1_np = $etp_extport_1_p->node
       set $etp_extport_1_creation = $etp_extport_1_np->creation
       set $etp_extport_1_dep = $etp_extport_1_np->dist_entry
@@ -941,7 +945,7 @@ define etp-extport-1
           printf "#Port<%u:", $etp_extport_1_node>>6
         end
         etp-atom-1 ($etp_extport_1_node)
-        printf "/%u.%u>", $etp_extport_1_creation, $etp_extport_1_number
+        printf "/%u.%lu>", $etp_extport_1_creation, $etp_extport_1_number
       end
     end
   end
