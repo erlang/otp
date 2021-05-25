@@ -16554,9 +16554,8 @@ void esock_send_reg_add_msg(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_send_reg_add_msg(%T) {%d} failed ->"
                 "\r\n   regPid: %T"
-                "\r\n   msg:    %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &data.regPid), msg) );
+                sockRef, descP->sock, MKPID(env, &data.regPid)) );
     }
 }
 #endif // #ifndef __WIN32__
@@ -16581,9 +16580,8 @@ void esock_send_reg_del_msg(ErlNifEnv*   env,
                ("SOCKET",
                 "esock_send_reg_del_msg(%T) {%d} failed ->"
                 "\r\n   regPid: %T"
-                "\r\n   msg:    %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &data.regPid), msg) );
+                sockRef, descP->sock, MKPID(env, &data.regPid)) );
     }
 }
 #endif // #ifndef __WIN32__
@@ -16619,9 +16617,9 @@ void esock_send_wrap_msg(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_send_wrap_msg(%T) {%d} failed ->"
                 "\r\n   ctrlPid: %T"
-                "\r\n   msg:     %T"
+                "\r\n   cnt:     %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &descP->ctrlPid), msg) );
+                sockRef, descP->sock, MKPID(env, &descP->ctrlPid), cnt) );
     }
 }
 #endif // #ifndef __WIN32__
@@ -16651,10 +16649,10 @@ void esock_send_close_msg(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET",
                 "esock_send_close_msg(%T) {%d} failed ->"
-                "\r\n   pid: %T"
-                "\r\n   msg: %T"
+                "\r\n   pid:      %T"
+                "\r\n   closeRef: %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, pid), msg) );
+                sockRef, descP->sock, MKPID(env, pid), descP->closeRef) );
     }
 }
 #ifdef HAVE_SENDFILE
@@ -16713,9 +16711,8 @@ void esock_send_abort_msg(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_send_abort_msg(%T) {%d} failed ->"
                 "\r\n   pid: %T"
-                "\r\n   msg: %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &reqP->pid), msg) );
+                sockRef, descP->sock, MKPID(env, &reqP->pid)) );
     }
     reqP->env = NULL;
 }
