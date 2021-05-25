@@ -282,7 +282,7 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
             if (i + 1 < functions.size()) {
                 stop = getCode(functions[i + 1]);
             } else {
-                stop = getCode(labels.size());
+                stop = getCode(code_end);
             }
 
             ranges.push_back({.start = start, .stop = stop, .name = name});

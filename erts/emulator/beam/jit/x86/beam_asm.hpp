@@ -1035,6 +1035,9 @@ class BeamModuleAssembler : public BeamAssembler {
     /* The module's on_load function, if any. */
     Label on_load;
 
+    /* The end of the last function. */
+    Label code_end;
+
     Eterm mod;
 
     /* Save the last PC for an error. */

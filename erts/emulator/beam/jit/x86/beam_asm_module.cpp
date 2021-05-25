@@ -368,8 +368,8 @@ void BeamModuleAssembler::emit_on_load() {
 
 void BeamModuleAssembler::emit_int_code_end() {
     /* This label is used to figure out the end of the last function */
-    labels[labels.size() + 1] = a.newLabel();
-    a.bind(labels[labels.size()]);
+    code_end = a.newLabel();
+    a.bind(code_end);
 
     emit_nyi("int_code_end");
 }
