@@ -103,6 +103,7 @@
 -define(NOT_FOUND, {?MODULE, not_found}).
 -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
+-define(socket(SockRef), {'$socket', (SockRef)}). % As in socket.erl
 
 %% =========================================================================
 
@@ -185,10 +186,12 @@ loop(State) ->
 	    %% ?DBG([del, Socket]),
             loop( handle_delete_socket(State, Socket) );
 
-        {'$socket', sendfile_deferred_close = Fname, Socket} ->
+        {'$socket',
+         sendfile_deferred_close = Fname,
+         ?socket(SockRef) = Socket} ->
             Closer =
                 fun () ->
-                        try prim_socket:Fname(Socket) of
+                        try prim_socket:Fname(SockRef) of
                             ok ->
                                 ok;
                             Other ->
