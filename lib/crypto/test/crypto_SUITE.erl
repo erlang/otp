@@ -35,6 +35,7 @@ all() ->
      appup,
      {group, fips},
      {group, non_fips},
+     ec_key_padding,
      mod_pow,
      exor,
      rand_uniform,
@@ -697,6 +698,38 @@ do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
             ct:log("1st decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
             ct:fail("api_ng_tlst (decode)",[])
     end.
+
+%%--------------------------------------------------------------------
+ec_key_padding(_Config) ->
+    lists:foreach(fun test_ec_key_padding/1,
+                  crypto:supports(curves) -- [ed25519, ed448, x25519, x448]
+                 ).
+
+test_ec_key_padding(CurveName) ->
+    ExpectedSize = expected_ec_size(CurveName),
+    repeat(100, % Enough to provoke an error in the 85 curves
+               % With for example 1000, the total test time would be too large
+           fun() ->
+                   case crypto:generate_key(ecdh, CurveName) of
+                       {_PubKey, PrivKey} when byte_size(PrivKey) == ExpectedSize ->
+                           %% ct:pal("~p:~p Test ~p, size ~p, expected size ~p", 
+                           %%        [?MODULE,?LINE, CurveName, byte_size(PrivKey), ExpectedSize]),
+                           ok;
+                       {_PubKey, PrivKey} ->
+                           ct:fail("Bad ~p size: ~p expected: ~p", [CurveName, byte_size(PrivKey), ExpectedSize]);
+                       Other ->
+                           ct:pal("~p:~p ~p", [?MODULE,?LINE,Other]),
+                           ct:fail("Bad public_key:generate_key result for ~p", [CurveName])
+                   end
+           end).
+            
+repeat(Times, F) when Times > 0 -> F(), repeat(Times-1, F);
+repeat(_, _) -> ok.
+
+expected_ec_size(CurveName) when is_atom(CurveName) ->
+    expected_ec_size(crypto_ec_curves:curve(CurveName));
+expected_ec_size({{prime_field,_}, _, _, Order, _}) -> byte_size(Order);
+expected_ec_size({{characteristic_two_field, _, _}, _, _, Order, _}) -> size(Order).
 
 %%--------------------------------------------------------------------
 no_aead() ->
