@@ -445,7 +445,6 @@
                                 {alpn_preferred_protocols, server_alpn()} |
                                 {next_protocols_advertised, server_next_protocol()} |
                                 {psk_identity, server_psk_identity()} |
-                                {honor_cipher_order, boolean()} |
                                 {sni_hosts, sni_hosts()} |
                                 {sni_fun, sni_fun()} |
                                 {honor_cipher_order, honor_cipher_order()} |
