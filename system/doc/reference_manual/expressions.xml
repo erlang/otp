@@ -432,15 +432,17 @@ receive
 end</pre>
     <p>
       Fetches a received message present in the message queue of
-      the process. The patterns <c>Pattern</c> are sequentially matched
-      against the first message in the message queue, then the second,
-      and so on. Messages in the message queue are
-      <seeguide marker="processes#message-queue-order">ordered in the
-      order they were received</seeguide>. If a match succeeds and the
-      optional guard sequence <c>GuardSeq</c> is true, the corresponding
-      <c>Body</c> is evaluated. The matching message is consumed, that
-      is, removed from the mail queue, while any other messages in
-      the mail queue remain unchanged.</p>
+      the process. The first message in the message queue is matched
+      sequentially against the patterns from top to bottom. If no
+      match was found, the matching sequence is repeated for the second
+      message in the queue, and so on. Messages are queued in the
+      <seeguide marker="processes#message-queue-order">order they were
+      received</seeguide>. If a match succeeds, that
+      is, if the <c>Pattern</c> matches and the optional guard sequence
+      <c>GuardSeq</c> is true, then the message is removed from the message
+      queue and the corresponding <c>Body</c> is evaluated. All other
+      messages in the message queue remain unchanged.
+    </p>
     <p>The return value of <c>Body</c> is the return value of
       the <c>receive</c> expression.</p>
     <p><c>receive</c> never fails. The execution is suspended, possibly
@@ -470,13 +472,21 @@ after
     ExprT ->
         BodyT
 end</pre>
-    <p><c>ExprT</c> is to evaluate to an integer. The highest allowed
-      value is 16#FFFFFFFF, that is, the value must fit in 32 bits.
-      <c>receive..after</c> works exactly as <c>receive</c>, except
+    <p><c>receive..after</c> works exactly as <c>receive</c>, except
       that if no matching message has arrived within <c>ExprT</c>
       milliseconds, then <c>BodyT</c> is evaluated instead. The
       return value of <c>BodyT</c> then becomes the return value
-      of the <c>receive..after</c> expression.</p>
+      of the <c>receive..after</c> expression. <c>ExprT</c> is to
+      evaluate to an integer, or the atom <c>infinity</c>. The allowed
+      integer range is from 0 to 4294967295, that is, the longest possible
+      timeout is almost 50 days. With a zero value the timeout occurs
+      immediately if there is no matching message in the message queue.
+    </p>
+    <p>
+      The atom <c>infinity</c> will make the process wait indefinitely for a
+      matching message. This is the same as not using a timeout. It can be
+      useful for timeout values that are calculated at runtime.
+    </p>
     <p><em>Example:</em></p>
     <pre>
 wait_for_onhook() ->
@@ -514,16 +524,6 @@ timer(Pid) ->
         5000 ->
             Pid ! timeout
     end.</pre>
-    <p>There are two special cases for the timeout value <c>ExprT</c>:</p>
-    <taglist>
-      <tag><c>infinity</c></tag>
-      <item>The process is to wait indefinitely for a matching message;
-       this is the same as not using a timeout. This can be
-       useful for timeout values that are calculated at runtime.</item>
-      <tag>0</tag>
-      <item>If there is no matching message in the mailbox, the timeout
-       occurs immediately.</item>
-    </taglist>
   </section>
 
   <section>

@@ -2665,7 +2665,10 @@ os_prompt%</pre>
           the arguments specified by <c><anno>Args</anno></c> with the call
           stack emptied, meaning that the process terminates when that
           function returns. Thus <c>erlang:hibernate/3</c> never
-          returns to its caller.</p>
+          returns to its caller. The resume function
+	  <c><anno>Module</anno>:<anno>Function</anno>/Arity</c> must be
+	  exported (<c>Arity</c> =:= <c>length(<anno>Args</anno>)</c>).
+	</p>
         <p>If the process has any message in its message queue,
           the process is awakened immediately in the same way as
           described earlier.</p>
