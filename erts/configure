@@ -738,6 +738,10 @@ OBJEXT
 EXEEXT
 ac_ct_CC
 CROSS_COMPILING
+target_os
+target_vendor
+target_cpu
+target
 host_os
 host_vendor
 host_cpu
@@ -1519,6 +1523,7 @@ _ACEOF
 System types:
   --build=BUILD     configure for building on BUILD [guessed]
   --host=HOST       cross-compile to build programs to run on HOST [BUILD]
+  --target=TARGET   configure for building compilers for TARGET [HOST]
 _ACEOF
 fi
 
@@ -3577,9 +3582,6 @@ erl_top=${ERL_TOP}
 
 
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else
 
 
 
@@ -3656,11 +3658,89 @@ IFS=$ac_save_IFS
 case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking target system type" >&5
+printf %s "checking target system type... " >&6; }
+if test ${ac_cv_target+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "x$target_alias" = x; then
+  ac_cv_target=$ac_cv_host
+else
+  ac_cv_target=`$SHELL "${ac_aux_dir}config.sub" $target_alias` ||
+    as_fn_error $? "$SHELL ${ac_aux_dir}config.sub $target_alias failed" "$LINENO" 5
 fi
 
-#
-# To configure for free source run ./configure --host=free_source
-#
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_target" >&5
+printf "%s\n" "$ac_cv_target" >&6; }
+case $ac_cv_target in
+*-*-*) ;;
+*) as_fn_error $? "invalid value of canonical target" "$LINENO" 5;;
+esac
+target=$ac_cv_target
+ac_save_IFS=$IFS; IFS='-'
+set x $ac_cv_target
+shift
+target_cpu=$1
+target_vendor=$2
+shift; shift
+# Remember, the first character of IFS is used to create $*,
+# except with old shells:
+target_os=$*
+IFS=$ac_save_IFS
+case $target_os in *\ *) target_os=`echo "$target_os" | sed 's/ /-/g'`;; esac
+
+
+# The aliases save the names the user supplied, while $host etc.
+# will get canonicalized.
+test -n "$target_alias" &&
+  test "$program_prefix$program_suffix$program_transform_name" = \
+    NONENONEs,x,x, &&
+  program_prefix=${target_alias}-
+
+
+    # Adjust for local legacy windows hack...
+    case $host in #(
+  local-*-windows) :
+
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
+
+    # Adjust for local legacy windows hack...
+    case $build in #(
+  local-*-windows) :
+
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
+
+    # Adjust for local legacy windows hack...
+    case $target in #(
+  local-*-windows) :
+
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
 
 if test "$cross_compiling" = "yes"; then
     CROSS_COMPILING=yes
@@ -5116,7 +5196,9 @@ esac
 
 i_noretpoline_attr=""
 
-if test X"$with_spectre_mitigation" != X"no"; then
+if test X"$with_spectre_mitigation" != X"no"
+then :
+
     CFLAGS="$CFLAGS -mindirect-branch=thunk"
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for spectre mitigation" >&5
@@ -5141,7 +5223,9 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
-    if test X"$with_spectre_mitigation" = X"incomplete"; then
+    if test X"$with_spectre_mitigation" = X"incomplete"
+then :
+
         # gcc and clang support this attribute if they're recent enough. Note
         # that we must compile with -Werror to check for actual support as they
         # warn rather than error out on unsupported attributes.
@@ -5173,7 +5257,9 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
         CFLAGS="$i_preserve_cflags"
-    fi
+
+fi
+
 fi
 
 
@@ -7016,13 +7102,17 @@ esac
 
 lfs_conf=ok
 lfs_source=none
-if test "${LFS_CFLAGS+set}" = "set" || \
-   test "${LFS_LDFLAGS+set}" = "set" || \
-   test "${LFS_LIBS+set}" = "set"; then
-    lfs_source=user
-else
+if test "${LFS_CFLAGS+set}" = "set" || test "${LFS_LDFLAGS+set}" = "set" || test "${LFS_LIBS+set}" = "set"
+then :
 
-if test "$cross_compiling" != "yes"; then
+    lfs_source=user
+
+else $as_nop
+
+
+if test "$cross_compiling" != "yes"
+then :
+
     # Extract the first word of "getconf", so it can be a program name with args.
 set dummy getconf; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -7066,7 +7156,9 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-else
+
+else $as_nop
+
         host_getconf="$host_alias-getconf"
     # Extract the first word of "$host_getconf", so it can be a program name with args.
 set dummy $host_getconf; ac_word=$2
@@ -7111,7 +7203,9 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""; then
+    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""
+then :
+
 			    				GETCONF=
 	prfx="$erl_xcomp_sysroot"
         if test -n "$ac_tool_prefix"; then
@@ -7224,10 +7318,13 @@ else
   GETCONF="$ac_cv_path_GETCONF"
 fi
 
-    fi
+
+fi
+
 fi
 
    test "$GETCONF" = "false" || lfs_source=getconf
+
 fi
 
 if test "$lfs_source" = "none"; then
@@ -7264,7 +7361,9 @@ printf "%s\n" "$as_me: WARNING: Check for large file support flags failed; $GETC
     fi
 fi
 
-if test "x$GCC" = xyes; then
+if test "x$GCC" = xyes
+then :
+
   # Treat certain GCC warnings as errors
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to WERRORFLAGS (via CFLAGS)" >&5
@@ -7290,14 +7389,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         WERRORFLAGS="-Werror=return-type $WERRORFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=implicit to WERRORFLAGS (via CFLAGS)" >&5
@@ -7323,14 +7427,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         WERRORFLAGS="-Werror=implicit $WERRORFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=undef to WERRORFLAGS (via CFLAGS)" >&5
@@ -7356,14 +7465,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         WERRORFLAGS="-Werror=undef $WERRORFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
   # until the emulator can handle this, I suggest we turn it off!
@@ -7432,18 +7546,26 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         CFLAGS="-fno-common $CFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
 
-else
+fi
+
+
+else $as_nop
+
   WFLAGS=""
   WERRORFLAGS=${WERRORFLAGS:-""}
+
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking C99 support" >&5
@@ -7517,15 +7639,20 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         PROFILE_GENERATE=true
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-    else
+
+else $as_nop
+
         PROFILE_GENERATE=false
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fprofile-use -Werror..." >&5
@@ -7551,15 +7678,20 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         PROFILE_USE=true
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-    else
+
+else $as_nop
+
         PROFILE_USE=false
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fprofile-use -fprofile-correction -Werror..." >&5
@@ -7585,18 +7717,25 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         PROFILE_CORRECTION=true
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-    else
+
+else $as_nop
+
         PROFILE_CORRECTION=false
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
-if test "X$PROFILE_CORRECTION" = "Xtrue"; then
+if test "X$PROFILE_CORRECTION" = "Xtrue"
+then :
+
    saved_CFLAGS=$CFLAGS
    saved_LDFLAGS=$LDFLAGS
    CFLAGS="-fprofile-generate $saved_CFLAGS"
@@ -7628,6 +7767,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
    CFLAGS=$saved_CFLAGS
    LDFLAGS=$saved_LDFLAGS
+
 fi
 
 ## Check if this is clang
@@ -7655,17 +7795,24 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         PROFILE_INSTR_GENERATE=true
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-    else
+
+else $as_nop
+
         PROFILE_INSTR_GENERATE=false
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
 
-if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
+fi
+
+if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"
+then :
+
    # It was clang, now we also have to check if we have llvm-profdata and that
    # we can link programs with -fprofile-instr-use
    saved_CFLAGS=$CFLAGS;
@@ -7781,20 +7928,30 @@ fi
   test -n "$XCRUN" && break
 done
 
-      if test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"; then
+      if test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $XCRUN $LLVM_PROFDATA" >&5
 printf %s "checking for $XCRUN $LLVM_PROFDATA... " >&6; }
-        if $XCRUN $LLVM_PROFDATA --help 2>& 5 >& 5; then
+        if $XCRUN $LLVM_PROFDATA --help 2>& 5 >& 5
+then :
+
           LLVM_PROFDATA="$XCRUN $LLVM_PROFDATA"
           { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        else
+
+else $as_nop
+
           { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-        fi
-      fi
 
-      if test "X$LLVM_PROFDATA" != "X"; then
+fi
+
+fi
+
+      if test "X$LLVM_PROFDATA" != "X"
+then :
+
         CFLAGS="-fprofile-instr-use=default.profdata $saved_CFLAGS";
         $LLVM_PROFDATA merge -output=default.profdata *.profraw;
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fprofile-instr-use=default.profdata -Werror" >&5
@@ -7822,7 +7979,8 @@ printf "%s\n" "no" >&6; }
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
         rm -f default.profdata
-      fi
+
+fi
 fi
 rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
   conftest.$ac_objext conftest.beam conftest.$ac_ext
@@ -7830,6 +7988,7 @@ fi
 
    rm -f *.profraw
    CFLAGS=$saved_CFLAGS;
+
 fi
 
 # Check whether --enable-pgo was given.
@@ -8295,17 +8454,21 @@ esac
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for extra flags needed to export symbols" >&5
 printf %s "checking for extra flags needed to export symbols... " >&6; }
 DEXPORT=""
-case $host_os in
-	aix*|os400*)
+case $host_os in #(
+  aix*|os400*) :
+
 		DEXPORT=-Wl,-bexpall,-brtl
-	;;
-	bsdi*)
+	 ;; #(
+  bsdi*) :
+
     		DEXPORT="-rdynamic "
-    	;;
-	win32)
+    	 ;; #(
+  win32) :
+
     		DEXPORT=""
-    	;;
-	*)
+    	 ;; #(
+  *) :
+
 		DEXPORT=
 		save_ldflags="$LDFLAGS"
 		LDFLAGS=-Wl,-export-dynamic
@@ -8326,7 +8489,9 @@ then :
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-		if test "$DEXPORT" = ""; then
+		if test "$DEXPORT" = ""
+then :
+
 		   LDFLAGS=-Wl,-Bexport
 		   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -8345,10 +8510,12 @@ then :
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-		fi
+
+fi
 		LDFLAGS="$save_ldflags"
-	;;
+	 ;;
 esac
+
 
 case "x$DEXPORT" in
 	"x")
@@ -8703,14 +8870,18 @@ NEED_NPTL_PTHREAD_H=no
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for native win32 threads" >&5
 printf %s "checking for native win32 threads... " >&6; }
-if test "X$host_os" = "Xwin32"; then
+if test "X$host_os" = "Xwin32"
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
     THR_DEFS="-DWIN32_THREADS"
     THR_LIBS=
     THR_LIB_NAME=win32_threads
     THR_LIB_TYPE=win32_threads
-else
+
+else $as_nop
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
     THR_DEFS=
@@ -8760,8 +8931,10 @@ then :
 fi
 
 
-    if test "x$THR_LIBS" = "x"; then
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lc_r" >&5
+    if test "x$THR_LIBS" = "x"
+then :
+
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lc_r" >&5
 printf %s "checking for pthread_create in -lc_r... " >&6; }
 if test ${ac_cv_lib_c_r_pthread_create+y}
 then :
@@ -8801,18 +8974,24 @@ then :
   THR_LIBS="-lc_r"
 fi
 
-    fi
 
-    if test "x$THR_LIBS" = "x"; then
-	ac_fn_c_check_func "$LINENO" "pthread_create" "ac_cv_func_pthread_create"
+fi
+
+    if test "x$THR_LIBS" = "x"
+then :
+
+              ac_fn_c_check_func "$LINENO" "pthread_create" "ac_cv_func_pthread_create"
 if test "x$ac_cv_func_pthread_create" = xyes
 then :
   THR_LIBS="none_needed"
 fi
 
-    fi
 
-    if test "x$THR_LIBS" = "x"; then
+fi
+
+    if test "x$THR_LIBS" = "x"
+then :
+
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if the '-pthread' switch can be used" >&5
 printf %s "checking if the '-pthread' switch can be used... " >&6; }
 	saved_cflags=$CFLAGS
@@ -8843,22 +9022,30 @@ printf "%s\n" "yes" >&6; }
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 	fi
-    fi
 
-    if test "x$THR_LIBS" != "x"; then
+fi
+
+    if test "x$THR_LIBS" != "x"
+then :
+
 	THR_DEFS="$THR_DEFS -D_THREAD_SAFE -D_REENTRANT -DPOSIX_THREADS"
 	THR_LIB_NAME=pthread
 	if test "x$THR_LIBS" = "xnone_needed"; then
 	    THR_LIBS=
 	fi
-	case $host_os in
-	    solaris*)
-		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS" ;;
-	    linux*)
+	case $host_os in #(
+  solaris*) :
+
+		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS"
+             ;; #(
+  linux*) :
+
 		THR_DEFS="$THR_DEFS -D_POSIX_THREAD_SAFE_FUNCTIONS"
 
 
-if test "$cross_compiling" != "yes"; then
+if test "$cross_compiling" != "yes"
+then :
+
     # Extract the first word of "getconf", so it can be a program name with args.
 set dummy getconf; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -8902,7 +9089,9 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-else
+
+else $as_nop
+
         host_getconf="$host_alias-getconf"
     # Extract the first word of "$host_getconf", so it can be a program name with args.
 set dummy $host_getconf; ac_word=$2
@@ -8947,7 +9136,9 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""; then
+    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""
+then :
+
 			    				GETCONF=
 	prfx="$erl_xcomp_sysroot"
         if test -n "$ac_tool_prefix"; then
@@ -9060,7 +9251,9 @@ else
   GETCONF="$ac_cv_path_GETCONF"
 fi
 
-    fi
+
+fi
+
 fi
 
 		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for Native POSIX Thread Library" >&5
@@ -9087,7 +9280,9 @@ printf "%s\n" "$nptl" >&6; }
 		    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: result yes guessed because of cross compilation" >&5
 printf "%s\n" "$as_me: WARNING: result yes guessed because of cross compilation" >&2;}
 		fi
-		if test $nptl = yes; then
+		if test $nptl = yes
+then :
+
 		    THR_LIB_TYPE=posix_nptl
 		    need_nptl_incldir=no
 		    ac_fn_c_check_header_compile "$LINENO" "nptl/pthread.h" "ac_cv_header_nptl_pthread_h" "$ac_includes_default"
@@ -9097,7 +9292,9 @@ then :
 				     NEED_NPTL_PTHREAD_H=yes
 fi
 
-		    if test $need_nptl_incldir = yes; then
+		    if test $need_nptl_incldir = yes
+then :
+
 			# Ahh...
 			nptl_path="$C_INCLUDE_PATH:$CPATH"
 			if test X$cross_compiling != Xyes; then
@@ -9133,11 +9330,14 @@ fi
 			if test "x$nptl_incldir" = "x"; then
 			    as_fn_error $? "Failed to locate nptl system include directory" "$LINENO" 5
 			fi
-		    fi
-		fi
-		;;
-	    *) ;;
-	esac
+
+fi
+
+fi
+             ;; #(
+  *) :
+     ;;
+esac
 
 			saved_cppflags=$CPPFLAGS
 	CPPFLAGS="$CPPFLAGS $THR_DEFS"
@@ -9164,7 +9364,9 @@ fi
 
 		CPPFLAGS=$saved_cppflags
 
-    fi
+
+fi
+
 fi
 
 
@@ -9386,7 +9588,9 @@ printf "%s\n" "$erl_cv_clock_gettime_monotonic_try_find_pthread_compatible" >&6;
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
+  if test "$LD_MAY_BE_WEAK" != "no"
+then :
+
     ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
 then :
@@ -9400,7 +9604,9 @@ then :
 
 fi
 
-  else
+
+else $as_nop
+
     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
@@ -9420,8 +9626,8 @@ then :
 
 fi
 
-  fi
 
+fi
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for mach clock_get_time() with monotonic clock type" >&5
 printf %s "checking for mach clock_get_time() with monotonic clock type... " >&6; }
@@ -9576,9 +9782,9 @@ fi
 
 ethr_lib_name=ethread
 
-case "$THR_LIB_NAME" in
+case "$THR_LIB_NAME" in #(
+  win32_threads) :
 
-    win32_threads)
 	ETHR_THR_LIB_BASE_DIR=win
 	# * _WIN32_WINNT >= 0x0400 is needed for
 	#   TryEnterCriticalSection
@@ -10727,9 +10933,9 @@ printf "%s\n" "$have_interlocked_op" >&6; }
 	   ethr_native_atomic_implementation=windows
 	   ethr_have_native_spinlock=yes
 	fi
-	;;
+     ;; #(
+  pthread) :
 
-    pthread)
 	ETHR_THR_LIB_BASE_DIR=pthread
 
 printf "%s\n" "#define ETHR_PTHREADS 1" >>confdefs.h
@@ -10906,7 +11112,9 @@ then :
   have_sched_yield=yes
 fi
 
-	if test $have_sched_yield = no; then
+	if test $have_sched_yield = no
+then :
+
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for sched_yield in -lrt" >&5
 printf %s "checking for sched_yield in -lrt... " >&6; }
 if test ${ac_cv_lib_rt_sched_yield+y}
@@ -10948,8 +11156,11 @@ then :
 			  ETHR_X_LIBS="$ETHR_X_LIBS -lrt"
 fi
 
-	fi
-	if test $have_sched_yield = yes || test $have_librt_sched_yield = yes; then
+
+fi
+	if test $have_sched_yield = yes || test $have_librt_sched_yield = yes
+then :
+
 
 printf "%s\n" "#define ETHR_HAVE_SCHED_YIELD 1" >>confdefs.h
 
@@ -10984,7 +11195,8 @@ printf "%s\n" "$sched_yield_ret_int" >&6; }
 printf "%s\n" "#define ETHR_SCHED_YIELD_RET_INT 1" >>confdefs.h
 
 	    fi
-	fi
+
+fi
 
 	have_pthread_yield=no
 	ac_fn_c_check_func "$LINENO" "pthread_yield" "ac_cv_func_pthread_yield"
@@ -10993,7 +11205,9 @@ then :
   have_pthread_yield=yes
 fi
 
-	if test $have_pthread_yield = yes; then
+	if test $have_pthread_yield = yes
+then :
+
 
 printf "%s\n" "#define ETHR_HAVE_PTHREAD_YIELD 1" >>confdefs.h
 
@@ -11032,7 +11246,8 @@ printf "%s\n" "$pthread_yield_ret_int" >&6; }
 printf "%s\n" "#define ETHR_PTHREAD_YIELD_RET_INT 1" >>confdefs.h
 
 	    fi
-	fi
+
+fi
 
 	have_pthread_rwlock_init=no
 	ac_fn_c_check_func "$LINENO" "pthread_rwlock_init" "ac_cv_func_pthread_rwlock_init"
@@ -11041,7 +11256,8 @@ then :
   have_pthread_rwlock_init=yes
 fi
 
-	if test $have_pthread_rwlock_init = yes; then
+	if test $have_pthread_rwlock_init = yes
+then :
 
 	    ethr_have_pthread_rwlockattr_setkind_np=no
 	    ac_fn_c_check_func "$LINENO" "pthread_rwlockattr_setkind_np" "ac_cv_func_pthread_rwlockattr_setkind_np"
@@ -11051,7 +11267,9 @@ then :
 fi
 
 
-	    if test $ethr_have_pthread_rwlockattr_setkind_np = yes; then
+	    if test $ethr_have_pthread_rwlockattr_setkind_np = yes
+then :
+
 
 printf "%s\n" "#define ETHR_HAVE_PTHREAD_RWLOCKATTR_SETKIND_NP 1" >>confdefs.h
 
@@ -11095,8 +11313,10 @@ printf "%s\n" "$ethr_pthread_rwlock_writer_nonrecursive_initializer_np" >&6; }
 printf "%s\n" "#define ETHR_HAVE_PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP 1" >>confdefs.h
 
 		fi
-	    fi
-	fi
+
+fi
+
+fi
 
 	if test "$force_pthread_rwlocks" = "yes"; then
 
@@ -11122,7 +11342,9 @@ printf "%s\n" "#define ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE 1" >>confdefs.h
 fi
 
 
-	if test "x$erl_monotonic_clock_id" != "x"; then
+	if test "x$erl_monotonic_clock_id" != "x"
+then :
+
 	  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether pthread_cond_timedwait() can use the monotonic clock $erl_monotonic_clock_id for timeout" >&5
 printf %s "checking whether pthread_cond_timedwait() can use the monotonic clock $erl_monotonic_clock_id for timeout... " >&6; }
 	  pthread_cond_timedwait_monotonic=no
@@ -11176,7 +11398,8 @@ printf "%s\n" "$pthread_cond_timedwait_monotonic" >&6; }
 printf "%s\n" "#define ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC 1" >>confdefs.h
 
 	  fi
-	fi
+
+fi
 
 	linux_futex=no
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for Linux futexes" >&5
@@ -11344,9 +11567,12 @@ printf "%s\n" "#define ETHR_HAVE_PTHREAD_GETNAME_NP_2 1" >>confdefs.h
 	esac
 	CFLAGS=$old_CFLAGS
 
-	if test "X$disable_native_ethr_impls" = "Xyes"; then
+	if test "X$disable_native_ethr_impls" = "Xyes"
+then :
+
 	    ethr_have_native_atomics=no
-	else
+
+else $as_nop
 
 
     # The cast to long int works around a bug in the HP C Compiler
@@ -13086,8 +13312,9 @@ printf "%s\n" "#define ETHR_HAVE___atomic_compare_exchange_n $have_atomic_ops" >
     ethr_arm_dbm_sy_instr_val=0
     ethr_arm_dbm_st_instr_val=0
     ethr_arm_dbm_ld_instr_val=0
-    case "$GCC-$host_cpu" in
-	yes-arm*|yes-aarch*)
+    case "$GCC-$host_cpu" in #(
+  yes-arm*|yes-aarch*) :
+
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ARM 'dmb sy' instruction" >&5
 printf %s "checking for ARM 'dmb sy' instruction... " >&6; }
 if test ${ethr_cv_arm_dbm_sy_instr+y}
@@ -13191,10 +13418,12 @@ fi
 printf "%s\n" "$ethr_cv_arm_dbm_ld_instr" >&6; }
 	    if test $ethr_cv_arm_dbm_ld_instr = yes; then
 		ethr_arm_dbm_ld_instr_val=1
-	    fi;;
-	*)
-	    ;;
-    esac
+	    fi
+       ;; #(
+  *) :
+     ;;
+esac
+
 
 printf "%s\n" "#define ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION $ethr_arm_dbm_sy_instr_val" >>confdefs.h
 
@@ -13294,7 +13523,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_have_libatomic_ops" >&5
 printf "%s\n" "$ethr_have_libatomic_ops" >&6; }
-	    if test $ethr_have_libatomic_ops = yes; then
+	    if test $ethr_have_libatomic_ops = yes
+then :
+
 	        # The cast to long int works around a bug in the HP C Compiler
 # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
 # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
@@ -13345,9 +13576,13 @@ printf "%s\n" "#define ETHR_PREFER_LIBATOMIC_OPS_NATIVE_IMPLS 1" >>confdefs.h
 
 	        fi
 	        ETHR_DEFS="$ETHR_DEFS $libatomic_ops_include"
-	    elif test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
+
+elif test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"
+then :
+
 	        as_fn_error $? "No usable libatomic_ops implementation found" "$LINENO" 5
-	    fi
+
+fi
 
 	    case "$host_cpu" in
 	      sparc | sun4u | sparc64 | sun4v)
@@ -13387,16 +13622,17 @@ printf "%s\n" "#define ETHR_X86_OUT_OF_ORDER 1" >>confdefs.h
 	    	    ;;
 	    esac
 
-	fi
+
+fi
 
 	test ethr_have_native_atomics = "yes" && ethr_have_native_spinlock=yes
 
 		LIBS=$saved_libs
 		CPPFLAGS=$saved_cppflags
 
-	;;
-    *)
-	;;
+     ;; #(
+  *) :
+     ;;
 esac
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether default stack size should be modified" >&5
@@ -13997,8 +14233,9 @@ esac
 
 
 ETHR_X86_SSE2_ASM=no
-case "$GCC-$ac_cv_sizeof_void_p-$host_cpu" in
-  yes-4-i86pc | yes-4-i*86 | yes-4-x86_64 | yes-4-amd64)
+case "$GCC-$ac_cv_sizeof_void_p-$host_cpu" in #(
+  yes-4-i86pc | yes-4-i*86 | yes-4-x86_64 | yes-4-amd64) :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for gcc sse2 asm support" >&5
 printf %s "checking for gcc sse2 asm support... " >&6; }
     save_CFLAGS="$CFLAGS"
@@ -14032,13 +14269,13 @@ printf "%s\n" "#define ETHR_GCC_HAVE_SSE2_ASM_SUPPORT 1" >>confdefs.h
 
       ETHR_X86_SSE2_ASM=yes
     fi
-    ;;
-  *)
-    ;;
+  ;; #(
+  *) :
+     ;;
 esac
 
-case "$GCC-$host_cpu" in
-  yes-i86pc | yes-i*86 | yes-x86_64 | yes-amd64)
+case "$GCC-$host_cpu" in #(
+  yes-i86pc | yes-i*86 | yes-x86_64 | yes-amd64) :
 
     if test $ac_cv_sizeof_void_p = 4; then
        dw_cmpxchg="cmpxchg8b"
@@ -14151,7 +14388,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
     done
 
-    if test $gcc_pic_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4; then
+    if test $gcc_pic_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4
+then :
+
 
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for gcc pic cmpxchg8b asm support with EBX workaround" >&5
 printf %s "checking for gcc pic cmpxchg8b asm support with EBX workaround... " >&6; }
@@ -14192,7 +14431,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $gcc_pic_dw_cmpxchg_asm" >&5
 printf "%s\n" "$gcc_pic_dw_cmpxchg_asm" >&6; }
 
-      if test $gcc_pic_dw_cmpxchg_asm = no; then
+      if test $gcc_pic_dw_cmpxchg_asm = no
+then :
+
 
       	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for gcc pic cmpxchg8b asm support with EBX and register shortage workarounds" >&5
 printf %s "checking for gcc pic cmpxchg8b asm support with EBX and register shortage workarounds... " >&6; }
@@ -14235,13 +14476,14 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $gcc_pic_dw_cmpxchg_asm" >&5
 printf "%s\n" "$gcc_pic_dw_cmpxchg_asm" >&6; }
-      fi
+
+fi
 
       if test $gcc_cflags_pic = yes; then
         gcc_dw_cmpxchg_asm=$gcc_pic_dw_cmpxchg_asm
       fi
 
-   fi
+fi
 
     CFLAGS="$save_CFLAGS"
 
@@ -14259,9 +14501,10 @@ printf "%s\n" "#define ETHR_CMPXCHG8B_REGISTER_SHORTAGE 1" >>confdefs.h
 
 printf "%s\n" "#define ETHR_GCC_HAVE_DW_CMPXCHG_ASM_SUPPORT 1" >>confdefs.h
 
-    fi;;
-  *)
-    ;;
+    fi
+  ;; #(
+  *) :
+     ;;
 esac
 
 
@@ -14637,8 +14880,9 @@ THR_DEFS=$ETHR_DEFS
 
 TERMCAP_LIB=
 
-if test "x$with_termcap" != "xno" &&
-   test "X$host" != "Xwin32"; then
+if test "x$with_termcap" != "xno" && test "X$host" != "Xwin32"
+then :
+
     # try these libs
     termcap_libs="tinfo ncurses curses termcap termlib"
 
@@ -14693,6 +14937,7 @@ fi
     if test "x$TERMCAP_LIB" = "x"; then
 	as_fn_error $? "No curses library functions found" "$LINENO" 5
     fi
+
 fi
 
 
@@ -14704,7 +14949,9 @@ printf "%s\n" "#define HAVE_TERMCAP 1" >>confdefs.h
 
 fi
 
-if test "X$host" != "Xwin32"; then
+if test "X$host" != "Xwin32"
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wcwidth" >&5
 printf %s "checking for wcwidth... " >&6; }
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -14733,6 +14980,7 @@ printf "%s\n" "yes" >&6; }
 printf "%s\n" "#define HAVE_WCWIDTH 1" >>confdefs.h
 
     fi
+
 fi
 
 
@@ -14750,13 +14998,17 @@ fi
 
 Z_LIB=
 
-if test "x$enable_builtin_zlib" = "xyes"; then
+if test "x$enable_builtin_zlib" = "xyes"
+then :
+
 
 printf "%s\n" "#define HAVE_ZLIB_INFLATEGETDICTIONARY 1" >>confdefs.h
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Using our own built-in zlib source" >&5
 printf "%s\n" "$as_me: Using our own built-in zlib source" >&6;}
-else
+
+else $as_nop
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for zlib 1.2.5 or higher" >&5
 printf %s "checking for zlib 1.2.5 or higher... " >&6; }
 zlib_save_LIBS=$LIBS
@@ -14802,7 +15054,9 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
 
-if test "$Z_LIB" != ""; then
+if test "$Z_LIB" != ""
+then :
+
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing inflateGetDictionary" >&5
 printf %s "checking for library containing inflateGetDictionary... " >&6; }
 if test ${ac_cv_search_inflateGetDictionary+y}
@@ -14864,11 +15118,14 @@ printf "%s\n" "#define HAVE_ZLIB_INFLATEGETDICTIONARY 1" >>confdefs.h
 
 fi
 
+
 fi
 
 LIBS=$zlib_save_LIBS
 
+
 fi
+
 
 
 
@@ -14890,8 +15147,9 @@ else
     fi
 fi
 
-if test "x$USE_ESOCK" = "xyes"; then
-    if test "x$USE_ESOCK" = "xyes"; then
+if test "x$USE_ESOCK" = "xyes" && test "x$USE_ESOCK" = "xyes"
+then :
+
         ac_fn_c_check_func "$LINENO" "localtime_r" "ac_cv_func_localtime_r"
 if test "x$ac_cv_func_localtime_r" = xyes
 then :
@@ -14923,7 +15181,7 @@ then :
 
 fi
 
-    fi
+
 fi
 
 
@@ -15092,7 +15350,9 @@ else $as_nop
   erl_checkSocket=1
 fi
 
-if test "$erl_checkSocket" = 1; then
+if test "$erl_checkSocket" = 1
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for main in -lsocket" >&5
 printf %s "checking for main in -lsocket... " >&6; }
 if test ${ac_cv_lib_socket_main+y}
@@ -15132,15 +15392,19 @@ else $as_nop
   erl_checkBoth=1
 fi
 
+
 fi
 
-if test "$erl_checkBoth" = 1; then
+if test "$erl_checkBoth" = 1
+then :
+
     LIBS="$LIBS -lsocket -lnsl"
     ac_fn_c_check_func "$LINENO" "accept" "ac_cv_func_accept"
 if test "x$ac_cv_func_accept" = xyes
 then :
   SOCKET_LIBS="-lsocket -lnsl"
 fi
+
 
 fi
 
@@ -15201,16 +15465,21 @@ LIBS="$tk_oldLibs $SOCKET_LIBS"
 
 
 
-if test "$have_gethostbyname_r" = yes; then
+
+if test "$have_gethostbyname_r" = yes
+then :
+
 	# OK, so we have gethostbyname_r() - but do we know how to call it...?
 	# (if not, HAVE_GETHOSTBYNAME_R will not be defined at all)
-	case $host_os in
-		solaris2*)
+	case $host_os in #(
+  solaris2*) :
+
 
 printf "%s\n" "#define HAVE_GETHOSTBYNAME_R GHBN_R_SOLARIS" >>confdefs.h
 
-		;;
-		aix*|os400*)
+		 ;; #(
+  aix*|os400*) :
+
 			# AIX version also needs "struct hostent_data" defn
 			cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -15230,10 +15499,10 @@ printf "%s\n" "#define HAVE_GETHOSTBYNAME_R GHBN_R_AIX" >>confdefs.h
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-		;;
-		*)
+		 ;; #(
+  *) :
 
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+			cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 #include <stdio.h>
@@ -15251,8 +15520,9 @@ printf "%s\n" "#define HAVE_GETHOSTBYNAME_R GHBN_R_GLIBC" >>confdefs.h
 fi
 rm -rf conftest*
 
-		;;
-	esac
+		 ;;
+esac
+
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for working posix_openpt implementation" >&5
@@ -15829,7 +16099,9 @@ printf "%s\n" "#define HAVE_STRUCT_IFREQ_IFR_ENADDR 1" >>confdefs.h
 fi
 
 
-if test x"$enable_systemd" != x"no"; then
+if test x"$enable_systemd" != x"no"
+then :
+
 
 systemd_daemon_save_LIBS=$LIBS
 LIBS=
@@ -15982,6 +16254,7 @@ as_fn_error $? "--enable-systemd was given, but test for systemd failed
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 LIBS=$systemd_daemon_save_LIBS
+
 fi
 
 
@@ -16029,7 +16302,9 @@ then :
 
 fi
 
-if test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"; then
+if test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"
+then :
+
    unset -v ac_cv_lib_dlpi_dlpi_open
             save_ldflags="$LDFLAGS"
    try_dlpi_lib=/lib
@@ -16100,6 +16375,7 @@ fi
       LDFLAGS="$save_ldflags"
    fi
    unset -v save_ldflags
+
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CC options needed to detect all undeclared functions" >&5
@@ -16269,7 +16545,9 @@ fi
 done
 
 
-if test "x$enable_sctp" != "xno" ; then
+if test "x$enable_sctp" != "xno"
+then :
+
     ac_fn_c_check_header_compile "$LINENO" "netinet/sctp.h" "ac_cv_header_netinet_sctp_h" "#if HAVE_SYS_SOCKET_H
 	 #include <sys/socket.h>
 	 #endif
@@ -16283,6 +16561,7 @@ printf "%s\n" "#define HAVE_SCTP_H 1" >>confdefs.h
 
 fi
 
+
 fi
 
 case "x$enable_sctp" in
@@ -16294,7 +16573,9 @@ case "x$enable_sctp" in
 	fi;;
 esac
 
-if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
+if test x"$ac_cv_header_netinet_sctp_h" = x"yes"
+then :
+
     if test "x$enable_sctp" = "xlib"
 then :
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for sctp_bindx in -lsctp" >&5
@@ -16862,6 +17143,7 @@ printf "%s\n" "#define HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT 1"
 
 fi
 
+
 fi
 
 ac_fn_c_check_header_compile "$LINENO" "sched.h" "ac_cv_header_sched_h" "$ac_includes_default"
@@ -16987,7 +17269,9 @@ fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_decl_inaddr_loopback" >&5
 printf "%s\n" "$ac_cv_decl_inaddr_loopback" >&6; }
 
-if test ${ac_cv_decl_inaddr_loopback} = no; then
+if test ${ac_cv_decl_inaddr_loopback} = no
+then :
+
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for INADDR_LOOPBACK in rpc/types.h" >&5
 printf %s "checking for INADDR_LOOPBACK in rpc/types.h... " >&6; }
 if test ${ac_cv_decl_inaddr_loopback_rpc+y}
@@ -17016,12 +17300,15 @@ fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_decl_inaddr_loopback_rpc" >&5
 printf "%s\n" "$ac_cv_decl_inaddr_loopback_rpc" >&6; }
 
-   case "${ac_cv_decl_inaddr_loopback_rpc}" in
-     "yes" )
+   if test "${ac_cv_decl_inaddr_loopback_rpc}" = "yes"
+then :
+
 
 printf "%s\n" "#define DEF_INADDR_LOOPBACK_IN_RPC_TYPES_H /**/" >>confdefs.h
- ;;
-      * )
+
+
+else $as_nop
+
   	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for INADDR_LOOPBACK in winsock2.h" >&5
 printf %s "checking for INADDR_LOOPBACK in winsock2.h... " >&6; }
 if test ${ac_cv_decl_inaddr_loopback_winsock2+y}
@@ -17060,8 +17347,10 @@ printf "%s\n" "#define DEF_INADDR_LOOPBACK_IN_WINSOCK2_H /**/" >>confdefs.h
 
 printf "%s\n" "#define HAVE_NO_INADDR_LOOPBACK /**/" >>confdefs.h
  ;;
-	esac;;
-   esac
+	esac
+
+fi
+
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for sys_errlist declaration in stdio.h or errno.h" >&5
@@ -18317,8 +18606,9 @@ fi
 
 
 
-case $host_os in
-    linux*|freebsd*|dragonfly*|darwin*)
+case $host_os in #(
+  linux*|freebsd*|dragonfly*|darwin*) :
+
 		ac_fn_c_check_func "$LINENO" "sendfile" "ac_cv_func_sendfile"
 if test "x$ac_cv_func_sendfile" = xyes
 then :
@@ -18326,8 +18616,9 @@ then :
 
 fi
 
-		;;
-    solaris*)
+	 ;; #(
+  solaris*) :
+
 		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing sendfilev" >&5
 printf %s "checking for library containing sendfilev... " >&6; }
 if test ${ac_cv_search_sendfilev+y}
@@ -18389,12 +18680,13 @@ printf "%s\n" "#define HAVE_SENDFILEV 1" >>confdefs.h
 
 fi
 
-		;;
-    win32)
+         ;; #(
+  win32) :
+
 		LIBS="$LIBS -lmswsock"
-		;;
-    *)
-		;;
+	 ;; #(
+  *) :
+     ;;
 esac
 
 
@@ -18935,14 +19227,21 @@ else
 printf "%s\n" "no" >&6; }
 fi
 
-case X$erl_xcomp_posix_memalign in
-     Xno) ;;
-     Xyes) have_posix_memalign=yes ;;
-     *)
+case X$erl_xcomp_posix_memalign in #(
+  Xno) :
+     ;; #(
+  Xyes) :
+
+	have_posix_memalign=yes
+	 ;; #(
+  *) :
+
 	ac_fn_c_check_func "$LINENO" "posix_memalign" "ac_cv_func_posix_memalign"
 if test "x$ac_cv_func_posix_memalign" = xyes
 then :
-  if test "$cross_compiling" != yes; then
+  if test "$cross_compiling" != yes
+then :
+
 if test "$cross_compiling" = yes
 then :
   { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
@@ -18973,11 +19272,15 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
   conftest.$ac_objext conftest.beam conftest.$ac_ext
 fi
 
-		 else
+
+else $as_nop
+
 			have_posix_memalign=yes
-		 fi
+
 fi
-;;
+fi
+
+	 ;;
 esac
 
 if test "$have_posix_memalign" = "yes"; then
@@ -19728,7 +20031,9 @@ printf "%s\n" "$as_me: WARNING: result no guessed because of cross compilation" 
 	*) ;;
 esac
 
-if test "x$ac_cv_func_sbrk" = "xyes"; then
+if test "x$ac_cv_func_sbrk" = "xyes"
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking types of sbrk()s return value and argument" >&5
 printf %s "checking types of sbrk()s return value and argument... " >&6; }
 if test ${erts_cv_sbrk_ret_arg_types+y}
@@ -19786,9 +20091,12 @@ printf "%s\n" "#define SBRK_RET_TYPE $ret_type" >>confdefs.h
 printf "%s\n" "#define SBRK_ARG_TYPE $arg_type" >>confdefs.h
 
     fi
+
 fi
 
-if test $ac_cv_func_brk = yes; then
+if test $ac_cv_func_brk = yes
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking types of brk()s return value and argument" >&5
 printf %s "checking types of brk()s return value and argument... " >&6; }
 if test ${erts_cv_brk_ret_arg_types+y}
@@ -19849,7 +20157,9 @@ printf "%s\n" "#define BRK_ARG_TYPE $arg_type" >>confdefs.h
 
 fi
 
-if test $ac_cv_func_sbrk = yes; then
+if test $ac_cv_func_sbrk = yes
+then :
+
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if sbrk()/brk() wrappers can track malloc()s core memory use" >&5
 printf %s "checking if sbrk()/brk() wrappers can track malloc()s core memory use... " >&6; }
@@ -20059,6 +20369,7 @@ printf "%s\n" "#define ERTS_BRK_WRAPPERS_CAN_TRACK_MALLOC 1" >>confdefs.h
 printf "%s\n" "$as_me: WARNING: result no guessed because of cross compilation" >&2;};;
 	    *) ;;
 	esac
+
 fi
 
 LIBS=$saved_libs
@@ -20105,9 +20416,13 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
-if test $ok_so_far = yes; then
+if test $ok_so_far = yes
+then :
+
   ac_cv_sys_ipv6_support=yes
-else
+
+else $as_nop
+
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <sys/types.h>
@@ -20132,6 +20447,7 @@ else $as_nop
   ac_cv_sys_ipv6_support=no
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+
 fi
 
 fi
@@ -20167,7 +20483,6 @@ if test ${ac_cv_sys_multicast_support+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-
 
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -20257,7 +20572,9 @@ case "$with_clock_resolution" in
      ;;
 esac
 
-if test "$force_gettimeofday_os_system_time" = "yes"; then
+if test "$force_gettimeofday_os_system_time" = "yes"
+then :
+
 
   ac_fn_c_check_func "$LINENO" "gettimeofday" "ac_cv_func_gettimeofday"
 if test "x$ac_cv_func_gettimeofday" = xyes
@@ -20274,7 +20591,9 @@ printf "%s\n" "#define OS_SYSTEM_TIME_GETTIMEOFDAY 1" >>confdefs.h
     as_fn_error $? "No gettimeofday() available" "$LINENO" 5
   fi
 
-else # $force_gettimeofday_os_system_time != yes
+else $as_nop
+
+  # $force_gettimeofday_os_system_time != yes
 
 case "$with_clock_gettime_realtime_id" in
    ""|no)
@@ -20293,8 +20612,9 @@ case "$with_clock_gettime_realtime_id" in
      ;;
 esac
 
-case "$with_clock_resolution-$with_clock_gettime_realtime_id" in
-  high-no)
+case "$with_clock_resolution-$with_clock_gettime_realtime_id" in #(
+  high-no) :
+
 
   default_resolution_clock_gettime_wall="CLOCK_REALTIME"
   low_resolution_clock_gettime_wall="CLOCK_REALTIME_COARSE CLOCK_REALTIME_FAST"
@@ -20415,15 +20735,18 @@ printf "%s\n" "$erl_cv_clock_gettime_wall_high_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" = "no"; then
-     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
+  if test "$LD_MAY_BE_WEAK" = "no"
+then :
+
+            ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
   printf "%s\n" "#define HAVE_CLOCK_GETRES 1" >>confdefs.h
 
 fi
 
-  fi
+
+fi
 
   ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
@@ -20510,8 +20833,10 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_wall" >&6; }
       erl_wall_clock_func=none
       ;;
   esac
-;;
-  low-no)
+
+         ;; #(
+  low-no) :
+
 
   default_resolution_clock_gettime_wall="CLOCK_REALTIME"
   low_resolution_clock_gettime_wall="CLOCK_REALTIME_COARSE CLOCK_REALTIME_FAST"
@@ -20632,15 +20957,18 @@ printf "%s\n" "$erl_cv_clock_gettime_wall_low_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" = "no"; then
-     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
+  if test "$LD_MAY_BE_WEAK" = "no"
+then :
+
+            ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
   printf "%s\n" "#define HAVE_CLOCK_GETRES 1" >>confdefs.h
 
 fi
 
-  fi
+
+fi
 
   ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
@@ -20727,8 +21055,10 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_wall" >&6; }
       erl_wall_clock_func=none
       ;;
   esac
-;;
-  default-no)
+
+         ;; #(
+  default-no) :
+
 
   default_resolution_clock_gettime_wall="CLOCK_REALTIME"
   low_resolution_clock_gettime_wall="CLOCK_REALTIME_COARSE CLOCK_REALTIME_FAST"
@@ -20849,15 +21179,18 @@ printf "%s\n" "$erl_cv_clock_gettime_wall_default_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" = "no"; then
-     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
+  if test "$LD_MAY_BE_WEAK" = "no"
+then :
+
+            ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
   printf "%s\n" "#define HAVE_CLOCK_GETRES 1" >>confdefs.h
 
 fi
 
-  fi
+
+fi
 
   ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
@@ -20944,8 +21277,10 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_wall" >&6; }
       erl_wall_clock_func=none
       ;;
   esac
-;;
-  *)
+
+         ;; #(
+  *) :
+
 
   default_resolution_clock_gettime_wall="CLOCK_REALTIME"
   low_resolution_clock_gettime_wall="CLOCK_REALTIME_COARSE CLOCK_REALTIME_FAST"
@@ -21066,15 +21401,18 @@ printf "%s\n" "$erl_cv_clock_gettime_wall_custom_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" = "no"; then
-     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
+  if test "$LD_MAY_BE_WEAK" = "no"
+then :
+
+            ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
   printf "%s\n" "#define HAVE_CLOCK_GETRES 1" >>confdefs.h
 
 fi
 
-  fi
+
+fi
 
   ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
@@ -21161,7 +21499,8 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_wall" >&6; }
       erl_wall_clock_func=none
       ;;
   esac
-;;
+
+         ;;
 esac
 
 case "$erl_wall_clock_func-$erl_wall_clock_id-$with_clock_gettime_realtime_id" in
@@ -21206,6 +21545,7 @@ printf "%s\n" "#define WALL_CLOCK_ID $erl_wall_clock_id" >>confdefs.h
 
 fi
 
+
 fi # $force_gettimeofday_os_system_time != yes
 
 case "$with_clock_gettime_monotonic_id" in
@@ -21225,8 +21565,9 @@ case "$with_clock_gettime_monotonic_id" in
      ;;
 esac
 
-case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in
-  high-no)
+case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in #(
+  high-no) :
+
 
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
      default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
@@ -21393,7 +21734,9 @@ printf "%s\n" "$erl_cv_clock_gettime_monotonic_high_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
+  if test "$LD_MAY_BE_WEAK" != "no"
+then :
+
     ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
 then :
@@ -21407,7 +21750,9 @@ then :
 
 fi
 
-  else
+
+else $as_nop
+
     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
@@ -21427,8 +21772,8 @@ then :
 
 fi
 
-  fi
 
+fi
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for mach clock_get_time() with monotonic clock type" >&5
 printf %s "checking for mach clock_get_time() with monotonic clock type... " >&6; }
@@ -21531,8 +21876,10 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_monotonic" >&6; }
       ;;
   esac
 
-;;
-  low-no)
+
+         ;; #(
+  low-no) :
+
 
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
      default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
@@ -21699,7 +22046,9 @@ printf "%s\n" "$erl_cv_clock_gettime_monotonic_low_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
+  if test "$LD_MAY_BE_WEAK" != "no"
+then :
+
     ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
 then :
@@ -21713,7 +22062,9 @@ then :
 
 fi
 
-  else
+
+else $as_nop
+
     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
@@ -21733,8 +22084,8 @@ then :
 
 fi
 
-  fi
 
+fi
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for mach clock_get_time() with monotonic clock type" >&5
 printf %s "checking for mach clock_get_time() with monotonic clock type... " >&6; }
@@ -21837,8 +22188,10 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_monotonic" >&6; }
       ;;
   esac
 
-;;
-  default-no)
+
+         ;; #(
+  default-no) :
+
 
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
      default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
@@ -22005,7 +22358,9 @@ printf "%s\n" "$erl_cv_clock_gettime_monotonic_default_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
+  if test "$LD_MAY_BE_WEAK" != "no"
+then :
+
     ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
 then :
@@ -22019,7 +22374,9 @@ then :
 
 fi
 
-  else
+
+else $as_nop
+
     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
@@ -22039,8 +22396,8 @@ then :
 
 fi
 
-  fi
 
+fi
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for mach clock_get_time() with monotonic clock type" >&5
 printf %s "checking for mach clock_get_time() with monotonic clock type... " >&6; }
@@ -22143,8 +22500,10 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_monotonic" >&6; }
       ;;
   esac
 
-;;
-  *)
+
+         ;; #(
+  *) :
+
 
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
      default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
@@ -22311,7 +22670,9 @@ printf "%s\n" "$erl_cv_clock_gettime_monotonic_custom_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
+  if test "$LD_MAY_BE_WEAK" != "no"
+then :
+
     ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
 then :
@@ -22325,7 +22686,9 @@ then :
 
 fi
 
-  else
+
+else $as_nop
+
     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
@@ -22345,8 +22708,8 @@ then :
 
 fi
 
-  fi
 
+fi
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for mach clock_get_time() with monotonic clock type" >&5
 printf %s "checking for mach clock_get_time() with monotonic clock type... " >&6; }
@@ -22449,7 +22812,8 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_monotonic" >&6; }
       ;;
   esac
 
-;;
+
+         ;;
 esac
 
 case "$erl_monotonic_clock_func-$erl_monotonic_clock_id-$with_clock_gettime_monotonic_id" in
@@ -22687,7 +23051,9 @@ printf "%s\n" "$erl_cv_clock_gettime_monotonic_high_resolution" >&6; }
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
+  if test "$LD_MAY_BE_WEAK" != "no"
+then :
+
     ac_fn_c_check_func "$LINENO" "clock_get_attributes" "ac_cv_func_clock_get_attributes"
 if test "x$ac_cv_func_clock_get_attributes" = xyes
 then :
@@ -22701,7 +23067,9 @@ then :
 
 fi
 
-  else
+
+else $as_nop
+
     ac_fn_c_check_func "$LINENO" "clock_getres" "ac_cv_func_clock_getres"
 if test "x$ac_cv_func_clock_getres" = xyes
 then :
@@ -22721,8 +23089,8 @@ then :
 
 fi
 
-  fi
 
+fi
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for mach clock_get_time() with monotonic clock type" >&5
 printf %s "checking for mach clock_get_time() with monotonic clock type... " >&6; }
@@ -22951,15 +23319,17 @@ fi
 
 
 LIBRT=$xrtlib
-case $erl_gethrvtime in
-  procfs_ioctl)
+if test "$erl_gethrvtime" = "procfs_ioctl"
+then :
+
 
 printf "%s\n" "#define HAVE_GETHRVTIME_PROCFS_IOCTL 1" >>confdefs.h
 
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: uses ioctl to procfs" >&5
 printf "%s\n" "uses ioctl to procfs" >&6; }
-	;;
-  *)
+
+else $as_nop
+
 	if test $erl_gethrvtime = cross; then
 	    erl_gethrvtime=false
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: cross" >&5
@@ -23041,8 +23411,8 @@ printf "%s\n" "$as_me: WARNING: result no guessed because of cross compilation" 
 		*)
 			;;
 	esac
-	;;
-esac
+
+fi
 
 
 # Extract the first word of "m4", so it can be a program name with args.
@@ -23090,32 +23460,6 @@ fi
 
 
 JIT_ARCH=
-if test ${enable_jit} != no; then
-   case "$ARCH" in
-        amd64)
-           JIT_ARCH=x86
-           ;;
-        *)
-           if test ${enable_jit} = yes; then
-             as_fn_error $? "JIT only works on x86 64-bit" "$LINENO" 5
-           else
-             enable_jit=no
-             { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack to support on $ARCH-$OPSYS" >&5
-printf "%s\n" "$as_me: WARNING: JIT disabled due to lack to support on $ARCH-$OPSYS" >&2;}
-           fi
-           ;;
-   esac
-
-   if test ${enable_jit} != no; then
-       if test "$CXX" != false; then
-          ac_ext=cpp
-ac_cpp='$CXXCPP $CPPFLAGS'
-ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
-
-          old_CXXFLAGS=$CXXFLAGS
-          CXXFLAGS="$CXXFLAGS -std=c++17"
 
 
 
@@ -23492,7 +23836,39 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+if test ${enable_jit} != no
+then :
+
+   case "$ARCH" in
+        amd64)
+           JIT_ARCH=x86
+           ;;
+        *)
+           if test ${enable_jit} = yes; then
+             as_fn_error $? "JIT only works on x86 64-bit" "$LINENO" 5
+           else
+             enable_jit=no
+             { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack to support on $ARCH-$OPSYS" >&5
+printf "%s\n" "$as_me: WARNING: JIT disabled due to lack to support on $ARCH-$OPSYS" >&2;}
+           fi
+           ;;
+   esac
+
+   if test ${enable_jit} != no
+then :
+
+       if test "$CXX" != false
+then :
+
+          ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+          old_CXXFLAGS=$CXXFLAGS
+          CXXFLAGS="$CXXFLAGS -std=c++17"
+          cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 int
@@ -23526,7 +23902,8 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-       fi
+
+fi
        if test "$CXX" = false -o "$HAVE_CXX17" = false; then
          if test ${enable_jit} = yes; then
            as_fn_error $? "JIT needs a C++ compiler with C++17 support" "$LINENO" 5
@@ -23540,26 +23917,35 @@ EOF
 printf "%s\n" "$as_me: WARNING: JIT disable due to lack of C++ compiler with C++17 support" >&2;}
         fi
      fi
-   fi
+
+fi
 
    if test ${enable_jit} != no; then
      enable_jit=yes
    fi
+
 fi
 
-if test ${enable_jit} != no; then
-  case $host_os in
-    openbsd*)
+if test ${enable_jit} != no
+then :
+
+  case $host_os in #(
+  openbsd*) :
+
       # Whenever the kernel is entered (page faults, system calls, etc),
       # OpenBSD checks whether the stack pointer is in an area allocated with
       # MAP_STACK, so we can't use the native stack for Erlang code.
       #
       # https://undeadly.org/cgi?action=article;sid=20180310000858
-      enable_native_stack=no;;
-    win32*)
+      enable_native_stack=no
+     ;; #(
+  win32*) :
+
       # Windows never messes with the stack, so it's safe by default.
-      enable_native_stack=yes;;
-    *)
+      enable_native_stack=yes
+     ;; #(
+  *) :
+
       # Use the native stack if we can safely redirect OS signals to a
       # different stack.
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for safe signal delivery" >&5
@@ -23591,14 +23977,16 @@ printf "%s\n" "no, disabling native stack in JIT" >&6; }
          enable_native_stack=no
 
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext;;
-  esac
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+     ;;
+esac
 
   if test X${enable_native_stack} = Xyes; then
 
 printf "%s\n" "#define NATIVE_ERLANG_STACK /**/" >>confdefs.h
 
   fi
+
 fi
 
 case $OPSYS in
@@ -23651,11 +24039,15 @@ fi
 #
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for working poll()" >&5
 printf %s "checking for working poll()... " >&6; }
-if test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"; then
+if test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"
+then :
+
 
 poll_works=no
 
-else
+
+else $as_nop
+
 
 if test "$cross_compiling" = yes
 then :
@@ -23699,6 +24091,7 @@ fi
 rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
   conftest.$ac_objext conftest.beam conftest.$ac_ext
 fi
+
 
 
 fi
@@ -23763,7 +24156,9 @@ fi
 #
 # If epoll() found, check that it is level triggered.
 #
-if test $have_kernel_poll = epoll; then
+if test $have_kernel_poll = epoll
+then :
+
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether epoll is level triggered" >&5
 printf %s "checking whether epoll is level triggered... " >&6; }
 	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -23798,6 +24193,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $level_triggered_epoll" >&5
 printf "%s\n" "$level_triggered_epoll" >&6; }
+
 fi
 #
 # Check if we should enable kernel poll support
@@ -23981,7 +24377,9 @@ if test "$ac_cv_prog_emu_cc" = no; then
 	done
 fi
 
-if test "$ac_cv_prog_emu_cc" != no; then
+if test "$ac_cv_prog_emu_cc" != no
+then :
+
 	save_CC="$CC"
 	save_CFLAGS=$CFLAGS
 	save_CPPFLAGS=$CPPFLAGS
@@ -24028,6 +24426,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 	CC=$save_CC
 	CFLAGS=$save_CFLAGS
 	CPPFLAGS=$save_CPPFLAGS
+
 fi
 
 fi
@@ -24044,8 +24443,9 @@ fi
 
 
 
-case $DYNAMIC_TRACE_FRAMEWORK in
-     dtrace|systemtap)
+case $DYNAMIC_TRACE_FRAMEWORK in #(
+  dtrace|systemtap) :
+
         if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}dtrace", so it can be a program name with args.
 set dummy ${ac_tool_prefix}dtrace; ac_word=$2
@@ -24150,13 +24550,18 @@ fi
 
         test "$DTRACE" = "none" && as_fn_error $? "No dtrace utility found." "$LINENO" 5;
         enable_lttng_test=no
-	enable_dtrace_test=yes;;
-     lttng)
+	enable_dtrace_test=yes
+      ;; #(
+  lttng) :
+
         enable_lttng_test=yes
-        enable_dtrace_test=no;;
-     *)
+        enable_dtrace_test=no
+      ;; #(
+  *) :
+
         enable_lttng_test=no
-        enable_dtrace_test=no;;
+        enable_dtrace_test=no
+      ;;
 esac
 
 
@@ -24181,8 +24586,12 @@ case $OPSYS in
 	: # Nothing to do
     ;;
 esac
-if test "$enable_dtrace_test" = "yes" ; then
-        if test "$DTRACE" = "dtrace" ; then
+if test "$enable_dtrace_test" = "yes"
+then :
+
+        if test "$DTRACE" = "dtrace"
+then :
+
                 ac_fn_c_check_header_compile "$LINENO" "sys/sdt.h" "ac_cv_header_sys_sdt_h" "$ac_includes_default"
 if test "x$ac_cv_header_sys_sdt_h" = xyes
 then :
@@ -24244,12 +24653,18 @@ fi
                         LIBS="$LIBS -ldtrace"
                     ;;
                 esac
-        else
+
+else $as_nop
+
                 as_fn_error $? "Dtrace preprocessing test failed." "$LINENO" 5
-        fi
+
 fi
 
-if test "$enable_lttng_test" = "yes" ; then
+fi
+
+if test "$enable_lttng_test" = "yes"
+then :
+
     ac_fn_c_check_header_compile "$LINENO" "lttng/tracepoint.h" "ac_cv_header_lttng_tracepoint_h" "$ac_includes_default"
 if test "x$ac_cv_header_lttng_tracepoint_h" = xyes
 then :
@@ -24301,6 +24716,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     else
         as_fn_error $? "No LTTng support found." "$LINENO" 5
     fi
+
 fi
 
 
@@ -24494,7 +24910,9 @@ fi
   test -n "$JAVAC" && break
 done
 
-if test -n "$JAVAC"; then
+if test -n "$JAVAC"
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for JDK version 1.6" >&5
 printf %s "checking for JDK version 1.6... " >&6; }
 if test ${ac_cv_prog_javac_ver_1_6+y}
@@ -24512,15 +24930,22 @@ if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$java_link\""; } >&5
   (eval $java_link) 2>&5
   ac_status=$?
   printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; } && test -s conftest.class; then
+  test $ac_status = 0; } && test -s conftest.class
+then :
+
    rm -rf conftest*
    ac_cv_prog_javac_ver_1_6=yes
-else
+
+
+else $as_nop
+
    echo "configure: failed program was:" 1>&5
    cat conftest.java 1>&5
    echo "configure: PATH was $PATH" 1>&5
   rm -rf conftest*
   ac_cv_prog_javac_ver_1_6=no
+
+
 fi
 rm -f conftest*
 fi
@@ -24529,6 +24954,7 @@ printf "%s\n" "$ac_cv_prog_javac_ver_1_6" >&6; }
   if test $ac_cv_prog_javac_ver_1_6 = no; then
     unset -v JAVAC
   fi
+
 fi
 if test -z "$JAVAC"; then
 

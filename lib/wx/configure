@@ -697,6 +697,10 @@ LDFLAGS
 CFLAGS
 CC
 TARGET
+target_os
+target_vendor
+target_cpu
+target
 host_os
 host_vendor
 host_cpu
@@ -1375,6 +1379,7 @@ _ACEOF
 System types:
   --build=BUILD     configure for building on BUILD [guessed]
   --host=HOST       cross-compile to build programs to run on HOST [BUILD]
+  --target=TARGET   configure for building compilers for TARGET [HOST]
 _ACEOF
 fi
 
@@ -3019,12 +3024,17 @@ fi
 
 
 
-if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
+if test -z "$ERL_TOP" || test ! -d $ERL_TOP
+then :
+
   as_fn_error $? "ERL_TOP is not set" "$LINENO" 5
-else
+
+else $as_nop
+
   erl_top=${ERL_TOP}
 
   WX_BUILDING_INSIDE_ERLSRC=true
+
 fi
 
 
@@ -3035,9 +3045,6 @@ then :
 fi
 
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else
 
 
 
@@ -3114,7 +3121,89 @@ IFS=$ac_save_IFS
 case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking target system type" >&5
+printf %s "checking target system type... " >&6; }
+if test ${ac_cv_target+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "x$target_alias" = x; then
+  ac_cv_target=$ac_cv_host
+else
+  ac_cv_target=`$SHELL "${ac_aux_dir}config.sub" $target_alias` ||
+    as_fn_error $? "$SHELL ${ac_aux_dir}config.sub $target_alias failed" "$LINENO" 5
 fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_target" >&5
+printf "%s\n" "$ac_cv_target" >&6; }
+case $ac_cv_target in
+*-*-*) ;;
+*) as_fn_error $? "invalid value of canonical target" "$LINENO" 5;;
+esac
+target=$ac_cv_target
+ac_save_IFS=$IFS; IFS='-'
+set x $ac_cv_target
+shift
+target_cpu=$1
+target_vendor=$2
+shift; shift
+# Remember, the first character of IFS is used to create $*,
+# except with old shells:
+target_os=$*
+IFS=$ac_save_IFS
+case $target_os in *\ *) target_os=`echo "$target_os" | sed 's/ /-/g'`;; esac
+
+
+# The aliases save the names the user supplied, while $host etc.
+# will get canonicalized.
+test -n "$target_alias" &&
+  test "$program_prefix$program_suffix$program_transform_name" = \
+    NONENONEs,x,x, &&
+  program_prefix=${target_alias}-
+
+
+    # Adjust for local legacy windows hack...
+    case $host in #(
+  local-*-windows) :
+
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
+
+    # Adjust for local legacy windows hack...
+    case $build in #(
+  local-*-windows) :
+
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
+
+    # Adjust for local legacy windows hack...
+    case $target in #(
+  local-*-windows) :
+
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
 
 case $host_os in
     mingw32)
@@ -4980,8 +5069,9 @@ PTHR_CFLAGS="-D_THREAD_SAFE -D_REENTRANT"
 OBJC_CC=$CC
 OBJC_CFLAGS=""
 CXXFLAGS=""
-case $host_os in
-    darwin*)
+case $host_os in #(
+  darwin*) :
+
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking Checking wxWidgets for min version:" >&5
 printf %s "checking Checking wxWidgets for min version:... " >&6; }
 	WX_CC=`wx-config --cc`
@@ -5070,22 +5160,25 @@ printf "%s\n" "$APPLE_CC ($APPLE_CXX)" >&6; }
   	fi
   	CFLAGS="$USER_CFLAGS $MAC_MIN -Wno-deprecated-declarations"
 	CPPFLAGS="$CPPFLAGS -D_MACOSX $PTHR_CFLAGS"
-	;;
-    mingw32)
+     ;; #(
+  mingw32) :
+
 	CFLAGS="$CFLAGS -DWIN32 -DWINVER=0x0600 -D_WINDOWS -D_UNICODE -DUNICODE"
 	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0600"
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Reverting to 32-bit time_t" >&5
 printf "%s\n" "$as_me: WARNING: Reverting to 32-bit time_t" >&2;}
 	CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
-	;;
-    win32)
+     ;; #(
+  win32) :
+
 	CFLAGS="$CFLAGS -DWIN32 -DWINVER=0x0600 -D_WINDOWS -D_UNICODE -DUNICODE"
 	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0600"
-	;;
-    *)
+     ;; #(
+  *) :
+
 	CFLAGS="$CFLAGS -Wno-deprecated-declarations"
 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS"
-	;;
+     ;;
 esac
 
 
@@ -5136,7 +5229,9 @@ case $host_os in
 esac
 
 
-if test "x$GCC" = xyes -a X"$host_os" != X"win32" ; then
+if test "x$GCC" = xyes -a X"$host_os" != X"win32"
+then :
+
    CXXNOOPT="-O1"
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-move-loop-invariants to CXXNOOPT (via CFLAGS)" >&5
@@ -5162,14 +5257,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         CXXNOOPT="-fno-move-loop-invariants $CXXNOOPT"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-var-tracking-assignments to CXXNOOPT (via CFLAGS)" >&5
@@ -5195,19 +5295,27 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         CXXNOOPT="-fno-var-tracking-assignments $CXXNOOPT"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
 
 fi
 
 
-if test X"$host_os" != X"win32" ; then
+fi
+
+
+if test X"$host_os" != X"win32"
+then :
+
            for ac_header in GL/gl.h
 do :
   ac_fn_c_check_header_compile "$LINENO" "GL/gl.h" "ac_cv_header_GL_gl_h" "$ac_includes_default"
@@ -5226,9 +5334,9 @@ fi
 fi
 
 done
-    if test X"$ac_cv_header_GL_gl_h" != Xyes &&
-       	test X"$ac_cv_header_OpenGL_gl_h" != Xyes
-    then
+    if test X"$ac_cv_header_GL_gl_h" != Xyes && test X"$ac_cv_header_OpenGL_gl_h" != Xyes
+then :
+
        	saved_CPPFLAGS="$CPPFLAGS"
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: Checking for OpenGL headers in /usr/X11R6" >&5
 printf "%s\n" "$as_me: Checking for OpenGL headers in /usr/X11R6" >&6;}
@@ -5241,7 +5349,9 @@ then :
 
 fi
 
-       	if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+       	if test X"$ac_cv_header_GL_gl_h" != Xyes
+then :
+
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Checking for OpenGL headers in /usr/local" >&5
 printf "%s\n" "$as_me: Checking for OpenGL headers in /usr/local" >&6;}
 	    CPPFLAGS="-isystem /usr/local/include $saved_CPPFLAGS"
@@ -5253,7 +5363,9 @@ then :
 
 fi
 
-	    if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+	    if test X"$ac_cv_header_GL_gl_h" != Xyes
+then :
+
 			echo "No OpenGL headers found, wx will NOT be usable" >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
     if test X"$with_wx" = X"yes" ; then
@@ -5264,14 +5376,23 @@ printf "%s\n" "$as_me: WARNING: No OpenGL headers found, wx will NOT be usable" 
     fi
 
 		CPPFLAGS="$saved_CPPFLAGS"
-	    else
+
+else $as_nop
+
 	    	GL_LIBS="-L/usr/local/lib $GL_LIBS"
-	    fi
-	else
+
+fi
+
+else $as_nop
+
     	    GL_LIBS="-L/usr/X11R6/lib $GL_LIBS"
-       	fi
-    fi
-else
+
+fi
+
+fi
+
+else $as_nop
+
     ac_fn_c_check_header_compile "$LINENO" "gl/gl.h" "ac_cv_header_gl_gl_h" "#include <windows.h>
 "
 if test "x$ac_cv_header_gl_gl_h" = xyes
@@ -5280,9 +5401,12 @@ then :
 
 fi
 
+
 fi
 
-if test X"$host_os" != X"win32" ; then
+if test X"$host_os" != X"win32"
+then :
+
            for ac_header in GL/glu.h
 do :
   ac_fn_c_check_header_compile "$LINENO" "GL/glu.h" "ac_cv_header_GL_glu_h" "$ac_includes_default"
@@ -5314,7 +5438,9 @@ printf "%s\n" "$as_me: WARNING: No GLU headers found, wx will NOT be usable" >&2
     fi
 
     fi
-else
+
+else $as_nop
+
     ac_fn_c_check_header_compile "$LINENO" "gl/glu.h" "ac_cv_header_gl_glu_h" "#include <windows.h>
 "
 if test "x$ac_cv_header_gl_glu_h" = xyes
@@ -5322,6 +5448,7 @@ then :
   printf "%s\n" "#define HAVE_GL_GLU_H 1" >>confdefs.h
 
 fi
+
 
 fi
 
@@ -5345,7 +5472,9 @@ ERLANG_ROOT_DIR=$ERL_TOP
 
 
 
-if test "$cross_compiling" = "yes"; then
+if test "$cross_compiling" = "yes"
+then :
+
     	echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
     if test X"$with_wx" = X"yes" ; then
@@ -5355,7 +5484,10 @@ if test "$cross_compiling" = "yes"; then
 printf "%s\n" "$as_me: WARNING: Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >&2;}
     fi
 
-elif test  X"$MIXED_VC" = X"no"; then
+
+elif test  X"$MIXED_VC" = X"no"
+then :
+
 
 
 
@@ -6398,7 +6530,9 @@ printf "%s\n" "$as_me: WARNING:
     fi
 
     fi
-else
+
+else $as_nop
+   #else
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wxWidgets in standard locations" >&5
 printf %s "checking for wxWidgets in standard locations... " >&6; }
     echo
@@ -6510,9 +6644,12 @@ printf "%s\n" "$as_me: WARNING: Cannot find core lib version for wxWidgets" >&2;
 
     printf "%s\n" "#define WXE_WEBVIEW 1" >>confdefs.h
 
+
 fi
 
-if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
+if test "$WXERL_CAN_BUILD_DRIVER" != "false"
+then :
+
 
 
 
@@ -6899,10 +7036,13 @@ printf "%s\n" "$as_me: WARNING: Can not link wx program are all developer packag
 
 fi
 
+
 fi
 
 
-if test "x$GCC" = xyes; then
+if test "x$GCC" = xyes
+then :
+
     # Treat certain GCC warnings as errors
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to CFLAGS (via CFLAGS)" >&5
@@ -6928,14 +7068,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         CFLAGS="-Werror=return-type $CFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to CXXFLAGS (via CFLAGS)" >&5
@@ -6961,14 +7106,20 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         CXXFLAGS="-Werror=return-type $CXXFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
+
 
 fi
 

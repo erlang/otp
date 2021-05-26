@@ -680,6 +680,10 @@ ac_ct_CC
 BOOTSTRAP_ONLY
 CROSS_COMPILING
 TARGET
+target_os
+target_vendor
+target_cpu
+target
 host_os
 host_vendor
 host_cpu
@@ -1445,6 +1449,7 @@ _ACEOF
 System types:
   --build=BUILD     configure for building on BUILD [guessed]
   --host=HOST       cross-compile to build programs to run on HOST [BUILD]
+  --target=TARGET   configure for building compilers for TARGET [HOST]
 _ACEOF
 fi
 
@@ -3243,10 +3248,6 @@ test "X$ERL_TOP" != "X" || as_fn_error $? "ERL_TOP not set" "$LINENO" 5
 
 
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else
-
 
 
   # Make sure we can run config.sub.
@@ -3322,7 +3323,89 @@ IFS=$ac_save_IFS
 case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking target system type" >&5
+printf %s "checking target system type... " >&6; }
+if test ${ac_cv_target+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "x$target_alias" = x; then
+  ac_cv_target=$ac_cv_host
+else
+  ac_cv_target=`$SHELL "${ac_aux_dir}config.sub" $target_alias` ||
+    as_fn_error $? "$SHELL ${ac_aux_dir}config.sub $target_alias failed" "$LINENO" 5
 fi
+
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_target" >&5
+printf "%s\n" "$ac_cv_target" >&6; }
+case $ac_cv_target in
+*-*-*) ;;
+*) as_fn_error $? "invalid value of canonical target" "$LINENO" 5;;
+esac
+target=$ac_cv_target
+ac_save_IFS=$IFS; IFS='-'
+set x $ac_cv_target
+shift
+target_cpu=$1
+target_vendor=$2
+shift; shift
+# Remember, the first character of IFS is used to create $*,
+# except with old shells:
+target_os=$*
+IFS=$ac_save_IFS
+case $target_os in *\ *) target_os=`echo "$target_os" | sed 's/ /-/g'`;; esac
+
+
+# The aliases save the names the user supplied, while $host etc.
+# will get canonicalized.
+test -n "$target_alias" &&
+  test "$program_prefix$program_suffix$program_transform_name" = \
+    NONENONEs,x,x, &&
+  program_prefix=${target_alias}-
+
+
+    # Adjust for local legacy windows hack...
+    case $host in #(
+  local-*-windows) :
+
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
+
+    # Adjust for local legacy windows hack...
+    case $build in #(
+  local-*-windows) :
+
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
+
+    # Adjust for local legacy windows hack...
+    case $target in #(
+  local-*-windows) :
+
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=
+             ;; #(
+  *) :
+     ;;
+esac
+
 
 TARGET=$host
 
@@ -5621,14 +5704,18 @@ NEED_NPTL_PTHREAD_H=no
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for native win32 threads" >&5
 printf %s "checking for native win32 threads... " >&6; }
-if test "X$host_os" = "Xwin32"; then
+if test "X$host_os" = "Xwin32"
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
     THR_DEFS="-DWIN32_THREADS"
     THR_LIBS=
     THR_LIB_NAME=win32_threads
     THR_LIB_TYPE=win32_threads
-else
+
+else $as_nop
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
     THR_DEFS=
@@ -5678,8 +5765,10 @@ then :
 fi
 
 
-    if test "x$THR_LIBS" = "x"; then
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lc_r" >&5
+    if test "x$THR_LIBS" = "x"
+then :
+
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lc_r" >&5
 printf %s "checking for pthread_create in -lc_r... " >&6; }
 if test ${ac_cv_lib_c_r_pthread_create+y}
 then :
@@ -5719,18 +5808,24 @@ then :
   THR_LIBS="-lc_r"
 fi
 
-    fi
 
-    if test "x$THR_LIBS" = "x"; then
-	ac_fn_c_check_func "$LINENO" "pthread_create" "ac_cv_func_pthread_create"
+fi
+
+    if test "x$THR_LIBS" = "x"
+then :
+
+              ac_fn_c_check_func "$LINENO" "pthread_create" "ac_cv_func_pthread_create"
 if test "x$ac_cv_func_pthread_create" = xyes
 then :
   THR_LIBS="none_needed"
 fi
 
-    fi
 
-    if test "x$THR_LIBS" = "x"; then
+fi
+
+    if test "x$THR_LIBS" = "x"
+then :
+
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if the '-pthread' switch can be used" >&5
 printf %s "checking if the '-pthread' switch can be used... " >&6; }
 	saved_cflags=$CFLAGS
@@ -5761,22 +5856,30 @@ printf "%s\n" "yes" >&6; }
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 	fi
-    fi
 
-    if test "x$THR_LIBS" != "x"; then
+fi
+
+    if test "x$THR_LIBS" != "x"
+then :
+
 	THR_DEFS="$THR_DEFS -D_THREAD_SAFE -D_REENTRANT -DPOSIX_THREADS"
 	THR_LIB_NAME=pthread
 	if test "x$THR_LIBS" = "xnone_needed"; then
 	    THR_LIBS=
 	fi
-	case $host_os in
-	    solaris*)
-		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS" ;;
-	    linux*)
+	case $host_os in #(
+  solaris*) :
+
+		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS"
+             ;; #(
+  linux*) :
+
 		THR_DEFS="$THR_DEFS -D_POSIX_THREAD_SAFE_FUNCTIONS"
 
 
-if test "$cross_compiling" != "yes"; then
+if test "$cross_compiling" != "yes"
+then :
+
     # Extract the first word of "getconf", so it can be a program name with args.
 set dummy getconf; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -5820,7 +5923,9 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-else
+
+else $as_nop
+
         host_getconf="$host_alias-getconf"
     # Extract the first word of "$host_getconf", so it can be a program name with args.
 set dummy $host_getconf; ac_word=$2
@@ -5865,7 +5970,9 @@ printf "%s\n" "no" >&6; }
 fi
 
 
-    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""; then
+    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""
+then :
+
 			    				GETCONF=
 	prfx="$erl_xcomp_sysroot"
         if test -n "$ac_tool_prefix"; then
@@ -5978,7 +6085,9 @@ else
   GETCONF="$ac_cv_path_GETCONF"
 fi
 
-    fi
+
+fi
+
 fi
 
 		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for Native POSIX Thread Library" >&5
@@ -6005,7 +6114,9 @@ printf "%s\n" "$nptl" >&6; }
 		    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: result yes guessed because of cross compilation" >&5
 printf "%s\n" "$as_me: WARNING: result yes guessed because of cross compilation" >&2;}
 		fi
-		if test $nptl = yes; then
+		if test $nptl = yes
+then :
+
 		    THR_LIB_TYPE=posix_nptl
 		    need_nptl_incldir=no
 		    ac_fn_c_check_header_compile "$LINENO" "nptl/pthread.h" "ac_cv_header_nptl_pthread_h" "$ac_includes_default"
@@ -6015,7 +6126,9 @@ then :
 				     NEED_NPTL_PTHREAD_H=yes
 fi
 
-		    if test $need_nptl_incldir = yes; then
+		    if test $need_nptl_incldir = yes
+then :
+
 			# Ahh...
 			nptl_path="$C_INCLUDE_PATH:$CPATH"
 			if test X$cross_compiling != Xyes; then
@@ -6051,11 +6164,14 @@ fi
 			if test "x$nptl_incldir" = "x"; then
 			    as_fn_error $? "Failed to locate nptl system include directory" "$LINENO" 5
 			fi
-		    fi
-		fi
-		;;
-	    *) ;;
-	esac
+
+fi
+
+fi
+             ;; #(
+  *) :
+     ;;
+esac
 
 			saved_cppflags=$CPPFLAGS
 	CPPFLAGS="$CPPFLAGS $THR_DEFS"
@@ -6082,7 +6198,9 @@ fi
 
 		CPPFLAGS=$saved_cppflags
 
-    fi
+
+fi
+
 fi
 
 
@@ -6137,14 +6255,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         DED_WARN_FLAGS="-Wdeclaration-after-statement $DED_WARN_FLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
 
@@ -6171,14 +6294,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         DED_WERRORFLAGS="-Werror=return-type $DED_WERRORFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=implicit to DED_WERRORFLAGS (via CFLAGS)" >&5
@@ -6204,14 +6332,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         DED_WERRORFLAGS="-Werror=implicit $DED_WERRORFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=undef to DED_WERRORFLAGS (via CFLAGS)" >&5
@@ -6237,14 +6370,19 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         DED_WERRORFLAGS="-Werror=undef $DED_WERRORFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
 DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
@@ -6257,7 +6395,9 @@ else
 fi
 # DED_EMU_THR_DEFS=$EMU_THR_DEFS
 DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
-if test "x$GCC" = xyes; then
+if test "x$GCC" = xyes
+then :
+
     # Use -fno-common for gcc, that is link error if multiple definitions of
     # global variables are encountered. This is ISO C compliant.
     # Until version 10, gcc has had -fcommon as default, which allows and merges
@@ -6286,20 +6426,26 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
         DED_CFLAGS="-fno-common $DED_CFLAGS"
-    else
+
+else $as_nop
+
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-    fi
+
+fi
 
 
     DED_STATIC_CFLAGS="$DED_CFLAGS"
     DED_CFLAGS="$DED_CFLAGS -fPIC"
     # Remove -fPIE and -fno-PIE
     DED_CFLAGS=`echo $DED_CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
+
 fi
 
 DED_EXT=so

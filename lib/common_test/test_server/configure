@@ -2414,9 +2414,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else
 
 
 
@@ -2493,7 +2490,6 @@ IFS=$ac_save_IFS
 case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 
 
-fi
 
 
 
@@ -3819,8 +3815,9 @@ fi
 
 SHLIB_LDLIBS=
 fullSrcDir=`cd $srcdir; pwd`
-case $system in
-    *-linux-*)
+case $system in #(
+  *-linux-*) :
+
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_SUFFIX=".so"
 	if test "$have_dl" = yes; then
@@ -3844,8 +3841,9 @@ fi
 	    fi
 	fi
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*)
+     ;; #(
+  *-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*) :
+
 	# Not available on all versions:  check for include file.
 	ac_fn_c_check_header_compile "$LINENO" "dlfcn.h" "ac_cv_header_dlfcn_h" "$ac_includes_default"
 if test "x$ac_cv_header_dlfcn_h" = xyes
@@ -3874,8 +3872,9 @@ else $as_nop
 fi
 
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *-solaris2*|*-sysv4*)
+     ;; #(
+  *-solaris2*|*-sysv4*) :
+
 	SHLIB_CFLAGS="-KPIC"
 	SHLIB_LD="/usr/ccs/bin/ld"
 	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -z text"
@@ -3887,15 +3886,17 @@ fi
 	fi
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL="-z allextract"
-	;;
-    *darwin*)
+     ;; #(
+  *darwin*) :
+
 	SHLIB_CFLAGS="-fno-common"
 	SHLIB_LD="cc"
 	SHLIB_LDFLAGS="$LDFLAGS -bundle -flat_namespace -undefined suppress"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *osf1*)
+     ;; #(
+  *osf1*) :
+
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_LD="ld"
 	SHLIB_LDFLAGS="$LDFLAGS -shared"
@@ -3907,15 +3908,17 @@ fi
 	fi
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *osf5*)
+     ;; #(
+  *osf5*) :
+
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_LD="${CC} -shared"
 	SHLIB_LDFLAGS="$LDFLAGS"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *)
+     ;; #(
+  *) :
+
 	# No dynamic loading.
 	SHLIB_CFLAGS=""
 	SHLIB_LD="ld"
@@ -3924,7 +3927,7 @@ fi
 	SHLIB_SUFFIX=""
 	SHLIB_EXTRACT_ALL=""
 	as_fn_error $? "don't know how to compile and link dynamic drivers" "$LINENO" 5
-	;;
+     ;;
 esac
 
 # If we're running gcc, then change the C flags for compiling shared
@@ -4008,7 +4011,9 @@ else $as_nop
   erl_checkSocket=1
 fi
 
-if test "$erl_checkSocket" = 1; then
+if test "$erl_checkSocket" = 1
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for main in -lsocket" >&5
 printf %s "checking for main in -lsocket... " >&6; }
 if test ${ac_cv_lib_socket_main+y}
@@ -4048,8 +4053,11 @@ else $as_nop
   erl_checkBoth=1
 fi
 
+
 fi
-if test "$erl_checkBoth" = 1; then
+if test "$erl_checkBoth" = 1
+then :
+
     tk_oldLibs=$LIBS
     LIBS="$LIBS -lsocket -lnsl"
     ac_fn_c_check_func "$LINENO" "accept" "ac_cv_func_accept"
@@ -4059,6 +4067,7 @@ then :
 else $as_nop
   LIBS=$tk_oldLibs
 fi
+
 
 fi
 ac_fn_c_check_func "$LINENO" "gethostbyname" "ac_cv_func_gethostbyname"
@@ -4373,7 +4382,9 @@ fi
   test -n "$JAVAC" && break
 done
 
-if test -n "$JAVAC"; then
+if test -n "$JAVAC"
+then :
+
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for JDK version 1.5" >&5
 printf %s "checking for JDK version 1.5... " >&6; }
 if test ${ac_cv_prog_javac_ver_1_5+y}
@@ -4391,15 +4402,20 @@ if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$java_link\""; } >&5
   (eval $java_link) 2>&5
   ac_status=$?
   printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; } && test -s conftest.class; then
+  test $ac_status = 0; } && test -s conftest.class
+then :
+
    rm -rf conftest*
    ac_cv_prog_javac_ver_1_5=yes
-else
+
+else $as_nop
+
    echo "configure: failed program was:" 1>&5
    cat conftest.java 1>&5
    echo "configure: PATH was $PATH" 1>&5
   rm -rf conftest*
   ac_cv_prog_javac_ver_1_5=no
+
 fi
 rm -f conftest*
 fi
@@ -4408,6 +4424,7 @@ printf "%s\n" "$ac_cv_prog_javac_ver_1_5" >&6; }
   if test $ac_cv_prog_javac_ver_1_5 = no; then
     unset -v JAVAC
   fi
+
 fi
 if test -n "$JAVAC"; then
 
