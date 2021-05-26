@@ -43,8 +43,12 @@ init([]) ->
 	nouser ->
 	    ignore;
 	{master, Master} ->
-	    Pid = start_slave(Master),
-	    {ok, Pid, Pid};
+	    case start_slave(Master) of
+		{ok, Pid} ->
+		    {ok, Pid, Pid};
+		Error ->
+		    Error
+	    end;
 	{M, F, A} ->
 	    case start_user(M, F, A) of
 		{ok, Pid} ->
@@ -57,11 +61,10 @@ init([]) ->
 start_slave(Master) ->
     case rpc:call(Master, erlang, whereis, [user]) of
 	User when is_pid(User) ->
-	    spawn(?MODULE, relay, [User]);
+	    {ok, spawn(?MODULE, relay, [User])};
 	_ ->
 	    error_logger:error_msg("Cannot get remote user", []),
-	    receive after 1000 -> true end,
-	    halt()
+	    {error, nouser}
     end.
 
 -spec relay(pid()) -> no_return().
