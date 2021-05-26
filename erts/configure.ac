@@ -658,6 +658,8 @@ AS_IF([test "x$GCC" = xyes],
   # Until version 10, gcc has had -fcommon as default, which allows and merges
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
+  
+  LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing], [CFLAGS])
  ],
  [
   WFLAGS=""
