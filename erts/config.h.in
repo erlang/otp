@@ -1,4 +1,4 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
 
 #ifndef __ERTS_CONFIG_H__
@@ -384,9 +384,6 @@
 
 /* Define if only run in Sparc TSO mode */
 #undef ETHR_SPARC_TSO
-
-/* Define if you can safely include both <sys/time.h> and <time.h>. */
-#undef ETHR_TIME_WITH_SYS_TIME
 
 /* Define as a boolean indicating whether you trust gcc's __atomic_* builtins
    memory barrier implementations, or not */
@@ -791,9 +788,6 @@
 /* Define to 1 if you have the `memmove' function. */
 #undef HAVE_MEMMOVE
 
-/* Define to 1 if you have the <memory.h> header file. */
-#undef HAVE_MEMORY_H
-
 /* Define if the pthread.h header file is in pthread/mit directory. */
 #undef HAVE_MIT_PTHREAD_H
 
@@ -949,6 +943,9 @@
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
@@ -1220,9 +1217,6 @@
    */
 #undef REDEFINE_FD_SETSIZE
 
-/* Define as the return type of signal handlers (`int' or `void'). */
-#undef RETSIGTYPE
-
 /* Define the sbrk() argument type. */
 #undef SBRK_ARG_TYPE
 
@@ -1274,7 +1268,9 @@
 /* The size of `__int64', as computed by sizeof. */
 #undef SIZEOF___INT64
 
-/* Define to 1 if you have the ANSI C header files. */
+/* Define to 1 if all of the C90 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
 #undef STDC_HEADERS
 
 /* define if the variable sys_errlist is declared in a system header file */
@@ -1289,9 +1285,6 @@
 /* Define if you want to implement erts_os_hrtime() using mach
    clock_get_time() */
 #undef SYS_HRTIME_USING_MACH_CLOCK_GET_TIME
-
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#undef TIME_WITH_SYS_TIME
 
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME
@@ -1332,7 +1325,7 @@
 /* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
 
-/* Define to `int' if <sys/types.h> does not define. */
+/* Define as a signed integer type capable of holding a process identifier. */
 #undef pid_t
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
