@@ -86,19 +86,19 @@ relay1(Pid) ->
 -spec terminate(term(), pid()) -> 'ok'.
 
 terminate(_Reason, UserPid) ->
-    receive after 1000 -> ok end,
+    receive after 10 -> ok end,
     exit(UserPid, kill),
     ok.
 
 %%-----------------------------------------------------------------
 %% If there is a user, wait for it to register itself.  (But wait
-%% no more than 10 seconds).  This is so the application_controller
+%% no more than 5 seconds).  This is so the application_controller
 %% is guaranteed that the user is started.
 %%-----------------------------------------------------------------
 
 start_user(Mod, Func, A) ->
     apply(Mod, Func, A),
-    wait_for_user_p(100).
+    wait_for_user_p(5000).
 
 wait_for_user_p(0) ->
     {error, nouser};
@@ -108,7 +108,8 @@ wait_for_user_p(N) ->
 	    link(Pid),
 	    {ok, Pid};
 	_ ->
-	    receive after 100 -> ok end,
+            %% minimal sleep so the shell is not delayed more than needed
+	    receive after 1 -> ok end,
 	    wait_for_user_p(N-1)
     end.
 
