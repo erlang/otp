@@ -1008,7 +1008,7 @@ get_all_locations(Tree) ->
   ++
   lists:append([get_all_locations(T) || T <- SubTrees]).
 
-maybe_get_location([Line|_]) when is_integer(Line) ->
+maybe_get_location([Line|_]) when is_integer(Line), Line > 0 ->
   Line;
 maybe_get_location([{Line, Column}|_Tail]) when is_integer(Line),
                                                 is_integer(Column) ->
