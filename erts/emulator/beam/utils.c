@@ -5191,30 +5191,21 @@ static void erts_qsort_swap(size_t item_size,
                             void* iptr,
                             void* jptr)
 {
-    if (item_size % sizeof(UWord) == 0) {
+    ASSERT(item_size % sizeof(UWord) == 0);
+
+    if (iptr != jptr) {
         /* Do it word by word */
         UWord* iwp = (UWord*) iptr;
         UWord* jwp = (UWord*) jptr;
 	size_t cnt;
         for (cnt = item_size / sizeof(UWord); cnt; cnt--) {
-            UWord tmp = *jwp;
-            *jwp = *iwp;
-            *iwp = tmp;
+            UWord tmp;
+	    sys_memcpy(&tmp, jwp, sizeof(UWord));
+	    sys_memcpy(jwp, iwp, sizeof(UWord));
+	    sys_memcpy(iwp, &tmp, sizeof(UWord));
 	    jwp++;
             iwp++;
         }
-    }
-    else {
-	/* Do it byte by byte (this can be optimized) */
-	byte* ibyteptr = (byte*)iptr;
-	byte* jbyteptr = (byte*)jptr;
-	for (size_t i = 0; i < item_size; i++) {
-	    char tmp = jbyteptr[0];
-	    jbyteptr[0] = ibyteptr[0];
-	    ibyteptr[0] = tmp;
-	    jbyteptr++;
-	    ibyteptr++;
-	}
     }
 }
 
@@ -5297,9 +5288,8 @@ erts_qsort_partion_array(byte *base,
         byte * pivot_part_start = curr - item_size;
         byte * pivot_part_end = curr + item_size;
         byte * last_part_start = second_part_start;
-        if (base != pivot_part_start) {
-            erts_qsort_swap(item_size, base, pivot_part_start);
-        }
+
+	erts_qsort_swap(item_size, base, pivot_part_start);
 
         while (pivot_part_end != last_part_start) {
             int compare_res =
