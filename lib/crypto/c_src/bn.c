@@ -50,6 +50,11 @@ int get_bn_from_mpint(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 
 int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 {
+    return get_bn_from_bin_sz(env, term, bnp, NULL);
+}
+
+int get_bn_from_bin_sz(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp, size_t* binsize)
+{
     BIGNUM *ret;
     ErlNifBinary bin;
 
@@ -61,6 +66,8 @@ int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
     if ((ret = BN_bin2bn(bin.data, (int)bin.size, NULL)) == NULL)
         goto err;
 
+    if (binsize != NULL)
+        *binsize = bin.size;
     *bnp = ret;
     return 1;
 
@@ -154,7 +161,7 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 #ifdef HAVE_EC
-ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
+ERL_NIF_TERM bn2term(ErlNifEnv* env, size_t size, const BIGNUM *bn)
 {
     int dlen;
     unsigned char* ptr;
@@ -166,10 +173,18 @@ ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
     dlen = BN_num_bytes(bn);
     if (dlen < 0)
         goto err;
-    if ((ptr = enif_make_new_binary(env, (size_t)dlen, &ret)) == NULL)
+    if (dlen > (int)size)
+        goto err;
+    if ((ptr = enif_make_new_binary(env, size, &ret)) == NULL)
         goto err;
 
-    BN_bn2bin(bn, ptr);
+#ifdef HAS_BN_bn2binpad
+    BN_bn2binpad(bn, ptr, (int) size);    
+#else
+    /* First, maybe pad with zeroes */
+    memset(ptr, 0, (size-dlen) );
+    BN_bn2bin(bn, ptr + (size-dlen));
+#endif
 
     return ret;
 
