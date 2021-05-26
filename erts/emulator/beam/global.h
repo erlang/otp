@@ -1386,10 +1386,11 @@ Eterm erts_ycf_trap_driver(Process* p,
 /* A quick sort function that is compatible with the qsort function
    declared in stdlib.h. We need our own so that we can yield inside
    the function */
+typedef int (*erts_void_ptr_cmp_t)(const void *, const void *);
 void erts_qsort(void *base,
                 size_t nr_of_items,
                 size_t item_size,
-                int (*compare)(const void *, const void *));
+                erts_void_ptr_cmp_t compare);
 /* YCF generated functions for yielding of erts_qsort
    See: $ERL_TOP/erts/emulator/internal_doc/AutomaticYieldingOfCCode.md 
 
@@ -1414,7 +1415,7 @@ void erts_qsort_ycf_gen_yielding(long* ycf_nr_of_reductions_param,
                                  void* ycf_stack_alloc_data,void *base,
                                  size_t nr_of_items,
                                  size_t item_size,
-                                 int (*compare)(const void *, const void *));
+                                 erts_void_ptr_cmp_t compare);
 #if defined(DEBUG)
 /*
  * ycf_debug_get_stack_start is used in YCF's debug mode (see

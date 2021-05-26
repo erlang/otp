@@ -84,7 +84,6 @@ typedef struct
     byte* pivot_part_end;
 } erts_qsort_partion_array_result;
 
-typedef int (*erts_void_ptr_cmp_t)(const void *, const void *);
 static void erts_qsort_swap(size_t item_size, void* ivp, void* jvp);
 static void erts_qsort_insertion_sort(byte *base,
                                       size_t nr_of_items,
