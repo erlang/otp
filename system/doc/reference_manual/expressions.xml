@@ -1573,11 +1573,12 @@ end</pre>
       <item>A <em>filter</em> is an expression, which evaluates to
       <c>true</c> or <c>false</c>.</item>
     </list>
-    <p>The variables in the generator patterns, shadow variables in the function
-    clause, surrounding the list comprehensions.</p> <p>A list comprehension
-    returns a list, where the elements are the result of evaluating <c>Expr</c>
-    for each combination of generator list elements and bit string generator
-    elements, for which all filters are true.</p>
+    <p>The variables in the generator patterns shadow previously bound variables,
+    including variables bound in a previous generator pattern.</p>
+    <p>A list comprehension returns a list, where the elements are the
+    result of evaluating <c>Expr</c> for each combination of generator
+    list elements and bit string generator elements, for which all
+    filters are true.</p>
     <p><em>Example:</em></p>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
@@ -1624,8 +1625,8 @@ end</pre>
       <item>A <em>filter</em> is an expression that evaluates to
       <c>true</c> or <c>false</c>.</item>
     </list>
-    <p>The variables in the generator patterns, shadow variables in
-      the function clause, surrounding the bit string comprehensions.</p>
+    <p>The variables in the generator patterns shadow previously bound variables,
+    including variables bound in a previous generator pattern.</p>
     <p>A bit string comprehension returns a bit string, which is 
       created by concatenating the results of evaluating <c>BitString</c> 
       for each combination of bit string generator elements, for which all
