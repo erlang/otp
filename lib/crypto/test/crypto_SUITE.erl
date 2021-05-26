@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 
--export([
+-export([expected_ec_size/1,
          %% CT callbacks:
          suite/0,
          all/0,
@@ -130,6 +130,7 @@
          sign_verify/1,
          stream/0,
          stream/1,
+         ec_key_padding/1,
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
          use_all_eddh_generate_compute/1,
@@ -224,6 +225,7 @@ all() ->
      {group, fips},
      {group, non_fips},
      cipher_padding,
+     ec_key_padding,
      node_supports_cache,
      mod_pow,
      exor,
@@ -642,7 +644,7 @@ crypto_load_and_call(_Config) ->
     code:purge(crypto),
     Key0 = "ablurf123BX#$;3",
     Bin0 = erlang:md5(<<"whatever">>),
-    {Key,IVec,BlockSize}=make_crypto_key(Key0),
+    {Key,IVec,_BlockSize}=make_crypto_key(Key0),
     crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin0, true).
 
 make_crypto_key(String) ->
@@ -1004,6 +1006,38 @@ cipher_padding_test({Cipher, Padding}) ->
                    [Key, IV, Tplain, Tcrypt, Tdecrypt, Tpad]),
             ct:fail("~p", [Cipher])
     end.
+
+%%--------------------------------------------------------------------
+ec_key_padding(_Config) ->
+    lists:foreach(fun test_ec_key_padding/1,
+                  crypto:supports(curves) -- [ed25519, ed448, x25519, x448]
+                 ).
+
+test_ec_key_padding(CurveName) ->
+    ExpectedSize = expected_ec_size(CurveName),
+    repeat(100, % Enough to provoke an error in the 85 curves
+               % With for example 1000, the total test time would be too large
+           fun() ->
+                   case crypto:generate_key(ecdh, CurveName) of
+                       {_PubKey, PrivKey} when byte_size(PrivKey) == ExpectedSize ->
+                           %% ct:pal("~p:~p Test ~p, size ~p, expected size ~p", 
+                           %%        [?MODULE,?LINE, CurveName, byte_size(PrivKey), ExpectedSize]),
+                           ok;
+                       {_PubKey, PrivKey} ->
+                           ct:fail("Bad ~p size: ~p expected: ~p", [CurveName, byte_size(PrivKey), ExpectedSize]);
+                       Other ->
+                           ct:pal("~p:~p ~p", [?MODULE,?LINE,Other]),
+                           ct:fail("Bad public_key:generate_key result for ~p", [CurveName])
+                   end
+           end).
+            
+repeat(Times, F) when Times > 0 -> F(), repeat(Times-1, F);
+repeat(_, _) -> ok.
+
+expected_ec_size(CurveName) when is_atom(CurveName) ->
+    expected_ec_size(crypto_ec_curves:curve(CurveName));
+expected_ec_size({{prime_field,_}, _, _, Order, _}) -> byte_size(Order);
+expected_ec_size({{characteristic_two_field, _, _}, _, _, Order, _}) -> size(Order).
 
 %%--------------------------------------------------------------------
 no_aead() ->
