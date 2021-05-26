@@ -1084,11 +1084,7 @@ behaviour_add_conflict([], _, _, _, St) -> St.
 %% check_deprecated(Forms, State0) -> State
 
 check_deprecated(Forms, St0) ->
-    %% Get the correct list of exported functions.
-    Exports = case member(export_all, St0#lint.compile) of
-		  true -> St0#lint.defined;
-		  false -> St0#lint.exports
-	      end,
+    Exports = exports(St0),
     X = ignore_predefined_funcs(gb_sets:to_list(Exports)),
     #lint{module = Mod} = St0,
     Bad = [{E,Anno} || {attribute, Anno, deprecated, Depr} <- Forms,
@@ -1142,11 +1138,7 @@ deprecated_desc(_) -> false.
 %% check_removed(Forms, State0) -> State
 
 check_removed(Forms, St0) ->
-    %% Get the correct list of exported functions.
-    Exports = case member(export_all, St0#lint.compile) of
-                  true -> St0#lint.defined;
-                  false -> St0#lint.exports
-              end,
+    Exports = exports(St0),
     X = ignore_predefined_funcs(gb_sets:to_list(Exports)),
     #lint{module = Mod} = St0,
     Bad = [{E,Anno} || {attribute, Anno, removed, Removed} <- Forms,
@@ -3253,7 +3245,7 @@ add_missing_spec_warnings(Forms, St0, Type) ->
 		[{FA,Anno} || {function,Anno,F,A,_} <- Forms,
 			   not lists:member(FA = {F,A}, Specs)];
 	    exported ->
-		Exps0 = gb_sets:to_list(St0#lint.exports) -- pseudolocals(),
+                Exps0 = gb_sets:to_list(exports(St0)) -- pseudolocals(),
                 Exps = Exps0 -- Specs,
 		[{FA,Anno} || {function,Anno,F,A,_} <- Forms,
 			   member(FA = {F,A}, Exps)]

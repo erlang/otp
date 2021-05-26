@@ -1218,7 +1218,7 @@ rewrite_expr({call,_,{atom,_,defined},[N0]}, #epp{macs=Macs}) ->
 	    {atom,_,N1} -> N1;
 	    _ -> throw({bad,'if'})
 	end,
-    {atom,0,maps:is_key(N, Macs)};
+    {atom,erl_anno:new(0),maps:is_key(N, Macs)};
 rewrite_expr({call,_,{atom,_,Name},As0}, none) ->
     As = rewrite_expr(As0, none),
     Arity = length(As),
@@ -1241,9 +1241,9 @@ rewrite_expr(Other, _) ->
     Other.
 
 to_conses([H|T]) ->
-    {cons,0,H,to_conses(T)};
+    {cons,erl_anno:new(0),H,to_conses(T)};
 to_conses([]) ->
-    {nil,0}.
+    {nil,erl_anno:new(0)}.
 
 %% scan_elif(Tokens, EndifToken, From, EppState)
 %%  Handle the conditional parsing of a file.

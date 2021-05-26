@@ -32,7 +32,7 @@ all() ->
                    otp_8340,otp_8188,compile_beam_opts,eep37,
                    analyse_no_beam, line_0, compile_beam_no_file,
                    compile_beam_missing_backend,
-                   otp_13277, otp_13289, guard_in_lc],
+                   otp_13277, otp_13289, guard_in_lc, gh_4796],
     StartStop = [start, compile, analyse, misc, stop,
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1877,6 +1877,24 @@ otp_16476(Config) when is_list(Config) ->
     ok = cover:stop(),
     ok.
 
+%% GH-4796: failure to preserve tuple_calls compiler option
+gh_4796(Config) ->
+    Test = <<"-module(gh_4796).
+              -export([test/0, foo/1]).
+
+              test() ->
+                  PMod = new(42),
+                  PMod:foo().
+
+              new(X) -> {?MODULE, X}.
+
+              foo({?MODULE, 42}) -> ok.
+              ">>,
+    File = c_mod(gh_4796, Test, Config, [tuple_calls]),
+    {ok, gh_4796} = cover:compile_beam(gh_4796),
+    ok = file:delete(File),
+    ok = gh_4796:test().
+
 %%--Auxiliary------------------------------------------------------------
 
 analyse_expr(Expr, Config) ->
@@ -1902,13 +1920,16 @@ cc_mod(M, Binary, Config) ->
     end.
 
 c_mod(M, Binary, Config) ->
+    c_mod(M, Binary, Config, _CompileOpts = []).
+
+c_mod(M, Binary, Config, CompileOpts) ->
     {ok, Dir} = file:get_cwd(),
     PrivDir = proplists:get_value(priv_dir, Config),
     ok = file:set_cwd(PrivDir),
     File = atom_to_list(M) ++ ".erl",
     try 
         ok = file:write_file(File, Binary),
-        {ok, M} = compile:file(File, [debug_info]),
+        {ok, M} = compile:file(File, CompileOpts ++ [debug_info]),
         code:purge(M),
         AbsFile = filename:rootname(File, ".erl"),
         code:load_abs(AbsFile, M),
