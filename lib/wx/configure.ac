@@ -40,24 +40,23 @@ AC_DEFUN([WX_MSG_ERROR],
 ])
 
 
-if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
+AS_IF(
+ [test -z "$ERL_TOP" || test ! -d $ERL_TOP],
+ [
   AC_MSG_ERROR([ERL_TOP is not set])
-else
+ ],
+ [
   erl_top=${ERL_TOP}
   AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
   WX_BUILDING_INSIDE_ERLSRC=true
-fi
+ ])
 
 AC_ARG_WITH(wx,
 [  --with-wxdir=PATH    specify location of wxWidgets include and lib
   --with-wx             use wxWidgets (default)
   --without-wx          don't use wxWidgets])
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 case $host_os in
     mingw32)
@@ -108,8 +107,10 @@ OBJC_CC=$CC
 OBJC_CFLAGS=""
 CXXFLAGS=""
 dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
-case $host_os in
-    darwin*)
+AS_CASE([$host_os],
+
+    [darwin*],
+    [
 	AC_MSG_CHECKING([Checking wxWidgets for min version:])
 	WX_CC=`wx-config --cc`
 	MAC_MIN=`echo "$WX_CC" | sed 's/^[[^ ]]*\ *//'`
@@ -177,22 +178,26 @@ case $host_os in
   	fi
   	CFLAGS="$USER_CFLAGS $MAC_MIN -Wno-deprecated-declarations"
 	CPPFLAGS="$CPPFLAGS -D_MACOSX $PTHR_CFLAGS"
-	;;
-    mingw32)
+    ],
+
+    [mingw32],
+    [
 	CFLAGS="$CFLAGS -DWIN32 -DWINVER=0x0600 -D_WINDOWS -D_UNICODE -DUNICODE"
 	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0600"
 	AC_MSG_WARN([Reverting to 32-bit time_t])
 	CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
-	;;
-    win32)
+    ],
+
+    [win32],
+    [
 	CFLAGS="$CFLAGS -DWIN32 -DWINVER=0x0600 -D_WINDOWS -D_UNICODE -DUNICODE"
 	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0600"
-	;;
-    *)
+    ],
+
+    [
 	CFLAGS="$CFLAGS -Wno-deprecated-declarations"
 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS"
-	;;
-esac
+    ])
 
 AC_SUBST(OBJC_CC)
 AC_SUBST(OBJC_CFLAGS)
@@ -249,47 +254,54 @@ dnl  Use -O1 -fno-move-loop-invariants for wxe_funcs.cpp to reduce
 dnl  compilation time
 dnl
 
-if test "x$GCC" = xyes -a X"$host_os" != X"win32" ; then
+AS_IF([test "x$GCC" = xyes -a X"$host_os" != X"win32"],
+ [
    CXXNOOPT="-O1"
    LM_TRY_ENABLE_CFLAG([-fno-move-loop-invariants], [CXXNOOPT])
    LM_TRY_ENABLE_CFLAG([-fno-var-tracking-assignments], [CXXNOOPT])
-fi
+ ])
 
 dnl
 dnl  Opengl tests
 dnl
 
-if test X"$host_os" != X"win32" ; then
+AS_IF([test X"$host_os" != X"win32"],
+  [
     AC_CHECK_HEADERS([GL/gl.h], [],
     	[AC_CHECK_HEADERS([OpenGL/gl.h])])
-    if test X"$ac_cv_header_GL_gl_h" != Xyes &&
-       	test X"$ac_cv_header_OpenGL_gl_h" != Xyes
-    then
+    AS_IF([test X"$ac_cv_header_GL_gl_h" != Xyes && test X"$ac_cv_header_OpenGL_gl_h" != Xyes],
+      [
        	saved_CPPFLAGS="$CPPFLAGS"
 	AC_MSG_NOTICE(Checking for OpenGL headers in /usr/X11R6)
        	CPPFLAGS="-isystem /usr/X11R6/include $CPPFLAGS"
        	$as_unset ac_cv_header_GL_gl_h
        	AC_CHECK_HEADERS([GL/gl.h])
-       	if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+       	AS_IF([test X"$ac_cv_header_GL_gl_h" != Xyes],
+          [
 	    AC_MSG_NOTICE(Checking for OpenGL headers in /usr/local)
 	    CPPFLAGS="-isystem /usr/local/include $saved_CPPFLAGS"
 	    $as_unset ac_cv_header_GL_gl_h
 	    AC_CHECK_HEADERS([GL/gl.h])
-	    if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+	    AS_IF([test X"$ac_cv_header_GL_gl_h" != Xyes],
+              [
 		WX_MSG_ERROR([No OpenGL headers found, wx will NOT be usable])
 		CPPFLAGS="$saved_CPPFLAGS"
-	    else
+              ],
+              [
 	    	GL_LIBS="-L/usr/local/lib $GL_LIBS"
-	    fi
-	else
+              ])
+	  ],
+          [
     	    GL_LIBS="-L/usr/X11R6/lib $GL_LIBS"
-       	fi
-    fi
-else
+       	  ])
+      ])
+  ],
+  [
     AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
-fi
+  ])
 
-if test X"$host_os" != X"win32" ; then
+AS_IF([test X"$host_os" != X"win32"],
+  [
     AC_CHECK_HEADERS([GL/glu.h], [],
         [AC_CHECK_HEADERS([OpenGL/glu.h])])
     if test X"$ac_cv_header_GL_glu_h" != Xyes &&
@@ -297,9 +309,10 @@ if test X"$host_os" != X"win32" ; then
     then
     WX_MSG_ERROR([No GLU headers found, wx will NOT be usable])
     fi
-else
+  ],
+  [
     AC_CHECK_HEADERS([gl/glu.h],[],[],[#include <windows.h>])
-fi
+  ])
 
 AC_SUBST(GL_LIBS)
 
@@ -324,9 +337,14 @@ AC_SUBST(ERLANG_ROOT_DIR)
 dnl
 dnl  Check for wxwidgets
 dnl 
-if test "$cross_compiling" = "yes"; then
+AS_IF(
+  [test "$cross_compiling" = "yes"],
+  [
     WX_MSG_ERROR([Cross compilation of the wx driver is not supported yet, wx will NOT be usable])
-elif test  X"$MIXED_VC" = X"no"; then
+  ],
+
+  [test  X"$MIXED_VC" = X"no"],
+  [
     m4_include(wxwin-nothrow.m4)
 
     AM_OPTIONS_WXCONFIG
@@ -426,7 +444,9 @@ elif test  X"$MIXED_VC" = X"no"; then
         is in LD_LIBRARY_PATH or equivalent variable and
         wxWidgets version is $reqwx or above.])
     fi
-else
+  ],
+  
+  [ #else
     AC_MSG_CHECKING(for wxWidgets in standard locations)
     echo
     # Check whether --with-wxdir was given.
@@ -524,9 +544,10 @@ else
     AC_SUBST(WX_LIBS_STATIC)
     AC_SUBST(WX_RESCOMP)
     AC_DEFINE([WXE_WEBVIEW])
-fi
+  ])
 
-if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
+AS_IF([test "$WXERL_CAN_BUILD_DRIVER" != "false"],
+[
 
 AC_SUBST(WX_HAVE_STATIC_LIBS)
 AC_SUBST(RC_FILE_TYPE)
@@ -694,15 +715,16 @@ if test X"$CAN_LINK_WX" != X"yes" ; then
    WX_MSG_ERROR([Can not link wx program are all developer packages installed?])
 fi
 
-fi dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"
+]) dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"
 
 AC_SUBST(WXERL_CAN_BUILD_DRIVER)
 
-if test "x$GCC" = xyes; then
+AS_IF([test "x$GCC" = xyes],
+  [
     # Treat certain GCC warnings as errors
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CXXFLAGS])
-fi
+  ])
 
 dnl ----------------------------------------------------------------------
 dnl Enable -fsanitize= flags.

@@ -84,18 +84,7 @@ dnl Aux programs are found in erts/autoconf
 dnl
 AC_CONFIG_AUX_DIR(${ERL_TOP}/erts/autoconf)
 
-dnl
-dnl Figure out what we are running on. And in violation of autoconf
-dnl style assume that $host is also what we are building for. I would
-dnl like to get cross compiling working, since we actually have
-dnl systems we cross compile for!
-dnl
-
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 TARGET=$host
 AC_SUBST(TARGET)

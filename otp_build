@@ -21,7 +21,7 @@
 
 USE_AUTOCONF_VERSION=2.71
 
-aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
+aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco ./lib/snmp ./common_test"
 autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
 
 aclocal_master="./erts/aclocal.m4"
@@ -171,11 +171,13 @@ set_config_flags ()
 	#   (in the cross compilation case the whole command line as well as
 	#   the cross configuration have been moved here). 
 
-	if target_contains free_source; then
-		CONFIG_FLAGS="$CONFIG_FLAGS --host=$TARGET"
-	fi
 	if target_contains win32; then
-	    CONFIG_FLAGS="--build=$BUILDSYS build_alias=win32 --host=win32 --target=win32 $CONFIG_FLAGS" 
+	    if [ "$CONFIG_SUBTYPE" = "win64" ]; then
+		bht_type=local-x86_64-pc-windows
+	    else
+		bht_type=local-x86-pc-windows
+	    fi
+	    CONFIG_FLAGS="--build=$bht_type --host=$bht_type --target=$bht_type $CONFIG_FLAGS" 
 	fi
 	    
 

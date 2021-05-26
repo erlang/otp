@@ -1,4 +1,4 @@
-dnl Process this file with autoconf to produce a configure script. -*-m4-*-
+dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*-
 
 dnl %CopyrightBegin%
 dnl
@@ -80,19 +80,7 @@ dnl ----------------------------------------------------------------------
 dnl Figure out what system we are running on.
 dnl ----------------------------------------------------------------------
 
-dnl
-dnl AC_CANONICAL_HOST does not like free_source as a host specification,
-dnl so we make a little special case.
-dnl
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
-
-#
-# To configure for free source run ./configure --host=free_source
-#
+ERL_CANONICAL_SYSTEM_TYPE
 
 if test "$cross_compiling" = "yes"; then
     CROSS_COMPILING=yes
@@ -401,7 +389,8 @@ esac
 
 i_noretpoline_attr=""
 
-if test X"$with_spectre_mitigation" != X"no"; then
+AS_IF([test X"$with_spectre_mitigation" != X"no"],
+  [
     CFLAGS="$CFLAGS -mindirect-branch=thunk"
 
     AC_MSG_CHECKING([for spectre mitigation])
@@ -410,7 +399,8 @@ if test X"$with_spectre_mitigation" != X"no"; then
         [AC_MSG_RESULT([yes])],
         [AC_MSG_ERROR([no])])
 
-    if test X"$with_spectre_mitigation" = X"incomplete"; then
+    AS_IF([test X"$with_spectre_mitigation" = X"incomplete"],
+      [
         # gcc and clang support this attribute if they're recent enough. Note
         # that we must compile with -Werror to check for actual support as they
         # warn rather than error out on unsupported attributes.
@@ -426,8 +416,8 @@ if test X"$with_spectre_mitigation" != X"no"; then
             [AC_MSG_ERROR([no])])
 
         CFLAGS="$i_preserve_cflags"
-    fi
-fi
+      ])
+  ])
 
 AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
                    [Per-function attribute for disabling retpoline. This is
@@ -590,14 +580,14 @@ esac
 
 lfs_conf=ok
 lfs_source=none
-if test "${LFS_CFLAGS+set}" = "set" || \
-   test "${LFS_LDFLAGS+set}" = "set" || \
-   test "${LFS_LIBS+set}" = "set"; then
+AS_IF([test "${LFS_CFLAGS+set}" = "set" || test "${LFS_LDFLAGS+set}" = "set" || test "${LFS_LIBS+set}" = "set"],
+  [
     lfs_source=user
-else
+  ],
+  [
    LM_CHECK_GETCONF
    test "$GETCONF" = "false" || lfs_source=getconf
-fi
+  ])
 
 if test "$lfs_source" = "none"; then
     AC_MSG_WARN([Do not know how to check for large file support flags; no getconf is available])
@@ -628,7 +618,8 @@ else
     fi
 fi
 
-if test "x$GCC" = xyes; then
+AS_IF([test "x$GCC" = xyes],
+ [
   # Treat certain GCC warnings as errors
   LM_TRY_ENABLE_CFLAG([-Werror=return-type], [WERRORFLAGS])
   LM_TRY_ENABLE_CFLAG([-Werror=implicit], [WERRORFLAGS])
@@ -660,10 +651,11 @@ if test "x$GCC" = xyes; then
   # Until version 10, gcc has had -fcommon as default, which allows and merges
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
-else
+ ],
+ [
   WFLAGS=""
   WERRORFLAGS=${WERRORFLAGS:-""}
-fi
+ ])
 
 AC_MSG_CHECKING([C99 support])
 
@@ -697,7 +689,8 @@ LM_CHECK_RUN_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
 LM_CHECK_RUN_CFLAG([-fprofile-use -Werror],[PROFILE_USE])
 LM_CHECK_RUN_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
 
-if test "X$PROFILE_CORRECTION" = "Xtrue"; then
+AS_IF([test "X$PROFILE_CORRECTION" = "Xtrue"],
+  [
    saved_CFLAGS=$CFLAGS
    saved_LDFLAGS=$LDFLAGS
    CFLAGS="-fprofile-generate $saved_CFLAGS"
@@ -710,11 +703,12 @@ if test "X$PROFILE_CORRECTION" = "Xtrue"; then
          PROFILE_GENERATE=false])
    CFLAGS=$saved_CFLAGS
    LDFLAGS=$saved_LDFLAGS
-fi
+  ])
 
 ## Check if this is clang
 LM_CHECK_ENABLE_CFLAG([-fprofile-instr-generate -Werror],[PROFILE_INSTR_GENERATE])
-if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
+AS_IF([test "X$PROFILE_INSTR_GENERATE" = "Xtrue"],
+  [
    # It was clang, now we also have to check if we have llvm-profdata and that
    # we can link programs with -fprofile-instr-use
    saved_CFLAGS=$CFLAGS;
@@ -722,17 +716,21 @@ if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
    AC_RUN_IFELSE([AC_LANG_PROGRAM([],[])],
      [AC_PATH_PROG([LLVM_PROFDATA], [llvm-profdata],[],[$PATH:/Library/Developer/CommandLineTools/usr/bin])
       AC_CHECK_PROGS([XCRUN], [xcrun])
-      if test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"; then
+      AS_IF([test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"],
+       [
         AC_MSG_CHECKING([for $XCRUN $LLVM_PROFDATA])
-        if $XCRUN $LLVM_PROFDATA --help 2>& AS_MESSAGE_LOG_FD >& AS_MESSAGE_LOG_FD; then
+        AS_IF([$XCRUN $LLVM_PROFDATA --help 2>& AS_MESSAGE_LOG_FD >& AS_MESSAGE_LOG_FD],
+	 [
           LLVM_PROFDATA="$XCRUN $LLVM_PROFDATA"
           AC_MSG_RESULT([yes])
-        else
+         ],
+	 [
           AC_MSG_RESULT([no])
-        fi
-      fi
+         ])
+       ])
       AC_SUBST(LLVM_PROFDATA)
-      if test "X$LLVM_PROFDATA" != "X"; then
+      AS_IF([test "X$LLVM_PROFDATA" != "X"],
+       [
         CFLAGS="-fprofile-instr-use=default.profdata $saved_CFLAGS";
         $LLVM_PROFDATA merge -output=default.profdata *.profraw;
         AC_MSG_CHECKING([whether $CC accepts -fprofile-instr-use=default.profdata -Werror])
@@ -742,12 +740,12 @@ if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
           [AC_MSG_RESULT([no])
            PROFILE_INSTR_USE=false])
         rm -f default.profdata
-      fi],
+       ])],
      [],
      [AC_MSG_NOTICE([Disabling PGO when cross-compiling])])
    rm -f *.profraw
    CFLAGS=$saved_CFLAGS;
-fi
+  ])
 
 AC_ARG_ENABLE(pgo,
 AS_HELP_STRING([--enable-pgo],
@@ -968,28 +966,32 @@ AC_SUBST(ERLANG_OSTYPE)
 # Otherwise we assume that if the linker accepts the flag, it is needed.
 AC_MSG_CHECKING(for extra flags needed to export symbols)
 DEXPORT=""
-case $host_os in
-	aix*|os400*)
+AS_CASE([$host_os],
+	[aix*|os400*],
+	[
 		DEXPORT=-Wl,-bexpall,-brtl
-	;;
-	bsdi*)
+	],
+	[bsdi*],
+	[
     		DEXPORT="-rdynamic " 
-    	;;
-	win32)
+    	],
+	[win32],
+	[
     		DEXPORT="" 
-    	;;
-	*)
+    	],
+	[
 		DEXPORT=
 		save_ldflags="$LDFLAGS"
 		LDFLAGS=-Wl,-export-dynamic
 		AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[DEXPORT="$LDFLAGS"])
-		if test "$DEXPORT" = ""; then
+		AS_IF([test "$DEXPORT" = ""],
+		  [
 		   LDFLAGS=-Wl,-Bexport
 		   AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[DEXPORT="$LDFLAGS"])
-		fi
+		  ])
 		LDFLAGS="$save_ldflags"
-	;;
-esac
+	])
+
 AC_SUBST(DEXPORT)
 case "x$DEXPORT" in
 	"x")
@@ -1269,8 +1271,8 @@ dnl ----------------------------------------------------------------------
 
 TERMCAP_LIB=
 
-if test "x$with_termcap" != "xno" &&
-   test "X$host" != "Xwin32"; then
+AS_IF([test "x$with_termcap" != "xno" && test "X$host" != "Xwin32"],
+  [
     # try these libs
     termcap_libs="tinfo ncurses curses termcap termlib"
 
@@ -1284,7 +1286,7 @@ if test "x$with_termcap" != "xno" &&
     if test "x$TERMCAP_LIB" = "x"; then
 	AC_MSG_ERROR([No curses library functions found])
     fi
-fi
+  ])
 
 AC_SUBST(TERMCAP_LIB)
 
@@ -1293,7 +1295,8 @@ if test "x$TERMCAP_LIB" != "x"; then
 	AC_DEFINE(HAVE_TERMCAP, 1, [Define if termcap functions exists])
 fi
 
-if test "X$host" != "Xwin32"; then
+AS_IF([test "X$host" != "Xwin32"],
+  [
     AC_MSG_CHECKING(for wcwidth)
     AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <wchar.h>]], [[wcwidth(0);]])],[have_wcwidth=yes],[have_wcwidth=no])
     if test $have_wcwidth = yes; then
@@ -1301,7 +1304,7 @@ if test "X$host" != "Xwin32"; then
         AC_DEFINE(HAVE_WCWIDTH, [1],
                   [Define to 1 if you have a `wcwidth' function.])
     fi
-fi
+  ])
 
 dnl -------------
 dnl zlib
@@ -1317,11 +1320,13 @@ AC_ARG_ENABLE(builtin-zlib,
 
 Z_LIB=
 
-if test "x$enable_builtin_zlib" = "xyes"; then
+AS_IF([test "x$enable_builtin_zlib" = "xyes"],
+ [
   AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
             [Define if your zlib version defines inflateGetDictionary.])
   AC_MSG_NOTICE([Using our own built-in zlib source])
-else
+ ],
+ [
 AC_MSG_CHECKING(for zlib 1.2.5 or higher)
 zlib_save_LIBS=$LIBS
 LIBS="-lz $LIBS"
@@ -1346,15 +1351,17 @@ error
  AC_MSG_RESULT(no)
 ])
 
-if test "$Z_LIB" != ""; then
+AS_IF([test "$Z_LIB" != ""],
+ [
   AC_SEARCH_LIBS(inflateGetDictionary, [z],
                  AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
                            [Define if your zlib version defines inflateGetDictionary.]))
-fi
+ ])
 
 LIBS=$zlib_save_LIBS
 
-fi
+ ])
+
 AC_SUBST(Z_LIB)
 
 
@@ -1377,11 +1384,10 @@ else
     fi
 fi
 
-if test "x$USE_ESOCK" = "xyes"; then
-    if test "x$USE_ESOCK" = "xyes"; then
+AS_IF([test "x$USE_ESOCK" = "xyes" && test "x$USE_ESOCK" = "xyes"],
+      [
         AC_CHECK_FUNCS([localtime_r strftime getprotoent setprotoent endprotoent])
-    fi
-fi
+      ])
 
 AC_SUBST(USE_ESOCK)
 
@@ -1501,14 +1507,16 @@ tk_oldLibs=$LIBS
 erl_checkBoth=0
 SOCKET_LIBS=""
 AC_CHECK_FUNC(connect, erl_checkSocket=0, erl_checkSocket=1)
-if test "$erl_checkSocket" = 1; then
+AS_IF([test "$erl_checkSocket" = 1],
+  [
     AC_CHECK_LIB(socket, main, SOCKET_LIBS="-lsocket", erl_checkBoth=1)
-fi
+  ])
 
-if test "$erl_checkBoth" = 1; then
+AS_IF([test "$erl_checkBoth" = 1],
+  [
     LIBS="$LIBS -lsocket -lnsl"
     AC_CHECK_FUNC(accept, SOCKET_LIBS="-lsocket -lnsl")
-fi
+  ])
 
 LIBS="$tk_oldLibs $SOCKET_LIBS"
 AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [SOCKET_LIBS="$SOCKET_LIBS -lnsl"]))
@@ -1523,20 +1531,23 @@ dnl These gethostbyname thingies use old style AC_DEFINE for BC with ancient
 dnl autoconf...
 dnl 
 
-if test "$have_gethostbyname_r" = yes; then
+AS_IF([test "$have_gethostbyname_r" = yes],
+      [
 	# OK, so we have gethostbyname_r() - but do we know how to call it...?
 	# (if not, HAVE_GETHOSTBYNAME_R will not be defined at all)
-	case $host_os in
-		solaris2*)
+	AS_CASE([$host_os],
+		[solaris2*],
+		[
 			AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_SOLARIS,
 				[Define to flavour of gethostbyname_r])
-		;;
-		aix*|os400*)
+		],
+		[aix*|os400*],
+		[
 			# AIX version also needs "struct hostent_data" defn
 			AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <netdb.h>]], [[struct hostent_data hd;]])],[AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_AIX,
 				    Define to flavour of gethostbyname_r)],[])
-		;;
-		*)
+		],
+		[
 			AC_EGREP_CPP(^yes$,[
 #include <stdio.h>
 #ifdef __GLIBC__
@@ -1544,9 +1555,8 @@ yes
 #endif
 			  ], AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_GLIBC,
 				[Define to flavour of gethostbyname_r]))
-		;;
-	esac
-fi
+		])
+      ])
 
 AC_MSG_CHECKING(for working posix_openpt implementation)
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
@@ -1656,7 +1666,8 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 dnl ----------------------------------------------------------------------
 dnl  Check the availability of systemd
 dnl ----------------------------------------------------------------------
-if test x"$enable_systemd" != x"no"; then
+AS_IF([test x"$enable_systemd" != x"no"],
+[
 
 systemd_daemon_save_LIBS=$LIBS
 LIBS=
@@ -1676,7 +1687,7 @@ elif test x"$enable_systemd" = x"yes"; then
   AC_MSG_FAILURE([--enable-systemd was given, but test for systemd failed])
 fi
 LIBS=$systemd_daemon_save_LIBS
-fi
+])
 AC_SUBST(SYSTEMD_DAEMON_LIBS)
 
 
@@ -1684,7 +1695,8 @@ dnl ----------------------------------------------------------------------
 dnl Check the availability for libdlpi
 dnl ----------------------------------------------------------------------
 AC_CHECK_LIB(dlpi, dlpi_open)
-if test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"; then
+AS_IF([test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"],
+  [
    unset -v ac_cv_lib_dlpi_dlpi_open
    dnl Try again now with -L/lib (or ditto 64) as argument to linker since
    dnl gcc makes /usr/ccs/bin/ld ignore the crle configured linker default paths
@@ -1720,7 +1732,7 @@ if test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"; then
       LDFLAGS="$save_ldflags"
    fi
    unset -v save_ldflags
-fi
+ ])
 
 AC_CHECK_HEADER(sys/resource.h,
 	[AC_DEFINE(HAVE_SYS_RESOURCE_H, 1,
@@ -1750,7 +1762,8 @@ AC_CHECK_HEADERS([netpacket/packet.h],
 
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
-if test "x$enable_sctp" != "xno" ; then
+AS_IF([test "x$enable_sctp" != "xno"],
+  [
     AC_CHECK_HEADER(netinet/sctp.h,
         [LIBSCTP=libsctp.so.1
 	 AC_DEFINE(HAVE_SCTP_H, [1],
@@ -1760,7 +1773,7 @@ if test "x$enable_sctp" != "xno" ; then
 	 #include <sys/socket.h>
 	 #endif
 	])
-fi
+  ])
 
 case "x$enable_sctp" in
      xno|x)
@@ -1771,7 +1784,8 @@ case "x$enable_sctp" in
 	fi;;
 esac
 
-if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
+AS_IF([test x"$ac_cv_header_netinet_sctp_h" = x"yes"],
+  [
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
     AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
@@ -1812,7 +1826,7 @@ if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
          #endif
          #include <netinet/sctp.h>
         ])
-fi
+  ])
 
 dnl Check for setns
 AC_CHECK_HEADERS(sched.h setns.h)
@@ -2013,21 +2027,21 @@ AC_SEARCH_LIBS(fdatasync, [rt])
 
 
 dnl sendfile syscall
-case $host_os in
-    linux*|freebsd*|dragonfly*|darwin*)
+AS_CASE([$host_os],
+        [linux*|freebsd*|dragonfly*|darwin*],
+	[
 		AC_CHECK_FUNCS([sendfile])
-		;;
-    solaris*)
+	],
+    	[solaris*],
+	[
 		AC_SEARCH_LIBS(sendfilev, sendfile,
 			AC_DEFINE([HAVE_SENDFILEV],[1],
 		           [Define to 1 if you have the `sendfilev' function.]))
-		;;
-    win32)
+        ],
+	[win32],
+	[
 		LIBS="$LIBS -lmswsock"
-		;;
-    *)
-		;;
-esac
+	])
 
 dnl ----------------------------------------------------------------------
 dnl Checks for library functions.
@@ -2182,13 +2196,18 @@ else
     AC_MSG_RESULT(no)
 fi
 
-case X$erl_xcomp_posix_memalign in
-     Xno) ;;
-     Xyes) have_posix_memalign=yes ;;
-     *)
+AS_CASE([X$erl_xcomp_posix_memalign],
+	[Xno],
+	[],
+	[Xyes],
+	[
+	have_posix_memalign=yes
+	],
+        [
 	AC_CHECK_FUNC(
 		[posix_memalign],
-                [if test "$cross_compiling" != yes; then
+                [AS_IF([test "$cross_compiling" != yes],
+		       [     		       
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 int main(void) {
@@ -2201,10 +2220,11 @@ int main(void) {
 }
 ]])],[have_posix_memalign=yes
 ],[],[])
-		 else
+		       ],
+		       [
 			have_posix_memalign=yes
-		 fi]);;
-esac
+		       ])])
+	])
 
 if test "$have_posix_memalign" = "yes"; then
    AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
@@ -2543,7 +2563,8 @@ case $erts_cv___after_morecore_hook_can_track_malloc in
 	*) ;;
 esac
 
-if test "x$ac_cv_func_sbrk" = "xyes"; then
+AS_IF([test "x$ac_cv_func_sbrk" = "xyes"],
+  [
     AC_CACHE_CHECK([types of sbrk()s return value and argument],
 		    erts_cv_sbrk_ret_arg_types,
 		    [
@@ -2576,9 +2597,10 @@ EOF
 	AC_DEFINE_UNQUOTED(SBRK_ARG_TYPE, $arg_type, \
 [Define the sbrk() argument type.])
     fi
-fi
+  ])
 
-if test $ac_cv_func_brk = yes; then
+AS_IF([test $ac_cv_func_brk = yes],
+  [
     AC_CACHE_CHECK([types of brk()s return value and argument],
 		    erts_cv_brk_ret_arg_types,
 		    [
@@ -2611,10 +2633,10 @@ EOF
 	AC_DEFINE_UNQUOTED(BRK_ARG_TYPE, $arg_type, \
 [Define the brk() argument type.])
     fi
+  ])
 
-fi
-
-if test $ac_cv_func_sbrk = yes; then
+AS_IF([test $ac_cv_func_sbrk = yes],
+  [
 
     AC_CACHE_CHECK([if sbrk()/brk() wrappers can track malloc()s core memory use],
 		    erts_cv_brk_wrappers_can_track_malloc,
@@ -2798,7 +2820,7 @@ int main(void)
 		AC_MSG_WARN([result no guessed because of cross compilation]);;
 	    *) ;;
 	esac
-fi
+  ])
 
 dnl Restore LIBS
 LIBS=$saved_libs
@@ -2820,7 +2842,8 @@ AC_CHECK_PROG(M4, m4, m4)
 
 dnl Test if JIT can be enabled
 JIT_ARCH=
-if test ${enable_jit} != no; then
+AS_IF([test ${enable_jit} != no],
+  [
    case "$ARCH" in
         amd64)
            JIT_ARCH=x86
@@ -2835,8 +2858,10 @@ if test ${enable_jit} != no; then
            ;;
    esac
 
-   if test ${enable_jit} != no; then
-       if test "$CXX" != false; then
+   AS_IF([test ${enable_jit} != no],
+     [
+       AS_IF([test "$CXX" != false],
+         [
           AC_LANG_PUSH(C++)
           old_CXXFLAGS=$CXXFLAGS
           CXXFLAGS="$CXXFLAGS -std=c++17"
@@ -2852,7 +2877,7 @@ if test ${enable_jit} != no; then
                AC_MSG_RESULT([no])
                HAVE_CXX17=false])
           AC_LANG_POP()
-       fi
+         ])
        if test "$CXX" = false -o "$HAVE_CXX17" = false; then
          if test ${enable_jit} = yes; then
            AC_MSG_ERROR([JIT needs a C++ compiler with C++17 support])
@@ -2865,27 +2890,32 @@ EOF
            AC_MSG_WARN([JIT disable due to lack of C++ compiler with C++17 support])
         fi
      fi
-   fi
+    ])
 
    if test ${enable_jit} != no; then
      enable_jit=yes
    fi
-fi
+  ])
 
 dnl Test if we can use the native stack for Erlang code
-if test ${enable_jit} != no; then
-  case $host_os in
-    openbsd*)
+AS_IF([test ${enable_jit} != no],
+ [
+  AS_CASE([$host_os],
+    [openbsd*],
+    [
       # Whenever the kernel is entered (page faults, system calls, etc),
       # OpenBSD checks whether the stack pointer is in an area allocated with
       # MAP_STACK, so we can't use the native stack for Erlang code.
       #
       # https://undeadly.org/cgi?action=article;sid=20180310000858
-      enable_native_stack=no;;
-    win32*)
+      enable_native_stack=no
+    ],
+    [win32*],
+    [
       # Windows never messes with the stack, so it's safe by default.
-      enable_native_stack=yes;;
-    *)
+      enable_native_stack=yes
+    ],
+    [
       # Use the native stack if we can safely redirect OS signals to a
       # different stack.
       AC_MSG_CHECKING([for safe signal delivery])
@@ -2897,14 +2927,14 @@ if test ${enable_jit} != no; then
          #endif]])],[AC_MSG_RESULT([yes])
          enable_native_stack=yes],[AC_MSG_RESULT([no, disabling native stack in JIT])
          enable_native_stack=no
-      ]);;
-  esac
+      ])
+    ])
 
   if test X${enable_native_stack} = Xyes; then
     AC_DEFINE(NATIVE_ERLANG_STACK, [],
               [Define if we can use the native stack for Erlang code])
   fi
-fi
+ ])
 
 dnl
 dnl Check if the `perf` profiler is supported. At the moment it assumes it
@@ -2968,11 +2998,13 @@ AC_SUBST(FLAVORS)
 # Check for working poll().
 #
 AC_MSG_CHECKING([for working poll()])
-if test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"; then
+AS_IF([test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"],
+[
 
 poll_works=no
 
-else
+],
+[
 
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <poll.h>
@@ -3001,7 +3033,7 @@ case X$erl_xcomp_poll in
 esac
 ])
 
-fi
+])
 
 case $poll_works-$host_os in
     no-*|cross-darwin*)
@@ -3050,7 +3082,8 @@ fi
 #
 # If epoll() found, check that it is level triggered.
 #
-if test $have_kernel_poll = epoll; then
+AS_IF([test $have_kernel_poll = epoll],
+      [
 	AC_MSG_CHECKING([whether epoll is level triggered])
 	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/epoll.h>]], [[
 			#ifdef EPOLLET
@@ -3065,7 +3098,7 @@ if test $have_kernel_poll = epoll; then
 			]])],[level_triggered_epoll=yes],[level_triggered_epoll=no
 			 have_kernel_poll=no])
 	AC_MSG_RESULT([$level_triggered_epoll])
-fi
+      ])
 #
 # Check if we should enable kernel poll support
 #
@@ -3164,19 +3197,23 @@ LM_FIND_EMU_CC
 dnl
 dnl DTrace & LTTNG
 dnl
-case $DYNAMIC_TRACE_FRAMEWORK in
-     dtrace|systemtap)
+AS_CASE([$DYNAMIC_TRACE_FRAMEWORK],
+     [dtrace|systemtap],
+     [
         AC_CHECK_TOOL(DTRACE, dtrace, none)
         test "$DTRACE" = "none" && AC_MSG_ERROR([No dtrace utility found.]);
         enable_lttng_test=no
-	enable_dtrace_test=yes;;
-     lttng)
+	enable_dtrace_test=yes
+     ],
+     [lttng],
+     [
         enable_lttng_test=yes
-        enable_dtrace_test=no;;
-     *)
+        enable_dtrace_test=no
+     ],
+     [
         enable_lttng_test=no
-        enable_dtrace_test=no;;
-esac        
+        enable_dtrace_test=no
+     ])
 		     
 AC_SUBST(DTRACE)
 
@@ -3200,8 +3237,10 @@ case $OPSYS in
 	: # Nothing to do
     ;;
 esac
-if test "$enable_dtrace_test" = "yes" ; then
-        if test "$DTRACE" = "dtrace" ; then
+AS_IF([test "$enable_dtrace_test" = "yes"],
+      [
+        AS_IF([test "$DTRACE" = "dtrace"],
+	      [
                 AC_CHECK_HEADERS(sys/sdt.h)
 		AC_MSG_CHECKING([for 1-stage DTrace precompilation])
                 # The OS X version of dtrace prints a spurious line here.
@@ -3234,12 +3273,14 @@ if test "$enable_dtrace_test" = "yes" ; then
                         LIBS="$LIBS -ldtrace"
                     ;;
                 esac
-        else
+              ],
+	      [
                 AC_MSG_ERROR([Dtrace preprocessing test failed.])
-        fi
-fi
+	      ])
+      ])
 
-if test "$enable_lttng_test" = "yes" ; then
+AS_IF([test "$enable_lttng_test" = "yes"],
+  [
     AC_CHECK_HEADERS(lttng/tracepoint.h)
     AC_CHECK_HEADERS(lttng/tracepoint-event.h)
     dnl The macro tracepoint_enabled is not present in older lttng versions
@@ -3267,7 +3308,7 @@ if test "$enable_lttng_test" = "yes" ; then
     else
         AC_MSG_ERROR([No LTTng support found.])
     fi
-fi
+  ])
 
 
 #--------------------------------------------------------------------
@@ -3336,7 +3377,8 @@ else
 fi
 
 AC_CHECK_PROGS(JAVAC, $check_javac)
-if test -n "$JAVAC"; then
+AS_IF([test -n "$JAVAC"],
+ [
   dnl Make sure it's at least JDK 1.6
   AC_CACHE_CHECK(for JDK version 1.6, 
      ac_cv_prog_javac_ver_1_6,
@@ -3345,7 +3387,7 @@ if test -n "$JAVAC"; then
   if test $ac_cv_prog_javac_ver_1_6 = no; then
     unset -v JAVAC
   fi
-fi
+ ])
 if test -z "$JAVAC"; then
 
   if test "X$with_javac" != "X"; then

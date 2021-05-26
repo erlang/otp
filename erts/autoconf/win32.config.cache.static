@@ -36,11 +36,11 @@ ac_cv_env_CXX_value=cc.sh
 ac_cv_env_LDFLAGS_set=
 ac_cv_env_LDFLAGS_value=
 ac_cv_env_build_alias_set=set
-ac_cv_env_build_alias_value=win32
+ac_cv_env_build_alias_value=local-x86-pc-windows
 ac_cv_env_host_alias_set=set
-ac_cv_env_host_alias_value=win32
+ac_cv_env_host_alias_value=local-x86-pc-windows
 ac_cv_env_target_alias_set=set
-ac_cv_env_target_alias_value=win32
+ac_cv_env_target_alias_value=local-x86-pc-windows
 ac_cv_exeext=${ac_cv_exeext=.exe}
 ac_cv_func___brk=${ac_cv_func___brk=no}
 ac_cv_func___sbrk=${ac_cv_func___sbrk=no}

@@ -29,22 +29,12 @@ AC_PREREQ([2.71])
 
 AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 AC_ARG_WITH(odbc,
 [  --with-odbc=PATH        specify location of ODBC include and lib
   --with-odbc             use ODBC (default)
   --without-odbc          don't use ODBC])
-
-if test "$with_odbc" = "no"; then
-
-   rm -f "$ERL_TOP/lib/odbc/SKIP"
-
-else dnl "$with_odbc" != "no"
 
 ERL_XCOMP_SYSROOT_INIT
 
@@ -72,6 +62,15 @@ fi
 
 _search_path=
 
+AS_IF([test "$with_odbc" = "no"],
+ [
+
+   rm -f "$ERL_TOP/lib/odbc/SKIP"
+
+ ],
+ [
+  dnl "$with_odbc" != "no"
+
 
 # Sockets
 #--------------------------------------------------------------------
@@ -93,20 +92,22 @@ _search_path=
 #--------------------------------------------------------------------
 erl_checkBoth=0
 AC_CHECK_FUNC(connect, erl_checkSocket=0, erl_checkSocket=1)
-if test "$erl_checkSocket" = 1; then
+AS_IF([test "$erl_checkSocket" = 1],
+  [
     AC_CHECK_LIB(socket, socket, LIBS="$LIBS -lsocket", erl_checkBoth=1)
-fi
-if test "$erl_checkBoth" = 1; then
+  ])
+AS_IF([test "$erl_checkBoth" = 1],
+  [
     tk_oldLibs=$LIBS
     LIBS="$LIBS -lsocket -lnsl"
     AC_CHECK_FUNC(accept, odbc_erl_checkNsl=0, [LIBS=$tk_oldLibs])
-fi
+  ])
 AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
-case "$host_os" in
-	haiku*)
+AS_CASE(["$host_os"],
+        [haiku*],
+        [
 		AC_CHECK_LIB(network, socket)
-		;;
-esac
+        ])
 
 dnl Checks for header files.
 AC_CHECK_INCLUDES_DEFAULT
@@ -143,8 +144,10 @@ AC_SUBST(THR_LIBS)
 
 odbc_lib_link_success=no
 AC_SUBST(TARGET_FLAGS)
-    case $host_os in	
-       darwin1[[0-9]].*)
+AS_CASE([$host_os],
+
+        [darwin1[[0-9]].*],
+        [
                 TARGET_FLAGS="-DUNIX"
 	        if test ! -d "$with_odbc" || test "$with_odbc" = "yes"; then
 		    ODBC_LIB= -L"/usr/local/lib"
@@ -155,15 +158,19 @@ AC_SUBST(TARGET_FLAGS)
 		fi
 
                AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
-            ;;
-	haiku*)
+        ],
+
+        [haiku*],
+        [
                TARGET_FLAGS="-DUNIX"
                ODBC_LIB= -L"/system/lib"
                ODBC_INCLUDE="-I/system/develop/headers"
                dnl Haiku's package manager will deal with this for us
                AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
-               ;;
-        win32|cygwin)
+        ],
+
+        [win32|cygwin],
+        [
 		TARGET_FLAGS="-DWIN32"
 		AC_CHECK_LIB(ws2_32, main)
 		if test ! -d "$with_odbc" || test "$with_odbc" = "yes"; then
@@ -174,17 +181,22 @@ AC_SUBST(TARGET_FLAGS)
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
 		AC_CHECK_LIB(odbc32, main, [ODBC_LIB="$ODBC_LIB -lodbc32"; odbc_lib_link_success=yes])
-	    ;;
-	    *)
+        ],
+
+        [
 	        TARGET_FLAGS="-DUNIX"
-		case "$erl_xcomp_without_sysroot-$with_odbc" in
-		    yes-yes | yes- )
+		AS_CASE(["$erl_xcomp_without_sysroot-$with_odbc"],
+
+                    [yes-yes | yes-],
+                    [
 			msg="Dont know where to search for odbc (setting erl_xcomp_sysroot will help)"
 			AC_MSG_WARN([$msg])
 			echo "$msg" > "$ERL_TOP/lib/odbc/SKIP"
 			odbc_lib_link_success=wont_try
-			;;
-		    no-yes | no- )
+                    ],
+
+                    [no-yes | no-],
+                    [
 			AC_CHECK_SIZEOF(void *)
 			AC_MSG_CHECKING([for odbc in standard locations])
 			for rdir in /usr/local/odbc /usr/local /usr/odbc \
@@ -213,16 +225,14 @@ AC_SUBST(TARGET_FLAGS)
 			    AC_MSG_RESULT($ODBC_LIB)
 			    AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
 			fi
-			;;
+                    ],
 
-		    *)
+                    [
 			ODBC_LIB=-L"$with_odbc/lib"
 			ODBC_INCLUDE="-I$with_odbc/include"
 			AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
-			;;
-		esac
-	  ;;
-esac
+                    ])
+        ])
 
 if test $odbc_required_headers = no;  then
     AC_MSG_WARN(["ODBC library - header check failed"])
@@ -236,12 +246,13 @@ fi
 AC_SUBST(ODBC_LIB)
 AC_SUBST(ODBC_INCLUDE)
 
-fi dnl "$with_odbc" != "no"
+ ]) dnl "$with_odbc" != "no"
 
-if test "x$GCC" = xyes; then
+AS_IF([test "x$GCC" = xyes],
+  [
     # Treat certain GCC warnings as errors
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
-fi
+  ])
 
 dnl ----------------------------------------------------------------------
 dnl Enable -fsanitize= flags.

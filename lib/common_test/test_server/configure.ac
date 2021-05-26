@@ -23,11 +23,7 @@ AC_INIT
 AC_CONFIG_SRCDIR([conf_vars.in])
 AC_PREREQ([2.71])
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
+AC_CANONICAL_HOST
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -153,8 +149,10 @@ AC_CHECK_LIB(dl, dlopen, have_dl=yes, have_dl=no)
 
 SHLIB_LDLIBS=
 fullSrcDir=`cd $srcdir; pwd`
-case $system in
-    *-linux-*)
+AS_CASE([$system],
+
+    [*-linux-*],
+    [
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_SUFFIX=".so"
 	if test "$have_dl" = yes; then
@@ -173,8 +171,10 @@ case $system in
 	    fi
 	fi
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*)
+    ],
+
+    [*-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*],
+    [
 	# Not available on all versions:  check for include file.
 	AC_CHECK_HEADER(dlfcn.h, [
 	    SHLIB_CFLAGS="-fpic"
@@ -196,8 +196,10 @@ case $system in
 	    AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
 	])
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *-solaris2*|*-sysv4*)
+    ],
+
+    [*-solaris2*|*-sysv4*],
+    [
 	SHLIB_CFLAGS="-KPIC"
 	SHLIB_LD="/usr/ccs/bin/ld"
 	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -z text"
@@ -209,15 +211,19 @@ case $system in
 	fi
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL="-z allextract"
-	;;
-    *darwin*)
+    ],
+
+    [*darwin*],
+    [
 	SHLIB_CFLAGS="-fno-common"
 	SHLIB_LD="cc"
 	SHLIB_LDFLAGS="$LDFLAGS -bundle -flat_namespace -undefined suppress"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *osf1*)
+    ],
+
+    [*osf1*],
+    [
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_LD="ld"
 	SHLIB_LDFLAGS="$LDFLAGS -shared"
@@ -229,15 +235,18 @@ case $system in
 	fi
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *osf5*)
+    ],
+
+    [*osf5*],
+    [
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_LD="${CC} -shared"
 	SHLIB_LDFLAGS="$LDFLAGS"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *)
+    ],
+
+    [
 	# No dynamic loading.
 	SHLIB_CFLAGS=""
 	SHLIB_LD="ld"
@@ -246,8 +255,7 @@ case $system in
 	SHLIB_SUFFIX=""
 	SHLIB_EXTRACT_ALL=""
 	AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
-	;;
-esac
+    ])
 
 # If we're running gcc, then change the C flags for compiling shared
 # libraries to the right flags for gcc, instead of those for the
@@ -320,14 +328,16 @@ AC_SUBST(EI_CFLAGS)
 
 erl_checkBoth=0
 AC_CHECK_FUNC(connect, erl_checkSocket=0, erl_checkSocket=1)
-if test "$erl_checkSocket" = 1; then
+AS_IF([test "$erl_checkSocket" = 1],
+  [
     AC_CHECK_LIB(socket, main, LIBS="$LIBS -lsocket", erl_checkBoth=1)
-fi
-if test "$erl_checkBoth" = 1; then
+  ])
+AS_IF([test "$erl_checkBoth" = 1],
+  [
     tk_oldLibs=$LIBS
     LIBS="$LIBS -lsocket -lnsl"
     AC_CHECK_FUNC(accept, erl_checkNsl=0, [LIBS=$tk_oldLibs])
-fi
+  ])
 AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
 
 dnl Checks for library functions.
@@ -453,21 +463,24 @@ class conftest { public static void main(String[] args) {
    ; return; }}
 EOF
 changequote([, ])dnl
-if AC_TRY_EVAL(java_link) && test -s conftest.class; then
+AS_IF([AC_TRY_EVAL(java_link) && test -s conftest.class],
+ [
    ifelse([$3], , :, [rm -rf conftest*
    $3])
-else
+ ],
+ [
    echo "configure: failed program was:" 1>&AS_MESSAGE_LOG_FD
    cat conftest.java 1>&AS_MESSAGE_LOG_FD
    echo "configure: PATH was $PATH" 1>&AS_MESSAGE_LOG_FD
 ifelse([$4], , , [  rm -rf conftest*
   $4
 ])dnl
-fi
+ ])
 rm -f conftest*])
 dnl
 AC_CHECK_PROGS(JAVAC, javac guavac gcj jikes bock)
-if test -n "$JAVAC"; then
+AS_IF([test -n "$JAVAC"],
+ [
   dnl Make sure it's at least JDK 1.5
   AC_CACHE_CHECK(for JDK version 1.5, 
      ac_cv_prog_javac_ver_1_5,
@@ -476,7 +489,7 @@ if test -n "$JAVAC"; then
   if test $ac_cv_prog_javac_ver_1_5 = no; then
     unset -v JAVAC
   fi
-fi
+ ])
 if test -n "$JAVAC"; then
   AC_SUBST(JAVAC)
   :

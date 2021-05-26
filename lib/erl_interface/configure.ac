@@ -54,11 +54,7 @@ esac
 
 AC_CONFIG_AUX_DIR([$srcdir/src/auxdir])
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 TARGET=$host
 AC_SUBST(TARGET)
@@ -223,7 +219,8 @@ AC_ARG_WITH(gmp,
 # We don't just want any GNU MP version, we want 4.1 or later
 # that contain the import/export functions we need.
 
-if test "x$with_gmp" = "xyes" ;then
+AS_IF([test "x$with_gmp" = "xyes"],
+  [
     for dir in /usr /usr/pkg /usr/local /usr/local/gmp /usr/lib/gmp /usr/gmp; do
 	AC_CHECK_HEADER($dir/include/gmp.h, ac_cv_gmp=yes, ac_cv_gmp=no)
 	if test $ac_cv_gmp = yes ; then
@@ -248,7 +245,7 @@ elif test "x$with_gmp" != "xno" -a -n "$with_gmp" ;then
     AC_DEFINE(HAVE_GMP_H, [], [Define if you have "gmp.h"])
     AC_CHECK_LIB(gmp, __gmpz_export)
     # FIXME return ERROR if no lib
-fi
+  ])
 
 LM_WINDOWS_ENVIRONMENT
 	
@@ -262,8 +259,10 @@ AC_SUBST(THR_LIBS)
 AC_SUBST(THR_DEFS)
 AC_SUBST(EI_THREADS)
 
-case "$threads_disabled" in
-    no|maybe)
+AS_CASE(["$threads_disabled"],
+
+    [no|maybe],
+    [
 	LM_CHECK_THR_LIB
         ETHR_CHK_GCC_ATOMIC_OPS([])
 
@@ -272,7 +271,7 @@ case "$threads_disabled" in
 	        EI_THREADS="false"
 		# Fail if --enable-threads given and no threads found
 		if test "x$threads_disabled" = "xno"; then
-		    AC_MSG_ERROR(No threads support found)
+		    AC_MSG_ERROR([No threads support found])
 		fi
 	        ;;
 	    win32_threads)
@@ -287,19 +286,21 @@ case "$threads_disabled" in
 	    	AC_MSG_WARN([Unexpected thread library: $THR_LIB_NAME])
 		;;
 	esac
-	;;
-    yes)
+    ],
+
+    [yes],
+    [
 	# Threads disabled
 	EI_THREADS="false"
-	;;
-esac
+    ])
 
 # ---------------------------------------------------------------------------
 # Warning flags to the C compiler
 # ---------------------------------------------------------------------------
 AC_SUBST(WFLAGS)
 
-if test "x$GCC" = xyes; then
+AS_IF([test "x$GCC" = xyes],
+ [
   # Treat certain GCC warnings as errors
   LM_TRY_ENABLE_CFLAG([-Werror=return-type], [WERRORFLAGS])
   WFLAGS="-Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Winline"
@@ -323,10 +324,11 @@ if test "x$GCC" = xyes; then
   # Until version 10, gcc has had -fcommon as default, which allows and merges
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
-else
+ ],
+ [
   WFLAGS=""
   WERRORFLAGS=""
-fi
+ ])
 
 # ---------------------------------------------------------------------------
 # FIXME We want to use libtool but until then....

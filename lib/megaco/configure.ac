@@ -29,11 +29,7 @@ AC_PREREQ([2.71])
 
 AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.

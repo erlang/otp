@@ -12,11 +12,7 @@ dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
 
-if test "$host" = "free_source" -o "$host" = "win32"; then
-   host_os="$host"
-else   
-   AC_CANONICAL_HOST
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 AC_CHECK_PROG(PERL, perl, perl, no_perl)
 if test "$PERL" = no_perl; then
