@@ -38,8 +38,8 @@
 
 -export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
 	 partition/2,zf/2,filtermap/2,
-	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,
-         search/2, splitwith/2,split/2,
+	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,takeuntil/2,
+	 dropwhile/2, dropuntil/2, search/2, splitwith/2,split/2,
 	 join/2]).
 
 %%% BIFs
@@ -1390,6 +1390,19 @@ takewhile(Pred, [Hd|Tail]) ->
     end;
 takewhile(Pred, []) when is_function(Pred, 1) -> [].
 
+-spec takeuntil(Pred, List1) -> List2 when
+      Pred :: fun((Elem :: T) -> boolean()),
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+takeuntil(Pred, [Hd|Tail]) ->
+    case Pred(Hd) of
+	true -> [Hd];
+	false -> [Hd|takeuntil(Pred, Tail)]
+    end;
+takeuntil(Pred, []) when is_function(Pred, 1) -> [].
+
 -spec dropwhile(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
       List1 :: [T],
@@ -1402,6 +1415,19 @@ dropwhile(Pred, [Hd|Tail]=Rest) ->
 	false -> Rest
     end;
 dropwhile(Pred, []) when is_function(Pred, 1) -> [].
+
+-spec dropuntil(Pred, List1) -> List2 when
+      Pred :: fun((Elem :: T) -> boolean()),
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+dropuntil(Pred, [Hd|Tail]) ->
+    case Pred(Hd) of
+	true -> Tail;
+	false -> dropuntil(Pred, Tail)
+    end;
+dropuntil(Pred, []) when is_function(Pred, 1) -> [].
 
 -spec search(Pred, List) -> {value, Value} | false when
       Pred :: fun((T) -> boolean()),

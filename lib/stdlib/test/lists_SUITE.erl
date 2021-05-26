@@ -38,7 +38,7 @@
 
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
-	 dropwhile/1, takewhile/1,
+	 dropwhile/1, dropuntil/1, takewhile/1, takeuntil/1,
 	 sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
 	 usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
@@ -120,9 +120,10 @@ groups() ->
       [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
-     {misc, [parallel], [reverse, member, dropwhile, takewhile,
-			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search, error_info]}
+     {misc, [parallel], [reverse, member, dropwhile, dropuntil,
+			 takewhile, takeuntil,  filter_partition,
+			 suffix, subtract, join, hof, droplast,
+			 search, error_info]}
     ].
 
 init_per_suite(Config) ->
@@ -359,6 +360,33 @@ dropwhile(Config) when is_list(Config) ->
 
     ok.
 
+dropuntil(Config) when is_list(Config) ->
+    F = fun(C) -> C =/= $@ end,
+
+    [] = lists:dropuntil(F, []),
+    [] = lists:dropuntil(F, [a]),
+    [b] = lists:dropuntil(F, [a,b]),
+    [b,c] = lists:dropuntil(F, [a,b,c]),
+
+    [] = lists:dropuntil(F, [$@]),
+    [] = lists:dropuntil(F, [$@,$@]),
+    [$@] = lists:dropuntil(F, [$@,a,$@]),
+
+    [] = lists:dropuntil(F, [$@,$k]),
+    [$l] = lists:dropuntil(F, [$@,$@,$k,$l]),
+    [] = lists:dropuntil(F, [$@,$@,$@,a]),
+
+    [$@,b] = lists:dropuntil(F, [$@,a,$@,b]),
+    [$@,b] = lists:dropuntil(F, [$@,$@,a,$@,b]),
+    [$@,b] = lists:dropuntil(F, [$@,$@,$@,a,$@,b]),
+
+    Long = lists:seq(1, 1024),
+    Shorter = lists:seq(801, 1024),
+
+    Shorter = lists:dropuntil(fun(E) -> E >= 800 end, Long),
+
+    ok.
+
 takewhile(Config) when is_list(Config) ->
     F = fun(C) -> C =/= $@ end,
 
@@ -383,6 +411,33 @@ takewhile(Config) when is_list(Config) ->
     Shorter = lists:seq(1, 400),
 
     Shorter = lists:takewhile(fun(E) -> E =< 400 end, Long),
+
+    ok.
+
+takeuntil(Config) when is_list(Config) ->
+    F = fun(C) -> C =:= $@ end,
+
+    [] = lists:takeuntil(F, []),
+    [a] = lists:takeuntil(F, [a]),
+    [a,b] = lists:takeuntil(F, [a,b]),
+    [a,b,c] = lists:takeuntil(F, [a,b,c]),
+
+    [$@] = lists:takeuntil(F, [$@]),
+    [$@] = lists:takeuntil(F, [$@,$@]),
+    [a,$@] = lists:takeuntil(F, [a,$@]),
+
+    [$k,$@] = lists:takeuntil(F, [$k,$@]),
+    [$k,$l,$@] = lists:takeuntil(F, [$k,$l,$@,$@]),
+    [a,$@] = lists:takeuntil(F, [a,$@,$@,$@]),
+
+    [$@] = lists:takeuntil(F, [$@,a,$@,b]),
+    [$@] = lists:takeuntil(F, [$@,$@,a,$@,b]),
+    [$@] = lists:takeuntil(F, [$@,$@,$@,a,$@,b]),
+
+    Long = lists:seq(1, 1024),
+    Shorter = lists:seq(1, 400),
+
+    Shorter = lists:takeuntil(fun(E) -> E >= 400 end, Long),
 
     ok.
 
