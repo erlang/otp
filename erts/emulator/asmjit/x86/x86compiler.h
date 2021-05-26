@@ -170,6 +170,65 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! }
 //! ```
 //!
+//! ### AVX and AVX-512
+//!
+//! AVX and AVX-512 code generation must be explicitly enabled via \ref FuncFrame
+//! to work properly. If it's not setup correctly then Prolog & Epilog would use
+//! SSE instead of AVX instructions to work with SIMD registers. In addition, Compiler
+//! requires explicitly enable AVX-512 via \ref FuncFrame in order to use all 32 SIMD
+//! registers.
+//!
+//! ```
+//! #include <asmjit/x86.h>
+//! #include <stdio.h>
+//!
+//! using namespace asmjit;
+//!
+//! // Signature of the generated function.
+//! typedef void (*Func)(void*);
+//!
+//! int main() {
+//!   JitRuntime rt;                    // Runtime specialized for JIT code execution.
+//!   CodeHolder code;                  // Holds code and relocation information.
+//!
+//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   x86::Compiler cc(&code);          // Create and attach x86::Compiler to code.
+//!
+//!   cc.addFunc(FuncSignatureT<void, void*>());
+//!
+//!   // Use the following to enable AVX and/or AVX-512.
+//!   cc.func()->frame().setAvxEnabled();
+//!   cc.func()->frame().setAvx512Enabled();
+//!
+//!   // Do something with the input pointer.
+//!   x86::Gp addr = cc.newIntPtr("addr");
+//!   x86::Zmm vreg = cc.newZmm("vreg");
+//!
+//!   cc.setArg(0, addr);
+//!
+//!   cc.vmovdqu32(vreg, x86::ptr(addr));
+//!   cc.vpaddq(vreg, vreg, vreg);
+//!   cc.vmovdqu32(x86::ptr(addr), vreg);
+//!
+//!   cc.endFunc();                     // End of the function body.
+//!   cc.finalize();                    // Translate and assemble the whole 'cc' content.
+//!   // ----> x86::Compiler is no longer needed from here and can be destroyed <----
+//!
+//!   Func fn;
+//!   Error err = rt.add(&fn, &code);   // Add the generated code to the runtime.
+//!   if (err) return 1;                // Handle a possible error returned by AsmJit.
+//!   // ----> CodeHolder is no longer needed from here and can be destroyed <----
+//!
+//!   // Execute the generated code and print some output.
+//!   uint64_t data[] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+//!   fn(data);
+//!   printf("%llu\n", (unsigned long long)data[0]);
+//!
+//!   rt.release(fn);                   // Explicitly remove the function from the runtime.
+//!   return 0;
+//! }
+//! ```
+//!
 //! ### Recursive Functions
 //!
 //! It's possible to create more functions by using the same \ref x86::Compiler

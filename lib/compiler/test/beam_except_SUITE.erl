@@ -114,8 +114,16 @@ coverage(_) ->
     {'EXIT',{undef,[{erlang,error,[a,b,c,d],_}|_]}} =
 	(catch erlang:error(a, b, c, d)),
 
-    {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
-	(catch bar(x)),
+    %% The stacktrace for operators such a '+' can vary depending on
+    %% whether the JIT is used or not.
+    case catch bar(x) of
+        {'EXIT',{badarith,[{erlang,'+',[x,1],[_|_]},
+                           {?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+            ok;
+        {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+            ok
+    end,
+
     {'EXIT',{{case_clause,{1}},[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
 	(catch bar(0)),
 

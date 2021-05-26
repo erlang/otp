@@ -155,14 +155,16 @@ pred.literal_is_map(Lit) {
 
 // Predicate to test whether all of the given new small map keys are literals
 pred.is_small_map_literal_keys(Size, Rest) {
-    if (Size.val > MAP_SMALL_MAP_LIMIT) {
+    Uint pair_count = Size.val / 2;
+
+    if (pair_count > MAP_SMALL_MAP_LIMIT) {
         return 0;
     }
 
     /*
      * Operations with non-literals have always only one key.
      */
-    if (Size.val != 2) {
+    if (pair_count != 1) {
         return 1;
     }
 

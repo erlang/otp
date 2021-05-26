@@ -393,14 +393,12 @@ strip(Conf) when is_list(Conf) ->
 
     %% check that line number information is still present after stripping
     {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
-    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} =
-	(catch lines:t(atom)),
+    Info = get_line_number_info(),
     true = code:delete(lines),
     false = code:purge(lines),
     {ok, {lines,BeamFile5D1}} = beam_lib:strip(BeamFile5D1),
     {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
-    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} =
-	(catch lines:t(atom)),
+    Info = get_line_number_info(),
 
     true = (P0 == pps()),
     NoOfTables = erlang:system_info(ets_count),
@@ -459,12 +457,12 @@ strip_add_chunks(Conf) when is_list(Conf) ->
 
     %% check that line number information is still present after stripping
     {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
-    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} = (catch lines:t(atom)),
+    Info = get_line_number_info(),
     false = code:purge(lines),
     true = code:delete(lines),
     {ok, {lines,BeamFile5D1}} = beam_lib:strip(BeamFile5D1),
     {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
-    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} = (catch lines:t(atom)),
+    Info = get_line_number_info(),
 
     true = (P0 == pps()),
     NoOfTables = erlang:system_info(ets_count),
@@ -965,3 +963,13 @@ run_if_crypto_works(Test) ->
 	    {skip,"The crypto application is missing or broken"}
     end.
 
+get_line_number_info() ->
+    %% The stacktrace for operators such a '+' can vary depending on
+    %% whether the JIT is used or not.
+    case catch lines:t(atom) of
+        {'EXIT',{badarith,[{erlang,'+',[atom,1],_},
+                           {lines,t,1,Info}|_]}} ->
+            Info;
+        {'EXIT',{badarith,[{lines,t,1,Info}|_]}} ->
+            Info
+    end.

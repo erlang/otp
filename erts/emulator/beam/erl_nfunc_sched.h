@@ -40,8 +40,12 @@ typedef struct {
     struct {
         ErtsCodeInfo info;
 #ifdef BEAMASM
-        // Code used by tracing/nif load
+        /* Code used by tracing/nif load. */
+#  ifdef __aarch64__
+        BeamInstr trace[2];
+#  else
         BeamInstr trace[1];
+#  endif
 #endif
         BeamInstr call_op; /* call_bif || call_nif */
         BeamInstr dfunc;

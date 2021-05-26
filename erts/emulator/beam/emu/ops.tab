@@ -85,8 +85,11 @@ int_func_start/5
 int_func_start Lbl Line M F A => label Lbl | i_func_info u M F A | line Line
 
 # The end of a function.
-int_func_end/0
-int_func_end
+int_func_end/2
+int_func_end Func Entry | needs_nif_padding() => i_nif_padding
+int_func_end Func Entry =>
+
+i_nif_padding
 
 # Instruction used for padding functions that use native code.
 %cold
@@ -1049,7 +1052,7 @@ make_fun3 OldIndex=u Dst=d NumFree=u Env=* => make_fun3(OldIndex, Dst, NumFree, 
 
 %cold
 
-i_make_fun3 F d t *
+i_make_fun3 F d t t *
 
 # Psuedo-instruction for signalling lambda load errors. Never actually runs.
 i_lambda_error t

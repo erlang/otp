@@ -496,13 +496,13 @@ ETHR_NATMC_FUNC__(or_retold_mb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
-			   ETHR_AINT_T__ new,
+			   ETHR_AINT_T__ new_val,
 			   ETHR_AINT_T__ exp)
 {
     ETHR_AINT_T__ xchg = exp;
     if (__atomic_compare_exchange_n(&var->value,
 				    &xchg,
-				    new,
+				    new_val,
 				    0, /* No spurious failures, please */
 				    __ATOMIC_RELAXED,
 				    __ATOMIC_RELAXED))
@@ -522,13 +522,13 @@ ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var,
-				ETHR_AINT_T__ new,
+				ETHR_AINT_T__ new_val,
 				ETHR_AINT_T__ exp)
 {
     ETHR_AINT_T__ xchg = exp;
     if (__atomic_compare_exchange_n(&var->value,
 				    &xchg,
-				    new,
+				    new_val,
 				    0, /* No spurious failures, please */
 				    __ATOMIC_ACQUIRE,
 				    __ATOMIC_ACQUIRE))

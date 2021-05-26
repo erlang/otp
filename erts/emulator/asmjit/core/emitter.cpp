@@ -27,15 +27,15 @@
 #include "../core/logger.h"
 #include "../core/support.h"
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   #include "../x86/x86emithelper_p.h"
   #include "../x86/x86instdb_p.h"
-#endif // ASMJIT_BUILD_X86
+#endif // !ASMJIT_NO_X86
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   #include "../arm/a64emithelper_p.h"
   #include "../arm/a64instdb.h"
-#endif // ASMJIT_BUILD_ARM
+#endif // !ASMJIT_NO_ARM
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -255,14 +255,14 @@ ASMJIT_FAVOR_SIZE Error BaseEmitter::emitProlog(const FuncFrame& frame) {
   if (ASMJIT_UNLIKELY(!_code))
     return DebugUtils::errored(kErrorNotInitialized);
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (environment().isFamilyX86()) {
-    x86::EmitHelper emitHelper(this, frame.isAvxEnabled());
+    x86::EmitHelper emitHelper(this, frame.isAvxEnabled(), frame.isAvx512Enabled());
     return emitHelper.emitProlog(frame);
   }
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (environment().isArchAArch64()) {
     a64::EmitHelper emitHelper(this);
     return emitHelper.emitProlog(frame);
@@ -276,14 +276,14 @@ ASMJIT_FAVOR_SIZE Error BaseEmitter::emitEpilog(const FuncFrame& frame) {
   if (ASMJIT_UNLIKELY(!_code))
     return DebugUtils::errored(kErrorNotInitialized);
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (environment().isFamilyX86()) {
-    x86::EmitHelper emitHelper(this, frame.isAvxEnabled());
+    x86::EmitHelper emitHelper(this, frame.isAvxEnabled(), frame.isAvx512Enabled());
     return emitHelper.emitEpilog(frame);
   }
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (environment().isArchAArch64()) {
     a64::EmitHelper emitHelper(this);
     return emitHelper.emitEpilog(frame);
@@ -297,14 +297,14 @@ ASMJIT_FAVOR_SIZE Error BaseEmitter::emitArgsAssignment(const FuncFrame& frame, 
   if (ASMJIT_UNLIKELY(!_code))
     return DebugUtils::errored(kErrorNotInitialized);
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (environment().isFamilyX86()) {
-    x86::EmitHelper emitHelper(this, frame.isAvxEnabled());
+    x86::EmitHelper emitHelper(this, frame.isAvxEnabled(), frame.isAvx512Enabled());
     return emitHelper.emitArgsAssignment(frame, args);
   }
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (environment().isArchAArch64()) {
     a64::EmitHelper emitHelper(this);
     return emitHelper.emitArgsAssignment(frame, args);

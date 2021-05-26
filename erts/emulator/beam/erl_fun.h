@@ -26,18 +26,20 @@
 /*
  * Fun entry.
  */
-
 typedef struct erl_fun_entry {
-    HashBucket bucket;          /* MUST BE LOCATED AT TOP OF STRUCT!!! */
+    HashBucket bucket;
 
-    byte uniq[16];              /* MD5 for module. */
-    int index;                  /* New style index. */
-    int old_uniq;               /* Unique number (old_style) */
-    int old_index;              /* Old style index */
-    ErtsCodePtr address;        /* Pointer to code for fun */
+    ErtsCodePtr address;            /* Pointer to code for actual function */
 
-    Uint arity;                     /* The arity of the fun. */
+    /* These fields identify the function and must not be altered after fun
+     * creation. */
     Eterm module;                   /* Tagged atom for module. */
+    Uint arity;                     /* The arity of the fun. */
+    int index;                      /* New style index. */
+    byte uniq[16];                  /* MD5 for module. */
+    int old_uniq;                   /* Unique number (old_style) */
+    int old_index;                  /* Old style index */
+
     erts_refc_t refc;               /* Reference count: One for code + one for
                                      * each fun object in each process. */
     ErtsCodePtr pend_purge_address; /* Address during a pending purge */
@@ -67,12 +69,13 @@ void erts_init_fun_table(void);
 void erts_fun_info(fmtfn_t, void *);
 int erts_fun_table_sz(void);
 
-ErlFunEntry* erts_get_fun_entry(Eterm mod, int uniq, int index);
-
+/* Finds or inserts a fun entry that matches the given signature. */
 ErlFunEntry* erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
-				const byte* uniq, int index, int arity);
+                                 const byte* uniq, int index, int arity);
 
-int erts_is_fun_loaded(ErlFunEntry* fe);
+const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe);
+
+int erts_is_fun_loaded(const ErlFunEntry* fe);
 
 void erts_erase_fun_entry(ErlFunEntry* fe);
 void erts_cleanup_funs(ErlFunThing* funp);

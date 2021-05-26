@@ -18,14 +18,14 @@
  * %CopyrightEnd%
  */
 
-#ifdef HAVE_CONFIG_H
-#    include "config.h"
-#endif
+#include "beam_jit_common.hpp"
+#include "beam_asm.hpp"
 
+extern "C"
+{
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
-#include "bif.h"
 #include "code_ix.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_binary.h"
@@ -35,8 +35,297 @@
 #ifdef USE_VM_PROBES
 #    include "dtrace-wrapper.h"
 #endif
+}
 
-#include "beam_jit_common.h"
+static std::string getAtom(Eterm atom) {
+    Atom *ap = atom_tab(atom_val(atom));
+    return std::string((char *)ap->name, ap->len);
+}
+
+BeamAssembler::BeamAssembler() : code() {
+    /* Setup with default code info */
+    Error err = code.init(hostEnvironment());
+    ERTS_ASSERT(!err && "Failed to init codeHolder");
+
+    err = code.newSection(&rodata, ".rodata", SIZE_MAX, Section::kFlagConst, 8);
+    ERTS_ASSERT(!err && "Failed to create .rodata section");
+
+    err = code.attach(&a);
+
+    ERTS_ASSERT(!err && "Failed to attach codeHolder");
+#ifdef DEBUG
+    a.addValidationOptions(BaseEmitter::kValidationOptionAssembler);
+#endif
+    a.addEncodingOptions(BaseEmitter::kEncodingOptionOptimizeForSize);
+    code.setErrorHandler(this);
+}
+
+BeamAssembler::BeamAssembler(const std::string &log) : BeamAssembler() {
+    if (erts_jit_asm_dump) {
+        setLogger(log + ".asm");
+    }
+}
+
+BeamAssembler::~BeamAssembler() {
+    if (logger.file()) {
+        fclose(logger.file());
+    }
+}
+
+void *BeamAssembler::getBaseAddress() {
+    ASSERT(code.hasBaseAddress());
+    return (void *)code.baseAddress();
+}
+
+size_t BeamAssembler::getOffset() {
+    return a.offset();
+}
+
+void BeamAssembler::_codegen(JitAllocator *allocator,
+                             const void **executable_ptr,
+                             void **writable_ptr) {
+    Error err = code.flatten();
+    ERTS_ASSERT(!err && "Could not flatten code");
+    err = code.resolveUnresolvedLinks();
+    ERTS_ASSERT(!err && "Could not resolve all links");
+
+    /* Verify that all labels are bound */
+#ifdef DEBUG
+    for (auto e : code.labelEntries()) {
+        if (!e->isBound()) {
+            if (e->hasName()) {
+                erts_exit(ERTS_ABORT_EXIT,
+                          "Label %d with name %s is not bound\n",
+                          e->id(),
+                          e->name());
+            } else {
+                erts_exit(ERTS_ABORT_EXIT, "Label %d is not bound\n", e->id());
+            }
+        }
+    }
+#endif
+
+    err = allocator->alloc(const_cast<void **>(executable_ptr),
+                           writable_ptr,
+                           code.codeSize() + 16);
+
+    if (err == ErrorCode::kErrorTooManyHandles) {
+        ERTS_ASSERT(!"Failed to allocate module code: "
+                     "out of file descriptors");
+    } else if (err) {
+        ERTS_ASSERT("Failed to allocate module code");
+    }
+
+    code.relocateToBase((uint64_t)*executable_ptr);
+    code.copyFlattenedData(*writable_ptr,
+                           code.codeSize(),
+                           CodeHolder::kCopyPadSectionBuffer);
+
+    beamasm_flush_icache(*executable_ptr, code.codeSize());
+
+#ifdef DEBUG
+    if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
+        if (FILE *f = l->file())
+            fprintf(f, "; CODE_SIZE: %zd\n", code.codeSize());
+#endif
+}
+
+void *BeamAssembler::getCode(Label label) {
+    ASSERT(label.isValid());
+    return (char *)getBaseAddress() + code.labelOffsetFromBase(label);
+}
+
+byte *BeamAssembler::getCode(char *labelName) {
+    return (byte *)getCode(code.labelByName(labelName, strlen(labelName)));
+}
+
+void BeamAssembler::handleError(Error err,
+                                const char *message,
+                                BaseEmitter *origin) {
+    comment(message);
+    fflush(logger.file());
+    ASSERT(0 && "Failed to encode instruction");
+}
+
+void BeamAssembler::embed_rodata(const char *labelName,
+                                 const char *buff,
+                                 size_t size) {
+    Label label = a.newNamedLabel(labelName);
+
+    a.section(rodata);
+    a.bind(label);
+    a.embed(buff, size);
+    a.section(code.textSection());
+}
+
+void BeamAssembler::embed_bss(const char *labelName, size_t size) {
+    Label label = a.newNamedLabel(labelName);
+
+    /* Reuse rodata section for now */
+    a.section(rodata);
+    a.bind(label);
+    embed_zeros(size);
+    a.section(code.textSection());
+}
+
+void BeamAssembler::embed_zeros(size_t size) {
+    static constexpr size_t buf_size = 16384;
+    static const char zeros[buf_size] = {};
+
+    while (size >= buf_size) {
+        a.embed(zeros, buf_size);
+        size -= buf_size;
+    }
+
+    if (size > 0) {
+        a.embed(zeros, size);
+    }
+}
+
+void BeamAssembler::setLogger(std::string log) {
+    FILE *f = fopen(log.data(), "w+");
+
+    /* FIXME: Don't crash when loading multiple modules with the same name.
+     *
+     * setLogger(nullptr) disables logging. */
+    if (f) {
+        setvbuf(f, NULL, _IONBF, 0);
+    }
+
+    setLogger(f);
+}
+
+void BeamAssembler::setLogger(FILE *log) {
+    logger.setFile(log);
+    logger.setIndentation(FormatOptions::kIndentationCode, 4);
+    code.setLogger(&logger);
+}
+
+void BeamModuleAssembler::codegen(JitAllocator *allocator,
+                                  const void **executable_ptr,
+                                  void **writable_ptr,
+                                  const BeamCodeHeader *in_hdr,
+                                  const BeamCodeHeader **out_exec_hdr,
+                                  BeamCodeHeader **out_rw_hdr) {
+    const BeamCodeHeader *code_hdr_exec;
+    BeamCodeHeader *code_hdr_rw;
+
+    codegen(allocator, executable_ptr, writable_ptr);
+
+    {
+        auto offset = code.labelOffsetFromBase(codeHeader);
+
+        auto base_exec = (const char *)(*executable_ptr);
+        code_hdr_exec = (const BeamCodeHeader *)&base_exec[offset];
+
+        auto base_rw = (const char *)(*writable_ptr);
+        code_hdr_rw = (BeamCodeHeader *)&base_rw[offset];
+    }
+
+    sys_memcpy(code_hdr_rw, in_hdr, sizeof(BeamCodeHeader));
+    code_hdr_rw->on_load = getOnLoad();
+
+    for (unsigned i = 0; i < functions.size(); i++) {
+        ErtsCodeInfo *ci = (ErtsCodeInfo *)getCode(functions[i]);
+        code_hdr_rw->functions[i] = ci;
+    }
+
+    char *module_end = (char *)code.baseAddress() + a.offset();
+    code_hdr_rw->functions[functions.size()] = (ErtsCodeInfo *)module_end;
+
+    *out_exec_hdr = code_hdr_exec;
+    *out_rw_hdr = code_hdr_rw;
+}
+
+void BeamModuleAssembler::codegen(JitAllocator *allocator,
+                                  const void **executable_ptr,
+                                  void **writable_ptr) {
+    _codegen(allocator, executable_ptr, writable_ptr);
+
+#if !(defined(WIN32) || defined(__APPLE__) || defined(__MACH__) ||             \
+      defined(__DARWIN__))
+    if (functions.size()) {
+        char *buff = (char *)erts_alloc(ERTS_ALC_T_TMP, 1024);
+        std::vector<AsmRange> ranges;
+        std::string name = getAtom(mod);
+        ranges.reserve(functions.size() + 2);
+
+        /* Push info about the header */
+        ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
+                          .stop = getCode(functions[0]),
+                          .name = name + "::codeHeader"});
+
+        for (unsigned i = 0; i < functions.size(); i++) {
+            ErtsCodePtr start, stop;
+            const ErtsCodeInfo *ci;
+            int n;
+
+            start = getCode(functions[i]);
+            ci = (const ErtsCodeInfo *)start;
+
+            n = erts_snprintf(buff,
+                              1024,
+                              "%T:%T/%d",
+                              ci->mfa.module,
+                              ci->mfa.function,
+                              ci->mfa.arity);
+            stop = ((const char *)erts_codeinfo_to_code(ci)) +
+                   BEAM_ASM_FUNC_PROLOGUE_SIZE;
+
+            /* We use a different symbol for CodeInfo and the Prologue
+               in order for the perf disassembly to be better. */
+            std::string name(buff, n);
+            ranges.push_back({.start = start,
+                              .stop = stop,
+                              .name = name + "-CodeInfoPrologue"});
+
+            /* The actual code */
+            start = stop;
+            if (i + 1 < functions.size()) {
+                stop = getCode(functions[i + 1]);
+            } else {
+                stop = getCode(code_end);
+            }
+
+            ranges.push_back({.start = start, .stop = stop, .name = name});
+        }
+
+        /* Push info about the footer */
+        ranges.push_back(
+                {.start = ranges.back().stop,
+                 .stop = (ErtsCodePtr)(code.baseAddress() + code.codeSize()),
+                 .name = name + "::codeFooter"});
+
+        update_gdb_jit_info(name, ranges);
+        beamasm_update_perf_info(name, ranges);
+        erts_free(ERTS_ALC_T_TMP, buff);
+    }
+#endif
+}
+
+void BeamModuleAssembler::codegen(char *buff, size_t len) {
+    code.flatten();
+    code.resolveUnresolvedLinks();
+    ERTS_ASSERT(code.codeSize() <= len);
+    code.relocateToBase((uint64_t)buff);
+    code.copyFlattenedData(buff,
+                           code.codeSize(),
+                           CodeHolder::kCopyPadSectionBuffer);
+}
+
+BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {
+    return (BeamCodeHeader *)getCode(codeHeader);
+}
+
+const ErtsCodeInfo *BeamModuleAssembler::getOnLoad() {
+    if (on_load.isValid()) {
+        return erts_code_to_codeinfo((ErtsCodePtr)getCode(on_load));
+    } else {
+        return 0;
+    }
+}
+
+/* ** */
 
 #if defined(DEBUG) && defined(JIT_HARD_DEBUG)
 void beam_jit_validate_term(Eterm term) {
@@ -753,4 +1042,105 @@ void beam_jit_timeout(Process *c_p) {
 void beam_jit_timeout_locked(Process *c_p) {
     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
     beam_jit_timeout(c_p);
+}
+
+void beam_jit_return_to_trace(Process *c_p) {
+    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+        ErtsCodePtr return_to_address;
+        Uint *cpp;
+
+        cpp = (Uint *)c_p->stop;
+        ASSERT(is_CP(cpp[0]));
+
+        for (;;) {
+            erts_inspect_frame(cpp, &return_to_address);
+
+            if (BeamIsReturnTrace(return_to_address)) {
+                cpp += CP_SIZE + 2;
+            } else if (BeamIsReturnTimeTrace(return_to_address)) {
+                cpp += CP_SIZE + 1;
+            } else if (BeamIsReturnToTrace(return_to_address)) {
+                cpp += CP_SIZE;
+            } else {
+                break;
+            }
+        }
+
+        ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+        erts_trace_return_to(c_p, return_to_address);
+        ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    }
+}
+
+Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity) {
+    Eterm *hp;
+    Eterm res;
+
+    hp = HAlloc(c_p, arity * 2);
+    res = NIL;
+
+    for (int i = arity - 1; i >= 0; i--) {
+        res = CONS(hp, regs[i], res);
+        hp += 2;
+    }
+
+    return res;
+}
+
+Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                     Eterm *reg,
+                                     int arity,
+                                     Eterm fun_thing) {
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    Eterm module, args;
+    ErlFunThing *funp;
+    ErlFunEntry *fe;
+    Module *modp;
+    Export *ep;
+
+    funp = (ErlFunThing *)fun_val(fun_thing);
+    fe = funp->fe;
+    module = fe->module;
+
+    ERTS_THR_READ_MEMORY_BARRIER;
+
+    if (fe->pend_purge_address) {
+        /* The system is currently trying to purge the module containing this
+         * fun. Suspend the process and let it try again when the purge
+         * operation is done (may succeed or not). */
+        ep = erts_suspend_process_on_pending_purge_lambda(c_p, fe);
+    } else {
+        if ((modp = erts_get_module(module, code_ix)) != NULL &&
+            modp->curr.code_hdr != NULL) {
+            /* There is a module loaded, but obviously the fun is not defined
+             * in it. We must not call the error_handler (or we will get into
+             * an infinite loop). */
+            c_p->current = NULL;
+            c_p->freason = EXC_BADFUN;
+            c_p->fvalue = fun_thing;
+            return NULL;
+        }
+
+        /* No current code for this module. Call the error_handler module to
+         * attempt loading the module. */
+        ep = erts_find_function(erts_proc_get_error_handler(c_p),
+                                am_undefined_lambda,
+                                3,
+                                code_ix);
+        if (ERTS_UNLIKELY(ep == NULL)) {
+            /* No error handler, crash out. */
+            c_p->current = NULL;
+            c_p->freason = EXC_UNDEF;
+            return NULL;
+        }
+    }
+
+    args = beam_jit_build_argument_list(c_p, reg, arity);
+
+    reg[0] = module;
+    reg[1] = fun_thing;
+    reg[2] = args;
+    reg[3] = NIL;
+
+    return ep;
 }

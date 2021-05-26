@@ -1305,7 +1305,7 @@ define etp-cp-1
     printf "#Cp"
     etp-mfa-1 $etp_cp_p $cp_cp_p_offset
   else
-    if $etp_cp == beam_apply+1
+    if $etp_cp == beam_normal_exit
       printf "#Cp<terminate process normally>"
     else
       if ($etp_cp) == beam_return_trace

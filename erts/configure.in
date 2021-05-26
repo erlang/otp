@@ -2881,9 +2881,12 @@ if test ${enable_jit} != no; then
         amd64)
            JIT_ARCH=x86
            ;;
+        arm64)
+           JIT_ARCH=arm
+           ;;
         *)
            if test ${enable_jit} = yes; then
-             AC_MSG_ERROR([JIT only works on x86 64-bit])
+             AC_MSG_ERROR([JIT only works on x86 64-bit and ARM 64-bit])
            else
              enable_jit=no
              AC_MSG_WARN([JIT disabled due to lack to support on $ARCH-$OPSYS])
@@ -2960,19 +2963,30 @@ if test ${enable_jit} != no; then
       );;
   esac
 
-  if test X${enable_native_stack} = Xyes; then
-    AC_DEFINE(NATIVE_ERLANG_STACK, [],
-              [Define if we can use the native stack for Erlang code])
-  fi
+  case "$JIT_ARCH" in
+    x86)
+      if test X${enable_native_stack} = Xyes; then
+        AC_DEFINE(NATIVE_ERLANG_STACK, [],
+                  [Define if we can use the native stack for Erlang code])
+      fi
+      ;;
+    *)
+      ;;
+  esac
 fi
 
 dnl
 dnl Check if the `perf` profiler is supported. At the moment it assumes it
 dnl always works on Linux as we're not dependent on it; this is only used to
-dnl to control whether we generate `perf`-compatible memory maps.
+dnl to control whether we accept `perf`-related options.
 dnl
 case $OPSYS in
     linux*)
+        if test X${enable_native_stack} = Xyes; then
+          AC_DEFINE(ERLANG_FRAME_POINTERS, [],
+                    [Define if we need frame pointers on the Erlang stack])
+        fi
+
         AC_DEFINE(HAVE_LINUX_PERF_SUPPORT, 1,
                   [Define if the targeted system supports the `perf` profiler])
         ;;

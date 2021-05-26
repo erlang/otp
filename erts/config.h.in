@@ -31,6 +31,9 @@
    format (like some ARMs). */
 #undef DOUBLE_MIDDLE_ENDIAN
 
+/* Define if we need frame pointers on the Erlang stack */
+#undef ERLANG_FRAME_POINTERS
+
 /* Define if sbrk()/brk() wrappers can track malloc()s core memory use */
 #undef ERTS_BRK_WRAPPERS_CAN_TRACK_MALLOC
 

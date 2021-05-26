@@ -470,7 +470,6 @@ call_bif W
 call_bif_mfa a a I
 call_nif W W W
 call_error_handler
-error_action_code
 return_trace
 %hot
 
@@ -525,6 +524,21 @@ call_ext_only u==2 u$func:erlang:load_nif/2 => \
 
 %cold
 i_load_nif
+%hot
+
+#
+# The call_on_load_function/1 BIF is an instruction.
+#
+
+call_ext u==1 u$func:erlang:call_on_load_function/1 => \
+    i_call_on_load_function
+call_ext_last u==1 u$func:erlang:call_on_load_function/1 D => \
+    i_call_on_load_function | deallocate D | return
+call_ext_only u==1 u$func:erlang:call_on_load_function/1 => \
+    i_call_on_load_function | return
+
+%cold
+i_call_on_load_function
 %hot
 
 #
@@ -643,7 +657,6 @@ bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst => \
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
 
 bif2 Fail u$bif:erlang:element/2 S1=ixy S2 Dst => bif_element Fail S1 S2 Dst
-
 bif_element j? s s d
 
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
@@ -706,7 +719,7 @@ make_fun3 OldIndex=u Dst=d NumFree=u Env=* => make_fun3(OldIndex, Dst, NumFree, 
 
 %cold
 
-i_make_fun3 F S t *
+i_make_fun3 F S t t *
 
 # Psuedo-instruction for signalling lambda load errors. Never actually runs.
 i_lambda_error t
@@ -718,7 +731,7 @@ is_function Fail=f c => jump Fail
 
 # The start and end of a function.
 int_func_start/5
-int_func_end/0
+int_func_end/2
 
 func_prologue/2
 
@@ -753,15 +766,17 @@ int_func_start Func_Label Func_Line M F A | \
       i_breakpoint_trampoline | \
       i_test_yield
 
-
-int_func_end | needs_nif_padding() => i_nif_padding
-int_func_end =>
+int_func_end Func_Label Entry_Label => \
+    func_end(Func_Label, Entry_Label)
 
 # Handles yielding on function ingress (rather than on each call).
 i_test_yield
 
 # Ensures that the prior function is large enough to allow NIF patching.
 i_nif_padding
+
+# Landing pad for fun calls/apply where we set up arguments and check errors
+i_lambda_trampoline W f W W
 
 # Handles tracing, early NIF calls, and so on.
 i_breakpoint_trampoline

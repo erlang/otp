@@ -1406,11 +1406,23 @@ line_numbers(Config) when is_list(Config) ->
                [{file,"fake_file.erl"},{line,3}]},
               {?MODULE,line_numbers,1,_}|_]}} =
     (catch line1(bad_tag, 0)),
-    {'EXIT',{badarith,
-             [{?MODULE,line1,2,
-               [{file,"fake_file.erl"},{line,5}]},
-              {?MODULE,line_numbers,1,_}|_]}} =
-    (catch line1(a, not_an_integer)),
+
+    %% The stacktrace for operators such a '+' can vary depending on
+    %% whether the JIT is used or not.
+    case catch line1(a, not_an_integer) of
+        {'EXIT',{badarith,
+                 [{erlang,'+',[not_an_integer,1],_},
+                  {?MODULE,line1,2,
+                   [{file,"fake_file.erl"},{line,5}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok;
+        {'EXIT',{badarith,
+                 [{?MODULE,line1,2,
+                   [{file,"fake_file.erl"},{line,5}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok
+    end,
+
     {'EXIT',{{badmatch,{ok,1}},
              [{?MODULE,line1,2,
                [{file,"fake_file.erl"},{line,7}]},
@@ -1494,14 +1506,29 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,line_numbers,1,_}|_]}} =
     (catch applied_bif_2()),
 
-    {'EXIT',{badarith,
-             [{?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
-              {?MODULE,line_numbers,1,_}|_]}} =
-        (catch increment1(x)),
-    {'EXIT',{badarith,
-             [{?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
-              {?MODULE,line_numbers,1,_}|_]}} =
-        (catch increment2(x)),
+    case catch increment1(x) of
+        {'EXIT',{badarith,
+                 [{erlang,'+',[x,1],_},
+                  {?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok;
+        {'EXIT',{badarith,
+                 [{?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok
+    end,
+
+    case catch increment2(x) of
+        {'EXIT',{badarith,
+                 [{erlang,'+',[x,1],_},
+                  {?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok;
+        {'EXIT',{badarith,
+                 [{?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok
+    end,
 
     {'EXIT',{{badmap,not_a_map},
              [{?MODULE,update_map,1,[{file,"map.erl"},{line,3}]}|_]}} =

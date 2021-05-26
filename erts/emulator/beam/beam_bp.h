@@ -91,7 +91,8 @@ enum erts_break_op{
 typedef Uint32 ErtsBpIndex;
 
 typedef struct {
-    ErtsCodeInfo *ci;
+    const ErtsCodeInfo *ci_exec;
+    ErtsCodeInfo *ci_rw;
     Module* mod;
 } BpFunction;
 

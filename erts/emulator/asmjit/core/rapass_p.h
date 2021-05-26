@@ -305,7 +305,7 @@ public:
   RATiedReg _tiedRegs[1];
 
   enum Flags : uint32_t {
-    kFlagIsTerminator = 0x00000001u
+    kFlagIsTransformable = 0x80000000u
   };
 
   //! \name Construction & Destruction
@@ -338,8 +338,8 @@ public:
   //! Clears instruction `flags` from  this RAInst.
   inline void clearFlags(uint32_t flags) noexcept { _flags &= ~flags; }
 
-  //! Returns whether the RAInst represents an instruction that terminates this basic block.
-  inline bool isTerminator() const noexcept { return hasFlag(kFlagIsTerminator); }
+  //! Tests whether this instruction can be transformed to another instruction if necessary.
+  inline bool isTransformable() const noexcept { return hasFlag(kFlagIsTransformable); }
 
   //! Returns the associated block with this RAInst.
   inline RABlock* block() const noexcept { return _block; }
@@ -1125,7 +1125,7 @@ public:
   //! \{
 
   Error rewrite() noexcept;
-  Error _rewrite(BaseNode* first, BaseNode* stop) noexcept;
+  virtual Error _rewrite(BaseNode* first, BaseNode* stop) noexcept = 0;
 
   //! \}
 

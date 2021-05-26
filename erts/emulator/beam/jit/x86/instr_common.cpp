@@ -93,7 +93,7 @@ using namespace asmjit;
 
 void BeamModuleAssembler::emit_error(int reason) {
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(reason));
-    emit_handle_error();
+    emit_raise_exception();
 }
 
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgVal &Need,
@@ -178,8 +178,7 @@ void BeamModuleAssembler::emit_i_validate(const ArgVal &Arity) {
 void BeamModuleAssembler::emit_allocate_heap(const ArgVal &NeedStack,
                                              const ArgVal &NeedHeap,
                                              const ArgVal &Live) {
-    ASSERT(NeedStack.getType() == ArgVal::TYPE::u);
-    ASSERT(NeedStack.getValue() <= MAX_REG);
+    ASSERT(NeedStack.isWord() && NeedStack.getValue() <= MAX_REG);
     ArgVal needed = NeedStack;
 
 #if !defined(NATIVE_ERLANG_STACK)
@@ -198,25 +197,29 @@ void BeamModuleAssembler::emit_allocate_heap(const ArgVal &NeedStack,
 
 void BeamModuleAssembler::emit_allocate(const ArgVal &NeedStack,
                                         const ArgVal &Live) {
-    emit_allocate_heap(NeedStack, ArgVal(ArgVal::TYPE::u, 0), Live);
+    emit_allocate_heap(NeedStack, ArgVal(ArgVal::Word, 0), Live);
 }
 
 void BeamModuleAssembler::emit_deallocate(const ArgVal &Deallocate) {
-    ASSERT(Deallocate.getType() == ArgVal::TYPE::u);
-    ASSERT(Deallocate.getValue() <= 1023);
-    ArgVal dealloc = Deallocate;
+    ASSERT(Deallocate.isWord() && Deallocate.getValue() <= 1023);
+
+    if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+        ArgVal dealloc = Deallocate;
 
 #if !defined(NATIVE_ERLANG_STACK)
-    dealloc = dealloc + CP_SIZE;
+        dealloc = dealloc + CP_SIZE;
 #endif
 
-    if (dealloc.getValue() > 0) {
-        a.add(E, imm(dealloc.getValue() * sizeof(Eterm)));
+        if (dealloc.getValue() > 0) {
+            a.add(E, imm(dealloc.getValue() * sizeof(Eterm)));
+        }
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
     }
 }
 
 void BeamModuleAssembler::emit_test_heap(const ArgVal &Nh, const ArgVal &Live) {
-    emit_gc_test(ArgVal(ArgVal::u, 0), Nh, Live);
+    emit_gc_test(ArgVal(ArgVal::Word, 0), Nh, Live);
 }
 
 void BeamModuleAssembler::emit_normal_exit() {
@@ -252,45 +255,6 @@ void BeamModuleAssembler::emit_continue_exit() {
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     abs_jmp(ga->get_do_schedule());
-}
-
-/* This is an alias for handle_error */
-void BeamModuleAssembler::emit_error_action_code() {
-    abs_jmp(ga->get_error_action_code());
-}
-
-/* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
-void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
-    a.hlt();
-}
-
-void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
-                                           const ArgVal &Dst,
-                                           const ArgVal &NumFree,
-                                           const std::vector<ArgVal> &env) {
-    size_t num_free = env.size();
-    ASSERT(NumFree.getValue() == num_free);
-
-    mov_arg(ARG3, NumFree);
-
-    emit_enter_runtime<Update::eHeap>();
-
-    a.mov(ARG1, c_p);
-    make_move_patch(ARG2, lambdas[Fun.getValue()].patches);
-    runtime_call<3>(new_fun_thing);
-
-    emit_leave_runtime<Update::eHeap>();
-
-    comment("Move fun environment");
-    for (unsigned i = 0; i < num_free; i++) {
-        mov_arg(x86::qword_ptr(RET,
-                               offsetof(ErlFunThing, env) + i * sizeof(Eterm)),
-                env[i]);
-    }
-
-    comment("Create boxed ptr");
-    a.or_(RETb, TAG_PRIMARY_BOXED);
-    mov_arg(Dst, RET);
 }
 
 void BeamModuleAssembler::emit_get_list(const x86::Gp src,
@@ -506,7 +470,7 @@ void BeamModuleAssembler::emit_init(const ArgVal &Y) {
 }
 
 void BeamModuleAssembler::emit_init_yregs(const ArgVal &Size,
-                                          const std::vector<ArgVal> &args) {
+                                          const Span<ArgVal> &args) {
     unsigned count = Size.getValue();
     ASSERT(count == args.size());
 
@@ -523,10 +487,10 @@ void BeamModuleAssembler::emit_init_yregs(const ArgVal &Size,
 
     while (i < count) {
         unsigned slots = 1;
-        unsigned first_y = args.at(i).getValue();
+        unsigned first_y = args[i].getValue();
 
         while (i + slots < count) {
-            ArgVal current_y = args.at(i + slots);
+            ArgVal current_y = args[i + slots];
             if (first_y + slots != current_y.getValue()) {
                 break;
             }
@@ -585,8 +549,7 @@ void BeamModuleAssembler::emit_init_yregs(const ArgVal &Size,
 }
 
 void BeamModuleAssembler::emit_i_trim(const ArgVal &Words) {
-    ASSERT(Words.getType() == ArgVal::TYPE::u);
-    ASSERT(Words.getValue() <= 1023);
+    ASSERT(Words.isWord() && Words.getValue() <= 1023);
 
     if (Words.getValue() > 0) {
         a.add(E, imm(Words.getValue() * sizeof(Eterm)));
@@ -719,7 +682,7 @@ void BeamModuleAssembler::emit_store_cons(const ArgVal &len,
 
 void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
                                           const ArgVal &Arity,
-                                          const std::vector<ArgVal> &args) {
+                                          const Span<ArgVal> &args) {
     size_t size = args.size();
     ASSERT(arityval(Arity.getValue()) == size);
 
@@ -905,7 +868,7 @@ void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
 void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
                                             const ArgVal &Src,
                                             const ArgVal &Arity) {
-    if (Arity.getType() != ArgVal::i) {
+    if (Arity.getType() != ArgVal::Immediate) {
         /*
          * Non-literal arity - extremely uncommon. Generate simple code.
          */
@@ -1414,6 +1377,8 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     atom_compare = a.newLabel();
     generic_compare = a.newLabel();
 
+    emit_enter_frame();
+
     /* Are both floats?
      *
      * This is done first as relative comparisons on atoms doesn't make much
@@ -1447,6 +1412,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.setae(x86::al);
     a.dec(x86::al);
 
+    emit_leave_frame();
     a.ret();
 
     a.bind(atom_compare);
@@ -1470,6 +1436,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
         /* !! erts_cmp_atoms returns int, not Sint !! */
         a.test(RETd, RETd);
 
+        emit_leave_frame();
         a.ret();
     }
 
@@ -1486,6 +1453,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 
         a.test(RET, RET);
 
+        emit_leave_frame();
         a.ret();
     }
 }
@@ -1642,6 +1610,8 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     Label not_throw = a.newLabel(), not_error = a.newLabel(),
           after_gc = a.newLabel();
 
+    emit_enter_frame();
+
     /* Load thrown value / reason into ARG2 for add_stacktrace */
     a.mov(ARG2, getXRef(2));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), imm(NIL));
@@ -1652,6 +1622,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     /* Thrown value, return it in x0 */
     a.mov(getXRef(0), ARG2);
 
+    emit_leave_frame();
     a.ret();
 
     a.bind(not_throw);
@@ -1700,6 +1671,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
         a.mov(getXRef(0), RET);
     }
 
+    emit_leave_frame();
     a.ret();
 }
 
@@ -1750,7 +1722,7 @@ void BeamModuleAssembler::emit_raise(const ArgVal &Trace, const ArgVal &Value) {
 
     emit_leave_runtime();
 
-    emit_handle_error();
+    emit_raise_exception();
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
@@ -1780,7 +1752,7 @@ void BeamModuleAssembler::emit_raw_raise() {
 
     a.test(RET, RET);
     a.short_().jne(next);
-    emit_handle_error();
+    emit_raise_exception();
     a.bind(next);
     a.mov(getXRef(0), imm(am_badarg));
 }
@@ -1788,13 +1760,20 @@ void BeamModuleAssembler::emit_raw_raise() {
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     int mfa_offset = -(int)sizeof(ErtsCodeMFA) - BEAM_ASM_FUNC_PROLOGUE_SIZE;
 
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+        /* Subtract the size of an `emit_enter_frame` sequence. */
+        mfa_offset -= 4;
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+    }
+
+    a.add(x86::rsp, imm(8));
+
     /* Yield address is in ARG3. */
     a.lea(ARG2, x86::qword_ptr(ARG3, mfa_offset));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG2);
     a.mov(ARG2, x86::qword_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), ARG2);
-
-    emit_discard_cp();
 
     a.jmp(labels[context_switch_simplified]);
 }
@@ -1804,25 +1783,37 @@ void BeamModuleAssembler::emit_i_test_yield() {
 
     /* When present, this is guaranteed to be the first instruction after the
      * breakpoint trampoline. */
-
     ASSERT(a.offset() % 8 == 0);
+
+    emit_enter_frame();
+
     a.bind(entry);
     a.dec(FCALLS);
     a.short_().jg(next);
     a.lea(ARG3, x86::qword_ptr(entry));
-    a.call(funcYield);
+    a.call(yieldEnter);
     a.bind(next);
+
+#if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x86::rbp);
+    a.mov(ARG3, x86::rsp);
+
+    emit_enter_runtime<Update::eStack>();
+    runtime_call<3>(erts_validate_stack);
+    emit_leave_runtime<Update::eStack>();
+#endif
 }
 
 void BeamModuleAssembler::emit_i_yield() {
     a.mov(getXRef(0), imm(am_true));
 #ifdef NATIVE_ERLANG_STACK
-    fragment_call(ga->get_dispatch_return());
+    fragment_call(yieldReturn);
 #else
     Label next = a.newLabel();
 
     a.lea(ARG3, x86::qword_ptr(next));
-    abs_jmp(ga->get_dispatch_return());
+    a.jmp(yieldReturn);
 
     a.align(kAlignCode, 8);
     a.bind(next);
@@ -1852,9 +1843,9 @@ void BeamModuleAssembler::emit_i_perf_counter() {
     {
         a.mov(TMP_MEM1q, RET);
 
-        emit_gc_test(ArgVal(ArgVal::i, 0),
-                     ArgVal(ArgVal::i, ERTS_MAX_UINT64_HEAP_SIZE),
-                     ArgVal(ArgVal::i, 0));
+        emit_gc_test(ArgVal(ArgVal::Word, 0),
+                     ArgVal(ArgVal::Word, ERTS_MAX_UINT64_HEAP_SIZE),
+                     ArgVal(ArgVal::Word, 0));
 
         a.mov(ARG1, TMP_MEM1q);
 

@@ -351,6 +351,7 @@ gen.make_fun2(idx) {
 	int i;
         BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[idx.val];
 	unsigned num_free = entry->num_free;
+	unsigned arity = entry->arity;
 
 	$NewBeamOp(S, th);
 
@@ -361,17 +362,19 @@ gen.make_fun2(idx) {
 	th->a[1].val = num_free;
 	th->next = op;
 
-	$BeamOpNameArity(op, i_make_fun3, 3);
-	$BeamOpArity(op, 3 + num_free);
+	$BeamOpNameArity(op, i_make_fun3, 4);
+	$BeamOpArity(op, 4 + num_free);
 	op->a[0].type = TAG_u;
 	op->a[0].val = idx.val;
 	op->a[1].type = TAG_x;
 	op->a[1].val = 0;
 	op->a[2].type = TAG_u;
-	op->a[2].val = num_free;
+	op->a[2].val = arity - num_free;
+	op->a[3].type = TAG_u;
+	op->a[3].val = num_free;
 	for (i = 0; i < num_free; i++) {
-	    op->a[i+3].type = TAG_x;
-	    op->a[i+3].val = i;
+	    op->a[i+4].type = TAG_x;
+	    op->a[i+4].val = i;
 	}
 	return th;
     }
@@ -387,15 +390,17 @@ gen.make_fun3(idx, Dst, NumFree, Env) {
 	if (NumFree.val == entry->num_free) {
 	    int i;
 
-	    $BeamOpNameArity(op, i_make_fun3, 3);
-	    $BeamOpArity(op, 3 + NumFree.val);
+	    $BeamOpNameArity(op, i_make_fun3, 4);
+	    $BeamOpArity(op, 4 + NumFree.val);
 	    op->a[0].type = TAG_u;
 	    op->a[0].val = idx.val;
 	    op->a[1] = Dst;
 	    op->a[2].type = TAG_u;
-	    op->a[2].val = entry->num_free;
+	    op->a[2].val = entry->arity - entry->num_free;
+	    op->a[3].type = TAG_u;
+	    op->a[3].val = entry->num_free;
 	    for (i = 0; i < NumFree.val; i++) {
-		op->a[i+3] = Env[i];
+		op->a[i+4] = Env[i];
 	    }
 	    return op;
 	}

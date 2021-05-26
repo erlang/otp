@@ -56,7 +56,7 @@ JIT_ENABLED=no
 endif
 
 ifeq ($(FLAVOR),jit)
-OMIT_OMIT_FP=no
+OMIT_OMIT_FP=yes
 OPCODE_TABLES += \
     beam/jit/$(JIT_ARCH)/ops.tab \
     beam/jit/$(JIT_ARCH)/predicates.tab \
@@ -696,7 +696,7 @@ ASMJIT_H = $(wildcard asmjit/*.h) $(wildcard asmjit/core/*.h) $(wildcard asmjit/
 ASMJIT_TTF_H = $(foreach HEADER,$(ASMJIT_H),$(TTF_DIR)/$(HEADER))
 
 ifeq ($(FLAVOR),jit)
-GENERATE+=$(ASMJIT_TTF_H)
+GENERATE+=$(ASMJIT_TTF_H) $(TTF_DIR)/asmjit/asmjit.hpp
 endif
 
 # Preloaded code.
@@ -902,18 +902,30 @@ $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 # because GCC only allows one precompiled header, and requires it to be
 # included before any other directives, including other #includes.
 #
-ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1
+ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1 -DASMJIT_NO_FOREIGN=1
+
+ifeq ($(JIT_ARCH), arm)
+# Work around a bug in the current beta release causing a linking
+# error.
+ASMJIT_FLAGS+=-DASMJIT_NO_VALIDATION
+endif
+
 ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
 ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
 
-$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp $(ASMJIT_PCH_OBJ)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
-          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
+$(OBJDIR)/%.o: beam/jit/%.cpp $(ASMJIT_PCH_OBJ)
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
+          -include $(ASMJIT_PCH_SRC) -c $< -o $@
+
+$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
 $(OBJDIR)/asmjit/%.o: asmjit/%.cpp $(ASMJIT_PCH_OBJ) $(dir $@)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
-          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
 ## The dependency on erl_bif_info.c is in order to trigger a rebuild when
@@ -992,21 +1004,37 @@ COMMON_OBJS = \
 ASMJIT_OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(ASMJIT_CPP))
 
 JIT_OBJS = \
-        $(OBJDIR)/asm_load.o \
-        $(OBJDIR)/beam_jit_common.o
+    $(OBJDIR)/asm_load.o \
+    $(OBJDIR)/beam_asm_global.o \
+    $(OBJDIR)/beam_asm_module.o \
+    $(OBJDIR)/beam_jit_common.o \
+    $(OBJDIR)/beam_jit_main.o \
+    $(OBJDIR)/beam_jit_perf.o \
+    $(OBJDIR)/process_main.o
 
 ifeq ($(JIT_ARCH), x86)
 JIT_OBJS += \
-	$(OBJDIR)/beam_asm.o \
-	$(OBJDIR)/beam_asm_global.o \
-	$(OBJDIR)/beam_asm_module.o \
-	$(OBJDIR)/beam_asm_perf.o \
 	$(OBJDIR)/instr_arith.o \
 	$(OBJDIR)/instr_bs.o \
 	$(OBJDIR)/instr_bif.o \
 	$(OBJDIR)/instr_call.o \
 	$(OBJDIR)/instr_common.o \
 	$(OBJDIR)/instr_float.o \
+	$(OBJDIR)/instr_fun.o \
+	$(OBJDIR)/instr_guard_bifs.o \
+	$(OBJDIR)/instr_map.o \
+	$(OBJDIR)/instr_msg.o \
+	$(OBJDIR)/instr_select.o \
+	$(OBJDIR)/instr_trace.o
+else
+JIT_OBJS += \
+	$(OBJDIR)/instr_arith.o \
+	$(OBJDIR)/instr_bs.o \
+	$(OBJDIR)/instr_bif.o \
+	$(OBJDIR)/instr_call.o \
+	$(OBJDIR)/instr_common.o \
+	$(OBJDIR)/instr_float.o \
+	$(OBJDIR)/instr_fun.o \
 	$(OBJDIR)/instr_guard_bifs.o \
 	$(OBJDIR)/instr_map.o \
 	$(OBJDIR)/instr_msg.o \
@@ -1389,11 +1417,11 @@ compdb:
 
 format-check:
 	clang-format --Werror --dry-run -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
-            beam/jit/*/*.cpp beam/jit/*/*.hpp
+            beam/jit/*.cpp beam/jit/*/*.cpp beam/jit/*/*.hpp
 
 format:
 	clang-format -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
-            beam/jit/*/*.cpp beam/jit/*/*.hpp
+            beam/jit/*.cpp beam/jit/*/*.cpp beam/jit/*/*.hpp
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)

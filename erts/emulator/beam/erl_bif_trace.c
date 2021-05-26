@@ -1442,10 +1442,10 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
     n = finish_bp.e.matched;
 
     for (i = 0; i < n; i++) {
-        ErtsCodeInfo *ci = fp[i].ci;
+        ErtsCodeInfo *ci_rw = fp[i].ci_rw;
         Export* ep;
 
-        ep = ErtsContainerStruct(ci, Export, info);
+        ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (ep->bif_number != -1) {
             ep->is_bif_traced = !!on;
@@ -1462,7 +1462,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
                 ep->trampoline.trace.address = (BeamInstr) ep->addresses[code_ix];
             }
 
-            erts_set_export_trace(ci, match_prog_set, 0);
+            erts_set_export_trace(ci_rw, match_prog_set, 0);
 
             if (!erts_is_export_trampoline_active(ep, code_ix)) {
                 ep->trampoline.common.op = BeamOpCodeAddr(op_i_generic_breakpoint);
@@ -1474,7 +1474,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	     * Turn off global tracing, either explicitly or implicitly
 	     * before turning on breakpoint tracing.
 	     */
-	    erts_clear_export_trace(ci, 0);
+            erts_clear_export_trace(ci_rw, 0);
             if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
                 ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
 	    }
@@ -1669,7 +1669,7 @@ install_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
         erts_activate_export_trampoline(ep, code_ix);
     }
 }
@@ -1683,7 +1683,7 @@ uninstall_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
@@ -1701,7 +1701,7 @@ clean_export_entries(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             continue;

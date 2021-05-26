@@ -402,21 +402,24 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
  * This is needed to generate correct stacktraces when throwing errors from
  * instructions that return like an ordinary function, such as call_nif. */
 ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) {
-    Eterm *ptr = E;
+    Eterm *stack_bottom = STACK_START(p);
+    Eterm *scanner = E;
 
-    ASSERT(is_CP(*ptr));
+    ASSERT(is_CP(scanner[0]));
 
-    while (ptr < STACK_START(p)) {
-        ErtsCodePtr cp = cp_val(*ptr);
+    while (scanner < stack_bottom) {
+        ErtsCodePtr return_address;
 
-        if (BeamIsReturnTrace(cp)) {
-            ptr += 3;
-        } else if (BeamIsReturnTimeTrace(cp)) {
-            ptr += 2;
-        } else if (BeamIsReturnToTrace(cp)) {
-            ptr += 1;
+        erts_inspect_frame(scanner, &return_address);
+
+        if (BeamIsReturnTrace(return_address)) {
+            scanner += CP_SIZE + 2;
+        } else if (BeamIsReturnTimeTrace(return_address)) {
+            scanner += CP_SIZE + 1;
+        } else if (BeamIsReturnToTrace(return_address)) {
+            scanner += CP_SIZE;
         } else {
-            return cp;
+            return return_address;
         }
     }
 
@@ -527,7 +530,7 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 	reg[3] = c_p->ftrace;
         if ((new_pc = next_catch(c_p, reg))) {
 
-#if defined(BEAMASM) && defined(NATIVE_ERLANG_STACK)
+#if defined(BEAMASM) && (defined(NATIVE_ERLANG_STACK) || defined(__aarch64__))
             /* In order to make use of native call and return
              * instructions, when beamasm uses the native stack it
              * doesn't include the CP in the current stack frame,
@@ -536,7 +539,11 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
              *
              * Therefore, we need to bump the stack pointer as if this were an
              * ordinary return. */
-            ASSERT(is_CP(c_p->stop[0]));
+
+            if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+                FRAME_POINTER(c_p) = (Eterm*)cp_val(c_p->stop[0]);
+            }
+
             c_p->stop += CP_SIZE;
 #else
             /* To avoid keeping stale references. */
@@ -562,8 +569,9 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 static ErtsCodePtr
 next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
+    ErtsCodePtr return_to_trace_address = NULL;
     int have_return_to_trace = 0;
-    Eterm *ptr, *prev, *return_to_trace_ptr = NULL;
+    Eterm *ptr, *prev;
 
     ptr = prev = c_p->stop;
     ASSERT(ptr <= STACK_START(c_p));
@@ -579,52 +587,74 @@ next_catch(Process* c_p, Eterm *reg) {
     }
 
     while (ptr < STACK_START(c_p)) {
-	if (is_catch(*ptr)) {
-	    if (active_catches) goto found_catch;
-	    ptr++;
-	}
-	else if (is_CP(*ptr)) {
-	    prev = ptr;
-	    if (BeamIsReturnTrace(cp_val(*prev))) {
-		if (cp_val(*prev) == beam_exception_trace) {
-                    ErtsCodeMFA *mfa = (ErtsCodeMFA*)cp_val(ptr[1]);
-		    erts_trace_exception(c_p, mfa,
-					 reg[1], reg[2],
-                                         ERTS_TRACER_FROM_ETERM(ptr+2));
-		}
-		/* Skip MFA, tracer, and CP. */
-                ptr += 3;
-	    } else if (BeamIsReturnToTrace(cp_val(*prev))) {
-		have_return_to_trace = !0; /* Record next cp */
-		return_to_trace_ptr = NULL;
-		/* Skip CP. */
-		ptr += 1;
-	    } else if (BeamIsReturnTimeTrace(cp_val(*prev))) {
-		/* Skip prev_info and CP. */
-		ptr += 2;
-	    } else {
-		if (have_return_to_trace) {
-		    /* Record this cp as possible return_to trace cp */
-		    have_return_to_trace = 0;
-		    return_to_trace_ptr = ptr;
-		} else return_to_trace_ptr = NULL;
-		ptr++;
-	    }
-	} else ptr++;
+        Eterm val = ptr[0];
+
+        if (is_catch(val)) {
+            if (active_catches) {
+                goto found_catch;
+            }
+
+            ptr++;
+        } else if (is_CP(val)) {
+            ErtsCodePtr return_address;
+            const Eterm *frame;
+
+            prev = ptr;
+            frame = erts_inspect_frame(ptr, &return_address);
+
+            if (BeamIsReturnTrace(return_address)) {
+                if (return_address == beam_exception_trace) {
+                    ErtsTracer *tracer;
+                    ErtsCodeMFA *mfa;
+
+                    mfa = (ErtsCodeMFA*)cp_val(frame[0]);
+                    tracer = ERTS_TRACER_FROM_ETERM(&frame[1]);
+
+                    ASSERT_MFA(mfa);
+                    erts_trace_exception(c_p, mfa, reg[1], reg[2], tracer);
+                }
+
+                ptr += CP_SIZE + 2;
+            } else if (BeamIsReturnTimeTrace(return_address)) {
+                ptr += CP_SIZE + 1;
+            } else if (BeamIsReturnToTrace(return_address)) {
+                have_return_to_trace = 1; /* Record next cp */
+                return_to_trace_address = NULL;
+
+                ptr += CP_SIZE;
+            } else {
+                /* This is an ordinary call frame: if the previous frame was a
+                 * return_to trace we should record this CP as a return_to
+                 * candidate. */
+                if (have_return_to_trace) {
+                    return_to_trace_address = return_address;
+                    have_return_to_trace = 0;
+                } else {
+                    return_to_trace_address = NULL;
+                }
+
+                ptr += CP_SIZE;
+            }
+        } else {
+            ptr++;
+        }
     }
+
     return NULL;
 
  found_catch:
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_ptr) {
-	/* The stackframe closest to the catch contained an
-	 * return_to_trace entry, so since the execution now
-	 * continues after the catch, a return_to trace message
-	 * would be appropriate.
-	 */
-	erts_trace_return_to(c_p, cp_val(*return_to_trace_ptr));
+
+    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_address) {
+        /* The stackframe closest to the catch contained an
+         * return_to_trace entry, so since the execution now
+         * continues after the catch, a return_to trace message
+         * would be appropriate.
+         */
+        erts_trace_return_to(c_p, return_to_trace_address);
     }
+
     return catch_pc(*ptr);
 }
 
@@ -749,35 +779,39 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
 
     while (ptr < STACK_START(p) && depth > 0) {
         if (is_CP(*ptr)) {
-            ErtsCodePtr cp = cp_val(*ptr);
+            ErtsCodePtr return_address;
 
-            if (BeamIsReturnTrace(cp)) {
-                ptr += 3;
-            } else if (BeamIsReturnTimeTrace(cp)) {
-                ptr += 2;
-            } else if (BeamIsReturnToTrace(cp)) {
-                ptr += 1;
+            erts_inspect_frame(ptr, &return_address);
+
+            if (BeamIsReturnTrace(return_address)) {
+                ptr += CP_SIZE + 2;
+            } else if (BeamIsReturnTimeTrace(return_address)) {
+                ptr += CP_SIZE + 1;
+            } else if (BeamIsReturnToTrace(return_address)) {
+                ptr += CP_SIZE;
             } else {
-                if (cp != prev) {
-		    void *adjusted_cp;
+                if (return_address != prev) {
+                    ErtsCodePtr adjusted_address;
 
                     /* Record non-duplicates only */
-                    prev = cp;
+                    prev = return_address;
+
 #ifdef BEAMASM
-		    /*
-		     * Some instructions (e.g. call) are shorter than one word,
-		     * so we will need to subtract one byte from the pointer
-		     * to avoid ending up before the start of the instruction.
-		     */
-		    adjusted_cp = ((char *) cp) - 1;
+                    /* Some instructions (e.g. call) are shorter than one word,
+                     * so we will need to subtract one byte from the pointer
+                     * to avoid ending up before the start of the
+                     * instruction. */
+                    adjusted_address = ((char*)return_address) - 1;
 #else
-		    /* Subtract one word from the pointer. */
-		    adjusted_cp = ((char *) cp) - sizeof(UWord);
+                    /* Subtract one word from the pointer. */
+                    adjusted_address = ((char*)return_address) - sizeof(UWord);
 #endif
-                    s->trace[s->depth++] = adjusted_cp;
+
+                    s->trace[s->depth++] = adjusted_address;
                     depth--;
                 }
-                ptr++;
+
+                ptr += CP_SIZE;
             }
         } else {
             ptr++;
@@ -1351,7 +1385,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
      * error handling code.
      */
     if (need == 0) {
-        need = 1; /* i_apply_only */
+        need = CP_SIZE; /* i_apply_only */
     }
 
     if (HeapWordsLeft(p) < need) {
@@ -1365,7 +1399,17 @@ apply_bif_error_adjustment(Process *p, Export *ep,
          * Push the continuation pointer for the current function to the stack.
          */
         p->stop -= need;
-        p->stop[0] = make_cp(I);
+
+        switch (erts_frame_layout) {
+        case ERTS_FRAME_LAYOUT_RA:
+            p->stop[0] = make_cp(I);
+            break;
+        case ERTS_FRAME_LAYOUT_FP_RA:
+            p->stop[0] = make_cp(FRAME_POINTER(p));
+            p->stop[1] = make_cp(I);
+            FRAME_POINTER(p) = &p->stop[0];
+            break;
+        }
     } else {
         /*
          * Called from an i_apply_last_* instruction.
@@ -1377,7 +1421,17 @@ apply_bif_error_adjustment(Process *p, Export *ep,
          * and then add a dummy stackframe for the i_apply_last* instruction
          * to discard.
          */
-        p->stop[0] = make_cp(I);
+        switch (erts_frame_layout) {
+        case ERTS_FRAME_LAYOUT_RA:
+            p->stop[0] = make_cp(I);
+            break;
+        case ERTS_FRAME_LAYOUT_FP_RA:
+            p->stop[0] = make_cp(FRAME_POINTER(p));
+            p->stop[1] = make_cp(I);
+            FRAME_POINTER(p) = &p->stop[0];
+            break;
+        }
+
         p->stop -= need;
     }
 }
@@ -1596,10 +1650,20 @@ erts_hibernate(Process* c_p, Eterm* reg)
     c_p->arg_reg[0] = module;
     c_p->arg_reg[1] = function;
     c_p->arg_reg[2] = args;
-    c_p->stop = c_p->hend - CP_SIZE;  /* Keep first continuation pointer */
-    ASSERT(c_p->stop[0] == make_cp(beam_normal_exit));
+    c_p->stop = c_p->hend - CP_SIZE; /* Keep first continuation pointer */
+
+    switch(erts_frame_layout) {
+    case ERTS_FRAME_LAYOUT_RA:
+        ASSERT(c_p->stop[0] == make_cp(beam_normal_exit));
+        break;
+    case ERTS_FRAME_LAYOUT_FP_RA:
+        ASSERT(c_p->stop[0] == make_cp(NULL));
+        ASSERT(c_p->stop[1] == make_cp(beam_normal_exit));
+        break;
+    }
+
     c_p->catches = 0;
-    c_p->i = beam_apply;
+    c_p->i = beam_run_process;
 
     /*
      * If there are no waiting messages, garbage collect and
@@ -1628,8 +1692,7 @@ ErtsCodePtr
 call_fun(Process* p,    /* Current process. */
          int arity,     /* Number of arguments for Fun. */
          Eterm* reg,    /* Contents of registers. */
-         Eterm args,    /* THE_NON_VALUE or pre-built list of arguments. */
-         Export **epp)  /* Export entry, if any. */
+         Eterm args)    /* THE_NON_VALUE or pre-built list of arguments. */
 {
     Eterm fun = reg[arity];
     Eterm hdr;
@@ -1748,7 +1811,6 @@ call_fun(Process* p,    /* Current process. */
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-                *epp = ep;
                 return ep->addresses[code_ix];
 	    }
 	}
@@ -1761,7 +1823,6 @@ call_fun(Process* p,    /* Current process. */
 
 	if (arity == actual_arity) {
             DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
-            *epp = ep;
             return ep->addresses[erts_active_code_ix()];
 	} else {
 	    /*
@@ -1792,7 +1853,7 @@ call_fun(Process* p,    /* Current process. */
 }
 
 ErtsCodePtr
-apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg, Export **epp)
+apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 {
     int arity;
     Eterm tmp;
@@ -1819,16 +1880,14 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg, Export **epp)
 	return NULL;
     }
     reg[arity] = fun;
-    return call_fun(p, arity, reg, args, epp);
+    return call_fun(p, arity, reg, args);
 }
 
 ErlFunThing*
-new_fun_thing(Process* p, ErlFunEntry* fe, int num_free)
+new_fun_thing(Process* p, ErlFunEntry* fe, int arity, int num_free)
 {
-    const ErtsCodeMFA *mfa;
     ErlFunThing* funp;
 
-    mfa = erts_code_to_codemfa(fe->address);
     funp = (ErlFunThing*) p->htop;
     p->htop += ERL_FUN_SIZE + num_free;
     erts_refc_inc(&fe->refc, 2);
@@ -1839,7 +1898,15 @@ new_fun_thing(Process* p, ErlFunEntry* fe, int num_free)
     funp->fe = fe;
     funp->num_free = num_free;
     funp->creator = p->common.id;
-    funp->arity = mfa->arity - num_free;
+    funp->arity = arity;
+
+#ifdef DEBUG
+    {
+        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
+        ASSERT(funp->arity == mfa->arity - num_free);
+        ASSERT(arity == fe->arity);
+    }
+#endif
 
     return funp;
 }

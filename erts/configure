@@ -21697,9 +21697,12 @@ if test ${enable_jit} != no; then
         amd64)
            JIT_ARCH=x86
            ;;
+        arm64)
+           JIT_ARCH=arm
+           ;;
         *)
            if test ${enable_jit} = yes; then
-             as_fn_error $? "JIT only works on x86 64-bit" "$LINENO" 5
+             as_fn_error $? "JIT only works on x86 64-bit and ARM 64-bit" "$LINENO" 5
            else
              enable_jit=no
              { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack to support on $ARCH-$OPSYS" >&5
@@ -22076,15 +22079,27 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext;;
   esac
 
-  if test X${enable_native_stack} = Xyes; then
+  case "$JIT_ARCH" in
+    x86)
+      if test X${enable_native_stack} = Xyes; then
 
 $as_echo "#define NATIVE_ERLANG_STACK /**/" >>confdefs.h
 
-  fi
+      fi
+      ;;
+    *)
+      ;;
+  esac
 fi
 
 case $OPSYS in
     linux*)
+        if test X${enable_native_stack} = Xyes; then
+
+$as_echo "#define ERLANG_FRAME_POINTERS /**/" >>confdefs.h
+
+        fi
+
 
 $as_echo "#define HAVE_LINUX_PERF_SUPPORT 1" >>confdefs.h
 

@@ -25,9 +25,11 @@
  * Type for a label.
  */
 typedef struct {
-    Uint value;            /* Value of label (0 if not known yet). */
-    Uint looprec_targeted; /* Non-zero if this label is the target of a
-                            * loop_rec instruction. */
+    Uint value;           /* Value of label (0 if not known yet). */
+    int looprec_targeted; /* Non-zero if this label is the target of a
+                           * loop_rec instruction. */
+    int lambda_index;     /* The lambda index of this label, or -1 if not
+                           * a target of a lambda. */
 } Label;
 
 /*

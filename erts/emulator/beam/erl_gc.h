@@ -189,4 +189,10 @@ void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
 #endif
 
+#ifdef DEBUG
+/* Validates the frame chain, ensuring that it always points within the stack
+ * and that no frames are skipped. */
+void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top);
+#endif
+
 #endif /* __ERL_GC_H__ */

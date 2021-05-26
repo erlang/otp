@@ -516,3 +516,50 @@ gen.allocate_heap_zero(Ns, Nh, Live) {
 
     return alloc;
 }
+
+gen.func_end(Func_Label, Entry_Label) {
+    BeamOp *op = NULL;
+
+    if (S->labels[Entry_Label.val].lambda_index != -1) {
+        int index = S->labels[Entry_Label.val].lambda_index;
+        BeamFile_LambdaEntry *lambda_entry;
+        BeamOp *lambda;
+
+        lambda_entry = &S->beam.lambdas.entries[index];
+
+        $NewBeamOp(S, lambda);
+        $BeamOpNameArity(lambda, i_lambda_trampoline, 4);
+
+        lambda->a[0].type = TAG_u;
+        lambda->a[0].val = index;
+        lambda->a[1] = Entry_Label;
+        lambda->a[2].type = TAG_u;
+        lambda->a[2].val = lambda_entry->arity;
+        lambda->a[3].type = TAG_u;
+        lambda->a[3].val = lambda_entry->num_free;
+
+        lambda->next = op;
+        op = lambda;
+    }
+
+    if (S->may_load_nif) {
+        BeamOp *padding;
+
+        $NewBeamOp(S, padding);
+        $BeamOpNameArity(padding, i_nif_padding, 0);
+
+        padding->next = op;
+        op = padding;
+    }
+
+    if (op == NULL) {
+        /* Workaround for the fact that we have to return an instruction from
+         * generators. The loader will remove this dummy instruction. */
+        $NewBeamOp(S, op);
+        $BeamOpNameArity(op, delete_me, 0);
+
+        op->next = NULL;
+    }
+
+    return op;
+}

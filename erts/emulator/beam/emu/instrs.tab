@@ -310,10 +310,8 @@ apply_last(Arity, Deallocate) {
 }
 
 APPLY_FUN(Next) {
-    Export *ignored;
-
     HEAVY_SWAPOUT;
-    $Next = apply_fun(c_p, r(0), x(1), reg, &ignored);
+    $Next = apply_fun(c_p, r(0), x(1), reg);
     HEAVY_SWAPIN;
 
     if (ERTS_UNLIKELY(next == NULL)) {
@@ -350,10 +348,9 @@ i_apply_fun_only() {
 
 CALL_FUN(Fun, Next) {
     //| -no_next
-    Export *ignored;
 
     HEAVY_SWAPOUT;
-    $Next = call_fun(c_p, $Fun, reg, THE_NON_VALUE, &ignored);
+    $Next = call_fun(c_p, $Fun, reg, THE_NON_VALUE);
     HEAVY_SWAPIN;
 
     if (ERTS_UNLIKELY(next == NULL)) {
@@ -543,12 +540,13 @@ init3(Y1, Y2, Y3) {
     make_blank($Y3);
 }
 
-i_make_fun3(FunP, Dst, NumFree) {
+i_make_fun3(FunP, Dst, Arity, NumFree) {
     ErlFunThing* funp;
+    ErlFunEntry *fe = (ErlFunEntry *) $FunP;
     int i, num_free = $NumFree;
     //| -no_next
     SWAPOUT;
-    funp = new_fun_thing(c_p, (ErlFunEntry *) $FunP, num_free);
+    funp = new_fun_thing(c_p, fe, $Arity, num_free);
     SWAPIN;
     I = $NEXT_INSTRUCTION;
     for (i = 0; i < num_free; i++) {

@@ -777,6 +777,12 @@ BIF_RETTYPE loaded_0(BIF_ALIST_0)
 
 BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
+#ifdef BEAMASM
+    /* This is implemented as an instruction. We've skipped providing a more
+     * helpful error message since it's undocumented and should never be called
+     * by the user. */
+    BIF_ERROR(BIF_P, BADARG);
+#else
     Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
     const BeamCodeHeader *hdr;
 
@@ -792,6 +798,7 @@ BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
     }
 
     BIF_ERROR(BIF_P, BADARG);
+#endif
 }
 
 BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)

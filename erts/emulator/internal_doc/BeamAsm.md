@@ -47,8 +47,10 @@ liveness of values and the physical registers are statically allocated to keep
 the necessary process state. At the moment this is the static register allocation:
 
     rbx: ErtsSchedulerRegisters struct (contains x/float registers and some metadata)
-    rbp: Active code index
-    r12: Optional Save slot for the Erlang stack pointer when executing C code
+    rbp: Current frame pointer when `perf` support is enabled, otherwise this
+         is an optional save slot for the Erlang stack pointer when executing C
+         code.
+    r12: Active code index
     r13: Current running process
     r14: Remaining reductions
     r15: Erlang heap pointer
@@ -132,6 +134,23 @@ handlers even when we lack a stack frame. This is merely a reservation and has
 no effect on how the stack works, and all values stored there must be valid
 Erlang terms in case of a garbage collection.
 
+## Frame pointers
+
+To aid debuggers and sampling profilers, we support running Erlang code with
+native frame pointers. As of writing this only enabled together with `perf`
+support (`+JPperf true`) to save stack space, but we may add a flag to
+explicitly enable it in the future.
+
+When enabled, continuation pointers (CP) have both a return address _and_ a
+frame pointer that points at the previous CP. CPs must form a valid chain at
+all times, and it's illegal to have "half" a CP when the stack is inspected.
+
+Frame pointers are pushed when entering an Erlang function and popped before
+leaving it, including on tail calls as the callee will immediately push the
+frame pointer on entry. This has a slight overhead but saves us the headache of
+having multiple entry points for each function depending on whether it's tail-
+or body-called, which would get very tricky once breakpoints enter the picture.
+
 ## Running C code
 
 As Erlang stacks can be very small, we have to switch over to a different stack
@@ -209,16 +228,17 @@ The `erts_writable_code_ptr` function can be used to get writable pointers,
 given a module instance:
 
     for (i = 0; i < n; ++i) {
-        ErtsCodeInfo* ci;
+        const ErtsCodeInfo* ci_exec;
+        ErtsCodeInfo* ci_rw;
         void *w_ptr;
 
-        w_ptr = erts_writable_code_ptr(&modp->curr,
-                                       code_hdr->functions[i]);
-        ci = (ErtsCodeInfo*)w_ptr;
+        ci_exec = code_hdr->functions[i];
+        w_ptr = erts_writable_code_ptr(&modp->curr, ci_exec);
+        ci_rw = (ErtsCodeInfo*)w_ptr;
 
-        uninstall_breakpoint(ci);
-        consolidate_bp_data(modp, ci, 1);
-        ASSERT(ci->u.gen_bp == NULL);
+        uninstall_breakpoint(ci_rw, ci_exec);
+        consolidate_bp_data(modp, ci_rw, 1);
+        ASSERT(ci_rw->u.gen_bp == NULL);
     }
 
 Without the module instance there's no reliable way to figure out the writable
@@ -288,14 +308,18 @@ You can run perf on BeamAsm like this:
 
     perf record erl +JPperf true
 
-and then look at the results using `perf report` as you normally would with perf.
+and then look at the results using `perf report` as you normally would with
+perf.
 
-If you want to get some context to you calls you cann use the [lbr](https://lwn.net/Articles/680985/)
-call-graph option to `perf record`. Using `lbr` is not perfect (for instance you
-do not get any syscalls in the context), but it work well enough.
+Frame pointers are enabled when the `+JPperf true` option is passed, so you can
+use `perf record --call-graph=fp` to get more context. This will give you
+accurate call graphs for pure Erlang code, but in rare cases it fails to track
+transitions from Erlang to C code and back. [`perf record --call-graph=lbr`](https://lwn.net/Articles/680985/)
+may work better in those cases, but it's worse at tracking in general.
+
 For example, you can run perf to analyze dialyzer building a PLT like this:
 
-     ERL_FLAGS="+JPperf true +S 1" perf record --call-graph lbr \
+     ERL_FLAGS="+JPperf true +S 1" perf record --call-graph=fp \
        dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
        syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
        sasl runtime_tools snmp ssl tftp wx xmerl tools
@@ -315,10 +339,10 @@ By expanding it and looking at its parents we can see that it is the function
 at it in the source code to see if you can figure out why so much time is spent there.
 
 After `eq` we see the function `erl_types:t_has_var/1` where we spend almost
-6% of the entire execution in. A while further down you can see `copy_struct` which
-is the function used to copy terms. If we expand it to view the parents we find that
-it is mostly `ets:lookup_element/3` that contributes to this time via the Erlang
-function `dialyzer_plt:ets_table_lookup/2`.
+5% of the entire execution in. A while further down you can see `copy_struct_x`
+which is the function used to copy terms. If we expand it to view the parents
+we find that it is mostly `ets:lookup_element/3` that contributes to this time
+via the Erlang function `dialyzer_plt:ets_table_lookup/2`.
 
 ### Flame Graph
 
@@ -328,7 +352,7 @@ be more easily shared with others and manipulated to give a graph tailor-made fo
 your needs. For instance, if we run dialyzer with all schedulers:
 
     ## Run dialyzer with multiple schedulers
-    ERL_FLAGS="+JPperf true" perf record --call-graph lbr \
+    ERL_FLAGS="+JPperf true" perf record --call-graph=fp \
       dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
       sasl runtime_tools snmp ssl tftp wx xmerl tools --statistics
@@ -372,7 +396,7 @@ the annotate functionality in the `perf report` gui) you need to use a monotonic
 clock when calling `perf record`, i.e. `perf record -k mono`. So for a dialyzer
 run you would do this:
 
-    ERL_FLAGS="+JPperf true +S 1" perf record -k mono --call-graph lbr \
+    ERL_FLAGS="+JPperf true +S 1" perf record -k mono --call-graph=fp \
       dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
       sasl runtime_tools snmp ssl tftp wx xmerl tools
@@ -419,7 +443,6 @@ There are three major reasons why when building Erlang/OTP you would not get the
 
 * You are not building x86 64-bit
 * You do not have a C++ compiler that supports C++-17
-* You do not have an OS that supports executable *and* writable memory
 
 If you run `./configure --enable-jit` configure will abort when it discovers that
 your system cannot build the JIT.

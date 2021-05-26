@@ -369,9 +369,11 @@ static int load_code(LoaderState* stp)
 
     int num_specific;
 
-    beam_load_prepare_emit(stp);
-
     op_reader = beamfile_get_code(&stp->beam, &stp->op_allocator);
+
+    if (!beam_load_prepare_emit(stp)) {
+        goto load_error;
+    }
 
     for (;;) {
     get_next_instr:

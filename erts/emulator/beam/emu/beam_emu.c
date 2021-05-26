@@ -107,9 +107,11 @@
  * Special Beam instructions.
  */
 
-static BeamInstr beam_apply_[2];
-ErtsCodePtr beam_apply;             /* beam_apply_[0]; */
-ErtsCodePtr beam_normal_exit;       /* beam_apply_[1]; */
+static BeamInstr beam_run_process_[1];
+ErtsCodePtr beam_run_process;
+
+static BeamInstr beam_normal_exit_[1];
+ErtsCodePtr beam_normal_exit;
 
 static BeamInstr beam_exit_[1];
 ErtsCodePtr beam_exit;
@@ -139,6 +141,12 @@ ErtsCodePtr beam_exception_trace;
 /* OpCode(i_return_time_trace) */
 static BeamInstr beam_return_time_trace_[1];
 ErtsCodePtr beam_return_time_trace;
+
+/* The address field of every fun that has no loaded code will point to
+ * beam_unloaded_fun[]. The -1 in beam_unloaded_fun[0] will be interpreted
+ * as an illegal arity when attempting to call a fun. */
+static BeamInstr unloaded_fun_code[4] = {NIL, NIL, -1, 0};
+ErtsCodePtr beam_unloaded_fun = &unloaded_fun_code[3];
 
 /*
  * All Beam instructions in numerical order.
@@ -575,7 +583,7 @@ void process_main(ErtsSchedulerData *esdp)
  OpCase(label_L):
  OpCase(on_load):
  OpCase(line_I):
- OpCase(int_func_end):
+ OpCase(i_nif_padding):
     erts_exit(ERTS_ERROR_EXIT, "meta op\n");
 
     /*
@@ -669,11 +677,11 @@ init_emulator_finish(void)
     }
 #endif
 
-    beam_apply_[0]             = BeamOpCodeAddr(op_i_apply);
-    beam_apply_[1]             = BeamOpCodeAddr(op_normal_exit);
+    beam_run_process_[0]       = BeamOpCodeAddr(op_i_apply_only);
+    beam_run_process = (ErtsCodePtr)&beam_run_process_[0];
 
-    beam_apply = (ErtsCodePtr)&beam_apply_[0];
-    beam_normal_exit = (ErtsCodePtr)&beam_apply_[1];
+    beam_normal_exit_[0]       = BeamOpCodeAddr(op_normal_exit);
+    beam_normal_exit = (ErtsCodePtr)&beam_normal_exit_[0];
 
     beam_exit_[0]              = BeamOpCodeAddr(op_error_action_code);
     beam_exit = (ErtsCodePtr)&beam_exit_[0];

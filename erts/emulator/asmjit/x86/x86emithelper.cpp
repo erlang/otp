@@ -22,7 +22,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 #include "../core/api-build_p.h"
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
 
 #include "../core/formatter.h"
 #include "../core/funcargscontext_p.h"
@@ -148,12 +148,10 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
         instId = _avxEnabled ? Inst::kIdVmovaps : Inst::kIdMovaps;
       else if (elementTypeId == Type::kIdF64)
         instId = _avxEnabled ? Inst::kIdVmovapd : Inst::kIdMovapd;
-      else if (typeId <= Type::_kIdVec256End)
+      else if (!_avx512Enabled)
         instId = _avxEnabled ? Inst::kIdVmovdqa : Inst::kIdMovdqa;
-      else if (elementTypeId <= Type::kIdU32)
-        instId = Inst::kIdVmovdqa32;
       else
-        instId = Inst::kIdVmovdqa64;
+        instId = Inst::kIdVmovdqa32;
       break;
     }
   }
@@ -600,4 +598,4 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_BUILD_X86
+#endif // !ASMJIT_NO_X86

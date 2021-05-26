@@ -67,6 +67,16 @@ extern "C" void beamasm_dump_sizes() {
 }
 #endif
 
+ErtsCodePtr BeamModuleAssembler::getCode(BeamLabel label) {
+    ASSERT(label < labels.size() + 1);
+    return (ErtsCodePtr)getCode(labels[label]);
+}
+
+ErtsCodePtr BeamModuleAssembler::getLambda(unsigned index) {
+    const auto &lambda = lambdas[index];
+    return (ErtsCodePtr)getCode(lambda.trampoline);
+}
+
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          Eterm mod,
                                          unsigned num_labels)
@@ -101,18 +111,6 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     embed_zeros(sizeof(BeamCodeHeader) +
                 sizeof(ErtsCodeInfo *) * num_functions);
 
-    floatMax = a.newLabel();
-    a.align(kAlignCode, 8);
-    a.bind(floatMax);
-    double max = DBL_MAX;
-    a.embed((char *)&max, sizeof(double));
-
-    floatSignMask = a.newLabel();
-    a.align(kAlignCode, 16); /* 128-bit aligned */
-    a.bind(floatSignMask);
-    uint64_t signMask = 0x7FFFFFFFFFFFFFFFul;
-    a.embed((char *)&signMask, sizeof(double));
-
     /* Shared trampoline for function_clause errors, which can't jump straight
      * to `i_func_info_shared` due to size restrictions. */
     funcInfo = a.newLabel();
@@ -121,10 +119,16 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     abs_jmp(ga->get_i_func_info_shared());
 
     /* Shared trampoline for yielding on function ingress. */
-    funcYield = a.newLabel();
+    yieldEnter = a.newLabel();
     a.align(kAlignCode, 8);
-    a.bind(funcYield);
+    a.bind(yieldEnter);
     abs_jmp(ga->get_i_test_yield_shared());
+
+    /* Shared trampoline for yielding on function return. */
+    yieldReturn = a.newLabel();
+    a.align(kAlignCode, 8);
+    a.bind(yieldReturn);
+    abs_jmp(ga->get_dispatch_return());
 
     /* Setup the early_nif/breakpoint trampoline. */
     genericBPTramp = a.newLabel();
@@ -134,9 +138,11 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
         a.ret();
 
         a.align(kAlignCode, 16);
+        ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 1);
         abs_jmp(ga->get_call_nif_early());
 
         a.align(kAlignCode, 16);
+        ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 2);
         aligned_call(ga->get_generic_bp_local());
         a.ret();
 
@@ -147,47 +153,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     }
 }
 
-ErtsCodePtr BeamModuleAssembler::getCode(unsigned label) {
-    ASSERT(label < labels.size() + 1);
-    return (ErtsCodePtr)getCode(labels[label]);
-}
-
-void BeamAssembler::embed_rodata(const char *labelName,
-                                 const char *buff,
-                                 size_t size) {
-    Label label = a.newNamedLabel(labelName);
-
-    a.section(rodata);
-    a.bind(label);
-    a.embed(buff, size);
-    a.section(code.textSection());
-}
-
-void BeamAssembler::embed_bss(const char *labelName, size_t size) {
-    Label label = a.newNamedLabel(labelName);
-
-    /* Reuse rodata section for now */
-    a.section(rodata);
-    a.bind(label);
-    embed_zeros(size);
-    a.section(code.textSection());
-}
-
-void BeamAssembler::embed_zeros(size_t size) {
-    static constexpr size_t buf_size = 16384;
-    static const char zeros[buf_size] = {};
-
-    while (size >= buf_size) {
-        a.embed(zeros, buf_size);
-        size -= buf_size;
-    }
-
-    if (size > 0) {
-        a.embed(zeros, size);
-    }
-}
-
-Label BeamModuleAssembler::embed_vararg_rodata(const std::vector<ArgVal> &args,
+Label BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
                                                int y_offset) {
     Label label = a.newLabel();
 
@@ -206,27 +172,27 @@ Label BeamModuleAssembler::embed_vararg_rodata(const std::vector<ArgVal> &args,
 
         a.align(kAlignData, 8);
         switch (arg.getType()) {
-        case TAG_x:
+        case ArgVal::XReg:
             data.as_beam = make_loader_x_reg(arg.getValue());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case TAG_y:
+        case ArgVal::YReg:
             data.as_beam = make_loader_y_reg(arg.getValue() + y_offset);
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case TAG_q:
+        case ArgVal::Literal:
             make_word_patch(literals[arg.getValue()].patches);
             break;
-        case TAG_f:
+        case ArgVal::Label:
             a.embedLabel(labels[arg.getValue()]);
             break;
-        case TAG_i:
-        case TAG_u:
-            /* Tagged immediate or untagged word. */
+        case ArgVal::Immediate:
+        case ArgVal::Word:
             data.as_beam = arg.getValue();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         default:
+            erts_fprintf(stderr, "tag: %li\n", arg.getType());
             ERTS_ASSERT(!"error");
         }
     }
@@ -234,10 +200,6 @@ Label BeamModuleAssembler::embed_vararg_rodata(const std::vector<ArgVal> &args,
     a.section(code.textSection());
 
     return label;
-}
-
-static void i_emit_nyi(char *msg) {
-    erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
 }
 
 void BeamModuleAssembler::emit_i_nif_padding() {
@@ -257,14 +219,13 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
      * alternative instructions. The call is filled with a relative call to a
      * trampoline in the module header and then the jmp target is zeroed so that
      * it effectively becomes a nop */
-    byte flag = ERTS_ASM_BP_FLAG_NONE;
     Label next = a.newLabel();
 
     a.short_().jmp(next);
 
     /* We embed a zero byte here, which is used to flag whether to make an early
      * nif call, call a breakpoint handler, or both. */
-    a.embed(&flag, sizeof(flag));
+    a.embedUInt8(ERTS_ASM_BP_FLAG_NONE);
 
     if (genericBPTramp.isValid()) {
         a.call(genericBPTramp);
@@ -280,6 +241,10 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 }
 
+static void i_emit_nyi(char *msg) {
+    erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
+}
+
 void BeamModuleAssembler::emit_nyi(const char *msg) {
     emit_enter_runtime();
 
@@ -293,8 +258,7 @@ void BeamModuleAssembler::emit_nyi() {
     emit_nyi("<unspecified>");
 }
 
-bool BeamModuleAssembler::emit(unsigned specific_op,
-                               const std::vector<ArgVal> &args) {
+bool BeamModuleAssembler::emit(unsigned specific_op, const Span<ArgVal> &args) {
     comment(opc[specific_op].name);
 
 #ifdef BEAMASM_DUMP_SIZES
@@ -347,7 +311,10 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
 
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_FUNCTION_CLAUSE);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
-    a.jmp(labels[error_action_code]);
+
+    mov_imm(ARG2, 0);
+    mov_imm(ARG4, 0);
+    a.jmp(labels[raise_exception_shared]);
 }
 
 void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
@@ -390,7 +357,7 @@ void BeamModuleAssembler::emit_label(const ArgVal &Label) {
 
 void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
                                              const ArgVal &Alignment) {
-    ASSERT(Alignment.getType() == ArgVal::u);
+    ASSERT(Alignment.isWord());
     a.align(kAlignCode, Alignment.getValue());
     emit_label(Label);
 }
@@ -401,8 +368,8 @@ void BeamModuleAssembler::emit_on_load() {
 
 void BeamModuleAssembler::emit_int_code_end() {
     /* This label is used to figure out the end of the last function */
-    labels[labels.size() + 1] = a.newLabel();
-    a.bind(labels[labels.size()]);
+    code_end = a.newLabel();
+    a.bind(code_end);
 
     emit_nyi("int_code_end");
 }
@@ -440,129 +407,6 @@ void BeamModuleAssembler::emit_trace_jump(const ArgVal &) {
 
 void BeamModuleAssembler::emit_call_error_handler() {
     emit_nyi("call_error_handler should never be called");
-}
-
-void BeamModuleAssembler::codegen(JitAllocator *allocator,
-                                  const void **executable_ptr,
-                                  void **writable_ptr,
-                                  const BeamCodeHeader *in_hdr,
-                                  const BeamCodeHeader **out_exec_hdr,
-                                  BeamCodeHeader **out_rw_hdr) {
-    const BeamCodeHeader *code_hdr_exec;
-    BeamCodeHeader *code_hdr_rw;
-
-    codegen(allocator, executable_ptr, writable_ptr);
-
-    {
-        auto offset = code.labelOffsetFromBase(codeHeader);
-
-        auto base_exec = (const char *)(*executable_ptr);
-        code_hdr_exec = (const BeamCodeHeader *)&base_exec[offset];
-
-        auto base_rw = (const char *)(*writable_ptr);
-        code_hdr_rw = (BeamCodeHeader *)&base_rw[offset];
-    }
-
-    sys_memcpy(code_hdr_rw, in_hdr, sizeof(BeamCodeHeader));
-    code_hdr_rw->on_load = getOnLoad();
-
-    for (unsigned i = 0; i < functions.size(); i++) {
-        ErtsCodeInfo *ci = (ErtsCodeInfo *)getCode(functions[i]);
-        code_hdr_rw->functions[i] = ci;
-    }
-
-    char *module_end = (char *)code.baseAddress() + a.offset();
-    code_hdr_rw->functions[functions.size()] = (ErtsCodeInfo *)module_end;
-
-    *out_exec_hdr = code_hdr_exec;
-    *out_rw_hdr = code_hdr_rw;
-}
-
-void BeamModuleAssembler::codegen(JitAllocator *allocator,
-                                  const void **executable_ptr,
-                                  void **writable_ptr) {
-    _codegen(allocator, executable_ptr, writable_ptr);
-
-#ifndef WIN32
-    if (functions.size()) {
-        char *buff = (char *)erts_alloc(ERTS_ALC_T_TMP, 1024);
-        std::vector<AsmRange> ranges;
-        std::string name = getAtom(mod);
-        ranges.reserve(functions.size() + 2);
-
-        /* Push info about the header */
-        ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
-                          .stop = getCode(functions[0]),
-                          .name = name + "::codeHeader"});
-
-        for (unsigned i = 0; i < functions.size(); i++) {
-            ErtsCodePtr start, stop;
-            const ErtsCodeInfo *ci;
-            int n;
-
-            start = getCode(functions[i]);
-            ci = (const ErtsCodeInfo *)start;
-
-            n = erts_snprintf(buff,
-                              1024,
-                              "%T:%T/%d",
-                              ci->mfa.module,
-                              ci->mfa.function,
-                              ci->mfa.arity);
-            stop = ((const char *)erts_codeinfo_to_code(ci)) +
-                   BEAM_ASM_FUNC_PROLOGUE_SIZE;
-
-            /* We use a different symbol for CodeInfo and the Prologue
-               in order for the perf disassembly to be better. */
-            std::string name(buff, n);
-            ranges.push_back({.start = start,
-                              .stop = stop,
-                              .name = name + "-CodeInfoPrologue"});
-
-            /* The actual code */
-            start = stop;
-            if (i + 1 < functions.size()) {
-                stop = getCode(functions[i + 1]);
-            } else {
-                stop = getCode(labels.size());
-            }
-
-            ranges.push_back({.start = start, .stop = stop, .name = name});
-        }
-
-        /* Push info about the footer */
-        ranges.push_back(
-                {.start = ranges.back().stop,
-                 .stop = (ErtsCodePtr)(code.baseAddress() + code.codeSize()),
-                 .name = name + "::codeFooter"});
-
-        update_gdb_jit_info(name, ranges);
-        beamasm_update_perf_info(name, ranges);
-        erts_free(ERTS_ALC_T_TMP, buff);
-    }
-#endif
-}
-
-void BeamModuleAssembler::codegen(char *buff, size_t len) {
-    code.flatten();
-    code.resolveUnresolvedLinks();
-    ERTS_ASSERT(code.codeSize() <= len);
-    code.relocateToBase((uint64_t)buff);
-    code.copyFlattenedData(buff,
-                           code.codeSize(),
-                           CodeHolder::kCopyPadSectionBuffer);
-}
-
-BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {
-    return (BeamCodeHeader *)getCode(codeHeader);
-}
-
-const ErtsCodeInfo *BeamModuleAssembler::getOnLoad() {
-    if (on_load.isValid()) {
-        return erts_code_to_codeinfo((ErtsCodePtr)getCode(on_load));
-    } else {
-        return 0;
-    }
 }
 
 unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
