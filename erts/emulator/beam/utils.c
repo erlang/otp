@@ -5246,7 +5246,6 @@ erts_qsort_partion_array(byte *base,
      */
     byte* second_part_start = base + (nr_of_items * item_size);
     byte* curr = base + item_size;
-    int found_bigger = 0;
     int more_than_one_pivot_item = 0;
     size_t pivot_index =
         ((size_t)erts_sched_local_random_hash_64_to_32_shift((Uint64)extra_seed +
@@ -5267,26 +5266,16 @@ erts_qsort_partion_array(byte *base,
             /* Move to last part */
             second_part_start -= item_size;
             erts_qsort_swap(item_size, curr, second_part_start);
-            found_bigger = 1;
         }
     }
     if (!more_than_one_pivot_item) {
         /* Fast path successful (we don't need to use the slow path) */
-        if (!found_bigger) {
-            /* Move the pivot into the second part */
-            second_part_start -= item_size;
-            erts_qsort_swap(item_size, base, second_part_start);
-        }
-        {
-            erts_qsort_partion_array_result res;
-            res.pivot_part_start = second_part_start;
-            if (!found_bigger) {
-                res.pivot_part_end = second_part_start + item_size;
-            } else {
-                res.pivot_part_end = second_part_start;
-            }
-            return res;
-        }
+        /* Move the pivot before the second part (if any) */
+        erts_qsort_partion_array_result res;
+        res.pivot_part_start = second_part_start - item_size;
+        res.pivot_part_end = second_part_start;
+        erts_qsort_swap(item_size, base, res.pivot_part_start);
+        return res;
     } else {
         /*
            We have more than one item equal to the pivot item and need
