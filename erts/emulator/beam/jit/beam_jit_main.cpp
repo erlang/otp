@@ -354,6 +354,7 @@ struct jit_descriptor {
     jit_actions action_flag;
     struct jit_code_entry *relevant_entry;
     struct jit_code_entry *first_entry;
+    erts_mtx_t mutex;
 };
 
 extern "C"
@@ -395,6 +396,12 @@ static void beamasm_init_gdb_jit_info(void) {
     __jit_debug_descriptor.first_entry = entry;
     __jit_debug_descriptor.relevant_entry = entry;
     __jit_debug_register_code();
+
+    erts_mtx_init(&__jit_debug_descriptor.mutex,
+                  "jit_debug_descriptor",
+                  NIL,
+                  (ERTS_LOCK_FLAGS_PROPERTY_STATIC |
+                   ERTS_LOCK_FLAGS_CATEGORY_GENERIC));
 }
 
 void BeamAssembler::update_gdb_jit_info(std::string modulename,
@@ -441,6 +448,7 @@ void BeamAssembler::update_gdb_jit_info(std::string modulename,
     ASSERT(symfile_size == (symfile - entry->symfile_addr));
 
     /* Insert into linked list */
+    erts_mtx_lock(&__jit_debug_descriptor.mutex);
     entry->next_entry = __jit_debug_descriptor.first_entry;
     if (entry->next_entry) {
         entry->next_entry->prev_entry = entry;
@@ -453,6 +461,7 @@ void BeamAssembler::update_gdb_jit_info(std::string modulename,
     __jit_debug_descriptor.first_entry = entry;
     __jit_debug_descriptor.relevant_entry = entry;
     __jit_debug_register_code();
+    erts_mtx_unlock(&__jit_debug_descriptor.mutex);
 }
 
 extern "C"

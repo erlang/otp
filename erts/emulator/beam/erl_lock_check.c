@@ -167,6 +167,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },
     {	"perf", 				NULL			},
+    {	"jit_debug_descriptor",			NULL			},
     {	"erts_mmap",				NULL			}
 };
 
