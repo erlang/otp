@@ -550,7 +550,7 @@ shell_ssh_conn(Config) when is_list(Config) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    {ok,C} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                       {user_dir, UserDir},
                                       {user_interaction, false}]),
     Shell = ssh_test_lib:start_shell(C, IO, undefined),
@@ -716,7 +716,9 @@ known_hosts(Config) when is_list(Config) ->
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
 					  {user_interaction, false},
-					  silently_accept_hosts]),
+					  {silently_accept_hosts, true},
+                                          {save_accepted_host, true}
+                                         ]),
     {ok, _Channel} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh:close(ConnectionRef),
     {ok, Binary} = file:read_file(KnownHosts),
@@ -745,7 +747,9 @@ known_hosts(Config) when is_list(Config) ->
     _ConnectionRef2 =
 	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
 					  {user_interaction, false},
-					  silently_accept_hosts]),
+					  {silently_accept_hosts, true},
+                                          {save_accepted_host, true}
+                                         ]),
     {ok, Binary2} = file:read_file(KnownHosts),
     case Binary of
         Binary2 -> ok;
@@ -758,7 +762,9 @@ known_hosts(Config) when is_list(Config) ->
      _ConnectionRef3 =
 	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
 					  {user_interaction, false},
-					  silently_accept_hosts]),
+					  {silently_accept_hosts, true},
+                                          {save_accepted_host, true}
+                                         ]),
     ct:log("New known_hosts:~n~p",[Binary3]),
     {ok, Binary4} = file:read_file(KnownHosts),
     case Binary3 of
@@ -979,6 +985,7 @@ internal_error(Config) when is_list(Config) ->
 
     {error, Error} =
         ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
                                  {user_dir, UserDir},
                                  {user_interaction, false}]),
     check_error(Error),
@@ -1091,7 +1098,7 @@ double_close(Config) when is_list(Config) ->
 					     {user_dir, UserDir},
 					     {user_passwords, [{"vego", "morot"}]},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    {ok, CM} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+    CM = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					   {user_dir, UserDir},
 					    {user, "vego"},
 					    {password, "morot"},
@@ -1119,7 +1126,7 @@ daemon_opt_fd(Config) ->
 			       {failfun, fun ssh_test_lib:failfun/2}]),
     
     {ok,{_Host1,Port1}} = inet:sockname(S1),
-    {ok, C1} = ssh:connect("localhost", Port1, [{silently_accept_hosts, true},
+    C1 = ssh_test_lib:connect(Port1, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user, "vego"},
 					  {password, "morot"},
@@ -1149,7 +1156,7 @@ multi_daemon_opt_fd(Config) ->
 					  {failfun, fun ssh_test_lib:failfun/2}]),
 
 		{ok,{_Host,Port}} = inet:sockname(S),
-		{ok, C} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+		C = ssh_test_lib:connect(Port, [{silently_accept_hosts, true},
 							  {user_dir, UserDir},
 							  {user, "vego"},
 							  {password, "morot"},
@@ -1470,7 +1477,7 @@ basic_test(Config) ->
     ServerOpts = proplists:get_value(server_opts, Config),
     
     {Pid, Host, Port} = ssh_test_lib:daemon(ServerOpts),
-    {ok, CM} = ssh:connect(Host, Port, ClientOpts),
+    CM = ssh_test_lib:connect(Host, Port, ClientOpts),
     ok = ssh:close(CM),
     ssh:stop_daemon(Pid).
 

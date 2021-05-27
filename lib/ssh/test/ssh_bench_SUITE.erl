@@ -156,6 +156,7 @@ transfer_text(Config) ->
                {password, proplists:get_value(pwd,      Config)},
                {user_dir, proplists:get_value(priv_dir, Config)},
                {silently_accept_hosts, true},
+               {save_accepted_host, false},
                {user_interaction, false},
                {max_random_length_padding, 0}
               ],
