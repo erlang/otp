@@ -7240,9 +7240,10 @@ nif_sendfile(ErlNifEnv*         env,
         MLOCK(descP->writeMtx);
 
         SSDBG( descP,
-               ("SOCKET", "nif_sendfile(%T), {%d,0x%X} ->"
+               ("SOCKET", "nif_sendfile(%T), {%d,%d,0x%X} ->"
                 "\r\n",
-                sockRef, descP->sock, descP->writeState) );
+                sockRef,
+                descP->sock, descP->sendfileHandle, descP->writeState) );
 
         res = esock_sendfile_deferred_close(env, descP);
 
@@ -7568,8 +7569,8 @@ esock_sendfile(ErlNifEnv       *env,
     size_t pkgSize = 0; // Total sent in this call
 
     SSDBG( descP, ("SOCKET",
-                   "esock_sendfile(%T) {%d}\r\n",
-                   sockRef, descP->sock) );
+                   "esock_sendfile(%T) {%d,%d}\r\n",
+                   sockRef, descP->sock, descP->sendfileHandle) );
 
     for (;;) {
         size_t  chunk_size = (size_t) 0x20000000UL; // 0.5 GB
