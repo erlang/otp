@@ -5329,7 +5329,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
 
 #ifdef HAVE_SETNS
     if ((netns != NULL) &&
-        !change_network_namespace(netns, &current_ns, &save_errno)) {
+        (! change_network_namespace(netns, &current_ns, &save_errno))) {
         FREE(netns);
         return esock_make_error_errno(env, save_errno);
     }
@@ -5479,37 +5479,27 @@ BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
             "\r\n   new ns: %s"
             "\r\n", netns) );
 
-    if (netns != NULL) {
-        current_ns = open("/proc/self/ns/net", O_RDONLY);
-        if (ESOCK_IS_ERROR(current_ns)) {
-            *cns = current_ns;
-            *err = sock_errno();
-            return FALSE;
-        }
-        new_ns = open(netns, O_RDONLY);
-        if (ESOCK_IS_ERROR(new_ns)) {
-            save_errno = sock_errno();
-            (void) close(current_ns);
-            *cns = -1;
-            *err = save_errno;
-            return FALSE;
-        }
-        if (setns(new_ns, CLONE_NEWNET) != 0) {
-            save_errno = sock_errno();
-            (void) close(new_ns);
-            (void) close(current_ns);
-            *cns = -1;
-            *err = save_errno;
-            return FALSE;
-        } else {
-            (void) close(new_ns);
-            *cns = current_ns;
-            *err = 0;
-            return TRUE;
-        }
+    current_ns = open("/proc/self/ns/net", O_RDONLY);
+    if (ESOCK_IS_ERROR(current_ns)) {
+        *err = sock_errno();
+        return FALSE;
+    }
+    new_ns = open(netns, O_RDONLY);
+    if (ESOCK_IS_ERROR(new_ns)) {
+        save_errno = sock_errno();
+        (void) close(current_ns);
+        *err = save_errno;
+        return FALSE;
+    }
+    if (setns(new_ns, CLONE_NEWNET) != 0) {
+        save_errno = sock_errno();
+        (void) close(new_ns);
+        (void) close(current_ns);
+        *err = save_errno;
+        return FALSE;
     } else {
-        *cns = INVALID_SOCKET;
-        *err = 0;
+        (void) close(new_ns);
+        *cns = current_ns;
         return TRUE;
     }
 }
@@ -5523,35 +5513,25 @@ BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
 static
 BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err)
 {
-    int save_errno;
-
     SGDBG( ("SOCKET", "restore_network_namespace -> entry with"
             "\r\n   ns: %d"
             "\r\n", ns) );
 
-    if (ns != INVALID_SOCKET) {
-        if (setns(ns, CLONE_NEWNET) != 0) {
-            /* XXX Failed to restore network namespace.
-             * What to do? Tidy up and return an error...
-             * Note that the thread now might still be in the namespace.
-             * Can this even happen? Should the emulator be aborted?
-             */
-            if (sock != INVALID_SOCKET)
-                save_errno = sock_errno();
-            (void) close(sock);
-            sock = INVALID_SOCKET;
-            (void) close(ns);
-            *err = save_errno;
-            return FALSE;
-        } else {
-            (void) close(ns);
-            *err = 0;
-            return TRUE;
-        }
-  }
-
-  *err = 0;
-  return TRUE;
+    if (setns(ns, CLONE_NEWNET) != 0) {
+        /* XXX Failed to restore network namespace.
+         * What to do? Tidy up and return an error...
+         * Note that the thread now might still be in the namespace.
+         * Can this even happen? Should the emulator be aborted?
+         */
+        int save_errno = sock_errno();
+        (void) close(sock);
+        (void) close(ns);
+        *err = save_errno;
+        return FALSE;
+    } else {
+        (void) close(ns);
+        return TRUE;
+    }
 }
 #endif // #ifndef __WIN32__
 
