@@ -91,7 +91,6 @@
          ssh_exec_echo/2 % called as an MFA
         ]).
 
--define(SSH_DEFAULT_PORT, 22).
 -define(EXEC_TIMEOUT, 10000).
 
 %%--------------------------------------------------------------------
@@ -174,7 +173,7 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(openssh, Config) ->
-    case ssh_test_lib:gen_tcp_connect("localhost", 22, []) of
+    case ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon (econnrefused)"};
 	{ok, Socket} ->
@@ -202,15 +201,16 @@ end_per_testcase(_TestCase, _Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 simple_exec(Config) when is_list(Config) ->
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-							     {user_interaction, false}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     do_simple_exec(ConnectionRef).
 
 %%--------------------------------------------------------------------
 simple_exec_sock(_Config) ->
-    {ok, Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
-    {ok, ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
-					     {user_interaction, false}]),
+    {ok, Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, [{active,false}]),
+    {ok, ConnectionRef} = ssh:connect(Sock, [{save_accepted_host, false},
+                                             {silently_accept_hosts, true},
+                                             {user_interaction, true}
+                                            ]),
     do_simple_exec(ConnectionRef).
 
 %%--------------------------------------------------------------------
@@ -219,9 +219,10 @@ simple_exec_two_socks(_Config) ->
     F = fun() ->
                 spawn_link(
                   fun() ->
-                          {ok, Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
-                          {ok, ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
-                                                                   {user_interaction, false}]),
+                          {ok, Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, [{active,false}]),
+                          {ok, ConnectionRef} = ssh:connect(Sock, [{save_accepted_host, false},
+                                                                   {silently_accept_hosts, true},
+                                                                   {user_interaction, true}]),
                           Parent ! {self(),do_simple_exec(ConnectionRef)}
                   end)
         end,
@@ -237,7 +238,9 @@ simple_exec_two_socks(_Config) ->
 %%--------------------------------------------------------------------
 connect_sock_not_tcp(_Config) ->
     {ok,Sock} = gen_udp:open(0, []), 
-    {error, not_tcp_socket} = ssh:connect(Sock, []),
+    {error, not_tcp_socket} = ssh:connect(Sock, [{save_accepted_host, false},
+                                                 {silently_accept_hosts, true},
+                                                 {user_interaction, true}]),
     gen_udp:close(Sock).
 
 %%--------------------------------------------------------------------
@@ -248,20 +251,21 @@ daemon_sock_not_tcp(_Config) ->
 
 %%--------------------------------------------------------------------
 connect_sock_not_passive(_Config) ->
-    {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
-    {error, not_passive_mode} = ssh:connect(Sock, []),
+    {ok,Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, []), 
+    {error, not_passive_mode} = ssh:connect(Sock, [{save_accepted_host, false},
+                                                   {silently_accept_hosts, true},
+                                                   {user_interaction, true}]),
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
 daemon_sock_not_passive(_Config) ->
-    {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
+    {ok,Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, []), 
     {error, not_passive_mode} = ssh:daemon(Sock),
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
 small_cat(Config) when is_list(Config) ->
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-							     {user_interaction, false}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "cat", infinity),
@@ -349,8 +353,7 @@ big_cat(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 send_after_exit(Config) when is_list(Config) ->
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-							     {user_interaction, false}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     Data = <<"I like spaghetti squash">>,
 
@@ -414,8 +417,7 @@ encode_decode_pty_opts(_Config) ->
 
 %%--------------------------------------------------------------------
 ptty_alloc_default(Config) when is_list(Config) ->
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-							     {user_interaction, false}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     Expect = case proplists:get_value(ptty_supported, Config) of
                  true -> success;
@@ -426,8 +428,7 @@ ptty_alloc_default(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 ptty_alloc(Config) when is_list(Config) ->
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-							     {user_interaction, false}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     Expect = case proplists:get_value(ptty_supported, Config) of
                  true -> success;
@@ -440,8 +441,7 @@ ptty_alloc(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 ptty_alloc_pixel(Config) when is_list(Config) ->
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-							     {user_interaction, false}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     Expect = case proplists:get_value(ptty_supported, Config) of
                  true -> success;
@@ -941,6 +941,7 @@ start_shell_sock_exec_fun(Config) when is_list(Config) ->
 
     {ok, Sock} = ssh_test_lib:gen_tcp_connect(Host, Port, [{active,false}]),
     {ok,ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
+                                            {save_accepted_host, false},
 					    {user, "foo"},
 					    {password, "morot"},
 					    {user_interaction, true},
@@ -974,7 +975,7 @@ start_shell_sock_daemon_exec(Config) ->
 
     %% A server tcp-contects to the listening socket and starts an ssh daemon
     spawn_link(fun() ->
-		       {ok,Ss} = ssh_test_lib:gen_tcp_connect("localhost", Port, [{active,false}]),
+		       {ok,Ss} = ssh_test_lib:gen_tcp_connect(Port, [{active,false}]),
 		       {ok, _Pid} = ssh:daemon(Ss, [{system_dir, SysDir},
 						    {user_dir, UserDir},
 						    {password, "morot"},
@@ -984,6 +985,7 @@ start_shell_sock_daemon_exec(Config) ->
     %% The client accepts the tcp connection from the server and ssh-connects to it
     {ok,Sc} = gen_tcp:accept(Sl),
     {ok,ConnectionRef} = ssh:connect(Sc, [{silently_accept_hosts, true},
+                                          {save_accepted_host, false},
 					  {user, "foo"},
 					  {password, "morot"},
 					  {user_interaction, true},
@@ -1025,7 +1027,7 @@ start_shell_sock_daemon_exec_multi(Config) ->
     %% Servers tcp-contects to the listening socket and starts an ssh daemon
     Pids =
         [spawn_link(fun() ->
-                            {ok,Ss} = ssh_test_lib:gen_tcp_connect("localhost", Port, [{active,false}]),
+                            {ok,Ss} = ssh_test_lib:gen_tcp_connect(Port, [{active,false}]),
                             {ok, _Pid} = ssh:daemon(Ss, DaemonOpts)
                     end)
          || _ <- lists:seq(1,NumConcurent)],
@@ -1036,6 +1038,7 @@ start_shell_sock_daemon_exec_multi(Config) ->
         [begin
              {ok,Sc} = gen_tcp:accept(Sl),
              {ok,ConnectionRef} = ssh:connect(Sc, [{silently_accept_hosts, true},
+                                                   {save_accepted_host, false},
                                                    {user, "foo"},
                                                    {password, "morot"},
                                                    {user_interaction, true},
@@ -1187,6 +1190,8 @@ stop_listener(Config) when is_list(Config) ->
     ssh:stop_listener(Host, Port),
 
     {error, _} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {save_accepted_host, false},
+                                          {save_accepted_host, false},
 					  {user, "foo"},
 					  {password, "morot"},
 					  {user_interaction, true},
@@ -1211,6 +1216,7 @@ stop_listener(Config) when is_list(Config) ->
 							       {user_interaction, true},
 							       {user_dir, UserDir}]),
 	    {error, _} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                                  {save_accepted_host, false},
                                                   {user, "foo"},
                                                   {password, "morot"},
                                                   {user_interaction, true},

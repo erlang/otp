@@ -568,10 +568,10 @@ ssh_list_public_key(Config) when is_list(Config) ->
 chk_encode(Data, Type) ->
     case ssh_file:decode(ssh_file:encode(Data,Type), Type) of
         Data->
-            ct:pal("re-encode ~p ok", [Type]),
+            ct:log("re-encode ~p ok", [Type]),
             true;
         Result ->
-            ct:pal("re-encode ~p FAILED~n"
+            ct:log("re-encode ~p FAILED~n"
                    "Got~n ~p~nExpect~n ~p~n",
                    [Type, Result, Data]),
             false
@@ -581,10 +581,10 @@ chk_encode(Data, Type) ->
 chk_decode(Data, Expect, Type) ->
     case ssh_file:decode(Data, Type) of
         Expect ->
-            ct:pal("decode ~p ok", [Type]),
+            ct:log("decode ~p ok", [Type]),
             true;
         BadResult ->
-            ct:pal("decode ~p FAILED~n"
+            ct:log("decode ~p FAILED~n"
                    "Result~n ~p~nExpect~n ~p~n"
                    "~p",
                    [Type, BadResult, Expect,

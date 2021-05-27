@@ -364,6 +364,7 @@ sshc_simple_exec_os_cmd(Config) ->
                                                         " -o UserKnownHostsFile=",KnownHosts,
                                                         " -o CheckHostIP=no"
                                                         " -o StrictHostKeyChecking=no"
+                                                        " -o UpdateHostKeys=no"
                                                         " -q"
                                                         " -x"
                                                         ],
@@ -393,10 +394,9 @@ sshd_simple_exec(Config) ->
             {public_key,Alg} -> [{pref_public_key_algs,Alg}];
             _ -> []
         end,
-    ConnectionRef = ssh_test_lib:connect(22, [{silently_accept_hosts, true},
-                                              proplists:get_value(pref_algs,Config),
-					      {user_interaction, false}
-                                              | ClientPubKeyOpts]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+                                         [proplists:get_value(pref_algs,Config)
+                                          | ClientPubKeyOpts]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
