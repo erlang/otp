@@ -1536,8 +1536,9 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	Result -> Result
     end.
 
+
 -spec open(Fd_or_OpenOpts :: integer() | list(),
-	   Addr ::
+	   BAddr ::
 	     socket_address() |
 	     {ip_address() | 'any' | 'loopback', % Unofficial
 	      port_number()} |
@@ -1548,7 +1549,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	      {ip6_address() | 'any' | 'loopback',
 	       port_number()}} |
 	     undefined, % Internal - no bind()
-	   Port :: port_number(),
+	   BPort :: port_number(),
 	   Opts :: [socket_setopt()],
 	   Protocol :: socket_protocol(),
 	   Family :: address_family(),
@@ -1556,51 +1557,20 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	   Module :: atom()) ->
 	{'ok', port()} | {'error', posix()}.
 
-open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module)
+open(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module)
   when is_integer(Fd), 0 =< Fd ->
-    fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module);
-open(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module) ->
-    open_opts(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module).
-
-
-open_opts(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module) ->
-    OpenOpts =
-	if
-            is_list(Fd_O) -> Fd_O;
-	    true -> []
-	end,
-    case prim_inet:open(Protocol, Family, Type, OpenOpts) of
-	{ok,S} ->
-	    case prim_inet:setopts(S, Opts) of
-		ok when Addr =:= undefined ->
-		    inet_db:register_socket(S, Module),
-		    {ok,S};
-		ok ->
-		    case bind(S, Addr, Port) of
-			{ok, _} ->
-			    inet_db:register_socket(S, Module),
-			    {ok,S};
-			Error  ->
-			    prim_inet:close(S),
-			    Error
-		    end;
-		Error  ->
-		    prim_inet:close(S),
-		    Error
-	    end;
-	Error ->
-	    Error
-    end.
-
+    open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module);
+open(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
+    open_opts(
+      Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module).
 
 %% The only difference between open/8 and open_bind/8 is that
 %% if Fd_O is not a (file descriptor :: non_neg_integer())
 %% the latter translates Addr =:= 'undefined' to 'any',
-%% causing open_opts/8 to bind to the wildcard address
-
+%% causing open_setopts/5 to bind to the wildcard address
 
 -spec open_bind(Fd_or_OpenOpts :: integer() | list(),
-                Addr ::
+                BAddr ::
                   socket_address() |
                   {ip_address() | 'any' | 'loopback', % Unofficial
                    port_number()} |
@@ -1611,7 +1581,7 @@ open_opts(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module) ->
                    {ip6_address() | 'any' | 'loopback',
                     port_number()}} |
                   undefined, % Internal - translated to 'any'
-                Port :: port_number(),
+                BPort :: port_number(),
                 Opts :: [socket_setopt()],
                 Protocol :: socket_protocol(),
                 Family :: address_family(),
@@ -1619,14 +1589,72 @@ open_opts(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module) ->
                 Module :: atom()) ->
                        {'ok', port()} | {'error', posix()}.
 
-open_bind(Fd, Addr, Port, Opts, Protocol, Family, Type, Module)
+open_bind(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module)
   when is_integer(Fd), 0 =< Fd ->
-    fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module);
-open_bind(Fd_O, undefined, Port, Opts, Protocol, Family, Type, Module) ->
-    Addr = translate_ip(any, Family),
-    open_opts(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module);
-open_bind(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module) ->
-    open_opts(Fd_O, Addr, Port, Opts, Protocol, Family, Type, Module).
+    open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module);
+open_bind(
+  Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
+    open_opts(
+      Fd_or_OpenOpts,
+      if
+          BAddr =:= undefined ->
+              translate_ip(any, Family);
+          true ->
+              BAddr
+      end, BPort, Opts, Protocol, Family, Type, Module).
+
+
+open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
+    DoNotBind =
+	%% We do not do any binding if no port+addr options
+	%% were given, in order to keep backwards compatability
+	%% with pre Erlang/OTP 17
+        BAddr =:= undefined, % Presumably already bound
+    if
+        DoNotBind ->
+            0 = BPort, ok; % Assertion
+        true ->
+            ok
+    end,
+    case prim_inet:fdopen(Protocol, Family, Type, Fd, DoNotBind) of
+	{ok, S} ->
+            open_setopts(S, BAddr, BPort, Opts, Module);
+        Error ->
+            Error
+    end.
+
+open_opts(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
+    OpenOpts =
+	if
+            is_list(Fd_or_OpenOpts) -> Fd_or_OpenOpts;
+	    true -> []
+	end,
+    case prim_inet:open(Protocol, Family, Type, OpenOpts) of
+	{ok,S} ->
+            open_setopts(S, BAddr, BPort, Opts, Module);
+        Error ->
+            Error
+    end.
+
+open_setopts(S, BAddr, BPort, Opts, Module) ->
+    case prim_inet:setopts(S, Opts) of
+        ok when BAddr =:= undefined ->
+            inet_db:register_socket(S, Module),
+            {ok,S};
+        ok ->
+            case bind(S, BAddr, BPort) of
+                {ok, _} ->
+                    inet_db:register_socket(S, Module),
+                    {ok,S};
+                Error  ->
+                    prim_inet:close(S),
+                    Error
+            end;
+        Error  ->
+            prim_inet:close(S),
+            Error
+    end.
+
 
 
 bind(S, Addr, Port) when is_list(Addr) ->
@@ -1672,41 +1700,7 @@ change_bindx_0_port({_IP, _Port}=Addr, _AssignedPort) ->
 
 fdopen(Fd, Opts, Protocol, Family, Type, Module)
   when is_integer(Fd), 0 =< Fd ->
-    fdopen(Fd, undefined, 0, Opts, Protocol, Family, Type, Module).
-
-fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
-    DoNotBind =
-	%% We do not do any binding if no port+addr options
-	%% were given, in order to keep backwards compatability
-	%% with pre Erlang/OTP 17
-        Addr =:= undefined, % Presumably already bound
-    if
-        DoNotBind ->
-            0 = Port, ok; % Assertion
-        true ->
-            ok
-    end,
-    case prim_inet:fdopen(Protocol, Family, Type, Fd, DoNotBind) of
-	{ok, S} ->
-	    case prim_inet:setopts(S, Opts) of
-		ok when DoNotBind ->
-		    inet_db:register_socket(S, Module),
-		    {ok, S};
-		ok ->
-		    case bind(S, Addr, Port) of
-			{ok, _} ->
-			    inet_db:register_socket(S, Module),
-			    {ok, S};
-			Error  ->
-			    prim_inet:close(S),
-			    Error
-                    end;
-		Error ->
-		    prim_inet:close(S),
-		    Error
-	    end;
-	Error -> Error
-    end.
+    open_fd(Fd, undefined, 0, Opts, Protocol, Family, Type, Module).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  socket stat
