@@ -30,6 +30,7 @@
 	 connection_init/3, cache_pem_file/2,
 	 lookup_trusted_cert/4,
 	 clean_cert_db/2,
+         refresh_trusted_db/1, refresh_trusted_db/2,
 	 register_session/2, register_session/4, invalidate_session/2,
 	 insert_crls/2, insert_crls/3, delete_crls/1, delete_crls/2, 
 	 invalidate_session/3, name/1]).
@@ -157,6 +158,20 @@ clean_cert_db(Ref, File) ->
     erlang:send_after(?CLEAN_CERT_DB, get(ssl_manager), 
 		      {clean_cert_db, Ref, File}),
     ok.
+
+%%--------------------------------------------------------------------
+-spec refresh_trusted_db(normal | dist) -> ok.
+%%
+%% Description: Send refresh of trusted cert db to ssl_manager process should
+%% be called by ssl-connection processes.
+%%--------------------------------------------------------------------
+refresh_trusted_db(ManagerType) ->
+    put(ssl_manager, name(ManagerType)),
+    call(refresh_trusted_db).
+
+refresh_trusted_db(ManagerType, File) ->
+    put(ssl_manager, name(ManagerType)),
+    call({refresh_trusted_db, File}).
 
 %%--------------------------------------------------------------------
 %%
@@ -293,6 +308,12 @@ handle_call({{delete_crls, CRLsOrPath}, _}, _From,
     {reply, ok, State};
 handle_call({{register_session, Host, Port, Session},_}, _, State0) ->
     State = client_register_session(Host, Port, Session, State0), 
+    {reply, ok, State};
+handle_call({refresh_trusted_db, _}, _, #state{certificate_db = Db} = State) ->
+    ssl_pkix_db:refresh_trusted_certs(Db),
+    {reply, ok, State};
+handle_call({{refresh_trusted_db, File}, _}, _, #state{certificate_db = Db} = State) ->
+    ssl_pkix_db:refresh_trusted_certs(File, Db),
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
