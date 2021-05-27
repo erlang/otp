@@ -737,7 +737,9 @@ error_info(_Config) ->
          {binary_to_existing_atom, [abc, latin1]},
          {binary_to_existing_atom, [<<128,128,255>>,utf8]},
          {binary_to_existing_atom, [list_to_binary(NewAtom), latin1]},
+         {binary_to_existing_atom, [list_to_binary(NewAtom), utf8]},
          {binary_to_existing_atom, [list_to_binary(NewAtom), utf42]},
+         {binary_to_existing_atom, [[<<"abc">>], utf8]},
          {binary_to_existing_atom, [<<0:512/unit:8>>, latin1]},
 
          {binary_to_float, [abc]},
