@@ -776,7 +776,7 @@ error_info(_Config) ->
 
     L = [{filter, [fun(_, _) -> true end, abc]},
          {filter, [fun(_, _) -> true end, BadIterator]},
-         {filter, [bad_fun, BadIterator]},
+         {filter, [bad_fun, BadIterator],[{1,".*"},{2,".*"}]},
          {filter, [bad_fun, GoodIterator]},
 
          {filtermap, [fun(_, _) -> true end, abc]},
@@ -807,11 +807,11 @@ error_info(_Config) ->
 
          {intersect, [#{a => b}, y]},
          {intersect, [x, #{a => b}]},
-         {intersect, [x, y]},
+         {intersect, [x, y],[{1,".*"},{2,".*"}]},
 
          {intersect_with, [fun(_, _, _) -> ok end, #{a => b}, y]},
          {intersect_with, [fun(_, _, _) -> ok end, x, #{a => b}]},
-         {intersect_with, [fun(_, _, _) -> ok end, x, y]},
+         {intersect_with, [fun(_, _, _) -> ok end, x, y],[{2,".*"},{3,".*"}]},
          {intersect_with, [fun(_, _) -> ok end, #{}, #{}]},
 
          {is_key,[key, no_map]},
@@ -827,10 +827,10 @@ error_info(_Config) ->
 
          {merge,[#{a => b}, {a,b}]},
          {merge,[{x,y}, #{a => b}]},
-         {merge,[{x,y}, {a,b}]},
+         {merge,[{x,y}, {a,b}],[{1,".*"},{2,".*"}]},
 
          {merge_with, [fun(_, _) -> ok end, #{}, #{}]},
-         {merge_with, [a, b, c]},
+         {merge_with, [a, b, c],[{1,".*"},{2,".*"},{3,".*"}]},
 
          {next,[no_iterator]},
 

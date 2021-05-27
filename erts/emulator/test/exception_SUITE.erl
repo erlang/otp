@@ -323,6 +323,10 @@ stacktrace(Conf) when is_list(Conf) ->
         stacktrace_1({value,V}, error, {value,V}),
     {caught2,{throw,V},[{?MODULE,foo,1,_}|_]} =
         stacktrace_1({value,V}, error, {throw,V}),
+    {caught2,{error,V},[{?MODULE,foo,[a],_}|_]} =
+        stacktrace_1({value,V}, error, {error,{V,[a]}}),
+    {caught2,{error,V},[{?MODULE,foo,1,_}|_]} =
+        stacktrace_1({value,V}, error, {error,{V,none}}),
 
     try
         stacktrace_2()
@@ -442,7 +446,9 @@ foo({'add',{A,B}}) ->
     my_add(A, B);
 foo({'abs',X}) ->
     my_abs(X);
-foo({error,Error}) -> 
+foo({error,{Error, Args}}) ->
+    erlang:error(Error, Args);
+foo({error,Error}) ->
     erlang:error(Error);
 foo({throw,Throw}) ->
     erlang:throw(Throw);

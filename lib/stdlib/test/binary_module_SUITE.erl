@@ -1379,25 +1379,25 @@ check_no_invalid_read_bug(I) ->
     check_no_invalid_read_bug(I+1).
 
 error_info(_Config) ->
-    L = [{at, [[no,binary], bad_pos]},
-         {at, [<<77:7>>, -1]},
+    L = [{at, [[no,binary], bad_pos],[{1,".*"},{2,".*"}]},
+         {at, [<<77:7>>, -1],[{1,".*"},{2,".*"}]},
 
          {bin_to_list, [{no,binary}]},
          {bin_to_list, [<<1:1>>]},
 
-         {bin_to_list,[<<3:3>>, bad_pos_len]},
+         {bin_to_list,[<<3:3>>, bad_pos_len],[{1,".*"},{2,".*"}]},
          {bin_to_list,[<<"abc">>, {0, 99}]},
 
          {bin_to_list,[<<1,2,3>>, {1,4}]},
          {bin_to_list,[<<1,2,3>>, 1, 4]},
-         {bin_to_list,[<<1,2,3>>, a, b]},
+         {bin_to_list,[<<1,2,3>>, a, b],[{2,".*"},{3,".*"}]},
          {bin_to_list,[<<1,2,3>>, a, 0]},
          {bin_to_list,[<<1,2,3>>, 1, -10]},
 
          {compile_pattern,[42]},
          {copy,[no_binary]},
-         {copy,[no_binary,-42]},
-         {copy,[<<1:1>>,no_integer]},
+         {copy,[no_binary,-42],[{1,".*"},{2,".*"}]},
+         {copy,[<<1:1>>,no_integer],[{1,".*"},{2,".*"}]},
 
          {decode_unsigned,[<<1:1>>]},
          {decode_unsigned,[<<0,42>>, middle]},
@@ -1418,15 +1418,15 @@ error_info(_Config) ->
          {longest_common_prefix, [abc]},
          {longest_common_suffix, [abc]},
 
-         {match, [<<1:1>>, {bm,make_ref()}]},
-         {match, [<<1:1>>, no_pattern]},
+         {match, [<<1:1>>, {bm,make_ref()}],[{1,".*"},{2,".*"}]},
+         {match, [<<1:1>>, no_pattern],[{1,".*"},{2,".*"}]},
          {match, [<<"abc">>, no_pattern]},
 
          {match, [<<"abc">>, <<"a">>, [{scope,{2,-8}}]]},
          {match, [<<"abc">>, <<"a">>, [bad_option]]},
 
-         {matches,[<<1:1>>, {bm,make_ref()}]},
-         {matches,[<<1:1>>, no_pattern]},
+         {matches,[<<1:1>>, {bm,make_ref()}],[{1,".*"},{2,".*"}]},
+         {matches,[<<1:1>>, no_pattern],[{1,".*"},{2,".*"}]},
          {matches,[<<"abc">>, no_pattern]},
 
          {matches, [<<"abc">>, <<"a">>, [{scope,{0,-1}}]]},
@@ -1435,12 +1435,12 @@ error_info(_Config) ->
          {bin_to_list, [{no,binary}]},
          {bin_to_list, [<<1:1>>]},
 
-         {part, [<<3:3>>, bad_pos_len]},
+         {part, [<<3:3>>, bad_pos_len],[{1,".*"},{2,".*"}]},
          {part, [<<"abc">>, {0, 99}]},
 
          {part, [<<1,2,3>>, {1,4}]},
          {part, [<<1,2,3>>, 1, 4]},
-         {part, [<<1,2,3>>, a, b]},
+         {part, [<<1,2,3>>, a, b],[{2,".*"},{3,".*"}]},
          {part, [<<1,2,3>>, a, 0]},
          {part, [<<1,2,3>>, 1, -10]},
 
@@ -1453,7 +1453,7 @@ error_info(_Config) ->
          {replace, [<<"xyz">>, <<"x">>, <<1:1>>, []]},
          {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>, []]},
          {replace, [<<"xyz">>, {bm,make_ref()}, <<"y">>, []]},
-         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>, [bad_option]]},
+         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>, [bad_option]],[{1,".*"},{4,".*"}]},
 
          {split, [<<1:15>>, <<"a">>]},
          {split, [<<1,2,3>>, {bm,make_ref()}]},

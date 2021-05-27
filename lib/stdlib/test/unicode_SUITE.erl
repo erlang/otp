@@ -1411,9 +1411,9 @@ make_unaligned(Bin0) when is_binary(Bin0) ->
 error_info(_Config) ->
     L = [{characters_to_binary, [abc]},
          {characters_to_binary,[abc, utf8]},
-         {characters_to_binary,[abc, bad_encoding]},
+         {characters_to_binary,[abc, bad_encoding],[{1,".*"},{2,".*"}]},
 
-         {characters_to_binary, [abc, pqr, xyz]},
+         {characters_to_binary, [abc, pqr, xyz],[{1,".*"},{2,".*"},{3,".*"}]},
          {characters_to_binary, [abc, latin1, utf8]},
          {characters_to_binary, [<<1:1>>, utf8, latin1]},
 
