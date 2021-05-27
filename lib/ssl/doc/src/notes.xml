@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.2.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix cache invalidation problem for CA certs provided by
+	    the cacertfile option.</p>
+          <p>
+	    Own Id: OTP-17435 Aux Id: ERIERL-653 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.2.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
