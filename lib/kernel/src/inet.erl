@@ -884,7 +884,9 @@ ipv4_mapped_ipv6_address({D1,D2,D3,D4,D5,D6,D7,D8})
 %% Return a list of available options
 options() ->
     [
-     tos, tclass, priority, reuseaddr, keepalive, dontroute, linger,
+     tos, tclass, priority,
+     reuseaddr, win_reuseaddr,
+     keepalive, dontroute, linger,
      broadcast, sndbuf, recbuf, nodelay, ipv6_v6only,
      buffer, header, active, packet, deliver, mode,
      multicast_if, multicast_ttl, multicast_loop,
@@ -906,13 +908,17 @@ stats() ->
 %% Available options for tcp:connect
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
-    [tos, tclass, priority, reuseaddr, keepalive, linger, nodelay,
+    [
+     tos, tclass, priority,
+     reuseaddr, win_reuseaddr,
+     keepalive, linger, nodelay,
      sndbuf, recbuf,
      recvtos, recvtclass, ttl, recvttl,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
-     show_econnreset, bind_to_device].
+     show_econnreset, bind_to_device
+    ].
     
 connect_options(Opts, Mod) ->
     BaseOpts = 
@@ -976,22 +982,26 @@ con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
 %% Available options for tcp:listen
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 listen_options() ->
-    [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+    [
+     tos, tclass, priority,
+     reuseaddr, win_reuseaddr,
+     keepalive, linger, sndbuf, recbuf, nodelay,
      recvtos, recvtclass, ttl, recvttl,
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
-     packet_size, raw, show_econnreset, bind_to_device].
+     packet_size, raw, show_econnreset, bind_to_device
+    ].
 
 listen_options(Opts, Mod) ->
     BaseOpts = 
 	case application:get_env(kernel, inet_default_listen_options) of
-	    {ok,List} when is_list(List) ->
-		NList = [{active, true} | lists:keydelete(active,1,List)],		       
+	    {ok, List} when is_list(List) ->
+		NList = [{active, true} | lists:keydelete(active, 1, List)],
 		#listen_opts{ opts = NList};
-	    {ok,{active,_Bool}} -> 
+	    {ok, {active,_Bool}} -> 
 		#listen_opts{ opts = [{active,true}]};
-	    {ok,Option} -> 
+	    {ok, Option} -> 
 		#listen_opts{ opts = [{active,true}, Option]};
 	    _ ->
 		#listen_opts{ opts = [{active,true}]}
@@ -1070,11 +1080,15 @@ gen_tcp_module(Opts, socket) ->
 %% Available options for udp:open
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
-    [tos, tclass, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
+    [
+     tos, tclass, priority,
+     reuseaddr, win_reuseaddr,
+     sndbuf, recbuf, header, active, buffer, mode,
      recvtos, recvtclass, ttl, recvttl, deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets,raw,
-     high_msgq_watermark, low_msgq_watermark, bind_to_device].
+     high_msgq_watermark, low_msgq_watermark, bind_to_device
+    ].
 
 
 udp_options(Opts, Mod) ->
@@ -1142,7 +1156,9 @@ udp_module(Opts) ->
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
     mode, active, buffer, tos, tclass, ttl,
-    priority, dontroute, reuseaddr, linger,
+    priority, dontroute,
+    reuseaddr, win_reuseaddr,
+    linger,
     recvtos, recvtclass, recvttl,
     sndbuf, recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
     bind_to_device,

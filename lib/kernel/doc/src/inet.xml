@@ -1501,9 +1501,25 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           <tag><c>{reuseaddr, Boolean}</c></tag>
           <item>
             <p>Allows or disallows local reuse of port numbers. By
-              default, reuse is disallowed.</p>
+	    default, reuse is disallowed. </p>
+	    <p>This is <em>ignored</em> on Windows. </p>
           </item>
-          <tag><c>{send_timeout, Integer}</c></tag>
+
+          <tag><c>{win_reuseaddr, Boolean}</c></tag>
+          <item>
+            <p>Allows or disallows local reuse of port numbers. By
+	    default, reuse is disallowed. </p>
+	    <p>This is <em>ignored</em> on all platforms <em>but</em>
+	    Windows. </p>
+	    <note>
+	      <p>Use with care.</p>
+	      <p>Once more than one socket's has been successfully bound,
+	      the behaviour for all sockets bound to that port is
+	      <em>indeterminate</em>. </p>
+	    </note>
+          </item>
+
+	  <tag><c>{send_timeout, Integer}</c></tag>
           <item>
             <p>Only allowed for connection-oriented sockets.</p>
             <p>Specifies a longest time to wait for a send operation to

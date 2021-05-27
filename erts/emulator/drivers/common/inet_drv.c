@@ -792,7 +792,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_REP             2
 
 /* INET_REQ_SETOPTS and INET_REQ_GETOPTS options */
-#define INET_OPT_REUSEADDR  0   /* enable/disable local address reuse */
+#define INET_OPT_REUSEADDR  0   /* enable/disable local address reuse. NOT WIN */
 #define INET_OPT_KEEPALIVE  1   /* enable/disable keep connections alive */
 #define INET_OPT_DONTROUTE  2   /* enable/disable routing for messages */
 #define INET_OPT_LINGER     3   /* linger on close if data is present */
@@ -839,6 +839,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_OPT_TTL                46  /* IP_TTL */
 #define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
 #define TCP_OPT_NOPUSH              48  /* super-Nagle, aka TCP_CORK */
+#define INET_OPT_WIN_REUSEADDR      49  /* enable/disable local address reuse. WIN */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -6632,11 +6633,26 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->delimiter = (char)ival;
 	    continue;
 
-	    /* This is problematic on Windows, but... */
-	case INET_OPT_REUSEADDR: type = SO_REUSEADDR;
-	    DEBUGF(("inet_set_opts(%p): s=%d, SO_REUSEADDR=%d\r\n",
-		    desc->port, desc->s,ival));
-	    break;
+	    /* This is problematic on Windows... */
+	case INET_OPT_REUSEADDR:
+#ifdef __WIN32__
+	  continue;  /* Bjorn says */
+#else
+	  type = SO_REUSEADDR;
+	  DEBUGF(("inet_set_opts(%p): s=%d, SO_REUSEADDR=%d\r\n",
+		  desc->port, desc->s,ival));
+	  break;
+#endif
+
+	case INET_OPT_WIN_REUSEADDR:
+#ifndef __WIN32__
+	  continue;
+#else
+	  type = SO_REUSEADDR;
+	  DEBUGF(("inet_set_opts(%p): s=%d, SO_REUSEADDR=%d\r\n",
+		  desc->port, desc->s,ival));
+	  break;
+#endif
 
 	case INET_OPT_KEEPALIVE: type = SO_KEEPALIVE;
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_KEEPALIVE=%d\r\n",
@@ -7214,6 +7230,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    break;
 	}
 	case INET_OPT_REUSEADDR:
+	case INET_OPT_WIN_REUSEADDR:
 	{
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
@@ -7936,6 +7953,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 #endif
 
 	case INET_OPT_REUSEADDR: 
+	case INET_OPT_WIN_REUSEADDR: 
 	    type = SO_REUSEADDR; 
 	    break;
 	case INET_OPT_KEEPALIVE: 
@@ -8465,6 +8483,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case INET_OPT_RCVBUF   :
 	case INET_OPT_SNDBUF   :
 	case INET_OPT_REUSEADDR:
+	case INET_OPT_WIN_REUSEADDR:
 	case INET_OPT_DONTROUTE:
 	case INET_OPT_PRIORITY :
 	case INET_OPT_TOS      :
@@ -8505,6 +8524,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		break;
 	    }
 	    case INET_OPT_REUSEADDR:
+	    case INET_OPT_WIN_REUSEADDR:
 	    {
 		proto  = SOL_SOCKET;
 		type   = SO_REUSEADDR;

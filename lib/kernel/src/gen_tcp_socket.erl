@@ -943,7 +943,13 @@ opt_categories(Tag) when is_atom(Tag) ->
 
 -compile({inline, [ignore_opt/0]}).
 ignore_opt() ->
-    #{
+    CondOpt =
+	case os:type() of
+	    {win32, _} -> #{reuseaddr => []};
+	    _          -> #{win_reuseaddr => []}
+	end,
+    maps:merge(
+      #{
       %% Handled by inet:tcp_module/2
       tcp_module => [],
       %% Handled by inet:connect_options/2 and inet:listen_options/2
@@ -954,14 +960,20 @@ ignore_opt() ->
       high_watermark => [],
       low_msgq_watermark => [],
       nopush => []
-      }.
+      }, CondOpt).
 
 %% Category 'socket'
 %%
 %% Translation to 'level' and 'opt'
 -compile({inline, [socket_opt/0]}).
 socket_opt() ->
-    #{
+    CondOpt =
+	case os:type() of
+	    {win32, _} -> #{win_reuseaddr => []};
+	    _          -> #{reuseaddr => []}
+	end,
+    maps:merge(
+      #{
       %% Level: otp
       buffer => {otp, rcvbuf},
       debug  => {otp, debug},
@@ -976,7 +988,7 @@ socket_opt() ->
       low_watermark  => {socket, rcvlowat},
       priority       => {socket, priority},
       recbuf         => {socket, rcvbuf},
-      reuseaddr      => {socket, reuseaddr},
+      %% reuseaddr      => {socket, reuseaddr},
       sndbuf         => {socket, sndbuf},
 
       %%
@@ -1010,7 +1022,7 @@ socket_opt() ->
       %% introduced this, RFC 2292, is *obsoleted* by RFC 3542, where
       %% this "feature" *does not exist*...
       pktoptions  => [{inet, ip, pktoptions}, {inet6, ipv6, pktoptions}]
-      }.
+      }, CondOpt).
 
 -compile({inline, [socket_inherit_opts/0]}).
 socket_inherit_opts() ->

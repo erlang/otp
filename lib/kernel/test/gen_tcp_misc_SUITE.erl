@@ -59,7 +59,9 @@
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
-         otp_12242/1, delay_send_error/1, bidirectional_traffic/1,
+         otp_12242/1,
+	 otp_17447/1,
+	 delay_send_error/1, bidirectional_traffic/1,
 	 socket_monitor1/1,
 	 socket_monitor1_manys/1,
 	 socket_monitor1_manyc/1,
@@ -185,8 +187,11 @@ all_cases() ->
      wrapping_oct,
      zombie_sockets,
      otp_7816,
-     otp_8102, otp_9389,
-     otp_12242, delay_send_error,
+     otp_8102,
+     otp_9389,
+     otp_12242,
+     otp_17447,
+     delay_send_error,
      bidirectional_traffic,
      {group, socket_monitor}
     ].
@@ -2438,10 +2443,10 @@ lzs_verify(Client, _Server, PayloadSize) ->
 %% corrupt data. The testcase will be killed by the timetrap timeout
 %% if the bug is present.
 http_bad_packet(Config) when is_list(Config) ->
-    {ok,L} = ?LISTEN(Config, 0, [{active, false},
-                                binary,
-                                {reuseaddr, true},
-                                {packet, http}]),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false},
+				  binary,
+				  {reuseaddr, true},
+				  {packet, http}]),
     {ok,Port} = inet:port(L),
     spawn_link(fun() -> erlang:yield(), http_bad_client(Config, Port) end),
     case gen_tcp:accept(L) of
@@ -6362,7 +6367,7 @@ do_otp_12242(Config) when is_list(Config) ->
 		  false ->
 		      false
 	      end])
-    of
+	of
 	[Addr|_] ->
 	    otp_12242(Config, Addr);
 	Other ->
@@ -6499,6 +6504,66 @@ otp_12242_closer(C) ->
 
 wait(Mref) ->
     receive {'DOWN',Mref,_,_,Reason} -> Reason end.
+
+
+%% ---------------------------------------------------------------------
+
+%% This is a inet-driver issue, so no point in testing with
+%% inet_backend = socket => SKIP.
+otp_17447(Config) when is_list(Config) ->
+    Cond = fun() ->
+		   case ?IS_SOCKET_BACKEND(Config) of
+		       true ->
+			   {skip, "Not complient with socket"};
+		       false ->
+			   ok
+		   end
+	   end,
+    TC = fun() ->
+		 case os:type() of
+		     {win32,_} ->
+			 do_otp_17447_win(Config);
+		     _ ->
+			 do_otp_17447_nowin(Config)
+		 end
+	 end,
+    ?TC_TRY(otp_17447, Cond, TC).
+
+%% The is run on windows:
+%% Setting the option 'reuseaddr' should have *no* effect.
+%% Setting the option 'win_reuseaddr' should *have* effect.
+do_otp_17447_win(Config) when is_list(Config) ->
+    EffectOpt   = win_reuseaddr,
+    NoEffectOpt = reuseaddr,
+    ?P("create listen socket with '~w' = true", [EffectOpt]),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {EffectOpt, true}]),
+    do_otp_17447(L, EffectOpt, NoEffectOpt).
+
+%% The is run on *none* windows:
+%% Setting the option 'reuseaddr' should *have* effect.
+%% Setting the option 'win_reuseaddr' should have no effect.
+do_otp_17447_nowin(Config) when is_list(Config) ->
+    EffectOpt   = reuseaddr,
+    NoEffectOpt = win_reuseaddr,
+    ?P("create listen socket with '~w' = true", [EffectOpt]),
+    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {EffectOpt, true}]),
+    do_otp_17447(L, EffectOpt, NoEffectOpt).
+
+
+do_otp_17447(L, EffectOpt, NoEffectOpt) ->
+    ?P("verify listen socket option '~w' is true", [EffectOpt]),
+    {ok, [{reuseaddr, true}]} = inet:getopts(L, [EffectOpt]),
+    ?P("try set option '~w' to false", [NoEffectOpt]),
+    ok                        = inet:setopts(L, [{NoEffectOpt, false}]),
+    ?P("verify listen socket option '~w' is still true", [EffectOpt]),
+    {ok, [{reuseaddr, true}]} = inet:getopts(L, [EffectOpt]),
+    ?P("close (listen) socket"),
+    (catch gen_tcp:close(L)),
+    ?P("done"),
+    ok.
+
+
+%% ---------------------------------------------------------------------
 
 %% OTP-15536
 %% Test that send error works correctly for delay_send
