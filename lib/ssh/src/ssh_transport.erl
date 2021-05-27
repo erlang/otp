@@ -378,11 +378,9 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 				   Ssh#ssh{algorithms = Algos})
     catch
         Class:Error ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("Kexinit failed in client: ~p:~p",
-                                      [Class,Error])
-                       )
-    end;
+            Msg = kexinit_error(Class, Error, client, Own, CounterPart),
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
+        end;
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
                    #ssh{role = server} = Ssh) ->
@@ -395,11 +393,57 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
             {ok, Ssh#ssh{algorithms = Algos}}
     catch
         Class:Error ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("Kexinit failed in server: ~p:~p",
-                                      [Class,Error])
-                       )
+            Msg = kexinit_error(Class, Error, server, Own, CounterPart),
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
     end.
+
+kexinit_error(Class, Error, Role, Own, CounterPart) ->
+    {Fmt,Args} =
+        case {Class,Error} of
+            {error, {badmatch,{false,Alg}}} ->
+                {Txt,W,C} = alg_info(Role, Alg),
+                {"No common ~s algorithm,~n"
+                 "  we have:~n    ~s~n"
+                 "  peer have:~n    ~s~n",
+                 [Txt,
+                  lists:join(", ", element(W,Own)),
+                  lists:join(", ", element(C,CounterPart))
+                 ]};
+            _ ->
+                {"Kexinit failed in ~p: ~p:~p", [Role,Class,Error]}
+        end,
+    io_lib:format(Fmt, Args).
+
+alg_info(client, Alg) ->
+    alg_info(Alg);
+alg_info(server, Alg) ->
+    {Txt,C2s,S2c} = alg_info(Alg),
+    {Txt,S2c,C2s}.
+
+alg_info("kex") ->        {"key exchange",
+                           #ssh_msg_kexinit.kex_algorithms,
+                           #ssh_msg_kexinit.kex_algorithms};
+alg_info("hkey") ->       {"key",
+                           #ssh_msg_kexinit.server_host_key_algorithms,
+                           #ssh_msg_kexinit.server_host_key_algorithms};
+alg_info("send_mac") ->    {"mac",
+                           #ssh_msg_kexinit.mac_algorithms_client_to_server,
+                           #ssh_msg_kexinit.mac_algorithms_server_to_client};
+alg_info("recv_mac") ->    {"mac",
+                           #ssh_msg_kexinit.mac_algorithms_client_to_server,
+                           #ssh_msg_kexinit.mac_algorithms_server_to_client};
+alg_info("encrypt") ->   {"cipher",
+                           #ssh_msg_kexinit.encryption_algorithms_client_to_server,
+                           #ssh_msg_kexinit.encryption_algorithms_server_to_client};
+alg_info("decrypt") ->   {"cipher",
+                           #ssh_msg_kexinit.encryption_algorithms_client_to_server,
+                           #ssh_msg_kexinit.encryption_algorithms_server_to_client};
+alg_info("compress") ->   {"compress",
+                           #ssh_msg_kexinit.compression_algorithms_client_to_server,
+                           #ssh_msg_kexinit.compression_algorithms_server_to_client};
+alg_info("decompress") -> {"compress",
+                           #ssh_msg_kexinit.compression_algorithms_client_to_server,
+                           #ssh_msg_kexinit.compression_algorithms_server_to_client}.
 
 
 verify_algorithm(#alg{kex = undefined})       ->  {false, "kex"};
