@@ -26,6 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -43,8 +44,12 @@
          clear_pem_cache/0,
          clear_pem_cache/1,
          invalid_insert/0,
-         invalid_insert/1
+         invalid_insert/1,
+         new_root_pem/0,
+         new_root_pem/1,
+         check_cert/3
         ]).
+
 
 -define(CLEANUP_INTERVAL, 5000).
 
@@ -55,7 +60,9 @@ all() ->
     [
      pem_cleanup, 
      clear_pem_cache,
-     invalid_insert].
+     invalid_insert,
+     new_root_pem
+    ].
 
 groups() ->
     [].
@@ -88,8 +95,8 @@ init_per_testcase(pem_cleanup = Case, Config) ->
     ct:timetrap({minutes, 1}),
     Config;
 init_per_testcase(_, Config) ->
-    ssl:start(),
-    ct:timetrap({seconds, 5}),
+    ssl_test_lib:clean_start(),
+    ct:timetrap({seconds, 10}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
@@ -184,7 +191,92 @@ invalid_insert(Config)when is_list(Config) ->
     1 = ssl_pkix_db:db_size(get_fileref_db()).
 
 
+new_root_pem() ->
+    [{doc, "Test that changed PEM-files on disk followed by ssl:clear_pem_cache() invalidates"
+      "trusted CA cache as well as ordinary PEM cache"}].
+new_root_pem(Config)when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    #{cert := OrgSRoot} = SRoot = 
+        public_key:pkix_test_root_cert("OTP test server ROOT",  [{key, ssl_test_lib:hardcode_rsa_key(6)}]),
+    
+    DerConfig = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
+                                                              intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                                                              peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
+                                            client_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                              intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                              peer =>  [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}),
 
+    ClientBase = filename:join(PrivDir, "client_test"),
+    SeverBase =  filename:join(PrivDir, "server_test"),
+    PemConfig = x509_test:gen_pem_config_files(DerConfig, ClientBase, SeverBase),
+    ClientConf = proplists:get_value(client_config, PemConfig),
+    ServerConf = proplists:get_value(server_config, PemConfig),
+
+    SCAFile =  proplists:get_value(cacertfile, ServerConf),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Start a connection and keep it up for a little while, so that 
+    %% it will be up when the second connection is started.
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, ServerConf}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+	ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port}, {host, Hostname},
+				   {mfa, {?MODULE, check_cert, [OrgSRoot, SCAFile]}},
+				   {from, self()}, {options, [{verify, verify_peer} |ClientConf]}]),
+
+    ssl_test_lib:check_result(Client, ok),
+
+    %% Create new configuration
+    Key = ssl_test_lib:hardcode_rsa_key(1),
+    OTPCert = public_key:pkix_decode_cert(OrgSRoot, otp),
+    TBS = OTPCert#'OTPCertificate'.tbsCertificate,
+    #'RSAPrivateKey'{modulus=N, publicExponent=E} = Key,
+    Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
+    SPKI = #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+                                      subjectPublicKey = Public},
+    NewCert = public_key:pkix_sign(TBS#'OTPTBSCertificate'{subjectPublicKeyInfo = SPKI}, Key),
+
+    DerConfig1 = public_key:pkix_test_data(#{server_chain =>
+                                                 #{root =>  #{cert => NewCert, key => Key},
+                                                   intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                                                   peer => [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
+                                             client_chain =>
+                                                 #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                   intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                   peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}),
+
+    %% Overwrite old config files
+    _ = x509_test:gen_pem_config_files(DerConfig1, ClientBase, SeverBase),
+
+    %% Make sure chache is cleared 
+    ssl:clear_pem_cache(),
+    
+    Server1 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, ServerConf}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+
+    %% Start second connection
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port1}, {host, Hostname},
+                                         {from, self()},
+                                         {mfa, {?MODULE, check_cert, [NewCert, SCAFile]}},
+                                         {options, [{verify, verify_peer} | ClientConf]}]),
+    ssl_test_lib:check_result(Client1, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Client1).
+    
 %%--------------------------------------------------------------------
 %% Internal funcations 
 %%--------------------------------------------------------------------
@@ -234,3 +326,11 @@ basic_verify_test_no_close(Config) ->
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     {Server, Client}.
+
+
+check_cert(Socket, RootCert, File) ->
+    {ok, Cert} = ssl:peercert(Socket),
+    {ok, Extracted} = ssl_pkix_db:extract_trusted_certs(File),
+    {ok, RootCert, _} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), Extracted, []),
+    ok.
+
