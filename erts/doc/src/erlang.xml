@@ -249,6 +249,14 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="stacktrace"/>
+      <name name="stacktrace_extrainfo"/>
+      <desc><p>An Erlang stacktrace as described by
+      <seeguide marker="system/reference_manual:errors#stacktrace">Errors and Error Handling</seeguide>
+      section in the Erlang Reference Manual.
+      </p></desc>
+    </datatype>
 
   </datatypes>
 
@@ -1755,17 +1763,14 @@ b</pre>
       <fsummary>Raise an exception of class error.</fsummary>
       <desc>
         <p>Raises an exception of class <c>error</c> with the reason
-        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-        is any term. The error reason is <c>{<anno>Reason</anno>,
-        Where}</c>, where <c>Where</c> is a list of the functions most
-        recently called (the current function first). As evaluating
-        this function causes an exception to be thrown, it has no
-        return value. The intent of the exception class <c>error</c> is to
-        signal that an unexpected error has happened (for example, a
-        function is called with a parameter that has an incorrect
-        type). See the guide about <seeguide
-        marker="system/reference_manual:errors">errors and error
-        handling</seeguide> for additional information. Example:</p>
+          <c><anno>Reason</anno></c>. As evaluating this function causes
+          an exception to be thrown, it has no return value.</p>
+        <p>The intent of the exception class <c>error</c> is to
+          signal that an unexpected error has happened (for example, a
+          function is called with a parameter that has an incorrect
+          type). See the guide about <seeguide
+          marker="system/reference_manual:errors">errors and error
+          handling</seeguide> for additional information. Example:</p>
         <pre>
 > <input>catch error(foobar).</input>
 {'EXIT',{foobar,[{shell,apply_fun,3,
@@ -1784,16 +1789,13 @@ b</pre>
       <fsummary>Raise an exception of class <c>error</c></fsummary>
       <desc>
         <p>Raises an exception of class <c>error</c> with the reason
-        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. The error reason is
-          <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
-          is a list of the functions most recently called (the current
-          function first). <c><anno>Args</anno></c> is expected to be the
-          list of arguments for the current function; it is used
-          to provide the arguments for the current function in
-          the term <c>Where</c>. As evaluating this function causes
-          an exception to be raised, it has no return value.
-          The intent of the exception class <c>error</c> is to
+          <c><anno>Reason</anno></c>. <c><anno>Args</anno></c> is expected to be the
+          list of arguments for the current function or the atom <c>none</c>.
+          If it is a list, it is used to provide the arguments for the current
+          function in the stack back-trace. If it is <c>none</c>, the arity of
+          the calling function is used in the stacktrace. As evaluating this
+          function causes an exception to be raised, it has no return value.</p>
+        <p>The intent of the exception class <c>error</c> is to
           signal that an unexpected error has happened (for example, a
           function is called with a parameter that has an incorrect
           type). See the guide about <seeguide
@@ -1824,20 +1826,27 @@ example_fun(A1, A2) ->
       <fsummary>Raise an exception of class <c>error</c></fsummary>
       <desc>
         <p>Raises an exception of class <c>error</c> with the reason
-        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-        is any term. <c><anno>Args</anno></c> is expected to be the
-        list of arguments for the current function; it is used to
-        provide the arguments for the current function in the stack
-        back-trace.  If the <c>{error_info,
-        <anno>ErrorInfoMap</anno>}</c> option is given, it will be injected
-        into the stacktrace.</p>
-	<p>As evaluating this function causes an exception to be
-	raised, it has no return value.  The intent of the exception
-	class <c>error</c> is to signal that an unexpected error has
-	happened (for example, a function is called with a parameter
-	that has an incorrect type). See the guide about <seeguide
-	marker="system/reference_manual:errors">errors and error
-	handling</seeguide> for additional information.</p>
+          <c><anno>Reason</anno></c>. <c><anno>Args</anno></c> is expected to be the
+          list of arguments for the current function or the atom <c>none</c>.
+          If it is a list, it is used to provide the arguments for the current
+          function in the stack back-trace. If it is <c>none</c>, the arity of
+          the calling function is used in the stacktrace. As evaluating this
+          function causes an exception to be raised, it has no return value.</p>
+        <p>If the <c>error_info</c> option is given, the <c><anno>ErrorInfoMap</anno></c>
+          will be inserted into the stacktrace. The information given in the
+          <c><anno>ErrorInfoMap</anno></c> is to be used by error formatters such as
+          <seemfa marker="stdlib:erl_error#format_exception/4"><c>erl_error</c></seemfa>
+          to provide more context around an error.</p>
+        <p>The default <c>module</c> of the <c><anno>ErrorInfoMap</anno></c> is the
+          module that the call to <seemfa marker="#error/3"><c>error/3</c></seemfa>
+          is made. The default <c>function</c> is <c>format_error</c>. See
+          <seeerl marker="stdlib:erl_error#format_error"><c>format_error/2</c></seeerl>
+          for more details on how this Module:Function/2 is to be used</p>
+        <p>The intent of the exception class <c>error</c> is to signal that
+          an unexpected error has happened (for example, a function is called
+          with a parameter that has an incorrect type). See the guide about <seeguide
+	  marker="system/reference_manual:errors">errors and error
+	  handling</seeguide> for additional information.</p>
       </desc>
     </func>
 
@@ -1846,16 +1855,16 @@ example_fun(A1, A2) ->
       <fsummary>Raise an exception of class <c>exit</c> with a specified reason.</fsummary>
       <desc>
         <p>Raises an exception of class <c>exit</c> with exit reason
-        <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-        is any term. As evaluating this function causes an exception
-        to be raised, it has no return value. This function should be
-        used when the intent is to stop the current process. This
-        function differ from <seemfa
-        marker="#error/1"><c>erlang:error/1</c></seemfa> and <seemfa
-        marker="#error/1"><c>erlang:error/2</c></seemfa> by causing an
-        exception of a different class and by having a reason that
-        does not include the list of functions from the call
-        stack.</p>
+          <c><anno>Reason</anno></c>. As evaluating this function causes
+          an exception to be raised, it has no return value.</p>
+        <p>The intent of the exception class <c>exit</c> is that the current
+          process should be stopped (for example when a message telling a process
+          to stop is received).</p>
+        <p>This function differ from <seemfa
+          marker="#error/1"><c>error/1,2,3</c></seemfa> by causing an
+          exception of a different class and by having a reason that
+          does not include the list of functions from the call
+          stack.</p>
         <p>See the guide about <seeguide
         marker="system/reference_manual:errors">errors and error
         handling</seeguide> for additional information.</p>
@@ -6518,12 +6527,12 @@ catch Class:Reason:Stacktrace ->
 end</pre>
         <p>That is, a list of
           four-tuples <c>{Module, Function, Arity | Args,
-          Location}</c>, where <c>Module</c> and <c>Function</c>
+          ExtraInfo}</c>, where <c>Module</c> and <c>Function</c>
           are atoms, and the third element is an integer arity or an
           argument list. The stacktrace can also contain <c>{Fun,
-          Args, Location}</c> tuples, where <c>Fun</c> is a local
+          Args, ExtraInfo}</c> tuples, where <c>Fun</c> is a local
           fun and <c>Args</c> is an argument list.</p>
-        <p>Element <c>Location</c> at the end is optional.
+        <p>Element <c>ExtraInfo</c> at the end is optional.
           Omitting it is equivalent to specifying an empty list.</p>
         <p>The stacktrace is used as the exception stacktrace for the
           calling process; it is truncated to the current

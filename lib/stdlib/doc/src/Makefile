@@ -45,7 +45,7 @@ XML_REF3_FILES = \
 	digraph_utils.xml \
 	epp.xml \
 	erl_anno.xml \
-	erl_error.xml \
+	erl_error.xmlsrc \
 	erl_eval.xml \
 	erl_expand_records.xml \
 	erl_id_trans.xml \

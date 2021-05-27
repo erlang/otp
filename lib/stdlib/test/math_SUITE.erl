@@ -113,7 +113,7 @@ error_info(_Config) ->
           {asin, [999]},
 
           {atan, [a]},
-          {atan2, [a, b]},
+          {atan2, [a, b],[{1,".*"},{2,".*"}]},
 
           {cos, [a]},
           {sin, [a]},
@@ -137,11 +137,11 @@ error_info(_Config) ->
           {exp, [a]},
           {floor, [a]},
 
-          {fmod, [a, b]},
+          {fmod, [a, b],[{1,".*"},{2,".*"}]},
           {fmod, [a, 1]},
           {fmod, [1, 0]},
 
-          {pow, [a, b]},
+          {pow, [a, b],[{1,".*"},{2,".*"}]},
 
           {sqrt, [a]},
           {sqrt, [-1]},

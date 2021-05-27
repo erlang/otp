@@ -23,7 +23,7 @@
 
 -spec format_error(Reason, StackTrace) -> ErrorMap when
       Reason :: term(),
-      StackTrace :: [term()],
+      StackTrace :: erlang:stacktrace(),
       ErrorMap :: #{pos_integer() => unicode:chardata()}.
 
 format_error(_Reason, [{M,F,As,Info}|_]) ->
@@ -697,7 +697,7 @@ must_be_binary(_, _) -> not_binary.
 
 must_be_endianness(little) -> [];
 must_be_endianness(big) -> [];
-must_be_endianness(_) -> bad_endian.
+must_be_endianness(_) -> bad_endianness.
 
 must_be_fun(F, Arity) when is_function(F, Arity) -> [];
 must_be_fun(_, Arity) -> {not_fun,Arity}.
@@ -791,7 +791,7 @@ expand_error(bad_continuation) ->
     <<"invalid continuation">>;
 expand_error(bad_encoding) ->
     <<"not a valid encoding">>;
-expand_error(bad_endinanness) ->
+expand_error(bad_endianness) ->
     <<"must be 'big' or 'little'">>;
 expand_error(bad_info_item) ->
     <<"not a valid info item">>;

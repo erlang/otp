@@ -2744,9 +2744,9 @@ hof(Config) when is_list(Config) ->
     ok.
 
 error_info(_Config) ->
-    L = [{keyfind, [whatever, bad_position, bad_list]},
-         {keymember, [key, 0, bad_list]},
-         {keysearch, [key, bad_position, {no,list}]},
+    L = [{keyfind, [whatever, bad_position, bad_list], [{2,".*"},{3,".*"}]},
+         {keymember, [key, 0, bad_list], [{2,".*"}, {3,".*"}]},
+         {keysearch, [key, bad_position, {no,list}], [{2,".*"}, {3,".*"}]},
          {member, [whatever, not_a_list]},
          {member, [whatever, [a|b]]},
          {reverse, [not_a_list, whatever]}

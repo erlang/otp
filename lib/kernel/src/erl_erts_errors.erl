@@ -23,7 +23,7 @@
 
 -spec format_error(Reason, StackTrace) -> ErrorMap when
       Reason :: term(),
-      StackTrace :: [term()],
+      StackTrace :: erlang:stacktrace(),
       ErrorMap :: #{pos_integer() => unicode:chardata()}.
 
 format_error(Reason, [{M,F,As,Info}|_]) ->

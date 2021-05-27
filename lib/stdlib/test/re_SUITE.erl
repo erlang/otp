@@ -1006,10 +1006,10 @@ error_info(_Config) ->
     {ok,GoodRegexp} = re:compile(".*"),
 
     L = [{compile, [not_iodata]},
-         {compile, [not_iodata, not_list]},
+         {compile, [not_iodata, not_list],[{1,".*"},{2,".*"}]},
          {compile, [<<".*">>, [a|b]]},
          {compile, [<<".*">>, [bad_option]]},
-         {compile, [{a,b}, [bad_option]]},
+         {compile, [{a,b}, [bad_option]],[{1,".*"},{2,".*"}]},
 
          {grun, 3},                             %Internal.
 
@@ -1020,29 +1020,29 @@ error_info(_Config) ->
 
          {internal_run, 4},                     %Internal.
 
-         {replace, [{a,b}, {x,y}, {z,z}]},
-         {replace, [{a,b}, BadRegexp, {z,z}]},
+         {replace, [{a,b}, {x,y}, {z,z}],[{1,".*"},{2,".*"},{3,".*"}]},
+         {replace, [{a,b}, BadRegexp, {z,z}],[{1,".*"},{2,".*"},{3,".*"}]},
 
-         {replace, [{a,b}, {x,y}, {z,z}, [a|b]]},
-         {replace, [{a,b}, BadRegexp, [bad_option]]},
-         {replace, ["", "", {z,z}, not_a_list]},
+         {replace, [{a,b}, {x,y}, {z,z}, [a|b]],[{1,".*"},{2,".*"},{3,".*"},{4,".*"}]},
+         {replace, [{a,b}, BadRegexp, [bad_option]],[{1,".*"},{2,".*"},{3,".*"}]},
+         {replace, ["", "", {z,z}, not_a_list],[{3,".*"},{4,".*"}]},
 
-         {run, [{a,b}, {x,y}]},
+         {run, [{a,b}, {x,y}],[{1,".*"},{2,".*"}]},
          {run, [{a,b}, ".*"]},
          {run, ["abc", {x,y}]},
          {run, ["abc", BadRegexp]},
 
-         {run, [{a,b}, {x,y}, []]},
+         {run, [{a,b}, {x,y}, []],[{1,".*"},{2,".*"}]},
          {run, ["abc", BadRegexp, []]},
-         {run, [{a,b}, {x,y}, [a|b]]},
-         {run, [{a,b}, ".*", bad_options]},
-         {run, ["abc", {x,y}, [bad_option]]},
-         {run, ["abc", BadRegexp, 9999]},
+         {run, [{a,b}, {x,y}, [a|b]],[{1,".*"},{2,".*"},{3,".*"}]},
+         {run, [{a,b}, ".*", bad_options],[{1,".*"},{3,".*"}]},
+         {run, ["abc", {x,y}, [bad_option]],[{2,".*"},{3,".*"}]},
+         {run, ["abc", BadRegexp, 9999],[{2,".*"},{3,".*"}]},
 
          {split, ["abc", BadRegexp]},
          {split, [{a,b}, ".*"]},
 
-         {split, ["abc", BadRegexp, [a|b]]},
+         {split, ["abc", BadRegexp, [a|b]],[{2,".*"},{3,".*"}]},
          {split, [{a,b}, ".*", [bad_option]]},
 
          {ucompile, 2},                         %Internal.
