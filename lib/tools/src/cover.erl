@@ -725,7 +725,7 @@ is_compiled(Module) when is_atom(Module) ->
 
 -spec reset(Module) -> 'ok' |
                        {'error', 'not_main_node'} |
-                       {'error', 'not_cover_compiled', Module} when
+                       {'error', {'not_cover_compiled', Module}} when
       Module :: module().
 
 reset(Module) when is_atom(Module) ->
