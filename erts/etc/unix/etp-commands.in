@@ -3464,7 +3464,14 @@ document etp-compile-info
 end
 
 define etp-config-h-info
-  printf "%s", erts_build_flags_CONFIG_H
+  ## Printing the whole string at once sometimes crashes gdb...
+  # printf "%s", erts_build_flags_CONFIG_H
+
+  set $ix=0
+  while erts_build_flags_CONFIG_H[$ix]
+    printf "%c", erts_build_flags_CONFIG_H[$ix]
+    set $ix++
+  end
 end
 
 document etp-config-h-info
