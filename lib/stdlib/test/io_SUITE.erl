@@ -32,7 +32,8 @@
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
-         otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1]).
+         otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
+         chars_limit/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -65,7 +66,7 @@ all() ->
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
-     otp_15639, otp_15705, otp_15847, otp_15875].
+     otp_15639, otp_15705, otp_15847, otp_15875, chars_limit].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2545,7 +2546,7 @@ trunc_depth(D, Fun) ->
     "#{{...} => {...},...}" = Fun(M, D, 7),
     "#{{[...],...} => {[...],...},...}" = Fun(M, D, 22),
     "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 31),
-    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 33),
+    "#{{[...],...} => {[...],...},[1|...] => [...]}" = Fun(M, D, 33),
     "#{{[1|...],[...]} => {[1|...],[...]},[1,2|...] => [...]}" =
         Fun(M, D, 50),
 
@@ -2716,5 +2717,39 @@ otp_15847(_Config) ->
     ok.
 
 otp_15875(_Config) ->
+    %% This test is moot due to the fix in GH-4842.
     S = io_lib:format("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
-    "[{0,[<<48,...>>]}]" = lists:flatten(S).
+    "[{0,[<<\"00\">>]}]" = lists:flatten(S).
+
+%% GH-4824, GH-4842, OTP-17459.
+chars_limit(_Config) ->
+    List = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> [I, R(I-1)] end
+           end,
+    Tuple = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> {I, R(I-1)} end
+           end,
+    Map = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> #{I => R(I-1)} end
+           end,
+    Record = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> {b, R(I-1)} end
+           end,
+    Test = fun (F, N, Lim) ->
+                   Opts = [{chars_limit, Lim},
+                           {record_print_fun, fun rfd/2}],
+                   [_|_] = io_lib_pretty:print(F(N), Opts)
+           end,
+    %% Used to loop:
+    Test(List, 1000, 1000),
+    Test(Tuple, 1000, 1000),
+    Test(Map, 1000, 1000),
+    Test(Record, 1000, 1000),
+
+    %% Misc sizes and char limits:
+    _ = [Test(What, N, CL) ||
+            N <- lists:seq(1, 50),
+            CL <- lists:seq(N, N*3),
+            What <- [List, Tuple, Map, Record]
+        ],
+    ok.
