@@ -564,7 +564,19 @@ effect(Config) when is_list(Config) ->
              ">>,
            [],
            {warnings,[{{3,16},sys_core_fold,{ignored,useless_building}},
-                      {{3,30},sys_core_fold,{ignored,useless_building}}]}}
+                      {{3,30},sys_core_fold,{ignored,useless_building}}]}},
+
+          {propagated_literal,
+           <<"
+            foo(X) ->
+                Y = [$.],
+                %% There must not be a warning for constructing a term that
+                %% is never used.
+                fun() -> X = Y ++ [$.] end(),
+                ok.
+             ">>,
+           [],
+           []}
          ],
     [] = run(Config, Ts),
     ok.

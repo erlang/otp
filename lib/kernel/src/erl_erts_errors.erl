@@ -1223,7 +1223,12 @@ do_binary_to_atom(Bin, Enc0, DefaultError) ->
         unicode ->
             if
                 is_binary(Bin) ->
-                    [bad_unicode];
+                    case unicode:characters_to_list(Bin, Enc) of
+                        CharList when is_list(CharList) ->
+                            [non_existing_atom];
+                        _ ->
+                            [bad_unicode]
+                    end;
                 true ->
                     [not_binary]
             end;
@@ -1239,7 +1244,8 @@ is_flat_char_list([H|T]) ->
         error:badarg ->
             false
     end;
-is_flat_char_list(_) -> true.
+is_flat_char_list([]) -> true;
+is_flat_char_list(_) -> false.
 
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);

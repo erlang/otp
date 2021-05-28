@@ -1074,23 +1074,13 @@ let_substs_1(Vs, #c_values{es=As}, Sub) ->
 let_substs_1([V], A, Sub) -> let_subst_list([V], [A], Sub);
 let_substs_1(Vs, A, _) -> {Vs,A,[]}.
 
-let_subst_list([V|Vs0], [A0|As0], Sub) ->
+let_subst_list([V|Vs0], [A|As0], Sub) ->
     {Vs1,As1,Ss} = let_subst_list(Vs0, As0, Sub),
-    case is_subst(A0) of
+    case is_subst(A) of
 	true ->
-	    A = case is_compiler_generated(V) andalso
-		    not is_compiler_generated(A0) of
-		    true ->
-			%% Propagate the 'compiler_generated' annotation
-			%% along with the value.
-			Ann = [compiler_generated|cerl:get_ann(A0)],
-			cerl:set_ann(A0, Ann);
-		    false ->
-			A0
-		end,
 	    {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
 	false ->
-	    {[V|Vs1],[A0|As1],Ss}
+	    {[V|Vs1],[A|As1],Ss}
     end;
 let_subst_list([], [], _) -> {[],[],[]}.
 
@@ -1333,8 +1323,10 @@ sub_new(#sub{}=Sub) ->
 
 sub_get_var(#c_var{name=V}=Var, #sub{v=S}) ->
     case orddict:find(V, S) of
-	{ok,Val} -> Val;
-	error -> Var
+	{ok,Val} ->
+            propagate_compiler_generated(Var, Val);
+	error ->
+            Var
     end.
 
 sub_set_var(#c_var{name=V}, Val, Sub) ->
@@ -1345,9 +1337,11 @@ sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb = copy_type(V, Val, Tdb1),
     Sub#sub{v=orddict:store(V, Val, S),s=sets:add_element(V, Scope),t=Tdb}.
 
-sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
+sub_subst_var(#c_var{name=V}=Var, Val0, #sub{v=S0}) ->
+    Val = propagate_compiler_generated(Var, Val0),
+
     %% Fold chained substitutions.
-    [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
+    [{V,Val}] ++ [{K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
 
 sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
     Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
@@ -1372,6 +1366,18 @@ sub_subst_scope_1([], _, Acc) -> Acc.
 
 sub_is_in_scope(#c_var{name=V}, #sub{s=Scope}) ->
     sets:is_element(V, Scope).
+
+%% Propagate the 'compiler_generated' annotation (if any)
+%% from From to To.
+propagate_compiler_generated(From, To) ->
+    case is_compiler_generated(From) andalso
+        not is_compiler_generated(To) of
+        true ->
+            Ann = [compiler_generated|cerl:get_ann(To)],
+            cerl:set_ann(To, Ann);
+        false ->
+            To
+    end.
 
 %% warn_no_clause_match(CaseOrig, CaseOpt) -> ok
 %%  Generate a warning if none of the user-specified clauses
