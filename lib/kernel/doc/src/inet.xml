@@ -1468,7 +1468,8 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	    </p>
 	    <marker id="option-recvttl"></marker>
           </item>
-          <tag><c>{recvttl, Boolean}</c></tag>
+
+	  <tag><c>{recvttl, Boolean}</c></tag>
           <item>
             <p>
 	      If set to <c>true</c> activates returning the received
@@ -1497,12 +1498,15 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      </seetype>
 	      option.
 	    </p>
+	    <marker id="option-reuseaddr"></marker>
           </item>
-          <tag><c>{reuseaddr, Boolean}</c></tag>
+
+	  <tag><c>{reuseaddr, Boolean}</c></tag>
           <item>
             <p>Allows or disallows local reuse of port numbers. By
 	    default, reuse is disallowed. </p>
 	    <p>This is <em>ignored</em> on Windows. </p>
+	    <marker id="option-win_reuseaddr"></marker>
           </item>
 
           <tag><c>{win_reuseaddr, Boolean}</c></tag>

@@ -60,6 +60,7 @@
          ValueBin :: binary()} |
         {recbuf,          non_neg_integer()} |
         {reuseaddr,       boolean()} |
+        {win_reuseaddr,   boolean()} |
         {send_timeout,    non_neg_integer() | infinity} |
         {send_timeout_close, boolean()} |
         {show_econnreset, boolean()} |
@@ -99,6 +100,7 @@
                       (ValueBin :: binary())} |
         recbuf |
         reuseaddr |
+        win_reuseaddr |
         send_timeout |
         send_timeout_close |
         show_econnreset |
