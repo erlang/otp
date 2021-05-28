@@ -22,7 +22,7 @@
 #include "bn.h"
 
 #ifdef HAVE_EC
-static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
+static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg, size_t *size);
 static ERL_NIF_TERM point2term(ErlNifEnv* env,
 			       const EC_GROUP *group,
 			       const EC_POINT *point,
@@ -37,7 +37,7 @@ ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
 	return enif_make_badarg(env);
 }
 
-static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
+static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg, size_t *size)
 {
     EC_KEY *key = NULL;
     int c_arity = -1;
@@ -61,7 +61,7 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
         goto err;
     if (c_arity != 5)
         goto err;
-    if (!get_bn_from_bin(env, curve[3], &bn_order))
+    if (!get_bn_from_bin_sz(env, curve[3], &bn_order, size))
         goto err;
     if (curve[4] != atom_none) {
         if (!get_bn_from_bin(env, curve[4], &cofactor))
@@ -297,6 +297,14 @@ int get_ec_key(ErlNifEnv* env,
 		      ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
 		      EC_KEY** res)
 {
+    return get_ec_key_sz(env, curve, priv, pub, res, NULL);
+}
+
+int get_ec_key_sz(ErlNifEnv* env,
+                  ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
+                  EC_KEY** res,
+                  size_t* size)
+{
     EC_KEY *key = NULL;
     BIGNUM *priv_key = NULL;
     EC_POINT *pub_key = NULL;
@@ -311,7 +319,7 @@ int get_ec_key(ErlNifEnv* env,
             goto err;
     }
 
-    if ((key = ec_key_new(env, curve)) == NULL)
+    if ((key = ec_key_new(env, curve, size)) == NULL)
         goto err;
 
     if ((group = EC_GROUP_dup(EC_KEY_get0_group(key))) == NULL)
@@ -375,8 +383,9 @@ ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM priv_key;
     ERL_NIF_TERM pub_key;
     ERL_NIF_TERM ret;
+    size_t size;
 
-    if (!get_ec_key(env, argv[0], argv[1], atom_undefined, &key))
+    if (!get_ec_key_sz(env, argv[0], argv[1], atom_undefined, &key, &size))
         goto bad_arg;
 
     if (argv[1] == atom_undefined) {
@@ -395,7 +404,7 @@ ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
                              EC_KEY_get_conv_form(key));
     }
 
-    priv_key = bn2term(env, EC_KEY_get0_private_key(key));
+    priv_key = bn2term(env, size, EC_KEY_get0_private_key(key));
     ret = enif_make_tuple2(env, pub_key, priv_key);
     goto done;
 

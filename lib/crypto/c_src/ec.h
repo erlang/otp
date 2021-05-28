@@ -26,6 +26,8 @@
 #if defined(HAVE_EC)
 int get_ec_key(ErlNifEnv* env, ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
                EC_KEY** res);
+int get_ec_key_sz(ErlNifEnv* env, ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
+                  EC_KEY** res, size_t* size);
 int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pptr);
 ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env);
 #endif
