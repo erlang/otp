@@ -32,8 +32,8 @@ LM_PRECIOUS_VARS
 dnl We check if -Werror was given on command line and if so
 dnl we disable it for the configure and only use it when
 dnl actually building erts
-no_werror_CFLAGS=$(echo "$CFLAGS" | sed 's/-Werror\([[^=]]\|$\)/ /g')
-if test "$CFLAGS" != "$no_werror_CFLAGS"; then
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
    CFLAGS="$no_werror_CFLAGS"
    WERRORFLAGS=-Werror
 fi
