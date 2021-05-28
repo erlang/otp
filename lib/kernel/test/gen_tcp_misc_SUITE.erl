@@ -6535,9 +6535,7 @@ otp_17447(Config) when is_list(Config) ->
 do_otp_17447_win(Config) when is_list(Config) ->
     EffectOpt   = win_reuseaddr,
     NoEffectOpt = reuseaddr,
-    ?P("create listen socket with '~w' = true", [EffectOpt]),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {EffectOpt, true}]),
-    do_otp_17447(L, EffectOpt, NoEffectOpt).
+    do_otp_17447(Config, EffectOpt, NoEffectOpt).
 
 %% The is run on *none* windows:
 %% Setting the option 'reuseaddr' should *have* effect.
@@ -6545,18 +6543,23 @@ do_otp_17447_win(Config) when is_list(Config) ->
 do_otp_17447_nowin(Config) when is_list(Config) ->
     EffectOpt   = reuseaddr,
     NoEffectOpt = win_reuseaddr,
+    do_otp_17447(Config, EffectOpt, NoEffectOpt).
+
+
+do_otp_17447(Config, EffectOpt, NoEffectOpt) ->
     ?P("create listen socket with '~w' = true", [EffectOpt]),
-    {ok, L} = ?LISTEN(Config, 0, [{active, false}, {EffectOpt, true}]),
-    do_otp_17447(L, EffectOpt, NoEffectOpt).
-
-
-do_otp_17447(L, EffectOpt, NoEffectOpt) ->
+    {ok, L} = ?LISTEN(Config, 0,
+		      [{active,      false},
+		       {EffectOpt,   true},
+		       {NoEffectOpt, false}]),
     ?P("verify listen socket option '~w' is true", [EffectOpt]),
-    {ok, [{reuseaddr, true}]} = inet:getopts(L, [EffectOpt]),
+    {ok, [{EffectOpt, true}, {NoEffectOpt, true}]} =
+	inet:getopts(L, [EffectOpt, NoEffectOpt]),
     ?P("try set option '~w' to false", [NoEffectOpt]),
-    ok                        = inet:setopts(L, [{NoEffectOpt, false}]),
+    ok = inet:setopts(L, [{NoEffectOpt, false}]),
     ?P("verify listen socket option '~w' is still true", [EffectOpt]),
-    {ok, [{reuseaddr, true}]} = inet:getopts(L, [EffectOpt]),
+    {ok, [{EffectOpt, true}, {NoEffectOpt, true}]} =
+	inet:getopts(L, [EffectOpt, NoEffectOpt]),
     ?P("close (listen) socket"),
     (catch gen_tcp:close(L)),
     ?P("done"),

@@ -969,8 +969,8 @@ ignore_opt() ->
 socket_opt() ->
     CondOpt =
 	case os:type() of
-	    {win32, _} -> #{win_reuseaddr => []};
-	    _          -> #{reuseaddr => []}
+	    {win32, _} -> #{win_reuseaddr => {socket, reuseaddr}};
+	    _          -> #{reuseaddr     => {socket, reuseaddr}}
 	end,
     maps:merge(
       #{
