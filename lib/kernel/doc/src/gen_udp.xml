@@ -33,6 +33,15 @@
   <description>
     <p>This module provides functions for communicating
       with sockets using the UDP protocol.</p>
+    <note>
+      <p>The <seeerl marker="inet#option-reuseaddr">reuseaddr</seeerl>
+      socket option is <em>silently ignored</em> on Windows.
+      The reason is that the behaviour is indeterminate.
+      So if a user <em>really</em> want to set this
+      on windows, use the option
+      <seeerl marker="inet#option-win_reuseaddr">win_reuseaddr</seeerl>,
+      which is ignored on none-windows. </p>
+    </note>
   </description>
 
   <datatypes>

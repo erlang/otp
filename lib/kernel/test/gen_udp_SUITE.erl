@@ -31,11 +31,15 @@
 %% XXX - we should pick a port that we _know_ is closed. That's pretty hard.
 -define(CLOSED_PORT, 6666).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([
+	 all/0, suite/0, groups/0,
+	 init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2, end_per_group/2
+	]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([send_to_closed/1, active_n/1,
+-export([
+	 send_to_closed/1, active_n/1,
 	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
 	 read_packets/1, recv_poll_after_active_once/1,
          open_fd/1, connect/1, implicit_inet6/1,
@@ -43,7 +47,9 @@
          sendtos/1, sendtosttl/1, sendttl/1, sendtclass/1,
 	 local_basic/1, local_unbound/1,
 	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1,
-         recv_close/1]).
+         recv_close/1,
+	 otp_17447/1
+	]).
 
 
 -define(TRY_TC(F), try_tc(F)).
@@ -68,7 +74,8 @@ all() ->
      recvtos, recvtosttl, recvttl, recvtclass,
      sendtos, sendtosttl, sendttl, sendtclass,
      {group, local},
-     recv_close
+     recv_close,
+     otp_17447
     ].
 
 groups() -> 
@@ -284,6 +291,7 @@ buffer_size_client(Server, IP, Port,
 	    after 1313 ->
 		    buffer_size_client(Server, IP, Port, Socket, Cnt, Opts)
 	    end;
+
 	{error, Reason} ->
 	    ?P("<ERROR> Failed sending data ~w bytes of data: "
 	       "~n   SndBuf: ~p"
@@ -1282,6 +1290,71 @@ implicit_inet6(S1, Active, Addr) ->
     ?P("close \"remote\" socket"),
     ok = gen_udp:close(S2),
     ok.
+
+
+%%-------------------------------------------------------------
+%% OTP-17447 - The 'reuseaddr' is ignored on windows
+%%
+
+%% This is a inet-driver issue, so no point in testing with
+%% inet_backend = socket => SKIP.
+otp_17447(Config) when is_list(Config) ->
+    Cond = fun() ->
+		   case ?IS_SOCKET_BACKEND(Config) of
+		       true ->
+			   {skip, "Not complient with socket"};
+		       false ->
+			   ok
+		   end
+	   end,
+    TC = fun() ->
+		 case os:type() of
+		     {win32,_} ->
+			 do_otp_17447_win();
+		     _ ->
+			 do_otp_17447_nowin()
+		 end
+	 end,
+    ?TC_TRY(otp_17447, Cond, TC).
+
+%% The is run on windows:
+%% Setting the option 'reuseaddr' should have *no* effect.
+%% Setting the option 'win_reuseaddr' should *have* effect.
+do_otp_17447_win() ->
+    EffectOpt   = win_reuseaddr,
+    NoEffectOpt = reuseaddr,
+    do_otp_17447(EffectOpt, NoEffectOpt).
+
+%% The is run on *none* windows:
+%% Setting the option 'reuseaddr' should *have* effect.
+%% Setting the option 'win_reuseaddr' should have no effect.
+do_otp_17447_nowin() ->
+    EffectOpt   = reuseaddr,
+    NoEffectOpt = win_reuseaddr,
+    do_otp_17447(EffectOpt, NoEffectOpt).
+
+
+do_otp_17447(EffectOpt, NoEffectOpt) ->
+    ?P("create socket with '~w' = true", [EffectOpt]),
+    {ok, S} = gen_udp:open(0,
+			   [{active,      false},
+			    {EffectOpt,   true},
+			    {NoEffectOpt, false}]),
+    ?P("verify listen socket option '~w' is true", [EffectOpt]),
+    {ok, [{EffectOpt, true}, {NoEffectOpt, true}]} =
+	inet:getopts(S, [EffectOpt, NoEffectOpt]),
+    ?P("try set option '~w' to false", [NoEffectOpt]),
+    ok = inet:setopts(S, [{NoEffectOpt, false}]),
+    ?P("verify listen socket option '~w' is still true", [EffectOpt]),
+    {ok, [{EffectOpt, true}, {NoEffectOpt, true}]} =
+	inet:getopts(S, [EffectOpt, NoEffectOpt]),
+    ?P("close socket"),
+    (catch gen_tcp:close(S)),
+    ?P("done"),
+    ok.
+
+
+%%-------------------------------------------------------------
 
 ok({ok,V}) -> V;
 ok(NotOk) ->

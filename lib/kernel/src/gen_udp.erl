@@ -49,6 +49,7 @@
         {read_packets,    non_neg_integer()} |
         {recbuf,          non_neg_integer()} |
         {reuseaddr,       boolean()} |
+        {win_reuseaddr,   boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
         {tclass,          non_neg_integer()} |
@@ -79,6 +80,7 @@
         read_packets |
         recbuf |
         reuseaddr |
+        win_reuseaddr |
         sndbuf |
         tos |
         tclass |
