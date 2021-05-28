@@ -8,6 +8,8 @@ ARG BASE=debian
 
 ARG HOST_TRIP=x86_64-linux-gnu
 ENV HOST_TRIP=$HOST_TRIP
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libgmp3-dev libwxbase3.0-dev libwxgtk3.0-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
 
