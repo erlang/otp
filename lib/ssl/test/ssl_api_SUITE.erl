@@ -2651,7 +2651,7 @@ connection_info_result(Socket) ->
 prf_create_plan(TlsVer, _PRFs, Results) when TlsVer == tlsv1
                                              orelse TlsVer == 'tlsv1.1'
                                              orelse TlsVer == 'dtlsv1' ->
-    Ciphers = ssl:cipher_suites(all, TlsVer),
+    Ciphers = prf_get_ciphers(TlsVer, default_prf),
     {_, Expected} = lists:keyfind(md5sha, 1, Results),
     [[{ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
 prf_create_plan(TlsVer, PRFs, Results) when TlsVer == 'tlsv1.2' orelse TlsVer == 'dtlsv1.2' ->
