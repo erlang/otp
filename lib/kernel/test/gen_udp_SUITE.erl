@@ -284,6 +284,11 @@ buffer_size_client(Server, IP, Port,
 	    after 1313 ->
 		    buffer_size_client(Server, IP, Port, Socket, Cnt, Opts)
 	    end;
+
+	{error, enobufs = Reason} ->
+	    ?P("<WARNING> send failed with '~w' - system overload => SKIP"),
+	    ?SKIPE(Reason);
+
 	{error, Reason} ->
 	    ?P("<ERROR> Failed sending data ~w bytes of data: "
 	       "~n   SndBuf: ~p"
