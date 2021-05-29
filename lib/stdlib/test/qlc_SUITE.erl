@@ -2632,9 +2632,9 @@ info(Config) when is_list(Config) ->
              L = [{#{k => #{v => Fun}}, Fun}],
              H = qlc:q([Q || Q <- L, Q =:= {#{k => #{v => Fun}}, Fun}]),
              L = qlc:e(H),
-             {call,_,_,[{lc,_,{var,_,'Q'},
-                         [{generate,_,_,_},
-                          {op,_,_,_,_}]}]} =
+             {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_run}},
+                [_,
+                 {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_compile}},[_]}]} =
                 qlc:info(H, [{format,abstract_code}])">>
 
        ],
