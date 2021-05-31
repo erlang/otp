@@ -107,4 +107,5 @@ extension({Id, Data, Critical}) ->
 
 der_to_pem(File, Entries) ->
     PemBin = public_key:pem_encode(Entries),
+    _ = file:delete(File),
     file:write_file(File, PemBin).
