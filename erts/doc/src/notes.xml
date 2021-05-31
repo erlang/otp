@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A call to <c>port_command()</c> could cause a scheduler
+	    to end up in an eternal loop if the port was busy and the
+	    calling process had incoming signals at the time of the
+	    call. This bug was introduced in OTP 23.3.2 (ERTS version
+	    11.2.1), OTP 22.3.4.18 (ERTS version 10.7.2.10), and OTP
+	    21.3.8.23 (ERTS version 10.3.5.18).</p>
+          <p>
+	    Own Id: OTP-17448 Aux Id: GH-4898, PR-4903, OTP-17291 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
