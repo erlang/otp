@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,9 @@ getaddr({?FAMILY, _} = Address) -> {ok, Address}.
 getaddr({?FAMILY, _} = Address, _Timer) -> {ok, Address}.
 
 %% special this side addresses
-translate_ip(IP) -> IP.
+translate_ip(any)      -> undefined;       % Not for this ?FAMILY
+translate_ip(loopback) -> {?FAMILY, <<>>}; % Abstract address on Linux
+translate_ip(IP)       -> IP.              % undefined goes here
 
 open(0) -> open(0, []).
 %%
@@ -56,17 +58,10 @@ open(0, Opts) ->
 	    ifaddr = BAddr,
 	    port = 0,
 	    opts = SockOpts}}
-	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
-	     BAddr =:= any ->
+          when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
+               BAddr =:= undefined ->
 	    inet:open(
-	      Fd,
-	      case BAddr of
-		  any ->
-		      undefined;
-		  _ ->
-		      BAddr
-	      end,
-	      0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
+	      Fd, BAddr, 0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)
     end.
 
