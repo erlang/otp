@@ -1567,8 +1567,8 @@ extern int erts_system_profile_ts_type;
 #define FS_ON_HEAP_MSGQ        (1 << 1) /* On heap msg queue */
 #define FS_OFF_HEAP_MSGQ_CHNG  (1 << 2) /* Off heap msg queue changing */
 #define FS_LOCAL_SIGS_ONLY     (1 << 3) /* Handle privq sigs only */
-#define FS_UNUSED1             (1 << 4) /* */
-#define FS_UNUSED2             (1 << 5) /* */
+#define FS_HANDLING_SIGS       (1 << 4) /* Process is handling signals */
+#define FS_WAIT_HANDLE_SIGS    (1 << 5) /* Process is waiting to handle signals */
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
 
 /*
