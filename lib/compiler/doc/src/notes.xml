@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the validation pass that could cause it
+	    to reject valid code.</p>
+          <p>
+	    Own Id: OTP-17437 Aux Id: OTP-17357, GH-4774 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

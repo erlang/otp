@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a race condition in Global.</p>
+          <p>
+	    Own Id: OTP-16033 Aux Id: ERIERL-329, ERL-1414, GH-4448,
+	    ERL-885, GH-3923 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
