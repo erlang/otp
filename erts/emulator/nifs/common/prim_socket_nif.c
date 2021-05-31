@@ -1270,7 +1270,7 @@ static ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     accRef,
-                                            ErlNifPid*       pid);
+                                            ErlNifPid*       pidP);
 static BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
                                        ERL_NIF_TERM     sockRef,
@@ -3379,13 +3379,13 @@ static ERL_NIF_TERM mk_socket(ErlNifEnv*   env,
 static int esock_select_read(ErlNifEnv*       env,
                              ErlNifEvent      event,
                              void*            obj,
-                             const ErlNifPid* pid,
+                             const ErlNifPid* pidP,
                              ERL_NIF_TERM     sockRef,
                              ERL_NIF_TERM     selectRef);
 static int esock_select_write(ErlNifEnv*       env,
                               ErlNifEvent      event,
                               void*            obj,
-                              const ErlNifPid* pid,
+                              const ErlNifPid* pidP,
                               ERL_NIF_TERM     sockRef,
                               ERL_NIF_TERM     selectRef);
 static int esock_select_stop(ErlNifEnv*  env,
@@ -5329,7 +5329,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
 
 #ifdef HAVE_SETNS
     if ((netns != NULL) &&
-        !change_network_namespace(netns, &current_ns, &save_errno)) {
+        (! change_network_namespace(netns, &current_ns, &save_errno))) {
         FREE(netns);
         return esock_make_error_errno(env, save_errno);
     }
@@ -5361,7 +5361,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
 
     if ((event = sock_create_event(sock)) == INVALID_EVENT) {
         save_errno = sock_errno();
-        while ((sock_close(sock) < 0) && (sock_errno() == EINTR));
+        (void) sock_close(sock);
         return esock_make_error_errno(env, save_errno);
     }
 
@@ -5479,41 +5479,27 @@ BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
             "\r\n   new ns: %s"
             "\r\n", netns) );
 
-    if (netns != NULL) {
-        current_ns = open("/proc/self/ns/net", O_RDONLY);
-        if (ESOCK_IS_ERROR(current_ns)) {
-            *cns = current_ns;
-            *err = sock_errno();
-            return FALSE;
-        }
-        new_ns = open(netns, O_RDONLY);
-        if (ESOCK_IS_ERROR(new_ns)) {
-            save_errno = sock_errno();
-            while ((close(current_ns) < 0) &&
-                   sock_errno() == EINTR);
-            *cns = -1;
-            *err = save_errno;
-            return FALSE;
-        }
-        if (setns(new_ns, CLONE_NEWNET) != 0) {
-            save_errno = sock_errno();
-            while ((close(new_ns) < 0) &&
-                   (sock_errno() == EINTR));
-            while ((close(current_ns) < 0) &&
-                   (sock_errno() == EINTR));
-            *cns = -1;
-            *err = save_errno;
-            return FALSE;
-        } else {
-            while ((close(new_ns) < 0) &&
-                   (sock_errno() == EINTR));
-            *cns = current_ns;
-            *err = 0;
-            return TRUE;
-        }
+    current_ns = open("/proc/self/ns/net", O_RDONLY);
+    if (ESOCK_IS_ERROR(current_ns)) {
+        *err = sock_errno();
+        return FALSE;
+    }
+    new_ns = open(netns, O_RDONLY);
+    if (ESOCK_IS_ERROR(new_ns)) {
+        save_errno = sock_errno();
+        (void) close(current_ns);
+        *err = save_errno;
+        return FALSE;
+    }
+    if (setns(new_ns, CLONE_NEWNET) != 0) {
+        save_errno = sock_errno();
+        (void) close(new_ns);
+        (void) close(current_ns);
+        *err = save_errno;
+        return FALSE;
     } else {
-        *cns = INVALID_SOCKET;
-        *err = 0;
+        (void) close(new_ns);
+        *cns = current_ns;
         return TRUE;
     }
 }
@@ -5527,38 +5513,25 @@ BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
 static
 BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err)
 {
-    int save_errno;
-
     SGDBG( ("SOCKET", "restore_network_namespace -> entry with"
             "\r\n   ns: %d"
             "\r\n", ns) );
 
-    if (ns != INVALID_SOCKET) {
-        if (setns(ns, CLONE_NEWNET) != 0) {
-            /* XXX Failed to restore network namespace.
-             * What to do? Tidy up and return an error...
-             * Note that the thread now might still be in the namespace.
-             * Can this even happen? Should the emulator be aborted?
-             */
-            if (sock != INVALID_SOCKET)
-                save_errno = sock_errno();
-            while ((close(sock) < 0) &&
-                   sock_errno() == EINTR);
-            sock = INVALID_SOCKET;
-            while ((close(ns) < 0) &&
-                   sock_errno() == EINTR);
-            *err = save_errno;
-            return FALSE;
-        } else {
-            while ((close(ns) < 0) &&
-                   sock_errno() == EINTR);
-            *err = 0;
-            return TRUE;
-        }
-  }
-
-  *err = 0;
-  return TRUE;
+    if (setns(ns, CLONE_NEWNET) != 0) {
+        /* XXX Failed to restore network namespace.
+         * What to do? Tidy up and return an error...
+         * Note that the thread now might still be in the namespace.
+         * Can this even happen? Should the emulator be aborted?
+         */
+        int save_errno = sock_errno();
+        (void) close(sock);
+        (void) close(ns);
+        *err = save_errno;
+        return FALSE;
+    } else {
+        (void) close(ns);
+        return TRUE;
+    }
 }
 #endif // #ifndef __WIN32__
 
@@ -6101,7 +6074,7 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
     if (descP->currentAcceptorP == NULL) {
         SOCKET        accSock;
 
-        /* We have no active acceptor (and therefor no acceptors in queue)
+        /* We have no active acceptor (and therefore no acceptors in queue)
          */
 
         SSDBG( descP, ("SOCKET", "esock_accept {%d} -> try accept\r\n",
@@ -6376,8 +6349,9 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
 
             esock_send_abort_msg(env, descP, sockRef, &req, reason);
 
-            DEMONP("esock_accept_accepting_current_error -> pop'ed writer",
-                   env, descP, &req.mon);
+            (void) DEMONP("esock_accept_accepting_current_error -> "
+                          "pop'ed writer",
+                          env, descP, &req.mon);
         }
         descP->currentAcceptorP = NULL;
     }
@@ -6420,16 +6394,16 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      ERL_NIF_TERM     sockRef,
                                      ERL_NIF_TERM     accRef,
-                                     ErlNifPid*       pid)
+                                     ErlNifPid*       pidP)
 {
     int          sres;
     ERL_NIF_TERM res;
 
-    if ((sres = esock_select_read(env, descP->sock, descP, pid,
+    if ((sres = esock_select_read(env, descP->sock, descP, pidP,
                                   sockRef, accRef)) < 0) {
 
-        DEMONP("esock_accept_busy_retry - select failed",
-               env, descP, &descP->currentAcceptor.mon);
+        ESOCK_ASSERT( DEMONP("esock_accept_busy_retry - select failed",
+                             env, descP, &descP->currentAcceptor.mon) == 0);
         /* It is very unlikely that a next acceptor will be able
          * to do anything succesful, but we will clean the queue
          */
@@ -6485,8 +6459,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
 
     if ((accEvent = sock_create_event(accSock)) == INVALID_EVENT) {
         save_errno = sock_errno();
-        while ((sock_close(accSock) < 0) &&
-               (sock_errno() == EINTR));
+        (void) sock_close(accSock);
         *result = esock_make_error_errno(env, save_errno);
         return FALSE;
     }
@@ -7247,9 +7220,10 @@ nif_sendfile(ErlNifEnv*         env,
         MLOCK(descP->writeMtx);
 
         SSDBG( descP,
-               ("SOCKET", "nif_sendfile(%T), {%d,0x%X} ->"
+               ("SOCKET", "nif_sendfile(%T), {%d,%d,0x%X} ->"
                 "\r\n",
-                sockRef, descP->sock, descP->writeState) );
+                sockRef,
+                descP->sock, descP->sendfileHandle, descP->writeState) );
 
         res = esock_sendfile_deferred_close(env, descP);
 
@@ -7575,8 +7549,8 @@ esock_sendfile(ErlNifEnv       *env,
     size_t pkgSize = 0; // Total sent in this call
 
     SSDBG( descP, ("SOCKET",
-                   "esock_sendfile(%T) {%d}\r\n",
-                   sockRef, descP->sock) );
+                   "esock_sendfile(%T) {%d,%d}\r\n",
+                   sockRef, descP->sock, descP->sendfileHandle) );
 
     for (;;) {
         size_t  chunk_size = (size_t) 0x20000000UL; // 0.5 GB
@@ -7790,8 +7764,8 @@ esock_sendfile_error(ErlNifEnv             *env,
 
     if (descP->currentWriterP != NULL) {
 
-        DEMONP("esock_sendfile_error",
-               env, descP, &descP->currentWriter.mon);
+        (void) DEMONP("esock_sendfile_error",
+                      env, descP, &descP->currentWriter.mon);
 
         /* Fail all queued writers */
         requestor_release("esock_sendfile_error",
@@ -7819,8 +7793,8 @@ esock_sendfile_select(ErlNifEnv       *env,
         ERL_NIF_TERM reason;
 
         /* Internal select error */
-        DEMONP("esock_sendfile_select - failed",
-               env, descP, &descP->currentWriter.mon);
+        (void) DEMONP("esock_sendfile_select - failed",
+                      env, descP, &descP->currentWriter.mon);
 
         /* Fail all queued writers */
         reason = MKT2(env, atom_select_write, MKI(env, sres));
@@ -7868,8 +7842,8 @@ esock_sendfile_ok(ErlNifEnv       *env,
 
     if (descP->currentWriterP != NULL) {
 
-        DEMONP("esock_sendfile_ok -> current writer",
-               env, descP, &descP->currentWriter.mon);
+        (void) DEMONP("esock_sendfile_ok -> current writer",
+                      env, descP, &descP->currentWriter.mon);
 
         /*
          * Ok, this write is done maybe activate the next (if any)
@@ -8807,6 +8781,9 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
 {
     int err;
     ErlNifPid self;
+#ifdef HAVE_SENDFILE
+    HANDLE sendfileHandle;
+#endif
 
     ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
@@ -8848,6 +8825,11 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
      * just triggered owner monitor down
      */
 
+#ifdef HAVE_SENDFILE
+    sendfileHandle = descP->sendfileHandle;
+    descP->sendfileHandle = INVALID_HANDLE;
+#endif
+
     /* This nif is executed in a dirty scheduler just so that
      * it can "hang" (whith minumum effect on the VM) while the
      * kernel writes our buffers. IF we have set the linger option
@@ -8855,13 +8837,11 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
      * be blocking...
      */
     SET_BLOCKING(descP->sock);
-
     err = esock_close_socket(env, descP, TRUE);
 
 #ifdef HAVE_SENDFILE
-    if (descP->sendfileHandle != INVALID_HANDLE) {
+    if (sendfileHandle != INVALID_HANDLE) {
         (void) close(descP->sendfileHandle);
-        descP->sendfileHandle = INVALID_HANDLE;
     }
 #endif
 
@@ -8889,6 +8869,28 @@ static int esock_close_socket(ErlNifEnv*       env,
     SOCKET       sock     = descP->sock;
     ERL_NIF_TERM sockRef;
 
+    /* This code follows Linux's advice to assume that after calling
+     * close(2), the file descriptor may be reused, so assuming
+     * that it can be used for anything such as retrying
+     * to close is bad behaviour, although odd platforms
+     * such as HP-UX requires a retry after EINTR
+     */
+
+    /* First update the state so no other thread will try
+     * to close the socket, then we will close it,
+     * possibly when being scheduled in during
+     * finalize_close
+     */
+    descP->sock        = INVALID_SOCKET;
+    descP->event       = INVALID_EVENT;
+    descP->readState  |= ESOCK_STATE_CLOSED;
+    descP->writeState |= ESOCK_STATE_CLOSED;
+    dec_socket(descP->domain, descP->type, descP->protocol);
+
+    /* +++++++ Clear the meta option +++++++ */
+    enif_clear_env(descP->meta.env);
+    descP->meta.ref = esock_atom_undefined;
+
     sock_close_event(descP->event);
     if (descP->closeOnClose) {
         if (unlock) {
@@ -8903,16 +8905,11 @@ static int esock_close_socket(ErlNifEnv*       env,
         }
     }
 
-    if (err == 0)
-        descP->sock    = INVALID_SOCKET;
-    descP->event       = INVALID_EVENT;
-    descP->readState  |= ESOCK_STATE_CLOSED;
-    descP->writeState |= ESOCK_STATE_CLOSED;
-    dec_socket(descP->domain, descP->type, descP->protocol);
-
-    /* +++++++ Clear the meta option +++++++ */
-    enif_clear_env(descP->meta.env);
-    descP->meta.ref = esock_atom_undefined;
+    if (err != 0) {
+        SSDBG( descP,
+               ("SOCKET", "esock_close_socket {%d} -> %d\r\n",
+                sock, err) );
+    }
 
     /* (maybe) Update the registry */
     if (descP->useReg) {
@@ -12696,8 +12693,8 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    DEMONP("esock_cancel_accept_current -> current acceptor",
-           env, descP, &descP->currentAcceptor.mon);
+    ESOCK_ASSERT( DEMONP("esock_cancel_accept_current -> current acceptor",
+                         env, descP, &descP->currentAcceptor.mon) == 0);
     res = esock_cancel_read_select(env, descP, descP->currentAcceptor.ref);
 
     SSDBG( descP,
@@ -12820,8 +12817,8 @@ ERL_NIF_TERM esock_cancel_send_current(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    DEMONP("esock_cancel_send_current -> current writer",
-           env, descP, &descP->currentWriter.mon);
+    ESOCK_ASSERT( DEMONP("esock_cancel_send_current -> current writer",
+                         env, descP, &descP->currentWriter.mon) == 0);
     res = esock_cancel_write_select(env, descP, descP->currentWriter.ref);
 
     SSDBG( descP,
@@ -12938,8 +12935,8 @@ ERL_NIF_TERM esock_cancel_recv_current(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    DEMONP("esock_cancel_recv_current -> current reader",
-           env, descP, &descP->currentReader.mon);
+    ESOCK_ASSERT( DEMONP("esock_cancel_recv_current -> current reader",
+                         env, descP, &descP->currentReader.mon) == 0);
     res = esock_cancel_read_select(env, descP, descP->currentReader.ref);
 
     SSDBG( descP,
@@ -13224,8 +13221,8 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
             sockRef, descP->sock, written) );
 
     if (descP->currentWriterP != NULL) {
-        DEMONP("send_check_ok -> current writer",
-               env, descP, &descP->currentWriter.mon);
+        ESOCK_ASSERT( DEMONP("send_check_ok -> current writer",
+                             env, descP, &descP->currentWriter.mon) == 0);
     }
     /*
      * Ok, this write is done maybe activate the next (if any)
@@ -13314,8 +13311,8 @@ void send_error_waiting_writers(ErlNifEnv*       env,
 
         esock_send_abort_msg(env, descP, sockRef, &req, reason);
 
-        DEMONP("send_error_waiting_writers -> pop'ed writer",
-               env, descP, &req.mon);
+        (void) DEMONP("send_error_waiting_writers -> pop'ed writer",
+                      env, descP, &req.mon);
     }
 }
 #endif // #ifndef __WIN32__
@@ -13362,8 +13359,9 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
                           atom_write_byte, &descP->writeByteCnt, written);
 
             if (descP->currentWriterP != NULL) {
-                DEMONP("send_check_retry -> current writer",
-                       env, descP, &descP->currentWriter.mon);
+                ESOCK_ASSERT( DEMONP("send_check_retry -> current writer",
+                                     env, descP,
+                                     &descP->currentWriter.mon) == 0);
             }
             /*
              * Ok, this write is done maybe activate the next (if any)
@@ -13418,8 +13416,8 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
         ERL_NIF_TERM reason;
 
         /* Internal select error */
-        DEMONP("send_check_retry - select error",
-               env, descP, &descP->currentWriter.mon);
+        ESOCK_ASSERT( DEMONP("send_check_retry - select error",
+                             env, descP, &descP->currentWriter.mon) == 0);
 
         /* Fail all queued writers */
         reason = MKT2(env, atom_select_write, MKI(env, sres));
@@ -13566,8 +13564,8 @@ recv_update_current_reader(ErlNifEnv*       env,
 {
     if (descP->currentReaderP != NULL) {
         
-        DEMONP("recv_update_current_reader",
-               env, descP, &descP->currentReader.mon);
+        ESOCK_ASSERT( DEMONP("recv_update_current_reader",
+                             env, descP, &descP->currentReader.mon) == 0);
 
         if (! activate_next_reader(env, descP, sockRef)) {
 
@@ -13615,8 +13613,8 @@ void recv_error_current_reader(ErlNifEnv*       env,
 
             esock_send_abort_msg(env, descP, sockRef, &req, reason);
 
-            DEMONP("recv_error_current_reader -> pop'ed reader",
-                   env, descP, &req.mon);
+            ESOCK_ASSERT( DEMONP("recv_error_current_reader -> pop'ed reader",
+                                 env, descP, &req.mon) == 0);
         }
 
         descP->currentReaderP = NULL;
@@ -16537,9 +16535,8 @@ void esock_send_reg_add_msg(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_send_reg_add_msg(%T) {%d} failed ->"
                 "\r\n   regPid: %T"
-                "\r\n   msg:    %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &data.regPid), msg) );
+                sockRef, descP->sock, MKPID(env, &data.regPid)) );
     }
 }
 #endif // #ifndef __WIN32__
@@ -16564,9 +16561,8 @@ void esock_send_reg_del_msg(ErlNifEnv*   env,
                ("SOCKET",
                 "esock_send_reg_del_msg(%T) {%d} failed ->"
                 "\r\n   regPid: %T"
-                "\r\n   msg:    %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &data.regPid), msg) );
+                sockRef, descP->sock, MKPID(env, &data.regPid)) );
     }
 }
 #endif // #ifndef __WIN32__
@@ -16602,9 +16598,9 @@ void esock_send_wrap_msg(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_send_wrap_msg(%T) {%d} failed ->"
                 "\r\n   ctrlPid: %T"
-                "\r\n   msg:     %T"
+                "\r\n   cnt:     %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &descP->ctrlPid), msg) );
+                sockRef, descP->sock, MKPID(env, &descP->ctrlPid), cnt) );
     }
 }
 #endif // #ifndef __WIN32__
@@ -16634,10 +16630,10 @@ void esock_send_close_msg(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET",
                 "esock_send_close_msg(%T) {%d} failed ->"
-                "\r\n   pid: %T"
-                "\r\n   msg: %T"
+                "\r\n   pid:      %T"
+                "\r\n   closeRef: %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, pid), msg) );
+                sockRef, descP->sock, MKPID(env, pid), descP->closeRef) );
     }
 }
 #ifdef HAVE_SENDFILE
@@ -16696,9 +16692,8 @@ void esock_send_abort_msg(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_send_abort_msg(%T) {%d} failed ->"
                 "\r\n   pid: %T"
-                "\r\n   msg: %T"
                 "\r\n",
-                sockRef, descP->sock, MKPID(env, &reqP->pid), msg) );
+                sockRef, descP->sock, MKPID(env, &reqP->pid)) );
     }
     reqP->env = NULL;
 }
@@ -16920,13 +16915,13 @@ static
 int esock_select_read(ErlNifEnv*       env,
                       ErlNifEvent      event,     // The file descriptor
                       void*            obj,       // The socket descriptor object
-                      const ErlNifPid* pid,       // Destination
+                      const ErlNifPid* pidP,      // Destination
                       ERL_NIF_TERM     sockRef,   // Socket
                       ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
     ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
 
-    return enif_select_read(env, event, obj, pid, selectMsg, NULL);
+    return enif_select_read(env, event, obj, pidP, selectMsg, NULL);
 
 }
 #endif // #ifndef __WIN32__
@@ -16944,13 +16939,13 @@ static
 int esock_select_write(ErlNifEnv*       env,
                        ErlNifEvent      event,     // The file descriptor
                        void*            obj,       // The socket descriptor
-                       const ErlNifPid* pid,       // Destination
+                       const ErlNifPid* pidP,       // Destination
                        ERL_NIF_TERM     sockRef,   // Socket
                        ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
     ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
 
-    return enif_select_write(env, event, obj, pid, selectMsg, NULL);
+    return enif_select_write(env, event, obj, pidP, selectMsg, NULL);
 }
 #endif // #ifndef __WIN32__
 
@@ -17364,7 +17359,7 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
 
             /* We have a match */
 
-            DEMONP(slogan, env, descP, &e->data.mon);
+            (void) DEMONP(slogan, env, descP, &e->data.mon);
             
             if (p != NULL) {
                 /* Not the first, but could be the last */
@@ -17574,30 +17569,26 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   MLOCK(descP->readMtx);
   MLOCK(descP->writeMtx);
 
-  if (! IS_CLOSED(descP->readState)) {
-      int err;
+  SGDBG( ("SOCKET", "dtor {%d,0x%X}\r\n",
+          descP->sock, descP->readState | descP->writeState) );
 
-      descP->useReg = FALSE;
-      /* We are not allowed to enif_make_resource from
-       * the destructor - it would create kind of a zombie
-       * resource and maybe lead to calling the destructor
-       * again and whatnot..., so disable sending a resource
-       * ref to the socket registry
+  if (IS_SELECTED(descP)) {
+      /* We have used the socket in the select machinery,
+       * so we must have closed it properly to get here
        */
-
-      if ((err = esock_close_socket(env, descP, FALSE)) != 0)
-          esock_warning_msg("Failed closing socket in destructor:"
-                            "\r\n   Descriptor:     %d"
-                            "\r\n   Errno:          %d (%T)"
-                            "\r\n",
-                            descP->sock,
-                            err, MKA(env, erl_errno_id(err)));
+      ESOCK_ASSERT( IS_CLOSED(descP->readState) );
+      ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
+      ESOCK_ASSERT( descP->sock == INVALID_SOCKET );
+  } else {
+      /* The socket is only opened, should be safe to close nonblocking */
+      (void) sock_close(descP->sock);
+      descP->sock = INVALID_SOCKET;
   }
 
   SGDBG( ("SOCKET", "dtor -> set state and pattern\r\n") );
-  descP->readState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+  descP->readState  |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
   descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
-  descP->pattern = ESOCK_DESC_PATTERN_DTOR;
+  descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
 
   esock_free_env("dtor reader", descP->currentReader.env);
   descP->currentReader.env = NULL;
@@ -17619,9 +17610,10 @@ void esock_dtor(ErlNifEnv* env, void* obj)
 
 #ifdef HAVE_SENDFILE
   ESOCK_ASSERT( descP->sendfileHandle == INVALID_HANDLE );
-  if (descP->sendfileCountersP != NULL)
+  if (descP->sendfileCountersP != NULL) {
       FREE(descP->sendfileCountersP);
-  descP->sendfileCountersP = NULL;
+      descP->sendfileCountersP = NULL;
+  }
 #endif
 
   esock_free_env("dtor close env", descP->closeEnv);
@@ -17665,10 +17657,13 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
 #ifndef __WIN32__
     ESockDescriptor* descP = (ESockDescriptor*) obj;
 
-    if (! is_direct_call) {
-        MLOCK(descP->readMtx);
-        MLOCK(descP->writeMtx);
+    if (is_direct_call) {
+        return; // Nothing to do, caller gets ERL_NIF_SELECT_STOP_CALLED
     }
+
+    // This is a scheduled call, caller gets ERL_NIF_SELECT_STOP_SCHEDULED
+    MLOCK(descP->readMtx);
+    MLOCK(descP->writeMtx);
     
     SSDBG( descP, ("SOCKET", "esock_stop {%d/%d} -> when %s"
                    "\r\n   ctrlPid:      %T"
@@ -17738,11 +17733,6 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
                        (unsigned long) cP->waits) );
     }
 #endif
-
-    if (is_direct_call)
-        return; // Nothing to do, caller gets ERL_NIF_SELECT_STOP_SCHEDULED
-
-    // This is a scheduled call
 
     /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
      *
@@ -17814,7 +17804,7 @@ void esock_stop_handle_current(ErlNifEnv*       env,
                                ERL_NIF_TERM     sockRef,
                                ESockRequestor*  reqP)
 {
-    DEMONP("esock_stop_handle_current", env, descP, &reqP->mon);
+    (void) DEMONP("esock_stop_handle_current", env, descP, &reqP->mon);
 
     SSDBG( descP, ("SOCKET",
                    "esock_stop_handle_current {%d} ->"
@@ -17870,8 +17860,8 @@ void inform_waiting_procs(ErlNifEnv*         env,
 
         esock_send_abort_msg(env, descP, sockRef, &currentP->data, reason);
 
-        DEMONP("inform_waiting_procs -> current 'request'",
-               env, descP, &currentP->data.mon);
+        (void) DEMONP("inform_waiting_procs -> current 'request'",
+                      env, descP, &currentP->data.mon);
 
         nextP = currentP->nextP;
         FREE(currentP);
