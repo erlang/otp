@@ -155,7 +155,7 @@ connect(Address, Port, Opts) ->
                      {ok, Socket} | {error, Reason} when
       Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
-      Options :: [connect_option()],
+      Options :: [inet:inet_backend() | connect_option()],
       Timeout :: timeout(),
       Socket :: socket(),
       Reason :: timeout | inet:posix().
@@ -206,7 +206,7 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
 
 -spec listen(Port, Options) -> {ok, ListenSocket} | {error, Reason} when
       Port :: inet:port_number(),
-      Options :: [listen_option()],
+      Options :: [inet:inet_backend() | listen_option()],
       ListenSocket :: socket(),
       Reason :: system_limit | inet:posix().
 
