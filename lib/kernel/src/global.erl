@@ -80,10 +80,12 @@
 %%       when communicating with vsn 3 nodes. (-R10B)
 %% Vsn 5 uses an ordered list of self() and HisTheLocker when locking
 %%       nodes in the own partition. (R11B-)
+%% Vsn 6 does not send any message between locker processes on different
+%%       nodes, but uses the server as a proxy.
 
 %% Current version of global does not support vsn 4 or earlier.
 
--define(vsn, 5).
+-define(vsn, 6).
 
 %%-----------------------------------------------------------------
 %% connect_all = boolean() - true if we are supposed to set up a
@@ -156,6 +158,8 @@
 %%% The new_nodes messages has been augmented with the global lock id.
 %%%
 %%% R14A (OTP-8527): The deleter process has been removed.
+%%%
+%%% Erlang/OTP 22.0: The extra process calling erlang:monitor() is removed.
 
 start() -> 
     gen_server:start({local, global_name_server}, ?MODULE, [], []).
@@ -567,17 +571,24 @@ init([]) ->
 %%    {exchange, Node, ListOfNames, _ListOfNamesExt, Tag}
 %%    {resolved, Node, HisOps, HisKnown, _Unused, ListOfNamesExt, Tag}
 %%         HisKnown = list of known nodes in Node's partition
-%% 2. Between lockers on connecting nodes
-%%    {his_locker, Pid} (from our global)
-%%    {lock, Bool} loop until both lockers have lock = true,
-%%          then send to global_name_server {lock_is_set, Node, Tag}
-%% 3. Connecting node's global_name_server informs other nodes in the same 
+%% 2. Between global_name_server and my locker (the local locker)
+%%    {nodeup, Node, Tag}
+%%    {his_the_locker, Pid, {Vsn, HisKnown}, MyKnown}
+%%    {cancel, Node, Tag, Fun | no_fun}
+%%    {add_to_known, Nodes}
+%%    {remove_from_known, Nodes}
+%%    {lock_set, Pid, LockIsSet, HisKnown} (acting as proxy)
+%% 3. Between lockers on connecting nodes (via proxy global_name_server)
+%%    {lock_set, Pid, LockIsSet, HisKnown}
+%%      loop until both lockers have LockIsSet =:= true,
+%%      then send to global_name_server {lock_is_set, Node, Tag, LockId}
+%% 4. Connecting node's global_name_server informs other nodes in the same
 %%    partition about hitherto unknown nodes in the other partition
 %%    {new_nodes, Node, Ops, ListOfNamesExt, NewNodes, ExtraInfo}
-%% 4. Between global_name_server and resolver
+%% 5. Between global_name_server and resolver
 %%    {resolve, NameList, Node} to resolver
 %%    {exchange_ops, Node, Tag, Ops, Resolved} from resolver
-%% 5. sync protocol, between global_name_servers in different partitions
+%% 6. sync protocol, between global_name_servers in different partitions
 %%    {in_sync, Node, IsKnown}
 %%          sent by each node to all new nodes (Node becomes known to them)
 %%-----------------------------------------------------------------
@@ -818,6 +829,11 @@ handle_cast({async_del_lock, _ResourceId, _Pid}, S) ->
     %% node(). (-R13B)
     %% The DOWN message deletes the lock.
     %% R14A nodes and later do not send async_del_lock messages.
+    {noreply, S};
+
+handle_cast({lock_set, _Pid, _Set, _HisKnown} = Message, S) ->
+    #state{the_locker = Locker} = S,
+    Locker ! Message,
     {noreply, S};
 
 handle_cast(Request, S) ->
@@ -1488,7 +1504,13 @@ delete_global_name(_Name, _Pid) ->
 %% Version 1: used by unpatched R7.
 %% Version 2: the messages exchanged between the lockers include the known 
 %%            nodes (see OTP-3576).
-%%-----------------------------------------------------------------
+
+%% As of version 6 of global, lockers (on different nodes) do not
+%% communicate directly with each other. Instead messages are sent via
+%% the server. This is in order to avoid race conditions where a
+%% {lock_set, ...} message is received after (before) a nodedown
+%% (nodeup).
+%% -----------------------------------------------------------------
 
 -define(locker_vsn, 2).
 
@@ -1603,7 +1625,7 @@ the_locker_message({lock_set, Pid, true, _HisKnown}, S) ->
         {true, MyTag, HisVsn} ->
             LockId = locker_lock_id(Pid, HisVsn),
             {IsLockSet, S1} = lock_nodes_safely(LockId, [], S),
-            Pid ! {lock_set, self(), IsLockSet, S1#multi.known},
+            send_lock_set(S1, IsLockSet, Pid, HisVsn),
             Known2 = [node() | S1#multi.known],
             ?trace({the_locker, spontaneous, {known2, Known2},
                     {node,Node}, {is_lock_set,IsLockSet}}),
@@ -1630,7 +1652,7 @@ the_locker_message({lock_set, Pid, true, _HisKnown}, S) ->
             end;
         false ->
             ?trace({the_locker, not_there, {node,Node}}),
-            Pid ! {lock_set, self(), false, S#multi.known},
+            send_lock_set(S, false, Pid, _HisVsn=5),
             loop_the_locker(S)
     end;
 the_locker_message({add_to_known, Nodes}, S) ->
@@ -1672,8 +1694,7 @@ select_node(S) ->
             case IsLockSet of
                 true -> 
                     Known1 = Us ++ S2#multi.known,
-                    ?trace({sending_lock_set, self(), {his,HisTheLocker}}),
-                    HisTheLocker ! {lock_set, self(), true, S2#multi.known},
+                    send_lock_set(S2, true, HisTheLocker, HisVsn),
                     S3 = lock_is_set(S2, Him, MyTag, Known1, LockId),
                     loop_the_locker(S3);
                 false ->
@@ -1681,7 +1702,18 @@ select_node(S) ->
             end
     end.
 
-%% Version 5: Both sides use the same requester id. Thereby the nodes
+send_lock_set(S, IsLockSet, HisTheLocker, Vsn) ->
+    ?trace({sending_lock_set, self(), {his,HisTheLocker}}),
+    Message = {lock_set, self(), IsLockSet, S#multi.known},
+    if
+        Vsn < 6 ->
+            HisTheLocker ! Message,
+            ok;
+        true ->
+            gen_server:cast({global_name_server, node(HisTheLocker)}, Message)
+    end.
+
+%% Version 5-6: Both sides use the same requester id. Thereby the nodes
 %% common to both sides are locked by both locker processes. This
 %% means that the lock is still there when the 'new_nodes' message is
 %% received even if the other side has deleted the lock.
