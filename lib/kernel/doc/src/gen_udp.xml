@@ -40,7 +40,7 @@
       So if a user <em>really</em> want to set this
       on windows, use the option
       <seeerl marker="inet#option-win_reuseaddr">win_reuseaddr</seeerl>,
-      which is ignored on none-windows. </p>
+      which is ignored on non-windows. </p>
     </note>
   </description>
 

@@ -1517,7 +1517,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	    Windows. </p>
 	    <note>
 	      <p>Use with care.</p>
-	      <p>Once more than one socket's has been successfully bound,
+	      <p>Once more than one socket has been successfully bound,
 	      the behaviour for all sockets bound to that port is
 	      <em>indeterminate</em>. </p>
 	    </note>
