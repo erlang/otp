@@ -44,7 +44,9 @@
   {<<"^7\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^7\\.3$">>,[restart_new_emulator]},
   {<<"^7\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^7\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
+  {<<"^7\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^8\\.0$">>,[restart_new_emulator]},
+  {<<"^8\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}],
  [{<<"^6\\.4$">>,[restart_new_emulator]},
   {<<"^6\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^6\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
@@ -61,4 +63,6 @@
   {<<"^7\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^7\\.3$">>,[restart_new_emulator]},
   {<<"^7\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^7\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.
+  {<<"^7\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^8\\.0$">>,[restart_new_emulator]},
+  {<<"^8\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}]}.

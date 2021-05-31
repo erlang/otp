@@ -1,1 +1,1 @@
-CRYPTO_VSN = 5.0.1
+CRYPTO_VSN = 5.0.2
