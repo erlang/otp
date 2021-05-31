@@ -505,7 +505,7 @@ t_fdopen(Config) when is_list(Config) ->
     ?P("fdopen -> accepted: "
        "~n   A:  ~p"
        "~n   FD: ~p", [A, FD]),
-    {ok, Server}    = gen_tcp:fdopen(FD, []),
+    {ok, Server}    = gen_tcp:fdopen(FD, ?INET_BACKEND_OPTS(Config)),
     ok              = gen_tcp:send(Client, Question),
     {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
     ok              = gen_tcp:send(Client, Question1),
@@ -783,11 +783,13 @@ do_local_fdopen(Config) ->
     _ = file:delete(SFile),
     %%
     InetBackendOpts = ?INET_BACKEND_OPTS(Config),
-    ?P("create listen socket with ifaddr ~p", [SAddr]),
-    L = ok(gen_tcp:listen(0, InetBackendOpts ++ [{ifaddr,SAddr},{active,false}])),
+    ListenOpts = InetBackendOpts ++ [{ifaddr,SAddr},{active,false}],
+    ?P("create listen socket with ListenOpts ~p", [ListenOpts]),
+    L = ok(gen_tcp:listen(0, ListenOpts)),
+    ConnectOpts = InetBackendOpts ++ [{active,false}],
     ?P("listen socket created: ~p"
-       "~n   => try connect", [L]),
-    C0 = ok(gen_tcp:connect(SAddr, 0, InetBackendOpts ++ [{active,false}])),
+       "~n   => try connect ~p", [L, ConnectOpts]),
+    C0 = ok(gen_tcp:connect(SAddr, 0, ConnectOpts)),
     ?P("connected: ~p"
        "~n   => get fd", [C0]),
     Fd = if
@@ -805,7 +807,7 @@ do_local_fdopen(Config) ->
          end,
     ?P("ignored fd:"
        "~n   => try fdopen (local)"),
-    C = ok(gen_tcp:fdopen(Fd, [local])),
+    C = ok(gen_tcp:fdopen(Fd, ?INET_BACKEND_OPTS(Config) ++ [local])),
     ?P("fd open: ~p"
        "~n   => try accept", [C]),
     S = ok(gen_tcp:accept(L)),
@@ -994,6 +996,7 @@ do_local_abstract(Config) ->
 
 
 local_handshake(S, SAddr, C, CAddr) ->
+    ?P("~w(~p, ~p, ~p, ~p)~n", [?FUNCTION_NAME, S, SAddr, C, CAddr]),
     SData = "9876543210",
     CData = "0123456789",
     SAddr = ok(inet:sockname(S)),

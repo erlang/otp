@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -120,10 +120,13 @@ do_connect(Addr = {A,B,C,D}, Port, Opts, Time)
 	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts}}
-	when ?port(BPort) ->
-	    case inet:open(
-		   Fd, check_ip_format(BAddr), BPort, SockOpts,
-		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+          when ?ip(BAddr), ?port(BPort);
+               BAddr =:= undefined ->
+	    case
+                inet:open(
+                  Fd, BAddr, BPort, SockOpts,
+                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+            of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, Port, Time) of
 			ok -> {ok,S};
@@ -134,13 +137,6 @@ do_connect(Addr = {A,B,C,D}, Port, Opts, Time)
 	{ok, _} -> exit(badarg)
     end.
 
-check_ip_format(undefined) ->
-	undefined;
-check_ip_format(Ip = {Ab,Bb,Cb,Db}) when ?ip(Ab,Bb,Cb,Db) ->
-	Ip;
-check_ip_format(_) ->
-	exit(badarg).
-
 %% 
 %% Listen
 %%
@@ -150,13 +146,16 @@ listen(Port, Opts) ->
 	{ok,
 	 #listen_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {A,B,C,D},
+	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts} = R}
-	when ?ip(A,B,C,D), ?port(BPort) ->
-	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
-		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+          when ?ip(BAddr), ?port(BPort);
+               BAddr =:= undefined ->
+	    case
+                inet:open_bind(
+                  Fd, BAddr, BPort, SockOpts,
+                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+            of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
 			ok -> {ok, S};
