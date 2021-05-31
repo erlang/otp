@@ -449,6 +449,22 @@
 
 </section>
 
+<section><title>Crypto 4.6.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    EC keys are now zero-padded to the expected length if
+	    needed.</p>
+          <p>
+	    Own Id: OTP-17442 Aux Id: GH-4861 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.6.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
