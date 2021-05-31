@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -352,7 +352,6 @@ restart_with_mode(Config) when is_list(Config) ->
     %% We cannot use loose_node because it doesn't run in
     %% embedded mode so we quickly start one that exits after restarting
     {ok,[[Erl]]} = init:get_argument(progname),
-    ModPath = filename:dirname(code:which(?MODULE)),
 
     Quote = case os:type() of
                 {win32,_} ->
@@ -396,6 +395,7 @@ restart(Config) when is_list(Config) ->
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     Procs = rpc:call(Node, erlang, processes, []),
+    MsgFlags = lists:sort(rpc:call(Node, socket, supports, [msg_flags])),
     MaxPid = lists:last(Procs),
     ok = rpc:call(Node, init, restart, []),
     receive
@@ -455,6 +455,9 @@ restart(Config) when is_list(Config) ->
 	    loose_node:stop(Node),
 	    ct:fail(processes_not_greater)
     end,
+
+    %% Check that socket tables has been re-initialized; check one
+    MsgFlags = lists:sort(rpc:call(Node, socket, supports, [msg_flags])),
 
     %% Test that, for instance, the same argument still exists.
     case rpc:call(Node, init, get_argument, [c]) of

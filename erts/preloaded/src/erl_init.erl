@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 %% Initial process of an Erlang system.
 
--export([start/2]).
+-export([start/2, restart/0]).
 
 %% This gets the module name given by the +i option (default 'init')
 %% and the list of command line arguments
@@ -36,9 +36,25 @@ start(Mod, BootArgs) ->
     prim_buffer:on_load(),
     prim_file:on_load(),
     %% prim_socket:on_load(), prim_net:on_load(),
-    conditional_load(prim_socket, [prim_socket, prim_net]),
+    if_loaded(
+      prim_socket,
+      fun () ->
+              prim_socket:on_load(),
+              prim_net:on_load(),
+              ok
+      end),
     %% Proceed to the specified boot module
     run(Mod, boot, BootArgs).
+
+restart() ->
+    erts_internal:erase_persistent_terms(),
+    if_loaded(
+      prim_socket,
+      fun () ->
+              prim_socket:init(),
+              ok
+      end).
+
 
 run(M, F, A) ->
     case erlang:function_exported(M, F, 1) of
@@ -49,25 +65,13 @@ run(M, F, A) ->
             M:F(A)
     end.
 
-conditional_load(CondMod, Mods2Load) ->
-    Loaded = erlang:loaded(),
-    %% erlang:display({?MODULE, conditional_load, Loaded}),
-    conditional_load(CondMod, Loaded, Mods2Load).
 
-conditional_load(_CondMod, [], _Mods2LOad) ->
+if_loaded(CondMod, Fun) ->
+    if_loaded(CondMod, Fun, erlang:loaded()).
+%%
+if_loaded(_CondMod, _Fun, []) ->
     ok;
-conditional_load(CondMod, [CondMod|_], Mods2Load) ->
-    on_load(Mods2Load);
-conditional_load(CondMod, [_|T], Mods2Load) ->
-    conditional_load(CondMod, T, Mods2Load).
-
-on_load([]) ->
-    ok;
-on_load([Mod|Mods]) ->
-    Mod:on_load(),
-    on_load(Mods).
-
-
-    
-
-
+if_loaded(CondMod, Fun, [CondMod | _]) ->
+    Fun();
+if_loaded(CondMod, Fun, [_ | Loaded]) ->
+    if_loaded(CondMod, Fun, Loaded).
