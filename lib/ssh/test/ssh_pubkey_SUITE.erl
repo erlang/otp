@@ -58,7 +58,9 @@
          connect_rsa_to_ecdsa/1,
          connect_rsa_to_ed25519/1,
          connect_rsa_to_ed448/1,
-         connect_rsa_to_rsa/1
+         connect_rsa_to_rsa/1,
+
+         chk_known_hosts/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -75,7 +77,8 @@ suite() ->
 all() -> 
     [{group, old_format},
      {group, new_format},
-     {group, option_space}
+     {group, option_space},
+     chk_known_hosts
     ].
 
 
@@ -313,6 +316,54 @@ connect_ed448_to_ed25519(Config) ->
 
 connect_ed448_to_ed448(Config) ->
     try_connect(Config).
+
+
+%%%----------------------------------------------------------------
+chk_known_hosts(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    DataDir = filename:join(proplists:get_value(data_dir,Config), "new_format"),
+    SysDir = filename:join(PrivDir, "chk_known_hosts_sys_dir"),
+    ssh_test_lib:setup_all_host_keys(DataDir, SysDir),
+
+    UsrDir = filename:join(PrivDir, "chk_known_hosts_usr_dir"),
+    file:make_dir(UsrDir),
+    KnownHostsFile = filename:join(UsrDir, "known_hosts"),
+
+    DaemonOpts = [{system_dir, SysDir},
+                  {user_dir, UsrDir},
+                  {password, "bar"}],
+
+    UserOpts = [{user_dir, UsrDir},
+                {user, "foo"},
+                {password, "bar"},
+                {silently_accept_hosts, true},
+                {user_interaction, false}
+               ],
+
+    {_Pid1, Host1, Port1} = ssh_test_lib:daemon(DaemonOpts),
+    {_Pid2, Host2, Port2} = ssh_test_lib:daemon(DaemonOpts),
+
+    _C1 = ssh_test_lib:connect(Host1, Port1, UserOpts),
+    {ok,KnownHosts1} = file:read_file(KnownHostsFile),
+    Sz1 = byte_size(KnownHosts1),
+    ct:log("~p bytes KnownHosts1 = ~p", [Sz1, KnownHosts1]),
+
+    _C2 = ssh_test_lib:connect(Host2, Port2, UserOpts),
+    {ok,KnownHosts2} = file:read_file(KnownHostsFile),
+    Sz2 = byte_size(KnownHosts2),
+    ct:log("~p bytes KnownHosts2 = ~p", [Sz2, KnownHosts2]),
+
+    %% Check that 2nd is appended after the 1st:
+    <<KnownHosts1:Sz1/binary, _/binary>> = KnownHosts2,
+
+    %% Check that there are exactly two NLs:
+    2 = lists:foldl(fun($\n, Sum) -> Sum + 1;
+                       (_,   Sum) -> Sum
+                    end, 0, binary_to_list(KnownHosts2)),
+
+    %% Check that at least one NL terminates both two lines:
+    <<_:(Sz1-1)/binary, $\n, _:(Sz2-Sz1-1)/binary, $\n>> = KnownHosts2.
 
 
 %%%----------------------------------------------------------------
