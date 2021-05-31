@@ -4243,6 +4243,37 @@
 
 </section>
 
+<section><title>Erts 10.3.5.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in match spec compilator seen to cause a stack
+	    overflow crash on debug VM for certain match specs. Could
+	    potentially cause problems for standard VM, but has not
+	    been verified. Match specs are used by
+	    <c>ets:match/select</c> functions and
+	    <c>erlang:trace_pattern</c>.</p>
+          <p>
+	    Own Id: OTP-17379 Aux Id: PR-4804 </p>
+        </item>
+        <item>
+          <p>
+	    A call to <c>port_command()</c> could cause a scheduler
+	    to end up in an eternal loop if the port was busy and the
+	    calling process had incoming signals at the time of the
+	    call. This bug was introduced in OTP 23.3.2 (ERTS version
+	    11.2.1), OTP 22.3.4.18 (ERTS version 10.7.2.10), and OTP
+	    21.3.8.23 (ERTS version 10.3.5.18).</p>
+          <p>
+	    Own Id: OTP-17448 Aux Id: GH-4898, PR-4903, OTP-17291 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
