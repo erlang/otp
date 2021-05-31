@@ -31,6 +31,8 @@
 
 -export([create/1, create_pem_cache/1, 
 	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
+         refresh_trusted_certs/1,
+         refresh_trusted_certs/2,
 	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
 	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_cert_by_issuer/2,
@@ -143,6 +145,22 @@ add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
 	undefined ->
 	    new_trusted_cert_entry(File, Db)
     end.
+
+refresh_trusted_certs(File, [CertsDb, {_, FileMapDb} | _]) ->
+    case lookup(File, FileMapDb) of
+        [Ref] ->
+            {ok, Content} = decode_pem_file(File),
+            remove_trusted_certs(Ref, CertsDb),
+            add_certs_from_pem(Content, Ref, CertsDb);
+        undefined ->
+            ok
+    end.
+refresh_trusted_certs([_, {_, FileMapDb} | _] = Db) ->
+    Refresh = fun({File, _}, Acc) ->
+                      refresh_trusted_certs(File, Db),
+                      Acc
+              end,
+    foldl(Refresh, refresh, FileMapDb).
 
 extract_trusted_certs({der, DerList}) ->
     {ok, {extracted, certs_from_der(DerList)}};
