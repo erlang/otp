@@ -27,7 +27,8 @@
 	 hard_busy_driver/1, soft_busy_driver/1,
          scheduling_delay_busy/1,
          scheduling_delay_busy_nosuspend/1,
-         scheduling_busy_link/1]).
+         scheduling_busy_link/1,
+         busy_with_signals/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +44,7 @@ all() ->
      no_trap_exit, no_trap_exit_unlinked, trap_exit,
      multiple_writers, hard_busy_driver, soft_busy_driver,
      scheduling_delay_busy,scheduling_delay_busy_nosuspend,
-     scheduling_busy_link].
+     scheduling_busy_link, busy_with_signals].
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Killer = spawn(fun() -> killer_loop([]) end),
@@ -806,13 +807,49 @@ replace_args(Tuple,Vars) when is_tuple(Tuple) ->
 replace_args(Else,_Vars) ->
     Else.
 
+busy_with_signals(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 30}),
+
+    start_busy_driver(Config),
+    {_Owner, Port} = get_slave(),
+    Self = self(),
+
+    process_flag(scheduler, 1),
+    process_flag(priority, high),
+
+    {Pid, Mon} = spawn_opt(fun () ->
+                                   process_flag(trap_exit, true),
+                                   Self ! prepared,
+                                   receive go -> ok end,
+                                   port_command(Port, "plong")
+                           end,
+                           [monitor,
+                            {scheduler, 1},
+                            {priority, normal}]),
+    receive prepared -> ok end,
+    ok = command(lock),
+    Pid ! go,
+    flood_with_exit_signals(Pid, 1000000),
+    ok = command(unlock),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            normal = Reason
+    end,
+    ok = command(stop),
+    ok.
+
+flood_with_exit_signals(_Pid, 0) ->
+    ok;
+flood_with_exit_signals(Pid, N) ->
+    exit(Pid, pling),
+    flood_with_exit_signals(Pid, N-1).
+
+%%% Utilities.
+
 pal(_F,_A) -> ok.
 %pal(Format,Args) ->
 %    ct:pal("~p "++Format,[self()|Args]).
 %    erlang:display(lists:flatten(io_lib:format("~p "++Format,[self()|Args]))).
-			
-
-%%% Utilities.
 
 chk_range(Min, Val, Max) when Min =< Val, Val =< Max ->
     ok;
