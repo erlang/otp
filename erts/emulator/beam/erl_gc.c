@@ -2549,7 +2549,8 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 
     if ((p->sig_qs.flags & (FS_OFF_HEAP_MSGQ
 			    | FS_OFF_HEAP_MSGQ_CHNG)) != FS_OFF_HEAP_MSGQ) {
-        Sint len;
+	Uint size;
+	ErtsMessage *mp;
 	/*
 	 * We do not have off heap message queue enabled, i.e. we
 	 * need to add signal queues to rootset...
@@ -2557,7 +2558,6 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 
 #ifdef DEBUG
         if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
-            ErtsMessage *mp;
             erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
             /*
              * Verify that we do not have any messages in the outer
@@ -2577,35 +2577,59 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
             erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
         }
 #endif
-        
-        len = erts_proc_sig_privqs_len(p);
 
-	/* Ensure large enough rootset... */
-	if (n + len > rootset->size) {
-	    Uint new_size = n + len;
+	size = n + erts_proc_sig_privqs_len(p);
+	if (p->sig_qs.cont) {
+	    /*
+	     * We do not know the exact size needed since
+	     * alias-message signals are not included in
+	     * length of private queues. We might have to
+	     * resize while inspecting the signal queue...
+	     */
+	    size += 128;
+	}
+	if (size > rootset->size) {
 	    ERTS_GC_ASSERT(roots == rootset->def);
 	    roots = erts_alloc(ERTS_ALC_T_ROOTSET,
-			       new_size*sizeof(Roots));
+			       size*sizeof(Roots));
 	    sys_memcpy(roots, rootset->def, n*sizeof(Roots));
-	    rootset->size = new_size;
+	    rootset->size = size;
 	}
 
-        ERTS_FOREACH_SIG_PRIVQS(
-            p, mp,
-            {
-                /* Add signal data that may refer to heap... */
-                if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
-                    roots[n].v = mp->m;
-                    roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
-                    n++;
-                }
-                else if (ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
-                    /* Exclude message slot... */
-                    roots[n].v = &mp->m[1];
-                    roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ - 1;
-                    n++;
-                }
-            });
+	mp = p->sig_qs.first;
+	while (mp) {
+	    if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
+		roots[n].v = mp->m;
+		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
+		n++;
+	    }
+	    mp = mp->next;
+	}
+	mp = p->sig_qs.cont;
+	while (mp) {
+	    if (size <= n) {
+		Roots *old_roots = roots;
+		size += 128;
+		roots = erts_alloc(ERTS_ALC_T_ROOTSET,
+				   size*sizeof(Roots));
+		sys_memcpy(roots, old_roots, n*sizeof(Roots));
+		if (old_roots != rootset->def)
+		    erts_free(ERTS_ALC_T_ROOTSET, old_roots);
+		rootset->size = size;
+	    }
+	    if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
+		roots[n].v = mp->m;
+		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
+		n++;
+	    }
+	    else if (ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
+		/* Exclude message slot... */
+		roots[n].v = &mp->m[1];
+		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ - 1;
+		n++;
+	    }
+	    mp = mp->next;
+	}
     }
 
     ASSERT(rootset->size >= n);

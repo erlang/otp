@@ -35,7 +35,8 @@
     minor_major_gc_option_async/1,
     minor_major_gc_option_self/1,
     gc_signal_order/1,
-    gc_dirty_exec_proc/1
+    gc_dirty_exec_proc/1,
+    alias_signals_in_gc/1
 ]).
 
 suite() ->
@@ -44,7 +45,8 @@ suite() ->
 all() -> 
     [grow_heap, grow_stack, grow_stack_heap, max_heap_size,
     minor_major_gc_option_self,
-    minor_major_gc_option_async, gc_signal_order, gc_dirty_exec_proc].
+    minor_major_gc_option_async, gc_signal_order, gc_dirty_exec_proc,
+    alias_signals_in_gc].
 
 
 %% Produce a growing list of elements,
@@ -331,3 +333,41 @@ check_no_unexpected_messages() ->
     after 0 ->
         ok
     end.
+
+alias_signals_in_gc(Config) when is_list(Config) ->
+    %% Make sure alias signals in rootset wont cause
+    %% crashes...
+    process_flag(scheduler, 1),
+    process_flag(priority, normal),
+    process_flag(message_queue_data, on_heap),
+    Alias = alias(),
+    %% We deactive the alias since it is no point converting
+    %% the alias signals into messages for this test...
+    unalias(Alias), 
+    Pid = spawn_opt(fun () ->
+			    alias_sig_spammer(Alias, 100000)
+		    end, [{scheduler, 1}, {priority, high}, link]),
+    erlang:yield(),
+    do_gc(10),
+    unlink(Pid),
+    exit(Pid, bang),
+    false = is_process_alive(Pid),
+    ok.
+
+alias_sig_spammer(Alias, N) ->
+    alias_sig_spammer(Alias, N, N).
+    
+alias_sig_spammer(Alias, 0, NStart) ->
+    Alias ! [hello],
+    receive after 100 -> ok end,
+    alias_sig_spammer(Alias, NStart, NStart);
+alias_sig_spammer(Alias, N, NStart) ->
+    Alias ! [hello],
+    alias_sig_spammer(Alias, N-1, NStart).
+
+do_gc(0) ->
+    ok;
+do_gc(N) ->
+    garbage_collect(),
+    receive after 100 -> ok end,
+    do_gc(N-1).
