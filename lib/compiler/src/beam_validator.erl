@@ -1998,13 +1998,15 @@ infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]},
         ne_exact -> update_type(fun subtract/2, Type, Tuple, Vst)
     end;
 infer_types_1(#value{op={bif,element},args=[{integer,Index}, Tuple]},
-              Val, eq_exact, Vst) ->
+              Val, eq_exact, Vst)
+  when Index >= 1 ->
     ValType = get_term_type(Val, Vst),
     Es = beam_types:set_tuple_element(Index, ValType, #{}),
     TupleType = #t_tuple{size=Index,elements=Es},
     update_type(fun meet/2, TupleType, Tuple, Vst);
 infer_types_1(#value{op={bif,element},args=[{integer,Index}, Tuple]},
-              Val, ne_exact, Vst) ->
+              Val, ne_exact, Vst)
+  when Index >= 1 ->
     %% Subtraction is only safe with singletons, see update_ne_types/3 for
     %% details.
     ValType = get_term_type(Val, Vst),
