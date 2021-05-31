@@ -1497,6 +1497,8 @@ extern int erts_system_profile_ts_type;
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
 #define FS_HIPE_RECV_LOCKED    (1 << 7) /* HiPE message queue locked */
 #define FS_HIPE_RECV_YIELD     (1 << 8) /* HiPE receive yield */
+#define FS_HANDLING_SIGS       (1 << 9) /* Process is handling signals */
+#define FS_WAIT_HANDLE_SIGS    (1 << 10) /* Process is waiting to handle signals */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent

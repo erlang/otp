@@ -230,6 +230,9 @@ typedef struct {
     ErtsORefThing oref_thing;
 } ErtsProcSigRPC;
 
+static void wait_handle_signals(Process *c_p);
+static void wake_handle_signals(Process *proc);
+
 static int handle_msg_tracing(Process *c_p,
                               ErtsSigRecvTracing *tracing,
                               ErtsMessage ***next_nm_sig);
@@ -3754,6 +3757,12 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ErtsMessage *sig, ***next_nm_sig;
     ErtsSigRecvTracing tracing;
 
+    ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
+    if (c_p->sig_qs.flags & FS_HANDLING_SIGS)
+        wait_handle_signals(c_p);
+    else
+        c_p->sig_qs.flags |= FS_HANDLING_SIGS;
+
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
@@ -3778,11 +3787,15 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     if (!c_p->sig_qs.cont) {
         *statep = state;
         ASSERT(!deferred_fetch);
+        ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
+        c_p->sig_qs.flags &= ~FS_HANDLING_SIGS;
         return !0;
     }
 
     if (state & ERTS_PSFLG_EXITING) {
         *statep = state;
+        ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
+        c_p->sig_qs.flags &= ~FS_HANDLING_SIGS;
         return 0;
     }
 
@@ -4390,6 +4403,11 @@ stop: {
             }
             *redsp = max_reds;
         }
+
+        if (c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS)
+            wake_handle_signals(c_p);
+        else
+            c_p->sig_qs.flags &= ~FS_HANDLING_SIGS;
 
         if (deferred_fetch)
             return 0;
@@ -5292,6 +5310,8 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
             res = am_noproc;
         else if (!dirty)
             res = am_normal; /* will handle signals itself... */
+        else if (rp->sig_qs.flags & FS_HANDLING_SIGS)
+            res = am_busy;
         else {
             reds = ERTS_BIF_REDS_LEFT(BIF_P);
             done = erts_proc_sig_handle_incoming(rp, &state, &reds,
@@ -5309,6 +5329,84 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
 
         BIF_RET(res);
     }
+}
+
+static void
+wait_handle_signals(Process *c_p)
+{
+    /*
+     * Process needs to wait on a dirty process signal
+     * handler before it can handle signals by itself...
+     *
+     * This should be a quite rare event. This only occurs
+     * when all of the following occurs:
+     * * The process is executing dirty and receives a
+     *   signal.
+     * * A dirty process signal handler starts handling
+     *   signals for the process and unlocks the main
+     *   lock while doing so. This can currently only
+     *   occur if handling an 'unlink' signal from a port.
+     * * While the dirty process signal handler is handling
+     *   signals for the process, the process stops executing
+     *   dirty, gets scheduled on a normal scheduler, and
+     *   then tries to handle signals itself.
+     *
+     * If the above happens, the normal sceduler executing
+     * the process will wait here until the dirty process
+     * signal handler is done with the process...
+     */
+    erts_tse_t *event;
+
+    ASSERT(c_p = erts_get_current_process());
+    ASSERT(c_p->scheduler_data);
+    ASSERT(c_p->scheduler_data->aux_work_data.ssi);
+    ASSERT(c_p->scheduler_data->aux_work_data.ssi->event);
+    ASSERT(c_p->sig_qs.flags & FS_HANDLING_SIGS);
+    ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
+
+    event = c_p->scheduler_data->aux_work_data.ssi->event;
+    c_p->sig_qs.flags |= FS_WAIT_HANDLE_SIGS;
+    
+    erts_tse_use(event);
+
+    do {
+        ASSERT(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS);
+        erts_tse_reset(event);
+        erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+        erts_tse_wait(event);
+        erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+    } while (c_p->sig_qs.flags & FS_HANDLING_SIGS);
+
+    erts_tse_return(event);
+
+    c_p->sig_qs.flags &= ~FS_WAIT_HANDLE_SIGS;
+    c_p->sig_qs.flags |= FS_HANDLING_SIGS;
+}
+
+static void
+wake_handle_signals(Process *proc)
+{
+    /*
+     * Wake scheduler sleeping in wait_handle_signals()
+     * (above)...
+     *
+     * This function should only be called by a dirty process
+     * signal handler process...
+     */
+#ifdef DEBUG
+    Process *c_p = erts_get_current_process();
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(proc));
+    ASSERT(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS);
+    ERTS_ASSERT(c_p == erts_dirty_process_signal_handler_max
+                || c_p == erts_dirty_process_signal_handler_high
+                || erts_dirty_process_signal_handler);
+    ASSERT(proc->scheduler_data);
+    ASSERT(proc->scheduler_data->aux_work_data.ssi);
+    ASSERT(proc->scheduler_data->aux_work_data.ssi->event);
+#endif
+
+    proc->sig_qs.flags &= ~FS_HANDLING_SIGS;
+    erts_tse_set(proc->scheduler_data->aux_work_data.ssi->event);
 }
 
 static void
