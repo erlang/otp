@@ -31,7 +31,24 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.1</title>
+  <section><title>Erl_Docgen 1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix links generated in specs to types in other
+	    applications to point to the correct place. This bug was
+	    introduced in Erlang/OTP 24.0.</p>
+          <p>
+	    Own Id: OTP-17433 Aux Id: GH-4849 PR-4857 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

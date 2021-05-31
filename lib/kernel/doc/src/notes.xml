@@ -31,6 +31,65 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a race condition in Global.</p>
+          <p>
+	    Own Id: OTP-16033 Aux Id: ERIERL-329, ERL-1414, GH-4448,
+	    ERL-885, GH-3923 </p>
+        </item>
+        <item>
+	    <p> After a node restart with <c>init:restart/0,1</c>,
+	    the module <c>socket</c> was not usable because
+	    supporting tables had been cleared and not
+	    re-initialized. This has now been fixed. </p><p> Handling
+	    of the "." domain as a search domain was incorrect and
+	    caused a crash in the DNS resolver <c>inet_res</c>, which
+	    has now been fixed. </p>
+          <p>
+	    Own Id: OTP-17439 Aux Id: GH-4827, PR-4888, GH-4838 </p>
+        </item>
+        <item>
+          <p>
+	    Handling of combinations of the <c>fd</c> option and
+	    binding to an address has been corrected, especially for
+	    the <c>local</c> address family.</p>
+          <p>
+	    Own Id: OTP-17451 Aux Id: OTP-17374 </p>
+        </item>
+        <item>
+	    <p> Bug fixes and code cleanup for the new <c>socket</c>
+	    implementation, such as: </p><p> Assertions on the result
+	    of demonitoring has been added in the NIF code, where
+	    appropriate. </p><p> Internal state handling for socket
+	    close in the NIF code has been reviewed. </p><p> Looping
+	    over <c>close()</c> for <c>EINTR</c> in the NIF code has
+	    been removed, since it is strongly discouraged on Linux
+	    and Posix is not clear about if it is allowed. </p><p>
+	    The <c>inet_backend</c> temporary socket option for
+	    legacy <c>gen_tcp</c> sockets has been documented.
+	    </p><p> The return value from <c>net:getaddrinfo/2</c>
+	    has been corrected: the <c>protocol</c> field is now an
+	    <c>atom()</c>, instead of, incorrectly,
+	    <c>list(atom())</c>. The documentation has also been
+	    corrected about this return type. </p><p> Deferred close
+	    of a <c>socket:sendfile/*</c> file was broken and has
+	    been corrected. </p><p> Some debug code, not enabled by
+	    default, in the socket NIF has been corrected to not
+	    accidentally core dump for debug printouts of more or
+	    less innocent events. </p>
+          <p>
+	    Own Id: OTP-17452</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

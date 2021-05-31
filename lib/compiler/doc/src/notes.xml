@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause <c>after</c> blocks to be
+	    ignored when <c>erlang:raise/3</c> was used in a catch
+	    block.</p>
+          <p>
+	    Own Id: OTP-17428 Aux Id: GH-4859 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the validation pass that could cause it
+	    to reject valid code.</p>
+          <p>
+	    Own Id: OTP-17437 Aux Id: OTP-17357, GH-4774 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

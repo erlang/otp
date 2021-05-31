@@ -31,6 +31,90 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Not yet handled alias-message signals in the signal queue
+	    at the time when a garbage collection was performed could
+	    cause a memory corruption which in turn could result in a
+	    crash of the runtime system. This bug was introduced in
+	    OTP 24.0.</p>
+          <p>
+	    Own Id: OTP-17431 Aux Id: GH-4858, PR-4870, OTP-16718 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug when using external pids/ports in keys of big
+	    maps (> 32). Could cause runtime crash. Bug exists since
+	    OTP 24.0.</p>
+          <p>
+	    Own Id: OTP-17436 Aux Id: PR-4875 </p>
+        </item>
+        <item>
+	    <p> After a node restart with <c>init:restart/0,1</c>,
+	    the module <c>socket</c> was not usable because
+	    supporting tables had been cleared and not
+	    re-initialized. This has now been fixed. </p><p> Handling
+	    of the "." domain as a search domain was incorrect and
+	    caused a crash in the DNS resolver <c>inet_res</c>, which
+	    has now been fixed. </p>
+          <p>
+	    Own Id: OTP-17439 Aux Id: GH-4827, PR-4888, GH-4838 </p>
+        </item>
+        <item>
+          <p>
+	    A call to <c>port_command()</c> could cause a scheduler
+	    to end up in an eternal loop if the port was busy and the
+	    calling process had incoming signals at the time of the
+	    call. This bug was introduced in OTP 23.3.2 (ERTS version
+	    11.2.1), OTP 22.3.4.18 (ERTS version 10.7.2.10), and OTP
+	    21.3.8.23 (ERTS version 10.3.5.18).</p>
+          <p>
+	    Own Id: OTP-17448 Aux Id: GH-4898, PR-4903, OTP-17291 </p>
+        </item>
+        <item>
+	    <p> Bug fixes and code cleanup for the new <c>socket</c>
+	    implementation, such as: </p><p> Assertions on the result
+	    of demonitoring has been added in the NIF code, where
+	    appropriate. </p><p> Internal state handling for socket
+	    close in the NIF code has been reviewed. </p><p> Looping
+	    over <c>close()</c> for <c>EINTR</c> in the NIF code has
+	    been removed, since it is strongly discouraged on Linux
+	    and Posix is not clear about if it is allowed. </p><p>
+	    The <c>inet_backend</c> temporary socket option for
+	    legacy <c>gen_tcp</c> sockets has been documented.
+	    </p><p> The return value from <c>net:getaddrinfo/2</c>
+	    has been corrected: the <c>protocol</c> field is now an
+	    <c>atom()</c>, instead of, incorrectly,
+	    <c>list(atom())</c>. The documentation has also been
+	    corrected about this return type. </p><p> Deferred close
+	    of a <c>socket:sendfile/*</c> file was broken and has
+	    been corrected. </p><p> Some debug code, not enabled by
+	    default, in the socket NIF has been corrected to not
+	    accidentally core dump for debug printouts of more or
+	    less innocent events. </p>
+          <p>
+	    Own Id: OTP-17452</p>
+        </item>
+        <item>
+          <p>
+	    Dirty execution of a process in combination with an
+	    unlink signal from a port to the process could cause the
+	    signal queue of the process to enter into an inconsistent
+	    state. The result of the inconsistency typically caused a
+	    crash of the runtime system. This bug was introduced in
+	    OTP 23.3 (ERTS version 11.2).</p>
+          <p>
+	    Own Id: OTP-17462 Aux Id: GH-4885, PR-4914, OTP-17127 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
