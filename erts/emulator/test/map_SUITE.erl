@@ -2966,6 +2966,19 @@ t_erts_internal_hash(_Config) when is_list(_Config) ->
     i  = maps:get({[0,0,0,0,0,0,0]},M7),
     j  = maps:get({[0,0,0,0,0,0,0,0]},M7),
     k  = maps:get({[0,0,0,0,0,0,0,0,0]},M7),
+
+    %% Test that external pids and ports don't introduce hash clash,
+    %% caused by high word being ignored (OTP-17436).
+    maps:from_keys([erts_test_utils:mk_ext_pid({a@a, 17},
+					       1 bsl NumBit,
+					       1 bsl SerBit)
+		    || NumBit <- lists:seq(0, 31),
+		       SerBit <- lists:seq(0, 31)],
+		   1),
+    maps:from_keys([erts_test_utils:mk_ext_port({a@a, 17}, 1 bsl NumBit)
+		    || NumBit <- lists:seq(0, 63)],
+		   1),
+
     ok.
 
 t_pdict(_Config) ->
