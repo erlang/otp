@@ -83,11 +83,11 @@
 	      family_address/0, local_address/0,
               socket_address/0, returned_non_ip_address/0,
 	      socket_setopt/0, socket_getopt/0, ancillary_data/0,
-	      posix/0, socket/0, stat_option/0]).
+	      posix/0, socket/0, inet_backend/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
 
--define(DEFAULT_KERNEL_INET_BACKEND, inet). % inet | socket
+-define(DEFAULT_KERNEL_INET_BACKEND, inet). % inet_backend()
 
 %% Record Signature
 -define(RS(Record),
@@ -135,6 +135,7 @@
 -type module_socket() :: {'$inet', Handler :: module(), Handle :: term()}.
 -define(module_socket(Handler, Handle), {'$inet', (Handler), (Handle)}).
 -type socket() :: port() | module_socket().
+-type inet_backend() :: {'inet_backend', 'inet' | 'socket'}.
 
 -type socket_setopt() ::
         gen_sctp:option() | gen_tcp:option() | gen_udp:option().

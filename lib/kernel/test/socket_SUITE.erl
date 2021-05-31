@@ -4382,6 +4382,7 @@ api_sendfile(Domain, Config, Sendfile) ->
 api_sendfile(Domain, File, Size, Data, Sendfile) ->
     ?TT(?SECS(10)),
     TC = self(),
+    BufSize = Size bsr 10, % /1k
     BindAddr = which_local_socket_addr(Domain),
     case BindAddr of
         #{family := local, path := Path} ->
@@ -4409,9 +4410,11 @@ api_sendfile(Domain, File, Size, Data, Sendfile) ->
     io:format("Addr = ~p~n", [Addr]),
     {ok, Sa} = socket:open(Domain, stream),
     io:format("Sa = ~p~n", [Sa]),
+    ok = socket:setopt(Sa, {socket,sndbuf}, BufSize),
     ok = socket:connect(Sa, Addr),
     {ok, Sb} = socket:accept(L),
     io:format("Sb = ~p~n", [Sb]),
+    ok = socket:setopt(Sb, {socket,rcvbuf}, BufSize),
     Verifyer =
         spawn_link(
           fun () ->
