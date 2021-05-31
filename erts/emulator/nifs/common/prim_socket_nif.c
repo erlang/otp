@@ -8013,7 +8013,7 @@ ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
     size_t       bufSz = (len != 0 ? len : descP->rBufSz);
 
     SSDBG( descP, ("SOCKET", "esock_recv {%d} -> entry with"
-                   "\r\n   count,size: (%ld:%u:lu)"
+                   "\r\n   count,size: (%ld:%u:%lu)"
                    "\r\n", descP->sock,
                    (long) len, descP->rNumCnt, (unsigned long) bufSz) );
 

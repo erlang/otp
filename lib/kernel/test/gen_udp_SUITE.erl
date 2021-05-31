@@ -226,6 +226,8 @@ buffer_size(Config) when is_list(Config) ->
     Client = self(),
     ClientIP = {127,0,0,1},
     ServerIP = {127,0,0,1},
+    io:format(
+      "Client: {~p, ~p}, ~p~n", [ClientIP, ClientPort, ClientSocket]),
     Server =
 	spawn_link(
 	  fun () -> 
@@ -239,6 +241,9 @@ buffer_size(Config) when is_list(Config) ->
     Mref = erlang:monitor(process, Server),
     receive
 	{Server,port,ServerPort} ->
+            io:format(
+              "Server: {~p, ~p}, ~p~n",
+              [ServerIP, ServerPort, Server]),
 	    buffer_size_client(Server, ServerIP, ServerPort,
 			       ClientSocket, 1, Spec)
     end,

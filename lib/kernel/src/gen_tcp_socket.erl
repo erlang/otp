@@ -39,10 +39,10 @@
 %% Utility
 -export([info/1, which_sockets/0, which_packet_type/1, socket_to_list/1]).
 
--ifdef(undefined).
+%% Undocumented or unsupported
 -export([unrecv/2]).
 -export([fdopen/2]).
--endif.
+
 
 %% gen_statem callbacks
 -export([init/1, callback_mode/0, terminate/3]).
@@ -121,7 +121,7 @@ connect_lookup(Address, Port, Opts, Timer) ->
             opts = ConnectOpts}} ->
             %%
             %% ?DBG({Domain, BindIP}),
-            BindAddr = bind_addr(Domain, BindIP, BindPort, Fd),
+            BindAddr = bind_addr(Domain, BindIP, BindPort),
             ExtraOpts = extra_opts(Fd),
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts,
@@ -150,14 +150,17 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, ExtraOpts, Timer, BindAddr) ->
 	  ExtraOpts)
     of
         {ok, Server} ->
-            {Setopts, _} =
+            {Setopts_1, _} =
                 setopts_split(
                   #{socket => [], server_read => [], server_write => []},
                   ConnectOpts),
+            Setopts =
+                default_active_true(
+                  [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts_1),
             ErrRef = make_ref(),
             try
-                ok(ErrRef, call(Server, {setopts, SocketOpts ++ Setopts})),
                 ok(ErrRef, call_bind(Server, BindAddr)),
+                ok(ErrRef, call(Server, {setopts, Setopts})),
                 DefaultError = {error, einval},
                 Socket =  
                     val(ErrRef,
@@ -200,21 +203,28 @@ extra_opts(OpenOpts) when is_list(OpenOpts) ->
    maps:from_list(OpenOpts).
 
 
-bind_addr(_Domain, BindIP, _BindPort, Fd)
-  when BindIP =:= undefined;
-       is_integer(Fd), 0 =< Fd ->
+default_any(Domain, undefined = Undefined) ->
+    if
+        Domain =:= inet;
+        Domain =:= inet6 ->
+            #{family => Domain,
+              addr   => any,
+              port   => 0};
+        true ->
+            Undefined
+    end;
+default_any(_Domain, BindAddr) ->
+    BindAddr.
+
+bind_addr(_Domain, BindIP, BindPort) when BindIP =:= undefined ->
+    0 = BindPort, % Assert
     %% Do not bind!
     undefined;
-bind_addr(Domain, BindIP, BindPort, _Fd) ->
-    case Domain of
-        local ->
-            case BindIP of
-                any ->
-                    undefined;
-                {local, Path} ->
-                    #{family => Domain,
-                      path   => Path}
-            end;
+bind_addr(Domain, BindIP, BindPort) ->
+    case BindIP of
+        {Domain, Path} when Domain =:= local ->
+            #{family => Domain,
+              path   => Path};
         _ when Domain =:= inet;
                Domain =:= inet6 ->
             #{family => Domain,
@@ -226,6 +236,15 @@ call_bind(_Server, undefined) ->
     ok;
 call_bind(Server, BindAddr) ->
     call(Server, {bind, BindAddr}).
+
+
+default_active_true(Opts) ->
+    case lists:keyfind(active, 1, Opts) of
+        {active,_} ->
+            Opts;
+        _ ->
+            [{active,true} | Opts]
+    end.
 
 %% -------------------------------------------------------------------------
 
@@ -253,7 +272,7 @@ listen(Port, Opts) ->
                     %%
                     Domain = domain(Mod),
                     %% ?DBG({Domain, BindIP}),
-                    BindAddr = bind_addr(Domain, BindIP, BindPort, Fd),
+                    BindAddr = bind_addr(Domain, BindIP, BindPort),
                     ExtraOpts = extra_opts(Fd),
 		    %% ?DBG([{listen_opts, ListenOpts}, {backlog, Backlog}]),
                     listen_open(
@@ -281,19 +300,18 @@ listen_open(Domain, ListenOpts, Opts, ExtraOpts, Backlog, BindAddr) ->
     case start_server(Domain, StartOpts, ExtraOpts) of
         {ok, Server} ->
 	    %% ?DBG([{server_started, Server}]),
-            {Setopts, _} =
+            {Setopts_1, _} =
                 setopts_split(
                   #{socket => [], server_read => [], server_write => []},
                   ListenOpts),
-	    %% ?DBG([{setopts, Setopts}]),
+	    %% ?DBG([{setopts, Setopts_1}]),
+            Setopts =
+                default_active_true(
+                  [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts_1),
             ErrRef = make_ref(),
             try
-                ok(ErrRef,
-                   call(
-                     Server,
-                     {setopts,
-                      [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
-                ok(ErrRef, call_bind(Server, BindAddr)),
+                ok(ErrRef, call_bind(Server, default_any(Domain, BindAddr))),
+                ok(ErrRef, call(Server, {setopts, Setopts})),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?MODULE_socket(Server, Socket)}
             catch
@@ -599,7 +617,51 @@ which_packet_type(?MODULE_socket(_Server, Socket)) ->
 	    error
     end.
 
-			 
+
+%% -------------------------------------------------------------------------
+%% Undocumented or unsupported
+%% -------------------------------------------------------------------------
+
+unrecv(?MODULE_socket(_Server, _Socket), _Data) ->
+    {error, enotsup}.
+
+fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
+    %% ?DBG({Fd, Opts}),
+    {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
+    EinvalOpts =:= [] orelse exit(badarg),
+    {Mod, Opts_2} = inet:tcp_module(Opts_1),
+    Domain = domain(Mod),
+    {StartOpts_1, Opts_3} = setopts_split(start, Opts_2),
+    {SocketOpts, StartOpts} = setopts_split(socket, StartOpts_1),
+    ExtraOpts = extra_opts(Fd),
+    case
+        start_server(
+          Domain,
+          [{timeout, infinity} | start_opts(StartOpts)],
+          ExtraOpts)
+    of
+        {ok, Server} ->
+            {Setopts_1, _} =
+                setopts_split(
+                  #{socket => [], server_read => [], server_write => []},
+                  Opts_3),
+            Setopts = [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts_1,
+            ErrRef = make_ref(),
+            try
+                ok(ErrRef, call(Server, {setopts, Setopts})),
+                Socket = val(ErrRef, call(Server, fdopen)),
+                {ok, ?MODULE_socket(Server, Socket)}
+            catch
+                throw : {ErrRef, Reason} ->
+                    close_server(Server),
+                    ?badarg_exit({error, Reason})
+            end;
+        {error, {shutdown, Reason}} ->
+            ?badarg_exit({error, Reason});
+        {error, _} = Error ->
+            ?badarg_exit(Error)
+    end.
+
 %%% ========================================================================
 %%% Socket glue code
 %%%
@@ -1026,7 +1088,7 @@ server_read_write_opts() ->
 server_read_opts() ->
     %% Read side only opts
     maps:merge(
-      #{active => true,
+      #{active => false, % inet_drv also has this default
         mode => list,
         header => 0,
         deliver => term,
@@ -1541,6 +1603,13 @@ handle_event(
   {call, From}, {recv, _Length, _Timeout}, 'connect' = _State, _P_D) ->
     {keep_state_and_data,
      [{reply, From, {error, enotconn}}]};
+%% Call: fdopen/2
+handle_event(
+  {call, From}, fdopen, 'connect' = _State,
+  {#params{socket = Socket} = P, D}) ->
+    handle_connected(
+      P, D#{type => fdopen},
+      [{reply, From, {ok, Socket}}]);
 handle_event(Type, Content, 'connect' = State, P_D) ->
     handle_unexpected(Type, Content, State, P_D);
 %%
