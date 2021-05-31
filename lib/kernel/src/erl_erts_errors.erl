@@ -855,20 +855,21 @@ format_erlang_error(split_binary, [Bin,Pos], _) ->
         Errors ->
             Errors
     end;
-format_erlang_error(start_timer, [Time,Process,_], _) ->
-    [must_be_non_neg_int(Time),
+format_erlang_error(start_timer, [Time,Process,_], Cause) ->
+    [must_be_time(Time, Cause),
      if
          is_pid(Process), node(Process) =/= node() -> not_local_pid;
          is_pid(Process), node(Process) =:= node(); is_atom(Process) -> [];
          true -> <<"not a pid or an atom">>
      end];
 format_erlang_error(start_timer, [A1,A2,A3,Options], Cause) ->
-    case format_erlang_error(start_timer, [A1,A2,A3], Cause) of
-        [[],[]] ->
-            [[],[],[],must_be_list(Options, bad_option)];
-        Errors ->
-            Errors ++ [must_be_list(Options, [])]
-    end;
+    format_erlang_error(start_timer, [A1,A2,A3], Cause) ++
+        [case Cause of
+             badopt ->
+                 must_be_list(Options, bad_option);
+             _ ->
+                 must_be_list(Options, [])
+         end];
 format_erlang_error(subtract, [A,B], _) ->
     [must_be_list(A),must_be_list(B)];
 format_erlang_error(suspend_process, [Pid], _) ->
@@ -1185,6 +1186,17 @@ must_be_size(N) when is_integer(N) ->
     end;
 must_be_size(_) -> not_integer.
 
+must_be_time(Time, Cause) ->
+    case must_be_non_neg_int(Time) of
+        [] ->
+            case Cause of
+                time -> beyond_end_time;
+                _ -> []
+            end;
+        Error ->
+            Error
+    end.
+
 must_be_time_unit(Unit) ->
     try erlang:convert_time_unit(1, native, Unit) of
         _ ->
@@ -1286,6 +1298,8 @@ expand_error(bad_unicode) ->
     <<"invalid UTF8 encoding">>;
 expand_error(bad_universaltime) ->
     <<"not a valid universal time">>;
+expand_error(beyond_end_time) ->
+    <<"exceeds the maximum supported time value">>;
 expand_error(dead_process) ->
     <<"the pid does not refer to an existing process">>;
 expand_error({not_encodable,Type}) ->

@@ -681,6 +681,7 @@ do_error_3(Reason, Args, Options) ->
 error_info(_Config) ->
     DeadProcess = dead_process(),
     NewAtom = non_existing_atom(),
+    Eons = 1 bsl 50,
 
     %% We'll need an incorrect memory type for erlang:memory/1. We want to test an
     %% incorrect atom if our own allocators are enabled, but if they are disabled,
@@ -1121,7 +1122,13 @@ error_info(_Config) ->
          {send, [[bad,dest], message]},
          {send, [[bad,dest], message, bad]},
 
+         {send_after, [Eons, self(), message]},
+         {send_after, [Eons, {bad,dest}, message]},
          {send_after, [bad_time, {bad,dest}, message]},
+         {send_after, [20, ExternalPid, message]},
+
+         {send_after, [Eons, self(), message, bad_options]},
+         {send_after, [Eons, {bad,dest}, message, bad_options]},
          {send_after, [bad_time, {bad,dest}, message, bad_options]},
          {send_after, [20, self(), message, [bad]]},
          {send_after, [20, ExternalPid, message, []]},
@@ -1200,7 +1207,12 @@ error_info(_Config) ->
          {split_binary, [a, -1]},
          {split_binary, [<<>>, 1]},
 
+         {start_timer, [Eons, self(), message]},
+         {start_timer, [Eons, {bad,dest}, message]},
          {start_timer, [bad_time, {bad,dest}, message]},
+
+         {start_timer, [Eons, self(), message, []]},
+         {start_timer, [Eons, {bad,dest}, message, [bad]]},
          {start_timer, [bad_time, {bad,dest}, message, bad_options]},
          {start_timer, [20, self(), message, [bad]]},
          {start_timer, [20, ExternalPid, message, []]},
