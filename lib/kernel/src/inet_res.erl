@@ -537,31 +537,41 @@ type_p(Type) ->
 %%
 res_getbyname(Name, Type, Timer) ->
     {EmbeddedDots, TrailingDot} = inet_parse:dots(Name),
-    Dot = if TrailingDot -> ""; true -> "." end,
-    if  TrailingDot ->
-	    res_getby_query(Name, Type, Timer);
+    if
+        TrailingDot ->
+	    res_getby_query(lists:droplast(Name), Type, Timer);
 	EmbeddedDots =:= 0 ->
-	    res_getby_search(Name, Dot,
-			     inet_db:get_searchlist(),
+	    res_getby_search(Name, inet_db:get_searchlist(),
 			     nxdomain, Type, Timer);
 	true ->
 	    case res_getby_query(Name, Type, Timer) of
 		{error,_Reason}=Error ->
-		    res_getby_search(Name, Dot,
-				     inet_db:get_searchlist(),
+		    res_getby_search(Name, inet_db:get_searchlist(),
 				     Error, Type, Timer);
 		Other -> Other
 	    end
     end.
 
-res_getby_search(Name, Dot, [Dom | Ds], _Reason, Type, Timer) ->
-    case res_getby_query(Name++Dot++Dom, Type, Timer,
+res_getby_search(Name, [Dom | Ds], _Reason, Type, Timer) ->
+    QueryName =
+        %% Join Name and Dom with a single dot.
+        %% Allow Dom to be "." or "", but not to lead with ".".
+        %% Do not allow Name to be "".
+        if
+            Name =/= "" andalso (Dom =:= "." orelse Dom =:= "") ->
+                Name;
+            Name =/= "" andalso hd(Dom) =/= $. ->
+                Name++"."++Dom;
+            true ->
+                erlang:error({if_clause, Name, Dom})
+        end,
+    case res_getby_query(QueryName, Type, Timer,
 			 inet_db:res_option(nameservers)) of
 	{ok, HEnt}         -> {ok, HEnt};
 	{error, NewReason} ->
-	    res_getby_search(Name, Dot, Ds, NewReason, Type, Timer)
+	    res_getby_search(Name, Ds, NewReason, Type, Timer)
     end;
-res_getby_search(_Name, _, [], Reason,_,_) ->
+res_getby_search(_Name, [], Reason,_,_) ->
     {error, Reason}.
 
 res_getby_query(Name, Type, Timer) ->

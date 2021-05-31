@@ -22,7 +22,7 @@
 
 -compile(no_native).
 
--export([on_load/0, on_load/1]).
+-export([on_load/0, on_load/1, init/0]).
 
 -export(
    [
@@ -140,6 +140,9 @@ on_load(Extra) when is_map(Extra) ->
           end,
     ok = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
     %%
+    init().
+
+init() ->
     PT =
         put_supports_table(
           protocols, fun (Protocols) -> protocols_table(Protocols) end),
