@@ -603,6 +603,37 @@
 
 </section>
 
+<section><title>Erts 11.2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A call to <c>port_command()</c> could cause a scheduler
+	    to end up in an eternal loop if the port was busy and the
+	    calling process had incoming signals at the time of the
+	    call. This bug was introduced in OTP 23.3.2 (ERTS version
+	    11.2.1), OTP 22.3.4.18 (ERTS version 10.7.2.10), and OTP
+	    21.3.8.23 (ERTS version 10.3.5.18).</p>
+          <p>
+	    Own Id: OTP-17448 Aux Id: GH-4898, PR-4903, OTP-17291 </p>
+        </item>
+        <item>
+          <p>
+	    Dirty execution of a process in combination with an
+	    unlink signal from a port to the process could cause the
+	    signal queue of the process to enter into an inconsistent
+	    state. The result of the inconsistency typically caused a
+	    crash of the runtime system. This bug was introduced in
+	    OTP 23.3 (ERTS version 11.2).</p>
+          <p>
+	    Own Id: OTP-17462 Aux Id: GH-4885, PR-4914, OTP-17127 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.2.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
