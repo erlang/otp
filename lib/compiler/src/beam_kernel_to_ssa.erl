@@ -700,22 +700,24 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}}
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 
-internal_cg(_Anno, raise, As, [#k_var{name=Dst0}], St0) ->
+internal_cg(_Anno, Op0, As, [#k_var{name=Dst0}], St0)
+  when Op0 =:= raise; Op0 =:= raw_raise ->
     Args = ssa_args(As, St0),
+    Op = fix_op(Op0, St0),
     {Dst,St} = new_ssa_var(Dst0, St0),
-    Resume = #b_set{op=resume,dst=Dst,args=Args},
+    Set = #b_set{op=Op,dst=Dst,args=Args},
     case fail_context(St) of
         {no_catch,_Fail} ->
-            %% No current catch in this function. Follow the resume
-            %% instruction by a return (instead of a branch to
-            %% ?EXCEPTION_MARKER) to ensure that the trim optimization
-            %% can be applied. (Allowing control to pass through to
-            %% the next instruction would mean that the type for the
-            %% try/catch construct would be `any`.)
-            Is = [Resume,#b_ret{arg=Dst},#cg_unreachable{}],
+            %% No current catch in this function. Follow the raw_raise/resume
+            %% instruction by a return (instead of branching to
+            %% ?EXCEPTION_MARKER) to ensure that the trim optimization can be
+            %% applied. (Allowing control to pass through to the next
+            %% instruction would mean that the type for the try/catch construct
+            %% would be `any`.)
+            Is = [Set,#b_ret{arg=Dst},#cg_unreachable{}],
             {Is,St};
         {in_catch,Fail} ->
-            Is = [Resume,make_uncond_branch(Fail),#cg_unreachable{}],
+            Is = [Set,make_uncond_branch(Fail),#cg_unreachable{}],
             {Is,St}
     end;
 internal_cg(Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
@@ -771,6 +773,7 @@ internal_cg(Anno, Op0, As, [], St0) when is_atom(Op0) ->
     {[Set],St}.
 
 fix_op(make_fun, #cg{no_make_fun3=true}) -> old_make_fun;
+fix_op(raise, _) -> resume;
 fix_op(Op, _) -> Op.
 
 bif_cg(Bif, As0, [#k_var{name=Dst0}], Le, St0) ->

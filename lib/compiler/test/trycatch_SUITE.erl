@@ -380,11 +380,19 @@ catch_oops_1(X) ->
 
 after_oops(Conf) when is_list(Conf) ->
     V = {self(),make_ref()},
+
     {{value,V},V} = after_oops_1({value,V}, {value,V}),
     {{exit,V},V} = after_oops_1({exit,V}, {value,V}),
     {{error,V},undefined} = after_oops_1({value,V}, {error,V}),
     {{error,function_clause},undefined} =
-	after_oops_1({exit,V}, function_clause),
+        after_oops_1({exit,V}, function_clause),
+
+    {{value,V},V} = after_oops_2({value,V}, {value,V}),
+    {{exit,V},V} = after_oops_2({exit,V}, {value,V}),
+    {{error,V},undefined} = after_oops_2({value,V}, {error,V}),
+    {{error,function_clause},undefined} =
+        after_oops_2({exit,V}, function_clause),
+
     ok.
 
 after_oops_1(X, Y) ->
@@ -400,7 +408,25 @@ after_oops_1(X, Y) ->
         end,
     {Try,erase(after_oops)}.
 
-
+after_oops_2(X, Y) ->
+    %% GH-4859: `raw_raise` never got an edge to its catch block, making
+    %% try/catch optimization unsafe.
+    erase(after_oops),
+    Try =
+        try
+            try
+                foo(X)
+            catch E:R:S ->
+                erlang:raise(E, R, S)
+            after
+                put(after_oops, foo(Y))
+            end
+        of
+            V -> {value,V}
+        catch
+            C:D -> {C,D}
+        end,
+    {Try,erase(after_oops)}.
 
 eclectic(Conf) when is_list(Conf) ->
     V = {make_ref(),3.1415926535,[[]|{}]},
