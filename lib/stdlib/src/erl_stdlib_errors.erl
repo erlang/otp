@@ -44,6 +44,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_re_error(F, As, Cause);
               unicode ->
                   format_unicode_error(F, As);
+              io ->
+                  format_io_error(F, As, Cause);
               _ ->
                   []
           end,
@@ -387,6 +389,181 @@ unicode_encoding(Enc) ->
             bad_encoding
     end.
 
+
+%% Rewrite fwrite to format and add info if call has an
+%% explicit Io Device as first argument.
+format_io_error(fwrite, Args, Cause) ->
+    format_io_error(format, Args, Cause);
+format_io_error(format = Fn, [_Io, _Fmt, _Args] = Args, Cause) ->
+    format_io_error(Fn, Args, Cause, true);
+format_io_error(put_chars = Fn, [_Io, _Chars] = Args, Cause) ->
+    format_io_error(Fn, Args, Cause, true);
+format_io_error(put_chars = Fn, [_Io, _Encoding, _Chars] = Args, Cause) ->
+    format_io_error(Fn, Args, Cause, true);
+format_io_error(nl = Fn, [_Io] = Args, Cause) ->
+    format_io_error(Fn, Args, Cause, true);
+format_io_error(write = Fn, [_Io, _Term] = Args, Cause) ->
+    format_io_error(Fn, Args, Cause, true);
+format_io_error(Fn, Args, Cause) ->
+    format_io_error(Fn, Args, Cause, false).
+
+%% The cause should always be wrapped in either `io` or
+%% `device`. If it is wrapped in `io` we know that the
+%% error originated in the io module. If it is wrapped
+%% in `device`, the error came from the called io device.
+
+%% arguments, whereis(Io) failed
+format_io_error(_, _, {io, arguments}, true) ->
+    [device_arguments];
+format_io_error(_, _, {io, arguments}, false) ->
+    [{general,device_arguments}];
+%% terminated, monitor(Io) failed
+format_io_error(_, _, {io, terminated}, true) ->
+    [device_terminated];
+format_io_error(_, _, {io, terminated}, false) ->
+    [{general,device_terminated}];
+%% Strip the wrapping as we no longer need it
+format_io_error(Fn, Args, {device, Cause}, HasDevice) ->
+    format_io_error_cause(Fn, Args, Cause, HasDevice).
+
+%% Could not translate from unicode to latin1
+format_io_error_cause(_, _, {no_translation, In, Out}, true) ->
+    [{no_translation, In, Out}];
+format_io_error_cause(_, _, {no_translation, In, Out}, false) ->
+    [{general,{no_translation, In, Out}}];
+format_io_error_cause(format, Args, Cause, HasDevice) ->
+    case maybe_posix_message(Cause, HasDevice) of
+        unknown ->
+            if
+                HasDevice ->
+                    [[]] ++ check_io_format(tl(Args), Cause);
+                not HasDevice ->
+                    check_io_format(Args, Cause)
+            end;
+        PosixError ->
+            PosixError
+    end;
+format_io_error_cause(put_chars, Args, Cause, HasDevice) ->
+    Data = if HasDevice -> hd(tl(Args)); not HasDevice -> hd(Args) end,
+    case maybe_posix_message(Cause, HasDevice) of
+        unknown ->
+            [[] || HasDevice] ++
+                case unicode_char_data(Data) of
+                    [] -> [{general,{unknown_error,Cause}}];
+                    InvalidData ->
+                        [InvalidData]
+                end;
+        PosixError ->
+            PosixError ++ [unicode_char_data(Data)]
+    end;
+format_io_error_cause(Fn, _Args, Cause, HasDevice)
+  when Fn =:= write; Fn =:= nl ->
+    case maybe_posix_message(Cause, HasDevice) of
+        unknown ->
+            [{general,{unknown_error,Cause}}];
+        PosixError ->
+            PosixError
+    end;
+format_io_error_cause(_, _, _, _HasDevice) ->
+    [].
+
+maybe_posix_message(Cause, HasDevice) ->
+    case erl_posix_msg:message(Cause) of
+        "unknown POSIX error" ->
+            unknown;
+        PosixStr when HasDevice ->
+            [io_lib:format("~ts (~tp)",[PosixStr, Cause])];
+        PosixStr when not HasDevice ->
+            [{general,io_lib:format("~ts (~tp)",[PosixStr, Cause])}]
+    end.
+
+check_io_format([Fmt], Cause) ->
+    check_io_format([Fmt, []], Cause);
+check_io_format([Fmt, Args], Cause) ->
+    case is_io_format(Fmt) of
+        false ->
+            [invalid_format, must_be_list(Args)] ++
+                case (is_pid(Fmt) or is_atom(Fmt)) and is_io_format(Args) of
+                    true ->
+                        %% The user seems to have called io:format(Dev,"string").
+                        [{general,missing_argument_list}];
+                    false ->
+                        []
+                end;
+        _ when not is_list(Args) ->
+                [[],must_be_list(Args)];
+        true ->
+            case erl_lint:check_format_string(Fmt) of
+                {error,S} ->
+                    [io_lib:format("format string invalid (~ts)",[S])];
+                {ok,ArgTypes} when length(ArgTypes) =/= length(Args) ->
+                    [<<"wrong number of arguments">>] ++
+                        %% The user seems to have called io:format(user,"string")
+                        [{general,missing_argument_list} || is_atom(Fmt)];
+                {ok,ArgTypes} ->
+                    case check_io_arguments(ArgTypes, Args) of
+                        [] when Cause =:= format ->
+                            [format_failed];
+                        [] ->
+                            try io_lib:format(Fmt, Args) of
+                                _ ->
+                                    [{general,{unknown_error,Cause}}]
+                            catch _:_ ->
+                                    [format_failed]
+                            end;
+                        ArgErrors ->
+                            ArgErrors
+                    end
+            end
+    end.
+
+is_io_format(Fmt) when is_list(Fmt) ->
+    try lists:all(fun erlang:is_integer/1, Fmt) of
+        Res -> Res
+    catch _:_ ->
+            false
+    end;
+is_io_format(Fmt) when is_atom(Fmt); is_binary(Fmt) ->
+    true;
+is_io_format(_Fmt) ->
+    false.
+
+check_io_arguments(Types, Args) ->
+    case check_io_arguments(Types, Args, 1) of
+        [] ->
+            [];
+        Checks ->
+            [[],lists:join("\n",Checks)]
+    end.
+
+check_io_arguments([], [], _No) ->
+    [];
+check_io_arguments([Type|TypeT], [Arg|ArgT], No) ->
+    case Type of
+        float when is_float(Arg) ->
+            check_io_arguments(TypeT, ArgT, No+1);
+        int when is_integer(Arg) ->
+            check_io_arguments(TypeT, ArgT, No+1);
+        term ->
+            check_io_arguments(TypeT, ArgT, No+1);
+        string when is_atom(Arg); is_binary(Arg) ->
+            check_io_arguments(TypeT, ArgT, No+1);
+        string when is_list(Arg) ->
+            try unicode:characters_to_binary(Arg) of
+                _ ->
+                    check_io_arguments(TypeT, ArgT, No+1)
+            catch _:_ ->
+                    [io_lib:format("element ~B must be of type ~p", [No, string]) |
+                    check_io_arguments(TypeT, ArgT, No+1)]
+            end;
+        int ->
+            [io_lib:format("element ~B must be of type ~p", [No, integer]) |
+             check_io_arguments(TypeT, ArgT, No+1)];
+        _ when Type =:= float; Type =:= string ->
+            [io_lib:format("element ~B must be of type ~p", [No, Type]) |
+             check_io_arguments(TypeT, ArgT, No+1)]
+    end.
+
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);
 format_ets_error(give_away, [_Tab,Pid,_Gift]=Args, Cause) ->
@@ -683,6 +860,8 @@ is_update_op(Incr) ->
 
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);
+format_error_map([{general, E}|Es], ArgNum, Map) ->
+    format_error_map(Es, ArgNum, Map#{ general => expand_error(E)});
 format_error_map([E|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map#{ArgNum => expand_error(E)});
 format_error_map([], _, Map) ->
@@ -813,14 +992,27 @@ expand_error(counter_not_integer) ->
     <<"the value in the given position, in the object, is not an integer">>;
 expand_error(dead_process) ->
     <<"the pid refers to a terminated process">>;
+expand_error(device_arguments) ->
+    <<"the device does not exist">>;
+expand_error(device_terminated) ->
+    <<"the device has terminated">>;
 expand_error(domain_error) ->
     <<"is outside the domain for this function">>;
 expand_error(empty_binary) ->
     <<"a zero-sized binary is not allowed">>;
 expand_error(empty_tuple) ->
     <<"is an empty tuple">>;
+expand_error(format_failed) ->
+    <<"failed to format string">>;
+expand_error(invalid_format) ->
+    <<"not a valid format string">>;
+expand_error(missing_argument_list) ->
+    <<"possibly missing argument list">>;
 expand_error(name_already_exists) ->
     <<"table name already exists">>;
+expand_error({no_translation, In, Out}) ->
+    unicode:characters_to_binary(
+      io_lib:format("device failed to transcode string from ~p to ~p", [In, Out]));
 expand_error(not_atom) ->
     <<"not an atom">>;
 expand_error(not_binary) ->
@@ -861,6 +1053,9 @@ expand_error(range) ->
     <<"out of range">>;
 expand_error(same_as_keypos) ->
     <<"the position is the same as the key position">>;
+expand_error({unknown_error,Cause}) ->
+    unicode:characters_to_binary(
+      io_lib:format("unknown error: ~tp", [Cause]));
 expand_error(update_op_range) ->
     <<"the position in the update operation is out of range">>;
 expand_error(Other) ->

@@ -28,6 +28,8 @@
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
+-export([check_format_string/1]).
+
 -export_type([error_info/0, error_description/0]).
 
 -import(lists, [all/2,any/2,
@@ -4196,6 +4198,10 @@ args_list(_Other) -> maybe.
 args_length({cons,_A,_H,T}) -> 1 + args_length(T);
 args_length({nil,_A}) -> 0.
 
+check_format_string(Fmt) when is_atom(Fmt) ->
+    check_format_string(atom_to_list(Fmt));
+check_format_string(Fmt) when is_binary(Fmt) ->
+    check_format_string(binary_to_list(Fmt));
 check_format_string(Fmt) ->
     extract_sequences(Fmt, []).
 
@@ -4219,6 +4225,7 @@ extract_sequence(1, [$*|Fmt], Need) ->
     extract_sequence(2, Fmt, [int|Need]);
 extract_sequence(1, Fmt, Need) ->
     extract_sequence(2, Fmt, Need);
+
 extract_sequence(2, [$.,C|Fmt], Need) when C >= $0, C =< $9 ->
     extract_sequence_digits(2, Fmt, Need);
 extract_sequence(2, [$.,$*|Fmt], Need) ->
@@ -4227,12 +4234,14 @@ extract_sequence(2, [$.|Fmt], Need) ->
     extract_sequence(3, Fmt, Need);
 extract_sequence(2, Fmt, Need) ->
     extract_sequence(4, Fmt, Need);
+
 extract_sequence(3, [$.,$*|Fmt], Need) ->
     extract_sequence(4, Fmt, [int|Need]);
 extract_sequence(3, [$.,_|Fmt], Need) ->
     extract_sequence(4, Fmt, Need);
 extract_sequence(3, Fmt, Need) ->
     extract_sequence(4, Fmt, Need);
+
 extract_sequence(4, [$t, $l | Fmt], Need) ->
     extract_sequence(4, [$l, $t | Fmt], Need);
 extract_sequence(4, [$t, $c | Fmt], Need) ->
@@ -4263,6 +4272,7 @@ extract_sequence(4, [$l, C | _Fmt], _Need) ->
     {error,"invalid control ~l" ++ [C]};
 extract_sequence(4, Fmt, Need) ->
     extract_sequence(5, Fmt, Need);
+
 extract_sequence(5, [C|Fmt], Need0) ->
     case control_type(C, Need0) of
         error -> {error,"invalid control ~" ++ [C]};
@@ -4285,10 +4295,10 @@ control_type($w, Need) -> [term|Need];
 control_type($p, Need) -> [term|Need];
 control_type($W, Need) -> [int,term|Need]; %% Note: reversed
 control_type($P, Need) -> [int,term|Need]; %% Note: reversed
-control_type($b, Need) -> [term|Need];
-control_type($B, Need) -> [term|Need];
-control_type($x, Need) -> [string,term|Need]; %% Note: reversed
-control_type($X, Need) -> [string,term|Need]; %% Note: reversed
+control_type($b, Need) -> [int|Need];
+control_type($B, Need) -> [int|Need];
+control_type($x, Need) -> [string,int|Need]; %% Note: reversed
+control_type($X, Need) -> [string,int|Need]; %% Note: reversed
 control_type($+, Need) -> [term|Need];
 control_type($#, Need) -> [term|Need];
 control_type($n, Need) -> Need;
