@@ -1475,8 +1475,8 @@ void erts_init_external(void);
 void erts_init_map(void);
 
 /* beam_debug.c */
-UWord erts_check_stack_recursion_downwards(char *start_c);
-UWord erts_check_stack_recursion_upwards(char *start_c);
+UWord erts_check_stack_recursion_downwards(char *start_c, char *prev_c);
+UWord erts_check_stack_recursion_upwards(char *start_c, char *prev_c);
 int erts_is_above_stack_limit(char *ptr);
 
 /* erl_unicode.c */
