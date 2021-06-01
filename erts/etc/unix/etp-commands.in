@@ -4454,14 +4454,16 @@ end
 define etp-block2mbc-1
 #
 # In: (Block_t*) in $arg0
-# Out: (Carrier_t*) in $etp-mbc
+# Out: (Carrier_t*) in $etp_mbc
 #
   if (($arg0)->bhdr) & 1
       # Free block
       set $etp_mbc = ($arg0)->u.carrier
   else
       # Allocated block
-      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0) >> 18) - ((($arg0)->bhdr & $etp_MBC_ABLK_OFFSET_MASK) >> $etp_MBC_ABLK_OFFSET_SHIFT)) << 18)
+    set $etp_mbc = (Carrier_t*) ((((UWord)($arg0) >> $etp_SUPER_ALIGN_BITS) \
+        - ((($arg0)->bhdr & $etp_MBC_ABLK_OFFSET_MASK) >> $etp_MBC_ABLK_OFFSET_SHIFT)) \
+        << $etp_SUPER_ALIGN_BITS)
   end
 end
 
@@ -4734,8 +4736,10 @@ define etp-init
   set $etp_arch64 = (sizeof(void *) == 8)
   if $etp_arch64
     set $etp_MBC_ABLK_OFFSET_BITS = 23
+    set $etp_SUPER_ALIGN_BITS = 14
   else
     set $etp_MBC_ABLK_OFFSET_BITS = 8
+    set $etp_SUPER_ALIGN_BITS = 18
   end
   set $etp_nil = 0x3b
   set $etp_MBC_ABLK_OFFSET_SHIFT = (sizeof(UWord)*8 - 1 - $etp_MBC_ABLK_OFFSET_BITS)
