@@ -47,7 +47,16 @@
 	     ssh_xfer]},
   {registered, []},
   {applications, [kernel, stdlib, crypto, public_key]},
-  {env, []},
+  {env, [{filter_modules, [
+                           ssh_acceptor_sup,
+                           ssh_acceptor,filter,
+                           ssh_channel_sup,
+                           ssh_connection_sup,
+                           ssh_subsystem_sup,
+                           ssh_system_sup
+                          ]},
+         {default_filter, rm} %% rm | filter
+        ]},
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
 			  "crypto-4.6.4",
