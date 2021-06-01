@@ -59,7 +59,8 @@ do_dir(Info) ->
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
 	    case dir(DefaultPath,string:strip( Info#mod.request_uri,right,$/),
 		     Info#mod.config_db) of
-		{ok, Dir} ->
+		{ok, DirUnicode} ->
+		    Dir = unicode:characters_to_binary(DirUnicode),
 		    LastModified =
 			case (catch httpd_util:rfc1123_date(
 				      FileInfo#file_info.mtime)) of
@@ -69,7 +70,7 @@ do_dir(Info) ->
 				%% if a computer is wrongly configured. 
 				[]
 			end,
-		    Head=[{content_type,"text/html"},
+		    Head=[{content_type,"text/html; charset=UTF-8"},
 			  {content_length,
 			   integer_to_list(erlang:iolist_size(Dir))},
 			  {code,200} | LastModified],
@@ -114,15 +115,24 @@ encode_html_entity(FileName) ->
 %% header
 
 header(Path,RequestURI) ->
-    Header = "<HTML>\n<HEAD>\n<TITLE>Index of "++ RequestURI ++
-	"</TITLE>\n</HEAD>\n<BODY>\n<H1>Index of "++
-	RequestURI ++ "</H1>\n<PRE><IMG SRC=\"" ++ icon(blank) ++
-	"\" ALT="     "> Name                   Last modified         "
+    DisplayURI = case RequestURI of
+                     "" -> "/";
+                     _  -> RequestURI
+                 end,
+    Header = "<!DOCTYPE html>\n"
+	"<HTML>\n<HEAD>\n"
+	"<meta charset=\"UTF-8\">"
+	"<TITLE>Index of " ++ DisplayURI ++ "</TITLE>\n"
+	"</HEAD>\n<BODY>\n<H1>Index of "++
+	DisplayURI ++ "</H1>\n<PRE><span>" ++ icon(blank) ++
+	"</span> Name                   Last modified         "
 	"Size  Description <HR>\n",
-    case re:replace(RequestURI,"[^/]*\$","", [{return,list}]) of
-	"/" ->
+    case RequestURI of
+	"" ->
 	    Header;
-	ParentRequestURI ->
+	_ ->
+            ParentRequestURI = re:replace(RequestURI,"[^/]*\$", "",
+                                          [{return,list}]),
 	    ParentPath =
 		re:replace(string:strip(Path,right,$/),"[^/]*\$","",
 			   [{return,list}]),
@@ -132,10 +142,10 @@ header(Path,RequestURI) ->
 format(Path,RequestURI) ->
     {ok,FileInfo}=file:read_file_info(Path),
     {{Year, Month, Day},{Hour, Minute, _Second}} = FileInfo#file_info.mtime,
-    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
-		  " <A HREF=\"~s\">Parent directory</A>      "
+    io_lib:format("<span title=\"~s\">~s</span>"
+		  " <A HREF=\"~ts\">Parent directory</A>      "
 		  " ~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
-		  [icon(back),"DIR",percent_encode(RequestURI),Day,
+		  ["DIR",icon(back),RequestURI,Day,
 		   httpd_util:month(Month),Year,Hour,Minute]).
 
 %% body
@@ -152,22 +162,25 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
 	    {{Year, Month, Day},{Hour, Minute, _Second}} = 
 		FileInfo#file_info.mtime,
-	    EntryLength=length(Entry),
+	    EntryLength = string:length(InitEntry),
 	    if
 		EntryLength > 21 ->
-		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> "
-				  "<A HREF=\"~s\">~-21.s..</A>"
+		    TruncatedEntry = encode_html_entity(
+                                       string:slice(InitEntry, 0, 19)),
+		    io_lib:format("<span title=\"[~s]\">~s</span> "
+				  "<A HREF=\"~ts\">~ts..</A>"
 				  "~*.*c~2.2.0w-~s-~w ~2.2.0w:~2.2.0w"
-				  "        -\n", [icon(folder),"DIR",
-						  RequestURI ++ "/" ++ percent_encode(InitEntry) ++ "/",
-						  Entry, 23-21, 23-21, $ ,
-						  Day, httpd_util:month(Month),
-						  Year,Hour,Minute]);
+				  "        -\n",
+                                  ["DIR", icon(folder),
+                                   RequestURI ++ "/" ++ percent_encode(InitEntry) ++ "/",
+                                   TruncatedEntry, 23-21, 23-21, $ ,
+                                   Day, httpd_util:month(Month),
+                                   Year,Hour,Minute]);
 		true ->
-		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
-				  " <A HREF=\"~s\">~s</A>~*.*c~2.2.0"
+		    io_lib:format("<span title=\"[~s]\">~s</span>"
+				  " <A HREF=\"~ts\">~ts</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w        -\n",
-				  [icon(folder),"DIR",
+				  ["DIR", icon(folder),
                                    RequestURI ++ "/" ++ percent_encode(InitEntry) ++ "/",Entry,
 				   23-EntryLength,23-EntryLength,$ ,Day,
 				   httpd_util:month(Month),Year,Hour,Minute])
@@ -177,22 +190,25 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 		FileInfo#file_info.mtime,
 	    Suffix=httpd_util:strip_extension_dot(Entry),
 	    MimeType=httpd_util:lookup_mime(ConfigDB,Suffix,""),
-	    EntryLength=length(Entry),
+	    EntryLength = string:length(InitEntry),
 	    if
 		EntryLength > 21 ->
-		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\">"
-				  " <A HREF=\"~s\">~-21.s..</A>~*.*c~2.2.0"
+		    TruncatedEntry = encode_html_entity(
+                                       string:slice(InitEntry, 0, 19)),
+		    io_lib:format("<span title=\"[~s]\">~s</span>"
+				  " <A HREF=\"~ts\">~ts..</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
-				  [icon(Suffix, MimeType), Suffix,
-                                   RequestURI ++ "/" ++ percent_encode(InitEntry), Entry, 23-21, 23-21, $ , Day,
+				  [Suffix, icon(Suffix, MimeType),
+                                   RequestURI ++ "/" ++ percent_encode(InitEntry),
+                                   TruncatedEntry, 23-21, 23-21, $ , Day,
 				   httpd_util:month(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
 				   MimeType]);
 		true ->
-		    io_lib:format("<IMG SRC=\"~s\" ALT=\"[~s]\"> "
-				  "<A HREF=\"~s\">~s</A>~*.*c~2.2.0w-~s-~w"
+		    io_lib:format("<span title=\"[~s]\">~s</span> "
+				  "<A HREF=\"~ts\">~ts</A>~*.*c~2.2.0w-~s-~w"
 				  " ~2.2.0w:~2.2.0w~8wk  ~s\n",
-				  [icon(Suffix, MimeType), Suffix,
+				  [Suffix, icon(Suffix, MimeType),
                                    RequestURI ++ "/" ++ percent_encode(InitEntry), Entry, 23-EntryLength,
 				   23-EntryLength, $ ,Day,
 				   httpd_util:month(Month),Year,Hour,Minute,
@@ -205,13 +221,10 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 
 percent_encode(URI) when is_list(URI) ->
     Reserved = reserved(),
-    lists:append([uri_encode(Char, Reserved) || Char <- URI]);
-percent_encode(URI) when is_binary(URI) ->
-    Reserved = reserved(),
-    << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
+    lists:append([uri_encode(Char, Reserved) || Char <- URI]).
 
 reserved() ->
-    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
+    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $?, $/,
             $#, $[, $], $<, $>, $\", ${, $}, $|, %"
 			       $\\, $', $^, $%, $ ]).
 
@@ -221,14 +234,6 @@ uri_encode(Char, Reserved) ->
 	    [ $% | http_util:integer_to_hexlist(Char)];
 	false ->
 	    [Char]
-    end.
-
-uri_encode_binary(Char, Reserved) ->
-    case sets:is_element(Char, Reserved) of
-        true ->
-            << $%, (integer_to_binary(Char, 16))/binary >>;
-        false ->
-            <<Char>>
     end.
 
 %% footer
@@ -244,68 +249,90 @@ footer(Path,FileList) ->
     end.
 
 %%
-%% Icon mappings are hard-wired ala default Apache (Ugly!)
+%% Icon mappings (Emoji)
 %%
+
+-define(package, "&#x1F4E6;").                  % package
+-define(image, "&#x1F4F7;").                    % camera
+-define(audio, "&#x1F4E2;").                    % loudspeaker
+-define(video, "&#x1F3A5;").                    % movie camera
+
+-define(page, "&#x1F4C4;").                     % page
+-define(page2, "&#x1F4C3;").                    % page, curled
+-define(world, "&#x1F30D;").                    % globe
+-define(unknown, ?page).
+-define(text, "&#x1F4DD;").                     % page with pencil
+-define(sourcecode, "&#x1F4DC;").               % scroll
 
 icon(Suffix,MimeType) ->
     case icon(Suffix) of
 	undefined ->
 	    case MimeType of
 		[$t,$e,$x,$t,$/|_] ->
-		    "/icons/text.gif";
+		    ?text;
 		[$i,$m,$a,$g,$e,$/|_] ->
-		    "/icons/image2.gif";
+		    ?image;
 		[$a,$u,$d,$i,$o,$/|_] ->
-		    "/icons/sound2.gif";
+		    ?audio;
 		[$v,$i,$d,$e,$o,$/|_] ->
-		    "/icons/movie.gif";
+		    ?video;
 		_ ->
-		    "/icons/unknown.gif"
+		    ?unknown
 	    end;
 	Icon ->
 	    Icon
     end.
 
-icon(blank) -> "/icons/blank.gif";
-icon(back) -> "/icons/back.gif";
-icon(folder) -> "/icons/folder.gif";
-icon("bin") -> "/icons/binary.gif";
-icon("exe") -> "/icons/binary.gif";
-icon("hqx") -> "/icons/binhex.gif";
-icon("tar") -> "/icons/tar.gif";
-icon("wrl") -> "/icons/world2.gif";
-icon("wrl.gz") -> "/icons/world2.gif";
-icon("vrml") -> "/icons/world2.gif";
-icon("vrm") -> "/icons/world2.gif";
-icon("iv") -> "/icons/world2.gif";
-icon("Z") -> "/icons/compressed.gif";
-icon("z") -> "/icons/compressed.gif";
-icon("tgz") -> "/icons/compressed.gif";
-icon("gz") -> "/icons/compressed.gif";
-icon("zip") -> "/icons/compressed.gif";
-icon("ps") -> "/icons/a.gif";
-icon("ai") -> "/icons/a.gif";
-icon("eps") -> "/icons/a.gif";
-icon("html") -> "/icons/layout.gif";
-icon("shtml") -> "/icons/layout.gif";
-icon("htm") -> "/icons/layout.gif";
-icon("pdf") -> "/icons/layout.gif";
-icon("txt") -> "/icons/text.gif";
-icon("erl") -> "/icons/burst.gif";
-icon("c") -> "/icons/c.gif";
-icon("pl") -> "/icons/p.gif";
-icon("py") -> "/icons/p.gif";
-icon("for") -> "/icons/f.gif";
-icon("dvi") -> "/icons/dvi.gif";
-icon("uu") -> "/icons/uuencoded.gif";
-icon("conf") -> "/icons/script.gif";
-icon("sh") -> "/icons/script.gif";
-icon("shar") -> "/icons/script.gif";
-icon("csh") -> "/icons/script.gif";
-icon("ksh") -> "/icons/script.gif";
-icon("tcl") -> "/icons/script.gif";
-icon("tex") -> "/icons/tex.gif";
-icon("core") -> "/icons/tex.gif";
+icon(blank) -> "&#x1F4C2;"; % open folder
+icon(back) -> "&#x1F519;"; % back arrow
+icon(folder) -> "&#x1F4C1;"; % closed folder
+icon("bin") -> ?page2;
+icon("exe") -> ?page2;
+icon("hqx") -> ?page2;
+icon("tar") -> ?package;
+icon("wrl") -> ?world;
+icon("wrl.gz") -> ?world;
+icon("vrml") -> ?world;
+icon("vrm") -> ?world;
+icon("iv") -> ?world;
+icon("Z") -> ?package;
+icon("z") -> ?package;
+icon("tgz") -> ?package;
+icon("gz") -> ?package;
+icon("zip") -> ?package;
+icon("bz2") -> ?package;
+icon("ps") -> ?page;
+icon("ai") -> ?image;
+icon("eps") -> ?image;
+icon("html") -> ?text;
+icon("shtml") -> ?text;
+icon("htm") -> ?text;
+icon("pdf") -> ?text;
+icon("txt") -> ?text;
+icon("erl") -> ?sourcecode;
+icon("c") -> ?sourcecode;
+icon("pl") -> ?sourcecode;
+icon("py") -> ?sourcecode;
+icon("for") -> ?sourcecode;
+icon("dvi") -> ?text;
+icon("conf") -> ?sourcecode;
+icon("sh") -> ?sourcecode;
+icon("shar") -> ?sourcecode;
+icon("csh") -> ?sourcecode;
+icon("ksh") -> ?sourcecode;
+icon("tcl") -> ?sourcecode;
+icon("tex") -> ?sourcecode;
+icon("core") -> ?sourcecode;
+icon("xml") -> ?sourcecode;
+icon("jpg") -> ?image;
+icon("JPG") -> ?image;
+icon("jpeg") -> ?image;
+icon("png") -> ?image;
+icon("gif") -> ?image;
+icon("avi") -> ?video;
+icon("mp4") -> ?video;
+icon("m4a") -> ?audio;
+icon("mp3") -> ?audio;
+icon("aac") -> ?audio;
+icon("flac") -> ?audio;
 icon(_) -> undefined.
-
-
