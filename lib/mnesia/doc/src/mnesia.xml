@@ -3038,6 +3038,11 @@ raise(Name, Amount) ->
           understand this configuration.</p>
       </item>
       <item>
+        <p><c>-mnesia max_transfer_size Number</c>. Specifies the estimated size
+          in bytes of a single packet of data to be used when copying a table from the local
+          node to another one. Default is <c>64000</c>.</p>
+      </item>
+      <item>
         <p><c>-mnesia schema_location Loc</c>. Controls where
           Mnesia looks for its schema. Parameter
           <c>Loc</c> can be one of the following atoms:</p>
