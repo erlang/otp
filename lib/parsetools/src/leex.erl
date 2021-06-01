@@ -1547,7 +1547,10 @@ pack_trans(Trs) -> pack_trans(Trs, []).
 %%     Trs1.
 
 pack_trans([{{C,C},S}|Trs], Pt) ->         % Singletons to the head
-    pack_trans(Trs, [{C,S}|Pt]);
+    case lists:member({C,S}, Pt) of
+        true -> pack_trans(Trs, Pt);
+        false -> pack_trans(Trs, [{C,S}|Pt])
+    end;
 %% Special detection and handling of $\n.
 pack_trans([{{Cf,$\n},S}|Trs], Pt) ->
     pack_trans([{{Cf,$\n-1},S}|Trs], [{$\n,S}|Pt]);
