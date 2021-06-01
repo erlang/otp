@@ -1806,46 +1806,59 @@ terminate(Reason, StateName, D0) ->
 format_status(normal, [_, _StateName, D]) ->
     [{data, [{"State", D}]}];
 format_status(terminate, [_, _StateName, D]) ->
-    [{data, [{"State", state_data2proplist(D)}]}].
+    [{data, [{"State", clean(D)}]}].
 
 
-state_data2proplist(D) ->
-    DataPropList0 =
-        fmt_stat_rec(record_info(fields, data), D,
-                     [decrypted_data_buffer,
-                      encrypted_data_buffer,
-                      key_exchange_init_msg,
-                      user_passwords,
-                      opts,
-                      inet_initial_recbuf_size]),
-    SshPropList =
-        fmt_stat_rec(record_info(fields, ssh), D#data.ssh_params,
-                     [c_keyinit,
-                      s_keyinit,
-                      send_mac_key,
-                      send_mac_size,
-                      recv_mac_key,
-                      recv_mac_size,
-                      encrypt_keys,
-                      encrypt_ctx,
-                      decrypt_keys,
-                      decrypt_ctx,
-                      compress_ctx,
-                      decompress_ctx,
-                      shared_secret,
-                      exchanged_hash,
-                      session_id,
-                      keyex_key,
-                      keyex_info,
-                      available_host_keys]),
-    lists:keyreplace(ssh_params, 1, DataPropList0,
-                     {ssh_params,SshPropList}).
-    
+clean(#data{}=R) ->
+    fmt_stat_rec(record_info(fields,data), R,
+                 [decrypted_data_buffer,
+                  encrypted_data_buffer,
+                  key_exchange_init_msg,
+                  user_passwords,
+                  opts,
+                  inet_initial_recbuf_size]);
+clean(#ssh{}=R) ->
+    fmt_stat_rec(record_info(fields, ssh), R,
+                 [c_keyinit,
+                  s_keyinit,
+                  send_mac_key,
+                  send_mac_size,
+                  recv_mac_key,
+                  recv_mac_size,
+                  encrypt_keys,
+                  encrypt_ctx,
+                  decrypt_keys,
+                  decrypt_ctx,
+                  compress_ctx,
+                  decompress_ctx,
+                  shared_secret,
+                  exchanged_hash,
+                  session_id,
+                  keyex_key,
+                  keyex_info,
+                  available_host_keys]);
+clean(#connection{}=R) ->
+    fmt_stat_rec(record_info(fields, connection), R,
+                 []);
+clean(L) when is_list(L) ->
+    lists:map(fun clean/1, L);
+clean(T) when is_tuple(T) ->
+    list_to_tuple( clean(tuple_to_list(T)));
+clean(X) ->
+    ssh_options:no_sensitive(filter, X).
+
 
 fmt_stat_rec(FieldNames, Rec, Exclude) ->
     Values = tl(tuple_to_list(Rec)),
-    [P || {K,_} = P <- lists:zip(FieldNames, Values),
-	  not lists:member(K, Exclude)].
+    list_to_tuple(
+      [element(1,Rec) |
+       lists:map(fun({K,V}) ->
+                         case lists:member(K, Exclude) of
+                             true -> '****';
+                             false -> clean(V)
+                         end
+                 end, lists:zip(FieldNames, Values))
+      ]).
 
 %%--------------------------------------------------------------------
 -spec code_change(term() | {down,term()},
@@ -2670,7 +2683,7 @@ ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) -
         true ->
             ["Connection Terminating:\n",
              io_lib:format("Reason: ~p, StateName: ~p~n~s~nStateData = ~p",
-                           [Reason, StateName, ExtraInfo, state_data2proplist(D)])
+                           [Reason, StateName, ExtraInfo, clean(D)])
             ]
     end;
 ssh_dbg_format(renegotiation, {return_from, {?MODULE,terminate,3}, _Ret}) ->
