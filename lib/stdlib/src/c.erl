@@ -38,7 +38,7 @@
 -export([appcall/4]).
 
 -import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysort/2,
-		max/1,min/1,foreach/2,foldl/3,flatmap/2]).
+		foreach/2,foldl/3,flatmap/2]).
 -import(io, [format/1, format/2]).
 
 %%-----------------------------------------------------------------------
@@ -1056,11 +1056,15 @@ ls() ->
 -spec ls(Dir) -> 'ok' when
       Dir :: file:name().
 
-ls(Dir) ->
-    case file:list_dir(Dir) of
+ls(Dir0) ->
+    case file:list_dir(Dir0) of
 	{ok, Entries} ->
 	    ls_print(sort(Entries));
 	{error, enotdir} ->
+            Dir = if
+                      is_list(Dir0) -> lists:flatten(Dir0);
+                      true -> Dir0
+                  end,
 	    ls_print([Dir]);
 	{error, Error} ->
 	    format("~ts\n", [file:format_error(Error)])
@@ -1068,7 +1072,7 @@ ls(Dir) ->
 
 ls_print([]) -> ok;
 ls_print(L) ->
-    Width = min([max(lengths(L, [])), 40]) + 5,
+    Width = erlang:min(max_length(L, 0), 40) + 5,
     ls_print(L, Width, 0).
 
 ls_print(X, Width, Len) when Width + Len >= 80 ->
@@ -1080,8 +1084,12 @@ ls_print([H|T], Width, Len) ->
 ls_print([], _, _) ->
     io:nl().
 
-lengths([H|T], L) -> lengths(T, [length(H)|L]);
-lengths([], L)    -> L.
+max_length([H|T], L) when is_atom(H) ->
+    max_length([atom_to_list(H)|T], L);
+max_length([H|T], L) ->
+    max_length(T, erlang:max(length(H), L));
+max_length([], L) ->
+    L.
 
 w(X) ->
     io_lib:write(X).
