@@ -22,7 +22,43 @@
 %% Purpose: Help funtions for handling certificat verification.
 %% The path validation defined in ssl_handshake.erl that mainly
 %% calls functions in this module is described in RFC 3280. 
-%%----------------------------------------------------------------------
+%% The basic verification checks are done by
+%% public_key:pkix_path_validation/3
+%%
+%% TLS code handles construction of alternative certificate paths
+%% that can be used as input to public_key:pkix_path_validation/3
+%% to try and find one path that is considerd valid.
+%%
+%% The TLS protocol will send certificate chains that should consist
+%% of [PeerCert, CA0 ... CAN, ROOTCert]. The path will be the reverse of the
+%% chain and ROOTCert is the trusted anchor in the path validation.
+%% Also to complicate matters ROOTCerts can be left out of the sent chain.
+%% However due to configuration error and workarounds for certificate
+%% renewal purposes we have to handle chains that may be:
+%%
+%% * Unordered - PeerCert will still be first but the other certs
+%% may be arbitrarily order. Ex: [PeerCert, CAN ...  ROOTCert, CA0]
+%%
+%% * Partial - User decides to put the trust in an intermediate CA
+%% that is this intermediate CA must be part of the original chain
+%% and is used as the trusted anchor cert instead of the ROOT certificate.
+%% Ex: [PeerCert, CA0 ...CAN-1] instead of  [PeerCert, CA0 ...CAN, ROOTCert]
+%%
+%% * Incomplete - The chain sent is missing one or more certificates
+%% but if we have the missing certificates in our trust store we can recreate
+%% the chain. Ex:  [PeerCert, CA0 ...CAN-1] and CN and ROOTCert is in our
+%% trust store.
+%%
+%% * Extraneous - Contain extra certificates that are so called cross signed
+%% to enable construction of different cert chains depending on what is in the
+%% trust store. Used to phase out certificates that are expiring. So that
+%% a window can be created when there is an old about to expire cert and
+%% a new replacing cert that can coexist.
+%% Ex:  [PeerCert, CA0 ...CAN, CAN', ROOTCert]
+%%
+%% * Cross signed ROOT - Means looking for alternative paths using possible
+%% alternative ROOT certs if the original ROOT cert has expired or is unknown. 
+%% ----------------------------------------------------------------------
 
 -module(ssl_certificate).
 
@@ -32,26 +68,27 @@
 -include_lib("public_key/include/public_key.hrl"). 
 
 -export([trusted_cert_and_paths/4,
-	 certificate_chain/3,
-	 certificate_chain/4,
-	 file_to_certificats/2,
-	 file_to_crls/2,
-	 validate/3,
-	 is_valid_extkey_usage/2,
-	 is_valid_key_usage/2,
-	 select_extension/2,
-	 extensions_list/1,
-	 public_key_type/1,
-	 foldl_db/3
+         certificate_chain/3,
+         certificate_chain/4,
+         file_to_certificats/2,
+         file_to_crls/2,
+         validate/3,
+         is_valid_extkey_usage/2,
+         is_valid_key_usage/2,
+         select_extension/2,
+         extensions_list/1,
+         public_key_type/1,
+         foldl_db/3,
+         find_cross_sign_root_paths/4
 	]).
- 
+
 %%====================================================================
 %% Internal application API
 %%====================================================================
 
 %%--------------------------------------------------------------------
 -spec trusted_cert_and_paths([der_cert()], db_handle(), certdb_ref(), fun()) ->
-				   [{der_cert() | unknown_ca | invalid_issuer | selfsigned_peer, [der_cert()]}].
+          [{der_cert() | unknown_ca | invalid_issuer | selfsigned_peer, [der_cert()]}].
 %%
 %% Description: Construct input to public_key:pkix_path_validation/3,
 %% If the ROOT cert is not found {bad_cert, unknown_ca} will be returned
@@ -101,8 +138,9 @@ to_der(certificate_chain, {ok, #cert{der=Der}, Certs}) ->
 
 
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | {extracted, list()}) ->
-			  {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
+-spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(),
+                        certdb_ref() | {extracted, list()}) ->
+          {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
@@ -120,8 +158,9 @@ certificate_chain(OtpCert, CertDbHandle, CertsDbRef) ->
     to_der(certificate_chain, Res).
 
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | {extracted, list()}, [der_cert()]) ->
-			  {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
+-spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | 
+                        {extracted, list()}, [der_cert()]) ->
+          {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
 %%
 %% Description: Create certificate chain with certs from 
 %%--------------------------------------------------------------------
@@ -155,9 +194,7 @@ file_to_crls(File, DbHandle) ->
 
 %%--------------------------------------------------------------------
 -spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid | valid_peer,
-	       term()) -> {valid, term()} |
-			  {fail, tuple()} |
-			  {unknown, term()}.
+	       term()) -> {valid, term()} | {fail, tuple()} | {unknown, term()}.
 %%
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
@@ -171,6 +208,13 @@ validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
     end;
 validate(_, {extension, _}, UserState) ->
     {unknown, UserState};
+validate(Cert, {bad_cert, cert_expired} = Reason, #{issuer := Issuer}) ->
+    case public_key:pkix_decode_cert(Issuer, otp) of
+        Cert ->
+            {fail, {bad_cert, root_cert_expired}};
+        _ ->
+            {fail, Reason}
+    end;
 validate(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
 validate(Cert, valid, UserState) ->
@@ -250,6 +294,16 @@ foldl_db(IsIssuerFun, CertDbHandle, []) ->
 foldl_db(IsIssuerFun, _, [_|_] = ListDb) ->
     lists:foldl(IsIssuerFun, issuer_not_found, ListDb).
 
+find_cross_sign_root_paths([], _CertDbHandle, _CertDbRef, _InvalidatedList) ->
+    [];
+find_cross_sign_root_paths([_ | Rest] = Path, CertDbHandle, CertDbRef, InvalidatedList) ->
+    case find_alternative_root(Path, CertDbHandle, CertDbRef, InvalidatedList) of
+        unknown_ca ->
+            find_cross_sign_root_paths(Rest, CertDbHandle, CertDbRef, InvalidatedList);
+        Root ->
+            [{Root, Path}]
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -265,7 +319,7 @@ certificate_chain(#cert{otp=OtpCert}=Cert, CertDbHandle, CertsDbRef, Chain, List
 	{_, true = SelfSigned} ->
 	    do_certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned, ListDb);
 	{{error, issuer_not_found}, SelfSigned} ->
-	    case find_issuer(Cert, CertDbHandle, CertsDbRef, ListDb) of
+	    case find_issuer(Cert, CertDbHandle, CertsDbRef, ListDb, []) of
 		{ok, {SerialNr, Issuer}} ->
 		    do_certificate_chain(CertDbHandle, CertsDbRef, Chain,
 					 SerialNr, Issuer, SelfSigned, ListDb);
@@ -295,13 +349,33 @@ do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListD
 	    {ok, undefined, lists:reverse(Chain)}
     end.
 
+find_alternative_root([Cert | _], CertDbHandle, CertDbRef, InvalidatedList) ->
+    OtpCert = public_key:pkix_decode_cert(Cert, otp),
+    case find_issuer(#cert{der=Cert, otp=OtpCert}, CertDbHandle, CertDbRef, [], InvalidatedList) of
+        {error, issuer_not_found} ->
+            unknown_ca;
+        {ok, {SerialNr, IssuerId}} ->
+            case ssl_manager:lookup_trusted_cert(CertDbHandle, CertDbRef, SerialNr, IssuerId) of
+                undefined ->
+                    unknown_ca;
+                {ok, #cert{der = DerIssuer}} ->
+                    case public_key:pkix_is_self_signed(DerIssuer) of
+                        true ->
+                            DerIssuer;
+                        false ->
+                            unknown_ca
+                    end
+            end
+    end.
 
-find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb) ->
+find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, InvalidatedList) ->
     IsIssuerFun =
-	fun({_Key, #cert{otp=ErlCertCandidate}}, Acc) ->
+	fun({_Key, #cert{der = DerCandidate, otp=ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
 		    true ->
-			case verify_cert_signer(DerCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
+			case verify_cert_signer(DerCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate)
+                            andalso (not lists:member(DerCandidate, InvalidatedList))
+                        of
 			    true ->
 				throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
 			    false ->
@@ -369,7 +443,7 @@ other_issuer(#cert{otp=OtpCert}=Cert, CertDbHandle, CertDbRef) ->
 	{ok, IssuerId} ->
 	    {other, IssuerId};
 	{error, issuer_not_found} ->
-	    case find_issuer(Cert, CertDbHandle, CertDbRef, []) of
+	    case find_issuer(Cert, CertDbHandle, CertDbRef, [], []) of
 		{ok, IssuerId} ->
 		    {other, IssuerId};
 		Other ->
@@ -415,7 +489,8 @@ verify_cert_extensions(Cert, UserState, [], _) ->
     {valid, UserState#{issuer => Cert}};
 verify_cert_extensions(Cert, #{ocsp_responder_certs := ResponderCerts,
                                ocsp_state := OscpState,
-                               issuer := Issuer} = UserState, [#certificate_status{response = OcspResponsDer} | Exts], Context) ->
+                               issuer := Issuer} = UserState, 
+                       [#certificate_status{response = OcspResponsDer} | Exts], Context) ->
     #{ocsp_nonce := Nonce} = OscpState,
     case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer, ResponderCerts, Nonce) of
         valid ->
@@ -437,7 +512,8 @@ verify_sign(Cert, #{signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm(Cert, SignAlgs).
 
 is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = 
-                                                       #'SignatureAlgorithm'{algorithm = ?'id-dsa-with-sha1'}}, [{_,_}|_] = SignAlgs) ->   
+                                                       #'SignatureAlgorithm'{algorithm = ?'id-dsa-with-sha1'}},
+                                 [{_,_}|_] = SignAlgs) ->
     lists:member({sha, dsa}, SignAlgs);
 is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = SignAlg}, [{_,_}|_] = SignAlgs) ->   
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
@@ -488,7 +564,8 @@ path_candidate(Cert, ChainCandidateCAs, CertDbHandle) ->
             [Root | lists:reverse(Chain)]
     end.
 
-handle_partial_chain([#cert{der=IssuerCert, otp=OTPCert}=Cert| Rest] = Path, PartialChainHandler, CertDbHandle, CertDbRef) ->
+handle_partial_chain([#cert{der=IssuerCert, otp=OTPCert}=Cert| Rest] = Path, PartialChainHandler,
+                     CertDbHandle, CertDbRef) ->
     case public_key:pkix_is_self_signed(OTPCert) of
         true -> %% IssuerCert = ROOT (That is ROOT was included in chain)
             {ok, {SerialNr, IssuerId}} = public_key:pkix_issuer_id(OTPCert, self),

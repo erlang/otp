@@ -63,7 +63,8 @@
 
 -export([get_max_early_data/1,
          is_valid_binder/4,
-         maybe/0]).
+         maybe/0,
+         path_validation/10]).
 
 %% crypto:hash(sha256, "HelloRetryRequest").
 -define(HELLO_RETRY_REQUEST_RANDOM, <<207,33,173,116,229,154,97,17,
@@ -1467,15 +1468,12 @@ process_certificate(#certificate_1_3{certificate_list = CertEntries},
                                               ocsp_stapling_state = OcspState}} = State0) ->
     case validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                                     SslOptions, CRLDbHandle, Role, Host, OcspState) of
-        {ok, {PeerCert, PublicKeyInfo}} ->
+        #alert{} = Alert ->
+            State = update_encryption_state(Role, State0),
+            {error, {Alert, State}};
+        {PeerCert, PublicKeyInfo} ->
             State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
-            {ok, {State, wait_cv}};
-        {error, Reason} ->
-            State = update_encryption_state(Role, State0),
-            {error, {Reason, State}};
-        {ok, #alert{} = Alert} ->
-            State = update_encryption_state(Role, State0),
-            {error, {Alert, State}}
+            {ok, {State, wait_cv}}
     end.
 
 %% Sets correct encryption state when sending Alerts in shared states that use different secrets.
@@ -1490,33 +1488,16 @@ update_encryption_state(client, State) ->
 
 
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
-                           #{server_name_indication := ServerNameIndication,
-                             partial_chain := PartialChain,
-                             ocsp_responder_certs := OcspResponderCerts
+                           #{ocsp_responder_certs := OcspResponderCerts
                             } = SslOptions, CRLDbHandle, Role, Host, OcspState0) ->
     {Certs, CertExt, OcspState} = split_cert_entries(CertEntries, OcspState0),
-    ServerName = ssl_handshake:server_name(ServerNameIndication, Host, Role),
-    [PeerCert | _ChainCerts ] = Certs,
-     try
-         PathsAndAnchors =
-            ssl_certificate:trusted_cert_and_paths(Certs, CertDbHandle, CertDbRef,
-                                                  PartialChain),
-         case path_validate(PathsAndAnchors, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                            {3, 4}, SslOptions, #{cert_ext => CertExt,
-                                                  ocsp_state => OcspState,
-                                                  ocsp_responder_certs => OcspResponderCerts}) of
-             {ok, {PublicKeyInfo,_}} ->
-                 {ok, {PeerCert, PublicKeyInfo}};
-             {error, Reason} ->
-                 {ok, ssl_handshake:path_validation_alert(Reason)}
-         end
-     catch
-         error:{badmatch,{error, {asn1, Asn1Reason}}} ->
-             %% ASN-1 decode of certificate somehow failed
-             {error, ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason})};
-         error:OtherReason ->
-             {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})}
-     end.
+
+    ssl_handshake:certify(#certificate{asn1_certificates = Certs}, CertDbHandle, CertDbRef,
+                          SslOptions, CRLDbHandle, Role, Host, {3,4},
+                          #{cert_ext => CertExt,
+                            ocsp_state => OcspState,
+                            ocsp_responder_certs => OcspResponderCerts}).
+
 
 store_peer_cert(#state{session = Session,
                        handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->
@@ -2900,22 +2881,7 @@ get_max_early_data(Extensions) ->
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
 
-path_validate([{TrustedCert, Path}], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-              Version, SslOptions, CertExt) ->
-    path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, 
-                    CRLDbHandle, Version, SslOptions, CertExt);
-path_validate([{TrustedCert, Path} | Rest], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-              Version, SslOptions, CertExt) ->
-    case path_validation(TrustedCert, Path, ServerName, 
-                         Role, CertDbHandle, CertDbRef, CRLDbHandle, 
-                         Version, SslOptions, CertExt) of
-        {ok, _} = Result ->
-            Result;
-        {error, _} ->
-            path_validate(Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                          Version, SslOptions, CertExt)
-    end.
-
+%% Call basic path validation algorithm in public_key for TLS-1.3
 path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle, Version,
                 #{verify_fun := VerifyFun,
                   customize_hostname_check := CustomizeHostnameCheck,
