@@ -58,7 +58,7 @@
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1, droplast/1, search/1, hof/1,
-         error_info/1]).
+         enumerate/1, error_info/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -122,7 +122,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search, error_info]}
+			 hof, droplast, search, enumerate, error_info]}
     ].
 
 init_per_suite(Config) ->
@@ -2740,6 +2740,22 @@ hof(Config) when is_list(Config) ->
 
     true = lists:all(fun(N) -> is_integer(N) end, L),
     false = lists:all(fun(N) -> N rem 2 =:= 0 end, L),
+
+    ok.
+
+%% Test lists:enumerate/1 and lists:enumerate/2
+enumerate(Config) when is_list(Config) ->
+    [] = lists:enumerate([]),
+    [] = lists:enumerate(10, []),
+    [{1,a},{2,b},{3,c}] = lists:enumerate([a,b,c]),
+    [{10,a},{11,b},{12,c}] = lists:enumerate(10, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(0),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(0, 10),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<1,2,3>>),
 
     ok.
 
