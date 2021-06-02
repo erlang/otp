@@ -952,10 +952,21 @@ rukeymerge(Index, T1, L2) when is_integer(Index), Index > 0 ->
       TupleList2 :: [Tuple],
       Tuple :: tuple().
 
-keymap(Fun, Index, [Tup|Tail]) ->
-   [setelement(Index, Tup, Fun(element(Index, Tup)))|keymap(Fun, Index, Tail)];
-keymap(Fun, Index, []) when is_integer(Index), Index >= 1, 
-                            is_function(Fun, 1) -> [].
+keymap(Fun, Index, List) when is_function(Fun, 1), is_integer(Index), Index >= 1 ->
+    keymap_simple(Fun, Index, List);
+keymap(Fun, Index, List) when is_function(Fun, 3), is_integer(Index), Index >= 1 ->
+    keymap_extended(Fun, Index, [], List).
+
+keymap_simple(Fun, Index, [Tup|Tail]) ->
+    [setelement(Index, Tup, Fun(element(Index, Tup)))|keymap_simple(Fun, Index, Tail)];
+keymap_simple(_Fun, _Index, []) ->
+    [].
+
+keymap_extended(Fun, Index, Left, [Cur|Right]) ->
+    [setelement(Index, Cur, Fun(Left, element(Index, Cur), Right))|keymap_extended(Fun, Index, [Cur|Left], Right)];
+keymap_extended(_Fun, _Index, _Left, []) ->
+    [].
+    
 
 %%% Suggestion from OTP-2948: sort and merge with Fun.
 
@@ -1213,24 +1224,52 @@ rumerge(T1, [H2 | T2]) ->
       List :: [T],
       T :: term().
 
-all(Pred, [Hd|Tail]) ->
+all(Pred, List) when is_function(Pred, 1) ->
+    all_simple(Pred, List);
+all(Pred, List) when is_function(Pred, 3) ->
+    all_extended(Pred, [], List).
+
+all_simple(Pred, [Hd|Tail]) ->
     case Pred(Hd) of
-	true -> all(Pred, Tail);
+	true -> all_simple(Pred, Tail);
 	false -> false
     end;
-all(Pred, []) when is_function(Pred, 1) -> true. 
+all_simple(_Pred, []) ->
+    true. 
+
+all_extended(Pred, Left, [Cur|Right]) ->
+    case Pred(Left, Cur, Right) of
+	true -> all_extended(Pred, [Cur|Left], Right);
+	false -> false
+    end;
+all_extended(_Pred, _Left, []) ->
+    true.
 
 -spec any(Pred, List) -> boolean() when
       Pred :: fun((Elem :: T) -> boolean()),
       List :: [T],
       T :: term().
 
-any(Pred, [Hd|Tail]) ->
+any(Pred, List) when is_function(Pred, 1) ->
+    any_simple(Pred, List);
+any(Pred, List) when is_function(Pred, 3) ->
+    any_extended(Pred, [], List).
+
+any_simple(Pred, [Hd|Tail]) ->
     case Pred(Hd) of
 	true -> true;
-	false -> any(Pred, Tail)
+	false -> any_simple(Pred, Tail)
     end;
-any(Pred, []) when is_function(Pred, 1) -> false. 
+any_simple(_Pred, []) ->
+    false. 
+
+any_extended(Pred, Left, [Cur|Right]) ->
+    case Pred(Left, Cur, Right) of
+	true -> true;
+	false -> any_extended(Pred, [Cur|Left], Right)
+    end;
+any_extended(_Pred, _Left, []) ->
+    false.
 
 -spec map(Fun, List1) -> List2 when
       Fun :: fun((A) -> B),
@@ -1239,9 +1278,20 @@ any(Pred, []) when is_function(Pred, 1) -> false.
       A :: term(),
       B :: term().
 
-map(F, [H|T]) ->
-    [F(H)|map(F, T)];
-map(F, []) when is_function(F, 1) -> [].
+map(F, List) when is_function(F, 1) ->
+    map_simple(F, List);
+map(F, List) when is_function(F, 3) ->
+    map_extended(F, [], List).
+
+map_simple(F, [H|T]) ->
+    [F(H)|map_simple(F, T)];
+map_simple(_F, []) ->
+    [].
+
+map_extended(F, Left, [Cur|Right]) ->
+    [F(Left, Cur, Right)|map_extended(F, [Cur|Left], Right)];
+map_extended(_F, _Left, []) ->
+    [].
 
 -spec flatmap(Fun, List1) -> List2 when
       Fun :: fun((A) -> [B]),
@@ -1250,9 +1300,20 @@ map(F, []) when is_function(F, 1) -> [].
       A :: term(),
       B :: term().
 
-flatmap(F, [Hd|Tail]) ->
-    F(Hd) ++ flatmap(F, Tail);
-flatmap(F, []) when is_function(F, 1) -> [].
+flatmap(F, List) when is_function(F, 1) ->
+    flatmap_simple(F, List);
+flatmap(F, List) when is_function(F, 3) ->
+    flatmap_extended(F, [], List).
+
+flatmap_simple(F, [Hd|Tail]) ->
+    F(Hd) ++ flatmap_simple(F, Tail);
+flatmap_simple(_F, []) ->
+    [].
+
+flatmap_extended(F, Left, [Cur|Right]) ->
+    F(Left, Cur, Right) ++ flatmap_extended(F, [Cur|Left], Right);
+flatmap_extended(_F, _Left, []) ->
+    [].
 
 -spec foldl(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
@@ -1263,9 +1324,20 @@ flatmap(F, []) when is_function(F, 1) -> [].
       List :: [T],
       T :: term().
 
-foldl(F, Accu, [Hd|Tail]) ->
-    foldl(F, F(Hd, Accu), Tail);
-foldl(F, Accu, []) when is_function(F, 2) -> Accu.
+foldl(F, Accu, List) when is_function(F, 2) ->
+    foldl_simple(F, Accu, List);
+foldl(F, Accu, List) when is_function(F, 4) ->
+    foldl_extended(F, Accu, [], List).
+
+foldl_simple(F, Accu, [Hd|Tail]) ->
+    foldl_simple(F, F(Hd, Accu), Tail);
+foldl_simple(_F, Accu, []) ->
+    Accu.
+
+foldl_extended(F, Accu, Left, [Cur|Right]) ->
+    foldl_extended(F, F(Left, Cur, Right, Accu), [Cur|Left], Right);
+foldl_extended(_F, Accu, _Left, []) ->
+    Accu.
 
 -spec foldr(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
@@ -1276,9 +1348,20 @@ foldl(F, Accu, []) when is_function(F, 2) -> Accu.
       List :: [T],
       T :: term().
 
-foldr(F, Accu, [Hd|Tail]) ->
-    F(Hd, foldr(F, Accu, Tail));
-foldr(F, Accu, []) when is_function(F, 2) -> Accu.
+foldr(F, Accu, List) when is_function(F, 2) ->
+    foldr_simple(F, Accu, List);
+foldr(F, Accu, List) when is_function(F, 4) ->
+    foldr_extended(F, Accu, [], List).
+
+foldr_simple(F, Accu, [Hd|Tail]) ->
+    F(Hd, foldr_simple(F, Accu, Tail));
+foldr_simple(_F, Accu, []) ->
+    Accu.
+
+foldr_extended(F, Accu, Left, [Cur|Right]) ->
+    F(Left, Cur, Right, foldr_extended(F, Accu, [Cur|Left], Right));
+foldr_extended(_F, Accu, _Left, []) ->
+    Accu.
 
 -spec filter(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
@@ -1287,7 +1370,17 @@ foldr(F, Accu, []) when is_function(F, 2) -> Accu.
       T :: term().
 
 filter(Pred, List) when is_function(Pred, 1) ->
-    [ E || E <- List, Pred(E) ].
+    [ E || E <- List, Pred(E) ];
+filter(Pred, List) when is_function(Pred, 3) ->
+    filter_extended(Pred, [], List).
+
+filter_extended(Pred, Left, [Cur|Right]) ->
+    case Pred(Left, Cur, Right) of
+	true -> [Cur | filter_extended(Pred, [Cur|Left], Right)];
+	_ -> filter_extended(Pred, [Cur|Left], Right)
+    end;
+filter_extended(_Pred, _Left, []) ->
+    [].
 
 %% Equivalent to {filter(F, L), filter(NotF, L)}, if NotF = 'fun(X) ->
 %% not F(X) end'.
@@ -1299,15 +1392,25 @@ filter(Pred, List) when is_function(Pred, 1) ->
       NotSatisfying :: [T],
       T :: term().
 
-partition(Pred, L) ->
-    partition(Pred, L, [], []).
+partition(Pred, List) when is_function(Pred, 1) ->
+    partition_simple(Pred, List, [], []);
+partition(Pred, List) when is_function(Pred, 3) ->
+    partition_extended(Pred, [], List, [], []).
 
-partition(Pred, [H | T], As, Bs) ->
+partition_simple(Pred, [H | T], As, Bs) ->
     case Pred(H) of
-	true -> partition(Pred, T, [H | As], Bs);
-	false -> partition(Pred, T, As, [H | Bs])
+	true -> partition_simple(Pred, T, [H | As], Bs);
+	false -> partition_simple(Pred, T, As, [H | Bs])
     end;
-partition(Pred, [], As, Bs) when is_function(Pred, 1) ->
+partition_simple(_Pred, [], As, Bs) ->
+    {reverse(As), reverse(Bs)}.
+
+partition_extended(Pred, Left, [Cur|Right], As, Bs) ->
+    case Pred(Left, Cur, Right) of
+	true -> partition_extended(Pred, [Cur|Left], Right, [Cur | As], Bs);
+	false -> partition_extended(Pred, [Cur|Left], Right, As, [Cur | Bs])
+    end;
+partition_extended(_Pred, _Left, [], As, Bs) ->
     {reverse(As), reverse(Bs)}.
 
 -spec filtermap(Fun, List1) -> List2 when
@@ -1317,16 +1420,34 @@ partition(Pred, [], As, Bs) when is_function(Pred, 1) ->
       Elem :: term(),
       Value :: term().
 
-filtermap(F, [Hd|Tail]) ->
+filtermap(F, List) when is_function(F, 1) ->
+    filtermap_simple(F, List);
+filtermap(F, List) when is_function(F, 3) ->
+    filtermap_extended(F, [], List).
+
+filtermap_simple(F, [Hd|Tail]) ->
     case F(Hd) of
 	true ->
-	    [Hd|filtermap(F, Tail)];
+	    [Hd|filtermap_simple(F, Tail)];
 	{true,Val} ->
-	    [Val|filtermap(F, Tail)];
+	    [Val|filtermap_simple(F, Tail)];
 	false ->
-	    filtermap(F, Tail)
+	    filtermap_simple(F, Tail)
     end;
-filtermap(F, []) when is_function(F, 1) -> [].
+filtermap_simple(_F, []) ->
+    [].
+
+filtermap_extended(F, Left, [Cur|Right]) ->
+    case F(Left, Cur, Right) of
+	true ->
+	    [Cur|filtermap_extended(F, [Cur|Left], Right)];
+	{true, Val} ->
+	    [Val|filtermap_extended(F, [Cur|Left], Right)];
+	false ->
+	    filtermap_extended(F, [Cur|Left], Right)
+    end;
+filtermap_extended(_F, _Left, []) ->
+    [].
 
 -spec zf(fun((T) -> boolean() | {'true', X}), [T]) -> [(T | X)].
 
@@ -1338,10 +1459,22 @@ zf(F, L) ->
       List :: [T],
       T :: term().
 
-foreach(F, [Hd|Tail]) ->
+foreach(F, List) when is_function(F, 1) ->
+    foreach_simple(F, List);
+foreach(F, List) when is_function(F, 3) ->
+    foreach_extended(F, [], List).
+
+foreach_simple(F, [Hd|Tail]) ->
     F(Hd),
-    foreach(F, Tail);
-foreach(F, []) when is_function(F, 1) -> ok.
+    foreach_simple(F, Tail);
+foreach_simple(_F, []) ->
+    ok.
+
+foreach_extended(F, Left, [Cur|Right]) ->
+    F(Left, Cur, Right),
+    foreach_extended(F, [Cur|Left], Right);
+foreach_extended(_F, _Left, []) ->
+    ok.
 
 -spec mapfoldl(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
@@ -1354,11 +1487,24 @@ foreach(F, []) when is_function(F, 1) -> ok.
       A :: term(),
       B :: term().
 
-mapfoldl(F, Accu0, [Hd|Tail]) ->
+mapfoldl(F, Accu, List) when is_function(F, 2) ->
+    mapfoldl_simple(F, Accu, List);
+mapfoldl(F, Accu, List) when is_function(F, 4) ->
+    mapfoldl_extended(F, Accu, [], List).
+
+mapfoldl_simple(F, Accu0, [Hd|Tail]) ->
     {R,Accu1} = F(Hd, Accu0),
-    {Rs,Accu2} = mapfoldl(F, Accu1, Tail),
+    {Rs,Accu2} = mapfoldl_simple(F, Accu1, Tail),
     {[R|Rs],Accu2};
-mapfoldl(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
+mapfoldl_simple(_F, Accu, []) ->
+    {[], Accu}.
+
+mapfoldl_extended(F, Accu0, Left, [Cur|Right]) ->
+    {R, Accu1} = F(Left, Cur, Right, Accu0),
+    {Rs, Accu2} = mapfoldl_extended(F, Accu1, [Cur|Left], Right),
+    {[R|Rs], Accu2};
+mapfoldl_extended(_F, Accu, _Left, []) ->
+    {[], Accu}.
 
 -spec mapfoldr(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
@@ -1371,11 +1517,24 @@ mapfoldl(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
       A :: term(),
       B :: term().
 
-mapfoldr(F, Accu0, [Hd|Tail]) ->
-    {Rs,Accu1} = mapfoldr(F, Accu0, Tail),
+mapfoldr(F, Accu, List) when is_function(F, 2) ->
+    mapfoldr_simple(F, Accu, List);
+mapfoldr(F, Accu, List) when is_function(F, 4) ->
+    mapfoldr_extended(F, Accu, [], List).
+
+mapfoldr_simple(F, Accu0, [Hd|Tail]) ->
+    {Rs,Accu1} = mapfoldr_simple(F, Accu0, Tail),
     {R,Accu2} = F(Hd, Accu1),
     {[R|Rs],Accu2};
-mapfoldr(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
+mapfoldr_simple(_F, Accu, []) ->
+    {[], Accu}.
+
+mapfoldr_extended(F, Accu0, Left, [Cur|Right]) ->
+    {Rs, Accu1} = mapfoldr_extended(F, Accu0, [Cur|Left], Right),
+    {R, Accu2} = F(Left, Cur, Right, Accu1),
+    {[R|Rs], Accu2};
+mapfoldr_extended(_F, Accu, _Left, []) ->
+    {[], Accu}.
 
 -spec takewhile(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
@@ -1383,12 +1542,26 @@ mapfoldr(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
       List2 :: [T],
       T :: term().
 
-takewhile(Pred, [Hd|Tail]) ->
+takewhile(Pred, List) when is_function(Pred, 1) ->
+    takewhile_simple(Pred, List);
+takewhile(Pred, List) when is_function(Pred, 3) ->
+    takewhile_extended(Pred, [], List).
+
+takewhile_simple(Pred, [Hd|Tail]) ->
     case Pred(Hd) of
-	true -> [Hd|takewhile(Pred, Tail)];
+	true -> [Hd|takewhile_simple(Pred, Tail)];
 	false -> []
     end;
-takewhile(Pred, []) when is_function(Pred, 1) -> [].
+takewhile_simple(_Pred, []) ->
+    [].
+
+takewhile_extended(Pred, Left, [Cur|Right]) ->
+    case Pred(Left, Cur, Right) of
+	true -> [Cur|takewhile_extended(Pred, [Cur|Left], Right)];
+	false -> []
+    end;
+takewhile_extended(_Pred, _Left, []) ->
+    [].
 
 -spec dropwhile(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
@@ -1396,12 +1569,26 @@ takewhile(Pred, []) when is_function(Pred, 1) -> [].
       List2 :: [T],
       T :: term().
 
-dropwhile(Pred, [Hd|Tail]=Rest) ->
+dropwhile(Pred, List) when is_function(Pred, 1) ->
+    dropwhile_simple(Pred, List);
+dropwhile(Pred, List) when is_function(Pred, 3) ->
+    dropwhile_extended(Pred, [], List).
+
+dropwhile_simple(Pred, [Hd|Tail]=Rest) ->
     case Pred(Hd) of
-	true -> dropwhile(Pred, Tail);
+	true -> dropwhile_simple(Pred, Tail);
 	false -> Rest
     end;
-dropwhile(Pred, []) when is_function(Pred, 1) -> [].
+dropwhile_simple(_Pred, []) ->
+    [].
+
+dropwhile_extended(Pred, Left, [Cur|Right]=Rest) ->
+    case Pred(Left, Cur, Right) of
+	true -> dropwhile_extended(Pred, [Cur|Left], Right);
+	false -> Rest
+    end;
+dropwhile_extended(_Pred, _Left, []) ->
+    [].
 
 -spec search(Pred, List) -> {value, Value} | false when
       Pred :: fun((T) -> boolean()),
@@ -1424,15 +1611,25 @@ search(Pred, []) when is_function(Pred, 1) ->
       T :: term().
 
 splitwith(Pred, List) when is_function(Pred, 1) ->
-    splitwith(Pred, List, []).
+    splitwith_simple(Pred, List, []);
+splitwith(Pred, List) when is_function(Pred, 3) ->
+    splitwith_extended(Pred, [], List).
 
-splitwith(Pred, [Hd|Tail], Taken) ->
+splitwith_simple(Pred, [Hd|Tail], Taken) ->
     case Pred(Hd) of
-	true -> splitwith(Pred, Tail, [Hd|Taken]);
+	true -> splitwith_simple(Pred, Tail, [Hd|Taken]);
 	false -> {reverse(Taken), [Hd|Tail]}
     end;
-splitwith(Pred, [], Taken) when is_function(Pred, 1) ->
-    {reverse(Taken),[]}.
+splitwith_simple(_Pred, [], Taken) ->
+    {reverse(Taken), []}.
+
+splitwith_extended(Pred, Left, [Cur|Right]=Rest) ->
+    case Pred(Left, Cur, Right) of
+	true -> splitwith_extended(Pred, [Cur|Left], Right);
+	false -> {reverse(Left), Rest}
+    end;
+splitwith_extended(_Pred, Left, []) ->
+    {reverse(Left), []}.
 
 -spec split(N, List1) -> {List2, List3} when
       N :: non_neg_integer(),
