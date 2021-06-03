@@ -1288,8 +1288,10 @@ check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
 		TA <- UTAs,
 		not is_map_key(TA, Def),
 		not is_default_type(TA)],
-    foldl(fun ({TA,Anno}, St) ->
-		  add_error(Anno, {undefined_type,TA}, St)
+    foldl(fun ({TA,AnnoList}, St) ->
+                  foldl( fun(Anno, St1) ->
+                                 add_error(Anno, {undefined_type,TA}, St1)
+                         end, St, AnnoList)
 	  end, St0, Undef).
 
 %% check_bif_clashes(Forms, State0) -> State
@@ -1423,21 +1425,20 @@ export(Anno, Es, #lint{exports = Es0, called = Called} = St0) ->
 -spec export_type(anno(), [ta()], lint_state()) -> lint_state().
 %%  Mark types as exported; also mark them as used from the export line.
 
-export_type(Anno, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
-    UTs0 = Usage#usage.used_types,
-    try foldl(fun ({T,A}=TA, {E,U,St2}) when is_atom(T), is_integer(A) ->
+export_type(Anno, ETs, #lint{exp_types = ETs0} = St0) ->
+    try foldl(fun ({T,A}=TA, {E,St2}) when is_atom(T), is_integer(A) ->
 		      St = case gb_sets:is_element(TA, E) of
 			       true ->
 				   Warn = {duplicated_export_type,TA},
 				   add_warning(Anno, Warn, St2);
 			       false ->
-				   St2
+                                   used_type(TA, Anno, St2)
 			   end,
-		      {gb_sets:add_element(TA, E), maps:put(TA, Anno, U), St}
+		      {gb_sets:add_element(TA, E), St}
 	      end,
-	      {ETs0,UTs0,St0}, ETs) of
-	{ETs1,UTs1,St1} ->
-	    St1#lint{usage = Usage#usage{used_types = UTs1}, exp_types = ETs1}
+	      {ETs0,St0}, ETs) of
+	{ETs1,St1} ->
+	    St1#lint{exp_types = ETs1}
     catch
 	error:_ ->
 	    add_error(Anno, {bad_export_type, ETs}, St0)
@@ -3087,9 +3088,9 @@ check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
     {SeenVars, St}.
 
 used_type(TypePair, Anno, #lint{usage = Usage, file = File} = St) ->
-    OldUsed = Usage#usage.used_types,
-    UsedTypes = maps:put(TypePair, erl_anno:set_file(File, Anno), OldUsed),
-    St#lint{usage=Usage#usage{used_types=UsedTypes}}.
+    Used = Usage#usage.used_types,
+    NewUsed = maps_prepend(TypePair, erl_anno:set_file(File, Anno), Used),
+    St#lint{usage=Usage#usage{used_types=NewUsed}}.
 
 is_default_type({Name, NumberOfTypeVariables}) ->
     erl_internal:is_type(Name, NumberOfTypeVariables).

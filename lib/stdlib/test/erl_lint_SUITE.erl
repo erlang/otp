@@ -3725,7 +3725,10 @@ predef(Config) when is_list(Config) ->
     %% dict(), digraph() and so on were removed in Erlang/OTP 18.0.
     E2 = get_compilation_result(Config, "predef2", []),
     Tag = undefined_type,
-    {[{{7,13},erl_lint,{Tag,{array,0}}},
+    {[{{5,2},erl_lint,{Tag,{array,0}}},
+      {{5,2},erl_lint,{Tag,{digraph,0}}},
+      {{5,2},erl_lint,{Tag,{gb_set,0}}},
+      {{7,13},erl_lint,{Tag,{array,0}}},
       {{12,12},erl_lint,{Tag,{dict,0}}},
       {{17,15},erl_lint,{Tag,{digraph,0}}},
       {{27,14},erl_lint,{Tag,{gb_set,0}}},
