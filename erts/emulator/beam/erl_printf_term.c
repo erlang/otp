@@ -139,8 +139,6 @@ do {                                                        \
 #define IS_CNTRL(c)  ((c) < ' ' || (c) >= 127)
 #endif
 
-#define IS_PRINT(c)  (!IS_CNTRL(c))
-
 /* return 0 if list is not a non-empty flat list of printable characters */
 
 static int
@@ -185,7 +183,36 @@ static int is_printable_ascii(byte* bytep, Uint bytesize, Uint bitoffs)
     return 1;
 }
 
-/* print a atom doing what quoting is necessary */
+/*
+ * Helper function for print_atom_name(). Not generally useful.
+ */
+static ERTS_INLINE int latin1_char(int c1, int c2)
+{
+    if ((c1 & 0x80) == 0) {
+        /* Plain old 7-bit ASCII. */
+        return c1;
+    } else if ((c1 & 0xE0) == 0xC0) {
+        /* Unicode code points from 0x80 through 0x7FF. */
+        ASSERT((c2 & 0xC0) == 0x80);
+        return (c1 & 0x1F) << 6 | (c2 & 0x3F);
+    } else if ((c1 & 0xC0) == 0x80) {
+        /* A continutation byte in a utf8 sequence. Pretend that it is
+         * a character that is allowed in an atom. */
+        return 'a';
+    } else {
+        /* The start of a utf8 sequence comprising three or four
+         * bytes. Always needs quoting. */
+        return 0;
+    }
+}
+
+/*
+ * Print a atom, quoting it if necessary.
+ *
+ * Atoms are encoded in utf8. Since we have full control over creation
+ * of atoms, the utf8 encoding is always correct and there is no need
+ * to check for errors.
+ */
 static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 {
     int n, i;
@@ -195,6 +222,7 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
     byte *s;
     byte *cpos;
     int c;
+    int lc;
 
     res = 0;
     i = atom_val(atom);
@@ -212,27 +240,47 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
     *dcount -= atom_tab(i)->len;
 
     if (n == 0) {
+        /* The empty atom: '' */
 	PRINT_STRING(res, fn, arg, "''");
 	return res;
     }
 
+    /*
+     * Find out whether the atom will need quoting. Quoting is not necessary
+     * if the following applies:
+     *
+     *   - The first character is a lowercase letter in the Latin-1 code
+     *     block (0-255).
+     *
+     *   - All other characters are either alphanumeric characters in
+     *     the Latin-1 code block or the character '_'.
+     */
 
     need_quote = 0;
     cpos = s;
     pos = n - 1;
-
     c = *cpos++;
-    if (!IS_LOWER(c))
+    lc = latin1_char(c, *cpos);
+    if (!IS_LOWER(lc))
 	need_quote++;
     else {
 	while (pos--) {
 	    c = *cpos++;
-	    if (!IS_ALNUM(c) && (c != '_')) {
+            lc = latin1_char(c, *cpos);
+	    if (!IS_ALNUM(lc) && lc != '_') {
 		need_quote++;
 		break;
 	    }
 	}
     }
+
+    /*
+     * Now output the atom, including single quotes if needed.
+     *
+     * Control characters (including the range 128-159) must
+     * be specially printed. Therefore, we must do a partial
+     * decoding of the utf8 encoding.
+     */
     cpos = s;
     pos = n;
     if (need_quote)
@@ -249,12 +297,40 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 	case '\b': PRINT_STRING(res, fn, arg, "\\b"); break;
 	case '\v': PRINT_STRING(res, fn, arg, "\\v"); break;
 	default:
-	    if (IS_CNTRL(c)) {
+            if (c < ' ') {
+                /* ASCII control character (0-31). */
 		PRINT_CHAR(res, fn, arg, '\\');
 		PRINT_UWORD(res, fn, arg, 'o', 1, 3, (ErlPfUWord) c);
-	    }
-	    else
+            } else if (c >= 0x80) {
+                /* A multi-byte utf8-encoded code point. Determine the
+                 * length of the sequence. */
+                int n;
+                if ((c & 0xE0) == 0xC0) {
+                    n = 2;
+                } else if ((c & 0xF0) == 0xE0) {
+                    n = 3;
+                } else {
+                    ASSERT((c & 0xF8) == 0xF0);
+                    n = 4;
+                }
+                ASSERT(pos - n + 1 >= 0);
+
+                if (c == 0xC2 && *cpos < 0xA0) {
+                    /* Extended ASCII control character (128-159). */
+                    ASSERT(pos > 0);
+                    ASSERT(0x80 <= *cpos);
+                    PRINT_CHAR(res, fn, arg, '\\');
+                    PRINT_UWORD(res, fn, arg, 'o', 1, 3, (ErlPfUWord) *cpos);
+                    pos--, cpos++;
+                } else {
+                    PRINT_BUF(res, fn, arg, cpos-1, n);
+                    cpos += n - 1;
+                    pos -= n - 1;
+                }
+            } else {
+                /* Printable ASCII character. */
 		PRINT_CHAR(res, fn, arg, (char) c);
+            }
 	    break;
 	}
     }
@@ -262,7 +338,6 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 	PRINT_CHAR(res, fn, arg, '\'');
     return res;
 }
-
 
 #define PRT_BAR                ((Eterm) 0)
 #define PRT_COMMA              ((Eterm) 1)

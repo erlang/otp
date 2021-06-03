@@ -2943,7 +2943,8 @@ parse_term([$p|Line0], _, D) ->			%Port.
     {Port,Line} = get_id(Line0),
     {['#CDVPort'|Port],Line,D};
 parse_term([$S|Str0], _, D) ->			%Information string.
-    Str = lists:reverse(skip_blanks(lists:reverse(Str0))),
+    Str1 = byte_list_to_string(Str0),
+    Str = lists:reverse(skip_blanks(lists:reverse(Str1))),
     {Str,[],D};
 parse_term([$D|Line0], DecodeOpts, D) ->                 %DistExternal
     try

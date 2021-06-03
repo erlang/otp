@@ -593,8 +593,16 @@ special(File,Procs) ->
             #proc{pid=Pid0} =
                 lists:keyfind("'unicode_reg_name_αβ'",#proc.name,Procs),
             Pid = pid_to_list(Pid0),
-	    {ok,#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    {ok,Proc,[]} = crashdump_viewer:proc_details(Pid),
+            #proc{last_calls=LastCalls,stack_dump=Stk} = Proc,
             io:format("  unicode registered name ok",[]),
+
+            ["crashdump_helper_unicode:'спутник'/0",
+             "ets:new/2"|_] = lists:reverse(LastCalls),
+            io:format("  last calls ok",[]),
+
+            verify_unicode_stack(Stk),
+            io:format("  unicode stack values ok",[]),
 
 	    {ok,[#ets_table{id="'tab_αβ'",name="'tab_αβ'"}],[]} =
                 crashdump_viewer:ets_tables(Pid),
@@ -652,6 +660,15 @@ special(File,Procs) ->
 	    ok
     end,
     ok.
+
+verify_unicode_stack([{_,{state,Str,Atom,Bin,LongBin}}|_]) ->
+    'unicode_atom_αβ' = Atom,
+    "unicode_string_αβ" = Str,
+    <<"bin αβ"/utf8>> = Bin,
+    <<"long bin αβ - a utf8 binary which can be expanded αβ"/utf8>> = LongBin,
+    ok;
+verify_unicode_stack([_|T]) ->
+    verify_unicode_stack(T).
 
 verify_binaries([H|T1], [H|T2]) ->
     %% Heap binary.
