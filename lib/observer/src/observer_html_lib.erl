@@ -138,8 +138,17 @@ msgq_table(Tab,Msg0, Id, Even, Colors) ->
     tr(color(Even, Colors),[td(integer_to_list(Id)), td(pre(Msg))]).
 
 stackdump_table(Tab,{Label0,Term0},Even, Colors) ->
-    Label = io_lib:format("~w",[Label0]),
-    Term = all_or_expand(Tab,Term0),
+    Label = io_lib:format("~ts",[Label0]),
+    Term = case atom_to_list(Label0) of
+               "y" ++ _ ->
+                   %% Any term is possible, including huge ones.
+                   all_or_expand(Tab,Term0);
+               _ ->
+                   %% Return address or catch tag. It is known to be a
+                   %% flat list, shortish, possibly containing characters
+                   %% greater than 255.
+                   href_proc_port(Term0)
+           end,
     tr(color(Even, Colors), [td("VALIGN=center",pre(Label)), td(pre(Term))]).
 
 dict_table(Tab,{Key0,Value0}, Even, Colors) ->
