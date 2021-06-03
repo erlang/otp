@@ -22,7 +22,7 @@
 
 -export([start/0, stop/0,
          reset_events/0,
-         events/0,
+         events/0, events/1,
          log/1]).
 -export([timestamp/0, format_timestamp/1]).
 -export([init/1]).
@@ -48,7 +48,11 @@ reset_events() ->
     call(reset_events, ?TIMEOUT).
 
 events() ->
-    call(events, ?TIMEOUT).
+    events(infinity).
+
+events(Timeout) when (Timeout =:= infinity) orelse
+                     (is_integer(Timeout) andalso (Timeout > 0)) ->
+    call(events, Timeout).
 
 log(Event) ->
     cast({node(), Event}).
@@ -239,7 +243,7 @@ call(Req, Timeout1, Timeout2) ->
                     NamePid when is_pid(NamePid) ->
                         receive
                             {?MODULE, Ref, Rep} ->
-                                Rep
+                                exit(Rep)
                         after Timeout2 ->
                                 {error, timeout}
                         end
