@@ -255,7 +255,7 @@ which_children(Supervisor) ->
       Count :: {specs, ChildSpecCount :: non_neg_integer()}
              | {active, ActiveProcessCount :: non_neg_integer()}
              | {supervisors, ChildSupervisorCount :: non_neg_integer()}
-             |{workers, ChildWorkerCount :: non_neg_integer()}.
+             | {workers, ChildWorkerCount :: non_neg_integer()}.
 count_children(Supervisor) ->
     call(Supervisor, count_children).
 
