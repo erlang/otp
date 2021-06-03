@@ -23,7 +23,7 @@
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([start_timer_1/1, send_after_1/1, send_after_2/1, send_after_3/1,
-	 cancel_timer_1/1,
+	 cancel_timer_1/1, cancel_timer_sync/1,
 	 start_timer_big/1, send_after_big/1,
 	 start_timer_e/1, send_after_e/1, cancel_timer_e/1,
 	 read_timer_trivial/1, read_timer/1, read_timer_async/1,
@@ -62,7 +62,7 @@ suite() ->
 
 all() -> 
     [start_timer_1, send_after_1, send_after_2,
-     cancel_timer_1, start_timer_e, send_after_e,
+     cancel_timer_1, cancel_timer_sync, start_timer_e, send_after_e,
      cancel_timer_e, start_timer_big, send_after_big,
      read_timer_trivial, read_timer, read_timer_async,
      cleanup, evil_timers, registered_process,
@@ -162,6 +162,60 @@ cancel_timer_1(Config) when is_list(Config) ->
     false = erlang:cancel_timer(make_ref()),
 
     ok.
+
+cancel_timer_sync(Config) when is_list(Config) ->
+    cancel_timer_sync_test(true),
+    cancel_timer_sync_test(false).
+
+cancel_timer_sync_test(SameSched) ->
+    process_flag(scheduler, 1),
+
+    R1 = erlang:send_after(1000, self(), cling),
+    R2 = erlang:send_after(1000, self(), clong),
+    R3 = erlang:send_after(1000, self(), clang),
+    TsSet = erlang:monotonic_time(),
+    R4 = erlang:send_after(0, self(), pling),
+    R5 = erlang:send_after(0, self(), plong),
+    R6 = erlang:send_after(0, self(), plang),
+    R7 = make_ref(),
+    R8 = make_ref(),
+    R9 = make_ref(),
+
+    case SameSched of
+	true ->
+	    %% Cancel from the same scheduler...
+	    ok;
+	false->
+	    %% Cancel from different scheduler...
+	    process_flag(scheduler, erlang:system_info(schedulers_online))
+    end,
+
+    C1 = erlang:cancel_timer(R1),
+    true = is_integer(C1),
+    C2 = erlang:cancel_timer(R2, [{info, true}]),
+    true = is_integer(C2),
+    ok = erlang:cancel_timer(R3, [{info, false}]),
+
+    receive pling -> ok end,
+    receive plong -> ok end,
+    receive plang -> ok end,
+
+    false = erlang:cancel_timer(R4),
+    false = erlang:cancel_timer(R5, [{info, true}]),
+    ok = erlang:cancel_timer(R6, [{info, false}]),
+    
+    false = erlang:cancel_timer(R7),
+    false = erlang:cancel_timer(R8, [{info, true}]),
+    ok = erlang:cancel_timer(R9, [{info, false}]),
+    
+    Wait = 1500 - erlang:convert_time_unit(erlang:monotonic_time() - TsSet,
+					   native, millisecond),
+
+    receive TMO when TMO == cling; TMO == clang; TMO == clong ->
+	    ct:fail({unexpected_timeout, TMO})
+    after Wait ->
+	    ok
+    end.
 
 %% Error cases for start_timer/3
 start_timer_e(Config) when is_list(Config) ->
