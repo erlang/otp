@@ -796,12 +796,17 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 		    %% change pending process.
 		    %%
 		    OldOwner = Conn#connection.owner,
-		    ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
-		    exit(OldOwner, remarked),
-		    receive
-			{'EXIT', OldOwner, _} ->
-			    true
-		    end,
+                    case maps:is_key(OldOwner, State#state.conn_owners) of
+                        true ->
+                            ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
+                            exit(OldOwner, remarked),
+                            receive
+                                {'EXIT', OldOwner, _} ->
+                                    true
+                            end;
+                        false ->
+                            ok % Owner already exited
+                    end,
 		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
 		    AcceptPid ! {self(),{accept_pending,ok_pending}},
                     Owners = maps:remove(OldOwner, State#state.conn_owners),
