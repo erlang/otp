@@ -49,6 +49,7 @@ MODULES= \
 	ssh_to_openssh_SUITE \
 	ssh_upgrade_SUITE \
 	ssh_test_lib \
+	ssh_log_h \
 	ssh_key_cb \
 	ssh_key_cb_options \
 	ssh_key_cb_engine_keys \
