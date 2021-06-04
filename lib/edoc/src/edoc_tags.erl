@@ -340,6 +340,7 @@ parse_contact(Data, Line, _Env, _Where) ->
 	    Info
     end.
 
+-dialyzer({no_match, parse_typedef/4}).
 parse_typedef(Data, Line, _Env, Where) ->
     edoc_report:warning(Line, Where,
 			"EDoc @type tags are deprecated. "

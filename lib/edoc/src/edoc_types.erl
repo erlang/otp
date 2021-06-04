@@ -137,9 +137,6 @@ is_predefined(cons, 2) -> true;
 is_predefined(deep_string, 0) -> true;
 is_predefined(F, A) -> erl_internal:is_type(F, A).
 
-is_new_predefined(nonempty_binary, 0) -> true;
-is_new_predefined(nonempty_bitstring, 0) -> true;
-is_new_predefined(map, 0) -> true;
 is_new_predefined(_, _) -> false.
 
 to_ref(#t_typedef{name = N}) ->

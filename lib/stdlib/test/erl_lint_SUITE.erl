@@ -958,14 +958,13 @@ binary_types(Config) when is_list(Config) ->
     Ts = [{binary1,
            <<"-type nonempty_binary() :: term().">>,
            [nowarn_unused_type],
-           {warnings,[{{1,22},erl_lint,
-                       {new_builtin_type,{nonempty_binary,0}}}]}},
-
+           {errors,[{{1,22},erl_lint,
+                     {builtin_type,{nonempty_binary,0}}}],[]}},
           {binary2,
            <<"-type nonempty_bitstring() :: term().">>,
            [nowarn_unused_type],
-           {warnings,[{{1,22},erl_lint,
-                       {new_builtin_type,{nonempty_bitstring,0}}}]}}],
+           {errors,[{{1,22},erl_lint,
+                     {builtin_type,{nonempty_bitstring,0}}}],[]}}],
     [] = run(Config, Ts),
     ok.
 
