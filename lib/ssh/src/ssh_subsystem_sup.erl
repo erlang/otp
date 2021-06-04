@@ -70,7 +70,7 @@ init([Role, Address, Id, Socket, Options]) ->
                     type        => worker,
                     significant => true,
                     start       => {ssh_connection_handler,
-                                    start_link_ng,
+                                    start_link,
                                     [Role, Address, Id, Socket,
                                      ?PUT_INTERNAL_OPT([
                                                         {subsystem_sup, SubSysSup}
