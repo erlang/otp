@@ -1283,14 +1283,9 @@ public abstract class AbstractConnection extends Thread {
                 throw new IOException("Unknown remote node type");
             }
 
-            if ((apeer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
+            if ((apeer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
                 throw new IOException(
-                        "Handshake failed - peer cannot handle extended references");
-            }
-
-            if ((apeer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
-                throw new IOException(
-                        "Handshake failed - peer cannot handle extended pids and ports");
+                        "Handshake failed - peer cannot handle all mandatory capabilities");
             }
 
         } catch (final OtpErlangDecodeException e) {
@@ -1349,14 +1344,9 @@ public abstract class AbstractConnection extends Thread {
                         "Handshake failed - peer has wrong name: " + hisname);
             }
 
-            if ((peer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
+            if ((peer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
                 throw new IOException(
-                        "Handshake failed - peer cannot handle extended references");
-            }
-
-            if ((peer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
-                throw new IOException(
-                        "Handshake failed - peer cannot handle extended pids and ports");
+                        "Handshake failed - peer cannot handle all mandatory capabilities");
             }
 
         } catch (final OtpErlangDecodeException e) {

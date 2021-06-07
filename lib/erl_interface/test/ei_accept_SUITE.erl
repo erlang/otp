@@ -43,9 +43,7 @@ init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
 
 ei_accept(Config) when is_list(Config) ->
-    [ei_accept_do(Config, CR, SI)
-     || CR <- [0,21],
-        SI <- [default, ussi]],
+    _ = [ei_accept_do(Config, 0, SI) || SI <- [default, ussi]],
     ok.
 
 ei_accept_do(Config, CompatRel, SockImpl) ->
@@ -58,34 +56,28 @@ ei_accept_do(Config, CompatRel, SockImpl) ->
     EINode = list_to_atom("c42@"++Myname),
     io:format("EINode ~p ~n",  [EINode]),
 
-    %% We take this opportunity to also test export-funs and bit-strings
-    %% with (ugly) tuple fallbacks in OTP 21 and older.
+    %% We take this opportunity to also test export-funs and bit-strings.
     %% Test both toward pending connection and established connection.
-    RealTerms = [<<1:1>>,     fun lists:map/2],
-    EncTerms = case CompatRel of
-                   0 -> RealTerms;
-                   21 -> [{<<128>>,1}, {lists,map}]
-                end,
+    RealTerms = [<<1:1>>, fun lists:map/2],
 
     Self = self(),
     Funny = fun() -> hello end,
-    TermToSend = {call, Self, "Test", Funny, RealTerms},
-    TermToGet  = {call, Self, "Test", Funny, EncTerms},
+    Terms = {call, Self, "Test", Funny, RealTerms},
     Port = 6543,
     {ok, ListenFd} = ei_publish(P, Port),
-    {any, EINode} ! TermToSend,
+    {any, EINode} ! Terms,
 
     {ok, Fd, Node} = ei_accept(P, ListenFd),
     Node = node(),
     Got1 = ei_receive(P, Fd),
 
     %% Send again, now without auto-connect
-    {any, EINode} ! TermToSend,
+    {any, EINode} ! Terms,
     Got2 = ei_receive(P, Fd),
 
-    io:format("Sent ~p~nExp. ~p~nGot1 ~p~nGot2 ~p~n", [TermToSend, TermToGet, Got1, Got2]),
-    TermToGet = Got1,
-    TermToGet = Got2,
+    io:format("Sent ~p~nExp. ~p~nGot1 ~p~nGot2 ~p~n", [Terms, Terms, Got1, Got2]),
+    Terms = Got1,
+    Terms = Got2,
 
     runner:finish(P),
     ok.

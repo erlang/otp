@@ -97,6 +97,19 @@ public class AbstractNode implements OtpTransportFactory {
     static final int dFlagUnlinkId = 0x2000000;
     static final long dFlagV4PidsRefs = 0x4L << 32;
 
+    /* Mandatory flags for distribution. Keep them in sync with
+       DFLAG_DIST_MANDATORY in erts/emulator/beam/dist.h. */
+    static final long mandatoryFlags = dFlagExtendedReferences
+        | dFlagFunTags
+        | dFlagExtendedPidsPorts
+        | dFlagUtf8Atoms
+        | dflagNewFunTags
+        | dFlagBigCreation
+        | dFlagNewFloats
+        | dFlagMapTag
+        | dFlagExportPtrTag
+        | dFlagBitBinaries;
+
     int ntype = NTYPE_R6;
     int proto = 0; // tcp/ip
     int distHigh = 6;

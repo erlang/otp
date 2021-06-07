@@ -64,19 +64,22 @@
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
+                              | DFLAG_FUN_TAGS                  \
                               | DFLAG_EXTENDED_PIDS_PORTS       \
 			      | DFLAG_UTF8_ATOMS                \
 			      | DFLAG_NEW_FUN_TAGS              \
-                              | DFLAG_BIG_CREATION)
+                              | DFLAG_BIG_CREATION              \
+                              | DFLAG_NEW_FLOATS                \
+                              | DFLAG_MAP_TAG                   \
+                              | DFLAG_EXPORT_PTR_TAG            \
+                              | DFLAG_BIT_BINARIES)
 
 /*
  * Additional optimistic flags when encoding toward pending connection.
  * If remote node (erl_interface) does not support these then we may need
  * to transcode messages enqueued before connection setup was finished.
  */
-#define DFLAG_DIST_HOPEFULLY (DFLAG_EXPORT_PTR_TAG              \
-                              | DFLAG_BIT_BINARIES              \
-                              | DFLAG_DIST_MONITOR              \
+#define DFLAG_DIST_HOPEFULLY (DFLAG_DIST_MONITOR                \
                               | DFLAG_DIST_MONITOR_NAME         \
                               | DFLAG_SPAWN                     \
 			      | DFLAG_ALIAS			\
@@ -84,13 +87,9 @@
 
 /* Our preferred set of flags. Used for connection setup handshake */
 #define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
-                            | DFLAG_FUN_TAGS                  \
-                            | DFLAG_NEW_FLOATS                \
                             | DFLAG_UNICODE_IO                \
                             | DFLAG_DIST_HDR_ATOM_CACHE       \
                             | DFLAG_SMALL_ATOM_TAGS           \
-                            | DFLAG_UTF8_ATOMS                \
-                            | DFLAG_MAP_TAG                   \
                             | DFLAG_SEND_SENDER               \
                             | DFLAG_BIG_SEQTRACE_LABELS       \
                             | DFLAG_EXIT_PAYLOAD              \
@@ -114,14 +113,7 @@
 #define DFLAG_DIST_STRICT_ORDER DFLAG_DIST_HDR_ATOM_CACHE
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
-#define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
-			       | DFLAG_NEW_FUN_TAGS		\
-			       | DFLAG_NEW_FLOATS		\
-			       | DFLAG_EXTENDED_PIDS_PORTS	\
-			       | DFLAG_EXPORT_PTR_TAG		\
-			       | DFLAG_BIT_BINARIES             \
-			       | DFLAG_MAP_TAG                  \
-                               | DFLAG_BIG_CREATION)
+#define TERM_TO_BINARY_DFLAGS DFLAG_NEW_FLOATS
 
 /* opcodes used in distribution messages */
 enum dop {

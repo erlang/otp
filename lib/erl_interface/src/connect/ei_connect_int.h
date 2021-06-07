@@ -98,6 +98,21 @@ typedef EI_ULONGLONG DistFlags;
 #define ERL_UNLINK_ID                   35
 #define ERL_UNLINK_ID_ACK               36
 
+/*
+ * Mandatory flags for distribution. Keep them in sync with
+ * erts/emulator/beam/dist.h.
+ */
+#define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
+                              | DFLAG_FUN_TAGS                  \
+                              | DFLAG_EXTENDED_PIDS_PORTS       \
+                              | DFLAG_UTF8_ATOMS                \
+                              | DFLAG_NEW_FUN_TAGS              \
+                              | DFLAG_BIG_CREATION              \
+                              | DFLAG_NEW_FLOATS                \
+                              | DFLAG_MAP_TAG                   \
+                              | DFLAG_EXPORT_PTR_TAG            \
+                              | DFLAG_BIT_BINARIES)
+
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);
