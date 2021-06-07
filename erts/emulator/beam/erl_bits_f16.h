@@ -1,6 +1,8 @@
 /*
  * C-implementation of Float16 - https://github.com/Maratyszcza/FP16
  *
+ * Version: 0a92994d729ff76a58f692d3028ca1b64b145d91
+ *
  * The MIT License (MIT)
  *
  * Copyright (c) 2017 Facebook Inc.
