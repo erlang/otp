@@ -41,29 +41,38 @@
 -define(DIST_VER_HIGH, 6).
 -define(DIST_VER_LOW, 5).
 
--define(DFLAG_PUBLISHED,1).
--define(DFLAG_ATOM_CACHE,2).
--define(DFLAG_EXTENDED_REFERENCES,4).
--define(DFLAG_DIST_MONITOR,8).
--define(DFLAG_FUN_TAGS,16#10).
--define(DFLAG_DIST_MONITOR_NAME,16#20).
--define(DFLAG_HIDDEN_ATOM_CACHE,16#40).
--define(DFLAG_NEW_FUN_TAGS,16#80).
--define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
--define(DFLAG_UTF8_ATOMS, 16#10000).
--define(DFLAG_BIG_CREATION, 16#40000).
--define(DFLAG_HANDSHAKE_23, 16#01000000).
+-define(DFLAG_PUBLISHED, 1).
+-define(DFLAG_ATOM_CACHE, 2).
+-define(DFLAG_EXTENDED_REFERENCES, 4).
+-define(DFLAG_DIST_MONITOR, 8).
+-define(DFLAG_FUN_TAGS,             16#10).
+-define(DFLAG_NEW_FUN_TAGS,         16#80).
+-define(DFLAG_EXTENDED_PIDS_PORTS, 16#100).
+-define(DFLAG_EXPORT_PTR_TAG,      16#200).
+-define(DFLAG_BIT_BINARIES,        16#400).
+-define(DFLAG_NEW_FLOATS,          16#800).
+-define(DFLAG_UTF8_ATOMS,        16#10000).
+-define(DFLAG_MAP_TAG,           16#20000).
+-define(DFLAG_BIG_CREATION,      16#40000).
+-define(DFLAG_HANDSHAKE_23,    16#1000000).
 
-%% From R9 and forward extended references is compulsory
-%% From R10 and forward extended pids and ports are compulsory
-%% From R20 and forward UTF8 atoms are compulsory
-%% From R21 and forward NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...})
-%% From R23 and forward BIG_CREATION is compulsory
--define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor
-                            ?DFLAG_EXTENDED_PIDS_PORTS bor
-                            ?DFLAG_UTF8_ATOMS bor
-                            ?DFLAG_NEW_FUN_TAGS bor
-                            ?DFLAG_BIG_CREATION)).
+%% From OTP R9 extended references are compulsory.
+%% From OTP R10 extended pids and ports are compulsory.
+%% From OTP 20 UTF8 atoms are compulsory.
+%% From OTP 21 NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...}).
+%% From OTP 23 BIG_CREATION is compulsory.
+%% From OTP 25 NEW_FLOATS, MAP_TAG, EXPORT_PTR_TAG, and BIT_BINARIES are compulsory.
+-define(COMPULSORY_DFLAGS,
+        (?DFLAG_EXTENDED_REFERENCES bor
+             ?DFLAG_FUN_TAGS bor
+             ?DFLAG_EXTENDED_PIDS_PORTS bor
+             ?DFLAG_UTF8_ATOMS bor
+             ?DFLAG_NEW_FUN_TAGS bor
+             ?DFLAG_BIG_CREATION bor
+             ?DFLAG_NEW_FLOATS bor
+             ?DFLAG_MAP_TAG bor
+             ?DFLAG_EXPORT_PTR_TAG bor
+             ?DFLAG_BIT_BINARIES)).
 
 -define(PASS_THROUGH, $p).
 

@@ -996,9 +996,9 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><c>-define(DFLAG_FUN_TAGS,16#10).</c></tag>
         <item>
-          <p>The node uses separate tag for funs (lambdas) in the distribution
-          protocol.</p>
-          <note><p>This flag will become mandatory in OTP 25.</p></note>
+          <p>The node uses separate tags for funs (lambdas) in the
+          distribution protocol. This flag is mandatory. If not
+          present, the connection is refused.</p>
         </item>
         <tag><c>-define(DFLAG_DIST_MONITOR_NAME,16#20).</c></tag>
         <item>
@@ -1024,20 +1024,21 @@ DiB == gen_digest(ChA, ICA)?
         <tag><c>-define(DFLAG_EXPORT_PTR_TAG,16#200).</c></tag>
         <item>
 	  <p>The node understands the <seeguide marker="erl_ext_dist#EXPORT_EXT">
-	  <c>EXPORT_EXT</c></seeguide> tag.</p>
-          <note><p>This flag will become mandatory in OTP 25.</p></note>
+	  <c>EXPORT_EXT</c></seeguide> tag.
+          This flag is mandatory. If not present, the connection is refused.
+          </p>
         </item>
         <tag><c>-define(DFLAG_BIT_BINARIES,16#400).</c></tag>
         <item>
 	  <p>The node understands the <seeguide marker="erl_ext_dist#BIT_BINARY_EXT">
-	  <c>BIT_BINARY_EXT</c></seeguide> tag.</p>
-          <note><p>This flag will become mandatory in OTP 25.</p></note>
+	  <c>BIT_BINARY_EXT</c></seeguide> tag.
+          This flag is mandatory. If not present, the connection is refused.</p>
         </item>
         <tag><c>-define(DFLAG_NEW_FLOATS,16#800).</c></tag>
         <item>
 	  <p>The node understands the <seeguide marker="erl_ext_dist#NEW_FLOAT_EXT">
-	  <c>NEW_FLOAT_EXT</c></seeguide> tag.</p>
-          <note><p>This flag will become mandatory in OTP 25.</p></note>
+	  <c>NEW_FLOAT_EXT</c></seeguide> tag. This flag is
+	  mandatory. If not present, the connection is refused.</p>
         </item>
         <tag><c>-define(DFLAG_UNICODE_IO,16#1000).</c></tag>
         <item>
