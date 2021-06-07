@@ -2997,7 +2997,7 @@ error_info(Config) ->
         fun() ->
                 case file:read_file_info("/dev/full") of
                     {ok, _} ->
-                        {ok, Dev} = file:open("/dev/full", [read, write]),
+                        {ok, Dev} = file:open("/dev/full", [write]),
                         Dev;
                     _ ->
                         dummy_full_device()
