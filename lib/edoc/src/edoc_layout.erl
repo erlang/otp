@@ -148,7 +148,7 @@ init_opts(Element, Options) ->
 
 %% We assume that we have expanded XML data.
 
-%% <!ELEMENT module (behaviour*, description?, author*, copyright?,
+%% <!ELEMENT module (behaviour*, description?, vendor?, author*, copyright?,
 %%                   version?, since?, deprecated?, see*, reference*,
 %%                   todo?, typedecls?, functions)>
 %% <!ATTLIST module
@@ -161,6 +161,11 @@ init_opts(Element, Options) ->
 %% <!ELEMENT description (briefDescription, fullDescription?)>
 %% <!ELEMENT briefDescription (#PCDATA)>
 %% <!ELEMENT fullDescription (#PCDATA)>
+%% <!ELEMENT vendor EMPTY>
+%% <!ATTLIST vendor
+%%   name CDATA #REQUIRED
+%%   website CDATA #IMPLIED
+%%   logo CDATA #IMPLIED>
 %% <!ELEMENT author EMPTY>
 %% <!ATTLIST author
 %%   name CDATA #REQUIRED
@@ -197,7 +202,7 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
     SortedFs = if Opts#opts.sort_functions -> lists:sort(Functions);
                   true -> Functions
                end,
-    Body = (navigation("top")
+    Body = (navigation("top", Es)
             ++ [?NL, hr, ?NL, ?NL, {h1, Title}, ?NL]
 	    ++ doc_index(FullDesc, Functions, Types)
 	    ++ ShortDesc
@@ -222,7 +227,7 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
 	    ++ function_index(SortedFs, Opts#opts.index_columns)
 	    ++ functions(SortedFs, Opts)
 	    ++ [hr, ?NL]
-	    ++ navigation("bottom")
+	    ++ navigation("bottom", Es)
 	    ++ footer()),
     Encoding = Opts#opts.encoding,
     xhtml(Title, stylesheet(Opts), Body, Encoding).
@@ -252,7 +257,7 @@ stylesheet(Opts) ->
 	     ?NL]
     end.
 
-navigation(Where) ->
+navigation(Where, Es) ->
     [?NL,
      {'div', [{class, "navbar"}],
       [{a, [{name, "#navbar_" ++ Where}], []},
@@ -262,15 +267,50 @@ navigation(Where) ->
 	[{tr,
 	  [{td, [{a, [{href, ?OVERVIEW_SUMMARY}, {target,"overviewFrame"}],
 		  ["Overview"]}]},
-	   {td, [{a, [{href, "http://www.erlang.org/"}],
-		  [{img, [{src, "erlang.png"}, {align, "right"},
-			  {border, 0}, {alt, "erlang logo"}],
-		    []}]}
-		]}
+	   {td, [{align, "right"}], vendor(Es)}
 	  ]}
 	]}
       ]}
     ].
+
+vendor(Es) ->
+    case get_elem(vendor, Es) of
+	[] ->
+	    default_vendor();
+	[V] ->
+	    custom_vendor(V)
+    end.
+
+default_vendor() ->
+    [{a, [{href, "http://www.erlang.org/"}, {target, "_top"}],
+      [{img, [{src, "erlang.png"}, {align, "right"},
+	      {border, 0}, {alt, "erlang logo"}],
+	[]}]}
+    ].
+
+%% <!ATTLIST vendor
+%%   name CDATA #REQUIRED
+%%   website CDATA #IMPLIED
+%%   logo CDATA #IMPLIED>
+
+custom_vendor(E) ->
+    case {get_attrval(name, E), get_attrval(website, E), get_attrval(logo, E)} of
+	{"", "", ""} ->
+	    [];
+	{Name, "", ""} ->
+	    [Name];
+	{Name, "", Logo} ->
+	    [{img, [{src, Logo}, {align, "right"}, {border, 0}, {alt, Name}],
+	     []}
+	    ];
+	{Name, URI, ""} ->
+	    [{a, [{href, URI}, {target, "_top"}], [Name]}];
+	{Name, URI, Logo} ->
+	    [{a, [{href, URI}, {target, "_top"}],
+	     [{img, [{src, Logo}, {align, "right"}, {border, 0}, {alt, Name}],
+	      []}]}
+	    ]
+    end.
 
 doc_index(FullDesc, Functions, Types) ->
     case doc_index_rows(FullDesc, Functions, Types) of
@@ -1048,7 +1088,7 @@ overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Desc = get_content(description, Es),
 %    ShortDesc = get_content(briefDescription, Desc),
     FullDesc = get_content(fullDescription, Desc),
-    Body = (navigation("top")
+    Body = (navigation("top", Es)
 	    ++ [?NL, {h1, [Title]}, ?NL]
 %	    ++ ShortDesc
 	    ++ copyright(Es)
@@ -1060,7 +1100,7 @@ overview(E=#xmlElement{name = overview, content = Es}, Options) ->
 	    ++ todos(Es)
 	    ++ FullDesc
 	    ++ [?NL, hr]
-	    ++ navigation("bottom")
+	    ++ navigation("bottom", Es)
 	    ++ footer()),
     Encoding = Opts#opts.encoding,
     XML = xhtml(Title, stylesheet(Opts), Body, Encoding),

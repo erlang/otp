@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!-- EDoc DTD Version 0.3 -->
 
-<!ELEMENT overview (title, description?, author*, copyright?, version?,
-                    since?, see*, reference*, todo?, modules)>
+<!ELEMENT overview (title, description?, vendor?, author*, copyright?,
+                    version?, since?, see*, reference*, todo?, modules)>
 <!ATTLIST overview
   root CDATA #IMPLIED
   encoding CDATA #IMPLIED>
@@ -12,8 +12,8 @@
 <!ELEMENT modules (module+)>
 
 
-<!ELEMENT module (args?, description?, author*, copyright?, version?,
-		  since?, deprecated?, see*, reference*, todo?,
+<!ELEMENT module (args?, description?, vendor?, author*, copyright?,
+                  version?, since?, deprecated?, see*, reference*, todo?,
 		  behaviour*, callbacks?, typedecls?, functions)>
 <!ATTLIST module
   name CDATA #REQUIRED
@@ -25,6 +25,12 @@
 <!ELEMENT description (briefDescription, fullDescription?)>
 <!ELEMENT briefDescription (#PCDATA)>
 <!ELEMENT fullDescription (#PCDATA)>
+
+<!ELEMENT vendor EMPTY>
+<!ATTLIST vendor
+  name CDATA #REQUIRED
+  website CDATA #IMPLIED
+  logo CDATA #IMPLIED>
 
 <!ELEMENT author EMPTY>
 <!ATTLIST author

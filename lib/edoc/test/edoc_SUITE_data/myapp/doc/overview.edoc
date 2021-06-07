@@ -1,0 +1,21 @@
+Example comment 1
+Example comment 2
+
+@vendor Example Vendor [http://www.example.org/] <http://www.example.org/logo.png>
+
+@author Example Author <author@example.com> [http://www.example.com/]
+
+@copyright 2021 Example Copyright
+
+@reference Example Reference
+
+@see edoc
+
+@since 2021
+
+@title Example Title
+
+@version 0.0.1
+
+@doc This is an example overview page.
+It is used for EDoc testing.
